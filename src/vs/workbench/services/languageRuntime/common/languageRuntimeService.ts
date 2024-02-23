@@ -577,6 +577,11 @@ export enum LanguageRuntimeSessionMode {
 	Background = 'background',
 }
 
+/**
+ * The Language Runtime Service manages the discovery and registration of
+ * language runtime metadata, which can be thought of as "the interpreters made
+ * available by extensions".
+ */
 export interface ILanguageRuntimeService {
 	// Needed for service branding in dependency injector.
 	readonly _serviceBrand: undefined;
@@ -609,7 +614,6 @@ export interface ILanguageRuntimeService {
 	 * @returns A disposable that can be used to unregister the runtime
 	 */
 	registerRuntime(runtime: ILanguageRuntimeMetadata): IDisposable;
-
 
 	/**
 	 * Get the metadata for a previously registered language runtime

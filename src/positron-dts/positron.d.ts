@@ -1074,11 +1074,11 @@ declare module 'positron' {
 			sessionMode: LanguageRuntimeSessionMode): Thenable<LanguageRuntimeSession>;
 
 		/**
-		 * Restart a running runtime.
+		 * Restart a running session.
 		 *
-		 * @param runtimeId The ID of the running runtime to restart.
+		 * @param sessionId The ID of the session to restart.
 		 */
-		export function restartLanguageRuntime(runtimeId: string): Thenable<void>;
+		export function restartSession(sessionId: string): Thenable<void>;
 
 		/**
 		 * Register a handler for runtime client instances. This handler will be called

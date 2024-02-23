@@ -431,7 +431,7 @@ class ExtHostLanguageRuntimeSessionAdapter implements ILanguageRuntimeSession {
 				`runtime is in state '${this._currentState}'`);
 		}
 		this._stateEmitter.fire(RuntimeState.Restarting);
-		return this._proxy.$restartLanguageRuntime(this.handle);
+		return this._proxy.$restartSession(this.handle);
 	}
 
 	async shutdown(exitReason = RuntimeExitReason.Shutdown): Promise<void> {
@@ -1023,9 +1023,9 @@ export class MainThreadLanguageRuntime
 	}
 
 	// Called by the extension host to restart a running language runtime
-	$restartLanguageRuntime(handle: number): Promise<void> {
-		return this._runtimeSessionService.restartRuntime(
-			this.findSession(handle).metadata.runtimeId,
+	$restartSession(handle: number): Promise<void> {
+		return this._runtimeSessionService.restartSession(
+			this.findSession(handle).sessionId,
 			'Extension-requested runtime restart via Positron API');
 	}
 
@@ -1074,7 +1074,7 @@ export class MainThreadLanguageRuntime
 				continuationPrompt: '',
 				currentWorkingDirectory: ''
 			},
-			this._languageRuntimeService,
+			this._runtimeSessionService,
 			this._logService,
 			this._notebookService,
 			this._editorService,

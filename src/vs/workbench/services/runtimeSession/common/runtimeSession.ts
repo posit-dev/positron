@@ -19,14 +19,21 @@ import { IUiClientMessageInput, IUiClientMessageOutput, UiClientInstance } from 
 import { UiFrontendEvent } from 'vs/workbench/services/languageRuntime/common/positronUiComm';
 import { INotificationService } from 'vs/platform/notification/common/notification';
 
+/**
+ * Utility class for tracking state changes in a language runtime session.
+ *
+ * We keep our own copy of the state so we can fire an event with both the old
+ * and new state values when the state changes.
+ */
 class LanguageRuntimeSessionInfo {
 	public state: RuntimeState;
 	constructor(public session: ILanguageRuntimeSession) {
 		this.state = session.getRuntimeState();
 	}
 }
+
 /**
- * The implementation of ILanguageRuntimeService
+ * The implementation of IRuntimeSessionService.
  */
 export class RuntimeSessionService extends Disposable implements IRuntimeSessionService, IOpener {
 
@@ -287,7 +294,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 	 * @param sessionId The session ID of the runtime to interrupt.
 	 * @param source The source of the request to restart the runtime.
 	 */
-	async restartRuntime(sessionId: string, source: string): Promise<void> {
+	async restartSession(sessionId: string, source: string): Promise<void> {
 		const session = this.getSession(sessionId);
 		if (!session) {
 			throw new Error(`No session with ID '${sessionId}' was found.`);

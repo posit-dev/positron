@@ -154,6 +154,12 @@ export interface ILanguageRuntimeSessionManager {
 		Promise<ILanguageRuntimeSession>;
 }
 
+
+/**
+ * The runtime session service is the main interface for interacting with
+ * runtime sessions; it manages the set of active sessions and provides
+ * facilities for starting, stopping, and interacting with them.
+ */
 export interface IRuntimeSessionService {
 	// Needed for service branding in dependency injector.
 	readonly _serviceBrand: undefined;
@@ -254,8 +260,7 @@ export interface IRuntimeSessionService {
 	 * @param sessionId The identifier of the session to restart.
 	 * @param source The source of the request to restart the session, for debugging purposes.
 	 */
-	restartRuntime(sessionId: string, source: string): Promise<void>;
-
+	restartSession(sessionId: string, source: string): Promise<void>;
 }
 
 export { RuntimeClientType, IRuntimeClientInstance };

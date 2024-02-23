@@ -170,7 +170,7 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 		return this._runtimeSessions[handle].forceQuit();
 	}
 
-	async $restartLanguageRuntime(handle: number): Promise<void> {
+	async $restartSession(handle: number): Promise<void> {
 		if (handle >= this._runtimeSessions.length) {
 			throw new Error(`Cannot restart runtime: session handle '${handle}' not found or no longer valid.`);
 		}
@@ -505,19 +505,19 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 	}
 
 	/**
-	 * Restarts a running language runtime.
+	 * Restarts an active session.
 	 *
-	 * @param runtimeId The runtime ID to restart.
+	 * @param sessionId The session ID to restart.
 	 */
-	public restartLanguageRuntime(runtimeId: string): Promise<void> {
+	public restartSession(sessionId: string): Promise<void> {
 		// Look for the runtime with the given ID
 		for (let i = 0; i < this._runtimeSessions.length; i++) {
-			if (this._runtimeSessions[i].metadata.runtimeId === runtimeId) {
-				return this._proxy.$restartLanguageRuntime(i);
+			if (this._runtimeSessions[i].sessionId === sessionId) {
+				return this._proxy.$restartSession(i);
 			}
 		}
 		return Promise.reject(
-			new Error(`Runtime with ID '${runtimeId}' must be registered before ` +
+			new Error(`Session with ID '${sessionId}' must be started before ` +
 				`it can be restarted.`));
 	}
 
