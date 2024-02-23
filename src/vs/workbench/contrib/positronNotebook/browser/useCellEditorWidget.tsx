@@ -58,10 +58,15 @@ export function useCellEditorWidget(cell: ICellViewModel) {
 		// Request model for cell and pass to editor.
 		services.textModelResolverService.createModelReference(cell.uri).then(modelRef => {
 			editor.setModel(modelRef.object.textEditorModel);
+
+			const heightOfContent = editor.getContentHeight();
+
 			editor.layout({
 				width: 500,
-				height: 200
+				height: heightOfContent
 			});
+
+
 		});
 
 		// Attaching the cell's text model to the editor should allow it to populate with size etc...
