@@ -116,17 +116,27 @@ class PositronInspector(Generic[T]):
     def has_viewer(self) -> bool:
         return False
 
-    def is_snapshottable(self) -> bool:
+    def is_mutable(self) -> bool:
         return False
 
-    def is_tabular(self) -> bool:
-        return False
+    def get_comparison_cost(self) -> int:
+        return self.get_size()
 
     def equals(self, value: T) -> bool:
-        return self.value == value
+        try:
+            return self.value == value
+        except ValueError:
+            # If a collection has a nested value that does not support
+            # bool(x == y) (like NumPy arrays or other array-like
+            # objects), this will error
+            return False
 
     def copy(self) -> T:
-        return copy.copy(self.value)
+        # TODO: Need to add unit tests for the deepcopy case
+        if self.is_mutable():
+            return copy.deepcopy(self.value)
+        else:
+            return copy.copy(self.value)
 
     def to_html(self) -> str:
         return repr(self.value)
@@ -455,7 +465,11 @@ class CollectionInspector(_BaseCollectionInspector[CollectionT]):
         else:
             return f"{type_name} [{length}]"
 
-    def is_snapshottable(self) -> bool:
+    def get_comparison_cost(self) -> int:
+        # Placeholder estimate. In practice this can be arbitrarily large
+        return 10 * self.get_length()
+
+    def is_mutable(self) -> bool:
         return isinstance(self.value, (MutableSequence, MutableSet))
 
     def value_to_json(self) -> JsonData:
@@ -519,10 +533,25 @@ class _BaseArrayInspector(_BaseCollectionInspector[Array], ABC):
 
         return display_type
 
+    def get_comparison_cost(self) -> int:
+        # Placeholder estimate. In practice this can be arbitrarily
+        # large for object dtypes
+        return self.get_size()
+
+    def get_size(self) -> int:
+        if self.value.ndim == 0:
+            return 0
+
+        num_elements = 1
+        for dim in self.value.shape:
+            num_elements *= dim
+
+        return num_elements * self.value.dtype.itemsize
+
     def get_length(self) -> int:
         return self.value.shape[0] if self.value.ndim > 0 else 0
 
-    def is_snapshottable(self) -> bool:
+    def is_mutable(self) -> bool:
         return True
 
 
@@ -642,7 +671,7 @@ class MapInspector(_BaseMapInspector[Mapping]):
     def get_keys(self) -> Collection[Any]:
         return self.value.keys()
 
-    def is_snapshottable(self) -> bool:
+    def is_mutable(self) -> bool:
         return isinstance(self.value, MutableMapping)
 
 
@@ -676,7 +705,9 @@ class PandasSeriesInspector(BaseColumnInspector["pd.Series"]):
         return self.value.equals(value)
 
     def copy(self) -> pd.Series:
-        return self.value.copy()
+        # Copies memory because pandas < 3.0 does not have
+        # copy-on-write.
+        return self.value.copy(deep=True)
 
     def to_html(self) -> str:
         # TODO: Support HTML
@@ -720,7 +751,9 @@ class PandasIndexInspector(BaseColumnInspector["pd.Index"]):
         return self.value.equals(value)
 
     def copy(self) -> pd.Index:
-        return self.value.copy()
+        # Copies memory because pandas < 3.0 does not have
+        # copy-on-write.
+        return self.value.copy(deep=True)
 
     def to_html(self) -> str:
         # TODO: Support HTML
@@ -743,6 +776,8 @@ class PolarsSeriesInspector(BaseColumnInspector["pl.Series"]):
         return self.value.series_equal(value)
 
     def copy(self) -> pl.Series:
+        # Polars produces a shallow clone and does not copy any memory
+        # in this operation.
         return self.value.clone()
 
     def to_html(self) -> str:
@@ -780,10 +815,7 @@ class BaseTableInspector(_BaseMapInspector[Table], Generic[Table, Column], ABC):
     def has_viewer(self) -> bool:
         return True
 
-    def is_snapshottable(self) -> bool:
-        return True
-
-    def is_tabular(self) -> bool:
+    def is_mutable(self) -> bool:
         return True
 
 
@@ -811,7 +843,9 @@ class PandasDataFrameInspector(BaseTableInspector["pd.DataFrame", "pd.Series"]):
         return self.value.equals(value)
 
     def copy(self) -> pd.DataFrame:
-        return self.value.copy()
+        # Copies memory because pandas < 3.0 does not have
+        # copy-on-write.
+        return self.value.copy(deep=True)
 
     def to_html(self) -> str:
         return self.value.to_html()
@@ -840,6 +874,8 @@ class PolarsDataFrameInspector(BaseTableInspector["pl.DataFrame", "pl.Series"]):
         return self.value.frame_equal(value)
 
     def copy(self) -> pl.DataFrame:
+        # Polars produces a shallow clone and does not copy any memory
+        # in this operation.
         return self.value.clone()
 
     def to_html(self) -> str:
