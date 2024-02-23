@@ -92,5 +92,64 @@
 .content
 .column-summary
 .extended-info {
-	height: 66px;
+	height: 120px;
+	display: grid;
+	grid-template-columns: [left-gutter] 54px [tabular-info] 1fr [right-gutter] 12px [end];
+}
+
+.data-grid-row-cell
+.content
+.column-summary
+.extended-info
+.tabular-info {
+	display: grid;
+	overflow: hidden;
+	grid-column: tabular-info / right-gutter;
+	grid-template-columns: [left-labels] min-content [left-values] min-content [gutter] minmax(10px, 1fr) [right-labels] min-content [right-values] min-content [end];
+}
+
+.data-grid-row-cell
+.content
+.column-summary
+.extended-info
+.tabular-info
+.left-labels
+{
+	margin-right: 10px;
+	grid-column: left-labels / left-values;
+}
+
+.data-grid-row-cell
+.content
+.column-summary
+.extended-info
+.tabular-info
+.left-values
+{
+	font-weight: 600;
+	text-align: right;
+	grid-column: left-values / gutter;
+}
+
+.data-grid-row-cell
+.content
+.column-summary
+.extended-info
+.tabular-info
+.right-labels
+{
+	margin-right: 10px;
+	grid-column: right-labels / right-values;
+}
+
+.data-grid-row-cell
+.content
+.column-summary
+.extended-info
+.tabular-info
+.right-values
+{
+	font-weight: 600;
+	text-align: right;
+	grid-column: right-values / end;
 }

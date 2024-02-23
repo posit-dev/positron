@@ -128,7 +128,7 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 	 * @param rowIndex The row index.
 	 */
 	override getRowHeight(rowIndex: number): number {
-		return this.isColumnExpanded(rowIndex) ? 100 : 34;
+		return this.isColumnExpanded(rowIndex) ? 154 : 34;
 	}
 
 	/**
@@ -208,6 +208,7 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 			this._expandedColumns.delete(columnIndex);
 		} else {
 			this._expandedColumns.add(columnIndex);
+			this.scrollToRow(columnIndex);
 		}
 
 		this._onDidUpdateEmitter.fire();

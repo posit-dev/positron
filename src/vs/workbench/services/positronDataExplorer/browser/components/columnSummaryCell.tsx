@@ -101,7 +101,36 @@ export const ColumnSummaryCell = (props: ColumnSummaryCellProps) => {
 
 			</div>
 			{expanded &&
-				<div className='extended-info'></div>
+				<div className='extended-info'>
+					<div className='tabular-info'>
+						<div className='left-labels'>
+							<div>Mean</div>
+							<div>SD</div>
+							<div>Min</div>
+							<div>q25</div>
+							<div>q75</div>
+							<div>Max</div>
+						</div>
+						<div className='left-values'>
+							<div>3.55</div>
+							<div>0.51</div>
+							<div>0.20</div>
+							<div>2.24</div>
+							<div>5.02</div>
+							<div>7.44</div>
+
+						</div>
+						<div className='right-labels'>
+							<div>Unique</div>
+							<div>Missing</div>
+						</div>
+						<div className='right-values'>
+							<div>2.50%</div>
+							<div>29.20%</div>
+
+						</div>
+					</div>
+				</div>
 			}
 		</div>
 	);
