@@ -1,0 +1,23 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *--------------------------------------------------------------------------------------------*/
+
+table {
+	border-collapse: collapse;
+	border-spacing: 0;
+}
+
+td {
+	padding: 3px;
+}
+
+.plot-save-dialog-action-bar .right {
+	display: flex;
+	justify-content: right;
+	gap: 10px;
+	margin-top: 15px;
+}
+
+.button.action-bar-button {
+	padding: 10px;
+}

@@ -151,6 +151,11 @@ export interface IPositronPlotsService {
 	selectHistoryPolicy(policy: HistoryPolicy): void;
 
 	/**
+	 * Saves the plot with the specified FileSystemHandle.
+	 */
+	savePlot(): void;
+
+	/**
 	 * Placeholder for service initialization.
 	 */
 	initialize(): void;

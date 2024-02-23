@@ -6,6 +6,8 @@ import { Disposable } from 'vs/base/common/lifecycle';
 import { IPositronPlotMetadata, PlotClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimePlotClient';
 import { ILanguageRuntimeMessageOutput, RuntimeOutputKind } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { ILanguageRuntimeSession, IRuntimeSessionService, RuntimeClientType } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
+import { HTMLFileSystemProvider } from 'vs/platform/files/browser/htmlFileSystemProvider';
+import { IFileService } from 'vs/platform/files/common/files';
 import { HistoryPolicy, IPositronPlotClient, IPositronPlotsService, POSITRON_PLOTS_VIEW_ID } from 'vs/workbench/services/positronPlots/common/positronPlots';
 import { Emitter, Event } from 'vs/base/common/event';
 import { StaticPlotClient } from 'vs/workbench/services/positronPlots/common/staticPlotClient';
@@ -21,6 +23,9 @@ import { PlotSizingPolicyCustom } from 'vs/workbench/services/positronPlots/comm
 import { WebviewPlotClient } from 'vs/workbench/contrib/positronPlots/browser/webviewPlotClient';
 import { IPositronNotebookOutputWebviewService } from 'vs/workbench/contrib/positronOutputWebview/browser/notebookOutputWebviewService';
 import { IPositronIPyWidgetsService } from 'vs/workbench/services/positronIPyWidgets/common/positronIPyWidgetsService';
+import { Schemas } from 'vs/base/common/network';
+import { IFileDialogService } from 'vs/platform/dialogs/common/dialogs';
+import { decodeBase64 } from 'vs/base/common/buffer';
 
 /** The maximum number of recent executions to store. */
 const MaxRecentExecutions = 10;
@@ -92,7 +97,9 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 		@IStorageService private _storageService: IStorageService,
 		@IViewsService private _viewsService: IViewsService,
 		@IPositronNotebookOutputWebviewService private _notebookOutputWebviewService: IPositronNotebookOutputWebviewService,
-		@IPositronIPyWidgetsService private _positronIPyWidgetsService: IPositronIPyWidgetsService) {
+		@IPositronIPyWidgetsService private _positronIPyWidgetsService: IPositronIPyWidgetsService,
+		@IFileService private readonly _fileService: IFileService,
+		@IFileDialogService private readonly _fileDialogService: IFileDialogService) {
 		super();
 
 		// Register for language runtime service startups
@@ -657,6 +664,59 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 		this._onDidSelectPlot.fire('');
 		this._onDidReplacePlots.fire(this._plots);
 	}
+
+	savePlot(): void {
+		if (this._selectedPlotId) {
+			const plot = this._plots.find(plot => plot.id === this._selectedPlotId);
+			if (plot) {
+				// TODO: if it's a static plot, save the image to disk
+				// if it's a dynamic plot, present options dialog
+				this._fileDialogService.showSaveDialog({
+					title: 'Save Plot',
+					filters:
+						[
+							{
+								extensions: ['png'],
+								name: 'PNG',
+							},
+							{
+								extensions: ['jpeg'],
+								name: 'JPEG',
+							}
+						],
+				}).then(result => {
+					if (result) {
+						const htmlFileSystemProvider = this._fileService.getProvider(Schemas.file) as HTMLFileSystemProvider;
+						let uri = '';
+
+						if (plot instanceof StaticPlotClient) {
+							const staticPlot = plot as StaticPlotClient;
+							uri = staticPlot.uri;
+						} else if (plot instanceof PlotClientInstance) {
+							const plotClient = plot as PlotClientInstance;
+							uri = plotClient.lastRender?.uri || '';
+						} else {
+							return;
+						}
+
+						const regex = /^data:.+\/(.+);base64,(.*)$/;
+						const matches = uri.match(regex);
+
+						if (!matches || matches.length !== 3) {
+							return;
+						}
+
+						const data = matches[2];
+
+						htmlFileSystemProvider.writeFile(result, decodeBase64(data).buffer, { create: true, overwrite: true, unlock: true, atomic: false })
+							.then(() => {
+							});
+					}
+				});
+			}
+		}
+	}
+
 
 	/**
 	 * Generates a storage key for a plot.

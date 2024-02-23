@@ -24,6 +24,7 @@ import { ZoomPlotMenuButton } from 'vs/workbench/contrib/positronPlots/browser/c
 import { PlotClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimePlotClient';
 import { StaticPlotClient } from 'vs/workbench/services/positronPlots/common/staticPlotClient';
 import { INotificationService } from 'vs/platform/notification/common/notification';
+// import { showSavePlotModalDialog } from 'vs/workbench/contrib/positronPlots/browser/modalDialogs/savePlotModalDialog';
 
 // Constants.
 const kPaddingLeft = 14;
@@ -77,6 +78,11 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 	const enableZoomPlot = hasPlots &&
 		positronPlotsContext.positronPlotInstances[positronPlotsContext.selectedInstanceIndex]
 		instanceof StaticPlotClient;
+	const enableSavingPlots = hasPlots &&
+		(positronPlotsContext.positronPlotInstances[positronPlotsContext.selectedInstanceIndex]
+			instanceof PlotClientInstance ||
+			positronPlotsContext.positronPlotInstances[positronPlotsContext.selectedInstanceIndex]
+			instanceof StaticPlotClient);
 
 	useEffect(() => {
 		// Empty for now.
@@ -106,6 +112,9 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 	const zoomPlotHandler = (zoomLevel: number) => {
 		props.zoomHandler(zoomLevel);
 	};
+	const savePlotHandler = async () => {
+		positronPlotsContext.positronPlotsService.savePlot();
+	};
 
 	// Render.
 	return (
@@ -117,6 +126,7 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 						<ActionBarButton iconId='positron-right-arrow' disabled={disableRight} tooltip={positronShowNextPlot} ariaLabel={positronShowNextPlot} onPressed={showNextPlotHandler} />
 
 						{enableZoomPlot && <ZoomPlotMenuButton actionHandler={zoomPlotHandler} zoomLevel={props.zoomLevel} />}
+						{enableSavingPlots && <ActionBarButton iconId='positron-save' tooltip={localize('positronSavePlot', "Save plot")} ariaLabel={localize('positronSavePlot', "Save plot")} onPressed={savePlotHandler} />}
 						{enableSizingPolicy && <ActionBarSeparator />}
 						{enableSizingPolicy &&
 							<SizingPolicyMenuButton
