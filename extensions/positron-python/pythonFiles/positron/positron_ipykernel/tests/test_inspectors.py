@@ -14,8 +14,13 @@ import numpy as np
 import pandas as pd
 import polars as pl
 import pytest
+
 from fastcore.foundation import L
-from positron_ipykernel.inspectors import PRINT_WIDTH, TRUNCATE_AT, get_inspector
+from positron_ipykernel.inspectors import (
+    PRINT_WIDTH,
+    TRUNCATE_AT,
+    get_inspector,
+)
 from positron_ipykernel.utils import get_qualname
 from positron_ipykernel.variables_comm import Variable, VariableKind
 
@@ -32,6 +37,11 @@ from .data import (
     TIMESTAMP_CASES,
 )
 from .utils import assert_pydantic_model_equal
+
+try:
+    import torch  # type: ignore [reportMissingImports] for 3.12
+except ImportError:
+    torch = None
 
 
 def verify_inspector(
@@ -742,8 +752,16 @@ def test_get_items(cls: Type, data: Any) -> None:
         (helper, "fn_no_args", helper.fn_no_args),
         (pd.Series({"a": 0, "b": 1}), "a", 0),
         (pl.Series([0, 1]), 0, 0),
-        (pd.DataFrame({"a": [1, 2], "b": ["3", "4"]}), "a", pd.Series([1, 2], name="a")),
-        (pl.DataFrame({"a": [1, 2], "b": ["3", "4"]}), "a", pl.Series(values=[1, 2], name="a")),
+        (
+            pd.DataFrame({"a": [1, 2], "b": ["3", "4"]}),
+            "a",
+            pd.Series([1, 2], name="a"),
+        ),
+        (
+            pl.DataFrame({"a": [1, 2], "b": ["3", "4"]}),
+            "a",
+            pl.Series(values=[1, 2], name="a"),
+        ),
         (pd.Index([0, 1]), 0, 0),
         (
             pd.Index([datetime.datetime(2021, 1, 1), datetime.datetime(2021, 1, 2)]),
@@ -762,6 +780,8 @@ def test_get_child(value: Any, key: Any, expected: Any) -> None:
 @pytest.mark.parametrize(
     ("value", "expected"),
     [
+        (np.array([[1, 2, 3], [4, 5, 6]], dtype="int64"), 48),
+        (torch.Tensor([[1, 2, 3], [4, 5, 6]]) if torch else None, 24),
         (pd.Series([1, 2, 3, 4]), 32),
         (pl.Series([1, 2, 3, 4]), 32),
         (pd.DataFrame({"a": [1, 2], "b": ["3", "4"]}), 32),
@@ -769,6 +789,8 @@ def test_get_child(value: Any, key: Any, expected: Any) -> None:
         (pd.Index([0, 1]), 16),
     ],
 )
-def test_pandas_polars_get_size(value: Any, expected: int) -> None:
+def test_arrays_maps_get_size(value: Any, expected: int) -> None:
+    if value is None:
+        return
     inspector = get_inspector(value)
     assert inspector.get_size() == expected
