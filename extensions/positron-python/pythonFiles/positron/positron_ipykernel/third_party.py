@@ -40,11 +40,20 @@ def _get_torch():
     return torch
 
 
+def _get_pyarrow():
+    try:
+        import pyarrow  # type: ignore [reportMissingImports] for 3.12
+    except ImportError:
+        pyarrow = None
+    return pyarrow
+
+
 # Currently, pyright only correctly infers the types below as `Optional` if we set their values
 # using function calls.
 np_ = _get_numpy()
+pa_ = _get_pyarrow()
 pd_ = _get_pandas()
 pl_ = _get_polars()
 torch_ = _get_torch()
 
-__all__ = ["np_", "pd_", "pl_", "torch_"]
+__all__ = ["np_", "pa_", "pd_", "pl_", "torch_"]

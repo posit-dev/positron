@@ -18,8 +18,14 @@ from ipykernel.ipkernel import IPythonKernel
 from ipykernel.kernelapp import IPKernelApp
 from ipykernel.zmqshell import ZMQDisplayPublisher, ZMQInteractiveShell
 from IPython.core import oinspect, page
-from IPython.core.interactiveshell import InteractiveShell
-from IPython.core.magic import Magics, MagicsManager, line_magic, magics_class, needs_local_scope
+from IPython.core.interactiveshell import InteractiveShell, ExecutionInfo
+from IPython.core.magic import (
+    Magics,
+    MagicsManager,
+    line_magic,
+    magics_class,
+    needs_local_scope,
+)
 from IPython.utils import PyColorize
 
 from .data_explorer import DataExplorerService
@@ -128,8 +134,11 @@ class PositronShell(ZMQInteractiveShell):
         super().init_events()
 
         # Register event handlers to poll the user's environment before and after each execution.
-        self.events.register("pre_execute", self._handle_pre_execute)
-        self.events.register("post_execute", self._handle_post_execute)
+        # Use pre/post_run_cell instead of pre/post_execute to only trigger on "interactive"
+        # executions i.e. by the user and not by the kernel.
+        # See: https://ipython.readthedocs.io/en/stable/config/callbacks.html.
+        self.events.register("pre_run_cell", self._handle_pre_run_cell)
+        self.events.register("post_run_cell", self._handle_post_run_cell)
 
     @traitlets.observe("colors")
     def init_inspector(self, changes: Optional[traitlets.Bunch] = None) -> None:
@@ -174,7 +183,7 @@ class PositronShell(ZMQInteractiveShell):
             }
         )
 
-    def _handle_pre_execute(self) -> None:
+    def _handle_pre_run_cell(self, info: ExecutionInfo) -> None:
         """
         Prior to execution, reset the user environment watch state.
         """
@@ -183,7 +192,7 @@ class PositronShell(ZMQInteractiveShell):
         except Exception:
             logger.warning("Failed to snapshot user namespace", exc_info=True)
 
-    def _handle_post_execute(self) -> None:
+    def _handle_post_run_cell(self, info: ExecutionInfo) -> None:
         """
         After execution, sends an update message to the client to summarize
         the changes observed to variables in the user's environment.

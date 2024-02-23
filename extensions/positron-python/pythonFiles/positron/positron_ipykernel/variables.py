@@ -5,9 +5,9 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import time
 import types
 from collections.abc import Iterable, Mapping
-from itertools import chain
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Set, Tuple
 
 from comm.base_comm import BaseComm
@@ -51,6 +51,10 @@ MAX_CHILDREN: int = 100
 
 # Maximum number of items to send in an update event. If exceeded, a full refresh is sent instead.
 MAX_ITEMS: int = 10000
+
+# Budget for number of "units" of work to allow for namespace change
+# detection. The costs are defined in inspectors.py
+MAX_SNAPSHOT_COMPARISON_BUDGET: int = 10_000_000
 
 
 class VariablesService:
@@ -160,6 +164,9 @@ class VariablesService:
         if self._snapshot is None:
             return
 
+        # import pdb
+        # pdb.set_trace()
+
         try:
             # Try to detect the changes made since the last execution
             assigned, removed = self._compare_user_ns()
@@ -169,69 +176,133 @@ class VariablesService:
 
     def snapshot_user_ns(self) -> None:
         """
-        Caches a shallow copy snapshot of the user's environment
-        before execution and stores it in the hidden namespace.
+        Creates a conservative "snapshot" of the user namespace to
+        enable variable change detection without having to do a full
+        refresh of the variables view any time the user executes
+        code. Because many objects (any mutable Python collection, or
+        some data structures like pandas, NumPy, or PyTorch objects)
+        require a deep copy to support change detection, we only
+        copy-and-compare such objects up to a certain limit to keep
+        the execution overhead to a minimum when namespaces get large
+        or contain many large mutable objects.
         """
         ns = self._get_user_ns()
         hidden = self._get_user_ns_hidden()
-        self._snapshot = ns.copy()
 
-        # TODO: Determine snapshot strategy for nested objects
+        # Variables which are immutable and thus can be compared by
+        # reference
+        immutable_vars = {}
+
+        # Mutable variables which fall within the limit of
+        # "reasonable" expense for a copy and deep comparison after
+        # code execution.
+        mutable_vars_copied = {}
+
+        # Names of mutable variables that are excluded from the change
+        # detection logic either because the cost is too large or
+        # cannot be estimated easily (for example, any collection
+        # containing arbitrary Python objects may be arbitrarily
+        # expensive to deepcopy and do comparisons on)
+        mutable_vars_excluded = {}
+
+        comparison_cost = 0
+
+        start = time.time()
+
         for key, value in ns.items():
             if key in hidden:
                 continue
 
             inspector = get_inspector(value)
-            if inspector.is_snapshottable():
-                self._snapshot[key] = inspector.copy()
+
+            if inspector.is_mutable():
+                cost = inspector.get_comparison_cost()
+                if comparison_cost + cost > MAX_SNAPSHOT_COMPARISON_BUDGET:
+                    mutable_vars_excluded[key] = value
+                else:
+                    comparison_cost += cost
+                    mutable_vars_copied[key] = inspector.copy()
+            else:
+                immutable_vars[key] = value
+
+        self._snapshot = {
+            "immutable": immutable_vars,
+            "mutable_copied": mutable_vars_copied,
+            "mutable_excluded": mutable_vars_excluded,
+        }
+        elapsed = time.time() - start
+        logger.debug(f"Snapshotting namespace took {elapsed:.4f} seconds")
+
+        copied = repr(list(self._snapshot["mutable_copied"].keys()))
+        logger.debug(f"Variables copied: {copied}")
 
     def _compare_user_ns(self) -> Tuple[Dict[str, Any], Set[str]]:
         """
         Attempts to detect changes to variables in the user's environment.
 
         Returns:
-            A tuple (dict, set) containing a dict of variables that were modified
-            (added or updated) and a set of variables that were removed.
+            A tuple (dict, set) containing a dict of variables that
+            were modified (added or updated) and a set of variables
+            that were removed.
         """
-        assert self._snapshot is not None
-
         assigned = {}
         removed = set()
+
+        if self._snapshot is None:
+            return assigned, removed
+
         after = self._get_user_ns()
         hidden = self._get_user_ns_hidden()
 
-        # Check if a snapshot exists
         snapshot = self._snapshot
-        if snapshot is None:
-            return assigned, removed
 
-        # Find assigned and removed variables
-        for key in chain(snapshot.keys(), after.keys()):
-            try:
-                if key in hidden:
-                    continue
+        def _compare_immutable(v1, v2):
+            # For immutable objects we can compare object references
+            return v1 is not v2
 
-                if key in snapshot and key not in after:
-                    # Key was removed
-                    removed.add(encode_access_key(key))
+        def _compare_mutable(v1, v2):
+            inspector1 = get_inspector(v1)
+            inspector2 = get_inspector(v2)
 
-                elif key not in snapshot and key in after:
-                    # Key was added
-                    assigned[key] = after[key]
+            return type(inspector1) != type(inspector2) or not inspector1.equals(v2)
 
-                elif key in snapshot and key in after:
-                    v1 = snapshot[key]
-                    v2 = after[key]
-                    inspector1 = get_inspector(v1)
-                    inspector2 = get_inspector(v2)
+        def _compare_always_different(v1, v2):
+            return True
 
-                    # If type changes or if key's values is no longer
-                    # the same after exection
-                    if type(inspector1) is not type(inspector2) or not inspector1.equals(v2):
-                        assigned[key] = v2
+        all_snapshot_keys = set()
 
-            except Exception as err:
-                logger.warning("err: %s", err, exc_info=True)
+        def _check_ns_subset(ns_subset, are_different_func):
+            all_snapshot_keys.update(ns_subset.keys())
+
+            for key, value in ns_subset.items():
+                try:
+                    if key in hidden:
+                        continue
+
+                    if key not in after:
+                        # Key was removed
+                        removed.add(encode_access_key(key))
+                    elif are_different_func(value, after[key]):
+                        assigned[key] = after[key]
+                except Exception as err:
+                    logger.warning("err: %s", err, exc_info=True)
+                    raise
+
+        start = time.time()
+
+        _check_ns_subset(snapshot["immutable"], _compare_immutable)
+        _check_ns_subset(snapshot["mutable_copied"], _compare_mutable)
+        _check_ns_subset(snapshot["mutable_excluded"], _compare_always_different)
+
+        for key, value in after.items():
+            if key in hidden:
+                continue
+
+            if key not in all_snapshot_keys:
+                assigned[key] = value
+
+        elapsed = time.time() - start
+        logger.debug(f"Detecting namespace changes took {elapsed:.4f} seconds")
 
         return assigned, removed
 
@@ -457,10 +528,6 @@ class VariablesService:
         # Use the leaf segment to get the title
         access_key = path[-1]
 
-        if not get_inspector(value).is_tabular():
-            # The front end should never get this far with a request
-            raise TypeError(f"Type {type(value)} is not supported by DataExplorer.")
-
         title = str(decode_access_key(access_key))
         self.kernel.data_explorer_service.register_table(value, title)
         self._send_result({})
@@ -581,6 +648,7 @@ def _summarize_variable(key: Any, value: Any) -> Optional[Variable]:
             variable's string access key.
         value:
             The variable's value.
+
 
     Returns:
         An Variable summary, or None if the variable should be skipped.
