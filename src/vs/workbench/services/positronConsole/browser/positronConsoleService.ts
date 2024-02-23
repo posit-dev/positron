@@ -39,9 +39,10 @@ import { ActivityItem, RuntimeItemActivity } from 'vs/workbench/services/positro
 import { ActivityItemInput, ActivityItemInputState } from 'vs/workbench/services/positronConsole/browser/classes/activityItemInput';
 import { ActivityItemErrorStream, ActivityItemOutputStream } from 'vs/workbench/services/positronConsole/browser/classes/activityItemStream';
 import { IPositronConsoleInstance, IPositronConsoleService, POSITRON_CONSOLE_VIEW_ID, PositronConsoleState } from 'vs/workbench/services/positronConsole/browser/interfaces/positronConsoleService';
-import { ILanguageRuntimeExit, ILanguageRuntimeMessage, ILanguageRuntimeMetadata, ILanguageRuntimeService, LanguageRuntimeSessionMode, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior, RuntimeExitReason, RuntimeOnlineState, RuntimeState, formatLanguageRuntimeMetadata, formatLanguageRuntimeSession } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { ILanguageRuntimeExit, ILanguageRuntimeMessage, ILanguageRuntimeMetadata, LanguageRuntimeSessionMode, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior, RuntimeExitReason, RuntimeOnlineState, RuntimeState, formatLanguageRuntimeMetadata, formatLanguageRuntimeSession } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { ILanguageRuntimeSession, IRuntimeSessionService } from '../../runtimeSession/common/runtimeSessionService';
 import { UiFrontendEvent } from 'vs/workbench/services/languageRuntime/common/positronUiComm';
+import { IRuntimeAffiliationService } from 'vs/workbench/services/runtimeAffiliation/common/runtimeAffliationService';
 
 /**
  * The onDidChangeRuntimeItems throttle threshold and throttle interval. The throttle threshold
@@ -176,14 +177,16 @@ class PositronConsoleService extends Disposable implements IPositronConsoleServi
 	/**
 	 * Constructor.
 	 * @param _instantiationService The instantiation service.
-	 * @param _languageRuntimeService The language runtime service.
+	 * @param _runtimeAffiliationService The runtime affiliation service.
+	 * @param _runtimeSessionService The runtime session service.
 	 * @param _logService The log service service.
 	 * @param _viewsService The views service.
 	 * @param _layoutService The workbench layout service.
+	 * @param _configurationService The configuration service.
 	 */
 	constructor(
 		@IInstantiationService private readonly _instantiationService: IInstantiationService,
-		@ILanguageRuntimeService private readonly _languageRuntimeService: ILanguageRuntimeService,
+		@IRuntimeAffiliationService private readonly _runtimeAffiliationService: IRuntimeAffiliationService,
 		@IRuntimeSessionService private readonly _runtimeSessionService: IRuntimeSessionService,
 		@ILogService private readonly _logService: ILogService,
 		@IViewsService private readonly _viewsService: IViewsService,
@@ -379,7 +382,7 @@ class PositronConsoleService extends Disposable implements IPositronConsoleServi
 			// Get the preferred runtime for the language.
 			let languageRuntime: ILanguageRuntimeMetadata;
 			try {
-				languageRuntime = this._languageRuntimeService.getPreferredRuntime(languageId);
+				languageRuntime = this._runtimeAffiliationService.getPreferredRuntime(languageId);
 			} catch {
 				return false;
 			}

@@ -9,8 +9,8 @@ import { ILanguageRuntimeMetadata, LanguageRuntimeSessionMode, ILanguageRuntimeS
 import { RuntimeClientType, IRuntimeClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimeClientInstance';
 import { IRuntimeClientEvent } from 'vs/workbench/services/languageRuntime/common/languageRuntimeUiClient';
 
-export const IRuntimeSessionService = createDecorator<IRuntimeSessionService>('languageRuntimeService');
-
+export const IRuntimeSessionService =
+	createDecorator<IRuntimeSessionService>('runtimeSessionService');
 
 export interface ILanguageRuntimeGlobalEvent {
 	/** The ID of the session from which the event originated */
@@ -243,16 +243,12 @@ export interface IRuntimeSessionService {
 		source: string): Promise<string>;
 
 	/**
-	 * Automatically starts a runtime. Use when starting a runtime automatically
-	 * or implicitly.
+	 * Selects a previously registered runtime as the active runtime.
 	 *
-	 * @param runtime The runtime to start.
-	 * @param source The source of the request to start the runtime.
-	 *
-	 * @returns A promise that resolves with a session ID for the new session,
-	 * if one was started.
+	 * @param runtimeId The identifier of the runtime to select.
+	 * @param source The source of the request to select the runtime, for debugging purposes.
 	 */
-	autoStartRuntime(metadata: ILanguageRuntimeMetadata, source: string): Promise<string>;
+	selectRuntime(runtimeId: string, source: string): Promise<void>;
 
 	/**
 	 * Restart a runtime session.

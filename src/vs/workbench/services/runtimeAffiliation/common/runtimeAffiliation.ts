@@ -1,18 +1,21 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
 import { Disposable } from 'vs/base/common/lifecycle';
 import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
+import { InstantiationType, registerSingleton } from 'vs/platform/instantiation/common/extensions';
 import { ILogService } from 'vs/platform/log/common/log';
 import { IStorageService, StorageScope, StorageTarget } from 'vs/platform/storage/common/storage';
+import { IExtensionService } from 'vs/workbench/services/extensions/common/extensions';
 import { ILanguageRuntimeMetadata, ILanguageRuntimeService, LanguageRuntimeSessionMode, RuntimeState, formatLanguageRuntimeMetadata } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
-import { ILanguageRuntimeSession, IRuntimeSessionService } from '../../runtimeSession/common/runtimeSessionService';
+import { IRuntimeAffiliationService } from 'vs/workbench/services/runtimeAffiliation/common/runtimeAffliationService';
+import { ILanguageRuntimeSession, IRuntimeSessionService } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
 
 /**
- * The LanguageRuntimeWorkspaceAffiliation class is responsible for managing the
- * affiliation between language runtimes and workspaces, in the service of
- * ensuring that the correct runtime is started when opening each workspace.
+ * The RuntimeAffiliationService is responsible for managing the affiliation
+ * between language runtimes and workspaces, in the service of ensuring that the
+ * correct runtime is started when opening each workspace.
  *
  * It works by storing the runtime ID of the affiliated runtime in the workspace
  * storage. When a new runtime is registered, it checks to see if the runtime is
@@ -21,24 +24,46 @@ import { ILanguageRuntimeSession, IRuntimeSessionService } from '../../runtimeSe
  * When runtimes become active, they are affiliated with the current workspace;
  * manually shutting down a runtime removes the affiliation.
  */
-export class LanguageRuntimeWorkspaceAffiliation extends Disposable {
+export class RuntimeAffiliationService extends Disposable {
+
+	// Needed for service branding in dependency injector.
+	declare readonly _serviceBrand: undefined;
+
 	private readonly storageKey = 'positron.affiliatedRuntimeMetadata';
 
+	// A map of most recently started runtimes. This is keyed by the languageId
+	// (metadata.languageId) of the runtime.
+	private readonly _mostRecentlyStartedRuntimesByLanguageId = new Map<string, ILanguageRuntimeMetadata>();
+
 	constructor(
+		@IConfigurationService private readonly _configurationService: IConfigurationService,
+		@IExtensionService private readonly _extensionService: IExtensionService,
 		@ILanguageRuntimeService private readonly _languageRuntimeService: ILanguageRuntimeService,
-		@IRuntimeSessionService private readonly _runtimeSessionService: IRuntimeSessionService,
-		@IStorageService private readonly _storageService: IStorageService,
 		@ILogService private readonly _logService: ILogService,
-		@IConfigurationService private readonly _configurationService: IConfigurationService) {
+		@IRuntimeSessionService private readonly _runtimeSessionService: IRuntimeSessionService,
+		@IStorageService private readonly _storageService: IStorageService) {
 
 		super();
 
 		this._register(
 			this._runtimeSessionService.onDidChangeForegroundSession(
 				this.onDidChangeActiveRuntime, this));
+
 		this._register(
 			this._languageRuntimeService.onDidRegisterRuntime(
 				this.onDidRegisterRuntime, this));
+
+		// Listen for runtime start events and update the most recently started
+		// runtimes for each language.
+		this._register(this._runtimeSessionService.onDidStartRuntime(session => {
+			this._mostRecentlyStartedRuntimesByLanguageId.set(session.metadata.languageId,
+				session.metadata);
+		}));
+
+		this._extensionService.whenAllExtensionHostsStarted().then(async () => {
+			// Eagerly start affiliated runtimes when the workspace is opened.
+			this.startAffiliatedLanguageRuntimes();
+		});
 	}
 
 	/**
@@ -184,6 +209,58 @@ export class LanguageRuntimeWorkspaceAffiliation extends Disposable {
 	}
 
 	/**
+	 * Gets the preferred runtime for a language
+	 *
+	 * @param languageId The language identifier
+	 */
+	public getPreferredRuntime(languageId: string): ILanguageRuntimeMetadata {
+		// If there's an active session for the language, return it.
+		const activeSession =
+			this._runtimeSessionService.getConsoleSessionForLanguage(languageId);
+		if (activeSession) {
+			return activeSession.metadata;
+		}
+
+		// If there's a runtime affiliated with the workspace for the language,
+		// return it.
+		const affiliatedRuntimeMetadata = this.getAffiliatedRuntimeMetadata(languageId);
+		if (affiliatedRuntimeMetadata) {
+			const affiliatedRuntimeInfo =
+				this._languageRuntimeService.getRegisteredRuntime(affiliatedRuntimeMetadata.runtimeId);
+			if (affiliatedRuntimeInfo) {
+				return affiliatedRuntimeInfo;
+			}
+		}
+
+		// If there is a most recently started runtime for the language, return it.
+		const mostRecentlyStartedRuntime = this._mostRecentlyStartedRuntimesByLanguageId.get(languageId);
+		if (mostRecentlyStartedRuntime) {
+			return mostRecentlyStartedRuntime;
+		}
+
+		// If there are registered runtimes for the language, return the first.
+		const languageRuntimeInfos =
+			this._languageRuntimeService.registeredRuntimes
+				.filter(info => info.languageId === languageId);
+		if (languageRuntimeInfos.length) {
+			return languageRuntimeInfos[0];
+		}
+
+		// There are no registered runtimes for the language, throw an error.
+		throw new Error(`No language runtimes registered for language ID '${languageId}'.`);
+	}
+
+	/**
+	 * Starts all affiliated runtimes for the workspace.
+	 */
+	public startAffiliatedLanguageRuntimes(): void {
+		const languageIds = this.getAffiliatedRuntimeLanguageIds();
+		if (languageIds) {
+			languageIds?.map(languageId => this.startAffiliatedRuntime(languageId));
+		}
+	}
+
+	/**
 	 * Convenience method for creating a storage key for a given runtime.
 	 *
 	 * @param runtime The runtime for which to get the storage key.
@@ -193,4 +270,27 @@ export class LanguageRuntimeWorkspaceAffiliation extends Disposable {
 	private storageKeyForRuntime(metadata: ILanguageRuntimeMetadata): string {
 		return `${this.storageKey}.${metadata.languageId}`;
 	}
+
+	/**
+	 * Starts an affiliated runtime for a single language.
+	 */
+	private startAffiliatedRuntime(languageId: string): void {
+		const affiliatedRuntimeMetadata =
+			this.getAffiliatedRuntimeMetadata(languageId);
+
+		if (affiliatedRuntimeMetadata) {
+			// Check the setting to see if we should be auto-starting.
+			const autoStart = this._configurationService.getValue<boolean>(
+				'positron.interpreters.automaticStartup');
+			if (!autoStart) {
+				this._logService.info(`Language runtime ` +
+					`${formatLanguageRuntimeMetadata(affiliatedRuntimeMetadata)} ` +
+					`is affiliated with this workspace, but won't be started because automatic ` +
+					`startup is disabled in configuration.`);
+				return;
+			}
+		}
+	}
 }
+
+registerSingleton(IRuntimeAffiliationService, RuntimeAffiliationService, InstantiationType.Eager);

@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
 import {
@@ -29,6 +29,7 @@ import { BusyEvent, UiFrontendEvent, OpenEditorEvent, PromptStateEvent, WorkingD
 import { IEditorService } from 'vs/workbench/services/editor/common/editorService';
 import { ITextResourceEditorInput } from 'vs/platform/editor/common/editor';
 import { IPositronDataExplorerService } from 'vs/workbench/services/positronDataExplorer/browser/interfaces/positronDataExplorerService';
+import { IRuntimeAffiliationService } from 'vs/workbench/services/runtimeAffiliation/common/runtimeAffliationService';
 
 /**
  * Represents a language runtime event (for example a message or state change)
@@ -952,6 +953,7 @@ export class MainThreadLanguageRuntime
 		extHostContext: IExtHostContext,
 		@ILanguageRuntimeService private readonly _languageRuntimeService: ILanguageRuntimeService,
 		@IRuntimeSessionService private readonly _runtimeSessionService: IRuntimeSessionService,
+		@IRuntimeAffiliationService private readonly _runtimeAffiliationService: IRuntimeAffiliationService,
 		@IPositronConsoleService private readonly _positronConsoleService: IPositronConsoleService,
 		@IPositronDataExplorerService private readonly _positronDataExplorerService: IPositronDataExplorerService,
 		@IPositronVariablesService private readonly _positronVariablesService: IPositronVariablesService,
@@ -1000,12 +1002,12 @@ export class MainThreadLanguageRuntime
 	}
 
 	$getPreferredRuntime(languageId: string): Promise<ILanguageRuntimeMetadata> {
-		return Promise.resolve(this._languageRuntimeService.getPreferredRuntime(languageId));
+		return Promise.resolve(this._runtimeAffiliationService.getPreferredRuntime(languageId));
 	}
 
 	// Called by the extension host to select a previously registered language runtime
 	$selectLanguageRuntime(runtimeId: string): Promise<void> {
-		return this._languageRuntimeService.selectRuntime(
+		return this._runtimeSessionService.selectRuntime(
 			runtimeId,
 			'Extension-requested runtime selection via Positron API');
 	}

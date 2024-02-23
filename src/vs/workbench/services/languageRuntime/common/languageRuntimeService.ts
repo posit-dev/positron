@@ -592,9 +592,6 @@ export interface ILanguageRuntimeService {
 	// An event that fires when a new runtime is registered.
 	readonly onDidRegisterRuntime: Event<ILanguageRuntimeMetadata>;
 
-	// An event that fires when a runtime is requested.
-	readonly onDidRequestLanguageRuntime: Event<ILanguageRuntimeMetadata>;
-
 	/**
 	 * Gets the registered language runtimes.
 	 */
@@ -628,26 +625,6 @@ export interface ILanguageRuntimeService {
 	 * @param runtimeId The ID of the runtime to unregister
 	 */
 	unregisterRuntime(runtimeId: string): void;
-
-	/**
-	 * Selects a previously registered runtime as the active runtime.
-	 *
-	 * @param runtimeId The identifier of the runtime to select.
-	 * @param source The source of the request to select the runtime, for debugging purposes.
-	 */
-	selectRuntime(runtimeId: string, source: string): Promise<void>;
-
-	/**
-	 * Get the preferred runtime for a language.
-	 *
-	 * @param languageId The language identifier.
-	 */
-	getPreferredRuntime(languageId: string): ILanguageRuntimeMetadata;
-
-	/**
-	 * Start all affiliated runtimes for the workspace.
-	 */
-	startAffiliatedLanguageRuntimes(): void;
 
 	/**
 	 * Signal that discovery of language runtimes is complete. Called from the

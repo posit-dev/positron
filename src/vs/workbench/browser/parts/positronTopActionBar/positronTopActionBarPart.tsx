@@ -29,6 +29,7 @@ import { ILanguageRuntimeService } from 'vs/workbench/services/languageRuntime/c
 import { IPositronTopActionBarService } from 'vs/workbench/services/positronTopActionBar/browser/positronTopActionBarService';
 import { IPositronTopActionBarContainer, PositronTopActionBar } from 'vs/workbench/browser/parts/positronTopActionBar/positronTopActionBar';
 import { IRuntimeSessionService } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
+import { IRuntimeAffiliationService } from 'vs/workbench/services/runtimeAffiliation/common/runtimeAffliationService';
 
 /**
  * PositronTopActionBarPart class.
@@ -103,8 +104,9 @@ export class PositronTopActionBarPart extends Part implements IPositronTopAction
 		@IKeybindingService private readonly keybindingService: IKeybindingService,
 		@ILabelService private readonly labelService: ILabelService,
 		@ILanguageRuntimeService private readonly languageRuntimeService: ILanguageRuntimeService,
-		@IRuntimeSessionService private readonly runtimeSessionService: IRuntimeSessionService,
 		@IQuickInputService private readonly quickInputService: IQuickInputService,
+		@IRuntimeAffiliationService private readonly runtimeAffiliationService: IRuntimeAffiliationService,
+		@IRuntimeSessionService private readonly runtimeSessionService: IRuntimeSessionService,
 		@IStorageService storageService: IStorageService,
 		@IThemeService themeService: IThemeService,
 		@IWorkbenchLayoutService layoutService: IWorkbenchLayoutService,
@@ -136,11 +138,12 @@ export class PositronTopActionBarPart extends Part implements IPositronTopAction
 				keybindingService={this.keybindingService}
 				labelService={this.labelService}
 				languageRuntimeService={this.languageRuntimeService}
-				runtimeSessionService={this.runtimeSessionService}
 				layoutService={this.layoutService}
+				positronTopActionBarContainer={this}
 				positronTopActionBarService={this}
 				quickInputService={this.quickInputService}
-				positronTopActionBarContainer={this}
+				runtimeAffiliationService={this.runtimeAffiliationService}
+				runtimeSessionService={this.runtimeSessionService}
 				workspaceContextService={this.workspaceContextService}
 				workspacesService={this.workspacesService}
 			/>

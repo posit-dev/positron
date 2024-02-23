@@ -9,6 +9,7 @@ import { DisposableStore } from 'vs/base/common/lifecycle';
 import { InterpreterGroup } from 'vs/workbench/browser/parts/positronTopActionBar/interpretersManagerModalPopup/interpreterGroup';
 import { ILanguageRuntimeMetadata, ILanguageRuntimeService } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { IRuntimeSessionService } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
+import { IRuntimeAffiliationService } from 'vs/workbench/services/runtimeAffiliation/common/runtimeAffliationService';
 
 /**
  * IInterpreterGroup interface.
@@ -23,7 +24,9 @@ export interface IInterpreterGroup {
  * @param languageRuntimeService The ILanguageRuntimeService.
  * @returns An IInterpreterGroup array representing the available language runtimes.
  */
-const createInterpreterGroups = (languageRuntimeService: ILanguageRuntimeService) => {
+const createInterpreterGroups = (
+	languageRuntimeService: ILanguageRuntimeService,
+	runtimeAffiliationService: IRuntimeAffiliationService) => {
 	const preferredRuntimeByLanguageId = new Map<string, ILanguageRuntimeMetadata>();
 	const languageRuntimeGroups = new Map<string, IInterpreterGroup>();
 	for (const runtime of languageRuntimeService.registeredRuntimes) {
@@ -32,7 +35,7 @@ const createInterpreterGroups = (languageRuntimeService: ILanguageRuntimeService
 		// Get the preferred runtime for the language.
 		let preferredRuntime = preferredRuntimeByLanguageId.get(languageId);
 		if (!preferredRuntime) {
-			preferredRuntime = languageRuntimeService.getPreferredRuntime(languageId);
+			preferredRuntime = runtimeAffiliationService.getPreferredRuntime(languageId);
 			preferredRuntimeByLanguageId.set(languageId, preferredRuntime);
 		}
 
@@ -66,6 +69,7 @@ const createInterpreterGroups = (languageRuntimeService: ILanguageRuntimeService
  */
 interface InterpreterGroupsProps {
 	languageRuntimeService: ILanguageRuntimeService;
+	runtimeAffiliationService: IRuntimeAffiliationService;
 	runtimeSessionService: IRuntimeSessionService;
 	onStartRuntime: (runtime: ILanguageRuntimeMetadata) => Promise<void>;
 	onActivateRuntime: (runtime: ILanguageRuntimeMetadata) => Promise<void>;
@@ -79,7 +83,9 @@ interface InterpreterGroupsProps {
 export const InterpreterGroups = (props: InterpreterGroupsProps) => {
 	// State hooks.
 	const [interpreterGroups, setInterpreterGroups] =
-		useState(createInterpreterGroups(props.languageRuntimeService));
+		useState(createInterpreterGroups(
+			props.languageRuntimeService,
+			props.runtimeAffiliationService));
 
 	// Main useEffect hook.
 	useEffect(() => {
@@ -89,7 +95,10 @@ export const InterpreterGroups = (props: InterpreterGroupsProps) => {
 		// Add our onDidRegisterRuntime event handler. This allows the set of runtimes to be dynamic
 		// at app startup.
 		disposableStore.add(props.languageRuntimeService.onDidRegisterRuntime(() => {
-			setInterpreterGroups(createInterpreterGroups(props.languageRuntimeService));
+			setInterpreterGroups(
+				createInterpreterGroups(
+					props.languageRuntimeService,
+					props.runtimeAffiliationService));
 		}));
 
 		// Return the cleanup function that will dispose of the event handlers.

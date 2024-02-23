@@ -30,6 +30,7 @@ import { TopActionBarCustonFolderMenu } from 'vs/workbench/browser/parts/positro
 import { TopActionBarInterpretersManager } from 'vs/workbench/browser/parts/positronTopActionBar/components/topActionBarInterpretersManager';
 import { ILanguageRuntimeMetadata, ILanguageRuntimeService } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { IRuntimeSessionService } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
+import { IRuntimeAffiliationService } from 'vs/workbench/services/runtimeAffiliation/common/runtimeAffliationService';
 
 // Constants.
 const kHorizontalPadding = 4;
@@ -62,10 +63,11 @@ export interface PositronTopActionBarServices extends PositronActionBarServices 
 	hostService: IHostService;
 	labelService: ILabelService;
 	languageRuntimeService: ILanguageRuntimeService;
-	runtimeSessionService: IRuntimeSessionService;
 	layoutService: ILayoutService;
 	positronTopActionBarService: IPositronTopActionBarService;
 	quickInputService: IQuickInputService;
+	runtimeAffiliationService: IRuntimeAffiliationService;
+	runtimeSessionService: IRuntimeSessionService;
 	workspaceContextService: IWorkspaceContextService;
 	workspacesService: IWorkspacesService;
 }
@@ -107,7 +109,7 @@ export const PositronTopActionBar = (props: PositronTopActionBarProps) => {
 	 * @param runtimeToStart An ILanguageRuntime representing the runtime to start.
 	 */
 	const startRuntimeHandler = async (runtimeToStart: ILanguageRuntimeMetadata): Promise<void> => {
-		return props.languageRuntimeService.selectRuntime(runtimeToStart.runtimeId,
+		return props.runtimeSessionService.selectRuntime(runtimeToStart.runtimeId,
 			`User-requested startup from the Positron top action bar`);
 	};
 
