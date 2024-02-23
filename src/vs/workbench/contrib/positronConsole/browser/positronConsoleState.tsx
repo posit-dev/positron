@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
 import { useEffect, useState } from 'react';  // eslint-disable-line no-duplicate-imports
@@ -18,6 +18,7 @@ import { PositronActionBarServices } from 'vs/platform/positronActionBar/browser
 import { ILanguageRuntimeService } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { IExecutionHistoryService } from 'vs/workbench/contrib/executionHistory/common/executionHistoryService';
 import { IPositronConsoleInstance, IPositronConsoleService } from 'vs/workbench/services/positronConsole/browser/interfaces/positronConsoleService';
+import { IRuntimeSessionService } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
 
 /**
  * PositronConsoleServices interface. Defines the set of services that are required by the Positron
@@ -28,6 +29,7 @@ export interface PositronConsoleServices extends PositronActionBarServices {
 	readonly executionHistoryService: IExecutionHistoryService;
 	readonly instantiationService: IInstantiationService;
 	readonly languageRuntimeService: ILanguageRuntimeService;
+	readonly runtimeSessionService: IRuntimeSessionService;
 	readonly languageService: ILanguageService;
 	readonly logService: ILogService;
 	readonly modelService: IModelService;

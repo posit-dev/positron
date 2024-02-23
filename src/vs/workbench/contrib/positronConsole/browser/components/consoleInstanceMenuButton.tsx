@@ -60,7 +60,7 @@ export const ConsoleInstanceMenuButton = (props: ConsoleInstanceMenuButtonProps)
 				class: undefined,
 				enabled: true,
 				run: () => {
-					positronConsoleContext.languageRuntimeService.foregroundSession =
+					positronConsoleContext.runtimeSessionService.foregroundSession =
 						positronConsoleInstance.session;
 					setTimeout(() => {
 						props.reactComponentContainer.takeFocus();

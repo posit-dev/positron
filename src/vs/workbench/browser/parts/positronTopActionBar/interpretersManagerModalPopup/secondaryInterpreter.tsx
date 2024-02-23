@@ -9,12 +9,14 @@ import { DisposableStore } from 'vs/base/common/lifecycle';
 import { PositronButton } from 'vs/base/browser/ui/positronComponents/positronButton';
 import { InterpreterActions } from 'vs/workbench/browser/parts/positronTopActionBar/interpretersManagerModalPopup/interpreterActions';
 import { ILanguageRuntimeMetadata, ILanguageRuntimeService } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { IRuntimeSessionService } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
 
 /**
  * SecondaryInterpreterProps interface.
  */
 interface SecondaryInterpreterProps {
 	languageRuntimeService: ILanguageRuntimeService;
+	runtimeSessionService: IRuntimeSessionService;
 	runtime: ILanguageRuntimeMetadata;
 	onStart: () => void;
 	onActivate: () => void;
@@ -68,6 +70,7 @@ export const SecondaryInterpreter = (props: SecondaryInterpreterProps) => {
 			</div>
 			<InterpreterActions
 				languageRuntimeService={props.languageRuntimeService}
+				runtimeSessionService={props.runtimeSessionService}
 				runtime={props.runtime}
 				onStart={props.onStart} />
 		</PositronButton>

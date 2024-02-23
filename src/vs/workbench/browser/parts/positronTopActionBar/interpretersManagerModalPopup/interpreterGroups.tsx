@@ -8,6 +8,7 @@ import { useEffect, useState } from 'react'; // eslint-disable-line no-duplicate
 import { DisposableStore } from 'vs/base/common/lifecycle';
 import { InterpreterGroup } from 'vs/workbench/browser/parts/positronTopActionBar/interpretersManagerModalPopup/interpreterGroup';
 import { ILanguageRuntimeMetadata, ILanguageRuntimeService } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { IRuntimeSessionService } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
 
 /**
  * IInterpreterGroup interface.
@@ -65,6 +66,7 @@ const createInterpreterGroups = (languageRuntimeService: ILanguageRuntimeService
  */
 interface InterpreterGroupsProps {
 	languageRuntimeService: ILanguageRuntimeService;
+	runtimeSessionService: IRuntimeSessionService;
 	onStartRuntime: (runtime: ILanguageRuntimeMetadata) => Promise<void>;
 	onActivateRuntime: (runtime: ILanguageRuntimeMetadata) => Promise<void>;
 }
@@ -101,6 +103,7 @@ export const InterpreterGroups = (props: InterpreterGroupsProps) => {
 				<InterpreterGroup
 					key={interpreterGroup.primaryRuntime.runtimeId}
 					languageRuntimeService={props.languageRuntimeService}
+					runtimeSessionService={props.runtimeSessionService}
 					interpreterGroup={interpreterGroup}
 					onStartRuntime={props.onStartRuntime}
 					onActivateRuntime={props.onActivateRuntime}

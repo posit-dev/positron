@@ -107,7 +107,10 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 
 		// Create the object that tracks the affiliation of runtimes to workspaces.
 		this._workspaceAffiliation =
-			new LanguageRuntimeWorkspaceAffiliation(this, this._storageService, this._logService,
+			new LanguageRuntimeWorkspaceAffiliation(this,
+				this._runtimeSessionService,
+				this._storageService,
+				this._logService,
 				this._configurationService);
 		this._register(this._workspaceAffiliation);
 

@@ -3,8 +3,8 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { Disposable } from 'vs/base/common/lifecycle';
-import { ILanguageRuntimeService, RuntimeClientType, ILanguageRuntimeMessageOutput, PositronOutputLocation, RuntimeOutputKind } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
-import { ILanguageRuntimeSession } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
+import { ILanguageRuntimeMessageOutput, PositronOutputLocation, RuntimeOutputKind } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { ILanguageRuntimeSession, IRuntimeSessionService, RuntimeClientType } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
 import { Emitter, Event } from 'vs/base/common/event';
 import { generateUuid } from 'vs/base/common/uuid';
 import { IPositronIPyWidgetsService, IPositronIPyWidgetMetadata, IPyWidgetHtmlData } from 'vs/workbench/services/positronIPyWidgets/common/positronIPyWidgetsService';
@@ -39,14 +39,14 @@ export class PositronIPyWidgetsService extends Disposable implements IPositronIP
 
 	/** Creates the Positron plots service instance */
 	constructor(
-		@ILanguageRuntimeService private _languageRuntimeService: ILanguageRuntimeService,
+		@IRuntimeSessionService private _runtimeSessionService: IRuntimeSessionService,
 		@IPositronNotebookOutputWebviewService private _notebookOutputWebviewService: IPositronNotebookOutputWebviewService
 	) {
 		super();
 
 		// Register for language runtime service startups
-		this._register(this._languageRuntimeService.onDidStartRuntime((runtime) => {
-			this.attachRuntime(runtime);
+		this._register(this._runtimeSessionService.onDidStartRuntime((session) => {
+			this.attachRuntime(session);
 		}));
 	}
 

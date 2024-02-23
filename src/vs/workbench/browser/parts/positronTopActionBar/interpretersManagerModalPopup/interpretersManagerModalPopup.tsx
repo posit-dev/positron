@@ -8,10 +8,13 @@ import { PositronModalPopup } from 'vs/base/browser/ui/positronModalPopup/positr
 import { InterpreterGroups } from 'vs/workbench/browser/parts/positronTopActionBar/interpretersManagerModalPopup/interpreterGroups';
 import { PositronModalPopupReactRenderer } from 'vs/base/browser/ui/positronModalPopup/positronModalPopupReactRenderer';
 import { ILanguageRuntimeMetadata, ILanguageRuntimeService } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { IRuntimeSessionService } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
 
 /**
  * Shows the interpreters manager modal popup.
+ *
  * @param languageRuntimeService The language runtime service.
+ * @param runtimeSessionService The runtime session service.
  * @param containerElement The container element.
  * @param anchorElement The anchor element for the modal popup.
  * @param onStartRuntime The start runtime event handler.
@@ -20,6 +23,7 @@ import { ILanguageRuntimeMetadata, ILanguageRuntimeService } from 'vs/workbench/
  */
 export const showInterpretersManagerModalPopup = async (
 	languageRuntimeService: ILanguageRuntimeService,
+	runtimeSessionService: IRuntimeSessionService,
 	containerElement: HTMLElement,
 	anchorElement: HTMLElement,
 	onStartRuntime: (runtime: ILanguageRuntimeMetadata) => Promise<void>,
@@ -65,6 +69,7 @@ export const showInterpretersManagerModalPopup = async (
 				>
 					<InterpreterGroups
 						languageRuntimeService={languageRuntimeService}
+						runtimeSessionService={runtimeSessionService}
 						onStartRuntime={onStartRuntime}
 						onActivateRuntime={activateRuntimeHandler}
 					/>

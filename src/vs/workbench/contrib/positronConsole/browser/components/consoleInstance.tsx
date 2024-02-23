@@ -292,7 +292,7 @@ export const ConsoleInstance = (props: ConsoleInstanceProps) => {
 		disposableStore.add(props.positronConsoleInstance.onDidRequestRestart(() => {
 			const session = positronConsoleContext.activePositronConsoleInstance?.session;
 			if (session) {
-				positronConsoleContext.languageRuntimeService.restartRuntime(
+				positronConsoleContext.runtimeSessionService.restartSession(
 					session.sessionId,
 					'Restart requested from activity in the Console tab');
 			}

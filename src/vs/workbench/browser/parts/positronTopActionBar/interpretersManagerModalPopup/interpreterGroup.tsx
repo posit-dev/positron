@@ -10,12 +10,14 @@ import { IInterpreterGroup } from 'vs/workbench/browser/parts/positronTopActionB
 import { PrimaryInterpreter } from 'vs/workbench/browser/parts/positronTopActionBar/interpretersManagerModalPopup/primaryInterpreter';
 import { SecondaryInterpreter } from 'vs/workbench/browser/parts/positronTopActionBar/interpretersManagerModalPopup/secondaryInterpreter';
 import { ILanguageRuntimeMetadata, ILanguageRuntimeService, RuntimeState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { IRuntimeSessionService } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
 
 /**
  * InterpreterGroupProps interface.
  */
 interface InterpreterGroupProps {
 	languageRuntimeService: ILanguageRuntimeService;
+	runtimeSessionService: IRuntimeSessionService;
 	interpreterGroup: IInterpreterGroup;
 	onStartRuntime: (runtime: ILanguageRuntimeMetadata) => Promise<void>;
 	onActivateRuntime: (runtime: ILanguageRuntimeMetadata) => Promise<void>;
@@ -33,7 +35,7 @@ export const InterpreterGroup = (props: InterpreterGroupProps) => {
 	 */
 	const isAlternateRuntimeAlive = () => {
 		// Get the active sessions.
-		const activeSessions = props.languageRuntimeService.activeSessions;
+		const activeSessions = props.runtimeSessionService.activeSessions;
 
 		// Cross-reference them against the alternate runtimes. If any of the
 		// alternate runtimes are alive, return true.
@@ -73,7 +75,7 @@ export const InterpreterGroup = (props: InterpreterGroupProps) => {
 		// Add the onDidChangeRuntimeState event handler; when a runtime changes
 		// state, recompute the alive state of the alternate runtimes.
 		disposableStore.add(
-			props.languageRuntimeService.onDidChangeRuntimeState(e => {
+			props.runtimeSessionService.onDidChangeRuntimeState(e => {
 				const alternateRuntimeAlive = isAlternateRuntimeAlive();
 				setAlternateRuntimeAlive(alternateRuntimeAlive);
 				if (alternateRuntimeAlive) {
@@ -91,6 +93,7 @@ export const InterpreterGroup = (props: InterpreterGroupProps) => {
 		<div className='interpreter-group'>
 			<PrimaryInterpreter
 				languageRuntimeService={props.languageRuntimeService}
+				runtimeSessionService={props.runtimeSessionService}
 				runtime={props.interpreterGroup.primaryRuntime}
 				enableShowAllVersions={props.interpreterGroup.alternateRuntimes.length > 0}
 				onShowAllVersions={() => setShowAllVersions(!showAllVersions)}
@@ -103,6 +106,7 @@ export const InterpreterGroup = (props: InterpreterGroupProps) => {
 						<SecondaryInterpreter
 							key={runtime.runtimeId}
 							languageRuntimeService={props.languageRuntimeService}
+							runtimeSessionService={props.runtimeSessionService}
 							runtime={runtime}
 							onStart={async () => await props.onStartRuntime(runtime)}
 							onActivate={async () => await props.onActivateRuntime(runtime)}

@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
 import 'vs/css!./positronConsoleView';
@@ -31,6 +31,7 @@ import { ILanguageRuntimeService } from 'vs/workbench/services/languageRuntime/c
 import { IReactComponentContainer, ISize, PositronReactRenderer } from 'vs/base/browser/positronReactRenderer';
 import { IExecutionHistoryService } from 'vs/workbench/contrib/executionHistory/common/executionHistoryService';
 import { IPositronConsoleService } from 'vs/workbench/services/positronConsole/browser/interfaces/positronConsoleService';
+import { IRuntimeSessionService } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
 
 /**
  * PositronConsoleViewPane class.
@@ -170,6 +171,7 @@ export class PositronConsoleViewPane extends ViewPane implements IReactComponent
 	 * @param openerService The opener service.
 	 * @param positronConsoleService The Positron console service.
 	 * @param positronPlotsService The Positron plots service.
+	 * @param runtimeSessionService The runtime session service.
 	 * @param telemetryService The telemetry service.
 	 * @param themeService The theme service.
 	 * @param viewDescriptorService The view descriptor service.
@@ -194,6 +196,7 @@ export class PositronConsoleViewPane extends ViewPane implements IReactComponent
 		@IOpenerService openerService: IOpenerService,
 		@IPositronConsoleService private readonly positronConsoleService: IPositronConsoleService,
 		@IPositronPlotsService private readonly positronPlotsService: IPositronPlotsService,
+		@IRuntimeSessionService private readonly runtimeSessionService: IRuntimeSessionService,
 		@ITelemetryService telemetryService: ITelemetryService,
 		@IThemeService themeService: IThemeService,
 		@IViewDescriptorService viewDescriptorService: IViewDescriptorService,
@@ -269,6 +272,7 @@ export class PositronConsoleViewPane extends ViewPane implements IReactComponent
 				instantiationService={this.instantiationService}
 				keybindingService={this.keybindingService}
 				languageRuntimeService={this.languageRuntimeService}
+				runtimeSessionService={this.runtimeSessionService}
 				languageService={this.languageService}
 				logService={this.logService}
 				modelService={this.modelService}

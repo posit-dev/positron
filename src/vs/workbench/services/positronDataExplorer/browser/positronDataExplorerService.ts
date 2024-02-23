@@ -12,8 +12,7 @@ import { DataExplorerClientInstance } from 'vs/workbench/services/languageRuntim
 import { PositronDataExplorerInstance } from 'vs/workbench/services/positronDataExplorer/browser/positronDataExplorerInstance';
 import { IPositronDataExplorerService } from 'vs/workbench/services/positronDataExplorer/browser/interfaces/positronDataExplorerService';
 import { IPositronDataExplorerInstance } from 'vs/workbench/services/positronDataExplorer/browser/interfaces/positronDataExplorerInstance';
-import { ILanguageRuntimeService, RuntimeClientType } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
-import { ILanguageRuntimeSession } from '../../runtimeSession/common/runtimeSessionService';
+import { ILanguageRuntimeSession, IRuntimeSessionService, RuntimeClientType } from '../../runtimeSession/common/runtimeSessionService';
 
 /**
  * DataExplorerRuntime class.
@@ -117,43 +116,44 @@ class PositronDataExplorerService extends Disposable implements IPositronDataExp
 	/**
 	 * Constructor.
 	 * @param _editorService The editor service.
-	 * @param _languageRuntimeService The language runtime service.
+	 * @param _runtimeSessionService The language runtime session service.
+	 * @param _notificationService The notification service.
 	 */
 	constructor(
 		@IEditorService private readonly _editorService: IEditorService,
-		@ILanguageRuntimeService private readonly _languageRuntimeService: ILanguageRuntimeService,
+		@IRuntimeSessionService private readonly _runtimeSessionService: IRuntimeSessionService,
 		@INotificationService private readonly _notificationService: INotificationService
 	) {
 		// Call the disposable constrcutor.
 		super();
 
 		// Add a data explorer runtime for each running runtime.
-		this._languageRuntimeService.activeSessions.forEach(session => {
+		this._runtimeSessionService.activeSessions.forEach(session => {
 			this.addDataExplorerSession(session);
 		});
 
 		// Register the onWillStartRuntime event handler.
-		this._register(this._languageRuntimeService.onWillStartRuntime(session => {
+		this._register(this._runtimeSessionService.onWillStartRuntime(session => {
 			this.addDataExplorerSession(session);
 		}));
 
 		// Register the onDidStartRuntime event handler.
-		this._register(this._languageRuntimeService.onDidStartRuntime(runtime => {
+		this._register(this._runtimeSessionService.onDidStartRuntime(runtime => {
 			// console.log(`++++++++++ PositronDataExplorerService: onDidStartRuntime ${runtime.metadata.runtimeId}`);
 		}));
 
 		// Register the onDidFailStartRuntime event handler.
-		this._register(this._languageRuntimeService.onDidFailStartRuntime(runtime => {
+		this._register(this._runtimeSessionService.onDidFailStartRuntime(runtime => {
 			// console.log(`++++++++++ PositronDataExplorerService: onDidFailStartRuntime ${runtime.metadata.runtimeId}`);
 		}));
 
 		// Register the onDidReconnectRuntime event handler.
-		this._register(this._languageRuntimeService.onDidReconnectRuntime(runtime => {
+		this._register(this._runtimeSessionService.onDidReconnectRuntime(runtime => {
 			// console.log(`++++++++++ PositronDataExplorerService: onDidReconnectRuntime ${runtime.metadata.runtimeId}`);
 		}));
 
 		// Register the onDidChangeRuntimeState event handler.
-		this._register(this._languageRuntimeService.onDidChangeRuntimeState(stateEvent => {
+		this._register(this._runtimeSessionService.onDidChangeRuntimeState(stateEvent => {
 			// console.log(`++++++++++ PositronDataExplorerService: onDidChangeRuntimeState from ${stateEvent.old_state} to ${stateEvent.new_state}`);
 		}));
 	}

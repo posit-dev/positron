@@ -4,8 +4,8 @@
 
 import { Disposable } from 'vs/base/common/lifecycle';
 import { IPositronPlotMetadata, PlotClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimePlotClient';
-import { ILanguageRuntimeMessageOutput, ILanguageRuntimeService, RuntimeClientType, RuntimeOutputKind } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
-import { ILanguageRuntimeSession } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
+import { ILanguageRuntimeMessageOutput, RuntimeOutputKind } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { ILanguageRuntimeSession, IRuntimeSessionService, RuntimeClientType } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
 import { HistoryPolicy, IPositronPlotClient, IPositronPlotsService, POSITRON_PLOTS_VIEW_ID } from 'vs/workbench/services/positronPlots/common/positronPlots';
 import { Emitter, Event } from 'vs/base/common/event';
 import { StaticPlotClient } from 'vs/workbench/services/positronPlots/common/staticPlotClient';
@@ -88,7 +88,7 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 
 	/** Creates the Positron plots service instance */
 	constructor(
-		@ILanguageRuntimeService private _languageRuntimeService: ILanguageRuntimeService,
+		@IRuntimeSessionService private _runtimeSessionService: IRuntimeSessionService,
 		@IStorageService private _storageService: IStorageService,
 		@IViewsService private _viewsService: IViewsService,
 		@IPositronNotebookOutputWebviewService private _notebookOutputWebviewService: IPositronNotebookOutputWebviewService,
@@ -96,7 +96,7 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 		super();
 
 		// Register for language runtime service startups
-		this._register(this._languageRuntimeService.onDidStartRuntime((runtime) => {
+		this._register(this._runtimeSessionService.onDidStartRuntime((runtime) => {
 			this.attachRuntime(runtime);
 		}));
 

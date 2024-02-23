@@ -4,8 +4,7 @@
 
 import { IExecutionHistoryEntry, IExecutionHistoryService, IInputHistoryEntry } from 'vs/workbench/contrib/executionHistory/common/executionHistoryService';
 import { Disposable } from 'vs/base/common/lifecycle';
-import { ILanguageRuntimeService } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
-import { ILanguageRuntimeSession } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
+import { ILanguageRuntimeSession, IRuntimeSessionService } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
 import { IStorageService } from 'vs/platform/storage/common/storage';
 import { ILogService } from 'vs/platform/log/common/log';
 import { InstantiationType, registerSingleton } from 'vs/platform/instantiation/common/extensions';
@@ -27,7 +26,7 @@ export class ExecutionHistoryService extends Disposable implements IExecutionHis
 	private readonly _inputHistories: Map<string, LanguageInputHistory> = new Map();
 
 	constructor(
-		@ILanguageRuntimeService private readonly _languageRuntimeService: ILanguageRuntimeService,
+		@IRuntimeSessionService private readonly _runtimeSessionService: IRuntimeSessionService,
 		@IStorageService private readonly _storageService: IStorageService,
 		@ILogService private readonly _logService: ILogService,
 		@IConfigurationService private readonly _configurationService: IConfigurationService
@@ -35,19 +34,19 @@ export class ExecutionHistoryService extends Disposable implements IExecutionHis
 		super();
 
 		// Start recording history for all currently active runtimes
-		this._languageRuntimeService.activeSessions.forEach(session => {
+		this._runtimeSessionService.activeSessions.forEach(session => {
 			this.beginRecordingHistory(session);
 		});
 
 		// Listen for runtimes to start; when they do, begin recording
 		// executions
-		this._register(this._languageRuntimeService.onDidStartRuntime(runtime => {
+		this._register(this._runtimeSessionService.onDidStartRuntime(runtime => {
 			this.beginRecordingHistory(runtime);
 		}));
 
 		// Listen for runtimes to reconnect; when they do, begin recording
 		// executions
-		this._register(this._languageRuntimeService.onDidReconnectRuntime(runtime => {
+		this._register(this._runtimeSessionService.onDidReconnectRuntime(runtime => {
 			this.beginRecordingHistory(runtime);
 		}));
 	}

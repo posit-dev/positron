@@ -20,8 +20,8 @@ import { ShowHelpEvent } from 'vs/workbench/services/languageRuntime/common/posi
 import { InstantiationType, registerSingleton } from 'vs/platform/instantiation/common/extensions';
 import { IInstantiationService, createDecorator } from 'vs/platform/instantiation/common/instantiation';
 import { HelpClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimeHelpClient';
-import { ILanguageRuntimeService, IRuntimeClientInstance, RuntimeClientType, RuntimeState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
-import { ILanguageRuntimeSession } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
+import { RuntimeState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { ILanguageRuntimeSession, IRuntimeClientInstance, IRuntimeSessionService, RuntimeClientType } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
 
 /**
  * The help HTML file path.
@@ -171,20 +171,21 @@ class PositronHelpService extends Disposable implements IPositronHelpService {
 	 * @param _commandService The ICommandService.
 	 * @param _fileService The IFileService.
 	 * @param _instantiationService The IInstantiationService.
-	 * @param _languageRuntimeService The ICommandService.
 	 * @param _logService The ILogService.
 	 * @param _notificationService The INotificationService.
 	 * @param _openerService The IOpenerService.
+	 * @param _runtimeSessionService The IRuntimeSessionService.
+	 * @param _themeService The IThemeService.
 	 * @param _viewsService The IViewsService.
 	 */
 	constructor(
 		@ICommandService private readonly _commandService: ICommandService,
 		@IFileService private readonly _fileService: IFileService,
 		@IInstantiationService private readonly _instantiationService: IInstantiationService,
-		@ILanguageRuntimeService private readonly _languageRuntimeService: ILanguageRuntimeService,
 		@ILogService private readonly _logService: ILogService,
 		@INotificationService private readonly _notificationService: INotificationService,
 		@IOpenerService private readonly _openerService: IOpenerService,
+		@IRuntimeSessionService private readonly _runtimeSessionService: IRuntimeSessionService,
 		@IThemeService private readonly _themeService: IThemeService,
 		@IViewsService private readonly _viewsService: IViewsService
 
@@ -204,7 +205,7 @@ class PositronHelpService extends Disposable implements IPositronHelpService {
 
 		// Register onDidReceiveRuntimeEvent handler.
 		this._register(
-			this._languageRuntimeService.onDidChangeRuntimeState(languageRuntimeStateEvent => {
+			this._runtimeSessionService.onDidChangeRuntimeState(languageRuntimeStateEvent => {
 				if (languageRuntimeStateEvent.new_state === RuntimeState.Ready) {
 					this.attachRuntime(languageRuntimeStateEvent.session_id);
 				}
@@ -505,7 +506,7 @@ class PositronHelpService extends Disposable implements IPositronHelpService {
 	 */
 	async attachRuntime(sessionId: string) {
 		// Look up the runtime in the runtime service.
-		const session = this._languageRuntimeService.getSession(sessionId);
+		const session = this._runtimeSessionService.getSession(sessionId);
 		if (!session) {
 			this._logService.error(`PositronHelpService could not attach to session ${sessionId}.`);
 			return;

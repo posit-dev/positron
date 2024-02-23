@@ -7,7 +7,7 @@ import { IConfigurationService } from 'vs/platform/configuration/common/configur
 import { ILogService } from 'vs/platform/log/common/log';
 import { IStorageService, StorageScope, StorageTarget } from 'vs/platform/storage/common/storage';
 import { ILanguageRuntimeMetadata, ILanguageRuntimeService, LanguageRuntimeSessionMode, RuntimeState, formatLanguageRuntimeMetadata } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
-import { ILanguageRuntimeSession } from '../../runtimeSession/common/runtimeSessionService';
+import { ILanguageRuntimeSession, IRuntimeSessionService } from '../../runtimeSession/common/runtimeSessionService';
 
 /**
  * The LanguageRuntimeWorkspaceAffiliation class is responsible for managing the
@@ -25,7 +25,8 @@ export class LanguageRuntimeWorkspaceAffiliation extends Disposable {
 	private readonly storageKey = 'positron.affiliatedRuntimeMetadata';
 
 	constructor(
-		@ILanguageRuntimeService private readonly _runtimeService: ILanguageRuntimeService,
+		@ILanguageRuntimeService private readonly _languageRuntimeService: ILanguageRuntimeService,
+		@IRuntimeSessionService private readonly _runtimeSessionService: IRuntimeSessionService,
 		@IStorageService private readonly _storageService: IStorageService,
 		@ILogService private readonly _logService: ILogService,
 		@IConfigurationService private readonly _configurationService: IConfigurationService) {
@@ -33,9 +34,11 @@ export class LanguageRuntimeWorkspaceAffiliation extends Disposable {
 		super();
 
 		this._register(
-			this._runtimeService.onDidChangeForegroundSession(this.onDidChangeActiveRuntime, this));
+			this._runtimeSessionService.onDidChangeForegroundSession(
+				this.onDidChangeActiveRuntime, this));
 		this._register(
-			this._runtimeService.onDidRegisterRuntime(this.onDidRegisterRuntime, this));
+			this._languageRuntimeService.onDidRegisterRuntime(
+				this.onDidRegisterRuntime, this));
 	}
 
 	/**
@@ -111,7 +114,7 @@ export class LanguageRuntimeWorkspaceAffiliation extends Disposable {
 					return;
 				}
 
-				this._runtimeService.startNewRuntimeSession(metadata.runtimeId,
+				this._runtimeSessionService.startNewRuntimeSession(metadata.runtimeId,
 					metadata.runtimeName,
 					LanguageRuntimeSessionMode.Console,
 					`Affiliated runtime for workspace`);

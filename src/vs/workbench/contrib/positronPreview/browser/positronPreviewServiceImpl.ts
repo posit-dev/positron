@@ -9,8 +9,8 @@ import { IOverlayWebview, IWebviewService, WebviewInitInfo } from 'vs/workbench/
 import { PreviewWebview } from 'vs/workbench/contrib/positronPreview/browser/previewWebview';
 import { IViewsService } from 'vs/workbench/services/views/common/viewsService';
 import { POSITRON_PREVIEW_VIEW_ID } from 'vs/workbench/contrib/positronPreview/browser/positronPreviewSevice';
-import { ILanguageRuntimeService, RuntimeOutputKind } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
-import { ILanguageRuntimeSession } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
+import { RuntimeOutputKind } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { ILanguageRuntimeSession, IRuntimeSessionService } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
 import { IPositronNotebookOutputWebviewService } from 'vs/workbench/contrib/positronOutputWebview/browser/notebookOutputWebviewService';
 
 /**
@@ -32,16 +32,16 @@ export class PositronPreviewService extends Disposable implements IPositronPrevi
 	constructor(
 		@IWebviewService private readonly _webviewService: IWebviewService,
 		@IViewsService private readonly _viewsService: IViewsService,
-		@ILanguageRuntimeService private readonly _languageRuntimeService: ILanguageRuntimeService,
+		@IRuntimeSessionService private readonly _runtimeSessionService: IRuntimeSessionService,
 		@IPositronNotebookOutputWebviewService private readonly _notebookOutputWebviewService: IPositronNotebookOutputWebviewService,
 	) {
 		super();
 		this.onDidCreatePreviewWebview = this._onDidCreatePreviewWebviewEmitter.event;
 		this.onDidChangeActivePreviewWebview = this._onDidChangeActivePreviewWebview.event;
-		this._languageRuntimeService.activeSessions.forEach(runtime => {
+		this._runtimeSessionService.activeSessions.forEach(runtime => {
 			this.attachRuntime(runtime);
 		});
-		this._languageRuntimeService.onWillStartRuntime(runtime => {
+		this._runtimeSessionService.onWillStartRuntime(runtime => {
 			this.attachRuntime(runtime);
 		});
 	}

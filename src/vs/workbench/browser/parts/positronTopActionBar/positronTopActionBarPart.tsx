@@ -28,6 +28,7 @@ import { KeybindingsRegistry, KeybindingWeight } from 'vs/platform/keybinding/co
 import { ILanguageRuntimeService } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { IPositronTopActionBarService } from 'vs/workbench/services/positronTopActionBar/browser/positronTopActionBarService';
 import { IPositronTopActionBarContainer, PositronTopActionBar } from 'vs/workbench/browser/parts/positronTopActionBar/positronTopActionBar';
+import { IRuntimeSessionService } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
 
 /**
  * PositronTopActionBarPart class.
@@ -102,6 +103,7 @@ export class PositronTopActionBarPart extends Part implements IPositronTopAction
 		@IKeybindingService private readonly keybindingService: IKeybindingService,
 		@ILabelService private readonly labelService: ILabelService,
 		@ILanguageRuntimeService private readonly languageRuntimeService: ILanguageRuntimeService,
+		@IRuntimeSessionService private readonly runtimeSessionService: IRuntimeSessionService,
 		@IQuickInputService private readonly quickInputService: IQuickInputService,
 		@IStorageService storageService: IStorageService,
 		@IThemeService themeService: IThemeService,
@@ -134,6 +136,7 @@ export class PositronTopActionBarPart extends Part implements IPositronTopAction
 				keybindingService={this.keybindingService}
 				labelService={this.labelService}
 				languageRuntimeService={this.languageRuntimeService}
+				runtimeSessionService={this.runtimeSessionService}
 				layoutService={this.layoutService}
 				positronTopActionBarService={this}
 				quickInputService={this.quickInputService}

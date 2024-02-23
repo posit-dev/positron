@@ -55,7 +55,7 @@ export const VariablesInstanceMenuButton = () => {
 				run: () => {
 					// TODO: The variables pane actually needs its own concept of foreground
 					// session so that we don't have to do this.
-					positronVariablesContext.languageRuntimeService.foregroundSession =
+					positronVariablesContext.runtimeSessionService.foregroundSession =
 						positronVariablesInstance.session;
 				}
 			});
