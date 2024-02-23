@@ -34,7 +34,7 @@ index f044e2ee1..beec3f0cf 100644
 -    _parso_path = sys.argv[1]
 -    # The paths are the directory that jedi and parso lie in.
 -    return {'jedi': _jedi_path, 'parso': _parso_path}
-+    return {"positron": _d(_d(_d(_d(_d(_d(_d(__file__)))))))}
++    return {"positron_ipykernel": _d(_d(_d(_d(_d(_d(_d(__file__)))))))}
  
  
  class _ExactImporter(MetaPathFinder):
