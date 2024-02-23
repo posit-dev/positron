@@ -38,7 +38,7 @@ export class ConnectionItem {
 		return '';
 	}
 
-	async contains_data(): Promise<boolean> {
+	async contains_data(): Promise<boolean | undefined> {
 		return false;
 	}
 }
@@ -74,6 +74,10 @@ export class ConnectionItemNode extends ConnectionItem {
 
 		const response = await this.client.performRpc({ msg_type: 'icon_request', path: this.path }) as any;
 
+		if (response.error) {
+			vscode.window.showErrorMessage(`Error getting icon for '${this.name}': ${response.error.message}`);
+		}
+
 		if (response.icon) {
 			this.iconPath = vscode.Uri.file(response.icon);
 			return this.iconPath;
@@ -84,13 +88,19 @@ export class ConnectionItemNode extends ConnectionItem {
 	}
 
 	override async contains_data() {
-		if (this.containsData) {
+		if (this.containsData !== undefined) {
 			return this.containsData;
 		}
 
 		const response = await this.client.performRpc({ msg_type: 'contains_data_request', path: this.path }) as any;
-		this.containsData = response.contains_data as boolean;
 
+		// on error we return 'undefined', a falsy value. Users can decide if that should fail or
+		// if the it can continue.
+		if (response.error) {
+			vscode.window.showErrorMessage(`Error checking if '${this.name}' contains data: ${response.error.message}`);
+		}
+
+		this.containsData = response.contains_data;
 		return this.containsData;
 	}
 
@@ -100,7 +110,12 @@ export class ConnectionItemNode extends ConnectionItem {
 			// does not contain data.
 			throw new Error('This item does not contain data');
 		}
-		await this.client.performRpc({ msg_type: 'preview_table', table: this.name, path: this.path });
+
+		const response = await this.client.performRpc({ msg_type: 'preview_table', table: this.name, path: this.path }) as any;
+
+		if (response.error) {
+			vscode.window.showErrorMessage(`Error previewing '${this.name}': ${response.error.message}`);
+		}
 	}
 }
 
@@ -179,7 +194,15 @@ export class ConnectionItemsProvider implements vscode.TreeDataProvider<Connecti
 
 		treeItem.iconPath = await this.getTreeItemIcon(item);
 
-		if (await item.contains_data()) {
+		const contains_data = await item.contains_data();
+
+		if (contains_data === undefined) {
+			// There was an error determining if the object contains data. We set the collapsible
+			// state to None to prevent the user from trying to expand the item.
+			return this.errorTreeItem(item.name, 'Error determining if the item contains data');
+		}
+
+		if (contains_data) {
 			// if the item contains data, we set the contextValue enabling the UI for previewing the data
 			treeItem.contextValue = 'table';
 		}
@@ -206,6 +229,22 @@ export class ConnectionItemsProvider implements vscode.TreeDataProvider<Connecti
 		}
 
 		return icon;
+	}
+
+	errorTreeItem(name: string, message: string): vscode.TreeItem {
+		const treeItem = new vscode.TreeItem(name, vscode.TreeItemCollapsibleState.None);
+		treeItem.description = 'Error loading item. Click to retry.';
+		treeItem.tooltip = message;
+		treeItem.command = {
+			command: 'positron.connections.refresh',
+			title: 'Refresh',
+		};
+		treeItem.iconPath = new vscode.ThemeIcon('error', new vscode.ThemeColor('errorForeground'));
+		return treeItem;
+	}
+
+	public refresh() {
+		this._onDidChangeTreeData.fire(undefined);
 	}
 
 	/**
@@ -257,6 +296,13 @@ export class ConnectionItemsProvider implements vscode.TreeDataProvider<Connecti
 		// The node is a view or a table so we want to get the fields on it.
 		if (await element.contains_data()) {
 			const response = await element.client.performRpc({ msg_type: 'fields_request', table: element.name, path: element.path }) as any;
+
+			if (response.error) {
+				// throwing an error here, triggers vscode to automatically show an error
+				// notification and continue.
+				throw new Error(`Error getting list of objects. Try refreshing the connection. Error message: ${response.error.message}`);
+			}
+
 			const fields = response.fields as Array<{ name: string; dtype: string }>;
 			return fields.map((field) => {
 				return new ConnectionItemField(field.name, field.dtype, element.client);
@@ -266,6 +312,13 @@ export class ConnectionItemsProvider implements vscode.TreeDataProvider<Connecti
 		// The node is a database, schema, or catalog, so we want to get the next set of elements in
 		// the tree.
 		const response = await element.client.performRpc({ msg_type: 'tables_request', name: element.name, kind: element.kind, path: element.path }) as any;
+
+		if (response.error) {
+			// throwing an error here, triggers vscode to automatically show an error
+			// notification and continue.
+			throw new Error(`Error getting list of objects. Try Refreshing the connection. Error message: ${response.error.message}`);
+		}
+
 		const children = response.tables as Array<{ name: string; kind: string }>;
 		return children.map((obj) => {
 			const path = [...element.path, { name: obj.name, kind: obj.kind }];

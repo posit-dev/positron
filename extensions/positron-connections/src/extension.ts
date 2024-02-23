@@ -41,4 +41,10 @@ export function activate(context: vscode.ExtensionContext) {
 			(item: ConnectionItemDatabase) => {
 				item.close();
 			}));
+
+	context.subscriptions.push(
+		vscode.commands.registerCommand('positron.connections.refresh',
+			() => {
+				connectionProvider.refresh();
+			}));
 }
