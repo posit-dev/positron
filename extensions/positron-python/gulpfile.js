@@ -269,7 +269,7 @@ gulp.task('installPythonRequirements', async (done) => {
         '-r',
         './requirements.txt',
     ];
-    await spawnAsync(pythonCommand, args, undefined, true)
+    await spawnAsync(pythonCommand, args)
         .then(() => true)
         .catch((ex) => {
             const msg = "Failed to install requirements using 'python'";
@@ -278,7 +278,7 @@ gulp.task('installPythonRequirements', async (done) => {
         });
 
     // Vendor Python requirements for the Positron Python kernel.
-    await spawnAsync(pythonCommand, ['scripts/vendor.py'], undefined, true).catch((ex) => {
+    await spawnAsync(pythonCommand, ['scripts/vendor.py']).catch((ex) => {
         const msg = 'Failed to vendor Python requirements';
         fancyLog.error(ansiColors.red(`error`), msg, ex);
         done(new Error(msg));
@@ -300,7 +300,7 @@ gulp.task('installDebugpy', async (done) => {
         '-r',
         './build/build-install-requirements.txt',
     ];
-    await spawnAsync(pythonCommand, depsArgs, undefined, true)
+    await spawnAsync(pythonCommand, depsArgs)
         .then(() => true)
         .catch((ex) => {
             const msg = "Failed to install dependencies need by 'install_debugpy.py' using 'python'";
@@ -311,7 +311,7 @@ gulp.task('installDebugpy', async (done) => {
     // Install new DEBUGPY with wheels for python
     const wheelsArgs = ['./pythonFiles/install_debugpy.py'];
     const wheelsEnv = { PYTHONPATH: './pythonFiles/lib/temp' };
-    await spawnAsync(pythonCommand, wheelsArgs, wheelsEnv, true)
+    await spawnAsync(pythonCommand, wheelsArgs, wheelsEnv)
         .then(() => true)
         .catch((ex) => {
             const msg = "Failed to install DEBUGPY wheels using 'python'";
@@ -322,7 +322,7 @@ gulp.task('installDebugpy', async (done) => {
     // Download get-pip.py
     const getPipArgs = ['./pythonFiles/download_get_pip.py'];
     const getPipEnv = { PYTHONPATH: './pythonFiles/lib/temp' };
-    await spawnAsync(pythonCommand, getPipArgs, getPipEnv, true)
+    await spawnAsync(pythonCommand, getPipArgs, getPipEnv)
         .then(() => true)
         .catch((ex) => {
             const msg = "Failed to download get-pip.py using 'python'";
@@ -376,7 +376,7 @@ function spawnAsync(command, args, env, rejectOnStdErr = false) {
         });
 
         proc.on('close', () => {
-            if (stdErr && rejectOnStdErr) {
+            if ((stdErr && rejectOnStdErr) || proc.exitCode !== 0) {
                 reject(stdErr);
             }
             resolve(stdOut);
