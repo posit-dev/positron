@@ -4,6 +4,7 @@
 
 .positron-sessions {
 	height: 100%;
+	background: var(--vscode-panel-background);
 }
 
 .positron-sessions .positron-sessions-action-bars {

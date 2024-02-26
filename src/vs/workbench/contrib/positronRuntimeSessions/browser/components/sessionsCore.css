@@ -1,0 +1,27 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *--------------------------------------------------------------------------------------------*/
+
+table.sessions-list {
+	border-collapse: collapse;
+	width: 100%;
+	box-sizing: border-box;
+}
+
+table.sessions-list th:first-child,
+td:first-child {
+	border-left: none;
+	padding-left: 15px;
+}
+
+table.sessions-list td,
+table.sessions-list th {
+	border-color: var(--vscode-panel-border);
+	border-style: solid;
+	border-width: 1px;
+	padding: 5px;
+}
+
+table.sessions-list th {
+	text-align: left;
+}

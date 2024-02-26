@@ -25,8 +25,16 @@ export const RuntimeSession = (props: RuntimeSessionProps) => {
 
 	// Render.
 	return (
-		<div className='runtime-session'>
-			{props.session.sessionId}
-		</div>
+		<tr className='runtime-session'>
+			<td>
+				{props.session.sessionName}
+			</td>
+			<td>
+				{props.session.sessionId}
+			</td>
+			<td>
+				{props.session.sessionMode}
+			</td>
+		</tr>
 	);
 };

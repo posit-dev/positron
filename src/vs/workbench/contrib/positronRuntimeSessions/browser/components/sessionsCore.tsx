@@ -2,6 +2,7 @@
  *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
+import 'vs/css!./sessionsCore';
 import * as React from 'react';
 import { IReactComponentContainer } from 'vs/base/browser/positronReactRenderer';
 import { ActionBars } from 'vs/workbench/contrib/positronRuntimeSessions/browser/components/actionBars';
@@ -25,8 +26,6 @@ export const SessionsCore = (props: SessionsCoreProps) => {
 	// Context hooks.
 	const positronSessionsContext = usePositronSessionsContext();
 
-	// If there are no instances, render nothing.
-	// TODO@softwarenerd - Render something specific for this case. TBD.
 	if (!positronSessionsContext.positronSessions.length) {
 		return null;
 	}
@@ -38,15 +37,25 @@ export const SessionsCore = (props: SessionsCoreProps) => {
 	return (
 		<div className='sessions-core'>
 			<ActionBars {...props} />
-			<div className='variables-instances-container' style={{ width: props.width, height: adjustedHeight }}>
-				{positronSessionsContext.positronSessions.map(session =>
-					<RuntimeSession
-						key={session.sessionId}
-						width={props.width}
-						height={adjustedHeight}
-						session={session}
-						reactComponentContainer={props.reactComponentContainer} />
-				)}
+			<div className='sessions-container' style={{ width: props.width, height: adjustedHeight }}>
+				<table className='sessions-list'>
+					<thead>
+						<tr>
+							<th>Name</th>
+							<th>ID</th>
+							<th>Kind</th>
+						</tr>
+					</thead>
+					<tbody>
+						{positronSessionsContext.positronSessions.map(session =>
+							<RuntimeSession
+								key={session.sessionId}
+								width={props.width}
+								height={adjustedHeight}
+								session={session}
+								reactComponentContainer={props.reactComponentContainer} />
+						)}</tbody>
+				</table>
 			</div>
 		</div>
 	);
