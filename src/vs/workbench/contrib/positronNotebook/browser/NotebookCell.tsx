@@ -25,16 +25,15 @@ export function NotebookCell({ cell, onRunCell, getCellExecutionStatus }: {
 	} = useRunCell({ cell, onRunCell, getCellExecutionStatus });
 
 
-
 	const isRunning = executionStatus === 'running';
 	return (
 		<div className={`positron-notebook-cell ${executionStatus}`}
 			data-status={executionStatus}
 		>
+			<NotebookCellEditor cell={cell} />
 			<PositronButton className='run-button' ariaLabel={isRunning ? 'stop execution' : 'Run cell'} onPressed={runCell}>
 				<div className={`button-icon codicon ${isRunning ? 'codicon-primitive-square' : 'codicon-run'}`} />
 			</PositronButton>
-			<NotebookCellEditor cell={cell} />
 			<div className='positron-notebook-cell-outputs'>
 				{
 					outputContents.outputs.map((output) =>
