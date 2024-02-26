@@ -66,6 +66,15 @@ export function useCellEditorWidget(cell: ICellViewModel) {
 				height: heightOfContent
 			});
 
+			editor.onDidContentSizeChange(e => {
+
+				if (!(e.contentHeightChanged || e.contentWidthChanged)) { return; }
+				editor.layout({
+					height: e.contentHeight,
+					width: e.contentWidth
+				});
+			});
+
 
 		});
 
