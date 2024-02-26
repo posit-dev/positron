@@ -61,10 +61,6 @@
 
 .data-grid-row-cell
 .cursor-border {
-	/* top: 0.5px; */
-	/* left: 0.5px; */
-	/* right: 0.5px; */
-	/* bottom: 0.5px; */
 	position: absolute;
 	box-sizing: border-box;
 	border: 1.5px solid var(--vscode-positronDataGrid-cursorBorder);
@@ -72,7 +68,12 @@
 
 .data-grid-row-cell
 .content {
+	top: 0;
+	right: 0;
+	bottom: 0;
+	left: 0;
 	overflow: hidden;
+	position: absolute;
 	grid-column: content / splitter;
 }
 

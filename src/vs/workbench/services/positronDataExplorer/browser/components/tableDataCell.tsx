@@ -26,6 +26,7 @@ interface TableDataCellProps {
  * @returns The rendered component.
  */
 export const TableDataCell = (props: TableDataCellProps) => {
+	return null;
 	// Render.
 	return (
 		<div className={positronClassNames('text', props.column.alignment)}>

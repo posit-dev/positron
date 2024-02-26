@@ -85,15 +85,25 @@ type ScrollbarOptions = | {
 /**
  * DisplayOptions type.
  */
-type DisplayOptions = {
+type DisplayOptions = | {
 	cellBorders?: boolean;
-	cursorOffset?: number;
+};
+
+/**
+ * CursorOptions type.
+ */
+type CursorOptions = | {
+	cursor: false;
+	cursorOffset?: never;
+} | {
+	cursor: true;
+	cursorOffset: number;
 };
 
 /**
  * SelectionOptions type.
  */
-type SelectionOptions = {
+type SelectionOptions = | {
 	selection?: boolean;
 };
 
@@ -108,6 +118,7 @@ type DataGridOptions =
 	RowResizeOptions &
 	ScrollbarOptions &
 	DisplayOptions &
+	CursorOptions &
 	SelectionOptions;
 
 /**
@@ -360,6 +371,11 @@ export abstract class DataGridInstance extends Disposable {
 	private readonly _cellBorders: boolean;
 
 	/**
+	 * Gets a value which indicates whether to show the cursor.
+	 */
+	private readonly _cursor: boolean;
+
+	/**
 	 * Gets the cursor offset.
 	 */
 	private readonly _cursorOffset: number;
@@ -478,7 +494,9 @@ export abstract class DataGridInstance extends Disposable {
 		this._scrollbarWidth = options.scrollbarWidth ?? 0;
 
 		this._cellBorders = options.cellBorders ?? true;
-		this._cursorOffset = options.cursorOffset ?? 0;
+
+		this._cursor = options.cursor ?? true;
+		this._cursorOffset = this._cursor ? options.cursorOffset ?? 0 : 0;
 
 		this._selection = options.selection ?? true;
 	}
@@ -590,6 +608,13 @@ export abstract class DataGridInstance extends Disposable {
 	 */
 	get cellBorder() {
 		return this._cellBorders;
+	}
+
+	/**
+	 * Gets a value which indicates whether to show the cursor.
+	 */
+	get cursor() {
+		return this._cursor;
 	}
 
 	/**
@@ -1887,7 +1912,7 @@ export abstract class DataGridInstance extends Disposable {
 	abstract sortData(columnSorts: IColumnSortKey[]): Promise<void>;
 
 	/**
-	 *
+	 * Fetches data.
 	 */
 	abstract fetchData(): void;
 

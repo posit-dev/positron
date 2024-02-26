@@ -12,6 +12,7 @@ import * as React from 'react';
 import { PositronButton } from 'vs/base/browser/ui/positronComponents/positronButton';
 import { ColumnSchema, ColumnSchemaTypeDisplay } from 'vs/workbench/services/languageRuntime/common/positronDataExplorerComm';
 import { TableSummaryDataGridInstance } from 'vs/workbench/services/positronDataExplorer/browser/tableSummaryDataGridInstance';
+import { NumberExtendedInfo } from 'vs/workbench/services/positronDataExplorer/browser/components/numberExtendedInfo';
 
 /**
  * ColumnSummaryCellProps interface.
@@ -68,11 +69,15 @@ export const ColumnSummaryCell = (props: ColumnSummaryCellProps) => {
 		}
 	};
 
+	// Get the expanded state of the column.
 	const expanded = props.instance.isColumnExpanded(props.columnIndex);
 
 	// Render.
 	return (
 		<div className='column-summary'>
+			{/* {props.columnIndex === props.instance.cursorRowIndex &&
+				<div className='cursor-background' />
+			} */}
 			<div className='basic-info'>
 				<PositronButton
 					className='expand-collapse-button'
@@ -102,34 +107,7 @@ export const ColumnSummaryCell = (props: ColumnSummaryCellProps) => {
 			</div>
 			{expanded &&
 				<div className='extended-info'>
-					<div className='tabular-info'>
-						<div className='left-labels'>
-							<div>Mean</div>
-							<div>SD</div>
-							<div>Min</div>
-							<div>q25</div>
-							<div>q75</div>
-							<div>Max</div>
-						</div>
-						<div className='left-values'>
-							<div>3.55</div>
-							<div>0.51</div>
-							<div>0.20</div>
-							<div>2.24</div>
-							<div>5.02</div>
-							<div>7.44</div>
-
-						</div>
-						<div className='right-labels'>
-							<div>Unique</div>
-							<div>Missing</div>
-						</div>
-						<div className='right-values'>
-							<div>2.50%</div>
-							<div>29.20%</div>
-
-						</div>
-					</div>
+					{/* <NumberExtendedInfo /> */}
 				</div>
 			}
 		</div>

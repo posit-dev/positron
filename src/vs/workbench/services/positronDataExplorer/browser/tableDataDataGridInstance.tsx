@@ -8,19 +8,12 @@ import * as React from 'react';
 // Other dependencies.
 import { IColumnSortKey } from 'vs/base/browser/ui/positronDataGrid/interfaces/columnSortKey';
 import { DataGridInstance } from 'vs/base/browser/ui/positronDataGrid/classes/dataGridInstance';
+import { ColumnSortKey } from 'vs/workbench/services/languageRuntime/common/positronDataExplorerComm';
 import { TableDataCell } from 'vs/workbench/services/positronDataExplorer/browser/components/tableDataCell';
 import { TableDataRowHeader } from 'vs/workbench/services/positronDataExplorer/browser/components/tableDataRowHeader';
 import { PositronDataExplorerColumn } from 'vs/workbench/services/positronDataExplorer/browser/positronDataExplorerColumn';
 import { DataExplorerClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimeDataExplorerClient';
-import { ColumnSortKey } from 'vs/workbench/services/languageRuntime/common/positronDataExplorerComm';
-import {
-	DataFetchRange,
-	FetchedData,
-	FetchedSchema,
-	TableDataCache,
-	TableSchemaCache,
-	SchemaFetchRange
-} from 'vs/workbench/services/positronDataExplorer/common/positronDataExplorerCache';
+import { DataFetchRange, FetchedData, FetchedSchema, TableDataCache, TableSchemaCache, SchemaFetchRange } from 'vs/workbench/services/positronDataExplorer/common/positronDataExplorerCache';
 
 /**
  * TableDataDataGridInstance class.
@@ -70,6 +63,8 @@ export class TableDataDataGridInstance extends DataGridInstance {
 			scrollbarWidth: 14,
 
 			cellBorders: true,
+
+			cursor: true,
 			cursorOffset: 0.5,
 		});
 

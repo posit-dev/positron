@@ -44,6 +44,7 @@ export const DataGridRowCell = (props: DataGridRowCellProps) => {
 			return;
 		}
 
+		// If selection is enabled, process selection.
 		if (context.instance.selection) {
 			if (e.shiftKey) {
 				context.instance.mouseSelectCell(props.columnIndex, props.rowIndex);
@@ -53,6 +54,7 @@ export const DataGridRowCell = (props: DataGridRowCellProps) => {
 			context.instance.clearSelection();
 		}
 
+		// Set the cursor position.
 		context.instance.setCursorPosition(props.columnIndex, props.rowIndex);
 	};
 
@@ -90,6 +92,7 @@ export const DataGridRowCell = (props: DataGridRowCellProps) => {
 					)}
 			>
 				{
+					context.instance.cursor &&
 					props.columnIndex === context.instance.cursorColumnIndex &&
 					props.rowIndex === context.instance.cursorRowIndex &&
 					<div

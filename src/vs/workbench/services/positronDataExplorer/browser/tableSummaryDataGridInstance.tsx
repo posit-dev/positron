@@ -8,10 +8,17 @@ import * as React from 'react';
 // Other dependencies.
 import { IColumnSortKey } from 'vs/base/browser/ui/positronDataGrid/interfaces/columnSortKey';
 import { DataGridInstance } from 'vs/base/browser/ui/positronDataGrid/classes/dataGridInstance';
-import { TableSchema } from 'vs/workbench/services/languageRuntime/common/positronDataExplorerComm';
+import { ColumnSchemaTypeDisplay, TableSchema } from 'vs/workbench/services/languageRuntime/common/positronDataExplorerComm';
 import { ColumnSummaryCell } from 'vs/workbench/services/positronDataExplorer/browser/components/columnSummaryCell';
 import { PositronDataExplorerColumn } from 'vs/workbench/services/positronDataExplorer/browser/positronDataExplorerColumn';
 import { DataExplorerClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimeDataExplorerClient';
+import { FetchedSchema, SchemaFetchRange, TableSchemaCache } from 'vs/workbench/services/positronDataExplorer/common/positronDataExplorerCache';
+
+/**
+ * Constants.
+ */
+const SUMMARY_HEIGHT = 34;
+const EXTENDED_INFO_LINE_HEIGHT = 20;
 
 /**
  * TableSummaryDataGridInstance class.
@@ -25,6 +32,9 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 	private readonly _dataExplorerClientInstance: DataExplorerClientInstance;
 
 	private _tableSchema?: TableSchema;
+
+	private _schemaCache?: TableSchemaCache;
+	private _lastFetchedSchema?: FetchedSchema;
 
 	/**
 	 * Gets the expanded columns set.
@@ -47,7 +57,7 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 			rowHeaders: false,
 
 			defaultColumnWidth: 200,
-			defaultRowHeight: 34,
+			defaultRowHeight: SUMMARY_HEIGHT,
 
 			columnResize: false,
 			rowResize: false,
@@ -57,7 +67,8 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 			scrollbarWidth: 14,
 
 			cellBorders: false,
-			cursorOffset: 1.5,
+
+			cursor: false,
 
 			selection: false
 		});
@@ -112,7 +123,15 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 	async sortData(columnSorts: IColumnSortKey[]): Promise<void> {
 	}
 
+	/**
+	 * Fetches data.
+	 */
 	fetchData() {
+		this.doFetchData().then(() => {
+
+		}).catch(x => {
+			console.log(x);
+		});
 	}
 
 	/**
@@ -128,7 +147,57 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 	 * @param rowIndex The row index.
 	 */
 	override getRowHeight(rowIndex: number): number {
-		return this.isColumnExpanded(rowIndex) ? 154 : 34;
+		if (!this._tableSchema) {
+			return SUMMARY_HEIGHT;
+		}
+
+		if (!this.isColumnExpanded(rowIndex)) {
+			return SUMMARY_HEIGHT;
+		}
+
+		// Get the column schema.
+		const columnSchema = this._tableSchema.columns[rowIndex];
+
+		const rowHeightWithExtendedInfo = (lines: number) => {
+			if (lines === 0) {
+				return SUMMARY_HEIGHT;
+			} else {
+				return SUMMARY_HEIGHT + (lines * EXTENDED_INFO_LINE_HEIGHT) + 10;
+			}
+		};
+
+		switch (columnSchema.type_display) {
+			case ColumnSchemaTypeDisplay.Number:
+				return rowHeightWithExtendedInfo(6);
+
+			case ColumnSchemaTypeDisplay.Boolean:
+				return rowHeightWithExtendedInfo(3);
+
+			case ColumnSchemaTypeDisplay.String:
+				return rowHeightWithExtendedInfo(3);
+
+			case ColumnSchemaTypeDisplay.Date:
+				return rowHeightWithExtendedInfo(7);
+
+			case ColumnSchemaTypeDisplay.Datetime:
+				return rowHeightWithExtendedInfo(7);
+
+			case ColumnSchemaTypeDisplay.Time:
+				return rowHeightWithExtendedInfo(7);
+
+			case ColumnSchemaTypeDisplay.Array:
+				return rowHeightWithExtendedInfo(2);
+
+			case ColumnSchemaTypeDisplay.Struct:
+				return rowHeightWithExtendedInfo(2);
+
+			case ColumnSchemaTypeDisplay.Unknown:
+				return rowHeightWithExtendedInfo(2);
+
+			// This shouldn't ever happen.
+			default:
+				return rowHeightWithExtendedInfo(0);
+		}
 	}
 
 	/**
@@ -217,6 +286,24 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 	//#endregion Public Methods
 
 	//#region Private Methods
+
+	/**
+	 * Fetches data.
+	 */
+	private async doFetchData(): Promise<void> {
+		const schemaFetchRange: SchemaFetchRange = {
+			startIndex: this.firstRowIndex,
+			endIndex: this.firstRowIndex + this.visibleRows + 1
+		};
+
+		if (!this._lastFetchedSchema ||
+			!this._schemaCache?.rangeIncludes(schemaFetchRange, this._lastFetchedSchema)) {
+			this._lastFetchedSchema = await this._schemaCache?.fetch(schemaFetchRange);
+		}
+
+		// Fire the onDidUpdate event.
+		this._onDidUpdateEmitter.fire();
+	}
 
 	//#endregion Private Methods
 }
