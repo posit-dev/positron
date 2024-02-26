@@ -55,27 +55,28 @@ export function useCellEditorWidget(cell: ICellViewModel) {
 
 		editor.setValue(cell.getText());
 
+
+		/**
+		 * Resize the editor widget to fill the width of its container and the height of its
+		 * content.
+		 * @param height Height to set. Defaults to checking content height.
+		 */
+		function resizeEditor(height: number = editor.getContentHeight()) {
+			editor.layout({
+				height,
+				width: editorContainerRef.current?.offsetWidth ?? 500
+			});
+		}
+
 		// Request model for cell and pass to editor.
 		services.textModelResolverService.createModelReference(cell.uri).then(modelRef => {
 			editor.setModel(modelRef.object.textEditorModel);
-
-			const heightOfContent = editor.getContentHeight();
-
-			editor.layout({
-				width: 500,
-				height: heightOfContent
-			});
+			resizeEditor();
 
 			editor.onDidContentSizeChange(e => {
-
 				if (!(e.contentHeightChanged || e.contentWidthChanged)) { return; }
-				editor.layout({
-					height: e.contentHeight,
-					width: e.contentWidth
-				});
+				resizeEditor(e.contentHeight);
 			});
-
-
 		});
 
 		// Attaching the cell's text model to the editor should allow it to populate with size etc...
