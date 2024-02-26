@@ -23,12 +23,12 @@ export const NumberExtendedInfo = (props: NumberExtendedInfoProps) => {
 	return (
 		<div className='tabular-info'>
 			<div className='labels'>
-				<div className='label'>NA</div>
-				<div className='label'>Median</div>
-				<div className='label'>Mean</div>
-				<div className='label'>SD</div>
-				<div className='label'>Min</div>
-				<div className='label'>Max</div>
+				<div className='label'>NA:</div>
+				<div className='label'>Median:</div>
+				<div className='label'>Mean:</div>
+				<div className='label'>SD:</div>
+				<div className='label'>Min:</div>
+				<div className='label'>Max:</div>
 			</div>
 			<div className='values'>
 				<div className='values-left'>

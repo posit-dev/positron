@@ -10,9 +10,9 @@ import * as React from 'react';
 
 // Other dependencies.
 import { PositronButton } from 'vs/base/browser/ui/positronComponents/positronButton';
+import { NumberExtendedInfo } from 'vs/workbench/services/positronDataExplorer/browser/components/numberExtendedInfo';
 import { ColumnSchema, ColumnSchemaTypeDisplay } from 'vs/workbench/services/languageRuntime/common/positronDataExplorerComm';
 import { TableSummaryDataGridInstance } from 'vs/workbench/services/positronDataExplorer/browser/tableSummaryDataGridInstance';
-import { NumberExtendedInfo } from 'vs/workbench/services/positronDataExplorer/browser/components/numberExtendedInfo';
 
 /**
  * ColumnSummaryCellProps interface.
@@ -74,28 +74,42 @@ export const ColumnSummaryCell = (props: ColumnSummaryCellProps) => {
 
 	// Render.
 	return (
-		<div className='column-summary'>
-			{/* {props.columnIndex === props.instance.cursorRowIndex &&
+		<div
+			className='column-summary'
+			onDoubleClick={() =>
+				props.instance.toggleExpandedColumn(props.columnIndex)
+			}
+		>
+			{props.columnIndex === props.instance.cursorRowIndex &&
 				<div className='cursor-background' />
-			} */}
+			}
 			<div className='basic-info'>
+				{/*
 				<PositronButton
 					className='expand-collapse-button'
-					onPressed={() => props.instance.toggleExpandedColumn(props.columnIndex)}
+					onPressed={() =>
+						props.instance.toggleExpandedColumn(props.columnIndex)
+					}
 				>
 					{expanded ?
 						<div className={`expand-collapse-icon codicon codicon-chevron-down`} /> :
 						<div className={`expand-collapse-icon codicon codicon-chevron-right`} />
 					}
 				</PositronButton>
-				{/*
-				<div className='expand-collapse-button' onMouseDown={chevronMouseDownHandler} onMouseUp={chevronMouseUpHandler}>
-					{false ?
+				*/}
+
+				<div
+					className='expand-collapse-button'
+					onClick={() =>
+						props.instance.toggleExpandedColumn(props.columnIndex)
+					}
+				>
+					{expanded ?
 						<div className={`expand-collapse-icon codicon codicon-chevron-down`} /> :
 						<div className={`expand-collapse-icon codicon codicon-chevron-right`} />
 					}
 				</div>
-				*/}
+
 				<div className={`data-type-icon codicon ${dataTypeIcon()}`}></div>
 				<div className='column-name'>
 					{props.columnSchema.column_name}
@@ -107,7 +121,7 @@ export const ColumnSummaryCell = (props: ColumnSummaryCellProps) => {
 			</div>
 			{expanded &&
 				<div className='extended-info'>
-					{/* <NumberExtendedInfo /> */}
+					<NumberExtendedInfo />
 				</div>
 			}
 		</div>

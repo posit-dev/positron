@@ -5,24 +5,28 @@
 .data-grid-row-cell
 .content
 .column-summary {
-	position: relative;
+	top: 0;
+	right: 0;
+	bottom: 0;
+	left: 0;
+	z-index: 0;
 	display: grid;
 	overflow: hidden;
-	grid-template-rows: [basic-info] 34px [yaya] min-content [end];
+	position: absolute;
+	grid-template-rows: [basic-info] 34px [extended-info] 1fr [end];
 }
 
 .data-grid-row-cell
 .content
 .column-summary
 .cursor-background {
-	z-index: 2;
 	top: 2px;
 	right: 1px;
 	bottom: 2px;
 	left: 2px;
+	z-index: -1;
 	position: absolute;
 	border-radius: 4px;
-	/* background-color: yellow; */
 	background-color: var(--vscode-positronDataExplorer-selectionBackground);
 }
 
@@ -30,11 +34,9 @@
 .content
 .column-summary
 .basic-info {
-	/* background-color: yellow; */
-	/* z-index: 3; */
 	display: grid;
 	align-items: center;
-	grid-row: basic-info / yaya;
+	grid-row: basic-info / extended-info;
 	grid-template-columns: [left-gutter] 4px [expand-collapse] 25px [icon] 25px [title] 1fr [missing-values] min-content [right-gutter] 12px [end];
 }
 
@@ -43,7 +45,6 @@
 .column-summary
 .basic-info
 .expand-collapse-button {
-	z-index: 2;
 	width: 25px;
 	height: 25px;
 	display: flex;
@@ -112,11 +113,91 @@
 .content
 .column-summary
 .extended-info {
-	position: relative;
-	z-index: 3;
-	/* height: 130px; */
-	grid-row: yaya / end;
-
 	display: grid;
+	grid-row: extended-info / end;
 	grid-template-columns: [left-gutter] 54px [tabular-info] 1fr [right-gutter] 12px [end];
+}
+
+.data-grid-row-cell
+.content
+.column-summary
+.extended-info
+.tabular-info {
+	display: grid;
+	overflow: hidden;
+	grid-column: tabular-info / right-gutter;
+	grid-template-columns: [labels] min-content [values] min-content [end];
+}
+
+.data-grid-row-cell
+.content
+.column-summary
+.extended-info
+.tabular-info
+.labels
+{
+	margin-right: 10px;
+	grid-column: labels / values;
+}
+
+.data-grid-row-cell
+.content
+.column-summary
+.extended-info
+.tabular-info
+.labels
+.label {
+	height: 20px;
+}
+
+.data-grid-row-cell
+.content
+.column-summary
+.extended-info
+.tabular-info
+.values
+{
+	display: grid;
+	font-weight: 600;
+	text-align: left;
+	grid-column: values / end;
+	grid-template-columns: [whole-number-value] min-content [fractional-value] min-content [end];
+}
+
+.data-grid-row-cell
+.content
+.column-summary
+.extended-info
+.tabular-info
+.values
+.values-left
+{
+	font-weight: 600;
+	text-align: right;
+	font-variant-numeric: tabular-nums;
+	grid-column: whole-number-value / fractional-value;
+}
+
+.data-grid-row-cell
+.content
+.column-summary
+.extended-info
+.tabular-info
+.values
+.values-right
+{
+	font-weight: 600;
+	text-align: left;
+	font-variant-numeric: tabular-nums;
+	grid-column: fractional-value / end;
+}
+
+.data-grid-row-cell
+.content
+.column-summary
+.extended-info
+.tabular-info
+.values
+.value {
+	height: 20px;
 }
