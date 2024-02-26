@@ -20,6 +20,7 @@ import { IContextKey, IContextKeyService } from 'vs/platform/contextkey/common/c
 import { PositronSessions } from 'vs/workbench/contrib/positronRuntimeSessions/browser/positronSessions';
 import { IReactComponentContainer, ISize, PositronReactRenderer } from 'vs/base/browser/positronReactRenderer';
 import { IRuntimeSessionService } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
+import { IWorkbenchLayoutService } from 'vs/workbench/services/layout/browser/layoutService';
 
 /**
  * PositronSessionsViewPane class.
@@ -156,7 +157,7 @@ export class PositronSessionsViewPane extends ViewPane implements IReactComponen
 	 * @param contextMenuService The context menu service.
 	 * @param instantiationService The instantiation service.
 	 * @param keybindingService The keybinding service.
-	 * @param _languageRuntimeService The language runtime service.
+	 * @param _layoutService The layout service.
 	 * @param _runtimeSessionService The runtime session service.
 	 * @param openerService The opener service.
 	 * @param _positronSessionsService The Positron variables service.
@@ -173,6 +174,7 @@ export class PositronSessionsViewPane extends ViewPane implements IReactComponen
 		@IContextMenuService contextMenuService: IContextMenuService,
 		@IInstantiationService instantiationService: IInstantiationService,
 		@IKeybindingService keybindingService: IKeybindingService,
+		@IWorkbenchLayoutService private readonly _layoutService: IWorkbenchLayoutService,
 		@IRuntimeSessionService private readonly _runtimeSessionService: IRuntimeSessionService,
 		@IOpenerService openerService: IOpenerService,
 		@ITelemetryService telemetryService: ITelemetryService,
@@ -216,7 +218,7 @@ export class PositronSessionsViewPane extends ViewPane implements IReactComponen
 		super.renderBody(container);
 
 		// Create and append the Positron variables container.
-		this._positronSessionsContainer = DOM.$('.positron-variables-container');
+		this._positronSessionsContainer = DOM.$('.positron-sessions-container');
 		container.appendChild(this._positronSessionsContainer);
 
 		// Create the PositronReactRenderer for the PositronSessions component and render it.
@@ -229,6 +231,7 @@ export class PositronSessionsViewPane extends ViewPane implements IReactComponen
 				contextKeyService={this.contextKeyService}
 				contextMenuService={this.contextMenuService}
 				keybindingService={this.keybindingService}
+				layoutService={this._layoutService}
 				runtimeSessionService={this._runtimeSessionService}
 				reactComponentContainer={this}
 			/>

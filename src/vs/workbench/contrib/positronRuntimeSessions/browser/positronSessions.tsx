@@ -10,6 +10,8 @@ import { IReactComponentContainer } from 'vs/base/browser/positronReactRenderer'
 import { PositronSessionsServices } from 'vs/workbench/contrib/positronRuntimeSessions/browser/positronSessionsState';
 import { PositronSessionsContextProvider } from 'vs/workbench/contrib/positronRuntimeSessions/browser/positronSessionsContext';
 import { IRuntimeSessionService } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
+import { IWorkbenchLayoutService } from 'vs/workbench/services/layout/browser/layoutService';
+import { SessionsCore } from 'vs/workbench/contrib/positronRuntimeSessions/browser/components/sessionsCore';
 
 /**
  * PositronSessionsProps interface.
@@ -17,6 +19,7 @@ import { IRuntimeSessionService } from 'vs/workbench/services/runtimeSession/com
 export interface PositronSessionsProps extends PositronSessionsServices {
 	// Services.
 	readonly runtimeSessionService: IRuntimeSessionService;
+	readonly layoutService: IWorkbenchLayoutService;
 	readonly reactComponentContainer: IReactComponentContainer;
 }
 
@@ -27,8 +30,8 @@ export interface PositronSessionsProps extends PositronSessionsServices {
  */
 export const PositronSessions = (props: PropsWithChildren<PositronSessionsProps>) => {
 	// State hooks.
-	const [width, setWidth] = useState(props.reactComponentContainer.width);
-	const [height, setHeight] = useState(props.reactComponentContainer.height);
+	const [_width, setWidth] = useState(props.reactComponentContainer.width);
+	const [_height, setHeight] = useState(props.reactComponentContainer.height);
 
 	// Add IReactComponentContainer event handlers.
 	useEffect(() => {
@@ -49,7 +52,7 @@ export const PositronSessions = (props: PropsWithChildren<PositronSessionsProps>
 	return (
 		<PositronSessionsContextProvider {...props}>
 			<div className='positron-sessions'>
-				<h1>sessions! {width} x {height}</h1>
+				<SessionsCore {...props} width={_width} height={_height} />
 			</div>
 		</PositronSessionsContextProvider>
 	);
