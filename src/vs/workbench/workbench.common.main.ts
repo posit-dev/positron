@@ -419,6 +419,7 @@ import 'vs/workbench/contrib/positronConsole/browser/positronConsole.contributio
 import 'vs/workbench/contrib/positronConsole/browser/positronConsoleView';
 import 'vs/workbench/contrib/positronDataExplorer/browser/positronDataExplorer.contribution';
 import 'vs/workbench/contrib/positronDataExplorer/browser/positronDataExplorerEditor';
+import 'vs/workbench/contrib/positronRuntimeSessions/browser/positronRuntimeSessions.contribution';
 import 'vs/workbench/contrib/languageRuntime/browser/languageRuntime.contribution';
 import 'vs/workbench/contrib/executionHistory/common/executionHistory';
 import 'vs/workbench/contrib/positronIPyWidgets/browser/positronIPyWidgets.contribution';

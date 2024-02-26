@@ -211,6 +211,10 @@
 			"project": "vscode-workbench"
 		},
 		{
+			"name": "vs/workbench/contrib/positronRuntimeSessions",
+			"project": "vscode-workbench"
+		},
+		{
 			"name": "vs/workbench/contrib/repl",
 			"project": "vscode-workbench"
 		},
