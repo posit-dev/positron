@@ -10,7 +10,7 @@ import { URI } from 'vs/base/common/uri';
 import { InstantiationType, registerSingleton } from 'vs/platform/instantiation/common/extensions';
 import { ILogService } from 'vs/platform/log/common/log';
 import { IOpener, IOpenerService, OpenExternalOptions, OpenInternalOptions } from 'vs/platform/opener/common/opener';
-import { ILanguageRuntimeMetadata, ILanguageRuntimeService, LanguageRuntimeDiscoveryPhase, LanguageRuntimeSessionMode, LanguageRuntimeStartupBehavior, RuntimeExitReason, RuntimeState, formatLanguageRuntimeMetadata, formatLanguageRuntimeSession } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { ILanguageRuntimeMetadata, ILanguageRuntimeService, LanguageRuntimeSessionMode, LanguageRuntimeStartupBehavior, RuntimeExitReason, RuntimeState, formatLanguageRuntimeMetadata, formatLanguageRuntimeSession } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { ILanguageRuntimeGlobalEvent, ILanguageRuntimeSession, ILanguageRuntimeSessionManager, ILanguageRuntimeSessionStateEvent, IRuntimeSessionService, RuntimeClientType } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
 import { IWorkspaceTrustManagementService } from 'vs/platform/workspace/common/workspaceTrust';
 import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
@@ -19,7 +19,6 @@ import { IUiClientMessageInput, IUiClientMessageOutput, UiClientInstance } from 
 import { UiFrontendEvent } from 'vs/workbench/services/languageRuntime/common/positronUiComm';
 import { INotificationService } from 'vs/platform/notification/common/notification';
 import { ILanguageService } from 'vs/editor/common/languages/language';
-import { IRuntimeAffiliationService } from 'vs/workbench/services/runtimeAffiliation/common/runtimeAffliationService';
 
 /**
  * Utility class for tracking state changes in a language runtime session.
@@ -48,10 +47,6 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 	// The set of encountered languages. This is keyed by the languageId and is
 	// used to orchestrate implicit runtime startup.
 	private readonly _encounteredLanguagesByLanguageId = new Set<string>();
-
-	// The current discovery phase for language runtime registration.
-	private _discoveryPhase: LanguageRuntimeDiscoveryPhase =
-		LanguageRuntimeDiscoveryPhase.AwaitingExtensions;
 
 	/**
 	 * The foreground session. This is the session that is currently active in
@@ -111,70 +106,12 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 		@IOpenerService private readonly _openerService: IOpenerService,
 		@INotificationService private readonly _notificationService: INotificationService,
 		@IPositronModalDialogsService private readonly _positronModalDialogsService: IPositronModalDialogsService,
-		@IRuntimeAffiliationService private readonly _runtimeAffiliationService: IRuntimeAffiliationService,
 		@IWorkspaceTrustManagementService private readonly _workspaceTrustManagementService: IWorkspaceTrustManagementService) {
 
 		super();
 
 		// Register as an opener in the opener service.
 		this._openerService.registerOpener(this);
-
-		// When the discovery phase is complete, check to see if we need to
-		// auto-start a runtime.
-		this._register(this._languageRuntimeService.onDidChangeDiscoveryPhase(phase => {
-			this._discoveryPhase = phase;
-			if (phase === LanguageRuntimeDiscoveryPhase.Complete) {
-				if (!this._runtimeAffiliationService.hasAffiliatedRuntime() &&
-					!this.hasStartingOrRunningConsole()) {
-					// If there are no affiliated runtimes, and no starting or running
-					// runtimes, start the first runtime that has Immediate startup
-					// behavior.
-					const languageRuntimes = this._languageRuntimeService.registeredRuntimes
-						.filter(metadata =>
-							metadata.startupBehavior === LanguageRuntimeStartupBehavior.Immediate);
-					if (languageRuntimes.length) {
-						this.autoStartRuntime(languageRuntimes[0],
-							`An extension requested the runtime to be started immediately.`);
-					}
-				}
-			}
-		}));
-
-		// When a runtime is registered, check to see if we need to auto-start it.
-		this._register(this._languageRuntimeService.onDidRegisterRuntime(runtime => {
-			// Automatically start the language runtime under the following conditions:
-			// - The language runtime wants to start immediately.
-			// - No other runtime is currently running.
-			// - We have completed the discovery phase of the language runtime
-			//   registration process.
-			if (runtime.startupBehavior === LanguageRuntimeStartupBehavior.Immediate &&
-				this._discoveryPhase === LanguageRuntimeDiscoveryPhase.Complete &&
-				!this.hasStartingOrRunningConsole()) {
-
-				this.autoStartRuntime(runtime,
-					`An extension requested that the runtime start immediately after being registered.`);
-			}
-
-			// Automatically start the language runtime under the following conditions:
-			// - We have encountered the language that the runtime serves.
-			// - We have completed the discovery phase of the language runtime
-			//   registration process.
-			// - The runtime is not already starting or running.
-			// - The runtime has implicit startup behavior.
-			// - There's no runtime affiliated with the current workspace for this
-			//   language (if there is, we want that runtime to start, not this one)
-			else if (this._encounteredLanguagesByLanguageId.has(runtime.languageId) &&
-				this._discoveryPhase === LanguageRuntimeDiscoveryPhase.Complete &&
-				!this.hasStartingOrRunningConsole(runtime.languageId) &&
-				runtime.startupBehavior === LanguageRuntimeStartupBehavior.Implicit &&
-				!this._runtimeAffiliationService.getAffiliatedRuntimeMetadata(runtime.languageId)) {
-
-				this.autoStartRuntime(runtime,
-					`A file with the language ID ${runtime.languageId} was open ` +
-					`when the runtime was registered.`);
-
-			}
-		}));
 
 		// Add the onDidEncounterLanguage event handler.
 		this._register(this._languageService.onDidRequestRichLanguageFeatures(languageId => {
@@ -479,44 +416,6 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 		}
 	}
 
-	//#region IOpener Implementation
-
-	/**
-	 * Opens a resource.
-	 * @param resource The resource to open.
-	 * @param options The options.
-	 * @returns A value which indicates whether the resource was opened.
-	 */
-	async open(resource: URI | string, options?: OpenInternalOptions | OpenExternalOptions): Promise<boolean> {
-		// If the resource is a string, parse it as a URI.
-		if (typeof resource === 'string') {
-			resource = URI.parse(resource);
-		}
-
-		// Options cannot be handled.
-		if (options) {
-			return false;
-		}
-
-		// Enumerate the active sessions and attempt to open the resource.
-		for (const session of this._consoleSessionsByLanguageId.values()) {
-			try {
-				if (await session.openResource(resource)) {
-					return true;
-				}
-			} catch (reason) {
-				this._logService.error(`Error opening resource "${resource.toString()}". Reason: ${reason}`);
-			}
-		}
-
-		// The resource was not opened.
-		return false;
-	}
-
-	//#endregion IOpener Implementation
-
-	//#region Private Methods
-
 	/**
 	 * Automatically starts a runtime.
 	 *
@@ -526,7 +425,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 	 * @returns A promise that resolves with a session ID for the new session,
 	 * if one was started.
 	 */
-	private async autoStartRuntime(
+	async autoStartRuntime(
 		metadata: ILanguageRuntimeMetadata,
 		source: string): Promise<string> {
 		// Check the setting to see if we should be auto-starting.
@@ -571,6 +470,44 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 
 		return '';
 	}
+
+	//#region IOpener Implementation
+
+	/**
+	 * Opens a resource.
+	 * @param resource The resource to open.
+	 * @param options The options.
+	 * @returns A value which indicates whether the resource was opened.
+	 */
+	async open(resource: URI | string, options?: OpenInternalOptions | OpenExternalOptions): Promise<boolean> {
+		// If the resource is a string, parse it as a URI.
+		if (typeof resource === 'string') {
+			resource = URI.parse(resource);
+		}
+
+		// Options cannot be handled.
+		if (options) {
+			return false;
+		}
+
+		// Enumerate the active sessions and attempt to open the resource.
+		for (const session of this._consoleSessionsByLanguageId.values()) {
+			try {
+				if (await session.openResource(resource)) {
+					return true;
+				}
+			} catch (reason) {
+				this._logService.error(`Error opening resource "${resource.toString()}". Reason: ${reason}`);
+			}
+		}
+
+		// The resource was not opened.
+		return false;
+	}
+
+	//#endregion IOpener Implementation
+
+	//#region Private Methods
 
 	/**
 	 * Starts a runtime session.

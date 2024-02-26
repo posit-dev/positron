@@ -243,6 +243,19 @@ export interface IRuntimeSessionService {
 		source: string): Promise<string>;
 
 	/**
+	 * Automatically starts a runtime.
+	 *
+	 * @param runtime The runtime to start.
+	 * @param source The source of the request to start the runtime.
+	 *
+	 * @returns A promise that resolves with a session ID for the new session,
+	 * if one was started.
+	 */
+	autoStartRuntime(
+		metadata: ILanguageRuntimeMetadata,
+		source: string): Promise<string>;
+
+	/**
 	 * Selects a previously registered runtime as the active runtime.
 	 *
 	 * @param runtimeId The identifier of the runtime to select.

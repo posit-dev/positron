@@ -3,12 +3,13 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { Disposable } from 'vs/base/common/lifecycle';
+import { ILanguageService } from 'vs/editor/common/languages/language';
 import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
 import { InstantiationType, registerSingleton } from 'vs/platform/instantiation/common/extensions';
 import { ILogService } from 'vs/platform/log/common/log';
 import { IStorageService, StorageScope, StorageTarget } from 'vs/platform/storage/common/storage';
 import { IExtensionService } from 'vs/workbench/services/extensions/common/extensions';
-import { ILanguageRuntimeMetadata, ILanguageRuntimeService, LanguageRuntimeSessionMode, RuntimeState, formatLanguageRuntimeMetadata } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { ILanguageRuntimeMetadata, ILanguageRuntimeService, LanguageRuntimeDiscoveryPhase, LanguageRuntimeSessionMode, LanguageRuntimeStartupBehavior, RuntimeState, formatLanguageRuntimeMetadata } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { IRuntimeAffiliationService } from 'vs/workbench/services/runtimeAffiliation/common/runtimeAffliationService';
 import { ILanguageRuntimeSession, IRuntimeSessionService } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
 
@@ -31,6 +32,13 @@ export class RuntimeAffiliationService extends Disposable {
 
 	private readonly storageKey = 'positron.affiliatedRuntimeMetadata';
 
+	// The current discovery phase for language runtime registration.
+	private _discoveryPhase: LanguageRuntimeDiscoveryPhase =
+		LanguageRuntimeDiscoveryPhase.AwaitingExtensions;
+
+	// The set of encountered languages.
+	private readonly _encounteredLanguagesByLanguageId = new Set<string>();
+
 	// A map of most recently started runtimes. This is keyed by the languageId
 	// (metadata.languageId) of the runtime.
 	private readonly _mostRecentlyStartedRuntimesByLanguageId = new Map<string, ILanguageRuntimeMetadata>();
@@ -38,6 +46,7 @@ export class RuntimeAffiliationService extends Disposable {
 	constructor(
 		@IConfigurationService private readonly _configurationService: IConfigurationService,
 		@IExtensionService private readonly _extensionService: IExtensionService,
+		@ILanguageService private readonly _languageService: ILanguageService,
 		@ILanguageRuntimeService private readonly _languageRuntimeService: ILanguageRuntimeService,
 		@ILogService private readonly _logService: ILogService,
 		@IRuntimeSessionService private readonly _runtimeSessionService: IRuntimeSessionService,
@@ -58,6 +67,67 @@ export class RuntimeAffiliationService extends Disposable {
 		this._register(this._runtimeSessionService.onDidStartRuntime(session => {
 			this._mostRecentlyStartedRuntimesByLanguageId.set(session.metadata.languageId,
 				session.metadata);
+		}));
+
+		// When the discovery phase is complete, check to see if we need to
+		// auto-start a runtime.
+		this._register(this._languageRuntimeService.onDidChangeDiscoveryPhase(phase => {
+			if (phase === LanguageRuntimeDiscoveryPhase.Complete) {
+				if (!this.hasAffiliatedRuntime() &&
+					!this._runtimeSessionService.hasStartingOrRunningConsole()) {
+					// If there are no affiliated runtimes, and no starting or running
+					// runtimes, start the first runtime that has Immediate startup
+					// behavior.
+					const languageRuntimes = this._languageRuntimeService.registeredRuntimes
+						.filter(metadata =>
+							metadata.startupBehavior === LanguageRuntimeStartupBehavior.Immediate);
+					if (languageRuntimes.length) {
+						this._runtimeSessionService.autoStartRuntime(languageRuntimes[0],
+							`An extension requested the runtime to be started immediately.`);
+					}
+				}
+			}
+		}));
+
+		// Add the onDidEncounterLanguage event handler.
+		this._register(this._languageService.onDidRequestRichLanguageFeatures(languageId => {
+			// Add the language to the set of encountered languages.
+			this._encounteredLanguagesByLanguageId.add(languageId);
+		}));
+
+		// When a runtime is registered, check to see if we need to auto-start it.
+		this._register(this._languageRuntimeService.onDidRegisterRuntime(runtime => {
+			// Automatically start the language runtime under the following conditions:
+			// - The language runtime wants to start immediately.
+			// - No other runtime is currently running.
+			// - We have completed the discovery phase of the language runtime
+			//   registration process.
+			if (runtime.startupBehavior === LanguageRuntimeStartupBehavior.Immediate &&
+				this._discoveryPhase === LanguageRuntimeDiscoveryPhase.Complete &&
+				!this._runtimeSessionService.hasStartingOrRunningConsole()) {
+
+				this._runtimeSessionService.autoStartRuntime(runtime,
+					`An extension requested that the runtime start immediately after being registered.`);
+			}
+
+			// Automatically start the language runtime under the following conditions:
+			// - We have encountered the language that the runtime serves.
+			// - We have completed the discovery phase of the language runtime
+			//   registration process.
+			// - The runtime is not already starting or running.
+			// - The runtime has implicit startup behavior.
+			// - There's no runtime affiliated with the current workspace for this
+			//   language (if there is, we want that runtime to start, not this one)
+			else if (this._encounteredLanguagesByLanguageId.has(runtime.languageId) &&
+				this._discoveryPhase === LanguageRuntimeDiscoveryPhase.Complete &&
+				!this._runtimeSessionService.hasStartingOrRunningConsole(runtime.languageId) &&
+				runtime.startupBehavior === LanguageRuntimeStartupBehavior.Implicit &&
+				!this.getAffiliatedRuntimeMetadata(runtime.languageId)) {
+
+				this._runtimeSessionService.autoStartRuntime(runtime,
+					`A file with the language ID ${runtime.languageId} was open ` +
+					`when the runtime was registered.`);
+			}
 		}));
 
 		this._extensionService.whenAllExtensionHostsStarted().then(async () => {
