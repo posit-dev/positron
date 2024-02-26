@@ -10,6 +10,7 @@ import { CellEditorOptions } from 'vs/workbench/contrib/notebook/browser/view/ce
 import { useContextKeyServiceProvider } from 'vs/workbench/contrib/positronNotebook/browser/ContextKeyServiceProvider';
 import { useServices } from 'vs/workbench/contrib/positronNotebook/browser/ServicesProvider';
 import { useDisposableStore } from './useDisposableStore';
+import * as DOM from 'vs/base/browser/dom';
 
 /**
  * Create a cell editor widget for a cell.
@@ -79,7 +80,18 @@ export function useCellEditorWidget(cell: ICellViewModel) {
 			});
 		});
 
-		// Attaching the cell's text model to the editor should allow it to populate with size etc...
+
+		// Keep the width up-to-date as the window resizes.
+		const activeWindow = DOM.getActiveWindow();
+
+		// Need to define here so we can remove the event listener in cleanup.
+		function updateWidthOnResize() { resizeEditor(); }
+		activeWindow.addEventListener('resize', updateWidthOnResize);
+
+		return () => {
+			editor.dispose();
+			activeWindow.removeEventListener('resize', updateWidthOnResize);
+		};
 	}, [cell, contextKeyServiceProvider, services.configurationService, services.instantiationService, services.notebookWidget, services.textModelResolverService, templateDisposables]);
 
 	return { editorPartRef, editorContainerRef };
