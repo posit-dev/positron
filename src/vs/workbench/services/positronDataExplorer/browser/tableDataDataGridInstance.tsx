@@ -56,7 +56,8 @@ export class TableDataDataGridInstance extends DataGridInstance {
 			columnResize: true,
 			minimumColumnWidth: 100,
 
-			rowResize: false,
+			rowResize: true,
+			minimumRowHeight: 24,
 
 			horizontalScrollbar: true,
 			verticalScrollbar: true,

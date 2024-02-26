@@ -3,13 +3,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 .data-grid-row-cell {
-	top: 0;
-	bottom: 0;
-	display: grid;
 	position: absolute;
-	align-items: center;
-	grid-template-rows: [content] 1fr [splitter] 1px [end];
-	grid-template-columns: [content] 1fr [splitter] 1px [end];
 }
 
 .data-grid-row-cell.selected {
@@ -74,17 +68,22 @@
 	left: 0;
 	overflow: hidden;
 	position: absolute;
-	grid-column: content / splitter;
 }
 
 .data-grid-row-cell
 .vertical-splitter {
-	grid-row: content / end;
-	grid-column: splitter / end;
+	top: 0;
+	right: 0;
+	bottom: 0;
+	width: 1px;
+	position: absolute;
 }
 
 .data-grid-row-cell
 .horizontal-splitter {
-	grid-row: splitter / end;
-	grid-column: content / end;
+	right: 0;
+	bottom: 0;
+	left: 0;
+	height: 1px;
+	position: absolute;
 }
