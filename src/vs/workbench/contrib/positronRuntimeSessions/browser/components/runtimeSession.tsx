@@ -3,7 +3,9 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as React from 'react';
+import { useEffect, useState } from 'react'; // eslint-disable-line no-duplicate-imports
 import { IReactComponentContainer } from 'vs/base/browser/positronReactRenderer';
+import { DisposableStore } from 'vs/base/common/lifecycle';
 import { ILanguageRuntimeSession } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
 
 /**
@@ -23,11 +25,24 @@ interface RuntimeSessionProps {
 */
 export const RuntimeSession = (props: RuntimeSessionProps) => {
 
+	const [sessionState, setSessionState] = useState(props.session.getRuntimeState());
+
+	// Main useEffect hook.
+	useEffect(() => {
+		const disposableStore = new DisposableStore();
+		disposableStore.add(props.session.onDidChangeRuntimeState(state => {
+			setSessionState(state);
+		}));
+	});
+
 	// Render.
 	return (
 		<tr className='runtime-session'>
 			<td>
 				{props.session.sessionName}
+			</td>
+			<td>
+				{sessionState}
 			</td>
 			<td>
 				{props.session.sessionId}

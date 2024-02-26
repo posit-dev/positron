@@ -9,9 +9,15 @@ table.sessions-list {
 }
 
 table.sessions-list th:first-child,
-td:first-child {
+table.sessions-list td:first-child {
 	border-left: none;
 	padding-left: 15px;
+}
+
+table.sessions-list th:last-child,
+table.sessions-list td:last-child {
+	border-right: none;
+	padding-right: 15px;
 }
 
 table.sessions-list td,

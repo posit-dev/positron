@@ -42,6 +42,7 @@ export const SessionsCore = (props: SessionsCoreProps) => {
 					<thead>
 						<tr>
 							<th>Name</th>
+							<th>State</th>
 							<th>ID</th>
 							<th>Kind</th>
 						</tr>
