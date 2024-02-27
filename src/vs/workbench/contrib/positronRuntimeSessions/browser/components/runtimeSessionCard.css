@@ -29,3 +29,29 @@
 	opacity: 0.7;
 	font-size: xx-small;
 }
+
+.runtime-action-buttons {
+	display: flex;
+	justify-content: flex-end;
+	padding-left: 10px;
+	padding-right: 10px;
+	padding-top: 0px;
+}
+
+.runtime-action-buttons button {
+	color: var(--vscode-button-foreground);
+	background-color: var(--vscode-button-background);
+	border-radius: 3px;
+	border-style: none;
+	padding-top: 5px;
+	padding-bottom: 5px;
+	padding-left: 10px;
+	padding-right: 10px;
+	cursor: pointer;
+	font-size: x-small;
+	margin-left: 10px;
+}
+
+.runtime-action-buttons button:hover {
+	background-color: var(--vscode-button-hoverBackground);
+}

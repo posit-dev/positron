@@ -5,12 +5,21 @@
 import 'vs/css!./runtimeSessionCard';
 import * as React from 'react';
 import { ILanguageRuntimeSession } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
+import { RuntimeExitReason } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 
 interface runtimeSessionCardProps {
 	readonly session: ILanguageRuntimeSession;
 }
 
 export const RuntimeSessionCard = (props: runtimeSessionCardProps) => {
+	const shutdownSession = () => {
+		props.session.shutdown(RuntimeExitReason.Shutdown);
+	};
+
+	const forceQuitSession = () => {
+		props.session.forceQuit();
+	};
+
 	return (
 		<tr>
 			<td colSpan={4}>
@@ -31,6 +40,10 @@ export const RuntimeSessionCard = (props: runtimeSessionCardProps) => {
 					<div className='runtime-path'>
 						{props.session.metadata.runtimePath}
 					</div>
+				</div>
+				<div className='runtime-action-buttons'>
+					<button onClick={forceQuitSession}>force quit</button>
+					<button onClick={shutdownSession}>shut down</button>
 				</div>
 			</td>
 		</tr>
