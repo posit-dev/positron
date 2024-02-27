@@ -59,6 +59,7 @@ export function PositronNotebookComponent(
 				</div>
 				{notebookCells.map(cell => <NotebookCell
 					key={cell.handle}
+					sizeObservable={sizeObservable}
 					onRunCell={() => executeCells([cell])}
 					getCellExecutionStatus={getCellExecutionStatus}
 					cell={cell} />)

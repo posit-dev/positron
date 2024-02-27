@@ -2,9 +2,8 @@
  *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 import * as React from 'react';
-import { ICellViewModel } from 'vs/workbench/contrib/notebook/browser/notebookBrowser';
 import { ICellOutput, NotebookCellExecutionState } from 'vs/workbench/contrib/notebook/common/notebookCommon';
-import { CellExecutionStatusCallback } from 'vs/workbench/contrib/positronNotebook/browser/PositronNotebookWidget';
+import { NotebookCellProps } from 'vs/workbench/contrib/positronNotebook/browser/NotebookCell';
 
 type ExecutionStateString = 'running' | 'pending' | 'unconfirmed' | 'idle';
 
@@ -29,11 +28,7 @@ function parseExecutionState(state?: NotebookCellExecutionState): ExecutionState
  * @param opts.getCellExecutionStatus A callback to get the execution status of the cell
  * @returns An object with the output contents and a function to run the cell.
  */
-export function useRunCell(opts: {
-	cell: ICellViewModel;
-	onRunCell: () => Promise<void>;
-	getCellExecutionStatus: CellExecutionStatusCallback;
-}) {
+export function useRunCell(opts: Omit<NotebookCellProps, 'sizeObserver'>) {
 	const { cell, onRunCell, getCellExecutionStatus } = opts;
 	const cellModel = cell.model;
 

@@ -5,19 +5,19 @@ import * as React from 'react';
 import { CodeEditorWidget } from 'vs/editor/browser/widget/codeEditorWidget';
 import { IContextKeyService } from 'vs/platform/contextkey/common/contextkey';
 import { ServiceCollection } from 'vs/platform/instantiation/common/serviceCollection';
-import { ICellViewModel } from 'vs/workbench/contrib/notebook/browser/notebookBrowser';
 import { CellEditorOptions } from 'vs/workbench/contrib/notebook/browser/view/cellParts/cellEditorOptions';
 import { useContextKeyServiceProvider } from 'vs/workbench/contrib/positronNotebook/browser/ContextKeyServiceProvider';
+import { NotebookCellProps } from 'vs/workbench/contrib/positronNotebook/browser/NotebookCell';
 import { useServices } from 'vs/workbench/contrib/positronNotebook/browser/ServicesProvider';
+import { observeValue } from 'vs/workbench/contrib/positronNotebook/common/utils/observeValue';
 import { useDisposableStore } from './useDisposableStore';
-import * as DOM from 'vs/base/browser/dom';
 
 /**
  * Create a cell editor widget for a cell.
  * @param cell Cell whose editor is to be created
  * @returns Refs to place the editor and the wrapping div
  */
-export function useCellEditorWidget(cell: ICellViewModel) {
+export function useCellEditorWidget({ cell, sizeObservable }: Pick<NotebookCellProps, 'cell' | 'sizeObservable'>) {
 	const services = useServices();
 	const templateDisposables = useDisposableStore();
 
@@ -80,19 +80,20 @@ export function useCellEditorWidget(cell: ICellViewModel) {
 			});
 		});
 
-
 		// Keep the width up-to-date as the window resizes.
-		const activeWindow = DOM.getActiveWindow();
-
-		// Need to define here so we can remove the event listener in cleanup.
-		function updateWidthOnResize() { resizeEditor(); }
-		activeWindow.addEventListener('resize', updateWidthOnResize);
+		const sizeObserver = observeValue(sizeObservable, {
+			handleChange() {
+				resizeEditor();
+			}
+		});
 
 		return () => {
 			editor.dispose();
-			activeWindow.removeEventListener('resize', updateWidthOnResize);
+			sizeObserver();
 		};
-	}, [cell, contextKeyServiceProvider, services.configurationService, services.instantiationService, services.notebookWidget, services.textModelResolverService, templateDisposables]);
+	}, [cell, contextKeyServiceProvider, services.configurationService, services.instantiationService, services.notebookWidget, services.textModelResolverService, sizeObservable, templateDisposables]);
+
+
 
 	return { editorPartRef, editorContainerRef };
 

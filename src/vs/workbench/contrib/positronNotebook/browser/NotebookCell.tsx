@@ -4,8 +4,10 @@
 import 'vs/css!./NotebookCell';
 
 import * as React from 'react';
+import { ISize } from 'vs/base/browser/positronReactRenderer';
 import { PositronButton } from 'vs/base/browser/ui/positronComponents/positronButton';
 import { VSBuffer } from 'vs/base/common/buffer';
+import { ISettableObservable } from 'vs/base/common/observableInternal/base';
 import { ICellViewModel } from 'vs/workbench/contrib/notebook/browser/notebookBrowser';
 import { NotebookCellOutputTextModel } from 'vs/workbench/contrib/notebook/common/model/notebookCellOutputTextModel';
 import { ICellOutput } from 'vs/workbench/contrib/notebook/common/notebookCommon';
@@ -14,23 +16,34 @@ import { parseOutputData } from 'vs/workbench/contrib/positronNotebook/browser/g
 import { useCellEditorWidget } from './useCellEditorWidget';
 import { useRunCell } from './useRunCell';
 
-export function NotebookCell({ cell, onRunCell, getCellExecutionStatus }: {
+/**
+ * Logic for running a cell and handling its output.
+ * @param cell The cell to run
+ * @param onRunCell A callback to run the cell
+ * @param getCellExecutionStatus A callback to get the execution status of the cell
+ * @param sizeObservable An observable for the size of the notebook
+ * @returns An object with the output contents and a function to run the cell.
+ */
+export interface NotebookCellProps {
 	cell: ICellViewModel;
 	onRunCell: () => Promise<void>;
 	getCellExecutionStatus: CellExecutionStatusCallback;
-}) {
+	sizeObservable: ISettableObservable<ISize>;
+}
 
-	const {
-		outputContents, runCell, executionStatus,
-	} = useRunCell({ cell, onRunCell, getCellExecutionStatus });
+export function NotebookCell(opts: NotebookCellProps) {
 
+	const { outputContents, runCell, executionStatus } = useRunCell(opts);
+	const { editorPartRef, editorContainerRef } = useCellEditorWidget(opts);
 
 	const isRunning = executionStatus === 'running';
 	return (
 		<div className={`positron-notebook-cell ${executionStatus}`}
 			data-status={executionStatus}
 		>
-			<NotebookCellEditor cell={cell} />
+			<div ref={editorPartRef}>
+				<div ref={editorContainerRef} className='positron-monaco-editor-container'></div>
+			</div>
 			<PositronButton className='run-button' ariaLabel={isRunning ? 'stop execution' : 'Run cell'} onPressed={runCell}>
 				<div className={`button-icon codicon ${isRunning ? 'codicon-primitive-square' : 'codicon-run'}`} />
 			</PositronButton>
@@ -44,15 +57,7 @@ export function NotebookCell({ cell, onRunCell, getCellExecutionStatus }: {
 	);
 }
 
-function NotebookCellEditor({ cell }: { cell: ICellViewModel }) {
 
-	const { editorPartRef, editorContainerRef } = useCellEditorWidget(cell);
-
-	return <div ref={editorPartRef}>
-		<div ref={editorContainerRef} className='positron-monaco-editor-container'></div>
-	</div>;
-
-}
 
 function NotebookCellOutput({ cellOutput }: { cellOutput: ICellOutput }) {
 
