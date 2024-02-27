@@ -8,12 +8,19 @@ import * as React from 'react';
 // Other dependencies.
 import { IColumnSortKey } from 'vs/base/browser/ui/positronDataGrid/interfaces/columnSortKey';
 import { DataGridInstance } from 'vs/base/browser/ui/positronDataGrid/classes/dataGridInstance';
-import { ColumnSortKey } from 'vs/workbench/services/languageRuntime/common/positronDataExplorerComm';
 import { TableDataCell } from 'vs/workbench/services/positronDataExplorer/browser/components/tableDataCell';
 import { TableDataRowHeader } from 'vs/workbench/services/positronDataExplorer/browser/components/tableDataRowHeader';
 import { PositronDataExplorerColumn } from 'vs/workbench/services/positronDataExplorer/browser/positronDataExplorerColumn';
 import { DataExplorerClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimeDataExplorerClient';
-import { DataFetchRange, FetchedData, FetchedSchema, TableDataCache, TableSchemaCache, SchemaFetchRange } from 'vs/workbench/services/positronDataExplorer/common/positronDataExplorerCache';
+import { ColumnSortKey, SchemaUpdateEvent } from 'vs/workbench/services/languageRuntime/common/positronDataExplorerComm';
+import {
+	DataFetchRange,
+	FetchedData,
+	FetchedSchema,
+	TableDataCache,
+	TableSchemaCache,
+	SchemaFetchRange
+} from 'vs/workbench/services/positronDataExplorer/common/positronDataExplorerCache';
 
 /**
  * TableDataDataGridInstance class.
@@ -69,15 +76,34 @@ export class TableDataDataGridInstance extends DataGridInstance {
 			cursorOffset: 0.5,
 		});
 
+		this._schemaCache = new TableSchemaCache(
+			async (req: SchemaFetchRange) => {
+				return this._dataExplorerClientInstance.getSchema(req.startIndex,
+					req.endIndex - req.startIndex);
+			}
+		);
+
 		// Set the data explorer client instance.
 		this._dataExplorerClientInstance = dataExplorerClientInstance;
 
-		// Allocate and initialize the TableSchemaCache.
-		this._schemaCache = new TableSchemaCache(async (schemaFetchRange: SchemaFetchRange) => {
-			return this._dataExplorerClientInstance.getSchema(
-				schemaFetchRange.startIndex,
-				schemaFetchRange.endIndex - schemaFetchRange.startIndex
-			);
+		this._dataExplorerClientInstance.onDidSchemaUpdate(async (e: SchemaUpdateEvent) => {
+			this._lastFetchedData = undefined;
+			this._lastFetchedSchema = undefined;
+
+			// Reset cursor to top left
+			// TODO: These attributes were made protected to allow this. Add a method to
+			// reset these without firing an update request which we don't want here yet.
+			this._firstColumnIndex = 0;
+			this._firstRowIndex = 0;
+
+			// Resets data schema, fetches initial schema and data
+			this.initialize();
+		});
+
+		this._dataExplorerClientInstance.onDidDataUpdate(async (_evt) => {
+			this._lastFetchedData = undefined;
+			this._dataCache?.clear();
+			this.fetchData();
 		});
 	}
 
@@ -101,6 +127,7 @@ export class TableDataDataGridInstance extends DataGridInstance {
 	 *
 	 */
 	initialize() {
+		this._schemaCache.clear();
 		this._schemaCache.initialize().then(async (_) => {
 			this._lastFetchedSchema = await this._schemaCache.fetch({ startIndex: 0, endIndex: 1000 });
 
