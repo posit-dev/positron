@@ -51,15 +51,15 @@ export class LanguageInputHistory extends Disposable {
 		// Don't attach to the same runtime twice.
 		if (this._attachedSessions.has(session.sessionId)) {
 			this._logService.debug(`LanguageInputHistory (${this._languageId}): ` +
-				`Already attached to session ${session.sessionName} (${session.sessionId})`);
+				`Already attached to session ${session.metadata.sessionName} (${session.sessionId})`);
 			return;
 		}
 
 		// Safety check: ensure that this runtime is associated with the
 		// language for this history recorder.
-		if (session.metadata.languageId !== this._languageId) {
+		if (session.runtimeMetadata.languageId !== this._languageId) {
 			this._logService.warn(`LanguageInputHistory (${this._languageId}): Language mismatch ` +
-				`(expected ${this._languageId}, got ${session.metadata.languageId}))`);
+				`(expected ${this._languageId}, got ${session.runtimeMetadata.languageId}))`);
 			return;
 		}
 

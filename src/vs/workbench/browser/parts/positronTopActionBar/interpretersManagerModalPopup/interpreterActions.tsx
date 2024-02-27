@@ -54,8 +54,8 @@ export const InterpreterActions = (props: PropsWithChildren<InterpreterActionsPr
 		// is started for the runtime that this component is managing, attach to
 		// it.
 		disposableStore.add(props.runtimeSessionService.onWillStartRuntime(session => {
-			if (session.sessionMode === LanguageRuntimeSessionMode.Console &&
-				session.metadata.runtimeId === props.runtime.runtimeId) {
+			if (session.metadata.sessionMode === LanguageRuntimeSessionMode.Console &&
+				session.runtimeMetadata.runtimeId === props.runtime.runtimeId) {
 				setSession(session);
 			}
 		}));

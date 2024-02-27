@@ -41,7 +41,7 @@ export const InterpreterGroup = (props: InterpreterGroupProps) => {
 		// alternate runtimes are alive, return true.
 		for (const runtime of props.interpreterGroup.alternateRuntimes) {
 			for (const session of activeSessions) {
-				if (session.metadata.runtimeId === runtime.runtimeId) {
+				if (session.runtimeMetadata.runtimeId === runtime.runtimeId) {
 					const runtimeState = session.getRuntimeState();
 					switch (runtimeState) {
 						case RuntimeState.Initializing:

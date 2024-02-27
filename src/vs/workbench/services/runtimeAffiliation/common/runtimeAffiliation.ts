@@ -65,8 +65,8 @@ export class RuntimeAffiliationService extends Disposable {
 		// Listen for runtime start events and update the most recently started
 		// runtimes for each language.
 		this._register(this._runtimeSessionService.onDidStartRuntime(session => {
-			this._mostRecentlyStartedRuntimesByLanguageId.set(session.metadata.languageId,
-				session.metadata);
+			this._mostRecentlyStartedRuntimesByLanguageId.set(session.runtimeMetadata.languageId,
+				session.runtimeMetadata);
 		}));
 
 		// When the discovery phase is complete, check to see if we need to
@@ -148,8 +148,8 @@ export class RuntimeAffiliationService extends Disposable {
 		}
 
 		// Save this runtime as the affiliated runtime for the current workspace.
-		this._storageService.store(this.storageKeyForRuntime(session.metadata),
-			JSON.stringify(session.metadata),
+		this._storageService.store(this.storageKeyForRuntime(session.runtimeMetadata),
+			JSON.stringify(session.runtimeMetadata),
 			StorageScope.WORKSPACE,
 			StorageTarget.MACHINE);
 
@@ -162,14 +162,14 @@ export class RuntimeAffiliationService extends Disposable {
 				// Just to be safe, check that the runtime is still affiliated
 				// before removing the affiliation
 				const affiliatedRuntimeMetadata = this._storageService.get(
-					this.storageKeyForRuntime(session.metadata), StorageScope.WORKSPACE);
+					this.storageKeyForRuntime(session.runtimeMetadata), StorageScope.WORKSPACE);
 				if (!affiliatedRuntimeMetadata) {
 					return;
 				}
 				const affiliatedRuntimeId = JSON.parse(affiliatedRuntimeMetadata).runtimeId;
-				if (session.metadata.runtimeId === affiliatedRuntimeId) {
+				if (session.runtimeMetadata.runtimeId === affiliatedRuntimeId) {
 					// Remove the affiliation
-					this._storageService.remove(this.storageKeyForRuntime(session.metadata),
+					this._storageService.remove(this.storageKeyForRuntime(session.runtimeMetadata),
 						StorageScope.WORKSPACE);
 				}
 			}
@@ -288,7 +288,7 @@ export class RuntimeAffiliationService extends Disposable {
 		const activeSession =
 			this._runtimeSessionService.getConsoleSessionForLanguage(languageId);
 		if (activeSession) {
-			return activeSession.metadata;
+			return activeSession.runtimeMetadata;
 		}
 
 		// If there's a runtime affiliated with the workspace for the language,

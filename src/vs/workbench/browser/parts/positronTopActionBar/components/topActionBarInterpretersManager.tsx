@@ -42,7 +42,7 @@ export const TopActionBarInterpretersManager = (props: TopActionBarInterpretersM
 		// Add the onDidStartRuntime event handler.
 		disposableStore.add(
 			positronTopActionBarContext.runtimeSessionService.onDidStartRuntime(session => {
-				if (session.sessionMode === LanguageRuntimeSessionMode.Console) {
+				if (session.metadata.sessionMode === LanguageRuntimeSessionMode.Console) {
 					setActiveSession(
 						positronTopActionBarContext.runtimeSessionService.foregroundSession);
 				}
@@ -100,7 +100,7 @@ export const TopActionBarInterpretersManager = (props: TopActionBarInterpretersM
 		showPopup();
 	};
 
-	const label = !activeSession ? 'Start Interpreter' : activeSession.sessionName;
+	const label = !activeSession ? 'Start Interpreter' : activeSession.metadata.sessionName;
 
 	// Render.
 	return (
@@ -109,7 +109,7 @@ export const TopActionBarInterpretersManager = (props: TopActionBarInterpretersM
 				{!activeSession ?
 					<div className='label'>{label}</div> :
 					<div className='label'>
-						<img className='icon' src={`data:image/svg+xml;base64,${activeSession.metadata.base64EncodedIconSvg}`} />
+						<img className='icon' src={`data:image/svg+xml;base64,${activeSession.runtimeMetadata.base64EncodedIconSvg}`} />
 						<span>{label}</span>
 					</div>
 				}

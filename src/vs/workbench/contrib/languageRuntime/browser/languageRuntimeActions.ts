@@ -43,8 +43,8 @@ export const selectLanguageRuntimeSession = async (
 	// Build the language runtime quick pick items.
 	const sessionQuickPickItems = sessions.map<LanguageRuntimeSessionQuickPickItem>(session => ({
 		id: session.sessionId,
-		label: session.sessionName,
-		description: session.metadata.languageVersion,
+		label: session.metadata.sessionName,
+		description: session.runtimeMetadata.languageVersion,
 		session
 	} satisfies LanguageRuntimeSessionQuickPickItem));
 
@@ -313,7 +313,7 @@ export function registerLanguageRuntimeActions() {
 			runtimeClientType: RuntimeClientType.Variables,
 		}], {
 			canPickMany: false,
-			placeHolder: `Select runtime client for ${languageRuntime.metadata.runtimeName}`
+			placeHolder: `Select runtime client for ${languageRuntime.runtimeMetadata.runtimeName}`
 		});
 
 		// If the user selected a runtime client type, create the client for it.
@@ -350,7 +350,7 @@ export function registerLanguageRuntimeActions() {
 		// Prompt the user to select a runtime client instance.
 		const selection = await quickInputService.pick<RuntimeClientInstanceQuickPickItem>(runtimeClientInstanceQuickPickItems, {
 			canPickMany: false,
-			placeHolder: nls.localize('Client Close Selection Placeholder', 'Close Client for {0}', languageRuntime.metadata.runtimeName)
+			placeHolder: nls.localize('Client Close Selection Placeholder', 'Close Client for {0}', languageRuntime.runtimeMetadata.runtimeName)
 		});
 
 		// If the user selected a runtime client instance, dispose it.

@@ -33,7 +33,7 @@ export const formatLanguageRuntimeMetadata = (metadata: ILanguageRuntimeMetadata
  * @returns A string suitable for logging the language runtime.
  */
 export const formatLanguageRuntimeSession = (session: ILanguageRuntimeSession) => {
-	return `Session ${session.sessionName} (${session.sessionId}) from runtime ${formatLanguageRuntimeMetadata(session.metadata)}`;
+	return `Session ${session.metadata.sessionName} (${session.sessionId}) from runtime ${formatLanguageRuntimeMetadata(session.runtimeMetadata)}`;
 };
 
 /**

@@ -478,7 +478,7 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 
 		// Build the history entries, if there is input history.
 		const inputHistoryEntries = positronConsoleContext.executionHistoryService.getInputEntries(
-			props.positronConsoleInstance.session.metadata.languageId
+			props.positronConsoleInstance.session.runtimeMetadata.languageId
 		);
 		if (inputHistoryEntries.length) {
 			// console.log(`There are input history entries for ${props.positronConsoleInstance.runtime.metadata.languageId}`);
@@ -589,11 +589,11 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 		codeEditorWidget.setModel(positronConsoleContext.modelService.createModel(
 			'',
 			positronConsoleContext.languageService.createById(
-				props.positronConsoleInstance.session.metadata.languageId
+				props.positronConsoleInstance.session.runtimeMetadata.languageId
 			),
 			URI.from({
 				scheme: Schemas.inMemory,
-				path: `/repl-${props.positronConsoleInstance.session.metadata.languageId}-${generateUuid()}`
+				path: `/repl-${props.positronConsoleInstance.session.runtimeMetadata.languageId}-${generateUuid()}`
 			}),
 			false
 		));

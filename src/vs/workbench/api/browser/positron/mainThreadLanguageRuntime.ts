@@ -10,7 +10,7 @@ import {
 } from '../../common/positron/extHost.positron.protocol';
 import { extHostNamedCustomer, IExtHostContext } from 'vs/workbench/services/extensions/common/extHostCustomers';
 import { ILanguageRuntimeClientCreatedEvent, ILanguageRuntimeInfo, ILanguageRuntimeMessage, ILanguageRuntimeMessageCommClosed, ILanguageRuntimeMessageCommData, ILanguageRuntimeMessageCommOpen, ILanguageRuntimeMessageError, ILanguageRuntimeMessageInput, ILanguageRuntimeMessageOutput, ILanguageRuntimeMessagePrompt, ILanguageRuntimeMessageState, ILanguageRuntimeMessageStream, ILanguageRuntimeMetadata, ILanguageRuntimeSessionState as ILanguageRuntimeSessionState, ILanguageRuntimeService, ILanguageRuntimeStartupFailure, LanguageRuntimeMessageType, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior, RuntimeState, LanguageRuntimeDiscoveryPhase, ILanguageRuntimeExit, RuntimeOutputKind, RuntimeExitReason, ILanguageRuntimeMessageWebOutput, PositronOutputLocation, LanguageRuntimeSessionMode } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
-import { ILanguageRuntimeSession, ILanguageRuntimeSessionManager, IRuntimeSessionService } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
+import { ILanguageRuntimeSession, ILanguageRuntimeSessionManager, IRuntimeSessionMetadata, IRuntimeSessionService } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
 import { Disposable, DisposableStore } from 'vs/base/common/lifecycle';
 import { Event, Emitter } from 'vs/base/common/event';
 import { IPositronConsoleService } from 'vs/workbench/services/positronConsole/browser/interfaces/positronConsoleService';
@@ -103,23 +103,16 @@ class ExtHostLanguageRuntimeSessionAdapter implements ILanguageRuntimeSession {
 	/** Timer used to ensure event queue processing occurs within a set interval */
 	private _eventQueueTimer: NodeJS.Timeout | undefined;
 
-	public readonly createdTimestamp: number;
-
 	constructor(
 		readonly handle: number,
-		readonly sessionId: string,
-		readonly sessionName: string,
-		readonly sessionMode: LanguageRuntimeSessionMode,
-		readonly metadata: ILanguageRuntimeMetadata,
+		readonly metadata: IRuntimeSessionMetadata,
+		readonly runtimeMetadata: ILanguageRuntimeMetadata,
 		readonly dynState: ILanguageRuntimeSessionState,
 		private readonly _runtimeSessionService: IRuntimeSessionService,
 		private readonly _logService: ILogService,
 		private readonly _notebookService: INotebookService,
 		private readonly _editorService: IEditorService,
 		private readonly _proxy: ExtHostLanguageRuntimeShape) {
-
-		// Mark creation time
-		this.createdTimestamp = Date.now();
 
 		// Bind events to emitters
 		this.onDidChangeRuntimeState = this._stateEmitter.event;
@@ -268,6 +261,14 @@ class ExtHostLanguageRuntimeSessionAdapter implements ILanguageRuntimeSession {
 	}
 
 	/**
+	 * Convenience method to get the session's ID without having to access the
+	 * the metadata directly.
+	 */
+	get sessionId(): string {
+		return this.metadata.sessionId;
+	}
+
+	/**
 	 * Relays a message from the server side of a comm to the client side.
 	 */
 	emitDidReceiveClientMessage(message: ILanguageRuntimeMessageCommData): void {
@@ -342,7 +343,7 @@ class ExtHostLanguageRuntimeSessionAdapter implements ILanguageRuntimeSession {
 	createClient<Input, Output>(type: RuntimeClientType, params: any):
 		Thenable<IRuntimeClientInstance<Input, Output>> {
 		// Create an ID for the client.
-		const id = this.generateClientId(this.metadata.languageId, type);
+		const id = this.generateClientId(this.runtimeMetadata.languageId, type);
 
 		// Create the new instance and add it to the map.
 		const client = new ExtHostRuntimeClientInstance<Input, Output>(id, type, this.handle, this._proxy);
@@ -366,13 +367,13 @@ class ExtHostLanguageRuntimeSessionAdapter implements ILanguageRuntimeSession {
 			if (client.getClientState() === RuntimeClientState.Opening) {
 				client.setClientState(RuntimeClientState.Connected);
 			} else {
-				this._logService.trace(`Client '${id}' in runtime '${this.metadata.runtimeName}' ` +
+				this._logService.trace(`Client '${id}' in runtime '${this.runtimeMetadata.runtimeName}' ` +
 					`was closed instead of being created; it is unsupported by this runtime.`);
 				client.setClientState(RuntimeClientState.Closed);
 			}
 		}).catch((err) => {
 			this._logService.error(`Failed to create client '${id}' ` +
-				`in runtime '${this.metadata.runtimeName}': ${err}`);
+				`in runtime '${this.runtimeMetadata.runtimeName}': ${err}`);
 			client.setClientState(RuntimeClientState.Closed);
 			this._clients.delete(id);
 		});
@@ -441,7 +442,7 @@ class ExtHostLanguageRuntimeSessionAdapter implements ILanguageRuntimeSession {
 
 	async restart(): Promise<void> {
 		if (!this.canShutdown()) {
-			throw new Error(`Cannot restart runtime '${this.metadata.runtimeName}': ` +
+			throw new Error(`Cannot restart runtime '${this.runtimeMetadata.runtimeName}': ` +
 				`runtime is in state '${this._currentState}'`);
 		}
 		this._stateEmitter.fire(RuntimeState.Restarting);
@@ -450,7 +451,7 @@ class ExtHostLanguageRuntimeSessionAdapter implements ILanguageRuntimeSession {
 
 	async shutdown(exitReason = RuntimeExitReason.Shutdown): Promise<void> {
 		if (!this.canShutdown()) {
-			throw new Error(`Cannot shut down runtime '${this.metadata.runtimeName}': ` +
+			throw new Error(`Cannot shut down runtime '${this.runtimeMetadata.runtimeName}': ` +
 				`runtime is in state '${this._currentState}'`);
 		}
 		this._stateEmitter.fire(RuntimeState.Exiting);
@@ -1082,19 +1083,15 @@ export class MainThreadLanguageRuntime
 	 * Creates (provisions) a new language runtime session.
 	 */
 	async createSession(
-		runtimeMetadata: ILanguageRuntimeMetadata,
-		sessionId: string,
-		sessionName: string,
-		sessionMode: LanguageRuntimeSessionMode):
+		metadata: IRuntimeSessionMetadata,
+		runtimeMetadata: ILanguageRuntimeMetadata):
 		Promise<ILanguageRuntimeSession> {
 
 		const handle = await this._proxy.$createLanguageRuntimeSession(runtimeMetadata,
-			sessionId, sessionName, sessionMode);
+			metadata.sessionId, metadata.sessionName, metadata.sessionMode);
 
 		const session = new ExtHostLanguageRuntimeSessionAdapter(handle,
-			sessionId,
-			sessionName,
-			sessionMode,
+			metadata,
 			runtimeMetadata,
 			{
 				busy: false,

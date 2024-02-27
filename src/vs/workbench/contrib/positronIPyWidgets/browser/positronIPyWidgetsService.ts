@@ -76,7 +76,7 @@ export class PositronIPyWidgetsService extends Disposable implements IPositronIP
 			const widgetClients: Array<IPyWidgetClientInstance> = [];
 			clients.forEach((client) => {
 				if (client.getClientType() === RuntimeClientType.IPyWidget) {
-					if (this.hasWidget(runtime.metadata.runtimeId, client.getClientId())) {
+					if (this.hasWidget(runtime.runtimeMetadata.runtimeId, client.getClientId())) {
 						return;
 					}
 				} else {
@@ -97,7 +97,7 @@ export class PositronIPyWidgetsService extends Disposable implements IPositronIP
 
 				// Check to see if we we already have a widget client for this
 				// client ID. If so, we don't need to do anything.
-				if (this.hasWidget(runtime.metadata.runtimeId, clientId)) {
+				if (this.hasWidget(runtime.runtimeMetadata.runtimeId, clientId)) {
 					return;
 				}
 
@@ -106,7 +106,7 @@ export class PositronIPyWidgetsService extends Disposable implements IPositronIP
 				// Create the metadata object
 				const metadata: IPositronIPyWidgetMetadata = {
 					id: clientId,
-					runtime_id: runtime.metadata.runtimeId,
+					runtime_id: runtime.runtimeMetadata.runtimeId,
 					widget_state: {
 						model_name: data.state._model_name,
 						model_module: data.state._model_module,

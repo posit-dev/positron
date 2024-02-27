@@ -28,7 +28,7 @@ export const ConsoleInstanceMenuButton = (props: ConsoleInstanceMenuButtonProps)
 	// Helper method to calculate the label for a runtime session.
 	const labelForSession = (session?: ILanguageRuntimeSession): string => {
 		if (session) {
-			return session.sessionName;
+			return session.metadata.sessionName;
 		}
 		return 'None';
 	};
@@ -55,7 +55,7 @@ export const ConsoleInstanceMenuButton = (props: ConsoleInstanceMenuButtonProps)
 		positronConsoleContext.positronConsoleInstances.map(positronConsoleInstance => {
 			actions.push({
 				id: positronConsoleInstance.session.sessionId,
-				label: positronConsoleInstance.session.sessionName,
+				label: positronConsoleInstance.session.metadata.sessionName,
 				tooltip: '',
 				class: undefined,
 				enabled: true,

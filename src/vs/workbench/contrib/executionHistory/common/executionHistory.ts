@@ -72,15 +72,15 @@ export class ExecutionHistoryService extends Disposable implements IExecutionHis
 
 	private beginRecordingHistory(runtime: ILanguageRuntimeSession): void {
 		// Create a new history for the runtime if we don't already have one
-		if (!this._executionHistories.has(runtime.metadata.runtimeId)) {
+		if (!this._executionHistories.has(runtime.runtimeMetadata.runtimeId)) {
 			const history = new RuntimeExecutionHistory(runtime, this._storageService, this._logService);
-			this._executionHistories.set(runtime.metadata.runtimeId, history);
+			this._executionHistories.set(runtime.runtimeMetadata.runtimeId, history);
 			this._register(history);
 		}
 
 		// Attach the runtime to an input history recorder for the language,
 		// creating one if necessary
-		this.getInputHistory(runtime.metadata.languageId).attachToRuntime(runtime);
+		this.getInputHistory(runtime.runtimeMetadata.languageId).attachToRuntime(runtime);
 	}
 
 	getExecutionEntries(runtimeId: string): IExecutionHistoryEntry<any>[] {

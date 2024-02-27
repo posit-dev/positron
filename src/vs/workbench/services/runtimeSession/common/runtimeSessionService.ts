@@ -31,21 +31,14 @@ export interface ILanguageRuntimeSessionStateEvent {
 	new_state: RuntimeState;
 }
 
-/**
- * The main interface for interacting with a language runtime session.
- */
-
-export interface ILanguageRuntimeSession {
-	/** The language runtime's static metadata */
-	readonly metadata: ILanguageRuntimeMetadata;
-
+export interface IRuntimeSessionMetadata {
 	/** The unique identifier of the session */
 	readonly sessionId: string;
 
 	/** A user-friendly name for the session */
 	readonly sessionName: string;
 
-	/** The session mode */
+	/** The session's mode  */
 	readonly sessionMode: LanguageRuntimeSessionMode;
 
 	/**
@@ -53,6 +46,21 @@ export interface ILanguageRuntimeSession {
 	 * which the runtime session was created.
 	 */
 	readonly createdTimestamp: number;
+}
+
+/**
+ * The main interface for interacting with a language runtime session.
+ */
+
+export interface ILanguageRuntimeSession {
+	/** The language runtime's static metadata */
+	readonly runtimeMetadata: ILanguageRuntimeMetadata;
+
+	/** The session's static metadata */
+	readonly metadata: IRuntimeSessionMetadata;
+
+	/** The unique identifier of the session */
+	readonly sessionId: string;
 
 	/** The language runtime's dynamic metadata */
 	dynState: ILanguageRuntimeSessionState;
@@ -161,10 +169,8 @@ export interface ILanguageRuntimeSessionManager {
 	 * @returns A promise that resolves to the new session.
 	 */
 	createSession(
-		runtimeMetadata: ILanguageRuntimeMetadata,
-		sessionId: string,
-		sessionName: string,
-		sessionMode: LanguageRuntimeSessionMode):
+		metadata: IRuntimeSessionMetadata,
+		runtimeMetadata: ILanguageRuntimeMetadata):
 		Promise<ILanguageRuntimeSession>;
 }
 

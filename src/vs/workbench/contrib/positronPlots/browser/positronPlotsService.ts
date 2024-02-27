@@ -308,7 +308,7 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 				if (client.getClientType() === RuntimeClientType.Plot) {
 					// Check to see if we we already have a plot client for this
 					// client ID. If so, we don't need to do anything.
-					if (this.hasPlot(session.metadata.runtimeId, client.getClientId())) {
+					if (this.hasPlot(session.runtimeMetadata.runtimeId, client.getClientId())) {
 						return;
 					}
 

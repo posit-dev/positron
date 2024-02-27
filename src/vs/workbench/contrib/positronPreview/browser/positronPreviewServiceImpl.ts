@@ -164,7 +164,7 @@ export class PositronPreviewService extends Disposable implements IPositronPrevi
 					this._notebookOutputWebviewService.createNotebookOutputWebview(runtime, e);
 				if (webview) {
 					this.openPreviewWebview(e.id,
-						webview.webview, 'notebookRenderer', runtime.metadata.runtimeName);
+						webview.webview, 'notebookRenderer', runtime.runtimeMetadata.runtimeName);
 				}
 			}
 		}));

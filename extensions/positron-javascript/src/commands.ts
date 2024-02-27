@@ -53,6 +53,7 @@ class JavascriptRuntimeManager implements positron.LanguageRuntimeManager {
 				base64EncodedIconSvg: fs.readFileSync(iconSvgPath).toString('base64'),
 				runtimeVersion: '0.0.1',
 				startupBehavior: positron.LanguageRuntimeStartupBehavior.Implicit,
+				sessionLocation: positron.LanguageRuntimeSessionLocation.Browser,
 				extraData: {}
 			};
 			yield metadata;

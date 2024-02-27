@@ -47,7 +47,7 @@ export class RuntimeExecutionHistory extends Disposable {
 				this._entries.push(entry);
 			});
 		} catch (err) {
-			this._logService.warn(`Couldn't load history for ${this._session.sessionName} ${this._session.metadata.runtimeVersion}: ${err}}`);
+			this._logService.warn(`Couldn't load history for ${this._session.metadata.sessionName} ${this._session.runtimeMetadata.runtimeVersion}: ${err}}`);
 		}
 
 		this._register(this._session.onDidReceiveRuntimeMessageInput(message => {

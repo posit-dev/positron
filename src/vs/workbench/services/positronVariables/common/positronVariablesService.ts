@@ -223,7 +223,7 @@ class PositronVariablesService extends Disposable implements IPositronVariablesS
 	 */
 	private createOrAssignPositronVariablesInstance(session: ILanguageRuntimeSession) {
 		// Ignore background sessions
-		if (session.sessionMode === LanguageRuntimeSessionMode.Background) {
+		if (session.metadata.sessionMode === LanguageRuntimeSessionMode.Background) {
 			return;
 		}
 

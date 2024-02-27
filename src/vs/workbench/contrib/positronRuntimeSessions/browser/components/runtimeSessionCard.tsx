@@ -52,23 +52,23 @@ export const RuntimeSessionCard = (props: runtimeSessionCardProps) => {
 			<td colSpan={4}>
 				<div className='runtime-session-card'>
 					<div className='runtime-icon'>
-						<img src={'data:image/svg+xml;base64,' + props.session.metadata.base64EncodedIconSvg} />
+						<img src={'data:image/svg+xml;base64,' + props.session.runtimeMetadata.base64EncodedIconSvg} />
 					</div>
 					<div className='runtime-name'>
-						{props.session.metadata.runtimeName}
+						{props.session.runtimeMetadata.runtimeName}
 						&nbsp;
 						<span className='runtime-extension'>
-							[{props.session.metadata.extensionId.value}]
+							[{props.session.runtimeMetadata.extensionId.value}]
 						</span>
 					</div>
 					<div className='runtime-id'>
-						{props.session.metadata.runtimeId}
+						{props.session.runtimeMetadata.runtimeId}
 					</div>
 					<div className='runtime-started'>
-						Started {new Date(props.session.createdTimestamp).toLocaleString()}
+						Started {new Date(props.session.metadata.createdTimestamp).toLocaleString()}
 					</div>
 					<div className='runtime-path'>
-						{props.session.metadata.runtimePath}
+						{props.session.runtimeMetadata.runtimePath}
 					</div>
 				</div>
 				<div className='runtime-action-buttons'>

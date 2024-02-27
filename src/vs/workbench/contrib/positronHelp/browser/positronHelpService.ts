@@ -518,7 +518,7 @@ class PositronHelpService extends Disposable implements IPositronHelpService {
 				await session.createClient(RuntimeClientType.Help, {});
 
 			// Create and attach the help client wrapper.
-			const helpClient = new HelpClientInstance(client, session.metadata.languageId);
+			const helpClient = new HelpClientInstance(client, session.runtimeMetadata.languageId);
 			this.attachClientInstance(session, helpClient);
 
 		} catch (error) {
@@ -652,9 +652,9 @@ class PositronHelpService extends Disposable implements IPositronHelpService {
 		// Create the help entry.
 		const helpEntry = this._instantiationService.createInstance(HelpEntry,
 			this._helpHTML,
-			session.metadata.languageId,
-			session.metadata.runtimeId,
-			session.metadata.languageName,
+			session.runtimeMetadata.languageId,
+			session.runtimeMetadata.runtimeId,
+			session.runtimeMetadata.languageName,
 			sourceUrl.toString(),
 			targetUrl.toString()
 		);

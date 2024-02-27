@@ -153,7 +153,7 @@ export class LookupHelpTopic extends Action2 {
 		if (!languageId) {
 			const session = sessionService.foregroundSession;
 			if (session) {
-				languageId = session.metadata.languageId;
+				languageId = session.runtimeMetadata.languageId;
 			} else {
 				const message = localize('positron.help.noInterpreters', "There are no interpreters running. Start an interpreter to look up help topics.");
 				notificationService.info(message);
@@ -165,7 +165,7 @@ export class LookupHelpTopic extends Action2 {
 		const sessions = sessionService.activeSessions;
 		let found = false;
 		for (const session of sessions) {
-			if (session.metadata.languageId === languageId) {
+			if (session.runtimeMetadata.languageId === languageId) {
 				found = true;
 				break;
 			}

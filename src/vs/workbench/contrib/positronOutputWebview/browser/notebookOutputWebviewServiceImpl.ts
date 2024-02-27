@@ -244,7 +244,7 @@ export class PositronNotebookOutputWebviewService implements IPositronNotebookOu
 </body>
 `);
 
-		return new NotebookOutputWebview(id, runtime.metadata.runtimeId, webview);
+		return new NotebookOutputWebview(id, runtime.runtimeMetadata.runtimeId, webview);
 	}
 
 	/**
@@ -273,7 +273,7 @@ export class PositronNotebookOutputWebviewService implements IPositronNotebookOu
 				localResourceRoots: [jupyterExtension.extensionLocation]
 			},
 			extension: {
-				id: runtime.metadata.extensionId
+				id: runtime.runtimeMetadata.extensionId
 			},
 			options: {},
 			title: '',
@@ -296,7 +296,7 @@ window.onload = function() {
 	vscode.postMessage('${RENDER_COMPLETE}');
 };
 </script>`);
-		return new NotebookOutputWebview(id, runtime.metadata.runtimeId, webview);
+		return new NotebookOutputWebview(id, runtime.runtimeMetadata.runtimeId, webview);
 	}
 
 	/**
@@ -343,7 +343,7 @@ window.onload = function() {
 				localResourceRoots: [pythonExtension.extensionLocation]
 			},
 			extension: {
-				id: runtime.metadata.extensionId
+				id: runtime.runtimeMetadata.extensionId
 			},
 			options: {},
 			title: '', // TODO: should this be a parameter?
@@ -395,6 +395,6 @@ ${managerState}
 </script>
 </html>
 		`);
-		return new NotebookOutputWebview(id, runtime.metadata.runtimeId, webview);
+		return new NotebookOutputWebview(id, runtime.runtimeMetadata.runtimeId, webview);
 	}
 }

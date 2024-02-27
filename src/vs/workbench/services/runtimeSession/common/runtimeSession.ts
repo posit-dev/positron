@@ -11,7 +11,7 @@ import { InstantiationType, registerSingleton } from 'vs/platform/instantiation/
 import { ILogService } from 'vs/platform/log/common/log';
 import { IOpener, IOpenerService, OpenExternalOptions, OpenInternalOptions } from 'vs/platform/opener/common/opener';
 import { ILanguageRuntimeMetadata, ILanguageRuntimeService, LanguageRuntimeSessionMode, LanguageRuntimeStartupBehavior, RuntimeExitReason, RuntimeState, formatLanguageRuntimeMetadata, formatLanguageRuntimeSession } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
-import { ILanguageRuntimeGlobalEvent, ILanguageRuntimeSession, ILanguageRuntimeSessionManager, ILanguageRuntimeSessionStateEvent, IRuntimeSessionService, RuntimeClientType } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
+import { ILanguageRuntimeGlobalEvent, ILanguageRuntimeSession, ILanguageRuntimeSessionManager, ILanguageRuntimeSessionStateEvent, IRuntimeSessionMetadata, IRuntimeSessionService, RuntimeClientType } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
 import { IWorkspaceTrustManagementService } from 'vs/platform/workspace/common/workspaceTrust';
 import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
 import { IModalDialogPromptInstance, IPositronModalDialogsService } from 'vs/workbench/services/positronModalDialogs/common/positronModalDialogs';
@@ -197,8 +197,8 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 	 */
 	getConsoleSessionForRuntime(runtimeId: string): ILanguageRuntimeSession | undefined {
 		const session = Array.from(this._activeSessionsBySessionId.values()).find(session =>
-			session.session.metadata.runtimeId === runtimeId &&
-			session.session.sessionMode === LanguageRuntimeSessionMode.Console);
+			session.session.runtimeMetadata.runtimeId === runtimeId &&
+			session.session.metadata.sessionMode === LanguageRuntimeSessionMode.Console);
 		if (session) {
 			return session.session;
 		} else {
@@ -238,7 +238,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 			this.getConsoleSessionForLanguage(runtime.languageId);
 		if (activeSession) {
 			// Is this, by chance, the runtime that's already running?
-			if (activeSession.metadata.runtimeId === runtimeId) {
+			if (activeSession.runtimeMetadata.runtimeId === runtimeId) {
 				return Promise.reject(
 					new Error(`${formatLanguageRuntimeMetadata(runtime)} is already running.`));
 			}
@@ -313,7 +313,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 			const runningLanguageRuntime =
 				this._consoleSessionsByLanguageId.get(languageRuntime.languageId);
 			if (runningLanguageRuntime) {
-				const metadata = runningLanguageRuntime.metadata;
+				const metadata = runningLanguageRuntime.runtimeMetadata;
 				if (metadata.runtimeId === runtimeId) {
 					// If the runtime that is running is the one we were just asked
 					// to start, we're technically in good shape since the runtime
@@ -512,34 +512,37 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 	/**
 	 * Starts a runtime session.
 	 *
-	 * @param metadata The metadata for the runtime to start.
+	 * @param runtimeMetadata The metadata for the runtime to start.
 	 * @param sessionName A human-readable name for the session.
 	 * @param sessionMode The mode for the new session.
 	 *
 	 * Returns a promise that resolves with the session ID when the runtime is
 	 * ready to use.
 	 */
-	private async doStartRuntimeSession(metadata: ILanguageRuntimeMetadata,
+	private async doStartRuntimeSession(runtimeMetadata: ILanguageRuntimeMetadata,
 		sessionName: string,
 		sessionMode: LanguageRuntimeSessionMode): Promise<string> {
 		// Add the runtime to the starting runtimes.
 		if (sessionMode === LanguageRuntimeSessionMode.Console) {
-			this._startingConsolesByLanguageId.set(metadata.languageId, metadata);
+			this._startingConsolesByLanguageId.set(runtimeMetadata.languageId, runtimeMetadata);
 		}
 
 		// Create a promise that resolves when the runtime is ready to use.
 		const startPromise = new DeferredPromise<string>();
-		this._startingRuntimesByRuntimeId.set(metadata.runtimeId, startPromise);
+		this._startingRuntimesByRuntimeId.set(runtimeMetadata.runtimeId, startPromise);
 
 		if (!this._sessionManager) {
 			throw new Error(`No session manager has been registered.`);
 		}
 
-		const sessionId = this.generateNewSessionId(metadata);
-		const session = await this._sessionManager.createSession(metadata,
+		const sessionId = this.generateNewSessionId(runtimeMetadata);
+		const sessionMetadata: IRuntimeSessionMetadata = {
 			sessionId,
 			sessionName,
-			sessionMode);
+			sessionMode,
+			createdTimestamp: Date.now(),
+		};
+		const session = await this._sessionManager.createSession(sessionMetadata, runtimeMetadata);
 
 		// Fire the onWillStartRuntime event.
 		this._onWillStartRuntimeEmitter.fire(session);
@@ -556,17 +559,17 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 
 			// The runtime started. Move it from the starting runtimes to the
 			// running runtimes.
-			this._startingConsolesByLanguageId.delete(metadata.languageId);
-			this._startingRuntimesByRuntimeId.delete(metadata.runtimeId);
-			if (session.sessionMode === LanguageRuntimeSessionMode.Console) {
-				this._consoleSessionsByLanguageId.set(metadata.languageId, session);
+			this._startingConsolesByLanguageId.delete(runtimeMetadata.languageId);
+			this._startingRuntimesByRuntimeId.delete(runtimeMetadata.runtimeId);
+			if (session.metadata.sessionMode === LanguageRuntimeSessionMode.Console) {
+				this._consoleSessionsByLanguageId.set(runtimeMetadata.languageId, session);
 			}
 
 			// Fire the onDidStartRuntime event.
 			this._onDidStartRuntimeEmitter.fire(session);
 
 			// Make the newly-started runtime the foreground runtime if it's a console session.
-			if (session.sessionMode === LanguageRuntimeSessionMode.Console) {
+			if (session.metadata.sessionMode === LanguageRuntimeSessionMode.Console) {
 				this._foregroundSession = session;
 			}
 		} catch (reason) {
@@ -574,8 +577,8 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 			startPromise.error(reason);
 
 			// Remove the runtime from the starting runtimes.
-			this._startingConsolesByLanguageId.delete(session.metadata.languageId);
-			this._startingRuntimesByRuntimeId.delete(session.metadata.runtimeId);
+			this._startingConsolesByLanguageId.delete(session.runtimeMetadata.languageId);
+			this._startingRuntimesByRuntimeId.delete(session.runtimeMetadata.runtimeId);
 
 			// Fire the onDidFailStartRuntime event.
 			this._onDidFailStartRuntimeEmitter.fire(session);
@@ -605,7 +608,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 			switch (state) {
 				case RuntimeState.Ready:
 					if (session !== this._foregroundSession &&
-						session.sessionMode === LanguageRuntimeSessionMode.Console) {
+						session.metadata.sessionMode === LanguageRuntimeSessionMode.Console) {
 						// When a new console is ready, activate it. We avoid
 						// re-activation if already active since the resulting
 						// events can cause Positron behave as though a new
@@ -631,9 +634,9 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 
 				case RuntimeState.Exited:
 					// Remove the runtime from the set of starting or running runtimes.
-					this._startingConsolesByLanguageId.delete(session.metadata.languageId);
-					if (session.sessionMode === LanguageRuntimeSessionMode.Console) {
-						this._consoleSessionsByLanguageId.delete(session.metadata.languageId);
+					this._startingConsolesByLanguageId.delete(session.runtimeMetadata.languageId);
+					if (session.metadata.sessionMode === LanguageRuntimeSessionMode.Console) {
+						this._consoleSessionsByLanguageId.delete(session.runtimeMetadata.languageId);
 					}
 					break;
 			}
@@ -683,9 +686,9 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 					// Wait a beat, then start the runtime.
 					await new Promise<void>(resolve => setTimeout(resolve, 250));
 
-					await this.startNewRuntimeSession(session.metadata.runtimeId,
-						session.sessionName,
-						session.sessionMode,
+					await this.startNewRuntimeSession(session.runtimeMetadata.runtimeId,
+						session.metadata.sessionName,
+						session.metadata.sessionMode,
 						`The runtime exited unexpectedly and is being restarted automatically.`);
 					action = 'and was automatically restarted';
 				} else {
@@ -696,7 +699,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 				const msg = nls.localize(
 					'positronConsole.runtimeCrashed',
 					'{0} exited unexpectedly {1}. You may have lost unsaved work.\nExit code: {2}',
-					session.metadata.runtimeName,
+					session.runtimeMetadata.runtimeName,
 					action,
 					exit.exit_code
 				);
@@ -722,9 +725,9 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 			state === RuntimeState.Exited) {
 			// The runtime has never been started, or is no longer running. Just
 			// tell it to start.
-			await this.startNewRuntimeSession(session.metadata.runtimeId,
-				session.sessionName,
-				session.sessionMode, `'Restart Interpreter' command invoked`);
+			await this.startNewRuntimeSession(session.runtimeMetadata.runtimeId,
+				session.metadata.sessionName,
+				session.metadata.sessionMode, `'Restart Interpreter' command invoked`);
 			return;
 		} else if (state === RuntimeState.Starting ||
 			state === RuntimeState.Restarting) {
@@ -735,7 +738,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 		} else {
 			// The runtime is not in a state where it can be restarted.
 			return Promise.reject(
-				new Error(`The ${session.metadata.languageName} session is '${state}' ` +
+				new Error(`The ${session.runtimeMetadata.languageName} session is '${state}' ` +
 					`and cannot be restarted.`)
 			);
 		}
@@ -750,7 +753,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 	 * @param session The runtime to watch.
 	 */
 	private async waitForInterrupt(session: ILanguageRuntimeSession) {
-		const warning = nls.localize('positron.runtimeInterruptTimeoutWarning', "{0} isn't responding to your request to interrupt the command. Do you want to forcefully quit your {1} session? You'll lose any unsaved objects.", session.sessionName, session.metadata.languageName);
+		const warning = nls.localize('positron.runtimeInterruptTimeoutWarning', "{0} isn't responding to your request to interrupt the command. Do you want to forcefully quit your {1} session? You'll lose any unsaved objects.", session.metadata.sessionName, session.runtimeMetadata.languageName);
 		this.awaitStateChange(session,
 			[RuntimeState.Idle],
 			10,
@@ -765,7 +768,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 	 * @param session The runtime to watch.
 	 */
 	private async waitForShutdown(session: ILanguageRuntimeSession) {
-		const warning = nls.localize('positron.runtimeShutdownTimeoutWarning', "{0} isn't responding to your request to shut down the session. Do you want use a forced quit to end your {1} session? You'll lose any unsaved objects.", session.sessionName, session.metadata.languageName);
+		const warning = nls.localize('positron.runtimeShutdownTimeoutWarning', "{0} isn't responding to your request to shut down the session. Do you want use a forced quit to end your {1} session? You'll lose any unsaved objects.", session.metadata.sessionName, session.runtimeMetadata.languageName);
 		this.awaitStateChange(session,
 			[RuntimeState.Exited],
 			10,
@@ -780,7 +783,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 	 * @param session The runtime to watch.
 	 */
 	private async waitForReconnect(session: ILanguageRuntimeSession) {
-		const warning = nls.localize('positron.runtimeReconnectTimeoutWarning', "{0} has been offline for more than 30 seconds. Do you want to force quit your {1} session? You'll lose any unsaved objects.", session.sessionName, session.metadata.languageName);
+		const warning = nls.localize('positron.runtimeReconnectTimeoutWarning', "{0} has been offline for more than 30 seconds. Do you want to force quit your {1} session? You'll lose any unsaved objects.", session.metadata.sessionName, session.runtimeMetadata.languageName);
 		this.awaitStateChange(session,
 			[RuntimeState.Ready, RuntimeState.Idle],
 			30,
@@ -813,7 +816,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 
 				// Show a prompt to the user asking if they want to force quit the runtime.
 				prompt = this._positronModalDialogsService.showModalDialogPrompt(
-					nls.localize('positron.runtimeNotResponding', "{0} is not responding", session.metadata.runtimeName),
+					nls.localize('positron.runtimeNotResponding', "{0} is not responding", session.runtimeMetadata.runtimeName),
 					warning,
 					nls.localize('positron.runtimeForceQuit', "Force Quit"),
 					nls.localize('positron.runtimeKeepWaiting', "Wait"));

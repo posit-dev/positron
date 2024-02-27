@@ -36,7 +36,7 @@ export const SessionsCore = (props: SessionsCoreProps) => {
 	// Sort sessions by created time, so that most recent sessions are at the
 	// top.
 	const allSessions = positronSessionsContext.positronSessions.sort((a, b) => {
-		return b.createdTimestamp - a.createdTimestamp;
+		return b.metadata.createdTimestamp - a.metadata.createdTimestamp;
 	});
 
 	return (
