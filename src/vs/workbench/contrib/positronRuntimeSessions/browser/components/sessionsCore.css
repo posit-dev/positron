@@ -6,6 +6,8 @@ table.sessions-list {
 	border-collapse: collapse;
 	width: 100%;
 	box-sizing: border-box;
+	font-family: monospace;
+	font-size: small;
 }
 
 table.sessions-list th:first-child,

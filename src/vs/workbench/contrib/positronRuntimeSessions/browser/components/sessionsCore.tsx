@@ -47,15 +47,14 @@ export const SessionsCore = (props: SessionsCoreProps) => {
 							<th>Kind</th>
 						</tr>
 					</thead>
-					<tbody>
-						{positronSessionsContext.positronSessions.map(session =>
-							<RuntimeSession
-								key={session.sessionId}
-								width={props.width}
-								height={adjustedHeight}
-								session={session}
-								reactComponentContainer={props.reactComponentContainer} />
-						)}</tbody>
+					{positronSessionsContext.positronSessions.map(session =>
+						<RuntimeSession
+							key={session.sessionId}
+							width={props.width}
+							height={adjustedHeight}
+							session={session}
+							reactComponentContainer={props.reactComponentContainer} />
+					)}
 				</table>
 			</div>
 		</div>

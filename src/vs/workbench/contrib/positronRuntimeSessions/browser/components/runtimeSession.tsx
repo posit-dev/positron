@@ -8,6 +8,7 @@ import { useEffect, useState } from 'react'; // eslint-disable-line no-duplicate
 import { IReactComponentContainer } from 'vs/base/browser/positronReactRenderer';
 import { DisposableStore } from 'vs/base/common/lifecycle';
 import { ILanguageRuntimeSession } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
+import { RuntimeSessionCard } from 'vs/workbench/contrib/positronRuntimeSessions/browser/components/runtimeSessionCard';
 
 /**
  * RuntimeSessionProps interface.
@@ -27,6 +28,7 @@ interface RuntimeSessionProps {
 export const RuntimeSession = (props: RuntimeSessionProps) => {
 
 	const [sessionState, setSessionState] = useState(props.session.getRuntimeState());
+	const [expanded, setExpanded] = useState(false);
 
 	// Main useEffect hook.
 	useEffect(() => {
@@ -38,19 +40,26 @@ export const RuntimeSession = (props: RuntimeSessionProps) => {
 
 	// Render.
 	return (
-		<tr className={'runtime-session ' + props.session.getRuntimeState()}>
-			<td>
-				{props.session.sessionName}
-			</td>
-			<td>
-				{sessionState}
-			</td>
-			<td>
-				{props.session.sessionId}
-			</td>
-			<td>
-				{props.session.sessionMode}
-			</td>
-		</tr>
+		<tbody>
+			<tr className={'runtime-session ' + props.session.getRuntimeState()}>
+				<td>
+					<a href='#' onClick={() => setExpanded(!expanded)}>
+						<span className={'codicon ' + (expanded ? 'codicon-chevron-down' : 'codicon-chevron-right')}></span>
+						&nbsp;
+						{props.session.sessionName}
+					</a>
+				</td>
+				<td>
+					{sessionState}
+				</td>
+				<td>
+					{props.session.sessionId}
+				</td>
+				<td>
+					{props.session.sessionMode}
+				</td>
+			</tr>
+			{expanded && <RuntimeSessionCard session={props.session} />}
+		</tbody>
 	);
 };
