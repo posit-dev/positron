@@ -90,6 +90,14 @@ export interface ILanguageRuntimeSession {
 	getRuntimeState(): RuntimeState;
 
 	/**
+	 * The (cached) current set of client instances that are known to Positron.
+	 * Note that this list may not reflect the full set of clients that are
+	 * known to the the backend; to request the full set of clients from the
+	 * backend, use `listClients`.
+	 */
+	clientInstances: IRuntimeClientInstance<any, any>[];
+
+	/**
 	 * Opens a resource in the runtime.
 	 * @param resource The resource to open.
 	 * @returns true if the resource was opened; otherwise, false.

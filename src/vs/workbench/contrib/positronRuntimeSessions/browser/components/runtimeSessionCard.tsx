@@ -6,6 +6,7 @@ import 'vs/css!./runtimeSessionCard';
 import * as React from 'react';
 import { ILanguageRuntimeSession } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
 import { RuntimeExitReason } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { RuntimeClientList } from 'vs/workbench/contrib/positronRuntimeSessions/browser/components/runtimeClientList';
 
 interface runtimeSessionCardProps {
 	readonly session: ILanguageRuntimeSession;
@@ -48,6 +49,9 @@ export const RuntimeSessionCard = (props: runtimeSessionCardProps) => {
 					<button onClick={forceQuitSession}>force quit</button>
 					<button onClick={shutdownSession}>shut down</button>
 				</div>
+				{props.session.clientInstances.length > 0 ?
+					<RuntimeClientList session={props.session} /> :
+					<span>No connected clients.</span>}
 			</td>
 		</tr>
 	);

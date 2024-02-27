@@ -260,6 +260,13 @@ class ExtHostLanguageRuntimeSessionAdapter implements ILanguageRuntimeSession {
 	}
 
 	/**
+	 * Returns the current set of client instances
+	 */
+	get clientInstances(): IRuntimeClientInstance<any, any>[] {
+		return Array.from(this._clients.values());
+	}
+
+	/**
 	 * Relays a message from the server side of a comm to the client side.
 	 */
 	emitDidReceiveClientMessage(message: ILanguageRuntimeMessageCommData): void {
