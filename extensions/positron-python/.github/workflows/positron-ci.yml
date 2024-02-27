@@ -103,7 +103,7 @@ jobs:
 
       - name: Run Positron unit tests
         run: pytest pythonFiles/positron/
-      
+
       - name: Run Microsoft unit tests
         run: python pythonFiles/tests/run_all.py
 
@@ -119,7 +119,7 @@ jobs:
         python: ['3.x']
         # TODO: Add remaining test suites:
         # test-suite: [ts-unit, venv, single-workspace, debugger, functional]
-        test-suite: [ts-unit]
+        test-suite: [ts-unit, functional]
 
     steps:
       - name: Checkout
