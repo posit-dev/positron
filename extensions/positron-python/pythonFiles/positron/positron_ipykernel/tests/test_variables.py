@@ -16,7 +16,11 @@ from positron_ipykernel.access_keys import encode_access_key
 from positron_ipykernel.positron_comm import JsonRpcErrorCode
 from positron_ipykernel.positron_ipkernel import PositronIPyKernel
 from positron_ipykernel.utils import JsonRecord, not_none
-from positron_ipykernel.variables import VariablesService, _summarize_children, _summarize_variable
+from positron_ipykernel.variables import (
+    VariablesService,
+    _summarize_children,
+    _summarize_variable,
+)
 
 from .conftest import DummyComm, PositronShell
 from .utils import (
@@ -32,36 +36,15 @@ BIG_ARRAY_LENGTH = 10_000_001
 TARGET_NAME = "target_name"
 
 
-@pytest.fixture
-def variables_service(kernel: PositronIPyKernel) -> VariablesService:
-    """
-    A Positron variables service.
-    """
-    return kernel.variables_service
+def test_comm_open(kernel: PositronIPyKernel) -> None:
+    service = VariablesService(kernel)
 
-
-@pytest.fixture
-def variables_comm(variables_service: VariablesService) -> DummyComm:
-    """
-    Convenience fixture for accessing the variables comm.
-    """
-    # Open a comm
-    variables_comm = DummyComm(TARGET_NAME)
-    variables_service.on_comm_open(variables_comm, {})
-
-    # Clear messages due to the comm_open
-    variables_comm.messages.clear()
-
-    return variables_comm
-
-
-def test_comm_open(variables_service: VariablesService) -> None:
     # Double-check that comm is not yet open
-    assert variables_service._comm is None
+    assert service._comm is None
 
     # Open a comm
     variables_comm = DummyComm(TARGET_NAME)
-    variables_service.on_comm_open(variables_comm, {})
+    service.on_comm_open(variables_comm, {})
 
     # Check that the comm_open and empty refresh messages were sent
     assert variables_comm.messages == [

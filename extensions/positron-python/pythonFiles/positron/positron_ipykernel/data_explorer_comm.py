@@ -16,9 +16,6 @@ from typing import Any, List, Literal, Optional, Union
 
 from ._vendor.pydantic import BaseModel, Field
 
-# Column values formatted as strings
-ColumnFormattedData = List[str]
-
 
 @enum.unique
 class GetColumnProfileProfileType(str, enum.Enum):
@@ -576,6 +573,29 @@ class DataExplorerBackendMessageContent(BaseModel):
     ] = Field(..., discriminator="method")
 
 
+@enum.unique
+class DataExplorerFrontendEvent(str, enum.Enum):
+    """
+    An enumeration of all the possible events that can be sent to the frontend data_explorer comm.
+    """
+
+    # Reset after a schema change
+    SchemaUpdate = "schema_update"
+
+    # Clear cache and request fresh data
+    DataUpdate = "data_update"
+
+
+class SchemaUpdateParams(BaseModel):
+    """
+    Reset after a schema change
+    """
+
+    discard_state: bool = Field(
+        description="If true, the UI should discard the filter/sort state.",
+    )
+
+
 TableSchema.update_forward_refs()
 
 TableData.update_forward_refs()
@@ -617,3 +637,5 @@ GetColumnProfileParams.update_forward_refs()
 GetColumnProfileRequest.update_forward_refs()
 
 GetStateRequest.update_forward_refs()
+
+SchemaUpdateParams.update_forward_refs()

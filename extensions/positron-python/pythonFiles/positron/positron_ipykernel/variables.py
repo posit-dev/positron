@@ -15,13 +15,7 @@ from comm.base_comm import BaseComm
 from .access_keys import decode_access_key, encode_access_key
 from .inspectors import get_inspector
 from .positron_comm import CommMessage, JsonRpcErrorCode, PositronComm
-from .utils import (
-    JsonData,
-    JsonRecord,
-    cancel_tasks,
-    create_task,
-    get_qualname,
-)
+from .utils import JsonData, JsonRecord, cancel_tasks, create_task, get_qualname
 from .variables_comm import (
     ClearRequest,
     ClipboardFormatFormat,
@@ -49,12 +43,36 @@ logger = logging.getLogger(__name__)
 # Maximum number of children to show in an object's expanded view.
 MAX_CHILDREN: int = 100
 
-# Maximum number of items to send in an update event. If exceeded, a full refresh is sent instead.
+# Maximum number of items to send in an update event. If exceeded, a
+# full refresh is sent instead.
 MAX_ITEMS: int = 10000
 
 # Budget for number of "units" of work to allow for namespace change
 # detection. The costs are defined in inspectors.py
 MAX_SNAPSHOT_COMPARISON_BUDGET: int = 10_000_000
+
+
+def _resolve_value_from_path(context: Any, path: Iterable[str]) -> Any:
+    """
+    Use inspectors to possibly resolve nested value from context
+    """
+    is_known = False
+    value = None
+    for access_key in path:
+        # Check for membership via inspector
+        inspector = get_inspector(context)
+        key = decode_access_key(access_key)
+        is_known = inspector.has_child(key)
+        if is_known:
+            value = inspector.get_child(key)
+
+        # Subsequent segment starts from the value
+        context = value
+
+        # But we stop if the path segment was unknown
+        if not is_known:
+            break
+    return is_known, value
 
 
 class VariablesService:
@@ -111,15 +129,59 @@ class VariablesService:
 
     def _send_update(self, assigned: Mapping[str, Any], removed: Set[str]) -> None:
         """
-        Sends the list of variables that have changed in the current user session through the
-        variables comm to the client.
+        Sends the list of variables that have changed in the current
+        user session through the variables comm to the client.
+
+        TODO: Fix below docstring, see positron#2319
+
+        For example:
+        {
+            "data": {
+                "method": "refresh",
+                "params: {
+                    "assigned": [{
+                        "display_name": "newvar1",
+                        "display_value": "Hello",
+                        "kind": "string"
+                    }],
+                    "removed": ["oldvar1", "oldvar2"]
+                }
+            }
+            ...
+        }
         """
+        # Look for any assigned or removed variables that are active
+        # in the data explorer service
+        exp_service = self.kernel.data_explorer_service
+        for name in removed:
+            if exp_service.variable_has_active_explorers(name):
+                exp_service.handle_variable_deleted(name)
+
+        for name, value in assigned.items():
+            if exp_service.variable_has_active_explorers(name):
+                exp_service.handle_variable_updated(name, value)
+
         # Ensure the number of changes does not exceed our maximum items
-        if len(assigned) < MAX_ITEMS and len(removed) < MAX_ITEMS:
-            self.__send_update(assigned, removed)
-        else:
-            # Otherwise, just refresh the client state
-            self.send_refresh_event()
+        if len(assigned) > MAX_ITEMS or len(removed) > MAX_ITEMS:
+            return self.send_refresh_event()
+
+        # Filter out hidden assigned variables
+        variables = self._get_filtered_vars(assigned)
+        filtered_assigned = _summarize_children(variables)
+
+        # Filter out hidden removed variables and encode access keys
+        hidden = self._get_user_ns_hidden()
+        filtered_removed = [
+            encode_access_key(name) for name in sorted(removed) if name not in hidden
+        ]
+
+        if filtered_assigned or filtered_removed:
+            msg = UpdateParams(
+                assigned=filtered_assigned,
+                removed=filtered_removed,
+                version=0,
+            )
+            self._send_event(VariablesFrontendEvent.Update.value, msg.dict())
 
     def send_refresh_event(self) -> None:
         """
@@ -163,9 +225,6 @@ class VariablesService:
         # First check pre_execute snapshot exists
         if self._snapshot is None:
             return
-
-        # import pdb
-        # pdb.set_trace()
 
         try:
             # Try to detect the changes made since the last execution
@@ -264,7 +323,7 @@ class VariablesService:
             inspector1 = get_inspector(v1)
             inspector2 = get_inspector(v2)
 
-            return type(inspector1) != type(inspector2) or not inspector1.equals(v2)
+            return type(inspector1) is not type(inspector2) or not inspector1.equals(v2)
 
         def _compare_always_different(v1, v2):
             return True
@@ -281,7 +340,7 @@ class VariablesService:
 
                     if key not in after:
                         # Key was removed
-                        removed.add(encode_access_key(key))
+                        removed.add(key)
                     elif are_different_func(value, after[key]):
                         assigned[key] = after[key]
                 except Exception as err:
@@ -348,89 +407,7 @@ class VariablesService:
         if path is None:
             return False, None
 
-        is_known = False
-        value = None
-        context = self._get_user_ns()
-
-        # Walk the given path segment by segment
-        for access_key in path:
-            # Check for membership via inspector
-            inspector = get_inspector(context)
-            key = decode_access_key(access_key)
-            is_known = inspector.has_child(key)
-            if is_known:
-                value = inspector.get_child(key)
-
-            # Subsequent segment starts from the value
-            context = value
-
-            # But we stop if the path segment was unknown
-            if not is_known:
-                break
-
-        return is_known, value
-
-    def __delete_vars(self, names: Iterable[str], parent: Dict[str, Any]) -> Tuple[dict, set]:
-        """
-        Deletes the requested variables by name from the current user session.
-        """
-        if names is None:
-            return ({}, set())
-
-        self.snapshot_user_ns()
-
-        for name in names:
-            try:
-                self.kernel.shell.del_var(name, False)
-            except Exception:
-                logger.warning(f"Unable to delete variable '{name}'")
-                pass
-
-        assigned, removed = self._compare_user_ns()
-
-        # Publish an input to inform clients of the variables that were deleted
-        if len(removed) > 0:
-            code = "del " + ", ".join(removed)
-            self.kernel.publish_execute_input(code, parent)
-
-        return (assigned, removed)
-
-    def __send_update(self, assigned: Mapping[str, Any], removed: Set[str]) -> None:
-        """
-        Sends updates to the list of variables in the current user session
-        through the variables comm to the client.
-
-        For example:
-        {
-            "data": {
-                "method": "refresh",
-                "params: {
-                    "assigned": [{
-                        "display_name": "newvar1",
-                        "display_value": "Hello",
-                        "kind": "string"
-                    }],
-                    "removed": ["oldvar1", "oldvar2"]
-                }
-            }
-            ...
-        }
-        """
-        # Filter out hidden assigned variables
-        variables = self._get_filtered_vars(assigned)
-        filtered_assigned = _summarize_children(variables)
-
-        # Filter out hidden removed variables and encode access keys
-        hidden = self._get_user_ns_hidden()
-        filtered_removed = [key for key in sorted(removed) if key not in hidden]
-
-        if filtered_assigned or filtered_removed:
-            msg = UpdateParams(
-                assigned=filtered_assigned,
-                removed=sorted(filtered_removed),
-                version=0,
-            )
-            self._send_event(VariablesFrontendEvent.Update.value, msg.dict())
+        return _resolve_value_from_path(self._get_user_ns(), path)
 
     def _list_all_vars(self) -> List[Variable]:
         variables = self._get_filtered_vars()
@@ -489,8 +466,30 @@ class VariablesService:
         if names is None:
             return
 
-        assigned, removed = self.__delete_vars(names, parent)
-        self._send_result(sorted(removed))
+        self.snapshot_user_ns()
+
+        for name in names:
+            try:
+                self.kernel.shell.del_var(name, False)
+            except Exception:
+                logger.warning(f"Unable to delete variable '{name}'")
+                pass
+
+        _, removed = self._compare_user_ns()
+
+        # Publish an input to inform clients of the variables that were deleted
+        if len(removed) > 0:
+            code = "del " + ", ".join(removed)
+            self.kernel.publish_execute_input(code, parent)
+
+        # Look for any removed variables that are active in the data
+        # explorer service
+        exp_service = self.kernel.data_explorer_service
+        for name in removed:
+            if exp_service.variable_has_active_explorers(name):
+                exp_service.handle_variable_deleted(name)
+
+        self._send_result([encode_access_key(name) for name in sorted(removed)])
 
     def _inspect_var(self, path: List[str]) -> None:
         """
@@ -529,7 +528,7 @@ class VariablesService:
         access_key = path[-1]
 
         title = str(decode_access_key(access_key))
-        self.kernel.data_explorer_service.register_table(value, title)
+        self.kernel.data_explorer_service.register_table(value, title, variable_path=path)
         self._send_result({})
 
     def _send_event(self, name: str, payload: JsonRecord) -> None:

@@ -7,7 +7,16 @@ from unittest.mock import Mock
 
 import comm
 import pytest
-from positron_ipykernel.positron_ipkernel import PositronIPyKernel, PositronShell
+from positron_ipykernel.data_explorer import (
+    DataExplorerService,
+)
+from positron_ipykernel.positron_ipkernel import (
+    PositronIPyKernel,
+    PositronShell,
+)
+from positron_ipykernel.variables import (
+    VariablesService,
+)
 
 
 class DummyComm(comm.base_comm.BaseComm):
@@ -104,3 +113,34 @@ def mock_displayhook(shell: PositronShell, monkeypatch: pytest.MonkeyPatch) -> M
     mock = Mock()
     monkeypatch.setattr(shell, "displayhook", mock)
     return mock
+
+
+@pytest.fixture
+def variables_service(kernel: PositronIPyKernel) -> VariablesService:
+    """
+    The Positron variables service.
+    """
+    return kernel.variables_service
+
+
+@pytest.fixture
+def variables_comm(variables_service: VariablesService) -> DummyComm:
+    """
+    Convenience fixture for accessing the variables comm.
+    """
+    # Open a comm
+    variables_comm = DummyComm("dummy_variables_comm")
+    variables_service.on_comm_open(variables_comm, {})
+
+    # Clear messages due to the comm_open
+    variables_comm.messages.clear()
+
+    return variables_comm
+
+
+@pytest.fixture()
+def de_service(kernel: PositronIPyKernel) -> DataExplorerService:
+    """
+    The Positron dataviewer service.
+    """
+    return kernel.data_explorer_service

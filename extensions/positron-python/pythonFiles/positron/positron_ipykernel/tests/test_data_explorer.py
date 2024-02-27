@@ -8,12 +8,15 @@ from typing import Any, Dict, List, Optional, Type, cast
 import numpy as np
 import pandas as pd
 import pytest
-from positron_ipykernel._vendor.pydantic import BaseModel
-from positron_ipykernel.data_explorer import COMPARE_OPS, DataExplorerService, PandasView
-from positron_ipykernel.data_explorer_comm import ColumnSchema, FilterResult
+from ..access_keys import encode_access_key
+from .._vendor.pydantic import BaseModel
+from ..data_explorer import COMPARE_OPS, DataExplorerService
+from ..data_explorer_comm import ColumnSchema, ColumnSortKey, FilterResult
 
-from .conftest import DummyComm
-from .utils import json_rpc_request
+from .conftest import DummyComm, PositronShell
+from .utils import json_rpc_notification, json_rpc_request, json_rpc_response
+
+from .test_variables import BIG_ARRAY_LENGTH
 
 TARGET_NAME = "positron.dataExplorer"
 
@@ -25,81 +28,34 @@ def guid():
     return str(uuid.uuid4())
 
 
-@pytest.fixture()
-def service() -> DataExplorerService:
-    """
-    The Positron dataviewer service.
-    """
-    return DataExplorerService(TARGET_NAME)
-
-
 def get_new_comm(
-    service: DataExplorerService,
+    de_service: DataExplorerService,
     table: Any,
     title: str,
     comm_id: Optional[str] = None,
 ) -> DummyComm:
     """
 
-    A comm corresponding to a test dataset belonging to the Positron dataviewer service.
+    A comm corresponding to a test dataset belonging to the Positron
+    dataviewer service.
     """
     if comm_id is None:
         comm_id = guid()
-    service.register_table(table, title, comm_id=comm_id)
+    de_service.register_table(table, title, comm_id=comm_id)
 
     # Clear any existing messages
-    new_comm = cast(DummyComm, service.comms[comm_id])
+    new_comm = cast(DummyComm, de_service.comms[comm_id])
     new_comm.messages.clear()
     return new_comm
 
 
-def get_last_message(service: DataExplorerService, comm_id: str):
-    comm = cast(DummyComm, service.comms[comm_id].comm)
+def get_last_message(de_service: DataExplorerService, comm_id: str):
+    comm = cast(DummyComm, de_service.comms[comm_id].comm)
     return comm.messages[-1]
 
 
 # ----------------------------------------------------------------------
 # Test basic service functionality
-
-
-def test_service_properties(service: DataExplorerService):
-    assert service.comm_target == TARGET_NAME
-
-
-def test_register_table(service: DataExplorerService):
-    df = pd.DataFrame({"a": [1, 2, 3, 4, 5]})
-    comm_id = guid()
-
-    service.register_table(df, "test_table", comm_id=comm_id)
-
-    assert comm_id in service.comms
-    table_view = cast(PandasView, service.tables[comm_id])
-    assert table_view.table is df
-
-
-def test_deregister_table(service: DataExplorerService):
-    df = pd.DataFrame({"a": [1, 2, 3, 4, 5]})
-    comm_id = guid()
-    service.register_table(df, "test_table", comm_id=comm_id)
-    service.deregister_table(comm_id)
-
-    assert len(service.comms) == 0
-    assert len(service.tables) == 0
-
-
-def test_shutdown(service: DataExplorerService):
-    df = pd.DataFrame({"a": [1, 2, 3, 4, 5]})
-    service.register_table(df, "t1", comm_id=guid())
-    service.register_table(df, "t2", comm_id=guid())
-    service.register_table(df, "t3", comm_id=guid())
-
-    service.shutdown()
-    assert len(service.comms) == 0
-    assert len(service.tables) == 0
-
-
-# ----------------------------------------------------------------------
-# Test RPCs for pandas DataFrame
 
 
 SIMPLE_PANDAS_DF = pd.DataFrame(
@@ -120,19 +76,218 @@ SIMPLE_PANDAS_DF = pd.DataFrame(
     }
 )
 
+
+def test_service_properties(de_service: DataExplorerService):
+    assert de_service.comm_target == TARGET_NAME
+
+
+def _dummy_rpc_request(*args):
+    return json_rpc_request(*args, comm_id="dummy_comm_id")
+
+
+def _open_viewer(variables_comm, path):
+    path = [encode_access_key(p) for p in path]
+    msg = _dummy_rpc_request("view", {"path": path})
+    variables_comm.handle_msg(msg)
+    assert variables_comm.messages == [json_rpc_response({})]
+    variables_comm.messages.clear()
+    return tuple(path)
+
+
+def test_explorer_open_close_delete(
+    shell: PositronShell,
+    de_service: DataExplorerService,
+    variables_comm: DummyComm,
+):
+    shell.user_ns.update(
+        {
+            "x": SIMPLE_PANDAS_DF,
+            "y": {"key1": SIMPLE_PANDAS_DF, "key2": SIMPLE_PANDAS_DF},
+        }
+    )
+
+    path = _open_viewer(variables_comm, ["x"])
+
+    paths = de_service.get_paths_for_variable("x")
+    assert len(paths) == 1
+    assert paths[0] == path
+
+    comm_ids = list(de_service.path_to_comm_ids[path])
+    assert len(comm_ids) == 1
+    comm = de_service.comms[comm_ids[0]]
+
+    # Simulate comm_close initiated from the front end
+    comm.comm.handle_close({})
+
+    # Check that cleanup callback worked correctly
+    assert len(de_service.path_to_comm_ids[path]) == 0
+    assert len(de_service.get_paths_for_variable("x")) == 0
+    assert len(de_service.comms) == 0
+    assert len(de_service.table_views) == 0
+
+
+def test_explorer_delete_variable(
+    shell: PositronShell,
+    de_service: DataExplorerService,
+    variables_comm: DummyComm,
+):
+    shell.user_ns.update(
+        {
+            "x": SIMPLE_PANDAS_DF,
+            "y": {"key1": SIMPLE_PANDAS_DF, "key2": SIMPLE_PANDAS_DF},
+        }
+    )
+
+    # Open multiple data viewers
+    _open_viewer(variables_comm, ["x"])
+    _open_viewer(variables_comm, ["x"])
+    _open_viewer(variables_comm, ["y", "key1"])
+    _open_viewer(variables_comm, ["y", "key2"])
+    _open_viewer(variables_comm, ["y", "key2"])
+
+    assert len(de_service.comms) == 5
+    assert len(de_service.table_views) == 5
+    assert len(de_service.get_paths_for_variable("x")) == 1
+    assert len(de_service.get_paths_for_variable("y")) == 2
+
+    # Delete x, check cleaned up and
+    def _check_delete_variable(name):
+        msg = _dummy_rpc_request("delete", {"names": [name]})
+
+        paths = de_service.get_paths_for_variable(name)
+        assert len(paths) > 0
+
+        comms = [
+            de_service.comms[comm_id] for p in paths for comm_id in de_service.path_to_comm_ids[p]
+        ]
+        variables_comm.handle_msg(msg)
+
+        # Check that comms were all closed
+        for comm in comms:
+            last_message = cast(DummyComm, comm.comm).messages[-1]
+            assert last_message["msg_type"] == "comm_close"
+
+        for path in paths:
+            assert len(de_service.path_to_comm_ids[path]) == 0
+
+    _check_delete_variable("x")
+    _check_delete_variable("y")
+
+
+def test_explorer_variable_updates(
+    shell: PositronShell,
+    de_service: DataExplorerService,
+    variables_comm: DummyComm,
+):
+    x = pd.DataFrame({"a": [1, 0, 3, 4]})
+    big_x = pd.DataFrame({"a": np.arange(BIG_ARRAY_LENGTH)})
+    shell.user_ns.update(
+        {
+            "x": x,
+            "big_x": big_x,
+            "y": {"key1": SIMPLE_PANDAS_DF, "key2": SIMPLE_PANDAS_DF},
+        }
+    )
+
+    # Check updates
+    def _check_update_variable(name, update_type="schema", discard_state=True):
+        paths = de_service.get_paths_for_variable(name)
+        assert len(paths) > 0
+
+        comms = [
+            de_service.comms[comm_id] for p in paths for comm_id in de_service.path_to_comm_ids[p]
+        ]
+
+        if update_type == "schema":
+            expected_msg = json_rpc_notification(f"schema_update", {"discard_state": discard_state})
+        else:
+            expected_msg = json_rpc_notification(f"data_update", {})
+
+        # Check that comms were all closed
+        for comm in comms:
+            last_message = cast(DummyComm, comm.comm).messages[-1]
+            assert last_message == expected_msg
+
+    path_x = _open_viewer(variables_comm, ["x"])
+    _open_viewer(variables_comm, ["big_x"])
+    _open_viewer(variables_comm, ["y", "key1"])
+    _open_viewer(variables_comm, ["y", "key2"])
+    _open_viewer(variables_comm, ["y", "key2"])
+
+    # Do a simple update and make sure that sort keys are preserved
+    x_comm_id = list(de_service.path_to_comm_ids[path_x])[0]
+    msg = json_rpc_request(
+        "set_sort_columns",
+        params={"sort_keys": [{"column_index": 0, "ascending": True}]},
+        comm_id=x_comm_id,
+    )
+    de_service.comms[x_comm_id].comm.handle_msg(msg)
+    shell.run_cell("import pandas as pd")
+    shell.run_cell("x = pd.DataFrame({'a': [1, 0, 3, 4, 5]})")
+    _check_update_variable("x", update_type="data")
+
+    tv = de_service.table_views[x_comm_id]
+    assert tv.sort_keys == [ColumnSortKey(column_index=0, ascending=True)]
+    assert tv._need_recompute
+
+    # Execute code that triggers an update event for big_x because it's large
+    shell.run_cell("print('hello world')")
+    _check_update_variable("big_x", update_type="data")
+
+    # Update nested values in y and check for schema updates
+    shell.run_cell(
+        """y = {'key1': y['key1'].iloc[:1]],
+    'key2': y['key2'].copy()}
+    """
+    )
+    _check_update_variable("y", update_type="update", discard_state=False)
+
+    shell.run_cell(
+        """y = {'key1': y['key1'].iloc[:-1, :-1],
+    'key2': y['key2'].copy().iloc[:, 1:]}
+    """
+    )
+    _check_update_variable("y", update_type="schema", discard_state=True)
+
+
+def test_register_table(de_service: DataExplorerService):
+    df = pd.DataFrame({"a": [1, 2, 3, 4, 5]})
+    comm_id = guid()
+
+    de_service.register_table(df, "test_table", comm_id=comm_id)
+
+    assert comm_id in de_service.comms
+    table_view = de_service.table_views[comm_id]
+    assert table_view.table is df
+
+
+def test_shutdown(de_service: DataExplorerService):
+    df = pd.DataFrame({"a": [1, 2, 3, 4, 5]})
+    de_service.register_table(df, "t1", comm_id=guid())
+    de_service.register_table(df, "t2", comm_id=guid())
+    de_service.register_table(df, "t3", comm_id=guid())
+
+    de_service.shutdown()
+    assert len(de_service.comms) == 0
+    assert len(de_service.table_views) == 0
+
+
+# ----------------------------------------------------------------------
+# Test query support for pandas DataFrame
+
 JsonRecords = List[Dict[str, Any]]
 
 
 class PandasFixture:
-    def __init__(self, service: DataExplorerService):
-        self.service = service
+    def __init__(self, de_service: DataExplorerService):
+        self.de_service = de_service
         self._table_ids = {}
 
         self.register_table("simple", SIMPLE_PANDAS_DF)
 
     def register_table(self, table_name: str, table):
         comm_id = guid()
-        self.service.register_table(table, table_name, comm_id=comm_id)
+        self.de_service.register_table(table, table_name, comm_id=comm_id)
         self._table_ids[table_name] = comm_id
 
     def do_json_rpc(self, table_name, method, **params):
@@ -142,8 +297,8 @@ class PandasFixture:
             params=params,
             comm_id=comm_id,
         )
-        self.service.comms[comm_id].comm.handle_msg(request)
-        response = get_last_message(self.service, comm_id)
+        self.de_service.comms[comm_id].comm.handle_msg(request)
+        response = get_last_message(self.de_service, comm_id)
         data = response["data"]
         if "error" in data:
             raise Exception(data["error"]["message"])
@@ -209,8 +364,8 @@ class PandasFixture:
 
 
 @pytest.fixture()
-def pandas_fixture(service: DataExplorerService):
-    return PandasFixture(service)
+def pandas_fixture(de_service: DataExplorerService):
+    return PandasFixture(de_service)
 
 
 def _wrap_json(model: Type[BaseModel], data: JsonRecords):
