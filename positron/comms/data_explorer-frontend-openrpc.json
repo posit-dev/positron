@@ -1,0 +1,29 @@
+{
+	"openrpc": "1.3.0",
+	"info": {
+		"title": "Data Explorer Frontend",
+		"version": "1.0.0"
+	},
+	"methods": [
+		{
+			"name": "schema_update",
+			"summary": "Reset after a schema change",
+			"description": "Fully reset and redraw the data explorer after a schema change.",
+			"params": [
+				{
+					"name": "discard_state",
+					"description": "If true, the UI should discard the filter/sort state.",
+					"schema": {
+						"type": "boolean"
+					}
+				}
+			]
+		},
+		{
+			"name": "data_update",
+			"summary": "Clear cache and request fresh data",
+			"description": "Triggered when there is any data change detected, clearing cache data and triggering a refresh/redraw.",
+			"params": []
+		}
+	]
+}

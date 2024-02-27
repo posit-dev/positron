@@ -6,6 +6,7 @@
 // AUTO-GENERATED from data_explorer.json; do not edit.
 //
 
+import { Event } from 'vs/base/common/event';
 import { PositronBaseComm } from 'vs/workbench/services/languageRuntime/common/positronBaseComm';
 import { IRuntimeClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimeClientInstance';
 
@@ -342,13 +343,32 @@ export enum ColumnFilterSearchType {
 }
 
 /**
- * Column values formatted as strings
+ * Event: Reset after a schema change
  */
-export type ColumnFormattedData = Array<string>;
+export interface SchemaUpdateEvent {
+	/**
+	 * If true, the UI should discard the filter/sort state.
+	 */
+	discard_state: boolean;
+
+}
+
+/**
+ * Event: Clear cache and request fresh data
+ */
+export interface DataUpdateEvent {
+}
+
+export enum DataExplorerFrontendEvent {
+	SchemaUpdate = 'schema_update',
+	DataUpdate = 'data_update'
+}
 
 export class PositronDataExplorerComm extends PositronBaseComm {
 	constructor(instance: IRuntimeClientInstance<any, any>) {
 		super(instance);
+		this.onDidSchemaUpdate = super.createEventEmitter('schema_update', ['discard_state']);
+		this.onDidDataUpdate = super.createEventEmitter('data_update', []);
 	}
 
 	/**
@@ -436,5 +456,19 @@ export class PositronDataExplorerComm extends PositronBaseComm {
 		return super.performRpc('get_state', [], []);
 	}
 
+
+	/**
+	 * Reset after a schema change
+	 *
+	 * Fully reset and redraw the data explorer after a schema change.
+	 */
+	onDidSchemaUpdate: Event<SchemaUpdateEvent>;
+	/**
+	 * Clear cache and request fresh data
+	 *
+	 * Triggered when there is any data change detected, clearing cache data
+	 * and triggering a refresh/redraw.
+	 */
+	onDidDataUpdate: Event<DataUpdateEvent>;
 }
 
