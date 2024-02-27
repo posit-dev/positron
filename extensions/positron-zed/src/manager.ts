@@ -39,6 +39,7 @@ function generateZedMetadata(context: vscode.ExtensionContext,
 		languageVersion: version,
 		base64EncodedIconSvg: fs.readFileSync(iconSvgPath).toString('base64'),
 		runtimeVersion: '0.0.1',
+		sessionLocation: positron.LanguageRuntimeSessionLocation.Browser,
 		startupBehavior: positron.LanguageRuntimeStartupBehavior.Implicit,
 		extraData: {}
 	};

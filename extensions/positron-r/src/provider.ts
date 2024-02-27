@@ -192,6 +192,7 @@ export async function* rRuntimeDiscoverer(
 				fs.readFileSync(
 					path.join(context.extensionPath, 'resources', 'branding', 'r-icon.svg')
 				).toString('base64'),
+			sessionLocation: positron.LanguageRuntimeSessionLocation.Workspace,
 			startupBehavior,
 			extraData
 		};

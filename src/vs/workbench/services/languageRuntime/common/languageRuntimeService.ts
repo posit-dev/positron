@@ -433,6 +433,23 @@ export enum LanguageRuntimeMessageType {
 	CommClosed = 'comm_closed',
 }
 
+/**
+ * An enumeration of possible locations for runtime sessions.
+ */
+export enum LanguageRuntimeSessionLocation {
+	/**
+	 * The runtime session is located in the current workspace (usually a
+	 * terminal); it should be restored when the workspace is re-opened.
+	 */
+	Workspace = 'workspace',
+
+	/**
+	 * The runtime session is browser-only; it should not be restored when the
+	 * workspace is re-opened.
+	 */
+	Browser = 'browser',
+}
+
 export enum LanguageRuntimeStartupBehavior {
 	/**
 	 * The runtime should be started immediately after registration; usually used for runtimes
@@ -529,6 +546,9 @@ export interface ILanguageRuntimeMetadata {
 
 	/** Whether the runtime should start up automatically or wait until explicitly requested */
 	readonly startupBehavior: LanguageRuntimeStartupBehavior;
+
+	/** Where sessions will be located; used as a hint to control session restoration */
+	readonly sessionLocation: LanguageRuntimeSessionLocation;
 
 	/** The identifier of the extension that provides the language support. */
 	readonly extensionId: ExtensionIdentifier;

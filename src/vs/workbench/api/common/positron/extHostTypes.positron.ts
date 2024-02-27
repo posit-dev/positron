@@ -274,3 +274,20 @@ export enum LanguageRuntimeStartupBehavior {
 	 */
 	Explicit = 'explicit',
 }
+
+/**
+ * An enumeration of possible locations for runtime sessions.
+ */
+export enum LanguageRuntimeSessionLocation {
+	/**
+	 * The runtime session is located in the current workspace (usually a
+	 * terminal); it should be restored when the workspace is re-opened.
+	 */
+	Workspace = 'workspace',
+
+	/**
+	 * The runtime session is browser-only; it should not be restored when the
+	 * workspace is re-opened.
+	 */
+	Browser = 'browser',
+}

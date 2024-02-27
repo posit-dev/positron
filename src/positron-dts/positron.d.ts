@@ -388,6 +388,9 @@ declare module 'positron' {
 		/** Whether the runtime should start up automatically or wait until explicitly requested */
 		startupBehavior: LanguageRuntimeStartupBehavior;
 
+		/** Where sessions will be located; used as a hint to control session restoration */
+		sessionLocation: LanguageRuntimeSessionLocation;
+
 		/**
 		 * Extra data supplied by the runtime provider; not read by Positron but supplied
 		 * when creating a new session from the metadata.
@@ -443,6 +446,23 @@ declare module 'positron' {
 		 * usually used for runtimes that only provide REPLs
 		 */
 		Explicit = 'explicit',
+	}
+
+	/**
+	 * An enumeration of possible locations for runtime sessions.
+	 */
+	export enum LanguageRuntimeSessionLocation {
+		/**
+		 * The runtime session is located in the current workspace (usually a
+		 * terminal); it should be restored when the workspace is re-opened.
+		 */
+		Workspace = 'workspace',
+
+		/**
+		 * The runtime session is browser-only; it should not be restored when the
+		 * workspace is re-opened.
+		 */
+		Browser = 'browser',
 	}
 
 	/**
