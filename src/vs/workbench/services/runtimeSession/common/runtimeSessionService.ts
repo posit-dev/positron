@@ -48,6 +48,12 @@ export interface ILanguageRuntimeSession {
 	/** The session mode */
 	readonly sessionMode: LanguageRuntimeSessionMode;
 
+	/**
+	 * A timestamp (in milliseconds since the Epoch) representing the time at
+	 * which the runtime session was created.
+	 */
+	readonly createdTimestamp: number;
+
 	/** The language runtime's dynamic metadata */
 	dynState: ILanguageRuntimeSessionState;
 

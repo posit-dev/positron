@@ -37,6 +37,9 @@ export const RuntimeSessionCard = (props: runtimeSessionCardProps) => {
 					<div className='runtime-id'>
 						{props.session.metadata.runtimeId}
 					</div>
+					<div className='runtime-started'>
+						Started {new Date(props.session.createdTimestamp).toLocaleString()}
+					</div>
 					<div className='runtime-path'>
 						{props.session.metadata.runtimePath}
 					</div>

@@ -102,6 +102,8 @@ class ExtHostLanguageRuntimeSessionAdapter implements ILanguageRuntimeSession {
 	/** Timer used to ensure event queue processing occurs within a set interval */
 	private _eventQueueTimer: NodeJS.Timeout | undefined;
 
+	public readonly createdTimestamp: number;
+
 	constructor(
 		readonly handle: number,
 		readonly sessionId: string,
@@ -114,6 +116,9 @@ class ExtHostLanguageRuntimeSessionAdapter implements ILanguageRuntimeSession {
 		private readonly _notebookService: INotebookService,
 		private readonly _editorService: IEditorService,
 		private readonly _proxy: ExtHostLanguageRuntimeShape) {
+
+		// Mark creation time
+		this.createdTimestamp = Date.now();
 
 		// Bind events to emitters
 		this.onDidChangeRuntimeState = this._stateEmitter.event;

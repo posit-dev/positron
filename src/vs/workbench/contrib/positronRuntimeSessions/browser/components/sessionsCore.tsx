@@ -33,7 +33,12 @@ export const SessionsCore = (props: SessionsCoreProps) => {
 	// Calculate the adjusted height (the height minus the action bars height).
 	const adjustedHeight = props.height - 64;
 
-	// Render.
+	// Sort sessions by created time, so that most recent sessions are at the
+	// top.
+	const allSessions = positronSessionsContext.positronSessions.sort((a, b) => {
+		return b.createdTimestamp - a.createdTimestamp;
+	});
+
 	return (
 		<div className='sessions-core'>
 			<ActionBars {...props} />
@@ -47,7 +52,7 @@ export const SessionsCore = (props: SessionsCoreProps) => {
 							<th>Kind</th>
 						</tr>
 					</thead>
-					{positronSessionsContext.positronSessions.map(session =>
+					{allSessions.map(session =>
 						<RuntimeSession
 							key={session.sessionId}
 							width={props.width}
