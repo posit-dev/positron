@@ -30,6 +30,7 @@ import { IEditorService } from 'vs/workbench/services/editor/common/editorServic
 import { ITextResourceEditorInput } from 'vs/platform/editor/common/editor';
 import { IPositronDataExplorerService } from 'vs/workbench/services/positronDataExplorer/browser/interfaces/positronDataExplorerService';
 import { IRuntimeAffiliationService } from 'vs/workbench/services/runtimeAffiliation/common/runtimeAffliationService';
+import { ObservableValue } from 'vs/base/common/observableInternal/base';
 
 /**
  * Represents a language runtime event (for example a message or state change)
@@ -816,12 +817,16 @@ class ExtHostRuntimeClientInstance<Input, Output>
 
 	private _state: RuntimeClientState = RuntimeClientState.Uninitialized;
 
+	public messageCounter: ObservableValue<number>;
+
 	constructor(
 		private readonly _id: string,
 		private readonly _type: RuntimeClientType,
 		private readonly _handle: number,
 		private readonly _proxy: ExtHostLanguageRuntimeShape) {
 		super();
+
+		this.messageCounter = new ObservableValue(this, this._id, 0);
 
 		this.onDidChangeClientState = this._stateEmitter.event;
 		this._register(this._stateEmitter);
@@ -850,6 +855,9 @@ class ExtHostRuntimeClientInstance<Input, Output>
 
 		// Send the message to the server side.
 		this._proxy.$sendClientMessage(this._handle, this._id, messageId, request);
+
+		// Tick the message counter.
+		this.messageCounter.set(this.messageCounter.get() + 1, undefined);
 
 		// Start a timeout to reject the promise if the server doesn't respond.
 		//
@@ -881,6 +889,9 @@ class ExtHostRuntimeClientInstance<Input, Output>
 
 		// Send the message to the server side.
 		this._proxy.$sendClientMessage(this._handle, this._id, messageId, message);
+
+		// Tick the message counter.
+		this.messageCounter.set(this.messageCounter.get() + 1, undefined);
 	}
 
 	/**
@@ -890,6 +901,9 @@ class ExtHostRuntimeClientInstance<Input, Output>
 	 * @param message The message to emit to the client
 	 */
 	emitData(message: ILanguageRuntimeMessageCommData): void {
+		// Tick the message counter.
+		this.messageCounter.set(this.messageCounter.get() + 1, undefined);
+
 		if (message.parent_id && this._pendingRpcs.has(message.parent_id)) {
 			// This is a response to an RPC call; resolve the deferred promise.
 			const promise = this._pendingRpcs.get(message.parent_id);
