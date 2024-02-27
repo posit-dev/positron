@@ -41,17 +41,21 @@ export function NotebookCell(opts: NotebookCellProps) {
 		<div className={`positron-notebook-cell ${executionStatus}`}
 			data-status={executionStatus}
 		>
-			<div ref={editorPartRef}>
-				<div ref={editorContainerRef} className='positron-monaco-editor-container'></div>
+			<div className='action-bar'>
+				<PositronButton className='run-button' ariaLabel={isRunning ? 'stop execution' : 'Run cell'} onPressed={runCell}>
+					<div className={`button-icon codicon ${isRunning ? 'codicon-primitive-square' : 'codicon-run'}`} />
+				</PositronButton>
 			</div>
-			<PositronButton className='run-button' ariaLabel={isRunning ? 'stop execution' : 'Run cell'} onPressed={runCell}>
-				<div className={`button-icon codicon ${isRunning ? 'codicon-primitive-square' : 'codicon-run'}`} />
-			</PositronButton>
-			<div className='positron-notebook-cell-outputs'>
-				{
-					outputContents.outputs.map((output) =>
-						<NotebookCellOutput key={output.outputId} cellOutput={output} />)
-				}
+			<div className='cell-contents'>
+				<div ref={editorPartRef}>
+					<div ref={editorContainerRef} className='positron-monaco-editor-container'></div>
+				</div>
+				<div className='positron-notebook-cell-outputs'>
+					{
+						outputContents.outputs.map((output) =>
+							<NotebookCellOutput key={output.outputId} cellOutput={output} />)
+					}
+				</div>
 			</div>
 		</div >
 	);
