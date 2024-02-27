@@ -9,8 +9,10 @@ import { ActionBarMenuButton } from 'vs/platform/positronActionBar/browser/compo
 
 export enum ZoomLevel {
 	Fill,
-	Actual,
-	Double,
+	Fifty,
+	SeventyFive,
+	OneHundred,
+	TwoHundred,
 }
 
 interface ZoomPlotMenuButtonProps {
@@ -20,8 +22,10 @@ interface ZoomPlotMenuButtonProps {
 
 const zoomLevelMap = new Map<ZoomLevel, string>([
 	[ZoomLevel.Fill, nls.localize('positronZoomFill', 'Fill')],
-	[ZoomLevel.Actual, nls.localize('positronZoomActual', 'Actual')],
-	[ZoomLevel.Double, nls.localize('positronZoomDouble', '2x')],
+	[ZoomLevel.Fifty, nls.localize('positronZoomFifty', '50%')],
+	[ZoomLevel.SeventyFive, nls.localize('positronZoomSeventyFive', '75%')],
+	[ZoomLevel.OneHundred, nls.localize('positronZoomActual', '100%')],
+	[ZoomLevel.TwoHundred, nls.localize('positronZoomDouble', '200%')],
 ]);
 const zoomPlotTooltip = nls.localize('positronZoomPlotTooltip', "Set the plot zoom");
 
@@ -31,7 +35,7 @@ const zoomPlotTooltip = nls.localize('positronZoomPlotTooltip', "Set the plot zo
  * @returns The rendered component.
  */
 export const ZommPlotMenuButton = (props: ZoomPlotMenuButtonProps) => {
-	const zoomLevels = [ZoomLevel.Fill, ZoomLevel.Actual, ZoomLevel.Double];
+	const zoomLevels = [ZoomLevel.Fill, ZoomLevel.Fifty, ZoomLevel.SeventyFive, ZoomLevel.OneHundred, ZoomLevel.TwoHundred];
 	// State.
 	const [activeZoomLabel, setActiveZoomLabel] =
 		React.useState(zoomLevelMap.get(props.zoomLevel) || ZoomLevel[props.zoomLevel]);

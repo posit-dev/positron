@@ -40,7 +40,22 @@ export const StaticPlotInstance = (props: StaticPlotInstanceProps) => {
 	};
 
 	React.useEffect(() => {
-		setZoomMultiplier(props.zoom === ZoomLevel.Double ? 2 : 1);
+		switch (props.zoom) {
+			case ZoomLevel.Fifty:
+				setZoomMultiplier(.5);
+				break;
+			case ZoomLevel.SeventyFive:
+				setZoomMultiplier(.75);
+				break;
+			case ZoomLevel.TwoHundred:
+				setZoomMultiplier(2);
+				break;
+			case ZoomLevel.OneHundred:
+			case ZoomLevel.Fill:
+			default:
+				setZoomMultiplier(1);
+				break;
+		}
 	}, [props.zoom]);
 
 	React.useLayoutEffect(() => {
@@ -56,8 +71,6 @@ export const StaticPlotInstance = (props: StaticPlotInstanceProps) => {
 		}
 
 		setClasses(classes);
-
-		console.log('clientWidth', clientWidth, 'clientHeight', clientHeight);
 	});
 
 	const getStyle = (): React.CSSProperties => {
@@ -67,26 +80,10 @@ export const StaticPlotInstance = (props: StaticPlotInstanceProps) => {
 			height: '100%',
 		};
 		switch (props.zoom) {
-			case ZoomLevel.Actual:
-				if (zoomHeight) {
-					style = {
-						maxWidth: 'none',
-						maxHeight: 'none',
-						top: '50%',
-						left: 0,
-						transform: 'translateY(-50%)',
-					};
-				} else {
-					style = {
-						maxWidth: 'none',
-						maxHeight: 'none',
-						left: '50%',
-						top: 0,
-						transform: 'translateX(-50%)',
-					};
-				}
-				break;
-			case ZoomLevel.Double:
+			case ZoomLevel.Fifty:
+			case ZoomLevel.SeventyFive:
+			case ZoomLevel.OneHundred:
+			case ZoomLevel.TwoHundred:
 				if (zoomHeight) {
 					style = {
 						maxWidth: 'none',
