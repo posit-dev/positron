@@ -273,7 +273,7 @@ class PandasView(DataExplorerTableView):
         for i, (c, dtype) in enumerate(zip(columns_slice, dtypes_slice)):
             if dtype == object:
                 column_index = i + column_start
-                if i not in self._inferred_dtypes:
+                if column_index not in self._inferred_dtypes:
                     self._inferred_dtypes[column_index] = infer_dtype(
                         self.table.iloc[:, column_index]
                     )
