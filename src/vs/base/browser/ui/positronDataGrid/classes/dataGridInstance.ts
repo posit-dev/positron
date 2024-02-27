@@ -373,12 +373,12 @@ export abstract class DataGridInstance extends Disposable {
 	/**
 	 * Gets or sets the first column index.
 	 */
-	private _firstColumnIndex = 0;
+	protected _firstColumnIndex = 0;
 
 	/**
 	 * Gets or sets the first row index.
 	 */
-	private _firstRowIndex = 0;
+	protected _firstRowIndex = 0;
 
 	/**
 	 * Gets or sets the cursor column index.
