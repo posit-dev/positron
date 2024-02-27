@@ -33,6 +33,14 @@ export class ConnectionItem {
 		readonly name: string,
 		readonly client: positron.RuntimeClientInstance) {
 	}
+
+	async icon(): Promise<string | vscode.Uri | { light: vscode.Uri; dark: vscode.Uri }> {
+		return '';
+	}
+
+	async contains_data(): Promise<boolean> {
+		return false;
+	}
 }
 
 /**
@@ -50,7 +58,9 @@ export class ConnectionItem {
 export class ConnectionItemNode extends ConnectionItem {
 	readonly kind: string;
 	readonly path: Array<{ name: string; kind: string }>;
-	iconPath?: string | vscode.Uri | { light: vscode.Uri; dark: vscode.Uri };
+	private iconPath?: string | vscode.Uri | { light: vscode.Uri; dark: vscode.Uri };
+	private containsData?: boolean;
+
 	constructor(readonly name: string, kind: string, path: Array<{ name: string; kind: string }>, client: positron.RuntimeClientInstance) {
 		super(name, client);
 		this.kind = kind;
@@ -72,6 +82,26 @@ export class ConnectionItemNode extends ConnectionItem {
 		this.iconPath = this.kind;
 		return this.iconPath;
 	}
+
+	override async contains_data() {
+		if (this.containsData) {
+			return this.containsData;
+		}
+
+		const response = await this.client.performRpc({ msg_type: 'contains_data_request', path: this.path }) as any;
+		this.containsData = response.contains_data as boolean;
+
+		return this.containsData;
+	}
+
+	async preview() {
+		if (!this.contains_data()) {
+			// This should never happen, as no UI is provided to preview data when the item
+			// does not contain data.
+			throw new Error('This item does not contain data');
+		}
+		await this.client.performRpc({ msg_type: 'preview_table', table: this.name, path: this.path });
+	}
 }
 
 /**
@@ -88,24 +118,16 @@ export class ConnectionItemDatabase extends ConnectionItemNode {
 }
 
 /**
- * A connection item representing a table in a database
- */
-export class ConnectionItemTable extends ConnectionItemNode {
-	/**
-	 * Preview the table's contents
-	 */
-	preview() {
-		this.client.performRpc({ msg_type: 'preview_table', table: this.name, path: this.path });
-	}
-}
-
-/**
  * A connection item representing a field in a table
  */
 export class ConnectionItemField extends ConnectionItem {
 	constructor(readonly name: string, readonly dtype: string, readonly client: positron.RuntimeClientInstance) {
 		super(name, client);
 		this.dtype = dtype;
+	}
+
+	override async icon() {
+		return 'field';
 	}
 }
 
@@ -155,16 +177,15 @@ export class ConnectionItemsProvider implements vscode.TreeDataProvider<Connecti
 				vscode.TreeItemCollapsibleState.Collapsed :
 				vscode.TreeItemCollapsibleState.None);
 
-		if (item instanceof ConnectionItemTable) {
-			// Set the icon for tables
-			treeItem.iconPath = await this.getTreeItemIcon(item);
+		treeItem.iconPath = await this.getTreeItemIcon(item);
+
+		if (await item.contains_data()) {
+			// if the item contains data, we set the contextValue enabling the UI for previewing the data
 			treeItem.contextValue = 'table';
-		} else if (item instanceof ConnectionItemNode) {
-			// Set the icon for other levels in the hierarchy.
-			treeItem.iconPath = await this.getTreeItemIcon(item);
-		} else if (item instanceof ConnectionItemField) {
-			// Set the icon for fields
-			treeItem.iconPath = vscode.Uri.file(path.join(this.context.extensionPath, 'media', 'field.svg'));
+		}
+
+		if (item instanceof ConnectionItemField) {
+			// shows the field datatype as the treeItem description
 			treeItem.description = '<' + item.dtype + '>';
 		}
 
@@ -177,7 +198,7 @@ export class ConnectionItemsProvider implements vscode.TreeDataProvider<Connecti
 		return treeItem;
 	}
 
-	async getTreeItemIcon(item: ConnectionItemNode): Promise<vscode.Uri | { light: vscode.Uri; dark: vscode.Uri }> {
+	async getTreeItemIcon(item: ConnectionItem): Promise<vscode.Uri | { light: vscode.Uri; dark: vscode.Uri }> {
 		const icon = await item.icon();
 
 		if (typeof icon === 'string') {
@@ -221,44 +242,34 @@ export class ConnectionItemsProvider implements vscode.TreeDataProvider<Connecti
 	 * @param element The element to get the children for
 	 * @returns The children of the element
 	 */
-	getChildren(element?: ConnectionItem): Thenable<ConnectionItem[]> {
-		// Fields don't have children
-		if (element instanceof ConnectionItemField) {
-			return Promise.resolve([]);
+	async getChildren(element?: ConnectionItemNode): Promise<ConnectionItem[]> {
+
+		if (!element) {
+			// At the root, return the top-level connections
+			return this._connections;
 		}
 
-		if (element) {
-			return new Promise((resolve, _reject) => {
-				if (element instanceof ConnectionItemTable) {
-					element.client.performRpc({ msg_type: 'fields_request', table: element.name, path: element.path }).then(
-						(response: any) => {
-							const fields = response.fields as Array<{ name: string; dtype: string }>;
-							const fieldItems = fields.map((field) => {
-								return new ConnectionItemField(field.name, field.dtype, element.client);
-							});
-							resolve(fieldItems);
-						}
-					);
-				} else if (element instanceof ConnectionItemNode) {
-					element.client.performRpc({ msg_type: 'tables_request', name: element.name, kind: element.kind, path: element.path }).then(
-						(response: any) => {
-							const objects = response.tables as Array<{ name: string; kind: string }>;
-							const objectItems = objects.map((obj) => {
-								const path = [...element.path, { name: obj.name, kind: obj.kind }];
-								if (obj.kind === 'table') {
-									return new ConnectionItemTable(obj.name, obj.kind, path, element.client);
-								} else {
-									return new ConnectionItemNode(obj.name, obj.kind, path, element.client);
-								}
-							});
-							resolve(objectItems);
-						}
-					);
-				}
-			});
-		} else {
-			// At the root, return the top-level connections
-			return Promise.resolve(this._connections);
+		// Fields don't have children
+		if (element instanceof ConnectionItemField) {
+			return [];
 		}
+
+		// The node is a view or a table so we want to get the fields on it.
+		if (await element.contains_data()) {
+			const response = await element.client.performRpc({ msg_type: 'fields_request', table: element.name, path: element.path }) as any;
+			const fields = response.fields as Array<{ name: string; dtype: string }>;
+			return fields.map((field) => {
+				return new ConnectionItemField(field.name, field.dtype, element.client);
+			});
+		}
+
+		// The node is a database, schema, or catalog, so we want to get the next set of elements in
+		// the tree.
+		const response = await element.client.performRpc({ msg_type: 'tables_request', name: element.name, kind: element.kind, path: element.path }) as any;
+		const children = response.tables as Array<{ name: string; kind: string }>;
+		return children.map((obj) => {
+			const path = [...element.path, { name: obj.name, kind: obj.kind }];
+			return new ConnectionItemNode(obj.name, obj.kind, path, element.client);
+		});
 	}
 }
