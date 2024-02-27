@@ -436,6 +436,27 @@ def test_pandas_get_schema(pandas_fixture: PandasFixture):
     assert result["columns"] == _wrap_json(ColumnSchema, bigger_schema[10:20])
 
 
+def test_pandas_wide_schemas(pandas_fixture: PandasFixture):
+    arr = np.arange(10).astype(object)
+
+    ncols = 10000
+    df = pd.DataFrame({f"col_{i}": arr for i in range(ncols)})
+
+    pandas_fixture.register_table("wide_df", df)
+
+    chunk_size = 100
+    for chunk_index in range(ncols // chunk_size):
+        start_index = chunk_index * chunk_size
+        pandas_fixture.register_table(
+            f"wide_df_{chunk_index}",
+            df.iloc[:, start_index : (chunk_index + 1) * chunk_size],
+        )
+
+        schema_slice = pandas_fixture.get_schema("wide_df", start_index, chunk_size)
+        expected = pandas_fixture.get_schema(f"wide_df_{chunk_index}", 0, chunk_size)
+        assert schema_slice["columns"] == expected["columns"]
+
+
 def _trim_whitespace(columns):
     return [[x.strip() for x in column] for column in columns]
 
