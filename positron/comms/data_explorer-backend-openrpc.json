@@ -374,13 +374,6 @@
 					}
 				}
 			},
-			"column_formatted_data": {
-				"type": "array",
-				"description": "Column values formatted as strings",
-				"items": {
-					"type": "string"
-				}
-			},
 			"column_filter": {
 				"type": "object",
 				"description": "Specifies a table row filter based on a column's values",

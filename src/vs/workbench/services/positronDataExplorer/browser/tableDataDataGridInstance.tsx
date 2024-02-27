@@ -12,7 +12,7 @@ import { TableDataCell } from 'vs/workbench/services/positronDataExplorer/browse
 import { TableDataRowHeader } from 'vs/workbench/services/positronDataExplorer/browser/components/tableDataRowHeader';
 import { PositronDataExplorerColumn } from 'vs/workbench/services/positronDataExplorer/browser/positronDataExplorerColumn';
 import { DataExplorerClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimeDataExplorerClient';
-import { ColumnSortKey } from 'vs/workbench/services/languageRuntime/common/positronDataExplorerComm';
+import { ColumnSortKey, SchemaUpdateEvent } from 'vs/workbench/services/languageRuntime/common/positronDataExplorerComm';
 import {
 	DataFetchRange,
 	FetchedData,
@@ -36,7 +36,7 @@ export class TableDataDataGridInstance extends DataGridInstance {
 	private _dataCache?: TableDataCache;
 	private _lastFetchedData?: FetchedData;
 
-	private _schemaCache?: TableSchemaCache;
+	private _schemaCache: TableSchemaCache;
 	private _lastFetchedSchema?: FetchedSchema;
 
 	//#endregion Private Properties
@@ -72,8 +72,35 @@ export class TableDataDataGridInstance extends DataGridInstance {
 			cellBorder: true
 		});
 
+		this._schemaCache = new TableSchemaCache(
+			async (req: SchemaFetchRange) => {
+				return this._dataExplorerClientInstance.getSchema(req.startIndex,
+					req.endIndex - req.startIndex);
+			}
+		);
+
 		// Set the data explorer client instance.
 		this._dataExplorerClientInstance = dataExplorerClientInstance;
+
+		this._dataExplorerClientInstance.onDidSchemaUpdate(async (e: SchemaUpdateEvent) => {
+			this._lastFetchedData = undefined;
+			this._lastFetchedSchema = undefined;
+
+			// Reset cursor to top left
+			// TODO: These attributes were made protected to allow this. Add a method to
+			// reset these without firing an update request which we don't want here yet.
+			this._firstColumnIndex = 0;
+			this._firstRowIndex = 0;
+
+			// Resets data schema, fetches initial schema and data
+			this.initialize();
+		});
+
+		this._dataExplorerClientInstance.onDidDataUpdate(async (_evt) => {
+			this._lastFetchedData = undefined;
+			this._dataCache?.clear();
+			this.fetchData();
+		});
 	}
 
 	//#endregion Constructor
@@ -96,12 +123,7 @@ export class TableDataDataGridInstance extends DataGridInstance {
 	 *
 	 */
 	initialize() {
-		this._schemaCache = new TableSchemaCache(
-			async (req: SchemaFetchRange) => {
-				return this._dataExplorerClientInstance.getSchema(req.startIndex,
-					req.endIndex - req.startIndex);
-			}
-		);
+		this._schemaCache.clear();
 		this._schemaCache.initialize().then(async (_) => {
 			this._lastFetchedSchema = await this._schemaCache?.fetch({ startIndex: 0, endIndex: 1000 });
 
