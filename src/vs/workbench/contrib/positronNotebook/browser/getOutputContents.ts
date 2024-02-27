@@ -89,6 +89,10 @@ type ParsedOutput = {
 	content: string;
 } |
 {
+	type: 'image';
+	dataUrl: string;
+} |
+{
 	type: 'interupt';
 	trace: string;
 } | {
@@ -126,6 +130,25 @@ export function parseOutputData(output: ICellOutput['outputs'][number]): ParsedO
 		return { type: 'text', content: message };
 	}
 
+	if (mime === 'image/png') {
+		return {
+			type: 'image',
+			dataUrl: `data:image/png;base64,${uint8ToBase64(data.buffer)}`
+		};
+	}
+
 
 	return { type: 'unknown', contents: message };
+}
+
+
+function uint8ToBase64(u8: Uint8Array): string {
+
+	return btoa(
+		String.fromCharCode.apply(
+			null,
+			// Forgive me for I have sinned
+			u8 as unknown as number[]
+		)
+	);
 }
