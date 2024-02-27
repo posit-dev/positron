@@ -280,7 +280,7 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 			// need to go back into the body of the loop to discover those
 			// runtimes as well.
 			start = end;
-			end = managers.length;
+			end = this._runtimeManagers.length;
 		}
 
 		// Notify the main thread that discovery is complete

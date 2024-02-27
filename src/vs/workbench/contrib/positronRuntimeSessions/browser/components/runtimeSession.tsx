@@ -2,6 +2,7 @@
  *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
+import 'vs/css!./runtimeSession';
 import * as React from 'react';
 import { useEffect, useState } from 'react'; // eslint-disable-line no-duplicate-imports
 import { IReactComponentContainer } from 'vs/base/browser/positronReactRenderer';
@@ -37,7 +38,7 @@ export const RuntimeSession = (props: RuntimeSessionProps) => {
 
 	// Render.
 	return (
-		<tr className='runtime-session'>
+		<tr className={'runtime-session ' + props.session.getRuntimeState()}>
 			<td>
 				{props.session.sessionName}
 			</td>
