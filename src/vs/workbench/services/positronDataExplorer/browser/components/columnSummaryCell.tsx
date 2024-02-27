@@ -9,8 +9,8 @@ import 'vs/css!./columnSummaryCell';
 import * as React from 'react';
 
 // Other dependencies.
-import { PositronButton } from 'vs/base/browser/ui/positronComponents/positronButton';
-import { NumberExtendedInfo } from 'vs/workbench/services/positronDataExplorer/browser/components/numberExtendedInfo';
+import { ProfileNumber } from 'vs/workbench/services/positronDataExplorer/browser/components/profileNumber';
+import { ProfileString } from 'vs/workbench/services/positronDataExplorer/browser/components/profileString';
 import { ColumnSchema, ColumnSchemaTypeDisplay } from 'vs/workbench/services/languageRuntime/common/positronDataExplorerComm';
 import { TableSummaryDataGridInstance } from 'vs/workbench/services/positronDataExplorer/browser/tableSummaryDataGridInstance';
 
@@ -33,7 +33,7 @@ export const ColumnSummaryCell = (props: ColumnSummaryCellProps) => {
 	 * Returns the data type icon for the column schema.
 	 * @returns The data type icon.
 	 */
-	const dataTypeIcon = (): string => {
+	const dataTypeIcon = () => {
 		// Determine the alignment based on type.
 		switch (props.columnSchema.type_display) {
 			case ColumnSchemaTypeDisplay.Number:
@@ -66,6 +66,46 @@ export const ColumnSummaryCell = (props: ColumnSummaryCellProps) => {
 			// This shouldn't ever happen.
 			default:
 				return 'codicon-question';
+		}
+	};
+
+	/**
+	 * Returns the profile component for the column.
+	 * @returns The profile component.
+	 */
+	const profile = () => {
+		// Determine the alignment based on type.
+		switch (props.columnSchema.type_display) {
+			case ColumnSchemaTypeDisplay.Number:
+				return <ProfileNumber />;
+
+			case ColumnSchemaTypeDisplay.Boolean:
+				return null;
+
+			case ColumnSchemaTypeDisplay.String:
+				return <ProfileString />;
+
+			case ColumnSchemaTypeDisplay.Date:
+				return null;
+
+			case ColumnSchemaTypeDisplay.Datetime:
+				return null;
+
+			case ColumnSchemaTypeDisplay.Time:
+				return null;
+
+			case ColumnSchemaTypeDisplay.Array:
+				return null;
+
+			case ColumnSchemaTypeDisplay.Struct:
+				return null;
+
+			case ColumnSchemaTypeDisplay.Unknown:
+				return null;
+
+			// This shouldn't ever happen.
+			default:
+				return null;
 		}
 	};
 
@@ -120,8 +160,8 @@ export const ColumnSummaryCell = (props: ColumnSummaryCellProps) => {
 
 			</div>
 			{expanded &&
-				<div className='extended-info'>
-					<NumberExtendedInfo />
+				<div className='profile-info'>
+					{profile()}
 				</div>
 			}
 		</div>

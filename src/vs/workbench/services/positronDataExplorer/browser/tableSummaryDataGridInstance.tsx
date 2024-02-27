@@ -33,7 +33,7 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 
 	private _tableSchema?: TableSchema;
 
-	private _schemaCache?: TableSchemaCache;
+	private _schemaCache: TableSchemaCache;
 	private _lastFetchedSchema?: FetchedSchema;
 
 	/**
@@ -75,6 +75,14 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 
 		// Set the data explorer client instance.
 		this._dataExplorerClientInstance = dataExplorerClientInstance;
+
+		// Allocate and initialize the TableSchemaCache.
+		this._schemaCache = new TableSchemaCache(async (schemaFetchRange: SchemaFetchRange) => {
+			return this._dataExplorerClientInstance.getSchema(
+				schemaFetchRange.startIndex,
+				schemaFetchRange.endIndex - schemaFetchRange.startIndex
+			);
+		});
 	}
 
 	//#endregion Constructor
@@ -103,6 +111,7 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 	 *
 	 */
 	initialize() {
+
 		this._dataExplorerClientInstance.getSchema(0, 1000).then(tableSchema => {
 
 			console.log(`++++++++++ Schema returned with ${tableSchema.columns.length} columns`);

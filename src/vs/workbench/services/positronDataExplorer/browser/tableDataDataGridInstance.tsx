@@ -29,7 +29,7 @@ export class TableDataDataGridInstance extends DataGridInstance {
 	private _dataCache?: TableDataCache;
 	private _lastFetchedData?: FetchedData;
 
-	private _schemaCache?: TableSchemaCache;
+	private _schemaCache: TableSchemaCache;
 	private _lastFetchedSchema?: FetchedSchema;
 
 	//#endregion Private Properties
@@ -71,6 +71,14 @@ export class TableDataDataGridInstance extends DataGridInstance {
 
 		// Set the data explorer client instance.
 		this._dataExplorerClientInstance = dataExplorerClientInstance;
+
+		// Allocate and initialize the TableSchemaCache.
+		this._schemaCache = new TableSchemaCache(async (schemaFetchRange: SchemaFetchRange) => {
+			return this._dataExplorerClientInstance.getSchema(
+				schemaFetchRange.startIndex,
+				schemaFetchRange.endIndex - schemaFetchRange.startIndex
+			);
+		});
 	}
 
 	//#endregion Constructor
@@ -93,17 +101,11 @@ export class TableDataDataGridInstance extends DataGridInstance {
 	 *
 	 */
 	initialize() {
-		this._schemaCache = new TableSchemaCache(
-			async (req: SchemaFetchRange) => {
-				return this._dataExplorerClientInstance.getSchema(req.startIndex,
-					req.endIndex - req.startIndex);
-			}
-		);
 		this._schemaCache.initialize().then(async (_) => {
-			this._lastFetchedSchema = await this._schemaCache?.fetch({ startIndex: 0, endIndex: 1000 });
+			this._lastFetchedSchema = await this._schemaCache.fetch({ startIndex: 0, endIndex: 1000 });
 
 			this._dataCache = new TableDataCache(
-				this._schemaCache?.tableShape!,
+				this._schemaCache.tableShape!,
 				async (req: DataFetchRange) => {
 					// Build the column indices to fetch.
 					const columnIndices: number[] = [];
@@ -215,7 +217,7 @@ export class TableDataDataGridInstance extends DataGridInstance {
 	 */
 	cell(columnIndex: number, rowIndex: number): JSX.Element | undefined {
 		// We need the data and schema to render the cell
-		if (!this._lastFetchedData || !this._lastFetchedSchema) {
+		if (!this._lastFetchedSchema || !this._lastFetchedData) {
 			return undefined;
 		}
 
@@ -264,8 +266,8 @@ export class TableDataDataGridInstance extends DataGridInstance {
 		};
 
 		if (!this._lastFetchedSchema ||
-			!this._schemaCache?.rangeIncludes(schemaRange, this._lastFetchedSchema)) {
-			this._lastFetchedSchema = await this._schemaCache?.fetch(schemaRange);
+			!this._schemaCache.rangeIncludes(schemaRange, this._lastFetchedSchema)) {
+			this._lastFetchedSchema = await this._schemaCache.fetch(schemaRange);
 		}
 
 		const dataRange: DataFetchRange = {

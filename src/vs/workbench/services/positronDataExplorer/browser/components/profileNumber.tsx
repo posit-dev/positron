@@ -3,36 +3,36 @@
  *--------------------------------------------------------------------------------------------*/
 
 // CSS.
-import 'vs/css!./numberExtendedInfo';
+import 'vs/css!./profileNumber';
 
 // React.
 import * as React from 'react';
 
 /**
- * NumberExtendedInfoProps interface.
+ * ProfileNumberProps interface.
  */
-interface NumberExtendedInfoProps {
+interface ProfileNumberProps {
 }
 
 /**
- * NumberExtendedInfo component.
- * @param props A ColumnSummaryCellProps that contains the component properties.
+ * ProfileNumber component.
+ * @param props A ProfileNumberProps that contains the component properties.
  * @returns The rendered component.
  */
-export const NumberExtendedInfo = (props: NumberExtendedInfoProps) => {
+export const ProfileNumber = (props: ProfileNumberProps) => {
 	return (
 		<div className='tabular-info'>
 			<div className='labels'>
-				<div className='label'>NA:</div>
-				<div className='label'>Median:</div>
-				<div className='label'>Mean:</div>
-				<div className='label'>SD:</div>
-				<div className='label'>Min:</div>
-				<div className='label'>Max:</div>
+				<div className='label'>NA</div>
+				<div className='label'>Median</div>
+				<div className='label'>Mean</div>
+				<div className='label'>SD</div>
+				<div className='label'>Min</div>
+				<div className='label'>Max</div>
 			</div>
 			<div className='values'>
 				<div className='values-left'>
-					<div className='value'>3</div>
+					<div className='value'>12</div>
 					<div className='value'>1</div>
 					<div className='value'>4</div>
 					<div className='value'>2</div>

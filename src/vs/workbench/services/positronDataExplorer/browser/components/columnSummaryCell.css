@@ -13,7 +13,7 @@
 	display: grid;
 	overflow: hidden;
 	position: absolute;
-	grid-template-rows: [basic-info] 34px [extended-info] 1fr [end];
+	grid-template-rows: [basic-info] 34px [profile-info] 1fr [end];
 }
 
 .data-grid-row-cell
@@ -21,7 +21,7 @@
 .column-summary
 .cursor-background {
 	top: 2px;
-	right: 1px;
+	right: 2px;
 	bottom: 2px;
 	left: 2px;
 	z-index: -1;
@@ -36,7 +36,7 @@
 .basic-info {
 	display: grid;
 	align-items: center;
-	grid-row: basic-info / extended-info;
+	grid-row: basic-info / profile-info;
 	grid-template-columns: [left-gutter] 4px [expand-collapse] 25px [icon] 25px [title] 1fr [missing-values] min-content [right-gutter] 12px [end];
 }
 
@@ -112,16 +112,16 @@
 .data-grid-row-cell
 .content
 .column-summary
-.extended-info {
+.profile-info {
 	display: grid;
-	grid-row: extended-info / end;
+	grid-row: profile-info / end;
 	grid-template-columns: [left-gutter] 54px [tabular-info] 1fr [right-gutter] 12px [end];
 }
 
 .data-grid-row-cell
 .content
 .column-summary
-.extended-info
+.profile-info
 .tabular-info {
 	display: grid;
 	overflow: hidden;
@@ -132,7 +132,7 @@
 .data-grid-row-cell
 .content
 .column-summary
-.extended-info
+.profile-info
 .tabular-info
 .labels
 {
@@ -143,7 +143,7 @@
 .data-grid-row-cell
 .content
 .column-summary
-.extended-info
+.profile-info
 .tabular-info
 .labels
 .label {
@@ -153,7 +153,7 @@
 .data-grid-row-cell
 .content
 .column-summary
-.extended-info
+.profile-info
 .tabular-info
 .values
 {
@@ -167,7 +167,7 @@
 .data-grid-row-cell
 .content
 .column-summary
-.extended-info
+.profile-info
 .tabular-info
 .values
 .values-left
@@ -181,7 +181,7 @@
 .data-grid-row-cell
 .content
 .column-summary
-.extended-info
+.profile-info
 .tabular-info
 .values
 .values-right
@@ -195,7 +195,7 @@
 .data-grid-row-cell
 .content
 .column-summary
-.extended-info
+.profile-info
 .tabular-info
 .values
 .value {
