@@ -33,3 +33,7 @@ table.sessions-list th {
 table.sessions-list th {
 	text-align: left;
 }
+
+.sessions-container {
+	overflow: auto;
+}

@@ -4,15 +4,20 @@
 
 import 'vs/css!./runtimeSessionCard';
 import * as React from 'react';
+import { useEffect, useState } from 'react'; // eslint-disable-line no-duplicate-imports
 import { ILanguageRuntimeSession } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
-import { RuntimeExitReason } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { RuntimeExitReason, RuntimeState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { RuntimeClientList } from 'vs/workbench/contrib/positronRuntimeSessions/browser/components/runtimeClientList';
+import { DisposableStore } from 'vs/base/common/lifecycle';
 
 interface runtimeSessionCardProps {
 	readonly session: ILanguageRuntimeSession;
 }
 
 export const RuntimeSessionCard = (props: runtimeSessionCardProps) => {
+
+	const [sessionState, setSessionState] = useState(props.session.getRuntimeState());
+
 	const shutdownSession = () => {
 		props.session.shutdown(RuntimeExitReason.Shutdown);
 	};
@@ -20,6 +25,27 @@ export const RuntimeSessionCard = (props: runtimeSessionCardProps) => {
 	const forceQuitSession = () => {
 		props.session.forceQuit();
 	};
+
+	const restartSession = () => {
+		props.session.restart();
+	};
+
+	const interruptSession = () => {
+		props.session.interrupt();
+	};
+
+	const showOutput = () => {
+		props.session.showOutput();
+	};
+
+	// Main useEffect hook.
+	useEffect(() => {
+		const disposableStore = new DisposableStore();
+		disposableStore.add(props.session.onDidChangeRuntimeState(state => {
+			setSessionState(state);
+		}));
+		return () => disposableStore.dispose();
+	});
 
 	return (
 		<tr>
@@ -46,12 +72,14 @@ export const RuntimeSessionCard = (props: runtimeSessionCardProps) => {
 					</div>
 				</div>
 				<div className='runtime-action-buttons'>
-					<button onClick={forceQuitSession}>force quit</button>
-					<button onClick={shutdownSession}>shut down</button>
+					{sessionState !== RuntimeState.Exited && <button onClick={forceQuitSession}>force quit</button>}
+					{sessionState !== RuntimeState.Exited && <button onClick={shutdownSession}>shut down</button>}
+					{sessionState !== RuntimeState.Exited && <button onClick={restartSession}>restart</button>}
+					{sessionState === RuntimeState.Busy && <button onClick={interruptSession}>interrupt</button>}
+					<button onClick={showOutput}>output log</button>
 				</div>
-				{props.session.clientInstances.length > 0 ?
-					<RuntimeClientList session={props.session} /> :
-					<span>No connected clients.</span>}
+				{props.session.clientInstances.length > 0 &&
+					<RuntimeClientList session={props.session} />}
 			</td>
 		</tr>
 	);

@@ -5,7 +5,7 @@
 import 'vs/css!./runtimeClient';
 import * as React from 'react';
 import { useEffect, useState } from 'react'; // eslint-disable-line no-duplicate-imports
-import { IRuntimeClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimeClientInstance';
+import { IRuntimeClientInstance, RuntimeClientState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeClientInstance';
 import { DisposableStore } from 'vs/base/common/lifecycle';
 import { Event } from 'vs/base/common/event';
 
@@ -17,6 +17,11 @@ export const RuntimeClient = (props: runtimeClientProps) => {
 
 	const [state, setState] = useState(props.client.getClientState());
 	const [counter, setCounter] = useState(props.client.messageCounter.get());
+
+	const disconnect = (e: React.MouseEvent<HTMLAnchorElement>) => {
+		e.preventDefault();
+		props.client.dispose();
+	};
 
 	useEffect(() => {
 		// Create the disposable store for cleanup.
@@ -46,11 +51,18 @@ export const RuntimeClient = (props: runtimeClientProps) => {
 			<div className='client-type'>{props.client.getClientType()}</div>
 			<div className='client-id'>{props.client.getClientId()}</div>
 		</td>
-		<td>
+		<td className='message-counter'>
 			{counter}
 		</td>
-		<td>
+		<td colSpan={state === RuntimeClientState.Connected ? 1 : 2}>
 			{state}
 		</td>
+		{state === RuntimeClientState.Connected &&
+			<td className='disconnect-button'>
+				<a href='#' onClick={disconnect}>
+					<span className='codicon codicon-debug-disconnect' title='Disconnect client'></span>
+				</a>
+			</td>
+		}
 	</tr>;
 };
