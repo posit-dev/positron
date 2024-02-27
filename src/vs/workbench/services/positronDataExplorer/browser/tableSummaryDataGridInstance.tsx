@@ -261,8 +261,6 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 		// Get the column schema.
 		const columnSchema = this._tableSchema.columns[rowIndex];
 
-		console.log(`Asked for ${columnSchema.column_name}`);
-
 		// Return the ColumnSummaryCell.
 		return (
 			<ColumnSummaryCell
