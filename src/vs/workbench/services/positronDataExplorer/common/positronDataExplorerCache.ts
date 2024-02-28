@@ -154,6 +154,10 @@ export class TableDataCache extends FetchCache<DataFetchRange, FetchedData> {
 		this._fetchFunc = fetchFunc;
 	}
 
+	updateShape(newShape: [number, number]) {
+		this._tableShape = newShape;
+	}
+
 	getRangeTotalSize(range: DataFetchRange): number {
 		return ((range.columnEndIndex - range.columnStartIndex) *
 			(range.rowEndIndex - range.rowStartIndex));
@@ -197,17 +201,16 @@ export class TableSchemaCache extends FetchCache<SchemaFetchRange, FetchedSchema
 	private readonly SCHEMA_WINDOW = 50;
 
 	private _fetchFunc;
-	public tableShape: [number, number];
+	private _tableShape: [number, number];
 
-	constructor(fetchFunc: SchemaFetchFunc, maxCacheSize: number = 10_000) {
+	constructor(tableShape: [number, number], fetchFunc: SchemaFetchFunc, maxCacheSize: number = 10_000) {
 		super(maxCacheSize);
-		this.tableShape = [0, 0];
+		this._tableShape = tableShape;
 		this._fetchFunc = fetchFunc;
 	}
 
-	async initialize() {
-		const init_schema = await this._fetchFunc({ startIndex: 0, endIndex: 0 });
-		this.tableShape = [init_schema.num_rows, init_schema.total_num_columns];
+	updateShape(newShape: [number, number]) {
+		this._tableShape = newShape;
 	}
 
 	getRangeTotalSize(range: SchemaFetchRange): number {
@@ -223,7 +226,7 @@ export class TableSchemaCache extends FetchCache<SchemaFetchRange, FetchedSchema
 		range = structuredClone(range);
 
 		range.startIndex = Math.max(0, range.startIndex - this.SCHEMA_WINDOW);
-		range.endIndex = Math.min(this.tableShape[1], range.endIndex + this.SCHEMA_WINDOW);
+		range.endIndex = Math.min(this._tableShape[1], range.endIndex + this.SCHEMA_WINDOW);
 
 		const schema = await this._fetchFunc(range);
 

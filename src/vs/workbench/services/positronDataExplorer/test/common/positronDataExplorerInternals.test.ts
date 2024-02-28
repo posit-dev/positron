@@ -24,7 +24,7 @@ class MockDataCache extends TableDataCache {
 			for (let i = req.columnStartIndex; i < req.columnEndIndex; i++) {
 				columnIndices.push(i);
 			}
-			return mocks.getExampleTableData(this.schema,
+			return mocks.getExampleTableData(tableShape, this.schema,
 				req.rowStartIndex,
 				req.rowEndIndex - req.rowStartIndex,
 				columnIndices
@@ -38,12 +38,10 @@ class MockDataCache extends TableDataCache {
 class MockSchemaCache extends TableSchemaCache {
 	private schema: TableSchema;
 
-	constructor(schema: TableSchema) {
-		super(async (req: SchemaFetchRange) => {
+	constructor(tableShape: [number, number], schema: TableSchema) {
+		super(tableShape, async (req: SchemaFetchRange) => {
 			return {
-				columns: this.schema.columns.slice(req.startIndex, req.endIndex),
-				num_rows: this.schema.num_rows,
-				total_num_columns: this.schema.total_num_columns
+				columns: this.schema.columns.slice(req.startIndex, req.endIndex)
 			};
 		});
 		this.schema = schema;
@@ -124,11 +122,7 @@ suite('DataExplorerInternals', () => {
 		const numRows = 100000;
 		const numColumns = 1000;
 		const schema = mocks.getTableSchema(numRows, numColumns);
-		const fetcher = new MockSchemaCache(schema);
-
-		await fetcher.initialize();
-
-		assert.deepEqual(fetcher.tableShape, [numRows, numColumns]);
+		const fetcher = new MockSchemaCache([numRows, numColumns], schema);
 
 		const range: SchemaFetchRange = {
 			startIndex: 50,
@@ -139,8 +133,6 @@ suite('DataExplorerInternals', () => {
 		assert.equal(result.startIndex, 0);
 		assert.equal(result.endIndex, 150);
 		assert.equal(result.schema.columns.length, 150);
-		assert.equal(result.schema.num_rows, numRows);
-		assert.equal(result.schema.total_num_columns, numColumns);
 
 		assert.deepEqual(result.schema.columns, schema.columns.slice(0, 150));
 		assert.equal(fetcher.currentCacheSize(), 150);

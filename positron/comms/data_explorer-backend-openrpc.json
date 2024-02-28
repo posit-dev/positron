@@ -33,9 +33,7 @@
 					"name": "table_schema",
 					"description": "The schema for a table-like object",
 					"required": [
-						"columns",
-						"num_rows",
-						"total_num_columns"
+						"columns"
 					],
 					"properties": {
 						"columns": {
@@ -44,14 +42,6 @@
 							"items": {
 								"$ref": "#/components/schemas/column_schema"
 							}
-						},
-						"num_rows": {
-							"type": "integer",
-							"description": "Numbers of rows in the unfiltered dataset"
-						},
-						"total_num_columns": {
-							"type": "integer",
-							"description": "Total number of columns in the unfiltered dataset"
 						}
 					}
 				}
@@ -279,18 +269,38 @@
 		{
 			"name": "get_state",
 			"summary": "Get the state",
-			"description": "Request the current backend state (applied filters and sort columns)",
+			"description": "Request the current table state (applied filters and sort columns)",
 			"params": [],
 			"result": {
 				"schema": {
 					"type": "object",
-					"name": "backend_state",
-					"description": "The current backend state",
+					"name": "table_state",
+					"description": "The current backend table state",
 					"required": [
+						"table_shape",
 						"filters",
 						"sort_keys"
 					],
 					"properties": {
+						"table_shape": {
+							"type": "object",
+							"name": "table_shape",
+							"description": "Provides number of rows and columns in table",
+							"required": [
+								"num_rows",
+								"num_columns"
+							],
+							"properties": {
+								"num_rows": {
+									"type": "integer",
+									"description": "Numbers of rows in the unfiltered dataset"
+								},
+								"num_columns": {
+									"type": "integer",
+									"description": "Number of columns in the unfiltered dataset"
+								}
+							}
+						},
 						"filters": {
 							"type": "array",
 							"description": "The set of currently applied filters",

@@ -71,7 +71,7 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 	 * Gets the number of rows.
 	 */
 	get rows() {
-		return this._tableSchema ? this._tableSchema.total_num_columns : 0;
+		return this._tableSchema ? this._tableSchema.columns.length : 0;
 	}
 
 	/**
