@@ -8,11 +8,10 @@ import * as React from 'react';
 // Other dependencies.
 import { IColumnSortKey } from 'vs/base/browser/ui/positronDataGrid/interfaces/columnSortKey';
 import { DataGridInstance } from 'vs/base/browser/ui/positronDataGrid/classes/dataGridInstance';
-import { ColumnSchemaTypeDisplay, TableSchema } from 'vs/workbench/services/languageRuntime/common/positronDataExplorerComm';
+import { DataExplorerCache } from 'vs/workbench/services/positronDataExplorer/common/dataExplorerCache';
+import { ColumnSchemaTypeDisplay } from 'vs/workbench/services/languageRuntime/common/positronDataExplorerComm';
 import { ColumnSummaryCell } from 'vs/workbench/services/positronDataExplorer/browser/components/columnSummaryCell';
-import { PositronDataExplorerColumn } from 'vs/workbench/services/positronDataExplorer/browser/positronDataExplorerColumn';
 import { DataExplorerClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimeDataExplorerClient';
-import { FetchedSchema, SchemaFetchRange, TableSchemaCache } from 'vs/workbench/services/positronDataExplorer/common/positronDataExplorerCache';
 
 /**
  * Constants.
@@ -31,10 +30,12 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 	 */
 	private readonly _dataExplorerClientInstance: DataExplorerClientInstance;
 
-	private _tableSchema?: TableSchema;
+	// private _tableSchema?: TableSchema;
 
-	private _schemaCache: TableSchemaCache;
-	private _lastFetchedSchema?: FetchedSchema;
+	// private _schemaCache: TableSchemaCache;
+	// private _lastFetchedSchema?: FetchedSchema;
+
+	private readonly _dataExplorerCache: DataExplorerCache;
 
 	/**
 	 * Gets the expanded columns set.
@@ -76,12 +77,10 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 		// Set the data explorer client instance.
 		this._dataExplorerClientInstance = dataExplorerClientInstance;
 
-		// Allocate and initialize the TableSchemaCache.
-		this._schemaCache = new TableSchemaCache(async (schemaFetchRange: SchemaFetchRange) => {
-			return this._dataExplorerClientInstance.getSchema(
-				schemaFetchRange.startIndex,
-				schemaFetchRange.endIndex - schemaFetchRange.startIndex
-			);
+		this._dataExplorerCache = new DataExplorerCache(this._dataExplorerClientInstance);
+
+		this._dataExplorerCache.onDidUpdate(() => {
+			this._onDidUpdateEmitter.fire();
 		});
 	}
 
@@ -100,7 +99,7 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 	 * Gets the number of rows.
 	 */
 	get rows() {
-		return this._tableSchema ? this._tableSchema.total_num_columns : 0;
+		return this._dataExplorerCache.columns;
 	}
 
 	//#endregion DataGridInstance Properties
@@ -112,17 +111,19 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 	 */
 	initialize() {
 
-		this._dataExplorerClientInstance.getSchema(0, 1000).then(tableSchema => {
 
-			console.log(`++++++++++ Schema returned with ${tableSchema.columns.length} columns`);
 
-			this._tableSchema = tableSchema;
+		// this._dataExplorerClientInstance.getSchema(0, 1000).then(tableSchema => {
 
-			this._onDidUpdateEmitter.fire();
+		// 	console.log(`++++++++++ Schema returned with ${tableSchema.columns.length} columns`);
 
-		}).catch(x => {
+		// 	this._tableSchema = tableSchema;
 
-		});
+		// 	this._onDidUpdateEmitter.fire();
+
+		// }).catch(x => {
+
+		// });
 	}
 
 	/**
@@ -136,11 +137,7 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 	 * Fetches data.
 	 */
 	fetchData() {
-		this.doFetchData().then(() => {
-
-		}).catch(x => {
-			console.log(x);
-		});
+		this._dataExplorerCache.updateCache(this.firstRowIndex, this.screenRows);
 	}
 
 	/**
@@ -156,16 +153,15 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 	 * @param rowIndex The row index.
 	 */
 	override getRowHeight(rowIndex: number): number {
-		if (!this._tableSchema) {
-			return SUMMARY_HEIGHT;
-		}
-
 		if (!this.isColumnExpanded(rowIndex)) {
 			return SUMMARY_HEIGHT;
 		}
 
 		// Get the column schema.
-		const columnSchema = this._tableSchema.columns[rowIndex];
+		const columnSchema = this._dataExplorerCache.getColumn(rowIndex);
+		if (!columnSchema) {
+			return SUMMARY_HEIGHT;
+		}
 
 		const rowHeightWithExtendedInfo = (lines: number) => {
 			if (lines === 0) {
@@ -215,16 +211,7 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 	 * @returns The column.
 	 */
 	column(columnIndex: number) {
-		// If the table schema hasn't been loaded, return undefined.
-		if (!this._tableSchema) {
-			return undefined;
-		}
-
-		if (columnIndex < 0 || columnIndex > this._tableSchema.columns.length) {
-			return undefined;
-		}
-
-		return new PositronDataExplorerColumn(this._tableSchema.columns[columnIndex]);
+		return undefined;
 	}
 
 	/**
@@ -248,27 +235,43 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 			return undefined;
 		}
 
-		// If the table schema hasn't been loaded, return undefined.
-		if (!this._tableSchema) {
+		const d = this._dataExplorerCache.getColumn(rowIndex);
+
+		if (!d) {
 			return undefined;
 		}
-
-		// If the column schema hasn't been loaded, return undefined.
-		if (rowIndex >= this._tableSchema.columns.length) {
-			return undefined;
-		}
-
-		// Get the column schema.
-		const columnSchema = this._tableSchema.columns[rowIndex];
 
 		// Return the ColumnSummaryCell.
 		return (
 			<ColumnSummaryCell
 				instance={this}
-				columnSchema={columnSchema}
+				columnSchema={d}
 				columnIndex={rowIndex}
 			/>
 		);
+
+
+		// // If the table schema hasn't been loaded, return undefined.
+		// if (!this._tableSchema) {
+		// 	return undefined;
+		// }
+
+		// // If the column schema hasn't been loaded, return undefined.
+		// if (rowIndex >= this._tableSchema.columns.length) {
+		// 	return undefined;
+		// }
+
+		// // Get the column schema.
+		// const columnSchema = this._tableSchema.columns[rowIndex];
+
+		// // Return the ColumnSummaryCell.
+		// return (
+		// 	<ColumnSummaryCell
+		// 		instance={this}
+		// 		columnSchema={columnSchema}
+		// 		columnIndex={rowIndex}
+		// 	/>
+		// );
 	}
 
 	//#region DataGridInstance Methods
@@ -294,23 +297,32 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 
 	//#region Private Methods
 
-	/**
-	 * Fetches data.
-	 */
-	private async doFetchData(): Promise<void> {
-		const schemaFetchRange: SchemaFetchRange = {
-			startIndex: this.firstRowIndex,
-			endIndex: this.firstRowIndex + this.visibleRows + 1
-		};
+	// /**
+	//  * Fetches data.
+	//  */
+	// private async doFetchData(): Promise<void> {
 
-		if (!this._lastFetchedSchema ||
-			!this._schemaCache?.rangeIncludes(schemaFetchRange, this._lastFetchedSchema)) {
-			this._lastFetchedSchema = await this._schemaCache?.fetch(schemaFetchRange);
-		}
 
-		// Fire the onDidUpdate event.
-		this._onDidUpdateEmitter.fire();
-	}
+	// 	const start = new Date();
+	// 	const foo = await this._dataExplorerClientInstance.getSchema(0, 0);
+	// 	const end = new Date();
+
+	// 	console.log(`Loading ${foo.columns.length} took ${end.getTime() - start.getTime()}ms`);
+
+
+	// 	const schemaFetchRange: SchemaFetchRange = {
+	// 		startIndex: this.firstRowIndex,
+	// 		endIndex: this.firstRowIndex + this.visibleRows + 1
+	// 	};
+
+	// 	if (!this._lastFetchedSchema ||
+	// 		!this._schemaCache?.rangeIncludes(schemaFetchRange, this._lastFetchedSchema)) {
+	// 		this._lastFetchedSchema = await this._schemaCache?.fetch(schemaFetchRange);
+	// 	}
+
+	// 	// Fire the onDidUpdate event.
+	// 	this._onDidUpdateEmitter.fire();
+	// }
 
 	//#endregion Private Methods
 }

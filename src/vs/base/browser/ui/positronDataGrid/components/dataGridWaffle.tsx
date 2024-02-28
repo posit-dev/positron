@@ -23,8 +23,6 @@ import { DataGridColumnHeaders } from 'vs/base/browser/ui/positronDataGrid/compo
 import { DataGridScrollbarCorner } from 'vs/base/browser/ui/positronDataGrid/components/dataGridScrollbarCorner';
 import { ExtendColumnSelectionBy, ExtendRowSelectionBy } from 'vs/base/browser/ui/positronDataGrid/classes/dataGridInstance';
 
-let renderCounter = 0;
-
 /**
  * Constants.
  */
@@ -439,8 +437,6 @@ export const DataGridWaffle = (props: DataGridWaffleProps) => {
 		// Adjust the top for the next row.
 		top += context.instance.getRowHeight(rowIndex);
 	}
-
-	console.log(`Render number #${++renderCounter}`);
 
 	// Render.
 	return (

@@ -484,10 +484,10 @@ export abstract class DataGridInstance extends Disposable {
 		this._defaultRowHeight = options.defaultRowHeight;
 
 		this._columnResize = options.columnResize || false;
-		this._minimumColumnWidth = options.minimumColumnWidth ?? 0;
+		this._minimumColumnWidth = options.minimumColumnWidth ?? options.defaultColumnWidth;
 
 		this._rowResize = options.rowResize || false;
-		this._minimumRowHeight = options.minimumRowHeight ?? 0;
+		this._minimumRowHeight = options.minimumRowHeight ?? options.defaultRowHeight;
 
 		this._horizontalScrollbar = options.horizontalScrollbar || false;
 		this._verticalScrollbar = options.verticalScrollbar || false;
@@ -670,6 +670,13 @@ export abstract class DataGridInstance extends Disposable {
 	}
 
 	/**
+	 * Gets the screen columns.
+	 */
+	get screenColumns() {
+		return Math.trunc(this._width / this._minimumColumnWidth) + 1;
+	}
+
+	/**
 	 * Gets the visible columns.
 	 */
 	get visibleColumns() {
@@ -696,6 +703,13 @@ export abstract class DataGridInstance extends Disposable {
 
 		// Done.
 		return Math.max(visibleColumns, 1);
+	}
+
+	/**
+	 * Gets the screen rows.
+	 */
+	get screenRows() {
+		return Math.trunc(this._height / this._minimumRowHeight) + 1;
 	}
 
 	/**
@@ -810,6 +824,15 @@ export abstract class DataGridInstance extends Disposable {
 	}
 
 	//#endregion Public Properties
+
+	//#region Public Events
+
+	/**
+	 * onDidUpdate event.
+	 */
+	readonly onDidUpdate = this._onDidUpdateEmitter.event;
+
+	//#endregion Public Events
 
 	//#region Public Methods
 
@@ -1937,11 +1960,6 @@ export abstract class DataGridInstance extends Disposable {
 	 * @returns The data cell, or, undefined.
 	 */
 	abstract cell(columnIndex: number, rowIndex: number): JSX.Element | undefined;
-
-	/**
-	 * onDidUpdate event.
-	 */
-	readonly onDidUpdate = this._onDidUpdateEmitter.event;
 
 	//#endregion Public Methods
 
