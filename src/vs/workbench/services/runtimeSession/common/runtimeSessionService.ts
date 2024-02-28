@@ -164,11 +164,24 @@ export interface ILanguageRuntimeSessionManager {
 	 *
 	 * @param runtimeMetadata The metadata of the runtime for which a session is
 	 *  	to be created.
-	 * @param sessionId A unique ID to assign to the new session
+	 * @param sessionMetadata The metadata of the session to be created.
 	 *
 	 * @returns A promise that resolves to the new session.
 	 */
 	createSession(
+		runtimeMetadata: ILanguageRuntimeMetadata,
+		sessionMetadata: IRuntimeSessionMetadata):
+		Promise<ILanguageRuntimeSession>;
+
+	/**
+	 *
+	 * @param runtimeMetadata The metadata of the runtime for which a session is
+	 *  	to be created.
+	 * @param sessionMetadata The metadata of the session to be created.
+	 *
+	 * @returns A promise that resolves to the new session.
+	 */
+	restoreSession(
 		runtimeMetadata: ILanguageRuntimeMetadata,
 		sessionMetadata: IRuntimeSessionMetadata):
 		Promise<ILanguageRuntimeSession>;

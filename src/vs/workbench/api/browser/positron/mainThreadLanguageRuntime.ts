@@ -1089,8 +1089,42 @@ export class MainThreadLanguageRuntime
 
 		const handle = await this._proxy.$createLanguageRuntimeSession(runtimeMetadata,
 			sessionMetadata);
+		const session = this.createSessionAdapter(handle, runtimeMetadata, sessionMetadata);
+		this._sessions.set(handle, session);
+		return session;
+	}
 
-		const session = new ExtHostLanguageRuntimeSessionAdapter(handle,
+	/**
+	 * Restores (prepares for reconnection to) a new language runtime session.
+	 */
+	async restoreSession(
+		runtimeMetadata: ILanguageRuntimeMetadata,
+		sessionMetadata: IRuntimeSessionMetadata):
+		Promise<ILanguageRuntimeSession> {
+
+		const handle = await this._proxy.$restoreLanguageRuntimeSession(runtimeMetadata,
+			sessionMetadata);
+		const session = this.createSessionAdapter(handle, runtimeMetadata, sessionMetadata);
+		this._sessions.set(handle, session);
+		return session;
+	}
+
+	/**
+	 * Creates a new language runtime session adapter, to wrap a new or existing
+	 * runtime session.
+	 *
+	 * @param handle A handle to the language runtime session
+	 * @param runtimeMetadata The metadata for the language runtime
+	 * @param sessionMetadata The metadata for the session
+	 *
+	 * @returns A new language runtime session adapter
+	 */
+	private createSessionAdapter(
+		handle: number,
+		runtimeMetadata: ILanguageRuntimeMetadata,
+		sessionMetadata: IRuntimeSessionMetadata): ExtHostLanguageRuntimeSessionAdapter {
+
+		return new ExtHostLanguageRuntimeSessionAdapter(handle,
 			runtimeMetadata,
 			sessionMetadata,
 			{
@@ -1104,9 +1138,6 @@ export class MainThreadLanguageRuntime
 			this._notebookService,
 			this._editorService,
 			this._proxy);
-
-		this._sessions.set(handle, session);
-		return session;
 	}
 
 	private findSession(handle: number): ExtHostLanguageRuntimeSessionAdapter {

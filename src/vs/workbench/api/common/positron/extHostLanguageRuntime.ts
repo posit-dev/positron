@@ -91,6 +91,40 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 	}
 
 	/**
+	 * Restores a language runtime session.
+	 *
+	 * @param runtimeMetadata The metadata for the language runtime.
+	 * @param sessionMetadata The metadata for the session.
+	 *
+	 * @returns A promise that resolves with a handle to the runtime session.
+	 */
+	$restoreLanguageRuntimeSession(
+		runtimeMetadata: positron.LanguageRuntimeMetadata,
+		sessionMetadata: positron.RuntimeSessionMetadata): Promise<number> {
+		return new Promise((resolve, reject) => {
+			// Look up the session manager responsible for restoring this session
+			const sessionManager = this._runtimeManagersByRuntimeId.get(runtimeMetadata.runtimeId);
+			if (sessionManager) {
+				if (sessionManager.manager.restoreSession) {
+					sessionManager.manager.restoreSession(runtimeMetadata, sessionMetadata)
+						.then((session) => {
+							resolve(this.attachToSession(session));
+						}, (err) => {
+							reject(err);
+						});
+				} else {
+					reject(new Error(
+						`Session manager for session ID '${sessionMetadata.sessionId}'. ` +
+						`does not support session restoration.`));
+				}
+			} else {
+				reject(new Error(
+					`No session manager found for language ID '${runtimeMetadata.languageId}'.`));
+			}
+		});
+	}
+
+	/**
 	 * Attach to a language runtime session.
 	 *
 	 * @param session The language runtime session to attach to
