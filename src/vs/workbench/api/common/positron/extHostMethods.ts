@@ -70,10 +70,10 @@ export class ExtHostMethods implements extHostProtocol.ExtHostMethodsShape {
 					break;
 				}
 				case UiFrontendRequest.ExecuteCommand: {
-					if (!params || !Object.keys(params).includes('commandId')) {
+					if (!params || !Object.keys(params).includes('command')) {
 						return newInvalidParamsError(method);
 					}
-					result = await this.executeCommand(params.commandId as string);
+					result = await this.executeCommand(params.command as string);
 					break;
 				}
 			}

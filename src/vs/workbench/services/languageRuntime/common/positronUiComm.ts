@@ -237,7 +237,7 @@ export interface ExecuteCommandRequest {
 	/**
 	 * The command to execute
 	 */
-	commandId: string;
+	command: string;
 
 }
 

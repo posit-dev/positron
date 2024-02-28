@@ -1123,7 +1123,7 @@ declare module 'positron' {
 		 *
 		 * @param command The Positron command name.
 		 */
-		export function executeCommand(command: string): Thenable<any>;
+		export function executeCommand(commandId: string): Thenable<any>;
 
 	}
 }

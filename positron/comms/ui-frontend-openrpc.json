@@ -123,7 +123,7 @@
 			"description": "Use this to execute a Positron command from the backend (like from a runtime)",
 			"params": [
 				{
-					"name": "commandId",
+					"name": "command",
 					"description": "The command to execute",
 					"schema": {
 						"type": "string"
