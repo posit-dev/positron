@@ -19,16 +19,6 @@ export interface TableSchema {
 	 */
 	columns: Array<ColumnSchema>;
 
-	/**
-	 * Numbers of rows in the unfiltered dataset
-	 */
-	num_rows: number;
-
-	/**
-	 * Total number of columns in the unfiltered dataset
-	 */
-	total_num_columns: number;
-
 }
 
 /**
@@ -130,6 +120,11 @@ export interface FreqtableCounts {
  */
 export interface BackendState {
 	/**
+	 * Provides number of rows and columns in table
+	 */
+	table_shape: TableShape;
+
+	/**
 	 * The set of currently applied filters
 	 */
 	filters: Array<ColumnFilter>;
@@ -138,6 +133,22 @@ export interface BackendState {
 	 * The set of currently applied sorts
 	 */
 	sort_keys: Array<ColumnSortKey>;
+
+}
+
+/**
+ * Provides number of rows and columns in table
+ */
+export interface TableShape {
+	/**
+	 * Numbers of rows in the unfiltered dataset
+	 */
+	num_rows: number;
+
+	/**
+	 * Number of columns in the unfiltered dataset
+	 */
+	num_columns?: number;
 
 }
 
