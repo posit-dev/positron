@@ -99,7 +99,8 @@ export interface JupyterAdapterApi extends vscode.Disposable {
 	 *   start the kernel.
 	 * @param dynState The initial dynamic state of the session.
 	 * @param extra Optional implementations for extra functionality.
-	 * @returns A LanguageRuntimeAdapter that wraps the kernel.
+	 *
+	 * @returns A JupyterLanguageRuntimeSession that wraps the kernel.
 	 */
 	createSession(
 		runtimeMetadata: positron.LanguageRuntimeMetadata,
@@ -107,6 +108,20 @@ export interface JupyterAdapterApi extends vscode.Disposable {
 		kernel: JupyterKernelSpec,
 		dynState: positron.LanguageRuntimeDynState,
 		extra?: JupyterKernelExtra | undefined,
+	): JupyterLanguageRuntimeSession;
+
+	/**
+	 * Restore a session for a Jupyter-compatible kernel.
+	 *
+	 * @param runtimeMetadata The metadata for the language runtime to be
+	 * wrapped by the adapter.
+	 * @param sessionMetadata The metadata for the session to be reconnected.
+	 *
+	 * @returns A JupyterLanguageRuntimeSession that wraps the kernel.
+	 */
+	restoreSession(
+		runtimeMetadata: positron.LanguageRuntimeMetadata,
+		sessionMetadata: positron.RuntimeSessionMetadata
 	): JupyterLanguageRuntimeSession;
 
 	/**

@@ -30,6 +30,8 @@ import { JupyterCommInfoReply } from './JupyterCommInfoReply';
 import { JupyterExecuteReply } from './JupyterExecuteReply';
 import { uuidv4 } from './utils';
 import { JupyterCommRequest } from './JupyterCommRequest';
+import { JupyterSessionState } from './JupyterSession';
+import { JupyterSerializedSession, workspaceStateKey } from './JupyterSessionSerialization';
 
 /**
  * LangaugeRuntimeAdapter wraps a JupyterKernel in a LanguageRuntime compatible interface.
@@ -221,6 +223,14 @@ export class LanguageRuntimeSessionAdapter
 	}
 
 	/**
+	 * Sets the Jupyter session state (connection parameters); typically used to
+	 * re-establish a connection to a running kernel.
+	 */
+	restoreSession(state: JupyterSessionState): void {
+		this._kernel.restoreSession(state);
+	}
+
+	/**
 	 * Tests whether a code fragment is complete.
 	 *
 	 * @param code The code fragment to check.
@@ -367,6 +377,15 @@ export class LanguageRuntimeSessionAdapter
 
 		try {
 			await this._kernel.shutdown(restart);
+
+			if (exitReason === positron.RuntimeExitReason.Shutdown ||
+				exitReason === positron.RuntimeExitReason.ForcedQuit) {
+				// After the session has been permanently shut down, clean up its
+				// storage key
+				this._context.workspaceState.update(
+					workspaceStateKey(this.runtimeMetadata, this.metadata),
+					undefined);
+			}
 		} catch (err) {
 			// If we failed to request a shutdown, reset the exit reason
 			this._exitReason = positron.RuntimeExitReason.Unknown;
@@ -800,6 +819,12 @@ export class LanguageRuntimeSessionAdapter
 		this._kernel.log(`${this._spec.language} kernel status changed: ${previous} => ${status}`);
 		this._kernelState = status;
 		this._state.fire(status);
+
+		// When the kernel becomes ready, serialize its state for later
+		// reconnection
+		if (status === positron.RuntimeState.Ready) {
+			this.serializeSessionState();
+		}
 	}
 
 	/**
@@ -948,6 +973,22 @@ export class LanguageRuntimeSessionAdapter
 				}
 			}
 		}));
+	}
+
+	/**
+	 * Saves the current state of the session to a file; used to persist the
+	 * session across restarts.
+	 */
+	private serializeSessionState() {
+		const serialized: JupyterSerializedSession = {
+			dynState: this.dynState,
+			sessionState: this._kernel.getSessionState()!,
+			kernelSpec: this._spec,
+		};
+
+		this._context.workspaceState.update(
+			workspaceStateKey(this.runtimeMetadata, this.metadata),
+			serialized);
 	}
 
 	/**

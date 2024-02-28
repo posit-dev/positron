@@ -8,6 +8,7 @@ import { JupyterAdapterApi, JupyterKernelSpec, JupyterKernelExtra, JupyterLangua
 
 import { LanguageRuntimeSessionAdapter } from './LanguageRuntimeAdapter';
 import { findAvailablePort } from './PortFinder';
+import { JupyterSerializedSession, workspaceStateKey } from './JupyterSessionSerialization';
 
 export class JupyterAdapterApiImpl implements JupyterAdapterApi {
 	constructor(private readonly _context: vscode.ExtensionContext,
@@ -42,6 +43,48 @@ export class JupyterAdapterApiImpl implements JupyterAdapterApi {
 			dynState,
 			extra
 		);
+	}
+
+	/**
+	 * Restore a session for a Jupyter-compatible kernel.
+	 *
+	 * @param runtimeMetadata The metadata for the language runtime to be
+	 * wrapped by the adapter.
+	 * @param sessionMetadata The metadata for the session to be reconnected.
+	 *
+	 * @returns A JupyterLanguageRuntimeSession that wraps the kernel.
+	 */
+	restoreSession(
+		runtimeMetadata: positron.LanguageRuntimeMetadata,
+		sessionMetadata: positron.RuntimeSessionMetadata
+	): JupyterLanguageRuntimeSession {
+
+		const state = this._context.workspaceState.get(
+			workspaceStateKey(runtimeMetadata, sessionMetadata));
+		if (!state) {
+			throw new Error(
+				`No state found for session ${sessionMetadata.sessionId} ` +
+				`of runtime ${runtimeMetadata.runtimeName}`);
+		}
+		const serialized = state as JupyterSerializedSession;
+
+		// Create the adapter
+		const adapter = new LanguageRuntimeSessionAdapter(
+			runtimeMetadata,
+			sessionMetadata,
+			this._context,
+			this._channel,
+			serialized.kernelSpec,
+			serialized.dynState);
+
+		// Write the session state to the adapter; this will cause it to
+		// reconnect to the existing session state when it starts up.
+		//
+		// Note that this does *not* immediately reconnect to the session; that
+		// happens later when the session is started.
+		adapter.restoreSession(serialized.sessionState);
+
+		return adapter;
 	}
 
 	/**

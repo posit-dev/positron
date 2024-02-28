@@ -587,7 +587,7 @@ declare module 'positron' {
 		 * @returns A Thenable that resolves with the reconnected session, or
 		 * rejects with an error.
 		 */
-		reconnectSession?(runtimeMetadata: LanguageRuntimeMetadata,
+		restoreSession?(runtimeMetadata: LanguageRuntimeMetadata,
 			sessionMetadata: RuntimeSessionMetadata):
 			Thenable<LanguageRuntimeSession>;
 	}

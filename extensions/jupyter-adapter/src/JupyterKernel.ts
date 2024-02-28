@@ -115,12 +115,12 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 	private readonly _idleMessageIds: Set<string> = new Set();
 
 	/**
-	 * Initialisation state. Used to detect on startup that we (a) get a reply to a
-		 * dummy kernel-info request on the Shell socket and (b) get a status message on
-		 * the IOPub socket. When both of these happen, it means the kernel has made
-		 * sufficient progress in its startup that it's able to service requests, and that
-		 * the IOPub socket is correctly connected and that the user won't lose data when
-		 * we send user requests to the kernel.
+	 * Initialisation state. Used to detect on startup that we (a) get a reply
+	 * to a dummy kernel-info request on the Shell socket and (b) get a status
+	 * message on the IOPub socket. When both of these happen, it means the
+	 * kernel has made sufficient progress in its startup that it's able to
+	 * service requests, and that the IOPub socket is correctly connected and
+	 * that the user won't lose data when we send user requests to the kernel.
 	 */
 	private _initial_request_id = '';
 	private _receivedInitialStatus = false;
@@ -603,19 +603,11 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 		this._receivedInitialStatus = false;
 		this._receivedInitialReply = false;
 
-		// Before starting a new process, look for metadata about a running
-		// kernel in the current workspace by checking the value stored for this
-		// runtime ID (we support running exactly one kernel per runtime ID). If
-		// we find it, it's a JupyterSessionState object, which contains the
-		// connection information.
-		const state = this._context.workspaceState.get(this._runtimeId);
-		if (state) {
-			// We found session state for this kernel. Connect to it.
-			const sessionState = state as JupyterSessionState;
-
+		// If we already have a session, attempt to reconnect to it.
+		if (this._session) {
 			try {
 				// Attempt to reconnect
-				await this.reconnect(sessionState);
+				await this.reconnect(this._session.state);
 
 				// It was successful; no need to start a new process
 				return;
@@ -623,10 +615,6 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 			} catch (err) {
 				// It was not successful; we'll need to start a new process
 				this.log(`Failed to reconnect to running kernel: ${err}`);
-
-				// Since we could not connect to the preserved state, remove it.
-				this.log(`Removing stale session state for process ${sessionState.processId}`);
-				this._context.workspaceState.update(this._runtimeId, undefined);
 			}
 		}
 
@@ -728,10 +716,6 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 			// Save the process ID in the session state
 			session.state.processId = pid;
 
-			// Write the session state to workspace storage
-			this.log(`Writing session state to workspace storage: '${this._runtimeId}' => ${JSON.stringify(session.state)}`);
-			this._context.workspaceState.update(this._runtimeId, session.state);
-
 			// Clean up event listener now that we've located the
 			// correct terminal
 			disposable.dispose();
@@ -812,6 +796,37 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 	 */
 	public spec(): JupyterKernelSpec {
 		return this._spec;
+	}
+
+	/**
+	 * Restores connection parameters; used to reconnect to a running session.
+	 *
+	 * @param state The state to restore
+	 */
+	public restoreSession(state: JupyterSessionState) {
+		if (this._session) {
+			// This should never happen, but if it does, log it and dispose the
+			// existing session.
+			this.log(`Discarding existing Jupyter session ${this._session.sessionId} ` +
+				`in favor of restored session ${state.sessionId}`);
+			this._session.dispose();
+			this._session = undefined;
+		}
+
+		// Restore the session and parse the connection file
+		this._session = new JupyterSession(state);
+	}
+
+	/**
+	 * Gets the kernel's session state
+	 *
+	 * @returns The kernel's session state
+	 */
+	public getSessionState(): JupyterSessionState | undefined {
+		if (this._session) {
+			return this._session.state;
+		}
+		return undefined;
 	}
 
 	/**
