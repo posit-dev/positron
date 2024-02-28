@@ -61,12 +61,14 @@ export class RSession implements positron.LanguageRuntimeSession, vscode.Disposa
 	/** Cache for which packages we know are installed in this runtime **/
 	private _packageCache = new Array<RPackageInstallation>();
 
+	/** The current dynamic runtime state */
+	public dynState: positron.LanguageRuntimeDynState;
+
 	constructor(
 		readonly runtimeMetadata: positron.LanguageRuntimeMetadata,
 		readonly metadata: positron.RuntimeSessionMetadata,
 		readonly context: vscode.ExtensionContext,
-		readonly kernelSpec: JupyterKernelSpec,
-		public dynState: positron.LanguageRuntimeDynState,
+		readonly kernelSpec?: JupyterKernelSpec,
 		readonly extra?: JupyterKernelExtra,
 		readonly notebook?: vscode.NotebookDocument,
 	) {
@@ -75,6 +77,11 @@ export class RSession implements positron.LanguageRuntimeSession, vscode.Disposa
 		this.onDidReceiveRuntimeMessage = this._messageEmitter.event;
 		this.onDidChangeRuntimeState = this._stateEmitter.event;
 		this.onDidEndSession = this._exitEmitter.event;
+
+		this.dynState = {
+			continuationPrompt: '+',
+			inputPrompt: '>',
+		};
 
 		this.onDidChangeRuntimeState((state) => {
 			this.onStateChange(state);
@@ -395,12 +402,21 @@ export class RSession implements positron.LanguageRuntimeSession, vscode.Disposa
 			await ext.activate();
 		}
 		this.adapterApi = ext?.exports as JupyterAdapterApi;
-		const kernel = this.adapterApi.createSession(
-			this.runtimeMetadata,
-			this.metadata,
-			this.kernelSpec,
-			this.dynState,
-			this.extra);
+
+		// Create the Jupyter session
+		const kernel = this.kernelSpec ?
+			// We have a kernel spec, so create a new session
+			this.adapterApi.createSession(
+				this.runtimeMetadata,
+				this.metadata,
+				this.kernelSpec,
+				this.dynState,
+				this.extra) :
+
+			// We don't have a kernel spec, so restore (reconnect) the session
+			this.adapterApi.restoreSession(
+				this.runtimeMetadata,
+				this.metadata);
 
 		kernel.onDidChangeRuntimeState((state) => {
 			this._stateEmitter.fire(state);

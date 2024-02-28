@@ -25,6 +25,7 @@ export class JupyterAdapterApiImpl implements JupyterAdapterApi {
 	 *   start the kernel.
 	 * @param dynState The initial dynamic state of the session.
 	 * @param extra Optional implementations for extra functionality.
+	 *
 	 * @returns A LanguageRuntimeAdapter that wraps the kernel.
 	 */
 	createSession(

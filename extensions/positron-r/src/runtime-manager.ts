@@ -20,23 +20,30 @@ export class RRuntimeManager implements positron.LanguageRuntimeManager {
 		runtimeMetadata: positron.LanguageRuntimeMetadata,
 		sessionMetadata: positron.RuntimeSessionMetadata): Thenable<positron.LanguageRuntimeSession> {
 
+		// When creating a session, we need to create a kernel spec and extra
+		// data
 		const metadataExtra = runtimeMetadata.extraRuntimeData as RMetadataExtra;
 		const kernelExtra = createJupyterKernelExtra();
-
 		const kernelSpec = createJupyterKernelSpec(this._context,
 			metadataExtra.homepath,
 			runtimeMetadata.runtimeName);
-		const dynState: positron.LanguageRuntimeDynState = {
-			continuationPrompt: '+',
-			inputPrompt: '>',
-		};
-
 		const session = new RSession(runtimeMetadata,
 			sessionMetadata,
 			this._context,
 			kernelSpec,
-			dynState,
 			kernelExtra);
+
+		return Promise.resolve(session);
+	}
+
+	restoreSession(
+		runtimeMetadata: positron.LanguageRuntimeMetadata,
+		sessionMetadata: positron.RuntimeSessionMetadata): Thenable<positron.LanguageRuntimeSession> {
+
+		// When restoring an existing session, the kernelspec is stored.
+		const session = new RSession(runtimeMetadata,
+			sessionMetadata,
+			this._context);
 
 		return Promise.resolve(session);
 	}
