@@ -269,26 +269,26 @@
 		{
 			"name": "get_state",
 			"summary": "Get the state",
-			"description": "Request the current backend state (applied filters and sort columns)",
+			"description": "Request the current table state (applied filters and sort columns)",
 			"params": [],
 			"result": {
 				"schema": {
 					"type": "object",
-					"name": "backend_state",
-					"description": "The current backend state",
+					"name": "table_state",
+					"description": "The current backend table state",
 					"required": [
-						"table_shape",
+						"shape",
 						"filters",
 						"sort_keys"
 					],
 					"properties": {
-						"table_shape": {
+						"shape": {
 							"type": "object",
-							"name": "table_shape",
+							"name": "shape",
 							"description": "Provides number of rows and columns in table",
 							"required": [
 								"num_rows",
-								"num_colums"
+								"num_columns"
 							],
 							"properties": {
 								"num_rows": {

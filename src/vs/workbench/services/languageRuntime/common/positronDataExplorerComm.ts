@@ -116,13 +116,13 @@ export interface FreqtableCounts {
 }
 
 /**
- * The current backend state
+ * The current backend table state
  */
-export interface BackendState {
+export interface TableState {
 	/**
 	 * Provides number of rows and columns in table
 	 */
-	table_shape: TableShape;
+	shape: Shape;
 
 	/**
 	 * The set of currently applied filters
@@ -139,7 +139,7 @@ export interface BackendState {
 /**
  * Provides number of rows and columns in table
  */
-export interface TableShape {
+export interface Shape {
 	/**
 	 * Numbers of rows in the unfiltered dataset
 	 */
@@ -148,7 +148,7 @@ export interface TableShape {
 	/**
 	 * Number of columns in the unfiltered dataset
 	 */
-	num_columns?: number;
+	num_columns: number;
 
 }
 
@@ -458,12 +458,12 @@ export class PositronDataExplorerComm extends PositronBaseComm {
 	/**
 	 * Get the state
 	 *
-	 * Request the current backend state (applied filters and sort columns)
+	 * Request the current table state (applied filters and sort columns)
 	 *
 	 *
-	 * @returns The current backend state
+	 * @returns The current backend table state
 	 */
-	getState(): Promise<BackendState> {
+	getState(): Promise<TableState> {
 		return super.performRpc('get_state', [], []);
 	}
 
