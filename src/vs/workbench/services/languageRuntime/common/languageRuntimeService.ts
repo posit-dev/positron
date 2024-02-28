@@ -554,7 +554,7 @@ export interface ILanguageRuntimeMetadata {
 	readonly extensionId: ExtensionIdentifier;
 
 	/** Extra data supplied by the extension; not read by Positron */
-	readonly extraData: any;
+	readonly extraRuntimeData: any;
 }
 
 /**

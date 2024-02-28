@@ -76,7 +76,7 @@ export async function registerCommands(context: vscode.ExtensionContext) {
 					if (e.exitCode === 0) {
 						vscode.commands.executeCommand('workbench.panel.positronConsole.focus');
 						try {
-							await positron.runtime.restartSession(session.sessionId);
+							await positron.runtime.restartSession(session.metadata.sessionId);
 						} catch {
 							// If restarting promise rejects, dispose of listener:
 							disp1.dispose();

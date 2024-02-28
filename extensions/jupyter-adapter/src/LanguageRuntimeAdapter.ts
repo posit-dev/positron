@@ -70,30 +70,28 @@ export class LanguageRuntimeSessionAdapter
 	 * @param _context The extension context for the extension that owns this adapter
 	 * @param _channel The output channel to use for logging
 	 * @param _spec The Jupyter kernel spec for the kernel to wrap
-	 * @param metadata The metadata for the language runtime to wrap
+	 * @param runtimeMetadata The metadata for the language runtime to wrap
 	 * @param dynState The dynamic state of the language runtime
 	 * @param extra Extra startup options for the kernel
 	 */
 	constructor(
-		public readonly sessionId: string,
-		public readonly sessionName: string,
-		public readonly sessionMode: positron.LanguageRuntimeSessionMode,
+		readonly runtimeMetadata: positron.LanguageRuntimeMetadata,
+		public readonly metadata: positron.RuntimeSessionMetadata,
 		private readonly _context: vscode.ExtensionContext,
 		private readonly _channel: vscode.OutputChannel,
 		private readonly _spec: JupyterKernelSpec,
-		readonly metadata: positron.LanguageRuntimeMetadata,
 		public dynState: positron.LanguageRuntimeDynState,
 		extra?: JupyterKernelExtra,
 	) {
 		this._kernel = new JupyterKernel(
 			this._context,
 			this._spec,
-			metadata.runtimeId,
+			runtimeMetadata.runtimeId,
 			this._channel,
 			extra
 		);
-		this._channel.appendLine(`Created session ${sessionId}: ` +
-			` for kernel ${JSON.stringify(this.metadata)}`);
+		this._channel.appendLine(`Created session ${metadata.sessionId}: ` +
+			` for kernel ${JSON.stringify(this.runtimeMetadata)}`);
 
 		// Create emitter for LanguageRuntime messages and state changes
 		this._messages = new vscode.EventEmitter<positron.LanguageRuntimeMessage>();
@@ -207,7 +205,7 @@ export class LanguageRuntimeSessionAdapter
 		mode: positron.RuntimeCodeExecutionMode,
 		errorBehavior: positron.RuntimeErrorBehavior): void {
 
-		this._kernel.log(`Sending code to ${this.metadata.languageName}: ${code}`);
+		this._kernel.log(`Sending code to ${this.runtimeMetadata.languageName}: ${code}`);
 
 		// Forward execution request to the kernel
 		this._kernel.execute(code, id, mode, errorBehavior);
@@ -266,7 +264,7 @@ export class LanguageRuntimeSessionAdapter
 			throw new Error('Cannot interrupt kernel; it has already exited.');
 		}
 
-		this._kernel.log(`Interrupting ${this.metadata.languageName}`);
+		this._kernel.log(`Interrupting ${this.runtimeMetadata.languageName}`);
 		return this._kernel.interrupt();
 	}
 
@@ -404,7 +402,7 @@ export class LanguageRuntimeSessionAdapter
 			type === positron.RuntimeClientType.Dap ||
 			type === positron.RuntimeClientType.Ui ||
 			type === positron.RuntimeClientType.Help) {
-			this._kernel.log(`Creating '${type}' client for ${this.metadata.languageName}`);
+			this._kernel.log(`Creating '${type}' client for ${this.runtimeMetadata.languageName}`);
 
 			// Does the comm wrap a server? In that case the
 			// promise should only resolve when the server is
@@ -432,11 +430,11 @@ export class LanguageRuntimeSessionAdapter
 			try {
 				await adapter.open();
 			} catch (err) {
-				this._kernel.log(`Info: error while creating ${type} client for ${this.metadata.languageName}: ${err}`);
+				this._kernel.log(`Info: error while creating ${type} client for ${this.runtimeMetadata.languageName}: ${err}`);
 				this.removeClient(id);
 			}
 		} else {
-			this._kernel.log(`Info: can't create ${type} client for ${this.metadata.languageName} (not supported)`);
+			this._kernel.log(`Info: can't create ${type} client for ${this.runtimeMetadata.languageName} (not supported)`);
 		}
 	}
 
@@ -449,12 +447,12 @@ export class LanguageRuntimeSessionAdapter
 		const comm = this._comms.get(id);
 		if (comm) {
 			// This is one of the clients we created, so we need to dispose of it
-			this._kernel.log(`Removing "${comm.getClientType()}" client ${comm.getClientId()} for ${this.metadata.languageName}`);
+			this._kernel.log(`Removing "${comm.getClientType()}" client ${comm.getClientId()} for ${this.runtimeMetadata.languageName}`);
 			comm.dispose();
 		} else {
 			// This is a client created on the back end, so we just need to send a
 			// comm_close message
-			this._kernel.log(`Closing client ${id} for ${this.metadata.languageName}`);
+			this._kernel.log(`Closing client ${id} for ${this.runtimeMetadata.languageName}`);
 			this._kernel.closeComm(id);
 		}
 	}
@@ -818,7 +816,7 @@ export class LanguageRuntimeSessionAdapter
 
 		// Create and fire the exit event.
 		const event: positron.LanguageRuntimeExit = {
-			runtime_name: this.metadata.runtimeName,
+			runtime_name: this.runtimeMetadata.runtimeName,
 			exit_code: exitCode,
 			reason: this._exitReason,
 			message: ''
@@ -861,7 +859,7 @@ export class LanguageRuntimeSessionAdapter
 
 		// Create a unique client ID for this instance
 		const uniqueId = Math.floor(Math.random() * 0x100000000).toString(16);
-		const clientId = `positron-lsp-${this.metadata.languageId}-${LanguageRuntimeSessionAdapter._clientCounter++}-${uniqueId}`;
+		const clientId = `positron-lsp-${this.runtimeMetadata.languageId}-${LanguageRuntimeSessionAdapter._clientCounter++}-${uniqueId}`;
 		this._kernel.log(`Starting LSP server ${clientId} for ${clientAddress}`);
 
 		await this.createClient(
@@ -897,7 +895,7 @@ export class LanguageRuntimeSessionAdapter
 
 		// Create a unique client ID for this instance
 		const uniqueId = Math.floor(Math.random() * 0x100000000).toString(16);
-		const clientId = `positron-dap-${this.metadata.languageId}-${LanguageRuntimeSessionAdapter._clientCounter++}-${uniqueId}`;
+		const clientId = `positron-dap-${this.runtimeMetadata.languageId}-${LanguageRuntimeSessionAdapter._clientCounter++}-${uniqueId}`;
 		this._kernel.log(`Starting DAP server ${clientId} for ${serverAddress}`);
 
 		await this.createClient(

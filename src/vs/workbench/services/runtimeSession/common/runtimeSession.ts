@@ -562,7 +562,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 			sessionMode,
 			createdTimestamp: Date.now(),
 		};
-		const session = await this._sessionManager.createSession(sessionMetadata, runtimeMetadata);
+		const session = await this._sessionManager.createSession(runtimeMetadata, sessionMetadata);
 
 		// Fire the onWillStartRuntime event.
 		this._onWillStartRuntimeEmitter.fire(session);

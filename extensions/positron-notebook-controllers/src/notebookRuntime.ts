@@ -33,7 +33,7 @@ export class NotebookRuntime implements vscode.Disposable {
 	onDidChangeRuntimeState = this.runtime.onDidChangeRuntimeState;
 
 	get metadata(): positron.LanguageRuntimeMetadata {
-		return this.runtime.metadata;
+		return this.runtime.runtimeMetadata;
 	}
 
 	getState(): positron.RuntimeState {

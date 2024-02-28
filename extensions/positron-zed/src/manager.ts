@@ -41,7 +41,7 @@ function generateZedMetadata(context: vscode.ExtensionContext,
 		runtimeVersion: '0.0.1',
 		sessionLocation: positron.LanguageRuntimeSessionLocation.Browser,
 		startupBehavior: positron.LanguageRuntimeStartupBehavior.Implicit,
-		extraData: {}
+		extraRuntimeData: {}
 	};
 
 	return metadata;
@@ -86,17 +86,17 @@ export class ZedRuntimeManager implements positron.LanguageRuntimeManager {
 	 * Start a new session for the Zed language runtime.
 	 *
 	 * @param runtimeMetadata The metadata for the runtime to create a session for.
-	 * @param sessionId  he unique identifier for the session.
-	 * @param sessionName The human-readable name for the session.
-	 * @param sessionMode The mode in which the session is to be run.
+	 * @param sessionMetadata The metadata for the session to be created.
 	 *
 	 * @returns The new session.
 	 */
-	async createSession(runtimeMetadata: positron.LanguageRuntimeMetadata, sessionId: string, sessionName: string, sessionMode: positron.LanguageRuntimeSessionMode): Promise<positron.LanguageRuntimeSession> {
-		return new PositronZedRuntimeSession(this._context,
+	async createSession(
+		runtimeMetadata: positron.LanguageRuntimeMetadata,
+		sessionMetadata: positron.RuntimeSessionMetadata
+	): Promise<positron.LanguageRuntimeSession> {
+		return new PositronZedRuntimeSession(
 			runtimeMetadata,
-			sessionId,
-			sessionName,
-			sessionMode);
+			sessionMetadata,
+			this._context);
 	}
 }

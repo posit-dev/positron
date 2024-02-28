@@ -105,8 +105,8 @@ class ExtHostLanguageRuntimeSessionAdapter implements ILanguageRuntimeSession {
 
 	constructor(
 		readonly handle: number,
-		readonly metadata: IRuntimeSessionMetadata,
 		readonly runtimeMetadata: ILanguageRuntimeMetadata,
+		readonly metadata: IRuntimeSessionMetadata,
 		readonly dynState: ILanguageRuntimeSessionState,
 		private readonly _runtimeSessionService: IRuntimeSessionService,
 		private readonly _logService: ILogService,
@@ -1083,16 +1083,16 @@ export class MainThreadLanguageRuntime
 	 * Creates (provisions) a new language runtime session.
 	 */
 	async createSession(
-		metadata: IRuntimeSessionMetadata,
-		runtimeMetadata: ILanguageRuntimeMetadata):
+		runtimeMetadata: ILanguageRuntimeMetadata,
+		sessionMetadata: IRuntimeSessionMetadata):
 		Promise<ILanguageRuntimeSession> {
 
 		const handle = await this._proxy.$createLanguageRuntimeSession(runtimeMetadata,
-			metadata.sessionId, metadata.sessionName, metadata.sessionMode);
+			sessionMetadata);
 
 		const session = new ExtHostLanguageRuntimeSessionAdapter(handle,
-			metadata,
 			runtimeMetadata,
+			sessionMetadata,
 			{
 				busy: false,
 				inputPrompt: '',

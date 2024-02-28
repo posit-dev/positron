@@ -54,7 +54,7 @@ class JavascriptRuntimeManager implements positron.LanguageRuntimeManager {
 				runtimeVersion: '0.0.1',
 				startupBehavior: positron.LanguageRuntimeStartupBehavior.Implicit,
 				sessionLocation: positron.LanguageRuntimeSessionLocation.Browser,
-				extraData: {}
+				extraRuntimeData: {}
 			};
 			yield metadata;
 		}();
@@ -62,14 +62,10 @@ class JavascriptRuntimeManager implements positron.LanguageRuntimeManager {
 
 	createSession(
 		runtimeMetadata: positron.LanguageRuntimeMetadata,
-		sessionId: string,
-		sessionName: string,
-		sessionMode: positron.LanguageRuntimeSessionMode): Thenable<positron.LanguageRuntimeSession> {
+		sessionMetadata: positron.RuntimeSessionMetadata): Thenable<positron.LanguageRuntimeSession> {
 		return Promise.resolve(new JavaScriptLanguageRuntimeSession(
 			runtimeMetadata,
-			sessionId,
-			sessionName,
-			sessionMode,
+			sessionMetadata,
 			this._context));
 	}
 }

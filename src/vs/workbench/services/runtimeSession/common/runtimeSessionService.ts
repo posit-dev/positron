@@ -169,8 +169,8 @@ export interface ILanguageRuntimeSessionManager {
 	 * @returns A promise that resolves to the new session.
 	 */
 	createSession(
-		metadata: IRuntimeSessionMetadata,
-		runtimeMetadata: ILanguageRuntimeMetadata):
+		runtimeMetadata: ILanguageRuntimeMetadata,
+		sessionMetadata: IRuntimeSessionMetadata):
 		Promise<ILanguageRuntimeSession>;
 }
 

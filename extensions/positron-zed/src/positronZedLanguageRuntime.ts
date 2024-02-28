@@ -202,11 +202,9 @@ export class PositronZedRuntimeSession implements positron.LanguageRuntimeSessio
 	 * @param version The language version.
 	 */
 	constructor(
+		readonly runtimeMetadata: positron.LanguageRuntimeMetadata,
+		readonly metadata: positron.RuntimeSessionMetadata,
 		private readonly context: vscode.ExtensionContext,
-		readonly metadata: positron.LanguageRuntimeMetadata,
-		readonly sessionId: string,
-		readonly sessionName: string,
-		readonly sessionMode: positron.LanguageRuntimeSessionMode
 	) {
 		this._state = positron.RuntimeState.Uninitialized;
 
@@ -869,7 +867,7 @@ export class PositronZedRuntimeSession implements positron.LanguageRuntimeSessio
 			}
 
 			case 'version': {
-				this.simulateSuccessfulCodeExecution(id, code, `Zed v${this.metadata.languageVersion} (${this.metadata.runtimeId})`);
+				this.simulateSuccessfulCodeExecution(id, code, `Zed v${this.runtimeMetadata.languageVersion} (${this.runtimeMetadata.runtimeId})`);
 				break;
 			}
 
@@ -956,7 +954,7 @@ export class PositronZedRuntimeSession implements positron.LanguageRuntimeSessio
 
 	createVariablesClient(id: string) {
 		// Allocate a new ID and ZedVariables object for this variables backend
-		const env = new ZedVariables(id, this.metadata.languageVersion, this);
+		const env = new ZedVariables(id, this.runtimeMetadata.languageVersion, this);
 
 		// Connect it and save the instance to coordinate future communication
 		this.connectClientEmitter(env);
@@ -1080,7 +1078,7 @@ export class PositronZedRuntimeSession implements positron.LanguageRuntimeSessio
 		// Zed 0.98.0 always fails to start. Simulate this by going directly
 		// from Starting to Exited and rejecting the promise with a multi-line
 		// error message.
-		if (this.metadata.runtimeId === '00000000-0000-0000-0000-000000000098') {
+		if (this.runtimeMetadata.runtimeId === '00000000-0000-0000-0000-000000000098') {
 			this._onDidChangeRuntimeState.fire(positron.RuntimeState.Uninitialized);
 			this._onDidChangeRuntimeState.fire(positron.RuntimeState.Initializing);
 			this._onDidChangeRuntimeState.fire(positron.RuntimeState.Starting);
@@ -1112,9 +1110,9 @@ export class PositronZedRuntimeSession implements positron.LanguageRuntimeSessio
 
 				// Resolve.
 				resolve({
-					banner: `${makeSGR(SGR.ForegroundBlue)}Zed ${this.metadata.languageVersion}${makeSGR(SGR.Reset)}\nThis is the ${makeSGR(SGR.ForegroundGreen)}Zed${makeSGR(SGR.Reset)} test language.\n\nEnter 'help' for help.\n`,
-					implementation_version: this.metadata.runtimeVersion,
-					language_version: this.metadata.languageVersion,
+					banner: `${makeSGR(SGR.ForegroundBlue)}Zed ${this.runtimeMetadata.languageVersion}${makeSGR(SGR.Reset)}\nThis is the ${makeSGR(SGR.ForegroundGreen)}Zed${makeSGR(SGR.Reset)} test language.\n\nEnter 'help' for help.\n`,
+					implementation_version: this.runtimeMetadata.runtimeVersion,
+					language_version: this.runtimeMetadata.languageVersion,
 				} as positron.LanguageRuntimeInfo);
 			}, 1000);
 		});
@@ -1159,7 +1157,7 @@ export class PositronZedRuntimeSession implements positron.LanguageRuntimeSessio
 		this.simulateOutputMessage(parentId, 'Restarting.');
 		this._onDidChangeRuntimeState.fire(positron.RuntimeState.Exited);
 		this._onDidEndSession.fire({
-			runtime_name: this.metadata.runtimeName,
+			runtime_name: this.runtimeMetadata.runtimeName,
 			exit_code: 0,
 			reason: positron.RuntimeExitReason.Restart,
 			message: ''
@@ -1214,7 +1212,7 @@ export class PositronZedRuntimeSession implements positron.LanguageRuntimeSessio
 		this.simulateOutputMessage(parentId, 'Zed Kernel exiting.');
 		this._onDidChangeRuntimeState.fire(positron.RuntimeState.Exited);
 		this._onDidEndSession.fire({
-			runtime_name: this.metadata.runtimeName,
+			runtime_name: this.runtimeMetadata.runtimeName,
 			exit_code: 0,
 			reason: exitReason,
 			message: ''
@@ -1226,7 +1224,7 @@ export class PositronZedRuntimeSession implements positron.LanguageRuntimeSessio
 		// Simulate a force quit by immediately "exiting"
 		this._onDidChangeRuntimeState.fire(positron.RuntimeState.Exited);
 		this._onDidEndSession.fire({
-			runtime_name: this.metadata.runtimeName,
+			runtime_name: this.runtimeMetadata.runtimeName,
 			exit_code: 0,
 			reason: positron.RuntimeExitReason.ForcedQuit,
 			message: ''
@@ -1989,7 +1987,7 @@ export class PositronZedRuntimeSession implements positron.LanguageRuntimeSessio
 		this.simulateInputMessage(parentId, code);
 		this._onDidChangeRuntimeState.fire(positron.RuntimeState.Exited);
 		this._onDidEndSession.fire({
-			runtime_name: this.metadata.runtimeName,
+			runtime_name: this.runtimeMetadata.runtimeName,
 			exit_code: 137,
 			reason: positron.RuntimeExitReason.Error,
 			message: `I'm terribly sorry, but a segmentation fault has occurred.`

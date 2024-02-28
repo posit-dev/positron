@@ -65,28 +65,27 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 	/**
 	 * Creates a language runtime session.
 	 *
-	 * @param metadata The metadata for the language runtime.
-	 * @param sessionId A previously provisioned ID for the session.
+	 * @param runtimeMetadata The metadata for the language runtime.
+	 * @param sessionMetadata The metadata for the session.
 	 *
 	 * @returns A promise that resolves with a handle to the runtime session.
 	 */
 	$createLanguageRuntimeSession(
-		metadata: positron.LanguageRuntimeMetadata,
-		sessionId: string,
-		sessionName: string,
-		sessionMode: positron.LanguageRuntimeSessionMode): Promise<number> {
+		runtimeMetadata: positron.LanguageRuntimeMetadata,
+		sessionMetadata: positron.RuntimeSessionMetadata): Promise<number> {
 		return new Promise((resolve, reject) => {
 			// Look up the session manager responsible for starting this runtime
-			const sessionManager = this._runtimeManagersByRuntimeId.get(metadata.runtimeId);
+			const sessionManager = this._runtimeManagersByRuntimeId.get(runtimeMetadata.runtimeId);
 			if (sessionManager) {
-				sessionManager.manager.createSession(metadata, sessionId, sessionName, sessionMode)
+				sessionManager.manager.createSession(runtimeMetadata, sessionMetadata)
 					.then((session) => {
 						resolve(this.attachToSession(session));
 					}, (err) => {
 						reject(err);
 					});
 			} else {
-				reject(new Error(`No session manager found for language ID '${metadata.languageId}'.`));
+				reject(new Error(
+					`No session manager found for language ID '${runtimeMetadata.languageId}'.`));
 			}
 		});
 	}
@@ -497,7 +496,8 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 		// The process of starting a session in Positron should have caused the
 		// runtime to be registered with the extension host, so we should be able
 		// to find it now.
-		const session = this._runtimeSessions.find(session => session.sessionId === sessionId);
+		const session = this._runtimeSessions.find(
+			session => session.metadata.sessionId === sessionId);
 		if (!session) {
 			throw new Error(`Session ID '${sessionId}' not found.`);
 		}
@@ -512,7 +512,7 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 	public restartSession(sessionId: string): Promise<void> {
 		// Look for the runtime with the given ID
 		for (let i = 0; i < this._runtimeSessions.length; i++) {
-			if (this._runtimeSessions[i].sessionId === sessionId) {
+			if (this._runtimeSessions[i].metadata.sessionId === sessionId) {
 				return this._proxy.$restartSession(i);
 			}
 		}

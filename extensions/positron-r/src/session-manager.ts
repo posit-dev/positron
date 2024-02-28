@@ -68,7 +68,7 @@ export class RSessionManager {
 	 */
 	getConsoleSession(): RSession | undefined {
 		for (const session of this._sessions.values()) {
-			if (session.sessionMode === positron.LanguageRuntimeSessionMode.Console) {
+			if (session.metadata.sessionMode === positron.LanguageRuntimeSessionMode.Console) {
 				return session;
 			}
 		}

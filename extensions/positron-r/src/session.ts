@@ -62,17 +62,15 @@ export class RSession implements positron.LanguageRuntimeSession, vscode.Disposa
 	private _packageCache = new Array<RPackageInstallation>();
 
 	constructor(
-		readonly sessionId: string,
-		readonly sessionName: string,
-		readonly sessionMode: positron.LanguageRuntimeSessionMode,
+		readonly runtimeMetadata: positron.LanguageRuntimeMetadata,
+		readonly metadata: positron.RuntimeSessionMetadata,
 		readonly context: vscode.ExtensionContext,
 		readonly kernelSpec: JupyterKernelSpec,
-		readonly metadata: positron.LanguageRuntimeMetadata,
 		public dynState: positron.LanguageRuntimeDynState,
 		readonly extra?: JupyterKernelExtra,
 		readonly notebook?: vscode.NotebookDocument,
 	) {
-		this._lsp = new ArkLsp(metadata.languageVersion, notebook);
+		this._lsp = new ArkLsp(runtimeMetadata.languageVersion, notebook);
 		this._queue = new PQueue({ concurrency: 1 });
 		this.onDidReceiveRuntimeMessage = this._messageEmitter.event;
 		this.onDidChangeRuntimeState = this._stateEmitter.event;
@@ -189,7 +187,7 @@ export class RSession implements positron.LanguageRuntimeSession, vscode.Disposa
 		if (!this._kernel) {
 			this._kernel = await this.createKernel();
 		}
-		RSessionManager.instance.setLastBinpath(this._kernel.metadata.runtimePath);
+		RSessionManager.instance.setLastBinpath(this._kernel.runtimeMetadata.runtimePath);
 
 		// Register for console width changes, if we haven't already
 		if (!this._consoleWidthDisposable) {
@@ -398,11 +396,9 @@ export class RSession implements positron.LanguageRuntimeSession, vscode.Disposa
 		}
 		this.adapterApi = ext?.exports as JupyterAdapterApi;
 		const kernel = this.adapterApi.createSession(
-			this.sessionId,
-			this.sessionName,
-			this.sessionMode,
-			this.kernelSpec,
+			this.runtimeMetadata,
 			this.metadata,
+			this.kernelSpec,
 			this.dynState,
 			this.extra);
 

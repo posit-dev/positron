@@ -173,7 +173,7 @@ export async function* rRuntimeDiscoverer(
 		recommendedForWorkspace = false;
 
 		// Save the R home path and binary path as extra data.
-		const extraData: RMetadataExtra = {
+		const extraRuntimeData: RMetadataExtra = {
 			homepath: rInst.homepath,
 			binpath: rInst.binpath,
 		};
@@ -194,7 +194,7 @@ export async function* rRuntimeDiscoverer(
 				).toString('base64'),
 			sessionLocation: positron.LanguageRuntimeSessionLocation.Workspace,
 			startupBehavior,
-			extraData
+			extraRuntimeData
 		};
 
 		// Create an adapter for the kernel to fulfill the LanguageRuntime interface.

@@ -28,10 +28,8 @@ export class JavaScriptLanguageRuntimeSession implements positron.LanguageRuntim
 	 */
 	private readonly _pendingRpcs: Array<string> = [];
 
-	constructor(readonly metadata: positron.LanguageRuntimeMetadata,
-		readonly sessionId: string,
-		readonly sessionName: string,
-		readonly sessionMode: positron.LanguageRuntimeSessionMode,
+	constructor(readonly runtimeMetadata: positron.LanguageRuntimeMetadata,
+		readonly metadata: positron.RuntimeSessionMetadata,
 		readonly context: vscode.ExtensionContext) {
 
 		this.dynState = {
@@ -158,8 +156,8 @@ export class JavaScriptLanguageRuntimeSession implements positron.LanguageRuntim
 
 		const runtimeInfo: positron.LanguageRuntimeInfo = {
 			banner: `Welcome to Node.js ${process.version}.`,
-			implementation_version: this.metadata.runtimeVersion,
-			language_version: this.metadata.languageVersion,
+			implementation_version: this.runtimeMetadata.runtimeVersion,
+			language_version: this.runtimeMetadata.languageVersion,
 		};
 
 		return runtimeInfo;

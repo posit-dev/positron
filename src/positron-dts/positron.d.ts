@@ -395,7 +395,18 @@ declare module 'positron' {
 		 * Extra data supplied by the runtime provider; not read by Positron but supplied
 		 * when creating a new session from the metadata.
 		 */
-		extraData: any;
+		extraRuntimeData: any;
+	}
+
+	export interface RuntimeSessionMetadata {
+		/** The ID of this session */
+		readonly sessionId: string;
+
+		/** The user-facing name of this session */
+		readonly sessionName: string;
+
+		/** The session's mode */
+		readonly sessionMode: LanguageRuntimeSessionMode;
 	}
 
 	/**
@@ -552,20 +563,33 @@ declare module 'positron' {
 		/**
 		 * Creates a new runtime session.
 		 *
-		 * @param runtimeMetadata One of the runtime metadata items returned by `discoverRuntimes`.
-		 * @param sessionId A unique identifer, to be assigned to the new session.
-		 * @param sessionName A human-readable name for the new session.
-		 * @param sessionMode The mode in which the session is to be run.
+		 * @param runtimeMetadata One of the runtime metadata items returned by
+		 * `discoverRuntimes`.
+		 * @param sessionMetadata The metadata for the new session.
 		 *
 		 * @returns A Thenable that resolves with the new session, or rejects with an error.
 		 */
 		createSession(runtimeMetadata: LanguageRuntimeMetadata,
-			sessionId: string,
-			sessionName: string,
-			sessionMode: LanguageRuntimeSessionMode):
+			sessionMetadata: RuntimeSessionMetadata):
 			Thenable<LanguageRuntimeSession>;
 
-		// TODO: Need a way to reconnect to a session
+		/**
+		 * Reconnects to a runtime session using the given metadata.
+		 *
+		 * Implementing this method is optional, since not all sessions can be
+		 * reconnected; for example, sessions that run in the browser cannot be
+		 * reconnected.
+		 *
+		 * @param runtimeMetadata The metadata for the runtime that owns the
+		 * session.
+		 * @param sessionMetadata The metadata for the session to reconnect.
+		 *
+		 * @returns A Thenable that resolves with the reconnected session, or
+		 * rejects with an error.
+		 */
+		reconnectSession?(runtimeMetadata: LanguageRuntimeMetadata,
+			sessionMetadata: RuntimeSessionMetadata):
+			Thenable<LanguageRuntimeSession>;
 	}
 
 	/**
@@ -608,17 +632,15 @@ declare module 'positron' {
 	 * execution, LSP implementation, and plotting.
 	 */
 	export interface LanguageRuntimeSession extends vscode.Disposable {
-		/** The ID of this session */
-		readonly sessionId: string;
 
-		/** The user-facing name of this session */
-		readonly sessionName: string;
+		/** An object supplying immutable metadata about this specific session */
+		readonly metadata: RuntimeSessionMetadata;
 
-		/** The session's mode */
-		readonly sessionMode: LanguageRuntimeSessionMode;
-
-		/** An object supplying metadata about the runtime */
-		readonly metadata: LanguageRuntimeMetadata;
+		/**
+		 * An object supplying metadata about the runtime with which this
+		 * session is associated.
+		 */
+		readonly runtimeMetadata: LanguageRuntimeMetadata;
 
 		/** The state of the runtime that changes during a user session */
 		dynState: LanguageRuntimeDynState;
