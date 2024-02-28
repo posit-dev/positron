@@ -23,7 +23,6 @@ import comm
 
 from .access_keys import decode_access_key
 from .data_explorer_comm import (
-    BackendState,
     ColumnFilter,
     ColumnFilterCompareOp,
     ColumnSchema,
@@ -42,6 +41,8 @@ from .data_explorer_comm import (
     SetSortColumnsRequest,
     TableData,
     TableSchema,
+    TableShape,
+    TableState,
 )
 from .positron_comm import CommMessage, PositronComm
 from .third_party import pd_
@@ -128,7 +129,7 @@ class DataExplorerTableView:
         return self._get_column_profile(request.params.profile_type, request.params.column_index)
 
     def get_state(self, request: GetStateRequest):
-        return self._get_state()
+        return self._get_state().dict()
 
     def _get_schema(self, column_start: int, num_columns: int) -> TableSchema:
         raise NotImplementedError
@@ -154,7 +155,7 @@ class DataExplorerTableView:
     ) -> None:
         raise NotImplementedError
 
-    def _get_state(self) -> BackendState:
+    def _get_state(self) -> TableState:
         raise NotImplementedError
 
 
@@ -185,6 +186,7 @@ class PandasView(DataExplorerTableView):
         "float64": "number",
         "mixed-integer": "number",
         "mixed-integer-float": "number",
+        "mixed": "unknown",
         "decimal": "number",
         "complex": "number",
         "categorical": "categorical",
@@ -291,11 +293,7 @@ class PandasView(DataExplorerTableView):
             )
             column_schemas.append(col_schema)
 
-        return TableSchema(
-            columns=column_schemas,
-            num_rows=self.table.shape[0],
-            total_num_columns=self.table.shape[1],
-        )
+        return TableSchema(columns=column_schemas)
 
     def _get_data_values(
         self, row_start: int, num_rows: int, column_indices: Sequence[int]
@@ -420,8 +418,12 @@ class PandasView(DataExplorerTableView):
     ) -> None:
         pass
 
-    def _get_state(self) -> BackendState:
-        return BackendState(filters=self.filters, sort_keys=self.sort_keys)
+    def _get_state(self) -> TableState:
+        return TableState(
+            table_shape=TableShape(num_rows=self.table.shape[0], num_columns=self.table.shape[1]),
+            filters=self.filters,
+            sort_keys=self.sort_keys,
+        )
 
 
 COMPARE_OPS = {
@@ -503,7 +505,13 @@ class DataExplorerService:
         for comm_id in list(self.comms.keys()):
             self._close_explorer(comm_id)
 
-    def register_table(self, table, title, variable_path=None, comm_id=None):
+    def register_table(
+        self,
+        table,
+        title,
+        variable_path: Optional[List[str]] = None,
+        comm_id=None,
+    ):
         """
         Set up a new comm and data explorer table query wrapper to
         handle requests and manage state.
@@ -552,6 +560,9 @@ class DataExplorerService:
         base_comm.on_close(close_callback)
 
         if variable_path is not None:
+            if not isinstance(variable_path, list):
+                raise ValueError(variable_path)
+
             key = tuple(variable_path)
             self.comm_id_to_path[comm_id] = key
 
