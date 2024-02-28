@@ -6,7 +6,14 @@ import { Emitter, Event } from 'vs/base/common/event';
 import { Disposable } from 'vs/base/common/lifecycle';
 import { generateUuid } from 'vs/base/common/uuid';
 import { IRuntimeClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimeClientInstance';
-import { ColumnSortKey, PositronDataExplorerComm, SchemaUpdateEvent, TableData, TableSchema } from 'vs/workbench/services/languageRuntime/common/positronDataExplorerComm';
+import {
+	ColumnSortKey,
+	PositronDataExplorerComm,
+	SchemaUpdateEvent,
+	TableData,
+	TableSchema,
+	TableState
+} from 'vs/workbench/services/languageRuntime/common/positronDataExplorerComm';
 
 /**
  * A data explorer client instance.
@@ -79,6 +86,14 @@ export class DataExplorerClientInstance extends Disposable {
 	 */
 	async getSchema(startIndex: number, numColumns: number): Promise<TableSchema> {
 		return this._positronDataExplorerComm.getSchema(startIndex, numColumns);
+	}
+
+	/**
+	 * Get the current active state of the data explorer backend.
+	 * @returns A promose that resolves to the current table state.
+	 */
+	async getState(): Promise<TableState> {
+		return this._positronDataExplorerComm.getState();
 	}
 
 	/**

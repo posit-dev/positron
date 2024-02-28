@@ -30,8 +30,6 @@ export function getTableSchema(numRows: number = 100, numColumns: number = 10): 
 	}
 	return {
 		columns: columns,
-		num_rows: numRows,
-		total_num_columns: numColumns
 	};
 }
 
@@ -53,13 +51,13 @@ const exampleTypeData: Record<string, string[]> = {
  * @param numRows
  * @param columnIndices Columns to select by index. Can be sequetial, sparse, or random
  */
-export function getExampleTableData(schema: TableSchema, rowStartIndex: number,
+export function getExampleTableData(shape: [number, number], schema: TableSchema, rowStartIndex: number,
 	numRows: number, columnIndices: Array<number>): TableData {
 	const generatedColumns = [];
 
 	// Don't generate virtual data beyond the extent of the table, and if
 	// rowStartIndex is at or after end of the table, return nothing
-	numRows = Math.max(Math.min(numRows, schema.num_rows - rowStartIndex), 0);
+	numRows = Math.max(Math.min(numRows, shape[0] - rowStartIndex), 0);
 
 	for (const columnIndex of columnIndices) {
 		const exampleValues: string[] = exampleTypeData[schema.columns[columnIndex].type_name];

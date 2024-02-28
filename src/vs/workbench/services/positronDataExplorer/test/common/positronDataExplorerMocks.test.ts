@@ -3,6 +3,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as assert from 'assert';
+import { ensureNoDisposablesAreLeakedInTestSuite } from 'vs/base/test/common/utils';
 import {
 	ColumnFilterCompareOp,
 	ColumnFilterFilterType,
@@ -14,22 +15,26 @@ import * as mocks from "vs/workbench/services/positronDataExplorer/common/positr
  * Basic smoke tests for debugging the mock functions
  */
 suite('DataExplorerMocks', () => {
+	ensureNoDisposablesAreLeakedInTestSuite();
+
 	test('Test getTableSchema', () => {
 		const schema = mocks.getTableSchema(1000, 10000);
 		assert.equal(schema.columns.length, 10000);
-		assert.equal(schema.num_rows, 1000);
 	});
 
 	test('Test getExampleTableData', () => {
 		const schema = mocks.getTableSchema(1000, 10000);
-		let data = mocks.getExampleTableData(schema, 0, 100, [0, 1, 2, 3, 4]);
+
+		const tableShape: [number, number] = [1000, 10000];
+
+		let data = mocks.getExampleTableData(tableShape, schema, 0, 100, [0, 1, 2, 3, 4]);
 		assert.equal(data.columns.length, 5);
 		assert.equal(data.columns[0].length, 100);
 
-		data = mocks.getExampleTableData(schema, 999, 100, [999]);
+		data = mocks.getExampleTableData(tableShape, schema, 999, 100, [999]);
 		assert.equal(data.columns.length, 1);
 		assert.equal(data.columns[0].length, 1);
-		data = mocks.getExampleTableData(schema, 1000, 100, []);
+		data = mocks.getExampleTableData(tableShape, schema, 1000, 100, []);
 		assert.equal(data.columns.length, 0);
 	});
 
