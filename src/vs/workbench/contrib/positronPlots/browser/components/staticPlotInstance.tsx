@@ -40,22 +40,7 @@ export const StaticPlotInstance = (props: StaticPlotInstanceProps) => {
 	};
 
 	React.useEffect(() => {
-		switch (props.zoom) {
-			case ZoomLevel.Fifty:
-				setZoomMultiplier(.5);
-				break;
-			case ZoomLevel.SeventyFive:
-				setZoomMultiplier(.75);
-				break;
-			case ZoomLevel.TwoHundred:
-				setZoomMultiplier(2);
-				break;
-			case ZoomLevel.OneHundred:
-			case ZoomLevel.Fill:
-			default:
-				setZoomMultiplier(1);
-				break;
-		}
+		setZoomMultiplier(props.zoom.valueOf());
 	}, [props.zoom]);
 
 	React.useLayoutEffect(() => {
@@ -66,6 +51,9 @@ export const StaticPlotInstance = (props: StaticPlotInstanceProps) => {
 
 		let classes = '';
 
+		// If the plot cannot fit in the container, override the centering
+		// so it can be scrolled to the edge. Otherwise, the the very edge of the plot
+		// cannot be seen.
 		if (clientWidth < width * zoomMultiplier && clientHeight < height * zoomMultiplier) {
 			classes += 'oversized';
 		}
@@ -74,7 +62,7 @@ export const StaticPlotInstance = (props: StaticPlotInstanceProps) => {
 	});
 
 	const getStyle = (): React.CSSProperties => {
-		const zoomHeight = width / height >= 1;
+		const wide = width / height >= 1;
 		let style: React.CSSProperties = {
 			width: '100%',
 			height: '100%',
@@ -84,7 +72,9 @@ export const StaticPlotInstance = (props: StaticPlotInstanceProps) => {
 			case ZoomLevel.SeventyFive:
 			case ZoomLevel.OneHundred:
 			case ZoomLevel.TwoHundred:
-				if (zoomHeight) {
+				// If the plot is wider than it is tall, center it vertically.
+				// Otherwise, center it horizontally.
+				if (wide) {
 					style = {
 						maxWidth: 'none',
 						maxHeight: 'none',

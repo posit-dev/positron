@@ -8,11 +8,11 @@ import { IAction } from 'vs/base/common/actions';
 import { ActionBarMenuButton } from 'vs/platform/positronActionBar/browser/components/actionBarMenuButton';
 
 export enum ZoomLevel {
-	Fill,
-	Fifty,
-	SeventyFive,
-	OneHundred,
-	TwoHundred,
+	Fill = 0,
+	Fifty = 0.5,
+	SeventyFive = 0.75,
+	OneHundred = 1,
+	TwoHundred = 2,
 }
 
 interface ZoomPlotMenuButtonProps {

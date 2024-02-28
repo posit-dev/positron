@@ -74,7 +74,7 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 		positronPlotsContext.positronPlotInstances[positronPlotsContext.selectedInstanceIndex]
 		instanceof PlotClientInstance;
 
-	const enableExpandPlot = hasPlots &&
+	const enableZoomPlot = hasPlots &&
 		positronPlotsContext.positronPlotInstances[positronPlotsContext.selectedInstanceIndex]
 		instanceof StaticPlotClient;
 
@@ -116,7 +116,7 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 						<ActionBarButton iconId='positron-left-arrow' disabled={disableLeft} tooltip={positronShowPreviousPlot} ariaLabel={positronShowPreviousPlot} onPressed={showPreviousPlotHandler} />
 						<ActionBarButton iconId='positron-right-arrow' disabled={disableRight} tooltip={positronShowNextPlot} ariaLabel={positronShowNextPlot} onPressed={showNextPlotHandler} />
 
-						{enableExpandPlot && <ZommPlotMenuButton actionHandler={zoomPlotHandler} zoomLevel={props.zoomLevel} />}
+						{enableZoomPlot && <ZommPlotMenuButton actionHandler={zoomPlotHandler} zoomLevel={props.zoomLevel} />}
 						{enableSizingPolicy && <ActionBarSeparator />}
 						{enableSizingPolicy && <SizingPolicyMenuButton
 							layoutService={props.layoutService}
