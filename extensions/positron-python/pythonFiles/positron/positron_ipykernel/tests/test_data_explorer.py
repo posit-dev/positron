@@ -11,7 +11,12 @@ import pytest
 from ..access_keys import encode_access_key
 from .._vendor.pydantic import BaseModel
 from ..data_explorer import COMPARE_OPS, DataExplorerService
-from ..data_explorer_comm import ColumnSchema, ColumnSortKey, FilterResult
+from ..data_explorer_comm import (
+    ColumnFilter,
+    ColumnSchema,
+    ColumnSortKey,
+    FilterResult,
+)
 
 from .conftest import DummyComm, PositronShell
 from .utils import json_rpc_notification, json_rpc_request, json_rpc_response
@@ -58,6 +63,17 @@ def get_last_message(de_service: DataExplorerService, comm_id: str):
 # Test basic service functionality
 
 
+class MyData:
+    def __init__(self, value):
+        self.value = value
+
+    def __str__(self):
+        return str(self.value)
+
+    def __repr__(self):
+        return repr(self.value)
+
+
 SIMPLE_PANDAS_DF = pd.DataFrame(
     {
         "a": [1, 2, 3, 4, 5],
@@ -73,6 +89,7 @@ SIMPLE_PANDAS_DF = pd.DataFrame(
                 "2024-01-05 00:00:00",
             ]
         ),
+        "f": [None, MyData(5), MyData(-1), None, None],
     }
 )
 
@@ -216,6 +233,7 @@ def test_explorer_variable_updates(
 
     # Do a simple update and make sure that sort keys are preserved
     x_comm_id = list(de_service.path_to_comm_ids[path_x])[0]
+    x_sort_keys = [{"column_index": 0, "ascending": True}]
     msg = json_rpc_request(
         "set_sort_columns",
         params={"sort_keys": [{"column_index": 0, "ascending": True}]},
@@ -227,8 +245,14 @@ def test_explorer_variable_updates(
     _check_update_variable("x", update_type="data")
 
     tv = de_service.table_views[x_comm_id]
-    assert tv.sort_keys == [ColumnSortKey(column_index=0, ascending=True)]
+    assert tv.sort_keys == [ColumnSortKey(**k) for k in x_sort_keys]
     assert tv._need_recompute
+
+    pf = PandasFixture(de_service)
+    new_state = pf.get_state("x")
+    assert new_state["table_shape"]["num_rows"] == 5
+    assert new_state["table_shape"]["num_columns"] == 1
+    assert new_state["sort_keys"] == [ColumnSortKey(**k) for k in x_sort_keys]
 
     # Execute code that triggers an update event for big_x because it's large
     shell.run_cell("print('hello world')")
@@ -281,17 +305,30 @@ JsonRecords = List[Dict[str, Any]]
 class PandasFixture:
     def __init__(self, de_service: DataExplorerService):
         self.de_service = de_service
-        self._table_ids = {}
 
         self.register_table("simple", SIMPLE_PANDAS_DF)
 
     def register_table(self, table_name: str, table):
         comm_id = guid()
-        self.de_service.register_table(table, table_name, comm_id=comm_id)
-        self._table_ids[table_name] = comm_id
+
+        paths = self.de_service.get_paths_for_variable(table_name)
+        for path in paths:
+            for old_comm_id in list(self.de_service.path_to_comm_ids[path]):
+                self.de_service._close_explorer(old_comm_id)
+
+        self.de_service.register_table(
+            table,
+            table_name,
+            comm_id=comm_id,
+            variable_path=[encode_access_key(table_name)],
+        )
 
     def do_json_rpc(self, table_name, method, **params):
-        comm_id = self._table_ids[table_name]
+        paths = self.de_service.get_paths_for_variable(table_name)
+        assert len(paths) == 1
+
+        comm_id = list(self.de_service.path_to_comm_ids[paths[0]])[0]
+
         request = json_rpc_request(
             method,
             params=params,
@@ -312,6 +349,9 @@ class PandasFixture:
             start_index=start_index,
             num_columns=num_columns,
         )
+
+    def get_state(self, table_name):
+        return self.do_json_rpc(table_name, "get_state")
 
     def get_data_values(self, table_name, **params):
         return self.do_json_rpc(table_name, "get_data_values", **params)
@@ -372,10 +412,26 @@ def _wrap_json(model: Type[BaseModel], data: JsonRecords):
     return [model(**d).dict() for d in data]
 
 
+def test_pandas_get_state(pandas_fixture: PandasFixture):
+    result = pandas_fixture.get_state("simple")
+    assert result["table_shape"]["num_rows"] == 5
+    assert result["table_shape"]["num_columns"] == 6
+
+    sort_keys = [
+        {"column_index": 0, "ascending": True},
+        {"column_index": 1, "ascending": False},
+    ]
+    filters = [_compare_filter(0, ">", 0), _compare_filter(0, "<", 5)]
+    pandas_fixture.set_sort_columns("simple", sort_keys=sort_keys)
+    pandas_fixture.set_column_filters("simple", filters=filters)
+
+    result = pandas_fixture.get_state("simple")
+    assert result["sort_keys"] == sort_keys
+    assert result["filters"] == [ColumnFilter(**f) for f in filters]
+
+
 def test_pandas_get_schema(pandas_fixture: PandasFixture):
     result = pandas_fixture.get_schema("simple", 0, 100)
-    assert result["num_rows"] == 5
-    assert result["total_num_columns"] == 5
 
     full_schema = [
         {
@@ -403,20 +459,15 @@ def test_pandas_get_schema(pandas_fixture: PandasFixture):
             "type_name": "datetime64[ns]",
             "type_display": "datetime",
         },
+        {"column_name": "f", "type_name": "mixed", "type_display": "unknown"},
     ]
 
     assert result["columns"] == _wrap_json(ColumnSchema, full_schema)
 
     result = pandas_fixture.get_schema("simple", 2, 100)
-    assert result["num_rows"] == 5
-    assert result["total_num_columns"] == 5
-
     assert result["columns"] == _wrap_json(ColumnSchema, full_schema[2:])
 
-    result = pandas_fixture.get_schema("simple", 5, 100)
-    assert result["num_rows"] == 5
-    assert result["total_num_columns"] == 5
-
+    result = pandas_fixture.get_schema("simple", 6, 100)
     assert result["columns"] == []
 
     # Make a really big schema
@@ -426,13 +477,9 @@ def test_pandas_get_schema(pandas_fixture: PandasFixture):
     pandas_fixture.register_table(bigger_name, bigger_df)
 
     result = pandas_fixture.get_schema(bigger_name, 0, 100)
-    assert result["num_rows"] == 5
-    assert result["total_num_columns"] == 500
     assert result["columns"] == _wrap_json(ColumnSchema, bigger_schema[:100])
 
     result = pandas_fixture.get_schema(bigger_name, 10, 10)
-    assert result["num_rows"] == 5
-    assert result["total_num_columns"] == 500
     assert result["columns"] == _wrap_json(ColumnSchema, bigger_schema[10:20])
 
 
@@ -466,7 +513,7 @@ def test_pandas_get_data_values(pandas_fixture: PandasFixture):
         "simple",
         row_start_index=0,
         num_rows=20,
-        column_indices=list(range(5)),
+        column_indices=list(range(6)),
     )
 
     # TODO: pandas pads all values to fixed width, do we want to do
@@ -483,6 +530,7 @@ def test_pandas_get_data_values(pandas_fixture: PandasFixture):
             "2024-01-04 00:00:00",
             "2024-01-05 00:00:00",
         ],
+        ["None", "5", "-1", "None", "None"],
     ]
 
     assert _trim_whitespace(result["columns"]) == expected_columns

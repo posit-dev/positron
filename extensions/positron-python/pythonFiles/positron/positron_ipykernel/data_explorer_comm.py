@@ -113,14 +113,6 @@ class TableSchema(BaseModel):
         description="Schema for each column in the table",
     )
 
-    num_rows: int = Field(
-        description="Numbers of rows in the unfiltered dataset",
-    )
-
-    total_num_columns: int = Field(
-        description="Total number of columns in the unfiltered dataset",
-    )
-
 
 class TableData(BaseModel):
     """
@@ -211,10 +203,14 @@ class FreqtableCounts(BaseModel):
     )
 
 
-class BackendState(BaseModel):
+class TableState(BaseModel):
     """
-    The current backend state
+    The current backend table state
     """
+
+    table_shape: TableShape = Field(
+        description="Provides number of rows and columns in table",
+    )
 
     filters: List[ColumnFilter] = Field(
         description="The set of currently applied filters",
@@ -222,6 +218,20 @@ class BackendState(BaseModel):
 
     sort_keys: List[ColumnSortKey] = Field(
         description="The set of currently applied sorts",
+    )
+
+
+class TableShape(BaseModel):
+    """
+    Provides number of rows and columns in table
+    """
+
+    num_rows: int = Field(
+        description="Numbers of rows in the unfiltered dataset",
+    )
+
+    num_columns: int = Field(
+        description="Number of columns in the unfiltered dataset",
     )
 
 
@@ -548,7 +558,7 @@ class GetColumnProfileRequest(BaseModel):
 
 class GetStateRequest(BaseModel):
     """
-    Request the current backend state (applied filters and sort columns)
+    Request the current table state (applied filters and sort columns)
     """
 
     method: Literal[DataExplorerBackendRequest.GetState] = Field(
@@ -606,7 +616,9 @@ ProfileResult.update_forward_refs()
 
 FreqtableCounts.update_forward_refs()
 
-BackendState.update_forward_refs()
+TableState.update_forward_refs()
+
+TableShape.update_forward_refs()
 
 ColumnSchema.update_forward_refs()
 
