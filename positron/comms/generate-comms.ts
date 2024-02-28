@@ -372,7 +372,9 @@ function* objectVisitor(
  * @returns A generator that yields the Rust code for the comm
  */
 function* createRustComm(name: string, frontend: any, backend: any): Generator<string> {
-	yield `/*---------------------------------------------------------------------------------------------
+	yield `// @generated
+
+/*---------------------------------------------------------------------------------------------
  *  Copyright (C) ${year} Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
