@@ -95,7 +95,7 @@ export class TableDataDataGridInstance extends DataGridInstance {
 			this._lastFetchedData = undefined;
 
 			const state = await this._dataExplorerClientInstance.getState();
-			this.tableShape = [state.shape.num_rows, state.shape.num_columns];
+			this.tableShape = [state.table_shape.num_rows, state.table_shape.num_columns];
 
 			this._dataCache?.clear();
 			this.fetchData();
@@ -123,7 +123,7 @@ export class TableDataDataGridInstance extends DataGridInstance {
 	 */
 	async initialize() {
 		const state = await this._dataExplorerClientInstance.getState();
-		this.tableShape = [state.shape.num_rows, state.shape.num_columns];
+		this.tableShape = [state.table_shape.num_rows, state.table_shape.num_columns];
 		this._schemaCache = new TableSchemaCache(
 			this.tableShape,
 			async (req: SchemaFetchRange) => {

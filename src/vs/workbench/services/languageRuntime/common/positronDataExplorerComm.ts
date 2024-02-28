@@ -122,7 +122,7 @@ export interface TableState {
 	/**
 	 * Provides number of rows and columns in table
 	 */
-	shape: Shape;
+	table_shape: TableShape;
 
 	/**
 	 * The set of currently applied filters
@@ -139,7 +139,7 @@ export interface TableState {
 /**
  * Provides number of rows and columns in table
  */
-export interface Shape {
+export interface TableShape {
 	/**
 	 * Numbers of rows in the unfiltered dataset
 	 */

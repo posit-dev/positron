@@ -277,14 +277,14 @@
 					"name": "table_state",
 					"description": "The current backend table state",
 					"required": [
-						"shape",
+						"table_shape",
 						"filters",
 						"sort_keys"
 					],
 					"properties": {
-						"shape": {
+						"table_shape": {
 							"type": "object",
-							"name": "shape",
+							"name": "table_shape",
 							"description": "Provides number of rows and columns in table",
 							"required": [
 								"num_rows",
