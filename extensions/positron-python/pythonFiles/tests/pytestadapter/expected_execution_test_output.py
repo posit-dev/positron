@@ -308,7 +308,7 @@ skip_tests_execution_expected_output = {
 #    └── test_top_folder.py
 #       └── test_top_function_t: success
 #       └── test_top_function_f: failure
-#    └── z_nested_folder_one
+#    └── nested_folder_one
 #       └── test_bottom_folder.py
 #          └── test_bottom_function_t: success
 #          └── test_bottom_function_f: failure
@@ -318,7 +318,7 @@ dual_level_nested_folder_top_path = (
 dual_level_nested_folder_bottom_path = (
     TEST_DATA_PATH
     / "dual_level_nested_folder"
-    / "z_nested_folder_one"
+    / "nested_folder_one"
     / "test_bottom_folder.py"
 )
 dual_level_nested_folder_execution_expected_output = {
@@ -345,11 +345,11 @@ dual_level_nested_folder_execution_expected_output = {
         "subtest": None,
     },
     get_absolute_test_id(
-        "z_nested_folder_one/test_bottom_folder.py::test_bottom_function_t",
+        "nested_folder_one/test_bottom_folder.py::test_bottom_function_t",
         dual_level_nested_folder_bottom_path,
     ): {
         "test": get_absolute_test_id(
-            "z_nested_folder_one/test_bottom_folder.py::test_bottom_function_t",
+            "nested_folder_one/test_bottom_folder.py::test_bottom_function_t",
             dual_level_nested_folder_bottom_path,
         ),
         "outcome": "success",
@@ -358,11 +358,11 @@ dual_level_nested_folder_execution_expected_output = {
         "subtest": None,
     },
     get_absolute_test_id(
-        "z_nested_folder_one/test_bottom_folder.py::test_bottom_function_f",
+        "nested_folder_one/test_bottom_folder.py::test_bottom_function_f",
         dual_level_nested_folder_bottom_path,
     ): {
         "test": get_absolute_test_id(
-            "z_nested_folder_one/test_bottom_folder.py::test_bottom_function_f",
+            "nested_folder_one/test_bottom_folder.py::test_bottom_function_f",
             dual_level_nested_folder_bottom_path,
         ),
         "outcome": "failure",
@@ -479,7 +479,7 @@ dual_level_nested_folder_top_path = (
 dual_level_nested_folder_bottom_path = (
     TEST_DATA_PATH
     / "dual_level_nested_folder"
-    / "z_nested_folder_one"
+    / "nested_folder_one"
     / "test_bottom_folder.py"
 )
 unittest_folder_add_path = TEST_DATA_PATH / "unittest_folder" / "test_add.py"
@@ -683,4 +683,16 @@ unsafe_clear_env_vars_expected_execution_output = {
         "traceback": None,
         "subtest": None,
     },
+}
+
+# Constant for the symlink execution test where TEST_DATA_PATH / "root" the target and TEST_DATA_PATH / "symlink_folder" the symlink
+test_a_symlink_path = TEST_DATA_PATH / "symlink_folder" / "tests" / "test_a.py"
+symlink_run_expected_execution_output = {
+    get_absolute_test_id("test_a.py::test_a_function", test_a_symlink_path): {
+        "test": get_absolute_test_id("test_a.py::test_a_function", test_a_symlink_path),
+        "outcome": "success",
+        "message": None,
+        "traceback": None,
+        "subtest": None,
+    }
 }

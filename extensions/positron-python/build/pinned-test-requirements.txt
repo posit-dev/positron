@@ -12,7 +12,7 @@ prospector==0.12.2
 # avoid breaking changes in pytest 8 https://github.com/microsoft/vscode-python/issues/22798
 pytest==7.4.4
 # --- End Positron ---
-Flask==3.0.1
+Flask==3.0.2
 fastapi==0.109.2
 uvicorn==0.27.0.post1
 Django==5.0.1; python_version >= '3.10'
@@ -25,8 +25,8 @@ torch-tb-profiler==0.4.3
 freezegun==1.4.0
 # iPython Kernel tests
 fastcore==1.5.29
-ipykernel==6.29.0
-ipywidgets==8.1.1
+ipykernel==6.29.3
+ipywidgets==8.1.2
 matplotlib==3.8.2; python_version >= '3.9'
 matplotlib==3.7.4; python_version < '3.9'
 # Require fonttools >= 4.43.0 to avoid CVE-2023-45139
@@ -37,10 +37,10 @@ pandas==2.2.0; python_version >= '3.9'
 pandas==2.0.3; python_version < '3.9'
 # Require pillow >= 10.0.1 to avoid CVE-2023-4863
 pillow==10.2.0
-pyright==1.1.349
+pyright==1.1.351
 pytest-asyncio==0.23.4
 pytest-mock==3.12.0
-polars==0.20.6
+polars==0.20.11
 torch==2.1.2; python_version < '3.12'
 # Require wheel >= 0.38.0 to avoid CVE-2022-40898
 wheel==0.38.0
