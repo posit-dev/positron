@@ -116,15 +116,12 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 			this._mostRecentlyStartedRuntimesByLanguageId.set(session.runtimeMetadata.languageId,
 				session.runtimeMetadata);
 
+			this.saveWorkspaceSessions();
+
 			this._register(session.onDidEndSession(_exit => {
 				// Update the set of workspace sessions
 				this.saveWorkspaceSessions();
 			}));
-		}));
-
-		// When a session starts (for any reason), update our set of workspace sessions
-		this._register(this._runtimeSessionService.onWillStartRuntime(_session => {
-			this.saveWorkspaceSessions();
 		}));
 
 		// When the discovery phase is complete, check to see if we need to

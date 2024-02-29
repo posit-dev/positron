@@ -276,6 +276,34 @@ export interface IRuntimeSessionService {
 		source: string): Promise<string>;
 
 	/**
+	 * Starts a new session for a runtime. Use to start a new runtime at the
+	 * behest of a user gesture.
+	 *
+	 * @param runtimeId The runtime identifier of the runtime to start.
+	 * @param sessionName A human-readable (displayed) name for the session to start.
+	 * @param sessionMode The mode of the session to start.
+	 * @param source The source of the request to start the runtime, for debugging purposes
+	 *  (not displayed to the user)
+	 *
+	 * Returns a promise that resolves to the session ID of the new session.
+	 */
+	startNewRuntimeSession(runtimeId: string,
+		sessionName: string,
+		sessionMode: LanguageRuntimeSessionMode,
+		source: string): Promise<string>;
+
+	/**
+	 * Starts a new session for a runtime. Use to start a new runtime at the
+	 * behest of a user gesture.
+	 *
+	 * @param runtimeMetadata The metadata of the runtime to start.
+	 * @param sessionMetadata The metadata of the session to start.
+	 */
+	restoreRuntimeSession(
+		runtimeMetadata: ILanguageRuntimeMetadata,
+		sessionMetadata: IRuntimeSessionMetadata): Promise<void>;
+
+	/**
 	 * Automatically starts a runtime.
 	 *
 	 * @param runtime The runtime to start.

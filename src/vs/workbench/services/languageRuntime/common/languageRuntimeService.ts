@@ -600,7 +600,6 @@ export interface ILanguageRuntimeService {
 	 * Register a new language runtime
 	 *
 	 * @param runtime The metadata of the language runtime to register
-	 * @param startupBehavior The desired startup behavior for the runtime
 	 *
 	 * @returns A disposable that can be used to unregister the runtime
 	 */

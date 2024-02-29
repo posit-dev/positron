@@ -338,9 +338,55 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 		this._logService.info(
 			`Starting session for language runtime ` +
 			`${formatLanguageRuntimeMetadata(languageRuntime)} (Source: ${source})`);
-		return this.doStartRuntimeSession(languageRuntime, sessionName, sessionMode);
+		return this.doCreateRuntimeSession(languageRuntime, sessionName, sessionMode);
 	}
 
+
+	/**
+	 * Restores (reconnects to) a runtime session that was previously started.
+	 *
+	 * @param runtimeMetadata The metadata of the runtime to start.
+	 * @param sessionMetadata The metadata of the session to start.
+	 */
+	async restoreRuntimeSession(
+		runtimeMetadata: ILanguageRuntimeMetadata,
+		sessionMetadata: IRuntimeSessionMetadata): Promise<void> {
+
+		// Ensure that the runtime is registered.
+		const languageRuntime = this._languageRuntimeService.getRegisteredRuntime(
+			runtimeMetadata.runtimeId);
+		if (!languageRuntime) {
+			this._languageRuntimeService.registerRuntime(runtimeMetadata);
+		}
+
+		// Add the runtime to the starting runtimes, if it's a console session.
+		if (sessionMetadata.sessionMode === LanguageRuntimeSessionMode.Console) {
+			this._startingConsolesByLanguageId.set(runtimeMetadata.languageId, runtimeMetadata);
+		}
+
+		// Create a promise that resolves when the runtime is ready to use.
+		const startPromise = new DeferredPromise<string>();
+		this._startingRuntimesByRuntimeId.set(runtimeMetadata.runtimeId, startPromise);
+
+		// We should already have a session manager registered, since we can't
+		// get here until the extension host has been activated.
+		if (!this._sessionManager) {
+			throw new Error(`No session manager has been registered.`);
+		}
+
+		// Restore the session. This can take some time; it may involve waiting
+		// for the extension to finish activating and the network to attempt to
+		// reconnect, etc.
+		const session = await this._sessionManager.restoreSession(runtimeMetadata, sessionMetadata);
+
+		// Actually reconnect the session.
+		try {
+			await this.doStartRuntimeSession(session);
+			startPromise.complete(sessionMetadata.sessionId);
+		} catch (err) {
+			startPromise.error(err);
+		}
+	}
 
 	/**
 	 * Sets the foreground session.
@@ -445,7 +491,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 				`automatically starting. Source: ${source}`);
 
 			// Auto started runtimes are always started as console sessions.
-			return this.doStartRuntimeSession(metadata,
+			return this.doCreateRuntimeSession(metadata,
 				metadata.runtimeName, LanguageRuntimeSessionMode.Console);
 		} else {
 			this._logService.debug(`Deferring the start of language runtime ` +
@@ -462,7 +508,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 					`${formatLanguageRuntimeMetadata(metadata)} ` +
 					`automatically starting after workspace trust was granted. ` +
 					`Source: ${source}`);
-				return this.doStartRuntimeSession(metadata,
+				return this.doCreateRuntimeSession(metadata,
 					metadata.runtimeName, LanguageRuntimeSessionMode.Console);
 			});
 		}
@@ -509,7 +555,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 	//#region Private Methods
 
 	/**
-	 * Starts a runtime session.
+	 * Creates and starts a runtime session.
 	 *
 	 * @param runtimeMetadata The metadata for the runtime to start.
 	 * @param sessionName A human-readable name for the session.
@@ -518,7 +564,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 	 * Returns a promise that resolves with the session ID when the runtime is
 	 * ready to use.
 	 */
-	private async doStartRuntimeSession(runtimeMetadata: ILanguageRuntimeMetadata,
+	private async doCreateRuntimeSession(runtimeMetadata: ILanguageRuntimeMetadata,
 		sessionName: string,
 		sessionMode: LanguageRuntimeSessionMode): Promise<string> {
 		// Add the runtime to the starting runtimes.
@@ -541,7 +587,22 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 			sessionMode,
 			createdTimestamp: Date.now(),
 		};
+
+		// Provision the session.
 		const session = await this._sessionManager.createSession(runtimeMetadata, sessionMetadata);
+
+		// Actually start the session.
+		try {
+			await this.doStartRuntimeSession(session);
+			startPromise.complete(sessionId);
+		} catch (err) {
+			startPromise.error(err);
+		}
+
+		return sessionId;
+	}
+
+	private async doStartRuntimeSession(session: ILanguageRuntimeSession): Promise<void> {
 
 		// Fire the onWillStartRuntime event.
 		this._onWillStartRuntimeEmitter.fire(session);
@@ -553,15 +614,12 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 			// Attempt to start the session.
 			await session.start();
 
-			// Resolve the deferred promise.
-			startPromise.complete(sessionId);
-
 			// The runtime started. Move it from the starting runtimes to the
 			// running runtimes.
-			this._startingConsolesByLanguageId.delete(runtimeMetadata.languageId);
-			this._startingRuntimesByRuntimeId.delete(runtimeMetadata.runtimeId);
+			this._startingConsolesByLanguageId.delete(session.runtimeMetadata.languageId);
+			this._startingRuntimesByRuntimeId.delete(session.runtimeMetadata.runtimeId);
 			if (session.metadata.sessionMode === LanguageRuntimeSessionMode.Console) {
-				this._consoleSessionsByLanguageId.set(runtimeMetadata.languageId, session);
+				this._consoleSessionsByLanguageId.set(session.runtimeMetadata.languageId, session);
 			}
 
 			// Fire the onDidStartRuntime event.
@@ -572,8 +630,6 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 				this._foregroundSession = session;
 			}
 		} catch (reason) {
-			// Reject the deferred promise.
-			startPromise.error(reason);
 
 			// Remove the runtime from the starting runtimes.
 			this._startingConsolesByLanguageId.delete(session.runtimeMetadata.languageId);
@@ -585,8 +641,6 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 			// TODO@softwarenerd - We should do something with the reason.
 			this._logService.error(`Starting language runtime failed. Reason: ${reason}`);
 		}
-
-		return sessionId;
 	}
 
 	/**
