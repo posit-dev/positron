@@ -11,13 +11,18 @@ import { PositronBaseComm } from 'vs/workbench/services/languageRuntime/common/p
 import { IRuntimeClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimeClientInstance';
 
 /**
- * The schema for a table-like object
+ * Result in Methods
  */
-export interface TableSchema {
+export interface SchemaSearchResult {
 	/**
-	 * Schema for each column in the table
+	 * A schema containing matching columns up to the max_results limit
 	 */
-	columns: Array<ColumnSchema>;
+	matches?: TableSchema;
+
+	/**
+	 * The total number of columns matching the search term
+	 */
+	total_num_matches: number;
 
 }
 
@@ -45,73 +50,6 @@ export interface FilterResult {
 	 * Number of rows in table after applying filters
 	 */
 	selected_num_rows: number;
-
-}
-
-/**
- * Result of computing column profile
- */
-export interface ProfileResult {
-	/**
-	 * Number of null values in column
-	 */
-	null_count: number;
-
-	/**
-	 * Minimum value as string computed as part of histogram
-	 */
-	min_value?: string;
-
-	/**
-	 * Maximum value as string computed as part of histogram
-	 */
-	max_value?: string;
-
-	/**
-	 * Average value as string computed as part of histogram
-	 */
-	mean_value?: string;
-
-	/**
-	 * Absolute count of values in each histogram bin
-	 */
-	histogram_bin_sizes?: Array<number>;
-
-	/**
-	 * Absolute floating-point width of a histogram bin
-	 */
-	histogram_bin_width?: number;
-
-	/**
-	 * Quantile values computed from histogram bins
-	 */
-	histogram_quantiles?: Array<ColumnQuantileValue>;
-
-	/**
-	 * Counts of distinct values in column
-	 */
-	freqtable_counts?: Array<FreqtableCounts>;
-
-	/**
-	 * Number of other values not accounted for in counts
-	 */
-	freqtable_other_count?: number;
-
-}
-
-/**
- * Items in FreqtableCounts
- */
-export interface FreqtableCounts {
-	/**
-	 * Stringified value
-	 */
-	value: string;
-
-	/**
-	 * Number of occurrences of value
-	 */
-	count: number;
 
 }
 
@@ -162,6 +100,11 @@ export interface ColumnSchema {
 	column_name: string;
 
 	/**
+	 * The position of the column within the schema
+	 */
+	column_index: number;
+
+	/**
 	 * Exact name of data type used by underlying table
 	 */
 	type_name: string;
@@ -204,6 +147,17 @@ export interface ColumnSchema {
 }
 
 /**
+ * The schema for a table-like object
+ */
+export interface TableSchema {
+	/**
+	 * Schema for each column in the table
+	 */
+	columns: Array<ColumnSchema>;
+
+}
+
+/**
  * Specifies a table row filter based on a column's values
  */
 export interface ColumnFilter {
@@ -223,39 +177,176 @@ export interface ColumnFilter {
 	column_index: number;
 
 	/**
+	 * Parameters for the 'between' and 'not_between' filter types
+	 */
+	between_params?: BetweenFilterParams;
+
+	/**
+	 * Parameters for the 'compare' filter type
+	 */
+	compare_params?: CompareFilterParams;
+
+	/**
+	 * Parameters for the 'search' filter type
+	 */
+	search_params?: SearchFilterParams;
+
+	/**
+	 * Parameters for the 'set_membership' filter type
+	 */
+	set_membership_params?: SetMembershipFilterParams;
+
+}
+
+/**
+ * Parameters for the 'between' and 'not_between' filter types
+ */
+export interface BetweenFilterParams {
+	/**
+	 * The lower limit for filtering
+	 */
+	left_value: string;
+
+	/**
+	 * The upper limit for filtering
+	 */
+	right_value: string;
+
+}
+
+/**
+ * Parameters for the 'compare' filter type
+ */
+export interface CompareFilterParams {
+	/**
 	 * String representation of a binary comparison
 	 */
-	compare_op?: ColumnFilterCompareOp;
+	op: CompareFilterParamsOp;
 
 	/**
 	 * A stringified column value for a comparison filter
 	 */
-	compare_value?: string;
+	value: string;
 
+}
+
+/**
+ * Parameters for the 'set_membership' filter type
+ */
+export interface SetMembershipFilterParams {
 	/**
 	 * Array of column values for a set membership filter
 	 */
-	set_member_values?: Array<string>;
+	values: Array<string>;
 
 	/**
 	 * Filter by including only values passed (true) or excluding (false)
 	 */
-	set_member_inclusive?: boolean;
+	inclusive: boolean;
 
+}
+
+/**
+ * Parameters for the 'search' filter type
+ */
+export interface SearchFilterParams {
 	/**
 	 * Type of search to perform
 	 */
-	search_type?: ColumnFilterSearchType;
+	type: SearchFilterParamsType;
 
 	/**
 	 * String value/regex to search for in stringified data
 	 */
-	search_term?: string;
+	term: string;
 
 	/**
 	 * If true, do a case-sensitive search, otherwise case-insensitive
 	 */
-	search_case_sensitive?: boolean;
+	case_sensitive: boolean;
+
+}
+
+/**
+ * A single column profile request
+ */
+export interface ColumnProfileRequest {
+	/**
+	 * The ordinal column index to profile
+	 */
+	column_index: number;
+
+	/**
+	 * The type of analytical column profile
+	 */
+	type: ColumnProfileRequestType;
+
+}
+
+/**
+ * Result of computing column profile
+ */
+export interface ColumnProfileResult {
+	/**
+	 * Number of null values in column
+	 */
+	null_count?: number;
+
+	/**
+	 * Minimum value as string computed as part of histogram
+	 */
+	min_value?: string;
+
+	/**
+	 * Maximum value as string computed as part of histogram
+	 */
+	max_value?: string;
+
+	/**
+	 * Average value as string computed as part of histogram
+	 */
+	mean_value?: string;
+
+	/**
+	 * Quantile values computed from histogram bins
+	 */
+	sample_quantiles?: Array<ColumnQuantileValue>;
+
+	/**
+	 * Absolute count of values in each histogram bin
+	 */
+	histogram_bin_sizes?: Array<number>;
+
+	/**
+	 * Absolute floating-point width of a histogram bin
+	 */
+	histogram_bin_width?: number;
+
+	/**
+	 * Counts of distinct values in column
+	 */
+	freqtable_counts?: Array<FreqtableCounts>;
+
+	/**
+	 * Number of other values not accounted for in counts
+	 */
+	freqtable_other_count?: number;
+
+}
+
+/**
+ * Items in FreqtableCounts
+ */
+export interface FreqtableCounts {
+	/**
+	 * Stringified value
+	 */
+	value: string;
+
+	/**
+	 * Number of occurrences of value
+	 */
+	count: number;
 
 }
 
@@ -298,14 +389,6 @@ export interface ColumnSortKey {
 }
 
 /**
- * Possible values for ProfileType in GetColumnProfile
- */
-export enum GetColumnProfileProfileType {
-	Freqtable = 'freqtable',
-	Histogram = 'histogram'
-}
-
-/**
  * Possible values for TypeDisplay in ColumnSchema
  */
 export enum ColumnSchemaTypeDisplay {
@@ -324,17 +407,19 @@ export enum ColumnSchemaTypeDisplay {
  * Possible values for FilterType in ColumnFilter
  */
 export enum ColumnFilterFilterType {
-	Isnull = 'isnull',
-	Notnull = 'notnull',
+	Between = 'between',
 	Compare = 'compare',
-	SetMembership = 'set_membership',
-	Search = 'search'
+	Isnull = 'isnull',
+	NotBetween = 'not_between',
+	Notnull = 'notnull',
+	Search = 'search',
+	SetMembership = 'set_membership'
 }
 
 /**
- * Possible values for CompareOp in ColumnFilter
+ * Possible values for Op in CompareFilterParams
  */
-export enum ColumnFilterCompareOp {
+export enum CompareFilterParamsOp {
 	Eq = '=',
 	NotEq = '!=',
 	Lt = '<',
@@ -344,13 +429,23 @@ export enum ColumnFilterCompareOp {
 }
 
 /**
- * Possible values for SearchType in ColumnFilter
+ * Possible values for Type in SearchFilterParams
  */
-export enum ColumnFilterSearchType {
+export enum SearchFilterParamsType {
 	Contains = 'contains',
 	Startswith = 'startswith',
 	Endswith = 'endswith',
 	Regex = 'regex'
+}
+
+/**
+ * Possible values for Type in ColumnProfileRequest
+ */
+export enum ColumnProfileRequestType {
+	NullCount = 'null_count',
+	SummaryStats = 'summary_stats',
+	Freqtable = 'freqtable',
+	Histogram = 'histogram'
 }
 
 /**
@@ -391,10 +486,26 @@ export class PositronDataExplorerComm extends PositronBaseComm {
 	 * @param numColumns Number of column schemas to fetch from start index.
 	 * May extend beyond end of table
 	 *
-	 * @returns The schema for a table-like object
+	 * @returns undefined
 	 */
 	getSchema(startIndex: number, numColumns: number): Promise<TableSchema> {
 		return super.performRpc('get_schema', ['start_index', 'num_columns'], [startIndex, numColumns]);
+	}
+
+	/**
+	 * Search schema by column name
+	 *
+	 * Search schema for column names matching a passed substring
+	 *
+	 * @param searchTerm Substring to match for (currently case insensitive
+	 * @param startIndex Index (starting from zero) of first result to fetch
+	 * @param maxResults Maximum number of resulting column schemas to fetch
+	 * from the start index
+	 *
+	 * @returns undefined
+	 */
+	searchSchema(searchTerm: string, startIndex: number, maxResults: number): Promise<SchemaSearchResult> {
+		return super.performRpc('search_schema', ['search_term', 'start_index', 'max_results'], [searchTerm, startIndex, maxResults]);
 	}
 
 	/**
@@ -442,17 +553,16 @@ export class PositronDataExplorerComm extends PositronBaseComm {
 	}
 
 	/**
-	 * Get a column profile
+	 * Request a batch of column profiles
 	 *
-	 * Requests a statistical summary or data profile for a column
+	 * Requests a statistical summary or data profile for batch of columns
 	 *
-	 * @param profileType The type of analytical column profile
-	 * @param columnIndex Column index to compute profile for
+	 * @param profiles Array of requested profiles
 	 *
-	 * @returns Result of computing column profile
+	 * @returns undefined
 	 */
-	getColumnProfile(profileType: GetColumnProfileProfileType, columnIndex: number): Promise<ProfileResult> {
-		return super.performRpc('get_column_profile', ['profile_type', 'column_index'], [profileType, columnIndex]);
+	getColumnProfiles(profiles: Array<ColumnProfileRequest>): Promise<Array<ColumnProfileResult>> {
+		return super.performRpc('get_column_profiles', ['profiles'], [profiles]);
 	}
 
 	/**

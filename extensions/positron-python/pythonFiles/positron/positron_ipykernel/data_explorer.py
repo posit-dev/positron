@@ -24,15 +24,18 @@ import comm
 from .access_keys import decode_access_key
 from .data_explorer_comm import (
     ColumnFilter,
-    ColumnFilterCompareOp,
+    CompareFilterParamsOp,
+    ColumnProfileRequest,
+    ColumnProfileRequestType,
+    ColumnProfileResult,
     ColumnSchema,
     ColumnSchemaTypeDisplay,
     ColumnSortKey,
     DataExplorerBackendMessageContent,
     DataExplorerFrontendEvent,
     FilterResult,
-    GetColumnProfileProfileType,
-    GetColumnProfileRequest,
+    GetColumnProfilesRequest,
+    GetColumnProfilesParams,
     GetDataValuesRequest,
     GetSchemaRequest,
     GetStateRequest,
@@ -124,9 +127,9 @@ class DataExplorerTableView:
             # trigger a sort
             self._sort_data()
 
-    def get_column_profile(self, request: GetColumnProfileRequest):
+    def get_column_profiles(self, request: GetColumnProfilesRequest):
         self._recompute_if_needed()
-        return self._get_column_profile(request.params.profile_type, request.params.column_index)
+        return self._get_column_profiles(request.params)
 
     def get_state(self, request: GetStateRequest):
         return self._get_state().dict()
@@ -148,11 +151,33 @@ class DataExplorerTableView:
     def _sort_data(self) -> None:
         raise NotImplementedError
 
-    def _get_column_profile(
-        self,
-        profile_type: GetColumnProfileProfileType,
-        column_index: int,
-    ) -> None:
+    def _get_column_profiles(self, params: GetColumnProfilesParams) -> List[ColumnProfileResult]:
+        results: List[ColumnProfileResult] = []
+
+        handlers = {
+            ColumnProfileRequestType.NullCount: self._prof_null_count,
+            ColumnProfileRequestType.SummaryStats: self._prof_summary_stats,
+            ColumnProfileRequestType.Freqtable: self._prof_freq_table,
+            ColumnProfileRequestType.Histogram: self._prof_histogram,
+        }
+
+        for req in params.profiles:
+            handler = handlers[req.type]
+            result = handler(req.column_index)
+            results.append(result)
+
+        return results
+
+    def _prof_null_count(self, column_index: int):
+        raise NotImplementedError
+
+    def _prof_summary_stats(self, column_index: int):
+        raise NotImplementedError
+
+    def _prof_freq_table(self, column_index: int):
+        raise NotImplementedError
+
+    def _prof_histogram(self, column_index: int):
         raise NotImplementedError
 
     def _get_state(self) -> TableState:
@@ -273,8 +298,8 @@ class PandasView(DataExplorerTableView):
         column_schemas = []
 
         for i, (c, dtype) in enumerate(zip(columns_slice, dtypes_slice)):
+            column_index = i + column_start
             if dtype == object:
-                column_index = i + column_start
                 if column_index not in self._inferred_dtypes:
                     self._inferred_dtypes[column_index] = infer_dtype(
                         self.table.iloc[:, column_index]
@@ -288,6 +313,7 @@ class PandasView(DataExplorerTableView):
 
             col_schema = ColumnSchema(
                 column_name=str(c),
+                column_index=column_index,
                 type_name=type_name,
                 type_display=ColumnSchemaTypeDisplay(type_display),
             )
@@ -396,10 +422,8 @@ class PandasView(DataExplorerTableView):
             cols_to_sort = []
             directions = []
             for key in self.sort_keys:
-                column = self.table.iloc[:, key.column_index]
-                if self.filtered_indices is not None:
-                    column = column.take(self.filtered_indices)
-                cols_to_sort.append(column)
+                col = self._get_column(key.column_index)
+                cols_to_sort.append(col)
                 directions.append(key.ascending)
 
             # lexsort_indexer uses np.lexsort and so is always stable
@@ -413,10 +437,23 @@ class PandasView(DataExplorerTableView):
             # This will be None if the data is unfiltered
             self.view_indices = self.filtered_indices
 
-    def _get_column_profile(
-        self, profile_type: GetColumnProfileProfileType, column_index: int
-    ) -> None:
-        pass
+    def _get_column(self, column_index: int) -> "pd.Series":
+        column = self.table.iloc[:, column_index]
+        if self.filtered_indices is not None:
+            column = column.take(self.filtered_indices)
+        return column
+
+    def _prof_null_count(self, column_index: int):
+        return self._get_column(column_index).isnull().sum()
+
+    def _prof_summary_stats(self, column_index: int):
+        raise NotImplementedError
+
+    def _prof_freq_table(self, column_index: int):
+        raise NotImplementedError
+
+    def _prof_histogram(self, column_index: int):
+        raise NotImplementedError
 
     def _get_state(self) -> TableState:
         return TableState(
@@ -427,12 +464,12 @@ class PandasView(DataExplorerTableView):
 
 
 COMPARE_OPS = {
-    ColumnFilterCompareOp.Gt: operator.gt,
-    ColumnFilterCompareOp.GtEq: operator.ge,
-    ColumnFilterCompareOp.Lt: operator.lt,
-    ColumnFilterCompareOp.LtEq: operator.le,
-    ColumnFilterCompareOp.Eq: operator.eq,
-    ColumnFilterCompareOp.NotEq: operator.ne,
+    CompareFilterParamsOp.Gt: operator.gt,
+    CompareFilterParamsOp.GtEq: operator.ge,
+    CompareFilterParamsOp.Lt: operator.lt,
+    CompareFilterParamsOp.LtEq: operator.le,
+    CompareFilterParamsOp.Eq: operator.eq,
+    CompareFilterParamsOp.NotEq: operator.ne,
 }
 
 
@@ -440,11 +477,14 @@ def _pandas_eval_filter(df: "pd.DataFrame", filt: ColumnFilter):
     col = df.iloc[:, filt.column_index]
     mask = None
     if filt.filter_type == "compare":
-        if filt.compare_op not in COMPARE_OPS:
-            raise ValueError(f"Unsupported filter type: {filt.compare_op}")
-        op = COMPARE_OPS[filt.compare_op]
+        params = filt.compare_params
+        assert params is not None
+
+        if params.op not in COMPARE_OPS:
+            raise ValueError(f"Unsupported filter type: {params.op}")
+        op = COMPARE_OPS[params.op]
         # Let pandas decide how to coerce the string we got from the UI
-        dummy = pd_.Series([filt.compare_value]).astype(col.dtype)
+        dummy = pd_.Series([params.value]).astype(col.dtype)
 
         # pandas comparison filters return False for null values
         mask = op(col, dummy.iloc[0])
@@ -453,10 +493,12 @@ def _pandas_eval_filter(df: "pd.DataFrame", filt: ColumnFilter):
     elif filt.filter_type == "notnull":
         mask = col.notnull()
     elif filt.filter_type == "set_membership":
-        boxed_values = pd_.Series(filt.set_member_values).astype(col.dtype)
+        params = filt.set_membership_params
+        assert params is not None
+        boxed_values = pd_.Series(params.values).astype(col.dtype)
         # IN
         mask = col.isin(boxed_values)
-        if not filt.set_member_inclusive:
+        if not params.inclusive:
             # NOT-IN
             mask = ~mask
     elif filt.filter_type == "search":

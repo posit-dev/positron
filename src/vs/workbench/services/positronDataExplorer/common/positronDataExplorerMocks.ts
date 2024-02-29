@@ -9,7 +9,7 @@ import {
 	ColumnFilterFilterType,
 	ColumnFilterSearchType,
 	ColumnSchema,
-	ProfileResult,
+	ColumnProfileResult,
 	TableData,
 	TableSchema
 } from 'vs/workbench/services/languageRuntime/common/positronDataExplorerComm';
@@ -87,7 +87,7 @@ export function getColumnSchema(colName: string, typeName: string, typeDisplay: 
 	} as ColumnSchema;
 }
 
-export function getExampleHistogram(): ProfileResult {
+export function getExampleHistogram(): ColumnProfileResult {
 	// This example is basically made up.
 	return {
 		null_count: 10,
@@ -101,10 +101,10 @@ export function getExampleHistogram(): ProfileResult {
 			{ q: 50, value: '70', exact: true },
 			{ q: 75, value: '82', exact: true }
 		],
-	} as ProfileResult;
+	} as ColumnProfileResult;
 }
 
-export function getExampleFreqtable(): ProfileResult {
+export function getExampleFreqtable(): ColumnProfileResult {
 	return {
 		null_count: 10,
 		freqtable_counts: [
@@ -114,7 +114,7 @@ export function getExampleFreqtable(): ProfileResult {
 			{ value: 'qux444444', count: 2 }
 		],
 		freqtable_other_count: 12
-	} as ProfileResult;
+	} as ColumnProfileResult;
 }
 
 // For filtering

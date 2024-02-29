@@ -361,6 +361,10 @@ class PandasFixture:
     def set_sort_columns(self, table_name, sort_keys=None):
         return self.do_json_rpc(table_name, "set_sort_columns", sort_keys=sort_keys)
 
+    def get_column_profiles(self, table_name, profiles):
+        # return self.do_json_rpc(table_name, "get_column_profiles", profiles)
+        pass
+
     def check_filter_case(self, table, filter_set, expected_table):
         table_id = guid()
         ex_id = guid()
@@ -383,6 +387,9 @@ class PandasFixture:
         response = self.set_sort_columns(table_id, sort_keys=sort_keys)
         assert response is None
         self.compare_tables(table_id, ex_id, table.shape)
+
+    # def check_profile_case(self, table, profiles):
+    #     pass
 
     def compare_tables(self, table_id: str, expected_id: str, table_shape: tuple):
         # Query the data and check it yields the same result as the
@@ -435,30 +442,40 @@ def test_pandas_get_schema(pandas_fixture: PandasFixture):
     full_schema = [
         {
             "column_name": "a",
+            "column_index": 0,
             "type_name": "int64",
             "type_display": "number",
         },
         {
             "column_name": "b",
+            "column_index": 1,
             "type_name": "boolean",
             "type_display": "boolean",
         },
         {
             "column_name": "c",
+            "column_index": 2,
             "type_name": "string",
             "type_display": "string",
         },
         {
             "column_name": "d",
+            "column_index": 3,
             "type_name": "float64",
             "type_display": "number",
         },
         {
             "column_name": "e",
+            "column_index": 4,
             "type_name": "datetime64[ns]",
             "type_display": "datetime",
         },
-        {"column_name": "f", "type_name": "mixed", "type_display": "unknown"},
+        {
+            "column_name": "f",
+            "column_index": 5,
+            "type_name": "mixed",
+            "type_display": "unknown",
+        },
     ]
 
     assert result["columns"] == _wrap_json(ColumnSchema, full_schema)
@@ -473,6 +490,13 @@ def test_pandas_get_schema(pandas_fixture: PandasFixture):
     bigger_df = pd.concat([SIMPLE_PANDAS_DF] * 100, axis="columns")
     bigger_name = guid()
     bigger_schema = full_schema * 100
+
+    # Fix the column indexes
+    for i, c in enumerate(bigger_schema):
+        c = c.copy()
+        c["column_index"] = i
+        bigger_schema[i] = c
+
     pandas_fixture.register_table(bigger_name, bigger_df)
 
     result = pandas_fixture.get_schema(bigger_name, 0, 100)
@@ -500,7 +524,10 @@ def test_pandas_wide_schemas(pandas_fixture: PandasFixture):
 
         schema_slice = pandas_fixture.get_schema("wide_df", start_index, chunk_size)
         expected = pandas_fixture.get_schema(f"wide_df_{chunk_index}", 0, chunk_size)
-        assert schema_slice["columns"] == expected["columns"]
+
+        for left, right in zip(schema_slice["columns"], expected["columns"]):
+            right["column_index"] = right["column_index"] + start_index
+            assert left == right
 
 
 def _trim_whitespace(columns):
@@ -570,21 +597,15 @@ def _filter(filter_type, column_index, **kwargs):
     return kwargs
 
 
-def _compare_filter(column_index, compare_op, compare_value):
-    return _filter(
-        "compare",
-        column_index,
-        compare_op=compare_op,
-        compare_value=compare_value,
-    )
+def _compare_filter(column_index, op, value):
+    return _filter("compare", column_index, compare_params={"op": op, "value": value})
 
 
 def _set_member_filter(column_index, values, inclusive=True):
     return _filter(
         "set_membership",
         column_index,
-        set_member_inclusive=inclusive,
-        set_member_values=values,
+        set_membership_params={"values": values, "inclusive": inclusive},
     )
 
 
@@ -736,6 +757,23 @@ def test_pandas_change_schema_after_sort(
 
 # def test_pandas_get_column_profile(pandas_fixture: PandasFixture):
 #     pass
+
+
+def test_pandas_profile_null_counts(pandas_fixture: PandasFixture):
+    tables = {
+        "df1": pd.DataFrame(
+            {
+                "a": [0, np.nan, 2, np.nan, np.nan, 5, 6],
+                "b": ["zero", None, None, None, "four", "five", "six"],
+                "c": [False, False, False, None, None, None, None],
+            }
+        )
+    }
+
+    # Test profiling with filter
+    filter_cases = {}
+
+    cases = []
 
 
 # def test_pandas_get_state(pandas_fixture: PandasFixture):
