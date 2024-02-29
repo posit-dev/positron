@@ -170,15 +170,15 @@ export class TableDataDataGridInstance extends DataGridInstance {
 			return undefined;
 		}
 
-		// Get the cell.
-		const cell = this._dataExplorerCache.getCellValue(columnIndex, rowIndex);
-		if (!cell) {
+		// Get the cell value.
+		const cellValue = this._dataExplorerCache.getCellValue(columnIndex, rowIndex);
+		if (!cellValue) {
 			return undefined;
 		}
 
 		// Return the TableDataCell.
 		return (
-			<TableDataCell column={column} value={cell} />
+			<TableDataCell column={column} cellValue={cellValue} />
 		);
 	}
 
