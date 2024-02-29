@@ -3,15 +3,16 @@
  *--------------------------------------------------------------------------------------------*/
 
 import type * as positron from 'positron';
-import { ILanguageRuntimeMessage, ILanguageRuntimeMessageCommClosed, ILanguageRuntimeMessageCommData, ILanguageRuntimeMessageCommOpen, LanguageRuntimeSessionMode, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior, RuntimeState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { ILanguageRuntimeMessage, ILanguageRuntimeMessageCommClosed, ILanguageRuntimeMessageCommData, ILanguageRuntimeMessageCommOpen, ILanguageRuntimeMetadata, LanguageRuntimeSessionMode, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior, RuntimeState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import * as extHostProtocol from './extHost.positron.protocol';
 import { Emitter } from 'vs/base/common/event';
 import { IDisposable } from 'vs/base/common/lifecycle';
 import { Disposable, LanguageRuntimeMessageType } from 'vs/workbench/api/common/extHostTypes';
 import { RuntimeClientType } from 'vs/workbench/api/common/positron/extHostTypes.positron';
 import { ExtHostRuntimeClientInstance } from 'vs/workbench/api/common/positron/extHostClientInstance';
-import { IExtensionDescription } from 'vs/platform/extensions/common/extensions';
+import { ExtensionIdentifier, IExtensionDescription } from 'vs/platform/extensions/common/extensions';
 import { URI } from 'vs/base/common/uri';
+import { DeferredPromise } from 'vs/base/common/async';
 
 /**
  * A language runtime manager and metadata about the extension that registered it.
@@ -30,6 +31,8 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 	private readonly _runtimeManagersByRuntimeId = new Map<string, LanguageRuntimeManager>();
 
 	private readonly _runtimeManagers = new Array<LanguageRuntimeManager>();
+
+	private readonly _pendingRuntimeManagers = new Map<string, DeferredPromise<LanguageRuntimeManager>>();
 
 	// A list of active sessions.
 	private readonly _runtimeSessions = new Array<positron.LanguageRuntimeSession>();
@@ -122,6 +125,40 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 					`No session manager found for language ID '${runtimeMetadata.languageId}'.`));
 			}
 		});
+	}
+
+	private async runtimeManagerForRuntime(metadata: ILanguageRuntimeMetadata): Promise<LanguageRuntimeManager | undefined> {
+		// Doe we already have a manager for this runtime? This happens when we
+		// look up a runtime manager for a runtime that has already been
+		// registered.
+		const managerById = this._runtimeManagersByRuntimeId.get(metadata.runtimeId);
+		if (managerById) {
+			return managerById;
+		}
+
+		// Is the manager already known? This happens when we look up a runtime
+		// manager for a runtime that hasn't been registered, but is supplied by
+		// an extension that has registered a manager.
+		const managerByExt = this._runtimeManagers.find(manager =>
+			manager.extension.identifier === metadata.extensionId);
+		if (managerByExt) {
+			return managerByExt;
+		}
+
+		// Do we already have a pending promise for this extension? If so,
+		// return it.
+		const pending = this._pendingRuntimeManagers.get(
+			ExtensionIdentifier.toKey(metadata.extensionId));
+		if (pending) {
+			return pending.p;
+		}
+
+		// We don't have a manager for this runtime; wait for one.
+		const deferred = new DeferredPromise<LanguageRuntimeManager>();
+		this._pendingRuntimeManagers.set(ExtensionIdentifier.toKey(metadata.extensionId), deferred);
+
+		// TODO: Probably need to timeout this promise
+		return deferred.p;
 	}
 
 	/**
