@@ -23,8 +23,6 @@ import { DataGridColumnHeaders } from 'vs/base/browser/ui/positronDataGrid/compo
 import { DataGridScrollbarCorner } from 'vs/base/browser/ui/positronDataGrid/components/dataGridScrollbarCorner';
 import { ExtendColumnSelectionBy, ExtendRowSelectionBy } from 'vs/base/browser/ui/positronDataGrid/classes/dataGridInstance';
 
-let renderCounter = 0;
-
 /**
  * Constants.
  */
@@ -55,8 +53,6 @@ export const DataGridWaffle = (props: DataGridWaffleProps) => {
 
 	// Main useEffect. This is where we set up event handlers.
 	useEffect(() => {
-		context.instance.initialize();
-
 		// Set the initial screen size.
 		context.instance.setScreenSize(props.width, props.height);
 
@@ -97,12 +93,18 @@ export const DataGridWaffle = (props: DataGridWaffleProps) => {
 		switch (e.code) {
 			// Space key.
 			case 'Space': {
-				if (e.ctrlKey && !e.shiftKey) {
-					context.instance.selectColumn(context.instance.cursorColumnIndex);
-				} else if (e.shiftKey && !e.ctrlKey) {
-					context.instance.selectRow(context.instance.cursorRowIndex);
-				} if (isMacintosh ? e.metaKey : e.ctrlKey && e.shiftKey) {
-					context.instance.selectAll();
+				// Consume the event.
+				consumeEvent();
+
+				// If selection is enabled, process the key.
+				if (context.instance.selection) {
+					if (e.ctrlKey && !e.shiftKey) {
+						context.instance.selectColumn(context.instance.cursorColumnIndex);
+					} else if (e.shiftKey && !e.ctrlKey) {
+						context.instance.selectRow(context.instance.cursorRowIndex);
+					} if (isMacintosh ? e.metaKey : e.ctrlKey && e.shiftKey) {
+						context.instance.selectAll();
+					}
 				}
 				break;
 			}
@@ -243,14 +245,19 @@ export const DataGridWaffle = (props: DataGridWaffleProps) => {
 					return;
 				}
 
-				// Range selection.
-				if (e.shiftKey) {
-					context.instance.extendRowSelectionUp(ExtendRowSelectionBy.Row);
-					return;
+				// When selection is enabled, perform selection processing.
+				if (context.instance.selection) {
+					// Extend selection up.
+					if (e.shiftKey) {
+						context.instance.extendRowSelectionUp(ExtendRowSelectionBy.Row);
+						return;
+					}
+
+					// Clear selection.
+					context.instance.clearSelection();
 				}
 
-				// ArrowUp clears the selection and moves the cursor up.
-				context.instance.clearSelection();
+				// Move the cursor up.
 				if (context.instance.cursorRowIndex > 0) {
 					context.instance.setCursorRow(context.instance.cursorRowIndex - 1);
 					context.instance.scrollToCursor();
@@ -268,14 +275,19 @@ export const DataGridWaffle = (props: DataGridWaffleProps) => {
 					return;
 				}
 
-				// Range selection.
-				if (e.shiftKey) {
-					context.instance.extendRowSelectionDown(ExtendRowSelectionBy.Row);
-					return;
+				// When selection is enabled, perform selection processing.
+				if (context.instance.selection) {
+					// Extend selection down.
+					if (e.shiftKey) {
+						context.instance.extendRowSelectionDown(ExtendRowSelectionBy.Row);
+						return;
+					}
+
+					// Clear selection.
+					context.instance.clearSelection();
 				}
 
-				// ArrowUp clears the selection and moves the cursor up.
-				context.instance.clearSelection();
+				// Move the cursor down.
 				if (context.instance.cursorRowIndex < context.instance.rows - 1) {
 					context.instance.setCursorRow(context.instance.cursorRowIndex + 1);
 					context.instance.scrollToCursor();
@@ -293,13 +305,19 @@ export const DataGridWaffle = (props: DataGridWaffleProps) => {
 					return;
 				}
 
-				if (e.shiftKey) {
-					context.instance.extendColumnSelectionLeft(ExtendColumnSelectionBy.Column);
-					return;
+				// When selection is enabled, perform selection processing.
+				if (context.instance.selection) {
+					// Extend selection left.
+					if (e.shiftKey) {
+						context.instance.extendColumnSelectionLeft(ExtendColumnSelectionBy.Column);
+						return;
+					}
+
+					// Clear selection.
+					context.instance.clearSelection();
 				}
 
-				// ArrowLeft clears the selection and moves the cursor to the left.
-				context.instance.clearSelection();
+				// Moves the cursor left.
 				if (context.instance.cursorColumnIndex > 0) {
 					context.instance.setCursorColumn(context.instance.cursorColumnIndex - 1);
 					context.instance.scrollToCursor();
@@ -317,12 +335,19 @@ export const DataGridWaffle = (props: DataGridWaffleProps) => {
 					return;
 				}
 
-				if (e.shiftKey) {
-					context.instance.extendColumnSelectionRight(ExtendColumnSelectionBy.Column);
-					return;
+				// When selection is enabled, perform selection processing.
+				if (context.instance.selection) {
+					// Extend selection right.
+					if (e.shiftKey) {
+						context.instance.extendColumnSelectionRight(ExtendColumnSelectionBy.Column);
+						return;
+					}
+
+					// Clear selection.
+					context.instance.clearSelection();
 				}
 
-				// ArrowRight clears the selection and moves the cursor to the right.
+				// Move the cursor right.
 				context.instance.clearSelection();
 				if (context.instance.cursorColumnIndex < context.instance.columns - 1) {
 					context.instance.setCursorColumn(context.instance.cursorColumnIndex + 1);
@@ -410,8 +435,6 @@ export const DataGridWaffle = (props: DataGridWaffleProps) => {
 		// Adjust the top for the next row.
 		top += context.instance.getRowHeight(rowIndex);
 	}
-
-	console.log(`Render number #${++renderCounter}`);
 
 	// Render.
 	return (

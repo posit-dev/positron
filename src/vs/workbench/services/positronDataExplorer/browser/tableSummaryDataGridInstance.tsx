@@ -6,12 +6,17 @@
 import * as React from 'react';
 
 // Other dependencies.
-import { IColumnSortKey } from 'vs/base/browser/ui/positronDataGrid/interfaces/columnSortKey';
 import { DataGridInstance } from 'vs/base/browser/ui/positronDataGrid/classes/dataGridInstance';
-import { TableSchema } from 'vs/workbench/services/languageRuntime/common/positronDataExplorerComm';
-import { PositronDataExplorerColumn } from 'vs/workbench/services/positronDataExplorer/browser/positronDataExplorerColumn';
-import { DataExplorerClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimeDataExplorerClient';
+import { DataExplorerCache } from 'vs/workbench/services/positronDataExplorer/common/dataExplorerCache';
+import { ColumnSchemaTypeDisplay } from 'vs/workbench/services/languageRuntime/common/positronDataExplorerComm';
 import { ColumnSummaryCell } from 'vs/workbench/services/positronDataExplorer/browser/components/columnSummaryCell';
+import { DataExplorerClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimeDataExplorerClient';
+
+/**
+ * Constants.
+ */
+const SUMMARY_HEIGHT = 34;
+const PROFILE_LINE_HEIGHT = 20;
 
 /**
  * TableSummaryDataGridInstance class.
@@ -24,7 +29,15 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 	 */
 	private readonly _dataExplorerClientInstance: DataExplorerClientInstance;
 
-	private _tableSchema?: TableSchema;
+	/**
+	 * Gets the data explorer cache.
+	 */
+	private readonly _dataExplorerCache: DataExplorerCache;
+
+	/**
+	 * Gets the expanded columns set.
+	 */
+	private readonly _expandedColumns = new Set<number>();
 
 	//#endregion Private Properties
 
@@ -38,27 +51,38 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 		// Call the base class's constructor.
 		super({
 			columnHeaders: false,
-
 			rowHeaders: false,
-
 			defaultColumnWidth: 200,
-			defaultRowHeight: 34,
-
+			defaultRowHeight: SUMMARY_HEIGHT,
 			columnResize: false,
 			rowResize: false,
-
 			horizontalScrollbar: false,
 			verticalScrollbar: true,
-			scrollbarWidth: 8,
-
-			cellBorder: false
+			scrollbarWidth: 14,
+			cellBorders: false,
+			cursor: false,
+			selection: false
 		});
 
 		// Set the data explorer client instance.
 		this._dataExplorerClientInstance = dataExplorerClientInstance;
+
+		// Allocate and initialize the DataExplorerCache.
+		this._dataExplorerCache = new DataExplorerCache(dataExplorerClientInstance);
+		this._dataExplorerCache.onDidUpdateCache(() => this._onDidUpdateEmitter.fire());
+
+		// Add the onDidSchemaUpdate event handler.
+		this._dataExplorerClientInstance.onDidSchemaUpdate(async () => {
+			this.setScreenPosition(0, 0);
+			this._expandedColumns.clear();
+			this.fetchData();
+		});
+
 	}
 
 	//#endregion Constructor
+
+	//#region DataGridInstance Properties
 
 	/**
 	 * Gets the number of columns.
@@ -71,34 +95,18 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 	 * Gets the number of rows.
 	 */
 	get rows() {
-		return this._tableSchema ? this._tableSchema.columns.length : 0;
+		return this._dataExplorerCache.columns;
 	}
+
+	//#endregion DataGridInstance Properties
+
+	//#region DataGridInstance Methods
 
 	/**
-	 *
+	 * Fetches data.
 	 */
-	initialize() {
-		this._dataExplorerClientInstance.getSchema(0, 1000).then(tableSchema => {
-
-			console.log(`++++++++++ Schema returned with ${tableSchema.columns.length} columns`);
-
-			this._tableSchema = tableSchema;
-
-			this._onDidUpdateEmitter.fire();
-
-		}).catch(x => {
-
-		});
-	}
-
-	/**
-	 * Sorts the data.
-	 * @returns A Promise<void> that resolves when the data is sorted.
-	 */
-	async sortData(columnSorts: IColumnSortKey[]): Promise<void> {
-	}
-
-	fetchData() {
+	override fetchData() {
+		this._dataExplorerCache.updateCache(this.firstRowIndex, this.screenRows);
 	}
 
 	/**
@@ -110,37 +118,83 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 	}
 
 	/**
+	 * Gets the the height of a row.
+	 * @param rowIndex The row index.
+	 */
+	override getRowHeight(rowIndex: number): number {
+		// If the column isn't expanded, return the summary height.
+		if (!this.isColumnExpanded(rowIndex)) {
+			return SUMMARY_HEIGHT;
+		}
+
+		// Get the column schema. If it hasn't been loaded yet, return the summary height.
+		const columnSchema = this._dataExplorerCache.getColumnSchema(rowIndex);
+		if (!columnSchema) {
+			return SUMMARY_HEIGHT;
+		}
+
+		/**
+		 * Returns the row height with the specified number of lines.
+		 * @param profileLines
+		 * @returns
+		 */
+		const rowHeight = (profileLines: number) => {
+			if (profileLines === 0) {
+				return SUMMARY_HEIGHT;
+			} else {
+				return SUMMARY_HEIGHT + (profileLines * PROFILE_LINE_HEIGHT) + 10;
+			}
+		};
+
+		// Return the row height.
+		switch (columnSchema.type_display) {
+			case ColumnSchemaTypeDisplay.Number:
+				return rowHeight(6);
+
+			case ColumnSchemaTypeDisplay.Boolean:
+				return rowHeight(3);
+
+			case ColumnSchemaTypeDisplay.String:
+				return rowHeight(3);
+
+			case ColumnSchemaTypeDisplay.Date:
+				return rowHeight(7);
+
+			case ColumnSchemaTypeDisplay.Datetime:
+				return rowHeight(7);
+
+			case ColumnSchemaTypeDisplay.Time:
+				return rowHeight(7);
+
+			case ColumnSchemaTypeDisplay.Array:
+				return rowHeight(2);
+
+			case ColumnSchemaTypeDisplay.Struct:
+				return rowHeight(2);
+
+			case ColumnSchemaTypeDisplay.Unknown:
+				return rowHeight(2);
+
+			// This shouldn't ever happen.
+			default:
+				return rowHeight(0);
+		}
+	}
+
+	/**
 	 * Gets a column.
 	 * @param columnIndex The column index.
 	 * @returns The column.
 	 */
 	column(columnIndex: number) {
-		// If the table schema hasn't been loaded, return undefined.
-		if (!this._tableSchema) {
-			return undefined;
-		}
-
-		if (columnIndex < 0 || columnIndex > this._tableSchema.columns.length) {
-			return undefined;
-		}
-
-		return new PositronDataExplorerColumn(this._tableSchema.columns[columnIndex]);
-	}
-
-	/**
-	 * Gets a row header.
-	 * @param rowIndex The row index.
-	 * @returns The row header, or, undefined.
-	 */
-	rowHeader(rowIndex: number) {
 		return undefined;
 	}
 
 	/**
-	 * Gets a data cell.
+	 * Gets a cell.
 	 * @param columnIndex The column index.
 	 * @param rowIndex The row index.
-	 * @returns The cell value.
+	 * @returns The cell.
 	 */
 	cell(columnIndex: number, rowIndex: number): JSX.Element | undefined {
 		// Column index must be 0.
@@ -148,28 +202,40 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 			return undefined;
 		}
 
-		// If the table schema hasn't been loaded, return undefined.
-		if (!this._tableSchema) {
-			return undefined;
-		}
-
-		// If the column schema hasn't been loaded, return undefined.
-		if (rowIndex >= this._tableSchema.columns.length) {
-			return undefined;
-		}
-
 		// Get the column schema.
-		const columnSchema = this._tableSchema.columns[rowIndex];
+		const columnSchema = this._dataExplorerCache.getColumnSchema(rowIndex);
+		if (!columnSchema) {
+			return undefined;
+		}
 
 		// Return the ColumnSummaryCell.
 		return (
 			<ColumnSummaryCell
+				instance={this}
 				columnSchema={columnSchema}
+				columnIndex={rowIndex}
 			/>
 		);
 	}
 
-	//#region Private Methods
+	//#region DataGridInstance Methods
+
+	//#region Public Methods
+
+	isColumnExpanded(columnIndex: number) {
+		return this._expandedColumns.has(columnIndex);
+	}
+
+	toggleExpandedColumn(columnIndex: number) {
+		if (this._expandedColumns.has(columnIndex)) {
+			this._expandedColumns.delete(columnIndex);
+		} else {
+			this._expandedColumns.add(columnIndex);
+			this.scrollToRow(columnIndex);
+		}
+
+		this._onDidUpdateEmitter.fire();
+	}
 
 	//#endregion Private Methods
 }

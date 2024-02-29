@@ -3,7 +3,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 .data-grid-row-headers {
-	overflow: hidden;
+	/* overflow: hidden; */
 	position: relative;
 	grid-row: waffle / end-waffle;
 	grid-column: headers / waffle;

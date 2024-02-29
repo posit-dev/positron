@@ -523,6 +523,7 @@
 		"--vscode-positronDataExplorer-border",
 		"--vscode-positronDataExplorer-contrastBackground",
 		"--vscode-positronDataExplorer-foreground",
+		"--vscode-positronDataExplorer-selectionBackground",
 		"--vscode-positronDataGrid-background",
 		"--vscode-positronDataGrid-border",
 		"--vscode-positronDataGrid-contrastBackground",

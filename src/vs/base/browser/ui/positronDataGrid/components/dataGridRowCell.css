@@ -3,13 +3,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 .data-grid-row-cell {
-	top: 0;
-	bottom: 0;
-	display: grid;
 	position: absolute;
-	align-items: center;
-	grid-template-rows: [content] 1fr [splitter] 1px [end];
-	grid-template-columns: [left-gutter] 7px [content] 1fr [right-gutter] 7px [splitter] 1px [end];
 }
 
 .data-grid-row-cell.selected {
@@ -24,8 +18,6 @@
 	left: 0;
 	position: absolute;
 	box-sizing: border-box;
-	/* border-right: 1px solid var(--vscode-positronDataGrid-border); */
-	/* border-bottom: 1px solid var(--vscode-positronDataGrid-border); */
 }
 
 .data-grid-row-cell
@@ -33,7 +25,6 @@
 	border-right: 1px solid var(--vscode-positronDataGrid-border);
 	border-bottom: 1px solid var(--vscode-positronDataGrid-border);
 }
-
 
 .data-grid-row-cell
 .data-grid-row-cell-border-overlay.selected {
@@ -63,10 +54,6 @@
 
 .data-grid-row-cell
 .cursor-border {
-	top: 0;
-	left: 0;
-	right: 0;
-	bottom: 0;
 	position: absolute;
 	box-sizing: border-box;
 	border: 1.5px solid var(--vscode-positronDataGrid-cursorBorder);
@@ -74,18 +61,28 @@
 
 .data-grid-row-cell
 .content {
-	margin-bottom: 1px; /* Adjust for the bottom border. */
-	grid-column: content / right-gutter;
+	top: 0;
+	right: 0;
+	bottom: 0;
+	left: 0;
+	overflow: hidden;
+	position: absolute;
 }
 
 .data-grid-row-cell
 .vertical-splitter {
-	grid-row: content / end;
-	grid-column: splitter / end;
+	top: 0;
+	right: 0;
+	bottom: 0;
+	width: 1px;
+	position: absolute;
 }
 
 .data-grid-row-cell
 .horizontal-splitter {
-	grid-row: splitter / end;
-	grid-column: left-gutter / end;
+	right: 0;
+	bottom: 0;
+	left: 0;
+	height: 1px;
+	position: absolute;
 }

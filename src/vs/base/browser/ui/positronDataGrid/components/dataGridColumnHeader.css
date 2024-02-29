@@ -6,7 +6,7 @@
 	top: 0;
 	bottom: 0;
 	display: grid;
-	overflow: hidden;
+	/* overflow: hidden; */
 	position: absolute;
 	background-color: var(--vscode-positronDataGrid-contrastBackground);
 	grid-template-columns: [content] 1fr [right-gutter] 1px [end];

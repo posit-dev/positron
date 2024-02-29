@@ -5,7 +5,11 @@
 .data-grid-row-cell
 .content
 .text {
+	height: 100%;
+	display: flex;
+	margin: 0 7px;
 	overflow: hidden;
+	align-items: center;
 	white-space: nowrap;
 	line-height: normal;
 	text-overflow: ellipsis;
@@ -14,18 +18,18 @@
 .data-grid-row-cell
 .content
 .text.left {
-	text-align: left;
+	justify-content: left;
 }
 
 .data-grid-row-cell
 .content
 .text.center {
-	text-align: center;
+	justify-content: center;
 }
 
 .data-grid-row-cell
 .content
 .text.right {
-	text-align: right;
+	justify-content: right;
 	font-variant-numeric: tabular-nums;
 }
