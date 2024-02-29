@@ -39,7 +39,6 @@ export const TableSummaryPanel = (props: TableSummaryPanelProps) => {
 					instance={context.instance.tableSchemaDataGridInstance}
 					width={props.width}
 					height={props.height}
-					borderTop={true}
 				/>
 			</div>
 		</div>

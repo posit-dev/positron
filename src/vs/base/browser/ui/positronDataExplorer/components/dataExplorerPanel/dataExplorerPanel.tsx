@@ -23,7 +23,7 @@ import { PositronDataExplorerLayout } from 'vs/workbench/services/positronDataEx
 /**
  * Constants.
  */
-const MIN_COLUMN_WIDTH = 200;
+const MIN_COLUMN_WIDTH = 275;
 const ACTIONS_HEIGHT = 64;
 const SUMMARY_HEIGHT = 24;
 

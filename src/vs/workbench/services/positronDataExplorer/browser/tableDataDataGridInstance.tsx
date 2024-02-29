@@ -8,19 +8,12 @@ import * as React from 'react';
 // Other dependencies.
 import { IColumnSortKey } from 'vs/base/browser/ui/positronDataGrid/interfaces/columnSortKey';
 import { DataGridInstance } from 'vs/base/browser/ui/positronDataGrid/classes/dataGridInstance';
+import { DataExplorerCache } from 'vs/workbench/services/positronDataExplorer/common/dataExplorerCache';
 import { TableDataCell } from 'vs/workbench/services/positronDataExplorer/browser/components/tableDataCell';
 import { TableDataRowHeader } from 'vs/workbench/services/positronDataExplorer/browser/components/tableDataRowHeader';
+import { ColumnSortKey, SchemaUpdateEvent } from 'vs/workbench/services/languageRuntime/common/positronDataExplorerComm';
 import { PositronDataExplorerColumn } from 'vs/workbench/services/positronDataExplorer/browser/positronDataExplorerColumn';
 import { DataExplorerClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimeDataExplorerClient';
-import { ColumnSortKey, SchemaUpdateEvent } from 'vs/workbench/services/languageRuntime/common/positronDataExplorerComm';
-import {
-	DataFetchRange,
-	FetchedData,
-	FetchedSchema,
-	TableDataCache,
-	TableSchemaCache,
-	SchemaFetchRange
-} from 'vs/workbench/services/positronDataExplorer/common/positronDataExplorerCache';
 
 /**
  * TableDataDataGridInstance class.
@@ -33,13 +26,10 @@ export class TableDataDataGridInstance extends DataGridInstance {
 	 */
 	private readonly _dataExplorerClientInstance: DataExplorerClientInstance;
 
-	private tableShape?: [number, number];
-
-	private _dataCache?: TableDataCache;
-	private _lastFetchedData?: FetchedData;
-
-	private _schemaCache?: TableSchemaCache;
-	private _lastFetchedSchema?: FetchedSchema;
+	/**
+	 * Gets the data explorer cache.
+	 */
+	private readonly _dataExplorerCache: DataExplorerCache;
 
 	//#endregion Private Properties
 
@@ -54,108 +44,66 @@ export class TableDataDataGridInstance extends DataGridInstance {
 		super({
 			columnHeaders: true,
 			columnHeadersHeight: 34,
-
 			rowHeaders: true,
 			rowHeadersWidth: 55,
 			rowHeadersResize: true,
-
 			defaultColumnWidth: 200,
 			defaultRowHeight: 24,
-
 			columnResize: true,
 			minimumColumnWidth: 100,
-
-			rowResize: false,
-
+			rowResize: true,
+			minimumRowHeight: 24,
 			horizontalScrollbar: true,
 			verticalScrollbar: true,
 			scrollbarWidth: 14,
-
-			cellBorder: true
+			cellBorders: true,
+			cursor: true,
+			cursorOffset: 0.5,
 		});
 
-		// Set the data explorer client instance.
+		// Setup the data explorer client instance.
 		this._dataExplorerClientInstance = dataExplorerClientInstance;
 
+		// Allocate and initialize the DataExplorerCache.
+		this._dataExplorerCache = new DataExplorerCache(dataExplorerClientInstance);
+		this._dataExplorerCache.onDidUpdateCache(() => this._onDidUpdateEmitter.fire());
+
 		this._dataExplorerClientInstance.onDidSchemaUpdate(async (e: SchemaUpdateEvent) => {
-			this._lastFetchedData = undefined;
-			this._lastFetchedSchema = undefined;
-
-			// Reset cursor to top left
-			// TODO: These attributes were made protected to allow this. Add a method to
-			// reset these without firing an update request which we don't want here yet.
-			this._firstColumnIndex = 0;
-			this._firstRowIndex = 0;
-
-			// Resets data schema, fetches table shape, initial schema, and data
-			this.initialize();
+			this.softReset();
+			this.fetchData();
 		});
-
-		this._dataExplorerClientInstance.onDidDataUpdate(async (_evt) => {
-			this._lastFetchedData = undefined;
-
-			const state = await this._dataExplorerClientInstance.getState();
-			this.tableShape = [state.table_shape.num_rows, state.table_shape.num_columns];
-
-			this._dataCache?.clear();
+		this._dataExplorerClientInstance.onDidDataUpdate(async () => {
 			this.fetchData();
 		});
 	}
 
 	//#endregion Constructor
 
+	//#region DataGridInstance Properties
+
 	/**
 	 * Gets the number of columns.
 	 */
 	get columns() {
-		return this.tableShape ? this.tableShape[1] : 0;
+		return this._dataExplorerCache.columns;
 	}
 
 	/**
 	 * Gets the number of rows.
 	 */
 	get rows() {
-		return this.tableShape ? this.tableShape[0] : 0;
+		return this._dataExplorerCache.rows;
 	}
 
-	/**
-	 *
-	 */
-	async initialize() {
-		const state = await this._dataExplorerClientInstance.getState();
-		this.tableShape = [state.table_shape.num_rows, state.table_shape.num_columns];
-		this._schemaCache = new TableSchemaCache(
-			this.tableShape,
-			async (req: SchemaFetchRange) => {
-				return this._dataExplorerClientInstance.getSchema(req.startIndex,
-					req.endIndex - req.startIndex);
-			}
-		);
-		this._lastFetchedSchema = await this._schemaCache?.fetch({ startIndex: 0, endIndex: 1000 });
-		this._dataCache = new TableDataCache(
-			this.tableShape,
-			async (req: DataFetchRange) => {
-				// Build the column indices to fetch.
-				const columnIndices: number[] = [];
-				for (let i = req.columnStartIndex; i < req.columnEndIndex; i++) {
-					columnIndices.push(i);
-				}
-				return this._dataExplorerClientInstance.getDataValues(
-					req.rowStartIndex,
-					req.rowEndIndex - req.rowStartIndex,
-					columnIndices
-				);
-			});
+	//#endregion DataGridInstance Properties
 
-		// Fetch data.
-		this.fetchData();
-	}
+	//#region DataGridInstance Methods
 
 	/**
 	 * Sorts the data.
 	 * @returns A Promise<void> that resolves when the data is sorted.
 	 */
-	async sortData(columnSorts: IColumnSortKey[]): Promise<void> {
+	override async sortData(columnSorts: IColumnSortKey[]): Promise<void> {
 		// Set the sort columns.
 		await this._dataExplorerClientInstance.setSortColumns(columnSorts.map(columnSort => (
 			{
@@ -164,17 +112,22 @@ export class TableDataDataGridInstance extends DataGridInstance {
 			} satisfies ColumnSortKey
 		)));
 
-		// Refetch data.
-		this.resetCache();
-		await this.doFetchData();
+		// Clear the data cache and fetch new data.
+		this._dataExplorerCache.invalidateDataCache();
+		this.fetchData();
 	}
 
-	fetchData() {
-		this.doFetchData().then(() => {
-
-		}).catch(x => {
-			console.log(x);
-		});
+	/**
+	 * Fetches data.
+	 */
+	override fetchData() {
+		// Update the cache.
+		this._dataExplorerCache.updateCache(
+			this.firstColumnIndex,
+			this.screenColumns,
+			this.firstRowIndex,
+			this.screenRows
+		);
 	}
 
 	/**
@@ -183,18 +136,14 @@ export class TableDataDataGridInstance extends DataGridInstance {
 	 * @returns The column.
 	 */
 	column(columnIndex: number) {
-		if (!this._lastFetchedSchema) {
+		// Get the column schema.
+		const columnSchema = this._dataExplorerCache.getColumnSchema(columnIndex);
+		if (!columnSchema) {
 			return undefined;
 		}
 
-		if (columnIndex < this._lastFetchedSchema.startIndex ||
-			columnIndex >= this._lastFetchedSchema.endIndex) {
-			return undefined;
-		}
-
-		const cachedSchemaIndex = columnIndex - this._lastFetchedSchema.startIndex;
-
-		return new PositronDataExplorerColumn(this._lastFetchedSchema.schema.columns[cachedSchemaIndex]);
+		// Return the column.
+		return new PositronDataExplorerColumn(columnSchema);
 	}
 
 	/**
@@ -202,37 +151,9 @@ export class TableDataDataGridInstance extends DataGridInstance {
 	 * @param rowIndex The row index.
 	 * @returns The row label, or, undefined.
 	 */
-	rowHeader(rowIndex: number) {
-		// If the table schema hasn't been loaded, return undefined.
-		if (!this._lastFetchedSchema) {
-			return undefined;
-		}
-
-		// If there isn't any cached data, return undefined.
-		if (!this._lastFetchedData) {
-			return undefined;
-		}
-
-		// If the row isn't cached, return undefined.
-		if (rowIndex < this._lastFetchedData.rowStartIndex ||
-			rowIndex > this._lastFetchedData.rowEndIndex
-		) {
-			return undefined;
-		}
-
-		// If there are no row labels, return the TableDataRowHeader.
-		if (!this._lastFetchedData.data.row_labels) {
-			return (
-				<TableDataRowHeader value={`${rowIndex + 1}`} />
-			);
-		}
-
-		// Calculate the cached row index.
-		const cachedRowIndex = rowIndex - this._lastFetchedData.rowStartIndex;
-
-		// Return the TableDataRowHeader.
+	override rowHeader(rowIndex: number) {
 		return (
-			<TableDataRowHeader value={this._lastFetchedData.data.row_labels[0][cachedRowIndex]} />
+			<TableDataRowHeader value={this._dataExplorerCache.getRowLabel(rowIndex)} />
 		);
 	}
 
@@ -243,78 +164,23 @@ export class TableDataDataGridInstance extends DataGridInstance {
 	 * @returns The cell value.
 	 */
 	cell(columnIndex: number, rowIndex: number): JSX.Element | undefined {
-		// We need the data and schema to render the cell
-		if (!this._lastFetchedData || !this._lastFetchedSchema) {
+		// Get the column.
+		const column = this.column(columnIndex);
+		if (!column) {
 			return undefined;
 		}
 
-		// Check that we have the schema and data values for this cell
-		if (columnIndex < this._lastFetchedSchema.startIndex ||
-			columnIndex >= this._lastFetchedSchema.endIndex ||
-			columnIndex < this._lastFetchedData.columnStartIndex ||
-			columnIndex >= this._lastFetchedData.columnEndIndex ||
-			rowIndex < this._lastFetchedData.rowStartIndex ||
-			rowIndex >= this._lastFetchedData.rowEndIndex) {
+		// Get the cell.
+		const cell = this._dataExplorerCache.getCellValue(columnIndex, rowIndex);
+		if (!cell) {
 			return undefined;
 		}
-
-		// Calculate the cache indices.
-		const cachedSchemaIndex = columnIndex - this._lastFetchedSchema.startIndex;
-		const cachedColumnIndex = columnIndex - this._lastFetchedData.columnStartIndex;
-		const cachedRowIndex = rowIndex - this._lastFetchedData.rowStartIndex;
-
-		// Get the column schema.
-		const columnSchema = this._lastFetchedSchema.schema.columns[cachedSchemaIndex];
-
-		// Get the cached value.
-		const value = this._lastFetchedData.data.columns[cachedColumnIndex][cachedRowIndex];
 
 		// Return the TableDataCell.
 		return (
-			<TableDataCell
-				column={new PositronDataExplorerColumn(columnSchema)}
-				value={value}
-			/>
+			<TableDataCell column={column} value={cell} />
 		);
 	}
 
-	//#region Private Methods
-
-	private resetCache() {
-		// Clear the data cache
-		this._dataCache?.clear();
-		this._lastFetchedData = undefined;
-	}
-
-	private async doFetchData(): Promise<void> {
-		const schemaRange: SchemaFetchRange = {
-			startIndex: this.firstColumnIndex,
-			endIndex: this.firstColumnIndex + this.visibleColumns + 1
-		};
-
-		if (!this._lastFetchedSchema ||
-			!this._schemaCache?.rangeIncludes(schemaRange, this._lastFetchedSchema)) {
-			this._lastFetchedSchema = await this._schemaCache?.fetch(schemaRange);
-		}
-
-		const dataRange: DataFetchRange = {
-			rowStartIndex: this.firstRowIndex,
-			rowEndIndex: this.firstRowIndex + this.visibleRows,
-			columnStartIndex: this.firstColumnIndex,
-
-			// TODO: column edge detection can cause visibleColumns to be one less than what the
-			// user actually sees, so we fudge this for now
-			columnEndIndex: this.firstColumnIndex + this.visibleColumns + 1
-		};
-
-		if (!this._lastFetchedData ||
-			!this._dataCache?.rangeIncludes(dataRange, this._lastFetchedData)) {
-			this._lastFetchedData = await this._dataCache?.fetch(dataRange);
-		}
-
-		// Fire the onDidUpdate event.
-		this._onDidUpdateEmitter.fire();
-	}
-
-	//#endregion Private Methods
+	//#endregion DataGridInstance Methods
 }

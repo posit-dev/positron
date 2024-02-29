@@ -9,9 +9,9 @@
 
 .data-explorer-container
 .data-explorer-actions {
-	/* Place the data-explorer in the data-explorer-container. */
 	padding: 8px;
 	grid-row: data-explorer-actions / data-explorer;
+	border-bottom: 1px solid var(--vscode-positronDataExplorer-border);
 }
 
 .data-explorer-container
@@ -54,10 +54,6 @@
 .data-explorer-container
 .data-explorer
 .column-2 {
-	/* Bordered. */
-	/* border-radius: 4px; */
-	/* border: 1px solid var(--vscode-positronDataExplorer-border); */
-
 	/* Prevent 1fr from exceeding the parent height. */
 	min-height: 0;
 
