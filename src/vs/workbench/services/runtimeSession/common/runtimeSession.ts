@@ -10,7 +10,7 @@ import { URI } from 'vs/base/common/uri';
 import { InstantiationType, registerSingleton } from 'vs/platform/instantiation/common/extensions';
 import { ILogService } from 'vs/platform/log/common/log';
 import { IOpener, IOpenerService, OpenExternalOptions, OpenInternalOptions } from 'vs/platform/opener/common/opener';
-import { ILanguageRuntimeMetadata, ILanguageRuntimeService, LanguageRuntimeSessionLocation, LanguageRuntimeSessionMode, LanguageRuntimeStartupBehavior, RuntimeExitReason, RuntimeState, formatLanguageRuntimeMetadata, formatLanguageRuntimeSession } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { ILanguageRuntimeMetadata, ILanguageRuntimeService, LanguageRuntimeSessionMode, LanguageRuntimeStartupBehavior, RuntimeExitReason, RuntimeState, formatLanguageRuntimeMetadata, formatLanguageRuntimeSession } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { ILanguageRuntimeGlobalEvent, ILanguageRuntimeSession, ILanguageRuntimeSessionManager, ILanguageRuntimeSessionStateEvent, IRuntimeSessionMetadata, IRuntimeSessionService, RuntimeClientType } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
 import { IWorkspaceTrustManagementService } from 'vs/platform/workspace/common/workspaceTrust';
 import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
@@ -19,7 +19,6 @@ import { IUiClientMessageInput, IUiClientMessageOutput, UiClientInstance } from 
 import { UiFrontendEvent } from 'vs/workbench/services/languageRuntime/common/positronUiComm';
 import { INotificationService } from 'vs/platform/notification/common/notification';
 import { ILanguageService } from 'vs/editor/common/languages/language';
-import { IStorageService, StorageScope, StorageTarget } from 'vs/platform/storage/common/storage';
 
 /**
  * Utility class for tracking state changes in a language runtime session.
@@ -33,20 +32,6 @@ class LanguageRuntimeSessionInfo {
 		this.state = session.getRuntimeState();
 	}
 }
-
-/**
- * Metadata for serialized runtime sessions.
- */
-interface SerializedSessionMetadata {
-	metadata: IRuntimeSessionMetadata;
-	runtimeMetadata: ILanguageRuntimeMetadata;
-}
-
-/**
- * Key for storing the set of persistent workspace session list; bump version at
- * end when changing storage format.
- */
-const PERSISTENT_WORKSPACE_SESSIONS_KEY = 'positron.workspaceSessionList.v1';
 
 /**
  * The implementation of IRuntimeSessionService.
@@ -121,7 +106,6 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 		@IOpenerService private readonly _openerService: IOpenerService,
 		@INotificationService private readonly _notificationService: INotificationService,
 		@IPositronModalDialogsService private readonly _positronModalDialogsService: IPositronModalDialogsService,
-		@IStorageService private readonly _storageService: IStorageService,
 		@IWorkspaceTrustManagementService private readonly _workspaceTrustManagementService: IWorkspaceTrustManagementService) {
 
 		super();
@@ -158,11 +142,6 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 			this._logService.trace(`Language runtime ${formatLanguageRuntimeMetadata(languageRuntimeInfos[0])} automatically starting`);
 			this.autoStartRuntime(languageRuntimeInfos[0],
 				`A file with the language ID ${languageId} was opened.`);
-		}));
-
-		// When a session starts (for any reason), update our set of workspace sessions
-		this._register(this.onWillStartRuntime(_session => {
-			this.saveWorkspaceSessions();
 		}));
 	}
 
@@ -692,8 +671,6 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 					exit.reason === RuntimeExitReason.Restart) {
 					this._onWillStartRuntimeEmitter.fire(session);
 				}
-				// Update the set of workspace sessions
-				this.saveWorkspaceSessions();
 			}, 0);
 
 			// If the runtime crashed, try to restart it.
@@ -780,35 +757,6 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 			[RuntimeState.Idle],
 			10,
 			warning);
-	}
-
-	/**
-	 * Update the set of workspace sessions in the workspace storage.
-	 */
-	private saveWorkspaceSessions() {
-
-		// Derive the set of sessions that are currently active and workspace scoped.
-		const workspaceSessions = this.activeSessions
-			.filter(session =>
-				session.getRuntimeState() !== RuntimeState.Exited &&
-				session.runtimeMetadata.sessionLocation === LanguageRuntimeSessionLocation.Workspace)
-			.map(session => {
-				const metadata: SerializedSessionMetadata = {
-					metadata: session.metadata,
-					runtimeMetadata: session.runtimeMetadata
-				};
-				return metadata;
-			});
-
-		// Diagnostic logs: what are we saving?
-		this._logService.trace(`Saving workspace sessions: ${workspaceSessions.map(session =>
-			`${session.metadata.sessionName} (${session.metadata.sessionId})`).join(', ')}`);
-
-		// Save the sessions to the workspace storage.
-		this._storageService.store(PERSISTENT_WORKSPACE_SESSIONS_KEY,
-			JSON.stringify(workspaceSessions),
-			StorageScope.WORKSPACE,
-			StorageTarget.MACHINE);
 	}
 
 	/**

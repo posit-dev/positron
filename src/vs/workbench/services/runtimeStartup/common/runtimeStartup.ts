@@ -10,9 +10,9 @@ import { InstantiationType, registerSingleton } from 'vs/platform/instantiation/
 import { ILogService } from 'vs/platform/log/common/log';
 import { IStorageService, StorageScope, StorageTarget } from 'vs/platform/storage/common/storage';
 import { IExtensionService } from 'vs/workbench/services/extensions/common/extensions';
-import { ILanguageRuntimeMetadata, ILanguageRuntimeService, LanguageRuntimeSessionMode, LanguageRuntimeStartupBehavior, RuntimeState, formatLanguageRuntimeMetadata } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { ILanguageRuntimeMetadata, ILanguageRuntimeService, LanguageRuntimeSessionLocation, LanguageRuntimeSessionMode, LanguageRuntimeStartupBehavior, RuntimeState, formatLanguageRuntimeMetadata } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { IRuntimeStartupService, RuntimeStartupPhase } from 'vs/workbench/services/runtimeStartup/common/runtimeStartupService';
-import { ILanguageRuntimeSession, IRuntimeSessionService } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
+import { ILanguageRuntimeSession, IRuntimeSessionMetadata, IRuntimeSessionService } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
 import { Event } from 'vs/base/common/event';
 import { ObservableValue } from 'vs/base/common/observableInternal/base';
 import { ExtensionsRegistry } from 'vs/workbench/services/extensions/common/extensionsRegistry';
@@ -21,6 +21,20 @@ import { ExtensionIdentifier } from 'vs/platform/extensions/common/extensions';
 interface ILanguageRuntimeProviderMetadata {
 	languageId: string;
 }
+
+/**
+ * Metadata for serialized runtime sessions.
+ */
+interface SerializedSessionMetadata {
+	metadata: IRuntimeSessionMetadata;
+	runtimeMetadata: ILanguageRuntimeMetadata;
+}
+
+/**
+ * Key for storing the set of persistent workspace session list; bump version at
+ * end when changing storage format.
+ */
+const PERSISTENT_WORKSPACE_SESSIONS_KEY = 'positron.workspaceSessionList.v1';
 
 const languageRuntimeExtPoint =
 	ExtensionsRegistry.registerExtensionPoint<ILanguageRuntimeProviderMetadata[]>({
@@ -98,8 +112,19 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 		// Listen for runtime start events and update the most recently started
 		// runtimes for each language.
 		this._register(this._runtimeSessionService.onDidStartRuntime(session => {
+
 			this._mostRecentlyStartedRuntimesByLanguageId.set(session.runtimeMetadata.languageId,
 				session.runtimeMetadata);
+
+			this._register(session.onDidEndSession(_exit => {
+				// Update the set of workspace sessions
+				this.saveWorkspaceSessions();
+			}));
+		}));
+
+		// When a session starts (for any reason), update our set of workspace sessions
+		this._register(this._runtimeSessionService.onWillStartRuntime(_session => {
+			this.saveWorkspaceSessions();
 		}));
 
 		// When the discovery phase is complete, check to see if we need to
@@ -447,6 +472,36 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 			}
 		}
 	}
+
+	/**
+	 * Update the set of workspace sessions in the workspace storage.
+	 */
+	private saveWorkspaceSessions() {
+
+		// Derive the set of sessions that are currently active and workspace scoped.
+		const workspaceSessions = this._runtimeSessionService.activeSessions
+			.filter(session =>
+				session.getRuntimeState() !== RuntimeState.Exited &&
+				session.runtimeMetadata.sessionLocation === LanguageRuntimeSessionLocation.Workspace)
+			.map(session => {
+				const metadata: SerializedSessionMetadata = {
+					metadata: session.metadata,
+					runtimeMetadata: session.runtimeMetadata
+				};
+				return metadata;
+			});
+
+		// Diagnostic logs: what are we saving?
+		this._logService.trace(`Saving workspace sessions: ${workspaceSessions.map(session =>
+			`${session.metadata.sessionName} (${session.metadata.sessionId})`).join(', ')}`);
+
+		// Save the sessions to the workspace storage.
+		this._storageService.store(PERSISTENT_WORKSPACE_SESSIONS_KEY,
+			JSON.stringify(workspaceSessions),
+			StorageScope.WORKSPACE,
+			StorageTarget.MACHINE);
+	}
+
 }
 
 registerSingleton(IRuntimeStartupService, RuntimeStartupService, InstantiationType.Eager);
