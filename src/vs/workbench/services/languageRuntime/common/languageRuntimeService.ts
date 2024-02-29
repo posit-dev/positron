@@ -469,24 +469,6 @@ export enum LanguageRuntimeStartupBehavior {
 	Explicit = 'explicit',
 }
 
-export enum LanguageRuntimeDiscoveryPhase {
-	/**
-	 * We are waiting for extensions to register language runtime discoverers.
-	 */
-	AwaitingExtensions = 'AwaitingExtensions',
-
-	/**
-	 * Language runtimes are currently being discovered and registered. During
-	 * this phase, the service emits `onDidRegisterRuntime` events as it
-	 * discovers new runtimes.
-	 */
-	Discovering = 'discovering',
-
-	/**
-	 * Language runtime discovery has completed.
-	 */
-	Complete = 'complete',
-}
 
 export interface ILanguageRuntimeMessageState extends ILanguageRuntimeMessage {
 	/** The new state */
@@ -606,9 +588,6 @@ export interface ILanguageRuntimeService {
 	// Needed for service branding in dependency injector.
 	readonly _serviceBrand: undefined;
 
-	// An event that fires when the language runtime discovery phase changes.
-	readonly onDidChangeDiscoveryPhase: Event<LanguageRuntimeDiscoveryPhase>;
-
 	// An event that fires when a new runtime is registered.
 	readonly onDidRegisterRuntime: Event<ILanguageRuntimeMetadata>;
 
@@ -616,11 +595,6 @@ export interface ILanguageRuntimeService {
 	 * Gets the registered language runtimes.
 	 */
 	readonly registeredRuntimes: ILanguageRuntimeMetadata[];
-
-	/**
-	 * Gets the current discovery phase.
-	 */
-	discoveryPhase: LanguageRuntimeDiscoveryPhase;
 
 	/**
 	 * Register a new language runtime
@@ -645,11 +619,5 @@ export interface ILanguageRuntimeService {
 	 * @param runtimeId The ID of the runtime to unregister
 	 */
 	unregisterRuntime(runtimeId: string): void;
-
-	/**
-	 * Signal that discovery of language runtimes is complete. Called from the
-	 * extension host.
-	 */
-	completeDiscovery(): void;
 }
 

@@ -9,11 +9,11 @@ import { ActionBar } from 'vs/workbench/contrib/positronConsole/browser/componen
 import { EmptyConsole } from 'vs/workbench/contrib/positronConsole/browser/components/emptyConsole';
 import { ConsoleInstance } from 'vs/workbench/contrib/positronConsole/browser/components/consoleInstance';
 import { usePositronConsoleContext } from 'vs/workbench/contrib/positronConsole/browser/positronConsoleContext';
-import { LanguageRuntimeDiscoveryPhase } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { DiscoveringInterpreters } from 'vs/workbench/contrib/positronConsole/browser/components/discoveringInterpreters';
 
 // eslint-disable-next-line no-duplicate-imports
 import { useEffect, useState } from 'react';
+import { RuntimeStartupPhase } from 'vs/workbench/services/runtimeStartup/common/runtimeStartupService';
 
 // ConsoleCoreProps interface.
 interface ConsoleCoreProps {
@@ -31,20 +31,21 @@ export const ConsoleCore = (props: ConsoleCoreProps) => {
 	// Hooks.
 	const positronConsoleContext = usePositronConsoleContext();
 
-	const [discoveryPhase, setDiscoveryPhase] = useState(
-		positronConsoleContext.languageRuntimeService.discoveryPhase);
+	const [startupPhase, setStartupPhase] = useState(
+		positronConsoleContext.runtimeStartupService.startupPhase);
 
 	useEffect(() => {
-		const disposables = positronConsoleContext.languageRuntimeService.onDidChangeDiscoveryPhase(
-			e => {
-				setDiscoveryPhase(e);
-			});
+		const disposables =
+			positronConsoleContext.runtimeStartupService.onDidChangeRuntimeStartupPhase(
+				e => {
+					setStartupPhase(e);
+				});
 		return () => disposables.dispose();
 	});
 
 	// If there are no console instances, render the empty console and return.
 	if (positronConsoleContext.positronConsoleInstances.length === 0) {
-		if (discoveryPhase === LanguageRuntimeDiscoveryPhase.Complete) {
+		if (startupPhase === RuntimeStartupPhase.Complete) {
 			return <EmptyConsole />;
 		} else {
 			return <DiscoveringInterpreters />;

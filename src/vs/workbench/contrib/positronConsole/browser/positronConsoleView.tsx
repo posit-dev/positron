@@ -32,6 +32,7 @@ import { IReactComponentContainer, ISize, PositronReactRenderer } from 'vs/base/
 import { IExecutionHistoryService } from 'vs/workbench/contrib/executionHistory/common/executionHistoryService';
 import { IPositronConsoleService } from 'vs/workbench/services/positronConsole/browser/interfaces/positronConsoleService';
 import { IRuntimeSessionService } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
+import { IRuntimeStartupService } from 'vs/workbench/services/runtimeStartup/common/runtimeStartupService';
 
 /**
  * PositronConsoleViewPane class.
@@ -197,6 +198,7 @@ export class PositronConsoleViewPane extends ViewPane implements IReactComponent
 		@IPositronConsoleService private readonly positronConsoleService: IPositronConsoleService,
 		@IPositronPlotsService private readonly positronPlotsService: IPositronPlotsService,
 		@IRuntimeSessionService private readonly runtimeSessionService: IRuntimeSessionService,
+		@IRuntimeStartupService private readonly runtimeStartupService: IRuntimeStartupService,
 		@ITelemetryService telemetryService: ITelemetryService,
 		@IThemeService themeService: IThemeService,
 		@IViewDescriptorService viewDescriptorService: IViewDescriptorService,
@@ -273,6 +275,7 @@ export class PositronConsoleViewPane extends ViewPane implements IReactComponent
 				keybindingService={this.keybindingService}
 				languageRuntimeService={this.languageRuntimeService}
 				runtimeSessionService={this.runtimeSessionService}
+				runtimeStartupService={this.runtimeStartupService}
 				languageService={this.languageService}
 				logService={this.logService}
 				modelService={this.modelService}

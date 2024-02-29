@@ -19,6 +19,7 @@ import { ILanguageRuntimeService } from 'vs/workbench/services/languageRuntime/c
 import { IExecutionHistoryService } from 'vs/workbench/contrib/executionHistory/common/executionHistoryService';
 import { IPositronConsoleInstance, IPositronConsoleService } from 'vs/workbench/services/positronConsole/browser/interfaces/positronConsoleService';
 import { IRuntimeSessionService } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
+import { IRuntimeStartupService } from 'vs/workbench/services/runtimeStartup/common/runtimeStartupService';
 
 /**
  * PositronConsoleServices interface. Defines the set of services that are required by the Positron
@@ -30,6 +31,7 @@ export interface PositronConsoleServices extends PositronActionBarServices {
 	readonly instantiationService: IInstantiationService;
 	readonly languageRuntimeService: ILanguageRuntimeService;
 	readonly runtimeSessionService: IRuntimeSessionService;
+	readonly runtimeStartupService: IRuntimeStartupService;
 	readonly languageService: ILanguageService;
 	readonly logService: ILogService;
 	readonly modelService: IModelService;

@@ -95,6 +95,10 @@
 			"project": "vscode-workbench"
 		},
 		{
+			"name": "vs/workbench/services/runtimeStartup",
+			"project": "vscode-workbench"
+		},
+		{
 			"name": "vs/workbench/services/voiceRecognition",
 			"project": "vscode-workbench"
 		},

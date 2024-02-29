@@ -4,13 +4,31 @@
 
 import { createDecorator } from 'vs/platform/instantiation/common/instantiation';
 import { ILanguageRuntimeMetadata } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { Event } from 'vs/base/common/event';
 
 export const IRuntimeStartupService =
 	createDecorator<IRuntimeStartupService>('runtimeStartupService');
 
+export enum RuntimeStartupPhase {
+	Initializing = 'initializing',
+	Reconnecting = 'reconnecting',
+	Discovering = 'discovering',
+	Complete = 'complete',
+}
+
 export interface IRuntimeStartupService {
 	// Needed for service branding in dependency injector.
 	readonly _serviceBrand: undefined;
+
+	/**
+	 * Event tracking the current startup phase.
+	 */
+	onDidChangeRuntimeStartupPhase: Event<RuntimeStartupPhase>;
+
+	/**
+	 * The current startup phase.
+	 */
+	readonly startupPhase: RuntimeStartupPhase;
 
 	/**
 	 * Get the preferred runtime for a language. This approximates "the runtime
@@ -40,4 +58,10 @@ export interface IRuntimeStartupService {
 	 * Start all affiliated runtimes for the workspace.
 	 */
 	startAffiliatedLanguageRuntimes(): void;
+
+	/**
+	 * Signal that discovery of language runtimes is complete. Called from the
+	 * extension host.
+	 */
+	completeDiscovery(): void;
 }
