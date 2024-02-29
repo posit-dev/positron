@@ -53,8 +53,6 @@ export const DataGridWaffle = (props: DataGridWaffleProps) => {
 
 	// Main useEffect. This is where we set up event handlers.
 	useEffect(() => {
-		context.instance.initialize();
-
 		// Set the initial screen size.
 		context.instance.setScreenSize(props.width, props.height);
 

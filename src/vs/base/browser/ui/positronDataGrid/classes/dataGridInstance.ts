@@ -386,21 +386,6 @@ export abstract class DataGridInstance extends Disposable {
 	private readonly _selection: boolean;
 
 	/**
-	 * Gets the column widths.
-	 */
-	private readonly _columnWidths = new Map<number, number>();
-
-	/**
-	 * Gets the row heights.
-	 */
-	private readonly _rowHeights = new Map<number, number>();
-
-	/**
-	 * Gets the column sort keys.
-	 */
-	private readonly _columnSortKeys = new Map<number, ColumnSortKey>();
-
-	/**
 	 * Gets or sets the width.
 	 */
 	private _width = 0;
@@ -413,12 +398,12 @@ export abstract class DataGridInstance extends Disposable {
 	/**
 	 * Gets or sets the first column index.
 	 */
-	protected _firstColumnIndex = 0;
+	private _firstColumnIndex = 0;
 
 	/**
 	 * Gets or sets the first row index.
 	 */
-	protected _firstRowIndex = 0;
+	private _firstRowIndex = 0;
 
 	/**
 	 * Gets or sets the cursor column index.
@@ -456,11 +441,30 @@ export abstract class DataGridInstance extends Disposable {
 	private readonly _rowSelectionIndexes = new Set<number>();
 
 	/**
+	 * Gets the column widths.
+	 */
+	private readonly _columnWidths = new Map<number, number>();
+
+	/**
+	 * Gets the row heights.
+	 */
+	private readonly _rowHeights = new Map<number, number>();
+
+	/**
+	 * Gets the column sort keys.
+	 */
+	private readonly _columnSortKeys = new Map<number, ColumnSortKey>();
+
+	//#endregion Private Properties
+
+	//#region Protected Events
+
+	/**
 	 * The onDidUpdate event emitter.
 	 */
 	protected readonly _onDidUpdateEmitter = this._register(new Emitter<void>);
 
-	//#endregion Private Properties
+	//#endregion Protected Events
 
 	//#region Constructor & Dispose
 
@@ -1923,16 +1927,12 @@ export abstract class DataGridInstance extends Disposable {
 	}
 
 	/**
-	 * TODO.
-	 */
-	abstract initialize(): void;
-
-	/**
 	 * Sorts the data.
 	 * @param columnSorts The array of column sorts.
 	 * @returns A Promise<void> that resolves when the data is sorted.
 	 */
-	abstract sortData(columnSorts: IColumnSortKey[]): Promise<void>;
+	async sortData(columnSorts: IColumnSortKey[]): Promise<void> {
+	}
 
 	/**
 	 * Fetches data.
@@ -1951,7 +1951,9 @@ export abstract class DataGridInstance extends Disposable {
 	 * @param rowIndex The row index.
 	 * @returns The row header, or, undefined.
 	 */
-	abstract rowHeader(rowIndex: number): JSX.Element | undefined;
+	rowHeader(rowIndex: number): JSX.Element | undefined {
+		return undefined;
+	}
 
 	/**
 	 * Gets a data cell.
@@ -1962,6 +1964,28 @@ export abstract class DataGridInstance extends Disposable {
 	abstract cell(columnIndex: number, rowIndex: number): JSX.Element | undefined;
 
 	//#endregion Public Methods
+
+	//#region Protected Methods
+
+	/**
+	 * Performs a soft reset of the data grid.
+	 */
+	protected softReset() {
+		this._firstColumnIndex = 0;
+		this._firstRowIndex = 0;
+		this._cursorColumnIndex = 0;
+		this._cursorRowIndex = 0;
+		this._cellSelectionRange = undefined;
+		this._columnSelectionRange = undefined;
+		this._columnSelectionIndexes.clear();
+		this._rowSelectionRange = undefined;
+		this._rowSelectionIndexes.clear();
+		this._columnWidths.clear();
+		this._rowHeights.clear();
+		this._columnSortKeys.clear();
+	}
+
+	//#endregion Protected Methods
 
 	//#region Private Methods
 

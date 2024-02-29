@@ -6,7 +6,6 @@
 import * as React from 'react';
 
 // Other dependencies.
-import { IColumnSortKey } from 'vs/base/browser/ui/positronDataGrid/interfaces/columnSortKey';
 import { DataGridInstance } from 'vs/base/browser/ui/positronDataGrid/classes/dataGridInstance';
 import { DataExplorerCache } from 'vs/workbench/services/positronDataExplorer/common/dataExplorerCache';
 import { ColumnSchemaTypeDisplay } from 'vs/workbench/services/languageRuntime/common/positronDataExplorerComm';
@@ -17,7 +16,7 @@ import { DataExplorerClientInstance } from 'vs/workbench/services/languageRuntim
  * Constants.
  */
 const SUMMARY_HEIGHT = 34;
-const EXTENDED_INFO_LINE_HEIGHT = 20;
+const PROFILE_LINE_HEIGHT = 20;
 
 /**
  * TableSummaryDataGridInstance class.
@@ -30,11 +29,9 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 	 */
 	private readonly _dataExplorerClientInstance: DataExplorerClientInstance;
 
-	// private _tableSchema?: TableSchema;
-
-	// private _schemaCache: TableSchemaCache;
-	// private _lastFetchedSchema?: FetchedSchema;
-
+	/**
+	 * Gets the data explorer cache.
+	 */
 	private readonly _dataExplorerCache: DataExplorerCache;
 
 	/**
@@ -54,34 +51,33 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 		// Call the base class's constructor.
 		super({
 			columnHeaders: false,
-
 			rowHeaders: false,
-
 			defaultColumnWidth: 200,
 			defaultRowHeight: SUMMARY_HEIGHT,
-
 			columnResize: false,
 			rowResize: false,
-
 			horizontalScrollbar: false,
 			verticalScrollbar: true,
 			scrollbarWidth: 14,
-
 			cellBorders: false,
-
 			cursor: false,
-
 			selection: false
 		});
 
 		// Set the data explorer client instance.
 		this._dataExplorerClientInstance = dataExplorerClientInstance;
 
-		this._dataExplorerCache = new DataExplorerCache(this._dataExplorerClientInstance);
+		// Allocate and initialize the DataExplorerCache.
+		this._dataExplorerCache = new DataExplorerCache(dataExplorerClientInstance);
+		this._dataExplorerCache.onDidUpdateCache(() => this._onDidUpdateEmitter.fire());
 
-		this._dataExplorerCache.onDidUpdate(() => {
-			this._onDidUpdateEmitter.fire();
+		// Add the onDidSchemaUpdate event handler.
+		this._dataExplorerClientInstance.onDidSchemaUpdate(async () => {
+			this.setScreenPosition(0, 0);
+			this._expandedColumns.clear();
+			this.fetchData();
 		});
+
 	}
 
 	//#endregion Constructor
@@ -107,36 +103,9 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 	//#region DataGridInstance Methods
 
 	/**
-	 *
-	 */
-	initialize() {
-
-
-
-		// this._dataExplorerClientInstance.getSchema(0, 1000).then(tableSchema => {
-
-		// 	console.log(`++++++++++ Schema returned with ${tableSchema.columns.length} columns`);
-
-		// 	this._tableSchema = tableSchema;
-
-		// 	this._onDidUpdateEmitter.fire();
-
-		// }).catch(x => {
-
-		// });
-	}
-
-	/**
-	 * Sorts the data.
-	 * @returns A Promise<void> that resolves when the data is sorted.
-	 */
-	async sortData(columnSorts: IColumnSortKey[]): Promise<void> {
-	}
-
-	/**
 	 * Fetches data.
 	 */
-	fetchData() {
+	override fetchData() {
 		this._dataExplorerCache.updateCache(this.firstRowIndex, this.screenRows);
 	}
 
@@ -153,55 +122,62 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 	 * @param rowIndex The row index.
 	 */
 	override getRowHeight(rowIndex: number): number {
+		// If the column isn't expanded, return the summary height.
 		if (!this.isColumnExpanded(rowIndex)) {
 			return SUMMARY_HEIGHT;
 		}
 
-		// Get the column schema.
-		const columnSchema = this._dataExplorerCache.getColumn(rowIndex);
+		// Get the column schema. If it hasn't been loaded yet, return the summary height.
+		const columnSchema = this._dataExplorerCache.getColumnSchema(rowIndex);
 		if (!columnSchema) {
 			return SUMMARY_HEIGHT;
 		}
 
-		const rowHeightWithExtendedInfo = (lines: number) => {
-			if (lines === 0) {
+		/**
+		 * Returns the row height with the specified number of lines.
+		 * @param profileLines
+		 * @returns
+		 */
+		const rowHeight = (profileLines: number) => {
+			if (profileLines === 0) {
 				return SUMMARY_HEIGHT;
 			} else {
-				return SUMMARY_HEIGHT + (lines * EXTENDED_INFO_LINE_HEIGHT) + 10;
+				return SUMMARY_HEIGHT + (profileLines * PROFILE_LINE_HEIGHT) + 10;
 			}
 		};
 
+		// Return the row height.
 		switch (columnSchema.type_display) {
 			case ColumnSchemaTypeDisplay.Number:
-				return rowHeightWithExtendedInfo(6);
+				return rowHeight(6);
 
 			case ColumnSchemaTypeDisplay.Boolean:
-				return rowHeightWithExtendedInfo(3);
+				return rowHeight(3);
 
 			case ColumnSchemaTypeDisplay.String:
-				return rowHeightWithExtendedInfo(3);
+				return rowHeight(3);
 
 			case ColumnSchemaTypeDisplay.Date:
-				return rowHeightWithExtendedInfo(7);
+				return rowHeight(7);
 
 			case ColumnSchemaTypeDisplay.Datetime:
-				return rowHeightWithExtendedInfo(7);
+				return rowHeight(7);
 
 			case ColumnSchemaTypeDisplay.Time:
-				return rowHeightWithExtendedInfo(7);
+				return rowHeight(7);
 
 			case ColumnSchemaTypeDisplay.Array:
-				return rowHeightWithExtendedInfo(2);
+				return rowHeight(2);
 
 			case ColumnSchemaTypeDisplay.Struct:
-				return rowHeightWithExtendedInfo(2);
+				return rowHeight(2);
 
 			case ColumnSchemaTypeDisplay.Unknown:
-				return rowHeightWithExtendedInfo(2);
+				return rowHeight(2);
 
 			// This shouldn't ever happen.
 			default:
-				return rowHeightWithExtendedInfo(0);
+				return rowHeight(0);
 		}
 	}
 
@@ -215,19 +191,10 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 	}
 
 	/**
-	 * Gets a row header.
-	 * @param rowIndex The row index.
-	 * @returns The row header, or, undefined.
-	 */
-	rowHeader(rowIndex: number) {
-		return undefined;
-	}
-
-	/**
-	 * Gets a data cell.
+	 * Gets a cell.
 	 * @param columnIndex The column index.
 	 * @param rowIndex The row index.
-	 * @returns The cell value.
+	 * @returns The cell.
 	 */
 	cell(columnIndex: number, rowIndex: number): JSX.Element | undefined {
 		// Column index must be 0.
@@ -235,9 +202,9 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 			return undefined;
 		}
 
-		const d = this._dataExplorerCache.getColumn(rowIndex);
-
-		if (!d) {
+		// Get the column schema.
+		const columnSchema = this._dataExplorerCache.getColumnSchema(rowIndex);
+		if (!columnSchema) {
 			return undefined;
 		}
 
@@ -245,33 +212,10 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 		return (
 			<ColumnSummaryCell
 				instance={this}
-				columnSchema={d}
+				columnSchema={columnSchema}
 				columnIndex={rowIndex}
 			/>
 		);
-
-
-		// // If the table schema hasn't been loaded, return undefined.
-		// if (!this._tableSchema) {
-		// 	return undefined;
-		// }
-
-		// // If the column schema hasn't been loaded, return undefined.
-		// if (rowIndex >= this._tableSchema.columns.length) {
-		// 	return undefined;
-		// }
-
-		// // Get the column schema.
-		// const columnSchema = this._tableSchema.columns[rowIndex];
-
-		// // Return the ColumnSummaryCell.
-		// return (
-		// 	<ColumnSummaryCell
-		// 		instance={this}
-		// 		columnSchema={columnSchema}
-		// 		columnIndex={rowIndex}
-		// 	/>
-		// );
 	}
 
 	//#region DataGridInstance Methods
@@ -292,37 +236,6 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 
 		this._onDidUpdateEmitter.fire();
 	}
-
-	//#endregion Public Methods
-
-	//#region Private Methods
-
-	// /**
-	//  * Fetches data.
-	//  */
-	// private async doFetchData(): Promise<void> {
-
-
-	// 	const start = new Date();
-	// 	const foo = await this._dataExplorerClientInstance.getSchema(0, 0);
-	// 	const end = new Date();
-
-	// 	console.log(`Loading ${foo.columns.length} took ${end.getTime() - start.getTime()}ms`);
-
-
-	// 	const schemaFetchRange: SchemaFetchRange = {
-	// 		startIndex: this.firstRowIndex,
-	// 		endIndex: this.firstRowIndex + this.visibleRows + 1
-	// 	};
-
-	// 	if (!this._lastFetchedSchema ||
-	// 		!this._schemaCache?.rangeIncludes(schemaFetchRange, this._lastFetchedSchema)) {
-	// 		this._lastFetchedSchema = await this._schemaCache?.fetch(schemaFetchRange);
-	// 	}
-
-	// 	// Fire the onDidUpdate event.
-	// 	this._onDidUpdateEmitter.fire();
-	// }
 
 	//#endregion Private Methods
 }
