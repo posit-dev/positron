@@ -42,7 +42,7 @@ import { IPositronConsoleInstance, IPositronConsoleService, POSITRON_CONSOLE_VIE
 import { ILanguageRuntimeExit, ILanguageRuntimeMessage, ILanguageRuntimeMetadata, LanguageRuntimeSessionMode, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior, RuntimeExitReason, RuntimeOnlineState, RuntimeState, formatLanguageRuntimeMetadata, formatLanguageRuntimeSession } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { ILanguageRuntimeSession, IRuntimeSessionService } from '../../runtimeSession/common/runtimeSessionService';
 import { UiFrontendEvent } from 'vs/workbench/services/languageRuntime/common/positronUiComm';
-import { IRuntimeAffiliationService } from 'vs/workbench/services/runtimeAffiliation/common/runtimeAffliationService';
+import { IRuntimeStartupService } from 'vs/workbench/services/runtimeStartup/common/runtimeStartupService';
 
 /**
  * The onDidChangeRuntimeItems throttle threshold and throttle interval. The throttle threshold
@@ -177,7 +177,7 @@ class PositronConsoleService extends Disposable implements IPositronConsoleServi
 	/**
 	 * Constructor.
 	 * @param _instantiationService The instantiation service.
-	 * @param _runtimeAffiliationService The runtime affiliation service.
+	 * @param _runtimeStartupService The runtime affiliation service.
 	 * @param _runtimeSessionService The runtime session service.
 	 * @param _logService The log service service.
 	 * @param _viewsService The views service.
@@ -186,7 +186,7 @@ class PositronConsoleService extends Disposable implements IPositronConsoleServi
 	 */
 	constructor(
 		@IInstantiationService private readonly _instantiationService: IInstantiationService,
-		@IRuntimeAffiliationService private readonly _runtimeAffiliationService: IRuntimeAffiliationService,
+		@IRuntimeStartupService private readonly _runtimeStartupService: IRuntimeStartupService,
 		@IRuntimeSessionService private readonly _runtimeSessionService: IRuntimeSessionService,
 		@ILogService private readonly _logService: ILogService,
 		@IViewsService private readonly _viewsService: IViewsService,
@@ -382,7 +382,7 @@ class PositronConsoleService extends Disposable implements IPositronConsoleServi
 			// Get the preferred runtime for the language.
 			let languageRuntime: ILanguageRuntimeMetadata;
 			try {
-				languageRuntime = this._runtimeAffiliationService.getPreferredRuntime(languageId);
+				languageRuntime = this._runtimeStartupService.getPreferredRuntime(languageId);
 			} catch {
 				return false;
 			}

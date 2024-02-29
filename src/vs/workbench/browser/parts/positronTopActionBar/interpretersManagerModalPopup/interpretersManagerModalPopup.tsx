@@ -9,7 +9,7 @@ import { InterpreterGroups } from 'vs/workbench/browser/parts/positronTopActionB
 import { PositronModalPopupReactRenderer } from 'vs/base/browser/ui/positronModalPopup/positronModalPopupReactRenderer';
 import { ILanguageRuntimeMetadata, ILanguageRuntimeService } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { IRuntimeSessionService } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
-import { IRuntimeAffiliationService } from 'vs/workbench/services/runtimeAffiliation/common/runtimeAffliationService';
+import { IRuntimeStartupService } from 'vs/workbench/services/runtimeStartup/common/runtimeStartupService';
 
 /**
  * Shows the interpreters manager modal popup.
@@ -24,7 +24,7 @@ import { IRuntimeAffiliationService } from 'vs/workbench/services/runtimeAffilia
  */
 export const showInterpretersManagerModalPopup = async (
 	languageRuntimeService: ILanguageRuntimeService,
-	runtimeAffiliationService: IRuntimeAffiliationService,
+	runtimeAffiliationService: IRuntimeStartupService,
 	runtimeSessionService: IRuntimeSessionService,
 	containerElement: HTMLElement,
 	anchorElement: HTMLElement,

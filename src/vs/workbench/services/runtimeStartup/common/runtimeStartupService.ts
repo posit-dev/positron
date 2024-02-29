@@ -5,10 +5,10 @@
 import { createDecorator } from 'vs/platform/instantiation/common/instantiation';
 import { ILanguageRuntimeMetadata } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 
-export const IRuntimeAffiliationService =
-	createDecorator<IRuntimeAffiliationService>('runtimeAffiliationService');
+export const IRuntimeStartupService =
+	createDecorator<IRuntimeStartupService>('runtimeStartupService');
 
-export interface IRuntimeAffiliationService {
+export interface IRuntimeStartupService {
 	// Needed for service branding in dependency injector.
 	readonly _serviceBrand: undefined;
 

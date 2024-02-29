@@ -9,7 +9,7 @@ import { DisposableStore } from 'vs/base/common/lifecycle';
 import { InterpreterGroup } from 'vs/workbench/browser/parts/positronTopActionBar/interpretersManagerModalPopup/interpreterGroup';
 import { ILanguageRuntimeMetadata, ILanguageRuntimeService } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { IRuntimeSessionService } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
-import { IRuntimeAffiliationService } from 'vs/workbench/services/runtimeAffiliation/common/runtimeAffliationService';
+import { IRuntimeStartupService } from 'vs/workbench/services/runtimeStartup/common/runtimeStartupService';
 
 /**
  * IInterpreterGroup interface.
@@ -26,7 +26,7 @@ export interface IInterpreterGroup {
  */
 const createInterpreterGroups = (
 	languageRuntimeService: ILanguageRuntimeService,
-	runtimeAffiliationService: IRuntimeAffiliationService) => {
+	runtimeAffiliationService: IRuntimeStartupService) => {
 	const preferredRuntimeByLanguageId = new Map<string, ILanguageRuntimeMetadata>();
 	const languageRuntimeGroups = new Map<string, IInterpreterGroup>();
 	for (const runtime of languageRuntimeService.registeredRuntimes) {
@@ -69,7 +69,7 @@ const createInterpreterGroups = (
  */
 interface InterpreterGroupsProps {
 	languageRuntimeService: ILanguageRuntimeService;
-	runtimeAffiliationService: IRuntimeAffiliationService;
+	runtimeAffiliationService: IRuntimeStartupService;
 	runtimeSessionService: IRuntimeSessionService;
 	onStartRuntime: (runtime: ILanguageRuntimeMetadata) => Promise<void>;
 	onActivateRuntime: (runtime: ILanguageRuntimeMetadata) => Promise<void>;

@@ -427,7 +427,7 @@ import 'vs/workbench/contrib/positronIPyWidgets/browser/positronIPyWidgets.contr
 // Workbench services
 import 'vs/workbench/services/languageRuntime/common/languageRuntime';
 import 'vs/workbench/services/runtimeSession/common/runtimeSession';
-import 'vs/workbench/services/runtimeAffiliation/common/runtimeAffiliation';
+import 'vs/workbench/services/runtimeStartup/common/runtimeStartup';
 import 'vs/workbench/services/positronConsole/browser/positronConsoleService';
 import 'vs/workbench/contrib/positronHelp/browser/positronHelpService';
 import 'vs/workbench/services/positronVariables/common/positronVariablesService';

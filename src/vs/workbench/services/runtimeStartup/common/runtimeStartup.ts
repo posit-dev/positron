@@ -10,7 +10,7 @@ import { ILogService } from 'vs/platform/log/common/log';
 import { IStorageService, StorageScope, StorageTarget } from 'vs/platform/storage/common/storage';
 import { IExtensionService } from 'vs/workbench/services/extensions/common/extensions';
 import { ILanguageRuntimeMetadata, ILanguageRuntimeService, LanguageRuntimeDiscoveryPhase, LanguageRuntimeSessionMode, LanguageRuntimeStartupBehavior, RuntimeState, formatLanguageRuntimeMetadata } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
-import { IRuntimeAffiliationService } from 'vs/workbench/services/runtimeAffiliation/common/runtimeAffliationService';
+import { IRuntimeStartupService } from 'vs/workbench/services/runtimeStartup/common/runtimeStartupService';
 import { ILanguageRuntimeSession, IRuntimeSessionService } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
 
 /**
@@ -25,7 +25,7 @@ import { ILanguageRuntimeSession, IRuntimeSessionService } from 'vs/workbench/se
  * When runtimes become active, they are affiliated with the current workspace;
  * manually shutting down a runtime removes the affiliation.
  */
-export class RuntimeAffiliationService extends Disposable {
+export class RuntimeStartupService extends Disposable implements IRuntimeStartupService {
 
 	// Needed for service branding in dependency injector.
 	declare readonly _serviceBrand: undefined;
@@ -363,4 +363,4 @@ export class RuntimeAffiliationService extends Disposable {
 	}
 }
 
-registerSingleton(IRuntimeAffiliationService, RuntimeAffiliationService, InstantiationType.Eager);
+registerSingleton(IRuntimeStartupService, RuntimeStartupService, InstantiationType.Eager);

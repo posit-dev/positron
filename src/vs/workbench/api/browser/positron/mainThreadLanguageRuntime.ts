@@ -29,8 +29,8 @@ import { BusyEvent, UiFrontendEvent, OpenEditorEvent, PromptStateEvent, WorkingD
 import { IEditorService } from 'vs/workbench/services/editor/common/editorService';
 import { ITextResourceEditorInput } from 'vs/platform/editor/common/editor';
 import { IPositronDataExplorerService } from 'vs/workbench/services/positronDataExplorer/browser/interfaces/positronDataExplorerService';
-import { IRuntimeAffiliationService } from 'vs/workbench/services/runtimeAffiliation/common/runtimeAffliationService';
 import { ObservableValue } from 'vs/base/common/observableInternal/base';
+import { IRuntimeStartupService } from 'vs/workbench/services/runtimeStartup/common/runtimeStartupService';
 
 /**
  * Represents a language runtime event (for example a message or state change)
@@ -980,7 +980,7 @@ export class MainThreadLanguageRuntime
 		extHostContext: IExtHostContext,
 		@ILanguageRuntimeService private readonly _languageRuntimeService: ILanguageRuntimeService,
 		@IRuntimeSessionService private readonly _runtimeSessionService: IRuntimeSessionService,
-		@IRuntimeAffiliationService private readonly _runtimeAffiliationService: IRuntimeAffiliationService,
+		@IRuntimeStartupService private readonly _runtimeStartupService: IRuntimeStartupService,
 		@IPositronConsoleService private readonly _positronConsoleService: IPositronConsoleService,
 		@IPositronDataExplorerService private readonly _positronDataExplorerService: IPositronDataExplorerService,
 		@IPositronVariablesService private readonly _positronVariablesService: IPositronVariablesService,
@@ -1029,7 +1029,7 @@ export class MainThreadLanguageRuntime
 	}
 
 	$getPreferredRuntime(languageId: string): Promise<ILanguageRuntimeMetadata> {
-		return Promise.resolve(this._runtimeAffiliationService.getPreferredRuntime(languageId));
+		return Promise.resolve(this._runtimeStartupService.getPreferredRuntime(languageId));
 	}
 
 	// Called by the extension host to select a previously registered language runtime

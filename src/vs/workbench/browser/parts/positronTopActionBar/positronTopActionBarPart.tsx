@@ -29,7 +29,7 @@ import { ILanguageRuntimeService } from 'vs/workbench/services/languageRuntime/c
 import { IPositronTopActionBarService } from 'vs/workbench/services/positronTopActionBar/browser/positronTopActionBarService';
 import { IPositronTopActionBarContainer, PositronTopActionBar } from 'vs/workbench/browser/parts/positronTopActionBar/positronTopActionBar';
 import { IRuntimeSessionService } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
-import { IRuntimeAffiliationService } from 'vs/workbench/services/runtimeAffiliation/common/runtimeAffliationService';
+import { IRuntimeStartupService } from 'vs/workbench/services/runtimeStartup/common/runtimeStartupService';
 
 /**
  * PositronTopActionBarPart class.
@@ -105,7 +105,7 @@ export class PositronTopActionBarPart extends Part implements IPositronTopAction
 		@ILabelService private readonly labelService: ILabelService,
 		@ILanguageRuntimeService private readonly languageRuntimeService: ILanguageRuntimeService,
 		@IQuickInputService private readonly quickInputService: IQuickInputService,
-		@IRuntimeAffiliationService private readonly runtimeAffiliationService: IRuntimeAffiliationService,
+		@IRuntimeStartupService private readonly runtimeStartupService: IRuntimeStartupService,
 		@IRuntimeSessionService private readonly runtimeSessionService: IRuntimeSessionService,
 		@IStorageService storageService: IStorageService,
 		@IThemeService themeService: IThemeService,
@@ -142,7 +142,7 @@ export class PositronTopActionBarPart extends Part implements IPositronTopAction
 				positronTopActionBarContainer={this}
 				positronTopActionBarService={this}
 				quickInputService={this.quickInputService}
-				runtimeAffiliationService={this.runtimeAffiliationService}
+				runtimeStartupService={this.runtimeStartupService}
 				runtimeSessionService={this.runtimeSessionService}
 				workspaceContextService={this.workspaceContextService}
 				workspacesService={this.workspacesService}
