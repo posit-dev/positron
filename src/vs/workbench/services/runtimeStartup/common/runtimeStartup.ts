@@ -189,8 +189,8 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 		}));
 
 		this._extensionService.whenAllExtensionHostsStarted().then(async () => {
-			// Eagerly start affiliated runtimes when the workspace is opened.
-			this.startAffiliatedLanguageRuntimes();
+			// Reconnect to any active sessions
+			this.restoreSessions();
 		});
 
 		languageRuntimeExtPoint.setHandler((extensions) => {
@@ -471,6 +471,44 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 				return;
 			}
 		}
+	}
+
+
+	private async restoreSessions() {
+		const storedSessions = this._storageService.get(PERSISTENT_WORKSPACE_SESSIONS_KEY,
+			StorageScope.WORKSPACE);
+		if (storedSessions) {
+			try {
+				const sessions = JSON.parse(storedSessions) as SerializedSessionMetadata[];
+				await this.restoreWorkspaceSessions(sessions);
+			} catch (err) {
+				this._logService.error(`Could not restore workspace sessions: ${err} ` +
+					`(data: ${storedSessions})`);
+			}
+		}
+	}
+
+	private async restoreWorkspaceSessions(sessions: SerializedSessionMetadata[]) {
+		this._startupPhase.set(RuntimeStartupPhase.Reconnecting, undefined);
+		this._logService.debug(`Reconnecting to sessions: ` +
+			sessions.map(session => session.metadata.sessionName).join(', '));
+
+		await Promise.all(sessions.map(async session => {
+			// Activate the extension that provides the runtime. Note that this
+			// waits for the extension service to signal the extension but does
+			// not wait for the extension to activate.
+			this._logService.debug(`[Reconnect ${session.metadata.sessionId}]: ` +
+				`Activating extension ${session.runtimeMetadata.extensionId}`);
+			await this._extensionService.activateById(session.runtimeMetadata.extensionId,
+				{
+					extensionId: session.runtimeMetadata.extensionId,
+					activationEvent: `onLanguageRuntime:${session.runtimeMetadata.languageId}`,
+					startup: true
+				});
+
+			this._logService.debug(`[Reconnect ${session.metadata.sessionId}]: ` +
+				`Restoring session for ${session.metadata.sessionName}`);
+		}));
 	}
 
 	/**
