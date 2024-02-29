@@ -33,10 +33,12 @@ export class TableDataDataGridInstance extends DataGridInstance {
 	 */
 	private readonly _dataExplorerClientInstance: DataExplorerClientInstance;
 
+	private tableShape?: [number, number];
+
 	private _dataCache?: TableDataCache;
 	private _lastFetchedData?: FetchedData;
 
-	private _schemaCache: TableSchemaCache;
+	private _schemaCache?: TableSchemaCache;
 	private _lastFetchedSchema?: FetchedSchema;
 
 	//#endregion Private Properties
@@ -72,13 +74,6 @@ export class TableDataDataGridInstance extends DataGridInstance {
 			cellBorder: true
 		});
 
-		this._schemaCache = new TableSchemaCache(
-			async (req: SchemaFetchRange) => {
-				return this._dataExplorerClientInstance.getSchema(req.startIndex,
-					req.endIndex - req.startIndex);
-			}
-		);
-
 		// Set the data explorer client instance.
 		this._dataExplorerClientInstance = dataExplorerClientInstance;
 
@@ -92,12 +87,16 @@ export class TableDataDataGridInstance extends DataGridInstance {
 			this._firstColumnIndex = 0;
 			this._firstRowIndex = 0;
 
-			// Resets data schema, fetches initial schema and data
+			// Resets data schema, fetches table shape, initial schema, and data
 			this.initialize();
 		});
 
 		this._dataExplorerClientInstance.onDidDataUpdate(async (_evt) => {
 			this._lastFetchedData = undefined;
+
+			const state = await this._dataExplorerClientInstance.getState();
+			this.tableShape = [state.table_shape.num_rows, state.table_shape.num_columns];
+
 			this._dataCache?.clear();
 			this.fetchData();
 		});
@@ -109,42 +108,47 @@ export class TableDataDataGridInstance extends DataGridInstance {
 	 * Gets the number of columns.
 	 */
 	get columns() {
-		return this._lastFetchedSchema ? this._lastFetchedSchema.schema.total_num_columns : 0;
+		return this.tableShape ? this.tableShape[1] : 0;
 	}
 
 	/**
 	 * Gets the number of rows.
 	 */
 	get rows() {
-		return this._lastFetchedSchema ? this._lastFetchedSchema.schema.num_rows : 0;
+		return this.tableShape ? this.tableShape[0] : 0;
 	}
 
 	/**
 	 *
 	 */
-	initialize() {
-		this._schemaCache.clear();
-		this._schemaCache.initialize().then(async (_) => {
-			this._lastFetchedSchema = await this._schemaCache?.fetch({ startIndex: 0, endIndex: 1000 });
+	async initialize() {
+		const state = await this._dataExplorerClientInstance.getState();
+		this.tableShape = [state.table_shape.num_rows, state.table_shape.num_columns];
+		this._schemaCache = new TableSchemaCache(
+			this.tableShape,
+			async (req: SchemaFetchRange) => {
+				return this._dataExplorerClientInstance.getSchema(req.startIndex,
+					req.endIndex - req.startIndex);
+			}
+		);
+		this._lastFetchedSchema = await this._schemaCache?.fetch({ startIndex: 0, endIndex: 1000 });
+		this._dataCache = new TableDataCache(
+			this.tableShape,
+			async (req: DataFetchRange) => {
+				// Build the column indices to fetch.
+				const columnIndices: number[] = [];
+				for (let i = req.columnStartIndex; i < req.columnEndIndex; i++) {
+					columnIndices.push(i);
+				}
+				return this._dataExplorerClientInstance.getDataValues(
+					req.rowStartIndex,
+					req.rowEndIndex - req.rowStartIndex,
+					columnIndices
+				);
+			});
 
-			this._dataCache = new TableDataCache(
-				this._schemaCache?.tableShape!,
-				async (req: DataFetchRange) => {
-					// Build the column indices to fetch.
-					const columnIndices: number[] = [];
-					for (let i = req.columnStartIndex; i < req.columnEndIndex; i++) {
-						columnIndices.push(i);
-					}
-					return this._dataExplorerClientInstance.getDataValues(
-						req.rowStartIndex,
-						req.rowEndIndex - req.rowStartIndex,
-						columnIndices
-					);
-				});
-
-			// Fetch data.
-			this.fetchData();
-		});
+		// Fetch data.
+		this.fetchData();
 	}
 
 	/**

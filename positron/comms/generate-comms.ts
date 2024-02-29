@@ -45,7 +45,7 @@ const tsOutputDir = `${__dirname}/../../src/vs/workbench/services/languageRuntim
 const rustOutputDir = `${__dirname}/../../../amalthea/crates/amalthea/src/comm`;
 
 /// The directory to write the generated Python files to
-const pythonOutputDir = `${__dirname}/../../extensions/positron-python/pythonFiles/positron`;
+const pythonOutputDir = `${__dirname}/../../extensions/positron-python/pythonFiles/positron/positron_ipykernel`;
 
 const year = new Date().getFullYear();
 
@@ -372,7 +372,9 @@ function* objectVisitor(
  * @returns A generator that yields the Rust code for the comm
  */
 function* createRustComm(name: string, frontend: any, backend: any): Generator<string> {
-	yield `/*---------------------------------------------------------------------------------------------
+	yield `// @generated
+
+/*---------------------------------------------------------------------------------------------
  *  Copyright (C) ${year} Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
