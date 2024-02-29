@@ -125,7 +125,7 @@ export class DataExplorerCache extends Disposable {
 	//#region Public Methods
 
 	/**
-	 * Invalidates the data cell cache.
+	 * Invalidates the data cache.
 	 */
 	invalidateDataCache() {
 		this._rowLabelCache.clear();
