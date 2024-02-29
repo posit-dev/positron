@@ -13,6 +13,7 @@ import { ExtHostRuntimeClientInstance } from 'vs/workbench/api/common/positron/e
 import { ExtensionIdentifier, IExtensionDescription } from 'vs/platform/extensions/common/extensions';
 import { URI } from 'vs/base/common/uri';
 import { DeferredPromise } from 'vs/base/common/async';
+import { IRuntimeSessionMetadata } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
 
 /**
  * A language runtime manager and metadata about the extension that registered it.
@@ -73,24 +74,19 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 	 *
 	 * @returns A promise that resolves with a handle to the runtime session.
 	 */
-	$createLanguageRuntimeSession(
-		runtimeMetadata: positron.LanguageRuntimeMetadata,
-		sessionMetadata: positron.RuntimeSessionMetadata): Promise<number> {
-		return new Promise((resolve, reject) => {
-			// Look up the session manager responsible for starting this runtime
-			const sessionManager = this._runtimeManagersByRuntimeId.get(runtimeMetadata.runtimeId);
-			if (sessionManager) {
-				sessionManager.manager.createSession(runtimeMetadata, sessionMetadata)
-					.then((session) => {
-						resolve(this.attachToSession(session));
-					}, (err) => {
-						reject(err);
-					});
-			} else {
-				reject(new Error(
-					`No session manager found for language ID '${runtimeMetadata.languageId}'.`));
-			}
-		});
+	async $createLanguageRuntimeSession(
+		runtimeMetadata: ILanguageRuntimeMetadata,
+		sessionMetadata: IRuntimeSessionMetadata): Promise<number> {
+		// Look up the session manager responsible for restoring this session
+		const sessionManager = await this.runtimeManagerForRuntime(runtimeMetadata);
+		if (sessionManager) {
+			const session =
+				await sessionManager.manager.createSession(runtimeMetadata, sessionMetadata);
+			return this.attachToSession(session);
+		} else {
+			throw new Error(
+				`No session manager found for language ID '${runtimeMetadata.languageId}'.`);
+		}
 	}
 
 	/**
@@ -101,30 +97,30 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 	 *
 	 * @returns A promise that resolves with a handle to the runtime session.
 	 */
-	$restoreLanguageRuntimeSession(
-		runtimeMetadata: positron.LanguageRuntimeMetadata,
-		sessionMetadata: positron.RuntimeSessionMetadata): Promise<number> {
-		return new Promise((resolve, reject) => {
-			// Look up the session manager responsible for restoring this session
-			const sessionManager = this._runtimeManagersByRuntimeId.get(runtimeMetadata.runtimeId);
-			if (sessionManager) {
-				if (sessionManager.manager.restoreSession) {
-					sessionManager.manager.restoreSession(runtimeMetadata, sessionMetadata)
-						.then((session) => {
-							resolve(this.attachToSession(session));
-						}, (err) => {
-							reject(err);
-						});
-				} else {
-					reject(new Error(
-						`Session manager for session ID '${sessionMetadata.sessionId}'. ` +
-						`does not support session restoration.`));
-				}
+	async $restoreLanguageRuntimeSession(
+		runtimeMetadata: ILanguageRuntimeMetadata,
+		sessionMetadata: IRuntimeSessionMetadata): Promise<number> {
+		// Look up the session manager responsible for restoring this session
+		const sessionManager = await this.runtimeManagerForRuntime(runtimeMetadata);
+		if (sessionManager) {
+			if (sessionManager.manager.restoreSession) {
+				// Attempt to restore the session. There are a lot of reasons
+				// this could fail, chief among them that the session isn't
+				// around any more.
+				const session =
+					await sessionManager.manager.restoreSession(runtimeMetadata, sessionMetadata);
+				return this.attachToSession(session);
 			} else {
-				reject(new Error(
-					`No session manager found for language ID '${runtimeMetadata.languageId}'.`));
+				// Session restoration is optional; if the session manager
+				// doesn't support it, then throw an error
+				throw new Error(
+					`Session manager for session ID '${sessionMetadata.sessionId}'. ` +
+					`does not support session restoration.`);
 			}
-		});
+		} else {
+			throw new Error(
+				`No session manager found for language ID '${runtimeMetadata.languageId}'.`);
+		}
 	}
 
 	private async runtimeManagerForRuntime(metadata: ILanguageRuntimeMetadata): Promise<LanguageRuntimeManager | undefined> {
@@ -480,6 +476,15 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 	public registerLanguageRuntimeManager(
 		extension: IExtensionDescription,
 		manager: positron.LanguageRuntimeManager): IDisposable {
+
+		// If we were waiting for this runtime manager to be registered, then
+		// resolve the promise now.
+		const pending = this._pendingRuntimeManagers.get(ExtensionIdentifier.toKey(extension.identifier));
+		if (pending) {
+			pending.complete({ manager, extension });
+			this._pendingRuntimeManagers.delete(ExtensionIdentifier.toKey(extension.identifier));
+		}
+
 		if (this._runtimeDiscoveryComplete) {
 			// We missed the discovery phase. Invoke the provider's async
 			// generator and register each runtime it returns right away.
