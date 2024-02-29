@@ -85,8 +85,26 @@ type ScrollbarOptions = | {
 /**
  * DisplayOptions type.
  */
-type DisplayOptions = {
-	cellBorder: boolean;
+type DisplayOptions = | {
+	cellBorders?: boolean;
+};
+
+/**
+ * CursorOptions type.
+ */
+type CursorOptions = | {
+	cursor: false;
+	cursorOffset?: never;
+} | {
+	cursor: true;
+	cursorOffset: number;
+};
+
+/**
+ * SelectionOptions type.
+ */
+type SelectionOptions = | {
+	selection?: boolean;
 };
 
 /**
@@ -99,7 +117,9 @@ type DataGridOptions =
 	ColumnResizeOptions &
 	RowResizeOptions &
 	ScrollbarOptions &
-	DisplayOptions;
+	DisplayOptions &
+	CursorOptions &
+	SelectionOptions;
 
 /**
  * ExtendColumnSelectionBy enumeration.
@@ -346,19 +366,24 @@ export abstract class DataGridInstance extends Disposable {
 	private readonly _scrollbarWidth: number;
 
 	/**
-	 * Gets the column widths.
+	 * Gets a value which indicates whether to show cell borders.
 	 */
-	private readonly _columnWidths = new Map<number, number>();
+	private readonly _cellBorders: boolean;
 
 	/**
-	 * Gets the row heights.
+	 * Gets a value which indicates whether to show the cursor.
 	 */
-	private readonly _rowHeights = new Map<number, number>();
+	private readonly _cursor: boolean;
 
 	/**
-	 * Gets the column sort keys.
+	 * Gets the cursor offset.
 	 */
-	private readonly _columnSortKeys = new Map<number, ColumnSortKey>();
+	private readonly _cursorOffset: number;
+
+	/**
+	 * Gets a value which indicates whether selection is enabled.
+	 */
+	private readonly _selection: boolean;
 
 	/**
 	 * Gets or sets the width.
@@ -373,12 +398,12 @@ export abstract class DataGridInstance extends Disposable {
 	/**
 	 * Gets or sets the first column index.
 	 */
-	protected _firstColumnIndex = 0;
+	private _firstColumnIndex = 0;
 
 	/**
 	 * Gets or sets the first row index.
 	 */
-	protected _firstRowIndex = 0;
+	private _firstRowIndex = 0;
 
 	/**
 	 * Gets or sets the cursor column index.
@@ -416,11 +441,30 @@ export abstract class DataGridInstance extends Disposable {
 	private readonly _rowSelectionIndexes = new Set<number>();
 
 	/**
+	 * Gets the column widths.
+	 */
+	private readonly _columnWidths = new Map<number, number>();
+
+	/**
+	 * Gets the row heights.
+	 */
+	private readonly _rowHeights = new Map<number, number>();
+
+	/**
+	 * Gets the column sort keys.
+	 */
+	private readonly _columnSortKeys = new Map<number, ColumnSortKey>();
+
+	//#endregion Private Properties
+
+	//#region Protected Events
+
+	/**
 	 * The onDidUpdate event emitter.
 	 */
 	protected readonly _onDidUpdateEmitter = this._register(new Emitter<void>);
 
-	//#endregion Private Properties
+	//#endregion Protected Events
 
 	//#region Constructor & Dispose
 
@@ -444,14 +488,21 @@ export abstract class DataGridInstance extends Disposable {
 		this._defaultRowHeight = options.defaultRowHeight;
 
 		this._columnResize = options.columnResize || false;
-		this._minimumColumnWidth = options.minimumColumnWidth ?? 0;
+		this._minimumColumnWidth = options.minimumColumnWidth ?? options.defaultColumnWidth;
 
 		this._rowResize = options.rowResize || false;
-		this._minimumRowHeight = options.minimumRowHeight ?? 0;
+		this._minimumRowHeight = options.minimumRowHeight ?? options.defaultRowHeight;
 
 		this._horizontalScrollbar = options.horizontalScrollbar || false;
 		this._verticalScrollbar = options.verticalScrollbar || false;
 		this._scrollbarWidth = options.scrollbarWidth ?? 0;
+
+		this._cellBorders = options.cellBorders ?? true;
+
+		this._cursor = options.cursor ?? true;
+		this._cursorOffset = this._cursor ? options.cursorOffset ?? 0 : 0;
+
+		this._selection = options.selection ?? true;
 	}
 
 	//#endregion Constructor & Dispose
@@ -557,6 +608,34 @@ export abstract class DataGridInstance extends Disposable {
 	}
 
 	/**
+	 * Gets a value which indicates whether to show cell borders.
+	 */
+	get cellBorder() {
+		return this._cellBorders;
+	}
+
+	/**
+	 * Gets a value which indicates whether to show the cursor.
+	 */
+	get cursor() {
+		return this._cursor;
+	}
+
+	/**
+	 * Gets the cursor offset.
+	 */
+	get cursorOffset() {
+		return this._cursorOffset;
+	}
+
+	/**
+	 * Gets a value which indicates whether selection is enabled.
+	 */
+	get selection() {
+		return this._selection;
+	}
+
+	/**
 	 * Gets the number of columns.
 	 */
 	abstract get columns(): number;
@@ -595,6 +674,13 @@ export abstract class DataGridInstance extends Disposable {
 	}
 
 	/**
+	 * Gets the screen columns.
+	 */
+	get screenColumns() {
+		return Math.trunc(this._width / this._minimumColumnWidth) + 1;
+	}
+
+	/**
 	 * Gets the visible columns.
 	 */
 	get visibleColumns() {
@@ -621,6 +707,13 @@ export abstract class DataGridInstance extends Disposable {
 
 		// Done.
 		return Math.max(visibleColumns, 1);
+	}
+
+	/**
+	 * Gets the screen rows.
+	 */
+	get screenRows() {
+		return Math.trunc(this._height / this._minimumRowHeight) + 1;
 	}
 
 	/**
@@ -735,6 +828,15 @@ export abstract class DataGridInstance extends Disposable {
 	}
 
 	//#endregion Public Properties
+
+	//#region Public Events
+
+	/**
+	 * onDidUpdate event.
+	 */
+	readonly onDidUpdate = this._onDidUpdateEmitter.event;
+
+	//#endregion Public Events
 
 	//#region Public Methods
 
@@ -1825,19 +1927,15 @@ export abstract class DataGridInstance extends Disposable {
 	}
 
 	/**
-	 * TODO.
-	 */
-	abstract initialize(): void;
-
-	/**
 	 * Sorts the data.
 	 * @param columnSorts The array of column sorts.
 	 * @returns A Promise<void> that resolves when the data is sorted.
 	 */
-	abstract sortData(columnSorts: IColumnSortKey[]): Promise<void>;
+	async sortData(columnSorts: IColumnSortKey[]): Promise<void> {
+	}
 
 	/**
-	 *
+	 * Fetches data.
 	 */
 	abstract fetchData(): void;
 
@@ -1853,7 +1951,9 @@ export abstract class DataGridInstance extends Disposable {
 	 * @param rowIndex The row index.
 	 * @returns The row header, or, undefined.
 	 */
-	abstract rowHeader(rowIndex: number): JSX.Element | undefined;
+	rowHeader(rowIndex: number): JSX.Element | undefined {
+		return undefined;
+	}
 
 	/**
 	 * Gets a data cell.
@@ -1863,12 +1963,29 @@ export abstract class DataGridInstance extends Disposable {
 	 */
 	abstract cell(columnIndex: number, rowIndex: number): JSX.Element | undefined;
 
-	/**
-	 * onDidUpdate event.
-	 */
-	readonly onDidUpdate = this._onDidUpdateEmitter.event;
-
 	//#endregion Public Methods
+
+	//#region Protected Methods
+
+	/**
+	 * Performs a soft reset of the data grid.
+	 */
+	protected softReset() {
+		this._firstColumnIndex = 0;
+		this._firstRowIndex = 0;
+		this._cursorColumnIndex = 0;
+		this._cursorRowIndex = 0;
+		this._cellSelectionRange = undefined;
+		this._columnSelectionRange = undefined;
+		this._columnSelectionIndexes.clear();
+		this._rowSelectionRange = undefined;
+		this._rowSelectionIndexes.clear();
+		this._columnWidths.clear();
+		this._rowHeights.clear();
+		this._columnSortKeys.clear();
+	}
+
+	//#endregion Protected Methods
 
 	//#region Private Methods
 

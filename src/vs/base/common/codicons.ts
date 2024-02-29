@@ -645,6 +645,14 @@ export const Codicon = {
 	positronEllipsis: register('positron-ellipsis', 0xf261),
 	positronCheckMark: register('positron-check-mark', 0xf262),
 	positronVerticalEllipsis: register('positron-vertical-ellipsis', 0xf263),
+	positronDataTypeArray: register('positron-data-type-array', 0xf264),
+	positronDataTypeBoolean: register('positron-data-type-boolean', 0xf265),
+	positronDataTypeDateTime: register('positron-data-type-date-time', 0xf266),
+	positronDataTypeDate: register('positron-data-type-date', 0xf267),
+	positronDataTypeNumber: register('positron-data-type-number', 0xf268),
+	positronDataTypeString: register('positron-data-type-string', 0xf269),
+	positronDataTypeStruct: register('positron-data-type-struct', 0xf26a),
+	positronDataTypeTime: register('positron-data-type-time', 0xf26b),
 	// --- End Positron ---
 
 

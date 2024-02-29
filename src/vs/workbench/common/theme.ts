@@ -1830,6 +1830,14 @@ export const POSITRON_DATA_EXPLORER_CONTRAST_BACKGROUND_COLOR = registerColor('p
 	hcLight: editorBackground
 }, localize('positronDataExplorer.contrastBackground', "Positron data explorer contrast background color."));
 
+// Positron data explorer selection background color.
+export const POSITRON_DATA_EXPLORER_SELECTION_BACKGROUND_COLOR = registerColor('positronDataExplorer.selectionBackground', {
+	dark: lighten(editorBackground, 0.2),
+	light: darken(editorBackground, 0.05),
+	hcDark: editorBackground,
+	hcLight: editorBackground
+}, localize('positronDataExplorer.selectionBackground', "Positron data explorer selection background color."));
+
 // Positron data explorer foreground color.
 export const POSITRON_DATA_EXPLORER_FOREGROUND_COLOR = registerColor('positronDataExplorer.foreground', {
 	dark: editorForeground,

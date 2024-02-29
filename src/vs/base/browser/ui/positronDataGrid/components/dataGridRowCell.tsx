@@ -41,13 +41,21 @@ export const DataGridRowCell = (props: DataGridRowCellProps) => {
 	 */
 	const mouseDownHandler = (e: MouseEvent<HTMLElement>) => {
 		if (isMacintosh ? e.metaKey : e.ctrlKey) {
-			// Individual cell selection is not supported.
-		} else if (e.shiftKey) {
-			context.instance.mouseSelectCell(props.columnIndex, props.rowIndex);
-		} else {
-			context.instance.clearSelection();
-			context.instance.setCursorPosition(props.columnIndex, props.rowIndex);
+			return;
 		}
+
+		// If selection is enabled, process selection.
+		if (context.instance.selection) {
+			if (e.shiftKey) {
+				context.instance.mouseSelectCell(props.columnIndex, props.rowIndex);
+				return;
+			}
+
+			context.instance.clearSelection();
+		}
+
+		// Set the cursor position.
+		context.instance.setCursorPosition(props.columnIndex, props.rowIndex);
 	};
 
 	// Get the selection states.
@@ -75,7 +83,7 @@ export const DataGridRowCell = (props: DataGridRowCellProps) => {
 				className={
 					positronClassNames(
 						'data-grid-row-cell-border-overlay',
-						{ 'bordered': context.instance.columnResize },
+						{ 'bordered': context.instance.cellBorder },
 						{ 'selected': cellSelectionState & CellSelectionState.Selected },
 						{ 'selected-top': cellSelectionState & CellSelectionState.SelectedTop },
 						{ 'selected-bottom': cellSelectionState & CellSelectionState.SelectedBottom },
@@ -84,9 +92,18 @@ export const DataGridRowCell = (props: DataGridRowCellProps) => {
 					)}
 			>
 				{
+					context.instance.cursor &&
 					props.columnIndex === context.instance.cursorColumnIndex &&
 					props.rowIndex === context.instance.cursorRowIndex &&
-					<div className='cursor-border' />
+					<div
+						className='cursor-border'
+						style={{
+							top: context.instance.cursorOffset,
+							right: context.instance.cursorOffset,
+							bottom: context.instance.cursorOffset,
+							left: context.instance.cursorOffset
+						}}
+					/>
 				}
 			</div>
 			<div className='content'>
