@@ -14,15 +14,21 @@
 		"@xterm/addon-unicode11": "0.7.0-beta.20",
 		"@xterm/addon-webgl": "0.17.0-beta.20",
 		"@xterm/xterm": "5.4.0-beta.20",
+		"he": "^1.2.0",
 		"jschardet": "3.0.0",
+		"react": "^18.2.0",
+		"react-dom": "^18.2.0",
+		"react-window": "^1.8.8",
 		"tas-client-umd": "0.1.8",
 		"vscode-oniguruma": "1.7.0",
 		"vscode-textmate": "9.0.0"
 	},
+
+
   "customEntryPoints": {
-    "react": "umd/react.production.min.js",
-    "react-dom": "umd/react-dom.production.min.js",
-    "react-window": "dist/index-prod.umd.js",
-    "he": "he.js"
+		"react": "umd/react.production.min.js",
+		"react-dom": "umd/react-dom.production.min.js",
+		"react-window": "dist/index-prod.umd.js",
+		"he": "he.js"
   }
 }
