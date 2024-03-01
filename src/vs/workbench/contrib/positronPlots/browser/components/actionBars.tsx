@@ -20,7 +20,9 @@ import { usePositronPlotsContext } from 'vs/workbench/contrib/positronPlots/brow
 import { ActionBarSeparator } from 'vs/platform/positronActionBar/browser/components/actionBarSeparator';
 import { SizingPolicyMenuButton } from 'vs/workbench/contrib/positronPlots/browser/components/sizingPolicyMenuButton';
 import { HistoryPolicyMenuButton } from 'vs/workbench/contrib/positronPlots/browser/components/historyPolicyMenuButton';
+import { ZoomPlotMenuButton } from 'vs/workbench/contrib/positronPlots/browser/components/zoomPlotMenuButton';
 import { PlotClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimePlotClient';
+import { StaticPlotClient } from 'vs/workbench/services/positronPlots/common/staticPlotClient';
 import { INotificationService } from 'vs/platform/notification/common/notification';
 
 // Constants.
@@ -46,6 +48,8 @@ export interface ActionBarsProps {
 	readonly keybindingService: IKeybindingService;
 	readonly layoutService: IWorkbenchLayoutService;
 	readonly notificationService: INotificationService;
+	readonly zoomHandler: (zoomLevel: number) => void;
+	readonly zoomLevel: number;
 }
 
 /**
@@ -69,6 +73,10 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 	const enableSizingPolicy = hasPlots &&
 		positronPlotsContext.positronPlotInstances[positronPlotsContext.selectedInstanceIndex]
 		instanceof PlotClientInstance;
+
+	const enableZoomPlot = hasPlots &&
+		positronPlotsContext.positronPlotInstances[positronPlotsContext.selectedInstanceIndex]
+		instanceof StaticPlotClient;
 
 	useEffect(() => {
 		// Empty for now.
@@ -95,6 +103,10 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 		}
 	};
 
+	const zoomPlotHandler = (zoomLevel: number) => {
+		props.zoomHandler(zoomLevel);
+	};
+
 	// Render.
 	return (
 		<PositronActionBarContextProvider {...props}>
@@ -103,6 +115,8 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 					<ActionBarRegion location='left'>
 						<ActionBarButton iconId='positron-left-arrow' disabled={disableLeft} tooltip={positronShowPreviousPlot} ariaLabel={positronShowPreviousPlot} onPressed={showPreviousPlotHandler} />
 						<ActionBarButton iconId='positron-right-arrow' disabled={disableRight} tooltip={positronShowNextPlot} ariaLabel={positronShowNextPlot} onPressed={showNextPlotHandler} />
+
+						{enableZoomPlot && <ZoomPlotMenuButton actionHandler={zoomPlotHandler} zoomLevel={props.zoomLevel} />}
 						{enableSizingPolicy && <ActionBarSeparator />}
 						{enableSizingPolicy && <SizingPolicyMenuButton
 							layoutService={props.layoutService}

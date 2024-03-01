@@ -27,6 +27,7 @@ interface PlotContainerProps {
 	y: number;
 	visible: boolean;
 	showHistory: boolean;
+	zoom: number;
 }
 
 /**
@@ -94,7 +95,8 @@ export const PlotsContainer = (props: PlotContainerProps) => {
 		} else if (plotInstance instanceof StaticPlotClient) {
 			return <StaticPlotInstance
 				key={plotInstance.id}
-				plotClient={plotInstance} />;
+				plotClient={plotInstance}
+				zoom={props.zoom} />;
 		} else if (plotInstance instanceof WebviewPlotClient) {
 			return <WebviewPlotInstance
 				key={plotInstance.id}
