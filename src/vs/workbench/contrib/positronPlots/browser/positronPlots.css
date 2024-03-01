@@ -150,6 +150,15 @@
 	position: relative;
 }
 
+.plot-instance .image-wrapper {
+	display: block;
+	object-fit: none;
+	position: absolute;
+	overflow: scroll;
+	width: 100%;
+	height: 100%;
+}
+
 .plot-instance .image-wrapper img,
 .plot-thumbnail .image-wrapper img {
 	display: block;

@@ -14,6 +14,7 @@ import { PlotsContainer } from 'vs/workbench/contrib/positronPlots/browser/compo
 import { ActionBars } from 'vs/workbench/contrib/positronPlots/browser/components/actionBars';
 import { INotificationService } from 'vs/platform/notification/common/notification';
 import { PositronPlotsViewPane } from 'vs/workbench/contrib/positronPlots/browser/positronPlotsView';
+import { ZoomLevel } from 'vs/workbench/contrib/positronPlots/browser/components/zoomPlotMenuButton';
 
 /**
  * PositronPlotsProps interface.
@@ -57,6 +58,10 @@ export const PositronPlots = (props: PropsWithChildren<PositronPlotsProps>) => {
 		}
 	};
 
+	const zoomHandler = (zoom: number) => {
+		setZoom(zoom);
+	};
+
 	// Hooks.
 	const [width, setWidth] = useState(props.reactComponentContainer.width);
 	const [height, setHeight] = useState(props.reactComponentContainer.height);
@@ -65,6 +70,7 @@ export const PositronPlots = (props: PropsWithChildren<PositronPlotsProps>) => {
 	const [visible, setVisible] = useState(props.reactComponentContainer.containerVisible);
 	const [showHistory, setShowHistory] = useState(computeHistoryVisibility(
 		props.positronPlotsService.historyPolicy));
+	const [zoom, setZoom] = useState(ZoomLevel.Fill);
 
 	// Add IReactComponentContainer event handlers.
 	useEffect(() => {
@@ -113,14 +119,15 @@ export const PositronPlots = (props: PropsWithChildren<PositronPlotsProps>) => {
 	// Render.
 	return (
 		<PositronPlotsContextProvider {...props}>
-			<ActionBars {...props} />
+			<ActionBars {...props} zoomHandler={zoomHandler} zoomLevel={zoom} />
 			<PlotsContainer
 				showHistory={showHistory}
 				visible={visible}
 				width={width}
 				height={height - 34}
 				x={posX}
-				y={posY} />
+				y={posY}
+				zoom={zoom} />
 		</PositronPlotsContextProvider>
 	);
 
