@@ -34,7 +34,7 @@ const zoomPlotTooltip = nls.localize('positronZoomPlotTooltip', "Set the plot zo
  * @param props A SizingPolicyMenuButtonProps that contains the component properties.
  * @returns The rendered component.
  */
-export const ZommPlotMenuButton = (props: ZoomPlotMenuButtonProps) => {
+export const ZoomPlotMenuButton = (props: ZoomPlotMenuButtonProps) => {
 	const zoomLevels = [ZoomLevel.Fill, ZoomLevel.Fifty, ZoomLevel.SeventyFive, ZoomLevel.OneHundred, ZoomLevel.TwoHundred];
 	// State.
 	const [activeZoomLabel, setActiveZoomLabel] =
