@@ -5,8 +5,8 @@
 import { localize } from 'vs/nls';
 import { Emitter } from 'vs/base/common/event';
 import { generateUuid } from 'vs/base/common/uuid';
-import { PixelRatio } from 'vs/base/browser/browser';
 import { IEditor } from 'vs/editor/common/editorCommon';
+import { PixelRatio } from 'vs/base/browser/pixelRatio';
 import { ILogService } from 'vs/platform/log/common/log';
 import { BareFontInfo } from 'vs/editor/common/config/fontInfo';
 import { Disposable, DisposableStore } from 'vs/base/common/lifecycle';

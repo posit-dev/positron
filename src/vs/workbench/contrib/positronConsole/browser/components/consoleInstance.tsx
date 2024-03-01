@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
 import 'vs/css!./consoleInstance';
@@ -8,8 +8,8 @@ import { KeyboardEvent, MouseEvent, UIEvent, useEffect, useLayoutEffect, useRef,
 import * as nls from 'vs/nls';
 import * as DOM from 'vs/base/browser/dom';
 import { generateUuid } from 'vs/base/common/uuid';
-import { PixelRatio } from 'vs/base/browser/browser';
 import { isMacintosh } from 'vs/base/common/platform';
+import { PixelRatio } from 'vs/base/browser/pixelRatio';
 import { DisposableStore } from 'vs/base/common/lifecycle';
 import { IAction, Separator } from 'vs/base/common/actions';
 import { useStateRef } from 'vs/base/browser/ui/react/useStateRef';
