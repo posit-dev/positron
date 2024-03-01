@@ -8,7 +8,7 @@ import { localize } from 'vs/nls';
 import { IAction, Separator } from 'vs/base/common/actions';
 import { ActionBarMenuButton } from 'vs/platform/positronActionBar/browser/components/actionBarMenuButton';
 import { usePositronActionBarContext } from 'vs/platform/positronActionBar/browser/positronActionBarContext';
-import { PositronNewFolderAction, PositronNewFolderFromGitAction } from 'vs/workbench/browser/actions/positronActions';
+import { PositronNewFolderAction, PositronNewFolderFromGitAction, PositronNewProjectAction } from 'vs/workbench/browser/actions/positronActions';
 
 /**
  * Localized strings.
@@ -33,6 +33,9 @@ export const TopActionBarNewMenu = () => {
 			label: positronNewFile
 		});
 		actions.push(new Separator());
+		positronActionBarContext.appendCommandAction(actions, {
+			id: PositronNewProjectAction.ID
+		});
 		positronActionBarContext.appendCommandAction(actions, {
 			id: PositronNewFolderAction.ID
 		});

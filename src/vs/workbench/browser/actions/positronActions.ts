@@ -18,6 +18,70 @@ import { EnterMultiRootWorkspaceSupportContext } from 'vs/workbench/common/conte
 import { IWorkbenchLayoutService } from 'vs/workbench/services/layout/browser/layoutService';
 import { showNewFolderModalDialog } from 'vs/workbench/browser/positronModalDialogs/newFolderModalDialog';
 import { showNewFolderFromGitModalDialog } from 'vs/workbench/browser/positronModalDialogs/newFolderFromGitModalDialog';
+import { showNewProjectModalDialog } from 'vs/workbench/browser/positronModalDialogs/newProjectModalDialog';
+
+/**
+ * The PositronNewProjectAction.
+ */
+export class PositronNewProjectAction extends Action2 {
+	/**
+	 * The action ID.
+	 */
+	static readonly ID = 'positron.workbench.action.newProject';
+
+	/**
+	 * Constructor.
+	 */
+	constructor() {
+		super({
+			id: PositronNewProjectAction.ID,
+			title: {
+				value: localize('positronNewProject', "New Project..."),
+				// mnemonicTitle: localize({ key: 'miPositronNewProject', comment: ['&& denotes a mnemonic'] }, "New P&&roject..."),
+				original: 'New Project...'
+			},
+			category: workspacesCategory,
+			f1: true,
+			precondition: EnterMultiRootWorkspaceSupportContext,
+			menu: {
+				id: MenuId.MenubarFileMenu,
+				group: '1_newfolder',
+				order: 3,
+			}
+		});
+	}
+
+	/**
+	 * Runs action.
+	 * @param accessor The services accessor.
+	 */
+	override async run(accessor: ServicesAccessor): Promise<void> {
+		// Get the services we need to create the new workspace, if the user accept the dialog.
+		const commandService = accessor.get(ICommandService);
+		const fileService = accessor.get(IFileService);
+		const pathService = accessor.get(IPathService);
+
+		// Show the new folder modal dialog. If the result is undefined, the user canceled the operation.
+		const result = await showNewProjectModalDialog(accessor);
+		if (!result) {
+			return;
+		}
+
+		// Create the new project.
+		const folder = URI.file((await pathService.path).join(result.parentFolder, result.projectName));
+		if (!(await fileService.exists(folder))) {
+			await fileService.createFolder(folder);
+		}
+		await commandService.executeCommand(
+			'vscode.openFolder',
+			folder,
+			{
+				forceNewWindow: result.newWindow,
+				forceReuseWindow: !result.newWindow
+			}
+		);
+	}
+}
 
 /**
  * The PositronNewFolderAction.
@@ -157,6 +221,8 @@ export class PositronOpenFolderInNewWindowAction extends Action2 {
 }
 
 // Register the actions defined above.
+registerAction2(PositronNewProjectAction);
 registerAction2(PositronNewFolderAction);
 registerAction2(PositronNewFolderFromGitAction);
 registerAction2(PositronOpenFolderInNewWindowAction);
+
