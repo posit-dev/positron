@@ -17,7 +17,7 @@ import { PositronDataExplorerColumn } from 'vs/workbench/services/positronDataEx
  */
 interface TableDataCellProps {
 	column: PositronDataExplorerColumn;
-	value: string;
+	cellValue: string;
 }
 
 /**
@@ -29,7 +29,7 @@ export const TableDataCell = (props: TableDataCellProps) => {
 	// Render.
 	return (
 		<div className={positronClassNames('text', props.column.alignment)}>
-			{props.value}
+			{props.cellValue}
 		</div>
 	);
 };
