@@ -106,7 +106,6 @@ export const StaticPlotInstance = (props: StaticPlotInstanceProps) => {
 					height: '100%',
 					position: 'unset',
 					transform: 'none',
-
 				};
 				break;
 		}
