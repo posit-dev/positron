@@ -32,11 +32,6 @@ export class PositronDataExplorerInstance extends Disposable implements IPositro
 	private _columnsWidthPercent = 0.25;
 
 	/**
-	 * Gets or sets the columns scroll offset.
-	 */
-	private _columnsScrollOffset = 0;
-
-	/**
 	 * Gets the TableSchemaDataGridInstance.
 	 */
 	private readonly _tableSchemaDataGridInstance: TableSummaryDataGridInstance;
@@ -118,21 +113,6 @@ export class PositronDataExplorerInstance extends Disposable implements IPositro
 	set columnsWidthPercent(columnsWidthPercent: number) {
 		this._columnsWidthPercent = columnsWidthPercent;
 		this._onDidChangeColumnsWidthPercentEmitter.fire(this._columnsWidthPercent);
-	}
-
-	/**
-	 * Gets the columns scroll offset.
-	 */
-	get columnsScrollOffset() {
-		return this._columnsScrollOffset;
-	}
-
-	/**
-	 * Sets the columns scroll offset.
-	 */
-	set columnsScrollOffset(columnsScrollOffset: number) {
-		this._columnsScrollOffset = columnsScrollOffset;
-		this._onDidChangeColumnsScrollOffsetEmitter.fire(this._columnsScrollOffset);
 	}
 
 	/**

@@ -122,12 +122,12 @@ export class TableDataDataGridInstance extends DataGridInstance {
 	 */
 	override fetchData() {
 		// Update the cache.
-		this._dataExplorerCache.updateCache(
-			this.firstColumnIndex,
-			this.screenColumns,
-			this.firstRowIndex,
-			this.screenRows
-		);
+		this._dataExplorerCache.updateCache({
+			firstColumnIndex: this.firstColumnIndex,
+			visibleColumns: this.screenColumns,
+			firstRowIndex: this.firstRowIndex,
+			visibleRows: this.screenRows
+		});
 	}
 
 	/**
@@ -170,15 +170,15 @@ export class TableDataDataGridInstance extends DataGridInstance {
 			return undefined;
 		}
 
-		// Get the cell.
-		const cell = this._dataExplorerCache.getCellValue(columnIndex, rowIndex);
-		if (!cell) {
+		// Get the cell value.
+		const cellValue = this._dataExplorerCache.getCellValue(columnIndex, rowIndex);
+		if (!cellValue) {
 			return undefined;
 		}
 
 		// Return the TableDataCell.
 		return (
-			<TableDataCell column={column} value={cell} />
+			<TableDataCell column={column} cellValue={cellValue} />
 		);
 	}
 

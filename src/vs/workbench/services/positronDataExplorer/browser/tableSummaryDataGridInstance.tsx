@@ -106,7 +106,10 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 	 * Fetches data.
 	 */
 	override fetchData() {
-		this._dataExplorerCache.updateCache(this.firstRowIndex, this.screenRows);
+		this._dataExplorerCache.updateCache({
+			firstColumnIndex: this.firstRowIndex,
+			visibleColumns: this.screenRows
+		});
 	}
 
 	/**
