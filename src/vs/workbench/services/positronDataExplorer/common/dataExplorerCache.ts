@@ -38,7 +38,7 @@ export class DataExplorerCache extends Disposable {
 	//#region Private Properties
 
 	/**
-	 * Gets or sets a value which indicates whether we're updating the cache.
+	 * Gets or sets a value which indicates whether the cache is being updated.
 	 */
 	private _updatingCache = false;
 
