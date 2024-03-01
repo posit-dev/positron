@@ -42,8 +42,13 @@ export function NotebookCell(opts: NotebookCellProps) {
 			data-status={executionStatus}
 		>
 			<div className='action-bar'>
-				<PositronButton className='run-button' ariaLabel={isRunning ? 'stop execution' : 'Run cell'} onPressed={runCell}>
+				<PositronButton className='action-button' ariaLabel={isRunning ? 'Stop execution' : 'Run cell'} onPressed={runCell}>
 					<div className={`button-icon codicon ${isRunning ? 'codicon-primitive-square' : 'codicon-run'}`} />
+				</PositronButton>
+				<PositronButton className='action-button' ariaLabel='Delete cell' onPressed={() => {
+					console.log('Delete cell');
+				}}>
+					<div className='button-icon codicon codicon-trash' />
 				</PositronButton>
 			</div>
 			<div className='cell-contents'>
