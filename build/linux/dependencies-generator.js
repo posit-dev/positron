@@ -22,11 +22,7 @@ const product = require("../../product.json");
 // If true, we fail the build if there are new dependencies found during that task.
 // The reference dependencies, which one has to update when the new dependencies
 // are valid, are in dep-lists.ts
-// --- Start Positron ---
-// This allows the list of dependencies on shared libraries to be
-// different from the machine used to build VSCode.
-const FAIL_BUILD_FOR_NEW_DEPENDENCIES = false;
-// --- End Positron ---
+const FAIL_BUILD_FOR_NEW_DEPENDENCIES = true;
 // Based on https://source.chromium.org/chromium/chromium/src/+/refs/tags/118.0.5993.159:chrome/installer/linux/BUILD.gn;l=64-80
 // and the Linux Archive build
 // Shared library dependencies that we already bundle.
@@ -58,10 +54,7 @@ async function getDependencies(packageType, buildDir, applicationName, arch) {
     // Add the native modules
     const files = findResult.stdout.toString().trimEnd().split('\n');
     // Add the tunnel binary.
-    // --- Start Positron ---
-    // We don't build a tunnel binary
-    // files.push(path.join(buildDir, 'bin', product.tunnelApplicationName));
-    // --- End Positron ---
+    files.push(path.join(buildDir, 'bin', product.tunnelApplicationName));
     // Add the main executable.
     files.push(appPath);
     // Add chrome sandbox and crashpad handler.
