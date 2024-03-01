@@ -22,10 +22,30 @@ const arrayFromIndexRange = (startIndex: number, endIndex: number) =>
 	Array.from({ length: endIndex - startIndex + 1 }, (_, i) => startIndex + i);
 
 /**
+ * CacheUpdateDescriptor interface.
+ */
+interface CacheUpdateDescriptor {
+	firstColumnIndex: number;
+	visibleColumns: number;
+	firstRowIndex?: number;
+	visibleRows?: number;
+}
+
+/**
  * DataExplorerCache class.
  */
 export class DataExplorerCache extends Disposable {
 	//#region Private Properties
+
+	/**
+	 * Gets or sets a value which indicates whether the cache is being updated.
+	 */
+	private _updatingCache = false;
+
+	/**
+	 * Gets or sets the cache update descriptor.
+	 */
+	private _pendingCacheUpdateDescriptor?: CacheUpdateDescriptor;
 
 	/**
 	 * Gets or sets the columns.
@@ -134,18 +154,31 @@ export class DataExplorerCache extends Disposable {
 
 	/**
 	 * Updates the cache for the specified columns and rows. If data caching isn't needed, omit the
-	 * firstRowIndex and visibleRows parameters.
-	 * @param firstColumnIndex The first column index.
-	 * @param visibleColumns The number of visible columns.
-	 * @param firstRowIndex The first row index.
-	 * @param visibleRows The number of visible rows.
+	 * firstRowIndex and visibleRows parameters from the cache update descriptor.
+	 * @param cacheUpdateDescriptor The cache update descriptor.
+	 * @returns A Promise<void> that resolves when the cache update is complete.
 	 */
-	async updateCache(
-		firstColumnIndex: number,
-		visibleColumns: number,
-		firstRowIndex?: number,
-		visibleRows?: number
-	): Promise<void> {
+	async updateCache(cacheUpdateDescriptor: CacheUpdateDescriptor): Promise<void> {
+		// If a cache update is already in progress, set the pending cache update descriptor and
+		// return. This allows cache updates that are happening in rapid succession to overwrite one
+		// another so that only the last one gets processed. (For example, this happens when a user
+		// drags a scrollbar rapidly.)
+		if (this._updatingCache) {
+			this._pendingCacheUpdateDescriptor = cacheUpdateDescriptor;
+			return;
+		}
+
+		// Set the updating cache flag.
+		this._updatingCache = true;
+
+		// Destructure the cache update descriptor.
+		const {
+			firstColumnIndex,
+			visibleColumns,
+			firstRowIndex,
+			visibleRows
+		} = cacheUpdateDescriptor;
+
 		// Get the size of the data.
 		const tableState = await this._dataExplorerClientInstance.getState();
 		this._columns = tableState.table_shape.num_columns;
@@ -169,7 +202,7 @@ export class DataExplorerCache extends Disposable {
 			!this._columnSchemaCache.has(columnIndex)
 		);
 
-		// Set the cache updated flag.
+		// Initialize the cache updated flag.
 		let cacheUpdated = false;
 
 		// If there are column schema indices that need to be cached, cache them.
@@ -212,28 +245,34 @@ export class DataExplorerCache extends Disposable {
 				}
 			}
 
+			// If there are row indices that need to be cached, cache them.
 			if (rowIndices.length) {
+				// Calculate the rows count.
 				const rows = rowIndices[rowIndices.length - 1] - rowIndices[0] + 1;
+
+				// Get the data values.
 				const tableData: TableData = await this._dataExplorerClientInstance.getDataValues(
 					rowIndices[0],
 					rows,
 					columnIndicies
 				);
 
+				// Update the data cell cache, overwriting any entries we already have cached.
 				for (let row = 0; row < rows; row++) {
+					// Get the row index.
 					const rowIndex = rowIndices[row];
 
+					// If row labels were returned, cache the row label for the row.
 					if (tableData.row_labels) {
 						const rowLabel = tableData.row_labels[0][row];
 						this._rowLabelCache.set(rowIndex, rowLabel);
 					}
 
+					// Cache the data cells.
 					for (let column = 0; column < columnIndicies.length; column++) {
 						const value = tableData.columns[column][row];
-
 						const columnIndex = columnIndicies[column];
 						const rowIndex = rowIndices[row];
-
 						this._dataCellCache.set(`${columnIndex},${rowIndex}`, value);
 					}
 				}
@@ -246,6 +285,19 @@ export class DataExplorerCache extends Disposable {
 		// If the cache was updated, fire the onDidUpdateCache event.
 		if (cacheUpdated) {
 			this._onDidUpdateCacheEmitter.fire();
+		}
+
+		// Clear the updating cache flag.
+		this._updatingCache = false;
+
+		// If there is a pending cache update descriptor, update the cache for it.
+		if (this._pendingCacheUpdateDescriptor) {
+			// Get the pending cache update descriptor and clear it.
+			const pendingCacheUpdateDescriptor = this._pendingCacheUpdateDescriptor;
+			this._pendingCacheUpdateDescriptor = undefined;
+
+			// Update the cache for the pending cache update descriptor.
+			await this.updateCache(pendingCacheUpdateDescriptor);
 		}
 	}
 
