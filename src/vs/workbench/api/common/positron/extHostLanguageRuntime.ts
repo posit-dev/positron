@@ -101,12 +101,14 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 		runtimeMetadata: ILanguageRuntimeMetadata,
 		sessionMetadata: IRuntimeSessionMetadata): Promise<number> {
 		// Look up the session manager responsible for restoring this session
+		console.debug(`[Reconnect ${sessionMetadata.sessionId}]: Await runtime manager for runtime ${runtimeMetadata.extensionId.value}...`);
 		const sessionManager = await this.runtimeManagerForRuntime(runtimeMetadata);
 		if (sessionManager) {
 			if (sessionManager.manager.restoreSession) {
 				// Attempt to restore the session. There are a lot of reasons
 				// this could fail, chief among them that the session isn't
 				// around any more.
+				console.debug(`[Reconnect ${sessionMetadata.sessionId}]: Await restore session...`);
 				const session =
 					await sessionManager.manager.restoreSession(runtimeMetadata, sessionMetadata);
 				return this.attachToSession(session);
@@ -136,7 +138,7 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 		// manager for a runtime that hasn't been registered, but is supplied by
 		// an extension that has registered a manager.
 		const managerByExt = this._runtimeManagers.find(manager =>
-			manager.extension.identifier === metadata.extensionId);
+			manager.extension.id === metadata.extensionId.value);
 		if (managerByExt) {
 			return managerByExt;
 		}

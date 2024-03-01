@@ -30,6 +30,15 @@ export function delay(ms: number) {
 	return new Promise(resolve => setTimeout(resolve, ms));
 }
 
+export function withTimeout<T>(promise: Promise<T>,
+	timeout: number,
+	message: string): Promise<T> {
+	return Promise.race([
+		promise,
+		new Promise<T>((_, reject) => setTimeout(() => reject(new Error(message)), timeout))
+	]);
+}
+
 /**
  * Creates a uuidv4 string. We use this to create message and comm identifiers
  * instead of using the popular uuid Node package, since the uuid package relies

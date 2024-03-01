@@ -186,8 +186,11 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 		}));
 
 		this._extensionService.whenAllExtensionHostsStarted().then(async () => {
-			// Reconnect to any active sessions
-			this.restoreSessions();
+			// Reconnect to any active sessions first;
+			await this.restoreSessions();
+
+			// then, discover all language runtimes
+			await this.discoverAllRuntimes();
 		});
 
 		languageRuntimeExtPoint.setHandler((extensions) => {
@@ -207,29 +210,6 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 				}
 			}
 		});
-
-		this._extensionService.whenAllExtensionHostsStarted().then(async () => {
-			// Activate all extensions that contribute language runtimes.
-			const activationPromises = Array.from(this._languagePacks.keys()).map(
-				async (languageId) => {
-					for (const extension of this._languagePacks.get(languageId) || []) {
-						this._logService.info(`Activating extension ${extension.value} for language ID ${languageId}`);
-						this._extensionService.activateById(extension,
-							{
-								extensionId: extension,
-								activationEvent: `onLanguageRuntime:${languageId}`,
-								startup: true
-							});
-					}
-				});
-			await Promise.all(activationPromises);
-			this._logService.info(`All extensions contributing language runtimes have been activated.`);
-
-			// Enter the discovery phase; this triggers us to ask each extension for its
-			// language runtime providers.
-			this._startupPhase.set(RuntimeStartupPhase.Discovering, undefined);
-		});
-
 	}
 
 	get startupPhase(): RuntimeStartupPhase {
@@ -282,6 +262,28 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 				}
 			}
 		}));
+	}
+
+	private async discoverAllRuntimes() {
+		// Activate all extensions that contribute language runtimes.
+		const activationPromises = Array.from(this._languagePacks.keys()).map(
+			async (languageId) => {
+				for (const extension of this._languagePacks.get(languageId) || []) {
+					this._logService.info(`Activating extension ${extension.value} for language ID ${languageId}`);
+					this._extensionService.activateById(extension,
+						{
+							extensionId: extension,
+							activationEvent: `onLanguageRuntime:${languageId}`,
+							startup: true
+						});
+				}
+			});
+		await Promise.all(activationPromises);
+		this._logService.info(`All extensions contributing language runtimes have been activated.`);
+
+		// Enter the discovery phase; this triggers us to ask each extension for its
+		// language runtime providers.
+		this._startupPhase.set(RuntimeStartupPhase.Discovering, undefined);
 	}
 
 	/**
@@ -470,7 +472,6 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 		}
 	}
 
-
 	private async restoreSessions() {
 		const storedSessions = this._storageService.get(PERSISTENT_WORKSPACE_SESSIONS_KEY,
 			StorageScope.WORKSPACE);
@@ -495,7 +496,7 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 			// waits for the extension service to signal the extension but does
 			// not wait for the extension to activate.
 			this._logService.debug(`[Reconnect ${session.metadata.sessionId}]: ` +
-				`Activating extension ${session.runtimeMetadata.extensionId}`);
+				`Activating extension ${session.runtimeMetadata.extensionId.value}`);
 			await this._extensionService.activateById(session.runtimeMetadata.extensionId,
 				{
 					extensionId: session.runtimeMetadata.extensionId,
@@ -505,6 +506,8 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 
 			this._logService.debug(`[Reconnect ${session.metadata.sessionId}]: ` +
 				`Restoring session for ${session.metadata.sessionName}`);
+			await this._runtimeSessionService.restoreRuntimeSession(
+				session.runtimeMetadata, session.metadata);
 		}));
 	}
 

@@ -356,6 +356,8 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 		const languageRuntime = this._languageRuntimeService.getRegisteredRuntime(
 			runtimeMetadata.runtimeId);
 		if (!languageRuntime) {
+			this._logService.debug(`[Reconnect ${sessionMetadata.sessionId}]: ` +
+				`Registering runtime ${runtimeMetadata.runtimeName}`);
 			this._languageRuntimeService.registerRuntime(runtimeMetadata);
 		}
 
@@ -611,14 +613,14 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 		this.attachToSession(session);
 
 		try {
-			// Attempt to start the session.
+			// Attempt to start, or reconnect to, the session.
 			await session.start();
 
 			// The runtime started. Move it from the starting runtimes to the
 			// running runtimes.
-			this._startingConsolesByLanguageId.delete(session.runtimeMetadata.languageId);
 			this._startingRuntimesByRuntimeId.delete(session.runtimeMetadata.runtimeId);
 			if (session.metadata.sessionMode === LanguageRuntimeSessionMode.Console) {
+				this._startingConsolesByLanguageId.delete(session.runtimeMetadata.languageId);
 				this._consoleSessionsByLanguageId.set(session.runtimeMetadata.languageId, session);
 			}
 

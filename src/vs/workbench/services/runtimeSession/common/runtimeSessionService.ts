@@ -161,6 +161,7 @@ export interface ILanguageRuntimeSession {
  */
 export interface ILanguageRuntimeSessionManager {
 	/**
+	 * Create (provision) a new session.
 	 *
 	 * @param runtimeMetadata The metadata of the runtime for which a session is
 	 *  	to be created.
@@ -174,12 +175,13 @@ export interface ILanguageRuntimeSessionManager {
 		Promise<ILanguageRuntimeSession>;
 
 	/**
+	 * Restore (reconnect to) an existing session.
 	 *
 	 * @param runtimeMetadata The metadata of the runtime for which a session is
-	 *  	to be created.
-	 * @param sessionMetadata The metadata of the session to be created.
+	 *  	to be restored (reconnected).
+	 * @param sessionMetadata The metadata of the session to be restored.
 	 *
-	 * @returns A promise that resolves to the new session.
+	 * @returns A promise that resolves to the reconnected session.
 	 */
 	restoreSession(
 		runtimeMetadata: ILanguageRuntimeMetadata,
@@ -293,8 +295,7 @@ export interface IRuntimeSessionService {
 		source: string): Promise<string>;
 
 	/**
-	 * Starts a new session for a runtime. Use to start a new runtime at the
-	 * behest of a user gesture.
+	 * Restores (reconnects to) a runtime session that was previously started.
 	 *
 	 * @param runtimeMetadata The metadata of the runtime to start.
 	 * @param sessionMetadata The metadata of the session to start.
