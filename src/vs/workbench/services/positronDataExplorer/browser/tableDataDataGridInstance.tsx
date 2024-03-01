@@ -122,12 +122,12 @@ export class TableDataDataGridInstance extends DataGridInstance {
 	 */
 	override fetchData() {
 		// Update the cache.
-		this._dataExplorerCache.updateCache(
-			this.firstColumnIndex,
-			this.screenColumns,
-			this.firstRowIndex,
-			this.screenRows
-		);
+		this._dataExplorerCache.updateCache({
+			firstColumnIndex: this.firstColumnIndex,
+			visibleColumns: this.screenColumns,
+			firstRowIndex: this.firstRowIndex,
+			visibleRows: this.screenRows
+		});
 	}
 
 	/**
