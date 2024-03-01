@@ -81,10 +81,13 @@ export function registerPositronConsoleActions() {
 				},
 				f1: true,
 				category,
-				precondition: PositronConsoleFocused,
 				keybinding: {
+					when: PositronConsoleFocused,
 					weight: KeybindingWeight.WorkbenchContrib,
-					primary: KeyMod.WinCtrl | KeyCode.KeyL
+					primary: KeyMod.CtrlCmd | KeyCode.KeyL,
+					mac: {
+						primary: KeyMod.WinCtrl | KeyCode.KeyL
+					}
 				},
 			});
 		}
