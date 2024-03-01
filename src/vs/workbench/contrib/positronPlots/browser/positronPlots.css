@@ -159,11 +159,6 @@
 	height: 100%;
 }
 
-.plot-instance .image-wrapper img.oversized {
-	position: unset!important;
-	transform: none!important;
-}
-
 .plot-instance .image-wrapper img,
 .plot-thumbnail .image-wrapper img {
 	display: block;

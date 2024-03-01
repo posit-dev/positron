@@ -29,7 +29,6 @@ export const StaticPlotInstance = (props: StaticPlotInstanceProps) => {
 	const [height, setHeight] = React.useState<number>(1);
 	const imageWrapperRef = React.useRef<HTMLDivElement>(null);
 	const [zoomMultiplier, setZoomMultiplier] = React.useState<number>(1);
-	const [classes, setClasses] = React.useState<string>('');
 
 	const onImgLoad = (event: React.SyntheticEvent<HTMLImageElement>) => {
 		const img = event.target as HTMLImageElement;
@@ -47,53 +46,68 @@ export const StaticPlotInstance = (props: StaticPlotInstanceProps) => {
 		if (!imageWrapperRef.current || props.zoom === ZoomLevel.Fill) {
 			return;
 		}
-		const { clientWidth, clientHeight } = imageWrapperRef.current;
-
-		let classes = '';
-
-		// If the plot cannot fit in the container, override the centering
-		// so it can be scrolled to the edge. Otherwise, the the very edge of the plot
-		// cannot be seen.
-		if (clientWidth < width * zoomMultiplier && clientHeight < height * zoomMultiplier) {
-			classes += 'oversized';
-		}
-
-		setClasses(classes);
 	});
 
 	const getStyle = (): React.CSSProperties => {
-		const wide = width / height >= 1;
-		let style: React.CSSProperties = {
-			width: '100%',
-			height: '100%',
-		};
+		const { clientWidth, clientHeight } = imageWrapperRef.current ?? { clientWidth: 0, clientHeight: 0 };
+		let style: React.CSSProperties = {};
+
+		const wide = width * zoomMultiplier > clientWidth;
+		const tall = height * zoomMultiplier > clientHeight;
+
 		switch (props.zoom) {
 			case ZoomLevel.Fifty:
 			case ZoomLevel.SeventyFive:
 			case ZoomLevel.OneHundred:
 			case ZoomLevel.TwoHundred:
-				// If the plot is wider than it is tall, center it vertically.
-				// Otherwise, center it horizontally.
-				if (wide) {
+				if (wide && tall) {
+					// If the plot is wider and taller than the container, no centering is needed.
+					style = {
+						maxWidth: 'none',
+						maxHeight: 'none',
+						top: '0px',
+						left: '0px',
+						transform: 'none',
+					};
+				} else if (wide && !tall) {
+					// If the plot is wider than the container, center it vertically.
 					style = {
 						maxWidth: 'none',
 						maxHeight: 'none',
 						top: '50%',
-						left: 0,
+						left: '0px',
 						transform: 'translateY(-50%)',
 					};
-				} else {
+				} else if (tall && !wide) {
+					// If the plot is taller than the container, center it horizontally.
 					style = {
 						maxWidth: 'none',
 						maxHeight: 'none',
+						top: '0px',
 						left: '50%',
-						top: 0,
 						transform: 'translateX(-50%)',
+					};
+				} else {
+					// If the plot is smaller than the container, center it both horizontally and vertically.
+					style = {
+						maxWidth: 'none',
+						maxHeight: 'none',
+						top: '50%',
+						left: '50%',
+						transform: 'translate(-50%, -50%)',
 					};
 				}
 				break;
 			case ZoomLevel.Fill:
 			default:
+				// no centering and let the entire plot be visible
+				style = {
+					width: '100%',
+					height: '100%',
+					position: 'unset',
+					transform: 'none',
+
+				};
 				break;
 		}
 		return style;
@@ -112,7 +126,6 @@ export const StaticPlotInstance = (props: StaticPlotInstanceProps) => {
 			<div className='image-wrapper' ref={imageWrapperRef}>
 				<img src={props.plotClient.uri}
 					alt={props.plotClient.code ? props.plotClient.code : 'Plot ' + props.plotClient.id}
-					className={classes}
 					onLoad={onImgLoad}
 					style={getStyle()}
 					width={applyZoom(width)}
