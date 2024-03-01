@@ -9,6 +9,7 @@ import { IInstantiationService } from 'vs/platform/instantiation/common/instanti
 import { PositronNotebookWidget } from 'vs/workbench/contrib/positronNotebook/browser/PositronNotebookWidget';
 
 
+
 /**
  * Bundle of services that are passed to React-Land in the form of context.
  */
@@ -18,6 +19,7 @@ interface ServiceBundle {
 	 * "Delegate" in the vscode notebook code.
 	 */
 	notebookWidget: PositronNotebookWidget;
+
 	/**
 	 * The instantiation service that can be used to create new instances of disposables.
 	 */
@@ -59,4 +61,5 @@ export function useServices() {
 	}
 	return serviceBundle;
 }
+
 

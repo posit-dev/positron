@@ -21,7 +21,7 @@ import { IConfigurationService } from 'vs/platform/configuration/common/configur
 import { IContextKeyService } from 'vs/platform/contextkey/common/contextkey';
 import { IInstantiationService } from 'vs/platform/instantiation/common/instantiation';
 import { ServiceCollection } from 'vs/platform/instantiation/common/serviceCollection';
-import { IActiveNotebookEditorDelegate, IBaseCellEditorOptions, ICellViewModel, INotebookEditorCreationOptions, INotebookEditorViewState, INotebookViewCellsUpdateEvent } from 'vs/workbench/contrib/notebook/browser/notebookBrowser';
+import { IActiveNotebookEditorDelegate, IBaseCellEditorOptions, INotebookEditorCreationOptions, INotebookEditorViewState, INotebookViewCellsUpdateEvent } from 'vs/workbench/contrib/notebook/browser/notebookBrowser';
 import { NotebookOptions } from 'vs/workbench/contrib/notebook/browser/notebookOptions';
 import { NotebookLayoutChangedEvent } from 'vs/workbench/contrib/notebook/browser/notebookViewEvents';
 import { NotebookEventDispatcher } from 'vs/workbench/contrib/notebook/browser/viewModel/eventDispatcher';
@@ -35,11 +35,12 @@ import { INotebookExecutionService } from 'vs/workbench/contrib/notebook/common/
 import { INotebookCellExecution, INotebookExecutionStateService } from 'vs/workbench/contrib/notebook/common/notebookExecutionStateService';
 import { INotebookKernel, INotebookKernelService } from 'vs/workbench/contrib/notebook/common/notebookKernelService';
 import { ContextKeyProvider } from 'vs/workbench/contrib/positronNotebook/browser/ContextKeyServiceProvider';
-import { InputObservable } from 'vs/workbench/contrib/positronNotebook/browser/PositronNotebookEditor';
 import { ServicesProvider } from 'vs/workbench/contrib/positronNotebook/browser/ServicesProvider';
 import { OptionalObservable } from 'vs/workbench/contrib/positronNotebook/common/utils/observeValue';
 import { BaseCellEditorOptions } from './BaseCellEditorOptions';
 import { PositronNotebookComponent } from './PositronNotebookComponent';
+import { PositronNotebookEditorInput } from 'vs/workbench/contrib/positronNotebook/browser/PositronNotebookEditorInput';
+import { NotebookInstanceProvider } from 'vs/workbench/contrib/positronNotebook/browser/NotebookInstanceProvider';
 
 
 // Things currently omitted in the name of getting something working quicker:
@@ -66,7 +67,7 @@ export class PositronNotebookWidget extends Disposable
 
 	_baseElement: HTMLElement;
 	_size: ISettableObservable<ISize>;
-	_input: InputObservable;
+	_input: PositronNotebookEditorInput;
 	_viewModelObservable: NotebookViewModelObservable = observableValue(
 		'viewModel',
 		undefined
@@ -147,7 +148,7 @@ export class PositronNotebookWidget extends Disposable
 	constructor(
 		{ size, input, baseElement }: {
 			size: ISettableObservable<ISize>;
-			input: InputObservable;
+			input: PositronNotebookEditorInput;
 			baseElement: HTMLElement;
 		},
 		readonly creationOptions: INotebookEditorCreationOptions | undefined,
@@ -452,34 +453,6 @@ export class PositronNotebookWidget extends Disposable
 
 
 
-	async executeNotebookCells(cells?: Iterable<ICellViewModel>): Promise<void> {
-		if (!this.getViewModel() || !this.hasModel()) {
-			throw new Error(localize('noModel', "No model"));
-		}
-		if (!cells) {
-
-			// If no cells are provided, assume we want to run all the cells.
-			cells = this.getViewModel()?.viewCells;
-			if (!cells) {
-				throw new Error(localize('noCells', "No cells to run"));
-			}
-		}
-
-		// const extractCells = () => {
-		// 	return
-		// }
-
-
-		// Check if the cell is already executing. In which case this is a cancel rather than a run.
-		const hasExecutions = [...cells].some(cell => Boolean(this.notebookExecutionStateService.getCellExecution(cell.uri)));
-		if (hasExecutions) {
-			this.notebookExecutionService.cancelNotebookCells(this.textModel, Array.from(cells).map(c => c.model));
-			return;
-		}
-
-		await this.notebookExecutionService.executeNotebookCells(this.textModel, Array.from(cells).map(c => c.model), this.scopedContextKeyService);
-	}
-
 	/**
 	 * Get the execution status of one or more cells of a notebook.
 	 * @param cells Cells to check execution status for
@@ -605,23 +578,22 @@ export class PositronNotebookWidget extends Disposable
 
 		this.positronReactRenderer.render(
 
-			<ServicesProvider services={{
-				notebookWidget: this,
-				configurationService: this.configurationService,
-				instantiationService: this.instantiationService,
-				textModelResolverService: this.textModelResolverService,
-			}}>
-				<ContextKeyProvider contextKeyServiceProvider={container => this.scopedContextKeyService.createScoped(container)} >
-					<PositronNotebookComponent
-						sizeObservable={this._size}
-						inputObservable={this._input}
-						kernelObservable={this.kernelObservable}
-						viewModelObservable={this._viewModelObservable}
-						executeCells={this.executeNotebookCells.bind(this)}
-						getCellExecutionStatus={this.getCellExecutionStatus.bind(this)}
-					/>
-				</ContextKeyProvider>
-			</ServicesProvider>
+			<NotebookInstanceProvider instance={this._input.positronNotebookInstance}>
+				<ServicesProvider services={{
+					notebookWidget: this,
+					configurationService: this.configurationService,
+					instantiationService: this.instantiationService,
+					textModelResolverService: this.textModelResolverService,
+				}}>
+					<ContextKeyProvider contextKeyServiceProvider={container => this.scopedContextKeyService.createScoped(container)} >
+						<PositronNotebookComponent
+							sizeObservable={this._size}
+							kernelObservable={this.kernelObservable}
+							getCellExecutionStatus={this.getCellExecutionStatus.bind(this)}
+						/>
+					</ContextKeyProvider>
+				</ServicesProvider>
+			</NotebookInstanceProvider>
 		);
 	}
 

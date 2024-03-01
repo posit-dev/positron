@@ -29,7 +29,6 @@ import {
 	INotebookEditorOptions,
 	INotebookEditorViewState
 } from 'vs/workbench/contrib/notebook/browser/notebookBrowser';
-import { OptionalObservable } from 'vs/workbench/contrib/positronNotebook/common/utils/observeValue';
 import {
 	GroupsOrder,
 	IEditorGroupsService
@@ -44,12 +43,6 @@ const POSITRON_NOTEBOOK_EDITOR_VIEW_STATE_PREFERENCE_KEY =
 	'NotebookEditorViewState';
 
 
-/**
- * Observable value for the notebook editor.
- */
-export type InputObservable = OptionalObservable<
-	PositronNotebookEditorInput
->;
 
 export class PositronNotebookEditor extends EditorPane {
 	_parentDiv: HTMLElement | undefined;
@@ -153,13 +146,13 @@ export class PositronNotebookEditor extends EditorPane {
 	 */
 	private _size = observableValue<ISize>('size', { width: 0, height: 0 });
 
-	/**
-	 * Input as an observable so it can be lazily passed into the React component.
-	 */
-	private _inputObservable: InputObservable = observableValue(
-		'input',
-		undefined
-	);
+	// /**
+	//  * Input as an observable so it can be lazily passed into the React component.
+	//  */
+	// private _inputObservable: InputObservable = observableValue(
+	// 	'input',
+	// 	undefined
+	// );
 
 	protected override createEditor(parent: HTMLElement): void {
 		const myDiv = parent.ownerDocument.createElement('div');
@@ -167,28 +160,18 @@ export class PositronNotebookEditor extends EditorPane {
 		this._parentDiv = myDiv;
 
 		parent.appendChild(myDiv);
-
-		// Eventually this will probably need to be implemented like the vs notebooks
-		// which uses a notebookWidgetService to manage the widgets. For now, we'll
-		// just create the widget directly.
-		this._notebookWidget = this._instantiationService.createInstance(
-			PositronNotebookWidget,
-			{
-				size: this._size,
-				input: this._inputObservable,
-				baseElement: myDiv
-			},
-			undefined
-		);
 	}
 
 	override clearInput(): void {
 		// Clear the input observable.
-		this._inputObservable.set(undefined, undefined);
+		(this._input as PositronNotebookEditorInput)?.positronNotebookInstance.detachFromEditor();
+		this._input = undefined;
 
 		if (this._notebookWidget) {
 			this._saveEditorViewState();
 		}
+
+
 
 		// Call the base class's method.
 		super.clearInput();
@@ -214,8 +197,31 @@ export class PositronNotebookEditor extends EditorPane {
 		noRetry?: boolean
 	): Promise<void> {
 		this._input = input;
-		this._inputObservable.set(input, undefined);
-		this._notebookWidget?.renderReact();
+		// Eventually this will probably need to be implemented like the vs notebooks
+		// which uses a notebookWidgetService to manage the widgets. For now, we'll
+		// just create the widget directly.
+		if (this._parentDiv === undefined) {
+			throw new Error(
+				'Parent div is undefined. This should have been created in createEditor.'
+			);
+		}
+
+		input.positronNotebookInstance.attachToEditor(this);
+
+		this._notebookWidget = this._instantiationService.createInstance(
+			PositronNotebookWidget,
+			{
+				size: this._size,
+				input,
+				baseElement: this._parentDiv,
+			},
+			undefined
+		);
+
+		this._notebookWidget.renderReact();
+		// We're setting the options on the input here so that the input can resolve the model
+		// without having to pass the options to the resolve method.
+		input.editorOptions = options;
 
 		await super.setInput(input, options, context, token);
 
@@ -243,21 +249,9 @@ export class PositronNotebookEditor extends EditorPane {
 		const viewState =
 			options?.viewState ?? this._loadNotebookEditorViewState(input);
 
-		// if (!viewState) {
-		// 	throw new Error(
-		// 		localize(
-		// 			'fail.noViewState',
-		// 			'Failed to find a view state for view type {0}.',
-		// 			input.viewType
-		// 		)
-		// 	);
-		// }
-
 
 		this._notebookWidget?.setModel(model.notebook, viewState);
 
-
-		// model.notebook.onDidChangeContent
 	}
 
 	constructor(

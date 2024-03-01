@@ -37,7 +37,7 @@ export function useCellEditorWidget({ cell, sizeObservable }: Pick<NotebookCellP
 			return;
 		}
 
-		const language = cell.language;
+		const language = cell.viewModel.language;
 		const editorContextKeyService = templateDisposables.add(contextKeyServiceProvider(editorPartRef.current));
 		const editorInstaService = services.instantiationService.createChild(new ServiceCollection([IContextKeyService, editorContextKeyService]));
 		const editorOptions = new CellEditorOptions(services.notebookWidget.getBaseCellEditorOptions(language), services.notebookWidget.notebookOptions, services.configurationService);
@@ -54,7 +54,7 @@ export function useCellEditorWidget({ cell, sizeObservable }: Pick<NotebookCellP
 		});
 
 
-		editor.setValue(cell.getText());
+		editor.setValue(cell.getContent());
 
 
 		/**
@@ -70,7 +70,7 @@ export function useCellEditorWidget({ cell, sizeObservable }: Pick<NotebookCellP
 		}
 
 		// Request model for cell and pass to editor.
-		services.textModelResolverService.createModelReference(cell.uri).then(modelRef => {
+		services.textModelResolverService.createModelReference(cell.viewModel.uri).then(modelRef => {
 			editor.setModel(modelRef.object.textEditorModel);
 			resizeEditor();
 

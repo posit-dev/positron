@@ -8,13 +8,14 @@ import { ISize } from 'vs/base/browser/positronReactRenderer';
 import { PositronButton } from 'vs/base/browser/ui/positronComponents/positronButton';
 import { VSBuffer } from 'vs/base/common/buffer';
 import { ISettableObservable } from 'vs/base/common/observableInternal/base';
-import { ICellViewModel } from 'vs/workbench/contrib/notebook/browser/notebookBrowser';
 import { NotebookCellOutputTextModel } from 'vs/workbench/contrib/notebook/common/model/notebookCellOutputTextModel';
 import { ICellOutput } from 'vs/workbench/contrib/notebook/common/notebookCommon';
+import { useNotebookInstance } from 'vs/workbench/contrib/positronNotebook/browser/NotebookInstanceProvider';
+import { PositronNotebookCell } from 'vs/workbench/contrib/positronNotebook/browser/PositronNotebookInstance';
 import { CellExecutionStatusCallback } from 'vs/workbench/contrib/positronNotebook/browser/PositronNotebookWidget';
 import { parseOutputData } from 'vs/workbench/contrib/positronNotebook/browser/getOutputContents';
+import { useObservedValue } from 'vs/workbench/contrib/positronNotebook/browser/useObservedValue';
 import { useCellEditorWidget } from './useCellEditorWidget';
-import { useRunCell } from './useRunCell';
 
 /**
  * Logic for running a cell and handling its output.
@@ -25,16 +26,18 @@ import { useRunCell } from './useRunCell';
  * @returns An object with the output contents and a function to run the cell.
  */
 export interface NotebookCellProps {
-	cell: ICellViewModel;
-	onRunCell: () => Promise<void>;
+	cell: PositronNotebookCell;
 	getCellExecutionStatus: CellExecutionStatusCallback;
 	sizeObservable: ISettableObservable<ISize>;
 }
 
 export function NotebookCell(opts: NotebookCellProps) {
 
-	const { outputContents, runCell, executionStatus } = useRunCell(opts);
+	const notebookInstance = useNotebookInstance();
 	const { editorPartRef, editorContainerRef } = useCellEditorWidget(opts);
+
+	const executionStatus = useObservedValue(opts.cell.executionStatus);
+	const outputContents = useObservedValue(opts.cell.outputs);
 
 	const isRunning = executionStatus === 'running';
 	return (
@@ -42,7 +45,12 @@ export function NotebookCell(opts: NotebookCellProps) {
 			data-status={executionStatus}
 		>
 			<div className='action-bar'>
-				<PositronButton className='action-button' ariaLabel={isRunning ? 'Stop execution' : 'Run cell'} onPressed={runCell}>
+				<PositronButton
+					className='action-button'
+					ariaLabel={isRunning ? 'Stop execution' : 'Run cell'}
+					onPressed={() => {
+						notebookInstance.runCells([opts.cell]);
+					}} >
 					<div className={`button-icon codicon ${isRunning ? 'codicon-primitive-square' : 'codicon-run'}`} />
 				</PositronButton>
 				<PositronButton className='action-button' ariaLabel='Delete cell' onPressed={() => {
@@ -57,7 +65,7 @@ export function NotebookCell(opts: NotebookCellProps) {
 				</div>
 				<div className='positron-notebook-cell-outputs'>
 					{
-						outputContents.outputs.map((output) =>
+						outputContents?.map((output) =>
 							<NotebookCellOutput key={output.outputId} cellOutput={output} />)
 					}
 				</div>
