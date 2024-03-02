@@ -19,13 +19,14 @@ import { VerticalSplitter, VerticalSplitterResizeParams } from 'vs/base/browser/
 import { TableDataPanel } from 'vs/base/browser/ui/positronDataExplorer/components/dataExplorerPanel/components/tableDataPanel';
 import { TableSummaryPanel } from 'vs/base/browser/ui/positronDataExplorer/components/dataExplorerPanel/components/tableSummaryPanel';
 import { PositronDataExplorerLayout } from 'vs/workbench/services/positronDataExplorer/browser/interfaces/positronDataExplorerService';
+import { ActionsPanel } from 'vs/base/browser/ui/positronDataExplorer/components/dataExplorerPanel/components/actionsPanel';
 
 /**
  * Constants.
  */
-const MIN_COLUMN_WIDTH = 275;
 const ACTIONS_HEIGHT = 64;
-const SUMMARY_HEIGHT = 24;
+const STATUS_BAR_HEIGHT = 24;
+const MIN_COLUMN_WIDTH = 275;
 
 /**
  * DataExplorerProps interface.
@@ -151,14 +152,12 @@ export const DataExplorerPanel = (props: DataExplorerPanelProps) => {
 	};
 
 	// Calculate the data explorer height.
-	const dataExplorerHeight = props.height - ACTIONS_HEIGHT - SUMMARY_HEIGHT;
+	const dataExplorerHeight = props.height - ACTIONS_HEIGHT - STATUS_BAR_HEIGHT;
 
 	// Render.
 	return (
-		<div className='data-explorer-container' style={{ width: props.width, height: props.height }}>
-			<div className='data-explorer-actions'>
-				Actions
-			</div>
+		<div className='data-explorer-panel' style={{ width: props.width, height: props.height }}>
+			<ActionsPanel />
 			<div ref={dataExplorer} className='data-explorer'>
 				<div ref={column1} className='column-1'>
 					<TableSummaryPanel

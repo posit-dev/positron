@@ -1,8 +1,8 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
-.data-explorer-container
+.data-explorer-panel
 .status-bar {
 	display: flex;
 	padding: 0 8px;
@@ -12,7 +12,7 @@
 	background-color: var(--vscode-positronDataExplorer-contrastBackground);
 }
 
-.data-explorer-container
+.data-explorer-panel
 .status-bar
 .label {
 	opacity: 80%;

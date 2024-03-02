@@ -2,21 +2,14 @@
  *  Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
-.data-explorer-container {
+.data-explorer-panel {
 	display: grid;
-	grid-template-rows: [data-explorer-actions] 64px [data-explorer] 1fr [status-bar] 24px [end];
+	grid-template-rows: [actions] 64px [data-explorer] 1fr [status-bar] 24px [end];
 }
 
-.data-explorer-container
-.data-explorer-actions {
-	padding: 8px;
-	grid-row: data-explorer-actions / data-explorer;
-	border-bottom: 1px solid var(--vscode-positronDataExplorer-border);
-}
-
-.data-explorer-container
+.data-explorer-panel
 .data-explorer {
-	/* Place the data-explorer in the data-explorer-container. */
+	/* Place the data-explorer in the data-explorer-panel. */
 	grid-row: data-explorer / status-bar;
 
 	/* Prevent 1fr from exceeding the parent height. */
@@ -27,7 +20,7 @@
 	display: grid;
 }
 
-.data-explorer-container
+.data-explorer-panel
 .data-explorer
 .column-1 {
 	/* Prevent 1fr from exceeding the parent height. */
@@ -37,21 +30,21 @@
 	display: none;
 }
 
-.data-explorer-container
+.data-explorer-panel
 .data-explorer
 .splitter {
 	/* Initially hidden. Layout happens in code. */
 	display: none;
 }
 
-.data-explorer-container
+.data-explorer-panel
 .data-explorer
 .splitter
 .vertical-splitter {
 	background-color: var(--vscode-positronDataExplorer-border);
 }
 
-.data-explorer-container
+.data-explorer-panel
 .data-explorer
 .column-2 {
 	/* Prevent 1fr from exceeding the parent height. */

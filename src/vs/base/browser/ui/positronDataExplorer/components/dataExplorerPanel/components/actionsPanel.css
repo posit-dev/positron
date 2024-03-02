@@ -1,0 +1,10 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *--------------------------------------------------------------------------------------------*/
+
+.data-explorer-panel
+.actions-panel {
+	padding: 8px;
+	grid-row: actions / data-explorer;
+	border-bottom: 1px solid var(--vscode-positronDataExplorer-border);
+}

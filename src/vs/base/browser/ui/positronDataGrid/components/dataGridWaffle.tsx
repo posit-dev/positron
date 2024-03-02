@@ -424,12 +424,14 @@ export const DataGridWaffle = (props: DataGridWaffleProps) => {
 		rowIndex < context.instance.rows && top < props.height;
 		rowIndex++
 	) {
+		// Render the data grid row.
 		dataGridRows.push(
 			<DataGridRow
 				key={`row-${rowIndex}`}
 				width={props.width}
 				top={top}
-				rowIndex={rowIndex} />
+				rowIndex={rowIndex}
+			/>
 		);
 
 		// Adjust the top for the next row.
