@@ -14,7 +14,11 @@ import { referenceGeneratedDepsByArch as debianGeneratedDeps } from './debian/de
 import { referenceGeneratedDepsByArch as rpmGeneratedDeps } from './rpm/dep-lists';
 import { DebianArchString, isDebianArchString } from './debian/types';
 import { isRpmArchString, RpmArchString } from './rpm/types';
-import product = require('../../product.json');
+// --- Start Positron ---
+// The product JSON is only required to get the tunnelApplicationName (below),
+// which we don't need.
+// import product = require('../../product.json');
+// --- End Positron --
 
 // A flag that can easily be toggled.
 // Make sure to compile the build directory after toggling the value.
@@ -63,7 +67,10 @@ export async function getDependencies(packageType: 'deb' | 'rpm', buildDir: stri
 	// Add the native modules
 	const files = findResult.stdout.toString().trimEnd().split('\n');
 	// Add the tunnel binary.
-	files.push(path.join(buildDir, 'bin', product.tunnelApplicationName));
+	// --- Start Positron ---
+	// We don't build a tunnel binary
+	// files.push(path.join(buildDir, 'bin', product.tunnelApplicationName));
+	// --- End Positron ---
 	// Add the main executable.
 	files.push(appPath);
 	// Add chrome sandbox and crashpad handler.
