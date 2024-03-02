@@ -109,6 +109,13 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 			this, 'runtime-startup-phase', RuntimeStartupPhase.Initializing);
 		this.onDidChangeRuntimeStartupPhase = Event.fromObservable(this._startupPhase);
 
+		this._register(this._runtimeSessionService.onWillStartRuntime(session => {
+			this._register(session.onDidEncounterStartupFailure(_exit => {
+				// Update the set of workspace sessions
+				this.saveWorkspaceSessions();
+			}));
+		}));
+
 		// Listen for runtime start events and update the most recently started
 		// runtimes for each language.
 		this._register(this._runtimeSessionService.onDidStartRuntime(session => {
@@ -519,6 +526,7 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 		// Derive the set of sessions that are currently active and workspace scoped.
 		const workspaceSessions = this._runtimeSessionService.activeSessions
 			.filter(session =>
+				session.getRuntimeState() !== RuntimeState.Uninitialized &&
 				session.getRuntimeState() !== RuntimeState.Exited &&
 				session.runtimeMetadata.sessionLocation === LanguageRuntimeSessionLocation.Workspace)
 			.map(session => {
