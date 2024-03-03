@@ -95,4 +95,4 @@ class PositronHelpContribution extends Disposable implements IWorkbenchContribut
 
 Registry.
 	as<IWorkbenchContributionsRegistry>(WorkbenchExtensions.Workbench).
-	registerWorkbenchContribution(PositronHelpContribution, LifecyclePhase.Ready);
+	registerWorkbenchContribution(PositronHelpContribution, LifecyclePhase.Restored);

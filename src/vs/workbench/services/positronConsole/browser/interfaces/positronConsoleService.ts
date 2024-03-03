@@ -192,9 +192,9 @@ export interface IPositronConsoleInstance {
 	readonly onDidAttachRuntime: Event<ILanguageRuntime | undefined>;
 
 	/**
-	 * The onDidChangeWidthPx event.
+	 * The onDidChangeWidthInChars event.
 	 */
-	readonly onDidChangeWidthPx: Event<number>;
+	readonly onDidChangeWidthInChars: Event<number>;
 
 	/**
 	 * Focuses the input for the console.
@@ -202,15 +202,15 @@ export interface IPositronConsoleInstance {
 	focusInput(): void;
 
 	/**
-	 * Tells the console its current console input width, in pixels. Fires the
-	 * onDidChangeWidth event if the width has changed.
+	 * Tells the console its current console input width, in characters. Fires
+	 * the onDidChangeWidth event if the width has changed.
 	 */
-	setWidthPx(newWidth: number): void;
+	setWidthInChars(newWidth: number): void;
 
 	/**
-	 * Gets the current width of the console input, in pixels.
+	 * Gets the current width of the console input, in characters.
 	 */
-	getWidthPx(): number;
+	getWidthInChars(): number;
 
 	/**
 	 * Returns the active text editor widget for the console, if it exists.
