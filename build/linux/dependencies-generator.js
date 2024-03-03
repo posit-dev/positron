@@ -14,7 +14,11 @@ const dep_lists_1 = require("./debian/dep-lists");
 const dep_lists_2 = require("./rpm/dep-lists");
 const types_1 = require("./debian/types");
 const types_2 = require("./rpm/types");
-const product = require("../../product.json");
+// --- Start Positron ---
+// The product JSON is only required to get the tunnelApplicationName (below),
+// which we don't need.
+// import product = require('../../product.json');
+// --- End Positron --
 // A flag that can easily be toggled.
 // Make sure to compile the build directory after toggling the value.
 // If false, we warn about new dependencies if they show up
@@ -26,7 +30,7 @@ const product = require("../../product.json");
 // This allows the list of dependencies on shared libraries to be
 // different from the machine used to build VSCode.
 const FAIL_BUILD_FOR_NEW_DEPENDENCIES = false;
-// --- End Positron ---
+// --- End Positron --
 // Based on https://source.chromium.org/chromium/chromium/src/+/refs/tags/118.0.5993.159:chrome/installer/linux/BUILD.gn;l=64-80
 // and the Linux Archive build
 // Shared library dependencies that we already bundle.

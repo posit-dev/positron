@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
 import 'vs/css!./consoleInstance';
@@ -8,8 +8,8 @@ import { KeyboardEvent, MouseEvent, UIEvent, useEffect, useLayoutEffect, useRef,
 import * as nls from 'vs/nls';
 import * as DOM from 'vs/base/browser/dom';
 import { generateUuid } from 'vs/base/common/uuid';
-import { PixelRatio } from 'vs/base/browser/browser';
 import { isMacintosh } from 'vs/base/common/platform';
+import { PixelRatio } from 'vs/base/browser/pixelRatio';
 import { DisposableStore } from 'vs/base/common/lifecycle';
 import { IAction, Separator } from 'vs/base/common/actions';
 import { useStateRef } from 'vs/base/browser/ui/react/useStateRef';
@@ -59,14 +59,28 @@ interface ConsoleInstanceProps {
 
 /**
  * Gets the font info for the editor font.
+ *
+ * @param editorContainer The HTML element containing the editor, if known.
  * @param configurationService The configuration service.
+ *
  * @returns The font info.
  */
-const getEditorFontInfo = (configurationService: IConfigurationService) => {
+const getEditorFontInfo = (
+	editorContainer: HTMLElement | undefined,
+	configurationService: IConfigurationService) => {
+
 	// Get the editor options and read the font info.
 	const editorOptions = configurationService.getValue<IEditorOptions>('editor');
+
+	// Use the editor container to get the window, if it's available. Otherwise, use the active
+	// window.
+	const window = editorContainer ?
+		DOM.getActiveWindow() :
+		DOM.getWindow(editorContainer);
+
 	return FontMeasurements.readFontInfo(
-		BareFontInfo.createFromRawSettings(editorOptions, PixelRatio.value)
+		window,
+		BareFontInfo.createFromRawSettings(editorOptions, PixelRatio.getInstance(window).value)
 	);
 };
 
@@ -85,7 +99,7 @@ export const ConsoleInstance = (props: ConsoleInstanceProps) => {
 
 	// State hooks.
 	const [editorFontInfo, setEditorFontInfo] =
-		useState<FontInfo>(getEditorFontInfo(positronConsoleContext.configurationService));
+		useState<FontInfo>(getEditorFontInfo(undefined, positronConsoleContext.configurationService));
 	const [trace, setTrace] = useState(props.positronConsoleInstance.trace);
 	const [wordWrap, setWordWrap] = useState(props.positronConsoleInstance.wordWrap);
 	const [marker, setMarker] = useState(generateUuid());
@@ -232,6 +246,7 @@ export const ConsoleInstance = (props: ConsoleInstanceProps) => {
 					) {
 						// Get the font info.
 						const editorFontInfo = getEditorFontInfo(
+							consoleInstanceRef.current,
 							positronConsoleContext.configurationService
 						);
 
@@ -540,7 +555,8 @@ export const ConsoleInstance = (props: ConsoleInstanceProps) => {
 	}
 
 	// Forward the console input width to the console instance.
-	props.positronConsoleInstance.setWidthPx(consoleInputWidth);
+	props.positronConsoleInstance.setWidthInChars(
+		Math.floor(consoleInputWidth / editorFontInfo.spaceWidth));
 
 	// Render.
 	return (

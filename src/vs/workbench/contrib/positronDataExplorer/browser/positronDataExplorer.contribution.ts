@@ -61,7 +61,7 @@ Registry.as<IEditorPaneRegistry>(EditorExtensions.EditorPane).registerEditorPane
 
 // Register workbench contributions.
 const workbenchContributionsRegistry = Registry.as<IWorkbenchContributionsRegistry>(WorkbenchExtensions.Workbench);
-workbenchContributionsRegistry.registerWorkbenchContribution(PositronDataExplorerContribution, LifecyclePhase.Starting);
+workbenchContributionsRegistry.registerWorkbenchContribution(PositronDataExplorerContribution, LifecyclePhase.Restored);
 
 // Register actions.
 registerPositronDataExplorerActions();

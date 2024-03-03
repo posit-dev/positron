@@ -18,7 +18,7 @@ import { LineRange } from 'vs/editor/common/core/lineRange';
 import { Position } from 'vs/editor/common/core/position';
 import { Range } from 'vs/editor/common/core/range';
 import { IEditorDecorationsCollection } from 'vs/editor/common/editorCommon';
-import { IModelDecorationsChangeAccessor, IModelDeltaDecoration, ITextModel, IValidEditOperation, OverviewRulerLane } from 'vs/editor/common/model';
+import { IModelDecorationsChangeAccessor, IModelDeltaDecoration, ITextModel, IValidEditOperation, OverviewRulerLane, TrackedRangeStickiness } from 'vs/editor/common/model';
 import { ModelDecorationOptions } from 'vs/editor/common/model/textModel';
 import { IEditorWorkerService } from 'vs/editor/common/services/editorWorker';
 import { InlineDecoration, InlineDecorationType } from 'vs/editor/common/viewModel';
@@ -31,11 +31,13 @@ import { countWords } from 'vs/workbench/contrib/chat/common/chatWordCounter';
 import { InlineChatFileCreatePreviewWidget, InlineChatLivePreviewWidget } from 'vs/workbench/contrib/inlineChat/browser/inlineChatLivePreviewWidget';
 import { HunkInformation, ReplyResponse, Session } from 'vs/workbench/contrib/inlineChat/browser/inlineChatSession';
 import { InlineChatZoneWidget } from 'vs/workbench/contrib/inlineChat/browser/inlineChatWidget';
-import { CTX_INLINE_CHAT_CHANGE_HAS_DIFF, CTX_INLINE_CHAT_CHANGE_SHOWS_DIFF, CTX_INLINE_CHAT_DOCUMENT_CHANGED, overviewRulerInlineChatDiffInserted } from 'vs/workbench/contrib/inlineChat/common/inlineChat';
+import { CTX_INLINE_CHAT_CHANGE_HAS_DIFF, CTX_INLINE_CHAT_CHANGE_SHOWS_DIFF, CTX_INLINE_CHAT_DOCUMENT_CHANGED, InlineChatConfigKeys, overviewRulerInlineChatDiffInserted } from 'vs/workbench/contrib/inlineChat/common/inlineChat';
 import { HunkState } from './inlineChatSession';
 import { assertType } from 'vs/base/common/types';
 import { IModelService } from 'vs/editor/common/services/model';
 import { performAsyncTextEdit, asProgressiveEdit } from './utils';
+import { IAccessibilityService } from 'vs/platform/accessibility/common/accessibility';
+import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
 
 export interface IEditObserver {
 	start(): void;
@@ -123,6 +125,8 @@ export abstract class EditModeStrategy {
 
 	abstract renderChanges(response: ReplyResponse): Promise<Position | undefined>;
 
+	move?(next: boolean): void;
+
 	abstract hasFocus(): boolean;
 
 	getWholeRangeDecoration(): IModelDeltaDecoration[] {
@@ -192,7 +196,9 @@ export class PreviewStrategy extends EditModeStrategy {
 	}
 
 	override async makeProgressiveChanges(edits: ISingleEditOperation[], obs: IEditObserver, opts: ProgressingEditsOptions): Promise<void> {
-		return this._makeChanges(edits, obs, opts, undefined);
+		await this._makeChanges(edits, obs, opts, new Progress<any>(() => {
+			this._zone.widget.showEditsPreview(this._session.hunkData, this._session.textModel0, this._session.textModelN);
+		}));
 	}
 
 	override async undoChanges(altVersionId: number): Promise<void> {
@@ -202,7 +208,7 @@ export class PreviewStrategy extends EditModeStrategy {
 
 	override async renderChanges(response: ReplyResponse): Promise<undefined> {
 		if (response.allLocalEdits.length > 0) {
-			await this._zone.widget.showEditsPreview(this._session.textModel0, this._session.textModelN);
+			this._zone.widget.showEditsPreview(this._session.hunkData, this._session.textModel0, this._session.textModelN);
 		} else {
 			this._zone.widget.hideEditsPreview();
 		}
@@ -285,7 +291,7 @@ export class LivePreviewStrategy extends EditModeStrategy {
 		if (response.untitledTextModel && !response.untitledTextModel.isDisposed()) {
 			this._previewZone.value.showCreation(this._session.wholeRange.value.getStartPosition().delta(-1), response.untitledTextModel);
 		} else {
-			this._previewZone.value.hide();
+			this._previewZone.rawValue?.hide();
 		}
 
 		return this._updateDiffZones();
@@ -399,6 +405,9 @@ type HunkDisplayData = {
 	discardHunk: () => void;
 	toggleDiff?: () => any;
 	remove(): void;
+	move: (next: boolean) => void;
+
+	hunk: HunkInformation;
 };
 
 
@@ -417,6 +426,7 @@ export class LiveStrategy extends EditModeStrategy {
 	private readonly _decoInsertedTextRange = ModelDecorationOptions.register({
 		description: 'inline-chat-inserted-range-linehighlight',
 		className: 'inline-chat-inserted-range',
+		stickiness: TrackedRangeStickiness.NeverGrowsWhenTypingAtEdges,
 	});
 
 	private readonly _previewZone: Lazy<InlineChatFileCreatePreviewWidget>;
@@ -425,7 +435,6 @@ export class LiveStrategy extends EditModeStrategy {
 	private readonly _ctxCurrentChangeShowsDiff: IContextKey<boolean>;
 
 	private readonly _progressiveEditingDecorations: IEditorDecorationsCollection;
-
 
 	override acceptHunk: () => Promise<void> = () => super.acceptHunk();
 	override discardHunk: () => Promise<void> = () => super.discardHunk();
@@ -436,6 +445,8 @@ export class LiveStrategy extends EditModeStrategy {
 		zone: InlineChatZoneWidget,
 		@IContextKeyService contextKeyService: IContextKeyService,
 		@IEditorWorkerService protected readonly _editorWorkerService: IEditorWorkerService,
+		@IAccessibilityService private readonly _accessibilityService: IAccessibilityService,
+		@IConfigurationService private readonly _configService: IConfigurationService,
 		@IInstantiationService protected readonly _instaService: IInstantiationService,
 	) {
 		super(session, editor, zone);
@@ -523,7 +534,7 @@ export class LiveStrategy extends EditModeStrategy {
 		if (response.untitledTextModel && !response.untitledTextModel.isDisposed()) {
 			this._previewZone.value.showCreation(this._session.wholeRange.value.getStartPosition().delta(-1), response.untitledTextModel);
 		} else {
-			this._previewZone.value.hide();
+			this._previewZone.rawValue?.hide();
 		}
 
 		this._progressiveEditingDecorations.clear();
@@ -614,12 +625,40 @@ export class LiveStrategy extends EditModeStrategy {
 							});
 						};
 
+						const move = (next: boolean) => {
+							assertType(widgetData);
+
+							const candidates: Position[] = [];
+							for (const item of this._session.hunkData.getInfo()) {
+								if (item.getState() === HunkState.Pending) {
+									candidates.push(item.getRangesN()[0].getStartPosition().delta(-1));
+								}
+							}
+							if (candidates.length < 2) {
+								return;
+							}
+							for (let i = 0; i < candidates.length; i++) {
+								if (candidates[i].equals(widgetData.position)) {
+									let newPos: Position;
+									if (next) {
+										newPos = candidates[(i + 1) % candidates.length];
+									} else {
+										newPos = candidates[(i + candidates.length - 1) % candidates.length];
+									}
+									this._zone.updatePositionAndHeight(newPos);
+									renderHunks();
+									break;
+								}
+							}
+						};
+
 						const zoneLineNumber = this._zone.position!.lineNumber;
 						const myDistance = zoneLineNumber <= hunkRanges[0].startLineNumber
 							? hunkRanges[0].startLineNumber - zoneLineNumber
 							: zoneLineNumber - hunkRanges[0].endLineNumber;
 
 						data = {
+							hunk: hunkData,
 							decorationIds,
 							viewZoneId: '',
 							viewZone: viewZoneData,
@@ -629,6 +668,7 @@ export class LiveStrategy extends EditModeStrategy {
 							discardHunk,
 							toggleDiff: !hunkData.isInsertion() ? toggleDiff : undefined,
 							remove,
+							move,
 						};
 
 						this._hunkDisplayData.set(hunkData, data);
@@ -667,10 +707,17 @@ export class LiveStrategy extends EditModeStrategy {
 				const remainingHunks = this._session.hunkData.pending;
 				this._updateSummaryMessage(remainingHunks);
 
+
+				const mode = this._configService.getValue<'on' | 'off' | 'auto'>(InlineChatConfigKeys.AccessibleDiffView);
+				if (mode === 'on' || mode === 'auto' && this._accessibilityService.isScreenReaderOptimized()) {
+					this._zone.widget.showAccessibleHunk(this._session, widgetData.hunk);
+				}
+
 				this._ctxCurrentChangeHasDiff.set(Boolean(widgetData.toggleDiff));
 				this.toggleDiff = widgetData.toggleDiff;
 				this.acceptHunk = async () => widgetData!.acceptHunk();
 				this.discardHunk = async () => widgetData!.discardHunk();
+				this.move = next => widgetData!.move(next);
 
 			} else if (this._hunkDisplayData.size > 0) {
 				// everything accepted or rejected

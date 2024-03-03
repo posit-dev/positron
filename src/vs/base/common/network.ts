@@ -71,6 +71,9 @@ export namespace Schemas {
 
 	export const vscodeTerminal = 'vscode-terminal';
 
+	/** Scheme used for code blocks in chat. */
+	export const vscodeChatCodeBlock = 'vscode-chat-code-block';
+	/** Scheme used for the chat input editor. */
 	export const vscodeChatSesssion = 'vscode-chat-editor';
 
 	/**
@@ -117,6 +120,16 @@ export namespace Schemas {
 	export const positronDataExplorer = 'positron-data-explorer';
 
 	// --- End Positron ---
+
+	/**
+	 * Scheme used for special rendering of settings in the release notes
+	 */
+	export const codeSetting = 'code-setting';
+
+	/**
+	 * Scheme used for special rendering of features in the release notes
+	 */
+	export const codeFeature = 'code-feature';
 }
 
 export function matchesScheme(target: URI | string, scheme: string): boolean {
