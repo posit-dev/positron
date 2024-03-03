@@ -3,7 +3,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 .data-explorer-panel
-.actions-panel {
+.actions-bar {
 	padding: 8px;
 	grid-row: actions / data-explorer;
 	border-bottom: 1px solid var(--vscode-positronDataExplorer-border);

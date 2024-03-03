@@ -11,15 +11,13 @@ import { useEffect, useRef, useState } from 'react'; // eslint-disable-line no-d
 
 // Other dependencies.
 import { DisposableStore } from 'vs/base/common/lifecycle';
-import { IReactComponentContainer } from 'vs/base/browser/positronReactRenderer';
+import { PositronDataGrid } from 'vs/base/browser/ui/positronDataGrid/positronDataGrid';
 import { PositronDataExplorerProps } from 'vs/base/browser/ui/positronDataExplorer/positronDataExplorer';
 import { usePositronDataExplorerContext } from 'vs/base/browser/ui/positronDataExplorer/positronDataExplorerContext';
 import { StatusBar } from 'vs/base/browser/ui/positronDataExplorer/components/dataExplorerPanel/components/statusBar';
 import { VerticalSplitter, VerticalSplitterResizeParams } from 'vs/base/browser/ui/positronComponents/verticalSplitter';
-import { TableDataPanel } from 'vs/base/browser/ui/positronDataExplorer/components/dataExplorerPanel/components/tableDataPanel';
-import { TableSummaryPanel } from 'vs/base/browser/ui/positronDataExplorer/components/dataExplorerPanel/components/tableSummaryPanel';
+import { ActionsBar } from 'vs/base/browser/ui/positronDataExplorer/components/dataExplorerPanel/components/actionsBar';
 import { PositronDataExplorerLayout } from 'vs/workbench/services/positronDataExplorer/browser/interfaces/positronDataExplorerService';
-import { ActionsPanel } from 'vs/base/browser/ui/positronDataExplorer/components/dataExplorerPanel/components/actionsPanel';
 
 /**
  * Constants.
@@ -34,7 +32,6 @@ const MIN_COLUMN_WIDTH = 275;
 interface DataExplorerPanelProps extends PositronDataExplorerProps {
 	readonly width: number;
 	readonly height: number;
-	readonly reactComponentContainer: IReactComponentContainer;
 }
 
 /**
@@ -157,10 +154,12 @@ export const DataExplorerPanel = (props: DataExplorerPanelProps) => {
 	// Render.
 	return (
 		<div className='data-explorer-panel' style={{ width: props.width, height: props.height }}>
-			<ActionsPanel />
+			<ActionsBar />
 			<div ref={dataExplorer} className='data-explorer'>
 				<div ref={column1} className='column-1'>
-					<TableSummaryPanel
+					<PositronDataGrid
+						layoutService={context.layoutService}
+						instance={context.instance.tableSchemaDataGridInstance}
 						width={columnsWidth}
 						height={dataExplorerHeight}
 					/>
@@ -173,7 +172,9 @@ export const DataExplorerPanel = (props: DataExplorerPanelProps) => {
 					/>
 				</div>
 				<div ref={column2} className='column-2'>
-					<TableDataPanel
+					<PositronDataGrid
+						layoutService={context.layoutService}
+						instance={context.instance.tableDataDataGridInstance}
 						width={layout === PositronDataExplorerLayout.ColumnsHidden ?
 							props.width :
 							props.width - columnsWidth

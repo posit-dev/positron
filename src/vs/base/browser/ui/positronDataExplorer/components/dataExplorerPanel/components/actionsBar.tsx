@@ -3,24 +3,34 @@
  *--------------------------------------------------------------------------------------------*/
 
 // CSS.
-import 'vs/css!./actionsPanel';
+import 'vs/css!./actionsBar';
 
 // React.
 import * as React from 'react';
-// import { useEffect, useState } from 'react'; // eslint-disable-line no-duplicate-imports
+import { useState } from 'react'; // eslint-disable-line no-duplicate-imports
 
 // Other dependencies.
 // import { DisposableStore } from 'vs/base/common/lifecycle';
 // import { usePositronDataExplorerContext } from 'vs/base/browser/ui/positronDataExplorer/positronDataExplorerContext';
 
 /**
- * ActionsPanel component.
+ * ActionsBar component.
  * @returns The rendered component.
  */
-export const ActionsPanel = () => {
+export const ActionsBar = () => {
+	const [lineCount, setLineCount] = useState(1);
+
+	const lines: string[] = [];
+	for (let i = 0; i < lineCount; i++) {
+		lines.push(`Actions line ${i}`);
+	}
+
+	// Render.
 	return (
-		<div className='actions-panel'>
-			Actions Go Here
+		<div className='actions-bar' onClick={() => setLineCount(lineCount + 1)}>
+			{lines.map((line, index) =>
+				<div key={index}>{line}</div>
+			)}
 		</div>
 	);
 };
