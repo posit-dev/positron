@@ -4,9 +4,13 @@
 
 .runtime-session-card {
 	border: 1px solid var(--vscode-panel-border);
-	background-color: var(--vscode-textBlockQuote-background);
 	padding: 10px;
 	margin: 10px;
+}
+
+.status-busy .runtime-session-card,
+.status-idle .runtime-session-card {
+	background-color: var(--vscode-textBlockQuote-background);
 }
 
 .runtime-session-card .runtime-name {

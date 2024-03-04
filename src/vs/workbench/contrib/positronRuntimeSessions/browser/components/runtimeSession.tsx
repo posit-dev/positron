@@ -41,8 +41,8 @@ export const RuntimeSession = (props: RuntimeSessionProps) => {
 
 	// Render.
 	return (
-		<tbody>
-			<tr className={'runtime-session ' + props.session.getRuntimeState()}>
+		<tbody className={'status-' + props.session.getRuntimeState()}>
+			<tr className='runtime-session'>
 				<td>
 					<a href='#' onClick={() => setExpanded(!expanded)}>
 						<span className={'codicon ' + (expanded ? 'codicon-chevron-down' : 'codicon-chevron-right')}></span>
