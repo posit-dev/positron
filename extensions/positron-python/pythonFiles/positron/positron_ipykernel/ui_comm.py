@@ -265,6 +265,16 @@ class DebugSleepParams(BaseModel):
     )
 
 
+class ExecuteCommandParams(BaseModel):
+    """
+    Execute a Positron command
+    """
+
+    command: str = Field(
+        description="The command to execute",
+    )
+
+
 EditorContext.update_forward_refs()
 
 TextDocument.update_forward_refs()
@@ -288,3 +298,5 @@ PromptStateParams.update_forward_refs()
 WorkingDirectoryParams.update_forward_refs()
 
 DebugSleepParams.update_forward_refs()
+
+ExecuteCommandParams.update_forward_refs()
