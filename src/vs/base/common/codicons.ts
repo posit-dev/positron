@@ -591,6 +591,10 @@ export const Codicon = {
 	gitStash: register('git-stash', 0xec26),
 	gitStashApply: register('git-stash-apply', 0xec27),
 	gitStashPop: register('git-stash-pop', 0xec28),
+	runAllCoverage: register('run-all-coverage', 0xec2d),
+	runCoverage: register('run-all-coverage', 0xec2c),
+	coverage: register('coverage', 0xec2e),
+	githubProject: register('github-project', 0xec2f),
 
 	// --- Start Positron ---
 	// Custom Codicons for Positron. In order to avoid namespace collisions, these are prefixed with 'positron-'.
@@ -645,10 +649,19 @@ export const Codicon = {
 	positronEllipsis: register('positron-ellipsis', 0xf261),
 	positronCheckMark: register('positron-check-mark', 0xf262),
 	positronVerticalEllipsis: register('positron-vertical-ellipsis', 0xf263),
+	positronDataTypeArray: register('positron-data-type-array', 0xf264),
+	positronDataTypeBoolean: register('positron-data-type-boolean', 0xf265),
+	positronDataTypeDateTime: register('positron-data-type-date-time', 0xf266),
+	positronDataTypeDate: register('positron-data-type-date', 0xf267),
+	positronDataTypeNumber: register('positron-data-type-number', 0xf268),
+	positronDataTypeString: register('positron-data-type-string', 0xf269),
+	positronDataTypeStruct: register('positron-data-type-struct', 0xf26a),
+	positronDataTypeTime: register('positron-data-type-time', 0xf26b),
 	// --- End Positron ---
 
 
 	// derived icons, that could become separate icons
+	// TODO: These mappings should go in the vscode-codicons mapping file
 
 	dialogError: register('dialog-error', 'error'),
 	dialogWarning: register('dialog-warning', 'warning'),

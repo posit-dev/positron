@@ -27,11 +27,6 @@ export interface IPositronDataExplorerInstance {
 	columnsWidthPercent: number;
 
 	/**
-	 * Gets or sets the columns scroll offset.
-	 */
-	columnsScrollOffset: number;
-
-	/**
 	 * Gets the TableSchemaDataGridInstance.
 	 */
 	readonly tableSchemaDataGridInstance: TableSummaryDataGridInstance;
@@ -50,9 +45,4 @@ export interface IPositronDataExplorerInstance {
 	 * The onDidChangeColumnsWidthPercent event.
 	 */
 	readonly onDidChangeColumnsWidthPercent: Event<number>;
-
-	/**
-	 * The onDidChangeColumnsScrollOffset event.
-	 */
-	readonly onDidChangeColumnsScrollOffset: Event<number>;
 }

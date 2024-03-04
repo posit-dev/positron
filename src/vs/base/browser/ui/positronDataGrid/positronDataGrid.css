@@ -7,11 +7,3 @@
 	height: 100%;
 	box-sizing: border-box;
 }
-
-.data-grid.border-top {
-	border-top: 1px solid var(--vscode-positronDataGrid-border);
-}
-
-.data-grid.border-left {
-	border-left: 1px solid var(--vscode-positronDataGrid-border);
-}
