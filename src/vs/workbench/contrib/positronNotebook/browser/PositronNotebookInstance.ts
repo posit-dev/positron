@@ -98,7 +98,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	/**
 	 * User facing cells wrapped in an observerable for the UI to react to changes
 	 */
-	cells: ISettableObservable<PositronNotebookCell[], void>;
+	cells: ISettableObservable<PositronNotebookCell[]>;
 
 	// private _editor: PositronNotebookEditor | undefined;
 

@@ -562,9 +562,10 @@ export class PositronNotebookWidget extends Disposable
 					configurationService: this.configurationService,
 					instantiationService: this.instantiationService,
 					textModelResolverService: this.textModelResolverService,
+					sizeObservable: this._size,
 				}}>
 					<ContextKeyProvider contextKeyServiceProvider={container => this.scopedContextKeyService.createScoped(container)} >
-						<PositronNotebookComponent sizeObservable={this._size} />
+						<PositronNotebookComponent />
 					</ContextKeyProvider>
 				</ServicesProvider>
 			</NotebookInstanceProvider>

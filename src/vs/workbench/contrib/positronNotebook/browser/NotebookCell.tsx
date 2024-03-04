@@ -4,10 +4,8 @@
 import 'vs/css!./NotebookCell';
 
 import * as React from 'react';
-import { ISize } from 'vs/base/browser/positronReactRenderer';
 import { PositronButton } from 'vs/base/browser/ui/positronComponents/positronButton';
 import { VSBuffer } from 'vs/base/common/buffer';
-import { ISettableObservable } from 'vs/base/common/observableInternal/base';
 import { NotebookCellOutputTextModel } from 'vs/workbench/contrib/notebook/common/model/notebookCellOutputTextModel';
 import { ICellOutput } from 'vs/workbench/contrib/notebook/common/notebookCommon';
 import { PositronNotebookCell } from 'vs/workbench/contrib/positronNotebook/browser/PositronNotebookInstance';
@@ -23,12 +21,10 @@ import { useCellEditorWidget } from './useCellEditorWidget';
  * @param sizeObservable An observable for the size of the notebook
  * @returns An object with the output contents and a function to run the cell.
  */
-export interface NotebookCellProps {
-	cell: PositronNotebookCell;
-	sizeObservable: ISettableObservable<ISize>;
-}
 
-export function NotebookCell(opts: NotebookCellProps) {
+export function NotebookCell(opts: {
+	cell: PositronNotebookCell;
+}) {
 
 	const { editorPartRef, editorContainerRef } = useCellEditorWidget(opts);
 

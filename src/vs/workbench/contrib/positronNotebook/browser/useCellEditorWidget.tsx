@@ -7,7 +7,7 @@ import { IContextKeyService } from 'vs/platform/contextkey/common/contextkey';
 import { ServiceCollection } from 'vs/platform/instantiation/common/serviceCollection';
 import { CellEditorOptions } from 'vs/workbench/contrib/notebook/browser/view/cellParts/cellEditorOptions';
 import { useContextKeyServiceProvider } from 'vs/workbench/contrib/positronNotebook/browser/ContextKeyServiceProvider';
-import { NotebookCellProps } from 'vs/workbench/contrib/positronNotebook/browser/NotebookCell';
+import { PositronNotebookCell } from 'vs/workbench/contrib/positronNotebook/browser/PositronNotebookInstance';
 import { useServices } from 'vs/workbench/contrib/positronNotebook/browser/ServicesProvider';
 import { observeValue } from 'vs/workbench/contrib/positronNotebook/common/utils/observeValue';
 import { useDisposableStore } from './useDisposableStore';
@@ -17,8 +17,10 @@ import { useDisposableStore } from './useDisposableStore';
  * @param cell Cell whose editor is to be created
  * @returns Refs to place the editor and the wrapping div
  */
-export function useCellEditorWidget({ cell, sizeObservable }: Pick<NotebookCellProps, 'cell' | 'sizeObservable'>) {
+export function useCellEditorWidget({ cell }: { cell: PositronNotebookCell }) {
 	const services = useServices();
+
+	const sizeObservable = services.sizeObservable;
 	const templateDisposables = useDisposableStore();
 
 	// Grab the wrapping div for the editor. This is used for passing context key service

@@ -3,6 +3,8 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as React from 'react';
+import { ISize } from 'vs/base/browser/positronReactRenderer';
+import { ISettableObservable } from 'vs/base/common/observableInternal/base';
 import { ITextModelService } from 'vs/editor/common/services/resolverService';
 import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
 import { IInstantiationService } from 'vs/platform/instantiation/common/instantiation';
@@ -34,6 +36,11 @@ interface ServiceBundle {
 	 * Service for instantiating text models
 	 */
 	textModelResolverService: ITextModelService;
+
+	/**
+	 * An observable for the size of the notebook.
+	 */
+	sizeObservable: ISettableObservable<ISize>;
 }
 
 /**
