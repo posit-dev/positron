@@ -2,7 +2,10 @@
 // Licensed under the MIT License.
 
 import * as path from 'path';
-import { runTests } from '@vscode/test-electron';
+// --- Start Positron ---
+// Use the latest Positron release in integration tests.
+import { runTests } from './positron/testElectron';
+// --- End Positron ---
 import { EXTENSION_ROOT_DIR_FOR_TESTS } from './constants';
 import { getChannel } from './utils/vscode';
 
