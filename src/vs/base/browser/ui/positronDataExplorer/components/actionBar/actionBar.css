@@ -3,8 +3,9 @@
  *--------------------------------------------------------------------------------------------*/
 
 .positron-data-explorer
-.data-explorer-action-bar {
+.action-bar {
 	height: 32px;
+	grid-row: action-bar / data-explorer-panel;
 	--positronActionBar-border: var(--vscode-positronSideActionBar-border);
 	--positronActionBar-separator: var(--vscode-positronSideActionBar-separator);
 	--positronActionBar-background: var(--vscode-positronDataExplorer-contrastBackground);

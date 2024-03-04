@@ -76,12 +76,6 @@ class DataExplorerRuntime extends Disposable {
 					this._onDidCloseDataExplorerClientEmitter.fire(dataExplorerClientInstance);
 				});
 
-				// Test that we can get things.
-				const foo = await dataExplorerClientInstance.getSchema(0, 1000);
-				console.log(foo);
-				const bar = await dataExplorerClientInstance.getDataValues(0, 10, [0, 1, 2, 3, 4, 5]);
-				console.log(bar);
-
 				// Raise the onDidOpenDataExplorerClient event.
 				this._onDidOpenDataExplorerClientEmitter.fire(dataExplorerClientInstance);
 			} catch (err) {

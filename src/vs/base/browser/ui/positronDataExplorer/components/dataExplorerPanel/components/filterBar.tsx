@@ -3,33 +3,41 @@
  *--------------------------------------------------------------------------------------------*/
 
 // CSS.
-import 'vs/css!./actionsBar';
+import 'vs/css!./filterBar';
 
 // React.
 import * as React from 'react';
-import { useState } from 'react'; // eslint-disable-line no-duplicate-imports
+import { MouseEvent, useState } from 'react'; // eslint-disable-line no-duplicate-imports
 
 // Other dependencies.
 // import { DisposableStore } from 'vs/base/common/lifecycle';
 // import { usePositronDataExplorerContext } from 'vs/base/browser/ui/positronDataExplorer/positronDataExplorerContext';
 
 /**
- * ActionsBar component.
+ * FilterBar component.
  * @returns The rendered component.
  */
-export const ActionsBar = () => {
+export const FilterBar = () => {
 	const [lineCount, setLineCount] = useState(1);
 
 	const lines: string[] = [];
 	for (let i = 0; i < lineCount; i++) {
-		lines.push(`Actions line ${i}`);
+		lines.push(`Filter bar line ${i}`);
 	}
+
+	const clickHandler = (e: MouseEvent<HTMLElement>) => {
+		if (e.metaKey) {
+			setLineCount(1);
+		} else {
+			setLineCount(lineCount => lineCount + 1);
+		}
+	};
 
 	// Render.
 	return (
-		<div className='actions-bar' onClick={() => setLineCount(lineCount + 1)}>
+		<div className='filter-bar' onClick={clickHandler}>
 			{lines.map((line, index) =>
-				<div key={index}>{line}</div>
+				<div key={index} style={{ height: 22 }}>{line}</div>
 			)}
 		</div>
 	);

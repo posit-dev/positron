@@ -4,6 +4,9 @@
 
 .data-explorer-panel
 .data-explorer {
+	/* Experimental. */
+	position: relative;
+
 	/* Place the data-explorer in the data-explorer-panel. */
 	grid-row: data-explorer / status-bar;
 

@@ -438,6 +438,8 @@ export const DataGridWaffle = (props: DataGridWaffleProps) => {
 		top += context.instance.getRowHeight(rowIndex);
 	}
 
+	console.log(`Render ${new Date().getTime()} ${props.width}, ${props.height}`);
+
 	// Render.
 	return (
 		<div
