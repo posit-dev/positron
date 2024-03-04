@@ -14,6 +14,7 @@ import { Disposable, DisposableStore } from 'vs/base/common/lifecycle';
 import { Event, Emitter } from 'vs/base/common/event';
 import { IPositronConsoleService } from 'vs/workbench/services/positronConsole/browser/interfaces/positronConsoleService';
 import { IPositronVariablesService } from 'vs/workbench/services/positronVariables/common/interfaces/positronVariablesService';
+import { INotificationService } from 'vs/platform/notification/common/notification';
 import { ILogService } from 'vs/platform/log/common/log';
 import { IRuntimeClientInstance, RuntimeClientState, RuntimeClientType } from 'vs/workbench/services/languageRuntime/common/languageRuntimeClientInstance';
 import { DeferredPromise } from 'vs/base/common/async';
@@ -24,7 +25,7 @@ import { IPositronHelpService } from 'vs/workbench/contrib/positronHelp/browser/
 import { INotebookService } from 'vs/workbench/contrib/notebook/common/notebookService';
 import { IRuntimeClientEvent } from 'vs/workbench/services/languageRuntime/common/languageRuntimeUiClient';
 import { URI } from 'vs/base/common/uri';
-import { BusyEvent, UiFrontendEvent, OpenEditorEvent, PromptStateEvent, WorkingDirectoryEvent } from 'vs/workbench/services/languageRuntime/common/positronUiComm';
+import { BusyEvent, UiFrontendEvent, OpenEditorEvent, PromptStateEvent, WorkingDirectoryEvent, ShowMessageEvent } from 'vs/workbench/services/languageRuntime/common/positronUiComm';
 import { IEditorService } from 'vs/workbench/services/editor/common/editorService';
 import { ITextResourceEditorInput } from 'vs/platform/editor/common/editor';
 import { IPositronDataExplorerService } from 'vs/workbench/services/positronDataExplorer/browser/interfaces/positronDataExplorerService';
@@ -105,6 +106,7 @@ class ExtHostLanguageRuntimeAdapter implements ILanguageRuntime {
 		readonly metadata: ILanguageRuntimeMetadata,
 		readonly dynState: ILanguageRuntimeDynState,
 		private readonly _languageRuntimeService: ILanguageRuntimeService,
+		private readonly _notificationService: INotificationService,
 		private readonly _logService: ILogService,
 		private readonly _notebookService: INotebookService,
 		private readonly _editorService: IEditorService,
@@ -180,6 +182,10 @@ class ExtHostLanguageRuntimeAdapter implements ILanguageRuntime {
 				// Update current working directory
 				const dir = ev.data as WorkingDirectoryEvent;
 				this.dynState.currentWorkingDirectory = dir.directory;
+			} else if (ev.name === UiFrontendEvent.ShowMessage) {
+				// Show a message
+				const msg = ev.data as ShowMessageEvent;
+				this._notificationService.info(msg.message);
 			}
 
 			// Propagate event
@@ -950,6 +956,7 @@ export class MainThreadLanguageRuntime implements MainThreadLanguageRuntimeShape
 		@IPositronHelpService private readonly _positronHelpService: IPositronHelpService,
 		@IPositronPlotsService private readonly _positronPlotService: IPositronPlotsService,
 		@IPositronIPyWidgetsService private readonly _positronIPyWidgetsService: IPositronIPyWidgetsService,
+		@INotificationService private readonly _notificationService: INotificationService,
 		@ILogService private readonly _logService: ILogService,
 		@INotebookService private readonly _notebookService: INotebookService,
 		@IEditorService private readonly _editorService: IEditorService,
@@ -995,6 +1002,7 @@ export class MainThreadLanguageRuntime implements MainThreadLanguageRuntimeShape
 			metadata,
 			dynState,
 			this._languageRuntimeService,
+			this._notificationService,
 			this._logService,
 			this._notebookService,
 			this._editorService,

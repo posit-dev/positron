@@ -1117,5 +1117,13 @@ declare module 'positron' {
 		 * Returns a `EditorContext` for the last active editor.
 		 */
 		export function lastActiveEditorContext(): Thenable<EditorContext | null>;
+
+		/**
+		 * Executes a Positron command.
+		 *
+		 * @param command The Positron command name.
+		 */
+		export function executeCommand(commandId: string): Thenable<null>;
+
 	}
 }

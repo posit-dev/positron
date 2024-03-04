@@ -25,6 +25,7 @@ import { ExtHostConsoleService } from 'vs/workbench/api/common/positron/extHostC
 import { ExtHostMethods } from './extHostMethods';
 import { ExtHostEditors } from '../extHostTextEditors';
 import { UiFrontendRequest } from 'vs/workbench/services/languageRuntime/common/positronUiComm';
+import { ExtHostCommands } from 'vs/workbench/api/common/extHostCommands';
 
 /**
  * Factory interface for creating an instance of the Positron API.
@@ -57,12 +58,13 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 	const extHostLanguageFeatures: ExtHostLanguageFeatures =
 		rpcProtocol.getRaw(ExtHostContext.ExtHostLanguageFeatures);
 	const extHostEditors: ExtHostEditors = rpcProtocol.getRaw(ExtHostContext.ExtHostEditors);
+	const extHostCommands: ExtHostCommands = rpcProtocol.getRaw(ExtHostContext.ExtHostCommands);
 
 	const extHostLanguageRuntime = rpcProtocol.set(ExtHostPositronContext.ExtHostLanguageRuntime, new ExtHostLanguageRuntime(rpcProtocol));
 	const extHostPreviewPanels = rpcProtocol.set(ExtHostPositronContext.ExtHostPreviewPanel, new ExtHostPreviewPanels(rpcProtocol, extHostWebviews, extHostWorkspace));
 	const extHostModalDialogs = rpcProtocol.set(ExtHostPositronContext.ExtHostModalDialogs, new ExtHostModalDialogs(rpcProtocol));
 	const extHostConsoleService = rpcProtocol.set(ExtHostPositronContext.ExtHostConsoleService, new ExtHostConsoleService(rpcProtocol, extHostLogService));
-	const extHostMethods = rpcProtocol.set(ExtHostPositronContext.ExtHostMethods, new ExtHostMethods(rpcProtocol, extHostEditors));
+	const extHostMethods = rpcProtocol.set(ExtHostPositronContext.ExtHostMethods, new ExtHostMethods(rpcProtocol, extHostEditors, extHostCommands));
 
 	return function (extension: IExtensionDescription, extensionInfo: IExtensionRegistries, configProvider: ExtHostConfigProvider): typeof positron {
 
@@ -144,6 +146,9 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 			},
 			lastActiveEditorContext(): Thenable<positron.EditorContext | null> {
 				return extHostMethods.lastActiveEditorContext();
+			},
+			executeCommand(commandId: string): Thenable<null> {
+				return extHostMethods.executeCommand(commandId);
 			},
 		};
 
