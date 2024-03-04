@@ -2,7 +2,9 @@
 // Licensed under the MIT License.
 
 'use strict';
-
+// --- Start Positron ---
+import { IInstaller, ProductInstallStatus } from '../../../../client/common/types';
+// --- End Positron ---
 import { expect } from 'chai';
 import * as typemoq from 'typemoq';
 import { EventEmitter, Uri } from 'vscode';
@@ -57,6 +59,9 @@ suite('Application Diagnostics - Checks Python Interpreter', () => {
     let serviceContainer: typemoq.IMock<IServiceContainer>;
     let processService: typemoq.IMock<IProcessService>;
     let interpreterPathService: typemoq.IMock<IInterpreterPathService>;
+    // --- Start Positron ---
+    let installer: typemoq.IMock<IInstaller>;
+    // --- End Positron ---
     const oldComSpec = process.env.ComSpec;
     const oldPath = process.env.Path;
     function createContainer() {
@@ -73,6 +78,10 @@ suite('Application Diagnostics - Checks Python Interpreter', () => {
         processService.setup((p) => (p as any).then).returns(() => undefined);
         workspaceService = typemoq.Mock.ofType<IWorkspaceService>();
         commandManager = typemoq.Mock.ofType<ICommandManager>();
+        // --- Start Positron ---
+        installer = typemoq.Mock.ofType<IInstaller>();
+        serviceContainer.setup((s) => s.get(typemoq.It.isValue(IInstaller))).returns(() => installer.object);
+        // --- End Positron ---
         serviceContainer.setup((s) => s.get(typemoq.It.isValue(IFileSystem))).returns(() => fs.object);
         serviceContainer.setup((s) => s.get(typemoq.It.isValue(ICommandManager))).returns(() => commandManager.object);
         workspaceService.setup((w) => w.workspaceFile).returns(() => undefined);
@@ -134,11 +143,12 @@ suite('Application Diagnostics - Checks Python Interpreter', () => {
         });
 
         test('Registers command to trigger environment prompts', async () => {
-            // --- Start Positron ---
-            // TODO: Temporarily disabling, to be fixed in a separate PR.
-            return;
-            // --- End Positron ---
             let triggerFunction: ((resource: Resource) => Promise<boolean>) | undefined;
+            // --- Start Positron ---
+            installer
+                .setup((i) => i.isProductVersionCompatible(typemoq.It.isAny(), typemoq.It.isAny(), typemoq.It.isAny()))
+                .returns(() => Promise.resolve(ProductInstallStatus.Installed));
+            // --- End Positron ---
             commandManager
                 .setup((c) => c.registerCommand(Commands.TriggerEnvironmentSelection, typemoq.It.isAny()))
                 .callback((_, cb) => (triggerFunction = cb))
@@ -153,7 +163,7 @@ suite('Application Diagnostics - Checks Python Interpreter', () => {
             interpreterService.setup((i) => i.hasInterpreters()).returns(() => Promise.resolve(true));
             interpreterService
                 .setup((i) => i.getActiveInterpreter(typemoq.It.isAny()))
-                .returns(() => Promise.resolve(({ path: 'interpreterpath' } as unknown) as PythonEnvironment));
+                .returns(() => Promise.resolve({ path: 'interpreterpath' } as unknown as PythonEnvironment));
             const result2 = await triggerFunction!(undefined);
             expect(result2).to.equal(true);
         });
@@ -291,10 +301,6 @@ suite('Application Diagnostics - Checks Python Interpreter', () => {
             );
         });
         test('Should return invalid interpreter diagnostics on non-Windows if there is no current interpreter and execution fails', async function () {
-            // --- Start Positron ---
-            // TODO: Temporarily disabling, to be fixed in a separate PR.
-            return;
-            // --- End Positron ---
             if (getOSType() === OSType.Windows) {
                 return this.skip();
             }
@@ -308,6 +314,12 @@ suite('Application Diagnostics - Checks Python Interpreter', () => {
             processService
                 .setup((p) => p.shellExec(typemoq.It.isAny(), typemoq.It.isAny()))
                 .returns(() => Promise.reject({ errno: -4058 }));
+            // --- Start Positron ---
+            installer
+                .setup((i) => i.isProductVersionCompatible(typemoq.It.isAny(), typemoq.It.isAny(), typemoq.It.isAny()))
+                .returns(() => Promise.resolve(ProductInstallStatus.Installed));
+            // --- End Positron ---
+
             const diagnostics = await diagnosticService._manualDiagnose(undefined);
             expect(diagnostics).to.be.deep.equal(
                 [
@@ -321,10 +333,6 @@ suite('Application Diagnostics - Checks Python Interpreter', () => {
             );
         });
         test('Should return invalid interpreter diagnostics if there are interpreters but no current interpreter', async () => {
-            // --- Start Positron ---
-            // TODO: Temporarily disabling, to be fixed in a separate PR.
-            return;
-            // --- End Positron ---
             interpreterService
                 .setup((i) => i.hasInterpreters())
                 .returns(() => Promise.resolve(true))
@@ -334,6 +342,11 @@ suite('Application Diagnostics - Checks Python Interpreter', () => {
                 .returns(() => {
                     return Promise.resolve(undefined);
                 });
+            // --- Start Positron ---
+            installer
+                .setup((i) => i.isProductVersionCompatible(typemoq.It.isAny(), typemoq.It.isAny(), typemoq.It.isAny()))
+                .returns(() => Promise.resolve(ProductInstallStatus.Installed));
+            // --- End Positron ---
 
             const diagnostics = await diagnosticService._manualDiagnose(undefined);
             expect(diagnostics).to.be.deep.equal(
@@ -348,10 +361,6 @@ suite('Application Diagnostics - Checks Python Interpreter', () => {
             );
         });
         test('Should return empty diagnostics if there are interpreters and a current interpreter', async () => {
-            // --- Start Positron ---
-            // TODO: Temporarily disabling, to be fixed in a separate PR.
-            return;
-            // --- End Positron ---
             interpreterService.setup((i) => i.hasInterpreters()).returns(() => Promise.resolve(true));
             interpreterService
                 .setup((i) => i.getActiveInterpreter(typemoq.It.isAny()))
@@ -365,7 +374,7 @@ suite('Application Diagnostics - Checks Python Interpreter', () => {
 
         test('Handling comspec diagnostic should launch expected browser link', async () => {
             const diagnostic = new DefaultShellDiagnostic(DiagnosticCodes.InvalidComspecDiagnostic, undefined);
-            const cmd = ({} as any) as IDiagnosticCommand;
+            const cmd = {} as any as IDiagnosticCommand;
             let messagePrompt: MessageCommandPrompt | undefined;
             messageHandler
                 .setup((i) => i.handle(typemoq.It.isValue(diagnostic), typemoq.It.isAny()))
@@ -400,7 +409,7 @@ suite('Application Diagnostics - Checks Python Interpreter', () => {
 
         test('Handling incomplete path diagnostic should launch expected browser link', async () => {
             const diagnostic = new DefaultShellDiagnostic(DiagnosticCodes.IncompletePathVarDiagnostic, undefined);
-            const cmd = ({} as any) as IDiagnosticCommand;
+            const cmd = {} as any as IDiagnosticCommand;
             let messagePrompt: MessageCommandPrompt | undefined;
             messageHandler
                 .setup((i) => i.handle(typemoq.It.isValue(diagnostic), typemoq.It.isAny()))
@@ -435,7 +444,7 @@ suite('Application Diagnostics - Checks Python Interpreter', () => {
 
         test('Handling default shell error diagnostic should launch expected browser link', async () => {
             const diagnostic = new DefaultShellDiagnostic(DiagnosticCodes.DefaultShellErrorDiagnostic, undefined);
-            const cmd = ({} as any) as IDiagnosticCommand;
+            const cmd = {} as any as IDiagnosticCommand;
             let messagePrompt: MessageCommandPrompt | undefined;
             messageHandler
                 .setup((i) => i.handle(typemoq.It.isValue(diagnostic), typemoq.It.isAny()))
@@ -474,7 +483,7 @@ suite('Application Diagnostics - Checks Python Interpreter', () => {
                 undefined,
                 workspaceService.object,
             );
-            const cmd = ({} as any) as IDiagnosticCommand;
+            const cmd = {} as any as IDiagnosticCommand;
             let messagePrompt: MessageCommandPrompt | undefined;
             messageHandler
                 .setup((i) => i.handle(typemoq.It.isValue(diagnostic), typemoq.It.isAny()))
@@ -514,7 +523,7 @@ suite('Application Diagnostics - Checks Python Interpreter', () => {
                 undefined,
                 workspaceService.object,
             );
-            const cmd = ({} as any) as IDiagnosticCommand;
+            const cmd = {} as any as IDiagnosticCommand;
             let messagePrompt: MessageCommandPrompt | undefined;
             messageHandler
                 .setup((i) => i.handle(typemoq.It.isValue(diagnostic), typemoq.It.isAny()))
@@ -546,7 +555,7 @@ suite('Application Diagnostics - Checks Python Interpreter', () => {
         });
         test('Handling an empty diagnostic should not show a message nor return a command', async () => {
             const diagnostics: IDiagnostic[] = [];
-            const cmd = ({} as any) as IDiagnosticCommand;
+            const cmd = {} as any as IDiagnosticCommand;
 
             messageHandler
                 .setup((i) => i.handle(typemoq.It.isAny(), typemoq.It.isAny()))
@@ -576,10 +585,10 @@ suite('Application Diagnostics - Checks Python Interpreter', () => {
                 undefined,
                 workspaceService.object,
             );
-            const cmd = ({} as any) as IDiagnosticCommand;
-            const diagnosticServiceMock = (typemoq.Mock.ofInstance(diagnosticService) as any) as typemoq.IMock<
-                InvalidPythonInterpreterService
-            >;
+            const cmd = {} as any as IDiagnosticCommand;
+            const diagnosticServiceMock = typemoq.Mock.ofInstance(
+                diagnosticService,
+            ) as any as typemoq.IMock<InvalidPythonInterpreterService>;
 
             diagnosticServiceMock.setup((f) => f.canHandle(typemoq.It.isAny())).returns(() => Promise.resolve(false));
             messageHandler
@@ -605,4 +614,27 @@ suite('Application Diagnostics - Checks Python Interpreter', () => {
             commandFactory.verifyAll();
         });
     });
+    // --- Start Positron ---
+    suite('IPyKernel diagnostic tests', () => {
+        test('Should not return diagnostics if ipykernel not installed', async () => {
+            interpreterService
+                .setup((i) => i.hasInterpreters())
+                .returns(() => Promise.resolve(true))
+                .verifiable(typemoq.Times.once());
+            interpreterService
+                .setup((i) => i.getActiveInterpreter(typemoq.It.isAny()))
+                .returns(() => {
+                    return Promise.resolve(undefined);
+                });
+            serviceContainer.setup((s) => s.get(typemoq.It.isValue(IInstaller))).returns(() => installer.object);
+            installer
+                .setup((i) => i.isProductVersionCompatible(typemoq.It.isAny(), typemoq.It.isAny(), typemoq.It.isAny()))
+                .returns(() => Promise.resolve(ProductInstallStatus.NotInstalled));
+
+            const diagnostics = await diagnosticService._manualDiagnose(undefined);
+            expect(diagnostics).to.be.deep.equal([], 'not the same');
+        });
+    });
+
+    // --- End Positron ---
 });
