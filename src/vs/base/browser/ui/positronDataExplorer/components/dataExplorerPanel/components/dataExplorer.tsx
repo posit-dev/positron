@@ -22,14 +22,6 @@ import { PositronDataExplorerLayout } from 'vs/workbench/services/positronDataEx
 const MIN_COLUMN_WIDTH = 275;
 
 /**
- * Size interface.
- */
-interface Size {
-	width: number;
-	height: number;
-}
-
-/**
  * DataExplorer component.
  * @returns The rendered component.
  */
@@ -44,11 +36,11 @@ export const DataExplorer = () => {
 	const column2 = useRef<HTMLDivElement>(undefined!);
 
 	// State hooks.
-	const [size, setSize] = useState<Size>({ width: 0, height: 0 });
+	const [width, setWidth] = useState(0);
 	const [layout, setLayout] = useState(context.instance.layout);
 	const [columnsWidth, setColumnsWidth] = useState(0);
 
-	// Main useEffect.
+	// Main useEffect. This is where we set up event handlers.
 	useEffect(() => {
 		// Create the disposable store for cleanup.
 		const disposableStore = new DisposableStore();
@@ -62,22 +54,20 @@ export const DataExplorer = () => {
 		return () => disposableStore.dispose();
 	}, []);
 
-	// Resize observer.
-	React.useLayoutEffect(() => {
-		// Set the columns width.
+	// Automatic layout useEffect.
+	useEffect(() => {
+		// Set the initial width.
+		setWidth(dataExplorer.current.offsetWidth);
+
+		// Set the initial columns width.
 		setColumnsWidth(Math.max(
 			Math.trunc(context.instance.columnsWidthPercent * dataExplorer.current.offsetWidth),
 			MIN_COLUMN_WIDTH
 		));
 
-		// Allocate and initialize the resize observer.
+		// Allocate and initialize the data explorer resize observer.
 		const resizeObserver = new ResizeObserver(entries => {
-			// When the size of the data explorer changes, set the new size.
-			console.log(`SETTING SIZE CALLED`);
-			setSize({
-				width: entries[0].contentRect.width,
-				height: entries[0].contentRect.height
-			});
+			setWidth(entries[0].contentRect.width);
 		});
 
 		// Start observing the size of the data explorer.
@@ -87,7 +77,7 @@ export const DataExplorer = () => {
 		return () => resizeObserver.disconnect();
 	}, [dataExplorer]);
 
-	// Layout effect.
+	// Layout useEffect.
 	useEffect(() => {
 		switch (layout) {
 			// Columns left.
@@ -140,7 +130,7 @@ export const DataExplorer = () => {
 	 */
 	const beginResizeHandler = (): VerticalSplitterResizeParams => ({
 		minimumWidth: MIN_COLUMN_WIDTH,
-		maximumWidth: Math.trunc(2 * size.width / 3),
+		maximumWidth: Math.trunc(2 * width / 3),
 		startingWidth: columnsWidth,
 		invert: layout === PositronDataExplorerLayout.ColumnsRight
 	});
@@ -151,10 +141,10 @@ export const DataExplorer = () => {
 	 */
 	const resizeHandler = (newColumnsWidth: number) => {
 		setColumnsWidth(newColumnsWidth);
-		context.instance.columnsWidthPercent = newColumnsWidth / size.width;
+		context.instance.columnsWidthPercent = newColumnsWidth / width;
 	};
 
-	console.log(`Rendering data explorer for ${size.width}, ${size.height}`);
+	console.log('Rendering data explorer');
 
 	// Render.
 	return (
@@ -163,8 +153,6 @@ export const DataExplorer = () => {
 				<PositronDataGrid
 					layoutService={context.layoutService}
 					instance={context.instance.tableSchemaDataGridInstance}
-					width={columnsWidth}
-					height={size.height}
 				/>
 			</div>
 			<div ref={splitter} className='splitter'>
@@ -178,11 +166,6 @@ export const DataExplorer = () => {
 				<PositronDataGrid
 					layoutService={context.layoutService}
 					instance={context.instance.tableDataDataGridInstance}
-					width={layout === PositronDataExplorerLayout.ColumnsHidden ?
-						size.width :
-						size.width - columnsWidth
-					}
-					height={size.height}
 				/>
 			</div>
 		</div>
