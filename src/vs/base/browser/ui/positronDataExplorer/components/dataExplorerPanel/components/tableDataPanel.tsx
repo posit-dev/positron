@@ -38,7 +38,6 @@ export const TableDataPanel = (props: TableDataPanelProps) => {
 					instance={context.instance.tableDataDataGridInstance}
 					width={props.width}
 					height={props.height}
-					borderTop={true}
 				/>
 			</div>
 		</div>
