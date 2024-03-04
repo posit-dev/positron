@@ -10,6 +10,9 @@ import {
 } from './common';
 import { IS_SMOKE_TEST, PVSC_EXTENSION_ID_FOR_TESTS } from './constants';
 import { sleep } from './core';
+// --- Start Positron ---
+import { initializePositron } from './positron/initialize';
+// --- End Positron ---
 
 export * from './constants';
 export * from './ciConstants';
@@ -43,7 +46,11 @@ export async function initialize(): Promise<IExtensionTestApi> {
         configSettings.PythonSettings.dispose();
     }
 
-    return (api as any) as IExtensionTestApi;
+    // --- Start Positron ---
+    await initializePositron();
+    // --- End Positron ---
+
+    return api as any as IExtensionTestApi;
 }
 export async function activateExtension() {
     const extension = vscode.extensions.getExtension<PythonExtension>(PVSC_EXTENSION_ID_FOR_TESTS)!;

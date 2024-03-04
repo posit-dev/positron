@@ -1,0 +1,346 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *--------------------------------------------------------------------------------------------*/
+
+import { exec, spawnSync } from 'child_process';
+import * as fs from 'fs-extra';
+import { IncomingMessage } from 'http';
+import * as https from 'https';
+import * as os from 'os';
+import * as path from 'path';
+import { defaultCachePath } from '@vscode/test-electron/out/download';
+import { TestOptions } from '@vscode/test-electron/out/runTest';
+import { runTests as vscodeRunTests } from '@vscode/test-electron';
+
+const rmrf = require('rimraf');
+
+const COMPLETE_FILE_NAME = 'is-complete';
+
+// Create a promisified version of https.get. We can't use the built-in promisify
+// because the callback doesn't follow the promise convention of (error, result).
+const httpsGetAsync = (opts: string | https.RequestOptions) =>
+    new Promise<IncomingMessage>((resolve, reject) => {
+        const req = https.get(opts, resolve);
+        req.once('error', reject);
+    });
+
+/**
+ * Helper to execute a command and return the stdout and stderr.
+ *
+ * @param command The command to execute.
+ * @param stdin Optional stdin to pass to the command.
+ * @returns A promise that resolves with the stdout and stderr of the command.
+ */
+async function executeCommand(command: string, stdin?: string): Promise<{ stdout: string; stderr: string }> {
+    return new Promise((resolve, reject) => {
+        const process = exec(command, (error, stdout, stderr) => {
+            if (error) {
+                reject(error);
+            } else {
+                resolve({ stdout, stderr });
+            }
+        });
+        if (stdin) {
+            process.stdin!.write(stdin);
+            process.stdin!.end();
+        }
+    });
+}
+
+/**
+ * Helper to execute a command (quoting arguments) and return stdout.
+ *
+ * @param command The command to execute.
+ * @param args The arguments to pass to the command.
+ * @returns The stdout of the command.
+ */
+function spawnSyncCommand(command: string, args?: string[]): string {
+    const result = spawnSync(command, args);
+    if (result.error) {
+        throw result.error;
+    }
+    if (result.status !== 0) {
+        throw new Error(`Command failed: ${command}, stderr: ${result.stderr.toString()}`);
+    }
+    return result.stdout.toString();
+}
+
+/**
+ * Download and unzip the latest Positron release to the vscode test cache directory.
+ * Roughly equivalent to `downloadAndUnzipVSCode` from `@vscode/test-electron`.
+ */
+export async function downloadAndUnzipPositron(): Promise<{ version: string; executablePath: string }> {
+    // Adapted from: https://github.com/posit-dev/positron/extensions/positron-r/scripts/install-kernel.ts.
+
+    // We need a Github Personal Access Token (PAT) to download Positron. Because this is sensitive
+    // information, there are a lot of ways to set it. We try the following in order:
+
+    // (1) The GITHUB_PAT environment variable.
+    // (2) The POSITRON_GITHUB_PAT environment variable.
+    // (3) The git config setting 'credential.https://api.github.com.token'.
+    // (4) The git credential store.
+
+    // (1) Get the GITHUB_PAT from the environment.
+    let githubPat = process.env.GITHUB_PAT;
+    let gitCredential = false;
+    if (githubPat) {
+        console.log('Using Github PAT from environment variable GITHUB_PAT.');
+    } else {
+        // (2) Try POSITRON_GITHUB_PAT (it's what the build script sets)
+        githubPat = process.env.POSITRON_GITHUB_PAT;
+        if (githubPat) {
+            console.log('Using Github PAT from environment variable POSITRON_GITHUB_PAT.');
+        }
+    }
+
+    // (3) If no GITHUB_PAT is set, try to get it from git config. This provides a
+    // convenient non-interactive way to set the PAT.
+    if (!githubPat) {
+        try {
+            const { stdout } = await executeCommand('git config --get credential.https://api.github.com.token');
+            githubPat = stdout.trim();
+            if (githubPat) {
+                console.log(`Using Github PAT from git config setting 'credential.https://api.github.com.token'.`);
+            }
+        } catch (error) {
+            // We don't care if this fails; we'll try `git credential` next.
+        }
+    }
+
+    // (4) If no GITHUB_PAT is set, try to get it from git credential.
+    if (!githubPat) {
+        // Explain to the user what's about to happen.
+        console.log(
+            `Attempting to retrieve a Github Personal Access Token from git in order\n` +
+                `to download Positron. If you are prompted for a username and\n` +
+                `password, enter your Github username and a Personal Access Token with the\n` +
+                `'repo' scope. You can read about how to create a Personal Access Token here: \n` +
+                `\n` +
+                `https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/managing-your-personal-access-tokens\n` +
+                `\n` +
+                `You can set a PAT later by rerunning this command and supplying the PAT at this prompt,\n` +
+                `or by running 'git config credential.https://api.github.com.token YOUR_GITHUB_PAT'\n`,
+        );
+        const { stdout } = await executeCommand(
+            'git credential fill',
+            `protocol=https\nhost=github.com\npath=/repos/posit-dev/positron/releases\n`,
+        );
+
+        gitCredential = true;
+        // Extract the `password = ` line from the output.
+        const passwordLine = stdout.split('\n').find((line: string) => line.startsWith('password='));
+        if (passwordLine) {
+            [, githubPat] = passwordLine.split('=');
+            console.log(`Using Github PAT returned from 'git credential'.`);
+        }
+    }
+
+    if (!githubPat) {
+        throw new Error(`No Github PAT was found. Unable to download Positron.`);
+    }
+
+    const response = await httpsGetAsync({
+        headers: {
+            Accept: 'application/vnd.github.v3.raw', // eslint-disable-line
+            Authorization: `token ${githubPat}`, // eslint-disable-line
+            'User-Agent': 'positron-python-tests', // eslint-disable-line
+        },
+        method: 'GET',
+        protocol: 'https:',
+        hostname: 'api.github.com',
+        path: `/repos/posit-dev/positron/releases`,
+    });
+
+    // Special handling for PATs originating from `git credential`.
+    if (gitCredential && response.statusCode === 200) {
+        // If the PAT hasn't been approved yet, do so now. This stores the credential in
+        // the system credential store (or whatever `git credential` uses on the system).
+        // Without this step, the user will be prompted for a username and password the
+        // next time they try to download Positron.
+        const { stdout, stderr } = await executeCommand(
+            'git credential approve',
+            `protocol=https\n` +
+                `host=github.com\n` +
+                `path=/repos/posit-dev/positron/releases\n` +
+                `username=\n` +
+                `password=${githubPat}\n`,
+        );
+        console.log(stdout);
+        if (stderr) {
+            console.warn(
+                `Unable to approve PAT. You may be prompted for a username and ` +
+                    `password the next time you download Positron.`,
+            );
+            console.error(stderr);
+        }
+    } else if (gitCredential && response.statusCode && response.statusCode > 400 && response.statusCode < 500) {
+        // This handles the case wherein we got an invalid PAT from `git credential`. In this
+        // case we need to clean up the PAT from the credential store, so that we don't
+        // continue to use it.
+        const { stdout, stderr } = await executeCommand(
+            'git credential reject',
+            `protocol=https\n` +
+                `host=github.com\n` +
+                `path=/repos/posit-dev/positron/releases\n` +
+                `username=\n` +
+                `password=${githubPat}\n`,
+        );
+        console.log(stdout);
+        if (stderr) {
+            console.error(stderr);
+            throw new Error(
+                `The stored PAT returned by 'git credential' is invalid, but\n` +
+                    `could not be removed. Please manually remove the PAT from 'git credential'\n` +
+                    `for the host 'github.com'`,
+            );
+        }
+        throw new Error(
+            `The PAT returned by 'git credential' is invalid. Positron cannot be\n` +
+                `downloaded.\n\n` +
+                `Check to be sure that your Personal Access Token:\n` +
+                '- Has the `repo` scope\n' +
+                '- Is not expired\n' +
+                '- Has been authorized for the "posit-dev" organization on Github (Configure SSO)\n',
+        );
+    }
+
+    let responseBody = '';
+    response.on('data', (chunk) => {
+        responseBody += chunk;
+    });
+
+    const releases = await new Promise((resolve, reject) => {
+        response.once('end', async () => {
+            if (response.statusCode !== 200) {
+                reject(new Error(`Failed to download Positron: HTTP ${response.statusCode}\n\n${responseBody}`));
+            } else {
+                resolve(JSON.parse(responseBody));
+            }
+        });
+    });
+
+    if (!Array.isArray(releases)) {
+        throw new Error(`Unexpected response from Github:\n\n${responseBody}`);
+    }
+    const release = releases[0];
+    if (!release) {
+        throw new Error(`Unexpected error, no releases found.`);
+    }
+
+    const { platform } = process;
+    let suffix: string;
+    switch (platform) {
+        case 'darwin':
+            suffix = '.dmg';
+            break;
+        case 'linux':
+            suffix = '.deb';
+            break;
+        case 'win32':
+            suffix = '.exe';
+            break;
+        default: {
+            throw new Error(`Unsupported platform: ${platform}.`);
+        }
+    }
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const asset = release.assets.find((a: any) => a.name.endsWith(suffix));
+    if (!asset) {
+        throw new Error(`No asset found with suffix ${suffix} for platform ${platform}`);
+    }
+    const version = release.tag_name;
+    console.log(`Using ${version} build of Positron`);
+
+    // Exit early if the version has already been downloaded and unzipped.
+    const installDir = path.join(defaultCachePath, `positron-${platform}-${version}`);
+    const completeFile = path.join(installDir, COMPLETE_FILE_NAME);
+
+    let executablePath: string;
+    switch (platform) {
+        case 'darwin':
+            executablePath = path.join(installDir, 'Positron.app', 'Contents', 'MacOS', 'Electron');
+            break;
+        default:
+            throw new Error(`Unsupported platform: ${platform}`);
+    }
+
+    if (await fs.pathExists(completeFile)) {
+        console.log(`Found existing install in ${installDir}`);
+        return { version, executablePath };
+    }
+
+    console.log(`Downloading Positron for ${platform} from ${asset.url}`);
+    const url = new URL(asset.url);
+    const dlRequestOptions: https.RequestOptions = {
+        headers: {
+            Accept: 'application/octet-stream', // eslint-disable-line
+            Authorization: `token ${githubPat}`, // eslint-disable-line
+            'User-Agent': 'positron-python-tests', // eslint-disable-line
+        },
+        method: 'GET',
+        protocol: url.protocol,
+        hostname: url.hostname,
+        path: url.pathname,
+    };
+
+    let dlResponse = await httpsGetAsync(dlRequestOptions);
+    while (dlResponse.statusCode === 302 && dlResponse.headers.location) {
+        // Follow redirects.
+        dlResponse = await httpsGetAsync(dlResponse.headers.location);
+    }
+
+    // Download to a temporary file.
+    const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'positron-'));
+    const fileName = asset.name;
+    const downloadPath = path.join(tempDir, fileName);
+    try {
+        const writer = fs.createWriteStream(downloadPath);
+        dlResponse.pipe(writer);
+        await new Promise((resolve, reject) => {
+            writer.once('finish', resolve);
+            writer.once('error', reject);
+        });
+
+        if (!(await fs.pathExists(installDir))) {
+            await fs.mkdir(installDir, { recursive: true });
+        }
+
+        if (platform === 'darwin') {
+            console.log(`Installing Positron to ${installDir}`);
+
+            // Mount the dmg.
+            spawnSyncCommand('hdiutil', ['attach', '-quiet', downloadPath]);
+
+            const volumeMount = path.join('/Volumes', path.basename(fileName, '.dmg'));
+            try {
+                const appPath = path.join(volumeMount, 'Positron.app');
+                const targetPath = path.join(installDir, 'Positron.app');
+
+                // Copy the app to the install directory.
+                rmrf.sync(targetPath);
+                await fs.copy(appPath, targetPath);
+            } finally {
+                // Unmount the dmg.
+                spawnSyncCommand('hdiutil', ['detach', '-quiet', volumeMount]);
+            }
+
+            // Mark as complete for subsequent runs.
+            await fs.writeFile(completeFile, '');
+
+            return { version, executablePath };
+        }
+    } finally {
+        fs.unlink(downloadPath);
+    }
+
+    throw new Error(`Unsupported platform: ${platform}`);
+}
+
+/**
+ * Wrap `@vscode/test-electron/runTests` to download and use the latest Positron release.
+ */
+export async function runTests(options: TestOptions): Promise<number> {
+    const { version, executablePath: vscodeExecutablePath } = await downloadAndUnzipPositron();
+    return vscodeRunTests({ version, vscodeExecutablePath, ...options });
+}
