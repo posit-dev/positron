@@ -7,7 +7,15 @@ import { DiagnosticSeverity, l10n } from 'vscode';
 import '../../../common/extensions';
 import * as path from 'path';
 // --- Start Positron ---
-import { IConfigurationService, IDisposableRegistry, IInstaller, IInterpreterPathService, Product, ProductInstallStatus, Resource } from '../../../common/types';
+import {
+    IConfigurationService,
+    IDisposableRegistry,
+    IInstaller,
+    IInterpreterPathService,
+    Product,
+    ProductInstallStatus,
+    Resource,
+} from '../../../common/types';
 // --- End Positron ---
 import { IInterpreterService } from '../../../interpreter/contracts';
 import { IServiceContainer } from '../../../ioc/types';
@@ -95,8 +103,10 @@ export class DefaultShellDiagnostic extends BaseDiagnostic {
 export const InvalidPythonInterpreterServiceId = 'InvalidPythonInterpreterServiceId';
 
 @injectable()
-export class InvalidPythonInterpreterService extends BaseDiagnosticsService
-    implements IExtensionSingleActivationService {
+export class InvalidPythonInterpreterService
+    extends BaseDiagnosticsService
+    implements IExtensionSingleActivationService
+{
     public readonly supportedWorkspaceTypes = { untrustedWorkspace: false, virtualWorkspace: true };
 
     constructor(
@@ -160,11 +170,20 @@ export class InvalidPythonInterpreterService extends BaseDiagnosticsService
 
         const currentInterpreter = await interpreterService.getActiveInterpreter(resource);
         // --- Start Positron ---
-        // if invalid Python is caused by no ipykernel installation, our modal will handle it
-        const installer = this.serviceContainer.get<IInstaller>(IInstaller);
-        const hasCompatibleKernel = await installer.isProductVersionCompatible(Product.ipykernel, IPYKERNEL_VERSION, currentInterpreter);
 
-        if (!currentInterpreter && hasCompatibleKernel === ProductInstallStatus.Installed) {
+        if (!currentInterpreter) {
+            // if invalid Python is caused by no ipykernel installation, our modal will handle it
+            const installer = this.serviceContainer.get<IInstaller>(IInstaller);
+
+            const hasCompatibleKernel = await installer.isProductVersionCompatible(
+                Product.ipykernel,
+                IPYKERNEL_VERSION,
+                currentInterpreter,
+            );
+            // don't return diagnostics if discovering kernels without ipykernel
+            if (hasCompatibleKernel !== ProductInstallStatus.Installed) {
+                return [];
+            }
             // --- End Positron ---
             return [
                 new InvalidPythonInterpreterDiagnostic(
