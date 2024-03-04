@@ -118,6 +118,21 @@
 			"result": {}
 		},
 		{
+			"name": "execute_command",
+			"summary": "Execute a Positron command",
+			"description": "Use this to execute a Positron command from the backend (like from a runtime)",
+			"params": [
+				{
+					"name": "command",
+					"description": "The command to execute",
+					"schema": {
+						"type": "string"
+					}
+				}
+			],
+			"result": {}
+		},
+		{
 			"name": "last_active_editor_context",
 			"summary": "Context metadata for the last editor",
 			"description": "Returns metadata such as file path for the last editor selected by the user. The result may be undefined if there are no active editors.",

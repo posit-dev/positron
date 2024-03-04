@@ -4,6 +4,7 @@
 
 import * as extHostProtocol from './extHost.positron.protocol';
 import { ExtHostEditors } from '../extHostTextEditors';
+import { ExtHostCommands } from '../extHostCommands';
 import { UiFrontendRequest, EditorContext } from 'vs/workbench/services/languageRuntime/common/positronUiComm';
 import { JsonRpcErrorCode } from 'vs/workbench/services/languageRuntime/common/positronBaseComm';
 import { EndOfLine } from '../extHostTypeConverters';
@@ -32,6 +33,7 @@ export class ExtHostMethods implements extHostProtocol.ExtHostMethodsShape {
 	constructor(
 		_mainContext: extHostProtocol.IMainPositronContext,
 		private readonly editors: ExtHostEditors,
+		private readonly commands: ExtHostCommands
 	) {
 	}
 
@@ -65,6 +67,13 @@ export class ExtHostMethods implements extHostProtocol.ExtHostMethodsShape {
 						return newInvalidParamsError(method);
 					}
 					result = await this.debugSleep(params.ms as number);
+					break;
+				}
+				case UiFrontendRequest.ExecuteCommand: {
+					if (!params || !Object.keys(params).includes('command')) {
+						return newInvalidParamsError(method);
+					}
+					result = await this.executeCommand(params.command as string);
 					break;
 				}
 			}
@@ -142,6 +151,11 @@ export class ExtHostMethods implements extHostProtocol.ExtHostMethodsShape {
 			selection: selections[0],
 			selections: selections
 		};
+	}
+
+	async executeCommand(commandId: string): Promise<null> {
+		await this.commands.executeCommand(commandId);
+		return null;
 	}
 
 	async debugSleep(ms: number): Promise<null> {
