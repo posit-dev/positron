@@ -32,7 +32,6 @@ export function PositronNotebookComponent(
 	const kernelId = useObservedValue(kernelObservable, kernel => kernel?.id || null);
 	const notebookCells = useObservedValue(notebookInstance.cells);
 
-
 	return (
 		<div className='positron-notebook'>
 			<div className='positron-notebook-header'>
@@ -44,7 +43,7 @@ export function PositronNotebookComponent(
 				<div className='positron-notebook-cells-action-bar'>
 
 					<PositronButton className='action run-button' ariaLabel={'Run cell'} onPressed={() => {
-						console.log('execute all cells');
+						notebookInstance.runAllCells();
 					}}>
 						<span className='action-label'>Run all cells</span>
 						<div className={`button-icon codicon ${'codicon-run'}`} />

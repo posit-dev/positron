@@ -63,6 +63,12 @@ interface IPositronNotebookInstance {
 	// Methods for interacting with the notebook
 
 	/**
+	 * Run the given cells
+	 * @param cells The cells to run
+	 */
+	runCells(cells: PositronNotebookCell[]): Promise<void>;
+
+	/**
 	 * Run the selected cells
 	 */
 	runSelectedCells(): Promise<void>;
@@ -78,42 +84,6 @@ interface IPositronNotebookInstance {
 	addCell(type: 'code' | 'markdown', index: number): void;
 }
 
-
-/**
- * Wrapper class for notebook cell that exposes the properties that the UI needs to render the cell.
- */
-interface IPositronNotebookCell {
-
-	/**
-	 * Cell specific uri for the cell within the notebook
-	 */
-	get uri(): URI;
-
-	/**
-	 * The content of the cell. This is the raw text of the cell.
-	 */
-	getContent(): string;
-
-	/**
-	 * The view model for the cell.
-	 */
-	viewModel: NotebookCellTextModel;
-
-	/**
-	 * The text model for the cell. This is needed for the monaco editor widgets
-	 */
-	textModel?: ITextModel;
-
-	/**
-	 * Current execution status for this cell
-	 */
-	executionStatus: ISettableObservable<ExecutionStatus, void>;
-
-	/**
-	 * Current cell outputs as an observable
-	 */
-	outputs: ISettableObservable<ICellOutput[], void>;
-}
 
 
 
@@ -178,13 +148,29 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	}
 
 	async runCells(cells: PositronNotebookCell[]): Promise<void> {
-		console.log('Run cell(s) please');
-		if (!this._viewModel) {
-			throw new Error(localize('noModel', "No model"));
-		}
 
 		if (!cells) {
 			throw new Error(localize('noCells', "No cells to run"));
+		}
+		await this._runCells(cells);
+	}
+
+	async runAllCells(): Promise<void> {
+		await this._runCells(this._cells);
+	}
+
+	async runSelectedCells(): Promise<void> {
+		await this._runCells(this.selectedCells);
+	}
+
+	/**
+	 * Internal method to run cells, used by other cell running methods.
+	 * @param cells Cells to run
+	 * @returns
+	 */
+	private async _runCells(cells: PositronNotebookCell[]): Promise<void> {
+		if (!this._viewModel) {
+			throw new Error(localize('noModel', "No model"));
 		}
 
 		for (const cell of cells) {
@@ -214,12 +200,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	 */
 	contextKeyService: IContextKeyService | undefined = undefined;
 
-	runSelectedCells(): Promise<void> {
-		throw new Error('Method not implemented.');
-	}
-	runAllCells(): Promise<void> {
-		throw new Error('Method not implemented.');
-	}
+
 	addCell(type: 'code' | 'markdown', index: number): void {
 		throw new Error('Method not implemented.');
 	}
@@ -239,7 +220,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 
 		const notebookModel = model.notebook;
 		this._cells = notebookModel.cells.map(cell =>
-			new PositronNotebookCell(cell)
+			new PositronNotebookCell(cell, this)
 		);
 		this.cells.set(this._cells, undefined);
 
@@ -248,11 +229,54 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	}
 }
 
+
+
+/**
+ * Wrapper class for notebook cell that exposes the properties that the UI needs to render the cell.
+ */
+interface IPositronNotebookCell {
+
+	/**
+	 * Cell specific uri for the cell within the notebook
+	 */
+	get uri(): URI;
+
+	/**
+	 * The content of the cell. This is the raw text of the cell.
+	 */
+	getContent(): string;
+
+	/**
+	 * The view model for the cell.
+	 */
+	viewModel: NotebookCellTextModel;
+
+	/**
+	 * The text model for the cell. This is needed for the monaco editor widgets
+	 */
+	textModel?: ITextModel;
+
+	/**
+	 * Current execution status for this cell
+	 */
+	executionStatus: ISettableObservable<ExecutionStatus, void>;
+
+	/**
+	 * Current cell outputs as an observable
+	 */
+	outputs: ISettableObservable<ICellOutput[], void>;
+
+	/**
+	 * Run this cell
+	 */
+	run(): void;
+}
+
 export class PositronNotebookCell extends Disposable implements IPositronNotebookCell {
 	executionStatus: ISettableObservable<ExecutionStatus, void>;
 	outputs: ISettableObservable<ICellOutput[], void>;
 
-	constructor(public viewModel: NotebookCellTextModel) {
+	constructor(public viewModel: NotebookCellTextModel, private _instance: IPositronNotebookInstance) {
 		super();
 		this.executionStatus = observableValue<ExecutionStatus, void>('cellExecutionStatus', 'idle');
 		this.outputs = observableValue<ICellOutput[], void>('cellOutputs', this.viewModel.outputs);
@@ -274,6 +298,10 @@ export class PositronNotebookCell extends Disposable implements IPositronNoteboo
 
 	getContent(): string {
 		return this.viewModel.getValue();
+	}
+
+	run(): void {
+		this._instance.runCells([this]);
 	}
 
 	// override dispose() {

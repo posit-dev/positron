@@ -10,7 +10,6 @@ import { VSBuffer } from 'vs/base/common/buffer';
 import { ISettableObservable } from 'vs/base/common/observableInternal/base';
 import { NotebookCellOutputTextModel } from 'vs/workbench/contrib/notebook/common/model/notebookCellOutputTextModel';
 import { ICellOutput } from 'vs/workbench/contrib/notebook/common/notebookCommon';
-import { useNotebookInstance } from 'vs/workbench/contrib/positronNotebook/browser/NotebookInstanceProvider';
 import { PositronNotebookCell } from 'vs/workbench/contrib/positronNotebook/browser/PositronNotebookInstance';
 import { CellExecutionStatusCallback } from 'vs/workbench/contrib/positronNotebook/browser/PositronNotebookWidget';
 import { parseOutputData } from 'vs/workbench/contrib/positronNotebook/browser/getOutputContents';
@@ -33,7 +32,6 @@ export interface NotebookCellProps {
 
 export function NotebookCell(opts: NotebookCellProps) {
 
-	const notebookInstance = useNotebookInstance();
 	const { editorPartRef, editorContainerRef } = useCellEditorWidget(opts);
 
 	const executionStatus = useObservedValue(opts.cell.executionStatus);
@@ -48,9 +46,7 @@ export function NotebookCell(opts: NotebookCellProps) {
 				<PositronButton
 					className='action-button'
 					ariaLabel={isRunning ? 'Stop execution' : 'Run cell'}
-					onPressed={() => {
-						notebookInstance.runCells([opts.cell]);
-					}} >
+					onPressed={() => opts.cell.run()} >
 					<div className={`button-icon codicon ${isRunning ? 'codicon-primitive-square' : 'codicon-run'}`} />
 				</PositronButton>
 				<PositronButton className='action-button' ariaLabel='Delete cell' onPressed={() => {
