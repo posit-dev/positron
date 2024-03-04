@@ -27,8 +27,7 @@ const mockedPositron: Partial<Positron> = {};
 
 // TODO(seem): mockedPositron is currently empty. We can update it as needed as we add tests.
 
-// Import TypeMoq to patch it (below) to avoid issues with InversifyJS v6.
-import * as TypeMoq from 'typemoq';
+import { patchMockingLibs } from './positron/initialize';
 // --- End Positron ---
 
 function generateMock<K extends keyof VSCode>(name: K): void {
@@ -81,38 +80,6 @@ export function initialize() {
         if (request === 'positron') {
             return mockedPositron;
         }
-        if (request === 'typemoq') {
-            // InversifyJS v6 (required by TypeScript v5) tries to await bound objects if they
-            // look like promises. TypeMoq's dynamic mocks unfortunately do look like promises by
-            // default (they are functions and their properties are functions, including `then`).
-            // This causes unexpected behavior in InversifyJS.
-            //
-            // Here, we patch `TypeMoq.Mock.ofType` to setup the `then` property of all dynamic
-            // mocks to return `undefined` to avoid this behavior.
-
-            // Load the original TypeMoq module
-            const originalTypeMoq = originalLoad.apply(this, arguments);
-
-            // Save a reference to the original ofType method
-            const originalofType = TypeMoq.Mock.ofType;
-
-            // Patch the ofType method
-            originalTypeMoq.Mock.ofType = function(...args: any[]) {
-                const mock = originalofType.apply(this, args);
-
-                // Only setup `then` if the target constructor is undefined, meaning the mock is dynamic
-                const targetConstructor = args[0];
-                if (targetConstructor === undefined) {
-                    // If a user configures 'strict' mock behavior, all setups are expected to be called
-                    // once. Override this by allowing `then` to be called any number of times.
-                    mock.setup((x: any) => x.then).returns(() => undefined).verifiable(TypeMoq.Times.atLeast(0));
-                }
-
-                return mock;
-            }
-
-            return originalTypeMoq;
-        }
         // --- End Positron ---
         if (request === '@vscode/extension-telemetry') {
             return { default: vscMockTelemetryReporter as any };
@@ -124,6 +91,11 @@ export function initialize() {
         }
         return originalLoad.apply(this, arguments);
     };
+
+    // --- Start Positron ---
+    // See applyPatches docs for why this is necessary.
+    patchMockingLibs();
+    // --- End Positron ---
 }
 
 mockedVSCode.ThemeIcon = vscodeMocks.ThemeIcon;

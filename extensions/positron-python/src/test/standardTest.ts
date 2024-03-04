@@ -2,10 +2,10 @@ import { spawnSync } from 'child_process';
 import * as fs from 'fs-extra';
 import * as os from 'os';
 import * as path from 'path';
-import { downloadAndUnzipVSCode, resolveCliPathFromVSCodeExecutablePath, runTests } from '@vscode/test-electron';
+import { resolveCliPathFromVSCodeExecutablePath, runTests } from '@vscode/test-electron';
 import { JUPYTER_EXTENSION_ID, PYLANCE_EXTENSION_ID } from '../client/common/constants';
 import { EXTENSION_ROOT_DIR_FOR_TESTS } from './constants';
-import { getChannel } from './utils/vscode';
+import { downloadAndUnzipPositron } from './positron/testElectron';
 import { TestOptions } from '@vscode/test-electron/out/runTest';
 
 // If running smoke tests, we don't have access to this.
@@ -77,9 +77,9 @@ async function installPylanceExtension(vscodeExecutablePath: string) {
 async function start() {
     console.log('*'.repeat(100));
     console.log('Start Standard tests');
-    const channel = getChannel();
-    console.log(`Using ${channel} build of VS Code.`);
-    const vscodeExecutablePath = await downloadAndUnzipVSCode(channel);
+    // --- Start Positron ---
+    const { version: channel, executablePath: vscodeExecutablePath } = await downloadAndUnzipPositron();
+    // --- End Positron ---
     const baseLaunchArgs =
         requiresJupyterExtensionToBeInstalled() || requiresPylanceExtensionToBeInstalled()
             ? []
@@ -93,6 +93,9 @@ async function start() {
         .concat(['--timeout', '5000']);
     console.log(`Starting vscode ${channel} with args ${launchArgs.join(' ')}`);
     const options: TestOptions = {
+        // --- Start Positron ---
+        vscodeExecutablePath,
+        // --- End Positron ---
         extensionDevelopmentPath: extensionDevelopmentPath,
         extensionTestsPath: path.join(EXTENSION_ROOT_DIR_FOR_TESTS, 'out', 'test'),
         launchArgs,

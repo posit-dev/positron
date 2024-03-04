@@ -870,6 +870,11 @@ suite('FileSystemUtils', () => {
     }
     function createMockStat(): TypeMoq.IMock<FileStat> {
         const stat = TypeMoq.Mock.ofType<FileStat>(undefined, TypeMoq.MockBehavior.Strict);
+        // --- Start Positron ---
+        // Reset the `.then` setup applied via positron/initialize/patchMockingLibs since it is
+        // manually setup below.
+        stat.reset();
+        // --- End Positron ---
         // This is necessary because passing "mock.object" to
         // Promise.resolve() triggers the lookup.
         stat.setup((s: any) => s.then)
