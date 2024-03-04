@@ -228,6 +228,20 @@ export interface DebugSleepRequest {
 }
 
 /**
+ * Request: Execute a Positron command
+ *
+ * Use this to execute a Positron command from the backend (like from a
+ * runtime)
+ */
+export interface ExecuteCommandRequest {
+	/**
+	 * The command to execute
+	 */
+	command: string;
+
+}
+
+/**
  * Request: Context metadata for the last editor
  *
  * Returns metadata such as file path for the last editor selected by the
@@ -247,6 +261,7 @@ export enum UiFrontendEvent {
 
 export enum UiFrontendRequest {
 	DebugSleep = 'debug_sleep',
+	ExecuteCommand = 'execute_command',
 	LastActiveEditorContext = 'last_active_editor_context'
 }
 
