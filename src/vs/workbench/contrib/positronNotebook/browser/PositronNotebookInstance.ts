@@ -15,6 +15,8 @@ import { INotebookExecutionService } from 'vs/workbench/contrib/notebook/common/
 import { INotebookExecutionStateService } from 'vs/workbench/contrib/notebook/common/notebookExecutionStateService';
 import { PositronNotebookEditor } from 'vs/workbench/contrib/positronNotebook/browser/PositronNotebookEditor';
 import { PositronNotebookEditorInput } from 'vs/workbench/contrib/positronNotebook/browser/PositronNotebookEditorInput';
+import { ITextModelService } from 'vs/editor/common/services/resolverService';
+import { IInstantiationService } from 'vs/platform/instantiation/common/instantiation';
 
 
 type ExecutionStatus = 'running' | 'pending' | 'unconfirmed' | 'idle';
@@ -111,7 +113,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		@INotebookExecutionService private readonly notebookExecutionService: INotebookExecutionService,
 		@INotebookExecutionStateService private readonly notebookExecutionStateService: INotebookExecutionStateService,
 		@IContextKeyService public _contextKeyService: IContextKeyService,
-
+		@IInstantiationService private readonly instantiationService: IInstantiationService
 	) {
 		super();
 
@@ -220,7 +222,11 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 
 		const notebookModel = model.notebook;
 		this._cells = notebookModel.cells.map(cell =>
-			new PositronNotebookCell(cell, this)
+			this.instantiationService.createInstance(
+				PositronNotebookCell,
+				cell,
+				this
+			)
 		);
 		this.cells.set(this._cells, undefined);
 
@@ -252,9 +258,9 @@ interface IPositronNotebookCell {
 	viewModel: NotebookCellTextModel;
 
 	/**
-	 * The text model for the cell. This is needed for the monaco editor widgets
+	 * Get the text editor model for use in the monaco editor widgets
 	 */
-	textModel?: ITextModel;
+	getTextEditorModel(): Promise<ITextModel>;
 
 	/**
 	 * Current execution status for this cell
@@ -276,7 +282,11 @@ export class PositronNotebookCell extends Disposable implements IPositronNoteboo
 	executionStatus: ISettableObservable<ExecutionStatus, void>;
 	outputs: ISettableObservable<ICellOutput[], void>;
 
-	constructor(public viewModel: NotebookCellTextModel, private _instance: IPositronNotebookInstance) {
+	constructor(
+		public viewModel: NotebookCellTextModel,
+		private _instance: IPositronNotebookInstance,
+		@ITextModelService private readonly textModelResolverService: ITextModelService,
+	) {
 		super();
 		this.executionStatus = observableValue<ExecutionStatus, void>('cellExecutionStatus', 'idle');
 		this.outputs = observableValue<ICellOutput[], void>('cellOutputs', this.viewModel.outputs);
@@ -303,6 +313,13 @@ export class PositronNotebookCell extends Disposable implements IPositronNoteboo
 	run(): void {
 		this._instance.runCells([this]);
 	}
+
+	async getTextEditorModel(): Promise<ITextModel> {
+		const modelRef = await this.textModelResolverService.createModelReference(this.uri);
+		return modelRef.object.textEditorModel;
+	}
+
+
 
 	// override dispose() {
 	// 	super.dispose();

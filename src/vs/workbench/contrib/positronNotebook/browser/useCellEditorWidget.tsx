@@ -72,8 +72,8 @@ export function useCellEditorWidget({ cell }: { cell: PositronNotebookCell }) {
 		}
 
 		// Request model for cell and pass to editor.
-		services.textModelResolverService.createModelReference(cell.viewModel.uri).then(modelRef => {
-			editor.setModel(modelRef.object.textEditorModel);
+		cell.getTextEditorModel().then(model => {
+			editor.setModel(model);
 			resizeEditor();
 
 			editor.onDidContentSizeChange(e => {
