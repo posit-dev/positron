@@ -439,15 +439,7 @@ export class PositronNotebookWidget extends Disposable
 
 
 
-	/**
-	 * Get the execution status of one or more cells of a notebook.
-	 * @param cells Cells to check execution status for
-	 * @returns An array of execution statuses for the given cells.
-	 */
-	getCellExecutionStatus(cell: NotebookCellTextModel): CellExecutionStatus {
 
-		return this.notebookExecutionStateService.getCellExecution(cell.uri);
-	}
 	/**
 	 * Keep track of if this editor has been disposed.
 	 */
@@ -572,10 +564,7 @@ export class PositronNotebookWidget extends Disposable
 					textModelResolverService: this.textModelResolverService,
 				}}>
 					<ContextKeyProvider contextKeyServiceProvider={container => this.scopedContextKeyService.createScoped(container)} >
-						<PositronNotebookComponent
-							sizeObservable={this._size}
-							getCellExecutionStatus={this.getCellExecutionStatus.bind(this)}
-						/>
+						<PositronNotebookComponent sizeObservable={this._size} />
 					</ContextKeyProvider>
 				</ServicesProvider>
 			</NotebookInstanceProvider>

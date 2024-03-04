@@ -11,7 +11,6 @@ import { ISettableObservable } from 'vs/base/common/observableInternal/base';
 import { NotebookCellOutputTextModel } from 'vs/workbench/contrib/notebook/common/model/notebookCellOutputTextModel';
 import { ICellOutput } from 'vs/workbench/contrib/notebook/common/notebookCommon';
 import { PositronNotebookCell } from 'vs/workbench/contrib/positronNotebook/browser/PositronNotebookInstance';
-import { CellExecutionStatusCallback } from 'vs/workbench/contrib/positronNotebook/browser/PositronNotebookWidget';
 import { parseOutputData } from 'vs/workbench/contrib/positronNotebook/browser/getOutputContents';
 import { useObservedValue } from 'vs/workbench/contrib/positronNotebook/browser/useObservedValue';
 import { useCellEditorWidget } from './useCellEditorWidget';
@@ -26,7 +25,6 @@ import { useCellEditorWidget } from './useCellEditorWidget';
  */
 export interface NotebookCellProps {
 	cell: PositronNotebookCell;
-	getCellExecutionStatus: CellExecutionStatusCallback;
 	sizeObservable: ISettableObservable<ISize>;
 }
 

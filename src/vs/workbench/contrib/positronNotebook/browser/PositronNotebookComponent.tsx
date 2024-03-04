@@ -9,7 +9,6 @@ import { ISize } from 'vs/base/browser/positronReactRenderer';
 import { PositronButton } from 'vs/base/browser/ui/positronComponents/positronButton';
 import { ISettableObservable } from 'vs/base/common/observableInternal/base';
 import { useNotebookInstance } from 'vs/workbench/contrib/positronNotebook/browser/NotebookInstanceProvider';
-import { CellExecutionStatusCallback } from 'vs/workbench/contrib/positronNotebook/browser/PositronNotebookWidget';
 import { NotebookCell } from './NotebookCell';
 import { useObservedValue } from './useObservedValue';
 
@@ -17,11 +16,9 @@ import { useObservedValue } from './useObservedValue';
 export function PositronNotebookComponent(
 	{
 		sizeObservable,
-		getCellExecutionStatus,
 	}:
 		{
 			sizeObservable: ISettableObservable<ISize>;
-			getCellExecutionStatus: CellExecutionStatusCallback;
 		}
 ) {
 	const notebookInstance = useNotebookInstance();
@@ -48,7 +45,6 @@ export function PositronNotebookComponent(
 				{notebookCells?.length ? notebookCells?.map(cell => <NotebookCell
 					key={cell.viewModel.handle}
 					sizeObservable={sizeObservable}
-					getCellExecutionStatus={getCellExecutionStatus}
 					cell={cell} />) : <div>No cells</div>
 				}
 			</div>
