@@ -302,6 +302,11 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 	 */
 	private onDidRegisterRuntime(metadata: ILanguageRuntimeMetadata): void {
 
+		// Ignore if we're not in the discovery phase.
+		if (this.startupPhase !== RuntimeStartupPhase.Discovering) {
+			return;
+		}
+
 		// Get the runtime metadata that is affiliated with this workspace, if any.
 		const affiliatedRuntimeMetadataStr = this._storageService.get(
 			this.storageKeyForRuntime(metadata), StorageScope.WORKSPACE);
