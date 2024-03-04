@@ -359,24 +359,11 @@ export class PositronNotebookWidget extends Disposable
 			this.setupKernel();
 
 
-
-
-
-
 			// TODO: Finish implementing this.
-
-
-
-
 		} else {
 
 		}
 	}
-
-	kernelObservable: NotebookKernelObservable = observableValue(
-		'notebook-kernel',
-		undefined
-	);
 
 	executionServiceObservable: OptionalObservable<INotebookExecutionService> = observableValue(
 		'execution-service',
@@ -418,7 +405,6 @@ export class PositronNotebookWidget extends Disposable
 		this.notebookKernelService.selectKernelForNotebook(kernelForLanguage, viewModel.notebookDocument);
 
 
-		this.kernelObservable.set(kernelForLanguage, undefined);
 		this.executionServiceObservable.set(this.notebookExecutionService, undefined);
 	}
 
@@ -588,7 +574,6 @@ export class PositronNotebookWidget extends Disposable
 					<ContextKeyProvider contextKeyServiceProvider={container => this.scopedContextKeyService.createScoped(container)} >
 						<PositronNotebookComponent
 							sizeObservable={this._size}
-							kernelObservable={this.kernelObservable}
 							getCellExecutionStatus={this.getCellExecutionStatus.bind(this)}
 						/>
 					</ContextKeyProvider>

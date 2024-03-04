@@ -9,7 +9,7 @@ import { ISize } from 'vs/base/browser/positronReactRenderer';
 import { PositronButton } from 'vs/base/browser/ui/positronComponents/positronButton';
 import { ISettableObservable } from 'vs/base/common/observableInternal/base';
 import { useNotebookInstance } from 'vs/workbench/contrib/positronNotebook/browser/NotebookInstanceProvider';
-import { CellExecutionStatusCallback, NotebookKernelObservable } from 'vs/workbench/contrib/positronNotebook/browser/PositronNotebookWidget';
+import { CellExecutionStatusCallback } from 'vs/workbench/contrib/positronNotebook/browser/PositronNotebookWidget';
 import { NotebookCell } from './NotebookCell';
 import { useObservedValue } from './useObservedValue';
 
@@ -17,26 +17,22 @@ import { useObservedValue } from './useObservedValue';
 export function PositronNotebookComponent(
 	{
 		sizeObservable,
-		kernelObservable,
 		getCellExecutionStatus,
 	}:
 		{
 			sizeObservable: ISettableObservable<ISize>;
-			kernelObservable: NotebookKernelObservable;
 			getCellExecutionStatus: CellExecutionStatusCallback;
 		}
 ) {
 	const notebookInstance = useNotebookInstance();
 
 	const size = useObservedValue(sizeObservable);
-	const kernelId = useObservedValue(kernelObservable, kernel => kernel?.id || null);
 	const notebookCells = useObservedValue(notebookInstance.cells);
 
 	return (
 		<div className='positron-notebook'>
 			<div className='positron-notebook-header'>
 				<h2>Positron Notebooks: Operation Tracer Bullet</h2>
-				<div>{kernelId ? `Kernel: ${kernelId}` : `No Kernel Loaded`}</div>
 				<div>Size: {size?.width} x {size?.height}</div>
 			</div>
 			<div className='positron-notebook-cells-container'>
