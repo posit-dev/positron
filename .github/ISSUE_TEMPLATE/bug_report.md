@@ -1,6 +1,7 @@
 ---
 name: File an issue
 about: Create an issue to help improve Positron
+labels: ['bug']
 ---
 <!-- ⚠️⚠️ Do Not Delete This! bug_report_template ⚠️⚠️ -->
 <!-- Copy the Positron Version from the Positron > About menu -->
