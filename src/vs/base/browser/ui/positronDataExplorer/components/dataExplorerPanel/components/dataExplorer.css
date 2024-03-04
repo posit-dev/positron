@@ -4,35 +4,28 @@
 
 .data-explorer-panel
 .data-explorer {
-	/* Experimental. */
-	position: relative;
-
-	/* Place the data-explorer in the data-explorer-panel. */
-	grid-row: data-explorer / status-bar;
-
-	/* Prevent 1fr from exceeding the parent height. */
+	min-width: 0;
 	min-height: 0;
-	overflow: hidden;
-
-	/* Grid display. Layout happens in code. */
 	display: grid;
+	overflow: hidden;
+	grid-row: data-explorer / status-bar;
+	grid-template-rows: [row] 1fr [end];
 }
 
 .data-explorer-panel
 .data-explorer
 .column-1 {
-	/* Prevent 1fr from exceeding the parent height. */
+	min-width: 0;
 	min-height: 0;
-
-	/* Initially hidden. Layout happens in code. */
 	display: none;
+	grid-row: row / end;
 }
 
 .data-explorer-panel
 .data-explorer
 .splitter {
-	/* Initially hidden. Layout happens in code. */
 	display: none;
+	grid-row: row / end;
 }
 
 .data-explorer-panel
@@ -45,9 +38,8 @@
 .data-explorer-panel
 .data-explorer
 .column-2 {
-	/* Prevent 1fr from exceeding the parent height. */
+	min-width: 0;
 	min-height: 0;
-
-	/* Initially hidden. Layout happens in code. */
 	display: none;
+	grid-row: row / end;
 }

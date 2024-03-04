@@ -3,6 +3,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 .data-grid-corner-top-left {
+	z-index: 28;
 	display: grid;
 	cursor: pointer;
 	box-sizing: border-box;

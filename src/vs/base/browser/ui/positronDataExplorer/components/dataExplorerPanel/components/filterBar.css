@@ -6,8 +6,6 @@
 .filter-bar {
 	padding: 8px;
 	grid-row: filter-bar / data-explorer;
-	border-bottom: 1px solid var(--vscode-positronDataExplorer-border);
-
 	background-color: var(--vscode-positronDataExplorer-background);
-
+	border-bottom: 1px solid var(--vscode-positronDataExplorer-border);
 }

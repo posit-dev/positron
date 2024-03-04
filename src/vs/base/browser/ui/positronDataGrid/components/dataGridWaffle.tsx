@@ -498,7 +498,7 @@ export const DataGridWaffle = () => {
 						context.instance.verticalScrollbar
 					}
 					scrollbarWidth={context.instance.scrollbarWidth}
-					containerWidth={width - context.instance.rowHeadersWidth}
+					containerWidth={width}
 					containerHeight={height - context.instance.columnHeadersHeight}
 					entries={context.instance.columns}
 					visibleEntries={context.instance.visibleColumns}
@@ -519,7 +519,7 @@ export const DataGridWaffle = () => {
 					}
 					scrollbarWidth={context.instance.scrollbarWidth}
 					containerWidth={width - context.instance.rowHeadersWidth}
-					containerHeight={height - context.instance.columnHeadersHeight}
+					containerHeight={height}
 					entries={context.instance.rows}
 					visibleEntries={context.instance.visibleRows}
 					firstEntry={context.instance.firstRowIndex}
