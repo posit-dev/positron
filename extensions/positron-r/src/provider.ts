@@ -254,7 +254,7 @@ function rHeadquarters(): string {
 		case 'linux':
 			return path.join('/opt', 'R');
 		case 'win32':
-			return path.join('C:\\', 'Program Files', 'R');
+			return path.join(process.env['PROGRAMFILES'] || 'C:\\Program Files', 'R');
 		default:
 			throw new Error('Unsupported platform');
 	}
