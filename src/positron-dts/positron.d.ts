@@ -408,8 +408,8 @@ declare module 'positron' {
 		/** The session's mode */
 		readonly sessionMode: LanguageRuntimeSessionMode;
 
-		/** The notebook document associated with the session, if any */
-		readonly notebookDocument?: vscode.NotebookDocument;
+		/** The URI of the notebook document associated with the session, if any */
+		readonly notebookUri?: vscode.Uri;
 	}
 
 	/**

@@ -46,7 +46,7 @@ export class ArkLsp implements vscode.Disposable {
 
 	public constructor(
 		private readonly _version: string,
-		private readonly _notebook: vscode.NotebookDocument | undefined
+		private readonly _notebookUri: vscode.Uri | undefined
 	) {
 	}
 
@@ -90,8 +90,8 @@ export class ArkLsp implements vscode.Disposable {
 			// If this client belongs to a notebook, set the document selector to only include that notebook.
 			// Otherwise, this is the main client for this language, so set the document selector to include
 			// untitled R files, in-memory R files (e.g. the console), and R / Quarto / R Markdown files on disk.
-			documentSelector: this._notebook ?
-				[{ language: 'r', pattern: this._notebook.uri.path }] :
+			documentSelector: this._notebookUri ?
+				[{ language: 'r', pattern: this._notebookUri.path }] :
 				[
 					{ language: 'r', scheme: 'untitled' },
 					{ language: 'r', scheme: 'inmemory' },  // Console
@@ -99,7 +99,7 @@ export class ArkLsp implements vscode.Disposable {
 					{ language: 'r', pattern: '**/*.{qmd,Qmd}' },
 					{ language: 'r', pattern: '**/*.{rmd,Rmd}' },
 				],
-			synchronize: this._notebook ?
+			synchronize: this._notebookUri ?
 				undefined :
 				{
 					fileEvents: vscode.workspace.createFileSystemWatcher('**/*.R')

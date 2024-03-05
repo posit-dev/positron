@@ -70,9 +70,8 @@ export class RSession implements positron.LanguageRuntimeSession, vscode.Disposa
 		readonly context: vscode.ExtensionContext,
 		readonly kernelSpec?: JupyterKernelSpec,
 		readonly extra?: JupyterKernelExtra,
-		readonly notebook?: vscode.NotebookDocument,
 	) {
-		this._lsp = new ArkLsp(runtimeMetadata.languageVersion, notebook);
+		this._lsp = new ArkLsp(runtimeMetadata.languageVersion, metadata.notebookUri);
 		this._queue = new PQueue({ concurrency: 1 });
 		this.onDidReceiveRuntimeMessage = this._messageEmitter.event;
 		this.onDidChangeRuntimeState = this._stateEmitter.event;
