@@ -270,6 +270,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 		await this.startNewRuntimeSession(runtime.runtimeId,
 			runtime.runtimeName,
 			LanguageRuntimeSessionMode.Console,
+			undefined, // No notebook URI (console session)
 			source);
 	}
 
@@ -279,11 +280,13 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 	 * @param runtimeId The runtime identifier of the runtime.
 	 * @param sessionName A human readable name for the session.
 	 * @param sessionMode The mode of the new session.
+	 * @param notebookUri The notebook URI to attach to the session, if any.
 	 * @param source The source of the request to start the runtime.
 	 */
 	async startNewRuntimeSession(runtimeId: string,
 		sessionName: string,
 		sessionMode: LanguageRuntimeSessionMode,
+		notebookUri: URI | undefined,
 		source: string): Promise<string> {
 		// See if we are already starting a runtime with the given ID. If we
 		// are, return the promise that resolves when the runtime is ready to
@@ -338,7 +341,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 		this._logService.info(
 			`Starting session for language runtime ` +
 			`${formatLanguageRuntimeMetadata(languageRuntime)} (Source: ${source})`);
-		return this.doCreateRuntimeSession(languageRuntime, sessionName, sessionMode);
+		return this.doCreateRuntimeSession(languageRuntime, sessionName, sessionMode, notebookUri);
 	}
 
 
@@ -562,13 +565,15 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 	 * @param runtimeMetadata The metadata for the runtime to start.
 	 * @param sessionName A human-readable name for the session.
 	 * @param sessionMode The mode for the new session.
+	 * @param notebookDocument The notebook document to attach to the session, if any.
 	 *
 	 * Returns a promise that resolves with the session ID when the runtime is
 	 * ready to use.
 	 */
 	private async doCreateRuntimeSession(runtimeMetadata: ILanguageRuntimeMetadata,
 		sessionName: string,
-		sessionMode: LanguageRuntimeSessionMode): Promise<string> {
+		sessionMode: LanguageRuntimeSessionMode,
+		notebookUri?: URI): Promise<string> {
 		// Add the runtime to the starting runtimes.
 		if (sessionMode === LanguageRuntimeSessionMode.Console) {
 			this._startingConsolesByLanguageId.set(runtimeMetadata.languageId, runtimeMetadata);
@@ -587,6 +592,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 			sessionId,
 			sessionName,
 			sessionMode,
+			notebookUri,
 			createdTimestamp: Date.now(),
 		};
 
@@ -743,6 +749,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 					await this.startNewRuntimeSession(session.runtimeMetadata.runtimeId,
 						session.metadata.sessionName,
 						session.metadata.sessionMode,
+						session.metadata.notebookUri,
 						`The runtime exited unexpectedly and is being restarted automatically.`);
 					action = 'and was automatically restarted';
 				} else {
@@ -782,7 +789,9 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 			// tell it to start.
 			await this.startNewRuntimeSession(session.runtimeMetadata.runtimeId,
 				session.metadata.sessionName,
-				session.metadata.sessionMode, `'Restart Interpreter' command invoked`);
+				session.metadata.sessionMode,
+				session.metadata.notebookUri,
+				`'Restart Interpreter' command invoked`);
 			return;
 		} else if (state === RuntimeState.Starting ||
 			state === RuntimeState.Restarting) {

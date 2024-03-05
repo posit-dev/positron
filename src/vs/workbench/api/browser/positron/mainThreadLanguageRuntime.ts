@@ -1042,12 +1042,19 @@ export class MainThreadLanguageRuntime
 	// Called by the extension host to start a previously registered language runtime
 	async $startLanguageRuntime(runtimeId: string,
 		sessionName: string,
-		sessionMode: LanguageRuntimeSessionMode): Promise<string> {
+		sessionMode: LanguageRuntimeSessionMode,
+		notebookUri: URI | undefined): Promise<string> {
+		// Revive the URI from the serialized form
+		const uri = URI.revive(notebookUri);
+
+		// Start the runtime session
 		const sessionId = await this._runtimeSessionService.startNewRuntimeSession(
 			runtimeId,
 			sessionName,
 			sessionMode,
+			uri,
 			'Extension-requested runtime selection via Positron API');
+
 		return sessionId;
 	}
 

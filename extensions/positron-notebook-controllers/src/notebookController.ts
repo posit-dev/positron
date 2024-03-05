@@ -72,8 +72,8 @@ export class NotebookController implements vscode.Disposable {
 				// Start a new runtime for the notebook.
 				const session = await positron.runtime.startLanguageRuntime(
 					preferredRuntime.runtimeId,
-					e.notebook.uri.path,
-					positron.LanguageRuntimeSessionMode.Notebook);
+					e.notebook.uri.path, // Use the notebook's path as the session name.
+					e.notebook.uri);
 
 				const notebookRuntime = new NotebookRuntime(session);
 				this.notebookRuntimes.set(e.notebook, notebookRuntime);

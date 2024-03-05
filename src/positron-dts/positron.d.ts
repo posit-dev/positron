@@ -407,6 +407,9 @@ declare module 'positron' {
 
 		/** The session's mode */
 		readonly sessionMode: LanguageRuntimeSessionMode;
+
+		/** The notebook document associated with the session, if any */
+		readonly notebookDocument?: vscode.NotebookDocument;
 	}
 
 	/**
@@ -1115,13 +1118,14 @@ declare module 'positron' {
 		 *
 		 * @param runtimeId The ID of the runtime to select and start.
 		 * @param sessionName A human-readable name for the new session.
-		 * @param sessionMode The mode in which the session is to be run.
+		 * @param notebookUri If the session is associated with a notebook,
+		 *   the notebook URI.
 		 *
 		 * Returns a Thenable that resolves with the newly created session.
 		 */
 		export function startLanguageRuntime(runtimeId: string,
 			sessionName: string,
-			sessionMode: LanguageRuntimeSessionMode): Thenable<LanguageRuntimeSession>;
+			notebookUri?: vscode.Uri): Thenable<LanguageRuntimeSession>;
 
 		/**
 		 * Restart a running session.

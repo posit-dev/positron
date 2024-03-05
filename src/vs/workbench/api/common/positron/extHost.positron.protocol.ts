@@ -15,7 +15,7 @@ import { RuntimeSessionMetadata } from 'positron';
 export interface MainThreadLanguageRuntimeShape extends IDisposable {
 	$registerLanguageRuntime(handle: number, metadata: ILanguageRuntimeMetadata): void;
 	$selectLanguageRuntime(runtimeId: string): Promise<void>;
-	$startLanguageRuntime(runtimeId: string, sessionName: string, sessionMode: LanguageRuntimeSessionMode): Promise<string>;
+	$startLanguageRuntime(runtimeId: string, sessionName: string, sessionMode: LanguageRuntimeSessionMode, notebookUri: URI | undefined): Promise<string>;
 	$completeLanguageRuntimeDiscovery(): void;
 	$unregisterLanguageRuntime(handle: number): void;
 	$executeCode(languageId: string, code: string, focus: boolean, skipChecks?: boolean): Promise<boolean>;

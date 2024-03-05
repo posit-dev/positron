@@ -41,6 +41,9 @@ export interface IRuntimeSessionMetadata {
 	/** The session's mode  */
 	readonly sessionMode: LanguageRuntimeSessionMode;
 
+	/** The notebook associated with the session, if any */
+	readonly notebookUri: URI | undefined;
+
 	/**
 	 * A timestamp (in milliseconds since the Epoch) representing the time at
 	 * which the runtime session was created.
@@ -275,23 +278,7 @@ export interface IRuntimeSessionService {
 	startNewRuntimeSession(runtimeId: string,
 		sessionName: string,
 		sessionMode: LanguageRuntimeSessionMode,
-		source: string): Promise<string>;
-
-	/**
-	 * Starts a new session for a runtime. Use to start a new runtime at the
-	 * behest of a user gesture.
-	 *
-	 * @param runtimeId The runtime identifier of the runtime to start.
-	 * @param sessionName A human-readable (displayed) name for the session to start.
-	 * @param sessionMode The mode of the session to start.
-	 * @param source The source of the request to start the runtime, for debugging purposes
-	 *  (not displayed to the user)
-	 *
-	 * Returns a promise that resolves to the session ID of the new session.
-	 */
-	startNewRuntimeSession(runtimeId: string,
-		sessionName: string,
-		sessionMode: LanguageRuntimeSessionMode,
+		notebookUri: URI | undefined,
 		source: string): Promise<string>;
 
 	/**

@@ -389,6 +389,7 @@ class PositronConsoleService extends Disposable implements IPositronConsoleServi
 			await this._runtimeSessionService.startNewRuntimeSession(languageRuntime.runtimeId,
 				languageRuntime.runtimeName,
 				LanguageRuntimeSessionMode.Console,
+				undefined, // No notebook URI (console sesion)
 				`User executed code in language ${languageId}, and no running runtime was found ` +
 				`for the language.`);
 		}

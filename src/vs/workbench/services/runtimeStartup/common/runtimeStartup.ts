@@ -354,6 +354,7 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 				this._runtimeSessionService.startNewRuntimeSession(metadata.runtimeId,
 					metadata.runtimeName,
 					LanguageRuntimeSessionMode.Console,
+					undefined, // Console session
 					`Affiliated runtime for workspace`);
 			} catch (e) {
 				// This isn't necessarily an error; if another runtime took precedence and has

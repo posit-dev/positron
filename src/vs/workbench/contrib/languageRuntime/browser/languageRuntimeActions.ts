@@ -189,6 +189,7 @@ export function registerLanguageRuntimeActions() {
 			runtimeSessionService.startNewRuntimeSession(languageRuntime.runtimeId,
 				languageRuntime.runtimeName,
 				LanguageRuntimeSessionMode.Console,
+				undefined, // No notebook URI (console session)
 				`'Start Interpreter' command invoked`);
 
 			// Drive focus into the Positron console.

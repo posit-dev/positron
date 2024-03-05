@@ -86,10 +86,18 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 			},
 			startLanguageRuntime(runtimeId: string,
 				sessionName: string,
-				sessionMode: positron.LanguageRuntimeSessionMode): Thenable<positron.LanguageRuntimeSession> {
+				notebookUri?: vscode.Uri): Thenable<positron.LanguageRuntimeSession> {
+
+				// If a notebook document is provided, we are in notebook mode.
+				const sessionMode = notebookUri ?
+					extHostTypes.LanguageRuntimeSessionMode.Notebook :
+					extHostTypes.LanguageRuntimeSessionMode.Console;
+
+				// Start the language runtime.
 				return extHostLanguageRuntime.startLanguageRuntime(runtimeId,
 					sessionName,
-					sessionMode);
+					sessionMode,
+					notebookUri);
 			},
 			restartSession(sessionId: string): Thenable<void> {
 				return extHostLanguageRuntime.restartSession(sessionId);
