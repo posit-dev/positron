@@ -220,6 +220,9 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 			}
 		});
 
+		// Register a shutdown event handler to clear the workspace sessions
+		// when the workspace is quitting, since sessions are backed by the
+		// workspace.
 		this._lifecycleService.onWillShutdown((e) => {
 			if (e.reason === ShutdownReason.QUIT) {
 				// Before quitting, clear all workspace sessions from session
@@ -228,6 +231,10 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 					undefined,
 					StorageScope.WORKSPACE,
 					StorageTarget.MACHINE);
+			} else if (e.reason === ShutdownReason.RELOAD) {
+				// Attempt to save the current state of the workspace sessions
+				// before reloading.
+				this.saveWorkspaceSessions();
 			}
 		});
 	}
