@@ -6,8 +6,8 @@ import 'vs/css!./sessionsCore';
 import * as React from 'react';
 import { IReactComponentContainer } from 'vs/base/browser/positronReactRenderer';
 import { ActionBars } from 'vs/workbench/contrib/positronRuntimeSessions/browser/components/actionBars';
-import { PositronSessionsProps } from 'vs/workbench/contrib/positronRuntimeSessions/browser/positronSessions';
-import { usePositronSessionsContext } from 'vs/workbench/contrib/positronRuntimeSessions/browser/positronSessionsContext';
+import { PositronSessionsProps } from 'vs/workbench/contrib/positronRuntimeSessions/browser/positronRuntimeSessions';
+import { usePositronRuntimeSessionsContext } from 'vs/workbench/contrib/positronRuntimeSessions/browser/positronRuntimeSessionsContext';
 import { RuntimeSession } from 'vs/workbench/contrib/positronRuntimeSessions/browser/components/runtimeSession';
 
 // SessionsCoreProps interface.
@@ -24,7 +24,7 @@ interface SessionsCoreProps extends PositronSessionsProps {
  */
 export const SessionsCore = (props: SessionsCoreProps) => {
 	// Context hooks.
-	const positronSessionsContext = usePositronSessionsContext();
+	const positronSessionsContext = usePositronRuntimeSessionsContext();
 
 	if (!positronSessionsContext.positronSessions.length) {
 		return null;

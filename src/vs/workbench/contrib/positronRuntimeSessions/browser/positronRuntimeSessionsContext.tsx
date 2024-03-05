@@ -4,12 +4,12 @@
 
 import * as React from 'react';
 import { PropsWithChildren, createContext, useContext } from 'react'; // eslint-disable-line no-duplicate-imports
-import { PositronSessionsServices, PositronSessionsState, usePositronSessionsState } from 'vs/workbench/contrib/positronRuntimeSessions/browser/positronSessionsState';
+import { PositronSessionsServices, PositronRuntimeSessionsState, usePositronRuntimeSessionsState } from 'vs/workbench/contrib/positronRuntimeSessions/browser/positronRuntimeSessionsState';
 
 /**
  * Create the Positron variables context.
  */
-const PositronSessionsContext = createContext<PositronSessionsState>(undefined!);
+const PositronRuntimeSessionsContext = createContext<PositronRuntimeSessionsState>(undefined!);
 
 /**
  * Export the PositronSessionsContextProvider.
@@ -18,17 +18,17 @@ export const PositronSessionsContextProvider = (
 	props: PropsWithChildren<PositronSessionsServices>
 ) => {
 	// State hooks.
-	const positronSessionsState = usePositronSessionsState(props);
+	const positronSessionsState = usePositronRuntimeSessionsState(props);
 
 	// Render.
 	return (
-		<PositronSessionsContext.Provider value={positronSessionsState}>
+		<PositronRuntimeSessionsContext.Provider value={positronSessionsState}>
 			{props.children}
-		</PositronSessionsContext.Provider>
+		</PositronRuntimeSessionsContext.Provider>
 	);
 };
 
 /**
  * Export usePositronSessionsContext to simplify using the Positron variables context object.
  */
-export const usePositronSessionsContext = () => useContext(PositronSessionsContext);
+export const usePositronRuntimeSessionsContext = () => useContext(PositronRuntimeSessionsContext);

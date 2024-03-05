@@ -13,8 +13,8 @@ import { IConfigurationService } from 'vs/platform/configuration/common/configur
 import { PositronActionBar } from 'vs/platform/positronActionBar/browser/positronActionBar';
 import { IWorkbenchLayoutService } from 'vs/workbench/services/layout/browser/layoutService';
 import { PositronActionBarContextProvider } from 'vs/platform/positronActionBar/browser/positronActionBarContext';
-import { usePositronSessionsContext } from 'vs/workbench/contrib/positronRuntimeSessions/browser/positronSessionsContext';
-import { PositronSessionsServices } from 'vs/workbench/contrib/positronRuntimeSessions/browser/positronSessionsState';
+import { usePositronRuntimeSessionsContext } from 'vs/workbench/contrib/positronRuntimeSessions/browser/positronRuntimeSessionsContext';
+import { PositronSessionsServices } from 'vs/workbench/contrib/positronRuntimeSessions/browser/positronRuntimeSessionsState';
 
 // Constants.
 const kPaddingLeft = 8;
@@ -40,7 +40,7 @@ export interface ActionBarsProps extends PositronSessionsServices {
  */
 export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 	// Context hooks.
-	const positronSessionsContext = usePositronSessionsContext();
+	const positronSessionsContext = usePositronRuntimeSessionsContext();
 
 	// If there are no instances, return null.
 	// TODO@softwarenerd - Render something specific for this case. TBD.

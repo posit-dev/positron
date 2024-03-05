@@ -2,13 +2,13 @@
  *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
-import 'vs/css!./positronSessions';
+import 'vs/css!./positronRuntimeSessions';
 import * as React from 'react';
 import { PropsWithChildren, useEffect, useState } from 'react'; // eslint-disable-line no-duplicate-imports
 import { DisposableStore } from 'vs/base/common/lifecycle';
 import { IReactComponentContainer } from 'vs/base/browser/positronReactRenderer';
-import { PositronSessionsServices } from 'vs/workbench/contrib/positronRuntimeSessions/browser/positronSessionsState';
-import { PositronSessionsContextProvider } from 'vs/workbench/contrib/positronRuntimeSessions/browser/positronSessionsContext';
+import { PositronSessionsServices } from 'vs/workbench/contrib/positronRuntimeSessions/browser/positronRuntimeSessionsState';
+import { PositronSessionsContextProvider } from 'vs/workbench/contrib/positronRuntimeSessions/browser/positronRuntimeSessionsContext';
 import { IRuntimeSessionService } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
 import { IWorkbenchLayoutService } from 'vs/workbench/services/layout/browser/layoutService';
 import { SessionsCore } from 'vs/workbench/contrib/positronRuntimeSessions/browser/components/sessionsCore';

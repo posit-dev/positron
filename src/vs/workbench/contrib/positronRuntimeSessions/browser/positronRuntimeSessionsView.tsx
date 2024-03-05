@@ -2,7 +2,7 @@
  *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
-import 'vs/css!./positronSessionsView';
+import 'vs/css!./positronRuntimeSessionsView';
 import * as React from 'react';
 import * as DOM from 'vs/base/browser/dom';
 import { Event, Emitter } from 'vs/base/common/event';
@@ -17,7 +17,7 @@ import { IInstantiationService } from 'vs/platform/instantiation/common/instanti
 import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
 import { ViewPane, IViewPaneOptions } from 'vs/workbench/browser/parts/views/viewPane';
 import { IContextKey, IContextKeyService } from 'vs/platform/contextkey/common/contextkey';
-import { PositronSessions } from 'vs/workbench/contrib/positronRuntimeSessions/browser/positronSessions';
+import { PositronSessions } from 'vs/workbench/contrib/positronRuntimeSessions/browser/positronRuntimeSessions';
 import { IReactComponentContainer, ISize, PositronReactRenderer } from 'vs/base/browser/positronReactRenderer';
 import { IRuntimeSessionService } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
 import { IWorkbenchLayoutService } from 'vs/workbench/services/layout/browser/layoutService';
@@ -25,7 +25,7 @@ import { IWorkbenchLayoutService } from 'vs/workbench/services/layout/browser/la
 /**
  * PositronSessionsViewPane class.
  */
-export class PositronSessionsViewPane extends ViewPane implements IReactComponentContainer {
+export class PositronRuntimeSessionsViewPane extends ViewPane implements IReactComponentContainer {
 	//#region Private Properties
 
 	/**
