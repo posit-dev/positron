@@ -10,6 +10,7 @@ import * as vscode from 'vscode';
 import * as which from 'which';
 import * as positron from 'positron';
 import * as crypto from 'crypto';
+import * as winreg from 'winreg';
 
 import { RInstallation, getRHomePath } from './r-installation';
 import { RRuntime, createJupyterKernelExtra, createJupyterKernelSpec } from './runtime';
@@ -109,7 +110,7 @@ export async function* rRuntimeDiscoverer(
 	});
 
 	// TODO: possible future intervention re: non-orthogonal R installations
-	// * Alert the user they have R more installations?
+	// * Alert the user they have more R installations?
 	// * Offer to make installations orthogonal?
 	// * Offer to switch the current version of R?
 	// for now, we drop non-orthogonal, not-current R installations
@@ -252,6 +253,12 @@ function rHeadquarters(): string[] {
 	}
 }
 
+function firstExisting(base: string, fragments: string[]): string {
+	const potentialPaths = fragments.map(f => path.join(base, f));
+	const existingPath = potentialPaths.find(p => fs.existsSync(p));
+	return existingPath || '';
+}
+
 function discoverHQBinaries(): string[] {
 	const hqDirs = rHeadquarters()
 		.filter(dir => fs.existsSync(dir));
@@ -272,11 +279,6 @@ function discoverHQBinaries(): string[] {
 	// (1) C:\Program Files\R\R-4.3.2\bin\x64\R.exe
 	// (2) C:\Program Files\R\R-4.3.2\bin\R.exe
 	// Assuming we support R >= 4.2, we don't need to consider bin\i386\R.exe.
-	function firstExisting(base: string, fragments: string[]): string {
-		const potentialPaths = fragments.map(f => path.join(base, f));
-		const existingPath = potentialPaths.find(p => fs.existsSync(p));
-		return existingPath || '';
-	}
 	const binaries = versionDirs
 		.map(vd => vd.map(x => firstExisting(x, binFragments())))
 		.flat()
@@ -319,6 +321,7 @@ async function findCurrentRBinary(): Promise<string | undefined> {
 			// Example contents of this file:
 			// ::4.3.2
 			// @"C:\Program Files\R\R-4.3.2\bin\R" %*
+			// Note that this binary is not our preferred one, i.e. \bin\x64\R.exe, but it is usable
 			if (path.extname(whichR).toLowerCase() === '.bat') {
 				const batLines = readLines(whichR);
 				const re = new RegExp(`^@"(.+R-[0-9]+[.][0-9]+[.][0-9]+.+)" %[*]$`);
@@ -333,17 +336,61 @@ async function findCurrentRBinary(): Promise<string | undefined> {
 					return (whichRResolved);
 				}
 			}
+			// TODO: handle the case where whichR isn't picking up the rig case; do people do this,
+			// meaning put R on the PATH themselves, on Windows?
 		} else {
 			const whichRCanonical = fs.realpathSync(whichR);
+			Logger.info(`Resolved R binary at ${whichRCanonical}`);
 			return whichRCanonical;
 		}
 	}
 }
 
-function findCurrentRBinaryFromRegistry(): string | undefined {
-	return undefined;
+async function findCurrentRBinaryFromRegistry(): Promise<string | undefined> {
+	const userPath = await getRegistryInstallPath(winreg.HKCU);
+	const machinePath = await getRegistryInstallPath(winreg.HKLM);
+	if (!userPath && !machinePath) {
+		return undefined;
+	}
+	const installPath = userPath || machinePath || '';
+
+	const binPath = firstExisting(installPath, binFragments());
+	if (!binPath) {
+		return undefined;
+	}
+	Logger.info(`Identified the current version of R from the registry: ${binPath}`);
+
+	return binPath;
 }
 
+async function getRegistryInstallPath(hive: string): Promise<string | undefined> {
+	try {
+		const key = new winreg({
+			hive: hive as keyof typeof winreg,
+			// 'R64' here is another place where we explicitly ignore 32-bit R
+			key: '\\Software\\R-Core\\R64',
+		});
+
+		const result = await new Promise<{ value: string }>((resolve, reject) => {
+			key.get('InstallPath', (error, result) => {
+				if (error) {
+					reject(error);
+				} else {
+					resolve(result);
+				}
+			});
+		});
+
+		if (!result || typeof result.value !== 'string') {
+			return undefined;
+		}
+
+		return result.value;
+	} catch (error) {
+		Logger.error('Error in getRegistryInstallPath():', error);
+		return undefined;
+	}
+}
 
 // Should we recommend an R runtime for the workspace?
 async function shouldRecommendForWorkspace(): Promise<boolean> {
