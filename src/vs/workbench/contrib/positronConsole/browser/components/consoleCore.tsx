@@ -9,7 +9,7 @@ import { ActionBar } from 'vs/workbench/contrib/positronConsole/browser/componen
 import { EmptyConsole } from 'vs/workbench/contrib/positronConsole/browser/components/emptyConsole';
 import { ConsoleInstance } from 'vs/workbench/contrib/positronConsole/browser/components/consoleInstance';
 import { usePositronConsoleContext } from 'vs/workbench/contrib/positronConsole/browser/positronConsoleContext';
-import { DiscoveringInterpreters } from 'vs/workbench/contrib/positronConsole/browser/components/discoveringInterpreters';
+import { StartupStatus } from 'vs/workbench/contrib/positronConsole/browser/components/startupStatus';
 
 // eslint-disable-next-line no-duplicate-imports
 import { useEffect, useState } from 'react';
@@ -48,7 +48,7 @@ export const ConsoleCore = (props: ConsoleCoreProps) => {
 		if (startupPhase === RuntimeStartupPhase.Complete) {
 			return <EmptyConsole />;
 		} else {
-			return <DiscoveringInterpreters />;
+			return <StartupStatus />;
 		}
 	}
 
