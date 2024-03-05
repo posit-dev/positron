@@ -377,7 +377,7 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 		}
 
 		// Invoke all the discovery functions to return an async generator for each
-		const discoverers: Array<Discoverer> = this._runtimeManagers.map(manager => ({
+		const discoverers: Array<Discoverer> = managers.map(manager => ({
 			extension: manager.extension,
 			manager: manager.manager,
 			discoverer: manager.manager.discoverRuntimes()
