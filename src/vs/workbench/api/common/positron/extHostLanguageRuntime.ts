@@ -6,7 +6,7 @@ import type * as positron from 'positron';
 import { ILanguageRuntimeMessage, ILanguageRuntimeMessageCommClosed, ILanguageRuntimeMessageCommData, ILanguageRuntimeMessageCommOpen, ILanguageRuntimeMetadata, LanguageRuntimeSessionMode, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior, RuntimeState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import * as extHostProtocol from './extHost.positron.protocol';
 import { Emitter } from 'vs/base/common/event';
-import { IDisposable } from 'vs/base/common/lifecycle';
+import { DisposableStore, IDisposable } from 'vs/base/common/lifecycle';
 import { Disposable, LanguageRuntimeMessageType } from 'vs/workbench/api/common/extHostTypes';
 import { RuntimeClientType } from 'vs/workbench/api/common/positron/extHostTypes.positron';
 import { ExtHostRuntimeClientInstance } from 'vs/workbench/api/common/positron/extHostClientInstance';
@@ -479,6 +479,8 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 		extension: IExtensionDescription,
 		manager: positron.LanguageRuntimeManager): IDisposable {
 
+		const disposables = new DisposableStore();
+
 		// If we were waiting for this runtime manager to be registered, then
 		// resolve the promise now.
 		const pending = this._pendingRuntimeManagers.get(ExtensionIdentifier.toKey(extension.identifier));
@@ -497,14 +499,26 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 			void (async () => {
 				const discoverer = manager.discoverRuntimes();
 				for await (const runtime of discoverer) {
-					this.registerLanguageRuntime(extension, manager, runtime);
+					disposables.add(this.registerLanguageRuntime(extension, manager, runtime));
 				}
 			})();
+		}
+
+		// Attach an event handler to the onDidDiscoverRuntime event, if
+		// present. This event notifies us when a new runtime is discovered
+		// outside the discovery phase.
+		if (manager.onDidDiscoverRuntime) {
+			disposables.add(manager.onDidDiscoverRuntime(runtime => {
+				this.registerLanguageRuntime(extension, manager, runtime);
+			}));
 		}
 
 		this._runtimeManagers.push({ manager, extension });
 
 		return new Disposable(() => {
+			// Clean up disposables
+			disposables.dispose();
+
 			// Remove the manager from the list of registered managers
 			const index = this._runtimeManagers.findIndex(m => m.manager === manager);
 			if (index >= 0) {

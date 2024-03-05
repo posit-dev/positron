@@ -561,6 +561,14 @@ declare module 'positron' {
 		discoverRuntimes(): AsyncGenerator<LanguageRuntimeMetadata>;
 
 		/**
+		 * An optional event that fires when a new runtime is discovered.
+		 *
+		 * Not fired during `discoverRuntimes()`; used to notify Positron of a
+		 * new runtime or environment after the initial discovery has completed.
+		 */
+		onDidDiscoverRuntime?: vscode.Event<LanguageRuntimeMetadata>;
+
+		/**
 		 * Creates a new runtime session.
 		 *
 		 * @param runtimeMetadata One of the runtime metadata items returned by
