@@ -17,6 +17,7 @@ import { Event } from 'vs/base/common/event';
 import { ObservableValue } from 'vs/base/common/observableInternal/base';
 import { ExtensionsRegistry } from 'vs/workbench/services/extensions/common/extensionsRegistry';
 import { ExtensionIdentifier } from 'vs/platform/extensions/common/extensions';
+import { ILifecycleService, ShutdownReason } from 'vs/workbench/services/lifecycle/common/lifecycle';
 
 interface ILanguageRuntimeProviderMetadata {
 	languageId: string;
@@ -91,6 +92,7 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 		@IExtensionService private readonly _extensionService: IExtensionService,
 		@ILanguageService private readonly _languageService: ILanguageService,
 		@ILanguageRuntimeService private readonly _languageRuntimeService: ILanguageRuntimeService,
+		@ILifecycleService private readonly _lifecycleService: ILifecycleService,
 		@ILogService private readonly _logService: ILogService,
 		@IRuntimeSessionService private readonly _runtimeSessionService: IRuntimeSessionService,
 		@IStorageService private readonly _storageService: IStorageService) {
@@ -215,6 +217,17 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 						this._languagePacks.set(value.languageId, [extension.description.identifier]);
 					}
 				}
+			}
+		});
+
+		this._lifecycleService.onWillShutdown((e) => {
+			if (e.reason === ShutdownReason.QUIT) {
+				// Before quitting, clear all workspace sessions from session
+				// storage.
+				this._storageService.store(PERSISTENT_WORKSPACE_SESSIONS_KEY,
+					undefined,
+					StorageScope.WORKSPACE,
+					StorageTarget.MACHINE);
 			}
 		});
 	}
