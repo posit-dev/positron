@@ -86,7 +86,7 @@ export class PositronNotebookEditorInput extends EditorInput {
 		super();
 
 
-		this.positronNotebookInstance = instantiationService.createInstance(PositronNotebookInstance, this);
+		this.positronNotebookInstance = instantiationService.createInstance(PositronNotebookInstance, this, undefined);
 
 		// Create a dummy context key service for instances
 		// Setup the container that will hold the outputs of notebook cells

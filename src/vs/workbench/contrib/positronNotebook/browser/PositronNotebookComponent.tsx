@@ -24,14 +24,19 @@ export function PositronNotebookComponent(
 			</div>
 			<div className='positron-notebook-cells-container'>
 				<div className='positron-notebook-cells-action-bar'>
-
-					<PositronButton className='action run-button' ariaLabel={'Run cell'} onPressed={() => {
+					<PositronButton className='action action-button run-button' ariaLabel='Run all cells' onPressed={() => {
 						notebookInstance.runAllCells();
 					}}>
 						<span className='action-label'>Run all cells</span>
 						<div className={`button-icon codicon ${'codicon-run'}`} />
 					</PositronButton>
 				</div>
+				<PositronButton className='action action-button add-cell' ariaLabel='Add cell' onPressed={() => {
+					notebookInstance.addCell('code', 0);
+				}}>
+					<span className='action-label'>Add Cell</span>
+					<div className={`button-icon codicon ${'codicon-plus'}`} />
+				</PositronButton>
 				{notebookCells?.length ? notebookCells?.map(cell => <NotebookCell
 					key={cell.viewModel.handle}
 					cell={cell} />) : <div>No cells</div>

@@ -351,6 +351,7 @@ export class PositronNotebookWidget extends Disposable
 				this._localStore.add(viewModel.onDidChangeViewCells(e => {
 					this._onDidChangeViewCells.fire(e);
 				}));
+				this._input.positronNotebookInstance.attachViewModel(viewModel);
 			}
 
 			this._viewModelObservable.set(viewModel, undefined);

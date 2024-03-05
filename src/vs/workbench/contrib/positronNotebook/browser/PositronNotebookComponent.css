@@ -39,21 +39,22 @@
 	display: flex;
 	align-items: baseline;
 	gap: 1rem;
+}
 
-	.action {
-		display: flex;
-		align-items: center;
-		padding-block: 0.25rem;
-		padding-inline: 0.5rem;
-		outline: 1px solid var(--vscode-positronDataTool-border);
-		border-radius: 0.25rem;
+.action-button {
+	display: flex;
+	align-items: center;
+	padding-block: 0.25rem;
+	padding-inline: 0.5rem;
+	outline: 1px solid var(--vscode-positronDataTool-border);
+	border-radius: 0.25rem;
+	width: fit-content;
+	cursor: pointer;
+	.action-label {
+		margin-inline-end: 0.2rem;
+	}
 
-		.action-label {
-			margin-inline-end: 0.2rem;
-		}
-
-		.button-icon {
-			transform: translateY(0px);
-		}
+	.button-icon {
+		transform: translateY(0px);
 	}
 }
