@@ -15,7 +15,7 @@ import { IBaseCellEditorOptions, INotebookEditorCreationOptions } from 'vs/workb
 import { NotebookViewModel } from 'vs/workbench/contrib/notebook/browser/viewModel/notebookViewModelImpl';
 import { NotebookCellTextModel } from 'vs/workbench/contrib/notebook/common/model/notebookCellTextModel';
 import { NotebookTextModel } from 'vs/workbench/contrib/notebook/common/model/notebookTextModel';
-import { CellKind, ICellOutput } from 'vs/workbench/contrib/notebook/common/notebookCommon';
+import { CellEditType, CellKind, ICellOutput, ICellReplaceEdit, SelectionStateType } from 'vs/workbench/contrib/notebook/common/notebookCommon';
 import { INotebookExecutionService } from 'vs/workbench/contrib/notebook/common/notebookExecutionService';
 import { INotebookExecutionStateService } from 'vs/workbench/contrib/notebook/common/notebookExecutionStateService';
 import { PositronNotebookEditor } from 'vs/workbench/contrib/positronNotebook/browser/PositronNotebookEditor';
@@ -95,6 +95,11 @@ interface IPositronNotebookInstance {
 	 * Add a new cell of a given type to the notebook at the requested index
 	 */
 	addCell(type: keyof typeof cellTypeToKind, index: number): void;
+
+	/**
+	 * Delete a cell from the notebook
+	 */
+	deleteCell(cell: PositronNotebookCell): void;
 
 
 }
@@ -318,6 +323,44 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		);
 	}
 
+	deleteCell(cell: PositronNotebookCell): void {
+		if (!this._textModel) {
+			throw new Error(localize('noModelForDelete', "No model for notebook to delete cell from"));
+		}
+
+		const textModel = this._textModel;
+		// TODO: Hook up readOnly to the notebook actual value
+		const readOnly = false;
+		const computeUndoRedo = !readOnly || textModel.viewType === 'interactive';
+		const cellIndex = textModel.cells.indexOf(cell.viewModel);
+
+		const edits: ICellReplaceEdit = {
+			editType: CellEditType.Replace, index: cellIndex, count: 1, cells: []
+		};
+
+		const nextCellAfterContainingSelection = textModel.cells[cellIndex + 1] ?? undefined;
+		const focusRange = {
+			start: cellIndex,
+			end: cellIndex + 1
+		};
+
+		textModel.applyEdits([edits], true, { kind: SelectionStateType.Index, focus: focusRange, selections: [focusRange] }, () => {
+			if (nextCellAfterContainingSelection) {
+				const cellIndex = textModel.cells.findIndex(cell => cell.handle === nextCellAfterContainingSelection.handle);
+				return { kind: SelectionStateType.Index, focus: { start: cellIndex, end: cellIndex + 1 }, selections: [{ start: cellIndex, end: cellIndex + 1 }] };
+			} else {
+				if (textModel.length) {
+					const lastCellIndex = textModel.length - 1;
+					return { kind: SelectionStateType.Index, focus: { start: lastCellIndex, end: lastCellIndex + 1 }, selections: [{ start: lastCellIndex, end: lastCellIndex + 1 }] };
+
+				} else {
+					return { kind: SelectionStateType.Index, focus: { start: 0, end: 0 }, selections: [{ start: 0, end: 0 }] };
+				}
+			}
+		}, undefined, computeUndoRedo);
+
+	}
+
 	private _textModel: NotebookTextModel | undefined = undefined;
 
 	private async setupNotebookTextModel() {
@@ -414,6 +457,11 @@ interface IPositronNotebookCell {
 	 * Run this cell
 	 */
 	run(): void;
+
+	/**
+	 * Delete this cell
+	 */
+	delete(): void;
 }
 
 export class PositronNotebookCell extends Disposable implements IPositronNotebookCell {
@@ -450,6 +498,10 @@ export class PositronNotebookCell extends Disposable implements IPositronNoteboo
 
 	run(): void {
 		this._instance.runCells([this]);
+	}
+
+	delete(): void {
+		this._instance.deleteCell(this);
 	}
 
 	async getTextEditorModel(): Promise<ITextModel> {

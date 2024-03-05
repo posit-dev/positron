@@ -45,6 +45,7 @@ export function NotebookCell(opts: {
 				</PositronButton>
 				<PositronButton className='action-button' ariaLabel='Delete cell' onPressed={() => {
 					console.log('Delete cell');
+					opts.cell.delete();
 				}}>
 					<div className='button-icon codicon codicon-trash' />
 				</PositronButton>
