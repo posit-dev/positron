@@ -8,8 +8,8 @@
 	min-height: 0;
 	display: grid;
 	overflow: hidden;
-	grid-row: data-explorer / status-bar;
 	grid-template-rows: [row] 1fr [end];
+	grid-row: data-explorer / status-bar;
 }
 
 .data-explorer-panel

@@ -10,7 +10,7 @@ import * as React from 'react';
 
 // Other dependencies.
 import { StatusBar } from 'vs/base/browser/ui/positronDataExplorer/components/dataExplorerPanel/components/statusBar';
-import { FilterBar } from 'vs/base/browser/ui/positronDataExplorer/components/dataExplorerPanel/components/filterBar';
+import { FilterBars } from 'vs/base/browser/ui/positronDataExplorer/components/dataExplorerPanel/components/filterBars';
 import { DataExplorer } from 'vs/base/browser/ui/positronDataExplorer/components/dataExplorerPanel/components/dataExplorer';
 
 /**
@@ -21,7 +21,7 @@ export const DataExplorerPanel = () => {
 	// Render.
 	return (
 		<div className='data-explorer-panel'>
-			<FilterBar />
+			<FilterBars />
 			<DataExplorer />
 			<StatusBar />
 		</div>

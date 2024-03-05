@@ -1,0 +1,14 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *--------------------------------------------------------------------------------------------*/
+
+.data-explorer-panel
+.filter-bars {
+	padding: 8px;
+	row-gap: 8px;
+	display: flex;
+	flex-direction: column;
+	grid-row: filter-bar / data-explorer;
+	background-color: var(--vscode-positronDataExplorer-contrastBackground);
+	border-bottom: 1px solid var(--vscode-positronDataExplorer-border);
+}

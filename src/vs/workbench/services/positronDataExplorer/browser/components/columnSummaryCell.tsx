@@ -21,6 +21,7 @@ interface ColumnSummaryCellProps {
 	instance: TableSummaryDataGridInstance;
 	columnSchema: ColumnSchema;
 	columnIndex: number;
+	onDoubleClick: () => void;
 }
 
 /**
@@ -116,9 +117,7 @@ export const ColumnSummaryCell = (props: ColumnSummaryCellProps) => {
 	return (
 		<div
 			className='column-summary'
-			onDoubleClick={() =>
-				props.instance.toggleExpandedColumn(props.columnIndex)
-			}
+			onDoubleClick={props.onDoubleClick}
 		>
 			{props.columnIndex === props.instance.cursorRowIndex &&
 				<div className='cursor-background' />
@@ -141,7 +140,7 @@ export const ColumnSummaryCell = (props: ColumnSummaryCellProps) => {
 				<div
 					className='expand-collapse-button'
 					onClick={() =>
-						props.instance.toggleExpandedColumn(props.columnIndex)
+						props.instance.toggleExpandColumn(props.columnIndex)
 					}
 				>
 					{expanded ?

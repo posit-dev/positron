@@ -26,6 +26,7 @@ import { PositronModalPopupReactRenderer } from 'vs/base/browser/ui/positronModa
 export const showContextMenu = async (options: {
 	layoutService: ILayoutService;
 	anchorElement: HTMLElement;
+	alignment: 'left' | 'right';
 	width: number;
 	entries: (ContextMenuItem | ContextMenuSeparator)[];
 }): Promise<void> => {
@@ -111,7 +112,7 @@ export const showContextMenu = async (options: {
 					containerElement={container}
 					anchorElement={options.anchorElement}
 					popupPosition='bottom'
-					popupAlignment='right'
+					popupAlignment={options.alignment}
 					minWidth={options.width}
 					width={'max-content'}
 					height={'min-content'}
