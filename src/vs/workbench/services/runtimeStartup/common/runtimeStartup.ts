@@ -201,10 +201,19 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 		}));
 
 		this._extensionService.whenAllExtensionHostsStarted().then(async () => {
-			// Reconnect to any active sessions first;
+			// --- This is the main startup phase for the runtime startup service. ---
+
+			// Attempt to reconnect to any active sessions first.
 			await this.restoreSessions();
 
-			// then, discover all language runtimes
+			// If no sessions were restored, and we have affiliated runtimes,
+			// try to start them.
+			if (!this._runtimeSessionService.hasStartingOrRunningConsole() &&
+				this.hasAffiliatedRuntime()) {
+				this.startAffiliatedLanguageRuntimes();
+			}
+
+			// Then, discover all language runtimes.
 			await this.discoverAllRuntimes();
 		});
 
@@ -473,6 +482,7 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 	 * Starts all affiliated runtimes for the workspace.
 	 */
 	private startAffiliatedLanguageRuntimes(): void {
+		this._startupPhase.set(RuntimeStartupPhase.Starting, undefined);
 		const languageIds = this.getAffiliatedRuntimeLanguageIds();
 		if (languageIds) {
 			languageIds?.map(languageId => this.startAffiliatedRuntime(languageId));
@@ -511,13 +521,22 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 		}
 	}
 
+	/**
+	 * Restores the set of active workspace sessions from the workspace storage.
+	 */
 	private async restoreSessions() {
+		// Get the set of sessions that were active when the workspace was last
+		// open, and attempt to reconnect to them.
 		const storedSessions = this._storageService.get(PERSISTENT_WORKSPACE_SESSIONS_KEY,
 			StorageScope.WORKSPACE);
 		if (storedSessions) {
 			try {
 				const sessions = JSON.parse(storedSessions) as SerializedSessionMetadata[];
-				await this.restoreWorkspaceSessions(sessions);
+				if (sessions.length > 0) {
+					// If this workspace has sessions, attempt to reconnect to
+					// them.
+					await this.restoreWorkspaceSessions(sessions);
+				}
 			} catch (err) {
 				this._logService.error(`Could not restore workspace sessions: ${err} ` +
 					`(data: ${storedSessions})`);
@@ -525,6 +544,12 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 		}
 	}
 
+	/**
+	 * Restores the set of active workspace sessions from the workspace storage,
+	 * reconnecting to each one.
+	 *
+	 * @param sessions The set of sessions to restore.
+	 */
 	private async restoreWorkspaceSessions(sessions: SerializedSessionMetadata[]) {
 		this._startupPhase.set(RuntimeStartupPhase.Reconnecting, undefined);
 		this._logService.debug(`Reconnecting to sessions: ` +
