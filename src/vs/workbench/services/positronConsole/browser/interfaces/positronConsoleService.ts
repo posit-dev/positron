@@ -98,6 +98,9 @@ export enum SessionAttachMode {
 	/** The console is attaching to a new, starting session */
 	Starting = 'starting',
 
+	/** The console is attaching to a restarting session */
+	Restarting = 'restarting',
+
 	/** The console is attaching to a session that is being reconnected */
 	Reconnecting = 'reconnecting',
 

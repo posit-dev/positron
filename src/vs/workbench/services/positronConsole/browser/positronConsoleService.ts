@@ -238,7 +238,8 @@ class PositronConsoleService extends Disposable implements IPositronConsoleServi
 				this._positronConsoleInstancesBySessionId.set(positronConsoleInstance.session.runtimeMetadata.runtimeId, positronConsoleInstance);
 			} else {
 				// New runtime with a new language, so start a new Positron console instance.
-				this.startPositronConsoleInstance(e.session, SessionAttachMode.Starting);
+				this.startPositronConsoleInstance(e.session,
+					e.isNew ? SessionAttachMode.Starting : SessionAttachMode.Reconnecting);
 			}
 		}));
 
@@ -1138,11 +1139,25 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 						for (let i = this._runtimeItems.length - 1; i >= 0; i--) {
 							if (this._runtimeItems[i] instanceof RuntimeItemStarting) {
 								const runtimeItem = this._runtimeItems[i] as RuntimeItemStarting;
+								let msg = '';
+								// Create a localized message from the past
+								// tense of the attach mode.
+								switch (runtimeItem.attachMode) {
+									case SessionAttachMode.Starting:
+										msg = localize('positronConsole.started', "{0} started.", this._session.metadata.sessionName);
+										break;
+									case SessionAttachMode.Restarting:
+										msg = localize('positronConsole.restarted', "{0} restarted.", this._session.metadata.sessionName);
+										break;
+									case SessionAttachMode.Reconnecting:
+										msg = localize('positronConsole.reconnected', "{0} reconnected.", this._session.metadata.sessionName);
+										break;
+									case SessionAttachMode.Connected:
+										msg = localize('positronConsole.connected', "{0} connected.", this._session.metadata.sessionName);
+										break;
+								}
 								this._runtimeItems[i] = new RuntimeItemStarted(
-									generateUuid(),
-									`${this._session.metadata.sessionName} ` +
-									`${runtimeItem.isRestart ? 'restarted' : 'started'}.`
-								);
+									generateUuid(), msg);
 								this._onDidChangeRuntimeItemsEmitter.fire();
 							}
 						}
@@ -1201,17 +1216,17 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 				this.addRuntimeItem(new RuntimeItemStarting(
 					generateUuid(),
 					localize('positronConsole.starting.restart', "{0} restarting.", this._session.metadata.sessionName),
-					true));
+					SessionAttachMode.Restarting));
 			} else if (attachMode === SessionAttachMode.Starting) {
 				this.addRuntimeItem(new RuntimeItemStarting(
 					generateUuid(),
 					localize('positronConsole.starting.start', "{0} starting.", this._session.metadata.sessionName),
-					false));
+					attachMode));
 			} else if (attachMode === SessionAttachMode.Reconnecting) {
 				this.addRuntimeItem(new RuntimeItemStarting(
 					generateUuid(),
 					localize('positronConsole.starting.reconnect', "{0} reconnecting.", this._session.metadata.sessionName),
-					false));
+					attachMode));
 			}
 		} else {
 			this.setState(PositronConsoleState.Ready);
