@@ -240,8 +240,10 @@ function rHeadquarters(): string[] {
 			return [path.join('/opt', 'R')];
 		case 'win32': {
 			const paths = [
-				path.join(process.env['ProgramW6432'] || 'C:\\Program Files', 'R'),
-				path.join(process.env['PROGRAMFILES'] || 'C:\\Program Files', 'R')
+				// @kevinushey likes to install R here because it does not require administrator
+				// privileges to access
+				'C:\\R',
+				path.join(process.env['ProgramW6432'] || 'C:\\Program Files', 'R')
 			];
 			if (process.env['LOCALAPPDATA']) {
 				paths.push(path.join(process.env['LOCALAPPDATA'], 'Programs', 'R'));
