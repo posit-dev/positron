@@ -68,11 +68,6 @@ export class PositronNotebookWidget extends Disposable
 	_baseElement: HTMLElement;
 	_size: ISettableObservable<ISize>;
 	_input: PositronNotebookEditorInput;
-	_viewModelObservable: NotebookViewModelObservable = observableValue(
-		'viewModel',
-		undefined
-	);
-
 
 	/**
 	 * Containing node for the iframe/webview containing the outputs of notebook cells
@@ -91,7 +86,6 @@ export class PositronNotebookWidget extends Disposable
 	*/
 	private _viewContext: ViewContext;
 
-	// TODO: Explain these
 
 	/**
 	 *
@@ -152,7 +146,6 @@ export class PositronNotebookWidget extends Disposable
 			baseElement: HTMLElement;
 		},
 		readonly creationOptions: INotebookEditorCreationOptions | undefined,
-		// TODO: Label what each of these DI items are for.
 		@INotebookKernelService private readonly notebookKernelService: INotebookKernelService,
 		@INotebookExecutionService private readonly notebookExecutionService: INotebookExecutionService,
 		@INotebookExecutionStateService private readonly notebookExecutionStateService: INotebookExecutionStateService,
@@ -195,8 +188,8 @@ export class PositronNotebookWidget extends Disposable
 
 		function watchForModelAdded(e: ITextModel) {
 			console.log('model added', e);
-
 		}
+
 		this._register(this._modelService.onModelAdded(watchForModelAdded));
 
 
@@ -307,8 +300,6 @@ export class PositronNotebookWidget extends Disposable
 	}
 
 
-
-
 	async setModel(textModel: NotebookTextModel, viewState?: INotebookEditorViewState) {
 
 		// Confusingly the .equals() method for the NotebookViewModel takes a NotebookTextModel, not
@@ -353,8 +344,6 @@ export class PositronNotebookWidget extends Disposable
 				}));
 				this._input.positronNotebookInstance.attachViewModel(viewModel);
 			}
-
-			this._viewModelObservable.set(viewModel, undefined);
 
 			// Get the kernel up and running for the notebook.
 			this.setupKernel();

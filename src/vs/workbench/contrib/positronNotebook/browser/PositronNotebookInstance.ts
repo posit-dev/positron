@@ -23,6 +23,12 @@ import { PositronNotebookEditorInput } from 'vs/workbench/contrib/positronNotebo
 
 
 type ExecutionStatus = 'running' | 'pending' | 'unconfirmed' | 'idle';
+
+
+const cellTypeToKind = {
+	'code': CellKind.Code,
+	'markdown': CellKind.Markup,
+};
 /**
  * A headless instance that controls the complexity of the notebook.
  * This is where all the logic and state for the notebooks is controlled and encapsulated.
@@ -100,18 +106,7 @@ interface IPositronNotebookInstance {
 	 * Delete a cell from the notebook
 	 */
 	deleteCell(cell: PositronNotebookCell): void;
-
-
 }
-
-
-const cellTypeToKind = {
-	'code': CellKind.Code,
-	'markdown': CellKind.Markup,
-};
-
-
-
 
 export class PositronNotebookInstance extends Disposable implements IPositronNotebookInstance {
 
@@ -160,7 +155,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	}
 
 	/**
-	 * Context key service scoped to the dom note the notebook is rendered in.
+	 * Context key service scoped to the dom node the notebook is rendered in.
 	 */
 	_scopedContextKeyService: IContextKeyService | undefined;
 
@@ -319,7 +314,6 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 			[],
 			synchronous,
 			pushUndoStop
-
 		);
 	}
 
@@ -415,7 +409,6 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		this._viewModel = viewModel;
 	}
 }
-
 
 
 /**

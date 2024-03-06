@@ -146,13 +146,6 @@ export class PositronNotebookEditor extends EditorPane {
 	 */
 	private _size = observableValue<ISize>('size', { width: 0, height: 0 });
 
-	// /**
-	//  * Input as an observable so it can be lazily passed into the React component.
-	//  */
-	// private _inputObservable: InputObservable = observableValue(
-	// 	'input',
-	// 	undefined
-	// );
 
 	protected override createEditor(parent: HTMLElement): void {
 		const myDiv = parent.ownerDocument.createElement('div');
@@ -170,8 +163,6 @@ export class PositronNotebookEditor extends EditorPane {
 		if (this._notebookWidget) {
 			this._saveEditorViewState();
 		}
-
-
 
 		// Call the base class's method.
 		super.clearInput();
@@ -251,7 +242,6 @@ export class PositronNotebookEditor extends EditorPane {
 
 
 		this._notebookWidget?.setModel(model.notebook, viewState);
-
 	}
 
 	constructor(

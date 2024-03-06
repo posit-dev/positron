@@ -43,10 +43,11 @@ export function NotebookCell(opts: {
 					onPressed={() => opts.cell.run()} >
 					<div className={`button-icon codicon ${isRunning ? 'codicon-primitive-square' : 'codicon-run'}`} />
 				</PositronButton>
-				<PositronButton className='action-button' ariaLabel='Delete cell' onPressed={() => {
-					console.log('Delete cell');
-					opts.cell.delete();
-				}}>
+				<PositronButton
+					className='action-button'
+					ariaLabel='Delete cell'
+					onPressed={() => opts.cell.delete()}
+				>
 					<div className='button-icon codicon codicon-trash' />
 				</PositronButton>
 			</div>
