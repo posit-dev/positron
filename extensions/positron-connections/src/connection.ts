@@ -278,8 +278,8 @@ export class ConnectionItemsProvider implements vscode.TreeDataProvider<Connecti
 
 		let contains_data: boolean;
 		try {
-			// a failure here is unlikely as if continas_data() fails before, we would return a
-			// non collapisble treeItem, this getChildren wouldn't be called.
+			// a failure here is unlikely as if contains_data() fails before, we would return a
+			// non collapsible treeItem, this getChildren wouldn't be called.
 			// anyway, if this happens we still send a retry notification and return no children.
 			contains_data = await element.contains_data();
 		} catch (err: any) {
