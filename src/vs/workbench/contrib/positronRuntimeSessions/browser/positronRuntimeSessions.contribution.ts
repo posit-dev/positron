@@ -28,16 +28,16 @@ export const VIEW_CONTAINER: ViewContainer = Registry.as<IViewContainersRegistry
 	{
 		id: POSITRON_RUNTIME_SESSIONS_VIEW_ID,
 		title: {
-			value: nls.localize('positron.view.runtime.sessions', "Runtimes"),
-			original: 'Session'
+			value: nls.localize('positron.view.runtime.view', "Runtimes"),
+			original: 'Runtimes'
 		},
 		icon: positronRuntimeSessionsViewIcon,
 		order: 1,
 		ctorDescriptor: new SyncDescriptor(ViewPaneContainer, [POSITRON_RUNTIME_SESSIONS_VIEW_ID, { mergeViewWithContainerWhenSingleView: true }]),
 		storageId: POSITRON_RUNTIME_SESSIONS_VIEW_ID,
-		hideIfEmpty: false,
+		hideIfEmpty: true,
 	},
-	ViewContainerLocation.AuxiliaryBar,
+	ViewContainerLocation.Sidebar,
 	{
 		doNotRegisterOpenCommand: false,
 		isDefault: false
@@ -50,17 +50,19 @@ Registry.as<IViewsRegistry>(ViewContainerExtensions.ViewsRegistry).registerViews
 		{
 			id: POSITRON_RUNTIME_SESSIONS_VIEW_ID,
 			name: {
-				// "Sessions" might be a better name than "Runtimes" for the view,
-				// but "Session" is already a view name and that could get A
-				// Little Confusing.
-				value: nls.localize('positron.view.runtime.sessions', "Runtimes"),
-				original: 'Runtimes'
+				value: nls.localize('positron.view.runtime.sessions', "Sessions"),
+				original: 'Sessions'
 			},
 			ctorDescriptor: new SyncDescriptor(PositronRuntimeSessionsViewPane),
 			canToggleVisibility: true,
 			hideByDefault: true,
 			canMoveView: true,
-			containerIcon: positronRuntimeSessionsViewIcon
+			containerIcon: positronRuntimeSessionsViewIcon,
+			openCommandActionDescriptor: {
+				id: 'workbench.action.positron.toggleSessions',
+				mnemonicTitle: nls.localize({ key: 'miToggleSessions', comment: ['&& denotes a mnemonic'] }, "&&Sessions"),
+				order: 1,
+			}
 		}
 	],
 	VIEW_CONTAINER

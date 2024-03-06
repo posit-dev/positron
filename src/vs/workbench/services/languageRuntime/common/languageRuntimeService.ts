@@ -539,16 +539,18 @@ export interface ILanguageRuntimeMetadata {
 	readonly extraRuntimeData: any;
 }
 
-/**
- * Contains information about the session's current state.
- */
-export interface ILanguageRuntimeSessionState {
+export interface ILangaugeRuntimeDynState {
 	/** The text the language's interpreter uses to prompt the user for input, e.g. ">" or ">>>" */
 	inputPrompt: string;
 
 	/** The text the language's interpreter uses to prompt the user for continued input, e.g. "+" or "..." */
 	continuationPrompt: string;
+}
 
+/**
+ * Contains information about the session's current state.
+ */
+export interface ILanguageRuntimeSessionState extends ILangaugeRuntimeDynStatea {
 	/** The current working directory of the interpreter. */
 	currentWorkingDirectory: string;
 

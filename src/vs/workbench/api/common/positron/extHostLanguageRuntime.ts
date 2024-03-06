@@ -76,13 +76,18 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 	 */
 	async $createLanguageRuntimeSession(
 		runtimeMetadata: ILanguageRuntimeMetadata,
-		sessionMetadata: IRuntimeSessionMetadata): Promise<number> {
+		sessionMetadata: IRuntimeSessionMetadata): Promise<extHostProtocol.RuntimeInitialState> {
 		// Look up the session manager responsible for restoring this session
 		const sessionManager = await this.runtimeManagerForRuntime(runtimeMetadata);
 		if (sessionManager) {
 			const session =
 				await sessionManager.manager.createSession(runtimeMetadata, sessionMetadata);
-			return this.attachToSession(session);
+			const handle = this.attachToSession(session);
+			const initalState = {
+				handle,
+				dynState: session.dynState
+			};
+			return initalState;
 		} else {
 			throw new Error(
 				`No session manager found for language ID '${runtimeMetadata.languageId}'.`);
@@ -99,7 +104,7 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 	 */
 	async $restoreLanguageRuntimeSession(
 		runtimeMetadata: ILanguageRuntimeMetadata,
-		sessionMetadata: IRuntimeSessionMetadata): Promise<number> {
+		sessionMetadata: IRuntimeSessionMetadata): Promise<extHostProtocol.RuntimeInitialState> {
 		// Look up the session manager responsible for restoring this session
 		console.debug(`[Reconnect ${sessionMetadata.sessionId}]: Await runtime manager for runtime ${runtimeMetadata.extensionId.value}...`);
 		const sessionManager = await this.runtimeManagerForRuntime(runtimeMetadata);
@@ -111,7 +116,12 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 				console.debug(`[Reconnect ${sessionMetadata.sessionId}]: Await restore session...`);
 				const session =
 					await sessionManager.manager.restoreSession(runtimeMetadata, sessionMetadata);
-				return this.attachToSession(session);
+				const handle = this.attachToSession(session);
+				const initalState = {
+					handle,
+					dynState: session.dynState
+				};
+				return initalState;
 			} else {
 				// Session restoration is optional; if the session manager
 				// doesn't support it, then throw an error

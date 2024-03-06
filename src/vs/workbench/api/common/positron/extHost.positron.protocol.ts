@@ -9,7 +9,17 @@ import { IWebviewPortMapping, WebviewExtensionDescription } from 'vs/workbench/a
 import { URI, UriComponents } from 'vs/base/common/uri';
 import { IEditorContext } from 'vs/workbench/services/frontendMethods/common/editorContext';
 import { RuntimeClientType } from 'vs/workbench/api/common/positron/extHostTypes.positron';
-import { RuntimeSessionMetadata } from 'positron';
+import { LanguageRuntimeDynState, RuntimeSessionMetadata } from 'positron';
+
+
+/**
+ * The initial state returned when starting or resuming a runtime session.
+ */
+export interface RuntimeInitialState {
+	handle: number;
+	dynState: LanguageRuntimeDynState;
+}
+
 
 // This is the interface that the main process exposes to the extension host
 export interface MainThreadLanguageRuntimeShape extends IDisposable {
@@ -28,8 +38,8 @@ export interface MainThreadLanguageRuntimeShape extends IDisposable {
 
 // The interface to the main thread exposed by the extension host
 export interface ExtHostLanguageRuntimeShape {
-	$createLanguageRuntimeSession(runtimeMetadata: ILanguageRuntimeMetadata, sessionMetadata: RuntimeSessionMetadata): Promise<number>;
-	$restoreLanguageRuntimeSession(runtimeMetadata: ILanguageRuntimeMetadata, sessionMetadata: RuntimeSessionMetadata): Promise<number>;
+	$createLanguageRuntimeSession(runtimeMetadata: ILanguageRuntimeMetadata, sessionMetadata: RuntimeSessionMetadata): Promise<RuntimeInitialState>;
+	$restoreLanguageRuntimeSession(runtimeMetadata: ILanguageRuntimeMetadata, sessionMetadata: RuntimeSessionMetadata): Promise<RuntimeInitialState>;
 	$startLanguageRuntime(handle: number): Promise<ILanguageRuntimeInfo>;
 	$openResource(handle: number, resource: URI | string): Promise<boolean>;
 	$executeCode(handle: number, code: string, id: string, mode: RuntimeCodeExecutionMode, errorBehavior: RuntimeErrorBehavior): void;

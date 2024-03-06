@@ -6,7 +6,8 @@ import {
 	ExtHostLanguageRuntimeShape,
 	MainThreadLanguageRuntimeShape,
 	MainPositronContext,
-	ExtHostPositronContext
+	ExtHostPositronContext,
+	RuntimeInitialState
 } from '../../common/positron/extHost.positron.protocol';
 import { extHostNamedCustomer, IExtHostContext } from 'vs/workbench/services/extensions/common/extHostCustomers';
 import { ILanguageRuntimeClientCreatedEvent, ILanguageRuntimeInfo, ILanguageRuntimeMessage, ILanguageRuntimeMessageCommClosed, ILanguageRuntimeMessageCommData, ILanguageRuntimeMessageCommOpen, ILanguageRuntimeMessageError, ILanguageRuntimeMessageInput, ILanguageRuntimeMessageOutput, ILanguageRuntimeMessagePrompt, ILanguageRuntimeMessageState, ILanguageRuntimeMessageStream, ILanguageRuntimeMetadata, ILanguageRuntimeSessionState as ILanguageRuntimeSessionState, ILanguageRuntimeService, ILanguageRuntimeStartupFailure, LanguageRuntimeMessageType, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior, RuntimeState, ILanguageRuntimeExit, RuntimeOutputKind, RuntimeExitReason, ILanguageRuntimeMessageWebOutput, PositronOutputLocation, LanguageRuntimeSessionMode } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
@@ -103,16 +104,29 @@ class ExtHostLanguageRuntimeSessionAdapter implements ILanguageRuntimeSession {
 	/** Timer used to ensure event queue processing occurs within a set interval */
 	private _eventQueueTimer: NodeJS.Timeout | undefined;
 
+	/** The handle uniquely identifying this runtime session with the extension host*/
+	private handle: number;
+
+	/** The dynamic state of the runtime session */
+	dynState: ILanguageRuntimeSessionState;
+
 	constructor(
-		readonly handle: number,
+		initialState: RuntimeInitialState,
 		readonly runtimeMetadata: ILanguageRuntimeMetadata,
 		readonly metadata: IRuntimeSessionMetadata,
-		readonly dynState: ILanguageRuntimeSessionState,
 		private readonly _runtimeSessionService: IRuntimeSessionService,
 		private readonly _logService: ILogService,
 		private readonly _notebookService: INotebookService,
 		private readonly _editorService: IEditorService,
 		private readonly _proxy: ExtHostLanguageRuntimeShape) {
+
+		// Save handle
+		this.handle = initialState.handle;
+		this.dynState = {
+			currentWorkingDirectory: '',
+			busy: false,
+			...initialState.dynState,
+		};
 
 		// Bind events to emitters
 		this.onDidChangeRuntimeState = this._stateEmitter.event;
@@ -1094,10 +1108,10 @@ export class MainThreadLanguageRuntime
 		sessionMetadata: IRuntimeSessionMetadata):
 		Promise<ILanguageRuntimeSession> {
 
-		const handle = await this._proxy.$createLanguageRuntimeSession(runtimeMetadata,
+		const initialState = await this._proxy.$createLanguageRuntimeSession(runtimeMetadata,
 			sessionMetadata);
-		const session = this.createSessionAdapter(handle, runtimeMetadata, sessionMetadata);
-		this._sessions.set(handle, session);
+		const session = this.createSessionAdapter(initialState, runtimeMetadata, sessionMetadata);
+		this._sessions.set(initialState.handle, session);
 		return session;
 	}
 
@@ -1109,10 +1123,10 @@ export class MainThreadLanguageRuntime
 		sessionMetadata: IRuntimeSessionMetadata):
 		Promise<ILanguageRuntimeSession> {
 
-		const handle = await this._proxy.$restoreLanguageRuntimeSession(runtimeMetadata,
+		const initialState = await this._proxy.$restoreLanguageRuntimeSession(runtimeMetadata,
 			sessionMetadata);
-		const session = this.createSessionAdapter(handle, runtimeMetadata, sessionMetadata);
-		this._sessions.set(handle, session);
+		const session = this.createSessionAdapter(initialState, runtimeMetadata, sessionMetadata);
+		this._sessions.set(initialState.handle, session);
 		return session;
 	}
 
@@ -1127,19 +1141,13 @@ export class MainThreadLanguageRuntime
 	 * @returns A new language runtime session adapter
 	 */
 	private createSessionAdapter(
-		handle: number,
+		initialState: RuntimeInitialState,
 		runtimeMetadata: ILanguageRuntimeMetadata,
 		sessionMetadata: IRuntimeSessionMetadata): ExtHostLanguageRuntimeSessionAdapter {
 
-		return new ExtHostLanguageRuntimeSessionAdapter(handle,
+		return new ExtHostLanguageRuntimeSessionAdapter(initialState,
 			runtimeMetadata,
 			sessionMetadata,
-			{
-				busy: false,
-				inputPrompt: '',
-				continuationPrompt: '',
-				currentWorkingDirectory: ''
-			},
 			this._runtimeSessionService,
 			this._logService,
 			this._notebookService,
