@@ -78,10 +78,10 @@ class PositronVariablesService extends Disposable implements IPositronVariablesS
 			}
 		}
 
-		// Register the onWillStartRuntime event handler so we start a new Positron variables
+		// Register the onWillStartSession event handler so we start a new Positron variables
 		// instance before a runtime starts up.
-		this._register(this._runtimeSessionService.onWillStartRuntime(session => {
-			this.createOrAssignPositronVariablesInstance(session);
+		this._register(this._runtimeSessionService.onWillStartSession(e => {
+			this.createOrAssignPositronVariablesInstance(e.session);
 		}));
 
 		// Register the onDidStartRuntime event handler so we activate the new Positron variables

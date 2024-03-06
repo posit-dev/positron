@@ -20,6 +20,17 @@ export interface ILanguageRuntimeGlobalEvent {
 	event: IRuntimeClientEvent;
 }
 
+/**
+ * Event that fires when a runtime session is about to start.
+ */
+export interface IRuntimeSessionWillStartEvent {
+	/** Whether this is a new session or an existing session (a reconnect) */
+	isNew: boolean;
+
+	/** The session about to start */
+	session: ILanguageRuntimeSession;
+}
+
 export interface ILanguageRuntimeSessionStateEvent {
 	/** The ID of the session that changed states */
 	session_id: string;
@@ -203,7 +214,7 @@ export interface IRuntimeSessionService {
 	readonly _serviceBrand: undefined;
 
 	// An event that fires when a runtime session is about to start.
-	readonly onWillStartRuntime: Event<ILanguageRuntimeSession>;
+	readonly onWillStartSession: Event<IRuntimeSessionWillStartEvent>;
 
 	// An event that fires when a runtime session starts.
 	readonly onDidStartRuntime: Event<ILanguageRuntimeSession>;

@@ -41,8 +41,8 @@ export class PositronPreviewService extends Disposable implements IPositronPrevi
 		this._runtimeSessionService.activeSessions.forEach(runtime => {
 			this.attachRuntime(runtime);
 		});
-		this._runtimeSessionService.onWillStartRuntime(runtime => {
-			this.attachRuntime(runtime);
+		this._runtimeSessionService.onWillStartSession(e => {
+			this.attachRuntime(e.session);
 		});
 	}
 

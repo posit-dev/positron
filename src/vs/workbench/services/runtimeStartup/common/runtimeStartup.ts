@@ -111,8 +111,8 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 			this, 'runtime-startup-phase', RuntimeStartupPhase.Initializing);
 		this.onDidChangeRuntimeStartupPhase = Event.fromObservable(this._startupPhase);
 
-		this._register(this._runtimeSessionService.onWillStartRuntime(session => {
-			this._register(session.onDidEncounterStartupFailure(_exit => {
+		this._register(this._runtimeSessionService.onWillStartSession(e => {
+			this._register(e.session.onDidEncounterStartupFailure(_exit => {
 				// Update the set of workspace sessions
 				this.saveWorkspaceSessions();
 			}));

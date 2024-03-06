@@ -11,7 +11,7 @@ import { InstantiationType, registerSingleton } from 'vs/platform/instantiation/
 import { ILogService } from 'vs/platform/log/common/log';
 import { IOpener, IOpenerService, OpenExternalOptions, OpenInternalOptions } from 'vs/platform/opener/common/opener';
 import { ILanguageRuntimeMetadata, ILanguageRuntimeService, LanguageRuntimeSessionMode, LanguageRuntimeStartupBehavior, RuntimeExitReason, RuntimeState, formatLanguageRuntimeMetadata, formatLanguageRuntimeSession } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
-import { ILanguageRuntimeGlobalEvent, ILanguageRuntimeSession, ILanguageRuntimeSessionManager, ILanguageRuntimeSessionStateEvent, IRuntimeSessionMetadata, IRuntimeSessionService, RuntimeClientType } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
+import { ILanguageRuntimeGlobalEvent, ILanguageRuntimeSession, ILanguageRuntimeSessionManager, ILanguageRuntimeSessionStateEvent, IRuntimeSessionMetadata, IRuntimeSessionService, IRuntimeSessionWillStartEvent, RuntimeClientType } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
 import { IWorkspaceTrustManagementService } from 'vs/platform/workspace/common/workspaceTrust';
 import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
 import { IModalDialogPromptInstance, IPositronModalDialogsService } from 'vs/workbench/services/positronModalDialogs/common/positronModalDialogs';
@@ -72,7 +72,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 
 	// The event emitter for the onWillStartRuntime event.
 	private readonly _onWillStartRuntimeEmitter =
-		this._register(new Emitter<ILanguageRuntimeSession>);
+		this._register(new Emitter<IRuntimeSessionWillStartEvent>);
 
 	// The event emitter for the onDidStartRuntime event.
 	private readonly _onDidStartRuntimeEmitter =
@@ -148,7 +148,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 	//#region ILanguageRuntimeService Implementation
 
 	// An event that fires when a runtime is about to start.
-	readonly onWillStartRuntime = this._onWillStartRuntimeEmitter.event;
+	readonly onWillStartSession = this._onWillStartRuntimeEmitter.event;
 
 	// An event that fires when a runtime successfully starts.
 	readonly onDidStartRuntime = this._onDidStartRuntimeEmitter.event;
@@ -386,7 +386,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 
 		// Actually reconnect the session.
 		try {
-			await this.doStartRuntimeSession(session);
+			await this.doStartRuntimeSession(session, false);
 			startPromise.complete(sessionMetadata.sessionId);
 		} catch (err) {
 			startPromise.error(err);
@@ -601,7 +601,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 
 		// Actually start the session.
 		try {
-			await this.doStartRuntimeSession(session);
+			await this.doStartRuntimeSession(session, true);
 			startPromise.complete(sessionId);
 		} catch (err) {
 			startPromise.error(err);
@@ -610,10 +610,15 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 		return sessionId;
 	}
 
-	private async doStartRuntimeSession(session: ILanguageRuntimeSession): Promise<void> {
+	private async doStartRuntimeSession(session: ILanguageRuntimeSession, isNew: boolean):
+		Promise<void> {
 
 		// Fire the onWillStartRuntime event.
-		this._onWillStartRuntimeEmitter.fire(session);
+		const evt: IRuntimeSessionWillStartEvent = {
+			session,
+			isNew
+		};
+		this._onWillStartRuntimeEmitter.fire(evt);
 
 		// Attach event handlers to the newly provisioned session.
 		this.attachToSession(session);
@@ -731,7 +736,11 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 				}
 				if (sessionInfo.state === RuntimeState.Exited &&
 					exit.reason === RuntimeExitReason.Restart) {
-					this._onWillStartRuntimeEmitter.fire(session);
+					const evt: IRuntimeSessionWillStartEvent = {
+						session,
+						isNew: true
+					};
+					this._onWillStartRuntimeEmitter.fire(evt);
 				}
 			}, 0);
 

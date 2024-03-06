@@ -53,9 +53,9 @@ export const InterpreterActions = (props: PropsWithChildren<InterpreterActionsPr
 		// Listen for new console sessions that are started. When a new session
 		// is started for the runtime that this component is managing, attach to
 		// it.
-		disposableStore.add(props.runtimeSessionService.onWillStartRuntime(session => {
-			if (session.metadata.sessionMode === LanguageRuntimeSessionMode.Console &&
-				session.runtimeMetadata.runtimeId === props.runtime.runtimeId) {
+		disposableStore.add(props.runtimeSessionService.onWillStartSession(e => {
+			if (e.session.metadata.sessionMode === LanguageRuntimeSessionMode.Console &&
+				e.session.runtimeMetadata.runtimeId === props.runtime.runtimeId) {
 				setSession(session);
 			}
 		}));

@@ -92,6 +92,20 @@ export interface IPositronConsoleService {
 }
 
 /**
+ * An enumeration of the session attachment modes for new console instances.
+ */
+export enum SessionAttachMode {
+	/** The console is attaching to a new, starting session */
+	Starting = 'starting',
+
+	/** The console is attaching to a session that is being reconnected */
+	Reconnecting = 'reconnecting',
+
+	/** The console is reattaching to a connected session */
+	Connected = 'connected',
+}
+
+/**
  * IPositronConsoleInstance interface.
  */
 export interface IPositronConsoleInstance {

@@ -132,9 +132,9 @@ class PositronDataExplorerService extends Disposable implements IPositronDataExp
 			this.addDataExplorerSession(session);
 		});
 
-		// Register the onWillStartRuntime event handler.
-		this._register(this._runtimeSessionService.onWillStartRuntime(session => {
-			this.addDataExplorerSession(session);
+		// Register the onWillStartSession event handler.
+		this._register(this._runtimeSessionService.onWillStartSession(e => {
+			this.addDataExplorerSession(e.session);
 		}));
 
 		// Register the onDidStartRuntime event handler.
