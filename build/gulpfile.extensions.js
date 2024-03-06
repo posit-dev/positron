@@ -166,7 +166,8 @@ const tasks = compilations.map(function (tsconfigFile) {
 					sourceMappingURL: !build ? null : f => `${baseUrl}/${f.relative}.map`,
 					addComment: !!build,
 					includeContent: !!build,
-					sourceRoot: '../src'
+					// note: trailing slash is important, else the source URLs in V8's file coverage are incorrect
+					sourceRoot: '../src/',
 				}))
 				.pipe(tsFilter.restore)
 				.pipe(build ? nlsDev.bundleMetaDataFiles(headerId, headerOut) : es.through())
@@ -231,9 +232,22 @@ const tasks = compilations.map(function (tsconfigFile) {
 		// --- Start Positron ---
 		// Add '!**/*.tsx'.
 		const nonts = gulp.src(src, srcOpts).pipe(filter(['**', '!**/*.ts', '!**/*.tsx']));
-		// --- End Positron ---
+
+		// The Python extension's integration tests create and delete directories in a way that
+		// crashes the watcher. For the positron-python task, ignore these known directories.
+		// (Note that these need to be ignored at `watcher` -- `gulp.src` is not enough.)
+		if (relativeDirname === 'positron-python') {
+			ignored = [
+				path.join(srcBase, 'testTestingRootWkspc/**'),
+				path.join(srcBase, 'test/1/**'),
+				path.join(srcBase, 'test/should-not-exist/**'),
+			];
+		} else {
+			ignored = [];
+		}
 		const input = es.merge(nonts, pipeline.tsProjectSrc());
-		const watchInput = watcher(src, { ...srcOpts, ...{ readDelay: 200 } });
+		const watchInput = watcher(src, { ...srcOpts, ...{ ignored, readDelay: 200 } });
+		// --- End Positron ---
 
 		return watchInput
 			.pipe(util.incremental(pipeline, input))
