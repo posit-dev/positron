@@ -332,13 +332,21 @@ async function findCurrentRBinary(): Promise<string | undefined> {
 				const re = new RegExp(`^@"(.+R-(devel|[0-9]+[.][0-9]+[.][0-9]+).+)" %[*]$`);
 				const match = batLines.find((x: string) => re.test(x))?.match(re);
 				if (match) {
-					let whichRResolved = match[1];
-					// add the extension .exe if it's not already there
-					if (path.extname(whichRResolved).toLowerCase() !== '.exe') {
-						whichRResolved += '.exe';
+					const whichRMatched = match[1];
+					const whichRHome = getRHomePath(whichRMatched);
+					if (!whichRHome) {
+						Logger.info(`Failed to get R home path from ${whichRMatched}`);
+						return undefined;
 					}
-					Logger.info(`Resolved R binary at ${whichRResolved}`);
-					return (whichRResolved);
+					// we prefer the x64 binary
+					const whichRResolved = firstExisting(whichRHome, binFragments());
+					if (whichRResolved) {
+						Logger.info(`Resolved R binary at ${whichRResolved}`);
+						return whichRResolved;
+					} else {
+						Logger.info(`Can\'t find R binary within ${whichRHome}`);
+						return undefined;
+					}
 				}
 			}
 			// TODO: handle the case where whichR isn't picking up the rig case; do people do this,
