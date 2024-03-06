@@ -320,13 +320,16 @@ async function findCurrentRBinary(): Promise<string | undefined> {
 			// In the rig scenario, `whichR` is anticipated to be a batch file that launches the
 			// current version of R ('default' in rig-speak):
 			// Example filepath: C:\Program Files\R\bin\R.bat
-			// Example contents of this file:
+			// Typical contents of this file:
 			// ::4.3.2
 			// @"C:\Program Files\R\R-4.3.2\bin\R" %*
+			// How it looks when r-devel is current:
+			// ::devel
+			// @"C:\Program Files\R\R-devel\bin\R" %*
 			// Note that this binary is not our preferred one, i.e. \bin\x64\R.exe, but it is usable
 			if (path.extname(whichR).toLowerCase() === '.bat') {
 				const batLines = readLines(whichR);
-				const re = new RegExp(`^@"(.+R-[0-9]+[.][0-9]+[.][0-9]+.+)" %[*]$`);
+				const re = new RegExp(`^@"(.+R-(devel|[0-9]+[.][0-9]+[.][0-9]+).+)" %[*]$`);
 				const match = batLines.find((x: string) => re.test(x))?.match(re);
 				if (match) {
 					let whichRResolved = match[1];
