@@ -657,6 +657,10 @@ export const Codicon = {
 	positronAddFilter: register('positron-add-filter', 0xf26d),
 	positronColumnFilter: register('positron-column-filter', 0xf26e),
 	positronRowFilter: register('positron-row-filter', 0xf26f),
+	positronHideFilters: register('positron-hide-filters', 0xf270),
+	positronShowFilters: register('positron-show-filters', 0xf271),
+	positronClearColumnFilters: register('positron-clear-column-filters', 0xf272),
+	positronClearRowFilters: register('positron-clear-row-filters', 0xf273),
 	// --- End Positron ---
 
 

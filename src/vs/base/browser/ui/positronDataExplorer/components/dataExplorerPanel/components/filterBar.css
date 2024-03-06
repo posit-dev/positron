@@ -6,7 +6,7 @@
 .filter-bars
 .filter-bar {
 	display: grid;
-	grid-template-columns: [icon] 22px [gutter] 8px [filters] 1fr [end];
+	grid-template-columns: [icon] 25px [gutter] 8px [filters] 1fr [end];
 }
 
 .data-explorer-panel
@@ -21,10 +21,11 @@
 .filter-bar
 .filter
 .filter-button {
-	width: 22px;
-	height: 22px;
+	width: 25px;
+	height: 25px;
 	display: flex;
 	border-radius: 3px;
+	position: relative;
 	align-items: center;
 	box-sizing: border-box;
 	justify-content: center;
@@ -52,6 +53,28 @@
 .data-explorer-panel
 .filter-bars
 .filter-bar
+.filter
+.filter-button
+.counter {
+	top: -6px;
+	right: -6px;
+	font-size: 60%;
+	font-weight: 600;
+	position: absolute;
+	background-color: var(--vscode-positronDataGrid-sortIndexForeground);
+	width: 14px;
+	height: 14px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	border-radius: 7px;
+	color: white;
+}
+
+
+.data-explorer-panel
+.filter-bars
+.filter-bar
 .filter-entries {
 	row-gap: 8px;
 	column-gap: 4px;
@@ -66,8 +89,8 @@
 .filter-bar
 .filter-entries
 .add-filter-button {
-	width: 22px;
-	height: 22px;
+	width: 25px;
+	height: 25px;
 	display: flex;
 	border-radius: 3px;
 	align-items: center;
@@ -100,7 +123,7 @@
 .filter-entries
 .filter {
 	width: 90px;
-	height: 22px;
+	height: 25px;
 	display: flex;
 	align-items: center;
 	text-align: center;
@@ -109,14 +132,4 @@
 	box-sizing: border-box;
 	border: 1px solid var(--vscode-positronDataExplorer-border);
 	background-color: var(--vscode-positronDataExplorer-background);
-}
-
-.data-explorer-panel
-.filter-bars
-.filter-bar
-.filter-entries
-.super-duper {
-	column-gap: 4px;
-	display: flex;
-	flex-direction: row;
 }
