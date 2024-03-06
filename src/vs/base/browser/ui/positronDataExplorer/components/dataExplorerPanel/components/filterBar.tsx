@@ -17,6 +17,12 @@ import { PositronButton } from 'vs/base/browser/ui/positronComponents/positronBu
 import { ContextMenuSeparator } from 'vs/base/browser/ui/contextMenu/contextMenuSeparator';
 import { usePositronDataExplorerContext } from 'vs/base/browser/ui/positronDataExplorer/positronDataExplorerContext';
 
+/**
+ * Localized strings.
+ */
+const filterButtonAriaLabel = localize('positron.filtering', "Filtering");
+const addFilterButtonAriaLabel = localize('positron.addFilter', "Add filter");
+
 // Temporary filter.
 interface Filter {
 	name: string;
@@ -24,55 +30,15 @@ interface Filter {
 }
 
 /**
- * FilterBarProps interface.
- */
-interface FilterBarProps {
-	type: 'column' | 'row';
-}
-
-/**
  * FilterBar component.
  * @returns The rendered component.
  */
-export const FilterBar = (props: FilterBarProps) => {
+export const FilterBar = () => {
 	// Context hooks.
 	const context = usePositronDataExplorerContext();
 
 	// Reference hooks.
 	const filterButtonRef = useRef<HTMLDivElement>(undefined!);
-
-	// State hooks.
-	const [resources] = React.useState<{
-		filterTypeLabel: string;
-		filterButtonIconId: string;
-		filterButtonAriaLabel: string;
-		addFilterButtonIconId: string;
-		addFilterButtonAriaLabel: string;
-		clearFiltersIconId: string;
-	}>(() => {
-		if (props.type === 'column') {
-			return {
-				filterTypeLabel: localize('positron.column', "column"),
-				filterButtonIconId: 'positron-column-filter',
-				filterButtonAriaLabel: localize('positron.columnFiltering', "Column filtering"),
-				addFilterButtonIconId: 'positron-add-filter',
-				addFilterButtonAriaLabel: localize('positron.addColumnFilter', "Add column filter"),
-				clearFiltersIconId: 'positron-clear-column-filters',
-			};
-		} else if (props.type === 'row') {
-			return {
-				filterTypeLabel: localize('positron.row', "row"),
-				filterButtonIconId: 'positron-row-filter',
-				filterButtonAriaLabel: localize('positron.rowFiltering', "Row filtering"),
-				addFilterButtonIconId: 'positron-add-filter',
-				addFilterButtonAriaLabel: localize('positron.addRowFilter', "Add row filter"),
-				clearFiltersIconId: 'positron-clear-row-filters',
-			};
-		} else {
-			// Can't happen.
-			throw new Error('Unexpected filter bar type');
-		}
-	});
 
 	// Temporary state code.
 	const [filters, setFilters] = useState<Filter[]>([]);
@@ -85,45 +51,29 @@ export const FilterBar = (props: FilterBarProps) => {
 		// Build the context menu entries.
 		const entries: (ContextMenuItem | ContextMenuSeparator)[] = [];
 		entries.push(new ContextMenuItem({
-			label: localize(
-				'positron.addFilter',
-				"Add {0} filter",
-				resources.filterTypeLabel
-			),
-			icon: resources.addFilterButtonIconId,
+			label: localize('positron.addFilter', "Add filter"),
+			icon: 'positron-add-filter',
 			onSelected: () => addFilter()
 		}));
 		entries.push(new ContextMenuSeparator());
 		if (!filtersHidden) {
 			entries.push(new ContextMenuItem({
-				label: localize(
-					'positron.hideFilters',
-					"Hide {0} filters",
-					resources.filterTypeLabel
-				),
+				label: localize('positron.hideFilters', "Hide filters"),
 				icon: 'positron-hide-filters',
 				disabled: filters.length === 0,
 				onSelected: () => setFiltersHidden(true)
 			}));
 		} else {
 			entries.push(new ContextMenuItem({
-				label: localize(
-					'positron.showFilters',
-					"Show {0} filters",
-					resources.filterTypeLabel
-				),
+				label: localize('positron.showFilters', "Show filters"),
 				icon: 'positron-show-filters',
 				onSelected: () => setFiltersHidden(false)
 			}));
 		}
 		entries.push(new ContextMenuSeparator());
 		entries.push(new ContextMenuItem({
-			label: localize(
-				'positron.clearFilters',
-				"Clear all {0} filters",
-				resources.filterTypeLabel
-			),
-			icon: resources.clearFiltersIconId,
+			label: localize('positron.clearFilters', "Clear filters"),
+			icon: 'positron-clear-row-filters',
 			disabled: filters.length === 0,
 			onSelected: () => setFilters([])
 		}));
@@ -159,10 +109,10 @@ export const FilterBar = (props: FilterBarProps) => {
 				<PositronButton
 					ref={filterButtonRef}
 					className='filter-button'
-					ariaLabel={resources.filterButtonAriaLabel}
+					ariaLabel={filterButtonAriaLabel}
 					onPressed={filterButtonPressedHandler}
 				>
-					<div className={`codicon codicon-${resources.filterButtonIconId}`} />
+					<div className='codicon codicon-positron-row-filter' />
 					{filters.length !== 0 && <div className='counter'>{filters.length}</div>}
 				</PositronButton>
 			</div>
@@ -172,10 +122,10 @@ export const FilterBar = (props: FilterBarProps) => {
 				)}
 				<PositronButton
 					className='add-filter-button'
-					ariaLabel={resources.addFilterButtonIconId}
+					ariaLabel={addFilterButtonAriaLabel}
 					onPressed={addFilterButtonPressedHandler}
 				>
-					<div className={`codicon codicon-${resources.addFilterButtonIconId}`} />
+					<div className='codicon codicon-positron-add-filter' />
 				</PositronButton>
 			</div>
 		</div>

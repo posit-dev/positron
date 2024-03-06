@@ -9,8 +9,8 @@ import 'vs/css!./dataExplorerPanel';
 import * as React from 'react';
 
 // Other dependencies.
+import { FilterBar } from 'vs/base/browser/ui/positronDataExplorer/components/dataExplorerPanel/components/filterBar';
 import { StatusBar } from 'vs/base/browser/ui/positronDataExplorer/components/dataExplorerPanel/components/statusBar';
-import { FilterBars } from 'vs/base/browser/ui/positronDataExplorer/components/dataExplorerPanel/components/filterBars';
 import { DataExplorer } from 'vs/base/browser/ui/positronDataExplorer/components/dataExplorerPanel/components/dataExplorer';
 
 /**
@@ -21,7 +21,7 @@ export const DataExplorerPanel = () => {
 	// Render.
 	return (
 		<div className='data-explorer-panel'>
-			<FilterBars />
+			<FilterBar />
 			<DataExplorer />
 			<StatusBar />
 		</div>

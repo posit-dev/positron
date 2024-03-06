@@ -3,21 +3,22 @@
  *--------------------------------------------------------------------------------------------*/
 
 .data-explorer-panel
-.filter-bars
 .filter-bar {
+	padding: 8px;
 	display: grid;
+	grid-row: filter-bar / data-explorer;
+	border-bottom: 1px solid var(--vscode-positronDataExplorer-border);
 	grid-template-columns: [icon] 25px [gutter] 8px [filters] 1fr [end];
+	background-color: var(--vscode-positronDataExplorer-contrastBackground);
 }
 
 .data-explorer-panel
-.filter-bars
 .filter-bar
 .filter {
 	grid-column: icon / gutter;
 }
 
 .data-explorer-panel
-.filter-bars
 .filter-bar
 .filter
 .filter-button {
@@ -34,7 +35,6 @@
 }
 
 .data-explorer-panel
-.filter-bars
 .filter-bar
 .filter
 .filter-button:focus {
@@ -42,7 +42,6 @@
 }
 
 .data-explorer-panel
-.filter-bars
 .filter-bar
 .filter
 .filter-button:focus-visible {
@@ -51,7 +50,6 @@
 }
 
 .data-explorer-panel
-.filter-bars
 .filter-bar
 .filter
 .filter-button
@@ -71,9 +69,7 @@
 	color: white;
 }
 
-
 .data-explorer-panel
-.filter-bars
 .filter-bar
 .filter-entries {
 	row-gap: 8px;
@@ -85,7 +81,6 @@
 }
 
 .data-explorer-panel
-.filter-bars
 .filter-bar
 .filter-entries
 .add-filter-button {
@@ -101,7 +96,6 @@
 }
 
 .data-explorer-panel
-.filter-bars
 .filter-bar
 .filter-entries
 .add-filter-button:focus {
@@ -109,7 +103,6 @@
 }
 
 .data-explorer-panel
-.filter-bars
 .filter-bar
 .filter-entries
 .add-filter-button:focus-visible {
@@ -118,18 +111,17 @@
 }
 
 .data-explorer-panel
-.filter-bars
 .filter-bar
 .filter-entries
 .filter {
 	width: 90px;
 	height: 25px;
 	display: flex;
-	align-items: center;
-	text-align: center;
-	justify-content: center;
 	border-radius: 3px;
+	text-align: center;
+	align-items: center;
 	box-sizing: border-box;
+	justify-content: center;
 	border: 1px solid var(--vscode-positronDataExplorer-border);
 	background-color: var(--vscode-positronDataExplorer-background);
 }
