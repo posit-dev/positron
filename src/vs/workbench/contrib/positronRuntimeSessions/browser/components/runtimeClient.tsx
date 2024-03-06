@@ -15,7 +15,7 @@ interface runtimeClientProps {
 
 export const RuntimeClient = (props: runtimeClientProps) => {
 
-	const [state, setState] = useState(props.client.getClientState());
+	const [state, setState] = useState(props.client.clientState.get());
 	const [counter, setCounter] = useState(props.client.messageCounter.get());
 
 	const disconnect = (e: React.MouseEvent<HTMLAnchorElement>) => {
@@ -29,7 +29,8 @@ export const RuntimeClient = (props: runtimeClientProps) => {
 
 		// Attach the handler for the onDidCreateClientInstance event, so we'll
 		// update live when a client is created.
-		disposableStore.add(props.client.onDidChangeClientState(state => {
+		const clientStateEvent = Event.fromObservable(props.client.clientState, disposableStore);
+		disposableStore.add(clientStateEvent(state => {
 			setState(state);
 		}));
 

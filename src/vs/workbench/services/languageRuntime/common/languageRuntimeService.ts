@@ -550,7 +550,7 @@ export interface ILangaugeRuntimeDynState {
 /**
  * Contains information about the session's current state.
  */
-export interface ILanguageRuntimeSessionState extends ILangaugeRuntimeDynStatea {
+export interface ILanguageRuntimeSessionState extends ILangaugeRuntimeDynState {
 	/** The current working directory of the interpreter. */
 	currentWorkingDirectory: string;
 

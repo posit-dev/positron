@@ -207,7 +207,8 @@ export class PlotClientInstance extends Disposable implements IPositronPlotClien
 
 		// Connect close emitter event
 		this.onDidClose = this._closeEmitter.event;
-		client.onDidChangeClientState((state) => {
+		const clientStateEvent = Event.fromObservable(client.clientState);
+		clientStateEvent((state) => {
 			if (state === RuntimeClientState.Closed) {
 				this._closeEmitter.fire();
 			}

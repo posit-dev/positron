@@ -144,7 +144,7 @@ class ExtHostLanguageRuntimeSessionAdapter implements ILanguageRuntimeSession {
 				// think they're connected, and notify them that they are now
 				// closed.
 				for (const client of this._clients.values()) {
-					if (client.getClientState() === RuntimeClientState.Connected) {
+					if (client.clientState.get() === RuntimeClientState.Connected) {
 						client.setClientState(RuntimeClientState.Closing);
 						client.setClientState(RuntimeClientState.Closed);
 						client.dispose();
@@ -378,7 +378,7 @@ class ExtHostLanguageRuntimeSessionAdapter implements ILanguageRuntimeSession {
 			// successfully created, so presume it's connected once the message
 			// has been safely delivered, and handle the close event if it
 			// happens.
-			if (client.getClientState() === RuntimeClientState.Opening) {
+			if (client.clientState.get() === RuntimeClientState.Opening) {
 				client.setClientState(RuntimeClientState.Connected);
 			} else {
 				this._logService.trace(`Client '${id}' in runtime '${this.runtimeMetadata.runtimeName}' ` +
@@ -824,8 +824,6 @@ class ExtHostRuntimeClientInstance<Input, Output>
 	extends Disposable
 	implements IRuntimeClientInstance<Input, Output> {
 
-	private readonly _stateEmitter = new Emitter<RuntimeClientState>();
-
 	private readonly _dataEmitter = new Emitter<Output>();
 
 	private readonly _pendingRpcs = new Map<string, DeferredPromise<any>>();
@@ -833,6 +831,8 @@ class ExtHostRuntimeClientInstance<Input, Output>
 	private _state: RuntimeClientState = RuntimeClientState.Uninitialized;
 
 	public messageCounter: ObservableValue<number>;
+
+	public clientState: ObservableValue<RuntimeClientState>;
 
 	constructor(
 		private readonly _id: string,
@@ -843,15 +843,10 @@ class ExtHostRuntimeClientInstance<Input, Output>
 
 		this.messageCounter = new ObservableValue(this, this._id, 0);
 
-		this.onDidChangeClientState = this._stateEmitter.event;
-		this._register(this._stateEmitter);
+		this.clientState = new ObservableValue(this, this._id, RuntimeClientState.Uninitialized);
 
 		this.onDidReceiveData = this._dataEmitter.event;
 		this._register(this._dataEmitter);
-
-		this._stateEmitter.event((state) => {
-			this._state = state;
-		});
 	}
 
 	/**
@@ -936,16 +931,10 @@ class ExtHostRuntimeClientInstance<Input, Output>
 	 * @param state The new state of the client
 	 */
 	setClientState(state: RuntimeClientState): void {
-		this._stateEmitter.fire(state);
+		this.clientState.set(state, undefined);
 	}
-
-	onDidChangeClientState: Event<RuntimeClientState>;
 
 	onDidReceiveData: Event<Output>;
-
-	getClientState(): RuntimeClientState {
-		return this._state;
-	}
 
 	getClientId(): string {
 		return this._id;
@@ -968,12 +957,12 @@ class ExtHostRuntimeClientInstance<Input, Output>
 			// If we are actually connected to the backend, notify the backend that we are
 			// closing the connection from our side.
 			if (this._state === RuntimeClientState.Connected) {
-				this._stateEmitter.fire(RuntimeClientState.Closing);
+				this.setClientState(RuntimeClientState.Closing);
 				this._proxy.$removeClient(this._handle, this._id);
 			}
 
 			// Emit the closed event.
-			this._stateEmitter.fire(RuntimeClientState.Closed);
+			this.setClientState(RuntimeClientState.Closed);
 		}
 	}
 }
