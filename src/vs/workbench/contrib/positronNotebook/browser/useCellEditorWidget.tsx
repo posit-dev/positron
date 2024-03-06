@@ -7,7 +7,7 @@ import { IContextKeyService } from 'vs/platform/contextkey/common/contextkey';
 import { ServiceCollection } from 'vs/platform/instantiation/common/serviceCollection';
 import { CellEditorOptions } from 'vs/workbench/contrib/notebook/browser/view/cellParts/cellEditorOptions';
 import { useContextKeyServiceProvider } from 'vs/workbench/contrib/positronNotebook/browser/ContextKeyServiceProvider';
-import { PositronNotebookCell } from 'vs/workbench/contrib/positronNotebook/browser/PositronNotebookInstance';
+import { PositronNotebookCell } from 'vs/workbench/contrib/positronNotebook/browser/PositronNotebookCell';
 import { useServices } from 'vs/workbench/contrib/positronNotebook/browser/ServicesProvider';
 import { observeValue } from 'vs/workbench/contrib/positronNotebook/common/utils/observeValue';
 import { useDisposableStore } from './useDisposableStore';

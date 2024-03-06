@@ -8,7 +8,7 @@ import { PositronButton } from 'vs/base/browser/ui/positronComponents/positronBu
 import { VSBuffer } from 'vs/base/common/buffer';
 import { NotebookCellOutputTextModel } from 'vs/workbench/contrib/notebook/common/model/notebookCellOutputTextModel';
 import { ICellOutput } from 'vs/workbench/contrib/notebook/common/notebookCommon';
-import { PositronNotebookCell } from 'vs/workbench/contrib/positronNotebook/browser/PositronNotebookInstance';
+import { PositronNotebookCell } from 'vs/workbench/contrib/positronNotebook/browser/PositronNotebookCell';
 import { parseOutputData } from 'vs/workbench/contrib/positronNotebook/browser/getOutputContents';
 import { useObservedValue } from 'vs/workbench/contrib/positronNotebook/browser/useObservedValue';
 import { useCellEditorWidget } from './useCellEditorWidget';

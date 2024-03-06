@@ -8,7 +8,7 @@ import { ISettableObservable } from 'vs/base/common/observableInternal/base';
 import { ITextModelService } from 'vs/editor/common/services/resolverService';
 import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
 import { IInstantiationService } from 'vs/platform/instantiation/common/instantiation';
-import { PositronNotebookWidget } from 'vs/workbench/contrib/positronNotebook/browser/PositronNotebookWidget';
+import { PositronNotebookInstance } from 'vs/workbench/contrib/positronNotebook/browser/PositronNotebookInstance';
 
 
 
@@ -20,7 +20,7 @@ interface ServiceBundle {
 	 * The notebook widget that is being used to render the notebook. Sometimes refered to as a
 	 * "Delegate" in the vscode notebook code.
 	 */
-	notebookWidget: PositronNotebookWidget;
+	notebookWidget: PositronNotebookInstance;
 
 	/**
 	 * The instantiation service that can be used to create new instances of disposables.

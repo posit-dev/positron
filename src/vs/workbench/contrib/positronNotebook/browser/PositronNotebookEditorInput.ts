@@ -13,8 +13,8 @@ import { IResolvedNotebookEditorModel } from 'vs/workbench/contrib/notebook/comm
 import { INotebookEditorModelResolverService } from 'vs/workbench/contrib/notebook/common/notebookEditorModelResolverService';
 import { INotebookService } from 'vs/workbench/contrib/notebook/common/notebookService';
 import { IInstantiationService } from 'vs/platform/instantiation/common/instantiation';
-import { PositronNotebookInstance } from 'vs/workbench/contrib/positronNotebook/browser/PositronNotebookInstance';
 import { IContextKeyService } from 'vs/platform/contextkey/common/contextkey';
+import { PositronNotebookInstance } from 'vs/workbench/contrib/positronNotebook/browser/PositronNotebookInstance';
 
 /**
  * Mostly empty options object. Based on the same one in `vs/workbench/contrib/notebook/browser/notebookEditorInput.ts`
@@ -65,6 +65,8 @@ export class PositronNotebookEditorInput extends EditorInput {
 	// This is a reference to the model that is currently being edited in the editor.
 	private _editorModelReference: IReference<IResolvedNotebookEditorModel> | null = null;
 
+	notebookInstance: PositronNotebookInstance | undefined;
+
 	//#endregion Static Properties
 	//#region Constructor & Dispose
 	/**
@@ -85,15 +87,16 @@ export class PositronNotebookEditorInput extends EditorInput {
 		// Call the base class's constructor.
 		super();
 
+		this.notebookInstance = instantiationService.createInstance(PositronNotebookInstance, this, undefined);
 
-		this.positronNotebookInstance = instantiationService.createInstance(PositronNotebookInstance, this, undefined);
+		// this.positronNotebookInstance = instantiationService.createInstance(PositronNotebookInstance, this, undefined);
 
 		// Create a dummy context key service for instances
 		// Setup the container that will hold the outputs of notebook cells
-		const outputContainer = document.createElement('div');
+		// const outputContainer = document.createElement('div');
 
 		// Create a new context service and set in the notebook instance.
-		this.positronNotebookInstance.contextKeyService = contextKeyService.createScoped(outputContainer);
+		// this.positronNotebookInstance.contextKeyService = contextKeyService.createScoped(outputContainer);
 	}
 
 	/**
@@ -107,7 +110,7 @@ export class PositronNotebookEditorInput extends EditorInput {
 	/**
 	 * The instance of the notebook that is being edited.
 	 */
-	positronNotebookInstance: PositronNotebookInstance;
+	// positronNotebookInstance: PositronNotebookInstance;
 
 	//#endregion Constructor & Dispose
 	//#region AbstractEditorInput Overrides

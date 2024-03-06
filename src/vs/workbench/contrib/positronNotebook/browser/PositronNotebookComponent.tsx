@@ -12,9 +12,7 @@ import { AddCellButton } from './AddCellButton';
 import { useObservedValue } from './useObservedValue';
 
 
-export function PositronNotebookComponent(
-
-) {
+export function PositronNotebookComponent() {
 	const notebookInstance = useNotebookInstance();
 	const notebookCells = useObservedValue(notebookInstance.cells);
 

@@ -34,7 +34,7 @@ import {
 	IEditorGroupsService
 } from 'vs/workbench/services/editor/common/editorGroupsService';
 import { PositronNotebookEditorInput } from './PositronNotebookEditorInput';
-import { PositronNotebookWidget } from './PositronNotebookWidget';
+import { PositronNotebookInstance } from './PositronNotebookInstance';
 
 /**
  * Key for the memoized view state.
@@ -43,23 +43,22 @@ const POSITRON_NOTEBOOK_EDITOR_VIEW_STATE_PREFERENCE_KEY =
 	'NotebookEditorViewState';
 
 
-
 export class PositronNotebookEditor extends EditorPane {
 	_parentDiv: HTMLElement | undefined;
 
 	/**
 	 * The main UI center of command for the notebooks. The logic for syncing react main UI and the
 	 * outputs go here. The original vs notebooks used a borrow value here but we're using the plain
-	 * widget itself. I think we can get away with this because we are making our rendering logic
+	 * instance itself. I think we can get away with this because we are making our rendering logic
 	 * pure with React and thus don't need to save all the work of setting up the dom nodes etc that
 	 * the imperitive style notebook editor does.
 	 */
-	private _notebookWidget: PositronNotebookWidget | undefined;
+	private _notebookInstance: PositronNotebookInstance | undefined;
 
 	/**
-	 * A disposable store for disposables attached to the editor widget.
+	 * A disposable store for disposables attached to the editor instance.
 	 */
-	private readonly _widgetDisposableStore = this._register(
+	private readonly _instanceDisposableStore = this._register(
 		new DisposableStore()
 	);
 
@@ -74,14 +73,14 @@ export class PositronNotebookEditor extends EditorPane {
 		// Save view state into momento
 		if (
 			this.group &&
-			this._notebookWidget &&
+			this._notebookInstance &&
 			input instanceof PositronNotebookEditorInput
 		) {
-			if (this._notebookWidget.isDisposed) {
+			if (this._notebookInstance.isDisposed) {
 				return;
 			}
 
-			const state = this._notebookWidget.getEditorViewState();
+			const state = this._notebookInstance.getEditorViewState();
 			this._editorMemento.saveEditorState(this.group, input.resource, state);
 		}
 	}
@@ -106,7 +105,7 @@ export class PositronNotebookEditor extends EditorPane {
 				group.activeEditorPane instanceof PositronNotebookEditor &&
 				group.activeEditor?.matches(input)
 			) {
-				return group.activeEditorPane._notebookWidget?.getEditorViewState();
+				return group.activeEditorPane._notebookInstance?.getEditorViewState();
 			}
 		}
 		return;
@@ -122,7 +121,7 @@ export class PositronNotebookEditor extends EditorPane {
 			return undefined;
 		}
 		this._saveEditorViewState();
-		return this._notebookWidget?.getEditorViewState();
+		return this._notebookInstance?.getEditorViewState();
 	}
 
 	//#endregion Editor State
@@ -157,10 +156,9 @@ export class PositronNotebookEditor extends EditorPane {
 
 	override clearInput(): void {
 		// Clear the input observable.
-		(this._input as PositronNotebookEditorInput)?.positronNotebookInstance.detachFromEditor();
 		this._input = undefined;
 
-		if (this._notebookWidget) {
+		if (this._notebookInstance) {
 			this._saveEditorViewState();
 		}
 
@@ -189,27 +187,15 @@ export class PositronNotebookEditor extends EditorPane {
 	): Promise<void> {
 		this._input = input;
 		// Eventually this will probably need to be implemented like the vs notebooks
-		// which uses a notebookWidgetService to manage the widgets. For now, we'll
-		// just create the widget directly.
+		// which uses a notebookWidgetService to manage the instances. For now, we'll
+		// just create the instance directly.
 		if (this._parentDiv === undefined) {
 			throw new Error(
 				'Parent div is undefined. This should have been created in createEditor.'
 			);
 		}
 
-		input.positronNotebookInstance.attachToEditor(this);
 
-		this._notebookWidget = this._instantiationService.createInstance(
-			PositronNotebookWidget,
-			{
-				size: this._size,
-				input,
-				baseElement: this._parentDiv,
-			},
-			undefined
-		);
-
-		this._notebookWidget.renderReact();
 		// We're setting the options on the input here so that the input can resolve the model
 		// without having to pass the options to the resolve method.
 		input.editorOptions = options;
@@ -229,7 +215,7 @@ export class PositronNotebookEditor extends EditorPane {
 		}
 
 		// Trigger the selection change event when the notebook was edited.
-		this._widgetDisposableStore.add(
+		this._instanceDisposableStore.add(
 			model.notebook.onDidChangeContent(() =>
 				this._onDidChangeSelection.fire({
 					reason: EditorPaneSelectionChangeReason.EDIT
@@ -241,7 +227,17 @@ export class PositronNotebookEditor extends EditorPane {
 			options?.viewState ?? this._loadNotebookEditorViewState(input);
 
 
-		this._notebookWidget?.setModel(model.notebook, viewState);
+		if (input.notebookInstance === undefined) {
+			throw new Error(
+				'Notebook instance is undefined. This should have been created in the constructor.'
+			);
+		}
+
+		input.notebookInstance.renderReact({
+			size: this._size,
+			baseElement: this._parentDiv,
+		});
+		input.notebookInstance.setModel(model.notebook, viewState);
 	}
 
 	constructor(
@@ -253,7 +249,6 @@ export class PositronNotebookEditor extends EditorPane {
 		@ITextResourceConfigurationService
 		configurationService: ITextResourceConfigurationService,
 		@IInstantiationService
-		private readonly _instantiationService: IInstantiationService,
 		@IStorageService storageService: IStorageService
 	) {
 		// Call the base class's constructor.
@@ -275,8 +270,8 @@ export class PositronNotebookEditor extends EditorPane {
 	 * dispose override method.
 	 */
 	public override dispose(): void {
-		// Dispose of the notebook widget.
-		this._notebookWidget?.dispose();
+		// Dispose of the notebook instance.
+		this._notebookInstance?.dispose();
 
 		// Call the base class's dispose method.
 		super.dispose();
