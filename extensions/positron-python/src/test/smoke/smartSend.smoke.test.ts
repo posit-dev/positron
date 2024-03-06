@@ -63,21 +63,10 @@ suite('Smoke Test: Run Smart Selection and Advance Cursor', () => {
                 assert.fail(`Something went wrong running the Python file in the terminal: ${err}`);
             });
 
-        async function wait() {
-            return new Promise<void>((resolve) => {
-                setTimeout(() => {
-                    resolve();
-                }, 10000);
-            });
-        }
-
-        await wait();
-
-        const deletedFile = !(await fs.pathExists(outputFile));
-        if (deletedFile) {
-            assert.ok(true, `"${outputFile}" file has been deleted`);
-        } else {
-            assert.fail(`"${outputFile}" file still exists`);
-        }
+        // --- Start Positron ---
+        // Rather than wait 10 seconds, we can wait for the file to be deleted.
+        const checkIfFileHasBeenDeleted = async () => !(await fs.pathExists(outputFile));
+        await waitForCondition(checkIfFileHasBeenDeleted, 10_000, `"${outputFile}" file not deleted`);
+        // --- End Positron ---
     });
 });

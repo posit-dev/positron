@@ -253,7 +253,7 @@ export async function downloadAndUnzipPositron(): Promise<{ version: string; exe
     console.log(`Using ${version} build of Positron`);
 
     // Exit early if the version has already been downloaded and unzipped.
-    const installDir = path.join(defaultCachePath, `positron-${platform}-${version}`);
+    const installDir = path.join(defaultCachePath, `positron-${platform}`);
     const completeFile = path.join(installDir, COMPLETE_FILE_NAME);
 
     let executablePath: string;
@@ -266,8 +266,11 @@ export async function downloadAndUnzipPositron(): Promise<{ version: string; exe
     }
 
     if (await fs.pathExists(completeFile)) {
-        console.log(`Found existing install in ${installDir}`);
-        return { version, executablePath };
+        const existingVersion = (await fs.readFile(completeFile, 'utf-8')).trim();
+        if (existingVersion === version) {
+            console.log(`Found existing install in ${installDir}`);
+            return { version, executablePath };
+        }
     }
 
     console.log(`Downloading Positron for ${platform} from ${asset.url}`);
@@ -326,7 +329,7 @@ export async function downloadAndUnzipPositron(): Promise<{ version: string; exe
             }
 
             // Mark as complete for subsequent runs.
-            await fs.writeFile(completeFile, '');
+            await fs.writeFile(completeFile, version.trim(), 'utf-8');
 
             return { version, executablePath };
         }

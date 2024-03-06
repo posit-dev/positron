@@ -93,7 +93,7 @@ export function initialize() {
     };
 
     // --- Start Positron ---
-    // See applyPatches docs for why this is necessary.
+    // See patchMockingLibs docs for why this is necessary.
     patchMockingLibs();
     // --- End Positron ---
 }

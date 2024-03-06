@@ -17,6 +17,13 @@ class TestRunner {
     public async start() {
         console.log('Start Test Runner');
         await this.enableLanguageServer();
+        // --- Start Positron ---
+        // Although experiments are already enabled for smoke tests in src/test/initialize.ts:initialize,
+        // that approach doesn't work for us since we eagerly activate the extension, and the experiment
+        // service is constructed before the settings are updated. We need to enable experiments here
+        // by writing to the test user settings file before the test script (src/test/index.ts) is started.
+        await this.enableExperiments();
+        // --- End Positron ---
         await this.extractLatestExtension(SMOKE_TEST_EXTENSIONS_DIR);
         await this.launchSmokeTests();
     }
@@ -46,6 +53,21 @@ class TestRunner {
             settings,
         );
     }
+    // --- Start Positron ---
+    private async enableExperiments() {
+        const settingsFile = path.join('.vscode-test', 'user-data', 'User', 'settings.json');
+
+        await fs.mkdir(path.dirname(settingsFile), { recursive: true });
+
+        let settings: Record<string, {}> = {};
+        if (await fs.pathExists(settingsFile)) {
+            settings = JSON.parse(await fs.readFile(settingsFile, 'utf-8'));
+        }
+
+        settings = { ...settings, 'python.experiments.optInto': ['All'] };
+        await fs.writeFile(settingsFile, JSON.stringify(settings));
+    }
+    // --- End Positron ---
     private async launchTest(customEnvVars: Record<string, {}>) {
         console.log('Launch tests in test runner');
         await new Promise<void>((resolve, reject) => {

@@ -47,7 +47,7 @@ export async function initialize(): Promise<IExtensionTestApi> {
     }
 
     // --- Start Positron ---
-    await initializePositron();
+    initializePositron();
     // --- End Positron ---
 
     return api as any as IExtensionTestApi;

@@ -166,7 +166,7 @@ export async function run(): Promise<void> {
     }
 
     // --- Start Positron ---
-    // See applyPatches docs for why this is necessary.
+    // See patchMockingLibs docs for why this is necessary.
     patchMockingLibs();
     // --- End Positron ---
 

@@ -26,7 +26,7 @@ import { ILanguageServerOutputChannel } from '../activation/types';
 import { PythonRuntime, createJupyterKernelExtra } from './runtime';
 import { JediLanguageServerAnalysisOptions } from '../activation/jedi/analysisOptions';
 import { IEnvironmentVariablesProvider } from '../common/variables/types';
-import { IWorkspaceService } from '../common/application/types';
+import { IApplicationEnvironment, IWorkspaceService } from '../common/application/types';
 import { IInterpreterSelector } from '../interpreter/configuration/types';
 import { getEnvLocationHeuristic, EnvLocationHeuristic } from '../interpreter/configuration/environmentTypeComparer';
 
@@ -159,6 +159,7 @@ export async function createPythonRuntime(
     const environmentService = serviceContainer.get<IEnvironmentVariablesProvider>(IEnvironmentVariablesProvider);
     const outputChannel = serviceContainer.get<ILanguageServerOutputChannel>(ILanguageServerOutputChannel);
     const workspaceService = serviceContainer.get<IWorkspaceService>(IWorkspaceService);
+    const applicationEnv = serviceContainer.get<IApplicationEnvironment>(IApplicationEnvironment);
 
     // Check Python kernel debug and log level settings
     // NOTE: We may need to pass a resource to getSettings to support multi-root workspaces
@@ -248,10 +249,6 @@ export async function createPythonRuntime(
         language: 'Python',
     };
 
-    // Get the version of this extension from package.json so we can pass it
-    // to the adapter as the implementation version.
-    const packageJson = require('../../../../package.json');
-
     traceInfo(`createPythonRuntime: kernelSpec argv: ${args}`);
 
     // Create a stable ID for the runtime based on the interpreter path and version.
@@ -274,7 +271,7 @@ export async function createPythonRuntime(
         runtimeName,
         runtimeShortName,
         runtimePath,
-        runtimeVersion: packageJson.version,
+        runtimeVersion: applicationEnv.packageJson.version,
         runtimeSource,
         languageId: PYTHON_LANGUAGE,
         languageName: kernelSpec.language,
