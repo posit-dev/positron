@@ -1,0 +1,9 @@
+{
+	"name": "conections",
+	"initiator": "backend",
+	"initial_data": {
+		"schema": {
+			"type": "null"
+		}
+	}
+}

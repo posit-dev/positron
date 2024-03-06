@@ -1,0 +1,178 @@
+{
+	"openrpc": "1.3.0",
+	"info": {
+		"title": "Connections Pane Backend",
+		"version": "1.0.0"
+	},
+	"methods": [
+		{
+			"name": "list_objects",
+			"summary": "List objects within a data source",
+			"description": "List objects within a data source, such as schemas, catalogs, tables and views.",
+			"params": [
+				{
+					"name": "path",
+					"description": "The path to object that we want to list children.",
+					"required": true,
+					"schema": {
+						"type": "array",
+						"items": {
+							"$ref": "#/components/schemas/object_schema"
+						}
+					}
+				}
+			],
+			"result": {
+				"schema": {
+					"type": "array",
+					"name": "objects",
+					"description": "Array of objects names and their kinds.",
+					"items": {
+						"$ref": "#/components/schemas/object_schema"
+					}
+				}
+			}
+		},
+		{
+			"name": "list_fields",
+			"summary": "List fields of an object",
+			"description": "List fields of an object, such as columns of a table or view.",
+			"params": [
+				{
+					"name": "path",
+					"description": "The path to object that we want to list fields.",
+					"required": true,
+					"schema": {
+						"type": "array",
+						"items": {
+							"$ref": "#/components/schemas/object_schema"
+						}
+					}
+				}
+			],
+			"result": {
+				"schema": {
+					"type": "array",
+					"name": "fields",
+					"description": "Array of field names and data types.",
+					"items": {
+						"$ref": "#/components/schemas/field_schema"
+					}
+				}
+			}
+		},
+		{
+			"name": "contains_data",
+			"summary": "Check if an object contains data",
+			"description": "Check if an object contains data, such as a table or view.",
+			"params": [
+				{
+					"name": "path",
+					"description": "The path to object that we want to check if it contains data.",
+					"required": true,
+					"schema": {
+						"type": "array",
+						"items": {
+							"$ref": "#/components/schemas/object_schema"
+						}
+					}
+				}
+			],
+			"result": {
+				"schema": {
+					"type": "boolean",
+					"name": "contains_data",
+					"description": "Boolean indicating if the object contains data."
+				}
+			}
+		},
+		{
+			"name": "get_icon",
+			"summary": "Get icon of an object",
+			"description": "Get icon of an object, such as a table or view.",
+			"params": [
+				{
+					"name": "path",
+					"description": "The path to object that we want to get the icon.",
+					"required": true,
+					"schema": {
+						"type": "array",
+						"items": {
+							"$ref": "#/components/schemas/object_schema"
+						}
+					}
+				}
+			],
+			"result": {
+				"schema": {
+					"type": "string",
+					"name": "icon",
+					"required": false,
+					"description": "The icon of the object."
+				}
+			}
+		},
+		{
+			"name": "preview_object",
+			"summary": "Preview object data",
+			"description": "Preview object data, such as a table or view.",
+			"params": [
+				{
+					"name": "path",
+					"description": "The path to object that we want to preview.",
+					"required": true,
+					"schema": {
+						"type": "array",
+						"items": {
+							"$ref": "#/components/schemas/object_schema"
+						}
+					}
+				}
+			],
+			"result": {
+				"schema": {
+					"type": "null"
+				}
+			}
+		}
+	],
+	"components": {
+		"contentDescriptors": {},
+		"schemas": {
+			"object_schema": {
+				"type": "object",
+				"required": [
+					"name",
+					"kind"
+				],
+				"properties": {
+					"name": {
+						"type": "string",
+						"description": "Name of the underlying object"
+					},
+					"kind": {
+						"type": "string",
+						"description": "The object type (table, catalog, schema)"
+					}
+				}
+			},
+			"field_schema": {
+				"type": "object",
+				"required": [
+					"name",
+					"dtype"
+				],
+				"properties": {
+					"name": {
+						"type": "string",
+						"description": "Name of the field"
+					},
+					"dtype": {
+						"type": "string",
+						"description": "The field data type"
+					}
+				}
+			}
+		}
+	}
+}
