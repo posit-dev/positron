@@ -38,7 +38,6 @@ import { NotebookInstanceProvider } from 'vs/workbench/contrib/positronNotebook/
 import { PositronNotebookCell } from 'vs/workbench/contrib/positronNotebook/browser/PositronNotebookCell';
 import { PositronNotebookEditorInput } from 'vs/workbench/contrib/positronNotebook/browser/PositronNotebookEditorInput';
 import { ServicesProvider } from 'vs/workbench/contrib/positronNotebook/browser/ServicesProvider';
-import { OptionalObservable } from 'vs/workbench/contrib/positronNotebook/common/utils/observeValue';
 import { BaseCellEditorOptions } from './BaseCellEditorOptions';
 import { PositronNotebookComponent } from './PositronNotebookComponent';
 
@@ -78,13 +77,9 @@ export interface IPositronNotebookInstance {
 
 
 	/**
-	 * Attach the notebook view model for the notebook to the instance.
-	 * In the future this can/should be placed within this class, but now it's
-	 * easiest to do it on render.
-	 * @param viewModel NotebookViewModel for the notebook
+	 * Has the notebook instance been disposed?
 	 */
-	attachViewModel(viewModel: NotebookViewModel): void;
-
+	isDisposed: boolean;
 
 	// Methods for interacting with the notebook
 
@@ -130,8 +125,6 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	 */
 	private _modelStore = this._register(new DisposableStore());
 
-
-
 	private language: string | undefined = undefined;
 	/**
 	 * User facing cells wrapped in an observerable for the UI to react to changes
@@ -140,13 +133,12 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 
 	private _textModel: NotebookTextModel | undefined = undefined;
 
-
-	_baseElement: HTMLElement | undefined;
+	private _baseElement: HTMLElement | undefined;
 
 	/**
 	 * Containing node for the iframe/webview containing the outputs of notebook cells
 	 */
-	_outputOverlayContainer?: HTMLElement;
+	private _outputOverlayContainer?: HTMLElement;
 
 	/**
 	 * Store of disposables.
@@ -217,6 +209,18 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	 */
 	readonly onDidChangeViewCells: Event<INotebookViewCellsUpdateEvent> = this._onDidChangeViewCells.event;
 
+	/**
+		 * Key-value map of language to base cell editor options for cells of that language.
+		 */
+	private _baseCellEditorOptions: Map<string, IBaseCellEditorOptions> = new Map();
+
+	private _viewModel: NotebookViewModel | undefined = undefined;
+
+	/**
+	 * Keep track of if this editor has been disposed.
+	 */
+	isDisposed: boolean = false;
+
 
 	constructor(
 		public _input: PositronNotebookEditorInput,
@@ -258,11 +262,6 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	}
 
 
-	detachModel() {
-		this._modelStore.clear();
-		this._textModel = undefined;
-	}
-
 	private async setupNotebookTextModel() {
 		const model = await this._input.resolve();
 		if (model === null) {
@@ -303,15 +302,6 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 				fillCells();
 			})
 		);
-	}
-	/**
-		 * Key-value map of language to base cell editor options for cells of that language.
-		 */
-	_baseCellEditorOptions: Map<string, IBaseCellEditorOptions> = new Map();
-
-	_viewModel: NotebookViewModel | undefined = undefined;
-	attachViewModel(viewModel: NotebookViewModel): void {
-		this._viewModel = viewModel;
 	}
 
 
@@ -443,6 +433,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 
 	_notebookViewModel?: NotebookViewModel;
 
+
 	/**
 	 * Setter for viewModel so we can (optionally) fire events when it changes.
 	 */
@@ -527,7 +518,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 				this._localStore.add(viewModel.onDidChangeViewCells(e => {
 					this._onDidChangeViewCells.fire(e);
 				}));
-				this.attachViewModel(viewModel);
+				this._viewModel = viewModel;
 			}
 
 			// Get the kernel up and running for the notebook.
@@ -540,10 +531,6 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		}
 	}
 
-	executionServiceObservable: OptionalObservable<INotebookExecutionService> = observableValue(
-		'execution-service',
-		undefined
-	);
 
 	/**
 	 * Connect to the kernel for running notebook code.
@@ -580,7 +567,6 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		this.notebookKernelService.selectKernelForNotebook(kernelForLanguage, viewModel.notebookDocument);
 
 
-		this.executionServiceObservable.set(this.notebookExecutionService, undefined);
 	}
 
 
@@ -600,28 +586,9 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 
 		this._notebookViewModel?.dispose();
 		this._notebookViewModel = undefined;
-
-		// Once the webview for outputs is set up we'll need to clean them up here as well.
-		// this._webview?.dispose();
-		// this._webview?.element.remove();
-		// this._webview = null;
-
-		// this._list.clear();
-
 	}
 
 	// #endregion
-
-
-
-
-	/**
-	 * Keep track of if this editor has been disposed.
-	 */
-	isDisposed: boolean = false;
-
-
-
 
 	/**
 	 * Gets the base cell editor options for the given language.
