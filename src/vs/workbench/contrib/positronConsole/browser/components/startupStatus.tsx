@@ -17,6 +17,7 @@ import { useEffect, useState } from 'react';
 const discoveringIntrepreters = localize('positron.console.discoveringInterpreters', "Discovering interpreters");
 const reconnecting = localize('positron.console.reconnecting', "Reconnecting");
 const initalizing = localize('positron.console.initializing', "Initializing");
+const starting = localize('positron.console.starting', "Starting");
 
 /**
  * DiscoveringInterpreters component.
@@ -77,6 +78,9 @@ export const StartupStatus = () => {
 			}
 			{startupPhase === RuntimeStartupPhase.Reconnecting &&
 				<div className='reconnecting'>{reconnecting}...</div>
+			}
+			{startupPhase === RuntimeStartupPhase.Starting &&
+				<div className='starting'>{starting}...</div>
 			}
 			{startupPhase === RuntimeStartupPhase.Discovering &&
 				<div className='discovery'>{discoveringIntrepreters}

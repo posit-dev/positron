@@ -86,6 +86,9 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 
 	private _startupPhase: ObservableValue<RuntimeStartupPhase>;
 
+	// Flag to indicate if we've processed a shutdown event.
+	private _isShutdown = false;
+
 	onDidChangeRuntimeStartupPhase: Event<RuntimeStartupPhase>;
 
 	constructor(
@@ -235,25 +238,43 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 			}
 		});
 
-		// Register a shutdown event handler to clear the workspace sessions
-		// when the workspace is quitting, since sessions are backed by the
-		// workspace.
-		this._lifecycleService.onWillShutdown((e) => {
+		// Register a shutdown event handler to clear the workspace sessions to
+		// prepare for a clean start of Positron next time.
+		this._lifecycleService.onBeforeShutdown((e) => {
 			if (e.reason === ShutdownReason.QUIT) {
-				// Before quitting, clear all workspace sessions from session
-				// storage.
-				this._storageService.store(PERSISTENT_WORKSPACE_SESSIONS_KEY,
-					undefined,
-					StorageScope.WORKSPACE,
-					StorageTarget.MACHINE);
-			} else if (e.reason === ShutdownReason.RELOAD) {
+				// We're quitting; clear the workspace sessions.
+				e.veto(this.clearWorkspaceSessions(),
+					'positron.runtimeStartup.clearWorkspaceSessions');
+			} if (e.reason === ShutdownReason.RELOAD) {
 				// Attempt to save the current state of the workspace sessions
 				// before reloading.
-				this.saveWorkspaceSessions();
+				e.veto(this.saveWorkspaceSessions(),
+					'positron.runtimeStartup.saveWorkspaceSessions');
 			}
 		});
 	}
 
+	/**
+	 * Clears all known workspace sessions from the workspace storage. Done on
+	 * quit to prepare for a clean start for the next Positron session.
+	 */
+	private clearWorkspaceSessions(): boolean {
+		// Set shutdown flag so we don't try to save the workspace sessions
+		// later
+		this._isShutdown = true;
+
+		// Remove the storage key
+		this._storageService.remove(PERSISTENT_WORKSPACE_SESSIONS_KEY,
+			StorageScope.WORKSPACE);
+
+		this._storageService.flush();
+
+		return false;
+	}
+
+	/**
+	 * Returns the current startup phase.
+	 */
 	get startupPhase(): RuntimeStartupPhase {
 		return this._startupPhase.get();
 	}
@@ -511,7 +532,10 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 			// Check the setting to see if we should be auto-starting.
 			const autoStart = this._configurationService.getValue<boolean>(
 				'positron.interpreters.automaticStartup');
-			if (!autoStart) {
+			if (autoStart) {
+				this._runtimeSessionService.autoStartRuntime(affiliatedRuntimeMetadata,
+					`Affiliated ${languageId} runtime for workspace`);
+			} else {
 				this._logService.info(`Language runtime ` +
 					`${formatLanguageRuntimeMetadata(affiliatedRuntimeMetadata)} ` +
 					`is affiliated with this workspace, but won't be started because automatic ` +
@@ -577,8 +601,16 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 
 	/**
 	 * Update the set of workspace sessions in the workspace storage.
+	 *
+	 * @returns False, always, so that it can be called during the shutdown
+	 * process.
 	 */
-	private saveWorkspaceSessions() {
+	private saveWorkspaceSessions(): boolean {
+
+		// Don't save anything if we've already been shutdown.
+		if (this._isShutdown) {
+			return false;
+		}
 
 		// Derive the set of sessions that are currently active and workspace scoped.
 		const workspaceSessions = this._runtimeSessionService.activeSessions
@@ -605,6 +637,7 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 			JSON.stringify(workspaceSessions),
 			StorageScope.WORKSPACE,
 			StorageTarget.MACHINE);
+		return false;
 	}
 
 }
