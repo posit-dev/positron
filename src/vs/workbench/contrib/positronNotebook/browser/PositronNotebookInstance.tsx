@@ -301,13 +301,12 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 
 		const fillCells = () => {
 
-			this._cells = notebookModel.cells.map(cell =>
-				this._instantiationService.createInstance(
-					PositronNotebookCell,
-					cell,
-					this
-				)
-			);
+			// dispose old cells
+			this._cells.forEach(cell => cell.dispose());
+
+			// Update cells with new cells
+			this._cells = notebookModel.cells.map(cell => this._instantiationService.createInstance(PositronNotebookCell, cell, this));
+
 
 			this.language = notebookModel.cells[0].language;
 			this.cells.set(this._cells, undefined);
@@ -316,15 +315,25 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		fillCells();
 
 		this._textModel = notebookModel;
-		console.log('Model resolved: ', this._textModel);
 
 		// TODO: Make sure this is cleaned up properly.
 		this._modelStore.add(this._textModel);
 		this._modelStore.add(
-			this._textModel.onDidChangeContent(() => {
+			this._textModel.onDidChangeContent((e) => {
+				// Only update cells if the number of cells has changed. Aka we've added or removed
+				// cells. There's a chance this is not smart enough. E.g. it may be possible to
+				// swap cells in the notebook and this would not catch that.
+				const numOldCells = this._cells.length;
+				const numNewCells = notebookModel.cells.length;
+
+				if (numOldCells === numNewCells) {
+					return;
+				}
+
 				fillCells();
 			})
 		);
+
 	}
 
 	async runCells(cells: PositronNotebookCell[]): Promise<void> {
