@@ -381,7 +381,7 @@
                 "category": "Python",
                 "command": "python.execInConsole",
                 "icon": "$(play)",
-                "title": "%python.command.python.execInDedicatedTerminal.title%"
+                "title": "%python.command.python.execInConsole.title%"
             },
             {
                 "category": "Python",
