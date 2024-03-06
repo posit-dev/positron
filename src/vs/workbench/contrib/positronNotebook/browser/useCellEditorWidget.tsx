@@ -6,11 +6,9 @@ import { CodeEditorWidget } from 'vs/editor/browser/widget/codeEditorWidget';
 import { IContextKeyService } from 'vs/platform/contextkey/common/contextkey';
 import { ServiceCollection } from 'vs/platform/instantiation/common/serviceCollection';
 import { CellEditorOptions } from 'vs/workbench/contrib/notebook/browser/view/cellParts/cellEditorOptions';
-import { useContextKeyServiceProvider } from 'vs/workbench/contrib/positronNotebook/browser/ContextKeyServiceProvider';
 import { PositronNotebookCell } from 'vs/workbench/contrib/positronNotebook/browser/PositronNotebookCell';
 import { useServices } from 'vs/workbench/contrib/positronNotebook/browser/ServicesProvider';
 import { observeValue } from 'vs/workbench/contrib/positronNotebook/common/utils/observeValue';
-import { useDisposableStore } from './useDisposableStore';
 
 /**
  * Create a cell editor widget for a cell.
@@ -21,7 +19,6 @@ export function useCellEditorWidget({ cell }: { cell: PositronNotebookCell }) {
 	const services = useServices();
 
 	const sizeObservable = services.sizeObservable;
-	const templateDisposables = useDisposableStore();
 
 	// Grab the wrapping div for the editor. This is used for passing context key service
 	// TODO: Understand this better.
@@ -30,7 +27,6 @@ export function useCellEditorWidget({ cell }: { cell: PositronNotebookCell }) {
 	// editor creation function.
 	const editorContainerRef = React.useRef<HTMLDivElement>(null);
 
-	const contextKeyServiceProvider = useContextKeyServiceProvider();
 
 	// Create the editor
 	React.useEffect(() => {
@@ -39,8 +35,9 @@ export function useCellEditorWidget({ cell }: { cell: PositronNotebookCell }) {
 			return;
 		}
 
+
 		const language = cell.viewModel.language;
-		const editorContextKeyService = templateDisposables.add(contextKeyServiceProvider(editorPartRef.current));
+		const editorContextKeyService = services.scopedContextKeyProviderCallback(editorPartRef.current);
 		const editorInstaService = services.instantiationService.createChild(new ServiceCollection([IContextKeyService, editorContextKeyService]));
 		const editorOptions = new CellEditorOptions(services.notebookWidget.getBaseCellEditorOptions(language), services.notebookWidget.notebookOptions, services.configurationService);
 		const editorContributions = services.notebookWidget.creationOptions?.cellEditorContributions ?? [];
@@ -91,9 +88,10 @@ export function useCellEditorWidget({ cell }: { cell: PositronNotebookCell }) {
 
 		return () => {
 			editor.dispose();
+			editorContextKeyService.dispose();
 			sizeObserver();
 		};
-	}, [cell, contextKeyServiceProvider, services.configurationService, services.instantiationService, services.notebookWidget, services.textModelResolverService, sizeObservable, templateDisposables]);
+	}, [cell, services, sizeObservable]);
 
 
 

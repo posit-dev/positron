@@ -7,6 +7,7 @@ import { ISize } from 'vs/base/browser/positronReactRenderer';
 import { ISettableObservable } from 'vs/base/common/observableInternal/base';
 import { ITextModelService } from 'vs/editor/common/services/resolverService';
 import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
+import { IScopedContextKeyService } from 'vs/platform/contextkey/common/contextkey';
 import { IInstantiationService } from 'vs/platform/instantiation/common/instantiation';
 import { PositronNotebookInstance } from 'vs/workbench/contrib/positronNotebook/browser/PositronNotebookInstance';
 
@@ -41,6 +42,12 @@ interface ServiceBundle {
 	 * An observable for the size of the notebook.
 	 */
 	sizeObservable: ISettableObservable<ISize>;
+
+	/**
+	 * A callback to get the scoped context key service for a given container.
+	 */
+	scopedContextKeyProviderCallback: (container: HTMLElement) => IScopedContextKeyService;
+
 }
 
 /**
