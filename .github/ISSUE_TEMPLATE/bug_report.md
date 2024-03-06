@@ -1,6 +1,6 @@
 ---
-name: File an issue
-about: Create an issue to help improve Positron
+name: File a Bug Report
+about: Report a Bug in Positron
 labels: ['bug']
 ---
 <!-- ⚠️⚠️ Do Not Delete This! bug_report_template ⚠️⚠️ -->
