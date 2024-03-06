@@ -28,6 +28,7 @@ interface ILanguageRuntimeProviderMetadata {
  */
 interface SerializedSessionMetadata {
 	metadata: IRuntimeSessionMetadata;
+	sessionState: RuntimeState;
 	runtimeMetadata: ILanguageRuntimeMetadata;
 }
 
@@ -116,6 +117,11 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 				// Update the set of workspace sessions
 				this.saveWorkspaceSessions();
 			}));
+		}));
+
+		this._register(this._runtimeSessionService.onDidFailStartRuntime(e => {
+			// Update the set of workspace sessions
+			this.saveWorkspaceSessions();
 		}));
 
 		// Listen for runtime start events and update the most recently started
@@ -466,7 +472,7 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 	/**
 	 * Starts all affiliated runtimes for the workspace.
 	 */
-	public startAffiliatedLanguageRuntimes(): void {
+	private startAffiliatedLanguageRuntimes(): void {
 		const languageIds = this.getAffiliatedRuntimeLanguageIds();
 		if (languageIds) {
 			languageIds?.map(languageId => this.startAffiliatedRuntime(languageId));
@@ -553,11 +559,13 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 		const workspaceSessions = this._runtimeSessionService.activeSessions
 			.filter(session =>
 				session.getRuntimeState() !== RuntimeState.Uninitialized &&
+				session.getRuntimeState() !== RuntimeState.Initializing &&
 				session.getRuntimeState() !== RuntimeState.Exited &&
 				session.runtimeMetadata.sessionLocation === LanguageRuntimeSessionLocation.Workspace)
 			.map(session => {
 				const metadata: SerializedSessionMetadata = {
 					metadata: session.metadata,
+					sessionState: session.getRuntimeState(),
 					runtimeMetadata: session.runtimeMetadata
 				};
 				return metadata;

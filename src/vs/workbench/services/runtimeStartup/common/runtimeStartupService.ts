@@ -55,11 +55,6 @@ export interface IRuntimeStartupService {
 	getAffiliatedRuntimeMetadata(languageId: string): ILanguageRuntimeMetadata | undefined;
 
 	/**
-	 * Start all affiliated runtimes for the workspace.
-	 */
-	startAffiliatedLanguageRuntimes(): void;
-
-	/**
 	 * Signal that discovery of language runtimes is complete. Called from the
 	 * extension host.
 	 */
