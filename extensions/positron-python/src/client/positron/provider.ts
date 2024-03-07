@@ -9,7 +9,6 @@ import * as os from 'os';
 import * as path from 'path';
 // eslint-disable-next-line import/no-unresolved
 import * as positron from 'positron';
-import * as semver from 'semver';
 import * as vscode from 'vscode';
 
 import { PythonExtension } from '../api/types';
@@ -28,7 +27,7 @@ import { JediLanguageServerAnalysisOptions } from '../activation/jedi/analysisOp
 import { IEnvironmentVariablesProvider } from '../common/variables/types';
 import { IApplicationEnvironment, IWorkspaceService } from '../common/application/types';
 import { IInterpreterSelector } from '../interpreter/configuration/types';
-import { getEnvLocationHeuristic, EnvLocationHeuristic } from '../interpreter/configuration/environmentTypeComparer';
+import { getEnvLocationHeuristic, EnvLocationHeuristic, comparePythonVersionDescending } from '../interpreter/configuration/environmentTypeComparer';
 
 /**
  * Provides a single Python language runtime for Positron; implements
@@ -98,6 +97,7 @@ export async function* pythonRuntimeDiscoverer(
         // Discover Python interpreters
         let interpreters = interpreterService.getInterpreters();
         // Sort the available interpreters, favoring the recommended interpreter (if one is available)
+        traceInfo('pythonRuntimeDiscoverer: sorting interpreters');
         interpreters = sortInterpreters(interpreters, recommendedInterpreter);
 
         traceInfo(`pythonRuntimeDiscoverer: discovered ${interpreters.length} Python interpreters`);
@@ -119,28 +119,35 @@ export async function* pythonRuntimeDiscoverer(
         ]);
         traceInfo(`pythonRuntimeDiscoverer: recommended for workspace: ${recommendedForWorkspace}`);
 
+        const minimumSupportedVersion = {major: 3, minor: 8, patch: 0, raw: '3.8.0'} as PythonVersion;
         // Register each interpreter as a language runtime
         for (const interpreter of interpreters) {
             // Only register runtimes for supported versions
-            if (isVersionSupported(interpreter?.version, '3.8.0')) {
-                const runtime = await createPythonRuntime(
-                    interpreter,
-                    serviceContainer,
-                    recommendedForWorkspace,
-                    pythonApi,
-                );
+            try {
+                if (isVersionSupported(interpreter?.version, minimumSupportedVersion)) {
+                    const runtime = await createPythonRuntime(
+                        interpreter,
+                        serviceContainer,
+                        recommendedForWorkspace,
+                        pythonApi,
+                    );
 
-                // Ensure we only recommend one runtime for the workspace.
-                recommendedForWorkspace = false;
+                    // Ensure we only recommend one runtime for the workspace.
+                    recommendedForWorkspace = false;
 
-                traceInfo(
-                    `pythonRuntimeDiscoverer: registering runtime for interpreter ${interpreter.path} with id ${runtime.metadata.runtimeId}`,
-                );
-                yield runtime;
-                runtimes.set(interpreter.path, runtime.metadata);
-            } else {
-                traceInfo(`pythonRuntimeDiscoverer: skipping unsupported interpreter ${interpreter.path}`);
+                    traceInfo(
+                        `pythonRuntimeDiscoverer: registering runtime for interpreter ${interpreter.path} with id ${runtime.metadata.runtimeId}`,
+                    );
+                    yield runtime;
+                    runtimes.set(interpreter.path, runtime.metadata);
+                } else {
+                    traceInfo(`pythonRuntimeDiscoverer: skipping unsupported interpreter ${interpreter.path}`);
+                }
             }
+            catch (err) {
+                traceError(`pythonRuntimeDiscoverer: failed to register runtime for interpreter ${interpreter.path}`, err);
+            }
+
         }
     } catch (ex) {
         traceError('pythonRuntimeDiscoverer() failed', ex);
@@ -334,10 +341,7 @@ function sortInterpreters(
             if (preferredInterpreter.id === b.id) return 1;
         }
 
-        // Compare versions in descending order
-        const av: string = getVersionString(a.version);
-        const bv: string = getVersionString(b.version);
-        return -semver.compare(av, bv);
+        return comparePythonVersionDescending(a.version, b.version);
     });
     return copy;
 }
@@ -351,30 +355,9 @@ async function hasFiles(includes: string[]): Promise<boolean> {
 }
 
 /**
- * Formats python version info as a semver string, adapted from
- * common/utils/version to work with PythonVersion instances.
- */
-function getVersionString(info: PythonVersion | undefined): string {
-    if (!info) {
-        return '0';
-    }
-    if (info.major < 0) {
-        return '';
-    }
-    if (info.minor < 0) {
-        return `${info.major}`;
-    }
-    if (info.patch < 0) {
-        return `${info.major}.${info.minor}`;
-    }
-    return `${info.major}.${info.minor}.${info.patch}`;
-}
-
-/**
  * Check if a version is supported (i.e. >= the minimum supported version).
  * Also returns true if the version could not be determined.
  */
-function isVersionSupported(version: PythonVersion | undefined, minimumSupportedVersion: string): boolean {
-    const versionString = version && getVersionString(version);
-    return !versionString || semver.gte(versionString, minimumSupportedVersion);
+function isVersionSupported(version: PythonVersion | undefined, minimumSupportedVersion: PythonVersion): boolean {
+    return !version || comparePythonVersionDescending(minimumSupportedVersion, version) >= 0;
 }
