@@ -620,7 +620,23 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 		// If we already have a session, attempt to reconnect to it instead of
 		// starting a new session.
 		if (this._session) {
-			return await this.reconnect(this._session.state);
+			try {
+				await this.reconnect(this._session.state);
+			} catch (err) {
+				// If we failed to reconnect, then we need to remove the stale session state
+				this.log(`Failed to reconnect to kernel: ${err}`);
+
+				// After a beat, consider this state to be 'exited' so that we
+				// can start a new session; the most common cause of a failure
+				// to reconnect is that the underlying process exited while we
+				// weren't looking
+				setTimeout(() => {
+					this.setStatus(positron.RuntimeState.Exited);
+				}, 0);
+
+				// Rethrow the error to be caught by the caller
+				throw err;
+			}
 		}
 
 		// Create a new session; this allocates a connection file and log file

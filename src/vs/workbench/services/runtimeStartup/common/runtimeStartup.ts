@@ -10,7 +10,7 @@ import { InstantiationType, registerSingleton } from 'vs/platform/instantiation/
 import { ILogService } from 'vs/platform/log/common/log';
 import { IStorageService, StorageScope, StorageTarget } from 'vs/platform/storage/common/storage';
 import { IExtensionService } from 'vs/workbench/services/extensions/common/extensions';
-import { ILanguageRuntimeMetadata, ILanguageRuntimeService, LanguageRuntimeSessionLocation, LanguageRuntimeSessionMode, LanguageRuntimeStartupBehavior, RuntimeState, formatLanguageRuntimeMetadata } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { ILanguageRuntimeExit, ILanguageRuntimeMetadata, ILanguageRuntimeService, LanguageRuntimeSessionLocation, LanguageRuntimeSessionMode, LanguageRuntimeStartupBehavior, RuntimeExitReason, RuntimeState, formatLanguageRuntimeMetadata } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { IRuntimeStartupService, RuntimeStartupPhase } from 'vs/workbench/services/runtimeStartup/common/runtimeStartupService';
 import { ILanguageRuntimeSession, IRuntimeSessionMetadata, IRuntimeSessionService } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
 import { Event } from 'vs/base/common/event';
@@ -18,6 +18,7 @@ import { ObservableValue } from 'vs/base/common/observableInternal/base';
 import { ExtensionsRegistry } from 'vs/workbench/services/extensions/common/extensionsRegistry';
 import { ExtensionIdentifier } from 'vs/platform/extensions/common/extensions';
 import { ILifecycleService, ShutdownReason } from 'vs/workbench/services/lifecycle/common/lifecycle';
+import { INotificationService } from 'vs/platform/notification/common/notification';
 
 interface ILanguageRuntimeProviderMetadata {
 	languageId: string;
@@ -98,6 +99,7 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 		@ILanguageRuntimeService private readonly _languageRuntimeService: ILanguageRuntimeService,
 		@ILifecycleService private readonly _lifecycleService: ILifecycleService,
 		@ILogService private readonly _logService: ILogService,
+		@INotificationService private readonly _notificationService: INotificationService,
 		@IRuntimeSessionService private readonly _runtimeSessionService: IRuntimeSessionService,
 		@IStorageService private readonly _storageService: IStorageService) {
 
@@ -136,9 +138,12 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 
 			this.saveWorkspaceSessions();
 
-			this._register(session.onDidEndSession(_exit => {
+			this._register(session.onDidEndSession(exit => {
 				// Update the set of workspace sessions
 				this.saveWorkspaceSessions();
+
+				// Restart after a crash, if necessary
+				this.restartAfterCrash(session, exit);
 			}));
 		}));
 
@@ -640,6 +645,55 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 		return false;
 	}
 
+	/**
+	 * Automatically restarts the session after a crash, if necessary.
+	 *
+	 * @param session The session that exited.
+	 * @param exit The reason the session exited.
+	 */
+	private async restartAfterCrash(session: ILanguageRuntimeSession, exit: ILanguageRuntimeExit) {
+		// Ignore if we are still starting up; if a runtime crashes or exits
+		// during startup, we'll usually try to start a better one instead of
+		// booting to a broken REPL.
+		if (this.startupPhase !== RuntimeStartupPhase.Complete) {
+			return;
+		}
+
+		// Ignore if the runtime exited for a Good Reason.
+		if (exit.reason !== RuntimeExitReason.Error && exit.reason !== RuntimeExitReason.Unknown) {
+			return;
+		}
+
+		const restartOnCrash =
+			this._configurationService.getValue<boolean>('positron.interpreters.restartOnCrash');
+
+		let action;
+
+		if (restartOnCrash) {
+			// Wait a beat, then start the runtime.
+			await new Promise<void>(resolve => setTimeout(resolve, 250));
+
+			await this._runtimeSessionService.startNewRuntimeSession(
+				session.runtimeMetadata.runtimeId,
+				session.metadata.sessionName,
+				session.metadata.sessionMode,
+				session.metadata.notebookUri,
+				`The runtime exited unexpectedly and is being restarted automatically.`);
+			action = 'and was automatically restarted';
+		} else {
+			action = 'and was not automatically restarted';
+		}
+
+		// Let the user know what we did.
+		const msg = nls.localize(
+			'positronConsole.runtimeCrashed',
+			'{0} exited unexpectedly {1}. You may have lost unsaved work.\nExit code: {2}',
+			session.runtimeMetadata.runtimeName,
+			action,
+			exit.exit_code
+		);
+		this._notificationService.warn(msg);
+	}
 }
 
 registerSingleton(IRuntimeStartupService, RuntimeStartupService, InstantiationType.Eager);

@@ -17,7 +17,6 @@ import { IConfigurationService } from 'vs/platform/configuration/common/configur
 import { IModalDialogPromptInstance, IPositronModalDialogsService } from 'vs/workbench/services/positronModalDialogs/common/positronModalDialogs';
 import { IUiClientMessageInput, IUiClientMessageOutput, UiClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimeUiClient';
 import { UiFrontendEvent } from 'vs/workbench/services/languageRuntime/common/positronUiComm';
-import { INotificationService } from 'vs/platform/notification/common/notification';
 import { ILanguageService } from 'vs/editor/common/languages/language';
 
 /**
@@ -104,7 +103,6 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 		@ILanguageRuntimeService private readonly _languageRuntimeService: ILanguageRuntimeService,
 		@ILogService private readonly _logService: ILogService,
 		@IOpenerService private readonly _openerService: IOpenerService,
-		@INotificationService private readonly _notificationService: INotificationService,
 		@IPositronModalDialogsService private readonly _positronModalDialogsService: IPositronModalDialogsService,
 		@IWorkspaceTrustManagementService private readonly _workspaceTrustManagementService: IWorkspaceTrustManagementService) {
 
@@ -743,38 +741,6 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 					this._onWillStartRuntimeEmitter.fire(evt);
 				}
 			}, 0);
-
-			// If the runtime crashed, try to restart it.
-			if (exit.reason === RuntimeExitReason.Error || exit.reason === RuntimeExitReason.Unknown) {
-				const restartOnCrash =
-					this._configurationService.getValue<boolean>('positron.interpreters.restartOnCrash');
-
-				let action;
-
-				if (restartOnCrash) {
-					// Wait a beat, then start the runtime.
-					await new Promise<void>(resolve => setTimeout(resolve, 250));
-
-					await this.startNewRuntimeSession(session.runtimeMetadata.runtimeId,
-						session.metadata.sessionName,
-						session.metadata.sessionMode,
-						session.metadata.notebookUri,
-						`The runtime exited unexpectedly and is being restarted automatically.`);
-					action = 'and was automatically restarted';
-				} else {
-					action = 'and was not automatically restarted';
-				}
-
-				// Let the user know what we did.
-				const msg = nls.localize(
-					'positronConsole.runtimeCrashed',
-					'{0} exited unexpectedly {1}. You may have lost unsaved work.\nExit code: {2}',
-					session.runtimeMetadata.runtimeName,
-					action,
-					exit.exit_code
-				);
-				this._notificationService.warn(msg);
-			}
 
 		}));
 	}
