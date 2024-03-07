@@ -386,6 +386,8 @@ async function getRegistryInstallPath(hive: string): Promise<string | undefined>
 			key: '\\Software\\R-Core\\R64',
 		});
 
+		Logger.info(`Checking for 'InstallPath' in registry key ${key.key} for hive ${key.hive}`);
+
 		const result = await new Promise<{ value: string }>((resolve, reject) => {
 			key.get('InstallPath', (error, result) => {
 				if (error) {
@@ -397,12 +399,13 @@ async function getRegistryInstallPath(hive: string): Promise<string | undefined>
 		});
 
 		if (!result || typeof result.value !== 'string') {
+			Logger.info(`Invalid value of 'InstallPath'`);
 			return undefined;
 		}
 
 		return result.value;
-	} catch (error) {
-		Logger.error('Error in getRegistryInstallPath():', error);
+	} catch (error: any) {
+		Logger.info(`Unable to get value of 'InstallPath': ${error.message}`);
 		return undefined;
 	}
 }
