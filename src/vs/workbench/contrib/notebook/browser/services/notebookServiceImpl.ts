@@ -3,7 +3,6 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { PixelRatio } from 'vs/base/browser/browser';
 import { toAction } from 'vs/base/common/actions';
 import { createErrorWithActions } from 'vs/base/common/errorMessage';
 import { Emitter, Event } from 'vs/base/common/event';
@@ -27,7 +26,6 @@ import { Memento, MementoObject } from 'vs/workbench/common/memento';
 import { InstallRecommendedExtensionAction } from 'vs/workbench/contrib/extensions/browser/extensionsActions';
 import { INotebookEditorOptions } from 'vs/workbench/contrib/notebook/browser/notebookBrowser';
 import { INotebookEditorContribution, notebookPreloadExtensionPoint, notebookRendererExtensionPoint, notebooksExtensionPoint } from 'vs/workbench/contrib/notebook/browser/notebookExtensionPoint';
-import { updateEditorTopPadding } from 'vs/workbench/contrib/notebook/browser/notebookOptions';
 import { NotebookCellTextModel } from 'vs/workbench/contrib/notebook/common/model/notebookCellTextModel';
 import { NotebookTextModel } from 'vs/workbench/contrib/notebook/common/model/notebookTextModel';
 import { ACCESSIBLE_NOTEBOOK_DISPLAY_ORDER, CellUri, INotebookContributionData, INotebookExclusiveDocumentFilter, INotebookRendererInfo, INotebookStaticPreloadInfo, INotebookTextModel, IOrderedMimeType, IOutputDto, MimeTypeDisplayOrder, NOTEBOOK_DISPLAY_ORDER, NotebookData, NotebookEditorPriority, NotebookExtensionDescription, NotebookRendererMatch, NotebookSetting, RENDERER_EQUIVALENT_EXTENSIONS, RENDERER_NOT_AVAILABLE, TransientOptions } from 'vs/workbench/contrib/notebook/common/notebookCommon';
@@ -46,6 +44,7 @@ import { ExtensionIdentifier } from 'vs/platform/extensions/common/extensions';
 import { NotebookEditorInput } from 'vs/workbench/contrib/notebook/common/notebookEditorInput';
 import { PositronNotebookEditorInput } from 'vs/workbench/contrib/positronNotebook/browser/PositronNotebookEditorInput';
 import { getShouldUsePositronEditor } from 'vs/workbench/contrib/positronNotebook/browser/positronNotebook.contribution';
+import { localize } from 'vs/nls';
 // --- End Positron ---
 
 export class NotebookProviderInfoStore extends Disposable {

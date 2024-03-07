@@ -3,7 +3,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 .positron-notebook {
-	color: var(--vscode-positronDataTool-foreground);
+	color: var(--vscode-positronDataExplorer-foreground);
 	user-select: text;
 	height: 100%;
 	overflow: auto;
@@ -25,7 +25,7 @@
 	display: flex;
 	gap: 1rem;
 	align-items: baseline;
-	border-bottom: 1px solid var(--vscode-positronDataTool-border);
+	border-bottom: 1px solid var(--vscode-positronDataExplorer-border);
 }
 
 .positron-notebook-cells-container {
@@ -46,7 +46,7 @@
 	align-items: center;
 	padding-block: 0.25rem;
 	padding-inline: 0.5rem;
-	outline: 1px solid var(--vscode-positronDataTool-border);
+	outline: 1px solid var(--vscode-positronDataExplorer-border, grey);
 	border-radius: 0.25rem;
 	width: fit-content;
 	cursor: pointer;

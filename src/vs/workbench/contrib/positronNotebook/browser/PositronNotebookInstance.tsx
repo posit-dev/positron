@@ -5,7 +5,6 @@
 import * as React from 'react';
 import * as DOM from 'vs/base/browser/dom';
 
-import { PixelRatio } from 'vs/base/browser/browser';
 import { ISize, PositronReactRenderer } from 'vs/base/browser/positronReactRenderer';
 import { Emitter, Event } from 'vs/base/common/event';
 import { Disposable, DisposableStore, dispose } from 'vs/base/common/lifecycle';
@@ -39,8 +38,12 @@ import { PositronNotebookEditorInput } from 'vs/workbench/contrib/positronNotebo
 import { ServicesProvider } from 'vs/workbench/contrib/positronNotebook/browser/ServicesProvider';
 import { BaseCellEditorOptions } from './BaseCellEditorOptions';
 import { PositronNotebookComponent } from './PositronNotebookComponent';
+import { CodeWindow } from 'vs/base/browser/window';
+import { ICodeEditorService } from 'vs/editor/browser/services/codeEditorService';
+import { PixelRatio } from 'vs/base/browser/pixelRatio';
 
-
+// eslint-disable-next-line no-restricted-globals
+export const mainWindow = window as CodeWindow;
 
 const cellTypeToKind = {
 	'code': CellKind.Code,
@@ -255,6 +258,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		@ITextModelService private readonly textModelResolverService: ITextModelService,
 		@IInstantiationService private readonly _instantiationService: IInstantiationService,
 		@IContextKeyService private readonly contextKeyService: IContextKeyService,
+		@ICodeEditorService codeEditorService: ICodeEditorService
 	) {
 		super();
 
@@ -262,7 +266,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 
 		this._readOnly = creationOptions?.isReadOnly ?? false;
 
-		this._notebookOptions = creationOptions?.options ?? new NotebookOptions(this.configurationService, this.notebookExecutionStateService, this._readOnly);
+		this._notebookOptions = creationOptions?.options ?? new NotebookOptions(mainWindow, this.configurationService, this.notebookExecutionStateService, codeEditorService, this._readOnly);
 
 		this._viewContext = new ViewContext(
 			this._notebookOptions,
@@ -644,7 +648,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 
 		if (!this._fontInfo) {
 			const editorOptions = this.configurationService.getValue<IEditorOptions>('editor');
-			this._fontInfo = FontMeasurements.readFontInfo(BareFontInfo.createFromRawSettings(editorOptions, PixelRatio.value));
+			this._fontInfo = FontMeasurements.readFontInfo(mainWindow, BareFontInfo.createFromRawSettings(editorOptions, PixelRatio.getInstance(mainWindow).value));
 		}
 
 		return {
