@@ -19,6 +19,7 @@ import { ExtensionsRegistry } from 'vs/workbench/services/extensions/common/exte
 import { ExtensionIdentifier } from 'vs/platform/extensions/common/extensions';
 import { ILifecycleService, ShutdownReason, StartupKind } from 'vs/workbench/services/lifecycle/common/lifecycle';
 import { INotificationService } from 'vs/platform/notification/common/notification';
+import { IWorkspaceTrustManagementService } from 'vs/platform/workspace/common/workspaceTrust';
 
 interface ILanguageRuntimeProviderMetadata {
 	languageId: string;
@@ -56,18 +57,6 @@ const languageRuntimeExtPoint =
 		}
 	});
 
-/**
- * The RuntimeAffiliationService is responsible for managing the affiliation
- * between language runtimes and workspaces, in the service of ensuring that the
- * correct runtime is started when opening each workspace.
- *
- * It works by storing the runtime ID of the affiliated runtime in the workspace
- * storage. When a new runtime is registered, it checks to see if the runtime is
- * affiliated with the current workspace, and if so, starts the runtime.
- *
- * When runtimes become active, they are affiliated with the current workspace;
- * manually shutting down a runtime removes the affiliation.
- */
 export class RuntimeStartupService extends Disposable implements IRuntimeStartupService {
 
 	// Needed for service branding in dependency injector.
@@ -87,9 +76,6 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 
 	private _startupPhase: ObservableValue<RuntimeStartupPhase>;
 
-	// Flag to indicate if we've processed a shutdown event.
-	private _isShutdown = false;
-
 	onDidChangeRuntimeStartupPhase: Event<RuntimeStartupPhase>;
 
 	constructor(
@@ -101,7 +87,8 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 		@ILogService private readonly _logService: ILogService,
 		@INotificationService private readonly _notificationService: INotificationService,
 		@IRuntimeSessionService private readonly _runtimeSessionService: IRuntimeSessionService,
-		@IStorageService private readonly _storageService: IStorageService) {
+		@IStorageService private readonly _storageService: IStorageService,
+		@IWorkspaceTrustManagementService private readonly _workspaceTrustManagementService: IWorkspaceTrustManagementService) {
 
 		super();
 
@@ -208,21 +195,28 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 			}
 		}));
 
+		// Wait for all extension hosts to start before beginning the main
+		// startup sequence.
 		this._extensionService.whenAllExtensionHostsStarted().then(async () => {
-			// --- This is the main startup phase for the runtime startup service. ---
-
-			// Attempt to reconnect to any active sessions first.
-			await this.restoreSessions();
-
-			// If no sessions were restored, and we have affiliated runtimes,
-			// try to start them.
-			if (!this._runtimeSessionService.hasStartingOrRunningConsole() &&
-				this.hasAffiliatedRuntime()) {
-				this.startAffiliatedLanguageRuntimes();
+			if (this._workspaceTrustManagementService.isWorkspaceTrusted()) {
+				// In a trusted workspace, we can start the startup sequence
+				// immediately.
+				await this.startupSequence();
+			} else {
+				// If we are not in a trusted workspace, wait for the workspace to become
+				// trusted before starting the startup sequence.
+				this._startupPhase.set(RuntimeStartupPhase.AwaitingTrust, undefined);
+				this._register(this._workspaceTrustManagementService.onDidChangeTrust((trusted) => {
+					if (!trusted) {
+						return;
+					}
+					// If the workspace becomse trusted while we are awaiting trust,
+					// move on to the startup sequence.
+					if (this.startupPhase === RuntimeStartupPhase.AwaitingTrust) {
+						this.startupSequence();
+					}
+				}));
 			}
-
-			// Then, discover all language runtimes.
-			await this.discoverAllRuntimes();
 		});
 
 		languageRuntimeExtPoint.setHandler((extensions) => {
@@ -260,8 +254,26 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 	}
 
 	/**
-	 * Clears all known workspace sessions from the workspace storage. Done on
-	 * quit to prepare for a clean start for the next Positron session.
+	 * The main entry point for the runtime startup service.
+	 */
+	private async startupSequence() {
+
+		// Attempt to reconnect to any active sessions first.
+		await this.restoreSessions();
+
+		// If no sessions were restored, and we have affiliated runtimes,
+		// try to start them.
+		if (!this._runtimeSessionService.hasStartingOrRunningConsole() &&
+			this.hasAffiliatedRuntime()) {
+			this.startAffiliatedLanguageRuntimes();
+		}
+
+		// Then, discover all language runtimes.
+		await this.discoverAllRuntimes();
+	}
+
+	/**
+	 * Clears all known workspace sessions from the workspace storage.
 	 *
 	 * This is done for hygiene reasons; it's not strictly necessary, because
 	 * new windows don't load the workspace storage from the previous window.
@@ -269,9 +281,6 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 	 * @returns False, always, so that it can be called during the shutdown
 	 */
 	private clearWorkspaceSessions(): boolean {
-		// Set shutdown flag so we don't try to save the workspace sessions
-		// later
-		this._isShutdown = true;
 
 		// Remove the storage key.
 		this._storageService.remove(PERSISTENT_WORKSPACE_SESSIONS_KEY,
@@ -561,6 +570,9 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 		// Don't attempt to restore sessions if we're starting up in a new
 		// window; each window gets its own set of sessions.
 		if (this._lifecycleService.startupKind === StartupKind.NewWindow) {
+			// Clear any sessions that may have been saved from a previous
+			// window.
+			this.clearWorkspaceSessions();
 			return;
 		}
 
@@ -621,11 +633,6 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 	 * process.
 	 */
 	private saveWorkspaceSessions(): boolean {
-
-		// Don't save anything if we've already been shutdown.
-		if (this._isShutdown) {
-			return false;
-		}
 
 		// Derive the set of sessions that are currently active and workspace scoped.
 		const workspaceSessions = this._runtimeSessionService.activeSessions

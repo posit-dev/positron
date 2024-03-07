@@ -15,38 +15,51 @@ export const IRuntimeStartupService =
  */
 export enum RuntimeStartupPhase {
 	/**
-	 * Phase 1: No runtimes have been started yet.
+	 * Phase 1: The startup sequence has not yet begun.
 	 */
 	Initializing = 'initializing',
 
 	/**
-	 * Phase 2: Positron is reconnecting to runtimes that are already running.
+	 * Phase 2: If the workspace is not trusted, we cannot proceed with startup,
+	 * since many runtimes run arbitrary code at startup (often from the
+	 * workspace contents) and we cannot trust them to do so safely. The startup
+	 * sequence stays at `AwaitingTrust` until workspace trust is granted.
+	 */
+	AwaitingTrust = 'awaitingTrust',
+
+	/**
+	 * Phase 3: Positron is reconnecting to runtimes that are already running.
 	 * We only enter this phase when reloading the UI, or when reopening a
 	 * browser tab.
 	 */
 	Reconnecting = 'reconnecting',
 
 	/**
-	 * Phase 3: Positron is starting any runtimes that are affiliated with the
+	 * Phase 4: Positron is starting any runtimes that are affiliated with the
 	 * workspace. We enter this phase on a fresh start of Positron, when no
 	 * existing sessions are running.
 	 */
 	Starting = 'starting',
 
 	/**
-	 * Phase 3: Positron is discovering all the runtimes on the machine. This
+	 * Phase 5: Positron is discovering all the runtimes on the machine. This
 	 * can take a while, but does precede startup for workspaces that have no
 	 * affiliated runtimes (so we don't know what to start yet).
 	 */
 	Discovering = 'discovering',
 
 	/**
-	 * Phase 4: Startup is complete. In this phase, we start any runtimes
+	 * Phase 6: Startup is complete. In this phase, we start any runtimes
 	 * recommended by extensions if nothing was started in previous phases.
 	 */
 	Complete = 'complete',
 }
 
+/**
+ * The IRuntimeStartupService is responsible for coordinating the process by
+ * which runtimes are automatically started when a workspace is opened, and
+ * reconnected to when a workspace is reloaded or reopened.
+ */
 export interface IRuntimeStartupService {
 	// Needed for service branding in dependency injector.
 	readonly _serviceBrand: undefined;
