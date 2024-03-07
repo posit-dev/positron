@@ -26,7 +26,8 @@ export class RRuntimeManager implements positron.LanguageRuntimeManager {
 		const kernelExtra = createJupyterKernelExtra();
 		const kernelSpec = createJupyterKernelSpec(this._context,
 			metadataExtra.homepath,
-			runtimeMetadata.runtimeName);
+			runtimeMetadata.runtimeName,
+			sessionMetadata.sessionMode);
 		const session = new RSession(runtimeMetadata,
 			sessionMetadata,
 			this._context,

@@ -11,14 +11,7 @@ import * as which from 'which';
 import * as positron from 'positron';
 import * as crypto from 'crypto';
 
-import { RInstallation, RMetadataExtra, getRHomePath } from './r-installation';
-import { RSession, createJupyterKernelExtra, createJupyterKernelSpec } from './session';
-import { RSessionManager } from './session-manager';
-
-const initialDynState = {
-	inputPrompt: '>',
-	continuationPrompt: '+',
-} as positron.LanguageRuntimeDynState;
+import { RInstallation, RMetadataExtra } from './r-installation';
 
 /**
  * Discovers R language runtimes for Positron; implements
@@ -148,10 +141,6 @@ export async function* rRuntimeDiscoverer(
 		// Full name shown to users
 		const runtimeName = `R ${runtimeShortName}`;
 
-		const kernelSpec = createJupyterKernelSpec(context,
-			rInst.homepath,
-			runtimeName);
-
 		// Get the version of this extension from package.json so we can pass it
 		// to the adapter as the implementation version.
 		const packageJson = require('../package.json');
@@ -186,7 +175,7 @@ export async function* rRuntimeDiscoverer(
 			runtimeVersion: packageJson.version,
 			runtimeSource,
 			languageId: 'r',
-			languageName: kernelSpec.language,
+			languageName: 'R',
 			languageVersion: rVersion,
 			base64EncodedIconSvg:
 				fs.readFileSync(

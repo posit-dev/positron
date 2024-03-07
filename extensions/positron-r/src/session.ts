@@ -582,7 +582,21 @@ export function createJupyterKernelExtra(): JupyterKernelExtra {
 	};
 }
 
-export function createJupyterKernelSpec(context: vscode.ExtensionContext, rHomePath: string, runtimeName: string): JupyterKernelSpec {
+/**
+ * Create a new Jupyter kernel spec.
+ *
+ * @param context The extension context
+ * @param rHomePath The R_HOME path for the R version
+ * @param runtimeName The (display) name of the runtime
+ * @param sessionMode The mode in which to create the session
+ *
+ * @returns A JupyterKernelSpec definining the kernel's path, arguments, and
+ *  metadata.
+ */
+export function createJupyterKernelSpec(context: vscode.ExtensionContext,
+	rHomePath: string,
+	runtimeName: string,
+	sessionMode: positron.LanguageRuntimeSessionMode): JupyterKernelSpec {
 
 	// Path to the kernel executable
 	const kernelPath = getArkKernelPath(context);
@@ -614,6 +628,7 @@ export function createJupyterKernelSpec(context: vscode.ExtensionContext, rHomeP
 			'--connection_file', '{connection_file}',
 			'--log', '{log_file}',
 			'--startup-file', `${startupFile}`,
+			'--session-mode', `${sessionMode}`,
 			// The arguments after `--` are passed verbatim to R
 			'--',
 			'--interactive',
