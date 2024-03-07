@@ -11,10 +11,7 @@ pycodestyle
 pydocstyle
 pygls
 prospector
-# --- Start Positron ---
-# avoid breaking changes in pytest 8 https://github.com/microsoft/vscode-python/issues/22798
-pytest==7.4.4
-# --- End Positron ---
+pytest
 flask
 # --- Start Positron ---
 # Require fastapi >= 0.109.1 to avoid CVE-2024-24762
