@@ -146,6 +146,8 @@
     "@typescript-eslint/eslint-plugin": "^5.57.0",
     "@typescript-eslint/experimental-utils": "^5.57.0",
     "@typescript-eslint/parser": "^5.57.0",
+    "eslint-plugin-react": "^7.33.2",
+    "eslint-plugin-react-hooks": "^4.6.0",
     "@vscode/gulp-electron": "^1.36.0",
     "@vscode/l10n-dev": "0.0.30",
     "@vscode/telemetry-extractor": "^1.10.2",
