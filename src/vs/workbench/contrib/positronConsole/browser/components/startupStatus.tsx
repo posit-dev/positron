@@ -14,8 +14,8 @@ import { RuntimeStartupPhase } from 'vs/workbench/services/runtimeStartup/common
 import { useEffect, useState } from 'react';
 
 // Load localized copy for control.
-const initalizing = localize('positron.console.initializing', "Starting up...");
-const awaitingTrust = localize('positron.console.awaitingTrust', "Consoles cannot start until the workspace is trusted.");
+const initalizing = localize('positron.console.initializing', "Starting up");
+const awaitingTrust = localize('positron.console.awaitingTrust', "Consoles cannot start until the workspace is trusted");
 const reconnecting = localize('positron.console.reconnecting', "Reconnecting");
 const starting = localize('positron.console.starting', "Starting");
 const discoveringIntrepreters = localize('positron.console.discoveringInterpreters', "Discovering interpreters");
@@ -76,6 +76,9 @@ export const StartupStatus = () => {
 			<div className='progress' ref={progressRef}></div>
 			{startupPhase === RuntimeStartupPhase.Initializing &&
 				<div className='initializing'>{initalizing}...</div>
+			}
+			{startupPhase === RuntimeStartupPhase.Reconnecting &&
+				<div className='initializing'>{reconnecting}...</div>
 			}
 			{startupPhase === RuntimeStartupPhase.AwaitingTrust &&
 				<div className='awaiting'>{awaitingTrust}...</div>
