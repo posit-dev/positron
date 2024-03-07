@@ -161,7 +161,7 @@ export class ConnectionItemsProvider implements vscode.TreeDataProvider<Connecti
 		} catch (err: any) {
 			// when contains_data fails, we show an error message that asks for a refresh.
 			// we also display an error tree item instead, so we can proceed with the rest of the tree
-			this.showErrorMessageWithRefresh(`Error checking if '${item.name}' contains_data: ${err.message}`);
+			this.showErrorMessageWithRefresh(vscode.l10n.t(`Error checking if '{0}' contains_data: {1}`, item.name, err.message));
 			return this.errorTreeItem(item.name, err);
 		}
 
@@ -203,7 +203,7 @@ export class ConnectionItemsProvider implements vscode.TreeDataProvider<Connecti
 			}
 		} catch (err: any) {
 			// not having an icon is not fatal as we can fallback to the type, but is worth notifying
-			vscode.window.showErrorMessage(`Error getting icon for '${item.name}': ${err.message}`);
+			vscode.window.showErrorMessage(vscode.l10n.t(`Error getting icon for '{0}' : {1}`, item.name, err.message));
 		}
 
 		// fallback to the item kind
@@ -213,7 +213,7 @@ export class ConnectionItemsProvider implements vscode.TreeDataProvider<Connecti
 	async showErrorMessageWithRefresh(message: string) {
 		const answer = await vscode.window.showErrorMessage(message,
 			{
-				title: 'Retry',
+				title: vscode.l10n.t('Retry'),
 				execute: async () => {
 					this.refresh();
 				}
@@ -224,7 +224,7 @@ export class ConnectionItemsProvider implements vscode.TreeDataProvider<Connecti
 
 	errorTreeItem(name: string, error: any): vscode.TreeItem {
 		const treeItem = new vscode.TreeItem(name, vscode.TreeItemCollapsibleState.None);
-		treeItem.description = 'Error loading item.';
+		treeItem.description = vscode.l10n.t('Error loading item.');
 		treeItem.tooltip = error.message;
 		treeItem.iconPath = new vscode.ThemeIcon('error', new vscode.ThemeColor('errorForeground'));
 		return treeItem;
@@ -283,7 +283,7 @@ export class ConnectionItemsProvider implements vscode.TreeDataProvider<Connecti
 			// anyway, if this happens we still send a retry notification and return no children.
 			contains_data = await element.contains_data();
 		} catch (err: any) {
-			this.showErrorMessageWithRefresh(`Error checking if '${element.name}' contains_data: ${err.message}`);
+			this.showErrorMessageWithRefresh(vscode.l10n.t(`Error checking if '{0}' contains_data: {1}`, element.name, err.message));
 			return [];
 		}
 
