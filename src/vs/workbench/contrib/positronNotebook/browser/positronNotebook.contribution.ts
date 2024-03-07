@@ -47,7 +47,7 @@ Registry.as<IConfigurationRegistry>(ConfigurationExtensions.Configuration).regis
 	properties: {
 		[USE_POSITRON_NOTEBOOK_EDITOR_CONFIG_KEY]: {
 			type: 'boolean',
-			default: true,
+			default: false,
 			markdownDescription: localize('positron.usePositronNotebooks', "Should the Positron Notebook editor be used instead of the default one?"),
 		}
 	}
