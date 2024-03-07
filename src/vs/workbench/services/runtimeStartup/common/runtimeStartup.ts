@@ -17,7 +17,7 @@ import { Event } from 'vs/base/common/event';
 import { ObservableValue } from 'vs/base/common/observableInternal/base';
 import { ExtensionsRegistry } from 'vs/workbench/services/extensions/common/extensionsRegistry';
 import { ExtensionIdentifier } from 'vs/platform/extensions/common/extensions';
-import { ILifecycleService, ShutdownReason } from 'vs/workbench/services/lifecycle/common/lifecycle';
+import { ILifecycleService, ShutdownReason, StartupKind } from 'vs/workbench/services/lifecycle/common/lifecycle';
 import { INotificationService } from 'vs/platform/notification/common/notification';
 
 interface ILanguageRuntimeProviderMetadata {
@@ -250,7 +250,7 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 				// We're quitting; clear the workspace sessions.
 				e.veto(this.clearWorkspaceSessions(),
 					'positron.runtimeStartup.clearWorkspaceSessions');
-			} if (e.reason === ShutdownReason.RELOAD) {
+			} else if (e.reason === ShutdownReason.RELOAD) {
 				// Attempt to save the current state of the workspace sessions
 				// before reloading.
 				e.veto(this.saveWorkspaceSessions(),
@@ -262,17 +262,20 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 	/**
 	 * Clears all known workspace sessions from the workspace storage. Done on
 	 * quit to prepare for a clean start for the next Positron session.
+	 *
+	 * This is done for hygiene reasons; it's not strictly necessary, because
+	 * new windows don't load the workspace storage from the previous window.
+	 *
+	 * @returns False, always, so that it can be called during the shutdown
 	 */
 	private clearWorkspaceSessions(): boolean {
 		// Set shutdown flag so we don't try to save the workspace sessions
 		// later
 		this._isShutdown = true;
 
-		// Remove the storage key
+		// Remove the storage key.
 		this._storageService.remove(PERSISTENT_WORKSPACE_SESSIONS_KEY,
 			StorageScope.WORKSPACE);
-
-		this._storageService.flush();
 
 		return false;
 	}
@@ -554,6 +557,13 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 	 * Restores the set of active workspace sessions from the workspace storage.
 	 */
 	private async restoreSessions() {
+
+		// Don't attempt to restore sessions if we're starting up in a new
+		// window; each window gets its own set of sessions.
+		if (this._lifecycleService.startupKind === StartupKind.NewWindow) {
+			return;
+		}
+
 		// Get the set of sessions that were active when the workspace was last
 		// open, and attempt to reconnect to them.
 		const storedSessions = this._storageService.get(PERSISTENT_WORKSPACE_SESSIONS_KEY,

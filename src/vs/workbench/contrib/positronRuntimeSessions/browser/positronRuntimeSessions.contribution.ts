@@ -32,12 +32,12 @@ export const VIEW_CONTAINER: ViewContainer = Registry.as<IViewContainersRegistry
 			original: 'Runtimes'
 		},
 		icon: positronRuntimeSessionsViewIcon,
-		order: 1,
+		order: 10,
 		ctorDescriptor: new SyncDescriptor(ViewPaneContainer, [POSITRON_RUNTIME_SESSIONS_VIEW_ID, { mergeViewWithContainerWhenSingleView: true }]),
 		storageId: POSITRON_RUNTIME_SESSIONS_VIEW_ID,
 		hideIfEmpty: true,
 	},
-	ViewContainerLocation.Sidebar,
+	ViewContainerLocation.AuxiliaryBar,
 	{
 		doNotRegisterOpenCommand: false,
 		isDefault: false
