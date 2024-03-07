@@ -186,7 +186,8 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 	}
 
 	/**
-	 * Gets the console session for a runtime, if one exists.
+	 * Gets the console session for a runtime, if one exists. Used by the top
+	 * bar interpreter drop-down to associated a session with a runtime.
 	 *
 	 * @param runtimeId The runtime identifier of the session to retrieve.
 	 * @returns The console session with the given runtime identifier, or undefined if
@@ -195,7 +196,8 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 	getConsoleSessionForRuntime(runtimeId: string): ILanguageRuntimeSession | undefined {
 		const session = Array.from(this._activeSessionsBySessionId.values()).find(session =>
 			session.session.runtimeMetadata.runtimeId === runtimeId &&
-			session.session.metadata.sessionMode === LanguageRuntimeSessionMode.Console);
+			session.session.metadata.sessionMode === LanguageRuntimeSessionMode.Console &&
+			session.state !== RuntimeState.Exited);
 		if (session) {
 			return session.session;
 		} else {
