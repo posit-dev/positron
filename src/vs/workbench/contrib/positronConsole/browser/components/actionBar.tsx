@@ -17,7 +17,7 @@ import { ActionBarSeparator } from 'vs/platform/positronActionBar/browser/compon
 import { usePositronConsoleContext } from 'vs/workbench/contrib/positronConsole/browser/positronConsoleContext';
 import { PositronActionBarContextProvider } from 'vs/platform/positronActionBar/browser/positronActionBarContext';
 import { PositronConsoleState } from 'vs/workbench/services/positronConsole/browser/interfaces/positronConsoleService';
-import { RuntimeState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { RuntimeExitReason, RuntimeState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { ILanguageRuntimeSession } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
 import { ConsoleInstanceMenuButton } from 'vs/workbench/contrib/positronConsole/browser/components/consoleInstanceMenuButton';
 
@@ -50,6 +50,8 @@ const positronInterruptExecution = localize('positronInterruptExecution', "Inter
 const positronToggleTrace = localize('positronToggleTrace', "Toggle trace");
 const positronToggleWordWrap = localize('positronToggleWordWrap', "Toggle word wrap");
 const positronClearConsole = localize('positronClearConsole', "Clear console");
+const positronRestartConsole = localize('positronRestartConsole', "Restart console");
+const positronShutdownConsole = localize('positronShutdownConsole', "Shutdown console");
 
 /**
  * Provides a localized label for the given runtime state. Only the transient
@@ -99,6 +101,7 @@ export const ActionBar = (props: ActionBarProps) => {
 		useState(positronConsoleContext.positronConsoleService.activePositronConsoleInstance);
 	const [interruptible, setInterruptible] = useState(false);
 	const [interrupting, setInterrupting] = useState(false);
+	const [canShutdown, setCanShutdown] = useState(false);
 	const [stateLabel, setStateLabel] = useState('');
 	const [directoryLabel, setDirectoryLabel] = useState('');
 
@@ -131,12 +134,14 @@ export const ActionBar = (props: ActionBarProps) => {
 				setInterrupting(false);
 				setStateLabel('');
 				setDirectoryLabel('');
+				setCanShutdown(false);
 				return;
 			}
 
 			// Set the initial state.
 			setInterruptible(session.dynState.busy);
 			setDirectoryLabel(session.dynState.currentWorkingDirectory);
+			setCanShutdown(session.getRuntimeState() === RuntimeState.Exited);
 
 			// Listen for state changes.
 			disposableRuntimeStore.add(session.onDidChangeRuntimeState((state) => {
@@ -144,12 +149,14 @@ export const ActionBar = (props: ActionBarProps) => {
 					case RuntimeState.Starting:
 						setStateLabel(labelForState(state));
 						setInterruptible(false);
+						setCanShutdown(false);
 						break;
 
 					case RuntimeState.Restarting:
 						setStateLabel(labelForState(state));
 						setInterrupting(false);
 						setInterruptible(false);
+						setCanShutdown(false);
 						break;
 
 					case RuntimeState.Idle:
@@ -157,32 +164,38 @@ export const ActionBar = (props: ActionBarProps) => {
 						setStateLabel('');
 						setInterruptible(false);
 						setInterrupting(false);
+						setCanShutdown(true);
 						break;
 
 					case RuntimeState.Busy:
 						setInterruptible(true);
+						setCanShutdown(true);
 						break;
 
 					case RuntimeState.Interrupting:
 						setStateLabel(labelForState(state));
 						setInterrupting(true);
+						setCanShutdown(true);
 						break;
 
 					case RuntimeState.Offline:
 						setStateLabel(labelForState(state));
 						setInterruptible(false);
+						setCanShutdown(false);
 						break;
 
 					case RuntimeState.Exiting:
 						setStateLabel(labelForState(state));
 						setInterrupting(false);
 						setInterruptible(false);
+						setCanShutdown(false);
 						break;
 
 					case RuntimeState.Exited:
 						setStateLabel('');
 						setInterrupting(false);
 						setInterruptible(false);
+						setCanShutdown(false);
 						break;
 				}
 			}));
@@ -239,6 +252,18 @@ export const ActionBar = (props: ActionBarProps) => {
 		positronConsoleContext.activePositronConsoleInstance?.clearConsole();
 	};
 
+	// Shutdown console event handler.
+	const shutdownConsoleHandler = async () => {
+		positronConsoleContext.activePositronConsoleInstance?.session.shutdown(
+			RuntimeExitReason.Shutdown
+		);
+	};
+
+	// Restart console event handler.
+	const restartConsoleHandler = async () => {
+		positronConsoleContext.activePositronConsoleInstance?.session.restart();
+	};
+
 	// Render.
 	return (
 		<PositronActionBarContextProvider {...positronConsoleContext}>
@@ -283,6 +308,26 @@ export const ActionBar = (props: ActionBarProps) => {
 								/>
 							</ActionBarButton>
 						}
+						{interruptible &&
+							<ActionBarSeparator />
+						}
+						<ActionBarButton
+							iconId='positron-power-button'
+							align='right'
+							disabled={!canShutdown}
+							tooltip={positronShutdownConsole}
+							ariaLabel={positronShutdownConsole}
+							onPressed={shutdownConsoleHandler}
+						/>
+						<ActionBarButton
+							iconId='positron-restart-runtime'
+							align='right'
+							disabled={!canShutdown}
+							tooltip={positronRestartConsole}
+							ariaLabel={positronRestartConsole}
+							onPressed={restartConsoleHandler}
+						/>
+						<ActionBarSeparator />
 						{showDeveloperUI &&
 							<ActionBarButton
 								iconId='wand'
