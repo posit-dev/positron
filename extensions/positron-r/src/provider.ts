@@ -328,7 +328,7 @@ async function findCurrentRBinary(): Promise<string | undefined> {
 			// How it looks when r-devel is current:
 			// ::devel
 			// @"C:\Program Files\R\R-devel\bin\R" %*
-			// Note that this binary is not our preferred one, i.e. \bin\x64\R.exe, but it is usable
+			// Note that this is not our preferred x64 binary, so we try to convert it.
 			if (path.extname(whichR).toLowerCase() === '.bat') {
 				const batLines = readLines(whichR);
 				const re = new RegExp(`^@"(.+R-(devel|[0-9]+[.][0-9]+[.][0-9]+).+)" %[*]$`);
