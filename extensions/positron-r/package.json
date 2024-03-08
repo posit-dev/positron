@@ -17,7 +17,9 @@
       "description": "%r.capabilities.untrustedWorkspaces.description%"
     }
   },
-  "activationEvents": [],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
   "contributes": {
     "commands": [
       {

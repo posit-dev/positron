@@ -106,7 +106,7 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 		this.onDidChangeRuntimeStartupPhase = Event.fromObservable(this._startupPhase);
 
 		this._register(this.onDidChangeRuntimeStartupPhase(phase => {
-			this._logService.info(`[Runtime startup] Phase changed to '${phase}'`);
+			this._logService.debug(`[Runtime startup] Phase changed to '${phase}'`);
 		}));
 
 		this._register(this._runtimeSessionService.onWillStartSession(e => {
@@ -232,12 +232,24 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 			// Loop over each extension that contributes language runtimes.
 			for (const extension of extensions) {
 				for (const value of extension.value) {
-					this._logService.info(`Extension ${extension.description.identifier.value} contributes language runtime for language ID ${value.languageId}`);
+					this._logService.debug(`[Runtime startup] Extension ${extension.description.identifier.value} has been registered for language runtime for language ID '${value.languageId}'`);
 					if (this._languagePacks.has(value.languageId)) {
 						this._languagePacks.get(value.languageId)?.push(extension.description.identifier);
 					} else {
 						this._languagePacks.set(value.languageId, [extension.description.identifier]);
 					}
+				}
+			}
+
+			// If we were awaiting trust, and we now have language packs, move on
+			// to the discovery phase if we haven't already and there are now registered
+			// language packs.
+			if (this.startupPhase === RuntimeStartupPhase.AwaitingTrust) {
+				if (this._languagePacks.size > 0) {
+					this.discoverAllRuntimes();
+				} else {
+					this._logService.debug(`[Runtime startup] No language packs were found.`);
+					this._startupPhase.set(RuntimeStartupPhase.Complete, undefined);
 				}
 			}
 		});
@@ -349,22 +361,53 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 		}));
 	}
 
+	/**
+	 * Activates all of the extensions that provides language runtimes, then
+	 * entires the discovery phase, in which each extension is asked to supply
+	 * its language runtime metadata.
+	 */
 	private async discoverAllRuntimes() {
+
+		// If we have no language packs yet, but were awaiting trust, we need to
+		// wait until the language packs are reloaded with the new trust
+		// settings before we can continue.
+		if (this.startupPhase === RuntimeStartupPhase.AwaitingTrust &&
+			this._languagePacks.size === 0) {
+
+			// Wait up to 5 seconds for the language packs to be reloaded;
+			// this should be very fast since it just requires the extension
+			// host to scan the package JSON files of the extensions. If after 5
+			// seconds we still don't have any language packs, there's no more
+			// work to do; mark as complete so we don't hang in the
+			// AwaitingTrust phase forever.
+			setTimeout(() => {
+				if (this.startupPhase === RuntimeStartupPhase.AwaitingTrust) {
+					this._startupPhase.set(RuntimeStartupPhase.Complete, undefined);
+				}
+			}, 5000);
+			return;
+		}
+
 		// Activate all extensions that contribute language runtimes.
 		const activationPromises = Array.from(this._languagePacks.keys()).map(
 			async (languageId) => {
 				for (const extension of this._languagePacks.get(languageId) || []) {
-					this._logService.info(`Activating extension ${extension.value} for language ID ${languageId}`);
-					this._extensionService.activateById(extension,
-						{
-							extensionId: extension,
-							activationEvent: `onLanguageRuntime:${languageId}`,
-							startup: true
-						});
+					this._logService.debug(`[Runtime startup] Activating extension ${extension.value} for language ID ${languageId}`);
+					try {
+						await this._extensionService.activateById(extension,
+							{
+								extensionId: extension,
+								activationEvent: `onLanguageRuntime:${languageId}`,
+								startup: false
+							});
+					} catch (e) {
+						this._logService.error(
+							`[Runtime startup] Error activating extension ${extension.value}: ${e}`);
+					}
 				}
 			});
 		await Promise.all(activationPromises);
-		this._logService.info(`All extensions contributing language runtimes have been activated.`);
+		this._logService.debug(`[Runtime startup] All extensions contributing language runtimes have been activated.`);
 
 		// Enter the discovery phase; this triggers us to ask each extension for its
 		// language runtime providers.
@@ -620,7 +663,7 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 				{
 					extensionId: session.runtimeMetadata.extensionId,
 					activationEvent: `onLanguageRuntime:${session.runtimeMetadata.languageId}`,
-					startup: true
+					startup: false
 				});
 
 			this._logService.debug(`[Reconnect ${session.metadata.sessionId}]: ` +
