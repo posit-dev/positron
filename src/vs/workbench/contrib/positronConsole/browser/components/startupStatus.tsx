@@ -21,7 +21,11 @@ const starting = localize('positron.console.starting', "Starting");
 const discoveringIntrepreters = localize('positron.console.discoveringInterpreters', "Discovering interpreters");
 
 /**
- * DiscoveringInterpreters component.
+ * StartupStatus component.
+ *
+ * This component shows the startup status in the Positron Console; it is shown
+ * only until startup is finished or a console is started (whichever comes
+ * first).
  *
  * @returns The rendered component.
  */

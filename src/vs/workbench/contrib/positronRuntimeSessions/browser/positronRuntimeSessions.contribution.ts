@@ -17,9 +17,9 @@ import { positronConfigurationNodeBase } from 'vs/workbench/services/languageRun
 import { IConfigurationRegistry, Extensions as ConfigurationExtensions, ConfigurationScope, } from 'vs/platform/configuration/common/configurationRegistry';
 import { LifecyclePhase } from 'vs/workbench/services/lifecycle/common/lifecycle';
 
-// The Positron sessions view identifier.
+// The Positron sessions view container and view identifiers.
 export const POSITRON_RUNTIME_VIEW_CONTAINER_ID = 'workbench.panel.positronSessions';
-export const POSITRON_RUNTIME_SESSIONS_VIEW_ID = 'workbench.panel.positronSessions';
+export const POSITRON_RUNTIME_SESSIONS_VIEW_ID = 'workbench.view.positronSessions';
 
 // The Positron sessions view icon.
 const positronRuntimeSessionsViewIcon = registerIcon(
@@ -71,7 +71,7 @@ class PositronRuntimeSessionsContribution extends Disposable {
 		// Register the configuration change listener. If the user turns on the configuration, we
 		// register the view. This allows us to toggle the view on and off without restarting the
 		// workbench.
-		_configurationService.onDidChangeConfiguration((e) => {
+		this._configurationService.onDidChangeConfiguration((e) => {
 			if (e.affectsConfiguration(SHOW_SESSIONS_CONFIG_KEY)) {
 				if (this._configurationService.getValue<boolean>(SHOW_SESSIONS_CONFIG_KEY)) {
 					this.registerSessionsView();

@@ -13,6 +13,14 @@ interface runtimeClientProps {
 	readonly client: IRuntimeClientInstance<any, any>;
 }
 
+/**
+ * A component that displays one row in the table of runtime clients (comms)
+ * currently connected to a Positron runtime session.
+ *
+ * @param props The runtimeClientProps that contains the component properties.
+ *
+ * @returns The rendered component.
+ */
 export const RuntimeClient = (props: runtimeClientProps) => {
 
 	const [state, setState] = useState(props.client.clientState.get());

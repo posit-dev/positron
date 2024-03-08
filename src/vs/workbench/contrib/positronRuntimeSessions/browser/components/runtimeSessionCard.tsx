@@ -14,6 +14,15 @@ interface runtimeSessionCardProps {
 	readonly session: ILanguageRuntimeSession;
 }
 
+/**
+ * The RuntimeSessionCard component shows a card that contains the runtime
+ * session details (such as its associated runtime's ID and interpreter path)
+ * and action buttons for the session.
+ *
+ * @param props The runtimeSessionCardProps that contains the component properties.
+ *
+ * @returns The rendered component.
+ */
 export const RuntimeSessionCard = (props: runtimeSessionCardProps) => {
 
 	const [sessionState, setSessionState] = useState(props.session.getRuntimeState());

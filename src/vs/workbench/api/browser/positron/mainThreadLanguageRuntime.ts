@@ -836,8 +836,15 @@ class ExtHostRuntimeClientInstance<Input, Output>
 
 	private _state: RuntimeClientState = RuntimeClientState.Uninitialized;
 
+	/**
+	 * An observable value that tracks the number of messages sent and received
+	 * by this client.
+	 */
 	public messageCounter: ObservableValue<number>;
 
+	/**
+	 * An observable value that tracks the current state of the client.
+	 */
 	public clientState: ObservableValue<RuntimeClientState>;
 
 	constructor(
@@ -1130,7 +1137,7 @@ export class MainThreadLanguageRuntime
 	 * Creates a new language runtime session adapter, to wrap a new or existing
 	 * runtime session.
 	 *
-	 * @param handle A handle to the language runtime session
+	 * @param initialState The handle and initial state of the runtime session
 	 * @param runtimeMetadata The metadata for the language runtime
 	 * @param sessionMetadata The metadata for the session
 	 *

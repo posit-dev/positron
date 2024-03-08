@@ -7,9 +7,17 @@ import { JupyterKernelSpec } from './jupyter-adapter';
 import { JupyterSessionState } from './JupyterSession';
 import { JUPYTER_WORKSPACE_STATE_KEY } from './extension';
 
+/**
+ * The data that needs to be serialized to reconnect to a Jupyter session.
+ */
 export interface JupyterSerializedSession {
+	/** The current dynamic state of the session  */
 	dynState: positron.LanguageRuntimeDynState;
+
+	/** The kernel path/arguments, etc. */
 	kernelSpec: JupyterKernelSpec;
+
+	/** The information needed to connect to the session */
 	sessionState: JupyterSessionState;
 }
 

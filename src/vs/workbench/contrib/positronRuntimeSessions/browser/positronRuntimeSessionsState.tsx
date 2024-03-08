@@ -17,14 +17,14 @@ export interface PositronSessionsServices extends PositronActionBarServices {
 }
 
 /**
- * PositronSessionsState interface.
+ * PositronRuntimeSessionsState interface.
  */
 export interface PositronRuntimeSessionsState extends PositronSessionsServices {
 	positronSessions: ILanguageRuntimeSession[];
 }
 
 /**
- * The usePositronSessionsState custom hook.
+ * The usePositronRuntimeSessionsState custom hook.
  * @returns The hook.
  */
 export const usePositronRuntimeSessionsState = (services: PositronSessionsServices): PositronRuntimeSessionsState => {

@@ -13,6 +13,14 @@ interface runtimeClientListProps {
 	readonly session: ILanguageRuntimeSession;
 }
 
+/**
+ * A component that shows a table of active runtime clients (comms) currently
+ * connected to a Positron runtime session.
+ *
+ * @param props The runtimeClientListProps that contains the component properties.
+ *
+ * @returns The rendered component.
+ */
 export const RuntimeClientList = (props: runtimeClientListProps) => {
 
 	const [clients, setClients] = useState(props.session.clientInstances);

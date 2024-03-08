@@ -21,10 +21,12 @@ interface RuntimeSessionProps {
 }
 
 /**
-* RuntimeSession component.
-* @param props A RuntimeSessionProps that contains the component properties.
-* @returns The rendered component.
-*/
+ * RuntimeSession component. This component displays a single runtime session
+ * row in the runtime session list.
+ *
+ * @param props A RuntimeSessionProps that contains the component properties.
+ * @returns The rendered component.
+ */
 export const RuntimeSession = (props: RuntimeSessionProps) => {
 
 	const [sessionState, setSessionState] = useState(props.session.getRuntimeState());

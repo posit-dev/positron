@@ -135,6 +135,17 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 		}
 	}
 
+	/**
+	 * Utility function to look up the manager for a given runtime.
+	 *
+	 * If it can't find the runtime manager, then it will wait until the runtime
+	 * manager is registered.
+	 *
+	 * @param metadata The metadata for the runtime
+	 *
+	 * @returns A promise that resolves with the runtime manager for the
+	 * runtime.
+	 */
 	private async runtimeManagerForRuntime(metadata: ILanguageRuntimeMetadata): Promise<LanguageRuntimeManager | undefined> {
 		// Doe we already have a manager for this runtime? This happens when we
 		// look up a runtime manager for a runtime that has already been

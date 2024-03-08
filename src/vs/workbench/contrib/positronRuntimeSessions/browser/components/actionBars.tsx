@@ -43,7 +43,6 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 	const positronSessionsContext = usePositronRuntimeSessionsContext();
 
 	// If there are no instances, return null.
-	// TODO@softwarenerd - Render something specific for this case. TBD.
 	if (positronSessionsContext.positronSessions.length === 0) {
 		return null;
 	}

@@ -15,16 +15,18 @@ import { IRuntimeStartupService } from 'vs/workbench/services/runtimeStartup/com
  * Shows the interpreters manager modal popup.
  *
  * @param languageRuntimeService The language runtime service.
+ * @param runtimeStartupService The runtime stasrtup service.
  * @param runtimeSessionService The runtime session service.
  * @param containerElement The container element.
  * @param anchorElement The anchor element for the modal popup.
  * @param onStartRuntime The start runtime event handler.
  * @param onActivateRuntime The activate runtime event handler.
+ *
  * @returns A promise that resolves when the popup is dismissed.
  */
 export const showInterpretersManagerModalPopup = async (
 	languageRuntimeService: ILanguageRuntimeService,
-	runtimeAffiliationService: IRuntimeStartupService,
+	runtimeStartupService: IRuntimeStartupService,
 	runtimeSessionService: IRuntimeSessionService,
 	containerElement: HTMLElement,
 	anchorElement: HTMLElement,
@@ -71,7 +73,7 @@ export const showInterpretersManagerModalPopup = async (
 				>
 					<InterpreterGroups
 						languageRuntimeService={languageRuntimeService}
-						runtimeAffiliationService={runtimeAffiliationService}
+						runtimeAffiliationService={runtimeStartupService}
 						runtimeSessionService={runtimeSessionService}
 						onStartRuntime={onStartRuntime}
 						onActivateRuntime={activateRuntimeHandler}

@@ -19,7 +19,12 @@ interface SessionsCoreProps extends PositronSessionsProps {
 
 /**
  * SessionsCore component.
+ *
+ * This component displays the core of the runtime sessions view. It contains
+ * the action bar and the list of runtime sessions in a table.
+ *
  * @param props A SessionsCoreProps that contains the component properties.
+ *
  * @returns The rendered component.
  */
 export const SessionsCore = (props: SessionsCoreProps) => {

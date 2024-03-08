@@ -66,13 +66,11 @@ export class LanguageRuntimeSessionAdapter
 	 * Create a new LanguageRuntimeSessionAdapter to wrap a Jupyter kernel session in
 	 * a LanguageRuntimeSession interface.
 	 *
-	 * @param sessionId A unique identifier for the session
-	 * @param sessionName A human-readable name for the session
-	 * @param sessionMode The mode in which the session is to be run
+	 * @param runtimeMetadata The metadata for the language runtime to wrap
+	 * @param metadata The metadata for the session to create or reconnect to
 	 * @param _context The extension context for the extension that owns this adapter
 	 * @param _channel The output channel to use for logging
 	 * @param _spec The Jupyter kernel spec for the kernel to wrap
-	 * @param runtimeMetadata The metadata for the language runtime to wrap
 	 * @param dynState The dynamic state of the language runtime
 	 * @param extra Extra startup options for the kernel
 	 */
@@ -978,8 +976,8 @@ export class LanguageRuntimeSessionAdapter
 	}
 
 	/**
-	 * Saves the current state of the session to a file; used to persist the
-	 * session across restarts.
+	 * Saves the current state of the session to a workspace storage; used to
+	 * persist the session across restarts.
 	 */
 	private serializeSessionState() {
 		const serialized: JupyterSerializedSession = {

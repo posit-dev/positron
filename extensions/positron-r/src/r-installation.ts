@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
 import * as os from 'os';
@@ -9,8 +9,14 @@ import * as fs from 'fs';
 import { extractValue, readLines } from './util';
 import { LOGGER } from './extension';
 
+/**
+ * Extra metadata included in the LanguageRuntimeMetadata for R installations.
+ */
 export interface RMetadataExtra {
+	/** R's home path (R_HOME) */
 	readonly homepath: string;
+
+	/** R's binary path */
 	readonly binpath: string;
 }
 

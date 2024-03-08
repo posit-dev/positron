@@ -7,7 +7,7 @@ import { PropsWithChildren, createContext, useContext } from 'react'; // eslint-
 import { PositronSessionsServices, PositronRuntimeSessionsState, usePositronRuntimeSessionsState } from 'vs/workbench/contrib/positronRuntimeSessions/browser/positronRuntimeSessionsState';
 
 /**
- * Create the Positron variables context.
+ * Create the Positron sessions context.
  */
 const PositronRuntimeSessionsContext = createContext<PositronRuntimeSessionsState>(undefined!);
 

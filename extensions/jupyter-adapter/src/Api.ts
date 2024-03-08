@@ -47,7 +47,7 @@ export class JupyterAdapterApiImpl implements JupyterAdapterApi {
 	}
 
 	/**
-	 * Restore a session for a Jupyter-compatible kernel.
+	 * Restore (reconnect to) a running session for a Jupyter-compatible kernel.
 	 *
 	 * @param runtimeMetadata The metadata for the language runtime to be
 	 * wrapped by the adapter.
@@ -60,6 +60,10 @@ export class JupyterAdapterApiImpl implements JupyterAdapterApi {
 		sessionMetadata: positron.RuntimeSessionMetadata
 	): JupyterLanguageRuntimeSession {
 
+		// Get the serialized session from the workspace state. This state
+		// contains the information we need to reconnect to the session, such as
+		// the path of the connection JSON file that names the ZeroMQ ports for
+		// each socket.
 		const state = this._context.workspaceState.get(
 			workspaceStateKey(runtimeMetadata, sessionMetadata));
 		if (!state) {
