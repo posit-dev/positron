@@ -93,8 +93,8 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 	private readonly _onDidReceiveRuntimeEventEmitter =
 		this._register(new Emitter<ILanguageRuntimeGlobalEvent>());
 
-	// The event emitter for the onDidChangeActiveRuntime event.
-	private readonly _onDidChangeActiveRuntimeEmitter =
+	// The event emitter for the onDidChangeForegroundSession event.
+	private readonly _onDidChangeForegroundSessionEmitter =
 		this._register(new Emitter<ILanguageRuntimeSession | undefined>);
 
 	constructor(
@@ -164,7 +164,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 	readonly onDidReceiveRuntimeEvent = this._onDidReceiveRuntimeEventEmitter.event;
 
 	// An event that fires when the active runtime changes.
-	readonly onDidChangeForegroundSession = this._onDidChangeActiveRuntimeEmitter.event;
+	readonly onDidChangeForegroundSession = this._onDidChangeForegroundSessionEmitter.event;
 
 	/**
 	 * Registers the session manager with the service.
@@ -405,7 +405,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 		this._foregroundSession = session;
 
 		// Fire the onDidChangeActiveRuntime event.
-		this._onDidChangeActiveRuntimeEmitter.fire(this._foregroundSession);
+		this._onDidChangeForegroundSessionEmitter.fire(this._foregroundSession);
 	}
 
 	/**
@@ -678,7 +678,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 						// re-activation if already active since the resulting
 						// events can cause Positron behave as though a new
 						// runtime were started (e.g. focusing the console)
-						this._foregroundSession = session;
+						this.foregroundSession = session;
 					}
 
 					// Start the UI client instance once the runtime is fully online.

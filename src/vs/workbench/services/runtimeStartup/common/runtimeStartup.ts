@@ -572,9 +572,8 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 	 */
 	private async restoreSessions() {
 
-		// Don't attempt to restore sessions if we're starting up in a new
-		// window; each window gets its own set of sessions.
-		if (this._lifecycleService.startupKind === StartupKind.NewWindow) {
+		// Don't attempt to restore sessions if we're not reloading
+		if (this._lifecycleService.startupKind !== StartupKind.ReloadedWindow) {
 			// Clear any sessions that may have been saved from a previous
 			// window.
 			this.clearWorkspaceSessions();
