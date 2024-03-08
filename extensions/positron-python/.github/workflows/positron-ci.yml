@@ -214,17 +214,20 @@ jobs:
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
         python: ['3.x']
-        # TODO: Add 'venv' tests.
-        test-suite: [ts-unit, single-workspace, debugger, functional, smoke]
+        test-suite: [ts-unit, venv, single-workspace, debugger, functional, smoke]
         # TODO: Add integration tests on windows and ubuntu. This requires updating
         # src/test/positron/testElectron.ts to support installing Positron on these platforms.
         exclude:
+          - os: windows-latest
+            test-suite: venv
           - os: windows-latest
             test-suite: debugger
           - os: windows-latest
             test-suite: single-workspace
           - os: windows-latest
             test-suite: smoke
+          - os: ubuntu-latest
+            test-suite: venv
           - os: ubuntu-latest
             test-suite: debugger
           - os: ubuntu-latest
@@ -344,7 +347,7 @@ jobs:
 
       - name: Set CI_PYTHON_PATH and CI_DISABLE_AUTO_SELECTION
         run: |
-          echo "CI_PYTHON_PATH=python" >> $GITHUB_ENV
+          echo "CI_PYTHON_PATH=$(which python)" >> $GITHUB_ENV
           echo "CI_DISABLE_AUTO_SELECTION=1" >> $GITHUB_ENV
         shell: bash
         if: matrix.test-suite != 'ts-unit'
