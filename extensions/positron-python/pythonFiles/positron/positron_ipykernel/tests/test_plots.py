@@ -133,7 +133,7 @@ def test_hook_handle_msg_noop_on_unknown_method(figure_comm: DummyComm) -> None:
     figure_comm.handle_msg(msg)
 
     assert figure_comm.messages == [
-        json_rpc_error(JsonRpcErrorCode.METHOD_NOT_FOUND, f"Unknown method 'not_render'")
+        json_rpc_error(JsonRpcErrorCode.METHOD_NOT_FOUND, "Unknown method 'not_render'")
     ]
 
 

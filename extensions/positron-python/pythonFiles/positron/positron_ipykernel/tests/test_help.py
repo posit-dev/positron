@@ -126,7 +126,7 @@ def test_show_help(
 
     params = data["params"]
     assert params["kind"] == "url"
-    assert params["focus"] == True
+    assert params["focus"]
     prefix = f"{url}get?key="
     assert params["content"].startswith(prefix)
     assert params["content"][len(prefix) :] == expected_path

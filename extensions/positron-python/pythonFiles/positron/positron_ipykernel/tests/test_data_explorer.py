@@ -8,20 +8,14 @@ from typing import Any, Dict, List, Optional, Type, cast
 import numpy as np
 import pandas as pd
 import pytest
-from ..access_keys import encode_access_key
+
 from .._vendor.pydantic import BaseModel
+from ..access_keys import encode_access_key
 from ..data_explorer import COMPARE_OPS, DataExplorerService
-from ..data_explorer_comm import (
-    ColumnFilter,
-    ColumnSchema,
-    ColumnSortKey,
-    FilterResult,
-)
-
+from ..data_explorer_comm import ColumnFilter, ColumnSchema, ColumnSortKey, FilterResult
 from .conftest import DummyComm, PositronShell
-from .utils import json_rpc_notification, json_rpc_request, json_rpc_response
-
 from .test_variables import BIG_ARRAY_LENGTH
+from .utils import json_rpc_notification, json_rpc_request, json_rpc_response
 
 TARGET_NAME = "positron.dataExplorer"
 
@@ -216,9 +210,9 @@ def test_explorer_variable_updates(
         ]
 
         if update_type == "schema":
-            expected_msg = json_rpc_notification(f"schema_update", {"discard_state": discard_state})
+            expected_msg = json_rpc_notification("schema_update", {"discard_state": discard_state})
         else:
-            expected_msg = json_rpc_notification(f"data_update", {})
+            expected_msg = json_rpc_notification("data_update", {})
 
         # Check that comms were all closed
         for comm in comms:
@@ -382,7 +376,7 @@ class PandasFixture:
             self.set_column_filters(table_id, filters)
 
         response = self.set_sort_columns(table_id, sort_keys=sort_keys)
-        assert response == None
+        assert response is None
         self.compare_tables(table_id, ex_id, table.shape)
 
     def compare_tables(self, table_id: str, expected_id: str, table_shape: tuple):

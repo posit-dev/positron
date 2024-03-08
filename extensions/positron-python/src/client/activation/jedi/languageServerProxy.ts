@@ -22,7 +22,7 @@ export class JediLanguageServerProxy implements ILanguageServerProxy {
 
     private lsVersion: string | undefined;
 
-    constructor(private readonly factory: ILanguageClientFactory) { }
+    constructor(private readonly factory: ILanguageClientFactory) {}
 
     private static versionTelemetryProps(instance: JediLanguageServerProxy) {
         return {

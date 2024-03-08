@@ -1,0 +1,11 @@
+fastcore
+ipykernel
+ipywidgets
+matplotlib
+numpy
+pandas
+polars
+pytest
+pytest-asyncio
+pytest-mock
+torch; python_version < '3.12'
