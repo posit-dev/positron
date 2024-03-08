@@ -206,6 +206,26 @@ class PositronVariablesService extends Disposable implements IPositronVariablesS
 	}
 
 	/**
+	 * Sets the active variables instance to the one with the given session ID.
+	 *
+	 * @param sessionId The session ID.
+	 */
+	setActivePositronVariablesSession(sessionId: string): void {
+		// Find the Positron variables instance associated with the session ID.
+		const positronVariablesInstance =
+			this._positronVariablesInstancesBySessionId.get(sessionId);
+		if (positronVariablesInstance) {
+			// Found it; make it active.
+			this.setActivePositronVariablesInstance(positronVariablesInstance);
+		} else {
+			// Did not find it; log a warning.
+			this._logService.warn(
+				`Attempted to set the active Positron variables instance to a session ` +
+				`(${sessionId}) that does not have a corresponding Positron variables instance.`);
+		}
+	}
+
+	/**
 	 * Placeholder that gets called to "initialize" the PositronVariablesService.
 	 */
 	initialize() {

@@ -9,6 +9,7 @@ import { DisposableStore } from 'vs/base/common/lifecycle';
 import { ActionBarMenuButton } from 'vs/platform/positronActionBar/browser/components/actionBarMenuButton';
 import { ILanguageRuntimeSession } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
 import { usePositronVariablesContext } from 'vs/workbench/contrib/positronVariables/browser/positronVariablesContext';
+import { LanguageRuntimeSessionMode } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 
 /**
  * VariablesInstanceMenuButton component.
@@ -53,10 +54,17 @@ export const VariablesInstanceMenuButton = () => {
 				class: undefined,
 				enabled: true,
 				run: () => {
-					// TODO: The variables pane actually needs its own concept of foreground
-					// session so that we don't have to do this.
-					positronVariablesContext.runtimeSessionService.foregroundSession =
-						positronVariablesInstance.session;
+					// Set the active variables session to the one the user selected.
+					const session = positronVariablesInstance.session;
+					positronVariablesContext.positronVariablesService
+						.setActivePositronVariablesSession(session.sessionId);
+
+					// If this is a console session, set it as the foreground
+					// session, too, so that the rest of the UI can pick it up.
+					if (session.metadata.sessionMode === LanguageRuntimeSessionMode.Console) {
+						positronVariablesContext.runtimeSessionService.foregroundSession =
+							positronVariablesInstance.session;
+					}
 				}
 			});
 		});
