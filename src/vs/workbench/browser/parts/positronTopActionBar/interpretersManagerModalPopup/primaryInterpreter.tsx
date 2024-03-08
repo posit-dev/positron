@@ -7,7 +7,7 @@ import * as React from 'react';
 import { useEffect, useState } from 'react'; // eslint-disable-line no-duplicate-imports
 import { localize } from 'vs/nls';
 import { DisposableStore } from 'vs/base/common/lifecycle';
-import { PositronButton } from 'vs/base/browser/ui/positronComponents/positronButton';
+import { PositronButton } from 'vs/base/browser/ui/positronComponents/button/positronButton';
 import { InterpreterActions } from 'vs/workbench/browser/parts/positronTopActionBar/interpretersManagerModalPopup/interpreterActions';
 import { ILanguageRuntime, ILanguageRuntimeService, RuntimeState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 

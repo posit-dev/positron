@@ -2,9 +2,14 @@
  *  Copyright (C) 2023 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
+// CSS.
 import 'vs/css!./positronModalPopup';
+
+// React.
 import * as React from 'react';
 import { PropsWithChildren, useCallback, useEffect, useRef, useState } from 'react'; // eslint-disable-line no-duplicate-imports
+
+// Other dependencies.
 import * as DOM from 'vs/base/browser/dom';
 import { positronClassNames } from 'vs/base/common/positronUtilities';
 
@@ -139,22 +144,28 @@ export const PositronModalPopup = (props: PropsWithChildren<PositronModalPopupPr
 
 	// Initialization.
 	useEffect(() => {
-		// Add our event handlers.
+		// Event type constants.
 		const KEYDOWN = 'keydown';
 		const MOUSEDOWN = 'mousedown';
 		const RESIZE = 'resize';
-		document.addEventListener(KEYDOWN, keydownHandler, true);
-		window.addEventListener(MOUSEDOWN, mousedownHandler, false);
-		window.addEventListener(RESIZE, resizeHandler, false);
+
+		// Get the container window.
+		const containerWindow = DOM.getWindow(popupContainerRef.current);
+
+		// Add keydown, mousedown, and resize event listeners.
+		containerWindow.document.addEventListener(KEYDOWN, keydownHandler, true);
+		containerWindow.addEventListener(MOUSEDOWN, mousedownHandler, false);
+		containerWindow.addEventListener(RESIZE, resizeHandler, false);
 
 		// Drive focus to the popup.
 		popupContainerRef.current.focus();
 
-		// Return the cleanup function that removes our event handlers.
+		// Return the cleanup function that removes our event listeners.
 		return () => {
-			document.removeEventListener(KEYDOWN, keydownHandler, true);
-			window.removeEventListener(MOUSEDOWN, mousedownHandler, false);
-			window.removeEventListener(RESIZE, resizeHandler, false);
+			// Remove keydown, mousedown, and resize event listeners.
+			containerWindow.document.removeEventListener(KEYDOWN, keydownHandler, true);
+			containerWindow.removeEventListener(MOUSEDOWN, mousedownHandler, false);
+			containerWindow.removeEventListener(RESIZE, resizeHandler, false);
 		};
 	}, []);
 
@@ -167,7 +178,12 @@ export const PositronModalPopup = (props: PropsWithChildren<PositronModalPopupPr
 	// Render.
 	return (
 		<div className='positron-modal-popup-shadow-container'>
-			<div ref={popupContainerRef} className='positron-modal-popup-container' role='dialog' tabIndex={-1}>
+			<div
+				ref={popupContainerRef}
+				className='positron-modal-popup-container'
+				role='dialog'
+				tabIndex={-1}
+			>
 				<div
 					ref={popupRef}
 					className={classNames}

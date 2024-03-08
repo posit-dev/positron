@@ -1579,6 +1579,16 @@ export const POSITRON_MODAL_DIALOG_CHECKBOX_BORDER = registerColor('positronModa
 	hcLight: checkboxBorder
 }, localize('positronModalDialog.checkboxBorder', "Positron modal dialog checkbox border."));
 
+// < --- Positron Drop Down --- >
+
+// Positron modal dialog border color.
+export const POSITRON_DROP_DOWN_BORDER = registerColor('positronDropDown.border', {
+	dark: selectBorder,
+	light: selectBorder,
+	hcDark: selectBorder,
+	hcLight: selectBorder
+}, localize('positronDropDown.border', "Positron drop down border color."));
+
 // < --- Positron Console --- >
 
 // Positron console background color.

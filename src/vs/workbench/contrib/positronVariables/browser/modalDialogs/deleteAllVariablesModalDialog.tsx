@@ -9,7 +9,7 @@ import { localize } from 'vs/nls';
 import { IWorkbenchLayoutService } from 'vs/workbench/services/layout/browser/layoutService';
 import { VerticalStack } from 'vs/base/browser/ui/positronModalDialog/components/verticalStack';
 import { OKCancelModalDialog } from 'vs/base/browser/ui/positronModalDialog/positronOKCancelModalDialog';
-import { PositronModalDialogReactRenderer } from 'vs/base/browser/ui/positronModalDialog/positronModalDialogReactRenderer';
+import { PositronModalReactRenderer } from 'vs/base/browser/ui/positronModalReactRenderer/positronModalReactRenderer';
 
 /**
  * Localized strings.
@@ -36,8 +36,8 @@ export const showDeleteAllVariablesModalDialog = async (
 ): Promise<DeleteAllVariablesResult | undefined> => {
 	// Return a promise that resolves when the dialog is done.
 	return new Promise<DeleteAllVariablesResult | undefined>((resolve) => {
-		// Create the modal dialog React renderer.
-		const positronModalDialogReactRenderer = new PositronModalDialogReactRenderer(
+		// Create the modal React renderer.
+		const positronModalReactRenderer = new PositronModalReactRenderer(
 			layoutService.mainContainer
 		);
 
@@ -50,13 +50,13 @@ export const showDeleteAllVariablesModalDialog = async (
 
 			// The accept handler.
 			const acceptHandler = () => {
-				positronModalDialogReactRenderer.destroy();
+				positronModalReactRenderer.destroy();
 				resolve(result);
 			};
 
 			// The cancel handler.
 			const cancelHandler = () => {
-				positronModalDialogReactRenderer.destroy();
+				positronModalReactRenderer.destroy();
 				resolve(undefined);
 			};
 
@@ -81,6 +81,6 @@ export const showDeleteAllVariablesModalDialog = async (
 		};
 
 		// Render the modal dialog component.
-		positronModalDialogReactRenderer.render(<ModalDialog />);
+		positronModalReactRenderer.render(<ModalDialog />);
 	});
 };

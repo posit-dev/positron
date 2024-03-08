@@ -2,7 +2,7 @@
  *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
-import { KeyboardModifiers } from 'vs/base/browser/ui/positronComponents/positronButton';
+import { KeyboardModifiers } from 'vs/base/browser/ui/positronComponents/button/positronButton';
 
 /**
  * ContextMenuItemOptions interface.

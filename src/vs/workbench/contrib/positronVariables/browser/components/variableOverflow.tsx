@@ -8,7 +8,7 @@ import { CSSProperties, MouseEvent } from 'react'; // eslint-disable-line no-dup
 import { localize } from 'vs/nls';
 import * as platform from 'vs/base/common/platform';
 import { positronClassNames } from 'vs/base/common/positronUtilities';
-import { VerticalSplitter, VerticalSplitterResizeParams } from 'vs/base/browser/ui/positronComponents/verticalSplitter';
+import { VerticalSplitter, VerticalSplitterResizeParams } from 'vs/base/browser/ui/positronComponents/splitters/verticalSplitter';
 import { IVariableOverflow as IVariableOverflow } from 'vs/workbench/services/positronVariables/common/interfaces/variableOverflow';
 
 /**

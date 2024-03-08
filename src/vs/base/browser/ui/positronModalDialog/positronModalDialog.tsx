@@ -2,9 +2,15 @@
  *  Copyright (C) 2022 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
+// CSS.
 import 'vs/css!./positronModalDialog';
+
+// React.
 import * as React from 'react';
 import { PropsWithChildren, useCallback, useEffect, useRef, useState } from 'react'; // eslint-disable-line no-duplicate-imports
+
+// Other dependencies.
+import * as DOM from 'vs/base/browser/dom';
 import { DraggableTitleBar } from 'vs/base/browser/ui/positronModalDialog/components/draggableTitleBar';
 
 /**
@@ -117,12 +123,12 @@ export const PositronModalDialog = (props: PropsWithChildren<PositronModalDialog
 					// If the user is tabbing forward, wrap around at the last element; otherwise,
 					// the user is tabbing backward, so wrap around at the first element.
 					if (!e.shiftKey) {
-						if (document.activeElement === lastFocusableElement) {
+						if (DOM.getActiveElement() === lastFocusableElement) {
 							consumeEvent();
 							firstFocusableElement.focus();
 						}
 					} else {
-						if (document.activeElement === firstFocusableElement) {
+						if (DOM.getActiveElement() === firstFocusableElement) {
 							consumeEvent();
 							lastFocusableElement.focus();
 						}
@@ -180,13 +186,19 @@ export const PositronModalDialog = (props: PropsWithChildren<PositronModalDialog
 		// Add our event handlers.
 		const KEYDOWN = 'keydown';
 		const RESIZE = 'resize';
-		document.addEventListener(KEYDOWN, keydownHandler, true);
-		window.addEventListener(RESIZE, resizeHandler, false);
 
-		// Return the cleanup function that removes our event handlers.
+		// Get the container window.
+		const containerWindow = DOM.getWindow(dialogContainerRef.current);
+
+		// Add keydown and resize event listeners.
+		containerWindow.document.addEventListener(KEYDOWN, keydownHandler, true);
+		containerWindow.addEventListener(RESIZE, resizeHandler, false);
+
+		// Return the cleanup function that removes our event listeners.
 		return () => {
-			document.removeEventListener(KEYDOWN, keydownHandler, true);
-			window.removeEventListener(RESIZE, resizeHandler, false);
+			// Remove keydown and resize event listeners.
+			containerWindow.document.removeEventListener(KEYDOWN, keydownHandler, true);
+			containerWindow.removeEventListener(RESIZE, resizeHandler, false);
 		};
 	}, []);
 

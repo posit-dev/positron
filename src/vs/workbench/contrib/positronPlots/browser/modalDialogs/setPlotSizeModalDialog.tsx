@@ -5,11 +5,11 @@
 import 'vs/css!./setPlotSizeModalDialog';
 import * as React from 'react';
 import { localize } from 'vs/nls';
-import { IWorkbenchLayoutService } from 'vs/workbench/services/layout/browser/layoutService';
-import { PositronModalDialogReactRenderer } from 'vs/base/browser/ui/positronModalDialog/positronModalDialogReactRenderer';
 import { IPlotSize } from 'vs/workbench/services/positronPlots/common/sizingPolicy';
-import { PositronModalDialog } from 'vs/base/browser/ui/positronModalDialog/positronModalDialog';
 import { ContentArea } from 'vs/base/browser/ui/positronModalDialog/components/contentArea';
+import { IWorkbenchLayoutService } from 'vs/workbench/services/layout/browser/layoutService';
+import { PositronModalDialog } from 'vs/base/browser/ui/positronModalDialog/positronModalDialog';
+import { PositronModalReactRenderer } from 'vs/base/browser/ui/positronModalReactRenderer/positronModalReactRenderer';
 
 /**
  * SetPlotSizeResult interface.
@@ -33,8 +33,8 @@ export const showSetPlotSizeModalDialog = async (
 
 	// Return a promise that resolves when the dialog is done.
 	return new Promise<SetPlotSizeResult | null | undefined>((resolve) => {
-		// Create the modal dialog React renderer.
-		const positronModalDialogReactRenderer = new PositronModalDialogReactRenderer(
+		// Create the modal React renderer.
+		const positronModalReactRenderer = new PositronModalReactRenderer(
 			layoutService.mainContainer
 		);
 
@@ -56,19 +56,19 @@ export const showSetPlotSizeModalDialog = async (
 						}
 					};
 				}
-				positronModalDialogReactRenderer.destroy();
+				positronModalReactRenderer.destroy();
 				resolve(result);
 			};
 
 			// The delete handler.
 			const deleteHandler = () => {
-				positronModalDialogReactRenderer.destroy();
+				positronModalReactRenderer.destroy();
 				resolve(null);
 			};
 
 			// The cancel handler.
 			const cancelHandler = () => {
-				positronModalDialogReactRenderer.destroy();
+				positronModalReactRenderer.destroy();
 				resolve(undefined);
 			};
 
@@ -131,6 +131,6 @@ export const showSetPlotSizeModalDialog = async (
 		};
 
 		// Render the modal dialog component.
-		positronModalDialogReactRenderer.render(<ModalDialog />);
+		positronModalReactRenderer.render(<ModalDialog />);
 	});
 };

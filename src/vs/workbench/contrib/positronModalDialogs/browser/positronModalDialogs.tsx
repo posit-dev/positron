@@ -4,15 +4,15 @@
 
 import 'vs/css!./positronModalDialogs';
 import * as React from 'react';
+import { Emitter } from 'vs/base/common/event';
 import { ILayoutService } from 'vs/platform/layout/browser/layoutService';
-import { IModalDialogPromptInstance, IPositronModalDialogsService } from 'vs/workbench/services/positronModalDialogs/common/positronModalDialogs';
 import { TestContent } from 'vs/base/browser/ui/positronModalDialog/components/testContent';
 import { OKActionBar } from 'vs/base/browser/ui/positronModalDialog/components/okActionBar';
 import { ContentArea } from 'vs/base/browser/ui/positronModalDialog/components/contentArea';
-import { PositronModalDialogReactRenderer } from 'vs/base/browser/ui/positronModalDialog/positronModalDialogReactRenderer';
-import { OKCancelActionBar } from 'vs/base/browser/ui/positronModalDialog/components/okCancelActionBar';
 import { PositronModalDialog } from 'vs/base/browser/ui/positronModalDialog/positronModalDialog';
-import { Emitter } from 'vs/base/common/event';
+import { OKCancelActionBar } from 'vs/base/browser/ui/positronModalDialog/components/okCancelActionBar';
+import { PositronModalReactRenderer } from 'vs/base/browser/ui/positronModalReactRenderer/positronModalReactRenderer';
+import { IModalDialogPromptInstance, IPositronModalDialogsService } from 'vs/workbench/services/positronModalDialogs/common/positronModalDialogs';
 
 /**
  * PositronModalDialogs class.
@@ -34,12 +34,13 @@ export class PositronModalDialogs implements IPositronModalDialogsService {
 	async showExampleModalDialog1(title: string): Promise<void> {
 		// Return a promise that resolves when the example modal dialog is done.
 		return new Promise<void>((resolve) => {
-			// Create the modal dialog React renderer.
-			const positronModalDialogReactRenderer = new PositronModalDialogReactRenderer(this.layoutService.mainContainer);
+			// Create the modal React renderer.
+			const positronModalReactRenderer =
+				new PositronModalReactRenderer(this.layoutService.mainContainer);
 
 			// The accept handler.
 			const acceptHandler = () => {
-				positronModalDialogReactRenderer.destroy();
+				positronModalReactRenderer.destroy();
 				resolve();
 			};
 
@@ -56,7 +57,7 @@ export class PositronModalDialogs implements IPositronModalDialogsService {
 			};
 
 			// Render the modal dialog component.
-			positronModalDialogReactRenderer.render(<ModalDialog />);
+			positronModalReactRenderer.render(<ModalDialog />);
 		});
 	}
 
@@ -66,18 +67,19 @@ export class PositronModalDialogs implements IPositronModalDialogsService {
 	 */
 	async showExampleModalDialog2(title: string): Promise<boolean> {
 		return new Promise<boolean>((resolve) => {
-			// Create the modal dialog React renderer.
-			const positronModalDialogReactRenderer = new PositronModalDialogReactRenderer(this.layoutService.mainContainer);
+			// Create the modal React renderer.
+			const positronModalReactRenderer =
+				new PositronModalReactRenderer(this.layoutService.mainContainer);
 
 			// The accept handler.
 			const acceptHandler = () => {
-				positronModalDialogReactRenderer.destroy();
+				positronModalReactRenderer.destroy();
 				resolve(true);
 			};
 
 			// The cancel handler.
 			const cancelHandler = () => {
-				positronModalDialogReactRenderer.destroy();
+				positronModalReactRenderer.destroy();
 				resolve(false);
 			};
 
@@ -95,7 +97,7 @@ export class PositronModalDialogs implements IPositronModalDialogsService {
 			};
 
 			// Render the modal dialog component.
-			positronModalDialogReactRenderer.render(<ModalDialog />);
+			positronModalReactRenderer.render(<ModalDialog />);
 		});
 	}
 
@@ -114,19 +116,19 @@ export class PositronModalDialogs implements IPositronModalDialogsService {
 		okButtonTitle?: string,
 		cancelButtonTitle?: string): IModalDialogPromptInstance {
 
-		const positronModalDialogReactRenderer =
-			new PositronModalDialogReactRenderer(this.layoutService.mainContainer);
+		const positronModalReactRenderer =
+			new PositronModalReactRenderer(this.layoutService.mainContainer);
 
 		// Single-shot emitter for the user's choice.
 		const choiceEmitter = new Emitter<boolean>();
 
 		const acceptHandler = () => {
-			positronModalDialogReactRenderer.destroy();
+			positronModalReactRenderer.destroy();
 			choiceEmitter.fire(true);
 			choiceEmitter.dispose();
 		};
 		const cancelHandler = () => {
-			positronModalDialogReactRenderer.destroy();
+			positronModalReactRenderer.destroy();
 			choiceEmitter.fire(false);
 			choiceEmitter.dispose();
 		};
@@ -149,14 +151,14 @@ export class PositronModalDialogs implements IPositronModalDialogsService {
 			);
 		};
 
-		positronModalDialogReactRenderer.render(<ModalDialog />);
+		positronModalReactRenderer.render(<ModalDialog />);
 
 		return {
 			onChoice: choiceEmitter.event,
 			close() {
 				choiceEmitter.fire(false);
 				choiceEmitter.dispose();
-				positronModalDialogReactRenderer.destroy();
+				positronModalReactRenderer.destroy();
 			}
 		};
 	}

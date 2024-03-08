@@ -11,11 +11,12 @@ import { useRef, useState } from 'react'; // eslint-disable-line no-duplicate-im
 
 // Other dependencies.
 import { localize } from 'vs/nls';
-import { showContextMenu } from 'vs/base/browser/ui/contextMenu/contextMenu';
-import { ContextMenuItem } from 'vs/base/browser/ui/contextMenu/contextMenuItem';
-import { PositronButton } from 'vs/base/browser/ui/positronComponents/positronButton';
-import { ContextMenuSeparator } from 'vs/base/browser/ui/contextMenu/contextMenuSeparator';
+import { showContextMenu } from 'vs/base/browser/ui/positronComponents/contextMenu/contextMenu';
+import { ContextMenuItem } from 'vs/base/browser/ui/positronComponents/contextMenu/contextMenuItem';
+import { ContextMenuSeparator } from 'vs/base/browser/ui/positronComponents/contextMenu/contextMenuSeparator';
 import { usePositronDataExplorerContext } from 'vs/base/browser/ui/positronDataExplorer/positronDataExplorerContext';
+import { addRowFilterModalPopup } from 'vs/base/browser/ui/positronDataExplorer/components/dataExplorerPanel/components/addRowFilterModalPopup';
+import { Button } from 'vs/base/browser/ui/positronComponents/button/button';
 
 /**
  * Localized strings.
@@ -39,6 +40,7 @@ export const FilterBar = () => {
 
 	// Reference hooks.
 	const filterButtonRef = useRef<HTMLDivElement>(undefined!);
+	const addFilterButtonRef = useRef<HTMLDivElement>(undefined!);
 
 	// Temporary state code.
 	const [filters, setFilters] = useState<Filter[]>([]);
@@ -53,7 +55,10 @@ export const FilterBar = () => {
 		entries.push(new ContextMenuItem({
 			label: localize('positron.addFilter', "Add filter"),
 			icon: 'positron-add-filter',
-			onSelected: () => addFilter()
+			onSelected: async () => await addRowFilterModalPopup(
+				context.layoutService,
+				filterButtonRef.current
+			)
 		}));
 		entries.push(new ContextMenuSeparator());
 		if (!filtersHidden) {
@@ -91,12 +96,12 @@ export const FilterBar = () => {
 	/**
 	 * Add filter button pressed handler.
 	 */
-	const addFilterButtonPressedHandler = () => {
-		addFilter();
-	};
+	// const addFilterButtonPressedHandler = async () => {
+	// 	await showAddRowFilterModalPopup(context.layoutService, addFilterButtonRef.current);
+	// };
 
 	// Temporary code.
-	const addFilter = () => {
+	const addFilter = async () => {
 		const width = Math.floor(Math.random() * 120) + 80;
 		setFilters(filters => [...filters, { name: `Filter ${filters.length + 1}`, width }]);
 		setFiltersHidden(false);
@@ -106,7 +111,7 @@ export const FilterBar = () => {
 	return (
 		<div className='filter-bar'>
 			<div className='filter'>
-				<PositronButton
+				<Button
 					ref={filterButtonRef}
 					className='filter-button'
 					ariaLabel={filterButtonAriaLabel}
@@ -114,19 +119,20 @@ export const FilterBar = () => {
 				>
 					<div className='codicon codicon-positron-row-filter' />
 					{filters.length !== 0 && <div className='counter'>{filters.length}</div>}
-				</PositronButton>
+				</Button>
 			</div>
 			<div className='filter-entries'>
 				{!filtersHidden && filters.map(filter =>
 					<div className='filter' style={{ width: filter.width }}>{filter.name}</div>
 				)}
-				<PositronButton
+				<Button
+					ref={addFilterButtonRef}
 					className='add-filter-button'
 					ariaLabel={addFilterButtonAriaLabel}
-					onPressed={addFilterButtonPressedHandler}
+					onPressed={addFilter}
 				>
 					<div className='codicon codicon-positron-add-filter' />
-				</PositronButton>
+				</Button>
 			</div>
 		</div>
 	);

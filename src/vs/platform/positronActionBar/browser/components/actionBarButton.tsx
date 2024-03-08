@@ -5,7 +5,7 @@
 import 'vs/css!./actionBarButton';
 import * as React from 'react';
 import { forwardRef, PropsWithChildren } from 'react'; // eslint-disable-line no-duplicate-imports
-import { PositronButton } from 'vs/base/browser/ui/positronComponents/positronButton';
+import { PositronButton } from 'vs/base/browser/ui/positronComponents/button/positronButton';
 import { ActionBarTooltip } from 'vs/platform/positronActionBar/browser/components/actionBarTooltip';
 import { optionalBoolean, optionalValue, positronClassNames } from 'vs/base/common/positronUtilities';
 

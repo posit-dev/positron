@@ -2,16 +2,21 @@
  *  Copyright (C) 2023 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
-import 'vs/css!./positronModalPopup';
+// CSS.
+import 'vs/css!./positronModalReactRenderer';
+
+// React.
 import type { ReactElement } from 'react';
+
+// Other dependencies.
 import * as DOM from 'vs/base/browser/dom';
 import { createRoot, Root } from 'react-dom/client';
 
 /**
- * PositronModalPopupReactRenderer class.
+ * PositronModalReactRenderer class.
  * Manages rendering a React element as a modal popup.
  */
-export class PositronModalPopupReactRenderer {
+export class PositronModalReactRenderer {
 	/**
 	 * The overlay element where the modal popup will be presented.
 	 */
@@ -23,12 +28,12 @@ export class PositronModalPopupReactRenderer {
 	private _root?: Root;
 
 	/**
-	 * Initializes a new instance of the PositronModalPopupReactRenderer class.
+	 * Initializes a new instance of the PositronModalReactRenderer class.
 	 * @param containerElement The container element.
 	 */
 	constructor(containerElement: HTMLElement) {
-		this._overlayElement = containerElement.
-			appendChild(DOM.$('.positron-modal-popup-overlay'));
+		// Create the overlay element.
+		this._overlayElement = containerElement.appendChild(DOM.$('.positron-modal-overlay'));
 		this._root = createRoot(this._overlayElement);
 	}
 

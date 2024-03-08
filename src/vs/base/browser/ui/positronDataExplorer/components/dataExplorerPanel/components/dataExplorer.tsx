@@ -13,7 +13,7 @@ import { useEffect, useRef, useState } from 'react'; // eslint-disable-line no-d
 import { DisposableStore } from 'vs/base/common/lifecycle';
 import { PositronDataGrid } from 'vs/base/browser/ui/positronDataGrid/positronDataGrid';
 import { usePositronDataExplorerContext } from 'vs/base/browser/ui/positronDataExplorer/positronDataExplorerContext';
-import { VerticalSplitter, VerticalSplitterResizeParams } from 'vs/base/browser/ui/positronComponents/verticalSplitter';
+import { VerticalSplitter, VerticalSplitterResizeParams } from 'vs/base/browser/ui/positronComponents/splitters/verticalSplitter';
 import { PositronDataExplorerLayout } from 'vs/workbench/services/positronDataExplorer/browser/interfaces/positronDataExplorerService';
 
 /**
@@ -30,10 +30,10 @@ export const DataExplorer = () => {
 	const context = usePositronDataExplorerContext();
 
 	// Reference hooks.
-	const dataExplorer = useRef<HTMLDivElement>(undefined!);
-	const column1 = useRef<HTMLDivElement>(undefined!);
-	const splitter = useRef<HTMLDivElement>(undefined!);
-	const column2 = useRef<HTMLDivElement>(undefined!);
+	const dataExplorerRef = useRef<HTMLDivElement>(undefined!);
+	const column1Ref = useRef<HTMLDivElement>(undefined!);
+	const splitterRef = useRef<HTMLDivElement>(undefined!);
+	const column2Ref = useRef<HTMLDivElement>(undefined!);
 
 	// State hooks.
 	const [width, setWidth] = useState(0);
@@ -57,11 +57,11 @@ export const DataExplorer = () => {
 	// Automatic layout useEffect.
 	useEffect(() => {
 		// Set the initial width.
-		setWidth(dataExplorer.current.offsetWidth);
+		setWidth(dataExplorerRef.current.offsetWidth);
 
 		// Set the initial columns width.
 		setColumnsWidth(Math.max(
-			Math.trunc(context.instance.columnsWidthPercent * dataExplorer.current.offsetWidth),
+			Math.trunc(context.instance.columnsWidthPercent * dataExplorerRef.current.offsetWidth),
 			MIN_COLUMN_WIDTH
 		));
 
@@ -71,55 +71,55 @@ export const DataExplorer = () => {
 		});
 
 		// Start observing the size of the data explorer.
-		resizeObserver.observe(dataExplorer.current);
+		resizeObserver.observe(dataExplorerRef.current);
 
 		// Return the cleanup function that will disconnect the resize observer.
 		return () => resizeObserver.disconnect();
-	}, [dataExplorer]);
+	}, [dataExplorerRef]);
 
 	// Layout useEffect.
 	useEffect(() => {
 		switch (layout) {
 			// Columns left.
 			case PositronDataExplorerLayout.ColumnsLeft:
-				dataExplorer.current.style.gridTemplateColumns = `[column-1] ${columnsWidth}px [splitter] 1px [column-2] 1fr [end]`;
+				dataExplorerRef.current.style.gridTemplateColumns = `[column-1] ${columnsWidth}px [splitter] 1px [column-2] 1fr [end]`;
 
-				column1.current.style.gridColumn = 'column-1 / splitter';
-				column1.current.style.display = 'grid';
+				column1Ref.current.style.gridColumn = 'column-1 / splitter';
+				column1Ref.current.style.display = 'grid';
 
-				splitter.current.style.gridColumn = 'splitter / column-2';
-				splitter.current.style.display = 'flex';
+				splitterRef.current.style.gridColumn = 'splitter / column-2';
+				splitterRef.current.style.display = 'flex';
 
-				column2.current.style.gridColumn = 'column-2 / end';
-				column2.current.style.display = 'grid';
+				column2Ref.current.style.gridColumn = 'column-2 / end';
+				column2Ref.current.style.display = 'grid';
 				break;
 
 			// Columns right.
 			case PositronDataExplorerLayout.ColumnsRight:
-				dataExplorer.current.style.gridTemplateColumns = `[column-1] 1fr [splitter] 1px [column-2] ${columnsWidth}px [end]`;
+				dataExplorerRef.current.style.gridTemplateColumns = `[column-1] 1fr [splitter] 1px [column-2] ${columnsWidth}px [end]`;
 
-				column1.current.style.gridColumn = 'column-2 / end';
-				column1.current.style.display = 'grid';
+				column1Ref.current.style.gridColumn = 'column-2 / end';
+				column1Ref.current.style.display = 'grid';
 
-				splitter.current.style.gridColumn = 'splitter / column-2';
-				splitter.current.style.display = 'flex';
+				splitterRef.current.style.gridColumn = 'splitter / column-2';
+				splitterRef.current.style.display = 'flex';
 
-				column2.current.style.gridColumn = 'column-1 / splitter';
-				column2.current.style.display = 'grid';
+				column2Ref.current.style.gridColumn = 'column-1 / splitter';
+				column2Ref.current.style.display = 'grid';
 				break;
 
 			// Columns hidden.
 			case PositronDataExplorerLayout.ColumnsHidden:
-				dataExplorer.current.style.gridTemplateColumns = `[column] 1fr [end]`;
+				dataExplorerRef.current.style.gridTemplateColumns = `[column] 1fr [end]`;
 
-				column1.current.style.gridColumn = '';
-				column1.current.style.display = 'none';
+				column1Ref.current.style.gridColumn = '';
+				column1Ref.current.style.display = 'none';
 
-				splitter.current.style.gridColumn = '';
-				splitter.current.style.display = 'none';
+				splitterRef.current.style.gridColumn = '';
+				splitterRef.current.style.display = 'none';
 
-				column2.current.style.gridColumn = 'column / end';
-				column2.current.style.display = 'grid';
+				column2Ref.current.style.gridColumn = 'column / end';
+				column2Ref.current.style.display = 'grid';
 				break;
 		}
 	}, [layout, columnsWidth]);
@@ -148,21 +148,21 @@ export const DataExplorer = () => {
 
 	// Render.
 	return (
-		<div ref={dataExplorer} className='data-explorer'>
-			<div ref={column1} className='column-1'>
+		<div ref={dataExplorerRef} className='data-explorer'>
+			<div ref={column1Ref} className='column-1'>
 				<PositronDataGrid
 					layoutService={context.layoutService}
 					instance={context.instance.tableSchemaDataGridInstance}
 				/>
 			</div>
-			<div ref={splitter} className='splitter'>
+			<div ref={splitterRef} className='splitter'>
 				<VerticalSplitter
 					showResizeIndicator={true}
 					onBeginResize={beginResizeHandler}
 					onResize={resizeHandler}
 				/>
 			</div>
-			<div ref={column2} className='column-2'>
+			<div ref={column2Ref} className='column-2'>
 				<PositronDataGrid
 					layoutService={context.layoutService}
 					instance={context.instance.tableDataDataGridInstance}
