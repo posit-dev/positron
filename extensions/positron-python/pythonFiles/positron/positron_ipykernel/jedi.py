@@ -8,8 +8,8 @@ from ._vendor.jedi import cache, debug
 from ._vendor.jedi.api import Interpreter
 from ._vendor.jedi.api.classes import Completion
 from ._vendor.jedi.api.completion import (
-    Completion as CompletionAPI,  # Rename to avoid conflict with classes.Completion
-)
+    Completion as CompletionAPI,
+)  # Rename to avoid conflict with classes.Completion
 from ._vendor.jedi.api.completion import (
     _extract_string_while_in_string,
     _remove_duplicates,
@@ -17,7 +17,7 @@ from ._vendor.jedi.api.completion import (
 )
 from ._vendor.jedi.api.file_name import complete_file_name
 from ._vendor.jedi.api.interpreter import MixedModuleContext
-from ._vendor.jedi.api.strings import complete_dict, get_quote_ending
+from ._vendor.jedi.api.strings import get_quote_ending
 from ._vendor.jedi.cache import memoize_method
 from ._vendor.jedi.file_io import KnownContentFileIO
 from ._vendor.jedi.inference.base_value import HasNoContext

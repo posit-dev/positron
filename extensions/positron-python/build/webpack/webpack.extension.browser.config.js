@@ -45,7 +45,7 @@ const nodeConfig = (_, { mode }) => ({
     externals: {
         vscode: 'commonjs vscode',
         // --- Start Positron ---
-        'positron': 'commonjs positron', // ignored because we inject positron via module loader
+        positron: 'commonjs positron', // ignored because we inject positron via module loader
         // --- End Positron ---
         // These dependencies are ignored because we don't use them, and App Insights has try-catch protecting their loading if they don't exist
         // See: https://github.com/microsoft/vscode-extension-telemetry/issues/41#issuecomment-598852991
@@ -54,7 +54,7 @@ const nodeConfig = (_, { mode }) => ({
         // --- Start Positron ---
         '@opentelemetry/instrumentation': 'commonjs @opentelemetry/instrumentation',
         '@azure/opentelemetry-instrumentation-azure-sdk': 'commonjs @azure/opentelemetry-instrumentation-azure-sdk',
-        '@azure/functions-core': 'commonjs @azure/functions-core'
+        '@azure/functions-core': 'commonjs @azure/functions-core',
         // --- End Positron ---
     },
     module: {

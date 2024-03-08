@@ -103,10 +103,8 @@ export class DefaultShellDiagnostic extends BaseDiagnostic {
 export const InvalidPythonInterpreterServiceId = 'InvalidPythonInterpreterServiceId';
 
 @injectable()
-export class InvalidPythonInterpreterService
-    extends BaseDiagnosticsService
-    implements IExtensionSingleActivationService
-{
+export class InvalidPythonInterpreterService extends BaseDiagnosticsService
+    implements IExtensionSingleActivationService {
     public readonly supportedWorkspaceTypes = { untrustedWorkspace: false, virtualWorkspace: true };
 
     constructor(

@@ -3,7 +3,7 @@
 #
 
 import re
-from textwrap import dedent, indent
+from textwrap import dedent
 from typing import List
 
 # from markdown_to_docstring.google.ESCAPE_RULES

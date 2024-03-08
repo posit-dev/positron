@@ -14,15 +14,10 @@ import numpy as np
 import pandas as pd
 import polars as pl
 import pytest
-
 from fastcore.foundation import L
-from positron_ipykernel.inspectors import (
-    PRINT_WIDTH,
-    TRUNCATE_AT,
-    get_inspector,
-)
+from positron_ipykernel.inspectors import PRINT_WIDTH, TRUNCATE_AT, get_inspector
 from positron_ipykernel.utils import get_qualname
-from positron_ipykernel.variables_comm import Variable, VariableKind
+from positron_ipykernel.variables_comm import VariableKind
 
 from .data import (
     BOOL_CASES,
@@ -36,7 +31,6 @@ from .data import (
     STRING_CASES,
     TIMESTAMP_CASES,
 )
-from .utils import assert_pydantic_model_equal
 
 try:
     import torch  # type: ignore [reportMissingImports] for 3.12
@@ -618,7 +612,7 @@ def test_inspect_numpy_array_0d(value: np.ndarray) -> None:
         value=value,
         display_value=np.array2string(value, separator=","),
         kind=VariableKind.Number,
-        display_type=f"numpy.int64",
+        display_type="numpy.int64",
         type_info="numpy.ndarray",
         is_truncated=True,
         length=0,

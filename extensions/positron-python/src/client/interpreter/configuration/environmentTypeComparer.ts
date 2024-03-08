@@ -136,7 +136,7 @@ export class EnvironmentTypeComparer implements IInterpreterComparer {
             if (pyenvVersion && i.envType === EnvironmentType.Pyenv) {
                 // pyenvVersion may also be the name of a virtual environment, rather than a version number
                 // Do not recommend pyenv interpreters that do not match the specified pyenv version.
-                return isVirtualEnvName(pyenvVersion) && i.envName === pyenvVersion
+                return isVirtualEnvName(pyenvVersion) && i.envName === pyenvVersion;
             }
             // --- End Positron ---
             return true;
@@ -312,10 +312,13 @@ export function getPyenvVersion(workspacePath: string | undefined): string | und
     }
     // if the local pyenv version file does not exist in the workspace, we need to check parents of the workspace
     if (workspacePath) {
-        const parentPyenvVersion = checkParentDirs(workspacePath, '.python-version', { resolveSymlinks: true, maxDepth: 10 });
+        const parentPyenvVersion = checkParentDirs(workspacePath, '.python-version', {
+            resolveSymlinks: true,
+            maxDepth: 10,
+        });
         if (parentPyenvVersion) {
             return readFileSync(parentPyenvVersion).trim();
-        };
+        }
     }
 
     const globalPyenvVersion = path.join(getPyenvDir(), 'version');

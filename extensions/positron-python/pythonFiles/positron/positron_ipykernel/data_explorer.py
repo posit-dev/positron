@@ -686,7 +686,7 @@ class DataExplorerService:
             msg = SchemaUpdateParams(discard_state=discard_state)
             comm.send_event(DataExplorerFrontendEvent.SchemaUpdate.value, msg.dict())
 
-        if type(new_table) is not type(table_view.table):
+        if type(new_table) is not type(table_view.table):  # noqa: E721
             # Data type has changed. For now, we will signal the UI to
             # reset its entire state: sorting keys, filters, etc. and
             # start over. At some point we can return here and

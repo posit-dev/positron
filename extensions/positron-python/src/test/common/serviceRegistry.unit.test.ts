@@ -128,7 +128,7 @@ suite('Common - Service Registry', () => {
                         // --- Start Positron ---
                         // Fix for Typescript v5
                         s.addSingleton<unknown>(
-                        // --- End Positron ---
+                            // --- End Positron ---
                             typemoq.It.isValue(mapping[0] as any),
                             typemoq.It.is((value) => mapping[1] === value),
                         ),

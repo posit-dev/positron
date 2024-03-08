@@ -13,7 +13,7 @@ import { ILanguageClientFactory } from '../types';
 const languageClientName = 'Python Jedi';
 
 export class JediLanguageClientFactory implements ILanguageClientFactory {
-    constructor(private interpreterService: IInterpreterService) { }
+    constructor(private interpreterService: IInterpreterService) {}
 
     public async createLanguageClient(
         resource: Resource,
