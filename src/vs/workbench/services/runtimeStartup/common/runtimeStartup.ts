@@ -74,6 +74,7 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 	// (metadata.languageId) of the runtime.
 	private readonly _mostRecentlyStartedRuntimesByLanguageId = new Map<string, ILanguageRuntimeMetadata>();
 
+	// The current startup phase; an observeable value.
 	private _startupPhase: ObservableValue<RuntimeStartupPhase>;
 
 	onDidChangeRuntimeStartupPhase: Event<RuntimeStartupPhase>;
@@ -103,6 +104,10 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 		this._startupPhase = new ObservableValue<RuntimeStartupPhase>(
 			this, 'runtime-startup-phase', RuntimeStartupPhase.Initializing);
 		this.onDidChangeRuntimeStartupPhase = Event.fromObservable(this._startupPhase);
+
+		this._register(this.onDidChangeRuntimeStartupPhase(phase => {
+			this._logService.info(`[Runtime startup] Phase changed to '${phase}'`);
+		}));
 
 		this._register(this._runtimeSessionService.onWillStartSession(e => {
 			this._register(e.session.onDidEncounterStartupFailure(_exit => {

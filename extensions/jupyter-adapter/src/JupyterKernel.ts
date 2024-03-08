@@ -131,6 +131,7 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 		spec: JupyterKernelSpec,
 		private readonly _runtimeId: string,
 		private readonly _channel: vscode.OutputChannel,
+		private readonly _notebookUri?: vscode.Uri,
 		readonly extra?: JupyterKernelExtra,
 	) {
 		super();
@@ -309,7 +310,10 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 		// Establish a log channel for the kernel we're connecting to, if we
 		// don't already have one (we will if we're restarting)
 		if (!this._logChannel) {
-			this._logChannel = positron.window.createRawLogOutputChannel(`Runtime: ${this._spec.display_name}`);
+			this._logChannel = positron.window.createRawLogOutputChannel(
+				this._notebookUri ?
+					`Notebook: ${path.basename(this._notebookUri.fsPath)} (${this._spec.display_name})` :
+					`Console: ${this._spec.display_name}`);
 		}
 
 		// Bind to the Jupyter session

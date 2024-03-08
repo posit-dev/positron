@@ -90,6 +90,7 @@ export class LanguageRuntimeSessionAdapter
 			this._spec,
 			runtimeMetadata.runtimeId,
 			this._channel,
+			metadata.notebookUri,
 			extra
 		);
 		this._channel.appendLine(`Created session ${metadata.sessionId}: ` +
