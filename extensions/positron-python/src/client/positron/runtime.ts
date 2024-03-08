@@ -56,7 +56,7 @@ export class PythonRuntime implements positron.LanguageRuntime, vscode.Disposabl
     private _state: positron.RuntimeState = positron.RuntimeState.Uninitialized;
 
     /** The service for getting the Python extension interpreter path */
-    private _interpreterPathService: IInterpreterPathService
+    private _interpreterPathService: IInterpreterPathService;
 
     constructor(
         private readonly serviceContainer: IServiceContainer,
@@ -167,8 +167,11 @@ export class PythonRuntime implements positron.LanguageRuntime, vscode.Disposabl
 
         // We require ipykernel >= 6.19.1 for the Python runtime in order to ensure the comm package
         // can be imported on its own (https://github.com/ipython/ipykernel/releases/tag/v6.18.0)
-        const hasCompatibleKernel = await this.installer.isProductVersionCompatible(Product.ipykernel, IPYKERNEL_VERSION, this.interpreter);
-
+        const hasCompatibleKernel = await this.installer.isProductVersionCompatible(
+            Product.ipykernel,
+            IPYKERNEL_VERSION,
+            this.interpreter,
+        );
 
         if (hasCompatibleKernel !== ProductInstallStatus.Installed) {
             // Pass a cancellation token to enable VSCode's progress indicator and let the user
@@ -223,7 +226,7 @@ export class PythonRuntime implements positron.LanguageRuntime, vscode.Disposabl
         await this._installIpykernel();
 
         // Update the active environment in the Python extension.
-        this._interpreterPathService.update(undefined, vscode.ConfigurationTarget.Global, this.interpreter.path)
+        this._interpreterPathService.update(undefined, vscode.ConfigurationTarget.Global, this.interpreter.path);
 
         this.pythonApi.environments.updateActiveEnvironmentPath(this.interpreter.path);
 
@@ -267,25 +270,25 @@ export class PythonRuntime implements positron.LanguageRuntime, vscode.Disposabl
         }
     }
 
-	// Keep track of LSP init to avoid stopping in the middle of startup
-	private _lspStarting: Thenable<void> = Promise.resolve();
+    // Keep track of LSP init to avoid stopping in the middle of startup
+    private _lspStarting: Thenable<void> = Promise.resolve();
 
     async restart(): Promise<void> {
         if (this._kernel) {
-			// Stop the LSP client before restarting the kernel. Don't stop it
-			// until fully started to avoid an inconsistent state where the
-			// deactivation request comes in between the creation of the LSP
-			// comm and the LSP client.
-			//
-			// A cleaner way to set this up might be to put `this._lsp` in
-			// charge of creating the LSP comm, then `deactivate()` could
-			// keep track of this state itself.
-			await Promise.race([
-				this._lspStarting,
-				whenTimeout(400, () => {
-					this._kernel!.emitJupyterLog('LSP startup timed out during interpreter restart');
-				})
-			]);
+            // Stop the LSP client before restarting the kernel. Don't stop it
+            // until fully started to avoid an inconsistent state where the
+            // deactivation request comes in between the creation of the LSP
+            // comm and the LSP client.
+            //
+            // A cleaner way to set this up might be to put `this._lsp` in
+            // charge of creating the LSP comm, then `deactivate()` could
+            // keep track of this state itself.
+            await Promise.race([
+                this._lspStarting,
+                whenTimeout(400, () => {
+                    this._kernel!.emitJupyterLog('LSP startup timed out during interpreter restart');
+                }),
+            ]);
             await this._lsp.deactivate(true);
 
             return this._kernel.restart();
@@ -390,8 +393,8 @@ export class PythonRuntime implements positron.LanguageRuntime, vscode.Disposabl
                     if (this._kernel) {
                         const runtimeError = err as positron.RuntimeMethodError;
                         this._kernel.emitJupyterLog(
-                            `Error setting initial console width: ${runtimeError.message} ` +
-                            `(${runtimeError.code})`);
+                            `Error setting initial console width: ${runtimeError.message} (${runtimeError.code})`,
+                        );
                     }
                 }
             });

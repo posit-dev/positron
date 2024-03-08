@@ -43,11 +43,11 @@ export class JediLanguageServerAnalysisOptions extends LanguageServerAnalysisOpt
         const workspacePath = this.getWorkspaceFolder()?.uri.fsPath;
         const extraPaths = pythonSettings.autoComplete
             ? pythonSettings.autoComplete.extraPaths.map((extraPath) => {
-                if (path.isAbsolute(extraPath)) {
-                    return extraPath;
-                }
-                return workspacePath ? path.join(workspacePath, extraPath) : '';
-            })
+                  if (path.isAbsolute(extraPath)) {
+                      return extraPath;
+                  }
+                  return workspacePath ? path.join(workspacePath, extraPath) : '';
+              })
             : [];
 
         if (workspacePath) {

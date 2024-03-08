@@ -765,7 +765,7 @@ def _pydoc_getdoc(object: Any) -> str:
 def _getdoc(object: Any) -> str:
     """Override `pydoc.getdoc` to parse reStructuredText docstrings."""
     try:
-        docstring = _pydoc_getdoc(object) or f"No documentation found."
+        docstring = _pydoc_getdoc(object) or "No documentation found."
         html = _rst_to_html(docstring, object)
     except Exception as exception:
         # This is caught somewhere above us in pydoc. Log the exception so we see it in Positron
@@ -786,7 +786,7 @@ def _resolve(target: str, from_obj: Any) -> Optional[str]:
     # Is `target` a module?
     try:
         importlib.import_module(target)
-    except:
+    except Exception:
         pass
     else:
         return target
@@ -796,7 +796,7 @@ def _resolve(target: str, from_obj: Any) -> Optional[str]:
         module_path, object_path = target.rsplit(".", 1)
         try:
             module = importlib.import_module(module_path)
-        except:
+        except Exception:
             pass
         else:
             # Ignore all warnings that happen upon `hasattr(module, object_path)` e.g.
@@ -818,7 +818,7 @@ def _resolve(target: str, from_obj: Any) -> Optional[str]:
             module_path, object_path = module_path.rsplit(".", 1)
             try:
                 module = importlib.import_module(module_path)
-            except:
+            except Exception:
                 pass
             else:
                 obj = getattr(module, object_path, None)

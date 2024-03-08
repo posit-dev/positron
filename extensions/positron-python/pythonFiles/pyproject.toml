@@ -53,8 +53,8 @@ ignore = [
 ]
 
 [tool.ruff]
-line-length = 140
-ignore = ["E402"]
+line-length = 100
+lint.ignore = ["E402"]
 exclude = [
     # Ignore testing_tools files same as Pyright way
     'get-pip.py',
@@ -80,6 +80,9 @@ exclude = [
     'pythonFiles/tests/pytestadapter/expected_execution_test_output.py',
     'pythonFiles/tests/unittestadapter/.data/discovery_error/file_one.py',
     'pythonFiles/tests/unittestadapter/test_utils.py',
+    # --- Start Positron ---
     # Ignore vendored dependencies
-    'pythonFiles/positron/positron_ipykernel/_vendor/',
+    'lib/python',
+    'positron/positron_ipykernel/_vendor/',
+    # --- End Positron ---
 ]

@@ -13,21 +13,11 @@ suite('checkParentDirs tests', () => {
 
     setup(() => {
         pathExistsSyncStub = sinon.stub(fsapi, 'pathExistsSync');
-        pathExistsSyncStub
-            .withArgs('home')
-            .returns(true);
-        pathExistsSyncStub
-            .withArgs(path.join('home', 'project'))
-            .returns(true);
-        pathExistsSyncStub
-            .withArgs(path.join('home', 'project', 'file'))
-            .returns(false);
-        pathExistsSyncStub
-            .withArgs(path.join('home', 'file'))
-            .returns(true);
-        pathExistsSyncStub
-            .withArgs(path.join('home','nonexistent-file'))
-            .returns(false);
+        pathExistsSyncStub.withArgs('home').returns(true);
+        pathExistsSyncStub.withArgs(path.join('home', 'project')).returns(true);
+        pathExistsSyncStub.withArgs(path.join('home', 'project', 'file')).returns(false);
+        pathExistsSyncStub.withArgs(path.join('home', 'file')).returns(true);
+        pathExistsSyncStub.withArgs(path.join('home', 'nonexistent-file')).returns(false);
     });
 
     teardown(() => {
@@ -40,7 +30,7 @@ suite('checkParentDirs tests', () => {
         const expected = path.join('home', 'file');
         const actual = checkParentDirs(root, filename);
         assert.strictEqual(actual, expected);
-    })
+    });
 
     test('checkParentDirs does not find the file', () => {
         const root = path.join('home');
@@ -48,5 +38,5 @@ suite('checkParentDirs tests', () => {
         const expected = undefined;
         const actual = checkParentDirs(root, filename);
         assert.strictEqual(actual, expected);
-    })
+    });
 });
