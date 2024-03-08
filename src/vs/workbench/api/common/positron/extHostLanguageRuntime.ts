@@ -139,7 +139,8 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 	 * Utility function to look up the manager for a given runtime.
 	 *
 	 * If it can't find the runtime manager, then it will wait until the runtime
-	 * manager is registered.
+	 * manager is registered (up to 10 seconds). If the runtime manager is not
+	 * registered within that time, then it will reject the promise.
 	 *
 	 * @param metadata The metadata for the runtime
 	 *
@@ -176,7 +177,16 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 		const deferred = new DeferredPromise<LanguageRuntimeManager>();
 		this._pendingRuntimeManagers.set(ExtensionIdentifier.toKey(metadata.extensionId), deferred);
 
-		// TODO: Probably need to timeout this promise
+		// Don't wait forever; if the deferred promise doesn't settle within 10
+		// seconds, then reject the promise.
+		setTimeout(() => {
+			if (!deferred.isSettled) {
+				deferred.error(new Error(
+					`Timed out after 10 seconds waiting for runtime manager for runtime ` +
+					`'${metadata.runtimeName}' (${metadata.runtimeId}) to be registered.`));
+			}
+		}, 10000);
+
 		return deferred.p;
 	}
 
