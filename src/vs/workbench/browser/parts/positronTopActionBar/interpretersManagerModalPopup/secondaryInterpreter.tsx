@@ -4,11 +4,11 @@
 
 import 'vs/css!./secondaryInterpreter';
 import * as React from 'react';
-import { useEffect } from 'react'; // eslint-disable-line no-duplicate-imports
+import { useEffect, useState } from 'react'; // eslint-disable-line no-duplicate-imports
 import { DisposableStore } from 'vs/base/common/lifecycle';
 import { PositronButton } from 'vs/base/browser/ui/positronComponents/positronButton';
 import { InterpreterActions } from 'vs/workbench/browser/parts/positronTopActionBar/interpretersManagerModalPopup/interpreterActions';
-import { ILanguageRuntimeMetadata, ILanguageRuntimeService } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { ILanguageRuntimeMetadata, ILanguageRuntimeService, RuntimeState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { IRuntimeSessionService } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
 
 /**
@@ -30,23 +30,33 @@ interface SecondaryInterpreterProps {
 export const SecondaryInterpreter = (props: SecondaryInterpreterProps) => {
 	// State hooks.
 
-	// TODO: Need to get the runtime state from the service.
-	// How should this work?
+	// Get the console session for this runtime, if any.
+	const consoleSession = props.runtimeSessionService.getConsoleSessionForRuntime(
+		props.runtime.runtimeId);
 
-	// const [runtimeState, setRuntimeState] = useState(props.runtime.getRuntimeState());
+	const [session, setSession] = useState(consoleSession);
+	const [runtimeState, setRuntimeState] = useState(session?.getRuntimeState() || RuntimeState.Uninitialized);
 
 	// Main useEffect hook.
 	useEffect(() => {
 		// Create the disposable store for cleanup.
 		const disposableStore = new DisposableStore();
 
-		// Add the onDidChangeRuntimeState event handler.
-		/*
-		TODO: When the runtime state changes, update the state.
-		disposableStore.add(props.runtime.onDidChangeRuntimeState(runtimeState => {
-			setRuntimeState(runtimeState);
-		}));
-		*/
+		if (session) {
+			// If we have a session, add a listener for runtime state changes.
+			disposableStore.add(session.onDidChangeRuntimeState(state => {
+				setRuntimeState(state);
+			}));
+		} else {
+			// If we don't have a session, add a listener for when a session is created.
+			disposableStore.add(props.runtimeSessionService.onDidStartRuntime(session => {
+				// If the session is for this runtime, set the session and runtime state.
+				if (session.runtimeMetadata.runtimeId === props.runtime.runtimeId) {
+					setSession(session);
+					setRuntimeState(session.getRuntimeState());
+				}
+			}));
+		}
 
 		// Return the cleanup function that will dispose of the event handlers.
 		return () => disposableStore.dispose();
@@ -57,7 +67,8 @@ export const SecondaryInterpreter = (props: SecondaryInterpreterProps) => {
 		<PositronButton className='secondary-interpreter' onPressed={props.onActivate}>
 			<div></div>
 			<div className='running-indicator'>
-				{false &&
+				{runtimeState !== RuntimeState.Uninitialized && runtimeState !== RuntimeState.Exited
+					&&
 					<div className='running-icon codicon codicon-circle-large-filled'></div>
 				}
 			</div>
