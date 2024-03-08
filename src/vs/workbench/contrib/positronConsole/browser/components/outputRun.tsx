@@ -4,6 +4,7 @@
 
 import 'vs/css!./outputRun';
 import * as React from 'react';
+import * as platform from 'vs/base/common/platform';
 import { CSSProperties, MouseEvent } from 'react'; // eslint-disable-line no-duplicate-imports
 import { localize } from 'vs/nls';
 import { ANSIColor, ANSIOutputRun, ANSIStyle } from 'vs/base/common/ansiOutput';
@@ -54,6 +55,11 @@ export const OutputRun = (props: OutputRunProps) => {
 		let url = props.outputRun.hyperlink.url;
 		if (!url.startsWith(`${Schemas.file}:`)) {
 			return url;
+		}
+
+		// a hack that, at least, pinpoints the problem / solution
+		if (platform.isWindows) {
+			url = url.replace(/\\/g, '/').replace(/file:\/\/(?!\/)/g, 'file:///');
 		}
 
 		// Get the line parameter. If it's not present, return the URL.
