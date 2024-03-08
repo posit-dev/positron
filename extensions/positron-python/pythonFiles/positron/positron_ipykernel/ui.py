@@ -87,7 +87,7 @@ class UiService:
         self._working_directory = None
         try:
             self.poll_working_directory()
-        except:
+        except Exception:
             logger.exception("Error polling working directory")
 
     def poll_working_directory(self) -> None:

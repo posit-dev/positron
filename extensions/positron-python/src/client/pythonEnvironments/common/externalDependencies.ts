@@ -196,9 +196,8 @@ export async function* getSubDirs(
 export function checkParentDirs(
     root: string,
     fileName: string,
-    options?: { resolveSymlinks?: boolean, maxDepth?: number },
+    options?: { resolveSymlinks?: boolean; maxDepth?: number },
 ): string | undefined {
-
     let depth = 0;
     while (pathExistsSync(root) && (options?.maxDepth === undefined || depth < options.maxDepth)) {
         const filePath = path.join(root, fileName);

@@ -330,7 +330,7 @@ suite('getPyenvVersion tests', () => {
 
     setup(() => {
         const workspacePath = path.join('path', 'to', 'workspace');
-        const globalPyenvDir = path.join('home', 'user', '.pyenv')
+        const globalPyenvDir = path.join('home', 'user', '.pyenv');
         getActiveWorkspaceUriStub = sinon.stub().returns({ folderUri: { fsPath: workspacePath } });
         getActiveWorkspaceNoWorkspaceUriStub = sinon.stub().returns(undefined);
         getInterpreterTypeDisplayNameStub = sinon.stub();
@@ -345,27 +345,15 @@ suite('getPyenvVersion tests', () => {
         } as unknown) as IInterpreterHelper;
 
         pathExistsSyncStub = sinon.stub(externalDependencies, 'pathExistsSync');
-        pathExistsSyncStub
-            .withArgs('')
-            .returns(false);
-        pathExistsSyncStub
-            .withArgs(path.join(workspacePath, '.python-version'))
-            .returns(true);
-        pathExistsSyncStub
-            .withArgs(path.join(globalPyenvDir, 'version'))
-            .returns(true);
+        pathExistsSyncStub.withArgs('').returns(false);
+        pathExistsSyncStub.withArgs(path.join(workspacePath, '.python-version')).returns(true);
+        pathExistsSyncStub.withArgs(path.join(globalPyenvDir, 'version')).returns(true);
         readFileSyncStub = sinon.stub(externalDependencies, 'readFileSync');
-        readFileSyncStub
-            .withArgs(path.join(workspacePath, '.python-version'))
-            .returns('3.10.2');
-        readFileSyncStub
-            .withArgs(path.join(globalPyenvDir, 'version'))
-            .returns('my_global_pyenv');
+        readFileSyncStub.withArgs(path.join(workspacePath, '.python-version')).returns('3.10.2');
+        readFileSyncStub.withArgs(path.join(globalPyenvDir, 'version')).returns('my_global_pyenv');
         checkParentDirsStub = sinon.stub(externalDependencies, 'checkParentDirs');
         getPyenvDirStub = sinon.stub(pyenvUtils, 'getPyenvDir');
-        getPyenvDirStub
-            .withArgs()
-            .returns(globalPyenvDir);
+        getPyenvDirStub.withArgs().returns(globalPyenvDir);
     });
 
     teardown(() => {
@@ -390,24 +378,31 @@ suite('getPyenvVersion tests', () => {
     test('getRecommended recommends the local pyenv version over global pythons and other pyenv versions', () => {
         const envA = {
             // global python
-            path: 'path', envType: EnvironmentType.Global, version: { major: 3, minor: 12, patch: 2, raw: '3.12.2' }
+            path: 'path',
+            envType: EnvironmentType.Global,
+            version: { major: 3, minor: 12, patch: 2, raw: '3.12.2' },
         } as PythonEnvironment;
         const envB = {
             // pyenv version, does not match local .python-version or global pyenv
-            path: 'path', envType: EnvironmentType.Pyenv, version: { major: 3, minor: 11, patch: 2, raw: '3.11.2' }
+            path: 'path',
+            envType: EnvironmentType.Pyenv,
+            version: { major: 3, minor: 11, patch: 2, raw: '3.11.2' },
         } as PythonEnvironment;
         const envC = {
             // local pyenv version for the workspace
-            path: 'path', envType: EnvironmentType.Pyenv, version: { major: 3, minor: 10, patch: 2, raw: '3.10.2' }
+            path: 'path',
+            envType: EnvironmentType.Pyenv,
+            version: { major: 3, minor: 10, patch: 2, raw: '3.10.2' },
         } as PythonEnvironment;
         const envD = {
             // global pyenv version
-            path: 'path', envType: EnvironmentType.Pyenv, version: { major: 3, minor: 11, patch: 3, raw: '3.11.3' }, envName: 'my_global_pyenv'
+            path: 'path',
+            envType: EnvironmentType.Pyenv,
+            version: { major: 3, minor: 11, patch: 3, raw: '3.11.3' },
+            envName: 'my_global_pyenv',
         } as PythonEnvironment;
 
-        const pythonEnvironments = [
-            envA, envB, envC, envD
-        ];
+        const pythonEnvironments = [envA, envB, envC, envD];
 
         const workspacePath = path.join('path', 'to', 'workspace');
         const workspace = Uri.file(workspacePath);
@@ -419,24 +414,31 @@ suite('getPyenvVersion tests', () => {
     test('getRecommended recommends the global pyenv version over global pythons and other pyenv versions', () => {
         const envA = {
             // global python
-            path: 'path', envType: EnvironmentType.Global, version: { major: 3, minor: 12, patch: 2, raw: '3.12.2' }
+            path: 'path',
+            envType: EnvironmentType.Global,
+            version: { major: 3, minor: 12, patch: 2, raw: '3.12.2' },
         } as PythonEnvironment;
         const envB = {
             // pyenv version, does not match local .python-version or global pyenv
-            path: 'path', envType: EnvironmentType.Pyenv, version: { major: 3, minor: 11, patch: 2, raw: '3.11.2' }
+            path: 'path',
+            envType: EnvironmentType.Pyenv,
+            version: { major: 3, minor: 11, patch: 2, raw: '3.11.2' },
         } as PythonEnvironment;
         const envC = {
             // local pyenv version for the workspace
-            path: 'path', envType: EnvironmentType.Pyenv, version: { major: 3, minor: 10, patch: 2, raw: '3.10.2' }
+            path: 'path',
+            envType: EnvironmentType.Pyenv,
+            version: { major: 3, minor: 10, patch: 2, raw: '3.10.2' },
         } as PythonEnvironment;
         const envD = {
             // global pyenv version
-            path: 'path', envType: EnvironmentType.Pyenv, version: { major: 3, minor: 11, patch: 3, raw: '3.11.3' }, envName: 'my_global_pyenv'
+            path: 'path',
+            envType: EnvironmentType.Pyenv,
+            version: { major: 3, minor: 11, patch: 3, raw: '3.11.3' },
+            envName: 'my_global_pyenv',
         } as PythonEnvironment;
 
-        const pythonEnvironments = [
-            envA, envB, envC, envD
-        ];
+        const pythonEnvironments = [envA, envB, envC, envD];
 
         const workspace = undefined;
         const expected = envD;

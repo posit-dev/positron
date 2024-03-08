@@ -1,0 +1,14 @@
+fastcore==1.5.29
+ipykernel==6.29.3
+ipywidgets==8.1.2
+matplotlib==3.8.2; python_version >= '3.9'
+matplotlib==3.7.4; python_version < '3.9'
+numpy==1.26.3; python_version >= '3.9'
+numpy==1.24.4; python_version < '3.9'
+pandas==2.2.0; python_version >= '3.9'
+pandas==2.0.3; python_version < '3.9'
+pytest==8.0.2
+pytest-asyncio==0.23.5
+pytest-mock==3.12.0
+polars==0.20.13
+torch==2.1.2; python_version < '3.12'

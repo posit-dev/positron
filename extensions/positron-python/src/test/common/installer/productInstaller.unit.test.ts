@@ -220,5 +220,4 @@ suite('DataScienceInstaller install', async () => {
         const result = await dataScienceInstaller.install(Product.ipykernel, testEnvironment);
         expect(result).to.equal(InstallerResponse.Installed, 'Should be Installed');
     });
-
 });
