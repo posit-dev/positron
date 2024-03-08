@@ -10,13 +10,13 @@ import * as vscode from 'vscode';
 import * as which from 'which';
 import * as positron from 'positron';
 import * as crypto from 'crypto';
-import * as winreg from 'winreg';
 
 import { RInstallation, getRHomePath } from './r-installation';
 import { RRuntime, createJupyterKernelExtra, createJupyterKernelSpec } from './runtime';
 import { RRuntimeManager } from './runtime-manager';
 import { Logger } from './extension';
 import { readLines } from './util';
+import { HKEY } from '@vscode/windows-registry';
 
 const initialDynState = {
 	inputPrompt: '>',
@@ -362,8 +362,8 @@ async function findCurrentRBinary(): Promise<string | undefined> {
 }
 
 async function findCurrentRBinaryFromRegistry(): Promise<string | undefined> {
-	const userPath = await getRegistryInstallPath(winreg.HKCU);
-	const machinePath = await getRegistryInstallPath(winreg.HKLM);
+	const userPath = await getRegistryInstallPath('HKEY_CURRENT_USER');
+	const machinePath = await getRegistryInstallPath('HKEY_LOCAL_MACHINE');
 	if (!userPath && !machinePath) {
 		return undefined;
 	}
@@ -378,34 +378,17 @@ async function findCurrentRBinaryFromRegistry(): Promise<string | undefined> {
 	return binPath;
 }
 
-async function getRegistryInstallPath(hive: string): Promise<string | undefined> {
+async function getRegistryInstallPath(hive: 'HKEY_CURRENT_USER' | 'HKEY_LOCAL_MACHINE'): Promise<string | undefined> {
+	// 'R64' here is another place where we explicitly ignore 32-bit R
+	const R64_KEY: string = 'Software\\R-Core\\R64';
+	const registry = await import('@vscode/windows-registry');
+
 	try {
-		const key = new winreg({
-			hive: hive as keyof typeof winreg,
-			// 'R64' here is another place where we explicitly ignore 32-bit R
-			key: '\\Software\\R-Core\\R64',
-		});
-
-		Logger.info(`Checking for 'InstallPath' in registry key ${key.key} for hive ${key.hive}`);
-
-		const result = await new Promise<{ value: string }>((resolve, reject) => {
-			key.get('InstallPath', (error, result) => {
-				if (error) {
-					reject(error);
-				} else {
-					resolve(result);
-				}
-			});
-		});
-
-		if (!result || typeof result.value !== 'string') {
-			Logger.info(`Invalid value of 'InstallPath'`);
-			return undefined;
-		}
-
-		return result.value;
-	} catch (error: any) {
-		Logger.info(`Unable to get value of 'InstallPath': ${error.message}`);
+		Logger.info(`Checking for 'InstallPath' in registry key ${R64_KEY} for hive ${hive}`);
+		const pth = registry.GetStringRegKey(hive as HKEY, R64_KEY, 'InstallPath') || '';
+		return pth;
+	} catch (err) {
+		Logger.info(err as string);
 		return undefined;
 	}
 }

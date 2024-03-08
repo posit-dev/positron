@@ -516,11 +516,11 @@
     "vsce": "^2.11.0"
   },
   "dependencies": {
+    "@vscode/windows-registry": "^1.1.0",
     "p-queue": "^6.6.2",
     "split2": "^4.2.0",
     "vscode-languageclient": "^9.0.1",
-    "web-tree-sitter": "^0.20.8",
-    "winreg": "^1.2.5"
+    "web-tree-sitter": "^0.20.8"
   },
   "repository": {
     "type": "git",
