@@ -11,7 +11,10 @@ import * as which from 'which';
 import * as positron from 'positron';
 import * as crypto from 'crypto';
 
-import { RInstallation, RMetadataExtra } from './r-installation';
+import { RInstallation, RMetadataExtra, getRHomePath } from './r-installation';
+import { LOGGER } from './extension';
+import { readLines } from './util';
+import { HKEY } from '@vscode/windows-registry';
 
 /**
  * Discovers R language runtimes for Positron; implements
@@ -279,16 +282,16 @@ async function findCurrentRBinary(): Promise<string | undefined> {
 					const whichRMatched = match[1];
 					const whichRHome = getRHomePath(whichRMatched);
 					if (!whichRHome) {
-						Logger.info(`Failed to get R home path from ${whichRMatched}`);
+						LOGGER.info(`Failed to get R home path from ${whichRMatched}`);
 						return undefined;
 					}
 					// we prefer the x64 binary
 					const whichRResolved = firstExisting(whichRHome, binFragments());
 					if (whichRResolved) {
-						Logger.info(`Resolved R binary at ${whichRResolved}`);
+						LOGGER.info(`Resolved R binary at ${whichRResolved}`);
 						return whichRResolved;
 					} else {
-						Logger.info(`Can\'t find R binary within ${whichRHome}`);
+						LOGGER.info(`Can\'t find R binary within ${whichRHome}`);
 						return undefined;
 					}
 				}
@@ -297,7 +300,7 @@ async function findCurrentRBinary(): Promise<string | undefined> {
 			// meaning put R on the PATH themselves, on Windows?
 		} else {
 			const whichRCanonical = fs.realpathSync(whichR);
-			Logger.info(`Resolved R binary at ${whichRCanonical}`);
+			LOGGER.info(`Resolved R binary at ${whichRCanonical}`);
 			return whichRCanonical;
 		}
 	}
@@ -315,7 +318,7 @@ async function findCurrentRBinaryFromRegistry(): Promise<string | undefined> {
 	if (!binPath) {
 		return undefined;
 	}
-	Logger.info(`Identified the current version of R from the registry: ${binPath}`);
+	LOGGER.info(`Identified the current version of R from the registry: ${binPath}`);
 
 	return binPath;
 }
@@ -326,11 +329,11 @@ async function getRegistryInstallPath(hive: 'HKEY_CURRENT_USER' | 'HKEY_LOCAL_MA
 	const registry = await import('@vscode/windows-registry');
 
 	try {
-		Logger.info(`Checking for 'InstallPath' in registry key ${R64_KEY} for hive ${hive}`);
+		LOGGER.info(`Checking for 'InstallPath' in registry key ${R64_KEY} for hive ${hive}`);
 		const pth = registry.GetStringRegKey(hive as HKEY, R64_KEY, 'InstallPath') || '';
 		return pth;
 	} catch (err) {
-		Logger.info(err as string);
+		LOGGER.info(err as string);
 		return undefined;
 	}
 }

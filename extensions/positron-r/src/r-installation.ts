@@ -137,12 +137,12 @@ function getRHomePathNotWindows(binPath: string): string | undefined {
 	const binLines = readLines(binPath);
 	const re = new RegExp('Shell wrapper for R executable');
 	if (!binLines.some(x => re.test(x))) {
-		Logger.info(`Binary is not a shell script wrapping the executable: ${binPath}`);
+		LOGGER.info(`Binary is not a shell script wrapping the executable: ${binPath}`);
 		return undefined;
 	}
 	const targetLine = binLines.find(line => line.match('R_HOME_DIR'));
 	if (!targetLine) {
-		Logger.info(`Can\'t determine R_HOME_DIR from the binary: ${binPath}`);
+		LOGGER.info(`Can\'t determine R_HOME_DIR from the binary: ${binPath}`);
 		return undefined;
 	}
 	// macOS: R_HOME_DIR=/Library/Frameworks/R.framework/Versions/4.3-arm64/Resources
@@ -151,7 +151,7 @@ function getRHomePathNotWindows(binPath: string): string | undefined {
 	const R_HOME_DIR = extractValue(targetLine, 'R_HOME_DIR');
 	const homepath = R_HOME_DIR;
 	if (homepath === '') {
-		Logger.info(`Can\'t determine R_HOME_DIR from the binary: ${binPath}`);
+		LOGGER.info(`Can\'t determine R_HOME_DIR from the binary: ${binPath}`);
 		return undefined;
 	}
 	return homepath;
@@ -164,7 +164,7 @@ function getRHomePathWindows(binPath: string): string | undefined {
 	// "C:\Program Files\R\R-4.3.2\bin\x64\R.exe" <-- but this also exists
 	const binIndex = binPath.lastIndexOf(path.sep + 'bin' + path.sep);
 	if (binIndex === -1) {
-		Logger.info(`Can\'t determine R_HOME_DIR from the path to the R binary: ${binPath}`);
+		LOGGER.info(`Can\'t determine R_HOME_DIR from the path to the R binary: ${binPath}`);
 		return undefined;
 	} else {
 		const pathUpToBin = binPath.substring(0, binIndex);
