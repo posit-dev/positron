@@ -17,14 +17,15 @@ import { generateUuid } from 'vs/base/common/uuid';
  */
 interface CheckboxProps {
 	label: string;
+	defaultValue?: boolean;
 	onChanged: (checked: boolean) => void;
 }
 
 // Toggle component.
-export const Checkbox = ({ label, onChanged }: CheckboxProps) => {
+export const Checkbox = ({ label, defaultValue, onChanged }: CheckboxProps) => {
 	// Hooks.
 	const [id] = useState(generateUuid());
-	const [checked, setChecked] = useState(false);
+	const [checked, setChecked] = useState(defaultValue ?? false);
 	const buttonRef = useRef<HTMLButtonElement>(undefined!);
 
 	// Click handler.
