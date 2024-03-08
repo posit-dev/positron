@@ -64,7 +64,7 @@ export class JupyterAdapterApiImpl implements JupyterAdapterApi {
 			workspaceStateKey(runtimeMetadata, sessionMetadata));
 		if (!state) {
 			throw new Error(
-				`No state found for session ${sessionMetadata.sessionId} ` +
+				`No state found for session '${sessionMetadata.sessionId}' ` +
 				`of runtime ${runtimeMetadata.runtimeName}`);
 		}
 		const serialized = state as JupyterSerializedSession;

@@ -853,6 +853,7 @@ export class LanguageRuntimeSessionAdapter
 
 		// If the kernel was restarting, now's the time to bring it back up
 		if (this._restarting) {
+			this._kernel.clearSession();
 			this._restarting = false;
 			// Defer the start by 500ms to ensure the kernel has processed its
 			// own exit before we ask it to restart. This also ensures that the
