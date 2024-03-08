@@ -210,7 +210,7 @@ export function isProblematicCondaEnvironment(environment: PythonEnvironment): b
 // --- Start Positron ---
 // We export this function for Positron to use in sortInterpreters function.
 export function comparePythonVersionDescending(a: PythonVersion | undefined, b: PythonVersion | undefined): number {
-// --- End Positron ---
+    // --- End Positron ---
     if (!a) {
         return 1;
     }

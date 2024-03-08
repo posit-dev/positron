@@ -27,7 +27,11 @@ import { JediLanguageServerAnalysisOptions } from '../activation/jedi/analysisOp
 import { IEnvironmentVariablesProvider } from '../common/variables/types';
 import { IApplicationEnvironment, IWorkspaceService } from '../common/application/types';
 import { IInterpreterSelector } from '../interpreter/configuration/types';
-import { getEnvLocationHeuristic, EnvLocationHeuristic, comparePythonVersionDescending } from '../interpreter/configuration/environmentTypeComparer';
+import {
+    getEnvLocationHeuristic,
+    EnvLocationHeuristic,
+    comparePythonVersionDescending,
+} from '../interpreter/configuration/environmentTypeComparer';
 
 /**
  * Provides a single Python language runtime for Positron; implements
@@ -117,7 +121,7 @@ export async function* pythonRuntimeDiscoverer(
         ]);
         traceInfo(`pythonRuntimeDiscoverer: recommended for workspace: ${recommendedForWorkspace}`);
 
-        const minimumSupportedVersion = {major: 3, minor: 8, patch: 0, raw: '3.8.0'} as PythonVersion;
+        const minimumSupportedVersion = { major: 3, minor: 8, patch: 0, raw: '3.8.0' } as PythonVersion;
         // Register each interpreter as a language runtime
         for (const interpreter of interpreters) {
             // Only register runtimes for supported versions
@@ -141,11 +145,12 @@ export async function* pythonRuntimeDiscoverer(
                 } else {
                     traceInfo(`pythonRuntimeDiscoverer: skipping unsupported interpreter ${interpreter.path}`);
                 }
+            } catch (err) {
+                traceError(
+                    `pythonRuntimeDiscoverer: failed to register runtime for interpreter ${interpreter.path}`,
+                    err,
+                );
             }
-            catch (err) {
-                traceError(`pythonRuntimeDiscoverer: failed to register runtime for interpreter ${interpreter.path}`, err);
-            }
-
         }
     } catch (ex) {
         traceError('pythonRuntimeDiscoverer() failed', ex);
