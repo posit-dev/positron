@@ -238,9 +238,10 @@ const tasks = compilations.map(function (tsconfigFile) {
 		// (Note that these need to be ignored at `watcher` -- `gulp.src` is not enough.)
 		if (relativeDirname === 'positron-python') {
 			ignored = [
-				path.join(srcBase, 'testTestingRootWkspc/**'),
 				path.join(srcBase, 'test/1/**'),
 				path.join(srcBase, 'test/should-not-exist/**'),
+				path.join(srcBase, 'testMultiRootWkspc/**'),
+				path.join(srcBase, 'testTestingRootWkspc/**'),
 			];
 		} else {
 			ignored = [];
