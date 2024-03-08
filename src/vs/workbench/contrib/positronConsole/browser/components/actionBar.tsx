@@ -113,6 +113,7 @@ export const ActionBar = (props: ActionBarProps) => {
 				setActivePositronConsoleInstance(activePositronConsoleInstance);
 				setInterruptible(activePositronConsoleInstance?.state === PositronConsoleState.Busy);
 				setInterrupting(false);
+				setCanShutdown(activePositronConsoleInstance?.session.getRuntimeState() !== RuntimeState.Exited);
 			}
 		);
 	}, []);
@@ -141,7 +142,7 @@ export const ActionBar = (props: ActionBarProps) => {
 			// Set the initial state.
 			setInterruptible(session.dynState.busy);
 			setDirectoryLabel(session.dynState.currentWorkingDirectory);
-			setCanShutdown(session.getRuntimeState() === RuntimeState.Exited);
+			setCanShutdown(session.getRuntimeState() !== RuntimeState.Exited);
 
 			// Listen for state changes.
 			disposableRuntimeStore.add(session.onDidChangeRuntimeState((state) => {
