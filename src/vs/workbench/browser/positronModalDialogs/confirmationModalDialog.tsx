@@ -16,8 +16,12 @@ import { PositronModalReactRenderer } from 'vs/base/browser/ui/positronModalReac
  * @param message The message.
  * @returns A promise that resolves when the dialog is dismissed.
  */
-export const confirmationModalDialog = async (layoutService: IWorkbenchLayoutService, title: string, message: string): Promise<boolean> => {
-	// Return a promise that resolves when the dialog is done.
+export const confirmationModalDialog = async (
+	layoutService: IWorkbenchLayoutService,
+	title: string,
+	message: string
+): Promise<boolean> => {
+	// Return a promise that resolves when the dialog is dismissed.
 	return new Promise<boolean>((resolve) => {
 		// Create the modal React renderer.
 		const positronModalReactRenderer =
