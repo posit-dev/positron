@@ -115,7 +115,7 @@
 	height: 20px;
 	display: flex;
 	cursor: pointer;
-	border-radius: 6px;
+	border-radius: 4px;
 	align-items: center;
 	box-sizing: border-box;
 	justify-content: center;
@@ -131,7 +131,7 @@
 .data-grid-column-header
 .content
 .sort-button:focus-visible {
-	border-radius: 6px;
+	border-radius: 4px;
 	outline: 1px solid var(--vscode-focusBorder) !important;
 }
 

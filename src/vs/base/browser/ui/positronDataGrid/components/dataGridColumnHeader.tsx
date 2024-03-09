@@ -77,7 +77,7 @@ export const DataGridColumnHeader = (props: DataGridColumnHeaderProps) => {
 		await showContextMenu({
 			layoutService: context.layoutService,
 			anchorElement: sortingButtonRef.current,
-			alignment: 'left',
+			alignment: 'right',
 			width: 200,
 			entries: [
 				new ContextMenuItem({
