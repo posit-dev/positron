@@ -14,9 +14,9 @@ import * as DOM from 'vs/base/browser/dom';
 import { ILayoutService } from 'vs/platform/layout/browser/layoutService';
 import { Button } from 'vs/base/browser/ui/positronComponents/button/button';
 import { ComboBox } from 'vs/base/browser/ui/positronComponents/comboBox/comboBox';
-import { ComboBoxItem } from 'vs/base/browser/ui/positronComponents/comboBox/comboBoxItem';
+import { ComboBoxMenuItem } from 'vs/base/browser/ui/positronComponents/comboBox/comboBoxMenuItem';
 import { PositronModalPopup } from 'vs/base/browser/ui/positronModalPopup/positronModalPopup';
-import { ComboBoxSeparator } from 'vs/base/browser/ui/positronComponents/comboBox/comboBoxSeparator';
+import { ComboBoxMenuSeparator } from 'vs/base/browser/ui/positronComponents/comboBox/comboBoxMenuSeparator';
 import { PositronModalReactRenderer } from 'vs/base/browser/ui/positronModalReactRenderer/positronModalReactRenderer';
 
 /**
@@ -42,33 +42,33 @@ export const addRowFilterModalPopup = async (
 ): Promise<void> => {
 	// Build the condition combo box entries.
 	const conditionEntries = [
-		new ComboBoxItem({
-			id: CONDITION_IS_EMPTY,
+		new ComboBoxMenuItem({
+			identifier: CONDITION_IS_EMPTY,
 			label: localize('positron.isEmpty', "is empty"),
 		}),
-		new ComboBoxItem({
-			id: CONDITION_IS_NOT_EMPTY,
+		new ComboBoxMenuItem({
+			identifier: CONDITION_IS_NOT_EMPTY,
 			label: localize('positron.isNotEmpty', "is not empty"),
 		}),
-		new ComboBoxSeparator(),
-		new ComboBoxItem({
-			id: CONDITION_IS_LESS_THAN,
+		new ComboBoxMenuSeparator(),
+		new ComboBoxMenuItem({
+			identifier: CONDITION_IS_LESS_THAN,
 			label: localize('positron.isLessThan', "is less than"),
 		}),
-		new ComboBoxItem({
-			id: CONDITION_IS_GREATER_THAN,
+		new ComboBoxMenuItem({
+			identifier: CONDITION_IS_GREATER_THAN,
 			label: localize('positron.isGreaterThan', "is greater than"),
 		}),
-		new ComboBoxItem({
-			id: CONDITION_IS_EXACTLY,
+		new ComboBoxMenuItem({
+			identifier: CONDITION_IS_EXACTLY,
 			label: localize('positron.isExactly', "is exactly"),
 		}),
-		new ComboBoxItem({
-			id: CONDITION_IS_BETWEEN,
+		new ComboBoxMenuItem({
+			identifier: CONDITION_IS_BETWEEN,
 			label: localize('positron.isBetween', "is between"),
 		}),
-		new ComboBoxItem({
-			id: CONDITION_IS_NOT_BETWEEN,
+		new ComboBoxMenuItem({
+			identifier: CONDITION_IS_NOT_BETWEEN,
 			label: localize('positron.isNotBetween', "is not between"),
 		})
 	];
@@ -106,19 +106,21 @@ export const addRowFilterModalPopup = async (
 					height={'min-content'}
 					onDismiss={() => dismiss()}
 				>
-					<div className='add-row-filter-modal-popup-body' tabIndex={0}>
+					<div className='add-row-filter-modal-popup-body'>
 						<ComboBox
 							layoutService={layoutService}
 							title='Select Column'
 							entries={conditionEntries}
+							onSelectionChanged={identifier => console.log(`Select Column changed to ${identifier}`)}
 						/>
 						<ComboBox
 							layoutService={layoutService}
 							title='Select Condition'
 							entries={conditionEntries}
+							onSelectionChanged={identifier => console.log(`Select Condition changed to ${identifier}`)}
 						/>
-						<Button className='button-apply-filter'>
-							APPLY FILTER
+						<Button className='solid button-apply-filter'>
+							Apply Filter
 						</Button>
 					</div>
 				</PositronModalPopup>

@@ -19,12 +19,12 @@ import { PositronModalReactRenderer } from 'vs/base/browser/ui/positronModalReac
  * Focusable element selectors.
  */
 const focusableElementSelectors =
-	'a[href]:not([disabled]), ' +
-	'button:not([disabled]), ' +
-	'textarea:not([disabled]), ' +
-	'input[type="text"]:not([disabled]), ' +
-	'input[type="radio"]:not([disabled]), ' +
-	'input[type="checkbox"]:not([disabled]), ' +
+	'a[href]:not([disabled]),' +
+	'button:not([disabled]),' +
+	'textarea:not([disabled]),' +
+	'input[type="text"]:not([disabled]),' +
+	'input[type="radio"]:not([disabled]),' +
+	'input[type="checkbox"]:not([disabled]),' +
 	'select:not([disabled])';
 
 // Position interface.
@@ -224,25 +224,23 @@ export const PositronModalPopup = (props: PropsWithChildren<PositronModalPopupPr
 
 	// Render.
 	return (
-		<div className='positron-modal-popup-shadow-container'>
+		<div
+			ref={popupContainerRef}
+			className='positron-modal-popup-container'
+			role='dialog'
+			tabIndex={-1}
+		>
 			<div
-				ref={popupContainerRef}
-				className='positron-modal-popup-container'
-				role='dialog'
-				tabIndex={-1}
+				ref={popupRef}
+				className={classNames}
+				style={{
+					...position,
+					minWidth: props.minWidth,
+					width: props.width,
+					height: props.height
+				}}
 			>
-				<div
-					ref={popupRef}
-					className={classNames}
-					style={{
-						...position,
-						minWidth: props.minWidth,
-						width: props.width,
-						height: props.height
-					}}
-				>
-					{props.children}
-				</div>
+				{props.children}
 			</div>
 		</div>
 	);

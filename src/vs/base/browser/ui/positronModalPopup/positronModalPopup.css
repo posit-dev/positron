@@ -7,10 +7,6 @@
 	100% { opacity: 1; }
 }
 
-.positron-modal-dialog-shadow-container {
-	background: transparent;
-}
-
 .positron-modal-popup-container {
 	top: 0;
 	left: 0;

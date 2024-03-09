@@ -3,7 +3,6 @@
  *--------------------------------------------------------------------------------------------*/
 
 /**
- * ComboBoxSeparator class.
+ * ComboBoxMenuSeparator class.
  */
-export class ComboBoxSeparator {
-}
+export class ComboBoxMenuSeparator { }

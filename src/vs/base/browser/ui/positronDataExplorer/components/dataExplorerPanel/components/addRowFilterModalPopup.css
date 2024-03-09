@@ -14,6 +14,7 @@
 .positron-modal-popup
 .add-row-filter-modal-popup-body
 .button-apply-filter {
+	height: 26px;
 	padding: 4px;
 	display: flex;
 	border-radius: 4px;
@@ -21,18 +22,4 @@
 	justify-content: center;
 	color: var(--vscode-positronModalDialog-defaultButtonForeground);
 	background-color: var(--vscode-positronModalDialog-defaultButtonBackground);
-}
-
-.positron-modal-popup
-.add-row-filter-modal-popup-body
-.button-apply-filter:focus {
-	outline: none !important;
-}
-
-.positron-modal-popup
-.add-row-filter-modal-popup-body
-.button-apply-filter:focus-visible {
-	border-radius: 4px;
-	outline-offset: 2px;
-	outline: 1px solid var(--vscode-focusBorder) !important;
 }

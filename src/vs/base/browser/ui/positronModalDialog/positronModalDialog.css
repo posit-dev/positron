@@ -21,10 +21,6 @@
 	background: rgba(0, 0, 0, 0.2);
 }
 
-.positron-modal-dialog-shadow-container {
-	background: transparent;
-}
-
 .positron-modal-dialog-container {
 	animation: fade-in 0.25s;
 	top: 0;

@@ -3,23 +3,22 @@
  *--------------------------------------------------------------------------------------------*/
 
 /**
- * ComboBoxItemOptions interface.
+ * ComboBoxMenuItemOptions interface.
  */
-export interface ComboBoxItemOptions {
-	readonly id: string;
+export interface ComboBoxMenuItemOptions {
+	readonly identifier: string;
 	readonly label: string;
 	readonly icon?: string;
 	readonly disabled?: boolean;
 }
 
 /**
- * ComboBoxItem class.
+ * ComboBoxMenuItem class.
  */
-export class ComboBoxItem {
+export class ComboBoxMenuItem {
 	/**
 	 * Constructor.
-	 * @param options A ComboBoxItemOptions that contains the combo box item options.
+	 * @param options A ComboBoxMenuItemOptions that contains the combo box item options.
 	 */
-	constructor(readonly options: ComboBoxItemOptions) {
-	}
+	constructor(readonly options: ComboBoxMenuItemOptions) { }
 }
