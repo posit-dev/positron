@@ -56,25 +56,26 @@ export const showSetPlotSizeModalDialog = async (
 						}
 					};
 				}
-				positronModalReactRenderer.destroy();
+				positronModalReactRenderer.dispose();
 				resolve(result);
 			};
 
 			// The delete handler.
 			const deleteHandler = () => {
-				positronModalReactRenderer.destroy();
+				positronModalReactRenderer.dispose();
 				resolve(null);
 			};
 
 			// The cancel handler.
 			const cancelHandler = () => {
-				positronModalReactRenderer.destroy();
+				positronModalReactRenderer.dispose();
 				resolve(undefined);
 			};
 
 			// Render.
 			return (
 				<PositronModalDialog
+					renderer={positronModalReactRenderer}
 					width={350}
 					height={200}
 					title={localize('positronSetPlotSizeModalDialogTitle', "Custom Plot Size")}

@@ -59,13 +59,13 @@ export const showNewFolderFromGitModalDialog = async (accessor: ServicesAccessor
 
 			// The accept handler.
 			const acceptHandler = () => {
-				positronModalReactRenderer.destroy();
+				positronModalReactRenderer.dispose();
 				resolve(newFolderFromGitResultRef.current);
 			};
 
 			// The cancel handler.
 			const cancelHandler = () => {
-				positronModalReactRenderer.destroy();
+				positronModalReactRenderer.dispose();
 				resolve(undefined);
 			};
 
@@ -87,7 +87,7 @@ export const showNewFolderFromGitModalDialog = async (accessor: ServicesAccessor
 
 			// Render.
 			return (
-				<OKCancelModalDialog width={400} height={300} title={localize('positronNewFolderFromGitModalDialogTitle', "New Folder from Git")} accept={acceptHandler} cancel={cancelHandler}>
+				<OKCancelModalDialog renderer={positronModalReactRenderer} width={400} height={300} title={localize('positronNewFolderFromGitModalDialogTitle', "New Folder from Git")} accept={acceptHandler} cancel={cancelHandler}>
 					<VerticalStack>
 						<LabeledTextInput
 							ref={folderNameRef}

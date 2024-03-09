@@ -59,13 +59,13 @@ export const showNewFolderModalDialog = async (accessor: ServicesAccessor): Prom
 
 			// The accept handler.
 			const acceptHandler = () => {
-				positronModalReactRenderer.destroy();
+				positronModalReactRenderer.dispose();
 				resolve(newFolderResultRef.current);
 			};
 
 			// The cancel handler.
 			const cancelHandler = () => {
-				positronModalReactRenderer.destroy();
+				positronModalReactRenderer.dispose();
 				resolve(undefined);
 			};
 
@@ -87,7 +87,7 @@ export const showNewFolderModalDialog = async (accessor: ServicesAccessor): Prom
 
 			// Render.
 			return (
-				<OKCancelModalDialog width={400} height={300} title={localize('positronNewFolderModalDialogTitle', "New Folder")} accept={acceptHandler} cancel={cancelHandler}>
+				<OKCancelModalDialog renderer={positronModalReactRenderer} width={400} height={300} title={localize('positronNewFolderModalDialogTitle', "New Folder")} accept={acceptHandler} cancel={cancelHandler}>
 					<VerticalStack>
 						<LabeledTextInput
 							ref={folderNameRef}

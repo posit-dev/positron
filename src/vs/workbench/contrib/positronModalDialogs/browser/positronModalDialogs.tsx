@@ -40,14 +40,14 @@ export class PositronModalDialogs implements IPositronModalDialogsService {
 
 			// The accept handler.
 			const acceptHandler = () => {
-				positronModalReactRenderer.destroy();
+				positronModalReactRenderer.dispose();
 				resolve();
 			};
 
 			// The modal dialog component.
 			const ModalDialog = () => {
 				return (
-					<PositronModalDialog title={title} width={400} height={300} accept={acceptHandler} cancel={acceptHandler}>
+					<PositronModalDialog renderer={positronModalReactRenderer} title={title} width={400} height={300} accept={acceptHandler} cancel={acceptHandler}>
 						<ContentArea>
 							<TestContent message='Example' />
 						</ContentArea>
@@ -73,13 +73,13 @@ export class PositronModalDialogs implements IPositronModalDialogsService {
 
 			// The accept handler.
 			const acceptHandler = () => {
-				positronModalReactRenderer.destroy();
+				positronModalReactRenderer.dispose();
 				resolve(true);
 			};
 
 			// The cancel handler.
 			const cancelHandler = () => {
-				positronModalReactRenderer.destroy();
+				positronModalReactRenderer.dispose();
 				resolve(false);
 			};
 
@@ -87,7 +87,7 @@ export class PositronModalDialogs implements IPositronModalDialogsService {
 			const ModalDialog = () => {
 				// Render.
 				return (
-					<PositronModalDialog title={title} width={400} height={300} accept={acceptHandler} cancel={cancelHandler}>
+					<PositronModalDialog renderer={positronModalReactRenderer} title={title} width={400} height={300} accept={acceptHandler} cancel={cancelHandler}>
 						<ContentArea>
 							<TestContent message='Example' />
 						</ContentArea>
@@ -123,12 +123,12 @@ export class PositronModalDialogs implements IPositronModalDialogsService {
 		const choiceEmitter = new Emitter<boolean>();
 
 		const acceptHandler = () => {
-			positronModalReactRenderer.destroy();
+			positronModalReactRenderer.dispose();
 			choiceEmitter.fire(true);
 			choiceEmitter.dispose();
 		};
 		const cancelHandler = () => {
-			positronModalReactRenderer.destroy();
+			positronModalReactRenderer.dispose();
 			choiceEmitter.fire(false);
 			choiceEmitter.dispose();
 		};
@@ -138,7 +138,7 @@ export class PositronModalDialogs implements IPositronModalDialogsService {
 		// now.
 		const ModalDialog = () => {
 			return (
-				<PositronModalDialog title={title} width={400} height={200} accept={acceptHandler} cancel={cancelHandler}>
+				<PositronModalDialog renderer={positronModalReactRenderer} title={title} width={400} height={200} accept={acceptHandler} cancel={cancelHandler}>
 					<ContentArea>
 						{message}
 					</ContentArea>
@@ -158,7 +158,7 @@ export class PositronModalDialogs implements IPositronModalDialogsService {
 			close() {
 				choiceEmitter.fire(false);
 				choiceEmitter.dispose();
-				positronModalReactRenderer.destroy();
+				positronModalReactRenderer.dispose();
 			}
 		};
 	}

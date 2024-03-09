@@ -7,18 +7,25 @@ import 'vs/css!./positronModalPopup';
 
 // React.
 import * as React from 'react';
-import { PropsWithChildren, useCallback, useEffect, useRef, useState } from 'react'; // eslint-disable-line no-duplicate-imports
+import { PropsWithChildren, useEffect, useRef, useState } from 'react'; // eslint-disable-line no-duplicate-imports
 
 // Other dependencies.
 import * as DOM from 'vs/base/browser/dom';
+import { DisposableStore } from 'vs/base/common/lifecycle';
 import { positronClassNames } from 'vs/base/common/positronUtilities';
+import { PositronModalReactRenderer } from 'vs/base/browser/ui/positronModalReactRenderer/positronModalReactRenderer';
 
 /**
- * Event aliases.
+ * Focusable element selectors.
  */
-type UIEvent = globalThis.UIEvent;
-type MouseEvent = globalThis.MouseEvent;
-type KeyboardEvent = globalThis.KeyboardEvent;
+const focusableElementSelectors =
+	'a[href]:not([disabled]), ' +
+	'button:not([disabled]), ' +
+	'textarea:not([disabled]), ' +
+	'input[type="text"]:not([disabled]), ' +
+	'input[type="radio"]:not([disabled]), ' +
+	'input[type="checkbox"]:not([disabled]), ' +
+	'select:not([disabled])';
 
 // Position interface.
 interface Position {
@@ -42,6 +49,7 @@ export type PopupAlignment = 'left' | 'right';
  * PositronModalPopupProps interface.
  */
 export interface PositronModalPopupProps {
+	renderer: PositronModalReactRenderer;
 	containerElement: HTMLElement;
 	anchorElement: HTMLElement;
 	popupPosition: PopupPosition;
@@ -85,52 +93,6 @@ export const PositronModalPopup = (props: PropsWithChildren<PositronModalPopupPr
 	// State hooks.
 	const [position, setPosition] = useState<Position>(computePosition());
 
-	// Memoize the keydown event handler.
-	const keydownHandler = useCallback((e: KeyboardEvent) => {
-		/**
-		 * Consumes an event.
-		 */
-		const consumeEvent = () => {
-			e.preventDefault();
-			e.stopPropagation();
-		};
-
-		// Handle the event.
-		switch (e.code) {
-			// Escape dismisses the modal popup.
-			case 'Escape':
-				consumeEvent();
-				props.onDismiss();
-				break;
-
-			// Allow tab so the user can set focus to the UI elements in the modal popup.
-			case 'Tab':
-				break;
-
-			// Allow space and enter so buttons in the modal popup can be pressed.
-			case 'Space':
-			case 'Enter':
-				break;
-
-			// Eat other keys.
-			default:
-				consumeEvent();
-				break;
-		}
-	}, []);
-
-	// Memoize the mousedownHandler.
-	const mousedownHandler = useCallback((e: MouseEvent) => {
-		if (!popupContainsMouseEvent(e)) {
-			props.onDismiss();
-		}
-	}, []);
-
-	// Memoize the resizeHandler.
-	const resizeHandler = useCallback((e: UIEvent) => {
-		setPosition(computePosition());
-	}, []);
-
 	/**
 	 * Checks whether the specified mouse event happened within the popup.
 	 * @param e The mouse event.
@@ -142,31 +104,116 @@ export const PositronModalPopup = (props: PropsWithChildren<PositronModalPopupPr
 			e.clientY >= clientRect.top && e.clientY <= clientRect.bottom;
 	};
 
-	// Initialization.
+	// Main useEffect.
 	useEffect(() => {
-		// Event type constants.
-		const KEYDOWN = 'keydown';
-		const MOUSEDOWN = 'mousedown';
-		const RESIZE = 'resize';
+		// Create a disposable store for the event handlers we'll add.
+		const disposableStore = new DisposableStore();
 
-		// Get the container window.
-		const containerWindow = DOM.getWindow(popupContainerRef.current);
+		// Add the onKeyDown event handler.
+		disposableStore.add(props.renderer.onKeyDown(e => {
+			/**
+			 * Consumes an event.
+			 */
+			const consumeEvent = () => {
+				e.preventDefault();
+				e.stopPropagation();
+			};
 
-		// Add keydown, mousedown, and resize event listeners.
-		containerWindow.document.addEventListener(KEYDOWN, keydownHandler, true);
-		containerWindow.addEventListener(MOUSEDOWN, mousedownHandler, false);
-		containerWindow.addEventListener(RESIZE, resizeHandler, false);
+			// Handle the event.
+			switch (e.code) {
+				// Escape dismisses the modal popup.
+				case 'Escape': { }
+					consumeEvent();
+					props.onDismiss();
+					break;
 
-		// Drive focus to the popup.
-		popupContainerRef.current.focus();
+				// Tab moves between modal popup elements. This code works to keep the focus in the
+				// modal popup.
+				case 'Tab': {
+					// Get the focusable elements.
+					const focusableElements = popupContainerRef.current.querySelectorAll<HTMLElement>(
+						focusableElementSelectors
+					);
 
-		// Return the cleanup function that removes our event listeners.
-		return () => {
-			// Remove keydown, mousedown, and resize event listeners.
-			containerWindow.document.removeEventListener(KEYDOWN, keydownHandler, true);
-			containerWindow.removeEventListener(MOUSEDOWN, mousedownHandler, false);
-			containerWindow.removeEventListener(RESIZE, resizeHandler, false);
-		};
+					// If there are focusable elements in the modal popup, keep focus in the popup;
+					// otherwise, prevent focus from going outside of the popup.
+					if (focusableElements.length) {
+						// For convenience, get the first and last focusable elements.
+						const firstFocusableElement = focusableElements[0];
+						const lastFocusableElement = focusableElements[focusableElements.length - 1];
+
+						// Get the active element.
+						const activeElement = DOM.getActiveElement();
+
+						/**
+						 * Determines whether the active element is one of the focusable elements.
+						 * @returns true if the active element is one of the focusable element;
+						 * otherwise, false.
+						 */
+						const activeElementIsFocusableElement = () => {
+							// Enumerate the focusable elements and determine whether one of them is
+							// the active element.
+							if (activeElement) {
+								for (let i = 0; i < focusableElements.length; i++) {
+									if (focusableElements[i] === activeElement) {
+										return true;
+									}
+								}
+							}
+
+							// The active element is not a focusable element.
+							return false;
+						};
+
+						// If the user is tabbing forward, wrap around at the last element;
+						// otherwise, the user is tabbing backward, so wrap around at the first
+						// element.
+						if (!e.shiftKey) {
+							if (!activeElementIsFocusableElement() ||
+								activeElement === lastFocusableElement) {
+								consumeEvent();
+								firstFocusableElement.focus();
+							}
+						} else {
+							if (!activeElementIsFocusableElement() ||
+								activeElement === firstFocusableElement) {
+								consumeEvent();
+								lastFocusableElement.focus();
+							}
+						}
+					} else {
+						// Prevent focus from going outside of the modal popup.
+						consumeEvent();
+					}
+					break;
+				}
+
+				// Allow space and enter so buttons in the modal popup can be pressed.
+				case 'Space':
+				case 'Enter':
+					break;
+
+				// Eat other keys.
+				default:
+					consumeEvent();
+					break;
+			}
+		}));
+
+		// Add the onMouseDown event handler.
+		disposableStore.add(props.renderer.onMouseDown(e => {
+			if (!popupContainsMouseEvent(e)) {
+				props.onDismiss();
+			}
+		}));
+
+		// Add the onResize event handler.
+		disposableStore.add(props.renderer.onResize(e => {
+			setPosition(computePosition());
+		}));
+
+		// Return the clean up for our event handlers.
+		return () => disposableStore.dispose();
 	}, []);
 
 	// Create the class names.

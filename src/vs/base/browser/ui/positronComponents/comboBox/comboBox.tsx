@@ -10,7 +10,6 @@ import * as React from 'react';
 import { useRef } from 'react'; // eslint-disable-line no-duplicate-imports
 
 // Other dependencies.
-import { localize } from 'vs/nls';
 import * as DOM from 'vs/base/browser/dom';
 import { positronClassNames } from 'vs/base/common/positronUtilities';
 import { ILayoutService } from 'vs/platform/layout/browser/layoutService';
@@ -19,12 +18,6 @@ import { PositronModalPopup } from 'vs/base/browser/ui/positronModalPopup/positr
 import { ComboBoxSeparator } from 'vs/base/browser/ui/positronComponents/comboBox/comboBoxSeparator';
 import { ComboBoxItem, ComboBoxItemOptions } from 'vs/base/browser/ui/positronComponents/comboBox/comboBoxItem';
 import { PositronModalReactRenderer } from 'vs/base/browser/ui/positronModalReactRenderer/positronModalReactRenderer';
-
-/**
- * Localized strings.
- */
-const x = localize('positron.x', "X");
-console.log(x);
 
 /**
  * ComboBoxProps interface.
@@ -42,7 +35,7 @@ interface ComboBoxProps {
  */
 export const ComboBox = (props: ComboBoxProps) => {
 	// Reference hooks.
-	const comboBoxRef = useRef<HTMLDivElement>(undefined!);
+	const comboBoxRef = useRef<HTMLButtonElement>(undefined!);
 
 	/**
 	 * onMouseDown handler.
@@ -59,7 +52,7 @@ export const ComboBox = (props: ComboBoxProps) => {
 	const showDropDownMenu = async (): Promise<void> => {
 		// Return a promise that resolves when the popup is done.
 		return new Promise<void>(resolve => {
-			// Get the container element for the anchor element.
+			// Get the container element for the combo box element.
 			const containerElement = props.layoutService.getContainer(
 				DOM.getWindow(comboBoxRef.current)
 			);
@@ -75,7 +68,7 @@ export const ComboBox = (props: ComboBoxProps) => {
 				 * Dismisses the popup.
 				 */
 				const dismiss = () => {
-					positronModalReactRenderer.destroy();
+					positronModalReactRenderer.dispose();
 					resolve();
 				};
 
@@ -121,6 +114,7 @@ export const ComboBox = (props: ComboBoxProps) => {
 				// Render.
 				return (
 					<PositronModalPopup
+						renderer={positronModalReactRenderer}
 						containerElement={containerElement}
 						anchorElement={comboBoxRef.current}
 						popupPosition='bottom'
@@ -153,11 +147,11 @@ export const ComboBox = (props: ComboBoxProps) => {
 
 	// Render.
 	return (
-		<div ref={comboBoxRef} className='combo-box' onClick={async () => await mouseDownHandler()}>
+		<Button ref={comboBoxRef} className='combo-box' onPressed={async () => await mouseDownHandler()}>
 			<div className='title'>{props.title}</div>
 			<div className='chevron' aria-hidden='true'>
 				<div className='codicon codicon-chevron-down' />
 			</div>
-		</div>
+		</Button>
 	);
 };

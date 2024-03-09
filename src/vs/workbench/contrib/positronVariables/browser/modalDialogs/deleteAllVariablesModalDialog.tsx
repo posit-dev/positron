@@ -50,19 +50,20 @@ export const showDeleteAllVariablesModalDialog = async (
 
 			// The accept handler.
 			const acceptHandler = () => {
-				positronModalReactRenderer.destroy();
+				positronModalReactRenderer.dispose();
 				resolve(result);
 			};
 
 			// The cancel handler.
 			const cancelHandler = () => {
-				positronModalReactRenderer.destroy();
+				positronModalReactRenderer.dispose();
 				resolve(undefined);
 			};
 
 			// Render.
 			return (
 				<OKCancelModalDialog
+					renderer={positronModalReactRenderer}
 					width={375}
 					height={175}
 					title={title}

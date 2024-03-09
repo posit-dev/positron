@@ -47,13 +47,14 @@ export const showCustomFolderModalPopup = async (
 			 * Dismisses the popup.
 			 */
 			const dismiss = () => {
-				positronModalReactRenderer.destroy();
+				positronModalReactRenderer.dispose();
 				resolve();
 			};
 
 			// Render.
 			return (
 				<PositronModalPopup
+					renderer={positronModalReactRenderer}
 					containerElement={containerElement}
 					anchorElement={anchorElement}
 					popupPosition='bottom'

@@ -49,7 +49,7 @@ export const DataGridColumnHeader = (props: DataGridColumnHeaderProps) => {
 	const context = usePositronDataGridContext();
 
 	// Reference hooks.
-	const columnsPanelRef = useRef<HTMLDivElement>(undefined!);
+	const sortingButtonRef = useRef<HTMLButtonElement>(undefined!);
 
 	/**
 	 * onMouseDown handler.
@@ -76,7 +76,7 @@ export const DataGridColumnHeader = (props: DataGridColumnHeaderProps) => {
 		// Show the context menu.
 		await showContextMenu({
 			layoutService: context.layoutService,
-			anchorElement: columnsPanelRef.current,
+			anchorElement: sortingButtonRef.current,
 			alignment: 'left',
 			width: 200,
 			entries: [
@@ -170,8 +170,8 @@ export const DataGridColumnHeader = (props: DataGridColumnHeaderProps) => {
 					</div>
 				}
 				<Button
-					ref={columnsPanelRef}
-					className='button'
+					ref={sortingButtonRef}
+					className='sort-button'
 					mouseTrigger={MouseTrigger.MouseDown}
 					onPressed={dropdownPressed}
 				>

@@ -2,6 +2,10 @@
  *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
+// CSS.
+import 'vs/css!./button';
+
+
 // React.
 import * as React from 'react';
 import { forwardRef, KeyboardEvent, MouseEvent, PropsWithChildren } from 'react'; // eslint-disable-line no-duplicate-imports
@@ -39,16 +43,16 @@ interface Props {
 }
 
 /**
- * Button component. This component is intentionally unstyled.
+ * Button component.
  * @param props A PropsWithChildren<Props> that contains the component properties.
  * @returns The rendered component.
  */
-export const Button = forwardRef<HTMLDivElement, PropsWithChildren<Props>>((props, ref) => {
+export const Button = forwardRef<HTMLButtonElement, PropsWithChildren<Props>>((props, ref) => {
 	/**
 	 * onKeyDown event handler.
 	 * @param e A KeyboardEvent<HTMLDivElement> that describes a user interaction with the keyboard.
 	 */
-	const keyDownHandler = (e: KeyboardEvent<HTMLDivElement>) => {
+	const keyDownHandler = (e: KeyboardEvent<HTMLButtonElement>) => {
 		// Process the key down event.
 		switch (e.code) {
 			// Space or Enter trigger the onPressed event.
@@ -70,7 +74,7 @@ export const Button = forwardRef<HTMLDivElement, PropsWithChildren<Props>>((prop
 	 * onClick event handler.
 	 * @param e A MouseEvent<HTMLDivElement> that describes a user interaction with the mouse.
 	 */
-	const clickHandler = (e: MouseEvent<HTMLDivElement>) => {
+	const clickHandler = (e: MouseEvent<HTMLButtonElement>) => {
 		// If the mouse trigger is click, handle the event.
 		if (props.mouseTrigger === undefined || props.mouseTrigger === MouseTrigger.Click) {
 			// Consume the event.
@@ -88,7 +92,7 @@ export const Button = forwardRef<HTMLDivElement, PropsWithChildren<Props>>((prop
 	 * onMouseDown event handler.
 	 * @param e A MouseEvent<HTMLDivElement> that describes a user interaction with the mouse.
 	 */
-	const mouseDownHandler = (e: MouseEvent<HTMLDivElement>) => {
+	const mouseDownHandler = (e: MouseEvent<HTMLButtonElement>) => {
 		// If the mouse trigger is mouse down, handle the event.
 		if (props.mouseTrigger === MouseTrigger.MouseDown) {
 			// Consume the event.
@@ -104,9 +108,10 @@ export const Button = forwardRef<HTMLDivElement, PropsWithChildren<Props>>((prop
 
 	// Render.
 	return (
-		<div
+		<button
 			ref={ref}
 			className={positronClassNames(
+				'button',
 				props.className,
 				{ 'disabled': props.disabled }
 			)}
@@ -119,6 +124,6 @@ export const Button = forwardRef<HTMLDivElement, PropsWithChildren<Props>>((prop
 			onMouseDown={mouseDownHandler}
 		>
 			{props.children}
-		</div>
+		</button>
 	);
 });

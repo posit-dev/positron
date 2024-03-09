@@ -27,13 +27,14 @@ export const messageBoxModalDialog = async (layoutService: IWorkbenchLayoutServi
 		const ModalDialog = () => {
 			// The accept handler.
 			const acceptHandler = () => {
-				positronModalReactRenderer.destroy();
+				positronModalReactRenderer.dispose();
 				resolve();
 			};
 
 			// Render.
 			return (
 				<OKModalDialog
+					renderer={positronModalReactRenderer}
 					width={400}
 					height={195}
 					title={title}

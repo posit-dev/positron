@@ -36,7 +36,7 @@ export const showInterpretersManagerModalPopup = async (
 			 * Dismisses the popup.
 			 */
 			const dismiss = () => {
-				positronModalReactRenderer.destroy();
+				positronModalReactRenderer.dispose();
 				resolve();
 			};
 
@@ -55,6 +55,7 @@ export const showInterpretersManagerModalPopup = async (
 			// Render.
 			return (
 				<PositronModalPopup
+					renderer={positronModalReactRenderer}
 					containerElement={containerElement}
 					anchorElement={anchorElement}
 					popupPosition='bottom'

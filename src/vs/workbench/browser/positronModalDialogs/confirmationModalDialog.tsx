@@ -27,19 +27,20 @@ export const confirmationModalDialog = async (layoutService: IWorkbenchLayoutSer
 		const ModalDialog = () => {
 			// The accept handler.
 			const acceptHandler = () => {
-				positronModalReactRenderer.destroy();
+				positronModalReactRenderer.dispose();
 				resolve(true);
 			};
 
 			// The cancel handler.
 			const cancelHandler = () => {
-				positronModalReactRenderer.destroy();
+				positronModalReactRenderer.dispose();
 				resolve(false);
 			};
 
 			// Render.
 			return (
 				<OKCancelModalDialog
+					renderer={positronModalReactRenderer}
 					width={400}
 					height={195}
 					title={title}

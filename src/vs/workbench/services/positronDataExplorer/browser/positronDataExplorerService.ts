@@ -188,10 +188,16 @@ class PositronDataExplorerService extends Disposable implements IPositronDataExp
 			new PositronDataExplorerInstance(dataExplorerClientInstance)
 		);
 
+		const start = new Date();
+
 		// Open the editor.
 		await this._editorService.openEditor({
 			resource: PositronDataExplorerUri.generate(dataExplorerClientInstance.identifier)
 		});
+
+		const end = new Date();
+
+		console.log(`this._editorService.openEditor took ${end.getTime() - start.getTime()}ms`);
 	}
 
 	/**

@@ -39,8 +39,8 @@ export const FilterBar = () => {
 	const context = usePositronDataExplorerContext();
 
 	// Reference hooks.
-	const filterButtonRef = useRef<HTMLDivElement>(undefined!);
-	const addFilterButtonRef = useRef<HTMLDivElement>(undefined!);
+	const filterButtonRef = useRef<HTMLButtonElement>(undefined!);
+	const addFilterButtonRef = useRef<HTMLButtonElement>(undefined!);
 
 	// Temporary state code.
 	const [filters, setFilters] = useState<Filter[]>([]);

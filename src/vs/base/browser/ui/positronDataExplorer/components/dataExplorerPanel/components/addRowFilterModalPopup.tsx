@@ -12,9 +12,9 @@ import * as React from 'react';
 import { localize } from 'vs/nls';
 import * as DOM from 'vs/base/browser/dom';
 import { ILayoutService } from 'vs/platform/layout/browser/layoutService';
+import { Button } from 'vs/base/browser/ui/positronComponents/button/button';
 import { ComboBox } from 'vs/base/browser/ui/positronComponents/comboBox/comboBox';
 import { ComboBoxItem } from 'vs/base/browser/ui/positronComponents/comboBox/comboBoxItem';
-import { PositronButton } from 'vs/base/browser/ui/positronComponents/button/positronButton';
 import { PositronModalPopup } from 'vs/base/browser/ui/positronModalPopup/positronModalPopup';
 import { ComboBoxSeparator } from 'vs/base/browser/ui/positronComponents/comboBox/comboBoxSeparator';
 import { PositronModalReactRenderer } from 'vs/base/browser/ui/positronModalReactRenderer/positronModalReactRenderer';
@@ -89,13 +89,14 @@ export const addRowFilterModalPopup = async (
 			 * Dismisses the popup.
 			 */
 			const dismiss = () => {
-				positronModalReactRenderer.destroy();
+				positronModalReactRenderer.dispose();
 				resolve();
 			};
 
 			// Render.
 			return (
 				<PositronModalPopup
+					renderer={positronModalReactRenderer}
 					containerElement={containerElement}
 					anchorElement={anchorElement}
 					popupPosition='bottom'
@@ -105,7 +106,7 @@ export const addRowFilterModalPopup = async (
 					height={'min-content'}
 					onDismiss={() => dismiss()}
 				>
-					<div className='add-row-filter-modal-popup-body'>
+					<div className='add-row-filter-modal-popup-body' tabIndex={0}>
 						<ComboBox
 							layoutService={layoutService}
 							title='Select Column'
@@ -116,9 +117,9 @@ export const addRowFilterModalPopup = async (
 							title='Select Condition'
 							entries={conditionEntries}
 						/>
-						<PositronButton className='button-apply-filter'>
+						<Button className='button-apply-filter'>
 							APPLY FILTER
-						</PositronButton>
+						</Button>
 					</div>
 				</PositronModalPopup>
 			);
