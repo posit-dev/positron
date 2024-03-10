@@ -45,20 +45,20 @@ export class PositronModalDialogs implements IPositronModalDialogsService {
 				label: 'Test Item 2'
 			}),
 			new ComboBoxMenuItem({
-				identifier: '2',
-				label: 'Test Item 2'
+				identifier: '3',
+				label: 'Test Item 3'
 			}),
 			new ComboBoxMenuItem({
-				identifier: '2',
-				label: 'Test Item 2'
+				identifier: '4',
+				label: 'Test Item 4'
 			}),
 			new ComboBoxMenuItem({
-				identifier: '2',
-				label: 'Test Item 2'
+				identifier: '5',
+				label: 'Test Item 5'
 			}),
 			new ComboBoxMenuItem({
-				identifier: '2',
-				label: 'Test Item 2'
+				identifier: '6',
+				label: 'Test Item 6'
 			}),
 		];
 
