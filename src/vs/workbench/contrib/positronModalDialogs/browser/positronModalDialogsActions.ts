@@ -3,12 +3,10 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { localize } from 'vs/nls';
-import { KeyCode, KeyMod } from 'vs/base/common/keyCodes';
 import { ILocalizedString } from 'vs/platform/action/common/action';
 import { Action2, registerAction2 } from 'vs/platform/actions/common/actions';
 import { IsDevelopmentContext } from 'vs/platform/contextkey/common/contextkeys';
 import { ServicesAccessor } from 'vs/platform/instantiation/common/instantiation';
-import { KeybindingWeight } from 'vs/platform/keybinding/common/keybindingsRegistry';
 import { IPositronModalDialogsService } from 'vs/workbench/services/positronModalDialogs/common/positronModalDialogs';
 
 /**
@@ -47,19 +45,12 @@ export function registerPositronModalDialogsActions() {
 			super({
 				id: PositronModalDialogsCommandId.ShowExampleDialog,
 				title: {
-					value: localize('workbench.action.positronModalDialogs.showExampleDialog', "Show Example Dialog"),
+					value: localize('workbench.action.positronModalDialogs.showExampleModalDialog', "Show Example Modal Dialog"),
 					original: 'Show Example Dialog'
 				},
 				f1: true,
 				category,
-				keybinding: {
-					when: IsDevelopmentContext,
-					weight: KeybindingWeight.WorkbenchContrib,
-					primary: KeyMod.CtrlCmd | KeyCode.KeyL,
-					mac: {
-						primary: KeyMod.WinCtrl | KeyCode.KeyL
-					}
-				},
+				precondition: IsDevelopmentContext
 			});
 		}
 
