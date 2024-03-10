@@ -15,7 +15,7 @@ import { Disposable } from 'vs/base/common/lifecycle';
 import { Emitter } from 'vs/base/common/event';
 
 /**
- * ConstantS.
+ * Constants.
  */
 const KEYDOWN = 'keydown';
 const MOUSEDOWN = 'mousedown';
@@ -28,8 +28,14 @@ const RESIZE = 'resize';
 export class PositronModalReactRenderer extends Disposable {
 	//#region Private Properties
 
+	/**
+	 * The set of active renderers.
+	 */
 	private static _activeRenderers = new Set<PositronModalReactRenderer>();
 
+	/**
+	 * Unbind event listeners function that unbinds the most recent event listeners.
+	 */
 	private static _unbindEventListeners?: () => void;
 
 	/**
@@ -183,8 +189,8 @@ export class PositronModalReactRenderer extends Disposable {
 			 * @param e A UIEvent.
 			 */
 			const resizeHandler = (e: UIEvent) => {
-				[...PositronModalReactRenderer._activeRenderers].forEach(s => {
-					s._onResize.fire(e);
+				[...PositronModalReactRenderer._activeRenderers].forEach(renderer => {
+					renderer._onResize.fire(e);
 				});
 			};
 
