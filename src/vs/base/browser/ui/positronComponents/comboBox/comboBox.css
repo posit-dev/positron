@@ -8,7 +8,7 @@
 	border-radius: 4px;
 	align-items: center;
 	grid-template-columns: [title] 1fr [chevron] 22px [end];
-	border: 1px solid var(--vscode-positronDropDown-border);
+	border: 1px solid var(--vscode-positronDropDown-border) !important;
 }
 
 .combo-box

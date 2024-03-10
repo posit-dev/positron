@@ -62,6 +62,7 @@ export const showInterpretersManagerModalPopup = async (
 					popupAlignment='right'
 					width={375}
 					height={'min-content'}
+					keyboardNavigation='menu'
 					onDismiss={() => dismiss()}
 				>
 					<InterpreterGroups

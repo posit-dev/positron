@@ -24,6 +24,8 @@ import { PositronModalReactRenderer } from 'vs/base/browser/ui/positronModalReac
  */
 interface ComboBoxProps {
 	layoutService: ILayoutService;
+	className?: string;
+	disabled?: boolean;
 	title: string;
 	entries: (ComboBoxMenuItem | ComboBoxMenuSeparator)[];
 	onSelectionChanged: (identifier: string) => void;
@@ -66,6 +68,7 @@ export const ComboBox = (props: ComboBoxProps) => {
 				 */
 				const dismiss = (result: string | undefined) => {
 					positronModalReactRenderer.dispose();
+					comboBoxRef.current.focus();
 					resolve(result);
 				};
 
@@ -128,6 +131,7 @@ export const ComboBox = (props: ComboBoxProps) => {
 						minWidth={comboBoxRef.current.offsetWidth}
 						width={'max-content'}
 						height={'min-content'}
+						keyboardNavigation='menu'
 						onDismiss={() => dismiss(undefined)}
 					>
 						<div className='combo-box-menu-items'>
@@ -160,7 +164,13 @@ export const ComboBox = (props: ComboBoxProps) => {
 	return (
 		<Button
 			ref={comboBoxRef}
-			className='combo-box'
+			className={
+				positronClassNames(
+					'combo-box',
+					props.className,
+					{ 'disabled': props.disabled }
+				)
+			}
 			onPressed={showDropDownMenu}
 		>
 			<div className='title'>{title}</div>

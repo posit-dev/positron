@@ -46,6 +46,11 @@ export type PopupPosition = 'top' | 'bottom';
 export type PopupAlignment = 'left' | 'right';
 
 /**
+ * PopupAlignment type.
+ */
+export type KeyboardNavigation = 'dialog' | 'menu';
+
+/**
  * PositronModalPopupProps interface.
  */
 export interface PositronModalPopupProps {
@@ -57,6 +62,7 @@ export interface PositronModalPopupProps {
 	minWidth?: number;
 	width: number | 'max-content';
 	height: number | 'min-content';
+	keyboardNavigation: KeyboardNavigation;
 	onDismiss: () => void;
 }
 
@@ -119,70 +125,104 @@ export const PositronModalPopup = (props: PropsWithChildren<PositronModalPopupPr
 				e.stopPropagation();
 			};
 
+			/**
+			 * Navigates through focusable elements.
+			 * @param direction The navigation direction.
+			 * @param wrap A value which indicates whether navgation wraps.
+			 */
+			const navigateFocusableElements = (direction: 'next' | 'previous', wrap: boolean) => {
+				// Get the focusable elements.
+				const focusableElements = popupContainerRef.current.querySelectorAll<HTMLElement>(
+					focusableElementSelectors
+				);
+
+				// If there are no focusable elements in the modal popup, consume the event and
+				// return to prevent the user from tabbing outside of the popup.
+				if (!focusableElements.length) {
+					return;
+				}
+
+				// For convenience, get the first and last focusable elements.
+				const firstFocusableElement = focusableElements[0];
+				const lastFocusableElement = focusableElements[focusableElements.length - 1];
+
+				// Get the active element.
+				const activeElement = DOM.getActiveElement();
+
+				// Get the focusable element index.
+				const focusableElementIndex = (() => {
+					// Enumerate the focusable elements and determine whether one of them is
+					// the active element.
+					if (activeElement) {
+						for (let i = 0; i < focusableElements.length; i++) {
+							if (focusableElements[i] === activeElement) {
+								return i;
+							}
+						}
+					}
+
+					// The active element is not a focusable element.
+					return -1;
+				})();
+
+				// If the user is tabbing forward, wrap around at the last element;
+				// otherwise, the user is tabbing backward, so wrap around at the first
+				// element.
+				if (direction === 'next') {
+					if (focusableElementIndex === -1 ||
+						(wrap && activeElement === lastFocusableElement)) {
+						firstFocusableElement.focus();
+					} else {
+						if (focusableElementIndex < focusableElements.length - 1) {
+							focusableElements[focusableElementIndex + 1].focus();
+						}
+					}
+				} else if (direction === 'previous') {
+					if (focusableElementIndex === -1 ||
+						(wrap && activeElement === firstFocusableElement)) {
+						lastFocusableElement.focus();
+					} else {
+						if (focusableElementIndex > 0) {
+							focusableElements[focusableElementIndex - 1].focus();
+						}
+					}
+				}
+			};
+
 			// Handle the event.
 			switch (e.code) {
 				// Escape dismisses the modal popup.
-				case 'Escape': { }
+				case 'Escape': {
 					consumeEvent();
 					props.onDismiss();
 					break;
+				}
 
-				// Tab moves between modal popup elements. This code works to keep the focus in the
-				// modal popup.
+				// When keyboard navigation is dialog, tab moves focus between modal popup elements.
+				// This code works to keep the focus in the modal popup.
 				case 'Tab': {
-					// Get the focusable elements.
-					const focusableElements = popupContainerRef.current.querySelectorAll<HTMLElement>(
-						focusableElementSelectors
-					);
+					if (props.keyboardNavigation === 'dialog') {
+						navigateFocusableElements(!e.shiftKey ? 'next' : 'previous', true);
+					}
+					consumeEvent();
+					break;
+				}
 
-					// If there are focusable elements in the modal popup, keep focus in the popup;
-					// otherwise, prevent focus from going outside of the popup.
-					if (focusableElements.length) {
-						// For convenience, get the first and last focusable elements.
-						const firstFocusableElement = focusableElements[0];
-						const lastFocusableElement = focusableElements[focusableElements.length - 1];
+				// When keyboard navigation is menu, arrow up moves focus upwards through the modal
+				// popup elements.
+				case 'ArrowUp': {
+					if (props.keyboardNavigation === 'menu') {
+						navigateFocusableElements('previous', false);
+						consumeEvent();
+					}
+					break;
+				}
 
-						// Get the active element.
-						const activeElement = DOM.getActiveElement();
-
-						/**
-						 * Determines whether the active element is one of the focusable elements.
-						 * @returns true if the active element is one of the focusable element;
-						 * otherwise, false.
-						 */
-						const activeElementIsFocusableElement = () => {
-							// Enumerate the focusable elements and determine whether one of them is
-							// the active element.
-							if (activeElement) {
-								for (let i = 0; i < focusableElements.length; i++) {
-									if (focusableElements[i] === activeElement) {
-										return true;
-									}
-								}
-							}
-
-							// The active element is not a focusable element.
-							return false;
-						};
-
-						// If the user is tabbing forward, wrap around at the last element;
-						// otherwise, the user is tabbing backward, so wrap around at the first
-						// element.
-						if (!e.shiftKey) {
-							if (!activeElementIsFocusableElement() ||
-								activeElement === lastFocusableElement) {
-								consumeEvent();
-								firstFocusableElement.focus();
-							}
-						} else {
-							if (!activeElementIsFocusableElement() ||
-								activeElement === firstFocusableElement) {
-								consumeEvent();
-								lastFocusableElement.focus();
-							}
-						}
-					} else {
-						// Prevent focus from going outside of the modal popup.
+				// When keyboard navigation is menu, arrow down moves focus downwards through the
+				// modal popup elements.
+				case 'ArrowDown': {
+					if (props.keyboardNavigation === 'menu') {
+						navigateFocusableElements('next', false);
 						consumeEvent();
 					}
 					break;
@@ -193,7 +233,7 @@ export const PositronModalPopup = (props: PropsWithChildren<PositronModalPopupPr
 				case 'Enter':
 					break;
 
-				// Eat other keys.
+				// Eat other keys to prevent the user from executing actions.
 				default:
 					consumeEvent();
 					break;

@@ -121,6 +121,7 @@ export const showContextMenu = async (options: {
 					minWidth={options.width}
 					width={'max-content'}
 					height={'min-content'}
+					keyboardNavigation='menu'
 					onDismiss={dismiss}
 				>
 					<div className='context-menu-items'>

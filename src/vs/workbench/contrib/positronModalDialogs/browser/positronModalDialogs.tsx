@@ -13,6 +13,8 @@ import { PositronModalDialog } from 'vs/base/browser/ui/positronModalDialog/posi
 import { OKCancelActionBar } from 'vs/base/browser/ui/positronModalDialog/components/okCancelActionBar';
 import { PositronModalReactRenderer } from 'vs/base/browser/ui/positronModalReactRenderer/positronModalReactRenderer';
 import { IModalDialogPromptInstance, IPositronModalDialogsService } from 'vs/workbench/services/positronModalDialogs/common/positronModalDialogs';
+import { ComboBox } from 'vs/base/browser/ui/positronComponents/comboBox/comboBox';
+import { ComboBoxMenuItem } from 'vs/base/browser/ui/positronComponents/comboBox/comboBoxMenuItem';
 
 /**
  * PositronModalDialogs class.
@@ -32,6 +34,34 @@ export class PositronModalDialogs implements IPositronModalDialogsService {
 	 * @returns A Promise<void> that resolves when the example modal dialog is done.
 	 */
 	async showExampleModalDialog1(title: string): Promise<void> {
+		// Build the condition combo box entries.
+		const conditionEntries = [
+			new ComboBoxMenuItem({
+				identifier: '1',
+				label: 'Test Item 1'
+			}),
+			new ComboBoxMenuItem({
+				identifier: '2',
+				label: 'Test Item 2'
+			}),
+			new ComboBoxMenuItem({
+				identifier: '2',
+				label: 'Test Item 2'
+			}),
+			new ComboBoxMenuItem({
+				identifier: '2',
+				label: 'Test Item 2'
+			}),
+			new ComboBoxMenuItem({
+				identifier: '2',
+				label: 'Test Item 2'
+			}),
+			new ComboBoxMenuItem({
+				identifier: '2',
+				label: 'Test Item 2'
+			}),
+		];
+
 		// Return a promise that resolves when the example modal dialog is done.
 		return new Promise<void>((resolve) => {
 			// Create the modal React renderer.
@@ -49,7 +79,14 @@ export class PositronModalDialogs implements IPositronModalDialogsService {
 				return (
 					<PositronModalDialog renderer={positronModalReactRenderer} title={title} width={400} height={300} accept={acceptHandler} cancel={acceptHandler}>
 						<ContentArea>
-							<TestContent message='Example' />
+							<ComboBox
+								layoutService={this.layoutService}
+								className='yaya'
+								title='Select Column'
+								entries={conditionEntries}
+								onSelectionChanged={identifier => console.log(`Select Column changed to ${identifier}`)}
+							/>
+
 						</ContentArea>
 						<OKActionBar accept={acceptHandler} />
 					</PositronModalDialog>

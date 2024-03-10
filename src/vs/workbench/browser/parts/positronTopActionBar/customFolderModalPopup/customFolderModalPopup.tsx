@@ -62,6 +62,7 @@ export const showCustomFolderModalPopup = async (
 					minWidth={275}
 					width={'max-content'}
 					height={'min-content'}
+					keyboardNavigation='menu'
 					onDismiss={() => dismiss()}
 				>
 					<CustomFolderMenuItems

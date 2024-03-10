@@ -104,6 +104,7 @@ export const addRowFilterModalPopup = async (
 					minWidth={275}
 					width={'max-content'}
 					height={'min-content'}
+					keyboardNavigation='dialog'
 					onDismiss={() => dismiss()}
 				>
 					<div className='add-row-filter-modal-popup-body'>

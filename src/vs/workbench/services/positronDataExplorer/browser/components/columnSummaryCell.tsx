@@ -123,20 +123,6 @@ export const ColumnSummaryCell = (props: ColumnSummaryCellProps) => {
 				<div className='cursor-background' />
 			}
 			<div className='basic-info'>
-				{/*
-				<PositronButton
-					className='expand-collapse-button'
-					onPressed={() =>
-						props.instance.toggleExpandedColumn(props.columnIndex)
-					}
-				>
-					{expanded ?
-						<div className={`expand-collapse-icon codicon codicon-chevron-down`} /> :
-						<div className={`expand-collapse-icon codicon codicon-chevron-right`} />
-					}
-				</PositronButton>
-				*/}
-
 				<div
 					className='expand-collapse-button'
 					onClick={() =>

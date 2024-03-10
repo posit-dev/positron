@@ -18,6 +18,5 @@
 }
 
 .button.solid:focus-visible {
-	border-radius: 4px;
 	outline-offset: 2px !important;
 }
