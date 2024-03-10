@@ -34,8 +34,8 @@ export class PositronModalDialogs implements IPositronModalDialogsService {
 	 * @returns A Promise<void> that resolves when the example modal dialog is done.
 	 */
 	async showExampleModalDialog1(title: string): Promise<void> {
-		// Build the condition combo box entries.
-		const conditionEntries = [
+		// Build the test combo box entries.
+		const testEntries = [
 			new ComboBoxMenuItem({
 				identifier: '1',
 				label: 'Test Item 1'
@@ -83,7 +83,7 @@ export class PositronModalDialogs implements IPositronModalDialogsService {
 								layoutService={this.layoutService}
 								className='yaya'
 								title='Select Column'
-								entries={conditionEntries}
+								entries={testEntries}
 								onSelectionChanged={identifier => console.log(`Select Column changed to ${identifier}`)}
 							/>
 
