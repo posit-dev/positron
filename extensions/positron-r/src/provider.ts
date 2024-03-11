@@ -251,7 +251,7 @@ function binFragments(): string[] {
 	}
 }
 
-async function findCurrentRBinary(): Promise<string | undefined> {
+export async function findCurrentRBinary(): Promise<string | undefined> {
 	if (os.platform() === 'win32') {
 		const registryBinary = findCurrentRBinaryFromRegistry();
 		if (registryBinary) {

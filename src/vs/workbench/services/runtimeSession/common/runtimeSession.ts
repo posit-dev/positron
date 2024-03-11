@@ -581,6 +581,10 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 		// If it has not been registered, validate the metadata.
 		if (!languageRuntime) {
 			try {
+				// Before attempting to validate the runtime, add it to the set of
+				// starting consoles.
+				this._startingConsolesByLanguageId.set(metadata.languageId, metadata);
+
 				// Attempt to validate the metadata. Note that this can throw if the metadata
 				// is invalid!
 				const validated = await this._sessionManager.validateMetadata(metadata);
@@ -609,6 +613,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 
 				// Replace the metadata we were given with the validated metadata.
 				metadata = validated;
+				this._startingConsolesByLanguageId.set(metadata.languageId, validated);
 
 			} catch (err) {
 				// Log the error and re-throw it.
