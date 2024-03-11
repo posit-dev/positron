@@ -284,8 +284,7 @@ export class CodeCellRenderer extends AbstractCellRenderer implements IListRende
 				height: 0
 			},
 		}, {
-			// contributions: this.notebookEditor.creationOptions.cellEditorContributions
-			contributions: [],
+			contributions: this.notebookEditor.creationOptions.cellEditorContributions
 		});
 
 		templateDisposables.add(editor);
