@@ -51,7 +51,9 @@ const cellTypeToKind = {
 };
 
 /**
- * A headless instance that controls the complexity of the notebook.
+ * Class that abstracts away _most_ of the interfacing with existing notebook classes/models/functions
+ * in an attempt to control the complexity of the notebook. This class is passed into React
+ * and is the source of truth for rendering and controlling the notebook.
  * This is where all the logic and state for the notebooks is controlled and encapsulated.
  * This is then given to the UI to render.
  */
