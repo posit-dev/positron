@@ -12,6 +12,7 @@ import { PositronNotebookCell } from 'vs/workbench/contrib/positronNotebook/brow
 import { parseOutputData } from 'vs/workbench/contrib/positronNotebook/browser/getOutputContents';
 import { useObservedValue } from 'vs/workbench/contrib/positronNotebook/browser/useObservedValue';
 import { useCellEditorWidget } from './useCellEditorWidget';
+import { localize } from 'vs/nls';
 
 /**
  * Logic for running a cell and handling its output.
@@ -34,13 +35,13 @@ export function NotebookCell(opts: {
 			<div className='action-bar'>
 				<PositronButton
 					className='action-button'
-					ariaLabel={isRunning ? 'Stop execution' : 'Run cell'}
+					ariaLabel={isRunning ? localize('stopExecution', 'Stop execution') : localize('runCell', 'Run cell')}
 					onPressed={() => opts.cell.run()} >
 					<div className={`button-icon codicon ${isRunning ? 'codicon-primitive-square' : 'codicon-run'}`} />
 				</PositronButton>
 				<PositronButton
 					className='action-button'
-					ariaLabel='Delete cell'
+					ariaLabel={localize('deleteCell', 'Delete cell')}
 					onPressed={() => opts.cell.delete()}
 				>
 					<div className='button-icon codicon codicon-trash' />

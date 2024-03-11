@@ -10,6 +10,7 @@ import { useNotebookInstance } from 'vs/workbench/contrib/positronNotebook/brows
 import { NotebookCell } from './NotebookCell';
 import { AddCellButton } from './AddCellButton';
 import { useObservedValue } from './useObservedValue';
+import { localize } from 'vs/nls';
 
 
 export function PositronNotebookComponent() {
@@ -23,10 +24,13 @@ export function PositronNotebookComponent() {
 			</div>
 			<div className='positron-notebook-cells-container'>
 				<div className='positron-notebook-cells-action-bar'>
-					<PositronButton className='action action-button run-button' ariaLabel='Run all cells' onPressed={() => {
-						notebookInstance.runAllCells();
-					}}>
-						<span className='action-label'>Run all cells</span>
+					<PositronButton
+						className='action action-button run-button'
+						ariaLabel={localize('runAllCells', 'Run all cells')}
+						onPressed={() => { notebookInstance.runAllCells(); }}
+					>
+						<span className='action-label'>
+							{localize('runAllCells', 'Run all cells')}</span>
 						<div className={`button-icon codicon ${'codicon-run'}`} />
 					</PositronButton>
 				</div>
@@ -34,7 +38,7 @@ export function PositronNotebookComponent() {
 				{notebookCells?.length ? notebookCells?.map((cell, index) => <>
 					<NotebookCell key={cell.viewModel.handle} cell={cell} />
 					<AddCellButton index={index + 1} />
-				</>) : <div>No cells</div>
+				</>) : <div>{localize('noCells', 'No cells')}</div>
 				}
 			</div>
 		</div>
