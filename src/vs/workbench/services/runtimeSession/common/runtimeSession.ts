@@ -495,9 +495,8 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 				`${formatLanguageRuntimeMetadata(metadata)} ` +
 				`automatically starting. Source: ${source}`);
 
-			// Auto started runtimes are always started as console sessions.
-			return this.doCreateRuntimeSession(metadata,
-				metadata.runtimeName, LanguageRuntimeSessionMode.Console);
+			return this.doAutoStartRuntime(metadata,
+				metadata.runtimeName);
 		} else {
 			this._logService.debug(`Deferring the start of language runtime ` +
 				`${formatLanguageRuntimeMetadata(metadata)} (Source: ${source}) ` +
@@ -513,8 +512,8 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 					`${formatLanguageRuntimeMetadata(metadata)} ` +
 					`automatically starting after workspace trust was granted. ` +
 					`Source: ${source}`);
-				return this.doCreateRuntimeSession(metadata,
-					metadata.runtimeName, LanguageRuntimeSessionMode.Console);
+				return this.doAutoStartRuntime(metadata,
+					metadata.runtimeName);
 			});
 		}
 
@@ -558,6 +557,74 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 	//#endregion IOpener Implementation
 
 	//#region Private Methods
+
+	/**
+	 * Automatically starts a runtime. Does not perform any checks to see if
+	 * auto-start is enabled or trust is granted; call autoStartRuntime()
+	 * instead if you need those checks.
+	 *
+	 * @param metadata The metadata for the runtime to start.
+	 * @param source The source of the request to start the runtime.
+	 */
+	private async doAutoStartRuntime(
+		metadata: ILanguageRuntimeMetadata,
+		source: string): Promise<string> {
+
+		// We need a session manager to start a runtime.
+		if (!this._sessionManager) {
+			throw new Error(`No session manager has been registered.`);
+		}
+
+		// Check to see if the runtime has already been registered with the
+		// language runtime service.
+		const languageRuntime =
+			this._languageRuntimeService.getRegisteredRuntime(metadata.runtimeId);
+
+		// If it has not been registered, validate the metadata.
+		if (!languageRuntime) {
+			try {
+				// Attempt to validate the metadata. Note that this can throw if the metadata
+				// is invalid!
+				const validated = await this._sessionManager.validateMetadata(metadata);
+
+				// Did the validator change the runtime ID? If so, we're starting a different
+				// runtime than the one that we were asked for.
+				//
+				// This isn't unexpected but deserves some logging.
+				if (validated.runtimeId !== metadata.runtimeId) {
+					const existing =
+						this._languageRuntimeService.getRegisteredRuntime(validated.runtimeId);
+					if (existing) {
+						// This should shouldn't happen, but warn if it does.
+						this._logService.warn(
+							`Language runtime ${formatLanguageRuntimeMetadata(validated)} ` +
+							`already registered; re-registering.`);
+					} else {
+						this._logService.info(
+							`Replacing runtime ${formatLanguageRuntimeMetadata(metadata)} => `
+							+ `${formatLanguageRuntimeMetadata(validated)}`);
+					}
+				}
+
+				// Register the newly validated runtime.
+				this._languageRuntimeService.registerRuntime(validated);
+
+				// Replace the metadata we were given with the validated metadata.
+				metadata = validated;
+
+			} catch (err) {
+				// Log the error and re-throw it.
+				this._logService.error(
+					`Language runtime ${formatLanguageRuntimeMetadata(metadata)} ` +
+					`could not be validated. Reason: ${err}`);
+				throw err;
+			}
+		}
+
+		// Auto-started runtimes are (currently) always console sessions.
+		return this.doCreateRuntimeSession(metadata, metadata.runtimeName,
+			LanguageRuntimeSessionMode.Console);
+	}
 
 	/**
 	 * Creates and starts a runtime session.

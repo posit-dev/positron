@@ -1134,6 +1134,15 @@ export class MainThreadLanguageRuntime
 	}
 
 	/**
+	 * Validates the metadata for a language runtime.
+	 *
+	 * @param metadata The metadata to validate
+	 */
+	async validateMetadata(metadata: ILanguageRuntimeMetadata): Promise<ILanguageRuntimeMetadata> {
+		return this._proxy.$validateLangaugeRuntimeMetadata(metadata);
+	}
+
+	/**
 	 * Creates a new language runtime session adapter, to wrap a new or existing
 	 * runtime session.
 	 *

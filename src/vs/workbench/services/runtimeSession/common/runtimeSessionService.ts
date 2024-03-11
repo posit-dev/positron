@@ -201,6 +201,16 @@ export interface ILanguageRuntimeSessionManager {
 		runtimeMetadata: ILanguageRuntimeMetadata,
 		sessionMetadata: IRuntimeSessionMetadata):
 		Promise<ILanguageRuntimeSession>;
+
+	/**
+	 * Validates a runtime metadata object. Returns the updated metadata object,
+	 * or throws an error if the metadata is invalid.
+	 *
+	 * @param metadata The metadata of the runtime to validate.
+	 *
+	 * @returns A promise that resolves to the validated metadata.
+	 */
+	validateMetadata(metadata: ILanguageRuntimeMetadata): Promise<ILanguageRuntimeMetadata>;
 }
 
 
