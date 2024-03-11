@@ -15,13 +15,8 @@ import { useCellEditorWidget } from './useCellEditorWidget';
 
 /**
  * Logic for running a cell and handling its output.
- * @param cell The cell to run
- * @param onRunCell A callback to run the cell
- * @param getCellExecutionStatus A callback to get the execution status of the cell
- * @param sizeObservable An observable for the size of the notebook
- * @returns An object with the output contents and a function to run the cell.
+ * @param opts.cell The `PositronNotebookCell` to render
  */
-
 export function NotebookCell(opts: {
 	cell: PositronNotebookCell;
 }) {
