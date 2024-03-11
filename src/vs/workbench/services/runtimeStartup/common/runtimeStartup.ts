@@ -428,6 +428,11 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 			return;
 		}
 
+		// Ignore if we already have a console starting for this language.
+		if (this._runtimeSessionService.hasStartingOrRunningConsole(metadata.languageId)) {
+			return;
+		}
+
 		// Get the runtime metadata that is affiliated with this workspace, if any.
 		const affiliatedRuntimeMetadataStr = this._storageService.get(
 			this.storageKeyForRuntime(metadata), StorageScope.WORKSPACE);
