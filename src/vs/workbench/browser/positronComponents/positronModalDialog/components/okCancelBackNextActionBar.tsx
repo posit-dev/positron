@@ -10,18 +10,20 @@ import { localize } from 'vs/nls';
  * OKCancelBackNextActionBarProps interface.
  */
 interface OKCancelBackNextActionBarProps {
-	okButtonTitle?: string;
-	cancelButtonTitle?: string;
-	backButtonTitle?: string;
-	nextButtonTitle?: string;
-	hideOkButton?: boolean;
-	hideCancelButton?: boolean;
-	hideBackButton?: boolean;
-	hideNextButton?: boolean;
-	accept: () => void;
-	cancel: () => void;
-	back: () => void;
-	next: () => void;
+	okButtonConfig: ActionBarButtonConfig;
+	cancelButtonConfig: ActionBarButtonConfig;
+	backButtonConfig: ActionBarButtonConfig;
+	nextButtonConfig: ActionBarButtonConfig;
+}
+
+/**
+ * ActionBarButtonConfig interface.
+ */
+interface ActionBarButtonConfig {
+	title?: string;
+	hide?: boolean;
+	disable?: boolean;
+	onClick: () => void;
 }
 
 /**
@@ -29,31 +31,31 @@ interface OKCancelBackNextActionBarProps {
  * @param props An OKCancelBackNextActionBarProps that contains the component properties.
  * @returns The rendered component.
  */
-export const OKCancelBackNextActionBar = (props: OKCancelBackNextActionBarProps) => {
+export const OKCancelBackNextActionBar = ({ okButtonConfig, cancelButtonConfig, backButtonConfig, nextButtonConfig }: OKCancelBackNextActionBarProps) => {
 	// Render.
 	return (
 		<div className='ok-cancel-action-bar top-separator'>
 			<div className='left-actions'>
-				{!props.hideBackButton && (
-					<button className='button action-bar-button' tabIndex={0} onClick={props.back}>
-						{props.backButtonTitle ?? localize('positronBack', "Back")}
+				{!backButtonConfig.hide && (
+					<button className='button action-bar-button' tabIndex={0} onClick={backButtonConfig.onClick} disabled={backButtonConfig.disable ?? false}>
+						{backButtonConfig.title ?? localize('positronBack', "Back")}
 					</button>
 				)}
 			</div>
 			<div className='right-actions'>
-				{!props.hideCancelButton && (
-					<button className='button action-bar-button' tabIndex={0} onClick={props.cancel}>
-						{props.cancelButtonTitle ?? localize('positronCancel', "Cancel")}
+				{!cancelButtonConfig.hide && (
+					<button className='button action-bar-button' tabIndex={0} onClick={cancelButtonConfig.onClick} disabled={cancelButtonConfig.disable ?? false}>
+						{cancelButtonConfig.title ?? localize('positronCancel', "Cancel")}
 					</button>
 				)}
-				{!props.hideOkButton && (
-					<button className='button action-bar-button default' tabIndex={0} onClick={props.accept}>
-						{props.okButtonTitle ?? localize('positronOK', "OK")}
+				{!okButtonConfig.hide && (
+					<button className='button action-bar-button default' tabIndex={0} onClick={okButtonConfig.onClick} disabled={okButtonConfig.disable ?? false}>
+						{okButtonConfig.title ?? localize('positronOK', "OK")}
 					</button>
 				)}
-				{!props.hideNextButton && (
-					<button className='button action-bar-button default' tabIndex={0} onClick={props.next}>
-						{props.nextButtonTitle ?? localize('positronNext', "Next")}
+				{!nextButtonConfig.hide && (
+					<button className='button action-bar-button default' tabIndex={0} onClick={nextButtonConfig.onClick} disabled={nextButtonConfig.disable ?? false}>
+						{nextButtonConfig.title ?? localize('positronNext', "Next")}
 					</button>
 				)}
 			</div>

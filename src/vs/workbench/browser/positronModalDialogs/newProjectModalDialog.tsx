@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2022 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
 import 'vs/css!./newProjectModalDialog';
@@ -12,13 +12,13 @@ import { ServicesAccessor } from 'vs/editor/browser/editorExtensions';
 import { IFileDialogService } from 'vs/platform/dialogs/common/dialogs';
 import { Checkbox } from 'vs/base/browser/ui/positronModalDialog/components/checkbox';
 import { IWorkbenchLayoutService } from 'vs/workbench/services/layout/browser/layoutService';
-import { VerticalStack } from 'vs/base/browser/ui/positronModalDialog/components/verticalStack';
-import { VerticalSpacer } from 'vs/base/browser/ui/positronModalDialog/components/verticalSpacer';
 import { LabeledTextInput } from 'vs/base/browser/ui/positronModalDialog/components/labeledTextInput';
 import { LabeledFolderInput } from 'vs/base/browser/ui/positronModalDialog/components/labeledFolderInput';
 import { PositronModalDialogReactRenderer } from 'vs/base/browser/ui/positronModalDialog/positronModalDialogReactRenderer';
 import { PositronButton } from 'vs/base/browser/ui/positronComponents/positronButton';
-import { PositronWizardModalDialog } from 'vs/base/browser/ui/positronModalDialog/positronWizardModalDialog';
+import { PositronModalDialog } from 'vs/base/browser/ui/positronModalDialog/positronModalDialog';
+import { PositronWizardStep } from 'vs/base/browser/ui/positronModalDialog/components/wizardStep';
+import { PositronWizardSubStep } from 'vs/base/browser/ui/positronModalDialog/components/wizardSubStep';
 
 /**
  * NewProjectResult interface.
@@ -56,7 +56,7 @@ export const showNewProjectModalDialog = async (accessor: ServicesAccessor): Pro
 		const NewProjectModalDialog = () => {
 			// Hooks.
 			const [newProjectResult, setNewProjectResult, newProjectResultRef] = useStateRef<NewProjectResult>({
-				projectType: '',
+				projectType: 'Python Project',
 				projectName: 'myPythonProject',
 				parentFolder,
 				initGitRepo: false,
@@ -67,6 +67,7 @@ export const showNewProjectModalDialog = async (accessor: ServicesAccessor): Pro
 			const projectNameRef = useRef<HTMLInputElement>(undefined!);
 			const [currentStep, setCurrentStep] = useState(0);
 			const totalSteps = 4;
+			const okButtonTitle = localize('positronNewProjectModalDialogCreateButtonTitle', "Create");
 
 			// The accept handler.
 			const acceptHandler = () => {
@@ -112,87 +113,144 @@ export const showNewProjectModalDialog = async (accessor: ServicesAccessor): Pro
 
 			// Render.
 			return (
-				<PositronWizardModalDialog
+				<PositronModalDialog
 					width={700} height={500}
 					title={localize('positronNewProjectModalDialogTitle', "Create New Project")}
-					okButtonTitle={localize('positronNewProjectModalDialogCreateButtonTitle', "Create")}
-					currentStep={currentStep}
-					totalSteps={totalSteps}
-					accept={acceptHandler} cancel={cancelHandler} back={backHandler} next={nextHandler}>
+				>
 					{currentStep === 0 && (
-						<>
-							<div style={{ fontSize: '26px', fontWeight: 'bold', marginTop: '16px', marginBottom: '16px' }}>Project Type</div>
-							<div style={{ fontSize: '13px', color: '#CCCCCC', marginTop: '16px', marginBottom: '16px' }}>Select the type of project to create.</div>
-							<div className='project-type-grid'>
-								<PositronButton>
-									<div className='line' style={{ marginLeft: '20px', width: '200px' }}>Pure Python Project</div>
-								</PositronButton>
-								<PositronButton>
-									<div className='line' style={{ marginLeft: '20px', width: '200px' }}>Jupyter Notebook</div>
-								</PositronButton>
-								<PositronButton>
-									<div className='line' style={{ marginLeft: '20px', width: '200px' }}>R Project</div>
-								</PositronButton>
-							</div>
-						</>
+						<PositronWizardStep
+							title='Project Type'
+							currentStep={currentStep}
+							totalSteps={totalSteps}
+							okButtonTitle={okButtonTitle}
+							accept={acceptHandler}
+							cancel={cancelHandler}
+							back={backHandler}
+							next={nextHandler}
+						>
+							<PositronWizardSubStep title='Select the type of project to create.'>
+								<div className='project-type-grid'>
+									<PositronButton>
+										<div className='line' style={{ marginLeft: '20px', width: '200px' }}>Pure Python Project</div>
+									</PositronButton>
+									<PositronButton>
+										<div className='line' style={{ marginLeft: '20px', width: '200px' }}>Jupyter Notebook</div>
+									</PositronButton>
+									<PositronButton>
+										<div className='line' style={{ marginLeft: '20px', width: '200px' }}>R Project</div>
+									</PositronButton>
+								</div>
+							</PositronWizardSubStep>
+						</PositronWizardStep>
 					)}
 					{currentStep === 1 && (
-						<>
-							<div style={{ fontSize: '26px', fontWeight: 'bold', marginTop: '16px', marginBottom: '32px' }}>Set project name and location</div>
-							<VerticalStack>
+						<PositronWizardStep
+							title='Set project name and location'
+							currentStep={currentStep}
+							totalSteps={totalSteps}
+							okButtonTitle={okButtonTitle}
+							accept={acceptHandler}
+							cancel={cancelHandler}
+							back={backHandler}
+							next={nextHandler}
+						>
+							<PositronWizardSubStep
+								title='Project Name'
+							// description={'Enter a name for your new ' + newProjectResult.projectType}
+							>
 								<LabeledTextInput
 									ref={projectNameRef}
-									label='Project name'
+									label={`Enter a name for your new  + newProjectResult.projectType`}
 									autoFocus
 									value={newProjectResult.projectName}
-									onChange={e => setNewProjectResult({ ...newProjectResult, projectName: e.target.value })} />
+									onChange={e => setNewProjectResult({ ...newProjectResult, projectName: e.target.value })}
+								/>
+							</PositronWizardSubStep>
+							<PositronWizardSubStep
+								title='Parent Directory'
+								// description='Select a directory to create your project in.'
+								feedback={'Your project will be created at: ' + newProjectResult.parentFolder + '/' + newProjectResult.projectName}
+							>
 								<LabeledFolderInput
-									label='Create project as subfolder of'
+									label='Select a directory to create your project in'
 									value={newProjectResult.parentFolder}
 									onBrowse={browseHandler}
-									onChange={e => setNewProjectResult({ ...newProjectResult, parentFolder: e.target.value })} />
-								<div style={{ marginBottom: '16px' }}>
+									onChange={e => setNewProjectResult({ ...newProjectResult, parentFolder: e.target.value })}
+								/>
+								{/* <div style={{ marginBottom: '16px' }}>
 									Your project will be created at:&nbsp;
 									<span style={{ fontFamily: 'monospace', color: '#D7BA7D' }}>
 										{newProjectResult.parentFolder + '/' + newProjectResult.projectName}
 									</span>
-								</div>
-							</VerticalStack>
-							<VerticalSpacer>
+								</div> */}
+							</PositronWizardSubStep>
+							<PositronWizardSubStep>
 								<Checkbox label='Initialize project as git repository' onChanged={checked => setNewProjectResult({ ...newProjectResult, initGitRepo: checked })} />
-								{/* <Checkbox label='Open in a new window' onChanged={checked => setNewProjectResult({ ...newProjectResult, newWindow: checked })} /> */}
-							</VerticalSpacer>
-						</>
+							</PositronWizardSubStep>
+						</PositronWizardStep>
 					)}
 					{currentStep === 2 && (
-						<>
-							<div style={{ fontSize: '26px', fontWeight: 'bold', marginTop: '16px', marginBottom: '32px' }}>Set up project environment</div>
-							<VerticalStack>
+						<PositronWizardStep
+							title='Set up project environment'
+							currentStep={currentStep}
+							totalSteps={totalSteps}
+							okButtonTitle={okButtonTitle}
+							accept={acceptHandler}
+							cancel={cancelHandler}
+							back={backHandler}
+							next={nextHandler}
+						>
+							<PositronWizardSubStep
+								title='Python Interpreter'
+							// description='Select a Python interpreter for your project. You can modify this later if you change your mind.'
+							>
 								<LabeledTextInput
-									// ref={projectNameRef}
-									label='Python Interpreter'
+									label='Select a Python interpreter for your project. You can modify this later if you change your mind'
 									autoFocus
 									value={''}
-									onChange={e => console.log('python interpreter', e)} />
-							</VerticalStack>
-						</>
+									onChange={e => console.log('python interpreter', e)}
+								/>
+							</PositronWizardSubStep>
+							<PositronWizardSubStep
+								// title='Python Environment'
+								feedback={`The Venv environment will be created at: ${newProjectResult.parentFolder}/${newProjectResult.projectName}/.venv`}
+							>
+								<LabeledTextInput
+									label='Python Environment'
+									autoFocus
+									value={'Create new environment'}
+									onChange={e => console.log('create or reuse existing env', e)}
+								/>
+								<LabeledTextInput
+									label='Select an environment type for your project'
+									autoFocus
+									value={'Venv'}
+									onChange={e => console.log('python interpreter', e)}
+								/>
+							</PositronWizardSubStep>
+						</PositronWizardStep>
 					)}
 					{currentStep === 3 && (
-						<>
-							<div style={{ fontSize: '26px', fontWeight: 'bold', marginTop: '16px', marginBottom: '32px' }}>Install initial dependencies</div>
-							<VerticalStack>
-								<div>
-									Select initial dependencies to install into the project environment at:&nbsp;
-									<span style={{ fontFamily: 'monospace', color: '#D7BA7D' }}>
-										{newProjectResult.parentFolder + '/' + newProjectResult.projectName + '/.venv'}
-									</span>
-								</div>
-								<Checkbox label='Install dependencies from selected interpreter' onChanged={checked => setNewProjectResult({ ...newProjectResult, inheritDeps: checked })} />
-								<Checkbox label='Install ipykernel for Positron Python support' defaultValue={true} onChanged={checked => setNewProjectResult({ ...newProjectResult, installIpykernel: checked })} />
-							</VerticalStack>
-						</>
+						<PositronWizardStep
+							title='Install initial dependencies'
+							currentStep={currentStep}
+							totalSteps={totalSteps}
+							okButtonTitle={okButtonTitle}
+							accept={acceptHandler}
+							cancel={cancelHandler}
+							back={backHandler}
+							next={nextHandler}
+						>
+							<PositronWizardSubStep
+								title='Dependencies'
+								description={`Select initial dependencies to install in to the project environment at: ${newProjectResult.parentFolder}/${newProjectResult.projectName}/.venv`}
+							>
+								<Checkbox label='Install dependencies from selected interpreter: <selected interpreter>' onChanged={checked => setNewProjectResult({ ...newProjectResult, inheritDeps: checked })} />
+								<Checkbox label='Install `ipykernel` for Positron Python support' defaultValue={true} onChanged={checked => setNewProjectResult({ ...newProjectResult, installIpykernel: checked })} />
+							</PositronWizardSubStep>
+						</PositronWizardStep>
 					)}
-				</PositronWizardModalDialog>
+				</PositronModalDialog>
 			);
 		};
 
