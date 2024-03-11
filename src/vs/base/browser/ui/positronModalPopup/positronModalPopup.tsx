@@ -46,7 +46,7 @@ export type PopupPosition = 'top' | 'bottom';
 export type PopupAlignment = 'left' | 'right';
 
 /**
- * PopupAlignment type.
+ * KeyboardNavigation type.
  */
 export type KeyboardNavigation = 'dialog' | 'menu';
 
