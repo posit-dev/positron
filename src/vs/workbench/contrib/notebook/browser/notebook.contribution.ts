@@ -122,12 +122,10 @@ import { ContextKeyExpr } from 'vs/platform/contextkey/common/contextkey';
 import { AccessibilityHelpAction, AccessibleViewAction } from 'vs/workbench/contrib/accessibility/browser/accessibleViewActions';
 import { NotebookVariables } from 'vs/workbench/contrib/notebook/browser/contrib/notebookVariables/notebookVariables';
 
-
 // --- Start Positron ---
 import { getShouldUsePositronEditor } from 'vs/workbench/contrib/positronNotebook/browser/positronNotebook.contribution';
 import { PositronNotebookEditorInput } from 'vs/workbench/contrib/positronNotebook/browser/PositronNotebookEditorInput';
 // --- End Positron ---
-
 /*--------------------------------------------------------------------------------------------- */
 
 Registry.as<IEditorPaneRegistry>(EditorExtensions.EditorPane).registerEditorPane(
@@ -668,7 +666,6 @@ class SimpleNotebookWorkingCopyEditorHandler extends Disposable implements IWork
 			return editor instanceof PositronNotebookEditorInput && editor.viewType === this._getViewType(workingCopy) && isEqual(workingCopy.resource, editor.resource);
 		}
 		// --- End Positron ---
-
 		return editor instanceof NotebookEditorInput && editor.viewType === this._getViewType(workingCopy) && isEqual(workingCopy.resource, editor.resource);
 	}
 
@@ -678,7 +675,6 @@ class SimpleNotebookWorkingCopyEditorHandler extends Disposable implements IWork
 			return PositronNotebookEditorInput.getOrCreate(this._instantiationService, workingCopy.resource, undefined, this._getViewType(workingCopy)!);
 		}
 		// --- End Positron ---
-
 		return NotebookEditorInput.getOrCreate(this._instantiationService, workingCopy.resource, undefined, this._getViewType(workingCopy)!);
 	}
 

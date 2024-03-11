@@ -202,7 +202,6 @@ export class NotebookProviderInfoStore extends Disposable {
 				}
 
 				const notebookOptions = { ...options, cellOptions } as INotebookEditorOptions;
-
 				// --- Start Positron ---
 				if (getShouldUsePositronEditor(this._configurationService)) {
 					// Use our editor instead of the built in one.
