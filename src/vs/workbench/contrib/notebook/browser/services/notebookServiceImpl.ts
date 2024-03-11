@@ -186,12 +186,12 @@ export class NotebookProviderInfoStore extends Disposable {
 				let notebookUri: URI;
 
 				let cellOptions: IResourceEditorInput | undefined;
-				const preferredResource = resource;
+				let preferredResource = resource;
 
 				if (data) {
 					// resource is a notebook cell
 					notebookUri = this.uriIdentService.asCanonicalUri(data.notebook);
-					// preferredResource = data.notebook;
+					preferredResource = data.notebook;
 					cellOptions = { resource, options };
 				} else {
 					notebookUri = this.uriIdentService.asCanonicalUri(resource);
