@@ -206,11 +206,9 @@ export class NotebookProviderInfoStore extends Disposable {
 				// --- Start Positron ---
 				if (getShouldUsePositronEditor(this._configurationService)) {
 					// Use our editor instead of the built in one.
-					const editor = PositronNotebookEditorInput.getOrCreate(this._instantiationService, notebookUri, preferredResource, notebookProviderInfo.id);
-					return { editor, options };
+					return { editor: PositronNotebookEditorInput.getOrCreate(this._instantiationService, notebookUri, preferredResource, notebookProviderInfo.id), options };
 				}
 				// --- End Positron ---
-
 				const editor = NotebookEditorInput.getOrCreate(this._instantiationService, notebookUri, preferredResource, notebookProviderInfo.id);
 				return { editor, options: notebookOptions };
 			};
@@ -231,10 +229,7 @@ export class NotebookProviderInfoStore extends Disposable {
 					return { editor, options };
 				}
 				// --- End Positron ---
-
-				const editor = NotebookEditorInput.getOrCreate(this._instantiationService, ref.object.resource, undefined, notebookProviderInfo.id);
-
-				return { editor, options };
+				return { editor: NotebookEditorInput.getOrCreate(this._instantiationService, ref.object.resource, undefined, notebookProviderInfo.id), options };
 			};
 			const notebookDiffEditorInputFactory: DiffEditorInputFactoryFunction = ({ modified, original, label, description }) => {
 				return { editor: NotebookDiffEditorInput.create(this._instantiationService, modified.resource!, label, description, original.resource!, notebookProviderInfo.id) };
