@@ -3,14 +3,13 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as DOM from 'vs/base/browser/dom';
+import * as React from 'react';
 
-import { ISize } from 'vs/base/browser/positronReactRenderer';
+import { ISize, PositronReactRenderer } from 'vs/base/browser/positronReactRenderer';
 import { CancellationToken } from 'vs/base/common/cancellation';
 import { Emitter } from 'vs/base/common/event';
 import { DisposableStore } from 'vs/base/common/lifecycle';
-import {
-	observableValue
-} from 'vs/base/common/observableInternal/base';
+import { observableValue } from 'vs/base/common/observableInternal/base';
 import { ITextResourceConfigurationService } from 'vs/editor/common/services/textResourceConfiguration';
 import { localize } from 'vs/nls';
 import { IClipboardService } from 'vs/platform/clipboard/common/clipboardService';
@@ -35,6 +34,12 @@ import {
 } from 'vs/workbench/services/editor/common/editorGroupsService';
 import { PositronNotebookEditorInput } from './PositronNotebookEditorInput';
 import { PositronNotebookInstance } from './PositronNotebookInstance';
+import { NotebookInstanceProvider } from 'vs/workbench/contrib/positronNotebook/browser/NotebookInstanceProvider';
+import { ServicesProvider } from 'vs/workbench/contrib/positronNotebook/browser/ServicesProvider';
+import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
+import { ITextModelService } from 'vs/editor/common/services/resolverService';
+import { PositronNotebookComponent } from 'vs/workbench/contrib/positronNotebook/browser/PositronNotebookComponent';
+import { IContextKeyService } from 'vs/platform/contextkey/common/contextkey';
 
 /**
  * Key for the memoized view state.
@@ -151,6 +156,7 @@ export class PositronNotebookEditor extends EditorPane {
 		myDiv.style.display = 'relative';
 		this._parentDiv = myDiv;
 
+
 		parent.appendChild(myDiv);
 	}
 
@@ -233,12 +239,71 @@ export class PositronNotebookEditor extends EditorPane {
 			);
 		}
 
-		input.notebookInstance.renderReact({
-			size: this._size,
-			baseElement: this._parentDiv,
-		});
+		this._renderReact();
 		input.notebookInstance.setModel(model.notebook, viewState);
 	}
+
+	/**
+ * Gets or sets the PositronReactRenderer for the PositronNotebook component.
+ */
+	private _positronReactRenderer?: PositronReactRenderer;
+
+	/**
+	 * Gets the PositronReactRenderer for the PositronNotebook component.
+	 * Will create it if it doesn't exist.
+	 */
+	get positronReactRenderer() {
+		if (this._positronReactRenderer) {
+			return this._positronReactRenderer;
+		}
+
+		if (!this._parentDiv) {
+			throw new Error('Base element is not set.');
+		}
+
+		this._positronReactRenderer = new PositronReactRenderer(this._parentDiv);
+
+		return this._positronReactRenderer;
+	}
+
+
+	disposeReactRenderer() {
+		this._positronReactRenderer?.dispose();
+		this._positronReactRenderer = undefined;
+	}
+
+	private _renderReact() {
+
+		const notebookInstance = (this.input as PositronNotebookEditorInput)?.notebookInstance;
+
+		if (!notebookInstance) {
+			throw new Error('Notebook instance is not set.');
+		}
+
+		if (!this._parentDiv) {
+			throw new Error('Base element is not set.');
+		}
+		// Create a new context service that has the output overlay container as the root element.
+		const scopedContextKeyService = this.contextKeyService.createScoped(this._parentDiv);
+
+
+		this.positronReactRenderer.render(
+
+			<NotebookInstanceProvider instance={notebookInstance}>
+				<ServicesProvider services={{
+					notebookWidget: notebookInstance,
+					configurationService: this._configurationService,
+					instantiationService: this._instantiationService,
+					textModelResolverService: this._textModelResolverService,
+					sizeObservable: this._size,
+					scopedContextKeyProviderCallback: container => scopedContextKeyService.createScoped(container)
+				}}>
+					<PositronNotebookComponent />
+				</ServicesProvider>
+			</NotebookInstanceProvider>
+		);
+	}
+
 
 	constructor(
 		@IClipboardService readonly _clipboardService: IClipboardService,
@@ -248,8 +313,12 @@ export class PositronNotebookEditor extends EditorPane {
 		private readonly _editorGroupService: IEditorGroupsService,
 		@ITextResourceConfigurationService
 		configurationService: ITextResourceConfigurationService,
-		@IInstantiationService
-		@IStorageService storageService: IStorageService
+		@IStorageService storageService: IStorageService,
+		@IConfigurationService private readonly _configurationService: IConfigurationService,
+		@IInstantiationService private readonly _instantiationService: IInstantiationService,
+		@ITextModelService private readonly _textModelResolverService: ITextModelService,
+		@IContextKeyService private readonly contextKeyService: IContextKeyService,
+
 	) {
 		// Call the base class's constructor.
 		super(
@@ -272,6 +341,8 @@ export class PositronNotebookEditor extends EditorPane {
 	public override dispose(): void {
 		// Dispose of the notebook instance.
 		this._notebookInstance?.dispose();
+
+		this.disposeReactRenderer();
 
 		// Call the base class's dispose method.
 		super.dispose();

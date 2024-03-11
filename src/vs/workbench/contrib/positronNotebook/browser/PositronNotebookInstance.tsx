@@ -2,18 +2,18 @@
  *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
-import * as React from 'react';
 import * as DOM from 'vs/base/browser/dom';
 
-import { ISize, PositronReactRenderer } from 'vs/base/browser/positronReactRenderer';
+import { PixelRatio } from 'vs/base/browser/pixelRatio';
+import { CodeWindow } from 'vs/base/browser/window';
 import { Emitter, Event } from 'vs/base/common/event';
 import { Disposable, DisposableStore, dispose } from 'vs/base/common/lifecycle';
 import { ISettableObservable, observableValue } from 'vs/base/common/observableInternal/base';
 import { URI } from 'vs/base/common/uri';
 import { FontMeasurements } from 'vs/editor/browser/config/fontMeasurements';
+import { ICodeEditorService } from 'vs/editor/browser/services/codeEditorService';
 import { IEditorOptions } from 'vs/editor/common/config/editorOptions';
 import { BareFontInfo, FontInfo } from 'vs/editor/common/config/fontInfo';
-import { ITextModelService } from 'vs/editor/common/services/resolverService';
 import { localize } from 'vs/nls';
 import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
 import { IContextKeyService } from 'vs/platform/contextkey/common/contextkey';
@@ -32,15 +32,9 @@ import { NOTEBOOK_CELL_LIST_FOCUSED } from 'vs/workbench/contrib/notebook/common
 import { INotebookExecutionService } from 'vs/workbench/contrib/notebook/common/notebookExecutionService';
 import { INotebookExecutionStateService } from 'vs/workbench/contrib/notebook/common/notebookExecutionStateService';
 import { INotebookKernelService } from 'vs/workbench/contrib/notebook/common/notebookKernelService';
-import { NotebookInstanceProvider } from 'vs/workbench/contrib/positronNotebook/browser/NotebookInstanceProvider';
 import { PositronNotebookCell } from 'vs/workbench/contrib/positronNotebook/browser/PositronNotebookCell';
 import { PositronNotebookEditorInput } from 'vs/workbench/contrib/positronNotebook/browser/PositronNotebookEditorInput';
-import { ServicesProvider } from 'vs/workbench/contrib/positronNotebook/browser/ServicesProvider';
 import { BaseCellEditorOptions } from './BaseCellEditorOptions';
-import { PositronNotebookComponent } from './PositronNotebookComponent';
-import { CodeWindow } from 'vs/base/browser/window';
-import { ICodeEditorService } from 'vs/editor/browser/services/codeEditorService';
-import { PixelRatio } from 'vs/base/browser/pixelRatio';
 
 // eslint-disable-next-line no-restricted-globals
 export const mainWindow = window as CodeWindow;
@@ -73,12 +67,6 @@ export interface IPositronNotebookInstance {
 	 * The currently selected cells. Typically a single cell but can be multiple cells.
 	 */
 	selectedCells: PositronNotebookCell[];
-
-	/**
-	 * The current execution status for the notebook. This is derived via the cells status
-	 */
-	// executionStatus: IPositronNotebookCell['executionStatus'];
-
 
 	/**
 	 * Has the notebook instance been disposed?
@@ -144,23 +132,12 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	private _textModel: NotebookTextModel | undefined = undefined;
 	private _viewModel: NotebookViewModel | undefined = undefined;
 
-	private _baseElement: HTMLElement | undefined;
 
 	/**
-		 * Key-value map of language to base cell editor options for cells of that language.
-		 */
+	 * Key-value map of language to base cell editor options for cells of that language.
+	 */
 	private _baseCellEditorOptions: Map<string, IBaseCellEditorOptions> = new Map();
 
-	/**
-	 * Containing node for the iframe/webview containing the outputs of notebook cells
-	 */
-	private _outputOverlayContainer?: HTMLElement;
-
-	/**
-	 * An object containing notebook options, an event dispatcher, and a function to get base cell
-	 * editor options.
-	*/
-	private _viewContext: ViewContext;
 
 	/**
 	 * Options for how the notebook should be displayed. Currently not really used but will be as
@@ -184,8 +161,8 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	 * Mirrored cell state listeners from the notebook model.
 	 */
 	private _localCellStateListeners: DisposableStore[] = [];
-	private readonly scopedInstantiationService: IInstantiationService;
-	public readonly scopedContextKeyService: IContextKeyService;
+	private readonly _scopedInstantiationService: IInstantiationService;
+	private readonly _scopedContextKeyService: IContextKeyService;
 
 	get uri(): URI {
 		return this._input.resource;
@@ -237,18 +214,10 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	 */
 	readonly onDidChangeModel: Event<NotebookTextModel | undefined> = this._onDidChangeModel.event;
 
-
-	/**
-	 * Gets or sets the PositronReactRenderer for the PositronNotebook component.
-	 */
-	private _positronReactRenderer?: PositronReactRenderer;
-
-
 	/**
 	 * Keep track of if this editor has been disposed.
 	 */
 	isDisposed: boolean = false;
-
 
 	constructor(
 		public _input: PositronNotebookEditorInput,
@@ -257,7 +226,6 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		@INotebookExecutionService private readonly notebookExecutionService: INotebookExecutionService,
 		@INotebookExecutionStateService private readonly notebookExecutionStateService: INotebookExecutionStateService,
 		@IConfigurationService private readonly configurationService: IConfigurationService,
-		@ITextModelService private readonly textModelResolverService: ITextModelService,
 		@IInstantiationService private readonly _instantiationService: IInstantiationService,
 		@IContextKeyService private readonly contextKeyService: IContextKeyService,
 		@ICodeEditorService codeEditorService: ICodeEditorService
@@ -270,21 +238,15 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 
 		this._notebookOptions = creationOptions?.options ?? new NotebookOptions(mainWindow, this.configurationService, this.notebookExecutionStateService, codeEditorService, this._readOnly);
 
-		this._viewContext = new ViewContext(
-			this._notebookOptions,
-			new NotebookEventDispatcher(),
-			language => this.getBaseCellEditorOptions(language)
-		);
-
 		// Setup the container that will hold the outputs of notebook cells
-		this._outputOverlayContainer = document.createElement('div');
+		const outputOverlayContainer = document.createElement('div');
 
 		// Create a new context service that has the output overlay container as the root element.
-		this.scopedContextKeyService = this.contextKeyService.createScoped(this._outputOverlayContainer);
+		this._scopedContextKeyService = this.contextKeyService.createScoped(outputOverlayContainer);
 
 		// Make sure that all things instantiated have a scoped context key service injected.
-		this.scopedInstantiationService = this._instantiationService.createChild(
-			new ServiceCollection([IContextKeyService, this.scopedContextKeyService])
+		this._scopedInstantiationService = this._instantiationService.createChild(
+			new ServiceCollection([IContextKeyService, this._scopedContextKeyService])
 		);
 
 		this.setupNotebookTextModel();
@@ -379,11 +341,11 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 			return;
 		}
 
-		if (this.scopedContextKeyService === undefined) {
+		if (this._scopedContextKeyService === undefined) {
 			throw new Error(localize('noContext', "No scoped context key service"));
 		}
 
-		await this.notebookExecutionService.executeNotebookCells(this._textModel, Array.from(cells).map(c => c.viewModel), this.scopedContextKeyService);
+		await this.notebookExecutionService.executeNotebookCells(this._textModel, Array.from(cells).map(c => c.viewModel), this._scopedContextKeyService);
 		for (const cell of cells) {
 			cell.executionStatus.set('idle', undefined);
 		}
@@ -450,32 +412,12 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 
 	}
 
-
-	// /**
-	//  * Setter for viewModel so we can (optionally) fire events when it changes.
-	//  */
-	// private _setViewModel(value: NotebookViewModel, notifyOfModelChange: boolean = true) {
-	// 	if (notifyOfModelChange) {
-	// 		// Fire on will change with old model
-	// 		this._onWillChangeModel.fire(this._viewModel?.notebookDocument);
-	// 	}
-
-	// 	// Update model to new setting
-	// 	this._viewModel = value;
-
-	// 	if (notifyOfModelChange) {
-	// 		// Fire on did change with new model
-	// 		this._onDidChangeModel.fire(this._viewModel?.notebookDocument);
-	// 	}
-	// }
-
 	/**
 	 * Passthrough getter so that we can avoid needing to use the private field.
 	 */
 	getViewModel() {
 		return this._viewModel;
 	}
-
 
 	/**
 	 * Get the current `NotebookTextModel` for the editor.
@@ -513,12 +455,18 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 				this._onWillChangeModel.fire(this._viewModel?.notebookDocument);
 			}
 
+			const viewContext = new ViewContext(
+				this._notebookOptions,
+				new NotebookEventDispatcher(),
+				language => this.getBaseCellEditorOptions(language)
+			);
+
 			// Update model to new setting
-			this._viewModel = this.scopedInstantiationService.createInstance(
+			this._viewModel = this._scopedInstantiationService.createInstance(
 				NotebookViewModel,
 				textModel.viewType,
 				textModel,
-				this._viewContext,
+				viewContext,
 				this.getLayoutInfo(),
 				{ isReadOnly: this._readOnly }
 			);
@@ -531,7 +479,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 
 			// Emit an event into the view context for layout change so things can get initialized
 			// properly.
-			this._viewContext.eventDispatcher.emit(
+			viewContext.eventDispatcher.emit(
 				[new NotebookLayoutChangedEvent({ width: true, fontInfo: true }, this.getLayoutInfo())]
 			);
 
@@ -665,34 +613,12 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	}
 
 
-	/**
-	 * Gets the PositronReactRenderer for the PositronNotebook component.
-	 * Will create it if it doesn't exist.
-	 */
-	get positronReactRenderer() {
-		if (this._positronReactRenderer) {
-			return this._positronReactRenderer;
-		}
-
-		if (!this._baseElement) {
-			throw new Error('Base element is not set.');
-		}
-
-		this._positronReactRenderer = new PositronReactRenderer(this._baseElement);
-
-		return this._positronReactRenderer;
-	}
-
-	disposeReactRenderer() {
-		this._positronReactRenderer?.dispose();
-		this._positronReactRenderer = undefined;
-	}
 
 	/**
 	 * Setup various context keys that are used by notebooks.
 	 */
 	setupContextKeyService() {
-		const contextKeyService = this.scopedContextKeyService;
+		const contextKeyService = this._scopedContextKeyService;
 		NOTEBOOK_CELL_LIST_FOCUSED.bindTo(contextKeyService).set(true);
 		const notebookEditorCursorAtBoundaryContext = NOTEBOOK_EDITOR_CURSOR_BOUNDARY.bindTo(contextKeyService);
 		notebookEditorCursorAtBoundaryContext.set('none');
@@ -700,31 +626,6 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		notebookEditorCursorAtLineBoundaryContext.set('none');
 	}
 
-	renderReact({
-		size,
-		baseElement
-	}: {
-		size: ISettableObservable<ISize>;
-		baseElement: HTMLElement;
-	}) {
-		this._baseElement = baseElement;
-
-		this.positronReactRenderer.render(
-
-			<NotebookInstanceProvider instance={this}>
-				<ServicesProvider services={{
-					notebookWidget: this,
-					configurationService: this.configurationService,
-					instantiationService: this._instantiationService,
-					textModelResolverService: this.textModelResolverService,
-					sizeObservable: size,
-					scopedContextKeyProviderCallback: container => this.scopedContextKeyService.createScoped(container)
-				}}>
-					<PositronNotebookComponent />
-				</ServicesProvider>
-			</NotebookInstanceProvider>
-		);
-	}
 
 	/**
 	 * Gets the current state of the editor. This should
@@ -744,7 +645,6 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	override dispose() {
 		super.dispose();
 		this._detachModel();
-		this.disposeReactRenderer();
 	}
 }
 
