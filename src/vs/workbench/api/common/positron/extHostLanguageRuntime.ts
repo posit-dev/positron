@@ -95,6 +95,40 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 	}
 
 	/**
+	 * Validates an ILanguageRuntimeMetadata object; typically used to validate
+	 * stored metadata prior to starting a runtime.
+	 *
+	 * @param metadata The metadata to validate
+	 * @returns An updated metadata object
+	 */
+	async $validateLangaugeRuntimeMetadata(metadata: ILanguageRuntimeMetadata):
+		Promise<ILanguageRuntimeMetadata> {
+		// Find the runtime manager that should be used for this metadata
+		const m = await this.runtimeManagerForRuntime(metadata);
+		if (m) {
+			if (m.manager.validateMetadata) {
+				// The runtime manager has a validateMetadata function; use it to
+				// validate the metadata
+				const result = await m.manager.validateMetadata(metadata);
+				return {
+					...result,
+					extensionId: metadata.extensionId
+				};
+			} else {
+				// The runtime manager doesn't have a validateMetadata function;
+				// this is OK and just means that it doesn't know how to perform
+				// validation. Return the metadata as-is.
+				return metadata;
+			}
+		} else {
+			// We can't validate this metadata, and probably shouldn't use it.
+			throw new Error(
+				`No manager available for language ID '${metadata.languageId}' ` +
+				`(expected from extension ${metadata.extensionId.value})`);
+		}
+	}
+
+	/**
 	 * Restores a language runtime session.
 	 *
 	 * @param runtimeMetadata The metadata for the language runtime.

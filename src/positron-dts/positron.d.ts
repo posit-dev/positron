@@ -560,6 +560,9 @@ declare module 'positron' {
 		/**
 		 * Returns a generator that yields metadata about the language runtimes
 		 * that are available to the user.
+		 *
+		 * This metadata will be passed to `createSession` to create new runtime
+		 * sessions.
 		 */
 		discoverRuntimes(): AsyncGenerator<LanguageRuntimeMetadata>;
 
@@ -570,6 +573,24 @@ declare module 'positron' {
 		 * new runtime or environment after the initial discovery has completed.
 		 */
 		onDidDiscoverRuntime?: vscode.Event<LanguageRuntimeMetadata>;
+
+		/**
+		 * An optional metadata validation function. If provided, Positron will
+		 * validate any stored metadata before attempting to use it to create a
+		 * new session. This happens when a workspace is re-opened, for example.
+		 *
+		 * If the metadata is invalid, the function should return a new version
+		 * of the metadata with the necessary corrections.
+		 *
+		 * If it is not possible to correct the metadata, the function should
+		 * reject with an error.
+		 *
+		 * @param metadata The metadata to validate
+		 * @returns A Thenable that resolves with an updated version of the
+		 *   metadata.
+		 */
+		validateMetadata?(metadata: LanguageRuntimeMetadata):
+			Thenable<LanguageRuntimeMetadata>;
 
 		/**
 		 * Creates a new runtime session.
