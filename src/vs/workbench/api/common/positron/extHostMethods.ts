@@ -2,6 +2,7 @@
  *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
+import { URI } from 'vs/base/common/uri';
 import * as extHostProtocol from './extHost.positron.protocol';
 import { ExtHostEditors } from '../extHostTextEditors';
 import { ExtHostCommands } from '../extHostCommands';
@@ -74,6 +75,13 @@ export class ExtHostMethods implements extHostProtocol.ExtHostMethodsShape {
 						return newInvalidParamsError(method);
 					}
 					result = await this.executeCommand(params.command as string);
+					break;
+				}
+				case UiFrontendRequest.NavigateToFile: {
+					if (!params || !Object.keys(params).includes('file')) {
+						return newInvalidParamsError(method);
+					}
+					result = await this.navigateToFile(params.file as string);
 					break;
 				}
 			}
@@ -151,6 +159,12 @@ export class ExtHostMethods implements extHostProtocol.ExtHostMethodsShape {
 			selection: selections[0],
 			selections: selections
 		};
+	}
+
+	async navigateToFile(file: string): Promise<null> {
+		const uri = URI.file(file);
+		await this.commands.executeCommand('vscode.open', uri);
+		return null;
 	}
 
 	async executeCommand(commandId: string): Promise<null> {

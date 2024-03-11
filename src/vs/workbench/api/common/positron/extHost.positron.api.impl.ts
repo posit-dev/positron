@@ -147,6 +147,9 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 			lastActiveEditorContext(): Thenable<positron.EditorContext | null> {
 				return extHostMethods.lastActiveEditorContext();
 			},
+			navigateToFile(file: string): Thenable<null> {
+				return extHostMethods.navigateToFile(file);
+			},
 			executeCommand(commandId: string): Thenable<null> {
 				return extHostMethods.executeCommand(commandId);
 			},

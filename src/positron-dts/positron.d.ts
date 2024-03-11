@@ -1119,6 +1119,13 @@ declare module 'positron' {
 		export function lastActiveEditorContext(): Thenable<EditorContext | null>;
 
 		/**
+		 * Open a file in the editor.
+		 *
+		 * @param file The file to be opened.
+		 */
+		export function navigateToFile(file: string): Thenable<null>;
+
+		/**
 		 * Executes a Positron command.
 		 *
 		 * @param command The Positron command name.

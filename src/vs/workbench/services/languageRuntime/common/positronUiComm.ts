@@ -242,6 +242,19 @@ export interface ExecuteCommandRequest {
 }
 
 /**
+ * Request: Open a file in the editor
+ *
+ * Use this to open a specific file in the editor
+ */
+export interface NavigateToFileRequest {
+	/**
+	 * The file to be opened
+	 */
+	file: string;
+
+}
+
+/**
  * Request: Context metadata for the last editor
  *
  * Returns metadata such as file path for the last editor selected by the
@@ -262,6 +275,7 @@ export enum UiFrontendEvent {
 export enum UiFrontendRequest {
 	DebugSleep = 'debug_sleep',
 	ExecuteCommand = 'execute_command',
+	NavigateToFile = 'navigate_to_file',
 	LastActiveEditorContext = 'last_active_editor_context'
 }
 

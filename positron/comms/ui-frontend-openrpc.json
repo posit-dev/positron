@@ -133,6 +133,21 @@
 			"result": {}
 		},
 		{
+			"name": "navigate_to_file",
+			"summary": "Open a file in the editor",
+			"description": "Use this to open a specific file in the editor",
+			"params": [
+				{
+					"name": "file",
+					"description": "The file to be opened",
+					"schema": {
+						"type": "string"
+					}
+				}
+			],
+			"result": {}
+		},
+		{
 			"name": "last_active_editor_context",
 			"summary": "Context metadata for the last editor",
 			"description": "Returns metadata such as file path for the last editor selected by the user. The result may be undefined if there are no active editors.",
