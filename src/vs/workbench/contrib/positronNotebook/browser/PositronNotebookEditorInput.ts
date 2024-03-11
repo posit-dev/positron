@@ -45,11 +45,13 @@ export class PositronNotebookEditorInput extends EditorInput {
 	editorOptions: IEditorOptions | undefined = undefined;
 
 	/**
-	 * Method for getting or creating a PositronNotebookEditorInput.
-	 * This is mostly here to match the format of the input creation method for the vscode notebooks.
-	 * @param instantiationService Service provided by vscode DI for instantiating objects with dependencies.
+	 * Method for getting or creating a PositronNotebookEditorInput. This is mostly here to match
+	 * the format of the input creation method for the vscode notebooks.
+	 * @param instantiationService Service provided by vscode DI for instantiating objects with
+	 * dependencies.
 	 * @param resource The resource (aka file) for the notebook we're working with.
-	 * @param preferredResource The preferred resource. (Not sure how this differs from standard resource...)
+	 * @param preferredResource The preferred resource. See the definition of
+	 * `EditorInputWithPreferredResource` for more info.
 	 * @param viewType The view type for the notebook. Aka `'jupyter-notebook;`.
 	 * @param options Options for the notebook editor input.
 	 */
