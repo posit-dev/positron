@@ -68,15 +68,21 @@ function NotebookCellOutput({ cellOutput }: { cellOutput: ICellOutput }) {
 
 	const { outputs } = cellOutput;
 
-	if (!(cellOutput instanceof NotebookCellOutputTextModel)) {
-		return <div>Cant handle output type yet: OutputId: ${cellOutput.outputId}</div>;
+
+	if (cellOutput instanceof NotebookCellOutputTextModel) {
+
+		return <>
+			{
+				outputs.map(({ data, mime }, i) => <CellOutputContents key={i} data={data} mime={mime} />)
+			}
+		</>;
 	}
 
-	return <>
-		{
-			outputs.map(({ data, mime }, i) => <CellOutputContents key={i} data={data} mime={mime} />)
-		}
-	</>;
+	return <div>
+		{localize('cellExecutionUnknownOutputType', 'Can not handle output type: OutputId: {0}', cellOutput.outputId)}
+	</div>;
+
+
 }
 
 
@@ -90,13 +96,17 @@ function CellOutputContents(output: { data: VSBuffer; mime: string }) {
 		case 'stderr':
 			return <div className='notebook-stderr'>{parsed.content}</div>;
 		case 'interupt':
-			return <div className='notebook-error'>Cell execution stopped due to keyboard interupt.</div>;
+			return <div className='notebook-error'>
+				{localize('cellExecutionKeyboardInterupt', 'Cell execution stopped due to keyboard interupt.')}
+			</div>;
 		case 'text':
 			return <div className='notebook-text'>{parsed.content}</div>;
 		case 'image':
 			return <img src={parsed.dataUrl} alt='output image' />;
 		case 'unknown':
-			return <div className='unknown-mime-type'>Cant handle mime type &quot;{output.mime}&quot; yet</div>;
+			return <div className='unknown-mime-type'>
+				{localize('cellExecutionUnknownMimeType', 'Cant handle mime type "{0}" yet', output.mime)}
+			</div>;
 	}
 
 }
