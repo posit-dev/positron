@@ -138,7 +138,6 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 
 	/**
 	 * Store of disposables.
-	 * TODO: Explain exactly what and why this exists
 	 */
 	private _localStore = this._register(new DisposableStore());
 
@@ -551,10 +550,8 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 			// Get the kernel up and running for the notebook.
 			this.setupKernel();
 
-
-			// TODO: Finish implementing this.
 		} else {
-
+			throw new Error(localize('modelAlreadySet', "Model already set"));
 		}
 	}
 
