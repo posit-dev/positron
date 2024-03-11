@@ -162,7 +162,8 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	private _viewContext: ViewContext;
 
 	/**
-	 *
+	 * Options for how the notebook should be displayed. Currently not really used but will be as
+	 * notebook gets fleshed out.
 	 */
 	private readonly _notebookOptions: NotebookOptions;
 
