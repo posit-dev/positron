@@ -341,7 +341,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 		this._logService.info(
 			`Starting session for language runtime ` +
 			`${formatLanguageRuntimeMetadata(languageRuntime)} (Source: ${source})`);
-		return this.doCreateRuntimeSession(languageRuntime, sessionName, sessionMode, notebookUri);
+		return this.doCreateRuntimeSession(languageRuntime, sessionName, sessionMode, source, notebookUri);
 	}
 
 
@@ -495,8 +495,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 				`${formatLanguageRuntimeMetadata(metadata)} ` +
 				`automatically starting. Source: ${source}`);
 
-			return this.doAutoStartRuntime(metadata,
-				metadata.runtimeName);
+			return this.doAutoStartRuntime(metadata, source);
 		} else {
 			this._logService.debug(`Deferring the start of language runtime ` +
 				`${formatLanguageRuntimeMetadata(metadata)} (Source: ${source}) ` +
@@ -512,8 +511,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 					`${formatLanguageRuntimeMetadata(metadata)} ` +
 					`automatically starting after workspace trust was granted. ` +
 					`Source: ${source}`);
-				return this.doAutoStartRuntime(metadata,
-					metadata.runtimeName);
+				return this.doAutoStartRuntime(metadata, source);
 			});
 		}
 
@@ -623,7 +621,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 
 		// Auto-started runtimes are (currently) always console sessions.
 		return this.doCreateRuntimeSession(metadata, metadata.runtimeName,
-			LanguageRuntimeSessionMode.Console);
+			LanguageRuntimeSessionMode.Console, source);
 	}
 
 	/**
@@ -632,6 +630,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 	 * @param runtimeMetadata The metadata for the runtime to start.
 	 * @param sessionName A human-readable name for the session.
 	 * @param sessionMode The mode for the new session.
+	 * @param source The source of the request to start the runtime.
 	 * @param notebookDocument The notebook document to attach to the session, if any.
 	 *
 	 * Returns a promise that resolves with the session ID when the runtime is
@@ -640,6 +639,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 	private async doCreateRuntimeSession(runtimeMetadata: ILanguageRuntimeMetadata,
 		sessionName: string,
 		sessionMode: LanguageRuntimeSessionMode,
+		source: string,
 		notebookUri?: URI): Promise<string> {
 		// Add the runtime to the starting runtimes.
 		if (sessionMode === LanguageRuntimeSessionMode.Console) {
@@ -661,6 +661,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 			sessionMode,
 			notebookUri,
 			createdTimestamp: Date.now(),
+			startReason: source
 		};
 
 		// Provision the session.

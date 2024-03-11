@@ -60,6 +60,12 @@ export interface IRuntimeSessionMetadata {
 	 * which the runtime session was created.
 	 */
 	readonly createdTimestamp: number;
+
+	/**
+	 * The reason the session was started; non-localized and only used for
+	 * debugging.
+	 */
+	readonly startReason: string;
 }
 
 /**
