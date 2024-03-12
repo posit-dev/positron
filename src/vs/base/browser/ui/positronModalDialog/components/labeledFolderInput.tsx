@@ -5,6 +5,7 @@
 import 'vs/css!./labeledFolderInput';
 import * as React from 'react';
 import { ChangeEventHandler } from 'react'; // eslint-disable-line no-duplicate-imports
+import { Button } from 'vs/base/browser/ui/positronComponents/button/button';
 
 /**
  * FolderInputProps interface.
@@ -28,9 +29,9 @@ export const LabeledFolderInput = (props: LabeledFolderInputProps) => {
 				{props.label}:
 				<div className='folder-input'>
 					<input className='text-input' readOnly type='text' value={props.value} onChange={props.onChange} />
-					<button className='button browse-button' tabIndex={0} onClick={props.onBrowse}>
+					<Button className='browse-button' onPressed={props.onBrowse}>
 						Browse...
-					</button>
+					</Button>
 				</div>
 			</label>
 		</div>

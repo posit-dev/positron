@@ -2,28 +2,28 @@
  *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
-.horizontal-splitter {
-	height: 1px;
-	width: 100%;
-	cursor: ns-resize;
+.vertical-splitter {
+	width: 1px;
+	height: 100%;
+	cursor: ew-resize;
 }
 
 .mac
-.horizontal-splitter {
-	/* On macOS, the cursor is row-resize instead of ns-resize. */
-	cursor: row-resize;
+.vertical-splitter {
+	/* On macOS, the cursor is col-resize instead of ew-resize. */
+	cursor: col-resize;
 }
 
-.horizontal-splitter
+.vertical-splitter
 .sizer {
-	top: -2px;
-	height: 5px;
-	z-index: 26;
-	width: 100%;
+	left: -2px;
+	width: 4px;
+	z-index: 27;
+	height: 100%;
 	position: relative;
 }
 
-.horizontal-splitter
+.vertical-splitter
 .sizer.resizing {
 	background-color: var(--vscode-focusBorder);
 }

@@ -7,7 +7,7 @@ import * as React from 'react';
 import { OKModalDialog } from 'vs/base/browser/ui/positronModalDialog/positronOKModalDialog';
 import { IWorkbenchLayoutService } from 'vs/workbench/services/layout/browser/layoutService';
 import { VerticalStack } from 'vs/base/browser/ui/positronModalDialog/components/verticalStack';
-import { PositronModalDialogReactRenderer } from 'vs/base/browser/ui/positronModalDialog/positronModalDialogReactRenderer';
+import { PositronModalReactRenderer } from 'vs/base/browser/ui/positronModalReactRenderer/positronModalReactRenderer';
 
 /**
  * Shows the message box modal dialog.
@@ -19,21 +19,22 @@ import { PositronModalDialogReactRenderer } from 'vs/base/browser/ui/positronMod
 export const messageBoxModalDialog = async (layoutService: IWorkbenchLayoutService, title: string, message: string): Promise<void> => {
 	// Return a promise that resolves when the dialog is done.
 	return new Promise<void>((resolve) => {
-		// Create the modal dialog React renderer.
-		const positronModalDialogReactRenderer =
-			new PositronModalDialogReactRenderer(layoutService.mainContainer);
+		// Create the modal React renderer.
+		const positronModalReactRenderer =
+			new PositronModalReactRenderer(layoutService.mainContainer);
 
 		// The modal dialog component.
 		const ModalDialog = () => {
 			// The accept handler.
 			const acceptHandler = () => {
-				positronModalDialogReactRenderer.destroy();
+				positronModalReactRenderer.dispose();
 				resolve();
 			};
 
 			// Render.
 			return (
 				<OKModalDialog
+					renderer={positronModalReactRenderer}
 					width={400}
 					height={195}
 					title={title}
@@ -46,6 +47,6 @@ export const messageBoxModalDialog = async (layoutService: IWorkbenchLayoutServi
 		};
 
 		// Render the modal dialog component.
-		positronModalDialogReactRenderer.render(<ModalDialog />);
+		positronModalReactRenderer.render(<ModalDialog />);
 	});
 };

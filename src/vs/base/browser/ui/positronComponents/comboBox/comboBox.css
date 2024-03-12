@@ -2,7 +2,32 @@
  *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
-.context-menu-items {
+.combo-box {
+	padding: 4px;
+	display: grid;
+	border-radius: 4px;
+	align-items: center;
+	grid-template-columns: [title] 1fr [chevron] 22px [end];
+	border: 1px solid var(--vscode-positronDropDown-border) !important;
+}
+
+.combo-box
+.title {
+	display: flex;
+	padding-left: 6px;
+	align-items: center;
+	grid-column: title / chevron;
+}
+
+.combo-box
+.chevron {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	grid-column: chevron / end;
+}
+
+.combo-box-menu-items {
 	width: 100%;
 	margin: 4px;
 	display: flex;
@@ -10,19 +35,15 @@
 	background: var(--vscode-positronContextMenu-background);
 }
 
-/*
- * Context menu separator.
- */
-.context-menu-separator {
+.combo-box-menu-items
+.separator {
 	height: 1px;
 	margin: 4px 10px;
 	background: var(--vscode-menu-border);
 }
 
-/*
- * Context menu item.
- */
-.context-menu-item {
+.combo-box-menu-items
+.item {
 	width: 100%;
 	height: 26px;
 	border: none;
@@ -32,38 +53,34 @@
 	align-items: center;
 	align-content: center;
 	background: transparent;
-	grid-template-columns: [check] 20px [title] 1fr [icon] min-content [end];
+	grid-template-columns: [title] 1fr [icon] min-content [end];
 }
 
-.context-menu-item:not(.disabled):hover {
-	border-radius: 5px;
+.combo-box-menu-items
+.item:not(.disabled):hover {
+	border-radius: 4px;
 	color: var(--vscode-positronContextMenu-hoverForeground);
 	background: var(--vscode-positronContextMenu-hoverBackground);
 }
 
-.context-menu-item:focus {
+.combo-box-menu-items
+.item:focus {
 	outline: none !important;
 }
 
-.context-menu-item:focus-visible {
-	border-radius: 6px;
+.combo-box-menu-items
+.item:focus-visible {
+	border-radius: 4px;
 	outline: 1px solid var(--vscode-focusBorder) !important;
 }
 
-.context-menu-item:not(.disabled):focus-visible {
+.combo-box-menu-items
+.item:not(.disabled):focus-visible {
 	background: var(--vscode-positronContextMenu-hoverBackground);
 }
 
-.context-menu-item
-.check {
-	padding: 10px;
-	grid-column: check / title;
-}
-
-/*
- * Context menu item title.
- */
-.context-menu-item
+.combo-box-menu-items
+.item
 .title {
 	display: block;
 	max-width: 100%;
@@ -75,21 +92,21 @@
 	padding: 10px 5px 10px 10px;
 }
 
-.context-menu-item
+.combo-box-menu-items
+.item
 .title.disabled {
 	opacity: 50%;
 }
 
-/*
- * Context menu item icon.
- */
-.context-menu-item
+.combo-box-menu-items
+.item
 .icon {
 	padding: 10px;
 	grid-column: icon / end;
 }
 
-.context-menu-item
+.combo-box-menu-items
+.item
 .icon.disabled {
 	opacity: 50%;
 }

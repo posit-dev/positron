@@ -1,0 +1,22 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *--------------------------------------------------------------------------------------------*/
+
+.button {
+	border: none;
+	cursor: pointer;
+	background-color: transparent;
+}
+
+.button:focus {
+	outline: none !important;
+}
+
+.button:focus-visible {
+	border-radius: 4px;
+	outline: 1px solid var(--vscode-focusBorder) !important;
+}
+
+.button.solid:focus-visible {
+	outline-offset: 2px !important;
+}

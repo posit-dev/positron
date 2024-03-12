@@ -1,0 +1,84 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *--------------------------------------------------------------------------------------------*/
+
+.context-menu-items {
+	width: 100%;
+	margin: 4px;
+	display: flex;
+	flex-direction: column;
+	background: var(--vscode-positronContextMenu-background);
+}
+
+.context-menu-separator {
+	height: 1px;
+	margin: 4px 10px;
+	background: var(--vscode-positronContextMenu-separatorBackground);
+}
+
+.context-menu-item {
+	width: 100%;
+	height: 26px;
+	border: none;
+	display: grid;
+	cursor: pointer;
+	text-align: left;
+	align-items: center;
+	align-content: center;
+	background: transparent;
+	color: var(--vscode-positronContextMenu-foreground);
+	grid-template-columns: [check] 20px [title] 1fr [icon] min-content [end];
+}
+
+.context-menu-item:not(.disabled):hover {
+	border-radius: 4px;
+	color: var(--vscode-positronContextMenu-hoverForeground);
+	background: var(--vscode-positronContextMenu-hoverBackground);
+}
+
+.context-menu-item:focus {
+	outline: none !important;
+}
+
+.context-menu-item:focus-visible {
+	border-radius: 4px;
+	outline: 1px solid var(--vscode-focusBorder) !important;
+}
+
+.context-menu-item:not(.disabled):focus-visible {
+	background: var(--vscode-positronContextMenu-hoverBackground);
+}
+
+.context-menu-item
+.check {
+	padding: 10px;
+	grid-column: check / title;
+}
+
+.context-menu-item
+.title {
+	display: block;
+	max-width: 100%;
+	max-width: 600px;
+	overflow: hidden;
+	white-space: nowrap;
+	text-overflow: ellipsis;
+	grid-column: title / icon;
+	padding: 10px 5px 10px 10px;
+}
+
+.context-menu-item
+.title.disabled {
+	opacity: 50%;
+}
+
+.context-menu-item
+.icon {
+	padding: 10px;
+	grid-column: icon / end;
+}
+
+.context-menu-item
+.icon.disabled {
+	opacity: 50%;
+}

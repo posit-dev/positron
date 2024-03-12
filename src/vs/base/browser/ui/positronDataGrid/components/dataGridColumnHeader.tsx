@@ -12,15 +12,15 @@ import { MouseEvent, useRef } from 'react'; // eslint-disable-line no-duplicate-
 // Other dependencies.
 import { localize } from 'vs/nls';
 import { positronClassNames } from 'vs/base/common/positronUtilities';
-import { showContextMenu } from 'vs/base/browser/ui/contextMenu/contextMenu';
-import { ContextMenuItem } from 'vs/base/browser/ui/contextMenu/contextMenuItem';
+import { showContextMenu } from 'vs/base/browser/ui/positronComponents/contextMenu/contextMenu';
+import { ContextMenuItem } from 'vs/base/browser/ui/positronComponents/contextMenu/contextMenuItem';
 import { IDataColumn } from 'vs/base/browser/ui/positronDataGrid/interfaces/dataColumn';
-import { VerticalSplitter } from 'vs/base/browser/ui/positronComponents/verticalSplitter';
-import { ContextMenuSeparator } from 'vs/base/browser/ui/contextMenu/contextMenuSeparator';
+import { VerticalSplitter } from 'vs/base/browser/ui/positronComponents/splitters/verticalSplitter';
+import { ContextMenuSeparator } from 'vs/base/browser/ui/positronComponents/contextMenu/contextMenuSeparator';
 import { selectionType } from 'vs/base/browser/ui/positronDataGrid/utilities/mouseUtilities';
 import { ColumnSelectionState } from 'vs/base/browser/ui/positronDataGrid/classes/dataGridInstance';
-import { MouseTrigger, PositronButton } from 'vs/base/browser/ui/positronComponents/positronButton';
 import { usePositronDataGridContext } from 'vs/base/browser/ui/positronDataGrid/positronDataGridContext';
+import { Button, MouseTrigger } from 'vs/base/browser/ui/positronComponents/button/button';
 
 /**
  * Localized strings.
@@ -49,7 +49,7 @@ export const DataGridColumnHeader = (props: DataGridColumnHeaderProps) => {
 	const context = usePositronDataGridContext();
 
 	// Reference hooks.
-	const columnsPanelRef = useRef<HTMLDivElement>(undefined!);
+	const sortingButtonRef = useRef<HTMLButtonElement>(undefined!);
 
 	/**
 	 * onMouseDown handler.
@@ -76,7 +76,8 @@ export const DataGridColumnHeader = (props: DataGridColumnHeaderProps) => {
 		// Show the context menu.
 		await showContextMenu({
 			layoutService: context.layoutService,
-			anchorElement: columnsPanelRef.current,
+			anchorElement: sortingButtonRef.current,
+			alignment: 'right',
 			width: 200,
 			entries: [
 				new ContextMenuItem({
@@ -168,14 +169,14 @@ export const DataGridColumnHeader = (props: DataGridColumnHeaderProps) => {
 						<div className='sort-index'>{columnSortKey.sortIndex + 1}</div>
 					</div>
 				}
-				<PositronButton
-					ref={columnsPanelRef}
-					className='button'
+				<Button
+					ref={sortingButtonRef}
+					className='sort-button'
 					mouseTrigger={MouseTrigger.MouseDown}
 					onPressed={dropdownPressed}
 				>
 					<div className='codicon codicon-positron-vertical-ellipsis' style={{ fontSize: 18 }} />
-				</PositronButton>
+				</Button>
 			</div>
 
 			{context.instance.columnResize &&
