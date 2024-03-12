@@ -1,21 +1,154 @@
-MIT License
+BEFORE DOWNLOADING OR USING POSITRON, YOU SHOULD CAREFULLY READ THE FOLLOWING
+LICENSE AGREEMENT THAT APPLIES TO YOUR USE OF THE SOFTWARE. DOWNLOADING OR
+USING POSITRON ESTABLISHES A BINDING AGREEMENT BETWEEN YOU AS THE PERSON
+ACQUIRING THE SOFTWARE ("YOU") AND POSIT SOFTWARE, PBC, ("LICENSOR").
+ACCEPTANCE OF THIS LICENSE AGREEMENT IS REQUIRED AS A CONDITION TO PROCEEDING
+WITH THE DOWNLOAD OR USE OF THE SOFTWARE.
 
-Copyright (c) 2015 - present Microsoft Corporation
+                                   POSITRON
 
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
+       Copyright (C) 2022-2024 Posit Software, PBC. All rights reserved.
 
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
 
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
+                    SOFTWARE EVALUATION LICENSE AGREEMENT
+
+This Software Evaluation License Agreement ("Agreement") is by and between
+Posit Software, PBC, ("Licensor") and you.  This Agreement contemplates the
+licensing for evaluation purposes only of a beta version of a software product
+developed by Licensor and referred to as "Positron" that has not been generally
+released for commercial use.  Licensor is willing to provide a copy of such
+software product and related documentation to you for the sole purpose of
+permitting you to conduct an evaluation thereof on the terms and conditions set
+forth in this Agreement.
+
+1.  License to Use.  Licensor grants you a non-exclusive and non-transferable
+license (the "License") to use Positron and its accompanying documentation in
+machine readable form (collectively, the "Software") on a single computer
+system.  The License governs any releases, revisions or enhancements to the
+Software which Licensor may furnish to you.
+
+2.  Restrictions.  The Software is copyrighted and contains proprietary
+information and trade secrets belonging to Licensor or its licensors.  Title to
+the Software and all copies thereof is retained by Licensor or its licensors.
+You will not use the Software except for non-revenue generating, testing
+purposes only (the "evaluation purpose") on your own internal computer
+networks.  You may make copies of the Software in connection with the
+evaluation purpose.  You may print copies of the electronic documentation
+solely for your internal use in connection with the evaluation purpose.  You
+will reproduce all proprietary rights notices on these copies.  You may not
+modify, decompile, disassemble, decrypt, extract, or otherwise reverse engineer
+the Software, or create derivative works based upon all or part of the
+Software.  You may not transfer, lease, assign, make available for timesharing,
+or sublicense, in whole or in part, the Software.  Neither Licensor nor its
+licensors grant any license or title to any trademarks or trade names under
+this Agreement.
+
+3.  Exclusion of Warranty.  You expressly acknowledge that the Software may
+have defects or deficiencies which cannot or may not be corrected by Licensor.
+The Software is provided "AS IS" without any warranty of any kind.  LICENSOR
+DISCLAIMS ALL EXPRESS OR IMPLIED REPRESENTATIONS AND WARRANTIES, INCLUDING ANY
+IMPLIED WARRANTY OF MERCHANTABILITY OR FITNESS FOR A PARTICULAR PURPOSE, TITLE
+OR NONINFRINGEMENT.  The Licensor takes no responsibility for the effects of
+the installation or operation of the Software on your software, hardware,
+network or related equipment.
+
+4.  Evaluation Support.  You will install and use the Software in accordance
+with the specifications provided by Licensor.  You agree to cooperate and
+consult with Licensor in your evaluation of the Software, including your
+evaluation of its features, performance, functionality and useability.  You
+will make reasonable efforts to provide oral or written evaluations of the
+Software to Licensor. You hereby assign and will assign to Licensor all rights
+and title in the evaluations and the subject matter of the evaluations,
+including, but not limited to, all intellectual property rights in or covering
+the evaluations and the subject matter of the evaluations.  You understand
+that you are exclusively responsible for the supervision, management and
+control of your computer systems and network and the use of the Software,
+including but not limited to: (a) assuring proper machine configuration,
+program installation, audit controls and operating methods, (b) establishing
+adequate backup plans, (c) implementing sufficient procedures to satisfy your
+requirements for security and accuracy of input and output as well as restart
+and recovery in the event of a malfunction; and (d) detecting unauthorized
+access and viruses and preventing any loss or damage to data or other software.
+
+5. Confidentiality.  You agree that you will not (a) disclose the Software or
+any information relating to the Software including without limitation any
+ideas, techniques and concepts contained in or relating to the Software, or
+any of the evaluations, to any third party without the prior written consent
+of Licensor, (b) copy the Software or any portion thereof beyond what is
+explicitly permitted by this Agreement, or (c) use the Software for any
+purpose except for the evaluation purpose.  You agree to hold the Software in
+confidence, to maintain the Software in a secure environment and take all
+reasonable precautions to maintain security in order to prevent unauthorized
+use or disclosure.  You will inform your employees having access to the
+Software of your limitations, duties and obligations regarding nondisclosure
+and copying of the Software.  Prior to disposing of any media, you will erase
+or otherwise destroy the Software contained on that media.  In addition, you
+may not disclose to any third party the terms of this Agreement without the
+prior written consent of Licensor.
+
+6. Limitation of Liability.  LICENSOR AND YOU AGREE THAT LICENSOR WOULD NOT
+PROVIDE THE SOFTWARE WITHOUT INCLUSION OF THIS SECTION 6. IN NO EVENT WILL
+LICENSOR OR ITS LICENSORS BE LIABLE FOR ANY DAMAGES INCLUDING WITHOUT
+LIMITATION ANY LOST REVENUE, PROFIT, DATA, OR OTHER SOFTWARE OR ANY DIRECT,
+INDIRECT, CONSEQUENTIAL, SPECIAL, INCIDENTAL, OR PUNITIVE DAMAGES HOWEVER
+CAUSED AND REGARDLESS OF THEORY OF LIABILITY (INCLUDING NEGLIGENCE) ARISING
+OUT OF THE USE OR INABILITY TO USE THE SOFTWARE, EVEN IF LICENSOR KNOWS OR HAS
+BEEN ADVISED OF THE POSSIBILITY OF THOSE DAMAGES.  You acknowledge that:
+(a) other than Licensor and you, no party has obligations under this Agreement;
+(b) during and after the term of this Agreement, you may not seek any remedy
+for any obligations or breaches under this Agreement from any party other than
+Licensor; and (c) you may not sue or seek any remedy on any cause of action
+relating to any Software or the rights in any Software from any party other
+than Licensor.
+
+7.  Termination.  The License is effective until terminated by either party or
+at the end of the evaluation period, whichever occurs first.  You may terminate
+the License at any time by destroying all copies of the Software including
+associated documentation.  The License will terminate immediately, without
+prior notice from Licensor, if you fail to comply with any provision of this
+Agreement.  Licensor may also terminate the License upon written notice to you.
+Upon termination, you must destroy all copies of the Software.
+
+8.  Export Regulations.  The Software, including technical data, is subject to
+U.S. export control laws, including the U.S. Export Administration Act and its
+associated regulations, and may be subject to export or import regulations in
+other countries.  You agree to comply strictly with all those regulations and
+acknowledge your responsibility to obtain all necessary and appropriate
+licenses to export, re-export or import the Software.
+
+9.  No Further Commitment.  Nothing in this Agreement, including without
+limitation the provision of the License, implies that you have any rights in
+any commercially issued software produced by Licensor, including without
+limitation a commercial variation or release of the Software.  In the event
+that you and Licensor are able to reach an agreement on the terms and
+conditions of a license for the Software (or a version thereof) when it is made
+commercially available by Licensor, such license will be subject to the terms
+and conditions of that agreement.
+
+10.  Related Software.  You are responsible for providing any commercially
+available software, equipment or services that are required to operate the
+Software.
+
+11.  Miscellaneous.  This Agreement and your use of the Software is governed
+under the laws of the Commonwealth of Massachusetts, U.S.A., excluding its
+choice of law provisions.  You and Licensor agree to submit to the exclusive
+jurisdiction of the federal and state courts in the Commonwealth of
+Massachusetts.  The provisions of this Agreement regarding confidentiality,
+disclaimer of warranty, limitation of liability, and all other provisions
+which, as indicated by their sense and content, are intended to survive and
+will survive any termination of this Agreement or the evaluation. This
+Agreement is the entire agreement between you and Licensor relating to the
+Software and: (i) supersedes all prior or contemporaneous oral or written
+communications, proposals, and representations with respect to its subject
+matter; and (ii) prevails over any conflicting or additional terms of any
+quote, order, acknowledgment, or similar communication between the parties.
+If any provision of this Agreement is held invalid, all other provisions will
+remain valid.  No modification to this Agreement is binding, unless in writing
+and signed by a duly authorized representative of each party.  All of
+Licensor's licensors are direct and intended third-party beneficiaries of this
+Agreement and may enforce it against you.  This Agreement and the License
+granted hereunder may not be assigned or in any way transferred by you without
+the prior written consent of Licensor.  Any attempted assignment, delegation or
+transfer in violation hereof shall be null and void.  Subject to the foregoing,
+this Agreement shall be binding on the parties and their successors and
+assigns.
