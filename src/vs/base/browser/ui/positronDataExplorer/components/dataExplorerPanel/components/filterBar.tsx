@@ -21,8 +21,8 @@ import { Button } from 'vs/base/browser/ui/positronComponents/button/button';
 /**
  * Localized strings.
  */
-const filterButtonAriaLabel = localize('positron.filtering', "Filtering");
-const addFilterButtonAriaLabel = localize('positron.addFilter', "Add filter");
+const filterButtonAriaLabel = localize('positron.dataExplorer.filtering', "Filtering");
+const addFilterButtonAriaLabel = localize('positron.dataExplorer.addFilter', "Add filter");
 
 // Temporary filter.
 interface Filter {

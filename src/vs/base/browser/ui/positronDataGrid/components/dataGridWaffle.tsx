@@ -73,7 +73,7 @@ export const DataGridWaffle = () => {
 			waffleRef.current.offsetHeight
 		);
 
-		// Allocate and initialize the wafffle resize observer.
+		// Allocate and initialize the waffle resize observer.
 		const resizeObserver = new ResizeObserver(entries => {
 			// Set the width and height.
 			setWidth(entries[0].contentRect.width);

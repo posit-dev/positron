@@ -34,8 +34,7 @@ export function registerPositronModalDialogsActions() {
 	};
 
 	/**
-	 * Register the clear console action. This action removes everything from the active console,
-	 * just like running the clear command in a shell.
+	 * Register the show example modal dialog action.
 	 */
 	registerAction2(class extends Action2 {
 		/**

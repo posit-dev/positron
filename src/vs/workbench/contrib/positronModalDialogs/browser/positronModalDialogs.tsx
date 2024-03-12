@@ -81,7 +81,7 @@ export class PositronModalDialogs implements IPositronModalDialogsService {
 						<ContentArea>
 							<ComboBox
 								layoutService={this.layoutService}
-								className='yaya'
+								className='combo-box'
 								title='Select Column'
 								entries={testEntries}
 								onSelectionChanged={identifier => console.log(`Select Column changed to ${identifier}`)}

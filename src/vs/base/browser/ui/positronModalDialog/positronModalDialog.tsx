@@ -184,7 +184,7 @@ export const PositronModalDialog = (props: PropsWithChildren<PositronModalDialog
 
 				// Other keyboard events are kept within the dialog.
 				default: {
-					e.stopPropagation();
+					consumeEvent();
 					break;
 				}
 			}
