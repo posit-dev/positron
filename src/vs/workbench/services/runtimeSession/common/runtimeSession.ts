@@ -627,6 +627,9 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 				this._startingConsolesByLanguageId.set(metadata.languageId, validated);
 
 			} catch (err) {
+				// Clear this from the set of starting consoles.
+				this._startingConsolesByLanguageId.delete(metadata.languageId);
+
 				// Log the error and re-throw it.
 				this._logService.error(
 					`Language runtime ${formatLanguageRuntimeMetadata(metadata)} ` +
