@@ -15,6 +15,7 @@ import { Schemas } from 'vs/base/common/network';
  * Constants.
  */
 const numberRegex = /^\d+$/;
+const fileURLThatNeedsASlash = /^(file:\/\/)([a-zA-Z]:)/;
 const fileURLWithLine = /^(file:\/\/\/.+):(\d+)$/;
 const fileURLWithLineAndColumn = /^(file:\/\/\/.+):(\d+):(\d+)$/;
 
@@ -57,9 +58,15 @@ export const OutputRun = (props: OutputRunProps) => {
 			return url;
 		}
 
-		// a hack that, at least, pinpoints the problem / solution
+		// anticipate file URLs produced by, e.g., some versions of the cli R package
+		// BEFORE example:
+		// file://D:\\Users\\jenny\\source\\repos\\glue\\tests\\testthat\\test-glue.R
+		// AFTER example:
+		// file:///D:/Users/jenny/source/repos/glue/tests/testthat/test-glue.R
 		if (platform.isWindows) {
-			url = url.replace(/\\/g, '/').replace(/file:\/\/(?!\/)/g, 'file:///');
+			url = url
+				.replace(/\\/g, '/')
+				.replace(fileURLThatNeedsASlash, '$1/$2');
 		}
 
 		// Get the line parameter. If it's not present, return the URL.
