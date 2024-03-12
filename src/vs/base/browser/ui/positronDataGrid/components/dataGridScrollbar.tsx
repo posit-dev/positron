@@ -338,12 +338,14 @@ export const DataGridScrollbar = (props: DataGridScrollbarProps) => {
 	// Set the slider style.
 	const sliderStyle: CSSProperties = props.orientation === 'vertical' ? {
 		top: scrollbarState.sliderPosition,
-		width: props.scrollbarWidth,
+		// -1 to not overlap border.
+		width: props.scrollbarWidth - 1,
 		height: scrollbarState.sliderSize
 	} : {
 		left: scrollbarState.sliderPosition,
 		width: scrollbarState.sliderSize,
-		height: props.scrollbarWidth
+		// -1 to not overlap border.
+		height: props.scrollbarWidth - 1
 	};
 
 	// Render.

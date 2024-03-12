@@ -3,21 +3,20 @@
  *--------------------------------------------------------------------------------------------*/
 
 // CSS.
-import 'vs/css!./dataExplorerActionBar';
+import 'vs/css!./actionBar';
 
 // React.
 import * as React from 'react';
 
 // Other dependencies.
 import { localize } from 'vs/nls';
-import { IReactComponentContainer } from 'vs/base/browser/positronReactRenderer';
 import { PositronActionBar } from 'vs/platform/positronActionBar/browser/positronActionBar';
 import { ActionBarRegion } from 'vs/platform/positronActionBar/browser/components/actionBarRegion';
 import { ActionBarButton } from 'vs/platform/positronActionBar/browser/components/actionBarButton';
 import { ActionBarSeparator } from 'vs/platform/positronActionBar/browser/components/actionBarSeparator';
 import { PositronActionBarContextProvider } from 'vs/platform/positronActionBar/browser/positronActionBarContext';
 import { usePositronDataExplorerContext } from 'vs/base/browser/ui/positronDataExplorer/positronDataExplorerContext';
-import { LayoutMenuButton } from 'vs/base/browser/ui/positronDataExplorer/components/dataExplorerActionBar/components/layoutMenuButton';
+import { LayoutMenuButton } from 'vs/base/browser/ui/positronDataExplorer/components/actionBar/components/layoutMenuButton';
 
 /**
  * Constants.
@@ -32,26 +31,17 @@ const clearSortButtonTitle = localize('positron.clearSortButtonLabel', "Clear So
 const clearSortButtonDescription = localize('positron.clearSortButtonDescription', "Clear sorting");
 
 /**
- * DataExplorerActionBarProps interface.
- */
-interface DataExplorerActionBarProps {
-	readonly reactComponentContainer: IReactComponentContainer;
-}
-
-/**
- * DataExplorerActionBar component.
- * @param props An DataExplorerActionBarProps that contains the component properties.
+ * ActionBar component.
  * @returns The rendered component.
  */
-export const DataExplorerActionBar = (props: DataExplorerActionBarProps) => {
+export const ActionBar = () => {
 	// Context hooks.
 	const context = usePositronDataExplorerContext();
-
 
 	// Render.
 	return (
 		<PositronActionBarContextProvider {...context}>
-			<div className='data-explorer-action-bar'>
+			<div className='action-bar'>
 				<PositronActionBar
 					size='small'
 					borderBottom={true}

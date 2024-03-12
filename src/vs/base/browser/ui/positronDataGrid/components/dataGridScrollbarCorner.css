@@ -5,9 +5,7 @@
 .data-grid-scrollbar-corner {
 	right: 0;
 	bottom: 0;
-	/* Column splitters are at a z-index of 25, so go higher than that. */
-	/* The Monaco sash is at a z-index of 35, so go lower than that. */
-	z-index: 26;
+	z-index: 28;
 	cursor: pointer;
 	position: absolute;
 	box-sizing: border-box;

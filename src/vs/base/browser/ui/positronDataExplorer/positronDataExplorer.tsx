@@ -7,17 +7,15 @@ import 'vs/css!./positronDataExplorer';
 
 // React.
 import * as React from 'react';
-import { PropsWithChildren, useEffect, useState } from 'react'; // eslint-disable-line no-duplicate-imports
+import { PropsWithChildren } from 'react'; // eslint-disable-line no-duplicate-imports
 
 // Other dependencies.
-import { DisposableStore } from 'vs/base/common/lifecycle';
 import { ILayoutService } from 'vs/platform/layout/browser/layoutService';
-import { IReactComponentContainer } from 'vs/base/browser/positronReactRenderer';
 import { IClipboardService } from 'vs/platform/clipboard/common/clipboardService';
 import { PositronActionBarServices } from 'vs/platform/positronActionBar/browser/positronActionBarState';
+import { ActionBar } from 'vs/base/browser/ui/positronDataExplorer/components/actionBar/actionBar';
 import { DataExplorerPanel } from 'vs/base/browser/ui/positronDataExplorer/components/dataExplorerPanel/dataExplorerPanel';
 import { PositronDataExplorerContextProvider } from 'vs/base/browser/ui/positronDataExplorer/positronDataExplorerContext';
-import { DataExplorerActionBar } from 'vs/base/browser/ui/positronDataExplorer/components/dataExplorerActionBar/dataExplorerActionBar';
 import { IPositronDataExplorerInstance } from 'vs/workbench/services/positronDataExplorer/browser/interfaces/positronDataExplorerInstance';
 
 /**
@@ -38,9 +36,7 @@ export interface PositronDataExplorerConfiguration extends PositronDataExplorerS
 /**
  * PositronDataExplorerProps interface.
  */
-export interface PositronDataExplorerProps extends PositronDataExplorerConfiguration {
-	readonly reactComponentContainer: IReactComponentContainer;
-}
+export interface PositronDataExplorerProps extends PositronDataExplorerConfiguration { }
 
 /**
  * PositronDataExplorer component.
@@ -48,35 +44,12 @@ export interface PositronDataExplorerProps extends PositronDataExplorerConfigura
  * @returns The rendered component.
  */
 export const PositronDataExplorer = (props: PropsWithChildren<PositronDataExplorerProps>) => {
-	// State hooks.
-	const [width, setWidth] = useState(props.reactComponentContainer.width);
-	const [height, setHeight] = useState(props.reactComponentContainer.height);
-
-	// Main useEffect.
-	useEffect(() => {
-		// Create the disposable store for cleanup.
-		const disposableStore = new DisposableStore();
-
-		// Add the onSizeChanged event handler.
-		disposableStore.add(props.reactComponentContainer.onSizeChanged(size => {
-			setWidth(size.width);
-			setHeight(size.height);
-		}));
-
-		// Return the cleanup function that will dispose of the event handlers.
-		return () => disposableStore.dispose();
-	}, []);
-
 	// Render.
 	return (
 		<PositronDataExplorerContextProvider {...props}>
 			<div className='positron-data-explorer'>
-				<DataExplorerActionBar {...props} />
-				<DataExplorerPanel
-					width={width}
-					height={height - 32}
-					{...props}
-				/>
+				<ActionBar />
+				<DataExplorerPanel />
 			</div>
 		</PositronDataExplorerContextProvider>
 	);

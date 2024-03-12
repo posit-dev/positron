@@ -4,7 +4,7 @@
 
 import 'vs/css!./customFolderRecentlyUsedMenuItem';
 import * as React from 'react';
-import { KeyboardModifiers, PositronButton } from 'vs/base/browser/ui/positronComponents/positronButton';
+import { KeyboardModifiers, Button } from 'vs/base/browser/ui/positronComponents/button/button';
 
 /**
  * CustomFolderRecentlyUsedMenuItemProps interface.
@@ -24,13 +24,13 @@ interface CustomFolderRecentlyUsedMenuItemProps {
 export const CustomFolderRecentlyUsedMenuItem = (props: CustomFolderRecentlyUsedMenuItemProps) => {
 	// Render.
 	return (
-		<PositronButton className='custom-folder-recently-used-menu-item' onPressed={props.onOpen}>
+		<Button className='custom-folder-recently-used-menu-item' onPressed={props.onOpen}>
 			<div className='title' title={props.label}>
 				{props.label}
 			</div>
-			<PositronButton className='open-in-new-window' onPressed={props.onOpenInNewWindow}>
+			<Button className='open-in-new-window' onPressed={props.onOpenInNewWindow}>
 				<div className='codicon codicon-positron-open-in-new-window' title={props.label} />
-			</PositronButton>
-		</PositronButton>
+			</Button>
+		</Button>
 	);
 };

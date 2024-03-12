@@ -27,7 +27,7 @@ export const ActionBarCommandButton = (props: ActionBarCommandButtonProps) => {
 	// Hooks.
 	const positronActionBarContext = usePositronActionBarContext();
 	const [disabled, setDisabled] = useState(!positronActionBarContext.isCommandEnabled(props.commandId));
-	const buttonRef = useRef<HTMLDivElement>(undefined!);
+	const buttonRef = useRef<HTMLButtonElement>(undefined!);
 
 	// Add our event handlers.
 	useEffect(() => {

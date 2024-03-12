@@ -7,7 +7,7 @@ import 'vs/css!./dataGridWaffle';
 
 // React.
 import * as React from 'react';
-import { KeyboardEvent, useEffect, useLayoutEffect, useState, WheelEvent } from 'react'; // eslint-disable-line no-duplicate-imports
+import { KeyboardEvent, useEffect, useRef, useState, WheelEvent } from 'react'; // eslint-disable-line no-duplicate-imports
 
 // Other dependencies.
 import { generateUuid } from 'vs/base/common/uuid';
@@ -29,23 +29,19 @@ import { ExtendColumnSelectionBy, ExtendRowSelectionBy } from 'vs/base/browser/u
 const MOUSE_WHEEL_SENSITIVITY = 50;
 
 /**
- * DataGridWaffleProps interface.
- */
-interface DataGridWaffleProps {
-	width: number;
-	height: number;
-}
-
-/**
  * DataGridWaffle component.
- * @param props A DataGridWaffleProps that contains the component properties.
  * @returns The rendered component.
  */
-export const DataGridWaffle = (props: DataGridWaffleProps) => {
+export const DataGridWaffle = () => {
 	// Context hooks.
 	const context = usePositronDataGridContext();
 
+	// Reference hooks.
+	const waffleRef = useRef<HTMLDivElement>(undefined!);
+
 	// State hooks.
+	const [width, setWidth] = useState(0);
+	const [height, setHeight] = useState(0);
 	const [, setRenderMarker] = useState(generateUuid());
 	const [lastWheelEvent, setLastWheelEvent] = useState(0);
 	const [wheelDeltaX, setWheelDeltaX] = useState(0);
@@ -53,9 +49,6 @@ export const DataGridWaffle = (props: DataGridWaffleProps) => {
 
 	// Main useEffect. This is where we set up event handlers.
 	useEffect(() => {
-		// Set the initial screen size.
-		context.instance.setScreenSize(props.width, props.height);
-
 		// Create the disposable store for cleanup.
 		const disposableStore = new DisposableStore();
 
@@ -68,10 +61,37 @@ export const DataGridWaffle = (props: DataGridWaffleProps) => {
 		return () => disposableStore.dispose();
 	}, []);
 
-	// Screen size useEffect.
-	useLayoutEffect(() => {
-		context.instance.setScreenSize(props.width, props.height);
-	}, [props.width, props.height]);
+	// Automatic layout useEffect.
+	useEffect(() => {
+		// Set the initial width and height.
+		setWidth(waffleRef.current.offsetWidth);
+		setHeight(waffleRef.current.offsetHeight);
+
+		// Set the initial screen size.
+		context.instance.setScreenSize(
+			waffleRef.current.offsetWidth,
+			waffleRef.current.offsetHeight
+		);
+
+		// Allocate and initialize the waffle resize observer.
+		const resizeObserver = new ResizeObserver(entries => {
+			// Set the width and height.
+			setWidth(entries[0].contentRect.width);
+			setHeight(entries[0].contentRect.height);
+
+			// Set the screen size.
+			context.instance.setScreenSize(
+				entries[0].contentRect.width,
+				entries[0].contentRect.height
+			);
+		});
+
+		// Start observing the size of the waffle.
+		resizeObserver.observe(waffleRef.current);
+
+		// Return the cleanup function that will disconnect the resize observer.
+		return () => resizeObserver.disconnect();
+	}, [waffleRef]);
 
 	/**
 	 * onKeyDown event handler.
@@ -421,24 +441,29 @@ export const DataGridWaffle = (props: DataGridWaffleProps) => {
 	// Render the data grid rows.
 	const dataGridRows: JSX.Element[] = [];
 	for (let rowIndex = context.instance.firstRowIndex, top = 0;
-		rowIndex < context.instance.rows && top < props.height;
+		rowIndex < context.instance.rows && top < height;
 		rowIndex++
 	) {
+		// Render the data grid row.
 		dataGridRows.push(
 			<DataGridRow
 				key={`row-${rowIndex}`}
-				width={props.width}
+				width={width}
 				top={top}
-				rowIndex={rowIndex} />
+				rowIndex={rowIndex}
+			/>
 		);
 
 		// Adjust the top for the next row.
 		top += context.instance.getRowHeight(rowIndex);
 	}
 
+	console.log(`Rendering waffle ${width}, ${height}`);
+
 	// Render.
 	return (
 		<div
+			ref={waffleRef}
 			tabIndex={1}
 			className='data-grid-waffle'
 			onKeyDown={keyDownHandler}
@@ -454,77 +479,78 @@ export const DataGridWaffle = (props: DataGridWaffleProps) => {
 
 			{context.instance.columnHeaders &&
 				<DataGridColumnHeaders
-					width={props.width - context.instance.rowHeadersWidth}
+					width={width - context.instance.rowHeadersWidth}
 					height={context.instance.columnHeadersHeight}
 				/>
 			}
 
 			{context.instance.rowHeaders &&
 				<DataGridRowHeaders
-					height={props.height - context.instance.columnHeadersHeight}
+					height={height - context.instance.columnHeadersHeight}
+				/>
+			}
+
+			{context.instance.horizontalScrollbar &&
+				<DataGridScrollbar
+					orientation='horizontal'
+					bothScrollbarsVisible={
+						context.instance.horizontalScrollbar &&
+						context.instance.verticalScrollbar
+					}
+					scrollbarWidth={context.instance.scrollbarWidth}
+					containerWidth={width}
+					containerHeight={height - context.instance.columnHeadersHeight}
+					entries={context.instance.columns}
+					visibleEntries={context.instance.visibleColumns}
+					firstEntry={context.instance.firstColumnIndex}
+					maximumFirstEntry={context.instance.maximumFirstColumnIndex}
+					onDidChangeFirstEntry={firstColumnIndex =>
+						context.instance.setFirstColumn(firstColumnIndex)
+					}
+				/>
+			}
+
+			{context.instance.verticalScrollbar &&
+				<DataGridScrollbar
+					orientation='vertical'
+					bothScrollbarsVisible={
+						context.instance.horizontalScrollbar &&
+						context.instance.verticalScrollbar
+					}
+					scrollbarWidth={context.instance.scrollbarWidth}
+					containerWidth={width - context.instance.rowHeadersWidth}
+					containerHeight={height}
+					entries={context.instance.rows}
+					visibleEntries={context.instance.visibleRows}
+					firstEntry={context.instance.firstRowIndex}
+					maximumFirstEntry={context.instance.maximumFirstRowIndex}
+					onDidChangeFirstEntry={firstRowIndex =>
+						context.instance.setFirstRow(firstRowIndex)
+					}
+				/>
+			}
+
+			{context.instance.horizontalScrollbar && context.instance.verticalScrollbar &&
+				<DataGridScrollbarCorner
+					onClick={() => {
+						context.instance.setScreenPosition(
+							context.instance.maximumFirstColumnIndex,
+							context.instance.maximumFirstRowIndex
+						);
+					}}
 				/>
 			}
 
 			<div
 				className='data-grid-rows'
 				style={{
-					width: props.width - context.instance.rowHeadersWidth,
-					height: props.height - context.instance.columnHeadersHeight
+					width: width - context.instance.rowHeadersWidth,
+					height: height - context.instance.columnHeadersHeight
 				}}
 			>
 
 				{dataGridRows}
 
-				{context.instance.horizontalScrollbar &&
-					<DataGridScrollbar
-						orientation='horizontal'
-						bothScrollbarsVisible={
-							context.instance.horizontalScrollbar &&
-							context.instance.verticalScrollbar
-						}
-						scrollbarWidth={context.instance.scrollbarWidth}
-						containerWidth={props.width - context.instance.rowHeadersWidth}
-						containerHeight={props.height - context.instance.columnHeadersHeight}
-						entries={context.instance.columns}
-						visibleEntries={context.instance.visibleColumns}
-						firstEntry={context.instance.firstColumnIndex}
-						maximumFirstEntry={context.instance.maximumFirstColumnIndex}
-						onDidChangeFirstEntry={firstColumnIndex =>
-							context.instance.setFirstColumn(firstColumnIndex)
-						}
-					/>
-				}
-
-				{context.instance.verticalScrollbar &&
-					<DataGridScrollbar
-						orientation='vertical'
-						bothScrollbarsVisible={
-							context.instance.horizontalScrollbar &&
-							context.instance.verticalScrollbar
-						}
-						scrollbarWidth={context.instance.scrollbarWidth}
-						containerWidth={props.width - context.instance.rowHeadersWidth}
-						containerHeight={props.height - context.instance.columnHeadersHeight}
-						entries={context.instance.rows}
-						visibleEntries={context.instance.visibleRows}
-						firstEntry={context.instance.firstRowIndex}
-						maximumFirstEntry={context.instance.maximumFirstRowIndex}
-						onDidChangeFirstEntry={firstRowIndex =>
-							context.instance.setFirstRow(firstRowIndex)
-						}
-					/>
-				}
-
-				{context.instance.horizontalScrollbar && context.instance.verticalScrollbar &&
-					<DataGridScrollbarCorner
-						onClick={() => {
-							context.instance.setScreenPosition(
-								context.instance.maximumFirstColumnIndex,
-								context.instance.maximumFirstRowIndex
-							);
-						}}
-					/>
-				}
 			</div>
 		</div>
 	);

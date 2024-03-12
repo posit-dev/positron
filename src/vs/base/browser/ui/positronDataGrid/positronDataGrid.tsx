@@ -13,12 +13,9 @@ import { DataGridWaffle } from 'vs/base/browser/ui/positronDataGrid/components/d
 import { PositronDataGridConfiguration, PositronDataGridContextProvider } from 'vs/base/browser/ui/positronDataGrid/positronDataGridContext';
 
 /**
- * DataGridProps interface.
+ * PositronDataGridProps interface.
  */
-interface PositronDataGridProps extends PositronDataGridConfiguration {
-	width: number;
-	height: number;
-}
+interface PositronDataGridProps extends PositronDataGridConfiguration { }
 
 /**
  * PositronDataGrid component.
@@ -30,7 +27,7 @@ export const PositronDataGrid = (props: PositronDataGridProps) => {
 	return (
 		<PositronDataGridContextProvider {...props}>
 			<div className='data-grid'>
-				<DataGridWaffle {...props} />
+				<DataGridWaffle />
 			</div>
 		</PositronDataGridContextProvider>
 	);

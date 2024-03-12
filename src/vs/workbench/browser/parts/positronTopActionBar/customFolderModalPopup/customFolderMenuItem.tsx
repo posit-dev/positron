@@ -4,7 +4,7 @@
 
 import 'vs/css!./customFolderMenuItem';
 import * as React from 'react';
-import { KeyboardModifiers, PositronButton } from 'vs/base/browser/ui/positronComponents/positronButton';
+import { KeyboardModifiers, Button } from 'vs/base/browser/ui/positronComponents/button/button';
 
 /**
  * CustomFolderMenuItemProps interface.
@@ -23,10 +23,10 @@ interface CustomFolderMenuItemProps {
 export const CustomFolderMenuItem = (props: CustomFolderMenuItemProps) => {
 	// Render.
 	return (
-		<PositronButton className='custom-folder-menu-item' onPressed={props.onSelected}>
+		<Button className='custom-folder-menu-item' onPressed={props.onSelected}>
 			<div className='title'>
 				{props.label}
 			</div>
-		</PositronButton>
+		</Button>
 	);
 };

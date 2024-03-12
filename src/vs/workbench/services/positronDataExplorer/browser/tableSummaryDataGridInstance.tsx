@@ -6,6 +6,7 @@
 import * as React from 'react';
 
 // Other dependencies.
+import { Emitter } from 'vs/base/common/event';
 import { DataGridInstance } from 'vs/base/browser/ui/positronDataGrid/classes/dataGridInstance';
 import { DataExplorerCache } from 'vs/workbench/services/positronDataExplorer/common/dataExplorerCache';
 import { ColumnSchemaTypeDisplay } from 'vs/workbench/services/languageRuntime/common/positronDataExplorerComm';
@@ -38,6 +39,11 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 	 * Gets the expanded columns set.
 	 */
 	private readonly _expandedColumns = new Set<number>();
+
+	/**
+	 * The onDidSelectColumn event emitter.
+	 */
+	private readonly _onDidSelectColumnEmitter = this._register(new Emitter<number>);
 
 	//#endregion Private Properties
 
@@ -217,19 +223,39 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 				instance={this}
 				columnSchema={columnSchema}
 				columnIndex={rowIndex}
+				onDoubleClick={() => this._onDidSelectColumnEmitter.fire(rowIndex)}
 			/>
 		);
 	}
 
-	//#region DataGridInstance Methods
+	//#endregion DataGridInstance Methods
+
+	//#region Public Events
+
+	/**
+	 * onDidSelectColumn event.
+	 */
+	readonly onDidSelectColumn = this._onDidSelectColumnEmitter.event;
+
+	//#endregion Public Events
 
 	//#region Public Methods
 
+	/**
+	 * Returns a value which indicates whether a column is expanded.
+	 * @param columnIndex The columm index.
+	 * @returns A value which indicates whether the column is expanded.
+	 */
 	isColumnExpanded(columnIndex: number) {
 		return this._expandedColumns.has(columnIndex);
 	}
 
-	toggleExpandedColumn(columnIndex: number) {
+	/**
+	 * Toggles expand column.
+	 * @param columnIndex The columm index.
+	 */
+	toggleExpandColumn(columnIndex: number) {
+		// Tottle expand column.
 		if (this._expandedColumns.has(columnIndex)) {
 			this._expandedColumns.delete(columnIndex);
 		} else {
@@ -237,6 +263,7 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 			this.scrollToRow(columnIndex);
 		}
 
+		// Fire the onDidUpdate event.
 		this._onDidUpdateEmitter.fire();
 	}
 

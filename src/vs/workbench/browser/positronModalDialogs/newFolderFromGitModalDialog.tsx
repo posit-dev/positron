@@ -15,9 +15,9 @@ import { IWorkbenchLayoutService } from 'vs/workbench/services/layout/browser/la
 import { VerticalStack } from 'vs/base/browser/ui/positronModalDialog/components/verticalStack';
 import { VerticalSpacer } from 'vs/base/browser/ui/positronModalDialog/components/verticalSpacer';
 import { LabeledTextInput } from 'vs/base/browser/ui/positronModalDialog/components/labeledTextInput';
-import { LabeledFolderInput } from 'vs/base/browser/ui/positronModalDialog/components/labeledFolderInput';
 import { OKCancelModalDialog } from 'vs/base/browser/ui/positronModalDialog/positronOKCancelModalDialog';
-import { PositronModalDialogReactRenderer } from 'vs/base/browser/ui/positronModalDialog/positronModalDialogReactRenderer';
+import { LabeledFolderInput } from 'vs/base/browser/ui/positronModalDialog/components/labeledFolderInput';
+import { PositronModalReactRenderer } from 'vs/base/browser/ui/positronModalReactRenderer/positronModalReactRenderer';
 
 /**
  * NewFolderFromGitResult interface.
@@ -43,9 +43,9 @@ export const showNewFolderFromGitModalDialog = async (accessor: ServicesAccessor
 
 	// Return a promise that resolves when the dialog is done.
 	return new Promise<NewFolderFromGitResult | undefined>((resolve) => {
-		// Create the modal dialog React renderer.
-		const positronModalDialogReactRenderer =
-			new PositronModalDialogReactRenderer(layoutService.mainContainer);
+		// Create the modal React renderer.
+		const positronModalReactRenderer =
+			new PositronModalReactRenderer(layoutService.mainContainer);
 
 		// The new folder from git modal dialog component.
 		const NewFolderFromGitModalDialog = () => {
@@ -59,13 +59,13 @@ export const showNewFolderFromGitModalDialog = async (accessor: ServicesAccessor
 
 			// The accept handler.
 			const acceptHandler = () => {
-				positronModalDialogReactRenderer.destroy();
+				positronModalReactRenderer.dispose();
 				resolve(newFolderFromGitResultRef.current);
 			};
 
 			// The cancel handler.
 			const cancelHandler = () => {
-				positronModalDialogReactRenderer.destroy();
+				positronModalReactRenderer.dispose();
 				resolve(undefined);
 			};
 
@@ -87,7 +87,7 @@ export const showNewFolderFromGitModalDialog = async (accessor: ServicesAccessor
 
 			// Render.
 			return (
-				<OKCancelModalDialog width={400} height={300} title={localize('positronNewFolderFromGitModalDialogTitle', "New Folder from Git")} accept={acceptHandler} cancel={cancelHandler}>
+				<OKCancelModalDialog renderer={positronModalReactRenderer} width={400} height={300} title={localize('positronNewFolderFromGitModalDialogTitle', "New Folder from Git")} accept={acceptHandler} cancel={cancelHandler}>
 					<VerticalStack>
 						<LabeledTextInput
 							ref={folderNameRef}
@@ -111,6 +111,6 @@ export const showNewFolderFromGitModalDialog = async (accessor: ServicesAccessor
 		};
 
 		// Render the modal dialog component.
-		positronModalDialogReactRenderer.render(<NewFolderFromGitModalDialog />);
+		positronModalReactRenderer.render(<NewFolderFromGitModalDialog />);
 	});
 };

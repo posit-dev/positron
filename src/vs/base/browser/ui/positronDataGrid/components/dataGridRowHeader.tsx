@@ -11,9 +11,9 @@ import { MouseEvent } from 'react'; // eslint-disable-line no-duplicate-imports
 
 // Other dependencies.
 import { positronClassNames } from 'vs/base/common/positronUtilities';
-import { VerticalSplitter } from 'vs/base/browser/ui/positronComponents/verticalSplitter';
+import { VerticalSplitter } from 'vs/base/browser/ui/positronComponents/splitters/verticalSplitter';
 import { selectionType } from 'vs/base/browser/ui/positronDataGrid/utilities/mouseUtilities';
-import { HorizontalSplitter } from 'vs/base/browser/ui/positronComponents/horizontalSplitter';
+import { HorizontalSplitter } from 'vs/base/browser/ui/positronComponents/splitters/horizontalSplitter';
 import { RowSelectionState } from 'vs/base/browser/ui/positronDataGrid/classes/dataGridInstance';
 import { usePositronDataGridContext } from 'vs/base/browser/ui/positronDataGrid/positronDataGridContext';
 

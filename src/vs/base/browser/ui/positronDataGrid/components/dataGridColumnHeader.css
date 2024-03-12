@@ -110,12 +110,12 @@
 
 .data-grid-column-header
 .content
-.button {
+.sort-button {
 	z-index: 1;
 	height: 20px;
 	display: flex;
 	cursor: pointer;
-	border-radius: 6px;
+	border-radius: 4px;
 	align-items: center;
 	box-sizing: border-box;
 	justify-content: center;
@@ -124,30 +124,29 @@
 
 .data-grid-column-header
 .content
-.button:focus {
+.sort-button:focus {
 	outline: none !important;
 }
 
 .data-grid-column-header
 .content
-.button:focus-visible {
-	border-radius: 6px;
+.sort-button:focus-visible {
+	border-radius: 4px;
 	outline: 1px solid var(--vscode-focusBorder) !important;
 }
 
 .data-grid-column-header
 .content
-.button:hover {
+.sort-button:hover {
 	border: 1px solid var(--vscode-positronDataGrid-selectionBorder);
 }
 
 .data-grid-column-header
 .content
-.button:active {
+.sort-button:active {
 	border: 1px solid var(--vscode-positronDataGrid-selectionBorder);
 	background-color: var(--vscode-positronDataGrid-selectionBackground);
 }
-
 
 .data-grid-column-header
 .vertical-splitter {
