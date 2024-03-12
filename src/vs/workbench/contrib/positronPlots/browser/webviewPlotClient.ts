@@ -43,7 +43,7 @@ export class WebviewPlotClient extends Disposable implements IPositronPlotClient
 			id: message.id,
 			parent_id: message.parent_id,
 			created: Date.parse(message.when),
-			runtime_id: webview.runtimeId,
+			session_id: webview.sessionId,
 			code: code ? code : '',
 		};
 

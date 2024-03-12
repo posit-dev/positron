@@ -10,6 +10,7 @@ import { ILanguageRuntimeService } from 'vs/workbench/services/languageRuntime/c
 import { IPositronVariablesService } from 'vs/workbench/services/positronVariables/common/interfaces/positronVariablesService';
 import { IPositronVariablesInstance } from 'vs/workbench/services/positronVariables/common/interfaces/positronVariablesInstance';
 import { PositronActionBarServices } from 'vs/platform/positronActionBar/browser/positronActionBarState';
+import { IRuntimeSessionService } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
 
 /**
  * PositronVariablesServices interface.
@@ -17,6 +18,7 @@ import { PositronActionBarServices } from 'vs/platform/positronActionBar/browser
 export interface PositronVariablesServices extends PositronActionBarServices {
 	readonly clipboardService: IClipboardService;
 	readonly languageRuntimeService: ILanguageRuntimeService;
+	readonly runtimeSessionService: IRuntimeSessionService;
 	readonly positronVariablesService: IPositronVariablesService;
 	readonly reactComponentContainer: IReactComponentContainer;
 }

@@ -35,9 +35,11 @@ import { RuntimeItemStartupFailure } from 'vs/workbench/services/positronConsole
 import { ActivityItem, RuntimeItemActivity } from 'vs/workbench/services/positronConsole/browser/classes/runtimeItemActivity';
 import { ActivityItemInput, ActivityItemInputState } from 'vs/workbench/services/positronConsole/browser/classes/activityItemInput';
 import { ActivityItemErrorStream, ActivityItemOutputStream } from 'vs/workbench/services/positronConsole/browser/classes/activityItemStream';
-import { IPositronConsoleInstance, IPositronConsoleService, POSITRON_CONSOLE_VIEW_ID, PositronConsoleState } from 'vs/workbench/services/positronConsole/browser/interfaces/positronConsoleService';
-import { formatLanguageRuntime, ILanguageRuntime, ILanguageRuntimeExit, ILanguageRuntimeMessage, ILanguageRuntimeService, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior, RuntimeExitReason, RuntimeOnlineState, RuntimeState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { IPositronConsoleInstance, IPositronConsoleService, POSITRON_CONSOLE_VIEW_ID, PositronConsoleState, SessionAttachMode } from 'vs/workbench/services/positronConsole/browser/interfaces/positronConsoleService';
+import { ILanguageRuntimeExit, ILanguageRuntimeMessage, ILanguageRuntimeMetadata, LanguageRuntimeSessionMode, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior, RuntimeExitReason, RuntimeOnlineState, RuntimeState, formatLanguageRuntimeMetadata, formatLanguageRuntimeSession } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { ILanguageRuntimeSession, IRuntimeSessionService } from '../../runtimeSession/common/runtimeSessionService';
 import { UiFrontendEvent } from 'vs/workbench/services/languageRuntime/common/positronUiComm';
+import { IRuntimeStartupService } from 'vs/workbench/services/runtimeStartup/common/runtimeStartupService';
 
 /**
  * The onDidChangeRuntimeItems throttle threshold and throttle interval. The throttle threshold
@@ -136,9 +138,9 @@ class PositronConsoleService extends Disposable implements IPositronConsoleServi
 	private readonly _positronConsoleInstancesByLanguageId = new Map<string, PositronConsoleInstance>();
 
 	/**
-	 * A map of the Positron console instances by runtime ID.
+	 * A map of the Positron console instances by session ID.
 	 */
-	private readonly _positronConsoleInstancesByRuntimeId = new Map<string, PositronConsoleInstance>();
+	private readonly _positronConsoleInstancesBySessionId = new Map<string, PositronConsoleInstance>();
 
 	/**
 	 * The active Positron console instance.
@@ -172,14 +174,17 @@ class PositronConsoleService extends Disposable implements IPositronConsoleServi
 	/**
 	 * Constructor.
 	 * @param _instantiationService The instantiation service.
-	 * @param _languageRuntimeService The language runtime service.
+	 * @param _runtimeStartupService The runtime affiliation service.
+	 * @param _runtimeSessionService The runtime session service.
 	 * @param _logService The log service service.
 	 * @param _viewsService The views service.
 	 * @param _layoutService The workbench layout service.
+	 * @param _configurationService The configuration service.
 	 */
 	constructor(
 		@IInstantiationService private readonly _instantiationService: IInstantiationService,
-		@ILanguageRuntimeService private readonly _languageRuntimeService: ILanguageRuntimeService,
+		@IRuntimeStartupService private readonly _runtimeStartupService: IRuntimeStartupService,
+		@IRuntimeSessionService private readonly _runtimeSessionService: IRuntimeSessionService,
 		@ILogService private readonly _logService: ILogService,
 		@IViewsService private readonly _viewsService: IViewsService,
 		@IWorkbenchLayoutService private readonly _layoutService: IWorkbenchLayoutService
@@ -188,71 +193,83 @@ class PositronConsoleService extends Disposable implements IPositronConsoleServi
 		super();
 
 		// Start a Positron console instance for each running runtime.
-		this._languageRuntimeService.runningRuntimes.forEach(runtime => {
-			this.startPositronConsoleInstance(runtime, false);
+		this._runtimeSessionService.activeSessions.forEach(session => {
+			if (session.metadata.sessionMode === LanguageRuntimeSessionMode.Console) {
+				this.startPositronConsoleInstance(session, SessionAttachMode.Connected);
+			}
 		});
 
-		// Get the active runtime. If there is one, set the active Positron console instance.
-		if (this._languageRuntimeService.activeRuntime) {
-			const positronConsoleInstance = this._positronConsoleInstancesByRuntimeId.get(this._languageRuntimeService.activeRuntime.metadata.runtimeId);
+		// Get the foreground session. If there is one, set the active Positron console instance.
+		if (this._runtimeSessionService.foregroundSession) {
+			const positronConsoleInstance = this._positronConsoleInstancesBySessionId.get(
+				this._runtimeSessionService.foregroundSession.sessionId);
 			if (positronConsoleInstance) {
 				this.setActivePositronConsoleInstance(positronConsoleInstance);
 			}
 		}
 
-		// Register the onWillStartRuntime event handler so we start a new Positron console instance before a runtime starts up.
-		this._register(this._languageRuntimeService.onWillStartRuntime(runtime => {
+		// Register the onWillStartSessiopn event handler so we start a new
+		// Positron console instance before a runtime starts up.
+		this._register(this._runtimeSessionService.onWillStartSession(e => {
+			// Ignore non-console sessions
+			if (e.session.metadata.sessionMode !== LanguageRuntimeSessionMode.Console) {
+				return;
+			}
+
+			const attachMode = e.isNew ? SessionAttachMode.Starting : SessionAttachMode.Reconnecting;
+
 			// If there is already a Positron console instance for the runtime,
 			// just reattach
-			const existingInstance = this._positronConsoleInstancesByRuntimeId.get(
-				runtime.metadata.runtimeId);
+			const existingInstance = this._positronConsoleInstancesBySessionId.get(
+				e.session.sessionId);
 			if (existingInstance) {
 				// Reattach the runtime; runtimes always detach on exit and are
 				// reattached on startup.
-				existingInstance.setRuntime(runtime, true);
+				existingInstance.setRuntimeSession(e.session, attachMode);
 				return;
 			}
 
 			// If no instance exists, see if we can reuse an instance from an
 			// exited runtime with a matching language.
-			const positronConsoleInstance = this._positronConsoleInstancesByLanguageId.get(runtime.metadata.languageId);
+			const positronConsoleInstance = this._positronConsoleInstancesByLanguageId.get(e.session.runtimeMetadata.languageId);
 			if (positronConsoleInstance && positronConsoleInstance.state === PositronConsoleState.Exited) {
-				positronConsoleInstance.setRuntime(runtime, true);
-				this._positronConsoleInstancesByRuntimeId.delete(positronConsoleInstance.runtime.metadata.runtimeId);
-				this._positronConsoleInstancesByRuntimeId.set(positronConsoleInstance.runtime.metadata.runtimeId, positronConsoleInstance);
+				positronConsoleInstance.setRuntimeSession(e.session, attachMode);
+				this._positronConsoleInstancesBySessionId.delete(positronConsoleInstance.session.sessionId);
+				this._positronConsoleInstancesBySessionId.set(e.session.sessionId, positronConsoleInstance);
 			} else {
 				// New runtime with a new language, so start a new Positron console instance.
-				this.startPositronConsoleInstance(runtime, true);
+				this.startPositronConsoleInstance(e.session,
+					e.isNew ? SessionAttachMode.Starting : SessionAttachMode.Reconnecting);
 			}
 		}));
 
 		// Register the onDidStartRuntime event handler so we activate the new Positron console instance when the runtime starts up.
-		this._register(this._languageRuntimeService.onDidStartRuntime(runtime => {
-			const positronConsoleInstance = this._positronConsoleInstancesByRuntimeId.get(runtime.metadata.runtimeId);
+		this._register(this._runtimeSessionService.onDidStartRuntime(session => {
+			const positronConsoleInstance = this._positronConsoleInstancesBySessionId.get(session.runtimeMetadata.runtimeId);
 			if (positronConsoleInstance) {
 				positronConsoleInstance.setState(PositronConsoleState.Ready);
 			}
 		}));
 
 		// Register the onDidFailStartRuntime event handler so we activate the new Positron console instance when the runtime starts up.
-		this._register(this._languageRuntimeService.onDidFailStartRuntime(runtime => {
-			const positronConsoleInstance = this._positronConsoleInstancesByRuntimeId.get(runtime.metadata.runtimeId);
+		this._register(this._runtimeSessionService.onDidFailStartRuntime(session => {
+			const positronConsoleInstance = this._positronConsoleInstancesBySessionId.get(session.runtimeMetadata.runtimeId);
 			if (positronConsoleInstance) {
 				positronConsoleInstance.setState(PositronConsoleState.Exited);
 			}
 		}));
 
 		// Register the onDidReconnectRuntime event handler so we start a new Positron console instance when a runtime is reconnected.
-		this._register(this._languageRuntimeService.onDidReconnectRuntime(runtime => {
-			const positronConsoleInstance = this._positronConsoleInstancesByRuntimeId.get(runtime.metadata.runtimeId);
+		this._register(this._runtimeSessionService.onDidReconnectRuntime(session => {
+			const positronConsoleInstance = this._positronConsoleInstancesBySessionId.get(session.runtimeMetadata.runtimeId);
 			if (!positronConsoleInstance) {
-				this.startPositronConsoleInstance(runtime, false);
+				this.startPositronConsoleInstance(session, SessionAttachMode.Reconnecting);
 			}
 		}));
 
 		// Register the onDidChangeRuntimeState event handler so we can activate the REPL for the active runtime.
-		this._register(this._languageRuntimeService.onDidChangeRuntimeState(languageRuntimeStateEvent => {
-			const positronConsoleInstance = this._positronConsoleInstancesByRuntimeId.get(languageRuntimeStateEvent.runtime_id);
+		this._register(this._runtimeSessionService.onDidChangeRuntimeState(languageRuntimeStateEvent => {
+			const positronConsoleInstance = this._positronConsoleInstancesBySessionId.get(languageRuntimeStateEvent.session_id);
 			if (!positronConsoleInstance) {
 				// TODO@softwarenerd... Handle this in some special way.
 				return;
@@ -286,15 +303,18 @@ class PositronConsoleService extends Disposable implements IPositronConsoleServi
 		}));
 
 		// Register the onDidChangeActiveRuntime event handler so we can activate the REPL for the active runtime.
-		this._register(this._languageRuntimeService.onDidChangeActiveRuntime(runtime => {
-			if (!runtime) {
+		this._register(this._runtimeSessionService.onDidChangeForegroundSession(session => {
+			if (!session) {
 				this.setActivePositronConsoleInstance();
 			} else {
-				const positronConsoleInstance = this._positronConsoleInstancesByRuntimeId.get(runtime.metadata.runtimeId);
+				const positronConsoleInstance = this._positronConsoleInstancesBySessionId.get(
+					session.sessionId);
 				if (positronConsoleInstance) {
 					this.setActivePositronConsoleInstance(positronConsoleInstance);
 				} else {
-					this._logService.error(`Language runtime ${formatLanguageRuntime(runtime)} became active, but a REPL instance for it is not running.`);
+					this._logService.error(
+						`Language runtime ${formatLanguageRuntimeSession(session)} ` +
+						`became active,but a REPL instance for it is not running.`);
 				}
 			}
 		}));
@@ -318,7 +338,7 @@ class PositronConsoleService extends Disposable implements IPositronConsoleServi
 
 	// Gets the repl instances.
 	get positronConsoleInstances(): IPositronConsoleInstance[] {
-		return Array.from(this._positronConsoleInstancesByRuntimeId.values());
+		return Array.from(this._positronConsoleInstancesBySessionId.values());
 	}
 
 	// Gets the active REPL instance.
@@ -353,22 +373,26 @@ class PositronConsoleService extends Disposable implements IPositronConsoleServi
 		await this._viewsService.openView(POSITRON_CONSOLE_VIEW_ID, false);
 
 		// Get the running runtimes for the language.
-		const runningLanguageRuntimes = this._languageRuntimeService.runningRuntimes.filter(
-			runtime => runtime.metadata.languageId === languageId);
+		const runningLanguageRuntimes = this._runtimeSessionService.activeSessions.filter(
+			session => session.runtimeMetadata.languageId === languageId);
 
 		// If there isn't a running runtime for the language, start one.
 		if (!runningLanguageRuntimes.length) {
 			// Get the preferred runtime for the language.
-			let languageRuntime: ILanguageRuntime;
+			let languageRuntime: ILanguageRuntimeMetadata;
 			try {
-				languageRuntime = this._languageRuntimeService.getPreferredRuntime(languageId);
+				languageRuntime = this._runtimeStartupService.getPreferredRuntime(languageId);
 			} catch {
 				return false;
 			}
 
 			// Start the preferred runtime.
-			this._logService.trace(`Language runtime ${formatLanguageRuntime(languageRuntime)} automatically starting`);
-			await this._languageRuntimeService.startRuntime(languageRuntime.metadata.runtimeId,
+			this._logService.trace(`Language runtime ` +
+				`${formatLanguageRuntimeMetadata(languageRuntime)} automatically starting`);
+			await this._runtimeSessionService.startNewRuntimeSession(languageRuntime.runtimeId,
+				languageRuntime.runtimeName,
+				LanguageRuntimeSessionMode.Console,
+				undefined, // No notebook URI (console sesion)
 				`User executed code in language ${languageId}, and no running runtime was found ` +
 				`for the language.`);
 		}
@@ -401,29 +425,32 @@ class PositronConsoleService extends Disposable implements IPositronConsoleServi
 	//#region Private Methods
 
 	/**
-	 * Starts a Positron console instance for the specified runtime.
+	 * Starts a Positron console instance for the specified runtime session.
+	 *
 	 * @param runtime The runtime for the new Positron console instance.
-	 * @param starting A value which indicates whether the runtime is starting.
+	 * @param attachMode A value which indicates the mode in which to attach the
+	 * session.
+	 *
 	 * @returns The new Positron console instance.
 	 */
 	private startPositronConsoleInstance(
-		runtime: ILanguageRuntime,
-		starting: boolean
+		session: ILanguageRuntimeSession,
+		attachMode: SessionAttachMode
 	): IPositronConsoleInstance {
 		// Create the new Positron console instance.
 		const positronConsoleInstance = this._instantiationService.createInstance(
 			PositronConsoleInstance,
-			runtime,
-			starting
+			session,
+			attachMode
 		);
 
 		// Add the Positron console instance.
 		this._positronConsoleInstancesByLanguageId.set(
-			runtime.metadata.languageId,
+			session.runtimeMetadata.languageId,
 			positronConsoleInstance
 		);
-		this._positronConsoleInstancesByRuntimeId.set(
-			runtime.metadata.runtimeId,
+		this._positronConsoleInstancesBySessionId.set(
+			session.sessionId,
 			positronConsoleInstance
 		);
 
@@ -493,7 +520,7 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 	/**
 	 * Gets or sets the runtime.
 	 */
-	private _runtime: ILanguageRuntime;
+	private _session: ILanguageRuntimeSession;
 
 	/**
 	 * Gets or sets the disposable store. This contains things that are disposed when a runtime is
@@ -622,7 +649,8 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 	/**
 	 * The onDidAttachRuntime event emitter.
 	 */
-	private readonly _onDidAttachRuntime = this._register(new Emitter<ILanguageRuntime | undefined>);
+	private readonly _onDidAttachRuntime = this._register(
+		new Emitter<ILanguageRuntimeSession | undefined>);
 
 	/**
 	 * Provides access to the input text editor, if it's available. Note that we generally prefer to
@@ -641,13 +669,14 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 
 	/**
 	 * Constructor.
-	 * @param runtime The language runtime.
-	 * @param starting A value which indicates whether the Positron console instance is starting.
+	 *
+	 * @param runtimeSession The language runtime session.
+	 * @param attachMode The mode in which to attach to the session.
 	 * @param _notificationService The notification service.
 	 */
 	constructor(
-		runtime: ILanguageRuntime,
-		starting: boolean,
+		runtimeSession: ILanguageRuntimeSession,
+		attachMode: SessionAttachMode,
 		@INotificationService private readonly _notificationService: INotificationService,
 		@IConfigurationService private readonly _configurationService: IConfigurationService,
 	) {
@@ -655,10 +684,10 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 		super();
 
 		// Set the runtime.
-		this._runtime = runtime;
+		this._session = runtimeSession;
 
 		// Attach to the runtime.
-		this.attachRuntime(starting);
+		this.attachRuntime(attachMode);
 
 		// Initialize the width in characters.
 		this._widthInChars = new ObservableValue<number>(this, undefined, 80);
@@ -699,10 +728,10 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 	}
 
 	/**
-	 * Gets the currently attached runtime, or undefined if there is no runtime attached.
+	 * Gets the currently attached runtime session, or undefined if there is no runtime attached.
 	 */
-	get attachedRuntime(): ILanguageRuntime | undefined {
-		return this._runtimeAttached ? this._runtime : undefined;
+	get attachedRuntimeSession(): ILanguageRuntimeSession | undefined {
+		return this._runtimeAttached ? this._session : undefined;
 	}
 
 	/**
@@ -726,10 +755,10 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 	//#region IPositronConsoleInstance Implementation
 
 	/**
-	 * Gets the runtime.
+	 * Gets the runtime session.
 	 */
-	get runtime(): ILanguageRuntime {
-		return this._runtime;
+	get session(): ILanguageRuntimeSession {
+		return this._session;
 	}
 
 	/**
@@ -904,9 +933,9 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 	 */
 	interrupt() {
 		// Get the runtime state.
-		const runtimeState = this._runtime.getRuntimeState();
+		const runtimeState = this._session.getRuntimeState();
 
-		this._runtime.interrupt();
+		this._session.interrupt();
 
 		// Clear pending input and pending code.
 		this.clearPendingInput();
@@ -923,8 +952,8 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 					id,
 					id,
 					new Date(),
-					this._runtime.dynState.inputPrompt,
-					this._runtime.dynState.continuationPrompt,
+					this._session.dynState.inputPrompt,
+					this._session.dynState.continuationPrompt,
 					''
 				)
 			);
@@ -949,7 +978,7 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 		// If the runtime isn't idle or ready, we can't check on whether this code is complete, so
 		// add this code as a pending input runtime item and wait for it to be processed the next
 		// time the runtime becomes idle.
-		const runtimeState = this.runtime.getRuntimeState();
+		const runtimeState = this.session.getRuntimeState();
 		if (!(runtimeState === RuntimeState.Idle || runtimeState === RuntimeState.Ready)) {
 			this.addPendingInput(code);
 			return;
@@ -960,7 +989,7 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 			if (skipChecks) {
 				return true;
 			}
-			const codeStatus = await this.runtime.isCodeFragmentComplete(code);
+			const codeStatus = await this.session.isCodeFragmentComplete(code);
 			return codeStatus === RuntimeCodeFragmentStatus.Complete;
 		};
 
@@ -1007,7 +1036,7 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 	replyToPrompt(id: string, value: string) {
 		if (this._promptActive) {
 			this._promptActive = false;
-			this._runtime.replyToPrompt(id, value);
+			this._session.replyToPrompt(id, value);
 		}
 	}
 
@@ -1018,7 +1047,7 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 	interruptPrompt(id: string) {
 		if (this._promptActive) {
 			this._promptActive = false;
-			this._runtime.interrupt();
+			this._session.interrupt();
 		}
 	}
 
@@ -1027,31 +1056,33 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 	//#region Public Methods
 
 	/**
-	 * Sets the runtime.
-	 * @param runtime The runtime.
-	 * @param starting A value which indicates whether the runtime is starting.
+	 * Sets the runtime session.
+	 *
+	 * @param runtime The runtime session.
+	 *
+	 * @param attachMode A value which indicates the attachment mode for the session.
 	 */
-	setRuntime(runtime: ILanguageRuntime, starting: boolean) {
+	setRuntimeSession(session: ILanguageRuntimeSession, attachMode: SessionAttachMode) {
 		// Is this the same runtime we're currently attached to?
-		if (this._runtime && this._runtime.metadata.runtimeId === runtime.metadata.runtimeId) {
+		if (this._session && this._session.sessionId === session.sessionId) {
 			if (this._runtimeAttached) {
 				// Yes, it's the same one. If we're already attached, we're
 				// done; just let the user know we're starting up if we are
 				// currently showing as Exited.
 				if (this._state === PositronConsoleState.Exited) {
-					this.emitStartRuntimeItems(starting);
+					this.emitStartRuntimeItems(attachMode);
 				}
 			} else {
 				// It's the same one, but it isn't attached. Reattach it.
-				this.attachRuntime(starting);
+				this.attachRuntime(attachMode);
 			}
 			return;
 		}
 		// Set the new runtime.
-		this._runtime = runtime;
+		this._session = session;
 
 		// Attach the new runtime.
-		this.attachRuntime(starting);
+		this.attachRuntime(attachMode);
 	}
 
 	/**
@@ -1108,11 +1139,25 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 						for (let i = this._runtimeItems.length - 1; i >= 0; i--) {
 							if (this._runtimeItems[i] instanceof RuntimeItemStarting) {
 								const runtimeItem = this._runtimeItems[i] as RuntimeItemStarting;
+								let msg = '';
+								// Create a localized message from the past
+								// tense of the attach mode.
+								switch (runtimeItem.attachMode) {
+									case SessionAttachMode.Starting:
+										msg = localize('positronConsole.started', "{0} started.", this._session.metadata.sessionName);
+										break;
+									case SessionAttachMode.Restarting:
+										msg = localize('positronConsole.restarted', "{0} restarted.", this._session.metadata.sessionName);
+										break;
+									case SessionAttachMode.Reconnecting:
+										msg = localize('positronConsole.reconnected', "{0} reconnected.", this._session.metadata.sessionName);
+										break;
+									case SessionAttachMode.Connected:
+										msg = localize('positronConsole.connected', "{0} connected.", this._session.metadata.sessionName);
+										break;
+								}
 								this._runtimeItems[i] = new RuntimeItemStarted(
-									generateUuid(),
-									`${this._runtime.metadata.runtimeName} ` +
-									`${runtimeItem.isRestart ? 'restarted' : 'started'}.`
-								);
+									generateUuid(), msg);
 								this._onDidChangeRuntimeItemsEmitter.fire();
 							}
 						}
@@ -1122,7 +1167,7 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 						this.addRuntimeItem(
 							new RuntimeItemReconnected(
 								generateUuid(),
-								`${this._runtime.metadata.runtimeName} reconnected.`
+								`${this._session.metadata.sessionName} reconnected.`
 							)
 						);
 						break;
@@ -1133,7 +1178,7 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 				this.addRuntimeItem(
 					new RuntimeItemOffline(
 						generateUuid(),
-						`${this._runtime.metadata.runtimeName} offline. Waiting to reconnect.`
+						`${this._session.metadata.sessionName} offline. Waiting to reconnect.`
 					)
 				);
 				break;
@@ -1150,12 +1195,14 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 
 	/**
 	 * Emits start runtime items.
-	 * @param starting A value which indicates whether the runtime is starting.
+	 *
+	 * @param attachMode A value which indicates the attachment mode.
 	 */
-	private emitStartRuntimeItems(starting: boolean) {
+	private emitStartRuntimeItems(attachMode: SessionAttachMode) {
 		// Set the state and add the appropriate runtime item to indicate whether the Positron
 		// console instance is is starting or is reconnected.
-		if (starting) {
+		if (attachMode === SessionAttachMode.Starting ||
+			attachMode === SessionAttachMode.Reconnecting) {
 			let switchingRuntime = false;
 			for (let i = 0; i < this._runtimeItems.length; i++) {
 				if (this._runtimeItems[i] instanceof RuntimeItemExited) {
@@ -1165,39 +1212,51 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 			}
 			const restart = this._state === PositronConsoleState.Exited && !switchingRuntime;
 			this.setState(PositronConsoleState.Starting);
-			this.addRuntimeItem(new RuntimeItemStarting(
-				generateUuid(),
-				`${this._runtime.metadata.runtimeName} ` +
-				`${restart ? 'restarting' : 'starting'}.`,
-				restart
-			));
+			if (restart) {
+				this.addRuntimeItem(new RuntimeItemStarting(
+					generateUuid(),
+					localize('positronConsole.starting.restart', "{0} restarting.", this._session.metadata.sessionName),
+					SessionAttachMode.Restarting));
+			} else if (attachMode === SessionAttachMode.Starting) {
+				this.addRuntimeItem(new RuntimeItemStarting(
+					generateUuid(),
+					localize('positronConsole.starting.start', "{0} starting.", this._session.metadata.sessionName),
+					attachMode));
+			} else if (attachMode === SessionAttachMode.Reconnecting) {
+				this.addRuntimeItem(new RuntimeItemStarting(
+					generateUuid(),
+					localize('positronConsole.starting.reconnect', "{0} reconnecting.", this._session.metadata.sessionName),
+					attachMode));
+			}
 		} else {
 			this.setState(PositronConsoleState.Ready);
 			this.addRuntimeItem(new RuntimeItemReconnected(
 				generateUuid(),
-				`${this._runtime.metadata.runtimeName} reconnected.`
+				`${this._session.metadata.sessionName} reconnected.`
 			));
 		}
 	}
 
 	/**
 	 * Attaches to a runtime.
-	 * @param starting A value which indicates whether the runtime is starting.
+	 *
+	 * @param attachMode A value which indicates the mode in which to attach the session.
 	 */
-	private attachRuntime(starting: boolean) {
+	private attachRuntime(attachMode: SessionAttachMode) {
 		// Mark the runtime as attached.
 		this._runtimeAttached = true;
 
 		// If trace is enabled, add a trace runtime item.
 		if (this._trace) {
-			this.addRuntimeItemTrace(`Attach runtime ${this._runtime.metadata.runtimeName} (starting = ${starting})`);
+			this.addRuntimeItemTrace(`Attach session ${this._session.metadata.sessionName} ` +
+				`(attach mode = ${attachMode})`);
 		}
 
 		// Emit the start runtime items.
-		this.emitStartRuntimeItems(starting);
+		this.emitStartRuntimeItems(attachMode);
 
 		// Add the onDidChangeRuntimeState event handler.
-		this._runtimeDisposableStore.add(this._runtime.onDidChangeRuntimeState(async runtimeState => {
+		this._runtimeDisposableStore.add(this._session.onDidChangeRuntimeState(async runtimeState => {
 			// If trace is enabled, add a trace runtime item.
 			if (this._trace) {
 				this.addRuntimeItemTrace(`onDidChangeRuntimeState (${runtimeState})`);
@@ -1238,7 +1297,7 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 							this.addRuntimeItem(new RuntimeItemExited(
 								generateUuid(),
 								RuntimeExitReason.StartupFailed,
-								`${this._runtime.metadata.runtimeName} failed to start.`
+								`${this._session.metadata.sessionName} failed to start.`
 							));
 						}
 					}, 1000);
@@ -1258,7 +1317,7 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 		}));
 
 		// Add the onDidCompleteStartup event handler.
-		this._runtimeDisposableStore.add(this._runtime.onDidCompleteStartup(languageRuntimeInfo => {
+		this._runtimeDisposableStore.add(this._session.onDidCompleteStartup(languageRuntimeInfo => {
 			this.setState(PositronConsoleState.Ready);
 
 			// If trace is enabled, add a trace runtime item.
@@ -1277,7 +1336,7 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 
 		// Add the onDidEncounterStartupFailure event handler. This can arrive before or after
 		// the state change to Exited, so we need to handle it in both places.
-		this._runtimeDisposableStore.add(this._runtime.onDidEncounterStartupFailure(startupFailure => {
+		this._runtimeDisposableStore.add(this._session.onDidEncounterStartupFailure(startupFailure => {
 			// If trace is enabled, add a trace runtime item.
 			if (this._trace) {
 				this.addRuntimeItemTrace(`onDidEncounterStartupFailure`);
@@ -1297,7 +1356,7 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 		}));
 
 		// Add the onDidReceiveRuntimeMessageInput event handler.
-		this._runtimeDisposableStore.add(this._runtime.onDidReceiveRuntimeMessageInput(languageRuntimeMessageInput => {
+		this._runtimeDisposableStore.add(this._session.onDidReceiveRuntimeMessageInput(languageRuntimeMessageInput => {
 			// If trace is enabled, add a trace runtime item.
 			if (this._trace) {
 				this.addRuntimeItemTrace(
@@ -1315,15 +1374,15 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 					languageRuntimeMessageInput.id,
 					languageRuntimeMessageInput.parent_id,
 					new Date(languageRuntimeMessageInput.when),
-					this._runtime.dynState.inputPrompt,
-					this._runtime.dynState.continuationPrompt,
+					this._session.dynState.inputPrompt,
+					this._session.dynState.continuationPrompt,
 					languageRuntimeMessageInput.code
 				)
 			);
 		}));
 
 		// Add the onDidReceiveRuntimeMessagePrompt event handler.
-		this._runtimeDisposableStore.add(this._runtime.onDidReceiveRuntimeMessagePrompt(languageRuntimeMessagePrompt => {
+		this._runtimeDisposableStore.add(this._session.onDidReceiveRuntimeMessagePrompt(languageRuntimeMessagePrompt => {
 			// If trace is enabled, add a trace runtime item.
 			if (this._trace) {
 				this.addRuntimeItemTrace(
@@ -1350,194 +1409,200 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 		}));
 
 		// Add the onDidReceiveRuntimeMessageOutput event handler.
-		this._runtimeDisposableStore.add(this._runtime.onDidReceiveRuntimeMessageOutput(languageRuntimeMessageOutput => {
-			// If trace is enabled, add a trace runtime item.
-			if (this._trace) {
-				this.addRuntimeItemTrace(
-					formatCallbackTrace('onDidReceiveRuntimeMessageOutput', languageRuntimeMessageOutput) +
-					formatOutputData(languageRuntimeMessageOutput.data)
-				);
-			}
-
-			// Check to see if the data contains an image by checking the record for the
-			// "image/" mime type.
-			const images = Object.keys(languageRuntimeMessageOutput.data).find(key => key.startsWith('image/'));
-
-			// Check to see if the data contains any HTML
-			let html = Object.hasOwnProperty.call(languageRuntimeMessageOutput.data, 'text/html');
-			if (html) {
-				const htmlContent = languageRuntimeMessageOutput.data['text/html'].toLowerCase();
-				if (htmlContent.indexOf('<script') >= 0 ||
-					htmlContent.indexOf('<body') >= 0 ||
-					htmlContent.indexOf('<html') >= 0) {
-					// We only want to render HTML fragments for now; if it has
-					// scripts or looks like it is a self-contained document,
-					// hard pass. In the future, we'll need to render those in a
-					// sandboxed environment.
-					html = false;
+		this._runtimeDisposableStore.add(this._session.onDidReceiveRuntimeMessageOutput(
+			languageRuntimeMessageOutput => {
+				// If trace is enabled, add a trace runtime item.
+				if (this._trace) {
+					this.addRuntimeItemTrace(
+						formatCallbackTrace('onDidReceiveRuntimeMessageOutput', languageRuntimeMessageOutput) +
+						formatOutputData(languageRuntimeMessageOutput.data)
+					);
 				}
-			}
 
-			if (images) {
-				// It's an image, so create a plot activity item.
-				this.addOrUpdateUpdateRuntimeItemActivity(
-					languageRuntimeMessageOutput.parent_id,
-					new ActivityItemOutputPlot(
-						languageRuntimeMessageOutput.id,
+				// Check to see if the data contains an image by checking the record for the
+				// "image/" mime type.
+				const images = Object.keys(languageRuntimeMessageOutput.data).find(
+					key => key.startsWith('image/'));
+
+				// Check to see if the data contains any HTML
+				let html = Object.hasOwnProperty.call(languageRuntimeMessageOutput.data,
+					'text/html');
+				if (html) {
+					const htmlContent = languageRuntimeMessageOutput.data['text/html'].toLowerCase();
+					if (htmlContent.indexOf('<script') >= 0 ||
+						htmlContent.indexOf('<body') >= 0 ||
+						htmlContent.indexOf('<html') >= 0) {
+						// We only want to render HTML fragments for now; if it has
+						// scripts or looks like it is a self-contained document,
+						// hard pass. In the future, we'll need to render those in a
+						// sandboxed environment.
+						html = false;
+					}
+				}
+
+				if (images) {
+					// It's an image, so create a plot activity item.
+					this.addOrUpdateUpdateRuntimeItemActivity(
 						languageRuntimeMessageOutput.parent_id,
-						new Date(languageRuntimeMessageOutput.when),
-						languageRuntimeMessageOutput.data, () => {
-							// This callback runs when the user clicks on the
-							// plot; when they do this, we'll select it in the
-							// Plots pane.
-							this._onDidSelectPlotEmitter.fire(languageRuntimeMessageOutput.id);
-						}
-					)
-				);
-			} else if (html) {
-				// It's HTML, so show the HTML.
-				this.addOrUpdateUpdateRuntimeItemActivity(
-					languageRuntimeMessageOutput.parent_id,
-					new ActivityItemOutputHtml(
-						languageRuntimeMessageOutput.id,
+						new ActivityItemOutputPlot(
+							languageRuntimeMessageOutput.id,
+							languageRuntimeMessageOutput.parent_id,
+							new Date(languageRuntimeMessageOutput.when),
+							languageRuntimeMessageOutput.data, () => {
+								// This callback runs when the user clicks on the
+								// plot; when they do this, we'll select it in the
+								// Plots pane.
+								this._onDidSelectPlotEmitter.fire(languageRuntimeMessageOutput.id);
+							}
+						)
+					);
+				} else if (html) {
+					// It's HTML, so show the HTML.
+					this.addOrUpdateUpdateRuntimeItemActivity(
 						languageRuntimeMessageOutput.parent_id,
-						new Date(languageRuntimeMessageOutput.when),
-						languageRuntimeMessageOutput.data['text/html']
-					)
-				);
-			} else {
-				// It's a plain old text output, so create a text activity item.
-				this.addOrUpdateUpdateRuntimeItemActivity(
-					languageRuntimeMessageOutput.parent_id,
-					new ActivityItemOutputMessage(
-						languageRuntimeMessageOutput.id,
+						new ActivityItemOutputHtml(
+							languageRuntimeMessageOutput.id,
+							languageRuntimeMessageOutput.parent_id,
+							new Date(languageRuntimeMessageOutput.when),
+							languageRuntimeMessageOutput.data['text/html']
+						)
+					);
+				} else {
+					// It's a plain old text output, so create a text activity item.
+					this.addOrUpdateUpdateRuntimeItemActivity(
 						languageRuntimeMessageOutput.parent_id,
-						new Date(languageRuntimeMessageOutput.when),
-						languageRuntimeMessageOutput.data
-					)
-				);
-			}
-		}));
+						new ActivityItemOutputMessage(
+							languageRuntimeMessageOutput.id,
+							languageRuntimeMessageOutput.parent_id,
+							new Date(languageRuntimeMessageOutput.when),
+							languageRuntimeMessageOutput.data
+						)
+					);
+				}
+			}));
 
 		// Add the onDidReceiveRuntimeMessageStream event handler.
-		this._runtimeDisposableStore.add(this._runtime.onDidReceiveRuntimeMessageStream(languageRuntimeMessageStream => {
-			// Sanitize the trace output.
-			let traceOutput = languageRuntimeMessageStream.text;
-			traceOutput = traceOutput.replaceAll('\t', '[HT]');
-			traceOutput = traceOutput.replaceAll('\n', '[LF]');
-			traceOutput = traceOutput.replaceAll('\r', '[CR]');
-			traceOutput = traceOutput.replaceAll('\x9B', 'CSI');
-			traceOutput = traceOutput.replaceAll('\x1b', 'ESC');
-			traceOutput = traceOutput.replaceAll('\x9B', 'CSI');
+		this._runtimeDisposableStore.add(this._session.onDidReceiveRuntimeMessageStream(
+			languageRuntimeMessageStream => {
+				// Sanitize the trace output.
+				let traceOutput = languageRuntimeMessageStream.text;
+				traceOutput = traceOutput.replaceAll('\t', '[HT]');
+				traceOutput = traceOutput.replaceAll('\n', '[LF]');
+				traceOutput = traceOutput.replaceAll('\r', '[CR]');
+				traceOutput = traceOutput.replaceAll('\x9B', 'CSI');
+				traceOutput = traceOutput.replaceAll('\x1b', 'ESC');
+				traceOutput = traceOutput.replaceAll('\x9B', 'CSI');
 
-			// If trace is enabled, add a trace runtime item.
-			if (this._trace) {
-				this.addRuntimeItemTrace(
-					formatCallbackTrace('onDidReceiveRuntimeMessageStream', languageRuntimeMessageStream) +
-					formatOutputStream(languageRuntimeMessageStream.name, traceOutput)
-				);
-			}
+				// If trace is enabled, add a trace runtime item.
+				if (this._trace) {
+					this.addRuntimeItemTrace(
+						formatCallbackTrace('onDidReceiveRuntimeMessageStream', languageRuntimeMessageStream) +
+						formatOutputStream(languageRuntimeMessageStream.name, traceOutput)
+					);
+				}
 
-			// Handle stdout and stderr.
-			if (languageRuntimeMessageStream.name === 'stdout') {
-				this.addOrUpdateUpdateRuntimeItemActivity(
-					languageRuntimeMessageStream.parent_id,
-					new ActivityItemOutputStream(
-						languageRuntimeMessageStream.id,
+				// Handle stdout and stderr.
+				if (languageRuntimeMessageStream.name === 'stdout') {
+					this.addOrUpdateUpdateRuntimeItemActivity(
 						languageRuntimeMessageStream.parent_id,
-						new Date(languageRuntimeMessageStream.when),
-						languageRuntimeMessageStream.text
-					)
-				);
-			} else if (languageRuntimeMessageStream.name === 'stderr') {
-				this.addOrUpdateUpdateRuntimeItemActivity(
-					languageRuntimeMessageStream.parent_id,
-					new ActivityItemErrorStream(
-						languageRuntimeMessageStream.id,
+						new ActivityItemOutputStream(
+							languageRuntimeMessageStream.id,
+							languageRuntimeMessageStream.parent_id,
+							new Date(languageRuntimeMessageStream.when),
+							languageRuntimeMessageStream.text
+						)
+					);
+				} else if (languageRuntimeMessageStream.name === 'stderr') {
+					this.addOrUpdateUpdateRuntimeItemActivity(
 						languageRuntimeMessageStream.parent_id,
-						new Date(languageRuntimeMessageStream.when),
-						languageRuntimeMessageStream.text
-					)
-				);
-			}
-		}));
+						new ActivityItemErrorStream(
+							languageRuntimeMessageStream.id,
+							languageRuntimeMessageStream.parent_id,
+							new Date(languageRuntimeMessageStream.when),
+							languageRuntimeMessageStream.text
+						)
+					);
+				}
+			}));
 
 		// Add the onDidReceiveRuntimeMessageError event handler.
-		this._runtimeDisposableStore.add(this._runtime.onDidReceiveRuntimeMessageError(languageRuntimeMessageError => {
-			// If trace is enabled, add a trace runtime item.
-			if (this._trace) {
-				this.addRuntimeItemTrace(
-					formatCallbackTrace('onDidReceiveRuntimeMessageError', languageRuntimeMessageError) +
-					`\nName: ${languageRuntimeMessageError.name}` +
-					'\nMessage:\n' +
-					languageRuntimeMessageError.message +
-					formatTraceback(languageRuntimeMessageError.traceback)
-				);
-			}
+		this._runtimeDisposableStore.add(this._session.onDidReceiveRuntimeMessageError(
+			languageRuntimeMessageError => {
+				// If trace is enabled, add a trace runtime item.
+				if (this._trace) {
+					this.addRuntimeItemTrace(
+						formatCallbackTrace('onDidReceiveRuntimeMessageError', languageRuntimeMessageError) +
+						`\nName: ${languageRuntimeMessageError.name}` +
+						'\nMessage:\n' +
+						languageRuntimeMessageError.message +
+						formatTraceback(languageRuntimeMessageError.traceback)
+					);
+				}
 
-			// Add or update the runtime item activity.
-			this.addOrUpdateUpdateRuntimeItemActivity(
-				languageRuntimeMessageError.parent_id,
-				new ActivityItemErrorMessage(
-					languageRuntimeMessageError.id,
+				// Add or update the runtime item activity.
+				this.addOrUpdateUpdateRuntimeItemActivity(
 					languageRuntimeMessageError.parent_id,
-					new Date(languageRuntimeMessageError.when),
-					languageRuntimeMessageError.name,
-					languageRuntimeMessageError.message,
-					languageRuntimeMessageError.traceback
-				)
-			);
-		}));
+					new ActivityItemErrorMessage(
+						languageRuntimeMessageError.id,
+						languageRuntimeMessageError.parent_id,
+						new Date(languageRuntimeMessageError.when),
+						languageRuntimeMessageError.name,
+						languageRuntimeMessageError.message,
+						languageRuntimeMessageError.traceback
+					)
+				);
+			}));
 
 		// Add the onDidReceiveRuntimeMessageState event handler.
-		this._runtimeDisposableStore.add(this._runtime.onDidReceiveRuntimeMessageState(languageRuntimeMessageState => {
-			// If trace is enabled, add a trace runtime item.
-			if (this._trace) {
-				this.addRuntimeItemTrace(
-					formatCallbackTrace('onDidReceiveRuntimeMessageState', languageRuntimeMessageState) +
-					`\nState: ${languageRuntimeMessageState.state}`);
-			}
-
-			switch (languageRuntimeMessageState.state) {
-				case RuntimeOnlineState.Starting: {
-					break;
+		this._runtimeDisposableStore.add(this._session.onDidReceiveRuntimeMessageState(
+			languageRuntimeMessageState => {
+				// If trace is enabled, add a trace runtime item.
+				if (this._trace) {
+					this.addRuntimeItemTrace(
+						formatCallbackTrace('onDidReceiveRuntimeMessageState', languageRuntimeMessageState) +
+						`\nState: ${languageRuntimeMessageState.state}`);
 				}
 
-				case RuntimeOnlineState.Busy: {
-					// Generally speaking, we only want to set Busy/Idle state
-					// when that state is a result of processing one of our own
-					// messages, which begin with `fragment-`. However, if we
-					// are currently in the Offline state, the message that
-					// brings us back online may not be one of our own messages.
-					if (languageRuntimeMessageState.parent_id.startsWith('fragment-') ||
-						this.state === PositronConsoleState.Offline) {
-						this.setState(PositronConsoleState.Busy);
+				switch (languageRuntimeMessageState.state) {
+					case RuntimeOnlineState.Starting: {
+						break;
 					}
-					// Mark the associated input as busy.
-					this.markInputBusyState(languageRuntimeMessageState.parent_id, true);
-					break;
-				}
 
-				case RuntimeOnlineState.Idle: {
-					if (languageRuntimeMessageState.parent_id.startsWith('fragment-') ||
-						this.state === PositronConsoleState.Offline) {
-						this.setState(PositronConsoleState.Ready);
+					case RuntimeOnlineState.Busy: {
+						// Generally speaking, we only want to set Busy/Idle state
+						// when that state is a result of processing one of our own
+						// messages, which begin with `fragment-`. However, if we
+						// are currently in the Offline state, the message that
+						// brings us back online may not be one of our own messages.
+						if (languageRuntimeMessageState.parent_id.startsWith('fragment-') ||
+							this.state === PositronConsoleState.Offline) {
+							this.setState(PositronConsoleState.Busy);
+						}
+						// Mark the associated input as busy.
+						this.markInputBusyState(languageRuntimeMessageState.parent_id, true);
+						break;
 					}
-					// Mark the associated input as idle.
-					this.markInputBusyState(languageRuntimeMessageState.parent_id, false);
-					break;
+
+					case RuntimeOnlineState.Idle: {
+						if (languageRuntimeMessageState.parent_id.startsWith('fragment-') ||
+							this.state === PositronConsoleState.Offline) {
+							this.setState(PositronConsoleState.Ready);
+						}
+						// Mark the associated input as idle.
+						this.markInputBusyState(languageRuntimeMessageState.parent_id, false);
+						break;
+					}
 				}
-			}
-		}));
+			}));
 
 		// Add the onDidReceiveRuntimeClientEvent event handler.
-		this._runtimeDisposableStore.add(this._runtime.onDidReceiveRuntimeClientEvent((event) => {
+		this._runtimeDisposableStore.add(this._session.onDidReceiveRuntimeClientEvent((event) => {
 			if (event.name === UiFrontendEvent.ClearConsole) {
 				this.clearConsole();
 			}
 		}));
 
-		this._runtimeDisposableStore.add(this._runtime.onDidEndSession((exit) => {
+		this._runtimeDisposableStore.add(this._session.onDidEndSession((exit) => {
 			// If trace is enabled, add a trace runtime item.
 			if (this._trace) {
 				this.addRuntimeItemTrace(`onDidEndSession (code ${exit.exit_code}, reason '${exit.reason}')`);
@@ -1561,7 +1626,7 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 				exit.reason === RuntimeExitReason.Shutdown ||
 				crashedAndNeedRestartButton) {
 				const restartButton = new RuntimeItemRestartButton(generateUuid(),
-					this._runtime.metadata.languageName,
+					this._session.runtimeMetadata.languageName,
 					() => {
 						this._onDidRequestRestart.fire();
 					});
@@ -1570,7 +1635,7 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 			this.detachRuntime();
 		}));
 
-		this._onDidAttachRuntime.fire(this._runtime);
+		this._onDidAttachRuntime.fire(this._session);
 	}
 
 	private formatExit(exit: ILanguageRuntimeExit): string {
@@ -1665,7 +1730,7 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 	private detachRuntime() {
 		// If trace is enabled, add a trace runtime item.
 		if (this._trace) {
-			this.addRuntimeItemTrace(`Detach runtime ${this._runtime.metadata.runtimeName}`);
+			this.addRuntimeItemTrace(`Detach session ${this._session.metadata.sessionName}`);
 		}
 
 		if (this._runtimeAttached) {
@@ -1689,7 +1754,7 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 			this._runtimeDisposableStore = new DisposableStore();
 		} else {
 			// We are not currently attached; warn.
-			console.warn(`Attempt to detach already detached runtime ${this._runtime.metadata.runtimeName}.`);
+			console.warn(`Attempt to detach already detached session ${this._session.metadata.sessionName}.`);
 		}
 	}
 
@@ -1725,7 +1790,7 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 		// Create the pending input runtime item.
 		this._runtimeItemPendingInput = new RuntimeItemPendingInput(
 			generateUuid(),
-			this._runtime.dynState.inputPrompt,
+			this._session.dynState.inputPrompt,
 			code
 		);
 
@@ -1800,7 +1865,7 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 			// Determine whether the code lines are a complete code fragment. If they are, execute
 			// the code fragment.
 			const codeFragment = codeLines.join('\n');
-			const codeFragmentStatus = await this.runtime.isCodeFragmentComplete(codeFragment);
+			const codeFragmentStatus = await this.session.isCodeFragmentComplete(codeFragment);
 			if (codeFragmentStatus === RuntimeCodeFragmentStatus.Complete) {
 				// Create the ID for the code fragment that will be executed.
 				const id = `fragment-${generateUuid()}`;
@@ -1813,8 +1878,8 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 						id,
 						id,
 						new Date(),
-						this._runtime.dynState.inputPrompt,
-						this._runtime.dynState.continuationPrompt,
+						this._session.dynState.inputPrompt,
+						this._session.dynState.continuationPrompt,
 						codeFragment
 					)
 				);
@@ -1827,7 +1892,7 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 					// Create the pending input runtime item.
 					this._runtimeItemPendingInput = new RuntimeItemPendingInput(
 						generateUuid(),
-						this._runtime.dynState.inputPrompt,
+						this._session.dynState.inputPrompt,
 						pendingInputLines.slice(i + 1).join('\n')
 					);
 
@@ -1839,7 +1904,7 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 				this._onDidChangeRuntimeItemsEmitter.fire();
 
 				// Execute the code fragment.
-				this.runtime.execute(
+				this.session.execute(
 					codeFragment,
 					id,
 					RuntimeCodeExecutionMode.Interactive,
@@ -1874,8 +1939,8 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 			id,
 			id,
 			new Date(),
-			this._runtime.dynState.inputPrompt,
-			this._runtime.dynState.continuationPrompt,
+			this._session.dynState.inputPrompt,
+			this._session.dynState.continuationPrompt,
 			code
 		);
 
@@ -1885,7 +1950,7 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 		this.addOrUpdateUpdateRuntimeItemActivity(id, activityItemInput);
 
 		// Execute the code.
-		this.runtime.execute(
+		this.session.execute(
 			code,
 			id,
 			RuntimeCodeExecutionMode.Interactive,

@@ -1,0 +1,12 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *--------------------------------------------------------------------------------------------*/
+
+.status-exited .runtime-session {
+	opacity: 0.65;
+}
+
+.runtime-session td a {
+	color: var(--vscode-foreground);
+	display: flex;
+}

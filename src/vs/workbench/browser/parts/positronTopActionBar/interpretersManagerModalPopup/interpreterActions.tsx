@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2022 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2022-2024 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
 import 'vs/css!./interpreterActions';
@@ -8,13 +8,16 @@ import { PropsWithChildren, useEffect, useState } from 'react'; // eslint-disabl
 import { localize } from 'vs/nls';
 import { DisposableStore } from 'vs/base/common/lifecycle';
 import { PositronButton } from 'vs/base/browser/ui/positronComponents/positronButton';
-import { ILanguageRuntime, RuntimeState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { ILanguageRuntimeMetadata, ILanguageRuntimeService, LanguageRuntimeSessionMode, RuntimeState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { IRuntimeSessionService } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
 
 /**
  * InterpreterActionsProps interface.
  */
 interface InterpreterActionsProps {
-	runtime: ILanguageRuntime;
+	languageRuntimeService: ILanguageRuntimeService;
+	runtimeSessionService: IRuntimeSessionService;
+	runtime: ILanguageRuntimeMetadata;
 	onStart: () => void;
 }
 
@@ -24,22 +27,63 @@ interface InterpreterActionsProps {
  * @returns The rendered component.
  */
 export const InterpreterActions = (props: PropsWithChildren<InterpreterActionsProps>) => {
+	// Get a console session for this runtime, if it exists.
+	const consoleSession =
+		props.runtimeSessionService.getConsoleSessionForRuntime(props.runtime.runtimeId);
+
 	// State hooks.
-	const [runtimeState, setRuntimeState] = useState(props.runtime.getRuntimeState());
+	const [runtimeState, setRuntimeState] = useState(consoleSession ? consoleSession.getRuntimeState() :
+		RuntimeState.Uninitialized);
+
+	// State hooks.
+	const [session, setSession] = useState(consoleSession);
 
 	// Main useEffect hook.
 	useEffect(() => {
 		// Create the disposable store for cleanup.
 		const disposableStore = new DisposableStore();
 
-		// Add the onDidChangeRuntimeState event handler.
-		disposableStore.add(props.runtime.onDidChangeRuntimeState(runtimeState => {
-			setRuntimeState(runtimeState);
+		// If a console session exists, listen for changes to its runtime state.
+		if (session) {
+			disposableStore.add(session.onDidChangeRuntimeState(runtimeState => {
+				setRuntimeState(runtimeState);
+			}));
+		}
+
+		// Listen for new console sessions that are started. When a new session
+		// is started for the runtime that this component is managing, attach to
+		// it.
+		disposableStore.add(props.runtimeSessionService.onWillStartSession(e => {
+			if (e.session.metadata.sessionMode === LanguageRuntimeSessionMode.Console &&
+				e.session.runtimeMetadata.runtimeId === props.runtime.runtimeId) {
+				setSession(session);
+			}
 		}));
 
 		// Return the cleanup function that will dispose of the event handlers.
 		return () => disposableStore.dispose();
 	}, []);
+
+	// Interrupt the session, if we have one.
+	const interrupt = () => {
+		if (session) {
+			session.interrupt();
+		}
+	};
+
+	// Restart the session, if we have one.
+	const restart = () => {
+		if (session) {
+			session.restart();
+		}
+	};
+
+	// Shut down the session, if we have one.
+	const shutdown = () => {
+		if (session) {
+			session.shutdown();
+		}
+	};
 
 	// Render.
 	return (
@@ -56,7 +100,7 @@ export const InterpreterActions = (props: PropsWithChildren<InterpreterActionsPr
 				<PositronButton
 					className='action-button'
 					disabled={runtimeState === RuntimeState.Interrupting}
-					onPressed={() => props.runtime.interrupt()}
+					onPressed={interrupt}
 				>
 					<span
 						className='codicon codicon-positron-interrupt-runtime'
@@ -75,7 +119,7 @@ export const InterpreterActions = (props: PropsWithChildren<InterpreterActionsPr
 				<PositronButton
 					className='action-button'
 					disabled={runtimeState !== RuntimeState.Ready && runtimeState !== RuntimeState.Idle}
-					onPressed={() => props.runtime.restart()}
+					onPressed={restart}
 				>
 					<span
 						className='codicon codicon-positron-restart-runtime'
@@ -95,7 +139,7 @@ export const InterpreterActions = (props: PropsWithChildren<InterpreterActionsPr
 				runtimeState === RuntimeState.Offline ||
 				runtimeState === RuntimeState.Interrupting
 			) &&
-				<PositronButton className='action-button' onPressed={() => props.runtime.shutdown()}>
+				<PositronButton className='action-button' onPressed={shutdown}>
 					<span
 						className='codicon codicon-positron-power-button'
 						title={localize('positronStopTheInterpreter', "Stop the interpreter")}

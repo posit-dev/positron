@@ -12,57 +12,9 @@ import * as positron from 'positron';
 import * as crypto from 'crypto';
 import * as winreg from 'winreg';
 
-import { RInstallation, getRHomePath } from './r-installation';
-import { RRuntime, createJupyterKernelExtra, createJupyterKernelSpec } from './runtime';
-import { RRuntimeManager } from './runtime-manager';
-import { Logger } from './extension';
+import { RInstallation, RMetadataExtra, getRHomePath } from './r-installation';
+import { LOGGER } from './extension';
 import { readLines } from './util';
-
-const initialDynState = {
-	inputPrompt: '>',
-	continuationPrompt: '+',
-} as positron.LanguageRuntimeDynState;
-
-/**
- * Provides a single R language runtime for Positron; implements
- * positron.LanguageRuntimeProvider.
- *
- * @param context The extension context.
- */
-export class RRuntimeProvider implements positron.LanguageRuntimeProvider {
-
-	/**
-	 * Constructor.
-	 * @param context The extension context.
-	 */
-	constructor(
-		private readonly context: vscode.ExtensionContext
-	) { }
-
-	async provideLanguageRuntime(runtimeMetadata: positron.LanguageRuntimeMetadata, token: vscode.CancellationToken): Promise<positron.LanguageRuntime> {
-
-		const rHomePath = getRHomePath(runtimeMetadata.runtimePath);
-		if (!rHomePath) {
-			throw new Error(`Cannot find R_HOME for ${runtimeMetadata.runtimePath}`);
-		}
-		const kernelSpec = createJupyterKernelSpec(this.context,
-			rHomePath,
-			runtimeMetadata.runtimeName);
-
-		const extra = createJupyterKernelExtra();
-
-		// Use existing runtime if it present.
-		if (RRuntimeManager.instance.hasRuntime(runtimeMetadata.runtimeId)) {
-			return RRuntimeManager.instance.getRuntime(runtimeMetadata.runtimeId);
-		}
-
-		// No existing runtime with this ID; create a new one.
-		const runtime = new RRuntime(this.context, kernelSpec, runtimeMetadata,
-			initialDynState, extra);
-		RRuntimeManager.instance.setRuntime(runtimeMetadata.runtimeId, runtime);
-		return runtime;
-	}
-}
 
 /**
  * Discovers R language runtimes for Positron; implements
@@ -72,7 +24,7 @@ export class RRuntimeProvider implements positron.LanguageRuntimeProvider {
  */
 export async function* rRuntimeDiscoverer(
 	context: vscode.ExtensionContext
-): AsyncGenerator<positron.LanguageRuntime> {
+): AsyncGenerator<positron.LanguageRuntimeMetadata> {
 	let rInstallations: Array<RInstallation> = [];
 	const binaries = new Set<string>();
 
@@ -174,10 +126,6 @@ export async function* rRuntimeDiscoverer(
 		// Full name shown to users
 		const runtimeName = `R ${runtimeShortName}`;
 
-		const kernelSpec = createJupyterKernelSpec(context,
-			rInst.homepath,
-			runtimeName);
-
 		// Get the version of this extension from package.json so we can pass it
 		// to the adapter as the implementation version.
 		const packageJson = require('../package.json');
@@ -189,13 +137,6 @@ export async function* rRuntimeDiscoverer(
 		digest.update(rVersion);
 		const runtimeId = digest.digest('hex').substring(0, 32);
 
-		// If we already know about the runtime, skip it (it's already been
-		// registered). This can happen if the runtime was provided eagerly to
-		// Positron.
-		if (RRuntimeManager.instance.hasRuntime(runtimeId)) {
-			continue;
-		}
-
 		// Define the startup behavior; request immediate startup if this is the
 		// recommended runtime for the workspace.
 		const startupBehavior = recommendedForWorkspace ?
@@ -205,6 +146,12 @@ export async function* rRuntimeDiscoverer(
 		// Ensure we only recommend one runtime for the workspace.
 		recommendedForWorkspace = false;
 
+		// Save the R home path and binary path as extra data.
+		const extraRuntimeData: RMetadataExtra = {
+			homepath: rInst.homepath,
+			binpath: rInst.binpath,
+		};
+
 		const metadata: positron.LanguageRuntimeMetadata = {
 			runtimeId,
 			runtimeName,
@@ -213,21 +160,19 @@ export async function* rRuntimeDiscoverer(
 			runtimeVersion: packageJson.version,
 			runtimeSource,
 			languageId: 'r',
-			languageName: kernelSpec.language,
+			languageName: 'R',
 			languageVersion: rVersion,
 			base64EncodedIconSvg:
 				fs.readFileSync(
 					path.join(context.extensionPath, 'resources', 'branding', 'r-icon.svg')
 				).toString('base64'),
-			startupBehavior
+			sessionLocation: positron.LanguageRuntimeSessionLocation.Workspace,
+			startupBehavior,
+			extraRuntimeData
 		};
 
-		const extra = createJupyterKernelExtra();
-
 		// Create an adapter for the kernel to fulfill the LanguageRuntime interface.
-		const runtime = new RRuntime(context, kernelSpec, metadata, initialDynState, extra);
-		RRuntimeManager.instance.setRuntime(metadata.runtimeId, runtime);
-		yield runtime;
+		yield metadata;
 	}
 }
 
@@ -306,7 +251,7 @@ function binFragments(): string[] {
 	}
 }
 
-async function findCurrentRBinary(): Promise<string | undefined> {
+export async function findCurrentRBinary(): Promise<string | undefined> {
 	if (os.platform() === 'win32') {
 		const registryBinary = findCurrentRBinaryFromRegistry();
 		if (registryBinary) {
@@ -337,16 +282,16 @@ async function findCurrentRBinary(): Promise<string | undefined> {
 					const whichRMatched = match[1];
 					const whichRHome = getRHomePath(whichRMatched);
 					if (!whichRHome) {
-						Logger.info(`Failed to get R home path from ${whichRMatched}`);
+						LOGGER.info(`Failed to get R home path from ${whichRMatched}`);
 						return undefined;
 					}
 					// we prefer the x64 binary
 					const whichRResolved = firstExisting(whichRHome, binFragments());
 					if (whichRResolved) {
-						Logger.info(`Resolved R binary at ${whichRResolved}`);
+						LOGGER.info(`Resolved R binary at ${whichRResolved}`);
 						return whichRResolved;
 					} else {
-						Logger.info(`Can\'t find R binary within ${whichRHome}`);
+						LOGGER.info(`Can\'t find R binary within ${whichRHome}`);
 						return undefined;
 					}
 				}
@@ -355,7 +300,7 @@ async function findCurrentRBinary(): Promise<string | undefined> {
 			// meaning put R on the PATH themselves, on Windows?
 		} else {
 			const whichRCanonical = fs.realpathSync(whichR);
-			Logger.info(`Resolved R binary at ${whichRCanonical}`);
+			LOGGER.info(`Resolved R binary at ${whichRCanonical}`);
 			return whichRCanonical;
 		}
 	}
@@ -373,7 +318,7 @@ async function findCurrentRBinaryFromRegistry(): Promise<string | undefined> {
 	if (!binPath) {
 		return undefined;
 	}
-	Logger.info(`Identified the current version of R from the registry: ${binPath}`);
+	LOGGER.info(`Identified the current version of R from the registry: ${binPath}`);
 
 	return binPath;
 }
@@ -386,7 +331,7 @@ async function getRegistryInstallPath(hive: string): Promise<string | undefined>
 			key: '\\Software\\R-Core\\R64',
 		});
 
-		Logger.info(`Checking for 'InstallPath' in registry key ${key.key} for hive ${key.hive}`);
+		LOGGER.info(`Checking for 'InstallPath' in registry key ${key.key} for hive ${key.hive}`);
 
 		const result = await new Promise<{ value: string }>((resolve, reject) => {
 			key.get('InstallPath', (error, result) => {
@@ -399,13 +344,13 @@ async function getRegistryInstallPath(hive: string): Promise<string | undefined>
 		});
 
 		if (!result || typeof result.value !== 'string') {
-			Logger.info(`Invalid value of 'InstallPath'`);
+			LOGGER.info(`Invalid value of 'InstallPath'`);
 			return undefined;
 		}
 
 		return result.value;
 	} catch (error: any) {
-		Logger.info(`Unable to get value of 'InstallPath': ${error.message}`);
+		LOGGER.info(`Unable to get value of 'InstallPath': ${error.message}`);
 		return undefined;
 	}
 }

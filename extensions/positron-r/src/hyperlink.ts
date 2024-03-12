@@ -5,9 +5,9 @@
 import * as positron from 'positron';
 import * as vscode from 'vscode';
 import { randomUUID } from 'crypto';
-import { RRuntime } from './runtime';
+import { RSession } from './session';
 
-export async function handleRCode(runtime: RRuntime, code: string): Promise<void> {
+export async function handleRCode(runtime: RSession, code: string): Promise<void> {
 	const match = matchRunnable(code);
 
 	if (!match) {
@@ -46,7 +46,7 @@ function handleNotRunnable(code: string) {
 	));
 }
 
-function handleManuallyRunnable(_runtime: RRuntime, code: string) {
+function handleManuallyRunnable(_runtime: RSession, code: string) {
 	const console = positron.window.getConsoleForLanguage('r');
 
 	if (!console) {
@@ -62,7 +62,7 @@ function handleManuallyRunnable(_runtime: RRuntime, code: string) {
 	console.pasteText(code);
 }
 
-function handleAutomaticallyRunnable(runtime: RRuntime, code: string) {
+function handleAutomaticallyRunnable(runtime: RSession, code: string) {
 	const id = randomUUID();
 
 	// Fire and forget style
