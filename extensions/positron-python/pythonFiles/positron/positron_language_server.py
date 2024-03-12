@@ -54,6 +54,13 @@ def parse_args() -> argparse.Namespace:
         help="Suppress console startup banner information",
         action="store_true",
     )
+    parser.add_argument(
+        "--session-mode",
+        help="session mode in which the kernel is to be started",
+        type=str,
+        default="console",
+        choices=["console", "notebook", "background"],
+    )
     args = parser.parse_args()
     args.loglevel = args.loglevel.upper()
 

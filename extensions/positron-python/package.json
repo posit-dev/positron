@@ -69,7 +69,7 @@
         "Machine Learning"
     ],
     "activationEvents": [
-        "*"
+        "onStartupFinished"
     ],
     "main": "./out/client/extension",
     "browser": "./dist/extension.browser.js",
@@ -1568,6 +1568,11 @@
             {
                 "fileMatch": "meta.yaml",
                 "url": "./schemas/conda-meta.json"
+            }
+        ],
+        "languageRuntimes": [
+            {
+                "languageId": "python"
             }
         ]
     },
