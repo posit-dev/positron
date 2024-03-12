@@ -33,6 +33,7 @@ export interface PositronWizardStepProps {
 export const PositronWizardStep = (props: PropsWithChildren<PositronWizardStepProps>) => {
 	// Render.
 	return (
+		// QUESTION: should each wizard step be a form element?
 		<div className='wizard-step'>
 			<div className='wizard-step-title'>
 				{props.title}

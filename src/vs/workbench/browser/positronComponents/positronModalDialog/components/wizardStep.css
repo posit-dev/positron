@@ -17,3 +17,8 @@
 	margin-top: 16px;
 	margin-bottom: 32px;
 }
+
+.positron-modal-dialog-box .wizard-step code {
+	color: var(--vscode-textPreformat-foreground);
+	font-size: 11px;
+}

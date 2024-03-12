@@ -66,7 +66,7 @@ export const showNewProjectModalDialog = async (accessor: ServicesAccessor): Pro
 			});
 			const projectNameRef = useRef<HTMLInputElement>(undefined!);
 			const [currentStep, setCurrentStep] = useState(0);
-			const totalSteps = 4;
+			const totalSteps = 3;
 			const okButtonTitle = localize('positronNewProjectModalDialogCreateButtonTitle', "Create");
 
 			// The accept handler.
@@ -81,6 +81,8 @@ export const showNewProjectModalDialog = async (accessor: ServicesAccessor): Pro
 				resolve(undefined);
 			};
 
+			// QUESTION: what about non-linear wizard steps where the next step isn't currentStep+1?
+			// The back handler.
 			const backHandler = () => {
 				if (currentStep > 0) {
 					setCurrentStep(currentStep - 1);
@@ -88,6 +90,7 @@ export const showNewProjectModalDialog = async (accessor: ServicesAccessor): Pro
 				positronModalDialogReactRenderer.render(<NewProjectModalDialog />);
 			};
 
+			// The next handler.
 			const nextHandler = () => {
 				if (currentStep < totalSteps - 1) {
 					setCurrentStep(currentStep + 1);
@@ -160,7 +163,7 @@ export const showNewProjectModalDialog = async (accessor: ServicesAccessor): Pro
 							>
 								<LabeledTextInput
 									ref={projectNameRef}
-									label={`Enter a name for your new  + newProjectResult.projectType`}
+									label={`Enter a name for your new ${newProjectResult.projectType}`}
 									autoFocus
 									value={newProjectResult.projectName}
 									onChange={e => setNewProjectResult({ ...newProjectResult, projectName: e.target.value })}
@@ -173,7 +176,7 @@ export const showNewProjectModalDialog = async (accessor: ServicesAccessor): Pro
 							>
 								<LabeledFolderInput
 									label='Select a directory to create your project in'
-									value={newProjectResult.parentFolder}
+									value={newProjectResult.parentFolder} // this should be <code>formatted
 									onBrowse={browseHandler}
 									onChange={e => setNewProjectResult({ ...newProjectResult, parentFolder: e.target.value })}
 								/>
@@ -228,26 +231,8 @@ export const showNewProjectModalDialog = async (accessor: ServicesAccessor): Pro
 									onChange={e => console.log('python interpreter', e)}
 								/>
 							</PositronWizardSubStep>
-						</PositronWizardStep>
-					)}
-					{currentStep === 3 && (
-						<PositronWizardStep
-							title='Install initial dependencies'
-							currentStep={currentStep}
-							totalSteps={totalSteps}
-							okButtonTitle={okButtonTitle}
-							accept={acceptHandler}
-							cancel={cancelHandler}
-							back={backHandler}
-							next={nextHandler}
-						>
-							<PositronWizardSubStep
-								title='Dependencies'
-								description={`Select initial dependencies to install in to the project environment at: ${newProjectResult.parentFolder}/${newProjectResult.projectName}/.venv`}
-							>
-								<Checkbox label='Install dependencies from selected interpreter: <selected interpreter>' onChanged={checked => setNewProjectResult({ ...newProjectResult, inheritDeps: checked })} />
-								<Checkbox label='Install `ipykernel` for Positron Python support' defaultValue={true} onChanged={checked => setNewProjectResult({ ...newProjectResult, installIpykernel: checked })} />
-							</PositronWizardSubStep>
+							{/* Display the following note if we don't detect ipykernel for the selected interpreter */}
+							<p>Note: Positron will install <code>ipykernel</code> in this environment for Python language support.</p>
 						</PositronWizardStep>
 					)}
 				</PositronModalDialog>
