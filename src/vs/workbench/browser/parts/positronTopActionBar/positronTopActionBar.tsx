@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2022 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2022-2024 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
 import 'vs/css!./positronTopActionBar';
@@ -28,7 +28,9 @@ import { TopActionBarCommandCenter } from 'vs/workbench/browser/parts/positronTo
 import { PositronTopActionBarContextProvider } from 'vs/workbench/browser/parts/positronTopActionBar/positronTopActionBarContext';
 import { TopActionBarCustonFolderMenu } from 'vs/workbench/browser/parts/positronTopActionBar/components/topActionBarCustomFolderMenu';
 import { TopActionBarInterpretersManager } from 'vs/workbench/browser/parts/positronTopActionBar/components/topActionBarInterpretersManager';
-import { ILanguageRuntime, ILanguageRuntimeService, RuntimeState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { ILanguageRuntimeMetadata, ILanguageRuntimeService } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { IRuntimeSessionService } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
+import { IRuntimeStartupService } from 'vs/workbench/services/runtimeStartup/common/runtimeStartupService';
 
 // Constants.
 const kHorizontalPadding = 4;
@@ -64,6 +66,8 @@ export interface PositronTopActionBarServices extends PositronActionBarServices 
 	layoutService: ILayoutService;
 	positronTopActionBarService: IPositronTopActionBarService;
 	quickInputService: IQuickInputService;
+	runtimeStartupService: IRuntimeStartupService;
+	runtimeSessionService: IRuntimeSessionService;
 	workspaceContextService: IWorkspaceContextService;
 	workspacesService: IWorkspacesService;
 }
@@ -104,8 +108,8 @@ export const PositronTopActionBar = (props: PositronTopActionBarProps) => {
 	 * startRuntime event handler.
 	 * @param runtimeToStart An ILanguageRuntime representing the runtime to start.
 	 */
-	const startRuntimeHandler = async (runtimeToStart: ILanguageRuntime): Promise<void> => {
-		return props.languageRuntimeService.selectRuntime(runtimeToStart.metadata.runtimeId,
+	const startRuntimeHandler = async (runtimeToStart: ILanguageRuntimeMetadata): Promise<void> => {
+		return props.runtimeSessionService.selectRuntime(runtimeToStart.runtimeId,
 			`User-requested startup from the Positron top action bar`);
 	};
 
@@ -113,19 +117,17 @@ export const PositronTopActionBar = (props: PositronTopActionBarProps) => {
 	 * activateRuntime event handler.
 	 * @param runtime An ILanguageRuntime representing the runtime to activate.
 	 */
-	const activateRuntimeHandler = async (runtime: ILanguageRuntime): Promise<void> => {
-		// Determine which action to take.
-		switch (runtime.getRuntimeState()) {
-			// When the runtime is uninitialized or exited, start it.
-			case RuntimeState.Uninitialized:
-			case RuntimeState.Exited:
-				await startRuntimeHandler(runtime);
-				break;
+	const activateRuntimeHandler = async (runtime: ILanguageRuntimeMetadata): Promise<void> => {
+		// See if there's a session active for the runtime.
+		const session =
+			props.runtimeSessionService.getConsoleSessionForRuntime(runtime.runtimeId);
 
-			// When the runtime is in other states, make it the active runtime.
-			default:
-				props.languageRuntimeService.activeRuntime = runtime;
-				break;
+		if (session) {
+			// The session is already active, so just set it as the foreground session.
+			props.runtimeSessionService.foregroundSession = session;
+		} else {
+			// The session is not active; start a new session for the runtime.
+			await startRuntimeHandler(runtime);
 		}
 	};
 

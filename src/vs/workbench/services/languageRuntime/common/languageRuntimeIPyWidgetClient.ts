@@ -95,7 +95,8 @@ export class IPyWidgetClientInstance extends Disposable implements IPositronIPyW
 		public metadata: IPositronIPyWidgetMetadata) {
 
 		super();
-		_client.onDidChangeClientState((state) => {
+		const clientStateEvent = Event.fromObservable(this._client.clientState);
+		clientStateEvent((state) => {
 			if (state === RuntimeClientState.Closed) {
 				this._onDidClose.fire();
 			}

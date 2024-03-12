@@ -6,7 +6,7 @@ import * as vscode from 'vscode';
 import { TestingTools } from './util-testing';
 import { getOrCreateFileItem } from './loader';
 import { parseTestsFromFile } from './parser';
-import { Logger } from '../extension';
+import { LOGGER } from '../extension';
 import { detectRPackage } from '../contexts';
 import { getFirstWorkspaceFolder } from './testing';
 
@@ -16,7 +16,7 @@ export const testthatTestFilePattern = 'tests/testthat/test*.[Rr]';
 
 export async function createTestthatWatchers(testingTools: TestingTools): Promise<vscode.FileSystemWatcher[]> {
 	const packageRoot = testingTools.packageRoot;
-	Logger.info(`Constructing testthat file watchers for ${packageRoot.path}`);
+	LOGGER.info(`Constructing testthat file watchers for ${packageRoot.path}`);
 	const watchers = await createWatchers(testingTools, packageRoot);
 	return watchers.flat();
 }
@@ -64,12 +64,12 @@ async function createWatchers(testingTools: TestingTools, packageRoot: vscode.Ur
 export async function refreshTestthatStatus(): Promise<void> {
 	let testthatIsConfigured = false;
 	let testthatHasTests = false;
-	Logger.info('Refreshing testthat status');
+	LOGGER.info('Refreshing testthat status');
 
 	try {
 		const isRPackage = await detectRPackage();
 		if (!isRPackage) {
-			Logger.info('Not working in an R package');
+			LOGGER.info('Not working in an R package');
 			return;
 		}
 
@@ -82,20 +82,20 @@ export async function refreshTestthatStatus(): Promise<void> {
 		const dotRPattern = new vscode.RelativePattern(packageRoot, testthatDotRPattern);
 		const testthatDotR = await vscode.workspace.findFiles(dotRPattern, null, 1);
 		if (testthatDotR.length === 0) {
-			Logger.info('tests/testthat.R not found');
+			LOGGER.info('tests/testthat.R not found');
 			return;
 		}
-		Logger.info('found testthat.R');
+		LOGGER.info('found testthat.R');
 		testthatIsConfigured = true;
 
 		const testFilePattern = new vscode.RelativePattern(packageRoot, testthatTestFilePattern);
 		const testFiles = await vscode.workspace.findFiles(testFilePattern, null, 1);
-		Logger.info(`found ${testFiles.length} test files`);
+		LOGGER.info(`found ${testFiles.length} test files`);
 		testthatHasTests = testFiles.length > 0;
 	} finally {
 		vscode.commands.executeCommand('setContext', 'testthatIsConfigured', testthatIsConfigured);
 		vscode.commands.executeCommand('setContext', 'testthatHasTests', testthatHasTests);
-		Logger.info(`Context key 'testthatIsConfigured' is '${testthatIsConfigured}'`);
-		Logger.info(`Context key 'testthatHasTests' is '${testthatHasTests}'`);
+		LOGGER.info(`Context key 'testthatIsConfigured' is '${testthatIsConfigured}'`);
+		LOGGER.info(`Context key 'testthatHasTests' is '${testthatHasTests}'`);
 	}
 }

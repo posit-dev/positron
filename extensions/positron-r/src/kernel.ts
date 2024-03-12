@@ -4,7 +4,7 @@
 
 import * as os from 'os';
 import * as vscode from 'vscode';
-import { Logger } from './extension';
+import { LOGGER } from './extension';
 
 /**
  * Attempts to locate a copy of the Ark kernel. The kernel is searched for in the following
@@ -47,7 +47,7 @@ export function getArkKernelPath(context: vscode.ExtensionContext): string | und
 		devKernel = devReleaseKernel;
 	}
 	if (devKernel) {
-		Logger.info('Loading Ark from disk in adjacent repo. Make sure it\'s up-to-date.');
+		LOGGER.info('Loading Ark from disk in adjacent repo. Make sure it\'s up-to-date.');
 		return devKernel;
 	}
 

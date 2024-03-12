@@ -1,0 +1,12 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *--------------------------------------------------------------------------------------------*/
+
+.positron-sessions {
+	height: 100%;
+	background: var(--vscode-panel-background);
+}
+
+.positron-sessions .positron-sessions-action-bars {
+	height: min-content;
+}

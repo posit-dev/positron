@@ -23,11 +23,11 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 
 	// Register notebook controllers for newly registered runtimes.
 	context.subscriptions.push(positron.runtime.onDidRegisterRuntime((runtime) => {
-		ensureNotebookController(runtime.metadata.languageId);
+		ensureNotebookController(runtime.languageId);
 	}));
 
 	// Register notebook controllers for existing runtimes.
 	for (const runtime of await positron.runtime.getRegisteredRuntimes()) {
-		ensureNotebookController(runtime.metadata.languageId);
+		ensureNotebookController(runtime.languageId);
 	}
 }

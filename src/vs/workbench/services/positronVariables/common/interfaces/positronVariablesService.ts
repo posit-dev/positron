@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
 import { Event } from 'vs/base/common/event';
@@ -37,6 +37,13 @@ export interface IPositronVariablesService {
 	 * The onDidChangeActivePositronVariablesInstance event.
 	 */
 	readonly onDidChangeActivePositronVariablesInstance: Event<IPositronVariablesInstance | undefined>;
+
+	/**
+	 * Sets the active variables instance to the one with the given session ID.
+	 *
+	 * @param sessionId The session ID.
+	 */
+	setActivePositronVariablesSession(sessionId: string): void;
 
 	/**
 	 * Placeholder that gets called to "initialize" the PositronVariablesService.

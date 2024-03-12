@@ -1,0 +1,16 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *--------------------------------------------------------------------------------------------*/
+
+.runtime-client .client-id {
+	font-size: xx-small;
+	opacity: 0.65;
+}
+
+.runtime-client .disconnect-button {
+	text-align: center;
+}
+
+.runtime-client .message-counter {
+	text-align: right;
+}

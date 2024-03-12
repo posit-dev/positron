@@ -1,22 +1,22 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2022 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2022-2024 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
 import 'vs/css!./topActionBarInterpretersManager';
 import * as React from 'react';
 import { KeyboardEvent, useEffect, useRef, useState } from 'react'; // eslint-disable-line no-duplicate-imports
 import { DisposableStore } from 'vs/base/common/lifecycle';
-import { ILanguageRuntime } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { usePositronTopActionBarContext } from 'vs/workbench/browser/parts/positronTopActionBar/positronTopActionBarContext';
 import { showInterpretersManagerModalPopup } from 'vs/workbench/browser/parts/positronTopActionBar/interpretersManagerModalPopup/interpretersManagerModalPopup';
 import { useRegisterWithActionBar } from 'vs/platform/positronActionBar/browser/useRegisterWithActionBar';
+import { ILanguageRuntimeMetadata, LanguageRuntimeSessionMode } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 
 /**
  * TopActionBarInterpretersManagerProps interface.
  */
 interface TopActionBarInterpretersManagerProps {
-	onStartRuntime: (runtime: ILanguageRuntime) => Promise<void>;
-	onActivateRuntime: (runtime: ILanguageRuntime) => Promise<void>;
+	onStartRuntime: (runtime: ILanguageRuntimeMetadata) => Promise<void>;
+	onActivateRuntime: (runtime: ILanguageRuntimeMetadata) => Promise<void>;
 }
 
 /**
@@ -31,17 +31,21 @@ export const TopActionBarInterpretersManager = (props: TopActionBarInterpretersM
 	const ref = useRef<HTMLDivElement>(undefined!);
 
 	// State hooks.
-	const [activeRuntime, setActiveRuntime] = useState(positronTopActionBarContext.languageRuntimeService.activeRuntime);
+	const [activeSession, setActiveSession] =
+		useState(positronTopActionBarContext.runtimeSessionService.foregroundSession);
 
 	// Main useEffect.
 	useEffect(() => {
 		// Create the disposable store for cleanup.
 		const disposableStore = new DisposableStore();
 
-		// Add the onDidChangeActiveRuntime event handler.
+		// Add the onDidStartRuntime event handler.
 		disposableStore.add(
-			positronTopActionBarContext.languageRuntimeService.onDidChangeActiveRuntime(runtime => {
-				setActiveRuntime(positronTopActionBarContext.languageRuntimeService.activeRuntime);
+			positronTopActionBarContext.runtimeSessionService.onDidStartRuntime(session => {
+				if (session.metadata.sessionMode === LanguageRuntimeSessionMode.Console) {
+					setActiveSession(
+						positronTopActionBarContext.runtimeSessionService.foregroundSession);
+				}
 			})
 		);
 
@@ -66,6 +70,8 @@ export const TopActionBarInterpretersManager = (props: TopActionBarInterpretersM
 		ref.current.setAttribute('aria-expanded', 'true');
 		showInterpretersManagerModalPopup(
 			positronTopActionBarContext.languageRuntimeService,
+			positronTopActionBarContext.runtimeStartupService,
+			positronTopActionBarContext.runtimeSessionService,
 			positronTopActionBarContext.layoutService.mainContainer,
 			ref.current,
 			props.onStartRuntime,
@@ -94,16 +100,16 @@ export const TopActionBarInterpretersManager = (props: TopActionBarInterpretersM
 		showPopup();
 	};
 
-	const label = !activeRuntime ? 'Start Interpreter' : activeRuntime.metadata.runtimeName;
+	const label = !activeSession ? 'Start Interpreter' : activeSession.metadata.sessionName;
 
 	// Render.
 	return (
 		<div ref={ref} className='top-action-bar-interpreters-manager' role='button' tabIndex={0} onKeyDown={keyDownHandler} onClick={clickHandler} aria-haspopup='menu' aria-label={label}>
 			<div className='left' aria-hidden='true'>
-				{!activeRuntime ?
+				{!activeSession ?
 					<div className='label'>{label}</div> :
 					<div className='label'>
-						<img className='icon' src={`data:image/svg+xml;base64,${activeRuntime.metadata.base64EncodedIconSvg}`} />
+						<img className='icon' src={`data:image/svg+xml;base64,${activeSession.runtimeMetadata.base64EncodedIconSvg}`} />
 						<span>{label}</span>
 					</div>
 				}

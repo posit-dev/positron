@@ -388,12 +388,48 @@ declare module 'positron' {
 		/** Whether the runtime should start up automatically or wait until explicitly requested */
 		startupBehavior: LanguageRuntimeStartupBehavior;
 
-		/** FIXME
-		 * These are for compatibility until runtimes have added
-		 * support for the config struct */
-		inputPrompt?: string;
-		continuationPrompt?: string;
+		/** Where sessions will be located; used as a hint to control session restoration */
+		sessionLocation: LanguageRuntimeSessionLocation;
+
+		/**
+		 * Extra data supplied by the runtime provider; not read by Positron but supplied
+		 * when creating a new session from the metadata.
+		 */
+		extraRuntimeData: any;
 	}
+
+	export interface RuntimeSessionMetadata {
+		/** The ID of this session */
+		readonly sessionId: string;
+
+		/** The user-facing name of this session */
+		readonly sessionName: string;
+
+		/** The session's mode */
+		readonly sessionMode: LanguageRuntimeSessionMode;
+
+		/** The URI of the notebook document associated with the session, if any */
+		readonly notebookUri?: vscode.Uri;
+	}
+
+	/**
+	 * LanguageRuntimeSessionMode is an enum representing the set of possible
+	 * modes for a language runtime session.
+	 */
+	export enum LanguageRuntimeSessionMode {
+		/**
+		 * The runtime session is bound to a Positron console. Typically,
+		 * there's only one console session per language.
+		 */
+		Console = 'console',
+
+		/** The runtime session backs a notebook. */
+		Notebook = 'notebook',
+
+		/** The runtime session is a background session (not attached to any UI). */
+		Background = 'background',
+	}
+
 
 	/**
 	 * LanguageRuntimeDynState contains information about a language runtime that may
@@ -424,6 +460,23 @@ declare module 'positron' {
 		 * usually used for runtimes that only provide REPLs
 		 */
 		Explicit = 'explicit',
+	}
+
+	/**
+	 * An enumeration of possible locations for runtime sessions.
+	 */
+	export enum LanguageRuntimeSessionLocation {
+		/**
+		 * The runtime session is located in the current workspace (usually a
+		 * terminal); it should be restored when the workspace is re-opened.
+		 */
+		Workspace = 'workspace',
+
+		/**
+		 * The runtime session is browser-only; it should not be restored when the
+		 * workspace is re-opened.
+		 */
+		Browser = 'browser',
 	}
 
 	/**
@@ -503,18 +556,72 @@ declare module 'positron' {
 		size: number;
 	}
 
-	export type LanguageRuntimeDiscoverer = AsyncGenerator<LanguageRuntime>;
-
-	export interface LanguageRuntimeProvider {
+	export interface LanguageRuntimeManager {
 		/**
-		 * Given runtime metadata, return the corresponding `LanguageRuntime` object.
+		 * Returns a generator that yields metadata about the language runtimes
+		 * that are available to the user.
 		 *
-		 * @param runtimeMetadata The runtime metadata.
-		 * @param token A cancellation token.
-		 * @return The language runtime.
+		 * This metadata will be passed to `createSession` to create new runtime
+		 * sessions.
 		 */
-		provideLanguageRuntime(runtimeMetadata: LanguageRuntimeMetadata, token: vscode.CancellationToken):
-			vscode.ProviderResult<LanguageRuntime>;
+		discoverRuntimes(): AsyncGenerator<LanguageRuntimeMetadata>;
+
+		/**
+		 * An optional event that fires when a new runtime is discovered.
+		 *
+		 * Not fired during `discoverRuntimes()`; used to notify Positron of a
+		 * new runtime or environment after the initial discovery has completed.
+		 */
+		onDidDiscoverRuntime?: vscode.Event<LanguageRuntimeMetadata>;
+
+		/**
+		 * An optional metadata validation function. If provided, Positron will
+		 * validate any stored metadata before attempting to use it to create a
+		 * new session. This happens when a workspace is re-opened, for example.
+		 *
+		 * If the metadata is invalid, the function should return a new version
+		 * of the metadata with the necessary corrections.
+		 *
+		 * If it is not possible to correct the metadata, the function should
+		 * reject with an error.
+		 *
+		 * @param metadata The metadata to validate
+		 * @returns A Thenable that resolves with an updated version of the
+		 *   metadata.
+		 */
+		validateMetadata?(metadata: LanguageRuntimeMetadata):
+			Thenable<LanguageRuntimeMetadata>;
+
+		/**
+		 * Creates a new runtime session.
+		 *
+		 * @param runtimeMetadata One of the runtime metadata items returned by
+		 * `discoverRuntimes`.
+		 * @param sessionMetadata The metadata for the new session.
+		 *
+		 * @returns A Thenable that resolves with the new session, or rejects with an error.
+		 */
+		createSession(runtimeMetadata: LanguageRuntimeMetadata,
+			sessionMetadata: RuntimeSessionMetadata):
+			Thenable<LanguageRuntimeSession>;
+
+		/**
+		 * Reconnects to a runtime session using the given metadata.
+		 *
+		 * Implementing this method is optional, since not all sessions can be
+		 * reconnected; for example, sessions that run in the browser cannot be
+		 * reconnected.
+		 *
+		 * @param runtimeMetadata The metadata for the runtime that owns the
+		 * session.
+		 * @param sessionMetadata The metadata for the session to reconnect.
+		 *
+		 * @returns A Thenable that resolves with the reconnected session, or
+		 * rejects with an error.
+		 */
+		restoreSession?(runtimeMetadata: LanguageRuntimeMetadata,
+			sessionMetadata: RuntimeSessionMetadata):
+			Thenable<LanguageRuntimeSession>;
 	}
 
 	/**
@@ -552,13 +659,20 @@ declare module 'positron' {
 	}
 
 	/**
-	 * LanguageRuntime is an interface implemented by extensions that provide a
+	 * LanguageRuntimeSession is an interface implemented by extensions that provide a
 	 * set of common tools for interacting with a language runtime, such as code
 	 * execution, LSP implementation, and plotting.
 	 */
-	export interface LanguageRuntime extends vscode.Disposable {
-		/** An object supplying metadata about the runtime */
-		readonly metadata: LanguageRuntimeMetadata;
+	export interface LanguageRuntimeSession extends vscode.Disposable {
+
+		/** An object supplying immutable metadata about this specific session */
+		readonly metadata: RuntimeSessionMetadata;
+
+		/**
+		 * An object supplying metadata about the runtime with which this
+		 * session is associated.
+		 */
+		readonly runtimeMetadata: LanguageRuntimeMetadata;
 
 		/** The state of the runtime that changes during a user session */
 		dynState: LanguageRuntimeDynState;
@@ -632,7 +746,7 @@ declare module 'positron' {
 		replyToPrompt(id: string, reply: string): void;
 
 		/**
-		 * Start the runtime; returns a Thenable that resolves with information about the runtime.
+		 * Start the session; returns a Thenable that resolves with information about the runtime.
 		 * If the runtime fails to start for any reason, the Thenable should reject with an error
 		 * object containing a `message` field with a human-readable error message and an optional
 		 * `details` field with additional information.
@@ -672,21 +786,6 @@ declare module 'positron' {
 		 * Show runtime log in output panel.
 		 */
 		showOutput?(): void;
-
-		/**
-		 * Create a new instance of the runtime.
-		 *
-		 * NOTE: This is a temporary workaround to get notebooks working with our
-		 *       runtimes, until we implement runtime sessions. "Cloned" runtimes
-		 *       will not be known by the language runtime service thus cannot
-		 *       integrate with any of our existing functionality. This method
-		 *       should not be used outside of our notebook extension.
-		 *
-		 * @param metadata The metadata for the new runtime instance.
-		 * @param notebook The notebook that this runtime belongs to.
-		 * @returns A new runtime instance.
-		 */
-		clone(metadata: LanguageRuntimeMetadata, notebook: vscode.NotebookDocument): LanguageRuntime;
 	}
 
 
@@ -1010,49 +1109,22 @@ declare module 'positron' {
 			skipChecks?: boolean): Thenable<boolean>;
 
 		/**
-		 * Register a language runtime discoverer with Positron.
-		 *
-		 * @param languageId The language ID for which runtimes will be supplied
-		 * @param discoverer A function that returns an AsyncIterable of runtime registrations
+		 * Register a language runtime manager with Positron. Returns a
+		 * disposable that unregisters the manager when disposed.
 		 */
-		export function registerLanguageRuntimeDiscoverer(languageId: string,
-			discoverer: LanguageRuntimeDiscoverer): void;
-
-		/**
-		 * Register a single language runtime with Positron.
-		 *
-		 * @param runtime The language runtime to register
-		 */
-		export function registerLanguageRuntime(runtime: LanguageRuntime): vscode.Disposable;
-
-		/**
-		 * Register a language runtime provider.
-		 *
-		 * @param languageId The language ID for which a runtime will be provided
-		 * @param provider A language runtime provider.
-		 * @return A {@link Disposable} that unregisters this provider when being disposed.
-		 */
-		export function registerLanguageRuntimeProvider(languageId: string,
-			provider: LanguageRuntimeProvider): void;
+		export function registerLanguageRuntimeManager(manager: LanguageRuntimeManager): vscode.Disposable;
 
 		/**
 		 * List all registered runtimes.
 		 */
-		export function getRegisteredRuntimes(): Thenable<LanguageRuntime[]>;
+		export function getRegisteredRuntimes(): Thenable<LanguageRuntimeMetadata[]>;
 
 		/**
 		 * Get the preferred language runtime for a given language.
 		 *
 		 * @param languageId The language ID of the preferred runtime
 		 */
-		export function getPreferredRuntime(languageId: string): Thenable<LanguageRuntime>;
-
-		/**
-		 * List the running runtimes for a given language.
-		 *
-		 * @param languageId The language ID for running runtimes
-		 */
-		export function getRunningRuntimes(languageId: string): Thenable<LanguageRuntimeMetadata[]>;
+		export function getPreferredRuntime(languageId: string): Thenable<LanguageRuntimeMetadata>;
 
 		/**
 		 * Select and start a runtime previously registered with Positron. Any
@@ -1063,11 +1135,25 @@ declare module 'positron' {
 		export function selectLanguageRuntime(runtimeId: string): Thenable<void>;
 
 		/**
-		 * Restart a running runtime.
+		 * Start a new session for a runtime previously registered with Positron.
 		 *
-		 * @param runtimeId The ID of the running runtime to restart.
+		 * @param runtimeId The ID of the runtime to select and start.
+		 * @param sessionName A human-readable name for the new session.
+		 * @param notebookUri If the session is associated with a notebook,
+		 *   the notebook URI.
+		 *
+		 * Returns a Thenable that resolves with the newly created session.
 		 */
-		export function restartLanguageRuntime(runtimeId: string): Thenable<void>;
+		export function startLanguageRuntime(runtimeId: string,
+			sessionName: string,
+			notebookUri?: vscode.Uri): Thenable<LanguageRuntimeSession>;
+
+		/**
+		 * Restart a running session.
+		 *
+		 * @param sessionId The ID of the session to restart.
+		 */
+		export function restartSession(sessionId: string): Thenable<void>;
 
 		/**
 		 * Register a handler for runtime client instances. This handler will be called
@@ -1081,7 +1167,7 @@ declare module 'positron' {
 		/**
 		 * An event that fires when a new runtime is registered.
 		 */
-		export const onDidRegisterRuntime: vscode.Event<LanguageRuntime>;
+		export const onDidRegisterRuntime: vscode.Event<LanguageRuntimeMetadata>;
 
 	}
 

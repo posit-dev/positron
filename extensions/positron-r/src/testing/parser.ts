@@ -6,7 +6,7 @@ import * as vscode from 'vscode';
 import * as path from 'path';
 import * as Parser from 'web-tree-sitter';
 import { ItemType, TestingTools, encodeNodeId } from './util-testing';
-import { Logger } from '../extension';
+import { LOGGER } from '../extension';
 import { EXTENSION_ROOT_DIR } from '../constants';
 
 const wasmPath = path.join(EXTENSION_ROOT_DIR, 'resources', 'testing', 'tree-sitter-r.wasm');
@@ -14,10 +14,10 @@ let parser: Parser | undefined;
 let R: Parser.Language | undefined;
 
 export async function initializeParser(): Promise<Parser> {
-	Logger.info(`Initializing parser`);
+	LOGGER.info(`Initializing parser`);
 	await Parser.init();
 	const parser = new Parser();
-	Logger.info(`tree-sitter-r.wasm path: ${wasmPath}`);
+	LOGGER.info(`tree-sitter-r.wasm path: ${wasmPath}`);
 	R = await Parser.Language.load(wasmPath);
 	parser.setLanguage(R);
 	return parser;
@@ -27,14 +27,14 @@ export async function parseTestsFromFile(
 	testingTools: TestingTools,
 	file: vscode.TestItem
 ): Promise<void> {
-	Logger.info(`Parsing test file ${file.uri}`);
+	LOGGER.info(`Parsing test file ${file.uri}`);
 
 	const uri = file.uri!;
 	let matches;
 	try {
 		matches = await findTests(uri);
 	} catch (error) {
-		Logger.error(String(error));
+		LOGGER.error(String(error));
 		return;
 	}
 

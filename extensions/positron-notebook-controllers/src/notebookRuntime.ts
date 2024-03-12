@@ -20,7 +20,7 @@ export class NotebookRuntime implements vscode.Disposable {
 	/**
 	 * @param runtime Positron language runtime for the notebook.
 	 */
-	constructor(private readonly runtime: positron.LanguageRuntime) {
+	constructor(private readonly runtime: positron.LanguageRuntimeSession) {
 		this.disposables.push(runtime);
 
 		// Track the language runtime's state.
@@ -33,7 +33,7 @@ export class NotebookRuntime implements vscode.Disposable {
 	onDidChangeRuntimeState = this.runtime.onDidChangeRuntimeState;
 
 	get metadata(): positron.LanguageRuntimeMetadata {
-		return this.runtime.metadata;
+		return this.runtime.runtimeMetadata;
 	}
 
 	getState(): positron.RuntimeState {

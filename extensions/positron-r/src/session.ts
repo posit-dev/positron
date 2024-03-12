@@ -7,7 +7,7 @@ import * as vscode from 'vscode';
 import * as path from 'path';
 import PQueue from 'p-queue';
 
-import { JupyterAdapterApi, JupyterKernelSpec, JupyterLanguageRuntime, JupyterKernelExtra } from './jupyter-adapter';
+import { JupyterAdapterApi, JupyterKernelSpec, JupyterLanguageRuntimeSession, JupyterKernelExtra } from './jupyter-adapter';
 import { ArkLsp, LspState } from './lsp';
 import { delay, whenTimeout, timeout } from './util';
 import { ArkAttachOnStartup, ArkDelayStartup } from './startup';
@@ -15,7 +15,7 @@ import { RHtmlWidget, getResourceRoots } from './htmlwidgets';
 import { getArkKernelPath } from './kernel';
 import { randomUUID } from 'crypto';
 import { handleRCode } from './hyperlink';
-import { RRuntimeManager } from './runtime-manager';
+import { RSessionManager } from './session-manager';
 
 interface RPackageInstallation {
 	packageName: string;
@@ -26,7 +26,7 @@ interface RPackageInstallation {
  * A Positron language runtime that wraps a Jupyter kernel and a Language Server
  * Protocol client.
  */
-export class RRuntime implements positron.LanguageRuntime, vscode.Disposable {
+export class RSession implements positron.LanguageRuntimeSession, vscode.Disposable {
 
 	/** The Language Server Protocol client wrapper */
 	private _lsp: ArkLsp;
@@ -34,8 +34,8 @@ export class RRuntime implements positron.LanguageRuntime, vscode.Disposable {
 	/** Queue for message handlers */
 	private _queue: PQueue;
 
-	/** The Jupyter kernel-based implementation of the Language Runtime API */
-	private _kernel?: JupyterLanguageRuntime;
+	/** The Jupyter kernel-based session implementing the Language Runtime API */
+	private _kernel?: JupyterLanguageRuntimeSession;
 
 	/** The emitter for language runtime messages */
 	private _messageEmitter =
@@ -61,19 +61,26 @@ export class RRuntime implements positron.LanguageRuntime, vscode.Disposable {
 	/** Cache for which packages we know are installed in this runtime **/
 	private _packageCache = new Array<RPackageInstallation>();
 
+	/** The current dynamic runtime state */
+	public dynState: positron.LanguageRuntimeDynState;
+
 	constructor(
+		readonly runtimeMetadata: positron.LanguageRuntimeMetadata,
+		readonly metadata: positron.RuntimeSessionMetadata,
 		readonly context: vscode.ExtensionContext,
-		readonly kernelSpec: JupyterKernelSpec,
-		readonly metadata: positron.LanguageRuntimeMetadata,
-		public dynState: positron.LanguageRuntimeDynState,
+		readonly kernelSpec?: JupyterKernelSpec,
 		readonly extra?: JupyterKernelExtra,
-		readonly notebook?: vscode.NotebookDocument,
 	) {
-		this._lsp = new ArkLsp(metadata.languageVersion, notebook);
+		this._lsp = new ArkLsp(runtimeMetadata.languageVersion, metadata.notebookUri);
 		this._queue = new PQueue({ concurrency: 1 });
 		this.onDidReceiveRuntimeMessage = this._messageEmitter.event;
 		this.onDidChangeRuntimeState = this._stateEmitter.event;
 		this.onDidEndSession = this._exitEmitter.event;
+
+		this.dynState = {
+			continuationPrompt: '+',
+			inputPrompt: '>',
+		};
 
 		this.onDidChangeRuntimeState((state) => {
 			this.onStateChange(state);
@@ -186,7 +193,7 @@ export class RRuntime implements positron.LanguageRuntime, vscode.Disposable {
 		if (!this._kernel) {
 			this._kernel = await this.createKernel();
 		}
-		RRuntimeManager.instance.setLastBinpath(this._kernel.metadata.runtimePath);
+		RSessionManager.instance.setLastBinpath(this._kernel.runtimeMetadata.runtimePath);
 
 		// Register for console width changes, if we haven't already
 		if (!this._consoleWidthDisposable) {
@@ -283,18 +290,6 @@ export class RRuntime implements positron.LanguageRuntime, vscode.Disposable {
 		} else {
 			throw new Error('Cannot force quit; kernel not started');
 		}
-	}
-
-	clone(metadata: positron.LanguageRuntimeMetadata, notebook: vscode.NotebookDocument): positron.LanguageRuntime {
-		// eslint-disable-next-line @typescript-eslint/naming-convention
-		const kernelSpec: JupyterKernelSpec = { ...this.kernelSpec, display_name: metadata.runtimeName };
-		return new RRuntime(
-			this.context,
-			kernelSpec,
-			metadata,
-			{ ...this.dynState },
-			createJupyterKernelExtra(),
-			notebook);
 	}
 
 	async dispose() {
@@ -397,7 +392,7 @@ export class RRuntime implements positron.LanguageRuntime, vscode.Disposable {
 		return attached;
 	}
 
-	private async createKernel(): Promise<JupyterLanguageRuntime> {
+	private async createKernel(): Promise<JupyterLanguageRuntimeSession> {
 		const ext = vscode.extensions.getExtension('vscode.jupyter-adapter');
 		if (!ext) {
 			throw new Error('Jupyter Adapter extension not found');
@@ -406,11 +401,21 @@ export class RRuntime implements positron.LanguageRuntime, vscode.Disposable {
 			await ext.activate();
 		}
 		this.adapterApi = ext?.exports as JupyterAdapterApi;
-		const kernel = this.adapterApi.adaptKernel(
-			this.kernelSpec,
-			this.metadata,
-			this.dynState,
-			this.extra);
+
+		// Create the Jupyter session
+		const kernel = this.kernelSpec ?
+			// We have a kernel spec, so create a new session
+			this.adapterApi.createSession(
+				this.runtimeMetadata,
+				this.metadata,
+				this.kernelSpec,
+				this.dynState,
+				this.extra) :
+
+			// We don't have a kernel spec, so restore (reconnect) the session
+			this.adapterApi.restoreSession(
+				this.runtimeMetadata,
+				this.metadata);
 
 		kernel.onDidChangeRuntimeState((state) => {
 			this._stateEmitter.fire(state);
@@ -570,16 +575,6 @@ export class RRuntime implements positron.LanguageRuntime, vscode.Disposable {
 	}
 }
 
-export async function getRunningRRuntime(): Promise<RRuntime> {
-	const runningRuntimes = await positron.runtime.getRunningRuntimes('r');
-	if (!runningRuntimes || !runningRuntimes.length) {
-		throw new Error('Cannot get running runtime as there is no R interpreter running.');
-	}
-
-	// For now, there will be only one running R runtime:
-	return RRuntimeManager.instance.getRuntime(runningRuntimes[0].runtimeId);
-}
-
 export function createJupyterKernelExtra(): JupyterKernelExtra {
 	return {
 		attachOnStartup: new ArkAttachOnStartup(),
@@ -587,7 +582,21 @@ export function createJupyterKernelExtra(): JupyterKernelExtra {
 	};
 }
 
-export function createJupyterKernelSpec(context: vscode.ExtensionContext, rHomePath: string, runtimeName: string): JupyterKernelSpec {
+/**
+ * Create a new Jupyter kernel spec.
+ *
+ * @param context The extension context
+ * @param rHomePath The R_HOME path for the R version
+ * @param runtimeName The (display) name of the runtime
+ * @param sessionMode The mode in which to create the session
+ *
+ * @returns A JupyterKernelSpec definining the kernel's path, arguments, and
+ *  metadata.
+ */
+export function createJupyterKernelSpec(context: vscode.ExtensionContext,
+	rHomePath: string,
+	runtimeName: string,
+	sessionMode: positron.LanguageRuntimeSessionMode): JupyterKernelSpec {
 
 	// Path to the kernel executable
 	const kernelPath = getArkKernelPath(context);
@@ -619,6 +628,7 @@ export function createJupyterKernelSpec(context: vscode.ExtensionContext, rHomeP
 			'--connection_file', '{connection_file}',
 			'--log', '{log_file}',
 			'--startup-file', `${startupFile}`,
+			'--session-mode', `${sessionMode}`,
 			// The arguments after `--` are passed verbatim to R
 			'--',
 			'--interactive',
@@ -647,7 +657,12 @@ export function createJupyterKernelSpec(context: vscode.ExtensionContext, rHomeP
 	return kernelSpec;
 }
 
-export async function checkInstalled(pkgName: string, pkgVersion?: string, runtime?: RRuntime) {
-	runtime = runtime || await getRunningRRuntime();
-	return runtime.checkInstalled(pkgName, pkgVersion);
+export async function checkInstalled(pkgName: string,
+	pkgVersion?: string,
+	session?: RSession): Promise<boolean> {
+	session = session || RSessionManager.instance.getConsoleSession();
+	if (session) {
+		return session.checkInstalled(pkgName, pkgVersion);
+	}
+	throw new Error(`Cannot check install status of ${pkgName}; no R session available`);
 }

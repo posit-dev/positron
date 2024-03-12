@@ -1,0 +1,39 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *--------------------------------------------------------------------------------------------*/
+
+table.sessions-list {
+	border-collapse: collapse;
+	width: 100%;
+	box-sizing: border-box;
+	font-family: monospace;
+	font-size: small;
+}
+
+table.sessions-list th:first-child,
+table.sessions-list td:first-child {
+	border-left: none;
+	padding-left: 15px;
+}
+
+table.sessions-list th:last-child,
+table.sessions-list td:last-child {
+	border-right: none;
+	padding-right: 15px;
+}
+
+table.sessions-list td,
+table.sessions-list th {
+	border-color: var(--vscode-panel-border);
+	border-style: solid;
+	border-width: 1px;
+	padding: 5px;
+}
+
+table.sessions-list th {
+	text-align: left;
+}
+
+.sessions-container {
+	overflow: auto;
+}

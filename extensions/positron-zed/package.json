@@ -10,10 +10,10 @@
   "categories": [
     "Programming Languages"
   ],
-  "activationEvents": [
-    "onCommand:positron.activateInterpreters"
-  ],
   "main": "./out/extension.js",
+  "activationEvents": [
+    "onStartupFinished"
+  ],
   "contributes": {
     "languages": [
       {
@@ -25,6 +25,11 @@
           "Zed"
         ],
         "configuration": "./language-configuration.json"
+      }
+    ],
+    "languageRuntimes": [
+      {
+        "languageId": "zed"
       }
     ],
     "notebookRenderer": [

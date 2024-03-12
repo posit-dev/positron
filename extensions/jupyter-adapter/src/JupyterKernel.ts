@@ -29,7 +29,7 @@ import path = require('path');
 import { StartupFailure } from './StartupFailure';
 import { JupyterKernelStatus } from './JupyterKernelStatus';
 import { JupyterKernelSpec, JupyterKernelExtra } from './jupyter-adapter';
-import { delay, PromiseHandles, uuidv4 } from './utils';
+import { delay, PromiseHandles, uuidv4, withTimeout } from './utils';
 
 /** The message sent to the Heartbeat socket on a regular interval to test connectivity */
 const HEARTBEAT_MESSAGE = 'heartbeat';
@@ -115,12 +115,12 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 	private readonly _idleMessageIds: Set<string> = new Set();
 
 	/**
-	 * Initialisation state. Used to detect on startup that we (a) get a reply to a
-         * dummy kernel-info request on the Shell socket and (b) get a status message on
-         * the IOPub socket. When both of these happen, it means the kernel has made
-         * sufficient progress in its startup that it's able to service requests, and that
-         * the IOPub socket is correctly connected and that the user won't lose data when
-         * we send user requests to the kernel.
+	 * Initialisation state. Used to detect on startup that we (a) get a reply
+	 * to a dummy kernel-info request on the Shell socket and (b) get a status
+	 * message on the IOPub socket. When both of these happen, it means the
+	 * kernel has made sufficient progress in its startup that it's able to
+	 * service requests, and that the IOPub socket is correctly connected and
+	 * that the user won't lose data when we send user requests to the kernel.
 	 */
 	private _initial_request_id = '';
 	private _receivedInitialStatus = false;
@@ -131,6 +131,7 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 		spec: JupyterKernelSpec,
 		private readonly _runtimeId: string,
 		private readonly _channel: vscode.OutputChannel,
+		private readonly _notebookUri?: vscode.Uri,
 		readonly extra?: JupyterKernelExtra,
 	) {
 		super();
@@ -306,216 +307,233 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 	 */
 	private async connectToSession(session: JupyterSession) {
 
-		// Return a promise that resolves when we receive the initial heartbeat
-		return new Promise<void>((resolve, reject) => {
+		// Establish a log channel for the kernel we're connecting to, if we
+		// don't already have one (we will if we're restarting)
+		if (!this._logChannel) {
+			this._logChannel = positron.window.createRawLogOutputChannel(
+				this._notebookUri ?
+					`Notebook: ${path.basename(this._notebookUri.fsPath)} (${this._spec.display_name})` :
+					`Console: ${this._spec.display_name}`);
+		}
 
-			// Establish a log channel for the kernel we're connecting to, if we
-			// don't already have one (we will if we're restarting)
-			if (!this._logChannel) {
-				this._logChannel = positron.window.createRawLogOutputChannel(`Runtime: ${this._spec.display_name}`);
+		// Bind to the Jupyter session
+		this._session = session;
+
+		this.log(
+			`Connecting to ${this._spec.display_name} kernel (pid ${session.state.processId})`);
+
+		// The kernel is currently starting. If it skips right to the "exited" status, then
+		// we'll throw an error so that this async function rejects.
+		this.once('status', (status) => {
+			if (status === positron.RuntimeState.Exited) {
+				throw this.createStartupFailure(
+					`Kernel exited with status ${this._exitCode} during startup.`);
+			}
+		});
+
+		// Begin streaming the log file, if it exists. We create the log file
+		// when we start the kernel, if it has an argument that specifies a log
+		// file.
+		const logFilePath = this._session!.state.logFile;
+		if (fs.existsSync(logFilePath)) {
+			this.streamLogFileToChannel(logFilePath, this._spec.language, this._logChannel);
+		}
+
+		// Connect to the kernel's sockets; wait for all sockets to connect before continuing
+		this.log(`Connecting to kernel sockets defined in ${session.state.connectionFile}...`);
+
+		// Wait for the sockets to connect or the timeout to expire. Note that
+		// each socket has 10 second timeout for connecting, so this is just an
+		// additional safeguard.
+		await withTimeout(
+			this.connect(session.state.connectionFile),
+			15000,
+			`Timed out waiting 15 seconds for kernel to connect to sockets`);
+
+		// We're connected! Establish the socket listeners
+		return this.establishSocketListeners();
+	}
+
+	private handleIopubMsg(args: any[]) {
+		// Deserialize the message
+		const msg = deserializeJupyterMessage(args, this._session!.key, this._channel);
+
+		// If this is a status message, save the status and emit it.
+		if (msg?.header.msg_type === 'status') {
+			// Ignore Busy and Idle statuses emitted on IOPub during startup
+			// (e.g. during the kernel-info request that we emit to detect kernel
+			// readiness). This prevents switching from Starting to Busy before we
+			// switch to Ready.
+			if (this.isStarting()) {
+				// We've got a status, which signals completion of the first half
+				// of the kernel startup
+				this._receivedInitialStatus = true;
+
+				// Return for now, we'll emit statuses after the second half of
+				// startup (reception of a kernel-info reply) has completed
+				return;
 			}
 
-			// Bind to the Jupyter session
-			this._session = session;
+			const statusMsg = msg.content as JupyterKernelStatus;
+			const state = statusMsg.execution_state as positron.RuntimeState;
+			const parent_id = msg.parent_header.msg_id;
 
-			this.log(
-				`Connecting to ${this._spec.display_name} kernel (pid ${session.state.processId})`);
+			switch (state) {
+				case 'idle':
+					// Busy/idle messages come in pairs with matching origin IDs. If
+					// we get an idle message, remove it from the stack of busy
+					// messages by matching it with its parent ID. If the stack is
+					// empty, emit an idle event.
+					//
+					// In most cases, the stack will only have one item but it's
+					// possible to have multiple items because there are two different
+					// sockets that may have concurrent status messages: Shell and
+					// Control.
+					//
+					// A typical example of overlapping status messages occurs when an
+					// `interrupt_request` is sent while `Shell` is busy working on an
+					// `execute_request`. In this case we are waiting for an `Idle`
+					// message from `Shell` but a concurrent pair of `Busy` and `Idle`
+					// messages is sent from `Control` to describe the socket state
+					// while the interrupt is processed.
+					//
+					// We also keep track of the stack to defend against out-of-order
+					// messages.
+					if (this._busyMessageIds.has(parent_id)) {
+						this._busyMessageIds.delete(parent_id);
+						if (this._busyMessageIds.size === 0) {
+							this.setStatus(positron.RuntimeState.Idle);
+						}
+					} else {
+						// We got an idle message without a matching busy message.
+						// This indicates an ordering problem, but we can recover by
+						// adding it to the stack of idle messages.
+						this._idleMessageIds.add(parent_id);
+					}
+					break;
+				case 'busy':
+					// First, check to see if this is the other half of an
+					// out-of-order message pair. If we already got the idle side of
+					// this message, we can discard it.
+					if (this._idleMessageIds.has(parent_id)) {
+						this._idleMessageIds.delete(parent_id);
+						break;
+					}
 
-			// The kernel is currently starting. If it skips right to the "exited" status, then
-			// we'll throw an error so that this async function rejects.
-			this.once('status', (status) => {
-				if (status === positron.RuntimeState.Exited) {
-					reject(this.createStartupFailure(
-						`Kernel exited with status ${this._exitCode} during startup.`));
+					// Add this to the stack of busy messages
+					this._busyMessageIds.add(parent_id);
+
+					// If it's the first busy message, emit a busy event
+					if (this._busyMessageIds.size === 1) {
+						this.setStatus(positron.RuntimeState.Busy);
+					}
+					break;
+			}
+
+		}
+
+		if (msg !== null) {
+			this.emitMessage(JupyterSockets.iopub, msg);
+		}
+	}
+
+	private establishSocketListeners(): Promise<void> {
+		this.log(`Establishing socket listeners...`);
+		return new Promise<void>((resolve, reject) => {
+
+			// Subscribe to all topics and connect the IOPub socket
+			this._iopub?.onMessage((args: any[]) => {
+				this.handleIopubMsg(args);
+			});
+
+			// Connect the Shell socket
+			this._shell?.onMessage(async (args: any[]) => {
+				const msg = deserializeJupyterMessage(args, this._session!.key, this._channel);
+				if (msg !== null) {
+					// Wait for reply to kernel-info request. When it comes in, we
+					// know the kernel is started up and ready to service
+					// requests. That's our cue to switch to the Ready state.
+					if (!this._receivedInitialReply && msg.parent_header.msg_id === this._initial_request_id) {
+						// It's possible for the Shell socket to be connected
+						// and ready before the IOPub socket. This is a bad
+						// situation because the server might serve requests
+						// but we won't get the output back, resulting in data
+						// loss. To avoid this, we keep resending dummy
+						// requests until we get an IOPub status message. See
+						// discussion in
+						// https://github.com/jupyter/enhancement-proposals/blob/master/65-jupyter-xpub/jupyter-xpub.md
+						if (this._receivedInitialStatus) {
+							// Got both a reply on Shell and a status on IOPub, we're ready
+							this._receivedInitialReply = true;
+							this.setStatus(positron.RuntimeState.Ready);
+							resolve();
+						} else {
+							// Send the request again until we've received an IOPub status
+							this.sendInitialRequest();
+						}
+						return;
+					}
+					this.emitMessage(JupyterSockets.shell, msg);
 				}
 			});
 
-			// Begin streaming the log file, if it exists. We create the log file
-			// when we start the kernel, if it has an argument that specifies a log
-			// file.
-			const logFilePath = this._session!.state.logFile;
-			if (fs.existsSync(logFilePath)) {
-				this.streamLogFileToChannel(logFilePath, this._spec.language, this._logChannel);
-			}
-
-			// Connect to the kernel's sockets; wait for all sockets to connect before continuing
-			this.connect(session.state.connectionFile).then(() => {
-
-				// Subscribe to all topics and connect the IOPub socket
-				this._iopub?.onMessage((args: any[]) => {
-					const msg = deserializeJupyterMessage(args, this._session!.key, this._channel);
-
-					// If this is a status message, save the status and emit it.
-					if (msg?.header.msg_type === 'status') {
-						// Ignore Busy and Idle statuses emitted on IOPub during startup
-						// (e.g. during the kernel-info request that we emit to detect kernel
-						// readiness). This prevents switching from Starting to Busy before we
-						// switch to Ready.
-						if (this.isStarting()) {
-							// We've got a status, which signals completion of the first half
-							// of the kernel startup
-							this._receivedInitialStatus = true;
-
-							// Return for now, we'll emit statuses after the second half of
-							// startup (reception of a kernel-info reply) has completed
-							return;
-						}
-
-						const statusMsg = msg.content as JupyterKernelStatus;
-						const state = statusMsg.execution_state as positron.RuntimeState;
-						const parent_id = msg.parent_header.msg_id;
-
-						switch (state) {
-							case 'idle':
-								// Busy/idle messages come in pairs with matching origin IDs. If
-								// we get an idle message, remove it from the stack of busy
-								// messages by matching it with its parent ID. If the stack is
-								// empty, emit an idle event.
-								//
-								// In most cases, the stack will only have one item but it's
-								// possible to have multiple items because there are two different
-								// sockets that may have concurrent status messages: Shell and
-								// Control.
-								//
-								// A typical example of overlapping status messages occurs when an
-								// `interrupt_request` is sent while `Shell` is busy working on an
-								// `execute_request`. In this case we are waiting for an `Idle`
-								// message from `Shell` but a concurrent pair of `Busy` and `Idle`
-								// messages is sent from `Control` to describe the socket state
-								// while the interrupt is processed.
-								//
-								// We also keep track of the stack to defend against out-of-order
-								// messages.
-								if (this._busyMessageIds.has(parent_id)) {
-									this._busyMessageIds.delete(parent_id);
-									if (this._busyMessageIds.size === 0) {
-										this.setStatus(positron.RuntimeState.Idle);
-									}
-								} else {
-									// We got an idle message without a matching busy message.
-									// This indicates an ordering problem, but we can recover by
-									// adding it to the stack of idle messages.
-									this._idleMessageIds.add(parent_id);
-								}
-								break;
-							case 'busy':
-								// First, check to see if this is the other half of an
-								// out-of-order message pair. If we already got the idle side of
-								// this message, we can discard it.
-								if (this._idleMessageIds.has(parent_id)) {
-									this._idleMessageIds.delete(parent_id);
-									break;
-								}
-
-								// Add this to the stack of busy messages
-								this._busyMessageIds.add(parent_id);
-
-								// If it's the first busy message, emit a busy event
-								if (this._busyMessageIds.size === 1) {
-									this.setStatus(positron.RuntimeState.Busy);
-								}
-								break;
-						}
-
-					}
-
-					if (msg !== null) {
-						this.emitMessage(JupyterSockets.iopub, msg);
-					}
-				});
-
-				// Connect the Shell socket
-				this._shell?.onMessage(async (args: any[]) => {
-					const msg = deserializeJupyterMessage(args, this._session!.key, this._channel);
-					if (msg !== null) {
-						// Wait for reply to kernel-info request. When it comes in, we
-						// know the kernel is started up and ready to service
-						// requests. That's our cue to switch to the Ready state.
-						if (!this._receivedInitialReply && msg.parent_header.msg_id === this._initial_request_id) {
-							// It's possible for the Shell socket to be connected
-							// and ready before the IOPub socket. This is a bad
-							// situation because the server might serve requests
-							// but we won't get the output back, resulting in data
-							// loss. To avoid this, we keep resending dummy
-							// requests until we get an IOPub status message. See
-							// discussion in
-							// https://github.com/jupyter/enhancement-proposals/blob/master/65-jupyter-xpub/jupyter-xpub.md
-							if (this._receivedInitialStatus) {
-								// Got both a reply on Shell and a status on IOPub, we're ready
-								this._receivedInitialReply = true;
-								this.setStatus(positron.RuntimeState.Ready);
-								resolve();
-							} else {
-								// Send the request again until we've received an IOPub status
-								this.sendInitialRequest()
+			// Connect the Stdin socket
+			this._stdin?.onMessage((args: any[]) => {
+				const msg = deserializeJupyterMessage(args, this._session!.key, this._channel);
+				if (msg !== null) {
+					switch (msg.header.msg_type) {
+						// If this is an input or comm request, save the header so we can
+						// can line it up with the client's response.
+						case 'input_request':
+						case 'rpc_request': {
+							// Concurrent requests are not currently allowed
+							if (this._activeBackendRequestHeader !== undefined) {
+								this.log('ERROR: Overlapping request on StdIn');
 							}
-							return;
+							this._activeBackendRequestHeader = msg.header;
+							break;
 						}
-						this.emitMessage(JupyterSockets.shell, msg);
+						default:
+							break;
 					}
-				});
-
-				// Connect the Stdin socket
-				this._stdin?.onMessage((args: any[]) => {
-					const msg = deserializeJupyterMessage(args, this._session!.key, this._channel);
-					if (msg !== null) {
-						switch (msg.header.msg_type) {
-							// If this is an input or comm request, save the header so we can
-							// can line it up with the client's response.
-							case 'input_request':
-							case 'rpc_request': {
-								// Concurrent requests are not currently allowed
-								if (this._activeBackendRequestHeader !== undefined) {
-									this.log('ERROR: Overlapping request on StdIn');
-								}
-								this._activeBackendRequestHeader = msg.header;
-								break;
-							}
-							default:
-								break;
-						}
-						this.emitMessage(JupyterSockets.stdin, msg);
-					}
-				});
-
-				// Set a timer to reject the promise if we don't receive the initial
-				// heartbeat within 10 seconds
-				const timeout = setTimeout(() => {
-					reject(this.createStartupFailure(
-						'Timed out waiting 10 seconds for initial heartbeat'));
-				}, 10000);
-
-				// Wait for the initial heartbeat
-				const reg = this._heartbeat?.onMessage((msg: string) => {
-
-					// We got the heartbeat, so cancel the timeout
-					clearTimeout(timeout);
-
-					// Resolve the promise, mark the kernel as ready, and start the heartbeat
-					// check
-					this.log('Received initial heartbeat: ' + msg);
-
-					// Send a dummy request. When the reply comes in we'll switch to the Ready state.
-					this.sendInitialRequest()
-
-					const seconds = vscode.workspace.getConfiguration('positron.jupyterAdapter').get('heartbeat', 30) as number;
-					this.log(`Starting heartbeat check at ${seconds} second intervals...`);
-					if (seconds > 0) {
-						this.heartbeat();
-					}
-
-					// Dispose this listener now that we've received the initial heartbeat
-					reg?.dispose();
-
-					this._heartbeat?.onMessage((msg: string) => {
-						this.onHeartbeat(msg);
-					});
-				});
-				this._heartbeat?.send([HEARTBEAT_MESSAGE]);
-
-			}).catch((err) => {
-				reject(err);
+					this.emitMessage(JupyterSockets.stdin, msg);
+				}
 			});
+
+			// Set a timer to reject the promise if we don't receive the initial
+			// heartbeat within 10 seconds
+			const timeout = setTimeout(() => {
+				reject(this.createStartupFailure(
+					'Timed out waiting 10 seconds for initial heartbeat'));
+			}, 10000);
+
+			// Wait for the initial heartbeat
+			const reg = this._heartbeat?.onMessage((msg: string) => {
+
+				// We got the heartbeat, so cancel the timeout
+				clearTimeout(timeout);
+
+				// Resolve the promise, mark the kernel as ready, and start the heartbeat
+				// check
+				this.log('Received initial heartbeat: ' + msg);
+
+				// Send a dummy request. When the reply comes in we'll switch to the Ready state.
+				this.sendInitialRequest();
+
+				const seconds = vscode.workspace.getConfiguration('positron.jupyterAdapter').get('heartbeat', 30) as number;
+				this.log(`Starting heartbeat check at ${seconds} second intervals...`);
+				if (seconds > 0) {
+					this.heartbeat();
+				}
+
+				// Dispose this listener now that we've received the initial heartbeat
+				reg?.dispose();
+
+				this._heartbeat?.onMessage((msg: string) => {
+					this.onHeartbeat(msg);
+				});
+			});
+			this._heartbeat?.send([HEARTBEAT_MESSAGE]);
 		});
 	}
 
@@ -603,30 +621,25 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 		this._receivedInitialStatus = false;
 		this._receivedInitialReply = false;
 
-		// Before starting a new process, look for metadata about a running
-		// kernel in the current workspace by checking the value stored for this
-		// runtime ID (we support running exactly one kernel per runtime ID). If
-		// we find it, it's a JupyterSessionState object, which contains the
-		// connection information.
-		const state = this._context.workspaceState.get(this._runtimeId);
-		if (state) {
-			// We found session state for this kernel. Connect to it.
-			const sessionState = state as JupyterSessionState;
-
+		// If we already have a session, attempt to reconnect to it instead of
+		// starting a new session.
+		if (this._session) {
 			try {
-				// Attempt to reconnect
-				await this.reconnect(sessionState);
-
-				// It was successful; no need to start a new process
-				return;
-
+				return this.reconnect(this._session.state);
 			} catch (err) {
-				// It was not successful; we'll need to start a new process
-				this.log(`Failed to reconnect to running kernel: ${err}`);
+				// If we failed to reconnect, then we need to remove the stale session state
+				this.log(`Failed to reconnect to kernel: ${err}`);
 
-				// Since we could not connect to the preserved state, remove it.
-				this.log(`Removing stale session state for process ${sessionState.processId}`);
-				this._context.workspaceState.update(this._runtimeId, undefined);
+				// After a beat, consider this state to be 'exited' so that we
+				// can start a new session; the most common cause of a failure
+				// to reconnect is that the underlying process exited while we
+				// weren't looking
+				setTimeout(() => {
+					this.setStatus(positron.RuntimeState.Exited);
+				}, 0);
+
+				// Rethrow the error to be caught by the caller
+				throw err;
 			}
 		}
 
@@ -728,10 +741,6 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 			// Save the process ID in the session state
 			session.state.processId = pid;
 
-			// Write the session state to workspace storage
-			this.log(`Writing session state to workspace storage: '${this._runtimeId}' => ${JSON.stringify(session.state)}`);
-			this._context.workspaceState.update(this._runtimeId, session.state);
-
 			// Clean up event listener now that we've located the
 			// correct terminal
 			disposable.dispose();
@@ -812,6 +821,46 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 	 */
 	public spec(): JupyterKernelSpec {
 		return this._spec;
+	}
+
+	/**
+	 * Restores connection parameters; used to reconnect to a running session.
+	 *
+	 * @param state The state to restore
+	 */
+	public restoreSession(state: JupyterSessionState) {
+		if (this._session) {
+			// This should never happen, but if it does, log it and dispose the
+			// existing session.
+			this.log(`Discarding existing Jupyter session ${this._session.sessionId} ` +
+				`in favor of restored session ${state.sessionId}`);
+			this._session.dispose();
+			this._session = undefined;
+		}
+
+		// Restore the session and parse the connection file
+		this._session = new JupyterSession(state);
+	}
+
+	/**
+	 * Clears the kernel's session state, usually in preparation for a restart,
+	 * so that we connect to the new session instead of attempting to reconnect
+	 * to the old one.
+	 */
+	public clearSession() {
+		this._session = undefined;
+	}
+
+	/**
+	 * Gets the kernel's session state
+	 *
+	 * @returns The kernel's session state
+	 */
+	public getSessionState(): JupyterSessionState | undefined {
+		if (this._session) {
+			return this._session.state;
+		}
+		return undefined;
 	}
 
 	/**
@@ -1335,12 +1384,12 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 
 	private isStartingStatus(status: positron.RuntimeState): boolean {
 		switch (status) {
-		case positron.RuntimeState.Uninitialized:
-		case positron.RuntimeState.Initializing:
-		case positron.RuntimeState.Starting:
-			return true;
-		default:
-			return false;
+			case positron.RuntimeState.Uninitialized:
+			case positron.RuntimeState.Initializing:
+			case positron.RuntimeState.Starting:
+				return true;
+			default:
+				return false;
 		}
 	}
 

@@ -7,8 +7,8 @@ import { IDisposable } from 'vs/base/common/lifecycle';
 import { URI, UriComponents } from 'vs/base/common/uri';
 import { ExtensionIdentifier } from 'vs/platform/extensions/common/extensions';
 import { createDecorator } from 'vs/platform/instantiation/common/instantiation';
-import { IRuntimeClientInstance, RuntimeClientType } from 'vs/workbench/services/languageRuntime/common/languageRuntimeClientInstance';
-import { IRuntimeClientEvent } from 'vs/workbench/services/languageRuntime/common/languageRuntimeUiClient';
+import { IRuntimeClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimeClientInstance';
+import { ILanguageRuntimeSession } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
 
 export const ILanguageRuntimeService = createDecorator<ILanguageRuntimeService>('languageRuntimeService');
 
@@ -26,12 +26,14 @@ export const formatLanguageRuntimeMetadata = (metadata: ILanguageRuntimeMetadata
 	`version: ${metadata.languageVersion})`;
 
 /**
- * Formats a language runtime for logging.
- * @param languageRuntime The language runtime to format for logging.
+ * Formats a language runtime session for logging.
+ *
+ * @param languageRuntimeSession The language runtime session to format for logging.
+ *
  * @returns A string suitable for logging the language runtime.
  */
-export const formatLanguageRuntime = (languageRuntime: ILanguageRuntime) => {
-	return formatLanguageRuntimeMetadata(languageRuntime.metadata);
+export const formatLanguageRuntimeSession = (session: ILanguageRuntimeSession) => {
+	return `Session ${session.metadata.sessionName} (${session.sessionId}) from runtime ${formatLanguageRuntimeMetadata(session.runtimeMetadata)}`;
 };
 
 /**
@@ -431,6 +433,23 @@ export enum LanguageRuntimeMessageType {
 	CommClosed = 'comm_closed',
 }
 
+/**
+ * An enumeration of possible locations for runtime sessions.
+ */
+export enum LanguageRuntimeSessionLocation {
+	/**
+	 * The runtime session is located in the current workspace (usually a
+	 * terminal); it should be restored when the workspace is re-opened.
+	 */
+	Workspace = 'workspace',
+
+	/**
+	 * The runtime session is browser-only; it should not be restored when the
+	 * workspace is re-opened.
+	 */
+	Browser = 'browser',
+}
+
 export enum LanguageRuntimeStartupBehavior {
 	/**
 	 * The runtime should be started immediately after registration; usually used for runtimes
@@ -450,24 +469,6 @@ export enum LanguageRuntimeStartupBehavior {
 	Explicit = 'explicit',
 }
 
-export enum LanguageRuntimeDiscoveryPhase {
-	/**
-	 * We are waiting for extensions to register language runtime discoverers.
-	 */
-	AwaitingExtensions = 'AwaitingExtensions',
-
-	/**
-	 * Language runtimes are currently being discovered and registered. During
-	 * this phase, the service emits `onDidRegisterRuntime` events as it
-	 * discovers new runtimes.
-	 */
-	Discovering = 'discovering',
-
-	/**
-	 * Language runtime discovery has completed.
-	 */
-	Complete = 'complete',
-}
 
 export interface ILanguageRuntimeMessageState extends ILanguageRuntimeMessage {
 	/** The new state */
@@ -484,27 +485,8 @@ export interface ILanguageRuntimeMessageError extends ILanguageRuntimeMessage {
 	/** The error stack trace */
 	traceback: Array<string>;
 }
-
-export interface ILanguageRuntimeGlobalEvent {
-	/** The ID of the runtime from which the event originated */
-	runtime_id: string;
-
-	/** The event itself */
-	event: IRuntimeClientEvent;
-}
-
-export interface ILanguageRuntimeStateEvent {
-	/** The ID of the runtime that changed states */
-	runtime_id: string;
-
-	/** The runtime's previous state */
-	old_state: RuntimeState;
-
-	/** The runtime's new state */
-	new_state: RuntimeState;
-}
-
-/* ILanguageRuntimeMetadata contains information about a language runtime that is known
+/**
+ * ILanguageRuntimeMetadata contains information about a language runtime that is known
  * before the runtime is started.
  */
 export interface ILanguageRuntimeMetadata {
@@ -526,9 +508,6 @@ export interface ILanguageRuntimeMetadata {
 	/** The Base64-encoded icon SVG for the language. */
 	readonly base64EncodedIconSvg: string | undefined;
 
-	/** The identifier of the extension that provides the language support. */
-	readonly extensionId: ExtensionIdentifier;
-
 	/**
 	 * The fully qualified name of the runtime displayed to the user; e.g. "R 4.2 (64-bit)".
 	 * Should be unique across languages.
@@ -549,18 +528,29 @@ export interface ILanguageRuntimeMetadata {
 
 	/** Whether the runtime should start up automatically or wait until explicitly requested */
 	readonly startupBehavior: LanguageRuntimeStartupBehavior;
+
+	/** Where sessions will be located; used as a hint to control session restoration */
+	readonly sessionLocation: LanguageRuntimeSessionLocation;
+
+	/** The identifier of the extension that provides the language support. */
+	readonly extensionId: ExtensionIdentifier;
+
+	/** Extra data supplied by the extension; not read by Positron */
+	readonly extraRuntimeData: any;
 }
 
-/* ILanguageRuntimeConfig contains information about a language runtime that is known
- * after the runtime is started and that might change in the course of a session.
- */
-export interface ILanguageRuntimeDynState {
+export interface ILangaugeRuntimeDynState {
 	/** The text the language's interpreter uses to prompt the user for input, e.g. ">" or ">>>" */
 	inputPrompt: string;
 
 	/** The text the language's interpreter uses to prompt the user for continued input, e.g. "+" or "..." */
 	continuationPrompt: string;
+}
 
+/**
+ * Contains information about the session's current state.
+ */
+export interface ILanguageRuntimeSessionState extends ILangaugeRuntimeDynState {
 	/** The current working directory of the interpreter. */
 	currentWorkingDirectory: string;
 
@@ -573,206 +563,62 @@ export interface ILanguageRuntimeDynState {
  */
 export type RuntimeResourceRootProvider = (mimeType: string, data: any) => Promise<URI[]>;
 
-export interface ILanguageRuntime {
-	/** The language runtime's static metadata */
-	readonly metadata: ILanguageRuntimeMetadata;
-
-	/** The language runtime's dynamic metadata */
-	dynState: ILanguageRuntimeDynState;
-
-	/** An object that emits events when the runtime state changes */
-	onDidChangeRuntimeState: Event<RuntimeState>;
-
-	/** An object that emits an event when the runtime completes startup */
-	onDidCompleteStartup: Event<ILanguageRuntimeInfo>;
-
-	/** An object that emits an event when runtime startup fails */
-	onDidEncounterStartupFailure: Event<ILanguageRuntimeStartupFailure>;
-
-	/** An object that emits an event when the runtime exits */
-	onDidEndSession: Event<ILanguageRuntimeExit>;
-
+/**
+ * LanguageRuntimeSessionMode is an enum representing the set of possible
+ * modes for a language runtime session.
+ */
+export enum LanguageRuntimeSessionMode {
 	/**
-	 * An object that emits an event when a client instance (comm) is created
-	 * from the runtime side. Note that this only fires when an instance is
-	 * created from the runtime side; it does not fire when
-	 * `createClient` is called from the front end.
+	 * The runtime session is bound to a Positron console. Typically,
+	 * there's only one console session per language.
 	 */
-	onDidCreateClientInstance: Event<ILanguageRuntimeClientCreatedEvent>;
+	Console = 'console',
 
-	onDidReceiveRuntimeMessageOutput: Event<ILanguageRuntimeMessageOutput>;
-	onDidReceiveRuntimeMessageStream: Event<ILanguageRuntimeMessageStream>;
-	onDidReceiveRuntimeMessageInput: Event<ILanguageRuntimeMessageInput>;
-	onDidReceiveRuntimeMessageError: Event<ILanguageRuntimeMessageError>;
-	onDidReceiveRuntimeMessagePrompt: Event<ILanguageRuntimeMessagePrompt>;
-	onDidReceiveRuntimeMessageState: Event<ILanguageRuntimeMessageState>;
-	onDidReceiveRuntimeClientEvent: Event<IRuntimeClientEvent>;
-	onDidReceiveRuntimeMessagePromptConfig: Event<void>;
+	/** The runtime session backs a notebook. */
+	Notebook = 'notebook',
 
-	/** The current state of the runtime (tracks events above) */
-	getRuntimeState(): RuntimeState;
-
-	/**
-	 * Opens a resource in the runtime.
-	 * @param resource The resource to open.
-	 * @returns true if the resource was opened; otherwise, false.
-	 */
-	openResource(resource: URI | string): Thenable<boolean>;
-
-	/** Execute code in the runtime */
-	execute(code: string,
-		id: string,
-		mode: RuntimeCodeExecutionMode,
-		errorBehavior: RuntimeErrorBehavior): void;
-
-	/** Test a code fragment for completeness */
-	isCodeFragmentComplete(code: string): Thenable<RuntimeCodeFragmentStatus>;
-
-	/**
-	 * Create a new instance of a client; return null if the client type
-	 * is not supported by this runtime.
-	 *
-	 * @param type The type of client to create
-	 * @param params The parameters to pass to the client constructor
-	 */
-	createClient<T, U>(type: RuntimeClientType, params: any):
-		Thenable<IRuntimeClientInstance<T, U>>;
-
-	/** Get a list of all known clients */
-	listClients(type?: RuntimeClientType): Thenable<Array<IRuntimeClientInstance<any, any>>>;
-
-	/** Reply to an input prompt that the runtime issued
-	 * (via a LanguageRuntimePrompt message)
-	 */
-	replyToPrompt(id: string, value: string): void;
-
-	start(): Thenable<ILanguageRuntimeInfo>;
-
-	/** Interrupt the runtime */
-	interrupt(): void;
-
-	/** Restart the runtime */
-	restart(): Thenable<void>;
-
-	/** Shut down the runtime */
-	shutdown(exitReason?: RuntimeExitReason): Thenable<void>;
-
-	/** Force quit the runtime */
-	forceQuit(): Thenable<void>;
-
-	/** Show output log of the runtime */
-	showOutput(): void;
+	/** The runtime session is a background session (not attached to any UI). */
+	Background = 'background',
 }
 
+/**
+ * The Language Runtime Service manages the discovery and registration of
+ * language runtime metadata, which can be thought of as "the interpreters made
+ * available by extensions".
+ */
 export interface ILanguageRuntimeService {
 	// Needed for service branding in dependency injector.
 	readonly _serviceBrand: undefined;
 
-	// An event that fires when the language runtime discovery phase changes.
-	readonly onDidChangeDiscoveryPhase: Event<LanguageRuntimeDiscoveryPhase>;
-
 	// An event that fires when a new runtime is registered.
-	readonly onDidRegisterRuntime: Event<ILanguageRuntime>;
-
-	// An event that fires when a runtime is about to start.
-	readonly onWillStartRuntime: Event<ILanguageRuntime>;
-
-	// An event that fires when a runtime starts.
-	readonly onDidStartRuntime: Event<ILanguageRuntime>;
-
-	// An event that fires when a runtime fails to start.
-	readonly onDidFailStartRuntime: Event<ILanguageRuntime>;
-
-	// An event that fires when a runtime is reconnected.
-	readonly onDidReconnectRuntime: Event<ILanguageRuntime>;
-
-	// An event that fires when a runtime changes state.
-	readonly onDidChangeRuntimeState: Event<ILanguageRuntimeStateEvent>;
-
-	// An event that fires when a runtime receives a global event.
-	readonly onDidReceiveRuntimeEvent: Event<ILanguageRuntimeGlobalEvent>;
-
-	// An event that fires when the active runtime changes.
-	readonly onDidChangeActiveRuntime: Event<ILanguageRuntime | undefined>;
-
-	// An event that fires when a runtime is requested.
-	readonly onDidRequestLanguageRuntime: Event<ILanguageRuntimeMetadata>;
-
-	/**
-	 * Gets the running language runtimes.
-	 */
-	readonly runningRuntimes: ILanguageRuntime[];
+	readonly onDidRegisterRuntime: Event<ILanguageRuntimeMetadata>;
 
 	/**
 	 * Gets the registered language runtimes.
 	 */
-	readonly registeredRuntimes: ILanguageRuntime[];
-
-	/**
-	 * Gets or sets the active language runtime.
-	 */
-	activeRuntime: ILanguageRuntime | undefined;
-
-	/**
-	 * Gets the current discovery phase.
-	 */
-	discoveryPhase: LanguageRuntimeDiscoveryPhase;
+	readonly registeredRuntimes: ILanguageRuntimeMetadata[];
 
 	/**
 	 * Register a new language runtime
-	 * @param runtime The LanguageRuntime to register
-	 * @param startupBehavior The desired startup behavior for the runtime
+	 *
+	 * @param runtime The metadata of the language runtime to register
+	 *
 	 * @returns A disposable that can be used to unregister the runtime
 	 */
-	registerRuntime(runtime: ILanguageRuntime, startupBehavior: LanguageRuntimeStartupBehavior): IDisposable;
+	registerRuntime(runtime: ILanguageRuntimeMetadata): IDisposable;
 
 	/**
-	 * Selects a previously registered runtime as the active runtime.
+	 * Get the metadata for a previously registered language runtime
 	 *
-	 * @param runtimeId The identifier of the runtime to select.
-	 * @param source The source of the request to select the runtime, for debugging purposes.
+	 * @param runtimeId The ID of the runtime to get
 	 */
-	selectRuntime(runtimeId: string, source: string): Promise<void>;
+	getRegisteredRuntime(runtimeId: string): ILanguageRuntimeMetadata | undefined;
 
 	/**
-	 * Get the preferred runtime for a language.
+	 * Unregister a previously registered language runtime
 	 *
-	 * @param languageId The language identifier.
+	 * @param runtimeId The ID of the runtime to unregister
 	 */
-	getPreferredRuntime(languageId: string): ILanguageRuntime;
-
-	/**
-	 * Start all affiliated runtimes for the workspace.
-	 */
-	startAffiliatedLanguageRuntimes(): void;
-
-	/**
-	 * Signal that discovery of language runtimes is complete.
-	 */
-	completeDiscovery(): void;
-
-	/**
-	 * Returns a specific runtime by runtime identifier.
-	 * @param runtimeId The runtime identifier of the runtime to retrieve.
-	 * @returns The runtime with the given runtime identifier, or undefined if
-	 * no runtime with the given runtime identifier exists.
-	 */
-	getRuntime(runtimeId: string): ILanguageRuntime | undefined;
-
-	/**
-	 * Starts a runtime.
-	 * @param runtimeId The runtime identifier of the runtime to start.
-	 * @param source The source of the request to start the runtime, for debugging purposes
-	 *  (not displayed to the user)
-	 */
-	startRuntime(runtimeId: string, source: string): Promise<void>;
-
-	/**
-	 * Restart a running runtime.
-	 * @param runtimeId The identifier of the runtime to restart.
-	 * @param source The source of the request to restart the runtime, for debugging purposes.
-	 */
-	restartRuntime(runtimeId: string, source: string): Promise<void>;
+	unregisterRuntime(runtimeId: string): void;
 }
 
-export { RuntimeClientType, IRuntimeClientInstance };

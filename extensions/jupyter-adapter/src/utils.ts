@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
 /**
@@ -28,6 +28,25 @@ export class PromiseHandles<T> {
 
 export function delay(ms: number) {
 	return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+/**
+ * Wraps a promise in a timeout that rejects the promise if it does not resolve
+ * within the given time.
+ *
+ * @param promise The promise to wrap
+ * @param timeout The timeout interval in milliseconds
+ * @param message The error message to use if the promise times out
+ *
+ * @returns The wrapped promise
+ */
+export function withTimeout<T>(promise: Promise<T>,
+	timeout: number,
+	message: string): Promise<T> {
+	return Promise.race([
+		promise,
+		new Promise<T>((_, reject) => setTimeout(() => reject(new Error(message)), timeout))
+	]);
 }
 
 /**

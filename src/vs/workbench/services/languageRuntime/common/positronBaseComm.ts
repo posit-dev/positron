@@ -128,7 +128,8 @@ export class PositronBaseComm extends Disposable {
 		/**
 		 * If the client is closed, emit the close event.
 		 */
-		this._register(clientInstance.onDidChangeClientState(state => {
+		const stateChangeEvent = Event.fromObservable(clientInstance.clientState);
+		this._register(stateChangeEvent(state => {
 			// If the client is closed, emit the close event.
 			if (state === RuntimeClientState.Closed) {
 				this._closeEmitter.fire();

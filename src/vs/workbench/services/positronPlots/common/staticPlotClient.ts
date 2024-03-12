@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
 import { Disposable } from 'vs/base/common/lifecycle';
@@ -15,7 +15,7 @@ export class StaticPlotClient extends Disposable implements IPositronPlotClient 
 	public readonly mimeType;
 	public readonly data;
 
-	constructor(runtimeId: string, message: ILanguageRuntimeMessageOutput,
+	constructor(sessionId: string, message: ILanguageRuntimeMessageOutput,
 		public readonly code?: string) {
 		super();
 
@@ -24,7 +24,7 @@ export class StaticPlotClient extends Disposable implements IPositronPlotClient 
 			id: message.id,
 			parent_id: message.parent_id,
 			created: Date.parse(message.when),
-			runtime_id: runtimeId,
+			session_id: sessionId,
 			code: code ? code : '',
 		};
 

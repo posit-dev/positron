@@ -4,7 +4,7 @@
 
 import * as vscode from 'vscode';
 import { randomUUID } from 'crypto';
-import { PositronZedLanguageRuntime } from './positronZedLanguageRuntime';
+import { PositronZedRuntimeSession } from './positronZedLanguageRuntime';
 
 /**
  * A ZedConnection instance; simulates a real database connection.
@@ -19,7 +19,7 @@ export class ZedConnection {
 	private readonly _onDidEmitData = new vscode.EventEmitter<object>();
 	onDidEmitData: vscode.Event<object> = this._onDidEmitData.event;
 
-	constructor(readonly zed: PositronZedLanguageRuntime,
+	constructor(readonly zed: PositronZedRuntimeSession,
 		readonly name: string) {
 		this.id = randomUUID();
 	}

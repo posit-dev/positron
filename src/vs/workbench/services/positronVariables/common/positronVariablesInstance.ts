@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2022-2023 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2022-2024 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
 import { Emitter, Event } from 'vs/base/common/event';
@@ -8,7 +8,8 @@ import { Disposable, DisposableStore } from 'vs/base/common/lifecycle';
 import { VariableItem } from 'vs/workbench/services/positronVariables/common/classes/variableItem';
 import { VariableGroup } from 'vs/workbench/services/positronVariables/common/classes/variableGroup';
 import { VariableOverflow } from 'vs/workbench/services/positronVariables/common/classes/variableOverflow';
-import { ILanguageRuntime, RuntimeClientType, RuntimeState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { RuntimeState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { ILanguageRuntimeSession, RuntimeClientType } from '../../runtimeSession/common/runtimeSessionService';
 import { sortVariableItemsByName, sortVariableItemsBySize } from 'vs/workbench/services/positronVariables/common/helpers/utils';
 import { PositronVariablesList, PositronVariablesUpdate, VariablesClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimeVariablesClient';
 import { VariableEntry, IPositronVariablesInstance, PositronVariablesGrouping, PositronVariablesSorting, PositronVariablesInstanceState } from 'vs/workbench/services/positronVariables/common/interfaces/positronVariablesInstance';
@@ -36,9 +37,9 @@ export class PositronVariablesInstance extends Disposable implements IPositronVa
 	//#region Private Properties
 
 	/**
-	 * Gets or sets the runtime.
+	 * Gets or sets the runtime session.
 	 */
-	private _runtime: ILanguageRuntime;
+	private _session: ILanguageRuntimeSession;
 
 	/**
 	 * Gets or sets the runtime disposable store. This contains things that are disposed when a
@@ -110,11 +111,11 @@ export class PositronVariablesInstance extends Disposable implements IPositronVa
 
 	/**
 	 * Constructor.
-	 * @param runtime The language runtime.
+	 * @param session The language runtime session.
 	 * @param _logService The log service.
 	 */
 	constructor(
-		runtime: ILanguageRuntime,
+		session: ILanguageRuntimeSession,
 		@ILogService private _logService: ILogService,
 		@INotificationService private _notificationService: INotificationService
 	) {
@@ -122,7 +123,7 @@ export class PositronVariablesInstance extends Disposable implements IPositronVa
 		super();
 
 		// Set the runtime.
-		this._runtime = runtime;
+		this._session = session;
 
 		// Attach to the runtime.
 		this.attachRuntime();
@@ -144,10 +145,10 @@ export class PositronVariablesInstance extends Disposable implements IPositronVa
 	//#region IPositronVariablesInstance Implementation
 
 	/**
-	 * Gets the runtime.
+	 * Gets the runtime session.
 	 */
-	get runtime(): ILanguageRuntime {
-		return this._runtime;
+	get session(): ILanguageRuntimeSession {
+		return this._session;
 	}
 
 	/**
@@ -373,12 +374,13 @@ export class PositronVariablesInstance extends Disposable implements IPositronVa
 	//#region Public Methods
 
 	/**
-	 * Sets the runtime.
-	 * @param runtime The runtime.
+	 * Sets the runtime session.
+	 *
+	 * @param session The runtime session.
 	 */
-	setRuntime(runtime: ILanguageRuntime) {
+	setRuntime(session: ILanguageRuntimeSession) {
 		// Set the runtime.
-		this._runtime = runtime;
+		this._session = session;
 
 		// Attach the runtime.
 		this.attachRuntime();
@@ -407,7 +409,7 @@ export class PositronVariablesInstance extends Disposable implements IPositronVa
 
 		// Add the onDidChangeRuntimeState event handler.
 		this._runtimeDisposableStore.add(
-			this._runtime.onDidChangeRuntimeState(async runtimeState => {
+			this._session.onDidChangeRuntimeState(async runtimeState => {
 				switch (runtimeState) {
 					case RuntimeState.Ready: {
 						if (!this._variablesClient) {
@@ -441,7 +443,7 @@ export class PositronVariablesInstance extends Disposable implements IPositronVa
 		// Try to create the runtime client.
 		try {
 			// Create the runtime client.
-			const client = await this._runtime.createClient<any, any>(
+			const client = await this._session.createClient<any, any>(
 				RuntimeClientType.Variables, {});
 			this._variablesClient = new VariablesClientInstance(client);
 
