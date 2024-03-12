@@ -3,22 +3,34 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { IDisposable } from 'vs/base/common/lifecycle';
-import { ILanguageRuntimeInfo, ILanguageRuntimeMetadata, RuntimeClientType, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior, RuntimeState, ILanguageRuntimeMessage, ILanguageRuntimeDynState, ILanguageRuntimeExit, RuntimeExitReason } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { ILanguageRuntimeInfo, ILanguageRuntimeMetadata, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior, RuntimeState, ILanguageRuntimeMessage, ILanguageRuntimeExit, RuntimeExitReason, LanguageRuntimeSessionMode } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { createProxyIdentifier, IRPCProtocol } from 'vs/workbench/services/extensions/common/proxyIdentifier';
 import { IWebviewPortMapping, WebviewExtensionDescription } from 'vs/workbench/api/common/extHost.protocol';
 import { URI, UriComponents } from 'vs/base/common/uri';
 import { IEditorContext } from 'vs/workbench/services/frontendMethods/common/editorContext';
+import { RuntimeClientType } from 'vs/workbench/api/common/positron/extHostTypes.positron';
+import { LanguageRuntimeDynState, RuntimeSessionMetadata } from 'positron';
+
+
+/**
+ * The initial state returned when starting or resuming a runtime session.
+ */
+export interface RuntimeInitialState {
+	handle: number;
+	dynState: LanguageRuntimeDynState;
+}
+
 
 // This is the interface that the main process exposes to the extension host
 export interface MainThreadLanguageRuntimeShape extends IDisposable {
-	$registerLanguageRuntime(handle: number, metadata: ILanguageRuntimeMetadata, dynState: ILanguageRuntimeDynState): void;
-	$selectLanguageRuntime(handle: number): Promise<void>;
-	$restartLanguageRuntime(handle: number): Promise<void>;
+	$registerLanguageRuntime(handle: number, metadata: ILanguageRuntimeMetadata): void;
+	$selectLanguageRuntime(runtimeId: string): Promise<void>;
+	$startLanguageRuntime(runtimeId: string, sessionName: string, sessionMode: LanguageRuntimeSessionMode, notebookUri: URI | undefined): Promise<string>;
 	$completeLanguageRuntimeDiscovery(): void;
 	$unregisterLanguageRuntime(handle: number): void;
 	$executeCode(languageId: string, code: string, focus: boolean, skipChecks?: boolean): Promise<boolean>;
 	$getPreferredRuntime(languageId: string): Promise<ILanguageRuntimeMetadata>;
-	$getRunningRuntimes(languageId: string): Promise<ILanguageRuntimeMetadata[]>;
+	$restartSession(handle: number): Promise<void>;
 	$emitLanguageRuntimeMessage(handle: number, message: ILanguageRuntimeMessage): void;
 	$emitLanguageRuntimeState(handle: number, clock: number, state: RuntimeState): void;
 	$emitLanguageRuntimeExit(handle: number, exit: ILanguageRuntimeExit): void;
@@ -26,6 +38,9 @@ export interface MainThreadLanguageRuntimeShape extends IDisposable {
 
 // The interface to the main thread exposed by the extension host
 export interface ExtHostLanguageRuntimeShape {
+	$createLanguageRuntimeSession(runtimeMetadata: ILanguageRuntimeMetadata, sessionMetadata: RuntimeSessionMetadata): Promise<RuntimeInitialState>;
+	$restoreLanguageRuntimeSession(runtimeMetadata: ILanguageRuntimeMetadata, sessionMetadata: RuntimeSessionMetadata): Promise<RuntimeInitialState>;
+	$validateLangaugeRuntimeMetadata(metadata: ILanguageRuntimeMetadata): Promise<ILanguageRuntimeMetadata>;
 	$startLanguageRuntime(handle: number): Promise<ILanguageRuntimeInfo>;
 	$openResource(handle: number, resource: URI | string): Promise<boolean>;
 	$executeCode(handle: number, code: string, id: string, mode: RuntimeCodeExecutionMode, errorBehavior: RuntimeErrorBehavior): void;
@@ -36,11 +51,10 @@ export interface ExtHostLanguageRuntimeShape {
 	$sendClientMessage(handle: number, client_id: string, message_id: string, message: any): void;
 	$replyToPrompt(handle: number, id: string, response: string): void;
 	$interruptLanguageRuntime(handle: number): Promise<void>;
-	$restartLanguageRuntime(handle: number): Promise<void>;
+	$restartSession(handle: number): Promise<void>;
 	$shutdownLanguageRuntime(handle: number, exitReason: RuntimeExitReason): Promise<void>;
 	$forceQuitLanguageRuntime(handle: number): Promise<void>;
 	$showOutputLanguageRuntime(handle: number): void;
-	$provideLanguageRuntime(languageId: string, runtimeMetadata: ILanguageRuntimeMetadata): Promise<void>;
 	$discoverLanguageRuntimes(): void;
 }
 

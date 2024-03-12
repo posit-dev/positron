@@ -3,7 +3,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
-import { Logger } from '../extension';
+import { LOGGER } from '../extension';
 
 export enum ItemType {
 	Directory = 'directory',

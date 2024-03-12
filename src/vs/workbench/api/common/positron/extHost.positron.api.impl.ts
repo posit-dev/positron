@@ -73,29 +73,36 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 			executeCode(languageId, code, focus, skipChecks): Thenable<boolean> {
 				return extHostLanguageRuntime.executeCode(languageId, code, focus, skipChecks);
 			},
-			registerLanguageRuntime(runtime: positron.LanguageRuntime): vscode.Disposable {
-				return extHostLanguageRuntime.registerLanguageRuntime(extension, runtime);
+			registerLanguageRuntimeManager(
+				manager: positron.LanguageRuntimeManager): vscode.Disposable {
+				return extHostLanguageRuntime.registerLanguageRuntimeManager(extension, manager);
 			},
-			registerLanguageRuntimeDiscoverer(languageId: string, discoverer: positron.LanguageRuntimeDiscoverer): void {
-				return extHostLanguageRuntime.registerLanguageRuntimeDiscoverer(extension, languageId, discoverer);
-			},
-			registerLanguageRuntimeProvider(languageId: string, provider: positron.LanguageRuntimeProvider): void {
-				return extHostLanguageRuntime.registerLanguageRuntimeProvider(extension, languageId, provider);
-			},
-			getRegisteredRuntimes(): Thenable<positron.LanguageRuntime[]> {
+			getRegisteredRuntimes(): Thenable<positron.LanguageRuntimeMetadata[]> {
 				return extHostLanguageRuntime.getRegisteredRuntimes();
 			},
-			getPreferredRuntime(languageId: string): Thenable<positron.LanguageRuntime> {
+			getPreferredRuntime(languageId: string): Thenable<positron.LanguageRuntimeMetadata> {
 				return extHostLanguageRuntime.getPreferredRuntime(languageId);
-			},
-			getRunningRuntimes(languageId: string): Thenable<positron.LanguageRuntimeMetadata[]> {
-				return extHostLanguageRuntime.getRunningRuntimes(languageId);
 			},
 			selectLanguageRuntime(runtimeId: string): Thenable<void> {
 				return extHostLanguageRuntime.selectLanguageRuntime(runtimeId);
 			},
-			restartLanguageRuntime(runtimeId: string): Thenable<void> {
-				return extHostLanguageRuntime.restartLanguageRuntime(runtimeId);
+			startLanguageRuntime(runtimeId: string,
+				sessionName: string,
+				notebookUri?: vscode.Uri): Thenable<positron.LanguageRuntimeSession> {
+
+				// If a notebook document is provided, we are in notebook mode.
+				const sessionMode = notebookUri ?
+					extHostTypes.LanguageRuntimeSessionMode.Notebook :
+					extHostTypes.LanguageRuntimeSessionMode.Console;
+
+				// Start the language runtime.
+				return extHostLanguageRuntime.startLanguageRuntime(runtimeId,
+					sessionName,
+					sessionMode,
+					notebookUri);
+			},
+			restartSession(sessionId: string): Thenable<void> {
+				return extHostLanguageRuntime.restartSession(sessionId);
 			},
 			registerClientHandler(handler: positron.RuntimeClientHandler): vscode.Disposable {
 				return extHostLanguageRuntime.registerClientHandler(handler);
@@ -167,9 +174,11 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 			RuntimeMethodErrorCode: extHostTypes.RuntimeMethodErrorCode,
 			LanguageRuntimeMessageType: extHostTypes.LanguageRuntimeMessageType,
 			LanguageRuntimeStreamName: extHostTypes.LanguageRuntimeStreamName,
+			LanguageRuntimeSessionMode: extHostTypes.LanguageRuntimeSessionMode,
 			RuntimeCodeExecutionMode: extHostTypes.RuntimeCodeExecutionMode,
 			RuntimeErrorBehavior: extHostTypes.RuntimeErrorBehavior,
 			LanguageRuntimeStartupBehavior: extHostTypes.LanguageRuntimeStartupBehavior,
+			LanguageRuntimeSessionLocation: extHostTypes.LanguageRuntimeSessionLocation,
 			RuntimeOnlineState: extHostTypes.RuntimeOnlineState,
 			RuntimeState: extHostTypes.RuntimeState,
 			RuntimeCodeFragmentStatus: extHostTypes.RuntimeCodeFragmentStatus,

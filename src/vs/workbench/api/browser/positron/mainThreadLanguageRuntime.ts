@@ -1,15 +1,17 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
 import {
 	ExtHostLanguageRuntimeShape,
 	MainThreadLanguageRuntimeShape,
 	MainPositronContext,
-	ExtHostPositronContext
+	ExtHostPositronContext,
+	RuntimeInitialState
 } from '../../common/positron/extHost.positron.protocol';
 import { extHostNamedCustomer, IExtHostContext } from 'vs/workbench/services/extensions/common/extHostCustomers';
-import { ILanguageRuntime, ILanguageRuntimeClientCreatedEvent, ILanguageRuntimeInfo, ILanguageRuntimeMessage, ILanguageRuntimeMessageCommClosed, ILanguageRuntimeMessageCommData, ILanguageRuntimeMessageCommOpen, ILanguageRuntimeMessageError, ILanguageRuntimeMessageInput, ILanguageRuntimeMessageOutput, ILanguageRuntimeMessagePrompt, ILanguageRuntimeMessageState, ILanguageRuntimeMessageStream, ILanguageRuntimeMetadata, ILanguageRuntimeDynState as ILanguageRuntimeDynState, ILanguageRuntimeService, ILanguageRuntimeStartupFailure, LanguageRuntimeMessageType, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior, RuntimeState, LanguageRuntimeDiscoveryPhase, ILanguageRuntimeExit, RuntimeOutputKind, RuntimeExitReason, ILanguageRuntimeMessageWebOutput, PositronOutputLocation } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { ILanguageRuntimeClientCreatedEvent, ILanguageRuntimeInfo, ILanguageRuntimeMessage, ILanguageRuntimeMessageCommClosed, ILanguageRuntimeMessageCommData, ILanguageRuntimeMessageCommOpen, ILanguageRuntimeMessageError, ILanguageRuntimeMessageInput, ILanguageRuntimeMessageOutput, ILanguageRuntimeMessagePrompt, ILanguageRuntimeMessageState, ILanguageRuntimeMessageStream, ILanguageRuntimeMetadata, ILanguageRuntimeSessionState as ILanguageRuntimeSessionState, ILanguageRuntimeService, ILanguageRuntimeStartupFailure, LanguageRuntimeMessageType, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior, RuntimeState, ILanguageRuntimeExit, RuntimeOutputKind, RuntimeExitReason, ILanguageRuntimeMessageWebOutput, PositronOutputLocation, LanguageRuntimeSessionMode } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { ILanguageRuntimeSession, ILanguageRuntimeSessionManager, IRuntimeSessionMetadata, IRuntimeSessionService } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
 import { Disposable, DisposableStore } from 'vs/base/common/lifecycle';
 import { Event, Emitter } from 'vs/base/common/event';
 import { IPositronConsoleService } from 'vs/workbench/services/positronConsole/browser/interfaces/positronConsoleService';
@@ -29,6 +31,8 @@ import { BusyEvent, UiFrontendEvent, OpenEditorEvent, PromptStateEvent, WorkingD
 import { IEditorService } from 'vs/workbench/services/editor/common/editorService';
 import { ITextResourceEditorInput } from 'vs/platform/editor/common/editor';
 import { IPositronDataExplorerService } from 'vs/workbench/services/positronDataExplorer/browser/interfaces/positronDataExplorerService';
+import { ObservableValue } from 'vs/base/common/observableInternal/base';
+import { IRuntimeStartupService, RuntimeStartupPhase } from 'vs/workbench/services/runtimeStartup/common/runtimeStartupService';
 
 /**
  * Represents a language runtime event (for example a message or state change)
@@ -71,7 +75,7 @@ class QueuedRuntimeStateEvent extends QueuedRuntimeEvent {
 
 // Adapter class; presents an ILanguageRuntime interface that connects to the
 // extension host proxy to supply language features.
-class ExtHostLanguageRuntimeAdapter implements ILanguageRuntime {
+class ExtHostLanguageRuntimeSessionAdapter implements ILanguageRuntimeSession {
 
 	private readonly _stateEmitter = new Emitter<RuntimeState>();
 	private readonly _startupEmitter = new Emitter<ILanguageRuntimeInfo>();
@@ -101,16 +105,30 @@ class ExtHostLanguageRuntimeAdapter implements ILanguageRuntime {
 	/** Timer used to ensure event queue processing occurs within a set interval */
 	private _eventQueueTimer: NodeJS.Timeout | undefined;
 
+	/** The handle uniquely identifying this runtime session with the extension host*/
+	private handle: number;
+
+	/** The dynamic state of the runtime session */
+	dynState: ILanguageRuntimeSessionState;
+
 	constructor(
-		readonly handle: number,
-		readonly metadata: ILanguageRuntimeMetadata,
-		readonly dynState: ILanguageRuntimeDynState,
-		private readonly _languageRuntimeService: ILanguageRuntimeService,
+		initialState: RuntimeInitialState,
+		readonly runtimeMetadata: ILanguageRuntimeMetadata,
+		readonly metadata: IRuntimeSessionMetadata,
+		private readonly _runtimeSessionService: IRuntimeSessionService,
 		private readonly _notificationService: INotificationService,
 		private readonly _logService: ILogService,
 		private readonly _notebookService: INotebookService,
 		private readonly _editorService: IEditorService,
 		private readonly _proxy: ExtHostLanguageRuntimeShape) {
+
+		// Save handle
+		this.handle = initialState.handle;
+		this.dynState = {
+			currentWorkingDirectory: '',
+			busy: false,
+			...initialState.dynState,
+		};
 
 		// Bind events to emitters
 		this.onDidChangeRuntimeState = this._stateEmitter.event;
@@ -128,7 +146,7 @@ class ExtHostLanguageRuntimeAdapter implements ILanguageRuntime {
 				// think they're connected, and notify them that they are now
 				// closed.
 				for (const client of this._clients.values()) {
-					if (client.getClientState() === RuntimeClientState.Connected) {
+					if (client.clientState.get() === RuntimeClientState.Connected) {
 						client.setClientState(RuntimeClientState.Closing);
 						client.setClientState(RuntimeClientState.Closed);
 						client.dispose();
@@ -140,9 +158,9 @@ class ExtHostLanguageRuntimeAdapter implements ILanguageRuntime {
 			}
 		});
 
-		this._languageRuntimeService.onDidReceiveRuntimeEvent(globalEvent => {
-			// Ignore events for other runtimes.
-			if (globalEvent.runtime_id !== this.metadata.runtimeId) {
+		this._runtimeSessionService.onDidReceiveRuntimeEvent(globalEvent => {
+			// Ignore events for other sessions.
+			if (globalEvent.session_id !== this.sessionId) {
 				return;
 			}
 
@@ -256,6 +274,21 @@ class ExtHostLanguageRuntimeAdapter implements ILanguageRuntime {
 	}
 
 	/**
+	 * Returns the current set of client instances
+	 */
+	get clientInstances(): IRuntimeClientInstance<any, any>[] {
+		return Array.from(this._clients.values());
+	}
+
+	/**
+	 * Convenience method to get the session's ID without having to access the
+	 * the metadata directly.
+	 */
+	get sessionId(): string {
+		return this.metadata.sessionId;
+	}
+
+	/**
 	 * Relays a message from the server side of a comm to the client side.
 	 */
 	emitDidReceiveClientMessage(message: ILanguageRuntimeMessageCommData): void {
@@ -330,7 +363,7 @@ class ExtHostLanguageRuntimeAdapter implements ILanguageRuntime {
 	createClient<Input, Output>(type: RuntimeClientType, params: any):
 		Thenable<IRuntimeClientInstance<Input, Output>> {
 		// Create an ID for the client.
-		const id = this.generateClientId(this.metadata.languageId, type);
+		const id = this.generateClientId(this.runtimeMetadata.languageId, type);
 
 		// Create the new instance and add it to the map.
 		const client = new ExtHostRuntimeClientInstance<Input, Output>(id, type, this.handle, this._proxy);
@@ -351,16 +384,16 @@ class ExtHostLanguageRuntimeAdapter implements ILanguageRuntime {
 			// successfully created, so presume it's connected once the message
 			// has been safely delivered, and handle the close event if it
 			// happens.
-			if (client.getClientState() === RuntimeClientState.Opening) {
+			if (client.clientState.get() === RuntimeClientState.Opening) {
 				client.setClientState(RuntimeClientState.Connected);
 			} else {
-				this._logService.trace(`Client '${id}' in runtime '${this.metadata.runtimeName}' ` +
+				this._logService.trace(`Client '${id}' in runtime '${this.runtimeMetadata.runtimeName}' ` +
 					`was closed instead of being created; it is unsupported by this runtime.`);
 				client.setClientState(RuntimeClientState.Closed);
 			}
 		}).catch((err) => {
 			this._logService.error(`Failed to create client '${id}' ` +
-				`in runtime '${this.metadata.runtimeName}': ${err}`);
+				`in runtime '${this.runtimeMetadata.runtimeName}': ${err}`);
 			client.setClientState(RuntimeClientState.Closed);
 			this._clients.delete(id);
 		});
@@ -429,16 +462,16 @@ class ExtHostLanguageRuntimeAdapter implements ILanguageRuntime {
 
 	async restart(): Promise<void> {
 		if (!this.canShutdown()) {
-			throw new Error(`Cannot restart runtime '${this.metadata.runtimeName}': ` +
+			throw new Error(`Cannot restart runtime '${this.runtimeMetadata.runtimeName}': ` +
 				`runtime is in state '${this._currentState}'`);
 		}
 		this._stateEmitter.fire(RuntimeState.Restarting);
-		return this._proxy.$restartLanguageRuntime(this.handle);
+		return this._proxy.$restartSession(this.handle);
 	}
 
 	async shutdown(exitReason = RuntimeExitReason.Shutdown): Promise<void> {
 		if (!this.canShutdown()) {
-			throw new Error(`Cannot shut down runtime '${this.metadata.runtimeName}': ` +
+			throw new Error(`Cannot shut down runtime '${this.runtimeMetadata.runtimeName}': ` +
 				`runtime is in state '${this._currentState}'`);
 		}
 		this._stateEmitter.fire(RuntimeState.Exiting);
@@ -517,7 +550,7 @@ class ExtHostLanguageRuntimeAdapter implements ILanguageRuntime {
 		const randomId = Math.floor(Math.random() * 0x100000000).toString(16);
 
 		// Generate a unique auto-incrementing ID for this client
-		const nextId = ExtHostLanguageRuntimeAdapter.clientCounter++;
+		const nextId = ExtHostLanguageRuntimeSessionAdapter.clientCounter++;
 
 		// Replace periods in the language ID with hyphens, so that the generated ID contains only
 		// alphanumeric characters and hyphens
@@ -797,13 +830,22 @@ class ExtHostRuntimeClientInstance<Input, Output>
 	extends Disposable
 	implements IRuntimeClientInstance<Input, Output> {
 
-	private readonly _stateEmitter = new Emitter<RuntimeClientState>();
-
 	private readonly _dataEmitter = new Emitter<Output>();
 
 	private readonly _pendingRpcs = new Map<string, DeferredPromise<any>>();
 
 	private _state: RuntimeClientState = RuntimeClientState.Uninitialized;
+
+	/**
+	 * An observable value that tracks the number of messages sent and received
+	 * by this client.
+	 */
+	public messageCounter: ObservableValue<number>;
+
+	/**
+	 * An observable value that tracks the current state of the client.
+	 */
+	public clientState: ObservableValue<RuntimeClientState>;
 
 	constructor(
 		private readonly _id: string,
@@ -812,15 +854,12 @@ class ExtHostRuntimeClientInstance<Input, Output>
 		private readonly _proxy: ExtHostLanguageRuntimeShape) {
 		super();
 
-		this.onDidChangeClientState = this._stateEmitter.event;
-		this._register(this._stateEmitter);
+		this.messageCounter = new ObservableValue(this, this._id, 0);
+
+		this.clientState = new ObservableValue(this, this._id, RuntimeClientState.Uninitialized);
 
 		this.onDidReceiveData = this._dataEmitter.event;
 		this._register(this._dataEmitter);
-
-		this._stateEmitter.event((state) => {
-			this._state = state;
-		});
 	}
 
 	/**
@@ -839,6 +878,9 @@ class ExtHostRuntimeClientInstance<Input, Output>
 
 		// Send the message to the server side.
 		this._proxy.$sendClientMessage(this._handle, this._id, messageId, request);
+
+		// Tick the message counter.
+		this.messageCounter.set(this.messageCounter.get() + 1, undefined);
 
 		// Start a timeout to reject the promise if the server doesn't respond.
 		//
@@ -870,6 +912,9 @@ class ExtHostRuntimeClientInstance<Input, Output>
 
 		// Send the message to the server side.
 		this._proxy.$sendClientMessage(this._handle, this._id, messageId, message);
+
+		// Tick the message counter.
+		this.messageCounter.set(this.messageCounter.get() + 1, undefined);
 	}
 
 	/**
@@ -879,6 +924,9 @@ class ExtHostRuntimeClientInstance<Input, Output>
 	 * @param message The message to emit to the client
 	 */
 	emitData(message: ILanguageRuntimeMessageCommData): void {
+		// Tick the message counter.
+		this.messageCounter.set(this.messageCounter.get() + 1, undefined);
+
 		if (message.parent_id && this._pendingRpcs.has(message.parent_id)) {
 			// This is a response to an RPC call; resolve the deferred promise.
 			const promise = this._pendingRpcs.get(message.parent_id);
@@ -896,16 +944,10 @@ class ExtHostRuntimeClientInstance<Input, Output>
 	 * @param state The new state of the client
 	 */
 	setClientState(state: RuntimeClientState): void {
-		this._stateEmitter.fire(state);
+		this.clientState.set(state, undefined);
 	}
-
-	onDidChangeClientState: Event<RuntimeClientState>;
 
 	onDidReceiveData: Event<Output>;
-
-	getClientState(): RuntimeClientState {
-		return this._state;
-	}
 
 	getClientId(): string {
 		return this._id;
@@ -928,28 +970,33 @@ class ExtHostRuntimeClientInstance<Input, Output>
 			// If we are actually connected to the backend, notify the backend that we are
 			// closing the connection from our side.
 			if (this._state === RuntimeClientState.Connected) {
-				this._stateEmitter.fire(RuntimeClientState.Closing);
+				this.setClientState(RuntimeClientState.Closing);
 				this._proxy.$removeClient(this._handle, this._id);
 			}
 
 			// Emit the closed event.
-			this._stateEmitter.fire(RuntimeClientState.Closed);
+			this.setClientState(RuntimeClientState.Closed);
 		}
 	}
 }
 
 @extHostNamedCustomer(MainPositronContext.MainThreadLanguageRuntime)
-export class MainThreadLanguageRuntime implements MainThreadLanguageRuntimeShape {
+export class MainThreadLanguageRuntime
+	implements MainThreadLanguageRuntimeShape, ILanguageRuntimeSessionManager {
 
 	private readonly _disposables = new DisposableStore();
 
 	private readonly _proxy: ExtHostLanguageRuntimeShape;
 
-	private readonly _runtimes: Map<number, ExtHostLanguageRuntimeAdapter> = new Map();
+	private readonly _sessions: Map<number, ExtHostLanguageRuntimeSessionAdapter> = new Map();
+
+	private readonly _registeredRuntimes: Map<number, ILanguageRuntimeMetadata> = new Map();
 
 	constructor(
 		extHostContext: IExtHostContext,
 		@ILanguageRuntimeService private readonly _languageRuntimeService: ILanguageRuntimeService,
+		@IRuntimeSessionService private readonly _runtimeSessionService: IRuntimeSessionService,
+		@IRuntimeStartupService private readonly _runtimeStartupService: IRuntimeStartupService,
 		@IPositronConsoleService private readonly _positronConsoleService: IPositronConsoleService,
 		@IPositronDataExplorerService private readonly _positronDataExplorerService: IPositronDataExplorerService,
 		@IPositronVariablesService private readonly _positronVariablesService: IPositronVariablesService,
@@ -972,79 +1019,80 @@ export class MainThreadLanguageRuntime implements MainThreadLanguageRuntimeShape
 		this._positronIPyWidgetsService.initialize();
 		this._proxy = extHostContext.getProxy(ExtHostPositronContext.ExtHostLanguageRuntime);
 
-		this._languageRuntimeService.onDidRequestLanguageRuntime((ILanguageRuntimeMetadata) => {
-			this._proxy.$provideLanguageRuntime(ILanguageRuntimeMetadata.languageId,
-				ILanguageRuntimeMetadata);
-		});
-		this._languageRuntimeService.onDidChangeDiscoveryPhase((phase) => {
-			if (phase === LanguageRuntimeDiscoveryPhase.Discovering) {
+		this._runtimeStartupService.onDidChangeRuntimeStartupPhase((phase) => {
+			if (phase === RuntimeStartupPhase.Discovering) {
 				this._proxy.$discoverLanguageRuntimes();
 			}
 		});
+
+		this._runtimeSessionService.registerSessionManager(this);
 	}
 
 	$emitLanguageRuntimeMessage(handle: number, message: ILanguageRuntimeMessage): void {
-		this.findRuntime(handle).handleRuntimeMessage(message);
+		this.findSession(handle).handleRuntimeMessage(message);
 	}
 
 	$emitLanguageRuntimeState(handle: number, clock: number, state: RuntimeState): void {
-		this.findRuntime(handle).emitState(clock, state);
+		this.findSession(handle).emitState(clock, state);
 	}
 
 	$emitLanguageRuntimeExit(handle: number, exit: ILanguageRuntimeExit): void {
-		this.findRuntime(handle).emitExit(exit);
+		this.findSession(handle).emitExit(exit);
 	}
 
 	// Called by the extension host to register a language runtime
-	$registerLanguageRuntime(handle: number, metadata: ILanguageRuntimeMetadata, dynState: ILanguageRuntimeDynState): void {
-		const adapter = new ExtHostLanguageRuntimeAdapter(
-			handle,
-			metadata,
-			dynState,
-			this._languageRuntimeService,
-			this._notificationService,
-			this._logService,
-			this._notebookService,
-			this._editorService,
-			this._proxy
-		);
-		this._runtimes.set(handle, adapter);
-
-		this._languageRuntimeService.registerRuntime(adapter, metadata.startupBehavior);
+	$registerLanguageRuntime(handle: number, metadata: ILanguageRuntimeMetadata): void {
+		this._languageRuntimeService.registerRuntime(metadata);
 	}
 
 	$getPreferredRuntime(languageId: string): Promise<ILanguageRuntimeMetadata> {
-		return Promise.resolve(this._languageRuntimeService.getPreferredRuntime(languageId).metadata);
-	}
-
-	$getRunningRuntimes(languageId: string): Promise<ILanguageRuntimeMetadata[]> {
-		const runningRuntimes = () => this._languageRuntimeService.runningRuntimes.filter(runtime =>
-			runtime.metadata.languageId === languageId
-		);
-		return Promise.resolve(runningRuntimes().map(runtime => runtime.metadata));
+		return Promise.resolve(this._runtimeStartupService.getPreferredRuntime(languageId));
 	}
 
 	// Called by the extension host to select a previously registered language runtime
-	$selectLanguageRuntime(handle: number): Promise<void> {
-		return this._languageRuntimeService.selectRuntime(
-			this.findRuntime(handle).metadata.runtimeId,
+	$selectLanguageRuntime(runtimeId: string): Promise<void> {
+		return this._runtimeSessionService.selectRuntime(
+			runtimeId,
 			'Extension-requested runtime selection via Positron API');
 	}
 
+	// Called by the extension host to start a previously registered language runtime
+	async $startLanguageRuntime(runtimeId: string,
+		sessionName: string,
+		sessionMode: LanguageRuntimeSessionMode,
+		notebookUri: URI | undefined): Promise<string> {
+		// Revive the URI from the serialized form
+		const uri = URI.revive(notebookUri);
+
+		// Start the runtime session
+		const sessionId = await this._runtimeSessionService.startNewRuntimeSession(
+			runtimeId,
+			sessionName,
+			sessionMode,
+			uri,
+			'Extension-requested runtime selection via Positron API');
+
+		return sessionId;
+	}
+
 	// Called by the extension host to restart a running language runtime
-	$restartLanguageRuntime(handle: number): Promise<void> {
-		return this._languageRuntimeService.restartRuntime(
-			this.findRuntime(handle).metadata.runtimeId,
+	$restartSession(handle: number): Promise<void> {
+		return this._runtimeSessionService.restartSession(
+			this.findSession(handle).sessionId,
 			'Extension-requested runtime restart via Positron API');
 	}
 
 	// Signals that language runtime discovery is complete.
 	$completeLanguageRuntimeDiscovery(): void {
-		this._languageRuntimeService.completeDiscovery();
+		this._runtimeStartupService.completeDiscovery();
 	}
 
 	$unregisterLanguageRuntime(handle: number): void {
-		this._runtimes.delete(handle);
+		const runtime = this._registeredRuntimes.get(handle);
+		if (runtime) {
+			this._languageRuntimeService.unregisterRuntime(runtime.runtimeId);
+			this._registeredRuntimes.delete(handle);
+		}
 	}
 
 	$executeCode(languageId: string, code: string, focus: boolean, skipChecks?: boolean): Promise<boolean> {
@@ -1055,12 +1103,77 @@ export class MainThreadLanguageRuntime implements MainThreadLanguageRuntimeShape
 		this._disposables.dispose();
 	}
 
-	private findRuntime(handle: number): ExtHostLanguageRuntimeAdapter {
-		const runtime = this._runtimes.get(handle);
-		if (!runtime) {
-			throw new Error(`Unknown language runtime handle: ${handle}`);
+	/**
+	 * Creates (provisions) a new language runtime session.
+	 */
+	async createSession(
+		runtimeMetadata: ILanguageRuntimeMetadata,
+		sessionMetadata: IRuntimeSessionMetadata):
+		Promise<ILanguageRuntimeSession> {
+
+		const initialState = await this._proxy.$createLanguageRuntimeSession(runtimeMetadata,
+			sessionMetadata);
+		const session = this.createSessionAdapter(initialState, runtimeMetadata, sessionMetadata);
+		this._sessions.set(initialState.handle, session);
+		return session;
+	}
+
+	/**
+	 * Restores (prepares for reconnection to) a new language runtime session.
+	 */
+	async restoreSession(
+		runtimeMetadata: ILanguageRuntimeMetadata,
+		sessionMetadata: IRuntimeSessionMetadata):
+		Promise<ILanguageRuntimeSession> {
+
+		const initialState = await this._proxy.$restoreLanguageRuntimeSession(runtimeMetadata,
+			sessionMetadata);
+		const session = this.createSessionAdapter(initialState, runtimeMetadata, sessionMetadata);
+		this._sessions.set(initialState.handle, session);
+		return session;
+	}
+
+	/**
+	 * Validates the metadata for a language runtime.
+	 *
+	 * @param metadata The metadata to validate
+	 */
+	async validateMetadata(metadata: ILanguageRuntimeMetadata): Promise<ILanguageRuntimeMetadata> {
+		return this._proxy.$validateLangaugeRuntimeMetadata(metadata);
+	}
+
+	/**
+	 * Creates a new language runtime session adapter, to wrap a new or existing
+	 * runtime session.
+	 *
+	 * @param initialState The handle and initial state of the runtime session
+	 * @param runtimeMetadata The metadata for the language runtime
+	 * @param sessionMetadata The metadata for the session
+	 *
+	 * @returns A new language runtime session adapter
+	 */
+	private createSessionAdapter(
+		initialState: RuntimeInitialState,
+		runtimeMetadata: ILanguageRuntimeMetadata,
+		sessionMetadata: IRuntimeSessionMetadata): ExtHostLanguageRuntimeSessionAdapter {
+
+		return new ExtHostLanguageRuntimeSessionAdapter(initialState,
+			runtimeMetadata,
+			sessionMetadata,
+			this._runtimeSessionService,
+			this._notificationService,
+			this._logService,
+			this._notebookService,
+			this._editorService,
+			this._proxy);
+	}
+
+	private findSession(handle: number): ExtHostLanguageRuntimeSessionAdapter {
+		const session = this._sessions.get(handle);
+		if (!session) {
+			throw new Error(`Unknown language runtime session handle: ${handle}`);
 		}
 
-		return runtime;
+		return session;
 	}
 }

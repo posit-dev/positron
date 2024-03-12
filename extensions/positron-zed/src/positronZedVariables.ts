@@ -4,7 +4,7 @@
 
 import * as vscode from 'vscode';
 import { randomUUID } from 'crypto';
-import { PositronZedLanguageRuntime } from './positronZedLanguageRuntime';
+import { PositronZedRuntimeSession } from './positronZedLanguageRuntime';
 import { JsonRpcErrorCode } from './jsonrpc';
 
 /**
@@ -88,7 +88,7 @@ export class ZedVariables {
 	 */
 	constructor(readonly id: string,
 		private readonly zedVersion: string,
-		private readonly runtime: PositronZedLanguageRuntime) {
+		private readonly runtime: PositronZedRuntimeSession) {
 		// Create a few variables to start with
 		this._vars.set('z', new ZedVariable('z', 'zed1', 'string', 4, 4));
 		this._vars.set('e', new ZedVariable('e', 'zed2', 'string', 4, 4));

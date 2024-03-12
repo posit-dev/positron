@@ -3,10 +3,10 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { Event } from 'vs/base/common/event';
+import { IEditor } from 'vs/editor/common/editorCommon';
 import { createDecorator } from 'vs/platform/instantiation/common/instantiation';
 import { RuntimeItem } from 'vs/workbench/services/positronConsole/browser/classes/runtimeItem';
-import { ILanguageRuntime } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
-import { IEditor } from 'vs/editor/common/editorCommon';
+import { ILanguageRuntimeSession } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
 
 // Create the decorator for the Positron console service (used in dependency injection).
 export const IPositronConsoleService = createDecorator<IPositronConsoleService>('positronConsoleService');
@@ -92,13 +92,30 @@ export interface IPositronConsoleService {
 }
 
 /**
+ * An enumeration of the session attachment modes for new console instances.
+ */
+export enum SessionAttachMode {
+	/** The console is attaching to a new, starting session */
+	Starting = 'starting',
+
+	/** The console is attaching to a restarting session */
+	Restarting = 'restarting',
+
+	/** The console is attaching to a session that is being reconnected */
+	Reconnecting = 'reconnecting',
+
+	/** The console is reattaching to a connected session */
+	Connected = 'connected',
+}
+
+/**
  * IPositronConsoleInstance interface.
  */
 export interface IPositronConsoleInstance {
 	/**
-	 * Gets the runtime for the Positron console instance.
+	 * Gets the runtime session for the Positron console instance.
 	 */
-	readonly runtime: ILanguageRuntime;
+	readonly session: ILanguageRuntimeSession;
 
 	/**
 	 * Gets the state.
@@ -189,7 +206,7 @@ export interface IPositronConsoleInstance {
 	 * The onDidAttachRuntime event. Fires both when a runtime is attached and
 	 * when one is detached (in which case the parameter is undefined)
 	 */
-	readonly onDidAttachRuntime: Event<ILanguageRuntime | undefined>;
+	readonly onDidAttachRuntime: Event<ILanguageRuntimeSession | undefined>;
 
 	/**
 	 * The onDidChangeWidthInChars event.
@@ -277,5 +294,5 @@ export interface IPositronConsoleInstance {
 	/**
 	 * Sets the currently attached runtime, or undefined if none.
 	 */
-	attachedRuntime: ILanguageRuntime | undefined;
+	attachedRuntimeSession: ILanguageRuntimeSession | undefined;
 }

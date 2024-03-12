@@ -1,10 +1,10 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
 import { IExecutionHistoryEntry, IExecutionHistoryService, IInputHistoryEntry } from 'vs/workbench/contrib/executionHistory/common/executionHistoryService';
 import { Disposable } from 'vs/base/common/lifecycle';
-import { ILanguageRuntime, ILanguageRuntimeService } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { ILanguageRuntimeSession, IRuntimeSessionService } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
 import { IStorageService } from 'vs/platform/storage/common/storage';
 import { ILogService } from 'vs/platform/log/common/log';
 import { InstantiationType, registerSingleton } from 'vs/platform/instantiation/common/extensions';
@@ -26,7 +26,7 @@ export class ExecutionHistoryService extends Disposable implements IExecutionHis
 	private readonly _inputHistories: Map<string, LanguageInputHistory> = new Map();
 
 	constructor(
-		@ILanguageRuntimeService private readonly _languageRuntimeService: ILanguageRuntimeService,
+		@IRuntimeSessionService private readonly _runtimeSessionService: IRuntimeSessionService,
 		@IStorageService private readonly _storageService: IStorageService,
 		@ILogService private readonly _logService: ILogService,
 		@IConfigurationService private readonly _configurationService: IConfigurationService
@@ -34,19 +34,19 @@ export class ExecutionHistoryService extends Disposable implements IExecutionHis
 		super();
 
 		// Start recording history for all currently active runtimes
-		this._languageRuntimeService.runningRuntimes.forEach(runtime => {
-			this.beginRecordingHistory(runtime);
+		this._runtimeSessionService.activeSessions.forEach(session => {
+			this.beginRecordingHistory(session);
 		});
 
 		// Listen for runtimes to start; when they do, begin recording
 		// executions
-		this._register(this._languageRuntimeService.onDidStartRuntime(runtime => {
+		this._register(this._runtimeSessionService.onDidStartRuntime(runtime => {
 			this.beginRecordingHistory(runtime);
 		}));
 
 		// Listen for runtimes to reconnect; when they do, begin recording
 		// executions
-		this._register(this._languageRuntimeService.onDidReconnectRuntime(runtime => {
+		this._register(this._runtimeSessionService.onDidReconnectRuntime(runtime => {
 			this.beginRecordingHistory(runtime);
 		}));
 	}
@@ -70,17 +70,17 @@ export class ExecutionHistoryService extends Disposable implements IExecutionHis
 		return this.getInputHistory(languageId).getInputHistory();
 	}
 
-	private beginRecordingHistory(runtime: ILanguageRuntime): void {
+	private beginRecordingHistory(runtime: ILanguageRuntimeSession): void {
 		// Create a new history for the runtime if we don't already have one
-		if (!this._executionHistories.has(runtime.metadata.runtimeId)) {
+		if (!this._executionHistories.has(runtime.runtimeMetadata.runtimeId)) {
 			const history = new RuntimeExecutionHistory(runtime, this._storageService, this._logService);
-			this._executionHistories.set(runtime.metadata.runtimeId, history);
+			this._executionHistories.set(runtime.runtimeMetadata.runtimeId, history);
 			this._register(history);
 		}
 
 		// Attach the runtime to an input history recorder for the language,
 		// creating one if necessary
-		this.getInputHistory(runtime.metadata.languageId).attachToRuntime(runtime);
+		this.getInputHistory(runtime.runtimeMetadata.languageId).attachToRuntime(runtime);
 	}
 
 	getExecutionEntries(runtimeId: string): IExecutionHistoryEntry<any>[] {

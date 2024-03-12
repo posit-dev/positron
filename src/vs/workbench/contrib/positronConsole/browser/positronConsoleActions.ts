@@ -208,7 +208,7 @@ export function registerPositronConsoleActions() {
 			}
 
 			// Get the language name.
-			const languageName = activePositronConsoleInstance.runtime.metadata.languageName;
+			const languageName = activePositronConsoleInstance.session.runtimeMetadata.languageName;
 
 			// Ask the user to confirm the action.
 			if (!await confirmationModalDialog(
@@ -221,7 +221,7 @@ export function registerPositronConsoleActions() {
 			// Clear the active Positron console instance and the history for its language from the
 			// execution history service.
 			activePositronConsoleInstance.clearInputHistory();
-			executionHistoryService.clearInputEntries(activePositronConsoleInstance.runtime.metadata.languageId);
+			executionHistoryService.clearInputEntries(activePositronConsoleInstance.session.runtimeMetadata.languageId);
 
 			// Let the user know that the history was cleared.
 			notificationService.notify({

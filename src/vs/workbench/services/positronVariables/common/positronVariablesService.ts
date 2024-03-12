@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2022 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2022-2024 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
 import { Emitter } from 'vs/base/common/event';
@@ -10,7 +10,8 @@ import { InstantiationType, registerSingleton } from 'vs/platform/instantiation/
 import { PositronVariablesInstance } from 'vs/workbench/services/positronVariables/common/positronVariablesInstance';
 import { IPositronVariablesService } from 'vs/workbench/services/positronVariables/common/interfaces/positronVariablesService';
 import { IPositronVariablesInstance, PositronVariablesInstanceState } from 'vs/workbench/services/positronVariables/common/interfaces/positronVariablesInstance';
-import { formatLanguageRuntime, ILanguageRuntime, ILanguageRuntimeService, RuntimeState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { LanguageRuntimeSessionMode, RuntimeState, formatLanguageRuntimeSession } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { ILanguageRuntimeSession, IRuntimeSessionService } from '../../runtimeSession/common/runtimeSessionService';
 import { INotificationService } from 'vs/platform/notification/common/notification';
 
 /**
@@ -20,15 +21,9 @@ class PositronVariablesService extends Disposable implements IPositronVariablesS
 	//#region Private Properties
 
 	/**
-	 * Gets a map of the Positron variables instances by language ID.
+	 * Gets a map of the Positron variables instances by session ID.
 	 */
-	private readonly _positronVariablesInstancesByLanguageId =
-		new Map<string, PositronVariablesInstance>();
-
-	/**
-	 * Gets a map of the Positron variables instances by runtime ID.
-	 */
-	private readonly _positronVariablesInstancesByRuntimeId =
+	private readonly _positronVariablesInstancesBySessionId =
 		new Map<string, PositronVariablesInstance>();
 
 	/**
@@ -54,12 +49,13 @@ class PositronVariablesService extends Disposable implements IPositronVariablesS
 
 	/**
 	 * Constructor.
-	 * @param _languageRuntimeService The language runtime service.
+	 * @param _runtimeSessionService The language runtime service.
 	 * @param _languageService The language service.
 	 * @param _logService The log service.
+	 * @param _notificationService The notification service.
 	 */
 	constructor(
-		@ILanguageRuntimeService private _languageRuntimeService: ILanguageRuntimeService,
+		@IRuntimeSessionService private _runtimeSessionService: IRuntimeSessionService,
 		@ILanguageService _languageService: ILanguageService,
 		@ILogService private _logService: ILogService,
 		@INotificationService private _notificationService: INotificationService
@@ -68,31 +64,31 @@ class PositronVariablesService extends Disposable implements IPositronVariablesS
 		super();
 
 		// Start a Positron variables instance for each running runtime.
-		this._languageRuntimeService.runningRuntimes.forEach(runtime => {
-			this.startPositronVariablesInstance(runtime);
+		this._runtimeSessionService.activeSessions.forEach(session => {
+			this.startPositronVariablesInstance(session);
 		});
 
-		// Get the active runtime. If there is one, set the active Positron variables instance.
-		if (this._languageRuntimeService.activeRuntime) {
-			const positronVariablesInstance = this._positronVariablesInstancesByRuntimeId.get(
-				this._languageRuntimeService.activeRuntime.metadata.runtimeId
+		// Get the foreground session. If there is one, set the active Positron variables instance.
+		if (this._runtimeSessionService.foregroundSession) {
+			const positronVariablesInstance = this._positronVariablesInstancesBySessionId.get(
+				this._runtimeSessionService.foregroundSession.sessionId
 			);
 			if (positronVariablesInstance) {
 				this.setActivePositronVariablesInstance(positronVariablesInstance);
 			}
 		}
 
-		// Register the onWillStartRuntime event handler so we start a new Positron variables
+		// Register the onWillStartSession event handler so we start a new Positron variables
 		// instance before a runtime starts up.
-		this._register(this._languageRuntimeService.onWillStartRuntime(runtime => {
-			this.createOrAssignPositronVariablesInstance(runtime);
+		this._register(this._runtimeSessionService.onWillStartSession(e => {
+			this.createOrAssignPositronVariablesInstance(e.session);
 		}));
 
 		// Register the onDidStartRuntime event handler so we activate the new Positron variables
 		// instance when the runtime starts up.
-		this._register(this._languageRuntimeService.onDidStartRuntime(runtime => {
-			const positronVariablesInstance = this._positronVariablesInstancesByRuntimeId.get(
-				runtime.metadata.runtimeId
+		this._register(this._runtimeSessionService.onDidStartRuntime(session => {
+			const positronVariablesInstance = this._positronVariablesInstancesBySessionId.get(
+				session.sessionId
 			);
 			if (positronVariablesInstance) {
 				positronVariablesInstance.setState(PositronVariablesInstanceState.Ready);
@@ -100,9 +96,9 @@ class PositronVariablesService extends Disposable implements IPositronVariablesS
 		}));
 
 		// Register the onDidFailStartRuntime event handler.
-		this._register(this._languageRuntimeService.onDidFailStartRuntime(runtime => {
-			const positronVariablesInstance = this._positronVariablesInstancesByRuntimeId.get(
-				runtime.metadata.runtimeId
+		this._register(this._runtimeSessionService.onDidFailStartRuntime(session => {
+			const positronVariablesInstance = this._positronVariablesInstancesBySessionId.get(
+				session.sessionId
 			);
 			if (positronVariablesInstance) {
 				positronVariablesInstance.setState(PositronVariablesInstanceState.Exited);
@@ -110,16 +106,16 @@ class PositronVariablesService extends Disposable implements IPositronVariablesS
 		}));
 
 		// Register the onDidReconnectRuntime event handler.
-		this._register(this._languageRuntimeService.onDidReconnectRuntime(runtime => {
+		this._register(this._runtimeSessionService.onDidReconnectRuntime(runtime => {
 			this.createOrAssignPositronVariablesInstance(runtime);
 		}));
 
 		// Register the onDidChangeRuntimeState event handler.
 		this._register(
-			this._languageRuntimeService.onDidChangeRuntimeState(languageRuntimeStateEvent => {
+			this._runtimeSessionService.onDidChangeRuntimeState(languageRuntimeStateEvent => {
 				// Find the Positron variables instance.
-				const positronVariablesInstance = this._positronVariablesInstancesByRuntimeId.get(
-					languageRuntimeStateEvent.runtime_id
+				const positronVariablesInstance = this._positronVariablesInstancesBySessionId.get(
+					languageRuntimeStateEvent.session_id
 				);
 				if (!positronVariablesInstance) {
 					// TODO@softwarenerd... Handle this in some special way.
@@ -166,17 +162,19 @@ class PositronVariablesService extends Disposable implements IPositronVariablesS
 			}));
 
 		// Register the onDidChangeActiveRuntime event handler.
-		this._register(this._languageRuntimeService.onDidChangeActiveRuntime(runtime => {
-			if (!runtime) {
+		this._register(this._runtimeSessionService.onDidChangeForegroundSession(session => {
+			if (!session) {
 				this.setActivePositronVariablesInstance();
 			} else {
-				const positronVariablesInstance = this._positronVariablesInstancesByRuntimeId.get(
-					runtime.metadata.runtimeId
+				const positronVariablesInstance = this._positronVariablesInstancesBySessionId.get(
+					session.sessionId
 				);
 				if (positronVariablesInstance) {
 					this.setActivePositronVariablesInstance(positronVariablesInstance);
 				} else {
-					this._logService.error(`Language runtime ${formatLanguageRuntime(runtime)} became active, but a REPL instance for it is not running.`);
+					this._logService.error(
+						`Language runtime ${formatLanguageRuntimeSession(session)} became active, ` +
+						`but a REPL instance for it is not running.`);
 				}
 			}
 		}));
@@ -199,12 +197,32 @@ class PositronVariablesService extends Disposable implements IPositronVariablesS
 
 	// Gets the repl instances.
 	get positronVariablesInstances(): IPositronVariablesInstance[] {
-		return Array.from(this._positronVariablesInstancesByRuntimeId.values());
+		return Array.from(this._positronVariablesInstancesBySessionId.values());
 	}
 
 	// Gets the active REPL instance.
 	get activePositronVariablesInstance(): IPositronVariablesInstance | undefined {
 		return this._activePositronVariablesInstance;
+	}
+
+	/**
+	 * Sets the active variables instance to the one with the given session ID.
+	 *
+	 * @param sessionId The session ID.
+	 */
+	setActivePositronVariablesSession(sessionId: string): void {
+		// Find the Positron variables instance associated with the session ID.
+		const positronVariablesInstance =
+			this._positronVariablesInstancesBySessionId.get(sessionId);
+		if (positronVariablesInstance) {
+			// Found it; make it active.
+			this.setActivePositronVariablesInstance(positronVariablesInstance);
+		} else {
+			// Did not find it; log a warning.
+			this._logService.warn(
+				`Attempted to set the active Positron variables instance to a session ` +
+				`(${sessionId}) that does not have a corresponding Positron variables instance.`);
+		}
 	}
 
 	/**
@@ -218,15 +236,20 @@ class PositronVariablesService extends Disposable implements IPositronVariablesS
 	//#region Private Methods
 
 	/**
-	 * Ensures that the given runtime has a corresponding Positron variables instance, either by
+	 * Ensures that the given session has a corresponding Positron variables instance, either by
 	 * attaching it to an existing Positron variables instance or by creating a new one. Has no
 	 * effect if there's already a live Positron variables instance for the runtime.
-	 * @param runtime The runtime to create or assign a Positron variables instance for.
+	 * @param session The session to create or assign a Positron variables instance for.
 	 */
-	private createOrAssignPositronVariablesInstance(runtime: ILanguageRuntime) {
-		// Look for a matching Positron variables instance for this language.
-		const positronVariablesInstance = this._positronVariablesInstancesByLanguageId.get(
-			runtime.metadata.languageId
+	private createOrAssignPositronVariablesInstance(session: ILanguageRuntimeSession) {
+		// Ignore background sessions
+		if (session.metadata.sessionMode === LanguageRuntimeSessionMode.Background) {
+			return;
+		}
+
+		// Look for a matching Positron variables instance for this session
+		const positronVariablesInstance = this._positronVariablesInstancesBySessionId.get(
+			session.sessionId
 		);
 
 		if (positronVariablesInstance) {
@@ -234,21 +257,21 @@ class PositronVariablesService extends Disposable implements IPositronVariablesS
 			const state = positronVariablesInstance.state;
 			if (state !== PositronVariablesInstanceState.Uninitialized &&
 				state !== PositronVariablesInstanceState.Exited &&
-				positronVariablesInstance.runtime.metadata.runtimeId ===
-				runtime.metadata.runtimeId) {
-				// We already have a live Positron variables instance for this runtime, so just
+				positronVariablesInstance.session.sessionId ===
+				session.sessionId) {
+				// We already have a live Positron variables instance for this session, so just
 				// return.
 				return;
 			}
 
 			if (state === PositronVariablesInstanceState.Exited) {
-				// The Positron variables instance has exited, so attach it to this new runtime.
-				positronVariablesInstance.setRuntime(runtime);
-				this._positronVariablesInstancesByRuntimeId.delete(
-					positronVariablesInstance.runtime.metadata.runtimeId
+				// The Positron variables instance has exited, so attach it to this new session.
+				positronVariablesInstance.setRuntime(session);
+				this._positronVariablesInstancesBySessionId.delete(
+					positronVariablesInstance.session.sessionId
 				);
-				this._positronVariablesInstancesByRuntimeId.set(
-					positronVariablesInstance.runtime.metadata.runtimeId,
+				this._positronVariablesInstancesBySessionId.set(
+					positronVariablesInstance.session.sessionId,
 					positronVariablesInstance
 				);
 
@@ -257,26 +280,21 @@ class PositronVariablesService extends Disposable implements IPositronVariablesS
 		}
 
 		// If we got here, we need to start a new Positron variables instance.
-		this.startPositronVariablesInstance(runtime);
+		this.startPositronVariablesInstance(session);
 	}
 
 	/**
 	 * Starts a Positron variables instance for the specified runtime.
-	 * @param runtime The runtime for the new Positron variables instance.
+	 * @param session The runtime session for the new Positron variables instance.
 	 * @returns The new Positron variables instance.
 	 */
-	private startPositronVariablesInstance(runtime: ILanguageRuntime): IPositronVariablesInstance {
+	private startPositronVariablesInstance(session: ILanguageRuntimeSession): IPositronVariablesInstance {
 		// Create the new Positron variables instance.
 		const positronVariablesInstance = new PositronVariablesInstance(
-			runtime, this._logService, this._notificationService);
+			session, this._logService, this._notificationService);
 
-		// Add the Positron variables instance.
-		this._positronVariablesInstancesByLanguageId.set(
-			runtime.metadata.languageId,
-			positronVariablesInstance
-		);
-		this._positronVariablesInstancesByRuntimeId.set(
-			runtime.metadata.runtimeId,
+		this._positronVariablesInstancesBySessionId.set(
+			session.sessionId,
 			positronVariablesInstance
 		);
 

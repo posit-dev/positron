@@ -10,9 +10,6 @@
   "categories": [
     "Programming Languages"
   ],
-  "activationEvents": [
-    "onCommand:positron.activateInterpreters"
-  ],
   "main": "./out/extension.js",
   "capabilities": {
     "untrustedWorkspaces": {
@@ -20,6 +17,9 @@
       "description": "%r.capabilities.untrustedWorkspaces.description%"
     }
   },
+  "activationEvents": [
+    "onStartupFinished"
+  ],
   "contributes": {
     "commands": [
       {
@@ -480,6 +480,11 @@
         ],
         "entrypoint": "resources/js/htmlwidget.js"
       }
+    ],
+    "languageRuntimes": [
+      {
+        "languageId": "r"
+      }
     ]
   },
   "scripts": {
@@ -528,7 +533,7 @@
   },
   "positron": {
     "binaryDependencies": {
-      "ark": "0.1.62"
+      "ark": "0.1.63"
     }
   }
 }

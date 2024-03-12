@@ -1,9 +1,10 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
 import { Disposable } from 'vs/base/common/lifecycle';
-import { ILanguageRuntimeService, ILanguageRuntime, RuntimeClientType, ILanguageRuntimeMessageOutput, PositronOutputLocation, RuntimeOutputKind } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { ILanguageRuntimeMessageOutput, PositronOutputLocation, RuntimeOutputKind } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { ILanguageRuntimeSession, IRuntimeSessionService, RuntimeClientType } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
 import { Emitter, Event } from 'vs/base/common/event';
 import { generateUuid } from 'vs/base/common/uuid';
 import { IPositronIPyWidgetsService, IPositronIPyWidgetMetadata, IPyWidgetHtmlData } from 'vs/workbench/services/positronIPyWidgets/common/positronIPyWidgetsService';
@@ -38,18 +39,19 @@ export class PositronIPyWidgetsService extends Disposable implements IPositronIP
 
 	/** Creates the Positron plots service instance */
 	constructor(
-		@ILanguageRuntimeService private _languageRuntimeService: ILanguageRuntimeService,
+		@IRuntimeSessionService private _runtimeSessionService: IRuntimeSessionService,
 		@IPositronNotebookOutputWebviewService private _notebookOutputWebviewService: IPositronNotebookOutputWebviewService
 	) {
 		super();
 
 		// Register for language runtime service startups
-		this._register(this._languageRuntimeService.onDidStartRuntime((runtime) => {
-			this.attachRuntime(runtime);
+		this._register(this._runtimeSessionService.onDidStartRuntime((session) => {
+			this.attachRuntime(session);
 		}));
 	}
 
-	private registerIPyWidgetClient(widgetClient: IPyWidgetClientInstance, runtime: ILanguageRuntime) {
+	private registerIPyWidgetClient(widgetClient: IPyWidgetClientInstance,
+		runtime: ILanguageRuntimeSession) {
 		// Add to our list of widgets
 		this._widgets.set(widgetClient.id, widgetClient);
 
@@ -67,14 +69,14 @@ export class PositronIPyWidgetsService extends Disposable implements IPositronIP
 		this._register(widgetClient);
 	}
 
-	private attachRuntime(runtime: ILanguageRuntime) {
+	private attachRuntime(runtime: ILanguageRuntimeSession) {
 		// Get the list of existing widget clients; these are expected in the
 		// case of reconnecting to a running language runtime
 		runtime.listClients(RuntimeClientType.IPyWidget).then(clients => {
 			const widgetClients: Array<IPyWidgetClientInstance> = [];
 			clients.forEach((client) => {
 				if (client.getClientType() === RuntimeClientType.IPyWidget) {
-					if (this.hasWidget(runtime.metadata.runtimeId, client.getClientId())) {
+					if (this.hasWidget(runtime.runtimeMetadata.runtimeId, client.getClientId())) {
 						return;
 					}
 				} else {
@@ -95,7 +97,7 @@ export class PositronIPyWidgetsService extends Disposable implements IPositronIP
 
 				// Check to see if we we already have a widget client for this
 				// client ID. If so, we don't need to do anything.
-				if (this.hasWidget(runtime.metadata.runtimeId, clientId)) {
+				if (this.hasWidget(runtime.runtimeMetadata.runtimeId, clientId)) {
 					return;
 				}
 
@@ -104,7 +106,7 @@ export class PositronIPyWidgetsService extends Disposable implements IPositronIP
 				// Create the metadata object
 				const metadata: IPositronIPyWidgetMetadata = {
 					id: clientId,
-					runtime_id: runtime.metadata.runtimeId,
+					runtime_id: runtime.runtimeMetadata.runtimeId,
 					widget_state: {
 						model_name: data.state._model_name,
 						model_module: data.state._model_module,
@@ -120,7 +122,7 @@ export class PositronIPyWidgetsService extends Disposable implements IPositronIP
 		}));
 	}
 
-	private async handleDisplayEvent(event: DisplayWidgetEvent, runtime: ILanguageRuntime) {
+	private async handleDisplayEvent(event: DisplayWidgetEvent, runtime: ILanguageRuntimeSession) {
 		const primaryWidgets = event.view_ids;
 
 		// Combine our existing list of widgets into a single WidgetPlotClient

@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
 import { Disposable } from 'vs/base/common/lifecycle';
@@ -7,7 +7,7 @@ import { IConfigurationService } from 'vs/platform/configuration/common/configur
 import { ILogService } from 'vs/platform/log/common/log';
 import { IStorageService, StorageScope, StorageTarget } from 'vs/platform/storage/common/storage';
 import { IInputHistoryEntry, inputHistorySizeSettingId } from 'vs/workbench/contrib/executionHistory/common/executionHistoryService';
-import { ILanguageRuntime } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { ILanguageRuntimeSession } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
 
 /**
  * Records input history for a given language. This is a separate class from the
@@ -18,8 +18,8 @@ import { ILanguageRuntime } from 'vs/workbench/services/languageRuntime/common/l
  * be attached individually.
  */
 export class LanguageInputHistory extends Disposable {
-	/** The set of runtime IDs to which we are currently attached (listening to inputs) */
-	private _attachedRuntimes: Set<string> = new Set();
+	/** The set of session IDs to which we are currently attached (listening to inputs) */
+	private _attachedSessions: Set<string> = new Set();
 
 	/** The set of entries that have not been flushed to storage  */
 	private readonly _pendingEntries: IInputHistoryEntry[] = [];
@@ -47,22 +47,24 @@ export class LanguageInputHistory extends Disposable {
 		}));
 	}
 
-	public attachToRuntime(runtime: ILanguageRuntime): void {
+	public attachToRuntime(session: ILanguageRuntimeSession): void {
 		// Don't attach to the same runtime twice.
-		if (this._attachedRuntimes.has(runtime.metadata.runtimeId)) {
-			this._logService.debug(`LanguageInputHistory (${this._languageId}): Already attached to runtime ${runtime.metadata.runtimeId}`);
+		if (this._attachedSessions.has(session.sessionId)) {
+			this._logService.debug(`LanguageInputHistory (${this._languageId}): ` +
+				`Already attached to session ${session.metadata.sessionName} (${session.sessionId})`);
 			return;
 		}
 
 		// Safety check: ensure that this runtime is associated with the
 		// language for this history recorder.
-		if (runtime.metadata.languageId !== this._languageId) {
-			this._logService.warn(`LanguageInputHistory (${this._languageId}): Language mismatch (expected ${this._languageId}, got ${runtime.metadata.languageId}))`);
+		if (session.runtimeMetadata.languageId !== this._languageId) {
+			this._logService.warn(`LanguageInputHistory (${this._languageId}): Language mismatch ` +
+				`(expected ${this._languageId}, got ${session.runtimeMetadata.languageId}))`);
 			return;
 		}
 
 		// When a runtime records an input, emit it to the history.
-		this._register(runtime.onDidReceiveRuntimeMessageInput(languageRuntimeMessageInput => {
+		this._register(session.onDidReceiveRuntimeMessageInput(languageRuntimeMessageInput => {
 			// Do not record history for empty codes.
 			if (languageRuntimeMessageInput.code.length > 0) {
 				const entry: IInputHistoryEntry = {

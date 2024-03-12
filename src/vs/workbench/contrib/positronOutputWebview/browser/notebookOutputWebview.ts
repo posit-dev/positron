@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
 import { Emitter, Event } from 'vs/base/common/event';
@@ -29,7 +29,7 @@ export class NotebookOutputWebview extends Disposable implements INotebookOutput
 	 */
 	constructor(
 		readonly id: string,
-		readonly runtimeId: string,
+		readonly sessionId: string,
 		readonly webview: IOverlayWebview) {
 		super();
 

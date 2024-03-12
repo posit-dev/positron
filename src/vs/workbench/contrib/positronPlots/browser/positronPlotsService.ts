@@ -1,10 +1,11 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
 import { Disposable } from 'vs/base/common/lifecycle';
 import { IPositronPlotMetadata, PlotClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimePlotClient';
-import { ILanguageRuntime, ILanguageRuntimeMessageOutput, ILanguageRuntimeService, RuntimeClientType, RuntimeOutputKind } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { ILanguageRuntimeMessageOutput, RuntimeOutputKind } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { ILanguageRuntimeSession, IRuntimeSessionService, RuntimeClientType } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
 import { HistoryPolicy, IPositronPlotClient, IPositronPlotsService, POSITRON_PLOTS_VIEW_ID } from 'vs/workbench/services/positronPlots/common/positronPlots';
 import { Emitter, Event } from 'vs/base/common/event';
 import { StaticPlotClient } from 'vs/workbench/services/positronPlots/common/staticPlotClient';
@@ -87,7 +88,7 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 
 	/** Creates the Positron plots service instance */
 	constructor(
-		@ILanguageRuntimeService private _languageRuntimeService: ILanguageRuntimeService,
+		@IRuntimeSessionService private _runtimeSessionService: IRuntimeSessionService,
 		@IStorageService private _storageService: IStorageService,
 		@IViewsService private _viewsService: IViewsService,
 		@IPositronNotebookOutputWebviewService private _notebookOutputWebviewService: IPositronNotebookOutputWebviewService,
@@ -95,7 +96,7 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 		super();
 
 		// Register for language runtime service startups
-		this._register(this._languageRuntimeService.onDidStartRuntime((runtime) => {
+		this._register(this._runtimeSessionService.onDidStartRuntime((runtime) => {
 			this.attachRuntime(runtime);
 		}));
 
@@ -293,27 +294,27 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 	}
 
 	/**
-	 * Attaches to a language runtime.
+	 * Attaches to a language runtime session.
 	 *
-	 * @param runtime The language runtime to attach to.
+	 * @param session The language session to attach to.
 	 */
-	private attachRuntime(runtime: ILanguageRuntime) {
+	private attachRuntime(session: ILanguageRuntimeSession) {
 		// Get the list of existing plot clients; these are expected in the
 		// case of reconnecting to a running language runtime, and represent
 		// the user's active set of plot objects.
-		runtime.listClients(RuntimeClientType.Plot).then(clients => {
+		session.listClients(RuntimeClientType.Plot).then(clients => {
 			const plotClients: Array<PlotClientInstance> = [];
 			clients.forEach((client) => {
 				if (client.getClientType() === RuntimeClientType.Plot) {
 					// Check to see if we we already have a plot client for this
 					// client ID. If so, we don't need to do anything.
-					if (this.hasPlot(runtime.metadata.runtimeId, client.getClientId())) {
+					if (this.hasPlot(session.runtimeMetadata.runtimeId, client.getClientId())) {
 						return;
 					}
 
 					// Attempt to load the metadata for this plot from storage
 					const storedMetadata = this._storageService.get(
-						this.generateStorageKey(runtime.metadata.runtimeId, client.getClientId()),
+						this.generateStorageKey(session.sessionId, client.getClientId()),
 						StorageScope.WORKSPACE);
 
 					// If we have metadata, try to parse it and register the plot
@@ -332,7 +333,7 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 						const metadata: IPositronPlotMetadata = {
 							created: Date.now(),
 							id: client.getClientId(),
-							runtime_id: runtime.metadata.runtimeId,
+							session_id: session.sessionId,
 							parent_id: '',
 							code: '',
 						};
@@ -373,7 +374,7 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 			}
 		});
 
-		this._register(runtime.onDidReceiveRuntimeMessageInput((message) => {
+		this._register(session.onDidReceiveRuntimeMessageInput((message) => {
 			// Add this code to the recent executions map. If the map is
 			// already at the maximum size, remove the oldest entry.
 			this._recentExecutionIds.push(message.parent_id);
@@ -388,13 +389,13 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 
 		// Listen for new dynamic plots being emitted, and register each one
 		// with the plots service.
-		this._register(runtime.onDidCreateClientInstance((event) => {
+		this._register(session.onDidCreateClientInstance((event) => {
 			if (event.client.getClientType() === RuntimeClientType.Plot) {
 				const clientId = event.client.getClientId();
 
 				// Check to see if we we already have a plot client for this
 				// client ID. If so, we don't need to do anything.
-				if (this.hasPlot(runtime.metadata.runtimeId, clientId)) {
+				if (this.hasPlot(session.sessionId, clientId)) {
 					return;
 				}
 
@@ -406,7 +407,7 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 				const metadata: IPositronPlotMetadata = {
 					created: Date.parse(event.message.when),
 					id: clientId,
-					runtime_id: runtime.metadata.runtimeId,
+					session_id: session.sessionId,
 					parent_id: event.message.parent_id,
 					code,
 				};
@@ -414,7 +415,7 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 				// Save the metadata to storage so that we can restore it when
 				// the plot is reconnected.
 				this._storageService.store(
-					this.generateStorageKey(metadata.runtime_id, metadata.id),
+					this.generateStorageKey(metadata.session_id, metadata.id),
 					JSON.stringify(metadata),
 					StorageScope.WORKSPACE,
 					StorageTarget.MACHINE);
@@ -430,10 +431,10 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 
 		// Listen for static plots being emitted, and register each one with
 		// the plots service.
-		this._register(runtime.onDidReceiveRuntimeMessageOutput(async (message) => {
+		this._register(session.onDidReceiveRuntimeMessageOutput(async (message) => {
 			// Check to see if we we already have a plot client for this
 			// message ID. If so, we don't need to do anything.
-			if (this.hasPlot(runtime.metadata.runtimeId, message.id)) {
+			if (this.hasPlot(session.sessionId, message.id)) {
 				return;
 			}
 
@@ -441,13 +442,13 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 				this._recentExecutions.get(message.parent_id) : '';
 			if (message.kind === RuntimeOutputKind.StaticImage) {
 				// Create a new static plot client instance and register it with the service.
-				this.registerStaticPlot(runtime.metadata.runtimeId, message, code);
+				this.registerStaticPlot(session.sessionId, message, code);
 
 				// Raise the Plots pane so the plot is visible.
 				this._viewsService.openView(POSITRON_PLOTS_VIEW_ID, false);
 			} else if (message.kind === RuntimeOutputKind.PlotWidget) {
 				// Create a new webview plot client instance and register it with the service.
-				await this.registerWebviewPlot(runtime, message, code);
+				await this.registerWebviewPlot(session, message, code);
 
 				// Raise the Plots pane so the plot is visible.
 				this._viewsService.openView(POSITRON_PLOTS_VIEW_ID, false);
@@ -481,7 +482,7 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 			}
 			// Clear the plot's metadata from storage
 			this._storageService.remove(
-				this.generateStorageKey(plotClient.metadata.runtime_id, plotClient.metadata.id),
+				this.generateStorageKey(plotClient.metadata.session_id, plotClient.metadata.id),
 				StorageScope.WORKSPACE);
 		});
 
@@ -508,10 +509,10 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 	 * @param code The code that generated the plot, if available.
 	 */
 	private registerStaticPlot(
-		runtimeId: string,
+		sessionId: string,
 		message: ILanguageRuntimeMessageOutput,
 		code?: string) {
-		const client = new StaticPlotClient(runtimeId, message, code);
+		const client = new StaticPlotClient(sessionId, message, code);
 		this._plots.unshift(client);
 		this._onDidEmitPlot.fire(client);
 		this._onDidSelectPlot.fire(client.id);
@@ -526,7 +527,7 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 	 * @param code The code that generated the plot, if available.
 	 */
 	private async registerWebviewPlot(
-		runtime: ILanguageRuntime,
+		runtime: ILanguageRuntimeSession,
 		message: ILanguageRuntimeMessageOutput,
 		code?: string) {
 		// Create a new webview
@@ -663,19 +664,19 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 	 * @param runtimeId The ID of the runtime that owns the plot.
 	 * @param plotId The ID of the plot itself.
 	 */
-	private generateStorageKey(runtimeId: string, plotId: string): string {
-		return `positron.plot.${runtimeId}.${plotId}`;
+	private generateStorageKey(sessionId: string, plotId: string): string {
+		return `positron.plot.${sessionId}.${plotId}`;
 	}
 
 	/**
 	 * Checks to see whether the service has a plot with the given ID.
 	 *
-	 * @param runtimId The runtime ID that generated the plot.
+	 * @param sessionId The session ID that generated the plot.
 	 * @param plotId The plot's unique ID.
 	 */
-	private hasPlot(runtimeId: string, plotId: string): boolean {
+	private hasPlot(sessionId: string, plotId: string): boolean {
 		return this._plots.some(plot =>
-			plot.metadata.runtime_id === runtimeId &&
+			plot.metadata.session_id === sessionId &&
 			plot.metadata.id === plotId);
 	}
 

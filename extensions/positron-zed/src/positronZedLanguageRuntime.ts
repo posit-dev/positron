@@ -110,7 +110,7 @@ const rightAlignedThreeDigitDecimal = (value: number) => {
 /**
  * PositronZedLanguageRuntime.
  */
-export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
+export class PositronZedRuntimeSession implements positron.LanguageRuntimeSession {
 	//#region Private Properties
 
 	/**
@@ -202,32 +202,11 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 	 * @param version The language version.
 	 */
 	constructor(
+		readonly runtimeMetadata: positron.LanguageRuntimeMetadata,
+		readonly metadata: positron.RuntimeSessionMetadata,
 		private readonly context: vscode.ExtensionContext,
-		private readonly runtimeId: string,
-		private readonly version: string
 	) {
 		this._state = positron.RuntimeState.Uninitialized;
-
-		// Create the icon SVG path.
-		const iconSvgPath = path.join(this.context.extensionPath, 'resources', 'zed-icon.svg');
-
-		const runtimeShortName = version;
-		const runtimeName = `Zed ${runtimeShortName}`;
-
-		// Set the metadata for Zed.
-		this.metadata = {
-			runtimePath: '/zed',
-			runtimeId,
-			languageId: 'zed',
-			languageName: 'Zed',
-			runtimeName,
-			runtimeShortName,
-			runtimeSource: 'Test',
-			languageVersion: version,
-			base64EncodedIconSvg: fs.readFileSync(iconSvgPath).toString('base64'),
-			runtimeVersion: '0.0.1',
-			startupBehavior: positron.LanguageRuntimeStartupBehavior.Implicit
-		};
 
 		this.dynState = {
 			inputPrompt: `Z>`,
@@ -248,11 +227,6 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 	//#endregion Constructor
 
 	//#region LanguageRuntime Implementation
-
-	/**
-	 * Gets the metadata for the language runtime.
-	 */
-	readonly metadata: positron.LanguageRuntimeMetadata;
 
 	/**
 	 * Dynamic state for the language runtime.
@@ -893,7 +867,7 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 			}
 
 			case 'version': {
-				this.simulateSuccessfulCodeExecution(id, code, `Zed v${this.metadata.languageVersion} (${this.metadata.runtimeId})`);
+				this.simulateSuccessfulCodeExecution(id, code, `Zed v${this.runtimeMetadata.languageVersion} (${this.runtimeMetadata.runtimeId})`);
 				break;
 			}
 
@@ -980,7 +954,7 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 
 	createVariablesClient(id: string) {
 		// Allocate a new ID and ZedVariables object for this variables backend
-		const env = new ZedVariables(id, this.metadata.languageVersion, this);
+		const env = new ZedVariables(id, this.runtimeMetadata.languageVersion, this);
 
 		// Connect it and save the instance to coordinate future communication
 		this.connectClientEmitter(env);
@@ -1104,7 +1078,7 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 		// Zed 0.98.0 always fails to start. Simulate this by going directly
 		// from Starting to Exited and rejecting the promise with a multi-line
 		// error message.
-		if (this.metadata.runtimeId === '00000000-0000-0000-0000-000000000098') {
+		if (this.runtimeMetadata.runtimeId === '00000000-0000-0000-0000-000000000098') {
 			this._onDidChangeRuntimeState.fire(positron.RuntimeState.Uninitialized);
 			this._onDidChangeRuntimeState.fire(positron.RuntimeState.Initializing);
 			this._onDidChangeRuntimeState.fire(positron.RuntimeState.Starting);
@@ -1136,9 +1110,9 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 
 				// Resolve.
 				resolve({
-					banner: `${makeSGR(SGR.ForegroundBlue)}Zed ${this.metadata.languageVersion}${makeSGR(SGR.Reset)}\nThis is the ${makeSGR(SGR.ForegroundGreen)}Zed${makeSGR(SGR.Reset)} test language.\n\nEnter 'help' for help.\n`,
-					implementation_version: this.metadata.runtimeVersion,
-					language_version: this.metadata.languageVersion,
+					banner: `${makeSGR(SGR.ForegroundBlue)}Zed ${this.runtimeMetadata.languageVersion}${makeSGR(SGR.Reset)}\nThis is the ${makeSGR(SGR.ForegroundGreen)}Zed${makeSGR(SGR.Reset)} test language.\n\nEnter 'help' for help.\n`,
+					implementation_version: this.runtimeMetadata.runtimeVersion,
+					language_version: this.runtimeMetadata.languageVersion,
 				} as positron.LanguageRuntimeInfo);
 			}, 1000);
 		});
@@ -1183,7 +1157,7 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 		this.simulateOutputMessage(parentId, 'Restarting.');
 		this._onDidChangeRuntimeState.fire(positron.RuntimeState.Exited);
 		this._onDidEndSession.fire({
-			runtime_name: this.metadata.runtimeName,
+			runtime_name: this.runtimeMetadata.runtimeName,
 			exit_code: 0,
 			reason: positron.RuntimeExitReason.Restart,
 			message: ''
@@ -1238,7 +1212,7 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 		this.simulateOutputMessage(parentId, 'Zed Kernel exiting.');
 		this._onDidChangeRuntimeState.fire(positron.RuntimeState.Exited);
 		this._onDidEndSession.fire({
-			runtime_name: this.metadata.runtimeName,
+			runtime_name: this.runtimeMetadata.runtimeName,
 			exit_code: 0,
 			reason: exitReason,
 			message: ''
@@ -1250,16 +1224,12 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 		// Simulate a force quit by immediately "exiting"
 		this._onDidChangeRuntimeState.fire(positron.RuntimeState.Exited);
 		this._onDidEndSession.fire({
-			runtime_name: this.metadata.runtimeName,
+			runtime_name: this.runtimeMetadata.runtimeName,
 			exit_code: 0,
 			reason: positron.RuntimeExitReason.ForcedQuit,
 			message: ''
 		});
 		return Promise.resolve();
-	}
-
-	clone(metadata: positron.LanguageRuntimeMetadata, _notebook: vscode.NotebookDocument): positron.LanguageRuntime {
-		return new PositronZedLanguageRuntime(this.context, metadata.runtimeId, metadata.languageVersion);
 	}
 
 	dispose(): void { }
@@ -2017,29 +1987,11 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 		this.simulateInputMessage(parentId, code);
 		this._onDidChangeRuntimeState.fire(positron.RuntimeState.Exited);
 		this._onDidEndSession.fire({
-			runtime_name: this.metadata.runtimeName,
+			runtime_name: this.runtimeMetadata.runtimeName,
 			exit_code: 137,
 			reason: positron.RuntimeExitReason.Error,
 			message: `I'm terribly sorry, but a segmentation fault has occurred.`
 		});
 	}
 	//#endregion Private Methods
-}
-
-export class PositronZedLanguageRuntimeProvider implements positron.LanguageRuntimeProvider {
-
-	/**
-	 * Constructor.
-	 * @param context The extension context.
-	 */
-	constructor(
-		private readonly context: vscode.ExtensionContext
-	) { }
-
-	provideLanguageRuntime(runtimeMetadata: positron.LanguageRuntimeMetadata,
-		token: vscode.CancellationToken): positron.LanguageRuntime {
-		return new PositronZedLanguageRuntime(this.context,
-			runtimeMetadata.runtimeId,
-			runtimeMetadata.runtimeShortName);
-	}
 }

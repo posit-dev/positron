@@ -1,12 +1,13 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
 import { Disposable } from 'vs/base/common/lifecycle';
 import { ILogService } from 'vs/platform/log/common/log';
 import { IStorageService, StorageScope, StorageTarget } from 'vs/platform/storage/common/storage';
 import { IExecutionHistoryEntry } from 'vs/workbench/contrib/executionHistory/common/executionHistoryService';
-import { ILanguageRuntime, RuntimeOnlineState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { RuntimeOnlineState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { ILanguageRuntimeSession } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
 
 /**
  * Represents a history of executions for a single language runtime. One
@@ -30,14 +31,14 @@ export class RuntimeExecutionHistory extends Disposable {
 	private _dirty: boolean = false;
 
 	constructor(
-		private readonly _runtime: ILanguageRuntime,
+		private readonly _session: ILanguageRuntimeSession,
 		private readonly _storageService: IStorageService,
 		private readonly _logService: ILogService
 	) {
 		super();
 
 		// Create storage key for this runtime based on its ID
-		this._storageKey = `positron.executionHistory.${_runtime.metadata.runtimeId}`;
+		this._storageKey = `positron.executionHistory.${_session.sessionId}`;
 
 		// Load existing history entries
 		const entries = this._storageService.get(this._storageKey, StorageScope.WORKSPACE, '[]');
@@ -46,10 +47,10 @@ export class RuntimeExecutionHistory extends Disposable {
 				this._entries.push(entry);
 			});
 		} catch (err) {
-			this._logService.warn(`Couldn't load history for ${this._runtime.metadata.runtimeName} ${this._runtime.metadata.runtimeVersion}: ${err}}`);
+			this._logService.warn(`Couldn't load history for ${this._session.metadata.sessionName} ${this._session.runtimeMetadata.runtimeVersion}: ${err}}`);
 		}
 
-		this._register(this._runtime.onDidReceiveRuntimeMessageInput(message => {
+		this._register(this._session.onDidReceiveRuntimeMessageInput(message => {
 			// See if there is already a pending execution for the parent ID.
 			// This is possible if an output message arrives before the input
 			// message that caused it.
@@ -79,7 +80,7 @@ export class RuntimeExecutionHistory extends Disposable {
 			}
 		}));
 
-		this._register(this._runtime.onDidReceiveRuntimeMessageOutput(message => {
+		this._register(this._session.onDidReceiveRuntimeMessageOutput(message => {
 			// Get the output.
 			const output = message.data['text/plain'];
 
@@ -109,7 +110,7 @@ export class RuntimeExecutionHistory extends Disposable {
 
 		// When we receive a message indicating that an execution has completed,
 		// we'll move it from the pending executions map to the history entries.
-		this._register(this._runtime.onDidReceiveRuntimeMessageState(message => {
+		this._register(this._session.onDidReceiveRuntimeMessageState(message => {
 			if (message.state === RuntimeOnlineState.Idle) {
 				const pending = this._pendingExecutions.get(message.parent_id);
 				if (pending) {

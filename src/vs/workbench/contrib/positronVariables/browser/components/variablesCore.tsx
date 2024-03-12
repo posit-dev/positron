@@ -42,7 +42,7 @@ export const VariablesCore = (props: VariablesCoreProps) => {
 			<div className='variables-instances-container' style={{ width: props.width, height: adjustedHeight }}>
 				{positronVariablesContext.positronVariablesInstances.map(positronVariablesInstance =>
 					<VariablesInstance
-						key={positronVariablesInstance.runtime.metadata.languageId}
+						key={positronVariablesInstance.session.sessionId}
 						active={positronVariablesInstance === positronVariablesContext.activePositronVariablesInstance}
 						width={props.width}
 						height={adjustedHeight}

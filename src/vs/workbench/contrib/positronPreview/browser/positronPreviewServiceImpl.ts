@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
 import { Disposable } from 'vs/base/common/lifecycle';
@@ -9,7 +9,8 @@ import { IOverlayWebview, IWebviewService, WebviewInitInfo } from 'vs/workbench/
 import { PreviewWebview } from 'vs/workbench/contrib/positronPreview/browser/previewWebview';
 import { IViewsService } from 'vs/workbench/services/views/common/viewsService';
 import { POSITRON_PREVIEW_VIEW_ID } from 'vs/workbench/contrib/positronPreview/browser/positronPreviewSevice';
-import { ILanguageRuntime, ILanguageRuntimeService, RuntimeOutputKind } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { RuntimeOutputKind } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { ILanguageRuntimeSession, IRuntimeSessionService } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
 import { IPositronNotebookOutputWebviewService } from 'vs/workbench/contrib/positronOutputWebview/browser/notebookOutputWebviewService';
 
 /**
@@ -31,17 +32,17 @@ export class PositronPreviewService extends Disposable implements IPositronPrevi
 	constructor(
 		@IWebviewService private readonly _webviewService: IWebviewService,
 		@IViewsService private readonly _viewsService: IViewsService,
-		@ILanguageRuntimeService private readonly _languageRuntimeService: ILanguageRuntimeService,
+		@IRuntimeSessionService private readonly _runtimeSessionService: IRuntimeSessionService,
 		@IPositronNotebookOutputWebviewService private readonly _notebookOutputWebviewService: IPositronNotebookOutputWebviewService,
 	) {
 		super();
 		this.onDidCreatePreviewWebview = this._onDidCreatePreviewWebviewEmitter.event;
 		this.onDidChangeActivePreviewWebview = this._onDidChangeActivePreviewWebview.event;
-		this._languageRuntimeService.registeredRuntimes.forEach(runtime => {
+		this._runtimeSessionService.activeSessions.forEach(runtime => {
 			this.attachRuntime(runtime);
 		});
-		this._languageRuntimeService.onDidRegisterRuntime(runtime => {
-			this.attachRuntime(runtime);
+		this._runtimeSessionService.onWillStartSession(e => {
+			this.attachRuntime(e.session);
 		});
 	}
 
@@ -156,14 +157,14 @@ export class PositronPreviewService extends Disposable implements IPositronPrevi
 	 *
 	 * @param runtime The runtime to attach to
 	 */
-	attachRuntime(runtime: ILanguageRuntime) {
+	attachRuntime(runtime: ILanguageRuntimeSession) {
 		this._register(runtime.onDidReceiveRuntimeMessageOutput(async (e) => {
 			if (e.kind === RuntimeOutputKind.ViewerWidget) {
 				const webview = await
 					this._notebookOutputWebviewService.createNotebookOutputWebview(runtime, e);
 				if (webview) {
 					this.openPreviewWebview(e.id,
-						webview.webview, 'notebookRenderer', runtime.metadata.runtimeName);
+						webview.webview, 'notebookRenderer', runtime.runtimeMetadata.runtimeName);
 				}
 			}
 		}));

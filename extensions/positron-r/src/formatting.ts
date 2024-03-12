@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
@@ -7,9 +7,9 @@ import * as positron from 'positron';
 import * as path from 'path';
 import * as os from 'os';
 import * as fs from 'fs';
-import { getRunningRRuntime } from './runtime';
 import { timeout } from './util';
 import { randomUUID } from 'crypto';
+import { RSessionManager } from './session-manager';
 
 export async function registerFormatter(context: vscode.ExtensionContext) {
 
@@ -46,9 +46,12 @@ class FormatterProvider implements vscode.DocumentFormattingEditProvider {
 		document: vscode.TextDocument,
 		range?: vscode.Range
 	): Promise<vscode.TextEdit[]> {
-		const runtime = await getRunningRRuntime();
+		const session = RSessionManager.instance.getConsoleSession();
+		if (!session) {
+			return [];
+		}
 		const id = randomUUID();
-		const isInstalled = await runtime.checkInstalled('styler');
+		const isInstalled = await session.checkInstalled('styler');
 		if (!isInstalled) {
 			return [];
 		}
@@ -62,7 +65,7 @@ class FormatterProvider implements vscode.DocumentFormattingEditProvider {
 
 		// A promise that resolves when the runtime is idle:
 		const promise = new Promise<void>(resolve => {
-			const disp = runtime.onDidReceiveRuntimeMessage(runtimeMessage => {
+			const disp = session.onDidReceiveRuntimeMessage(runtimeMessage => {
 				if (runtimeMessage.parent_id === id &&
 					runtimeMessage.type === positron.LanguageRuntimeMessageType.State) {
 					const runtimeMessageState = runtimeMessage as positron.LanguageRuntimeState;
@@ -75,7 +78,7 @@ class FormatterProvider implements vscode.DocumentFormattingEditProvider {
 		});
 
 		// Actual formatting is done by styler
-		runtime.execute(
+		session.execute(
 			`styler::style_file('${stylerPath}')`,
 			id,
 			positron.RuntimeCodeExecutionMode.Silent,

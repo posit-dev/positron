@@ -6,13 +6,13 @@ import * as vscode from 'vscode';
 import * as path from 'path';
 import { spawn } from 'child_process';
 import * as split2 from 'split2';
-import { Logger } from '../extension';
-import { checkInstalled } from '../runtime';
+import { LOGGER } from '../extension';
+import { checkInstalled } from '../session';
 import { EXTENSION_ROOT_DIR } from '../constants';
 import { ItemType, TestingTools, encodeNodeId } from './util-testing';
 import { TestResult } from './reporter';
 import { parseTestsFromFile } from './parser';
-import { RRuntimeManager } from '../runtime-manager';
+import { RSessionManager } from '../session-manager';
 
 const testReporterPath = path
 	.join(EXTENSION_ROOT_DIR, 'resources', 'testing', 'vscodereporter')
@@ -25,7 +25,7 @@ export async function runThatTest(
 ): Promise<string> {
 	// in all scenarios, we execute devtools::SOMETHING() in a child process
 	// if we can't get the path to the relevant R executable, no point in continuing
-	if (!RRuntimeManager.instance.hasLastBinpath()) {
+	if (!RSessionManager.instance.hasLastBinpath()) {
 		return Promise.resolve('No running R runtime to run R package tests.');
 	}
 
@@ -52,7 +52,7 @@ export async function runThatTest(
 			if (!testthatInstalled) {
 				return Promise.resolve('testthat >= 3.2.0 is needed to run R a single test_that() test.');
 			}
-			Logger.info('Single test_that() test');
+			LOGGER.info('Single test_that() test');
 			break;
 		}
 		// TODO: testthat >= 3.2.1 introduces support for running a single top-level describe().
@@ -61,14 +61,14 @@ export async function runThatTest(
 		case ItemType.It:
 			return Promise.resolve('Individual it() call: can\'t be run individually.');
 		case ItemType.File:
-			Logger.info('Test type is file');
+			LOGGER.info('Test type is file');
 			if (test!.children.size === 0) {
-				Logger.info('Children are not yet available. Parsing children.');
+				LOGGER.info('Children are not yet available. Parsing children.');
 				await parseTestsFromFile(testingTools, test!);
 			}
 			break;
 		case ItemType.Directory:
-			Logger.info('Test type is directory');
+			LOGGER.info('Test type is directory');
 			testingTools.controller.items.forEach(async (test) => {
 				await parseTestsFromFile(testingTools, test);
 			});
@@ -77,7 +77,7 @@ export async function runThatTest(
 
 	const isSingleTest = testType === ItemType.TestThat;
 	let testPath = testType === ItemType.Directory ? testingTools.packageRoot.fsPath : test!.uri!.fsPath;
-	Logger.info(
+	LOGGER.info(
 		`Started running ${isSingleTest ? 'single test' : 'all tests'
 		} in ${testType === ItemType.Directory ? 'directory' : 'file'
 		} '${testPath}'`
@@ -91,12 +91,12 @@ export async function runThatTest(
 		`devtools::load_all('${testReporterPath}');` +
 		`devtools::${devtoolsMethod}('${testPath}',` +
 		`${descInsert}reporter = VSCodeReporter)`;
-	const binpath = RRuntimeManager.instance.getLastBinpath();
+	const binpath = RSessionManager.instance.getLastBinpath();
 	const command = `"${binpath}" --no-echo -e "${devtoolsCall}"`;
-	Logger.info(`devtools call is:\n${command}`);
+	LOGGER.info(`devtools call is:\n${command}`);
 
 	const wd = testingTools.packageRoot.fsPath;
-	Logger.info(`Running devtools call in working directory ${wd}`);
+	LOGGER.info(`Running devtools call in working directory ${wd}`);
 	let hostFile = '';
 	// TODO @jennybc: if this code stays, figure this out
 	// eslint-disable-next-line no-async-promise-executor
@@ -125,11 +125,11 @@ export async function runThatTest(
 			}))
 			.on('data', (data: TestResult) => {
 				stdout += JSON.stringify(data);
-				Logger.debug(`Received test data: ${JSON.stringify(data)}`);
+				LOGGER.debug(`Received test data: ${JSON.stringify(data)}`);
 				switch (data.type) {
 					case 'start_file':
 						if (data.filename !== undefined) {
-							Logger.info(`Setting hostFile to ${data.filename}`);
+							LOGGER.info(`Setting hostFile to ${data.filename}`);
 							hostFile = data.filename;
 						}
 						break;
@@ -148,7 +148,7 @@ export async function runThatTest(
 								// match the tree-sitter query. Long-term, I plan to modify the
 								// query (make it more permissive), then make a headless
 								// `match.call()` test to resolve `desc`.
-								Logger.error(
+								LOGGER.error(
 									`Test with id ${encodeNodeId(
 										hostFile,
 										data.test
@@ -167,7 +167,7 @@ export async function runThatTest(
 								: findTest(hostFile, data.test, testingTools);
 							if (testItem === undefined) {
 								// See above.
-								Logger.error(
+								LOGGER.error(
 									`Test with id ${encodeNodeId(
 										hostFile,
 										data.test
@@ -236,7 +236,7 @@ function findTest(
 	testLabel: string,
 	testingTools: TestingTools): vscode.TestItem | undefined {
 	const testIdToFind = encodeNodeId(testFile, testLabel);
-	Logger.debug(`Looking for test with id ${testIdToFind}`);
+	LOGGER.debug(`Looking for test with id ${testIdToFind}`);
 	const testFileToSearch = testingTools.controller.items.get(testFile);
 	const firstGenerationFound = testFileToSearch?.children.get(testIdToFind);
 	if (firstGenerationFound) {

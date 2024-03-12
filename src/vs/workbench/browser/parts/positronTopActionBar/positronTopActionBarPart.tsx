@@ -28,6 +28,8 @@ import { KeybindingsRegistry, KeybindingWeight } from 'vs/platform/keybinding/co
 import { ILanguageRuntimeService } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { IPositronTopActionBarService } from 'vs/workbench/services/positronTopActionBar/browser/positronTopActionBarService';
 import { IPositronTopActionBarContainer, PositronTopActionBar } from 'vs/workbench/browser/parts/positronTopActionBar/positronTopActionBar';
+import { IRuntimeSessionService } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
+import { IRuntimeStartupService } from 'vs/workbench/services/runtimeStartup/common/runtimeStartupService';
 
 /**
  * PositronTopActionBarPart class.
@@ -103,6 +105,8 @@ export class PositronTopActionBarPart extends Part implements IPositronTopAction
 		@ILabelService private readonly labelService: ILabelService,
 		@ILanguageRuntimeService private readonly languageRuntimeService: ILanguageRuntimeService,
 		@IQuickInputService private readonly quickInputService: IQuickInputService,
+		@IRuntimeStartupService private readonly runtimeStartupService: IRuntimeStartupService,
+		@IRuntimeSessionService private readonly runtimeSessionService: IRuntimeSessionService,
 		@IStorageService storageService: IStorageService,
 		@IThemeService themeService: IThemeService,
 		@IWorkbenchLayoutService layoutService: IWorkbenchLayoutService,
@@ -135,9 +139,11 @@ export class PositronTopActionBarPart extends Part implements IPositronTopAction
 				labelService={this.labelService}
 				languageRuntimeService={this.languageRuntimeService}
 				layoutService={this.layoutService}
+				positronTopActionBarContainer={this}
 				positronTopActionBarService={this}
 				quickInputService={this.quickInputService}
-				positronTopActionBarContainer={this}
+				runtimeStartupService={this.runtimeStartupService}
+				runtimeSessionService={this.runtimeSessionService}
 				workspaceContextService={this.workspaceContextService}
 				workspacesService={this.workspacesService}
 			/>
