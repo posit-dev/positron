@@ -406,6 +406,10 @@ class PositronConsoleService extends Disposable implements IPositronConsoleServi
 		// Activate the Positron console instance.
 		if (positronConsoleInstance !== this._activePositronConsoleInstance) {
 			this.setActivePositronConsoleInstance(positronConsoleInstance);
+
+			// Set the foreground session so that other panes (e.g. Variables)
+			// will show the results of the code we're about to evaluate.
+			this._runtimeSessionService.foregroundSession = positronConsoleInstance.session;
 		}
 
 		// Focus the Positron console instance, if we're supposed to.
