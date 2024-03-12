@@ -325,11 +325,32 @@ async function findCurrentRBinaryFromRegistry(): Promise<string | undefined> {
 
 async function getRegistryInstallPath(hive: string): Promise<string | undefined> {
 	try {
-		LOGGER.info(`Checking for 'InstallPath' in registry key ${R64_KEY} for hive ${hive}`);
-		const pth = registry.GetStringRegKey(hive as HKEY, R64_KEY, 'InstallPath') || '';
-		return pth;
-	} catch (err) {
-		LOGGER.info(err as string);
+		const key = new winreg({
+			hive: hive as keyof typeof winreg,
+			// 'R64' here is another place where we explicitly ignore 32-bit R
+			key: '\\Software\\R-Core\\R64',
+		});
+
+		LOGGER.info(`Checking for 'InstallPath' in registry key ${key.key} for hive ${key.hive}`);
+
+		const result = await new Promise<{ value: string }>((resolve, reject) => {
+			key.get('InstallPath', (error, result) => {
+				if (error) {
+					reject(error);
+				} else {
+					resolve(result);
+				}
+			});
+		});
+
+		if (!result || typeof result.value !== 'string') {
+			LOGGER.info(`Invalid value of 'InstallPath'`);
+			return undefined;
+		}
+
+		return result.value;
+	} catch (error: any) {
+		LOGGER.info(`Unable to get value of 'InstallPath': ${error.message}`);
 		return undefined;
 	}
 }
