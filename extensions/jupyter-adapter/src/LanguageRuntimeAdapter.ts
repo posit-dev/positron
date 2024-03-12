@@ -34,7 +34,8 @@ import { JupyterSessionState } from './JupyterSession';
 import { JupyterSerializedSession, workspaceStateKey } from './JupyterSessionSerialization';
 
 /**
- * LangaugeRuntimeAdapter wraps a JupyterKernel in a LanguageRuntime compatible interface.
+ * LangaugeRuntimeSessionAdapter wraps a JupyterKernel in a LanguageRuntime
+ * compatible interface.
  */
 export class LanguageRuntimeSessionAdapter
 	implements vscode.Disposable, positron.LanguageRuntimeSession {

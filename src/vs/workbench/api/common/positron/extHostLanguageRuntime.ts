@@ -182,7 +182,7 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 	 * runtime.
 	 */
 	private async runtimeManagerForRuntime(metadata: ILanguageRuntimeMetadata): Promise<LanguageRuntimeManager | undefined> {
-		// Doe we already have a manager for this runtime? This happens when we
+		// Do we already have a manager for this runtime? This happens when we
 		// look up a runtime manager for a runtime that has already been
 		// registered.
 		const managerById = this._runtimeManagersByRuntimeId.get(metadata.runtimeId);
@@ -640,8 +640,8 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 	 * @param sessionMode The mode in which the session is to be run.
 	 * @param notebookUri The URI of the notebook document, if in notebook mode.
 	 *
-	 * Returns a Thenable that resolves with the ID of the newly created
-	 * session, or rejects with an error.
+	 * Returns a Thenable that resolves with the newly created session, or
+	 * rejects with an error.
 	 */
 	public async startLanguageRuntime(runtimeId: string,
 		sessionName: string,
