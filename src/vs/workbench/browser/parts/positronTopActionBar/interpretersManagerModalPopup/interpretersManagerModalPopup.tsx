@@ -6,10 +6,10 @@ import 'vs/css!./interpretersManagerModalPopup';
 import * as React from 'react';
 import { PositronModalPopup } from 'vs/base/browser/ui/positronModalPopup/positronModalPopup';
 import { InterpreterGroups } from 'vs/workbench/browser/parts/positronTopActionBar/interpretersManagerModalPopup/interpreterGroups';
-import { PositronModalPopupReactRenderer } from 'vs/base/browser/ui/positronModalPopup/positronModalPopupReactRenderer';
 import { ILanguageRuntimeMetadata, ILanguageRuntimeService } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { IRuntimeSessionService } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
 import { IRuntimeStartupService } from 'vs/workbench/services/runtimeStartup/common/runtimeStartupService';
+import { PositronModalReactRenderer } from 'vs/base/browser/ui/positronModalReactRenderer/positronModalReactRenderer';
 
 /**
  * Shows the interpreters manager modal popup.
@@ -35,8 +35,8 @@ export const showInterpretersManagerModalPopup = async (
 ): Promise<void> => {
 	// Return a promise that resolves when the popup is done.
 	return new Promise<void>(resolve => {
-		// Create the modal popup React renderer.
-		const positronModalPopupReactRenderer = new PositronModalPopupReactRenderer(containerElement);
+		// Create the modal React renderer.
+		const positronModalReactRenderer = new PositronModalReactRenderer(containerElement);
 
 		// The modal popup component.
 		const ModalPopup = () => {
@@ -44,7 +44,7 @@ export const showInterpretersManagerModalPopup = async (
 			 * Dismisses the popup.
 			 */
 			const dismiss = () => {
-				positronModalPopupReactRenderer.destroy();
+				positronModalReactRenderer.dispose();
 				resolve();
 			};
 
@@ -63,12 +63,14 @@ export const showInterpretersManagerModalPopup = async (
 			// Render.
 			return (
 				<PositronModalPopup
+					renderer={positronModalReactRenderer}
 					containerElement={containerElement}
 					anchorElement={anchorElement}
 					popupPosition='bottom'
 					popupAlignment='right'
 					width={375}
 					height={'min-content'}
+					keyboardNavigation='menu'
 					onDismiss={() => dismiss()}
 				>
 					<InterpreterGroups
@@ -83,6 +85,6 @@ export const showInterpretersManagerModalPopup = async (
 		};
 
 		// Render the modal popup component.
-		positronModalPopupReactRenderer.render(<ModalPopup />);
+		positronModalReactRenderer.render(<ModalPopup />);
 	});
 };

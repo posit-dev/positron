@@ -1,0 +1,25 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *--------------------------------------------------------------------------------------------*/
+
+.positron-modal-popup
+.add-row-filter-modal-popup-body {
+	gap: 8px;
+	width: 100%;
+	padding: 10px;
+	display: flex;
+	flex-direction: column;
+}
+
+.positron-modal-popup
+.add-row-filter-modal-popup-body
+.button-apply-filter {
+	height: 26px;
+	padding: 4px;
+	display: flex;
+	border-radius: 4px;
+	align-items: center;
+	justify-content: center;
+	color: var(--vscode-positronModalDialog-defaultButtonForeground);
+	background-color: var(--vscode-positronModalDialog-defaultButtonBackground);
+}

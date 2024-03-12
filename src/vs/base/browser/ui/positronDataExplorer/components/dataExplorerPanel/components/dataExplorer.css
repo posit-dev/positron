@@ -1,0 +1,45 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *--------------------------------------------------------------------------------------------*/
+
+.data-explorer-panel
+.data-explorer {
+	min-width: 0;
+	min-height: 0;
+	display: grid;
+	overflow: hidden;
+	grid-template-rows: [row] 1fr [end];
+	grid-row: data-explorer / status-bar;
+}
+
+.data-explorer-panel
+.data-explorer
+.column-1 {
+	min-width: 0;
+	min-height: 0;
+	display: none;
+	grid-row: row / end;
+}
+
+.data-explorer-panel
+.data-explorer
+.splitter {
+	display: none;
+	grid-row: row / end;
+}
+
+.data-explorer-panel
+.data-explorer
+.splitter
+.vertical-splitter {
+	background-color: var(--vscode-positronDataExplorer-border);
+}
+
+.data-explorer-panel
+.data-explorer
+.column-2 {
+	min-width: 0;
+	min-height: 0;
+	display: none;
+	grid-row: row / end;
+}

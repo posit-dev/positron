@@ -272,7 +272,6 @@ export class PositronDataExplorerEditor extends EditorPane implements IReactComp
 						keybindingService={this._keybindingService}
 						layoutService={this._layoutService}
 						instance={positronDataExplorerInstance}
-						reactComponentContainer={this}
 					/>
 				);
 

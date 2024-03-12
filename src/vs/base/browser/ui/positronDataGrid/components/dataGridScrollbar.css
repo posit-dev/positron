@@ -4,14 +4,13 @@
 
 .data-grid
 .data-grid-scrollbar {
-	/* Column splitters are at a z-index of 25, so go higher than that. */
 	/* The Monaco sash is at a z-index of 35, so go lower than that. */
 	z-index: 26;
-	contain: strict;
+	/* contain: strict; */
 	position: absolute;
 	box-sizing: border-box;
 	/* Makes some devices run their hardware acceleration. */
-	transform: translate3d(0px, 0px, 0px);
+	/* transform: translate3d(0px, 0px, 0px); */
 	background-color: var(--vscode-positronDataGrid-background);
 }
 

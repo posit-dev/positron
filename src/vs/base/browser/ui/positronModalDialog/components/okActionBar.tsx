@@ -2,9 +2,15 @@
  *  Copyright (C) 2022 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
+// CSS>
 import 'vs/css!./okActionBar';
+
+// React.
 import * as React from 'react';
+
+// Other dependencies.
 import { localize } from 'vs/nls';
+import { Button } from 'vs/base/browser/ui/positronComponents/button/button';
 
 /**
  * okActionBarProps interface.
@@ -23,9 +29,9 @@ export const OKActionBar = (props: OKActionBarProps) => {
 	// Render.
 	return (
 		<div className='ok-action-bar top-separator'>
-			<a className='button action-bar-button default' tabIndex={0} role='button' onClick={props.accept}>
+			<Button className='action-bar-button default' onPressed={props.accept}>
 				{props.okButtonTitle ?? localize('positronOK', "OK")}
-			</a>
+			</Button>
 		</div>
 	);
 };

@@ -44,7 +44,9 @@ export class PositronDataExplorerInstance extends Disposable implements IPositro
 	/**
 	 * The onDidChangeLayout event emitter.
 	 */
-	private readonly _onDidChangeLayoutEmitter = this._register(new Emitter<PositronDataExplorerLayout>);
+	private readonly _onDidChangeLayoutEmitter = this._register(
+		new Emitter<PositronDataExplorerLayout>
+	);
 
 	/**
 	 * The onDidChangeColumnsWidthPercent event emitter.
@@ -70,8 +72,18 @@ export class PositronDataExplorerInstance extends Disposable implements IPositro
 
 		// Initialize.
 		this._dataExplorerClientInstance = dataExplorerClientInstance;
-		this._tableSchemaDataGridInstance = new TableSummaryDataGridInstance(dataExplorerClientInstance);
-		this._tableDataDataGridInstance = new TableDataDataGridInstance(dataExplorerClientInstance);
+		this._tableSchemaDataGridInstance = new TableSummaryDataGridInstance(
+			dataExplorerClientInstance
+		);
+		this._tableDataDataGridInstance = new TableDataDataGridInstance(
+			dataExplorerClientInstance
+		);
+
+		// Add event handlers.
+		this._register(this._tableSchemaDataGridInstance.onDidSelectColumn(columnIndex => {
+			this._tableDataDataGridInstance.selectColumn(columnIndex);
+			this._tableDataDataGridInstance.scrollToColumn(columnIndex);
+		}));
 	}
 
 	//#endregion Constructor & Dispose

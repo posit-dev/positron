@@ -26,6 +26,7 @@ import { // eslint-disable-line no-duplicate-imports
 	listHoverForeground,
 	listInactiveSelectionBackground,
 	listInactiveSelectionForeground,
+	menuBorder,
 	tableColumnsBorder,
 	selectBorder
 } from 'vs/platform/theme/common/colorRegistry';
@@ -1289,11 +1290,19 @@ export const POSITRON_RUNTIMES_MANAGER_ACTION_HOVER_BACKGROUND = registerColor('
 
 // Positron context menu background.
 export const POSITRON_CONTEXT_MENU_BACKGROUND = registerColor('positronContextMenu.background', {
-	dark: editorWidgetBackground,
-	light: editorWidgetBackground,
-	hcDark: editorWidgetBackground,
-	hcLight: editorWidgetBackground
+	dark: editorBackground,
+	light: editorBackground,
+	hcDark: editorBackground,
+	hcLight: editorBackground
 }, localize('positronContextMenu.background', "Positron context menu background color."));
+
+// Positron context menu foreground color.
+export const POSITRON_CONTEXT_MENU_FOREGROUND = registerColor('positronContextMenu.foreground', {
+	dark: foreground,
+	light: foreground,
+	hcDark: foreground,
+	hcLight: foreground
+}, localize('positronContextMenu.foreground', "Positron context menu foreground color."));
 
 // Positron context menu hover background.
 export const POSITRON_CONTEXT_MENU_HOVER_BACKGROUND = registerColor('positronContextMenu.hoverBackground', {
@@ -1318,6 +1327,15 @@ export const POSITRON_CONTEXT_MENU_ACTION_HOVER_BACKGROUND = registerColor('posi
 	hcDark: listActiveSelectionBackground,
 	hcLight: listActiveSelectionBackground
 }, localize('positronContextMenu.actionHoverBackground', "Positron context menu action hover background color."));
+
+// Positron context menu separator background.
+export const POSITRON_CONTEXT_MENU_SEPARATOR_BACKGROUND = registerColor('positronContextMenu.separatorBackground', {
+	dark: menuBorder,
+	light: menuBorder,
+	hcDark: menuBorder,
+	hcLight: menuBorder
+}, localize('positronContextMenu.separatorBackground', "Positron context menu separator background color."));
+
 
 // < --- Positron Side Action Bar --- >
 
@@ -1414,7 +1432,7 @@ export const POSITRON_MODAL_DIALOG_BACKGROUND = registerColor('positronModalDial
 // Positron modal dialog foreground color.
 export const POSITRON_MODAL_DIALOG_FOREGROUND = registerColor('positronModalDialog.foreground', {
 	dark: foreground,
-	light: '#000000',
+	light: foreground,
 	hcDark: foreground,
 	hcLight: foreground
 }, localize('positronModalDialog.foreground', "Positron modal dialog foreground color."));
@@ -1578,6 +1596,16 @@ export const POSITRON_MODAL_DIALOG_CHECKBOX_BORDER = registerColor('positronModa
 	hcDark: checkboxBorder,
 	hcLight: checkboxBorder
 }, localize('positronModalDialog.checkboxBorder', "Positron modal dialog checkbox border."));
+
+// < --- Positron Drop Down --- >
+
+// Positron modal dialog border color.
+export const POSITRON_DROP_DOWN_BORDER = registerColor('positronDropDown.border', {
+	dark: selectBorder,
+	light: selectBorder,
+	hcDark: selectBorder,
+	hcLight: selectBorder
+}, localize('positronDropDown.border', "Positron drop down border color."));
 
 // < --- Positron Console --- >
 

@@ -21,10 +21,6 @@
 	background: rgba(0, 0, 0, 0.2);
 }
 
-.positron-modal-dialog-shadow-container {
-	background: transparent;
-}
-
 .positron-modal-dialog-container {
 	animation: fade-in 0.25s;
 	top: 0;
@@ -49,7 +45,7 @@
 	box-shadow: 0 4px 8px 0 rgba(0, 0, 0, 0.1), 0 6px 20px 0 rgba(0, 0, 0, 0.1);
 }
 
-.positron-modal-dialog-box .button {
+.positron-modal-dialog-box .action-bar-button {
 	display: flex;
 	cursor: pointer;
 	border-radius: 5px;
@@ -60,28 +56,30 @@
 	background: var(--vscode-positronModalDialog-buttonBackground);
 }
 
-.positron-modal-dialog-box .button:hover {
+.positron-modal-dialog-box .action-bar-button:hover {
 	background: var(--vscode-positronModalDialog-buttonHoverBackground);
 }
 
 
-.positron-modal-dialog-box .button.default {
+.positron-modal-dialog-box .action-bar-button.default {
 	color: var(--vscode-positronModalDialog-defaultButtonForeground);
 	background: var(--vscode-positronModalDialog-defaultButtonBackground);
 }
 
-.positron-modal-dialog-box .button.default:hover {
+.positron-modal-dialog-box .action-bar-button.default:hover {
 	background: var(--vscode-positronModalDialog-defaultButtonHoverBackground);
 }
 
-.positron-modal-dialog-box .button:focus {
+.positron-modal-dialog-box .action-bar-button:focus {
 	outline: none;
 }
 
-.positron-modal-dialog-box .button:focus-visible {
+.positron-modal-dialog-box .action-bar-button:focus-visible {
 	outline-offset: 2px;
 	outline: 1px solid var(--vscode-focusBorder);
 }
+
+/**/
 
 .positron-modal-dialog-box .text-input {
 	width: 100%;

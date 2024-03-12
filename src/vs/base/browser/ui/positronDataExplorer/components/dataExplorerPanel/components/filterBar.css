@@ -1,0 +1,129 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *--------------------------------------------------------------------------------------------*/
+
+.data-explorer-panel
+.filter-bar {
+	padding: 8px;
+	display: grid;
+	grid-row: filter-bar / data-explorer;
+	border-bottom: 1px solid var(--vscode-positronDataExplorer-border);
+	grid-template-columns: [icon] 25px [gutter] 8px [filters] 1fr [end];
+	background-color: var(--vscode-positronDataExplorer-contrastBackground);
+}
+
+.data-explorer-panel
+.filter-bar
+.filter {
+	grid-column: icon / gutter;
+}
+
+.data-explorer-panel
+.filter-bar
+.filter
+.filter-button {
+	width: 25px;
+	height: 25px;
+	display: flex;
+	cursor: pointer;
+	border-radius: 3px;
+	position: relative;
+	align-items: center;
+	box-sizing: border-box;
+	justify-content: center;
+	border: 1px solid var(--vscode-positronDataExplorer-border);
+	background-color: var(--vscode-positronDataExplorer-background);
+}
+
+.data-explorer-panel
+.filter-bar
+.filter
+.filter-button:focus {
+	outline: none !important;
+}
+
+.data-explorer-panel
+.filter-bar
+.filter
+.filter-button:focus-visible {
+	border-radius: 3px;
+	outline: 1px solid var(--vscode-focusBorder) !important;
+}
+
+.data-explorer-panel
+.filter-bar
+.filter
+.filter-button
+.counter {
+	top: -6px;
+	right: -6px;
+	font-size: 60%;
+	font-weight: 600;
+	position: absolute;
+	background-color: var(--vscode-positronDataGrid-sortIndexForeground);
+	width: 14px;
+	height: 14px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	border-radius: 7px;
+	color: white;
+}
+
+.data-explorer-panel
+.filter-bar
+.filter-entries {
+	row-gap: 8px;
+	column-gap: 4px;
+	display: flex;
+	flex-wrap: wrap;
+	flex-direction: row;
+	grid-column: filters / end;
+}
+
+.data-explorer-panel
+.filter-bar
+.filter-entries
+.add-filter-button {
+	width: 25px;
+	height: 25px;
+	display: flex;
+	cursor: pointer;
+	border-radius: 3px;
+	align-items: center;
+	box-sizing: border-box;
+	justify-content: center;
+	border: 1px solid var(--vscode-positronDataExplorer-border);
+	background-color: var(--vscode-positronDataExplorer-background);
+}
+
+.data-explorer-panel
+.filter-bar
+.filter-entries
+.add-filter-button:focus {
+	outline: none !important;
+}
+
+.data-explorer-panel
+.filter-bar
+.filter-entries
+.add-filter-button:focus-visible {
+	border-radius: 3px;
+	outline: 1px solid var(--vscode-focusBorder) !important;
+}
+
+.data-explorer-panel
+.filter-bar
+.filter-entries
+.filter {
+	width: 90px;
+	height: 25px;
+	display: flex;
+	border-radius: 3px;
+	text-align: center;
+	align-items: center;
+	box-sizing: border-box;
+	justify-content: center;
+	border: 1px solid var(--vscode-positronDataExplorer-border);
+	background-color: var(--vscode-positronDataExplorer-background);
+}

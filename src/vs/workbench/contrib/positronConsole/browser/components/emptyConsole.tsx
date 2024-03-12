@@ -5,7 +5,7 @@
 import 'vs/css!./emptyConsole';
 import * as React from 'react';
 import { localize } from 'vs/nls';
-import { PositronButton } from 'vs/base/browser/ui/positronComponents/positronButton';
+import { PositronButton } from 'vs/base/browser/ui/positronComponents/button/positronButton';
 import { usePositronConsoleContext } from 'vs/workbench/contrib/positronConsole/browser/positronConsoleContext';
 import { PositronShowStartInterpreterAction } from 'vs/workbench/browser/parts/positronTopActionBar/positronTopActionBarActions';
 

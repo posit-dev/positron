@@ -10,7 +10,7 @@ import { IHostService } from 'vs/workbench/services/host/browser/host';
 import { IWorkspacesService } from 'vs/platform/workspaces/common/workspaces';
 import { IContextKeyService } from 'vs/platform/contextkey/common/contextkey';
 import { PositronModalPopup } from 'vs/base/browser/ui/positronModalPopup/positronModalPopup';
-import { PositronModalPopupReactRenderer } from 'vs/base/browser/ui/positronModalPopup/positronModalPopupReactRenderer';
+import { PositronModalReactRenderer } from 'vs/base/browser/ui/positronModalReactRenderer/positronModalReactRenderer';
 import { CustomFolderMenuItems } from 'vs/workbench/browser/parts/positronTopActionBar/customFolderModalPopup/customFolderMenuItems';
 
 /**
@@ -38,8 +38,8 @@ export const showCustomFolderModalPopup = async (
 
 	// Return a promise that resolves when the popup is done.
 	return new Promise<void>(resolve => {
-		// Create the modal popup React renderer.
-		const positronModalPopupReactRenderer = new PositronModalPopupReactRenderer(containerElement);
+		// Create the modal React renderer.
+		const positronModalReactRenderer = new PositronModalReactRenderer(containerElement);
 
 		// The modal popup component.
 		const ModalPopup = () => {
@@ -47,13 +47,14 @@ export const showCustomFolderModalPopup = async (
 			 * Dismisses the popup.
 			 */
 			const dismiss = () => {
-				positronModalPopupReactRenderer.destroy();
+				positronModalReactRenderer.dispose();
 				resolve();
 			};
 
 			// Render.
 			return (
 				<PositronModalPopup
+					renderer={positronModalReactRenderer}
 					containerElement={containerElement}
 					anchorElement={anchorElement}
 					popupPosition='bottom'
@@ -61,6 +62,7 @@ export const showCustomFolderModalPopup = async (
 					minWidth={275}
 					width={'max-content'}
 					height={'min-content'}
+					keyboardNavigation='menu'
 					onDismiss={() => dismiss()}
 				>
 					<CustomFolderMenuItems
@@ -76,6 +78,6 @@ export const showCustomFolderModalPopup = async (
 		};
 
 		// Render the modal popup component.
-		positronModalPopupReactRenderer.render(<ModalPopup />);
+		positronModalReactRenderer.render(<ModalPopup />);
 	});
 };

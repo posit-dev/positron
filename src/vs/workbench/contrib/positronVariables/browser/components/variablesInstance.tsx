@@ -11,7 +11,7 @@ import { DisposableStore } from 'vs/base/common/lifecycle';
 import { useStateRef } from 'vs/base/browser/ui/react/useStateRef';
 import { FixedSizeList as List, ListChildComponentProps } from 'react-window';
 import { IReactComponentContainer } from 'vs/base/browser/positronReactRenderer';
-import { VerticalSplitterResizeParams } from 'vs/base/browser/ui/positronComponents/verticalSplitter';
+import { VerticalSplitterResizeParams } from 'vs/base/browser/ui/positronComponents/splitters/verticalSplitter';
 import { VariableItem } from 'vs/workbench/contrib/positronVariables/browser/components/variableItem';
 import { VariableGroup } from 'vs/workbench/contrib/positronVariables/browser/components/variableGroup';
 import { VariablesEmpty } from 'vs/workbench/contrib/positronVariables/browser/components/variablesEmpty';
