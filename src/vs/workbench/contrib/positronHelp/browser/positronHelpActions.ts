@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
 import { localize } from 'vs/nls';
@@ -13,7 +13,6 @@ import { Action2 } from 'vs/platform/actions/common/actions';
 import { KeyChord, KeyCode, KeyMod } from 'vs/base/common/keyCodes';
 import { ServicesAccessor } from 'vs/platform/instantiation/common/instantiation';
 import { IPositronHelpService } from 'vs/workbench/contrib/positronHelp/browser/positronHelpService';
-import { ILanguageRuntimeService } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { IQuickInputService } from 'vs/platform/quickinput/common/quickInput';
 import { INotificationService } from 'vs/platform/notification/common/notification';
 import { ILanguageService } from 'vs/editor/common/languages/language';
@@ -22,6 +21,7 @@ import { EditorContextKeys } from 'vs/editor/common/editorContextKeys';
 import { PositronConsoleFocused } from 'vs/workbench/common/contextkeys';
 import { ContextKeyExpr } from 'vs/platform/contextkey/common/contextkey';
 import { IPositronConsoleService } from 'vs/workbench/services/positronConsole/browser/interfaces/positronConsoleService';
+import { IRuntimeSessionService } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
 
 export class ShowHelpAtCursor extends Action2 {
 	constructor() {
@@ -134,7 +134,7 @@ export class LookupHelpTopic extends Action2 {
 	async run(accessor: ServicesAccessor): Promise<void> {
 		const editorService = accessor.get(IEditorService);
 		const helpService = accessor.get(IPositronHelpService);
-		const runtimeService = accessor.get(ILanguageRuntimeService);
+		const sessionService = accessor.get(IRuntimeSessionService);
 		const quickInputService = accessor.get(IQuickInputService);
 		const notificationService = accessor.get(INotificationService);
 		const languageService = accessor.get(ILanguageService);
@@ -151,9 +151,9 @@ export class LookupHelpTopic extends Action2 {
 		// If no language ID from an open editor, try to get the language ID
 		// from the active runtime.
 		if (!languageId) {
-			const runtime = runtimeService.activeRuntime;
-			if (runtime) {
-				languageId = runtime.metadata.languageId;
+			const session = sessionService.foregroundSession;
+			if (session) {
+				languageId = session.runtimeMetadata.languageId;
 			} else {
 				const message = localize('positron.help.noInterpreters', "There are no interpreters running. Start an interpreter to look up help topics.");
 				notificationService.info(message);
@@ -161,11 +161,11 @@ export class LookupHelpTopic extends Action2 {
 			}
 		}
 
-		// Make sure we have a runtime for the language ID.
-		const runtimes = runtimeService.runningRuntimes;
+		// Make sure we have an active session for the language ID.
+		const sessions = sessionService.activeSessions;
 		let found = false;
-		for (const runtime of runtimes) {
-			if (runtime.metadata.languageId === languageId) {
+		for (const session of sessions) {
+			if (session.runtimeMetadata.languageId === languageId) {
 				found = true;
 				break;
 			}

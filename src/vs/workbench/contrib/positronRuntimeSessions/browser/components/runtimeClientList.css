@@ -1,0 +1,28 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *--------------------------------------------------------------------------------------------*/
+
+.runtime-client-list .table-header {
+	text-transform: uppercase;
+	font-weight: bold;
+}
+
+.runtime-client-list {
+	font-size: small;
+	margin-left: 10px;
+	margin-top: 10px;
+	margin-right: 10px;
+}
+
+.runtime-client-list table {
+	width: 100%;
+}
+
+table.sessions-list .runtime-client-list th,
+table.sessions-list .runtime-client-list td {
+	border-color: var(--vscode-panel-border);
+	border-style: solid;
+	border-width: 1px;
+	padding: 4px;
+	font-size: x-small;
+}

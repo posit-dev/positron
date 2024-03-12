@@ -5,7 +5,7 @@
 import * as vscode from 'vscode';
 import { runThatTest } from './runner-testthat';
 import { TestingTools } from './util-testing';
-import { Logger } from '../extension';
+import { LOGGER } from '../extension';
 
 function maybeEnqueue(
 	test: vscode.TestItem,
@@ -22,7 +22,7 @@ export async function runHandler(
 	request: vscode.TestRunRequest,
 	token: vscode.CancellationToken
 ) {
-	Logger.info('Test run started');
+	LOGGER.info('Test run started');
 	const run = testingTools.controller.createTestRun(request);
 	const queue: vscode.TestItem[] = [];
 	const explicitInclude = Boolean(request.include?.length);
@@ -52,7 +52,7 @@ export async function runHandler(
 				maybeEnqueue(test, queue, request.exclude);
 			}
 		});
-		Logger.info(`${queue.length} tests are enqueued`);
+		LOGGER.info(`${queue.length} tests are enqueued`);
 	}
 
 	while (!token.isCancellationRequested && (queue.length > 0 || runAllTests)) {
@@ -64,14 +64,14 @@ export async function runHandler(
 		const startDate = Date.now();
 		try {
 			if (runAllTests) {
-				Logger.info('Running all tests');
+				LOGGER.info('Running all tests');
 			} else {
-				Logger.info(`Running test with label "${test!.label}"`);
+				LOGGER.info(`Running test with label "${test!.label}"`);
 			}
 			const stdout = await runThatTest(testingTools, run, test);
-			Logger.debug(`Test output:\n${stdout}`);
+			LOGGER.debug(`Test output:\n${stdout}`);
 		} catch (error) {
-			Logger.error(`Run errored with reason: "${error}"`);
+			LOGGER.error(`Run errored with reason: "${error}"`);
 			if (test) {
 				run.errored(test, new vscode.TestMessage(String(error)), Date.now() - startDate);
 			}

@@ -95,6 +95,14 @@
 			"project": "vscode-workbench"
 		},
 		{
+			"name": "vs/workbench/services/runtimeSession",
+			"project": "vscode-workbench"
+		},
+		{
+			"name": "vs/workbench/services/runtimeStartup",
+			"project": "vscode-workbench"
+		},
+		{
 			"name": "vs/workbench/services/voiceRecognition",
 			"project": "vscode-workbench"
 		},
@@ -212,6 +220,10 @@
 		},
 		{
 			"name": "vs/workbench/contrib/positronModalDialogs",
+			"project": "vscode-workbench"
+		},
+		{
+			"name": "vs/workbench/contrib/positronRuntimeSessions",
 			"project": "vscode-workbench"
 		},
 		{

@@ -1,29 +1,37 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2022 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2022-2024 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
 import 'vs/css!./interpretersManagerModalPopup';
 import * as React from 'react';
 import { PositronModalPopup } from 'vs/base/browser/ui/positronModalPopup/positronModalPopup';
-import { PositronModalReactRenderer } from 'vs/base/browser/ui/positronModalReactRenderer/positronModalReactRenderer';
-import { ILanguageRuntime, ILanguageRuntimeService } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { InterpreterGroups } from 'vs/workbench/browser/parts/positronTopActionBar/interpretersManagerModalPopup/interpreterGroups';
+import { ILanguageRuntimeMetadata, ILanguageRuntimeService } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { IRuntimeSessionService } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
+import { IRuntimeStartupService } from 'vs/workbench/services/runtimeStartup/common/runtimeStartupService';
+import { PositronModalReactRenderer } from 'vs/base/browser/ui/positronModalReactRenderer/positronModalReactRenderer';
 
 /**
  * Shows the interpreters manager modal popup.
+ *
  * @param languageRuntimeService The language runtime service.
+ * @param runtimeStartupService The runtime stasrtup service.
+ * @param runtimeSessionService The runtime session service.
  * @param containerElement The container element.
  * @param anchorElement The anchor element for the modal popup.
  * @param onStartRuntime The start runtime event handler.
  * @param onActivateRuntime The activate runtime event handler.
+ *
  * @returns A promise that resolves when the popup is dismissed.
  */
 export const showInterpretersManagerModalPopup = async (
 	languageRuntimeService: ILanguageRuntimeService,
+	runtimeStartupService: IRuntimeStartupService,
+	runtimeSessionService: IRuntimeSessionService,
 	containerElement: HTMLElement,
 	anchorElement: HTMLElement,
-	onStartRuntime: (runtime: ILanguageRuntime) => Promise<void>,
-	onActivateRuntime: (runtime: ILanguageRuntime) => Promise<void>
+	onStartRuntime: (runtime: ILanguageRuntimeMetadata) => Promise<void>,
+	onActivateRuntime: (runtime: ILanguageRuntimeMetadata) => Promise<void>
 ): Promise<void> => {
 	// Return a promise that resolves when the popup is done.
 	return new Promise<void>(resolve => {
@@ -44,7 +52,7 @@ export const showInterpretersManagerModalPopup = async (
 			 * onActivateRuntime event handler.
 			 * @param runtime An ILanguageRuntime representing the runtime to activate.
 			 */
-			const activateRuntimeHandler = async (runtime: ILanguageRuntime): Promise<void> => {
+			const activateRuntimeHandler = async (runtime: ILanguageRuntimeMetadata): Promise<void> => {
 				// Activate the runtime.
 				await onActivateRuntime(runtime);
 
@@ -67,6 +75,8 @@ export const showInterpretersManagerModalPopup = async (
 				>
 					<InterpreterGroups
 						languageRuntimeService={languageRuntimeService}
+						runtimeAffiliationService={runtimeStartupService}
+						runtimeSessionService={runtimeSessionService}
 						onStartRuntime={onStartRuntime}
 						onActivateRuntime={activateRuntimeHandler}
 					/>

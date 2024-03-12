@@ -1,7 +1,6 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
-import * as crypto from 'crypto';
 import * as vscode from 'vscode';
 import * as positron from 'positron';
 import { NotebookRuntime } from './notebookRuntime';
@@ -70,20 +69,16 @@ export class NotebookController implements vscode.Disposable {
 				// Get the preferred runtime for this language.
 				const preferredRuntime = await positron.runtime.getPreferredRuntime(this.languageId);
 
-				// Create the updated metadata for the notebook's runtime.
-				const digest = crypto.createHash('sha256');
-				digest.update(preferredRuntime.metadata.runtimeId);
-				digest.update(e.notebook.uri.path);
-				const runtimeId = digest.digest('hex').substring(0, 32);
-				const runtimeName = preferredRuntime.metadata.runtimeName + ` (${e.notebook.uri.path})`;
-				const metadata = { ...preferredRuntime.metadata, runtimeId, runtimeName };
+				// Start a new runtime for the notebook.
+				const session = await positron.runtime.startLanguageRuntime(
+					preferredRuntime.runtimeId,
+					e.notebook.uri.path, // Use the notebook's path as the session name.
+					e.notebook.uri);
 
-				// Clone and start the runtime.
-				const runtime = preferredRuntime.clone(metadata, e.notebook);
-				const notebookRuntime = new NotebookRuntime(runtime);
+				const notebookRuntime = new NotebookRuntime(session);
 				this.notebookRuntimes.set(e.notebook, notebookRuntime);
-				await notebookRuntime.start();
-				trace(`Started runtime ${runtimeName} for notebook ${e.notebook.uri.path}`);
+
+				trace(`Started runtime ${preferredRuntime.runtimeName} for notebook ${e.notebook.uri.path}`);
 			}
 		}));
 	}

@@ -305,10 +305,10 @@ export const ConsoleInstance = (props: ConsoleInstanceProps) => {
 
 		// Add the onDidRequestRestart event handler.
 		disposableStore.add(props.positronConsoleInstance.onDidRequestRestart(() => {
-			const runtime = positronConsoleContext.activePositronConsoleInstance?.runtime;
-			if (runtime) {
-				positronConsoleContext.languageRuntimeService.restartRuntime(
-					runtime.metadata.runtimeId,
+			const session = positronConsoleContext.activePositronConsoleInstance?.session;
+			if (session) {
+				positronConsoleContext.runtimeSessionService.restartSession(
+					session.sessionId,
 					'Restart requested from activity in the Console tab');
 			}
 		}));
