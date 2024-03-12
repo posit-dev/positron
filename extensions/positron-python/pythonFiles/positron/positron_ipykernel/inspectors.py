@@ -622,6 +622,16 @@ class TorchTensorInspector(_BaseArrayInspector["torch.Tensor"]):
         #       memory-efficient way to do this?
         return self.value.detach().clone()
 
+    def get_size(self) -> int:
+        if self.value.ndim == 0:
+            return self.value.element_size()
+
+        num_elements = 1
+        for dim in self.value.shape:
+            num_elements *= dim
+
+        return num_elements * self.value.element_size()
+
 
 #
 # Maps
@@ -723,6 +733,7 @@ class PandasIndexInspector(BaseColumnInspector["pd.Index"]):
         "pandas.core.indexes.datetimes.DatetimeIndex",
         "pandas.core.indexes.range.RangeIndex",
         "pandas.core.indexes.multi.MultiIndex",
+        "pandas.core.indexes.numeric.Int64Index",
     ]
 
     def get_display_value(
@@ -871,7 +882,10 @@ class PolarsDataFrameInspector(BaseTableInspector["pl.DataFrame", "pl.Series"]):
         return (display_value, True)
 
     def equals(self, value: pl.DataFrame) -> bool:
-        return self.value.frame_equal(value)
+        try:
+            return self.value.equals(value)
+        except AttributeError:  # polars.DataFrame.equals was introduced in v0.19.16
+            return self.value.frame_equal(value)
 
     def copy(self) -> pl.DataFrame:
         # Polars produces a shallow clone and does not copy any memory
