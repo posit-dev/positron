@@ -150,9 +150,6 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 			documentNew(contents: string[], languageId: string, position: vscode.Position): Thenable<null> {
 				return extHostMethods.documentNew(contents, languageId, position);
 			},
-			navigateToFile(file: string): Thenable<null> {
-				return extHostMethods.navigateToFile(file);
-			},
 			showQuestion(title: string, message: string, okButtonTitle: string, cancelButtonTitle: string): Thenable<boolean> {
 				return extHostMethods.showQuestion(title, message, okButtonTitle, cancelButtonTitle);
 			},

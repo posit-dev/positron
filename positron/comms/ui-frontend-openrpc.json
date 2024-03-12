@@ -174,21 +174,6 @@
 			"result": {}
 		},
 		{
-			"name": "navigate_to_file",
-			"summary": "Open a file in the editor",
-			"description": "Use this to open a specific file in the editor",
-			"params": [
-				{
-					"name": "file",
-					"description": "The file to be opened",
-					"schema": {
-						"type": "string"
-					}
-				}
-			],
-			"result": {}
-		},
-		{
 			"name": "document_new",
 			"summary": "Create a new document with text contents",
 			"description": "Use this to create a new document with the given language ID and text contents",

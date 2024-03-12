@@ -270,19 +270,6 @@ export interface ExecuteCommandRequest {
 }
 
 /**
- * Request: Open a file in the editor
- *
- * Use this to open a specific file in the editor
- */
-export interface NavigateToFileRequest {
-	/**
-	 * The file to be opened
-	 */
-	file: string;
-
-}
-
-/**
  * Request: Create a new document with text contents
  *
  * Use this to create a new document with the given language ID and text
@@ -328,7 +315,6 @@ export enum UiFrontendRequest {
 	ShowQuestion = 'show_question',
 	DebugSleep = 'debug_sleep',
 	ExecuteCommand = 'execute_command',
-	NavigateToFile = 'navigate_to_file',
 	DocumentNew = 'document_new',
 	LastActiveEditorContext = 'last_active_editor_context'
 }

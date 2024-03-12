@@ -1138,17 +1138,7 @@ declare module 'positron' {
 		 * @returns A Thenable that resolves to true if the user clicked OK, or false
 		 *   if the user clicked Cancel.
 		 */
-		export function showQuestion(title: string,
-			message: string,
-			okButtonTitle: string,
-			cancelButtonTitle: string): Thenable<boolean>;
-
-		/**
-		 * Open a file in the editor.
-		 *
-		 * @param file The file to be opened.
-		 */
-		export function navigateToFile(file: string): Thenable<null>;
+		export function showQuestion(title: string, message: string, okButtonTitle: string, cancelButtonTitle: string): Thenable<boolean>;
 
 		/**
 		 * Executes a Positron command.
