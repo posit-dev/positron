@@ -5,7 +5,7 @@ matplotlib
 numpy
 pandas
 polars
-pytest
+pytest<8.1.1
 pytest-asyncio
 pytest-mock
 torch; python_version < '3.12'
