@@ -119,19 +119,19 @@ jobs:
         include:
           - os: 'ubuntu-latest'
             python: '3.8'
-            pytest-version: 'pytest'
+            pytest-version: 'pytest<8.1.1'
           - os: 'macos-latest'
             python: '3.9'
-            pytest-version: 'pytest'
+            pytest-version: 'pytest<8.1.1'
           - os: 'windows-latest'
             python: '3.10'
-            pytest-version: 'pytest'
+            pytest-version: 'pytest<8.1.1'
           - os: 'ubuntu-latest'
             python: '3.11'
-            pytest-version: 'pytest'
+            pytest-version: 'pytest<8.1.1'
           - os: 'ubuntu-latest'
             python: '3.12'
-            pytest-version: 'pytest'
+            pytest-version: 'pytest<8.1.1'
 
     steps:
       - name: Checkout
@@ -156,6 +156,7 @@ jobs:
 
       - name: Install specific pytest version
         run: python -m pytest --version
+
       - name: Install base Python requirements
         uses: brettcannon/pip-secure-install@v1
         with:
@@ -163,7 +164,7 @@ jobs:
           options: '-t "${{ env.special-working-directory-relative }}/pythonFiles/lib/python" --no-cache-dir --implementation py'
 
       - name: Install test requirements
-        run: python -m pip install --upgrade -r build/test-requirements.txt
+        run: python -m pip install -r build/test-requirements.txt
 
       - name: Run Python unit tests
         run: python pythonFiles/tests/run_all.py
