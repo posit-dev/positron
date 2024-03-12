@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 import * as vscode from 'vscode';
 // eslint-disable-next-line import/no-unresolved
@@ -44,7 +44,7 @@ export class PythonLsp implements vscode.Disposable {
         private readonly serviceContainer: IServiceContainer,
         private readonly _version: string,
         private readonly _clientOptions: LanguageClientOptions,
-        private readonly _notebook: vscode.NotebookDocument | undefined,
+        private readonly _notebookUri: vscode.Uri | undefined,
     ) {}
 
     /**
@@ -81,8 +81,8 @@ export class PythonLsp implements vscode.Disposable {
         // If this client belongs to a notebook, set the document selector to only include that notebook.
         // Otherwise, this is the main client for this language, so set the document selector to include
         // untitled Python files, in-memory Python files (e.g. the console), and Python files on disk.
-        this._clientOptions.documentSelector = this._notebook
-            ? [{ language: 'python', pattern: this._notebook.uri.path }]
+        this._clientOptions.documentSelector = this._notebookUri
+            ? [{ language: 'python', pattern: this._notebookUri.path }]
             : [
                   { language: 'python', scheme: 'untitled' },
                   { language: 'python', scheme: 'inmemory' }, // Console

@@ -9,7 +9,8 @@ import { IDisposableRegistry } from '../common/types';
 import { IInterpreterService } from '../interpreter/contracts';
 import { IServiceContainer } from '../ioc/types';
 import { traceError, traceInfo } from '../logging';
-import { createPythonRuntime, pythonRuntimeDiscoverer, PythonRuntimeProvider } from './provider';
+import { PythonRuntimeManager } from './manager';
+import { createPythonRuntimeMetadata } from './runtime';
 
 export async function activatePositron(
     activatedPromise: Promise<void>,
@@ -17,23 +18,12 @@ export async function activatePositron(
     serviceContainer: IServiceContainer,
 ): Promise<void> {
     try {
-        // Register the Python runtime provider (for a single runtime) with positron.
-        traceInfo('activatePositron: registering python runtime provider');
-        positron.runtime.registerLanguageRuntimeProvider(
-            'python',
-            new PythonRuntimeProvider(serviceContainer, pythonApi),
-        );
-
-        // Map of interpreter path to language runtime metadata, used to determine the runtimeId when
-        // switching the active interpreter path.
-        const runtimes = new Map<string, positron.LanguageRuntimeMetadata>();
+        traceInfo('activatePositron: creating runtime manager');
+        const manager = new PythonRuntimeManager(serviceContainer, pythonApi, activatedPromise);
 
         // Register the Python runtime discoverer (to find all available runtimes) with positron.
-        traceInfo('activatePositron: registering python runtime provider');
-        positron.runtime.registerLanguageRuntimeDiscoverer(
-            'python',
-            pythonRuntimeDiscoverer(serviceContainer, runtimes, activatedPromise, pythonApi),
-        );
+        traceInfo('activatePositron: registering python runtime manager');
+        positron.runtime.registerLanguageRuntimeManager(manager);
 
         // Wait for all extension components to be activated before registering event listeners
         traceInfo('activatePositron: awaiting extension activation');
@@ -45,7 +35,7 @@ export async function activatePositron(
         disposables.push(
             pythonApi.environments.onDidChangeActiveEnvironmentPath(async (event) => {
                 // Select the new runtime.
-                const runtimeMetadata = runtimes.get(event.path);
+                const runtimeMetadata = manager.registeredPythonRuntimes.get(event.path);
                 if (runtimeMetadata) {
                     positron.runtime.selectLanguageRuntime(runtimeMetadata.runtimeId);
                 } else {
@@ -60,7 +50,7 @@ export async function activatePositron(
             pythonApi.environments.onDidChangeEnvironments(async (event) => {
                 if (event.type === 'add') {
                     const interpreterPath = event.env.path;
-                    if (!runtimes.has(interpreterPath)) {
+                    if (!manager.registeredPythonRuntimes.has(interpreterPath)) {
                         // Get the interpreter corresponding to the new runtime.
                         const interpreterService = serviceContainer.get<IInterpreterService>(IInterpreterService);
                         const interpreter = await interpreterService.getInterpreterDetails(interpreterPath);
@@ -69,10 +59,10 @@ export async function activatePositron(
                         if (interpreter) {
                             // Set recommendedForWorkspace to false, since we change the active runtime
                             // in the onDidChangeActiveEnvironmentPath listener.
-                            const runtime = await createPythonRuntime(interpreter, serviceContainer, false, pythonApi);
-                            const runtimeMetadata = runtime.metadata;
-                            disposables.push(positron.runtime.registerLanguageRuntime(runtime));
-                            runtimes.set(interpreterPath, runtimeMetadata);
+                            const runtime = await createPythonRuntimeMetadata(interpreter, serviceContainer, false);
+
+                            // Register the runtime with Positron.
+                            manager.registerLanguageRuntime(runtime);
                         }
                     }
                 }
