@@ -31,6 +31,7 @@ from .data import (
     STRING_CASES,
     TIMESTAMP_CASES,
 )
+from .utils import get_type_as_str
 
 try:
     import torch  # type: ignore [reportMissingImports] for 3.12
@@ -629,10 +630,10 @@ def test_inspect_pandas_dataframe() -> None:
     rows, cols = value.shape
     verify_inspector(
         value=value,
-        display_value=f"[{rows} rows x {cols} columns] pandas.core.frame.DataFrame",
+        display_value=f"[{rows} rows x {cols} columns] {get_type_as_str(value)}",
         kind=VariableKind.Table,
         display_type=f"DataFrame [{rows}x{cols}]",
-        type_info="pandas.core.frame.DataFrame",
+        type_info=get_type_as_str(value),
         has_children=True,
         has_viewer=True,
         is_truncated=True,
@@ -672,7 +673,7 @@ def test_inspect_pandas_series() -> None:
         display_value="[0, 1]",
         kind=VariableKind.Map,
         display_type=f"int64 [{rows}]",
-        type_info="pandas.core.series.Series",
+        type_info=get_type_as_str(value),
         has_children=True,
         is_truncated=True,
         length=rows,
@@ -684,10 +685,10 @@ def test_inspect_polars_dataframe() -> None:
     rows, cols = value.shape
     verify_inspector(
         value=value,
-        display_value=f"[{rows} rows x {cols} columns] polars.dataframe.frame.DataFrame",
+        display_value=f"[{rows} rows x {cols} columns] {get_type_as_str(value)}",
         kind=VariableKind.Table,
         display_type=f"DataFrame [{rows}x{cols}]",
-        type_info="polars.dataframe.frame.DataFrame",
+        type_info=get_type_as_str(value),
         has_children=True,
         has_viewer=True,
         is_truncated=True,
@@ -703,7 +704,7 @@ def test_inspect_polars_series() -> None:
         display_value="[0, 1]",
         kind=VariableKind.Map,
         display_type=f"Int64 [{rows}]",
-        type_info="polars.series.series.Series",
+        type_info=get_type_as_str(value),
         has_children=True,
         is_truncated=True,
         length=rows,
