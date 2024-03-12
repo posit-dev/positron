@@ -38,7 +38,11 @@ def assert_dataset_registered(mock_datatool_service: Mock, obj: Any, title: str)
     passed_table, passed_title = call_args_list[0].args
 
     assert passed_title == title
-    assert passed_table.equals(obj)
+
+    try:
+        assert passed_table.equals(obj)
+    except AttributeError:  # polars.DataFrame.equals was introduced in v0.19.16
+        assert passed_table.frame_equal(obj)
 
 
 def comm_message(
@@ -114,3 +118,8 @@ def json_rpc_response(result: JsonData) -> JsonRecord:
             "result": result,
         }
     )
+
+
+# remove "<class '...'>" from value
+def get_type_as_str(value: Any) -> str:
+    return repr(type(value))[8:-2]
