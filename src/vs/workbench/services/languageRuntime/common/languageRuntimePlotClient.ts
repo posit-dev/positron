@@ -300,12 +300,67 @@ export class PlotClientInstance extends Disposable implements IPositronPlotClien
 	}
 
 	/**
+	 * Requests that the plot be rendered at a specific size, but does not
+	 * store the rendered plot to _lastRender. This is useful for previewing
+	 * plots without updating the plot's state.
+	 *
+	 * @param height The plot height, in pixels
+	 * @param width The plot width, in pixels
+	 * @param pixel_ratio The device pixel ratio (e.g. 1 for standard displays, 2 for retina displays)
+	 * @returns A promise that resolves when the render request is scheduled, or rejects with an error.
+	 */
+	public preview(height: number, width: number, pixel_ratio: number): Promise<IRenderedPlot> {
+		// Deal with whole pixels only
+		height = Math.floor(height);
+		width = Math.floor(width);
+
+		// Create a new deferred promise to track the render request
+		const request: RenderRequest = {
+			height,
+			width,
+			pixel_ratio
+		};
+		const deferred = new DeferredRender(request);
+
+		// Check which render request is currently pending. If we are currently
+		// rendering, then it's the queued render request. Otherwise, it's the
+		// current render request.
+		const pending = this._state === PlotClientState.Rendering ?
+			this._queuedRender : this._currentRender;
+
+		// If there is already a render request in flight, cancel it; this
+		// request supercedes it.
+		if (pending && !pending.isComplete) {
+			pending.cancel();
+		}
+
+		if (this._state === PlotClientState.Rendering) {
+			// We are currently rendering; don't start another render until we're done.
+			this._queuedRender = deferred;
+		} else {
+			// We are not currently rendering; start a new render. Render
+			// immediately if we have never rendered before; otherwise, throttle
+			// (debounce) the render.
+			this._currentRender = deferred;
+			this.scheduleRender(deferred, this._state === PlotClientState.Unrendered ? 0 : 500, true);
+		}
+
+		return deferred.promise;
+	}
+
+	public save(path: string, height: number, width: number): Promise<string> { //, height: number, width: number, pixel_ratio: number, format: string): Promise<string> {
+		// public save(path: string, height: number, width: number, pixel_ratio: number, format: string): Promise<string> {
+		return this._comm.save(path, height, width);
+		// return this._comm.save(path, height, width, pixel_ratio, format);
+	}
+
+	/**
 	 * Schedules the render request to be performed after a short delay.
 	 *
 	 * @param request The render request to schedule
 	 * @param delay The delay, in milliseconds
 	 */
-	private scheduleRender(request: DeferredRender, delay: number) {
+	private scheduleRender(request: DeferredRender, delay: number, preview = false) {
 
 		// If there is a render throttle timer, clear it
 		if (this._renderThrottleTimer) {
@@ -316,7 +371,7 @@ export class PlotClientInstance extends Disposable implements IPositronPlotClien
 		// throttle the request.
 		this._stateEmitter.fire(PlotClientState.RenderPending);
 		this._renderThrottleTimer = setTimeout(() => {
-			this.performDebouncedRender(request);
+			this.performDebouncedRender(request, preview);
 		}, delay);
 	}
 
@@ -325,7 +380,7 @@ export class PlotClientInstance extends Disposable implements IPositronPlotClien
 	 *
 	 * @param request The render request to perform
 	 */
-	private performDebouncedRender(request: DeferredRender) {
+	private performDebouncedRender(request: DeferredRender, preview = false) {
 		this._stateEmitter.fire(PlotClientState.Rendering);
 
 		// Record the time that the render started so we can estimate the render time
@@ -346,13 +401,17 @@ export class PlotClientInstance extends Disposable implements IPositronPlotClien
 
 					// The server returned a rendered plot image; save it and resolve the promise
 					const uri = `data:${response.mime_type};base64,${response.data}`;
-					this._lastRender = {
+					const renderResult = {
 						...request.renderRequest,
 						uri
 					};
-					request.complete(this._lastRender);
+					request.complete(renderResult);
+
+					if (!preview) {
+						this._lastRender = renderResult;
+					}
 					this._stateEmitter.fire(PlotClientState.Rendered);
-					this._completeRenderEmitter.fire(this._lastRender);
+					this._completeRenderEmitter.fire(renderResult);
 				}
 
 				// If there is a queued render request, promote it to the current

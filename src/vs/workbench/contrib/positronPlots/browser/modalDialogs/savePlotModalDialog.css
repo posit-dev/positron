@@ -2,18 +2,60 @@
  *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
-table {
+.plot-preview-input {
 	border-collapse: collapse;
 	border-spacing: 0;
-}
-
-td {
+	width: 100%;
 	padding: 3px;
+	display: flex;
+	flex-direction: column;
+	row-gap: 5px;
 }
 
+.horizontal-input {
+	display: flex;
+	flex-direction: row;
+	column-gap: 5px;
+}
+
+.plot-preview-container {
+	height: 100%;
+	columns: 2;
+	display: flex;
+	flex-direction: column;
+	row-gap: 10px;
+}
+
+img.plot-preview {
+	max-height: 80%;
+	max-width: 100%;
+	position: relative;
+	top: 50%;
+	left: 50%;
+	transform: translate(-50%, -50%);
+}
+
+.plot-save-dialog-action-bar {
+	display: flex;
+	position: absolute;
+	justify-content: space-between;
+	bottom: 0;
+	left: 0;
+	right: 0;
+	overflow: hidden;
+	height: 64px;
+	gap: 10px;
+	margin: 0 16px;
+}
+
+div.plot-preview-image-wrapper {
+	height: 100%;
+	width: auto;
+}
+
+.plot-save-dialog-action-bar .left,
 .plot-save-dialog-action-bar .right {
 	display: flex;
-	justify-content: right;
 	gap: 10px;
 	margin-top: 15px;
 }

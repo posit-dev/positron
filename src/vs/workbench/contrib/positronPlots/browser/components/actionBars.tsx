@@ -24,7 +24,6 @@ import { ZoomPlotMenuButton } from 'vs/workbench/contrib/positronPlots/browser/c
 import { PlotClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimePlotClient';
 import { StaticPlotClient } from 'vs/workbench/services/positronPlots/common/staticPlotClient';
 import { INotificationService } from 'vs/platform/notification/common/notification';
-// import { showSavePlotModalDialog } from 'vs/workbench/contrib/positronPlots/browser/modalDialogs/savePlotModalDialog';
 
 // Constants.
 const kPaddingLeft = 14;

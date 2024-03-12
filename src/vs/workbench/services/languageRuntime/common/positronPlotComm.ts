@@ -58,6 +58,26 @@ export class PositronPlotComm extends PositronBaseComm {
 		return super.performRpc('render', ['height', 'width', 'pixel_ratio'], [height, width, pixelRatio]);
 	}
 
+	/**
+	 * Save a plot
+	 *
+	 * Requests a plot to be saved to a file.
+	 *
+	 * @param path The path to save the plot to
+	 * @param height The requested plot height, in pixels
+	 * @param width The requested plot width, in pixels
+	 * @param pixelRatio The pixel ratio of the display device
+	 * @param format The format to save the plot in
+	 *
+	 * @returns The path to the saved plot
+	*/
+	// save(path: string, height: number, width: number, pixelRatio: number, format: string): Promise<string> {
+	// 	return super.performRpc('save', ['path', 'height', 'width', 'pixel_ratio', 'format'], [path, height, width, pixelRatio, format]);
+	// }
+	save(path: string, height: number, width: number): Promise<string> {
+		return super.performRpc('save', ['path', 'height', 'width'], [path, height, width]);
+	}
+
 
 	/**
 	 * Notification that a plot has been updated on the backend.

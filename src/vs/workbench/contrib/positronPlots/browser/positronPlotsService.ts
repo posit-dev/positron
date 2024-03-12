@@ -26,6 +26,8 @@ import { IPositronIPyWidgetsService } from 'vs/workbench/services/positronIPyWid
 import { Schemas } from 'vs/base/common/network';
 import { IFileDialogService } from 'vs/platform/dialogs/common/dialogs';
 import { decodeBase64 } from 'vs/base/common/buffer';
+import { showSavePlotModalDialog } from 'vs/workbench/contrib/positronPlots/browser/modalDialogs/savePlotModalDialog';
+import { IWorkbenchLayoutService } from 'vs/workbench/services/layout/browser/layoutService';
 
 /** The maximum number of recent executions to store. */
 const MaxRecentExecutions = 10;
@@ -99,7 +101,8 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 		@IPositronNotebookOutputWebviewService private _notebookOutputWebviewService: IPositronNotebookOutputWebviewService,
 		@IPositronIPyWidgetsService private _positronIPyWidgetsService: IPositronIPyWidgetsService,
 		@IFileService private readonly _fileService: IFileService,
-		@IFileDialogService private readonly _fileDialogService: IFileDialogService) {
+		@IFileDialogService private readonly _fileDialogService: IFileDialogService,
+		@IWorkbenchLayoutService private readonly _layoutService: IWorkbenchLayoutService) {
 		super();
 
 		// Register for language runtime service startups
@@ -669,54 +672,68 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 		if (this._selectedPlotId) {
 			const plot = this._plots.find(plot => plot.id === this._selectedPlotId);
 			if (plot) {
-				// TODO: if it's a static plot, save the image to disk
-				// if it's a dynamic plot, present options dialog
-				this._fileDialogService.showSaveDialog({
-					title: 'Save Plot',
-					filters:
-						[
-							{
-								extensions: ['png'],
-								name: 'PNG',
-							},
-							{
-								extensions: ['jpeg'],
-								name: 'JPEG',
-							}
-						],
-				}).then(result => {
-					if (result) {
-						const htmlFileSystemProvider = this._fileService.getProvider(Schemas.file) as HTMLFileSystemProvider;
-						let uri = '';
+				let uri = '';
 
-						if (plot instanceof StaticPlotClient) {
-							const staticPlot = plot as StaticPlotClient;
-							uri = staticPlot.uri;
-						} else if (plot instanceof PlotClientInstance) {
+				if (plot instanceof StaticPlotClient) {
+					// if it's a static plot, save the image to disk
+					const staticPlot = plot as StaticPlotClient;
+					uri = staticPlot.uri;
+					this.showSavePlotDialog(uri);
+				} else if (plot instanceof PlotClientInstance) {
+					const savePlotModalDialogProps = {
+						layoutService: this._layoutService,
+						fileDialogService: this._fileDialogService,
+						plotWidth: plot.lastRender?.width ?? 100,
+						plotHeight: plot.lastRender?.height ?? 100,
+						plotClient: plot,
+					};
+					// if it's a dynamic plot, present options dialog
+					showSavePlotModalDialog(savePlotModalDialogProps).then(result => {
+						if (result) {
 							const plotClient = plot as PlotClientInstance;
-							uri = plotClient.lastRender?.uri || '';
-						} else {
-							return;
+							// plotClient.preview(result.height, result.width, plot.lastRender?.pixel_ratio ?? 1).then(result => {
+							// 	this.showSavePlotDialog(result.uri);
+							// });
+							plotClient.save(result.path, result.height, result.width);
 						}
-
-						const regex = /^data:.+\/(.+);base64,(.*)$/;
-						const matches = uri.match(regex);
-
-						if (!matches || matches.length !== 3) {
-							return;
-						}
-
-						const data = matches[2];
-
-						htmlFileSystemProvider.writeFile(result, decodeBase64(data).buffer, { create: true, overwrite: true, unlock: true, atomic: false })
-							.then(() => {
-							});
-					}
-				});
+					});
+				} else {
+					// if it's a webview plot, do nothing
+					return;
+				}
 			}
 		}
 	}
 
+	showSavePlotDialog(uri: string) {
+		const regex = /^data:.+\/(.+);base64,(.*)$/;
+		const matches = uri.match(regex);
+
+		if (!matches || matches.length !== 3) {
+			return;
+		}
+
+		const data = matches[2];
+		const extension = matches[1];
+
+		this._fileDialogService.showSaveDialog({
+			title: 'Save Plot',
+			filters:
+				[
+					{
+						extensions: [extension],
+						name: extension.toUpperCase(),
+					},
+				],
+		}).then(result => {
+			if (result) {
+				const htmlFileSystemProvider = this._fileService.getProvider(Schemas.file) as HTMLFileSystemProvider;
+				htmlFileSystemProvider.writeFile(result, decodeBase64(data).buffer, { create: true, overwrite: true, unlock: true, atomic: false })
+					.then(() => {
+					});
+			}
+		});
+	}
 
 	/**
 	 * Generates a storage key for a plot.
