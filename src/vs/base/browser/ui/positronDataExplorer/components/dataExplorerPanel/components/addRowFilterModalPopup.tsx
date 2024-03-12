@@ -110,12 +110,14 @@ export const addRowFilterModalPopup = async (
 					<div className='add-row-filter-modal-popup-body'>
 						<ComboBox
 							layoutService={layoutService}
+							className='combo-box'
 							title='Select Column'
 							entries={conditionEntries}
 							onSelectionChanged={identifier => console.log(`Select Column changed to ${identifier}`)}
 						/>
 						<ComboBox
 							layoutService={layoutService}
+							className='combo-box'
 							title='Select Condition'
 							entries={conditionEntries}
 							onSelectionChanged={identifier => console.log(`Select Condition changed to ${identifier}`)}

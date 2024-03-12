@@ -39,6 +39,8 @@ interface Props {
 	disabled?: boolean;
 	ariaLabel?: string;
 	mouseTrigger?: MouseTrigger;
+	onFocus?: () => void;
+	onBlur?: () => void;
 	onPressed?: (e: KeyboardModifiers) => void;
 }
 
@@ -119,6 +121,8 @@ export const Button = forwardRef<HTMLButtonElement, PropsWithChildren<Props>>((p
 			role='button'
 			aria-label={props.ariaLabel}
 			aria-disabled={props.disabled ? 'true' : undefined}
+			onFocus={props.onFocus}
+			onBlur={props.onBlur}
 			onKeyDown={keyDownHandler}
 			onClick={clickHandler}
 			onMouseDown={mouseDownHandler}
@@ -127,3 +131,5 @@ export const Button = forwardRef<HTMLButtonElement, PropsWithChildren<Props>>((p
 		</button>
 	);
 });
+
+Button.displayName = 'Button';

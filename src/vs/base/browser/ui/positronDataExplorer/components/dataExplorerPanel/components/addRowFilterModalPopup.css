@@ -13,6 +13,12 @@
 
 .positron-modal-popup
 .add-row-filter-modal-popup-body
+.combo-box {
+	width: 100%;
+}
+
+.positron-modal-popup
+.add-row-filter-modal-popup-body
 .button-apply-filter {
 	height: 26px;
 	padding: 4px;

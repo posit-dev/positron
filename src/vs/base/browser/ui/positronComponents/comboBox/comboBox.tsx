@@ -16,8 +16,8 @@ import { ILayoutService } from 'vs/platform/layout/browser/layoutService';
 import { Button } from 'vs/base/browser/ui/positronComponents/button/button';
 import { PositronModalPopup } from 'vs/base/browser/ui/positronModalPopup/positronModalPopup';
 import { ComboBoxMenuSeparator } from 'vs/base/browser/ui/positronComponents/comboBox/comboBoxMenuSeparator';
-import { ComboBoxMenuItem, ComboBoxMenuItemOptions } from 'vs/base/browser/ui/positronComponents/comboBox/comboBoxMenuItem';
 import { PositronModalReactRenderer } from 'vs/base/browser/ui/positronModalReactRenderer/positronModalReactRenderer';
+import { ComboBoxMenuItem, ComboBoxMenuItemOptions } from 'vs/base/browser/ui/positronComponents/comboBox/comboBoxMenuItem';
 
 /**
  * ComboBoxProps interface.
@@ -28,7 +28,7 @@ interface ComboBoxProps {
 	disabled?: boolean;
 	title: string;
 	entries: (ComboBoxMenuItem | ComboBoxMenuSeparator)[];
-	onSelectionChanged: (identifier: string) => void;
+	onSelectionChanged: (identifier: string | undefined) => void;
 }
 
 /**
@@ -42,6 +42,7 @@ export const ComboBox = (props: ComboBoxProps) => {
 
 	// State hooks.
 	const [title, setTitle] = useState(props.title);
+	const [selectedTitle, setSelectedTitle] = useState<string | undefined>(undefined);
 
 	/**
 	 * Shows the drop down menu.
@@ -50,7 +51,7 @@ export const ComboBox = (props: ComboBoxProps) => {
 	 */
 	const showDropDownMenu = async (): Promise<void> => {
 		// Show the dropdown menu.
-		const identifier = await new Promise<string | undefined>(resolve => {
+		const selectedIdentifier = await new Promise<string | undefined>(resolve => {
 			// Get the container element for the combo box element.
 			const containerElement = props.layoutService.getContainer(
 				DOM.getWindow(comboBoxRef.current)
@@ -67,8 +68,16 @@ export const ComboBox = (props: ComboBoxProps) => {
 				 * Dismisses the popup.
 				 */
 				const dismiss = (result: string | undefined) => {
+					// Dispose of the modal popup.
 					positronModalReactRenderer.dispose();
+
+					// Clear the selected title.
+					setSelectedTitle(undefined);
+
+					// Focus the combo box so keyboard users do not lose their tab position.
 					comboBoxRef.current.focus();
+
+					// Resolve the promise.
 					resolve(result);
 				};
 
@@ -92,7 +101,10 @@ export const ComboBox = (props: ComboBoxProps) => {
 						<Button
 							className='item'
 							disabled={props.disabled}
-							onPressed={e => {
+							onFocus={() => {
+								setSelectedTitle(props.label);
+							}}
+							onPressed={() => {
 								setTitle(props.label);
 								dismiss(props.identifier);
 							}}
@@ -139,7 +151,7 @@ export const ComboBox = (props: ComboBoxProps) => {
 								if (entry instanceof ComboBoxMenuItem) {
 									return <MenuItem key={index} {...entry.options} />;
 								} else if (entry instanceof ComboBoxMenuSeparator) {
-									return <MenuSeparator />;
+									return <MenuSeparator key={index} />;
 								} else {
 									// This indicates a bug.
 									return null;
@@ -155,8 +167,8 @@ export const ComboBox = (props: ComboBoxProps) => {
 		});
 
 		// If the user selected an item, call the onSelectionChanged callback.
-		if (identifier) {
-			props.onSelectionChanged(identifier);
+		if (selectedIdentifier) {
+			props.onSelectionChanged(selectedIdentifier);
 		}
 	};
 
@@ -173,7 +185,7 @@ export const ComboBox = (props: ComboBoxProps) => {
 			}
 			onPressed={showDropDownMenu}
 		>
-			<div className='title'>{title}</div>
+			<div className='title'>{selectedTitle ?? title}</div>
 			<div className='chevron' aria-hidden='true'>
 				<div className='codicon codicon-chevron-down' />
 			</div>

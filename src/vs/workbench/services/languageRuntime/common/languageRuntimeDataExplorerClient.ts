@@ -6,14 +6,7 @@ import { Emitter, Event } from 'vs/base/common/event';
 import { Disposable } from 'vs/base/common/lifecycle';
 import { generateUuid } from 'vs/base/common/uuid';
 import { IRuntimeClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimeClientInstance';
-import {
-	ColumnSortKey,
-	PositronDataExplorerComm,
-	SchemaUpdateEvent,
-	TableData,
-	TableSchema,
-	TableState
-} from 'vs/workbench/services/languageRuntime/common/positronDataExplorerComm';
+import { ColumnSortKey, PositronDataExplorerComm, SchemaUpdateEvent, TableData, TableSchema, TableState } from 'vs/workbench/services/languageRuntime/common/positronDataExplorerComm';
 
 /**
  * A data explorer client instance.
@@ -30,6 +23,16 @@ export class DataExplorerClientInstance extends Disposable {
 	 * Gets the PositronDataExplorerComm.
 	 */
 	private readonly _positronDataExplorerComm: PositronDataExplorerComm;
+
+	/**
+	 * The schemaUpdate event emitter.
+	 */
+	private readonly _schemaUpdateEmitter = this._register(new Emitter<SchemaUpdateEvent>());
+
+	/**
+	 * The dataUpdate event emitter.
+	 */
+	private readonly _dataUpdateEmitter = this._register(new Emitter<void>());
 
 	//#endregion Private Properties
 
@@ -78,6 +81,26 @@ export class DataExplorerClientInstance extends Disposable {
 
 	//#endregion Public Properties
 
+	//#region Public Events
+
+	/**
+	 * Event that fires when the data explorer is closed on the runtime side, as a result of
+	 * a dataset being deallocated or overwritten with a non-dataset.
+	 */
+	onDidClose: Event<void>;
+
+	/**
+	 * Event that fires when the schema has been updated.
+	 */
+	onDidSchemaUpdate = this._schemaUpdateEmitter.event;
+
+	/**
+	 * Event that fires when the data has been updated.
+	 */
+	onDidDataUpdate = this._dataUpdateEmitter.event;
+
+	//#endregion Public Events
+
 	//#region Public Methods
 
 	/**
@@ -121,27 +144,4 @@ export class DataExplorerClientInstance extends Disposable {
 	}
 
 	//#endregion Public Methods
-
-	//#region Public Events
-
-
-	/**
-	 * Event that fires when the data explorer is closed on the runtime side, as a result of
-	 * a dataset being deallocated or overwritten with a non-dataset.
-	 */
-	onDidClose: Event<void>;
-
-	/**
-	 * Event that fires when the schema has been updated.
-	 */
-	onDidSchemaUpdate: Event<SchemaUpdateEvent>;
-	private readonly _schemaUpdateEmitter = new Emitter<SchemaUpdateEvent>();
-
-	/**
-	 * Event that fires when the data has been updated.
-	 */
-	onDidDataUpdate: Event<void>;
-	private readonly _dataUpdateEmitter = new Emitter<void>();
-
-	//#endregion Public Events
 }
