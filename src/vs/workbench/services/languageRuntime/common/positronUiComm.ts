@@ -215,6 +215,34 @@ export interface WorkingDirectoryEvent {
 }
 
 /**
+ * Request: Show a question
+ *
+ * Use this for a modal dialog that the user can accept or cancel
+ */
+export interface ShowQuestionRequest {
+	/**
+	 * The title of the dialog
+	 */
+	title: string;
+
+	/**
+	 * The message to display in the dialog
+	 */
+	message: string;
+
+	/**
+	 * The title of the OK button
+	 */
+	ok_button_title: string;
+
+	/**
+	 * The title of the Cancel button
+	 */
+	cancel_button_title: string;
+
+}
+
+/**
  * Request: Sleep for n seconds
  *
  * Useful for testing in the backend a long running frontend method
@@ -255,6 +283,30 @@ export interface NavigateToFileRequest {
 }
 
 /**
+ * Request: Create a new document with text contents
+ *
+ * Use this to create a new document with the given language ID and text
+ * contents
+ */
+export interface DocumentNewRequest {
+	/**
+	 * Document contents
+	 */
+	contents: Array<string>;
+
+	/**
+	 * Language identifier
+	 */
+	language_id: string;
+
+	/**
+	 * A line and character position for the position of the cursor
+	 */
+	position: Position;
+
+}
+
+/**
  * Request: Context metadata for the last editor
  *
  * Returns metadata such as file path for the last editor selected by the
@@ -273,9 +325,11 @@ export enum UiFrontendEvent {
 }
 
 export enum UiFrontendRequest {
+	ShowQuestion = 'show_question',
 	DebugSleep = 'debug_sleep',
 	ExecuteCommand = 'execute_command',
 	NavigateToFile = 'navigate_to_file',
+	DocumentNew = 'document_new',
 	LastActiveEditorContext = 'last_active_editor_context'
 }
 

@@ -64,7 +64,7 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 	const extHostPreviewPanels = rpcProtocol.set(ExtHostPositronContext.ExtHostPreviewPanel, new ExtHostPreviewPanels(rpcProtocol, extHostWebviews, extHostWorkspace));
 	const extHostModalDialogs = rpcProtocol.set(ExtHostPositronContext.ExtHostModalDialogs, new ExtHostModalDialogs(rpcProtocol));
 	const extHostConsoleService = rpcProtocol.set(ExtHostPositronContext.ExtHostConsoleService, new ExtHostConsoleService(rpcProtocol, extHostLogService));
-	const extHostMethods = rpcProtocol.set(ExtHostPositronContext.ExtHostMethods, new ExtHostMethods(rpcProtocol, extHostEditors, extHostCommands));
+	const extHostMethods = rpcProtocol.set(ExtHostPositronContext.ExtHostMethods, new ExtHostMethods(rpcProtocol, extHostEditors, extHostCommands, extHostModalDialogs));
 
 	return function (extension: IExtensionDescription, extensionInfo: IExtensionRegistries, configProvider: ExtHostConfigProvider): typeof positron {
 
@@ -147,8 +147,14 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 			lastActiveEditorContext(): Thenable<positron.EditorContext | null> {
 				return extHostMethods.lastActiveEditorContext();
 			},
+			documentNew(contents: string[], languageId: string, position: vscode.Position): Thenable<null> {
+				return extHostMethods.documentNew(contents, languageId, position);
+			},
 			navigateToFile(file: string): Thenable<null> {
 				return extHostMethods.navigateToFile(file);
+			},
+			showQuestion(title: string, message: string, okButtonTitle: string, cancelButtonTitle: string): Thenable<boolean> {
+				return extHostMethods.showQuestion(title, message, okButtonTitle, cancelButtonTitle);
 			},
 			executeCommand(commandId: string): Thenable<null> {
 				return extHostMethods.executeCommand(commandId);

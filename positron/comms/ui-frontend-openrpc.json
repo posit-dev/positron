@@ -68,6 +68,47 @@
 			]
 		},
 		{
+			"name": "show_question",
+			"summary": "Show a question",
+			"description": "Use this for a modal dialog that the user can accept or cancel",
+			"params": [
+				{
+					"name": "title",
+					"description": "The title of the dialog",
+					"schema": {
+						"type": "string"
+					}
+				},
+				{
+					"name": "message",
+					"description": "The message to display in the dialog",
+					"schema": {
+						"type": "string"
+					}
+				},
+				{
+					"name": "ok_button_title",
+					"description": "The title of the OK button",
+					"schema": {
+						"type": "string"
+					}
+				},
+				{
+					"name": "cancel_button_title",
+					"description": "The title of the Cancel button",
+					"schema": {
+						"type": "string"
+					}
+				}
+			],
+			"result": {
+				"schema": {
+					"type": "boolean",
+					"description": "Whether the user accepted or rejected the dialog."
+				}
+			}
+		},
+		{
 			"name": "prompt_state",
 			"summary": "New state of the primary and secondary prompts",
 			"description": "Languages like R allow users to change the way their prompts look. This event signals a change in the prompt configuration.",
@@ -148,6 +189,38 @@
 			"result": {}
 		},
 		{
+			"name": "document_new",
+			"summary": "Create a new document with text contents",
+			"description": "Use this to create a new document with the given language ID and text contents",
+			"params": [
+				{
+					"name": "contents",
+					"description": "Document contents",
+					"schema": {
+						"type": "array",
+						"items": {
+							"type": "string"
+						}
+					}
+				},
+				{
+					"name": "language_id",
+					"description": "Language identifier",
+					"schema": {
+						"type": "string"
+					}
+				},
+				{
+					"name": "position",
+					"description": "A line and character position for the position of the cursor",
+					"schema": {
+						"$ref": "#/components/schemas/position"
+					}
+				}
+			],
+			"result": {}
+		},
+		{
 			"name": "last_active_editor_context",
 			"summary": "Context metadata for the last editor",
 			"description": "Returns metadata such as file path for the last editor selected by the user. The result may be undefined if there are no active editors.",
@@ -206,7 +279,7 @@
 						"type": "string",
 						"description": "End of line sequence"
 					},
- 					"is_closed": {
+					"is_closed": {
 						"type": "boolean",
 						"description": "Whether the document has been closed"
 					},
