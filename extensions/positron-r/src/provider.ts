@@ -10,11 +10,11 @@ import * as vscode from 'vscode';
 import * as which from 'which';
 import * as positron from 'positron';
 import * as crypto from 'crypto';
+import * as winreg from 'winreg';
 
 import { RInstallation, RMetadataExtra, getRHomePath } from './r-installation';
 import { LOGGER } from './extension';
 import { readLines } from './util';
-import { HKEY } from '@vscode/windows-registry';
 
 /**
  * Discovers R language runtimes for Positron; implements
@@ -307,8 +307,8 @@ export async function findCurrentRBinary(): Promise<string | undefined> {
 }
 
 async function findCurrentRBinaryFromRegistry(): Promise<string | undefined> {
-	const userPath = await getRegistryInstallPath('HKEY_CURRENT_USER');
-	const machinePath = await getRegistryInstallPath('HKEY_LOCAL_MACHINE');
+	const userPath = await getRegistryInstallPath(winreg.HKCU);
+	const machinePath = await getRegistryInstallPath(winreg.HKLM);
 	if (!userPath && !machinePath) {
 		return undefined;
 	}
@@ -323,11 +323,7 @@ async function findCurrentRBinaryFromRegistry(): Promise<string | undefined> {
 	return binPath;
 }
 
-async function getRegistryInstallPath(hive: 'HKEY_CURRENT_USER' | 'HKEY_LOCAL_MACHINE'): Promise<string | undefined> {
-	// 'R64' here is another place where we explicitly ignore 32-bit R
-	const R64_KEY: string = 'Software\\R-Core\\R64';
-	const registry = await import('@vscode/windows-registry');
-
+async function getRegistryInstallPath(hive: string): Promise<string | undefined> {
 	try {
 		LOGGER.info(`Checking for 'InstallPath' in registry key ${R64_KEY} for hive ${hive}`);
 		const pth = registry.GetStringRegKey(hive as HKEY, R64_KEY, 'InstallPath') || '';
