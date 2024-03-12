@@ -382,7 +382,18 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 		// Restore the session. This can take some time; it may involve waiting
 		// for the extension to finish activating and the network to attempt to
 		// reconnect, etc.
-		const session = await this._sessionManager.restoreSession(runtimeMetadata, sessionMetadata);
+		let session: ILanguageRuntimeSession;
+		try {
+			session = await this._sessionManager.restoreSession(runtimeMetadata, sessionMetadata);
+		} catch (err) {
+			this._logService.error(
+				`Reconnecting to session '${sessionMetadata.sessionId}' for language runtime ` +
+				`${formatLanguageRuntimeMetadata(runtimeMetadata)} failed. Reason: ${err}`);
+			startPromise.error(err);
+			this._startingRuntimesByRuntimeId.delete(runtimeMetadata.runtimeId);
+			this._startingConsolesByLanguageId.delete(runtimeMetadata.languageId);
+			throw err;
+		}
 
 		// Actually reconnect the session.
 		try {
@@ -669,8 +680,21 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 			startReason: source
 		};
 
-		// Provision the session.
-		const session = await this._sessionManager.createSession(runtimeMetadata, sessionMetadata);
+		// Provision the new session.
+		let session: ILanguageRuntimeSession;
+		try {
+			session = await this._sessionManager.createSession(runtimeMetadata, sessionMetadata);
+		} catch (err) {
+			this._logService.error(
+				`Creating session for language runtime ` +
+				`${formatLanguageRuntimeMetadata(runtimeMetadata)} failed. Reason: ${err}`);
+			startPromise.error(err);
+			this._startingRuntimesByRuntimeId.delete(runtimeMetadata.runtimeId);
+			this._startingConsolesByLanguageId.delete(runtimeMetadata.languageId);
+
+			// Re-throw the error.
+			throw err;
+		}
 
 		// Actually start the session.
 		try {
@@ -683,6 +707,12 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 		return sessionId;
 	}
 
+	/**
+	 * Internal method to start a runtime session.
+	 *
+	 * @param session The session to start.
+	 * @param isNew Whether the session is new.
+	 */
 	private async doStartRuntimeSession(session: ILanguageRuntimeSession, isNew: boolean):
 		Promise<void> {
 
@@ -724,8 +754,10 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 			// Fire the onDidFailStartRuntime event.
 			this._onDidFailStartRuntimeEmitter.fire(session);
 
-			// TODO@softwarenerd - We should do something with the reason.
 			this._logService.error(`Starting language runtime failed. Reason: ${reason}`);
+
+			// Rethrow the error.
+			throw reason;
 		}
 	}
 
