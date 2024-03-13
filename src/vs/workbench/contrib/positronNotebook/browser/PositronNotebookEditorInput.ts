@@ -188,7 +188,7 @@ export class PositronNotebookEditorInput extends EditorInput {
 			return null;
 		}
 
-		// If we dont already have a model hooked up. We need to that.
+		// If we dont already have a model hooked up. We need to do that.
 		if (!this._editorModelReference) {
 			// Look for the model reference using the resolver service.
 			const ref = await this._notebookModelResolverService.resolve(this.resource, this.viewType);
