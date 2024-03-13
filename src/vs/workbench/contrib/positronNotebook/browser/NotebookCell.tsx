@@ -4,7 +4,6 @@
 import 'vs/css!./NotebookCell';
 
 import * as React from 'react';
-import { PositronButton } from 'vs/base/browser/ui/positronComponents/positronButton';
 import { VSBuffer } from 'vs/base/common/buffer';
 import { NotebookCellOutputTextModel } from 'vs/workbench/contrib/notebook/common/model/notebookCellOutputTextModel';
 import { ICellOutput } from 'vs/workbench/contrib/notebook/common/notebookCommon';
@@ -13,6 +12,7 @@ import { parseOutputData } from 'vs/workbench/contrib/positronNotebook/browser/g
 import { useObservedValue } from 'vs/workbench/contrib/positronNotebook/browser/useObservedValue';
 import { useCellEditorWidget } from './useCellEditorWidget';
 import { localize } from 'vs/nls';
+import { Button } from 'vs/base/browser/ui/positronComponents/button/button';
 
 /**
  * Logic for running a cell and handling its output.
@@ -33,19 +33,19 @@ export function NotebookCell(opts: {
 			data-status={executionStatus}
 		>
 			<div className='action-bar'>
-				<PositronButton
+				<Button
 					className='action-button'
 					ariaLabel={isRunning ? localize('stopExecution', 'Stop execution') : localize('runCell', 'Run cell')}
 					onPressed={() => opts.cell.run()} >
 					<div className={`button-icon codicon ${isRunning ? 'codicon-primitive-square' : 'codicon-run'}`} />
-				</PositronButton>
-				<PositronButton
+				</Button>
+				<Button
 					className='action-button'
 					ariaLabel={localize('deleteCell', 'Delete cell')}
 					onPressed={() => opts.cell.delete()}
 				>
 					<div className='button-icon codicon codicon-trash' />
-				</PositronButton>
+				</Button>
 			</div>
 			<div className='cell-contents'>
 				<div ref={editorPartRef}>

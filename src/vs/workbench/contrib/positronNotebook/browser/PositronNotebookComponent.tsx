@@ -5,12 +5,12 @@
 import 'vs/css!./PositronNotebookComponent';
 
 import * as React from 'react';
-import { PositronButton } from 'vs/base/browser/ui/positronComponents/positronButton';
 import { useNotebookInstance } from 'vs/workbench/contrib/positronNotebook/browser/NotebookInstanceProvider';
 import { NotebookCell } from './NotebookCell';
 import { AddCellButton } from './AddCellButton';
 import { useObservedValue } from './useObservedValue';
 import { localize } from 'vs/nls';
+import { Button } from 'vs/base/browser/ui/positronComponents/button/button';
 
 
 export function PositronNotebookComponent() {
@@ -24,7 +24,7 @@ export function PositronNotebookComponent() {
 			</div>
 			<div className='positron-notebook-cells-container'>
 				<div className='positron-notebook-cells-action-bar'>
-					<PositronButton
+					<Button
 						className='action action-button run-button'
 						ariaLabel={localize('runAllCells', 'Run all cells')}
 						onPressed={() => { notebookInstance.runAllCells(); }}
@@ -32,7 +32,7 @@ export function PositronNotebookComponent() {
 						<span className='action-label'>
 							{localize('runAllCells', 'Run all cells')}</span>
 						<div className={`button-icon codicon ${'codicon-run'}`} />
-					</PositronButton>
+					</Button>
 				</div>
 				<AddCellButton index={0} />
 				{notebookCells?.length ? notebookCells?.map((cell, index) => <>

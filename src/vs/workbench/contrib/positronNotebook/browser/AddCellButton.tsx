@@ -4,15 +4,15 @@
 import 'vs/css!./AddCellButton';
 
 import * as React from 'react';
-import { PositronButton } from 'vs/base/browser/ui/positronComponents/positronButton';
 import { useNotebookInstance } from 'vs/workbench/contrib/positronNotebook/browser/NotebookInstanceProvider';
 import { localize } from 'vs/nls';
+import { Button } from 'vs/base/browser/ui/positronComponents/button/button';
 
 export function AddCellButton({ index }: { index: number }) {
 	const notebookInstance = useNotebookInstance();
 
 	return <div className='positron-add-cell-button'>
-		<PositronButton
+		<Button
 			className='action action-button'
 			ariaLabel={localize('addCell', 'Add cell')}
 			onPressed={() => {
@@ -21,6 +21,6 @@ export function AddCellButton({ index }: { index: number }) {
 		>
 			<span className='action-label'>Add Cell</span>
 			<div className='button-icon codicon codicon-plus' />
-		</PositronButton>
+		</Button>
 	</div>;
 }
