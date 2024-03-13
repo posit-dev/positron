@@ -6,7 +6,22 @@ import { Emitter, Event } from 'vs/base/common/event';
 import { Disposable } from 'vs/base/common/lifecycle';
 import { generateUuid } from 'vs/base/common/uuid';
 import { IRuntimeClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimeClientInstance';
-import { ColumnSortKey, PositronDataExplorerComm, SchemaUpdateEvent, TableData, TableSchema, TableState } from 'vs/workbench/services/languageRuntime/common/positronDataExplorerComm';
+import { ColumnSchema, ColumnSortKey, PositronDataExplorerComm, SchemaUpdateEvent, TableData, TableSchema, TableState } from 'vs/workbench/services/languageRuntime/common/positronDataExplorerComm';
+
+/**
+ * TableSchemaSearchResult interface.
+ */
+export interface TableSchemaSearchResult {
+	/**
+	 * The number of matching columns.
+	 */
+	matching_columns: number;
+
+	/**
+	 * Column schema for the matching columns.
+	 */
+	columns: Array<ColumnSchema>;
+}
 
 /**
  * A data explorer client instance.
@@ -104,7 +119,15 @@ export class DataExplorerClientInstance extends Disposable {
 	//#region Public Methods
 
 	/**
-	 * Gets the schema.
+	 * Get the current active state of the data explorer backend.
+	 * @returns A promose that resolves to the current table state.
+	 */
+	async getState(): Promise<TableState> {
+		return this._positronDataExplorerComm.getState();
+	}
+
+	/**
+	 * Gets the table schema.
 	 * @returns A promise that resolves to the table schema.
 	 */
 	async getSchema(startIndex: number, numColumns: number): Promise<TableSchema> {
@@ -112,11 +135,45 @@ export class DataExplorerClientInstance extends Disposable {
 	}
 
 	/**
-	 * Get the current active state of the data explorer backend.
-	 * @returns A promose that resolves to the current table state.
+	 * Searches the table schema.
+	 * @returns A promise that resolves to the table schema search result.
 	 */
-	async getState(): Promise<TableState> {
-		return this._positronDataExplorerComm.getState();
+	async searchSchema(
+		startIndex: number,
+		searchTerm: string | undefined,
+		maxNumColumns: number
+	): Promise<TableSchemaSearchResult> {
+		/**
+		 * Brute force temporary implementation.
+		 */
+
+		// Get the table state so we know now many columns there are.
+		const tableState = await this._positronDataExplorerComm.getState();
+
+		// Load the entire schema of the table so it can be searched.
+		const tableSchema = await this._positronDataExplorerComm.getSchema(
+			startIndex,
+			tableState.table_shape.num_columns
+		);
+
+		// If a search term was not supplied, return the result.
+		if (!searchTerm) {
+			return {
+				matching_columns: tableSchema.columns.length,
+				columns: tableSchema.columns.slice(0, maxNumColumns)
+			};
+		} else {
+			// Search the columns.
+			const columns = tableSchema.columns.filter(columnSchema =>
+				columnSchema.column_name.includes(searchTerm)
+			);
+
+			// Return the result.
+			return {
+				matching_columns: columns.length,
+				columns: columns.slice(0, maxNumColumns)
+			};
+		}
 	}
 
 	/**
