@@ -23,7 +23,8 @@
         "testObserver",
         "quickPickItemTooltip",
         "terminalDataWriteEvent",
-        "terminalExecuteCommandEvent"
+        "terminalExecuteCommandEvent",
+        "contribIssueReporter"
     ],
     "author": {
         "name": "Posit Software, PBC",
@@ -1272,6 +1273,11 @@
             }
         ],
         "menus": {
+            "issue/reporter": [
+				{
+					"command": "python.reportIssue"
+				}
+			],
             "commandPalette": [
                 {
                     "category": "Python",
