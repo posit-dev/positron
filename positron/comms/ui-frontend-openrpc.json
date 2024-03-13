@@ -173,31 +173,6 @@
 			]
 		},
 		{
-			"name": "document_new",
-			"summary": "Create a new document with text contents",
-			"description": "Use this to create a new document with the given language ID and text contents",
-			"params": [
-				{
-					"name": "contents",
-					"description": "Document contents",
-					"schema": {
-						"type": "array",
-						"items": {
-							"type": "string"
-						}
-					}
-				},
-				{
-					"name": "language_id",
-					"description": "Language identifier",
-					"schema": {
-						"type": "string"
-					}
-				}
-			],
-			"result": {}
-		},
-		{
 			"name": "last_active_editor_context",
 			"summary": "Context metadata for the last editor",
 			"description": "Returns metadata such as file path for the last editor selected by the user. The result may be undefined if there are no active editors.",

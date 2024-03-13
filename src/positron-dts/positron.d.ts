@@ -1205,15 +1205,6 @@ declare module 'positron' {
 		export function lastActiveEditorContext(): Thenable<EditorContext | null>;
 
 		/**
-		 * Create a new file with the specified language and text contents.
-		 *
-		 * @param contents The text contents for the new file.
-		 * @param languageId The language ID for the new file.
-		 * @param position The cursor position to place in the new file.
-		 */
-		export function documentNew(contents: string[], languageId: string, position: vscode.Position): Thenable<null>;
-
-		/**
 		 * Create and show a simple modal dialog prompt.
 		 *
 		 * @param title The title of the dialog

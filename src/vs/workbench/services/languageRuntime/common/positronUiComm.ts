@@ -267,25 +267,6 @@ export interface DebugSleepRequest {
 }
 
 /**
- * Request: Create a new document with text contents
- *
- * Use this to create a new document with the given language ID and text
- * contents
- */
-export interface DocumentNewRequest {
-	/**
-	 * Document contents
-	 */
-	contents: Array<string>;
-
-	/**
-	 * Language identifier
-	 */
-	language_id: string;
-
-}
-
-/**
  * Request: Context metadata for the last editor
  *
  * Returns metadata such as file path for the last editor selected by the
@@ -307,7 +288,6 @@ export enum UiFrontendEvent {
 export enum UiFrontendRequest {
 	ShowQuestion = 'show_question',
 	DebugSleep = 'debug_sleep',
-	DocumentNew = 'document_new',
 	LastActiveEditorContext = 'last_active_editor_context'
 }
 
