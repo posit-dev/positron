@@ -3,9 +3,10 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { Event } from 'vs/base/common/event';
+import { URI } from 'vs/base/common/uri';
 import { createDecorator } from 'vs/platform/instantiation/common/instantiation';
 import { PreviewWebview } from 'vs/workbench/contrib/positronPreview/browser/previewWebview';
-import { WebviewInitInfo } from 'vs/workbench/contrib/webview/browser/webview';
+import { WebviewExtensionDescription, WebviewInitInfo } from 'vs/workbench/contrib/webview/browser/webview';
 
 export const POSITRON_PREVIEW_VIEW_ID = 'workbench.panel.positronPreview';
 
@@ -32,6 +33,13 @@ export interface IPositronPreviewService {
 		viewType: string,
 		title: string,
 		preserveFocus?: boolean): PreviewWebview;
+
+	/**
+	 * Opens a URL in the preview pane.
+	 *
+	 * @param url The URL to open in the preview.
+	 */
+	openUrl(previewId: string, origin: string, uri: URI): PreviewWebview;
 
 	/**
 	 * An event that is fired when a new preview panel webview is created.

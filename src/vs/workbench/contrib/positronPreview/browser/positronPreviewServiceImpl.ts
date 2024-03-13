@@ -12,6 +12,7 @@ import { POSITRON_PREVIEW_VIEW_ID } from 'vs/workbench/contrib/positronPreview/b
 import { RuntimeOutputKind } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { ILanguageRuntimeSession, IRuntimeSessionService } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
 import { IPositronNotebookOutputWebviewService } from 'vs/workbench/contrib/positronOutputWebview/browser/notebookOutputWebviewService';
+import { URI } from 'vs/base/common/uri';
 
 /**
  * Positron preview service; keeps track of the set of active previews and
@@ -108,6 +109,30 @@ export class PositronPreviewService extends Disposable implements IPositronPrevi
 			viewType,
 			title,
 			preserveFocus);
+	}
+
+	openUrl(previewId: string, origin: string, uri: URI): PreviewWebview {
+		const webviewInitInfo: WebviewInitInfo = {
+			origin,
+			providedViewType: 'positron.previewUrl',
+			title: '',
+			options: {
+				enableFindWidget: true,
+				retainContextWhenHidden: true,
+			},
+			contentOptions: {
+				allowScripts: true,
+				allowForms: true,
+				enableCommandUris: false,
+				localResourceRoots: [uri]
+			},
+		};
+
+		return this.openPreviewWebview(previewId,
+			this._webviewService.createWebviewOverlay(webviewInitInfo),
+			'positron.previewUrl',
+			'',
+			true);
 	}
 
 	openPreviewWebview(
