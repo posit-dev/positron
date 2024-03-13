@@ -215,6 +215,17 @@ export interface WorkingDirectoryEvent {
 }
 
 /**
+ * Event: Execute a Positron command
+ */
+export interface ExecuteCommandEvent {
+	/**
+	 * The command to execute
+	 */
+	command: string;
+
+}
+
+/**
  * Request: Show a question
  *
  * Use this for a modal dialog that the user can accept or cancel
@@ -252,20 +263,6 @@ export interface DebugSleepRequest {
 	 * Duration in milliseconds
 	 */
 	ms: number;
-
-}
-
-/**
- * Request: Execute a Positron command
- *
- * Use this to execute a Positron command from the backend (like from a
- * runtime)
- */
-export interface ExecuteCommandRequest {
-	/**
-	 * The command to execute
-	 */
-	command: string;
 
 }
 
@@ -308,13 +305,13 @@ export enum UiFrontendEvent {
 	OpenEditor = 'open_editor',
 	ShowMessage = 'show_message',
 	PromptState = 'prompt_state',
-	WorkingDirectory = 'working_directory'
+	WorkingDirectory = 'working_directory',
+	ExecuteCommand = 'execute_command'
 }
 
 export enum UiFrontendRequest {
 	ShowQuestion = 'show_question',
 	DebugSleep = 'debug_sleep',
-	ExecuteCommand = 'execute_command',
 	DocumentNew = 'document_new',
 	LastActiveEditorContext = 'last_active_editor_context'
 }
@@ -328,6 +325,7 @@ export class PositronUiComm extends PositronBaseComm {
 		this.onDidShowMessage = super.createEventEmitter('show_message', ['message']);
 		this.onDidPromptState = super.createEventEmitter('prompt_state', ['input_prompt', 'continuation_prompt']);
 		this.onDidWorkingDirectory = super.createEventEmitter('working_directory', ['directory']);
+		this.onDidExecuteCommand = super.createEventEmitter('execute_command', ['command']);
 	}
 
 	/**
@@ -388,5 +386,12 @@ export class PositronUiComm extends PositronBaseComm {
 	 * interpreter
 	 */
 	onDidWorkingDirectory: Event<WorkingDirectoryEvent>;
+	/**
+	 * Execute a Positron command
+	 *
+	 * Use this to execute a Positron command from the backend (like from a
+	 * runtime)
+	 */
+	onDidExecuteCommand: Event<ExecuteCommandEvent>;
 }
 

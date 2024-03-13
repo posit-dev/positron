@@ -4,7 +4,6 @@
 
 import * as extHostProtocol from './extHost.positron.protocol';
 import { ExtHostEditors } from '../extHostTextEditors';
-import { ExtHostCommands } from '../extHostCommands';
 import { ExtHostModalDialogs } from '../positron/extHostModalDialogs';
 import { UiFrontendRequest, EditorContext } from 'vs/workbench/services/languageRuntime/common/positronUiComm';
 import { JsonRpcErrorCode } from 'vs/workbench/services/languageRuntime/common/positronBaseComm';
@@ -35,7 +34,6 @@ export class ExtHostMethods implements extHostProtocol.ExtHostMethodsShape {
 	constructor(
 		_mainContext: extHostProtocol.IMainPositronContext,
 		private readonly editors: ExtHostEditors,
-		private readonly commands: ExtHostCommands,
 		private readonly dialogs: ExtHostModalDialogs
 	) {
 	}
@@ -96,13 +94,6 @@ export class ExtHostMethods implements extHostProtocol.ExtHostMethodsShape {
 						return newInvalidParamsError(method);
 					}
 					result = await this.debugSleep(params.ms as number);
-					break;
-				}
-				case UiFrontendRequest.ExecuteCommand: {
-					if (!params || !Object.keys(params).includes('command')) {
-						return newInvalidParamsError(method);
-					}
-					result = await this.executeCommand(params.command as string);
 					break;
 				}
 			}
@@ -189,11 +180,6 @@ export class ExtHostMethods implements extHostProtocol.ExtHostMethodsShape {
 
 	async showQuestion(title: string, message: string, okButtonTitle: string, cancelButtonTitle: string): Promise<boolean> {
 		return this.dialogs.showSimpleModalDialogPrompt(title, message, okButtonTitle, cancelButtonTitle);
-	}
-
-	async executeCommand(commandId: string): Promise<null> {
-		await this.commands.executeCommand(commandId);
-		return null;
 	}
 
 	async debugSleep(ms: number): Promise<null> {

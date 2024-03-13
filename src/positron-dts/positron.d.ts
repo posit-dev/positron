@@ -1140,12 +1140,5 @@ declare module 'positron' {
 		 */
 		export function showQuestion(title: string, message: string, okButtonTitle: string, cancelButtonTitle: string): Thenable<boolean>;
 
-		/**
-		 * Executes a Positron command.
-		 *
-		 * @param command The Positron command name.
-		 */
-		export function executeCommand(commandId: string): Thenable<null>;
-
 	}
 }

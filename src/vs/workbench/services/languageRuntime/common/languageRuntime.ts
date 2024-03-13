@@ -801,6 +801,15 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 						}
 					});
 				}));
+				this._register(uiClient.onDidExecuteCommand(event => {
+					this._onDidReceiveRuntimeEventEmitter.fire({
+						runtime_id: runtime.metadata.runtimeId,
+						event: {
+							name: UiFrontendEvent.ExecuteCommand,
+							data: event
+						}
+					});
+				}));
 			});
 	}
 

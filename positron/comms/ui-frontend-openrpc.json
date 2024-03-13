@@ -170,8 +170,7 @@
 						"type": "string"
 					}
 				}
-			],
-			"result": {}
+			]
 		},
 		{
 			"name": "document_new",
