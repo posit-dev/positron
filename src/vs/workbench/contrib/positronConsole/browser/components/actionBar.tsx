@@ -313,7 +313,7 @@ export const ActionBar = (props: ActionBarProps) => {
 							<ActionBarSeparator />
 						}
 						<ActionBarButton
-							iconId='positron-power-button'
+							iconId='positron-power-button-thin'
 							align='right'
 							disabled={!canShutdown}
 							tooltip={positronShutdownConsole}
@@ -321,7 +321,7 @@ export const ActionBar = (props: ActionBarProps) => {
 							onPressed={shutdownConsoleHandler}
 						/>
 						<ActionBarButton
-							iconId='positron-restart-runtime'
+							iconId='positron-restart-runtime-thin'
 							align='right'
 							disabled={!canShutdown}
 							tooltip={positronRestartConsole}

@@ -665,6 +665,8 @@ export const Codicon = {
 	positronShowFilters: register('positron-show-filters', 0xf271),
 	positronClearColumnFilters: register('positron-clear-column-filters', 0xf272),
 	positronClearRowFilters: register('positron-clear-row-filters', 0xf273),
+	positronPowerButtonThin: register('positron-power-button-thin', 0xf274),
+	positronRestartRuntimeThin: register('positron-restart-runtime-thin', 0xf275),
 	// --- End Positron ---
 
 
