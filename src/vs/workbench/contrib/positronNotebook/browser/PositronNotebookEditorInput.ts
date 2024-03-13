@@ -90,15 +90,6 @@ export class PositronNotebookEditorInput extends EditorInput {
 		super();
 
 		this.notebookInstance = instantiationService.createInstance(PositronNotebookInstance, this, undefined);
-
-		// this.positronNotebookInstance = instantiationService.createInstance(PositronNotebookInstance, this, undefined);
-
-		// Create a dummy context key service for instances
-		// Setup the container that will hold the outputs of notebook cells
-		// const outputContainer = document.createElement('div');
-
-		// Create a new context service and set in the notebook instance.
-		// this.positronNotebookInstance.contextKeyService = contextKeyService.createScoped(outputContainer);
 	}
 
 	/**
@@ -108,11 +99,6 @@ export class PositronNotebookEditorInput extends EditorInput {
 		// Call the base class's dispose method.
 		super.dispose();
 	}
-
-	/**
-	 * The instance of the notebook that is being edited.
-	 */
-	// positronNotebookInstance: PositronNotebookInstance;
 
 	//#endregion Constructor & Dispose
 	//#region AbstractEditorInput Overrides
