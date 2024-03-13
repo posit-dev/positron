@@ -118,7 +118,6 @@ class ExtHostLanguageRuntimeSessionAdapter implements ILanguageRuntimeSession {
 		readonly metadata: IRuntimeSessionMetadata,
 		private readonly _runtimeSessionService: IRuntimeSessionService,
 		private readonly _notificationService: INotificationService,
-	  private readonly _commandService: ICommandService,
 		private readonly _logService: ILogService,
 		private readonly _commandService: ICommandService,
 		private readonly _notebookService: INotebookService,
@@ -208,7 +207,7 @@ class ExtHostLanguageRuntimeSessionAdapter implements ILanguageRuntimeSession {
 				const msg = ev.data as ShowMessageEvent;
 				this._notificationService.info(msg.message);
 			} else if (ev.name === UiFrontendEvent.ExecuteCommand) {
-        // Execute a command
+				// Execute a command
 				const cmd = ev.data as ExecuteCommandEvent;
 				this._commandService.executeCommand(cmd.command);
 			}
@@ -1011,7 +1010,6 @@ export class MainThreadLanguageRuntime
 		@IPositronPlotsService private readonly _positronPlotService: IPositronPlotsService,
 		@IPositronIPyWidgetsService private readonly _positronIPyWidgetsService: IPositronIPyWidgetsService,
 		@INotificationService private readonly _notificationService: INotificationService,
-		@ICommandService private readonly _commandService: ICommandService,
 		@ILogService private readonly _logService: ILogService,
 		@ICommandService private readonly _commandService: ICommandService,
 		@INotebookService private readonly _notebookService: INotebookService,
@@ -1171,8 +1169,8 @@ export class MainThreadLanguageRuntime
 			sessionMetadata,
 			this._runtimeSessionService,
 			this._notificationService,
-			this._commandService,
 			this._logService,
+			this._commandService,
 			this._notebookService,
 			this._editorService,
 			this._proxy);
