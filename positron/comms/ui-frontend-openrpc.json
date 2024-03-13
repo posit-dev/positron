@@ -193,13 +193,6 @@
 					"schema": {
 						"type": "string"
 					}
-				},
-				{
-					"name": "position",
-					"description": "A line and character position for the position of the cursor",
-					"schema": {
-						"$ref": "#/components/schemas/position"
-					}
 				}
 			],
 			"result": {}

@@ -283,11 +283,6 @@ export interface DocumentNewRequest {
 	 */
 	language_id: string;
 
-	/**
-	 * A line and character position for the position of the cursor
-	 */
-	position: Position;
-
 }
 
 /**

@@ -4,11 +4,11 @@
 
 import * as extHostProtocol from './extHost.positron.protocol';
 import { ExtHostEditors } from '../extHostTextEditors';
+import { ExtHostDocuments } from '../extHostDocuments';
 import { ExtHostModalDialogs } from '../positron/extHostModalDialogs';
 import { UiFrontendRequest, EditorContext } from 'vs/workbench/services/languageRuntime/common/positronUiComm';
 import { JsonRpcErrorCode } from 'vs/workbench/services/languageRuntime/common/positronBaseComm';
-import { EndOfLine } from '../extHostTypeConverters';
-import { Position } from 'vscode';
+import { EndOfLine, TextEditorOpenOptions } from '../extHostTypeConverters';
 
 type JsonRpcResponse = JsonRpcResult | JsonRpcError;
 
@@ -34,6 +34,7 @@ export class ExtHostMethods implements extHostProtocol.ExtHostMethodsShape {
 	constructor(
 		_mainContext: extHostProtocol.IMainPositronContext,
 		private readonly editors: ExtHostEditors,
+		private readonly documents: ExtHostDocuments,
 		private readonly dialogs: ExtHostModalDialogs
 	) {
 	}
@@ -66,13 +67,11 @@ export class ExtHostMethods implements extHostProtocol.ExtHostMethodsShape {
 				case UiFrontendRequest.DocumentNew: {
 					if (!params ||
 						!Object.keys(params).includes('contents') ||
-						!Object.keys(params).includes('languageId') ||
-						!Object.keys(params).includes('position')) {
+						!Object.keys(params).includes('languageId')) {
 						return newInvalidParamsError(method);
 					}
 					result = await this.documentNew(params.contents as string[],
-						params.languageId as string,
-						params.position as Position);
+						params.languageId as string);
 					break;
 				}
 				case UiFrontendRequest.ShowQuestion: {
@@ -173,8 +172,17 @@ export class ExtHostMethods implements extHostProtocol.ExtHostMethodsShape {
 		};
 	}
 
-	async documentNew(contents: string[], languageId: string, position: Position): Promise<null> {
-		// TODO: Implement this method
+	async documentNew(contents: string[], languageId: string): Promise<null> {
+
+		const uri = await this.documents.createDocumentData({
+			content: contents.join('\n'), language: languageId
+		});
+		const opts: TextEditorOpenOptions = { preview: true };
+		this.documents.ensureDocumentData(uri).then(documentData => {
+			this.editors.showTextDocument(documentData.document, opts);
+		});
+
+		// TODO: Return a document ID
 		return null;
 	}
 
