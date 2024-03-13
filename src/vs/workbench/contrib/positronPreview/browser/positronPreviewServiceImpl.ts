@@ -129,11 +129,15 @@ export class PositronPreviewService extends Disposable implements IPositronPrevi
 			extension
 		};
 
-		return this.openPreviewWebview(previewId,
+		const preview = this.openPreviewWebview(previewId,
 			this._webviewService.createWebviewOverlay(webviewInitInfo),
 			'positron.previewUrl',
 			'',
 			true);
+
+		preview.webview.setHtml(`<html><body><iframe src="${uri.toString()}"></iframe></body></html>`);
+
+		return preview;
 	}
 
 	openPreviewWebview(
