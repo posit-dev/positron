@@ -1038,6 +1038,17 @@ declare module 'positron' {
 		export function createPreviewPanel(viewType: string, title: string, preserveFocus?: boolean, options?: PreviewOptions): PreviewPanel;
 
 		/**
+		 * Create and show a new preview panel for a URL. This is a convenience
+		 * method that creates a new webview panel and sets its content to the
+		 * given URL.
+		 *
+		 * @param url The URL to preview
+		 *
+		 * @return New preview panel.
+		 */
+		export function previewUrl(url: vscode.Uri): PreviewPanel;
+
+		/**
 		 * Create a log output channel from raw data.
 		 *
 		 * Variant of `createOutputChannel()` that creates a "raw log" output channel.
