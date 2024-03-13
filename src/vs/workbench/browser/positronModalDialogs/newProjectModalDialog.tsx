@@ -14,11 +14,11 @@ import { Checkbox } from 'vs/base/browser/ui/positronModalDialog/components/chec
 import { IWorkbenchLayoutService } from 'vs/workbench/services/layout/browser/layoutService';
 import { LabeledTextInput } from 'vs/base/browser/ui/positronModalDialog/components/labeledTextInput';
 import { LabeledFolderInput } from 'vs/base/browser/ui/positronModalDialog/components/labeledFolderInput';
-import { PositronModalDialogReactRenderer } from 'vs/base/browser/ui/positronModalDialog/positronModalDialogReactRenderer';
-import { PositronButton } from 'vs/base/browser/ui/positronComponents/positronButton';
 import { PositronModalDialog } from 'vs/base/browser/ui/positronModalDialog/positronModalDialog';
 import { PositronWizardStep } from 'vs/base/browser/ui/positronModalDialog/components/wizardStep';
 import { PositronWizardSubStep } from 'vs/base/browser/ui/positronModalDialog/components/wizardSubStep';
+import { PositronModalReactRenderer } from 'vs/base/browser/ui/positronModalReactRenderer/positronModalReactRenderer';
+import { Button } from 'vs/base/browser/ui/positronComponents/button/button';
 
 /**
  * NewProjectResult interface.
@@ -48,9 +48,9 @@ export const showNewProjectModalDialog = async (accessor: ServicesAccessor): Pro
 
 	// Return a promise that resolves when the dialog is done.
 	return new Promise<NewProjectResult | undefined>((resolve) => {
-		// Create the modal dialog React renderer.
-		const positronModalDialogReactRenderer =
-			new PositronModalDialogReactRenderer(layoutService.mainContainer);
+		// Create the modal React renderer.
+		const positronModalReactRenderer =
+			new PositronModalReactRenderer(layoutService.mainContainer);
 
 		// The new project modal dialog component.
 		const NewProjectModalDialog = () => {
@@ -71,13 +71,13 @@ export const showNewProjectModalDialog = async (accessor: ServicesAccessor): Pro
 
 			// The accept handler.
 			const acceptHandler = () => {
-				positronModalDialogReactRenderer.destroy();
+				positronModalReactRenderer.dispose();
 				resolve(newProjectResultRef.current);
 			};
 
 			// The cancel handler.
 			const cancelHandler = () => {
-				positronModalDialogReactRenderer.destroy();
+				positronModalReactRenderer.dispose();
 				resolve(undefined);
 			};
 
@@ -87,7 +87,7 @@ export const showNewProjectModalDialog = async (accessor: ServicesAccessor): Pro
 				if (currentStep > 0) {
 					setCurrentStep(currentStep - 1);
 				}
-				positronModalDialogReactRenderer.render(<NewProjectModalDialog />);
+				positronModalReactRenderer.render(<NewProjectModalDialog />);
 			};
 
 			// The next handler.
@@ -95,7 +95,7 @@ export const showNewProjectModalDialog = async (accessor: ServicesAccessor): Pro
 				if (currentStep < totalSteps - 1) {
 					setCurrentStep(currentStep + 1);
 				}
-				positronModalDialogReactRenderer.render(<NewProjectModalDialog />);
+				positronModalReactRenderer.render(<NewProjectModalDialog />);
 			};
 
 			// The browse handler.
@@ -117,6 +117,7 @@ export const showNewProjectModalDialog = async (accessor: ServicesAccessor): Pro
 			// Render.
 			return (
 				<PositronModalDialog
+					renderer={positronModalReactRenderer}
 					width={700} height={500}
 					title={localize('positronNewProjectModalDialogTitle', "Create New Project")}
 				>
@@ -133,15 +134,15 @@ export const showNewProjectModalDialog = async (accessor: ServicesAccessor): Pro
 						>
 							<PositronWizardSubStep title='Select the type of project to create.'>
 								<div className='project-type-grid'>
-									<PositronButton>
-										<div className='line' style={{ marginLeft: '20px', width: '200px' }}>Pure Python Project</div>
-									</PositronButton>
-									<PositronButton>
-										<div className='line' style={{ marginLeft: '20px', width: '200px' }}>Jupyter Notebook</div>
-									</PositronButton>
-									<PositronButton>
-										<div className='line' style={{ marginLeft: '20px', width: '200px' }}>R Project</div>
-									</PositronButton>
+									<Button className='project-type-button'>
+										Python Project
+									</Button>
+									<Button className='project-type-button'>
+										Jupyter Notebook
+									</Button>
+									<Button className='project-type-button'>
+										R Project
+									</Button>
 								</div>
 							</PositronWizardSubStep>
 						</PositronWizardStep>
@@ -240,6 +241,6 @@ export const showNewProjectModalDialog = async (accessor: ServicesAccessor): Pro
 		};
 
 		// Render the modal dialog component.
-		positronModalDialogReactRenderer.render(<NewProjectModalDialog />);
+		positronModalReactRenderer.render(<NewProjectModalDialog />);
 	});
 };
