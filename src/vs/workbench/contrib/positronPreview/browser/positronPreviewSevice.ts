@@ -39,7 +39,10 @@ export interface IPositronPreviewService {
 	 *
 	 * @param url The URL to open in the preview.
 	 */
-	openUrl(previewId: string, origin: string, uri: URI): PreviewWebview;
+	openUrl(previewId: string,
+		origin: string,
+		extension: WebviewExtensionDescription,
+		uri: URI): PreviewWebview;
 
 	/**
 	 * An event that is fired when a new preview panel webview is created.

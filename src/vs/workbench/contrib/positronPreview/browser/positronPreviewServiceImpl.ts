@@ -5,7 +5,7 @@
 import { Disposable } from 'vs/base/common/lifecycle';
 import { IPositronPreviewService } from 'vs/workbench/contrib/positronPreview/browser/positronPreview';
 import { Event, Emitter } from 'vs/base/common/event';
-import { IOverlayWebview, IWebviewService, WebviewInitInfo } from 'vs/workbench/contrib/webview/browser/webview';
+import { IOverlayWebview, IWebviewService, WebviewExtensionDescription, WebviewInitInfo } from 'vs/workbench/contrib/webview/browser/webview';
 import { PreviewWebview } from 'vs/workbench/contrib/positronPreview/browser/previewWebview';
 import { IViewsService } from 'vs/workbench/services/views/common/viewsService';
 import { POSITRON_PREVIEW_VIEW_ID } from 'vs/workbench/contrib/positronPreview/browser/positronPreviewSevice';
@@ -111,7 +111,7 @@ export class PositronPreviewService extends Disposable implements IPositronPrevi
 			preserveFocus);
 	}
 
-	openUrl(previewId: string, origin: string, uri: URI): PreviewWebview {
+	openUrl(previewId: string, origin: string, extension: WebviewExtensionDescription, uri: URI): PreviewWebview {
 		const webviewInitInfo: WebviewInitInfo = {
 			origin,
 			providedViewType: 'positron.previewUrl',
@@ -126,6 +126,7 @@ export class PositronPreviewService extends Disposable implements IPositronPrevi
 				enableCommandUris: false,
 				localResourceRoots: [uri]
 			},
+			extension
 		};
 
 		return this.openPreviewWebview(previewId,
