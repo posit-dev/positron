@@ -628,8 +628,8 @@ class SimpleNotebookWorkingCopyEditorHandler extends Disposable implements IWork
 		@IInstantiationService private readonly _instantiationService: IInstantiationService,
 		@IWorkingCopyEditorService private readonly _workingCopyEditorService: IWorkingCopyEditorService,
 		@IExtensionService private readonly _extensionService: IExtensionService,
-		@INotebookService private readonly _notebookService: INotebookService,
 		// --- Start Positron ---
+		@INotebookService private readonly _notebookService: INotebookService,
 		@IConfigurationService private readonly _configurationService: IConfigurationService,
 		// --- End Positron ---
 	) {
