@@ -82,6 +82,9 @@ export class RSession implements positron.LanguageRuntimeSession, vscode.Disposa
 			inputPrompt: '>',
 		};
 
+		// Register this session with the session manager
+		RSessionManager.instance.setSession(metadata.sessionId, this);
+
 		this.onDidChangeRuntimeState((state) => {
 			this.onStateChange(state);
 		});
