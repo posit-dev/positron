@@ -24,6 +24,7 @@ import { PositronVariables } from 'vs/workbench/contrib/positronVariables/browse
 import { ILanguageRuntimeService } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { IReactComponentContainer, ISize, PositronReactRenderer } from 'vs/base/browser/positronReactRenderer';
 import { IPositronVariablesService } from 'vs/workbench/services/positronVariables/common/interfaces/positronVariablesService';
+import { IRuntimeSessionService } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
 
 /**
  * PositronVariablesViewPane class.
@@ -162,6 +163,7 @@ export class PositronVariablesViewPane extends ViewPane implements IReactCompone
 	 * @param instantiationService The instantiation service.
 	 * @param keybindingService The keybinding service.
 	 * @param _languageRuntimeService The language runtime service.
+	 * @param _runtimeSessionService The runtime session service.
 	 * @param openerService The opener service.
 	 * @param _positronVariablesService The Positron variables service.
 	 * @param telemetryService The ITelemetryService.
@@ -179,6 +181,7 @@ export class PositronVariablesViewPane extends ViewPane implements IReactCompone
 		@IInstantiationService instantiationService: IInstantiationService,
 		@IKeybindingService keybindingService: IKeybindingService,
 		@ILanguageRuntimeService private readonly _languageRuntimeService: ILanguageRuntimeService,
+		@IRuntimeSessionService private readonly _runtimeSessionService: IRuntimeSessionService,
 		@IOpenerService openerService: IOpenerService,
 		@IPositronVariablesService private readonly _positronVariablesService: IPositronVariablesService,
 		@ITelemetryService telemetryService: ITelemetryService,
@@ -253,6 +256,7 @@ export class PositronVariablesViewPane extends ViewPane implements IReactCompone
 				contextKeyService={this.contextKeyService}
 				contextMenuService={this.contextMenuService}
 				keybindingService={this.keybindingService}
+				runtimeSessionService={this._runtimeSessionService}
 				languageRuntimeService={this._languageRuntimeService}
 				layoutService={this._layoutService}
 				positronVariablesService={this._positronVariablesService}

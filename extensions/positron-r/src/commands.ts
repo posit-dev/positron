@@ -5,10 +5,11 @@
 import * as vscode from 'vscode';
 import * as positron from 'positron';
 import { timeout } from './util';
-import { getRunningRRuntime, checkInstalled } from './runtime';
+import { checkInstalled } from './session';
 import { getRPackageName } from './contexts';
 import { getRPackageTasks } from './tasks';
 import { randomUUID } from 'crypto';
+import { RSessionManager } from './session-manager';
 
 export async function registerCommands(context: vscode.ExtensionContext) {
 
@@ -64,7 +65,10 @@ export async function registerCommands(context: vscode.ExtensionContext) {
 			if (!isInstalled) {
 				return;
 			}
-			const runtime = await getRunningRRuntime();
+			const session = RSessionManager.instance.getConsoleSession();
+			if (!session) {
+				return;
+			}
 
 			const execution = await vscode.tasks.executeTask(task);
 			const disp1 = vscode.tasks.onDidEndTaskProcess(async e => {
@@ -72,7 +76,7 @@ export async function registerCommands(context: vscode.ExtensionContext) {
 					if (e.exitCode === 0) {
 						vscode.commands.executeCommand('workbench.panel.positronConsole.focus');
 						try {
-							await positron.runtime.restartLanguageRuntime(runtime.metadata.runtimeId);
+							await positron.runtime.restartSession(session.metadata.sessionId);
 						} catch {
 							// If restarting promise rejects, dispose of listener:
 							disp1.dispose();
@@ -80,7 +84,7 @@ export async function registerCommands(context: vscode.ExtensionContext) {
 
 						// A promise that resolves when the runtime is ready:
 						const promise = new Promise<void>(resolve => {
-							const disp2 = runtime.onDidChangeRuntimeState(runtimeState => {
+							const disp2 = session.onDidChangeRuntimeState(runtimeState => {
 								if (runtimeState === positron.RuntimeState.Ready) {
 									resolve();
 									disp2.dispose();
@@ -90,7 +94,7 @@ export async function registerCommands(context: vscode.ExtensionContext) {
 
 						// Wait for the the runtime to be ready, or for a timeout:
 						await Promise.race([promise, timeout(1e4, 'waiting for R to be ready')]);
-						runtime.execute(`library(${packageName})`,
+						session.execute(`library(${packageName})`,
 							randomUUID(),
 							positron.RuntimeCodeExecutionMode.Interactive,
 							positron.RuntimeErrorBehavior.Continue);

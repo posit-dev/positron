@@ -657,6 +657,14 @@ export const Codicon = {
 	positronDataTypeString: register('positron-data-type-string', 0xf269),
 	positronDataTypeStruct: register('positron-data-type-struct', 0xf26a),
 	positronDataTypeTime: register('positron-data-type-time', 0xf26b),
+	positronDataTypeUnknown: register('positron-data-type-unknown', 0xf26c),
+	positronAddFilter: register('positron-add-filter', 0xf26d),
+	positronColumnFilter: register('positron-column-filter', 0xf26e),
+	positronRowFilter: register('positron-row-filter', 0xf26f),
+	positronHideFilters: register('positron-hide-filters', 0xf270),
+	positronShowFilters: register('positron-show-filters', 0xf271),
+	positronClearColumnFilters: register('positron-clear-column-filters', 0xf272),
+	positronClearRowFilters: register('positron-clear-row-filters', 0xf273),
 	// --- End Positron ---
 
 

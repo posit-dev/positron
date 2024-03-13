@@ -5,11 +5,21 @@
 		"ecmaVersion": 6,
 		"sourceType": "module"
 	},
+	"settings": {
+		"react": {
+			"version": "detect"
+		}
+	},
 	"plugins": [
 		"@typescript-eslint",
 		"jsdoc",
 		"header",
-		"local"
+		"local",
+		"react"
+	],
+	"extends": [
+		"plugin:react/recommended",
+		"plugin:react-hooks/recommended"
 	],
 	"rules": {
 		"constructor-super": "warn",

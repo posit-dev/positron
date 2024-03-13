@@ -1,0 +1,61 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *--------------------------------------------------------------------------------------------*/
+
+.runtime-session-card {
+	border: 1px solid var(--vscode-panel-border);
+	padding: 10px;
+	margin: 10px;
+}
+
+.status-busy .runtime-session-card,
+.status-idle .runtime-session-card {
+	background-color: var(--vscode-textBlockQuote-background);
+}
+
+.runtime-session-card .runtime-name {
+	font-size: medium;
+	font-weight: bold;
+}
+
+.runtime-session-card .runtime-path {
+	font-size: x-small;
+	opacity: 0.8;
+}
+
+.runtime-icon {
+	float: right;
+	height: 30px;
+	width: 30px;
+}
+
+.runtime-extension {
+	opacity: 0.7;
+	font-size: xx-small;
+}
+
+.runtime-action-buttons {
+	display: flex;
+	justify-content: flex-end;
+	padding-left: 10px;
+	padding-right: 10px;
+	padding-top: 0px;
+}
+
+.runtime-action-buttons button {
+	color: var(--vscode-button-foreground);
+	background-color: var(--vscode-button-background);
+	border-radius: 3px;
+	border-style: none;
+	padding-top: 5px;
+	padding-bottom: 5px;
+	padding-left: 10px;
+	padding-right: 10px;
+	cursor: pointer;
+	font-size: x-small;
+	margin-left: 10px;
+}
+
+.runtime-action-buttons button:hover {
+	background-color: var(--vscode-button-hoverBackground);
+}

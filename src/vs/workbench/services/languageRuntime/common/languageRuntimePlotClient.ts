@@ -60,8 +60,8 @@ export interface IPositronPlotMetadata {
 	/** The plot's parent message ID; useful for jumping to associated spot in the console */
 	parent_id: string;
 
-	/** The ID of the runtime that created the plot */
-	runtime_id: string;
+	/** The ID of the runtime session that created the plot */
+	session_id: string;
 }
 
 /**
@@ -207,7 +207,8 @@ export class PlotClientInstance extends Disposable implements IPositronPlotClien
 
 		// Connect close emitter event
 		this.onDidClose = this._closeEmitter.event;
-		client.onDidChangeClientState((state) => {
+		const clientStateEvent = Event.fromObservable(client.clientState);
+		clientStateEvent((state) => {
 			if (state === RuntimeClientState.Closed) {
 				this._closeEmitter.fire();
 			}

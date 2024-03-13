@@ -34,7 +34,7 @@ interface ActionBarMenuButtonProps {
 export const ActionBarMenuButton = (props: ActionBarMenuButtonProps) => {
 	// Hooks.
 	const positronActionBarContext = usePositronActionBarContext();
-	const buttonRef = useRef<HTMLDivElement>(undefined!);
+	const buttonRef = useRef<HTMLButtonElement>(undefined!);
 
 	// Manage the aria-haspopup and aria-expanded attributes.
 	useEffect(() => {

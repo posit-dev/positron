@@ -3,7 +3,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
-import { RRuntimeManager } from './runtime-manager';
+import { RSessionManager } from './session-manager';
 
 export class RPackageTaskProvider implements vscode.TaskProvider {
 
@@ -25,10 +25,10 @@ export async function providePackageTasks(context: vscode.ExtensionContext): Pro
 }
 
 export async function getRPackageTasks(): Promise<vscode.Task[]> {
-	if (!RRuntimeManager.instance.hasLastBinpath()) {
+	if (!RSessionManager.instance.hasLastBinpath()) {
 		throw new Error(`No running R runtime to use for R package tasks.`);
 	}
-	const binpath = RRuntimeManager.instance.getLastBinpath();
+	const binpath = RSessionManager.instance.getLastBinpath();
 	const taskData = [
 		{
 			task: 'r.task.packageCheck',

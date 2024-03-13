@@ -7,7 +7,7 @@ import { ItemType, TestingTools } from './util-testing';
 import { discoverTestFiles, loadTestsFromFile } from './loader';
 import { createTestthatWatchers } from './watcher';
 import { runHandler } from './runner';
-import { Logger } from '../extension';
+import { LOGGER } from '../extension';
 import { detectRPackage, getRPackageName } from '../contexts';
 
 let controller: vscode.TestController | undefined;
@@ -71,7 +71,7 @@ export async function discoverTests(context: vscode.ExtensionContext) {
 		controller,
 		testItemData,
 	};
-	Logger.info(`Testthat test explorer enabled for '${packageName}' at '${packageRoot.fsPath}'`);
+	LOGGER.info(`Testthat test explorer enabled for '${packageName}' at '${packageRoot.fsPath}'`);
 
 	// The first time this is called, `test` is undefined, therefore we do full file discovery and
 	// set up file watchers for the future.
@@ -85,7 +85,7 @@ export async function discoverTests(context: vscode.ExtensionContext) {
 			for (const watcher of watchers) {
 				context.subscriptions.push(watcher);
 			}
-			Logger.info('Testthat file watchers are in place.');
+			LOGGER.info('Testthat file watchers are in place.');
 		}
 	};
 
@@ -110,7 +110,7 @@ export async function getFirstWorkspaceFolder(): Promise<vscode.Uri | null> {
 	}
 
 	if (workspaceFolders.length > 1) {
-		Logger.info('Test explorer does not support multi-root workspaces. Consulting first workspace folder only.');
+		LOGGER.info('Test explorer does not support multi-root workspaces. Consulting first workspace folder only.');
 	}
 
 	return workspaceFolders[0].uri;

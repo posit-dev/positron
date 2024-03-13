@@ -1,12 +1,12 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
 import { Event } from 'vs/base/common/event';
-import { ILanguageRuntime } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { IVariableItem } from 'vs/workbench/services/positronVariables/common/interfaces/variableItem';
 import { IVariableGroup } from 'vs/workbench/services/positronVariables/common/interfaces/variableGroup';
 import { IVariableOverflow as IVariableOverflow } from 'vs/workbench/services/positronVariables/common/interfaces/variableOverflow';
+import { ILanguageRuntimeSession } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
 
 /**
  * PositronVariablesInstanceState enumeration.
@@ -75,9 +75,9 @@ export const isVariableOverflow = (_: VariableEntry): _ is IVariableOverflow => 
  */
 export interface IPositronVariablesInstance {
 	/**
-	 * Gets the runtime.
+	 * Gets the runtime session.
 	 */
-	readonly runtime: ILanguageRuntime;
+	readonly session: ILanguageRuntimeSession;
 
 	/**
 	 * Gets the state.

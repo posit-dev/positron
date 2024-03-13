@@ -4,6 +4,7 @@
 
 import { ANSIOutput, ANSIOutputLine } from 'vs/base/common/ansiOutput';
 import { RuntimeItem } from 'vs/workbench/services/positronConsole/browser/classes/runtimeItem';
+import { SessionAttachMode } from 'vs/workbench/services/positronConsole/browser/interfaces/positronConsoleService';
 
 /**
  * RuntimeItemStarting class.
@@ -25,7 +26,7 @@ export class RuntimeItemStarting extends RuntimeItem {
 	 * @param id The identifier.
 	 * @param message The message.
 	 */
-	constructor(id: string, message: string, public isRestart: boolean) {
+	constructor(id: string, message: string, public attachMode: SessionAttachMode) {
 		// Call the base class's constructor.
 		super(id);
 

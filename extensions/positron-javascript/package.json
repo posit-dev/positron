@@ -10,9 +10,7 @@
   "categories": [
     "Programming Languages"
   ],
-  "activationEvents": [
-    "onStartupFinished"
-  ],
+  "activationEvents": [],
   "main": "./out/extension.js",
   "scripts": {
     "vscode:prepublish": "yarn run compile",
@@ -25,6 +23,11 @@
         "command": "javascript.startExtHostRuntime",
         "category": "JavaScript",
         "title": "%javascript.command.startExtHostRuntime.title%"
+      }
+    ],
+    "languageRuntimes": [
+      {
+        "languageId": "javascript"
       }
     ]
   },

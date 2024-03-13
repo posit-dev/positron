@@ -3,6 +3,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { localize } from 'vs/nls';
+import * as DOM from 'vs/base/browser/dom';
 import { IAction } from 'vs/base/common/actions';
 import { isMacintosh } from 'vs/base/common/platform';
 import { Disposable } from 'vs/base/common/lifecycle';
@@ -306,7 +307,7 @@ export class HelpEntry extends Disposable implements IHelpEntry, WebviewFindDele
 	 * Constructor.
 	 * @param helpHTML The help HTML.
 	 * @param languageId The language ID.
-	 * @param runtimeId The runtime ID.
+	 * @param sessionId The runtime session ID.
 	 * @param languageName The language name.
 	 * @param sourceUrl The source URL.
 	 * @param targetUrl The target URL.
@@ -321,7 +322,7 @@ export class HelpEntry extends Disposable implements IHelpEntry, WebviewFindDele
 	constructor(
 		public readonly helpHTML: string,
 		public readonly languageId: string,
-		public readonly runtimeId: string,
+		public readonly sessionId: string,
 		public readonly languageName: string,
 		public readonly sourceUrl: string,
 		public readonly targetUrl: string,
@@ -696,7 +697,7 @@ export class HelpEntry extends Disposable implements IHelpEntry, WebviewFindDele
 		});
 
 		// Dispatch the emulated KeyboardEvent to the target.
-		window.dispatchEvent(emulatedKeyboardEvent);
+		DOM.getActiveWindow().dispatchEvent(emulatedKeyboardEvent);
 	}
 
 	/**
@@ -752,8 +753,9 @@ export class HelpEntry extends Disposable implements IHelpEntry, WebviewFindDele
 		}
 
 		// Show the context menu.
-		const x = screenX - window.screenX;
-		const y = screenY - window.screenY;
+		const activeWindow = DOM.getActiveWindow();
+		const x = screenX - activeWindow.screenX;
+		const y = screenY - activeWindow.screenY;
 		this._contextMenuService.showContextMenu({
 			getActions: () => actions,
 			getAnchor: () => ({
