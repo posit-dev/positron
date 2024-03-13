@@ -22,8 +22,7 @@ import { INotebookKernelService } from 'vs/workbench/contrib/notebook/common/not
 import { PositronNotebookCell } from 'vs/workbench/contrib/positronNotebook/browser/PositronNotebookCell';
 import { PositronNotebookEditorInput } from 'vs/workbench/contrib/positronNotebook/browser/PositronNotebookEditorInput';
 import { BaseCellEditorOptions } from './BaseCellEditorOptions';
-import { mainWindow } from 'vs/base/browser/window';
-
+import * as DOM from 'vs/base/browser/dom';
 
 const cellTypeToKind = {
 	'code': CellKind.Code,
@@ -231,7 +230,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 
 		this.isReadOnly = creationOptions?.isReadOnly ?? false;
 
-		this._notebookOptions = creationOptions?.options ?? new NotebookOptions(mainWindow, this.configurationService, this.notebookExecutionStateService, codeEditorService, this.isReadOnly);
+		this._notebookOptions = creationOptions?.options ?? new NotebookOptions(DOM.getActiveWindow(), this.configurationService, this.notebookExecutionStateService, codeEditorService, this.isReadOnly);
 
 		this.setupNotebookTextModel();
 	}

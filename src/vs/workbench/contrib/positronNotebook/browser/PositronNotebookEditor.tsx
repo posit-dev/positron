@@ -7,7 +7,6 @@ import * as DOM from 'vs/base/browser/dom';
 
 import { PixelRatio } from 'vs/base/browser/pixelRatio';
 import { ISize, PositronReactRenderer } from 'vs/base/browser/positronReactRenderer';
-import { mainWindow } from 'vs/base/browser/window';
 import { CancellationToken } from 'vs/base/common/cancellation';
 import { Emitter } from 'vs/base/common/event';
 import { DisposableStore } from 'vs/base/common/lifecycle';
@@ -332,7 +331,9 @@ export class PositronNotebookEditor extends EditorPane {
 
 		if (!this._fontInfo) {
 			const editorOptions = this._configurationService.getValue<IEditorOptions>('editor');
-			this._fontInfo = FontMeasurements.readFontInfo(mainWindow, BareFontInfo.createFromRawSettings(editorOptions, PixelRatio.getInstance(mainWindow).value));
+			//TODO: Get this as the active window and get it from DOM
+			const activeWindow = DOM.getActiveWindow();
+			this._fontInfo = FontMeasurements.readFontInfo(activeWindow, BareFontInfo.createFromRawSettings(editorOptions, PixelRatio.getInstance(DOM.getActiveWindow()).value));
 		}
 
 		return {
