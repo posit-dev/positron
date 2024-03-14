@@ -13,6 +13,7 @@
 	align-content: center;
 	background: transparent;
 	grid-template-columns: 1fr min-content;
+	color: var(--vscode-positronContextMenu-foreground);
 }
 
 .custom-folder-recently-used-menu-item:hover {
