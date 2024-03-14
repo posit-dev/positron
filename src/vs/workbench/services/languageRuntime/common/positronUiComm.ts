@@ -226,6 +226,17 @@ export interface ExecuteCommandEvent {
 }
 
 /**
+ * Event: Show a URL in Positron's Viewer pane
+ */
+export interface ShowUrlEvent {
+	/**
+	 * The URL to display
+	 */
+	url: string;
+
+}
+
+/**
  * Request: Show a question
  *
  * Use this for a modal dialog that the user can accept or cancel
@@ -282,7 +293,8 @@ export enum UiFrontendEvent {
 	ShowMessage = 'show_message',
 	PromptState = 'prompt_state',
 	WorkingDirectory = 'working_directory',
-	ExecuteCommand = 'execute_command'
+	ExecuteCommand = 'execute_command',
+	ShowUrl = 'show_url'
 }
 
 export enum UiFrontendRequest {
@@ -301,6 +313,7 @@ export class PositronUiComm extends PositronBaseComm {
 		this.onDidPromptState = super.createEventEmitter('prompt_state', ['input_prompt', 'continuation_prompt']);
 		this.onDidWorkingDirectory = super.createEventEmitter('working_directory', ['directory']);
 		this.onDidExecuteCommand = super.createEventEmitter('execute_command', ['command']);
+		this.onDidShowUrl = super.createEventEmitter('show_url', ['url']);
 	}
 
 	/**
@@ -368,5 +381,12 @@ export class PositronUiComm extends PositronBaseComm {
 	 * runtime)
 	 */
 	onDidExecuteCommand: Event<ExecuteCommandEvent>;
+	/**
+	 * Show a URL in Positron's Viewer pane
+	 *
+	 * Causes the URL to be displayed inside the Viewer pane, and makes the
+	 * Viewer pane visible.
+	 */
+	onDidShowUrl: Event<ShowUrlEvent>;
 }
 
