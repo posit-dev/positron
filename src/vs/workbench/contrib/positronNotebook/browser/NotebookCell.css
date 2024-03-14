@@ -1,0 +1,146 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *--------------------------------------------------------------------------------------------*/
+
+.positron-notebook-cell {
+	--positron-notebooks-border-color: var(--vscode-focusBorder, pink);
+	/* In the small animation we use to indicate a cell is calculating, this is the secondary color
+	used to give the spinning effect */
+	--positron-notebooks-border-color-offset: var(
+		--vscode-positronModalDialog-checkboxBorder,
+		grey
+	);
+
+	--positron-notebooks-border: 1px solid var(--positron-notebooks-border-color);
+
+	position: relative;
+
+	.action-bar {
+		--bar-h: 1rem;
+		position: absolute;
+		top: calc((var(--bar-h) + 0.25rem) * -1);
+		right: 0;
+		border: var(--positron-notebooks-border);
+		border-top-left-radius: 0.25rem;
+		border-top-right-radius: 0.25rem;
+		display: flex;
+		gap: 0.25rem;
+
+		.action-button {
+			aspect-ratio: 1;
+			display: grid;
+			place-content: center;
+			padding: 2px;
+
+			&:hover {
+				scale: 1.2;
+
+				.button-icon::before {
+					color: blue;
+				}
+			}
+
+			.button-icon {
+				align-items: center;
+				justify-content: center;
+				display: flex;
+				width: 16px;
+				aspect-ratio: 1;
+			}
+
+			.button-icon::before {
+				color: inherit;
+			}
+
+			&.disabled {
+				color: grey;
+			}
+		}
+	}
+
+	.cell-contents {
+		border: var(--positron-notebooks-border);
+
+		border-radius: 0.25rem;
+		border-top-right-radius: 0;
+		overflow: auto;
+
+		.positron-monaco-editor-container {
+			min-height: 1rem;
+			outline: 1px solid grey;
+		}
+
+		.positron-notebook-cell-outputs {
+			background-color: var(
+				--vscode-notebook-outputContainerBackgroundColor,
+				white
+			);
+		}
+
+		.positron-notebook-cell-outputs {
+			padding-inline: 1rem;
+			padding-block: 0.5rem;
+		}
+
+		& pre {
+			margin: 0;
+		}
+
+		.execution-status {
+			position: absolute;
+			right: 3px;
+			bottom: 0;
+			font-size: 0.7rem;
+			font-style: italic;
+		}
+
+		&[data-status='running'] {
+			/* outline-color: var(--vscode-toolbar-activeBackground, orange); */
+			--angle: 45deg;
+			--opacity: 0.5;
+
+			border-style: dotted;
+			border-color: transparent;
+			background-image: linear-gradient(
+					to right,
+					rgb(255 255 255 / var(--opacity)),
+					rgb(255 255 255 / var(--opacity))
+				),
+				conic-gradient(
+					from var(--angle),
+					var(--positron-notebooks-border-color) 0deg 180deg,
+					var(--positron-notebooks-border-color-offset) 180deg 360deg
+				);
+			background-origin: border-box;
+			background-clip: padding-box, border-box;
+			animation: rotate 4s linear infinite;
+		}
+	}
+}
+@supports (background: paint(houdini)) {
+	@property --angle {
+		syntax: '<angle>';
+		initial-value: 0deg;
+		inherits: false;
+	}
+
+	@keyframes rotate {
+		to {
+			--angle: 360deg;
+		}
+	}
+}
+
+.positron-notebook-cell-outputs {
+	& .notebook-error {
+		color: orangered;
+	}
+
+	& .notebook-stderr {
+		color: orangered;
+	}
+
+	&:empty {
+		display: none;
+	}
+}
