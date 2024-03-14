@@ -122,6 +122,10 @@ import { ContextKeyExpr } from 'vs/platform/contextkey/common/contextkey';
 import { AccessibilityHelpAction, AccessibleViewAction } from 'vs/workbench/contrib/accessibility/browser/accessibleViewActions';
 import { NotebookVariables } from 'vs/workbench/contrib/notebook/browser/contrib/notebookVariables/notebookVariables';
 
+// --- Start Positron ---
+import { getShouldUsePositronEditor } from 'vs/workbench/contrib/positronNotebook/browser/positronNotebook.contribution';
+import { PositronNotebookEditorInput } from 'vs/workbench/contrib/positronNotebook/browser/PositronNotebookEditorInput';
+// --- End Positron ---
 /*--------------------------------------------------------------------------------------------- */
 
 Registry.as<IEditorPaneRegistry>(EditorExtensions.EditorPane).registerEditorPane(
@@ -624,7 +628,10 @@ class SimpleNotebookWorkingCopyEditorHandler extends Disposable implements IWork
 		@IInstantiationService private readonly _instantiationService: IInstantiationService,
 		@IWorkingCopyEditorService private readonly _workingCopyEditorService: IWorkingCopyEditorService,
 		@IExtensionService private readonly _extensionService: IExtensionService,
-		@INotebookService private readonly _notebookService: INotebookService
+		// --- Start Positron ---
+		@INotebookService private readonly _notebookService: INotebookService,
+		@IConfigurationService private readonly _configurationService: IConfigurationService,
+		// --- End Positron ---
 	) {
 		super();
 
@@ -654,10 +661,20 @@ class SimpleNotebookWorkingCopyEditorHandler extends Disposable implements IWork
 			return false;
 		}
 
+		// --- Start Positron ---
+		if (getShouldUsePositronEditor(this._configurationService)) {
+			return editor instanceof PositronNotebookEditorInput && editor.viewType === this._getViewType(workingCopy) && isEqual(workingCopy.resource, editor.resource);
+		}
+		// --- End Positron ---
 		return editor instanceof NotebookEditorInput && editor.viewType === this._getViewType(workingCopy) && isEqual(workingCopy.resource, editor.resource);
 	}
 
 	createEditor(workingCopy: IWorkingCopyIdentifier): EditorInput {
+		// --- Start Positron ---
+		if (getShouldUsePositronEditor(this._configurationService)) {
+			return PositronNotebookEditorInput.getOrCreate(this._instantiationService, workingCopy.resource, undefined, this._getViewType(workingCopy)!);
+		}
+		// --- End Positron ---
 		return NotebookEditorInput.getOrCreate(this._instantiationService, workingCopy.resource, undefined, this._getViewType(workingCopy)!);
 	}
 

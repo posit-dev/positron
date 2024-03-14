@@ -43,6 +43,8 @@ import { INotebookDocument, INotebookDocumentService } from 'vs/workbench/servic
 
 // --- Start Positron ---
 import { ExtensionIdentifier } from 'vs/platform/extensions/common/extensions';
+import { PositronNotebookEditorInput } from 'vs/workbench/contrib/positronNotebook/browser/PositronNotebookEditorInput';
+import { getShouldUsePositronEditor } from 'vs/workbench/contrib/positronNotebook/browser/positronNotebook.contribution';
 // --- End Positron ---
 
 export class NotebookProviderInfoStore extends Disposable {
@@ -200,6 +202,12 @@ export class NotebookProviderInfoStore extends Disposable {
 				}
 
 				const notebookOptions = { ...options, cellOptions } as INotebookEditorOptions;
+				// --- Start Positron ---
+				if (getShouldUsePositronEditor(this._configurationService)) {
+					// Use our editor instead of the built in one.
+					return { editor: PositronNotebookEditorInput.getOrCreate(this._instantiationService, notebookUri, preferredResource, notebookProviderInfo.id), options };
+				}
+				// --- End Positron ---
 				const editor = NotebookEditorInput.getOrCreate(this._instantiationService, notebookUri, preferredResource, notebookProviderInfo.id);
 				return { editor, options: notebookOptions };
 			};
@@ -213,6 +221,13 @@ export class NotebookProviderInfoStore extends Disposable {
 					ref.dispose();
 				});
 
+				// --- Start Positron ---
+				if (getShouldUsePositronEditor(this._configurationService)) {
+					// Use our editor instead of the built in one.
+					const editor = PositronNotebookEditorInput.getOrCreate(this._instantiationService, ref.object.resource, undefined, notebookProviderInfo.id);
+					return { editor, options };
+				}
+				// --- End Positron ---
 				return { editor: NotebookEditorInput.getOrCreate(this._instantiationService, ref.object.resource, undefined, notebookProviderInfo.id), options };
 			};
 			const notebookDiffEditorInputFactory: DiffEditorInputFactoryFunction = ({ modified, original, label, description }) => {

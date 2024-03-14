@@ -309,10 +309,11 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 
 		// Establish a log channel for the kernel we're connecting to, if we
 		// don't already have one (we will if we're restarting)
+		// We use `.path` here because we discovered sometimes `fspath` does not exist on a `Uri`.
 		if (!this._logChannel) {
 			this._logChannel = positron.window.createRawLogOutputChannel(
 				this._notebookUri ?
-					`Notebook: ${path.basename(this._notebookUri.fsPath)} (${this._spec.display_name})` :
+					`Notebook: ${path.basename(this._notebookUri.path)} (${this._spec.display_name})` :
 					`Console: ${this._spec.display_name}`);
 		}
 
