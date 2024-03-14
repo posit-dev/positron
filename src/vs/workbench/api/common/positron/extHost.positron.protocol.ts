@@ -5,7 +5,11 @@
 import { IDisposable } from 'vs/base/common/lifecycle';
 import { ILanguageRuntimeInfo, ILanguageRuntimeMetadata, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior, RuntimeState, ILanguageRuntimeMessage, ILanguageRuntimeExit, RuntimeExitReason, LanguageRuntimeSessionMode } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { createProxyIdentifier, IRPCProtocol } from 'vs/workbench/services/extensions/common/proxyIdentifier';
-import { IWebviewPortMapping, WebviewExtensionDescription } from 'vs/workbench/api/common/extHost.protocol';
+// @ts-ignore Import MainContext and ExtHostContext even though they're unused to ensure that
+// they're initialized before MainPositronContext and ExtHostPositronContext below. This is to
+// avoid a race condition where VSCode and Positron proxy identifiers are created in a different
+// order in the main process vs the extension host process breaking interprocess RPC calls.
+import { MainContext, ExtHostContext, IWebviewPortMapping, WebviewExtensionDescription } from 'vs/workbench/api/common/extHost.protocol';
 import { URI, UriComponents } from 'vs/base/common/uri';
 import { IEditorContext } from 'vs/workbench/services/frontendMethods/common/editorContext';
 import { RuntimeClientType } from 'vs/workbench/api/common/positron/extHostTypes.positron';
