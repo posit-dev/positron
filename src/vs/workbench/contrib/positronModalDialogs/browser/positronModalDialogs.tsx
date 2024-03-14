@@ -2,8 +2,13 @@
  *  Copyright (C) 2022 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
+// CSS.
 import 'vs/css!./positronModalDialogs';
+
+// React.
 import * as React from 'react';
+
+// Other dependencies.
 import { Emitter } from 'vs/base/common/event';
 import { ILayoutService } from 'vs/platform/layout/browser/layoutService';
 import { TestContent } from 'vs/base/browser/ui/positronModalDialog/components/testContent';
@@ -12,9 +17,8 @@ import { ContentArea } from 'vs/base/browser/ui/positronModalDialog/components/c
 import { PositronModalDialog } from 'vs/base/browser/ui/positronModalDialog/positronModalDialog';
 import { OKCancelActionBar } from 'vs/base/browser/ui/positronModalDialog/components/okCancelActionBar';
 import { PositronModalReactRenderer } from 'vs/base/browser/ui/positronModalReactRenderer/positronModalReactRenderer';
+import { ComboBox, ComboBoxOption, ComboBoxSeparator } from 'vs/base/browser/ui/positronComponents/comboBox/comboBox';
 import { IModalDialogPromptInstance, IPositronModalDialogsService } from 'vs/workbench/services/positronModalDialogs/common/positronModalDialogs';
-import { ComboBox } from 'vs/base/browser/ui/positronComponents/comboBox/comboBox';
-import { ComboBoxMenuItem } from 'vs/base/browser/ui/positronComponents/comboBox/comboBoxMenuItem';
 
 /**
  * PositronModalDialogs class.
@@ -34,30 +38,31 @@ export class PositronModalDialogs implements IPositronModalDialogsService {
 	 * @returns A Promise<void> that resolves when the example modal dialog is done.
 	 */
 	async showExampleModalDialog1(title: string): Promise<void> {
-		// Build the test combo box entries.
-		const testEntries = [
-			new ComboBoxMenuItem({
-				identifier: '1',
+		// Build the test combo box items.
+		const items = [
+			new ComboBoxOption({
+				value: '1',
 				label: 'Test Item 1'
 			}),
-			new ComboBoxMenuItem({
-				identifier: '2',
+			new ComboBoxOption({
+				value: '2',
 				label: 'Test Item 2'
 			}),
-			new ComboBoxMenuItem({
-				identifier: '3',
+			new ComboBoxOption({
+				value: '3',
 				label: 'Test Item 3'
 			}),
-			new ComboBoxMenuItem({
-				identifier: '4',
+			new ComboBoxSeparator(),
+			new ComboBoxOption({
+				value: '4',
 				label: 'Test Item 4'
 			}),
-			new ComboBoxMenuItem({
-				identifier: '5',
+			new ComboBoxOption({
+				value: '5',
 				label: 'Test Item 5'
 			}),
-			new ComboBoxMenuItem({
-				identifier: '6',
+			new ComboBoxOption({
+				value: '6',
 				label: 'Test Item 6'
 			}),
 		];
@@ -83,8 +88,8 @@ export class PositronModalDialogs implements IPositronModalDialogsService {
 								layoutService={this.layoutService}
 								className='combo-box'
 								title='Select Column'
-								entries={testEntries}
-								onSelectionChanged={identifier => console.log(`Select Column changed to ${identifier}`)}
+								items={items}
+								onValueChanged={identifier => console.log(`Select Column changed to ${identifier}`)}
 							/>
 
 						</ContentArea>

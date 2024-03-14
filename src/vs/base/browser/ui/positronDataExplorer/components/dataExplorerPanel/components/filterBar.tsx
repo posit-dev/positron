@@ -122,8 +122,13 @@ export const FilterBar = () => {
 				</Button>
 			</div>
 			<div className='filter-entries'>
-				{!filtersHidden && filters.map(filter =>
-					<div className='filter' style={{ width: filter.width }}>{filter.name}</div>
+				{!filtersHidden && filters.map((filter, index) =>
+					<div
+						key={index}
+						className='filter'
+						style={{ width: filter.width }}>
+						{filter.name}
+					</div>
 				)}
 				<Button
 					ref={addFilterButtonRef}

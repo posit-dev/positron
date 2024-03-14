@@ -15,20 +15,49 @@ import { positronClassNames } from 'vs/base/common/positronUtilities';
 import { ILayoutService } from 'vs/platform/layout/browser/layoutService';
 import { Button } from 'vs/base/browser/ui/positronComponents/button/button';
 import { PositronModalPopup } from 'vs/base/browser/ui/positronModalPopup/positronModalPopup';
-import { ComboBoxMenuSeparator } from 'vs/base/browser/ui/positronComponents/comboBox/comboBoxMenuSeparator';
 import { PositronModalReactRenderer } from 'vs/base/browser/ui/positronModalReactRenderer/positronModalReactRenderer';
-import { ComboBoxMenuItem, ComboBoxMenuItemOptions } from 'vs/base/browser/ui/positronComponents/comboBox/comboBoxMenuItem';
+
+/**
+ * ComboBoxSeparator class.
+ */
+export class ComboBoxSeparator { }
+
+/**
+ * ComboBoxOptionProps interface.
+ */
+export interface ComboBoxOptionProps<T> {
+	readonly value: T;
+	readonly label: string;
+	readonly icon?: string;
+	readonly disabled?: boolean;
+}
+
+/**
+ * ComboBoxOption class.
+ */
+export class ComboBoxOption<T> {
+	/**
+	 * Constructor.
+	 * @param options A ComboBoxOptionProps that contains the combo box option properties.
+	 */
+	constructor(readonly props: ComboBoxOptionProps<T>) { }
+}
+
+/**
+ * ComboBoxItem type.
+ */
+export type ComboBoxItem<T> = ComboBoxOption<T> | ComboBoxSeparator;
 
 /**
  * ComboBoxProps interface.
  */
-interface ComboBoxProps {
+interface ComboBoxProps<T> {
 	layoutService: ILayoutService;
 	className?: string;
 	disabled?: boolean;
 	title: string;
-	entries: (ComboBoxMenuItem | ComboBoxMenuSeparator)[];
-	onSelectionChanged: (identifier: string | undefined) => void;
+	items: ComboBoxItem<T>[];
+	onValueChanged: (value: T) => void;
 }
 
 /**
@@ -36,7 +65,7 @@ interface ComboBoxProps {
  * @param props The component properties.
  * @returns The rendered component.
  */
-export const ComboBox = (props: ComboBoxProps) => {
+export const ComboBox = <T,>(props: ComboBoxProps<T>) => {
 	// Reference hooks.
 	const comboBoxRef = useRef<HTMLButtonElement>(undefined!);
 
@@ -51,7 +80,7 @@ export const ComboBox = (props: ComboBoxProps) => {
 	 */
 	const showDropDownMenu = async (): Promise<void> => {
 		// Show the dropdown menu.
-		const selectedIdentifier = await new Promise<string | undefined>(resolve => {
+		const value = await new Promise<T | undefined>(resolve => {
 			// Get the container element for the combo box element.
 			const containerElement = props.layoutService.getContainer(
 				DOM.getWindow(comboBoxRef.current)
@@ -67,7 +96,7 @@ export const ComboBox = (props: ComboBoxProps) => {
 				/**
 				 * Dismisses the popup.
 				 */
-				const dismiss = (result: string | undefined) => {
+				const dismiss = (selection: T | undefined) => {
 					// Dispose of the modal popup.
 					positronModalReactRenderer.dispose();
 
@@ -78,24 +107,24 @@ export const ComboBox = (props: ComboBoxProps) => {
 					comboBoxRef.current.focus();
 
 					// Resolve the promise.
-					resolve(result);
+					resolve(selection);
 				};
 
 				/**
-				 * MenuSeparator component.
+				 * Separator component.
 				 * @returns The rendered component.
 				 */
-				const MenuSeparator = () => {
+				const Separator = () => {
 					// Render.
 					return <div className='separator' />;
 				};
 
 				/**
-				 * MenuItem component.
-				 * @param props A ComboBoxMenuItemOptions that contains the component properties.
+				 * Option component.
+				 * @param props A ComboBoxItemOptions that contains the component properties.
 				 * @returns The rendered component.
 				 */
-				const MenuItem = (props: ComboBoxMenuItemOptions) => {
+				const Option = (props: ComboBoxOptionProps<T>) => {
 					// Render.
 					return (
 						<Button
@@ -106,7 +135,7 @@ export const ComboBox = (props: ComboBoxProps) => {
 							}}
 							onPressed={() => {
 								setTitle(props.label);
-								dismiss(props.identifier);
+								dismiss(props.value);
 							}}
 						>
 							<div
@@ -147,11 +176,11 @@ export const ComboBox = (props: ComboBoxProps) => {
 						onDismiss={() => dismiss(undefined)}
 					>
 						<div className='combo-box-menu-items'>
-							{props.entries.map((entry, index) => {
-								if (entry instanceof ComboBoxMenuItem) {
-									return <MenuItem key={index} {...entry.options} />;
-								} else if (entry instanceof ComboBoxMenuSeparator) {
-									return <MenuSeparator key={index} />;
+							{props.items.map((entry, index) => {
+								if (entry instanceof ComboBoxOption) {
+									return <Option key={index} {...entry.props} />;
+								} else if (entry instanceof ComboBoxSeparator) {
+									return <Separator key={index} />;
 								} else {
 									// This indicates a bug.
 									return null;
@@ -166,9 +195,9 @@ export const ComboBox = (props: ComboBoxProps) => {
 			positronModalReactRenderer.render(<ModalPopup />);
 		});
 
-		// If the user selected an item, call the onSelectionChanged callback.
-		if (selectedIdentifier) {
-			props.onSelectionChanged(selectedIdentifier);
+		// If the user selected a value, call the onSelectionChanged callback.
+		if (value) {
+			props.onValueChanged(value);
 		}
 	};
 
