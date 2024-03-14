@@ -17,7 +17,7 @@ import { Button } from 'vs/base/browser/ui/positronComponents/button/button';
 import { PositronModalPopup } from 'vs/base/browser/ui/positronModalPopup/positronModalPopup';
 import { ColumnSchema } from 'vs/workbench/services/languageRuntime/common/positronDataExplorerComm';
 import { PositronModalReactRenderer } from 'vs/base/browser/ui/positronModalReactRenderer/positronModalReactRenderer';
-import { ComboBox, ComboBoxOption, ComboBoxSeparator } from 'vs/base/browser/ui/positronComponents/comboBox/comboBox';
+import { ComboBox, ComboBoxItemsResult, ComboBoxOption, ComboBoxSeparator } from 'vs/base/browser/ui/positronComponents/comboBox/comboBox';
 import { DataExplorerClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimeDataExplorerClient';
 
 /**
@@ -108,23 +108,33 @@ export const addRowFilterModalPopup = async (
 			const [_column, _setColumn] = useState<ColumnSchema | undefined>(undefined);
 			const [_condition, _setCondition] = useState<Condition | undefined>(undefined);
 
+			/**
+			 * ComboBoxItemsProvider for the columns combo box.
+			 * @param searchText The search text.
+			 * @param maxResults The maximum number of columns to return.
+			 * @returns A Promise<ComboBoxOption<ColumnSchema>[]>> that resolves when the results
+			 * have been returned.
+			 */
 			const columnsComboBoxItemsProvider = async (
 				searchText: string | undefined,
 				maxResults: number
-			) => {
+			): Promise<ComboBoxItemsResult<ColumnSchema>> => {
 				// Search the table schema.
 				const tableSchemaSearchResult = await dataExplorerClientInstance.searchSchema(
-					'',
+					searchText,
 					maxResults
 				);
 
-				// Return the result.
-				return tableSchemaSearchResult.columns.map(columnSchema =>
-					new ComboBoxOption({
-						value: columnSchema,
-						label: columnSchema.column_name
-					})
-				);
+				// Return the combo box items result.
+				return {
+					matchingResults: tableSchemaSearchResult.matching_columns,
+					items: tableSchemaSearchResult.columns.map(columnSchema =>
+						new ComboBoxOption({
+							value: columnSchema,
+							label: columnSchema.column_name
+						})
+					)
+				};
 			};
 
 			/**

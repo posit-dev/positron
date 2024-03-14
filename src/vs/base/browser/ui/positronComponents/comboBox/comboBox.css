@@ -27,58 +27,86 @@
 	grid-column: chevron / end;
 }
 
-.combo-box-items {
+.drop-down {
 	width: 100%;
-	margin: 4px;
-	display: flex;
-	flex-direction: column;
-	background: var(--vscode-positronContextMenu-background);
 }
 
+.drop-down
+.combo-box-search {
+	padding: 4px;
+	border-bottom: 1px solid red;
+	color: red;
+}
+
+.drop-down
+.combo-box-items {
+	/* display: flex; */
+	padding: 4px 0;
+	/* flex-direction: column; */
+	max-height: 200px;
+	overflow-y: scroll;
+	background-color: var(--vscode-positronContextMenu-background);
+}
+
+.combo-box-stuff {
+	display: flex;
+	flex-direction: column;
+	background-color: lightgreen;
+
+}
+
+.drop-down
 .combo-box-items
 .separator {
 	height: 1px;
 	margin: 4px 10px;
-	background: var(--vscode-menu-border);
+	background-color: var(--vscode-menu-border);
 }
 
+.drop-down
 .combo-box-items
 .item {
-	width: 100%;
+	margin: 0 4px;
 	height: 26px;
+	min-height: 26px;
 	border: none;
 	display: grid;
 	cursor: pointer;
 	text-align: left;
 	align-items: center;
 	align-content: center;
-	background: transparent;
+	background-color: transparent;
 	grid-template-columns: [title] 1fr [icon] min-content [end];
 }
 
+.drop-down
 .combo-box-items
 .item:not(.disabled):hover {
 	border-radius: 4px;
 	color: var(--vscode-positronContextMenu-hoverForeground);
-	background: var(--vscode-positronContextMenu-hoverBackground);
+	background-color: var(--vscode-positronContextMenu-hoverBackground);
 }
 
+.drop-down
 .combo-box-items
 .item:focus {
 	outline: none !important;
 }
 
+.drop-down
 .combo-box-items
 .item:focus-visible {
 	border-radius: 4px;
 	outline: 1px solid var(--vscode-focusBorder) !important;
 }
 
+.drop-down
 .combo-box-items
 .item:not(.disabled):focus-visible {
-	background: var(--vscode-positronContextMenu-hoverBackground);
+	background-color: var(--vscode-positronContextMenu-hoverBackground);
 }
 
+.drop-down
 .combo-box-items
 .item
 .title {
@@ -89,15 +117,18 @@
 	white-space: nowrap;
 	text-overflow: ellipsis;
 	grid-column: title / icon;
-	padding: 10px 5px 10px 10px;
+	padding: 0 4px 0 4px;
+	/* padding: 10px 5px 10px 10px; */
 }
 
+.drop-down
 .combo-box-items
 .item
 .title.disabled {
 	opacity: 50%;
 }
 
+.drop-down
 .combo-box-items
 .item
 .icon {
@@ -105,6 +136,7 @@
 	grid-column: icon / end;
 }
 
+.drop-down
 .combo-box-items
 .item
 .icon.disabled {

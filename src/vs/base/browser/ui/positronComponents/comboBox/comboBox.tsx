@@ -49,12 +49,20 @@ export class ComboBoxOption<T> {
 export type ComboBoxItem<T> = ComboBoxOption<T> | ComboBoxSeparator;
 
 /**
+ * ComboBoxItemsResult interface.
+ */
+export interface ComboBoxItemsResult<T> {
+	matchingResults: number;
+	items: ComboBoxItem<T>[];
+}
+
+/**
  * ComboBoxItemsProvider type.
  */
 export type ComboBoxItemsProvider<T> = (
 	searchText: string | undefined,
 	maxResults: number
-) => Promise<ComboBoxItem<T>[]>;
+) => Promise<ComboBoxItemsResult<T>>;
 
 /**
  * ComboBoxProps interface.
@@ -107,35 +115,17 @@ export const ComboBox = <T,>(props: ComboBoxProps<T>) => {
 					Array.isArray(props.items) ? props.items : []
 				);
 
-				//
+				// Item fetcher.
 				useEffect(() => {
-					if (Array.isArray(props.items)) {
-						return;
+					if (!Array.isArray(props.items)) {
+						const fetchItems = props.items;
+						(async () => {
+							const result = await fetchItems(searchText, 100);
+							setItems(result.items);
+						})();
 					}
 
-					const fetch = async () => {
-						if (Array.isArray(props.items)) {
-							return;
-
-						}
-
-						setItems(await props.items(searchText, 100));
-					};
-
-					fetch();
-
 				}, [searchText]);
-
-				// const items = useMemo(async () => {
-				// 	if (Array.isArray(props.items)) {
-				// 		return props.items;
-				// 	}
-
-				// 	// return await props.items(searchText, 100);
-				// 	const yaya =  await props.items(searchText, 100);
-
-				// 	return await yaya;
-				// }, [searchText]);
 
 				/**
 				 * Dismisses the popup.
@@ -219,17 +209,28 @@ export const ComboBox = <T,>(props: ComboBoxProps<T>) => {
 						keyboardNavigation='menu'
 						onDismiss={() => dismiss(undefined)}
 					>
-						<div className='combo-box-items'>
-							{items.map((entry, index) => {
-								if (entry instanceof ComboBoxOption) {
-									return <Option key={index} {...entry.props} />;
-								} else if (entry instanceof ComboBoxSeparator) {
-									return <Separator key={index} />;
-								} else {
-									// This indicates a bug.
-									return null;
-								}
-							})}
+						<div className='drop-down'>
+							{props.searchable &&
+								<div className='combo-box-search'>
+									Search UI
+								</div>
+							}
+							<div className='combo-box-items'>
+								<div className='combo-box-stuff'>
+									{items.map((entry, index) => {
+										if (entry instanceof ComboBoxOption) {
+											return <Option key={index} {...entry.props} />;
+										} else if (entry instanceof ComboBoxSeparator) {
+											return <Separator key={index} />;
+										} else {
+											// This indicates a bug.
+											return null;
+										}
+									})}
+
+								</div>
+							</div>
+
 						</div>
 					</PositronModalPopup>
 				);
