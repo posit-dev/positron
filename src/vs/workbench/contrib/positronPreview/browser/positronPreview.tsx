@@ -18,6 +18,8 @@ import { PositronPreviewContextProvider } from 'vs/workbench/contrib/positronPre
 import { IPositronPreviewService } from 'vs/workbench/contrib/positronPreview/browser/positronPreviewSevice';
 import { PreviewWebview } from 'vs/workbench/contrib/positronPreview/browser/previewWebview';
 import { PositronPreviewViewPane } from 'vs/workbench/contrib/positronPreview/browser/positronPreviewView';
+import { ActionBars } from 'vs/workbench/contrib/positronPreview/browser/components/actionBars';
+import { IRuntimeSessionService } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
 
 /**
  * PositronPreviewProps interface.
@@ -31,6 +33,7 @@ export interface PositronPreviewProps extends PositronPreviewServices {
 	readonly keybindingService: IKeybindingService;
 	readonly layoutService: IWorkbenchLayoutService;
 	readonly reactComponentContainer: PositronPreviewViewPane;
+	readonly runtimeSessionService: IRuntimeSessionService;
 	readonly positronPreviewService: IPositronPreviewService;
 }
 
@@ -81,11 +84,14 @@ export const PositronPreview = (props: PropsWithChildren<PositronPreviewProps>) 
 
 		// Return the cleanup function that will dispose of the event handlers.
 		return () => disposableStore.dispose();
-	}, []);
+	}, [props.positronPreviewService, props.reactComponentContainer]);
 
 	// Render.
 	return (
 		<PositronPreviewContextProvider {...props}>
+			{activePreview &&
+				<ActionBars {...props} />
+			}
 			<PreviewContainer
 				preview={activePreview}
 				visible={visible}

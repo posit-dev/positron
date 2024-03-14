@@ -12,6 +12,11 @@ export const POSITRON_PREVIEW_VIEW_ID = 'workbench.panel.positronPreview';
 
 export const POSITRON_PREVIEW_SERVICE_ID = 'positronPreviewService';
 
+/**
+ * The unique viewType that identifies Positron URL previews.
+ */
+export const POSITRON_PREVIEW_URL_VIEW_TYPE = 'positron.previewUrl';
+
 export const IPositronPreviewService = createDecorator<IPositronPreviewService>(POSITRON_PREVIEW_SERVICE_ID);
 
 /**
@@ -35,11 +40,14 @@ export interface IPositronPreviewService {
 		preserveFocus?: boolean): PreviewWebview;
 
 	/**
-	 * Opens a URL in the preview pane.
+	 * Opens a URI in the preview pane.
 	 *
-	 * @param url The URL to open in the preview.
+	 * @param previewId The unique ID or handle of the preview.
+	 * @param origin The origin of the URL.
+	 * @param extension The extension that is opening the URL.
+	 * @param uri The URI to open in the preview.
 	 */
-	openUrl(previewId: string,
+	openUri(previewId: string,
 		origin: string,
 		extension: WebviewExtensionDescription,
 		uri: URI): PreviewWebview;

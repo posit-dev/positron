@@ -20,6 +20,7 @@ import { ICommandService } from 'vs/platform/commands/common/commands';
 import { IWorkbenchLayoutService } from 'vs/workbench/services/layout/browser/layoutService';
 import { IPositronPreviewService } from 'vs/workbench/contrib/positronPreview/browser/positronPreviewSevice';
 import { PositronPreview } from 'vs/workbench/contrib/positronPreview/browser/positronPreview';
+import { IRuntimeSessionService } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
 
 /**
  * PositronPreviewViewPane class.
@@ -77,6 +78,7 @@ export class PositronPreviewViewPane extends ViewPane implements IReactComponent
 		@ITelemetryService telemetryService: ITelemetryService,
 		@IThemeService themeService: IThemeService,
 		@IViewDescriptorService viewDescriptorService: IViewDescriptorService,
+		@IRuntimeSessionService private readonly runtimeSessionService: IRuntimeSessionService,
 		@ICommandService private readonly commandService: ICommandService,
 		@IWorkbenchLayoutService private readonly layoutService: IWorkbenchLayoutService,
 		@IPositronPreviewService private readonly positronPreviewService: IPositronPreviewService
@@ -174,7 +176,8 @@ export class PositronPreviewViewPane extends ViewPane implements IReactComponent
 				contextMenuService={this.contextMenuService}
 				keybindingService={this.keybindingService}
 				positronPreviewService={this.positronPreviewService}
-				reactComponentContainer={this} />
+				reactComponentContainer={this}
+				runtimeSessionService={this.runtimeSessionService} />
 		);
 	}
 
@@ -205,6 +208,9 @@ export class PositronPreviewViewPane extends ViewPane implements IReactComponent
 		if (this._redrawPending) {
 			return;
 		}
+
+		// Get the window object associated with the preview container
+		const window = DOM.getWindow(this._positronPreviewContainer);
 
 		// Compute the physical position of the preview container. We do this so
 		// that we can trigger a render of the preview container if the position
