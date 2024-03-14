@@ -68,6 +68,47 @@
 			]
 		},
 		{
+			"name": "show_question",
+			"summary": "Show a question",
+			"description": "Use this for a modal dialog that the user can accept or cancel",
+			"params": [
+				{
+					"name": "title",
+					"description": "The title of the dialog",
+					"schema": {
+						"type": "string"
+					}
+				},
+				{
+					"name": "message",
+					"description": "The message to display in the dialog",
+					"schema": {
+						"type": "string"
+					}
+				},
+				{
+					"name": "ok_button_title",
+					"description": "The title of the OK button",
+					"schema": {
+						"type": "string"
+					}
+				},
+				{
+					"name": "cancel_button_title",
+					"description": "The title of the Cancel button",
+					"schema": {
+						"type": "string"
+					}
+				}
+			],
+			"result": {
+				"schema": {
+					"type": "boolean",
+					"description": "Whether the user accepted or rejected the dialog."
+				}
+			}
+		},
+		{
 			"name": "prompt_state",
 			"summary": "New state of the primary and secondary prompts",
 			"description": "Languages like R allow users to change the way their prompts look. This event signals a change in the prompt configuration.",
@@ -129,8 +170,7 @@
 						"type": "string"
 					}
 				}
-			],
-			"result": {}
+			]
 		},
 		{
 			"name": "last_active_editor_context",
@@ -191,7 +231,7 @@
 						"type": "string",
 						"description": "End of line sequence"
 					},
- 					"is_closed": {
+					"is_closed": {
 						"type": "boolean",
 						"description": "Whether the document has been closed"
 					},
