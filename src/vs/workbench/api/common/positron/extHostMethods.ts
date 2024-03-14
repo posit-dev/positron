@@ -4,7 +4,7 @@
 
 import * as extHostProtocol from './extHost.positron.protocol';
 import { ExtHostEditors } from '../extHostTextEditors';
-import { ExtHostCommands } from '../extHostCommands';
+import { ExtHostModalDialogs } from '../positron/extHostModalDialogs';
 import { UiFrontendRequest, EditorContext } from 'vs/workbench/services/languageRuntime/common/positronUiComm';
 import { JsonRpcErrorCode } from 'vs/workbench/services/languageRuntime/common/positronBaseComm';
 import { EndOfLine } from '../extHostTypeConverters';
@@ -33,7 +33,7 @@ export class ExtHostMethods implements extHostProtocol.ExtHostMethodsShape {
 	constructor(
 		_mainContext: extHostProtocol.IMainPositronContext,
 		private readonly editors: ExtHostEditors,
-		private readonly commands: ExtHostCommands
+		private readonly dialogs: ExtHostModalDialogs
 	) {
 	}
 
@@ -62,18 +62,25 @@ export class ExtHostMethods implements extHostProtocol.ExtHostMethodsShape {
 					result = await this.lastActiveEditorContext();
 					break;
 				}
+				case UiFrontendRequest.ShowQuestion: {
+					if (!params ||
+						!Object.keys(params).includes('title') ||
+						!Object.keys(params).includes('message') ||
+						!Object.keys(params).includes('ok_button_title') ||
+						!Object.keys(params).includes('cancel_button_title')) {
+						return newInvalidParamsError(method);
+					}
+					result = await this.showQuestion(params.title as string,
+						params.message as string,
+						params.ok_button_title as string,
+						params.cancel_button_title as string);
+					break;
+				}
 				case UiFrontendRequest.DebugSleep: {
 					if (!params || !Object.keys(params).includes('ms')) {
 						return newInvalidParamsError(method);
 					}
 					result = await this.debugSleep(params.ms as number);
-					break;
-				}
-				case UiFrontendRequest.ExecuteCommand: {
-					if (!params || !Object.keys(params).includes('command')) {
-						return newInvalidParamsError(method);
-					}
-					result = await this.executeCommand(params.command as string);
 					break;
 				}
 			}
@@ -153,9 +160,8 @@ export class ExtHostMethods implements extHostProtocol.ExtHostMethodsShape {
 		};
 	}
 
-	async executeCommand(commandId: string): Promise<null> {
-		await this.commands.executeCommand(commandId);
-		return null;
+	async showQuestion(title: string, message: string, okButtonTitle: string, cancelButtonTitle: string): Promise<boolean> {
+		return this.dialogs.showSimpleModalDialogPrompt(title, message, okButtonTitle, cancelButtonTitle);
 	}
 
 	async debugSleep(ms: number): Promise<null> {
