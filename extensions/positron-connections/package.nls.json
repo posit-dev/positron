@@ -5,5 +5,6 @@
 	"view.welcome": "No database connections are currently active.",
 	"commands.previewTable.title": "Preview Table",
 	"commands.previewTable.category": "Connections",
-	"commands.closeConnection.title": "Close Connection"
+	"commands.closeConnection.title": "Close Connection",
+	"commands.refresh.title": "Refresh connection"
 }

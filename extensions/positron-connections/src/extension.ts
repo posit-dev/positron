@@ -5,6 +5,7 @@
 import * as vscode from 'vscode';
 import * as positron from 'positron';
 import { ConnectionItemDatabase, ConnectionItemNode, ConnectionItemsProvider } from './connection';
+import { PositronConnectionsComm } from './comms/ConnectionsComms';
 
 /**
  * Activates the extension.
@@ -24,7 +25,7 @@ export function activate(context: vscode.ExtensionContext) {
 		positron.runtime.registerClientHandler({
 			clientType: 'positron.connection',
 			callback: (client, params: any) => {
-				connectionProvider.addConnection(client, params.name);
+				connectionProvider.addConnection(new PositronConnectionsComm(client), params.name);
 				return true;
 			}
 		}));
@@ -33,12 +34,23 @@ export function activate(context: vscode.ExtensionContext) {
 	context.subscriptions.push(
 		vscode.commands.registerCommand('positron.connections.previewTable',
 			(item: ConnectionItemNode) => {
-				item.preview();
+				try {
+					item.preview();
+				} catch (e: any) {
+					// this is not fatal, but worth notifying
+					vscode.window.showErrorMessage(`Error previewing '${item.name}': ${e.message}`);
+				}
 			}));
 
 	context.subscriptions.push(
 		vscode.commands.registerCommand('positron.connections.closeConnection',
 			(item: ConnectionItemDatabase) => {
 				item.close();
+			}));
+
+	context.subscriptions.push(
+		vscode.commands.registerCommand('positron.connections.refresh',
+			() => {
+				connectionProvider.refresh();
 			}));
 }

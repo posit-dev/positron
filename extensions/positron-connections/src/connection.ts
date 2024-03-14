@@ -5,6 +5,7 @@
 import * as vscode from 'vscode';
 import * as positron from 'positron';
 import path = require('path');
+import { PositronConnectionsComm } from './comms/ConnectionsComms';
 
 /**
  * Enumerates the possible types of connection icons
@@ -26,16 +27,12 @@ export class ConnectionItem {
 	 * Create a new ConnectionItem instance
 	 *
 	 * @param name The name of the item
-	 * @param client A reference to the client instance (comm) that owns the
-	 *   item
+	 * @param client A reference to the client instance (comm) that owns the item
 	 */
+
 	constructor(
 		readonly name: string,
-		readonly client: positron.RuntimeClientInstance) {
-	}
-
-	async icon(): Promise<string | vscode.Uri | { light: vscode.Uri; dark: vscode.Uri }> {
-		return '';
+		readonly client: PositronConnectionsComm) {
 	}
 
 	async contains_data(): Promise<boolean> {
@@ -51,47 +48,24 @@ export class ConnectionItem {
  * @param path The path to the node. This is represented as a list of tuples (name, type). Later,
  *   we can use the path to get the node children by doing something like
  * 	 `getChildren(schema='hello', table='world')`
- * @param iconPath The path to an icon returned by the backend. If a path is not provided
- *  by the backend, the kind is used instead, to look up an icon in the extension's media
- * 	folder.
  */
 export class ConnectionItemNode extends ConnectionItem {
 	readonly kind: string;
 	readonly path: Array<{ name: string; kind: string }>;
-	private iconPath?: string | vscode.Uri | { light: vscode.Uri; dark: vscode.Uri };
-	private containsData?: boolean;
+	private _contains_data?: boolean;
 
-	constructor(readonly name: string, kind: string, path: Array<{ name: string; kind: string }>, client: positron.RuntimeClientInstance) {
+	constructor(readonly name: string, kind: string, path: Array<{ name: string; kind: string }>, client: PositronConnectionsComm) {
 		super(name, client);
 		this.kind = kind;
 		this.path = path;
 	}
 
 	async icon() {
-		if (this.iconPath) {
-			return this.iconPath;
-		}
-
-		const response = await this.client.performRpc({ msg_type: 'icon_request', path: this.path }) as any;
-
-		if (response.icon) {
-			this.iconPath = vscode.Uri.file(response.icon);
-			return this.iconPath;
-		}
-
-		this.iconPath = this.kind;
-		return this.iconPath;
+		return await this.client.getIcon(this.path);
 	}
 
 	override async contains_data() {
-		if (this.containsData) {
-			return this.containsData;
-		}
-
-		const response = await this.client.performRpc({ msg_type: 'contains_data_request', path: this.path }) as any;
-		this.containsData = response.contains_data as boolean;
-
-		return this.containsData;
+		return await this.client.containsData(this.path);
 	}
 
 	async preview() {
@@ -100,7 +74,8 @@ export class ConnectionItemNode extends ConnectionItem {
 			// does not contain data.
 			throw new Error('This item does not contain data');
 		}
-		await this.client.performRpc({ msg_type: 'preview_table', table: this.name, path: this.path });
+
+		await this.client.previewObject(this.path);
 	}
 }
 
@@ -108,26 +83,35 @@ export class ConnectionItemNode extends ConnectionItem {
  * A connection item representing a database connection (top-level)
  */
 export class ConnectionItemDatabase extends ConnectionItemNode {
-	constructor(readonly name: string, readonly client: positron.RuntimeClientInstance) {
+	constructor(readonly name: string, readonly client: PositronConnectionsComm) {
 		super(name, 'database', [], client);
 	}
 
 	close() {
 		this.client.dispose();
 	}
+
+	async contains_data() {
+		// database roots never contain data (even if empty) as they can't be a table itself
+		return false;
+	}
 }
 
 /**
  * A connection item representing a field in a table
  */
-export class ConnectionItemField extends ConnectionItem {
-	constructor(readonly name: string, readonly dtype: string, readonly client: positron.RuntimeClientInstance) {
-		super(name, client);
+export class ConnectionItemField extends ConnectionItemNode {
+	constructor(readonly name: string, readonly dtype: string, readonly client: PositronConnectionsComm) {
+		super(name, 'field', [], client);
 		this.dtype = dtype;
 	}
 
-	override async icon() {
-		return 'field';
+	async icon() {
+		return ''; // fields can't have custom icons
+	}
+
+	async contains_data() {
+		return false;
 	}
 }
 
@@ -167,9 +151,22 @@ export class ConnectionItemsProvider implements vscode.TreeDataProvider<Connecti
 	 * @param item The item to get the tree item for
 	 * @returns A TreeItem for the item
 	 */
-	async getTreeItem(item: ConnectionItem): Promise<vscode.TreeItem> {
+	async getTreeItem(item: ConnectionItemNode): Promise<vscode.TreeItem> {
+
+		// Check if the item contains data
+		// If that fails we want to quicly return a treeItem that is not ispectable
+		let contains_data: boolean;
+		try {
+			contains_data = await item.contains_data();
+		} catch (err: any) {
+			// when contains_data fails, we show an error message that asks for a refresh.
+			// we also display an error tree item instead, so we can proceed with the rest of the tree
+			this.showErrorMessageWithRefresh(vscode.l10n.t(`Error checking if '{0}' contains_data: {1}`, item.name, err.message));
+			return this.errorTreeItem(item.name, err);
+		}
+
 		// Both databases and tables can be expanded.
-		const collapsibleState = item instanceof ConnectionItemNode;
+		const collapsibleState = !(item instanceof ConnectionItemField);
 
 		// Create the tree item.
 		const treeItem = new vscode.TreeItem(item.name,
@@ -179,7 +176,7 @@ export class ConnectionItemsProvider implements vscode.TreeDataProvider<Connecti
 
 		treeItem.iconPath = await this.getTreeItemIcon(item);
 
-		if (await item.contains_data()) {
+		if (contains_data) {
 			// if the item contains data, we set the contextValue enabling the UI for previewing the data
 			treeItem.contextValue = 'table';
 		}
@@ -198,14 +195,39 @@ export class ConnectionItemsProvider implements vscode.TreeDataProvider<Connecti
 		return treeItem;
 	}
 
-	async getTreeItemIcon(item: ConnectionItem): Promise<vscode.Uri | { light: vscode.Uri; dark: vscode.Uri }> {
-		const icon = await item.icon();
-
-		if (typeof icon === 'string') {
-			return this._icons[icon];
+	async getTreeItemIcon(item: ConnectionItemNode): Promise<vscode.Uri | { light: vscode.Uri; dark: vscode.Uri }> {
+		try {
+			const icon = await item.icon();
+			if (icon !== '') {
+				return vscode.Uri.file(icon);
+			}
+		} catch (err: any) {
+			// not having an icon is not fatal as we can fallback to the type, but is worth notifying
+			vscode.window.showErrorMessage(vscode.l10n.t(`Error getting icon for '{0}' : {1}`, item.name, err.message));
 		}
 
-		return icon;
+		// fallback to the item kind
+		return this._icons[item.kind];
+	}
+
+	async showErrorMessageWithRefresh(message: string) {
+		const answer = await vscode.window.showErrorMessage(message,
+			{
+				title: vscode.l10n.t('Retry'),
+				execute: async () => {
+					this.refresh();
+				}
+			}
+		);
+		answer?.execute();
+	}
+
+	errorTreeItem(name: string, error: any): vscode.TreeItem {
+		const treeItem = new vscode.TreeItem(name, vscode.TreeItemCollapsibleState.None);
+		treeItem.description = vscode.l10n.t('Error loading item.');
+		treeItem.tooltip = error.message;
+		treeItem.iconPath = new vscode.ThemeIcon('error', new vscode.ThemeColor('errorForeground'));
+		return treeItem;
 	}
 
 	/**
@@ -214,7 +236,7 @@ export class ConnectionItemsProvider implements vscode.TreeDataProvider<Connecti
 	 * @param client The client instance that owns the connection
 	 * @param name The name of the connection
 	 */
-	addConnection(client: positron.RuntimeClientInstance, name: string) {
+	addConnection(client: PositronConnectionsComm, name: string) {
 		// Add the connection to the list
 		this._connections.push(new ConnectionItemDatabase(name, client));
 
@@ -224,12 +246,12 @@ export class ConnectionItemsProvider implements vscode.TreeDataProvider<Connecti
 
 		// Add an event listener to the client so that we can remove the
 		// connection when it closes.
-		client.onDidChangeClientState((state: positron.RuntimeClientState) => {
+		client.instance.onDidChangeClientState((state: positron.RuntimeClientState) => {
 			if (state === positron.RuntimeClientState.Closed) {
 				// Get the ID and discard the connection matching the ID
-				const clientId = client.getClientId();
+				const clientId = client.instance.getClientId();
 				this._connections = this._connections.filter((connection) => {
-					return connection.client.getClientId() !== clientId;
+					return connection.client.instance.getClientId() !== clientId;
 				});
 				this._onDidChangeTreeData.fire(undefined);
 			}
@@ -254,10 +276,20 @@ export class ConnectionItemsProvider implements vscode.TreeDataProvider<Connecti
 			return [];
 		}
 
+		let contains_data: boolean;
+		try {
+			// a failure here is unlikely as if contains_data() fails before, we would return a
+			// non collapsible treeItem, this getChildren wouldn't be called.
+			// anyway, if this happens we still send a retry notification and return no children.
+			contains_data = await element.contains_data();
+		} catch (err: any) {
+			this.showErrorMessageWithRefresh(vscode.l10n.t(`Error checking if '{0}' contains_data: {1}`, element.name, err.message));
+			return [];
+		}
+
 		// The node is a view or a table so we want to get the fields on it.
 		if (await element.contains_data()) {
-			const response = await element.client.performRpc({ msg_type: 'fields_request', table: element.name, path: element.path }) as any;
-			const fields = response.fields as Array<{ name: string; dtype: string }>;
+			const fields = await element.client.listFields(element.path);
 			return fields.map((field) => {
 				return new ConnectionItemField(field.name, field.dtype, element.client);
 			});
@@ -265,11 +297,14 @@ export class ConnectionItemsProvider implements vscode.TreeDataProvider<Connecti
 
 		// The node is a database, schema, or catalog, so we want to get the next set of elements in
 		// the tree.
-		const response = await element.client.performRpc({ msg_type: 'tables_request', name: element.name, kind: element.kind, path: element.path }) as any;
-		const children = response.tables as Array<{ name: string; kind: string }>;
+		const children = await element.client.listObjects(element.path);
 		return children.map((obj) => {
 			const path = [...element.path, { name: obj.name, kind: obj.kind }];
 			return new ConnectionItemNode(obj.name, obj.kind, path, element.client);
 		});
+	}
+
+	public refresh() {
+		this._onDidChangeTreeData.fire(undefined);
 	}
 }
