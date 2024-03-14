@@ -17,7 +17,6 @@ import { PositronSessionsServices } from 'vs/workbench/contrib/positronRuntimeSe
 import { ActionBarRegion } from 'vs/platform/positronActionBar/browser/components/actionBarRegion';
 import { ActionBarButton } from 'vs/platform/positronActionBar/browser/components/actionBarButton';
 import { localize } from 'vs/nls';
-import { ActionBarSeparator } from 'vs/platform/positronActionBar/browser/components/actionBarSeparator';
 import { PreviewUrl } from 'vs/workbench/contrib/positronPreview/browser/previewUrl';
 
 // Constants.
@@ -69,7 +68,7 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 	// Render.
 	return (
 		<PositronActionBarContextProvider {...props}>
-			<div className='action-bars'>
+			<div className='action-bars preview-action-bar'>
 				<PositronActionBar size='small' borderTop={true} borderBottom={true} paddingLeft={kPaddingLeft} paddingRight={kPaddingRight}>
 					<ActionBarRegion location='left'>
 						<ActionBarButton iconId='positron-left-arrow'
@@ -81,9 +80,13 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 							tooltip={navigateForward}
 							ariaLabel={navigateForward}
 							onPressed={navigateForwardHandler} />
+					</ActionBarRegion>
+					<ActionBarRegion location='center'>
 						<div className='url-bar'>
 							{props.preview.currentUri.toString()}
 						</div>
+					</ActionBarRegion>
+					<ActionBarRegion location='right'>
 						<ActionBarButton
 							iconId='positron-refresh'
 							tooltip={reload}

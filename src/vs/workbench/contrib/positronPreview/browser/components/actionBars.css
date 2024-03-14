@@ -2,8 +2,13 @@
  *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
-.action-bars {
-	height: 32px;
+.preview-action-bar .action-bar-region-left,
+.preview-action-bar .action-bar-region-right {
+	flex: 0;
+}
+
+.preview-action-bar .action-bar-region-center {
+	flex: 1;
 }
 
 .url-bar {
@@ -14,4 +19,5 @@
 	padding-right: 10px;
 	padding-top: 2px;
 	padding-bottom: 2px;
+	flex-grow: 1;
 }
