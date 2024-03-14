@@ -53,6 +53,11 @@
         "command": "positron.connections.closeConnection",
         "title": "%commands.closeConnection.title%",
         "icon": "$(debug-disconnect)"
+      },
+      {
+        "command": "positron.connections.refresh",
+        "title": "%commands.refresh.title%",
+        "icon": "$(refresh)"
       }
     ],
     "menus": {
@@ -66,6 +71,11 @@
           "command": "positron.connections.previewTable",
           "group": "inline",
           "when": "viewItem == table"
+        },
+        {
+          "command": "positron.connections.refresh",
+          "group": "inline",
+          "when": "viewItem == database"
         }
       ]
     }
