@@ -60,6 +60,14 @@ export class PreviewUrl extends PreviewWebview {
 						iframe.src = iframe.src;
 						break;
 					}
+					case 'back': {
+						history.back();
+						break;
+					}
+					case 'forward': {
+						history.forward();
+						break;
+					}
 				}
 			});
 		</script>

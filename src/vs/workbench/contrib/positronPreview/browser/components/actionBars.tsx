@@ -51,11 +51,15 @@ const reload = localize('positron.preview.reload', "Reload the current URL");
  * @returns The rendered component.
  */
 export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
-	// TODO
-	const navigateBackHandler = () => { };
+	// Handler for the navigate back button.
+	const navigateBackHandler = () => {
+		props.preview.webview.postMessage({ command: 'back' });
+	};
 
-	// TODO
-	const navigateForwardHandler = () => { };
+	// Handler for the navigate forward button.
+	const navigateForwardHandler = () => {
+		props.preview.webview.postMessage({ command: 'forward' });
+	};
 
 	// Handler for the reload button.
 	const reloadHandler = () => {
