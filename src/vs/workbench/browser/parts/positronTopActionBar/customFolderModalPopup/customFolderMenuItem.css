@@ -11,6 +11,7 @@
 	text-align: left;
 	align-items: center;
 	background: transparent;
+	color: var(--vscode-positronContextMenu-foreground);
 }
 
 .custom-folder-menu-item:hover {
