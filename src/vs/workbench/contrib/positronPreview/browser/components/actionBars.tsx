@@ -14,11 +14,11 @@ import { PositronActionBar } from 'vs/platform/positronActionBar/browser/positro
 import { IWorkbenchLayoutService } from 'vs/workbench/services/layout/browser/layoutService';
 import { PositronActionBarContextProvider } from 'vs/platform/positronActionBar/browser/positronActionBarContext';
 import { PositronSessionsServices } from 'vs/workbench/contrib/positronRuntimeSessions/browser/positronRuntimeSessionsState';
-import { usePositronPreviewContext } from 'vs/workbench/contrib/positronPreview/browser/positronPreviewContext';
 import { ActionBarRegion } from 'vs/platform/positronActionBar/browser/components/actionBarRegion';
 import { ActionBarButton } from 'vs/platform/positronActionBar/browser/components/actionBarButton';
-import { POSITRON_PREVIEW_URL_VIEW_TYPE } from 'vs/workbench/contrib/positronPreview/browser/positronPreviewSevice';
 import { localize } from 'vs/nls';
+import { ActionBarSeparator } from 'vs/platform/positronActionBar/browser/components/actionBarSeparator';
+import { PreviewUrl } from 'vs/workbench/contrib/positronPreview/browser/previewUrl';
 
 // Constants.
 const kPaddingLeft = 8;
@@ -35,6 +35,9 @@ export interface ActionBarsProps extends PositronSessionsServices {
 	readonly contextMenuService: IContextMenuService;
 	readonly keybindingService: IKeybindingService;
 	readonly layoutService: IWorkbenchLayoutService;
+
+	// The active preview.
+	readonly preview: PreviewUrl;
 }
 
 // Localized strings.
@@ -47,11 +50,6 @@ const navigateForward = localize('positron.preview.navigateForward', "Navigate b
  * @returns The rendered component.
  */
 export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
-	// Context hooks.
-	const positronPreviewContext = usePositronPreviewContext();
-	const activeWebview = positronPreviewContext.positronPreviewService.activePreviewWebview;
-	const isBrowser = activeWebview?.viewType === POSITRON_PREVIEW_URL_VIEW_TYPE;
-
 	// TODO
 	const navigateBackHandler = () => { };
 
@@ -65,16 +63,18 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 				<PositronActionBar size='small' borderTop={true} borderBottom={true} paddingLeft={kPaddingLeft} paddingRight={kPaddingRight}>
 					<ActionBarRegion location='left'>
 						<ActionBarButton iconId='positron-left-arrow'
-							disabled={!isBrowser}
 							tooltip={navigateBack}
 							ariaLabel={navigateBack}
 							onPressed={navigateBackHandler} />
 						<ActionBarButton
 							iconId='positron-right-arrow'
-							disabled={!isBrowser}
 							tooltip={navigateForward}
 							ariaLabel={navigateForward}
 							onPressed={navigateForwardHandler} />
+						<ActionBarSeparator />
+						<div className='url-bar'>
+							{props.preview.currentUri.toString()}
+						</div>
 					</ActionBarRegion>
 				</PositronActionBar>
 			</div>

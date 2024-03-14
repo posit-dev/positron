@@ -5,10 +5,10 @@
 import { Disposable } from 'vs/base/common/lifecycle';
 import { IPositronPreviewService } from 'vs/workbench/contrib/positronPreview/browser/positronPreview';
 import { Event, Emitter } from 'vs/base/common/event';
-import { IOverlayWebview, IWebviewService, WebviewExtensionDescription, WebviewInitInfo } from 'vs/workbench/contrib/webview/browser/webview';
+import { IWebviewService, WebviewExtensionDescription, WebviewInitInfo } from 'vs/workbench/contrib/webview/browser/webview';
 import { PreviewWebview } from 'vs/workbench/contrib/positronPreview/browser/previewWebview';
 import { IViewsService } from 'vs/workbench/services/views/common/viewsService';
-import { POSITRON_PREVIEW_URL_VIEW_TYPE, POSITRON_PREVIEW_VIEW_ID } from 'vs/workbench/contrib/positronPreview/browser/positronPreviewSevice';
+import { POSITRON_PREVIEW_VIEW_ID } from 'vs/workbench/contrib/positronPreview/browser/positronPreviewSevice';
 import { RuntimeOutputKind } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { ILanguageRuntimeSession, IRuntimeSessionService } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
 import { IPositronNotebookOutputWebviewService } from 'vs/workbench/contrib/positronOutputWebview/browser/notebookOutputWebviewService';
@@ -105,10 +105,9 @@ export class PositronPreviewService extends Disposable implements IPositronPrevi
 		title: string,
 		preserveFocus?: boolean | undefined): PreviewWebview {
 
+		const webview = this._webviewService.createWebviewOverlay(webviewInitInfo);
 		const preview = new PreviewWebview(viewType, previewId, title, webview);
 		this._items.set(previewId, preview);
-
-		const webview = this._webviewService.createWebviewOverlay(webviewInitInfo);
 
 		this.openPreviewWebview(preview, preserveFocus);
 
@@ -135,6 +134,7 @@ export class PositronPreviewService extends Disposable implements IPositronPrevi
 
 		const webview = this._webviewService.createWebviewOverlay(webviewInitInfo);
 		const preview = new PreviewUrl(previewId, webview, uri);
+		this._items.set(previewId, preview);
 		this.openPreviewWebview(preview);
 
 		return preview;
@@ -176,18 +176,22 @@ export class PositronPreviewService extends Disposable implements IPositronPrevi
 	}
 
 	/**
-	 * Attaches to a runtime and listens for messages that should be rendered.
+	 * Attaches to a runtime session and listens for messages that should be rendered.
 	 *
-	 * @param runtime The runtime to attach to
+	 * @param session The runtime session to attach to
 	 */
-	attachRuntime(runtime: ILanguageRuntimeSession) {
-		this._register(runtime.onDidReceiveRuntimeMessageOutput(async (e) => {
+	attachRuntime(session: ILanguageRuntimeSession) {
+		this._register(session.onDidReceiveRuntimeMessageOutput(async (e) => {
 			if (e.kind === RuntimeOutputKind.ViewerWidget) {
 				const webview = await
-					this._notebookOutputWebviewService.createNotebookOutputWebview(runtime, e);
+					this._notebookOutputWebviewService.createNotebookOutputWebview(session, e);
 				if (webview) {
-					this.openPreviewWebview(e.id,
-						webview.webview, 'notebookRenderer', runtime.runtimeMetadata.runtimeName);
+					const preview = new PreviewWebview(
+						'notebookRenderer',
+						e.id, session.metadata.sessionName,
+						webview.webview);
+					this._items.set(e.id, preview);
+					this.openPreviewWebview(preview, false);
 				}
 			}
 		}));

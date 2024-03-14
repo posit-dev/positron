@@ -15,11 +15,12 @@ import { DisposableStore } from 'vs/base/common/lifecycle';
 import { PreviewContainer } from 'vs/workbench/contrib/positronPreview/browser/components/previewContainer';
 import { PositronPreviewServices } from 'vs/workbench/contrib/positronPreview/browser/positronPreviewState';
 import { PositronPreviewContextProvider } from 'vs/workbench/contrib/positronPreview/browser/positronPreviewContext';
-import { IPositronPreviewService } from 'vs/workbench/contrib/positronPreview/browser/positronPreviewSevice';
+import { IPositronPreviewService, POSITRON_PREVIEW_URL_VIEW_TYPE } from 'vs/workbench/contrib/positronPreview/browser/positronPreviewSevice';
 import { PreviewWebview } from 'vs/workbench/contrib/positronPreview/browser/previewWebview';
 import { PositronPreviewViewPane } from 'vs/workbench/contrib/positronPreview/browser/positronPreviewView';
 import { ActionBars } from 'vs/workbench/contrib/positronPreview/browser/components/actionBars';
 import { IRuntimeSessionService } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
+import { PreviewUrl } from 'vs/workbench/contrib/positronPreview/browser/previewUrl';
 
 /**
  * PositronPreviewProps interface.
@@ -89,8 +90,8 @@ export const PositronPreview = (props: PropsWithChildren<PositronPreviewProps>) 
 	// Render.
 	return (
 		<PositronPreviewContextProvider {...props}>
-			{activePreview &&
-				<ActionBars {...props} />
+			{activePreview && activePreview instanceof PreviewUrl &&
+				<ActionBars preview={activePreview} {...props} />
 			}
 			<PreviewContainer
 				preview={activePreview}

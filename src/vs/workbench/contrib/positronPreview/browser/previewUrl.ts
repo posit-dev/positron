@@ -23,7 +23,7 @@ export class PreviewUrl extends PreviewWebview {
 	constructor(
 		previewId: string,
 		webview: IOverlayWebview,
-		uri: URI
+		private readonly uri: URI
 	) {
 		super(POSITRON_PREVIEW_URL_VIEW_TYPE, previewId,
 			POSITRON_PREVIEW_URL_VIEW_TYPE,
@@ -51,5 +51,9 @@ export class PreviewUrl extends PreviewWebview {
 		<iframe src="${uri.toString()}"></iframe>
 	</body>
 </html>`);
+	}
+
+	get currentUri(): URI {
+		return this.uri;
 	}
 }
