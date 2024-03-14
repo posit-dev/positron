@@ -180,7 +180,8 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 		}
 		if (this._sessionManager) {
 			this._logService.warn(
-				`Language runtime service already has a session manager registered!`);
+				`Language runtime service already has a session manager registered! Ignoring.`);
+			return;
 		}
 		this._sessionManager = manager;
 	}
