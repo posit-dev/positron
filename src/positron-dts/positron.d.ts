@@ -1205,11 +1205,17 @@ declare module 'positron' {
 		export function lastActiveEditorContext(): Thenable<EditorContext | null>;
 
 		/**
-		 * Executes a Positron command.
+		 * Create and show a simple modal dialog prompt.
 		 *
-		 * @param command The Positron command name.
+		 * @param title The title of the dialog
+		 * @param message The message to display in the dialog
+		 * @param okButtonTitle The title of the OK button
+		 * @param cancelButtonTitle The title of the Cancel button
+		 *
+		 * @returns A Thenable that resolves to true if the user clicked OK, or false
+		 *   if the user clicked Cancel.
 		 */
-		export function executeCommand(commandId: string): Thenable<null>;
+		export function showQuestion(title: string, message: string, okButtonTitle: string, cancelButtonTitle: string): Thenable<boolean>;
 
 	}
 }

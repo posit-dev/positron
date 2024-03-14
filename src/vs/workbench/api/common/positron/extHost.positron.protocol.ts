@@ -81,7 +81,6 @@ export interface MainThreadMethodsShape { }
 
 export interface ExtHostMethodsShape {
 	lastActiveEditorContext(): Promise<IEditorContext | null>;
-	executeCommand(commandId: string): Promise<null>;
 }
 
 /**
