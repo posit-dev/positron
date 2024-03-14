@@ -13,6 +13,7 @@ import { RuntimeOutputKind } from 'vs/workbench/services/languageRuntime/common/
 import { ILanguageRuntimeSession, IRuntimeSessionService } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
 import { IPositronNotebookOutputWebviewService } from 'vs/workbench/contrib/positronOutputWebview/browser/notebookOutputWebviewService';
 import { URI } from 'vs/base/common/uri';
+import { PreviewUrl } from 'vs/workbench/contrib/positronPreview/browser/previewUrl';
 
 /**
  * Positron preview service; keeps track of the set of active previews and
@@ -104,11 +105,14 @@ export class PositronPreviewService extends Disposable implements IPositronPrevi
 		title: string,
 		preserveFocus?: boolean | undefined): PreviewWebview {
 
-		return this.openPreviewWebview(previewId,
-			this._webviewService.createWebviewOverlay(webviewInitInfo),
-			viewType,
-			title,
-			preserveFocus);
+		const preview = new PreviewWebview(viewType, previewId, title, webview);
+		this._items.set(previewId, preview);
+
+		const webview = this._webviewService.createWebviewOverlay(webviewInitInfo);
+
+		this.openPreviewWebview(preview, preserveFocus);
+
+		return preview;
 	}
 
 	openUri(previewId: string, origin: string, extension: WebviewExtensionDescription, uri: URI): PreviewWebview {
@@ -129,28 +133,17 @@ export class PositronPreviewService extends Disposable implements IPositronPrevi
 			extension
 		};
 
-		const preview = this.openPreviewWebview(previewId,
-			this._webviewService.createWebviewOverlay(webviewInitInfo),
-			POSITRON_PREVIEW_URL_VIEW_TYPE,
-			'',
-			true);
-
-		preview.webview.setHtml(`<html><body><iframe src="${uri.toString()}"></iframe></body></html>`);
+		const webview = this._webviewService.createWebviewOverlay(webviewInitInfo);
+		const preview = new PreviewUrl(previewId, webview, uri);
+		this.openPreviewWebview(preview);
 
 		return preview;
 	}
 
 	openPreviewWebview(
-		previewId: string,
-		webview: IOverlayWebview,
-		viewType: string,
-		title: string,
+		preview: PreviewWebview,
 		preserveFocus?: boolean | undefined
 	) {
-
-		const preview = new PreviewWebview(viewType, previewId, title, webview);
-		this._items.set(previewId, preview);
-
 		this._onDidCreatePreviewWebviewEmitter.fire(preview);
 		this.activePreviewWebviewId = preview.previewId;
 
