@@ -136,12 +136,13 @@ export class DataExplorerClientInstance extends Disposable {
 
 	/**
 	 * Searches the table schema.
-	 * @returns A promise that resolves to the table schema search result.
+	 * @param searchText The search text.
+	 * @param maxResults The maximum number of results to return.
+	 * @returns A TableSchemaSearchResult that contains the search result.
 	 */
 	async searchSchema(
-		startIndex: number,
-		searchTerm: string | undefined,
-		maxNumColumns: number
+		searchText: string | undefined,
+		maxResults: number
 	): Promise<TableSchemaSearchResult> {
 		/**
 		 * Brute force temporary implementation.
@@ -152,26 +153,26 @@ export class DataExplorerClientInstance extends Disposable {
 
 		// Load the entire schema of the table so it can be searched.
 		const tableSchema = await this._positronDataExplorerComm.getSchema(
-			startIndex,
+			0,
 			tableState.table_shape.num_columns
 		);
 
 		// If a search term was not supplied, return the result.
-		if (!searchTerm) {
+		if (!searchText) {
 			return {
 				matching_columns: tableSchema.columns.length,
-				columns: tableSchema.columns.slice(0, maxNumColumns)
+				columns: tableSchema.columns.slice(0, maxResults)
 			};
 		} else {
 			// Search the columns.
 			const columns = tableSchema.columns.filter(columnSchema =>
-				columnSchema.column_name.includes(searchTerm)
+				columnSchema.column_name.includes(searchText)
 			);
 
 			// Return the result.
 			return {
 				matching_columns: columns.length,
-				columns: columns.slice(0, maxNumColumns)
+				columns: columns.slice(0, maxResults)
 			};
 		}
 	}

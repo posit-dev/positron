@@ -52,7 +52,7 @@ export const DataExplorer = () => {
 
 		// Return the cleanup function that will dispose of the event handlers.
 		return () => disposableStore.dispose();
-	}, []);
+	}, [context.instance]);
 
 	// Automatic layout useEffect.
 	useEffect(() => {
@@ -75,7 +75,7 @@ export const DataExplorer = () => {
 
 		// Return the cleanup function that will disconnect the resize observer.
 		return () => resizeObserver.disconnect();
-	}, [dataExplorerRef]);
+	}, [context.instance.columnsWidthPercent, dataExplorerRef]);
 
 	// Layout useEffect.
 	useEffect(() => {

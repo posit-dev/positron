@@ -15,10 +15,10 @@ import { PositronButton } from 'vs/base/browser/ui/positronComponents/button/pos
  * InterpreterActionsProps interface.
  */
 interface InterpreterActionsProps {
-	languageRuntimeService: ILanguageRuntimeService;
-	runtimeSessionService: IRuntimeSessionService;
-	runtime: ILanguageRuntimeMetadata;
-	onStart: () => void;
+	readonly languageRuntimeService: ILanguageRuntimeService;
+	readonly runtimeSessionService: IRuntimeSessionService;
+	readonly runtime: ILanguageRuntimeMetadata;
+	readonly onStart: () => void;
 }
 
 /**
@@ -62,7 +62,7 @@ export const InterpreterActions = (props: PropsWithChildren<InterpreterActionsPr
 
 		// Return the cleanup function that will dispose of the event handlers.
 		return () => disposableStore.dispose();
-	}, []);
+	}, [props, session]);
 
 	// Interrupt the session, if we have one.
 	const interrupt = () => {

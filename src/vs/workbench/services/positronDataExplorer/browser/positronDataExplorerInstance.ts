@@ -91,10 +91,10 @@ export class PositronDataExplorerInstance extends Disposable implements IPositro
 	//#region IPositronDataExplorerInstance Implementation
 
 	/**
-	 * Gets the identifier.
+	 * Gets the data explorer client instance.
 	 */
-	get identifier() {
-		return this._dataExplorerClientInstance.identifier;
+	get dataExplorerClientInstance() {
+		return this._dataExplorerClientInstance;
 	}
 
 	/**

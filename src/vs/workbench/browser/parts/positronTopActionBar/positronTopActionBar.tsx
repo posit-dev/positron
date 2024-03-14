@@ -102,7 +102,7 @@ export const PositronTopActionBar = (props: PositronTopActionBarProps) => {
 
 		// Return the cleanup function that will dispose of the disposables.
 		return () => disposableStore.dispose();
-	}, []);
+	}, [props.positronTopActionBarContainer]);
 
 	/**
 	 * startRuntime event handler.

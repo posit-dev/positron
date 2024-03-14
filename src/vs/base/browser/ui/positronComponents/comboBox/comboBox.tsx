@@ -7,7 +7,7 @@ import 'vs/css!./comboBox';
 
 // React.
 import * as React from 'react';
-import { useRef, useState } from 'react'; // eslint-disable-line no-duplicate-imports
+import { useEffect, useRef, useState } from 'react'; // eslint-disable-line no-duplicate-imports
 
 // Other dependencies.
 import * as DOM from 'vs/base/browser/dom';
@@ -49,14 +49,23 @@ export class ComboBoxOption<T> {
 export type ComboBoxItem<T> = ComboBoxOption<T> | ComboBoxSeparator;
 
 /**
+ * ComboBoxItemsProvider type.
+ */
+export type ComboBoxItemsProvider<T> = (
+	searchText: string | undefined,
+	maxResults: number
+) => Promise<ComboBoxItem<T>[]>;
+
+/**
  * ComboBoxProps interface.
  */
 interface ComboBoxProps<T> {
 	layoutService: ILayoutService;
 	className?: string;
+	searchable?: boolean;
 	disabled?: boolean;
 	title: string;
-	items: ComboBoxItem<T>[];
+	items: ComboBoxItem<T>[] | ComboBoxItemsProvider<T>;
 	onValueChanged: (value: T) => void;
 }
 
@@ -74,12 +83,11 @@ export const ComboBox = <T,>(props: ComboBoxProps<T>) => {
 	const [selectedTitle, setSelectedTitle] = useState<string | undefined>(undefined);
 
 	/**
-	 * Shows the drop down menu.
-	 * @param options The drop down menu options.
-	 * @returns A promise that resolves when the drop down menu is dismissed.
+	 * Shows the drop down.
+	 * @returns A promise that resolves when the drop down is dismissed.
 	 */
-	const showDropDownMenu = async (): Promise<void> => {
-		// Show the dropdown menu.
+	const showDropDown = async (): Promise<void> => {
+		// Show the drop down menu.
 		const value = await new Promise<T | undefined>(resolve => {
 			// Get the container element for the combo box element.
 			const containerElement = props.layoutService.getContainer(
@@ -91,8 +99,44 @@ export const ComboBox = <T,>(props: ComboBoxProps<T>) => {
 				containerElement
 			);
 
-			// The modal popup component.
-			const ModalPopup = () => {
+			// The drop down modal popup component.
+			const DropDownModalPopup = () => {
+				// State effects.
+				const [searchText, _setSearchText] = useState<string | undefined>(undefined);
+				const [items, setItems] = useState<ComboBoxItem<T>[]>(
+					Array.isArray(props.items) ? props.items : []
+				);
+
+				//
+				useEffect(() => {
+					if (Array.isArray(props.items)) {
+						return;
+					}
+
+					const fetch = async () => {
+						if (Array.isArray(props.items)) {
+							return;
+
+						}
+
+						setItems(await props.items(searchText, 100));
+					};
+
+					fetch();
+
+				}, [searchText]);
+
+				// const items = useMemo(async () => {
+				// 	if (Array.isArray(props.items)) {
+				// 		return props.items;
+				// 	}
+
+				// 	// return await props.items(searchText, 100);
+				// 	const yaya =  await props.items(searchText, 100);
+
+				// 	return await yaya;
+				// }, [searchText]);
+
 				/**
 				 * Dismisses the popup.
 				 */
@@ -175,8 +219,8 @@ export const ComboBox = <T,>(props: ComboBoxProps<T>) => {
 						keyboardNavigation='menu'
 						onDismiss={() => dismiss(undefined)}
 					>
-						<div className='combo-box-menu-items'>
-							{props.items.map((entry, index) => {
+						<div className='combo-box-items'>
+							{items.map((entry, index) => {
 								if (entry instanceof ComboBoxOption) {
 									return <Option key={index} {...entry.props} />;
 								} else if (entry instanceof ComboBoxSeparator) {
@@ -192,7 +236,7 @@ export const ComboBox = <T,>(props: ComboBoxProps<T>) => {
 			};
 
 			// Render the modal popup component.
-			positronModalReactRenderer.render(<ModalPopup />);
+			positronModalReactRenderer.render(<DropDownModalPopup />);
 		});
 
 		// If the user selected a value, call the onSelectionChanged callback.
@@ -212,7 +256,7 @@ export const ComboBox = <T,>(props: ComboBoxProps<T>) => {
 					{ 'disabled': props.disabled }
 				)
 			}
-			onPressed={showDropDownMenu}
+			onPressed={showDropDown}
 		>
 			<div className='title'>{selectedTitle ?? title}</div>
 			<div className='chevron' aria-hidden='true'>

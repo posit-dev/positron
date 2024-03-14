@@ -57,6 +57,7 @@ export const FilterBar = () => {
 			icon: 'positron-add-filter',
 			onSelected: async () => await addRowFilterModalPopup(
 				context.layoutService,
+				context.instance.dataExplorerClientInstance,
 				filterButtonRef.current
 			)
 		}));

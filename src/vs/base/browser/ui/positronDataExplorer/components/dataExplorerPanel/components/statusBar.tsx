@@ -38,7 +38,7 @@ export const StatusBar = () => {
 
 		// Return the cleanup function that will dispose of the event handlers.
 		return () => disposableStore.dispose();
-	}, []);
+	}, [context.instance.tableDataDataGridInstance]);
 
 	// Render.
 	return (

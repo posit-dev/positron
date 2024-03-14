@@ -59,7 +59,7 @@ export const DataGridWaffle = () => {
 
 		// Return the cleanup function that will dispose of the event handlers.
 		return () => disposableStore.dispose();
-	}, []);
+	}, [context.instance]);
 
 	// Automatic layout useEffect.
 	useEffect(() => {
@@ -91,7 +91,7 @@ export const DataGridWaffle = () => {
 
 		// Return the cleanup function that will disconnect the resize observer.
 		return () => resizeObserver.disconnect();
-	}, [waffleRef]);
+	}, [context.instance, waffleRef]);
 
 	/**
 	 * onKeyDown event handler.

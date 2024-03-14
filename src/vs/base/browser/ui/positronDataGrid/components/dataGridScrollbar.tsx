@@ -185,7 +185,7 @@ export const DataGridScrollbar = (props: DataGridScrollbarProps) => {
 				preserveSliderPosition: false
 			};
 		});
-	}, [props]);
+	}, [props, scrollbarState.sliderPosition]);
 
 	/**
 	 * onMouseDown handler. This handles onMouseDown in the scrollbar (i.e. not in the slider).

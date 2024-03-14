@@ -7,7 +7,7 @@ import 'vs/css!./positronModalPopup';
 
 // React.
 import * as React from 'react';
-import { PropsWithChildren, useEffect, useRef, useState } from 'react'; // eslint-disable-line no-duplicate-imports
+import { PropsWithChildren, useCallback, useEffect, useRef, useState } from 'react'; // eslint-disable-line no-duplicate-imports
 
 // Other dependencies.
 import * as DOM from 'vs/base/browser/dom';
@@ -54,16 +54,16 @@ export type KeyboardNavigation = 'dialog' | 'menu';
  * PositronModalPopupProps interface.
  */
 export interface PositronModalPopupProps {
-	renderer: PositronModalReactRenderer;
-	containerElement: HTMLElement;
-	anchorElement: HTMLElement;
-	popupPosition: PopupPosition;
-	popupAlignment: PopupAlignment;
-	minWidth?: number;
-	width: number | 'max-content';
-	height: number | 'min-content';
-	keyboardNavigation: KeyboardNavigation;
-	onDismiss: () => void;
+	readonly renderer: PositronModalReactRenderer;
+	readonly containerElement: HTMLElement;
+	readonly anchorElement: HTMLElement;
+	readonly popupPosition: PopupPosition;
+	readonly popupAlignment: PopupAlignment;
+	readonly minWidth?: number;
+	readonly width: number | 'max-content';
+	readonly height: number | 'min-content';
+	readonly keyboardNavigation: KeyboardNavigation;
+	readonly onDismiss: () => void;
 }
 
 /**
@@ -76,7 +76,7 @@ export const PositronModalPopup = (props: PropsWithChildren<PositronModalPopupPr
 	 * Computes the popup position.
 	 * @returns The popup position.
 	 */
-	const computePosition = (): Position => {
+	const computePosition = useCallback((): Position => {
 		const topLeftOffset = DOM.getTopLeftOffset(props.anchorElement);
 		return {
 			top: props.popupPosition === 'top' ?
@@ -90,7 +90,7 @@ export const PositronModalPopup = (props: PropsWithChildren<PositronModalPopupPr
 				topLeftOffset.left :
 				'auto'
 		};
-	};
+	}, [props]);
 
 	// Reference hooks.
 	const popupContainerRef = useRef<HTMLDivElement>(undefined!);
@@ -254,7 +254,7 @@ export const PositronModalPopup = (props: PropsWithChildren<PositronModalPopupPr
 
 		// Return the clean up for our event handlers.
 		return () => disposableStore.dispose();
-	}, []);
+	}, [props, computePosition]);
 
 	// Create the class names.
 	const classNames = positronClassNames(

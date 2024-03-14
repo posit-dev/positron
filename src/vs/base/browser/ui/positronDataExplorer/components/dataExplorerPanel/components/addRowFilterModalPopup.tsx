@@ -18,22 +18,12 @@ import { PositronModalPopup } from 'vs/base/browser/ui/positronModalPopup/positr
 import { ColumnSchema } from 'vs/workbench/services/languageRuntime/common/positronDataExplorerComm';
 import { PositronModalReactRenderer } from 'vs/base/browser/ui/positronModalReactRenderer/positronModalReactRenderer';
 import { ComboBox, ComboBoxOption, ComboBoxSeparator } from 'vs/base/browser/ui/positronComponents/comboBox/comboBox';
-
-/**
- * Constants.
- */
-const CONDITION_IS_EMPTY = 'is-empty';
-const CONDITION_IS_NOT_EMPTY = 'is-not-empty';
-const CONDITION_IS_LESS_THAN = 'is-less-than';
-const CONDITION_IS_GREATER_THAN = 'is-greater-than';
-const CONDITION_IS_EXACTLY = 'is-exactly';
-const CONDITION_IS_BETWEEN = 'is-between';
-const CONDITION_IS_NOT_BETWEEN = 'is-not-between';
+import { DataExplorerClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimeDataExplorerClient';
 
 /**
  * Condition enumeration.
  */
-enum Condition {
+export enum Condition {
 	CONDITION_IS_EMPTY = 'is-empty',
 	CONDITION_IS_NOT_EMPTY = 'is-not-empty',
 	CONDITION_IS_LESS_THAN = 'is-less-than',
@@ -59,37 +49,38 @@ export interface RowFilter {
  */
 export const addRowFilterModalPopup = async (
 	layoutService: ILayoutService,
+	dataExplorerClientInstance: DataExplorerClientInstance,
 	anchorElement: HTMLElement
 ): Promise<RowFilter | undefined> => {
 	// Build the condition combo box items.
 	const conditionItems = [
 		new ComboBoxOption({
-			value: CONDITION_IS_EMPTY,
+			value: Condition.CONDITION_IS_EMPTY,
 			label: localize('positron.isEmpty', "is empty"),
 		}),
 		new ComboBoxOption({
-			value: CONDITION_IS_NOT_EMPTY,
+			value: Condition.CONDITION_IS_NOT_EMPTY,
 			label: localize('positron.isNotEmpty', "is not empty"),
 		}),
 		new ComboBoxSeparator(),
 		new ComboBoxOption({
-			value: CONDITION_IS_LESS_THAN,
+			value: Condition.CONDITION_IS_LESS_THAN,
 			label: localize('positron.isLessThan', "is less than"),
 		}),
 		new ComboBoxOption({
-			value: CONDITION_IS_GREATER_THAN,
+			value: Condition.CONDITION_IS_GREATER_THAN,
 			label: localize('positron.isGreaterThan', "is greater than"),
 		}),
 		new ComboBoxOption({
-			value: CONDITION_IS_EXACTLY,
+			value: Condition.CONDITION_IS_EXACTLY,
 			label: localize('positron.isExactly', "is exactly"),
 		}),
 		new ComboBoxOption({
-			value: CONDITION_IS_BETWEEN,
+			value: Condition.CONDITION_IS_BETWEEN,
 			label: localize('positron.isBetween', "is between"),
 		}),
 		new ComboBoxOption({
-			value: CONDITION_IS_NOT_BETWEEN,
+			value: Condition.CONDITION_IS_NOT_BETWEEN,
 			label: localize('positron.isNotBetween', "is not between"),
 		})
 	];
@@ -116,6 +107,25 @@ export const addRowFilterModalPopup = async (
 			const [disabled, _setDisabled] = useState(true);
 			const [_column, _setColumn] = useState<ColumnSchema | undefined>(undefined);
 			const [_condition, _setCondition] = useState<Condition | undefined>(undefined);
+
+			const columnsComboBoxItemsProvider = async (
+				searchText: string | undefined,
+				maxResults: number
+			) => {
+				// Search the table schema.
+				const tableSchemaSearchResult = await dataExplorerClientInstance.searchSchema(
+					'',
+					maxResults
+				);
+
+				// Return the result.
+				return tableSchemaSearchResult.columns.map(columnSchema =>
+					new ComboBoxOption({
+						value: columnSchema,
+						label: columnSchema.column_name
+					})
+				);
+			};
 
 			/**
 			 * onDismiss handler.
@@ -156,11 +166,12 @@ export const addRowFilterModalPopup = async (
 					onDismiss={dismissHandler}
 				>
 					<div className='add-row-filter-modal-popup-body'>
-						<ComboBox<string>
+						<ComboBox<ColumnSchema>
 							layoutService={layoutService}
 							className='combo-box'
+							searchable={true}
 							title='Select Column'
-							items={conditionItems}
+							items={columnsComboBoxItemsProvider}
 							onValueChanged={identifier => console.log(`Select Column changed to ${identifier}`)}
 						/>
 						<ComboBox<string>

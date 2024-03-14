@@ -4,6 +4,7 @@
 
 import { Event } from 'vs/base/common/event';
 import { TableDataDataGridInstance } from 'vs/workbench/services/positronDataExplorer/browser/tableDataDataGridInstance';
+import { DataExplorerClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimeDataExplorerClient';
 import { TableSummaryDataGridInstance } from 'vs/workbench/services/positronDataExplorer/browser/tableSummaryDataGridInstance';
 import { PositronDataExplorerLayout } from 'vs/workbench/services/positronDataExplorer/browser/interfaces/positronDataExplorerService';
 
@@ -12,9 +13,9 @@ import { PositronDataExplorerLayout } from 'vs/workbench/services/positronDataEx
  */
 export interface IPositronDataExplorerInstance {
 	/**
-	 * Gets the identifier.
+	 * Gets the data explorer client instance.
 	 */
-	readonly identifier: string;
+	readonly dataExplorerClientInstance: DataExplorerClientInstance;
 
 	/**
 	 * Gets or sets the layout.
