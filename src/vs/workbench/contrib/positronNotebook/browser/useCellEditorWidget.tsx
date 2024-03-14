@@ -6,6 +6,7 @@ import { CodeEditorWidget } from 'vs/editor/browser/widget/codeEditorWidget';
 import { IContextKeyService } from 'vs/platform/contextkey/common/contextkey';
 import { ServiceCollection } from 'vs/platform/instantiation/common/serviceCollection';
 import { CellEditorOptions } from 'vs/workbench/contrib/notebook/browser/view/cellParts/cellEditorOptions';
+import { useNotebookInstance } from 'vs/workbench/contrib/positronNotebook/browser/NotebookInstanceProvider';
 import { PositronNotebookCell } from 'vs/workbench/contrib/positronNotebook/browser/PositronNotebookCell';
 import { useServices } from 'vs/workbench/contrib/positronNotebook/browser/ServicesProvider';
 import { observeValue } from 'vs/workbench/contrib/positronNotebook/common/utils/observeValue';
@@ -17,6 +18,7 @@ import { observeValue } from 'vs/workbench/contrib/positronNotebook/common/utils
  */
 export function useCellEditorWidget({ cell }: { cell: PositronNotebookCell }) {
 	const services = useServices();
+	const instance = useNotebookInstance();
 
 	const sizeObservable = services.sizeObservable;
 
@@ -35,12 +37,11 @@ export function useCellEditorWidget({ cell }: { cell: PositronNotebookCell }) {
 			return;
 		}
 
-
 		const language = cell.viewModel.language;
 		const editorContextKeyService = services.scopedContextKeyProviderCallback(editorPartRef.current);
 		const editorInstaService = services.instantiationService.createChild(new ServiceCollection([IContextKeyService, editorContextKeyService]));
-		const editorOptions = new CellEditorOptions(services.notebookWidget.getBaseCellEditorOptions(language), services.notebookWidget.notebookOptions, services.configurationService);
-		const editorContributions = services.notebookWidget.creationOptions?.cellEditorContributions ?? [];
+		const editorOptions = new CellEditorOptions(instance.getBaseCellEditorOptions(language), instance.notebookOptions, services.configurationService);
+		const editorContributions = instance.creationOptions?.cellEditorContributions ?? [];
 
 		const editor = editorInstaService.createInstance(CodeEditorWidget, editorContainerRef.current, {
 			...editorOptions.getDefaultValue(),
@@ -91,7 +92,7 @@ export function useCellEditorWidget({ cell }: { cell: PositronNotebookCell }) {
 			editorContextKeyService.dispose();
 			sizeObserver();
 		};
-	}, [cell, services, sizeObservable]);
+	}, [cell, instance, services, sizeObservable]);
 
 
 

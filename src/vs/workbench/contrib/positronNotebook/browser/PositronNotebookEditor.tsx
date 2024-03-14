@@ -394,10 +394,8 @@ export class PositronNotebookEditor extends EditorPane {
 
 
 		this.positronReactRenderer.render(
-
 			<NotebookInstanceProvider instance={notebookInstance}>
 				<ServicesProvider services={{
-					notebookWidget: notebookInstance,
 					configurationService: this._configurationService,
 					instantiationService: this._instantiationService,
 					textModelResolverService: this._textModelResolverService,
