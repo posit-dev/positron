@@ -93,6 +93,7 @@ function CellOutputContents(output: { data: VSBuffer; mime: string }) {
 	switch (parsed.type) {
 		case 'stdout':
 			return <div className='notebook-stdout'>{parsed.content}</div>;
+		case 'error':
 		case 'stderr':
 			return <div className='notebook-stderr'>{parsed.content}</div>;
 		case 'interupt':

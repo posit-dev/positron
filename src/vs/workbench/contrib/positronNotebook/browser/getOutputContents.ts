@@ -89,13 +89,18 @@ type ParsedOutput = {
 	content: string;
 } |
 {
+	type: 'error';
+	content: string;
+} |
+{
 	type: 'image';
 	dataUrl: string;
 } |
 {
 	type: 'interupt';
 	trace: string;
-} | {
+} |
+{
 	type: 'unknown';
 	contents: string;
 };
@@ -114,6 +119,10 @@ export function parseOutputData(output: ICellOutput['outputs'][number]): ParsedO
 
 		if (parsedMessage?.name === 'KeyboardInterrupt') {
 			return { type: 'interupt', trace: parsedMessage.traceback };
+		}
+
+		if (parsedMessage?.name === 'Runtime Error') {
+			return { type: 'error', content: parsedMessage.message };
 		}
 	} catch (e) {
 	}
