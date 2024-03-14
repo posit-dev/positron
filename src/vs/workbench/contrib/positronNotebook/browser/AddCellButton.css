@@ -1,0 +1,14 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *--------------------------------------------------------------------------------------------*/
+
+.positron-add-cell-button {
+	display: flex;
+	justify-content: center;
+	opacity: 0;
+	transition: opacity 0.2s;
+}
+
+.positron-add-cell-button:hover {
+	opacity: 1;
+}

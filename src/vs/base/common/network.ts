@@ -118,6 +118,7 @@ export namespace Schemas {
 	 * Scheme used for the Positron data explorer.
 	 */
 	export const positronDataExplorer = 'positron-data-explorer';
+	export const positronNotebook = 'positron-notebook';
 
 	// --- End Positron ---
 
