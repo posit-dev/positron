@@ -192,6 +192,9 @@ class UiFrontendEvent(str, enum.Enum):
     # Change the displayed working directory
     WorkingDirectory = "working_directory"
 
+    # Execute a Positron command
+    ExecuteCommand = "execute_command"
+
 
 class BusyParams(BaseModel):
     """
@@ -228,6 +231,28 @@ class ShowMessageParams(BaseModel):
 
     message: str = Field(
         description="The message to show to the user.",
+    )
+
+
+class ShowQuestionParams(BaseModel):
+    """
+    Show a question
+    """
+
+    title: str = Field(
+        description="The title of the dialog",
+    )
+
+    message: str = Field(
+        description="The message to display in the dialog",
+    )
+
+    ok_button_title: str = Field(
+        description="The title of the OK button",
+    )
+
+    cancel_button_title: str = Field(
+        description="The title of the Cancel button",
     )
 
 
@@ -292,6 +317,8 @@ BusyParams.update_forward_refs()
 OpenEditorParams.update_forward_refs()
 
 ShowMessageParams.update_forward_refs()
+
+ShowQuestionParams.update_forward_refs()
 
 PromptStateParams.update_forward_refs()
 
