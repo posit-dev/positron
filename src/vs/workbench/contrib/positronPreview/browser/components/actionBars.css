@@ -5,3 +5,13 @@
 .action-bars {
 	height: 32px;
 }
+
+.url-bar {
+	border: 1px solid var(--vscode-input-border);
+	border-radius: 4px;
+	margin-left: 10px;
+	padding-left: 10px;
+	padding-right: 10px;
+	padding-top: 2px;
+	padding-bottom: 2px;
+}

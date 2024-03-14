@@ -46,6 +46,23 @@ export class PreviewUrl extends PreviewWebview {
 				border: none;
 			}
 		</style>
+		<script>
+			// Get a reference to the VS Code API
+			const vscode = acquireVsCodeApi();
+
+			// Listen for messages from the parent window
+			window.addEventListener('message', e => {
+				// Get the IFrame element hosting the preview URL
+				const iframe = document.querySelector('iframe');
+
+				switch (e.data.command) {
+					case 'reload': {
+						iframe.src = iframe.src;
+						break;
+					}
+				}
+			});
+		</script>
 	</head>
 	<body>
 		<iframe src="${uri.toString()}"></iframe>

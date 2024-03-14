@@ -43,6 +43,7 @@ export interface ActionBarsProps extends PositronSessionsServices {
 // Localized strings.
 const navigateBack = localize('positron.preview.navigateBack', "Navigate back to the previous URL");
 const navigateForward = localize('positron.preview.navigateForward', "Navigate back to the next URL");
+const reload = localize('positron.preview.reload', "Reload the current URL");
 
 /**
  * ActionBars component.
@@ -55,6 +56,11 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 
 	// TODO
 	const navigateForwardHandler = () => { };
+
+	// Handler for the reload button.
+	const reloadHandler = () => {
+		props.preview.webview.postMessage({ command: 'reload' });
+	};
 
 	// Render.
 	return (
@@ -71,10 +77,14 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 							tooltip={navigateForward}
 							ariaLabel={navigateForward}
 							onPressed={navigateForwardHandler} />
-						<ActionBarSeparator />
 						<div className='url-bar'>
 							{props.preview.currentUri.toString()}
 						</div>
+						<ActionBarButton
+							iconId='positron-refresh'
+							tooltip={reload}
+							ariaLabel={reload}
+							onPressed={reloadHandler} />
 					</ActionBarRegion>
 				</PositronActionBar>
 			</div>

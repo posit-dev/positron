@@ -15,7 +15,7 @@ import { DisposableStore } from 'vs/base/common/lifecycle';
 import { PreviewContainer } from 'vs/workbench/contrib/positronPreview/browser/components/previewContainer';
 import { PositronPreviewServices } from 'vs/workbench/contrib/positronPreview/browser/positronPreviewState';
 import { PositronPreviewContextProvider } from 'vs/workbench/contrib/positronPreview/browser/positronPreviewContext';
-import { IPositronPreviewService, POSITRON_PREVIEW_URL_VIEW_TYPE } from 'vs/workbench/contrib/positronPreview/browser/positronPreviewSevice';
+import { IPositronPreviewService } from 'vs/workbench/contrib/positronPreview/browser/positronPreviewSevice';
 import { PreviewWebview } from 'vs/workbench/contrib/positronPreview/browser/previewWebview';
 import { PositronPreviewViewPane } from 'vs/workbench/contrib/positronPreview/browser/positronPreviewView';
 import { ActionBars } from 'vs/workbench/contrib/positronPreview/browser/components/actionBars';
