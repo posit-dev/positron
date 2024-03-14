@@ -5,15 +5,16 @@
 import 'vs/css!./OKCancelBackNextActionBar';
 import * as React from 'react';
 import { localize } from 'vs/nls';
+import { Button } from 'vs/base/browser/ui/positronComponents/button/button';
 
 /**
  * OKCancelBackNextActionBarProps interface.
  */
 interface OKCancelBackNextActionBarProps {
-	okButtonConfig: ActionBarButtonConfig;
-	cancelButtonConfig: ActionBarButtonConfig;
-	backButtonConfig: ActionBarButtonConfig;
-	nextButtonConfig: ActionBarButtonConfig;
+	okButtonConfig?: ActionBarButtonConfig;
+	cancelButtonConfig?: ActionBarButtonConfig;
+	backButtonConfig?: ActionBarButtonConfig;
+	nextButtonConfig?: ActionBarButtonConfig;
 }
 
 /**
@@ -23,7 +24,7 @@ interface ActionBarButtonConfig {
 	title?: string;
 	hide?: boolean;
 	disable?: boolean;
-	onClick: () => void;
+	onClick?: () => void;
 }
 
 /**
@@ -36,27 +37,27 @@ export const OKCancelBackNextActionBar = ({ okButtonConfig, cancelButtonConfig, 
 	return (
 		<div className='ok-cancel-action-bar top-separator'>
 			<div className='left-actions'>
-				{!backButtonConfig.hide && (
-					<button className='button action-bar-button' tabIndex={0} onClick={backButtonConfig.onClick} disabled={backButtonConfig.disable ?? false}>
+				{backButtonConfig && !backButtonConfig?.hide && (
+					<Button className='button action-bar-button' onPressed={backButtonConfig.onClick} disabled={backButtonConfig.disable ?? false}>
 						{backButtonConfig.title ?? localize('positronBack', "Back")}
-					</button>
+					</Button>
 				)}
 			</div>
 			<div className='right-actions'>
-				{!cancelButtonConfig.hide && (
-					<button className='button action-bar-button' tabIndex={0} onClick={cancelButtonConfig.onClick} disabled={cancelButtonConfig.disable ?? false}>
+				{cancelButtonConfig && !cancelButtonConfig?.hide && (
+					<Button className='button action-bar-button' onPressed={cancelButtonConfig.onClick} disabled={cancelButtonConfig.disable ?? false}>
 						{cancelButtonConfig.title ?? localize('positronCancel', "Cancel")}
-					</button>
+					</Button>
 				)}
-				{!okButtonConfig.hide && (
-					<button className='button action-bar-button default' tabIndex={0} onClick={okButtonConfig.onClick} disabled={okButtonConfig.disable ?? false}>
+				{okButtonConfig && !okButtonConfig?.hide && (
+					<Button className='button action-bar-button default' onPressed={okButtonConfig.onClick} disabled={okButtonConfig.disable ?? false}>
 						{okButtonConfig.title ?? localize('positronOK', "OK")}
-					</button>
+					</Button>
 				)}
-				{!nextButtonConfig.hide && (
-					<button className='button action-bar-button default' tabIndex={0} onClick={nextButtonConfig.onClick} disabled={nextButtonConfig.disable ?? false}>
+				{nextButtonConfig && !nextButtonConfig.hide && (
+					<Button className='button action-bar-button default' onPressed={nextButtonConfig.onClick} disabled={nextButtonConfig.disable ?? false}>
 						{nextButtonConfig.title ?? localize('positronNext', "Next")}
-					</button>
+					</Button>
 				)}
 			</div>
 		</div>
