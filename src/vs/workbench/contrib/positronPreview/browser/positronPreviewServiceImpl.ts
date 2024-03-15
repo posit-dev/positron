@@ -8,12 +8,14 @@ import { Event, Emitter } from 'vs/base/common/event';
 import { IWebviewService, WebviewExtensionDescription, WebviewInitInfo } from 'vs/workbench/contrib/webview/browser/webview';
 import { PreviewWebview } from 'vs/workbench/contrib/positronPreview/browser/previewWebview';
 import { IViewsService } from 'vs/workbench/services/views/common/viewsService';
-import { POSITRON_PREVIEW_VIEW_ID } from 'vs/workbench/contrib/positronPreview/browser/positronPreviewSevice';
+import { POSITRON_PREVIEW_URL_VIEW_TYPE, POSITRON_PREVIEW_VIEW_ID } from 'vs/workbench/contrib/positronPreview/browser/positronPreviewSevice';
 import { RuntimeOutputKind } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { ILanguageRuntimeSession, IRuntimeSessionService } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
 import { IPositronNotebookOutputWebviewService } from 'vs/workbench/contrib/positronOutputWebview/browser/notebookOutputWebviewService';
 import { URI } from 'vs/base/common/uri';
 import { PreviewUrl } from 'vs/workbench/contrib/positronPreview/browser/previewUrl';
+import { ShowUrlEvent, UiFrontendEvent } from 'vs/workbench/services/languageRuntime/common/positronUiComm';
+import { ILogService } from 'vs/platform/log/common/log';
 
 /**
  * Positron preview service; keeps track of the set of active previews and
@@ -25,6 +27,8 @@ export class PositronPreviewService extends Disposable implements IPositronPrevi
 
 	private _items: Map<string, PreviewWebview> = new Map();
 
+	private static _previewIdCounter = 0;
+
 	private _selectedItemId = '';
 
 	private _onDidCreatePreviewWebviewEmitter = new Emitter<PreviewWebview>();
@@ -35,6 +39,7 @@ export class PositronPreviewService extends Disposable implements IPositronPrevi
 		@IWebviewService private readonly _webviewService: IWebviewService,
 		@IViewsService private readonly _viewsService: IViewsService,
 		@IRuntimeSessionService private readonly _runtimeSessionService: IRuntimeSessionService,
+		@ILogService private readonly _logService: ILogService,
 		@IPositronNotebookOutputWebviewService private readonly _notebookOutputWebviewService: IPositronNotebookOutputWebviewService,
 	) {
 		super();
@@ -45,6 +50,23 @@ export class PositronPreviewService extends Disposable implements IPositronPrevi
 		});
 		this._runtimeSessionService.onWillStartSession(e => {
 			this.attachRuntime(e.session);
+		});
+		this._runtimeSessionService.onDidReceiveRuntimeEvent(e => {
+			if (e.event.name === UiFrontendEvent.ShowUrl) {
+				// We need to figure out which extension is responsible for this
+				// URL. First, look up the session.
+				const session = this._runtimeSessionService.getSession(e.session_id);
+
+				if (!session) {
+					// This should never happen since we just received an event from
+					// this session.
+					this._logService.error(`No session ${e.session_id} found for ShowUrl event; ` +
+						`ignoring URL ${e.event.data.url}`);
+					return;
+				}
+
+				this.handleShowUrlEvent(session, e.event.data as ShowUrlEvent);
+			}
 		});
 	}
 
@@ -180,7 +202,7 @@ export class PositronPreviewService extends Disposable implements IPositronPrevi
 	 *
 	 * @param session The runtime session to attach to
 	 */
-	attachRuntime(session: ILanguageRuntimeSession) {
+	private attachRuntime(session: ILanguageRuntimeSession) {
 		this._register(session.onDidReceiveRuntimeMessageOutput(async (e) => {
 			if (e.kind === RuntimeOutputKind.ViewerWidget) {
 				const webview = await
@@ -195,5 +217,39 @@ export class PositronPreviewService extends Disposable implements IPositronPrevi
 				}
 			}
 		}));
+	}
+
+	/**
+	 * Handles a ShowUrl event from a runtime session.
+	 *
+	 * @param session The runtime session that sent the event
+	 * @param event The event to handle
+	 */
+	private handleShowUrlEvent(session: ILanguageRuntimeSession, event: ShowUrlEvent) {
+		// Look up the extension. For accounting purposes, we need to
+		// know which extension is responsible for this URL.
+		const extension = session.runtimeMetadata.extensionId;
+		const webviewExtension: WebviewExtensionDescription = {
+			id: extension
+		};
+
+		// Attempt to parse the URL. If it's not a valid URL, log an error
+		// and ignore it.
+		//
+		// Currently showUrl is implemented as an event (rather than an RPC) so there's no mechanism for
+		// delivering this error code back to the caller.
+		let uri: URI;
+		try {
+			uri = URI.parse(event.url);
+		} catch (e) {
+			this._logService.error(`Invalid URL ${event.url} from session ${session.sessionId}`);
+			return;
+		}
+
+		// Create a unique ID for this preview.
+		const previewId = `previewUrl.${PositronPreviewService._previewIdCounter++}`;
+
+		// Open the requested URI.
+		this.openUri(previewId, POSITRON_PREVIEW_URL_VIEW_TYPE, webviewExtension, uri);
 	}
 }
