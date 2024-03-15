@@ -1,6 +1,7 @@
 /*---------------------------------------------------------------------------------------------
  *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
+import * as DOM from 'vs/base/browser/dom';
 import { Emitter, Event } from 'vs/base/common/event';
 import { Disposable, DisposableStore, dispose } from 'vs/base/common/lifecycle';
 import { ISettableObservable, observableValue } from 'vs/base/common/observableInternal/base';
@@ -21,9 +22,8 @@ import { INotebookExecutionStateService } from 'vs/workbench/contrib/notebook/co
 import { INotebookKernelService } from 'vs/workbench/contrib/notebook/common/notebookKernelService';
 import { PositronNotebookCell } from 'vs/workbench/contrib/positronNotebook/browser/PositronNotebookCell';
 import { PositronNotebookEditorInput } from 'vs/workbench/contrib/positronNotebook/browser/PositronNotebookEditorInput';
-import { BaseCellEditorOptions } from './BaseCellEditorOptions';
-import * as DOM from 'vs/base/browser/dom';
 import { SHOW_POSITRON_NOTEBOOK_LOGS } from 'vs/workbench/contrib/positronNotebook/browser/utils';
+import { BaseCellEditorOptions } from './BaseCellEditorOptions';
 
 const cellTypeToKind = {
 	'code': CellKind.Code,
@@ -240,6 +240,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		this._notebookOptions = creationOptions?.options ?? new NotebookOptions(DOM.getActiveWindow(), this.configurationService, this.notebookExecutionStateService, codeEditorService, this.isReadOnly);
 
 		this.setupNotebookTextModel();
+		this._log('constructor');
 	}
 
 
@@ -316,9 +317,12 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	 * @returns
 	 */
 	private async _runCells(cells: PositronNotebookCell[]): Promise<void> {
+		this._log('_runCells');
 		if (!this._textModel) {
 			throw new Error(localize('noModel', "No model"));
 		}
+
+		this._trySetupKernel();
 
 		for (const cell of cells) {
 			cell.executionStatus.set('running', undefined);
@@ -416,7 +420,6 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 
 
 	async setViewModel(viewModel: NotebookViewModel, viewState?: INotebookEditorViewState) {
-		this._log('setViewModel');
 		const alreadyHasModel = this._viewModel !== undefined && this._viewModel.equal(viewModel.notebookDocument);
 		if (alreadyHasModel) {
 			// No need to do anything if the model is already set.
@@ -452,8 +455,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 			}));
 		}
 
-		// Get the kernel up and running for the notebook.
-		this.setupKernel();
+		this._log('setViewModel');
 	}
 
 	/**
@@ -473,16 +475,19 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	}
 
 
+
+	private _kernelAttached = false;
+
 	/**
 	 * Connect to the kernel for running notebook code.
 	 */
-	private setupKernel() {
+	private _setupKernel(): boolean {
 		if (!this._viewModel) {
 			throw new Error('No view model');
 		}
 
-		const kernelMatches = this.notebookKernelService.getMatchingKernel(this._viewModel.notebookDocument);
 
+		const kernelMatches = this.notebookKernelService.getMatchingKernel(this._viewModel.notebookDocument);
 
 		// Make sure we actually have kernels that have matched
 		if (kernelMatches.all.length === 0) {
@@ -503,6 +508,35 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 
 		// Link kernel with notebook
 		this.notebookKernelService.selectKernelForNotebook(kernelForLanguage, this._viewModel.notebookDocument);
+
+		return true;
+	}
+
+	private async _trySetupKernel(): Promise<void> {
+		if (this._kernelAttached) {
+			return;
+		}
+		let lastError: unknown;
+		for (let tryCount = 0; tryCount < 3; tryCount++) {
+			this._log(`trySetupKernel (#${tryCount})`);
+			try {
+				const kernelAttempt = this._setupKernel();
+				if (kernelAttempt) {
+					this._kernelAttached = true;
+					this._log('Successfully located kernel');
+					return;
+				}
+			}
+			catch (e) {
+				lastError = e;
+
+				// Wait for a bit before trying again.
+				await new Promise(resolve => setTimeout(resolve, 3000));
+			}
+		}
+
+		this._log('Failed to located kernel');
+		console.error('Failed to locate kernel', lastError);
 	}
 
 
