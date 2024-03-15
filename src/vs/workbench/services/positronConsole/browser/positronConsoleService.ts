@@ -362,11 +362,11 @@ class PositronConsoleService extends Disposable implements IPositronConsoleServi
 	 * @param languageId The language ID.
 	 * @param code The code.
 	 * @param focus A value which indicates whether to focus the Positron console instance.
-	 * @param skipChecks Whether to bypass runtime code completeness checks. If true, the `code`
+	 * @param allowIncomplete Whether to bypass runtime code completeness checks. If true, the `code`
 	 *   will be executed by the runtime even if it is incomplete or invalid. Defaults to false
 	 * @returns A value which indicates whether the code could be executed.
 	 */
-	async executeCode(languageId: string, code: string, focus: boolean, skipChecks?: boolean) {
+	async executeCode(languageId: string, code: string, focus: boolean, allowIncomplete?: boolean) {
 		// When code is executed in the console service, ensure that the panel is restored, if it
 		// needs to be, and open the console view.
 		this._layoutService.restorePanel();
@@ -418,7 +418,7 @@ class PositronConsoleService extends Disposable implements IPositronConsoleServi
 		}
 
 		// Enqueue the code in the Positron console instance.
-		await positronConsoleInstance.enqueueCode(code, skipChecks);
+		await positronConsoleInstance.enqueueCode(code, allowIncomplete);
 
 		// Success.
 		return Promise.resolve(true);
@@ -967,10 +967,10 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 	/**
 	 * Enqueues code.
 	 * @param code The code to enqueue.
-	 * @param skipChecks Whether to bypass runtime code completeness checks. If true, the `code`
+	 * @param allowIncomplete Whether to bypass runtime code completeness checks. If true, the `code`
 	 *   will be executed by the runtime even if it is incomplete or invalid. Defaults to false
 	 */
-	async enqueueCode(code: string, skipChecks?: boolean) {
+	async enqueueCode(code: string, allowIncomplete?: boolean) {
 		// If there is a pending input runtime item, all the code in it was enqueued before this
 		// code, so add this code to it and wait for it to be processed the next time the runtime
 		// becomes idle.
@@ -990,7 +990,7 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 
 		// Code should be executed if the caller skips checks, or if the runtime says the code is complete.
 		const shouldExecuteCode = async (code: string) => {
-			if (skipChecks) {
+			if (allowIncomplete) {
 				return true;
 			}
 			const codeStatus = await this.session.isCodeFragmentComplete(code);
