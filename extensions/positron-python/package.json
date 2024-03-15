@@ -401,7 +401,7 @@
             },
             {
                 "category": "Python",
-                "command": "workbench.action.positronConsole.executeCode",
+                "command": "python.execSelectionInConsole",
                 "icon": "$(play)",
                 "title": "%python.command.python.execSelectionInConsole.title%"
             },
@@ -1206,6 +1206,12 @@
                 "key": "ctrl+shift+enter",
                 "mac": "cmd+shift+enter",
                 "when": "editorTextFocus && editorLangId == python && !findInputFocussed && !replaceInputFocussed && !jupyter.ownsSelection && !notebookEditorFocused"
+            },
+            {
+                "command": "python.execSelectionInConsole",
+                "key": "ctrl+enter",
+                "mac": "cmd+enter",
+                "when": "editorTextFocus && editorLangId == python && !findInputFocussed && !replaceInputFocussed && !jupyter.ownsSelection && !notebookEditorFocused"
             }
         ],
         "languages": [
@@ -1345,7 +1351,7 @@
                 },
                 {
                     "category": "Python",
-                    "command": "workbench.action.positronConsole.executeCode",
+                    "command": "python.execSelectionInConsole",
                     "title": "%python.command.python.execSelectionInConsole.title%",
                     "when": "!virtualWorkspace && shellExecutionSupported && editorLangId == python"
                 },
@@ -1447,7 +1453,7 @@
             ],
             "python.run": [
                 {
-                    "command": "workbench.action.positronConsole.executeCode",
+                    "command": "python.execSelectionInConsole",
                     "group": "Python",
                     "when": "editorFocus && editorLangId == python && !virtualWorkspace && shellExecutionSupported"
                 },
@@ -1481,7 +1487,7 @@
             ],
             "editor/title/run": [
                 {
-                    "command": "workbench.action.positronConsole.executeCode",
+                    "command": "python.execSelectionInConsole",
                     "group": "navigation@0",
                     "title": "%python.command.python.execSelectionInConsole.title%",
                     "when": "resourceLangId == python && !isInDiffEditor && !virtualWorkspace && shellExecutionSupported"

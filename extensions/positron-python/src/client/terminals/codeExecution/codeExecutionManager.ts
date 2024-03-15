@@ -124,6 +124,14 @@ export class CodeExecutionManager implements ICodeExecutionManager {
                 }
             }),
         );
+        this.disposableRegistry.push(
+            this.commandManager.registerCommand(Commands.Exec_Selection_In_Console as any, async () => {
+                // Wrapper for passing the allowIncomplete opt to the console's executeCode command
+                await vscode.commands.executeCommand('workbench.action.positronConsole.executeCode', {
+                    allowIncomplete: true,
+                });
+            }),
+        );
         // --- End Positron ---
         this.disposableRegistry.push(
             this.commandManager.registerCommand(Commands.Exec_Selection_In_Terminal as any, async (file: Resource) => {
