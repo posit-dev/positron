@@ -170,7 +170,18 @@ export class PositronPreviewService extends Disposable implements IPositronPrevi
 
 		const webview = this._webviewService.createWebviewOverlay(webviewInitInfo);
 		const preview = new PreviewUrl(previewId, webview, uri);
+
+		// Remove any other preview URLs from the item list; they can be expensive
+		// to keep around.
+		this._items.forEach((value, key) => {
+			if (value instanceof PreviewUrl) {
+				value.dispose();
+				this._items.delete(key);
+			}
+		});
 		this._items.set(previewId, preview);
+
+		// Open the preview
 		this.openPreviewWebview(preview);
 
 		return preview;
