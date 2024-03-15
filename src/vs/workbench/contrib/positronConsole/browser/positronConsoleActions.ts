@@ -268,7 +268,7 @@ export function registerPositronConsoleActions() {
 		 * Runs action.
 		 * @param accessor The services accessor.
 		 */
-		async run(accessor: ServicesAccessor) {
+		async run(accessor: ServicesAccessor, opts: { allowIncomplete?: boolean } = {}) {
 			// Access services.
 			const editorService = accessor.get(IEditorService);
 			const languageFeaturesService = accessor.get(ILanguageFeaturesService);
@@ -508,9 +508,16 @@ export function registerPositronConsoleActions() {
 				return;
 			}
 
+			// Whether to allow incomplete code to be executed.
+			// By default, we don't allow incomplete code to be executed, but the language runtime can override this.
+			// This means that if allowIncomplete is false or undefined, the incomplete code will not be sent to the backend for execution.
+			// The console will continue to wait for more input until the user completes the code, or cancels out of the operation.
+			const { allowIncomplete } = opts;
+
+
 			// Ask the Positron console service to execute the code. Do not focus the console as
 			// this will rip focus away from the editor.
-			if (!await positronConsoleService.executeCode(languageId, code, false)) {
+			if (!await positronConsoleService.executeCode(languageId, code, false, allowIncomplete)) {
 				const languageName = languageService.getLanguageName(languageId);
 				notificationService.notify({
 					severity: Severity.Info,
