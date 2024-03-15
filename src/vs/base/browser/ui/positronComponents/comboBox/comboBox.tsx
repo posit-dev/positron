@@ -14,8 +14,10 @@ import * as DOM from 'vs/base/browser/dom';
 import { positronClassNames } from 'vs/base/common/positronUtilities';
 import { ILayoutService } from 'vs/platform/layout/browser/layoutService';
 import { Button } from 'vs/base/browser/ui/positronComponents/button/button';
+// import { PositronDataGrid } from 'vs/base/browser/ui/positronDataGrid/positronDataGrid';
 import { PositronModalPopup } from 'vs/base/browser/ui/positronModalPopup/positronModalPopup';
 import { PositronModalReactRenderer } from 'vs/base/browser/ui/positronModalReactRenderer/positronModalReactRenderer';
+// import { DataGridInstance } from 'vs/base/browser/ui/positronDataGrid/classes/dataGridInstance';
 
 /**
  * ComboBoxSeparator class.
@@ -64,13 +66,17 @@ export type ComboBoxItemsProvider<T> = (
 	maxResults: number
 ) => Promise<ComboBoxItemsResult<T>>;
 
+
+// class Yaya extends DataGridInstance {
+
+// }
+
 /**
  * ComboBoxProps interface.
  */
 interface ComboBoxProps<T> {
 	layoutService: ILayoutService;
 	className?: string;
-	searchable?: boolean;
 	disabled?: boolean;
 	title: string;
 	items: ComboBoxItem<T>[] | ComboBoxItemsProvider<T>;
@@ -210,25 +216,17 @@ export const ComboBox = <T,>(props: ComboBoxProps<T>) => {
 						onDismiss={() => dismiss(undefined)}
 					>
 						<div className='drop-down'>
-							{props.searchable &&
-								<div className='combo-box-search'>
-									Search UI
-								</div>
-							}
 							<div className='combo-box-items'>
-								<div className='combo-box-stuff'>
-									{items.map((entry, index) => {
-										if (entry instanceof ComboBoxOption) {
-											return <Option key={index} {...entry.props} />;
-										} else if (entry instanceof ComboBoxSeparator) {
-											return <Separator key={index} />;
-										} else {
-											// This indicates a bug.
-											return null;
-										}
-									})}
-
-								</div>
+								{items.map((entry, index) => {
+									if (entry instanceof ComboBoxOption) {
+										return <Option key={index} {...entry.props} />;
+									} else if (entry instanceof ComboBoxSeparator) {
+										return <Separator key={index} />;
+									} else {
+										// This indicates a bug.
+										return null;
+									}
+								})}
 							</div>
 
 						</div>
