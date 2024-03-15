@@ -387,7 +387,9 @@ export class IssueReporter extends Disposable {
 			// Only search for extension issues on title change
 			if (this.issueReporterModel.fileOnExtension() === false) {
 				const title = (<HTMLInputElement>this.getElementById('issue-title')).value;
-				this.searchVSCodeIssues(title, issueDescription);
+				// --- Start Positron ---
+				this.searchPositronIssues(title);
+				// --- End Positron ---
 			}
 		});
 
@@ -543,13 +545,28 @@ export class IssueReporter extends Disposable {
 		return this.issueReporterModel.getData().selectedExtension?.extensionData;
 	}
 
-	private searchVSCodeIssues(title: string, issueDescription?: string): void {
-		if (title) {
-			this.searchDuplicates(title, issueDescription);
-		} else {
-			this.clearSearchResults();
-		}
+	// --- Start Positron ---
+	// private searchVSCodeIssues(title: string, issueDescription?: string): void {
+	// 	if (title) {
+	// 		this.searchDuplicates(title, issueDescription);
+	// 	} else {
+	// 		this.clearSearchResults();
+	// 	}
+	// }
+
+	private searchPositronIssues(_title: string): void {
+		// TODO: While positron repositories are private, they cannot be searched.
+		// if (title) {
+		// 	const gitHubInfo = this.parseGitHubUrl(this.configuration.product.reportIssueUrl!);
+		// 	if (gitHubInfo) {
+		// 		return this.searchGitHub(`${gitHubInfo.owner}/${gitHubInfo.repositoryName}`, title);
+		// 	}
+		// } else {
+		// 	this.clearSearchResults();
+		// }
+		this.clearSearchResults();
 	}
+	// --- End Positron ---
 
 	private searchIssues(title: string, fileOnExtension: boolean | undefined, fileOnMarketplace: boolean | undefined): void {
 		if (fileOnExtension) {
@@ -560,8 +577,9 @@ export class IssueReporter extends Disposable {
 			return this.searchMarketplaceIssues(title);
 		}
 
-		const description = this.issueReporterModel.getData().issueDescription;
-		this.searchVSCodeIssues(title, description);
+		// --- Start Positron ---
+		this.searchPositronIssues(title);
+		// --- End Positron ---
 	}
 
 	private searchExtensionIssues(title: string): void {
@@ -637,36 +655,38 @@ export class IssueReporter extends Disposable {
 		});
 	}
 
-	@debounce(300)
-	private searchDuplicates(title: string, body?: string): void {
-		const url = 'https://vscode-probot.westus.cloudapp.azure.com:7890/duplicate_candidates';
-		const init = {
-			method: 'POST',
-			body: JSON.stringify({
-				title,
-				body
-			}),
-			headers: new Headers({
-				'Content-Type': 'application/json'
-			})
-		};
+	// --- Start Positron ---
+	// @debounce(300)
+	// private searchDuplicates(title: string, body?: string): void {
+	// 	const url = 'https://vscode-probot.westus.cloudapp.azure.com:7890/duplicate_candidates';
+	// 	const init = {
+	// 		method: 'POST',
+	// 		body: JSON.stringify({
+	// 			title,
+	// 			body
+	// 		}),
+	// 		headers: new Headers({
+	// 			'Content-Type': 'application/json'
+	// 		})
+	// 	};
 
-		fetch(url, init).then((response) => {
-			response.json().then(result => {
-				this.clearSearchResults();
+	// 	fetch(url, init).then((response) => {
+	// 		response.json().then(result => {
+	// 			this.clearSearchResults();
 
-				if (result && result.candidates) {
-					this.displaySearchResults(result.candidates);
-				} else {
-					throw new Error('Unexpected response, no candidates property');
-				}
-			}).catch(_ => {
-				// Ignore
-			});
-		}).catch(_ => {
-			// Ignore
-		});
-	}
+	// 			if (result && result.candidates) {
+	// 				this.displaySearchResults(result.candidates);
+	// 			} else {
+	// 				throw new Error('Unexpected response, no candidates property');
+	// 			}
+	// 		}).catch(_ => {
+	// 			// Ignore
+	// 		});
+	// 	}).catch(_ => {
+	// 		// Ignore
+	// 	});
+	// }
+	// --- End Positron ---
 
 	private displaySearchResults(results: SearchResult[]) {
 		const similarIssues = this.getElementById('similar-issues')!;
