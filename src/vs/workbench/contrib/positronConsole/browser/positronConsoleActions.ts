@@ -510,7 +510,10 @@ export function registerPositronConsoleActions() {
 
 			// Whether to allow incomplete code to be executed.
 			// By default, we don't allow incomplete code to be executed, but the language runtime can override this.
+			// This means that if allowIncomplete is false or undefined, the incomplete code will not be sent to the backend for execution.
+			// The console will continue to wait for more input until the user completes the code, or cancels out of the operation.
 			const { allowIncomplete } = opts;
+
 
 			// Ask the Positron console service to execute the code. Do not focus the console as
 			// this will rip focus away from the editor.
