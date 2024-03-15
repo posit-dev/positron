@@ -85,6 +85,20 @@ export class PositronPreviewService extends Disposable implements IPositronPrevi
 		return this._items.get(this._selectedItemId);
 	}
 
+	clearAllPreviews(): void {
+		// Set the active preview to nothing; this has the side effect of
+		// clearing the preview pane.
+		this.activePreviewWebviewId = '';
+
+		// Dispose all active webviews
+		for (const item of this._items.values()) {
+			item.webview.dispose();
+		}
+
+		// Clear the map
+		this._items.clear();
+	}
+
 	/**
 	 * Set the active preview webview.
 	 *

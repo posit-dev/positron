@@ -69,6 +69,11 @@ export interface IPositronPreviewService {
 	get previewWebviews(): PreviewWebview[];
 
 	/**
+	 * Clears all the previews from the preview pane.
+	 */
+	clearAllPreviews(): void;
+
+	/**
 	 * Returns the active preview pane item, or undefined if the preview pane
 	 * is empty.
 	 */

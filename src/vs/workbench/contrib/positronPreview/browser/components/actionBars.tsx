@@ -18,6 +18,8 @@ import { ActionBarRegion } from 'vs/platform/positronActionBar/browser/component
 import { ActionBarButton } from 'vs/platform/positronActionBar/browser/components/actionBarButton';
 import { localize } from 'vs/nls';
 import { PreviewUrl } from 'vs/workbench/contrib/positronPreview/browser/previewUrl';
+import { IPositronPreviewService } from 'vs/workbench/contrib/positronPreview/browser/positronPreviewSevice';
+import { ActionBarSeparator } from 'vs/platform/positronActionBar/browser/components/actionBarSeparator';
 
 // Constants.
 const kPaddingLeft = 8;
@@ -34,6 +36,7 @@ export interface ActionBarsProps extends PositronSessionsServices {
 	readonly contextMenuService: IContextMenuService;
 	readonly keybindingService: IKeybindingService;
 	readonly layoutService: IWorkbenchLayoutService;
+	readonly positronPreviewService: IPositronPreviewService;
 
 	// The active preview.
 	readonly preview: PreviewUrl;
@@ -43,6 +46,7 @@ export interface ActionBarsProps extends PositronSessionsServices {
 const navigateBack = localize('positron.preview.navigateBack', "Navigate back to the previous URL");
 const navigateForward = localize('positron.preview.navigateForward', "Navigate back to the next URL");
 const reload = localize('positron.preview.reload', "Reload the current URL");
+const clear = localize('positron.preview.clear', "Clear the current URL");
 
 /**
  * ActionBars component.
@@ -63,6 +67,11 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 	// Handler for the reload button.
 	const reloadHandler = () => {
 		props.preview.webview.postMessage({ command: 'reload' });
+	};
+
+	// Handler for the clear button.
+	const clearHandler = () => {
+		props.positronPreviewService.clearAllPreviews();
 	};
 
 	// Render.
@@ -92,6 +101,12 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 							tooltip={reload}
 							ariaLabel={reload}
 							onPressed={reloadHandler} />
+						<ActionBarSeparator />
+						<ActionBarButton
+							iconId='clear-all'
+							tooltip={clear}
+							ariaLabel={clear}
+							onPressed={clearHandler} />
 					</ActionBarRegion>
 				</PositronActionBar>
 			</div>
