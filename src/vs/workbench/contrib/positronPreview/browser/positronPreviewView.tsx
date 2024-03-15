@@ -175,6 +175,7 @@ export class PositronPreviewViewPane extends ViewPane implements IReactComponent
 				contextKeyService={this.contextKeyService}
 				contextMenuService={this.contextMenuService}
 				keybindingService={this.keybindingService}
+				openerService={this.openerService}
 				positronPreviewService={this.positronPreviewService}
 				reactComponentContainer={this}
 				runtimeSessionService={this.runtimeSessionService} />

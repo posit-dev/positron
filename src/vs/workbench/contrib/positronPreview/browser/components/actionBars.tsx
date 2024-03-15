@@ -20,6 +20,7 @@ import { localize } from 'vs/nls';
 import { PreviewUrl } from 'vs/workbench/contrib/positronPreview/browser/previewUrl';
 import { IPositronPreviewService } from 'vs/workbench/contrib/positronPreview/browser/positronPreviewSevice';
 import { ActionBarSeparator } from 'vs/platform/positronActionBar/browser/components/actionBarSeparator';
+import { IOpenerService } from 'vs/platform/opener/common/opener';
 
 // Constants.
 const kPaddingLeft = 8;
@@ -37,6 +38,7 @@ export interface ActionBarsProps extends PositronSessionsServices {
 	readonly keybindingService: IKeybindingService;
 	readonly layoutService: IWorkbenchLayoutService;
 	readonly positronPreviewService: IPositronPreviewService;
+	readonly openerService: IOpenerService;
 
 	// The active preview.
 	readonly preview: PreviewUrl;
@@ -47,6 +49,7 @@ const navigateBack = localize('positron.preview.navigateBack', "Navigate back to
 const navigateForward = localize('positron.preview.navigateForward', "Navigate back to the next URL");
 const reload = localize('positron.preview.reload', "Reload the current URL");
 const clear = localize('positron.preview.clear', "Clear the current URL");
+const openInBrowser = localize('positron.preview.openInBrowser', "Open the current URL in the default browser");
 
 /**
  * ActionBars component.
@@ -72,6 +75,12 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 	// Handler for the clear button.
 	const clearHandler = () => {
 		props.positronPreviewService.clearAllPreviews();
+	};
+
+	// Handler for the open in browser button.
+	const openInBrowserHandler = () => {
+		props.openerService.open(props.preview.currentUri,
+			{ openExternal: true, fromUserGesture: true });
 	};
 
 	// Render.
@@ -101,6 +110,11 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 							tooltip={reload}
 							ariaLabel={reload}
 							onPressed={reloadHandler} />
+						<ActionBarButton
+							iconId='positron-open-in-new-window'
+							tooltip={openInBrowser}
+							ariaLabel={openInBrowser}
+							onPressed={openInBrowserHandler} />
 						<ActionBarSeparator />
 						<ActionBarButton
 							iconId='clear-all'

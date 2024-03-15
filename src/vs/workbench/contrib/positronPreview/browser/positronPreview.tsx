@@ -21,6 +21,7 @@ import { PositronPreviewViewPane } from 'vs/workbench/contrib/positronPreview/br
 import { ActionBars } from 'vs/workbench/contrib/positronPreview/browser/components/actionBars';
 import { IRuntimeSessionService } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
 import { PreviewUrl } from 'vs/workbench/contrib/positronPreview/browser/previewUrl';
+import { IOpenerService } from 'vs/platform/opener/common/opener';
 
 /**
  * PositronPreviewProps interface.
@@ -33,9 +34,10 @@ export interface PositronPreviewProps extends PositronPreviewServices {
 	readonly contextMenuService: IContextMenuService;
 	readonly keybindingService: IKeybindingService;
 	readonly layoutService: IWorkbenchLayoutService;
+	readonly openerService: IOpenerService;
+	readonly positronPreviewService: IPositronPreviewService;
 	readonly reactComponentContainer: PositronPreviewViewPane;
 	readonly runtimeSessionService: IRuntimeSessionService;
-	readonly positronPreviewService: IPositronPreviewService;
 }
 
 /**
