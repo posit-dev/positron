@@ -410,50 +410,43 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 
 	async setViewModel(viewModel: NotebookViewModel, viewState?: INotebookEditorViewState) {
 
-		// Confusingly the .equals() method for the NotebookViewModel takes a NotebookTextModel, not
-		// a NotebookViewModel. This is because the NotebookViewModel is just a wrapper around the
-		// NotebookTextModel... I guess?
-		if (this._viewModel === undefined || !this._viewModel.equal(viewModel.notebookDocument)) {
-			// Make sure we're working with a fresh model state
-			this.detachModel();
-
-			// In the vscode implementation they have a separate _attachModel method that is called
-			// but we just inline it here because it's confusing to have both a setModel and
-			// attachModel methods when the attachModel method is only called from setModel.
-
-			const notifyOfModelChange = true;
-
-			if (notifyOfModelChange) {
-				// Fire on will change with old model
-				this._onWillChangeModel.fire(this._viewModel?.notebookDocument);
-			}
-
-			this._viewModel = viewModel;
-
-
-			if (notifyOfModelChange) {
-				// Fire on did change with new model
-				this._onDidChangeModel.fire(this._viewModel?.notebookDocument);
-			}
-
-			// Update read only status of notebook. Why here?
-			this._notebookOptions.updateOptions(this.isReadOnly);
-
-			// Bring the view model back to the state it was in when the view state was saved.
-			this._viewModel?.restoreEditorViewState(viewState);
-
-			if (this._viewModel) {
-				this._localStore.add(this._viewModel.onDidChangeViewCells(e => {
-					this._onDidChangeViewCells.fire(e);
-				}));
-			}
-
-			// Get the kernel up and running for the notebook.
-			this.setupKernel();
-
-		} else {
-			throw new Error(localize('modelAlreadySet', "Model already set"));
+		const alreadyHasModel = this._viewModel !== undefined && this._viewModel.equal(viewModel.notebookDocument);
+		if (alreadyHasModel) {
+			// No need to do anything if the model is already set.
+			return;
 		}
+
+		// Make sure we're working with a fresh model state
+		this.detachModel();
+
+		const notifyOfModelChange = true;
+
+		if (notifyOfModelChange) {
+			// Fire on will change with old model
+			this._onWillChangeModel.fire(this._viewModel?.notebookDocument);
+		}
+
+		this._viewModel = viewModel;
+
+		if (notifyOfModelChange) {
+			// Fire on did change with new model
+			this._onDidChangeModel.fire(this._viewModel?.notebookDocument);
+		}
+
+		// Update read only status of notebook. Why here?
+		this._notebookOptions.updateOptions(this.isReadOnly);
+
+		// Bring the view model back to the state it was in when the view state was saved.
+		this._viewModel?.restoreEditorViewState(viewState);
+
+		if (this._viewModel) {
+			this._localStore.add(this._viewModel.onDidChangeViewCells(e => {
+				this._onDidChangeViewCells.fire(e);
+			}));
+		}
+
+		// Get the kernel up and running for the notebook.
+		this.setupKernel();
 	}
 
 	/**
