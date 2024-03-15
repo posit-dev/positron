@@ -15,6 +15,7 @@ import { INotebookService } from 'vs/workbench/contrib/notebook/common/notebookS
 import { IInstantiationService } from 'vs/platform/instantiation/common/instantiation';
 import { IContextKeyService } from 'vs/platform/contextkey/common/contextkey';
 import { PositronNotebookInstance } from 'vs/workbench/contrib/positronNotebook/browser/PositronNotebookInstance';
+import { SHOW_POSITRON_NOTEBOOK_LOGS } from 'vs/workbench/contrib/positronNotebook/browser/utils';
 
 /**
  * Mostly empty options object. Based on the same one in `vs/workbench/contrib/notebook/browser/notebookEditorInput.ts`
@@ -24,10 +25,14 @@ export interface PositronNotebookEditorInputOptions {
 	startDirty?: boolean;
 }
 
+let notebookInputCount = 0;
+
 /**
  * PositronDataToolEditorInput class.
  */
 export class PositronNotebookEditorInput extends EditorInput {
+
+	private _identifier: string;
 	//#region Static Properties
 	/**
 	 * Gets the type ID.
@@ -88,6 +93,9 @@ export class PositronNotebookEditorInput extends EditorInput {
 	) {
 		// Call the base class's constructor.
 		super();
+		// Generate a random 4 digit number to use as the identifier.
+		this._identifier = (notebookInputCount++).toString();
+		this._log('constructor');
 
 		this.notebookInstance = instantiationService.createInstance(PositronNotebookInstance, this, undefined);
 	}
@@ -165,6 +173,7 @@ export class PositronNotebookEditorInput extends EditorInput {
 	}
 
 	override async resolve(_options?: IEditorOptions): Promise<IResolvedNotebookEditorModel | null> {
+		this._log('resolve');
 
 		if (this.editorOptions) {
 			_options = this.editorOptions;
@@ -218,6 +227,13 @@ export class PositronNotebookEditorInput extends EditorInput {
 
 		return this._editorModelReference.object;
 
+	}
+
+	private _log(message: string) {
+		if (!SHOW_POSITRON_NOTEBOOK_LOGS) {
+			return;
+		}
+		console.log(`%cPositronNotebookInput(${this._identifier}): ${message}`, `color: orangered;`);
 	}
 
 }

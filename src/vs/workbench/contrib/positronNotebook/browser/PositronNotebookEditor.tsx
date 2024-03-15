@@ -49,7 +49,7 @@ import {
 	IEditorGroupsService
 } from 'vs/workbench/services/editor/common/editorGroupsService';
 import { PositronNotebookEditorInput } from './PositronNotebookEditorInput';
-
+import { SHOW_POSITRON_NOTEBOOK_LOGS } from 'vs/workbench/contrib/positronNotebook/browser/utils';
 
 
 interface NotebookLayoutInfo {
@@ -67,7 +67,10 @@ const POSITRON_NOTEBOOK_EDITOR_VIEW_STATE_PREFERENCE_KEY =
 	'NotebookEditorViewState';
 
 
+let notebookEditorCount = 0;
+
 export class PositronNotebookEditor extends EditorPane {
+	private _identifier: string;
 	_parentDiv: HTMLElement | undefined;
 
 	/**
@@ -164,6 +167,7 @@ export class PositronNotebookEditor extends EditorPane {
 	}
 
 	protected override createEditor(parent: HTMLElement): void {
+		this._log('createEditor');
 		const myDiv = parent.ownerDocument.createElement('div');
 		myDiv.style.display = 'relative';
 		this._parentDiv = myDiv;
@@ -202,6 +206,7 @@ export class PositronNotebookEditor extends EditorPane {
 		token: CancellationToken,
 		noRetry?: boolean
 	): Promise<void> {
+		this._log('setInput');
 		this._input = input;
 		// Eventually this will probably need to be implemented like the vs notebooks
 		// which uses a notebookWidgetService to manage the instances. For now, we'll
@@ -258,11 +263,13 @@ export class PositronNotebookEditor extends EditorPane {
 	}
 
 	override clearInput(): void {
+		this._log('clearInput');
 		// Clear the input observable.
 		this._input = undefined;
 
 		if (this.notebookInstance) {
 			this._saveEditorViewState();
+			this.notebookInstance.detachModel();
 		}
 
 		// Call the base class's method.
@@ -279,6 +286,7 @@ export class PositronNotebookEditor extends EditorPane {
 	}
 
 	getViewModel(textModel: NotebookTextModel) {
+		this._log('getViewModel');
 
 		const notebookInstance = this.getInput().notebookInstance;
 		if (!notebookInstance) {
@@ -307,8 +315,6 @@ export class PositronNotebookEditor extends EditorPane {
 			this.getLayoutInfo(),
 			{ isReadOnly: notebookInstance.isReadOnly }
 		);
-
-
 
 		// Emit an event into the view context for layout change so things can get initialized
 		// properly.
@@ -374,12 +380,13 @@ export class PositronNotebookEditor extends EditorPane {
 
 
 	private _disposeReactRenderer() {
+		this._log('disposeReactRenderer');
 		this._positronReactRenderer?.dispose();
 		this._positronReactRenderer = undefined;
 	}
 
 	private _renderReact() {
-
+		this._log('renderReact');
 		const notebookInstance = (this.input as PositronNotebookEditorInput)?.notebookInstance;
 
 		if (!notebookInstance) {
@@ -440,19 +447,28 @@ export class PositronNotebookEditor extends EditorPane {
 			POSITRON_NOTEBOOK_EDITOR_VIEW_STATE_PREFERENCE_KEY
 		);
 
-
+		// Generate a random 4 digit number to use as the identifier.
+		this._identifier = (notebookEditorCount++).toString();
+		this._log('constructor');
 	}
 
 	/**
 	 * dispose override method.
 	 */
 	public override dispose(): void {
-
+		this._log('dispose');
 		this.notebookInstance?.detachModel();
 
 		this._disposeReactRenderer();
 
 		// Call the base class's dispose method.
 		super.dispose();
+	}
+
+	private _log(message: string) {
+		if (!SHOW_POSITRON_NOTEBOOK_LOGS) {
+			return;
+		}
+		console.log(`%cPositronNotebookEditor(${this._identifier}): ${message}`, `color: forestgreen;`);
 	}
 }

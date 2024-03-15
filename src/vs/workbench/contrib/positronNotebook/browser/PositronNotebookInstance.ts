@@ -23,11 +23,14 @@ import { PositronNotebookCell } from 'vs/workbench/contrib/positronNotebook/brow
 import { PositronNotebookEditorInput } from 'vs/workbench/contrib/positronNotebook/browser/PositronNotebookEditorInput';
 import { BaseCellEditorOptions } from './BaseCellEditorOptions';
 import * as DOM from 'vs/base/browser/dom';
+import { SHOW_POSITRON_NOTEBOOK_LOGS } from 'vs/workbench/contrib/positronNotebook/browser/utils';
 
 const cellTypeToKind = {
 	'code': CellKind.Code,
 	'markdown': CellKind.Markup,
 };
+
+let notebookInstanceCount = 0;
 
 /**
  * Class that abstracts away _most_ of the interfacing with existing notebook classes/models/functions
@@ -100,6 +103,7 @@ export interface IPositronNotebookInstance {
 }
 
 export class PositronNotebookInstance extends Disposable implements IPositronNotebookInstance {
+	private _identifier: string;
 
 	selectedCells: PositronNotebookCell[] = [];
 
@@ -225,6 +229,9 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		@ICodeEditorService codeEditorService: ICodeEditorService
 	) {
 		super();
+
+		// Generate a random 4 digit number to use as the identifier.
+		this._identifier = (notebookInstanceCount++).toString();
 
 		this.cells = observableValue<PositronNotebookCell[]>('positronNotebookCells', this._cells);
 
@@ -409,7 +416,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 
 
 	async setViewModel(viewModel: NotebookViewModel, viewState?: INotebookEditorViewState) {
-
+		this._log('setViewModel');
 		const alreadyHasModel = this._viewModel !== undefined && this._viewModel.equal(viewModel.notebookDocument);
 		if (alreadyHasModel) {
 			// No need to do anything if the model is already set.
@@ -454,6 +461,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	 * TODO: Flesh out rest of method once other components are implemented.
 	 */
 	detachModel() {
+		this._log('detachModel');
 		// Clear store of disposables
 		this._localStore.clear();
 
@@ -540,8 +548,16 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	}
 
 	override dispose() {
+		this._log('dispose');
 		super.dispose();
 		this.detachModel();
+	}
+
+	private _log(message: string) {
+		if (!SHOW_POSITRON_NOTEBOOK_LOGS) {
+			return;
+		}
+		console.log(`%cPositronNotebookInstance(${this._identifier}): ${message}`, `color: #00f;`);
 	}
 }
 
