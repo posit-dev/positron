@@ -49,7 +49,7 @@ export interface IPositronPreviewService {
 	 */
 	openUri(previewId: string,
 		origin: string,
-		extension: WebviewExtensionDescription,
+		extension: WebviewExtensionDescription | undefined,
 		uri: URI): PreviewWebview;
 
 	/**
