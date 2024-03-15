@@ -89,17 +89,18 @@ export const PositronPreview = (props: PropsWithChildren<PositronPreviewProps>) 
 		return () => disposableStore.dispose();
 	}, [props.positronPreviewService, props.reactComponentContainer]);
 
+	const showToolbar = activePreview && activePreview instanceof PreviewUrl;
 	// Render.
 	return (
 		<PositronPreviewContextProvider {...props}>
-			{activePreview && activePreview instanceof PreviewUrl &&
+			{showToolbar &&
 				<ActionBars preview={activePreview} {...props} />
 			}
 			<PreviewContainer
 				preview={activePreview}
 				visible={visible}
 				width={width}
-				height={height}
+				height={height - (showToolbar ? 32 : 0)}
 				x={x}
 				y={y} />
 		</PositronPreviewContextProvider>
