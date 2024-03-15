@@ -755,7 +755,7 @@ export class IssueReporter extends Disposable {
 
 		sourceSelect.innerText = '';
 		sourceSelect.append(this.makeOption('', localize('selectSource', "Select source"), true));
-		sourceSelect.append(this.makeOption('vscode', localize('vscode', "Visual Studio Code"), false));
+		sourceSelect.append(this.makeOption('vscode', localize('vscode', "Positron"), false));
 		sourceSelect.append(this.makeOption('extension', localize('extension', "An extension"), false));
 		if (this.configuration.product.reportMarketplaceIssueUrl) {
 			sourceSelect.append(this.makeOption('marketplace', localize('marketplace', "Extensions marketplace"), false));
@@ -815,7 +815,7 @@ export class IssueReporter extends Disposable {
 		if (fileOnExtension && selectedExtension?.hasIssueUriRequestHandler && !selectedExtension.hasIssueDataProviders) {
 			hide(titleTextArea);
 			hide(descriptionTextArea);
-			reset(descriptionTitle, localize('handlesIssuesElsewhere', "This extension handles issues outside of VS Code"));
+			reset(descriptionTitle, localize('handlesIssuesElsewhere', "This extension handles issues outside of Positron"));
 			reset(descriptionSubtitle, localize('elsewhereDescription', "The '{0}' extension prefers to use an external issue reporter. To be taken to that issue reporting experience, click the button below.", selectedExtension.displayName));
 			this.previewButton.label = localize('openIssueReporter', "Open External Issue Reporter");
 			return;
