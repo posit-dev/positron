@@ -29,46 +29,47 @@ export async function activatePositron(
         traceInfo('activatePositron: awaiting extension activation');
         await activatedPromise;
 
+        const registerRuntime = async (interpreterPath: string) => {
+            if (!manager.registeredPythonRuntimes.has(interpreterPath)) {
+                // Get the interpreter corresponding to the new runtime.
+                const interpreterService = serviceContainer.get<IInterpreterService>(IInterpreterService);
+                const interpreter = await interpreterService.getInterpreterDetails(interpreterPath);
+                // Create the runtime and register it with Positron.
+                if (interpreter) {
+                    // Set recommendedForWorkspace to false, since we change the active runtime
+                    // in the onDidChangeActiveEnvironmentPath listener.
+                    const runtime = await createPythonRuntimeMetadata(interpreter, serviceContainer, false);
+                    // Register the runtime with Positron.
+                    manager.registerLanguageRuntime(runtime);
+                } else {
+                    traceError(`Could not register runtime due to an invalid interpreter path: ${interpreterPath}`);
+                }
+            }
+        };
         // If the interpreter is changed via the Python extension, select the corresponding
         // language runtime in Positron.
         const disposables = serviceContainer.get<IDisposableRegistry>(IDisposableRegistry);
         disposables.push(
             pythonApi.environments.onDidChangeActiveEnvironmentPath(async (event) => {
                 // Select the new runtime.
+                await registerRuntime(event.path);
                 const runtimeMetadata = manager.registeredPythonRuntimes.get(event.path);
                 if (runtimeMetadata) {
                     positron.runtime.selectLanguageRuntime(runtimeMetadata.runtimeId);
                 } else {
-                    throw Error(`Tried to switch to a language runtime that has not been registered: ${event.path}`);
+                    traceError(`Tried to switch to a language runtime that has not been registered: ${event.path}`);
                 }
             }),
         );
-
-        // If a new interpreter is added via the Python extension, create and register a
-        // corresponding language runtime.
+        // If a new runtime is registered via the Python extension, create and register a corresponding language runtime.
         disposables.push(
             pythonApi.environments.onDidChangeEnvironments(async (event) => {
                 if (event.type === 'add') {
                     const interpreterPath = event.env.path;
-                    if (!manager.registeredPythonRuntimes.has(interpreterPath)) {
-                        // Get the interpreter corresponding to the new runtime.
-                        const interpreterService = serviceContainer.get<IInterpreterService>(IInterpreterService);
-                        const interpreter = await interpreterService.getInterpreterDetails(interpreterPath);
-
-                        // Create the runtime and register it with Positron.
-                        if (interpreter) {
-                            // Set recommendedForWorkspace to false, since we change the active runtime
-                            // in the onDidChangeActiveEnvironmentPath listener.
-                            const runtime = await createPythonRuntimeMetadata(interpreter, serviceContainer, false);
-
-                            // Register the runtime with Positron.
-                            manager.registerLanguageRuntime(runtime);
-                        }
-                    }
+                    await registerRuntime(interpreterPath);
                 }
             }),
         );
-
         traceInfo('activatePositron: done!');
     } catch (ex) {
         traceError('activatePositron() failed.', ex);
