@@ -21,10 +21,13 @@ import { PreviewUrl } from 'vs/workbench/contrib/positronPreview/browser/preview
 import { IPositronPreviewService } from 'vs/workbench/contrib/positronPreview/browser/positronPreviewSevice';
 import { ActionBarSeparator } from 'vs/platform/positronActionBar/browser/components/actionBarSeparator';
 import { IOpenerService } from 'vs/platform/opener/common/opener';
+import { URI } from 'vs/base/common/uri';
+import { INotificationService } from 'vs/platform/notification/common/notification';
 
 // Constants.
 const kPaddingLeft = 8;
 const kPaddingRight = 8;
+const kUrlBarInputName = 'url-bar';
 
 /**
  * ActionBarsProps interface.
@@ -37,8 +40,9 @@ export interface ActionBarsProps extends PositronSessionsServices {
 	readonly contextMenuService: IContextMenuService;
 	readonly keybindingService: IKeybindingService;
 	readonly layoutService: IWorkbenchLayoutService;
-	readonly positronPreviewService: IPositronPreviewService;
+	readonly notificationService: INotificationService;
 	readonly openerService: IOpenerService;
+	readonly positronPreviewService: IPositronPreviewService;
 
 	// The active preview.
 	readonly preview: PreviewUrl;
@@ -50,6 +54,7 @@ const navigateForward = localize('positron.preview.navigateForward', "Navigate b
 const reload = localize('positron.preview.reload', "Reload the current URL");
 const clear = localize('positron.preview.clear', "Clear the current URL");
 const openInBrowser = localize('positron.preview.openInBrowser', "Open the current URL in the default browser");
+const currentUrl = localize('positron.preview.currentUrl', "The current URL");
 
 /**
  * ActionBars component.
@@ -57,6 +62,11 @@ const openInBrowser = localize('positron.preview.openInBrowser', "Open the curre
  * @returns The rendered component.
  */
 export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
+	// Save the current URL.
+	const currentUri = props.preview.currentUri;
+
+	const urlInputRef = React.useRef<HTMLInputElement>(null);
+
 	// Handler for the navigate back button.
 	const navigateBackHandler = () => {
 		props.preview.webview.postMessage({ command: 'back' });
@@ -83,6 +93,44 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 			{ openExternal: true, fromUserGesture: true });
 	};
 
+	// Perform navigation to the given URL.
+	const navigateToUrl = (url: string) => {
+		// If the URL doesn't start with a scheme, assume it's an HTTP URL.
+		if (!url.match(/^[a-zA-Z]+:\/\//)) {
+			url = `http://${url}`;
+		}
+
+		// Validate the URL.
+		let uri: URI;
+		try {
+			uri = URI.parse(url);
+		} catch (e) {
+			// Notify the user that the URL is invalid.
+			props.notificationService.error(localize('positron.viewer.invalidUrl', "The URL {0} is invalid: {1}", url, e));
+
+			// Restore the old input value.
+			if (urlInputRef.current) {
+				urlInputRef.current.value = currentUri.toString();
+			}
+
+			return;
+		}
+
+		// Navigate to the URL.
+		props.preview.navigateToUri(uri);
+	};
+
+	// Handler that runs when the user submits the URL bar form.
+	const navigateToHandler = (event: React.FormEvent) => {
+		// Prevent default form action
+		event.preventDefault();
+
+		// Navigate to the URL.
+		if (urlInputRef.current) {
+			navigateToUrl(urlInputRef.current.value);
+		}
+	};
+
 	// Render.
 	return (
 		<PositronActionBarContextProvider {...props}>
@@ -100,9 +148,16 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 							onPressed={navigateForwardHandler} />
 					</ActionBarRegion>
 					<ActionBarRegion location='center'>
-						<div className='url-bar'>
-							{props.preview.currentUri.toString()}
-						</div>
+						<form onSubmit={navigateToHandler}>
+							<input
+								className='url-bar'
+								aria-label={currentUrl}
+								name={kUrlBarInputName}
+								type='text'
+								ref={urlInputRef}
+								defaultValue={props.preview.currentUri.toString()}>
+							</input>
+						</form>
 					</ActionBarRegion>
 					<ActionBarRegion location='right'>
 						<ActionBarButton

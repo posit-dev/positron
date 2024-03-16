@@ -16,6 +16,11 @@ bar to fill the center of the toolbar.
 	flex: 1;
 }
 
+.preview-action-bar form {
+	display: flex;
+	flex-grow: 1;
+}
+
 .preview-action-bar .url-bar {
 	border: 1px solid var(--vscode-input-border);
 	border-radius: 4px;

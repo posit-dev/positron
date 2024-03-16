@@ -18,18 +18,31 @@ export class PreviewUrl extends PreviewWebview {
 	 *
 	 * @param previewId A unique ID for the preview
 	 * @param webview The underlying webview instance that hosts the preview's content
-	 * @param uri The URI to open in the preview
+	 * @param _uri The URI to open in the preview
 	 */
 	constructor(
 		previewId: string,
 		webview: IOverlayWebview,
-		private readonly uri: URI
+		private _uri: URI
 	) {
 		super(POSITRON_PREVIEW_URL_VIEW_TYPE, previewId,
 			POSITRON_PREVIEW_URL_VIEW_TYPE,
 			webview);
 
-		webview.setHtml(`
+		// Perform the initial navigation.
+		this.navigateToUri(_uri);
+	}
+
+
+	/**
+	 * Navigate to a new URI in the preview.
+	 *
+	 * @param uri The URI to navigate to.
+	 */
+	public navigateToUri(uri: URI): void {
+		this._uri = uri;
+
+		this.webview.setHtml(`
 <html>
 	<head>
 		<style>
@@ -74,12 +87,12 @@ export class PreviewUrl extends PreviewWebview {
 		</script>
 	</head>
 	<body>
-		<iframe src="${uri.toString()}"></iframe>
+		<iframe src="${this._uri.toString()}"></iframe>
 	</body>
 </html>`);
 	}
 
 	get currentUri(): URI {
-		return this.uri;
+		return this._uri;
 	}
 }
