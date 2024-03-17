@@ -281,6 +281,7 @@ function getPrioritizedEnvironmentType(): EnvironmentType[] {
         EnvironmentType.Poetry,
         EnvironmentType.Pipenv,
         EnvironmentType.VirtualEnvWrapper,
+        EnvironmentType.Hatch,
         EnvironmentType.Venv,
         EnvironmentType.VirtualEnv,
         EnvironmentType.ActiveState,
