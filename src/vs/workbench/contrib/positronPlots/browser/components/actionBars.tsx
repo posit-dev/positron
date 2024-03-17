@@ -119,6 +119,7 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 						{enableZoomPlot && <ZoomPlotMenuButton actionHandler={zoomPlotHandler} zoomLevel={props.zoomLevel} />}
 						{enableSizingPolicy && <ActionBarSeparator />}
 						{enableSizingPolicy && <SizingPolicyMenuButton
+							keybindingService={props.keybindingService}
 							layoutService={props.layoutService}
 							plotsService={positronPlotsContext.positronPlotsService}
 							notificationService={positronPlotsContext.notificationService} />

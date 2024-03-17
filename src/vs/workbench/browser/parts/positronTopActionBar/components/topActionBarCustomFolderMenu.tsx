@@ -2,13 +2,18 @@
  *  Copyright (C) 2023 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
+// CSS.
 import 'vs/css!./topActionBarCustomFolderMenu';
+
+// React.
 import * as React from 'react';
-import { localize } from 'vs/nls';
 import { KeyboardEvent, useRef } from 'react'; // eslint-disable-line no-duplicate-imports
+
+// Other dependencies.
+import { localize } from 'vs/nls';
+import { useRegisterWithActionBar } from 'vs/platform/positronActionBar/browser/useRegisterWithActionBar';
 import { usePositronTopActionBarContext } from 'vs/workbench/browser/parts/positronTopActionBar/positronTopActionBarContext';
 import { showCustomFolderModalPopup } from 'vs/workbench/browser/parts/positronTopActionBar/customFolderModalPopup/customFolderModalPopup';
-import { useRegisterWithActionBar } from 'vs/platform/positronActionBar/browser/useRegisterWithActionBar';
 
 /**
  * Localized strings.
@@ -34,15 +39,13 @@ export const TopActionBarCustonFolderMenu = () => {
 	 */
 	const showPopup = () => {
 		ref.current.setAttribute('aria-expanded', 'true');
-		showCustomFolderModalPopup(
-			positronTopActionBarContext.commandService,
-			positronTopActionBarContext.contextKeyService,
-			positronTopActionBarContext.hostService,
-			positronTopActionBarContext.labelService,
-			positronTopActionBarContext.workspacesService,
-			positronTopActionBarContext.layoutService.mainContainer,
-			ref.current
-		).then(() => {
+		showCustomFolderModalPopup({
+			...positronTopActionBarContext,
+			...{
+				container: positronTopActionBarContext.layoutService.mainContainer,
+				anchor: ref.current
+			}
+		}).then(() => {
 			ref.current.removeAttribute('aria-expanded');
 		});
 	};

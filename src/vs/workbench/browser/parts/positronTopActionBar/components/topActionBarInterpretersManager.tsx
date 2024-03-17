@@ -68,15 +68,15 @@ export const TopActionBarInterpretersManager = (props: TopActionBarInterpretersM
 	 */
 	const showPopup = () => {
 		ref.current.setAttribute('aria-expanded', 'true');
-		showInterpretersManagerModalPopup(
-			positronTopActionBarContext.languageRuntimeService,
-			positronTopActionBarContext.runtimeStartupService,
-			positronTopActionBarContext.runtimeSessionService,
-			positronTopActionBarContext.layoutService.mainContainer,
-			ref.current,
-			props.onStartRuntime,
-			props.onActivateRuntime
-		).then(() => {
+		showInterpretersManagerModalPopup({
+			...positronTopActionBarContext,
+			...{
+				container: positronTopActionBarContext.layoutService.mainContainer,
+				anchor: ref.current,
+				onStartRuntime: props.onStartRuntime,
+				onActivateRuntime: props.onActivateRuntime
+			}
+		}).then(() => {
 			ref.current.removeAttribute('aria-expanded');
 		});
 	};

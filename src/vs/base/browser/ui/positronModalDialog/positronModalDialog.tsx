@@ -181,12 +181,6 @@ export const PositronModalDialog = (props: PropsWithChildren<PositronModalDialog
 					}
 					break;
 				}
-
-				// Other keyboard events are kept within the dialog.
-				default: {
-					consumeEvent();
-					break;
-				}
 			}
 		}));
 

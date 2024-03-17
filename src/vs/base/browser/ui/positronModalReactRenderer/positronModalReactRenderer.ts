@@ -10,9 +10,11 @@ import type { ReactElement } from 'react';
 
 // Other dependencies.
 import * as DOM from 'vs/base/browser/dom';
+import { Emitter } from 'vs/base/common/event';
 import { createRoot, Root } from 'react-dom/client';
 import { Disposable } from 'vs/base/common/lifecycle';
-import { Emitter } from 'vs/base/common/event';
+import { StandardKeyboardEvent } from 'vs/base/browser/keyboardEvent';
+import { IKeyEventProcessor } from 'vs/base/browser/ui/positronModalReactRenderer/keyEventProcessor';
 
 /**
  * Constants.
@@ -22,11 +24,20 @@ const MOUSEDOWN = 'mousedown';
 const RESIZE = 'resize';
 
 /**
+ * PositronModalReactRendererOptions interface.
+ */
+interface PositronModalReactRendererOptions {
+	readonly container: HTMLElement;
+	readonly keyEventProcessor?: IKeyEventProcessor;
+}
+
+/**
  * PositronModalReactRenderer class.
  * Manages rendering a React element as a modal popup.
  */
 export class PositronModalReactRenderer extends Disposable {
-	//#region Private Properties
+	//#region Private Static Properties
+	//#endregion Private Static Properties
 
 	/**
 	 * The set of active renderers.
@@ -34,39 +45,46 @@ export class PositronModalReactRenderer extends Disposable {
 	private static _activeRenderers = new Set<PositronModalReactRenderer>();
 
 	/**
-	 * Unbind event listeners function that unbinds the most recent event listeners.
+	 * Unbind event listeners function that unbinds the most recently bound event listeners.
 	 */
 	private static _unbindEventListeners?: () => void;
 
-	/**
-	 * The container element where the modal popup will be presented.
-	 */
-	private _containerElement?: HTMLElement;
+	//#region Private Properties
 
 	/**
-	 * The overlay element where the modal popup will be presented.
+	 * Gets the key event processor.
 	 */
-	private _overlayElement?: HTMLElement;
+	private readonly _keyEventProcessor?: IKeyEventProcessor;
 
 	/**
-	 * The root where the React element will be rendered.
+	 * Gets or sets the container element where the modal popup will be presented.
+	 */
+	private _container?: HTMLElement;
+
+	/**
+	 * Gets or sets the overlay element where the modal popup will be presented.
+	 */
+	private _overlay?: HTMLElement;
+
+	/**
+	 * Gets or sets the root where the React element will be rendered.
 	 */
 	private _root?: Root;
 
 	/**
 	 * The onKeyDown event emitter.
 	 */
-	private readonly _onKeyDown = this._register(new Emitter<KeyboardEvent>);
+	private readonly _onKeyDownEmitter = this._register(new Emitter<KeyboardEvent>);
 
 	/**
 	 * The onMouseDown event emitter.
 	 */
-	private readonly _onMouseDown = this._register(new Emitter<MouseEvent>);
+	private readonly _onMouseDownEmitter = this._register(new Emitter<MouseEvent>);
 
 	/**
 	 * The onMouseDown event emitter.
 	 */
-	private readonly _onResize = this._register(new Emitter<UIEvent>);
+	private readonly _onResizeEmitter = this._register(new Emitter<UIEvent>);
 
 	//#endregion Private Properties
 
@@ -74,38 +92,46 @@ export class PositronModalReactRenderer extends Disposable {
 
 	/**
 	 * Initializes a new instance of the PositronModalReactRenderer class.
-	 * @param containerElement The container element.
+	 * @param options A PositronModalReactRendererOptions containing the options.
 	 */
-	constructor(containerElement: HTMLElement) {
+	constructor(options: PositronModalReactRendererOptions) {
 		// Call the base class's constructor.
 		super();
 
+		// Set the key event processor.
+		this._keyEventProcessor = options.keyEventProcessor;
+
 		// Set the container element.
-		this._containerElement = containerElement;
+		this._container = options.container;
 
 		// Create the overlay element.
-		this._overlayElement = containerElement.appendChild(DOM.$('.positron-modal-overlay'));
-		this._root = createRoot(this._overlayElement);
+		this._overlay = this._container.appendChild(DOM.$('.positron-modal-overlay'));
+		this._root = createRoot(this._overlay);
 	}
 
 	/**
 	 * Dispose method.
 	 */
 	public override dispose(): void {
+		// Call the base class's dispose method.
 		super.dispose();
 
+		// Unmount the root.
 		if (this._root) {
 			this._root.unmount();
 			this._root = undefined;
 		}
 
-		if (this._overlayElement) {
-			this._overlayElement?.remove();
-			this._overlayElement = undefined;
+		// Remove the overlay.
+		if (this._overlay) {
+			this._overlay?.remove();
+			this._overlay = undefined;
 		}
 
-		this._containerElement = undefined;
+		//
+		this._container = undefined;
 
+		//
 		if (PositronModalReactRenderer._activeRenderers.has(this)) {
 			PositronModalReactRenderer._activeRenderers.delete(this);
 			PositronModalReactRenderer.bindEventListeners();
@@ -119,17 +145,17 @@ export class PositronModalReactRenderer extends Disposable {
 	/**
 	 * onKeyDown event.
 	 */
-	readonly onKeyDown = this._onKeyDown.event;
+	readonly onKeyDown = this._onKeyDownEmitter.event;
 
 	/**
 	 * onMouseDown event.
 	 */
-	readonly onMouseDown = this._onMouseDown.event;
+	readonly onMouseDown = this._onMouseDownEmitter.event;
 
 	/**
 	 * onResize event.
 	 */
-	readonly onResize = this._onResize.event;
+	readonly onResize = this._onResizeEmitter.event;
 
 	//#endregion Public Events
 
@@ -141,7 +167,7 @@ export class PositronModalReactRenderer extends Disposable {
 	 * @param reactElement The ReactElement to render.
 	 */
 	public render(reactElement: ReactElement) {
-		if (this._containerElement && this._overlayElement && this._root) {
+		if (this._container && this._overlay && this._root) {
 			this._root.render(reactElement);
 			PositronModalReactRenderer._activeRenderers.add(this);
 			PositronModalReactRenderer.bindEventListeners();
@@ -166,14 +192,22 @@ export class PositronModalReactRenderer extends Disposable {
 		const positronModalReactRenderer = [...PositronModalReactRenderer._activeRenderers].pop();
 		if (positronModalReactRenderer) {
 			// Get the container window.
-			const containerWindow = DOM.getWindow(positronModalReactRenderer._containerElement);
+			const containerWindow = DOM.getWindow(positronModalReactRenderer._container);
 
 			/**
 			 * keydown handler.
 			 * @param e A KeyboardEvent that describes a user interaction with the keyboard.
 			 */
 			const keydownHandler = (e: KeyboardEvent) => {
-				positronModalReactRenderer._onKeyDown.fire(e);
+				// Process the key event if an IKeyEventProcessor was supplied.
+				if (positronModalReactRenderer._keyEventProcessor) {
+					positronModalReactRenderer._keyEventProcessor.processKeyEvent(
+						new StandardKeyboardEvent(e)
+					);
+				}
+
+				// Fire the onKeyDown event.
+				positronModalReactRenderer._onKeyDownEmitter.fire(e);
 			};
 
 			/**
@@ -181,7 +215,7 @@ export class PositronModalReactRenderer extends Disposable {
 			 * @param e A MouseEvent that describes a user interaction with the mouse.
 			 */
 			const mousedownHandler = (e: MouseEvent) => {
-				positronModalReactRenderer._onMouseDown.fire(e);
+				positronModalReactRenderer._onMouseDownEmitter.fire(e);
 			};
 
 			/**
@@ -190,7 +224,7 @@ export class PositronModalReactRenderer extends Disposable {
 			 */
 			const resizeHandler = (e: UIEvent) => {
 				[...PositronModalReactRenderer._activeRenderers].forEach(renderer => {
-					renderer._onResize.fire(e);
+					renderer._onResizeEmitter.fire(e);
 				});
 			};
 

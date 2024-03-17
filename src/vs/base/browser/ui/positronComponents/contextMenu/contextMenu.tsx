@@ -13,7 +13,9 @@ import * as DOM from 'vs/base/browser/dom';
 import { positronClassNames } from 'vs/base/common/positronUtilities';
 import { ILayoutService } from 'vs/platform/layout/browser/layoutService';
 import { Button } from 'vs/base/browser/ui/positronComponents/button/button';
+import { IKeybindingService } from 'vs/platform/keybinding/common/keybinding';
 import { PositronModalPopup } from 'vs/base/browser/ui/positronModalPopup/positronModalPopup';
+import { StopCommandsKeyEventProcessor } from 'vs/workbench/browser/stopCommandsKeyEventProcessor';
 import { ContextMenuSeparator } from 'vs/base/browser/ui/positronComponents/contextMenu/contextMenuSeparator';
 import { PositronModalReactRenderer } from 'vs/base/browser/ui/positronModalReactRenderer/positronModalReactRenderer';
 import { ContextMenuItem, ContextMenuItemOptions } from 'vs/base/browser/ui/positronComponents/contextMenu/contextMenuItem';
@@ -24,6 +26,7 @@ import { ContextMenuItem, ContextMenuItemOptions } from 'vs/base/browser/ui/posi
  * @returns A promise that resolves when the context menu is dismissed.
  */
 export const showContextMenu = async (options: {
+	keybindingService: IKeybindingService;
 	layoutService: ILayoutService;
 	anchorElement: HTMLElement;
 	alignment: 'left' | 'right';
@@ -33,14 +36,15 @@ export const showContextMenu = async (options: {
 	// Return a promise that resolves when the popup is done.
 	return new Promise<void>(resolve => {
 		// Get the container element for the anchor element.
-		const containerElement = options.layoutService.getContainer(
+		const container = options.layoutService.getContainer(
 			DOM.getWindow(options.anchorElement)
 		);
 
 		// Create the modal React renderer.
-		const positronModalReactRenderer = new PositronModalReactRenderer(
-			containerElement
-		);
+		const renderer = new PositronModalReactRenderer({
+			container,
+			keyEventProcessor: new StopCommandsKeyEventProcessor(options)
+		});
 
 		// The modal popup component.
 		const ModalPopup = () => {
@@ -48,7 +52,7 @@ export const showContextMenu = async (options: {
 			 * Dismisses the popup.
 			 */
 			const dismiss = () => {
-				positronModalReactRenderer.dispose();
+				renderer.dispose();
 				resolve();
 			};
 
@@ -113,8 +117,8 @@ export const showContextMenu = async (options: {
 			// Render.
 			return (
 				<PositronModalPopup
-					renderer={positronModalReactRenderer}
-					containerElement={containerElement}
+					renderer={renderer}
+					containerElement={container}
 					anchorElement={options.anchorElement}
 					popupPosition='bottom'
 					popupAlignment={options.alignment}
@@ -141,6 +145,6 @@ export const showContextMenu = async (options: {
 		};
 
 		// Render the modal popup component.
-		positronModalReactRenderer.render(<ModalPopup />);
+		renderer.render(<ModalPopup />);
 	});
 };

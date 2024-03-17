@@ -232,11 +232,6 @@ export const PositronModalPopup = (props: PropsWithChildren<PositronModalPopupPr
 				case 'Space':
 				case 'Enter':
 					break;
-
-				// Eat other keys to prevent the user from executing actions.
-				default:
-					consumeEvent();
-					break;
 			}
 		}));
 

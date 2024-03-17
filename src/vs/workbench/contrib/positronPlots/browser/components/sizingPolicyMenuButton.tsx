@@ -12,10 +12,12 @@ import { showSetPlotSizeModalDialog } from 'vs/workbench/contrib/positronPlots/b
 import { IWorkbenchLayoutService } from 'vs/workbench/services/layout/browser/layoutService';
 import { PlotSizingPolicyCustom } from 'vs/workbench/services/positronPlots/common/sizingPolicyCustom';
 import { INotificationService } from 'vs/platform/notification/common/notification';
+import { IKeybindingService } from 'vs/platform/keybinding/common/keybinding';
 
 interface SizingPolicyMenuButtonProps {
-	readonly plotsService: IPositronPlotsService;
+	readonly keybindingService: IKeybindingService;
 	readonly layoutService: IWorkbenchLayoutService;
+	readonly plotsService: IPositronPlotsService;
 	readonly notificationService: INotificationService;
 }
 
@@ -40,7 +42,7 @@ export const SizingPolicyMenuButton = (props: SizingPolicyMenuButtonProps) => {
 			setActivePolicyLabel(policy.name);
 		}));
 		return () => disposables.dispose();
-	}, [props.plotsService.selectedSizingPolicy]);
+	}, [props.plotsService, props.plotsService.selectedSizingPolicy]);
 
 	// Builds the actions.
 	const actions = () => {
@@ -89,8 +91,11 @@ export const SizingPolicyMenuButton = (props: SizingPolicyMenuButtonProps) => {
 			class: undefined,
 			enabled: true,
 			run: async () => {
-				const result = await showSetPlotSizeModalDialog(customPolicy ?
-					customPolicy.size : undefined, props.layoutService);
+				const result = await showSetPlotSizeModalDialog(
+					props.keybindingService,
+					props.layoutService,
+					customPolicy ? customPolicy.size : undefined
+				);
 				if (result === null) {
 					// The user clicked the delete button; this results in a special `null` value
 					// that signals that the custom policy should be deleted.

@@ -2,41 +2,46 @@
  *  Copyright (C) 2022-2024 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
+// CSS.
 import 'vs/css!./interpretersManagerModalPopup';
+
+// React.
 import * as React from 'react';
+
+// Other dependencies.
+import { ILayoutService } from 'vs/platform/layout/browser/layoutService';
+import { IKeybindingService } from 'vs/platform/keybinding/common/keybinding';
 import { PositronModalPopup } from 'vs/base/browser/ui/positronModalPopup/positronModalPopup';
-import { InterpreterGroups } from 'vs/workbench/browser/parts/positronTopActionBar/interpretersManagerModalPopup/interpreterGroups';
-import { ILanguageRuntimeMetadata, ILanguageRuntimeService } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { StopCommandsKeyEventProcessor } from 'vs/workbench/browser/stopCommandsKeyEventProcessor';
 import { IRuntimeSessionService } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
 import { IRuntimeStartupService } from 'vs/workbench/services/runtimeStartup/common/runtimeStartupService';
 import { PositronModalReactRenderer } from 'vs/base/browser/ui/positronModalReactRenderer/positronModalReactRenderer';
+import { InterpreterGroups } from 'vs/workbench/browser/parts/positronTopActionBar/interpretersManagerModalPopup/interpreterGroups';
+import { ILanguageRuntimeMetadata, ILanguageRuntimeService } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 
 /**
  * Shows the interpreters manager modal popup.
- *
- * @param languageRuntimeService The language runtime service.
- * @param runtimeStartupService The runtime stasrtup service.
- * @param runtimeSessionService The runtime session service.
- * @param containerElement The container element.
- * @param anchorElement The anchor element for the modal popup.
- * @param onStartRuntime The start runtime event handler.
- * @param onActivateRuntime The activate runtime event handler.
- *
+ * @param options The interpreters manager options.
  * @returns A promise that resolves when the popup is dismissed.
  */
-export const showInterpretersManagerModalPopup = async (
-	languageRuntimeService: ILanguageRuntimeService,
-	runtimeStartupService: IRuntimeStartupService,
-	runtimeSessionService: IRuntimeSessionService,
-	containerElement: HTMLElement,
-	anchorElement: HTMLElement,
-	onStartRuntime: (runtime: ILanguageRuntimeMetadata) => Promise<void>,
-	onActivateRuntime: (runtime: ILanguageRuntimeMetadata) => Promise<void>
-): Promise<void> => {
+export const showInterpretersManagerModalPopup = async (options: {
+	keybindingService: IKeybindingService;
+	languageRuntimeService: ILanguageRuntimeService;
+	layoutService: ILayoutService;
+	runtimeStartupService: IRuntimeStartupService;
+	runtimeSessionService: IRuntimeSessionService;
+	container: HTMLElement;
+	anchor: HTMLElement;
+	onStartRuntime: (runtime: ILanguageRuntimeMetadata) => Promise<void>;
+	onActivateRuntime: (runtime: ILanguageRuntimeMetadata) => Promise<void>;
+}): Promise<void> => {
 	// Return a promise that resolves when the popup is done.
 	return new Promise<void>(resolve => {
 		// Create the modal React renderer.
-		const positronModalReactRenderer = new PositronModalReactRenderer(containerElement);
+		const renderer = new PositronModalReactRenderer({
+			container: options.container,
+			keyEventProcessor: new StopCommandsKeyEventProcessor(options)
+		});
 
 		// The modal popup component.
 		const ModalPopup = () => {
@@ -44,7 +49,7 @@ export const showInterpretersManagerModalPopup = async (
 			 * Dismisses the popup.
 			 */
 			const dismiss = () => {
-				positronModalReactRenderer.dispose();
+				renderer.dispose();
 				resolve();
 			};
 
@@ -54,7 +59,7 @@ export const showInterpretersManagerModalPopup = async (
 			 */
 			const activateRuntimeHandler = async (runtime: ILanguageRuntimeMetadata): Promise<void> => {
 				// Activate the runtime.
-				await onActivateRuntime(runtime);
+				await options.onActivateRuntime(runtime);
 
 				// Dismiss the popup.
 				dismiss();
@@ -63,9 +68,9 @@ export const showInterpretersManagerModalPopup = async (
 			// Render.
 			return (
 				<PositronModalPopup
-					renderer={positronModalReactRenderer}
-					containerElement={containerElement}
-					anchorElement={anchorElement}
+					renderer={renderer}
+					containerElement={options.container}
+					anchorElement={options.anchor}
 					popupPosition='bottom'
 					popupAlignment='right'
 					width={375}
@@ -74,10 +79,10 @@ export const showInterpretersManagerModalPopup = async (
 					onDismiss={() => dismiss()}
 				>
 					<InterpreterGroups
-						languageRuntimeService={languageRuntimeService}
-						runtimeAffiliationService={runtimeStartupService}
-						runtimeSessionService={runtimeSessionService}
-						onStartRuntime={onStartRuntime}
+						languageRuntimeService={options.languageRuntimeService}
+						runtimeAffiliationService={options.runtimeStartupService}
+						runtimeSessionService={options.runtimeSessionService}
+						onStartRuntime={options.onStartRuntime}
 						onActivateRuntime={activateRuntimeHandler}
 					/>
 				</PositronModalPopup>
@@ -85,6 +90,6 @@ export const showInterpretersManagerModalPopup = async (
 		};
 
 		// Render the modal popup component.
-		positronModalReactRenderer.render(<ModalPopup />);
+		renderer.render(<ModalPopup />);
 	});
 };

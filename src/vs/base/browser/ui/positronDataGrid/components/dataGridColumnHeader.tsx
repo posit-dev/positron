@@ -75,6 +75,7 @@ export const DataGridColumnHeader = (props: DataGridColumnHeaderProps) => {
 
 		// Show the context menu.
 		await showContextMenu({
+			keybindingService: context.keybindingService,
 			layoutService: context.layoutService,
 			anchorElement: sortingButtonRef.current,
 			alignment: 'right',
