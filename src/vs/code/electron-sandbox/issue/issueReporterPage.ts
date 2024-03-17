@@ -16,11 +16,11 @@ const reviewGuidanceLabel = localize( // intentionally not escaped because of it
 	{
 		key: 'reviewGuidanceLabel',
 		comment: [
-			'{Locked="<a href=\"https://github.com/microsoft/vscode/wiki/Submitting-Bugs-and-Suggestions\" target=\"_blank\">"}',
+			'{Locked="<a href=\"https://github.com/posit-dev/positron-beta/wiki/Feedback-and-Issues\" target=\"_blank\">"}',
 			'{Locked="</a>"}'
 		]
 	},
-	'Before you report an issue here please <a href="https://github.com/microsoft/vscode/wiki/Submitting-Bugs-and-Suggestions" target="_blank">review the guidance we provide</a>.'
+	'Before you report an issue here please <a href="https://github.com/posit-dev/positron-beta/wiki/Feedback-and-Issues" target="_blank">review the guidance we provide</a>.'
 );
 
 export default (): string => `

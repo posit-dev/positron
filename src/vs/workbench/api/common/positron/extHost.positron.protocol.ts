@@ -5,12 +5,19 @@
 import { IDisposable } from 'vs/base/common/lifecycle';
 import { ILanguageRuntimeInfo, ILanguageRuntimeMetadata, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior, RuntimeState, ILanguageRuntimeMessage, ILanguageRuntimeExit, RuntimeExitReason, LanguageRuntimeSessionMode } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { createProxyIdentifier, IRPCProtocol } from 'vs/workbench/services/extensions/common/proxyIdentifier';
-import { IWebviewPortMapping, WebviewExtensionDescription } from 'vs/workbench/api/common/extHost.protocol';
+import { MainContext, IWebviewPortMapping, WebviewExtensionDescription } from 'vs/workbench/api/common/extHost.protocol';
 import { URI, UriComponents } from 'vs/base/common/uri';
 import { IEditorContext } from 'vs/workbench/services/frontendMethods/common/editorContext';
 import { RuntimeClientType } from 'vs/workbench/api/common/positron/extHostTypes.positron';
 import { LanguageRuntimeDynState, RuntimeSessionMetadata } from 'positron';
 
+// NOTE: This check is really to ensure that extHost.protocol is included by the TypeScript compiler
+// as a dependency of this module, and therefore that it's initialized first. This is to avoid a
+// race condition where VSCode and Positron proxy identifiers are created in a different order in
+// the main process vs the extension host process breaking interprocess RPC calls.
+if (Object.values(MainContext)[0].nid !== 1) {
+	console.error('MainContext was initialized out of order!');
+}
 
 /**
  * The initial state returned when starting or resuming a runtime session.
@@ -28,7 +35,7 @@ export interface MainThreadLanguageRuntimeShape extends IDisposable {
 	$startLanguageRuntime(runtimeId: string, sessionName: string, sessionMode: LanguageRuntimeSessionMode, notebookUri: URI | undefined): Promise<string>;
 	$completeLanguageRuntimeDiscovery(): void;
 	$unregisterLanguageRuntime(handle: number): void;
-	$executeCode(languageId: string, code: string, focus: boolean, skipChecks?: boolean): Promise<boolean>;
+	$executeCode(languageId: string, code: string, focus: boolean, allowIncomplete?: boolean): Promise<boolean>;
 	$getPreferredRuntime(languageId: string): Promise<ILanguageRuntimeMetadata>;
 	$restartSession(handle: number): Promise<void>;
 	$emitLanguageRuntimeMessage(handle: number, message: ILanguageRuntimeMessage): void;

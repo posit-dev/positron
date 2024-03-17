@@ -62,10 +62,9 @@ jobs:
         id: nodejs-unit-tests
         run: yarn test-node
 
-      # TODO: Re-enable integration tests once reliable
-      # - name: Run Integration Tests (Electron)
-      #   id: electron-integration-tests
-      #   run: DISPLAY=:10 ./scripts/test-integration.sh
+      - name: Run Integration Tests (Electron)
+        id: electron-integration-tests
+        run: DISPLAY=:10 ./scripts/test-integration.sh
 
       - name: Run Smoke Tests (Electron)
         id: electron-smoke-tests

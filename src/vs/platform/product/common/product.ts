@@ -66,7 +66,7 @@ else {
 			applicationName: 'positron',
 			dataFolderName: '.positron',
 			urlProtocol: 'code-oss',
-			reportIssueUrl: 'https://github.com/posit-dev/positron/issues/new',
+			reportIssueUrl: 'https://github.com/posit-dev/positron-beta/issues/new',
 			licenseName: 'Software Evaluation License',
 			licenseUrl: 'https://github.com/posit-dev/positron-beta/tree/main?tab=License-1-ov-file',
 			serverLicenseUrl: 'https://github.com/posit-dev/positron-beta/tree/main?tab=License-1-ov-file'
