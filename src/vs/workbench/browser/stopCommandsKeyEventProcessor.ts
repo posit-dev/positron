@@ -28,13 +28,11 @@ const ALLOWABLE_COMMANDS = [
 export class StopCommandsKeyEventProcessor implements IKeyEventProcessor {
 	/**
 	 * Constructor.
-	 * @param _keybindingService The keybinding service.
-	 * @param _layoutService The layout service.
 	 */
-	constructor(
-		private readonly _keybindingService: IKeybindingService,
-		private readonly _layoutService: ILayoutService,
-	) { }
+	constructor(private readonly _options: {
+		readonly keybindingService: IKeybindingService;
+		readonly layoutService: ILayoutService;
+	}) { }
 
 	/**
 	 * Processes a StandardKeyboardEvent.
@@ -42,9 +40,9 @@ export class StopCommandsKeyEventProcessor implements IKeyEventProcessor {
 	 */
 	processKeyEvent(event: StandardKeyboardEvent): void {
 		// Soft dispatch the keyboard event.
-		const resolutionResult = this._keybindingService.softDispatch(
+		const resolutionResult = this._options.keybindingService.softDispatch(
 			event,
-			this._layoutService.activeContainer
+			this._options.layoutService.activeContainer
 		);
 
 		// If the keyboard event was found and resolves to a comment ID, stop it from being

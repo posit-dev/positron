@@ -11,14 +11,15 @@ import * as React from 'react';
 // Other dependencies.
 import { Emitter } from 'vs/base/common/event';
 import { ILayoutService } from 'vs/platform/layout/browser/layoutService';
+import { IKeybindingService } from 'vs/platform/keybinding/common/keybinding';
 import { TestContent } from 'vs/base/browser/ui/positronModalDialog/components/testContent';
 import { OKActionBar } from 'vs/base/browser/ui/positronModalDialog/components/okActionBar';
 import { ContentArea } from 'vs/base/browser/ui/positronModalDialog/components/contentArea';
 import { PositronModalDialog } from 'vs/base/browser/ui/positronModalDialog/positronModalDialog';
+import { StopCommandsKeyEventProcessor } from 'vs/workbench/browser/stopCommandsKeyEventProcessor';
 import { OKCancelActionBar } from 'vs/base/browser/ui/positronModalDialog/components/okCancelActionBar';
 import { PositronModalReactRenderer } from 'vs/base/browser/ui/positronModalReactRenderer/positronModalReactRenderer';
 import { IModalDialogPromptInstance, IPositronModalDialogsService } from 'vs/workbench/services/positronModalDialogs/common/positronModalDialogs';
-import { IKeybindingService } from 'vs/platform/keybinding/common/keybinding';
 
 /**
  * PositronModalDialogs class.
