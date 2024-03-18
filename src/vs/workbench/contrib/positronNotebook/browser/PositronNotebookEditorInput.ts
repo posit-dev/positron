@@ -6,16 +6,16 @@
 import { IReference } from 'vs/base/common/lifecycle';
 import { URI } from 'vs/base/common/uri';
 import { localize } from 'vs/nls';
+import { IContextKeyService } from 'vs/platform/contextkey/common/contextkey';
 import { IEditorOptions } from 'vs/platform/editor/common/editor';
+import { IInstantiationService } from 'vs/platform/instantiation/common/instantiation';
 import { EditorInputCapabilities, GroupIdentifier, ISaveOptions, IUntypedEditorInput } from 'vs/workbench/common/editor';
 import { EditorInput } from 'vs/workbench/common/editor/editorInput';
 import { IResolvedNotebookEditorModel } from 'vs/workbench/contrib/notebook/common/notebookCommon';
 import { INotebookEditorModelResolverService } from 'vs/workbench/contrib/notebook/common/notebookEditorModelResolverService';
 import { INotebookService } from 'vs/workbench/contrib/notebook/common/notebookService';
-import { IInstantiationService } from 'vs/platform/instantiation/common/instantiation';
-import { IContextKeyService } from 'vs/platform/contextkey/common/contextkey';
 import { PositronNotebookInstance } from 'vs/workbench/contrib/positronNotebook/browser/PositronNotebookInstance';
-import { SHOW_POSITRON_NOTEBOOK_LOGS } from 'vs/workbench/contrib/positronNotebook/browser/utils';
+import { pnLog } from 'vs/workbench/contrib/positronNotebook/browser/utils';
 
 /**
  * Mostly empty options object. Based on the same one in `vs/workbench/contrib/notebook/browser/notebookEditorInput.ts`
@@ -230,10 +230,7 @@ export class PositronNotebookEditorInput extends EditorInput {
 	}
 
 	private _log(message: string) {
-		if (!SHOW_POSITRON_NOTEBOOK_LOGS) {
-			return;
-		}
-		console.log(`%cPositronNotebookInput(${this._identifier}): ${message}`, `color: orangered;`);
+		pnLog(`Input(${this._identifier}): ${message}`);
 	}
 
 }

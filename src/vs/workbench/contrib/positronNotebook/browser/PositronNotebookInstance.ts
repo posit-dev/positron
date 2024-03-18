@@ -22,7 +22,7 @@ import { INotebookExecutionStateService } from 'vs/workbench/contrib/notebook/co
 import { INotebookKernelService } from 'vs/workbench/contrib/notebook/common/notebookKernelService';
 import { PositronNotebookCell } from 'vs/workbench/contrib/positronNotebook/browser/PositronNotebookCell';
 import { PositronNotebookEditorInput } from 'vs/workbench/contrib/positronNotebook/browser/PositronNotebookEditorInput';
-import { SHOW_POSITRON_NOTEBOOK_LOGS } from 'vs/workbench/contrib/positronNotebook/browser/utils';
+import { pnLog } from 'vs/workbench/contrib/positronNotebook/browser/utils';
 import { BaseCellEditorOptions } from './BaseCellEditorOptions';
 
 const cellTypeToKind = {
@@ -588,10 +588,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	}
 
 	private _log(message: string) {
-		if (!SHOW_POSITRON_NOTEBOOK_LOGS) {
-			return;
-		}
-		console.log(`%cPositronNotebookInstance(${this._identifier}): ${message}`, `color: #00f;`);
+		pnLog(`Instance(${this._identifier}): ${message}`);
 	}
 }
 

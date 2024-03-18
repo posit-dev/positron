@@ -44,12 +44,12 @@ import { NotebookTextModel } from 'vs/workbench/contrib/notebook/common/model/no
 import { NotebookInstanceProvider } from 'vs/workbench/contrib/positronNotebook/browser/NotebookInstanceProvider';
 import { PositronNotebookComponent } from 'vs/workbench/contrib/positronNotebook/browser/PositronNotebookComponent';
 import { ServicesProvider } from 'vs/workbench/contrib/positronNotebook/browser/ServicesProvider';
+import { pnLog } from 'vs/workbench/contrib/positronNotebook/browser/utils';
 import {
 	GroupsOrder,
 	IEditorGroupsService
 } from 'vs/workbench/services/editor/common/editorGroupsService';
 import { PositronNotebookEditorInput } from './PositronNotebookEditorInput';
-import { SHOW_POSITRON_NOTEBOOK_LOGS } from 'vs/workbench/contrib/positronNotebook/browser/utils';
 
 
 interface NotebookLayoutInfo {
@@ -86,6 +86,45 @@ export class PositronNotebookEditor extends EditorPane {
 	 * moved do a different position in the editor.
 	 */
 	private readonly _editorMemento: IEditorMemento<INotebookEditorViewState>;
+
+
+	private _scopedContextKeyService?: IContextKeyService;
+	private _scopedInstantiationService?: IInstantiationService;
+
+	constructor(
+		@IClipboardService readonly _clipboardService: IClipboardService,
+		@ITelemetryService telemetryService: ITelemetryService,
+		@IThemeService themeService: IThemeService,
+		@IEditorGroupsService
+		private readonly _editorGroupService: IEditorGroupsService,
+		@ITextResourceConfigurationService
+		configurationService: ITextResourceConfigurationService,
+		@IStorageService storageService: IStorageService,
+		@IConfigurationService private readonly _configurationService: IConfigurationService,
+		@IInstantiationService private readonly _instantiationService: IInstantiationService,
+		@ITextModelService private readonly _textModelResolverService: ITextModelService,
+		@IContextKeyService private readonly contextKeyService: IContextKeyService,
+
+	) {
+		// Call the base class's constructor.
+		super(
+			PositronNotebookEditorInput.EditorID,
+			telemetryService,
+			themeService,
+			storageService
+		);
+
+		this._editorMemento = this.getEditorMemento<INotebookEditorViewState>(
+			this._editorGroupService,
+			configurationService,
+			POSITRON_NOTEBOOK_EDITOR_VIEW_STATE_PREFERENCE_KEY
+		);
+
+		// Generate a random 4 digit number to use as the identifier.
+		this._identifier = (notebookEditorCount++).toString();
+		this._log('constructor');
+	}
+
 
 	private _saveEditorViewState(input?: PositronNotebookEditorInput) {
 		// Save view state into momento
@@ -168,24 +207,19 @@ export class PositronNotebookEditor extends EditorPane {
 
 	protected override createEditor(parent: HTMLElement): void {
 		this._log('createEditor');
-		const myDiv = parent.ownerDocument.createElement('div');
-		myDiv.style.display = 'relative';
-		this._parentDiv = myDiv;
-
+		this._parentDiv = DOM.$('.positron-notebook-container');
+		parent.appendChild(this._parentDiv);
+		this._parentDiv.style.display = 'relative';
 
 		// Create a new context service that has the output overlay container as the root element.
-		this._scopedContextKeyService = this.contextKeyService.createScoped(myDiv);
+		this._scopedContextKeyService = this.contextKeyService.createScoped(this._parentDiv);
 
 		// Make sure that all things instantiated have a scoped context key service injected.
 		this._scopedInstantiationService = this._instantiationService.createChild(
 			new ServiceCollection([IContextKeyService, this._scopedContextKeyService])
 		);
 
-		parent.appendChild(myDiv);
 	}
-
-
-
 
 	override layout(
 		dimension: DOM.Dimension,
@@ -269,8 +303,9 @@ export class PositronNotebookEditor extends EditorPane {
 
 		if (this.notebookInstance) {
 			this._saveEditorViewState();
-			this.notebookInstance.detachModel();
+			this.notebookInstance.detachView();
 		}
+		this._disposeReactRenderer();
 
 		// Call the base class's method.
 		super.clearInput();
@@ -396,9 +431,9 @@ export class PositronNotebookEditor extends EditorPane {
 		if (!this._parentDiv) {
 			throw new Error('Base element is not set.');
 		}
+
 		// Create a new context service that has the output overlay container as the root element.
 		const scopedContextKeyService = this.contextKeyService.createScoped(this._parentDiv);
-
 
 		this.positronReactRenderer.render(
 			<NotebookInstanceProvider instance={notebookInstance}>
@@ -415,49 +450,13 @@ export class PositronNotebookEditor extends EditorPane {
 		);
 	}
 
-	private _scopedContextKeyService?: IContextKeyService;
-	private _scopedInstantiationService?: IInstantiationService;
-
-	constructor(
-		@IClipboardService readonly _clipboardService: IClipboardService,
-		@ITelemetryService telemetryService: ITelemetryService,
-		@IThemeService themeService: IThemeService,
-		@IEditorGroupsService
-		private readonly _editorGroupService: IEditorGroupsService,
-		@ITextResourceConfigurationService
-		configurationService: ITextResourceConfigurationService,
-		@IStorageService storageService: IStorageService,
-		@IConfigurationService private readonly _configurationService: IConfigurationService,
-		@IInstantiationService private readonly _instantiationService: IInstantiationService,
-		@ITextModelService private readonly _textModelResolverService: ITextModelService,
-		@IContextKeyService private readonly contextKeyService: IContextKeyService,
-
-	) {
-		// Call the base class's constructor.
-		super(
-			PositronNotebookEditorInput.EditorID,
-			telemetryService,
-			themeService,
-			storageService
-		);
-
-		this._editorMemento = this.getEditorMemento<INotebookEditorViewState>(
-			this._editorGroupService,
-			configurationService,
-			POSITRON_NOTEBOOK_EDITOR_VIEW_STATE_PREFERENCE_KEY
-		);
-
-		// Generate a random 4 digit number to use as the identifier.
-		this._identifier = (notebookEditorCount++).toString();
-		this._log('constructor');
-	}
 
 	/**
 	 * dispose override method.
 	 */
 	public override dispose(): void {
 		this._log('dispose');
-		this.notebookInstance?.detachModel();
+		this.notebookInstance?.detachView();
 
 		this._disposeReactRenderer();
 
@@ -466,9 +465,6 @@ export class PositronNotebookEditor extends EditorPane {
 	}
 
 	private _log(message: string) {
-		if (!SHOW_POSITRON_NOTEBOOK_LOGS) {
-			return;
-		}
-		console.log(`%cPositronNotebookEditor(${this._identifier}): ${message}`, `color: forestgreen;`);
+		pnLog(`Editor(${this._identifier}): ${message}`);
 	}
 }
