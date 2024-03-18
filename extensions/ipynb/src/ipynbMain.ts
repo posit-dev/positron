@@ -9,6 +9,10 @@ import { ensureAllNewCellsHaveCellIds } from './cellIdService';
 import { notebookImagePasteSetup } from './notebookImagePaste';
 import { AttachmentCleaner } from './notebookAttachmentCleaner';
 
+// --- Start Positron ---
+import * as positron from 'positron';
+// --- End Positron ---
+
 // From {nbformat.INotebookMetadata} in @jupyterlab/coreutils
 type NotebookMetadata = {
 	kernelspec?: {
@@ -70,7 +74,10 @@ export function activate(context: vscode.ExtensionContext) {
 	});
 
 	context.subscriptions.push(vscode.commands.registerCommand('ipynb.newUntitledIpynb', async () => {
-		const language = 'python';
+		// --- Start Positron ---
+		// Try to use Positron's foreground session's language, fall back to 'python' (as before this change).
+		const language = (await positron.runtime.getForegroundSession())?.runtimeMetadata?.languageId ?? 'python';
+		// --- End Positron ---
 		const cell = new vscode.NotebookCellData(vscode.NotebookCellKind.Code, '', language);
 		const data = new vscode.NotebookData([cell]);
 		data.metadata = {
