@@ -1,7 +1,6 @@
 /*---------------------------------------------------------------------------------------------
  *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
-import * as DOM from 'vs/base/browser/dom';
 import { Emitter, Event } from 'vs/base/common/event';
 import { Disposable, DisposableStore, dispose } from 'vs/base/common/lifecycle';
 import { ISettableObservable, observableValue } from 'vs/base/common/observableInternal/base';
@@ -24,6 +23,7 @@ import { PositronNotebookCell } from 'vs/workbench/contrib/positronNotebook/brow
 import { PositronNotebookEditorInput } from 'vs/workbench/contrib/positronNotebook/browser/PositronNotebookEditorInput';
 import { pnLog } from 'vs/workbench/contrib/positronNotebook/browser/utils';
 import { BaseCellEditorOptions } from './BaseCellEditorOptions';
+import * as DOM from 'vs/base/browser/dom';
 
 const cellTypeToKind = {
 	'code': CellKind.Code,
@@ -459,9 +459,6 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 			// Fire on did change with new model
 			this._onDidChangeModel.fire(this._viewModel?.notebookDocument);
 		}
-
-		// Update read only status of notebook. Why here?
-		// this._notebookOptions.updateOptions(this.isReadOnly);
 
 		// Bring the view model back to the state it was in when the view state was saved.
 		this._viewModel?.restoreEditorViewState(viewState);
