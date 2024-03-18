@@ -93,8 +93,7 @@ export class NotebookSerializer implements vscode.NotebookSerializer {
 			notebookContent.metadata = notebookContent.metadata || {};
 			notebookContent.metadata.language_info = notebookContent.metadata.language_info || { name: preferredCellLanguage };
 		}
-		// --- Start Positron ---
-
+		// --- End Positron ---
 		notebookContent.cells = data.cells
 			.map(cell => createJupyterCellFromNotebookCell(cell, preferredCellLanguage))
 			.map(pruneCell);

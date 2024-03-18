@@ -540,7 +540,7 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 		}
 		const session = this._runtimeSessions.find(session => session.metadata.sessionId === sessionId);
 		if (!session) {
-			throw new Error(`Session ID '${sessionId}' not found.`);
+			throw new Error(`Session ID '${sessionId}' was marked as the foreground session, but is not known to the extension host.`);
 		}
 		return session;
 	}
