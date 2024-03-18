@@ -9,19 +9,6 @@ import { IVariableOverflow as IVariableOverflow } from 'vs/workbench/services/po
 import { ILanguageRuntimeSession } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
 
 /**
- * PositronVariablesInstanceState enumeration.
- */
-export const enum PositronVariablesInstanceState {
-	Uninitialized = 'Uninitialized',
-	Starting = 'Starting',
-	Busy = 'Busy',
-	Ready = 'Ready',
-	Offline = 'Offline',
-	Exiting = 'Exiting',
-	Exited = 'Exited'
-}
-
-/**
  * PositronVariablesGrouping enumeration.
  */
 export const enum PositronVariablesGrouping {
@@ -93,11 +80,6 @@ export interface IPositronVariablesInstance {
 	 * Gets or sets the sorting.
 	 */
 	sorting: PositronVariablesSorting;
-
-	/**
-	 * The onDidChangeState event.
-	 */
-	readonly onDidChangeState: Event<PositronVariablesInstanceState>;
 
 	/**
 	 * The onDidChangeEntries event.
