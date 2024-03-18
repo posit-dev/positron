@@ -1056,6 +1056,10 @@ export class MainThreadLanguageRuntime
 		return Promise.resolve(this._runtimeStartupService.getPreferredRuntime(languageId));
 	}
 
+	$getForegroundSession(): Promise<string | undefined> {
+		return Promise.resolve(this._runtimeSessionService.foregroundSession?.sessionId);
+	}
+
 	// Called by the extension host to select a previously registered language runtime
 	$selectLanguageRuntime(runtimeId: string): Promise<void> {
 		return this._runtimeSessionService.selectRuntime(
