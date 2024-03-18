@@ -293,7 +293,7 @@ export class PositronNotebookEditor extends EditorPane {
 
 		const viewModel = this.getViewModel(model.notebook);
 
-		input.notebookInstance.setViewModel(viewModel, viewState);
+		input.notebookInstance.attachView(viewModel, viewState);
 	}
 
 	override clearInput(): void {

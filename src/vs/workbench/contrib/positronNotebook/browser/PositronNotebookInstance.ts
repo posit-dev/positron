@@ -94,12 +94,14 @@ export interface IPositronNotebookInstance {
 	 * @param viewModel View model for the notebook
 	 * @param viewState Optional view state for the notebook
 	 */
-	setViewModel(viewModel: NotebookViewModel, viewState?: INotebookEditorViewState): void;
+	attachView(viewModel: NotebookViewModel, viewState?: INotebookEditorViewState): void;
 
 	/**
-	 * Detach the current model from the notebook
+	 * Method called when the instance is detached from a view. This is used to cleanup
+	 * all the logic and variables related to the view/DOM.
 	 */
-	detachModel(): void;
+	detachView(): void;
+
 }
 
 export class PositronNotebookInstance extends Disposable implements IPositronNotebookInstance {
@@ -144,15 +146,10 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	 * Options for how the notebook should be displayed. Currently not really used but will be as
 	 * notebook gets fleshed out.
 	 */
-	private readonly _notebookOptions: NotebookOptions;
+	// private readonly _notebookOptions: NotebookOptions;
 
-	/**
-	 * Gets the notebook options for the editor.
-	 * Exposes the private internal notebook options as a get only property.
-	 */
-	get notebookOptions() {
-		return this._notebookOptions;
-	}
+
+
 	readonly isReadOnly: boolean;
 
 
@@ -219,14 +216,14 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 
 	constructor(
 		public _input: PositronNotebookEditorInput,
-		readonly creationOptions: INotebookEditorCreationOptions | undefined,
+		public readonly creationOptions: INotebookEditorCreationOptions | undefined,
 		@INotebookKernelService private readonly notebookKernelService: INotebookKernelService,
 		@INotebookExecutionService private readonly notebookExecutionService: INotebookExecutionService,
 		@INotebookExecutionStateService private readonly notebookExecutionStateService: INotebookExecutionStateService,
 		@IConfigurationService private readonly configurationService: IConfigurationService,
 		@IInstantiationService private readonly _instantiationService: IInstantiationService,
 		@IContextKeyService private readonly _contextKeyService: IContextKeyService,
-		@ICodeEditorService codeEditorService: ICodeEditorService
+		@ICodeEditorService private readonly _codeEditorService: ICodeEditorService
 	) {
 		super();
 
@@ -235,12 +232,25 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 
 		this.cells = observableValue<PositronNotebookCell[]>('positronNotebookCells', this._cells);
 
-		this.isReadOnly = creationOptions?.isReadOnly ?? false;
-
-		this._notebookOptions = creationOptions?.options ?? new NotebookOptions(DOM.getActiveWindow(), this.configurationService, this.notebookExecutionStateService, codeEditorService, this.isReadOnly);
+		this.isReadOnly = this.creationOptions?.isReadOnly ?? false;
 
 		this.setupNotebookTextModel();
 		this._log('constructor');
+	}
+
+	/**
+	 * Gets the notebook options for the editor.
+	 * Exposes the private internal notebook options as a get only property.
+	 */
+	get notebookOptions() {
+		this._log('notebookOptions');
+		return this.creationOptions?.options ?? new NotebookOptions(
+			DOM.getActiveWindow(),
+			this.configurationService,
+			this.notebookExecutionStateService,
+			this._codeEditorService,
+			this.isReadOnly
+		);
 	}
 
 
@@ -419,7 +429,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	}
 
 
-	async setViewModel(viewModel: NotebookViewModel, viewState?: INotebookEditorViewState) {
+	async attachView(viewModel: NotebookViewModel, viewState?: INotebookEditorViewState) {
 		const alreadyHasModel = this._viewModel !== undefined && this._viewModel.equal(viewModel.notebookDocument);
 		if (alreadyHasModel) {
 			// No need to do anything if the model is already set.
@@ -427,7 +437,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		}
 
 		// Make sure we're working with a fresh model state
-		this.detachModel();
+		this._detachModel();
 
 		const notifyOfModelChange = true;
 
@@ -444,7 +454,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		}
 
 		// Update read only status of notebook. Why here?
-		this._notebookOptions.updateOptions(this.isReadOnly);
+		// this._notebookOptions.updateOptions(this.isReadOnly);
 
 		// Bring the view model back to the state it was in when the view state was saved.
 		this._viewModel?.restoreEditorViewState(viewState);
@@ -462,7 +472,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	 * Remove and cleanup the current model for notebook.
 	 * TODO: Flesh out rest of method once other components are implemented.
 	 */
-	detachModel() {
+	private _detachModel() {
 		this._log('detachModel');
 		// Clear store of disposables
 		this._localStore.clear();
@@ -560,7 +570,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 			hasModel: this.hasModel,
 			onDidChangeOptions: this.onDidChangeOptions,
 			isReadOnly: this.isReadOnly,
-		}, this._notebookOptions, this.configurationService, language);
+		}, this.notebookOptions, this.configurationService, language);
 		this._baseCellEditorOptions.set(language, options);
 		return options;
 	}
@@ -581,10 +591,16 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		};
 	}
 
+	detachView(): void {
+		this._log('detachView');
+		this._detachModel();
+		this._localStore.clear();
+	}
+
 	override dispose() {
 		this._log('dispose');
 		super.dispose();
-		this.detachModel();
+		this.detachView();
 	}
 
 	private _log(message: string) {
