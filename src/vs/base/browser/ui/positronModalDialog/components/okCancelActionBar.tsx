@@ -23,6 +23,14 @@ interface OKCancelActionBarProps {
 }
 
 /**
+ * OKActionBarProps interface.
+ */
+interface OKActionBarProps {
+	okButtonTitle?: string;
+	accept: () => void;
+}
+
+/**
  * OKCancelActionBar component.
  * @param props An OKCancelActionBarProps that contains the component properties.
  * @returns The rendered component.
@@ -36,6 +44,22 @@ export const OKCancelActionBar = (props: OKCancelActionBarProps) => {
 			</Button>
 			<Button className='action-bar-button' onPressed={props.cancel}>
 				{props.cancelButtonTitle ?? localize('positronCancel', "Cancel")}
+			</Button>
+		</div>
+	);
+};
+
+/**
+ * OKCancelActionBar component.
+ * @param props An OKCancelActionBarProps that contains the component properties.
+ * @returns The rendered component.
+ */
+export const OKActionBar = (props: OKActionBarProps) => {
+	// Render.
+	return (
+		<div className='ok-action-bar top-separator'>
+			<Button className='action-bar-button default' onPressed={props.accept}>
+				{props.okButtonTitle ?? localize('positronOK', "OK")}
 			</Button>
 		</div>
 	);
