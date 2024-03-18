@@ -95,6 +95,13 @@ export class PositronVariablesInstance extends Disposable implements IPositronVa
 	 */
 	private readonly _onDidChangeEntriesEmitter = this._register(new Emitter<VariableEntry[]>);
 
+	/**
+	 * The onDidChangeState event emitter; tracks state changes to the
+	 * underlying comm. We have a separate event emitter so we can attach to the
+	 * event before the emitter for the underlying comm has been set up.
+	 */
+	private readonly _onDidChangeStateEmitter = this._register(new Emitter<RuntimeClientState>());
+
 	//#endregion Private Properties
 
 	//#region Constructor & Dispose
@@ -196,6 +203,11 @@ export class PositronVariablesInstance extends Disposable implements IPositronVa
 	 * onDidChangeEntries event.
 	 */
 	readonly onDidChangeEntries: Event<VariableEntry[]> = this._onDidChangeEntriesEmitter.event;
+
+	/**
+	 * onDidChangeState event.
+	 */
+	readonly onDidChangeState: Event<RuntimeClientState> = this._onDidChangeStateEmitter.event;
 
 	/**
 	 * Requests refresh.
@@ -436,6 +448,11 @@ export class PositronVariablesInstance extends Disposable implements IPositronVa
 					await this.processUpdate(environmentClientMessageUpdate)
 				)
 			);
+
+			// Create an event handler for the client state.
+			const event = Event.fromObservable(
+				this._variablesClient.clientState, this._runtimeDisposableStore);
+			event(state => this._onDidChangeStateEmitter.fire(state));
 
 			// Add the runtime client to the runtime disposable store.
 			this._runtimeDisposableStore.add(this._variablesClient);

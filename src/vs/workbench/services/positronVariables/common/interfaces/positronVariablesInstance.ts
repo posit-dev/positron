@@ -7,6 +7,7 @@ import { IVariableItem } from 'vs/workbench/services/positronVariables/common/in
 import { IVariableGroup } from 'vs/workbench/services/positronVariables/common/interfaces/variableGroup';
 import { IVariableOverflow as IVariableOverflow } from 'vs/workbench/services/positronVariables/common/interfaces/variableOverflow';
 import { ILanguageRuntimeSession } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
+import { RuntimeClientState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeClientInstance';
 
 /**
  * PositronVariablesGrouping enumeration.
@@ -69,7 +70,7 @@ export interface IPositronVariablesInstance {
 	/**
 	 * Gets the state.
 	 */
-	readonly state: PositronVariablesInstanceState;
+	readonly state: RuntimeClientState;
 
 	/**
 	 * Gets or sets the grouping.
@@ -85,6 +86,12 @@ export interface IPositronVariablesInstance {
 	 * The onDidChangeEntries event.
 	 */
 	readonly onDidChangeEntries: Event<VariableEntry[]>;
+
+	/**
+	 * Event that fires when the state of the underlying comm
+	 * changes.
+	 */
+	readonly onDidChangeState: Event<RuntimeClientState>;
 
 	/**
 	 * Requests refresh.
