@@ -24,7 +24,6 @@ export function useCellEditorWidget({ cell }: { cell: PositronNotebookCell }) {
 	const sizeObservable = services.sizeObservable;
 
 	// Grab the wrapping div for the editor. This is used for passing context key service
-	// TODO: Understand this better.
 	const editorPartRef = React.useRef<HTMLDivElement>(null);
 	// Grab a ref to the div that will hold the editor. This is needed to pass an element to the
 	// editor creation function.

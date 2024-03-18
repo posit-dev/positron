@@ -141,17 +141,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	 */
 	private _baseCellEditorOptions: Map<string, IBaseCellEditorOptions> = new Map();
 
-
-	/**
-	 * Options for how the notebook should be displayed. Currently not really used but will be as
-	 * notebook gets fleshed out.
-	 */
-	// private readonly _notebookOptions: NotebookOptions;
-
-
-
 	readonly isReadOnly: boolean;
-
 
 	/**
 	 * Mirrored cell state listeners from the notebook model.
@@ -243,15 +233,30 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	 * Exposes the private internal notebook options as a get only property.
 	 */
 	get notebookOptions() {
-		this._log('notebookOptions');
-		return this.creationOptions?.options ?? new NotebookOptions(
+
+		if (this._notebookOptions) {
+			return this._notebookOptions;
+		}
+
+		this._log('Generating new notebook options');
+		this._notebookOptions = this.creationOptions?.options ?? new NotebookOptions(
 			DOM.getActiveWindow(),
 			this.configurationService,
 			this.notebookExecutionStateService,
 			this._codeEditorService,
 			this.isReadOnly
 		);
+
+		return this._notebookOptions;
 	}
+
+	/**
+	 * Options for how the notebook should be displayed. Currently not really used but will be as
+	 * notebook gets fleshed out.
+	 */
+	private _notebookOptions: NotebookOptions | undefined;
+
+
 
 
 	private async setupNotebookTextModel() {
@@ -430,14 +435,16 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 
 
 	async attachView(viewModel: NotebookViewModel, viewState?: INotebookEditorViewState) {
+		// Make sure we're detethered from existing views. (Useful when we're swapping to a new
+		// window and the old window still exists)
+
+		this.detachView();
+
 		const alreadyHasModel = this._viewModel !== undefined && this._viewModel.equal(viewModel.notebookDocument);
 		if (alreadyHasModel) {
 			// No need to do anything if the model is already set.
 			return;
 		}
-
-		// Make sure we're working with a fresh model state
-		this._detachModel();
 
 		const notifyOfModelChange = true;
 
@@ -593,6 +600,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 
 	detachView(): void {
 		this._log('detachView');
+		this._notebookOptions?.dispose();
 		this._detachModel();
 		this._localStore.clear();
 	}

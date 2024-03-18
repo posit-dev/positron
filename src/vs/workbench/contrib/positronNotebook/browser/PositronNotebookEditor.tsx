@@ -396,28 +396,14 @@ export class PositronNotebookEditor extends EditorPane {
 	private _positronReactRenderer?: PositronReactRenderer;
 
 	/**
-	 * Gets the PositronReactRenderer for the PositronNotebook component.
-	 * Will create it if it doesn't exist.
+	 * Disposes the PositronReactRenderer for the PositronNotebook component.
 	 */
-	get positronReactRenderer() {
-		if (this._positronReactRenderer) {
-			return this._positronReactRenderer;
-		}
-
-		if (!this._parentDiv) {
-			throw new Error('Base element is not set.');
-		}
-
-		this._positronReactRenderer = new PositronReactRenderer(this._parentDiv);
-
-		return this._positronReactRenderer;
-	}
-
-
 	private _disposeReactRenderer() {
 		this._log('disposeReactRenderer');
-		this._positronReactRenderer?.dispose();
-		this._positronReactRenderer = undefined;
+		if (this._positronReactRenderer) {
+			this._positronReactRenderer.dispose();
+			this._positronReactRenderer = undefined;
+		}
 	}
 
 	private _renderReact() {
@@ -435,7 +421,9 @@ export class PositronNotebookEditor extends EditorPane {
 		// Create a new context service that has the output overlay container as the root element.
 		const scopedContextKeyService = this.contextKeyService.createScoped(this._parentDiv);
 
-		this.positronReactRenderer.render(
+		const reactRenderer: PositronReactRenderer = this._positronReactRenderer ?? new PositronReactRenderer(this._parentDiv);
+
+		reactRenderer.render(
 			<NotebookInstanceProvider instance={notebookInstance}>
 				<ServicesProvider services={{
 					configurationService: this._configurationService,
