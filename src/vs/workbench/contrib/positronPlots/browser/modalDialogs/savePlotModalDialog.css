@@ -26,8 +26,9 @@
 	row-gap: 10px;
 }
 
+/* 99% to prevent the image from overflowing the container */
 img.plot-preview {
-	max-height: 80%;
+	max-height: 99%;
 	max-width: 100%;
 	position: relative;
 	top: 50%;
@@ -51,6 +52,7 @@ img.plot-preview {
 div.plot-preview-image-wrapper {
 	height: 100%;
 	width: auto;
+	overflow: auto;
 }
 
 .plot-save-dialog-action-bar .left,

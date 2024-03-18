@@ -27,6 +27,17 @@ export interface PlotResult {
 }
 
 /**
+ * A saved plot's path
+ */
+export interface SavedPlot {
+	/**
+	 * The plot path
+	 */
+	path: string;
+
+}
+
+/**
  * Event: Notification that a plot has been updated on the backend.
  */
 export interface UpdateEvent {
@@ -61,21 +72,18 @@ export class PositronPlotComm extends PositronBaseComm {
 	/**
 	 * Save a plot
 	 *
-	 * Requests a plot to be saved to a file.
+	 * Requests a plot to be saved to a file. The plot path is returned as a
+	 * string.
 	 *
-	 * @param path The path to save the plot to
+	 * @param path The requested plot path
 	 * @param height The requested plot height, in pixels
 	 * @param width The requested plot width, in pixels
-	 * @param pixelRatio The pixel ratio of the display device
-	 * @param format The format to save the plot in
+	 * @param dpi The pixel ratio of the display device
 	 *
-	 * @returns The path to the saved plot
-	*/
-	// save(path: string, height: number, width: number, pixelRatio: number, format: string): Promise<string> {
-	// 	return super.performRpc('save', ['path', 'height', 'width', 'pixel_ratio', 'format'], [path, height, width, pixelRatio, format]);
-	// }
-	save(path: string, height: number, width: number): Promise<string> {
-		return super.performRpc('save', ['path', 'height', 'width'], [path, height, width]);
+	 * @returns A saved plot's path
+	 */
+	save(path: string, height: number, width: number, dpi: number): Promise<SavedPlot> {
+		return super.performRpc('save', ['path', 'height', 'width', 'dpi'], [path, height, width, dpi]);
 	}
 
 

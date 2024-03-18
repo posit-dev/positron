@@ -694,7 +694,7 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 							// plotClient.preview(result.height, result.width, plot.lastRender?.pixel_ratio ?? 1).then(result => {
 							// 	this.showSavePlotDialog(result.uri);
 							// });
-							plotClient.save(result.path, result.height, result.width);
+							plotClient.save(result.path, result.height, result.width, result.dpi);
 						}
 					});
 				} else {
