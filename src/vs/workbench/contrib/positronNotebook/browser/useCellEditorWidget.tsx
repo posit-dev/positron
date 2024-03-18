@@ -2,6 +2,8 @@
  *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 import * as React from 'react';
+import * as DOM from 'vs/base/browser/dom';
+
 import { CodeEditorWidget } from 'vs/editor/browser/widget/codeEditorWidget';
 import { IContextKeyService } from 'vs/platform/contextkey/common/contextkey';
 import { ServiceCollection } from 'vs/platform/instantiation/common/serviceCollection';
@@ -27,15 +29,21 @@ export function useCellEditorWidget({ cell }: { cell: PositronNotebookCell }) {
 	const editorPartRef = React.useRef<HTMLDivElement>(null);
 	// Grab a ref to the div that will hold the editor. This is needed to pass an element to the
 	// editor creation function.
-	const editorContainerRef = React.useRef<HTMLDivElement>(null);
 
 
 	// Create the editor
 	React.useEffect(() => {
-		if (!editorPartRef.current || !editorContainerRef.current) {
+		if (!editorPartRef.current) {
 			console.log('no editor part or container');
 			return;
 		}
+
+		// We need to use a native dom element here instead of a react ref one because the elements
+		// created by react's refs are not _true_ dom elements and thus calls like `refEl instanceof
+		// HTMLElement` will return false. This is a problem when we hand the elements into the
+		// editor widget as it expects a true dom element.
+		const nativeContainer = DOM.$('.positron-monaco-editor-container');
+		editorPartRef.current.appendChild(nativeContainer);
 
 		const language = cell.viewModel.language;
 		const editorContextKeyService = services.scopedContextKeyProviderCallback(editorPartRef.current);
@@ -43,7 +51,7 @@ export function useCellEditorWidget({ cell }: { cell: PositronNotebookCell }) {
 		const editorOptions = new CellEditorOptions(instance.getBaseCellEditorOptions(language), instance.notebookOptions, services.configurationService);
 		const editorContributions = instance.creationOptions?.cellEditorContributions ?? [];
 
-		const editor = editorInstaService.createInstance(CodeEditorWidget, editorContainerRef.current, {
+		const editor = editorInstaService.createInstance(CodeEditorWidget, nativeContainer, {
 			...editorOptions.getDefaultValue(),
 			dimension: {
 				width: 500,
@@ -65,7 +73,7 @@ export function useCellEditorWidget({ cell }: { cell: PositronNotebookCell }) {
 		function resizeEditor(height: number = editor.getContentHeight()) {
 			editor.layout({
 				height,
-				width: editorContainerRef.current?.offsetWidth ?? 500
+				width: editorPartRef.current?.offsetWidth ?? 500
 			});
 		}
 
@@ -93,6 +101,7 @@ export function useCellEditorWidget({ cell }: { cell: PositronNotebookCell }) {
 		return () => {
 			pnLog('Disposing editor widget');
 			editor.dispose();
+			nativeContainer.remove();
 			editorContextKeyService.dispose();
 			sizeObserver();
 		};
@@ -100,7 +109,7 @@ export function useCellEditorWidget({ cell }: { cell: PositronNotebookCell }) {
 
 
 
-	return { editorPartRef, editorContainerRef };
+	return { editorPartRef };
 
 }
 
