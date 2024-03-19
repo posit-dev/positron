@@ -504,8 +504,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 
 	/**
 	 * Remove and cleanup the current model for notebook.
-	 * TODO: Flesh out rest of method once other components are implemented.
-	 */
+]	 */
 	private _detachModel() {
 		this._logService.info(this._identifier, 'detachModel');
 		// Clear store of disposables
@@ -522,39 +521,9 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 
 
 	/**
-	 * Connect to the kernel for running notebook code.
+	 * Attempt to connect to the kernel for running notebook code.
+	 * Eventually this will be replaced with a more robust kernel selection system.
 	 */
-	private _setupKernel(): boolean {
-		if (!this._viewModel) {
-			throw new Error('No view model');
-		}
-
-
-		const kernelMatches = this.notebookKernelService.getMatchingKernel(this._viewModel.notebookDocument);
-
-		// Make sure we actually have kernels that have matched
-		if (kernelMatches.all.length === 0) {
-			// Throw localized error explaining that there are no kernels that match the notebook
-			// language.
-			throw new Error(localize('noKernel', "No kernel for file '{0}' found.", this._viewModel.uri.path));
-		}
-
-		const positronKernels = kernelMatches.all.filter(k => k.extension.value === 'vscode.positron-notebook-controllers');
-
-		const LANGUAGE_FOR_KERNEL = 'python';
-
-		const kernelForLanguage = positronKernels.find(k => k.supportedLanguages.includes(LANGUAGE_FOR_KERNEL));
-
-		if (!kernelForLanguage) {
-			throw new Error(localize('noKernelForLanguage', "No kernel for language '{0}' found.", LANGUAGE_FOR_KERNEL));
-		}
-
-		// Link kernel with notebook
-		this.notebookKernelService.selectKernelForNotebook(kernelForLanguage, this._viewModel.notebookDocument);
-
-		return true;
-	}
-
 	private async _trySetupKernel(): Promise<void> {
 		const kernelStatus = this.kernelStatus.get();
 		if (kernelStatus === 'connected' || kernelStatus === 'connecting') {
@@ -572,22 +541,20 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 
 			this._logService.info(this._identifier, `trySetupKernel (#${tryCount})`);
 
-			try {
-				const kernelAttempt = this._setupKernel();
-				if (kernelAttempt) {
-					this._logService.info(this._identifier, 'Successfully located kernel');
+			const kernelAttempt = this._lookForKernel();
 
-					this.kernelStatus.set(KernelStatus.Connected, undefined);
+			if (kernelAttempt.success) {
+				this._logService.info(this._identifier, 'Successfully located kernel');
 
-					return;
-				}
+				this.kernelStatus.set(KernelStatus.Connected, undefined);
+
+				return;
 			}
-			catch (e) {
-				lastError = e;
 
-				// Wait for a bit before trying again.
-				await new Promise(resolve => setTimeout(resolve, KERNEL_RETRY_DELAY));
-			}
+			lastError = kernelAttempt.msg;
+
+			// Wait for a bit before trying again.
+			await new Promise(resolve => setTimeout(resolve, KERNEL_RETRY_DELAY));
 		}
 
 		this.kernelStatus.set(KernelStatus.Errored, undefined);
@@ -597,7 +564,46 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 			localize('failedToFindKernel', "Failed to locate kernel for file '{0}'.", this._viewModel?.uri.path),
 			lastError
 		);
+	}
 
+	/**
+	 * Look for and attach a kernel to the notebook if possible.
+	 * @returns result object with success status and message if failed.
+	 */
+	private _lookForKernel(): { success: true } | { success: false; msg: string } {
+		if (!this._viewModel) {
+			throw new Error('No view model');
+		}
+
+		const kernelMatches = this.notebookKernelService.getMatchingKernel(this._viewModel.notebookDocument);
+
+		// Make sure we actually have kernels that have matched
+		if (kernelMatches.all.length === 0) {
+			// Throw localized error explaining that there are no kernels that match the notebook
+			// language.
+			return {
+				success: false,
+				msg: localize('noKernel', "No kernel for file '{0}' found.", this._viewModel.uri.path)
+			};
+		}
+
+		const positronKernels = kernelMatches.all.filter(k => k.extension.value === 'vscode.positron-notebook-controllers');
+
+		const LANGUAGE_FOR_KERNEL = 'python';
+
+		const kernelForLanguage = positronKernels.find(k => k.supportedLanguages.includes(LANGUAGE_FOR_KERNEL));
+
+		if (!kernelForLanguage) {
+			return {
+				success: false,
+				msg: localize('noKernelForLanguage', "No kernel for language '{0}' found.", LANGUAGE_FOR_KERNEL)
+			};
+		}
+
+		// Link kernel with notebook
+		this.notebookKernelService.selectKernelForNotebook(kernelForLanguage, this._viewModel.notebookDocument);
+
+		return { success: true };
 	}
 
 
