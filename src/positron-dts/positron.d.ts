@@ -1068,6 +1068,19 @@ declare module 'positron' {
 			cancelButtonTitle?: string): Thenable<boolean>;
 
 		/**
+		 * Create and show a different simple modal dialog prompt.
+		 *
+		 * @param title The title of the dialog
+		 * @param message The message to display in the dialog
+		 * @param okButtonTitle The title of the OK button (optional; defaults to 'OK')
+		 *
+		 * @returns A Thenable that resolves when the user clicks OK.
+		 */
+		export function showSimpleModalDialogMessage(title: string,
+			message: string,
+			okButtonTitle?: string): Thenable<null>;
+
+		/**
 		 * Get the `Console` for a runtime language `id`
 		 *
 		 * @param id The runtime language `id` to retrieve a `Console` for, i.e. 'r' or 'python'.
@@ -1221,6 +1234,17 @@ declare module 'positron' {
 		 *   if the user clicked Cancel.
 		 */
 		export function showQuestion(title: string, message: string, okButtonTitle: string, cancelButtonTitle: string): Thenable<boolean>;
+
+		/**
+		 * Create and show a different simple modal dialog prompt.
+		 *
+		 * @param title The title of the dialog
+		 * @param message The message to display in the dialog
+		 *
+		 * @returns A Thenable that resolves when the user dismisses the dialog.
+		 */
+		export function showDialog(title: string, message: string): Thenable<null>;
+
 
 	}
 }
