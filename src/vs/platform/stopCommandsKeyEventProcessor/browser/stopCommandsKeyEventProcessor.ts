@@ -40,15 +40,14 @@ export class StopCommandsKeyEventProcessor implements IKeyEventProcessor {
 	 * @param event The key event to process.
 	 */
 	processKeyEvent(event: StandardKeyboardEvent): void {
-		// Soft dispatch the keyboard event so we can determine whether we need to stop it from
-		// being processed.
+		// Soft dispatch the key event so we can determine whether it is bound to a command.
 		const resolutionResult = this._options.keybindingService.softDispatch(
 			event,
 			this._options.layoutService.activeContainer
 		);
 
-		// If a keyboard event was found and it resolved to a command, stop it from being processed
-		// if it is not one of the allowable commands.
+		// If a keybinding to a command was found, stop it from being processed if it is not one of
+		// the allowable commands.
 		if (resolutionResult.kind === ResultKind.KbFound && resolutionResult.commandId) {
 			if (ALLOWABLE_COMMANDS.indexOf(resolutionResult.commandId) === -1) {
 				EventHelper.stop(event, true);
