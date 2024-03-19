@@ -90,19 +90,6 @@ class PositronVariablesService extends Disposable implements IPositronVariablesS
 			this.createOrAssignPositronVariablesInstance(runtime);
 		}));
 
-		// Register the onDidChangeRuntimeState event handler.
-		this._register(
-			this._runtimeSessionService.onDidChangeRuntimeState(languageRuntimeStateEvent => {
-				// Find the Positron variables instance.
-				const positronVariablesInstance = this._positronVariablesInstancesBySessionId.get(
-					languageRuntimeStateEvent.session_id
-				);
-				if (!positronVariablesInstance) {
-					// TODO@softwarenerd... Handle this in some special way.
-					return;
-				}
-			}));
-
 		// Register the onDidChangeActiveRuntime event handler.
 		this._register(this._runtimeSessionService.onDidChangeForegroundSession(session => {
 			if (!session) {
@@ -115,8 +102,8 @@ class PositronVariablesService extends Disposable implements IPositronVariablesS
 					this.setActivePositronVariablesInstance(positronVariablesInstance);
 				} else {
 					this._logService.error(
-						`Language runtime ${formatLanguageRuntimeSession(session)} became active, ` +
-						`but a REPL instance for it is not running.`);
+						`Cannot show Variables: ${formatLanguageRuntimeSession(session)} became active, ` +
+						`but a Variables instance for it is not running.`);
 				}
 			}
 		}));
@@ -198,7 +185,7 @@ class PositronVariablesService extends Disposable implements IPositronVariablesS
 
 			const state = positronVariablesInstance.state;
 
-			if (state === RuntimeClientState.Closed) {
+			if (state === RuntimeClientState.Closed || state === RuntimeClientState.Uninitialized) {
 				// The Positron variables instance has exited, so attach it to
 				// this new session instance. (This is most likely a restart of
 				// the runtime session.)
@@ -213,8 +200,8 @@ class PositronVariablesService extends Disposable implements IPositronVariablesS
 		}
 
 		// Look for an old variables instance that has the same runtime ID as
-		// the one we're starting. We recycle the old instance, if if we have
-		// one, instead of creating a new one.
+		// the one we're starting. We recycle the old instance, if we have one,
+		// instead of creating a new one.
 		const allInstances = Array.from(this._positronVariablesInstancesBySessionId.values());
 		const existingInstance = allInstances.find(
 			positronVariablesInstance => {
@@ -222,6 +209,13 @@ class PositronVariablesService extends Disposable implements IPositronVariablesS
 					session.runtimeMetadata.runtimeId;
 			});
 		if (existingInstance) {
+
+			// Update the map of Positron variables instances by session ID.
+			this._positronVariablesInstancesBySessionId.set(
+				session.sessionId,
+				existingInstance
+			);
+
 			// Attach the new session to the existing instance.
 			existingInstance.setRuntimeSession(session);
 			return;
