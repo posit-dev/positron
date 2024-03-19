@@ -452,7 +452,16 @@ export class PositronVariablesInstance extends Disposable implements IPositronVa
 			// Create an event handler for the client state.
 			const event = Event.fromObservable(
 				this._variablesClient.clientState, this._runtimeDisposableStore);
-			event(state => this._onDidChangeStateEmitter.fire(state));
+			event(state => {
+				// Clear all expanded paths if the client is closed.
+				if (state === RuntimeClientState.Closed) {
+					this._expandedPaths.clear();
+				}
+
+				// Fire the onDidChangeState event.
+				this._onDidChangeStateEmitter.fire(state);
+			});
+
 
 			// Add the runtime client to the runtime disposable store.
 			this._runtimeDisposableStore.add(this._variablesClient);

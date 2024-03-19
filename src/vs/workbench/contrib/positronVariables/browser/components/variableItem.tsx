@@ -22,7 +22,7 @@ import { POSITRON_VARIABLES_COLLAPSE, POSITRON_VARIABLES_COPY_AS_HTML, POSITRON_
  * @param size The size to format.
  * @returns The formatted size.
  */
-const formatSize = (size: number) => {
+export const formatSize = (size: number) => {
 	// Sizes.
 	const KB = 1024;
 	const MB = KB * KB;

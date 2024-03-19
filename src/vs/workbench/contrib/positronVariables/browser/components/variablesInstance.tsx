@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
 import 'vs/css!./variablesInstance';
@@ -18,6 +18,8 @@ import { VariablesEmpty } from 'vs/workbench/contrib/positronVariables/browser/c
 import { VariableOverflow } from 'vs/workbench/contrib/positronVariables/browser/components/variableOverflow';
 import { usePositronVariablesContext } from 'vs/workbench/contrib/positronVariables/browser/positronVariablesContext';
 import { VariableEntry, IPositronVariablesInstance, isVariableGroup, isVariableItem, isVariableOverflow } from 'vs/workbench/services/positronVariables/common/interfaces/positronVariablesInstance';
+import { RuntimeClientState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeClientInstance';
+import { DisabledVariableItem } from 'vs/workbench/contrib/positronVariables/browser/components/disabledVariableItem';
 
 /**
  * Constants.
@@ -62,6 +64,7 @@ export const VariablesInstance = (props: VariablesInstanceProps) => {
 	const [variableEntries, setVariableEntries] = useState<VariableEntry[]>([]);
 	const [selectedId, setSelectedId] = useState<string | undefined>(undefined);
 	const [focused, setFocused] = useState(false);
+	const [clientState, setClientState] = useState(props.positronVariablesInstance.state);
 	const [, setScrollOffset, scrollOffsetRef] = useStateRef(0);
 	const [, setScrollState, scrollStateRef] = useStateRef<number[] | undefined>(undefined);
 
@@ -98,6 +101,11 @@ export const VariablesInstance = (props: VariablesInstanceProps) => {
 
 			// Set the entries.
 			setVariableEntries(entries);
+		}));
+
+		// Add the onDidChangeState event handler.
+		disposableStore.add(props.positronVariablesInstance.onDidChangeState(state => {
+			setClientState(state);
 		}));
 
 		// Request the initial refresh.
@@ -412,6 +420,20 @@ export const VariablesInstance = (props: VariablesInstanceProps) => {
 					positronVariablesInstance={props.positronVariablesInstance}
 				/>
 			);
+		} else if (isVariableItem(entry) && clientState === RuntimeClientState.Closed) {
+			return (
+				<DisabledVariableItem
+					key={entry.id}
+					nameColumnWidth={nameColumnWidth}
+					detailsColumnWidth={detailsColumnWidth}
+					rightColumnVisible={rightColumnVisible}
+					variableItem={entry}
+					style={style}
+					onBeginResizeNameColumn={beginResizeNameColumnHandler}
+					onResizeNameColumn={resizeNameColumnHandler}
+					positronVariablesInstance={props.positronVariablesInstance}
+				/>
+			);
 		} else if (isVariableItem(entry)) {
 			return (
 				<VariableItem
@@ -457,7 +479,7 @@ export const VariablesInstance = (props: VariablesInstanceProps) => {
 	return (
 		<div
 			ref={outerRef}
-			className='variables-instance'
+			className={'variables-instance state-' + clientState}
 			style={{ width: props.width, height: props.height, zIndex: props.active ? 1 : -1 }}
 			tabIndex={0}
 			onKeyDown={keyDownHandler}
