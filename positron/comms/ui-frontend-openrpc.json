@@ -109,6 +109,28 @@
 			}
 		},
 		{
+			"name": "show_dialog",
+			"summary": "Show a dialog",
+			"description": "Use this for a modal dialog that the user can only accept",
+			"params": [
+				{
+					"name": "title",
+					"description": "The title of the dialog",
+					"schema": {
+						"type": "string"
+					}
+				},
+				{
+					"name": "message",
+					"description": "The message to display in the dialog",
+					"schema": {
+						"type": "string"
+					}
+				}
+			],
+			"result": {}
+		},
+		{
 			"name": "prompt_state",
 			"summary": "New state of the primary and secondary prompts",
 			"description": "Languages like R allow users to change the way their prompts look. This event signals a change in the prompt configuration.",
