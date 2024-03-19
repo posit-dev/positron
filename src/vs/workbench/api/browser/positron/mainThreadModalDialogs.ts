@@ -21,6 +21,10 @@ export class MainThreadModalDialogs implements MainThreadModalDialogsShape {
 		return this._positronModalDialogsService.showSimpleModalDialogPrompt(title, message, okButtonTitle, cancelButtonTitle);
 	}
 
+	$showSimpleModalDialogMessage(title: string, message: string, okButtonTitle?: string): Promise<null> {
+		return this._positronModalDialogsService.showSimpleModalDialogMessage(title, message, okButtonTitle);
+	}
+
 	public dispose(): void {
 		this._disposables.dispose();
 	}

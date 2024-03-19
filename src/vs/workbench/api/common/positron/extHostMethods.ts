@@ -76,6 +76,16 @@ export class ExtHostMethods implements extHostProtocol.ExtHostMethodsShape {
 						params.cancel_button_title as string);
 					break;
 				}
+				case UiFrontendRequest.ShowDialog: {
+					if (!params ||
+						!Object.keys(params).includes('title') ||
+						!Object.keys(params).includes('message')) {
+						return newInvalidParamsError(method);
+					}
+					result = await this.showDialog(params.title as string,
+						params.message as string);
+					break;
+				}
 				case UiFrontendRequest.DebugSleep: {
 					if (!params || !Object.keys(params).includes('ms')) {
 						return newInvalidParamsError(method);
@@ -158,6 +168,10 @@ export class ExtHostMethods implements extHostProtocol.ExtHostMethodsShape {
 			selection: selections[0],
 			selections: selections
 		};
+	}
+
+	async showDialog(title: string, message: string): Promise<null> {
+		return this.dialogs.showSimpleModalDialogMessage(title, message);
 	}
 
 	async showQuestion(title: string, message: string, okButtonTitle: string, cancelButtonTitle: string): Promise<boolean> {
