@@ -614,6 +614,7 @@ export function createJupyterKernelSpec(context: vscode.ExtensionContext,
 
 	/* eslint-disable */
 	const env = <Record<string, string>>{
+		'POSITRON': '1',
 		'RUST_BACKTRACE': '1',
 		'RUST_LOG': logLevel,
 		'R_HOME': rHomePath,

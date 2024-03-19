@@ -86,6 +86,14 @@ export class NotebookSerializer implements vscode.NotebookSerializer {
 		// use the preferred language from document metadata or the first cell language as the notebook preferred cell language
 		const preferredCellLanguage = notebookContent.metadata?.language_info?.name ?? data.cells.find(cell => cell.kind === vscode.NotebookCellKind.Code)?.languageId;
 
+		// --- Start Positron ---
+		// Set the notebook's language info if necessary. This fixes a bug where serializing a
+		// notebook with no language info reverts all cells to 'python'.
+		if (!notebookContent.metadata?.language_info?.name && preferredCellLanguage) {
+			notebookContent.metadata = notebookContent.metadata || {};
+			notebookContent.metadata.language_info = notebookContent.metadata.language_info || { name: preferredCellLanguage };
+		}
+		// --- End Positron ---
 		notebookContent.cells = data.cells
 			.map(cell => createJupyterCellFromNotebookCell(cell, preferredCellLanguage))
 			.map(pruneCell);

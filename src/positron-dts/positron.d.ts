@@ -1127,6 +1127,11 @@ declare module 'positron' {
 		export function getPreferredRuntime(languageId: string): Thenable<LanguageRuntimeMetadata>;
 
 		/**
+		 * Get the active foreground session, if any.
+		 */
+		export function getForegroundSession(): Thenable<LanguageRuntimeSession | undefined>;
+
+		/**
 		 * Select and start a runtime previously registered with Positron. Any
 		 * previously active runtimes for the language will be shut down.
 		 *
