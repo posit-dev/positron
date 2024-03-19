@@ -1,9 +1,13 @@
 name: "Positron: Push Beta Release"
 on:
+  push:
+    branches:
+      - "test/push-private-beta"
   workflow_dispatch:
     inputs:
       release_tag:
-        description: "Release tag, e.g. '2024.03.0-1085'"
+        description: "Release tag, e.g. '2024.03.0-1095'"
+        default: "2024.03.0-1095"
         required: true
         type: string
 
