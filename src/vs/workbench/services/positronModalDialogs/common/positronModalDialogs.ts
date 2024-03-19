@@ -86,7 +86,7 @@ export interface IPositronModalDialogsService {
 	 *
 	 * @returns A promise that resolves when the user dismisses the dialog.
 	 */
-	showSimpleModalDialogPrompt2(title: string,
+	showSimpleModalDialogMessage(title: string,
 		message: string,
 		okButtonTitle?: string): Promise<null>;
 }

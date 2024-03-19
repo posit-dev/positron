@@ -1076,7 +1076,7 @@ declare module 'positron' {
 		 *
 		 * @returns A Thenable that resolves when the user clicks OK.
 		 */
-		export function showSimpleModalDialogPrompt2(title: string,
+		export function showSimpleModalDialogMessage(title: string,
 			message: string,
 			okButtonTitle?: string): Thenable<null>;
 

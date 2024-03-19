@@ -171,7 +171,7 @@ export class ExtHostMethods implements extHostProtocol.ExtHostMethodsShape {
 	}
 
 	async showDialog(title: string, message: string): Promise<null> {
-		return this.dialogs.showSimpleModalDialogPrompt2(title, message);
+		return this.dialogs.showSimpleModalDialogMessage(title, message);
 	}
 
 	async showQuestion(title: string, message: string, okButtonTitle: string, cancelButtonTitle: string): Promise<boolean> {

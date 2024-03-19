@@ -289,7 +289,7 @@ export class PositronModalDialogs implements IPositronModalDialogsService {
 	 *
 	 * @returns A promise that resolves when the user dismisses the dialog.
 	 */
-	showSimpleModalDialogPrompt2(title: string,
+	showSimpleModalDialogMessage(title: string,
 		message: string,
 		okButtonTitle?: string | undefined): Promise<null> {
 
