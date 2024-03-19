@@ -3,25 +3,25 @@
  *--------------------------------------------------------------------------------------------*/
 import * as vscode from 'vscode';
 import * as positron from 'positron';
-import { NotebookRuntime } from './notebookRuntime';
+import { NotebookRuntimeData } from './notebookRuntime';
 import { trace } from './logging';
 import { delay, noop } from './util';
 
 /**
- * Wraps a vscode.NotebookController for a specific language, and manages a NotebookRuntime
+ * Wraps a vscode.NotebookController for a specific language, and manages a notebook runtime session
  * for each vscode.NotebookDocument that uses this controller.
  */
 export class NotebookController implements vscode.Disposable {
 
 	private disposables: vscode.Disposable[] = [];
 
-	// Wrapped VSCode notebook controller.
+	/** The wrapped VSCode notebook controller. */
 	private controller: vscode.NotebookController;
 
-	// Notebook runtimes keyed by notebook.
-	private notebookRuntimes: Map<vscode.NotebookDocument, NotebookRuntime> = new Map();
+	/** Runtime data keyed by notebook. */
+	private notebookRuntimes: Map<vscode.NotebookDocument, NotebookRuntimeData> = new Map();
 
-	// Incremented for each cell we create to give it unique ID.
+	/** Incremented for each cell we create to give it a unique ID. */
 	private static CELL_COUNTER = 0;
 
 	/**
@@ -82,7 +82,7 @@ export class NotebookController implements vscode.Disposable {
 					e.notebook.uri.path, // Use the notebook's path as the session name.
 					e.notebook.uri);
 
-				const notebookRuntime = new NotebookRuntime(session);
+				const notebookRuntime = new NotebookRuntimeData(session);
 				this.notebookRuntimes.set(e.notebook, notebookRuntime);
 
 				trace(`Started runtime ${preferredRuntime.runtimeName} for notebook ${e.notebook.uri.path}`);
@@ -109,12 +109,13 @@ export class NotebookController implements vscode.Disposable {
 	 * @param notebook Notebook whose runtime to shutdown.
 	 */
 	private async shutdownRuntime(notebook: vscode.NotebookDocument): Promise<void> {
-		const runtime = this.notebookRuntimes.get(notebook);
-		if (runtime) {
-			await runtime.shutdown();
-			runtime.dispose();
+		const runtimeData = this.notebookRuntimes.get(notebook);
+		if (runtimeData) {
+			const runtime = runtimeData.session;
+			await runtime.shutdown(positron.RuntimeExitReason.Shutdown);
+			runtimeData.dispose();
 			this.notebookRuntimes.delete(notebook);
-			trace(`Shutdown runtime ${runtime.metadata.runtimeName} for notebook ${notebook.uri.path}`);
+			trace(`Shutdown runtime ${runtime.runtimeMetadata.runtimeName} for notebook ${notebook.uri.path}`);
 		}
 	}
 
@@ -125,16 +126,18 @@ export class NotebookController implements vscode.Disposable {
 	 */
 	private async executeCell(cell: vscode.NotebookCell): Promise<void> {
 		// Get the cell's notebook runtime.
-		const runtime = this.notebookRuntimes.get(cell.notebook);
-		if (!runtime) {
+		const runtimeData = this.notebookRuntimes.get(cell.notebook);
+		if (!runtimeData) {
 			throw new Error(`Tried to execute cell in notebook without a runtime: ${cell.notebook.uri.path}`);
 		}
+
+		const runtime = runtimeData.session;
 
 		// Create a cell execution.
 		const currentExecution = this.controller.createNotebookCellExecution(cell);
 
 		// Increment the execution order.
-		currentExecution.executionOrder = ++runtime.executionOrder;
+		currentExecution.executionOrder = ++runtimeData.executionOrder;
 
 		// If the cell's stop button is pressed, interrupt the runtime.
 		currentExecution.token.onCancellationRequested(runtime.interrupt.bind(runtime));
@@ -148,7 +151,7 @@ export class NotebookController implements vscode.Disposable {
 		currentExecution.clearOutput().then(noop, noop);
 
 		// Ensure that the notebook runtime has started before trying to execute code.
-		if (runtime.getState() !== positron.RuntimeState.Idle) {
+		if (runtimeData.state !== positron.RuntimeState.Idle) {
 			try {
 				// Await a promise that resolves when the runtime enters the 'idle' state.
 				await new Promise<void>((resolve, reject) => {
