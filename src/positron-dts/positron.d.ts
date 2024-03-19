@@ -1241,7 +1241,7 @@ declare module 'positron' {
 		 * @param title The title of the dialog
 		 * @param message The message to display in the dialog
 		 *
-		 * @returns A Thenable that resolves when the user clicks OK.
+		 * @returns A Thenable that resolves when the user dismisses the dialog.
 		 */
 		export function showDialog(title: string, message: string): Thenable<null>;
 

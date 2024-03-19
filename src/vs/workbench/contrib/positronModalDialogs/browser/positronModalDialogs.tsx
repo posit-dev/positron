@@ -207,7 +207,7 @@ export class PositronModalDialogs implements IPositronModalDialogsService {
 	 * @param message The message to display in the dialog
 	 * @param okButtonTitle The title of the OK button (optional; defaults to 'OK')
 	 *
-	 * @returns A dialog instance, with an event that fires when the user accepts.
+	 * @returns A dialog instance, with an event that fires when the user dismisses the dialog.
 	 */
 	showModalDialogPrompt2(title: string,
 		message: string,
@@ -287,7 +287,7 @@ export class PositronModalDialogs implements IPositronModalDialogsService {
 	 * @param message The message to display in the dialog
 	 * @param okButtonTitle The title of the OK button (optional; defaults to 'OK')
 	 *
-	 * @returns A promise that resolves when the user clicks OK.
+	 * @returns A promise that resolves when the user dismisses the dialog.
 	 */
 	showSimpleModalDialogPrompt2(title: string,
 		message: string,

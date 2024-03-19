@@ -84,7 +84,7 @@ export interface IPositronModalDialogsService {
 	 * @param message The message to display in the dialog
 	 * @param okButtonTitle The title of the OK button (optional; defaults to 'OK')
 	 *
-	 * @returns A promise that resolves when the user clicks OK.
+	 * @returns A promise that resolves when the user dismisses the dialog.
 	 */
 	showSimpleModalDialogPrompt2(title: string,
 		message: string,
