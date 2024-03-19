@@ -254,6 +254,24 @@ export interface ShowQuestionRequest {
 }
 
 /**
+ * Request: Show a dialog
+ *
+ * Use this for a modal dialog that the user can only accept
+ */
+export interface ShowDialogRequest {
+	/**
+	 * The title of the dialog
+	 */
+	title: string;
+
+	/**
+	 * The message to display in the dialog
+	 */
+	message: string;
+
+}
+
+/**
  * Request: Sleep for n seconds
  *
  * Useful for testing in the backend a long running frontend method
@@ -287,6 +305,7 @@ export enum UiFrontendEvent {
 
 export enum UiFrontendRequest {
 	ShowQuestion = 'show_question',
+	ShowDialog = 'show_dialog',
 	DebugSleep = 'debug_sleep',
 	LastActiveEditorContext = 'last_active_editor_context'
 }

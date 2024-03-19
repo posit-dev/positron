@@ -201,6 +201,59 @@ export class PositronModalDialogs implements IPositronModalDialogsService {
 	}
 
 	/**
+	 * Shows a modal dialog prompt.
+	 *
+	 * @param title The title of the dialog
+	 * @param message The message to display in the dialog
+	 * @param okButtonTitle The title of the OK button (optional; defaults to 'OK')
+	 *
+	 * @returns A dialog instance, with an event that fires when the user dismisses the dialog.
+	 */
+	showModalDialogPrompt2(title: string,
+		message: string,
+		okButtonTitle?: string): IModalDialogPromptInstance {
+
+		const positronModalReactRenderer =
+			new PositronModalReactRenderer(this.layoutService.mainContainer);
+
+		// Single-shot emitter for the user's choice.
+		const choiceEmitter = new Emitter<boolean>();
+
+		const acceptHandler = () => {
+			positronModalReactRenderer.dispose();
+			choiceEmitter.fire(true);
+			choiceEmitter.dispose();
+		};
+
+		// Render the dialog. As the messaage is variably sized, it'd be
+		// nice if we could auto-scale the dialog, but fix it to 200 for
+		// now.
+		const ModalDialog = () => {
+			return (
+				<PositronModalDialog renderer={positronModalReactRenderer} title={title} width={400} height={200} accept={acceptHandler} >
+					<ContentArea>
+						{message}
+					</ContentArea>
+					<OKActionBar
+						okButtonTitle={okButtonTitle}
+						accept={acceptHandler} />
+				</PositronModalDialog>
+			);
+		};
+
+		positronModalReactRenderer.render(<ModalDialog />);
+
+		return {
+			onChoice: choiceEmitter.event,
+			close() {
+				choiceEmitter.fire(true);
+				choiceEmitter.dispose();
+				positronModalReactRenderer.dispose();
+			}
+		};
+	}
+
+	/**
 	 * Shows a simple modal dialog prompt. This is a simpler variant of
 	 * `showModalDialogPrompt` for convenience. If you need to be able to force
 	 * the dialog to close, use the `showModalDialogPrompt` method instead.
@@ -223,6 +276,28 @@ export class PositronModalDialogs implements IPositronModalDialogsService {
 		return new Promise<boolean>((resolve) => {
 			dialog.onChoice((choice) => {
 				resolve(choice);
+			});
+		});
+	}
+
+	/**
+	 * Shows a simple modal dialog prompt for the user to accept.
+	 *
+	 * @param title The title of the dialog
+	 * @param message The message to display in the dialog
+	 * @param okButtonTitle The title of the OK button (optional; defaults to 'OK')
+	 *
+	 * @returns A promise that resolves when the user dismisses the dialog.
+	 */
+	showSimpleModalDialogMessage(title: string,
+		message: string,
+		okButtonTitle?: string | undefined): Promise<null> {
+
+		// Show the dialog and return a promise that resolves when the user makes a choice.
+		const dialog = this.showModalDialogPrompt2(title, message, okButtonTitle);
+		return new Promise<null>((resolve) => {
+			dialog.onChoice(() => {
+				resolve(null);
 			});
 		});
 	}

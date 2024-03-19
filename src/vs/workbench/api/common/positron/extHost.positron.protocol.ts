@@ -69,6 +69,7 @@ export interface ExtHostLanguageRuntimeShape {
 // This is the interface that the main process exposes to the extension host
 export interface MainThreadModalDialogsShape extends IDisposable {
 	$showSimpleModalDialogPrompt(title: string, message: string, okButtonTitle?: string, cancelButtonTitle?: string): Promise<boolean>;
+	$showSimpleModalDialogMessage(title: string, message: string, okButtonTitle?: string): Promise<null>;
 }
 
 // The interface to the main thread exposed by the extension host
@@ -89,6 +90,8 @@ export interface MainThreadMethodsShape { }
 
 export interface ExtHostMethodsShape {
 	lastActiveEditorContext(): Promise<IEditorContext | null>;
+	showDialog(title: string, message: string): Promise<null>;
+	showQuestion(title: string, message: string, okButtonTitle: string, cancelButtonTitle: string): Promise<boolean>;
 }
 
 /**
