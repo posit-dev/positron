@@ -20,7 +20,9 @@ const ALLOWABLE_COMMANDS = [
 	'editor.action.selectAll',
 	'editor.action.clipboardCopyAction',
 	'editor.action.clipboardCutAction',
-	'editor.action.clipboardPasteAction'
+	'editor.action.clipboardPasteAction',
+	'workbench.action.quit',
+	'workbench.action.reloadWindow'
 ];
 
 /**
