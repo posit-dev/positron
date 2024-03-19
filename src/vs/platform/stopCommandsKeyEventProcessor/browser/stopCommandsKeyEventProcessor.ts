@@ -47,7 +47,8 @@ export class StopCommandsKeyEventProcessor implements IKeyEventProcessor {
 			this._options.layoutService.activeContainer
 		);
 
-		// If a keyboard event was found and it resolved to a command, stop it from being processed.
+		// If a keyboard event was found and it resolved to a command, stop it from being processed
+		// if it is not one of the allowable commands.
 		if (resolutionResult.kind === ResultKind.KbFound && resolutionResult.commandId) {
 			if (ALLOWABLE_COMMANDS.indexOf(resolutionResult.commandId) === -1) {
 				EventHelper.stop(event, true);
