@@ -86,18 +86,23 @@ export class NotebookController implements vscode.Disposable {
 				this.notebookRuntimes.set(e.notebook, deferredRuntimeData);
 
 				// Get the preferred runtime for this language.
-				const preferredRuntime = await positron.runtime.getPreferredRuntime(this.languageId);
+				try {
+					const preferredRuntime = await positron.runtime.getPreferredRuntime(this.languageId);
 
-				// Start a new runtime for the notebook.
-				const session = await positron.runtime.startLanguageRuntime(
-					preferredRuntime.runtimeId,
-					e.notebook.uri.path, // Use the notebook's path as the session name.
-					e.notebook.uri);
+					// Start a new runtime for the notebook.
+					const session = await positron.runtime.startLanguageRuntime(
+						preferredRuntime.runtimeId,
+						e.notebook.uri.path, // Use the notebook's path as the session name.
+						e.notebook.uri);
 
-				const notebookRuntime = new NotebookRuntimeData(session);
-				deferredRuntimeData.resolve(notebookRuntime);
+					const notebookRuntime = new NotebookRuntimeData(session);
 
-				trace(`Started runtime ${preferredRuntime.runtimeName} for notebook ${e.notebook.uri.path}`);
+					trace(`Started runtime ${preferredRuntime.runtimeName} for notebook ${e.notebook.uri.path}`);
+
+					deferredRuntimeData.resolve(notebookRuntime);
+				} catch (error) {
+					deferredRuntimeData.reject(error);
+				}
 			}
 		}));
 	}
@@ -122,14 +127,16 @@ export class NotebookController implements vscode.Disposable {
 	 */
 	private async shutdownRuntime(notebook: vscode.NotebookDocument): Promise<void> {
 		const deferredRuntimeData = this.notebookRuntimes.get(notebook);
-		if (deferredRuntimeData) {
-			const runtimeData = await deferredRuntimeData.promise;
-			const runtime = runtimeData.session;
-			await runtime.shutdown(positron.RuntimeExitReason.Shutdown);
-			runtimeData.dispose();
-			this.notebookRuntimes.delete(notebook);
-			trace(`Shutdown runtime ${runtime.runtimeMetadata.runtimeName} for notebook ${notebook.uri.path}`);
+		if (!deferredRuntimeData) {
+			trace(`Tried to shutdown runtime for notebook without a runtime: ${notebook.uri.path}`);
+			return;
 		}
+		const runtimeData = await deferredRuntimeData.promise;
+		const runtime = runtimeData.session;
+		await runtime.shutdown(positron.RuntimeExitReason.Shutdown);
+		runtimeData.dispose();
+		this.notebookRuntimes.delete(notebook);
+		trace(`Shutdown runtime ${runtime.runtimeMetadata.runtimeName} for notebook ${notebook.uri.path}`);
 	}
 
 	/**
