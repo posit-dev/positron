@@ -69,6 +69,13 @@ export class NotebookController implements vscode.Disposable {
 				// Get the preferred runtime for this language.
 				const preferredRuntime = await positron.runtime.getPreferredRuntime(this.languageId);
 
+				// Configure the notebook's cells to use the preferred runtime's language.
+				for (const cell of e.notebook.getCells()) {
+					if (cell.kind === vscode.NotebookCellKind.Code) {
+						vscode.languages.setTextDocumentLanguage(cell.document, preferredRuntime.languageId).then(noop, noop);
+					}
+				}
+
 				// Start a new runtime for the notebook.
 				const session = await positron.runtime.startLanguageRuntime(
 					preferredRuntime.runtimeId,
