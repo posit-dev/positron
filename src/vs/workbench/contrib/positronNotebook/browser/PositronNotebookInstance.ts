@@ -26,6 +26,14 @@ import { BaseCellEditorOptions } from './BaseCellEditorOptions';
 import * as DOM from 'vs/base/browser/dom';
 
 
+enum KernelStatus {
+	Uninitialized = 'uninitialized',
+	Connecting = 'connecting',
+	Connected = 'connected',
+	Disconnected = 'disconnected',
+	Errored = 'errored'
+}
+
 /**
  * Class that abstracts away _most_ of the interfacing with existing notebook classes/models/functions
  * in an attempt to control the complexity of the notebook. This class is passed into React
@@ -44,6 +52,11 @@ export interface IPositronNotebookInstance {
 	 * The cells that make up the notebook
 	 */
 	cells: ISettableObservable<PositronNotebookCell[]>;
+
+	/**
+	 * Status of kernel for the notebook.
+	 */
+	kernelStatus: ISettableObservable<KernelStatus>;
 
 	/**
 	 * The currently selected cells. Typically a single cell but can be multiple cells.
@@ -128,6 +141,11 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	 * User facing cells wrapped in an observerable for the UI to react to changes
 	 */
 	cells: ISettableObservable<PositronNotebookCell[]>;
+
+	/**
+	 * Status of kernel for the notebook.
+	 */
+	kernelStatus: ISettableObservable<KernelStatus>;
 
 	private language: string | undefined = undefined;
 
@@ -229,6 +247,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		super();
 
 		this.cells = observableValue<PositronNotebookCell[]>('positronNotebookCells', this._cells);
+		this.kernelStatus = observableValue<KernelStatus>('positronNotebookKernelStatus', KernelStatus.Uninitialized);
 
 		this.isReadOnly = this.creationOptions?.isReadOnly ?? false;
 
@@ -265,8 +284,6 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	 * notebook gets fleshed out.
 	 */
 	private _notebookOptions: NotebookOptions | undefined;
-
-
 
 
 	private async setupNotebookTextModel() {
@@ -503,7 +520,6 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 
 
 
-	private _kernelAttached = false;
 
 	/**
 	 * Connect to the kernel for running notebook code.
@@ -540,9 +556,11 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	}
 
 	private async _trySetupKernel(): Promise<void> {
-		if (this._kernelAttached) {
+		const kernelStatus = this.kernelStatus.get();
+		if (kernelStatus === 'connected' || kernelStatus === 'connecting') {
 			return;
 		}
+		this.kernelStatus.set(KernelStatus.Connecting, undefined);
 		// How long we wait before trying to attach the kernel again if we fail to find one.
 		const KERNEL_RETRY_DELAY = 2000;
 
@@ -557,8 +575,9 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 			try {
 				const kernelAttempt = this._setupKernel();
 				if (kernelAttempt) {
-					this._kernelAttached = true;
 					this._logService.info(this._identifier, 'Successfully located kernel');
+
+					this.kernelStatus.set(KernelStatus.Connected, undefined);
 
 					return;
 				}
@@ -570,6 +589,8 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 				await new Promise(resolve => setTimeout(resolve, KERNEL_RETRY_DELAY));
 			}
 		}
+
+		this.kernelStatus.set(KernelStatus.Errored, undefined);
 
 		this._logService.error(
 			this._identifier,
