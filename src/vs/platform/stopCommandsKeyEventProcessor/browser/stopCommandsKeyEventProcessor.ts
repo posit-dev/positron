@@ -15,6 +15,8 @@ import { IKeyEventProcessor } from 'vs/base/browser/ui/positronModalReactRendere
 const ALLOWABLE_COMMANDS = [
 	'copy',
 	'cut',
+	'undo',
+	'redo',
 	'editor.action.selectAll',
 	'editor.action.clipboardCopyAction',
 	'editor.action.clipboardCutAction',
