@@ -25,12 +25,6 @@ import { pnLog } from 'vs/workbench/contrib/positronNotebook/browser/utils';
 import { BaseCellEditorOptions } from './BaseCellEditorOptions';
 import * as DOM from 'vs/base/browser/dom';
 
-const cellTypeToKind = {
-	'code': CellKind.Code,
-	'markdown': CellKind.Markup,
-};
-
-let notebookInstanceCount = 0;
 
 /**
  * Class that abstracts away _most_ of the interfacing with existing notebook classes/models/functions
@@ -82,7 +76,7 @@ export interface IPositronNotebookInstance {
 	/**
 	 * Add a new cell of a given type to the notebook at the requested index
 	 */
-	addCell(type: keyof typeof cellTypeToKind, index: number): void;
+	addCell(type: keyof typeof PositronNotebookInstance.cellTypeToKind, index: number): void;
 
 	/**
 	 * Delete a cell from the notebook
@@ -105,6 +99,22 @@ export interface IPositronNotebookInstance {
 }
 
 export class PositronNotebookInstance extends Disposable implements IPositronNotebookInstance {
+
+	/**
+	 * Map from string of cell kind to the integer enum used internally.
+	 */
+	static cellTypeToKind = {
+		'code': CellKind.Code,
+		'markdown': CellKind.Markup,
+	};
+
+	/**
+	 * Value to keep track of what instance number.
+	 * Used for keeping track in the logs.
+	 */
+	static count = 0;
+
+
 	private _identifier: string;
 
 	selectedCells: PositronNotebookCell[] = [];
@@ -218,7 +228,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		super();
 
 		// Generate a random 4 digit number to use as the identifier.
-		this._identifier = (notebookInstanceCount++).toString();
+		this._identifier = (PositronNotebookInstance.count++).toString();
 
 		this.cells = observableValue<PositronNotebookCell[]>('positronNotebookCells', this._cells);
 
@@ -371,7 +381,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 			index,
 			'',
 			this.language,
-			cellTypeToKind[type],
+			PositronNotebookInstance.cellTypeToKind[type],
 			undefined,
 			[],
 			synchronous,

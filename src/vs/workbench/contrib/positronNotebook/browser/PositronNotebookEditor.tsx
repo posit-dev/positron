@@ -67,9 +67,14 @@ const POSITRON_NOTEBOOK_EDITOR_VIEW_STATE_PREFERENCE_KEY =
 	'NotebookEditorViewState';
 
 
-let notebookEditorCount = 0;
 
 export class PositronNotebookEditor extends EditorPane {
+	/**
+	 * Value to keep track of what instance of the editor this is.
+	 * Used for keeping track of the editor in the logs.
+	 */
+	static count = 0;
+
 	private _identifier: string;
 	_parentDiv: HTMLElement | undefined;
 
@@ -121,7 +126,7 @@ export class PositronNotebookEditor extends EditorPane {
 		);
 
 		// Generate a random 4 digit number to use as the identifier.
-		this._identifier = (notebookEditorCount++).toString();
+		this._identifier = (PositronNotebookEditor.count++).toString();
 		this._log('constructor');
 	}
 

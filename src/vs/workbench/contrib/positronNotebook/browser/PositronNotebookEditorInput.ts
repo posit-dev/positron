@@ -25,12 +25,17 @@ export interface PositronNotebookEditorInputOptions {
 	startDirty?: boolean;
 }
 
-let notebookInputCount = 0;
 
 /**
  * PositronDataToolEditorInput class.
  */
 export class PositronNotebookEditorInput extends EditorInput {
+
+	/**
+	 * Value to keep track of what input instance we're on.
+	 * Used for keeping track in the logs.
+	 */
+	static count = 0;
 
 	private _identifier: string;
 	//#region Static Properties
@@ -94,7 +99,7 @@ export class PositronNotebookEditorInput extends EditorInput {
 		// Call the base class's constructor.
 		super();
 		// Generate a random 4 digit number to use as the identifier.
-		this._identifier = (notebookInputCount++).toString();
+		this._identifier = (PositronNotebookEditorInput.count++).toString();
 		this._log('constructor');
 
 		this.notebookInstance = instantiationService.createInstance(PositronNotebookInstance, this, undefined);
