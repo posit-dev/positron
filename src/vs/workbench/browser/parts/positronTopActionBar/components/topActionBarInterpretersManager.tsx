@@ -4,7 +4,7 @@
 
 import 'vs/css!./topActionBarInterpretersManager';
 import * as React from 'react';
-import { KeyboardEvent, useEffect, useRef, useState } from 'react'; // eslint-disable-line no-duplicate-imports
+import { KeyboardEvent, useCallback, useEffect, useRef, useState } from 'react'; // eslint-disable-line no-duplicate-imports
 import { DisposableStore } from 'vs/base/common/lifecycle';
 import { usePositronTopActionBarContext } from 'vs/workbench/browser/parts/positronTopActionBar/positronTopActionBarContext';
 import { showInterpretersManagerModalPopup } from 'vs/workbench/browser/parts/positronTopActionBar/interpretersManagerModalPopup/interpretersManagerModalPopup';
@@ -34,6 +34,34 @@ export const TopActionBarInterpretersManager = (props: TopActionBarInterpretersM
 	const [activeSession, setActiveSession] =
 		useState(positronTopActionBarContext.runtimeSessionService.foregroundSession);
 
+	/**
+	 * Shows the interpreters manager modal popup.
+	 */
+	const showPopup = useCallback(() => {
+		ref.current.setAttribute('aria-expanded', 'true');
+		showInterpretersManagerModalPopup(
+			positronTopActionBarContext.keybindingService,
+			positronTopActionBarContext.languageRuntimeService,
+			positronTopActionBarContext.layoutService,
+			positronTopActionBarContext.runtimeSessionService,
+			positronTopActionBarContext.runtimeStartupService,
+			positronTopActionBarContext.layoutService.mainContainer,
+			ref.current,
+			props.onStartRuntime,
+			props.onActivateRuntime
+		).then(() => {
+			ref.current.removeAttribute('aria-expanded');
+		});
+	}, [
+		positronTopActionBarContext.keybindingService,
+		positronTopActionBarContext.languageRuntimeService,
+		positronTopActionBarContext.layoutService,
+		positronTopActionBarContext.runtimeSessionService,
+		positronTopActionBarContext.runtimeStartupService,
+		props.onActivateRuntime,
+		props.onStartRuntime
+	]);
+
 	// Main useEffect.
 	useEffect(() => {
 		// Create the disposable store for cleanup.
@@ -58,28 +86,10 @@ export const TopActionBarInterpretersManager = (props: TopActionBarInterpretersM
 
 		// Return the cleanup function that will dispose of the disposables.
 		return () => disposableStore.dispose();
-	}, []);
+	}, [positronTopActionBarContext.positronTopActionBarService, positronTopActionBarContext.runtimeSessionService, showPopup]);
 
 	// Participate in roving tabindex.
 	useRegisterWithActionBar([ref]);
-
-	/**
-	 * Shows the interpreters manager modal popup.
-	 */
-	const showPopup = () => {
-		ref.current.setAttribute('aria-expanded', 'true');
-		showInterpretersManagerModalPopup(
-			positronTopActionBarContext.languageRuntimeService,
-			positronTopActionBarContext.runtimeStartupService,
-			positronTopActionBarContext.runtimeSessionService,
-			positronTopActionBarContext.layoutService.mainContainer,
-			ref.current,
-			props.onStartRuntime,
-			props.onActivateRuntime
-		).then(() => {
-			ref.current.removeAttribute('aria-expanded');
-		});
-	};
 
 	/**
 	 * onKeyDown event handler.

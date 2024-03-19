@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2022 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2022-2024 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
 // CSS.
@@ -11,9 +11,9 @@ import { PropsWithChildren, useEffect, useRef, useState } from 'react'; // eslin
 
 // Other dependencies.
 import * as DOM from 'vs/base/browser/dom';
+import { DisposableStore } from 'vs/base/common/lifecycle';
 import { DraggableTitleBar } from 'vs/base/browser/ui/positronModalDialog/components/draggableTitleBar';
 import { PositronModalReactRenderer } from 'vs/base/browser/ui/positronModalReactRenderer/positronModalReactRenderer';
-import { DisposableStore } from 'vs/base/common/lifecycle';
 
 /**
  * Focusable element selectors.
@@ -181,12 +181,6 @@ export const PositronModalDialog = (props: PropsWithChildren<PositronModalDialog
 					}
 					break;
 				}
-
-				// Other keyboard events are kept within the dialog.
-				default: {
-					consumeEvent();
-					break;
-				}
 			}
 		}));
 
@@ -212,7 +206,7 @@ export const PositronModalDialog = (props: PropsWithChildren<PositronModalDialog
 
 		// Return the clean up for our event handlers.
 		return () => disposableStore.dispose();
-	}, []);
+	}, [props]);
 
 	// Start drag handler.
 	const startDragHandler = () => {

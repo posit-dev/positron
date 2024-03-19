@@ -13,11 +13,13 @@ import { localize } from 'vs/nls';
 import * as DOM from 'vs/base/browser/dom';
 import { ILayoutService } from 'vs/platform/layout/browser/layoutService';
 import { Button } from 'vs/base/browser/ui/positronComponents/button/button';
+import { IKeybindingService } from 'vs/platform/keybinding/common/keybinding';
 import { ComboBox } from 'vs/base/browser/ui/positronComponents/comboBox/comboBox';
-import { ComboBoxMenuItem } from 'vs/base/browser/ui/positronComponents/comboBox/comboBoxMenuItem';
 import { PositronModalPopup } from 'vs/base/browser/ui/positronModalPopup/positronModalPopup';
+import { ComboBoxMenuItem } from 'vs/base/browser/ui/positronComponents/comboBox/comboBoxMenuItem';
 import { ComboBoxMenuSeparator } from 'vs/base/browser/ui/positronComponents/comboBox/comboBoxMenuSeparator';
 import { PositronModalReactRenderer } from 'vs/base/browser/ui/positronModalReactRenderer/positronModalReactRenderer';
+import { StopCommandsKeyEventProcessor } from 'vs/platform/stopCommandsKeyEventProcessor/browser/stopCommandsKeyEventProcessor';
 
 /**
  * Constants.
@@ -32,13 +34,15 @@ const CONDITION_IS_NOT_BETWEEN = 'is-not-between';
 
 /**
  * Shows the add row filter modal popup.
+ * @param keybindingService The keybinding service.
  * @param layoutService The layout service.
- * @param anchorElement The anchor element for the modal popup.
+ * @param anchor The anchor element for the modal popup.
  * @returns A promise that resolves when the popup is dismissed.
  */
 export const addRowFilterModalPopup = async (
+	keybindingService: IKeybindingService,
 	layoutService: ILayoutService,
-	anchorElement: HTMLElement
+	anchor: HTMLElement
 ): Promise<void> => {
 	// Build the condition combo box entries.
 	const conditionEntries = [
@@ -75,13 +79,17 @@ export const addRowFilterModalPopup = async (
 
 	// Return a promise that resolves when the popup is done.
 	return new Promise<void>(resolve => {
-		// Get the container for the anchor element.
-		const containerElement = layoutService.getContainer(DOM.getWindow(anchorElement));
+		// Get the container for the anchor.
+		const container = layoutService.getContainer(DOM.getWindow(anchor));
 
 		// Create the modal React renderer.
-		const positronModalReactRenderer = new PositronModalReactRenderer(
-			containerElement
-		);
+		const renderer = new PositronModalReactRenderer({
+			container,
+			keyEventProcessor: new StopCommandsKeyEventProcessor({
+				keybindingService,
+				layoutService
+			})
+		});
 
 		// The modal popup component.
 		const ModalPopup = () => {
@@ -89,16 +97,16 @@ export const addRowFilterModalPopup = async (
 			 * Dismisses the popup.
 			 */
 			const dismiss = () => {
-				positronModalReactRenderer.dispose();
+				renderer.dispose();
 				resolve();
 			};
 
 			// Render.
 			return (
 				<PositronModalPopup
-					renderer={positronModalReactRenderer}
-					containerElement={containerElement}
-					anchorElement={anchorElement}
+					renderer={renderer}
+					container={container}
+					anchor={anchor}
 					popupPosition='bottom'
 					popupAlignment='left'
 					minWidth={275}
@@ -109,12 +117,14 @@ export const addRowFilterModalPopup = async (
 				>
 					<div className='add-row-filter-modal-popup-body'>
 						<ComboBox
+							keybindingService={keybindingService}
 							layoutService={layoutService}
 							title='Select Column'
 							entries={conditionEntries}
 							onSelectionChanged={identifier => console.log(`Select Column changed to ${identifier}`)}
 						/>
 						<ComboBox
+							keybindingService={keybindingService}
 							layoutService={layoutService}
 							title='Select Condition'
 							entries={conditionEntries}
@@ -129,6 +139,6 @@ export const addRowFilterModalPopup = async (
 		};
 
 		// Render the modal popup component.
-		positronModalReactRenderer.render(<ModalPopup />);
+		renderer.render(<ModalPopup />);
 	});
 };
