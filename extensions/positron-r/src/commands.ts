@@ -105,7 +105,12 @@ export async function registerCommands(context: vscode.ExtensionContext) {
 		}),
 
 		vscode.commands.registerCommand('r.packageTest', async () => {
-			executeCodeForCommand('devtools', 'devtools::test()');
+			const tasks = await getRPackageTasks();
+			const task = tasks.filter(task => task.definition.task === 'r.task.packageTest')[0];
+			const isInstalled = await checkInstalled(task.definition.pkg);
+			if (isInstalled) {
+				vscode.tasks.executeTask(task);
+			}
 		}),
 
 		vscode.commands.registerCommand('r.useTestthat', async () => {
