@@ -3,9 +3,9 @@
  *--------------------------------------------------------------------------------------------*/
 import * as vscode from 'vscode';
 import * as positron from 'positron';
-import { NotebookRuntimeData } from './notebookRuntime';
+import { NotebookRuntimeData } from './notebookRuntimeData';
 import { trace } from './logging';
-import { delay, noop } from './util';
+import { PromiseHandles, delay, noop } from './util';
 
 /**
  * Wraps a vscode.NotebookController for a specific language, and manages a notebook runtime session
@@ -18,8 +18,8 @@ export class NotebookController implements vscode.Disposable {
 	/** The wrapped VSCode notebook controller. */
 	private controller: vscode.NotebookController;
 
-	/** Runtime data keyed by notebook. */
-	private notebookRuntimes: Map<vscode.NotebookDocument, NotebookRuntimeData> = new Map();
+	/** Deferred notebook runtime data objects keyed by notebook. */
+	private notebookRuntimes: Map<vscode.NotebookDocument, PromiseHandles<NotebookRuntimeData>> = new Map();
 
 	/** Incremented for each cell we create to give it a unique ID. */
 	private static CELL_COUNTER = 0;
@@ -66,15 +66,23 @@ export class NotebookController implements vscode.Disposable {
 				// Note that this is also reached when a notebook is opened, if this controller was
 				// already selected.
 
-				// Get the preferred runtime for this language.
-				const preferredRuntime = await positron.runtime.getPreferredRuntime(this.languageId);
-
-				// Configure the notebook's cells to use the preferred runtime's language.
+				// Configure the notebook's cells to use the controller's language.
 				for (const cell of e.notebook.getCells()) {
 					if (cell.kind === vscode.NotebookCellKind.Code) {
-						vscode.languages.setTextDocumentLanguage(cell.document, preferredRuntime.languageId).then(noop, noop);
+						vscode.languages.setTextDocumentLanguage(cell.document, this.languageId);
 					}
 				}
+
+				// Set the notebook's deferred runtime data. This needs to be set before any awaits.
+				// When a user executes code without a controller selected, they will be presented
+				// with a quickpick. Once they make a selection, this is event is fired, and
+				// the execute handler is called immediately after. We need to ensure that the map
+				// is updated before that happens.
+				const deferredRuntimeData = new PromiseHandles<NotebookRuntimeData>();
+				this.notebookRuntimes.set(e.notebook, deferredRuntimeData);
+
+				// Get the preferred runtime for this language.
+				const preferredRuntime = await positron.runtime.getPreferredRuntime(this.languageId);
 
 				// Start a new runtime for the notebook.
 				const session = await positron.runtime.startLanguageRuntime(
@@ -83,7 +91,7 @@ export class NotebookController implements vscode.Disposable {
 					e.notebook.uri);
 
 				const notebookRuntime = new NotebookRuntimeData(session);
-				this.notebookRuntimes.set(e.notebook, notebookRuntime);
+				deferredRuntimeData.resolve(notebookRuntime);
 
 				trace(`Started runtime ${preferredRuntime.runtimeName} for notebook ${e.notebook.uri.path}`);
 			}
@@ -109,8 +117,9 @@ export class NotebookController implements vscode.Disposable {
 	 * @param notebook Notebook whose runtime to shutdown.
 	 */
 	private async shutdownRuntime(notebook: vscode.NotebookDocument): Promise<void> {
-		const runtimeData = this.notebookRuntimes.get(notebook);
-		if (runtimeData) {
+		const deferredRuntimeData = this.notebookRuntimes.get(notebook);
+		if (deferredRuntimeData) {
+			const runtimeData = await deferredRuntimeData.promise;
 			const runtime = runtimeData.session;
 			await runtime.shutdown(positron.RuntimeExitReason.Shutdown);
 			runtimeData.dispose();
@@ -125,10 +134,21 @@ export class NotebookController implements vscode.Disposable {
 	 * @param cell Cell to execute.
 	 */
 	private async executeCell(cell: vscode.NotebookCell): Promise<void> {
-		// Get the cell's notebook runtime.
-		const runtimeData = this.notebookRuntimes.get(cell.notebook);
-		if (!runtimeData) {
+		// Get the notebook's runtime data.
+		const deferredRuntimeData = this.notebookRuntimes.get(cell.notebook);
+		if (!deferredRuntimeData) {
 			throw new Error(`Tried to execute cell in notebook without a runtime: ${cell.notebook.uri.path}`);
+		}
+
+		let runtimeData: NotebookRuntimeData;
+		if (deferredRuntimeData.settled) {
+			runtimeData = await deferredRuntimeData.promise;
+		} else {
+			// Since there's no indication in the UI that Positron is busy until the cell execution starts,
+			// display a progress notification while we wait for the runtime to start.
+			runtimeData = await vscode.window.withProgress(
+				{ location: vscode.ProgressLocation.Notification, title: vscode.l10n.t('Starting runtime session...') },
+				() => deferredRuntimeData.promise);
 		}
 
 		const runtime = runtimeData.session;
