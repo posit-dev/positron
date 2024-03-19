@@ -151,7 +151,7 @@ export class NotebookController implements vscode.Disposable {
 			// Since there's no indication in the UI that Positron is busy until the cell execution starts,
 			// display a progress notification while we wait for the runtime to start.
 			runtimeData = await vscode.window.withProgress(
-				{ location: vscode.ProgressLocation.Notification, title: vscode.l10n.t('Starting runtime session...') },
+				{ location: vscode.ProgressLocation.Notification, title: vscode.l10n.t('Starting interpreter...') },
 				() => deferredRuntimeData.promise);
 		}
 
