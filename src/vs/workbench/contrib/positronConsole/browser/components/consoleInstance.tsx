@@ -605,7 +605,7 @@ export const ConsoleInstance = (props: ConsoleInstanceProps) => {
 					}
 				})}
 			</div>
-			{!props.positronConsoleInstance.promptActive &&
+			{!props.positronConsoleInstance.promptActive && props.positronConsoleInstance.runtimeAttached &&
 				<ConsoleInput
 					width={consoleInputWidth}
 					positronConsoleInstance={props.positronConsoleInstance}
