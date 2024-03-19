@@ -20,7 +20,7 @@ import { Checkbox } from 'vs/base/browser/ui/positronModalDialog/components/chec
 import { IWorkbenchLayoutService } from 'vs/workbench/services/layout/browser/layoutService';
 import { VerticalStack } from 'vs/base/browser/ui/positronModalDialog/components/verticalStack';
 import { VerticalSpacer } from 'vs/base/browser/ui/positronModalDialog/components/verticalSpacer';
-import { StopCommandsKeyEventProcessor } from 'vs/workbench/browser/stopCommandsKeyEventProcessor';
+import { StopCommandsKeyEventProcessor } from 'vs/platform/stopCommandsKeyEventProcessor/browser/stopCommandsKeyEventProcessor';
 import { LabeledTextInput } from 'vs/base/browser/ui/positronModalDialog/components/labeledTextInput';
 import { OKCancelModalDialog } from 'vs/base/browser/ui/positronModalDialog/positronOKCancelModalDialog';
 import { LabeledFolderInput } from 'vs/base/browser/ui/positronModalDialog/components/labeledFolderInput';

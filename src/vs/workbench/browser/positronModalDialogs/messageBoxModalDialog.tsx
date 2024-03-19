@@ -14,7 +14,7 @@ import { OKModalDialog } from 'vs/base/browser/ui/positronModalDialog/positronOK
 import { IWorkbenchLayoutService } from 'vs/workbench/services/layout/browser/layoutService';
 import { VerticalStack } from 'vs/base/browser/ui/positronModalDialog/components/verticalStack';
 import { PositronModalReactRenderer } from 'vs/base/browser/ui/positronModalReactRenderer/positronModalReactRenderer';
-import { StopCommandsKeyEventProcessor } from 'vs/workbench/browser/stopCommandsKeyEventProcessor';
+import { StopCommandsKeyEventProcessor } from 'vs/platform/stopCommandsKeyEventProcessor/browser/stopCommandsKeyEventProcessor';
 
 /**
  * Shows the message box modal dialog.

@@ -17,7 +17,7 @@ import { IWorkspacesService } from 'vs/platform/workspaces/common/workspaces';
 import { IContextKeyService } from 'vs/platform/contextkey/common/contextkey';
 import { IKeybindingService } from 'vs/platform/keybinding/common/keybinding';
 import { PositronModalPopup } from 'vs/base/browser/ui/positronModalPopup/positronModalPopup';
-import { StopCommandsKeyEventProcessor } from 'vs/workbench/browser/stopCommandsKeyEventProcessor';
+import { StopCommandsKeyEventProcessor } from 'vs/platform/stopCommandsKeyEventProcessor/browser/stopCommandsKeyEventProcessor';
 import { PositronModalReactRenderer } from 'vs/base/browser/ui/positronModalReactRenderer/positronModalReactRenderer';
 import { CustomFolderMenuItems } from 'vs/workbench/browser/parts/positronTopActionBar/customFolderModalPopup/customFolderMenuItems';
 

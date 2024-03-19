@@ -16,7 +16,7 @@ import { ContentArea } from 'vs/base/browser/ui/positronModalDialog/components/c
 import { IWorkbenchLayoutService } from 'vs/workbench/services/layout/browser/layoutService';
 import { PositronModalDialog } from 'vs/base/browser/ui/positronModalDialog/positronModalDialog';
 import { PositronModalReactRenderer } from 'vs/base/browser/ui/positronModalReactRenderer/positronModalReactRenderer';
-import { StopCommandsKeyEventProcessor } from 'vs/workbench/browser/stopCommandsKeyEventProcessor';
+import { StopCommandsKeyEventProcessor } from 'vs/platform/stopCommandsKeyEventProcessor/browser/stopCommandsKeyEventProcessor';
 
 /**
  * SetPlotSizeResult interface.

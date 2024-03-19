@@ -14,9 +14,10 @@ import * as DOM from 'vs/base/browser/dom';
 import { positronClassNames } from 'vs/base/common/positronUtilities';
 import { ILayoutService } from 'vs/platform/layout/browser/layoutService';
 import { Button } from 'vs/base/browser/ui/positronComponents/button/button';
+import { IKeybindingService } from 'vs/platform/keybinding/common/keybinding';
 import { PositronModalPopup } from 'vs/base/browser/ui/positronModalPopup/positronModalPopup';
+import { StopCommandsKeyEventProcessor } from 'vs/platform/stopCommandsKeyEventProcessor/browser/stopCommandsKeyEventProcessor';
 import { PositronModalReactRenderer } from 'vs/base/browser/ui/positronModalReactRenderer/positronModalReactRenderer';
-//import { PositronModalReactRenderer } from 'vs/base/browser/positronModalReactRenderer';
 
 /**
  * DropDownListBoxOptionProps interface.
@@ -53,6 +54,7 @@ export type DropDownListBoxItem<T> = DropDownListBoxOption<T> | DropDownListBoxS
  * DropDownListBoxProps interface.
  */
 interface DropDownListBoxProps<T> {
+	keybindingService: IKeybindingService;
 	layoutService: ILayoutService;
 	className?: string;
 	disabled?: boolean;
@@ -88,7 +90,8 @@ export const DropDownListBox = <T,>(props: DropDownListBoxProps<T>) => {
 
 			// Create the modal React renderer.
 			const positronModalReactRenderer = new PositronModalReactRenderer({
-				container
+				container,
+				keyEventProcessor: new StopCommandsKeyEventProcessor({ ...props })
 			});
 
 			// The drop down modal popup component.

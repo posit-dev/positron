@@ -15,7 +15,7 @@ import { ILayoutService } from 'vs/platform/layout/browser/layoutService';
 import { Button } from 'vs/base/browser/ui/positronComponents/button/button';
 import { IKeybindingService } from 'vs/platform/keybinding/common/keybinding';
 import { PositronModalPopup } from 'vs/base/browser/ui/positronModalPopup/positronModalPopup';
-import { StopCommandsKeyEventProcessor } from 'vs/workbench/browser/stopCommandsKeyEventProcessor';
+import { StopCommandsKeyEventProcessor } from 'vs/platform/stopCommandsKeyEventProcessor/browser/stopCommandsKeyEventProcessor';
 import { ContextMenuSeparator } from 'vs/base/browser/ui/positronComponents/contextMenu/contextMenuSeparator';
 import { PositronModalReactRenderer } from 'vs/base/browser/ui/positronModalReactRenderer/positronModalReactRenderer';
 import { ContextMenuItem, ContextMenuItemOptions } from 'vs/base/browser/ui/positronComponents/contextMenu/contextMenuItem';

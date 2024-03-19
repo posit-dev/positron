@@ -16,7 +16,7 @@ import { TestContent } from 'vs/base/browser/ui/positronModalDialog/components/t
 import { OKActionBar } from 'vs/base/browser/ui/positronModalDialog/components/okActionBar';
 import { ContentArea } from 'vs/base/browser/ui/positronModalDialog/components/contentArea';
 import { PositronModalDialog } from 'vs/base/browser/ui/positronModalDialog/positronModalDialog';
-import { StopCommandsKeyEventProcessor } from 'vs/workbench/browser/stopCommandsKeyEventProcessor';
+import { StopCommandsKeyEventProcessor } from 'vs/platform/stopCommandsKeyEventProcessor/browser/stopCommandsKeyEventProcessor';
 import { OKCancelActionBar } from 'vs/base/browser/ui/positronModalDialog/components/okCancelActionBar';
 import { PositronModalReactRenderer } from 'vs/base/browser/ui/positronModalReactRenderer/positronModalReactRenderer';
 import { IModalDialogPromptInstance, IPositronModalDialogsService } from 'vs/workbench/services/positronModalDialogs/common/positronModalDialogs';

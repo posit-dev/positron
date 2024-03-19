@@ -12,7 +12,7 @@ import * as React from 'react';
 import { ILayoutService } from 'vs/platform/layout/browser/layoutService';
 import { IKeybindingService } from 'vs/platform/keybinding/common/keybinding';
 import { PositronModalPopup } from 'vs/base/browser/ui/positronModalPopup/positronModalPopup';
-import { StopCommandsKeyEventProcessor } from 'vs/workbench/browser/stopCommandsKeyEventProcessor';
+import { StopCommandsKeyEventProcessor } from 'vs/platform/stopCommandsKeyEventProcessor/browser/stopCommandsKeyEventProcessor';
 import { IRuntimeSessionService } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
 import { IRuntimeStartupService } from 'vs/workbench/services/runtimeStartup/common/runtimeStartupService';
 import { PositronModalReactRenderer } from 'vs/base/browser/ui/positronModalReactRenderer/positronModalReactRenderer';
