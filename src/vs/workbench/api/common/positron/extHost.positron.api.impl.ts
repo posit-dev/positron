@@ -123,6 +123,9 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 			showSimpleModalDialogPrompt(title: string, message: string, okButtonTitle?: string, cancelButtonTitle?: string): Thenable<boolean> {
 				return extHostModalDialogs.showSimpleModalDialogPrompt(title, message, okButtonTitle, cancelButtonTitle);
 			},
+			showSimpleModalDialogMessage(title: string, message: string, okButtonTitle?: string): Thenable<null> {
+				return extHostModalDialogs.showSimpleModalDialogMessage(title, message, okButtonTitle);
+			},
 			getConsoleForLanguage(id: string) {
 				return extHostConsoleService.getConsoleForLanguage(id);
 			},
@@ -154,6 +157,9 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 			},
 			lastActiveEditorContext(): Thenable<positron.EditorContext | null> {
 				return extHostMethods.lastActiveEditorContext();
+			},
+			showDialog(title: string, message: string): Thenable<null> {
+				return extHostMethods.showDialog(title, message);
 			},
 			showQuestion(title: string, message: string, okButtonTitle: string, cancelButtonTitle: string): Thenable<boolean> {
 				return extHostMethods.showQuestion(title, message, okButtonTitle, cancelButtonTitle);
