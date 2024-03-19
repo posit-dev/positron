@@ -24,7 +24,6 @@ jobs:
         with:
           version: tags/${{ env.RELEASE_TAG }}
           file: Positron-${{ env.RELEASE_TAG }}-Setup.exe
-          target: ./
           token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Download MacOS Release Asset
@@ -32,7 +31,6 @@ jobs:
         with:
           version: tags/${{ env.RELEASE_TAG }}
           file: Positron-${{ env.RELEASE_TAG }}.dmg
-          target: ./
           token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Create Release to Private Beta
