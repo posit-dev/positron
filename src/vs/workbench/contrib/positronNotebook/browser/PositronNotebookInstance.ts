@@ -10,6 +10,7 @@ import { localize } from 'vs/nls';
 import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
 import { IContextKeyService } from 'vs/platform/contextkey/common/contextkey';
 import { IInstantiationService } from 'vs/platform/instantiation/common/instantiation';
+import { ILogService } from 'vs/platform/log/common/log';
 import { insertCellAtIndex } from 'vs/workbench/contrib/notebook/browser/controller/cellOperations';
 import { IActiveNotebookEditorDelegate, IBaseCellEditorOptions, INotebookEditorCreationOptions, INotebookEditorViewState, INotebookViewCellsUpdateEvent } from 'vs/workbench/contrib/notebook/browser/notebookBrowser';
 import { NotebookOptions } from 'vs/workbench/contrib/notebook/browser/notebookOptions';
@@ -21,7 +22,6 @@ import { INotebookExecutionStateService } from 'vs/workbench/contrib/notebook/co
 import { INotebookKernelService } from 'vs/workbench/contrib/notebook/common/notebookKernelService';
 import { PositronNotebookCell } from 'vs/workbench/contrib/positronNotebook/browser/PositronNotebookCell';
 import { PositronNotebookEditorInput } from 'vs/workbench/contrib/positronNotebook/browser/PositronNotebookEditorInput';
-import { pnLog } from 'vs/workbench/contrib/positronNotebook/browser/utils';
 import { BaseCellEditorOptions } from './BaseCellEditorOptions';
 import * as DOM from 'vs/base/browser/dom';
 
@@ -114,8 +114,8 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	 */
 	static count = 0;
 
+	private _identifier: string = `Positron Notebook | NotebookInstance(${PositronNotebookInstance.count++}) |`;
 
-	private _identifier: string;
 
 	selectedCells: PositronNotebookCell[] = [];
 
@@ -223,19 +223,18 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		@IConfigurationService private readonly configurationService: IConfigurationService,
 		@IInstantiationService private readonly _instantiationService: IInstantiationService,
 		@IContextKeyService private readonly _contextKeyService: IContextKeyService,
-		@ICodeEditorService private readonly _codeEditorService: ICodeEditorService
+		@ICodeEditorService private readonly _codeEditorService: ICodeEditorService,
+		@ILogService private readonly _logService: ILogService,
 	) {
 		super();
-
-		// Generate a random 4 digit number to use as the identifier.
-		this._identifier = (PositronNotebookInstance.count++).toString();
 
 		this.cells = observableValue<PositronNotebookCell[]>('positronNotebookCells', this._cells);
 
 		this.isReadOnly = this.creationOptions?.isReadOnly ?? false;
 
 		this.setupNotebookTextModel();
-		this._log('constructor');
+
+		this._logService.info(this._identifier, 'constructor');
 	}
 
 	/**
@@ -247,8 +246,9 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		if (this._notebookOptions) {
 			return this._notebookOptions;
 		}
+		this._logService.info(this._identifier, 'Generating new notebook options');
 
-		this._log('Generating new notebook options');
+
 		this._notebookOptions = this.creationOptions?.options ?? new NotebookOptions(
 			DOM.getActiveWindow(),
 			this.configurationService,
@@ -342,7 +342,9 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	 * @returns
 	 */
 	private async _runCells(cells: PositronNotebookCell[]): Promise<void> {
-		this._log('_runCells');
+
+		this._logService.info(this._identifier, '_runCells');
+
 		if (!this._textModel) {
 			throw new Error(localize('noModel', "No model"));
 		}
@@ -479,7 +481,8 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 			}));
 		}
 
-		this._log('setViewModel');
+
+		this._logService.info(this._identifier, 'attachView');
 	}
 
 	/**
@@ -487,7 +490,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	 * TODO: Flesh out rest of method once other components are implemented.
 	 */
 	private _detachModel() {
-		this._log('detachModel');
+		this._logService.info(this._identifier, 'detachModel');
 		// Clear store of disposables
 		this._localStore.clear();
 
@@ -540,14 +543,23 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		if (this._kernelAttached) {
 			return;
 		}
+		// How long we wait before trying to attach the kernel again if we fail to find one.
+		const KERNEL_RETRY_DELAY = 2000;
+
+		// How many times we attempt to attach the kernel before giving up.
+		const KERNEL_RETRY_COUNT = 3;
+
 		let lastError: unknown;
-		for (let tryCount = 0; tryCount < 3; tryCount++) {
-			this._log(`trySetupKernel (#${tryCount})`);
+		for (let tryCount = 0; tryCount < KERNEL_RETRY_COUNT; tryCount++) {
+
+			this._logService.info(this._identifier, `trySetupKernel (#${tryCount})`);
+
 			try {
 				const kernelAttempt = this._setupKernel();
 				if (kernelAttempt) {
 					this._kernelAttached = true;
-					this._log('Successfully located kernel');
+					this._logService.info(this._identifier, 'Successfully located kernel');
+
 					return;
 				}
 			}
@@ -555,14 +567,17 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 				lastError = e;
 
 				// Wait for a bit before trying again.
-				await new Promise(resolve => setTimeout(resolve, 3000));
+				await new Promise(resolve => setTimeout(resolve, KERNEL_RETRY_DELAY));
 			}
 		}
 
-		this._log('Failed to located kernel');
-		console.error('Failed to locate kernel', lastError);
-	}
+		this._logService.error(
+			this._identifier,
+			localize('failedToFindKernel', "Failed to locate kernel for file '{0}'.", this._viewModel?.uri.path),
+			lastError
+		);
 
+	}
 
 
 	// #endregion
@@ -606,20 +621,18 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	}
 
 	detachView(): void {
-		this._log('detachView');
+		this._logService.info(this._identifier, 'detachView');
 		this._notebookOptions?.dispose();
 		this._detachModel();
 		this._localStore.clear();
 	}
 
 	override dispose() {
-		this._log('dispose');
+
+		this._logService.info(this._identifier, 'dispose');
+
 		super.dispose();
 		this.detachView();
-	}
-
-	private _log(message: string) {
-		pnLog(`Instance(${this._identifier}): ${message}`);
 	}
 }
 

@@ -11,7 +11,6 @@ import { CellEditorOptions } from 'vs/workbench/contrib/notebook/browser/view/ce
 import { useNotebookInstance } from 'vs/workbench/contrib/positronNotebook/browser/NotebookInstanceProvider';
 import { PositronNotebookCell } from 'vs/workbench/contrib/positronNotebook/browser/PositronNotebookCell';
 import { useServices } from 'vs/workbench/contrib/positronNotebook/browser/ServicesProvider';
-import { pnLog } from 'vs/workbench/contrib/positronNotebook/browser/utils';
 import { observeValue } from 'vs/workbench/contrib/positronNotebook/common/utils/observeValue';
 
 /**
@@ -95,11 +94,11 @@ export function useCellEditorWidget({ cell }: { cell: PositronNotebookCell }) {
 			}
 		});
 
-		pnLog('Setting up editor widget');
+		services.logService.info('Positron Notebook | useCellEditorWidget() | Setting up editor widget');
 
 
 		return () => {
-			pnLog('Disposing editor widget');
+			services.logService.info('Positron Notebook | useCellEditorWidget() | Disposing editor widget');
 			editor.dispose();
 			nativeContainer.remove();
 			editorContextKeyService.dispose();

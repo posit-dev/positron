@@ -15,7 +15,7 @@ import { INotebookService } from 'vs/workbench/contrib/notebook/common/notebookS
 import { IInstantiationService } from 'vs/platform/instantiation/common/instantiation';
 import { IContextKeyService } from 'vs/platform/contextkey/common/contextkey';
 import { PositronNotebookInstance } from 'vs/workbench/contrib/positronNotebook/browser/PositronNotebookInstance';
-import { pnLog } from 'vs/workbench/contrib/positronNotebook/browser/utils';
+import { ILogService } from 'vs/platform/log/common/log';
 
 /**
  * Mostly empty options object. Based on the same one in `vs/workbench/contrib/notebook/browser/notebookEditorInput.ts`
@@ -37,7 +37,7 @@ export class PositronNotebookEditorInput extends EditorInput {
 	 */
 	static count = 0;
 
-	private _identifier: string;
+	private _identifier = `Positron Notebook | Input(${PositronNotebookEditorInput.count++}) |`;
 	//#region Static Properties
 	/**
 	 * Gets the type ID.
@@ -94,13 +94,11 @@ export class PositronNotebookEditorInput extends EditorInput {
 		@INotebookService private readonly _notebookService: INotebookService,
 		@IInstantiationService instantiationService: IInstantiationService,
 		@IContextKeyService contextKeyService: IContextKeyService,
-
+		@ILogService private readonly _logService: ILogService,
 	) {
 		// Call the base class's constructor.
 		super();
-		// Generate a random 4 digit number to use as the identifier.
-		this._identifier = (PositronNotebookEditorInput.count++).toString();
-		this._log('constructor');
+		this._logService.info(this._identifier, 'constructor');
 
 		this.notebookInstance = instantiationService.createInstance(PositronNotebookInstance, this, undefined);
 	}
@@ -178,7 +176,7 @@ export class PositronNotebookEditorInput extends EditorInput {
 	}
 
 	override async resolve(_options?: IEditorOptions): Promise<IResolvedNotebookEditorModel | null> {
-		this._log('resolve');
+		this._logService.info(this._identifier, 'resolve');
 
 		if (this.editorOptions) {
 			_options = this.editorOptions;
@@ -231,11 +229,5 @@ export class PositronNotebookEditorInput extends EditorInput {
 		// if (this.options._backupId) {}
 
 		return this._editorModelReference.object;
-
 	}
-
-	private _log(message: string) {
-		pnLog(`Input(${this._identifier}): ${message}`);
-	}
-
 }

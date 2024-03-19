@@ -44,12 +44,12 @@ import { NotebookTextModel } from 'vs/workbench/contrib/notebook/common/model/no
 import { NotebookInstanceProvider } from 'vs/workbench/contrib/positronNotebook/browser/NotebookInstanceProvider';
 import { PositronNotebookComponent } from 'vs/workbench/contrib/positronNotebook/browser/PositronNotebookComponent';
 import { ServicesProvider } from 'vs/workbench/contrib/positronNotebook/browser/ServicesProvider';
-import { pnLog } from 'vs/workbench/contrib/positronNotebook/browser/utils';
 import {
 	GroupsOrder,
 	IEditorGroupsService
 } from 'vs/workbench/services/editor/common/editorGroupsService';
 import { PositronNotebookEditorInput } from './PositronNotebookEditorInput';
+import { ILogService } from 'vs/platform/log/common/log';
 
 
 interface NotebookLayoutInfo {
@@ -75,7 +75,8 @@ export class PositronNotebookEditor extends EditorPane {
 	 */
 	static count = 0;
 
-	private _identifier: string;
+	private _identifier = `Positron Notebook | Editor(${PositronNotebookEditor.count++}) |`;
+
 	_parentDiv: HTMLElement | undefined;
 
 	/**
@@ -109,6 +110,8 @@ export class PositronNotebookEditor extends EditorPane {
 		@IInstantiationService private readonly _instantiationService: IInstantiationService,
 		@ITextModelService private readonly _textModelResolverService: ITextModelService,
 		@IContextKeyService private readonly contextKeyService: IContextKeyService,
+		@ILogService private readonly _logService: ILogService,
+
 
 	) {
 		// Call the base class's constructor.
@@ -125,9 +128,8 @@ export class PositronNotebookEditor extends EditorPane {
 			POSITRON_NOTEBOOK_EDITOR_VIEW_STATE_PREFERENCE_KEY
 		);
 
-		// Generate a random 4 digit number to use as the identifier.
-		this._identifier = (PositronNotebookEditor.count++).toString();
-		this._log('constructor');
+		this._logService.info('PositronNotebookEditor created.');
+
 	}
 
 
@@ -211,7 +213,8 @@ export class PositronNotebookEditor extends EditorPane {
 	}
 
 	protected override createEditor(parent: HTMLElement): void {
-		this._log('createEditor');
+
+		this._logService.info(this._identifier, 'createEditor');
 		this._parentDiv = DOM.$('.positron-notebook-container');
 		parent.appendChild(this._parentDiv);
 		this._parentDiv.style.display = 'relative';
@@ -245,7 +248,9 @@ export class PositronNotebookEditor extends EditorPane {
 		token: CancellationToken,
 		noRetry?: boolean
 	): Promise<void> {
-		this._log('setInput');
+		this._logService.info(this._identifier, 'setInput');
+
+
 		this._input = input;
 		// Eventually this will probably need to be implemented like the vs notebooks
 		// which uses a notebookWidgetService to manage the instances. For now, we'll
@@ -302,7 +307,9 @@ export class PositronNotebookEditor extends EditorPane {
 	}
 
 	override clearInput(): void {
-		this._log('clearInput');
+		this._logService.info(this._identifier, 'clearInput');
+
+
 		// Clear the input observable.
 		this._input = undefined;
 
@@ -326,7 +333,7 @@ export class PositronNotebookEditor extends EditorPane {
 	}
 
 	getViewModel(textModel: NotebookTextModel) {
-		this._log('getViewModel');
+		this._logService.info(this._identifier, 'getViewModel');
 
 		const notebookInstance = this.getInput().notebookInstance;
 		if (!notebookInstance) {
@@ -404,7 +411,8 @@ export class PositronNotebookEditor extends EditorPane {
 	 * Disposes the PositronReactRenderer for the PositronNotebook component.
 	 */
 	private _disposeReactRenderer() {
-		this._log('disposeReactRenderer');
+		this._logService.info(this._identifier, 'disposeReactRenderer');
+
 		if (this._positronReactRenderer) {
 			this._positronReactRenderer.dispose();
 			this._positronReactRenderer = undefined;
@@ -412,7 +420,8 @@ export class PositronNotebookEditor extends EditorPane {
 	}
 
 	private _renderReact() {
-		this._log('renderReact');
+		this._logService.info(this._identifier, 'renderReact');
+
 		const notebookInstance = (this.input as PositronNotebookEditorInput)?.notebookInstance;
 
 		if (!notebookInstance) {
@@ -434,6 +443,7 @@ export class PositronNotebookEditor extends EditorPane {
 					configurationService: this._configurationService,
 					instantiationService: this._instantiationService,
 					textModelResolverService: this._textModelResolverService,
+					logService: this._logService,
 					sizeObservable: this._size,
 					scopedContextKeyProviderCallback: container => scopedContextKeyService.createScoped(container)
 				}}>
@@ -448,16 +458,12 @@ export class PositronNotebookEditor extends EditorPane {
 	 * dispose override method.
 	 */
 	public override dispose(): void {
-		this._log('dispose');
+		this._logService.info(this._identifier, 'dispose');
 		this.notebookInstance?.detachView();
 
 		this._disposeReactRenderer();
 
 		// Call the base class's dispose method.
 		super.dispose();
-	}
-
-	private _log(message: string) {
-		pnLog(`Editor(${this._identifier}): ${message}`);
 	}
 }

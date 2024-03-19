@@ -9,6 +9,7 @@ import { ITextModelService } from 'vs/editor/common/services/resolverService';
 import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
 import { IScopedContextKeyService } from 'vs/platform/contextkey/common/contextkey';
 import { IInstantiationService } from 'vs/platform/instantiation/common/instantiation';
+import { ILogService } from 'vs/platform/log/common/log';
 
 
 
@@ -31,6 +32,11 @@ interface ServiceBundle {
 	 * Service for instantiating text models
 	 */
 	textModelResolverService: ITextModelService;
+
+	/**
+	 * Logging service
+	 */
+	logService: ILogService;
 
 	/**
 	 * An observable for the size of the notebook.
