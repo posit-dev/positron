@@ -199,17 +199,20 @@ class PositronVariablesService extends Disposable implements IPositronVariablesS
 			}
 		}
 
-		// Look for an old variables instance that has the same runtime ID as
-		// the one we're starting. We recycle the old instance, if we have one,
-		// instead of creating a new one.
+		// Look for an old variables instance that has the same runtime ID and
+		// notebook URI (can be empty) as the one we're starting. We recycle the
+		// old instance, if we have one, instead of creating a new one.
 		const allInstances = Array.from(this._positronVariablesInstancesBySessionId.values());
 		const existingInstance = allInstances.find(
 			positronVariablesInstance => {
+				// Check the runtime ID and notebook URI for a match.
 				return positronVariablesInstance.session.runtimeMetadata.runtimeId ===
-					session.runtimeMetadata.runtimeId;
+					session.runtimeMetadata.runtimeId &&
+					positronVariablesInstance.session.metadata.notebookUri ===
+					session.metadata.notebookUri;
 			});
-		if (existingInstance) {
 
+		if (existingInstance) {
 			// Update the map of Positron variables instances by session ID.
 			this._positronVariablesInstancesBySessionId.set(
 				session.sessionId,
