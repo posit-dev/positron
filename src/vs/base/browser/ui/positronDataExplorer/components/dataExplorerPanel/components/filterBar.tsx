@@ -11,12 +11,12 @@ import { useRef, useState } from 'react'; // eslint-disable-line no-duplicate-im
 
 // Other dependencies.
 import { localize } from 'vs/nls';
+import { Button } from 'vs/base/browser/ui/positronComponents/button/button';
 import { showContextMenu } from 'vs/base/browser/ui/positronComponents/contextMenu/contextMenu';
 import { ContextMenuItem } from 'vs/base/browser/ui/positronComponents/contextMenu/contextMenuItem';
 import { ContextMenuSeparator } from 'vs/base/browser/ui/positronComponents/contextMenu/contextMenuSeparator';
 import { usePositronDataExplorerContext } from 'vs/base/browser/ui/positronDataExplorer/positronDataExplorerContext';
 import { addRowFilterModalPopup } from 'vs/base/browser/ui/positronDataExplorer/components/dataExplorerPanel/components/addRowFilterModalPopup';
-import { Button } from 'vs/base/browser/ui/positronComponents/button/button';
 
 /**
  * Localized strings.
@@ -56,6 +56,7 @@ export const FilterBar = () => {
 			label: localize('positron.addFilter', "Add filter"),
 			icon: 'positron-add-filter',
 			onSelected: async () => await addRowFilterModalPopup(
+				context.keybindingService,
 				context.layoutService,
 				filterButtonRef.current
 			)
@@ -84,13 +85,14 @@ export const FilterBar = () => {
 		}));
 
 		// Show the context menu.
-		await showContextMenu({
-			layoutService: context.layoutService,
-			anchorElement: filterButtonRef.current,
-			alignment: 'left',
-			width: 200,
+		await showContextMenu(
+			context.keybindingService,
+			context.layoutService,
+			filterButtonRef.current,
+			'left',
+			200,
 			entries
-		});
+		);
 	};
 
 	/**
@@ -122,8 +124,8 @@ export const FilterBar = () => {
 				</Button>
 			</div>
 			<div className='filter-entries'>
-				{!filtersHidden && filters.map(filter =>
-					<div className='filter' style={{ width: filter.width }}>{filter.name}</div>
+				{!filtersHidden && filters.map((filter, index) =>
+					<div key={index} className='filter' style={{ width: filter.width }}>{filter.name}</div>
 				)}
 				<Button
 					ref={addFilterButtonRef}
