@@ -9,7 +9,7 @@ import { ITextModelService } from 'vs/editor/common/services/resolverService';
 import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
 import { IScopedContextKeyService } from 'vs/platform/contextkey/common/contextkey';
 import { IInstantiationService } from 'vs/platform/instantiation/common/instantiation';
-import { PositronNotebookInstance } from 'vs/workbench/contrib/positronNotebook/browser/PositronNotebookInstance';
+import { ILogService } from 'vs/platform/log/common/log';
 
 
 
@@ -17,11 +17,6 @@ import { PositronNotebookInstance } from 'vs/workbench/contrib/positronNotebook/
  * Bundle of services that are passed to React-Land in the form of context.
  */
 interface ServiceBundle {
-	/**
-	 * The notebook widget that is being used to render the notebook. Sometimes refered to as a
-	 * "Delegate" in the vscode notebook code.
-	 */
-	notebookWidget: PositronNotebookInstance;
 
 	/**
 	 * The instantiation service that can be used to create new instances of disposables.
@@ -37,6 +32,11 @@ interface ServiceBundle {
 	 * Service for instantiating text models
 	 */
 	textModelResolverService: ITextModelService;
+
+	/**
+	 * Logging service
+	 */
+	logService: ILogService;
 
 	/**
 	 * An observable for the size of the notebook.
