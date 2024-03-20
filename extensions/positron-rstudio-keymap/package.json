@@ -98,7 +98,7 @@
         "command": "workbench.action.positronConsole.focusConsole"
       },
       {
-        "mac": "cmd+.",
+        "mac": "ctrl+.",
         "win": "ctrl+.",
         "linux": "ctrl+.",
         "key": "ctrl+.",
