@@ -4,7 +4,6 @@
 
 import { useState } from 'react';
 import { IFileDialogService } from 'vs/platform/dialogs/common/dialogs';
-import { IWorkbenchLayoutService } from 'vs/workbench/services/layout/browser/layoutService';
 import { ILanguageRuntimeMetadata, ILanguageRuntimeService } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { IRuntimeSessionService } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
 import { IRuntimeStartupService } from 'vs/workbench/services/runtimeStartup/common/runtimeStartupService';
@@ -16,7 +15,6 @@ import { NewProjectWizardStep } from 'vs/workbench/browser/positronModalDialogs/
  */
 export interface NewProjectWizardServices {
 	fileDialogService: IFileDialogService;
-	workbenchLayoutService: IWorkbenchLayoutService;
 	languageRuntimeService: ILanguageRuntimeService;
 	runtimeSessionService: IRuntimeSessionService;
 	runtimeStartupService: IRuntimeStartupService;

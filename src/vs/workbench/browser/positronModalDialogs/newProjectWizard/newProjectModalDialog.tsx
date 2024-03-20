@@ -16,6 +16,8 @@ import { IRuntimeSessionService } from 'vs/workbench/services/runtimeSession/com
 import { NewProjectConfiguration } from 'vs/workbench/browser/positronModalDialogs/newProjectWizard/newProjectWizardState';
 import { NewProjectWizardStepContainer } from 'vs/workbench/browser/positronModalDialogs/newProjectWizard/newProjectWizardStepContainer';
 import { IRuntimeStartupService } from 'vs/workbench/services/runtimeStartup/common/runtimeStartupService';
+import { StopCommandsKeyEventProcessor } from 'vs/platform/stopCommandsKeyEventProcessor/browser/stopCommandsKeyEventProcessor';
+import { IKeybindingService } from 'vs/platform/keybinding/common/keybinding';
 
 /**
  * Shows the NewProjectModalDialog.
@@ -24,41 +26,51 @@ import { IRuntimeStartupService } from 'vs/workbench/services/runtimeStartup/com
  */
 export const showNewProjectModalDialog = async (accessor: ServicesAccessor): Promise<NewProjectConfiguration | undefined> => {
 	// Get the services we need for the dialog.
+	const keybindingService = accessor.get(IKeybindingService);
+	const layoutService = accessor.get(IWorkbenchLayoutService);
+
+	// Get the services we need for the wizard context.
 	const services = {
 		fileDialogService: accessor.get(IFileDialogService),
-		workbenchLayoutService: accessor.get(IWorkbenchLayoutService),
 		languageRuntimeService: accessor.get(ILanguageRuntimeService),
 		runtimeSessionService: accessor.get(IRuntimeSessionService),
 		runtimeStartupService: accessor.get(IRuntimeStartupService)
 	};
 
+	// Get the default parent folder for the new project.
 	const parentFolder = (await services.fileDialogService.defaultFolderPath()).fsPath;
 
 	// Return a promise that resolves when the dialog is done.
 	return new Promise<NewProjectConfiguration | undefined>((resolve) => {
 		// Create the modal React renderer.
-		const positronModalReactRenderer =
-			new PositronModalReactRenderer(services.workbenchLayoutService.mainContainer);
+		const renderer =
+			new PositronModalReactRenderer({
+				container: layoutService.mainContainer,
+				keyEventProcessor: new StopCommandsKeyEventProcessor({
+					keybindingService,
+					layoutService
+				})
+			});
 
 		// The new project modal dialog component.
 		const NewProjectModalDialog = () => {
 			// The accept handler.
 			const acceptHandler = (projectConfig: NewProjectConfiguration) => {
 				console.log('************ acceptHandler', projectConfig);
-				positronModalReactRenderer.dispose();
+				renderer.dispose();
 				resolve(projectConfig);
 			};
 
 			// The cancel handler.
 			const cancelHandler = () => {
-				positronModalReactRenderer.dispose();
+				renderer.dispose();
 				resolve(undefined);
 			};
 
 			// Render.
 			return (
 				<PositronModalDialog
-					renderer={positronModalReactRenderer}
+					renderer={renderer}
 					width={700} height={500}
 					title={localize('positronNewProjectWizard.title', "Create New Project")}
 					// accept={acceptHandler}
@@ -72,6 +84,6 @@ export const showNewProjectModalDialog = async (accessor: ServicesAccessor): Pro
 		};
 
 		// Render the modal dialog component.
-		positronModalReactRenderer.render(<NewProjectModalDialog />);
+		renderer.render(<NewProjectModalDialog />);
 	});
 };
