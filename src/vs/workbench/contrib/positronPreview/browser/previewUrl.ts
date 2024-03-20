@@ -14,6 +14,11 @@ import { IOverlayWebview } from 'vs/workbench/contrib/webview/browser/webview';
 export class PreviewUrl extends PreviewWebview {
 
 	/**
+	 * A nonce to append to the URI to ensure that the preview is not cached.
+	 */
+	private static _nonce = 0;
+
+	/**
 	 * Construct a new PreviewWebview.
 	 *
 	 * @param previewId A unique ID for the preview
@@ -41,6 +46,13 @@ export class PreviewUrl extends PreviewWebview {
 	 */
 	public navigateToUri(uri: URI): void {
 		this._uri = uri;
+
+		// Amend a nonce to the URI for cache busting.
+		const nonce = `_positronRender=${(PreviewUrl._nonce++).toString(16)}`;
+		const iframeUri = this._uri.with({
+			query:
+				uri.query ? uri.query + '&' + nonce : nonce
+		});
 
 		this.webview.setHtml(`
 <html>
@@ -87,7 +99,7 @@ export class PreviewUrl extends PreviewWebview {
 		</script>
 	</head>
 	<body>
-		<iframe src="${this._uri.toString()}"></iframe>
+		<iframe src="${iframeUri.toString()}"></iframe>
 	</body>
 </html>`);
 	}
