@@ -22,6 +22,7 @@ import { OKCancelActionBar } from 'vs/base/browser/ui/positronModalDialog/compon
 import { PositronModalReactRenderer } from 'vs/base/browser/ui/positronModalReactRenderer/positronModalReactRenderer';
 import { StopCommandsKeyEventProcessor } from 'vs/platform/stopCommandsKeyEventProcessor/browser/stopCommandsKeyEventProcessor';
 import { IModalDialogPromptInstance, IPositronModalDialogsService } from 'vs/workbench/services/positronModalDialogs/common/positronModalDialogs';
+import { renderHtml } from 'vs/base/browser/renderHtml';
 
 /**
  * PositronModalDialogs class.
@@ -268,7 +269,7 @@ export class PositronModalDialogs implements IPositronModalDialogsService {
 			return (
 				<PositronModalDialog renderer={renderer} title={title} width={400} height={200} accept={acceptHandler} >
 					<ContentArea>
-						{message}
+						{renderHtml(message)}
 					</ContentArea>
 					<OKActionBar
 						okButtonTitle={okButtonTitle}
