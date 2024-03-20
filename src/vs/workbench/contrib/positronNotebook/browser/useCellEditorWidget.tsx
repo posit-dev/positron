@@ -2,10 +2,13 @@
  *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 import * as React from 'react';
+import * as DOM from 'vs/base/browser/dom';
+
 import { CodeEditorWidget } from 'vs/editor/browser/widget/codeEditorWidget';
 import { IContextKeyService } from 'vs/platform/contextkey/common/contextkey';
 import { ServiceCollection } from 'vs/platform/instantiation/common/serviceCollection';
 import { CellEditorOptions } from 'vs/workbench/contrib/notebook/browser/view/cellParts/cellEditorOptions';
+import { useNotebookInstance } from 'vs/workbench/contrib/positronNotebook/browser/NotebookInstanceProvider';
 import { PositronNotebookCell } from 'vs/workbench/contrib/positronNotebook/browser/PositronNotebookCell';
 import { useServices } from 'vs/workbench/contrib/positronNotebook/browser/ServicesProvider';
 import { observeValue } from 'vs/workbench/contrib/positronNotebook/common/utils/observeValue';
@@ -17,32 +20,37 @@ import { observeValue } from 'vs/workbench/contrib/positronNotebook/common/utils
  */
 export function useCellEditorWidget({ cell }: { cell: PositronNotebookCell }) {
 	const services = useServices();
+	const instance = useNotebookInstance();
 
 	const sizeObservable = services.sizeObservable;
 
 	// Grab the wrapping div for the editor. This is used for passing context key service
-	// TODO: Understand this better.
 	const editorPartRef = React.useRef<HTMLDivElement>(null);
 	// Grab a ref to the div that will hold the editor. This is needed to pass an element to the
 	// editor creation function.
-	const editorContainerRef = React.useRef<HTMLDivElement>(null);
 
 
 	// Create the editor
 	React.useEffect(() => {
-		if (!editorPartRef.current || !editorContainerRef.current) {
+		if (!editorPartRef.current) {
 			console.log('no editor part or container');
 			return;
 		}
 
+		// We need to use a native dom element here instead of a react ref one because the elements
+		// created by react's refs are not _true_ dom elements and thus calls like `refEl instanceof
+		// HTMLElement` will return false. This is a problem when we hand the elements into the
+		// editor widget as it expects a true dom element.
+		const nativeContainer = DOM.$('.positron-monaco-editor-container');
+		editorPartRef.current.appendChild(nativeContainer);
 
 		const language = cell.viewModel.language;
 		const editorContextKeyService = services.scopedContextKeyProviderCallback(editorPartRef.current);
 		const editorInstaService = services.instantiationService.createChild(new ServiceCollection([IContextKeyService, editorContextKeyService]));
-		const editorOptions = new CellEditorOptions(services.notebookWidget.getBaseCellEditorOptions(language), services.notebookWidget.notebookOptions, services.configurationService);
-		const editorContributions = services.notebookWidget.creationOptions?.cellEditorContributions ?? [];
+		const editorOptions = new CellEditorOptions(instance.getBaseCellEditorOptions(language), instance.notebookOptions, services.configurationService);
+		const editorContributions = instance.creationOptions?.cellEditorContributions ?? [];
 
-		const editor = editorInstaService.createInstance(CodeEditorWidget, editorContainerRef.current, {
+		const editor = editorInstaService.createInstance(CodeEditorWidget, nativeContainer, {
 			...editorOptions.getDefaultValue(),
 			dimension: {
 				width: 500,
@@ -64,7 +72,7 @@ export function useCellEditorWidget({ cell }: { cell: PositronNotebookCell }) {
 		function resizeEditor(height: number = editor.getContentHeight()) {
 			editor.layout({
 				height,
-				width: editorContainerRef.current?.offsetWidth ?? 500
+				width: editorPartRef.current?.offsetWidth ?? 500
 			});
 		}
 
@@ -86,16 +94,21 @@ export function useCellEditorWidget({ cell }: { cell: PositronNotebookCell }) {
 			}
 		});
 
+		services.logService.info('Positron Notebook | useCellEditorWidget() | Setting up editor widget');
+
+
 		return () => {
+			services.logService.info('Positron Notebook | useCellEditorWidget() | Disposing editor widget');
 			editor.dispose();
+			nativeContainer.remove();
 			editorContextKeyService.dispose();
 			sizeObserver();
 		};
-	}, [cell, services, sizeObservable]);
+	}, [cell, instance, services, sizeObservable]);
 
 
 
-	return { editorPartRef, editorContainerRef };
+	return { editorPartRef };
 
 }
 

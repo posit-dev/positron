@@ -11,6 +11,7 @@ import { AddCellButton } from './AddCellButton';
 import { useObservedValue } from './useObservedValue';
 import { localize } from 'vs/nls';
 import { Button } from 'vs/base/browser/ui/positronComponents/button/button';
+import { KernelStatusBadge } from './KernelStatusBadge';
 
 
 export function PositronNotebookComponent() {
@@ -21,6 +22,7 @@ export function PositronNotebookComponent() {
 		<div className='positron-notebook'>
 			<div className='positron-notebook-header'>
 				<h2>Positron Notebooks: Operation Tracer Bullet</h2>
+				<KernelStatusBadge />
 			</div>
 			<div className='positron-notebook-cells-container'>
 				<div className='positron-notebook-cells-action-bar'>
