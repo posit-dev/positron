@@ -9,19 +9,15 @@ import { Button } from 'vs/base/browser/ui/positronComponents/button/button';
 import { OKCancelBackNextActionBar } from 'vs/base/browser/ui/positronModalDialog/components/okCancelBackNextActionBar';
 import { localize } from 'vs/nls';
 import { useNewProjectWizardContext } from 'vs/workbench/browser/positronModalDialogs/newProjectWizard/newProjectWizardContext';
-import { NewProjectWizardCurrentStepProps } from 'vs/workbench/browser/positronModalDialogs/newProjectWizard/newProjectWizardStepContainer';
-import { NewProjectWizardStep } from 'vs/workbench/browser/positronModalDialogs/newProjectWizard/steps/newProjectWizardSteps';
+import { NewProjectWizardStep } from 'vs/workbench/browser/positronModalDialogs/newProjectWizard/steps/newProjectWizardStep';
+import { NewProjectWizardStepProps } from 'vs/workbench/browser/positronModalDialogs/newProjectWizard/steps/newProjectWizardStepProps';
 
-export const ProjectTypeSelectionStep = (props: PropsWithChildren<NewProjectWizardCurrentStepProps>) => {
+export const ProjectTypeSelectionStep = (props: PropsWithChildren<NewProjectWizardStepProps>) => {
 	const newProjectWizardState = useNewProjectWizardContext();
 
 	const next = () => {
-		// console.log('[ProjectTypeSelectionStep before next]', 'CURRENT STEP = ', newProjectWizardState.getCurrentStep());
-		console.log('[ProjectTypeSelectionStep before next]', newProjectWizardState.projectConfig);
 		newProjectWizardState.setProjectConfig({ ...newProjectWizardState.projectConfig, projectType: 'R Project' });
 		props.next(NewProjectWizardStep.ProjectNameLocation);
-		// console.log('[ProjectTypeSelectionStep after next]', 'CURRENT STEP = ', newProjectWizardState.getCurrentStep());
-		console.log('[ProjectTypeSelectionStep after next]', newProjectWizardState.projectConfig);
 	};
 
 	return (

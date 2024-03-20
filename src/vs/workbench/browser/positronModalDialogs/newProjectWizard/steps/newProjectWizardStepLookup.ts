@@ -1,0 +1,22 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *--------------------------------------------------------------------------------------------*/
+
+import { NewProjectWizardStep } from 'vs/workbench/browser/positronModalDialogs/newProjectWizard/steps/newProjectWizardStep';
+import { ProjectNameLocationStep } from 'vs/workbench/browser/positronModalDialogs/newProjectWizard/steps/projectNameLocationStep';
+import { PythonEnvironmentStep } from 'vs/workbench/browser/positronModalDialogs/newProjectWizard/steps/projectPythonEnvironmentStep';
+import { ProjectTypeSelectionStep } from 'vs/workbench/browser/positronModalDialogs/newProjectWizard/steps/projectTypeSelectionStep';
+
+/**
+ * The NewProjectWizardStepLookup object is like a map of NewProjectWizardStep to the
+ * component that should be rendered for that step.
+ *
+ * Add new steps to this object using the NewProjectWizardStep enum as the key
+ * and the component as the value.
+ */
+export const NewProjectWizardStepLookup = {
+	[NewProjectWizardStep.None]: () => null,
+	[NewProjectWizardStep.ProjectTypeSelection]: ProjectTypeSelectionStep,
+	[NewProjectWizardStep.ProjectNameLocation]: ProjectNameLocationStep,
+	[NewProjectWizardStep.PythonEnvironment]: PythonEnvironmentStep,
+};

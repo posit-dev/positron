@@ -32,6 +32,8 @@ export const showNewProjectModalDialog = async (accessor: ServicesAccessor): Pro
 		runtimeStartupService: accessor.get(IRuntimeStartupService)
 	};
 
+	const parentFolder = (await services.fileDialogService.defaultFolderPath()).fsPath;
+
 	// Return a promise that resolves when the dialog is done.
 	return new Promise<NewProjectConfiguration | undefined>((resolve) => {
 		// Create the modal React renderer.
@@ -42,6 +44,7 @@ export const showNewProjectModalDialog = async (accessor: ServicesAccessor): Pro
 		const NewProjectModalDialog = () => {
 			// The accept handler.
 			const acceptHandler = (projectConfig: NewProjectConfiguration) => {
+				console.log('************ acceptHandler', projectConfig);
 				positronModalReactRenderer.dispose();
 				resolve(projectConfig);
 			};
@@ -61,7 +64,7 @@ export const showNewProjectModalDialog = async (accessor: ServicesAccessor): Pro
 					// accept={acceptHandler}
 					cancel={cancelHandler}
 				>
-					<NewProjectWizardContextProvider services={services}>
+					<NewProjectWizardContextProvider services={services} parentFolder={parentFolder}>
 						<NewProjectWizardStepContainer cancel={cancelHandler} accept={acceptHandler} />
 					</NewProjectWizardContextProvider>
 				</PositronModalDialog>

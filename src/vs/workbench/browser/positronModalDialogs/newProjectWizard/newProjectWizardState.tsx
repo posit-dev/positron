@@ -8,7 +8,7 @@ import { IWorkbenchLayoutService } from 'vs/workbench/services/layout/browser/la
 import { ILanguageRuntimeMetadata, ILanguageRuntimeService } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { IRuntimeSessionService } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
 import { IRuntimeStartupService } from 'vs/workbench/services/runtimeStartup/common/runtimeStartupService';
-import { NewProjectWizardStep } from 'vs/workbench/browser/positronModalDialogs/newProjectWizard/steps/newProjectWizardSteps';
+import { NewProjectWizardStep } from 'vs/workbench/browser/positronModalDialogs/newProjectWizard/steps/newProjectWizardStep';
 
 /**
  * NewProjectWizardServices interface. Defines the set of services that are required by the New
@@ -24,6 +24,7 @@ export interface NewProjectWizardServices {
 
 export interface NewProjectWizardStateProps {
 	readonly services: NewProjectWizardServices;
+	readonly parentFolder: string;
 }
 
 export type NewProjectWizardProjectType = 'Python Project' | 'R Project' | 'Jupyter Notebook';
@@ -63,9 +64,9 @@ export const useNewProjectWizardState = (
 		selectedRuntime: props.services.languageRuntimeService.registeredRuntimes[0],
 		projectType: 'Python Project',
 		projectName: 'myPythonProject',
-		parentFolder: '',
+		parentFolder: props.parentFolder ?? '',
 		initGitRepo: false,
-		openInNewWindow: false
+		openInNewWindow: true
 	});
 
 	const [wizardSteps, setWizardSteps] = useState([NewProjectWizardStep.ProjectTypeSelection]);
