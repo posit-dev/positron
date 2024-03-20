@@ -96,7 +96,11 @@ export const PositronPreview = (props: PropsWithChildren<PositronPreviewProps>) 
 	return (
 		<PositronPreviewContextProvider {...props}>
 			{showToolbar &&
-				<ActionBars preview={activePreview} {...props} />
+				// Render the action bars. We supply the preview ID as a key
+				// here to ensure the action bars are keyed to the preview;
+				// otherwise the URL bar can get out of sync with the preview
+				// since it's an uncontrolled component.
+				<ActionBars key={activePreview.previewId} preview={activePreview} {...props} />
 			}
 			<PreviewContainer
 				preview={activePreview}
