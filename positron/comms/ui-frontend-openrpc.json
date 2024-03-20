@@ -195,6 +195,27 @@
 			]
 		},
 		{
+			"name": "open_workspace",
+			"summary": "Open a workspace",
+			"description": "Use this to open a workspace in Positron",
+			"params": [
+				{
+					"name": "path",
+					"description": "The path for the workspace to be opened",
+					"schema": {
+						"type": "string"
+					}
+				},
+				{
+					"name": "new_window",
+					"description": "Should the workspace be opened in a new window?",
+					"schema": {
+						"type": "boolean"
+					}
+				}
+			]
+		},
+		{
 			"name": "workspace_folder",
 			"summary": "Path to the workspace folder",
 			"description": "Returns the path to the workspace folder, or first folder if there are multiple.",

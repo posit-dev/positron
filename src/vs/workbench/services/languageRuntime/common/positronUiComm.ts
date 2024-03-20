@@ -226,6 +226,22 @@ export interface ExecuteCommandEvent {
 }
 
 /**
+ * Event: Open a workspace
+ */
+export interface OpenWorkspaceEvent {
+	/**
+	 * The path for the workspace to be opened
+	 */
+	path: string;
+
+	/**
+	 * Should the workspace be opened in a new window?
+	 */
+	new_window: boolean;
+
+}
+
+/**
  * Request: Show a question
  *
  * Use this for a modal dialog that the user can accept or cancel
@@ -309,7 +325,8 @@ export enum UiFrontendEvent {
 	ShowMessage = 'show_message',
 	PromptState = 'prompt_state',
 	WorkingDirectory = 'working_directory',
-	ExecuteCommand = 'execute_command'
+	ExecuteCommand = 'execute_command',
+	OpenWorkspace = 'open_workspace'
 }
 
 export enum UiFrontendRequest {
@@ -330,6 +347,7 @@ export class PositronUiComm extends PositronBaseComm {
 		this.onDidPromptState = super.createEventEmitter('prompt_state', ['input_prompt', 'continuation_prompt']);
 		this.onDidWorkingDirectory = super.createEventEmitter('working_directory', ['directory']);
 		this.onDidExecuteCommand = super.createEventEmitter('execute_command', ['command']);
+		this.onDidOpenWorkspace = super.createEventEmitter('open_workspace', ['path', 'new_window']);
 	}
 
 	/**
@@ -397,5 +415,11 @@ export class PositronUiComm extends PositronBaseComm {
 	 * runtime)
 	 */
 	onDidExecuteCommand: Event<ExecuteCommandEvent>;
+	/**
+	 * Open a workspace
+	 *
+	 * Use this to open a workspace in Positron
+	 */
+	onDidOpenWorkspace: Event<OpenWorkspaceEvent>;
 }
 
