@@ -313,8 +313,8 @@ class PositronConsoleService extends Disposable implements IPositronConsoleServi
 					this.setActivePositronConsoleInstance(positronConsoleInstance);
 				} else {
 					this._logService.error(
-						`Language runtime ${formatLanguageRuntimeSession(session)} ` +
-						`became active,but a REPL instance for it is not running.`);
+						`Cannot show Console: ${formatLanguageRuntimeSession(session)} ` +
+						`became active, but a REPL instance for it is not running.`);
 				}
 			}
 		}));
