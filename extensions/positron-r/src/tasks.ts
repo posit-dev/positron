@@ -41,6 +41,12 @@ export async function getRPackageTasks(): Promise<vscode.Task[]> {
 			message: vscode.l10n.t('{taskName}', { taskName: 'Install R package' }),
 			rcode: 'pak::local_install(upgrade = FALSE)',
 			package: 'pak'
+		},
+		{
+			task: 'r.task.packageTest',
+			message: vscode.l10n.t('{taskName}', { taskName: 'Test R package' }),
+			rcode: 'devtools::test()',
+			package: 'devtools'
 		}
 	];
 	// the explicit quoting treatment is necessary to avoid headaches on Windows, with PowerShell
