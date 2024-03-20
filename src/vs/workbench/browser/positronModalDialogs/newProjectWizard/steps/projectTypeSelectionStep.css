@@ -1,0 +1,38 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *--------------------------------------------------------------------------------------------*/
+
+.project-type-selection-step {
+	top: 32px;
+	left: 0;
+	right: 0;
+	bottom: 0;
+	padding: 16px;
+	position: absolute;
+}
+
+.project-type-selection-step
+.project-type-selection-step-title {
+	font-size: 26px;
+	font-weight: bold;
+	margin-top: 16px;
+	margin-bottom: 32px;
+}
+
+.project-type-selection-step
+.project-type-selection-step-description {
+	margin-bottom: 8px;
+}
+
+.project-type-selection-step
+.project-type-grid {
+	display: grid;
+	grid-template-columns: repeat(3, 1fr);
+	grid-gap: 10px;
+}
+
+.project-type-selection-step
+.project-type-grid
+.project-type-button {
+	color: var(--vscode-positronModalDialog-foreground);
+}

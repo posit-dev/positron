@@ -5,24 +5,14 @@
 import 'vs/css!./wizardStep';
 const React = require('react');
 import { PropsWithChildren } from 'react';
-import { OKCancelBackNextActionBar } from 'vs/base/browser/ui/positronModalDialog/components/okCancelBackNextActionBar';
+import { OKCancelBackNextActionBar, OKCancelBackNextActionBarProps } from 'vs/base/browser/ui/positronModalDialog/components/okCancelBackNextActionBar';
 import { VerticalStack } from 'vs/base/browser/ui/positronModalDialog/components/verticalStack';
 
 /**
  * PositronWizardModalDialog interface.
  */
-export interface PositronWizardStepProps {
+export interface PositronWizardStepProps extends OKCancelBackNextActionBarProps {
 	title: string;
-	currentStep: number;
-	totalSteps: number;
-	okButtonTitle?: string;
-	cancelButtonTitle?: string;
-	backButtonTitle?: string;
-	nextButtonTitle?: string;
-	accept: () => void;
-	cancel: () => void;
-	back: () => void;
-	next: () => void;
 }
 
 /**
@@ -46,34 +36,10 @@ export const PositronWizardStep = (props: PropsWithChildren<PositronWizardStepPr
 				{props.children}
 			</VerticalStack>
 			<OKCancelBackNextActionBar
-				okButtonConfig={{
-					title: props.okButtonTitle,
-					// Hide ok button except on final step
-					hide: props.currentStep !== props.totalSteps - 1,
-					disable: false,
-					onClick: props.accept
-				}}
-				cancelButtonConfig={{
-					title: props.cancelButtonTitle,
-					// Show cancel button on all steps
-					hide: false,
-					disable: false,
-					onClick: props.cancel
-				}}
-				backButtonConfig={{
-					title: props.backButtonTitle,
-					// Hide back button when on first step
-					hide: props.currentStep === 0,
-					disable: false,
-					onClick: props.back
-				}}
-				nextButtonConfig={{
-					title: props.nextButtonTitle,
-					// Hide next button when on final step
-					hide: props.currentStep === props.totalSteps - 1,
-					disable: false,
-					onClick: props.next
-				}}
+				okButtonConfig={props.okButtonConfig}
+				cancelButtonConfig={props.cancelButtonConfig}
+				backButtonConfig={props.backButtonConfig}
+				nextButtonConfig={props.nextButtonConfig}
 			/>
 		</div>
 	);

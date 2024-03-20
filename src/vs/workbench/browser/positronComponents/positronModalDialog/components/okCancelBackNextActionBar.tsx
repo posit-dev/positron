@@ -10,7 +10,7 @@ import { Button } from 'vs/base/browser/ui/positronComponents/button/button';
 /**
  * OKCancelBackNextActionBarProps interface.
  */
-interface OKCancelBackNextActionBarProps {
+export interface OKCancelBackNextActionBarProps {
 	okButtonConfig?: ActionBarButtonConfig;
 	cancelButtonConfig?: ActionBarButtonConfig;
 	backButtonConfig?: ActionBarButtonConfig;

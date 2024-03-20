@@ -18,7 +18,7 @@ import { EnterMultiRootWorkspaceSupportContext } from 'vs/workbench/common/conte
 import { IWorkbenchLayoutService } from 'vs/workbench/services/layout/browser/layoutService';
 import { showNewFolderModalDialog } from 'vs/workbench/browser/positronModalDialogs/newFolderModalDialog';
 import { showNewFolderFromGitModalDialog } from 'vs/workbench/browser/positronModalDialogs/newFolderFromGitModalDialog';
-import { showNewProjectModalDialog } from 'vs/workbench/browser/positronModalDialogs/newProjectModalDialog';
+import { showNewProjectModalDialog } from 'vs/workbench/browser/positronModalDialogs/newProjectWizard/newProjectModalDialog';
 
 /**
  * The PositronNewProjectAction.
@@ -76,8 +76,8 @@ export class PositronNewProjectAction extends Action2 {
 			'vscode.openFolder',
 			folder,
 			{
-				forceNewWindow: result.newWindow,
-				forceReuseWindow: !result.newWindow
+				forceNewWindow: result.openInNewWindow,
+				forceReuseWindow: !result.openInNewWindow
 			}
 		);
 	}

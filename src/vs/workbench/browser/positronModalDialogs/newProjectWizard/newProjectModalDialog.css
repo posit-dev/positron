@@ -1,14 +1,3 @@
 /*---------------------------------------------------------------------------------------------
  *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
-
-.project-type-grid {
-	display: grid;
-	grid-template-columns: repeat(3, 1fr);
-	grid-gap: 10px;
-}
-
-.project-type-grid
-.project-type-button {
-	color: var(--vscode-positronModalDialog-foreground);
-}
