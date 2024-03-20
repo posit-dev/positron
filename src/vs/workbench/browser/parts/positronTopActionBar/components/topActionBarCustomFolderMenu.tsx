@@ -1,14 +1,19 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
+// CSS.
 import 'vs/css!./topActionBarCustomFolderMenu';
+
+// React.
 import * as React from 'react';
-import { localize } from 'vs/nls';
 import { KeyboardEvent, useRef } from 'react'; // eslint-disable-line no-duplicate-imports
+
+// Other dependencies.
+import { localize } from 'vs/nls';
+import { useRegisterWithActionBar } from 'vs/platform/positronActionBar/browser/useRegisterWithActionBar';
 import { usePositronTopActionBarContext } from 'vs/workbench/browser/parts/positronTopActionBar/positronTopActionBarContext';
 import { showCustomFolderModalPopup } from 'vs/workbench/browser/parts/positronTopActionBar/customFolderModalPopup/customFolderModalPopup';
-import { useRegisterWithActionBar } from 'vs/platform/positronActionBar/browser/useRegisterWithActionBar';
 
 /**
  * Localized strings.
@@ -38,7 +43,9 @@ export const TopActionBarCustonFolderMenu = () => {
 			positronTopActionBarContext.commandService,
 			positronTopActionBarContext.contextKeyService,
 			positronTopActionBarContext.hostService,
+			positronTopActionBarContext.keybindingService,
 			positronTopActionBarContext.labelService,
+			positronTopActionBarContext.layoutService,
 			positronTopActionBarContext.workspacesService,
 			positronTopActionBarContext.layoutService.mainContainer,
 			ref.current

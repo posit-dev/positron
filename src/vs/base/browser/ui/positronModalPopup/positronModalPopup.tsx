@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
 // CSS.
@@ -7,7 +7,7 @@ import 'vs/css!./positronModalPopup';
 
 // React.
 import * as React from 'react';
-import { PropsWithChildren, useEffect, useRef, useState } from 'react'; // eslint-disable-line no-duplicate-imports
+import { PropsWithChildren, useCallback, useEffect, useRef, useState } from 'react'; // eslint-disable-line no-duplicate-imports
 
 // Other dependencies.
 import * as DOM from 'vs/base/browser/dom';
@@ -55,8 +55,8 @@ export type KeyboardNavigation = 'dialog' | 'menu';
  */
 export interface PositronModalPopupProps {
 	renderer: PositronModalReactRenderer;
-	containerElement: HTMLElement;
-	anchorElement: HTMLElement;
+	container: HTMLElement;
+	anchor: HTMLElement;
 	popupPosition: PopupPosition;
 	popupAlignment: PopupAlignment;
 	minWidth?: number;
@@ -76,21 +76,21 @@ export const PositronModalPopup = (props: PropsWithChildren<PositronModalPopupPr
 	 * Computes the popup position.
 	 * @returns The popup position.
 	 */
-	const computePosition = (): Position => {
-		const topLeftOffset = DOM.getTopLeftOffset(props.anchorElement);
+	const computePosition = useCallback((): Position => {
+		const topLeftOffset = DOM.getTopLeftOffset(props.anchor);
 		return {
 			top: props.popupPosition === 'top' ?
 				'auto' :
-				topLeftOffset.top + props.anchorElement.offsetHeight + 1,
+				topLeftOffset.top + props.anchor.offsetHeight + 1,
 			right: props.popupAlignment === 'right' ?
-				props.containerElement.offsetWidth - (topLeftOffset.left + props.anchorElement.offsetWidth) :
+				props.container.offsetWidth - (topLeftOffset.left + props.anchor.offsetWidth) :
 				'auto',
 			bottom: 'auto',
 			left: props.popupAlignment === 'left' ?
 				topLeftOffset.left :
 				'auto'
 		};
-	};
+	}, [props.anchor, props.container.offsetWidth, props.popupAlignment, props.popupPosition]);
 
 	// Reference hooks.
 	const popupContainerRef = useRef<HTMLDivElement>(undefined!);
@@ -227,16 +227,6 @@ export const PositronModalPopup = (props: PropsWithChildren<PositronModalPopupPr
 					}
 					break;
 				}
-
-				// Allow space and enter so buttons in the modal popup can be pressed.
-				case 'Space':
-				case 'Enter':
-					break;
-
-				// Eat other keys to prevent the user from executing actions.
-				default:
-					consumeEvent();
-					break;
 			}
 		}));
 
@@ -254,7 +244,7 @@ export const PositronModalPopup = (props: PropsWithChildren<PositronModalPopupPr
 
 		// Return the clean up for our event handlers.
 		return () => disposableStore.dispose();
-	}, []);
+	}, [computePosition, props]);
 
 	// Create the class names.
 	const classNames = positronClassNames(

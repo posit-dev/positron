@@ -14,15 +14,18 @@ import * as DOM from 'vs/base/browser/dom';
 import { positronClassNames } from 'vs/base/common/positronUtilities';
 import { ILayoutService } from 'vs/platform/layout/browser/layoutService';
 import { Button } from 'vs/base/browser/ui/positronComponents/button/button';
+import { IKeybindingService } from 'vs/platform/keybinding/common/keybinding';
 import { PositronModalPopup } from 'vs/base/browser/ui/positronModalPopup/positronModalPopup';
 import { ComboBoxMenuSeparator } from 'vs/base/browser/ui/positronComponents/comboBox/comboBoxMenuSeparator';
-import { ComboBoxMenuItem, ComboBoxMenuItemOptions } from 'vs/base/browser/ui/positronComponents/comboBox/comboBoxMenuItem';
 import { PositronModalReactRenderer } from 'vs/base/browser/ui/positronModalReactRenderer/positronModalReactRenderer';
+import { ComboBoxMenuItem, ComboBoxMenuItemOptions } from 'vs/base/browser/ui/positronComponents/comboBox/comboBoxMenuItem';
+import { StopCommandsKeyEventProcessor } from 'vs/platform/stopCommandsKeyEventProcessor/browser/stopCommandsKeyEventProcessor';
 
 /**
  * ComboBoxProps interface.
  */
 interface ComboBoxProps {
+	keybindingService: IKeybindingService;
 	layoutService: ILayoutService;
 	className?: string;
 	disabled?: boolean;
@@ -51,15 +54,19 @@ export const ComboBox = (props: ComboBoxProps) => {
 	const showDropDownMenu = async (): Promise<void> => {
 		// Show the dropdown menu.
 		const identifier = await new Promise<string | undefined>(resolve => {
-			// Get the container element for the combo box element.
-			const containerElement = props.layoutService.getContainer(
+			// Get the container for the combo box.
+			const container = props.layoutService.getContainer(
 				DOM.getWindow(comboBoxRef.current)
 			);
 
 			// Create the modal React renderer.
-			const positronModalReactRenderer = new PositronModalReactRenderer(
-				containerElement
-			);
+			const renderer = new PositronModalReactRenderer({
+				container,
+				keyEventProcessor: new StopCommandsKeyEventProcessor({
+					keybindingService: props.keybindingService,
+					layoutService: props.layoutService
+				})
+			});
 
 			// The modal popup component.
 			const ModalPopup = () => {
@@ -67,7 +74,7 @@ export const ComboBox = (props: ComboBoxProps) => {
 				 * Dismisses the popup.
 				 */
 				const dismiss = (result: string | undefined) => {
-					positronModalReactRenderer.dispose();
+					renderer.dispose();
 					comboBoxRef.current.focus();
 					resolve(result);
 				};
@@ -123,9 +130,9 @@ export const ComboBox = (props: ComboBoxProps) => {
 				// Render.
 				return (
 					<PositronModalPopup
-						renderer={positronModalReactRenderer}
-						containerElement={containerElement}
-						anchorElement={comboBoxRef.current}
+						renderer={renderer}
+						container={container}
+						anchor={comboBoxRef.current}
 						popupPosition='bottom'
 						popupAlignment='left'
 						minWidth={comboBoxRef.current.offsetWidth}
@@ -139,7 +146,7 @@ export const ComboBox = (props: ComboBoxProps) => {
 								if (entry instanceof ComboBoxMenuItem) {
 									return <MenuItem key={index} {...entry.options} />;
 								} else if (entry instanceof ComboBoxMenuSeparator) {
-									return <MenuSeparator />;
+									return <MenuSeparator key={index} />;
 								} else {
 									// This indicates a bug.
 									return null;
@@ -151,7 +158,7 @@ export const ComboBox = (props: ComboBoxProps) => {
 			};
 
 			// Render the modal popup component.
-			positronModalReactRenderer.render(<ModalPopup />);
+			renderer.render(<ModalPopup />);
 		});
 
 		// If the user selected an item, call the onSelectionChanged callback.

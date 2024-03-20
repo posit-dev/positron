@@ -1,15 +1,22 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2022 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2022-2024 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
+// CSS.
 import 'vs/css!./deleteAllVariablesModalDialog';
+
+// React.
 import * as React from 'react';
 import { useState } from 'react'; // eslint-disable-line no-duplicate-imports
+
+// Other dependencies.
 import { localize } from 'vs/nls';
+import { IKeybindingService } from 'vs/platform/keybinding/common/keybinding';
 import { IWorkbenchLayoutService } from 'vs/workbench/services/layout/browser/layoutService';
 import { VerticalStack } from 'vs/base/browser/ui/positronModalDialog/components/verticalStack';
 import { OKCancelModalDialog } from 'vs/base/browser/ui/positronModalDialog/positronOKCancelModalDialog';
 import { PositronModalReactRenderer } from 'vs/base/browser/ui/positronModalReactRenderer/positronModalReactRenderer';
+import { StopCommandsKeyEventProcessor } from 'vs/platform/stopCommandsKeyEventProcessor/browser/stopCommandsKeyEventProcessor';
 
 /**
  * Localized strings.
@@ -28,18 +35,24 @@ export interface DeleteAllVariablesResult {
 
 /**
  * Shows the delete all variables modal dialog.
+ * @param keybindingService The keybinding service.
  * @param layoutService The layout service.
  * @returns A promise that resolves when the dialog is dismissed.
  */
 export const showDeleteAllVariablesModalDialog = async (
+	keybindingService: IKeybindingService,
 	layoutService: IWorkbenchLayoutService
 ): Promise<DeleteAllVariablesResult | undefined> => {
 	// Return a promise that resolves when the dialog is done.
 	return new Promise<DeleteAllVariablesResult | undefined>((resolve) => {
 		// Create the modal React renderer.
-		const positronModalReactRenderer = new PositronModalReactRenderer(
-			layoutService.mainContainer
-		);
+		const renderer = new PositronModalReactRenderer({
+			container: layoutService.mainContainer,
+			keyEventProcessor: new StopCommandsKeyEventProcessor({
+				keybindingService,
+				layoutService
+			})
+		});
 
 		// The modal dialog component.
 		const ModalDialog = () => {
@@ -50,20 +63,20 @@ export const showDeleteAllVariablesModalDialog = async (
 
 			// The accept handler.
 			const acceptHandler = () => {
-				positronModalReactRenderer.dispose();
+				renderer.dispose();
 				resolve(result);
 			};
 
 			// The cancel handler.
 			const cancelHandler = () => {
-				positronModalReactRenderer.dispose();
+				renderer.dispose();
 				resolve(undefined);
 			};
 
 			// Render.
 			return (
 				<OKCancelModalDialog
-					renderer={positronModalReactRenderer}
+					renderer={renderer}
 					width={375}
 					height={175}
 					title={title}
@@ -82,6 +95,6 @@ export const showDeleteAllVariablesModalDialog = async (
 		};
 
 		// Render the modal dialog component.
-		positronModalReactRenderer.render(<ModalDialog />);
+		renderer.render(<ModalDialog />);
 	});
 };
