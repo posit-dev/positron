@@ -318,6 +318,11 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 	 * started or will be started, automatically start one.
 	 */
 	completeDiscovery(): void {
+		console.log('****************************');
+		console.log('****************************');
+		console.log('completeDiscovery!');
+		console.log('****************************');
+		console.log('****************************');
 		this._startupPhase.set(RuntimeStartupPhase.Complete, undefined);
 	}
 

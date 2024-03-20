@@ -8,6 +8,8 @@ import { ILanguageRuntimeMetadata, ILanguageRuntimeService } from 'vs/workbench/
 import { IRuntimeSessionService } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
 import { IRuntimeStartupService } from 'vs/workbench/services/runtimeStartup/common/runtimeStartupService';
 import { NewProjectWizardStep } from 'vs/workbench/browser/positronModalDialogs/newProjectWizard/steps/newProjectWizardStep';
+import { IWorkbenchLayoutService } from 'vs/workbench/services/layout/browser/layoutService';
+import { IKeybindingService } from 'vs/platform/keybinding/common/keybinding';
 
 /**
  * NewProjectWizardServices interface. Defines the set of services that are required by the New
@@ -18,6 +20,8 @@ export interface NewProjectWizardServices {
 	languageRuntimeService: ILanguageRuntimeService;
 	runtimeSessionService: IRuntimeSessionService;
 	runtimeStartupService: IRuntimeStartupService;
+	layoutService: IWorkbenchLayoutService;
+	keybindingService: IKeybindingService;
 }
 
 export interface NewProjectWizardStateProps {

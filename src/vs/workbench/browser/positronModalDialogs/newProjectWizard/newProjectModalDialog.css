@@ -1,3 +1,11 @@
 /*---------------------------------------------------------------------------------------------
  *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
+
+.combo-box {
+	color: var(--vscode-positronModalDialog-foreground);
+}
+
+.button {
+	color: var(--vscode-positronModalDialog-foreground);
+}

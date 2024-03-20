@@ -4,7 +4,7 @@
 
 import { NewProjectWizardStep } from 'vs/workbench/browser/positronModalDialogs/newProjectWizard/steps/newProjectWizardStep';
 import { ProjectNameLocationStep } from 'vs/workbench/browser/positronModalDialogs/newProjectWizard/steps/projectNameLocationStep';
-import { PythonEnvironmentStep } from 'vs/workbench/browser/positronModalDialogs/newProjectWizard/steps/projectPythonEnvironmentStep';
+import { PythonEnvironmentStep } from 'vs/workbench/browser/positronModalDialogs/newProjectWizard/steps/pythonEnvironmentStep';
 import { ProjectTypeStep } from 'vs/workbench/browser/positronModalDialogs/newProjectWizard/steps/projectTypeStep';
 
 /**

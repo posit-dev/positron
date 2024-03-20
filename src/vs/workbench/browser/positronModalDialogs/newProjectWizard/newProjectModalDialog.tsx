@@ -25,16 +25,14 @@ import { IKeybindingService } from 'vs/platform/keybinding/common/keybinding';
  * @returns A promise that resolves when the dialog is dismissed.
  */
 export const showNewProjectModalDialog = async (accessor: ServicesAccessor): Promise<NewProjectConfiguration | undefined> => {
-	// Get the services we need for the dialog.
-	const keybindingService = accessor.get(IKeybindingService);
-	const layoutService = accessor.get(IWorkbenchLayoutService);
-
-	// Get the services we need for the wizard context.
+	// Get the services needed for the dialog and wizard context.
 	const services = {
 		fileDialogService: accessor.get(IFileDialogService),
 		languageRuntimeService: accessor.get(ILanguageRuntimeService),
 		runtimeSessionService: accessor.get(IRuntimeSessionService),
-		runtimeStartupService: accessor.get(IRuntimeStartupService)
+		runtimeStartupService: accessor.get(IRuntimeStartupService),
+		layoutService: accessor.get(IWorkbenchLayoutService),
+		keybindingService: accessor.get(IKeybindingService),
 	};
 
 	// Get the default parent folder for the new project.
@@ -42,6 +40,9 @@ export const showNewProjectModalDialog = async (accessor: ServicesAccessor): Pro
 
 	// Return a promise that resolves when the dialog is done.
 	return new Promise<NewProjectConfiguration | undefined>((resolve) => {
+		const keybindingService = services.keybindingService;
+		const layoutService = services.layoutService;
+
 		// Create the modal React renderer.
 		const renderer =
 			new PositronModalReactRenderer({
