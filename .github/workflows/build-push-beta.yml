@@ -1,18 +1,14 @@
 name: "Positron: Push Beta Release"
 on:
-  push:
-    branches:
-      - "test/push-private-beta"
   workflow_dispatch:
     inputs:
       release_tag:
         description: "Release tag, e.g. '2024.03.0-1095'"
-        default: "2024.03.0-1095"
         required: true
         type: string
 
 env:
-  RELEASE_TAG: ${{vars.BETA_RELEASE_TAG}}
+  RELEASE_TAG: ${{ inputs.release_tag }}
 
 jobs:
   build:
@@ -37,7 +33,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           token: ${{ secrets.POSITRON_GITHUB_PAT }}
-          repository: posit-dev/positron-temp
+          repository: posit-dev/positron-beta
           tag_name: ${{ env.RELEASE_TAG }}
           prerelease: true
           fail_on_unmatched_files: true
