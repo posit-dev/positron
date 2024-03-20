@@ -13,6 +13,7 @@
 	height: 24px;
 	width: 24px;
 	border: none;
+	outline: none;
 	display: flex;
 	overflow: visible;
 	align-items: center;

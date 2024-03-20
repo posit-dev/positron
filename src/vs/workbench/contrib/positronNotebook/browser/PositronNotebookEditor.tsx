@@ -49,7 +49,7 @@ import {
 	IEditorGroupsService
 } from 'vs/workbench/services/editor/common/editorGroupsService';
 import { PositronNotebookEditorInput } from './PositronNotebookEditorInput';
-
+import { ILogService } from 'vs/platform/log/common/log';
 
 
 interface NotebookLayoutInfo {
@@ -67,7 +67,16 @@ const POSITRON_NOTEBOOK_EDITOR_VIEW_STATE_PREFERENCE_KEY =
 	'NotebookEditorViewState';
 
 
+
 export class PositronNotebookEditor extends EditorPane {
+	/**
+	 * Value to keep track of what instance of the editor this is.
+	 * Used for keeping track of the editor in the logs.
+	 */
+	static count = 0;
+
+	private _identifier = `Positron Notebook | Editor(${PositronNotebookEditor.count++}) |`;
+
 	_parentDiv: HTMLElement | undefined;
 
 	/**
@@ -83,6 +92,46 @@ export class PositronNotebookEditor extends EditorPane {
 	 * moved do a different position in the editor.
 	 */
 	private readonly _editorMemento: IEditorMemento<INotebookEditorViewState>;
+
+
+	private _scopedContextKeyService?: IContextKeyService;
+	private _scopedInstantiationService?: IInstantiationService;
+
+	constructor(
+		@IClipboardService readonly _clipboardService: IClipboardService,
+		@ITelemetryService telemetryService: ITelemetryService,
+		@IThemeService themeService: IThemeService,
+		@IEditorGroupsService
+		private readonly _editorGroupService: IEditorGroupsService,
+		@ITextResourceConfigurationService
+		configurationService: ITextResourceConfigurationService,
+		@IStorageService storageService: IStorageService,
+		@IConfigurationService private readonly _configurationService: IConfigurationService,
+		@IInstantiationService private readonly _instantiationService: IInstantiationService,
+		@ITextModelService private readonly _textModelResolverService: ITextModelService,
+		@IContextKeyService private readonly contextKeyService: IContextKeyService,
+		@ILogService private readonly _logService: ILogService,
+
+
+	) {
+		// Call the base class's constructor.
+		super(
+			PositronNotebookEditorInput.EditorID,
+			telemetryService,
+			themeService,
+			storageService
+		);
+
+		this._editorMemento = this.getEditorMemento<INotebookEditorViewState>(
+			this._editorGroupService,
+			configurationService,
+			POSITRON_NOTEBOOK_EDITOR_VIEW_STATE_PREFERENCE_KEY
+		);
+
+		this._logService.info('PositronNotebookEditor created.');
+
+	}
+
 
 	private _saveEditorViewState(input?: PositronNotebookEditorInput) {
 		// Save view state into momento
@@ -164,24 +213,21 @@ export class PositronNotebookEditor extends EditorPane {
 	}
 
 	protected override createEditor(parent: HTMLElement): void {
-		const myDiv = parent.ownerDocument.createElement('div');
-		myDiv.style.display = 'relative';
-		this._parentDiv = myDiv;
 
+		this._logService.info(this._identifier, 'createEditor');
+		this._parentDiv = DOM.$('.positron-notebook-container');
+		parent.appendChild(this._parentDiv);
+		this._parentDiv.style.display = 'relative';
 
 		// Create a new context service that has the output overlay container as the root element.
-		this._scopedContextKeyService = this.contextKeyService.createScoped(myDiv);
+		this._scopedContextKeyService = this.contextKeyService.createScoped(this._parentDiv);
 
 		// Make sure that all things instantiated have a scoped context key service injected.
 		this._scopedInstantiationService = this._instantiationService.createChild(
 			new ServiceCollection([IContextKeyService, this._scopedContextKeyService])
 		);
 
-		parent.appendChild(myDiv);
 	}
-
-
-
 
 	override layout(
 		dimension: DOM.Dimension,
@@ -202,6 +248,9 @@ export class PositronNotebookEditor extends EditorPane {
 		token: CancellationToken,
 		noRetry?: boolean
 	): Promise<void> {
+		this._logService.info(this._identifier, 'setInput');
+
+
 		this._input = input;
 		// Eventually this will probably need to be implemented like the vs notebooks
 		// which uses a notebookWidgetService to manage the instances. For now, we'll
@@ -254,16 +303,21 @@ export class PositronNotebookEditor extends EditorPane {
 
 		const viewModel = this.getViewModel(model.notebook);
 
-		input.notebookInstance.setViewModel(viewModel, viewState);
+		input.notebookInstance.attachView(viewModel, viewState);
 	}
 
 	override clearInput(): void {
+		this._logService.info(this._identifier, 'clearInput');
+
+
 		// Clear the input observable.
 		this._input = undefined;
 
 		if (this.notebookInstance) {
 			this._saveEditorViewState();
+			this.notebookInstance.detachView();
 		}
+		this._disposeReactRenderer();
 
 		// Call the base class's method.
 		super.clearInput();
@@ -279,6 +333,7 @@ export class PositronNotebookEditor extends EditorPane {
 	}
 
 	getViewModel(textModel: NotebookTextModel) {
+		this._logService.info(this._identifier, 'getViewModel');
 
 		const notebookInstance = this.getInput().notebookInstance;
 		if (!notebookInstance) {
@@ -307,8 +362,6 @@ export class PositronNotebookEditor extends EditorPane {
 			this.getLayoutInfo(),
 			{ isReadOnly: notebookInstance.isReadOnly }
 		);
-
-
 
 		// Emit an event into the view context for layout change so things can get initialized
 		// properly.
@@ -355,30 +408,19 @@ export class PositronNotebookEditor extends EditorPane {
 	private _positronReactRenderer?: PositronReactRenderer;
 
 	/**
-	 * Gets the PositronReactRenderer for the PositronNotebook component.
-	 * Will create it if it doesn't exist.
+	 * Disposes the PositronReactRenderer for the PositronNotebook component.
 	 */
-	get positronReactRenderer() {
-		if (this._positronReactRenderer) {
-			return this._positronReactRenderer;
-		}
-
-		if (!this._parentDiv) {
-			throw new Error('Base element is not set.');
-		}
-
-		this._positronReactRenderer = new PositronReactRenderer(this._parentDiv);
-
-		return this._positronReactRenderer;
-	}
-
-
 	private _disposeReactRenderer() {
-		this._positronReactRenderer?.dispose();
-		this._positronReactRenderer = undefined;
+		this._logService.info(this._identifier, 'disposeReactRenderer');
+
+		if (this._positronReactRenderer) {
+			this._positronReactRenderer.dispose();
+			this._positronReactRenderer = undefined;
+		}
 	}
 
 	private _renderReact() {
+		this._logService.info(this._identifier, 'renderReact');
 
 		const notebookInstance = (this.input as PositronNotebookEditorInput)?.notebookInstance;
 
@@ -389,18 +431,19 @@ export class PositronNotebookEditor extends EditorPane {
 		if (!this._parentDiv) {
 			throw new Error('Base element is not set.');
 		}
+
 		// Create a new context service that has the output overlay container as the root element.
 		const scopedContextKeyService = this.contextKeyService.createScoped(this._parentDiv);
 
+		const reactRenderer: PositronReactRenderer = this._positronReactRenderer ?? new PositronReactRenderer(this._parentDiv);
 
-		this.positronReactRenderer.render(
-
+		reactRenderer.render(
 			<NotebookInstanceProvider instance={notebookInstance}>
 				<ServicesProvider services={{
-					notebookWidget: notebookInstance,
 					configurationService: this._configurationService,
 					instantiationService: this._instantiationService,
 					textModelResolverService: this._textModelResolverService,
+					logService: this._logService,
 					sizeObservable: this._size,
 					scopedContextKeyProviderCallback: container => scopedContextKeyService.createScoped(container)
 				}}>
@@ -410,47 +453,13 @@ export class PositronNotebookEditor extends EditorPane {
 		);
 	}
 
-	private _scopedContextKeyService?: IContextKeyService;
-	private _scopedInstantiationService?: IInstantiationService;
-
-	constructor(
-		@IClipboardService readonly _clipboardService: IClipboardService,
-		@ITelemetryService telemetryService: ITelemetryService,
-		@IThemeService themeService: IThemeService,
-		@IEditorGroupsService
-		private readonly _editorGroupService: IEditorGroupsService,
-		@ITextResourceConfigurationService
-		configurationService: ITextResourceConfigurationService,
-		@IStorageService storageService: IStorageService,
-		@IConfigurationService private readonly _configurationService: IConfigurationService,
-		@IInstantiationService private readonly _instantiationService: IInstantiationService,
-		@ITextModelService private readonly _textModelResolverService: ITextModelService,
-		@IContextKeyService private readonly contextKeyService: IContextKeyService,
-
-	) {
-		// Call the base class's constructor.
-		super(
-			PositronNotebookEditorInput.EditorID,
-			telemetryService,
-			themeService,
-			storageService
-		);
-
-		this._editorMemento = this.getEditorMemento<INotebookEditorViewState>(
-			this._editorGroupService,
-			configurationService,
-			POSITRON_NOTEBOOK_EDITOR_VIEW_STATE_PREFERENCE_KEY
-		);
-
-
-	}
 
 	/**
 	 * dispose override method.
 	 */
 	public override dispose(): void {
-
-		this.notebookInstance?.detachModel();
+		this._logService.info(this._identifier, 'dispose');
+		this.notebookInstance?.detachView();
 
 		this._disposeReactRenderer();
 
