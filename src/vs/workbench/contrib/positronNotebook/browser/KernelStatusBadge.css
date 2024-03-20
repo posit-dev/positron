@@ -1,0 +1,27 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *--------------------------------------------------------------------------------------------*/
+
+.positron-notebook-kernel-status-badge {
+	padding: 0.25rem;
+
+	& > .kernel-status {
+		font-weight: bold;
+	}
+
+	& > .uninitialized {
+		color: grey;
+	}
+
+	& > .connected {
+		color: forestgreen;
+	}
+
+	& > .disconnected {
+		color: red;
+	}
+
+	& > .connecting {
+		color: orange;
+	}
+}
