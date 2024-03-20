@@ -22,6 +22,14 @@ interface RPackageInstallation {
 	packageVersion?: string;
 }
 
+// At the time of writing, we only use LANG, but we expect other aspects of the active R session's
+// locale to also be present here, such as LC_CTYPE or LC_TIME. These can vary by OS, so this
+// interface doesn't attempt to enumerate them.
+interface Locale {
+	LANG: string;
+	[key: string]: string;
+}
+
 /**
  * A Positron language runtime that wraps a Jupyter kernel and a Language Server
  * Protocol client.
@@ -311,6 +319,21 @@ export class RSession implements positron.LanguageRuntimeSession, vscode.Disposa
 	 */
 	showOutput() {
 		this._kernel?.showOutput();
+	}
+
+	/**
+	 * Get the LANG env var and all categories of the locale, in R's Sys.getlocale() sense, from
+	 * the R session.
+	 */
+	async getLocale(): Promise<Locale> {
+		try {
+			const locale: Locale = await this.callMethod('get_locale');
+			return locale;
+		} catch (err) {
+			const runtimeError = err as positron.RuntimeMethodError;
+			throw new Error(`Error getting locale information: ${runtimeError.message} ` +
+				`(${runtimeError.code})`);
+		}
 	}
 
 	/**
@@ -669,4 +692,12 @@ export async function checkInstalled(pkgName: string,
 		return session.checkInstalled(pkgName, pkgVersion);
 	}
 	throw new Error(`Cannot check install status of ${pkgName}; no R session available`);
+}
+
+export async function getLocale(session?: RSession): Promise<Locale> {
+	session = session || RSessionManager.instance.getConsoleSession();
+	if (session) {
+		return session.getLocale();
+	}
+	throw new Error(`Cannot get locale information; no R session available`);
 }
