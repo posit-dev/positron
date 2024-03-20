@@ -14,13 +14,13 @@ import { LabeledFolderInput } from 'vs/base/browser/ui/positronModalDialog/compo
 import { Checkbox } from 'vs/base/browser/ui/positronModalDialog/components/checkbox';
 import { NewProjectWizardStep } from 'vs/workbench/browser/positronModalDialogs/newProjectWizard/steps/newProjectWizardStep';
 import { NewProjectWizardStepProps } from 'vs/workbench/browser/positronModalDialogs/newProjectWizard/steps/newProjectWizardStepProps';
+import { NewProjectType } from 'vs/workbench/browser/positronModalDialogs/newProjectWizard/newProjectWizardState';
 
 export const ProjectNameLocationStep = (props: PropsWithChildren<NewProjectWizardStepProps>) => {
 	const newProjectWizardState = useNewProjectWizardContext();
 	const projectConfig = newProjectWizardState.projectConfig;
 	const setProjectConfig = newProjectWizardState.setProjectConfig;
 	const fileDialogs = newProjectWizardState.fileDialogService;
-	// const projectNameRef = useRef<HTMLInputElement>(projectConfig.projectName);
 
 	// The browse handler.
 	const browseHandler = async () => {
@@ -34,12 +34,16 @@ export const ProjectNameLocationStep = (props: PropsWithChildren<NewProjectWizar
 		// If the user made a selection, set the parent directory.
 		if (uri?.length) {
 			setProjectConfig({ ...projectConfig, parentFolder: uri[0].fsPath });
-			// projectNameRef.current.focus();
 		}
 	};
 
 	const next = () => {
-		props.next(NewProjectWizardStep.PythonEnvironment);
+		switch (projectConfig.projectType) {
+			case NewProjectType.RProject:
+			case NewProjectType.JupyterNotebook:
+			case NewProjectType.PythonProject:
+				props.next(NewProjectWizardStep.PythonEnvironment);
+		}
 	};
 
 	return (
@@ -54,7 +58,6 @@ export const ProjectNameLocationStep = (props: PropsWithChildren<NewProjectWizar
 			// description={'Enter a name for your new ' + newProjectResult.projectType}
 			>
 				<LabeledTextInput
-					// ref={projectNameRef}
 					label={`Enter a name for your new ${projectConfig.projectType}`}
 					autoFocus
 					value={projectConfig.projectName}

@@ -25,11 +25,15 @@ export interface NewProjectWizardStateProps {
 	readonly parentFolder: string;
 }
 
-export type NewProjectWizardProjectType = 'Python Project' | 'R Project' | 'Jupyter Notebook';
+export enum NewProjectType {
+	PythonProject = 'Python Project',
+	RProject = 'R Project',
+	JupyterNotebook = 'Jupyter Notebook'
+}
 
 export interface NewProjectConfiguration {
 	readonly selectedRuntime: ILanguageRuntimeMetadata;
-	readonly projectType: NewProjectWizardProjectType;
+	readonly projectType: NewProjectType | '';
 	readonly projectName: string;
 	readonly parentFolder: string;
 	readonly initGitRepo: boolean;
@@ -60,8 +64,8 @@ export const useNewProjectWizardState = (
 	// Hooks.
 	const [projectConfig, setProjectConfig] = useState<NewProjectConfiguration>({
 		selectedRuntime: props.services.languageRuntimeService.registeredRuntimes[0],
-		projectType: 'Python Project',
-		projectName: 'myPythonProject',
+		projectType: '',
+		projectName: '',
 		parentFolder: props.parentFolder ?? '',
 		initGitRepo: false,
 		openInNewWindow: true

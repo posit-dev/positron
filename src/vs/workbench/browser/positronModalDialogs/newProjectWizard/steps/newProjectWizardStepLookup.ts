@@ -5,7 +5,7 @@
 import { NewProjectWizardStep } from 'vs/workbench/browser/positronModalDialogs/newProjectWizard/steps/newProjectWizardStep';
 import { ProjectNameLocationStep } from 'vs/workbench/browser/positronModalDialogs/newProjectWizard/steps/projectNameLocationStep';
 import { PythonEnvironmentStep } from 'vs/workbench/browser/positronModalDialogs/newProjectWizard/steps/projectPythonEnvironmentStep';
-import { ProjectTypeSelectionStep } from 'vs/workbench/browser/positronModalDialogs/newProjectWizard/steps/projectTypeSelectionStep';
+import { ProjectTypeStep } from 'vs/workbench/browser/positronModalDialogs/newProjectWizard/steps/projectTypeStep';
 
 /**
  * The NewProjectWizardStepLookup object is like a map of NewProjectWizardStep to the
@@ -16,7 +16,7 @@ import { ProjectTypeSelectionStep } from 'vs/workbench/browser/positronModalDial
  */
 export const NewProjectWizardStepLookup = {
 	[NewProjectWizardStep.None]: () => null,
-	[NewProjectWizardStep.ProjectTypeSelection]: ProjectTypeSelectionStep,
+	[NewProjectWizardStep.ProjectTypeSelection]: ProjectTypeStep,
 	[NewProjectWizardStep.ProjectNameLocation]: ProjectNameLocationStep,
 	[NewProjectWizardStep.PythonEnvironment]: PythonEnvironmentStep,
 };
