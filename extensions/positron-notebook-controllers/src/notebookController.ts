@@ -70,12 +70,36 @@ export class NotebookController implements vscode.Disposable {
 				// Note that this is also reached when a notebook is opened, if this controller was
 				// already selected.
 
-				// Configure the notebook's cells to use the controller's language.
-				for (const cell of e.notebook.getCells()) {
-					if (cell.kind === vscode.NotebookCellKind.Code) {
-						vscode.languages.setTextDocumentLanguage(cell.document, this.languageId);
+				/** Set the language for a notebook.  */
+				const setNotebookLanguage = async (notebook: vscode.NotebookDocument, languageId: string): Promise<void> => {
+					// Set the language in the notebook's metadata.
+					if (notebook.metadata?.custom?.metadata?.language_info?.name !== this.languageId) {
+						const edit = new vscode.WorkspaceEdit();
+						edit.set(notebook.uri, [
+							vscode.NotebookEdit.updateNotebookMetadata({
+								...e.notebook.metadata,
+								custom: {
+									...e.notebook.metadata.custom ?? {},
+									metadata: {
+										...(e.notebook.metadata.custom?.metadata ?? {}),
+										language_info: {
+											name: this.languageId
+										}
+									}
+								}
+							})]);
+						await vscode.workspace.applyEdit(edit);
 					}
-				}
+
+					// Set the language in each of the notebook's cells.
+					await Promise.all(notebook.getCells()
+						.filter(cell => cell.kind === vscode.NotebookCellKind.Code && cell.document.languageId !== languageId)
+						.map(cell => vscode.languages.setTextDocumentLanguage(cell.document, languageId))
+					);
+				};
+
+				// Start updating the notebook's language info as soon as possible, but only await it at the end.
+				const setNotebookLanguagePromise = setNotebookLanguage(e.notebook, this.languageId);
 
 				// Set the notebook's deferred runtime data. This needs to be set before any awaits.
 				// When a user executes code without a controller selected, they will be presented
@@ -96,13 +120,14 @@ export class NotebookController implements vscode.Disposable {
 						e.notebook.uri);
 
 					const notebookRuntime = new NotebookRuntimeData(session);
+					deferredRuntimeData.resolve(notebookRuntime);
 
 					trace(`Started runtime ${preferredRuntime.runtimeName} for notebook ${e.notebook.uri.path}`);
-
-					deferredRuntimeData.resolve(notebookRuntime);
 				} catch (error) {
 					deferredRuntimeData.reject(error);
 				}
+
+				await setNotebookLanguagePromise;
 			}
 		}));
 	}
