@@ -7,7 +7,7 @@ import * as path from 'path';
 import { spawn } from 'child_process';
 import * as split2 from 'split2';
 import { LOGGER } from '../extension';
-import { checkInstalled } from '../session';
+import { checkInstalled, getLocale } from '../session';
 import { EXTENSION_ROOT_DIR } from '../constants';
 import { ItemType, TestingTools, encodeNodeId } from './util-testing';
 import { TestResult } from './reporter';
@@ -97,24 +97,20 @@ export async function runThatTest(
 
 	const wd = testingTools.packageRoot.fsPath;
 	LOGGER.info(`Running devtools call in working directory ${wd}`);
+	const locale = await getLocale();
+	LOGGER.info(`Locale info from active R session: ${JSON.stringify(locale, null, 2)}`);
 	let hostFile = '';
 	// TODO @jennybc: if this code stays, figure this out
 	// eslint-disable-next-line no-async-promise-executor
 	return new Promise<string>(async (resolve, reject) => {
-		// FIXME (@jennybc): once I can ask the current runtime for its LC_CTYPE (and possibly
-		// other locale categories or even LANG), use something like this to make the child
-		// process better match the runtime. Learned this from reprex's UTF-8 test which currently
-		// fails in the test explorer because the reprex is being rendered in the C locale.
-		// Also affects the tests for glue.
-		// const childProcess = spawn(command, {
-		// 	cwd: wd,
-		// 	shell: true,
-		// 	env: {
-		// 		...process.env,
-		// 		LC_CTYPE: 'en_US.UTF-8'
-		// 	}
-		// });
-		const childProcess = spawn(command, { cwd: wd, shell: true });
+		const childProcess = spawn(command, {
+			cwd: wd,
+			shell: true,
+			env: {
+				...process.env,
+				LANG: locale['LANG']
+			}
+		});
 		let stdout = '';
 		const testStartDates = new WeakMap<vscode.TestItem, number>();
 		childProcess.stdout!
