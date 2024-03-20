@@ -538,11 +538,6 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 	private _runtimeState: RuntimeState = RuntimeState.Uninitialized;
 
 	/**
-	 * Whether or not we are currently attached to the runtime.
-	 */
-	runtimeAttached = false;
-
-	/**
 	 * Gets or sets the state.
 	 */
 	private _state = PositronConsoleState.Uninitialized;
@@ -586,6 +581,11 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 	 * Gets or sets a value which indicates whether a prompt is active.
 	 */
 	private _promptActive = false;
+
+	/**
+	 * Gets or sets a value which indicates whether a runtime is attached.
+	 */
+	private _runtimeAttached = false;
 
 	/**
 	 * The _onFocusInput event emitter.
@@ -798,6 +798,13 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 	 */
 	get promptActive(): boolean {
 		return this._promptActive;
+	}
+
+	/**
+	 * Gets a value which indicates whether a runtime is attached.
+	 */
+	get runtimeAttached(): boolean {
+		return this._runtimeAttached;
 	}
 
 	/**
@@ -1248,7 +1255,7 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 	 */
 	private attachRuntime(attachMode: SessionAttachMode) {
 		// Mark the runtime as attached.
-		this.runtimeAttached = true;
+		this._runtimeAttached = true;
 
 		// If trace is enabled, add a trace runtime item.
 		if (this._trace) {
@@ -1739,7 +1746,7 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 
 		if (this.runtimeAttached) {
 			// We are currently attached; detach.
-			this.runtimeAttached = false;
+			this._runtimeAttached = false;
 			this._onDidAttachRuntime.fire(undefined);
 
 			// Clear the executing state of all ActivityItemInputs inputs. When a runtime exits, it
