@@ -90,6 +90,7 @@ export interface MainThreadMethodsShape { }
 
 export interface ExtHostMethodsShape {
 	lastActiveEditorContext(): Promise<IEditorContext | null>;
+	workspaceFolder(): Promise<string | null>;
 	showDialog(title: string, message: string): Promise<null>;
 	showQuestion(title: string, message: string, okButtonTitle: string, cancelButtonTitle: string): Promise<boolean>;
 }

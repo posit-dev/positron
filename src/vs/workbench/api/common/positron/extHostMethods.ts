@@ -5,6 +5,7 @@
 import * as extHostProtocol from './extHost.positron.protocol';
 import { ExtHostEditors } from '../extHostTextEditors';
 import { ExtHostModalDialogs } from '../positron/extHostModalDialogs';
+import { ExtHostWorkspace } from '../extHostWorkspace';
 import { UiFrontendRequest, EditorContext } from 'vs/workbench/services/languageRuntime/common/positronUiComm';
 import { JsonRpcErrorCode } from 'vs/workbench/services/languageRuntime/common/positronBaseComm';
 import { EndOfLine } from '../extHostTypeConverters';
@@ -33,7 +34,8 @@ export class ExtHostMethods implements extHostProtocol.ExtHostMethodsShape {
 	constructor(
 		_mainContext: extHostProtocol.IMainPositronContext,
 		private readonly editors: ExtHostEditors,
-		private readonly dialogs: ExtHostModalDialogs
+		private readonly dialogs: ExtHostModalDialogs,
+		private readonly workspace: ExtHostWorkspace
 	) {
 	}
 
@@ -60,6 +62,13 @@ export class ExtHostMethods implements extHostProtocol.ExtHostMethodsShape {
 						return newInvalidParamsError(method);
 					}
 					result = await this.lastActiveEditorContext();
+					break;
+				}
+				case UiFrontendRequest.WorkspaceFolder: {
+					if (params && Object.keys(params).length > 0) {
+						return newInvalidParamsError(method);
+					}
+					result = await this.workspaceFolder();
 					break;
 				}
 				case UiFrontendRequest.ShowQuestion: {
@@ -168,6 +177,14 @@ export class ExtHostMethods implements extHostProtocol.ExtHostMethodsShape {
 			selection: selections[0],
 			selections: selections
 		};
+	}
+
+	async workspaceFolder(): Promise<string | null> {
+		const folders = this.workspace.getWorkspaceFolders();
+		if (folders && folders.length > 0) {
+			return folders[0].uri.fsPath;
+		}
+		return null;
 	}
 
 	async showDialog(title: string, message: string): Promise<null> {

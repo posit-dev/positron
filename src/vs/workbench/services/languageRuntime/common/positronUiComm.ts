@@ -285,6 +285,15 @@ export interface DebugSleepRequest {
 }
 
 /**
+ * Request: Path to the workspace folder
+ *
+ * Returns the path to the workspace folder, or first folder if there are
+ * multiple.
+ */
+export interface WorkspaceFolderRequest {
+}
+
+/**
  * Request: Context metadata for the last editor
  *
  * Returns metadata such as file path for the last editor selected by the
@@ -307,6 +316,7 @@ export enum UiFrontendRequest {
 	ShowQuestion = 'show_question',
 	ShowDialog = 'show_dialog',
 	DebugSleep = 'debug_sleep',
+	WorkspaceFolder = 'workspace_folder',
 	LastActiveEditorContext = 'last_active_editor_context'
 }
 
