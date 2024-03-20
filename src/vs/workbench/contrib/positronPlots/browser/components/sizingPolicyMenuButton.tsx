@@ -2,21 +2,26 @@
  *  Copyright (C) 2023 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
+// React.
 import * as React from 'react';
+
+// Other dependencies
 import * as nls from 'vs/nls';
-import { IAction, Separator } from 'vs/base/common/actions';
-import { ActionBarMenuButton } from 'vs/platform/positronActionBar/browser/components/actionBarMenuButton';
 import { DisposableStore } from 'vs/base/common/lifecycle';
-import { IPositronPlotsService } from 'vs/workbench/services/positronPlots/common/positronPlots';
-import { showSetPlotSizeModalDialog } from 'vs/workbench/contrib/positronPlots/browser/modalDialogs/setPlotSizeModalDialog';
+import { IAction, Separator } from 'vs/base/common/actions';
+import { IKeybindingService } from 'vs/platform/keybinding/common/keybinding';
+import { INotificationService } from 'vs/platform/notification/common/notification';
 import { IWorkbenchLayoutService } from 'vs/workbench/services/layout/browser/layoutService';
 import { PlotSizingPolicyCustom } from 'vs/workbench/services/positronPlots/common/sizingPolicyCustom';
-import { INotificationService } from 'vs/platform/notification/common/notification';
+import { IPositronPlotsService } from 'vs/workbench/services/positronPlots/common/positronPlots';
+import { ActionBarMenuButton } from 'vs/platform/positronActionBar/browser/components/actionBarMenuButton';
+import { showSetPlotSizeModalDialog } from 'vs/workbench/contrib/positronPlots/browser/modalDialogs/setPlotSizeModalDialog';
 
 interface SizingPolicyMenuButtonProps {
-	readonly plotsService: IPositronPlotsService;
+	readonly keybindingService: IKeybindingService;
 	readonly layoutService: IWorkbenchLayoutService;
 	readonly notificationService: INotificationService;
+	readonly plotsService: IPositronPlotsService;
 }
 
 const sizingPolicyTooltip = nls.localize('positronSizingPolicyTooltip', "Set how the plot's shape and size are determined");
@@ -40,7 +45,7 @@ export const SizingPolicyMenuButton = (props: SizingPolicyMenuButtonProps) => {
 			setActivePolicyLabel(policy.name);
 		}));
 		return () => disposables.dispose();
-	}, [props.plotsService.selectedSizingPolicy]);
+	}, [props.plotsService, props.plotsService.selectedSizingPolicy]);
 
 	// Builds the actions.
 	const actions = () => {
@@ -89,8 +94,11 @@ export const SizingPolicyMenuButton = (props: SizingPolicyMenuButtonProps) => {
 			class: undefined,
 			enabled: true,
 			run: async () => {
-				const result = await showSetPlotSizeModalDialog(customPolicy ?
-					customPolicy.size : undefined, props.layoutService);
+				const result = await showSetPlotSizeModalDialog(
+					props.keybindingService,
+					props.layoutService,
+					customPolicy ? customPolicy.size : undefined
+				);
 				if (result === null) {
 					// The user clicked the delete button; this results in a special `null` value
 					// that signals that the custom policy should be deleted.

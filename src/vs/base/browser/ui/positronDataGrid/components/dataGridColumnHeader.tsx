@@ -12,15 +12,15 @@ import { MouseEvent, useRef } from 'react'; // eslint-disable-line no-duplicate-
 // Other dependencies.
 import { localize } from 'vs/nls';
 import { positronClassNames } from 'vs/base/common/positronUtilities';
+import { IDataColumn } from 'vs/base/browser/ui/positronDataGrid/interfaces/dataColumn';
+import { Button, MouseTrigger } from 'vs/base/browser/ui/positronComponents/button/button';
+import { selectionType } from 'vs/base/browser/ui/positronDataGrid/utilities/mouseUtilities';
 import { showContextMenu } from 'vs/base/browser/ui/positronComponents/contextMenu/contextMenu';
 import { ContextMenuItem } from 'vs/base/browser/ui/positronComponents/contextMenu/contextMenuItem';
-import { IDataColumn } from 'vs/base/browser/ui/positronDataGrid/interfaces/dataColumn';
 import { VerticalSplitter } from 'vs/base/browser/ui/positronComponents/splitters/verticalSplitter';
-import { ContextMenuSeparator } from 'vs/base/browser/ui/positronComponents/contextMenu/contextMenuSeparator';
-import { selectionType } from 'vs/base/browser/ui/positronDataGrid/utilities/mouseUtilities';
 import { ColumnSelectionState } from 'vs/base/browser/ui/positronDataGrid/classes/dataGridInstance';
 import { usePositronDataGridContext } from 'vs/base/browser/ui/positronDataGrid/positronDataGridContext';
-import { Button, MouseTrigger } from 'vs/base/browser/ui/positronComponents/button/button';
+import { ContextMenuSeparator } from 'vs/base/browser/ui/positronComponents/contextMenu/contextMenuSeparator';
 
 /**
  * Localized strings.
@@ -74,12 +74,13 @@ export const DataGridColumnHeader = (props: DataGridColumnHeaderProps) => {
 		const columnSortKey = context.instance.columnSortKey(props.columnIndex);
 
 		// Show the context menu.
-		await showContextMenu({
-			layoutService: context.layoutService,
-			anchorElement: sortingButtonRef.current,
-			alignment: 'right',
-			width: 200,
-			entries: [
+		await showContextMenu(
+			context.keybindingService,
+			context.layoutService,
+			sortingButtonRef.current,
+			'right',
+			200,
+			[
 				new ContextMenuItem({
 					checked: columnSortKey !== undefined && columnSortKey.ascending,
 					label: sortAscendingTitle,
@@ -116,7 +117,7 @@ export const DataGridColumnHeader = (props: DataGridColumnHeaderProps) => {
 					onSelected: () => console.log('Copy')
 				}),
 			]
-		});
+		);
 	};
 
 	// Get the column sort key.

@@ -78,14 +78,17 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 			// Clear the find timeout.
 			return () => clearTimeout(filterTimeout);
 		}
-	}, [filterText]);
+	}, [filterText, positronVariablesContext.activePositronVariablesInstance]);
 
 	/**
 	 * Delete all objects event handler.
 	 */
 	const deleteAllObjectsHandler = async () => {
 		// Show the delete all objects modal dialog. If the user confirmed the operation, do it.
-		const result = await showDeleteAllVariablesModalDialog(props.layoutService);
+		const result = await showDeleteAllVariablesModalDialog(
+			props.keybindingService,
+			props.layoutService
+		);
 		if (result) {
 			positronVariablesContext.activePositronVariablesInstance?.requestClear(
 				result.includeHiddenObjects

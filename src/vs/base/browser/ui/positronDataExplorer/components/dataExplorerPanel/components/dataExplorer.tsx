@@ -2,7 +2,7 @@
  *  Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
-// CSS>
+// CSS.
 import 'vs/css!./dataExplorer';
 
 // React.
@@ -52,7 +52,7 @@ export const DataExplorer = () => {
 
 		// Return the cleanup function that will dispose of the event handlers.
 		return () => disposableStore.dispose();
-	}, []);
+	}, [context.instance]);
 
 	// Automatic layout useEffect.
 	useEffect(() => {
@@ -75,7 +75,7 @@ export const DataExplorer = () => {
 
 		// Return the cleanup function that will disconnect the resize observer.
 		return () => resizeObserver.disconnect();
-	}, [dataExplorerRef]);
+	}, [context.instance.columnsWidthPercent, dataExplorerRef]);
 
 	// Layout useEffect.
 	useEffect(() => {
@@ -151,6 +151,7 @@ export const DataExplorer = () => {
 		<div ref={dataExplorerRef} className='data-explorer'>
 			<div ref={column1Ref} className='column-1'>
 				<PositronDataGrid
+					keybindingService={context.keybindingService}
 					layoutService={context.layoutService}
 					instance={context.instance.tableSchemaDataGridInstance}
 				/>
@@ -164,6 +165,7 @@ export const DataExplorer = () => {
 			</div>
 			<div ref={column2Ref} className='column-2'>
 				<PositronDataGrid
+					keybindingService={context.keybindingService}
 					layoutService={context.layoutService}
 					instance={context.instance.tableDataDataGridInstance}
 				/>
