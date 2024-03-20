@@ -28,7 +28,7 @@ import { decode } from 'he';
  */
 
 // Regular expression matching HTML tag attributes
-const attrRE = /\s([^'"/\s><]+?)[\s/>]|([^\s=]+)=\s?(".*?"|'.*?')/g;
+const attrRE = /\s([^'"\/\s=><]+?)[\s\/>]|([^\s=]+)=\s?(".*?"|'.*?'|[^>\s]+)/g;
 
 /** Interface for a parsed HTML node. */
 export interface HtmlNode {
@@ -179,7 +179,14 @@ function parseTag(tag: string, parent?: HtmlNode): HtmlNode {
 				attrName = 'readOnly';
 			}
 
-			let attrValue: any = result[3].trim().substring(1, result[3].length - 1);
+			let attrValue: any = result[3].trim();
+
+			// If the attribute is surrounded in quotes, trim them off
+			const quoteChars = [`"`, `'`];
+			const attrIsQuoted = quoteChars.includes(attrValue.charAt(0)) && quoteChars.includes(attrValue.charAt(attrValue.length - 1));
+			if (attrIsQuoted) {
+				attrValue = attrValue.substring(1, attrValue.length - 1);
+			}
 
 			if (attrName.toLowerCase() === 'style') {
 				// Parse the style attribute into a JavaScript object
