@@ -1,10 +1,11 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
 import { IRuntimeClientInstance, RuntimeClientState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeClientInstance';
 import { Event, Emitter } from 'vs/base/common/event';
 import { Disposable } from 'vs/base/common/lifecycle';
+import { ObservableValue } from 'vs/base/common/observableInternal/base';
 
 /**
  * An enum representing the set of JSON-RPC error codes.
@@ -76,6 +77,11 @@ export class PositronBaseComm extends Disposable {
 	private _closeEmitter = new Emitter<void>();
 
 	/**
+	 * The current state of the client instance
+	 */
+	public readonly clientState: ObservableValue<RuntimeClientState>;
+
+	/**
 	 * Create a new Positron com
 	 *
 	 * @param clientInstance The client instance to use for communication with the backend.
@@ -137,6 +143,9 @@ export class PositronBaseComm extends Disposable {
 		}));
 
 		this.onDidClose = this._closeEmitter.event;
+
+		// Forward the client state from the client instance
+		this.clientState = clientInstance.clientState;
 	}
 
 	/**

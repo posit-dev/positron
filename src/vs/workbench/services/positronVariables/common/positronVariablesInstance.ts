@@ -12,11 +12,12 @@ import { RuntimeState } from 'vs/workbench/services/languageRuntime/common/langu
 import { ILanguageRuntimeSession, RuntimeClientType } from '../../runtimeSession/common/runtimeSessionService';
 import { sortVariableItemsByName, sortVariableItemsBySize } from 'vs/workbench/services/positronVariables/common/helpers/utils';
 import { PositronVariablesList, PositronVariablesUpdate, VariablesClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimeVariablesClient';
-import { VariableEntry, IPositronVariablesInstance, PositronVariablesGrouping, PositronVariablesSorting, PositronVariablesInstanceState } from 'vs/workbench/services/positronVariables/common/interfaces/positronVariablesInstance';
+import { VariableEntry, IPositronVariablesInstance, PositronVariablesGrouping, PositronVariablesSorting } from 'vs/workbench/services/positronVariables/common/interfaces/positronVariablesInstance';
 import { VariableKind } from 'vs/workbench/services/languageRuntime/common/positronVariablesComm';
 import { INotificationService } from 'vs/platform/notification/common/notification';
 import { PositronCommError } from 'vs/workbench/services/languageRuntime/common/positronBaseComm';
 import { localize } from 'vs/nls';
+import { RuntimeClientState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeClientInstance';
 
 /**
  * Constants.
@@ -46,11 +47,6 @@ export class PositronVariablesInstance extends Disposable implements IPositronVa
 	 * runtime is detached.
 	 */
 	private _runtimeDisposableStore = new DisposableStore();
-
-	/**
-	 * Gets or sets the state.
-	 */
-	private _state = PositronVariablesInstanceState.Uninitialized;
 
 	/**
 	 * Gets or sets the variable items map.
@@ -95,15 +91,16 @@ export class PositronVariablesInstance extends Disposable implements IPositronVa
 	private _variablesClient?: VariablesClientInstance;
 
 	/**
-	 * The onDidChangeState event emitter.
-	 */
-	private readonly _onDidChangeStateEmitter =
-		this._register(new Emitter<PositronVariablesInstanceState>);
-
-	/**
 	 * The onDidChangeEntries event emitter.
 	 */
 	private readonly _onDidChangeEntriesEmitter = this._register(new Emitter<VariableEntry[]>);
+
+	/**
+	 * The onDidChangeState event emitter; tracks state changes to the
+	 * underlying comm. We have a separate event emitter so we can attach to the
+	 * event before the emitter for the underlying comm has been set up.
+	 */
+	private readonly _onDidChangeStateEmitter = this._register(new Emitter<RuntimeClientState>());
 
 	//#endregion Private Properties
 
@@ -152,10 +149,11 @@ export class PositronVariablesInstance extends Disposable implements IPositronVa
 	}
 
 	/**
-	 * Gets the state.
+	 * Gets the current state of the underlying comm.
 	 */
-	get state(): PositronVariablesInstanceState {
-		return this._state;
+	get state(): RuntimeClientState {
+		return this._variablesClient ?
+			this._variablesClient.clientState.get() : RuntimeClientState.Uninitialized;
 	}
 
 	/**
@@ -202,15 +200,14 @@ export class PositronVariablesInstance extends Disposable implements IPositronVa
 	}
 
 	/**
-	 * onDidChangeState event.
-	 */
-	readonly onDidChangeState: Event<PositronVariablesInstanceState> =
-		this._onDidChangeStateEmitter.event;
-
-	/**
 	 * onDidChangeEntries event.
 	 */
 	readonly onDidChangeEntries: Event<VariableEntry[]> = this._onDidChangeEntriesEmitter.event;
+
+	/**
+	 * onDidChangeState event.
+	 */
+	readonly onDidChangeState: Event<RuntimeClientState> = this._onDidChangeStateEmitter.event;
 
 	/**
 	 * Requests refresh.
@@ -378,22 +375,12 @@ export class PositronVariablesInstance extends Disposable implements IPositronVa
 	 *
 	 * @param session The runtime session.
 	 */
-	setRuntime(session: ILanguageRuntimeSession) {
+	setRuntimeSession(session: ILanguageRuntimeSession) {
 		// Set the runtime.
 		this._session = session;
 
 		// Attach the runtime.
 		this.attachRuntime();
-	}
-
-	/**
-	 * Sets the state.
-	 * @param state The new state.
-	 */
-	setState(state: PositronVariablesInstanceState) {
-		// Set the new state and raise the onDidChangeState event.
-		this._state = state;
-		this._onDidChangeStateEmitter.fire(this._state);
 	}
 
 	//#endregion Public Methods
@@ -404,9 +391,6 @@ export class PositronVariablesInstance extends Disposable implements IPositronVa
 	 * Attaches to a runtime.
 	 */
 	private async attachRuntime() {
-		// Set the initial state.
-		this.setState(PositronVariablesInstanceState.Starting);
-
 		// Add the onDidChangeRuntimeState event handler.
 		this._runtimeDisposableStore.add(
 			this._session.onDidChangeRuntimeState(async runtimeState => {
@@ -431,7 +415,11 @@ export class PositronVariablesInstance extends Disposable implements IPositronVa
 	 * Detaches from a runtime.
 	 */
 	private detachRuntime() {
+		// Clear out our reference to the runtime client.
 		this._variablesClient = undefined;
+
+		// Remove all disposables associated with the attached runtime. This has
+		// the side effect of disposing the client.
 		this._runtimeDisposableStore.dispose();
 		this._runtimeDisposableStore = new DisposableStore();
 	}
@@ -460,6 +448,20 @@ export class PositronVariablesInstance extends Disposable implements IPositronVa
 					await this.processUpdate(environmentClientMessageUpdate)
 				)
 			);
+
+			// Create an event handler for the client state.
+			const event = Event.fromObservable(
+				this._variablesClient.clientState, this._runtimeDisposableStore);
+			event(state => {
+				// Clear all expanded paths if the client is closed.
+				if (state === RuntimeClientState.Closed) {
+					this._expandedPaths.clear();
+				}
+
+				// Fire the onDidChangeState event.
+				this._onDidChangeStateEmitter.fire(state);
+			});
+
 
 			// Add the runtime client to the runtime disposable store.
 			this._runtimeDisposableStore.add(this._variablesClient);
