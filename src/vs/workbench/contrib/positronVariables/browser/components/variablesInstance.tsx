@@ -19,7 +19,6 @@ import { VariableOverflow } from 'vs/workbench/contrib/positronVariables/browser
 import { usePositronVariablesContext } from 'vs/workbench/contrib/positronVariables/browser/positronVariablesContext';
 import { VariableEntry, IPositronVariablesInstance, isVariableGroup, isVariableItem, isVariableOverflow } from 'vs/workbench/services/positronVariables/common/interfaces/positronVariablesInstance';
 import { RuntimeClientState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeClientInstance';
-import { DisabledVariableItem } from 'vs/workbench/contrib/positronVariables/browser/components/disabledVariableItem';
 
 /**
  * Constants.
@@ -420,24 +419,11 @@ export const VariablesInstance = (props: VariablesInstanceProps) => {
 					positronVariablesInstance={props.positronVariablesInstance}
 				/>
 			);
-		} else if (isVariableItem(entry) && clientState === RuntimeClientState.Closed) {
-			return (
-				<DisabledVariableItem
-					key={entry.id}
-					nameColumnWidth={nameColumnWidth}
-					detailsColumnWidth={detailsColumnWidth}
-					rightColumnVisible={rightColumnVisible}
-					variableItem={entry}
-					style={style}
-					onBeginResizeNameColumn={beginResizeNameColumnHandler}
-					onResizeNameColumn={resizeNameColumnHandler}
-					positronVariablesInstance={props.positronVariablesInstance}
-				/>
-			);
 		} else if (isVariableItem(entry)) {
 			return (
 				<VariableItem
 					key={entry.id}
+					disabled={clientState === RuntimeClientState.Closed}
 					nameColumnWidth={nameColumnWidth}
 					detailsColumnWidth={detailsColumnWidth}
 					rightColumnVisible={rightColumnVisible}
