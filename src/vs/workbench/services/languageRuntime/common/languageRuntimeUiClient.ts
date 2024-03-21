@@ -5,7 +5,7 @@
 import { Disposable } from 'vs/base/common/lifecycle';
 import { Event } from 'vs/base/common/event';
 import { IRuntimeClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimeClientInstance';
-import { BusyEvent, ClearConsoleEvent, UiFrontendEvent, OpenEditorEvent, PositronUiComm, PromptStateEvent, ShowMessageEvent, WorkingDirectoryEvent, ExecuteCommandEvent } from './positronUiComm';
+import { BusyEvent, ClearConsoleEvent, UiFrontendEvent, OpenEditorEvent, OpenWorkspaceEvent, PositronUiComm, PromptStateEvent, ShowMessageEvent, WorkingDirectoryEvent, ExecuteCommandEvent } from './positronUiComm';
 
 
 /**
@@ -64,6 +64,7 @@ export class UiClientInstance extends Disposable {
 	onDidBusy: Event<BusyEvent>;
 	onDidClearConsole: Event<ClearConsoleEvent>;
 	onDidOpenEditor: Event<OpenEditorEvent>;
+	onDidOpenWorkspace: Event<OpenWorkspaceEvent>;
 	onDidShowMessage: Event<ShowMessageEvent>;
 	onDidPromptState: Event<PromptStateEvent>;
 	onDidWorkingDirectory: Event<WorkingDirectoryEvent>;
@@ -85,6 +86,7 @@ export class UiClientInstance extends Disposable {
 		this.onDidBusy = this._comm.onDidBusy;
 		this.onDidClearConsole = this._comm.onDidClearConsole;
 		this.onDidOpenEditor = this._comm.onDidOpenEditor;
+		this.onDidOpenWorkspace = this._comm.onDidOpenWorkspace;
 		this.onDidShowMessage = this._comm.onDidShowMessage;
 		this.onDidPromptState = this._comm.onDidPromptState;
 		this.onDidWorkingDirectory = this._comm.onDidWorkingDirectory;
