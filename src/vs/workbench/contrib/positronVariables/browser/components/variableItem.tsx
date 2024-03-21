@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2022 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2022-2024 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
 import 'vs/css!./variableItem';
@@ -22,7 +22,7 @@ import { POSITRON_VARIABLES_COLLAPSE, POSITRON_VARIABLES_COPY_AS_HTML, POSITRON_
  * @param size The size to format.
  * @returns The formatted size.
  */
-const formatSize = (size: number) => {
+export const formatSize = (size: number) => {
 	// Sizes.
 	const KB = 1024;
 	const MB = KB * KB;
@@ -72,6 +72,7 @@ export interface VariableItemProps {
 	variableItem: IVariableItem;
 	selected: boolean;
 	focused: boolean;
+	disabled: boolean;
 	style: CSSProperties;
 	onSelected: () => void;
 	onDeselected: () => void;
@@ -97,6 +98,11 @@ export const VariableItem = (props: VariableItemProps) => {
 	 * @param e A MouseEvent<HTMLElement> that describes a user interaction with the mouse.
 	 */
 	const doubleClickHandler = (e: MouseEvent<HTMLElement>) => {
+		// Ignore if disabled.
+		if (props.disabled) {
+			return;
+		}
+
 		// Consume the event.
 		e.preventDefault();
 		e.stopPropagation();
@@ -112,6 +118,11 @@ export const VariableItem = (props: VariableItemProps) => {
 	 * @param e A MouseEvent<HTMLElement> that describes a user interaction with the mouse.
 	 */
 	const mouseDownHandler = (e: MouseEvent<HTMLElement>) => {
+		// Ignore if disabled.
+		if (props.disabled) {
+			return;
+		}
+
 		// Consume the event.
 		e.preventDefault();
 		e.stopPropagation();
@@ -143,6 +154,11 @@ export const VariableItem = (props: VariableItemProps) => {
 	 * @param e A MouseEvent<HTMLElement> that describes a user interaction with the mouse.
 	 */
 	const chevronMouseDownHandler = (e: MouseEvent<HTMLElement>) => {
+		// Ignore if disabled.
+		if (props.disabled) {
+			return;
+		}
+
 		// Process the event if the variable item has children.
 		if (props.variableItem.hasChildren) {
 			// Consume the event.
@@ -156,6 +172,11 @@ export const VariableItem = (props: VariableItemProps) => {
 	 * @param e A MouseEvent<HTMLElement> that describes a user interaction with the mouse.
 	 */
 	const chevronMouseUpHandler = (e: MouseEvent<HTMLElement>) => {
+		// Ignore if disabled.
+		if (props.disabled) {
+			return;
+		}
+
 		// Process the event if the variable item has children.
 		if (props.variableItem.hasChildren) {
 			// Consume the event.
@@ -172,6 +193,11 @@ export const VariableItem = (props: VariableItemProps) => {
 	 * @param e A MouseEvent<HTMLElement> that describes a user interaction with the mouse.
 	 */
 	const viewerMouseDownHandler = (e: MouseEvent<HTMLElement>) => {
+		// Ignore if disabled.
+		if (props.disabled) {
+			return;
+		}
+
 		// Consume the event.
 		e.preventDefault();
 		e.stopPropagation();
@@ -190,7 +216,7 @@ export const VariableItem = (props: VariableItemProps) => {
 		const actions: IAction[] = [];
 
 		// If this is a table, add an action to view it.
-		if (props.variableItem.hasViewer) {
+		if (!props.disabled && props.variableItem.hasViewer) {
 			actions.push({
 				id: POSITRON_VARIABLES_VIEW,
 				label: localize('positron.variables.view', "View"),
@@ -202,7 +228,7 @@ export const VariableItem = (props: VariableItemProps) => {
 		}
 
 		// If the variable item has children, add the toggle expand / collapse action.
-		if (props.variableItem.hasChildren) {
+		if (!props.disabled && props.variableItem.hasChildren) {
 			// Push a separator, if there are actions above this action.
 			if (actions.length) {
 				actions.push(new Separator());
@@ -245,34 +271,37 @@ export const VariableItem = (props: VariableItemProps) => {
 			)
 		});
 
-		// Push a separator.
-		actions.push(new Separator());
+		// Add copy value actions, if we're not disabled.
+		if (!props.disabled) {
+			// Push a separator.
+			actions.push(new Separator());
 
-		// Add the copy as text action.
-		actions.push({
-			id: POSITRON_VARIABLES_COPY_AS_TEXT,
-			label: 'Copy as Text',
-			tooltip: '',
-			class: undefined,
-			enabled: true,
-			run: async () => {
-				const text = await props.variableItem.formatForClipboard('text/plain');
-				positronVariablesContext.clipboardService.writeText(text);
-			}
-		} as IAction);
+			// Add the copy as text action.
+			actions.push({
+				id: POSITRON_VARIABLES_COPY_AS_TEXT,
+				label: 'Copy as Text',
+				tooltip: '',
+				class: undefined,
+				enabled: true,
+				run: async () => {
+					const text = await props.variableItem.formatForClipboard('text/plain');
+					positronVariablesContext.clipboardService.writeText(text);
+				}
+			} as IAction);
 
-		// Add the copy as HTML action.
-		actions.push({
-			id: POSITRON_VARIABLES_COPY_AS_HTML,
-			label: 'Copy as HTML',
-			tooltip: '',
-			class: undefined,
-			enabled: true,
-			run: async () => {
-				const text = await props.variableItem.formatForClipboard('text/html');
-				positronVariablesContext.clipboardService.writeText(text);
-			}
-		} satisfies IAction);
+			// Add the copy as HTML action.
+			actions.push({
+				id: POSITRON_VARIABLES_COPY_AS_HTML,
+				label: 'Copy as HTML',
+				tooltip: '',
+				class: undefined,
+				enabled: true,
+				run: async () => {
+					const text = await props.variableItem.formatForClipboard('text/html');
+					positronVariablesContext.clipboardService.writeText(text);
+				}
+			} satisfies IAction);
+		}
 
 		// Show the context menu.
 		positronVariablesContext.contextMenuService.showContextMenu({
@@ -291,6 +320,9 @@ export const VariableItem = (props: VariableItemProps) => {
 		},
 		{
 			'focused': props.focused
+		},
+		{
+			'disabled': props.disabled
 		}
 	);
 
@@ -299,7 +331,7 @@ export const VariableItem = (props: VariableItemProps) => {
 	 * @returns The rendered component.
 	 */
 	const RightColumn = () => {
-		if (props.variableItem.hasViewer) {
+		if (!props.disabled && props.variableItem.hasViewer) {
 			return (
 				<div className='right-column'>
 					<div className='viewer-icon codicon codicon-table' onMouseDown={viewerMouseDownHandler}></div>
@@ -331,11 +363,12 @@ export const VariableItem = (props: VariableItemProps) => {
 				<div className='name-column-indenter' style={{ marginLeft: props.variableItem.indentLevel * 20 }}>
 					<div className='gutter'>
 						<div className='expand-collapse-area' onMouseDown={chevronMouseDownHandler} onMouseUp={chevronMouseUpHandler} >
-							{props.variableItem.hasChildren && (
-								props.variableItem.expanded ?
-									<div className={`expand-collapse-icon codicon codicon-chevron-down`} /> :
-									<div className={`expand-collapse-icon codicon codicon-chevron-right`} />
-							)}
+							{!props.disabled &&
+								props.variableItem.hasChildren && (
+									props.variableItem.expanded ?
+										<div className={`expand-collapse-icon codicon codicon-chevron-down`} /> :
+										<div className={`expand-collapse-icon codicon codicon-chevron-right`} />
+								)}
 						</div>
 					</div>
 					<div className='name-value'>
