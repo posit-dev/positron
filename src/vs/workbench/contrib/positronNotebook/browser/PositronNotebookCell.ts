@@ -7,6 +7,7 @@ import { ISettableObservable, observableValue } from 'vs/base/common/observableI
 import { URI } from 'vs/base/common/uri';
 import { ITextModel } from 'vs/editor/common/model';
 import { ITextModelService } from 'vs/editor/common/services/resolverService';
+import { ICellViewModel } from 'vs/workbench/contrib/notebook/browser/notebookBrowser';
 import { NotebookCellTextModel } from 'vs/workbench/contrib/notebook/common/model/notebookCellTextModel';
 import { CellKind, ICellOutput } from 'vs/workbench/contrib/notebook/common/notebookCommon';
 import { IPositronNotebookInstance } from 'vs/workbench/contrib/positronNotebook/browser/PositronNotebookInstance';
@@ -20,35 +21,53 @@ export class PositronNotebookCell extends Disposable implements IPositronNoteboo
 	outputs: ISettableObservable<ICellOutput[], void>;
 
 	constructor(
-		public viewModel: NotebookCellTextModel,
+		public cellModel: NotebookCellTextModel,
 		private _instance: IPositronNotebookInstance,
 		@ITextModelService private readonly textModelResolverService: ITextModelService,
 	) {
 		super();
 		this.executionStatus = observableValue<ExecutionStatus, void>('cellExecutionStatus', 'idle');
-		this.outputs = observableValue<ICellOutput[], void>('cellOutputs', this.viewModel.outputs);
+		this.outputs = observableValue<ICellOutput[], void>('cellOutputs', this.cellModel.outputs);
 
 		// Listen for changes to the cell outputs and update the observable
 		this._register(
-			this.viewModel.onDidChangeOutputs(() => {
+			this.cellModel.onDidChangeOutputs(() => {
 				// By unpacking the array and repacking we make sure that
 				// the React component will rerender when the outputs change. Probably not
 				// great to have this leak here.
-				this.outputs.set([...this.viewModel.outputs], undefined);
+				this.outputs.set([...this.cellModel.outputs], undefined);
 			})
 		);
 	}
 
 	get kind(): CellKind {
-		return this.viewModel.cellKind;
+		return this.cellModel.cellKind;
 	}
 
 	get uri(): URI {
-		return this.viewModel.uri;
+		return this.cellModel.uri;
+	}
+
+	get viewModel(): ICellViewModel {
+
+		const notebookViewModel = this._instance.viewModel;
+		if (!notebookViewModel) {
+			throw new Error('Notebook view model not found');
+		}
+
+		const viewCells = notebookViewModel.viewCells;
+
+		const cell = viewCells.find(cell => cell.uri.toString() === this.cellModel.uri.toString());
+
+		if (cell) {
+			return cell;
+		}
+
+		throw new Error('Cell view model not found');
 	}
 
 	getContent(): string {
-		return this.viewModel.getValue();
+		return this.cellModel.getValue();
 	}
 
 	run(): void {
@@ -86,9 +105,14 @@ export interface IPositronNotebookCell {
 	getContent(): string;
 
 	/**
-	 * The view model for the cell.
+	 * The notebook text model for the cell.
 	 */
-	viewModel: NotebookCellTextModel;
+	cellModel: NotebookCellTextModel;
+
+	/**
+	 * Get the view model for the cell
+	 */
+	get viewModel(): ICellViewModel;
 
 	/**
 	 * Get the text editor model for use in the monaco editor widgets

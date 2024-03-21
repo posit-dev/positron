@@ -103,6 +103,8 @@ export interface IPositronNotebookInstance {
 	 */
 	attachView(viewModel: NotebookViewModel, viewState?: INotebookEditorViewState): void;
 
+	readonly viewModel: NotebookViewModel | undefined;
+
 	/**
 	 * Method called when the instance is detached from a view. This is used to cleanup
 	 * all the logic and variables related to the view/DOM.
@@ -172,6 +174,10 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 
 	get uri(): URI {
 		return this._input.resource;
+	}
+
+	get viewModel(): NotebookViewModel | undefined {
+		return this._viewModel;
 	}
 
 
@@ -368,11 +374,11 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		const hasExecutions = [...cells].some(cell => Boolean(this.notebookExecutionStateService.getCellExecution(cell.uri)));
 
 		if (hasExecutions) {
-			this.notebookExecutionService.cancelNotebookCells(this._textModel, Array.from(cells).map(c => c.viewModel));
+			this.notebookExecutionService.cancelNotebookCells(this._textModel, Array.from(cells).map(c => c.cellModel));
 			return;
 		}
 
-		await this.notebookExecutionService.executeNotebookCells(this._textModel, Array.from(cells).map(c => c.viewModel), this._contextKeyService);
+		await this.notebookExecutionService.executeNotebookCells(this._textModel, Array.from(cells).map(c => c.cellModel), this._contextKeyService);
 		for (const cell of cells) {
 			cell.executionStatus.set('idle', undefined);
 		}
@@ -410,7 +416,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		// TODO: Hook up readOnly to the notebook actual value
 		const readOnly = false;
 		const computeUndoRedo = !readOnly || textModel.viewType === 'interactive';
-		const cellIndex = textModel.cells.indexOf(cell.viewModel);
+		const cellIndex = textModel.cells.indexOf(cell.cellModel);
 
 		const edits: ICellReplaceEdit = {
 			editType: CellEditType.Replace, index: cellIndex, count: 1, cells: []

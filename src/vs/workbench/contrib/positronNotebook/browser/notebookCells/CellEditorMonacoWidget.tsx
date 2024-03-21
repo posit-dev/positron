@@ -57,7 +57,7 @@ export function useCellEditorWidget(cell: IPositronNotebookCell) {
 		const nativeContainer = DOM.$('.positron-monaco-editor-container');
 		editorPartRef.current.appendChild(nativeContainer);
 
-		const language = cell.viewModel.language;
+		const language = cell.cellModel.language;
 		const editorContextKeyService = services.scopedContextKeyProviderCallback(editorPartRef.current);
 		const editorInstaService = services.instantiationService.createChild(new ServiceCollection([IContextKeyService, editorContextKeyService]));
 		const editorOptions = new CellEditorOptions(instance.getBaseCellEditorOptions(language), instance.notebookOptions, services.configurationService);

@@ -38,7 +38,7 @@ export function PositronNotebookComponent() {
 				</div>
 				<AddCellButton index={0} />
 				{notebookCells?.length ? notebookCells?.map((cell, index) => <>
-					<NotebookCell key={cell.viewModel.handle} cell={cell} />
+					<NotebookCell key={cell.cellModel.handle} cell={cell} />
 					<AddCellButton index={index + 1} />
 				</>) : <div>{localize('noCells', 'No cells')}</div>
 				}

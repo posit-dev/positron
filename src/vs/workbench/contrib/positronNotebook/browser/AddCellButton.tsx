@@ -7,6 +7,7 @@ import * as React from 'react';
 import { useNotebookInstance } from 'vs/workbench/contrib/positronNotebook/browser/NotebookInstanceProvider';
 import { localize } from 'vs/nls';
 import { Button } from 'vs/base/browser/ui/positronComponents/button/button';
+import { CellKind } from 'vs/workbench/contrib/notebook/common/notebookCommon';
 
 export function AddCellButton({ index }: { index: number }) {
 	const notebookInstance = useNotebookInstance();
@@ -16,7 +17,7 @@ export function AddCellButton({ index }: { index: number }) {
 			className='action action-button'
 			ariaLabel={localize('addCell', 'Add cell')}
 			onPressed={() => {
-				notebookInstance.addCell('code', index);
+				notebookInstance.addCell(CellKind.Code, index);
 			}}
 		>
 			<span className='action-label'>Add Cell</span>
