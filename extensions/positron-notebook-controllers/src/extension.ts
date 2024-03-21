@@ -29,7 +29,6 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 
 	// Update notebook affinity when a notebook is opened.
 	context.subscriptions.push(vscode.workspace.onDidOpenNotebookDocument(async (notebook) => {
-		trace(`onDidOpenNotebookDocument: ${notebook.uri.path}`);
 		manager.updateNotebookAffinity(notebook);
 	}));
 

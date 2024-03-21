@@ -66,6 +66,7 @@ export class NotebookControllerManager implements vscode.Disposable {
 				? vscode.NotebookControllerAffinity.Preferred
 				: vscode.NotebookControllerAffinity.Default;
 			controller.controller.updateNotebookAffinity(notebook, affinity);
+			trace(`Updated notebook affinity for language: ${languageId}, notebook: ${notebook.uri.path}, affinity: ${affinity}`);
 		}
 	}
 
