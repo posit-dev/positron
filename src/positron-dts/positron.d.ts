@@ -1223,13 +1223,6 @@ declare module 'positron' {
 		export function lastActiveEditorContext(): Thenable<EditorContext | null>;
 
 		/**
-		 * Get the workspace folder path.
-		 *
-		 * Returns the path to the workspace folder, or first folder if there are multiple.
-		 */
-		export function workspaceFolder(): Thenable<string | null>;
-
-		/**
 		 * Create and show a simple modal dialog prompt.
 		 *
 		 * @param title The title of the dialog

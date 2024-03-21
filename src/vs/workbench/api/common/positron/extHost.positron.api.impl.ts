@@ -158,9 +158,6 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 			lastActiveEditorContext(): Thenable<positron.EditorContext | null> {
 				return extHostMethods.lastActiveEditorContext();
 			},
-			workspaceFolder(): Thenable<string | null> {
-				return extHostMethods.workspaceFolder();
-			},
 			showDialog(title: string, message: string): Thenable<null> {
 				return extHostMethods.showDialog(title, message);
 			},
