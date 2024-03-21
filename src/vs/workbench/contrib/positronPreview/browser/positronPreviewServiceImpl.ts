@@ -16,6 +16,8 @@ import { URI } from 'vs/base/common/uri';
 import { PreviewUrl } from 'vs/workbench/contrib/positronPreview/browser/previewUrl';
 import { ShowUrlEvent, UiFrontendEvent } from 'vs/workbench/services/languageRuntime/common/positronUiComm';
 import { ILogService } from 'vs/platform/log/common/log';
+import { IOpenerService } from 'vs/platform/opener/common/opener';
+import { isLocalhost } from 'vs/workbench/contrib/positronHelp/browser/utils';
 
 /**
  * Positron preview service; keeps track of the set of active previews and
@@ -40,6 +42,7 @@ export class PositronPreviewService extends Disposable implements IPositronPrevi
 		@IViewsService private readonly _viewsService: IViewsService,
 		@IRuntimeSessionService private readonly _runtimeSessionService: IRuntimeSessionService,
 		@ILogService private readonly _logService: ILogService,
+		@IOpenerService private readonly _openerService: IOpenerService,
 		@IPositronNotebookOutputWebviewService private readonly _notebookOutputWebviewService: IPositronNotebookOutputWebviewService,
 	) {
 		super();
@@ -251,13 +254,6 @@ export class PositronPreviewService extends Disposable implements IPositronPrevi
 	 * @param event The event to handle
 	 */
 	private handleShowUrlEvent(session: ILanguageRuntimeSession, event: ShowUrlEvent) {
-		// Look up the extension. For accounting purposes, we need to
-		// know which extension is responsible for this URL.
-		const extension = session.runtimeMetadata.extensionId;
-		const webviewExtension: WebviewExtensionDescription = {
-			id: extension
-		};
-
 		// Attempt to parse the URL. If it's not a valid URL, log an error
 		// and ignore it.
 		//
@@ -267,14 +263,55 @@ export class PositronPreviewService extends Disposable implements IPositronPrevi
 		try {
 			uri = URI.parse(event.url);
 		} catch (e) {
-			this._logService.error(`Invalid URL ${event.url} from session ${session.sessionId}`);
+			this._logService.error(`Invalid URL ${event.url} from session ${session.sessionId}: ` +
+				`${e}`);
 			return;
 		}
+
+		// Check to see whether we can handle this URL in the viewer; if we
+		// can't, hand it over to the opener service.
+		if (!this.canOpenInViewer(uri)) {
+			this._openerService.open(uri, {
+				openExternal: true,
+			});
+			return;
+		}
+
+		// Look up the extension. For accounting purposes, we need to
+		// know which extension is responsible for this URL.
+		const extension = session.runtimeMetadata.extensionId;
+		const webviewExtension: WebviewExtensionDescription = {
+			id: extension
+		};
 
 		// Create a unique ID for this preview.
 		const previewId = `previewUrl.${PositronPreviewService._previewIdCounter++}`;
 
 		// Open the requested URI.
 		this.openUri(previewId, POSITRON_PREVIEW_URL_VIEW_TYPE, webviewExtension, uri);
+	}
+
+	/**
+	 * Given a URI, attempts to determine whether it can be opened in the viewer.
+	 *
+	 * @param uri The URI to test
+	 * @returns Whether it is appropriate to open the URI in the viewer
+	 */
+	private canOpenInViewer(uri: URI): boolean {
+		// If the URI doesn't have an http or https scheme, we can't handle it
+		// in the viewer.
+		if (uri.scheme !== 'http' && uri.scheme !== 'https') {
+			return false;
+		}
+
+		// Extract the hostname; if it's not localhost, we can't handle it in
+		// the viewer.
+		const hostname = new URL(uri.toString(true)).hostname;
+		if (!isLocalhost(hostname)) {
+			return false;
+		}
+
+		// It's a localhost http or https URL; we can handle it in the viewer.
+		return true;
 	}
 }
