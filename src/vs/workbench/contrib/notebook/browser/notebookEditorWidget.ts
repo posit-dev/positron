@@ -1759,9 +1759,17 @@ export class NotebookEditorWidget extends Disposable implements INotebookEditorD
 		if (viewState?.selectedKernelId && this.textModel) {
 			const matching = this.notebookKernelService.getMatchingKernel(this.textModel);
 			const kernel = matching.all.find(k => k.id === viewState.selectedKernelId);
-			// Selected kernel may have already been picked prior to the view state loading
-			// If so, don't overwrite it with the saved kernel.
-			if (kernel && !matching.selected) {
+			// --- Start Positron ---
+			// Upstream, this if statement additionally checked `!matching.selected` in an attempt
+			// to fix a bug where an interactive window may use the wrong kernel. However, that fix
+			// caused another bug where saving an untitled notebook and overwriting an existing
+			// notebook no longer retains the selected kernel. It also turned out that the upstream
+			// PR to include `!matching.selected` did not fix the original bug, so we'll leave it out.
+			//
+			// See https://github.com/microsoft/vscode-jupyter/issues/10734 and the linked PRs for
+			// more details.
+			if (kernel) {
+				// --- End Positron ---
 				this.notebookKernelService.selectKernelForNotebook(kernel, this.textModel);
 			}
 		}
