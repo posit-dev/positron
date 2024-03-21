@@ -4,7 +4,7 @@
 
 import * as positron from 'positron';
 import * as vscode from 'vscode';
-import { initializeLogging, trace } from './logging';
+import { initializeLogging } from './logging';
 import { NotebookControllerManager } from './notebookControllerManager';
 
 export async function activate(context: vscode.ExtensionContext): Promise<void> {
