@@ -25,6 +25,7 @@ import { decode } from 'he';
  * - Added support for decoding for HTML entities in text nodes, using the `he`
  *   library
  * - Removed support for component overrides
+ * - Updated the attribute matching regex and extraction logic to work with un-quoted attributes
  */
 
 // Regular expression matching HTML tag attributes
