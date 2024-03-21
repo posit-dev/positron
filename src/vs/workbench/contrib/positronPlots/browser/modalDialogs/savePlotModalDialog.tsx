@@ -9,16 +9,17 @@ import { PositronModalDialog } from 'vs/base/browser/ui/positronModalDialog/posi
 import { PositronModalDialogReactRenderer } from 'vs/base/browser/ui/positronModalDialog/positronModalDialogReactRenderer';
 import { localize } from 'vs/nls';
 import { IWorkbenchLayoutService } from 'vs/workbench/services/layout/browser/layoutService';
-import { PlotClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimePlotClient';
+import { IRenderedPlot, PlotClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimePlotClient';
 import { IFileDialogService } from 'vs/platform/dialogs/common/dialogs';
+import { URI } from 'vs/base/common/uri';
+import { LabeledTextInput } from 'vs/base/browser/ui/positronModalDialog/components/labeledTextInput';
+import { LabeledFolderInput } from 'vs/base/browser/ui/positronModalDialog/components/labeledFolderInput';
+import { OKCancelActionBar } from 'vs/base/browser/ui/positronModalDialog/components/okCancelActionBar';
 import { PositronButton } from 'vs/base/browser/ui/positronComponents/positronButton';
-import { confirmationModalDialog } from 'vs/workbench/browser/positronModalDialogs/confirmationModalDialog';
 
 interface SavePlotOptions {
-	width: number;
-	height: number;
-	path: string;
-	dpi: number;
+	uri: string;
+	path: URI;
 }
 
 interface SavePlotModalDialogProps {
@@ -31,6 +32,20 @@ interface SavePlotModalDialogProps {
 
 const SAVE_PLOT_MODAL_DIALOG_WIDTH = 600;
 const SAVE_PLOT_MODAL_DIALOG_HEIGHT = 700;
+const BASE_DPI = 100; // matplotlib default DPI
+
+/**
+ * Localized strings.
+ */
+const title = localize('positronSavePlotModalDialogTitle', 'Save Plot');
+const widthLabel = localize('positronSavePlotModalDialogWidth', 'Width');
+const heightLabel = localize('positronSavePlotModalDialogHeight', 'Height');
+const dpiLabel = localize('positronSavePlotModalDialogDPI', 'DPI');
+const previewLabel = localize('positronSavePlotModalDialogUpdatePreview', 'Preview');
+const noPathMessage = localize('positronSavePlotModalDialogNoPathMessage', 'No path was specified.');
+const saveMessage = localize('positronSave', 'Save');
+const dimensionErrorMessage = localize('positronSavePlotModalDialogDimensionError', 'Must be greater than 0.');
+const dpiMinMaxErrorMessage = localize('positronSavePlotModalDialogDpiMinMaxError', 'Must be between 1 and 300.');
 
 /**
  * Show the save plot modal dialog for dynamic plots.
@@ -45,9 +60,53 @@ export const showSavePlotModalDialog = async (
 	return new Promise<SavePlotOptions | undefined>((resolve) => {
 		const positronModalDialogReactRenderer = new PositronModalDialogReactRenderer(props.layoutService.mainContainer);
 		const ModalDialog = () => {
-			const showSaveDialog = () => {
-				props.fileDialogService.showSaveDialog({
-					title: 'Save Plot',
+			const [path, setPath] = React.useState<URI>();
+			const [width, setWidth] = React.useState(props.plotWidth);
+			const [height, setHeight] = React.useState(props.plotHeight);
+			const [dpi, setDpi] = React.useState(100);
+			const [uri, setUri] = React.useState('');
+			const [rendering, setRendering] = React.useState(false);
+			const [widthError, setWidthError] = React.useState('');
+			const [heightError, setHeightError] = React.useState('');
+			const [dpiError, setDpiError] = React.useState('');
+			const [pathError, setPathError] = React.useState('');
+			const firstRender = React.useRef(true);
+
+			const validateInput = () => {
+				let valid = true;
+
+				setWidthError('');
+				setHeightError('');
+				setDpiError('');
+				setPathError('');
+
+				if (width <= 0) {
+					setWidthError(dimensionErrorMessage);
+					valid = false;
+				}
+				if (height <= 0) {
+					setHeightError(dimensionErrorMessage);
+					valid = false;
+				}
+				if (!path) {
+					setPathError(noPathMessage);
+					valid = false;
+				}
+				if (dpi <= 0) {
+					setDpiError(dimensionErrorMessage);
+					valid = false;
+				}
+				if (dpi < 1 || dpi > 300) {
+					setDpiError(dpiMinMaxErrorMessage);
+					valid = false;
+				}
+
+				return valid;
+			};
+
+			const browseHandler = async () => {
+				const uri = await props.fileDialogService.showSaveDialog({
+					title: title,
 					filters:
 						[
 							{
@@ -55,37 +114,28 @@ export const showSavePlotModalDialog = async (
 								name: 'PNG',
 							},
 						],
-				}).then(result => {
-					if (result) {
-						setPath(result.fsPath);
-					}
 				});
-			};
-			const [path, setPath] = React.useState('');
-			const widthInput = React.useRef<HTMLInputElement>(null);
-			const heightInput = React.useRef<HTMLInputElement>(null);
-			const dpiInput = React.useRef<HTMLInputElement>(null);
-			const [uri, setUri] = React.useState('');
 
-			const browseHandler = async () => {
-				showSaveDialog();
+				if (uri?.fsPath.length) {
+					setPath(uri);
+				}
 			};
 
 			const acceptHandler = async () => {
-				const width = parseInt(widthInput.current!.value ?? '100');
-				const height = parseInt(heightInput.current!.value ?? '100');
-				const dpi = parseInt(dpiInput.current!.value ?? '100');
-
-				if (!path) {
-					confirmationModalDialog(props.layoutService,
-						localize('positronSavePlotModalDialogNoPathTitle', "No Path Specified"),
-						localize('positronSavePlotModalDialogNoPathMessage', "No path was specified."));
+				if (!validateInput()) {
 					return;
 				}
 
 				positronModalDialogReactRenderer.destroy();
 
-				resolve({ width, height, path, dpi });
+				const plotResult = await generatePreview();
+
+				if (!plotResult) {
+					resolve(undefined);
+				} else {
+					// @ts-expect-error: path is checked in the validateInput function
+					resolve({ uri: plotResult.uri, path });
+				}
 			};
 
 			const cancelHandler = () => {
@@ -93,79 +143,88 @@ export const showSavePlotModalDialog = async (
 				resolve(undefined);
 			};
 
-			const updatePreview = () => {
-				if (!widthInput.current || !heightInput.current) {
-					return;
+			const updatePreview = async () => {
+				if (validateInput()) {
+
 				}
-				const width = parseInt(widthInput.current.value);
-				const height = parseInt(heightInput.current.value);
-				const dpi = dpiInput.current ? parseInt(dpiInput.current?.value) : props.plotClient.lastRender?.pixel_ratio ?? 100;
-				props.plotClient.preview(height, width, dpi / 100)
-					.then((result) => {
-						setUri(result.uri);
-					});
+				setRendering(true);
+				try {
+					const plotResult = await generatePreview();
+					setUri(plotResult.uri);
+				} finally {
+					setRendering(false);
+				}
+			};
+
+			const generatePreview = async (): Promise<IRenderedPlot> => {
+				return props.plotClient.preview(height, width, dpi / BASE_DPI);
+			};
+
+			const previewButton = () => {
+				return (
+					<PositronButton className='button action-bar-button' onPressed={updatePreview}>
+						{previewLabel}
+					</PositronButton>
+				);
 			};
 
 			React.useEffect(() => {
 				setUri(props.plotClient.lastRender?.uri ?? '');
-				if (!widthInput.current || !heightInput.current) {
-					return;
-				}
-				widthInput.current.focus();
 			}, [props.plotClient.lastRender?.uri]);
 
+			// Only vaidate after first render to avoid showing errors on initial load
+			React.useEffect(() => {
+				if (!firstRender.current) {
+					validateInput();
+				}
+				firstRender.current = false;
+			}, [width, height, dpi, path]);
+			// align the inputs for each row
+			// set placeholder on the path input
+			// maybe a label on the path input
+
+			// grid
+			// validation and put a red border around the invalid input
+			// see LabeledTextInput, modify for showing an error
+			// see LabeledFolderInput
 			return (
 				<PositronModalDialog
 					width={SAVE_PLOT_MODAL_DIALOG_WIDTH}
 					height={SAVE_PLOT_MODAL_DIALOG_HEIGHT}
-					title={localize('positronSavePlotModalDialogTitle', "Save Plot")}
+					title={title}
 					accept={acceptHandler}
 					cancel={cancelHandler}>
 					<ContentArea>
 						<div className='plot-preview-container'>
 							<div className='plot-preview-input'>
-								<div className='horizontal-input'>
-									<input className='text-input' type='text' id='plotPath' value={path} readOnly />
-									<button className='button action-bar-button' tabIndex={0} onClick={browseHandler}>{localize('positronSavePlotModalDialogBrowse', "Browse...")}</button>
+								<div className='browse'>
+									<LabeledFolderInput label={localize('positronSavePlotModalDialogPath', 'Path')}
+										value={path?.fsPath ?? ''}
+										onChange={() => { }}
+										onBrowse={browseHandler}
+										error={pathError} />
 								</div>
-								<div className='horizontal-input'>
-									<label htmlFor='plotWidth'>{localize('positronSavePlotModalDialogWidth', "Width:")}</label>
-									<input className='text-input' type='number' id='plotWidth' defaultValue={props.plotWidth} ref={widthInput} />
-									{localize('positronPlotPixelsAbbrev', 'px')}
+								<div className='resolution'>
+									<LabeledTextInput label={widthLabel} value={width} type={'number'} onChange={e => { setWidth(parseInt(e.target.value)); }} error={widthError} min={1} />
+									<LabeledTextInput label={heightLabel} value={height} type={'number'} onChange={e => { setHeight(parseInt(e.target.value)); }} error={heightError} min={1} />
 								</div>
-								<div className='horizontal-input'>
-									<label htmlFor='plotHeight'>{localize('positronSavePlotModalDialogHeight', "Height:")}</label>
-									<input className='text-input' type='number' id='plotHeight' defaultValue={props.plotHeight} ref={heightInput} />
-									{localize('positronPlotPixelsAbbrev', 'px')}
+								<div className='dpi'>
+									<LabeledTextInput label={dpiLabel} value={dpi} type={'number'} onChange={e => { setDpi(parseInt(e.target.value)); }} error={dpiError} min={1} max={300} />
 								</div>
-								<div className='horizontal-input'>
-									<label htmlFor='plotHeight'>{localize('positronSavePlotModalDialogDPI', "DPI:")}</label>
-									<input className='text-input' type='number' id='plotDPI' defaultValue={100} ref={dpiInput} />
+								<div className='preview-progress'>
+									{rendering && <progress style={{ width: '100%' }} value={undefined} />}
+								</div>
+								<div className='plot-preview-image-container preview'>
+									{(uri &&
+										<img className='plot-preview' src={uri} />)
+									}
 								</div>
 							</div>
-							{
-								uri &&
-								<div className='plot-preview-image-wrapper'>
-									<img className='plot-preview' src={uri} />
-								</div>
-							}
 						</div>
 					</ContentArea>
 
 					<div className='plot-save-dialog-action-bar top-separator'>
-						<div className='left'>
-							<button className='button action-bar-button' onClick={updatePreview}>
-								{localize('positronSavePlotModalDialogUpdatePreview', "Preview")}
-							</button>
-						</div>
-						<div className='right'>
-							<PositronButton className='button default action-bar-button' onPressed={acceptHandler}>
-								{localize('positronSave', "Save")}
-							</PositronButton>
-							<PositronButton className='button action-bar-button' onPressed={cancelHandler}>
-								{localize('positronCancel', "Cancel")}
-							</PositronButton>
-						</div>
+						<OKCancelActionBar okButtonTitle={saveMessage} accept={acceptHandler} cancel={cancelHandler} preActions={previewButton} />
 					</div>
 
 				</PositronModalDialog>

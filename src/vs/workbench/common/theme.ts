@@ -1444,6 +1444,14 @@ export const POSITRON_MODAL_DIALOG_FOREGROUND = registerColor('positronModalDial
 	hcLight: foreground
 }, localize('positronModalDialog.foreground', "Positron modal dialog foreground color."));
 
+// Positron modal dialog contrast background color.
+export const POSITRON_MODAL_DIALOG_CONTRAST_BACKGROUND = registerColor('positronModalDialog.contrastBackground', {
+	dark: lighten(POSITRON_MODAL_DIALOG_BACKGROUND, 0.2),
+	light: darken(POSITRON_MODAL_DIALOG_BACKGROUND, 0.2),
+	hcDark: '#3a3d41',
+	hcLight: darken(POSITRON_MODAL_DIALOG_BACKGROUND, 0.2)
+}, localize('positronModalDialog.contrastBackground', "Positron modal dialog contrast background color."));
+
 // Positron modal dialog border color.
 export const POSITRON_MODAL_DIALOG_BORDER = registerColor('positronModalDialog.border', {
 	dark: selectBorder,
@@ -1603,6 +1611,14 @@ export const POSITRON_MODAL_DIALOG_CHECKBOX_BORDER = registerColor('positronModa
 	hcDark: checkboxBorder,
 	hcLight: checkboxBorder
 }, localize('positronModalDialog.checkboxBorder', "Positron modal dialog checkbox border."));
+
+// Positron modal dialog form border color.
+export const POSITRON_MODAL_DIALOG_FORM_BORDER = registerColor('positronModalDialog.formBorder', {
+	dark: '#292f32',
+	light: '#a6a6a6',
+	hcDark: foreground,
+	hcLight: foreground
+}, localize('positronModalDialog.formBorder', "Positron modal dialog form border."));
 
 // < --- Positron Drop Down --- > shit
 

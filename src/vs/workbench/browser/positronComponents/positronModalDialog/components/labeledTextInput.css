@@ -9,3 +9,11 @@
 .positron-modal-dialog-box .labeled-text-input .text-input {
 	margin-top: 4px;
 }
+
+.positron-modal-dialog-box .labeled-text-input div.error {
+	color: var(--vscode-errorForeground);
+}
+
+.positron-modal-dialog-box .labeled-text-input input.error {
+	border-color: var(--vscode-inputValidation-errorBorder);
+}

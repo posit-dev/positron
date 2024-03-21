@@ -3,19 +3,38 @@
  *--------------------------------------------------------------------------------------------*/
 
 .plot-preview-input {
-	border-collapse: collapse;
-	border-spacing: 0;
-	width: 100%;
-	padding: 3px;
-	display: flex;
-	flex-direction: column;
-	row-gap: 5px;
+	height: 100%;
+	grid-template-columns: repeat(2, 1fr);
+	grid-template-rows: 1fr 2fr 0.5fr 9fr;
+	grid-template-areas:
+		"browse browse"
+		"resolution dpi"
+		"preview-progress preview-progress"
+		"preview preview";
+	grid-gap: 10px;
+	display: grid;
 }
 
-.horizontal-input {
-	display: flex;
-	flex-direction: row;
-	column-gap: 5px;
+.plot-preview-input .browse {
+	grid-area: browse;
+}
+
+.plot-preview-input .resolution {
+	grid-area: resolution;
+	width: 70px;
+}
+
+.plot-preview-input .dpi {
+	grid-area: dpi;
+	width: 70px;
+}
+
+.plot-preview-input .preview {
+	grid-area: preview;
+}
+
+.plot-preview-input .preview-progress {
+	grid-area: preview-progress;
 }
 
 .plot-preview-container {
@@ -26,14 +45,16 @@
 	row-gap: 10px;
 }
 
-/* 99% to prevent the image from overflowing the container */
 img.plot-preview {
-	max-height: 99%;
+	max-height: 100%;
 	max-width: 100%;
 	position: relative;
 	top: 50%;
 	left: 50%;
 	transform: translate(-50%, -50%);
+	border-style: solid;
+	border-color: var(--vscode-positronModalDialog-contrastBackground);
+	border-width: thin;
 }
 
 .plot-save-dialog-action-bar {
@@ -43,16 +64,28 @@ img.plot-preview {
 	bottom: 0;
 	left: 0;
 	right: 0;
-	overflow: hidden;
 	height: 64px;
 	gap: 10px;
 	margin: 0 16px;
 }
 
+.plot-preview-image-container {
+	overflow: hidden;
+	padding: 2px;
+}
+
+.plot-preview-image-container fieldset {
+	height: 100%;
+	border-color: var(--vscode-positronModalDialog-formBorder);
+	border-width: thin;
+	border-radius: 4px;
+	background-color: var(--vscode-positronModalDialog-contrastBackground);
+}
+
 div.plot-preview-image-wrapper {
 	height: 100%;
-	width: auto;
-	overflow: auto;
+	overflow: hidden;
+	padding: 4px;
 }
 
 .plot-save-dialog-action-bar .left,

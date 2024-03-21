@@ -28,6 +28,7 @@ import { IFileDialogService } from 'vs/platform/dialogs/common/dialogs';
 import { decodeBase64 } from 'vs/base/common/buffer';
 import { showSavePlotModalDialog } from 'vs/workbench/contrib/positronPlots/browser/modalDialogs/savePlotModalDialog';
 import { IWorkbenchLayoutService } from 'vs/workbench/services/layout/browser/layoutService';
+import { URI } from 'vs/base/common/uri';
 
 /** The maximum number of recent executions to store. */
 const MaxRecentExecutions = 10;
@@ -690,11 +691,7 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 					// if it's a dynamic plot, present options dialog
 					showSavePlotModalDialog(savePlotModalDialogProps).then(result => {
 						if (result) {
-							const plotClient = plot as PlotClientInstance;
-							// plotClient.preview(result.height, result.width, plot.lastRender?.pixel_ratio ?? 1).then(result => {
-							// 	this.showSavePlotDialog(result.uri);
-							// });
-							plotClient.save(result.path, result.height, result.width, result.dpi);
+							this.savePlotAs(result.uri, result.path);
 						}
 					});
 				} else {
@@ -705,11 +702,34 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 		}
 	}
 
-	showSavePlotDialog(uri: string) {
-		const regex = /^data:.+\/(.+);base64,(.*)$/;
-		const matches = uri.match(regex);
+	private savePlotAs(plotData: string, path: URI) {
+		const htmlFileSystemProvider = this._fileService.getProvider(Schemas.file) as HTMLFileSystemProvider;
+		const matches = this.getPlotUri(plotData);
 
+		if (!matches) {
+			return;
+		}
+
+		const data = matches[2];
+
+		htmlFileSystemProvider.writeFile(path, decodeBase64(data).buffer, { create: true, overwrite: true, unlock: true, atomic: false })
+			.then(() => {
+			});
+	}
+
+	private getPlotUri(plotData: string) {
+		const regex = /^data:.+\/(.+);base64,(.*)$/;
+		const matches = plotData.match(regex);
 		if (!matches || matches.length !== 3) {
+			return null;
+		}
+		return matches;
+	}
+
+	showSavePlotDialog(uri: string) {
+		const matches = this.getPlotUri(uri);
+
+		if (!matches) {
 			return;
 		}
 

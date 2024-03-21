@@ -53,57 +53,6 @@
 					]
 				}
 			}
-		},
-		{
-			"name": "save",
-			"summary": "Save a plot",
-			"description": "Requests a plot to be saved to a file. The plot path is returned as a string.",
-			"params": [
-				{
-					"name": "path",
-					"description": "The requested plot path",
-					"schema": {
-						"type": "string"
-					}
-				},
-				{
-					"name": "height",
-					"description": "The requested plot height, in pixels",
-					"schema": {
-						"type": "integer"
-					}
-				},
-				{
-					"name": "width",
-					"description": "The requested plot width, in pixels",
-					"schema": {
-						"type": "integer"
-					}
-				},
-				{
-					"name": "dpi",
-					"description": "The pixel ratio of the display device",
-					"schema": {
-						"type": "number"
-					}
-				}
-			],
-			"result": {
-				"schema": {
-					"name": "saved_plot",
-					"type": "object",
-					"description": "A saved plot's path",
-					"properties": {
-						"path": {
-							"description": "The plot path",
-							"type": "string"
-						}
-					},
-					"required": [
-						"path"
-					]
-				}
-			}
 		}
 	]
 }

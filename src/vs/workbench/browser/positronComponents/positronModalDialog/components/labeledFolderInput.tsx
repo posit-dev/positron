@@ -18,6 +18,7 @@ import { Button } from 'vs/base/browser/ui/positronComponents/button/button';
 export interface LabeledFolderInputProps {
 	label: string;
 	value: string;
+	error?: string;
 	onBrowse: VoidFunction;
 	onChange: ChangeEventHandler<HTMLInputElement>;
 }
@@ -31,7 +32,7 @@ export const LabeledFolderInput = (props: LabeledFolderInputProps) => {
 	return (
 		<div className='labeled-folder-input'>
 			<label>
-				{props.label}:
+				{props.label}: {props.error && <span className='error'>{props.error}</span>}
 				<div className='folder-input'>
 					<input className='text-input' readOnly type='text' value={props.value} onChange={props.onChange} />
 					<Button className='browse-button' onPressed={props.onBrowse}>
