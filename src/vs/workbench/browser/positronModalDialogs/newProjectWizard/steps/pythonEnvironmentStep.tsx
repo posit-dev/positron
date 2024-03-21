@@ -6,7 +6,6 @@ const React = require('react');
 import { PropsWithChildren, useRef } from 'react';
 import { PositronWizardStep } from 'vs/base/browser/ui/positronModalDialog/components/wizardStep';
 import { PositronWizardSubStep } from 'vs/base/browser/ui/positronModalDialog/components/wizardSubStep';
-import { LabeledTextInput } from 'vs/base/browser/ui/positronModalDialog/components/labeledTextInput';
 import { useNewProjectWizardContext } from 'vs/workbench/browser/positronModalDialogs/newProjectWizard/newProjectWizardContext';
 import { NewProjectWizardStepProps } from 'vs/workbench/browser/positronModalDialogs/newProjectWizard/steps/newProjectWizardStepProps';
 import { localize } from 'vs/nls';
@@ -17,6 +16,7 @@ import { ComboBoxMenuSeparator } from 'vs/base/browser/ui/positronComponents/com
 
 export const PythonEnvironmentStep = (props: PropsWithChildren<NewProjectWizardStepProps>) => {
 	const newProjectWizardState = useNewProjectWizardContext();
+	const setProjectConfig = newProjectWizardState.setProjectConfig;
 	const projectConfig = newProjectWizardState.projectConfig;
 	const keybindingService = newProjectWizardState.keybindingService;
 	const layoutService = newProjectWizardState.layoutService;
@@ -24,13 +24,22 @@ export const PythonEnvironmentStep = (props: PropsWithChildren<NewProjectWizardS
 	let interpreterComboBoxTitle = 'Loading interpreters...';
 	const interpreterEntries = useRef<(ComboBoxMenuItem | ComboBoxMenuSeparator)[]>([]);
 
+	const envTypeEntries = [
+		new ComboBoxMenuItem({ identifier: 'Venv', label: 'Venv' }),
+		new ComboBoxMenuItem({ identifier: 'Conda', label: 'Conda' })
+	];
+
+	const onEnvTypeChanged = (identifier: string) => {
+		setProjectConfig({ ...projectConfig, pythonEnvType: identifier });
+	};
 
 	// HELP
 	// This is not re-rendering the dropdown when the runtime discovery is complete
 	if (newProjectWizardState.runtimeStartupService.startupPhase === RuntimeStartupPhase.Complete) {
-		// newProjectWizardState.runtimeStartupService.getPreferredRuntime('python');
 		// See ILanguageRuntimeMetadata in src/vs/workbench/services/languageRuntime/common/languageRuntimeService.ts
 		// for the properties of the runtime metadata object
+		const preferredRuntime = newProjectWizardState.runtimeStartupService.getPreferredRuntime('python');
+		console.log('Preferred Python runtime:', preferredRuntime);
 		const discoveredRuntimes = newProjectWizardState.languageRuntimeService.registeredRuntimes;
 		const pythonRuntimes = discoveredRuntimes.filter(runtime => runtime.languageId === 'python');
 		interpreterEntries.current = pythonRuntimes.map((runtime) => {
@@ -71,14 +80,17 @@ export const PythonEnvironmentStep = (props: PropsWithChildren<NewProjectWizardS
 				</div>
 			</PositronWizardSubStep>
 			<PositronWizardSubStep
-				// title='Python Environment'
-				feedback={`The Venv environment will be created at: ${projectConfig.parentFolder}/${projectConfig.projectName}/.venv`}
+				title='Python Environment'
+				description='Select an environment type for your project.'
+				feedback={`The ${projectConfig.pythonEnvType} environment will be created at: ${projectConfig.parentFolder}/${projectConfig.projectName}/${projectConfig.pythonEnvType === 'Venv' ? '.venv' : '.conda'}`}
 			>
-				<LabeledTextInput
-					label='Select an environment type for your project'
-					autoFocus
-					value={'Venv'}
-					onChange={e => console.log('python env type', e)}
+				<ComboBox
+					keybindingService={keybindingService}
+					layoutService={layoutService}
+					className='combo-box'
+					title='Select an environment type for your project'
+					entries={envTypeEntries}
+					onSelectionChanged={identifier => onEnvTypeChanged(identifier)}
 				/>
 			</PositronWizardSubStep>
 			{/* onhover tooltip, display the following note if we don't detect ipykernel for the selected interpreter */}

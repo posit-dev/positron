@@ -42,6 +42,7 @@ export interface NewProjectConfiguration {
 	readonly parentFolder: string;
 	readonly initGitRepo: boolean;
 	readonly openInNewWindow: boolean;
+	readonly pythonEnvType?: string;
 }
 
 /**
@@ -72,7 +73,8 @@ export const useNewProjectWizardState = (
 		projectName: '',
 		parentFolder: props.parentFolder ?? '',
 		initGitRepo: false,
-		openInNewWindow: true
+		openInNewWindow: true,
+		pythonEnvType: ''
 	});
 
 	const [wizardSteps, setWizardSteps] = useState([NewProjectWizardStep.ProjectTypeSelection]);
