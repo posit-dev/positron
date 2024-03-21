@@ -8,7 +8,7 @@ import { URI } from 'vs/base/common/uri';
 import { ITextModel } from 'vs/editor/common/model';
 import { ITextModelService } from 'vs/editor/common/services/resolverService';
 import { NotebookCellTextModel } from 'vs/workbench/contrib/notebook/common/model/notebookCellTextModel';
-import { ICellOutput } from 'vs/workbench/contrib/notebook/common/notebookCommon';
+import { CellKind, ICellOutput } from 'vs/workbench/contrib/notebook/common/notebookCommon';
 import { IPositronNotebookInstance } from 'vs/workbench/contrib/positronNotebook/browser/PositronNotebookInstance';
 
 
@@ -18,6 +18,7 @@ type ExecutionStatus = 'running' | 'pending' | 'unconfirmed' | 'idle';
 export class PositronNotebookCell extends Disposable implements IPositronNotebookCell {
 	executionStatus: ISettableObservable<ExecutionStatus, void>;
 	outputs: ISettableObservable<ICellOutput[], void>;
+	kind: CellKind;
 
 	constructor(
 		public viewModel: NotebookCellTextModel,
@@ -28,6 +29,7 @@ export class PositronNotebookCell extends Disposable implements IPositronNoteboo
 		this.executionStatus = observableValue<ExecutionStatus, void>('cellExecutionStatus', 'idle');
 		this.outputs = observableValue<ICellOutput[], void>('cellOutputs', this.viewModel.outputs);
 
+		this.kind = viewModel.cellKind;
 		// Listen for changes to the cell outputs and update the observable
 		this._register(
 			this.viewModel.onDidChangeOutputs(() => {
@@ -66,6 +68,11 @@ export class PositronNotebookCell extends Disposable implements IPositronNoteboo
  * Wrapper class for notebook cell that exposes the properties that the UI needs to render the cell.
  */
 interface IPositronNotebookCell {
+
+	/**
+	 * Is the cell a code or markdown cell?
+	 */
+	kind: CellKind;
 
 	/**
 	 * Cell specific uri for the cell within the notebook
