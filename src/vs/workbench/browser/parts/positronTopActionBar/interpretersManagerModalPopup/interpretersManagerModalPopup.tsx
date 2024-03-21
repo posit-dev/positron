@@ -11,11 +11,10 @@ import * as React from 'react';
 // Other dependencies.
 import { ILayoutService } from 'vs/platform/layout/browser/layoutService';
 import { IKeybindingService } from 'vs/platform/keybinding/common/keybinding';
-import { PositronModalPopup } from 'vs/base/browser/ui/positronModalPopup/positronModalPopup';
 import { IRuntimeSessionService } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
 import { IRuntimeStartupService } from 'vs/workbench/services/runtimeStartup/common/runtimeStartupService';
-import { PositronModalReactRenderer } from 'vs/base/browser/ui/positronModalReactRenderer/positronModalReactRenderer';
-import { StopCommandsKeyEventProcessor } from 'vs/platform/stopCommandsKeyEventProcessor/browser/stopCommandsKeyEventProcessor';
+import { PositronModalPopup } from 'vs/workbench/browser/positronComponents/positronModalPopup/positronModalPopup';
+import { PositronModalReactRenderer } from 'vs/workbench/browser/positronModalReactRenderer/positronModalReactRenderer';
 import { InterpreterGroups } from 'vs/workbench/browser/parts/positronTopActionBar/interpretersManagerModalPopup/interpreterGroups';
 import { ILanguageRuntimeMetadata, ILanguageRuntimeService } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 
@@ -47,11 +46,9 @@ export const showInterpretersManagerModalPopup = async (
 	return new Promise<void>(resolve => {
 		// Create the modal React renderer.
 		const renderer = new PositronModalReactRenderer({
-			container,
-			keyEventProcessor: new StopCommandsKeyEventProcessor({
-				keybindingService,
-				layoutService
-			})
+			keybindingService,
+			layoutService,
+			container
 		});
 
 		// The modal popup component.
@@ -87,7 +84,14 @@ export const showInterpretersManagerModalPopup = async (
 					width={375}
 					height={'min-content'}
 					keyboardNavigation='menu'
-					onDismiss={() => dismiss()}
+					onAccept={() => {
+						renderer.dispose();
+						resolve();
+					}}
+					onCancel={() => {
+						renderer.dispose();
+						resolve();
+					}}
 				>
 					<InterpreterGroups
 						languageRuntimeService={languageRuntimeService}

@@ -2,9 +2,14 @@
  *  Copyright (C) 2022 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
+// CSS.
 import 'vs/css!./actionBars';
+
+// React.
 import * as React from 'react';
 import { PropsWithChildren, useEffect, useState } from 'react'; // eslint-disable-line no-duplicate-imports
+
+// Other dependencies.
 import { localize } from 'vs/nls';
 import { ICommandService } from 'vs/platform/commands/common/commands';
 import { IKeybindingService } from 'vs/platform/keybinding/common/keybinding';
@@ -22,8 +27,9 @@ import { GroupingMenuButton } from 'vs/workbench/contrib/positronVariables/brows
 import { PositronVariablesServices } from 'vs/workbench/contrib/positronVariables/browser/positronVariablesState';
 import { PositronActionBarContextProvider } from 'vs/platform/positronActionBar/browser/positronActionBarContext';
 import { usePositronVariablesContext } from 'vs/workbench/contrib/positronVariables/browser/positronVariablesContext';
+import { PositronModalReactRenderer } from 'vs/workbench/browser/positronModalReactRenderer/positronModalReactRenderer';
 import { VariablesInstanceMenuButton } from 'vs/workbench/contrib/positronVariables/browser/components/variablesInstanceMenuButton';
-import { showDeleteAllVariablesModalDialog } from 'vs/workbench/contrib/positronVariables/browser/modalDialogs/deleteAllVariablesModalDialog';
+import { DeleteAllVariablesModalDialog } from 'vs/workbench/contrib/positronVariables/browser/modalDialogs/deleteAllVariablesModalDialog';
 
 // Constants.
 const kSecondaryActionBarGap = 4;
@@ -84,16 +90,17 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 	 * Delete all objects event handler.
 	 */
 	const deleteAllObjectsHandler = async () => {
-		// Show the delete all objects modal dialog. If the user confirmed the operation, do it.
-		const result = await showDeleteAllVariablesModalDialog(
-			props.keybindingService,
-			props.layoutService
+		const renderer = new PositronModalReactRenderer({ ...props });
+		renderer.render(
+			<DeleteAllVariablesModalDialog
+				renderer={renderer}
+				accepted={result =>
+					positronVariablesContext.activePositronVariablesInstance?.requestClear(
+						result.includeHiddenObjects
+					)
+				}
+			/>
 		);
-		if (result) {
-			positronVariablesContext.activePositronVariablesInstance?.requestClear(
-				result.includeHiddenObjects
-			);
-		}
 	};
 
 	/**

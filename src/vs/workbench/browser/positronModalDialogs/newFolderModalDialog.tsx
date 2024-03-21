@@ -13,18 +13,14 @@ import { useRef } from 'react'; // eslint-disable-line no-duplicate-imports
 import { localize } from 'vs/nls';
 import { URI } from 'vs/base/common/uri';
 import { useStateRef } from 'vs/base/browser/ui/react/useStateRef';
-import { ServicesAccessor } from 'vs/editor/browser/editorExtensions';
 import { IFileDialogService } from 'vs/platform/dialogs/common/dialogs';
-import { IKeybindingService } from 'vs/platform/keybinding/common/keybinding';
-import { Checkbox } from 'vs/base/browser/ui/positronModalDialog/components/checkbox';
-import { IWorkbenchLayoutService } from 'vs/workbench/services/layout/browser/layoutService';
-import { VerticalStack } from 'vs/base/browser/ui/positronModalDialog/components/verticalStack';
-import { VerticalSpacer } from 'vs/base/browser/ui/positronModalDialog/components/verticalSpacer';
-import { LabeledTextInput } from 'vs/base/browser/ui/positronModalDialog/components/labeledTextInput';
-import { OKCancelModalDialog } from 'vs/base/browser/ui/positronModalDialog/positronOKCancelModalDialog';
-import { LabeledFolderInput } from 'vs/base/browser/ui/positronModalDialog/components/labeledFolderInput';
-import { PositronModalReactRenderer } from 'vs/base/browser/ui/positronModalReactRenderer/positronModalReactRenderer';
-import { StopCommandsKeyEventProcessor } from 'vs/platform/stopCommandsKeyEventProcessor/browser/stopCommandsKeyEventProcessor';
+import { Checkbox } from 'vs/workbench/browser/positronComponents/positronModalDialog/components/checkbox';
+import { VerticalStack } from 'vs/workbench/browser/positronComponents/positronModalDialog/components/verticalStack';
+import { VerticalSpacer } from 'vs/workbench/browser/positronComponents/positronModalDialog/components/verticalSpacer';
+import { PositronModalReactParams } from 'vs/workbench/browser/positronModalReactRenderer/positronModalReactRenderer';
+import { LabeledTextInput } from 'vs/workbench/browser/positronComponents/positronModalDialog/components/labeledTextInput';
+import { OKCancelModalDialog } from 'vs/workbench/browser/positronComponents/positronModalDialog/positronOKCancelModalDialog';
+import { LabeledFolderInput } from 'vs/workbench/browser/positronComponents/positronModalDialog/components/labeledFolderInput';
 
 /**
  * NewFolderResult interface.
@@ -36,94 +32,77 @@ export interface NewFolderResult {
 }
 
 /**
- * Shows the NewFolderModalDialog.
- * @param accessor The services accessor.
- * @returns A promise that resolves when the dialog is dismissed.
+ * NewFolderModalDialogProps interface.
  */
-export const showNewFolderModalDialog = async (accessor: ServicesAccessor): Promise<NewFolderResult | undefined> => {
-	// Get the services we need for the dialog.
-	const fileDialogs = accessor.get(IFileDialogService);
-	const keybindingService = accessor.get(IKeybindingService);
-	const layoutService = accessor.get(IWorkbenchLayoutService);
+interface NewFolderModalDialogProps extends PositronModalReactParams<NewFolderResult> {
+	fileDialogService: IFileDialogService;
+	parentFolder: string;
+}
 
-	// Load data we need to present the dialog.
-	const parentFolder = (await fileDialogs.defaultFolderPath()).fsPath;
+// The new folder modal dialog component.
+export const NewFolderModalDialog = (props: NewFolderModalDialogProps) => {
+	// Hooks.
+	const [newFolderResult, setNewFolderResult, newFolderResultRef] = useStateRef<NewFolderResult>({
+		folder: '',
+		parentFolder: props.parentFolder,
+		newWindow: false
+	});
+	const folderNameRef = useRef<HTMLInputElement>(undefined!);
 
-	// Return a promise that resolves when the dialog is done.
-	return new Promise<NewFolderResult | undefined>((resolve) => {
-		// Create the modal React renderer.
-		const renderer = new PositronModalReactRenderer({
-			container: layoutService.mainContainer,
-			keyEventProcessor: new StopCommandsKeyEventProcessor({
-				keybindingService,
-				layoutService
-			})
+	// The accept handler.
+	const acceptHandler = () => {
+		props.renderer.dispose();
+		props.accepted(newFolderResultRef.current);
+	};
+
+	// The cancel handler.
+	const cancelHandler = () => {
+		props.renderer.dispose();
+	};
+
+	// The browse handler.
+	const browseHandler = async () => {
+		// Show the open dialog.
+		const uri = await props.fileDialogService.showOpenDialog({
+			defaultUri: newFolderResult.parentFolder ? URI.file(newFolderResult.parentFolder) : undefined,
+			canSelectFiles: false,
+			canSelectFolders: true
 		});
 
-		// The new folder modal dialog component.
-		const NewFolderModalDialog = () => {
-			// Hooks.
-			const [newFolderResult, setNewFolderResult, newFolderResultRef] = useStateRef<NewFolderResult>({
-				folder: '',
-				parentFolder,
-				newWindow: false
-			});
-			const folderNameRef = useRef<HTMLInputElement>(undefined!);
+		// If the user made a selection, set the parent directory.
+		if (uri?.length) {
+			setNewFolderResult({ ...newFolderResult, parentFolder: uri[0].fsPath });
+			folderNameRef.current.focus();
+		}
+	};
 
-			// The accept handler.
-			const acceptHandler = () => {
-				renderer.dispose();
-				resolve(newFolderResultRef.current);
-			};
-
-			// The cancel handler.
-			const cancelHandler = () => {
-				renderer.dispose();
-				resolve(undefined);
-			};
-
-			// The browse handler.
-			const browseHandler = async () => {
-				// Show the open dialog.
-				const uri = await fileDialogs.showOpenDialog({
-					defaultUri: newFolderResult.parentFolder ? URI.file(newFolderResult.parentFolder) : undefined,
-					canSelectFiles: false,
-					canSelectFolders: true
-				});
-
-				// If the user made a selection, set the parent directory.
-				if (uri?.length) {
-					setNewFolderResult({ ...newFolderResult, parentFolder: uri[0].fsPath });
-					folderNameRef.current.focus();
-				}
-			};
-
-			// Render.
-			return (
-				<OKCancelModalDialog renderer={renderer} width={400} height={300} title={localize('positronNewFolderModalDialogTitle', "New Folder")} accept={acceptHandler} cancel={cancelHandler}>
-					<VerticalStack>
-						<LabeledTextInput
-							ref={folderNameRef}
-							label='Folder name'
-							autoFocus
-							value={newFolderResult.folder}
-							onChange={e => setNewFolderResult({ ...newFolderResult, folder: e.target.value })}
-						/>
-						<LabeledFolderInput
-							label='Create folder as subfolder of'
-							value={newFolderResult.parentFolder}
-							onBrowse={browseHandler}
-							onChange={e => setNewFolderResult({ ...newFolderResult, parentFolder: e.target.value })}
-						/>
-					</VerticalStack>
-					<VerticalSpacer>
-						<Checkbox label='Open in a new window' onChanged={checked => setNewFolderResult({ ...newFolderResult, newWindow: checked })} />
-					</VerticalSpacer>
-				</OKCancelModalDialog>
-			);
-		};
-
-		// Render the modal dialog component.
-		renderer.render(<NewFolderModalDialog />);
-	});
+	// Render.
+	return (
+		<OKCancelModalDialog
+			renderer={props.renderer}
+			width={400}
+			height={300}
+			title={localize('positronNewFolderModalDialogTitle', "New Folder")}
+			onAccept={acceptHandler}
+			onCancel={cancelHandler}>
+			<VerticalStack>
+				<LabeledTextInput
+					ref={folderNameRef}
+					label='Folder name'
+					autoFocus
+					value={newFolderResult.folder}
+					onChange={e => setNewFolderResult({ ...newFolderResult, folder: e.target.value })}
+				/>
+				<LabeledFolderInput
+					label='Create folder as subfolder of'
+					value={newFolderResult.parentFolder}
+					onBrowse={browseHandler}
+					onChange={e => setNewFolderResult({ ...newFolderResult, parentFolder: e.target.value })}
+				/>
+			</VerticalStack>
+			<VerticalSpacer>
+				<Checkbox label='Open in a new window' onChanged={checked => setNewFolderResult({ ...newFolderResult, newWindow: checked })} />
+			</VerticalSpacer>
+		</OKCancelModalDialog>
+	);
 };

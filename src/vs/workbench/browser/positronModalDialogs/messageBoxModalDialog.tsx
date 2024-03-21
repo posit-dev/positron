@@ -10,11 +10,10 @@ import * as React from 'react';
 
 // Other dependencies.
 import { IKeybindingService } from 'vs/platform/keybinding/common/keybinding';
-import { OKModalDialog } from 'vs/base/browser/ui/positronModalDialog/positronOKModalDialog';
 import { IWorkbenchLayoutService } from 'vs/workbench/services/layout/browser/layoutService';
-import { VerticalStack } from 'vs/base/browser/ui/positronModalDialog/components/verticalStack';
-import { PositronModalReactRenderer } from 'vs/base/browser/ui/positronModalReactRenderer/positronModalReactRenderer';
-import { StopCommandsKeyEventProcessor } from 'vs/platform/stopCommandsKeyEventProcessor/browser/stopCommandsKeyEventProcessor';
+import { OKModalDialog } from 'vs/workbench/browser/positronComponents/positronModalDialog/positronOKModalDialog';
+import { VerticalStack } from 'vs/workbench/browser/positronComponents/positronModalDialog/components/verticalStack';
+import { PositronModalReactRenderer } from 'vs/workbench/browser/positronModalReactRenderer/positronModalReactRenderer';
 
 /**
  * Shows the message box modal dialog.
@@ -34,11 +33,9 @@ export const messageBoxModalDialog = async (
 	return new Promise<void>((resolve) => {
 		// Create the modal React renderer.
 		const renderer = new PositronModalReactRenderer({
-			container: layoutService.mainContainer,
-			keyEventProcessor: new StopCommandsKeyEventProcessor({
-				keybindingService,
-				layoutService
-			})
+			keybindingService,
+			layoutService,
+			container: layoutService.mainContainer
 		});
 
 		// The modal dialog component.
@@ -56,7 +53,7 @@ export const messageBoxModalDialog = async (
 					width={400}
 					height={195}
 					title={title}
-					accept={acceptHandler}>
+					onAccept={acceptHandler}>
 					<VerticalStack>
 						<div>{message}</div>
 					</VerticalStack>

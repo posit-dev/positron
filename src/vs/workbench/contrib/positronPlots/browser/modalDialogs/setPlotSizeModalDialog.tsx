@@ -10,13 +10,12 @@ import * as React from 'react';
 
 // Other dependencies.
 import { localize } from 'vs/nls';
-import { IPlotSize } from 'vs/workbench/services/positronPlots/common/sizingPolicy';
-import { ContentArea } from 'vs/base/browser/ui/positronModalDialog/components/contentArea';
-import { IWorkbenchLayoutService } from 'vs/workbench/services/layout/browser/layoutService';
-import { PositronModalDialog } from 'vs/base/browser/ui/positronModalDialog/positronModalDialog';
-import { PositronModalReactRenderer } from 'vs/base/browser/ui/positronModalReactRenderer/positronModalReactRenderer';
 import { IKeybindingService } from 'vs/platform/keybinding/common/keybinding';
-import { StopCommandsKeyEventProcessor } from 'vs/platform/stopCommandsKeyEventProcessor/browser/stopCommandsKeyEventProcessor';
+import { IPlotSize } from 'vs/workbench/services/positronPlots/common/sizingPolicy';
+import { IWorkbenchLayoutService } from 'vs/workbench/services/layout/browser/layoutService';
+import { ContentArea } from 'vs/workbench/browser/positronComponents/positronModalDialog/components/contentArea';
+import { PositronModalDialog } from 'vs/workbench/browser/positronComponents/positronModalDialog/positronModalDialog';
+import { PositronModalReactRenderer } from 'vs/workbench/browser/positronModalReactRenderer/positronModalReactRenderer';
 
 /**
  * SetPlotSizeResult interface.
@@ -44,11 +43,9 @@ export const showSetPlotSizeModalDialog = async (
 	return new Promise<SetPlotSizeResult | null | undefined>((resolve) => {
 		// Create the modal React renderer.
 		const renderer = new PositronModalReactRenderer({
-			container: layoutService.mainContainer,
-			keyEventProcessor: new StopCommandsKeyEventProcessor({
-				keybindingService,
-				layoutService
-			})
+			keybindingService,
+			layoutService,
+			container: layoutService.mainContainer
 		});
 
 		// The modal dialog component.
@@ -92,8 +89,8 @@ export const showSetPlotSizeModalDialog = async (
 					width={350}
 					height={200}
 					title={localize('positronSetPlotSizeModalDialogTitle', "Custom Plot Size")}
-					accept={acceptHandler}
-					cancel={cancelHandler}>
+					onAccept={acceptHandler}
+					onCancel={cancelHandler}>
 					<ContentArea>
 
 						<table>

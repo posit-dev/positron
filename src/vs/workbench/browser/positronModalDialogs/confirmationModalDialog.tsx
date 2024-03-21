@@ -11,10 +11,9 @@ import * as React from 'react';
 // Other dependencies.
 import { IKeybindingService } from 'vs/platform/keybinding/common/keybinding';
 import { IWorkbenchLayoutService } from 'vs/workbench/services/layout/browser/layoutService';
-import { VerticalStack } from 'vs/base/browser/ui/positronModalDialog/components/verticalStack';
-import { OKCancelModalDialog } from 'vs/base/browser/ui/positronModalDialog/positronOKCancelModalDialog';
-import { PositronModalReactRenderer } from 'vs/base/browser/ui/positronModalReactRenderer/positronModalReactRenderer';
-import { StopCommandsKeyEventProcessor } from 'vs/platform/stopCommandsKeyEventProcessor/browser/stopCommandsKeyEventProcessor';
+import { VerticalStack } from 'vs/workbench/browser/positronComponents/positronModalDialog/components/verticalStack';
+import { PositronModalReactRenderer } from 'vs/workbench/browser/positronModalReactRenderer/positronModalReactRenderer';
+import { OKCancelModalDialog } from 'vs/workbench/browser/positronComponents/positronModalDialog/positronOKCancelModalDialog';
 
 /**
  * Shows the confirmation modal dialog.
@@ -34,11 +33,9 @@ export const confirmationModalDialog = async (
 	return new Promise<boolean>((resolve) => {
 		// Create the modal React renderer.
 		const renderer = new PositronModalReactRenderer({
-			container: layoutService.mainContainer,
-			keyEventProcessor: new StopCommandsKeyEventProcessor({
-				keybindingService,
-				layoutService
-			})
+			keybindingService,
+			layoutService,
+			container: layoutService.mainContainer
 		});
 
 		// The modal dialog component.
@@ -62,8 +59,8 @@ export const confirmationModalDialog = async (
 					width={400}
 					height={195}
 					title={title}
-					accept={acceptHandler}
-					cancel={cancelHandler}>
+					onAccept={acceptHandler}
+					onCancel={cancelHandler}>
 					<VerticalStack>
 						<div>{message}</div>
 					</VerticalStack>

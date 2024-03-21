@@ -1,0 +1,211 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2022 Posit Software, PBC. All rights reserved.
+ *--------------------------------------------------------------------------------------------*/
+
+// React.
+import * as React from 'react';
+
+// Other dependencies.
+import { localize } from 'vs/nls';
+import { URI } from 'vs/base/common/uri';
+import { ITelemetryData } from 'vs/base/common/actions';
+import { IFileService } from 'vs/platform/files/common/files';
+import { ServicesAccessor } from 'vs/editor/browser/editorExtensions';
+import { ICommandService } from 'vs/platform/commands/common/commands';
+import { IFileDialogService } from 'vs/platform/dialogs/common/dialogs';
+import { ContextKeyExpr } from 'vs/platform/contextkey/common/contextkey';
+import { IPathService } from 'vs/workbench/services/path/common/pathService';
+import { IKeybindingService } from 'vs/platform/keybinding/common/keybinding';
+import { workspacesCategory } from 'vs/workbench/browser/actions/workspaceActions';
+import { Action2, MenuId, registerAction2 } from 'vs/platform/actions/common/actions';
+import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
+import { EnterMultiRootWorkspaceSupportContext } from 'vs/workbench/common/contextkeys';
+import { IWorkbenchLayoutService } from 'vs/workbench/services/layout/browser/layoutService';
+import { NewFolderModalDialog } from 'vs/workbench/browser/positronModalDialogs/newFolderModalDialog';
+import { showNewFolderFromGitModalDialog } from 'vs/workbench/browser/positronModalDialogs/newFolderFromGitModalDialog';
+import { PositronModalReactRenderer } from 'vs/workbench/browser/positronModalReactRenderer/positronModalReactRenderer';
+
+/**
+ * The PositronNewFolderAction.
+ */
+export class PositronNewFolderAction extends Action2 {
+	/**
+	 * The action ID.
+	 */
+	static readonly ID = 'positron.workbench.action.newFolder';
+
+	/**
+	 * Constructor.
+	 */
+	constructor() {
+		super({
+			id: PositronNewFolderAction.ID,
+			title: {
+				value: localize('positronNewFolder', "New Folder..."),
+				// mnemonicTitle: localize({ key: 'miPositronNewFolder', comment: ['&& denotes a mnemonic'] }, "New F&&older..."),
+				original: 'New Folder...'
+			},
+			category: workspacesCategory,
+			f1: true,
+			precondition: EnterMultiRootWorkspaceSupportContext,
+			menu: {
+				id: MenuId.MenubarFileMenu,
+				group: '1_newfolder',
+				order: 4,
+			}
+		});
+	}
+
+	/**
+	 * Runs action.
+	 * @param accessor The services accessor.
+	 */
+	override async run(accessor: ServicesAccessor): Promise<void> {
+		// Get the services we need for the dialog.
+		const fileDialogService = accessor.get(IFileDialogService);
+		const keybindingService = accessor.get(IKeybindingService);
+		const layoutService = accessor.get(IWorkbenchLayoutService);
+
+		// Get the default folder path.
+		const parentFolder = (await fileDialogService.defaultFolderPath()).fsPath;
+
+		// Create the renderer.
+		const renderer = new PositronModalReactRenderer({
+			keybindingService,
+			layoutService
+		});
+
+		// Render the new folder modal dialog.
+		renderer.render(
+			<NewFolderModalDialog
+				fileDialogService={fileDialogService}
+				parentFolder={parentFolder}
+				renderer={renderer}
+				accepted={result => async () => {
+					// Access services we need to create the new folder.
+					const commandService = accessor.get(ICommandService);
+					const fileService = accessor.get(IFileService);
+					const pathService = accessor.get(IPathService);
+
+					const path = await pathService.path;
+
+					// Create the new folder, if it doesn't already exist.
+					const folder = URI.file(path.join(result.parentFolder, result.folder));
+					if (!(await fileService.exists(folder))) {
+						await fileService.createFolder(folder);
+					}
+
+					// Open the newly created folder/
+					await commandService.executeCommand(
+						'vscode.openFolder',
+						folder,
+						{
+							forceNewWindow: result.newWindow,
+							forceReuseWindow: !result.newWindow
+						}
+					);
+
+				}}
+			/>
+		);
+	}
+}
+
+/**
+ * The PositronNewFolderFromGitAction.
+ */
+export class PositronNewFolderFromGitAction extends Action2 {
+	/**
+	 * The action ID.
+	 */
+	static readonly ID = 'positron.workbench.action.newFolderFromGit';
+
+	/**
+	 * Constructor.
+	 */
+	constructor() {
+		super({
+			id: PositronNewFolderFromGitAction.ID,
+			title: {
+				value: localize('positronNewFolderFromGit', "New Folder from Git..."),
+				// mnemonicTitle: localize({ key: 'miPositronNewFolderFromGit', comment: ['&& denotes a mnemonic'] }, "New Folder from G&&it..."),
+				original: 'New Folder from Git...'
+			},
+			category: workspacesCategory,
+			f1: true,
+			precondition: ContextKeyExpr.and(
+				EnterMultiRootWorkspaceSupportContext,
+				ContextKeyExpr.deserialize('config.git.enabled && !git.missing')
+			),
+			menu: {
+				id: MenuId.MenubarFileMenu,
+				group: '1_newfolder',
+				order: 5,
+			}
+		});
+	}
+
+	/**
+	 * Runs action.
+	 * @param accessor The services accessor.
+	 */
+	override async run(accessor: ServicesAccessor): Promise<void> {
+		const commandService = accessor.get(ICommandService);
+		const configService = accessor.get(IConfigurationService);
+
+		const result = await showNewFolderFromGitModalDialog(accessor);
+		if (result?.repo) {
+			// temporarily set openAfterClone to facilitate result.newWindow
+			// then set it back afterwards
+			const kGitOpenAfterClone = 'git.openAfterClone';
+			const prevOpenAfterClone = configService.getValue(kGitOpenAfterClone);
+			configService.updateValue(kGitOpenAfterClone, result.newWindow ? 'alwaysNewWindow' : 'always');
+			try {
+				await commandService.executeCommand('git.clone', result.repo, result.parentFolder);
+			} finally {
+				configService.updateValue(kGitOpenAfterClone, prevOpenAfterClone);
+			}
+		}
+	}
+}
+
+/**
+ * The PositronOpenFolderInNewWindowAction.
+ */
+export class PositronOpenFolderInNewWindowAction extends Action2 {
+	/**
+	 * The action ID.
+	 */
+	static readonly ID = 'positron.workbench.action.openWorkspaceInNewWindow';
+
+	/**
+	 * Constructor.
+	 */
+	constructor() {
+		super({
+			id: PositronOpenFolderInNewWindowAction.ID,
+			title: {
+				value: localize('positronOpenFolderInNewWindow', "Open Folder in New Window..."),
+				original: 'Open Folder in New Window...'
+			},
+			category: workspacesCategory,
+			f1: true,
+			precondition: EnterMultiRootWorkspaceSupportContext,
+		});
+	}
+
+	/**
+	 * Runs action.
+	 * @param accessor The services accessor.
+	 * @param data The ITelemetryData for the invocation.
+	 */
+	override async run(accessor: ServicesAccessor, data?: ITelemetryData): Promise<void> {
+		const fileDialogService = accessor.get(IFileDialogService);
+		return fileDialogService.pickFolderAndOpen({ forceNewWindow: true, telemetryExtraData: data });
+	}
+}
+
+// Register the actions defined above.
+registerAction2(PositronNewFolderAction);
+registerAction2(PositronNewFolderFromGitAction);
+registerAction2(PositronOpenFolderInNewWindowAction);

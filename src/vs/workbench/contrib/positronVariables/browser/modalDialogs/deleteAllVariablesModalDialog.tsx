@@ -7,16 +7,12 @@ import 'vs/css!./deleteAllVariablesModalDialog';
 
 // React.
 import * as React from 'react';
-import { useState } from 'react'; // eslint-disable-line no-duplicate-imports
 
 // Other dependencies.
 import { localize } from 'vs/nls';
-import { IKeybindingService } from 'vs/platform/keybinding/common/keybinding';
-import { IWorkbenchLayoutService } from 'vs/workbench/services/layout/browser/layoutService';
-import { VerticalStack } from 'vs/base/browser/ui/positronModalDialog/components/verticalStack';
-import { OKCancelModalDialog } from 'vs/base/browser/ui/positronModalDialog/positronOKCancelModalDialog';
-import { PositronModalReactRenderer } from 'vs/base/browser/ui/positronModalReactRenderer/positronModalReactRenderer';
-import { StopCommandsKeyEventProcessor } from 'vs/platform/stopCommandsKeyEventProcessor/browser/stopCommandsKeyEventProcessor';
+import { VerticalStack } from 'vs/workbench/browser/positronComponents/positronModalDialog/components/verticalStack';
+import { PositronModalReactParams } from 'vs/workbench/browser/positronModalReactRenderer/positronModalReactRenderer';
+import { OKCancelModalDialog } from 'vs/workbench/browser/positronComponents/positronModalDialog/positronOKCancelModalDialog';
 
 /**
  * Localized strings.
@@ -34,67 +30,36 @@ export interface DeleteAllVariablesResult {
 }
 
 /**
- * Shows the delete all variables modal dialog.
- * @param keybindingService The keybinding service.
- * @param layoutService The layout service.
- * @returns A promise that resolves when the dialog is dismissed.
+ * DeleteAllVariablesModalDialog component.
+ * @param props The component properties.
+ * @returns The component.
  */
-export const showDeleteAllVariablesModalDialog = async (
-	keybindingService: IKeybindingService,
-	layoutService: IWorkbenchLayoutService
-): Promise<DeleteAllVariablesResult | undefined> => {
-	// Return a promise that resolves when the dialog is done.
-	return new Promise<DeleteAllVariablesResult | undefined>((resolve) => {
-		// Create the modal React renderer.
-		const renderer = new PositronModalReactRenderer({
-			container: layoutService.mainContainer,
-			keyEventProcessor: new StopCommandsKeyEventProcessor({
-				keybindingService,
-				layoutService
-			})
-		});
+export const DeleteAllVariablesModalDialog = (
+	props: PositronModalReactParams<DeleteAllVariablesResult>
+) => {
+	// Render.
+	return (
+		<OKCancelModalDialog
+			renderer={props.renderer}
+			width={375}
+			height={175}
+			title={title}
+			okButtonTitle={yes}
+			cancelButtonTitle={no}
+			onAccept={() => {
+				props.accepted({
+					includeHiddenObjects: false
+				});
+				props.renderer.dispose();
+			}}
+			onCancel={() => props.renderer.dispose()}>
 
-		// The modal dialog component.
-		const ModalDialog = () => {
-			// Hooks.
-			const [result, _setResult] = useState<DeleteAllVariablesResult>({
-				includeHiddenObjects: false
-			});
+			<VerticalStack>
+				<div>{text}</div>
+				{/* Disabled for Private Alpha. */}
+				{/* <Checkbox label='Include hidden objects' onChanged={checked => setResult({ ...result, includeHiddenObjects: checked })} /> */}
+			</VerticalStack>
 
-			// The accept handler.
-			const acceptHandler = () => {
-				renderer.dispose();
-				resolve(result);
-			};
-
-			// The cancel handler.
-			const cancelHandler = () => {
-				renderer.dispose();
-				resolve(undefined);
-			};
-
-			// Render.
-			return (
-				<OKCancelModalDialog
-					renderer={renderer}
-					width={375}
-					height={175}
-					title={title}
-					okButtonTitle={yes}
-					cancelButtonTitle={no}
-					accept={acceptHandler} cancel={cancelHandler}>
-
-					<VerticalStack>
-						<div>{text}</div>
-						{/* Disabled for Private Alpha. */}
-						{/* <Checkbox label='Include hidden objects' onChanged={checked => setResult({ ...result, includeHiddenObjects: checked })} /> */}
-					</VerticalStack>
-
-				</OKCancelModalDialog>
-			);
-		};
-
-		// Render the modal dialog component.
-		renderer.render(<ModalDialog />);
-	});
+		</OKCancelModalDialog>
+	);
 };

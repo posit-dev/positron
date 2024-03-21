@@ -16,9 +16,8 @@ import { ILayoutService } from 'vs/platform/layout/browser/layoutService';
 import { IWorkspacesService } from 'vs/platform/workspaces/common/workspaces';
 import { IContextKeyService } from 'vs/platform/contextkey/common/contextkey';
 import { IKeybindingService } from 'vs/platform/keybinding/common/keybinding';
-import { PositronModalPopup } from 'vs/base/browser/ui/positronModalPopup/positronModalPopup';
-import { PositronModalReactRenderer } from 'vs/base/browser/ui/positronModalReactRenderer/positronModalReactRenderer';
-import { StopCommandsKeyEventProcessor } from 'vs/platform/stopCommandsKeyEventProcessor/browser/stopCommandsKeyEventProcessor';
+import { PositronModalPopup } from 'vs/workbench/browser/positronComponents/positronModalPopup/positronModalPopup';
+import { PositronModalReactRenderer } from 'vs/workbench/browser/positronModalReactRenderer/positronModalReactRenderer';
 import { CustomFolderMenuItems } from 'vs/workbench/browser/parts/positronTopActionBar/customFolderModalPopup/customFolderMenuItems';
 
 /**
@@ -52,11 +51,9 @@ export const showCustomFolderModalPopup = async (
 	return new Promise<void>(resolve => {
 		// Create the modal React renderer.
 		const renderer = new PositronModalReactRenderer({
-			container,
-			keyEventProcessor: new StopCommandsKeyEventProcessor({
-				keybindingService,
-				layoutService
-			})
+			keybindingService,
+			layoutService,
+			container
 		});
 
 		// The modal popup component.
@@ -81,7 +78,14 @@ export const showCustomFolderModalPopup = async (
 					width={'max-content'}
 					height={'min-content'}
 					keyboardNavigation='menu'
-					onDismiss={() => dismiss()}
+					onAccept={() => {
+						renderer.dispose();
+						resolve();
+					}}
+					onCancel={() => {
+						renderer.dispose();
+						resolve();
+					}}
 				>
 					<CustomFolderMenuItems
 						commandService={commandService}

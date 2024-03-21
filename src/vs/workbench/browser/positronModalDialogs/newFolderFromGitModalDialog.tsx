@@ -16,15 +16,14 @@ import { useStateRef } from 'vs/base/browser/ui/react/useStateRef';
 import { ServicesAccessor } from 'vs/editor/browser/editorExtensions';
 import { IFileDialogService } from 'vs/platform/dialogs/common/dialogs';
 import { IKeybindingService } from 'vs/platform/keybinding/common/keybinding';
-import { Checkbox } from 'vs/base/browser/ui/positronModalDialog/components/checkbox';
 import { IWorkbenchLayoutService } from 'vs/workbench/services/layout/browser/layoutService';
-import { VerticalStack } from 'vs/base/browser/ui/positronModalDialog/components/verticalStack';
-import { VerticalSpacer } from 'vs/base/browser/ui/positronModalDialog/components/verticalSpacer';
-import { LabeledTextInput } from 'vs/base/browser/ui/positronModalDialog/components/labeledTextInput';
-import { OKCancelModalDialog } from 'vs/base/browser/ui/positronModalDialog/positronOKCancelModalDialog';
-import { LabeledFolderInput } from 'vs/base/browser/ui/positronModalDialog/components/labeledFolderInput';
-import { PositronModalReactRenderer } from 'vs/base/browser/ui/positronModalReactRenderer/positronModalReactRenderer';
-import { StopCommandsKeyEventProcessor } from 'vs/platform/stopCommandsKeyEventProcessor/browser/stopCommandsKeyEventProcessor';
+import { Checkbox } from 'vs/workbench/browser/positronComponents/positronModalDialog/components/checkbox';
+import { VerticalStack } from 'vs/workbench/browser/positronComponents/positronModalDialog/components/verticalStack';
+import { VerticalSpacer } from 'vs/workbench/browser/positronComponents/positronModalDialog/components/verticalSpacer';
+import { PositronModalReactRenderer } from 'vs/workbench/browser/positronModalReactRenderer/positronModalReactRenderer';
+import { LabeledTextInput } from 'vs/workbench/browser/positronComponents/positronModalDialog/components/labeledTextInput';
+import { OKCancelModalDialog } from 'vs/workbench/browser/positronComponents/positronModalDialog/positronOKCancelModalDialog';
+import { LabeledFolderInput } from 'vs/workbench/browser/positronComponents/positronModalDialog/components/labeledFolderInput';
 
 /**
  * NewFolderFromGitResult interface.
@@ -53,11 +52,9 @@ export const showNewFolderFromGitModalDialog = async (accessor: ServicesAccessor
 	return new Promise<NewFolderFromGitResult | undefined>((resolve) => {
 		// Create the modal React renderer.
 		const renderer = new PositronModalReactRenderer({
-			container: layoutService.mainContainer,
-			keyEventProcessor: new StopCommandsKeyEventProcessor({
-				keybindingService,
-				layoutService
-			})
+			keybindingService,
+			layoutService,
+			container: layoutService.mainContainer
 		});
 
 		// The new folder from git modal dialog component.
@@ -100,7 +97,7 @@ export const showNewFolderFromGitModalDialog = async (accessor: ServicesAccessor
 
 			// Render.
 			return (
-				<OKCancelModalDialog renderer={renderer} width={400} height={300} title={localize('positronNewFolderFromGitModalDialogTitle', "New Folder from Git")} accept={acceptHandler} cancel={cancelHandler}>
+				<OKCancelModalDialog renderer={renderer} width={400} height={300} title={localize('positronNewFolderFromGitModalDialogTitle', "New Folder from Git")} onAccept={acceptHandler} onCancel={cancelHandler}>
 					<VerticalStack>
 						<LabeledTextInput
 							ref={folderNameRef}
