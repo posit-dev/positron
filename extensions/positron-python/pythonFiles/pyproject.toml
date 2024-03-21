@@ -82,7 +82,7 @@ exclude = [
     'pythonFiles/tests/unittestadapter/test_utils.py',
     # --- Start Positron ---
     # Ignore vendored dependencies
-    'lib/python',
+    'lib/',
     'positron/positron_ipykernel/_vendor/',
     # --- End Positron ---
 ]
