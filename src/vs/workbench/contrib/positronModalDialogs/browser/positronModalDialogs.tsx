@@ -22,6 +22,8 @@ import { OKCancelActionBar } from 'vs/base/browser/ui/positronModalDialog/compon
 import { PositronModalReactRenderer } from 'vs/base/browser/ui/positronModalReactRenderer/positronModalReactRenderer';
 import { StopCommandsKeyEventProcessor } from 'vs/platform/stopCommandsKeyEventProcessor/browser/stopCommandsKeyEventProcessor';
 import { IModalDialogPromptInstance, IPositronModalDialogsService } from 'vs/workbench/services/positronModalDialogs/common/positronModalDialogs';
+import { renderHtml } from 'vs/base/browser/renderHtml';
+import { IOpenerService } from 'vs/platform/opener/common/opener';
 
 /**
  * PositronModalDialogs class.
@@ -37,7 +39,8 @@ export class PositronModalDialogs implements IPositronModalDialogsService {
 	 */
 	constructor(
 		@IKeybindingService private readonly _keybindingService: IKeybindingService,
-		@ILayoutService private readonly _layoutService: ILayoutService
+		@ILayoutService private readonly _layoutService: ILayoutService,
+		@IOpenerService private readonly _openerService: IOpenerService,
 	) { }
 
 	/**
@@ -268,7 +271,7 @@ export class PositronModalDialogs implements IPositronModalDialogsService {
 			return (
 				<PositronModalDialog renderer={renderer} title={title} width={400} height={200} accept={acceptHandler} >
 					<ContentArea>
-						{message}
+						{renderHtml(message, { onLinkClick: (href: string) => this._openerService.open(href) })}
 					</ContentArea>
 					<OKActionBar
 						okButtonTitle={okButtonTitle}

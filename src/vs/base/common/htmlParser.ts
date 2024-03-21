@@ -25,10 +25,11 @@ import { decode } from 'he';
  * - Added support for decoding for HTML entities in text nodes, using the `he`
  *   library
  * - Removed support for component overrides
+ * - Updated the attribute matching regex and extraction logic to work with un-quoted attributes
  */
 
 // Regular expression matching HTML tag attributes
-const attrRE = /\s([^'"/\s><]+?)[\s/>]|([^\s=]+)=\s?(".*?"|'.*?')/g;
+const attrRE = /\s([^'"\/\s=><]+?)[\s\/>]|([^\s=]+)=\s?(".*?"|'.*?'|[^>\s]+)/g;
 
 /** Interface for a parsed HTML node. */
 export interface HtmlNode {
@@ -52,9 +53,10 @@ export interface HtmlNode {
 
 	/**
 	 * All of the node's HTML attributes, using Javascript property names
-	 * (e.g. `className` rather than `class`)
+	 * (e.g. `className` rather than `class`). The `Record` case is for
+	 * style attributes.
 	 */
-	attrs?: Record<string, string>;
+	attrs?: Record<string, string | Record<string, string>>;
 
 	/** The node's children */
 	children?: Array<HtmlNode>;
@@ -179,17 +181,19 @@ function parseTag(tag: string, parent?: HtmlNode): HtmlNode {
 				attrName = 'readOnly';
 			}
 
-			let attrValue: any = result[3].trim().substring(1, result[3].length - 1);
+			let attrValue = result[3].trim();
 
-			if (attrName.toLowerCase() === 'style') {
-				// Parse the style attribute into a JavaScript object
-				attrValue = parseStyles(attrValue);
+			// If the attribute is surrounded in quotes, trim them off
+			const quoteChars = [`"`, `'`];
+			const attrIsQuoted = quoteChars.includes(attrValue.charAt(0)) && quoteChars.includes(attrValue.charAt(attrValue.length - 1));
+			if (attrIsQuoted) {
+				attrValue = attrValue.substring(1, attrValue.length - 1);
 			}
 
 			if (!res.attrs) {
 				res.attrs = {};
 			}
-			res.attrs[result[2]] = attrValue;
+			res.attrs[attrName] = lowerCaseAttrName === 'style' ? parseStyles(attrValue) : attrValue;
 		}
 	}
 
