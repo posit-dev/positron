@@ -17,6 +17,7 @@ import { EditorContextKeys } from 'vs/editor/common/editorContextKeys';
 import { ILanguageService } from 'vs/editor/common/languages/language';
 import { PositronConsoleFocused } from 'vs/workbench/common/contextkeys';
 import { ContextKeyExpr } from 'vs/platform/contextkey/common/contextkey';
+import { IKeybindingService } from 'vs/platform/keybinding/common/keybinding';
 import { Action2, registerAction2 } from 'vs/platform/actions/common/actions';
 import { IViewsService } from 'vs/workbench/services/views/common/viewsService';
 import { ServicesAccessor } from 'vs/platform/instantiation/common/instantiation';
@@ -190,9 +191,10 @@ export function registerPositronConsoleActions() {
 		async run(accessor: ServicesAccessor) {
 			// Use the service accessor to get the services we need.
 			const executionHistoryService = accessor.get(IExecutionHistoryService);
-			const positronConsoleService = accessor.get(IPositronConsoleService);
-			const notificationService = accessor.get(INotificationService);
+			const keybindingService = accessor.get(IKeybindingService);
 			const layoutService = accessor.get(IWorkbenchLayoutService);
+			const notificationService = accessor.get(INotificationService);
+			const positronConsoleService = accessor.get(IPositronConsoleService);
 
 			// Get the active Positron console instance. The Clear Input History action is bound to
 			// the active console, so if there isn't an active Positron console instance, we can't
@@ -212,6 +214,7 @@ export function registerPositronConsoleActions() {
 
 			// Ask the user to confirm the action.
 			if (!await confirmationModalDialog(
+				keybindingService,
 				layoutService,
 				localize('clearInputHistoryTitle', "Clear Input History"),
 				localize('clearInputHistoryPrompt', "Are you sure you want to clear the {0} input history? This can't be undone.", languageName))) {

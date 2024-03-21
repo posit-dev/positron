@@ -1,15 +1,21 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2022 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2022-2024 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
+// CSS.
 import 'vs/css!./newFolderModalDialog';
+
+// React.
 import * as React from 'react';
 import { useRef } from 'react'; // eslint-disable-line no-duplicate-imports
+
+// Other dependencies.
 import { localize } from 'vs/nls';
 import { URI } from 'vs/base/common/uri';
 import { useStateRef } from 'vs/base/browser/ui/react/useStateRef';
 import { ServicesAccessor } from 'vs/editor/browser/editorExtensions';
 import { IFileDialogService } from 'vs/platform/dialogs/common/dialogs';
+import { IKeybindingService } from 'vs/platform/keybinding/common/keybinding';
 import { Checkbox } from 'vs/base/browser/ui/positronModalDialog/components/checkbox';
 import { IWorkbenchLayoutService } from 'vs/workbench/services/layout/browser/layoutService';
 import { VerticalStack } from 'vs/base/browser/ui/positronModalDialog/components/verticalStack';
@@ -18,6 +24,7 @@ import { LabeledTextInput } from 'vs/base/browser/ui/positronModalDialog/compone
 import { OKCancelModalDialog } from 'vs/base/browser/ui/positronModalDialog/positronOKCancelModalDialog';
 import { LabeledFolderInput } from 'vs/base/browser/ui/positronModalDialog/components/labeledFolderInput';
 import { PositronModalReactRenderer } from 'vs/base/browser/ui/positronModalReactRenderer/positronModalReactRenderer';
+import { StopCommandsKeyEventProcessor } from 'vs/platform/stopCommandsKeyEventProcessor/browser/stopCommandsKeyEventProcessor';
 
 /**
  * NewFolderResult interface.
@@ -36,6 +43,7 @@ export interface NewFolderResult {
 export const showNewFolderModalDialog = async (accessor: ServicesAccessor): Promise<NewFolderResult | undefined> => {
 	// Get the services we need for the dialog.
 	const fileDialogs = accessor.get(IFileDialogService);
+	const keybindingService = accessor.get(IKeybindingService);
 	const layoutService = accessor.get(IWorkbenchLayoutService);
 
 	// Load data we need to present the dialog.
@@ -44,8 +52,13 @@ export const showNewFolderModalDialog = async (accessor: ServicesAccessor): Prom
 	// Return a promise that resolves when the dialog is done.
 	return new Promise<NewFolderResult | undefined>((resolve) => {
 		// Create the modal React renderer.
-		const positronModalReactRenderer =
-			new PositronModalReactRenderer(layoutService.mainContainer);
+		const renderer = new PositronModalReactRenderer({
+			container: layoutService.mainContainer,
+			keyEventProcessor: new StopCommandsKeyEventProcessor({
+				keybindingService,
+				layoutService
+			})
+		});
 
 		// The new folder modal dialog component.
 		const NewFolderModalDialog = () => {
@@ -59,13 +72,13 @@ export const showNewFolderModalDialog = async (accessor: ServicesAccessor): Prom
 
 			// The accept handler.
 			const acceptHandler = () => {
-				positronModalReactRenderer.dispose();
+				renderer.dispose();
 				resolve(newFolderResultRef.current);
 			};
 
 			// The cancel handler.
 			const cancelHandler = () => {
-				positronModalReactRenderer.dispose();
+				renderer.dispose();
 				resolve(undefined);
 			};
 
@@ -87,7 +100,7 @@ export const showNewFolderModalDialog = async (accessor: ServicesAccessor): Prom
 
 			// Render.
 			return (
-				<OKCancelModalDialog renderer={positronModalReactRenderer} width={400} height={300} title={localize('positronNewFolderModalDialogTitle', "New Folder")} accept={acceptHandler} cancel={cancelHandler}>
+				<OKCancelModalDialog renderer={renderer} width={400} height={300} title={localize('positronNewFolderModalDialogTitle', "New Folder")} accept={acceptHandler} cancel={cancelHandler}>
 					<VerticalStack>
 						<LabeledTextInput
 							ref={folderNameRef}
@@ -111,6 +124,6 @@ export const showNewFolderModalDialog = async (accessor: ServicesAccessor): Prom
 		};
 
 		// Render the modal dialog component.
-		positronModalReactRenderer.render(<NewFolderModalDialog />);
+		renderer.render(<NewFolderModalDialog />);
 	});
 };

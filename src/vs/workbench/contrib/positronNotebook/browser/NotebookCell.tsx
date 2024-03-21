@@ -22,7 +22,7 @@ export function NotebookCell(opts: {
 	cell: PositronNotebookCell;
 }) {
 
-	const { editorPartRef, editorContainerRef } = useCellEditorWidget(opts);
+	const { editorPartRef } = useCellEditorWidget(opts);
 
 	const executionStatus = useObservedValue(opts.cell.executionStatus);
 	const outputContents = useObservedValue(opts.cell.outputs);
@@ -49,7 +49,6 @@ export function NotebookCell(opts: {
 			</div>
 			<div className='cell-contents'>
 				<div ref={editorPartRef}>
-					<div ref={editorContainerRef} className='positron-monaco-editor-container'></div>
 				</div>
 				<div className='positron-notebook-cell-outputs'>
 					{

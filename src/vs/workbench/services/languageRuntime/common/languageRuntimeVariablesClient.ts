@@ -1,10 +1,11 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2022-2023 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2022-2024 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
 import { Emitter } from 'vs/base/common/event';
 import { Disposable } from 'vs/base/common/lifecycle';
-import { IRuntimeClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimeClientInstance';
+import { ObservableValue } from 'vs/base/common/observableInternal/base';
+import { IRuntimeClientInstance, RuntimeClientState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeClientInstance';
 import { ClipboardFormatFormat, PositronVariablesComm, RefreshEvent, UpdateEvent, Variable } from 'vs/workbench/services/languageRuntime/common/positronVariablesComm';
 
 /**
@@ -119,6 +120,11 @@ export class VariablesClientInstance extends Disposable {
 	onDidReceiveUpdate = this._onDidReceiveUpdateEmitter.event;
 
 	/**
+	 * The state of the client instance.
+	 */
+	public clientState: ObservableValue<RuntimeClientState>;
+
+	/**
 	 * Ceate a new variable client instance.
 	 *
 	 * @param client The client instance to use to communicate with the back end.
@@ -127,6 +133,9 @@ export class VariablesClientInstance extends Disposable {
 		super();
 
 		this._comm = new PositronVariablesComm(client);
+		this.clientState = client.clientState;
+
+		// Connect the client instance to the back end
 		this.connectClient(this._comm);
 	}
 
