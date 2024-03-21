@@ -18,7 +18,6 @@ type ExecutionStatus = 'running' | 'pending' | 'unconfirmed' | 'idle';
 export class PositronNotebookCell extends Disposable implements IPositronNotebookCell {
 	executionStatus: ISettableObservable<ExecutionStatus, void>;
 	outputs: ISettableObservable<ICellOutput[], void>;
-	kind: CellKind;
 
 	constructor(
 		public viewModel: NotebookCellTextModel,
@@ -29,7 +28,6 @@ export class PositronNotebookCell extends Disposable implements IPositronNoteboo
 		this.executionStatus = observableValue<ExecutionStatus, void>('cellExecutionStatus', 'idle');
 		this.outputs = observableValue<ICellOutput[], void>('cellOutputs', this.viewModel.outputs);
 
-		this.kind = viewModel.cellKind;
 		// Listen for changes to the cell outputs and update the observable
 		this._register(
 			this.viewModel.onDidChangeOutputs(() => {
@@ -39,6 +37,10 @@ export class PositronNotebookCell extends Disposable implements IPositronNoteboo
 				this.outputs.set([...this.viewModel.outputs], undefined);
 			})
 		);
+	}
+
+	get kind(): CellKind {
+		return this.viewModel.cellKind;
 	}
 
 	get uri(): URI {
@@ -61,18 +63,17 @@ export class PositronNotebookCell extends Disposable implements IPositronNoteboo
 		const modelRef = await this.textModelResolverService.createModelReference(this.uri);
 		return modelRef.object.textEditorModel;
 	}
-
 }
 
 /**
  * Wrapper class for notebook cell that exposes the properties that the UI needs to render the cell.
  */
-interface IPositronNotebookCell {
+export interface IPositronNotebookCell {
 
 	/**
-	 * Is the cell a code or markdown cell?
+	 * Is the cell a code or markup cell?
 	 */
-	kind: CellKind;
+	get kind(): CellKind;
 
 	/**
 	 * Cell specific uri for the cell within the notebook
@@ -114,3 +115,21 @@ interface IPositronNotebookCell {
 	 */
 	delete(): void;
 }
+
+export interface IPositronNotebookCodeCell extends IPositronNotebookCell {
+	kind: CellKind.Code;
+}
+
+export function isCodeCell(cell: IPositronNotebookCell): cell is IPositronNotebookCodeCell {
+	return cell.kind === CellKind.Code;
+}
+
+export interface IPositronNotebookMarkupCell extends IPositronNotebookCell {
+	kind: CellKind.Markup;
+}
+
+export function isMarkupCell(cell: IPositronNotebookCell): cell is IPositronNotebookMarkupCell {
+	return cell.kind === CellKind.Markup;
+}
+
+

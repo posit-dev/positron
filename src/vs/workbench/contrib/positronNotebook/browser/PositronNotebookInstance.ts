@@ -89,7 +89,7 @@ export interface IPositronNotebookInstance {
 	/**
 	 * Add a new cell of a given type to the notebook at the requested index
 	 */
-	addCell(type: keyof typeof PositronNotebookInstance.cellTypeToKind, index: number): void;
+	addCell(type: CellKind, index: number): void;
 
 	/**
 	 * Delete a cell from the notebook
@@ -113,13 +113,6 @@ export interface IPositronNotebookInstance {
 
 export class PositronNotebookInstance extends Disposable implements IPositronNotebookInstance {
 
-	/**
-	 * Map from string of cell kind to the integer enum used internally.
-	 */
-	static cellTypeToKind = {
-		'code': CellKind.Code,
-		'markdown': CellKind.Markup,
-	};
 
 	/**
 	 * Value to keep track of what instance number.
@@ -385,7 +378,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		}
 	}
 
-	addCell(type: 'code' | 'markdown', index: number): void {
+	addCell(type: CellKind, index: number): void {
 		if (!this._viewModel) {
 			throw new Error(localize('noViewModel', "No view model for notebook"));
 		}
@@ -400,7 +393,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 			index,
 			'',
 			this.language,
-			PositronNotebookInstance.cellTypeToKind[type],
+			type,
 			undefined,
 			[],
 			synchronous,

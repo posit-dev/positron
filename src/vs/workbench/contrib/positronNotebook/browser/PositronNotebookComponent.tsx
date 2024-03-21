@@ -6,7 +6,7 @@ import 'vs/css!./PositronNotebookComponent';
 
 import * as React from 'react';
 import { useNotebookInstance } from 'vs/workbench/contrib/positronNotebook/browser/NotebookInstanceProvider';
-import { NotebookCell } from './NotebookCell';
+import { NotebookCell } from './notebookCells/NotebookCell';
 import { AddCellButton } from './AddCellButton';
 import { useObservedValue } from './useObservedValue';
 import { localize } from 'vs/nls';
