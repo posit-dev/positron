@@ -143,6 +143,11 @@ export interface IPositronConsoleInstance {
 	readonly promptActive: boolean;
 
 	/**
+	 * Whether or not we are currently attached to the runtime.
+	 */
+	readonly runtimeAttached: boolean;
+
+	/**
 	 * The onFocusInput event.
 	 */
 	readonly onFocusInput: Event<void>;
