@@ -45,7 +45,11 @@ export const OutputRunWithLinks = (props: OutputRunWithLinksProps) => {
 	};
 
 	// Look for a hyperlink in the text.
-	const hyperlinkMatch = props.text.match(/\bhttps?:\/\/\S+/);
+	//
+	// Note that this regex ignores characters that typically delimit a
+	// hyperlink, such as quotes, parentheses, and braces, even though these
+	// characters are technically allowed in a URL.
+	const hyperlinkMatch = props.text.match(/\bhttps?:\/\/[^'")}\s]+/);
 	if (hyperlinkMatch) {
 		// Create an array of text and hyperlinks for each entry in the match array.
 		const parts = [];
