@@ -315,14 +315,14 @@ export const ConsoleInstance = (props: ConsoleInstanceProps) => {
 
 		// Return the cleanup function that will dispose of the event handlers.
 		return () => disposableStore.dispose();
-	}, []);
+	}, [editorFontInfo, lastScrollTopRef, positronConsoleContext.activePositronConsoleInstance?.session, positronConsoleContext.configurationService, positronConsoleContext.positronPlotsService, positronConsoleContext.runtimeSessionService, positronConsoleContext.viewsService, props.positronConsoleInstance, props.reactComponentContainer, setLastScrollTop]);
 
 	useLayoutEffect(() => {
 		// If the view is not scroll locked, scroll to the bottom to reveal the most recent items.
 		if (!scrollLockRef.current) {
 			scrollVertically(consoleInstanceRef.current.scrollHeight);
 		}
-	}, [marker]);
+	}, [marker, scrollLockRef]);
 
 	/**
 	 * onClick event handler.
@@ -605,7 +605,7 @@ export const ConsoleInstance = (props: ConsoleInstanceProps) => {
 					}
 				})}
 			</div>
-			{!props.positronConsoleInstance.promptActive &&
+			{!props.positronConsoleInstance.promptActive && props.positronConsoleInstance.runtimeAttached &&
 				<ConsoleInput
 					width={consoleInputWidth}
 					positronConsoleInstance={props.positronConsoleInstance}
