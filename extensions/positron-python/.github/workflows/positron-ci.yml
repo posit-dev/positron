@@ -96,7 +96,7 @@ jobs:
       - name: Run Pyright
         uses: jakebailey/pyright-action@v2
         with:
-          version: 1.1.352
+          version: 1.1.308
           working-directory: 'pythonFiles'
 
   python-tests:
