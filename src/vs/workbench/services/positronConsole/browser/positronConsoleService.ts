@@ -735,7 +735,7 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 	 * Gets the currently attached runtime session, or undefined if there is no runtime attached.
 	 */
 	get attachedRuntimeSession(): ILanguageRuntimeSession | undefined {
-		return this._runtimeAttached ? this._session : undefined;
+		return this.runtimeAttached ? this._session : undefined;
 	}
 
 	/**
@@ -798,6 +798,13 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 	 */
 	get promptActive(): boolean {
 		return this._promptActive;
+	}
+
+	/**
+	 * Gets a value which indicates whether a runtime is attached.
+	 */
+	get runtimeAttached(): boolean {
+		return this._runtimeAttached;
 	}
 
 	/**
@@ -1069,7 +1076,7 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 	setRuntimeSession(session: ILanguageRuntimeSession, attachMode: SessionAttachMode) {
 		// Is this the same runtime we're currently attached to?
 		if (this._session && this._session.sessionId === session.sessionId) {
-			if (this._runtimeAttached) {
+			if (this.runtimeAttached) {
 				// Yes, it's the same one. If we're already attached, we're
 				// done; just let the user know we're starting up if we are
 				// currently showing as Exited.
@@ -1295,7 +1302,7 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 					setTimeout(() => {
 						// If we're still in the Exited state and haven't
 						// disposed, then do it now.
-						if (this._runtimeState === RuntimeState.Exited && this._runtimeAttached) {
+						if (this._runtimeState === RuntimeState.Exited && this.runtimeAttached) {
 							this.detachRuntime();
 
 							this.addRuntimeItem(new RuntimeItemExited(
@@ -1354,7 +1361,7 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 			));
 
 			// If we haven't already detached the runtime, do it now.
-			if (this._runtimeState === RuntimeState.Exited && this._runtimeAttached) {
+			if (this._runtimeState === RuntimeState.Exited && this.runtimeAttached) {
 				this.detachRuntime();
 			}
 		}));
@@ -1737,7 +1744,7 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 			this.addRuntimeItemTrace(`Detach session ${this._session.metadata.sessionName}`);
 		}
 
-		if (this._runtimeAttached) {
+		if (this.runtimeAttached) {
 			// We are currently attached; detach.
 			this._runtimeAttached = false;
 			this._onDidAttachRuntime.fire(undefined);
