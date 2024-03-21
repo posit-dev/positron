@@ -294,6 +294,7 @@ export class NotebookController implements vscode.Disposable {
  * */
 async function setNotebookLanguage(notebook: vscode.NotebookDocument, languageId: string): Promise<void> {
 	// Set the language in the notebook's metadata.
+	// This follows the approach from the vscode-jupyter extension.
 	if (notebook.metadata?.custom?.metadata?.language_info?.name !== languageId) {
 		const edit = new vscode.WorkspaceEdit();
 		edit.set(notebook.uri, [
