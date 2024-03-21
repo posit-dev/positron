@@ -70,12 +70,8 @@ export class NotebookController implements vscode.Disposable {
 				// Note that this is also reached when a notebook is opened, if this controller was
 				// already selected.
 
-				// Configure the notebook's cells to use the controller's language.
-				for (const cell of e.notebook.getCells()) {
-					if (cell.kind === vscode.NotebookCellKind.Code) {
-						vscode.languages.setTextDocumentLanguage(cell.document, this.languageId);
-					}
-				}
+				// Start updating the notebook's language info as soon as possible, but only await it at the end.
+				const setNotebookLanguagePromise = setNotebookLanguage(e.notebook, this.languageId);
 
 				// Set the notebook's deferred runtime data. This needs to be set before any awaits.
 				// When a user executes code without a controller selected, they will be presented
@@ -96,13 +92,14 @@ export class NotebookController implements vscode.Disposable {
 						e.notebook.uri);
 
 					const notebookRuntime = new NotebookRuntimeData(session);
+					deferredRuntimeData.resolve(notebookRuntime);
 
 					trace(`Started runtime ${preferredRuntime.runtimeName} for notebook ${e.notebook.uri.path}`);
-
-					deferredRuntimeData.resolve(notebookRuntime);
 				} catch (error) {
 					deferredRuntimeData.reject(error);
 				}
+
+				await setNotebookLanguagePromise;
 			}
 		}));
 	}
@@ -113,6 +110,7 @@ export class NotebookController implements vscode.Disposable {
 	 * @param cells Cells to execute.
 	 * @param _notebook Notebook containing the cells.
 	 * @param _controller Notebook controller.
+	 * @returns Promise that resolves when the language has been set.
 	 */
 	private async executeCells(cells: vscode.NotebookCell[], _notebook: vscode.NotebookDocument, _controller: vscode.NotebookController) {
 		for (const cell of cells) {
@@ -124,6 +122,8 @@ export class NotebookController implements vscode.Disposable {
 	 * Shutdown the runtime for a notebook.
 	 *
 	 * @param notebook Notebook whose runtime to shutdown.
+	 * @returns Promise that resolves when the runtime shutdown sequence has been started and the
+	 * runtime has been removed from the notebook runtimes map.
 	 */
 	private async shutdownRuntime(notebook: vscode.NotebookDocument): Promise<void> {
 		const deferredRuntimeData = this.notebookRuntimes.get(notebook);
@@ -143,6 +143,7 @@ export class NotebookController implements vscode.Disposable {
 	 * Execute a notebook cell.
 	 *
 	 * @param cell Cell to execute.
+	 * @returns Promise that resolves when the runtime has finished executing the cell.
 	 */
 	private async executeCell(cell: vscode.NotebookCell): Promise<void> {
 		// Get the notebook's runtime data.
@@ -283,6 +284,42 @@ export class NotebookController implements vscode.Disposable {
 		this.disposables.forEach(d => d.dispose());
 	}
 }
+
+/**
+ * Set the language for a notebook.
+ *
+ * @param notebook Notebook whose language to set.
+ * @param languageId The VSCode-compatible language ID compatible.
+ * @returns Promise that resolves when the language has been set.
+ * */
+async function setNotebookLanguage(notebook: vscode.NotebookDocument, languageId: string): Promise<void> {
+	// Set the language in the notebook's metadata.
+	// This follows the approach from the vscode-jupyter extension.
+	if (notebook.metadata?.custom?.metadata?.language_info?.name !== languageId) {
+		const edit = new vscode.WorkspaceEdit();
+		edit.set(notebook.uri, [
+			vscode.NotebookEdit.updateNotebookMetadata({
+				...notebook.metadata,
+				custom: {
+					...notebook.metadata.custom ?? {},
+					metadata: {
+						...(notebook.metadata.custom?.metadata ?? {}),
+						language_info: {
+							name: languageId
+						}
+					}
+				}
+			})]);
+		await vscode.workspace.applyEdit(edit);
+	}
+
+	// Set the language in each of the notebook's cells.
+	await Promise.all(notebook.getCells()
+		.filter(cell => cell.kind === vscode.NotebookCellKind.Code && cell.document.languageId !== languageId)
+		.map(cell => vscode.languages.setTextDocumentLanguage(cell.document, languageId))
+	);
+}
+
 
 /**
  * Handle a LanguageRuntimeOutput message.
