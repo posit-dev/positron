@@ -226,6 +226,22 @@ export interface ExecuteCommandEvent {
 }
 
 /**
+ * Event: Open a workspace
+ */
+export interface OpenWorkspaceEvent {
+	/**
+	 * The path for the workspace to be opened
+	 */
+	path: string;
+
+	/**
+	 * Should the workspace be opened in a new window?
+	 */
+	new_window: boolean;
+
+}
+
+/**
  * Request: Show a question
  *
  * Use this for a modal dialog that the user can accept or cancel
@@ -285,6 +301,15 @@ export interface DebugSleepRequest {
 }
 
 /**
+ * Request: Path to the workspace folder
+ *
+ * Returns the path to the workspace folder, or first folder if there are
+ * multiple.
+ */
+export interface WorkspaceFolderRequest {
+}
+
+/**
  * Request: Context metadata for the last editor
  *
  * Returns metadata such as file path for the last editor selected by the
@@ -300,13 +325,15 @@ export enum UiFrontendEvent {
 	ShowMessage = 'show_message',
 	PromptState = 'prompt_state',
 	WorkingDirectory = 'working_directory',
-	ExecuteCommand = 'execute_command'
+	ExecuteCommand = 'execute_command',
+	OpenWorkspace = 'open_workspace'
 }
 
 export enum UiFrontendRequest {
 	ShowQuestion = 'show_question',
 	ShowDialog = 'show_dialog',
 	DebugSleep = 'debug_sleep',
+	WorkspaceFolder = 'workspace_folder',
 	LastActiveEditorContext = 'last_active_editor_context'
 }
 
@@ -320,6 +347,7 @@ export class PositronUiComm extends PositronBaseComm {
 		this.onDidPromptState = super.createEventEmitter('prompt_state', ['input_prompt', 'continuation_prompt']);
 		this.onDidWorkingDirectory = super.createEventEmitter('working_directory', ['directory']);
 		this.onDidExecuteCommand = super.createEventEmitter('execute_command', ['command']);
+		this.onDidOpenWorkspace = super.createEventEmitter('open_workspace', ['path', 'new_window']);
 	}
 
 	/**
@@ -387,5 +415,11 @@ export class PositronUiComm extends PositronBaseComm {
 	 * runtime)
 	 */
 	onDidExecuteCommand: Event<ExecuteCommandEvent>;
+	/**
+	 * Open a workspace
+	 *
+	 * Use this to open a workspace in Positron
+	 */
+	onDidOpenWorkspace: Event<OpenWorkspaceEvent>;
 }
 

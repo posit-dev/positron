@@ -195,6 +195,41 @@
 			]
 		},
 		{
+			"name": "open_workspace",
+			"summary": "Open a workspace",
+			"description": "Use this to open a workspace in Positron",
+			"params": [
+				{
+					"name": "path",
+					"description": "The path for the workspace to be opened",
+					"schema": {
+						"type": "string"
+					}
+				},
+				{
+					"name": "new_window",
+					"description": "Should the workspace be opened in a new window?",
+					"schema": {
+						"type": "boolean"
+					}
+				}
+			]
+		},
+		{
+			"name": "workspace_folder",
+			"summary": "Path to the workspace folder",
+			"description": "Returns the path to the workspace folder, or first folder if there are multiple.",
+			"params": [],
+			"result": {
+				"required": false,
+				"schema": {
+					"name": "workspace_folder",
+					"type": "string",
+					"description": "The path to the workspace folder"
+				}
+			}
+		},
+		{
 			"name": "last_active_editor_context",
 			"summary": "Context metadata for the last editor",
 			"description": "Returns metadata such as file path for the last editor selected by the user. The result may be undefined if there are no active editors.",
