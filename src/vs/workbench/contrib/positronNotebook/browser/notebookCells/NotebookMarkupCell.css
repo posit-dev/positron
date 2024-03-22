@@ -5,4 +5,11 @@
 .positron-notebook-markup-rendered {
 	padding-inline: 1rem;
 	padding-block: 0.5rem;
+
+	.empty-output-msg {
+		opacity: 0.75;
+		font-style: italic;
+		text-align: center;
+		cursor: pointer;
+	}
 }

@@ -41,7 +41,9 @@ export function NotebookMarkupCell({ cell }: { cell: IPositronNotebookMarkupCell
 			cell.toggleEditor();
 		}}>
 			{
-				renderedHtml ? <div>{renderHtml(renderedHtml)}</div> : null
+				renderedHtml ? <div>{renderHtml(renderedHtml)}</div> : <div className='empty-output-msg'>
+					Empty markup cell. {editorShown ? '' : 'Double click to edit'}
+				</div>
 			}
 		</div>
 	</NotebookCellSkeleton>;
