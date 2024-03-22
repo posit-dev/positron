@@ -9,8 +9,8 @@ import { IContextKeyService } from 'vs/platform/contextkey/common/contextkey';
 import { ServiceCollection } from 'vs/platform/instantiation/common/serviceCollection';
 import { CellEditorOptions } from 'vs/workbench/contrib/notebook/browser/view/cellParts/cellEditorOptions';
 import { useNotebookInstance } from 'vs/workbench/contrib/positronNotebook/browser/NotebookInstanceProvider';
-import { IPositronNotebookGeneralCell } from 'vs/workbench/contrib/positronNotebook/browser/PositronNotebookCell';
 import { useServices } from 'vs/workbench/contrib/positronNotebook/browser/ServicesProvider';
+import { IPositronNotebookGeneralCell } from 'vs/workbench/contrib/positronNotebook/browser/notebookCells/interfaces';
 import { observeValue } from 'vs/workbench/contrib/positronNotebook/common/utils/observeValue';
 
 
@@ -21,7 +21,6 @@ import { observeValue } from 'vs/workbench/contrib/positronNotebook/common/utils
  */
 export function CellEditorMonacoWidget({ cell }: { cell: IPositronNotebookGeneralCell }) {
 	const { editorPartRef } = useCellEditorWidget(cell);
-
 	return <div ref={editorPartRef} />;
 }
 

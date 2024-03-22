@@ -6,22 +6,37 @@ import * as React from 'react';
 import { VSBuffer } from 'vs/base/common/buffer';
 import { NotebookCellOutputTextModel } from 'vs/workbench/contrib/notebook/common/model/notebookCellOutputTextModel';
 import { ICellOutput } from 'vs/workbench/contrib/notebook/common/notebookCommon';
-import { IPositronNotebookCodeCell } from 'vs/workbench/contrib/positronNotebook/browser/PositronNotebookCell';
+import { IPositronNotebookCodeCell } from 'vs/workbench/contrib/positronNotebook/browser/notebookCells/interfaces';
 import { parseOutputData } from 'vs/workbench/contrib/positronNotebook/browser/getOutputContents';
 import { useObservedValue } from 'vs/workbench/contrib/positronNotebook/browser/useObservedValue';
 import { CellEditorMonacoWidget } from './CellEditorMonacoWidget';
 import { localize } from 'vs/nls';
+import { NotebookCellSkeleton } from 'vs/workbench/contrib/positronNotebook/browser/notebookCells/NotebookCellSkeleton';
+import { Button } from 'vs/base/browser/ui/positronComponents/button/button';
 
 
 export function NodebookCodeCell({ cell }: { cell: IPositronNotebookCodeCell }) {
 	const outputContents = useObservedValue(cell.outputs);
+	const executionStatus = useObservedValue(cell.executionStatus);
+	const isRunning = executionStatus === 'running';
 
-	return <>
+	return <NotebookCellSkeleton
+		onDelete={() => cell.delete()}
+		actionBarItems={
+			<Button
+				className='action-button'
+				ariaLabel={isRunning ? localize('stopExecution', 'Stop execution') : localize('runCell', 'Run cell')}
+				onPressed={() => cell.run()} >
+				<div className={`button-icon codicon ${isRunning ? 'codicon-primitive-square' : 'codicon-run'}`} />
+			</Button>
+		}
+	>
+
 		<CellEditorMonacoWidget cell={cell} />
 		<div className='positron-notebook-cell-outputs'>
 			{outputContents?.map((output) => <NotebookCellOutput key={output.outputId} cellOutput={output} />)}
 		</div>
-	</>;
+	</NotebookCellSkeleton>;
 }
 
 function NotebookCellOutput({ cellOutput }: { cellOutput: ICellOutput }) {

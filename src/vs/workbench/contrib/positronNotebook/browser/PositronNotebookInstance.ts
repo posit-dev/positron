@@ -20,10 +20,11 @@ import { CellEditType, CellKind, ICellReplaceEdit, SelectionStateType } from 'vs
 import { INotebookExecutionService } from 'vs/workbench/contrib/notebook/common/notebookExecutionService';
 import { INotebookExecutionStateService } from 'vs/workbench/contrib/notebook/common/notebookExecutionStateService';
 import { INotebookKernelService } from 'vs/workbench/contrib/notebook/common/notebookKernelService';
-import { IPositronNotebookGeneralCell, createNotebookCell } from 'vs/workbench/contrib/positronNotebook/browser/PositronNotebookCell';
+import { createNotebookCell } from 'vs/workbench/contrib/positronNotebook/browser/PositronNotebookCell';
 import { PositronNotebookEditorInput } from 'vs/workbench/contrib/positronNotebook/browser/PositronNotebookEditorInput';
 import { BaseCellEditorOptions } from './BaseCellEditorOptions';
 import * as DOM from 'vs/base/browser/dom';
+import { IPositronNotebookCodeCell, IPositronNotebookGeneralCell, isCodeCell } from 'vs/workbench/contrib/positronNotebook/browser/notebookCells/interfaces';
 
 
 enum KernelStatus {
@@ -110,12 +111,9 @@ export interface IPositronNotebookInstance {
 	 * all the logic and variables related to the view/DOM.
 	 */
 	detachView(): void;
-
 }
 
 export class PositronNotebookInstance extends Disposable implements IPositronNotebookInstance {
-
-
 	/**
 	 * Value to keep track of what instance number.
 	 * Used for keeping track in the logs.
@@ -358,7 +356,8 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	 * @returns
 	 */
 	private async _runCells(cells: IPositronNotebookGeneralCell[]): Promise<void> {
-
+		// Filter so we're only working with code cells.
+		const codeCells = cells.filter(cell => isCodeCell(cell)) as IPositronNotebookCodeCell[];
 		this._logService.info(this._identifier, '_runCells');
 
 		if (!this._textModel) {
@@ -367,7 +366,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 
 		this._trySetupKernel();
 
-		for (const cell of cells) {
+		for (const cell of codeCells) {
 			cell.executionStatus.set('running', undefined);
 		}
 
@@ -379,7 +378,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		}
 
 		await this.notebookExecutionService.executeNotebookCells(this._textModel, Array.from(cells).map(c => c.cellModel), this._contextKeyService);
-		for (const cell of cells) {
+		for (const cell of codeCells) {
 			cell.executionStatus.set('idle', undefined);
 		}
 	}
