@@ -162,17 +162,20 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 					<ActionBarRegion location='right'>
 						<ActionBarButton
 							iconId='positron-refresh'
+							align='right'
 							tooltip={reload}
 							ariaLabel={reload}
 							onPressed={reloadHandler} />
 						<ActionBarButton
 							iconId='positron-open-in-new-window'
+							align='right'
 							tooltip={openInBrowser}
 							ariaLabel={openInBrowser}
 							onPressed={openInBrowserHandler} />
 						<ActionBarSeparator />
 						<ActionBarButton
 							iconId='clear-all'
+							align='right'
 							tooltip={clear}
 							ariaLabel={clear}
 							onPressed={clearHandler} />
