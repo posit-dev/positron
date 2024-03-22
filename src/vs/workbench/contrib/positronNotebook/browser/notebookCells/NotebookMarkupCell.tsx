@@ -9,7 +9,7 @@ import { IPositronNotebookMarkupCell } from 'vs/workbench/contrib/positronNotebo
 import { renderHtml } from 'vs/base/browser/renderHtml';
 import { CellEditorMonacoWidget } from 'vs/workbench/contrib/positronNotebook/browser/notebookCells/CellEditorMonacoWidget';
 import { useObservedValue } from 'vs/workbench/contrib/positronNotebook/browser/useObservedValue';
-import { NotebookCellSkeleton } from 'vs/workbench/contrib/positronNotebook/browser/notebookCells/NotebookCellSkeleton';
+import { NotebookCellActionBar } from 'vs/workbench/contrib/positronNotebook/browser/notebookCells/NotebookCellSkeleton';
 import { Button } from 'vs/base/browser/ui/positronComponents/button/button';
 
 
@@ -31,20 +31,26 @@ export function NotebookMarkupCell({ cell }: { cell: IPositronNotebookMarkupCell
 		{editorShown ? 'Hide Editor' : 'Show Editor'}
 	</Button>;
 
-	return <NotebookCellSkeleton
-		onDelete={() => cell.delete()}
-		actionBarItems={showHideButton}
-	>
-		{editorShown ? <CellEditorMonacoWidget cell={cell} /> : null
-		}
-		<div className='positron-notebook-markup-rendered' onDoubleClick={() => {
-			cell.toggleEditor();
-		}}>
-			{
-				renderedHtml ? <div>{renderHtml(renderedHtml)}</div> : <div className='empty-output-msg'>
-					Empty markup cell. {editorShown ? '' : 'Double click to edit'}
+
+	return (
+		<div className={`positron-notebook-cell ${editorShown ? 'editor-shown' : 'editor-hidden'}`}>
+			<NotebookCellActionBar onDelete={() => cell.delete()}>
+				{showHideButton}
+			</NotebookCellActionBar>
+			<div className='cell-contents'>
+				{editorShown ? <CellEditorMonacoWidget cell={cell} /> : null
+				}
+				<div className='positron-notebook-markup-rendered' onDoubleClick={() => {
+					cell.toggleEditor();
+				}}>
+					{
+						renderedHtml ? <div>{renderHtml(renderedHtml)}</div> : <div className='empty-output-msg'>
+							Empty markup cell. {editorShown ? '' : 'Double click to edit'}
+						</div>
+					}
 				</div>
-			}
+			</div>
 		</div>
-	</NotebookCellSkeleton>;
+	);
+
 }

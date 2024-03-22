@@ -13,19 +13,26 @@ export function NotebookCellSkeleton({ actionBarItems, onDelete, children }: {
 }) {
 	return (
 		<div className='positron-notebook-cell'>
-			<div className='action-bar'>
+			<NotebookCellActionBar onDelete={onDelete}>
 				{actionBarItems}
-				<Button
-					className='action-button'
-					ariaLabel={localize('deleteCell', 'Delete cell')}
-					onPressed={() => onDelete()}
-				>
-					<div className='button-icon codicon codicon-trash' />
-				</Button>
-			</div>
+			</NotebookCellActionBar>
 			<div className='cell-contents'>
 				{children}
 			</div>
 		</div>
 	);
+}
+
+export function NotebookCellActionBar({ children, onDelete }: { children: React.ReactNode; onDelete: () => void }) {
+
+	return <div className='action-bar'>
+		{children}
+		<Button
+			className='action-button'
+			ariaLabel={localize('deleteCell', 'Delete cell')}
+			onPressed={() => onDelete()}
+		>
+			<div className='button-icon codicon codicon-trash' />
+		</Button>
+	</div>;
 }
