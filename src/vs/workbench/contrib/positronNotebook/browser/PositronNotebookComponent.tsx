@@ -6,7 +6,7 @@ import 'vs/css!./PositronNotebookComponent';
 
 import * as React from 'react';
 import { useNotebookInstance } from 'vs/workbench/contrib/positronNotebook/browser/NotebookInstanceProvider';
-import { AddCellButton } from './AddCellButton';
+import { AddCellButtons } from './AddCellButtons';
 import { useObservedValue } from './useObservedValue';
 import { localize } from 'vs/nls';
 import { Button } from 'vs/base/browser/ui/positronComponents/button/button';
@@ -36,10 +36,10 @@ export function PositronNotebookComponent() {
 						<div className={`button-icon codicon ${'codicon-run'}`} />
 					</Button>
 				</div>
-				<AddCellButton index={0} />
+				<AddCellButtons index={0} />
 				{notebookCells?.length ? notebookCells?.map((cell, index) => <>
 					<NotebookCell key={cell.viewModel.handle} cell={cell} />
-					<AddCellButton index={index + 1} />
+					<AddCellButtons index={index + 1} />
 				</>) : <div>{localize('noCells', 'No cells')}</div>
 				}
 			</div>

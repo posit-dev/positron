@@ -1,7 +1,7 @@
 /*---------------------------------------------------------------------------------------------
  *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
-import 'vs/css!./AddCellButton';
+import 'vs/css!./AddCellButtons';
 
 import * as React from 'react';
 import { useNotebookInstance } from 'vs/workbench/contrib/positronNotebook/browser/NotebookInstanceProvider';
@@ -9,18 +9,28 @@ import { localize } from 'vs/nls';
 import { Button } from 'vs/base/browser/ui/positronComponents/button/button';
 import { CellKind } from 'vs/workbench/contrib/notebook/common/notebookCommon';
 
-export function AddCellButton({ index }: { index: number }) {
+export function AddCellButtons({ index }: { index: number }) {
 	const notebookInstance = useNotebookInstance();
 
-	return <div className='positron-add-cell-button'>
+	return <div className='positron-add-cell-buttons'>
 		<Button
 			className='action action-button'
-			ariaLabel={localize('addCell', 'Add cell')}
+			ariaLabel={localize('addCodeCell', 'Add code cell')}
 			onPressed={() => {
 				notebookInstance.addCell(CellKind.Code, index);
 			}}
 		>
-			<span className='action-label'>Add Cell</span>
+			<span className='action-label'>Code</span>
+			<div className='button-icon codicon codicon-plus' />
+		</Button>
+		<Button
+			className='action action-button'
+			ariaLabel={localize('addMarkupell', 'Add markup cell')}
+			onPressed={() => {
+				notebookInstance.addCell(CellKind.Markup, index);
+			}}
+		>
+			<span className='action-label'>Markup</span>
 			<div className='button-icon codicon codicon-plus' />
 		</Button>
 	</div>;
