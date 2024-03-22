@@ -23,6 +23,7 @@
 		border: var(--positron-notebooks-border);
 		border-top-left-radius: 0.25rem;
 		border-top-right-radius: 0.25rem;
+		border-bottom: transparent;
 		display: flex;
 		gap: 0.25rem;
 
