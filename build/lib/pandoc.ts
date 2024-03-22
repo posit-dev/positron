@@ -7,46 +7,77 @@ import { fetchUrls } from './fetch';
 import * as es from 'event-stream';
 import gulp = require('gulp');
 import { Stream } from 'stream';
+import filter = require('gulp-filter');
 
+function getBaseUrl(version: string): string {
+	return `https://github.com/jgm/pandoc/releases/download/${version}/`;
+}
 
-export function getPandoc(): Promise<void> {
-	// Unzip util for MacOS and Windows
+function getPandocWindows(version: string): Stream {
 	const unzip = require('gulp-unzip');
+	const basename = `pandoc-${version}-windows-x86_64`;
+	const rename = require('gulp-rename');
+	return fetchUrls([`${basename}.zip`], {
+		base: getBaseUrl(version),
+		verbose: true,
+	})
+		.pipe(unzip({
+			filter: (entry: any) => entry.path.endsWith('.exe')
+		}))
+		.pipe(rename(`pandoc.exe`))
+		.pipe(gulp.dest('.build/pandoc'));
+}
 
-	// Gunzip and untar util for Linux
+function getPandocMacOS(version: string): Stream {
+	const unzip = require('gulp-unzip');
+	const rename = require('gulp-rename');
+
+	const basename = process.arch === 'x64' ?
+		`pandoc-${version}-x86_64-macOS` :
+		`pandoc-${version}-arm64-macOS`;
+
+	return fetchUrls([`${basename}.zip`], {
+		base: getBaseUrl(version),
+		verbose: true,
+	})
+		.pipe(unzip({
+			filter: (entry: any) => entry.path.endsWith('pandoc')
+		}))
+		.pipe(rename(`pandoc`))
+		.pipe(gulp.dest('.build/pandoc'));
+}
+
+function getPandocLinux(version: string): Stream {
 	const gunzip = require('gulp-gunzip');
 	const untar = require('gulp-untar');
 	const flatmap = require('gulp-flatmap');
+	const rename = require('gulp-rename');
 
-	const version = '3.1.12.3';
-	fancyLog(`Synchronizing Pandoc ${version}...`);
-	const base = `https://github.com/jgm/pandoc/releases/download/${version}/`;
+	const basename = process.arch === 'x64' ?
+		`pandoc-${version}-linux-amd64` :
+		`pandoc-${version}-linux-arm64`;
 
-	let filename = '';
-	if (process.platform === 'darwin') {
-		if (process.arch === 'x64') {
-			filename = `pandoc-${version}-x86_64-macOS.zip`;
-		} else {
-			filename = `pandoc-${version}-arm64-macOS.zip`;
-		}
-	} else if (process.platform === 'linux') {
-		if (process.arch === 'x64') {
-			filename = `pandoc-${version}-linux-amd64.tar.gz`;
-		} else {
-			filename = `pandoc-${version}-linux-arm64.tar.gz`;
-		}
-	} else if (process.platform === 'win32') {
-		filename = `pandoc-${version}-windows-x86_64.zip`;
-	}
-
-	const stream = fetchUrls([filename], {
-		base,
+	return fetchUrls([`${basename}.tar.gz`], {
+		base: getBaseUrl(version),
 		verbose: true,
 	})
-		.pipe(filename.endsWith('zip') ?
-			unzip() :
-			flatmap((stream: Stream) => stream.pipe(gunzip()).pipe(untar())))
+		.pipe(flatmap((stream: Stream) => stream.pipe(gunzip()).pipe(untar())))
+		.pipe(filter('**/pandoc'))
+		.pipe(rename(`pandoc`))
 		.pipe(gulp.dest('.build/pandoc'));
+}
+
+export function getPandoc(): Promise<void> {
+	// Gunzip and untar util for Linux
+	const version = '3.1.12.3';
+	fancyLog(`Synchronizing Pandoc ${version}...`);
+
+	// Get the download/unpack stream for the current platform
+	const stream = process.platform === 'win32' ?
+		getPandocWindows(version) :
+		process.platform === 'darwin' ?
+			getPandocMacOS(version) :
+			getPandocLinux(version);
 
 	return new Promise((resolve, reject) => {
 		es.merge([stream])

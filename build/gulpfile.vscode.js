@@ -284,10 +284,16 @@ function packageTask(platform, arch, sourceFolderName, destinationFolderName, op
 		const api = gulp.src('src/vscode-dts/vscode.d.ts').pipe(rename('out/vscode-dts/vscode.d.ts'));
 
 		// --- Start Positron ---
+
+		// Positron API
 		const positronApi = gulp.src('src/positron-dts/positron.d.ts')
 			.pipe(rename('out/positron-dts/positron.d.ts'));
-		const pandoc = gulp.src('.build/pandoc/**')
-			.pipe(rename('bin/pandoc'));
+
+		// Bundled Pandoc binary
+		const pandocExt = process.platform === 'win32' ? '.exe' : '';
+		const pandoc = gulp.src(`.build/pandoc/pandoc${pandocExt}`)
+			.pipe(rename(`bin/pandoc${pandocExt}`));
+
 		// --- End Positron ---
 
 		const telemetry = gulp.src('.build/telemetry/**', { base: '.build/telemetry', dot: true });
