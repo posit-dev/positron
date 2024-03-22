@@ -88,6 +88,10 @@ export function isCodeCell(cell: IPositronNotebookGeneralCell): cell is IPositro
 export interface IPositronNotebookMarkupCell extends IPositronNotebookGeneralCell {
 	kind: CellKind.Markup;
 	renderedHtml: ISettableObservable<string | undefined>;
+	editorShown: ISettableObservable<boolean>;
+	showEditor(): void;
+	hideEditor(): void;
+	toggleEditor(): void;
 }
 
 export function isMarkupCell(cell: IPositronNotebookGeneralCell): cell is IPositronNotebookMarkupCell {

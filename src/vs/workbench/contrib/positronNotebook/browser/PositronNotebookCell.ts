@@ -112,6 +112,7 @@ class PositronNotebookCodeCell extends PositronNotebookCellGeneral implements IP
 class PositronNotebookMarkupCell extends PositronNotebookCellGeneral implements IPositronNotebookMarkupCell {
 
 	renderedHtml: ISettableObservable<string | undefined> = observableValue<string | undefined, void>('renderedHTML', undefined);
+	editorShown: ISettableObservable<boolean> = observableValue<boolean, void>('editorShown', false);
 	override kind: CellKind.Markup = CellKind.Markup;
 
 	constructor(
@@ -135,6 +136,16 @@ class PositronNotebookMarkupCell extends PositronNotebookCellGeneral implements 
 			throw new Error('Notebooks do not support async markdown rendering yet.');
 		}
 		this.renderedHtml.set(renderedHtml, undefined);
+	}
+
+	showEditor(): void {
+		this.editorShown.set(true, undefined);
+	}
+	hideEditor(): void {
+		this.editorShown.set(false, undefined);
+	}
+	toggleEditor(): void {
+		this.editorShown.set(!this.editorShown.get(), undefined);
 	}
 }
 
