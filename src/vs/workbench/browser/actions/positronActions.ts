@@ -63,6 +63,9 @@ export class PositronNewProjectAction extends Action2 {
 		const fileService = accessor.get(IFileService);
 		const pathService = accessor.get(IPathService);
 
+		// TODO: see if we can pass in the result of ContextKeyExpr.deserialize('!config.git.enabled || git.missing')
+		// to the dialog so we can show a warning next to the git init checkbox if git is not configured.
+
 		// Show the new folder modal dialog. If the result is undefined, the user canceled the operation.
 		const result = await showNewProjectModalDialog(accessor);
 		if (!result) {
@@ -82,6 +85,34 @@ export class PositronNewProjectAction extends Action2 {
 				forceReuseWindow: !result.openInNewWindow
 			}
 		);
+
+		// TODO: whether the folder is opened in a new window or not, we will need to store the
+		// project configuration in some workspace state so that we can use it to start the runtime.
+		// The extension host gets destroyed when a new project is opened in the same window.
+		//   - Where can the new project config be stored?
+		//       - See IStorageService, maybe StorageScope.WORKSPACE and StorageTarget.MACHINE
+
+		// 1) Create the directory for the new project (done above)
+		// 2) Set up the initial workspace for the new project
+		//   For Python
+		//     - If new environment creation is selected, create the .venv/.conda/etc. as appropriate
+		//     - If git init selected, create the .gitignore and README.md
+		//     - Create an unsaved Python file
+		//     - Set the active interpreter to the selected interpreter
+		//   For R
+		//     - If renv selected, run renv::init()
+		//     - Whether or not git init selected, create the .gitignore and README.md
+		//     - Create an unsaved R file
+		//     - Set the active interpreter to the selected interpreter
+		//   For Jupyter Notebook
+		//     - If git init selected, create the .gitignore and README.md
+		//     - Create an unsaved notebook file
+		//     - Set the active interpreter to the selected interpreter
+
+		// Other Thoughts
+		//   - Can the interpreter discovery at startup be modified to directly use the selected
+		//     interpreter, so that the user doesn't have to wait for the interpreter discovery to
+		//     complete before the runtime is started?
 	}
 }
 

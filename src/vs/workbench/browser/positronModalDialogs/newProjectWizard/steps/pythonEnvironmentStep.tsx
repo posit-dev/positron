@@ -15,22 +15,31 @@ import { ComboBoxMenuItem } from 'vs/base/browser/ui/positronComponents/comboBox
 import { DisposableStore } from 'vs/base/common/lifecycle';
 import { createCondaInterpreterComboBoxItems, createPythonInterpreterComboBoxItems, createVenvInterpreterComboBoxItems } from 'vs/workbench/browser/positronModalDialogs/newProjectWizard/steps/pythonInterpreterListUtils';
 
+/**
+ * The PythonEnvironmentStep component is specific to Python projects in the new project wizard.
+ * @param props The NewProjectWizardStepProps
+ * @returns The rendered component
+ */
 export const PythonEnvironmentStep = (props: PropsWithChildren<NewProjectWizardStepProps>) => {
+	// Retrieve the wizard state and project configuration.
 	const newProjectWizardState = useNewProjectWizardContext();
 	const setProjectConfig = newProjectWizardState.setProjectConfig;
 	const projectConfig = newProjectWizardState.projectConfig;
 	const keybindingService = newProjectWizardState.keybindingService;
 	const layoutService = newProjectWizardState.layoutService;
 
+	// Hooks to manage the startup phase and interpreter entries.
 	const [startupPhase, setStartupPhase] =
 		useState(newProjectWizardState.runtimeStartupService.startupPhase);
-
-	// TODO: we will probably default to Venv as the environment type, so we'll want to filter
-	// the interpreter entries to PythonRuntimeFilter.Global
 	const [interpreterEntries, setInterpreterEntries] =
 		useState(
+			// It's possible that the runtime discovery phase is not complete, so we need to check
+			// for that before creating the interpreter entries.
 			startupPhase !== RuntimeStartupPhase.Complete ?
 				[] :
+				// TODO: we currently populate the interpreter entries with all registered runtimes,
+				// but we'll want to call the Venv or Conda interpreter creation functions based on
+				// the default selection.
 				createPythonInterpreterComboBoxItems(
 					newProjectWizardState.runtimeStartupService,
 					newProjectWizardState.languageRuntimeService
@@ -48,6 +57,8 @@ export const PythonEnvironmentStep = (props: PropsWithChildren<NewProjectWizardS
 	// 	// TODO: update the interpreter entries, filtering with PythonRuntimeFilter.All if existing python installation is selected
 	// };
 
+	// Handler for when the environment type is selected. The interpreter entries are updated based
+	// on the selected environment type, and the project configuration is updated as well.
 	const onEnvTypeSelected = (identifier: string) => {
 		switch (identifier) {
 			case 'Venv':
@@ -62,32 +73,49 @@ export const PythonEnvironmentStep = (props: PropsWithChildren<NewProjectWizardS
 		setProjectConfig({ ...projectConfig, pythonEnvType: identifier });
 	};
 
+	// Handler for when the interpreter is selected. The project configuration is updated with the
+	// selected interpreter.
 	const onInterpreterSelected = (identifier: string) => {
 		const selectedRuntime = newProjectWizardState.languageRuntimeService.getRegisteredRuntime(identifier);
 		console.log(`Python interpreter selected: ${selectedRuntime}`);
 		if (!selectedRuntime) {
-			// This shouldn't happen, since the ComboBox should only allow selection of registered runtimes
+			// This shouldn't happen, since the ComboBox should only allow selection of registered
+			// runtimes
 			console.error(`No runtime found for identifier: ${identifier}`);
 			return;
 		}
 		setProjectConfig({ ...projectConfig, selectedRuntime });
+
+		// TODO: if the selected interpreter doesn't have ipykernel installed, show a message
 	};
 
 	// Hook to update the interpreter entries when the runtime discovery phase is complete
 	useEffect(() => {
+		// Create the disposable store for cleanup.
 		const disposableStore = new DisposableStore();
+
+		// Add the onDidChangeRuntimeStartupPhase event handler; when the runtime discovery phase
+		// is complete, update the interpreter entries.
 		disposableStore.add(
 			newProjectWizardState.runtimeStartupService.onDidChangeRuntimeStartupPhase(
 				phase => {
 					console.log('Python runtime discovery phase:', phase);
 					if (phase === RuntimeStartupPhase.Complete) {
-						// TODO: instead of call this directly, it should be aware of the defaults set by the environment type
-						setInterpreterEntries(createPythonInterpreterComboBoxItems(newProjectWizardState.runtimeStartupService, newProjectWizardState.languageRuntimeService));
+						// TODO: instead of calling createPythonInterpreterComboBoxItems, it should
+						// be aware of the defaults set by the environment type (Venv, Conda)
+						setInterpreterEntries(
+							createPythonInterpreterComboBoxItems(
+								newProjectWizardState.runtimeStartupService,
+								newProjectWizardState.languageRuntimeService
+							)
+						);
 					}
 					setStartupPhase(phase);
 				}
 			)
 		);
+
+		// Return the cleanup function that will dispose of the event handlers.
 		return () => disposableStore.dispose();
 	});
 
@@ -96,7 +124,10 @@ export const PythonEnvironmentStep = (props: PropsWithChildren<NewProjectWizardS
 			title={localize('pythonEnvironmentStep.title', 'Set up Python environment')}
 			backButtonConfig={{ onClick: props.back }}
 			cancelButtonConfig={{ onClick: props.cancel }}
-			okButtonConfig={{ onClick: props.accept }}
+			okButtonConfig={{
+				onClick: props.accept,
+				title: localize('positronNewProjectWizard.createButtonTitle', "Create"),
+			}}
 		>
 			<PositronWizardSubStep
 				title={localize('pythonEnvironmentSubStep.howToSetUpEnv', 'How would you like to set up your Python project environment?')}
@@ -108,6 +139,10 @@ export const PythonEnvironmentStep = (props: PropsWithChildren<NewProjectWizardS
 						<label htmlFor='newEnvironment'>Create a new Python environment <i>(Recommended)</i></label>
 					</div>
 					<div>
+						{/* TODO: when existing installation is selected, show only the python
+						interpreter selection substep with all detected python interpreters listed.
+						Show the note about ipykernel installation below the dropdown instead of in
+						a tooltip?) */}
 						<input type='radio' id='existingInstallation' name='envSetup' value='Use an existing Python installation' />
 						<label htmlFor='existingInstallation'>Use an existing Python installation</label>
 					</div>
@@ -116,8 +151,9 @@ export const PythonEnvironmentStep = (props: PropsWithChildren<NewProjectWizardS
 			<PositronWizardSubStep
 				title='Python Environment'
 				description='Select an environment type for your project.'
-				feedback={`The ${projectConfig.pythonEnvType} environment will be created at: ${projectConfig.parentFolder}/${projectConfig.projectName}/${projectConfig.pythonEnvType === 'Venv' ? '.venv' : '.conda'}`}
+				feedback={`The ${projectConfig.pythonEnvType} environment will be created at: ${projectConfig.parentFolder}/${projectConfig.projectName}/${projectConfig.pythonEnvType === 'Venv' ? '.venv' : 'Conda' ? '.conda' : ''}`}
 			>
+				{/* TODO: how to pre-select an option? */}
 				<ComboBox
 					keybindingService={keybindingService}
 					layoutService={layoutService}
@@ -127,13 +163,15 @@ export const PythonEnvironmentStep = (props: PropsWithChildren<NewProjectWizardS
 					onSelectionChanged={identifier => onEnvTypeSelected(identifier)}
 				/>
 			</PositronWizardSubStep>
-			{/* onhover tooltip, display the following note if we don't detect ipykernel for the selected interpreter */}
-			{/* <p>Note: Positron will install <code>ipykernel</code> in this environment for Python language support.</p> */}
+			{/* TODO: add a tooltip icon to the end of the feedback text of the PositronWizardSubStep */}
+			{/*       onhover tooltip, display the following note if we don't detect ipykernel for the selected interpreter */}
+			{/*       <p>Note: Positron will install <code>ipykernel</code> in this environment for Python language support.</p> */}
 			<PositronWizardSubStep
 				title='Python Interpreter'
 				description={localize('pythonInterpreter.comboBoxTitle', 'Select a Python installation for your project. You can modify this later if you change your mind.')}
 			>
 				{startupPhase !== RuntimeStartupPhase.Complete && (
+					// TODO: how to disable clicking on the combo box while loading?
 					<ComboBox
 						keybindingService={keybindingService}
 						layoutService={layoutService}
@@ -144,11 +182,14 @@ export const PythonEnvironmentStep = (props: PropsWithChildren<NewProjectWizardS
 					/>
 				)}
 				{startupPhase === RuntimeStartupPhase.Complete && (
+					// TODO: how to pre-select an option?
 					<ComboBox
 						keybindingService={keybindingService}
 						layoutService={layoutService}
 						className='combo-box'
 						title='Select a Python interpreter'
+						// TODO: if the runtime startup phase is complete, but there are no suitable interpreters, show a message
+						// that no suitable interpreters were found and the user should install an interpreter with minimum version
 						entries={interpreterEntries}
 						onSelectionChanged={identifier => onInterpreterSelected(identifier)}
 					/>

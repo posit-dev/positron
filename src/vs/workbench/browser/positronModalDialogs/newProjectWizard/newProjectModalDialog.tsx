@@ -40,6 +40,7 @@ export const showNewProjectModalDialog = async (accessor: ServicesAccessor): Pro
 
 	// Return a promise that resolves when the dialog is done.
 	return new Promise<NewProjectConfiguration | undefined>((resolve) => {
+		// Get the services needed for the dialog.
 		const keybindingService = services.keybindingService;
 		const layoutService = services.layoutService;
 
@@ -55,9 +56,8 @@ export const showNewProjectModalDialog = async (accessor: ServicesAccessor): Pro
 
 		// The new project modal dialog component.
 		const NewProjectModalDialog = () => {
-			// The accept handler.
+			// The accept handler. This is called when the user clicks the Create button in the wizard.
 			const acceptHandler = (projectConfig: NewProjectConfiguration) => {
-				console.log('************ acceptHandler', projectConfig);
 				renderer.dispose();
 				resolve(projectConfig);
 			};
@@ -74,6 +74,12 @@ export const showNewProjectModalDialog = async (accessor: ServicesAccessor): Pro
 					renderer={renderer}
 					width={700} height={500}
 					title={localize('positronNewProjectWizard.title', "Create New Project")}
+					// TODO: get accept handler working. The current issue is that the accept handler
+					// does not take arguments, and we need the projectConfig from the wizard context,
+					// which we pass from the step container to this component upon clicking the Create
+					// button in the wizard. But if the user hits the Enter key, the accept handler is
+					// called without the projectConfig. Is there a way to listen for the Enter key press
+					// directly on the Ok button?
 					// accept={acceptHandler}
 					cancel={cancelHandler}
 				>

@@ -16,7 +16,15 @@ import { NewProjectWizardStep } from 'vs/workbench/browser/positronModalDialogs/
 import { NewProjectWizardStepProps } from 'vs/workbench/browser/positronModalDialogs/newProjectWizard/steps/newProjectWizardStepProps';
 import { NewProjectType } from 'vs/workbench/browser/positronModalDialogs/newProjectWizard/newProjectWizardState';
 
+/**
+ * The ProjectNameLocationStep component is the second step in the new project wizard.
+ * This component is shared by all project types. The next step in the wizard is determined by the
+ * selected project type.
+ * @param props The NewProjectWizardStepProps
+ * @returns The rendered component
+ */
 export const ProjectNameLocationStep = (props: PropsWithChildren<NewProjectWizardStepProps>) => {
+	// Retrieve the wizard state and project configuration.
 	const newProjectWizardState = useNewProjectWizardContext();
 	const projectConfig = newProjectWizardState.projectConfig;
 	const setProjectConfig = newProjectWizardState.setProjectConfig;
@@ -37,7 +45,9 @@ export const ProjectNameLocationStep = (props: PropsWithChildren<NewProjectWizar
 		}
 	};
 
-	const next = () => {
+	// Navigate to the next step in the wizard, based on the selected project type.
+	const nextStep = () => {
+		// TODO: add handling for R and Jupyter projects
 		switch (projectConfig.projectType) {
 			case NewProjectType.RProject:
 			case NewProjectType.JupyterNotebook:
@@ -46,11 +56,15 @@ export const ProjectNameLocationStep = (props: PropsWithChildren<NewProjectWizar
 		}
 	};
 
+	// General TODOs:
+	//   - Create text input and folder input components which allow for the
+	//     title + description + input box labelling in the mockups
+	//   - Support mixed paragraph and code text, possibly using something like nls.
 	return (
 		<PositronWizardStep
 			title={localize('projectNameLocationStep.title', 'Set project name and location')}
 			cancelButtonConfig={{ onClick: props.cancel }}
-			nextButtonConfig={{ onClick: next }}
+			nextButtonConfig={{ onClick: nextStep }}
 			backButtonConfig={{ onClick: props.back }}
 		>
 			<PositronWizardSubStep
@@ -83,6 +97,7 @@ export const ProjectNameLocationStep = (props: PropsWithChildren<NewProjectWizar
 				</div> */}
 			</PositronWizardSubStep>
 			<PositronWizardSubStep>
+				{/* TODO: display a warning/message if the user doesn't have git set up */}
 				<Checkbox label='Initialize project as git repository' onChanged={checked => setProjectConfig({ ...projectConfig, initGitRepo: checked })} />
 			</PositronWizardSubStep>
 		</PositronWizardStep>
