@@ -4,11 +4,12 @@
  *--------------------------------------------------------------------------------------------*/
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.getPandoc = void 0;
-const vfs = require("vinyl-fs");
 const fancyLog = require("fancy-log");
 const fetch_1 = require("./fetch");
 const es = require("event-stream");
+const gulp = require("gulp");
 function getPandoc() {
+    const unzip = require('gulp-unzip');
     const version = '3.1.12.3';
     fancyLog(`Synchronizing Pandoc ${version}...`);
     const base = `https://github.com/jgm/pandoc/releases/download/${version}/`;
@@ -16,7 +17,9 @@ function getPandoc() {
     const stream = (0, fetch_1.fetchUrls)([filename], {
         base,
         verbose: true,
-    }).pipe(vfs.dest('.build/pandoc'));
+    })
+        .pipe(unzip())
+        .pipe(gulp.dest('.build/pandoc'));
     return new Promise((resolve, reject) => {
         es.merge([stream])
             .on('error', reject)
