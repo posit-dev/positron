@@ -9,7 +9,7 @@ import { IContextKeyService } from 'vs/platform/contextkey/common/contextkey';
 import { ServiceCollection } from 'vs/platform/instantiation/common/serviceCollection';
 import { CellEditorOptions } from 'vs/workbench/contrib/notebook/browser/view/cellParts/cellEditorOptions';
 import { useNotebookInstance } from 'vs/workbench/contrib/positronNotebook/browser/NotebookInstanceProvider';
-import { IPositronNotebookCell } from 'vs/workbench/contrib/positronNotebook/browser/PositronNotebookCell';
+import { IPositronNotebookGeneralCell } from 'vs/workbench/contrib/positronNotebook/browser/PositronNotebookCell';
 import { useServices } from 'vs/workbench/contrib/positronNotebook/browser/ServicesProvider';
 import { observeValue } from 'vs/workbench/contrib/positronNotebook/common/utils/observeValue';
 
@@ -19,7 +19,7 @@ import { observeValue } from 'vs/workbench/contrib/positronNotebook/common/utils
  * @param opts.cell Cell to be shown and edited in the editor widget
  * @returns An editor widget for the cell
  */
-export function CellEditorMonacoWidget({ cell }: { cell: IPositronNotebookCell }) {
+export function CellEditorMonacoWidget({ cell }: { cell: IPositronNotebookGeneralCell }) {
 	const { editorPartRef } = useCellEditorWidget(cell);
 
 	return <div ref={editorPartRef} />;
@@ -31,7 +31,7 @@ export function CellEditorMonacoWidget({ cell }: { cell: IPositronNotebookCell }
  * @param cell Cell whose editor is to be created
  * @returns Refs to place the editor and the wrapping div
  */
-export function useCellEditorWidget(cell: IPositronNotebookCell) {
+export function useCellEditorWidget(cell: IPositronNotebookGeneralCell) {
 	const services = useServices();
 	const instance = useNotebookInstance();
 

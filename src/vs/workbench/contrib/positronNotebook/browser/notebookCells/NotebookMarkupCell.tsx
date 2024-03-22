@@ -6,22 +6,23 @@ import 'vs/css!./NotebookMarkupCell';
 import * as React from 'react';
 import { IPositronNotebookMarkupCell } from 'vs/workbench/contrib/positronNotebook/browser/PositronNotebookCell';
 
-import { marked } from 'marked';
 import { renderHtml } from 'vs/base/browser/renderHtml';
 import { CellEditorMonacoWidget } from 'vs/workbench/contrib/positronNotebook/browser/notebookCells/CellEditorMonacoWidget';
+import { useObservedValue } from 'vs/workbench/contrib/positronNotebook/browser/useObservedValue';
 
 
 
 export function NotebookMarkupCell({ cell }: { cell: IPositronNotebookMarkupCell }) {
+
+	const renderedHtml = useObservedValue(cell.renderedHtml);
+
 	return <div>
 		<CellEditorMonacoWidget cell={cell} />
 		<div className='positron-notebook-markup-rendered'>
-			<RenderMarkdown content={cell.getContent()} />
+			{
+				renderedHtml ? <div>{renderHtml(renderedHtml)}</div> : null
+
+			}
 		</div>
 	</div>;
-}
-
-function RenderMarkdown({ content }: { content: string }) {
-	const htmlOfContent = marked(content) as string;
-	return <div>{renderHtml(htmlOfContent)}</div>;
 }

@@ -4,12 +4,13 @@
 import 'vs/css!./NotebookCell';
 
 import * as React from 'react';
-import { IPositronNotebookCodeCell, IPositronNotebookMarkupCell, isCodeCell } from 'vs/workbench/contrib/positronNotebook/browser/PositronNotebookCell';
+import { IPositronNotebookCodeCell, IPositronNotebookMarkupCell } from 'vs/workbench/contrib/positronNotebook/browser/PositronNotebookCell';
 import { useObservedValue } from 'vs/workbench/contrib/positronNotebook/browser/useObservedValue';
 import { localize } from 'vs/nls';
 import { Button } from 'vs/base/browser/ui/positronComponents/button/button';
 import { NodebookCodeCell } from './NodebookCodeCell';
 import { NotebookMarkupCell } from './NotebookMarkupCell';
+import { CellKind } from 'vs/workbench/contrib/notebook/common/notebookCommon';
 
 /**
  * Logic for running a cell and handling its output.
@@ -42,7 +43,7 @@ export function NotebookCell({ cell }: {
 			</div>
 			<div className='cell-contents'>
 				{
-					isCodeCell(cell) ?
+					cell.kind === CellKind.Code ?
 						<NodebookCodeCell cell={cell} /> :
 						<NotebookMarkupCell cell={cell} />
 				}

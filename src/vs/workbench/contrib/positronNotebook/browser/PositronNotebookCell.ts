@@ -2,11 +2,15 @@
  *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
-import { Disposable } from 'vs/base/common/lifecycle';
+// eslint-disable-next-line local/code-import-patterns
+import { marked } from 'marked';
+
+import { Disposable, DisposableStore } from 'vs/base/common/lifecycle';
 import { ISettableObservable, observableValue } from 'vs/base/common/observableInternal/base';
 import { URI } from 'vs/base/common/uri';
 import { ITextModel } from 'vs/editor/common/model';
 import { ITextModelService } from 'vs/editor/common/services/resolverService';
+import { IInstantiationService } from 'vs/platform/instantiation/common/instantiation';
 import { ICellViewModel } from 'vs/workbench/contrib/notebook/browser/notebookBrowser';
 import { NotebookCellTextModel } from 'vs/workbench/contrib/notebook/common/model/notebookCellTextModel';
 import { CellKind, ICellOutput } from 'vs/workbench/contrib/notebook/common/notebookCommon';
@@ -16,9 +20,12 @@ import { IPositronNotebookInstance } from 'vs/workbench/contrib/positronNotebook
 type ExecutionStatus = 'running' | 'pending' | 'unconfirmed' | 'idle';
 
 
-export class PositronNotebookCell extends Disposable implements IPositronNotebookCell {
+class PositronNotebookCellGeneral extends Disposable implements IPositronNotebookGeneralCell {
 	executionStatus: ISettableObservable<ExecutionStatus, void>;
 	outputs: ISettableObservable<ICellOutput[], void>;
+
+	// Not marked as private so we can access it in subclasses
+	_disposableStore = new DisposableStore();
 
 	constructor(
 		public cellModel: NotebookCellTextModel,
@@ -38,10 +45,6 @@ export class PositronNotebookCell extends Disposable implements IPositronNoteboo
 				this.outputs.set([...this.cellModel.outputs], undefined);
 			})
 		);
-	}
-
-	get kind(): CellKind {
-		return this.cellModel.cellKind;
 	}
 
 	get uri(): URI {
@@ -82,17 +85,18 @@ export class PositronNotebookCell extends Disposable implements IPositronNoteboo
 		const modelRef = await this.textModelResolverService.createModelReference(this.uri);
 		return modelRef.object.textEditorModel;
 	}
+
+	override dispose(): void {
+		this._disposableStore.dispose();
+		super.dispose();
+	}
 }
 
 /**
  * Wrapper class for notebook cell that exposes the properties that the UI needs to render the cell.
+ * This interface is extended to provide the specific properties for code and markup cells.
  */
-export interface IPositronNotebookCell {
-
-	/**
-	 * Is the cell a code or markup cell?
-	 */
-	get kind(): CellKind;
+export interface IPositronNotebookGeneralCell extends Disposable {
 
 	/**
 	 * Cell specific uri for the cell within the notebook
@@ -140,20 +144,69 @@ export interface IPositronNotebookCell {
 	delete(): void;
 }
 
-export interface IPositronNotebookCodeCell extends IPositronNotebookCell {
+/**
+ * Cell that contains code that can be executed
+ */
+export interface IPositronNotebookCodeCell extends IPositronNotebookGeneralCell {
 	kind: CellKind.Code;
 }
 
-export function isCodeCell(cell: IPositronNotebookCell): cell is IPositronNotebookCodeCell {
-	return cell.kind === CellKind.Code;
+class PositronNotebookCodeCell extends PositronNotebookCellGeneral implements IPositronNotebookCodeCell {
+	kind: CellKind.Code = CellKind.Code;
 }
 
-export interface IPositronNotebookMarkupCell extends IPositronNotebookCell {
+
+/**
+ * Cell that contains markup content
+ */
+export interface IPositronNotebookMarkupCell extends IPositronNotebookGeneralCell {
 	kind: CellKind.Markup;
+	renderedHtml: ISettableObservable<string | undefined>;
 }
 
-export function isMarkupCell(cell: IPositronNotebookCell): cell is IPositronNotebookMarkupCell {
-	return cell.kind === CellKind.Markup;
+class PositronNotebookMarkupCell extends PositronNotebookCellGeneral implements IPositronNotebookMarkupCell {
+
+	renderedHtml: ISettableObservable<string | undefined> = observableValue<string | undefined, void>('renderedHTML', undefined);
+	kind: CellKind.Markup = CellKind.Markup;
+
+	constructor(
+		cellModel: NotebookCellTextModel,
+		instance: IPositronNotebookInstance,
+		textModelResolverService: ITextModelService,
+	) {
+		super(cellModel, instance, textModelResolverService);
+
+		// Render the markdown content and update the observable when the cell content changes
+		this._disposableStore.add(this.cellModel.onDidChangeContent(() => {
+			this._renderContent();
+		}));
+
+		this._renderContent();
+	}
+
+	private _renderContent(): void {
+		const renderedHtml = marked(this.getContent());
+		if (typeof renderedHtml !== 'string') {
+			throw new Error('Notebooks do not support async markdown rendering yet.');
+		}
+		this.renderedHtml.set(renderedHtml, undefined);
+	}
 }
+
+/**
+ * Instantiate a notebook cell based on the cell's kind
+ * @param cell Text model for the cell
+ * @param instance The containing Positron notebook instance that this cell resides in.
+ * @param instantiationService The instantiation service to use to create the cell
+ * @returns The instantiated notebook cell of the correct type.
+ */
+export function createNotebookCell(cell: NotebookCellTextModel, instance: IPositronNotebookInstance, instantiationService: IInstantiationService): IPositronNotebookGeneralCell {
+	if (cell.cellKind === CellKind.Code) {
+		return instantiationService.createInstance(PositronNotebookCodeCell, cell, instance);
+	} else {
+		return instantiationService.createInstance(PositronNotebookMarkupCell, cell, instance);
+	}
+}
+
 
 
