@@ -292,7 +292,8 @@ function packageTask(platform, arch, sourceFolderName, destinationFolderName, op
 		// Bundled Pandoc binary
 		const pandocExt = process.platform === 'win32' ? '.exe' : '';
 		const pandoc = gulp.src(`.build/pandoc/pandoc${pandocExt}`)
-			.pipe(rename(`bin/pandoc${pandocExt}`));
+			.pipe(rename(`bin/pandoc${pandocExt}`))
+			.pipe(util.setExecutableBit());
 
 		// --- End Positron ---
 
