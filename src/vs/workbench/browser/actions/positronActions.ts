@@ -19,6 +19,7 @@ import { IWorkbenchLayoutService } from 'vs/workbench/services/layout/browser/la
 import { showNewFolderModalDialog } from 'vs/workbench/browser/positronModalDialogs/newFolderModalDialog';
 import { showNewFolderFromGitModalDialog } from 'vs/workbench/browser/positronModalDialogs/newFolderFromGitModalDialog';
 import { showNewProjectModalDialog } from 'vs/workbench/browser/positronModalDialogs/newProjectWizard/newProjectModalDialog';
+import { IsDevelopmentContext } from 'vs/platform/contextkey/common/contextkeys';
 
 /**
  * The PositronNewProjectAction.
@@ -42,7 +43,8 @@ export class PositronNewProjectAction extends Action2 {
 			},
 			category: workspacesCategory,
 			f1: true,
-			precondition: EnterMultiRootWorkspaceSupportContext,
+			// TODO: remove feature flag IsDevelopmentContext when the feature is ready
+			precondition: ContextKeyExpr.and(EnterMultiRootWorkspaceSupportContext, IsDevelopmentContext),
 			menu: {
 				id: MenuId.MenubarFileMenu,
 				group: '1_newfolder',
