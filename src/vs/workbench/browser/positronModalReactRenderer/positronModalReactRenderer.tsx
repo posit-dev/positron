@@ -11,7 +11,6 @@ import type { ReactElement } from 'react';
 // Other dependencies.
 import * as DOM from 'vs/base/browser/dom';
 import { Emitter } from 'vs/base/common/event';
-import { EventHelper } from 'vs/base/browser/dom';
 import { createRoot, Root } from 'react-dom/client';
 import { Disposable } from 'vs/base/common/lifecycle';
 import { StandardKeyboardEvent } from 'vs/base/browser/keyboardEvent';
@@ -48,15 +47,9 @@ const RESIZE = 'resize';
 export interface PositronModalReactRendererOptions {
 	readonly keybindingService: IKeybindingService;
 	readonly layoutService: ILayoutService;
-	readonly container?: HTMLElement;
-}
-
-/**
- * PositronModalReactParams interface.
- */
-export interface PositronModalReactParams<T> {
-	renderer: PositronModalReactRenderer;
-	accepted: (result: T) => void;
+	readonly container: HTMLElement;
+	readonly parent?: HTMLElement;
+	readonly onDisposed?: () => void;
 }
 
 /**
@@ -135,6 +128,11 @@ export class PositronModalReactRenderer extends Disposable {
 
 		// If this renderer was rendered, dispose it.
 		if (this._overlay && this._root) {
+			// If there is a parent, remove its aria-expanded property.
+			if (this._options.parent) {
+				this._options.parent.removeAttribute('aria-expanded');
+			}
+
 			// Unmount the root.
 			this._root.unmount();
 			this._root = undefined;
@@ -146,6 +144,11 @@ export class PositronModalReactRenderer extends Disposable {
 			// Delete this renderer from the renderers stack and bind event listeners.
 			PositronModalReactRenderer._renderersStack.delete(this);
 			PositronModalReactRenderer.bindEventListeners();
+		}
+
+		// Call the onDisposed callback.
+		if (this._options.onDisposed) {
+			this._options.onDisposed();
 		}
 	}
 
@@ -165,6 +168,13 @@ export class PositronModalReactRenderer extends Disposable {
 	 */
 	get layoutService() {
 		return this._options.layoutService;
+	}
+
+	/**
+	 * Gets the container.
+	 */
+	get container() {
+		return this._options.container;
 	}
 
 	//#endregion Public Properties
@@ -197,11 +207,14 @@ export class PositronModalReactRenderer extends Disposable {
 	public render(reactElement: ReactElement) {
 		// Prevent rendering more than once.
 		if (!this._overlay && !this._root) {
-			const container = this._options.container ?? this._options.layoutService.activeContainer;
+			// If there is a parent, set its aria-expanded property to true.
+			if (this._options.parent) {
+				this._options.parent.setAttribute('aria-expanded', 'true');
+			}
 
 			// Create the overlay element in the container and the root element in the overlay
 			// element.
-			this._overlay = container.appendChild(DOM.$('.positron-modal-overlay'));
+			this._overlay = this._options.container.appendChild(DOM.$('.positron-modal-overlay'));
 			this._root = createRoot(this._overlay);
 
 			// Render the ReactElement that was supplied.
@@ -253,7 +266,7 @@ export class PositronModalReactRenderer extends Disposable {
 			// the allowable commands.
 			if (resolutionResult.kind === ResultKind.KbFound && resolutionResult.commandId) {
 				if (ALLOWABLE_COMMANDS.indexOf(resolutionResult.commandId) === -1) {
-					EventHelper.stop(event, true);
+					DOM.EventHelper.stop(event, true);
 				}
 			}
 

@@ -2,9 +2,6 @@
  *  Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
-// CSS.
-import 'vs/css!./messageBoxModalDialog';
-
 // React.
 import * as React from 'react';
 
@@ -21,54 +18,37 @@ import { OKCancelModalDialog } from 'vs/workbench/browser/positronComponents/pos
  * @param layoutService The layout service.
  * @param title The title.
  * @param message The message.
- * @returns A promise that resolves when the dialog is dismissed.
+ * @param action The action to perform.
  */
 export const confirmationModalDialog = async (
 	keybindingService: IKeybindingService,
 	layoutService: IWorkbenchLayoutService,
 	title: string,
-	message: string
-): Promise<boolean> => {
-	// Return a promise that resolves when the dialog is dismissed.
-	return new Promise<boolean>((resolve) => {
-		// Create the modal React renderer.
-		const renderer = new PositronModalReactRenderer({
-			keybindingService,
-			layoutService,
-			container: layoutService.mainContainer
-		});
-
-		// The modal dialog component.
-		const ModalDialog = () => {
-			// The accept handler.
-			const acceptHandler = () => {
-				renderer.dispose();
-				resolve(true);
-			};
-
-			// The cancel handler.
-			const cancelHandler = () => {
-				renderer.dispose();
-				resolve(false);
-			};
-
-			// Render.
-			return (
-				<OKCancelModalDialog
-					renderer={renderer}
-					width={400}
-					height={195}
-					title={title}
-					onAccept={acceptHandler}
-					onCancel={cancelHandler}>
-					<VerticalStack>
-						<div>{message}</div>
-					</VerticalStack>
-				</OKCancelModalDialog>
-			);
-		};
-
-		// Render the modal dialog component.
-		renderer.render(<ModalDialog />);
+	message: string,
+	action: () => Promise<void>
+) => {
+	// Create the modal React renderer.
+	const renderer = new PositronModalReactRenderer({
+		keybindingService,
+		layoutService,
+		container: layoutService.activeContainer
 	});
+
+	// Show the confirmation modal dialog.
+	renderer.render(
+		<OKCancelModalDialog
+			renderer={renderer}
+			width={400}
+			height={195}
+			title={title}
+			onAccept={async () => {
+				renderer.dispose();
+				await action();
+			}}
+			onCancel={() => renderer.dispose()}>
+			<VerticalStack>
+				<div>{message}</div>
+			</VerticalStack>
+		</OKCancelModalDialog>
+	);
 };

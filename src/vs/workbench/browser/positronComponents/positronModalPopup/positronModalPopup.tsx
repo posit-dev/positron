@@ -55,7 +55,6 @@ export type KeyboardNavigation = 'dialog' | 'menu';
  */
 export interface PositronModalPopupProps {
 	renderer: PositronModalReactRenderer;
-	container: HTMLElement;
 	anchor: HTMLElement;
 	popupPosition: PopupPosition;
 	popupAlignment: PopupAlignment;
@@ -63,8 +62,6 @@ export interface PositronModalPopupProps {
 	width: number | 'max-content';
 	height: number | 'min-content';
 	keyboardNavigation: KeyboardNavigation;
-	onAccept: () => void;
-	onCancel: () => void;
 }
 
 /**
@@ -84,14 +81,19 @@ export const PositronModalPopup = (props: PropsWithChildren<PositronModalPopupPr
 				'auto' :
 				topLeftOffset.top + props.anchor.offsetHeight + 1,
 			right: props.popupAlignment === 'right' ?
-				props.container.offsetWidth - (topLeftOffset.left + props.anchor.offsetWidth) :
+				props.renderer.container.offsetWidth - (topLeftOffset.left + props.anchor.offsetWidth) :
 				'auto',
 			bottom: 'auto',
 			left: props.popupAlignment === 'left' ?
 				topLeftOffset.left :
 				'auto'
 		};
-	}, [props.anchor, props.container.offsetWidth, props.popupAlignment, props.popupPosition]);
+	}, [
+		props.anchor,
+		props.popupAlignment,
+		props.popupPosition,
+		props.renderer.container.offsetWidth
+	]);
 
 	// Reference hooks.
 	const popupContainerRef = useRef<HTMLDivElement>(undefined!);
@@ -195,17 +197,17 @@ export const PositronModalPopup = (props: PropsWithChildren<PositronModalPopupPr
 				// Escape dismisses the modal popup.
 				case 'Escape': {
 					consumeEvent();
-					props.onCancel();
+					props.renderer.dispose();
 					break;
 				}
 
 				// When keyboard navigation is dialog, tab moves focus between modal popup elements.
 				// This code works to keep the focus in the modal popup.
 				case 'Tab': {
+					consumeEvent();
 					if (props.keyboardNavigation === 'dialog') {
 						navigateFocusableElements(!e.shiftKey ? 'next' : 'previous', true);
 					}
-					consumeEvent();
 					break;
 				}
 
@@ -234,7 +236,7 @@ export const PositronModalPopup = (props: PropsWithChildren<PositronModalPopupPr
 		// Add the onMouseDown event handler.
 		disposableStore.add(props.renderer.onMouseDown(e => {
 			if (!popupContainsMouseEvent(e)) {
-				props.onCancel();
+				props.renderer.dispose();
 			}
 		}));
 

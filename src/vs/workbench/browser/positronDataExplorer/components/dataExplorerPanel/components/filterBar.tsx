@@ -11,6 +11,7 @@ import { useRef, useState } from 'react'; // eslint-disable-line no-duplicate-im
 
 // Other dependencies.
 import { localize } from 'vs/nls';
+import * as DOM from 'vs/base/browser/dom';
 import { Button } from 'vs/base/browser/ui/positronComponents/button/button';
 import { showContextMenu } from 'vs/workbench/browser/positronComponents/contextMenu/contextMenu';
 import { ContextMenuItem } from 'vs/workbench/browser/positronComponents/contextMenu/contextMenuItem';
@@ -18,12 +19,6 @@ import { ContextMenuSeparator } from 'vs/workbench/browser/positronComponents/co
 import { usePositronDataExplorerContext } from 'vs/workbench/browser/positronDataExplorer/positronDataExplorerContext';
 import { PositronModalReactRenderer } from 'vs/workbench/browser/positronModalReactRenderer/positronModalReactRenderer';
 import { AddRowFilterModalPopup } from 'vs/workbench/browser/positronDataExplorer/components/dataExplorerPanel/components/addRowFilterModalPopup';
-
-/**
- * Localized strings.
- */
-const filterButtonAriaLabel = localize('positron.dataExplorer.filtering', "Filtering");
-const addFilterButtonAriaLabel = localize('positron.dataExplorer.addFilter', "Add filter");
 
 // Temporary filter.
 interface Filter {
@@ -40,6 +35,9 @@ export const FilterBar = () => {
 	const context = usePositronDataExplorerContext();
 
 	// Reference hooks.
+	const ref = useRef<HTMLDivElement>(undefined!);
+
+	// Reference hooks.
 	const filterButtonRef = useRef<HTMLButtonElement>(undefined!);
 	const addFilterButtonRef = useRef<HTMLButtonElement>(undefined!);
 
@@ -47,13 +45,21 @@ export const FilterBar = () => {
 	const [filters, setFilters] = useState<Filter[]>([]);
 	const [filtersHidden, setFiltersHidden] = useState(false);
 
+	// TODO: Work in progress.
 	const addFilterSelectedHandler = () => {
-		const renderer = new PositronModalReactRenderer({...context});
+		// Create the renderer.
+		const renderer = new PositronModalReactRenderer({
+			keybindingService: context.keybindingService,
+			layoutService: context.layoutService,
+			container: context.layoutService.getContainer(DOM.getWindow(ref.current))
+		});
+
+		// Show the add row filter modal popup.
 		renderer.render(
+			// TODO: Work in progress.
 			<AddRowFilterModalPopup
 				renderer={renderer}
 				anchor={filterButtonRef.current}
-				accepted={result => console.log(result)}
 			/>
 		);
 	};
@@ -112,12 +118,12 @@ export const FilterBar = () => {
 
 	// Render.
 	return (
-		<div className='filter-bar'>
+		<div ref={ref} className='filter-bar'>
 			<div className='filter'>
 				<Button
 					ref={filterButtonRef}
 					className='filter-button'
-					ariaLabel={filterButtonAriaLabel}
+					ariaLabel={localize('positron.dataExplorer.filtering', "Filtering")}
 					onPressed={filterButtonPressedHandler}
 				>
 					<div className='codicon codicon-positron-row-filter' />
@@ -131,7 +137,7 @@ export const FilterBar = () => {
 				<Button
 					ref={addFilterButtonRef}
 					className='add-filter-button'
-					ariaLabel={addFilterButtonAriaLabel}
+					ariaLabel={localize('positron.dataExplorer.addFilter', "Add filter")}
 					onPressed={addFilter}
 				>
 					<div className='codicon codicon-positron-add-filter' />

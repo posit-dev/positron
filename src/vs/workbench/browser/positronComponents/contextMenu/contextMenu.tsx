@@ -21,8 +21,12 @@ import { ContextMenuItem, ContextMenuItemOptions } from 'vs/workbench/browser/po
 
 /**
  * Shows a context menu.
- * @param options The context menu options.
- * @returns A promise that resolves when the context menu is dismissed.
+ * @param keybindingService The keybinding service.
+ * @param layoutService The layout service.
+ * @param anchor The anchor element.
+ * @param popupAlignment The popup alignment.
+ * @param width The with.
+ * @param entries The context menu entries.
  */
 export const showContextMenu = async (
 	keybindingService: IKeybindingService,
@@ -31,127 +35,133 @@ export const showContextMenu = async (
 	popupAlignment: 'left' | 'right',
 	width: number,
 	entries: (ContextMenuItem | ContextMenuSeparator)[]
-): Promise<void> => {
-	// Return a promise that resolves when the popup is done.
-	return new Promise<void>(resolve => {
-		// Get the container for the anchor.
-		const container = layoutService.getContainer(
-			DOM.getWindow(anchor)
-		);
-
-		// Create the modal React renderer.
-		const renderer = new PositronModalReactRenderer({
-			keybindingService,
-			layoutService,
-			container
-		});
-
-		// The modal popup component.
-		const ModalPopup = () => {
-			/**
-			 * Dismisses the popup.
-			 */
-			const dismiss = () => {
-				renderer.dispose();
-				resolve();
-			};
-
-			/**
-			 * MenuSeparator component.
-			 * @returns The rendered component.
-			 */
-			const MenuSeparator = () => {
-				// Render.
-				return <div className='context-menu-separator' />;
-			};
-
-			/**
-			 * MenuItem component.
-			 * @param props A ContextMenuItemOptions that contains the component properties.
-			 * @returns The rendered component.
-			 */
-			const MenuItem = (props: ContextMenuItemOptions) => {
-				// Render.
-				return (
-					<Button
-						className='context-menu-item'
-						disabled={props.disabled}
-						onPressed={e => {
-							dismiss();
-							props.onSelected(e);
-						}}
-					>
-						{props.checked !== undefined && props.checked &&
-							<div
-								className={`check codicon codicon-positron-check-mark`}
-								title={props.label}
-							/>
-						}
-						<div
-							className={positronClassNames(
-								'title',
-								{ 'disabled': props.disabled }
-							)}
-							style={{
-								gridColumn: props.checked !== undefined ?
-									'title / icon' :
-									'check / icon'
-							}}>
-							{props.label}
-						</div>
-						{props.icon &&
-							<div
-								className={positronClassNames(
-									'icon',
-									'codicon',
-									`codicon-${props.icon}`,
-									{ 'disabled': props.disabled }
-								)}
-								title={props.label}
-							/>
-						}
-					</Button>
-				);
-			};
-
-			// Render.
-			return (
-				<PositronModalPopup
-					renderer={renderer}
-					container={container}
-					anchor={anchor}
-					popupPosition='bottom'
-					popupAlignment={popupAlignment}
-					minWidth={width}
-					width={'max-content'}
-					height={'min-content'}
-					keyboardNavigation='menu'
-					onAccept={() => {
-						renderer.dispose();
-						resolve();
-					}}
-					onCancel={() => {
-						renderer.dispose();
-						resolve();
-					}}
-				>
-					<div className='context-menu-items'>
-						{entries.map((entry, index) => {
-							if (entry instanceof ContextMenuItem) {
-								return <MenuItem key={index} {...entry.options} />;
-							} else if (entry instanceof ContextMenuSeparator) {
-								return <MenuSeparator key={index} />;
-							} else {
-								// This indicates a bug.
-								return null;
-							}
-						})}
-					</div>
-				</PositronModalPopup>
-			);
-		};
-
-		// Render the modal popup component.
-		renderer.render(<ModalPopup />);
+) => {
+	// Create the renderer.
+	const renderer = new PositronModalReactRenderer({
+		keybindingService,
+		layoutService,
+		container: layoutService.getContainer(DOM.getWindow(anchor)),
+		parent: anchor
 	});
+
+	// Show the context menu popup.
+	renderer.render(
+		<ContextMenuModalPopup
+			renderer={renderer}
+			anchor={anchor}
+			popupAlignment={popupAlignment}
+			width={width}
+			entries={entries}
+		/>
+	);
+};
+
+/**
+ * ContextMenuModalPopupProps interface.
+ */
+interface ContextMenuModalPopupProps {
+	renderer: PositronModalReactRenderer;
+	anchor: HTMLElement;
+	popupAlignment: 'left' | 'right';
+	width: number;
+	entries: (ContextMenuItem | ContextMenuSeparator)[];
+}
+
+/**
+ * ContextMenuModalPopup component.
+ * @param props The component properties.
+ * @returns The rendered component.
+ */
+const ContextMenuModalPopup = (props: ContextMenuModalPopupProps) => {
+	/**
+	 * Dismisses the  modal popup.
+	 */
+	const dismiss = () => {
+		props.renderer.dispose();
+	};
+
+	/**
+	 * MenuSeparator component.
+	 * @returns The rendered component.
+	 */
+	const MenuSeparator = () => {
+		// Render.
+		return <div className='context-menu-separator' />;
+	};
+
+	/**
+	 * MenuItem component.
+	 * @param props A ContextMenuItemOptions that contains the component properties.
+	 * @returns The rendered component.
+	 */
+	const MenuItem = (props: ContextMenuItemOptions) => {
+		// Render.
+		return (
+			<Button
+				className='context-menu-item'
+				disabled={props.disabled}
+				onPressed={e => {
+					dismiss();
+					props.onSelected(e);
+				}}
+			>
+				{props.checked !== undefined && props.checked &&
+					<div
+						className={`check codicon codicon-positron-check-mark`}
+						title={props.label}
+					/>
+				}
+				<div
+					className={positronClassNames(
+						'title',
+						{ 'disabled': props.disabled }
+					)}
+					style={{
+						gridColumn: props.checked !== undefined ?
+							'title / icon' :
+							'check / icon'
+					}}>
+					{props.label}
+				</div>
+				{props.icon &&
+					<div
+						className={positronClassNames(
+							'icon',
+							'codicon',
+							`codicon-${props.icon}`,
+							{ 'disabled': props.disabled }
+						)}
+						title={props.label}
+					/>
+				}
+			</Button>
+		);
+	};
+
+	// Render.
+	return (
+		<PositronModalPopup
+			renderer={props.renderer}
+			anchor={props.anchor}
+			popupPosition='bottom'
+			popupAlignment={props.popupAlignment}
+			minWidth={props.width}
+			width={'max-content'}
+			height={'min-content'}
+			keyboardNavigation='menu'
+		>
+			<div className='context-menu-items'>
+				{props.entries.map((entry, index) => {
+					if (entry instanceof ContextMenuItem) {
+						return <MenuItem key={index} {...entry.options} />;
+					} else if (entry instanceof ContextMenuSeparator) {
+						return <MenuSeparator key={index} />;
+					} else {
+						// This indicates a bug.
+						return null;
+					}
+				})}
+			</div>
+		</PositronModalPopup>
+	);
 };

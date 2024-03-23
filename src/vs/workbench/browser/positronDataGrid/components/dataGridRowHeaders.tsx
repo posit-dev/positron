@@ -36,7 +36,7 @@ export const DataGridRowHeaders = (props: DataGridRowHeadersProps) => {
 	) {
 		// Push the row header component.
 		rowHeaders.push(
-			<DataGridRowHeader rowIndex={rowIndex} top={top} />
+			<DataGridRowHeader key={rowIndex} rowIndex={rowIndex} top={top} />
 		);
 
 		// Adjust the top offset for the next row.

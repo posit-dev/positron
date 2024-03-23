@@ -2,7 +2,7 @@
  *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
-.combo-box {
+.drop-down-list-box {
 	padding: 4px;
 	display: grid;
 	border-radius: 4px;
@@ -11,7 +11,7 @@
 	border: 1px solid var(--vscode-positronDropDown-border) !important;
 }
 
-.combo-box
+.drop-down-list-box
 .title {
 	display: flex;
 	padding-left: 6px;
@@ -19,7 +19,7 @@
 	grid-column: title / chevron;
 }
 
-.combo-box
+.drop-down-list-box
 .chevron {
 	display: flex;
 	align-items: center;
@@ -27,7 +27,7 @@
 	grid-column: chevron / end;
 }
 
-.combo-box-menu-items {
+.drop-down-list-box-items {
 	width: 100%;
 	margin: 4px;
 	display: flex;
@@ -35,14 +35,14 @@
 	background: var(--vscode-positronContextMenu-background);
 }
 
-.combo-box-menu-items
+.drop-down-list-box-items
 .separator {
 	height: 1px;
 	margin: 4px 10px;
 	background: var(--vscode-menu-border);
 }
 
-.combo-box-menu-items
+.drop-down-list-box-items
 .item {
 	width: 100%;
 	height: 26px;
@@ -56,30 +56,30 @@
 	grid-template-columns: [title] 1fr [icon] min-content [end];
 }
 
-.combo-box-menu-items
+.drop-down-list-box-items
 .item:not(.disabled):hover {
 	border-radius: 4px;
 	color: var(--vscode-positronContextMenu-hoverForeground);
 	background: var(--vscode-positronContextMenu-hoverBackground);
 }
 
-.combo-box-menu-items
+.drop-down-list-box-items
 .item:focus {
 	outline: none !important;
 }
 
-.combo-box-menu-items
+.drop-down-list-box-items
 .item:focus-visible {
 	border-radius: 4px;
 	outline: 1px solid var(--vscode-focusBorder) !important;
 }
 
-.combo-box-menu-items
+.drop-down-list-box-items
 .item:not(.disabled):focus-visible {
 	background: var(--vscode-positronContextMenu-hoverBackground);
 }
 
-.combo-box-menu-items
+.drop-down-list-box-items
 .item
 .title {
 	display: block;
@@ -92,20 +92,20 @@
 	padding: 10px 5px 10px 10px;
 }
 
-.combo-box-menu-items
+.drop-down-list-box-items
 .item
 .title.disabled {
-	opacity: 50%;
+	opacity: 75%;
 }
 
-.combo-box-menu-items
+.drop-down-list-box-items
 .item
 .icon {
 	padding: 10px;
 	grid-column: icon / end;
 }
 
-.combo-box-menu-items
+.drop-down-list-box-items
 .item
 .icon.disabled {
 	opacity: 50%;

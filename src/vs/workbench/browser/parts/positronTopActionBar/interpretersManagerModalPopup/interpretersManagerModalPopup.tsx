@@ -19,92 +19,50 @@ import { InterpreterGroups } from 'vs/workbench/browser/parts/positronTopActionB
 import { ILanguageRuntimeMetadata, ILanguageRuntimeService } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 
 /**
- * Shows the interpreters manager modal popup.
- * @param keybindingService The keybinding service.
- * @param languageRuntimeService The language runtime service.
- * @param layoutService The layout service.
- * @param runtimeSessionService The runtime session service.
- * @param runtimeStartupService The runtime stasrtup service.
- * @param container The container element.
- * @param anchor The anchor element for the modal popup.
- * @param onStartRuntime The start runtime event handler.
- * @param onActivateRuntime The activate runtime event handler.
- * @returns A promise that resolves when the popup is dismissed.
+ * InterpretersManagerModalPopupProps interface.
  */
-export const showInterpretersManagerModalPopup = async (
-	keybindingService: IKeybindingService,
-	languageRuntimeService: ILanguageRuntimeService,
-	layoutService: ILayoutService,
-	runtimeSessionService: IRuntimeSessionService,
-	runtimeStartupService: IRuntimeStartupService,
-	container: HTMLElement,
-	anchor: HTMLElement,
-	onStartRuntime: (runtime: ILanguageRuntimeMetadata) => Promise<void>,
-	onActivateRuntime: (runtime: ILanguageRuntimeMetadata) => Promise<void>
-): Promise<void> => {
-	// Return a promise that resolves when the popup is done.
-	return new Promise<void>(resolve => {
-		// Create the modal React renderer.
-		const renderer = new PositronModalReactRenderer({
-			keybindingService,
-			layoutService,
-			container
-		});
+interface InterpretersManagerModalPopupProps {
+	keybindingService: IKeybindingService;
+	languageRuntimeService: ILanguageRuntimeService;
+	layoutService: ILayoutService;
+	runtimeSessionService: IRuntimeSessionService;
+	runtimeStartupService: IRuntimeStartupService;
+	renderer: PositronModalReactRenderer;
+	anchor: HTMLElement;
+	onStartRuntime: (runtime: ILanguageRuntimeMetadata) => Promise<void>;
+	onActivateRuntime: (runtime: ILanguageRuntimeMetadata) => Promise<void>;
+}
 
-		// The modal popup component.
-		const ModalPopup = () => {
-			/**
-			 * Dismisses the popup.
-			 */
-			const dismiss = () => {
-				renderer.dispose();
-				resolve();
-			};
+/**
+ * InterpretersManagerModalPopup component.
+ * @param props The component properties.
+ * @returns The rendered component.
+ */
+export const InterpretersManagerModalPopup = (props: InterpretersManagerModalPopupProps) => {
+	// Render.
+	return (
+		<PositronModalPopup
+			renderer={props.renderer}
+			anchor={props.anchor}
+			popupPosition='bottom'
+			popupAlignment='right'
+			width={375}
+			height={'min-content'}
+			keyboardNavigation='menu'
+		>
+			<InterpreterGroups
+				languageRuntimeService={props.languageRuntimeService}
+				runtimeAffiliationService={props.runtimeStartupService}
+				runtimeSessionService={props.runtimeSessionService}
+				onStartRuntime={props.onStartRuntime}
+				onActivateRuntime={async (runtime) => {
+					// Activate the runtime.
+					await props.onActivateRuntime(runtime);
 
-			/**
-			 * onActivateRuntime event handler.
-			 * @param runtime An ILanguageRuntime representing the runtime to activate.
-			 */
-			const activateRuntimeHandler = async (runtime: ILanguageRuntimeMetadata): Promise<void> => {
-				// Activate the runtime.
-				await onActivateRuntime(runtime);
-
-				// Dismiss the popup.
-				dismiss();
-			};
-
-			// Render.
-			return (
-				<PositronModalPopup
-					renderer={renderer}
-					container={container}
-					anchor={anchor}
-					popupPosition='bottom'
-					popupAlignment='right'
-					width={375}
-					height={'min-content'}
-					keyboardNavigation='menu'
-					onAccept={() => {
-						renderer.dispose();
-						resolve();
-					}}
-					onCancel={() => {
-						renderer.dispose();
-						resolve();
-					}}
-				>
-					<InterpreterGroups
-						languageRuntimeService={languageRuntimeService}
-						runtimeAffiliationService={runtimeStartupService}
-						runtimeSessionService={runtimeSessionService}
-						onStartRuntime={onStartRuntime}
-						onActivateRuntime={activateRuntimeHandler}
-					/>
-				</PositronModalPopup>
-			);
-		};
-
-		// Render the modal popup component.
-		renderer.render(<ModalPopup />);
-	});
+					// Dismiss the popup.
+					props.renderer.dispose();
+				}}
+			/>
+		</PositronModalPopup>
+	);
 };
