@@ -23,6 +23,7 @@
 	padding: 1rem;
 	padding-bottom: 0.5rem;
 	display: flex;
+	justify-content: space-between;
 	gap: 1rem;
 	align-items: baseline;
 	border-bottom: 1px solid var(--vscode-positronDataExplorer-border);

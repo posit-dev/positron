@@ -62,7 +62,7 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 	const extHostPreviewPanels = rpcProtocol.set(ExtHostPositronContext.ExtHostPreviewPanel, new ExtHostPreviewPanels(rpcProtocol, extHostWebviews, extHostWorkspace));
 	const extHostModalDialogs = rpcProtocol.set(ExtHostPositronContext.ExtHostModalDialogs, new ExtHostModalDialogs(rpcProtocol));
 	const extHostConsoleService = rpcProtocol.set(ExtHostPositronContext.ExtHostConsoleService, new ExtHostConsoleService(rpcProtocol, extHostLogService));
-	const extHostMethods = rpcProtocol.set(ExtHostPositronContext.ExtHostMethods, new ExtHostMethods(rpcProtocol, extHostEditors, extHostModalDialogs));
+	const extHostMethods = rpcProtocol.set(ExtHostPositronContext.ExtHostMethods, new ExtHostMethods(rpcProtocol, extHostEditors, extHostModalDialogs, extHostWorkspace));
 
 	return function (extension: IExtensionDescription, extensionInfo: IExtensionRegistries, configProvider: ExtHostConfigProvider): typeof positron {
 

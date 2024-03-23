@@ -10,6 +10,8 @@ import * as React from 'react';
 
 // Other dependencies.
 import { Emitter } from 'vs/base/common/event';
+import { renderHtml } from 'vs/base/browser/renderHtml';
+import { IOpenerService } from 'vs/platform/opener/common/opener';
 import { ILayoutService } from 'vs/platform/layout/browser/layoutService';
 import { IKeybindingService } from 'vs/platform/keybinding/common/keybinding';
 import { ContentArea } from 'vs/workbench/browser/positronComponents/positronModalDialog/components/contentArea';
@@ -33,7 +35,8 @@ export class PositronModalDialogs implements IPositronModalDialogsService {
 	 */
 	constructor(
 		@IKeybindingService private readonly _keybindingService: IKeybindingService,
-		@ILayoutService private readonly _layoutService: ILayoutService
+		@ILayoutService private readonly _layoutService: ILayoutService,
+		@IOpenerService private readonly _openerService: IOpenerService,
 	) { }
 
 	/**
@@ -133,9 +136,21 @@ export class PositronModalDialogs implements IPositronModalDialogsService {
 		};
 
 		renderer.render(
-			<PositronModalDialog renderer={renderer} title={title} width={400} height={200} onAccept={acceptHandler} onCancel={cancelHandler} >
+			<PositronModalDialog
+				renderer={renderer}
+				title={title}
+				width={400}
+				height={200}
+				onAccept={acceptHandler}
+				onCancel={cancelHandler}
+			>
 				<ContentArea>
-					{message}
+					{renderHtml(
+						message,
+						{
+							onLinkClick: (href: string) => this._openerService.open(href)
+						}
+					)}
 				</ContentArea>
 				<OKActionBar okButtonTitle={okButtonTitle} onAccept={acceptHandler} />
 			</PositronModalDialog>

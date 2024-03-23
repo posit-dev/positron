@@ -28,7 +28,7 @@ import { IPositronHelpService } from 'vs/workbench/contrib/positronHelp/browser/
 import { INotebookService } from 'vs/workbench/contrib/notebook/common/notebookService';
 import { IRuntimeClientEvent } from 'vs/workbench/services/languageRuntime/common/languageRuntimeUiClient';
 import { URI } from 'vs/base/common/uri';
-import { BusyEvent, UiFrontendEvent, OpenEditorEvent, PromptStateEvent, WorkingDirectoryEvent, ShowMessageEvent, ExecuteCommandEvent } from 'vs/workbench/services/languageRuntime/common/positronUiComm';
+import { BusyEvent, UiFrontendEvent, OpenEditorEvent, OpenWorkspaceEvent, PromptStateEvent, WorkingDirectoryEvent, ShowMessageEvent, ExecuteCommandEvent } from 'vs/workbench/services/languageRuntime/common/positronUiComm';
 import { IEditorService } from 'vs/workbench/services/editor/common/editorService';
 import { ITextResourceEditorInput } from 'vs/platform/editor/common/editor';
 import { IPositronDataExplorerService } from 'vs/workbench/services/positronDataExplorer/browser/interfaces/positronDataExplorerService';
@@ -198,6 +198,11 @@ class ExtHostLanguageRuntimeSessionAdapter implements ILanguageRuntimeSession {
 					options: { selection: { startLineNumber: ed.line, startColumn: ed.column } }
 				};
 				this._editorService.openEditor(editor);
+			} else if (ev.name === UiFrontendEvent.OpenWorkspace) {
+				// Open a workspace
+				const ws = ev.data as OpenWorkspaceEvent;
+				const uri = URI.file(ws.path);
+				this._commandService.executeCommand('vscode.openFolder', uri, ws.new_window);
 			} else if (ev.name === UiFrontendEvent.WorkingDirectory) {
 				// Update current working directory
 				const dir = ev.data as WorkingDirectoryEvent;
