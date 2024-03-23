@@ -20,7 +20,7 @@ import { OKCancelModalDialog } from 'vs/workbench/browser/positronComponents/pos
  * @param message The message.
  * @param action The action to perform.
  */
-export const confirmationModalDialog = async (
+export const showConfirmationModalDialog = async (
 	keybindingService: IKeybindingService,
 	layoutService: IWorkbenchLayoutService,
 	title: string,

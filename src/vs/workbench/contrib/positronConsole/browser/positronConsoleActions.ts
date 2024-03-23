@@ -27,7 +27,7 @@ import { ILanguageFeaturesService } from 'vs/editor/common/services/languageFeat
 import { IWorkbenchLayoutService } from 'vs/workbench/services/layout/browser/layoutService';
 import { INotificationService, Severity } from 'vs/platform/notification/common/notification';
 import { NOTEBOOK_EDITOR_FOCUSED } from 'vs/workbench/contrib/notebook/common/notebookContextKeys';
-import { confirmationModalDialog } from 'vs/workbench/browser/positronModalDialogs/confirmationModalDialog';
+import { showConfirmationModalDialog } from 'vs/workbench/browser/positronModalDialogs/confirmationModalDialog';
 import { IExecutionHistoryService } from 'vs/workbench/contrib/executionHistory/common/executionHistoryService';
 import { IPositronConsoleService, POSITRON_CONSOLE_VIEW_ID } from 'vs/workbench/services/positronConsole/browser/interfaces/positronConsoleService';
 
@@ -219,7 +219,7 @@ export function registerPositronConsoleActions() {
 				"Are you sure you want to clear the {0} input history? This can't be undone.",
 				languageName
 			);
-			confirmationModalDialog(
+			showConfirmationModalDialog(
 				keybindingService,
 				layoutService,
 				title,
