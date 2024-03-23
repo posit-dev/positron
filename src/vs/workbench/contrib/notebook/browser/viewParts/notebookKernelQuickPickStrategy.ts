@@ -711,7 +711,8 @@ export class KernelPickerMRUStrategy extends KernelPickerStrategyBase {
 
 		// --- Start Positron ---
 		// Return a promise that resolves when the quickpick is accepted or hidden. This fixes an
-		// upstream bug where the select kernel command exits before the kernel is actually selected.
+		// upstream bug where the select kernel command exits before the kernel is actually selected,
+		// since this function resolves before the kernel is selected via this.selecteKernel below.
 		const deferred = new DeferredPromise<void>();
 		// --- End Positron ---
 		quickPick.onDidAccept(async () => {
