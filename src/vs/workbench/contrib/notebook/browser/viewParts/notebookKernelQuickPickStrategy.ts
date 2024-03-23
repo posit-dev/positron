@@ -37,6 +37,10 @@ import { INotebookTextModel } from 'vs/workbench/contrib/notebook/common/noteboo
 import { SELECT_KERNEL_ID } from 'vs/workbench/contrib/notebook/browser/controller/coreActions';
 import { EnablementState } from 'vs/workbench/services/extensionManagement/common/extensionManagement';
 
+// --- Start Positron ---
+// eslint-disable-next-line no-duplicate-imports
+import { DeferredPromise } from 'vs/base/common/async';
+// --- End Positron ---
 type KernelPick = IQuickPickItem & { kernel: INotebookKernel };
 function isKernelPick(item: QuickPickInput<IQuickPickItem>): item is KernelPick {
 	return 'kernel' in item;
@@ -705,6 +709,12 @@ export class KernelPickerMRUStrategy extends KernelPickerStrategyBase {
 
 		quickPick.title = localize('selectKernelFromExtension', "Select Kernel from {0}", source);
 
+		// --- Start Positron ---
+		// Return a promise that resolves when the quickpick is accepted or hidden. This fixes an
+		// upstream bug where the select kernel command exits before the kernel is actually selected,
+		// since this function resolves before the kernel is selected via this.selecteKernel below.
+		const deferred = new DeferredPromise<void>();
+		// --- End Positron ---
 		quickPick.onDidAccept(async () => {
 			if (quickPick.selectedItems && quickPick.selectedItems.length > 0 && isKernelPick(quickPick.selectedItems[0])) {
 				await this._selecteKernel(notebook, quickPick.selectedItems[0].kernel);
@@ -712,13 +722,23 @@ export class KernelPickerMRUStrategy extends KernelPickerStrategyBase {
 
 			quickPick.hide();
 			quickPick.dispose();
+			// --- Start Positron ---
+			deferred.complete();
+			// --- End Positron ---
 		});
 
 		quickPick.onDidHide(() => {
 			quickPick.dispose();
+			// --- Start Positron ---
+			deferred.complete();
+			// --- End Positron ---
 		});
 
 		quickPick.show();
+
+		// --- Start Positron ---
+		return deferred.p;
+		// --- End Positron ---
 	}
 
 	private async _executeCommand<T>(notebook: NotebookTextModel, command: string | Command): Promise<T | undefined | void> {
