@@ -141,10 +141,10 @@
 			// If you need to debug React, you can switch to the development version by temporarily
 			// commenting out production React and uncommenting development React. (The fixup for
 			// loading react-dom/client.js handles this switch, so this is all you need to do.)
-			// 'react': `${baseNodeModulesPath}/react/umd/react.production.min.js`,
-			// 'react-dom': `${baseNodeModulesPath}/react-dom/umd/react-dom.production.min.js`,
-			'react': `${baseNodeModulesPath}/react/umd/react.development.js`,
-			'react-dom': `${baseNodeModulesPath}/react-dom/umd/react-dom.development.js`,
+			'react': `${baseNodeModulesPath}/react/umd/react.production.min.js`,
+			'react-dom': `${baseNodeModulesPath}/react-dom/umd/react-dom.production.min.js`,
+			// 'react': `${baseNodeModulesPath}/react/umd/react.development.js`,
+			// 'react-dom': `${baseNodeModulesPath}/react-dom/umd/react-dom.development.js`,
 			// -------------------------------------------------------------------------------------
 			'react-window': `${baseNodeModulesPath}/react-window/dist/index-prod.umd.js`
 			// --- End Positron ---
