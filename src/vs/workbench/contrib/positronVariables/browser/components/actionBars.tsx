@@ -90,7 +90,7 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 		renderer.render(
 			<DeleteAllVariablesModalDialog
 				renderer={renderer}
-				deleAllVariablesAction={async deleteAllVariablesResult =>
+				deleteAllVariablesAction={async deleteAllVariablesResult =>
 					positronVariablesContext.activePositronVariablesInstance?.requestClear(
 						deleteAllVariablesResult.includeHiddenObjects
 					)

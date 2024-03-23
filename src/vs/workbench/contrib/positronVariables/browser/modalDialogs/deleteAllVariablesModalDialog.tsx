@@ -26,7 +26,7 @@ export interface DeleteAllVariablesResult {
  */
 interface DeleteAllVariablesModalDialogProps {
 	renderer: PositronModalReactRenderer;
-	deleAllVariablesAction: (result: DeleteAllVariablesResult) => Promise<void>;
+	deleteAllVariablesAction: (result: DeleteAllVariablesResult) => Promise<void>;
 }
 
 /**
@@ -46,7 +46,7 @@ export const DeleteAllVariablesModalDialog = (props: DeleteAllVariablesModalDial
 			cancelButtonTitle={localize('positron.no', "No")}
 			onAccept={async () => {
 				props.renderer.dispose();
-				await props.deleAllVariablesAction({
+				await props.deleteAllVariablesAction({
 					includeHiddenObjects: false
 				});
 			}}
