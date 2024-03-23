@@ -10,8 +10,6 @@ import { NotebookController } from './notebookController';
  * Manages notebook controllers.
  */
 export class NotebookControllerManager implements vscode.Disposable {
-	private readonly disposables: vscode.Disposable[] = [];
-
 	/** Notebook controllers keyed by languageId. */
 	public readonly controllers = new Map<string, NotebookController>();
 
@@ -24,7 +22,6 @@ export class NotebookControllerManager implements vscode.Disposable {
 		if (!this.controllers.has(languageId)) {
 			const controller = new NotebookController(languageId);
 			this.controllers.set(languageId, controller);
-			this.disposables.push(controller);
 			trace(`Registered notebook controller for language: ${languageId}`);
 		}
 	}
@@ -38,12 +35,27 @@ export class NotebookControllerManager implements vscode.Disposable {
 	 * @returns Promise that resolves when the notebook's affinity has been updated across all controllers.
 	 */
 	public async updateNotebookAffinity(notebook: vscode.NotebookDocument): Promise<void> {
-		// If the notebook is untitled, wait for its data to be updated. This works around the fact
-		// that `vscode.openNotebookDocument(notebookType, content)` first creates a notebook
-		// (triggering `onDidOpenNotebookDocument`), and later updates its content (triggering
-		// `onDidChangeNotebookDocument`).
 		if (notebook.uri.scheme === 'untitled') {
-			const event = await nextNotebookDocumentChange(notebook, 50);
+			// If the notebook is untitled, wait for its data to be updated. This works around the fact
+			// that `vscode.openNotebookDocument(notebookType, content)` first creates a notebook
+			// (triggering `onDidOpenNotebookDocument`), and later updates its content (triggering
+			// `onDidChangeNotebookDocument`).
+			const event = await new Promise<vscode.NotebookDocumentChangeEvent | undefined>((resolve) => {
+				// Apply a short timeout to avoid waiting indefinitely.
+				const timeout = setTimeout(() => {
+					disposable.dispose();
+					resolve(undefined);
+				}, 50);
+
+				const disposable = vscode.workspace.onDidChangeNotebookDocument((e) => {
+					if (e.notebook === notebook) {
+						clearTimeout(timeout);
+						disposable.dispose();
+						resolve(e);
+					}
+				});
+			});
+
 			if (event) {
 				notebook = event.notebook;
 			}
@@ -71,33 +83,6 @@ export class NotebookControllerManager implements vscode.Disposable {
 	}
 
 	dispose(): void {
-		this.disposables.forEach(d => d.dispose());
+		this.controllers.forEach(c => c.dispose());
 	}
-}
-
-/**
- * Wait for the next change event for a notebook.
- *
- * @param notebook The notebook document.
- * @param timeoutMs Timeout duration in milliseconds.
- * @returns Promise that resolves when the next change event occurs for a notebook,
- * or resolves with undefined if the timeout is reached.
- */
-function nextNotebookDocumentChange(
-	notebook: vscode.NotebookDocument, timeoutMs: number
-): Promise<vscode.NotebookDocumentChangeEvent | undefined> {
-	return new Promise((resolve) => {
-		const timeout = setTimeout(() => {
-			disposable.dispose();
-			resolve(undefined);
-		}, timeoutMs);
-
-		const disposable = vscode.workspace.onDidChangeNotebookDocument((e) => {
-			if (e.notebook === notebook) {
-				clearTimeout(timeout);
-				disposable.dispose();
-				resolve(e);
-			}
-		});
-	});
 }
