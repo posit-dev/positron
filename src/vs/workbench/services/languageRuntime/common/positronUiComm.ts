@@ -310,6 +310,19 @@ export interface WorkspaceFolderRequest {
 }
 
 /**
+ * Request: Set the selections in the editor
+ *
+ * Use this to set the selection ranges/cursor in the editor
+ */
+export interface SetEditorSelectionsRequest {
+	/**
+	 * The position to set the cursor to
+	 */
+	position: Position;
+
+}
+
+/**
  * Request: Context metadata for the last editor
  *
  * Returns metadata such as file path for the last editor selected by the
@@ -334,6 +347,7 @@ export enum UiFrontendRequest {
 	ShowDialog = 'show_dialog',
 	DebugSleep = 'debug_sleep',
 	WorkspaceFolder = 'workspace_folder',
+	SetEditorSelections = 'set_editor_selections',
 	LastActiveEditorContext = 'last_active_editor_context'
 }
 
