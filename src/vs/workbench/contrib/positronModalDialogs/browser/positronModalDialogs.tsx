@@ -16,28 +16,66 @@ import { ILayoutService } from 'vs/platform/layout/browser/layoutService';
 import { IKeybindingService } from 'vs/platform/keybinding/common/keybinding';
 import { ContentArea } from 'vs/workbench/browser/positronComponents/positronModalDialog/components/contentArea';
 import { OKActionBar } from 'vs/workbench/browser/positronComponents/positronModalDialog/components/okActionBar';
+import { VerticalStack } from 'vs/workbench/browser/positronComponents/positronModalDialog/components/verticalStack';
 import { PositronModalDialog } from 'vs/workbench/browser/positronComponents/positronModalDialog/positronModalDialog';
 import { PositronModalReactRenderer } from 'vs/workbench/browser/positronModalReactRenderer/positronModalReactRenderer';
 import { OKCancelActionBar } from 'vs/workbench/browser/positronComponents/positronModalDialog/components/okCancelActionBar';
-import { IModalDialogPromptInstance, IPositronModalDialogsService } from 'vs/workbench/services/positronModalDialogs/common/positronModalDialogs';
+import { OKCancelModalDialog } from 'vs/workbench/browser/positronComponents/positronModalDialog/positronOKCancelModalDialog';
+import { IModalDialogPromptInstance, IPositronModalDialogsService, ShowConfirmationModalDialogOptions } from 'vs/workbench/services/positronModalDialogs/common/positronModalDialogs';
 
 /**
  * PositronModalDialogs class.
  */
 export class PositronModalDialogs implements IPositronModalDialogsService {
-
+	/**
+	 * Needed for service branding in dependency injector.
+	 */
 	declare readonly _serviceBrand: undefined;
 
 	/**
 	 * Initializes a new instance of the PositronModalDialogs class.
 	 * @param _keybindingService The keybinding service.
 	 * @param _layoutService The layout service.
+	 * @param _openerService The opener service.
 	 */
 	constructor(
 		@IKeybindingService private readonly _keybindingService: IKeybindingService,
 		@ILayoutService private readonly _layoutService: ILayoutService,
 		@IOpenerService private readonly _openerService: IOpenerService,
 	) { }
+
+	/**
+	 * Shows a confirmation modal dialog.
+	 * @param options The options.
+	 */
+	showConfirmationModalDialog(options: ShowConfirmationModalDialogOptions) {
+		// Create the modal React renderer.
+		const renderer = new PositronModalReactRenderer({
+			keybindingService: this._keybindingService,
+			layoutService: this._layoutService,
+			container: this._layoutService.activeContainer
+		});
+
+		// Show the confirmation modal dialog.
+		renderer.render(
+			<OKCancelModalDialog
+				renderer={renderer}
+				width={400}
+				height={195}
+				title={options.title}
+				okButtonTitle={options.okButtonTitle}
+				cancelButtonTitle={options.cancelButtonTitle}
+				onAccept={async () => {
+					renderer.dispose();
+					await options.action();
+				}}
+				onCancel={() => renderer.dispose()}>
+				<VerticalStack>
+					<div>{options.message}</div>
+				</VerticalStack>
+			</OKCancelModalDialog>
+		);
+	}
 
 	/**
 	 * Shows a modal dialog prompt.

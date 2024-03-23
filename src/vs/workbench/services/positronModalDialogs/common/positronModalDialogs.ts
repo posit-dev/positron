@@ -1,9 +1,9 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2022 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2022-2024 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
-import { createDecorator } from 'vs/platform/instantiation/common/instantiation';
 import { Event } from 'vs/base/common/event';
+import { createDecorator } from 'vs/platform/instantiation/common/instantiation';
 
 /**
  * Export the service identifier.
@@ -27,11 +27,28 @@ export interface IModalDialogPromptInstance {
 }
 
 /**
+ * ShowConfirmationModalDialogOptions interface.
+ */
+export interface ShowConfirmationModalDialogOptions {
+	title: string;
+	message: string;
+	okButtonTitle?: string;
+	cancelButtonTitle?: string;
+	action: () => Promise<void>;
+}
+
+/**
  * A service that displays modal dialogs.
  */
 export interface IPositronModalDialogsService {
 
 	readonly _serviceBrand: undefined;
+
+	/**
+	 * Shows a confirmation modal dialog.
+	 * @param options The options.
+	 */
+	showConfirmationModalDialog(options: ShowConfirmationModalDialogOptions): void;
 
 	/**
 	 * Shows a modal dialog prompt.
