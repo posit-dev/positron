@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
 import 'vs/css!./outputRun';
@@ -10,6 +10,7 @@ import { localize } from 'vs/nls';
 import { ANSIColor, ANSIOutputRun, ANSIStyle } from 'vs/base/common/ansiOutput';
 import { usePositronConsoleContext } from 'vs/workbench/contrib/positronConsole/browser/positronConsoleContext';
 import { Schemas } from 'vs/base/common/network';
+import { OutputRunWithLinks } from 'vs/workbench/contrib/positronConsole/browser/components/outputRunWithLinks';
 
 /**
  * Constants.
@@ -337,9 +338,20 @@ export const OutputRun = (props: OutputRunProps) => {
 
 	// Render.
 	if (!props.outputRun.hyperlink) {
-		return (
-			<span style={computeCSSProperties(props.outputRun)}>{props.outputRun.text}</span>
-		);
+		// No OSC 8 hyperlink. Do a cheap scan for http.
+		if (props.outputRun.text.indexOf('http') === -1) {
+			// There's no link in this text; we can render it directly.
+			return (
+				<span style={computeCSSProperties(props.outputRun)}>{props.outputRun.text}</span>
+			);
+		} else {
+			// Use a component that scans for hyperlink(s). This is a little
+			// more expensive (currently uses a regex), so we only do it if the
+			// text contains http.
+			return (
+				<span style={computeCSSProperties(props.outputRun)}><OutputRunWithLinks text={props.outputRun.text}></OutputRunWithLinks></span>
+			);
+		}
 	} else {
 		return (
 			<a className='output-run-hyperlink' href='#' onClick={hyperlinkClickHandler}>

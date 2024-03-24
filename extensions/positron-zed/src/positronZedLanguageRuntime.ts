@@ -76,11 +76,12 @@ const HelpLines = [
 	'preview status   - Gets the status of the preview pane',
 	'preview show     - Shows the preview pane, if it is hidden',
 	'preview msg      - Sends a message to the preview pane',
+	'preview http...  - Show the URL starting with http... in the preview pane',
 	'progress         - Renders a progress bar',
 	'restart          - Simulates orderly restart',
 	'shutdown X       - Simulates orderly shutdown, or sets the shutdown delay to X',
 	'static plot      - Renders a static plot (image)',
-	'view X           - Open a data viewer named X (currently disable)',
+	'view X           - Open a data viewer named X (currently disabled)',
 	'version          - Shows the Zed version'
 ].join('\n');
 
@@ -1271,6 +1272,37 @@ export class PositronZedRuntimeSession implements positron.LanguageRuntimeSessio
 				command = 'open';
 			}
 		}
+
+		if (command.startsWith('http')) {
+			// Close any existing preview
+			if (this._preview) {
+				this._preview.close();
+			}
+
+			// Parse the URL
+			let uri: vscode.Uri | undefined;
+			try {
+				uri = vscode.Uri.parse(command);
+			} catch (error) {
+				this.simulateErrorMessage(parentId,
+					`Very Bad URL`, `Error parsing URL '${command}': ${error}`);
+				this.simulateIdleState(parentId);
+				return;
+			}
+
+			// Ask Positron to preview the URL
+			try {
+				positron.window.previewUrl(uri);
+			} catch (error) {
+				this.simulateErrorMessage(parentId,
+					`Preview Pane Flub`, `Error opening preview pane for '${command}: ${error}`);
+			}
+
+			// Return to idle state.
+			this.simulateIdleState(parentId);
+			return;
+		}
+
 		switch (command) {
 			// Status ------------------------------------------------------------
 			case 'status':

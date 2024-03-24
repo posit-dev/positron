@@ -39,6 +39,7 @@ const compilations = [
 	'positron-rstudio-keymap/tsconfig.json',
 	'positron-python/tsconfig.json',
 	'positron-proxy/tsconfig.json',
+	'positron-viewer/tsconfig.json',
 	'positron-zed/tsconfig.json',
 	// --- End Positron ---
 	'authentication-proxy/tsconfig.json',

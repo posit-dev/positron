@@ -1,11 +1,11 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
 import { Disposable } from 'vs/base/common/lifecycle';
 import { Event } from 'vs/base/common/event';
 import { IRuntimeClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimeClientInstance';
-import { BusyEvent, ClearConsoleEvent, UiFrontendEvent, OpenEditorEvent, OpenWorkspaceEvent, PositronUiComm, PromptStateEvent, ShowMessageEvent, WorkingDirectoryEvent, ExecuteCommandEvent } from './positronUiComm';
+import { BusyEvent, ClearConsoleEvent, UiFrontendEvent, OpenEditorEvent, OpenWorkspaceEvent, PositronUiComm, PromptStateEvent, ShowMessageEvent, WorkingDirectoryEvent, ExecuteCommandEvent, ShowUrlEvent } from './positronUiComm';
 
 
 /**
@@ -69,6 +69,7 @@ export class UiClientInstance extends Disposable {
 	onDidPromptState: Event<PromptStateEvent>;
 	onDidWorkingDirectory: Event<WorkingDirectoryEvent>;
 	onDidExecuteCommand: Event<ExecuteCommandEvent>;
+	onDidShowUrl: Event<ShowUrlEvent>;
 
 	/**
 	 * Creates a new frontend client instance.
@@ -91,5 +92,6 @@ export class UiClientInstance extends Disposable {
 		this.onDidPromptState = this._comm.onDidPromptState;
 		this.onDidWorkingDirectory = this._comm.onDidWorkingDirectory;
 		this.onDidExecuteCommand = this._comm.onDidExecuteCommand;
+		this.onDidShowUrl = this._comm.onDidShowUrl;
 	}
 }
