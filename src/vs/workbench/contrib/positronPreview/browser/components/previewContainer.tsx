@@ -1,7 +1,8 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
+import 'vs/css!./previewContainer';
 import * as React from 'react';
 import { useEffect } from 'react'; // eslint-disable-line no-duplicate-imports
 import { PreviewWebview } from 'vs/workbench/contrib/positronPreview/browser/previewWebview';
@@ -85,7 +86,7 @@ export const PreviewContainer = (props: PreviewContainerProps) => {
 	// The DOM we render is just a single div that the webview will be
 	// positioned over.
 	return (
-		<div ref={webviewRef} style={style}>
+		<div className='preview-container' ref={webviewRef} style={style}>
 		</div>
 	);
 };

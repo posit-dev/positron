@@ -19,6 +19,7 @@ const dirs = [
 	'extensions/positron-rstudio-keymap',
 	'extensions/positron-python',
 	'extensions/positron-proxy',
+	'extensions/positron-viewer',
 	'extensions/positron-zed',
 	// --- End Positron ---
 	'extensions/configuration-editing',

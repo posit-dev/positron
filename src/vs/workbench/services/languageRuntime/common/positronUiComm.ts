@@ -242,6 +242,17 @@ export interface OpenWorkspaceEvent {
 }
 
 /**
+ * Event: Show a URL in Positron's Viewer pane
+ */
+export interface ShowUrlEvent {
+	/**
+	 * The URL to display
+	 */
+	url: string;
+
+}
+
+/**
  * Request: Show a question
  *
  * Use this for a modal dialog that the user can accept or cancel
@@ -326,7 +337,8 @@ export enum UiFrontendEvent {
 	PromptState = 'prompt_state',
 	WorkingDirectory = 'working_directory',
 	ExecuteCommand = 'execute_command',
-	OpenWorkspace = 'open_workspace'
+	OpenWorkspace = 'open_workspace',
+	ShowUrl = 'show_url'
 }
 
 export enum UiFrontendRequest {
@@ -348,6 +360,7 @@ export class PositronUiComm extends PositronBaseComm {
 		this.onDidWorkingDirectory = super.createEventEmitter('working_directory', ['directory']);
 		this.onDidExecuteCommand = super.createEventEmitter('execute_command', ['command']);
 		this.onDidOpenWorkspace = super.createEventEmitter('open_workspace', ['path', 'new_window']);
+		this.onDidShowUrl = super.createEventEmitter('show_url', ['url']);
 	}
 
 	/**
@@ -421,5 +434,12 @@ export class PositronUiComm extends PositronBaseComm {
 	 * Use this to open a workspace in Positron
 	 */
 	onDidOpenWorkspace: Event<OpenWorkspaceEvent>;
+	/**
+	 * Show a URL in Positron's Viewer pane
+	 *
+	 * Causes the URL to be displayed inside the Viewer pane, and makes the
+	 * Viewer pane visible.
+	 */
+	onDidShowUrl: Event<ShowUrlEvent>;
 }
 
