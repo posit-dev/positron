@@ -272,6 +272,20 @@
 					]
 				}
 			}
+		},
+		{
+			"name": "show_url",
+			"summary": "Show a URL in Positron's Viewer pane",
+			"description": "Causes the URL to be displayed inside the Viewer pane, and makes the Viewer pane visible.",
+			"params": [
+				{
+					"name": "url",
+					"description": "The URL to display",
+					"schema": {
+						"type": "string"
+					}
+				}
+			]
 		}
 	],
 	"components": {

@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2022 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2022-2024 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
 import * as nls from 'vs/nls';
@@ -18,6 +18,8 @@ import { PositronPreviewService } from 'vs/workbench/contrib/positronPreview/bro
 import { IPositronPreviewService, POSITRON_PREVIEW_VIEW_ID } from 'vs/workbench/contrib/positronPreview/browser/positronPreviewSevice';
 import { IWorkbenchContributionsRegistry, Extensions as WorkbenchExtensions, IWorkbenchContribution } from 'vs/workbench/common/contributions';
 import { ViewContainer, IViewContainersRegistry, ViewContainerLocation, Extensions as ViewContainerExtensions, IViewsRegistry } from 'vs/workbench/common/views';
+import { registerAction2 } from 'vs/platform/actions/common/actions';
+import { PositronOpenUrlInViewerAction } from 'vs/workbench/contrib/positronPreview/browser/positronPreviewActions';
 
 // Register the Positron preview service.
 registerSingleton(IPositronPreviewService, PositronPreviewService, InstantiationType.Delayed);
@@ -69,6 +71,7 @@ class PositronPreviewContribution extends Disposable implements IWorkbenchContri
 	}
 
 	private registerActions(): void {
+		registerAction2(PositronOpenUrlInViewerAction);
 	}
 }
 

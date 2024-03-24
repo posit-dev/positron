@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2022 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2022-2024 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
 import * as React from 'react';
@@ -20,6 +20,8 @@ import { ICommandService } from 'vs/platform/commands/common/commands';
 import { IWorkbenchLayoutService } from 'vs/workbench/services/layout/browser/layoutService';
 import { IPositronPreviewService } from 'vs/workbench/contrib/positronPreview/browser/positronPreviewSevice';
 import { PositronPreview } from 'vs/workbench/contrib/positronPreview/browser/positronPreview';
+import { IRuntimeSessionService } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
+import { INotificationService } from 'vs/platform/notification/common/notification';
 
 /**
  * PositronPreviewViewPane class.
@@ -59,8 +61,8 @@ export class PositronPreviewViewPane extends ViewPane implements IReactComponent
 	// IReactComponentContainer interface.
 	private _height = 0;
 
-	// Whether a position-based redraw is pending.
-	private _redrawPending = false;
+	// The timeout for the position-based redraw.
+	private _redrawTimeout: NodeJS.Timeout | undefined;
 
 	//#endregion Private Properties
 
@@ -73,10 +75,12 @@ export class PositronPreviewViewPane extends ViewPane implements IReactComponent
 		@IContextMenuService contextMenuService: IContextMenuService,
 		@IInstantiationService instantiationService: IInstantiationService,
 		@IKeybindingService keybindingService: IKeybindingService,
+		@INotificationService private readonly notificationService: INotificationService,
 		@IOpenerService openerService: IOpenerService,
 		@ITelemetryService telemetryService: ITelemetryService,
 		@IThemeService themeService: IThemeService,
 		@IViewDescriptorService viewDescriptorService: IViewDescriptorService,
+		@IRuntimeSessionService private readonly runtimeSessionService: IRuntimeSessionService,
 		@ICommandService private readonly commandService: ICommandService,
 		@IWorkbenchLayoutService private readonly layoutService: IWorkbenchLayoutService,
 		@IPositronPreviewService private readonly positronPreviewService: IPositronPreviewService
@@ -173,8 +177,11 @@ export class PositronPreviewViewPane extends ViewPane implements IReactComponent
 				contextKeyService={this.contextKeyService}
 				contextMenuService={this.contextMenuService}
 				keybindingService={this.keybindingService}
+				openerService={this.openerService}
+				notificationService={this.notificationService}
 				positronPreviewService={this.positronPreviewService}
-				reactComponentContainer={this} />
+				reactComponentContainer={this}
+				runtimeSessionService={this.runtimeSessionService} />
 		);
 	}
 
@@ -200,10 +207,13 @@ export class PositronPreviewViewPane extends ViewPane implements IReactComponent
 			height
 		});
 
-		// If a position-based redraw is pending, no need to do anything else;
-		// we will compute the new position of the element when it completes.
-		if (this._redrawPending) {
-			return;
+		// Get the window object associated with the preview container
+		const window = DOM.getWindow(this._positronPreviewContainer);
+
+		// Cancel any in-progress redraw.
+		if (this._redrawTimeout) {
+			clearTimeout(this._redrawTimeout);
+			this._redrawTimeout = undefined;
 		}
 
 		// Compute the physical position of the preview container. We do this so
@@ -221,9 +231,6 @@ export class PositronPreviewViewPane extends ViewPane implements IReactComponent
 		// Measure the initial position of the preview container.
 		let boundingRect = this._positronPreviewContainer.getBoundingClientRect();
 
-		// Ensure this isn't re-entrant (we don't want multiple pending redraws in flight)
-		this._redrawPending = true;
-
 		// This function is called repeatedly until the position of the preview
 		// container stops changing.
 		const redraw = () => {
@@ -236,20 +243,20 @@ export class PositronPreviewViewPane extends ViewPane implements IReactComponent
 				x: newBoundingRect.x,
 				y: newBoundingRect.y,
 			});
+
 			if (boundingRect.x !== newBoundingRect.x || boundingRect.y !== newBoundingRect.y) {
 				boundingRect = newBoundingRect;
 				// If the position changed since the last time we measured it,
 				// schedule another redraw.
-				setTimeout(() => window.requestAnimationFrame(redraw), 100);
-			} else {
-				// This position hasn't changed since the last time we measured; we can stop
-				// redrawing now.
-				this._redrawPending = false;
+				this._redrawTimeout = setTimeout(() => window.requestAnimationFrame(redraw), 100);
 			}
 		};
 
-		// Schedule the first redraw.
-		setTimeout(() => window.requestAnimationFrame(redraw), 100);
+		// Perform the first redraw.
+		redraw();
+
+		// Check again in 100ms to see if the position has changed.
+		this._redrawTimeout = setTimeout(() => window.requestAnimationFrame(redraw), 100);
 	}
 
 	//#endregion Public Overrides

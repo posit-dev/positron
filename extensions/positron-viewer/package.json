@@ -1,0 +1,60 @@
+{
+  "name": "positron-viewer",
+  "displayName": "%displayName%",
+  "description": "%description%",
+  "enabledApiProposals": [
+    "externalUriOpener"
+  ],
+  "version": "1.0.0",
+  "publisher": "vscode",
+  "engines": {
+    "vscode": "^1.70.0"
+  },
+  "main": "./out/extension",
+  "browser": "./dist/browser/extension",
+  "categories": [
+    "Other"
+  ],
+  "capabilities": {
+    "virtualWorkspaces": true,
+    "untrustedWorkspaces": {
+      "supported": true
+    }
+  },
+  "extensionKind": [
+    "ui",
+    "workspace"
+  ],
+  "activationEvents": [
+    "onOpenExternalUri:http",
+    "onOpenExternalUri:https"
+  ],
+  "contributes": {
+    "configuration": [
+      {
+        "title": "Positron URL Viewer",
+        "properties": {
+          "positron.viewer.openLocalhostUrls": {
+            "type": "boolean",
+            "default": true,
+            "title": "Open localhost URLs in the Positron Viewer panel",
+            "description": "%configuration.positronViewer.openLocalhostUrls.description%"
+          }
+        }
+      }
+    ]
+  },
+  "scripts": {
+    "compile": "gulp compile-extension:positron-viewer && npm run build-preview",
+    "watch": "npm run build-preview && gulp watch-extension:positron-viewer",
+    "vscode:prepublish": "npm run build-ext && npm run build-preview",
+    "build-ext": "node ../../node_modules/gulp/bin/gulp.js --gulpfile ../../build/gulpfile.extensions.js compile-extension:positron-viewer ./tsconfig.json",
+    "build-preview": "node ./esbuild-preview",
+    "compile-web": "npx webpack-cli --config extension-browser.webpack.config --mode none",
+    "watch-web": "npx webpack-cli --config extension-browser.webpack.config --mode none --watch --info-verbosity verbose"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/posit-dev/positron.git"
+  }
+}

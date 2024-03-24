@@ -52,6 +52,14 @@ export const PositronActionBar = (props: PropsWithChildren<PositronActionBarProp
 
 	// Handle keyboard navigation
 	const keyDownHandler = (e: KeyboardEvent<HTMLDivElement>) => {
+		// Let keyboard events pass through to text controls
+		if (e.target instanceof HTMLInputElement) {
+			const input = e.target as HTMLInputElement;
+			if (input.type === 'text') {
+				return;
+			}
+		}
+
 		switch (e.code) {
 			case 'ArrowLeft': {
 				e.preventDefault();
@@ -98,11 +106,15 @@ export const PositronActionBar = (props: PropsWithChildren<PositronActionBarProp
 			const currentNode = items[focusedIndex];
 			const previousNode = items[prevIndex];
 
-			previousNode.tabIndex = -1;
-			currentNode.tabIndex = 0;
-			currentNode.focus();
+			if (previousNode) {
+				previousNode.tabIndex = -1;
+			}
+			if (currentNode) {
+				currentNode.tabIndex = 0;
+				currentNode.focus();
+			}
 		}
-	}, [focusedIndex, prevIndex, focusableComponents]);
+	}, [focusedIndex, prevIndex, focusableComponents, props.nestedActionBar]);
 
 
 	// Render.
