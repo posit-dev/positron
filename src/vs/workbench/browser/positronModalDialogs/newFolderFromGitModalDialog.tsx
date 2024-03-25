@@ -7,123 +7,164 @@ import 'vs/css!./newFolderFromGitModalDialog';
 
 // React.
 import * as React from 'react';
-import { useRef } from 'react'; // eslint-disable-line no-duplicate-imports
+import { useRef, useState } from 'react'; // eslint-disable-line no-duplicate-imports
 
 // Other dependencies.
 import { localize } from 'vs/nls';
 import { URI } from 'vs/base/common/uri';
-import { useStateRef } from 'vs/base/browser/ui/react/useStateRef';
-import { ServicesAccessor } from 'vs/editor/browser/editorExtensions';
+import { ICommandService } from 'vs/platform/commands/common/commands';
 import { IFileDialogService } from 'vs/platform/dialogs/common/dialogs';
 import { IKeybindingService } from 'vs/platform/keybinding/common/keybinding';
-import { Checkbox } from 'vs/base/browser/ui/positronModalDialog/components/checkbox';
+import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
 import { IWorkbenchLayoutService } from 'vs/workbench/services/layout/browser/layoutService';
-import { VerticalStack } from 'vs/base/browser/ui/positronModalDialog/components/verticalStack';
-import { VerticalSpacer } from 'vs/base/browser/ui/positronModalDialog/components/verticalSpacer';
-import { LabeledTextInput } from 'vs/base/browser/ui/positronModalDialog/components/labeledTextInput';
-import { OKCancelModalDialog } from 'vs/base/browser/ui/positronModalDialog/positronOKCancelModalDialog';
-import { LabeledFolderInput } from 'vs/base/browser/ui/positronModalDialog/components/labeledFolderInput';
-import { PositronModalReactRenderer } from 'vs/base/browser/ui/positronModalReactRenderer/positronModalReactRenderer';
-import { StopCommandsKeyEventProcessor } from 'vs/platform/stopCommandsKeyEventProcessor/browser/stopCommandsKeyEventProcessor';
+import { Checkbox } from 'vs/workbench/browser/positronComponents/positronModalDialog/components/checkbox';
+import { VerticalStack } from 'vs/workbench/browser/positronComponents/positronModalDialog/components/verticalStack';
+import { VerticalSpacer } from 'vs/workbench/browser/positronComponents/positronModalDialog/components/verticalSpacer';
+import { PositronModalReactRenderer } from 'vs/workbench/browser/positronModalReactRenderer/positronModalReactRenderer';
+import { LabeledTextInput } from 'vs/workbench/browser/positronComponents/positronModalDialog/components/labeledTextInput';
+import { OKCancelModalDialog } from 'vs/workbench/browser/positronComponents/positronModalDialog/positronOKCancelModalDialog';
+import { LabeledFolderInput } from 'vs/workbench/browser/positronComponents/positronModalDialog/components/labeledFolderInput';
+
+/**
+ * Shows the new folder from Git modal dialog.
+ * @param commandService The command service.
+ * @param configService The config service.
+ * @param fileDialogService The file dialog service.
+ * @param keybindingService The keybinding service.
+ * @param layoutService The layout service.
+ */
+export const showNewFolderFromGitModalDialog = async (
+	commandService: ICommandService,
+	configurationService: IConfigurationService,
+	fileDialogService: IFileDialogService,
+	keybindingService: IKeybindingService,
+	layoutService: IWorkbenchLayoutService,
+): Promise<void> => {
+	// Create the renderer.
+	const renderer = new PositronModalReactRenderer({
+		keybindingService,
+		layoutService,
+		container: layoutService.activeContainer
+	});
+
+	// Show the new folder from git modal dialog.
+	renderer.render(
+		<NewFolderFromGitModalDialog
+			fileDialogService={fileDialogService}
+			renderer={renderer}
+			parentFolder={(await fileDialogService.defaultFolderPath()).fsPath}
+			createFolder={async result => {
+				if (result.repo) {
+					// temporarily set openAfterClone to facilitate result.newWindow then set it
+					// back afterwards
+					const kGitOpenAfterClone = 'git.openAfterClone';
+					const prevOpenAfterClone = configurationService.getValue(kGitOpenAfterClone);
+					configurationService.updateValue(
+						kGitOpenAfterClone,
+						result.newWindow ? 'alwaysNewWindow' : 'always'
+					);
+					try {
+						await commandService.executeCommand(
+							'git.clone',
+							result.repo,
+							result.parentFolder
+						);
+					} finally {
+						configurationService.updateValue(kGitOpenAfterClone, prevOpenAfterClone);
+					}
+				}
+			}}
+		/>
+	);
+};
 
 /**
  * NewFolderFromGitResult interface.
  */
-export interface NewFolderFromGitResult {
+interface NewFolderFromGitResult {
 	readonly repo: string;
 	readonly parentFolder: string;
 	readonly newWindow: boolean;
 }
 
 /**
- * Shows the NewFolderFromGitModalDialog.
- * @param accessor The services accessor.
- * @returns A promise that resolves when the dialog is dismissed.
+ * NewFolderFromGitModalDialogProps interface.
  */
-export const showNewFolderFromGitModalDialog = async (accessor: ServicesAccessor): Promise<NewFolderFromGitResult | undefined> => {
-	// Get the services we need for the dialog.
-	const fileDialogs = accessor.get(IFileDialogService);
-	const keybindingService = accessor.get(IKeybindingService);
-	const layoutService = accessor.get(IWorkbenchLayoutService);
+interface NewFolderFromGitModalDialogProps {
+	fileDialogService: IFileDialogService;
+	renderer: PositronModalReactRenderer;
+	parentFolder: string;
+	createFolder: (result: NewFolderFromGitResult) => Promise<void>;
+}
 
-	// Load data we need to present the dialog.
-	const parentFolder = (await fileDialogs.defaultFolderPath()).fsPath;
+/**
+ * NewFolderFromGitModalDialog component.
+ * @param props The component properties.
+ * @returns The rendered component.
+ */
+export const NewFolderFromGitModalDialog = (props: NewFolderFromGitModalDialogProps) => {
+	// Reference hooks.
+	const folderNameRef = useRef<HTMLInputElement>(undefined!);
 
-	// Return a promise that resolves when the dialog is done.
-	return new Promise<NewFolderFromGitResult | undefined>((resolve) => {
-		// Create the modal React renderer.
-		const renderer = new PositronModalReactRenderer({
-			container: layoutService.mainContainer,
-			keyEventProcessor: new StopCommandsKeyEventProcessor({
-				keybindingService,
-				layoutService
-			})
+	// State hooks.
+	const [result, setResult] = useState<NewFolderFromGitResult>({
+		repo: '',
+		parentFolder: props.parentFolder,
+		newWindow: false
+	});
+
+	// The browse handler.
+	const browseHandler = async () => {
+		// Show the open dialog.
+		const uri = await props.fileDialogService.showOpenDialog({
+			defaultUri: result.parentFolder ? URI.file(result.parentFolder) : undefined,
+			canSelectFiles: false,
+			canSelectFolders: true
 		});
 
-		// The new folder from git modal dialog component.
-		const NewFolderFromGitModalDialog = () => {
-			// Hooks.
-			const [newFolderFromGitResult, setNewFolderFromGitResult, newFolderFromGitResultRef] = useStateRef<NewFolderFromGitResult>({
-				repo: '',
-				parentFolder,
-				newWindow: false
-			});
-			const folderNameRef = useRef<HTMLInputElement>(undefined!);
+		// If the user made a selection, set the parent directory.
+		if (uri?.length) {
+			setResult({ ...result, parentFolder: uri[0].fsPath });
+			folderNameRef.current.focus();
+		}
+	};
 
-			// The accept handler.
-			const acceptHandler = () => {
-				renderer.dispose();
-				resolve(newFolderFromGitResultRef.current);
-			};
-
-			// The cancel handler.
-			const cancelHandler = () => {
-				renderer.dispose();
-				resolve(undefined);
-			};
-
-			// The browse handler.
-			const browseHandler = async () => {
-				// Show the open dialog.
-				const uri = await fileDialogs.showOpenDialog({
-					defaultUri: newFolderFromGitResult.parentFolder ? URI.file(newFolderFromGitResult.parentFolder) : undefined,
-					canSelectFiles: false,
-					canSelectFolders: true
-				});
-
-				// If the user made a selection, set the parent directory.
-				if (uri?.length) {
-					setNewFolderFromGitResult({ ...newFolderFromGitResult, parentFolder: uri[0].fsPath });
-					folderNameRef.current.focus();
-				}
-			};
-
-			// Render.
-			return (
-				<OKCancelModalDialog renderer={renderer} width={400} height={300} title={localize('positronNewFolderFromGitModalDialogTitle', "New Folder from Git")} accept={acceptHandler} cancel={cancelHandler}>
-					<VerticalStack>
-						<LabeledTextInput
-							ref={folderNameRef}
-							value={newFolderFromGitResult.repo}
-							label='Git repository URL'
-							autoFocus
-							onChange={e => setNewFolderFromGitResult({ ...newFolderFromGitResult, repo: e.target.value })}
-						/>
-						<LabeledFolderInput
-							label='Create folder as subfolder of'
-							value={newFolderFromGitResult.parentFolder}
-							onBrowse={browseHandler}
-							onChange={e => setNewFolderFromGitResult({ ...newFolderFromGitResult, parentFolder: e.target.value })}
-						/>
-					</VerticalStack>
-					<VerticalSpacer>
-						<Checkbox label='Open in a new window' onChanged={checked => setNewFolderFromGitResult({ ...newFolderFromGitResult, newWindow: checked })} />
-					</VerticalSpacer>
-				</OKCancelModalDialog>
-			);
-		};
-
-		// Render the modal dialog component.
-		renderer.render(<NewFolderFromGitModalDialog />);
-	});
+	// Render.
+	return (
+		<OKCancelModalDialog
+			renderer={props.renderer}
+			width={400}
+			height={300}
+			title={localize('positronNewFolderFromGitModalDialogTitle', "New Folder from Git")}
+			onAccept={async () => {
+				props.renderer.dispose();
+				await props.createFolder(result);
+			}}
+			onCancel={() => props.renderer.dispose()}
+		>
+			<VerticalStack>
+				<LabeledTextInput
+					ref={folderNameRef}
+					value={result.repo}
+					label={localize('positron.GitRepositoryURL', "Git repository URL")}
+					autoFocus
+					onChange={e => setResult({ ...result, repo: e.target.value })}
+				/>
+				<LabeledFolderInput
+					label={localize(
+						'positron.createFolderAsSubfolderOf',
+						"Create folder as subfolder of"
+					)}
+					value={result.parentFolder}
+					onBrowse={browseHandler}
+					onChange={e => setResult({ ...result, parentFolder: e.target.value })}
+				/>
+			</VerticalStack>
+			<VerticalSpacer>
+				<Checkbox
+					label={localize('positron.openInNewWindow', "Open in a new window")}
+					onChanged={checked => setResult({ ...result, newWindow: checked })} />
+			</VerticalSpacer>
+		</OKCancelModalDialog>
+	);
 };

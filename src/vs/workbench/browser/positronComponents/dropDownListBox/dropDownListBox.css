@@ -1,0 +1,113 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *--------------------------------------------------------------------------------------------*/
+
+.drop-down-list-box {
+	padding: 4px;
+	display: grid;
+	border-radius: 4px;
+	align-items: center;
+	grid-template-columns: [title] 1fr [chevron] 22px [end];
+	border: 1px solid var(--vscode-positronDropDown-border) !important;
+}
+
+.drop-down-list-box
+.title {
+	display: flex;
+	padding-left: 6px;
+	align-items: center;
+	grid-column: title / chevron;
+}
+
+.drop-down-list-box
+.chevron {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	grid-column: chevron / end;
+}
+
+.drop-down-list-box-items {
+	width: 100%;
+	margin: 4px;
+	display: flex;
+	flex-direction: column;
+	background: var(--vscode-positronContextMenu-background);
+}
+
+.drop-down-list-box-items
+.separator {
+	height: 1px;
+	margin: 4px 10px;
+	background: var(--vscode-menu-border);
+}
+
+.drop-down-list-box-items
+.item {
+	width: 100%;
+	height: 26px;
+	border: none;
+	display: grid;
+	cursor: pointer;
+	text-align: left;
+	align-items: center;
+	align-content: center;
+	background: transparent;
+	grid-template-columns: [title] 1fr [icon] min-content [end];
+}
+
+.drop-down-list-box-items
+.item:not(.disabled):hover {
+	border-radius: 4px;
+	color: var(--vscode-positronContextMenu-hoverForeground);
+	background: var(--vscode-positronContextMenu-hoverBackground);
+}
+
+.drop-down-list-box-items
+.item:focus {
+	outline: none !important;
+}
+
+.drop-down-list-box-items
+.item:focus-visible {
+	border-radius: 4px;
+	outline: 1px solid var(--vscode-focusBorder) !important;
+}
+
+.drop-down-list-box-items
+.item:not(.disabled):focus-visible {
+	background: var(--vscode-positronContextMenu-hoverBackground);
+}
+
+.drop-down-list-box-items
+.item
+.title {
+	display: block;
+	max-width: 100%;
+	max-width: 600px;
+	overflow: hidden;
+	white-space: nowrap;
+	text-overflow: ellipsis;
+	grid-column: title / icon;
+	padding: 10px 5px 10px 10px;
+}
+
+.drop-down-list-box-items
+.item
+.title.disabled {
+	opacity: 75%;
+}
+
+.drop-down-list-box-items
+.item
+.icon {
+	padding: 10px;
+	grid-column: icon / end;
+}
+
+.drop-down-list-box-items
+.item
+.icon.disabled {
+	opacity: 50%;
+}
+

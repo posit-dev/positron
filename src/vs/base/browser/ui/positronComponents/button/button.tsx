@@ -39,6 +39,8 @@ interface Props {
 	disabled?: boolean;
 	ariaLabel?: string;
 	mouseTrigger?: MouseTrigger;
+	onBlur?: () => void;
+	onFocus?: () => void;
 	onPressed?: (e: KeyboardModifiers) => void;
 }
 
@@ -110,15 +112,14 @@ export const Button = forwardRef<HTMLButtonElement, PropsWithChildren<Props>>((p
 	return (
 		<button
 			ref={ref}
-			className={positronClassNames(
-				'button',
-				props.className,
-				{ 'disabled': props.disabled }
-			)}
+			className={positronClassNames('button', props.className)}
 			tabIndex={0}
+			disabled={props.disabled}
 			role='button'
 			aria-label={props.ariaLabel}
 			aria-disabled={props.disabled ? 'true' : undefined}
+			onFocus={props.onFocus}
+			onBlur={props.onBlur}
 			onKeyDown={keyDownHandler}
 			onClick={clickHandler}
 			onMouseDown={mouseDownHandler}
@@ -127,3 +128,5 @@ export const Button = forwardRef<HTMLButtonElement, PropsWithChildren<Props>>((p
 		</button>
 	);
 });
+
+Button.displayName = 'Button';

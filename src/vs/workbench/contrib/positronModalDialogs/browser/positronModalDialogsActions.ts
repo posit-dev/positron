@@ -7,7 +7,7 @@ import { ILocalizedString } from 'vs/platform/action/common/action';
 import { Action2, registerAction2 } from 'vs/platform/actions/common/actions';
 import { IsDevelopmentContext } from 'vs/platform/contextkey/common/contextkeys';
 import { ServicesAccessor } from 'vs/platform/instantiation/common/instantiation';
-import { IPositronModalDialogsService } from 'vs/workbench/services/positronModalDialogs/common/positronModalDialogs';
+// import { IPositronModalDialogsService } from 'vs/workbench/services/positronModalDialogs/common/positronModalDialogs';
 
 /**
  * Positron modal dialogs command ID's.
@@ -58,8 +58,8 @@ export function registerPositronModalDialogsActions() {
 		 * @param accessor The services accessor.
 		 */
 		async run(accessor: ServicesAccessor) {
-			const positronModalDialogsService = accessor.get(IPositronModalDialogsService);
-			positronModalDialogsService.showExampleModalDialog1('Example');
+			// const positronModalDialogsService = accessor.get(IPositronModalDialogsService);
+			// positronModalDialogsService.showExampleModalDialog1('Example');
 		}
 	});
 }

@@ -7,24 +7,12 @@ import 'vs/css!./deleteAllVariablesModalDialog';
 
 // React.
 import * as React from 'react';
-import { useState } from 'react'; // eslint-disable-line no-duplicate-imports
 
 // Other dependencies.
 import { localize } from 'vs/nls';
-import { IKeybindingService } from 'vs/platform/keybinding/common/keybinding';
-import { IWorkbenchLayoutService } from 'vs/workbench/services/layout/browser/layoutService';
-import { VerticalStack } from 'vs/base/browser/ui/positronModalDialog/components/verticalStack';
-import { OKCancelModalDialog } from 'vs/base/browser/ui/positronModalDialog/positronOKCancelModalDialog';
-import { PositronModalReactRenderer } from 'vs/base/browser/ui/positronModalReactRenderer/positronModalReactRenderer';
-import { StopCommandsKeyEventProcessor } from 'vs/platform/stopCommandsKeyEventProcessor/browser/stopCommandsKeyEventProcessor';
-
-/**
- * Localized strings.
- */
-const title = localize('positron.deleteAllVariablesModalDialogTitle', "Delete All Variables");
-const yes = localize('positron.yes', "Yes");
-const no = localize('positron.no', "No");
-const text = localize('positron.deleteAllVariablesModalDialogText', "Are you sure you want to delete all variables? This operation cannot be undone.");
+import { VerticalStack } from 'vs/workbench/browser/positronComponents/positronModalDialog/components/verticalStack';
+import { PositronModalReactRenderer } from 'vs/workbench/browser/positronModalReactRenderer/positronModalReactRenderer';
+import { OKCancelModalDialog } from 'vs/workbench/browser/positronComponents/positronModalDialog/positronOKCancelModalDialog';
 
 /**
  * DeleteAllVariablesResult interface.
@@ -34,67 +22,46 @@ export interface DeleteAllVariablesResult {
 }
 
 /**
- * Shows the delete all variables modal dialog.
- * @param keybindingService The keybinding service.
- * @param layoutService The layout service.
- * @returns A promise that resolves when the dialog is dismissed.
+ * DeleteAllVariablesModalDialogProps interface.
  */
-export const showDeleteAllVariablesModalDialog = async (
-	keybindingService: IKeybindingService,
-	layoutService: IWorkbenchLayoutService
-): Promise<DeleteAllVariablesResult | undefined> => {
-	// Return a promise that resolves when the dialog is done.
-	return new Promise<DeleteAllVariablesResult | undefined>((resolve) => {
-		// Create the modal React renderer.
-		const renderer = new PositronModalReactRenderer({
-			container: layoutService.mainContainer,
-			keyEventProcessor: new StopCommandsKeyEventProcessor({
-				keybindingService,
-				layoutService
-			})
-		});
+interface DeleteAllVariablesModalDialogProps {
+	renderer: PositronModalReactRenderer;
+	deleteAllVariablesAction: (result: DeleteAllVariablesResult) => Promise<void>;
+}
 
-		// The modal dialog component.
-		const ModalDialog = () => {
-			// Hooks.
-			const [result, _setResult] = useState<DeleteAllVariablesResult>({
-				includeHiddenObjects: false
-			});
-
-			// The accept handler.
-			const acceptHandler = () => {
-				renderer.dispose();
-				resolve(result);
-			};
-
-			// The cancel handler.
-			const cancelHandler = () => {
-				renderer.dispose();
-				resolve(undefined);
-			};
-
-			// Render.
-			return (
-				<OKCancelModalDialog
-					renderer={renderer}
-					width={375}
-					height={175}
-					title={title}
-					okButtonTitle={yes}
-					cancelButtonTitle={no}
-					accept={acceptHandler} cancel={cancelHandler}>
-
-					<VerticalStack>
-						<div>{text}</div>
-						{/* Disabled for Private Alpha. */}
-						{/* <Checkbox label='Include hidden objects' onChanged={checked => setResult({ ...result, includeHiddenObjects: checked })} /> */}
-					</VerticalStack>
-
-				</OKCancelModalDialog>
-			);
-		};
-
-		// Render the modal dialog component.
-		renderer.render(<ModalDialog />);
-	});
+/**
+ * DeleteAllVariablesModalDialog component.
+ * @param props The component properties.
+ * @returns The component.
+ */
+export const DeleteAllVariablesModalDialog = (props: DeleteAllVariablesModalDialogProps) => {
+	// Render.
+	return (
+		<OKCancelModalDialog
+			renderer={props.renderer}
+			width={375}
+			height={175}
+			title={localize('positron.deleteAllVariablesModalDialogTitle', "Delete All Variables")}
+			okButtonTitle={localize('positron.yes', "Yes")}
+			cancelButtonTitle={localize('positron.no', "No")}
+			onAccept={async () => {
+				props.renderer.dispose();
+				await props.deleteAllVariablesAction({
+					includeHiddenObjects: false
+				});
+			}}
+			onCancel={() => props.renderer.dispose()}
+		>
+			<VerticalStack>
+				<div>
+					{localize(
+						'positron.deleteAllVariablesModalDialogText',
+						"Are you sure you want to delete all variables? This operation cannot be undone."
+					)}
+				</div>
+				{/* Disabled for Private Alpha. */}
+				{/* <Checkbox label='Include hidden objects' onChanged={checked => setResult({ ...result, includeHiddenObjects: checked })} /> */}
+			</VerticalStack>
+		</OKCancelModalDialog>
+	);
 };

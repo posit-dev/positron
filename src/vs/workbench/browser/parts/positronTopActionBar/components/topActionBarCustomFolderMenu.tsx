@@ -11,14 +11,16 @@ import { KeyboardEvent, useRef } from 'react'; // eslint-disable-line no-duplica
 
 // Other dependencies.
 import { localize } from 'vs/nls';
+import * as DOM from 'vs/base/browser/dom';
 import { useRegisterWithActionBar } from 'vs/platform/positronActionBar/browser/useRegisterWithActionBar';
+import { PositronModalReactRenderer } from 'vs/workbench/browser/positronModalReactRenderer/positronModalReactRenderer';
 import { usePositronTopActionBarContext } from 'vs/workbench/browser/parts/positronTopActionBar/positronTopActionBarContext';
-import { showCustomFolderModalPopup } from 'vs/workbench/browser/parts/positronTopActionBar/customFolderModalPopup/customFolderModalPopup';
+import { CustomFolderModalPopup } from 'vs/workbench/browser/parts/positronTopActionBar/customFolderModalPopup/customFolderModalPopup';
 
 /**
  * Localized strings.
  */
-const positronFolderMenu = localize('positronFolderMenu', "Folder Commands");
+const positronFolderMenu = localize('positron.folderCommands', "Folder Commands");
 
 /**
  * TopActionBarCustonFolderMenu component.
@@ -26,7 +28,7 @@ const positronFolderMenu = localize('positronFolderMenu', "Folder Commands");
  */
 export const TopActionBarCustonFolderMenu = () => {
 	// Context hooks.
-	const positronTopActionBarContext = usePositronTopActionBarContext();
+	const context = usePositronTopActionBarContext();
 
 	// Reference hooks.
 	const ref = useRef<HTMLDivElement>(undefined!);
@@ -37,31 +39,37 @@ export const TopActionBarCustonFolderMenu = () => {
 	/**
 	 * Shows the custom folder modal popup.
 	 */
-	const showPopup = () => {
-		ref.current.setAttribute('aria-expanded', 'true');
-		showCustomFolderModalPopup(
-			positronTopActionBarContext.commandService,
-			positronTopActionBarContext.contextKeyService,
-			positronTopActionBarContext.hostService,
-			positronTopActionBarContext.keybindingService,
-			positronTopActionBarContext.labelService,
-			positronTopActionBarContext.layoutService,
-			positronTopActionBarContext.workspacesService,
-			positronTopActionBarContext.layoutService.mainContainer,
-			ref.current
-		).then(() => {
-			ref.current.removeAttribute('aria-expanded');
+	const showPopup = async () => {
+		// Gets the recently opened workspaces.
+		const recentlyOpened = await context.workspacesService.getRecentlyOpened();
+
+		// Create the renderer.
+		const renderer = new PositronModalReactRenderer({
+			keybindingService: context.keybindingService,
+			layoutService: context.layoutService,
+			container: context.layoutService.getContainer(DOM.getWindow(ref.current)),
+			parent: ref.current
 		});
+
+		// Show the custom folder modal popup.
+		renderer.render(
+			<CustomFolderModalPopup
+				{...context}
+				renderer={renderer}
+				recentlyOpened={recentlyOpened}
+				anchor={ref.current}
+			/>
+		);
 	};
 
 	/**
 	 * onKeyDown event handler.
 	 */
-	const keyDownHandler = (e: KeyboardEvent<HTMLDivElement>) => {
+	const keyDownHandler = async (e: KeyboardEvent<HTMLDivElement>) => {
 		switch (e.code) {
 			case 'Space':
 			case 'Enter':
-				showPopup();
+				await showPopup();
 				break;
 		}
 	};
@@ -69,18 +77,28 @@ export const TopActionBarCustonFolderMenu = () => {
 	/**
 	 * onClick event handler.
 	 */
-	const clickHandler = () => {
-		showPopup();
+	const clickHandler = async () => {
+		await showPopup();
 	};
 
 	// Render.
 	return (
-		<div ref={ref} className='top-action-bar-custom-folder-menu' role='button' tabIndex={0} onKeyDown={keyDownHandler} onClick={clickHandler} aria-label={positronFolderMenu} aria-haspopup='menu'>
+		<div
+			ref={ref}
+			className='top-action-bar-custom-folder-menu'
+			role='button'
+			tabIndex={0}
+			onKeyDown={keyDownHandler}
+			onClick={clickHandler}
+			aria-label={positronFolderMenu}
+			aria-haspopup='menu'>
 			<div className='left' aria-hidden='true'>
 				<div className='label'>
 					<div className={'action-bar-button-icon codicon codicon-folder'} />
-					{positronTopActionBarContext.workspaceFolder &&
-						<div className='label'>{positronTopActionBarContext.workspaceFolder ? positronTopActionBarContext.workspaceFolder.name : ''}</div>
+					{context.workspaceFolder &&
+						<div className='label'>
+							{context.workspaceFolder ? context.workspaceFolder.name : ''}
+						</div>
 					}
 
 				</div>
