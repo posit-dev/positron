@@ -30,13 +30,6 @@ export const NewProjectWizardStepContainer = (props: PropsWithChildren<NewProjec
 		props.accept(newProjectWizardState.projectConfig);
 	};
 
-	// useEffect(() => {
-	// 	console.log('NewProjectWizardStepContainer useEffect');
-	// 	console.log('\tnewProjectWizardState.currentStep: ' + newProjectWizardState.currentStep);
-	// 	console.log('\tnewProjectWizardState.projectConfig', newProjectWizardState.projectConfig);
-	// 	console.log('\tnewProjectWizardState.wizardSteps', newProjectWizardState.wizardSteps);
-	// }, [newProjectWizardState]);
-
 	return (
 		<CurrentStep next={nextHandler} back={backHandler} cancel={props.cancel} accept={acceptHandler} />
 	);

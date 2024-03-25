@@ -66,15 +66,15 @@ export class PositronNewProjectAction extends Action2 {
 
 		// Show the new project modal dialog.
 		await showNewProjectModalDialog(
+			accessor.get(ICommandService),
 			accessor.get(IFileDialogService),
+			accessor.get(IFileService),
+			accessor.get(IKeybindingService),
 			accessor.get(ILanguageRuntimeService),
+			accessor.get(IWorkbenchLayoutService),
+			accessor.get(IPathService),
 			accessor.get(IRuntimeSessionService),
 			accessor.get(IRuntimeStartupService),
-			accessor.get(IWorkbenchLayoutService),
-			accessor.get(IKeybindingService),
-			accessor.get(IPathService),
-			accessor.get(IFileService),
-			accessor.get(ICommandService),
 		);
 	}
 }

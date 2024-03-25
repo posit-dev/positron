@@ -25,15 +25,15 @@ import { ICommandService } from 'vs/platform/commands/common/commands';
  * Shows the NewProjectModalDialog.
  */
 export const showNewProjectModalDialog = async (
+	commandService: ICommandService,
 	fileDialogService: IFileDialogService,
+	fileService: IFileService,
+	keybindingService: IKeybindingService,
 	languageRuntimeService: ILanguageRuntimeService,
+	layoutService: IWorkbenchLayoutService,
+	pathService: IPathService,
 	runtimeSessionService: IRuntimeSessionService,
 	runtimeStartupService: IRuntimeStartupService,
-	layoutService: IWorkbenchLayoutService,
-	keybindingService: IKeybindingService,
-	pathService: IPathService,
-	fileService: IFileService,
-	commandService: ICommandService,
 ): Promise<void> => {
 	// Create the renderer.
 	const renderer = new PositronModalReactRenderer({
@@ -48,10 +48,10 @@ export const showNewProjectModalDialog = async (
 			services={{
 				fileDialogService,
 				languageRuntimeService,
+				layoutService,
+				keybindingService,
 				runtimeSessionService,
 				runtimeStartupService,
-				layoutService,
-				keybindingService
 			}}
 			parentFolder={(await fileDialogService.defaultFolderPath()).fsPath}
 		>
@@ -104,7 +104,6 @@ export const showNewProjectModalDialog = async (
 		</NewProjectWizardContextProvider>
 	);
 };
-
 
 interface NewProjectModalDialogProps {
 	renderer: PositronModalReactRenderer;

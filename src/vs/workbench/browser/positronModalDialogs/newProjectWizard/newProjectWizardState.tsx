@@ -17,11 +17,11 @@ import { IKeybindingService } from 'vs/platform/keybinding/common/keybinding';
  */
 export interface NewProjectWizardServices {
 	fileDialogService: IFileDialogService;
+	keybindingService: IKeybindingService;
 	languageRuntimeService: ILanguageRuntimeService;
+	layoutService: IWorkbenchLayoutService;
 	runtimeSessionService: IRuntimeSessionService;
 	runtimeStartupService: IRuntimeStartupService;
-	layoutService: IWorkbenchLayoutService;
-	keybindingService: IKeybindingService;
 }
 
 /**
