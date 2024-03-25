@@ -5,7 +5,6 @@
 import * as fancyLog from 'fancy-log';
 import { fetchUrls } from './fetch';
 import * as es from 'event-stream';
-import gulp = require('gulp');
 import { Stream } from 'stream';
 import filter = require('gulp-filter');
 
@@ -24,8 +23,7 @@ function getPandocWindows(version: string): Stream {
 		.pipe(unzip({
 			filter: (entry: any) => entry.path.endsWith('.exe')
 		}))
-		.pipe(rename(`pandoc.exe`))
-		.pipe(gulp.dest('.build/pandoc'));
+		.pipe(rename(`pandoc.exe`));
 }
 
 function getPandocMacOS(version: string): Stream {
@@ -43,8 +41,7 @@ function getPandocMacOS(version: string): Stream {
 		.pipe(unzip({
 			filter: (entry: any) => entry.path.endsWith('pandoc')
 		}))
-		.pipe(rename(`pandoc`))
-		.pipe(gulp.dest('.build/pandoc'));
+		.pipe(rename(`pandoc`));
 }
 
 function getPandocLinux(version: string): Stream {
@@ -63,21 +60,22 @@ function getPandocLinux(version: string): Stream {
 	})
 		.pipe(flatmap((stream: Stream) => stream.pipe(gunzip()).pipe(untar())))
 		.pipe(filter('**/pandoc'))
-		.pipe(rename(`pandoc`))
-		.pipe(gulp.dest('.build/pandoc'));
+		.pipe(rename(`pandoc`));
 }
 
-export function getPandoc(): Promise<void> {
-	// Gunzip and untar util for Linux
+export function getPandocStream(): Stream {
 	const version = '3.1.12.3';
 	fancyLog(`Synchronizing Pandoc ${version}...`);
-
 	// Get the download/unpack stream for the current platform
-	const stream = process.platform === 'win32' ?
+	return process.platform === 'win32' ?
 		getPandocWindows(version) :
 		process.platform === 'darwin' ?
 			getPandocMacOS(version) :
 			getPandocLinux(version);
+}
+
+export function getPandoc(): Promise<void> {
+	const stream = getPandocStream();
 
 	return new Promise((resolve, reject) => {
 		es.merge([stream])

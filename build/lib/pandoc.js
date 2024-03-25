@@ -3,11 +3,11 @@
  *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.getPandoc = void 0;
+exports.getPandoc = exports.getPandocStream = void 0;
 const fancyLog = require("fancy-log");
 const fetch_1 = require("./fetch");
 const es = require("event-stream");
-const gulp = require("gulp");
+const filter = require("gulp-filter");
 function getBaseUrl(version) {
     return `https://github.com/jgm/pandoc/releases/download/${version}/`;
 }
@@ -22,8 +22,7 @@ function getPandocWindows(version) {
         .pipe(unzip({
         filter: (entry) => entry.path.endsWith('.exe')
     }))
-        .pipe(rename(`pandoc.exe`))
-        .pipe(gulp.dest('.build/pandoc'));
+        .pipe(rename(`pandoc.exe`));
 }
 function getPandocMacOS(version) {
     const unzip = require('gulp-unzip');
@@ -38,8 +37,7 @@ function getPandocMacOS(version) {
         .pipe(unzip({
         filter: (entry) => entry.path.endsWith('pandoc')
     }))
-        .pipe(rename(`pandoc`))
-        .pipe(gulp.dest('.build/pandoc'));
+        .pipe(rename(`pandoc`));
 }
 function getPandocLinux(version) {
     const gunzip = require('gulp-gunzip');
@@ -54,19 +52,22 @@ function getPandocLinux(version) {
         verbose: true,
     })
         .pipe(flatmap((stream) => stream.pipe(gunzip()).pipe(untar())))
-        .pipe(rename(`pandoc.exe`))
-        .pipe(gulp.dest('.build/pandoc'));
+        .pipe(filter('**/pandoc'))
+        .pipe(rename(`pandoc`));
 }
-function getPandoc() {
-    // Gunzip and untar util for Linux
+function getPandocStream() {
     const version = '3.1.12.3';
     fancyLog(`Synchronizing Pandoc ${version}...`);
     // Get the download/unpack stream for the current platform
-    const stream = process.platform === 'win32' ?
+    return process.platform === 'win32' ?
         getPandocWindows(version) :
         process.platform === 'darwin' ?
             getPandocMacOS(version) :
             getPandocLinux(version);
+}
+exports.getPandocStream = getPandocStream;
+function getPandoc() {
+    const stream = getPandocStream();
     return new Promise((resolve, reject) => {
         es.merge([stream])
             .on('error', reject)
