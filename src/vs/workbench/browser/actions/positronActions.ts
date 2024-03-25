@@ -221,4 +221,3 @@ registerAction2(PositronNewProjectAction);
 registerAction2(PositronNewFolderAction);
 registerAction2(PositronNewFolderFromGitAction);
 registerAction2(PositronOpenFolderInNewWindowAction);
-

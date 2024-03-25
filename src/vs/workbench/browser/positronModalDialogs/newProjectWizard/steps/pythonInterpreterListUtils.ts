@@ -12,11 +12,19 @@ export enum PythonRuntimeFilter {
 	Global = 'Global',  // Include only global runtimes. This is when a new Venv environment is being created.
 }
 
-const getPythonRuntimeComboBoxItems = (runtimeLanguageService: IRuntimeStartupService, languageRuntimeService: ILanguageRuntimeService, pythonRuntimeFilter = PythonRuntimeFilter.All): (DropDownListBoxItem | DropDownListBoxSeparator)[] => {
+/**
+ * Retrieves the detected Python interpreters as DropDownListBoxItems, filtering and grouping the
+ * list by runtime source if requested.
+ * @param runtimeStartupService The runtime startup service.
+ * @param languageRuntimeService The language runtime service.
+ * @param pythonRuntimeFilter The PythonRuntimeFilter to apply to the Python runtimes.
+ * @returns An array of DropDownListBoxItem and DropDownListBoxSeparator for Python interpreters.
+ */
+const getPythonInterpreterDropDownItems = (runtimeStartupService: IRuntimeStartupService, languageRuntimeService: ILanguageRuntimeService, pythonRuntimeFilter = PythonRuntimeFilter.All): (DropDownListBoxItem | DropDownListBoxSeparator)[] => {
 	// See ILanguageRuntimeMetadata in src/vs/workbench/services/languageRuntime/common/languageRuntimeService.ts
 	// for the properties of the runtime metadata object
 	const languageId = 'python';
-	const preferredRuntime = runtimeLanguageService.getPreferredRuntime(languageId);
+	const preferredRuntime = runtimeStartupService.getPreferredRuntime(languageId);
 	const discoveredRuntimes = languageRuntimeService.registeredRuntimes;
 	const pythonRuntimes = discoveredRuntimes.filter(runtime => runtime.languageId === languageId);
 
@@ -49,7 +57,13 @@ const getPythonRuntimeComboBoxItems = (runtimeLanguageService: IRuntimeStartupSe
 	return comboBoxItems;
 };
 
-export const createCondaInterpreterComboBoxItems = () => {
+/**
+ * Creates an array of DropDownListBoxItem of Python interpreters for each Conda-supported minor
+ * Python version.
+ * @returns An array of DropDownListBoxItem for Conda Python interpreters.
+ */
+export const createCondaInterpreterDropDownItems = () => {
+	// TODO: we should get the list of Python versions from the Conda service
 	const pythonVersions = ['3.12', '3.11', '3.10', '3.9', '3.8'];
 	const condaRuntimes: DropDownListBoxItem[] = [];
 	pythonVersions.forEach(version => {
@@ -61,10 +75,23 @@ export const createCondaInterpreterComboBoxItems = () => {
 	return condaRuntimes;
 };
 
-export const createVenvInterpreterComboBoxItems = (runtimeLanguageService: IRuntimeStartupService, languageRuntimeService: ILanguageRuntimeService) => {
-	return getPythonRuntimeComboBoxItems(runtimeLanguageService, languageRuntimeService, PythonRuntimeFilter.Global);
+/**
+ * Creates an array of DropDownListBoxItem for Global Python interpreters.
+ * @param runtimeStartupService The runtime startup service.
+ * @param languageRuntimeService The language runtime service.
+ * @returns An array of DropDownListBoxItem for Venv Python interpreters.
+ */
+export const createVenvInterpreterDropDownItems = (runtimeStartupService: IRuntimeStartupService, languageRuntimeService: ILanguageRuntimeService) => {
+	return getPythonInterpreterDropDownItems(runtimeStartupService, languageRuntimeService, PythonRuntimeFilter.Global);
 };
 
-export const createPythonInterpreterComboBoxItems = (runtimeLanguageService: IRuntimeStartupService, languageRuntimeService: ILanguageRuntimeService) => {
-	return getPythonRuntimeComboBoxItems(runtimeLanguageService, languageRuntimeService, PythonRuntimeFilter.All);
+/**
+ * Creates an array of DropDownListBoxItem and DropDownListBoxSeparator for all detected Python
+ * interpreters, grouped by the runtime sources (Global, Venv, Conda, etc.).
+ * @param runtimeStartupService The runtime startup service.
+ * @param languageRuntimeService The language runtime service.
+ * @returns An array of DropDownListBoxItem and DropDownListBoxSeparator.
+ */
+export const createPythonInterpreterDropDownItems = (runtimeStartupService: IRuntimeStartupService, languageRuntimeService: ILanguageRuntimeService) => {
+	return getPythonInterpreterDropDownItems(runtimeStartupService, languageRuntimeService, PythonRuntimeFilter.All);
 };

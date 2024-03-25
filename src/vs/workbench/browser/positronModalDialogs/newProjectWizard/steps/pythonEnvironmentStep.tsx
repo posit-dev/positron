@@ -9,7 +9,7 @@ import { NewProjectWizardStepProps } from 'vs/workbench/browser/positronModalDia
 import { localize } from 'vs/nls';
 import { RuntimeStartupPhase } from 'vs/workbench/services/runtimeStartup/common/runtimeStartupService';
 import { DisposableStore } from 'vs/base/common/lifecycle';
-import { createCondaInterpreterComboBoxItems, createPythonInterpreterComboBoxItems, createVenvInterpreterComboBoxItems } from 'vs/workbench/browser/positronModalDialogs/newProjectWizard/steps/pythonInterpreterListUtils';
+import { createCondaInterpreterDropDownItems, createPythonInterpreterDropDownItems, createVenvInterpreterDropDownItems } from 'vs/workbench/browser/positronModalDialogs/newProjectWizard/steps/pythonInterpreterListUtils';
 import { PositronWizardStep } from 'vs/workbench/browser/positronComponents/positronModalDialog/components/wizardStep';
 import { PositronWizardSubStep } from 'vs/workbench/browser/positronComponents/positronModalDialog/components/wizardSubStep';
 import { DropDownListBoxItem } from 'vs/workbench/browser/positronComponents/dropDownListBox/dropDownListBoxItem';
@@ -40,7 +40,7 @@ export const PythonEnvironmentStep = (props: PropsWithChildren<NewProjectWizardS
 				// TODO: we currently populate the interpreter entries with all registered runtimes,
 				// but we'll want to call the Venv or Conda interpreter creation functions based on
 				// the default selection.
-				createPythonInterpreterComboBoxItems(
+				createPythonInterpreterDropDownItems(
 					newProjectWizardState.runtimeStartupService,
 					newProjectWizardState.languageRuntimeService
 				)
@@ -62,10 +62,10 @@ export const PythonEnvironmentStep = (props: PropsWithChildren<NewProjectWizardS
 	const onEnvTypeSelected = (identifier: string) => {
 		switch (identifier) {
 			case 'Venv':
-				setInterpreterEntries(createVenvInterpreterComboBoxItems(newProjectWizardState.runtimeStartupService, newProjectWizardState.languageRuntimeService));
+				setInterpreterEntries(createVenvInterpreterDropDownItems(newProjectWizardState.runtimeStartupService, newProjectWizardState.languageRuntimeService));
 				break;
 			case 'Conda':
-				setInterpreterEntries(createCondaInterpreterComboBoxItems());
+				setInterpreterEntries(createCondaInterpreterDropDownItems());
 				break;
 			default:
 				console.error(`Unknown environment type: ${identifier}`);
@@ -104,7 +104,7 @@ export const PythonEnvironmentStep = (props: PropsWithChildren<NewProjectWizardS
 						// TODO: instead of calling createPythonInterpreterComboBoxItems, it should
 						// be aware of the defaults set by the environment type (Venv, Conda)
 						setInterpreterEntries(
-							createPythonInterpreterComboBoxItems(
+							createPythonInterpreterDropDownItems(
 								newProjectWizardState.runtimeStartupService,
 								newProjectWizardState.languageRuntimeService
 							)
