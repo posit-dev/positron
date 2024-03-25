@@ -1,9 +1,9 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2022 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2022-2024 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
-import { createDecorator } from 'vs/platform/instantiation/common/instantiation';
 import { Event } from 'vs/base/common/event';
+import { createDecorator } from 'vs/platform/instantiation/common/instantiation';
 
 /**
  * Export the service identifier.
@@ -27,6 +27,17 @@ export interface IModalDialogPromptInstance {
 }
 
 /**
+ * ShowConfirmationModalDialogOptions interface.
+ */
+export interface ShowConfirmationModalDialogOptions {
+	title: string;
+	message: string;
+	okButtonTitle?: string;
+	cancelButtonTitle?: string;
+	action: () => Promise<void>;
+}
+
+/**
  * A service that displays modal dialogs.
  */
 export interface IPositronModalDialogsService {
@@ -34,14 +45,10 @@ export interface IPositronModalDialogsService {
 	readonly _serviceBrand: undefined;
 
 	/**
-	 * Shows example modal dialog 1.
+	 * Shows a confirmation modal dialog.
+	 * @param options The options.
 	 */
-	showExampleModalDialog1(title: string): Promise<void>;
-
-	/**
-	 * Shows example modal dialog 2.
-	 */
-	showExampleModalDialog2(title: string): Promise<boolean>;
+	showConfirmationModalDialog(options: ShowConfirmationModalDialogOptions): void;
 
 	/**
 	 * Shows a modal dialog prompt.
@@ -53,10 +60,12 @@ export interface IPositronModalDialogsService {
 	 *
 	 * @returns A dialog instance, with an event that fires when the user makes a selection.
 	 */
-	showModalDialogPrompt(title: string,
+	showModalDialogPrompt(
+		title: string,
 		message: string,
 		okButtonTitle?: string,
-		cancelButtonTitle?: string): IModalDialogPromptInstance;
+		cancelButtonTitle?: string
+	): IModalDialogPromptInstance;
 
 	/**
 	 * Shows a simple modal dialog prompt. This is a simpler variant of
@@ -72,10 +81,12 @@ export interface IPositronModalDialogsService {
 	 * @returns A promise that resolves to true if the user clicked OK, or false
 	 *   if the user clicked Cancel.
 	 */
-	showSimpleModalDialogPrompt(title: string,
+	showSimpleModalDialogPrompt(
+		title: string,
 		message: string,
 		okButtonTitle?: string,
-		cancelButtonTitle?: string): Promise<boolean>;
+		cancelButtonTitle?: string
+	): Promise<boolean>;
 
 	/**
 	 * Shows a different simple modal dialog prompt.
@@ -86,7 +97,9 @@ export interface IPositronModalDialogsService {
 	 *
 	 * @returns A promise that resolves when the user dismisses the dialog.
 	 */
-	showSimpleModalDialogMessage(title: string,
+	showSimpleModalDialogMessage(
+		title: string,
 		message: string,
-		okButtonTitle?: string): Promise<null>;
+		okButtonTitle?: string
+	): Promise<null>;
 }

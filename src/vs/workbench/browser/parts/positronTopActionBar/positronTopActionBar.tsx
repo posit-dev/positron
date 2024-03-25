@@ -2,9 +2,14 @@
  *  Copyright (C) 2022-2024 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
+// CSS.
 import 'vs/css!./positronTopActionBar';
+
+// React.
 import * as React from 'react';
 import { useEffect, useState } from 'react'; // eslint-disable-line no-duplicate-imports
+
+// Other dependencies.
 import { Event } from 'vs/base/common/event';
 import { DisposableStore } from 'vs/base/common/lifecycle';
 import { ILabelService } from 'vs/platform/label/common/label';
@@ -18,6 +23,8 @@ import { PositronActionBar } from 'vs/platform/positronActionBar/browser/positro
 import { ActionBarRegion } from 'vs/platform/positronActionBar/browser/components/actionBarRegion';
 import { ActionBarSeparator } from 'vs/platform/positronActionBar/browser/components/actionBarSeparator';
 import { PositronActionBarServices } from 'vs/platform/positronActionBar/browser/positronActionBarState';
+import { IRuntimeSessionService } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
+import { IRuntimeStartupService } from 'vs/workbench/services/runtimeStartup/common/runtimeStartupService';
 import { ActionBarCommandButton } from 'vs/platform/positronActionBar/browser/components/actionBarCommandButton';
 import { NavigateBackwardsAction, NavigateForwardAction } from 'vs/workbench/browser/parts/editor/editorActions';
 import { PositronActionBarContextProvider } from 'vs/platform/positronActionBar/browser/positronActionBarContext';
@@ -27,10 +34,8 @@ import { IPositronTopActionBarService } from 'vs/workbench/services/positronTopA
 import { TopActionBarCommandCenter } from 'vs/workbench/browser/parts/positronTopActionBar/components/topActionBarCommandCenter';
 import { PositronTopActionBarContextProvider } from 'vs/workbench/browser/parts/positronTopActionBar/positronTopActionBarContext';
 import { TopActionBarCustonFolderMenu } from 'vs/workbench/browser/parts/positronTopActionBar/components/topActionBarCustomFolderMenu';
-import { TopActionBarInterpretersManager } from 'vs/workbench/browser/parts/positronTopActionBar/components/topActionBarInterpretersManager';
 import { ILanguageRuntimeMetadata, ILanguageRuntimeService } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
-import { IRuntimeSessionService } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
-import { IRuntimeStartupService } from 'vs/workbench/services/runtimeStartup/common/runtimeStartupService';
+import { TopActionBarInterpretersManager } from 'vs/workbench/browser/parts/positronTopActionBar/components/topActionBarInterpretersManager';
 
 // Constants.
 const kHorizontalPadding = 4;
@@ -57,7 +62,8 @@ export interface IPositronTopActionBarContainer {
 }
 
 /**
- * PositronTopActionBarServices interface. Defines the set of services that are required by the Positron top action bar.
+ * PositronTopActionBarServices interface. Defines the set of services that are required by the
+ * Positron top action bar.
  */
 export interface PositronTopActionBarServices extends PositronActionBarServices {
 	hostService: IHostService;
@@ -86,8 +92,12 @@ interface PositronTopActionBarProps extends PositronTopActionBarServices {
  */
 export const PositronTopActionBar = (props: PositronTopActionBarProps) => {
 	// State hooks.
-	const [showCenterUI, setShowCenterUI] = useState(props.positronTopActionBarContainer.width > kCenterUIBreak);
-	const [showFullCenterUI, setShowFullCenterUI] = useState(props.positronTopActionBarContainer.width > kFulllCenterUIBreak);
+	const [showCenterUI, setShowCenterUI] = useState(
+		props.positronTopActionBarContainer.width > kCenterUIBreak
+	);
+	const [showFullCenterUI, setShowFullCenterUI] = useState(
+		props.positronTopActionBarContainer.width > kFulllCenterUIBreak
+	);
 
 	// Main useEffect.
 	useEffect(() => {
@@ -102,7 +112,7 @@ export const PositronTopActionBar = (props: PositronTopActionBarProps) => {
 
 		// Return the cleanup function that will dispose of the disposables.
 		return () => disposableStore.dispose();
-	}, []);
+	}, [props.positronTopActionBarContainer]);
 
 	/**
 	 * startRuntime event handler.
@@ -136,15 +146,27 @@ export const PositronTopActionBar = (props: PositronTopActionBarProps) => {
 		<PositronTopActionBarContextProvider {...props}>
 			<PositronActionBarContextProvider {...props}>
 
-				<PositronActionBar size='large' borderBottom={true} paddingLeft={kHorizontalPadding} paddingRight={kHorizontalPadding}>
-
+				<PositronActionBar
+					size='large'
+					borderBottom={true}
+					paddingLeft={kHorizontalPadding}
+					paddingRight={kHorizontalPadding}
+				>
 					<ActionBarRegion location='left'>
 						<TopActionBarNewMenu />
 						<ActionBarSeparator />
 						<TopActionBarOpenMenu />
 						<ActionBarSeparator />
-						<ActionBarCommandButton iconId='positron-save' commandId={SAVE} ariaLabel={CommandCenter.title(SAVE)} />
-						<ActionBarCommandButton iconId='positron-save-all' commandId={SAVE_FILES} ariaLabel={CommandCenter.title(SAVE_FILES)} />
+						<ActionBarCommandButton
+							iconId='positron-save'
+							commandId={SAVE}
+							ariaLabel={CommandCenter.title(SAVE)}
+						/>
+						<ActionBarCommandButton
+							iconId='positron-save-all'
+							commandId={SAVE_FILES}
+							ariaLabel={CommandCenter.title(SAVE_FILES)}
+						/>
 					</ActionBarRegion>
 
 					{showCenterUI && (
@@ -153,8 +175,16 @@ export const PositronTopActionBar = (props: PositronTopActionBarProps) => {
 							<PositronActionBar size='large' nestedActionBar={true}>
 								{showFullCenterUI && (
 									<ActionBarRegion width={60} location='left' justify='right'>
-										<ActionBarCommandButton iconId='chevron-left' commandId={NAV_BACK} ariaLabel={CommandCenter.title(NAV_BACK)} />
-										<ActionBarCommandButton iconId='chevron-right' commandId={NAV_FORWARD} ariaLabel={CommandCenter.title(NAV_FORWARD)} />
+										<ActionBarCommandButton
+											iconId='chevron-left'
+											commandId={NAV_BACK}
+											ariaLabel={CommandCenter.title(NAV_BACK)}
+										/>
+										<ActionBarCommandButton
+											iconId='chevron-right'
+											commandId={NAV_FORWARD}
+											ariaLabel={CommandCenter.title(NAV_FORWARD)}
+										/>
 									</ActionBarRegion>
 								)}
 								<ActionBarRegion location='center'>

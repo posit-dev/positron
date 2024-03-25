@@ -10,32 +10,33 @@ import * as React from 'react';
 
 // Other dependencies.
 import { Emitter } from 'vs/base/common/event';
-import { ILayoutService } from 'vs/platform/layout/browser/layoutService';
-import { IKeybindingService } from 'vs/platform/keybinding/common/keybinding';
-import { ComboBox } from 'vs/base/browser/ui/positronComponents/comboBox/comboBox';
-import { TestContent } from 'vs/base/browser/ui/positronModalDialog/components/testContent';
-import { OKActionBar } from 'vs/base/browser/ui/positronModalDialog/components/okActionBar';
-import { ContentArea } from 'vs/base/browser/ui/positronModalDialog/components/contentArea';
-import { PositronModalDialog } from 'vs/base/browser/ui/positronModalDialog/positronModalDialog';
-import { ComboBoxMenuItem } from 'vs/base/browser/ui/positronComponents/comboBox/comboBoxMenuItem';
-import { OKCancelActionBar } from 'vs/base/browser/ui/positronModalDialog/components/okCancelActionBar';
-import { PositronModalReactRenderer } from 'vs/base/browser/ui/positronModalReactRenderer/positronModalReactRenderer';
-import { StopCommandsKeyEventProcessor } from 'vs/platform/stopCommandsKeyEventProcessor/browser/stopCommandsKeyEventProcessor';
-import { IModalDialogPromptInstance, IPositronModalDialogsService } from 'vs/workbench/services/positronModalDialogs/common/positronModalDialogs';
 import { renderHtml } from 'vs/base/browser/renderHtml';
 import { IOpenerService } from 'vs/platform/opener/common/opener';
+import { ILayoutService } from 'vs/platform/layout/browser/layoutService';
+import { IKeybindingService } from 'vs/platform/keybinding/common/keybinding';
+import { ContentArea } from 'vs/workbench/browser/positronComponents/positronModalDialog/components/contentArea';
+import { OKActionBar } from 'vs/workbench/browser/positronComponents/positronModalDialog/components/okActionBar';
+import { VerticalStack } from 'vs/workbench/browser/positronComponents/positronModalDialog/components/verticalStack';
+import { PositronModalDialog } from 'vs/workbench/browser/positronComponents/positronModalDialog/positronModalDialog';
+import { PositronModalReactRenderer } from 'vs/workbench/browser/positronModalReactRenderer/positronModalReactRenderer';
+import { OKCancelActionBar } from 'vs/workbench/browser/positronComponents/positronModalDialog/components/okCancelActionBar';
+import { OKCancelModalDialog } from 'vs/workbench/browser/positronComponents/positronModalDialog/positronOKCancelModalDialog';
+import { IModalDialogPromptInstance, IPositronModalDialogsService, ShowConfirmationModalDialogOptions } from 'vs/workbench/services/positronModalDialogs/common/positronModalDialogs';
 
 /**
  * PositronModalDialogs class.
  */
 export class PositronModalDialogs implements IPositronModalDialogsService {
-
+	/**
+	 * Needed for service branding in dependency injector.
+	 */
 	declare readonly _serviceBrand: undefined;
 
 	/**
 	 * Initializes a new instance of the PositronModalDialogs class.
 	 * @param _keybindingService The keybinding service.
 	 * @param _layoutService The layout service.
+	 * @param _openerService The opener service.
 	 */
 	constructor(
 		@IKeybindingService private readonly _keybindingService: IKeybindingService,
@@ -44,122 +45,36 @@ export class PositronModalDialogs implements IPositronModalDialogsService {
 	) { }
 
 	/**
-	 * Shows example modal dialog 1.
-	 * @returns A Promise<void> that resolves when the example modal dialog is done.
+	 * Shows a confirmation modal dialog.
+	 * @param options The options.
 	 */
-	async showExampleModalDialog1(title: string): Promise<void> {
-		// Build the test combo box entries.
-		const testEntries = [
-			new ComboBoxMenuItem({
-				identifier: '1',
-				label: 'Test Item 1'
-			}),
-			new ComboBoxMenuItem({
-				identifier: '2',
-				label: 'Test Item 2'
-			}),
-			new ComboBoxMenuItem({
-				identifier: '3',
-				label: 'Test Item 3'
-			}),
-			new ComboBoxMenuItem({
-				identifier: '4',
-				label: 'Test Item 4'
-			}),
-			new ComboBoxMenuItem({
-				identifier: '5',
-				label: 'Test Item 5'
-			}),
-			new ComboBoxMenuItem({
-				identifier: '6',
-				label: 'Test Item 6'
-			}),
-		];
-
-		// Return a promise that resolves when the example modal dialog is done.
-		return new Promise<void>((resolve) => {
-			// Create the modal React renderer.
-			const renderer = new PositronModalReactRenderer({
-				container: this._layoutService.mainContainer,
-				keyEventProcessor: new StopCommandsKeyEventProcessor({
-					keybindingService: this._keybindingService,
-					layoutService: this._layoutService
-				})
-			});
-
-			// The accept handler.
-			const acceptHandler = () => {
-				renderer.dispose();
-				resolve();
-			};
-
-			// The modal dialog component.
-			const ModalDialog = () => {
-				return (
-					<PositronModalDialog renderer={renderer} title={title} width={400} height={300} accept={acceptHandler} cancel={acceptHandler}>
-						<ContentArea>
-							<ComboBox
-								keybindingService={this._keybindingService}
-								layoutService={this._layoutService}
-								className='combo-box'
-								title='Select Column'
-								entries={testEntries}
-								onSelectionChanged={identifier => console.log(`Select Column changed to ${identifier}`)}
-							/>
-						</ContentArea>
-						<OKActionBar accept={acceptHandler} />
-					</PositronModalDialog>
-				);
-			};
-
-			// Render the modal dialog component.
-			renderer.render(<ModalDialog />);
+	showConfirmationModalDialog(options: ShowConfirmationModalDialogOptions) {
+		// Create the modal React renderer.
+		const renderer = new PositronModalReactRenderer({
+			keybindingService: this._keybindingService,
+			layoutService: this._layoutService,
+			container: this._layoutService.activeContainer
 		});
-	}
 
-	/**
-	 * Shows example modal dialog 2.
-	 * @returns A Promise<boolean> that resolves when the example modal dialog is done.
-	 */
-	async showExampleModalDialog2(title: string): Promise<boolean> {
-		return new Promise<boolean>((resolve) => {
-			// Create the modal React renderer.
-			const renderer = new PositronModalReactRenderer({
-				container: this._layoutService.mainContainer,
-				keyEventProcessor: new StopCommandsKeyEventProcessor({
-					keybindingService: this._keybindingService,
-					layoutService: this._layoutService
-				})
-			});
-
-			// The accept handler.
-			const acceptHandler = () => {
-				renderer.dispose();
-				resolve(true);
-			};
-
-			// The cancel handler.
-			const cancelHandler = () => {
-				renderer.dispose();
-				resolve(false);
-			};
-
-			// The modal dialog component.
-			const ModalDialog = () => {
-				// Render.
-				return (
-					<PositronModalDialog renderer={renderer} title={title} width={400} height={300} accept={acceptHandler} cancel={cancelHandler}>
-						<ContentArea>
-							<TestContent message='Example' />
-						</ContentArea>
-						<OKCancelActionBar accept={acceptHandler} cancel={cancelHandler} />
-					</PositronModalDialog>
-				);
-			};
-
-			// Render the modal dialog component.
-			renderer.render(<ModalDialog />);
-		});
+		// Show the confirmation modal dialog.
+		renderer.render(
+			<OKCancelModalDialog
+				renderer={renderer}
+				width={400}
+				height={195}
+				title={options.title}
+				okButtonTitle={options.okButtonTitle}
+				cancelButtonTitle={options.cancelButtonTitle}
+				onAccept={async () => {
+					renderer.dispose();
+					await options.action();
+				}}
+				onCancel={() => renderer.dispose()}>
+				<VerticalStack>
+					<div>{options.message}</div>
+				</VerticalStack>
+			</OKCancelModalDialog>
+		);
 	}
 
 	/**
@@ -180,11 +95,9 @@ export class PositronModalDialogs implements IPositronModalDialogsService {
 	): IModalDialogPromptInstance {
 		// Create the modal React renderer.
 		const renderer = new PositronModalReactRenderer({
-			container: this._layoutService.mainContainer,
-			keyEventProcessor: new StopCommandsKeyEventProcessor({
-				keybindingService: this._keybindingService,
-				layoutService: this._layoutService
-			})
+			keybindingService: this._keybindingService,
+			layoutService: this._layoutService,
+			container: this._layoutService.mainContainer
 		});
 
 		// Single-shot emitter for the user's choice.
@@ -201,25 +114,18 @@ export class PositronModalDialogs implements IPositronModalDialogsService {
 			choiceEmitter.dispose();
 		};
 
-		// Render the dialog. As the messaage is variably sized, it'd be
-		// nice if we could auto-scale the dialog, but fix it to 200 for
-		// now.
-		const ModalDialog = () => {
-			return (
-				<PositronModalDialog renderer={renderer} title={title} width={400} height={200} accept={acceptHandler} cancel={cancelHandler}>
-					<ContentArea>
-						{message}
-					</ContentArea>
-					<OKCancelActionBar
-						okButtonTitle={okButtonTitle}
-						cancelButtonTitle={cancelButtonTitle}
-						accept={acceptHandler}
-						cancel={cancelHandler} />
-				</PositronModalDialog>
-			);
-		};
-
-		renderer.render(<ModalDialog />);
+		renderer.render(
+			<PositronModalDialog renderer={renderer} title={title} width={400} height={200} onAccept={acceptHandler} onCancel={cancelHandler}>
+				<ContentArea>
+					{message}
+				</ContentArea>
+				<OKCancelActionBar
+					okButtonTitle={okButtonTitle}
+					cancelButtonTitle={cancelButtonTitle}
+					onAccept={acceptHandler}
+					onCancel={cancelHandler} />
+			</PositronModalDialog>
+		);
 
 		return {
 			onChoice: choiceEmitter.event,
@@ -248,11 +154,9 @@ export class PositronModalDialogs implements IPositronModalDialogsService {
 
 		// Create the modal React renderer.
 		const renderer = new PositronModalReactRenderer({
-			container: this._layoutService.mainContainer,
-			keyEventProcessor: new StopCommandsKeyEventProcessor({
-				keybindingService: this._keybindingService,
-				layoutService: this._layoutService
-			})
+			keybindingService: this._keybindingService,
+			layoutService: this._layoutService,
+			container: this._layoutService.mainContainer
 		});
 
 		// Single-shot emitter for the user's choice.
@@ -264,23 +168,31 @@ export class PositronModalDialogs implements IPositronModalDialogsService {
 			choiceEmitter.dispose();
 		};
 
-		// Render the dialog. As the messaage is variably sized, it'd be
-		// nice if we could auto-scale the dialog, but fix it to 200 for
-		// now.
-		const ModalDialog = () => {
-			return (
-				<PositronModalDialog renderer={renderer} title={title} width={400} height={200} accept={acceptHandler} >
-					<ContentArea>
-						{renderHtml(message, { onLinkClick: (href: string) => this._openerService.open(href) })}
-					</ContentArea>
-					<OKActionBar
-						okButtonTitle={okButtonTitle}
-						accept={acceptHandler} />
-				</PositronModalDialog>
-			);
+		const cancelHandler = () => {
+			renderer.dispose();
+			choiceEmitter.dispose();
 		};
 
-		renderer.render(<ModalDialog />);
+		renderer.render(
+			<PositronModalDialog
+				renderer={renderer}
+				title={title}
+				width={400}
+				height={200}
+				onAccept={acceptHandler}
+				onCancel={cancelHandler}
+			>
+				<ContentArea>
+					{renderHtml(
+						message,
+						{
+							onLinkClick: (href: string) => this._openerService.open(href)
+						}
+					)}
+				</ContentArea>
+				<OKActionBar okButtonTitle={okButtonTitle} onAccept={acceptHandler} />
+			</PositronModalDialog>
+		);
 
 		return {
 			onChoice: choiceEmitter.event,

@@ -1,20 +1,21 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2022 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2022-2024 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
 import { localize } from 'vs/nls';
-import { URI } from 'vs/base/common/uri';
 import { ITelemetryData } from 'vs/base/common/actions';
 import { IFileService } from 'vs/platform/files/common/files';
 import { ServicesAccessor } from 'vs/editor/browser/editorExtensions';
-import { IFileDialogService } from 'vs/platform/dialogs/common/dialogs';
 import { ICommandService } from 'vs/platform/commands/common/commands';
+import { IFileDialogService } from 'vs/platform/dialogs/common/dialogs';
 import { ContextKeyExpr } from 'vs/platform/contextkey/common/contextkey';
 import { IPathService } from 'vs/workbench/services/path/common/pathService';
+import { IKeybindingService } from 'vs/platform/keybinding/common/keybinding';
 import { workspacesCategory } from 'vs/workbench/browser/actions/workspaceActions';
 import { Action2, MenuId, registerAction2 } from 'vs/platform/actions/common/actions';
 import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
 import { EnterMultiRootWorkspaceSupportContext } from 'vs/workbench/common/contextkeys';
+import { IWorkbenchLayoutService } from 'vs/workbench/services/layout/browser/layoutService';
 import { showNewFolderModalDialog } from 'vs/workbench/browser/positronModalDialogs/newFolderModalDialog';
 import { showNewFolderFromGitModalDialog } from 'vs/workbench/browser/positronModalDialogs/newFolderFromGitModalDialog';
 
@@ -54,29 +55,14 @@ export class PositronNewFolderAction extends Action2 {
 	 * @param accessor The services accessor.
 	 */
 	override async run(accessor: ServicesAccessor): Promise<void> {
-		// Get the services we need to create the new workspace, if the user accept the dialog.
-		const commandService = accessor.get(ICommandService);
-		const fileService = accessor.get(IFileService);
-		const pathService = accessor.get(IPathService);
-
-		// Show the new folder modal dialog. If the result is undefined, the user canceled the operation.
-		const result = await showNewFolderModalDialog(accessor);
-		if (!result) {
-			return;
-		}
-
-		// Create the new folder.
-		const folder = URI.file((await pathService.path).join(result.parentFolder, result.folder));
-		if (!(await fileService.exists(folder))) {
-			await fileService.createFolder(folder);
-		}
-		await commandService.executeCommand(
-			'vscode.openFolder',
-			folder,
-			{
-				forceNewWindow: result.newWindow,
-				forceReuseWindow: !result.newWindow
-			}
+		// Show the new folder modal dialog.
+		await showNewFolderModalDialog(
+			accessor.get(ICommandService),
+			accessor.get(IFileDialogService),
+			accessor.get(IFileService),
+			accessor.get(IKeybindingService),
+			accessor.get(IWorkbenchLayoutService),
+			accessor.get(IPathService)
 		);
 	}
 }
@@ -120,22 +106,14 @@ export class PositronNewFolderFromGitAction extends Action2 {
 	 * @param accessor The services accessor.
 	 */
 	override async run(accessor: ServicesAccessor): Promise<void> {
-		const commandService = accessor.get(ICommandService);
-		const configService = accessor.get(IConfigurationService);
-
-		const result = await showNewFolderFromGitModalDialog(accessor);
-		if (result?.repo) {
-			// temporarily set openAfterClone to facilitate result.newWindow
-			// then set it back afterwards
-			const kGitOpenAfterClone = 'git.openAfterClone';
-			const prevOpenAfterClone = configService.getValue(kGitOpenAfterClone);
-			configService.updateValue(kGitOpenAfterClone, result.newWindow ? 'alwaysNewWindow' : 'always');
-			try {
-				await commandService.executeCommand('git.clone', result.repo, result.parentFolder);
-			} finally {
-				configService.updateValue(kGitOpenAfterClone, prevOpenAfterClone);
-			}
-		}
+		// Show the new folder from Git modal dialog.
+		await showNewFolderFromGitModalDialog(
+			accessor.get(ICommandService),
+			accessor.get(IConfigurationService),
+			accessor.get(IFileDialogService),
+			accessor.get(IKeybindingService),
+			accessor.get(IWorkbenchLayoutService),
+		);
 	}
 }
 
@@ -171,7 +149,10 @@ export class PositronOpenFolderInNewWindowAction extends Action2 {
 	 */
 	override async run(accessor: ServicesAccessor, data?: ITelemetryData): Promise<void> {
 		const fileDialogService = accessor.get(IFileDialogService);
-		return fileDialogService.pickFolderAndOpen({ forceNewWindow: true, telemetryExtraData: data });
+		return fileDialogService.pickFolderAndOpen({
+			forceNewWindow: true,
+			telemetryExtraData: data
+		});
 	}
 }
 
