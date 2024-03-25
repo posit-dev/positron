@@ -1,0 +1,5 @@
+{
+	"displayName": "Positron Viewer",
+	"description": "Front end to Positron's URL viewer",
+	"configuration.positronViewer.openLocalhostUrls.description": "Open localhost URLs in the Positron Viewer"
+}

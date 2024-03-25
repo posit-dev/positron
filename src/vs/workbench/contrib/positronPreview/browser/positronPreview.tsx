@@ -18,6 +18,11 @@ import { PositronPreviewContextProvider } from 'vs/workbench/contrib/positronPre
 import { IPositronPreviewService } from 'vs/workbench/contrib/positronPreview/browser/positronPreviewSevice';
 import { PreviewWebview } from 'vs/workbench/contrib/positronPreview/browser/previewWebview';
 import { PositronPreviewViewPane } from 'vs/workbench/contrib/positronPreview/browser/positronPreviewView';
+import { ActionBars } from 'vs/workbench/contrib/positronPreview/browser/components/actionBars';
+import { IRuntimeSessionService } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
+import { PreviewUrl } from 'vs/workbench/contrib/positronPreview/browser/previewUrl';
+import { IOpenerService } from 'vs/platform/opener/common/opener';
+import { INotificationService } from 'vs/platform/notification/common/notification';
 
 /**
  * PositronPreviewProps interface.
@@ -30,8 +35,11 @@ export interface PositronPreviewProps extends PositronPreviewServices {
 	readonly contextMenuService: IContextMenuService;
 	readonly keybindingService: IKeybindingService;
 	readonly layoutService: IWorkbenchLayoutService;
-	readonly reactComponentContainer: PositronPreviewViewPane;
+	readonly openerService: IOpenerService;
+	readonly notificationService: INotificationService;
 	readonly positronPreviewService: IPositronPreviewService;
+	readonly reactComponentContainer: PositronPreviewViewPane;
+	readonly runtimeSessionService: IRuntimeSessionService;
 }
 
 /**
@@ -81,16 +89,24 @@ export const PositronPreview = (props: PropsWithChildren<PositronPreviewProps>) 
 
 		// Return the cleanup function that will dispose of the event handlers.
 		return () => disposableStore.dispose();
-	}, []);
+	}, [props.positronPreviewService, props.reactComponentContainer]);
 
+	const showToolbar = activePreview && activePreview instanceof PreviewUrl;
 	// Render.
 	return (
 		<PositronPreviewContextProvider {...props}>
+			{showToolbar &&
+				// Render the action bars. We supply the preview ID as a key
+				// here to ensure the action bars are keyed to the preview;
+				// otherwise the URL bar can get out of sync with the preview
+				// since it's an uncontrolled component.
+				<ActionBars key={activePreview.previewId} preview={activePreview} {...props} />
+			}
 			<PreviewContainer
 				preview={activePreview}
 				visible={visible}
 				width={width}
-				height={height}
+				height={height - (showToolbar ? 32 : 0)}
 				x={x}
 				y={y} />
 		</PositronPreviewContextProvider>
