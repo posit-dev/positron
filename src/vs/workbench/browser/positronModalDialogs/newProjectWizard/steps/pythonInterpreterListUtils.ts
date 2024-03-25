@@ -50,7 +50,9 @@ const getPythonInterpreterDropDownItems = (runtimeStartupService: IRuntimeStartu
 	// The DropDownListBoxSeparator is used to separate the runtimes by runtimeSource.
 	const comboBoxItems: DropDownListBoxItem | DropDownListBoxSeparator[] = [];
 	runtimeSourceMap.forEach((runtimeItems) => {
-		comboBoxItems.push(new DropDownListBoxSeparator());
+		if (comboBoxItems.length > 0) {
+			comboBoxItems.push(new DropDownListBoxSeparator());
+		}
 		comboBoxItems.push(...runtimeItems);
 	});
 
