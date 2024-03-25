@@ -292,8 +292,9 @@ function packageTask(platform, arch, sourceFolderName, destinationFolderName, op
 
 		// Bundled Pandoc binary
 		const pandocExt = process.platform === 'win32' ? '.exe' : '';
+		const binFolder = process.platform === 'darwin' ? 'bin' : path.join('..', '..', 'bin');
 		const pandoc = getPandocStream()
-			.pipe(rename(`bin/pandoc${pandocExt}`))
+			.pipe(rename(path.join(binFolder, `pandoc${pandocExt}`)))
 			.pipe(util.setExecutableBit());
 
 		// --- End Positron ---
