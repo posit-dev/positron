@@ -27,13 +27,18 @@ export const ProjectTypeStep = (props: PropsWithChildren<NewProjectWizardStepPro
 	const nextStep = () => {
 		// TODO: set the projectType according to the selected button
 		const projectType = NewProjectType.PythonProject;
-		// The default project name is 'my' + projectType without spaces.
-		const defaultProjectName = 'my' + projectType.replace(/\s/g, '');
-		newProjectWizardState.setProjectConfig({
-			...newProjectWizardState.projectConfig,
-			projectType,
-			projectName: defaultProjectName
-		});
+
+		// If the project type has changed or the project name is empty, initialize the project name.
+		if (newProjectWizardState.projectConfig.projectType !== projectType || newProjectWizardState.projectConfig.projectName === '') {
+			// The default project name is 'my' + projectType without spaces.
+			const defaultProjectName = 'my' + projectType.replace(/\s/g, '');
+			newProjectWizardState.setProjectConfig({
+				...newProjectWizardState.projectConfig,
+				projectType,
+				projectName: defaultProjectName
+			});
+		}
+
 		props.next(NewProjectWizardStep.ProjectNameLocation);
 	};
 
