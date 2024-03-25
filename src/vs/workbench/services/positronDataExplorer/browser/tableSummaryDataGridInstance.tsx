@@ -7,7 +7,7 @@ import * as React from 'react';
 
 // Other dependencies.
 import { Emitter } from 'vs/base/common/event';
-import { DataGridInstance } from 'vs/base/browser/ui/positronDataGrid/classes/dataGridInstance';
+import { DataGridInstance } from 'vs/workbench/browser/positronDataGrid/classes/dataGridInstance';
 import { DataExplorerCache } from 'vs/workbench/services/positronDataExplorer/common/dataExplorerCache';
 import { ColumnSchemaTypeDisplay } from 'vs/workbench/services/languageRuntime/common/positronDataExplorerComm';
 import { ColumnSummaryCell } from 'vs/workbench/services/positronDataExplorer/browser/components/columnSummaryCell';

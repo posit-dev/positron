@@ -17,7 +17,6 @@ import { EditorContextKeys } from 'vs/editor/common/editorContextKeys';
 import { ILanguageService } from 'vs/editor/common/languages/language';
 import { PositronConsoleFocused } from 'vs/workbench/common/contextkeys';
 import { ContextKeyExpr } from 'vs/platform/contextkey/common/contextkey';
-import { IKeybindingService } from 'vs/platform/keybinding/common/keybinding';
 import { Action2, registerAction2 } from 'vs/platform/actions/common/actions';
 import { IViewsService } from 'vs/workbench/services/views/common/viewsService';
 import { ServicesAccessor } from 'vs/platform/instantiation/common/instantiation';
@@ -27,8 +26,8 @@ import { ILanguageFeaturesService } from 'vs/editor/common/services/languageFeat
 import { IWorkbenchLayoutService } from 'vs/workbench/services/layout/browser/layoutService';
 import { INotificationService, Severity } from 'vs/platform/notification/common/notification';
 import { NOTEBOOK_EDITOR_FOCUSED } from 'vs/workbench/contrib/notebook/common/notebookContextKeys';
-import { confirmationModalDialog } from 'vs/workbench/browser/positronModalDialogs/confirmationModalDialog';
 import { IExecutionHistoryService } from 'vs/workbench/contrib/executionHistory/common/executionHistoryService';
+import { IPositronModalDialogsService } from 'vs/workbench/services/positronModalDialogs/common/positronModalDialogs';
 import { IPositronConsoleService, POSITRON_CONSOLE_VIEW_ID } from 'vs/workbench/services/positronConsole/browser/interfaces/positronConsoleService';
 
 /**
@@ -188,13 +187,12 @@ export function registerPositronConsoleActions() {
 		 * Runs action.
 		 * @param accessor The services accessor.
 		 */
-		async run(accessor: ServicesAccessor) {
+		run(accessor: ServicesAccessor) {
 			// Use the service accessor to get the services we need.
 			const executionHistoryService = accessor.get(IExecutionHistoryService);
-			const keybindingService = accessor.get(IKeybindingService);
-			const layoutService = accessor.get(IWorkbenchLayoutService);
 			const notificationService = accessor.get(INotificationService);
 			const positronConsoleService = accessor.get(IPositronConsoleService);
+			const positronModalDialogsService = accessor.get(IPositronModalDialogsService);
 
 			// Get the active Positron console instance. The Clear Input History action is bound to
 			// the active console, so if there isn't an active Positron console instance, we can't
@@ -213,24 +211,32 @@ export function registerPositronConsoleActions() {
 			const languageName = activePositronConsoleInstance.session.runtimeMetadata.languageName;
 
 			// Ask the user to confirm the action.
-			if (!await confirmationModalDialog(
-				keybindingService,
-				layoutService,
-				localize('clearInputHistoryTitle', "Clear Input History"),
-				localize('clearInputHistoryPrompt', "Are you sure you want to clear the {0} input history? This can't be undone.", languageName))) {
-				return;
-			}
+			positronModalDialogsService.showConfirmationModalDialog({
+				title: localize('clearInputHistoryTitle', "Clear Input History"),
+				message: localize(
+					'clearInputHistoryPrompt',
+					"Are you sure you want to clear the {0} input history? This can't be undone.",
+					languageName
+				),
+				action: async () => {
+					// Clear the active Positron console instance and the history for its language from the
+					// execution history service.
+					activePositronConsoleInstance.clearInputHistory();
+					executionHistoryService.clearInputEntries(
+						activePositronConsoleInstance.session.runtimeMetadata.languageId
+					);
 
-			// Clear the active Positron console instance and the history for its language from the
-			// execution history service.
-			activePositronConsoleInstance.clearInputHistory();
-			executionHistoryService.clearInputEntries(activePositronConsoleInstance.session.runtimeMetadata.languageId);
-
-			// Let the user know that the history was cleared.
-			notificationService.notify({
-				severity: Severity.Info,
-				message: localize('positron.inputHistory.cleared', "The {0} input history has been cleared.", languageName),
-				sticky: false
+					// Let the user know that the history was cleared.
+					notificationService.notify({
+						severity: Severity.Info,
+						message: localize(
+							'positron.inputHistory.cleared',
+							"The {0} input history has been cleared.",
+							languageName
+						),
+						sticky: false
+					});
+				}
 			});
 		}
 	});

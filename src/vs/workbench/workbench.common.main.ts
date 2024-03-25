@@ -420,8 +420,8 @@ import 'vs/workbench/contrib/accountEntitlements/browser/accountsEntitlements.co
 // Contributions
 import 'vs/workbench/contrib/positronConsole/browser/positronConsole.contribution';
 import 'vs/workbench/contrib/positronConsole/browser/positronConsoleView';
-import 'vs/workbench/contrib/positronDataExplorer/browser/positronDataExplorer.contribution';
-import 'vs/workbench/contrib/positronDataExplorer/browser/positronDataExplorerEditor';
+import 'vs/workbench/contrib/positronDataExplorerEditor/browser/positronDataExplorerEditor.contribution';
+import 'vs/workbench/contrib/positronDataExplorerEditor/browser/positronDataExplorerEditor';
 import 'vs/workbench/contrib/positronRuntimeSessions/browser/positronRuntimeSessions.contribution';
 import 'vs/workbench/contrib/languageRuntime/browser/languageRuntime.contribution';
 import 'vs/workbench/contrib/executionHistory/common/executionHistory';

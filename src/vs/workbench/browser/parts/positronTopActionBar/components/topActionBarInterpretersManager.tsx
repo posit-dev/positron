@@ -2,14 +2,21 @@
  *  Copyright (C) 2022-2024 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
+// CSS.
 import 'vs/css!./topActionBarInterpretersManager';
+
+// React.
 import * as React from 'react';
 import { KeyboardEvent, useCallback, useEffect, useRef, useState } from 'react'; // eslint-disable-line no-duplicate-imports
+
+// Other dependencies.
+import * as DOM from 'vs/base/browser/dom';
 import { DisposableStore } from 'vs/base/common/lifecycle';
-import { usePositronTopActionBarContext } from 'vs/workbench/browser/parts/positronTopActionBar/positronTopActionBarContext';
-import { showInterpretersManagerModalPopup } from 'vs/workbench/browser/parts/positronTopActionBar/interpretersManagerModalPopup/interpretersManagerModalPopup';
 import { useRegisterWithActionBar } from 'vs/platform/positronActionBar/browser/useRegisterWithActionBar';
+import { PositronModalReactRenderer } from 'vs/workbench/browser/positronModalReactRenderer/positronModalReactRenderer';
+import { usePositronTopActionBarContext } from 'vs/workbench/browser/parts/positronTopActionBar/positronTopActionBarContext';
 import { ILanguageRuntimeMetadata, LanguageRuntimeSessionMode } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { InterpretersManagerModalPopup } from 'vs/workbench/browser/parts/positronTopActionBar/interpretersManagerModalPopup/interpretersManagerModalPopup';
 
 /**
  * TopActionBarInterpretersManagerProps interface.
@@ -25,42 +32,37 @@ interface TopActionBarInterpretersManagerProps {
  */
 export const TopActionBarInterpretersManager = (props: TopActionBarInterpretersManagerProps) => {
 	// Context hooks.
-	const positronTopActionBarContext = usePositronTopActionBarContext();
+	const context = usePositronTopActionBarContext();
 
 	// Reference hooks.
 	const ref = useRef<HTMLDivElement>(undefined!);
 
 	// State hooks.
 	const [activeSession, setActiveSession] =
-		useState(positronTopActionBarContext.runtimeSessionService.foregroundSession);
+		useState(context.runtimeSessionService.foregroundSession);
 
 	/**
 	 * Shows the interpreters manager modal popup.
 	 */
 	const showPopup = useCallback(() => {
-		ref.current.setAttribute('aria-expanded', 'true');
-		showInterpretersManagerModalPopup(
-			positronTopActionBarContext.keybindingService,
-			positronTopActionBarContext.languageRuntimeService,
-			positronTopActionBarContext.layoutService,
-			positronTopActionBarContext.runtimeSessionService,
-			positronTopActionBarContext.runtimeStartupService,
-			positronTopActionBarContext.layoutService.mainContainer,
-			ref.current,
-			props.onStartRuntime,
-			props.onActivateRuntime
-		).then(() => {
-			ref.current.removeAttribute('aria-expanded');
+		// Create the renderer.
+		const renderer = new PositronModalReactRenderer({
+			keybindingService: context.keybindingService,
+			layoutService: context.layoutService,
+			container: context.layoutService.getContainer(DOM.getWindow(ref.current)),
+			parent: ref.current,
 		});
-	}, [
-		positronTopActionBarContext.keybindingService,
-		positronTopActionBarContext.languageRuntimeService,
-		positronTopActionBarContext.layoutService,
-		positronTopActionBarContext.runtimeSessionService,
-		positronTopActionBarContext.runtimeStartupService,
-		props.onActivateRuntime,
-		props.onStartRuntime
-	]);
+
+		// Show the interpreters manager modal popup.
+		renderer.render(
+			<InterpretersManagerModalPopup
+				{...context}
+				{...props}
+				renderer={renderer}
+				anchor={ref.current}
+			/>
+		);
+	}, [context, props]);
 
 	// Main useEffect.
 	useEffect(() => {
@@ -69,24 +71,24 @@ export const TopActionBarInterpretersManager = (props: TopActionBarInterpretersM
 
 		// Add the onDidStartRuntime event handler.
 		disposableStore.add(
-			positronTopActionBarContext.runtimeSessionService.onDidStartRuntime(session => {
+			context.runtimeSessionService.onDidStartRuntime(session => {
 				if (session.metadata.sessionMode === LanguageRuntimeSessionMode.Console) {
 					setActiveSession(
-						positronTopActionBarContext.runtimeSessionService.foregroundSession);
+						context.runtimeSessionService.foregroundSession);
 				}
 			})
 		);
 
 		// Add the onShowStartInterpreterPopup event handler.
 		disposableStore.add(
-			positronTopActionBarContext.positronTopActionBarService.onShowStartInterpreterPopup(() => {
+			context.positronTopActionBarService.onShowStartInterpreterPopup(() => {
 				showPopup();
 			})
 		);
 
 		// Return the cleanup function that will dispose of the disposables.
 		return () => disposableStore.dispose();
-	}, [positronTopActionBarContext.positronTopActionBarService, positronTopActionBarContext.runtimeSessionService, showPopup]);
+	}, [context.positronTopActionBarService, context.runtimeSessionService, showPopup]);
 
 	// Participate in roving tabindex.
 	useRegisterWithActionBar([ref]);
@@ -114,7 +116,15 @@ export const TopActionBarInterpretersManager = (props: TopActionBarInterpretersM
 
 	// Render.
 	return (
-		<div ref={ref} className='top-action-bar-interpreters-manager' role='button' tabIndex={0} onKeyDown={keyDownHandler} onClick={clickHandler} aria-haspopup='menu' aria-label={label}>
+		<div
+			ref={ref}
+			className='top-action-bar-interpreters-manager'
+			role='button'
+			tabIndex={0}
+			onKeyDown={keyDownHandler}
+			onClick={clickHandler}
+			aria-haspopup='menu' aria-label={label}
+		>
 			<div className='left' aria-hidden='true'>
 				{!activeSession ?
 					<div className='label'>{label}</div> :
