@@ -1772,6 +1772,15 @@ export class NotebookEditorWidget extends Disposable implements INotebookEditorD
 				// --- End Positron ---
 				this.notebookKernelService.selectKernelForNotebook(kernel, this.textModel);
 			}
+			// --- Start Positron ---
+		} else if (this.textModel) {
+			// If we still haven't selected a kernel, try to select the suggested one.
+			const matching = this.notebookKernelService.getMatchingKernel(this.textModel);
+			const kernel = matching.suggestions.length === 1 ? matching.suggestions[0] : undefined;
+			if (kernel) {
+				this.notebookKernelService.selectKernelForNotebook(kernel, this.textModel);
+			}
+			// --- End Positron ---
 		}
 	}
 
@@ -1819,7 +1828,15 @@ export class NotebookEditorWidget extends Disposable implements INotebookEditorD
 		}
 		state.contributionsState = contributionsState;
 		if (this.textModel?.uri.scheme === Schemas.untitled) {
-			state.selectedKernelId = this.activeKernel?.id;
+			// --- Start Positron ---
+			// Upstream, this set selectedKernelId using notebookKernelService.getSelectedOrSuggestedKernel,
+			// which caused a bug if there is a single kernel with 'preferred' affinity for the
+			// notebook. In that case, when closing an untitled notebook, after the kernel is deselected
+			// the suggested kernel would still be stored in the editor view state. The next untitled
+			// notebook would then restart that kernel even if a different kernel now has 'preferred'
+			// affinity.
+			state.selectedKernelId = this.textModel && this.notebookKernelService.getMatchingKernel(this.textModel).selected?.id;
+			// --- End Positron ---
 		}
 
 		return state;

@@ -13,13 +13,13 @@ import { PromiseHandles, delay, noop } from './util';
  */
 export class NotebookController implements vscode.Disposable {
 
-	private disposables: vscode.Disposable[] = [];
+	private readonly disposables: vscode.Disposable[] = [];
 
 	/** The wrapped VSCode notebook controller. */
-	private controller: vscode.NotebookController;
+	public readonly controller: vscode.NotebookController;
 
 	/** Deferred notebook runtime data objects keyed by notebook. */
-	private notebookRuntimes: Map<vscode.NotebookDocument, PromiseHandles<NotebookRuntimeData>> = new Map();
+	private readonly notebookRuntimes: Map<vscode.NotebookDocument, PromiseHandles<NotebookRuntimeData>> = new Map();
 
 	/** Incremented for each cell we create to give it a unique ID. */
 	private static CELL_COUNTER = 0;
@@ -27,7 +27,7 @@ export class NotebookController implements vscode.Disposable {
 	/**
 	 * @param languageId The language ID for which this controller is responsible.
 	 */
-	constructor(private languageId: string) {
+	constructor(private readonly languageId: string) {
 		// Create a VSCode notebook controller for this language.
 		this.controller = vscode.notebooks.createNotebookController(
 			`positron-${languageId}`,
@@ -71,7 +71,7 @@ export class NotebookController implements vscode.Disposable {
 				// already selected.
 
 				// Start updating the notebook's language info as soon as possible, but only await it at the end.
-				const setNotebookLanguagePromise = setNotebookLanguage(e.notebook, this.languageId);
+				const setNotebookLanguagePromise = updateNotebookLanguage(e.notebook, this.languageId);
 
 				// Set the notebook's deferred runtime data. This needs to be set before any awaits.
 				// When a user executes code without a controller selected, they will be presented
@@ -291,8 +291,8 @@ export class NotebookController implements vscode.Disposable {
  * @param notebook Notebook whose language to set.
  * @param languageId The VSCode-compatible language ID compatible.
  * @returns Promise that resolves when the language has been set.
- * */
-async function setNotebookLanguage(notebook: vscode.NotebookDocument, languageId: string): Promise<void> {
+ */
+async function updateNotebookLanguage(notebook: vscode.NotebookDocument, languageId: string): Promise<void> {
 	// Set the language in the notebook's metadata.
 	// This follows the approach from the vscode-jupyter extension.
 	if (notebook.metadata?.custom?.metadata?.language_info?.name !== languageId) {
