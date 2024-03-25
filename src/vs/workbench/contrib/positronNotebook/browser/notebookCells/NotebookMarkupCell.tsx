@@ -9,7 +9,7 @@ import { IPositronNotebookMarkupCell } from 'vs/workbench/contrib/positronNotebo
 import { renderHtml } from 'vs/base/browser/renderHtml';
 import { CellEditorMonacoWidget } from 'vs/workbench/contrib/positronNotebook/browser/notebookCells/CellEditorMonacoWidget';
 import { useObservedValue } from 'vs/workbench/contrib/positronNotebook/browser/useObservedValue';
-import { NotebookCellActionBar } from 'vs/workbench/contrib/positronNotebook/browser/notebookCells/NotebookCellSkeleton';
+import { NotebookCellActionBar } from 'vs/workbench/contrib/positronNotebook/browser/notebookCells/NotebookCellActionBar';
 import { Button } from 'vs/base/browser/ui/positronComponents/button/button';
 
 
@@ -31,10 +31,9 @@ export function NotebookMarkupCell({ cell }: { cell: IPositronNotebookMarkupCell
 		{editorShown ? 'Hide Editor' : 'Show Editor'}
 	</Button>;
 
-
 	return (
 		<div className={`positron-notebook-cell ${editorShown ? 'editor-shown' : 'editor-hidden'}`}>
-			<NotebookCellActionBar onDelete={() => cell.delete()}>
+			<NotebookCellActionBar cell={cell}>
 				{showHideButton}
 			</NotebookCellActionBar>
 			<div className='cell-contents'>

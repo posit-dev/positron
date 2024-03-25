@@ -11,8 +11,8 @@ import { parseOutputData } from 'vs/workbench/contrib/positronNotebook/browser/g
 import { useObservedValue } from 'vs/workbench/contrib/positronNotebook/browser/useObservedValue';
 import { CellEditorMonacoWidget } from './CellEditorMonacoWidget';
 import { localize } from 'vs/nls';
-import { NotebookCellSkeleton } from 'vs/workbench/contrib/positronNotebook/browser/notebookCells/NotebookCellSkeleton';
 import { Button } from 'vs/base/browser/ui/positronComponents/button/button';
+import { NotebookCellActionBar } from 'vs/workbench/contrib/positronNotebook/browser/notebookCells/NotebookCellActionBar';
 
 
 export function NodebookCodeCell({ cell }: { cell: IPositronNotebookCodeCell }) {
@@ -20,23 +20,23 @@ export function NodebookCodeCell({ cell }: { cell: IPositronNotebookCodeCell }) 
 	const executionStatus = useObservedValue(cell.executionStatus);
 	const isRunning = executionStatus === 'running';
 
-	return <NotebookCellSkeleton
-		onDelete={() => cell.delete()}
-		actionBarItems={
+	return <div className='positron-notebook-cell'>
+		<NotebookCellActionBar cell={cell}>
 			<Button
 				className='action-button'
 				ariaLabel={isRunning ? localize('stopExecution', 'Stop execution') : localize('runCell', 'Run cell')}
 				onPressed={() => cell.run()} >
 				<div className={`button-icon codicon ${isRunning ? 'codicon-primitive-square' : 'codicon-run'}`} />
 			</Button>
-		}
-	>
-
-		<CellEditorMonacoWidget cell={cell} />
-		<div className='positron-notebook-cell-outputs'>
-			{outputContents?.map((output) => <NotebookCellOutput key={output.outputId} cellOutput={output} />)}
+		</NotebookCellActionBar>
+		<div className='cell-contents'>
+			<CellEditorMonacoWidget cell={cell} />
+			<div className='positron-notebook-cell-outputs'>
+				{outputContents?.map((output) => <NotebookCellOutput key={output.outputId} cellOutput={output} />)}
+			</div>
 		</div>
-	</NotebookCellSkeleton>;
+	</div>;
+
 }
 
 function NotebookCellOutput({ cellOutput }: { cellOutput: ICellOutput }) {
