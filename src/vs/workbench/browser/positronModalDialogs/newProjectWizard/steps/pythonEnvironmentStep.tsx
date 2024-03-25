@@ -4,16 +4,16 @@
 
 const React = require('react');
 import { PropsWithChildren, useEffect, useState } from 'react';
-import { PositronWizardStep } from 'vs/base/browser/ui/positronModalDialog/components/wizardStep';
-import { PositronWizardSubStep } from 'vs/base/browser/ui/positronModalDialog/components/wizardSubStep';
 import { useNewProjectWizardContext } from 'vs/workbench/browser/positronModalDialogs/newProjectWizard/newProjectWizardContext';
 import { NewProjectWizardStepProps } from 'vs/workbench/browser/positronModalDialogs/newProjectWizard/steps/newProjectWizardStepProps';
 import { localize } from 'vs/nls';
-import { ComboBox } from 'vs/base/browser/ui/positronComponents/comboBox/comboBox';
 import { RuntimeStartupPhase } from 'vs/workbench/services/runtimeStartup/common/runtimeStartupService';
-import { ComboBoxMenuItem } from 'vs/base/browser/ui/positronComponents/comboBox/comboBoxMenuItem';
 import { DisposableStore } from 'vs/base/common/lifecycle';
 import { createCondaInterpreterComboBoxItems, createPythonInterpreterComboBoxItems, createVenvInterpreterComboBoxItems } from 'vs/workbench/browser/positronModalDialogs/newProjectWizard/steps/pythonInterpreterListUtils';
+import { PositronWizardStep } from 'vs/workbench/browser/positronComponents/positronModalDialog/components/wizardStep';
+import { PositronWizardSubStep } from 'vs/workbench/browser/positronComponents/positronModalDialog/components/wizardSubStep';
+import { DropDownListBoxItem } from 'vs/workbench/browser/positronComponents/dropDownListBox/dropDownListBoxItem';
+import { DropDownListBox } from 'vs/workbench/browser/positronComponents/dropDownListBox/dropDownListBox';
 
 /**
  * The PythonEnvironmentStep component is specific to Python projects in the new project wizard.
@@ -48,8 +48,8 @@ export const PythonEnvironmentStep = (props: PropsWithChildren<NewProjectWizardS
 
 	// TODO: retrieve the python environment types from the language runtime service somehow?
 	const envTypeEntries = [
-		new ComboBoxMenuItem({ identifier: 'Venv', label: 'Venv' + ' Creates a `.venv` virtual environment for your project' }),
-		new ComboBoxMenuItem({ identifier: 'Conda', label: 'Conda' + ' Creates a `.conda` Conda environment for your project' })
+		new DropDownListBoxItem({ identifier: 'Venv', title: 'Venv' + ' Creates a `.venv` virtual environment for your project' }),
+		new DropDownListBoxItem({ identifier: 'Conda', title: 'Conda' + ' Creates a `.conda` Conda environment for your project' })
 	];
 
 	// // TODO: hook this up to the radio buttons
@@ -79,7 +79,7 @@ export const PythonEnvironmentStep = (props: PropsWithChildren<NewProjectWizardS
 		const selectedRuntime = newProjectWizardState.languageRuntimeService.getRegisteredRuntime(identifier);
 		console.log(`Python interpreter selected: ${selectedRuntime}`);
 		if (!selectedRuntime) {
-			// This shouldn't happen, since the ComboBox should only allow selection of registered
+			// This shouldn't happen, since the DropDownListBox should only allow selection of registered
 			// runtimes
 			console.error(`No runtime found for identifier: ${identifier}`);
 			return;
@@ -154,10 +154,9 @@ export const PythonEnvironmentStep = (props: PropsWithChildren<NewProjectWizardS
 				feedback={`The ${projectConfig.pythonEnvType} environment will be created at: ${projectConfig.parentFolder}/${projectConfig.projectName}/${projectConfig.pythonEnvType === 'Venv' ? '.venv' : 'Conda' ? '.conda' : ''}`}
 			>
 				{/* TODO: how to pre-select an option? */}
-				<ComboBox
+				<DropDownListBox
 					keybindingService={keybindingService}
 					layoutService={layoutService}
-					className='combo-box'
 					title='Select an environment type'
 					entries={envTypeEntries}
 					onSelectionChanged={identifier => onEnvTypeSelected(identifier)}
@@ -172,10 +171,9 @@ export const PythonEnvironmentStep = (props: PropsWithChildren<NewProjectWizardS
 			>
 				{startupPhase !== RuntimeStartupPhase.Complete && (
 					// TODO: how to disable clicking on the combo box while loading?
-					<ComboBox
+					<DropDownListBox
 						keybindingService={keybindingService}
 						layoutService={layoutService}
-						className='combo-box'
 						title='Loading interpreters...'
 						entries={[]}
 						onSelectionChanged={() => { }}
@@ -183,10 +181,9 @@ export const PythonEnvironmentStep = (props: PropsWithChildren<NewProjectWizardS
 				)}
 				{startupPhase === RuntimeStartupPhase.Complete && (
 					// TODO: how to pre-select an option?
-					<ComboBox
+					<DropDownListBox
 						keybindingService={keybindingService}
 						layoutService={layoutService}
-						className='combo-box'
 						title='Select a Python interpreter'
 						// TODO: if the runtime startup phase is complete, but there are no suitable interpreters, show a message
 						// that no suitable interpreters were found and the user should install an interpreter with minimum version

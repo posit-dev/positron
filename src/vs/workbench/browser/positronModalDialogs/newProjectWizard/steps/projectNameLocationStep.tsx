@@ -5,16 +5,16 @@
 const React = require('react');
 import { PropsWithChildren } from 'react';
 import { localize } from 'vs/nls';
-import { PositronWizardStep } from 'vs/base/browser/ui/positronModalDialog/components/wizardStep';
 import { useNewProjectWizardContext } from 'vs/workbench/browser/positronModalDialogs/newProjectWizard/newProjectWizardContext';
 import { URI } from 'vs/base/common/uri';
-import { PositronWizardSubStep } from 'vs/base/browser/ui/positronModalDialog/components/wizardSubStep';
-import { LabeledTextInput } from 'vs/base/browser/ui/positronModalDialog/components/labeledTextInput';
-import { LabeledFolderInput } from 'vs/base/browser/ui/positronModalDialog/components/labeledFolderInput';
-import { Checkbox } from 'vs/base/browser/ui/positronModalDialog/components/checkbox';
 import { NewProjectWizardStep } from 'vs/workbench/browser/positronModalDialogs/newProjectWizard/steps/newProjectWizardStep';
 import { NewProjectWizardStepProps } from 'vs/workbench/browser/positronModalDialogs/newProjectWizard/steps/newProjectWizardStepProps';
 import { NewProjectType } from 'vs/workbench/browser/positronModalDialogs/newProjectWizard/newProjectWizardState';
+import { PositronWizardStep } from 'vs/workbench/browser/positronComponents/positronModalDialog/components/wizardStep';
+import { PositronWizardSubStep } from 'vs/workbench/browser/positronComponents/positronModalDialog/components/wizardSubStep';
+import { LabeledTextInput } from 'vs/workbench/browser/positronComponents/positronModalDialog/components/labeledTextInput';
+import { LabeledFolderInput } from 'vs/workbench/browser/positronComponents/positronModalDialog/components/labeledFolderInput';
+import { Checkbox } from 'vs/workbench/browser/positronComponents/positronModalDialog/components/checkbox';
 
 /**
  * The ProjectNameLocationStep component is the second step in the new project wizard.

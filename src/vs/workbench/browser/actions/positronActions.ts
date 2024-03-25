@@ -20,6 +20,9 @@ import { showNewFolderModalDialog } from 'vs/workbench/browser/positronModalDial
 import { showNewFolderFromGitModalDialog } from 'vs/workbench/browser/positronModalDialogs/newFolderFromGitModalDialog';
 import { showNewProjectModalDialog } from 'vs/workbench/browser/positronModalDialogs/newProjectWizard/newProjectModalDialog';
 import { IsDevelopmentContext } from 'vs/platform/contextkey/common/contextkeys';
+import { ILanguageRuntimeService } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { IRuntimeSessionService } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
+import { IRuntimeStartupService } from 'vs/workbench/services/runtimeStartup/common/runtimeStartupService';
 
 /**
  * The PositronNewProjectAction.
@@ -58,61 +61,21 @@ export class PositronNewProjectAction extends Action2 {
 	 * @param accessor The services accessor.
 	 */
 	override async run(accessor: ServicesAccessor): Promise<void> {
-		// Get the services we need to create the new workspace, if the user accept the dialog.
-		const commandService = accessor.get(ICommandService);
-		const fileService = accessor.get(IFileService);
-		const pathService = accessor.get(IPathService);
-
 		// TODO: see if we can pass in the result of ContextKeyExpr.deserialize('!config.git.enabled || git.missing')
 		// to the dialog so we can show a warning next to the git init checkbox if git is not configured.
 
-		// Show the new folder modal dialog. If the result is undefined, the user canceled the operation.
-		const result = await showNewProjectModalDialog(accessor);
-		if (!result) {
-			return;
-		}
-
-		// Create the new project.
-		const folder = URI.file((await pathService.path).join(result.parentFolder, result.projectName));
-		if (!(await fileService.exists(folder))) {
-			await fileService.createFolder(folder);
-		}
-		await commandService.executeCommand(
-			'vscode.openFolder',
-			folder,
-			{
-				forceNewWindow: result.openInNewWindow,
-				forceReuseWindow: !result.openInNewWindow
-			}
+		// Show the new project modal dialog.
+		await showNewProjectModalDialog(
+			accessor.get(IFileDialogService),
+			accessor.get(ILanguageRuntimeService),
+			accessor.get(IRuntimeSessionService),
+			accessor.get(IRuntimeStartupService),
+			accessor.get(IWorkbenchLayoutService),
+			accessor.get(IKeybindingService),
+			accessor.get(IPathService),
+			accessor.get(IFileService),
+			accessor.get(ICommandService),
 		);
-
-		// TODO: whether the folder is opened in a new window or not, we will need to store the
-		// project configuration in some workspace state so that we can use it to start the runtime.
-		// The extension host gets destroyed when a new project is opened in the same window.
-		//   - Where can the new project config be stored?
-		//       - See IStorageService, maybe StorageScope.WORKSPACE and StorageTarget.MACHINE
-
-		// 1) Create the directory for the new project (done above)
-		// 2) Set up the initial workspace for the new project
-		//   For Python
-		//     - If new environment creation is selected, create the .venv/.conda/etc. as appropriate
-		//     - If git init selected, create the .gitignore and README.md
-		//     - Create an unsaved Python file
-		//     - Set the active interpreter to the selected interpreter
-		//   For R
-		//     - If renv selected, run renv::init()
-		//     - Whether or not git init selected, create the .gitignore and README.md
-		//     - Create an unsaved R file
-		//     - Set the active interpreter to the selected interpreter
-		//   For Jupyter Notebook
-		//     - If git init selected, create the .gitignore and README.md
-		//     - Create an unsaved notebook file
-		//     - Set the active interpreter to the selected interpreter
-
-		// Other Thoughts
-		//   - Can the interpreter discovery at startup be modified to directly use the selected
-		//     interpreter, so that the user doesn't have to wait for the interpreter discovery to
-		//     complete before the runtime is started?
 	}
 }
 

@@ -5,8 +5,8 @@
 import 'vs/css!./wizardStep';
 const React = require('react');
 import { PropsWithChildren } from 'react';
-import { OKCancelBackNextActionBar, OKCancelBackNextActionBarProps } from 'vs/base/browser/ui/positronModalDialog/components/okCancelBackNextActionBar';
-import { VerticalStack } from 'vs/base/browser/ui/positronModalDialog/components/verticalStack';
+import { OKCancelBackNextActionBar, OKCancelBackNextActionBarProps } from 'vs/workbench/browser/positronComponents/positronModalDialog/components/okCancelBackNextActionBar';
+import { VerticalStack } from 'vs/workbench/browser/positronComponents/positronModalDialog/components/verticalStack';
 
 /**
  * PositronWizardModalDialog interface.
