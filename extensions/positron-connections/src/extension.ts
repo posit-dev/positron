@@ -34,12 +34,9 @@ export function activate(context: vscode.ExtensionContext) {
 	context.subscriptions.push(
 		vscode.commands.registerCommand('positron.connections.previewTable',
 			(item: ConnectionItemNode) => {
-				try {
-					item.preview();
-				} catch (e: any) {
-					// this is not fatal, but worth notifying
+				item.preview().catch((e: any) => {
 					vscode.window.showErrorMessage(`Error previewing '${item.name}': ${e.message}`);
-				}
+				});
 			}));
 
 	context.subscriptions.push(
