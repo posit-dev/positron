@@ -1,0 +1,45 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *--------------------------------------------------------------------------------------------*/
+.positron-notebooks-cell-action-bar {
+	--bar-h: 1rem;
+	position: absolute;
+	top: calc((var(--bar-h) + 0.25rem) * -1);
+	right: 0;
+	border: var(--positron-notebooks-border);
+	border-top-left-radius: 0.25rem;
+	border-top-right-radius: 0.25rem;
+	border-bottom: transparent;
+	background-color: var(--vscode-editor-background, white);
+	display: flex;
+	gap: 0.25rem;
+
+	.action-button {
+		aspect-ratio: 1;
+		display: grid;
+		place-content: center;
+		padding: 2px;
+
+		&:hover {
+			.button-icon::before {
+				color: blue;
+			}
+		}
+
+		.button-icon {
+			align-items: center;
+			justify-content: center;
+			display: flex;
+			width: 16px;
+			aspect-ratio: 1;
+		}
+
+		.button-icon::before {
+			color: inherit;
+		}
+
+		&.disabled {
+			color: grey;
+		}
+	}
+}

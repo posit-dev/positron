@@ -1,6 +1,7 @@
 /*---------------------------------------------------------------------------------------------
  *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
+import 'vs/css!./NotebookCellActionBar';
 
 import * as React from 'react';
 import { localize } from 'vs/nls';
@@ -10,7 +11,7 @@ import { IPositronNotebookGeneralCell } from 'vs/workbench/contrib/positronNoteb
 
 export function NotebookCellActionBar({ cell, children }: { cell: IPositronNotebookGeneralCell; children: React.ReactNode }) {
 
-	return <div className='action-bar'>
+	return <div className='positron-notebooks-cell-action-bar'>
 		{children}
 		<Button
 			className='action-button'
