@@ -104,20 +104,16 @@ export function useMarkupWebviewRenderer(cell: IPositronNotebookMarkupCell) {
 						vscode.postMessage({ type: 'dblclick'});
 					}
 
-					// Listen for resizes so we can update height of webview as dynamic height
-					// content like images resize
-					document.onresize = () => {
-						reportHeight();
-					};
-
 					// Wait for page load to report height. This is needed
 					// so things like images etc can load for height to be correct
 					window.onload = () => {
 						reportHeight();
 					};
 
-					window.onDblClick = () => {
-						reportDoubleClick()
+					// Listen for resizes so we can update height of webview as dynamic height
+					// content like images resize
+					document.onresize = () => {
+						reportHeight();
 					};
 
 					window.addEventListener("dblclick", (event) => {
