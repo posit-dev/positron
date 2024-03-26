@@ -112,7 +112,12 @@ export const VariablesInstance = (props: VariablesInstanceProps) => {
 
 		// Return the cleanup function that will dispose of the event handlers.
 		return () => disposableStore.dispose();
-	}, []);
+	}, [
+		props.positronVariablesInstance,
+		props.reactComponentContainer,
+		scrollStateRef,
+		setScrollState
+	]);
 
 	// Width useEffect hook.
 	useEffect(() => {
@@ -128,7 +133,7 @@ export const VariablesInstance = (props: VariablesInstanceProps) => {
 
 		// Set the right column visibility.
 		setRightColumnVisible(newDetailsColumnWidth > RIGHT_COLUMN_VISIBILITY_THRESHOLD);
-	}, [props.width]);
+	}, [nameColumnWidth, props.width]);
 
 	// Entries useEffect hook.
 	useEffect(() => {
@@ -138,7 +143,7 @@ export const VariablesInstance = (props: VariablesInstanceProps) => {
 				setSelectedId(undefined);
 			}
 		}
-	}, [variableEntries]);
+	}, [selectedId, variableEntries]);
 
 	/**
 	 * onKeyDown event handler.

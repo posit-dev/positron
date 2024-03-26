@@ -969,7 +969,8 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 					nls.localize('positron.runtimeNotResponding', "{0} is not responding", session.runtimeMetadata.runtimeName),
 					warning,
 					nls.localize('positron.runtimeForceQuit', "Force Quit"),
-					nls.localize('positron.runtimeKeepWaiting', "Wait"));
+					nls.localize('positron.runtimeKeepWaiting', "Wait")
+				);
 
 				prompt.onChoice((choice) => {
 					// If the user chose to force quit the runtime, do so.
