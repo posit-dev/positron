@@ -3,8 +3,8 @@
  *--------------------------------------------------------------------------------------------*/
 
 import 'vs/css!./wizardStep';
-const React = require('react');
-import { PropsWithChildren } from 'react';
+import * as React from 'react';
+import { PropsWithChildren } from 'react';  // eslint-disable-line no-duplicate-imports
 import { OKCancelBackNextActionBar, OKCancelBackNextActionBarProps } from 'vs/workbench/browser/positronComponents/positronModalDialog/components/okCancelBackNextActionBar';
 import { VerticalStack } from 'vs/workbench/browser/positronComponents/positronModalDialog/components/verticalStack';
 

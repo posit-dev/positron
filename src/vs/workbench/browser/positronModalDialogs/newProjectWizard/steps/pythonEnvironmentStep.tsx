@@ -2,8 +2,8 @@
  *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
-const React = require('react');
-import { PropsWithChildren, useEffect, useState } from 'react';
+import * as React from 'react';
+import { PropsWithChildren, useEffect, useState } from 'react';  // eslint-disable-line no-duplicate-imports
 import { useNewProjectWizardContext } from 'vs/workbench/browser/positronModalDialogs/newProjectWizard/newProjectWizardContext';
 import { NewProjectWizardStepProps } from 'vs/workbench/browser/positronModalDialogs/newProjectWizard/steps/newProjectWizardStepProps';
 import { localize } from 'vs/nls';
@@ -77,7 +77,6 @@ export const PythonEnvironmentStep = (props: PropsWithChildren<NewProjectWizardS
 	// selected interpreter.
 	const onInterpreterSelected = (identifier: string) => {
 		const selectedRuntime = newProjectWizardState.languageRuntimeService.getRegisteredRuntime(identifier);
-		console.log(`Python interpreter selected: ${selectedRuntime}`);
 		if (!selectedRuntime) {
 			// This shouldn't happen, since the DropDownListBox should only allow selection of registered
 			// runtimes

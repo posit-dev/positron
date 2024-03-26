@@ -3,7 +3,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import 'vs/css!./newProjectModalDialog';
-const React = require('react');
+import * as React from 'react';
 import { localize } from 'vs/nls';
 import { IFileDialogService } from 'vs/platform/dialogs/common/dialogs';
 import { IWorkbenchLayoutService } from 'vs/workbench/services/layout/browser/layoutService';

@@ -3,8 +3,8 @@
  *--------------------------------------------------------------------------------------------*/
 
 import 'vs/css!./projectTypeStep';
-const React = require('react');
-import { PropsWithChildren } from 'react';
+import * as React from 'react';
+import { PropsWithChildren } from 'react';  // eslint-disable-line no-duplicate-imports
 import { Button } from 'vs/base/browser/ui/positronComponents/button/button';
 import { localize } from 'vs/nls';
 import { useNewProjectWizardContext } from 'vs/workbench/browser/positronModalDialogs/newProjectWizard/newProjectWizardContext';
