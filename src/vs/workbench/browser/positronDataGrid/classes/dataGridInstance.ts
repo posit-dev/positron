@@ -394,7 +394,7 @@ export abstract class DataGridInstance extends Disposable {
 	/**
 	 * Gets or sets a value which indicates whether the cursor is initially hidden.
 	 */
-	private _cursorInitiallyHidden: boolean;
+	private readonly _cursorInitiallyHidden: boolean;
 
 	/**
 	 * Gets a value which indicates whether to show the internal cursor.
@@ -892,15 +892,17 @@ export abstract class DataGridInstance extends Disposable {
 	 * Shows the cursor, if it was initially hidden.
 	 */
 	showCursor() {
-		// If the cursor isn't initially hidden, return false.
-		if (!this._cursorInitiallyHidden) {
-			return false;
+		// Set the initial cursor position.
+		if (this._cursorInitiallyHidden &&
+			this._cursorColumnIndex === -1 &&
+			this._cursorRowIndex === -1) {
+			this.setCursorPosition(0, 0);
+			// Return true, indicating that the cursor was shown.
+			return true;
 		}
 
-		// Clear the cursor initially hidden flag and set the initial cursor position.
-		this._cursorInitiallyHidden = false;
-		this.setCursorPosition(0, 0);
-		return true;
+		// Return false, indicating that the cursor was already showing.
+		return false;
 	}
 
 	/**
@@ -2007,7 +2009,9 @@ export abstract class DataGridInstance extends Disposable {
 	 * @param rowIndex The row index.
 	 * @returns The row label.
 	 */
-	abstract column(columnIndex: number): IDataColumn | undefined;
+	column(columnIndex: number): IDataColumn | undefined {
+		return undefined;
+	}
 
 	/**
 	 * Gets a row header.
@@ -2036,8 +2040,13 @@ export abstract class DataGridInstance extends Disposable {
 	protected softReset() {
 		this._firstColumnIndex = 0;
 		this._firstRowIndex = 0;
-		this._cursorColumnIndex = 0;
-		this._cursorRowIndex = 0;
+		if (this._cursorInitiallyHidden) {
+			this._cursorColumnIndex = -1;
+			this._cursorRowIndex = -1;
+		} else {
+			this._cursorColumnIndex = 0;
+			this._cursorRowIndex = 0;
+		}
 		this._cellSelectionRange = undefined;
 		this._columnSelectionRange = undefined;
 		this._columnSelectionIndexes.clear();

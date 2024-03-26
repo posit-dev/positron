@@ -135,7 +135,7 @@ export class TableDataDataGridInstance extends DataGridInstance {
 	 * @param columnIndex The column index.
 	 * @returns The column.
 	 */
-	column(columnIndex: number) {
+	override column(columnIndex: number) {
 		// Get the column schema.
 		const columnSchema = this._dataExplorerCache.getColumnSchema(columnIndex);
 		if (!columnSchema) {

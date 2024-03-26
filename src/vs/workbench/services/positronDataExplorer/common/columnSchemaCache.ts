@@ -4,7 +4,7 @@
 
 import { Emitter } from 'vs/base/common/event';
 import { Disposable } from 'vs/base/common/lifecycle';
-import { ColumnSchema, TableData } from 'vs/workbench/services/languageRuntime/common/positronDataExplorerComm';
+import { ColumnSchema } from 'vs/workbench/services/languageRuntime/common/positronDataExplorerComm';
 import { DataExplorerClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimeDataExplorerClient';
 
 /**
@@ -25,16 +25,15 @@ const arrayFromIndexRange = (startIndex: number, endIndex: number) =>
  * CacheUpdateDescriptor interface.
  */
 interface CacheUpdateDescriptor {
+	searchText?: string;
 	firstColumnIndex: number;
 	visibleColumns: number;
-	firstRowIndex?: number;
-	visibleRows?: number;
 }
 
 /**
- * DataExplorerCache class.
+ * ColumnSchemaCache class.
  */
-export class DataExplorerCache extends Disposable {
+export class ColumnSchemaCache extends Disposable {
 	//#region Private Properties
 
 	/**
@@ -48,14 +47,14 @@ export class DataExplorerCache extends Disposable {
 	private _cacheUpdateDescriptor?: CacheUpdateDescriptor;
 
 	/**
+	 * The search text.
+	 */
+	private _searchText?: string;
+
+	/**
 	 * Gets or sets the columns.
 	 */
 	private _columns = 0;
-
-	/**
-	 * Gets or sets the rows.
-	 */
-	private _rows = 0;
 
 	/**
 	 * Gets the data explorer client instance that this data explorer cache is caching data for.
@@ -66,16 +65,6 @@ export class DataExplorerCache extends Disposable {
 	 * Gets the column schema cache.
 	 */
 	private readonly _columnSchemaCache = new Map<number, ColumnSchema>();
-
-	/**
-	 * Gets the row label cache.
-	 */
-	private readonly _rowLabelCache = new Map<number, string>();
-
-	/**
-	 * Gets the data cell cache.
-	 */
-	private readonly _dataCellCache = new Map<string, string>();
 
 	/**
 	 * The onDidUpdateCache event emitter.
@@ -99,17 +88,8 @@ export class DataExplorerCache extends Disposable {
 
 		// Add the onDidSchemaUpdate event handler.
 		this._register(this._dataExplorerClientInstance.onDidSchemaUpdate(async () => {
-			// Clear the column schema cache, row label cache, and data cell cache.
+			// Clear the column schema cache.
 			this._columnSchemaCache.clear();
-			this._rowLabelCache.clear();
-			this._dataCellCache.clear();
-		}));
-
-		// Add the onDidDataUpdate event handler.
-		this._register(this._dataExplorerClientInstance.onDidDataUpdate(async () => {
-			// Clear the row label cache and data cell cache.
-			this._rowLabelCache.clear();
-			this._dataCellCache.clear();
 		}));
 	}
 
@@ -122,13 +102,6 @@ export class DataExplorerCache extends Disposable {
 	 */
 	get columns() {
 		return this._columns;
-	}
-
-	/**
-	 * Gets the rows.
-	 */
-	get rows() {
-		return this._rows;
 	}
 
 	//#endregion Public Properties
@@ -145,22 +118,13 @@ export class DataExplorerCache extends Disposable {
 	//#region Public Methods
 
 	/**
-	 * Invalidates the data cache.
-	 */
-	invalidateDataCache() {
-		this._rowLabelCache.clear();
-		this._dataCellCache.clear();
-	}
-
-	/**
-	 * Updates the cache for the specified columns and rows. If data caching isn't needed, omit the
-	 * firstRowIndex and visibleRows parameters from the cache update descriptor.
+	 * Updates the cache for the specified columns.
 	 * @param cacheUpdateDescriptor The cache update descriptor.
 	 * @returns A Promise<void> that resolves when the cache update is complete.
 	 */
 	async updateCache(cacheUpdateDescriptor: CacheUpdateDescriptor): Promise<void> {
-		// If a cache update is already in progress, set the cache update descriptor and return.
-		// This allows cache updates that are happening in rapid succession to overwrite one
+		// If a cache update is already in progress, set the pending cache update descriptor and
+		// return. This allows cache updates that are happening in rapid succession to overwrite one
 		// another so that only the last one gets processed. (For example, this happens when a user
 		// drags a scrollbar rapidly.)
 		if (this._updatingCache) {
@@ -173,26 +137,32 @@ export class DataExplorerCache extends Disposable {
 
 		// Destructure the cache update descriptor.
 		const {
+			searchText,
 			firstColumnIndex,
 			visibleColumns,
-			firstRowIndex,
-			visibleRows
 		} = cacheUpdateDescriptor;
 
-		// Get the size of the data.
-		const tableState = await this._dataExplorerClientInstance.getState();
-		this._columns = tableState.table_shape.num_columns;
-		this._rows = tableState.table_shape.num_rows;
+		// If the search text has changed, clear the column schema cache.
+		if (searchText !== this._searchText) {
+			this._columnSchemaCache.clear();
+		}
+
+		this._searchText = searchText;
+
+		// // Get the size of the data.
+		// const tableState = await this._dataExplorerClientInstance.getState();
+		// this._columns = tableState.table_shape.num_columns;
 
 		// Set the start column index and the end column index of the columns to cache.
 		const startColumnIndex = Math.max(
 			firstColumnIndex - (visibleColumns * OVERSCAN_FACTOR),
 			0
 		);
-		const endColumnIndex = Math.min(
-			startColumnIndex + visibleColumns + (visibleColumns * OVERSCAN_FACTOR * 2),
-			this._columns - 1
-		);
+		const endColumnIndex = startColumnIndex + visibleColumns + (visibleColumns * OVERSCAN_FACTOR * 2);
+		// const endColumnIndex = Math.min(
+		// 	startColumnIndex + visibleColumns + (visibleColumns * OVERSCAN_FACTOR * 2),
+		// 	this._columns - 1
+		// );
 
 		// Build an array of the column indicies to cache.
 		const columnIndicies = arrayFromIndexRange(startColumnIndex, endColumnIndex);
@@ -208,78 +178,23 @@ export class DataExplorerCache extends Disposable {
 		// If there are column schema indices that need to be cached, cache them.
 		if (columnSchemaIndices.length) {
 			// Get the schema.
-			const tableSchema = await this._dataExplorerClientInstance.getSchema(
-				columnSchemaIndices[0],
-				columnSchemaIndices[columnSchemaIndices.length - 1] - columnSchemaIndices[0] + 1
-			);
+			const tableSchemaSearchResult = await this._dataExplorerClientInstance.searchSchema({
+				searchText,
+				startIndex: columnSchemaIndices[0],
+				numColumns: columnSchemaIndices[columnSchemaIndices.length - 1] -
+					columnSchemaIndices[0] + 1
+			});
+
+			// Set the columns.
+			this._columns = tableSchemaSearchResult.matching_columns;
 
 			// Update the column schema cache, overwriting any entries we already have cached.
-			for (let i = 0; i < tableSchema.columns.length; i++) {
-				this._columnSchemaCache.set(columnSchemaIndices[0] + i, tableSchema.columns[i]);
+			for (let i = 0; i < tableSchemaSearchResult.columns.length; i++) {
+				this._columnSchemaCache.set(columnSchemaIndices[0] + i, tableSchemaSearchResult.columns[i]);
 			}
 
 			// Update the cache updated flag.
 			cacheUpdated = true;
-		}
-
-		// If data is also being cached, update the data cache.
-		if (firstRowIndex !== undefined && visibleRows !== undefined) {
-			// Set the start row index and the end row index of the rows to cache.
-			const startRowIndex = Math.max(
-				firstRowIndex - (visibleRows * OVERSCAN_FACTOR),
-				0
-			);
-			const endRowIndex = Math.min(
-				startRowIndex + visibleRows + (visibleRows * OVERSCAN_FACTOR * 2),
-				this._rows - 1
-			);
-
-			// Build an array of the row indices that need to be cached.
-			const rowIndices: number[] = [];
-			for (let rowIndex = startRowIndex; rowIndex <= endRowIndex; rowIndex++) {
-				for (let columnIndex = startColumnIndex; columnIndex <= endColumnIndex; columnIndex++) {
-					if (!this._dataCellCache.has(`${columnIndex},${rowIndex}`)) {
-						rowIndices.push(rowIndex);
-						break;
-					}
-				}
-			}
-
-			// If there are row indices that need to be cached, cache them.
-			if (rowIndices.length) {
-				// Calculate the rows count.
-				const rows = rowIndices[rowIndices.length - 1] - rowIndices[0] + 1;
-
-				// Get the data values.
-				const tableData: TableData = await this._dataExplorerClientInstance.getDataValues(
-					rowIndices[0],
-					rows,
-					columnIndicies
-				);
-
-				// Update the data cell cache, overwriting any entries we already have cached.
-				for (let row = 0; row < rows; row++) {
-					// Get the row index.
-					const rowIndex = rowIndices[row];
-
-					// If row labels were returned, cache the row label for the row.
-					if (tableData.row_labels) {
-						const rowLabel = tableData.row_labels[0][row];
-						this._rowLabelCache.set(rowIndex, rowLabel);
-					}
-
-					// Cache the data cells.
-					for (let column = 0; column < columnIndicies.length; column++) {
-						const value = tableData.columns[column][row];
-						const columnIndex = columnIndicies[column];
-						const rowIndex = rowIndices[row];
-						this._dataCellCache.set(`${columnIndex},${rowIndex}`, value);
-					}
-				}
-
-				// Update the cache updated flag.
-				cacheUpdated = true;
-			}
 		}
 
 		// If the cache was updated, fire the onDidUpdateCache event.
@@ -290,7 +205,7 @@ export class DataExplorerCache extends Disposable {
 		// Clear the updating cache flag.
 		this._updatingCache = false;
 
-		// If there is a cache update descriptor, update the cache for it.
+		// If there is a pending cache update descriptor, update the cache for it.
 		if (this._cacheUpdateDescriptor) {
 			// Get the pending cache update descriptor and clear it.
 			const pendingCacheUpdateDescriptor = this._cacheUpdateDescriptor;
@@ -308,25 +223,6 @@ export class DataExplorerCache extends Disposable {
 	 */
 	getColumnSchema(columnIndex: number) {
 		return this._columnSchemaCache.get(columnIndex);
-	}
-
-	/**
-	 * Gets the row label for the specified row index.
-	 * @param rowIndex The row index.
-	 * @returns The row label for the specified column index.
-	 */
-	getRowLabel(rowIndex: number) {
-		return this._rowLabelCache.get(rowIndex) ?? `${rowIndex}`;
-	}
-
-	/**
-	 * Gets the cell value for the specified column index and row index.
-	 * @param columnIndex The column index.
-	 * @param rowIndex The row index.
-	 * @returns The cell value for the specified column index and row index.
-	 */
-	getCellValue(columnIndex: number, rowIndex: number) {
-		return this._dataCellCache.get(`${columnIndex},${rowIndex}`);
 	}
 
 	//#endregion Public Methods

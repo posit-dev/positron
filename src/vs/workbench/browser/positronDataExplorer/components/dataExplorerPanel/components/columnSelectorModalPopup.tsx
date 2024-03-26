@@ -73,7 +73,9 @@ export const ColumnSelectorModalPopup = (props: ColumnSelectorModalPopupProps) =
 				<div className='search'>
 					<ColumnFilter
 						onFilterTextChanged={filterText => {
-							console.log(`Filter text changed to ${filterText}`);
+							props.columnSelectorDataGridInstance.setSearchText(
+								filterText ? filterText : undefined
+							);
 						}}
 					/>
 				</div>

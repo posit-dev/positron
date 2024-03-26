@@ -66,13 +66,8 @@ export const DropDownListBox = (props: DropDownListBoxProps) => {
 	return (
 		<Button
 			ref={ref}
-			className={
-				positronClassNames(
-					'drop-down-list-box',
-					props.className,
-					{ 'disabled': props.disabled }
-				)
-			}
+			disabled={props.disabled}
+			className={positronClassNames('drop-down-list-box', props.className)}
 			onPressed={() => {
 				// Create the renderer.
 				const renderer = new PositronModalReactRenderer({

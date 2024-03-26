@@ -192,15 +192,6 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 	}
 
 	/**
-	 * Gets a column.
-	 * @param columnIndex The column index.
-	 * @returns The column.
-	 */
-	column(columnIndex: number) {
-		return undefined;
-	}
-
-	/**
 	 * Gets a cell.
 	 * @param columnIndex The column index.
 	 * @param rowIndex The row index.

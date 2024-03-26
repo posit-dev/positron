@@ -9,7 +9,7 @@ import * as React from 'react';
 import { Emitter } from 'vs/base/common/event';
 import { DataGridInstance } from 'vs/workbench/browser/positronDataGrid/classes/dataGridInstance';
 import { ColumnSchema } from 'vs/workbench/services/languageRuntime/common/positronDataExplorerComm';
-import { DataExplorerCache } from 'vs/workbench/services/positronDataExplorer/common/dataExplorerCache';
+import { ColumnSchemaCache } from 'vs/workbench/services/positronDataExplorer/common/columnSchemaCache';
 import { DataExplorerClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimeDataExplorerClient';
 import { ColumnSelectorCell } from 'vs/workbench/browser/positronDataExplorer/components/dataExplorerPanel/components/columnSelectorCell';
 
@@ -30,9 +30,14 @@ export class ColumnSelectorDataGridInstance extends DataGridInstance {
 	private readonly _dataExplorerClientInstance: DataExplorerClientInstance;
 
 	/**
-	 * Gets the data explorer cache.
+	 * Gets or sets the search text.
 	 */
-	private readonly _dataExplorerCache: DataExplorerCache;
+	private _searchText?: string;
+
+	/**
+	 * Gets the column schema cache.
+	 */
+	private readonly _columnSchemaCache: ColumnSchemaCache;
 
 	/**
 	 * The onDidSelectColumn event emitter.
@@ -70,16 +75,17 @@ export class ColumnSelectorDataGridInstance extends DataGridInstance {
 		// Set the data explorer client instance.
 		this._dataExplorerClientInstance = dataExplorerClientInstance;
 
-		// Allocate and initialize the DataExplorerCache.
-		this._dataExplorerCache = new DataExplorerCache(dataExplorerClientInstance);
-		this._dataExplorerCache.onDidUpdateCache(() => this._onDidUpdateEmitter.fire());
+		// Allocate and initialize the column schema cache.
+		this._columnSchemaCache = new ColumnSchemaCache(dataExplorerClientInstance);
+		this._register(this._columnSchemaCache.onDidUpdateCache(() =>
+			this._onDidUpdateEmitter.fire()
+		));
 
 		// Add the onDidSchemaUpdate event handler.
-		this._dataExplorerClientInstance.onDidSchemaUpdate(async () => {
+		this._register(this._dataExplorerClientInstance.onDidSchemaUpdate(async () => {
 			this.setScreenPosition(0, 0);
 			this.fetchData();
-		});
-
+		}));
 	}
 
 	//#endregion Constructor
@@ -97,7 +103,7 @@ export class ColumnSelectorDataGridInstance extends DataGridInstance {
 	 * Gets the number of rows.
 	 */
 	get rows() {
-		return this._dataExplorerCache.columns;
+		return this._columnSchemaCache.columns;
 	}
 
 	//#endregion DataGridInstance Properties
@@ -108,7 +114,8 @@ export class ColumnSelectorDataGridInstance extends DataGridInstance {
 	 * Fetches data.
 	 */
 	override fetchData() {
-		this._dataExplorerCache.updateCache({
+		this._columnSchemaCache.updateCache({
+			searchText: this._searchText,
 			firstColumnIndex: this.firstRowIndex,
 			visibleColumns: this.screenRows
 		});
@@ -131,15 +138,6 @@ export class ColumnSelectorDataGridInstance extends DataGridInstance {
 	}
 
 	/**
-	 * Gets a column.
-	 * @param columnIndex The column index.
-	 * @returns The column.
-	 */
-	column(columnIndex: number) {
-		return undefined;
-	}
-
-	/**
 	 * Gets a cell.
 	 * @param columnIndex The column index.
 	 * @param rowIndex The row index.
@@ -152,7 +150,7 @@ export class ColumnSelectorDataGridInstance extends DataGridInstance {
 		}
 
 		// Get the column schema for the row index.
-		const columnSchema = this._dataExplorerCache.getColumnSchema(rowIndex);
+		const columnSchema = this._columnSchemaCache.getColumnSchema(rowIndex);
 		if (!columnSchema) {
 			return undefined;
 		}
@@ -178,4 +176,20 @@ export class ColumnSelectorDataGridInstance extends DataGridInstance {
 	readonly onDidSelectColumn = this._onDidSelectColumnEmitter.event;
 
 	//#endregion Public Events
+
+	//#region Public Methods
+
+	async setSearchText(searchText?: string): Promise<void> {
+		// When the search text changes, perform a soft reset and search.
+		if (searchText !== this._searchText) {
+			// Each search performs a soft
+			this.softReset();
+
+			// Set the search text and fetch data.
+			this._searchText = searchText;
+			this.fetchData();
+		}
+	}
+
+	//#endregion Public Methods
 }
