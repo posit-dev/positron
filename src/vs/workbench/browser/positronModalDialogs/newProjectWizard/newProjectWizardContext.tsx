@@ -9,7 +9,7 @@ import { NewProjectWizardState, NewProjectWizardStateProps, useNewProjectWizardS
 /**
  * Create the New Project Wizard context.
  */
-const NewProjectWizardContext = createContext<NewProjectWizardState>(undefined!);
+const NewProjectWizardContext = createContext<NewProjectWizardState | undefined>(undefined);
 
 /**
  * Export the NewProjectWizardContextProvider provider
@@ -29,4 +29,10 @@ export const NewProjectWizardContextProvider = (props: PropsWithChildren<NewProj
 /**
  * Export useNewProjectWizardContext to simplify using the New Project Wizard context object.
  */
-export const useNewProjectWizardContext = () => useContext(NewProjectWizardContext);
+export const useNewProjectWizardContext = () => {
+	const wizardState = useContext(NewProjectWizardContext);
+	if (!wizardState) {
+		throw new Error('No new project wizard context provided');
+	}
+	return wizardState;
+};
