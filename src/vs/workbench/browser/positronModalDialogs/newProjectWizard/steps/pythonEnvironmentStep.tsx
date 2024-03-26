@@ -27,6 +27,7 @@ export const PythonEnvironmentStep = (props: PropsWithChildren<NewProjectWizardS
 	const projectConfig = newProjectWizardState.projectConfig;
 	const keybindingService = newProjectWizardState.keybindingService;
 	const layoutService = newProjectWizardState.layoutService;
+	const logService = newProjectWizardState.logService;
 
 	// Hooks to manage the startup phase and interpreter entries.
 	const [startupPhase, setStartupPhase] =
@@ -69,7 +70,7 @@ export const PythonEnvironmentStep = (props: PropsWithChildren<NewProjectWizardS
 				setInterpreterEntries(createCondaInterpreterDropDownItems());
 				break;
 			default:
-				console.error(`Unknown environment type: ${identifier}`);
+				logService.error(`Unknown environment type: ${identifier}`);
 		}
 		setProjectConfig({ ...projectConfig, pythonEnvType: identifier });
 	};
@@ -81,7 +82,7 @@ export const PythonEnvironmentStep = (props: PropsWithChildren<NewProjectWizardS
 		if (!selectedRuntime) {
 			// This shouldn't happen, since the DropDownListBox should only allow selection of registered
 			// runtimes
-			console.error(`No runtime found for identifier: ${identifier}`);
+			logService.error(`No runtime found for identifier: ${identifier}`);
 			return;
 		}
 		setProjectConfig({ ...projectConfig, selectedRuntime });
@@ -99,7 +100,6 @@ export const PythonEnvironmentStep = (props: PropsWithChildren<NewProjectWizardS
 		disposableStore.add(
 			newProjectWizardState.runtimeStartupService.onDidChangeRuntimeStartupPhase(
 				phase => {
-					console.log('Python runtime discovery phase:', phase);
 					if (phase === RuntimeStartupPhase.Complete) {
 						// TODO: instead of calling createPythonInterpreterComboBoxItems, it should
 						// be aware of the defaults set by the environment type (Venv, Conda)

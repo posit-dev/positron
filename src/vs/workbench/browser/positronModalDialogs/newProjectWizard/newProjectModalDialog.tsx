@@ -20,6 +20,7 @@ import { URI } from 'vs/base/common/uri';
 import { IPathService } from 'vs/workbench/services/path/common/pathService';
 import { IFileService } from 'vs/platform/files/common/files';
 import { ICommandService } from 'vs/platform/commands/common/commands';
+import { ILogService } from 'vs/platform/log/common/log';
 
 /**
  * Shows the NewProjectModalDialog.
@@ -31,6 +32,7 @@ export const showNewProjectModalDialog = async (
 	keybindingService: IKeybindingService,
 	languageRuntimeService: ILanguageRuntimeService,
 	layoutService: IWorkbenchLayoutService,
+	logService: ILogService,
 	pathService: IPathService,
 	runtimeSessionService: IRuntimeSessionService,
 	runtimeStartupService: IRuntimeStartupService,
@@ -47,9 +49,10 @@ export const showNewProjectModalDialog = async (
 		<NewProjectWizardContextProvider
 			services={{
 				fileDialogService,
+				keybindingService,
 				languageRuntimeService,
 				layoutService,
-				keybindingService,
+				logService,
 				runtimeSessionService,
 				runtimeStartupService,
 			}}
