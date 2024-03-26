@@ -159,10 +159,6 @@ export class ColumnSchemaCache extends Disposable {
 			0
 		);
 		const endColumnIndex = startColumnIndex + visibleColumns + (visibleColumns * OVERSCAN_FACTOR * 2);
-		// const endColumnIndex = Math.min(
-		// 	startColumnIndex + visibleColumns + (visibleColumns * OVERSCAN_FACTOR * 2),
-		// 	this._columns - 1
-		// );
 
 		// Build an array of the column indicies to cache.
 		const columnIndicies = arrayFromIndexRange(startColumnIndex, endColumnIndex);
