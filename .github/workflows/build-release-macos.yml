@@ -223,7 +223,7 @@ jobs:
 
           # Create the disk image itself.
           hdiutil create \
-            -size 1g \
+            -size 2g \
             -fs "APFS" \
             -volname "${POSITRON_BUNDLE_NAME}" \
             -srcfolder "VSCode-darwin-universal" \
