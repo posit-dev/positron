@@ -58,6 +58,7 @@ export const FilterBar = () => {
 		renderer.render(
 			// TODO: Work in progress.
 			<AddRowFilterModalPopup
+				dataExplorerClientInstance={context.instance.dataExplorerClientInstance}
 				renderer={renderer}
 				anchor={filterButtonRef.current}
 			/>

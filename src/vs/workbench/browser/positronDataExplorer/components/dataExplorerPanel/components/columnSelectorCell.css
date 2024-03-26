@@ -1,0 +1,65 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *--------------------------------------------------------------------------------------------*/
+
+.data-grid-row-cell
+.content
+.column-selector-cell {
+	top: 0;
+	right: 0;
+	bottom: 0;
+	left: 0;
+	z-index: 0;
+	display: grid;
+	overflow: hidden;
+	position: absolute;
+}
+
+.data-grid-row-cell
+.content
+.column-selector-cell
+.cursor-background {
+	top: 0;
+	right: 0;
+	bottom: 0;
+	left: 0;
+	z-index: -1;
+	position: absolute;
+	border-radius: 4px;
+	background-color: var(--vscode-positronDataExplorer-selectionBackground);
+	border: 1px solid var(--vscode-positronDataGrid-selectionBorder);
+}
+
+.data-grid-row-cell
+.content
+.column-selector-cell
+.info {
+	display: grid;
+	align-items: center;
+	grid-template-columns: [left-gutter] 4px [icon] 25px [title] 1fr [right-gutter] 4px [end];
+}
+
+.data-grid-row-cell
+.content
+.column-selector-cell
+.info
+.data-type-icon {
+	width: 25px;
+	height: 25px;
+	opacity: 80%;
+	display: flex;
+	align-items: center;
+	justify-content: left;
+	grid-column: icon / title;
+}
+
+.data-grid-row-cell
+.content
+.column-selector-cell
+.info
+.column-name {
+	display: flex;
+	align-items: center;
+	justify-content: left;
+	grid-column: title / right-gutter;
+}

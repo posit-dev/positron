@@ -61,6 +61,7 @@ export interface PositronModalPopupProps {
 	minWidth?: number;
 	width: number | 'max-content';
 	height: number | 'min-content';
+	focusableElementSelectors?: string;
 	keyboardNavigation: KeyboardNavigation;
 }
 
@@ -136,7 +137,7 @@ export const PositronModalPopup = (props: PropsWithChildren<PositronModalPopupPr
 			const navigateFocusableElements = (direction: 'next' | 'previous', wrap: boolean) => {
 				// Get the focusable elements.
 				const focusableElements = popupContainerRef.current.querySelectorAll<HTMLElement>(
-					focusableElementSelectors
+					props.focusableElementSelectors ?? focusableElementSelectors
 				);
 
 				// If there are no focusable elements in the modal popup, consume the event and

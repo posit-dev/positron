@@ -7,15 +7,19 @@ import 'vs/css!./addRowFilterModalPopup';
 
 // React.
 import * as React from 'react';
+import { useEffect, useState } from 'react'; // eslint-disable-line no-duplicate-imports
 
 // Other dependencies.
 import { localize } from 'vs/nls';
 import { Button } from 'vs/base/browser/ui/positronComponents/button/button';
+import { ColumnSchema } from 'vs/workbench/services/languageRuntime/common/positronDataExplorerComm';
 import { DropDownListBox } from 'vs/workbench/browser/positronComponents/dropDownListBox/dropDownListBox';
 import { DropDownListBoxItem } from 'vs/workbench/browser/positronComponents/dropDownListBox/dropDownListBoxItem';
-import { DropDownListBoxSeparator } from 'vs/workbench/browser/positronComponents/dropDownListBox/dropDownListBoxSeparator';
 import { PositronModalPopup } from 'vs/workbench/browser/positronComponents/positronModalPopup/positronModalPopup';
 import { PositronModalReactRenderer } from 'vs/workbench/browser/positronModalReactRenderer/positronModalReactRenderer';
+import { DropDownListBoxSeparator } from 'vs/workbench/browser/positronComponents/dropDownListBox/dropDownListBoxSeparator';
+import { DataExplorerClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimeDataExplorerClient';
+import { DropDownColumnSelector } from 'vs/workbench/browser/positronDataExplorer/components/dataExplorerPanel/components/dropDownColumnSelector';
 
 /**
  * Condition enumeration.
@@ -34,6 +38,7 @@ export enum Condition {
  * AddRowFilterModalPopupProps interface.
  */
 interface AddRowFilterModalPopupProps {
+	dataExplorerClientInstance: DataExplorerClientInstance;
 	renderer: PositronModalReactRenderer;
 	anchor: HTMLElement;
 }
@@ -44,6 +49,23 @@ interface AddRowFilterModalPopupProps {
  * @returns The rendered component.
  */
 export const AddRowFilterModalPopup = (props: AddRowFilterModalPopupProps) => {
+	// State hooks.
+	const [selectedCondition, setSelectedCondition] = useState<string | undefined>(undefined);
+	const [selectedColumnSchema, setSelectedColumnSchema] =
+		useState<ColumnSchema | undefined>(undefined);
+
+	// Form useEffect.
+	useEffect(() => {
+
+	}, [selectedCondition, selectedColumnSchema]);
+
+	/**
+	 * Apple button onPressed handler.
+	 */
+	const applyButtonPressed = () => {
+
+	};
+
 	// Render.
 	return (
 		<PositronModalPopup
@@ -51,16 +73,22 @@ export const AddRowFilterModalPopup = (props: AddRowFilterModalPopupProps) => {
 			anchor={props.anchor}
 			popupPosition='bottom'
 			popupAlignment='left'
-			minWidth={275}
-			width={'max-content'}
+			width={275}
 			height={'min-content'}
 			keyboardNavigation='dialog'
 		>
 			<div className='add-row-filter-modal-popup-body'>
+				<DropDownColumnSelector
+					keybindingService={props.renderer.keybindingService}
+					layoutService={props.renderer.layoutService}
+					dataExplorerClientInstance={props.dataExplorerClientInstance}
+					title={localize('positron.selectColumn', "Select Column")}
+					onValueChanged={columnSchema => setSelectedColumnSchema(columnSchema)}
+				/>
 				<DropDownListBox
 					keybindingService={props.renderer.keybindingService}
 					layoutService={props.renderer.layoutService}
-					title='Select Column'
+					title={localize('positron.selectCondition', "Select Condition")}
 					entries={[
 						new DropDownListBoxItem({
 							identifier: Condition.CONDITION_IS_EMPTY,
@@ -92,10 +120,10 @@ export const AddRowFilterModalPopup = (props: AddRowFilterModalPopupProps) => {
 							title: localize('positron.isNotBetween', "is not between")
 						})
 					]}
-					onSelectionChanged={identifier => console.log(`Select Column changed to ${identifier}`)}
+					onSelectionChanged={identifier => setSelectedCondition(identifier)}
 				/>
-				<Button className='solid button-apply-filter'>
-					Apply Filter
+				<Button className='solid button-apply-filter' onPressed={applyButtonPressed}>
+					{localize('positron.ApplyFilter', 'Apply Filter')}
 				</Button>
 			</div>
 		</PositronModalPopup>

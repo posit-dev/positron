@@ -35,7 +35,7 @@ type RowHeaderOptions = | {
  * DefaultSizeOptions type.
  */
 type DefaultSizeOptions = | {
-	readonly defaultColumnWidth: number;
+	readonly defaultColumnWidth?: number;
 	readonly defaultRowHeight: number;
 };
 
@@ -86,6 +86,8 @@ type ScrollbarOptions = | {
  * DisplayOptions type.
  */
 type DisplayOptions = | {
+	automaticLayout: boolean;
+	rowsMargin?: number;
 	cellBorders?: boolean;
 };
 
@@ -366,6 +368,16 @@ export abstract class DataGridInstance extends Disposable {
 	private readonly _scrollbarWidth: number;
 
 	/**
+	 * Gets a value which indicates whether to perform automatic layout using a ResizeObserver.
+	 */
+	private readonly _automaticLayout: boolean;
+
+	/**
+	 * Gets the rows margin.
+	 */
+	private readonly _rowsMargin: number;
+
+	/**
 	 * Gets a value which indicates whether to show cell borders.
 	 */
 	private readonly _cellBorders: boolean;
@@ -484,11 +496,11 @@ export abstract class DataGridInstance extends Disposable {
 		this._rowHeadersWidth = this._rowHeaders ? options.rowHeadersWidth ?? 0 : 0;
 		this._rowHeadersResize = this._rowHeaders ? options.rowHeadersResize ?? false : false;
 
-		this._defaultColumnWidth = options.defaultColumnWidth;
+		this._defaultColumnWidth = options.defaultColumnWidth ?? 0;
 		this._defaultRowHeight = options.defaultRowHeight;
 
 		this._columnResize = options.columnResize || false;
-		this._minimumColumnWidth = options.minimumColumnWidth ?? options.defaultColumnWidth;
+		this._minimumColumnWidth = options.minimumColumnWidth ?? this._defaultColumnWidth;
 
 		this._rowResize = options.rowResize || false;
 		this._minimumRowHeight = options.minimumRowHeight ?? options.defaultRowHeight;
@@ -497,6 +509,8 @@ export abstract class DataGridInstance extends Disposable {
 		this._verticalScrollbar = options.verticalScrollbar || false;
 		this._scrollbarWidth = options.scrollbarWidth ?? 0;
 
+		this._automaticLayout = options.automaticLayout ?? true;
+		this._rowsMargin = options.rowsMargin ?? 0;
 		this._cellBorders = options.cellBorders ?? true;
 
 		this._cursor = options.cursor ?? true;
@@ -605,6 +619,20 @@ export abstract class DataGridInstance extends Disposable {
 	 */
 	get scrollbarWidth() {
 		return this._scrollbarWidth;
+	}
+
+	/**
+	 * Gets a value which indicates whether to perform automatic layout using a ResizeObserver.
+	 */
+	get automaticLayout() {
+		return this._automaticLayout;
+	}
+
+	/**
+	 * Gets the rows margin.
+	 */
+	get rowsMargin() {
+		return this._rowsMargin;
 	}
 
 	/**

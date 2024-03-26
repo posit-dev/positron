@@ -1,0 +1,62 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *--------------------------------------------------------------------------------------------*/
+
+.drop-down-column-selector {
+	padding: 4px;
+	display: grid;
+	border-radius: 4px;
+	align-items: center;
+	grid-template-columns: [title] 1fr [chevron] 22px [end];
+	border: 1px solid var(--vscode-positronDropDown-border) !important;
+}
+
+.drop-down-column-selector
+.title {
+	display: flex;
+	padding-left: 6px;
+	align-items: center;
+	grid-column: title / chevron;
+}
+
+.drop-down-column-selector
+.title-foo {
+	grid-column: title / chevron;
+	display: grid;
+	align-items: center;
+	grid-template-columns: [left-gutter] 4px [icon] 25px [title] 1fr [right-gutter] 4px [end];
+}
+
+.drop-down-column-selector
+.title-foo
+.data-type-icon {
+	width: 25px;
+	/* height: 25px; */
+	opacity: 80%;
+	display: flex;
+	align-items: center;
+	justify-content: left;
+	grid-column: icon / title;
+}
+
+.drop-down-column-selector
+.title-foo
+.column-name {
+	display: flex;
+	align-items: center;
+	justify-content: left;
+	grid-column: title / right-gutter;
+}
+
+.drop-down-column-selector
+.chevron {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	grid-column: chevron / end;
+}
+
+.drop-down {
+	width: 100%;
+	height: 100%;
+}

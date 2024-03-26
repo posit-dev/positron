@@ -6,14 +6,23 @@ import { Emitter, Event } from 'vs/base/common/event';
 import { Disposable } from 'vs/base/common/lifecycle';
 import { generateUuid } from 'vs/base/common/uuid';
 import { IRuntimeClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimeClientInstance';
-import {
-	ColumnSortKey,
-	PositronDataExplorerComm,
-	SchemaUpdateEvent,
-	TableData,
-	TableSchema,
-	TableState
-} from 'vs/workbench/services/languageRuntime/common/positronDataExplorerComm';
+import { ColumnSchema, ColumnSortKey, PositronDataExplorerComm, SchemaUpdateEvent, TableData, TableSchema, TableState } from 'vs/workbench/services/languageRuntime/common/positronDataExplorerComm';
+
+/**
+ * TableSchemaSearchResult interface. This is here temporarily until searching the tabe schema
+ * becomespart of the PositronDataExplorerComm.
+ */
+export interface TableSchemaSearchResult {
+	/**
+	 * The number of matching columns.
+	 */
+	matching_columns: number;
+
+	/**
+	 * Column schema for the matching columns.
+	 */
+	columns: Array<ColumnSchema>;
+}
 
 /**
  * A data explorer client instance.
@@ -94,6 +103,49 @@ export class DataExplorerClientInstance extends Disposable {
 	 */
 	async getState(): Promise<TableState> {
 		return this._positronDataExplorerComm.getState();
+	}
+
+	/**
+	 * Searches the table schema.
+	 * @param searchText The search text.
+	 * @param maxResults The maximum number of results to return.
+	 * @returns A TableSchemaSearchResult that contains the search result.
+	 */
+	async searchSchema(
+		searchText: string | undefined,
+		maxResults: number
+	): Promise<TableSchemaSearchResult> {
+		/**
+		 * Brute force temporary implementation.
+		 */
+
+		// Get the table state so we know now many columns there are.
+		const tableState = await this._positronDataExplorerComm.getState();
+
+		// Load the entire schema of the table so it can be searched.
+		const tableSchema = await this._positronDataExplorerComm.getSchema(
+			0,
+			tableState.table_shape.num_columns
+		);
+
+		// If a search term was not supplied, return the result.
+		if (!searchText) {
+			return {
+				matching_columns: tableSchema.columns.length,
+				columns: tableSchema.columns.slice(0, maxResults)
+			};
+		} else {
+			// Search the columns.
+			const columns = tableSchema.columns.filter(columnSchema =>
+				columnSchema.column_name.includes(searchText)
+			);
+
+			// Return the result.
+			return {
+				matching_columns: columns.length,
+				columns: columns.slice(0, maxResults)
+			};
+		}
 	}
 
 	/**

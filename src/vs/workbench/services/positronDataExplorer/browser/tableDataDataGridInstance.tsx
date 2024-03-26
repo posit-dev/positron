@@ -55,6 +55,7 @@ export class TableDataDataGridInstance extends DataGridInstance {
 			horizontalScrollbar: true,
 			verticalScrollbar: true,
 			scrollbarWidth: 14,
+			automaticLayout: true,
 			cellBorders: true,
 			cursor: true,
 			cursorOffset: 0.5,

@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
 // React.
@@ -9,20 +9,19 @@ import * as React from 'react';
 import { Emitter } from 'vs/base/common/event';
 import { DataGridInstance } from 'vs/workbench/browser/positronDataGrid/classes/dataGridInstance';
 import { DataExplorerCache } from 'vs/workbench/services/positronDataExplorer/common/dataExplorerCache';
-import { ColumnSchemaTypeDisplay } from 'vs/workbench/services/languageRuntime/common/positronDataExplorerComm';
-import { ColumnSummaryCell } from 'vs/workbench/services/positronDataExplorer/browser/components/columnSummaryCell';
 import { DataExplorerClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimeDataExplorerClient';
+import { ColumnSelectorCell } from 'vs/workbench/browser/positronDataExplorer/components/dataExplorerPanel/components/columnSelectorCell';
+import { ColumnSchema } from 'vs/workbench/services/languageRuntime/common/positronDataExplorerComm';
 
 /**
  * Constants.
  */
-const SUMMARY_HEIGHT = 34;
-const PROFILE_LINE_HEIGHT = 20;
+const ROW_HEIGHT = 26;
 
 /**
- * TableSummaryDataGridInstance class.
+ * ColumnSelectorDataGridInstance class.
  */
-export class TableSummaryDataGridInstance extends DataGridInstance {
+export class ColumnSelectorDataGridInstance extends DataGridInstance {
 	//#region Private Properties
 
 	/**
@@ -36,14 +35,9 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 	private readonly _dataExplorerCache: DataExplorerCache;
 
 	/**
-	 * Gets the expanded columns set.
-	 */
-	private readonly _expandedColumns = new Set<number>();
-
-	/**
 	 * The onDidSelectColumn event emitter.
 	 */
-	private readonly _onDidSelectColumnEmitter = this._register(new Emitter<number>);
+	private readonly _onDidSelectColumnEmitter = this._register(new Emitter<ColumnSchema>);
 
 	//#endregion Private Properties
 
@@ -58,14 +52,15 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 		super({
 			columnHeaders: false,
 			rowHeaders: false,
-			defaultColumnWidth: 200,
-			defaultRowHeight: SUMMARY_HEIGHT,
+			defaultColumnWidth: 100,
+			defaultRowHeight: ROW_HEIGHT,
 			columnResize: false,
 			rowResize: false,
 			horizontalScrollbar: false,
 			verticalScrollbar: true,
-			scrollbarWidth: 14,
+			scrollbarWidth: 8,
 			automaticLayout: true,
+			rowsMargin: 4,
 			cellBorders: false,
 			cursor: false,
 			selection: false
@@ -81,7 +76,6 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 		// Add the onDidSchemaUpdate event handler.
 		this._dataExplorerClientInstance.onDidSchemaUpdate(async () => {
 			this.setScreenPosition(0, 0);
-			this._expandedColumns.clear();
 			this.fetchData();
 		});
 
@@ -124,7 +118,7 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 	 * @param columnIndex The column index.
 	 */
 	override getColumnWidth(columnIndex: number): number {
-		return this.layoutWidth;
+		return this.layoutWidth - 8;
 	}
 
 	/**
@@ -132,63 +126,7 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 	 * @param rowIndex The row index.
 	 */
 	override getRowHeight(rowIndex: number): number {
-		// If the column isn't expanded, return the summary height.
-		if (!this.isColumnExpanded(rowIndex)) {
-			return SUMMARY_HEIGHT;
-		}
-
-		// Get the column schema. If it hasn't been loaded yet, return the summary height.
-		const columnSchema = this._dataExplorerCache.getColumnSchema(rowIndex);
-		if (!columnSchema) {
-			return SUMMARY_HEIGHT;
-		}
-
-		/**
-		 * Returns the row height with the specified number of lines.
-		 * @param profileLines
-		 * @returns
-		 */
-		const rowHeight = (profileLines: number) => {
-			if (profileLines === 0) {
-				return SUMMARY_HEIGHT;
-			} else {
-				return SUMMARY_HEIGHT + (profileLines * PROFILE_LINE_HEIGHT) + 10;
-			}
-		};
-
-		// Return the row height.
-		switch (columnSchema.type_display) {
-			case ColumnSchemaTypeDisplay.Number:
-				return rowHeight(6);
-
-			case ColumnSchemaTypeDisplay.Boolean:
-				return rowHeight(3);
-
-			case ColumnSchemaTypeDisplay.String:
-				return rowHeight(3);
-
-			case ColumnSchemaTypeDisplay.Date:
-				return rowHeight(7);
-
-			case ColumnSchemaTypeDisplay.Datetime:
-				return rowHeight(7);
-
-			case ColumnSchemaTypeDisplay.Time:
-				return rowHeight(7);
-
-			case ColumnSchemaTypeDisplay.Array:
-				return rowHeight(2);
-
-			case ColumnSchemaTypeDisplay.Struct:
-				return rowHeight(2);
-
-			case ColumnSchemaTypeDisplay.Unknown:
-				return rowHeight(2);
-
-			// This shouldn't ever happen.
-			default:
-				return rowHeight(0);
-		}
+		return ROW_HEIGHT;
 	}
 
 	/**
@@ -220,11 +158,11 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 
 		// Return the ColumnSummaryCell.
 		return (
-			<ColumnSummaryCell
+			<ColumnSelectorCell
 				instance={this}
 				columnSchema={columnSchema}
 				columnIndex={rowIndex}
-				onDoubleClick={() => this._onDidSelectColumnEmitter.fire(rowIndex)}
+				onPressed={() => this._onDidSelectColumnEmitter.fire(columnSchema)}
 			/>
 		);
 	}
@@ -239,34 +177,4 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 	readonly onDidSelectColumn = this._onDidSelectColumnEmitter.event;
 
 	//#endregion Public Events
-
-	//#region Public Methods
-
-	/**
-	 * Returns a value which indicates whether a column is expanded.
-	 * @param columnIndex The columm index.
-	 * @returns A value which indicates whether the column is expanded.
-	 */
-	isColumnExpanded(columnIndex: number) {
-		return this._expandedColumns.has(columnIndex);
-	}
-
-	/**
-	 * Toggles expand column.
-	 * @param columnIndex The columm index.
-	 */
-	toggleExpandColumn(columnIndex: number) {
-		// Tottle expand column.
-		if (this._expandedColumns.has(columnIndex)) {
-			this._expandedColumns.delete(columnIndex);
-		} else {
-			this._expandedColumns.add(columnIndex);
-			this.scrollToRow(columnIndex);
-		}
-
-		// Fire the onDidUpdate event.
-		this._onDidUpdateEmitter.fire();
-	}
-
-	//#endregion Private Methods
 }

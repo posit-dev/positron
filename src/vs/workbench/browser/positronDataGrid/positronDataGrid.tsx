@@ -7,6 +7,7 @@ import 'vs/css!./positronDataGrid';
 
 // React.
 import * as React from 'react';
+import { useRef } from 'react'; // eslint-disable-line no-duplicate-imports
 
 // Other dependencies.
 import { DataGridWaffle } from 'vs/workbench/browser/positronDataGrid/components/dataGridWaffle';
@@ -15,7 +16,9 @@ import { PositronDataGridConfiguration, PositronDataGridContextProvider } from '
 /**
  * PositronDataGridProps interface.
  */
-interface PositronDataGridProps extends PositronDataGridConfiguration { }
+interface PositronDataGridProps extends PositronDataGridConfiguration {
+	id?: string;
+}
 
 /**
  * PositronDataGrid component.
@@ -23,11 +26,19 @@ interface PositronDataGridProps extends PositronDataGridConfiguration { }
  * @returns The rendered component.
  */
 export const PositronDataGrid = (props: PositronDataGridProps) => {
+	// Reference hooks.
+	const dataGridWaffleRef = useRef<HTMLDivElement>(undefined!);
+
 	// Render.
 	return (
 		<PositronDataGridContextProvider {...props}>
-			<div className='data-grid'>
-				<DataGridWaffle />
+			<div
+				id={props.id}
+				tabIndex={0}
+				className='data-grid'
+				onFocus={() => dataGridWaffleRef.current.focus()}
+			>
+				<DataGridWaffle ref={dataGridWaffleRef} />
 			</div>
 		</PositronDataGridContextProvider>
 	);

@@ -1,0 +1,66 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2022 Posit Software, PBC. All rights reserved.
+ *--------------------------------------------------------------------------------------------*/
+
+@keyframes fadeIn {
+	from { opacity: 0; }
+	to { opacity: 1; }
+}
+
+.column-filter-container {
+	height: 100%;
+	display: flex;
+	padding: 0 4px;
+	align-items: center;
+}
+
+.column-filter-input {
+	width: 100%;
+	display: flex;
+	font-size: 12px;
+	border-radius: 4px;
+	align-items: center;
+	background: var(--positronActionBar-textInputBackground);
+	border: 1px solid var(--vscode-positronDataExplorer-border);
+}
+
+.column-filter-input.focused {
+	border: 1px solid var(--vscode-focusBorder);
+}
+
+.column-filter-input .text-input {
+	width: 100%;
+	padding: 4px 8px;
+	border-radius: 4px;
+	border: none !important;
+	box-sizing: border-box;
+	background: transparent;
+	outline: none !important;
+}
+
+.column-filter-input .text-input::placeholder {
+	opacity: 0.5;
+	color: var(--positronActionBar-foreground);
+}
+
+.column-filter-input .text-input::selection {
+	color: var(--positronActionBar-textInputSelectionForeground);
+	background: var(--positronActionBar-textInputSelectionBackground);
+}
+
+.column-filter-input .clear-button {
+	padding: 0;
+	width: 16px;
+	height: 16px;
+	border: none;
+	display: flex;
+	cursor: pointer;
+	margin: 0 4px 0 0;
+	background: transparent;
+	animation: fadeIn 150ms ease-out;
+}
+
+.column-filter-input .clear-button:focus-visible {
+	border-radius: 3px;
+	outline: 1px solid var(--vscode-focusBorder);
+}
