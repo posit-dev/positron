@@ -29,6 +29,11 @@ export interface IPositronNotebookGeneralCell extends Disposable {
 	get uri(): URI;
 
 	/**
+	 * URI for the notebook that contains this cell
+	 */
+	get notebookUri(): URI;
+
+	/**
 	 * The content of the cell. This is the raw text of the cell.
 	 */
 	getContent(): string;

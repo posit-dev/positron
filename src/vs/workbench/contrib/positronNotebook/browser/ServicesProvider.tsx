@@ -10,6 +10,7 @@ import { IConfigurationService } from 'vs/platform/configuration/common/configur
 import { IScopedContextKeyService } from 'vs/platform/contextkey/common/contextkey';
 import { IInstantiationService } from 'vs/platform/instantiation/common/instantiation';
 import { ILogService } from 'vs/platform/log/common/log';
+import { IWebviewService } from 'vs/workbench/contrib/webview/browser/webview';
 
 
 
@@ -37,6 +38,11 @@ interface ServiceBundle {
 	 * Logging service
 	 */
 	logService: ILogService;
+
+	/**
+	 * Service for creating webviews
+	 */
+	webviewService: IWebviewService;
 
 	/**
 	 * An observable for the size of the notebook.

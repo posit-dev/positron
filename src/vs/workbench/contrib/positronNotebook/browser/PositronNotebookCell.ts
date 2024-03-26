@@ -36,6 +36,10 @@ abstract class PositronNotebookCellGeneral extends Disposable implements IPositr
 		return this.cellModel.uri;
 	}
 
+	get notebookUri(): URI {
+		return this._instance.uri;
+	}
+
 	get viewModel(): ICellViewModel {
 
 		const notebookViewModel = this._instance.viewModel;

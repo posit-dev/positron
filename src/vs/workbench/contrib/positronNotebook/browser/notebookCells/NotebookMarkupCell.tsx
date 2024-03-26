@@ -2,22 +2,20 @@
  *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 import 'vs/css!./NotebookMarkupCell';
-
 import * as React from 'react';
+
 import { IPositronNotebookMarkupCell } from 'vs/workbench/contrib/positronNotebook/browser/notebookCells/interfaces';
 
-import { renderHtml } from 'vs/base/browser/renderHtml';
-import { CellEditorMonacoWidget } from 'vs/workbench/contrib/positronNotebook/browser/notebookCells/CellEditorMonacoWidget';
-import { useObservedValue } from 'vs/workbench/contrib/positronNotebook/browser/useObservedValue';
-import { NotebookCellActionBar } from 'vs/workbench/contrib/positronNotebook/browser/notebookCells/NotebookCellActionBar';
 import { Button } from 'vs/base/browser/ui/positronComponents/button/button';
-
-
-
+import { CellEditorMonacoWidget } from 'vs/workbench/contrib/positronNotebook/browser/notebookCells/CellEditorMonacoWidget';
+import { NotebookCellActionBar } from 'vs/workbench/contrib/positronNotebook/browser/notebookCells/NotebookCellActionBar';
+import { useObservedValue } from 'vs/workbench/contrib/positronNotebook/browser/useObservedValue';
+import { useMarkupWebviewRenderer } from './useMarkupWebviewRenderer';
 export function NotebookMarkupCell({ cell }: { cell: IPositronNotebookMarkupCell }) {
 
 	const renderedHtml = useObservedValue(cell.renderedHtml);
 	const editorShown = useObservedValue(cell.editorShown);
+	const webviewContainerRef = useMarkupWebviewRenderer(cell);
 
 	const showHideButton = <Button
 		onPressed={() => {
@@ -37,16 +35,16 @@ export function NotebookMarkupCell({ cell }: { cell: IPositronNotebookMarkupCell
 				{showHideButton}
 			</NotebookCellActionBar>
 			<div className='cell-contents'>
-				{editorShown ? <CellEditorMonacoWidget cell={cell} /> : null
-				}
+				{editorShown ? <CellEditorMonacoWidget cell={cell} /> : null}
 				<div className='positron-notebook-markup-rendered' onDoubleClick={() => {
 					cell.toggleEditor();
 				}}>
 					{
-						renderedHtml ? <div>{renderHtml(renderedHtml)}</div> : <div className='empty-output-msg'>
+						!renderedHtml ? <div className='empty-output-msg'>
 							Empty markup cell. {editorShown ? '' : 'Double click to edit'}
-						</div>
+						</div> : null
 					}
+					<div className='webview-container' ref={webviewContainerRef}></div>
 				</div>
 			</div>
 		</div>
