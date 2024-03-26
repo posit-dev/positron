@@ -47,6 +47,7 @@
 	align-items: center;
 	padding-block: 0.25rem;
 	padding-inline: 0.5rem;
+	outline: 1px solid var(--vscode-positronDataExplorer-border, grey);
 	border-radius: 0.25rem;
 	width: fit-content;
 	cursor: pointer;

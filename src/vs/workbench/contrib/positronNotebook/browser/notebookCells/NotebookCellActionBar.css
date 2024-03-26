@@ -19,6 +19,8 @@
 		display: grid;
 		place-content: center;
 		padding: 2px;
+		/* The added outline here is distracting */
+		outline: revert;
 
 		&:hover {
 			.button-icon::before {
