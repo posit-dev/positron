@@ -47,6 +47,7 @@ export const PythonEnvironmentStep = (props: PropsWithChildren<NewProjectWizardS
 		);
 
 	// TODO: retrieve the python environment types from the language runtime service somehow?
+	// TODO: localize these entries
 	const envTypeEntries = [
 		new DropDownListBoxItem({ identifier: 'Venv', title: 'Venv' + ' Creates a `.venv` virtual environment for your project' }),
 		new DropDownListBoxItem({ identifier: 'Conda', title: 'Conda' + ' Creates a `.conda` Conda environment for your project' })
@@ -148,15 +149,16 @@ export const PythonEnvironmentStep = (props: PropsWithChildren<NewProjectWizardS
 				</div>
 			</PositronWizardSubStep>
 			<PositronWizardSubStep
-				title='Python Environment'
-				description='Select an environment type for your project.'
-				feedback={`The ${projectConfig.pythonEnvType} environment will be created at: ${projectConfig.parentFolder}/${projectConfig.projectName}/${projectConfig.pythonEnvType === 'Venv' ? '.venv' : 'Conda' ? '.conda' : ''}`}
+				title={localize('pythonEnvironmentSubStep.label', 'Python Environment')}
+				description={localize('pythonEnvironmentSubStep.description', 'Select an environment type for your project.')}
+				// TODO: construct the env location based on the envTypeEntries above, instead of inline here
+				feedback={localize('pythonEnvironmentSubStep.feedback', 'The {0} environment will be created at: {1}', projectConfig.pythonEnvType, `${projectConfig.parentFolder}/${projectConfig.projectName}/${projectConfig.pythonEnvType === 'Venv' ? '.venv' : 'Conda' ? '.conda' : ''}`)}
 			>
 				{/* TODO: how to pre-select an option? */}
 				<DropDownListBox
 					keybindingService={keybindingService}
 					layoutService={layoutService}
-					title='Select an environment type'
+					title={localize('pythonEnvironmentSubStep.dropDown.title', 'Select an environment type')}
 					entries={envTypeEntries}
 					onSelectionChanged={identifier => onEnvTypeSelected(identifier)}
 				/>
@@ -165,15 +167,15 @@ export const PythonEnvironmentStep = (props: PropsWithChildren<NewProjectWizardS
 			{/*       onhover tooltip, display the following note if we don't detect ipykernel for the selected interpreter */}
 			{/*       <p>Note: Positron will install <code>ipykernel</code> in this environment for Python language support.</p> */}
 			<PositronWizardSubStep
-				title='Python Interpreter'
-				description={localize('pythonInterpreter.comboBoxTitle', 'Select a Python installation for your project. You can modify this later if you change your mind.')}
+				title={localize('pythonInterpreterSubStep.title', 'Python Interpreter')}
+				description={localize('pythonInterpreterSubStep.description', 'Select a Python installation for your project. You can modify this later if you change your mind.')}
 			>
 				{startupPhase !== RuntimeStartupPhase.Complete && (
 					// TODO: how to disable clicking on the combo box while loading?
 					<DropDownListBox
 						keybindingService={keybindingService}
 						layoutService={layoutService}
-						title='Loading interpreters...'
+						title={localize('pythonInterpreterSubStep.dropDown.title.loading', 'Loading interpreters...')}
 						entries={[]}
 						onSelectionChanged={() => { }}
 					/>
@@ -183,7 +185,7 @@ export const PythonEnvironmentStep = (props: PropsWithChildren<NewProjectWizardS
 					<DropDownListBox
 						keybindingService={keybindingService}
 						layoutService={layoutService}
-						title='Select a Python interpreter'
+						title={localize('pythonInterpreterSubStep.dropDown.title', 'Select a Python interpreter')}
 						// TODO: if the runtime startup phase is complete, but there are no suitable interpreters, show a message
 						// that no suitable interpreters were found and the user should install an interpreter with minimum version
 						entries={interpreterEntries}

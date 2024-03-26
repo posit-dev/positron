@@ -68,23 +68,23 @@ export const ProjectNameLocationStep = (props: PropsWithChildren<NewProjectWizar
 			backButtonConfig={{ onClick: props.back }}
 		>
 			<PositronWizardSubStep
-				title={localize('projectNameLocationSubStep.projectName', 'Project Name')}
+				title={localize('projectNameLocationSubStep.projectName.label', 'Project Name')}
 			// description={'Enter a name for your new ' + newProjectResult.projectType}
 			>
 				<LabeledTextInput
-					label={`Enter a name for your new ${projectConfig.projectType}`}
+					label={localize('projectNameLocationSubStep.projectName.description', 'Enter a name for your new {0}', projectConfig.projectType)}
 					autoFocus
 					value={projectConfig.projectName}
 					onChange={e => setProjectConfig({ ...projectConfig, projectName: e.target.value })}
 				/>
 			</PositronWizardSubStep>
 			<PositronWizardSubStep
-				title={localize('projectNameLocationSubStep.parentDirectory', 'Parent Directory')}
+				title={localize('projectNameLocationSubStep.parentDirectory.label', 'Parent Directory')}
 				// description='Select a directory to create your project in.'
-				feedback={'Your project will be created at: ' + projectConfig.parentFolder + '/' + projectConfig.projectName}
+				feedback={localize('projectNameLocationSubStep.parentDirectory.feedback', 'Your project will be created at: {0}/{1}', projectConfig.parentFolder, projectConfig.projectName)}
 			>
 				<LabeledFolderInput
-					label='Select a directory to create your project in'
+					label={localize('projectNameLocationSubStep.parentDirectory.description', 'Select a directory to create your project in')}
 					value={projectConfig.parentFolder} // this should be <code>formatted
 					onBrowse={browseHandler}
 					onChange={e => setProjectConfig({ ...projectConfig, parentFolder: e.target.value })}
@@ -98,7 +98,10 @@ export const ProjectNameLocationStep = (props: PropsWithChildren<NewProjectWizar
 			</PositronWizardSubStep>
 			<PositronWizardSubStep>
 				{/* TODO: display a warning/message if the user doesn't have git set up */}
-				<Checkbox label='Initialize project as git repository' onChanged={checked => setProjectConfig({ ...projectConfig, initGitRepo: checked })} />
+				<Checkbox
+					label={localize('projectNameLocationSubStep.initGitRepo.label', 'Initialize project as Git repository')}
+					onChanged={checked => setProjectConfig({ ...projectConfig, initGitRepo: checked })}
+				/>
 			</PositronWizardSubStep>
 		</PositronWizardStep>
 	);

@@ -36,6 +36,10 @@ export interface NewProjectWizardStateProps {
 /**
  * NewProjectType enum. Defines the types of projects that can be created.
  * TODO: this should be moved to a more appropriate location.
+ * TODO: localize. Since this is an enum, we can't use the localize function
+ * because computed values must be numbers (not strings). So we'll probably need to
+ * turn this into an object with keys and values, maybe also using something like
+ * satisfies Readonly<Record<string, string>>.
  */
 export enum NewProjectType {
 	PythonProject = 'Python Project',
