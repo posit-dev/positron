@@ -7,7 +7,7 @@ import 'vs/css!./columnSelectorModalPopup';
 
 // React.
 import * as React from 'react';
-import { useEffect } from 'react'; // eslint-disable-line no-duplicate-imports
+import { useEffect, useRef } from 'react'; // eslint-disable-line no-duplicate-imports
 
 // Other dependencies.
 import { DisposableStore } from 'vs/base/common/lifecycle';
@@ -35,12 +35,14 @@ interface ColumnSelectorModalPopupProps {
  * @returns The rendered component.
  */
 export const ColumnSelectorModalPopup = (props: ColumnSelectorModalPopupProps) => {
-	// // Reference hooks.
-	// const inputRef = useRef<HTMLInputElement>(undefined!);
+	// Reference hooks.
+	const positronDataGridRef = useRef<HTMLDivElement>(undefined!);
 
-	// // State hooks.
-	// const [_focused, setFocused] = useState(false);
-	// const [filterText, _setFilterText] = useState('');
+	// Main use effect.
+	useEffect(() => {
+		// Drive focus into the data grid so the user can immediately navigate.
+		positronDataGridRef.current.focus();
+	}, []);
 
 	useEffect(() => {
 		// Create the disposable store for cleanup.
@@ -64,7 +66,7 @@ export const ColumnSelectorModalPopup = (props: ColumnSelectorModalPopupProps) =
 			popupAlignment='left'
 			width={props.anchor.offsetWidth}
 			height={'min-content'}
-			focusableElementSelectors='input[type="text"],div[id=wiuehiefhif]'
+			focusableElementSelectors='input[type="text"],div[id=column-positron-data-grid]'
 			keyboardNavigation='dialog'
 		>
 			<div className='column-selector'>
@@ -77,7 +79,8 @@ export const ColumnSelectorModalPopup = (props: ColumnSelectorModalPopupProps) =
 				</div>
 				<div className='view' style={{ height: 400 }}>
 					<PositronDataGrid
-						id='wiuehiefhif'
+						ref={positronDataGridRef}
+						id='column-positron-data-grid'
 						keybindingService={props.renderer.keybindingService}
 						layoutService={props.renderer.layoutService}
 						instance={props.columnSelectorDataGridInstance}

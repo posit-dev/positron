@@ -125,6 +125,11 @@ export const DataGridWaffle = forwardRef<HTMLDivElement>((_: unknown, ref) => {
 				// Consume the event.
 				consumeEvent();
 
+				// Make sure the cursor is showing.
+				if (context.instance.showCursor()) {
+					return;
+				}
+
 				// If selection is enabled, process the key.
 				if (context.instance.selection) {
 					if (e.ctrlKey && !e.shiftKey) {
@@ -138,10 +143,21 @@ export const DataGridWaffle = forwardRef<HTMLDivElement>((_: unknown, ref) => {
 				break;
 			}
 
+			// Enter key.
+			case 'Enter': {
+				console.log(`User pressed enter on ${context.instance.cursorColumnIndex},${context.instance.cursorRowIndex}`);
+				break;
+			}
+
 			// Home key.
 			case 'Home': {
 				// Consume the event.
 				consumeEvent();
+
+				// Make sure the cursor is showing.
+				if (context.instance.showCursor()) {
+					return;
+				}
 
 				// Shift + Home does nothing.
 				if (e.shiftKey) {
@@ -174,6 +190,11 @@ export const DataGridWaffle = forwardRef<HTMLDivElement>((_: unknown, ref) => {
 			case 'End': {
 				// Consume the event.
 				consumeEvent();
+
+				// Make sure the cursor is showing.
+				if (context.instance.showCursor()) {
+					return;
+				}
 
 				// Shift + End does nothing.
 				if (e.shiftKey) {
@@ -213,6 +234,11 @@ export const DataGridWaffle = forwardRef<HTMLDivElement>((_: unknown, ref) => {
 				// Consume the event.
 				consumeEvent();
 
+				// Make sure the cursor is showing.
+				if (context.instance.showCursor()) {
+					return;
+				}
+
 				// Cmd / Ctrl + PageUp does nothing.
 				if (isMacintosh ? e.metaKey : e.ctrlKey) {
 					return;
@@ -241,6 +267,11 @@ export const DataGridWaffle = forwardRef<HTMLDivElement>((_: unknown, ref) => {
 				// Consume the event.
 				consumeEvent();
 
+				// Make sure the cursor is showing.
+				if (context.instance.showCursor()) {
+					return;
+				}
+
 				// Cmd / Ctrl + PageDown does nothing.
 				if (isMacintosh ? e.metaKey : e.ctrlKey) {
 					return;
@@ -268,6 +299,11 @@ export const DataGridWaffle = forwardRef<HTMLDivElement>((_: unknown, ref) => {
 			case 'ArrowUp': {
 				// Consume the event.
 				consumeEvent();
+
+				// Make sure the cursor is showing.
+				if (context.instance.showCursor()) {
+					return;
+				}
 
 				// Cmd / Ctrl + ArrowUp does nothing.
 				if (isMacintosh ? e.metaKey : e.ctrlKey) {
@@ -299,6 +335,11 @@ export const DataGridWaffle = forwardRef<HTMLDivElement>((_: unknown, ref) => {
 				// Consume the event.
 				consumeEvent();
 
+				// Make sure the cursor is showing.
+				if (context.instance.showCursor()) {
+					return;
+				}
+
 				// Cmd / Ctrl + ArrowDown does nothing.
 				if (isMacintosh ? e.metaKey : e.ctrlKey) {
 					return;
@@ -329,6 +370,11 @@ export const DataGridWaffle = forwardRef<HTMLDivElement>((_: unknown, ref) => {
 				// Consume the event.
 				consumeEvent();
 
+				// Make sure the cursor is showing.
+				if (context.instance.showCursor()) {
+					return;
+				}
+
 				// Cmd / Ctrl + ArrowLeft does nothing.
 				if (isMacintosh ? e.metaKey : e.ctrlKey) {
 					return;
@@ -358,6 +404,11 @@ export const DataGridWaffle = forwardRef<HTMLDivElement>((_: unknown, ref) => {
 			case 'ArrowRight': {
 				// Consume the event.
 				consumeEvent();
+
+				// Make sure the cursor is showing.
+				if (context.instance.showCursor()) {
+					return;
+				}
 
 				// Cmd / Ctrl + ArrowRight does nothing.
 				if (isMacintosh ? e.metaKey : e.ctrlKey) {

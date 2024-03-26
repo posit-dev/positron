@@ -89,16 +89,24 @@ type DisplayOptions = | {
 	automaticLayout: boolean;
 	rowsMargin?: number;
 	cellBorders?: boolean;
+	cursorInitiallyHidden?: boolean;
 };
 
 /**
  * CursorOptions type.
  */
 type CursorOptions = | {
-	cursor: false;
+	cursorInitiallyHidden?: boolean;
+};
+
+/**
+ * DefaultCursorOptions type.
+ */
+type DefaultCursorOptions = | {
+	internalCursor: false;
 	cursorOffset?: never;
 } | {
-	cursor: true;
+	internalCursor: true;
 	cursorOffset: number;
 };
 
@@ -121,6 +129,7 @@ type DataGridOptions =
 	ScrollbarOptions &
 	DisplayOptions &
 	CursorOptions &
+	DefaultCursorOptions &
 	SelectionOptions;
 
 /**
@@ -383,9 +392,14 @@ export abstract class DataGridInstance extends Disposable {
 	private readonly _cellBorders: boolean;
 
 	/**
-	 * Gets a value which indicates whether to show the cursor.
+	 * Gets or sets a value which indicates whether the cursor is initially hidden.
 	 */
-	private readonly _cursor: boolean;
+	private _cursorInitiallyHidden: boolean;
+
+	/**
+	 * Gets a value which indicates whether to show the internal cursor.
+	 */
+	private readonly _internalCursor: boolean;
 
 	/**
 	 * Gets the cursor offset.
@@ -513,8 +527,14 @@ export abstract class DataGridInstance extends Disposable {
 		this._rowsMargin = options.rowsMargin ?? 0;
 		this._cellBorders = options.cellBorders ?? true;
 
-		this._cursor = options.cursor ?? true;
-		this._cursorOffset = this._cursor ? options.cursorOffset ?? 0 : 0;
+		this._cursorInitiallyHidden = options.cursorInitiallyHidden ?? false;
+		if (options.cursorInitiallyHidden) {
+			this._cursorColumnIndex = -1;
+			this._cursorRowIndex = -1;
+		}
+
+		this._internalCursor = options.internalCursor ?? true;
+		this._cursorOffset = this._internalCursor ? options.cursorOffset ?? 0 : 0;
 
 		this._selection = options.selection ?? true;
 	}
@@ -643,10 +663,10 @@ export abstract class DataGridInstance extends Disposable {
 	}
 
 	/**
-	 * Gets a value which indicates whether to show the cursor.
+	 * Gets a value which indicates whether to show the internal cursor.
 	 */
-	get cursor() {
-		return this._cursor;
+	get internalCursor() {
+		return this._internalCursor;
 	}
 
 	/**
@@ -867,6 +887,21 @@ export abstract class DataGridInstance extends Disposable {
 	//#endregion Public Events
 
 	//#region Public Methods
+
+	/**
+	 * Shows the cursor, if it was initially hidden.
+	 */
+	showCursor() {
+		// If the cursor isn't initially hidden, return false.
+		if (!this._cursorInitiallyHidden) {
+			return false;
+		}
+
+		// Clear the cursor initially hidden flag and set the initial cursor position.
+		this._cursorInitiallyHidden = false;
+		this.setCursorPosition(0, 0);
+		return true;
+	}
 
 	/**
 	 * Gets the the width of a column.

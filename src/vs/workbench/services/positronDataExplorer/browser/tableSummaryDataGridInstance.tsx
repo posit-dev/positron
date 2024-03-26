@@ -67,7 +67,7 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 			scrollbarWidth: 14,
 			automaticLayout: true,
 			cellBorders: false,
-			cursor: false,
+			internalCursor: false,
 			selection: false
 		});
 

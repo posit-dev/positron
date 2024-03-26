@@ -8,10 +8,10 @@ import * as React from 'react';
 // Other dependencies.
 import { Emitter } from 'vs/base/common/event';
 import { DataGridInstance } from 'vs/workbench/browser/positronDataGrid/classes/dataGridInstance';
+import { ColumnSchema } from 'vs/workbench/services/languageRuntime/common/positronDataExplorerComm';
 import { DataExplorerCache } from 'vs/workbench/services/positronDataExplorer/common/dataExplorerCache';
 import { DataExplorerClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimeDataExplorerClient';
 import { ColumnSelectorCell } from 'vs/workbench/browser/positronDataExplorer/components/dataExplorerPanel/components/columnSelectorCell';
-import { ColumnSchema } from 'vs/workbench/services/languageRuntime/common/positronDataExplorerComm';
 
 /**
  * Constants.
@@ -62,7 +62,8 @@ export class ColumnSelectorDataGridInstance extends DataGridInstance {
 			automaticLayout: true,
 			rowsMargin: 4,
 			cellBorders: false,
-			cursor: false,
+			cursorInitiallyHidden: true,
+			internalCursor: false,
 			selection: false
 		});
 
@@ -150,13 +151,13 @@ export class ColumnSelectorDataGridInstance extends DataGridInstance {
 			return undefined;
 		}
 
-		// Get the column schema.
+		// Get the column schema for the row index.
 		const columnSchema = this._dataExplorerCache.getColumnSchema(rowIndex);
 		if (!columnSchema) {
 			return undefined;
 		}
 
-		// Return the ColumnSummaryCell.
+		// Return the cell.
 		return (
 			<ColumnSelectorCell
 				instance={this}
