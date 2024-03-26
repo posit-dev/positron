@@ -112,7 +112,11 @@ export const Button = forwardRef<HTMLButtonElement, PropsWithChildren<Props>>((p
 	return (
 		<button
 			ref={ref}
-			className={positronClassNames('button', props.className)}
+			className={positronClassNames(
+				'button',
+				props.className,
+				{ 'disabled': props.disabled }
+			)}
 			tabIndex={0}
 			disabled={props.disabled}
 			role='button'
