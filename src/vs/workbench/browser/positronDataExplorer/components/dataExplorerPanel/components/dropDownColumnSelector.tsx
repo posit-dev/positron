@@ -14,11 +14,12 @@ import * as DOM from 'vs/base/browser/dom';
 import { ILayoutService } from 'vs/platform/layout/browser/layoutService';
 import { Button } from 'vs/base/browser/ui/positronComponents/button/button';
 import { IKeybindingService } from 'vs/platform/keybinding/common/keybinding';
-import { ColumnSchema, ColumnSchemaTypeDisplay } from 'vs/workbench/services/languageRuntime/common/positronDataExplorerComm';
+import { ColumnSchema } from 'vs/workbench/services/languageRuntime/common/positronDataExplorerComm';
 import { PositronModalReactRenderer } from 'vs/workbench/browser/positronModalReactRenderer/positronModalReactRenderer';
 import { DataExplorerClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimeDataExplorerClient';
 import { ColumnSelectorModalPopup } from 'vs/workbench/browser/positronDataExplorer/components/dataExplorerPanel/components/columnSelectorModalPopup';
 import { ColumnSelectorDataGridInstance } from 'vs/workbench/browser/positronDataExplorer/components/dataExplorerPanel/components/columnSelectorDataGridInstance';
+import { columnSchemaDataTypeIcon } from 'vs/workbench/browser/positronDataExplorer/components/dataExplorerPanel/utility/columnSchemaUtilities';
 
 /**
  * DropDownColumnSelectorProps interface.
@@ -48,46 +49,6 @@ export const DropDownColumnSelector = (props: DropDownColumnSelectorProps) => {
 		useState<ColumnSchema | undefined>(undefined);
 	// const [highlightedDropDownListBoxItem, setHighlightedDropDownListBoxItem] =
 	// 	useState<DropDownListBoxItem | undefined>(undefined);
-
-	/**
-	 * Returns the data type icon for the column schema.
-	 * @returns The data type icon.
-	 */
-	const dataTypeIcon = () => {
-		// Determine the alignment based on type.
-		switch (selectedColumnSchema?.type_display) {
-			case ColumnSchemaTypeDisplay.Number:
-				return 'codicon-positron-data-type-number';
-
-			case ColumnSchemaTypeDisplay.Boolean:
-				return 'codicon-positron-data-type-boolean';
-
-			case ColumnSchemaTypeDisplay.String:
-				return 'codicon-positron-data-type-string';
-
-			case ColumnSchemaTypeDisplay.Date:
-				return 'codicon-positron-data-type-date';
-
-			case ColumnSchemaTypeDisplay.Datetime:
-				return 'codicon-positron-data-type-date-time';
-
-			case ColumnSchemaTypeDisplay.Time:
-				return 'codicon-positron-data-type-time';
-
-			case ColumnSchemaTypeDisplay.Array:
-				return 'codicon-positron-data-type-array';
-
-			case ColumnSchemaTypeDisplay.Struct:
-				return 'codicon-positron-data-type-struct';
-
-			case ColumnSchemaTypeDisplay.Unknown:
-				return 'codicon-positron-data-type-unknown';
-
-			// This shouldn't ever happen.
-			default:
-				return 'codicon-question';
-		}
-	};
 
 	// Render.
 	return (
@@ -131,7 +92,7 @@ export const DropDownColumnSelector = (props: DropDownColumnSelectorProps) => {
 			{selectedColumnSchema ?
 				(
 					<div className='title-foo'>
-						<div className={`data-type-icon codicon ${dataTypeIcon()}`}></div>
+						<div className={`data-type-icon codicon ${columnSchemaDataTypeIcon(selectedColumnSchema)}`}></div>
 						<div className='column-name'>
 							{selectedColumnSchema.column_name}
 						</div>
