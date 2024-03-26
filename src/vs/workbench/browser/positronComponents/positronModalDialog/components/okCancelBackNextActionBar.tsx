@@ -36,28 +36,28 @@ export const OKCancelBackNextActionBar = ({ okButtonConfig, cancelButtonConfig, 
 	return (
 		<div className='ok-cancel-action-bar top-separator'>
 			<div className='left-actions'>
-				{backButtonConfig && (
+				{backButtonConfig ?
 					<Button className='button action-bar-button' onPressed={backButtonConfig.onClick} disabled={backButtonConfig.disable ?? false}>
 						{backButtonConfig.title ?? localize('positronBack', "Back")}
-					</Button>
-				)}
+					</Button> : null
+				}
 			</div>
 			<div className='right-actions'>
-				{cancelButtonConfig && (
+				{cancelButtonConfig ?
 					<Button className='button action-bar-button' onPressed={cancelButtonConfig.onClick} disabled={cancelButtonConfig.disable ?? false}>
 						{cancelButtonConfig.title ?? localize('positronCancel', "Cancel")}
-					</Button>
-				)}
-				{okButtonConfig && (
+					</Button> : null
+				}
+				{okButtonConfig ?
 					<Button className='button action-bar-button default' onPressed={okButtonConfig.onClick} disabled={okButtonConfig.disable ?? false}>
 						{okButtonConfig.title ?? localize('positronOK', "OK")}
-					</Button>
-				)}
-				{nextButtonConfig && (
+					</Button> : null
+				}
+				{nextButtonConfig ?
 					<Button className='button action-bar-button default' onPressed={nextButtonConfig.onClick} disabled={nextButtonConfig.disable ?? false}>
 						{nextButtonConfig.title ?? localize('positronNext', "Next")}
-					</Button>
-				)}
+					</Button> : null
+				}
 			</div>
 		</div>
 	);

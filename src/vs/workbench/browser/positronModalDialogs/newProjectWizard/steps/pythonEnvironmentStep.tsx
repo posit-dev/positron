@@ -170,7 +170,7 @@ export const PythonEnvironmentStep = (props: PropsWithChildren<NewProjectWizardS
 				title={localize('pythonInterpreterSubStep.title', 'Python Interpreter')}
 				description={localize('pythonInterpreterSubStep.description', 'Select a Python installation for your project. You can modify this later if you change your mind.')}
 			>
-				{startupPhase !== RuntimeStartupPhase.Complete && (
+				{startupPhase !== RuntimeStartupPhase.Complete ?
 					// TODO: how to disable clicking on the combo box while loading?
 					<DropDownListBox
 						keybindingService={keybindingService}
@@ -178,9 +178,9 @@ export const PythonEnvironmentStep = (props: PropsWithChildren<NewProjectWizardS
 						title={localize('pythonInterpreterSubStep.dropDown.title.loading', 'Loading interpreters...')}
 						entries={[]}
 						onSelectionChanged={() => { }}
-					/>
-				)}
-				{startupPhase === RuntimeStartupPhase.Complete && (
+					/> : null
+				}
+				{startupPhase === RuntimeStartupPhase.Complete ?
 					// TODO: how to pre-select an option?
 					<DropDownListBox
 						keybindingService={keybindingService}
@@ -190,8 +190,8 @@ export const PythonEnvironmentStep = (props: PropsWithChildren<NewProjectWizardS
 						// that no suitable interpreters were found and the user should install an interpreter with minimum version
 						entries={interpreterEntries}
 						onSelectionChanged={identifier => onInterpreterSelected(identifier)}
-					/>
-				)}
+					/> : null
+				}
 			</PositronWizardSubStep>
 		</PositronWizardStep>
 	);

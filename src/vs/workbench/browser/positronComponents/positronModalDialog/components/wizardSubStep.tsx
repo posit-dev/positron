@@ -28,24 +28,24 @@ export const PositronWizardSubStep = (props: PropsWithChildren<PositronWizardSub
 	// Render.
 	return (
 		<div className='wizard-sub-step'>
-			{props.title && (
+			{props.title ?
 				<div className='wizard-sub-step-title'>
 					{props.title}
-				</div>
-			)}
-			{props.description && (
+				</div> : null
+			}
+			{props.description ?
 				<div className='wizard-sub-step-description'>
 					{props.description}
-				</div>
-			)}
+				</div> : null
+			}
 			<div className='wizard-sub-step-input'>
 				{props.children}
 			</div>
-			{props.feedback && (
+			{props.feedback ?
 				<div className='wizard-sub-step-feedback'>
 					{props.feedback}
-				</div>
-			)}
+				</div> : null
+			}
 		</div>
 	);
 };
