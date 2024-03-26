@@ -649,10 +649,11 @@ export function createJupyterKernelSpec(context: vscode.ExtensionContext,
 
 	// Inject the path to the Pandoc executable into the environment; R packages
 	// that use Pandoc for rendering will need this.
-	const pandocExecutable = 'pandoc' + (process.platform === 'win32' ? '.exe' : '');
+	//
+	// On MacOS, the binary path lives alongside the app bundle; on other
+	// platforms, it's a couple of directories up from the app root.
 	const pandocPath = path.join(vscode.env.appRoot,
-		process.platform === 'darwin' ? 'bin' : '../../bin',
-		pandocExecutable);
+		process.platform === 'darwin' ? 'bin' : path.join('..', '..', 'bin'));
 	if (existsSync(pandocPath)) {
 		env['RSTUDIO_PANDOC'] = pandocPath;
 	}
