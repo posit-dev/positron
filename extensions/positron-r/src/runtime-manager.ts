@@ -13,7 +13,7 @@ export class RRuntimeManager implements positron.LanguageRuntimeManager {
 	constructor(private readonly _context: vscode.ExtensionContext) { }
 
 	discoverRuntimes(): AsyncGenerator<positron.LanguageRuntimeMetadata> {
-		return rRuntimeDiscoverer(this._context);
+		return rRuntimeDiscoverer();
 	}
 
 	createSession(
@@ -24,7 +24,7 @@ export class RRuntimeManager implements positron.LanguageRuntimeManager {
 		// data
 		const metadataExtra = runtimeMetadata.extraRuntimeData as RMetadataExtra;
 		const kernelExtra = createJupyterKernelExtra();
-		const kernelSpec = createJupyterKernelSpec(this._context,
+		const kernelSpec = createJupyterKernelSpec(
 			metadataExtra.homepath,
 			runtimeMetadata.runtimeName,
 			sessionMetadata.sessionMode);

@@ -16,6 +16,7 @@ import { getArkKernelPath } from './kernel';
 import { randomUUID } from 'crypto';
 import { handleRCode } from './hyperlink';
 import { RSessionManager } from './session-manager';
+import { EXTENSION_ROOT_DIR } from './constants';
 import { existsSync } from 'fs';
 
 interface RPackageInstallation {
@@ -612,7 +613,6 @@ export function createJupyterKernelExtra(): JupyterKernelExtra {
 /**
  * Create a new Jupyter kernel spec.
  *
- * @param context The extension context
  * @param rHomePath The R_HOME path for the R version
  * @param runtimeName The (display) name of the runtime
  * @param sessionMode The mode in which to create the session
@@ -620,13 +620,13 @@ export function createJupyterKernelExtra(): JupyterKernelExtra {
  * @returns A JupyterKernelSpec definining the kernel's path, arguments, and
  *  metadata.
  */
-export function createJupyterKernelSpec(context: vscode.ExtensionContext,
+export function createJupyterKernelSpec(
 	rHomePath: string,
 	runtimeName: string,
 	sessionMode: positron.LanguageRuntimeSessionMode): JupyterKernelSpec {
 
 	// Path to the kernel executable
-	const kernelPath = getArkKernelPath(context);
+	const kernelPath = getArkKernelPath();
 	if (!kernelPath) {
 		throw new Error('Unable to find R kernel');
 	}
@@ -659,7 +659,7 @@ export function createJupyterKernelSpec(context: vscode.ExtensionContext,
 	}
 
 	// R script to run on session startup
-	const startupFile = path.join(context.extensionPath, 'resources', 'scripts', 'startup.R');
+	const startupFile = path.join(EXTENSION_ROOT_DIR, 'resources', 'scripts', 'startup.R');
 
 	// Create a kernel spec for this R installation
 	const kernelSpec: JupyterKernelSpec = {
