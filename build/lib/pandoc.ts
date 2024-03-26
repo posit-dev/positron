@@ -30,9 +30,9 @@ function getPandocMacOS(version: string): Stream {
 	const unzip = require('gulp-unzip');
 	const rename = require('gulp-rename');
 
-	const basename = process.arch === 'arm64' ?
-		`pandoc-${version}-arm64-macOS` :
-		`pandoc-${version}-x86_64-macOS`;
+	const basename = process.env['npm_config_arch'] === 'x64' ?
+		`pandoc-${version}-x86_64-macOS` :
+		`pandoc-${version}-arm64-macOS`;
 
 	return fetchUrls([`${basename}.zip`], {
 		base: getBaseUrl(version),
@@ -50,7 +50,7 @@ function getPandocLinux(version: string): Stream {
 	const flatmap = require('gulp-flatmap');
 	const rename = require('gulp-rename');
 
-	const basename = process.arch === 'x64' ?
+	const basename = process.env['npm_config_arch'] === 'x64' ?
 		`pandoc-${version}-linux-amd64` :
 		`pandoc-${version}-linux-arm64`;
 
