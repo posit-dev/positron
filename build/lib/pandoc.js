@@ -27,9 +27,9 @@ function getPandocWindows(version) {
 function getPandocMacOS(version) {
     const unzip = require('gulp-unzip');
     const rename = require('gulp-rename');
-    const basename = process.arch === 'x64' ?
-        `pandoc-${version}-x86_64-macOS` :
-        `pandoc-${version}-arm64-macOS`;
+    const basename = process.arch === 'arm64' ?
+        `pandoc-${version}-arm64-macOS` :
+        `pandoc-${version}-x86_64-macOS`;
     return (0, fetch_1.fetchUrls)([`${basename}.zip`], {
         base: getBaseUrl(version),
         verbose: true,
