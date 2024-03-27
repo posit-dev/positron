@@ -17,6 +17,7 @@
 	padding-left: 6px;
 	align-items: center;
 	grid-column: title / chevron;
+	color: var(--vscode-positronContextMenu-foreground);
 }
 
 .drop-down-list-box
@@ -54,6 +55,7 @@
 	align-content: center;
 	background: transparent;
 	grid-template-columns: [title] 1fr [icon] min-content [end];
+	color: var(--vscode-positronContextMenu-foreground);
 }
 
 .drop-down-list-box-items
