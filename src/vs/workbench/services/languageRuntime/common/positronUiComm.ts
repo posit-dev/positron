@@ -365,7 +365,7 @@ export enum UiFrontendEvent {
 	WorkingDirectory = 'working_directory',
 	ExecuteCommand = 'execute_command',
 	OpenWorkspace = 'open_workspace',
-	SetEditorSelections = 'set_editor_selections'
+	SetEditorSelections = 'set_editor_selections',
 	ShowUrl = 'show_url'
 }
 
@@ -469,7 +469,7 @@ export class PositronUiComm extends PositronBaseComm {
 	 * Use this to set the selection ranges/cursor in the editor
 	 */
 	onDidSetEditorSelections: Event<SetEditorSelectionsEvent>;
-  /**
+	/**
 	 * Show a URL in Positron's Viewer pane
 	 *
 	 * Causes the URL to be displayed inside the Viewer pane, and makes the
