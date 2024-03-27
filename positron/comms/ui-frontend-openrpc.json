@@ -235,10 +235,13 @@
 			"description": "Use this to set the selection ranges/cursor in the editor",
 			"params": [
 				{
-					"name": "position",
-					"description": "The position to set the cursor to",
+					"name": "selections",
+					"description": "The selections (really, ranges) to set in the document",
 					"schema": {
-						"$ref": "#/components/schemas/position"
+						"type": "array",
+						"items": {
+							"$ref": "#/components/schemas/range"
+						}
 					}
 				}
 			],
@@ -383,6 +386,24 @@
 					"start",
 					"end",
 					"text"
+				]
+			},
+			"range": {
+				"type": "object",
+				"description": "Selection range",
+				"properties": {
+					"start": {
+						"description": "Start position of the selection",
+						"$ref": "#/components/schemas/position"
+					},
+					"end": {
+						"description": "End position of the selection",
+						"$ref": "#/components/schemas/position"
+					}
+				},
+				"required": [
+					"start",
+					"end"
 				]
 			}
 		}

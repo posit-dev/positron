@@ -139,6 +139,22 @@ export interface Selection {
 }
 
 /**
+ * Selection range
+ */
+export interface Range {
+	/**
+	 * Start position of the selection
+	 */
+	start: Position;
+
+	/**
+	 * End position of the selection
+	 */
+	end: Position;
+
+}
+
+/**
  * Event: Change in backend's busy/idle status
  */
 export interface BusyEvent {
@@ -316,9 +332,9 @@ export interface WorkspaceFolderRequest {
  */
 export interface SetEditorSelectionsRequest {
 	/**
-	 * The position to set the cursor to
+	 * The selections (really, ranges) to set in the document
 	 */
-	position: Position;
+	selections: Array<Range>;
 
 }
 
