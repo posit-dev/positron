@@ -109,6 +109,19 @@ export const startEntries: GettingStartedStartEntryContent = [
 		}
 	},
 	//
+	// New Project...
+	//
+	{
+		id: 'topLevelNewProject',
+		title: localize('gettingStarted.newProject.title', "New Project..."),
+		description: localize('gettingStarted.newProject.description', "Create a new project."),
+		icon: Codicon.newFolder,
+		content: {
+			type: 'startEntry',
+			command: 'command:positron.workbench.action.newProject',
+		}
+	},
+	//
 	// New Folder...
 	//
 	{

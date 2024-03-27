@@ -1,0 +1,36 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *--------------------------------------------------------------------------------------------*/
+
+.wizard-step
+.wizard-sub-step {
+	font-size: 14px;
+	margin-bottom: 8px;
+}
+
+.wizard-step
+.wizard-sub-step
+.wizard-sub-step-title {
+	font-weight: bold;
+	margin-bottom: 8px;
+}
+
+.wizard-step
+.wizard-sub-step
+.wizard-sub-step-description {
+	margin-bottom: 8px;
+}
+
+.wizard-step
+.wizard-sub-step
+.wizard-sub-step-input {
+	display: flex;
+	flex-direction: column;
+	gap: 16px;
+}
+
+.wizard-step
+.wizard-sub-step
+.wizard-sub-step-feedback {
+	margin-top: 8px;
+}

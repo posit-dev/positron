@@ -18,6 +18,68 @@ import { EnterMultiRootWorkspaceSupportContext } from 'vs/workbench/common/conte
 import { IWorkbenchLayoutService } from 'vs/workbench/services/layout/browser/layoutService';
 import { showNewFolderModalDialog } from 'vs/workbench/browser/positronModalDialogs/newFolderModalDialog';
 import { showNewFolderFromGitModalDialog } from 'vs/workbench/browser/positronModalDialogs/newFolderFromGitModalDialog';
+import { showNewProjectModalDialog } from 'vs/workbench/browser/positronNewProjectWizard/newProjectModalDialog';
+import { IsDevelopmentContext } from 'vs/platform/contextkey/common/contextkeys';
+import { ILanguageRuntimeService } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { IRuntimeSessionService } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
+import { IRuntimeStartupService } from 'vs/workbench/services/runtimeStartup/common/runtimeStartupService';
+import { ILogService } from 'vs/platform/log/common/log';
+
+/**
+ * The PositronNewProjectAction.
+ */
+export class PositronNewProjectAction extends Action2 {
+	/**
+	 * The action ID.
+	 */
+	static readonly ID = 'positron.workbench.action.newProject';
+
+	/**
+	 * Constructor.
+	 */
+	constructor() {
+		super({
+			id: PositronNewProjectAction.ID,
+			title: {
+				value: localize('positronNewProject', "New Project..."),
+				// mnemonicTitle: localize({ key: 'miPositronNewProject', comment: ['&& denotes a mnemonic'] }, "New P&&roject..."),
+				original: 'New Project...'
+			},
+			category: workspacesCategory,
+			f1: true,
+			// TODO: remove feature flag IsDevelopmentContext when the feature is ready
+			precondition: ContextKeyExpr.and(EnterMultiRootWorkspaceSupportContext, IsDevelopmentContext),
+			menu: {
+				id: MenuId.MenubarFileMenu,
+				group: '1_newfolder',
+				order: 3,
+			}
+		});
+	}
+
+	/**
+	 * Runs action.
+	 * @param accessor The services accessor.
+	 */
+	override async run(accessor: ServicesAccessor): Promise<void> {
+		// TODO: see if we can pass in the result of ContextKeyExpr.deserialize('!config.git.enabled || git.missing')
+		// to the dialog so we can show a warning next to the git init checkbox if git is not configured.
+
+		// Show the new project modal dialog.
+		await showNewProjectModalDialog(
+			accessor.get(ICommandService),
+			accessor.get(IFileDialogService),
+			accessor.get(IFileService),
+			accessor.get(IKeybindingService),
+			accessor.get(ILanguageRuntimeService),
+			accessor.get(IWorkbenchLayoutService),
+			accessor.get(ILogService),
+			accessor.get(IPathService),
+			accessor.get(IRuntimeSessionService),
+			accessor.get(IRuntimeStartupService),
+		);
+	}
+}
 
 /**
  * The PositronNewFolderAction.
@@ -157,6 +219,7 @@ export class PositronOpenFolderInNewWindowAction extends Action2 {
 }
 
 // Register the actions defined above.
+registerAction2(PositronNewProjectAction);
 registerAction2(PositronNewFolderAction);
 registerAction2(PositronNewFolderFromGitAction);
 registerAction2(PositronOpenFolderInNewWindowAction);
