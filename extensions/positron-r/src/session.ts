@@ -67,6 +67,9 @@ export class RSession implements positron.LanguageRuntimeSession, vscode.Disposa
 	/** The current state of the runtime */
 	private _state: positron.RuntimeState = positron.RuntimeState.Uninitialized;
 
+	/** A timestamp assigned when the session was created. */
+	private _created: number;
+
 	/** Cache for which packages we know are installed in this runtime **/
 	private _packageCache = new Array<RPackageInstallation>();
 
@@ -91,6 +94,9 @@ export class RSession implements positron.LanguageRuntimeSession, vscode.Disposa
 			inputPrompt: '>',
 		};
 
+		// Timestamp the session creation
+		this._created = Date.now();
+
 		// Register this session with the session manager
 		RSessionManager.instance.setSession(metadata.sessionId, this);
 
@@ -102,6 +108,20 @@ export class RSession implements positron.LanguageRuntimeSession, vscode.Disposa
 	onDidEndSession: vscode.Event<positron.LanguageRuntimeExit>;
 	onDidReceiveRuntimeMessage: vscode.Event<positron.LanguageRuntimeMessage>;
 	onDidChangeRuntimeState: vscode.Event<positron.RuntimeState>;
+
+	/**
+	 * Accessor for the current state of the runtime.
+	 */
+	get state(): positron.RuntimeState {
+		return this._state;
+	}
+
+	/**
+	 * Accessor for the creation time of the runtime.
+	 */
+	get created(): number {
+		return this._created;
+	}
 
 	/**
 	 * Opens a resource in the runtime.
