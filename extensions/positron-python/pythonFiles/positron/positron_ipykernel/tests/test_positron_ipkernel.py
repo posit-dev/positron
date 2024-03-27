@@ -216,3 +216,15 @@ def test_clear(shell: PositronShell, mock_ui_service: Mock) -> None:
     shell.run_cell("%clear")
 
     mock_ui_service.clear_console.assert_called_once_with()
+
+
+def test_question_mark_help(shell: PositronShell, mock_help_service: Mock) -> None:
+    """
+    Redirect `?` to the Positron Help service.
+    """
+
+    shell.run_cell("?")
+
+    mock_help_service.show_help.assert_called_once_with(
+        "positron_ipykernel.utils.positron_ipykernel_usage"
+    )
