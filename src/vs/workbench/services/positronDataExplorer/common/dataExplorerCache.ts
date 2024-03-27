@@ -156,9 +156,51 @@ export class DataExplorerCache extends Disposable {
 	 * Updates the cache for the specified columns and rows. If data caching isn't needed, omit the
 	 * firstRowIndex and visibleRows parameters from the cache update descriptor.
 	 * @param cacheUpdateDescriptor The cache update descriptor.
-	 * @returns A Promise<void> that resolves when the cache update is complete.
 	 */
-	async updateCache(cacheUpdateDescriptor: CacheUpdateDescriptor): Promise<void> {
+	updateCache(cacheUpdateDescriptor: CacheUpdateDescriptor) {
+		// Update the cache.
+		this.doUpdateCache(cacheUpdateDescriptor).catch(error => {
+			this._onDidUpdateCacheEmitter.fire();
+		});
+	}
+
+	/**
+	 * Gets the column schema for the specified column index.
+	 * @param columnIndex The column index.
+	 * @returns The column schema for the specified column index.
+	 */
+	getColumnSchema(columnIndex: number) {
+		return this._columnSchemaCache.get(columnIndex);
+	}
+
+	/**
+	 * Gets the row label for the specified row index.
+	 * @param rowIndex The row index.
+	 * @returns The row label for the specified column index.
+	 */
+	getRowLabel(rowIndex: number) {
+		return this._rowLabelCache.get(rowIndex) ?? `${rowIndex}`;
+	}
+
+	/**
+	 * Gets the cell value for the specified column index and row index.
+	 * @param columnIndex The column index.
+	 * @param rowIndex The row index.
+	 * @returns The cell value for the specified column index and row index.
+	 */
+	getCellValue(columnIndex: number, rowIndex: number) {
+		return this._dataCellCache.get(`${columnIndex},${rowIndex}`);
+	}
+
+	//#endregion Public Methods
+
+	//#region Private Methods
+
+	/**
+	 * Updates the cache.
+	 * @param cacheUpdateDescriptor The cache update descriptor.
+	 */
+	private async doUpdateCache(cacheUpdateDescriptor: CacheUpdateDescriptor): Promise<void> {
 		// If a cache update is already in progress, set the cache update descriptor and return.
 		// This allows cache updates that are happening in rapid succession to overwrite one
 		// another so that only the last one gets processed. (For example, this happens when a user
@@ -301,33 +343,5 @@ export class DataExplorerCache extends Disposable {
 		}
 	}
 
-	/**
-	 * Gets the column schema for the specified column index.
-	 * @param columnIndex The column index.
-	 * @returns The column schema for the specified column index.
-	 */
-	getColumnSchema(columnIndex: number) {
-		return this._columnSchemaCache.get(columnIndex);
-	}
-
-	/**
-	 * Gets the row label for the specified row index.
-	 * @param rowIndex The row index.
-	 * @returns The row label for the specified column index.
-	 */
-	getRowLabel(rowIndex: number) {
-		return this._rowLabelCache.get(rowIndex) ?? `${rowIndex}`;
-	}
-
-	/**
-	 * Gets the cell value for the specified column index and row index.
-	 * @param columnIndex The column index.
-	 * @param rowIndex The row index.
-	 * @returns The cell value for the specified column index and row index.
-	 */
-	getCellValue(columnIndex: number, rowIndex: number) {
-		return this._dataCellCache.get(`${columnIndex},${rowIndex}`);
-	}
-
-	//#endregion Public Methods
+	//#endregion Private Methods
 }

@@ -66,12 +66,19 @@ export class TableDataDataGridInstance extends DataGridInstance {
 
 		// Allocate and initialize the DataExplorerCache.
 		this._dataExplorerCache = new DataExplorerCache(dataExplorerClientInstance);
-		this._dataExplorerCache.onDidUpdateCache(() => this._onDidUpdateEmitter.fire());
 
+		// Add the onDidUpdateCache event handler.
+		this._register(this._dataExplorerCache.onDidUpdateCache(() =>
+			this._onDidUpdateEmitter.fire()
+		));
+
+		// Add the onDidSchemaUpdate event handler.
 		this._dataExplorerClientInstance.onDidSchemaUpdate(async (e: SchemaUpdateEvent) => {
 			this.softReset();
 			this.fetchData();
 		});
+
+		// Add the onDidDataUpdate event handler.
 		this._dataExplorerClientInstance.onDidDataUpdate(async () => {
 			this.fetchData();
 		});

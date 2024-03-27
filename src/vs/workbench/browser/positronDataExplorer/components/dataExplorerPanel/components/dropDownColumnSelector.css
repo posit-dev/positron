@@ -8,7 +8,12 @@
 	border-radius: 4px;
 	align-items: center;
 	grid-template-columns: [title] 1fr [chevron] 22px [end];
-	border: 1px solid var(--vscode-positronDropDown-border) !important;
+	color: var(--vscode-positronDropDownListBox-foreground);
+	border: 1px solid var(--vscode-positronDropDownListBox-border) !important;
+}
+
+.drop-down-column-selectorbox:disabled {
+	opacity: 50%;
 }
 
 .drop-down-column-selector

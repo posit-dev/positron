@@ -76,15 +76,18 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 
 		// Allocate and initialize the DataExplorerCache.
 		this._dataExplorerCache = new DataExplorerCache(dataExplorerClientInstance);
-		this._dataExplorerCache.onDidUpdateCache(() => this._onDidUpdateEmitter.fire());
+
+		// Add the onDidUpdateCache event handler.
+		this._register(this._dataExplorerCache.onDidUpdateCache(() =>
+			this._onDidUpdateEmitter.fire()
+		));
 
 		// Add the onDidSchemaUpdate event handler.
-		this._dataExplorerClientInstance.onDidSchemaUpdate(async () => {
+		this._register(this._dataExplorerClientInstance.onDidSchemaUpdate(async () => {
 			this.setScreenPosition(0, 0);
 			this._expandedColumns.clear();
 			this.fetchData();
-		});
-
+		}));
 	}
 
 	//#endregion Constructor

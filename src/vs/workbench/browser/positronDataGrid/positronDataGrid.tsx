@@ -37,7 +37,10 @@ export const PositronDataGrid = forwardRef<HTMLDivElement, PositronDataGridProps
 				id={props.id}
 				tabIndex={0}
 				className='data-grid'
-				onFocus={() => dataGridWaffleRef.current.focus()}
+				onFocus={() =>
+					// Drive focus into the waffle.
+					dataGridWaffleRef.current.focus()
+				}
 			>
 				<DataGridWaffle ref={dataGridWaffleRef} />
 			</div>

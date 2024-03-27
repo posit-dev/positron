@@ -13,6 +13,15 @@
 	display: grid;
 	overflow: hidden;
 	position: absolute;
+	color: var(--vscode-positronDropDownListBox-foreground);
+}
+
+.data-grid-row-cell
+.content
+.column-selector-cell:hover {
+	border-radius: 4px;
+	color: var(--vscode-positronDropDownListBox-hoverForeground);
+	background: var(--vscode-positronDropDownListBox-hoverBackground);
 }
 
 .data-grid-row-cell

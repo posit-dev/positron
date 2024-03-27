@@ -17,9 +17,9 @@ import { IKeybindingService } from 'vs/platform/keybinding/common/keybinding';
 import { ColumnSchema } from 'vs/workbench/services/languageRuntime/common/positronDataExplorerComm';
 import { PositronModalReactRenderer } from 'vs/workbench/browser/positronModalReactRenderer/positronModalReactRenderer';
 import { DataExplorerClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimeDataExplorerClient';
+import { columnSchemaDataTypeIcon } from 'vs/workbench/browser/positronDataExplorer/components/dataExplorerPanel/utility/columnSchemaUtilities';
 import { ColumnSelectorModalPopup } from 'vs/workbench/browser/positronDataExplorer/components/dataExplorerPanel/components/columnSelectorModalPopup';
 import { ColumnSelectorDataGridInstance } from 'vs/workbench/browser/positronDataExplorer/components/dataExplorerPanel/components/columnSelectorDataGridInstance';
-import { columnSchemaDataTypeIcon } from 'vs/workbench/browser/positronDataExplorer/components/dataExplorerPanel/utility/columnSchemaUtilities';
 
 /**
  * DropDownColumnSelectorProps interface.
@@ -84,6 +84,7 @@ export const DropDownColumnSelector = (props: DropDownColumnSelectorProps) => {
 						onItemSelected={columnSchema => {
 							renderer.dispose();
 							setSelectedColumnSchema(columnSchema);
+							props.onValueChanged(columnSchema);
 						}}
 					/>
 				);

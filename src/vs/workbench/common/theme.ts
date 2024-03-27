@@ -1120,6 +1120,9 @@ export const WINDOW_INACTIVE_BORDER = registerColor('window.inactiveBorder', {
 
 // < --- Positron Scroll Bar --- >
 
+// < --- Positron Button --- >
+
+
 // Positron scroll bar border color.
 export const POSITRON_SCROLL_BAR_BORDER = registerColor('positronScrollBar.border', {
 	dark: darken(PANEL_BORDER, 0.25),
@@ -1335,7 +1338,6 @@ export const POSITRON_CONTEXT_MENU_SEPARATOR_BACKGROUND = registerColor('positro
 	hcDark: menuBorder,
 	hcLight: menuBorder
 }, localize('positronContextMenu.separatorBackground', "Positron context menu separator background color."));
-
 
 // < --- Positron Side Action Bar --- >
 
@@ -1597,15 +1599,73 @@ export const POSITRON_MODAL_DIALOG_CHECKBOX_BORDER = registerColor('positronModa
 	hcLight: checkboxBorder
 }, localize('positronModalDialog.checkboxBorder', "Positron modal dialog checkbox border."));
 
-// < --- Positron Drop Down --- >
+// < --- Positron Drop Down --- > shit
 
-// Positron modal dialog border color.
-export const POSITRON_DROP_DOWN_BORDER = registerColor('positronDropDown.border', {
+// Positron drop down border color.
+export const POSITRON_DROP_DOWN_BORDER = registerColor('positronDropDownListBox.border', {
 	dark: selectBorder,
 	light: selectBorder,
 	hcDark: selectBorder,
 	hcLight: selectBorder
 }, localize('positronDropDown.border', "Positron drop down border color."));
+
+
+// Positron drop down list box background.
+export const POSITRON_DROP_DOWN_BACKGROUND = registerColor('positronDropDownListBox.background', {
+	dark: editorBackground,
+	light: editorBackground,
+	hcDark: editorBackground,
+	hcLight: editorBackground
+}, localize('positronDropDownListBox.background', "Positron drop down list box background color."));
+
+// Positron drop down list box foreground color.
+export const POSITRON_DROP_DOWN_FOREGROUND = registerColor('positronDropDownListBox.foreground', {
+	dark: foreground,
+	light: foreground,
+	hcDark: foreground,
+	hcLight: foreground
+}, localize('positronDropDownListBox.foreground', "Positron drop down list box foreground color."));
+
+// Positron drop down list box hover background.
+export const POSITRON_DROP_DOWN_HOVER_BACKGROUND = registerColor('positronDropDownListBox.hoverBackground', {
+	dark: listHoverBackground,
+	light: listHoverBackground,
+	hcDark: listHoverBackground,
+	hcLight: listHoverBackground
+}, localize('positronDropDownListBox.hoverBackground', "Positron drop down list box hover background color."));
+
+// Positron drop down list box hover foreground.
+export const POSITRON_DROP_DOWN_HOVER_FOREGROUND = registerColor('positronDropDownListBox.hoverForeground', {
+	dark: listHoverForeground,
+	light: listHoverForeground,
+	hcDark: listHoverForeground,
+	hcLight: listHoverForeground
+}, localize('positronDropDownListBox.hoverForeground', "Positron drop down list box hover foreground color."));
+
+// Positron drop down list box action hover background.
+export const POSITRON_DROP_DOWN_ACTION_HOVER_BACKGROUND = registerColor('positronDropDownListBox.actionHoverBackground', {
+	dark: darken(listHoverBackground, 0.2),
+	light: darken(listHoverBackground, 0.1),
+	hcDark: listActiveSelectionBackground,
+	hcLight: listActiveSelectionBackground
+}, localize('positronDropDownListBox.actionHoverBackground', "Positron drop down list box action hover background color."));
+
+// Positron drop down list box separator background.
+export const POSITRON_DROP_DOWN_SEPARATOR_BACKGROUND = registerColor('positronDropDownListBox.separatorBackground', {
+	dark: menuBorder,
+	light: menuBorder,
+	hcDark: menuBorder,
+	hcLight: menuBorder
+}, localize('positronDropDownListBox.separatorBackground', "Positron drop down list box separator background color."));
+
+
+
+
+
+
+
+
+
 
 // < --- Positron Console --- >
 

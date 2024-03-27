@@ -118,11 +118,34 @@ export class ColumnSchemaCache extends Disposable {
 	//#region Public Methods
 
 	/**
-	 * Updates the cache for the specified columns.
+	 * Updates the cache.
 	 * @param cacheUpdateDescriptor The cache update descriptor.
-	 * @returns A Promise<void> that resolves when the cache update is complete.
 	 */
-	async updateCache(cacheUpdateDescriptor: CacheUpdateDescriptor): Promise<void> {
+	updateCache(cacheUpdateDescriptor: CacheUpdateDescriptor) {
+		// Update the cache.
+		this.doUpdateCache(cacheUpdateDescriptor).catch(error => {
+			this._onDidUpdateCacheEmitter.fire();
+		});
+	}
+
+	/**
+	 * Gets the column schema for the specified column index.
+	 * @param columnIndex The column index.
+	 * @returns The column schema for the specified column index.
+	 */
+	getColumnSchema(columnIndex: number) {
+		return this._columnSchemaCache.get(columnIndex);
+	}
+
+	//#endregion Public Methods
+
+	//#region Private Methods
+
+	/**
+	 * Updates the cache.
+	 * @param cacheUpdateDescriptor The cache update descriptor.
+	 */
+	private async doUpdateCache(cacheUpdateDescriptor: CacheUpdateDescriptor): Promise<void> {
 		// If a cache update is already in progress, set the pending cache update descriptor and
 		// return. This allows cache updates that are happening in rapid succession to overwrite one
 		// another so that only the last one gets processed. (For example, this happens when a user
@@ -208,18 +231,9 @@ export class ColumnSchemaCache extends Disposable {
 			this._cacheUpdateDescriptor = undefined;
 
 			// Update the cache for the pending cache update descriptor.
-			await this.updateCache(pendingCacheUpdateDescriptor);
+			await this.doUpdateCache(pendingCacheUpdateDescriptor);
 		}
 	}
 
-	/**
-	 * Gets the column schema for the specified column index.
-	 * @param columnIndex The column index.
-	 * @returns The column schema for the specified column index.
-	 */
-	getColumnSchema(columnIndex: number) {
-		return this._columnSchemaCache.get(columnIndex);
-	}
-
-	//#endregion Public Methods
+	//#endregion Private Methods
 }

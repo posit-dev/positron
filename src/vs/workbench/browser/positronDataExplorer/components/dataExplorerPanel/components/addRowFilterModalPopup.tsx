@@ -12,7 +12,7 @@ import { useEffect, useState } from 'react'; // eslint-disable-line no-duplicate
 // Other dependencies.
 import { localize } from 'vs/nls';
 import { Button } from 'vs/base/browser/ui/positronComponents/button/button';
-import { ColumnSchema } from 'vs/workbench/services/languageRuntime/common/positronDataExplorerComm';
+import { ColumnSchema, ColumnSchemaTypeDisplay } from 'vs/workbench/services/languageRuntime/common/positronDataExplorerComm';
 import { DropDownListBox } from 'vs/workbench/browser/positronComponents/dropDownListBox/dropDownListBox';
 import { DropDownListBoxItem } from 'vs/workbench/browser/positronComponents/dropDownListBox/dropDownListBoxItem';
 import { PositronModalPopup } from 'vs/workbench/browser/positronComponents/positronModalPopup/positronModalPopup';
@@ -50,9 +50,9 @@ interface AddRowFilterModalPopupProps {
  */
 export const AddRowFilterModalPopup = (props: AddRowFilterModalPopupProps) => {
 	// State hooks.
-	const [selectedCondition, setSelectedCondition] = useState<string | undefined>(undefined);
 	const [selectedColumnSchema, setSelectedColumnSchema] =
 		useState<ColumnSchema | undefined>(undefined);
+	const [selectedCondition, setSelectedCondition] = useState<string | undefined>(undefined);
 
 	// Form useEffect.
 	useEffect(() => {
@@ -64,6 +64,84 @@ export const AddRowFilterModalPopup = (props: AddRowFilterModalPopupProps) => {
 	 */
 	const applyButtonPressed = () => {
 
+	};
+
+	/**
+	 * Returns the condition entries for the condition drop down list box.
+	 * @returns The condition entries for the condition drop down list box.
+	 */
+	const conditionEntries = () => {
+		// If there isn't a column schema, return an empty set of condition entries.
+		if (!selectedColumnSchema) {
+			return [];
+		}
+
+		// Build the condition entries.
+		const conditionEntries: (DropDownListBoxItem | DropDownListBoxSeparator)[] = [];
+
+		// Every type allows is empty and is not empty conditions.
+		conditionEntries.push(new DropDownListBoxItem({
+			identifier: Condition.CONDITION_IS_EMPTY,
+			title: localize('positron.isEmpty', "is empty")
+		}));
+		conditionEntries.push(new DropDownListBoxItem({
+			identifier: Condition.CONDITION_IS_NOT_EMPTY,
+			title: localize('positron.isNotEmpty', "is not empty")
+		}));
+		conditionEntries.push(new DropDownListBoxSeparator());
+
+		// Add is less than / is greater than conditions.
+		switch (selectedColumnSchema.type_display) {
+			case ColumnSchemaTypeDisplay.Number:
+			case ColumnSchemaTypeDisplay.Date:
+			case ColumnSchemaTypeDisplay.Datetime:
+			case ColumnSchemaTypeDisplay.Time:
+				conditionEntries.push(new DropDownListBoxItem({
+					identifier: Condition.CONDITION_IS_LESS_THAN,
+					title: localize('positron.isLessThan', "is less than")
+				}));
+				conditionEntries.push(new DropDownListBoxItem({
+					identifier: Condition.CONDITION_IS_GREATER_THAN,
+					title: localize('positron.isGreaterThan', "is greater than")
+				}));
+
+				break;
+		}
+
+		// Add is exactly condition.
+		switch (selectedColumnSchema.type_display) {
+			case ColumnSchemaTypeDisplay.Number:
+			case ColumnSchemaTypeDisplay.Boolean:
+			case ColumnSchemaTypeDisplay.String:
+			case ColumnSchemaTypeDisplay.Date:
+			case ColumnSchemaTypeDisplay.Datetime:
+			case ColumnSchemaTypeDisplay.Time:
+				conditionEntries.push(new DropDownListBoxItem({
+					identifier: Condition.CONDITION_IS_EXACTLY,
+					title: localize('positron.isExactly', "is exactly")
+				}));
+				break;
+		}
+
+		// Add is between / is not between conditions.
+		switch (selectedColumnSchema.type_display) {
+			case ColumnSchemaTypeDisplay.Number:
+			case ColumnSchemaTypeDisplay.Date:
+			case ColumnSchemaTypeDisplay.Datetime:
+			case ColumnSchemaTypeDisplay.Time:
+				conditionEntries.push(new DropDownListBoxItem({
+					identifier: Condition.CONDITION_IS_BETWEEN,
+					title: localize('positron.isBetween', "is between")
+				}));
+				conditionEntries.push(new DropDownListBoxItem({
+					identifier: Condition.CONDITION_IS_NOT_BETWEEN,
+					title: localize('positron.isNotBetween', "is not between")
+				}));
+				break;
+		}
+
+		// Return the condition entries.
+		return conditionEntries;
 	};
 
 	// Render.
@@ -83,43 +161,18 @@ export const AddRowFilterModalPopup = (props: AddRowFilterModalPopupProps) => {
 					layoutService={props.renderer.layoutService}
 					dataExplorerClientInstance={props.dataExplorerClientInstance}
 					title={localize('positron.selectColumn', "Select Column")}
-					onValueChanged={columnSchema => setSelectedColumnSchema(columnSchema)}
+					onValueChanged={columnSchema => {
+						setSelectedCondition(undefined);
+						setSelectedColumnSchema(columnSchema);
+					}}
 				/>
 				<DropDownListBox
+					disabled={selectedColumnSchema === undefined}
 					keybindingService={props.renderer.keybindingService}
 					layoutService={props.renderer.layoutService}
 					title={localize('positron.selectCondition', "Select Condition")}
-					entries={[
-						new DropDownListBoxItem({
-							identifier: Condition.CONDITION_IS_EMPTY,
-							title: localize('positron.isEmpty', "is empty")
-						}),
-						new DropDownListBoxItem({
-							identifier: Condition.CONDITION_IS_NOT_EMPTY,
-							title: localize('positron.isNotEmpty', "is not empty")
-						}),
-						new DropDownListBoxSeparator(),
-						new DropDownListBoxItem({
-							identifier: Condition.CONDITION_IS_LESS_THAN,
-							title: localize('positron.isLessThan', "is less than")
-						}),
-						new DropDownListBoxItem({
-							identifier: Condition.CONDITION_IS_GREATER_THAN,
-							title: localize('positron.isGreaterThan', "is greater than")
-						}),
-						new DropDownListBoxItem({
-							identifier: Condition.CONDITION_IS_EXACTLY,
-							title: localize('positron.isExactly', "is exactly")
-						}),
-						new DropDownListBoxItem({
-							identifier: Condition.CONDITION_IS_BETWEEN,
-							title: localize('positron.isBetween', "is between")
-						}),
-						new DropDownListBoxItem({
-							identifier: Condition.CONDITION_IS_NOT_BETWEEN,
-							title: localize('positron.isNotBetween', "is not between")
-						})
-					]}
+					entries={conditionEntries()}
+					selectedIdentifier={selectedCondition}
 					onSelectionChanged={identifier => setSelectedCondition(identifier)}
 				/>
 				<Button className='solid button-apply-filter' onPressed={applyButtonPressed}>
