@@ -196,7 +196,7 @@ class ExtHostLanguageRuntimeSessionAdapter implements ILanguageRuntimeSession {
 				// Set the editor selections
 				const sel = ev.data as SetEditorSelectionsEvent;
 				const selections = sel.selections.map(s =>
-					new Selection(s.start_line, s.start_column, s.end_line, s.end_column));
+					new Selection(s.start.line, s.start.character, s.end.line, s.end.character));
 				const editor = this._editorService.activeTextEditorControl as IEditor;
 				editor.setSelections(selections);
 			} else if (ev.name === UiFrontendEvent.OpenEditor) {

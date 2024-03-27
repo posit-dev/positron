@@ -236,11 +236,11 @@
 			"params": [
 				{
 					"name": "selections",
-					"description": "The selections to set in the document",
+					"description": "The selections (really, ranges) to set in the document",
 					"schema": {
 						"type": "array",
 						"items": {
-							"$ref": "#/components/schemas/iselection"
+							"$ref": "#/components/schemas/range"
 						}
 					}
 				}
@@ -387,32 +387,22 @@
 					"text"
 				]
 			},
-			"iselection": {
+			"range": {
 				"type": "object",
-				"description": "Selection range, for the ISelection type",
+				"description": "Selection range",
 				"properties": {
-					"start_line": {
-						"description": "The line number on which the selection has started.",
-						"type": "integer"
+					"start": {
+						"description": "Start position of the selection",
+						"$ref": "#/components/schemas/position"
 					},
-					"start_column": {
-						"description": "The column on on which the selection has started.",
-						"type": "integer"
-					},
-					"end_line": {
-						"description": "The line number on which the selection has ended.",
-						"type": "integer"
-					},
-					"end_column": {
-						"description": "The column on which the selection has ended.",
-						"type": "integer"
+					"end": {
+						"description": "End position of the selection",
+						"$ref": "#/components/schemas/position"
 					}
 				},
 				"required": [
-					"start_line",
-					"start_column",
-					"end_line",
-					"end_column"
+					"start",
+					"end"
 				]
 			}
 		}

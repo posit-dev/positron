@@ -139,28 +139,18 @@ export interface Selection {
 }
 
 /**
- * Selection range, for the ISelection type
+ * Selection range
  */
-export interface Iselection {
+export interface Range {
 	/**
-	 * The line number on which the selection has started.
+	 * Start position of the selection
 	 */
-	start_line: number;
+	start: Position;
 
 	/**
-	 * The column on on which the selection has started.
+	 * End position of the selection
 	 */
-	start_column: number;
-
-	/**
-	 * The line number on which the selection has ended.
-	 */
-	end_line: number;
-
-	/**
-	 * The column on which the selection has ended.
-	 */
-	end_column: number;
+	end: Position;
 
 }
 
@@ -272,9 +262,9 @@ export interface OpenWorkspaceEvent {
  */
 export interface SetEditorSelectionsEvent {
 	/**
-	 * The selections to set in the document
+	 * The selections (really, ranges) to set in the document
 	 */
-	selections: Array<Iselection>;
+	selections: Array<Range>;
 
 }
 
