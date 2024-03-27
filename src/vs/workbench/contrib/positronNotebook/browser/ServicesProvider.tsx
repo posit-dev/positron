@@ -6,6 +6,7 @@ import * as React from 'react';
 import { ISize } from 'vs/base/browser/positronReactRenderer';
 import { ISettableObservable } from 'vs/base/common/observableInternal/base';
 import { ITextModelService } from 'vs/editor/common/services/resolverService';
+import { ICommandService } from 'vs/platform/commands/common/commands';
 import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
 import { IScopedContextKeyService } from 'vs/platform/contextkey/common/contextkey';
 import { IInstantiationService } from 'vs/platform/instantiation/common/instantiation';
@@ -43,6 +44,11 @@ interface ServiceBundle {
 	 * Service for creating webviews
 	 */
 	webviewService: IWebviewService;
+
+	/**
+	 * Service for envoking commands from extensions
+	 */
+	commandService: ICommandService;
 
 	/**
 	 * An observable for the size of the notebook.

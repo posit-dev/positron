@@ -51,6 +51,7 @@ import {
 import { PositronNotebookEditorInput } from './PositronNotebookEditorInput';
 import { ILogService } from 'vs/platform/log/common/log';
 import { IWebviewService } from 'vs/workbench/contrib/webview/browser/webview';
+import { ICommandService } from 'vs/platform/commands/common/commands';
 
 
 interface NotebookLayoutInfo {
@@ -113,8 +114,7 @@ export class PositronNotebookEditor extends EditorPane {
 		@IWebviewService private readonly _webviewService: IWebviewService,
 		@IContextKeyService private readonly contextKeyService: IContextKeyService,
 		@ILogService private readonly _logService: ILogService,
-
-
+		@ICommandService private readonly _commandService: ICommandService,
 	) {
 		// Call the base class's constructor.
 		super(
@@ -446,6 +446,7 @@ export class PositronNotebookEditor extends EditorPane {
 					instantiationService: this._instantiationService,
 					textModelResolverService: this._textModelResolverService,
 					webviewService: this._webviewService,
+					commandService: this._commandService,
 					logService: this._logService,
 					sizeObservable: this._size,
 					scopedContextKeyProviderCallback: container => scopedContextKeyService.createScoped(container)

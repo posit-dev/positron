@@ -10,12 +10,13 @@ import { Button } from 'vs/base/browser/ui/positronComponents/button/button';
 import { CellEditorMonacoWidget } from 'vs/workbench/contrib/positronNotebook/browser/notebookCells/CellEditorMonacoWidget';
 import { NotebookCellActionBar } from 'vs/workbench/contrib/positronNotebook/browser/notebookCells/NotebookCellActionBar';
 import { useObservedValue } from 'vs/workbench/contrib/positronNotebook/browser/useObservedValue';
-import { useMarkupWebviewRenderer } from './useMarkupWebviewRenderer';
+import { renderHtml } from 'vs/base/browser/renderHtml';
+import { DeferredImage } from './DeferredImage';
+
 export function NotebookMarkupCell({ cell }: { cell: IPositronNotebookMarkupCell }) {
 
 	const renderedHtml = useObservedValue(cell.renderedHtml);
 	const editorShown = useObservedValue(cell.editorShown);
-	const webviewContainerRef = useMarkupWebviewRenderer(cell);
 
 	const showHideButton = <Button
 		onPressed={() => {
@@ -40,14 +41,20 @@ export function NotebookMarkupCell({ cell }: { cell: IPositronNotebookMarkupCell
 					cell.toggleEditor();
 				}}>
 					{
-						!renderedHtml ? <div className='empty-output-msg'>
-							Empty markup cell. {editorShown ? '' : 'Double click to edit'}
-						</div> : null
+						renderedHtml ?
+							<div>
+								{renderHtml(renderedHtml, {
+									componentOverrides: {
+										img: DeferredImage
+									}
+								})}
+							</div>
+							: <div className='empty-output-msg'>
+								Empty markup cell. {editorShown ? '' : 'Double click to edit'}
+							</div>
 					}
-					<div className='webview-container' ref={webviewContainerRef}></div>
 				</div>
 			</div>
 		</div>
 	);
-
 }
