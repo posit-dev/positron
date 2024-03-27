@@ -215,6 +215,10 @@ class PositronShell(ZMQInteractiveShell):
         # Stop the main event loop.
         self.kernel.io_loop.stop()
 
+    def show_usage(self):
+        """Show a usage message"""
+        self.kernel.help_service.show_help("positron_ipykernel.utils.positron_ipykernel_usage")
+
     @traitlets.observe("exit_now")
     def _update_exit_now(self, change):
         """stop eventloop when exit_now fires"""
