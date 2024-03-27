@@ -21,7 +21,7 @@ import { IRecentlyOpened, isRecentWorkspace, isRecentFolder } from 'vs/platform/
 import { CustomFolderMenuItem } from 'vs/workbench/browser/parts/positronTopActionBar/customFolderModalPopup/customFolderMenuItem';
 import { CustomFolderMenuSeparator } from 'vs/workbench/browser/parts/positronTopActionBar/customFolderModalPopup/customFolderMenuSeparator';
 import { CustomFolderRecentlyUsedMenuItem } from 'vs/workbench/browser/parts/positronTopActionBar/customFolderModalPopup/customFolderRecentlyUsedMenuItem';
-import { PositronNewFolderAction, PositronNewFolderFromGitAction, PositronOpenFolderInNewWindowAction } from 'vs/workbench/browser/actions/positronActions';
+import { PositronNewFolderAction, PositronNewFolderFromGitAction, PositronNewProjectAction, PositronOpenFolderInNewWindowAction } from 'vs/workbench/browser/actions/positronActions';
 
 /**
  * Constants.
@@ -145,6 +145,7 @@ export const CustomFolderMenuItems = (props: CustomFolderMenuItemsProps) => {
 	// Render.
 	return (
 		<div className='custom-folder-menu-items'>
+			<CommandActionCustomFolderMenuItem id={PositronNewProjectAction.ID} />
 			<CommandActionCustomFolderMenuItem id={PositronNewFolderAction.ID} />
 			<CommandActionCustomFolderMenuItem id={PositronNewFolderFromGitAction.ID} />
 			<CustomFolderMenuSeparator />

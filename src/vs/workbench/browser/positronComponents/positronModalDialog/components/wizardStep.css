@@ -1,0 +1,29 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *--------------------------------------------------------------------------------------------*/
+
+.positron-modal-dialog-box
+.wizard-step {
+	top: 32px;
+	left: 0;
+	right: 0;
+	bottom: 0;
+	padding: 16px;
+	position: absolute;
+}
+
+.positron-modal-dialog-box
+.wizard-step
+.wizard-step-title {
+	font-size: 26px;
+	font-weight: bold;
+	margin-top: 16px;
+	margin-bottom: 32px;
+}
+
+.positron-modal-dialog-box
+.wizard-step
+code {
+	color: var(--vscode-textPreformat-foreground);
+	font-size: 11px;
+}
