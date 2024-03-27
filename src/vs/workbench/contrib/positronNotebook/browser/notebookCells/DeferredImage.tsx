@@ -1,6 +1,7 @@
 /*---------------------------------------------------------------------------------------------
  *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
+import 'vs/css!./DeferredImage';
 
 import * as React from 'react';
 import { useServices } from 'vs/workbench/contrib/positronNotebook/browser/ServicesProvider';
@@ -9,6 +10,16 @@ import { URI } from 'vs/base/common/uri';
 import { Schemas } from 'vs/base/common/network';
 import { dirname } from 'vs/base/common/resources';
 
+
+type ImageDataResults = {
+	status: 'pending';
+} | {
+	status: 'success';
+	data: string;
+} | {
+	status: 'error';
+	error: string;
+};
 /**
  * Special image component that defers loading of the image while it converts it to a data-url using
  * the `positronNotebookHelpers.convertImageToBase64` command.
@@ -21,23 +32,39 @@ export function DeferredImage({ src = 'no-source', ...props }: React.ComponentPr
 	const notebookInstance = useNotebookInstance();
 	const baseLocation = getNotebookBaseUri(notebookInstance.uri).path;
 
-	const [dataUrl, setDataUrl] = React.useState<string | null>(null);
+	const [results, setResults] = React.useState<ImageDataResults>({ status: 'pending' });
 
 	React.useEffect(() => {
 		services.commandService.executeCommand(
 			'positronNotebookHelpers.convertImageToBase64',
 			src, baseLocation
-		).then((base64: string) => {
-			setDataUrl(base64);
+		).then((base64: string | null) => {
+			if (!base64) {
+				services.logService.error('Failed to convert image to base64', src);
+				setResults({ status: 'error', error: 'Failed to convert image to base64' });
+				return;
+			}
+			setResults({ status: 'success', data: base64 });
 		});
 	}, [src, baseLocation, services.commandService, services.logService]);
 
-	if (!dataUrl) {
-		return <span> Loading image: {dataUrl}</span>;
-	}
-	return <img src={dataUrl} {...props} />;
-}
 
+	switch (results.status) {
+		case 'pending':
+			return <div
+				className='positron-notebooks-deferred-img-placeholder'
+				aria-label='Loading image...'
+				role='img'
+				{...props}
+			></div>;
+		case 'error':
+			return <img src={src} aria-label={results.error} {...props} />;
+		case 'success':
+			return <img src={results.data} {...props} />;
+	}
+
+
+}
 
 function getNotebookBaseUri(notebookUri: URI) {
 	if (notebookUri.scheme === Schemas.untitled) {

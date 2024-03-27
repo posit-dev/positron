@@ -27,7 +27,7 @@ export function activate(context: vscode.ExtensionContext) {
 					return `data:image/${imageType};base64,${data.toString('base64')}`;
 				} catch (e) {
 					console.error(e);
-					return 'failed to convert image to base64';
+					return null;
 				}
 			}
 		)
