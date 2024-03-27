@@ -40,6 +40,7 @@ const rcedit = promisify(require('rcedit'));
 // --- Start Positron ---
 const child_process = require('child_process');
 const fancyLog = require('fancy-log');
+const { getPandocStream } = require('./lib/pandoc');
 // --- End Positron ---
 
 // Build
@@ -284,7 +285,18 @@ function packageTask(platform, arch, sourceFolderName, destinationFolderName, op
 		const api = gulp.src('src/vscode-dts/vscode.d.ts').pipe(rename('out/vscode-dts/vscode.d.ts'));
 
 		// --- Start Positron ---
-		const positronApi = gulp.src('src/positron-dts/positron.d.ts').pipe(rename('out/positron-dts/positron.d.ts'));
+
+		// Positron API
+		const positronApi = gulp.src('src/positron-dts/positron.d.ts')
+			.pipe(rename('out/positron-dts/positron.d.ts'));
+
+		// Bundled Pandoc binary
+		const pandocExt = process.platform === 'win32' ? '.exe' : '';
+		const binFolder = process.platform === 'darwin' ? 'bin' : path.join('..', '..', 'bin');
+		const pandoc = getPandocStream()
+			.pipe(rename(path.join(binFolder, `pandoc${pandocExt}`)))
+			.pipe(util.setExecutableBit());
+
 		// --- End Positron ---
 
 		const telemetry = gulp.src('.build/telemetry/**', { base: '.build/telemetry', dot: true });
@@ -318,6 +330,7 @@ function packageTask(platform, arch, sourceFolderName, destinationFolderName, op
 			api,
 			// --- Start Positron ---
 			positronApi,
+			pandoc,
 			// --- End Positron ---
 			telemetry,
 			sources,
