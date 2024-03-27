@@ -2,10 +2,10 @@
  *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
-import { NewProjectWizardStep } from 'vs/workbench/browser/positronModalDialogs/newProjectWizard/steps/newProjectWizardStep';
-import { ProjectNameLocationStep } from 'vs/workbench/browser/positronModalDialogs/newProjectWizard/steps/projectNameLocationStep';
-import { PythonEnvironmentStep } from 'vs/workbench/browser/positronModalDialogs/newProjectWizard/steps/pythonEnvironmentStep';
-import { ProjectTypeStep } from 'vs/workbench/browser/positronModalDialogs/newProjectWizard/steps/projectTypeStep';
+import { NewProjectWizardStep } from 'vs/workbench/browser/positronNewProjectWizard/interfaces/newProjectWizardStep';
+import { ProjectNameLocationStep } from 'vs/workbench/browser/positronNewProjectWizard/steps/projectNameLocationStep';
+import { PythonEnvironmentStep } from 'vs/workbench/browser/positronNewProjectWizard/steps/pythonEnvironmentStep';
+import { ProjectTypeStep } from 'vs/workbench/browser/positronNewProjectWizard/steps/projectTypeStep';
 
 /**
  * The NewProjectWizardStepLookup object is like a map of NewProjectWizardStep to the

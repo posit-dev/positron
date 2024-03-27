@@ -4,10 +4,10 @@
 
 import * as React from 'react';
 import { PropsWithChildren } from 'react';  // eslint-disable-line no-duplicate-imports
-import { useNewProjectWizardContext } from 'vs/workbench/browser/positronModalDialogs/newProjectWizard/newProjectWizardContext';
-import { NewProjectConfiguration } from 'vs/workbench/browser/positronModalDialogs/newProjectWizard/newProjectWizardState';
-import { NewProjectWizardStep } from 'vs/workbench/browser/positronModalDialogs/newProjectWizard/steps/newProjectWizardStep';
-import { NewProjectWizardStepLookup } from 'vs/workbench/browser/positronModalDialogs/newProjectWizard/steps/newProjectWizardStepLookup';
+import { useNewProjectWizardContext } from 'vs/workbench/browser/positronNewProjectWizard/newProjectWizardContext';
+import { NewProjectConfiguration } from 'vs/workbench/browser/positronNewProjectWizard/newProjectWizardState';
+import { NewProjectWizardStep } from 'vs/workbench/browser/positronNewProjectWizard/interfaces/newProjectWizardStep';
+import { NewProjectWizardStepLookup } from 'vs/workbench/browser/positronNewProjectWizard/interfaces/newProjectWizardStepLookup';
 
 interface NewProjectWizardStepContainerProps {
 	cancel: () => void;

@@ -18,7 +18,7 @@ import { EnterMultiRootWorkspaceSupportContext } from 'vs/workbench/common/conte
 import { IWorkbenchLayoutService } from 'vs/workbench/services/layout/browser/layoutService';
 import { showNewFolderModalDialog } from 'vs/workbench/browser/positronModalDialogs/newFolderModalDialog';
 import { showNewFolderFromGitModalDialog } from 'vs/workbench/browser/positronModalDialogs/newFolderFromGitModalDialog';
-import { showNewProjectModalDialog } from 'vs/workbench/browser/positronModalDialogs/newProjectWizard/newProjectModalDialog';
+import { showNewProjectModalDialog } from 'vs/workbench/browser/positronNewProjectWizard/newProjectModalDialog';
 import { IsDevelopmentContext } from 'vs/platform/contextkey/common/contextkeys';
 import { ILanguageRuntimeService } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { IRuntimeSessionService } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
