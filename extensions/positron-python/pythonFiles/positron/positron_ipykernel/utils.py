@@ -11,18 +11,7 @@ import types
 from binascii import b2a_base64
 from datetime import datetime
 from pathlib import Path
-from typing import (
-    Any,
-    Coroutine,
-    Dict,
-    List,
-    Optional,
-    Set,
-    Tuple,
-    TypeVar,
-    Union,
-    cast,
-)
+from typing import Any, Coroutine, Dict, List, Optional, Set, Tuple, TypeVar, Union, cast
 
 JsonData = Union[Dict[str, "JsonData"], List["JsonData"], str, int, float, bool, None]
 JsonRecord = Dict[str, JsonData]
@@ -269,3 +258,74 @@ def alias_home(path: Path) -> Path:
         return Path("~") / path.relative_to(home_dir)
     except ValueError:
         return path
+
+
+def positron_ipykernel_usage():
+    """
+
+    Positron Console Help
+    =========================================
+
+    The Positron Console offers a fully compatible replacement for the standard Python
+    interpreter, with convenient shell features, special commands, command
+    history mechanism and output results caching. It is an adapted version of an
+    [IPython](https://ipython.readthedocs.io/en/stable/) kernel. For more information and
+    documentation, check out the [Positron Beta GitHub](https://github.com/posit-dev/positron-beta).
+
+    GETTING HELP
+    ------------
+
+    Within the Positron Console you have various ways to get help:
+
+      - `?`             -> Introduction and overview of IPython's features (this screen).
+      - `object?`       -> View 'object' in Help pane.
+      - `object??`      -> View source code for 'object'
+      - `help(object)`  -> View 'object' in Help pane.
+      - `%quickref`     -> Quick reference of all IPython specific syntax and magics.
+
+
+
+    MAIN FEATURES
+    -------------
+
+    * View tabular data in the data explorer via the %view command.
+
+    * Magic commands: type %magic for information on the magic subsystem.
+
+    * System command aliases, via the %alias command or the configuration file(s).
+
+    * Dynamic object information:
+
+      Typing ?word or word? sends 'word' to the help pane.
+
+      Typing ??word or word?? displays source code for 'word'.
+
+      If you just want to see an object's docstring, type '%pdoc object' (without
+      quotes, and without % if you have automagic on).
+
+    * Tab completion in the local namespace:
+
+      At any time, hitting tab will complete any available Python commands or
+      variable names, and show you a list of the possible completions if there's
+      no unambiguous one. It will also complete filenames in the current directory.
+
+    * Search previous command history in multiple ways:
+
+      - Use arrow keys up/down to navigate through the history of executed commands.
+      - Hit Ctrl-r: opens a search prompt. Begin typing and the system searches
+        your history for lines that match what you've typed so far, completing as
+        much as it can.
+
+      - %hist: search history by index.
+
+    * Persistent command history across sessions.
+
+    * System shell with !. Typing !ls will run 'ls' in the current directory.
+
+    * Verbose and colored exception traceback printouts. See the magic xmode and
+      xcolor functions for details (just type %magic).
+
+    * Clickable links in exception traceback printouts.
+
+    """
+    pass
