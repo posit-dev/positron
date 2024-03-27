@@ -16,6 +16,7 @@ import { getArkKernelPath } from './kernel';
 import { randomUUID } from 'crypto';
 import { handleRCode } from './hyperlink';
 import { RSessionManager } from './session-manager';
+import { existsSync } from 'fs';
 
 interface RPackageInstallation {
 	packageName: string;
@@ -635,6 +636,7 @@ export function createJupyterKernelSpec(context: vscode.ExtensionContext,
 	const logLevel = config.get<string>('kernel.logLevel') ?? 'warn';
 	const userEnv = config.get<object>('kernel.env') ?? {};
 
+
 	/* eslint-disable */
 	const env = <Record<string, string>>{
 		'POSITRON': '1',
@@ -644,6 +646,17 @@ export function createJupyterKernelSpec(context: vscode.ExtensionContext,
 		...userEnv
 	};
 	/* eslint-enable */
+
+	// Inject the path to the Pandoc executable into the environment; R packages
+	// that use Pandoc for rendering will need this.
+	//
+	// On MacOS, the binary path lives alongside the app bundle; on other
+	// platforms, it's a couple of directories up from the app root.
+	const pandocPath = path.join(vscode.env.appRoot,
+		process.platform === 'darwin' ? 'bin' : path.join('..', '..', 'bin'));
+	if (existsSync(pandocPath)) {
+		env['RSTUDIO_PANDOC'] = pandocPath;
+	}
 
 	// R script to run on session startup
 	const startupFile = path.join(context.extensionPath, 'resources', 'scripts', 'startup.R');

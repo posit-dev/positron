@@ -116,6 +116,7 @@ jobs:
       # Build client
       - name: Build client
         env:
+          npm_config_arch: ${{ matrix.arch }}
           POSITRON_BUILD_NUMBER: ${{ inputs.build_number }}
         run: |
           export NVM_DIR="$HOME/.nvm"
@@ -222,7 +223,7 @@ jobs:
 
           # Create the disk image itself.
           hdiutil create \
-            -size 1g \
+            -size 2g \
             -fs "APFS" \
             -volname "${POSITRON_BUNDLE_NAME}" \
             -srcfolder "VSCode-darwin-universal" \
