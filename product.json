@@ -471,6 +471,9 @@
 			"resolvers",
 			"contribRemoteHelp",
 			"contribViewsRemote"
+		],
+		"vscode.positron-viewer": [
+			"externalUriOpener"
 		]
 	}
 }

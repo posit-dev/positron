@@ -969,7 +969,8 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 					nls.localize('positron.runtimeNotResponding', "{0} is not responding", session.runtimeMetadata.runtimeName),
 					warning,
 					nls.localize('positron.runtimeForceQuit', "Force Quit"),
-					nls.localize('positron.runtimeKeepWaiting', "Wait"));
+					nls.localize('positron.runtimeKeepWaiting', "Wait")
+				);
 
 				prompt.onChoice((choice) => {
 					// If the user chose to force quit the runtime, do so.
@@ -1109,6 +1110,15 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 						session_id: session.sessionId,
 						event: {
 							name: UiFrontendEvent.ExecuteCommand,
+							data: event
+						}
+					});
+				}));
+				this._register(uiClient.onDidShowUrl(event => {
+					this._onDidReceiveRuntimeEventEmitter.fire({
+						session_id: session.sessionId,
+						event: {
+							name: UiFrontendEvent.ShowUrl,
 							data: event
 						}
 					});

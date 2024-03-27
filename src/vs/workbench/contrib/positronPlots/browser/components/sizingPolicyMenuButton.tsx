@@ -93,26 +93,36 @@ export const SizingPolicyMenuButton = (props: SizingPolicyMenuButtonProps) => {
 			tooltip: '',
 			class: undefined,
 			enabled: true,
-			run: async () => {
-				const result = await showSetPlotSizeModalDialog(
+			run: () => {
+				showSetPlotSizeModalDialog(
 					props.keybindingService,
 					props.layoutService,
-					customPolicy ? customPolicy.size : undefined
-				);
-				if (result === null) {
-					// The user clicked the delete button; this results in a special `null` value
-					// that signals that the custom policy should be deleted.
-					props.plotsService.clearCustomPlotSize();
-				} else if (result) {
-					if (result.size.width < 100 || result.size.height < 100) {
-						// The user entered a size that's too small. Plots drawn at this size
-						// would be too small to be useful, so we show an error message.
-						props.notificationService.error(nls.localize('positronPlotSizeTooSmall', "The custom plot size {0}×{1} is invalid. The size must be at least 100×100.", result.size.width, result.size.height));
-					} else {
-						// The user entered a valid size; set the custom policy.
-						props.plotsService.setCustomPlotSize(result.size);
+					customPolicy ? customPolicy.size : undefined,
+					result => {
+						if (result === null) {
+							// The user clicked the delete button; this results in a special `null`
+							// value that signals that the custom policy should be deleted.
+							props.plotsService.clearCustomPlotSize();
+						} else if (result) {
+							if (result.size.width < 100 || result.size.height < 100) {
+								// The user entered a size that's too small. Plots drawn at this
+								// size would be too small to be useful, so we show an error
+								// message.
+								props.notificationService.error(
+									nls.localize(
+										'positronPlotSizeTooSmall',
+										"The custom plot size {0}×{1} is invalid. The size must be at least 100×100.",
+										result.size.width,
+										result.size.height
+									)
+								);
+							} else {
+								// The user entered a valid size; set the custom policy.
+								props.plotsService.setCustomPlotSize(result.size);
+							}
+						}
 					}
-				}
+				);
 			}
 		});
 

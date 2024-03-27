@@ -2,7 +2,7 @@
  *  Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
-import { DataColumnAlignment } from 'vs/base/browser/ui/positronDataGrid/interfaces/dataColumn';
+import { DataColumnAlignment } from 'vs/workbench/browser/positronDataGrid/interfaces/dataColumn';
 import { ColumnSchema, ColumnSchemaTypeDisplay } from 'vs/workbench/services/languageRuntime/common/positronDataExplorerComm';
 import { IPositronDataExplorerColumn } from 'vs/workbench/services/positronDataExplorer/browser/interfaces/positronDataExplorerColumn';
 

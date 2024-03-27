@@ -1,0 +1,33 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *--------------------------------------------------------------------------------------------*/
+
+/*
+Adjust default action bar styles so that the center grows
+and the left and right regions do not; this causes the URL
+bar to fill the center of the toolbar.
+*/
+.preview-action-bar .action-bar-region-left,
+.preview-action-bar .action-bar-region-right {
+	flex: 0;
+}
+
+.preview-action-bar .action-bar-region-center {
+	flex: 1;
+}
+
+.preview-action-bar form {
+	display: flex;
+	flex-grow: 1;
+}
+
+.preview-action-bar .url-bar {
+	border: 1px solid var(--vscode-input-border);
+	border-radius: 4px;
+	margin-left: 10px;
+	padding-left: 10px;
+	padding-right: 10px;
+	padding-top: 2px;
+	padding-bottom: 2px;
+	flex-grow: 1;
+}

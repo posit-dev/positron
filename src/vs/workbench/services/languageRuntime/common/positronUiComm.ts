@@ -269,6 +269,17 @@ export interface SetEditorSelectionsEvent {
 }
 
 /**
+ * Event: Show a URL in Positron's Viewer pane
+ */
+export interface ShowUrlEvent {
+	/**
+	 * The URL to display
+	 */
+	url: string;
+
+}
+
+/**
  * Request: Show a question
  *
  * Use this for a modal dialog that the user can accept or cancel
@@ -355,6 +366,7 @@ export enum UiFrontendEvent {
 	ExecuteCommand = 'execute_command',
 	OpenWorkspace = 'open_workspace',
 	SetEditorSelections = 'set_editor_selections'
+	ShowUrl = 'show_url'
 }
 
 export enum UiFrontendRequest {
@@ -377,6 +389,7 @@ export class PositronUiComm extends PositronBaseComm {
 		this.onDidExecuteCommand = super.createEventEmitter('execute_command', ['command']);
 		this.onDidOpenWorkspace = super.createEventEmitter('open_workspace', ['path', 'new_window']);
 		this.onDidSetEditorSelections = super.createEventEmitter('set_editor_selections', ['selections']);
+		this.onDidShowUrl = super.createEventEmitter('show_url', ['url']);
 	}
 
 	/**
@@ -456,5 +469,12 @@ export class PositronUiComm extends PositronBaseComm {
 	 * Use this to set the selection ranges/cursor in the editor
 	 */
 	onDidSetEditorSelections: Event<SetEditorSelectionsEvent>;
+  /**
+	 * Show a URL in Positron's Viewer pane
+	 *
+	 * Causes the URL to be displayed inside the Viewer pane, and makes the
+	 * Viewer pane visible.
+	 */
+	onDidShowUrl: Event<ShowUrlEvent>;
 }
 

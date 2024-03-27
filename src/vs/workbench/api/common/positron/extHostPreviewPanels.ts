@@ -1,6 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (c) Microsoft Corporation. All rights reserved.
- *  Licensed under the MIT License. See License.txt in the project root for license information.
+ *  Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
 import { Emitter } from 'vs/base/common/event';
@@ -202,6 +201,26 @@ export class ExtHostPreviewPanels implements extHostProtocol.ExtHostPreviewPanel
 			webviewOptions: serializeWebviewOptions(extension, this.workspace, options),
 		}, !!preserveFocus);
 
+		const webview = this.webviews.$createNewWebview(handle, options, extension);
+		const panel = this.createNewPreviewPanel(handle, viewType, title, webview as ExtHostWebview, true);
+
+		return panel;
+	}
+
+	public previewUrl(
+		extension: IExtensionDescription,
+		uri: vscode.Uri,
+	): positron.PreviewPanel {
+
+		const handle = ExtHostPreviewPanels.newHandle();
+		const viewType = 'positron.previewUrl';
+		const options: positron.PreviewOptions = {
+			enableForms: true,
+			enableScripts: true,
+			localResourceRoots: [],
+		};
+		const title = uri.toString();
+		this._proxy.$previewUrl(toExtensionData(extension), handle, uri);
 		const webview = this.webviews.$createNewWebview(handle, options, extension);
 		const panel = this.createNewPreviewPanel(handle, viewType, title, webview as ExtHostWebview, true);
 
