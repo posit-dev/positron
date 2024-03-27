@@ -164,25 +164,3 @@ function getHeaderInfo(rcFile) {
 		? { disturl, target }
 		: undefined;
 }
-
-
-// --- Start Positron ---
-console.log(`Updating positron built-in extensions...`);
-
-// For dev environments: if a local sync of a submodule already
-// exists, "absorb" it as if it were originally added via submodule
-if (fs.existsSync('extensions/positron-python/.git') &&
-	!fs.existsSync('.git/modules/extensions/positron-python')) {
-	cp.execSync('git submodule absorbgitdirs extensions/positron-python');
-	console.log(`Absorbed local sync of positron-python`);
-}
-
-cp.execSync('git submodule init', {stdio: 'inherit'});
-
-// For unattended builds: config with PAT
-if (process.env['POSITRON_GITHUB_PAT']) {
-	cp.execSync(`git config submodule.extensions/positron-python.url https://${process.env['POSITRON_GITHUB_PAT']}@github.com/posit-dev/positron-python.git`, {stdio: 'inherit'});
-}
-cp.execSync('git submodule update --init --recursive', {stdio: 'inherit'});
-
-// --- End Positron ---
