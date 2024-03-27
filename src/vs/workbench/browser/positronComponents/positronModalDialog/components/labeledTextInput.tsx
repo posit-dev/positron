@@ -20,7 +20,7 @@ export interface LabeledTextInputProps {
 	max?: number;
 	min?: number;
 	type?: 'text' | 'number';
-	error?: string;
+	error?: boolean;
 	onChange: ChangeEventHandler<HTMLInputElement>;
 }
 
@@ -31,8 +31,8 @@ export const LabeledTextInput = forwardRef<HTMLInputElement, LabeledTextInputPro
 	// Render.
 	return (
 		<div className='labeled-text-input'>
-			<label>
-				{props.label}: {props.error && <span className='error'>{props.error}</span>}
+			<label className='label'>
+				{props.label}
 				<input className={positronClassNames('text-input', { 'error': props.error })} ref={ref} type={props.type} value={props.value}
 					autoFocus={props.autoFocus} onChange={props.onChange} max={props.max} min={props.min} />
 			</label>

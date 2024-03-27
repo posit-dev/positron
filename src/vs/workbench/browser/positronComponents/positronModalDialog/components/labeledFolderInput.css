@@ -43,6 +43,8 @@
 	outline: 1px solid var(--vscode-focusBorder) !important;
 }
 
-.positron-modal-dialog-box .labeled-folder-input div.error {
+.positron-modal-dialog-box .labeled-folder-input span.error {
 	color: var(--vscode-errorForeground);
+	height: 1em;
+	display: block
 }

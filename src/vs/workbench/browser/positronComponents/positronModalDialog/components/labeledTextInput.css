@@ -6,14 +6,21 @@
 	width: 100%;
 }
 
+.positron-modal-dialog-box .labeled-text-input label {
+	display: flex;
+	flex-direction: column;
+}
+
 .positron-modal-dialog-box .labeled-text-input .text-input {
 	margin-top: 4px;
 }
 
-.positron-modal-dialog-box .labeled-text-input div.error {
+.positron-modal-dialog-box .labeled-text-input span.error {
 	color: var(--vscode-errorForeground);
+	height: 1em;
+	display: block;
 }
 
 .positron-modal-dialog-box .labeled-text-input input.error {
-	border-color: var(--vscode-inputValidation-errorBorder);
+	border-color: var(--vscode-errorForeground);
 }

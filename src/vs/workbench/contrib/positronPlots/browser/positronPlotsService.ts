@@ -29,6 +29,8 @@ import { decodeBase64 } from 'vs/base/common/buffer';
 import { showSavePlotModalDialog } from 'vs/workbench/contrib/positronPlots/browser/modalDialogs/savePlotModalDialog';
 import { IWorkbenchLayoutService } from 'vs/workbench/services/layout/browser/layoutService';
 import { URI } from 'vs/base/common/uri';
+import { IWorkspaceContextService } from 'vs/platform/workspace/common/workspace';
+import { IKeybindingService } from 'vs/platform/keybinding/common/keybinding';
 
 /** The maximum number of recent executions to store. */
 const MaxRecentExecutions = 10;
@@ -103,7 +105,9 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 		@IPositronIPyWidgetsService private _positronIPyWidgetsService: IPositronIPyWidgetsService,
 		@IFileService private readonly _fileService: IFileService,
 		@IFileDialogService private readonly _fileDialogService: IFileDialogService,
-		@IWorkbenchLayoutService private readonly _layoutService: IWorkbenchLayoutService) {
+		@IWorkspaceContextService private readonly _workspaceContextService: IWorkspaceContextService,
+		@IWorkbenchLayoutService private readonly _layoutService: IWorkbenchLayoutService,
+		@IKeybindingService private readonly _keybindingService: IKeybindingService) {
 		super();
 
 		// Register for language runtime service startups
@@ -672,6 +676,8 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 	savePlot(): void {
 		if (this._selectedPlotId) {
 			const plot = this._plots.find(plot => plot.id === this._selectedPlotId);
+			const workspaceFolder = this._workspaceContextService.getWorkspace().folders[0]?.uri;
+			const suggestedPath = workspaceFolder ? URI.joinPath(workspaceFolder, 'plot.png') : undefined;
 			if (plot) {
 				let uri = '';
 
@@ -681,15 +687,8 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 					uri = staticPlot.uri;
 					this.showSavePlotDialog(uri);
 				} else if (plot instanceof PlotClientInstance) {
-					const savePlotModalDialogProps = {
-						layoutService: this._layoutService,
-						fileDialogService: this._fileDialogService,
-						plotWidth: plot.lastRender?.width ?? 100,
-						plotHeight: plot.lastRender?.height ?? 100,
-						plotClient: plot,
-					};
 					// if it's a dynamic plot, present options dialog
-					showSavePlotModalDialog(savePlotModalDialogProps).then(result => {
+					showSavePlotModalDialog(this._layoutService, this._keybindingService, this._fileDialogService, this._fileService, plot, suggestedPath).then(result => {
 						if (result) {
 							this.savePlotAs(result.uri, result.path);
 						}

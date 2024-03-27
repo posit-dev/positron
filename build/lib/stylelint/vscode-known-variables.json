@@ -574,7 +574,6 @@
 		"--vscode-positronModalDialog-defaultButtonForeground",
 		"--vscode-positronModalDialog-defaultButtonHoverBackground",
 		"--vscode-positronModalDialog-foreground",
-		"--vscode-positronModalDialog-formBorder",
 		"--vscode-positronModalDialog-separator",
 		"--vscode-positronModalDialog-textInputBackground",
 		"--vscode-positronModalDialog-textInputBorder",
