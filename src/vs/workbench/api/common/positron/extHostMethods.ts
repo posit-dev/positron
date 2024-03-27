@@ -9,7 +9,6 @@ import { ExtHostWorkspace } from '../extHostWorkspace';
 import { UiFrontendRequest, EditorContext } from 'vs/workbench/services/languageRuntime/common/positronUiComm';
 import { JsonRpcErrorCode } from 'vs/workbench/services/languageRuntime/common/positronBaseComm';
 import { EndOfLine } from '../extHostTypeConverters';
-import { Selection } from '../extHostTypes';
 
 type JsonRpcResponse = JsonRpcResult | JsonRpcError;
 
@@ -63,14 +62,6 @@ export class ExtHostMethods implements extHostProtocol.ExtHostMethodsShape {
 						return newInvalidParamsError(method);
 					}
 					result = await this.lastActiveEditorContext();
-					break;
-				}
-				case UiFrontendRequest.SetEditorSelections: {
-					if (!params ||
-						!Object.keys(params).includes('selections')) {
-						return newInvalidParamsError(method);
-					}
-					result = await this.setEditorSelections(params.selections as Selection[]);
 					break;
 				}
 				case UiFrontendRequest.WorkspaceFolder: {
@@ -186,15 +177,6 @@ export class ExtHostMethods implements extHostProtocol.ExtHostMethodsShape {
 			selection: selections[0],
 			selections: selections
 		};
-	}
-
-	async setEditorSelections(selections: Selection[]): Promise<null> {
-		const editor = this.editors.getActiveTextEditor();
-		if (!editor) {
-			return null;
-		}
-		editor.selections = selections;
-		return null;
 	}
 
 	async workspaceFolder(): Promise<string | null> {

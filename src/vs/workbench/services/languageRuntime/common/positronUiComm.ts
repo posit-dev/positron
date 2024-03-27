@@ -139,18 +139,28 @@ export interface Selection {
 }
 
 /**
- * Selection range
+ * Selection range, for the ISelection type
  */
-export interface Range {
+export interface Iselection {
 	/**
-	 * Start position of the selection
+	 * The line number on which the selection has started.
 	 */
-	start: Position;
+	start_line: number;
 
 	/**
-	 * End position of the selection
+	 * The column on on which the selection has started.
 	 */
-	end: Position;
+	start_column: number;
+
+	/**
+	 * The line number on which the selection has ended.
+	 */
+	end_line: number;
+
+	/**
+	 * The column on which the selection has ended.
+	 */
+	end_column: number;
 
 }
 
@@ -258,6 +268,17 @@ export interface OpenWorkspaceEvent {
 }
 
 /**
+ * Event: Set the selections in the editor
+ */
+export interface SetEditorSelectionsEvent {
+	/**
+	 * The selections to set in the document
+	 */
+	selections: Array<Iselection>;
+
+}
+
+/**
  * Request: Show a question
  *
  * Use this for a modal dialog that the user can accept or cancel
@@ -326,19 +347,6 @@ export interface WorkspaceFolderRequest {
 }
 
 /**
- * Request: Set the selections in the editor
- *
- * Use this to set the selection ranges/cursor in the editor
- */
-export interface SetEditorSelectionsRequest {
-	/**
-	 * The selections (really, ranges) to set in the document
-	 */
-	selections: Array<Range>;
-
-}
-
-/**
  * Request: Context metadata for the last editor
  *
  * Returns metadata such as file path for the last editor selected by the
@@ -355,7 +363,8 @@ export enum UiFrontendEvent {
 	PromptState = 'prompt_state',
 	WorkingDirectory = 'working_directory',
 	ExecuteCommand = 'execute_command',
-	OpenWorkspace = 'open_workspace'
+	OpenWorkspace = 'open_workspace',
+	SetEditorSelections = 'set_editor_selections'
 }
 
 export enum UiFrontendRequest {
@@ -363,7 +372,6 @@ export enum UiFrontendRequest {
 	ShowDialog = 'show_dialog',
 	DebugSleep = 'debug_sleep',
 	WorkspaceFolder = 'workspace_folder',
-	SetEditorSelections = 'set_editor_selections',
 	LastActiveEditorContext = 'last_active_editor_context'
 }
 
@@ -378,6 +386,7 @@ export class PositronUiComm extends PositronBaseComm {
 		this.onDidWorkingDirectory = super.createEventEmitter('working_directory', ['directory']);
 		this.onDidExecuteCommand = super.createEventEmitter('execute_command', ['command']);
 		this.onDidOpenWorkspace = super.createEventEmitter('open_workspace', ['path', 'new_window']);
+		this.onDidSetEditorSelections = super.createEventEmitter('set_editor_selections', ['selections']);
 	}
 
 	/**
@@ -451,5 +460,11 @@ export class PositronUiComm extends PositronBaseComm {
 	 * Use this to open a workspace in Positron
 	 */
 	onDidOpenWorkspace: Event<OpenWorkspaceEvent>;
+	/**
+	 * Set the selections in the editor
+	 *
+	 * Use this to set the selection ranges/cursor in the editor
+	 */
+	onDidSetEditorSelections: Event<SetEditorSelectionsEvent>;
 }
 
