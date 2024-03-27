@@ -4,9 +4,18 @@ on:
   push:
     branches:
       - main
+    paths:
+      - 'extensions/positron-python/**'
   pull_request:
     branches:
       - main
+    paths:
+      - 'extensions/positron-python/**'
+
+
+defaults:
+ run:
+  working-directory: './extensions/positron-python'
 
 env:
   NODE_VERSION: '18.17.1'
