@@ -6,7 +6,6 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import * as assert from 'assert';
 import * as fs from 'fs';
 import * as os from 'os';
 import { join } from 'path';
@@ -44,36 +43,40 @@ export function deleteFile(file: vscode.Uri): Thenable<boolean> {
 			}
 		});
 	});
-} export const CURSOR = '$$CURSOR$$';
-
-export function withRandomFileEditor(
-	contents: string,
-	fileExtension: string,
-	run: (editor: vscode.TextEditor, doc: vscode.TextDocument) => Thenable<void>
-): Thenable<boolean> {
-	const cursorIndex = contents.indexOf(CURSOR);
-	return createRandomFile(contents.replace(CURSOR, ''), fileExtension).then(file => {
-		return vscode.workspace.openTextDocument(file).then(doc => {
-			return vscode.window.showTextDocument(doc).then((editor) => {
-				if (cursorIndex >= 0) {
-					const pos = doc.positionAt(cursorIndex);
-					editor.selection = new vscode.Selection(pos, pos);
-				}
-				return run(editor, doc).then(_ => {
-					if (doc.isDirty) {
-						return doc.save().then(() => {
-							return deleteFile(file);
-						});
-					} else {
-						return deleteFile(file);
-					}
-				});
-			});
-		});
-	});
 }
 
-const onDocumentChange = (doc: vscode.TextDocument): Promise<vscode.TextDocument> => {
+export const CURSOR = '"<>"';
+
+export async function withFileEditor(
+	contents: string,
+	fileExtension: string,
+	run: (editor: vscode.TextEditor, doc: vscode.TextDocument) => Promise<void>
+): Promise<void> {
+	const cursorIndex = contents.indexOf(CURSOR);
+	const rawContents = contents.replace(CURSOR, '');
+
+	const file = await createRandomFile(rawContents, fileExtension);
+
+	try {
+		const doc = await vscode.workspace.openTextDocument(file);
+		const editor = await vscode.window.showTextDocument(doc);
+
+		if (cursorIndex >= 0) {
+			const pos = doc.positionAt(cursorIndex);
+			editor.selection = new vscode.Selection(pos, pos);
+		}
+
+		await run(editor, doc);
+
+		if (doc.isDirty) {
+			await doc.save();
+		}
+	} finally {
+		deleteFile(file);
+	}
+}
+
+export const onDocumentChange = (doc: vscode.TextDocument): Promise<vscode.TextDocument> => {
 	return new Promise<vscode.TextDocument>(resolve => {
 		const sub = vscode.workspace.onDidChangeTextDocument(e => {
 			if (e.document !== doc) {
