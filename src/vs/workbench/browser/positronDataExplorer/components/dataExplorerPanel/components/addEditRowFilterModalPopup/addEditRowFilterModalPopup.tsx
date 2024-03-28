@@ -104,11 +104,11 @@ interface AddEditRowFilterModalPopupProps {
 }
 
 /**
- * AddRowFilterModalPopup component.
+ * AddEditRowFilterModalPopup component.
  * @param props An AddEditRowFilterModalPopupProps that contains the component properties.
  * @returns The rendered component.
  */
-export const AddRowFilterModalPopup = (props: AddEditRowFilterModalPopupProps) => {
+export const AddEditRowFilterModalPopup = (props: AddEditRowFilterModalPopupProps) => {
 	// Reference hooks.
 	const firstRowFilterParameterRef = useRef<HTMLInputElement>(undefined!);
 	const secondRowFilterParameterRef = useRef<HTMLInputElement>(undefined!);

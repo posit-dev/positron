@@ -18,7 +18,7 @@ import { ContextMenuItem } from 'vs/workbench/browser/positronComponents/context
 import { ContextMenuSeparator } from 'vs/workbench/browser/positronComponents/contextMenu/contextMenuSeparator';
 import { usePositronDataExplorerContext } from 'vs/workbench/browser/positronDataExplorer/positronDataExplorerContext';
 import { PositronModalReactRenderer } from 'vs/workbench/browser/positronModalReactRenderer/positronModalReactRenderer';
-import { AddRowFilterModalPopup } from 'vs/workbench/browser/positronDataExplorer/components/dataExplorerPanel/components/addEditRowFilterModalPopup/addEditRowFilterModalPopup';
+import { AddEditRowFilterModalPopup } from 'vs/workbench/browser/positronDataExplorer/components/dataExplorerPanel/components/addEditRowFilterModalPopup/addEditRowFilterModalPopup';
 import { RowFilter, RowFilterIsBetween, RowFilterIsEmpty, RowFilterIsEqualTo, RowFilterIsGreaterThan, RowFilterIsLessThan, RowFilterIsNotBetween, RowFilterIsNotEmpty } from 'vs/workbench/browser/positronDataExplorer/components/dataExplorerPanel/components/addEditRowFilterModalPopup/rowFilter';
 
 // Temporary filter.
@@ -80,7 +80,7 @@ export const FilterBar = () => {
 		// Show the add row filter modal popup.
 		renderer.render(
 			// TODO: Work in progress.
-			<AddRowFilterModalPopup
+			<AddEditRowFilterModalPopup
 				dataExplorerClientInstance={context.instance.dataExplorerClientInstance}
 				renderer={renderer}
 				anchor={filterButtonRef.current}
