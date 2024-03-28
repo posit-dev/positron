@@ -82,97 +82,106 @@ export async function* rRuntimeDiscoverer(): AsyncGenerator<positron.LanguageRun
 		return semver.compare(b.semVersion, a.semVersion) || a.arch.localeCompare(b.arch);
 	});
 
-	// For now, we recommend the first R runtime for the workspace based on a set of
+	// For now, we recommend an R runtime for the workspace based on a set of
 	// non-runtime-specific heuristics.
 	// In the future, we will use more sophisticated heuristics, such as
 	// checking an renv lockfile for a match against a system version of R.
 	let recommendedForWorkspace = await shouldRecommendForWorkspace();
 
-	// Loop over the R installations and create a language runtime for each one.
 	for (const rInst of rInstallations) {
-
-		// Is the runtime path within the user's home directory?
-		const homedir = os.homedir();
-		const isUserInstallation = rInst.binpath.startsWith(homedir);
-
-		// Create the runtime path.
-		// TODO@softwarenerd - We will need to update this for Windows.
-		const runtimePath = os.platform() !== 'win32' && isUserInstallation ?
-			path.join('~', rInst.binpath.substring(homedir.length)) :
-			rInst.binpath;
-
-		// Does the runtime path have 'homebrew' as a component? (we assume that
-		// it's a Homebrew installation if it does)
-		const isHomebrewInstallation = rInst.binpath.includes('/homebrew/');
-
-		const runtimeSource = isHomebrewInstallation ? 'Homebrew' :
-			isUserInstallation ?
-				'User' : 'System';
-
-		// Short name shown to users (when disambiguating within a language)
-		let runtimeShortName = rInst.version;
+		// If we're recommending an R runtime, request immediate startup.
+		const startupBehavior = recommendedForWorkspace ?
+			positron.LanguageRuntimeStartupBehavior.Immediate :
+			positron.LanguageRuntimeStartupBehavior.Implicit;
+		// But immediate startup only applies to, at most, one R installation -- specifically, the
+		// first element of rInstallations.
+		recommendedForWorkspace = false;
 
 		// If there is another R installation with the same version but different architecture,
-		// then disambiguate by appending the architecture to the runtime name.
+		// we need to disambiguate the runtime name by appending the architecture.
 		// For example, if x86_64 and arm64 versions of R 4.4.0 exist simultaneously.
+		let needsArch = false;
 		for (const otherRInst of rInstallations) {
 			if (rInst.version === otherRInst.version && rInst.arch !== otherRInst.arch) {
-				runtimeShortName = `${runtimeShortName} (${rInst.arch})`;
+				needsArch = true;
 				break;
 			}
 		}
 
-		// Full name shown to users
-		const runtimeName = `R ${runtimeShortName}`;
-
-		// Get the version of this extension from package.json so we can pass it
-		// to the adapter as the implementation version.
-		const packageJson = require('../package.json');
-		const rVersion = rInst.version;
-
-		// Create a stable ID for the runtime based on the interpreter path and version.
-		const digest = crypto.createHash('sha256');
-		digest.update(rInst.binpath);
-		digest.update(rVersion);
-		const runtimeId = digest.digest('hex').substring(0, 32);
-
-		// Define the startup behavior; request immediate startup if this is the
-		// recommended runtime for the workspace.
-		const startupBehavior = recommendedForWorkspace ?
-			positron.LanguageRuntimeStartupBehavior.Immediate :
-			positron.LanguageRuntimeStartupBehavior.Implicit;
-
-		// Ensure we only recommend one runtime for the workspace.
-		recommendedForWorkspace = false;
-
-		// Save the R home path and binary path as extra data.
-		const extraRuntimeData: RMetadataExtra = {
-			homepath: rInst.homepath,
-			binpath: rInst.binpath,
-		};
-
-		const metadata: positron.LanguageRuntimeMetadata = {
-			runtimeId,
-			runtimeName,
-			runtimeShortName,
-			runtimePath,
-			runtimeVersion: packageJson.version,
-			runtimeSource,
-			languageId: 'r',
-			languageName: 'R',
-			languageVersion: rVersion,
-			base64EncodedIconSvg:
-				fs.readFileSync(
-					path.join(EXTENSION_ROOT_DIR, 'resources', 'branding', 'r-icon.svg')
-				).toString('base64'),
-			sessionLocation: positron.LanguageRuntimeSessionLocation.Workspace,
-			startupBehavior,
-			extraRuntimeData
-		};
+		const metadata = makeMetadata(rInst, startupBehavior, needsArch);
 
 		// Create an adapter for the kernel to fulfill the LanguageRuntime interface.
 		yield metadata;
 	}
+}
+
+export async function makeMetadata(
+	rInst: RInstallation,
+	startupBehavior: positron.LanguageRuntimeStartupBehavior = positron.LanguageRuntimeStartupBehavior.Implicit,
+	includeArch: boolean = false
+): Promise<positron.LanguageRuntimeMetadata> {
+	// Is the runtime path within the user's home directory?
+	const homedir = os.homedir();
+	const isUserInstallation = rInst.binpath.startsWith(homedir);
+
+	// Create the runtime path.
+	// TODO@softwarenerd - We will need to update this for Windows.
+	const runtimePath = os.platform() !== 'win32' && isUserInstallation ?
+		path.join('~', rInst.binpath.substring(homedir.length)) :
+		rInst.binpath;
+
+	// Does the runtime path have 'homebrew' as a component? (we assume that
+	// it's a Homebrew installation if it does)
+	const isHomebrewInstallation = rInst.binpath.includes('/homebrew/');
+
+	const runtimeSource = isHomebrewInstallation ? 'Homebrew' :
+		isUserInstallation ?
+			'User' : 'System';
+
+	// Short name shown to users (when disambiguating within a language)
+	const runtimeShortName = includeArch ? `${rInst.version} (${rInst.arch})` : rInst.version;
+
+	// Full name shown to users
+	const runtimeName = `R ${runtimeShortName}`;
+
+	// Get the version of this extension from package.json so we can pass it
+	// to the adapter as the implementation version.
+	const packageJson = require('../package.json');
+
+	const rVersion = rInst.version;
+
+	// Create a stable ID for the runtime based on the interpreter path and version.
+	const digest = crypto.createHash('sha256');
+	digest.update(rInst.binpath);
+	digest.update(rVersion);
+	const runtimeId = digest.digest('hex').substring(0, 32);
+
+	// Save the R home path and binary path as extra data.
+	const extraRuntimeData: RMetadataExtra = {
+		homepath: rInst.homepath,
+		binpath: rInst.binpath,
+	};
+
+	const metadata: positron.LanguageRuntimeMetadata = {
+		runtimeId,
+		runtimeName,
+		runtimeShortName,
+		runtimePath,
+		runtimeVersion: packageJson.version,
+		runtimeSource,
+		languageId: 'r',
+		languageName: 'R',
+		languageVersion: rVersion,
+		base64EncodedIconSvg:
+			fs.readFileSync(
+				path.join(EXTENSION_ROOT_DIR, 'resources', 'branding', 'r-icon.svg')
+			).toString('base64'),
+		sessionLocation: positron.LanguageRuntimeSessionLocation.Workspace,
+		startupBehavior,
+		extraRuntimeData
+	};
+
+	return metadata;
 }
 
 // directory(ies) where this OS is known to keep its R installations

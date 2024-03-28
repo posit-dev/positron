@@ -4,7 +4,7 @@
 
 import * as positron from 'positron';
 import * as vscode from 'vscode';
-import { findCurrentRBinary, rRuntimeDiscoverer } from './provider';
+import { findCurrentRBinary, makeMetadata, rRuntimeDiscoverer } from './provider';
 import { RInstallation, RMetadataExtra } from './r-installation';
 import { RSession, createJupyterKernelExtra, createJupyterKernelSpec } from './session';
 
@@ -78,7 +78,7 @@ export class RRuntimeManager implements positron.LanguageRuntimeManager {
 		}
 
 		// Looks like a valid R installation.
-		return Promise.resolve(metadata);
+		return Promise.resolve(makeMetadata(inst, positron.LanguageRuntimeStartupBehavior.Immediate));
 	}
 
 	restoreSession(
