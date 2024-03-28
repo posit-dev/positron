@@ -28,6 +28,11 @@ export const SAVE_FILE_WITHOUT_FORMATTING_LABEL = nls.localize2('saveWithoutForm
 export const SAVE_ALL_COMMAND_ID = 'saveAll';
 export const SAVE_ALL_LABEL = nls.localize2('saveAll', "Save All");
 
+// --- Start Positron ---
+export const SAVE_ALL_TITLED_COMMAND_ID = 'saveAllTitled';
+export const SAVE_ALL_TITLED_LABEL = nls.localize2('saveAllTitled', "Save All Titled");
+// --- End Positron ---
+
 export const SAVE_ALL_IN_GROUP_COMMAND_ID = 'workbench.files.action.saveAllInGroup';
 
 export const SAVE_FILES_COMMAND_ID = 'workbench.action.files.saveFiles';
