@@ -465,7 +465,7 @@
                     "uniqueItems": true
                 },
                 "python.createEnvironment.contentButton": {
-                    "default": "show",
+                    "default": "hide",
                     "markdownDescription": "%python.createEnvironment.contentButton.description%",
                     "scope": "machine-overridable",
                     "type": "string",
@@ -475,7 +475,7 @@
                     ]
                 },
                 "python.createEnvironment.trigger": {
-                    "default": "off",
+                    "default": "prompt",
                     "markdownDescription": "%python.createEnvironment.trigger.description%",
                     "scope": "machine-overridable",
                     "type": "string",
