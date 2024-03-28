@@ -15,13 +15,13 @@ on:
 
 defaults:
  run:
-  working-directory: './extensions/positron-python'
+  working-directory: 'extensions/positron-python'
 
 env:
   NODE_VERSION: '18.17.1'
   PYTHON_VERSION: '3.10'
-  PROJECT_DIR: './extensions/positron-python'
-  PYTHON_SRC_DIR: './extensions/positron-python/pythonFiles'
+  PROJECT_DIR: 'extensions/positron-python'
+  PYTHON_SRC_DIR: 'extensions/positron-python/pythonFiles'
   # Force a path with spaces and to test extension works in these scenarios
   # Unicode characters are causing 2.7 failures so skip that for now.
   special-working-directory: './path with spaces'
