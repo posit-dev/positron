@@ -97,7 +97,7 @@ async function start() {
     // fail due to the path being too long.
     const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'positron-'));
     const userDataDir = path.join(tmpDir, 'user-data');
-    launchArgs.concat(['--user-data-dir', userDataDir]);
+    launchArgs.push('--user-data-dir', userDataDir);
     // --- End Positron ---
     console.log(`Starting vscode ${channel} with args ${launchArgs.join(' ')}`);
     const options: TestOptions = {
