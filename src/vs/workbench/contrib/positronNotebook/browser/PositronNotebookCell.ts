@@ -2,14 +2,12 @@
  *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
-// eslint-disable-next-line local/code-import-patterns
-import { marked } from 'marked';
-
 import { Disposable, DisposableStore } from 'vs/base/common/lifecycle';
 import { ISettableObservable, observableValue } from 'vs/base/common/observableInternal/base';
 import { URI } from 'vs/base/common/uri';
 import { ITextModel } from 'vs/editor/common/model';
 import { ITextModelService } from 'vs/editor/common/services/resolverService';
+import { ICommandService } from 'vs/platform/commands/common/commands';
 import { IInstantiationService } from 'vs/platform/instantiation/common/instantiation';
 import { ICellViewModel } from 'vs/workbench/contrib/notebook/browser/notebookBrowser';
 import { NotebookCellTextModel } from 'vs/workbench/contrib/notebook/common/model/notebookCellTextModel';
@@ -28,6 +26,7 @@ abstract class PositronNotebookCellGeneral extends Disposable implements IPositr
 		public cellModel: NotebookCellTextModel,
 		public _instance: IPositronNotebookInstance,
 		@ITextModelService private readonly textModelResolverService: ITextModelService,
+		@ICommandService  readonly _commandService: ICommandService,
 	) {
 		super();
 	}
@@ -88,8 +87,9 @@ class PositronNotebookCodeCell extends PositronNotebookCellGeneral implements IP
 		cellModel: NotebookCellTextModel,
 		instance: IPositronNotebookInstance,
 		textModelResolverService: ITextModelService,
+		commandService: ICommandService
 	) {
-		super(cellModel, instance, textModelResolverService);
+		super(cellModel, instance, textModelResolverService, commandService);
 
 		this.executionStatus = observableValue<ExecutionStatus, void>('cellExecutionStatus', 'idle');
 		this.outputs = observableValue<ICellOutput[], void>('cellOutputs', this.cellModel.outputs);
@@ -119,12 +119,14 @@ class PositronNotebookMarkupCell extends PositronNotebookCellGeneral implements 
 	editorShown: ISettableObservable<boolean> = observableValue<boolean, void>('editorShown', false);
 	override kind: CellKind.Markup = CellKind.Markup;
 
+
 	constructor(
 		cellModel: NotebookCellTextModel,
 		instance: IPositronNotebookInstance,
 		textModelResolverService: ITextModelService,
+		commandService: ICommandService
 	) {
-		super(cellModel, instance, textModelResolverService);
+		super(cellModel, instance, textModelResolverService, commandService);
 
 		// Render the markdown content and update the observable when the cell content changes
 		this._disposableStore.add(this.cellModel.onDidChangeContent(() => {
@@ -134,8 +136,13 @@ class PositronNotebookMarkupCell extends PositronNotebookCellGeneral implements 
 		this._renderContent();
 	}
 
-	private _renderContent(): void {
-		const renderedHtml = marked(this.getContent());
+	private async _renderContent(): Promise<void> {
+
+		const renderedHtml = await this._commandService.executeCommand(
+			'markdown.api.render',
+			this.getContent()
+		);
+
 		if (typeof renderedHtml !== 'string') {
 			throw new Error('Notebooks do not support async markdown rendering yet.');
 		}
