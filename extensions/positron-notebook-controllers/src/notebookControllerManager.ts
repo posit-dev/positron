@@ -19,11 +19,12 @@ export class NotebookControllerManager implements vscode.Disposable {
 	 * @param languageId The language ID for which to create a notebook controller.
 	 */
 	public createNotebookController(languageId: string): void {
-		if (!this.controllers.has(languageId)) {
-			const controller = new NotebookController(languageId);
-			this.controllers.set(languageId, controller);
-			trace(`Registered notebook controller for language: ${languageId}`);
+		if (this.controllers.has(languageId)) {
+			throw new Error(`Notebook controller already exists for language: ${languageId}`);
 		}
+		const controller = new NotebookController(languageId);
+		this.controllers.set(languageId, controller);
+		trace(`Registered notebook controller for language: ${languageId}`);
 	}
 
 	/**
