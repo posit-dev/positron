@@ -15,11 +15,13 @@ on:
 
 defaults:
  run:
-  working-directory: './extensions/positron-python'
+  working-directory: 'extensions/positron-python'
 
 env:
   NODE_VERSION: '18.17.1'
   PYTHON_VERSION: '3.10'
+  PROJECT_DIR: 'extensions/positron-python'
+  PYTHON_SRC_DIR: 'extensions/positron-python/pythonFiles'
   # Force a path with spaces and to test extension works in these scenarios
   # Unicode characters are causing 2.7 failures so skip that for now.
   special-working-directory: './path with spaces'
@@ -67,13 +69,13 @@ jobs:
         run: |
           python -m pip install -U black
           python -m black . --check
-        working-directory: pythonFiles
+        working-directory: ${{ env.PYTHON_SRC_DIR }}
 
       - name: Run Ruff
         run: |
           python -m pip install -U ruff
           python -m ruff check .
-        working-directory: pythonFiles
+        working-directory: ${{ env.PYTHON_SRC_DIR }}
 
   check-types:
     name: Check Python types
@@ -89,9 +91,7 @@ jobs:
           cache: 'pip'
 
       - name: Install base Python requirements
-        uses: brettcannon/pip-secure-install@v1
-        with:
-          options: '-t ./pythonFiles/lib/python --no-cache-dir --implementation py'
+        run: 'python -m pip install --no-deps --require-hashes --only-binary :all: -t ./pythonFiles/lib/python --no-cache-dir --implementation py -r requirements.txt'
 
       - name: Install Positron IPyKernel requirements
         run: python scripts/vendor.py
@@ -106,7 +106,7 @@ jobs:
         uses: jakebailey/pyright-action@v2
         with:
           version: 1.1.308
-          working-directory: 'pythonFiles'
+          working-directory: ${{ env.PYTHON_SRC_DIR }}
 
   python-tests:
     name: Python Tests
@@ -114,7 +114,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     defaults:
       run:
-        working-directory: ${{ env.special-working-directory }}
+        working-directory: ${{ env.special-working-directory }}/${{ env.PROJECT_DIR}}
     strategy:
       fail-fast: false
       matrix:
@@ -167,10 +167,7 @@ jobs:
         run: python -m pytest --version
 
       - name: Install base Python requirements
-        uses: brettcannon/pip-secure-install@v1
-        with:
-          requirements-file: '"${{ env.special-working-directory-relative }}/requirements.txt"'
-          options: '-t "${{ env.special-working-directory-relative }}/pythonFiles/lib/python" --no-cache-dir --implementation py'
+        run: 'python -m pip install --no-deps --require-hashes --only-binary :all: -t ./pythonFiles/lib/python --no-cache-dir --implementation py -r requirements.txt'
 
       - name: Install test requirements
         run: python -m pip install -r build/test-requirements.txt
@@ -248,7 +245,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     defaults:
       run:
-        working-directory: ${{ env.special-working-directory }}
+        working-directory: ${{ env.special-working-directory }}/${{ env.PROJECT_DIR}}
     strategy:
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
@@ -285,7 +282,7 @@ jobs:
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'yarn'
-          cache-dependency-path: ${{ env.special-working-directory-relative }}/yarn.lock
+          cache-dependency-path: ${{ env.special-working-directory-relative }}/${{ env.PROJECT_DIR }}/yarn.lock
 
       - name: Install Yarn
         run: npm install -g yarn
@@ -406,31 +403,31 @@ jobs:
         env:
           TEST_FILES_SUFFIX: testvirtualenvs
           CI_PYTHON_VERSION: ${{ matrix.python }}
-          POSITRON_GITHUB_PAT: ${{ secrets.POSITRON_GITHUB_RO_PAT }}
+          POSITRON_GITHUB_PAT: ${{ secrets.POSITRON_GITHUB_PAT }}
         uses: GabrielBB/xvfb-action@v1.6
         with:
           run: yarn testSingleWorkspace
-          working-directory: ${{ env.special-working-directory }}
+          working-directory: ${{ env.special-working-directory }}/${{ env.PROJECT_DIR }}
         if: matrix.test-suite == 'venv'
 
       - name: Run single-workspace tests
         env:
           CI_PYTHON_VERSION: ${{ matrix.python }}
-          POSITRON_GITHUB_PAT: ${{ secrets.POSITRON_GITHUB_RO_PAT }}
+          POSITRON_GITHUB_PAT: ${{ secrets.POSITRON_GITHUB_PAT }}
         uses: GabrielBB/xvfb-action@v1.6
         with:
           run: yarn testSingleWorkspace
-          working-directory: ${{ env.special-working-directory }}
+          working-directory: ${{ env.special-working-directory }}/${{ env.PROJECT_DIR }}
         if: matrix.test-suite == 'single-workspace'
 
       - name: Run debugger tests
         env:
           CI_PYTHON_VERSION: ${{ matrix.python }}
-          POSITRON_GITHUB_PAT: ${{ secrets.POSITRON_GITHUB_RO_PAT }}
+          POSITRON_GITHUB_PAT: ${{ secrets.POSITRON_GITHUB_PAT }}
         uses: GabrielBB/xvfb-action@v1.6
         with:
           run: yarn testDebugger
-          working-directory: ${{ env.special-working-directory }}
+          working-directory: ${{ env.special-working-directory }}/${{ env.PROJECT_DIR }}
         if: matrix.test-suite == 'debugger'
 
       - name: Run TypeScript functional tests
@@ -439,6 +436,6 @@ jobs:
 
       - name: Run smoke tests
         env:
-          POSITRON_GITHUB_PAT: ${{ secrets.POSITRON_GITHUB_RO_PAT }}
+          POSITRON_GITHUB_PAT: ${{ secrets.POSITRON_GITHUB_PAT }}
         run: yarn tsc && node ./out/test/smokeTest.js
         if: matrix.test-suite == 'smoke'

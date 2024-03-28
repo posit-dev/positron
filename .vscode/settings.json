@@ -122,6 +122,9 @@
 		"editor.defaultFormatter": "rust-lang.rust-analyzer",
 		"editor.formatOnSave": true,
 	},
+	"[diff]": {
+		"files.trimTrailingWhitespace": false
+	},
 	"rust-analyzer.linkedProjects": [
 		"cli/Cargo.toml"
 	],

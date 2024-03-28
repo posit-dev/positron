@@ -4,7 +4,7 @@ index 4f3ba7bd5..52524daa2 100644
 +++ b/extensions/positron-python/pythonFiles/positron/positron_ipykernel/_vendor/jedi_language_server/jedi_utils.py
 @@ -12,9 +12,9 @@ from inspect import Parameter
  from typing import Any, Callable, Dict, Iterator, List, Optional, Tuple, Union
-
+ 
  import docstring_to_markdown
 -import jedi.api.errors
 -import jedi.inference.references
@@ -27,7 +27,7 @@ index 4f3ba7bd5..52524daa2 100644
              + initialization_options.jedi_settings.auto_import_modules
          )
      )
-
+ 
 -    jedi.settings.case_insensitive_completion = (
 +    settings.case_insensitive_completion = (
          initialization_options.jedi_settings.case_insensitive_completion
@@ -35,8 +35,8 @@ index 4f3ba7bd5..52524daa2 100644
      if initialization_options.jedi_settings.debug:
 @@ -284,7 +284,7 @@ def lsp_document_symbols(names: List[Name]) -> List[DocumentSymbol]:
      return results
-
-
+ 
+ 
 -def lsp_diagnostic(error: jedi.api.errors.SyntaxError) -> Diagnostic:
 +def lsp_diagnostic(error: JediSyntaxError) -> Diagnostic:
      """Get LSP Diagnostic from Jedi SyntaxError."""
@@ -49,6 +49,6 @@ index ba6eaf9fe..28266bd95 100644
 @@ -1,4 +1,3 @@
  """Jedi Language Server."""
 -from importlib.metadata import version
-
+ 
 -__version__ = version("jedi-language-server")
 +__version__ = "unknown"
