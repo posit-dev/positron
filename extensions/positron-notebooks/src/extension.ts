@@ -4,7 +4,7 @@
 
 import path from 'path';
 import * as vscode from 'vscode';
-import { readFileSync } from 'fs';
+import { readFile } from 'fs';
 
 /**
  * Activates the extension.
@@ -15,16 +15,22 @@ export function activate(context: vscode.ExtensionContext) {
 	context.subscriptions.push(
 		vscode.commands.registerCommand(
 			'positronNotebookHelpers.convertImageToBase64',
-			async (imageSrc: string, baseLoc: string) => {
+			async (imageSrc: string, baseLoc: string) => new Promise<string | null>((resolve) => {
 				const imageType = path.extname(imageSrc).slice(1);
 				try {
-					const data = readFileSync(path.join(baseLoc, imageSrc));
-					return `data:image/${imageType};base64,${data.toString('base64')}`;
+					readFile(path.join(baseLoc, imageSrc), (err, data) => {
+						if (err) {
+							console.error(err);
+							resolve(null);
+						}
+						resolve(`data:image/${imageType};base64,${data.toString('base64')}`);
+					});
 				} catch (e) {
 					console.error(e);
 					return null;
 				}
-			}
+			})
 		)
 	);
 }
+
