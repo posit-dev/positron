@@ -4,19 +4,19 @@ index e0f23d19b..f30731476 100644
 +++ b/extensions/positron-python/pythonFiles/positron/positron_ipykernel/_vendor/jedi/api/replstartup.py
 @@ -17,13 +17,13 @@ Then you will be able to use Jedi completer in your Python interpreter::
      ..dex   ..sert
-
+ 
  """
 -import jedi.utils
 +from jedi.utils import setup_readline
  from jedi import __version__ as __jedi_version__
-
+ 
  print('REPL completion using Jedi %s' % __jedi_version__)
 -jedi.utils.setup_readline(fuzzy=False)
 +setup_readline(fuzzy=False)
-
+ 
 -del jedi
 +del setup_readline
-
+ 
  # Note: try not to do many things here, as it will contaminate global
  # namespace of the interpreter.
 diff --git a/extensions/positron-python/pythonFiles/positron/positron_ipykernel/_vendor/jedi/inference/compiled/subprocess/__main__.py b/extensions/positron-python/pythonFiles/positron/positron_ipykernel/_vendor/jedi/inference/compiled/subprocess/__main__.py
@@ -24,8 +24,8 @@ index f044e2ee1..beec3f0cf 100644
 --- a/extensions/positron-python/pythonFiles/positron/positron_ipykernel/_vendor/jedi/inference/compiled/subprocess/__main__.py
 +++ b/extensions/positron-python/pythonFiles/positron/positron_ipykernel/_vendor/jedi/inference/compiled/subprocess/__main__.py
 @@ -9,12 +9,9 @@ del sys.path[0]
-
-
+ 
+ 
  def _get_paths():
 -    # Get the path to jedi.
 +    # Get the path to positron, in which jedi and parso are vendored.
@@ -35,6 +35,6 @@ index f044e2ee1..beec3f0cf 100644
 -    # The paths are the directory that jedi and parso lie in.
 -    return {'jedi': _jedi_path, 'parso': _parso_path}
 +    return {"positron_ipykernel": _d(_d(_d(_d(_d(_d(_d(__file__)))))))}
-
-
+ 
+ 
  class _ExactImporter(MetaPathFinder):
