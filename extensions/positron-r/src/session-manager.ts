@@ -85,7 +85,7 @@ export class RSessionManager {
 
 		// We would not expect to see more than one console session since
 		// Positron currently only allows one console session per language. If
-		// this constraint is relaxed in the future, we can remove this morning.
+		// this constraint is relaxed in the future, we can remove this warning.
 		if (consoleSessions.length > 1) {
 			console.warn(`${consoleSessions.length} R console sessions found; ` +
 				`returning the most recently started one.`);
