@@ -49,13 +49,13 @@ function useMarkdown(content: string): MarkdownRenderResults {
 			'markdown.api.render',
 			content
 		).then((html: string) => {
-
 			setRenderedHtml(
 				{
 					status: 'success',
 					nodes: renderHtml(html, {
 						componentOverrides: {
-							img: DeferredImage
+							img: DeferredImage,
+							a: ExternalLink,
 						}
 					})
 				});
@@ -70,4 +70,18 @@ function useMarkdown(content: string): MarkdownRenderResults {
 	}, [content, services.commandService]);
 
 	return renderedHtml;
+}
+
+// eslint-disable-next-line react/prop-types
+function ExternalLink({ href = 'no-source', ...props }: React.ComponentPropsWithoutRef<'a'>) {
+	const services = useServices();
+
+	return <a
+		{...props}
+		href={href}
+		onClick={(e) => {
+			e.preventDefault();
+			services.openerService.open(href);
+		}}
+	/>;
 }

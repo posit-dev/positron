@@ -11,6 +11,7 @@ import { IConfigurationService } from 'vs/platform/configuration/common/configur
 import { IScopedContextKeyService } from 'vs/platform/contextkey/common/contextkey';
 import { IInstantiationService } from 'vs/platform/instantiation/common/instantiation';
 import { ILogService } from 'vs/platform/log/common/log';
+import { IOpenerService } from 'vs/platform/opener/common/opener';
 import { IWebviewService } from 'vs/workbench/contrib/webview/browser/webview';
 
 
@@ -44,6 +45,11 @@ interface ServiceBundle {
 	 * Service for creating webviews
 	 */
 	webviewService: IWebviewService;
+
+	/**
+	 * Servicer for opening external links
+	 */
+	openerService: IOpenerService;
 
 	/**
 	 * Service for envoking commands from extensions
