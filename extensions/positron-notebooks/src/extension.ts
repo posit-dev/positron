@@ -7,11 +7,6 @@ import * as vscode from 'vscode';
 import { readFileSync } from 'fs';
 
 /**
- * ProxyServerStyles type.
- */
-export type ProxyServerStyles = { readonly [key: string]: string | number };
-
-/**
  * Activates the extension.
  * @param context An ExtensionContext that contains the extention context.
  */
