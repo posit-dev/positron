@@ -407,7 +407,7 @@ jobs:
         uses: GabrielBB/xvfb-action@v1.6
         with:
           run: yarn testSingleWorkspace
-          working-directory: ${{ env.special-working-directory }}//${{ env.PROJECT_DIR }}
+          working-directory: ${{ env.special-working-directory }}/${{ env.PROJECT_DIR }}
         if: matrix.test-suite == 'venv'
 
       - name: Run single-workspace tests
@@ -417,7 +417,7 @@ jobs:
         uses: GabrielBB/xvfb-action@v1.6
         with:
           run: yarn testSingleWorkspace
-          working-directory: ${{ env.special-working-directory }}//${{ env.PROJECT_DIR }}
+          working-directory: ${{ env.special-working-directory }}/${{ env.PROJECT_DIR }}
         if: matrix.test-suite == 'single-workspace'
 
       - name: Run debugger tests
@@ -427,7 +427,7 @@ jobs:
         uses: GabrielBB/xvfb-action@v1.6
         with:
           run: yarn testDebugger
-          working-directory: ${{ env.special-working-directory }}//${{ env.PROJECT_DIR }}
+          working-directory: ${{ env.special-working-directory }}/${{ env.PROJECT_DIR }}
         if: matrix.test-suite == 'debugger'
 
       - name: Run TypeScript functional tests
