@@ -78,7 +78,7 @@ export class RRuntimeManager implements positron.LanguageRuntimeManager {
 		}
 
 		// Looks like a valid R installation.
-		return Promise.resolve(makeMetadata(inst));
+		return Promise.resolve(makeMetadata(inst, positron.LanguageRuntimeStartupBehavior.Immediate));
 	}
 
 	restoreSession(
