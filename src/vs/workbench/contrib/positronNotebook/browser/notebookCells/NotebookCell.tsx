@@ -26,8 +26,6 @@ export function NotebookCell({ cell }: {
 	}
 
 	throw new Error('Unknown cell type');
-
-
 }
 
 
