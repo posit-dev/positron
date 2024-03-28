@@ -352,7 +352,7 @@ export async function runTests(options: TestOptions): Promise<number> {
     const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'positron-'));
     const userDataDir = path.join(tmpDir, 'user-data');
     options.launchArgs = options.launchArgs || [];
-    options.launchArgs.concat(['--user-data-dir', userDataDir]);
+    options.launchArgs.push('--user-data-dir', userDataDir);
 
     return vscodeRunTests({ version, vscodeExecutablePath, ...options });
 }
