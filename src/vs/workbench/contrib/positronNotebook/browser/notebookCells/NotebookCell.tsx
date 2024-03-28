@@ -4,7 +4,7 @@
 import 'vs/css!./NotebookCell';
 
 import * as React from 'react';
-import { IPositronNotebookCell, isCodeCell, isMarkdownCell } from 'vs/workbench/contrib/positronNotebook/browser/notebookCells/interfaces';
+import { IPositronNotebookCell } from 'vs/workbench/contrib/positronNotebook/browser/notebookCells/interfaces';
 import { NodebookCodeCell } from './NodebookCodeCell';
 import { NotebookMarkdownCell } from './NotebookMarkdownCell';
 
@@ -17,11 +17,11 @@ export function NotebookCell({ cell }: {
 	cell: IPositronNotebookCell;
 }) {
 
-	if (isCodeCell(cell)) {
+	if (cell.isCodeCell()) {
 		return <NodebookCodeCell cell={cell} />;
 	}
 
-	if (isMarkdownCell(cell)) {
+	if (cell.isMarkdownCell()) {
 		return <NotebookMarkdownCell cell={cell} />;
 	}
 

@@ -57,6 +57,16 @@ export interface IPositronNotebookCell extends Disposable {
 	 * Delete this cell
 	 */
 	delete(): void;
+
+	/**
+	 * Type guard for checking if cell is a markdown cell
+	 */
+	isMarkdownCell(): this is IPositronNotebookMarkdownCell;
+
+	/**
+	 * Type guard for checking if cell is a code cell
+	 */
+	isCodeCell(): this is IPositronNotebookCodeCell;
 }
 
 
@@ -82,9 +92,6 @@ export interface IPositronNotebookCodeCell extends IPositronNotebookCell {
 	run(): void;
 }
 
-export function isCodeCell(cell: IPositronNotebookCell): cell is IPositronNotebookCodeCell {
-	return cell.kind === CellKind.Code;
-}
 
 
 /**
@@ -117,9 +124,5 @@ export interface IPositronNotebookMarkdownCell extends IPositronNotebookCell {
 	 * Toggle the editor for this cell
 	 */
 	toggleEditor(): void;
-}
-
-export function isMarkdownCell(cell: IPositronNotebookCell): cell is IPositronNotebookMarkdownCell {
-	return cell.kind === CellKind.Markup;
 }
 

@@ -24,7 +24,7 @@ import { createNotebookCell } from 'vs/workbench/contrib/positronNotebook/browse
 import { PositronNotebookEditorInput } from 'vs/workbench/contrib/positronNotebook/browser/PositronNotebookEditorInput';
 import { BaseCellEditorOptions } from './BaseCellEditorOptions';
 import * as DOM from 'vs/base/browser/dom';
-import { IPositronNotebookCodeCell, IPositronNotebookCell, isCodeCell } from 'vs/workbench/contrib/positronNotebook/browser/notebookCells/interfaces';
+import { IPositronNotebookCodeCell, IPositronNotebookCell } from 'vs/workbench/contrib/positronNotebook/browser/notebookCells/interfaces';
 
 
 enum KernelStatus {
@@ -357,7 +357,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	 */
 	private async _runCells(cells: IPositronNotebookCell[]): Promise<void> {
 		// Filter so we're only working with code cells.
-		const codeCells = cells.filter(cell => isCodeCell(cell)) as IPositronNotebookCodeCell[];
+		const codeCells = cells.filter(cell => cell.isCodeCell()) as IPositronNotebookCodeCell[];
 		this._logService.info(this._identifier, '_runCells');
 
 		if (!this._textModel) {

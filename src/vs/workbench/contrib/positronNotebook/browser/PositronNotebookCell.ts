@@ -72,6 +72,15 @@ abstract class PositronNotebookCellGeneral extends Disposable implements IPositr
 		this._disposableStore.dispose();
 		super.dispose();
 	}
+
+	isMarkdownCell(): this is IPositronNotebookMarkdownCell {
+		return this.kind === CellKind.Markup;
+	}
+
+	isCodeCell(): this is IPositronNotebookCodeCell {
+		return this.kind === CellKind.Code;
+	}
+
 }
 
 
