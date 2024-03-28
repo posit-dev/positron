@@ -12,6 +12,11 @@ on:
     paths:
       - 'extensions/positron-python/**'
 
+
+defaults:
+ run:
+  working-directory: './extensions/positron-python'
+
 env:
   NODE_VERSION: '18.17.1'
   PYTHON_VERSION: '3.10'
