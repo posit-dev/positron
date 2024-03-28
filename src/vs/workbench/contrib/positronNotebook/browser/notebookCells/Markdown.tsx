@@ -7,6 +7,7 @@ import * as React from 'react';
 import { renderHtml } from 'vs/base/browser/renderHtml';
 import { DeferredImage } from './DeferredImage';
 import { useServices } from 'vs/workbench/contrib/positronNotebook/browser/ServicesProvider';
+import { ExternalLink } from 'vs/base/browser/ui/ExternalLink/ExternalLink';
 
 /**
  * Component that render markdown content from a string.
@@ -55,7 +56,7 @@ function useMarkdown(content: string): MarkdownRenderResults {
 					nodes: renderHtml(html, {
 						componentOverrides: {
 							img: DeferredImage,
-							a: ExternalLink,
+							a: (props) => <ExternalLink {...props} openerService={services.openerService} />
 						}
 					})
 				});
@@ -67,21 +68,8 @@ function useMarkdown(content: string): MarkdownRenderResults {
 				});
 			}
 			);
-	}, [content, services.commandService]);
+	}, [content, services]);
 
 	return renderedHtml;
 }
 
-// eslint-disable-next-line react/prop-types
-function ExternalLink({ href = 'no-source', ...props }: React.ComponentPropsWithoutRef<'a'>) {
-	const services = useServices();
-
-	return <a
-		{...props}
-		href={href}
-		onClick={(e) => {
-			e.preventDefault();
-			services.openerService.open(href);
-		}}
-	/>;
-}
