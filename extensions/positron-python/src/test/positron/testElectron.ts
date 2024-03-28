@@ -11,6 +11,7 @@ import * as path from 'path';
 import { defaultCachePath } from '@vscode/test-electron/out/download';
 import { TestOptions } from '@vscode/test-electron/out/runTest';
 import { runTests as vscodeRunTests } from '@vscode/test-electron';
+import { getUserDataDir } from './constants';
 
 const rmrf = require('rimraf');
 
@@ -341,9 +342,16 @@ export async function downloadAndUnzipPositron(): Promise<{ version: string; exe
 }
 
 /**
- * Wrap `@vscode/test-electron/runTests` to download and use the latest Positron release.
+ * Wrap `@vscode/test-electron/runTests` to support Positron.
  */
 export async function runTests(options: TestOptions): Promise<number> {
     const { version, executablePath: vscodeExecutablePath } = await downloadAndUnzipPositron();
+
+    // Run tests with a temporary user data dir to ensure no leftover state.
+    // This is also necessary for upstream debugger tests on CI since otherwise the debugger tests
+    // fail due to the path being too long.
+    options.launchArgs = options.launchArgs || [];
+    options.launchArgs.push('--user-data-dir', await getUserDataDir());
+
     return vscodeRunTests({ version, vscodeExecutablePath, ...options });
 }
