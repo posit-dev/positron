@@ -11,6 +11,7 @@ import * as path from 'path';
 import { defaultCachePath } from '@vscode/test-electron/out/download';
 import { TestOptions } from '@vscode/test-electron/out/runTest';
 import { runTests as vscodeRunTests } from '@vscode/test-electron';
+import { getUserDataDir } from './constants';
 
 const rmrf = require('rimraf');
 
@@ -349,10 +350,8 @@ export async function runTests(options: TestOptions): Promise<number> {
     // Run tests with a temporary user data dir to ensure no leftover state.
     // This is also necessary for upstream debugger tests on CI since otherwise the debugger tests
     // fail due to the path being too long.
-    const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'positron-'));
-    const userDataDir = path.join(tmpDir, 'user-data');
     options.launchArgs = options.launchArgs || [];
-    options.launchArgs.push('--user-data-dir', userDataDir);
+    options.launchArgs.push('--user-data-dir', await getUserDataDir());
 
     return vscodeRunTests({ version, vscodeExecutablePath, ...options });
 }

@@ -8,6 +8,10 @@ import { EXTENSION_ROOT_DIR_FOR_TESTS } from './constants';
 import { downloadAndUnzipPositron } from './positron/testElectron';
 import { TestOptions } from '@vscode/test-electron/out/runTest';
 
+// --- Start Positron ---
+import { getUserDataDir } from './positron/constants';
+// --- End Positron ---
+
 // If running smoke tests, we don't have access to this.
 if (process.env.TEST_FILES_SUFFIX !== 'smoke.test') {
     const logger = require('./testLogger');
@@ -95,9 +99,7 @@ async function start() {
     // Run tests with a temporary user data dir to ensure no leftover state.
     // This is also necessary for upstream debugger tests on CI since otherwise the debugger tests
     // fail due to the path being too long.
-    const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'positron-'));
-    const userDataDir = path.join(tmpDir, 'user-data');
-    launchArgs.push('--user-data-dir', userDataDir);
+    launchArgs.push('--user-data-dir', await getUserDataDir());
     // --- End Positron ---
     console.log(`Starting vscode ${channel} with args ${launchArgs.join(' ')}`);
     const options: TestOptions = {

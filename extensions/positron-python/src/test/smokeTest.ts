@@ -13,6 +13,10 @@ import * as path from 'path';
 import { unzip } from './common';
 import { EXTENSION_ROOT_DIR_FOR_TESTS, SMOKE_TEST_EXTENSIONS_DIR } from './constants';
 
+// --- Start Positron ---
+import { getUserDataDir } from './positron/constants';
+// --- End Positron ---
+
 class TestRunner {
     public async start() {
         console.log('Start Test Runner');
@@ -55,7 +59,7 @@ class TestRunner {
     }
     // --- Start Positron ---
     private async enableExperiments() {
-        const settingsFile = path.join('.vscode-test', 'user-data', 'User', 'settings.json');
+        const settingsFile = path.join(await getUserDataDir(), 'User', 'settings.json');
 
         await fs.mkdir(path.dirname(settingsFile), { recursive: true });
 
