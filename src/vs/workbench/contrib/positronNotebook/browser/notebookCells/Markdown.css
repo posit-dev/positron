@@ -2,7 +2,7 @@
  *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
-/* These styles are taken from the vscode notebook markup rendering styles found in
+/* These styles are taken from the vscode notebook markdown rendering styles found in
  extensions/markdown-language-features/notebook/index.ts */
 .positron-markdown-rendered {
 	.emptyMarkdownCell::before {

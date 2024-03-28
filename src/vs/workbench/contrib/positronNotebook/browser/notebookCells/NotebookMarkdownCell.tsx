@@ -1,10 +1,10 @@
 /*---------------------------------------------------------------------------------------------
  *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
-import 'vs/css!./NotebookMarkupCell';
+import 'vs/css!./NotebookMarkdownCell';
 import * as React from 'react';
 
-import { IPositronNotebookMarkupCell } from 'vs/workbench/contrib/positronNotebook/browser/notebookCells/interfaces';
+import { IPositronNotebookMarkdownCell } from 'vs/workbench/contrib/positronNotebook/browser/notebookCells/interfaces';
 
 import { Button } from 'vs/base/browser/ui/positronComponents/button/button';
 import { CellEditorMonacoWidget } from 'vs/workbench/contrib/positronNotebook/browser/notebookCells/CellEditorMonacoWidget';
@@ -12,7 +12,7 @@ import { NotebookCellActionBar } from 'vs/workbench/contrib/positronNotebook/bro
 import { useObservedValue } from 'vs/workbench/contrib/positronNotebook/browser/useObservedValue';
 import { Markdown } from './Markdown';
 
-export function NotebookMarkupCell({ cell }: { cell: IPositronNotebookMarkupCell }) {
+export function NotebookMarkdownCell({ cell }: { cell: IPositronNotebookMarkdownCell }) {
 
 	const markdownString = useObservedValue(cell.markdownString);
 	const editorShown = useObservedValue(cell.editorShown);

@@ -12,7 +12,7 @@ import { ICellViewModel } from 'vs/workbench/contrib/notebook/browser/notebookBr
 import { NotebookCellTextModel } from 'vs/workbench/contrib/notebook/common/model/notebookCellTextModel';
 import { CellKind, ICellOutput } from 'vs/workbench/contrib/notebook/common/notebookCommon';
 import { IPositronNotebookInstance } from 'vs/workbench/contrib/positronNotebook/browser/PositronNotebookInstance';
-import { ExecutionStatus, IPositronNotebookCodeCell, IPositronNotebookGeneralCell, IPositronNotebookMarkupCell } from 'vs/workbench/contrib/positronNotebook/browser/notebookCells/interfaces';
+import { ExecutionStatus, IPositronNotebookCodeCell, IPositronNotebookGeneralCell, IPositronNotebookMarkdownCell } from 'vs/workbench/contrib/positronNotebook/browser/notebookCells/interfaces';
 
 
 abstract class PositronNotebookCellGeneral extends Disposable implements IPositronNotebookGeneralCell {
@@ -109,7 +109,7 @@ class PositronNotebookCodeCell extends PositronNotebookCellGeneral implements IP
 
 
 
-class PositronNotebookMarkupCell extends PositronNotebookCellGeneral implements IPositronNotebookMarkupCell {
+class PositronNotebookMarkdownCell extends PositronNotebookCellGeneral implements IPositronNotebookMarkdownCell {
 
 	markdownString: ISettableObservable<string | undefined> = observableValue<string | undefined, void>('markdownString', undefined);
 	editorShown: ISettableObservable<boolean> = observableValue<boolean, void>('editorShown', false);
@@ -157,7 +157,7 @@ export function createNotebookCell(cell: NotebookCellTextModel, instance: IPosit
 	if (cell.cellKind === CellKind.Code) {
 		return instantiationService.createInstance(PositronNotebookCodeCell, cell, instance);
 	} else {
-		return instantiationService.createInstance(PositronNotebookMarkupCell, cell, instance);
+		return instantiationService.createInstance(PositronNotebookMarkdownCell, cell, instance);
 	}
 }
 

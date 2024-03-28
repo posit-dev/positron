@@ -4,9 +4,9 @@
 import 'vs/css!./NotebookCell';
 
 import * as React from 'react';
-import { IPositronNotebookGeneralCell, isCodeCell, isMarkupCell } from 'vs/workbench/contrib/positronNotebook/browser/notebookCells/interfaces';
+import { IPositronNotebookGeneralCell, isCodeCell, isMarkdownCell } from 'vs/workbench/contrib/positronNotebook/browser/notebookCells/interfaces';
 import { NodebookCodeCell } from './NodebookCodeCell';
-import { NotebookMarkupCell } from './NotebookMarkupCell';
+import { NotebookMarkdownCell } from './NotebookMarkdownCell';
 
 
 /**
@@ -21,8 +21,8 @@ export function NotebookCell({ cell }: {
 		return <NodebookCodeCell cell={cell} />;
 	}
 
-	if (isMarkupCell(cell)) {
-		return <NotebookMarkupCell cell={cell} />;
+	if (isMarkdownCell(cell)) {
+		return <NotebookMarkdownCell cell={cell} />;
 	}
 
 	throw new Error('Unknown cell type');

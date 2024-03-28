@@ -25,12 +25,12 @@ export function AddCellButtons({ index }: { index: number }) {
 		</Button>
 		<Button
 			className='action action-button'
-			ariaLabel={localize('addMarkupell', 'Add markup cell')}
+			ariaLabel={localize('addMarkdownell', 'Add markdown cell')}
 			onPressed={() => {
 				notebookInstance.addCell(CellKind.Markup, index);
 			}}
 		>
-			<span className='action-label'>Markup</span>
+			<span className='action-label'>Markdown</span>
 			<div className='button-icon codicon codicon-plus' />
 		</Button>
 	</div>;

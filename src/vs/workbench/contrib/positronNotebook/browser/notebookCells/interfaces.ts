@@ -14,7 +14,7 @@ export type ExecutionStatus = 'running' | 'pending' | 'unconfirmed' | 'idle';
 
 /**
  * Wrapper class for notebook cell that exposes the properties that the UI needs to render the cell.
- * This interface is extended to provide the specific properties for code and markup cells.
+ * This interface is extended to provide the specific properties for code and markdown cells.
  */
 export interface IPositronNotebookGeneralCell extends Disposable {
 
@@ -88,9 +88,9 @@ export function isCodeCell(cell: IPositronNotebookGeneralCell): cell is IPositro
 
 
 /**
- * Cell that contains markup content
+ * Cell that contains markdown content
  */
-export interface IPositronNotebookMarkupCell extends IPositronNotebookGeneralCell {
+export interface IPositronNotebookMarkdownCell extends IPositronNotebookGeneralCell {
 	kind: CellKind.Markup;
 
 	/**
@@ -119,7 +119,7 @@ export interface IPositronNotebookMarkupCell extends IPositronNotebookGeneralCel
 	toggleEditor(): void;
 }
 
-export function isMarkupCell(cell: IPositronNotebookGeneralCell): cell is IPositronNotebookMarkupCell {
+export function isMarkdownCell(cell: IPositronNotebookGeneralCell): cell is IPositronNotebookMarkdownCell {
 	return cell.kind === CellKind.Markup;
 }
 
