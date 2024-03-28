@@ -68,6 +68,9 @@ abstract class PositronNotebookCellGeneral extends Disposable implements IPositr
 		this._instance.deleteCell(this);
 	}
 
+	// Add placeholder run method to be overridden by subclasses
+	abstract run(): void;
+
 	override dispose(): void {
 		this._disposableStore.dispose();
 		super.dispose();
@@ -80,7 +83,6 @@ abstract class PositronNotebookCellGeneral extends Disposable implements IPositr
 	isCodeCell(): this is IPositronNotebookCodeCell {
 		return this.kind === CellKind.Code;
 	}
-
 }
 
 
@@ -110,7 +112,7 @@ class PositronNotebookCodeCell extends PositronNotebookCellGeneral implements IP
 		);
 	}
 
-	run(): void {
+	override run(): void {
 		this._instance.runCells([this]);
 	}
 }
@@ -144,14 +146,12 @@ class PositronNotebookMarkdownCell extends PositronNotebookCellGeneral implement
 		this.markdownString.set(this.getContent(), undefined);
 	}
 
-	showEditor(): void {
-		this.editorShown.set(true, undefined);
-	}
-	hideEditor(): void {
-		this.editorShown.set(false, undefined);
-	}
 	toggleEditor(): void {
 		this.editorShown.set(!this.editorShown.get(), undefined);
+	}
+
+	override run(): void {
+		this.toggleEditor();
 	}
 }
 

@@ -11,28 +11,22 @@ import { CellEditorMonacoWidget } from 'vs/workbench/contrib/positronNotebook/br
 import { NotebookCellActionBar } from 'vs/workbench/contrib/positronNotebook/browser/notebookCells/NotebookCellActionBar';
 import { useObservedValue } from 'vs/workbench/contrib/positronNotebook/browser/useObservedValue';
 import { Markdown } from './Markdown';
+import { localize } from 'vs/nls';
 
 export function NotebookMarkdownCell({ cell }: { cell: IPositronNotebookMarkdownCell }) {
 
 	const markdownString = useObservedValue(cell.markdownString);
 	const editorShown = useObservedValue(cell.editorShown);
 
-	const showHideButton = <Button
-		onPressed={() => {
-			if (editorShown) {
-				cell.hideEditor();
-			} else {
-				cell.showEditor();
-			}
-		}}
-	>
-		{editorShown ? 'Hide Editor' : 'Show Editor'}
-	</Button>;
-
 	return (
 		<div className={`positron-notebook-cell ${editorShown ? 'editor-shown' : 'editor-hidden'}`}>
 			<NotebookCellActionBar cell={cell}>
-				{showHideButton}
+				<Button
+					className='action-button'
+					ariaLabel={editorShown ? localize('hideEditor', 'Hide editor') : localize('showEditor', 'Show editor')}
+					onPressed={() => cell.run()} >
+					<div className={`button-icon codicon ${editorShown ? 'codicon-chevron-down' : 'codicon-chevron-right'}`} />
+				</Button>
 			</NotebookCellActionBar>
 			<div className='cell-contents'>
 				{editorShown ? <CellEditorMonacoWidget cell={cell} /> : null}

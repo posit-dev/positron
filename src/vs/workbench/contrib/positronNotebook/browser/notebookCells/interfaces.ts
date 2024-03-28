@@ -59,6 +59,11 @@ export interface IPositronNotebookCell extends Disposable {
 	delete(): void;
 
 	/**
+	 * Run this cell
+	 */
+	run(): void;
+
+	/**
 	 * Type guard for checking if cell is a markdown cell
 	 */
 	isMarkdownCell(): this is IPositronNotebookMarkdownCell;
@@ -86,10 +91,7 @@ export interface IPositronNotebookCodeCell extends IPositronNotebookCell {
 	 */
 	outputs: ISettableObservable<ICellOutput[], void>;
 
-	/**
-	 * Run this cell
-	 */
-	run(): void;
+
 }
 
 
@@ -109,16 +111,6 @@ export interface IPositronNotebookMarkdownCell extends IPositronNotebookCell {
 	 * Observable that indicates whether the editor is currently shown
 	 */
 	editorShown: ISettableObservable<boolean>;
-
-	/**
-	 * Show the editor for this cell
-	 */
-	showEditor(): void;
-
-	/**
-	 * Hide the editor for this cell
-	 */
-	hideEditor(): void;
 
 	/**
 	 * Toggle the editor for this cell
