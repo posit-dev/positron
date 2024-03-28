@@ -18,16 +18,11 @@ from ipykernel.ipkernel import IPythonKernel
 from ipykernel.kernelapp import IPKernelApp
 from ipykernel.zmqshell import ZMQDisplayPublisher, ZMQInteractiveShell
 from IPython.core import oinspect, page
-from IPython.core.interactiveshell import InteractiveShell, ExecutionInfo
-from IPython.core.magic import (
-    Magics,
-    MagicsManager,
-    line_magic,
-    magics_class,
-    needs_local_scope,
-)
+from IPython.core.interactiveshell import ExecutionInfo, InteractiveShell
+from IPython.core.magic import Magics, MagicsManager, line_magic, magics_class, needs_local_scope
 from IPython.utils import PyColorize
 
+from .connections import ConnectionsService
 from .data_explorer import DataExplorerService
 from .help import HelpService, help
 from .lsp import LSPService
@@ -46,6 +41,7 @@ class _CommTarget(str, enum.Enum):
     Plot = "positron.plot"
     Variables = "positron.variables"
     Widget = "jupyter.widget"
+    Connections = "positron.connection"
 
 
 logger = logging.getLogger(__name__)
@@ -114,6 +110,17 @@ class PositronMagics(Magics):
 
         # Register a dataset with the dataviewer service.
         self.shell.kernel.data_explorer_service.register_table(obj, line)
+
+    @needs_local_scope
+    @line_magic
+    def connection_show(self, line: str, local_ns: Dict[str, Any]):
+        """Show a connection object in the Positron Connections Pane."""
+        try:
+            obj = local_ns[line]
+        except KeyError:  # not in namespace
+            obj = eval(line, local_ns, local_ns)
+
+        self.shell.kernel.connections_service.register_connection(obj)
 
 
 _traceback_file_link_re = re.compile(r"^(File \x1b\[\d+;\d+m)(.+):(\d+)")
@@ -308,6 +315,7 @@ class PositronIPyKernel(IPythonKernel):
         self.lsp_service = LSPService(self)
         self.variables_service = VariablesService(self)
         self.widget_hook = PositronWidgetHook(_CommTarget.Widget, self.comm_manager)
+        self.connections_service = ConnectionsService(self, _CommTarget.Connections)
 
         # Register comm targets
         self.comm_manager.register_target(_CommTarget.Lsp, self.lsp_service.on_comm_open)
@@ -362,6 +370,7 @@ class PositronIPyKernel(IPythonKernel):
         self.lsp_service.shutdown()
         self.widget_hook.shutdown()
         await self.variables_service.shutdown()
+        self.connections_service.shutdown()
 
         # We don't call super().do_shutdown since it sets shell.exit_now = True which tries to
         # stop the event loop at the same time as self.shutdown_request (since self.shell_stream.io_loop

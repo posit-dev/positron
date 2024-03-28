@@ -4,3 +4,4 @@ matplotlib
 numpy
 torch
 fastapi
+sqlalchemy
