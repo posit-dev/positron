@@ -348,6 +348,24 @@ export interface WorkspaceFolderRequest {
 }
 
 /**
+ * Request: Modify selections in the editor with a text edit
+ *
+ * Use this to edit a set of selection ranges/cursor in the editor
+ */
+export interface ModifyEditorSelectionsRequest {
+	/**
+	 * The selections (really, ranges) to set in the document
+	 */
+	selections: Array<Range>;
+
+	/**
+	 * The text values to insert at the selections
+	 */
+	values: Array<string>;
+
+}
+
+/**
  * Request: Context metadata for the last editor
  *
  * Returns metadata such as file path for the last editor selected by the
@@ -374,6 +392,7 @@ export enum UiFrontendRequest {
 	ShowDialog = 'show_dialog',
 	DebugSleep = 'debug_sleep',
 	WorkspaceFolder = 'workspace_folder',
+	ModifyEditorSelections = 'modify_editor_selections',
 	LastActiveEditorContext = 'last_active_editor_context'
 }
 
