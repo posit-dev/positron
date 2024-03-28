@@ -92,10 +92,30 @@ export function isCodeCell(cell: IPositronNotebookGeneralCell): cell is IPositro
  */
 export interface IPositronNotebookMarkupCell extends IPositronNotebookGeneralCell {
 	kind: CellKind.Markup;
-	renderedHtml: ISettableObservable<string | undefined>;
+
+	/**
+	 * Observable content of cell. Equivalent to the cell's content, but as an observable
+	 */
+	markdownString: ISettableObservable<string | undefined>;
+
+	/**
+	 * Observable that indicates whether the editor is currently shown
+	 */
 	editorShown: ISettableObservable<boolean>;
+
+	/**
+	 * Show the editor for this cell
+	 */
 	showEditor(): void;
+
+	/**
+	 * Hide the editor for this cell
+	 */
 	hideEditor(): void;
+
+	/**
+	 * Toggle the editor for this cell
+	 */
 	toggleEditor(): void;
 }
 

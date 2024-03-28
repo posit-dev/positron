@@ -10,12 +10,11 @@ import { Button } from 'vs/base/browser/ui/positronComponents/button/button';
 import { CellEditorMonacoWidget } from 'vs/workbench/contrib/positronNotebook/browser/notebookCells/CellEditorMonacoWidget';
 import { NotebookCellActionBar } from 'vs/workbench/contrib/positronNotebook/browser/notebookCells/NotebookCellActionBar';
 import { useObservedValue } from 'vs/workbench/contrib/positronNotebook/browser/useObservedValue';
-import { renderHtml } from 'vs/base/browser/renderHtml';
-import { DeferredImage } from './DeferredImage';
+import { Markdown } from './Markdown';
 
 export function NotebookMarkupCell({ cell }: { cell: IPositronNotebookMarkupCell }) {
 
-	const renderedHtml = useObservedValue(cell.renderedHtml);
+	const markdownString = useObservedValue(cell.markdownString);
 	const editorShown = useObservedValue(cell.editorShown);
 
 	const showHideButton = <Button
@@ -41,14 +40,8 @@ export function NotebookMarkupCell({ cell }: { cell: IPositronNotebookMarkupCell
 					cell.toggleEditor();
 				}}>
 					{
-						renderedHtml ?
-							<div>
-								{renderHtml(renderedHtml, {
-									componentOverrides: {
-										img: DeferredImage
-									}
-								})}
-							</div>
+						markdownString ?
+							<Markdown content={markdownString} />
 							: <div className='empty-output-msg'>
 								Empty markup cell. {editorShown ? '' : 'Double click to edit'}
 							</div>
@@ -58,3 +51,6 @@ export function NotebookMarkupCell({ cell }: { cell: IPositronNotebookMarkupCell
 		</div>
 	);
 }
+
+
+
