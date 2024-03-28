@@ -24,7 +24,7 @@ import { createNotebookCell } from 'vs/workbench/contrib/positronNotebook/browse
 import { PositronNotebookEditorInput } from 'vs/workbench/contrib/positronNotebook/browser/PositronNotebookEditorInput';
 import { BaseCellEditorOptions } from './BaseCellEditorOptions';
 import * as DOM from 'vs/base/browser/dom';
-import { IPositronNotebookCodeCell, IPositronNotebookGeneralCell, isCodeCell } from 'vs/workbench/contrib/positronNotebook/browser/notebookCells/interfaces';
+import { IPositronNotebookCodeCell, IPositronNotebookCell, isCodeCell } from 'vs/workbench/contrib/positronNotebook/browser/notebookCells/interfaces';
 
 
 enum KernelStatus {
@@ -52,7 +52,7 @@ export interface IPositronNotebookInstance {
 	/**
 	 * The cells that make up the notebook
 	 */
-	cells: ISettableObservable<IPositronNotebookGeneralCell[]>;
+	cells: ISettableObservable<IPositronNotebookCell[]>;
 
 	/**
 	 * Status of kernel for the notebook.
@@ -62,7 +62,7 @@ export interface IPositronNotebookInstance {
 	/**
 	 * The currently selected cells. Typically a single cell but can be multiple cells.
 	 */
-	selectedCells: IPositronNotebookGeneralCell[];
+	selectedCells: IPositronNotebookCell[];
 
 	/**
 	 * Has the notebook instance been disposed?
@@ -75,7 +75,7 @@ export interface IPositronNotebookInstance {
 	 * Run the given cells
 	 * @param cells The cells to run
 	 */
-	runCells(cells: IPositronNotebookGeneralCell[]): Promise<void>;
+	runCells(cells: IPositronNotebookCell[]): Promise<void>;
 
 	/**
 	 * Run the selected cells
@@ -95,7 +95,7 @@ export interface IPositronNotebookInstance {
 	/**
 	 * Delete a cell from the notebook
 	 */
-	deleteCell(cell: IPositronNotebookGeneralCell): void;
+	deleteCell(cell: IPositronNotebookCell): void;
 
 	/**
 	 * Attach a view model to this instance
@@ -123,17 +123,17 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	private _identifier: string = `Positron Notebook | NotebookInstance(${PositronNotebookInstance.count++}) |`;
 
 
-	selectedCells: IPositronNotebookGeneralCell[] = [];
+	selectedCells: IPositronNotebookCell[] = [];
 
 	/**
 	 * Internal cells that we use to manage the state of the notebook
 	 */
-	private _cells: IPositronNotebookGeneralCell[] = [];
+	private _cells: IPositronNotebookCell[] = [];
 
 	/**
 	 * User facing cells wrapped in an observerable for the UI to react to changes
 	 */
-	cells: ISettableObservable<IPositronNotebookGeneralCell[]>;
+	cells: ISettableObservable<IPositronNotebookCell[]>;
 
 	/**
 	 * Status of kernel for the notebook.
@@ -243,7 +243,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	) {
 		super();
 
-		this.cells = observableValue<IPositronNotebookGeneralCell[]>('positronNotebookCells', this._cells);
+		this.cells = observableValue<IPositronNotebookCell[]>('positronNotebookCells', this._cells);
 		this.kernelStatus = observableValue<KernelStatus>('positronNotebookKernelStatus', KernelStatus.Uninitialized);
 
 		this.isReadOnly = this.creationOptions?.isReadOnly ?? false;
@@ -334,7 +334,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 
 	}
 
-	async runCells(cells: IPositronNotebookGeneralCell[]): Promise<void> {
+	async runCells(cells: IPositronNotebookCell[]): Promise<void> {
 
 		if (!cells) {
 			throw new Error(localize('noCells', "No cells to run"));
@@ -355,7 +355,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	 * @param cells Cells to run
 	 * @returns
 	 */
-	private async _runCells(cells: IPositronNotebookGeneralCell[]): Promise<void> {
+	private async _runCells(cells: IPositronNotebookCell[]): Promise<void> {
 		// Filter so we're only working with code cells.
 		const codeCells = cells.filter(cell => isCodeCell(cell)) as IPositronNotebookCodeCell[];
 		this._logService.info(this._identifier, '_runCells');
@@ -406,7 +406,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		);
 	}
 
-	deleteCell(cell: IPositronNotebookGeneralCell): void {
+	deleteCell(cell: IPositronNotebookCell): void {
 		if (!this._textModel) {
 			throw new Error(localize('noModelForDelete', "No model for notebook to delete cell from"));
 		}

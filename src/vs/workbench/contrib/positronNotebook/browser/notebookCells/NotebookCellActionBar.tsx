@@ -6,10 +6,10 @@ import 'vs/css!./NotebookCellActionBar';
 import * as React from 'react';
 import { localize } from 'vs/nls';
 import { Button } from 'vs/base/browser/ui/positronComponents/button/button';
-import { IPositronNotebookGeneralCell } from 'vs/workbench/contrib/positronNotebook/browser/notebookCells/interfaces';
+import { IPositronNotebookCell } from 'vs/workbench/contrib/positronNotebook/browser/notebookCells/interfaces';
 
 
-export function NotebookCellActionBar({ cell, children }: { cell: IPositronNotebookGeneralCell; children: React.ReactNode }) {
+export function NotebookCellActionBar({ cell, children }: { cell: IPositronNotebookCell; children: React.ReactNode }) {
 
 	return <div className='positron-notebooks-cell-action-bar'>
 		{children}
