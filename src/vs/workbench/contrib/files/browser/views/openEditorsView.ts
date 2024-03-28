@@ -55,6 +55,11 @@ import { ILocalizedString } from 'vs/platform/action/common/action';
 import { mainWindow } from 'vs/base/browser/window';
 import { EditorGroupView } from 'vs/workbench/browser/parts/editor/editorGroupView';
 
+// --- Start Positron ---
+// eslint-disable-next-line no-duplicate-imports
+import { SAVE_ALL_TITLED_COMMAND_ID, SAVE_ALL_TITLED_LABEL } from 'vs/workbench/contrib/files/browser/fileConstants';
+// --- End Positron ---
+
 const $ = dom.$;
 
 export class OpenEditorsView extends ViewPane {
@@ -877,6 +882,23 @@ registerAction2(class extends Action2 {
 		await commandService.executeCommand(SAVE_ALL_COMMAND_ID);
 	}
 });
+
+// --- Start Positron ---
+registerAction2(class extends Action2 {
+	constructor() {
+		super({
+			id: 'workbench.action.files.saveAllTitled',
+			title: SAVE_ALL_TITLED_LABEL,
+			f1: true,
+		});
+	}
+
+	async run(accessor: ServicesAccessor): Promise<void> {
+		const commandService = accessor.get(ICommandService);
+		await commandService.executeCommand(SAVE_ALL_TITLED_COMMAND_ID);
+	}
+});
+// --- End Positron ---
 
 registerAction2(class extends Action2 {
 	constructor() {

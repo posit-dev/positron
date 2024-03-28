@@ -54,6 +54,10 @@ import { RemoveRootFolderAction } from 'vs/workbench/browser/actions/workspaceAc
 import { OpenEditorsView } from 'vs/workbench/contrib/files/browser/views/openEditorsView';
 import { ExplorerView } from 'vs/workbench/contrib/files/browser/views/explorerView';
 
+// --- Start Positron ---
+import { SAVE_ALL_TITLED_COMMAND_ID } from 'vs/workbench/contrib/files/browser/fileConstants';
+// --- End Positron ---
+
 export const openWindowCommand = (accessor: ServicesAccessor, toOpen: IWindowOpenable[], options?: IOpenWindowOptions) => {
 	if (Array.isArray(toOpen)) {
 		const hostService = accessor.get(IHostService);
@@ -440,6 +444,25 @@ function saveDirtyEditorsOfGroups(accessor: ServicesAccessor, groups: readonly I
 	return doSaveEditors(accessor, dirtyEditors, options);
 }
 
+// --- Start Positron ---
+// Same as preexisting `saveDirtyEditorsOfGroups()`, but filters out `Untitled` editors
+function saveDirtyTitledEditorsOfGroups(accessor: ServicesAccessor, groups: readonly IEditorGroup[], options?: ISaveEditorsOptions): Promise<void> {
+	const dirtyEditors: IEditorIdentifier[] = [];
+	for (const group of groups) {
+		for (const editor of group.getEditors(EditorsOrder.MOST_RECENTLY_ACTIVE)) {
+			if (editor.hasCapability(EditorInputCapabilities.Untitled)) {
+				continue;
+			}
+			if (editor.isDirty()) {
+				dirtyEditors.push({ groupId: group.id, editor });
+			}
+		}
+	}
+
+	return doSaveEditors(accessor, dirtyEditors, options);
+}
+// --- End Positron ---
+
 async function doSaveEditors(accessor: ServicesAccessor, editors: IEditorIdentifier[], options?: ISaveEditorsOptions): Promise<void> {
 	const editorService = accessor.get(IEditorService);
 	const notificationService = accessor.get(INotificationService);
@@ -506,6 +529,15 @@ KeybindingsRegistry.registerCommandAndKeybindingRule({
 		return saveDirtyEditorsOfGroups(accessor, accessor.get(IEditorGroupsService).getGroups(GroupsOrder.MOST_RECENTLY_ACTIVE), { reason: SaveReason.EXPLICIT });
 	}
 });
+
+// --- Start Positron ---
+CommandsRegistry.registerCommand({
+	id: SAVE_ALL_TITLED_COMMAND_ID,
+	handler: accessor => {
+		return saveDirtyTitledEditorsOfGroups(accessor, accessor.get(IEditorGroupsService).getGroups(GroupsOrder.MOST_RECENTLY_ACTIVE), { reason: SaveReason.EXPLICIT });
+	}
+});
+// --- End Positron ---
 
 CommandsRegistry.registerCommand({
 	id: SAVE_ALL_IN_GROUP_COMMAND_ID,
