@@ -7,16 +7,10 @@ from unittest.mock import Mock
 
 import comm
 import pytest
-from positron_ipykernel.data_explorer import (
-    DataExplorerService,
-)
-from positron_ipykernel.positron_ipkernel import (
-    PositronIPyKernel,
-    PositronShell,
-)
-from positron_ipykernel.variables import (
-    VariablesService,
-)
+from positron_ipykernel.connections import ConnectionsService
+from positron_ipykernel.data_explorer import DataExplorerService
+from positron_ipykernel.positron_ipkernel import PositronIPyKernel, PositronShell
+from positron_ipykernel.variables import VariablesService
 
 
 class DummyComm(comm.base_comm.BaseComm):
@@ -144,3 +138,11 @@ def de_service(kernel: PositronIPyKernel) -> DataExplorerService:
     The Positron dataviewer service.
     """
     return kernel.data_explorer_service
+
+
+@pytest.fixture()
+def connections_service(kernel: PositronIPyKernel) -> ConnectionsService:
+    """
+    The Positron connections service.
+    """
+    return kernel.connections_service

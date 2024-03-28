@@ -10,7 +10,7 @@ from typing import Callable, Generic, Optional, Type, TypeVar
 
 import comm
 
-from . import data_explorer_comm, help_comm, plot_comm, ui_comm, variables_comm
+from . import connections_comm, data_explorer_comm, help_comm, plot_comm, ui_comm, variables_comm
 from ._vendor.pydantic import ValidationError
 from ._vendor.pydantic.generics import GenericModel
 from .utils import JsonData, JsonRecord
@@ -35,6 +35,7 @@ T_content = TypeVar(
     plot_comm.PlotBackendMessageContent,
     variables_comm.VariablesBackendMessageContent,
     ui_comm.UiBackendMessageContent,
+    connections_comm.ConnectionsBackendMessageContent,
 )
 
 

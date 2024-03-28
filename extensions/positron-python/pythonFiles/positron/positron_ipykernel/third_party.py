@@ -48,6 +48,14 @@ def _get_pyarrow():
     return pyarrow
 
 
+def _get_sqlalchemy():
+    try:
+        import sqlalchemy
+    except ImportError:
+        sqlalchemy = None
+    return sqlalchemy
+
+
 # Currently, pyright only correctly infers the types below as `Optional` if we set their values
 # using function calls.
 np_ = _get_numpy()
@@ -55,5 +63,6 @@ pa_ = _get_pyarrow()
 pd_ = _get_pandas()
 pl_ = _get_polars()
 torch_ = _get_torch()
+sqlalchemy_ = _get_sqlalchemy()
 
-__all__ = ["np_", "pa_", "pd_", "pl_", "torch_"]
+__all__ = ["np_", "pa_", "pd_", "pl_", "torch_", "sqlalchemy_"]
