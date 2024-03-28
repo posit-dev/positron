@@ -67,11 +67,31 @@ export class RSessionManager {
 	 * @returns The R console session, or undefined if there isn't one.
 	 */
 	getConsoleSession(): RSession | undefined {
-		for (const session of this._sessions.values()) {
-			if (session.metadata.sessionMode === positron.LanguageRuntimeSessionMode.Console) {
-				return session;
-			}
+		// Sort the sessions by creation time (descending)
+		const sessions = Array.from(this._sessions.values());
+		sessions.sort((a, b) => b.created - a.created);
+
+		// Remove any sessions that aren't console sessions and have either
+		// never started or have exited
+		const consoleSessions = sessions.filter(s =>
+			s.metadata.sessionMode === positron.LanguageRuntimeSessionMode.Console &&
+			s.state !== positron.RuntimeState.Uninitialized &&
+			s.state !== positron.RuntimeState.Exited);
+
+		// No console sessions
+		if (consoleSessions.length === 0) {
+			return undefined;
 		}
+
+		// We would not expect to see more than one console session since
+		// Positron currently only allows one console session per language. If
+		// this constraint is relaxed in the future, we can remove this warning.
+		if (consoleSessions.length > 1) {
+			console.warn(`${consoleSessions.length} R console sessions found; ` +
+				`returning the most recently started one.`);
+		}
+
+		return consoleSessions[0];
 	}
 
 	/**
