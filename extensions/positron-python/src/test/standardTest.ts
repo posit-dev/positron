@@ -91,6 +91,14 @@ async function start() {
         .concat([workspacePath])
         .concat(channel === 'insiders' ? ['--enable-proposed-api'] : [])
         .concat(['--timeout', '5000']);
+    // --- Start Positron ---
+    // Run tests with a temporary user data dir to ensure no leftover state.
+    // This is also necessary for upstream debugger tests on CI since otherwise the debugger tests
+    // fail due to the path being too long.
+    const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'positron-'));
+    const userDataDir = path.join(tmpDir, 'user-data');
+    launchArgs.concat(['--user-data-dir', userDataDir]);
+    // --- End Positron ---
     console.log(`Starting vscode ${channel} with args ${launchArgs.join(' ')}`);
     const options: TestOptions = {
         // --- Start Positron ---

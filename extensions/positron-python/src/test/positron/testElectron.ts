@@ -112,14 +112,14 @@ export async function downloadAndUnzipPositron(): Promise<{ version: string; exe
         // Explain to the user what's about to happen.
         console.log(
             `Attempting to retrieve a Github Personal Access Token from git in order\n` +
-                `to download Positron. If you are prompted for a username and\n` +
-                `password, enter your Github username and a Personal Access Token with the\n` +
-                `'repo' scope. You can read about how to create a Personal Access Token here: \n` +
-                `\n` +
-                `https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/managing-your-personal-access-tokens\n` +
-                `\n` +
-                `You can set a PAT later by rerunning this command and supplying the PAT at this prompt,\n` +
-                `or by running 'git config credential.https://api.github.com.token YOUR_GITHUB_PAT'\n`,
+            `to download Positron. If you are prompted for a username and\n` +
+            `password, enter your Github username and a Personal Access Token with the\n` +
+            `'repo' scope. You can read about how to create a Personal Access Token here: \n` +
+            `\n` +
+            `https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/managing-your-personal-access-tokens\n` +
+            `\n` +
+            `You can set a PAT later by rerunning this command and supplying the PAT at this prompt,\n` +
+            `or by running 'git config credential.https://api.github.com.token YOUR_GITHUB_PAT'\n`,
         );
         const { stdout } = await executeCommand(
             'git credential fill',
@@ -160,16 +160,16 @@ export async function downloadAndUnzipPositron(): Promise<{ version: string; exe
         const { stdout, stderr } = await executeCommand(
             'git credential approve',
             `protocol=https\n` +
-                `host=github.com\n` +
-                `path=/repos/posit-dev/positron/releases\n` +
-                `username=\n` +
-                `password=${githubPat}\n`,
+            `host=github.com\n` +
+            `path=/repos/posit-dev/positron/releases\n` +
+            `username=\n` +
+            `password=${githubPat}\n`,
         );
         console.log(stdout);
         if (stderr) {
             console.warn(
                 `Unable to approve PAT. You may be prompted for a username and ` +
-                    `password the next time you download Positron.`,
+                `password the next time you download Positron.`,
             );
             console.error(stderr);
         }
@@ -180,27 +180,27 @@ export async function downloadAndUnzipPositron(): Promise<{ version: string; exe
         const { stdout, stderr } = await executeCommand(
             'git credential reject',
             `protocol=https\n` +
-                `host=github.com\n` +
-                `path=/repos/posit-dev/positron/releases\n` +
-                `username=\n` +
-                `password=${githubPat}\n`,
+            `host=github.com\n` +
+            `path=/repos/posit-dev/positron/releases\n` +
+            `username=\n` +
+            `password=${githubPat}\n`,
         );
         console.log(stdout);
         if (stderr) {
             console.error(stderr);
             throw new Error(
                 `The stored PAT returned by 'git credential' is invalid, but\n` +
-                    `could not be removed. Please manually remove the PAT from 'git credential'\n` +
-                    `for the host 'github.com'`,
+                `could not be removed. Please manually remove the PAT from 'git credential'\n` +
+                `for the host 'github.com'`,
             );
         }
         throw new Error(
             `The PAT returned by 'git credential' is invalid. Positron cannot be\n` +
-                `downloaded.\n\n` +
-                `Check to be sure that your Personal Access Token:\n` +
-                '- Has the `repo` scope\n' +
-                '- Is not expired\n' +
-                '- Has been authorized for the "posit-dev" organization on Github (Configure SSO)\n',
+            `downloaded.\n\n` +
+            `Check to be sure that your Personal Access Token:\n` +
+            '- Has the `repo` scope\n' +
+            '- Is not expired\n' +
+            '- Has been authorized for the "posit-dev" organization on Github (Configure SSO)\n',
         );
     }
 
@@ -352,7 +352,7 @@ export async function runTests(options: TestOptions): Promise<number> {
     const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'positron-'));
     const userDataDir = path.join(tmpDir, 'user-data');
     options.launchArgs = options.launchArgs || [];
-    options.launchArgs.push(`--user-data-dir=${userDataDir}`);
+    options.launchArgs.concat(['--user-data-dir', userDataDir]);
 
     return vscodeRunTests({ version, vscodeExecutablePath, ...options });
 }
