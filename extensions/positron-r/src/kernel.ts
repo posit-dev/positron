@@ -5,6 +5,7 @@
 import * as os from 'os';
 import * as vscode from 'vscode';
 import { LOGGER } from './extension';
+import { EXTENSION_ROOT_DIR } from './constants';
 
 /**
  * Attempts to locate a copy of the Ark kernel. The kernel is searched for in the following
@@ -18,7 +19,7 @@ import { LOGGER } from './extension';
  * @param context The extension context.
  * @returns A path to the Ark kernel, or undefined if the kernel could not be found.
  */
-export function getArkKernelPath(context: vscode.ExtensionContext): string | undefined {
+export function getArkKernelPath(): string | undefined {
 
 	// First, check to see whether there is an override for the kernel path.
 	const arkConfig = vscode.workspace.getConfiguration('positron.r');
@@ -35,7 +36,7 @@ export function getArkKernelPath(context: vscode.ExtensionContext): string | und
 	// whichever is newest. This is the location where the kernel is typically built
 	// by developers, who have `positron` and `amalthea` directories side-by-side.
 	let devKernel = undefined;
-	const positronParent = path.dirname(path.dirname(path.dirname(context.extensionPath)));
+	const positronParent = path.dirname(path.dirname(path.dirname(EXTENSION_ROOT_DIR)));
 	const devDebugKernel = path.join(positronParent, 'amalthea', 'target', 'debug', kernelName);
 	const devReleaseKernel = path.join(positronParent, 'amalthea', 'target', 'release', kernelName);
 	const debugModified = fs.statSync(devDebugKernel, { throwIfNoEntry: false })?.mtime;
@@ -53,7 +54,7 @@ export function getArkKernelPath(context: vscode.ExtensionContext): string | und
 
 	// Now try the default (embedded) kernel. This is where the kernel is placed in
 	// development and release builds.
-	const embeddedKernel = path.join(context.extensionPath, 'resources', 'ark', kernelName);
+	const embeddedKernel = path.join(EXTENSION_ROOT_DIR, 'resources', 'ark', kernelName);
 	if (fs.existsSync(embeddedKernel)) {
 		return embeddedKernel;
 	}

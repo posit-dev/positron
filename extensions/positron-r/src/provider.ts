@@ -15,6 +15,7 @@ import * as winreg from 'winreg';
 import { RInstallation, RMetadataExtra, getRHomePath } from './r-installation';
 import { LOGGER } from './extension';
 import { readLines } from './util';
+import { EXTENSION_ROOT_DIR } from './constants';
 
 /**
  * Discovers R language runtimes for Positron; implements
@@ -22,9 +23,7 @@ import { readLines } from './util';
  *
  * @param context The extension context.
  */
-export async function* rRuntimeDiscoverer(
-	context: vscode.ExtensionContext
-): AsyncGenerator<positron.LanguageRuntimeMetadata> {
+export async function* rRuntimeDiscoverer(): AsyncGenerator<positron.LanguageRuntimeMetadata> {
 	let rInstallations: Array<RInstallation> = [];
 	const binaries = new Set<string>();
 
@@ -164,7 +163,7 @@ export async function* rRuntimeDiscoverer(
 			languageVersion: rVersion,
 			base64EncodedIconSvg:
 				fs.readFileSync(
-					path.join(context.extensionPath, 'resources', 'branding', 'r-icon.svg')
+					path.join(EXTENSION_ROOT_DIR, 'resources', 'branding', 'r-icon.svg')
 				).toString('base64'),
 			sessionLocation: positron.LanguageRuntimeSessionLocation.Workspace,
 			startupBehavior,
