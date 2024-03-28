@@ -1,0 +1,157 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *--------------------------------------------------------------------------------------------*/
+
+/* These styles are taken from the vscode notebook markup rendering styles found in
+ extensions/markdown-language-features/notebook/index.ts */
+.positron-markdown-rendered {
+	.emptyMarkdownCell::before {
+		content: var(--notebook-empty-markdown-cell-content);
+		font-style: italic;
+		opacity: 0.6;
+	}
+
+	img {
+		max-width: 100%;
+		max-height: 100%;
+	}
+
+	a {
+		text-decoration: none;
+	}
+
+	a:hover {
+		text-decoration: underline;
+	}
+
+	a:focus,
+	input:focus,
+	select:focus,
+	textarea:focus {
+		outline: 1px solid -webkit-focus-ring-color;
+		outline-offset: -1px;
+	}
+
+	hr {
+		border: 0;
+		height: 2px;
+		border-bottom: 2px solid;
+	}
+
+	h2,
+	h3,
+	h4,
+	h5,
+	h6 {
+		font-weight: normal;
+	}
+
+	h1 {
+		font-size: 2.3em;
+	}
+
+	h2 {
+		font-size: 2em;
+	}
+
+	h3 {
+		font-size: 1.7em;
+	}
+
+	h3 {
+		font-size: 1.5em;
+	}
+
+	h4 {
+		font-size: 1.3em;
+	}
+
+	h5 {
+		font-size: 1.2em;
+	}
+
+	h1,
+	h2,
+	h3 {
+		font-weight: normal;
+	}
+
+	div {
+		width: 100%;
+	}
+
+	/* Adjust margin of first item in markdown cell */
+	*:first-child {
+		margin-top: 0px;
+	}
+
+	/* h1 tags don't need top margin */
+	h1:first-child {
+		margin-top: 0;
+	}
+
+	/* Removes bottom margin when only one item exists in markdown cell */
+	#preview > *:only-child,
+	#preview > *:last-child {
+		margin-bottom: 0;
+		padding-bottom: 0;
+	}
+
+	/* makes all markdown cells consistent */
+	div {
+		min-height: var(--notebook-markdown-min-height);
+	}
+
+	table {
+		border-collapse: collapse;
+		border-spacing: 0;
+	}
+
+	table th,
+	table td {
+		border: 1px solid;
+	}
+
+	table > thead > tr > th {
+		text-align: left;
+		border-bottom: 1px solid;
+	}
+
+	table > thead > tr > th,
+	table > thead > tr > td,
+	table > tbody > tr > th,
+	table > tbody > tr > td {
+		padding: 5px 10px;
+	}
+
+	table > tbody > tr + tr > td {
+		border-top: 1px solid;
+	}
+
+	blockquote {
+		margin: 0 7px 0 5px;
+		padding: 0 16px 0 10px;
+		border-left-width: 5px;
+		border-left-style: solid;
+	}
+
+	code {
+		font-size: 1em;
+		font-family: var(--vscode-editor-font-family);
+	}
+
+	pre code {
+		line-height: 1.357em;
+		white-space: pre-wrap;
+		padding: 0;
+	}
+
+	li p {
+		margin-bottom: 0.7em;
+	}
+
+	ul,
+	ol {
+		margin-bottom: 0.7em;
+	}
+}

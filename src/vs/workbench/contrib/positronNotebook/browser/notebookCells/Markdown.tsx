@@ -1,6 +1,8 @@
 /*---------------------------------------------------------------------------------------------
  *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
+import 'vs/css!./Markdown';
+
 import * as React from 'react';
 import { renderHtml } from 'vs/base/browser/renderHtml';
 import { DeferredImage } from './DeferredImage';
