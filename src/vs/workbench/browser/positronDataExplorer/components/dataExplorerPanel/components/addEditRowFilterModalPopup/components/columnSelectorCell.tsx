@@ -12,7 +12,7 @@ import * as React from 'react';
 import { Button } from 'vs/base/browser/ui/positronComponents/button/button';
 import { ColumnSchema } from 'vs/workbench/services/languageRuntime/common/positronDataExplorerComm';
 import { columnSchemaDataTypeIcon } from 'vs/workbench/browser/positronDataExplorer/components/dataExplorerPanel/utility/columnSchemaUtilities';
-import { ColumnSelectorDataGridInstance } from 'vs/workbench/browser/positronDataExplorer/components/dataExplorerPanel/components/columnSelectorDataGridInstance';
+import { ColumnSelectorDataGridInstance } from 'vs/workbench/browser/positronDataExplorer/components/dataExplorerPanel/components/addEditRowFilterModalPopup/components/columnSelectorDataGridInstance';
 
 /**
  * ColumnSummaryCellProps interface.
@@ -30,6 +30,8 @@ interface ColumnSelectorCellProps {
  * @returns The rendered component.
  */
 export const ColumnSelectorCell = (props: ColumnSelectorCellProps) => {
+	console.log(`column_name: ${props.columnSchema.column_name} type_display: ${props.columnSchema.type_display} type_name: ${props.columnSchema.type_name} type_size: ${props.columnSchema.type_size} precision: ${props.columnSchema.precision}`);
+
 	// Render.
 	return (
 		<Button className='column-selector-cell' onPressed={props.onPressed}>

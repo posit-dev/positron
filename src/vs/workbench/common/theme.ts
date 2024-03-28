@@ -1118,10 +1118,15 @@ export const WINDOW_INACTIVE_BORDER = registerColor('window.inactiveBorder', {
 // *************************************************************************************************
 // *************************************************************************************************
 
+// Positron error foreground color.
+export const POSITRON_ERROR_FOREGROUND = registerColor('positronError.foreground', {
+	dark: editorErrorForeground,
+	light: editorErrorForeground,
+	hcDark: editorErrorForeground,
+	hcLight: editorErrorForeground
+}, localize('positronError.foreground', "Positron error foreground color."));
+
 // < --- Positron Scroll Bar --- >
-
-// < --- Positron Button --- >
-
 
 // Positron scroll bar border color.
 export const POSITRON_SCROLL_BAR_BORDER = registerColor('positronScrollBar.border', {

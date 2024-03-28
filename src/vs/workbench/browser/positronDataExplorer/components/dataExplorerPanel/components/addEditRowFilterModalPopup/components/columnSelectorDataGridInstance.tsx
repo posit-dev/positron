@@ -11,7 +11,7 @@ import { DataGridInstance } from 'vs/workbench/browser/positronDataGrid/classes/
 import { ColumnSchema } from 'vs/workbench/services/languageRuntime/common/positronDataExplorerComm';
 import { ColumnSchemaCache } from 'vs/workbench/services/positronDataExplorer/common/columnSchemaCache';
 import { DataExplorerClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimeDataExplorerClient';
-import { ColumnSelectorCell } from 'vs/workbench/browser/positronDataExplorer/components/dataExplorerPanel/components/columnSelectorCell';
+import { ColumnSelectorCell } from 'vs/workbench/browser/positronDataExplorer/components/dataExplorerPanel/components/addEditRowFilterModalPopup/components/columnSelectorCell';
 
 /**
  * Constants.

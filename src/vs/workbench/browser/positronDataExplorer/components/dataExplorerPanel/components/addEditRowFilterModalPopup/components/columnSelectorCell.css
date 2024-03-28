@@ -36,7 +36,7 @@
 	position: absolute;
 	border-radius: 4px;
 	background-color: var(--vscode-positronDataExplorer-selectionBackground);
-	border: 1px solid var(--vscode-positronDataGrid-selectionBorder);
+	/* border: 1px solid var(--vscode-positronDataGrid-selectionBorder); */
 }
 
 .data-grid-row-cell

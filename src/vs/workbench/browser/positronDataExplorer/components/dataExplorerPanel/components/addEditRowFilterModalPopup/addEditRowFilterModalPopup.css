@@ -3,7 +3,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 .positron-modal-popup
-.add-row-filter-modal-popup-body {
+.add-edit-row-filter-modal-popup-body {
 	gap: 8px;
 	width: 100%;
 	padding: 10px;
@@ -12,7 +12,13 @@
 }
 
 .positron-modal-popup
-.add-row-filter-modal-popup-body
+.add-edit-row-filter-modal-popup-body
+.error {
+	color: var(--vscode-positronError-foreground);
+}
+
+.positron-modal-popup
+.add-edit-row-filter-modal-popup-body
 .button-apply-filter {
 	height: 26px;
 	padding: 4px;

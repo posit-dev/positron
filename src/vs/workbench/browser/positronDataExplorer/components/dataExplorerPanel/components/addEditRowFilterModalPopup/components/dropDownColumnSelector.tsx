@@ -18,8 +18,8 @@ import { ColumnSchema } from 'vs/workbench/services/languageRuntime/common/posit
 import { PositronModalReactRenderer } from 'vs/workbench/browser/positronModalReactRenderer/positronModalReactRenderer';
 import { DataExplorerClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimeDataExplorerClient';
 import { columnSchemaDataTypeIcon } from 'vs/workbench/browser/positronDataExplorer/components/dataExplorerPanel/utility/columnSchemaUtilities';
-import { ColumnSelectorModalPopup } from 'vs/workbench/browser/positronDataExplorer/components/dataExplorerPanel/components/columnSelectorModalPopup';
-import { ColumnSelectorDataGridInstance } from 'vs/workbench/browser/positronDataExplorer/components/dataExplorerPanel/components/columnSelectorDataGridInstance';
+import { ColumnSelectorModalPopup } from 'vs/workbench/browser/positronDataExplorer/components/dataExplorerPanel/components/addEditRowFilterModalPopup/components/columnSelectorModalPopup';
+import { ColumnSelectorDataGridInstance } from 'vs/workbench/browser/positronDataExplorer/components/dataExplorerPanel/components/addEditRowFilterModalPopup/components/columnSelectorDataGridInstance';
 
 /**
  * DropDownColumnSelectorProps interface.
@@ -47,8 +47,6 @@ export const DropDownColumnSelector = (props: DropDownColumnSelectorProps) => {
 	// // State hooks.
 	const [selectedColumnSchema, setSelectedColumnSchema] =
 		useState<ColumnSchema | undefined>(undefined);
-	// const [highlightedDropDownListBoxItem, setHighlightedDropDownListBoxItem] =
-	// 	useState<DropDownListBoxItem | undefined>(undefined);
 
 	// Render.
 	return (
@@ -62,7 +60,6 @@ export const DropDownColumnSelector = (props: DropDownColumnSelectorProps) => {
 					layoutService: props.layoutService,
 					container: props.layoutService.getContainer(DOM.getWindow(ref.current)),
 					onDisposed: () => {
-						// setHighlightedDropDownListBoxItem(undefined);
 						ref.current.focus();
 					}
 				});
@@ -90,7 +87,8 @@ export const DropDownColumnSelector = (props: DropDownColumnSelectorProps) => {
 				);
 			}}
 		>
-			{selectedColumnSchema ?
+			{!selectedColumnSchema ?
+				(<div className='title'>{title}</div>) :
 				(
 					<div className='title-foo'>
 						<div className={`data-type-icon codicon ${columnSchemaDataTypeIcon(selectedColumnSchema)}`}></div>
@@ -98,10 +96,8 @@ export const DropDownColumnSelector = (props: DropDownColumnSelectorProps) => {
 							{selectedColumnSchema.column_name}
 						</div>
 					</div>
-				) :
-				(<div className='title'>{title}</div>)
+				)
 			}
-			{/* <div className='title'>{selectedColumnSchema ? selectedColumnSchema.column_name : title}</div> */}
 			<div className='chevron' aria-hidden='true'>
 				<div className='codicon codicon-chevron-down' />
 			</div>

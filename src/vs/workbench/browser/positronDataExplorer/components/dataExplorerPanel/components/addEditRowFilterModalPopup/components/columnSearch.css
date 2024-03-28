@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2022 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
 @keyframes fadeIn {
@@ -7,14 +7,14 @@
 	to { opacity: 1; }
 }
 
-.column-filter-container {
+.column-search-container {
 	height: 100%;
 	display: flex;
 	padding: 0 4px;
 	align-items: center;
 }
 
-.column-filter-input {
+.column-search-input {
 	width: 100%;
 	display: flex;
 	font-size: 12px;
@@ -24,11 +24,11 @@
 	border: 1px solid var(--vscode-positronDataExplorer-border);
 }
 
-.column-filter-input.focused {
+.column-search-input.focused {
 	border: 1px solid var(--vscode-focusBorder);
 }
 
-.column-filter-input .text-input {
+.column-search-input .text-input {
 	width: 100%;
 	padding: 4px 8px;
 	border-radius: 4px;
@@ -38,17 +38,17 @@
 	outline: none !important;
 }
 
-.column-filter-input .text-input::placeholder {
+.column-search-input .text-input::placeholder {
 	opacity: 0.5;
 	color: var(--positronActionBar-foreground);
 }
 
-.column-filter-input .text-input::selection {
+.column-search-input .text-input::selection {
 	color: var(--positronActionBar-textInputSelectionForeground);
 	background: var(--positronActionBar-textInputSelectionBackground);
 }
 
-.column-filter-input .clear-button {
+.column-search-input .clear-button {
 	padding: 0;
 	width: 16px;
 	height: 16px;
@@ -60,7 +60,7 @@
 	animation: fadeIn 150ms ease-out;
 }
 
-.column-filter-input .clear-button:focus-visible {
+.column-search-input .clear-button:focus-visible {
 	border-radius: 3px;
 	outline: 1px solid var(--vscode-focusBorder);
 }

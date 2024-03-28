@@ -9,7 +9,7 @@
 	align-items: center;
 	grid-template-columns: [title] 1fr [chevron] 22px [end];
 	color: var(--vscode-positronDropDownListBox-foreground);
-	border: 1px solid var(--vscode-positronDropDownListBox-border) !important;
+	border: 1px solid var(--vscode-positronDropDownListBox-border);
 }
 
 .drop-down-column-selectorbox:disabled {

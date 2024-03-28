@@ -41,7 +41,7 @@ export const DataGridWaffle = forwardRef<HTMLDivElement>((_: unknown, ref) => {
 	const dataGridWaffleRef = useRef<HTMLDivElement>(undefined!);
 
 	// Customize the ref handle that is exposed.
-	useImperativeHandle(ref, () => dataGridWaffleRef.current!, []);
+	useImperativeHandle(ref, () => dataGridWaffleRef.current, []);
 
 	// State hooks.
 	const [width, setWidth] = useState(0);

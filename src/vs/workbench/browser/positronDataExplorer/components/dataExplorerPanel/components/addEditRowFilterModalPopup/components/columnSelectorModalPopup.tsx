@@ -15,8 +15,8 @@ import { PositronDataGrid } from 'vs/workbench/browser/positronDataGrid/positron
 import { ColumnSchema } from 'vs/workbench/services/languageRuntime/common/positronDataExplorerComm';
 import { PositronModalPopup } from 'vs/workbench/browser/positronComponents/positronModalPopup/positronModalPopup';
 import { PositronModalReactRenderer } from 'vs/workbench/browser/positronModalReactRenderer/positronModalReactRenderer';
-import { ColumnFilter } from 'vs/workbench/browser/positronDataExplorer/components/dataExplorerPanel/components/columnFilter';
-import { ColumnSelectorDataGridInstance } from 'vs/workbench/browser/positronDataExplorer/components/dataExplorerPanel/components/columnSelectorDataGridInstance';
+import { ColumnSearch } from 'vs/workbench/browser/positronDataExplorer/components/dataExplorerPanel/components/addEditRowFilterModalPopup/components/columnSearch';
+import { ColumnSelectorDataGridInstance } from 'vs/workbench/browser/positronDataExplorer/components/dataExplorerPanel/components/addEditRowFilterModalPopup/components/columnSelectorDataGridInstance';
 
 /**
  * ColumnSelectorModalPopupProps interface.
@@ -71,10 +71,10 @@ export const ColumnSelectorModalPopup = (props: ColumnSelectorModalPopupProps) =
 		>
 			<div className='column-selector'>
 				<div className='search'>
-					<ColumnFilter
-						onFilterTextChanged={filterText => {
+					<ColumnSearch
+						onSearchTextChanged={searchText => {
 							props.columnSelectorDataGridInstance.setSearchText(
-								filterText ? filterText : undefined
+								searchText !== '' ? searchText : undefined
 							);
 						}}
 					/>
