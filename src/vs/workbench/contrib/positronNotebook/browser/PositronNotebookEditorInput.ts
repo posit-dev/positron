@@ -7,7 +7,7 @@ import { IReference } from 'vs/base/common/lifecycle';
 import { URI } from 'vs/base/common/uri';
 import { localize } from 'vs/nls';
 import { IEditorOptions } from 'vs/platform/editor/common/editor';
-import { EditorInputCapabilities, GroupIdentifier, ISaveOptions, IUntypedEditorInput } from 'vs/workbench/common/editor';
+import { EditorInputCapabilities, GroupIdentifier, IRevertOptions, ISaveOptions, IUntypedEditorInput } from 'vs/workbench/common/editor';
 import { EditorInput } from 'vs/workbench/common/editor/editorInput';
 import { IResolvedNotebookEditorModel } from 'vs/workbench/contrib/notebook/common/notebookCommon';
 import { INotebookEditorModelResolverService } from 'vs/workbench/contrib/notebook/common/notebookEditorModelResolverService';
@@ -118,6 +118,12 @@ export class PositronNotebookEditorInput extends EditorInput {
 	 */
 	override get typeId(): string {
 		return PositronNotebookEditorInput.ID;
+	}
+
+	override async revert(_group: GroupIdentifier, options?: IRevertOptions): Promise<void> {
+		if (this._editorModelReference && this._editorModelReference.object.isDirty()) {
+			await this._editorModelReference.object.revert(options);
+		}
 	}
 
 	/**
