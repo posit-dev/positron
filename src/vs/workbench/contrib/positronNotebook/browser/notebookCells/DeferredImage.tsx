@@ -10,6 +10,23 @@ import { URI } from 'vs/base/common/uri';
 import { Schemas } from 'vs/base/common/network';
 import { dirname } from 'vs/base/common/resources';
 
+/**
+ * This should match the error message defined in the command definition
+ * (extensions/positron-notebooks/src/extension.ts)
+ */
+type CoversionErrorMsg = {
+	status: 'error';
+	message: string;
+};
+
+/**
+ * Predicate function to allow us to be safe with our response processing from command.
+ * @param x: Variable of unknown type to check if it is a `CoversionErrorMsg`.
+ * @returns Whether the object is a `CoversionErrorMsg`.
+ */
+function isConversionErrorMsg(x: unknown): x is CoversionErrorMsg {
+	return x !== null && typeof x === 'object' && 'status' in x && x.status === 'error' && 'message' in x;
+}
 
 type ImageDataResults = {
 	status: 'pending';
@@ -18,8 +35,9 @@ type ImageDataResults = {
 	data: string;
 } | {
 	status: 'error';
-	error: string;
+	message: string;
 };
+
 /**
  * Special image component that defers loading of the image while it converts it to a data-url using
  * the `positronNotebookHelpers.convertImageToBase64` command.
@@ -38,16 +56,18 @@ export function DeferredImage({ src = 'no-source', ...props }: React.ComponentPr
 		services.commandService.executeCommand(
 			'positronNotebookHelpers.convertImageToBase64',
 			src, baseLocation
-		).then((base64: string | null) => {
-			if (!base64) {
-				services.logService.error('Failed to convert image to base64', src);
-				setResults({ status: 'error', error: 'Failed to convert image to base64' });
-				return;
+		).then((res: unknown) => {
+			if (typeof res === 'string') {
+				setResults({ status: 'success', data: res });
+			} else if (isConversionErrorMsg(res)) {
+				services.logService.error('Failed to convert image to base64', src, res.message);
+				setResults(res);
+			} else {
+				services.logService.error('Unexpected response from convertImageToBase64', res);
+				setResults({ status: 'error', message: 'Unexpected response from convertImageToBase64' });
 			}
-			setResults({ status: 'success', data: base64 });
 		});
-	}, [src, baseLocation, services.commandService, services.logService]);
-
+	}, [src, baseLocation, services]);
 
 	switch (results.status) {
 		case 'pending':
@@ -58,12 +78,10 @@ export function DeferredImage({ src = 'no-source', ...props }: React.ComponentPr
 				{...props}
 			></div>;
 		case 'error':
-			return <img src={src} aria-label={results.error} {...props} />;
+			return <img src={src} aria-label={results.message} {...props} />;
 		case 'success':
 			return <img src={results.data} {...props} />;
 	}
-
-
 }
 
 function getNotebookBaseUri(notebookUri: URI) {

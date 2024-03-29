@@ -6,9 +6,13 @@ import path from 'path';
 import * as vscode from 'vscode';
 import { readFile } from 'fs';
 
-// Make a debounced error logger function so we don't spam the console with errors as a user is
-// typing in a file name.
-const errorLogger = debouncedError(300);
+// Make sure this matches the error message type defined where used
+// (src/vs/workbench/contrib/positronNotebook/browser/notebookCells/DeferredImage.tsx)
+type CoversionErrorMsg = {
+	status: 'error';
+	message: string;
+};
+
 /**
  * Activates the extension.
  * @param context An ExtensionContext that contains the extention context.
@@ -18,66 +22,42 @@ export function activate(context: vscode.ExtensionContext) {
 	context.subscriptions.push(
 		vscode.commands.registerCommand(
 			'positronNotebookHelpers.convertImageToBase64',
-			async (imageSrc: string, baseLoc: string) => new Promise<string | null>((resolve) => {
+			async (imageSrc: string, baseLoc: string) => new Promise<string | CoversionErrorMsg>((resolve) => {
+				const fullImagePath = path.join(baseLoc, imageSrc);
 				const fileExtension = path.extname(imageSrc).slice(1);
 				const mimeType = mimeTypeMap[fileExtension];
 				if (!mimeType) {
-					errorLogger(`Unsupported file type: "${fileExtension}."`);
-					resolve(null);
+					resolve({
+						status: 'error',
+						message: `Unsupported file type: "${fileExtension}."`,
+					});
 					return;
 				}
 				try {
-					readFile(path.join(baseLoc, imageSrc), (err, data) => {
+					readFile(fullImagePath, (err, data) => {
 						if (err) {
-							errorLogger(err);
-							resolve(null);
+							resolve({
+								status: 'error',
+								message: err.message,
+							});
 						} else if (!data) {
-							errorLogger('No data found.');
-							resolve(null);
+							resolve({
+								status: 'error',
+								message: `No data found in file "${fullImagePath}."`,
+							});
 						} else {
 							resolve(`data:${mimeType};base64,${data.toString('base64')}`);
 						}
 					});
 				} catch (e) {
-					errorLogger(e);
-					return null;
+					return {
+						type: 'error',
+						message: e instanceof Error ? e.message : `Error occured while converting image ${fullImagePath} to base64.`,
+					};
 				}
 			})
 		)
 	);
-}
-
-/**
- * Simple debounced error logger.
- * @param wait The time to wait before logging the error.
- * @returns A debounced error logger function.
- */
-function debouncedError(wait: number) {
-	// In case we want to swap for a different log function
-	const errorFn = console.error;
-	let timeout: ReturnType<typeof setTimeout> | null = null;
-
-	function debounceWrapper(...args: Parameters<typeof console.error>): void {
-		if (!wait) {
-			errorFn(...args);
-			return;
-		}
-
-		// Reset the timeout
-		if (timeout) {
-			clearTimeout(timeout);
-			timeout = null;
-		}
-
-		timeout = setTimeout(function () {
-			timeout = null;
-			errorFn(...args);
-		}, wait);
-
-		return;
-	}
-
-	return debounceWrapper;
 }
 
 
