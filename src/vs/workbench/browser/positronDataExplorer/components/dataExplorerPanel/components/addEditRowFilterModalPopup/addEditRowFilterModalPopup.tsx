@@ -522,6 +522,15 @@ export const AddEditRowFilterModalPopup = (props: AddEditRowFilterModalPopupProp
 		}
 	};
 
+	/**
+	 * Clears the filter values and error text.
+	 */
+	const clearFilterValuesAndErrorText = () => {
+		setFirstRowFilterValue('');
+		setSecondRowFilterValue('');
+		setErrorText(undefined);
+	};
+
 	// Render.
 	return (
 		<PositronModalPopup
@@ -549,10 +558,8 @@ export const AddEditRowFilterModalPopup = (props: AddEditRowFilterModalPopupProp
 						// Reset the selected condition.
 						setSelectedCondition(undefined);
 
-						// Clear the state.
-						setFirstRowFilterValue('');
-						setSecondRowFilterValue('');
-						setErrorText(undefined);
+						// Clear the filter values and error text.
+						clearFilterValuesAndErrorText();
 					}}
 				/>
 				<DropDownListBox
@@ -569,10 +576,8 @@ export const AddEditRowFilterModalPopup = (props: AddEditRowFilterModalPopupProp
 						// Set the selected condition.
 						setSelectedCondition(identifier);
 
-						// Clear the state.
-						setFirstRowFilterValue('');
-						setSecondRowFilterValue('');
-						setErrorText(undefined);
+						// Clear the filter values and error text.
+						clearFilterValuesAndErrorText();
 					}}
 				/>
 				{firstRowFilterParameterComponent}
