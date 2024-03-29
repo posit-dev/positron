@@ -275,7 +275,7 @@ export const AddEditRowFilterModalPopup = (props: AddEditRowFilterModalPopupProp
 	})();
 
 	// Set the second row filter parameter component.
-	const secondRowFilterParameter = (() => {
+	const secondRowFilterParameterComponent = (() => {
 		let placeholderText: string | undefined = undefined;
 		switch (selectedCondition) {
 			// Do not render the second row filter parameter component.
@@ -572,7 +572,7 @@ export const AddEditRowFilterModalPopup = (props: AddEditRowFilterModalPopupProp
 					}}
 				/>
 				{firstRowFilterParameterComponent}
-				{secondRowFilterParameter}
+				{secondRowFilterParameterComponent}
 				{errorText && (
 					<div className='error'>{errorText}</div>
 				)}
