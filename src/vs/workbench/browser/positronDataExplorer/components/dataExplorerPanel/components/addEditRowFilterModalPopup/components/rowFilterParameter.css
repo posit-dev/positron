@@ -1,0 +1,46 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *--------------------------------------------------------------------------------------------*/
+
+.row-filter-parameter-container {
+	height: 100%;
+	display: flex;
+	align-items: center;
+}
+
+.row-filter-parameter-input {
+	width: 100%;
+	display: flex;
+	font-size: 12px;
+	border-radius: 4px;
+	align-items: center;
+	background: var(--positronActionBar-textInputBackground);
+	border: 1px solid var(--vscode-positronDropDownListBox-border);
+}
+
+.row-filter-parameter-input.focused {
+	border: 1px solid var(--vscode-focusBorder);
+}
+
+.row-filter-parameter-input
+.text-input {
+	width: 100%;
+	padding: 4px 8px;
+	border-radius: 4px;
+	box-sizing: border-box;
+	border: none !important;
+	background: transparent;
+	outline: none !important;
+}
+
+.row-filter-parameter-input
+.text-input::placeholder {
+	opacity: 0.5;
+	color: var(--positronActionBar-foreground);
+}
+
+.row-filter-parameter-input
+.text-input::selection {
+	color: var(--positronActionBar-textInputSelectionForeground);
+	background: var(--positronActionBar-textInputSelectionBackground);
+}

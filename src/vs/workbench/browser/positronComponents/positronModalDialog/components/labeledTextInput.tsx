@@ -34,4 +34,5 @@ export const LabeledTextInput = forwardRef<HTMLInputElement, LabeledTextInputPro
 	);
 });
 
+// Set the display name.
 LabeledTextInput.displayName = 'LabeledTextInput';

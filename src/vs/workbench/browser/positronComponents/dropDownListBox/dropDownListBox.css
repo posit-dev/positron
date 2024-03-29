@@ -8,7 +8,12 @@
 	border-radius: 4px;
 	align-items: center;
 	grid-template-columns: [title] 1fr [chevron] 22px [end];
-	border: 1px solid var(--vscode-positronDropDown-border) !important;
+	color: var(--vscode-positronDropDownListBox-foreground);
+	border: 1px solid var(--vscode-positronDropDownListBox-border) !important;
+}
+
+.drop-down-list-box:disabled {
+	opacity: 50%;
 }
 
 .drop-down-list-box
@@ -28,19 +33,23 @@
 	grid-column: chevron / end;
 }
 
+.drop-down-list-box
+.chevron.disabled {
+}
+
 .drop-down-list-box-items {
 	width: 100%;
 	margin: 4px;
 	display: flex;
 	flex-direction: column;
-	background: var(--vscode-positronContextMenu-background);
+	background: var(--vscode-positronDropDownListBox-background);
 }
 
 .drop-down-list-box-items
 .separator {
 	height: 1px;
 	margin: 4px 10px;
-	background: var(--vscode-menu-border);
+	background: var(--vscode-positronDropDownListBox-separatorBackground);
 }
 
 .drop-down-list-box-items
@@ -54,6 +63,7 @@
 	align-items: center;
 	align-content: center;
 	background: transparent;
+	color: var(--vscode-positronDropDownListBox-foreground);
 	grid-template-columns: [title] 1fr [icon] min-content [end];
 	color: var(--vscode-positronContextMenu-foreground);
 }
@@ -61,8 +71,8 @@
 .drop-down-list-box-items
 .item:not(.disabled):hover {
 	border-radius: 4px;
-	color: var(--vscode-positronContextMenu-hoverForeground);
-	background: var(--vscode-positronContextMenu-hoverBackground);
+	color: var(--vscode-positronDropDownListBox-hoverForeground);
+	background: var(--vscode-positronDropDownListBox-hoverBackground);
 }
 
 .drop-down-list-box-items
@@ -78,7 +88,7 @@
 
 .drop-down-list-box-items
 .item:not(.disabled):focus-visible {
-	background: var(--vscode-positronContextMenu-hoverBackground);
+	background: var(--vscode-positronDropDownListBox-hoverBackground);
 }
 
 .drop-down-list-box-items

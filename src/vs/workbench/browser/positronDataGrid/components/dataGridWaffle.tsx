@@ -7,7 +7,7 @@ import 'vs/css!./dataGridWaffle';
 
 // React.
 import * as React from 'react';
-import { KeyboardEvent, useEffect, useRef, useState, WheelEvent } from 'react'; // eslint-disable-line no-duplicate-imports
+import { forwardRef, KeyboardEvent, useEffect, useImperativeHandle, useRef, useState, WheelEvent } from 'react'; // eslint-disable-line no-duplicate-imports
 
 // Other dependencies.
 import { generateUuid } from 'vs/base/common/uuid';
@@ -30,14 +30,18 @@ const MOUSE_WHEEL_SENSITIVITY = 50;
 
 /**
  * DataGridWaffle component.
+ * @param ref The foreard ref.
  * @returns The rendered component.
  */
-export const DataGridWaffle = () => {
+export const DataGridWaffle = forwardRef<HTMLDivElement>((_: unknown, ref) => {
 	// Context hooks.
 	const context = usePositronDataGridContext();
 
 	// Reference hooks.
-	const waffleRef = useRef<HTMLDivElement>(undefined!);
+	const dataGridWaffleRef = useRef<HTMLDivElement>(undefined!);
+
+	// Customize the ref handle that is exposed.
+	useImperativeHandle(ref, () => dataGridWaffleRef.current, []);
 
 	// State hooks.
 	const [width, setWidth] = useState(0);
@@ -59,19 +63,24 @@ export const DataGridWaffle = () => {
 
 		// Return the cleanup function that will dispose of the event handlers.
 		return () => disposableStore.dispose();
-	}, []);
+	}, [context.instance]);
 
-	// Automatic layout useEffect.
+	// Layout useEffect.
 	useEffect(() => {
 		// Set the initial width and height.
-		setWidth(waffleRef.current.offsetWidth);
-		setHeight(waffleRef.current.offsetHeight);
+		setWidth(dataGridWaffleRef.current.offsetWidth);
+		setHeight(dataGridWaffleRef.current.offsetHeight);
 
 		// Set the initial screen size.
 		context.instance.setScreenSize(
-			waffleRef.current.offsetWidth,
-			waffleRef.current.offsetHeight
+			dataGridWaffleRef.current.offsetWidth,
+			dataGridWaffleRef.current.offsetHeight
 		);
+
+		// If automatic layout isn't enabled, return.
+		if (!context.instance.automaticLayout) {
+			return;
+		}
 
 		// Allocate and initialize the waffle resize observer.
 		const resizeObserver = new ResizeObserver(entries => {
@@ -87,11 +96,11 @@ export const DataGridWaffle = () => {
 		});
 
 		// Start observing the size of the waffle.
-		resizeObserver.observe(waffleRef.current);
+		resizeObserver.observe(dataGridWaffleRef.current);
 
 		// Return the cleanup function that will disconnect the resize observer.
 		return () => resizeObserver.disconnect();
-	}, [waffleRef]);
+	}, [context.instance, dataGridWaffleRef]);
 
 	/**
 	 * onKeyDown event handler.
@@ -116,6 +125,11 @@ export const DataGridWaffle = () => {
 				// Consume the event.
 				consumeEvent();
 
+				// Make sure the cursor is showing.
+				if (context.instance.showCursor()) {
+					return;
+				}
+
 				// If selection is enabled, process the key.
 				if (context.instance.selection) {
 					if (e.ctrlKey && !e.shiftKey) {
@@ -129,10 +143,21 @@ export const DataGridWaffle = () => {
 				break;
 			}
 
+			// Enter key.
+			case 'Enter': {
+				console.log(`User pressed enter on ${context.instance.cursorColumnIndex},${context.instance.cursorRowIndex}`);
+				break;
+			}
+
 			// Home key.
 			case 'Home': {
 				// Consume the event.
 				consumeEvent();
+
+				// Make sure the cursor is showing.
+				if (context.instance.showCursor()) {
+					return;
+				}
 
 				// Shift + Home does nothing.
 				if (e.shiftKey) {
@@ -165,6 +190,11 @@ export const DataGridWaffle = () => {
 			case 'End': {
 				// Consume the event.
 				consumeEvent();
+
+				// Make sure the cursor is showing.
+				if (context.instance.showCursor()) {
+					return;
+				}
 
 				// Shift + End does nothing.
 				if (e.shiftKey) {
@@ -204,6 +234,11 @@ export const DataGridWaffle = () => {
 				// Consume the event.
 				consumeEvent();
 
+				// Make sure the cursor is showing.
+				if (context.instance.showCursor()) {
+					return;
+				}
+
 				// Cmd / Ctrl + PageUp does nothing.
 				if (isMacintosh ? e.metaKey : e.ctrlKey) {
 					return;
@@ -232,6 +267,11 @@ export const DataGridWaffle = () => {
 				// Consume the event.
 				consumeEvent();
 
+				// Make sure the cursor is showing.
+				if (context.instance.showCursor()) {
+					return;
+				}
+
 				// Cmd / Ctrl + PageDown does nothing.
 				if (isMacintosh ? e.metaKey : e.ctrlKey) {
 					return;
@@ -259,6 +299,11 @@ export const DataGridWaffle = () => {
 			case 'ArrowUp': {
 				// Consume the event.
 				consumeEvent();
+
+				// Make sure the cursor is showing.
+				if (context.instance.showCursor()) {
+					return;
+				}
 
 				// Cmd / Ctrl + ArrowUp does nothing.
 				if (isMacintosh ? e.metaKey : e.ctrlKey) {
@@ -290,6 +335,11 @@ export const DataGridWaffle = () => {
 				// Consume the event.
 				consumeEvent();
 
+				// Make sure the cursor is showing.
+				if (context.instance.showCursor()) {
+					return;
+				}
+
 				// Cmd / Ctrl + ArrowDown does nothing.
 				if (isMacintosh ? e.metaKey : e.ctrlKey) {
 					return;
@@ -320,6 +370,11 @@ export const DataGridWaffle = () => {
 				// Consume the event.
 				consumeEvent();
 
+				// Make sure the cursor is showing.
+				if (context.instance.showCursor()) {
+					return;
+				}
+
 				// Cmd / Ctrl + ArrowLeft does nothing.
 				if (isMacintosh ? e.metaKey : e.ctrlKey) {
 					return;
@@ -349,6 +404,11 @@ export const DataGridWaffle = () => {
 			case 'ArrowRight': {
 				// Consume the event.
 				consumeEvent();
+
+				// Make sure the cursor is showing.
+				if (context.instance.showCursor()) {
+					return;
+				}
 
 				// Cmd / Ctrl + ArrowRight does nothing.
 				if (isMacintosh ? e.metaKey : e.ctrlKey) {
@@ -463,11 +523,13 @@ export const DataGridWaffle = () => {
 	// Render.
 	return (
 		<div
-			ref={waffleRef}
-			tabIndex={1}
+			ref={dataGridWaffleRef}
+			tabIndex={0}
 			className='data-grid-waffle'
 			onKeyDown={keyDownHandler}
 			onWheel={wheelHandler}
+			onFocus={() => console.log('data-grid-waffle focus')}
+			onBlur={() => console.log('data-grid-waffle blur')}
 		>
 			{context.instance.columnHeaders && context.instance.rowHeaders &&
 				<DataGridCornerTopLeft
@@ -549,9 +611,17 @@ export const DataGridWaffle = () => {
 				}}
 			>
 
-				{dataGridRows}
+				<div style={{
+					position: 'relative',
+					margin: context.instance.rowsMargin
+				}}>
+					{dataGridRows}
+				</div>
 
 			</div>
 		</div>
 	);
-};
+});
+
+// Set the display name.
+DataGridWaffle.displayName = 'DataGridWaffle';

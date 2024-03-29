@@ -18,7 +18,8 @@ import { ContextMenuItem } from 'vs/workbench/browser/positronComponents/context
 import { ContextMenuSeparator } from 'vs/workbench/browser/positronComponents/contextMenu/contextMenuSeparator';
 import { usePositronDataExplorerContext } from 'vs/workbench/browser/positronDataExplorer/positronDataExplorerContext';
 import { PositronModalReactRenderer } from 'vs/workbench/browser/positronModalReactRenderer/positronModalReactRenderer';
-import { AddRowFilterModalPopup } from 'vs/workbench/browser/positronDataExplorer/components/dataExplorerPanel/components/addRowFilterModalPopup';
+import { AddEditRowFilterModalPopup } from 'vs/workbench/browser/positronDataExplorer/components/dataExplorerPanel/components/addEditRowFilterModalPopup/addEditRowFilterModalPopup';
+import { RowFilter, RowFilterIsBetween, RowFilterIsEmpty, RowFilterIsEqualTo, RowFilterIsGreaterThan, RowFilterIsLessThan, RowFilterIsNotBetween, RowFilterIsNotEmpty } from 'vs/workbench/browser/positronDataExplorer/components/dataExplorerPanel/components/addEditRowFilterModalPopup/rowFilter';
 
 // Temporary filter.
 interface Filter {
@@ -54,12 +55,36 @@ export const FilterBar = () => {
 			container: context.layoutService.getContainer(DOM.getWindow(ref.current))
 		});
 
+		/**
+		 * onAddRowFilter event handler.
+		 * @param rowFilter The row filter.
+		 */
+		const addRowFilterHandler = (rowFilter: RowFilter) => {
+			if (rowFilter instanceof RowFilterIsEmpty) {
+				console.log(`is empty row filter for ${rowFilter.columnSchema.column_name}`);
+			} else if (rowFilter instanceof RowFilterIsNotEmpty) {
+				console.log(`is not empty row filter for ${rowFilter.columnSchema.column_name}`);
+			} else if (rowFilter instanceof RowFilterIsLessThan) {
+				console.log(`is less than ${rowFilter.value} row filter for ${rowFilter.columnSchema.column_name}`);
+			} else if (rowFilter instanceof RowFilterIsGreaterThan) {
+				console.log(`is greater than ${rowFilter.value} row filter for ${rowFilter.columnSchema.column_name}`);
+			} else if (rowFilter instanceof RowFilterIsEqualTo) {
+				console.log(`is equal to ${rowFilter.value} row filter for ${rowFilter.columnSchema.column_name}`);
+			} else if (rowFilter instanceof RowFilterIsBetween) {
+				console.log(`is between ${rowFilter.lowerLimit} ${rowFilter.upperLimit} row filter for ${rowFilter.columnSchema.column_name}`);
+			} else if (rowFilter instanceof RowFilterIsNotBetween) {
+				console.log(`is not between ${rowFilter.lowerLimit} ${rowFilter.upperLimit} row filter for ${rowFilter.columnSchema.column_name}`);
+			}
+		};
+
 		// Show the add row filter modal popup.
 		renderer.render(
 			// TODO: Work in progress.
-			<AddRowFilterModalPopup
+			<AddEditRowFilterModalPopup
+				dataExplorerClientInstance={context.instance.dataExplorerClientInstance}
 				renderer={renderer}
 				anchor={filterButtonRef.current}
+				onAddRowFilter={addRowFilterHandler}
 			/>
 		);
 	};
