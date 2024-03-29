@@ -719,6 +719,8 @@ def test_pandas_change_schema_after_sort(
     shell.user_ns.update({"df": df})
     _open_viewer(variables_comm, ["df"])
 
+    # Sort a column that is out of bounds for the table after the
+    # schema change below
     pandas_fixture.set_sort_columns("df", [{"column_index": 4, "ascending": True}])
 
     expected_df = df[["a", "b"]]
