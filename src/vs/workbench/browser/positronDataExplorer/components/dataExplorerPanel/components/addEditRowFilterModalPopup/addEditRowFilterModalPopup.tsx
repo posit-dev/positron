@@ -26,7 +26,7 @@ import { RowFilter, RowFilterIsBetween, RowFilterIsEmpty, RowFilterIsEqualTo, Ro
 /**
  * Validates a row filter value.
  * @param columnSchema The column schema.
- * @param value The value.
+ * @param value The row filter value.
  * @returns true if the row filter value is valid; otherwise, false.
  */
 const validateRowFilterValue = (columnSchema: ColumnSchema, value: string) => {
@@ -38,13 +38,13 @@ const validateRowFilterValue = (columnSchema: ColumnSchema, value: string) => {
 
 	/**
 	 * Checks whether the value is a boolean.
-	 * @returns true if the value is a number; otherwise, false.
+	 * @returns true if the value is a boolean; otherwise, false.
 	 */
 	const isBoolean = () => /^(true|false)$/i.test(value);
 
 	/**
-	 * Checks whether the value is a boolean.
-	 * @returns true if the value is a number; otherwise, false.
+	 * Checks whether the value is a date.
+	 * @returns true if the value is a date; otherwise, false.
 	 */
 	const isDate = () => !Number.isNaN(Date.parse(value));
 
