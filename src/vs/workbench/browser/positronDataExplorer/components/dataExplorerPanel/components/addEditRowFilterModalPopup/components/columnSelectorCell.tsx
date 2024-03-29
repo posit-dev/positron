@@ -30,8 +30,6 @@ interface ColumnSelectorCellProps {
  * @returns The rendered component.
  */
 export const ColumnSelectorCell = (props: ColumnSelectorCellProps) => {
-	console.log(`column_name: ${props.columnSchema.column_name} type_display: ${props.columnSchema.type_display} type_name: ${props.columnSchema.type_name} type_size: ${props.columnSchema.type_size} precision: ${props.columnSchema.precision}`);
-
 	// Render.
 	return (
 		<Button className='column-selector-cell' onPressed={props.onPressed}>
