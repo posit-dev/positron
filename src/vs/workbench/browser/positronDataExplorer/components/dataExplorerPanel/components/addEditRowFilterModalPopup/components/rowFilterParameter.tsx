@@ -2,7 +2,7 @@
  *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
-// CSS>
+// CSS.
 import 'vs/css!./rowFilterParameter';
 
 // React.

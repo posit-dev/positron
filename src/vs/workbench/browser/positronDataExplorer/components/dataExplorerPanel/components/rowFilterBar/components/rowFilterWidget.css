@@ -1,0 +1,20 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *--------------------------------------------------------------------------------------------*/
+
+.row-filter-widget {
+	height: 25px;
+	display: flex;
+	border-radius: 3px;
+	text-align: center;
+	align-items: center;
+	box-sizing: border-box;
+	justify-content: center;
+	border: 1px solid var(--vscode-positronDataExplorer-border);
+	background-color: var(--vscode-positronDataExplorer-background);
+}
+
+.row-filter-widget
+.title-and-condition {
+	margin: 0 8px;
+}

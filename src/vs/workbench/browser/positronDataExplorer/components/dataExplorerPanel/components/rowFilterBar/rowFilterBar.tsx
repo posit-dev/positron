@@ -3,7 +3,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 // CSS.
-import 'vs/css!./filterBar';
+import 'vs/css!./rowFilterBar';
 
 // React.
 import * as React from 'react';
@@ -20,18 +20,13 @@ import { usePositronDataExplorerContext } from 'vs/workbench/browser/positronDat
 import { PositronModalReactRenderer } from 'vs/workbench/browser/positronModalReactRenderer/positronModalReactRenderer';
 import { AddEditRowFilterModalPopup } from 'vs/workbench/browser/positronDataExplorer/components/dataExplorerPanel/components/addEditRowFilterModalPopup/addEditRowFilterModalPopup';
 import { RowFilter, RowFilterIsBetween, RowFilterIsEmpty, RowFilterIsEqualTo, RowFilterIsGreaterThan, RowFilterIsLessThan, RowFilterIsNotBetween, RowFilterIsNotEmpty } from 'vs/workbench/browser/positronDataExplorer/components/dataExplorerPanel/components/addEditRowFilterModalPopup/rowFilter';
-
-// Temporary filter.
-interface Filter {
-	name: string;
-	width: number;
-}
+import { RowFilterWidget } from 'vs/workbench/browser/positronDataExplorer/components/dataExplorerPanel/components/rowFilterBar/components/rowFilterWidget';
 
 /**
- * FilterBar component.
+ * RowFilterBar component.
  * @returns The rendered component.
  */
-export const FilterBar = () => {
+export const RowFilterBar = () => {
 	// Context hooks.
 	const context = usePositronDataExplorerContext();
 
@@ -41,7 +36,7 @@ export const FilterBar = () => {
 	const addFilterButtonRef = useRef<HTMLButtonElement>(undefined!);
 
 	// State hooks.
-	const [rowFilters, setRowFilters] = useState<Filter[]>([]);
+	const [rowFilters, setRowFilters] = useState<RowFilter[]>([]);
 	const [filtersHidden, setFiltersHidden] = useState(false);
 
 	/**
@@ -76,6 +71,8 @@ export const FilterBar = () => {
 			} else if (rowFilter instanceof RowFilterIsNotBetween) {
 				console.log(`is not between ${rowFilter.lowerLimit} ${rowFilter.upperLimit} row filter for ${rowFilter.columnSchema.column_name}`);
 			}
+
+			setRowFilters(rowFilters => [...rowFilters, rowFilter]);
 		};
 
 		// Show the add /edit row filter modal popup.
@@ -85,7 +82,7 @@ export const FilterBar = () => {
 				renderer={renderer}
 				anchor={anchor}
 				rowFilter={rowFilter}
-				onAddRowFilter={addRowFilterHandler}
+				onApplyRowFilter={addRowFilterHandler}
 			/>
 		);
 	};
@@ -137,31 +134,23 @@ export const FilterBar = () => {
 
 	// Render.
 	return (
-		<div ref={ref} className='filter-bar'>
-			<div className='filter'>
-				<Button
-					ref={filterButtonRef}
-					className='filter-button'
-					ariaLabel={localize('positron.dataExplorer.filtering', "Filtering")}
-					onPressed={filterButtonPressedHandler}
-				>
-					<div className='codicon codicon-positron-row-filter' />
-					{rowFilters.length !== 0 && <div className='counter'>{rowFilters.length}</div>}
-				</Button>
-			</div>
+		<div ref={ref} className='row-filter-bar'>
+			<Button
+				ref={filterButtonRef}
+				className='row-filter-button'
+				ariaLabel={localize('positron.dataExplorer.filtering', "Filtering")}
+				onPressed={filterButtonPressedHandler}
+			>
+				<div className='codicon codicon-positron-row-filter' />
+				{rowFilters.length !== 0 && <div className='counter'>{rowFilters.length}</div>}
+			</Button>
 			<div className='filter-entries'>
-				{!filtersHidden && rowFilters.map((filter, index) =>
-					<div
-						key={index}
-						className='filter'
-						style={{ width: filter.width }}
-					>
-						{filter.name}
-					</div>
+				{!filtersHidden && rowFilters.map((rowFilter, index) =>
+					<RowFilterWidget key={index} rowFilter={rowFilter} />
 				)}
 				<Button
 					ref={addFilterButtonRef}
-					className='add-filter-button'
+					className='add-row-filter-button'
 					ariaLabel={localize('positron.dataExplorer.addFilter', "Add filter")}
 					onPressed={() => showAddEditRowFilterModalPopup(addFilterButtonRef.current)}
 				>

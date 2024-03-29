@@ -100,7 +100,7 @@ interface AddEditRowFilterModalPopupProps {
 	renderer: PositronModalReactRenderer;
 	anchor: HTMLElement;
 	rowFilter?: RowFilter;
-	onAddRowFilter: (rowFilter: RowFilter) => void;
+	onApplyRowFilter: (rowFilter: RowFilter) => void;
 }
 
 /**
@@ -314,9 +314,9 @@ export const AddEditRowFilterModalPopup = (props: AddEditRowFilterModalPopupProp
 	})();
 
 	/**
-	 * Apply button onPressed handler.
+	 * Apply row filter button onPressed handler.
 	 */
-	const applyButtonPressed = () => {
+	const applyRowFilterButtonPressed = () => {
 		// Ensure that the user has selected a column schema.
 		if (!selectedColumnSchema) {
 			setErrorText(localize(
@@ -438,57 +438,57 @@ export const AddEditRowFilterModalPopup = (props: AddEditRowFilterModalPopupProp
 		};
 
 		/**
-		 * Adds a row filter.
+		 * Applies a row filter.
 		 * @param rowFilter The row filter to add.
 		 */
-		const addRowFilter = (rowFilter: RowFilter) => {
+		const applyRowFilter = (rowFilter: RowFilter) => {
 			setErrorText(undefined);
 			props.renderer.dispose();
-			props.onAddRowFilter(rowFilter);
+			props.onApplyRowFilter(rowFilter);
 		};
 
 		// Validate the condition and row filter values. If things are valid, add the row filter.
 		switch (selectedCondition) {
-			// Add the is empty row filter.
+			// Apply the is empty row filter.
 			case RowFilterCondition.CONDITION_IS_EMPTY: {
-				addRowFilter(new RowFilterIsEmpty(selectedColumnSchema));
+				applyRowFilter(new RowFilterIsEmpty(selectedColumnSchema));
 				break;
 			}
 
-			// Add the is not empty row filter.
+			// Apply the is not empty row filter.
 			case RowFilterCondition.CONDITION_IS_NOT_EMPTY: {
-				addRowFilter(new RowFilterIsNotEmpty(selectedColumnSchema));
+				applyRowFilter(new RowFilterIsNotEmpty(selectedColumnSchema));
 				break;
 			}
 
-			// Add the is less than row filter.
+			// Apply the is less than row filter.
 			case RowFilterCondition.CONDITION_IS_LESS_THAN: {
 				if (!validateFirstRowFilterValue()) {
 					return;
 				}
-				addRowFilter(new RowFilterIsLessThan(selectedColumnSchema, firstRowFilterValue));
+				applyRowFilter(new RowFilterIsLessThan(selectedColumnSchema, firstRowFilterValue));
 				break;
 			}
 
-			// Add the is greater than row filter.
+			// Apply the is greater than row filter.
 			case RowFilterCondition.CONDITION_IS_GREATER_THAN: {
 				if (!validateFirstRowFilterValue()) {
 					return;
 				}
-				addRowFilter(new RowFilterIsGreaterThan(selectedColumnSchema, firstRowFilterValue));
+				applyRowFilter(new RowFilterIsGreaterThan(selectedColumnSchema, firstRowFilterValue));
 				break;
 			}
 
-			// Add the is equal row filter.
+			// Apply the is equal row filter.
 			case RowFilterCondition.CONDITION_IS_EQUAL: {
 				if (!validateFirstRowFilterValue()) {
 					return;
 				}
-				addRowFilter(new RowFilterIsEqualTo(selectedColumnSchema, firstRowFilterValue));
+				applyRowFilter(new RowFilterIsEqualTo(selectedColumnSchema, firstRowFilterValue));
 				break;
 			}
 
-			// Add the is between row filter.
+			// Apply the is between row filter.
 			case RowFilterCondition.CONDITION_IS_BETWEEN: {
 				if (!validateFirstRowFilterValue()) {
 					return;
@@ -496,7 +496,7 @@ export const AddEditRowFilterModalPopup = (props: AddEditRowFilterModalPopupProp
 				if (!validateSecondRowFilterValue()) {
 					return;
 				}
-				addRowFilter(new RowFilterIsBetween(
+				applyRowFilter(new RowFilterIsBetween(
 					selectedColumnSchema,
 					firstRowFilterValue,
 					secondRowFilterValue
@@ -504,7 +504,7 @@ export const AddEditRowFilterModalPopup = (props: AddEditRowFilterModalPopupProp
 				break;
 			}
 
-			// Add the is not between row filter.
+			// Apply the is not between row filter.
 			case RowFilterCondition.CONDITION_IS_NOT_BETWEEN: {
 				if (!validateFirstRowFilterValue()) {
 					return;
@@ -512,7 +512,7 @@ export const AddEditRowFilterModalPopup = (props: AddEditRowFilterModalPopupProp
 				if (!validateSecondRowFilterValue()) {
 					return;
 				}
-				addRowFilter(new RowFilterIsNotBetween(
+				applyRowFilter(new RowFilterIsNotBetween(
 					selectedColumnSchema,
 					firstRowFilterValue,
 					secondRowFilterValue
@@ -585,7 +585,10 @@ export const AddEditRowFilterModalPopup = (props: AddEditRowFilterModalPopupProp
 				{errorText && (
 					<div className='error'>{errorText}</div>
 				)}
-				<Button className='solid button-apply-filter' onPressed={applyButtonPressed}>
+				<Button
+					className='solid button-apply-row-filter'
+					onPressed={applyRowFilterButtonPressed}
+				>
 					{localize(
 						'positron.addEditRowFilter.applyFilter',
 						"Apply Filter"
