@@ -19,7 +19,13 @@ export function activate(context: vscode.ExtensionContext) {
 		vscode.commands.registerCommand(
 			'positronNotebookHelpers.convertImageToBase64',
 			async (imageSrc: string, baseLoc: string) => new Promise<string | null>((resolve) => {
-				const imageType = path.extname(imageSrc).slice(1);
+				const fileExtension = path.extname(imageSrc).slice(1);
+				const mimeType = mimeTypeMap[fileExtension];
+				if (!mimeType) {
+					errorLogger(`Unsupported file type: "${fileExtension}."`);
+					resolve(null);
+					return;
+				}
 				try {
 					readFile(path.join(baseLoc, imageSrc), (err, data) => {
 						if (err) {
@@ -29,7 +35,7 @@ export function activate(context: vscode.ExtensionContext) {
 							errorLogger('No data found.');
 							resolve(null);
 						} else {
-							resolve(`data:image/${imageType};base64,${data.toString('base64')}`);
+							resolve(`data:${mimeType};base64,${data.toString('base64')}`);
 						}
 					});
 				} catch (e) {
@@ -73,3 +79,24 @@ function debouncedError(wait: number) {
 
 	return debounceWrapper;
 }
+
+
+/**
+ * Map image file extension to MIME type.
+ *
+ * Supports all the 'image' types from [this list](https://developer.mozilla.org/en-US/docs/Web/HTTP/Basics_of_HTTP/MIME_types/Common_types)
+ */
+const mimeTypeMap: Record<string, string> = {
+	png: 'image/png',
+	apng: 'image/apng',
+	avif: 'image/avif',
+	ico: 'image/vnd.microsoft.icon',
+	jpeg: 'image/jpeg',
+	jpg: 'image/jpeg',
+	gif: 'image/gif',
+	bmp: 'image/bmp',
+	webp: 'image/webp',
+	svg: 'image/svg+xml',
+	tiff: 'image/tiff',
+	tif: 'image/tiff',
+};
