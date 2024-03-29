@@ -9,9 +9,9 @@ import 'vs/css!./dataExplorerPanel';
 import * as React from 'react';
 
 // Other dependencies.
-import { FilterBar } from 'vs/workbench/browser/positronDataExplorer/components/dataExplorerPanel/components/filterBar';
 import { StatusBar } from 'vs/workbench/browser/positronDataExplorer/components/dataExplorerPanel/components/statusBar';
 import { DataExplorer } from 'vs/workbench/browser/positronDataExplorer/components/dataExplorerPanel/components/dataExplorer';
+import { FilterBar } from 'vs/workbench/browser/positronDataExplorer/components/dataExplorerPanel/components/filterBar/filterBar';
 
 /**
  * DataExplorerPanel component.

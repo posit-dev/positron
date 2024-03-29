@@ -37,13 +37,11 @@ export const FilterBar = () => {
 
 	// Reference hooks.
 	const ref = useRef<HTMLDivElement>(undefined!);
-
-	// Reference hooks.
 	const filterButtonRef = useRef<HTMLButtonElement>(undefined!);
 	const addFilterButtonRef = useRef<HTMLButtonElement>(undefined!);
 
-	// Temporary state code.
-	const [filters, setFilters] = useState<Filter[]>([]);
+	// State hooks.
+	const [rowFilters, setRowFilters] = useState<Filter[]>([]);
 	const [filtersHidden, setFiltersHidden] = useState(false);
 
 	/**
@@ -108,7 +106,7 @@ export const FilterBar = () => {
 			entries.push(new ContextMenuItem({
 				label: localize('positron.dataExplorer.hideFilters', "Hide filters"),
 				icon: 'positron-hide-filters',
-				disabled: filters.length === 0,
+				disabled: rowFilters.length === 0,
 				onSelected: () => setFiltersHidden(true)
 			}));
 		} else {
@@ -122,8 +120,8 @@ export const FilterBar = () => {
 		entries.push(new ContextMenuItem({
 			label: localize('positron.dataExplorer.clearFilters', "Clear filters"),
 			icon: 'positron-clear-row-filters',
-			disabled: filters.length === 0,
-			onSelected: () => setFilters([])
+			disabled: rowFilters.length === 0,
+			onSelected: () => setRowFilters([])
 		}));
 
 		// Show the context menu.
@@ -148,12 +146,18 @@ export const FilterBar = () => {
 					onPressed={filterButtonPressedHandler}
 				>
 					<div className='codicon codicon-positron-row-filter' />
-					{filters.length !== 0 && <div className='counter'>{filters.length}</div>}
+					{rowFilters.length !== 0 && <div className='counter'>{rowFilters.length}</div>}
 				</Button>
 			</div>
 			<div className='filter-entries'>
-				{!filtersHidden && filters.map((filter, index) =>
-					<div key={index} className='filter' style={{ width: filter.width }}>{filter.name}</div>
+				{!filtersHidden && rowFilters.map((filter, index) =>
+					<div
+						key={index}
+						className='filter'
+						style={{ width: filter.width }}
+					>
+						{filter.name}
+					</div>
 				)}
 				<Button
 					ref={addFilterButtonRef}
