@@ -116,6 +116,20 @@ class Selection(BaseModel):
     )
 
 
+class Range(BaseModel):
+    """
+    Selection range
+    """
+
+    start: Position = Field(
+        description="Start position of the selection",
+    )
+
+    end: Position = Field(
+        description="End position of the selection",
+    )
+
+
 @enum.unique
 class UiBackendRequest(str, enum.Enum):
     """
@@ -195,6 +209,15 @@ class UiFrontendEvent(str, enum.Enum):
     # Execute a Positron command
     ExecuteCommand = "execute_command"
 
+    # Open a workspace
+    OpenWorkspace = "open_workspace"
+
+    # Set the selections in the editor
+    SetEditorSelections = "set_editor_selections"
+
+    # Show a URL in Positron's Viewer pane
+    ShowUrl = "show_url"
+
 
 class BusyParams(BaseModel):
     """
@@ -256,6 +279,20 @@ class ShowQuestionParams(BaseModel):
     )
 
 
+class ShowDialogParams(BaseModel):
+    """
+    Show a dialog
+    """
+
+    title: str = Field(
+        description="The title of the dialog",
+    )
+
+    message: str = Field(
+        description="The message to display in the dialog",
+    )
+
+
 class PromptStateParams(BaseModel):
     """
     New state of the primary and secondary prompts
@@ -300,6 +337,54 @@ class ExecuteCommandParams(BaseModel):
     )
 
 
+class OpenWorkspaceParams(BaseModel):
+    """
+    Open a workspace
+    """
+
+    path: str = Field(
+        description="The path for the workspace to be opened",
+    )
+
+    new_window: bool = Field(
+        description="Should the workspace be opened in a new window?",
+    )
+
+
+class SetEditorSelectionsParams(BaseModel):
+    """
+    Set the selections in the editor
+    """
+
+    selections: List[Range] = Field(
+        description="The selections (really, ranges) to set in the document",
+    )
+
+
+class ModifyEditorSelectionsParams(BaseModel):
+    """
+    Modify selections in the editor with a text edit
+    """
+
+    selections: List[Range] = Field(
+        description="The selections (really, ranges) to set in the document",
+    )
+
+    values: List[str] = Field(
+        description="The text values to insert at the selections",
+    )
+
+
+class ShowUrlParams(BaseModel):
+    """
+    Show a URL in Positron's Viewer pane
+    """
+
+    url: str = Field(
+        description="The URL to display",
+    )
+
+
 EditorContext.update_forward_refs()
 
 TextDocument.update_forward_refs()
@@ -307,6 +392,8 @@ TextDocument.update_forward_refs()
 Position.update_forward_refs()
 
 Selection.update_forward_refs()
+
+Range.update_forward_refs()
 
 CallMethodParams.update_forward_refs()
 
@@ -320,6 +407,8 @@ ShowMessageParams.update_forward_refs()
 
 ShowQuestionParams.update_forward_refs()
 
+ShowDialogParams.update_forward_refs()
+
 PromptStateParams.update_forward_refs()
 
 WorkingDirectoryParams.update_forward_refs()
@@ -327,3 +416,11 @@ WorkingDirectoryParams.update_forward_refs()
 DebugSleepParams.update_forward_refs()
 
 ExecuteCommandParams.update_forward_refs()
+
+OpenWorkspaceParams.update_forward_refs()
+
+SetEditorSelectionsParams.update_forward_refs()
+
+ModifyEditorSelectionsParams.update_forward_refs()
+
+ShowUrlParams.update_forward_refs()
