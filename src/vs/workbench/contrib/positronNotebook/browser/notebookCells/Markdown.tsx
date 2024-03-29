@@ -46,13 +46,17 @@ function useMarkdown(content: string): MarkdownRenderResults {
 		status: 'rendering'
 	});
 
+
 	React.useEffect(() => {
-		services.commandService.executeCommand(
-			'markdown.api.render',
-			content
-		).then((html: string) => {
-			setRenderedHtml(
-				{
+		// Use an async function so we get the easier-to-read syntax of `await` instead of `.then()`
+		async function renderMarkdown() {
+			try {
+				const html = await services.commandService.executeCommand(
+					'markdown.api.render',
+					content
+				);
+
+				setRenderedHtml({
 					status: 'success',
 					nodes: renderHtml(html, {
 						componentOverrides: {
@@ -61,14 +65,25 @@ function useMarkdown(content: string): MarkdownRenderResults {
 						}
 					})
 				});
-		})
-			.catch((error: Error) => {
+			} catch (error) {
 				setRenderedHtml({
 					status: 'error',
 					errorMsg: error.message
 				});
 			}
-			);
+		}
+		// Run a timeout to catch if rendering takes too long
+		const timeoutMs = 3000;
+		const timeout = setTimeout(() => {
+			setRenderedHtml({
+				status: 'error',
+				errorMsg: localize('renderingMdTimeout', "Rendering markdown timed out after {0} ms", timeoutMs)
+			});
+		}, timeoutMs);
+
+		renderMarkdown().finally(() => clearTimeout(timeout));
+
+		return () => clearTimeout(timeout);
 	}, [content, services]);
 
 	return renderedHtml;
