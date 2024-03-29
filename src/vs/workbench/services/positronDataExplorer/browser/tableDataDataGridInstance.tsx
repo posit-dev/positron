@@ -55,8 +55,9 @@ export class TableDataDataGridInstance extends DataGridInstance {
 			horizontalScrollbar: true,
 			verticalScrollbar: true,
 			scrollbarWidth: 14,
+			automaticLayout: true,
 			cellBorders: true,
-			cursor: true,
+			internalCursor: true,
 			cursorOffset: 0.5,
 		});
 
@@ -65,12 +66,19 @@ export class TableDataDataGridInstance extends DataGridInstance {
 
 		// Allocate and initialize the DataExplorerCache.
 		this._dataExplorerCache = new DataExplorerCache(dataExplorerClientInstance);
-		this._dataExplorerCache.onDidUpdateCache(() => this._onDidUpdateEmitter.fire());
 
+		// Add the onDidUpdateCache event handler.
+		this._register(this._dataExplorerCache.onDidUpdateCache(() =>
+			this._onDidUpdateEmitter.fire()
+		));
+
+		// Add the onDidSchemaUpdate event handler.
 		this._dataExplorerClientInstance.onDidSchemaUpdate(async (e: SchemaUpdateEvent) => {
 			this.softReset();
 			this.fetchData();
 		});
+
+		// Add the onDidDataUpdate event handler.
 		this._dataExplorerClientInstance.onDidDataUpdate(async () => {
 			this.fetchData();
 		});
@@ -134,7 +142,7 @@ export class TableDataDataGridInstance extends DataGridInstance {
 	 * @param columnIndex The column index.
 	 * @returns The column.
 	 */
-	column(columnIndex: number) {
+	override column(columnIndex: number) {
 		// Get the column schema.
 		const columnSchema = this._dataExplorerCache.getColumnSchema(columnIndex);
 		if (!columnSchema) {

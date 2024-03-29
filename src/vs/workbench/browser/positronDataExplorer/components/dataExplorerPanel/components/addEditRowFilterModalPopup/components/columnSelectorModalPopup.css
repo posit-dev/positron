@@ -1,0 +1,21 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *--------------------------------------------------------------------------------------------*/
+
+.column-selector {
+	width: 100%;
+	height: 100%;
+	display: grid;
+	grid-template-rows: [search] 34px [view] 1fr [end];
+}
+
+.column-selector
+.search {
+	grid-row: search / view;
+	border-bottom: 1px solid var(--vscode-positronDataExplorer-border);
+}
+
+.column-selector
+.view {
+	grid-row: view / end;
+}

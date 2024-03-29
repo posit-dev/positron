@@ -6,14 +6,23 @@ import { Emitter, Event } from 'vs/base/common/event';
 import { Disposable } from 'vs/base/common/lifecycle';
 import { generateUuid } from 'vs/base/common/uuid';
 import { IRuntimeClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimeClientInstance';
-import {
-	ColumnSortKey,
-	PositronDataExplorerComm,
-	SchemaUpdateEvent,
-	TableData,
-	TableSchema,
-	TableState
-} from 'vs/workbench/services/languageRuntime/common/positronDataExplorerComm';
+import { ColumnSchema, ColumnSortKey, PositronDataExplorerComm, SchemaUpdateEvent, TableData, TableSchema, TableState } from 'vs/workbench/services/languageRuntime/common/positronDataExplorerComm';
+
+/**
+ * TableSchemaSearchResult interface. This is here temporarily until searching the tabe schema
+ * becomespart of the PositronDataExplorerComm.
+ */
+export interface TableSchemaSearchResult {
+	/**
+	 * The number of matching columns.
+	 */
+	matching_columns: number;
+
+	/**
+	 * Column schema for the matching columns.
+	 */
+	columns: Array<ColumnSchema>;
+}
 
 /**
  * A data explorer client instance.
@@ -30,6 +39,16 @@ export class DataExplorerClientInstance extends Disposable {
 	 * Gets the PositronDataExplorerComm.
 	 */
 	private readonly _positronDataExplorerComm: PositronDataExplorerComm;
+
+	/**
+	 * The onDidSchemaUpdate event emitter.
+	 */
+	private readonly _onDidSchemaUpdateEmitter = this._register(new Emitter<SchemaUpdateEvent>());
+
+	/**
+	 * The onDidDataUpdate event emitter.
+	 */
+	private readonly _onDidDataUpdateEmitter = this._register(new Emitter<void>());
 
 	//#endregion Private Properties
 
@@ -50,18 +69,12 @@ export class DataExplorerClientInstance extends Disposable {
 		// Close emitter
 		this.onDidClose = this._positronDataExplorerComm.onDidClose;
 
-		// Connect schema update emitter
-		this.onDidSchemaUpdate = this._schemaUpdateEmitter.event;
-
-		// Connect data update emitter
-		this.onDidDataUpdate = this._dataUpdateEmitter.event;
-
 		this._positronDataExplorerComm.onDidSchemaUpdate(async (e: SchemaUpdateEvent) => {
-			this._schemaUpdateEmitter.fire(e);
+			this._onDidSchemaUpdateEmitter.fire(e);
 		});
 
 		this._positronDataExplorerComm.onDidDataUpdate(async (_evt) => {
-			this._dataUpdateEmitter.fire();
+			this._onDidDataUpdateEmitter.fire();
 		});
 	}
 
@@ -81,7 +94,17 @@ export class DataExplorerClientInstance extends Disposable {
 	//#region Public Methods
 
 	/**
+	 * Get the current active state of the data explorer backend.
+	 * @returns A promose that resolves to the current table state.
+	 */
+	async getState(): Promise<TableState> {
+		return this._positronDataExplorerComm.getState();
+	}
+
+	/**
 	 * Gets the schema.
+	 * @param startIndex The starting index.
+	 * @param numColumns The number of columns to return.
 	 * @returns A promise that resolves to the table schema.
 	 */
 	async getSchema(startIndex: number, numColumns: number): Promise<TableSchema> {
@@ -89,11 +112,40 @@ export class DataExplorerClientInstance extends Disposable {
 	}
 
 	/**
-	 * Get the current active state of the data explorer backend.
-	 * @returns A promose that resolves to the current table state.
+	 * Searches the table schema.
+	 * @param searchText The search text.
+	 * @param startIndex The starting index.
+	 * @param numColumns The number of columns to return.
+	 * @returns A TableSchemaSearchResult that contains the search result.
 	 */
-	async getState(): Promise<TableState> {
-		return this._positronDataExplorerComm.getState();
+	async searchSchema(options: {
+		searchText?: string;
+		startIndex: number;
+		numColumns: number;
+	}): Promise<TableSchemaSearchResult> {
+		/**
+		 * Brute force temporary implementation.
+		 */
+
+		// Get the table state so we know now many columns there are.
+		const tableState = await this._positronDataExplorerComm.getState();
+
+		// Load the entire schema of the table so it can be searched.
+		const tableSchema = await this._positronDataExplorerComm.getSchema(
+			0,
+			tableState.table_shape.num_columns
+		);
+
+		// Search the columns finding every matching one.
+		const columns = tableSchema.columns.filter(columnSchema =>
+			!options.searchText ? true : columnSchema.column_name.includes(options.searchText)
+		);
+
+		// Return the result.
+		return {
+			matching_columns: columns.length,
+			columns: columns.slice(options.startIndex, options.numColumns)
+		};
 	}
 
 	/**
@@ -134,14 +186,12 @@ export class DataExplorerClientInstance extends Disposable {
 	/**
 	 * Event that fires when the schema has been updated.
 	 */
-	onDidSchemaUpdate: Event<SchemaUpdateEvent>;
-	private readonly _schemaUpdateEmitter = new Emitter<SchemaUpdateEvent>();
+	onDidSchemaUpdate = this._onDidSchemaUpdateEmitter.event;
 
 	/**
 	 * Event that fires when the data has been updated.
 	 */
-	onDidDataUpdate: Event<void>;
-	private readonly _dataUpdateEmitter = new Emitter<void>();
+	onDidDataUpdate = this._onDidDataUpdateEmitter.event;
 
 	//#endregion Public Events
 }

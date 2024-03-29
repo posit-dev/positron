@@ -35,7 +35,7 @@ type RowHeaderOptions = | {
  * DefaultSizeOptions type.
  */
 type DefaultSizeOptions = | {
-	readonly defaultColumnWidth: number;
+	readonly defaultColumnWidth?: number;
 	readonly defaultRowHeight: number;
 };
 
@@ -86,17 +86,27 @@ type ScrollbarOptions = | {
  * DisplayOptions type.
  */
 type DisplayOptions = | {
+	automaticLayout: boolean;
+	rowsMargin?: number;
 	cellBorders?: boolean;
+	cursorInitiallyHidden?: boolean;
 };
 
 /**
  * CursorOptions type.
  */
 type CursorOptions = | {
-	cursor: false;
+	cursorInitiallyHidden?: boolean;
+};
+
+/**
+ * DefaultCursorOptions type.
+ */
+type DefaultCursorOptions = | {
+	internalCursor: false;
 	cursorOffset?: never;
 } | {
-	cursor: true;
+	internalCursor: true;
 	cursorOffset: number;
 };
 
@@ -119,6 +129,7 @@ type DataGridOptions =
 	ScrollbarOptions &
 	DisplayOptions &
 	CursorOptions &
+	DefaultCursorOptions &
 	SelectionOptions;
 
 /**
@@ -366,14 +377,29 @@ export abstract class DataGridInstance extends Disposable {
 	private readonly _scrollbarWidth: number;
 
 	/**
+	 * Gets a value which indicates whether to perform automatic layout using a ResizeObserver.
+	 */
+	private readonly _automaticLayout: boolean;
+
+	/**
+	 * Gets the rows margin.
+	 */
+	private readonly _rowsMargin: number;
+
+	/**
 	 * Gets a value which indicates whether to show cell borders.
 	 */
 	private readonly _cellBorders: boolean;
 
 	/**
-	 * Gets a value which indicates whether to show the cursor.
+	 * Gets or sets a value which indicates whether the cursor is initially hidden.
 	 */
-	private readonly _cursor: boolean;
+	private readonly _cursorInitiallyHidden: boolean;
+
+	/**
+	 * Gets a value which indicates whether to show the internal cursor.
+	 */
+	private readonly _internalCursor: boolean;
 
 	/**
 	 * Gets the cursor offset.
@@ -484,11 +510,11 @@ export abstract class DataGridInstance extends Disposable {
 		this._rowHeadersWidth = this._rowHeaders ? options.rowHeadersWidth ?? 0 : 0;
 		this._rowHeadersResize = this._rowHeaders ? options.rowHeadersResize ?? false : false;
 
-		this._defaultColumnWidth = options.defaultColumnWidth;
+		this._defaultColumnWidth = options.defaultColumnWidth ?? 0;
 		this._defaultRowHeight = options.defaultRowHeight;
 
 		this._columnResize = options.columnResize || false;
-		this._minimumColumnWidth = options.minimumColumnWidth ?? options.defaultColumnWidth;
+		this._minimumColumnWidth = options.minimumColumnWidth ?? this._defaultColumnWidth;
 
 		this._rowResize = options.rowResize || false;
 		this._minimumRowHeight = options.minimumRowHeight ?? options.defaultRowHeight;
@@ -497,10 +523,18 @@ export abstract class DataGridInstance extends Disposable {
 		this._verticalScrollbar = options.verticalScrollbar || false;
 		this._scrollbarWidth = options.scrollbarWidth ?? 0;
 
+		this._automaticLayout = options.automaticLayout ?? true;
+		this._rowsMargin = options.rowsMargin ?? 0;
 		this._cellBorders = options.cellBorders ?? true;
 
-		this._cursor = options.cursor ?? true;
-		this._cursorOffset = this._cursor ? options.cursorOffset ?? 0 : 0;
+		this._cursorInitiallyHidden = options.cursorInitiallyHidden ?? false;
+		if (options.cursorInitiallyHidden) {
+			this._cursorColumnIndex = -1;
+			this._cursorRowIndex = -1;
+		}
+
+		this._internalCursor = options.internalCursor ?? true;
+		this._cursorOffset = this._internalCursor ? options.cursorOffset ?? 0 : 0;
 
 		this._selection = options.selection ?? true;
 	}
@@ -608,6 +642,20 @@ export abstract class DataGridInstance extends Disposable {
 	}
 
 	/**
+	 * Gets a value which indicates whether to perform automatic layout using a ResizeObserver.
+	 */
+	get automaticLayout() {
+		return this._automaticLayout;
+	}
+
+	/**
+	 * Gets the rows margin.
+	 */
+	get rowsMargin() {
+		return this._rowsMargin;
+	}
+
+	/**
 	 * Gets a value which indicates whether to show cell borders.
 	 */
 	get cellBorder() {
@@ -615,10 +663,10 @@ export abstract class DataGridInstance extends Disposable {
 	}
 
 	/**
-	 * Gets a value which indicates whether to show the cursor.
+	 * Gets a value which indicates whether to show the internal cursor.
 	 */
-	get cursor() {
-		return this._cursor;
+	get internalCursor() {
+		return this._internalCursor;
 	}
 
 	/**
@@ -839,6 +887,23 @@ export abstract class DataGridInstance extends Disposable {
 	//#endregion Public Events
 
 	//#region Public Methods
+
+	/**
+	 * Shows the cursor, if it was initially hidden.
+	 */
+	showCursor() {
+		// Set the initial cursor position.
+		if (this._cursorInitiallyHidden &&
+			this._cursorColumnIndex === -1 &&
+			this._cursorRowIndex === -1) {
+			this.setCursorPosition(0, 0);
+			// Return true, indicating that the cursor was shown.
+			return true;
+		}
+
+		// Return false, indicating that the cursor was already showing.
+		return false;
+	}
 
 	/**
 	 * Gets the the width of a column.
@@ -1944,7 +2009,9 @@ export abstract class DataGridInstance extends Disposable {
 	 * @param rowIndex The row index.
 	 * @returns The row label.
 	 */
-	abstract column(columnIndex: number): IDataColumn | undefined;
+	column(columnIndex: number): IDataColumn | undefined {
+		return undefined;
+	}
 
 	/**
 	 * Gets a row header.
@@ -1973,8 +2040,13 @@ export abstract class DataGridInstance extends Disposable {
 	protected softReset() {
 		this._firstColumnIndex = 0;
 		this._firstRowIndex = 0;
-		this._cursorColumnIndex = 0;
-		this._cursorRowIndex = 0;
+		if (this._cursorInitiallyHidden) {
+			this._cursorColumnIndex = -1;
+			this._cursorRowIndex = -1;
+		} else {
+			this._cursorColumnIndex = 0;
+			this._cursorRowIndex = 0;
+		}
 		this._cellSelectionRange = undefined;
 		this._columnSelectionRange = undefined;
 		this._columnSelectionIndexes.clear();
