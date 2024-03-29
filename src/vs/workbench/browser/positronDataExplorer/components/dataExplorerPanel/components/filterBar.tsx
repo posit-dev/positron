@@ -96,28 +96,28 @@ export const FilterBar = () => {
 		// Build the context menu entries.
 		const entries: (ContextMenuItem | ContextMenuSeparator)[] = [];
 		entries.push(new ContextMenuItem({
-			label: localize('positron.addFilter', "Add filter"),
+			label: localize('positron.dataExplorer.addFilter', "Add filter"),
 			icon: 'positron-add-filter',
 			onSelected: addFilterSelectedHandler
 		}));
 		entries.push(new ContextMenuSeparator());
 		if (!filtersHidden) {
 			entries.push(new ContextMenuItem({
-				label: localize('positron.hideFilters', "Hide filters"),
+				label: localize('positron.dataExplorer.hideFilters', "Hide filters"),
 				icon: 'positron-hide-filters',
 				disabled: filters.length === 0,
 				onSelected: () => setFiltersHidden(true)
 			}));
 		} else {
 			entries.push(new ContextMenuItem({
-				label: localize('positron.showFilters', "Show filters"),
+				label: localize('positron.dataExplorer.showFilters', "Show filters"),
 				icon: 'positron-show-filters',
 				onSelected: () => setFiltersHidden(false)
 			}));
 		}
 		entries.push(new ContextMenuSeparator());
 		entries.push(new ContextMenuItem({
-			label: localize('positron.clearFilters', "Clear filters"),
+			label: localize('positron.dataExplorer.clearFilters', "Clear filters"),
 			icon: 'positron-clear-row-filters',
 			disabled: filters.length === 0,
 			onSelected: () => setFilters([])
