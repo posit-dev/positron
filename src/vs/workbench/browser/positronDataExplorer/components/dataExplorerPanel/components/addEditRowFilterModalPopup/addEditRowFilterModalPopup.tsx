@@ -470,6 +470,7 @@ export const AddEditRowFilterModalPopup = (props: AddEditRowFilterModalPopupProp
 				break;
 			}
 
+			// Add the is greater than row filter.
 			case RowFilterCondition.CONDITION_IS_GREATER_THAN: {
 				if (!validateFirstRowFilterValue()) {
 					return;
@@ -478,6 +479,7 @@ export const AddEditRowFilterModalPopup = (props: AddEditRowFilterModalPopupProp
 				break;
 			}
 
+			// Add the is equal row filter.
 			case RowFilterCondition.CONDITION_IS_EQUAL: {
 				if (!validateFirstRowFilterValue()) {
 					return;
@@ -486,6 +488,7 @@ export const AddEditRowFilterModalPopup = (props: AddEditRowFilterModalPopupProp
 				break;
 			}
 
+			// Add the is between row filter.
 			case RowFilterCondition.CONDITION_IS_BETWEEN: {
 				if (!validateFirstRowFilterValue()) {
 					return;
@@ -501,6 +504,7 @@ export const AddEditRowFilterModalPopup = (props: AddEditRowFilterModalPopupProp
 				break;
 			}
 
+			// Add the is not between row filter.
 			case RowFilterCondition.CONDITION_IS_NOT_BETWEEN: {
 				if (!validateFirstRowFilterValue()) {
 					return;
