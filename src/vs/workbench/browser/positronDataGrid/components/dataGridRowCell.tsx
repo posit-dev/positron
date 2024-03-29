@@ -92,7 +92,7 @@ export const DataGridRowCell = (props: DataGridRowCellProps) => {
 					)}
 			>
 				{
-					context.instance.cursor &&
+					context.instance.internalCursor &&
 					props.columnIndex === context.instance.cursorColumnIndex &&
 					props.rowIndex === context.instance.cursorRowIndex &&
 					<div

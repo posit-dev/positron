@@ -7,7 +7,7 @@ import 'vs/css!./dropDownListBox';
 
 // React.
 import * as React from 'react';
-import { useRef, useState } from 'react'; // eslint-disable-line no-duplicate-imports
+import { useEffect, useRef, useState } from 'react'; // eslint-disable-line no-duplicate-imports
 
 // Other dependencies.
 import * as DOM from 'vs/base/browser/dom';
@@ -30,8 +30,31 @@ interface DropDownListBoxProps {
 	disabled?: boolean;
 	title: string;
 	entries: (DropDownListBoxItem | DropDownListBoxSeparator)[];
+	selectedIdentifier?: string;
 	onSelectionChanged: (identifier: string) => void;
 }
+
+/**
+ * Finds a drop down list box item by identifier.
+ * @param identifier The identifier of the drop down list box item to find.
+ * @param entries The set of drop down list box entries.
+ * @returns The drop down list box item, if it was found; otherwise, undefined.
+ */
+const findDropDownListBoxItem = (
+	identifier: string | undefined,
+	entries: (DropDownListBoxItem | DropDownListBoxSeparator)[]
+) => {
+	// Find the drop down list box item.
+	for (let i = 0; i < entries.length; i++) {
+		const entry = entries[i];
+		if (entry instanceof DropDownListBoxItem && entry.options.identifier === identifier) {
+			return entry;
+		}
+	}
+
+	// The drop down list box item wasn't found.
+	return undefined;
+};
 
 /**
  * DropDownListBox component.
@@ -44,9 +67,19 @@ export const DropDownListBox = (props: DropDownListBoxProps) => {
 
 	// State hooks.
 	const [selectedDropDownListBoxItem, setSelectedDropDownListBoxItem] =
-		useState<DropDownListBoxItem | undefined>(undefined);
+		useState<DropDownListBoxItem | undefined>(
+			findDropDownListBoxItem(props.selectedIdentifier, props.entries)
+		);
 	const [highlightedDropDownListBoxItem, setHighlightedDropDownListBoxItem] =
 		useState<DropDownListBoxItem | undefined>(undefined);
+
+	// Updates the selected drop down list box item.
+	useEffect(() => {
+		setSelectedDropDownListBoxItem(findDropDownListBoxItem(
+			props.selectedIdentifier,
+			props.entries
+		));
+	}, [props.entries, props.selectedIdentifier]);
 
 	/**
 	 * Gets the title to display.
@@ -66,13 +99,8 @@ export const DropDownListBox = (props: DropDownListBoxProps) => {
 	return (
 		<Button
 			ref={ref}
-			className={
-				positronClassNames(
-					'drop-down-list-box',
-					props.className,
-					{ 'disabled': props.disabled }
-				)
-			}
+			disabled={props.disabled}
+			className={positronClassNames('drop-down-list-box', props.className)}
 			onPressed={() => {
 				// Create the renderer.
 				const renderer = new PositronModalReactRenderer({
@@ -103,7 +131,7 @@ export const DropDownListBox = (props: DropDownListBoxProps) => {
 			}}
 		>
 			<div className='title'>{titleToDisplay()}</div>
-			<div className='chevron' aria-hidden='true'>
+			<div className={positronClassNames('chevron', { 'disabled': props.disabled })} aria-hidden='true'>
 				<div className='codicon codicon-chevron-down' />
 			</div>
 		</Button>
