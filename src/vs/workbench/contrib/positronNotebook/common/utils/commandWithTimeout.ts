@@ -45,28 +45,40 @@ interface CommandWithTimeoutArgs<T = unknown> {
  */
 export function commandWithTimeout<T = unknown>({
 	command, args, timeoutMs = 5000, commandService, onSuccess, onTimeout, onError,
-}: CommandWithTimeoutArgs<T>): NodeJS.Timeout {
+}: CommandWithTimeoutArgs<T>): { clear: () => void } {
+
+	// Variable used to keep track of whether the timeout has been cleared.
+	// This is needed in the case that the command completes after the timeout time has elapsed or
+	// the clear function is called before the timeout is reached.
+	let isCleared = false;
 
 	const timeout = setTimeout(() => {
 		onTimeout();
+		isCleared = true;
 	}, timeoutMs);
+
+	const clear = () => {
+		isCleared = true;
+		clearTimeout(timeout);
+	};
 
 	async function runCommand() {
 		try {
 			const res = await commandService.executeCommand<T>(command, ...args);
+			if (isCleared) { return; }
 			if (!res) {
 				onError(new Error('Unexpected null response from command'));
 				return;
 			}
 			onSuccess(res);
 		} catch (error) {
+			if (isCleared) { return; }
 			onError(error);
 		}
-
-		clearTimeout(timeout);
+		clear();
 	}
 
 	runCommand();
 
-	return timeout;
+	return { clear };
 }

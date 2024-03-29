@@ -55,11 +55,12 @@ export function DeferredImage({ src = 'no-source', ...props }: React.ComponentPr
 	const [results, setResults] = React.useState<ImageDataResults>({ status: 'pending' });
 
 	React.useEffect(() => {
-		const commandTimeout = commandWithTimeout<unknown>(
+		const timeoutMs = 3000;
+		const convertCommand = commandWithTimeout<unknown>(
 			{
 				command: 'positronNotebookHelpers.convertImageToBase64',
 				args: [src, baseLocation],
-				timeoutMs: 3000,
+				timeoutMs,
 				commandService: services.commandService,
 				onSuccess: (payload) => {
 					if (typeof payload === 'string') {
@@ -79,13 +80,13 @@ export function DeferredImage({ src = 'no-source', ...props }: React.ComponentPr
 				onTimeout: () => {
 					setResults({
 						status: 'error',
-						message: localize('imageLoadTimeout', 'Image load timeout')
+						message: localize('imageConversionTimeout', "Gather image data timed out after {0} ms", timeoutMs)
 					});
 				}
 			}
 		);
 
-		return () => clearTimeout(commandTimeout);
+		return () => convertCommand.clear();
 	}, [src, baseLocation, services]);
 
 	switch (results.status) {

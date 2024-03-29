@@ -50,10 +50,12 @@ function useMarkdown(content: string): MarkdownRenderResults {
 
 	React.useEffect(() => {
 
-		const renderTimeout = commandWithTimeout({
+		const timeoutMs = 5000;
+
+		const renderCommand = commandWithTimeout({
 			command: 'markdown.api.render',
 			args: [content],
-			timeoutMs: 3000,
+			timeoutMs,
 			commandService: services.commandService,
 			onSuccess: (html) => {
 				if (typeof html !== 'string') {
@@ -76,7 +78,7 @@ function useMarkdown(content: string): MarkdownRenderResults {
 			onTimeout: () => {
 				setRenderedHtml({
 					status: 'error',
-					errorMsg: localize('renderingMdTimeout', "Rendering markdown timed out after {0} ms", 3000)
+					errorMsg: localize('renderingMdTimeout', "Rendering markdown timed out after {0} ms", timeoutMs)
 				});
 			},
 			onError: (error) => {
@@ -87,7 +89,7 @@ function useMarkdown(content: string): MarkdownRenderResults {
 			}
 		});
 
-		return () => clearTimeout(renderTimeout);
+		return () => renderCommand.clear();
 	}, [content, services]);
 
 	return renderedHtml;
