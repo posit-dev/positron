@@ -224,7 +224,7 @@
 			],
 			"result": {
 				"schema": {
-					"name": "column_profile_batch",
+					"name": "column_profile_results",
 					"type": "array",
 					"items": {
 						"$ref": "#/components/schemas/column_profile_result"
@@ -542,63 +542,113 @@
 				"description": "Result of computing column profile",
 				"properties": {
 					"null_count": {
-						"type": "integer",
-						"description": "Number of null values in column"
+						"description": "Result from null_count request",
+						"type": "integer"
 					},
+					"summary_stats": {
+						"description": "Results from summary_stats request",
+						"$ref": "#/components/schemas/column_summary_stats"
+					},
+					"histogram": {
+						"description": "Results from summary_stats request",
+						"$ref": "#/components/schemas/column_histogram"
+					},
+					"freqtable": {
+						"description": "Results from freqtable request",
+						"$ref": "#/components/schemas/column_freqtable"
+					}
+				}
+			},
+			"column_summary_stats": {
+				"type": "object",
+				"required": [
+					"min_value",
+					"max_value"
+				],
+				"properties": {
 					"min_value": {
 						"type": "string",
-						"description": "Minimum value as string computed as part of histogram"
+						"description": "Minimum value as string"
 					},
 					"max_value": {
 						"type": "string",
-						"description": "Maximum value as string computed as part of histogram"
+						"description": "Maximum value as string"
 					},
 					"mean_value": {
 						"type": "string",
-						"description": "Average value as string computed as part of histogram"
+						"description": "Average value as string"
 					},
-					"sample_quantiles": {
-						"type": "array",
-						"description": "Quantile values computed from histogram bins",
-						"items": {
-							"$ref": "#/components/schemas/column_quantile_value"
-						}
+					"median": {
+						"type": "string",
+						"description": "Sample median (50% value) value as string"
 					},
-					"histogram_bin_sizes": {
+					"q25": {
+						"type": "string",
+						"description": "25th percentile value as string"
+					},
+					"q75": {
+						"type": "string",
+						"description": "75th percentile value as string"
+					}
+				}
+			},
+			"column_histogram": {
+				"type": "object",
+				"description": "Result from a histogram profile request",
+				"required": [
+					"bin_sizes",
+					"bin_width"
+				],
+				"properties": {
+					"bin_sizes": {
 						"type": "array",
 						"description": "Absolute count of values in each histogram bin",
 						"items": {
 							"type": "integer"
 						}
 					},
-					"histogram_bin_width": {
+					"bin_width": {
 						"type": "number",
 						"description": "Absolute floating-point width of a histogram bin"
-					},
-					"freqtable_counts": {
+					}
+				}
+			},
+			"column_freqtable": {
+				"type": "object",
+				"description": "Result from a freqtable profile request",
+				"required": [
+					"freqtable_counts",
+					"other_count"
+				],
+				"properties": {
+					"counts": {
 						"type": "array",
 						"description": "Counts of distinct values in column",
 						"items": {
-							"type": "object",
-							"required": [
-								"value",
-								"count"
-							],
-							"properties": {
-								"value": {
-									"type": "string",
-									"description": "Stringified value"
-								},
-								"count": {
-									"type": "integer",
-									"description": "Number of occurrences of value"
-								}
-							}
+							"$ref": "#/components/schemas/column_freqtable_item"
 						}
 					},
-					"freqtable_other_count": {
+					"other_count": {
 						"type": "integer",
-						"description": "Number of other values not accounted for in counts"
+						"description": "Number of other values not accounted for in counts. May be 0"
+					}
+				}
+			},
+			"column_freqtable_item": {
+				"type": "object",
+				"description": "Entry in a column's frequency table",
+				"required": [
+					"value",
+					"count"
+				],
+				"properties": {
+					"value": {
+						"type": "string",
+						"description": "Stringified value"
+					},
+					"count": {
+						"type": "integer",
+						"description": "Number of occurrences of value"
 					}
 				}
 			},

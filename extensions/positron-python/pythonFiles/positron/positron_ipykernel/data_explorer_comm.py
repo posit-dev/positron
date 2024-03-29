@@ -365,53 +365,91 @@ class ColumnProfileResult(BaseModel):
 
     null_count: Optional[int] = Field(
         default=None,
-        description="Number of null values in column",
+        description="Result from null_count request",
     )
 
-    min_value: Optional[str] = Field(
+    summary_stats: Optional[ColumnSummaryStats] = Field(
         default=None,
-        description="Minimum value as string computed as part of histogram",
+        description="Results from summary_stats request",
     )
 
-    max_value: Optional[str] = Field(
+    histogram: Optional[ColumnHistogram] = Field(
         default=None,
-        description="Maximum value as string computed as part of histogram",
+        description="Results from summary_stats request",
+    )
+
+    freqtable: Optional[ColumnFreqtable] = Field(
+        default=None,
+        description="Results from freqtable request",
+    )
+
+
+class ColumnSummaryStats(BaseModel):
+    """
+    ColumnSummaryStats in Schemas
+    """
+
+    min_value: str = Field(
+        description="Minimum value as string",
+    )
+
+    max_value: str = Field(
+        description="Maximum value as string",
     )
 
     mean_value: Optional[str] = Field(
         default=None,
-        description="Average value as string computed as part of histogram",
+        description="Average value as string",
     )
 
-    sample_quantiles: Optional[List[ColumnQuantileValue]] = Field(
+    median: Optional[str] = Field(
         default=None,
-        description="Quantile values computed from histogram bins",
+        description="Sample median (50% value) value as string",
     )
 
-    histogram_bin_sizes: Optional[List[int]] = Field(
+    q25: Optional[str] = Field(
         default=None,
+        description="25th percentile value as string",
+    )
+
+    q75: Optional[str] = Field(
+        default=None,
+        description="75th percentile value as string",
+    )
+
+
+class ColumnHistogram(BaseModel):
+    """
+    Result from a histogram profile request
+    """
+
+    bin_sizes: List[int] = Field(
         description="Absolute count of values in each histogram bin",
     )
 
-    histogram_bin_width: Optional[float] = Field(
-        default=None,
+    bin_width: float = Field(
         description="Absolute floating-point width of a histogram bin",
     )
 
-    freqtable_counts: Optional[List[FreqtableCounts]] = Field(
+
+class ColumnFreqtable(BaseModel):
+    """
+    Result from a freqtable profile request
+    """
+
+    counts: Optional[List[ColumnFreqtableItem]] = Field(
         default=None,
         description="Counts of distinct values in column",
     )
 
-    freqtable_other_count: Optional[int] = Field(
-        default=None,
-        description="Number of other values not accounted for in counts",
+    other_count: int = Field(
+        description="Number of other values not accounted for in counts. May be 0",
     )
 
 
-class FreqtableCounts(BaseModel):
+class ColumnFreqtableItem(BaseModel):
     """
-    Items in FreqtableCounts
+    Entry in a column's frequency table
     """
 
     value: str = Field(
@@ -758,7 +796,13 @@ ColumnProfileRequest.update_forward_refs()
 
 ColumnProfileResult.update_forward_refs()
 
-FreqtableCounts.update_forward_refs()
+ColumnSummaryStats.update_forward_refs()
+
+ColumnHistogram.update_forward_refs()
+
+ColumnFreqtable.update_forward_refs()
+
+ColumnFreqtableItem.update_forward_refs()
 
 ColumnQuantileValue.update_forward_refs()
 

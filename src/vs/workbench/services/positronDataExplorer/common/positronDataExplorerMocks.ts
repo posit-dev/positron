@@ -5,9 +5,9 @@
 import { generateUuid } from 'vs/base/common/uuid';
 import {
 	ColumnFilter,
-	ColumnFilterCompareOp,
+	CompareFilterParamsOp,
 	ColumnFilterFilterType,
-	ColumnFilterSearchType,
+	SearchFilterParamsType,
 	ColumnSchema,
 	ColumnProfileResult,
 	TableData,
@@ -129,12 +129,10 @@ function _getFilterWithProps(columnIndex: number, filterType: ColumnFilterFilter
 	} as ColumnFilter;
 }
 
-export function getCompareFilter(columnIndex: number, op: ColumnFilterCompareOp,
+export function getCompareFilter(columnIndex: number, op: CompareFilterParamsOp,
 	value: string) {
-	return _getFilterWithProps(columnIndex, ColumnFilterFilterType.Compare, {
-		compare_op: op,
-		compare_value: value
-	});
+	return _getFilterWithProps(columnIndex, ColumnFilterFilterType.Compare,
+		{ compare_params: { op, value } });
 }
 
 export function getIsNullFilter(columnIndex: number) {
@@ -147,16 +145,13 @@ export function getNotNullFilter(columnIndex: number) {
 
 export function getSetMemberFilter(columnIndex: number, values: string[], inclusive: boolean) {
 	return _getFilterWithProps(columnIndex, ColumnFilterFilterType.SetMembership, {
-		set_member_values: values,
-		set_member_inclusive: inclusive
+		set_membership_params: { values, inclusive }
 	});
 }
 
 export function getTextSearchFilter(columnIndex: number, searchTerm: string,
-	searchType: ColumnFilterSearchType, caseSensitive: boolean) {
+	searchType: SearchFilterParamsType, caseSensitive: boolean) {
 	return _getFilterWithProps(columnIndex, ColumnFilterFilterType.Search, {
-		search_term: searchTerm,
-		search_type: searchType,
-		search_case_sensitive: caseSensitive
+		search_params: { term: searchTerm, type: searchType, case_sensitive: caseSensitive }
 	});
 }

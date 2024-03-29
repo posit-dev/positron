@@ -288,56 +288,99 @@ export interface ColumnProfileRequest {
  */
 export interface ColumnProfileResult {
 	/**
-	 * Number of null values in column
+	 * Result from null_count request
 	 */
 	null_count?: number;
 
 	/**
-	 * Minimum value as string computed as part of histogram
+	 * Results from summary_stats request
 	 */
-	min_value?: string;
+	summary_stats?: ColumnSummaryStats;
 
 	/**
-	 * Maximum value as string computed as part of histogram
+	 * Results from summary_stats request
 	 */
-	max_value?: string;
+	histogram?: ColumnHistogram;
 
 	/**
-	 * Average value as string computed as part of histogram
+	 * Results from freqtable request
 	 */
-	mean_value?: string;
-
-	/**
-	 * Quantile values computed from histogram bins
-	 */
-	sample_quantiles?: Array<ColumnQuantileValue>;
-
-	/**
-	 * Absolute count of values in each histogram bin
-	 */
-	histogram_bin_sizes?: Array<number>;
-
-	/**
-	 * Absolute floating-point width of a histogram bin
-	 */
-	histogram_bin_width?: number;
-
-	/**
-	 * Counts of distinct values in column
-	 */
-	freqtable_counts?: Array<FreqtableCounts>;
-
-	/**
-	 * Number of other values not accounted for in counts
-	 */
-	freqtable_other_count?: number;
+	freqtable?: ColumnFreqtable;
 
 }
 
 /**
- * Items in FreqtableCounts
+ * ColumnSummaryStats in Schemas
  */
-export interface FreqtableCounts {
+export interface ColumnSummaryStats {
+	/**
+	 * Minimum value as string
+	 */
+	min_value: string;
+
+	/**
+	 * Maximum value as string
+	 */
+	max_value: string;
+
+	/**
+	 * Average value as string
+	 */
+	mean_value?: string;
+
+	/**
+	 * Sample median (50% value) value as string
+	 */
+	median?: string;
+
+	/**
+	 * 25th percentile value as string
+	 */
+	q25?: string;
+
+	/**
+	 * 75th percentile value as string
+	 */
+	q75?: string;
+
+}
+
+/**
+ * Result from a histogram profile request
+ */
+export interface ColumnHistogram {
+	/**
+	 * Absolute count of values in each histogram bin
+	 */
+	bin_sizes: Array<number>;
+
+	/**
+	 * Absolute floating-point width of a histogram bin
+	 */
+	bin_width: number;
+
+}
+
+/**
+ * Result from a freqtable profile request
+ */
+export interface ColumnFreqtable {
+	/**
+	 * Counts of distinct values in column
+	 */
+	counts?: Array<ColumnFreqtableItem>;
+
+	/**
+	 * Number of other values not accounted for in counts. May be 0
+	 */
+	other_count: number;
+
+}
+
+/**
+ * Entry in a column's frequency table
+ */
+export interface ColumnFreqtableItem {
 	/**
 	 * Stringified value
 	 */

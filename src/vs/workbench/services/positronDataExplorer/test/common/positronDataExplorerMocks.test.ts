@@ -5,9 +5,9 @@
 import * as assert from 'assert';
 import { ensureNoDisposablesAreLeakedInTestSuite } from 'vs/base/test/common/utils';
 import {
-	ColumnFilterCompareOp,
+	CompareFilterParamsOp,
 	ColumnFilterFilterType,
-	ColumnFilterSearchType
+	SearchFilterParamsType
 } from 'vs/workbench/services/languageRuntime/common/positronDataExplorerComm';
 import * as mocks from "vs/workbench/services/positronDataExplorer/common/positronDataExplorerMocks";
 
@@ -39,11 +39,14 @@ suite('DataExplorerMocks', () => {
 	});
 
 	test('Test getCompareFilter', () => {
-		const filter = mocks.getCompareFilter(2, ColumnFilterCompareOp.Gt, '1234');
+		const filter = mocks.getCompareFilter(2, CompareFilterParamsOp.Gt, '1234');
 		assert.equal(filter.filter_type, ColumnFilterFilterType.Compare);
 		assert.equal(filter.column_index, 2);
-		assert.equal(filter.compare_op, ColumnFilterCompareOp.Gt);
-		assert.equal(filter.compare_value, '1234');
+
+		const params = filter.compare_params!;
+
+		assert.equal(params.op, CompareFilterParamsOp.Gt);
+		assert.equal(params.value, '1234');
 	});
 
 	test('Test getIsNullFilter', () => {
@@ -57,12 +60,15 @@ suite('DataExplorerMocks', () => {
 
 	test('Test getTextSearchFilter', () => {
 		const filter = mocks.getTextSearchFilter(5, 'needle',
-			ColumnFilterSearchType.Contains, false);
+			SearchFilterParamsType.Contains, false);
 		assert.equal(filter.column_index, 5);
 		assert.equal(filter.filter_type, ColumnFilterFilterType.Search);
-		assert.equal(filter.search_term, 'needle');
-		assert.equal(filter.search_type, ColumnFilterSearchType.Contains);
-		assert.equal(filter.search_case_sensitive, false);
+
+		const params = filter.search_params!;
+
+		assert.equal(params.term, 'needle');
+		assert.equal(params.type, SearchFilterParamsType.Contains);
+		assert.equal(params.case_sensitive, false);
 	});
 
 	test('Test getSetMemberFilter', () => {
@@ -70,8 +76,11 @@ suite('DataExplorerMocks', () => {
 		const filter = mocks.getSetMemberFilter(6, set_values, true);
 		assert.equal(filter.column_index, 6);
 		assert.equal(filter.filter_type, ColumnFilterFilterType.SetMembership);
-		assert.equal(filter.set_member_values, set_values);
-		assert.equal(filter.set_member_inclusive, true);
+
+		const params = filter.set_membership_params!;
+
+		assert.equal(params.values, set_values);
+		assert.equal(params.inclusive, true);
 	});
 
 });
