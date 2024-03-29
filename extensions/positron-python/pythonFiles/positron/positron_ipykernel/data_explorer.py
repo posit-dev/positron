@@ -715,14 +715,14 @@ class DataExplorerService:
             should_discard_state,
         ) = table_view.ui_should_update_schema(new_table)
 
-        # The schema is the same, but the data has changed. We'll just
-        # set a new table view and preserve the view state and be done
-        # with it.
-        self.table_views[comm_id] = _get_table_view(
-            new_table,
-            filters=table_view.filters,
-            sort_keys=table_view.sort_keys,
-        )
+        if should_discard_state:
+            self.table_views[comm_id] = _get_table_view(new_table)
+        else:
+            self.table_views[comm_id] = _get_table_view(
+                new_table,
+                filters=table_view.filters,
+                sort_keys=table_view.sort_keys,
+            )
 
         if should_update_schema:
             _fire_schema_update(discard_state=should_discard_state)
