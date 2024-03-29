@@ -11,11 +11,17 @@
     "Other"
   ],
   "activationEvents": [
-    "onCommand:positronNotebookHelpers.convertImageToBase64",
     "onStartupFinished"
   ],
+  "contributes": {
+    "commands": [
+      {
+        "command": "positronNotebookHelpers.convertImageToBase64",
+        "title": "Convert Image to Base64"
+      }
+    ]
+  },
   "main": "./out/extension.js",
-  "contributes": {},
   "scripts": {
     "vscode:prepublish": "yarn run compile",
     "compile": "tsc -p ./",
