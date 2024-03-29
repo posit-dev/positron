@@ -9,6 +9,7 @@ import { DeferredImage } from './DeferredImage';
 import { useServices } from 'vs/workbench/contrib/positronNotebook/browser/ServicesProvider';
 import { ExternalLink } from 'vs/base/browser/ui/ExternalLink/ExternalLink';
 import { localize } from 'vs/nls';
+import { commandWithTimeout } from 'vs/workbench/contrib/positronNotebook/common/utils/commandWithTimeout';
 
 /**
  * Component that render markdown content from a string.
@@ -48,14 +49,20 @@ function useMarkdown(content: string): MarkdownRenderResults {
 
 
 	React.useEffect(() => {
-		// Use an async function so we get the easier-to-read syntax of `await` instead of `.then()`
-		async function renderMarkdown() {
-			try {
-				const html = await services.commandService.executeCommand(
-					'markdown.api.render',
-					content
-				);
 
+		const renderTimeout = commandWithTimeout({
+			command: 'markdown.api.render',
+			args: [content],
+			timeoutMs: 3000,
+			commandService: services.commandService,
+			onSuccess: (html) => {
+				if (typeof html !== 'string') {
+					setRenderedHtml({
+						status: 'error',
+						errorMsg: localize('noHtmlResult', 'Failed to render markdown: No HTML result returned')
+					});
+					return;
+				}
 				setRenderedHtml({
 					status: 'success',
 					nodes: renderHtml(html, {
@@ -65,25 +72,22 @@ function useMarkdown(content: string): MarkdownRenderResults {
 						}
 					})
 				});
-			} catch (error) {
+			},
+			onTimeout: () => {
+				setRenderedHtml({
+					status: 'error',
+					errorMsg: localize('renderingMdTimeout', "Rendering markdown timed out after {0} ms", 3000)
+				});
+			},
+			onError: (error) => {
 				setRenderedHtml({
 					status: 'error',
 					errorMsg: error.message
 				});
 			}
-		}
-		// Run a timeout to catch if rendering takes too long
-		const timeoutMs = 3000;
-		const timeout = setTimeout(() => {
-			setRenderedHtml({
-				status: 'error',
-				errorMsg: localize('renderingMdTimeout', "Rendering markdown timed out after {0} ms", timeoutMs)
-			});
-		}, timeoutMs);
+		});
 
-		renderMarkdown().finally(() => clearTimeout(timeout));
-
-		return () => clearTimeout(timeout);
+		return () => clearTimeout(renderTimeout);
 	}, [content, services]);
 
 	return renderedHtml;

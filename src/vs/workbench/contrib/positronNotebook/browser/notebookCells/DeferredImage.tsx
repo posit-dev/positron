@@ -10,6 +10,7 @@ import { URI } from 'vs/base/common/uri';
 import { Schemas } from 'vs/base/common/network';
 import { dirname } from 'vs/base/common/resources';
 import { localize } from 'vs/nls';
+import { commandWithTimeout } from '../../common/utils/commandWithTimeout';
 
 /**
  * This should match the error message defined in the command definition
@@ -54,21 +55,37 @@ export function DeferredImage({ src = 'no-source', ...props }: React.ComponentPr
 	const [results, setResults] = React.useState<ImageDataResults>({ status: 'pending' });
 
 	React.useEffect(() => {
-		services.commandService.executeCommand(
-			'positronNotebookHelpers.convertImageToBase64',
-			src, baseLocation
-		).then((res: unknown) => {
-			if (typeof res === 'string') {
-				setResults({ status: 'success', data: res });
-			} else if (isConversionErrorMsg(res)) {
-				services.logService.error(localize('failedToConvert', 'Failed to convert image to base64'), src, res.message);
-				setResults(res);
-			} else {
-				const unexpectedResponseString = localize('unexpectedResponse', 'Unexpected response from convertImageToBase64');
-				services.logService.error(unexpectedResponseString, res);
-				setResults({ status: 'error', message: unexpectedResponseString });
+		const commandTimeout = commandWithTimeout<unknown>(
+			{
+				command: 'positronNotebookHelpers.convertImageToBase64',
+				args: [src, baseLocation],
+				timeoutMs: 3000,
+				commandService: services.commandService,
+				onSuccess: (payload) => {
+					if (typeof payload === 'string') {
+						setResults({ status: 'success', data: payload });
+					} else if (isConversionErrorMsg(payload)) {
+						services.logService.error(localize('failedToConvert', 'Failed to convert image to base64:'), src, payload.message);
+						setResults(payload);
+					} else {
+						const unexpectedResponseString = localize('unexpectedResponse', 'Unexpected response from convertImageToBase64');
+						services.logService.error(unexpectedResponseString, payload);
+						setResults({ status: 'error', message: unexpectedResponseString });
+					}
+				},
+				onError: (error) => {
+					setResults({ status: 'error', message: error.message });
+				},
+				onTimeout: () => {
+					setResults({
+						status: 'error',
+						message: localize('imageLoadTimeout', 'Image load timeout')
+					});
+				}
 			}
-		});
+		);
+
+		return () => clearTimeout(commandTimeout);
 	}, [src, baseLocation, services]);
 
 	switch (results.status) {
