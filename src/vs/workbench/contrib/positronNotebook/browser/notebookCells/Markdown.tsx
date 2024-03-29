@@ -8,6 +8,7 @@ import { renderHtml } from 'vs/base/browser/renderHtml';
 import { DeferredImage } from './DeferredImage';
 import { useServices } from 'vs/workbench/contrib/positronNotebook/browser/ServicesProvider';
 import { ExternalLink } from 'vs/base/browser/ui/ExternalLink/ExternalLink';
+import { localize } from 'vs/nls';
 
 /**
  * Component that render markdown content from a string.
@@ -20,9 +21,9 @@ export function Markdown({ content }: { content: string }) {
 
 	switch (renderedHtml.status) {
 		case 'error':
-			return <div>Error rendering markdown: {renderedHtml.errorMsg}</div>;
+			return <div>{localize('errorRenderingMd', 'Error rendering markdown:')} {renderedHtml.errorMsg}</div>;
 		case 'rendering':
-			return <div>Rendering markdown...</div>;
+			return <div>{localize('renderingMd', "Rendering markdown...")}</div>;
 		case 'success':
 			return <div className='positron-markdown-rendered'>{renderedHtml.nodes}</div>;
 	}

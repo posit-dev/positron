@@ -9,6 +9,7 @@ import { useNotebookInstance } from 'vs/workbench/contrib/positronNotebook/brows
 import { URI } from 'vs/base/common/uri';
 import { Schemas } from 'vs/base/common/network';
 import { dirname } from 'vs/base/common/resources';
+import { localize } from 'vs/nls';
 
 /**
  * This should match the error message defined in the command definition
@@ -60,11 +61,12 @@ export function DeferredImage({ src = 'no-source', ...props }: React.ComponentPr
 			if (typeof res === 'string') {
 				setResults({ status: 'success', data: res });
 			} else if (isConversionErrorMsg(res)) {
-				services.logService.error('Failed to convert image to base64', src, res.message);
+				services.logService.error(localize('failedToConvert', 'Failed to convert image to base64'), src, res.message);
 				setResults(res);
 			} else {
-				services.logService.error('Unexpected response from convertImageToBase64', res);
-				setResults({ status: 'error', message: 'Unexpected response from convertImageToBase64' });
+				const unexpectedResponseString = localize('unexpectedResponse', 'Unexpected response from convertImageToBase64');
+				services.logService.error(unexpectedResponseString, res);
+				setResults({ status: 'error', message: unexpectedResponseString });
 			}
 		});
 	}, [src, baseLocation, services]);
@@ -73,12 +75,14 @@ export function DeferredImage({ src = 'no-source', ...props }: React.ComponentPr
 		case 'pending':
 			return <div
 				className='positron-notebooks-deferred-img-placeholder'
-				aria-label='Loading image...'
+				aria-label={localize('deferredImageLoading', 'Loading image...')}
 				role='img'
 				{...props}
 			></div>;
 		case 'error':
-			return <img src={src} aria-label={results.message} {...props} />;
+			// Show image tag without attempt to convert. Probably will be broken but will provide
+			// clue as to what's going on.
+			return <img src={src} {...props} />;
 		case 'success':
 			return <img src={results.data} {...props} />;
 	}
