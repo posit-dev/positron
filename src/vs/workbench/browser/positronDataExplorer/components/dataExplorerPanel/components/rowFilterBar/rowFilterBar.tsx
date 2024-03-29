@@ -132,6 +132,16 @@ export const RowFilterBar = () => {
 		);
 	};
 
+	/**
+	 * Clears the row filter at the specified row filter index.
+	 * @param rowFilterIndex The row filter index.
+	 */
+	const clearRowFilter = (identifier: string) => {
+		setRowFilters(rowFilters => rowFilters.filter(rowFilter =>
+			identifier !== rowFilter.identifier
+		));
+	};
+
 	// Render.
 	return (
 		<div ref={ref} className='row-filter-bar'>
@@ -146,7 +156,10 @@ export const RowFilterBar = () => {
 			</Button>
 			<div className='filter-entries'>
 				{!filtersHidden && rowFilters.map((rowFilter, index) =>
-					<RowFilterWidget key={index} rowFilter={rowFilter} />
+					<RowFilterWidget
+						key={index}
+						rowFilter={rowFilter}
+						onClear={() => clearRowFilter(rowFilter.identifier)} />
 				)}
 				<Button
 					ref={addFilterButtonRef}

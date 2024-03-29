@@ -85,7 +85,7 @@ enum RowFilterCondition {
 	// Conditions with one parameter.
 	CONDITION_IS_LESS_THAN = 'is-less-than',
 	CONDITION_IS_GREATER_THAN = 'is-greater-than',
-	CONDITION_IS_EQUAL = 'is-equal',
+	CONDITION_IS_EQUAL_TO = 'is-equal-to',
 
 	// Conditions with two parameters.
 	CONDITION_IS_BETWEEN = 'is-between',
@@ -182,7 +182,7 @@ export const AddEditRowFilterModalPopup = (props: AddEditRowFilterModalPopupProp
 				break;
 		}
 
-		// Add is exactly condition.
+		// Add is equal to condition.
 		switch (selectedColumnSchema.type_display) {
 			case ColumnSchemaTypeDisplay.Number:
 			case ColumnSchemaTypeDisplay.Boolean:
@@ -191,10 +191,10 @@ export const AddEditRowFilterModalPopup = (props: AddEditRowFilterModalPopupProp
 			case ColumnSchemaTypeDisplay.Datetime:
 			case ColumnSchemaTypeDisplay.Time:
 				conditionEntries.push(new DropDownListBoxItem({
-					identifier: RowFilterCondition.CONDITION_IS_EQUAL,
+					identifier: RowFilterCondition.CONDITION_IS_EQUAL_TO,
 					title: localize(
-						'positron.addEditRowFilter.conditionIsExactly',
-						"is exactly"
+						'positron.addEditRowFilter.conditionIsEqualTo',
+						"is equal to"
 					)
 				}));
 				break;
@@ -241,7 +241,7 @@ export const AddEditRowFilterModalPopup = (props: AddEditRowFilterModalPopupProp
 			// Render the first row filter parameter component in single-value mode.
 			case RowFilterCondition.CONDITION_IS_LESS_THAN:
 			case RowFilterCondition.CONDITION_IS_GREATER_THAN:
-			case RowFilterCondition.CONDITION_IS_EQUAL:
+			case RowFilterCondition.CONDITION_IS_EQUAL_TO:
 				placeholderText = localize(
 					'positron.addEditRowFilter.valuePlaceholder',
 					"value"
@@ -284,7 +284,7 @@ export const AddEditRowFilterModalPopup = (props: AddEditRowFilterModalPopupProp
 			case RowFilterCondition.CONDITION_IS_NOT_EMPTY:
 			case RowFilterCondition.CONDITION_IS_LESS_THAN:
 			case RowFilterCondition.CONDITION_IS_GREATER_THAN:
-			case RowFilterCondition.CONDITION_IS_EQUAL:
+			case RowFilterCondition.CONDITION_IS_EQUAL_TO:
 				return null;
 
 			// Render the second row filter parameter component in two-value mode.
@@ -479,8 +479,8 @@ export const AddEditRowFilterModalPopup = (props: AddEditRowFilterModalPopupProp
 				break;
 			}
 
-			// Apply the is equal row filter.
-			case RowFilterCondition.CONDITION_IS_EQUAL: {
+			// Apply the is equal to row filter.
+			case RowFilterCondition.CONDITION_IS_EQUAL_TO: {
 				if (!validateFirstRowFilterValue()) {
 					return;
 				}

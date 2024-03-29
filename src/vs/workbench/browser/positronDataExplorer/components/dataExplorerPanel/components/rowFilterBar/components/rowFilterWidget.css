@@ -3,8 +3,10 @@
  *--------------------------------------------------------------------------------------------*/
 
 .row-filter-widget {
+	padding: 0;
 	height: 25px;
 	display: flex;
+	cursor: pointer;
 	border-radius: 3px;
 	text-align: center;
 	align-items: center;
@@ -14,7 +16,42 @@
 	background-color: var(--vscode-positronDataExplorer-background);
 }
 
+.row-filter-widget:hover {
+	background-color: var(--vscode-positronDataExplorer-contrastBackground);
+}
+
 .row-filter-widget
 .title-and-condition {
-	margin: 0 8px;
+	margin: 0 4px 0 8px;
+}
+
+.row-filter-widget
+.clear-filter-button {
+	width: 18px;
+	height: 18px;
+	display: flex;
+	cursor: pointer;
+	margin-right: 3px;
+	border-radius: 3px;
+	align-items: center;
+	box-sizing: border-box;
+	justify-content: center;
+}
+
+.row-filter-widget
+.clear-filter-button:hover {
+	border: 1px solid var(--vscode-positronDataExplorer-border);
+
+	/* outline: 1px solid var(--vscode-focusBorder); */
+	background-color: var(--vscode-positronDataExplorer-contrastBackground);
+}
+
+.row-filter-widget
+.clear-button:focus {
+	outline: none !important;
+}
+
+.row-filter-widget
+.clear-button:focus-visible {
+	outline: 1px solid var(--vscode-focusBorder);
 }

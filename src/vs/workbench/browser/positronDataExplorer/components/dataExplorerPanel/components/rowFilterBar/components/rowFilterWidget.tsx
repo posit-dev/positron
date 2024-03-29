@@ -10,13 +10,15 @@ import * as React from 'react';
 
 // Other dependencies.
 import { localize } from 'vs/nls';
-import { RowFilter, RowFilterIsEmpty, RowFilterIsNotEmpty } from 'vs/workbench/browser/positronDataExplorer/components/dataExplorerPanel/components/addEditRowFilterModalPopup/rowFilter';
+import { Button } from 'vs/base/browser/ui/positronComponents/button/button';
+import { RowFilter, RowFilterIsBetween, RowFilterIsEmpty, RowFilterIsEqualTo, RowFilterIsGreaterThan, RowFilterIsLessThan, RowFilterIsNotBetween, RowFilterIsNotEmpty } from 'vs/workbench/browser/positronDataExplorer/components/dataExplorerPanel/components/addEditRowFilterModalPopup/rowFilter';
 
 /**
  * RowFilterWidgetProps interface.
  */
 interface RowFilterWidgetProps {
 	rowFilter: RowFilter;
+	onClear: () => void;
 }
 
 /**
@@ -25,32 +27,66 @@ interface RowFilterWidgetProps {
  * @returns The rendered component.
  */
 export const RowFilterWidget = (props: RowFilterWidgetProps) => {
-	/**
-	 * Returns the condition.
-	 * @returns The condition.
-	 */
-	const condition = () => {
+	// Compute the title.
+	const title = (() => {
 		if (props.rowFilter instanceof RowFilterIsEmpty) {
 			return localize(
 				'positron.dataExplorer.rowFilterWidget.isEmpty',
-				"is empty"
+				"{0} is empty",
+				props.rowFilter.columnSchema.column_name
 			);
 		} else if (props.rowFilter instanceof RowFilterIsNotEmpty) {
 			return localize(
 				'positron.dataExplorer.rowFilterWidget.isNotEmpty',
-				"is not empty"
+				"{0} is not empty",
+				props.rowFilter.columnSchema.column_name
+			);
+		} else if (props.rowFilter instanceof RowFilterIsLessThan) {
+			return `${props.rowFilter.columnSchema.column_name} < ${props.rowFilter.value}`;
+		} else if (props.rowFilter instanceof RowFilterIsGreaterThan) {
+			return `${props.rowFilter.columnSchema.column_name} > ${props.rowFilter.value}`;
+		} else if (props.rowFilter instanceof RowFilterIsEqualTo) {
+			return `${props.rowFilter.columnSchema.column_name} = ${props.rowFilter.value}`;
+		} else if (props.rowFilter instanceof RowFilterIsBetween) {
+			return localize(
+				'positron.dataExplorer.rowFilterWidget.isBetween',
+				"{0} >= {1} AND {2} <= {3}",
+				props.rowFilter.columnSchema.column_name,
+				props.rowFilter.lowerLimit,
+				props.rowFilter.columnSchema.column_name,
+				props.rowFilter.upperLimit
+			);
+		} else if (props.rowFilter instanceof RowFilterIsNotBetween) {
+			return localize(
+				'positron.dataExplorer.rowFilterWidget.isNotBetween',
+				"{0} < {1} AND {2} > {3}",
+				props.rowFilter.columnSchema.column_name,
+				props.rowFilter.lowerLimit,
+				props.rowFilter.columnSchema.column_name,
+				props.rowFilter.upperLimit
 			);
 		} else {
-			return '';
+			// This indicates a bug.
+			return null;
 		}
-	};
+	})();
 
 	// Render.
 	return (
-		<div className='row-filter-widget'>
+		<Button
+			className='row-filter-widget'
+			onPressed={() => {
+				console.log('Edit row filter');
+			}}
+		>
 			<div className='title-and-condition'>
-				{props.rowFilter.columnSchema.column_name} {condition()}
+				{title}
 			</div>
-		</div>
+			<Button
+				className='clear-filter-button'
+				onPressed={() => props.onClear()}>
+				<div className={'codicon codicon-positron-clear-filter'} />
+			</Button>
+		</Button>
 	);
 };

@@ -2,6 +2,7 @@
  *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
+import { generateUuid } from 'vs/base/common/uuid';
 import { ColumnSchema } from 'vs/workbench/services/languageRuntime/common/positronDataExplorerComm';
 
 /**
@@ -9,10 +10,17 @@ import { ColumnSchema } from 'vs/workbench/services/languageRuntime/common/posit
  */
 class BaseRowFilter {
 	/**
+	 * Gets the identifier.
+	 */
+	readonly identifier;
+
+	/**
 	 * Constructor.
 	 * @param columnSchema The column schema.
 	 */
-	constructor(public readonly columnSchema: ColumnSchema) { }
+	constructor(public readonly columnSchema: ColumnSchema) {
+		this.identifier = generateUuid();
+	}
 }
 
 /**
