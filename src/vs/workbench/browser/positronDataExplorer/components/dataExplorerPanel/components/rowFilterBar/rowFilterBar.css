@@ -49,7 +49,7 @@
 	top: -6px;
 	right: -6px;
 	font-size: 60%;
-	font-weight: 600;
+	font-weight: 500;
 	position: absolute;
 	background-color: var(--vscode-positronDataGrid-sortIndexForeground);
 	width: 14px;

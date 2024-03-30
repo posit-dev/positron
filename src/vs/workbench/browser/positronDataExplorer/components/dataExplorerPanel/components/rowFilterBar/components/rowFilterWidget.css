@@ -7,6 +7,7 @@
 	height: 25px;
 	display: flex;
 	cursor: pointer;
+	font-weight: 500;
 	border-radius: 3px;
 	align-items: center;
 	box-sizing: border-box;
@@ -21,12 +22,28 @@
 }
 
 .row-filter-widget
-.title-and-condition {
-	line-height: 95%;
-	font-size: 95%;
-	font-weight: 600;
-	margin: 0 4px 0 8px;
-	color: var(--vscode-positronDataExplorer-foreground);
+.title {
+	margin: 0 2px 0 8px;
+}
+
+.row-filter-widget
+.title
+.syntax {
+	opacity: 66%;
+}
+
+.row-filter-widget
+.title
+.space-before::before {
+	content: " ";
+	white-space: pre;
+}
+
+.row-filter-widget
+.title
+.space-after::after {
+	content: " ";
+	white-space: pre;
 }
 
 .row-filter-widget

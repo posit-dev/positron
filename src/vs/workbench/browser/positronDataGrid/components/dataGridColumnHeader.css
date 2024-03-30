@@ -64,7 +64,7 @@
 .content
 .title-description
 .title {
-	font-weight: 600;
+	font-weight: 500;
 	overflow: hidden;
 	white-space: nowrap;
 	line-height: normal;
@@ -103,7 +103,7 @@
 .sort-indicator
 .sort-index {
 	font-size: 80%;
-	font-weight: 600;
+	font-weight: 500;
 	margin: 0 3px 0 3px;
 	color: var(--vscode-positronDataGrid-sortIndexForeground);
 }
