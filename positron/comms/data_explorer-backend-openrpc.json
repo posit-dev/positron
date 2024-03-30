@@ -40,7 +40,7 @@
 			"params": [
 				{
 					"name": "search_term",
-					"description": "Substring to match for (currently case insensitive",
+					"description": "Substring to match for (currently case insensitive)",
 					"required": true,
 					"schema": {
 						"type": "string"

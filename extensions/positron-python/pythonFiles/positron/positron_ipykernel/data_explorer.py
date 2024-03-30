@@ -37,7 +37,6 @@ from .data_explorer_comm import (
     DataExplorerFrontendEvent,
     FilterResult,
     GetColumnProfilesRequest,
-    GetColumnProfilesParams,
     GetDataValuesRequest,
     GetSchemaRequest,
     GetStateRequest,

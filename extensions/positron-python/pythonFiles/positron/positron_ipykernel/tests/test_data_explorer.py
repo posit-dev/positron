@@ -682,7 +682,6 @@ def _set_member_filter(column_index, values, inclusive=True):
 
 def test_pandas_filter_between(de_fixture: DataExplorerFixture):
     dxf = de_fixture
-    table_name = "simple"
     df = SIMPLE_PANDAS_DF
     column = "a"
     column_index = df.columns.get_loc(column)
