@@ -13,7 +13,7 @@ import { IRuntimeClientInstance } from 'vs/workbench/services/languageRuntime/co
 /**
  * Result in Methods
  */
-export interface SchemaSearchResult {
+export interface SearchSchemaResult {
 	/**
 	 * A schema containing matching columns up to the max_results limit
 	 */
@@ -303,9 +303,9 @@ export interface ColumnProfileResult {
 	histogram?: ColumnHistogram;
 
 	/**
-	 * Results from freqtable request
+	 * Results from frequency_table request
 	 */
-	freqtable?: ColumnFreqtable;
+	frequency_table?: ColumnFrequencyTable;
 
 }
 
@@ -362,13 +362,13 @@ export interface ColumnHistogram {
 }
 
 /**
- * Result from a freqtable profile request
+ * Result from a frequency_table profile request
  */
-export interface ColumnFreqtable {
+export interface ColumnFrequencyTable {
 	/**
 	 * Counts of distinct values in column
 	 */
-	counts?: Array<ColumnFreqtableItem>;
+	counts: Array<ColumnFrequencyTableItem>;
 
 	/**
 	 * Number of other values not accounted for in counts. May be 0
@@ -380,7 +380,7 @@ export interface ColumnFreqtable {
 /**
  * Entry in a column's frequency table
  */
-export interface ColumnFreqtableItem {
+export interface ColumnFrequencyTableItem {
 	/**
 	 * Stringified value
 	 */
@@ -452,9 +452,9 @@ export enum ColumnSchemaTypeDisplay {
 export enum ColumnFilterFilterType {
 	Between = 'between',
 	Compare = 'compare',
-	Isnull = 'isnull',
+	IsNull = 'is_null',
 	NotBetween = 'not_between',
-	Notnull = 'notnull',
+	NotNull = 'not_null',
 	Search = 'search',
 	SetMembership = 'set_membership'
 }
@@ -487,7 +487,7 @@ export enum SearchFilterParamsType {
 export enum ColumnProfileRequestType {
 	NullCount = 'null_count',
 	SummaryStats = 'summary_stats',
-	Freqtable = 'freqtable',
+	FrequencyTable = 'frequency_table',
 	Histogram = 'histogram'
 }
 
@@ -547,7 +547,7 @@ export class PositronDataExplorerComm extends PositronBaseComm {
 	 *
 	 * @returns undefined
 	 */
-	searchSchema(searchTerm: string, startIndex: number, maxResults: number): Promise<SchemaSearchResult> {
+	searchSchema(searchTerm: string, startIndex: number, maxResults: number): Promise<SearchSchemaResult> {
 		return super.performRpc('search_schema', ['search_term', 'start_index', 'max_results'], [searchTerm, startIndex, maxResults]);
 	}
 

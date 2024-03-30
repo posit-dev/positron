@@ -5,6 +5,7 @@
 # flake8: ignore E203
 # pyright: reportOptionalMemberAccess=false
 
+import abc
 import logging
 import operator
 import uuid
@@ -24,8 +25,12 @@ import comm
 from .access_keys import decode_access_key
 from .data_explorer_comm import (
     ColumnFilter,
+    ColumnFilterFilterType,
+    ColumnFrequencyTable,
+    ColumnFrequencyTableItem,
+    ColumnHistogram,
+    ColumnSummaryStats,
     CompareFilterParamsOp,
-    ColumnProfileRequest,
     ColumnProfileRequestType,
     ColumnProfileResult,
     ColumnSchema,
@@ -40,6 +45,8 @@ from .data_explorer_comm import (
     GetSchemaRequest,
     GetStateRequest,
     SchemaUpdateParams,
+    SearchSchemaRequest,
+    SearchSchemaResult,
     SetColumnFiltersRequest,
     SetSortColumnsRequest,
     TableData,
@@ -63,7 +70,7 @@ logger = logging.getLogger(__name__)
 PathKey = Tuple[str, ...]
 
 
-class DataExplorerTableView:
+class DataExplorerTableView(abc.ABC):
     """
     Interface providing a consistent wrapper around different data
     frame / table types for the data explorer for serving requests from
@@ -85,13 +92,8 @@ class DataExplorerTableView:
 
         self._need_recompute = len(self.filters) > 0 or len(self.sort_keys) > 0
 
-    def invalidate_computations(self):
-        raise NotImplementedError
-
-    def ui_should_update_schema(self, new_table):
-        raise NotImplementedError
-
-    def ui_should_update_data(self, new_table):
+    @abc.abstractmethod
+    def _recompute(self):
         raise NotImplementedError
 
     def _recompute_if_needed(self) -> bool:
@@ -102,11 +104,19 @@ class DataExplorerTableView:
         else:
             return False
 
-    def _recompute(self):
-        raise NotImplementedError
-
     def get_schema(self, request: GetSchemaRequest):
-        return self._get_schema(request.params.start_index, request.params.num_columns).dict()
+        return self._get_schema(
+            request.params.start_index, request.params.num_columns
+        ).dict()
+
+    def search_schema(
+        self, request: SearchSchemaRequest
+    ) -> SearchSchemaResult:
+        return self._search_schema(
+            request.params.search_term,
+            request.params.start_index,
+            request.params.max_results,
+        )
 
     def get_data_values(self, request: GetDataValuesRequest):
         self._recompute_if_needed()
@@ -134,54 +144,88 @@ class DataExplorerTableView:
     def get_state(self, request: GetStateRequest):
         return self._get_state().dict()
 
-    def _get_schema(self, column_start: int, num_columns: int) -> TableSchema:
-        raise NotImplementedError
+    def _get_column_profiles(
+        self, params: GetColumnProfilesParams
+    ) -> List[ColumnProfileResult]:
+        results: List[ColumnProfileResult] = []
 
+        for req in params.profiles:
+            if req.type == ColumnProfileRequestType.NullCount:
+                count = self._prof_null_count(req.column_index)
+                result = ColumnProfileResult(null_count=count)
+            elif req.type == ColumnProfileRequestType.SummaryStats:
+                stats = self._prof_summary_stats(req.column_index)
+                result = ColumnProfileResult(summary_stats=stats)
+            elif req.type == ColumnProfileRequestType.FrequencyTable:
+                freq_table = self._prof_freq_table(req.column_index)
+                result = ColumnProfileResult(frequency_table=freq_table)
+            elif req.type == ColumnProfileRequestType.Histogram:
+                histogram = self._prof_histogram(req.column_index)
+                result = ColumnProfileResult(histogram=histogram)
+            else:
+                raise NotImplementedError(req.type)
+            results.append(result)
+
+        return results
+
+    @abc.abstractmethod
+    def invalidate_computations(self):
+        pass
+
+    @abc.abstractmethod
+    def ui_should_update_schema(self, new_table) -> Tuple[bool, bool]:
+        pass
+
+    @abc.abstractmethod
+    def ui_should_update_data(self, new_table) -> bool:
+        pass
+
+    @abc.abstractmethod
+    def _get_schema(self, column_start: int, num_columns: int) -> TableSchema:
+        pass
+
+    @abc.abstractmethod
+    def _search_schema(
+        self, search_term: str, start_index: int, max_results: int
+    ) -> SearchSchemaResult:
+        pass
+
+    @abc.abstractmethod
     def _get_data_values(
         self,
         row_start: int,
         num_rows: int,
         column_indices: Sequence[int],
     ) -> TableData:
-        raise NotImplementedError
+        pass
 
+    @abc.abstractmethod
     def _set_column_filters(self, filters: List[ColumnFilter]) -> FilterResult:
-        raise NotImplementedError
+        pass
 
-    def _sort_data(self) -> None:
-        raise NotImplementedError
+    @abc.abstractmethod
+    def _sort_data(self):
+        pass
 
-    def _get_column_profiles(self, params: GetColumnProfilesParams) -> List[ColumnProfileResult]:
-        results: List[ColumnProfileResult] = []
+    @abc.abstractmethod
+    def _prof_null_count(self, column_index: int) -> int:
+        pass
 
-        handlers = {
-            ColumnProfileRequestType.NullCount: self._prof_null_count,
-            ColumnProfileRequestType.SummaryStats: self._prof_summary_stats,
-            ColumnProfileRequestType.Freqtable: self._prof_freq_table,
-            ColumnProfileRequestType.Histogram: self._prof_histogram,
-        }
+    @abc.abstractmethod
+    def _prof_summary_stats(self, column_index: int) -> ColumnSummaryStats:
+        pass
 
-        for req in params.profiles:
-            handler = handlers[req.type]
-            result = handler(req.column_index)
-            results.append(result)
+    @abc.abstractmethod
+    def _prof_freq_table(self, column_index: int) -> ColumnFrequencyTable:
+        pass
 
-        return results
+    @abc.abstractmethod
+    def _prof_histogram(self, column_index: int) -> ColumnHistogram:
+        pass
 
-    def _prof_null_count(self, column_index: int):
-        raise NotImplementedError
-
-    def _prof_summary_stats(self, column_index: int):
-        raise NotImplementedError
-
-    def _prof_freq_table(self, column_index: int):
-        raise NotImplementedError
-
-    def _prof_histogram(self, column_index: int):
-        raise NotImplementedError
-
+    @abc.abstractmethod
     def _get_state(self) -> TableState:
-        raise NotImplementedError
+        pass
 
 
 def _pandas_format_values(col):
@@ -293,8 +337,12 @@ class PandasView(DataExplorerTableView):
 
         # TODO: pandas MultiIndex columns
         # TODO: time zone for datetimetz datetime64[ns] types
-        columns_slice = self.table.columns[column_start : column_start + num_columns]
-        dtypes_slice = self.dtypes.iloc[column_start : column_start + num_columns]
+        columns_slice = self.table.columns[
+            column_start : column_start + num_columns
+        ]
+        dtypes_slice = self.dtypes.iloc[
+            column_start : column_start + num_columns
+        ]
         column_schemas = []
 
         for i, (c, dtype) in enumerate(zip(columns_slice, dtypes_slice)):
@@ -320,6 +368,11 @@ class PandasView(DataExplorerTableView):
             column_schemas.append(col_schema)
 
         return TableSchema(columns=column_schemas)
+
+    def _search_schema(
+        self, search_term: str, start_index: int, max_results: int
+    ) -> SearchSchemaResult:
+        pass
 
     def _get_data_values(
         self, row_start: int, num_rows: int, column_indices: Sequence[int]
@@ -351,7 +404,9 @@ class PandasView(DataExplorerTableView):
         else:
             # No filtering or sorting, just slice directly
             indices = self.table.index[row_start : row_start + num_rows]
-            columns = [col.iloc[row_start : row_start + num_rows] for col in columns]
+            columns = [
+                col.iloc[row_start : row_start + num_rows] for col in columns
+            ]
 
         formatted_columns = [_pandas_format_values(col) for col in columns]
 
@@ -416,7 +471,9 @@ class PandasView(DataExplorerTableView):
                 self.view_indices = self.filtered_indices.take(sort_indexer)
             else:
                 # Data is not filtered
-                self.view_indices = nargsort(column, kind="mergesort", ascending=key.ascending)
+                self.view_indices = nargsort(
+                    column, kind="mergesort", ascending=key.ascending
+                )
         elif len(self.sort_keys) > 1:
             # Multiple sorting keys
             cols_to_sort = []
@@ -457,7 +514,9 @@ class PandasView(DataExplorerTableView):
 
     def _get_state(self) -> TableState:
         return TableState(
-            table_shape=TableShape(num_rows=self.table.shape[0], num_columns=self.table.shape[1]),
+            table_shape=TableShape(
+                num_rows=self.table.shape[0], num_columns=self.table.shape[1]
+            ),
             filters=self.filters,
             sort_keys=self.sort_keys,
         )
@@ -476,7 +535,11 @@ COMPARE_OPS = {
 def _pandas_eval_filter(df: "pd.DataFrame", filt: ColumnFilter):
     col = df.iloc[:, filt.column_index]
     mask = None
-    if filt.filter_type == "compare":
+    if filt.filter_type == ColumnFilterFilterType.Between:
+        pass
+    elif filt.filter_type == ColumnFilterFilterType.NotBetween:
+        pass
+    elif filt.filter_type == ColumnFilterFilterType.Compare:
         params = filt.compare_params
         assert params is not None
 
@@ -488,11 +551,11 @@ def _pandas_eval_filter(df: "pd.DataFrame", filt: ColumnFilter):
 
         # pandas comparison filters return False for null values
         mask = op(col, dummy.iloc[0])
-    elif filt.filter_type == "isnull":
+    elif filt.filter_type == ColumnFilterFilterType.IsNull:
         mask = col.isnull()
-    elif filt.filter_type == "notnull":
+    elif filt.filter_type == ColumnFilterFilterType.NotNull:
         mask = col.notnull()
-    elif filt.filter_type == "set_membership":
+    elif filt.filter_type == ColumnFilterFilterType.SetMembership:
         params = filt.set_membership_params
         assert params is not None
         boxed_values = pd_.Series(params.values).astype(col.dtype)
@@ -501,7 +564,7 @@ def _pandas_eval_filter(df: "pd.DataFrame", filt: ColumnFilter):
         if not params.inclusive:
             # NOT-IN
             mask = ~mask
-    elif filt.filter_type == "search":
+    elif filt.filter_type == ColumnFilterFilterType.Search:
         raise NotImplementedError
 
     # TODO(wesm): is it possible for there to be null values in the mask?
@@ -673,7 +736,9 @@ class DataExplorerService:
             for comm_id in list(self.path_to_comm_ids[path]):
                 self._update_explorer_for_comm(comm_id, path, new_variable)
 
-    def _update_explorer_for_comm(self, comm_id: str, path: PathKey, new_variable):
+    def _update_explorer_for_comm(
+        self, comm_id: str, path: PathKey, new_variable
+    ):
         """
         If a variable is updated, we have to handle the different scenarios:
 
@@ -707,7 +772,9 @@ class DataExplorerService:
         # data explorer open for a nested value, then we need to use
         # the same variables inspection logic to resolve it here.
         if len(path) > 1:
-            is_found, new_table = _resolve_value_from_path(new_variable, path[1:])
+            is_found, new_table = _resolve_value_from_path(
+                new_variable, path[1:]
+            )
             if not is_found:
                 raise KeyError(f"Path {', '.join(path)} not found in value")
         else:
@@ -726,7 +793,9 @@ class DataExplorerService:
 
         def _fire_schema_update(discard_state=False):
             msg = SchemaUpdateParams(discard_state=discard_state)
-            comm.send_event(DataExplorerFrontendEvent.SchemaUpdate.value, msg.dict())
+            comm.send_event(
+                DataExplorerFrontendEvent.SchemaUpdate.value, msg.dict()
+            )
 
         if type(new_table) is not type(table_view.table):  # noqa: E721
             # Data type has changed. For now, we will signal the UI to
@@ -771,7 +840,9 @@ class DataExplorerService:
         else:
             _fire_data_update()
 
-    def handle_msg(self, msg: CommMessage[DataExplorerBackendMessageContent], raw_msg):
+    def handle_msg(
+        self, msg: CommMessage[DataExplorerBackendMessageContent], raw_msg
+    ):
         """
         Handle messages received from the client via the
         positron.data_explorer comm.

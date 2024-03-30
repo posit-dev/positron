@@ -14,6 +14,7 @@ from ..access_keys import encode_access_key
 from ..data_explorer import COMPARE_OPS, DataExplorerService
 from ..data_explorer_comm import (
     ColumnFilter,
+    ColumnProfileResult,
     ColumnSchema,
     ColumnSortKey,
     FilterResult,
@@ -174,7 +175,9 @@ def test_explorer_delete_variable(
         assert len(paths) > 0
 
         comms = [
-            de_service.comms[comm_id] for p in paths for comm_id in de_service.path_to_comm_ids[p]
+            de_service.comms[comm_id]
+            for p in paths
+            for comm_id in de_service.path_to_comm_ids[p]
         ]
         variables_comm.handle_msg(msg)
 
@@ -190,14 +193,22 @@ def test_explorer_delete_variable(
     _check_delete_variable("y")
 
 
-def _check_update_variable(de_service, name, update_type="schema", discard_state=True):
+def _check_update_variable(
+    de_service, name, update_type="schema", discard_state=True
+):
     paths = de_service.get_paths_for_variable(name)
     assert len(paths) > 0
 
-    comms = [de_service.comms[comm_id] for p in paths for comm_id in de_service.path_to_comm_ids[p]]
+    comms = [
+        de_service.comms[comm_id]
+        for p in paths
+        for comm_id in de_service.path_to_comm_ids[p]
+    ]
 
     if update_type == "schema":
-        expected_msg = json_rpc_notification("schema_update", {"discard_state": discard_state})
+        expected_msg = json_rpc_notification(
+            "schema_update", {"discard_state": discard_state}
+        )
     else:
         expected_msg = json_rpc_notification("data_update", {})
 
@@ -263,14 +274,18 @@ def test_explorer_variable_updates(
     'key2': y['key2'].copy()}
     """
     )
-    _check_update_variable(de_service, "y", update_type="update", discard_state=False)
+    _check_update_variable(
+        de_service, "y", update_type="update", discard_state=False
+    )
 
     shell.run_cell(
         """y = {'key1': y['key1'].iloc[:-1, :-1],
     'key2': y['key2'].copy().iloc[:, 1:]}
     """
     )
-    _check_update_variable(de_service, "y", update_type="schema", discard_state=True)
+    _check_update_variable(
+        de_service, "y", update_type="schema", discard_state=True
+    )
 
 
 def test_register_table(de_service: DataExplorerService):
@@ -356,14 +371,19 @@ class PandasFixture:
         return self.do_json_rpc(table_name, "get_data_values", **params)
 
     def set_column_filters(self, table_name, filters=None):
-        return self.do_json_rpc(table_name, "set_column_filters", filters=filters)
+        return self.do_json_rpc(
+            table_name, "set_column_filters", filters=filters
+        )
 
     def set_sort_columns(self, table_name, sort_keys=None):
-        return self.do_json_rpc(table_name, "set_sort_columns", sort_keys=sort_keys)
+        return self.do_json_rpc(
+            table_name, "set_sort_columns", sort_keys=sort_keys
+        )
 
     def get_column_profiles(self, table_name, profiles):
-        # return self.do_json_rpc(table_name, "get_column_profiles", profiles)
-        pass
+        return self.do_json_rpc(
+            table_name, "get_column_profiles", profiles=profiles
+        )
 
     def check_filter_case(self, table, filter_set, expected_table):
         table_id = guid()
@@ -388,10 +408,9 @@ class PandasFixture:
         assert response is None
         self.compare_tables(table_id, ex_id, table.shape)
 
-    # def check_profile_case(self, table, profiles):
-    #     pass
-
-    def compare_tables(self, table_id: str, expected_id: str, table_shape: tuple):
+    def compare_tables(
+        self, table_id: str, expected_id: str, table_shape: tuple
+    ):
         # Query the data and check it yields the same result as the
         # manually constructed data frame without the filter
         response = self.get_data_values(
@@ -522,8 +541,12 @@ def test_pandas_wide_schemas(pandas_fixture: PandasFixture):
             df.iloc[:, start_index : (chunk_index + 1) * chunk_size],
         )
 
-        schema_slice = pandas_fixture.get_schema("wide_df", start_index, chunk_size)
-        expected = pandas_fixture.get_schema(f"wide_df_{chunk_index}", 0, chunk_size)
+        schema_slice = pandas_fixture.get_schema(
+            "wide_df", start_index, chunk_size
+        )
+        expected = pandas_fixture.get_schema(
+            f"wide_df_{chunk_index}", 0, chunk_size
+        )
 
         for left, right in zip(schema_slice["columns"], expected["columns"]):
             right["column_index"] = right["column_index"] + start_index
@@ -598,7 +621,9 @@ def _filter(filter_type, column_index, **kwargs):
 
 
 def _compare_filter(column_index, op, value):
-    return _filter("compare", column_index, compare_params={"op": op, "value": value})
+    return _filter(
+        "compare", column_index, compare_params={"op": op, "value": value}
+    )
 
 
 def _set_member_filter(column_index, values, inclusive=True):
@@ -635,16 +660,16 @@ def test_pandas_filter_compare(pandas_fixture: PandasFixture):
     pandas_fixture.compare_tables(table_name, ex_id, df.shape)
 
 
-def test_pandas_filter_isnull_notnull(pandas_fixture: PandasFixture):
+def test_pandas_filter_is_null_not_null(pandas_fixture: PandasFixture):
     df = SIMPLE_PANDAS_DF
-    b_isnull = _filter("isnull", 1)
-    b_notnull = _filter("notnull", 1)
-    c_notnull = _filter("notnull", 2)
+    b_is_null = _filter("is_null", 1)
+    b_not_null = _filter("not_null", 1)
+    c_not_null = _filter("not_null", 2)
 
     cases = [
-        [[b_isnull], df[df["b"].isnull()]],
-        [[b_notnull], df[df["b"].notnull()]],
-        [[b_notnull, c_notnull], df[df["b"].notnull() & df["c"].notnull()]],
+        [[b_is_null], df[df["b"].isnull()]],
+        [[b_not_null], df[df["b"].notnull()]],
+        [[b_not_null, c_not_null], df[df["b"].notnull() & df["c"].notnull()]],
     ]
 
     for filter_set, expected_df in cases:
@@ -703,11 +728,14 @@ def test_pandas_set_sort_columns(pandas_fixture: PandasFixture):
     ]
 
     # Test sort AND filter
-    filter_cases = {"df2": [(lambda x: x[x["a"] > 0], [_compare_filter(0, ">", 0)])]}
+    filter_cases = {
+        "df2": [(lambda x: x[x["a"] > 0], [_compare_filter(0, ">", 0)])]
+    }
 
     for df_name, keys, expected_params in cases:
         wrapped_keys = [
-            {"column_index": index, "ascending": ascending} for index, ascending in keys
+            {"column_index": index, "ascending": ascending}
+            for index, ascending in keys
         ]
         df = tables[df_name]
 
@@ -719,7 +747,9 @@ def test_pandas_set_sort_columns(pandas_fixture: PandasFixture):
 
         for filter_f, filters in filter_cases.get(df_name, []):
             expected_filtered = filter_f(df).sort_values(**expected_params)
-            pandas_fixture.check_sort_case(df, wrapped_keys, expected_filtered, filters=filters)
+            pandas_fixture.check_sort_case(
+                df, wrapped_keys, expected_filtered, filters=filters
+            )
 
 
 def test_pandas_change_schema_after_sort(
@@ -742,14 +772,18 @@ def test_pandas_change_schema_after_sort(
 
     # Sort a column that is out of bounds for the table after the
     # schema change below
-    pandas_fixture.set_sort_columns("df", [{"column_index": 4, "ascending": True}])
+    pandas_fixture.set_sort_columns(
+        "df", [{"column_index": 4, "ascending": True}]
+    )
 
     expected_df = df[["a", "b"]]
     pandas_fixture.register_table("expected_df", df)
 
     # Sort last column, and we will then change the schema
     shell.run_cell("df = df[['a', 'b']]")
-    _check_update_variable(de_service, "df", update_type="schema", discard_state=True)
+    _check_update_variable(
+        de_service, "df", update_type="schema", discard_state=True
+    )
 
     # Call get_data_values and make sure it works
     pandas_fixture.compare_tables("df", "expected_df", expected_df.shape)
@@ -759,21 +793,76 @@ def test_pandas_change_schema_after_sort(
 #     pass
 
 
+def _profile_request(column_index, profile_type):
+    return {"column_index": column_index, "type": profile_type}
+
+
 def test_pandas_profile_null_counts(pandas_fixture: PandasFixture):
-    tables = {
-        "df1": pd.DataFrame(
-            {
-                "a": [0, np.nan, 2, np.nan, np.nan, 5, 6],
-                "b": ["zero", None, None, None, "four", "five", "six"],
-                "c": [False, False, False, None, None, None, None],
-            }
-        )
-    }
+    pf = pandas_fixture
+
+    df1 = pd.DataFrame(
+        {
+            "a": [0, np.nan, 2, np.nan, 4, 5, 6],
+            "b": ["zero", None, None, None, "four", "five", "six"],
+            "c": [False, False, False, None, None, None, None],
+            "d": [0, 1, 2, 3, 4, 5, 6],
+        }
+    )
+    tables = {"df1": df1}
+
+    for name, df in tables.items():
+        pf.register_table(name, df)
+
+    def _null_count(column_index):
+        return _profile_request(column_index, "null_count")
+
+    # tuples like (table_name, [ColumnProfileRequest], [results])
+    all_profiles = [
+        _null_count(0),
+        _null_count(1),
+        _null_count(2),
+        _null_count(3),
+    ]
+    cases = [
+        ("df1", [], []),
+        (
+            "df1",
+            [_null_count(3)],
+            [0],
+        ),
+        (
+            "df1",
+            [_null_count(0), _null_count(1), _null_count(2), _null_count(3)],
+            [2, 3, 4, 0],
+        ),
+    ]
+
+    for table_name, profiles, ex_results in cases:
+        results = pf.get_column_profiles(table_name, profiles)
+
+        ex_results = [
+            ColumnProfileResult(null_count=count) for count in ex_results
+        ]
+
+        assert results == ex_results
 
     # Test profiling with filter
-    filter_cases = {}
+    # format: (table, filters, filtered_table, profiles)
+    filter_cases = [
+        (df1, [_filter("not_null", 0)], df1[df1["a"].notnull()], all_profiles)
+    ]
+    for table, filters, filtered_table, profiles in filter_cases:
+        table_id = guid()
+        pf.register_table(table_id, table)
+        pf.set_column_filters(table_id, filters)
 
-    cases = []
+        filtered_id = guid()
+        pf.register_table(filtered_id, filtered_table)
+
+        results = pf.get_column_profiles(table_id, profiles)
+        ex_results = pf.get_column_profiles(filtered_id, profiles)
+
+        assert results == ex_results
 
 
 # def test_pandas_get_state(pandas_fixture: PandasFixture):

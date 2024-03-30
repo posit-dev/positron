@@ -65,7 +65,7 @@
 			],
 			"result": {
 				"schema": {
-					"name": "schema_search_result",
+					"name": "search_schema_result",
 					"type": "object",
 					"required": [
 						"schema",
@@ -390,9 +390,9 @@
 						"enum": [
 							"between",
 							"compare",
-							"isnull",
+							"is_null",
 							"not_between",
-							"notnull",
+							"not_null",
 							"search",
 							"set_membership"
 						]
@@ -531,7 +531,7 @@
 						"enum": [
 							"null_count",
 							"summary_stats",
-							"freqtable",
+							"frequency_table",
 							"histogram"
 						]
 					}
@@ -553,9 +553,9 @@
 						"description": "Results from summary_stats request",
 						"$ref": "#/components/schemas/column_histogram"
 					},
-					"freqtable": {
-						"description": "Results from freqtable request",
-						"$ref": "#/components/schemas/column_freqtable"
+					"frequency_table": {
+						"description": "Results from frequency_table request",
+						"$ref": "#/components/schemas/column_frequency_table"
 					}
 				}
 			},
@@ -613,11 +613,11 @@
 					}
 				}
 			},
-			"column_freqtable": {
+			"column_frequency_table": {
 				"type": "object",
-				"description": "Result from a freqtable profile request",
+				"description": "Result from a frequency_table profile request",
 				"required": [
-					"freqtable_counts",
+					"counts",
 					"other_count"
 				],
 				"properties": {
@@ -625,7 +625,7 @@
 						"type": "array",
 						"description": "Counts of distinct values in column",
 						"items": {
-							"$ref": "#/components/schemas/column_freqtable_item"
+							"$ref": "#/components/schemas/column_frequency_table_item"
 						}
 					},
 					"other_count": {
@@ -634,7 +634,7 @@
 					}
 				}
 			},
-			"column_freqtable_item": {
+			"column_frequency_table_item": {
 				"type": "object",
 				"description": "Entry in a column's frequency table",
 				"required": [

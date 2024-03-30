@@ -52,11 +52,11 @@ class ColumnFilterFilterType(str, enum.Enum):
 
     Compare = "compare"
 
-    Isnull = "isnull"
+    IsNull = "is_null"
 
     NotBetween = "not_between"
 
-    Notnull = "notnull"
+    NotNull = "not_null"
 
     Search = "search"
 
@@ -107,12 +107,12 @@ class ColumnProfileRequestType(str, enum.Enum):
 
     SummaryStats = "summary_stats"
 
-    Freqtable = "freqtable"
+    FrequencyTable = "frequency_table"
 
     Histogram = "histogram"
 
 
-class SchemaSearchResult(BaseModel):
+class SearchSchemaResult(BaseModel):
     """
     Result in Methods
     """
@@ -378,9 +378,9 @@ class ColumnProfileResult(BaseModel):
         description="Results from summary_stats request",
     )
 
-    freqtable: Optional[ColumnFreqtable] = Field(
+    frequency_table: Optional[ColumnFrequencyTable] = Field(
         default=None,
-        description="Results from freqtable request",
+        description="Results from frequency_table request",
     )
 
 
@@ -432,13 +432,12 @@ class ColumnHistogram(BaseModel):
     )
 
 
-class ColumnFreqtable(BaseModel):
+class ColumnFrequencyTable(BaseModel):
     """
-    Result from a freqtable profile request
+    Result from a frequency_table profile request
     """
 
-    counts: Optional[List[ColumnFreqtableItem]] = Field(
-        default=None,
+    counts: List[ColumnFrequencyTableItem] = Field(
         description="Counts of distinct values in column",
     )
 
@@ -447,7 +446,7 @@ class ColumnFreqtable(BaseModel):
     )
 
 
-class ColumnFreqtableItem(BaseModel):
+class ColumnFrequencyTableItem(BaseModel):
     """
     Entry in a column's frequency table
     """
@@ -768,7 +767,7 @@ class SchemaUpdateParams(BaseModel):
     )
 
 
-SchemaSearchResult.update_forward_refs()
+SearchSchemaResult.update_forward_refs()
 
 TableData.update_forward_refs()
 
@@ -800,9 +799,9 @@ ColumnSummaryStats.update_forward_refs()
 
 ColumnHistogram.update_forward_refs()
 
-ColumnFreqtable.update_forward_refs()
+ColumnFrequencyTable.update_forward_refs()
 
-ColumnFreqtableItem.update_forward_refs()
+ColumnFrequencyTableItem.update_forward_refs()
 
 ColumnQuantileValue.update_forward_refs()
 

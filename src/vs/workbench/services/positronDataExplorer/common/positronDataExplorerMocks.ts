@@ -136,11 +136,11 @@ export function getCompareFilter(columnIndex: number, op: CompareFilterParamsOp,
 }
 
 export function getIsNullFilter(columnIndex: number) {
-	return _getFilterWithProps(columnIndex, ColumnFilterFilterType.Isnull);
+	return _getFilterWithProps(columnIndex, ColumnFilterFilterType.IsNull);
 }
 
 export function getNotNullFilter(columnIndex: number) {
-	return _getFilterWithProps(columnIndex, ColumnFilterFilterType.Notnull);
+	return _getFilterWithProps(columnIndex, ColumnFilterFilterType.NotNull);
 }
 
 export function getSetMemberFilter(columnIndex: number, values: string[], inclusive: boolean) {

@@ -52,10 +52,10 @@ suite('DataExplorerMocks', () => {
 	test('Test getIsNullFilter', () => {
 		let filter = mocks.getIsNullFilter(3);
 		assert.equal(filter.column_index, 3);
-		assert.equal(filter.filter_type, ColumnFilterFilterType.Isnull);
+		assert.equal(filter.filter_type, ColumnFilterFilterType.IsNull);
 
 		filter = mocks.getNotNullFilter(3);
-		assert.equal(filter.filter_type, ColumnFilterFilterType.Notnull);
+		assert.equal(filter.filter_type, ColumnFilterFilterType.NotNull);
 	});
 
 	test('Test getTextSearchFilter', () => {
