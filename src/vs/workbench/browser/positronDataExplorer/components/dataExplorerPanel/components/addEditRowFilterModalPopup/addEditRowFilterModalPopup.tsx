@@ -319,9 +319,9 @@ export const AddEditRowFilterModalPopup = (props: AddEditRowFilterModalPopupProp
 	})();
 
 	/**
-	 * Apply row filter button onPressed handler.
+	 * Applies the row filter, if it is valid.
 	 */
-	const applyRowFilterButtonPressed = () => {
+	const applyRowFilter = () => {
 		// Ensure that the user has selected a column schema.
 		if (!selectedColumnSchema) {
 			setErrorText(localize(
@@ -546,6 +546,7 @@ export const AddEditRowFilterModalPopup = (props: AddEditRowFilterModalPopupProp
 			width={275}
 			height={'min-content'}
 			keyboardNavigation='dialog'
+			onAccept={applyRowFilter}
 		>
 			<div className='add-edit-row-filter-modal-popup-body'>
 				<DropDownColumnSelector
@@ -593,7 +594,7 @@ export const AddEditRowFilterModalPopup = (props: AddEditRowFilterModalPopupProp
 				)}
 				<Button
 					className='solid button-apply-row-filter'
-					onPressed={applyRowFilterButtonPressed}
+					onPressed={applyRowFilter}
 				>
 					{localize(
 						'positron.addEditRowFilter.applyFilter',

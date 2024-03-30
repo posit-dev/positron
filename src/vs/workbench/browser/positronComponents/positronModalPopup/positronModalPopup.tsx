@@ -63,6 +63,7 @@ export interface PositronModalPopupProps {
 	height: number | 'min-content';
 	focusableElementSelectors?: string;
 	keyboardNavigation: KeyboardNavigation;
+	onAccept?: () => void;
 }
 
 /**
@@ -195,6 +196,13 @@ export const PositronModalPopup = (props: PropsWithChildren<PositronModalPopupPr
 
 			// Handle the event.
 			switch (e.code) {
+				// Ender accepts the modal popup.
+				case 'Enter': {
+					consumeEvent();
+					props.onAccept?.();
+					break;
+				}
+
 				// Escape dismisses the modal popup.
 				case 'Escape': {
 					consumeEvent();
