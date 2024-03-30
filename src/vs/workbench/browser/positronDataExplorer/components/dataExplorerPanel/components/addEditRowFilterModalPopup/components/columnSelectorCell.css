@@ -68,6 +68,7 @@
 .info
 .column-name {
 	display: flex;
+	font-weight: 600;
 	align-items: center;
 	justify-content: left;
 	grid-column: title / right-gutter;

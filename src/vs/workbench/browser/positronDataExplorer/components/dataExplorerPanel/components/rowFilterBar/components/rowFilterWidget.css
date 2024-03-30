@@ -8,10 +8,10 @@
 	display: flex;
 	cursor: pointer;
 	border-radius: 3px;
-	text-align: center;
 	align-items: center;
 	box-sizing: border-box;
 	justify-content: center;
+	color: var(--vscode-positronDataExplorer-foreground);
 	border: 1px solid var(--vscode-positronDataExplorer-border);
 	background-color: var(--vscode-positronDataExplorer-background);
 }
@@ -22,7 +22,11 @@
 
 .row-filter-widget
 .title-and-condition {
+	line-height: 95%;
+	font-size: 95%;
+	font-weight: 600;
 	margin: 0 4px 0 8px;
+	color: var(--vscode-positronDataExplorer-foreground);
 }
 
 .row-filter-widget
@@ -30,6 +34,7 @@
 	width: 18px;
 	height: 18px;
 	display: flex;
+	opacity: 80%;
 	cursor: pointer;
 	margin-right: 3px;
 	border-radius: 3px;
