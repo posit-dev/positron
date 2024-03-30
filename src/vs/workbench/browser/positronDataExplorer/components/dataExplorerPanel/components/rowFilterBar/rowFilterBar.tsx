@@ -33,6 +33,7 @@ export const RowFilterBar = () => {
 	// Reference hooks.
 	const ref = useRef<HTMLDivElement>(undefined!);
 	const filterButtonRef = useRef<HTMLButtonElement>(undefined!);
+	const rowFilterWidgetRefs = useRef<(HTMLButtonElement)[]>([]);
 	const addFilterButtonRef = useRef<HTMLButtonElement>(undefined!);
 
 	// State hooks.
@@ -158,11 +159,21 @@ export const RowFilterBar = () => {
 			<div className='filter-entries'>
 				{!filtersHidden && rowFilters.map((rowFilter, index) =>
 					<RowFilterWidget
+						ref={ref => {
+							if (ref) {
+								rowFilterWidgetRefs.current[index] = ref;
+							}
+						}}
 						key={index}
 						rowFilter={rowFilter}
-						onEdit={() =>
-							showAddEditRowFilterModalPopup(addFilterButtonRef.current, rowFilter)
-						}
+						onEdit={() => {
+							if (rowFilterWidgetRefs.current[index]) {
+								showAddEditRowFilterModalPopup(
+									rowFilterWidgetRefs.current[index],
+									rowFilter
+								);
+							}
+						}}
 						onClear={() => clearRowFilter(rowFilter.identifier)} />
 				)}
 				<Button

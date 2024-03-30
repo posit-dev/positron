@@ -23,24 +23,6 @@ import { RowFilterParameter } from 'vs/workbench/browser/positronDataExplorer/co
 import { DropDownColumnSelector } from 'vs/workbench/browser/positronDataExplorer/components/dataExplorerPanel/components/addEditRowFilterModalPopup/components/dropDownColumnSelector';
 import { RangeRowFilter, RowFilter, RowFilterCondition, RowFilterIsBetween, RowFilterIsEmpty, RowFilterIsEqualTo, RowFilterIsGreaterThan, RowFilterIsLessThan, RowFilterIsNotBetween, RowFilterIsNotEmpty, SingleValueRowFilter } from 'vs/workbench/browser/positronDataExplorer/components/dataExplorerPanel/components/addEditRowFilterModalPopup/rowFilter';
 
-const firstRowFilterParameter = (rowFilter?: RowFilter) => {
-	if (rowFilter instanceof SingleValueRowFilter) {
-		return rowFilter.value;
-	} else if (rowFilter instanceof RangeRowFilter) {
-		return rowFilter.lowerLimit;
-	} else {
-		return '';
-	}
-};
-
-const secondRowFilterParameter = (rowFilter?: RowFilter) => {
-	if (rowFilter instanceof RangeRowFilter) {
-		return rowFilter.upperLimit;
-	} else {
-		return '';
-	}
-};
-
 /**
  * Validates a row filter value.
  * @param columnSchema The column schema.
@@ -121,10 +103,24 @@ export const AddEditRowFilterModalPopup = (props: AddEditRowFilterModalPopupProp
 		props.editRowFilter ? props.editRowFilter.rowFilterCondition : undefined
 	);
 	const [firstRowFilterValue, setFirstRowFilterValue] = useState<string>(
-		firstRowFilterParameter(props.editRowFilter)
+		(() => {
+			if (props.editRowFilter instanceof SingleValueRowFilter) {
+				return props.editRowFilter.value;
+			} else if (props.editRowFilter instanceof RangeRowFilter) {
+				return props.editRowFilter.lowerLimit;
+			} else {
+				return '';
+			}
+		})()
 	);
 	const [secondRowFilterValue, setSecondRowFilterValue] = useState<string>(
-		secondRowFilterParameter(props.editRowFilter)
+		(() => {
+			if (props.editRowFilter instanceof RangeRowFilter) {
+				return props.editRowFilter.upperLimit;
+			} else {
+				return '';
+			}
+		})()
 	);
 	const [errorText, setErrorText] = useState<string | undefined>(undefined);
 

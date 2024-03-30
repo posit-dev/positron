@@ -7,6 +7,7 @@ import 'vs/css!./rowFilterWidget';
 
 // React.
 import * as React from 'react';
+import { forwardRef } from 'react'; // eslint-disable-line no-duplicate-imports
 
 // Other dependencies.
 import { localize } from 'vs/nls';
@@ -27,7 +28,7 @@ interface RowFilterWidgetProps {
  * @param props A RowFilterWidgetProps that contains the component properties.
  * @returns The rendered component.
  */
-export const RowFilterWidget = (props: RowFilterWidgetProps) => {
+export const RowFilterWidget = forwardRef<HTMLButtonElement, RowFilterWidgetProps>((props, ref) => {
 	// Compute the title.
 	const title = (() => {
 		if (props.rowFilter instanceof RowFilterIsEmpty) {
@@ -95,6 +96,7 @@ export const RowFilterWidget = (props: RowFilterWidgetProps) => {
 	// Render.
 	return (
 		<Button
+			ref={ref}
 			className='row-filter-widget'
 			onPressed={() => props.onEdit()}
 		>
@@ -108,4 +110,7 @@ export const RowFilterWidget = (props: RowFilterWidgetProps) => {
 			</Button>
 		</Button>
 	);
-};
+});
+
+// Set the display name.
+RowFilterWidget.displayName = 'RowFilterWidget';
