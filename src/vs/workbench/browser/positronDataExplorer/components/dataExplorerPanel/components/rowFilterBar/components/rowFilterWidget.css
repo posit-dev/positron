@@ -7,7 +7,6 @@
 	height: 25px;
 	display: flex;
 	cursor: pointer;
-	font-weight: 500;
 	border-radius: 3px;
 	align-items: center;
 	box-sizing: border-box;
@@ -28,8 +27,8 @@
 
 .row-filter-widget
 .title
-.syntax {
-	opacity: 66%;
+.column-name {
+	font-weight: 600;
 }
 
 .row-filter-widget

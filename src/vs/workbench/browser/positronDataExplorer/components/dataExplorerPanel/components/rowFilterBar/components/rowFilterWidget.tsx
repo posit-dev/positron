@@ -33,58 +33,58 @@ export const RowFilterWidget = forwardRef<HTMLButtonElement, RowFilterWidgetProp
 	const title = (() => {
 		if (props.rowFilter instanceof RowFilterIsEmpty) {
 			return <>
-				<span>{props.rowFilter.columnSchema.column_name}</span>
-				<span className='space-before syntax'>
+				<span className='column-name'>{props.rowFilter.columnSchema.column_name}</span>
+				<span className='space-before'>
 					{localize('positron.dataExplorer.rowFilterWidget.isEmpty', "is empty")}
 				</span>
 			</>;
 		} else if (props.rowFilter instanceof RowFilterIsNotEmpty) {
 			return <>
-				<span>{props.rowFilter.columnSchema.column_name}</span>
-				<span className='space-before syntax'>
+				<span className='column-name'>{props.rowFilter.columnSchema.column_name}</span>
+				<span className='space-before'>
 					{localize('positron.dataExplorer.rowFilterWidget.isNotEmpty', "is not empty")}
 				</span>
 			</>;
 		} else if (props.rowFilter instanceof RowFilterIsLessThan) {
 			return <>
-				<span>{props.rowFilter.columnSchema.column_name}</span>
-				<span className='space-before syntax space-after'>&lt;</span>
+				<span className='column-name'>{props.rowFilter.columnSchema.column_name}</span>
+				<span className='space-before space-after'>&lt;</span>
 				<span>{props.rowFilter.value}</span>
 			</>;
 		} else if (props.rowFilter instanceof RowFilterIsGreaterThan) {
 			return <>
-				<span>{props.rowFilter.columnSchema.column_name}</span>
-				<span className='space-before syntax space-after'>&gt;</span>
+				<span className='column-name'>{props.rowFilter.columnSchema.column_name}</span>
+				<span className='space-before space-after'>&gt;</span>
 				<span>{props.rowFilter.value}</span>
 			</>;
 		} else if (props.rowFilter instanceof RowFilterIsEqualTo) {
 			return <>
-				<span>{props.rowFilter.columnSchema.column_name}</span>
-				<span className='space-before syntax space-after'>=</span>
+				<span className='column-name'>{props.rowFilter.columnSchema.column_name}</span>
+				<span className='space-before space-after'>=</span>
 				<span>{props.rowFilter.value}</span>
 			</>;
 		} else if (props.rowFilter instanceof RowFilterIsBetween) {
 			return <>
-				<span>{props.rowFilter.columnSchema.column_name}</span>
-				<span className='space-before syntax space-after'>&gt;=</span>
+				<span className='column-name'>{props.rowFilter.columnSchema.column_name}</span>
+				<span className='space-before space-after'>&gt;=</span>
 				<span>{props.rowFilter.lowerLimit}</span>
-				<span className='space-before syntax space-after'>
+				<span className='space-before space-after'>
 					{localize('positron.dataExplorer.rowFilterWidget.and', "and")}
 				</span>
-				<span>{props.rowFilter.columnSchema.column_name}</span>
-				<span className='space-before syntax space-after'>&lt;=</span>
+				<span className='column-name'>{props.rowFilter.columnSchema.column_name}</span>
+				<span className='space-before space-after'>&lt;=</span>
 				<span>{props.rowFilter.upperLimit}</span>
 			</>;
 		} else if (props.rowFilter instanceof RowFilterIsNotBetween) {
 			return <>
-				<span>{props.rowFilter.columnSchema.column_name}</span>
-				<span className='space-before syntax space-after'>&lt;</span>
+				<span className='column-name'>{props.rowFilter.columnSchema.column_name}</span>
+				<span className='space-before space-after'>&lt;</span>
 				<span>{props.rowFilter.lowerLimit}</span>
-				<span className='space-before syntax space-after'>
+				<span className='space-before space-after'>
 					{localize('positron.dataExplorer.rowFilterWidget.and', "and")}
 				</span>
-				<span>{props.rowFilter.columnSchema.column_name}</span>
-				<span className='space-before syntax space-after'>&gt;</span>
+				<span className='column-name'>{props.rowFilter.columnSchema.column_name}</span>
+				<span className='space-before space-after'>&gt;</span>
 				<span>{props.rowFilter.upperLimit}</span>
 			</>;
 		} else {

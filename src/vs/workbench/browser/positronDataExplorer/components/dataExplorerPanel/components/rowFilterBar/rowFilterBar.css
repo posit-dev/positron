@@ -48,17 +48,17 @@
 .counter {
 	top: -6px;
 	right: -6px;
-	font-size: 60%;
-	font-weight: 500;
-	position: absolute;
-	background-color: var(--vscode-positronDataGrid-sortIndexForeground);
 	width: 14px;
 	height: 14px;
 	display: flex;
+	font-size: 60%;
+	color: white;
+	font-weight: 600;
+	border-radius: 7px;
+	position: absolute;
 	align-items: center;
 	justify-content: center;
-	border-radius: 7px;
-	color: white;
+	background-color: var(--vscode-positronDataGrid-sortIndexForeground);
 }
 
 .data-explorer-panel
