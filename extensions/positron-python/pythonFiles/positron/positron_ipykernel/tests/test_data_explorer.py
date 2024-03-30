@@ -258,8 +258,8 @@ def test_explorer_variable_updates(
     assert tv.sort_keys == [ColumnSortKey(**k) for k in x_sort_keys]
     assert tv._need_recompute
 
-    pf = PandasFixture(de_service)
-    new_state = pf.get_state("x")
+    dxf = DataExplorerFixture(de_service)
+    new_state = dxf.get_state("x")
     assert new_state["table_shape"]["num_rows"] == 5
     assert new_state["table_shape"]["num_columns"] == 1
     assert new_state["sort_keys"] == [ColumnSortKey(**k) for k in x_sort_keys]
@@ -316,7 +316,7 @@ def test_shutdown(de_service: DataExplorerService):
 JsonRecords = List[Dict[str, Any]]
 
 
-class PandasFixture:
+class DataExplorerFixture:
     def __init__(self, de_service: DataExplorerService):
         self.de_service = de_service
 
@@ -362,6 +362,15 @@ class PandasFixture:
             "get_schema",
             start_index=start_index,
             num_columns=num_columns,
+        )
+
+    def search_schema(self, table_name, search_term, start_index, max_results):
+        return self.do_json_rpc(
+            table_name,
+            "search_schema",
+            search_term=search_term,
+            start_index=start_index,
+            max_results=max_results,
         )
 
     def get_state(self, table_name):
@@ -427,16 +436,16 @@ class PandasFixture:
 
 
 @pytest.fixture()
-def pandas_fixture(de_service: DataExplorerService):
-    return PandasFixture(de_service)
+def de_fixture(de_service: DataExplorerService):
+    return DataExplorerFixture(de_service)
 
 
 def _wrap_json(model: Type[BaseModel], data: JsonRecords):
     return [model(**d).dict() for d in data]
 
 
-def test_pandas_get_state(pandas_fixture: PandasFixture):
-    result = pandas_fixture.get_state("simple")
+def test_pandas_get_state(de_fixture: DataExplorerFixture):
+    result = de_fixture.get_state("simple")
     assert result["table_shape"]["num_rows"] == 5
     assert result["table_shape"]["num_columns"] == 6
 
@@ -445,16 +454,18 @@ def test_pandas_get_state(pandas_fixture: PandasFixture):
         {"column_index": 1, "ascending": False},
     ]
     filters = [_compare_filter(0, ">", 0), _compare_filter(0, "<", 5)]
-    pandas_fixture.set_sort_columns("simple", sort_keys=sort_keys)
-    pandas_fixture.set_row_filters("simple", filters=filters)
+    de_fixture.set_sort_columns("simple", sort_keys=sort_keys)
+    de_fixture.set_row_filters("simple", filters=filters)
 
-    result = pandas_fixture.get_state("simple")
+    result = de_fixture.get_state("simple")
     assert result["sort_keys"] == sort_keys
     assert result["row_filters"] == [RowFilter(**f) for f in filters]
 
 
-def test_pandas_get_schema(pandas_fixture: PandasFixture):
-    result = pandas_fixture.get_schema("simple", 0, 100)
+def test_pandas_get_schema(de_fixture: DataExplorerFixture):
+    dxf = de_fixture
+
+    result = dxf.get_schema("simple", 0, 100)
 
     full_schema = [
         {
@@ -497,10 +508,10 @@ def test_pandas_get_schema(pandas_fixture: PandasFixture):
 
     assert result["columns"] == _wrap_json(ColumnSchema, full_schema)
 
-    result = pandas_fixture.get_schema("simple", 2, 100)
+    result = dxf.get_schema("simple", 2, 100)
     assert result["columns"] == _wrap_json(ColumnSchema, full_schema[2:])
 
-    result = pandas_fixture.get_schema("simple", 6, 100)
+    result = dxf.get_schema("simple", 6, 100)
     assert result["columns"] == []
 
     # Make a really big schema
@@ -514,49 +525,86 @@ def test_pandas_get_schema(pandas_fixture: PandasFixture):
         c["column_index"] = i
         bigger_schema[i] = c
 
-    pandas_fixture.register_table(bigger_name, bigger_df)
+    dxf.register_table(bigger_name, bigger_df)
 
-    result = pandas_fixture.get_schema(bigger_name, 0, 100)
+    result = dxf.get_schema(bigger_name, 0, 100)
     assert result["columns"] == _wrap_json(ColumnSchema, bigger_schema[:100])
 
-    result = pandas_fixture.get_schema(bigger_name, 10, 10)
+    result = dxf.get_schema(bigger_name, 10, 10)
     assert result["columns"] == _wrap_json(ColumnSchema, bigger_schema[10:20])
 
 
-def test_pandas_wide_schemas(pandas_fixture: PandasFixture):
+def test_pandas_wide_schemas(de_fixture: DataExplorerFixture):
+    dxf = de_fixture
+
     arr = np.arange(10).astype(object)
 
     ncols = 10000
     df = pd.DataFrame({f"col_{i}": arr for i in range(ncols)})
 
-    pandas_fixture.register_table("wide_df", df)
+    dxf.register_table("wide_df", df)
 
     chunk_size = 100
     for chunk_index in range(ncols // chunk_size):
         start_index = chunk_index * chunk_size
-        pandas_fixture.register_table(
+        dxf.register_table(
             f"wide_df_{chunk_index}",
             df.iloc[:, start_index : (chunk_index + 1) * chunk_size],
         )
 
-        schema_slice = pandas_fixture.get_schema(
-            "wide_df", start_index, chunk_size
-        )
-        expected = pandas_fixture.get_schema(
-            f"wide_df_{chunk_index}", 0, chunk_size
-        )
+        schema_slice = dxf.get_schema("wide_df", start_index, chunk_size)
+        expected = dxf.get_schema(f"wide_df_{chunk_index}", 0, chunk_size)
 
         for left, right in zip(schema_slice["columns"], expected["columns"]):
             right["column_index"] = right["column_index"] + start_index
             assert left == right
 
 
+def test_pandas_search_schema(de_fixture: DataExplorerFixture):
+    dxf = de_fixture
+
+    # Make a few thousand column names we can search for
+    column_names = [
+        f"{prefix}_{i}"
+        for prefix in ["aaa", "bbb", "ccc", "ddd"]
+        for i in range({"aaa": 1000, "bbb": 100, "ccc": 50, "ddd": 10}[prefix])
+    ]
+
+    # Make a data frame with those column names
+    arr = np.arange(10)
+    df = pd.DataFrame(
+        {name: arr for name in column_names}, columns=pd.Index(column_names)
+    )
+
+    dxf.register_table("df", df)
+
+    full_schema = dxf.get_schema("df", 0, len(column_names))["columns"]
+
+    # (search_term, start_index, max_results, ex_total, ex_matches)
+    cases = [
+        ("aaa", 0, 100, 1000, full_schema[:100]),
+        ("aaa", 100, 100, 1000, full_schema[100:200]),
+        ("aaa", 950, 100, 1000, full_schema[950:1000]),
+        ("aaa", 1000, 100, 1000, []),
+        ("bbb", 0, 10, 100, full_schema[1000:1010]),
+        ("ccc", 0, 10, 50, full_schema[1100:1110]),
+        ("ddd", 0, 10, 10, full_schema[1150:1160]),
+    ]
+
+    for search_term, start_index, max_results, ex_total, ex_matches in cases:
+        result = dxf.search_schema("df", search_term, start_index, max_results)
+
+        assert result["total_num_matches"] == ex_total
+        matches = result["matches"]["columns"]
+        assert matches == ex_matches
+
+
 def _trim_whitespace(columns):
     return [[x.strip() for x in column] for column in columns]
 
 
-def test_pandas_get_data_values(pandas_fixture: PandasFixture):
-    result = pandas_fixture.get_data_values(
+def test_pandas_get_data_values(de_fixture: DataExplorerFixture):
+    result = de_fixture.get_data_values(
         "simple",
         row_start_index=0,
         num_rows=20,
@@ -585,14 +633,14 @@ def test_pandas_get_data_values(pandas_fixture: PandasFixture):
     assert result["row_labels"] == [["0", "1", "2", "3", "4"]]
 
     # Edge cases: request beyond end of table
-    response = pandas_fixture.get_data_values(
+    response = de_fixture.get_data_values(
         "simple", row_start_index=5, num_rows=10, column_indices=[0]
     )
     assert response["columns"] == [[]]
 
     # Issue #2149 -- return empty result when requesting non-existent
     # column indices
-    response = pandas_fixture.get_data_values(
+    response = de_fixture.get_data_values(
         "simple", row_start_index=0, num_rows=5, column_indices=[2, 3, 4, 5]
     )
     assert _trim_whitespace(response["columns"]) == expected_columns[2:]
@@ -602,7 +650,7 @@ def test_pandas_get_data_values(pandas_fixture: PandasFixture):
     # to request non-existent column indices, disable this test
 
     # with pytest.raises(IndexError):
-    #     pandas_fixture.get_data_values(
+    #     de_fixture.get_data_values(
     #         "simple", row_start_index=0, num_rows=10, column_indices=[4]
     #     )
 
@@ -632,7 +680,7 @@ def _set_member_filter(column_index, values, inclusive=True):
     )
 
 
-def test_pandas_filter_compare(pandas_fixture: PandasFixture):
+def test_pandas_filter_compare(de_fixture: DataExplorerFixture):
     # Just use the 'a' column to smoke test comparison filters on
     # integers
     table_name = "simple"
@@ -644,21 +692,21 @@ def test_pandas_filter_compare(pandas_fixture: PandasFixture):
     for op, op_func in COMPARE_OPS.items():
         filt = _compare_filter(column_index, op, str(compare_value))
         expected_df = df[op_func(df[column], compare_value)]
-        pandas_fixture.check_filter_case(df, [filt], expected_df)
+        de_fixture.check_filter_case(df, [filt], expected_df)
 
     # Test that passing empty filter set resets to unfiltered state
     filt = _compare_filter(column_index, "<", str(compare_value))
-    _ = pandas_fixture.set_row_filters(table_name, filters=[filt])
-    response = pandas_fixture.set_row_filters(table_name, filters=[])
+    _ = de_fixture.set_row_filters(table_name, filters=[filt])
+    response = de_fixture.set_row_filters(table_name, filters=[])
     assert response == FilterResult(selected_num_rows=len(df))
 
     # register the whole table to make sure the filters are really cleared
     ex_id = guid()
-    pandas_fixture.register_table(ex_id, df)
-    pandas_fixture.compare_tables(table_name, ex_id, df.shape)
+    de_fixture.register_table(ex_id, df)
+    de_fixture.compare_tables(table_name, ex_id, df.shape)
 
 
-def test_pandas_filter_is_null_not_null(pandas_fixture: PandasFixture):
+def test_pandas_filter_is_null_not_null(de_fixture: DataExplorerFixture):
     df = SIMPLE_PANDAS_DF
     b_is_null = _filter("is_null", 1)
     b_not_null = _filter("not_null", 1)
@@ -671,10 +719,10 @@ def test_pandas_filter_is_null_not_null(pandas_fixture: PandasFixture):
     ]
 
     for filter_set, expected_df in cases:
-        pandas_fixture.check_filter_case(df, filter_set, expected_df)
+        de_fixture.check_filter_case(df, filter_set, expected_df)
 
 
-def test_pandas_filter_set_membership(pandas_fixture: PandasFixture):
+def test_pandas_filter_set_membership(de_fixture: DataExplorerFixture):
     df = SIMPLE_PANDAS_DF
 
     cases = [
@@ -689,10 +737,10 @@ def test_pandas_filter_set_membership(pandas_fixture: PandasFixture):
     ]
 
     for filter_set, expected_df in cases:
-        pandas_fixture.check_filter_case(df, filter_set, expected_df)
+        de_fixture.check_filter_case(df, filter_set, expected_df)
 
 
-def test_pandas_set_sort_columns(pandas_fixture: PandasFixture):
+def test_pandas_set_sort_columns(de_fixture: DataExplorerFixture):
     tables = {
         "df1": SIMPLE_PANDAS_DF,
         # Just some random data to test multiple keys, different sort
@@ -741,11 +789,11 @@ def test_pandas_set_sort_columns(pandas_fixture: PandasFixture):
 
         expected_df = df.sort_values(**expected_params)
 
-        pandas_fixture.check_sort_case(df, wrapped_keys, expected_df)
+        de_fixture.check_sort_case(df, wrapped_keys, expected_df)
 
         for filter_f, filters in filter_cases.get(df_name, []):
             expected_filtered = filter_f(df).sort_values(**expected_params)
-            pandas_fixture.check_sort_case(
+            de_fixture.check_sort_case(
                 df, wrapped_keys, expected_filtered, filters=filters
             )
 
@@ -754,7 +802,7 @@ def test_pandas_change_schema_after_sort(
     shell: PositronShell,
     de_service: DataExplorerService,
     variables_comm: DummyComm,
-    pandas_fixture: PandasFixture,
+    de_fixture: DataExplorerFixture,
 ):
     df = pd.DataFrame(
         {
@@ -770,12 +818,10 @@ def test_pandas_change_schema_after_sort(
 
     # Sort a column that is out of bounds for the table after the
     # schema change below
-    pandas_fixture.set_sort_columns(
-        "df", [{"column_index": 4, "ascending": True}]
-    )
+    de_fixture.set_sort_columns("df", [{"column_index": 4, "ascending": True}])
 
     expected_df = df[["a", "b"]]
-    pandas_fixture.register_table("expected_df", df)
+    de_fixture.register_table("expected_df", df)
 
     # Sort last column, and we will then change the schema
     shell.run_cell("df = df[['a', 'b']]")
@@ -784,19 +830,15 @@ def test_pandas_change_schema_after_sort(
     )
 
     # Call get_data_values and make sure it works
-    pandas_fixture.compare_tables("df", "expected_df", expected_df.shape)
-
-
-# def test_pandas_get_column_profile(pandas_fixture: PandasFixture):
-#     pass
+    de_fixture.compare_tables("df", "expected_df", expected_df.shape)
 
 
 def _profile_request(column_index, profile_type):
     return {"column_index": column_index, "type": profile_type}
 
 
-def test_pandas_profile_null_counts(pandas_fixture: PandasFixture):
-    pf = pandas_fixture
+def test_pandas_profile_null_counts(de_fixture: DataExplorerFixture):
+    dxf = de_fixture
 
     df1 = pd.DataFrame(
         {
@@ -809,7 +851,7 @@ def test_pandas_profile_null_counts(pandas_fixture: PandasFixture):
     tables = {"df1": df1}
 
     for name, df in tables.items():
-        pf.register_table(name, df)
+        dxf.register_table(name, df)
 
     def _null_count(column_index):
         return _profile_request(column_index, "null_count")
@@ -836,7 +878,7 @@ def test_pandas_profile_null_counts(pandas_fixture: PandasFixture):
     ]
 
     for table_name, profiles, ex_results in cases:
-        results = pf.get_column_profiles(table_name, profiles)
+        results = dxf.get_column_profiles(table_name, profiles)
 
         ex_results = [
             ColumnProfileResult(null_count=count) for count in ex_results
@@ -851,20 +893,16 @@ def test_pandas_profile_null_counts(pandas_fixture: PandasFixture):
     ]
     for table, filters, filtered_table, profiles in filter_cases:
         table_id = guid()
-        pf.register_table(table_id, table)
-        pf.set_row_filters(table_id, filters)
+        dxf.register_table(table_id, table)
+        dxf.set_row_filters(table_id, filters)
 
         filtered_id = guid()
-        pf.register_table(filtered_id, filtered_table)
+        dxf.register_table(filtered_id, filtered_table)
 
-        results = pf.get_column_profiles(table_id, profiles)
-        ex_results = pf.get_column_profiles(filtered_id, profiles)
+        results = dxf.get_column_profiles(table_id, profiles)
+        ex_results = dxf.get_column_profiles(filtered_id, profiles)
 
         assert results == ex_results
-
-
-# def test_pandas_get_state(pandas_fixture: PandasFixture):
-#     pass
 
 
 # ----------------------------------------------------------------------

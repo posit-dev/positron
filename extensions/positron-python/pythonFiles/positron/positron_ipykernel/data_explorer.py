@@ -108,14 +108,12 @@ class DataExplorerTableView(abc.ABC):
             request.params.start_index, request.params.num_columns
         ).dict()
 
-    def search_schema(
-        self, request: SearchSchemaRequest
-    ) -> SearchSchemaResult:
+    def search_schema(self, request: SearchSchemaRequest):
         return self._search_schema(
             request.params.search_term,
             request.params.start_index,
             request.params.max_results,
-        )
+        ).dict()
 
     def get_data_values(self, request: GetDataValuesRequest):
         self._recompute_if_needed()
@@ -138,17 +136,9 @@ class DataExplorerTableView(abc.ABC):
 
     def get_column_profiles(self, request: GetColumnProfilesRequest):
         self._recompute_if_needed()
-        return self._get_column_profiles(request.params)
+        results = []
 
-    def get_state(self, request: GetStateRequest):
-        return self._get_state().dict()
-
-    def _get_column_profiles(
-        self, params: GetColumnProfilesParams
-    ) -> List[ColumnProfileResult]:
-        results: List[ColumnProfileResult] = []
-
-        for req in params.profiles:
+        for req in request.params.profiles:
             if req.type == ColumnProfileRequestType.NullCount:
                 count = self._prof_null_count(req.column_index)
                 result = ColumnProfileResult(null_count=count)
@@ -163,9 +153,12 @@ class DataExplorerTableView(abc.ABC):
                 result = ColumnProfileResult(histogram=histogram)
             else:
                 raise NotImplementedError(req.type)
-            results.append(result)
+            results.append(result.dict())
 
         return results
+
+    def get_state(self, request: GetStateRequest):
+        return self._get_state().dict()
 
     @abc.abstractmethod
     def invalidate_computations(self):
