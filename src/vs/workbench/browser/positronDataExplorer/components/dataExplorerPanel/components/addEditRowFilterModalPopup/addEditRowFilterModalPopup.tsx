@@ -21,7 +21,25 @@ import { DataExplorerClientInstance } from 'vs/workbench/services/languageRuntim
 import { ColumnSchema, ColumnSchemaTypeDisplay } from 'vs/workbench/services/languageRuntime/common/positronDataExplorerComm';
 import { RowFilterParameter } from 'vs/workbench/browser/positronDataExplorer/components/dataExplorerPanel/components/addEditRowFilterModalPopup/components/rowFilterParameter';
 import { DropDownColumnSelector } from 'vs/workbench/browser/positronDataExplorer/components/dataExplorerPanel/components/addEditRowFilterModalPopup/components/dropDownColumnSelector';
-import { RowFilter, RowFilterIsBetween, RowFilterIsEmpty, RowFilterIsEqualTo, RowFilterIsGreaterThan, RowFilterIsLessThan, RowFilterIsNotBetween, RowFilterIsNotEmpty } from 'vs/workbench/browser/positronDataExplorer/components/dataExplorerPanel/components/addEditRowFilterModalPopup/rowFilter';
+import { RangeRowFilter, RowFilter, RowFilterCondition, RowFilterIsBetween, RowFilterIsEmpty, RowFilterIsEqualTo, RowFilterIsGreaterThan, RowFilterIsLessThan, RowFilterIsNotBetween, RowFilterIsNotEmpty, SingleValueRowFilter } from 'vs/workbench/browser/positronDataExplorer/components/dataExplorerPanel/components/addEditRowFilterModalPopup/rowFilter';
+
+const firstRowFilterParameter = (rowFilter?: RowFilter) => {
+	if (rowFilter instanceof SingleValueRowFilter) {
+		return rowFilter.value;
+	} else if (rowFilter instanceof RangeRowFilter) {
+		return rowFilter.lowerLimit;
+	} else {
+		return '';
+	}
+};
+
+const secondRowFilterParameter = (rowFilter?: RowFilter) => {
+	if (rowFilter instanceof RangeRowFilter) {
+		return rowFilter.upperLimit;
+	} else {
+		return '';
+	}
+};
 
 /**
  * Validates a row filter value.
@@ -75,31 +93,13 @@ const validateRowFilterValue = (columnSchema: ColumnSchema, value: string) => {
 };
 
 /**
- * RowFilterCondition enumeration.
- */
-enum RowFilterCondition {
-	// Conditions with no parameters.
-	CONDITION_IS_EMPTY = 'is-empty',
-	CONDITION_IS_NOT_EMPTY = 'is-not-empty',
-
-	// Conditions with one parameter.
-	CONDITION_IS_LESS_THAN = 'is-less-than',
-	CONDITION_IS_GREATER_THAN = 'is-greater-than',
-	CONDITION_IS_EQUAL_TO = 'is-equal-to',
-
-	// Conditions with two parameters.
-	CONDITION_IS_BETWEEN = 'is-between',
-	CONDITION_IS_NOT_BETWEEN = 'is-not-between'
-}
-
-/**
  * AddEditRowFilterModalPopupProps interface.
  */
 interface AddEditRowFilterModalPopupProps {
 	dataExplorerClientInstance: DataExplorerClientInstance;
 	renderer: PositronModalReactRenderer;
 	anchor: HTMLElement;
-	rowFilter?: RowFilter;
+	editRowFilter?: RowFilter;
 	onApplyRowFilter: (rowFilter: RowFilter) => void;
 }
 
@@ -114,11 +114,18 @@ export const AddEditRowFilterModalPopup = (props: AddEditRowFilterModalPopupProp
 	const secondRowFilterParameterRef = useRef<HTMLInputElement>(undefined!);
 
 	// State hooks.
-	const [selectedColumnSchema, setSelectedColumnSchema] =
-		useState<ColumnSchema | undefined>(undefined);
-	const [selectedCondition, setSelectedCondition] = useState<string | undefined>(undefined);
-	const [firstRowFilterValue, setFirstRowFilterValue] = useState<string>('');
-	const [secondRowFilterValue, setSecondRowFilterValue] = useState<string>('');
+	const [selectedColumnSchema, setSelectedColumnSchema] = useState<ColumnSchema | undefined>(
+		props.editRowFilter ? props.editRowFilter.columnSchema : undefined
+	);
+	const [selectedCondition, setSelectedCondition] = useState<string | undefined>(
+		props.editRowFilter ? props.editRowFilter.rowFilterCondition : undefined
+	);
+	const [firstRowFilterValue, setFirstRowFilterValue] = useState<string>(
+		firstRowFilterParameter(props.editRowFilter)
+	);
+	const [secondRowFilterValue, setSecondRowFilterValue] = useState<string>(
+		secondRowFilterParameter(props.editRowFilter)
+	);
 	const [errorText, setErrorText] = useState<string | undefined>(undefined);
 
 	// useEffect for when the selectedCondition changes.
@@ -263,6 +270,7 @@ export const AddEditRowFilterModalPopup = (props: AddEditRowFilterModalPopupProp
 			<RowFilterParameter
 				ref={firstRowFilterParameterRef}
 				placeholder={placeholderText}
+				value={firstRowFilterValue}
 				onTextChanged={text => {
 					// Set the first row filter value.
 					setFirstRowFilterValue(text);
@@ -302,6 +310,7 @@ export const AddEditRowFilterModalPopup = (props: AddEditRowFilterModalPopupProp
 			<RowFilterParameter
 				ref={secondRowFilterParameterRef}
 				placeholder={placeholderText}
+				value={secondRowFilterValue}
 				onTextChanged={text => {
 					// Set the second row filter value.
 					setSecondRowFilterValue(text);
@@ -551,7 +560,8 @@ export const AddEditRowFilterModalPopup = (props: AddEditRowFilterModalPopupProp
 						'positron.addEditRowFilter.selectColumn',
 						"Select Column"
 					)}
-					onValueChanged={columnSchema => {
+					selectedColumnSchema={selectedColumnSchema}
+					onSelectedColumnSchemaChanged={columnSchema => {
 						// Set the selected column schema.
 						setSelectedColumnSchema(columnSchema);
 

@@ -29,7 +29,8 @@ interface DropDownColumnSelectorProps {
 	layoutService: ILayoutService;
 	dataExplorerClientInstance: DataExplorerClientInstance;
 	title: string;
-	onValueChanged: (value: ColumnSchema) => void;
+	selectedColumnSchema?: ColumnSchema;
+	onSelectedColumnSchemaChanged: (selectedColumnSchema: ColumnSchema) => void;
 }
 
 /**
@@ -46,7 +47,7 @@ export const DropDownColumnSelector = (props: DropDownColumnSelectorProps) => {
 
 	// // State hooks.
 	const [selectedColumnSchema, setSelectedColumnSchema] =
-		useState<ColumnSchema | undefined>(undefined);
+		useState<ColumnSchema | undefined>(props.selectedColumnSchema);
 
 	// Render.
 	return (
@@ -81,7 +82,7 @@ export const DropDownColumnSelector = (props: DropDownColumnSelectorProps) => {
 						onItemSelected={columnSchema => {
 							renderer.dispose();
 							setSelectedColumnSchema(columnSchema);
-							props.onValueChanged(columnSchema);
+							props.onSelectedColumnSchemaChanged(columnSchema);
 						}}
 					/>
 				);

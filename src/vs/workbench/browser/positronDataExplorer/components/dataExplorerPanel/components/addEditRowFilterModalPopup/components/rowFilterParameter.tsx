@@ -17,6 +17,7 @@ import { positronClassNames } from 'vs/base/common/positronUtilities';
  */
 interface RowFilterParameterProps {
 	placeholder?: string;
+	value?: string;
 	onTextChanged: (text: string) => void;
 }
 
@@ -37,7 +38,7 @@ export const RowFilterParameter = forwardRef<HTMLInputElement, RowFilterParamete
 
 	// State hooks.
 	const [focused, setFocused] = useState(false);
-	const [text, setText] = useState('');
+	const [text, setText] = useState(props.value ?? '');
 
 	// Render.
 	return (

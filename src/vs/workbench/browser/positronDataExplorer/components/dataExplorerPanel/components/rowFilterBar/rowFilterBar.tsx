@@ -18,9 +18,9 @@ import { ContextMenuItem } from 'vs/workbench/browser/positronComponents/context
 import { ContextMenuSeparator } from 'vs/workbench/browser/positronComponents/contextMenu/contextMenuSeparator';
 import { usePositronDataExplorerContext } from 'vs/workbench/browser/positronDataExplorer/positronDataExplorerContext';
 import { PositronModalReactRenderer } from 'vs/workbench/browser/positronModalReactRenderer/positronModalReactRenderer';
+import { RowFilter } from 'vs/workbench/browser/positronDataExplorer/components/dataExplorerPanel/components/addEditRowFilterModalPopup/rowFilter';
 import { RowFilterWidget } from 'vs/workbench/browser/positronDataExplorer/components/dataExplorerPanel/components/rowFilterBar/components/rowFilterWidget';
 import { AddEditRowFilterModalPopup } from 'vs/workbench/browser/positronDataExplorer/components/dataExplorerPanel/components/addEditRowFilterModalPopup/addEditRowFilterModalPopup';
-import { RowFilter, RowFilterIsBetween, RowFilterIsEmpty, RowFilterIsEqualTo, RowFilterIsGreaterThan, RowFilterIsLessThan, RowFilterIsNotBetween, RowFilterIsNotEmpty } from 'vs/workbench/browser/positronDataExplorer/components/dataExplorerPanel/components/addEditRowFilterModalPopup/rowFilter';
 
 /**
  * RowFilterBar component.
@@ -41,9 +41,9 @@ export const RowFilterBar = () => {
 
 	/**
 	 * Shows the add / edit row filter modal popup.
-	 * @param rowFilter The row filter to edit, or undefined, to add a row filter.
+	 * @param rowFilterToEdit The row filter to edit, or undefined, to add a row filter.
 	 */
-	const showAddEditRowFilterModalPopup = (anchor: HTMLElement, rowFilter?: RowFilter) => {
+	const showAddEditRowFilterModalPopup = (anchor: HTMLElement, rowFilterToEdit?: RowFilter) => {
 		// Create the renderer.
 		const renderer = new PositronModalReactRenderer({
 			keybindingService: context.keybindingService,
@@ -52,27 +52,28 @@ export const RowFilterBar = () => {
 		});
 
 		/**
-		 * onAddRowFilter event handler.
-		 * @param rowFilter The row filter.
+		 * onApplyRowFilter event handler.
+		 * @param rowFilterToApply The row filter to apply.
 		 */
-		const addRowFilterHandler = (rowFilter: RowFilter) => {
-			if (rowFilter instanceof RowFilterIsEmpty) {
-				console.log(`is empty row filter for ${rowFilter.columnSchema.column_name}`);
-			} else if (rowFilter instanceof RowFilterIsNotEmpty) {
-				console.log(`is not empty row filter for ${rowFilter.columnSchema.column_name}`);
-			} else if (rowFilter instanceof RowFilterIsLessThan) {
-				console.log(`is less than ${rowFilter.value} row filter for ${rowFilter.columnSchema.column_name}`);
-			} else if (rowFilter instanceof RowFilterIsGreaterThan) {
-				console.log(`is greater than ${rowFilter.value} row filter for ${rowFilter.columnSchema.column_name}`);
-			} else if (rowFilter instanceof RowFilterIsEqualTo) {
-				console.log(`is equal to ${rowFilter.value} row filter for ${rowFilter.columnSchema.column_name}`);
-			} else if (rowFilter instanceof RowFilterIsBetween) {
-				console.log(`is between ${rowFilter.lowerLimit} ${rowFilter.upperLimit} row filter for ${rowFilter.columnSchema.column_name}`);
-			} else if (rowFilter instanceof RowFilterIsNotBetween) {
-				console.log(`is not between ${rowFilter.lowerLimit} ${rowFilter.upperLimit} row filter for ${rowFilter.columnSchema.column_name}`);
-			}
+		const applyRowFilterHandler = (rowFilterToApply: RowFilter) => {
+			// If this is a new row filter, append it to the array of row filters. Otherwise,
+			// replace the row filter that was edited.
+			if (!rowFilterToEdit) {
+				setRowFilters(rowFilters => [...rowFilters, rowFilterToApply]);
+			} else {
+				// Find the index of the row filter to edit.
+				const index = rowFilters.findIndex(rowFilter =>
+					rowFilterToEdit.identifier === rowFilter.identifier
+				);
 
-			setRowFilters(rowFilters => [...rowFilters, rowFilter]);
+				setRowFilters(rowFilters =>
+					[
+						...rowFilters.slice(0, index),
+						rowFilterToApply,
+						...rowFilters.slice(index + 1)
+					]
+				);
+			}
 		};
 
 		// Show the add /edit row filter modal popup.
@@ -81,8 +82,8 @@ export const RowFilterBar = () => {
 				dataExplorerClientInstance={context.instance.dataExplorerClientInstance}
 				renderer={renderer}
 				anchor={anchor}
-				rowFilter={rowFilter}
-				onApplyRowFilter={addRowFilterHandler}
+				editRowFilter={rowFilterToEdit}
+				onApplyRowFilter={applyRowFilterHandler}
 			/>
 		);
 	};
@@ -159,6 +160,9 @@ export const RowFilterBar = () => {
 					<RowFilterWidget
 						key={index}
 						rowFilter={rowFilter}
+						onEdit={() =>
+							showAddEditRowFilterModalPopup(addFilterButtonRef.current, rowFilter)
+						}
 						onClear={() => clearRowFilter(rowFilter.identifier)} />
 				)}
 				<Button

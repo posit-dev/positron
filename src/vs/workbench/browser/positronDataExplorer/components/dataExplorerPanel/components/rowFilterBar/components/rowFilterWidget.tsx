@@ -18,6 +18,7 @@ import { RowFilter, RowFilterIsBetween, RowFilterIsEmpty, RowFilterIsEqualTo, Ro
  */
 interface RowFilterWidgetProps {
 	rowFilter: RowFilter;
+	onEdit: () => void;
 	onClear: () => void;
 }
 
@@ -95,9 +96,7 @@ export const RowFilterWidget = (props: RowFilterWidgetProps) => {
 	return (
 		<Button
 			className='row-filter-widget'
-			onPressed={() => {
-				console.log('Edit row filter');
-			}}
+			onPressed={() => props.onEdit()}
 		>
 			<div className='title'>
 				{title}
