@@ -24,10 +24,7 @@ import comm
 
 from .access_keys import decode_access_key
 from .data_explorer_comm import (
-    RowFilter,
-    RowFilterFilterType,
     ColumnFrequencyTable,
-    ColumnFrequencyTableItem,
     ColumnHistogram,
     ColumnSummaryStats,
     CompareFilterParamsOp,
@@ -44,6 +41,8 @@ from .data_explorer_comm import (
     GetDataValuesRequest,
     GetSchemaRequest,
     GetStateRequest,
+    RowFilter,
+    RowFilterFilterType,
     SchemaUpdateParams,
     SearchSchemaRequest,
     SearchSchemaResult,
@@ -296,6 +295,16 @@ class PandasView(DataExplorerTableView):
         # self.filtered_indices
         self.view_indices = None
 
+        # We store a tuple of (last_search_term, matches)
+        # here so that we can support scrolling through the search
+        # results without having to recompute the search. If the
+        # search term changes, we discard the last search result. We
+        # might add an LRU cache here or something if it helps
+        # performance.
+        self._search_schema_last_result: Optional[
+            Tuple[str, List[ColumnSchema]]
+        ] = None
+
     def invalidate_computations(self):
         self.filtered_indices = self.view_indices = None
         self._need_recompute = True
@@ -333,49 +342,87 @@ class PandasView(DataExplorerTableView):
         return self._dtypes
 
     def _get_schema(self, column_start: int, num_columns: int) -> TableSchema:
-        from pandas.api.types import infer_dtype
-
-        # TODO: pandas MultiIndex columns
-        # TODO: time zone for datetimetz datetime64[ns] types
-        columns_slice = self.table.columns[
-            column_start : column_start + num_columns
-        ]
-        dtypes_slice = self.dtypes.iloc[
-            column_start : column_start + num_columns
-        ]
         column_schemas = []
 
-        for i, (c, dtype) in enumerate(zip(columns_slice, dtypes_slice)):
-            column_index = i + column_start
-            if dtype == object:
-                if column_index not in self._inferred_dtypes:
-                    self._inferred_dtypes[column_index] = infer_dtype(
-                        self.table.iloc[:, column_index]
-                    )
-                type_name = self._inferred_dtypes[column_index]
-            else:
-                # TODO: more sophisticated type mapping
-                type_name = str(dtype)
+        for column_index in range(
+            column_start,
+            min(column_start + num_columns, len(self.table.columns)),
+        ):
+            column_raw_name = self.table.columns[column_index]
+            column_name = str(column_raw_name)
 
-            type_display = self.TYPE_DISPLAY_MAPPING.get(type_name, "unknown")
-
-            col_schema = ColumnSchema(
-                column_name=str(c),
-                column_index=column_index,
-                type_name=type_name,
-                type_display=ColumnSchemaTypeDisplay(type_display),
+            col_schema = self._get_single_column_schema(
+                column_index, column_name
             )
             column_schemas.append(col_schema)
 
         return TableSchema(columns=column_schemas)
 
-    def _get_column_schema():
-        pass
-
     def _search_schema(
         self, search_term: str, start_index: int, max_results: int
     ) -> SearchSchemaResult:
-        pass
+        # Sanitize user input here for now, possibly remove this later
+        search_term = search_term.lower()
+
+        if self._search_schema_last_result is not None:
+            last_search_term, matches = self._search_schema_last_result
+            if last_search_term != search_term:
+                matches = self._search_schema_get_matches(search_term)
+                self._search_schema_last_result = (search_term, matches)
+        else:
+            matches = self._search_schema_get_matches(search_term)
+            self._search_schema_last_result = (search_term, matches)
+
+        matches_slice = matches[start_index : start_index + max_results]
+        return SearchSchemaResult(
+            matches=TableSchema(columns=matches_slice),
+            total_num_matches=len(matches),
+        )
+
+    def _search_schema_get_matches(
+        self, search_term: str
+    ) -> List[ColumnSchema]:
+        matches = []
+        for column_index in range(len(self.table.columns)):
+            column_raw_name = self.table.columns[column_index]
+            column_name = str(column_raw_name)
+
+            # Do a case-insensitive search
+            if search_term not in column_name.lower():
+                continue
+
+            col_schema = self._get_single_column_schema(
+                column_index, column_name
+            )
+            matches.append(col_schema)
+
+        return matches
+
+    def _get_single_column_schema(self, column_index: int, column_name: str):
+        # TODO: pandas MultiIndex columns
+        # TODO: time zone for datetimetz datetime64[ns] types
+        from pandas.api.types import infer_dtype
+
+        dtype = self.dtypes.iloc[column_index]
+
+        if dtype == object:
+            if column_index not in self._inferred_dtypes:
+                self._inferred_dtypes[column_index] = infer_dtype(
+                    self.table.iloc[:, column_index]
+                )
+            type_name = self._inferred_dtypes[column_index]
+        else:
+            # TODO: more sophisticated type mapping
+            type_name = str(dtype)
+
+        type_display = self.TYPE_DISPLAY_MAPPING.get(type_name, "unknown")
+
+        return ColumnSchema(
+            column_name=column_name,
+            column_index=column_index,
+            type_name=type_name,
+            type_display=ColumnSchemaTypeDisplay(type_display),
+        )
 
     def _get_data_values(
         self, row_start: int, num_rows: int, column_indices: Sequence[int]
@@ -520,7 +567,7 @@ class PandasView(DataExplorerTableView):
             table_shape=TableShape(
                 num_rows=self.table.shape[0], num_columns=self.table.shape[1]
             ),
-            filters=self.filters,
+            row_filters=self.filters,
             sort_keys=self.sort_keys,
         )
 

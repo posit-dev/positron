@@ -450,7 +450,7 @@ def test_pandas_get_state(pandas_fixture: PandasFixture):
 
     result = pandas_fixture.get_state("simple")
     assert result["sort_keys"] == sort_keys
-    assert result["filters"] == [ColumnFilter(**f) for f in filters]
+    assert result["row_filters"] == [RowFilter(**f) for f in filters]
 
 
 def test_pandas_get_schema(pandas_fixture: PandasFixture):

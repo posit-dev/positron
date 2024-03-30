@@ -6,7 +6,7 @@ import * as assert from 'assert';
 import { ensureNoDisposablesAreLeakedInTestSuite } from 'vs/base/test/common/utils';
 import {
 	CompareFilterParamsOp,
-	ColumnFilterFilterType,
+	RowFilterFilterType,
 	SearchFilterParamsType
 } from 'vs/workbench/services/languageRuntime/common/positronDataExplorerComm';
 import * as mocks from "vs/workbench/services/positronDataExplorer/common/positronDataExplorerMocks";
@@ -40,7 +40,7 @@ suite('DataExplorerMocks', () => {
 
 	test('Test getCompareFilter', () => {
 		const filter = mocks.getCompareFilter(2, CompareFilterParamsOp.Gt, '1234');
-		assert.equal(filter.filter_type, ColumnFilterFilterType.Compare);
+		assert.equal(filter.filter_type, RowFilterFilterType.Compare);
 		assert.equal(filter.column_index, 2);
 
 		const params = filter.compare_params!;
@@ -52,17 +52,17 @@ suite('DataExplorerMocks', () => {
 	test('Test getIsNullFilter', () => {
 		let filter = mocks.getIsNullFilter(3);
 		assert.equal(filter.column_index, 3);
-		assert.equal(filter.filter_type, ColumnFilterFilterType.IsNull);
+		assert.equal(filter.filter_type, RowFilterFilterType.IsNull);
 
 		filter = mocks.getNotNullFilter(3);
-		assert.equal(filter.filter_type, ColumnFilterFilterType.NotNull);
+		assert.equal(filter.filter_type, RowFilterFilterType.NotNull);
 	});
 
 	test('Test getTextSearchFilter', () => {
 		const filter = mocks.getTextSearchFilter(5, 'needle',
 			SearchFilterParamsType.Contains, false);
 		assert.equal(filter.column_index, 5);
-		assert.equal(filter.filter_type, ColumnFilterFilterType.Search);
+		assert.equal(filter.filter_type, RowFilterFilterType.Search);
 
 		const params = filter.search_params!;
 
@@ -75,7 +75,7 @@ suite('DataExplorerMocks', () => {
 		const set_values = ['need1', 'need2'];
 		const filter = mocks.getSetMemberFilter(6, set_values, true);
 		assert.equal(filter.column_index, 6);
-		assert.equal(filter.filter_type, ColumnFilterFilterType.SetMembership);
+		assert.equal(filter.filter_type, RowFilterFilterType.SetMembership);
 
 		const params = filter.set_membership_params!;
 
