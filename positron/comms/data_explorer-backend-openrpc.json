@@ -498,9 +498,9 @@
 						"description": "Type of search to perform",
 						"enum": [
 							"contains",
-							"startswith",
-							"endswith",
-							"regex"
+							"starts_with",
+							"ends_with",
+							"regex_match"
 						]
 					},
 					"term": {

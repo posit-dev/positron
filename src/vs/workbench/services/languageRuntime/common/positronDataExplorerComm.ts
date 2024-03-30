@@ -476,9 +476,9 @@ export enum CompareFilterParamsOp {
  */
 export enum SearchFilterParamsType {
 	Contains = 'contains',
-	Startswith = 'startswith',
-	Endswith = 'endswith',
-	Regex = 'regex'
+	StartsWith = 'starts_with',
+	EndsWith = 'ends_with',
+	RegexMatch = 'regex_match'
 }
 
 /**

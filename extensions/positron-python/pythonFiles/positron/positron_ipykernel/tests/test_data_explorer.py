@@ -686,6 +686,20 @@ def _not_between_filter(column_index, left_value, right_value):
     )
 
 
+def _search_filter(
+    column_index, term, case_sensitive=False, search_type="contains"
+):
+    return _filter(
+        "search",
+        column_index,
+        search_params={
+            "type": search_type,
+            "term": term,
+            "case_sensitive": case_sensitive,
+        },
+    )
+
+
 def _set_member_filter(column_index, values, inclusive=True):
     return _filter(
         "set_membership",
@@ -788,6 +802,81 @@ def test_pandas_filter_set_membership(de_fixture: DataExplorerFixture):
 
     for filter_set, expected_df in cases:
         de_fixture.check_filter_case(df, filter_set, expected_df)
+
+
+def test_pandas_filter_search(de_fixture: DataExplorerFixture):
+    dxf = de_fixture
+    df = pd.DataFrame(
+        {
+            "a": ["foo1", "foo2", None, "2FOO", "FOO3", "bar1", "2BAR"],
+            "b": [1, 11, 31, 22, 24, 62, 89],
+        }
+    )
+
+    dxf.register_table("df", df)
+
+    # (search_type, column_index, term, case_sensitive, boolean mask)
+    cases = [
+        ("contains", 0, "foo", False, df["a"].str.lower().str.contains("foo")),
+        ("contains", 0, "foo", True, df["a"].str.contains("foo")),
+        (
+            "starts_with",
+            0,
+            "foo",
+            False,
+            df["a"].str.lower().str.startswith("foo"),
+        ),
+        (
+            "starts_with",
+            0,
+            "foo",
+            True,
+            df["a"].str.startswith("foo"),
+        ),
+        (
+            "ends_with",
+            0,
+            "foo",
+            False,
+            df["a"].str.lower().str.endswith("foo"),
+        ),
+        (
+            "ends_with",
+            0,
+            "foo",
+            True,
+            df["a"].str.endswith("foo"),
+        ),
+        (
+            "regex_match",
+            0,
+            "f[o]+",
+            False,
+            df["a"].str.match("f[o]+", case=False),
+        ),
+        (
+            "regex_match",
+            0,
+            "f[o]+[^o]*",
+            True,
+            df["a"].str.match("f[o]+[^o]*", case=True),
+        ),
+    ]
+
+    for search_type, column_index, term, cs, mask in cases:
+        ex_table = df[mask.fillna(False)]
+        dxf.check_filter_case(
+            df,
+            [
+                _search_filter(
+                    column_index,
+                    term,
+                    case_sensitive=cs,
+                    search_type=search_type,
+                )
+            ],
+            ex_table,
+        )
 
 
 def test_pandas_set_sort_columns(de_fixture: DataExplorerFixture):

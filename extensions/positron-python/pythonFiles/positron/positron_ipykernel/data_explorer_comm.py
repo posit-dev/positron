@@ -90,11 +90,11 @@ class SearchFilterParamsType(str, enum.Enum):
 
     Contains = "contains"
 
-    Startswith = "startswith"
+    StartsWith = "starts_with"
 
-    Endswith = "endswith"
+    EndsWith = "ends_with"
 
-    Regex = "regex"
+    RegexMatch = "regex_match"
 
 
 @enum.unique

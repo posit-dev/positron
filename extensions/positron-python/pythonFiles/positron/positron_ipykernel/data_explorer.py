@@ -44,6 +44,7 @@ from .data_explorer_comm import (
     RowFilter,
     RowFilterFilterType,
     SchemaUpdateParams,
+    SearchFilterParamsType,
     SearchSchemaRequest,
     SearchSchemaResult,
     SetRowFiltersRequest,
@@ -543,12 +544,25 @@ class PandasView(DataExplorerTableView):
             if col_inferred_type != "string":
                 col = col.astype(str)
 
-            if params.case_sensitive:
-                mask = col.str.contains(params.term)
-            else:
-                mask = col.str.lower().str.contains(params.term)
+            term = params.term
 
-        # TODO(wesm): is it possible for there to be null values in the mask?
+            if params.type == SearchFilterParamsType.RegexMatch:
+                mask = col.str.match(term, case=params.case_sensitive)
+            else:
+                if not params.case_sensitive:
+                    col = col.str.lower()
+                    term = term.lower()
+                if params.type == SearchFilterParamsType.Contains:
+                    mask = col.str.contains(term)
+                elif params.type == SearchFilterParamsType.StartsWith:
+                    mask = col.str.startswith(term)
+                elif params.type == SearchFilterParamsType.EndsWith:
+                    mask = col.str.endswith(term)
+
+        # Nulls are possible in the mask, so we just fill them if any
+        if mask.dtype != bool:
+            mask = mask.fillna(False)
+
         return mask.to_numpy()
 
     def _sort_data(self) -> None:
