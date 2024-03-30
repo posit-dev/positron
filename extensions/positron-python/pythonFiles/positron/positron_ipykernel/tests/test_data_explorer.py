@@ -672,12 +672,60 @@ def _compare_filter(column_index, op, value):
     )
 
 
+def _between_filter(column_index, left_value, right_value, op="between"):
+    return _filter(
+        op,
+        column_index,
+        between_params={"left_value": left_value, "right_value": right_value},
+    )
+
+
+def _not_between_filter(column_index, left_value, right_value):
+    return _between_filter(
+        column_index, left_value, right_value, op="not_between"
+    )
+
+
 def _set_member_filter(column_index, values, inclusive=True):
     return _filter(
         "set_membership",
         column_index,
         set_membership_params={"values": values, "inclusive": inclusive},
     )
+
+
+def test_pandas_filter_between(de_fixture: DataExplorerFixture):
+    dxf = de_fixture
+    table_name = "simple"
+    df = SIMPLE_PANDAS_DF
+    column = "a"
+    column_index = df.columns.get_loc(column)
+
+    cases = [
+        (0, 2, 4),  # a column
+        (3, 0, 2),  # d column
+    ]
+
+    for column_index, left_value, right_value in cases:
+        col = df.iloc[:, column_index]
+
+        ex_between = df[(col >= left_value) & (col <= right_value)]
+        ex_not_between = df[(col < left_value) | (col > right_value)]
+
+        dxf.check_filter_case(
+            df,
+            [_between_filter(column_index, str(left_value), str(right_value))],
+            ex_between,
+        )
+        dxf.check_filter_case(
+            df,
+            [
+                _not_between_filter(
+                    column_index, str(left_value), str(right_value)
+                )
+            ],
+            ex_not_between,
+        )
 
 
 def test_pandas_filter_compare(de_fixture: DataExplorerFixture):
@@ -693,6 +741,8 @@ def test_pandas_filter_compare(de_fixture: DataExplorerFixture):
         filt = _compare_filter(column_index, op, str(compare_value))
         expected_df = df[op_func(df[column], compare_value)]
         de_fixture.check_filter_case(df, [filt], expected_df)
+
+    # TODO(wesm): move these tests to their own test case
 
     # Test that passing empty filter set resets to unfiltered state
     filt = _compare_filter(column_index, "<", str(compare_value))

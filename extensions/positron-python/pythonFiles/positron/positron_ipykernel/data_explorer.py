@@ -391,19 +391,22 @@ class PandasView(DataExplorerTableView):
 
         return matches
 
+    def _get_inferred_dtype(self, column_index: int):
+        from pandas.api.types import infer_dtype
+
+        if column_index not in self._inferred_dtypes:
+            self._inferred_dtypes[column_index] = infer_dtype(
+                self.table.iloc[:, column_index]
+            )
+        return self._inferred_dtypes[column_index]
+
     def _get_single_column_schema(self, column_index: int, column_name: str):
         # TODO: pandas MultiIndex columns
         # TODO: time zone for datetimetz datetime64[ns] types
-        from pandas.api.types import infer_dtype
-
         dtype = self.dtypes.iloc[column_index]
 
         if dtype == object:
-            if column_index not in self._inferred_dtypes:
-                self._inferred_dtypes[column_index] = infer_dtype(
-                    self.table.iloc[:, column_index]
-                )
-            type_name = self._inferred_dtypes[column_index]
+            type_name = self._get_inferred_dtype(column_index)
         else:
             # TODO: more sophisticated type mapping
             type_name = str(dtype)
@@ -481,7 +484,7 @@ class PandasView(DataExplorerTableView):
         # Evaluate all the filters and AND them together
         combined_mask = None
         for filt in filters:
-            single_mask = _pandas_eval_filter(self.table, filt)
+            single_mask = self._eval_filter(filt)
             if combined_mask is None:
                 combined_mask = single_mask
             else:
@@ -492,6 +495,61 @@ class PandasView(DataExplorerTableView):
         # Update the view indices, re-sorting if needed
         self._update_view_indices()
         return FilterResult(selected_num_rows=len(self.filtered_indices))
+
+    def _eval_filter(self, filt: RowFilter):
+        col = self.table.iloc[:, filt.column_index]
+        mask = None
+        if filt.filter_type in (
+            RowFilterFilterType.Between,
+            RowFilterFilterType.NotBetween,
+        ):
+            params = filt.between_params
+            assert params is not None
+            left_value = _coerce_value_param(params.left_value, col.dtype)
+            right_value = _coerce_value_param(params.right_value, col.dtype)
+            if filt.filter_type == RowFilterFilterType.Between:
+                mask = (col >= left_value) & (col <= right_value)
+            else:
+                # NotBetween
+                mask = (col < left_value) | (col > right_value)
+        elif filt.filter_type == RowFilterFilterType.Compare:
+            params = filt.compare_params
+            assert params is not None
+
+            if params.op not in COMPARE_OPS:
+                raise ValueError(f"Unsupported filter type: {params.op}")
+            op = COMPARE_OPS[params.op]
+            # pandas comparison filters return False for null values
+            mask = op(col, _coerce_value_param(params.value, col.dtype))
+        elif filt.filter_type == RowFilterFilterType.IsNull:
+            mask = col.isnull()
+        elif filt.filter_type == RowFilterFilterType.NotNull:
+            mask = col.notnull()
+        elif filt.filter_type == RowFilterFilterType.SetMembership:
+            params = filt.set_membership_params
+            assert params is not None
+            boxed_values = pd_.Series(params.values).astype(col.dtype)
+            # IN
+            mask = col.isin(boxed_values)
+            if not params.inclusive:
+                # NOT-IN
+                mask = ~mask
+        elif filt.filter_type == RowFilterFilterType.Search:
+            params = filt.search_params
+            assert params is not None
+
+            col_inferred_type = self._get_inferred_dtype(filt.column_index)
+
+            if col_inferred_type != "string":
+                col = col.astype(str)
+
+            if params.case_sensitive:
+                mask = col.str.contains(params.term)
+            else:
+                mask = col.str.lower().str.contains(params.term)
+
+        # TODO(wesm): is it possible for there to be null values in the mask?
+        return mask.to_numpy()
 
     def _sort_data(self) -> None:
         from pandas.core.sorting import lexsort_indexer, nargsort
@@ -575,43 +633,10 @@ COMPARE_OPS = {
 }
 
 
-def _pandas_eval_filter(df: "pd.DataFrame", filt: RowFilter):
-    col = df.iloc[:, filt.column_index]
-    mask = None
-    if filt.filter_type == RowFilterFilterType.Between:
-        pass
-    elif filt.filter_type == RowFilterFilterType.NotBetween:
-        pass
-    elif filt.filter_type == RowFilterFilterType.Compare:
-        params = filt.compare_params
-        assert params is not None
-
-        if params.op not in COMPARE_OPS:
-            raise ValueError(f"Unsupported filter type: {params.op}")
-        op = COMPARE_OPS[params.op]
-        # Let pandas decide how to coerce the string we got from the UI
-        dummy = pd_.Series([params.value]).astype(col.dtype)
-
-        # pandas comparison filters return False for null values
-        mask = op(col, dummy.iloc[0])
-    elif filt.filter_type == RowFilterFilterType.IsNull:
-        mask = col.isnull()
-    elif filt.filter_type == RowFilterFilterType.NotNull:
-        mask = col.notnull()
-    elif filt.filter_type == RowFilterFilterType.SetMembership:
-        params = filt.set_membership_params
-        assert params is not None
-        boxed_values = pd_.Series(params.values).astype(col.dtype)
-        # IN
-        mask = col.isin(boxed_values)
-        if not params.inclusive:
-            # NOT-IN
-            mask = ~mask
-    elif filt.filter_type == RowFilterFilterType.Search:
-        raise NotImplementedError
-
-    # TODO(wesm): is it possible for there to be null values in the mask?
-    return mask.to_numpy()
+def _coerce_value_param(value, dtype):
+    # Let pandas decide how to coerce the string we got from the UI
+    dummy = pd_.Series([value]).astype(dtype)
+    return dummy.iloc[0]
 
 
 class PolarsView(DataExplorerTableView):
