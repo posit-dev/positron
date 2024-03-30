@@ -195,12 +195,6 @@ class UiFrontendEvent(str, enum.Enum):
     # Execute a Positron command
     ExecuteCommand = "execute_command"
 
-    # Open a workspace
-    OpenWorkspace = "open_workspace"
-
-    # Show a URL in Positron's Viewer pane
-    ShowUrl = "show_url"
-
 
 class BusyParams(BaseModel):
     """
@@ -262,20 +256,6 @@ class ShowQuestionParams(BaseModel):
     )
 
 
-class ShowDialogParams(BaseModel):
-    """
-    Show a dialog
-    """
-
-    title: str = Field(
-        description="The title of the dialog",
-    )
-
-    message: str = Field(
-        description="The message to display in the dialog",
-    )
-
-
 class PromptStateParams(BaseModel):
     """
     New state of the primary and secondary prompts
@@ -320,30 +300,6 @@ class ExecuteCommandParams(BaseModel):
     )
 
 
-class OpenWorkspaceParams(BaseModel):
-    """
-    Open a workspace
-    """
-
-    path: str = Field(
-        description="The path for the workspace to be opened",
-    )
-
-    new_window: bool = Field(
-        description="Should the workspace be opened in a new window?",
-    )
-
-
-class ShowUrlParams(BaseModel):
-    """
-    Show a URL in Positron's Viewer pane
-    """
-
-    url: str = Field(
-        description="The URL to display",
-    )
-
-
 EditorContext.update_forward_refs()
 
 TextDocument.update_forward_refs()
@@ -364,8 +320,6 @@ ShowMessageParams.update_forward_refs()
 
 ShowQuestionParams.update_forward_refs()
 
-ShowDialogParams.update_forward_refs()
-
 PromptStateParams.update_forward_refs()
 
 WorkingDirectoryParams.update_forward_refs()
@@ -373,7 +327,3 @@ WorkingDirectoryParams.update_forward_refs()
 DebugSleepParams.update_forward_refs()
 
 ExecuteCommandParams.update_forward_refs()
-
-OpenWorkspaceParams.update_forward_refs()
-
-ShowUrlParams.update_forward_refs()
