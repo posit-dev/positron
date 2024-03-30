@@ -175,9 +175,7 @@ def test_explorer_delete_variable(
         assert len(paths) > 0
 
         comms = [
-            de_service.comms[comm_id]
-            for p in paths
-            for comm_id in de_service.path_to_comm_ids[p]
+            de_service.comms[comm_id] for p in paths for comm_id in de_service.path_to_comm_ids[p]
         ]
         variables_comm.handle_msg(msg)
 
@@ -193,22 +191,14 @@ def test_explorer_delete_variable(
     _check_delete_variable("y")
 
 
-def _check_update_variable(
-    de_service, name, update_type="schema", discard_state=True
-):
+def _check_update_variable(de_service, name, update_type="schema", discard_state=True):
     paths = de_service.get_paths_for_variable(name)
     assert len(paths) > 0
 
-    comms = [
-        de_service.comms[comm_id]
-        for p in paths
-        for comm_id in de_service.path_to_comm_ids[p]
-    ]
+    comms = [de_service.comms[comm_id] for p in paths for comm_id in de_service.path_to_comm_ids[p]]
 
     if update_type == "schema":
-        expected_msg = json_rpc_notification(
-            "schema_update", {"discard_state": discard_state}
-        )
+        expected_msg = json_rpc_notification("schema_update", {"discard_state": discard_state})
     else:
         expected_msg = json_rpc_notification("data_update", {})
 
@@ -274,18 +264,14 @@ def test_explorer_variable_updates(
     'key2': y['key2'].copy()}
     """
     )
-    _check_update_variable(
-        de_service, "y", update_type="update", discard_state=False
-    )
+    _check_update_variable(de_service, "y", update_type="update", discard_state=False)
 
     shell.run_cell(
         """y = {'key1': y['key1'].iloc[:-1, :-1],
     'key2': y['key2'].copy().iloc[:, 1:]}
     """
     )
-    _check_update_variable(
-        de_service, "y", update_type="schema", discard_state=True
-    )
+    _check_update_variable(de_service, "y", update_type="schema", discard_state=True)
 
 
 def test_register_table(de_service: DataExplorerService):
@@ -383,14 +369,10 @@ class DataExplorerFixture:
         return self.do_json_rpc(table_name, "set_row_filters", filters=filters)
 
     def set_sort_columns(self, table_name, sort_keys=None):
-        return self.do_json_rpc(
-            table_name, "set_sort_columns", sort_keys=sort_keys
-        )
+        return self.do_json_rpc(table_name, "set_sort_columns", sort_keys=sort_keys)
 
     def get_column_profiles(self, table_name, profiles):
-        return self.do_json_rpc(
-            table_name, "get_column_profiles", profiles=profiles
-        )
+        return self.do_json_rpc(table_name, "get_column_profiles", profiles=profiles)
 
     def check_filter_case(self, table, filter_set, expected_table):
         table_id = guid()
@@ -415,9 +397,7 @@ class DataExplorerFixture:
         assert response is None
         self.compare_tables(table_id, ex_id, table.shape)
 
-    def compare_tables(
-        self, table_id: str, expected_id: str, table_shape: tuple
-    ):
+    def compare_tables(self, table_id: str, expected_id: str, table_shape: tuple):
         # Query the data and check it yields the same result as the
         # manually constructed data frame without the filter
         response = self.get_data_values(
@@ -572,9 +552,7 @@ def test_pandas_search_schema(de_fixture: DataExplorerFixture):
 
     # Make a data frame with those column names
     arr = np.arange(10)
-    df = pd.DataFrame(
-        {name: arr for name in column_names}, columns=pd.Index(column_names)
-    )
+    df = pd.DataFrame({name: arr for name in column_names}, columns=pd.Index(column_names))
 
     dxf.register_table("df", df)
 
@@ -667,9 +645,7 @@ def _filter(filter_type, column_index, **kwargs):
 
 
 def _compare_filter(column_index, op, value):
-    return _filter(
-        "compare", column_index, compare_params={"op": op, "value": value}
-    )
+    return _filter("compare", column_index, compare_params={"op": op, "value": value})
 
 
 def _between_filter(column_index, left_value, right_value, op="between"):
@@ -681,14 +657,10 @@ def _between_filter(column_index, left_value, right_value, op="between"):
 
 
 def _not_between_filter(column_index, left_value, right_value):
-    return _between_filter(
-        column_index, left_value, right_value, op="not_between"
-    )
+    return _between_filter(column_index, left_value, right_value, op="not_between")
 
 
-def _search_filter(
-    column_index, term, case_sensitive=False, search_type="contains"
-):
+def _search_filter(column_index, term, case_sensitive=False, search_type="contains"):
     return _filter(
         "search",
         column_index,
@@ -733,11 +705,7 @@ def test_pandas_filter_between(de_fixture: DataExplorerFixture):
         )
         dxf.check_filter_case(
             df,
-            [
-                _not_between_filter(
-                    column_index, str(left_value), str(right_value)
-                )
-            ],
+            [_not_between_filter(column_index, str(left_value), str(right_value))],
             ex_not_between,
         )
 
@@ -913,14 +881,11 @@ def test_pandas_set_sort_columns(de_fixture: DataExplorerFixture):
     ]
 
     # Test sort AND filter
-    filter_cases = {
-        "df2": [(lambda x: x[x["a"] > 0], [_compare_filter(0, ">", 0)])]
-    }
+    filter_cases = {"df2": [(lambda x: x[x["a"] > 0], [_compare_filter(0, ">", 0)])]}
 
     for df_name, keys, expected_params in cases:
         wrapped_keys = [
-            {"column_index": index, "ascending": ascending}
-            for index, ascending in keys
+            {"column_index": index, "ascending": ascending} for index, ascending in keys
         ]
         df = tables[df_name]
 
@@ -932,9 +897,7 @@ def test_pandas_set_sort_columns(de_fixture: DataExplorerFixture):
 
         for filter_f, filters in filter_cases.get(df_name, []):
             expected_filtered = filter_f(df).sort_values(**expected_params)
-            de_fixture.check_sort_case(
-                df, wrapped_keys, expected_filtered, filters=filters
-            )
+            de_fixture.check_sort_case(df, wrapped_keys, expected_filtered, filters=filters)
 
 
 def test_pandas_change_schema_after_sort(
@@ -964,9 +927,7 @@ def test_pandas_change_schema_after_sort(
 
     # Sort last column, and we will then change the schema
     shell.run_cell("df = df[['a', 'b']]")
-    _check_update_variable(
-        de_service, "df", update_type="schema", discard_state=True
-    )
+    _check_update_variable(de_service, "df", update_type="schema", discard_state=True)
 
     # Call get_data_values and make sure it works
     de_fixture.compare_tables("df", "expected_df", expected_df.shape)
@@ -1019,17 +980,13 @@ def test_pandas_profile_null_counts(de_fixture: DataExplorerFixture):
     for table_name, profiles, ex_results in cases:
         results = dxf.get_column_profiles(table_name, profiles)
 
-        ex_results = [
-            ColumnProfileResult(null_count=count) for count in ex_results
-        ]
+        ex_results = [ColumnProfileResult(null_count=count) for count in ex_results]
 
         assert results == ex_results
 
     # Test profiling with filter
     # format: (table, filters, filtered_table, profiles)
-    filter_cases = [
-        (df1, [_filter("not_null", 0)], df1[df1["a"].notnull()], all_profiles)
-    ]
+    filter_cases = [(df1, [_filter("not_null", 0)], df1[df1["a"].notnull()], all_profiles)]
     for table, filters, filtered_table, profiles in filter_cases:
         table_id = guid()
         dxf.register_table(table_id, table)
