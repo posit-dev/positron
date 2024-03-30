@@ -26,6 +26,7 @@
 	border-radius: 4px;
 	align-items: center;
 	justify-content: center;
+	text-transform: uppercase;
 	color: var(--vscode-positronModalDialog-defaultButtonForeground);
 	background-color: var(--vscode-positronModalDialog-defaultButtonBackground);
 }
