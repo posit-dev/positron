@@ -50,8 +50,8 @@ data |>
 data |>
 	fn1() |>
 	fn2(
-    "arg"
-  )"<>"
+		"arg"
+	)"<>"
 
 # ---
 # https://github.com/posit-dev/positron-beta/discussions/46
@@ -69,7 +69,7 @@ data |>
 # FIXME
 {
 	fn(function() {
-    #
+		#
 	}"<>")
 }
 

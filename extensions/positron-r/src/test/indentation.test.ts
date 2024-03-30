@@ -18,7 +18,7 @@ async function init() {
 
 	// Prevents `ENOENT: no such file or directory` errors caused by us
 	// deleting temporary editor files befor Code had the opportunity to
-	// save the user history of these files (see )
+	// save the user history of these files.
 	config.update('workbench.localHistory.enabled', false, vscode.ConfigurationTarget.Workspace);
 }
 
