@@ -19,6 +19,7 @@ import { RowFilter, RowFilterIsBetween, RowFilterIsEmpty, RowFilterIsEqualTo, Ro
  */
 interface RowFilterWidgetProps {
 	rowFilter: RowFilter;
+	booleanOperator?: 'and';
 	onEdit: () => void;
 	onClear: () => void;
 }
@@ -100,6 +101,11 @@ export const RowFilterWidget = forwardRef<HTMLButtonElement, RowFilterWidgetProp
 			className='row-filter-widget'
 			onPressed={() => props.onEdit()}
 		>
+			{props.booleanOperator &&
+				<div className='boolean-operator'>
+					{localize('positron.dataExplorer.rowFilterWidget.and', "and")}
+				</div>
+			}
 			<div className='title'>
 				{title}
 			</div>

@@ -91,7 +91,7 @@ export const DropDownColumnSelector = (props: DropDownColumnSelectorProps) => {
 			{!selectedColumnSchema ?
 				(<div className='title'>{title}</div>) :
 				(
-					<div className='title-foo'>
+					<div className='column-schema-title'>
 						<div className={`data-type-icon codicon ${columnSchemaDataTypeIcon(selectedColumnSchema)}`}></div>
 						<div className='column-name'>
 							{selectedColumnSchema.column_name}

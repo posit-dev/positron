@@ -21,8 +21,18 @@
 }
 
 .row-filter-widget
+.boolean-operator {
+	height: 100%;
+	padding: 0 6px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	border-right: 1px solid var(--vscode-positronDataExplorer-border);
+}
+
+.row-filter-widget
 .title {
-	margin: 0 2px 0 8px;
+	margin: 0 2px 0 6px;
 }
 
 .row-filter-widget

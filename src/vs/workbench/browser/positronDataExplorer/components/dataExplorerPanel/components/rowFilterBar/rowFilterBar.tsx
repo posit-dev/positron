@@ -166,6 +166,7 @@ export const RowFilterBar = () => {
 						}}
 						key={index}
 						rowFilter={rowFilter}
+						booleanOperator={index ? 'and' : undefined}
 						onEdit={() => {
 							if (rowFilterWidgetRefs.current[index]) {
 								showAddEditRowFilterModalPopup(
