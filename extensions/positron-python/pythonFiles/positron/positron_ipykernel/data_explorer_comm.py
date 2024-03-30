@@ -43,9 +43,9 @@ class ColumnSchemaTypeDisplay(str, enum.Enum):
 
 
 @enum.unique
-class ColumnFilterFilterType(str, enum.Enum):
+class RowFilterFilterType(str, enum.Enum):
     """
-    Possible values for FilterType in ColumnFilter
+    Possible values for FilterType in RowFilter
     """
 
     Between = "between"
@@ -161,8 +161,9 @@ class TableState(BaseModel):
         description="Provides number of rows and columns in table",
     )
 
-    filters: List[ColumnFilter] = Field(
-        description="The set of currently applied filters",
+    row_filters: Optional[List[RowFilter]] = Field(
+        default=None,
+        description="The set of currently applied row filters",
     )
 
     sort_keys: List[ColumnSortKey] = Field(
@@ -246,16 +247,16 @@ class TableSchema(BaseModel):
     )
 
 
-class ColumnFilter(BaseModel):
+class RowFilter(BaseModel):
     """
-    Specifies a table row filter based on a column's values
+    Specifies a table row filter based on a single column's values
     """
 
     filter_id: str = Field(
         description="Unique identifier for this filter",
     )
 
-    filter_type: ColumnFilterFilterType = Field(
+    filter_type: RowFilterFilterType = Field(
         description="Type of filter to apply",
     )
 
@@ -507,8 +508,8 @@ class DataExplorerBackendRequest(str, enum.Enum):
     # Get a rectangle of data values
     GetDataValues = "get_data_values"
 
-    # Set column filters
-    SetColumnFilters = "set_column_filters"
+    # Set row filters based on column values
+    SetRowFilters = "set_row_filters"
 
     # Set or clear sort-by-column(s)
     SetSortColumns = "set_sort_columns"
@@ -627,27 +628,27 @@ class GetDataValuesRequest(BaseModel):
     )
 
 
-class SetColumnFiltersParams(BaseModel):
+class SetRowFiltersParams(BaseModel):
     """
-    Set or clear column filters on table, replacing any previous filters
+    Set or clear row filters on table, replacing any previous filters
     """
 
-    filters: List[ColumnFilter] = Field(
+    filters: List[RowFilter] = Field(
         description="Zero or more filters to apply",
     )
 
 
-class SetColumnFiltersRequest(BaseModel):
+class SetRowFiltersRequest(BaseModel):
     """
-    Set or clear column filters on table, replacing any previous filters
+    Set or clear row filters on table, replacing any previous filters
     """
 
-    params: SetColumnFiltersParams = Field(
-        description="Parameters to the SetColumnFilters method",
+    params: SetRowFiltersParams = Field(
+        description="Parameters to the SetRowFilters method",
     )
 
-    method: Literal[DataExplorerBackendRequest.SetColumnFilters] = Field(
-        description="The JSON-RPC method name (set_column_filters)",
+    method: Literal[DataExplorerBackendRequest.SetRowFilters] = Field(
+        description="The JSON-RPC method name (set_row_filters)",
     )
 
     jsonrpc: str = Field(
@@ -737,7 +738,7 @@ class DataExplorerBackendMessageContent(BaseModel):
         GetSchemaRequest,
         SearchSchemaRequest,
         GetDataValuesRequest,
-        SetColumnFiltersRequest,
+        SetRowFiltersRequest,
         SetSortColumnsRequest,
         GetColumnProfilesRequest,
         GetStateRequest,
@@ -781,7 +782,7 @@ ColumnSchema.update_forward_refs()
 
 TableSchema.update_forward_refs()
 
-ColumnFilter.update_forward_refs()
+RowFilter.update_forward_refs()
 
 BetweenFilterParams.update_forward_refs()
 
@@ -819,9 +820,9 @@ GetDataValuesParams.update_forward_refs()
 
 GetDataValuesRequest.update_forward_refs()
 
-SetColumnFiltersParams.update_forward_refs()
+SetRowFiltersParams.update_forward_refs()
 
-SetColumnFiltersRequest.update_forward_refs()
+SetRowFiltersRequest.update_forward_refs()
 
 SetSortColumnsParams.update_forward_refs()
 

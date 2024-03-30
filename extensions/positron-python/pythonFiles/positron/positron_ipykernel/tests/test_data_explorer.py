@@ -13,7 +13,7 @@ from .._vendor.pydantic import BaseModel
 from ..access_keys import encode_access_key
 from ..data_explorer import COMPARE_OPS, DataExplorerService
 from ..data_explorer_comm import (
-    ColumnFilter,
+    RowFilter,
     ColumnProfileResult,
     ColumnSchema,
     ColumnSortKey,
@@ -370,10 +370,8 @@ class PandasFixture:
     def get_data_values(self, table_name, **params):
         return self.do_json_rpc(table_name, "get_data_values", **params)
 
-    def set_column_filters(self, table_name, filters=None):
-        return self.do_json_rpc(
-            table_name, "set_column_filters", filters=filters
-        )
+    def set_row_filters(self, table_name, filters=None):
+        return self.do_json_rpc(table_name, "set_row_filters", filters=filters)
 
     def set_sort_columns(self, table_name, sort_keys=None):
         return self.do_json_rpc(
@@ -391,7 +389,7 @@ class PandasFixture:
         self.register_table(table_id, table)
         self.register_table(ex_id, expected_table)
 
-        response = self.set_column_filters(table_id, filters=filter_set)
+        response = self.set_row_filters(table_id, filters=filter_set)
         assert response == FilterResult(selected_num_rows=len(expected_table))
         self.compare_tables(table_id, ex_id, table.shape)
 
@@ -402,7 +400,7 @@ class PandasFixture:
         self.register_table(ex_id, expected_table)
 
         if filters is not None:
-            self.set_column_filters(table_id, filters)
+            self.set_row_filters(table_id, filters)
 
         response = self.set_sort_columns(table_id, sort_keys=sort_keys)
         assert response is None
@@ -448,7 +446,7 @@ def test_pandas_get_state(pandas_fixture: PandasFixture):
     ]
     filters = [_compare_filter(0, ">", 0), _compare_filter(0, "<", 5)]
     pandas_fixture.set_sort_columns("simple", sort_keys=sort_keys)
-    pandas_fixture.set_column_filters("simple", filters=filters)
+    pandas_fixture.set_row_filters("simple", filters=filters)
 
     result = pandas_fixture.get_state("simple")
     assert result["sort_keys"] == sort_keys
@@ -650,8 +648,8 @@ def test_pandas_filter_compare(pandas_fixture: PandasFixture):
 
     # Test that passing empty filter set resets to unfiltered state
     filt = _compare_filter(column_index, "<", str(compare_value))
-    _ = pandas_fixture.set_column_filters(table_name, filters=[filt])
-    response = pandas_fixture.set_column_filters(table_name, filters=[])
+    _ = pandas_fixture.set_row_filters(table_name, filters=[filt])
+    response = pandas_fixture.set_row_filters(table_name, filters=[])
     assert response == FilterResult(selected_num_rows=len(df))
 
     # register the whole table to make sure the filters are really cleared
@@ -854,7 +852,7 @@ def test_pandas_profile_null_counts(pandas_fixture: PandasFixture):
     for table, filters, filtered_table, profiles in filter_cases:
         table_id = guid()
         pf.register_table(table_id, table)
-        pf.set_column_filters(table_id, filters)
+        pf.set_row_filters(table_id, filters)
 
         filtered_id = guid()
         pf.register_table(filtered_id, filtered_table)

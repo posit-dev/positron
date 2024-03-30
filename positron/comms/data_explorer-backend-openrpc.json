@@ -153,9 +153,9 @@
 			}
 		},
 		{
-			"name": "set_column_filters",
-			"summary": "Set column filters",
-			"description": "Set or clear column filters on table, replacing any previous filters",
+			"name": "set_row_filters",
+			"summary": "Set row filters based on column values",
+			"description": "Set or clear row filters on table, replacing any previous filters",
 			"params": [
 				{
 					"name": "filters",
@@ -164,7 +164,7 @@
 					"schema": {
 						"type": "array",
 						"items": {
-							"$ref": "#/components/schemas/column_filter"
+							"$ref": "#/components/schemas/row_filter"
 						}
 					}
 				}
@@ -267,11 +267,11 @@
 								}
 							}
 						},
-						"filters": {
+						"row_filters": {
 							"type": "array",
-							"description": "The set of currently applied filters",
+							"description": "The set of currently applied row filters",
 							"items": {
-								"$ref": "#/components/schemas/column_filter"
+								"$ref": "#/components/schemas/row_filter"
 							}
 						},
 						"sort_keys": {
@@ -371,9 +371,9 @@
 					}
 				}
 			},
-			"column_filter": {
+			"row_filter": {
 				"type": "object",
-				"description": "Specifies a table row filter based on a column's values",
+				"description": "Specifies a table row filter based on a single column's values",
 				"required": [
 					"filter_id",
 					"filter_type",

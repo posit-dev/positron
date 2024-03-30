@@ -24,8 +24,8 @@ import comm
 
 from .access_keys import decode_access_key
 from .data_explorer_comm import (
-    ColumnFilter,
-    ColumnFilterFilterType,
+    RowFilter,
+    RowFilterFilterType,
     ColumnFrequencyTable,
     ColumnFrequencyTableItem,
     ColumnHistogram,
@@ -47,7 +47,7 @@ from .data_explorer_comm import (
     SchemaUpdateParams,
     SearchSchemaRequest,
     SearchSchemaResult,
-    SetColumnFiltersRequest,
+    SetRowFiltersRequest,
     SetSortColumnsRequest,
     TableData,
     TableSchema,
@@ -81,7 +81,7 @@ class DataExplorerTableView(abc.ABC):
     def __init__(
         self,
         table,
-        filters: Optional[List[ColumnFilter]],
+        filters: Optional[List[RowFilter]],
         sort_keys: Optional[List[ColumnSortKey]],
     ):
         # Note: we must not ever modify the user's data
@@ -126,8 +126,8 @@ class DataExplorerTableView(abc.ABC):
             request.params.column_indices,
         ).dict()
 
-    def set_column_filters(self, request: SetColumnFiltersRequest):
-        return self._set_column_filters(request.params.filters)
+    def set_row_filters(self, request: SetRowFiltersRequest):
+        return self._set_row_filters(request.params.filters)
 
     def set_sort_columns(self, request: SetSortColumnsRequest):
         self.sort_keys = request.params.sort_keys
@@ -200,7 +200,7 @@ class DataExplorerTableView(abc.ABC):
         pass
 
     @abc.abstractmethod
-    def _set_column_filters(self, filters: List[ColumnFilter]) -> FilterResult:
+    def _set_row_filters(self, filters: List[RowFilter]) -> FilterResult:
         pass
 
     @abc.abstractmethod
@@ -272,7 +272,7 @@ class PandasView(DataExplorerTableView):
     def __init__(
         self,
         table,
-        filters: Optional[List[ColumnFilter]],
+        filters: Optional[List[RowFilter]],
         sort_keys: Optional[List[ColumnSortKey]],
     ):
         super().__init__(table, filters, sort_keys)
@@ -324,7 +324,7 @@ class PandasView(DataExplorerTableView):
     def _recompute(self):
         # Resetting the column filters will trigger filtering AND
         # sorting
-        self._set_column_filters(self.filters)
+        self._set_row_filters(self.filters)
 
     @property
     def dtypes(self):
@@ -368,6 +368,9 @@ class PandasView(DataExplorerTableView):
             column_schemas.append(col_schema)
 
         return TableSchema(columns=column_schemas)
+
+    def _get_column_schema():
+        pass
 
     def _search_schema(
         self, search_term: str, start_index: int, max_results: int
@@ -426,7 +429,7 @@ class PandasView(DataExplorerTableView):
             # reflect the filtered_indices that have just been updated
             self._sort_data()
 
-    def _set_column_filters(self, filters) -> FilterResult:
+    def _set_row_filters(self, filters) -> FilterResult:
         self.filters = filters
 
         if len(filters) == 0:
@@ -532,14 +535,14 @@ COMPARE_OPS = {
 }
 
 
-def _pandas_eval_filter(df: "pd.DataFrame", filt: ColumnFilter):
+def _pandas_eval_filter(df: "pd.DataFrame", filt: RowFilter):
     col = df.iloc[:, filt.column_index]
     mask = None
-    if filt.filter_type == ColumnFilterFilterType.Between:
+    if filt.filter_type == RowFilterFilterType.Between:
         pass
-    elif filt.filter_type == ColumnFilterFilterType.NotBetween:
+    elif filt.filter_type == RowFilterFilterType.NotBetween:
         pass
-    elif filt.filter_type == ColumnFilterFilterType.Compare:
+    elif filt.filter_type == RowFilterFilterType.Compare:
         params = filt.compare_params
         assert params is not None
 
@@ -551,11 +554,11 @@ def _pandas_eval_filter(df: "pd.DataFrame", filt: ColumnFilter):
 
         # pandas comparison filters return False for null values
         mask = op(col, dummy.iloc[0])
-    elif filt.filter_type == ColumnFilterFilterType.IsNull:
+    elif filt.filter_type == RowFilterFilterType.IsNull:
         mask = col.isnull()
-    elif filt.filter_type == ColumnFilterFilterType.NotNull:
+    elif filt.filter_type == RowFilterFilterType.NotNull:
         mask = col.notnull()
-    elif filt.filter_type == ColumnFilterFilterType.SetMembership:
+    elif filt.filter_type == RowFilterFilterType.SetMembership:
         params = filt.set_membership_params
         assert params is not None
         boxed_values = pd_.Series(params.values).astype(col.dtype)
@@ -564,7 +567,7 @@ def _pandas_eval_filter(df: "pd.DataFrame", filt: ColumnFilter):
         if not params.inclusive:
             # NOT-IN
             mask = ~mask
-    elif filt.filter_type == ColumnFilterFilterType.Search:
+    elif filt.filter_type == RowFilterFilterType.Search:
         raise NotImplementedError
 
     # TODO(wesm): is it possible for there to be null values in the mask?

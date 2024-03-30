@@ -63,9 +63,9 @@ export interface TableState {
 	table_shape: TableShape;
 
 	/**
-	 * The set of currently applied filters
+	 * The set of currently applied row filters
 	 */
-	filters: Array<ColumnFilter>;
+	row_filters?: Array<RowFilter>;
 
 	/**
 	 * The set of currently applied sorts
@@ -158,9 +158,9 @@ export interface TableSchema {
 }
 
 /**
- * Specifies a table row filter based on a column's values
+ * Specifies a table row filter based on a single column's values
  */
-export interface ColumnFilter {
+export interface RowFilter {
 	/**
 	 * Unique identifier for this filter
 	 */
@@ -169,7 +169,7 @@ export interface ColumnFilter {
 	/**
 	 * Type of filter to apply
 	 */
-	filter_type: ColumnFilterFilterType;
+	filter_type: RowFilterFilterType;
 
 	/**
 	 * Column index to apply filter to
@@ -447,9 +447,9 @@ export enum ColumnSchemaTypeDisplay {
 }
 
 /**
- * Possible values for FilterType in ColumnFilter
+ * Possible values for FilterType in RowFilter
  */
-export enum ColumnFilterFilterType {
+export enum RowFilterFilterType {
 	Between = 'between',
 	Compare = 'compare',
 	IsNull = 'is_null',
@@ -569,16 +569,16 @@ export class PositronDataExplorerComm extends PositronBaseComm {
 	}
 
 	/**
-	 * Set column filters
+	 * Set row filters based on column values
 	 *
-	 * Set or clear column filters on table, replacing any previous filters
+	 * Set or clear row filters on table, replacing any previous filters
 	 *
 	 * @param filters Zero or more filters to apply
 	 *
 	 * @returns The result of applying filters to a table
 	 */
-	setColumnFilters(filters: Array<ColumnFilter>): Promise<FilterResult> {
-		return super.performRpc('set_column_filters', ['filters'], [filters]);
+	setRowFilters(filters: Array<RowFilter>): Promise<FilterResult> {
+		return super.performRpc('set_row_filters', ['filters'], [filters]);
 	}
 
 	/**
