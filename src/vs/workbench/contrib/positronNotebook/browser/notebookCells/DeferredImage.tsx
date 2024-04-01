@@ -63,30 +63,41 @@ export function DeferredImage({ src = 'no-source', ...props }: React.ComponentPr
 			return;
 		}
 
-		const timeoutMs = 3000;
-
+		const conversionTimeoutMs = 3000;
+		const errorTimeoutMs = 1000;
 		const tokenSource = new CancellationTokenSource();
+
+		let delayedErrorMsg: NodeJS.Timeout;
 
 		promiseWithTimeout(
 			services.commandService.executeCommand('positronNotebookHelpers.convertImageToBase64', src, baseLocation),
-			timeoutMs,
+			conversionTimeoutMs,
 			tokenSource.token
 		).then((payload) => {
 			if (typeof payload === 'string') {
 				setResults({ status: 'success', data: payload });
 			} else if (isConversionErrorMsg(payload)) {
-				services.logService.error(localize('failedToConvert', 'Failed to convert image to base64:'), src, payload.message);
+
+				delayedErrorMsg = setTimeout(() => {
+					services.logService.error(localize('failedToConvert', 'Failed to convert image to base64:'), src, payload.message);
+				}, errorTimeoutMs);
+
 				setResults(payload);
 			} else {
 				const unexpectedResponseString = localize('unexpectedResponse', 'Unexpected response from convertImageToBase64');
-				services.logService.error(unexpectedResponseString, payload);
+				delayedErrorMsg = setTimeout(() => {
+					services.logService.error(unexpectedResponseString, payload);
+				}, errorTimeoutMs);
 				setResults({ status: 'error', message: unexpectedResponseString });
 			}
 		}).catch((err) => {
 			setResults({ status: 'error', message: err.message });
 		});
 
-		return () => tokenSource.cancel();
+		return () => {
+			clearTimeout(delayedErrorMsg);
+			tokenSource.cancel();
+		};
 	}, [src, baseLocation, services]);
 
 	switch (results.status) {
