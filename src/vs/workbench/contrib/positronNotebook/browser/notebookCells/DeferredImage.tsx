@@ -10,8 +10,7 @@ import { URI } from 'vs/base/common/uri';
 import { Schemas } from 'vs/base/common/network';
 import { dirname } from 'vs/base/common/resources';
 import { localize } from 'vs/nls';
-import { promiseWithTimeout } from '../../common/utils/promiseWithTimeout';
-import { CancellationTokenSource } from 'vs/base/common/cancellation';
+import { createCancelablePromise, raceTimeout } from 'vs/base/common/async';
 
 /**
  * This should match the error message defined in the command definition
@@ -65,15 +64,15 @@ export function DeferredImage({ src = 'no-source', ...props }: React.ComponentPr
 
 		const conversionTimeoutMs = 3000;
 		const errorTimeoutMs = 1000;
-		const tokenSource = new CancellationTokenSource();
 
 		let delayedErrorMsg: NodeJS.Timeout;
 
-		promiseWithTimeout(
+		const conversionCancellablePromise = createCancelablePromise(() => raceTimeout(
 			services.commandService.executeCommand('positronNotebookHelpers.convertImageToBase64', src, baseLocation),
-			conversionTimeoutMs,
-			tokenSource.token
-		).then((payload) => {
+			conversionTimeoutMs
+		));
+
+		conversionCancellablePromise.then((payload) => {
 			if (typeof payload === 'string') {
 				setResults({ status: 'success', data: payload });
 			} else if (isConversionErrorMsg(payload)) {
@@ -96,7 +95,7 @@ export function DeferredImage({ src = 'no-source', ...props }: React.ComponentPr
 
 		return () => {
 			clearTimeout(delayedErrorMsg);
-			tokenSource.cancel();
+			conversionCancellablePromise.cancel();
 		};
 	}, [src, baseLocation, services]);
 

@@ -9,8 +9,7 @@ import { DeferredImage } from './DeferredImage';
 import { useServices } from 'vs/workbench/contrib/positronNotebook/browser/ServicesProvider';
 import { ExternalLink } from 'vs/base/browser/ui/ExternalLink/ExternalLink';
 import { localize } from 'vs/nls';
-import { promiseWithTimeout } from 'vs/workbench/contrib/positronNotebook/common/utils/promiseWithTimeout';
-import { CancellationTokenSource } from 'vs/base/common/cancellation';
+import { createCancelablePromise, raceTimeout } from 'vs/base/common/async';
 
 /**
  * Component that render markdown content from a string.
@@ -50,13 +49,12 @@ function useMarkdown(content: string): MarkdownRenderResults {
 
 	React.useEffect(() => {
 
-		const tokenSource = new CancellationTokenSource();
-
-		promiseWithTimeout(
+		const conversionCancellablePromise = createCancelablePromise(() => raceTimeout(
 			services.commandService.executeCommand('markdown.api.render', content),
 			5000,
-			tokenSource.token
-		).then((html) => {
+		));
+
+		conversionCancellablePromise.then((html) => {
 			if (typeof html !== 'string') {
 				setRenderedHtml({
 					status: 'error',
@@ -80,7 +78,7 @@ function useMarkdown(content: string): MarkdownRenderResults {
 			});
 		});
 
-		return () => tokenSource.cancel();
+		return () => conversionCancellablePromise.cancel();
 	}, [content, services]);
 
 	return renderedHtml;
