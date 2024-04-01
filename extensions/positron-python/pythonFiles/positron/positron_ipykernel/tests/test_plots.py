@@ -189,7 +189,7 @@ def test_hook_render(figure_comm: DummyComm, images_path: Path) -> None:
     reply = figure_comm.messages[0]
     assert reply["msg_type"] == "comm_msg"
     assert reply["buffers"] is None
-    assert reply["metadata"] == {}
+    assert reply["metadata"] == {"mime_type": "image/png"}
 
     # Check that the reply data is an `image` message
     image_msg = reply["data"]

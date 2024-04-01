@@ -98,12 +98,10 @@ class PositronDisplayPublisherHook:
             pixel_ratio = request.params.pixel_ratio or 1.0
 
             if width_px != 0 and height_px != 0:
-                format_dict, md_dict = self._resize_pickled_figure(
-                    pickled, width_px, height_px, pixel_ratio
-                )
+                format_dict = self._resize_pickled_figure(pickled, width_px, height_px, pixel_ratio)
                 data = format_dict["image/png"]
                 output = PlotResult(data=data, mime_type="image/png").dict()
-                figure_comm.send_result(data=output, metadata=md_dict)
+                figure_comm.send_result(data=output, metadata={"mime_type": "image/png"})
 
         else:
             logger.warning(f"Unhandled request: {request}")
@@ -213,7 +211,7 @@ class PositronDisplayPublisherHook:
 
         if was_interactive:
             plt.ion()
-        return (format_dict, {})
+        return format_dict
 
     def _is_figure_empty(self, figure):
         children = figure.get_children()
