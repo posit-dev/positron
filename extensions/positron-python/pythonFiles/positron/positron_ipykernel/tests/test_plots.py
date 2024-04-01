@@ -2,7 +2,9 @@
 # Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
 #
 
+import base64
 import codecs
+import io
 import pickle
 from pathlib import Path
 from typing import Iterable, cast
@@ -204,16 +206,20 @@ def test_hook_render(figure_comm: DummyComm, images_path: Path) -> None:
     width_in = width_px / BASE_DPI
     height_in = height_px / BASE_DPI
 
+    fig_buffer = io.BytesIO()
     fig_ref = cast(Figure, plt.figure())
     fig_axes = cast(Axes, fig_ref.subplots())
     fig_axes.plot([1, 2])
     fig_ref.set_dpi(dpi)
     fig_ref.set_size_inches(width_in, height_in)
+    fig_ref.set_layout_engine("tight")
 
     # Serialize the reference figure as a base64-encoded image
-    data_ref, _ = format_display_data(fig_ref, include=["image/png"], exclude=[])  # type: ignore
+    # data_ref, _ = format_display_data(fig_ref, include=["image/png"], exclude=[])  # type: ignore
+    fig_ref.savefig(fig_buffer, format="png", dpi=dpi)
+    fig_buffer.seek(0)
     expected = images_path / "test-hook-render-expected.png"
-    _save_base64_image(data_ref["image/png"], expected)
+    _save_base64_image(base64.b64encode(fig_buffer.read()).decode(), expected)
 
     # Compare the actual vs expected figures
     err = compare_images(str(actual), str(expected), tol=0)
