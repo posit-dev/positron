@@ -110,7 +110,7 @@ export const PositronModalDialog = (props: PropsWithChildren<PositronModalDialog
 				// Enter accepts dialog.
 				case 'Enter': {
 					consumeEvent();
-					props.onAccept?.();
+					props.onAccept();
 					break;
 				}
 
