@@ -10,7 +10,7 @@ import * as React from 'react';
 
 // Other dependencies.
 import { Emitter } from 'vs/base/common/event';
-import { renderHtml } from 'vs/base/browser/renderHtml';
+import { renderHtml } from 'vs/base/browser/positron/renderHtml';
 import { IOpenerService } from 'vs/platform/opener/common/opener';
 import { ILayoutService } from 'vs/platform/layout/browser/layoutService';
 import { IKeybindingService } from 'vs/platform/keybinding/common/keybinding';

@@ -4,7 +4,7 @@
 import 'vs/css!./Markdown';
 
 import * as React from 'react';
-import { renderHtml } from 'vs/base/browser/renderHtml';
+import { renderHtml } from 'vs/base/browser/positron/renderHtml';
 import { DeferredImage } from './DeferredImage';
 import { useServices } from 'vs/workbench/contrib/positronNotebook/browser/ServicesProvider';
 import { ExternalLink } from 'vs/base/browser/ui/ExternalLink/ExternalLink';
