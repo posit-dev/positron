@@ -2,7 +2,9 @@
 # Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
 #
 
+import base64
 import codecs
+import io
 import logging
 import pickle
 import uuid
@@ -22,7 +24,7 @@ logger = logging.getLogger(__name__)
 # Matplotlib Default Figure Size
 DEFAULT_WIDTH_IN = 6.4
 DEFAULT_HEIGHT_IN = 4.8
-BASE_DPI = 96
+BASE_DPI = 100
 
 
 class PositronDisplayPublisherHook:
@@ -168,11 +170,13 @@ class PositronDisplayPublisherHook:
         plt.ioff()
 
         figure = pickle.loads(codecs.decode(pickled.encode(), "base64"))
+        figure_buffer = io.BytesIO()
 
         # Adjust the DPI based on pixel_ratio to accommodate high
         # resolution displays...
         dpi = BASE_DPI * pixel_ratio
         figure.set_dpi(dpi)
+        figure.set_layout_engine("tight")  # eliminates whitespace around the figure
 
         # ... but use base DPI to convert to inch based dimensions.
         width_in, height_in = figure.get_size_inches()
@@ -197,14 +201,19 @@ class PositronDisplayPublisherHook:
 
         figure.set_size_inches(width_in, height_in)
 
-        format_dict, md_dict = format_display_data(figure, include=formats, exclude=[])  # type: ignore
+        # Render the figure to a buffer
+        # using format_display_data() crops the figure to smaller than requested size
+        figure.savefig(figure_buffer, format="png", dpi=dpi)
+        figure_buffer.seek(0)
+        image_data = base64.b64encode(figure_buffer.read()).decode()
+
+        format_dict = {"image/png": image_data}
 
         plt.close(figure)
 
         if was_interactive:
             plt.ion()
-
-        return (format_dict, md_dict)
+        return (format_dict, {})
 
     def _is_figure_empty(self, figure):
         children = figure.get_children()
