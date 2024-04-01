@@ -5,7 +5,7 @@ from __future__ import annotations
 
 import logging
 import uuid
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, TypedDict, Union
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Set, Tuple, TypedDict, Union
 
 import comm
 
@@ -47,6 +47,13 @@ class ConnectionObject(TypedDict):
 class ConnectionObjectFields(TypedDict):
     name: str
     dtype: str
+
+
+class UnsupportedConnectionError(Exception):
+    pass
+
+
+PathKey = Tuple[str, ...]
 
 
 class Connection:
@@ -128,7 +135,18 @@ class ConnectionsService:
         self._kernel = kernel
         self._comm_target_name = comm_target_name
 
-    def register_connection(self, connection: Any) -> str:
+        # Maps from variable path to set of comm_ids serving requests.
+        # A variable can point to a single connection object in the pane.
+        # But a comm_id can be shared by multiple variable paths.
+        self.path_to_comm_ids: Dict[PathKey, str] = {}
+
+        # Mapping from comm_id to the corresponding variable path.
+        # Multiple variables paths, might point to the same commm_id.
+        self.comm_id_to_path: Dict[str, Set[PathKey]] = {}
+
+    def register_connection(
+        self, connection: Any, variable_path: Optional[List[str]] = None
+    ) -> str:
         """
         Opens a connection to the given data source.
 
@@ -152,6 +170,7 @@ class ConnectionsService:
                     conn.type,
                     comm_id,
                 )
+                self._register_variable_path(variable_path, comm_id)
                 return comm_id
 
         comm_id = str(uuid.uuid4())
@@ -161,9 +180,26 @@ class ConnectionsService:
             data={"name": connection.display_name},
         )
 
+        self._register_variable_path(variable_path, comm_id)
         self.comm_id_to_connection[comm_id] = connection
         self.on_comm_open(base_comm)
         return comm_id
+
+    def _register_variable_path(self, variable_path: Optional[List[str]], comm_id: str) -> None:
+        if variable_path is None:
+            return
+
+        if not isinstance(variable_path, list):
+            raise ValueError(variable_path)
+
+        key = tuple(variable_path)
+
+        if comm_id in self.comm_id_to_path:
+            self.comm_id_to_path[comm_id].add(key)
+        else:
+            self.comm_id_to_path[comm_id] = {key}
+
+        self.path_to_comm_ids[key] = comm_id
 
     def on_comm_open(self, comm: BaseComm):
         comm_id = comm.comm_id
@@ -173,15 +209,53 @@ class ConnectionsService:
         self.comms[comm_id] = connections_comm
 
     def _wrap_connection(self, obj: Any) -> Connection:
-        # we don't want to import sqlalchemy for that
-        type_name = type(obj).__name__
+
+        if not self.object_is_supported(obj):
+            type_name = type(obj).__name__
+            raise UnsupportedConnectionError(f"Unsupported connection type {type_name}")
 
         if safe_isinstance(obj, "sqlite3", "Connection"):
             return SQLite3Connection(obj)
         elif safe_isinstance(obj, "sqlalchemy", "Engine"):
             return SQLAlchemyConnection(obj)
 
-        raise TypeError(f"Unsupported connection type {type_name}")
+    def object_is_supported(self, obj: Any) -> bool:
+        """
+        Checks if an object is supported by the connections pane.
+        """
+        return safe_isinstance(obj, "sqlite3", "Connection") or safe_isinstance(
+            obj, "sqlalchemy", "Engine"
+        )
+
+    def variable_has_active_connections(self, variable_path: List[str]) -> bool:
+        """
+        Checks if the given variable path has an active connection.
+        """
+        return tuple(variable_path) in self.path_to_comm_ids
+
+    def handle_variable_updated(self, variable_name, value) -> None:
+        """
+        Handles a variable being updated in the kernel.
+        """
+        comm_id = self.path_to_comm_ids.get(tuple(variable_name))
+        if comm_id is None:
+            return
+
+        try:
+            new_comm_id = self.register_connection(value, variable_path=[variable_name])
+        except UnsupportedConnectionError:
+            # if an unsupported connection error, that it means the variable
+            # is no longer a connection, thus we close the connection.
+            self._close_connection(comm_id)
+            return
+
+        # if the connection is the same, we don't need to do anything
+        if comm_id == new_comm_id:
+            return
+
+        # if the connections is different, we handle it as if it was a variable deletion
+        # TODO: we don't really want to close the connection, but 'delete' the variable
+        self._close_connection(comm_id)
 
     def _close_connection(self, comm_id: str):
         try:
