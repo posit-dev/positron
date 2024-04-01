@@ -227,7 +227,7 @@ class ConnectionsService:
             obj, "sqlalchemy", "Engine"
         )
 
-    def variable_has_active_connections(self, variable_path: List[str]) -> bool:
+    def variable_has_active_connection(self, variable_path: List[str]) -> bool:
         """
         Checks if the given variable path has an active connection.
         """
