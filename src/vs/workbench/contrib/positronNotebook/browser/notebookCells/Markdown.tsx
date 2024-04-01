@@ -9,7 +9,7 @@ import { DeferredImage } from './DeferredImage';
 import { useServices } from 'vs/workbench/contrib/positronNotebook/browser/ServicesProvider';
 import { ExternalLink } from 'vs/base/browser/ui/ExternalLink/ExternalLink';
 import { localize } from 'vs/nls';
-import { promiseWithTimeout } from 'vs/workbench/contrib/positronNotebook/common/utils/commandWithTimeout';
+import { promiseWithTimeout } from 'vs/workbench/contrib/positronNotebook/common/utils/promiseWithTimeout';
 import { CancellationTokenSource } from 'vs/base/common/cancellation';
 
 /**
