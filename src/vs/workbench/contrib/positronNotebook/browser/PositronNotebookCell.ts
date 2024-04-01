@@ -2,57 +2,61 @@
  *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
-import { Disposable } from 'vs/base/common/lifecycle';
+import { Disposable, DisposableStore } from 'vs/base/common/lifecycle';
 import { ISettableObservable, observableValue } from 'vs/base/common/observableInternal/base';
 import { URI } from 'vs/base/common/uri';
 import { ITextModel } from 'vs/editor/common/model';
 import { ITextModelService } from 'vs/editor/common/services/resolverService';
+import { IInstantiationService } from 'vs/platform/instantiation/common/instantiation';
+import { ICellViewModel } from 'vs/workbench/contrib/notebook/browser/notebookBrowser';
 import { NotebookCellTextModel } from 'vs/workbench/contrib/notebook/common/model/notebookCellTextModel';
-import { ICellOutput } from 'vs/workbench/contrib/notebook/common/notebookCommon';
+import { CellKind, ICellOutput } from 'vs/workbench/contrib/notebook/common/notebookCommon';
 import { IPositronNotebookInstance } from 'vs/workbench/contrib/positronNotebook/browser/PositronNotebookInstance';
+import { ExecutionStatus, IPositronNotebookCodeCell, IPositronNotebookCell, IPositronNotebookMarkdownCell } from 'vs/workbench/contrib/positronNotebook/browser/notebookCells/interfaces';
 
 
-type ExecutionStatus = 'running' | 'pending' | 'unconfirmed' | 'idle';
+abstract class PositronNotebookCellGeneral extends Disposable implements IPositronNotebookCell {
+	kind!: CellKind;
 
-
-export class PositronNotebookCell extends Disposable implements IPositronNotebookCell {
-	executionStatus: ISettableObservable<ExecutionStatus, void>;
-	outputs: ISettableObservable<ICellOutput[], void>;
+	// Not marked as private so we can access it in subclasses
+	_disposableStore = new DisposableStore();
 
 	constructor(
-		public viewModel: NotebookCellTextModel,
-		private _instance: IPositronNotebookInstance,
+		public cellModel: NotebookCellTextModel,
+		public _instance: IPositronNotebookInstance,
 		@ITextModelService private readonly textModelResolverService: ITextModelService,
 	) {
 		super();
-		this.executionStatus = observableValue<ExecutionStatus, void>('cellExecutionStatus', 'idle');
-		this.outputs = observableValue<ICellOutput[], void>('cellOutputs', this.viewModel.outputs);
-
-		// Listen for changes to the cell outputs and update the observable
-		this._register(
-			this.viewModel.onDidChangeOutputs(() => {
-				// By unpacking the array and repacking we make sure that
-				// the React component will rerender when the outputs change. Probably not
-				// great to have this leak here.
-				this.outputs.set([...this.viewModel.outputs], undefined);
-			})
-		);
 	}
 
 	get uri(): URI {
-		return this.viewModel.uri;
+		return this.cellModel.uri;
+	}
+
+	get notebookUri(): URI {
+		return this._instance.uri;
+	}
+
+	get viewModel(): ICellViewModel {
+
+		const notebookViewModel = this._instance.viewModel;
+		if (!notebookViewModel) {
+			throw new Error('Notebook view model not found');
+		}
+
+		const viewCells = notebookViewModel.viewCells;
+
+		const cell = viewCells.find(cell => cell.uri.toString() === this.cellModel.uri.toString());
+
+		if (cell) {
+			return cell;
+		}
+
+		throw new Error('Cell view model not found');
 	}
 
 	getContent(): string {
-		return this.viewModel.getValue();
-	}
-
-	run(): void {
-		this._instance.runCells([this]);
-	}
-
-	delete(): void {
-		this._instance.deleteCell(this);
+		return this.cellModel.getValue();
 	}
 
 	async getTextEditorModel(): Promise<ITextModel> {
@@ -60,50 +64,111 @@ export class PositronNotebookCell extends Disposable implements IPositronNoteboo
 		return modelRef.object.textEditorModel;
 	}
 
+	delete(): void {
+		this._instance.deleteCell(this);
+	}
+
+	// Add placeholder run method to be overridden by subclasses
+	abstract run(): void;
+
+	override dispose(): void {
+		this._disposableStore.dispose();
+		super.dispose();
+	}
+
+	isMarkdownCell(): this is IPositronNotebookMarkdownCell {
+		return this.kind === CellKind.Markup;
+	}
+
+	isCodeCell(): this is IPositronNotebookCodeCell {
+		return this.kind === CellKind.Code;
+	}
+}
+
+
+class PositronNotebookCodeCell extends PositronNotebookCellGeneral implements IPositronNotebookCodeCell {
+	override kind: CellKind.Code = CellKind.Code;
+	executionStatus: ISettableObservable<ExecutionStatus, void>;
+	outputs: ISettableObservable<ICellOutput[], void>;
+
+	constructor(
+		cellModel: NotebookCellTextModel,
+		instance: IPositronNotebookInstance,
+		textModelResolverService: ITextModelService,
+	) {
+		super(cellModel, instance, textModelResolverService);
+
+		this.executionStatus = observableValue<ExecutionStatus, void>('cellExecutionStatus', 'idle');
+		this.outputs = observableValue<ICellOutput[], void>('cellOutputs', this.cellModel.outputs);
+
+		// Listen for changes to the cell outputs and update the observable
+		this._register(
+			this.cellModel.onDidChangeOutputs(() => {
+				// By unpacking the array and repacking we make sure that
+				// the React component will rerender when the outputs change. Probably not
+				// great to have this leak here.
+				this.outputs.set([...this.cellModel.outputs], undefined);
+			})
+		);
+	}
+
+	override run(): void {
+		this._instance.runCells([this]);
+	}
+}
+
+
+
+
+class PositronNotebookMarkdownCell extends PositronNotebookCellGeneral implements IPositronNotebookMarkdownCell {
+
+	markdownString: ISettableObservable<string | undefined> = observableValue<string | undefined, void>('markdownString', undefined);
+	editorShown: ISettableObservable<boolean> = observableValue<boolean, void>('editorShown', false);
+	override kind: CellKind.Markup = CellKind.Markup;
+
+
+	constructor(
+		cellModel: NotebookCellTextModel,
+		instance: IPositronNotebookInstance,
+		textModelResolverService: ITextModelService,
+	) {
+		super(cellModel, instance, textModelResolverService);
+
+		// Render the markdown content and update the observable when the cell content changes
+		this._disposableStore.add(this.cellModel.onDidChangeContent(() => {
+			this.markdownString.set(this.getContent(), undefined);
+		}));
+
+		this._updateContent();
+	}
+
+	private _updateContent(): void {
+		this.markdownString.set(this.getContent(), undefined);
+	}
+
+	toggleEditor(): void {
+		this.editorShown.set(!this.editorShown.get(), undefined);
+	}
+
+	override run(): void {
+		this.toggleEditor();
+	}
 }
 
 /**
- * Wrapper class for notebook cell that exposes the properties that the UI needs to render the cell.
+ * Instantiate a notebook cell based on the cell's kind
+ * @param cell Text model for the cell
+ * @param instance The containing Positron notebook instance that this cell resides in.
+ * @param instantiationService The instantiation service to use to create the cell
+ * @returns The instantiated notebook cell of the correct type.
  */
-interface IPositronNotebookCell {
-
-	/**
-	 * Cell specific uri for the cell within the notebook
-	 */
-	get uri(): URI;
-
-	/**
-	 * The content of the cell. This is the raw text of the cell.
-	 */
-	getContent(): string;
-
-	/**
-	 * The view model for the cell.
-	 */
-	viewModel: NotebookCellTextModel;
-
-	/**
-	 * Get the text editor model for use in the monaco editor widgets
-	 */
-	getTextEditorModel(): Promise<ITextModel>;
-
-	/**
-	 * Current execution status for this cell
-	 */
-	executionStatus: ISettableObservable<ExecutionStatus, void>;
-
-	/**
-	 * Current cell outputs as an observable
-	 */
-	outputs: ISettableObservable<ICellOutput[], void>;
-
-	/**
-	 * Run this cell
-	 */
-	run(): void;
-
-	/**
-	 * Delete this cell
-	 */
-	delete(): void;
+export function createNotebookCell(cell: NotebookCellTextModel, instance: IPositronNotebookInstance, instantiationService: IInstantiationService) {
+	if (cell.cellKind === CellKind.Code) {
+		return instantiationService.createInstance(PositronNotebookCodeCell, cell, instance);
+	} else {
+		return instantiationService.createInstance(PositronNotebookMarkdownCell, cell, instance);
+	}
 }
+
+
+

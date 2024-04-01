@@ -9,16 +9,28 @@ import { IContextKeyService } from 'vs/platform/contextkey/common/contextkey';
 import { ServiceCollection } from 'vs/platform/instantiation/common/serviceCollection';
 import { CellEditorOptions } from 'vs/workbench/contrib/notebook/browser/view/cellParts/cellEditorOptions';
 import { useNotebookInstance } from 'vs/workbench/contrib/positronNotebook/browser/NotebookInstanceProvider';
-import { PositronNotebookCell } from 'vs/workbench/contrib/positronNotebook/browser/PositronNotebookCell';
 import { useServices } from 'vs/workbench/contrib/positronNotebook/browser/ServicesProvider';
+import { IPositronNotebookCell } from 'vs/workbench/contrib/positronNotebook/browser/notebookCells/interfaces';
 import { observeValue } from 'vs/workbench/contrib/positronNotebook/common/utils/observeValue';
+
+
+/**
+ *
+ * @param opts.cell Cell to be shown and edited in the editor widget
+ * @returns An editor widget for the cell
+ */
+export function CellEditorMonacoWidget({ cell }: { cell: IPositronNotebookCell }) {
+	const { editorPartRef } = useCellEditorWidget(cell);
+	return <div ref={editorPartRef} />;
+}
+
 
 /**
  * Create a cell editor widget for a cell.
  * @param cell Cell whose editor is to be created
  * @returns Refs to place the editor and the wrapping div
  */
-export function useCellEditorWidget({ cell }: { cell: PositronNotebookCell }) {
+export function useCellEditorWidget(cell: IPositronNotebookCell) {
 	const services = useServices();
 	const instance = useNotebookInstance();
 
@@ -44,7 +56,7 @@ export function useCellEditorWidget({ cell }: { cell: PositronNotebookCell }) {
 		const nativeContainer = DOM.$('.positron-monaco-editor-container');
 		editorPartRef.current.appendChild(nativeContainer);
 
-		const language = cell.viewModel.language;
+		const language = cell.cellModel.language;
 		const editorContextKeyService = services.scopedContextKeyProviderCallback(editorPartRef.current);
 		const editorInstaService = services.instantiationService.createChild(new ServiceCollection([IContextKeyService, editorContextKeyService]));
 		const editorOptions = new CellEditorOptions(instance.getBaseCellEditorOptions(language), instance.notebookOptions, services.configurationService);
