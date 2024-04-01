@@ -111,7 +111,7 @@ export function DeferredImage({ src = 'no-source', ...props }: React.ComponentPr
 		case 'error':
 			// Show image tag without attempt to convert. Probably will be broken but will provide
 			// clue as to what's going on.
-			return <img src={src} {...props} />;
+			return <img {...props} aria-label={results.message} />;
 		case 'success':
 			return <img src={results.data} {...props} />;
 	}
