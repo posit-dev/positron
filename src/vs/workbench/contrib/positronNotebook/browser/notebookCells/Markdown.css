@@ -2,15 +2,19 @@
  *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
-/* These styles are taken from the vscode notebook markdown rendering styles found in
- extensions/markdown-language-features/notebook/index.ts */
-.positron-markdown-rendered {
-	.emptyMarkdownCell::before {
-		content: var(--notebook-empty-markdown-cell-content);
-		font-style: italic;
-		opacity: 0.6;
-	}
+.positron-markdown-rendering {
+	text-align: center;
+	opacity: 0.6;
+	font-style: italic;
+}
 
+.positron-markdown-error {
+	color: var(--vscode-editorError-foreground, orangered);
+	font-style: italic;
+}
+
+/* These styles are taken from the vscode notebook markdown rendering styles found in extensions/markdown-language-features/notebook/index.ts */
+.positron-markdown-rendered {
 	img {
 		max-width: 100%;
 		max-height: 100%;
@@ -99,7 +103,7 @@
 
 	/* makes all markdown cells consistent */
 	div {
-		min-height: var(--notebook-markdown-min-height);
+		min-height: 1rem;
 	}
 
 	table {
@@ -137,7 +141,7 @@
 
 	code {
 		font-size: 1em;
-		font-family: var(--vscode-editor-font-family);
+		font-family: var(--vscode-repl-font-family);
 	}
 
 	pre code {

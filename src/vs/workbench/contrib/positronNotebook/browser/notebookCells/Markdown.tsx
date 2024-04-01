@@ -23,9 +23,9 @@ export function Markdown({ content }: { content: string }) {
 
 	switch (renderedHtml.status) {
 		case 'error':
-			return <div>{localize('errorRenderingMd', 'Error rendering markdown:')} {renderedHtml.errorMsg}</div>;
+			return <div className='positron-markdown-error'>{localize('errorRenderingMd', 'Error rendering markdown:')} {renderedHtml.errorMsg}</div>;
 		case 'rendering':
-			return <div>{localize('renderingMd', "Rendering markdown...")}</div>;
+			return <div className='positron-markdown-rendering' >{localize('renderingMd', "Rendering markdown...")}</div>;
 		case 'success':
 			return <div className='positron-markdown-rendered'>{renderedHtml.nodes}</div>;
 	}
