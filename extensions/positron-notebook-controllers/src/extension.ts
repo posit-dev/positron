@@ -4,12 +4,11 @@
 
 import * as positron from 'positron';
 import * as vscode from 'vscode';
-import { initializeLogging } from './logging';
 import { NotebookControllerManager } from './notebookControllerManager';
 
-export async function activate(context: vscode.ExtensionContext): Promise<void> {
-	initializeLogging();
+export const log = vscode.window.createOutputChannel('Positron Notebook Controllers', { log: true });
 
+export async function activate(context: vscode.ExtensionContext): Promise<void> {
 	const manager = new NotebookControllerManager();
 	context.subscriptions.push(manager);
 

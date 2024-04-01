@@ -3,7 +3,7 @@
  *--------------------------------------------------------------------------------------------*/
 import * as vscode from 'vscode';
 import * as positron from 'positron';
-import { trace } from './logging';
+import { log } from './extension';
 import { DeferredPromise, delay } from './util';
 
 /**
@@ -102,7 +102,7 @@ export class NotebookController implements vscode.Disposable {
 		}
 
 		if (!session) {
-			trace(`Tried to shutdown runtime for notebook without a running runtime: ${notebook.uri.path}`);
+			log.warn(`[${this.languageId}] Tried to shutdown runtime for notebook without a running runtime: ${notebook.uri.path}`);
 			return;
 		}
 
@@ -110,7 +110,7 @@ export class NotebookController implements vscode.Disposable {
 		session.dispose();
 		this._activeSessionsByNotebook.delete(notebook);
 		this._executionOrderBySessionId.delete(session.metadata.sessionId);
-		trace(`Shutdown runtime ${session.runtimeMetadata.runtimeName} for notebook ${notebook.uri.path}`);
+		log.info(`Shutdown runtime ${session.runtimeMetadata.runtimeName} for notebook ${notebook.uri.path}`);
 	}
 
 	/**
@@ -164,7 +164,7 @@ export class NotebookController implements vscode.Disposable {
 		try {
 			preferredRuntime = await positron.runtime.getPreferredRuntime(this.languageId);
 		} catch (err) {
-			trace(`Getting preferred runtime for language '${this.languageId}' failed. Reason: ${err}`);
+			log.error(`Getting preferred runtime for language '${this.languageId}' failed. Reason: ${err}`);
 			startPromise.error(err);
 			this._startingSessionsByNotebook.delete(notebook);
 
@@ -195,7 +195,7 @@ export class NotebookController implements vscode.Disposable {
 		this._executionOrderBySessionId.set(session.metadata.sessionId, 0);
 		this._startingSessionsByNotebook.delete(notebook);
 		startPromise.complete(session);
-		trace(`Session ${session.metadata.sessionId} is ready`);
+		log.info(`Session ${session.metadata.sessionId} is ready`);
 
 		return session;
 	}
@@ -239,7 +239,7 @@ export class NotebookController implements vscode.Disposable {
 		// Get the execution order for the session.
 		let executionOrder = this._executionOrderBySessionId.get(session.metadata.sessionId);
 		if (executionOrder === undefined) {
-			trace(`No execution order for session ${session.metadata.sessionId}, resetting to 0`);
+			log.error(`No execution order for session ${session.metadata.sessionId}, resetting to 0`);
 			executionOrder = 0;
 		}
 

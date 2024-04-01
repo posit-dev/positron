@@ -3,7 +3,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
-import { trace } from './logging';
+import { log } from './extension';
 import { NotebookController } from './notebookController';
 
 /**
@@ -24,7 +24,7 @@ export class NotebookControllerManager implements vscode.Disposable {
 		}
 		const controller = new NotebookController(languageId);
 		this.controllers.set(languageId, controller);
-		trace(`Registered notebook controller for language: ${languageId}`);
+		log.info(`Registered notebook controller for language: ${languageId}`);
 	}
 
 	/**
@@ -79,7 +79,7 @@ export class NotebookControllerManager implements vscode.Disposable {
 				? vscode.NotebookControllerAffinity.Preferred
 				: vscode.NotebookControllerAffinity.Default;
 			controller.controller.updateNotebookAffinity(notebook, affinity);
-			trace(`Updated notebook affinity for language: ${languageId}, notebook: ${notebook.uri.path}, affinity: ${affinity}`);
+			log.info(`Updated notebook affinity for language: ${languageId}, notebook: ${notebook.uri.path}, affinity: ${affinity}`);
 		}
 	}
 
