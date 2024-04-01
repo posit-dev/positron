@@ -10,7 +10,7 @@ import * as React from 'react';
 import { PropsWithChildren, useState } from 'react'; // eslint-disable-line no-duplicate-imports
 
 // Other dependencies.
-import { RadioButton, RadioButtonItem } from 'vs/base/browser/ui/positronComponents/radio/radioButton';
+import { RadioButton, RadioButtonItem } from 'vs/workbench/browser/positronComponents/positronModalDialog/components/radioButton';
 
 /**
  * RadioGroupProps interface.

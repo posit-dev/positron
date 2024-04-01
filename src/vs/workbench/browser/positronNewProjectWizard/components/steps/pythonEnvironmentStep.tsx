@@ -14,8 +14,8 @@ import { PositronWizardStep } from 'vs/workbench/browser/positronNewProjectWizar
 import { PositronWizardSubStep } from 'vs/workbench/browser/positronNewProjectWizard/components/wizardSubStep';
 import { DropDownListBoxItem } from 'vs/workbench/browser/positronComponents/dropDownListBox/dropDownListBoxItem';
 import { DropDownListBox } from 'vs/workbench/browser/positronComponents/dropDownListBox/dropDownListBox';
-import { RadioButtonItem } from 'vs/base/browser/ui/positronComponents/radio/radioButton';
-import { RadioGroup } from 'vs/base/browser/ui/positronComponents/radio/radioGroup';
+import { RadioButtonItem } from 'vs/workbench/browser/positronComponents/positronModalDialog/components/radioButton';
+import { RadioGroup } from 'vs/workbench/browser/positronComponents/positronModalDialog/components/radioGroup';
 
 enum EnvironmentSetupType {
 	NewEnv = 'newEnv',
