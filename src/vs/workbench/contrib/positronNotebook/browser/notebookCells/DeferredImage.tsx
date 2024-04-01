@@ -56,10 +56,16 @@ export function DeferredImage({ src = 'no-source', ...props }: React.ComponentPr
 	const [results, setResults] = React.useState<ImageDataResults>({ status: 'pending' });
 
 	React.useEffect(() => {
+
+		// Check for prefix of http or https to avoid converting remote images
+		if (src.startsWith('http://') || src.startsWith('https://')) {
+			setResults({ status: 'success', data: src });
+			return;
+		}
+
 		const timeoutMs = 3000;
 
 		const tokenSource = new CancellationTokenSource();
-
 
 		promiseWithTimeout(
 			services.commandService.executeCommand('positronNotebookHelpers.convertImageToBase64', src, baseLocation),
