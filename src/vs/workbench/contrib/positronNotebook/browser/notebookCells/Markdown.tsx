@@ -9,7 +9,8 @@ import { DeferredImage } from './DeferredImage';
 import { useServices } from 'vs/workbench/contrib/positronNotebook/browser/ServicesProvider';
 import { ExternalLink } from 'vs/base/browser/ui/ExternalLink/ExternalLink';
 import { localize } from 'vs/nls';
-import { commandWithTimeout } from 'vs/workbench/contrib/positronNotebook/common/utils/commandWithTimeout';
+import { promiseWithTimeout } from 'vs/workbench/contrib/positronNotebook/common/utils/commandWithTimeout';
+import { CancellationTokenSource } from 'vs/base/common/cancellation';
 
 /**
  * Component that render markdown content from a string.
@@ -47,49 +48,39 @@ function useMarkdown(content: string): MarkdownRenderResults {
 		status: 'rendering'
 	});
 
-
 	React.useEffect(() => {
 
-		const timeoutMs = 5000;
+		const tokenSource = new CancellationTokenSource();
 
-		const renderCommand = commandWithTimeout({
-			command: 'markdown.api.render',
-			args: [content],
-			timeoutMs,
-			commandService: services.commandService,
-			onSuccess: (html) => {
-				if (typeof html !== 'string') {
-					setRenderedHtml({
-						status: 'error',
-						errorMsg: localize('noHtmlResult', 'Failed to render markdown: No HTML result returned')
-					});
-					return;
-				}
-				setRenderedHtml({
-					status: 'success',
-					nodes: renderHtml(html, {
-						componentOverrides: {
-							img: DeferredImage,
-							a: (props) => <ExternalLink {...props} openerService={services.openerService} />
-						}
-					})
-				});
-			},
-			onTimeout: () => {
+		promiseWithTimeout(
+			services.commandService.executeCommand('markdown.api.render', content),
+			5000,
+			tokenSource.token
+		).then((html) => {
+			if (typeof html !== 'string') {
 				setRenderedHtml({
 					status: 'error',
-					errorMsg: localize('renderingMdTimeout', "Rendering markdown timed out after {0} ms", timeoutMs)
+					errorMsg: localize('noHtmlResult', 'Failed to render markdown: No HTML result returned')
 				});
-			},
-			onError: (error) => {
-				setRenderedHtml({
-					status: 'error',
-					errorMsg: error.message
-				});
+				return;
 			}
+			setRenderedHtml({
+				status: 'success',
+				nodes: renderHtml(html, {
+					componentOverrides: {
+						img: DeferredImage,
+						a: (props) => <ExternalLink {...props} openerService={services.openerService} />
+					}
+				})
+			});
+		}).catch((error) => {
+			setRenderedHtml({
+				status: 'error',
+				errorMsg: error.message
+			});
 		});
 
-		return () => renderCommand.clear();
+		return () => tokenSource.cancel();
 	}, [content, services]);
 
 	return renderedHtml;

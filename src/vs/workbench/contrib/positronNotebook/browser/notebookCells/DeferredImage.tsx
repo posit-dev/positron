@@ -10,7 +10,8 @@ import { URI } from 'vs/base/common/uri';
 import { Schemas } from 'vs/base/common/network';
 import { dirname } from 'vs/base/common/resources';
 import { localize } from 'vs/nls';
-import { commandWithTimeout } from '../../common/utils/commandWithTimeout';
+import { promiseWithTimeout } from '../../common/utils/commandWithTimeout';
+import { CancellationTokenSource } from 'vs/base/common/cancellation';
 
 /**
  * This should match the error message defined in the command definition
@@ -56,37 +57,30 @@ export function DeferredImage({ src = 'no-source', ...props }: React.ComponentPr
 
 	React.useEffect(() => {
 		const timeoutMs = 3000;
-		const convertCommand = commandWithTimeout<unknown>(
-			{
-				command: 'positronNotebookHelpers.convertImageToBase64',
-				args: [src, baseLocation],
-				timeoutMs,
-				commandService: services.commandService,
-				onSuccess: (payload) => {
-					if (typeof payload === 'string') {
-						setResults({ status: 'success', data: payload });
-					} else if (isConversionErrorMsg(payload)) {
-						services.logService.error(localize('failedToConvert', 'Failed to convert image to base64:'), src, payload.message);
-						setResults(payload);
-					} else {
-						const unexpectedResponseString = localize('unexpectedResponse', 'Unexpected response from convertImageToBase64');
-						services.logService.error(unexpectedResponseString, payload);
-						setResults({ status: 'error', message: unexpectedResponseString });
-					}
-				},
-				onError: (error) => {
-					setResults({ status: 'error', message: error.message });
-				},
-				onTimeout: () => {
-					setResults({
-						status: 'error',
-						message: localize('imageConversionTimeout', "Gather image data timed out after {0} ms", timeoutMs)
-					});
-				}
-			}
-		);
 
-		return () => convertCommand.clear();
+		const tokenSource = new CancellationTokenSource();
+
+
+		promiseWithTimeout(
+			services.commandService.executeCommand('positronNotebookHelpers.convertImageToBase64', src, baseLocation),
+			timeoutMs,
+			tokenSource.token
+		).then((payload) => {
+			if (typeof payload === 'string') {
+				setResults({ status: 'success', data: payload });
+			} else if (isConversionErrorMsg(payload)) {
+				services.logService.error(localize('failedToConvert', 'Failed to convert image to base64:'), src, payload.message);
+				setResults(payload);
+			} else {
+				const unexpectedResponseString = localize('unexpectedResponse', 'Unexpected response from convertImageToBase64');
+				services.logService.error(unexpectedResponseString, payload);
+				setResults({ status: 'error', message: unexpectedResponseString });
+			}
+		}).catch((err) => {
+			setResults({ status: 'error', message: err.message });
+		});
+
+		return () => tokenSource.cancel();
 	}, [src, baseLocation, services]);
 
 	switch (results.status) {
