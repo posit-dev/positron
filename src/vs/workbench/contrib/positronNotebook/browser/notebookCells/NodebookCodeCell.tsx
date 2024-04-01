@@ -1,67 +1,43 @@
 /*---------------------------------------------------------------------------------------------
  *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
-import 'vs/css!./NotebookCell';
 
 import * as React from 'react';
 import { VSBuffer } from 'vs/base/common/buffer';
 import { NotebookCellOutputTextModel } from 'vs/workbench/contrib/notebook/common/model/notebookCellOutputTextModel';
 import { ICellOutput } from 'vs/workbench/contrib/notebook/common/notebookCommon';
-import { PositronNotebookCell } from 'vs/workbench/contrib/positronNotebook/browser/PositronNotebookCell';
+import { IPositronNotebookCodeCell } from 'vs/workbench/contrib/positronNotebook/browser/notebookCells/interfaces';
 import { parseOutputData } from 'vs/workbench/contrib/positronNotebook/browser/getOutputContents';
 import { useObservedValue } from 'vs/workbench/contrib/positronNotebook/browser/useObservedValue';
-import { useCellEditorWidget } from './useCellEditorWidget';
+import { CellEditorMonacoWidget } from './CellEditorMonacoWidget';
 import { localize } from 'vs/nls';
 import { Button } from 'vs/base/browser/ui/positronComponents/button/button';
+import { NotebookCellActionBar } from 'vs/workbench/contrib/positronNotebook/browser/notebookCells/NotebookCellActionBar';
 
-/**
- * Logic for running a cell and handling its output.
- * @param opts.cell The `PositronNotebookCell` to render
- */
-export function NotebookCell(opts: {
-	cell: PositronNotebookCell;
-}) {
 
-	const { editorPartRef } = useCellEditorWidget(opts);
-
-	const executionStatus = useObservedValue(opts.cell.executionStatus);
-	const outputContents = useObservedValue(opts.cell.outputs);
-
+export function NodebookCodeCell({ cell }: { cell: IPositronNotebookCodeCell }) {
+	const outputContents = useObservedValue(cell.outputs);
+	const executionStatus = useObservedValue(cell.executionStatus);
 	const isRunning = executionStatus === 'running';
-	return (
-		<div className={`positron-notebook-cell ${executionStatus}`}
-			data-status={executionStatus}
-		>
-			<div className='action-bar'>
-				<Button
-					className='action-button'
-					ariaLabel={isRunning ? localize('stopExecution', 'Stop execution') : localize('runCell', 'Run cell')}
-					onPressed={() => opts.cell.run()} >
-					<div className={`button-icon codicon ${isRunning ? 'codicon-primitive-square' : 'codicon-run'}`} />
-				</Button>
-				<Button
-					className='action-button'
-					ariaLabel={localize('deleteCell', 'Delete cell')}
-					onPressed={() => opts.cell.delete()}
-				>
-					<div className='button-icon codicon codicon-trash' />
-				</Button>
+
+	return <div className='positron-notebook-cell'>
+		<NotebookCellActionBar cell={cell}>
+			<Button
+				className='action-button'
+				ariaLabel={isRunning ? localize('stopExecution', 'Stop execution') : localize('runCell', 'Run cell')}
+				onPressed={() => cell.run()} >
+				<div className={`button-icon codicon ${isRunning ? 'codicon-primitive-square' : 'codicon-run'}`} />
+			</Button>
+		</NotebookCellActionBar>
+		<div className='cell-contents'>
+			<CellEditorMonacoWidget cell={cell} />
+			<div className='positron-notebook-cell-outputs'>
+				{outputContents?.map((output) => <NotebookCellOutput key={output.outputId} cellOutput={output} />)}
 			</div>
-			<div className='cell-contents'>
-				<div ref={editorPartRef}>
-				</div>
-				<div className='positron-notebook-cell-outputs'>
-					{
-						outputContents?.map((output) =>
-							<NotebookCellOutput key={output.outputId} cellOutput={output} />)
-					}
-				</div>
-			</div>
-		</div >
-	);
+		</div>
+	</div>;
+
 }
-
-
 
 function NotebookCellOutput({ cellOutput }: { cellOutput: ICellOutput }) {
 
@@ -71,9 +47,7 @@ function NotebookCellOutput({ cellOutput }: { cellOutput: ICellOutput }) {
 	if (cellOutput instanceof NotebookCellOutputTextModel) {
 
 		return <>
-			{
-				outputs.map(({ data, mime }, i) => <CellOutputContents key={i} data={data} mime={mime} />)
-			}
+			{outputs.map(({ data, mime }, i) => <CellOutputContents key={i} data={data} mime={mime} />)}
 		</>;
 	}
 
@@ -83,8 +57,6 @@ function NotebookCellOutput({ cellOutput }: { cellOutput: ICellOutput }) {
 
 
 }
-
-
 function CellOutputContents(output: { data: VSBuffer; mime: string }) {
 
 	const parsed = parseOutputData(output);
@@ -110,4 +82,3 @@ function CellOutputContents(output: { data: VSBuffer; mime: string }) {
 	}
 
 }
-

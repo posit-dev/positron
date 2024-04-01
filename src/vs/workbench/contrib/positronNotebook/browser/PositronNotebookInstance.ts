@@ -20,10 +20,11 @@ import { CellEditType, CellKind, ICellReplaceEdit, SelectionStateType } from 'vs
 import { INotebookExecutionService } from 'vs/workbench/contrib/notebook/common/notebookExecutionService';
 import { INotebookExecutionStateService } from 'vs/workbench/contrib/notebook/common/notebookExecutionStateService';
 import { INotebookKernelService } from 'vs/workbench/contrib/notebook/common/notebookKernelService';
-import { PositronNotebookCell } from 'vs/workbench/contrib/positronNotebook/browser/PositronNotebookCell';
+import { createNotebookCell } from 'vs/workbench/contrib/positronNotebook/browser/PositronNotebookCell';
 import { PositronNotebookEditorInput } from 'vs/workbench/contrib/positronNotebook/browser/PositronNotebookEditorInput';
 import { BaseCellEditorOptions } from './BaseCellEditorOptions';
 import * as DOM from 'vs/base/browser/dom';
+import { IPositronNotebookCell } from 'vs/workbench/contrib/positronNotebook/browser/notebookCells/interfaces';
 
 
 enum KernelStatus {
@@ -51,7 +52,7 @@ export interface IPositronNotebookInstance {
 	/**
 	 * The cells that make up the notebook
 	 */
-	cells: ISettableObservable<PositronNotebookCell[]>;
+	cells: ISettableObservable<IPositronNotebookCell[]>;
 
 	/**
 	 * Status of kernel for the notebook.
@@ -61,7 +62,7 @@ export interface IPositronNotebookInstance {
 	/**
 	 * The currently selected cells. Typically a single cell but can be multiple cells.
 	 */
-	selectedCells: PositronNotebookCell[];
+	selectedCells: IPositronNotebookCell[];
 
 	/**
 	 * Has the notebook instance been disposed?
@@ -74,7 +75,7 @@ export interface IPositronNotebookInstance {
 	 * Run the given cells
 	 * @param cells The cells to run
 	 */
-	runCells(cells: PositronNotebookCell[]): Promise<void>;
+	runCells(cells: IPositronNotebookCell[]): Promise<void>;
 
 	/**
 	 * Run the selected cells
@@ -89,12 +90,12 @@ export interface IPositronNotebookInstance {
 	/**
 	 * Add a new cell of a given type to the notebook at the requested index
 	 */
-	addCell(type: keyof typeof PositronNotebookInstance.cellTypeToKind, index: number): void;
+	addCell(type: CellKind, index: number): void;
 
 	/**
 	 * Delete a cell from the notebook
 	 */
-	deleteCell(cell: PositronNotebookCell): void;
+	deleteCell(cell: IPositronNotebookCell): void;
 
 	/**
 	 * Attach a view model to this instance
@@ -103,24 +104,16 @@ export interface IPositronNotebookInstance {
 	 */
 	attachView(viewModel: NotebookViewModel, viewState?: INotebookEditorViewState): void;
 
+	readonly viewModel: NotebookViewModel | undefined;
+
 	/**
 	 * Method called when the instance is detached from a view. This is used to cleanup
 	 * all the logic and variables related to the view/DOM.
 	 */
 	detachView(): void;
-
 }
 
 export class PositronNotebookInstance extends Disposable implements IPositronNotebookInstance {
-
-	/**
-	 * Map from string of cell kind to the integer enum used internally.
-	 */
-	static cellTypeToKind = {
-		'code': CellKind.Code,
-		'markdown': CellKind.Markup,
-	};
-
 	/**
 	 * Value to keep track of what instance number.
 	 * Used for keeping track in the logs.
@@ -130,17 +123,17 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	private _identifier: string = `Positron Notebook | NotebookInstance(${PositronNotebookInstance.count++}) |`;
 
 
-	selectedCells: PositronNotebookCell[] = [];
+	selectedCells: IPositronNotebookCell[] = [];
 
 	/**
 	 * Internal cells that we use to manage the state of the notebook
 	 */
-	private _cells: PositronNotebookCell[] = [];
+	private _cells: IPositronNotebookCell[] = [];
 
 	/**
 	 * User facing cells wrapped in an observerable for the UI to react to changes
 	 */
-	cells: ISettableObservable<PositronNotebookCell[]>;
+	cells: ISettableObservable<IPositronNotebookCell[]>;
 
 	/**
 	 * Status of kernel for the notebook.
@@ -179,6 +172,10 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 
 	get uri(): URI {
 		return this._input.resource;
+	}
+
+	get viewModel(): NotebookViewModel | undefined {
+		return this._viewModel;
 	}
 
 
@@ -246,7 +243,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	) {
 		super();
 
-		this.cells = observableValue<PositronNotebookCell[]>('positronNotebookCells', this._cells);
+		this.cells = observableValue<IPositronNotebookCell[]>('positronNotebookCells', this._cells);
 		this.kernelStatus = observableValue<KernelStatus>('positronNotebookKernelStatus', KernelStatus.Uninitialized);
 
 		this.isReadOnly = this.creationOptions?.isReadOnly ?? false;
@@ -306,7 +303,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 			this._cells.forEach(cell => cell.dispose());
 
 			// Update cells with new cells
-			this._cells = notebookModel.cells.map(cell => this._instantiationService.createInstance(PositronNotebookCell, cell, this));
+			this._cells = notebookModel.cells.map(cell => createNotebookCell(cell, this, this._instantiationService));
 
 
 			this.language = notebookModel.cells[0].language;
@@ -337,7 +334,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 
 	}
 
-	async runCells(cells: PositronNotebookCell[]): Promise<void> {
+	async runCells(cells: IPositronNotebookCell[]): Promise<void> {
 
 		if (!cells) {
 			throw new Error(localize('noCells', "No cells to run"));
@@ -358,8 +355,9 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	 * @param cells Cells to run
 	 * @returns
 	 */
-	private async _runCells(cells: PositronNotebookCell[]): Promise<void> {
-
+	private async _runCells(cells: IPositronNotebookCell[]): Promise<void> {
+		// Filter so we're only working with code cells.
+		const codeCells = cells;
 		this._logService.info(this._identifier, '_runCells');
 
 		if (!this._textModel) {
@@ -368,24 +366,28 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 
 		this._trySetupKernel();
 
-		for (const cell of cells) {
-			cell.executionStatus.set('running', undefined);
+		for (const cell of codeCells) {
+			if (cell.isCodeCell()) {
+				cell.executionStatus.set('running', undefined);
+			}
 		}
 
 		const hasExecutions = [...cells].some(cell => Boolean(this.notebookExecutionStateService.getCellExecution(cell.uri)));
 
 		if (hasExecutions) {
-			this.notebookExecutionService.cancelNotebookCells(this._textModel, Array.from(cells).map(c => c.viewModel));
+			this.notebookExecutionService.cancelNotebookCells(this._textModel, Array.from(cells).map(c => c.cellModel));
 			return;
 		}
 
-		await this.notebookExecutionService.executeNotebookCells(this._textModel, Array.from(cells).map(c => c.viewModel), this._contextKeyService);
-		for (const cell of cells) {
-			cell.executionStatus.set('idle', undefined);
+		await this.notebookExecutionService.executeNotebookCells(this._textModel, Array.from(cells).map(c => c.cellModel), this._contextKeyService);
+		for (const cell of codeCells) {
+			if (cell.isCodeCell()) {
+				cell.executionStatus.set('idle', undefined);
+			}
 		}
 	}
 
-	addCell(type: 'code' | 'markdown', index: number): void {
+	addCell(type: CellKind, index: number): void {
 		if (!this._viewModel) {
 			throw new Error(localize('noViewModel', "No view model for notebook"));
 		}
@@ -400,7 +402,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 			index,
 			'',
 			this.language,
-			PositronNotebookInstance.cellTypeToKind[type],
+			type,
 			undefined,
 			[],
 			synchronous,
@@ -408,7 +410,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		);
 	}
 
-	deleteCell(cell: PositronNotebookCell): void {
+	deleteCell(cell: IPositronNotebookCell): void {
 		if (!this._textModel) {
 			throw new Error(localize('noModelForDelete', "No model for notebook to delete cell from"));
 		}
@@ -417,7 +419,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		// TODO: Hook up readOnly to the notebook actual value
 		const readOnly = false;
 		const computeUndoRedo = !readOnly || textModel.viewType === 'interactive';
-		const cellIndex = textModel.cells.indexOf(cell.viewModel);
+		const cellIndex = textModel.cells.indexOf(cell.cellModel);
 
 		const edits: ICellReplaceEdit = {
 			editType: CellEditType.Replace, index: cellIndex, count: 1, cells: []

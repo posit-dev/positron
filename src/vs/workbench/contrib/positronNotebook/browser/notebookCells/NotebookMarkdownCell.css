@@ -1,0 +1,35 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *--------------------------------------------------------------------------------------------*/
+
+.positron-notebook-markup-rendered {
+	padding-inline: 1rem;
+	padding-block: 0.5rem;
+
+	.empty-output-msg {
+		opacity: 0.75;
+		font-style: italic;
+		text-align: center;
+		cursor: pointer;
+	}
+
+	img {
+		max-width: 100%;
+	}
+}
+
+.positron-notebook-cell.editor-hidden {
+	--positron-notebooks-border-color: transparent;
+}
+
+.positron-notebook-cell.editor-hidden:not(:hover)
+	.positron-notebooks-cell-action-bar {
+	display: none;
+}
+
+/* Put the actions bar halfway down the cell so it's more clearly associated with the content that
+doesn't have borders to deliniate where it sits */
+.positron-notebook-cell.editor-hidden .positron-notebooks-cell-action-bar {
+	top: calc(50% - (var(--bar-h) / 2));
+	border-radius: 0.25rem;
+}

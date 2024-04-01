@@ -124,6 +124,11 @@ export function parseOutputData(output: ICellOutput['outputs'][number]): ParsedO
 		if (parsedMessage?.name === 'Runtime Error') {
 			return { type: 'error', content: parsedMessage.message };
 		}
+
+		if (mime === 'application/vnd.code.notebook.error') {
+			return { type: 'error', content: parsedMessage.message };
+		}
+
 	} catch (e) {
 	}
 
