@@ -218,6 +218,9 @@ class ConnectionsService:
             return SQLite3Connection(obj)
         elif safe_isinstance(obj, "sqlalchemy", "Engine"):
             return SQLAlchemyConnection(obj)
+        else:
+            type_name = type(obj).__name__
+            raise UnsupportedConnectionError(f"Unsupported connection type {type(obj)}")
 
     def object_is_supported(self, obj: Any) -> bool:
         """
@@ -227,11 +230,11 @@ class ConnectionsService:
             obj, "sqlalchemy", "Engine"
         )
 
-    def variable_has_active_connection(self, variable_path: List[str]) -> bool:
+    def variable_has_active_connection(self, variable_name: str) -> bool:
         """
         Checks if the given variable path has an active connection.
         """
-        return tuple(variable_path) in self.path_to_comm_ids
+        return ([variable_name]) in self.path_to_comm_ids
 
     def handle_variable_updated(self, variable_name, value) -> None:
         """
