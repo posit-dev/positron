@@ -33,7 +33,7 @@ export function PositronNotebookComponent() {
 					>
 						<span className='action-label'>
 							{localize('runAllCells', 'Run all cells')}</span>
-						<div className={`button-icon codicon ${'codicon-run'}`} />
+						<div className='button-icon codicon codicon-run' />
 					</Button>
 				</div>
 				<AddCellButtons index={0} />
