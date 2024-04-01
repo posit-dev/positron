@@ -235,7 +235,7 @@ jobs:
         run: |
           python -m pip config set global.index-url https://packagemanager.posit.co/pypi/${{ env.SNAPSHOT_DATE }}/simple
           python -m pip config set global.trusted-host packagemanager.posit.co
-          python -m pip install --prefer-binary --force-reinstall -r pythonFiles/positron/data-science-requirements.txt
+          python -m pip install --prefer-binary --force-reinstall --no-dependencies -r pythonFiles/positron/data-science-requirements.txt
 
       - name: Run Positron IPyKernel unit tests
         run: pytest pythonFiles/positron
