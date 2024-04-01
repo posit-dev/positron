@@ -18,7 +18,7 @@ export function promiseWithTimeout<T>(promise: Promise<T>, timeoutMs: number, ca
 		});
 
 		const timeout = setTimeout(() => {
-			reject(new Error('Promise timed out'));
+			reject(new Error(`Promise timed out after ${timeoutMs}ms`));
 		}, timeoutMs);
 
 		promise.then((res) => {
