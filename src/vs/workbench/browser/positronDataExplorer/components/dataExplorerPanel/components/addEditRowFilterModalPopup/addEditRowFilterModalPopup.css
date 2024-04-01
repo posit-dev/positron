@@ -19,13 +19,14 @@
 
 .positron-modal-popup
 .add-edit-row-filter-modal-popup-body
-.button-apply-filter {
+.button-apply-row-filter {
 	height: 26px;
 	padding: 4px;
 	display: flex;
 	border-radius: 4px;
 	align-items: center;
 	justify-content: center;
+	text-transform: uppercase;
 	color: var(--vscode-positronModalDialog-defaultButtonForeground);
 	background-color: var(--vscode-positronModalDialog-defaultButtonBackground);
 }

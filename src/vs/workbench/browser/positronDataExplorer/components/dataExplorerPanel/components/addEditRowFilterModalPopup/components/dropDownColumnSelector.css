@@ -25,7 +25,7 @@
 }
 
 .drop-down-column-selector
-.title-foo {
+.column-schema-title {
 	grid-column: title / chevron;
 	display: grid;
 	align-items: center;
@@ -33,7 +33,7 @@
 }
 
 .drop-down-column-selector
-.title-foo
+.column-schema-title
 .data-type-icon {
 	width: 25px;
 	/* height: 25px; */
@@ -45,9 +45,10 @@
 }
 
 .drop-down-column-selector
-.title-foo
+.column-schema-title
 .column-name {
 	display: flex;
+	font-weight: 600;
 	align-items: center;
 	justify-content: left;
 	grid-column: title / right-gutter;
