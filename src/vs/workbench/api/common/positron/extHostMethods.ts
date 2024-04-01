@@ -4,12 +4,13 @@
 
 import * as extHostProtocol from './extHost.positron.protocol';
 import { ExtHostEditors } from '../extHostTextEditors';
+import { ExtHostDocuments } from '../extHostDocuments';
 import { ExtHostWorkspace } from '../extHostWorkspace';
 import { ExtHostModalDialogs } from '../positron/extHostModalDialogs';
 import { ExtHostLanguageRuntime } from '../positron/extHostLanguageRuntime';
 import { UiFrontendRequest, EditorContext } from 'vs/workbench/services/languageRuntime/common/positronUiComm';
 import { JsonRpcErrorCode } from 'vs/workbench/services/languageRuntime/common/positronBaseComm';
-import { EndOfLine } from '../extHostTypeConverters';
+import { EndOfLine, TextEditorOpenOptions } from '../extHostTypeConverters';
 
 type JsonRpcResponse = JsonRpcResult | JsonRpcError;
 
@@ -35,6 +36,7 @@ export class ExtHostMethods implements extHostProtocol.ExtHostMethodsShape {
 	constructor(
 		_mainContext: extHostProtocol.IMainPositronContext,
 		private readonly editors: ExtHostEditors,
+		private readonly documents: ExtHostDocuments,
 		private readonly dialogs: ExtHostModalDialogs,
 		private readonly runtime: ExtHostLanguageRuntime,
 		private readonly workspace: ExtHostWorkspace
@@ -71,6 +73,16 @@ export class ExtHostMethods implements extHostProtocol.ExtHostMethodsShape {
 						return newInvalidParamsError(method);
 					}
 					result = await this.workspaceFolder();
+					break;
+				}
+				case UiFrontendRequest.NewDocument: {
+					if (!params ||
+						!Object.keys(params).includes('contents') ||
+						!Object.keys(params).includes('language_id')) {
+						return newInvalidParamsError(method);
+					}
+					result = await this.createDocument(params.contents as string,
+						params.language_id as string);
 					break;
 				}
 				case UiFrontendRequest.ShowQuestion: {
@@ -205,6 +217,20 @@ export class ExtHostMethods implements extHostProtocol.ExtHostMethodsShape {
 
 	async showDialog(title: string, message: string): Promise<null> {
 		return this.dialogs.showSimpleModalDialogMessage(title, message);
+	}
+
+	async createDocument(contents: string, languageId: string): Promise<null> {
+
+		const uri = await this.documents.createDocumentData({
+			content: contents, language: languageId
+		});
+		const opts: TextEditorOpenOptions = { preview: true };
+		this.documents.ensureDocumentData(uri).then(documentData => {
+			this.editors.showTextDocument(documentData.document, opts);
+		});
+
+		// TODO: Return a document ID
+		return null;
 	}
 
 	async showQuestion(title: string, message: string, okButtonTitle: string, cancelButtonTitle: string): Promise<boolean> {

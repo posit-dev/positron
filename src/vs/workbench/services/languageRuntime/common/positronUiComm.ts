@@ -253,6 +253,25 @@ export interface ShowUrlEvent {
 }
 
 /**
+ * Request: Create a new document with text contents
+ *
+ * Use this to create a new document with the given language ID and text
+ * contents
+ */
+export interface NewDocumentRequest {
+	/**
+	 * Document contents
+	 */
+	contents: string;
+
+	/**
+	 * Language identifier
+	 */
+	language_id: string;
+
+}
+
+/**
  * Request: Show a question
  *
  * Use this for a modal dialog that the user can accept or cancel
@@ -370,6 +389,7 @@ export enum UiFrontendEvent {
 }
 
 export enum UiFrontendRequest {
+	NewDocument = 'new_document',
 	ShowQuestion = 'show_question',
 	ShowDialog = 'show_dialog',
 	DebugSleep = 'debug_sleep',

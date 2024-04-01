@@ -16,6 +16,7 @@ import * as extHostTypes from 'vs/workbench/api/common/positron/extHostTypes.pos
 import { IExtHostInitDataService } from 'vs/workbench/api/common/extHostInitDataService';
 import { ExtHostPreviewPanels } from 'vs/workbench/api/common/positron/extHostPreviewPanels';
 import { ExtHostModalDialogs } from 'vs/workbench/api/common/positron/extHostModalDialogs';
+import { ExtHostDocuments } from 'vs/workbench/api/common/extHostDocuments';
 import { ExtHostContext } from 'vs/workbench/api/common/extHost.protocol';
 import { IExtHostWorkspace } from 'vs/workbench/api/common/extHostWorkspace';
 import { ExtHostWebviews } from 'vs/workbench/api/common/extHostWebview';
@@ -57,12 +58,12 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 	const extHostLanguageFeatures: ExtHostLanguageFeatures =
 		rpcProtocol.getRaw(ExtHostContext.ExtHostLanguageFeatures);
 	const extHostEditors: ExtHostEditors = rpcProtocol.getRaw(ExtHostContext.ExtHostEditors);
-
+	const extHostDocuments: ExtHostDocuments = rpcProtocol.getRaw(ExtHostContext.ExtHostDocuments);
 	const extHostLanguageRuntime = rpcProtocol.set(ExtHostPositronContext.ExtHostLanguageRuntime, new ExtHostLanguageRuntime(rpcProtocol));
 	const extHostPreviewPanels = rpcProtocol.set(ExtHostPositronContext.ExtHostPreviewPanel, new ExtHostPreviewPanels(rpcProtocol, extHostWebviews, extHostWorkspace));
 	const extHostModalDialogs = rpcProtocol.set(ExtHostPositronContext.ExtHostModalDialogs, new ExtHostModalDialogs(rpcProtocol));
 	const extHostConsoleService = rpcProtocol.set(ExtHostPositronContext.ExtHostConsoleService, new ExtHostConsoleService(rpcProtocol, extHostLogService));
-	const extHostMethods = rpcProtocol.set(ExtHostPositronContext.ExtHostMethods, new ExtHostMethods(rpcProtocol, extHostEditors, extHostModalDialogs, extHostLanguageRuntime, extHostWorkspace));
+	const extHostMethods = rpcProtocol.set(ExtHostPositronContext.ExtHostMethods, new ExtHostMethods(rpcProtocol, extHostEditors, extHostDocuments, extHostModalDialogs, extHostLanguageRuntime, extHostWorkspace));
 
 	return function (extension: IExtensionDescription, extensionInfo: IExtensionRegistries, configProvider: ExtHostConfigProvider): typeof positron {
 

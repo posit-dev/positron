@@ -230,6 +230,20 @@ class OpenEditorParams(BaseModel):
     )
 
 
+class NewDocumentParams(BaseModel):
+    """
+    Create a new document with text contents
+    """
+
+    contents: str = Field(
+        description="Document contents",
+    )
+
+    language_id: str = Field(
+        description="Language identifier",
+    )
+
+
 class ShowMessageParams(BaseModel):
     """
     Show a message
@@ -381,6 +395,8 @@ CallMethodRequest.update_forward_refs()
 BusyParams.update_forward_refs()
 
 OpenEditorParams.update_forward_refs()
+
+NewDocumentParams.update_forward_refs()
 
 ShowMessageParams.update_forward_refs()
 
