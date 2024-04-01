@@ -14,6 +14,18 @@ import { PositronWizardStep } from 'vs/workbench/browser/positronComponents/posi
 import { PositronWizardSubStep } from 'vs/workbench/browser/positronComponents/positronModalDialog/components/wizardSubStep';
 import { DropDownListBoxItem } from 'vs/workbench/browser/positronComponents/dropDownListBox/dropDownListBoxItem';
 import { DropDownListBox } from 'vs/workbench/browser/positronComponents/dropDownListBox/dropDownListBox';
+import { RadioButtonItem } from 'vs/base/browser/ui/positronComponents/radio/radioButton';
+import { RadioGroup } from 'vs/base/browser/ui/positronComponents/radio/radioGroup';
+
+enum EnvironmentSetupType {
+	NewEnv = 'newEnv',
+	ExistingEnv = 'existingEnv'
+}
+
+const envSetupRadioButtons: RadioButtonItem[] = [
+	new RadioButtonItem({ identifier: EnvironmentSetupType.NewEnv, title: 'Create a new Python environment _(Recommended)_' }),
+	new RadioButtonItem({ identifier: EnvironmentSetupType.ExistingEnv, title: 'Use an existing Python installation' })
+];
 
 /**
  * The PythonEnvironmentStep component is specific to Python projects in the new project wizard.
@@ -46,6 +58,7 @@ export const PythonEnvironmentStep = (props: PropsWithChildren<NewProjectWizardS
 					newProjectWizardState.languageRuntimeService
 				)
 		);
+	const [envSetupType, setEnvSetupType] = useState(EnvironmentSetupType.NewEnv);
 
 	// TODO: retrieve the python environment types from the language runtime service somehow?
 	// TODO: localize these entries
@@ -54,10 +67,24 @@ export const PythonEnvironmentStep = (props: PropsWithChildren<NewProjectWizardS
 		new DropDownListBoxItem({ identifier: 'Conda', title: 'Conda' + ' Creates a `.conda` Conda environment for your project' })
 	];
 
-	// // TODO: hook this up to the radio buttons
-	// const onEnvSetupSelected = (identifier: string) => {
-	// 	// TODO: update the interpreter entries, filtering with PythonRuntimeFilter.All if existing python installation is selected
-	// };
+	const onEnvSetupSelected = (identifier: string) => {
+		console.log('onEnvSetupSelected', 'changing env setup type from', envSetupType, 'to', identifier);
+		if (Object.values(EnvironmentSetupType).includes(identifier as EnvironmentSetupType)) {
+			setEnvSetupType(identifier as EnvironmentSetupType);
+			if (identifier === EnvironmentSetupType.ExistingEnv) {
+				setInterpreterEntries(
+					createPythonInterpreterDropDownItems(
+						newProjectWizardState.runtimeStartupService,
+						newProjectWizardState.languageRuntimeService
+					)
+				);
+			}
+		} else {
+			// This shouldn't happen, since the RadioGroup should only allow selection of the
+			// EnvironmentSetupType values
+			logService.error(`Unknown environment setup type: ${identifier}`);
+		}
+	};
 
 	// Handler for when the environment type is selected. The interpreter entries are updated based
 	// on the selected environment type, and the project configuration is updated as well.
@@ -141,51 +168,43 @@ export const PythonEnvironmentStep = (props: PropsWithChildren<NewProjectWizardS
 					'How would you like to set up your Python project environment?'
 				))()}
 			>
-				{/* TODO: create radiogroup and radiobutton components */}
-				<div style={{ display: 'flex', flexDirection: 'column', rowGap: '4px' }}>
-					<div>
-						<input type='radio' id='newEnvironment' name='envSetup' value='Create a new Python environment <i>(Recommended)' checked />
-						<label htmlFor='newEnvironment'>Create a new Python environment <i>(Recommended)</i></label>
-					</div>
-					<div>
-						{/* TODO: when existing installation is selected, show only the python
-						interpreter selection substep with all detected python interpreters listed.
-						Show the note about ipykernel installation below the dropdown instead of in
-						a tooltip?) */}
-						<input type='radio' id='existingInstallation' name='envSetup' value='Use an existing Python installation' />
-						<label htmlFor='existingInstallation'>Use an existing Python installation</label>
-					</div>
-				</div>
+				<RadioGroup entries={envSetupRadioButtons} initialSelectionId='newEnv' onSelectionChanged={identifier => onEnvSetupSelected(identifier)} />
+				{/* TODO: when existing installation is selected, show only the python
+				interpreter selection substep with all detected python interpreters listed.
+				Show the note about ipykernel installation below the dropdown instead of in
+				a tooltip?) */}
 			</PositronWizardSubStep>
-			<PositronWizardSubStep
-				title={(() => localize(
+			{envSetupType === EnvironmentSetupType.NewEnv ?
+				<PositronWizardSubStep
+					title={(() => localize(
 					'pythonEnvironmentSubStep.label',
 					'Python Environment'
 				))()}
-				description={(() => localize(
+					description={(() => localize(
 					'pythonEnvironmentSubStep.description',
 					'Select an environment type for your project.'
 				))()}
-				// TODO: construct the env location based on the envTypeEntries above, instead of inline here
-				feedback={(() => localize(
+					// TODO: construct the env location based on the envTypeEntries above, instead of inline here
+					feedback={(() => localize(
 					'pythonEnvironmentSubStep.feedback',
 					'The {0} environment will be created at: {1}',
 					projectConfig.pythonEnvType,
 					`${projectConfig.parentFolder}/${projectConfig.projectName}/${projectConfig.pythonEnvType === 'Venv' ? '.venv' : 'Conda' ? '.conda' : ''}`
 				))()}
-			>
-				{/* TODO: how to pre-select an option? */}
-				<DropDownListBox
-					keybindingService={keybindingService}
-					layoutService={layoutService}
-					title={(() => localize(
+				>
+					{/* TODO: how to pre-select an option? */}
+					<DropDownListBox
+						keybindingService={keybindingService}
+						layoutService={layoutService}
+						title={(() => localize(
 						'pythonEnvironmentSubStep.dropDown.title',
 						'Select an environment type'
 					))()}
-					entries={envTypeEntries}
-					onSelectionChanged={identifier => onEnvTypeSelected(identifier)}
-				/>
-			</PositronWizardSubStep>
+						entries={envTypeEntries}
+						onSelectionChanged={identifier => onEnvTypeSelected(identifier)}
+					/>
+				</PositronWizardSubStep> : null
+			}
 			{/* TODO: add a tooltip icon to the end of the feedback text of the PositronWizardSubStep */}
 			{/*       onhover tooltip, display the following note if we don't detect ipykernel for the selected interpreter */}
 			{/*       <p>Note: Positron will install <code>ipykernel</code> in this environment for Python language support.</p> */}
