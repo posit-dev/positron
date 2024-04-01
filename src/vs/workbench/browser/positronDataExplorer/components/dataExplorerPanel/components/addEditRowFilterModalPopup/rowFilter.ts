@@ -2,17 +2,48 @@
  *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
+import { generateUuid } from 'vs/base/common/uuid';
 import { ColumnSchema } from 'vs/workbench/services/languageRuntime/common/positronDataExplorerComm';
+
+/**
+ * RowFilterCondition enumeration.
+ */
+export enum RowFilterCondition {
+	// Conditions with no parameters.
+	CONDITION_IS_EMPTY = 'is-empty',
+	CONDITION_IS_NOT_EMPTY = 'is-not-empty',
+
+	// Conditions with one parameter.
+	CONDITION_IS_LESS_THAN = 'is-less-than',
+	CONDITION_IS_GREATER_THAN = 'is-greater-than',
+	CONDITION_IS_EQUAL_TO = 'is-equal-to',
+
+	// Conditions with two parameters.
+	CONDITION_IS_BETWEEN = 'is-between',
+	CONDITION_IS_NOT_BETWEEN = 'is-not-between'
+}
 
 /**
  * BaseRowFilter class.
  */
-class BaseRowFilter {
+abstract class BaseRowFilter {
+	/**
+	 * Gets the identifier.
+	 */
+	readonly identifier;
+
 	/**
 	 * Constructor.
 	 * @param columnSchema The column schema.
 	 */
-	constructor(public readonly columnSchema: ColumnSchema) { }
+	constructor(public readonly columnSchema: ColumnSchema) {
+		this.identifier = generateUuid();
+	}
+
+	/**
+	 * Gets the row filter condition.
+	 */
+	abstract get rowFilterCondition(): RowFilterCondition;
 }
 
 /**
@@ -25,6 +56,13 @@ export class RowFilterIsEmpty extends BaseRowFilter {
 	 */
 	constructor(columnSchema: ColumnSchema) {
 		super(columnSchema);
+	}
+
+	/**
+	 * Gets the row filter condition.
+	 */
+	get rowFilterCondition() {
+		return RowFilterCondition.CONDITION_IS_EMPTY;
 	}
 }
 
@@ -39,12 +77,19 @@ export class RowFilterIsNotEmpty extends BaseRowFilter {
 	constructor(columnSchema: ColumnSchema) {
 		super(columnSchema);
 	}
+
+	/**
+	 * Gets the row filter condition.
+	 */
+	get rowFilterCondition() {
+		return RowFilterCondition.CONDITION_IS_NOT_EMPTY;
+	}
 }
 
 /**
  * SingleValueRowFilter class.
  */
-class SingleValueRowFilter extends BaseRowFilter {
+export abstract class SingleValueRowFilter extends BaseRowFilter {
 	/**
 	 * Constructor.
 	 * @param columnSchema The column schema.
@@ -67,6 +112,13 @@ export class RowFilterIsLessThan extends SingleValueRowFilter {
 	constructor(columnSchema: ColumnSchema, value: string) {
 		super(columnSchema, value);
 	}
+
+	/**
+	 * Gets the row filter condition.
+	 */
+	get rowFilterCondition() {
+		return RowFilterCondition.CONDITION_IS_LESS_THAN;
+	}
 }
 
 /**
@@ -80,6 +132,13 @@ export class RowFilterIsGreaterThan extends SingleValueRowFilter {
 	 */
 	constructor(columnSchema: ColumnSchema, value: string) {
 		super(columnSchema, value);
+	}
+
+	/**
+	 * Gets the row filter condition.
+	 */
+	get rowFilterCondition() {
+		return RowFilterCondition.CONDITION_IS_GREATER_THAN;
 	}
 }
 
@@ -95,12 +154,19 @@ export class RowFilterIsEqualTo extends SingleValueRowFilter {
 	constructor(columnSchema: ColumnSchema, value: string) {
 		super(columnSchema, value);
 	}
+
+	/**
+	 * Gets the row filter condition.
+	 */
+	get rowFilterCondition() {
+		return RowFilterCondition.CONDITION_IS_EQUAL_TO;
+	}
 }
 
 /**
  * RangeRowFilter class.
  */
-class RangeRowFilter extends BaseRowFilter {
+export abstract class RangeRowFilter extends BaseRowFilter {
 	/**
 	 * Constructor.
 	 * @param columnSchema The column schema.
@@ -129,6 +195,13 @@ export class RowFilterIsBetween extends RangeRowFilter {
 	constructor(columnSchema: ColumnSchema, lowerLimit: string, upperLimit: string) {
 		super(columnSchema, lowerLimit, upperLimit);
 	}
+
+	/**
+	 * Gets the row filter condition.
+	 */
+	get rowFilterCondition() {
+		return RowFilterCondition.CONDITION_IS_BETWEEN;
+	}
 }
 
 /**
@@ -143,6 +216,13 @@ export class RowFilterIsNotBetween extends RangeRowFilter {
 	 */
 	constructor(columnSchema: ColumnSchema, lowerLimit: string, upperLimit: string) {
 		super(columnSchema, lowerLimit, upperLimit);
+	}
+
+	/**
+	 * Gets the row filter condition.
+	 */
+	get rowFilterCondition() {
+		return RowFilterCondition.CONDITION_IS_NOT_BETWEEN;
 	}
 }
 

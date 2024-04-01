@@ -1,0 +1,88 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *--------------------------------------------------------------------------------------------*/
+
+.row-filter-widget {
+	padding: 0;
+	height: 25px;
+	display: flex;
+	cursor: pointer;
+	border-radius: 3px;
+	align-items: center;
+	box-sizing: border-box;
+	justify-content: center;
+	color: var(--vscode-positronDataExplorer-foreground);
+	border: 1px solid var(--vscode-positronDataExplorer-border);
+	background-color: var(--vscode-positronDataExplorer-background);
+}
+
+.row-filter-widget:hover {
+	background-color: var(--vscode-positronDataExplorer-contrastBackground);
+}
+
+.row-filter-widget
+.boolean-operator {
+	height: 100%;
+	padding: 0 6px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	border-right: 1px solid var(--vscode-positronDataExplorer-border);
+}
+
+.row-filter-widget
+.title {
+	margin: 0 2px 0 6px;
+}
+
+.row-filter-widget
+.title
+.column-name {
+	font-weight: 600;
+}
+
+.row-filter-widget
+.title
+.space-before::before {
+	content: " ";
+	white-space: pre;
+}
+
+.row-filter-widget
+.title
+.space-after::after {
+	content: " ";
+	white-space: pre;
+}
+
+.row-filter-widget
+.clear-filter-button {
+	width: 18px;
+	height: 18px;
+	display: flex;
+	opacity: 80%;
+	cursor: pointer;
+	margin-right: 3px;
+	border-radius: 3px;
+	align-items: center;
+	box-sizing: border-box;
+	justify-content: center;
+}
+
+.row-filter-widget
+.clear-filter-button:hover {
+	border: 1px solid var(--vscode-positronDataExplorer-border);
+
+	/* outline: 1px solid var(--vscode-focusBorder); */
+	background-color: var(--vscode-positronDataExplorer-contrastBackground);
+}
+
+.row-filter-widget
+.clear-button:focus {
+	outline: none !important;
+}
+
+.row-filter-widget
+.clear-button:focus-visible {
+	outline: 1px solid var(--vscode-focusBorder);
+}
