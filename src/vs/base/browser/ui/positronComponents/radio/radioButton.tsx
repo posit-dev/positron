@@ -32,8 +32,9 @@ export class RadioButtonItem {
  * RadioButtonProps interface.
  */
 export interface RadioButtonProps extends RadioButtonItemOptions {
-	isFirstButtonInGroup?: boolean;
 	selected: boolean;
+	groupName: string;
+	isFirstButtonInGroup?: boolean;
 	onSelected: () => void;
 }
 
@@ -48,7 +49,7 @@ export const RadioButton = (props: RadioButtonProps) => {
 				type='radio'
 				tabIndex={props.isFirstButtonInGroup ? 0 : -1}
 				id={props.identifier}
-				name={props.title}
+				name={props.groupName}
 				value={props.identifier}
 				checked={props.selected}
 				onClick={props.onSelected}

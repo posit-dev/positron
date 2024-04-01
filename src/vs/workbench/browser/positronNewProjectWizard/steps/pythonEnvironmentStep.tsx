@@ -168,7 +168,12 @@ export const PythonEnvironmentStep = (props: PropsWithChildren<NewProjectWizardS
 					'How would you like to set up your Python project environment?'
 				))()}
 			>
-				<RadioGroup entries={envSetupRadioButtons} initialSelectionId='newEnv' onSelectionChanged={identifier => onEnvSetupSelected(identifier)} />
+				<RadioGroup
+					name='envSetup'
+					entries={envSetupRadioButtons}
+					initialSelectionId={EnvironmentSetupType.NewEnv}
+					onSelectionChanged={identifier => onEnvSetupSelected(identifier)}
+				/>
 				{/* TODO: when existing installation is selected, show only the python
 				interpreter selection substep with all detected python interpreters listed.
 				Show the note about ipykernel installation below the dropdown instead of in

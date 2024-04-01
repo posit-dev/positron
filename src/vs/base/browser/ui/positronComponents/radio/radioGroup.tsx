@@ -16,6 +16,7 @@ import { RadioButton, RadioButtonItem } from 'vs/base/browser/ui/positronCompone
  * RadioGroupProps interface.
  */
 interface RadioGroupProps {
+	name: string;
 	entries: RadioButtonItem[];
 	initialSelectionId?: string;
 	labelledBy?: string;
@@ -50,6 +51,7 @@ export const RadioGroup = (props: PropsWithChildren<RadioGroupProps>) => {
 						key={index}
 						identifier={entry.options.identifier}
 						title={entry.options.title}
+						groupName={props.name}
 						icon={entry.options.icon}
 						selected={entry.options.identifier === currentSelection}
 						onSelected={() => onSelectionChanged(entry.options.identifier)}
@@ -59,4 +61,3 @@ export const RadioGroup = (props: PropsWithChildren<RadioGroupProps>) => {
 		</div>
 	);
 };
-
