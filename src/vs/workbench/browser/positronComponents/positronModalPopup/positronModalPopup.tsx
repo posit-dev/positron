@@ -196,7 +196,7 @@ export const PositronModalPopup = (props: PropsWithChildren<PositronModalPopupPr
 
 			// Handle the event.
 			switch (e.code) {
-				// Ender accepts the modal popup.
+				// Enter accepts the modal popup.
 				case 'Enter': {
 					consumeEvent();
 					props.onAccept?.();

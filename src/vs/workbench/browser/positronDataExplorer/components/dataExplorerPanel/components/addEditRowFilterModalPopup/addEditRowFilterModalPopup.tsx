@@ -97,31 +97,27 @@ export const AddEditRowFilterModalPopup = (props: AddEditRowFilterModalPopupProp
 
 	// State hooks.
 	const [selectedColumnSchema, setSelectedColumnSchema] = useState<ColumnSchema | undefined>(
-		props.editRowFilter ? props.editRowFilter.columnSchema : undefined
+		props.editRowFilter?.columnSchema
 	);
 	const [selectedCondition, setSelectedCondition] = useState<string | undefined>(
-		props.editRowFilter ? props.editRowFilter.rowFilterCondition : undefined
+		props.editRowFilter?.rowFilterCondition
 	);
-	const [firstRowFilterValue, setFirstRowFilterValue] = useState<string>(
-		(() => {
-			if (props.editRowFilter instanceof SingleValueRowFilter) {
-				return props.editRowFilter.value;
-			} else if (props.editRowFilter instanceof RangeRowFilter) {
-				return props.editRowFilter.lowerLimit;
-			} else {
-				return '';
-			}
-		})()
-	);
-	const [secondRowFilterValue, setSecondRowFilterValue] = useState<string>(
-		(() => {
-			if (props.editRowFilter instanceof RangeRowFilter) {
-				return props.editRowFilter.upperLimit;
-			} else {
-				return '';
-			}
-		})()
-	);
+	const [firstRowFilterValue, setFirstRowFilterValue] = useState<string>(() => {
+		if (props.editRowFilter instanceof SingleValueRowFilter) {
+			return props.editRowFilter.value;
+		} else if (props.editRowFilter instanceof RangeRowFilter) {
+			return props.editRowFilter.lowerLimit;
+		} else {
+			return '';
+		}
+	});
+	const [secondRowFilterValue, setSecondRowFilterValue] = useState<string>(() => {
+		if (props.editRowFilter instanceof RangeRowFilter) {
+			return props.editRowFilter.upperLimit;
+		} else {
+			return '';
+		}
+	});
 	const [errorText, setErrorText] = useState<string | undefined>(undefined);
 
 	// useEffect for when the selectedCondition changes.
