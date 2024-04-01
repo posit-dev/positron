@@ -5,11 +5,13 @@ on:
     branches:
       - main
     paths:
+      - '.github/workflows/positron-python-ci.yml'
       - 'extensions/positron-python/**'
   pull_request:
     branches:
       - main
     paths:
+      - '.github/workflows/positron-python-ci.yml'
       - 'extensions/positron-python/**'
 
 
@@ -196,18 +198,18 @@ jobs:
           - os: 'ubuntu-latest'
             python: '3.12'
             time-elapsed: ''
-          - os: 'ubuntu-latest'
-            python: '3.10'
-            time-elapsed: '3 months'
-          - os: 'ubuntu-latest'
-            python: '3.10'
-            time-elapsed: '6 months'
-          - os: 'ubuntu-latest'
-            python: '3.10'
-            time-elapsed: '9 months'
-          - os: 'ubuntu-latest'
-            python: '3.10'
-            time-elapsed: '1 year'
+          # - os: 'ubuntu-latest'
+          #   python: '3.10'
+          #   time-elapsed: '3 months'
+          # - os: 'ubuntu-latest'
+          #   python: '3.10'
+          #   time-elapsed: '6 months'
+          # - os: 'ubuntu-latest'
+          #   python: '3.10'
+          #   time-elapsed: '9 months'
+          # - os: 'ubuntu-latest'
+          #   python: '3.10'
+          #   time-elapsed: '1 year'
 
     steps:
       - name: Checkout
@@ -235,7 +237,7 @@ jobs:
         run: |
           python -m pip config set global.index-url https://packagemanager.posit.co/pypi/${{ env.SNAPSHOT_DATE }}/simple
           python -m pip config set global.trusted-host packagemanager.posit.co
-          python -m pip install --prefer-binary --force-reinstall --no-dependencies -r pythonFiles/positron/data-science-requirements.txt
+          python -m pip install --prefer-binary --force-reinstall -r pythonFiles/positron/data-science-requirements.txt
 
       - name: Run Positron IPyKernel unit tests
         run: pytest pythonFiles/positron
