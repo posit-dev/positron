@@ -5,7 +5,7 @@
 import 'vs/css!./activityOutputHtml';
 import * as React from 'react';
 import { ActivityItemOutputHtml } from 'vs/workbench/services/positronConsole/browser/classes/activityItemOutputHtml';
-import { renderHtml } from 'vs/base/browser/renderHtml';
+import { renderHtml } from 'vs/base/browser/positron/renderHtml';
 
 // ActivityOutputHtml interface.
 export interface ActivityOutputHtmlProps {

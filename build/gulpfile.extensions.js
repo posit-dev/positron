@@ -35,6 +35,7 @@ const compilations = [
 	'positron-connections/tsconfig.json',
 	'positron-javascript/tsconfig.json',
 	'positron-notebook-controllers/tsconfig.json',
+	'positron-notebooks/tsconfig.json',
 	'positron-r/tsconfig.json',
 	'positron-rstudio-keymap/tsconfig.json',
 	'positron-python/tsconfig.json',
