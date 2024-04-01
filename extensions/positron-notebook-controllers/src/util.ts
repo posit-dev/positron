@@ -3,23 +3,24 @@
  *--------------------------------------------------------------------------------------------*/
 
 /**
- * Similar to the `DeferredPromise` pattern in VS Code, `PromiseHandles` is a
- * promise with exposed and imperatively callable resolve and reject methods.
+ * A promise with exposed and imperatively callable resolve and reject methods.
  */
-export class PromiseHandles<T> {
-	resolve!: (value: T | Promise<T>) => void;
-	reject!: (error: unknown) => void;
-	settled: boolean = false;
-	promise: Promise<T>;
+export class DeferredPromise<T> {
+	complete!: (value: T) => void;
+	error!: (error: unknown) => void;
+	isSettled: boolean = false;
+	p: Promise<T>;
+	value: T | undefined;
 
 	constructor() {
-		this.promise = new Promise((resolve, reject) => {
-			this.resolve = (val) => {
-				this.settled = true;
+		this.p = new Promise((resolve, reject) => {
+			this.complete = (val) => {
+				this.isSettled = true;
+				this.value = val;
 				resolve(val);
 			};
-			this.reject = (reason) => {
-				this.settled = true;
+			this.error = (reason) => {
+				this.isSettled = true;
 				reject(reason);
 			};
 		});
@@ -29,5 +30,3 @@ export class PromiseHandles<T> {
 export function delay(ms: number) {
 	return new Promise(resolve => setTimeout(resolve, ms));
 }
-
-export function noop() { }
