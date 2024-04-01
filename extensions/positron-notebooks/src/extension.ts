@@ -25,7 +25,7 @@ export function activate(context: vscode.ExtensionContext) {
 			async (imageSrc: string, baseLoc: string) => new Promise<string | CoversionErrorMsg>((resolve) => {
 				const fullImagePath = path.join(baseLoc, imageSrc);
 				const fileExtension = path.extname(imageSrc).slice(1);
-				const mimeType = mimeTypeMap[fileExtension];
+				const mimeType = mimeTypeMap[fileExtension.toLowerCase()];
 				if (!mimeType) {
 					resolve({
 						status: 'error',
