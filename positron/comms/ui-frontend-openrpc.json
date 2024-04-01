@@ -195,6 +195,42 @@
 			]
 		},
 		{
+			"name": "execute_code",
+			"summary": "Execute code in a Positron runtime",
+			"description": "Use this to execute code in a Positron runtime",
+			"params": [
+				{
+					"name": "language_id",
+					"description": "The language ID of the code to execute",
+					"schema": {
+						"type": "string"
+					}
+				},
+				{
+					"name": "code",
+					"description": "The code to execute",
+					"schema": {
+						"type": "string"
+					}
+				},
+				{
+					"name": "focus",
+					"description": "Whether to focus the runtime's console",
+					"schema": {
+						"type": "boolean"
+					}
+				},
+				{
+					"name": "allow_incomplete",
+					"description": "Whether to bypass runtime code completeness checks",
+					"schema": {
+						"type": "boolean"
+					}
+				}
+			],
+			"result": {}
+		},
+		{
 			"name": "open_workspace",
 			"summary": "Open a workspace",
 			"description": "Use this to open a workspace in Positron",

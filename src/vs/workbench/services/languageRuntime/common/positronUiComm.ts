@@ -312,6 +312,34 @@ export interface DebugSleepRequest {
 }
 
 /**
+ * Request: Execute code in a Positron runtime
+ *
+ * Use this to execute code in a Positron runtime
+ */
+export interface ExecuteCodeRequest {
+	/**
+	 * The language ID of the code to execute
+	 */
+	language_id: string;
+
+	/**
+	 * The code to execute
+	 */
+	code: string;
+
+	/**
+	 * Whether to focus the runtime's console
+	 */
+	focus: boolean;
+
+	/**
+	 * Whether to bypass runtime code completeness checks
+	 */
+	allow_incomplete: boolean;
+
+}
+
+/**
  * Request: Path to the workspace folder
  *
  * Returns the path to the workspace folder, or first folder if there are
@@ -345,6 +373,7 @@ export enum UiFrontendRequest {
 	ShowQuestion = 'show_question',
 	ShowDialog = 'show_dialog',
 	DebugSleep = 'debug_sleep',
+	ExecuteCode = 'execute_code',
 	WorkspaceFolder = 'workspace_folder',
 	LastActiveEditorContext = 'last_active_editor_context'
 }

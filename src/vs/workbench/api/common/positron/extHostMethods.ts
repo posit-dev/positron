@@ -4,8 +4,9 @@
 
 import * as extHostProtocol from './extHost.positron.protocol';
 import { ExtHostEditors } from '../extHostTextEditors';
-import { ExtHostModalDialogs } from '../positron/extHostModalDialogs';
 import { ExtHostWorkspace } from '../extHostWorkspace';
+import { ExtHostModalDialogs } from '../positron/extHostModalDialogs';
+import { ExtHostLanguageRuntime } from '../positron/extHostLanguageRuntime';
 import { UiFrontendRequest, EditorContext } from 'vs/workbench/services/languageRuntime/common/positronUiComm';
 import { JsonRpcErrorCode } from 'vs/workbench/services/languageRuntime/common/positronBaseComm';
 import { EndOfLine } from '../extHostTypeConverters';
@@ -35,6 +36,7 @@ export class ExtHostMethods implements extHostProtocol.ExtHostMethodsShape {
 		_mainContext: extHostProtocol.IMainPositronContext,
 		private readonly editors: ExtHostEditors,
 		private readonly dialogs: ExtHostModalDialogs,
+		private readonly runtime: ExtHostLanguageRuntime,
 		private readonly workspace: ExtHostWorkspace
 	) {
 	}
@@ -93,6 +95,20 @@ export class ExtHostMethods implements extHostProtocol.ExtHostMethodsShape {
 					}
 					result = await this.showDialog(params.title as string,
 						params.message as string);
+					break;
+				}
+				case UiFrontendRequest.ExecuteCode: {
+					if (!params ||
+						!Object.keys(params).includes('language_id') ||
+						!Object.keys(params).includes('code') ||
+						!Object.keys(params).includes('focus') ||
+						!Object.keys(params).includes('allow_incomplete')) {
+						return newInvalidParamsError(method);
+					}
+					result = await this.executeCode(params.language_id as string,
+						params.code as string,
+						params.focus as boolean,
+						params.allow_incomplete as boolean);
 					break;
 				}
 				case UiFrontendRequest.DebugSleep: {
@@ -193,6 +209,10 @@ export class ExtHostMethods implements extHostProtocol.ExtHostMethodsShape {
 
 	async showQuestion(title: string, message: string, okButtonTitle: string, cancelButtonTitle: string): Promise<boolean> {
 		return this.dialogs.showSimpleModalDialogPrompt(title, message, okButtonTitle, cancelButtonTitle);
+	}
+
+	async executeCode(languageId: string, code: string, focus: boolean, allowIncomplete?: boolean): Promise<boolean> {
+		return this.runtime.executeCode(languageId, code, focus, allowIncomplete);
 	}
 
 	async debugSleep(ms: number): Promise<null> {
