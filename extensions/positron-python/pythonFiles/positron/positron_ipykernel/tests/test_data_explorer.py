@@ -116,11 +116,11 @@ def test_explorer_open_close_delete(
     de_service: DataExplorerService,
     variables_comm: DummyComm,
 ):
-    shell.user_ns.update(
-        {
-            "x": SIMPLE_PANDAS_DF,
-            "y": {"key1": SIMPLE_PANDAS_DF, "key2": SIMPLE_PANDAS_DF},
-        }
+    _assign_variables(
+        shell,
+        variables_comm,
+        x=SIMPLE_PANDAS_DF,
+        y={"key1": SIMPLE_PANDAS_DF, "key2": SIMPLE_PANDAS_DF},
     )
 
     path = _open_viewer(variables_comm, ["x"])
@@ -143,16 +143,25 @@ def test_explorer_open_close_delete(
     assert len(de_service.table_views) == 0
 
 
+def _assign_variables(shell: PositronShell, variables_comm: DummyComm, **variables):
+    # A hack to make sure that change events are fired when we
+    # manipulate user_ns
+    shell.kernel.variables_service.snapshot_user_ns()
+    shell.user_ns.update(**variables)
+    shell.kernel.variables_service.poll_variables()
+    variables_comm.messages.clear()
+
+
 def test_explorer_delete_variable(
     shell: PositronShell,
     de_service: DataExplorerService,
     variables_comm: DummyComm,
 ):
-    shell.user_ns.update(
-        {
-            "x": SIMPLE_PANDAS_DF,
-            "y": {"key1": SIMPLE_PANDAS_DF, "key2": SIMPLE_PANDAS_DF},
-        }
+    _assign_variables(
+        shell,
+        variables_comm,
+        x=SIMPLE_PANDAS_DF,
+        y={"key1": SIMPLE_PANDAS_DF, "key2": SIMPLE_PANDAS_DF},
     )
 
     # Open multiple data viewers
@@ -215,12 +224,13 @@ def test_explorer_variable_updates(
 ):
     x = pd.DataFrame({"a": [1, 0, 3, 4]})
     big_x = pd.DataFrame({"a": np.arange(BIG_ARRAY_LENGTH)})
-    shell.user_ns.update(
-        {
-            "x": x,
-            "big_x": big_x,
-            "y": {"key1": SIMPLE_PANDAS_DF, "key2": SIMPLE_PANDAS_DF},
-        }
+
+    _assign_variables(
+        shell,
+        variables_comm,
+        x=x,
+        big_x=big_x,
+        y={"key1": SIMPLE_PANDAS_DF, "key2": SIMPLE_PANDAS_DF},
     )
 
     # Check updates
@@ -914,7 +924,7 @@ def test_pandas_change_schema_after_sort(
             "e": np.arange(10),
         }
     )
-    shell.user_ns.update({"df": df})
+    _assign_variables(shell, variables_comm, df=df)
     _open_viewer(variables_comm, ["df"])
 
     # Sort a column that is out of bounds for the table after the
