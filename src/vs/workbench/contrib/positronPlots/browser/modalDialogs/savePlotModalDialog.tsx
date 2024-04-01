@@ -44,8 +44,12 @@ const browsePlaceholderText = localize('positronSavePlotModalDialogBrowsePlaceho
 
 /**
  * Show the save plot modal dialog for dynamic plots.
- * @param props SavePlotModalDialogProps to set the size and the plot client
- * @returns The requested size and path to save the plot.
+ * @param layoutService the layout service for the modal
+ * @param keybindingService the keybinding service to intercept shortcuts
+ * @param fileDialogService the file dialog service to prompt where to save the plot
+ * @param plotClient the dynamic plot client to render previews and the final image
+ * @param savePlotCallback the action to take when the dialog closes
+ * @param suggestedPath the pre-filled save path
  */
 export const showSavePlotModalDialog = async (
 	layoutService: IWorkbenchLayoutService,
@@ -238,7 +242,7 @@ const SavePlotModalDialog = (props: SavePlotModalDialogProps) => {
 						</div>
 						<div className='plot-preview-image-container preview'>
 							{(uri &&
-								<img className='plot-preview' src={uri} />)
+								<img className='plot-preview' src={uri} alt={props.plotClient.metadata.code} />)
 							}
 						</div>
 					</div>

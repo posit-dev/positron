@@ -7,7 +7,7 @@ import { IRuntimeClientInstance, RuntimeClientState } from 'vs/workbench/service
 import { Event, Emitter } from 'vs/base/common/event';
 import { DeferredPromise } from 'vs/base/common/async';
 import { IPositronPlotClient } from 'vs/workbench/services/positronPlots/common/positronPlots';
-import { PositronPlotComm, SavedPlot } from 'vs/workbench/services/languageRuntime/common/positronPlotComm';
+import { PositronPlotComm } from 'vs/workbench/services/languageRuntime/common/positronPlotComm';
 
 /**
  * The possible states for the plot client instance
@@ -346,10 +346,6 @@ export class PlotClientInstance extends Disposable implements IPositronPlotClien
 		}
 
 		return deferred.promise;
-	}
-
-	public save(path: string, height: number, width: number, pixelRatio: number): Promise<SavedPlot> {
-		return this._comm.save(path, height, width, pixelRatio);
 	}
 
 	/**
