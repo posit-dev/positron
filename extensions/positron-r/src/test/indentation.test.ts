@@ -36,7 +36,6 @@ suite('Indentation', () => {
 
 		// Notify if snapshots were outdated
 		assert.strictEqual(expected, current);
-		console.log('dirname: ', __dirname);
 	});
 });
 
@@ -58,5 +57,5 @@ async function regenerateIndentSnapshots() {
 		});
 	}
 
-	return snapshots.join('# --- \n');
+	return snapshots.join('# ---\n');
 }
