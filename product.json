@@ -188,6 +188,21 @@
 				},
 				"publisherDisplayName": "ms-python"
 			}
+		},
+		{
+			"name": "ms-python.debugpy",
+			"version": "2024.2.0",
+			"repo": "https://github.com/microsoft/vscode-python-debugger",
+			"metadata": {
+				"id": "4bd5d2c9-9d65-401a-b0b2-7498d9f17615",
+				"publisherId": {
+					"publisherId": "998b010b-e2af-44a5-a6cd-0b5fd3b9b6f8",
+					"publisherName": "ms-python",
+					"displayName": "Python Debugger",
+					"flags": "verified"
+				},
+				"publisherDisplayName": "ms-python"
+			}
 		}
 	],
 	"extensionsGallery": {
