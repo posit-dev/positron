@@ -26,7 +26,7 @@ import { IPositronIPyWidgetsService } from 'vs/workbench/services/positronIPyWid
 import { Schemas } from 'vs/base/common/network';
 import { IFileDialogService } from 'vs/platform/dialogs/common/dialogs';
 import { decodeBase64 } from 'vs/base/common/buffer';
-import { showSavePlotModalDialog } from 'vs/workbench/contrib/positronPlots/browser/modalDialogs/savePlotModalDialog';
+import { SavePlotOptions, showSavePlotModalDialog } from 'vs/workbench/contrib/positronPlots/browser/modalDialogs/savePlotModalDialog';
 import { IWorkbenchLayoutService } from 'vs/workbench/services/layout/browser/layoutService';
 import { URI } from 'vs/base/common/uri';
 import { IWorkspaceContextService } from 'vs/platform/workspace/common/workspace';
@@ -688,11 +688,7 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 					this.showSavePlotDialog(uri);
 				} else if (plot instanceof PlotClientInstance) {
 					// if it's a dynamic plot, present options dialog
-					showSavePlotModalDialog(this._layoutService, this._keybindingService, this._fileDialogService, this._fileService, plot, suggestedPath).then(result => {
-						if (result) {
-							this.savePlotAs(result.uri, result.path);
-						}
-					});
+					showSavePlotModalDialog(this._layoutService, this._keybindingService, this._fileDialogService, plot, this.savePlotAs, suggestedPath);
 				} else {
 					// if it's a webview plot, do nothing
 					return;
@@ -701,9 +697,9 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 		}
 	}
 
-	private savePlotAs(plotData: string, path: URI) {
+	private savePlotAs = (options: SavePlotOptions) => {
 		const htmlFileSystemProvider = this._fileService.getProvider(Schemas.file) as HTMLFileSystemProvider;
-		const matches = this.getPlotUri(plotData);
+		const matches = this.getPlotUri(options.uri);
 
 		if (!matches) {
 			return;
@@ -711,10 +707,10 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 
 		const data = matches[2];
 
-		htmlFileSystemProvider.writeFile(path, decodeBase64(data).buffer, { create: true, overwrite: true, unlock: true, atomic: false })
+		htmlFileSystemProvider.writeFile(options.path, decodeBase64(data).buffer, { create: true, overwrite: true, unlock: true, atomic: false })
 			.then(() => {
 			});
-	}
+	};
 
 	private getPlotUri(plotData: string) {
 		const regex = /^data:.+\/(.+);base64,(.*)$/;
@@ -732,7 +728,6 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 			return;
 		}
 
-		const data = matches[2];
 		const extension = matches[1];
 
 		this._fileDialogService.showSaveDialog({
@@ -746,10 +741,7 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 				],
 		}).then(result => {
 			if (result) {
-				const htmlFileSystemProvider = this._fileService.getProvider(Schemas.file) as HTMLFileSystemProvider;
-				htmlFileSystemProvider.writeFile(result, decodeBase64(data).buffer, { create: true, overwrite: true, unlock: true, atomic: false })
-					.then(() => {
-					});
+				this.savePlotAs({ path: result, uri });
 			}
 		});
 	}

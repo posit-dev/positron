@@ -18,12 +18,8 @@ import { OKCancelActionBar } from 'vs/workbench/browser/positronComponents/posit
 import { PositronModalDialog } from 'vs/workbench/browser/positronComponents/positronModalDialog/positronModalDialog';
 import { IKeybindingService } from 'vs/platform/keybinding/common/keybinding';
 import { PositronModalReactRenderer } from 'vs/workbench/browser/positronModalReactRenderer/positronModalReactRenderer';
-import { Schemas } from 'vs/base/common/network';
-import { HTMLFileSystemProvider } from 'vs/platform/files/browser/htmlFileSystemProvider';
-import { IFileService } from 'vs/platform/files/common/files';
-import { decodeBase64 } from 'vs/base/common/buffer';
 
-interface SavePlotOptions {
+export interface SavePlotOptions {
 	uri: string;
 	path: URI;
 }
@@ -55,9 +51,9 @@ export const showSavePlotModalDialog = async (
 	layoutService: IWorkbenchLayoutService,
 	keybindingService: IKeybindingService,
 	fileDialogService: IFileDialogService,
-	fileService: IFileService,
 	plotClient: PlotClientInstance,
-	suggestedPath?: URI
+	savePlotCallback: (options: SavePlotOptions) => void,
+	suggestedPath?: URI,
 ): Promise<SavePlotOptions | undefined> => {
 
 
@@ -71,14 +67,7 @@ export const showSavePlotModalDialog = async (
 
 		const plotWidth = plotClient.lastRender?.width ?? 100;
 		const plotHeight = plotClient.lastRender?.height ?? 100;
-		const getPlotUri = (plotData: string) => {
-			const regex = /^data:.+\/(.+);base64,(.*)$/;
-			const matches = plotData.match(regex);
-			if (!matches || matches.length !== 3) {
-				return null;
-			}
-			return matches;
-		}
+
 		renderer.render(
 			<SavePlotModalDialog
 				layoutService={layoutService}
@@ -87,20 +76,7 @@ export const showSavePlotModalDialog = async (
 				plotWidth={plotWidth}
 				plotHeight={plotHeight}
 				suggestedPath={suggestedPath}
-				savePlot={async (options) => {
-					const htmlFileSystemProvider = fileService.getProvider(Schemas.file) as HTMLFileSystemProvider;
-					const matches = getPlotUri(options.uri);
-
-					if (!matches) {
-						return;
-					}
-
-					const data = matches[2];
-
-					htmlFileSystemProvider.writeFile(options.path, decodeBase64(data).buffer, { create: true, overwrite: true, unlock: true, atomic: false })
-						.then(() => {
-						});
-				}}
+				savePlotCallback={savePlotCallback}
 				plotClient={plotClient}
 			/>
 		);
@@ -116,8 +92,8 @@ interface SavePlotModalDialogProps {
 	plotWidth: number;
 	plotHeight: number;
 	plotClient: PlotClientInstance;
+	savePlotCallback: (options: SavePlotOptions) => void;
 	suggestedPath?: URI;
-	savePlot: (options: SavePlotOptions) => Promise<void>;
 }
 
 const SavePlotModalDialog = (props: SavePlotModalDialogProps) => {
@@ -133,9 +109,13 @@ const SavePlotModalDialog = (props: SavePlotModalDialogProps) => {
 		setUri(props.plotClient.lastRender?.uri ?? '');
 	}, [props.plotClient.lastRender?.uri]);
 
+	const validateInput = React.useCallback((): boolean => {
+		return path.valid && width.valid && height.valid && dpi.valid;
+	}, [path, width, height, dpi]);
+
 	React.useEffect(() => {
 		validateInput();
-	}, [width, height, dpi, path]);
+	}, [validateInput]);
 
 	const updateWidth = (widthString: string): void => {
 		const newWidth = parseInt(widthString);
@@ -155,10 +135,6 @@ const SavePlotModalDialog = (props: SavePlotModalDialogProps) => {
 	const updatePath = (pathString: string) => {
 		const newPath = URI.file(pathString);
 		setPath({ value: newPath, valid: !!newPath });
-	};
-
-	const validateInput = (): boolean => {
-		return path.valid && width.valid && height.valid && dpi.valid;
 	};
 
 	const browseHandler = async () => {
@@ -184,7 +160,7 @@ const SavePlotModalDialog = (props: SavePlotModalDialogProps) => {
 			const plotResult = await generatePreview();
 
 			if (plotResult) {
-				props.savePlot({ uri: plotResult.uri, path: path.value });
+				props.savePlotCallback({ uri: plotResult.uri, path: path.value });
 			}
 
 			setRendering(false);
@@ -274,5 +250,5 @@ const SavePlotModalDialog = (props: SavePlotModalDialogProps) => {
 			</div>
 
 		</PositronModalDialog>
-	)
+	);
 };

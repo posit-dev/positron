@@ -87,13 +87,10 @@ img.plot-preview {
 	grid-area: preview;
 }
 
-.plot-save-dialog-action-bar .left,
-.plot-save-dialog-action-bar .right {
-	display: flex;
-	gap: 10px;
-	margin-top: 15px;
+.plot-save-dialog-action-bar div.ok-cancel-action-bar {
+	justify-content: end;
 }
 
-.button.action-bar-button {
+.plot-save-dialog-action-bar .button.action-bar-button {
 	padding: 10px;
 }
