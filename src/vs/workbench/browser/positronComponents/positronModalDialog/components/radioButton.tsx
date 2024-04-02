@@ -14,7 +14,6 @@ import React = require('react');
 export interface RadioButtonItemOptions {
 	identifier: string;
 	title: string;
-	icon?: string;
 }
 
 /**
@@ -41,10 +40,7 @@ export interface RadioButtonProps extends RadioButtonItemOptions {
 export const RadioButton = (props: RadioButtonProps) => {
 	// Render.
 	return (
-		// May not need tabIndex
 		<div className='radio-button'>
-			{/* // TODO: is aria-checked needed? any other aria attributes? */}
-			{/* This is the basic radio button display */}
 			<input
 				type='radio'
 				tabIndex={props.isFirstButtonInGroup ? 0 : -1}
@@ -55,7 +51,6 @@ export const RadioButton = (props: RadioButtonProps) => {
 				onClick={props.onSelected}
 			/>
 			<label htmlFor={props.identifier}>{props.title}</label>
-			{/* TODO: if an icon is provided, display the radio button differently */}
 		</div>
 	);
 };

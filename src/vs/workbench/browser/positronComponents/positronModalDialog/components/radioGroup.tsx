@@ -24,12 +24,11 @@ interface RadioGroupProps {
 	onSelectionChanged: (identifier: string) => void;
 }
 
-// Reading: https://www.w3.org/WAI/ARIA/apg/patterns/radio/
-
 /**
  * RadioGroup component.
  * @param props The component properties.
  * @returns The rendered component.
+ * @see https://www.w3.org/WAI/ARIA/apg/patterns/radio/ for accessibility guidelines.
  */
 export const RadioGroup = (props: PropsWithChildren<RadioGroupProps>) => {
 	// Hooks.
@@ -52,7 +51,6 @@ export const RadioGroup = (props: PropsWithChildren<RadioGroupProps>) => {
 						identifier={entry.options.identifier}
 						title={entry.options.title}
 						groupName={props.name}
-						icon={entry.options.icon}
 						selected={entry.options.identifier === currentSelection}
 						onSelected={() => onSelectionChanged(entry.options.identifier)}
 					/>
