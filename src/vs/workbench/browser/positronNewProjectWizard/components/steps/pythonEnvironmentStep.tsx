@@ -167,9 +167,11 @@ export const PythonEnvironmentStep = (props: PropsWithChildren<NewProjectWizardS
 					'pythonEnvironmentSubStep.howToSetUpEnv',
 					'How would you like to set up your Python project environment?'
 				))()}
+				titleId='pythonEnvironment-howToSetUpEnv'
 			>
 				<RadioGroup
 					name='envSetup'
+					labelledBy='pythonEnvironment-howToSetUpEnv'
 					entries={envSetupRadioButtons}
 					initialSelectionId={EnvironmentSetupType.NewEnv}
 					onSelectionChanged={identifier => onEnvSetupSelected(identifier)}
