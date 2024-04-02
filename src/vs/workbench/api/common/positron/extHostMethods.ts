@@ -6,7 +6,8 @@ import * as extHostProtocol from './extHost.positron.protocol';
 import { ExtHostEditors } from '../extHostTextEditors';
 import { ExtHostModalDialogs } from '../positron/extHostModalDialogs';
 import { ExtHostWorkspace } from '../extHostWorkspace';
-import { UiFrontendRequest, EditorContext } from 'vs/workbench/services/languageRuntime/common/positronUiComm';
+import { Range } from 'vs/workbench/api/common/extHostTypes';
+import { UiFrontendRequest, EditorContext, Range as UIRange } from 'vs/workbench/services/languageRuntime/common/positronUiComm';
 import { JsonRpcErrorCode } from 'vs/workbench/services/languageRuntime/common/positronBaseComm';
 import { EndOfLine } from '../extHostTypeConverters';
 
@@ -62,6 +63,18 @@ export class ExtHostMethods implements extHostProtocol.ExtHostMethodsShape {
 						return newInvalidParamsError(method);
 					}
 					result = await this.lastActiveEditorContext();
+					break;
+				}
+				case UiFrontendRequest.ModifyEditorSelections: {
+					if (!params ||
+						!Object.keys(params).includes('selections') ||
+						!Object.keys(params).includes('values')) {
+						return newInvalidParamsError(method);
+					}
+					const sel = params.selections as UIRange[];
+					const selections = sel.map(s =>
+						new Range(s.start.line, s.start.character, s.end.line, s.end.character));
+					result = await this.modifyEditorLocations(selections, params.values as string[]);
 					break;
 				}
 				case UiFrontendRequest.WorkspaceFolder: {
@@ -177,6 +190,21 @@ export class ExtHostMethods implements extHostProtocol.ExtHostMethodsShape {
 			selection: selections[0],
 			selections: selections
 		};
+	}
+
+	async modifyEditorLocations(locations: Range[], values: string[]): Promise<null> {
+		const editor = this.editors.getActiveTextEditor();
+		if (!editor) {
+			return null;
+		}
+
+		editor.edit(editBuilder => {
+			locations.map((location, i) => {
+				editBuilder.replace(location, values[i]);
+			});
+		});
+
+		return null;
 	}
 
 	async workspaceFolder(): Promise<string | null> {
