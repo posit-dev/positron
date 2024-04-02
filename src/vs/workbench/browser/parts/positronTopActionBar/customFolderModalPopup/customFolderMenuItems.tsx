@@ -143,12 +143,13 @@ export const CustomFolderMenuItems = (props: CustomFolderMenuItemsProps) => {
 		);
 	};
 
-	// TODO: [New Project] Remove feature flag when New Project action is ready for release
 	const isDevContext = IsDevelopmentContext.getValue(props.contextKeyService) === true;
 
 	// Render.
 	return (
 		<div className='custom-folder-menu-items'>
+			{/* TODO: [New Project] Remove feature flag when New Project action is ready for release */}
+			{/* This removes the action from the custom folder menu in the action bar when when not in a development context */}
 			{isDevContext ?
 				<CommandActionCustomFolderMenuItem id={PositronNewProjectAction.ID} />
 				: null

@@ -35,6 +35,7 @@ export const TopActionBarNewMenu = () => {
 		});
 		actions.push(new Separator());
 		// TODO: [New Project] Remove feature flag when New Project action is ready for release
+		// This removes the action from the New menu in the action bar when not in a development context
 		if (IsDevelopmentContext.getValue(positronActionBarContext.contextKeyService) === true) {
 			positronActionBarContext.appendCommandAction(actions, {
 				id: PositronNewProjectAction.ID
