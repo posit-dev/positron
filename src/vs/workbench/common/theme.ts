@@ -1604,7 +1604,7 @@ export const POSITRON_MODAL_DIALOG_CHECKBOX_BORDER = registerColor('positronModa
 	hcLight: checkboxBorder
 }, localize('positronModalDialog.checkboxBorder', "Positron modal dialog checkbox border."));
 
-// < --- Positron Drop Down --- > shit
+// < --- Positron Drop Down --- >
 
 // Positron drop down border color.
 export const POSITRON_DROP_DOWN_BORDER = registerColor('positronDropDownListBox.border', {
@@ -1957,6 +1957,14 @@ export const POSITRON_DATA_EXPLORER_BORDER_COLOR = registerColor('positronDataEx
 	hcDark: tableColumnsBorder,
 	hcLight: tableColumnsBorder
 }, localize('positronDataExplorer.border', "Positron data explorer border color."));
+
+// Positron data explorer missing values color.
+export const POSITRON_DATA_EXPLORER_MISSING_VALUES_COLOR = registerColor('positronDataExplorer.missingValues', {
+	dark: '#EA3D3D',
+	light: '#EA3D3D',
+	hcDark: '#EA3D3D',
+	hcLight: '#EA3D3D'
+}, localize('positronDataExplorer.missingValues', "Positron data explorer missing values color."));
 
 // < --- Positron Variables --- >
 
