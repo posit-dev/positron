@@ -28,8 +28,10 @@ import { IPositronHelpService } from 'vs/workbench/contrib/positronHelp/browser/
 import { INotebookService } from 'vs/workbench/contrib/notebook/common/notebookService';
 import { IRuntimeClientEvent } from 'vs/workbench/services/languageRuntime/common/languageRuntimeUiClient';
 import { URI } from 'vs/base/common/uri';
-import { BusyEvent, UiFrontendEvent, OpenEditorEvent, OpenWorkspaceEvent, PromptStateEvent, WorkingDirectoryEvent, ShowMessageEvent, ExecuteCommandEvent } from 'vs/workbench/services/languageRuntime/common/positronUiComm';
+import { BusyEvent, UiFrontendEvent, OpenEditorEvent, OpenWorkspaceEvent, PromptStateEvent, WorkingDirectoryEvent, ShowMessageEvent, ExecuteCommandEvent, SetEditorSelectionsEvent } from 'vs/workbench/services/languageRuntime/common/positronUiComm';
 import { IEditorService } from 'vs/workbench/services/editor/common/editorService';
+import { IEditor } from 'vs/editor/common/editorCommon';
+import { Selection } from 'vs/editor/common/core/selection';
 import { ITextResourceEditorInput } from 'vs/platform/editor/common/editor';
 import { IPositronDataExplorerService } from 'vs/workbench/services/positronDataExplorer/browser/interfaces/positronDataExplorerService';
 import { ObservableValue } from 'vs/base/common/observableInternal/base';
@@ -190,6 +192,13 @@ class ExtHostLanguageRuntimeSessionAdapter implements ILanguageRuntimeSession {
 				// Update busy state
 				const busy = ev.data as BusyEvent;
 				this.dynState.busy = busy.busy;
+			} else if (ev.name === UiFrontendEvent.SetEditorSelections) {
+				// Set the editor selections
+				const sel = ev.data as SetEditorSelectionsEvent;
+				const selections = sel.selections.map(s =>
+					new Selection(s.start.line, s.start.character, s.end.line, s.end.character));
+				const editor = this._editorService.activeTextEditorControl as IEditor;
+				editor.setSelections(selections);
 			} else if (ev.name === UiFrontendEvent.OpenEditor) {
 				// Open an editor
 				const ed = ev.data as OpenEditorEvent;
