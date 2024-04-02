@@ -438,7 +438,12 @@ use serde::Serialize;
 				if (prop.description) {
 					yield formatComment('\t/// ', prop.description);
 				}
-				yield `\tpub ${key}: `;
+				if (key === 'type') {
+					yield '\t#[serde(rename = "type")]\n';
+					yield `\tpub ${name}_type: `;
+				} else {
+					yield `\tpub ${key}: `;
+				}
 				if (!o.required || !o.required.includes(key)) {
 					yield 'Option<';
 					yield deriveType(contracts, RustTypeMap, [key, ...context], prop);
@@ -1345,7 +1350,7 @@ async function createCommInterface() {
 				// Use black to format the Python file; the lint tests for the
 				// Python extension require that the Python files have exactly the
 				// format that black produces.
-				execSync(`python -m black ${pythonOutputFile}`, { stdio: 'ignore' });
+				execSync(`python3 -m black ${pythonOutputFile}`, { stdio: 'ignore' });
 			}
 		} catch (e: any) {
 			if (e.message) {
