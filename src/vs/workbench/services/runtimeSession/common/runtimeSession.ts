@@ -841,7 +841,6 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 						this._consoleSessionsByLanguageId.delete(session.runtimeMetadata.languageId);
 					} else if (session.metadata.sessionMode === LanguageRuntimeSessionMode.Notebook) {
 						if (session.metadata.notebookUri) {
-							console.log(`WASIM removing notebook session from map`);
 							this._notebookSessionsByNotebookUri.delete(session.metadata.notebookUri);
 						} else {
 							this._logService.error(`Notebook session ${formatLanguageRuntimeSession(session)} ` +
