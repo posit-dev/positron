@@ -1074,6 +1074,16 @@ export class MainThreadLanguageRuntime
 		return Promise.resolve(this._runtimeSessionService.foregroundSession?.sessionId);
 	}
 
+	$getNotebookSession(notebookUri: URI): Promise<string | undefined> {
+		// Revive the URI from the serialized form
+		const uri = URI.revive(notebookUri);
+
+		// Get the session for the notebook URI
+		const session = this._runtimeSessionService.getNotebookSessionForNotebookUri(uri);
+
+		return Promise.resolve(session?.sessionId);
+	}
+
 	// Called by the extension host to select a previously registered language runtime
 	$selectLanguageRuntime(runtimeId: string): Promise<void> {
 		return this._runtimeSessionService.selectRuntime(

@@ -278,6 +278,12 @@ export interface IRuntimeSessionService {
 	getConsoleSessionForLanguage(languageId: string): ILanguageRuntimeSession | undefined;
 
 	/**
+	 * Gets a specific notebook session by notebook URI. Currently, only one
+	 * notebook session can exist per notebook URI.
+	 */
+	getNotebookSessionForNotebookUri(notebookUri: URI): ILanguageRuntimeSession | undefined;
+
+	/**
 	 * Checks for a starting or running console for the given language ID.
 	 *
 	 * @param languageId The language ID to check for; if undefined, checks for

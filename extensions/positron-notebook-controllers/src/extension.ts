@@ -5,11 +5,13 @@
 import * as positron from 'positron';
 import * as vscode from 'vscode';
 import { NotebookControllerManager } from './notebookControllerManager';
+import { NotebookSessionService } from './notebookSessionService';
 
 export const log = vscode.window.createOutputChannel('Positron Notebook Controllers', { log: true });
 
 export async function activate(context: vscode.ExtensionContext): Promise<void> {
-	const manager = new NotebookControllerManager();
+	const notebookSessionService = new NotebookSessionService();
+	const manager = new NotebookControllerManager(notebookSessionService);
 	context.subscriptions.push(manager);
 
 	// Register notebook controllers for newly registered runtimes.

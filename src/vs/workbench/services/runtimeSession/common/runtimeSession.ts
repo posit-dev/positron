@@ -18,6 +18,7 @@ import { IModalDialogPromptInstance, IPositronModalDialogsService } from 'vs/wor
 import { IUiClientMessageInput, IUiClientMessageOutput, UiClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimeUiClient';
 import { UiFrontendEvent } from 'vs/workbench/services/languageRuntime/common/positronUiComm';
 import { ILanguageService } from 'vs/editor/common/languages/language';
+import { ResourceMap } from 'vs/base/common/map';
 
 /**
  * Utility class for tracking state changes in a language runtime session.
@@ -60,6 +61,10 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 	// (metadata.languageId) of the runtime owning the session.
 	private readonly _startingConsolesByLanguageId = new Map<string, ILanguageRuntimeMetadata>();
 
+	// A map of the starting notebooks. This is keyed by the notebook URI
+	// owning the session.
+	private readonly _startingNotebooksByNotebookUri = new ResourceMap<ILanguageRuntimeMetadata>();
+
 	// A map of runtimes currently starting to promises that resolve when the runtime
 	// is ready to use. This is keyed by the runtimeId (metadata.runtimeId) of the runtime.
 	private readonly _startingRuntimesByRuntimeId = new Map<string, DeferredPromise<string>>();
@@ -68,6 +73,10 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 	// only have one console session per language, this is keyed by the
 	// languageId (metadata.languageId) of the session.
 	private readonly _consoleSessionsByLanguageId = new Map<string, ILanguageRuntimeSession>();
+
+	// A map of the currently active notebook sessions. This is keyed by the notebook URI
+	// owning the session.
+	private readonly _notebookSessionsByNotebookUri = new ResourceMap<ILanguageRuntimeSession>();
 
 	// The event emitter for the onWillStartRuntime event.
 	private readonly _onWillStartRuntimeEmitter =
@@ -215,6 +224,17 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 	 */
 	getConsoleSessionForLanguage(runtimeId: string): ILanguageRuntimeSession | undefined {
 		return this._consoleSessionsByLanguageId.get(runtimeId);
+	}
+
+	/**
+	 * Gets the notebook session for a notebook URI, if one exists.
+	 *
+	 * @param notebookUri The notebook URI of the session to retrieve.
+	 * @returns The notebook session with the given notebook URI, or undefined if
+	 *  no notebook session with the given notebook URI exists.
+	 */
+	getNotebookSessionForNotebookUri(notebookUri: URI): ILanguageRuntimeSession | undefined {
+		return this._notebookSessionsByNotebookUri.get(notebookUri);
 	}
 
 	/**
@@ -448,7 +468,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 	/**
 	 * Restarts a runtime session.
 	 *
-	 * @param sessionId The session ID of the runtime to interrupt.
+	 * @param sessionId The session ID of the runtime to restart.
 	 * @param source The source of the request to restart the runtime.
 	 */
 	async restartSession(sessionId: string, source: string): Promise<void> {
@@ -740,6 +760,14 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 			if (session.metadata.sessionMode === LanguageRuntimeSessionMode.Console) {
 				this._startingConsolesByLanguageId.delete(session.runtimeMetadata.languageId);
 				this._consoleSessionsByLanguageId.set(session.runtimeMetadata.languageId, session);
+			} else if (session.metadata.sessionMode === LanguageRuntimeSessionMode.Notebook) {
+				if (session.metadata.notebookUri) {
+					this._startingNotebooksByNotebookUri.delete(session.metadata.notebookUri);
+					this._notebookSessionsByNotebookUri.set(session.metadata.notebookUri, session);
+				} else {
+					this._logService.error(`Notebook session ${formatLanguageRuntimeSession(session)} ` +
+						`does not have a notebook URI.`);
+				}
 			}
 
 			// Fire the onDidStartRuntime event.
@@ -811,6 +839,14 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 					this._startingConsolesByLanguageId.delete(session.runtimeMetadata.languageId);
 					if (session.metadata.sessionMode === LanguageRuntimeSessionMode.Console) {
 						this._consoleSessionsByLanguageId.delete(session.runtimeMetadata.languageId);
+					} else if (session.metadata.sessionMode === LanguageRuntimeSessionMode.Notebook) {
+						if (session.metadata.notebookUri) {
+							console.log(`WASIM removing notebook session from map`);
+							this._notebookSessionsByNotebookUri.delete(session.metadata.notebookUri);
+						} else {
+							this._logService.error(`Notebook session ${formatLanguageRuntimeSession(session)} ` +
+								`does not have a notebook URI.`);
+						}
 					}
 					break;
 			}
