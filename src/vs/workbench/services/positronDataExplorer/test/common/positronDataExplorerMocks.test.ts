@@ -5,9 +5,9 @@
 import * as assert from 'assert';
 import { ensureNoDisposablesAreLeakedInTestSuite } from 'vs/base/test/common/utils';
 import {
-	ColumnFilterCompareOp,
-	ColumnFilterFilterType,
-	ColumnFilterSearchType
+	CompareFilterParamsOp,
+	RowFilterFilterType,
+	SearchFilterParamsType
 } from 'vs/workbench/services/languageRuntime/common/positronDataExplorerComm';
 import * as mocks from "vs/workbench/services/positronDataExplorer/common/positronDataExplorerMocks";
 
@@ -39,39 +39,48 @@ suite('DataExplorerMocks', () => {
 	});
 
 	test('Test getCompareFilter', () => {
-		const filter = mocks.getCompareFilter(2, ColumnFilterCompareOp.Gt, '1234');
-		assert.equal(filter.filter_type, ColumnFilterFilterType.Compare);
+		const filter = mocks.getCompareFilter(2, CompareFilterParamsOp.Gt, '1234');
+		assert.equal(filter.filter_type, RowFilterFilterType.Compare);
 		assert.equal(filter.column_index, 2);
-		assert.equal(filter.compare_op, ColumnFilterCompareOp.Gt);
-		assert.equal(filter.compare_value, '1234');
+
+		const params = filter.compare_params!;
+
+		assert.equal(params.op, CompareFilterParamsOp.Gt);
+		assert.equal(params.value, '1234');
 	});
 
 	test('Test getIsNullFilter', () => {
 		let filter = mocks.getIsNullFilter(3);
 		assert.equal(filter.column_index, 3);
-		assert.equal(filter.filter_type, ColumnFilterFilterType.Isnull);
+		assert.equal(filter.filter_type, RowFilterFilterType.IsNull);
 
 		filter = mocks.getNotNullFilter(3);
-		assert.equal(filter.filter_type, ColumnFilterFilterType.Notnull);
+		assert.equal(filter.filter_type, RowFilterFilterType.NotNull);
 	});
 
 	test('Test getTextSearchFilter', () => {
 		const filter = mocks.getTextSearchFilter(5, 'needle',
-			ColumnFilterSearchType.Contains, false);
+			SearchFilterParamsType.Contains, false);
 		assert.equal(filter.column_index, 5);
-		assert.equal(filter.filter_type, ColumnFilterFilterType.Search);
-		assert.equal(filter.search_term, 'needle');
-		assert.equal(filter.search_type, ColumnFilterSearchType.Contains);
-		assert.equal(filter.search_case_sensitive, false);
+		assert.equal(filter.filter_type, RowFilterFilterType.Search);
+
+		const params = filter.search_params!;
+
+		assert.equal(params.term, 'needle');
+		assert.equal(params.type, SearchFilterParamsType.Contains);
+		assert.equal(params.case_sensitive, false);
 	});
 
 	test('Test getSetMemberFilter', () => {
 		const set_values = ['need1', 'need2'];
 		const filter = mocks.getSetMemberFilter(6, set_values, true);
 		assert.equal(filter.column_index, 6);
-		assert.equal(filter.filter_type, ColumnFilterFilterType.SetMembership);
-		assert.equal(filter.set_member_values, set_values);
-		assert.equal(filter.set_member_inclusive, true);
+		assert.equal(filter.filter_type, RowFilterFilterType.SetMembership);
+
+		const params = filter.set_membership_params!;
+
+		assert.equal(params.values, set_values);
+		assert.equal(params.inclusive, true);
 	});
 
 });
