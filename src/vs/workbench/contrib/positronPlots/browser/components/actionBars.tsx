@@ -35,6 +35,7 @@ const kPaddingRight = 8;
 const positronShowPreviousPlot = localize('positronShowPreviousPlot', "Show previous plot");
 const positronShowNextPlot = localize('positronShowNextPlot', "Show next plot");
 const positronClearAllPlots = localize('positronClearAllPlots', "Clear all plots");
+const positronSavePlot = localize('positronSavePlot', "Save plot");
 
 /**
  * ActionBarsProps interface.
@@ -67,21 +68,18 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 	const disableLeft = noPlots || positronPlotsContext.selectedInstanceIndex <= 0;
 	const disableRight = noPlots || positronPlotsContext.selectedInstanceIndex >=
 		positronPlotsContext.positronPlotInstances.length - 1;
+	const selectedPlot = positronPlotsContext.positronPlotInstances[positronPlotsContext.selectedInstanceIndex];
 
 	// Only show the sizing policy controls when Positron is in control of the
 	// sizing (i.e. don't show it on static plots)
-	const enableSizingPolicy = hasPlots &&
-		positronPlotsContext.positronPlotInstances[positronPlotsContext.selectedInstanceIndex]
+	const enableSizingPolicy = hasPlots && selectedPlot
 		instanceof PlotClientInstance;
 
-	const enableZoomPlot = hasPlots &&
-		positronPlotsContext.positronPlotInstances[positronPlotsContext.selectedInstanceIndex]
+	const enableZoomPlot = hasPlots && selectedPlot
 		instanceof StaticPlotClient;
 	const enableSavingPlots = hasPlots &&
-		(positronPlotsContext.positronPlotInstances[positronPlotsContext.selectedInstanceIndex]
-			instanceof PlotClientInstance ||
-			positronPlotsContext.positronPlotInstances[positronPlotsContext.selectedInstanceIndex]
-			instanceof StaticPlotClient);
+		(selectedPlot instanceof PlotClientInstance
+			|| selectedPlot instanceof StaticPlotClient);
 
 	useEffect(() => {
 		// Empty for now.
@@ -125,7 +123,7 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 						<ActionBarButton iconId='positron-right-arrow' disabled={disableRight} tooltip={positronShowNextPlot} ariaLabel={positronShowNextPlot} onPressed={showNextPlotHandler} />
 
 						{enableZoomPlot && <ZoomPlotMenuButton actionHandler={zoomPlotHandler} zoomLevel={props.zoomLevel} />}
-						{enableSavingPlots && <ActionBarButton iconId='positron-save' tooltip={localize('positronSavePlot', "Save plot")} ariaLabel={localize('positronSavePlot', "Save plot")} onPressed={savePlotHandler} />}
+						{enableSavingPlots && <ActionBarButton iconId='positron-save' tooltip={positronSavePlot} ariaLabel={positronSavePlot} onPressed={savePlotHandler} />}
 						{enableSizingPolicy && <ActionBarSeparator />}
 						{enableSizingPolicy &&
 							<SizingPolicyMenuButton

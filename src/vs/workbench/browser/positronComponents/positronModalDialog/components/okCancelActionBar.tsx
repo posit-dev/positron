@@ -18,8 +18,8 @@ import { Button } from 'vs/base/browser/ui/positronComponents/button/button';
  * @param okButtonTitle The title of the OK button.
  * @param cancelButtonTitle The title of the Cancel button.
  * @param preActions The pre-actions to render before the OK and cancel buttons.
- * @param accept The function to call when the OK button is clicked.
- * @param cancel The function to call when the Cancel button is clicked.
+ * @param onAccept The function to call when the OK button is clicked.
+ * @param onCancel The function to call when the Cancel button is clicked.
  */
 interface OKCancelActionBarProps {
 	okButtonTitle?: string;
