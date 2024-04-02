@@ -234,13 +234,13 @@ class ConnectionsService:
         """
         Checks if the given variable path has an active connection.
         """
-        return ([variable_name]) in self.path_to_comm_ids
+        return (variable_name,) in self.path_to_comm_ids
 
-    def handle_variable_updated(self, variable_name, value) -> None:
+    def handle_variable_updated(self, variable_name: str, value: Any) -> None:
         """
         Handles a variable being updated in the kernel.
         """
-        comm_id = self.path_to_comm_ids.get(tuple(variable_name))
+        comm_id = self.path_to_comm_ids.get((variable_name,))
         if comm_id is None:
             return
 
@@ -258,6 +258,7 @@ class ConnectionsService:
 
         # if the connections is different, we handle it as if it was a variable deletion
         # TODO: we don't really want to close the connection, but 'delete' the variable
+        #       as a connection might be pointed by multiple variable paths/names
         self._close_connection(comm_id)
 
     def _close_connection(self, comm_id: str):
