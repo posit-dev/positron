@@ -11,7 +11,7 @@ import * as React from 'react';
 // Other dependencies.
 import { ProfileNumber } from 'vs/workbench/services/positronDataExplorer/browser/components/profileNumber';
 import { ProfileString } from 'vs/workbench/services/positronDataExplorer/browser/components/profileString';
-import { ColumnSchema, ColumnSchemaTypeDisplay } from 'vs/workbench/services/languageRuntime/common/positronDataExplorerComm';
+import { ColumnSchema, ColumnDisplayType } from 'vs/workbench/services/languageRuntime/common/positronDataExplorerComm';
 import { TableSummaryDataGridInstance } from 'vs/workbench/services/positronDataExplorer/browser/tableSummaryDataGridInstance';
 
 /**
@@ -37,31 +37,31 @@ export const ColumnSummaryCell = (props: ColumnSummaryCellProps) => {
 	const dataTypeIcon = () => {
 		// Determine the alignment based on type.
 		switch (props.columnSchema.type_display) {
-			case ColumnSchemaTypeDisplay.Number:
+			case ColumnDisplayType.Number:
 				return 'codicon-positron-data-type-number';
 
-			case ColumnSchemaTypeDisplay.Boolean:
+			case ColumnDisplayType.Boolean:
 				return 'codicon-positron-data-type-boolean';
 
-			case ColumnSchemaTypeDisplay.String:
+			case ColumnDisplayType.String:
 				return 'codicon-positron-data-type-string';
 
-			case ColumnSchemaTypeDisplay.Date:
+			case ColumnDisplayType.Date:
 				return 'codicon-positron-data-type-date';
 
-			case ColumnSchemaTypeDisplay.Datetime:
+			case ColumnDisplayType.Datetime:
 				return 'codicon-positron-data-type-date-time';
 
-			case ColumnSchemaTypeDisplay.Time:
+			case ColumnDisplayType.Time:
 				return 'codicon-positron-data-type-time';
 
-			case ColumnSchemaTypeDisplay.Array:
+			case ColumnDisplayType.Array:
 				return 'codicon-positron-data-type-array';
 
-			case ColumnSchemaTypeDisplay.Struct:
+			case ColumnDisplayType.Struct:
 				return 'codicon-positron-data-type-struct';
 
-			case ColumnSchemaTypeDisplay.Unknown:
+			case ColumnDisplayType.Unknown:
 				return 'codicon-positron-data-type-unknown';
 
 			// This shouldn't ever happen.
@@ -77,31 +77,31 @@ export const ColumnSummaryCell = (props: ColumnSummaryCellProps) => {
 	const profile = () => {
 		// Determine the alignment based on type.
 		switch (props.columnSchema.type_display) {
-			case ColumnSchemaTypeDisplay.Number:
+			case ColumnDisplayType.Number:
 				return <ProfileNumber />;
 
-			case ColumnSchemaTypeDisplay.Boolean:
+			case ColumnDisplayType.Boolean:
 				return null;
 
-			case ColumnSchemaTypeDisplay.String:
+			case ColumnDisplayType.String:
 				return <ProfileString />;
 
-			case ColumnSchemaTypeDisplay.Date:
+			case ColumnDisplayType.Date:
 				return null;
 
-			case ColumnSchemaTypeDisplay.Datetime:
+			case ColumnDisplayType.Datetime:
 				return null;
 
-			case ColumnSchemaTypeDisplay.Time:
+			case ColumnDisplayType.Time:
 				return null;
 
-			case ColumnSchemaTypeDisplay.Array:
+			case ColumnDisplayType.Array:
 				return null;
 
-			case ColumnSchemaTypeDisplay.Struct:
+			case ColumnDisplayType.Struct:
 				return null;
 
-			case ColumnSchemaTypeDisplay.Unknown:
+			case ColumnDisplayType.Unknown:
 				return null;
 
 			// This shouldn't ever happen.

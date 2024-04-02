@@ -18,7 +18,7 @@ import { PositronModalPopup } from 'vs/workbench/browser/positronComponents/posi
 import { PositronModalReactRenderer } from 'vs/workbench/browser/positronModalReactRenderer/positronModalReactRenderer';
 import { DropDownListBoxSeparator } from 'vs/workbench/browser/positronComponents/dropDownListBox/dropDownListBoxSeparator';
 import { DataExplorerClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimeDataExplorerClient';
-import { ColumnSchema, ColumnSchemaTypeDisplay } from 'vs/workbench/services/languageRuntime/common/positronDataExplorerComm';
+import { ColumnSchema, ColumnDisplayType } from 'vs/workbench/services/languageRuntime/common/positronDataExplorerComm';
 import { RowFilterParameter } from 'vs/workbench/browser/positronDataExplorer/components/dataExplorerPanel/components/addEditRowFilterModalPopup/components/rowFilterParameter';
 import { DropDownColumnSelector } from 'vs/workbench/browser/positronDataExplorer/components/dataExplorerPanel/components/addEditRowFilterModalPopup/components/dropDownColumnSelector';
 import { RangeRowFilter, RowFilter, RowFilterCondition, RowFilterIsBetween, RowFilterIsEmpty, RowFilterIsEqualTo, RowFilterIsGreaterThan, RowFilterIsLessThan, RowFilterIsNotBetween, RowFilterIsNotEmpty, SingleValueRowFilter } from 'vs/workbench/browser/positronDataExplorer/components/dataExplorerPanel/components/addEditRowFilterModalPopup/rowFilter';
@@ -51,21 +51,21 @@ const validateRowFilterValue = (columnSchema: ColumnSchema, value: string) => {
 	// Validate the row filter value that was supplied based on the column schema type.
 	switch (columnSchema.type_display) {
 		// Number.
-		case ColumnSchemaTypeDisplay.Number:
+		case ColumnDisplayType.Number:
 			return isNumber();
 
 		// Boolean.
-		case ColumnSchemaTypeDisplay.Boolean:
+		case ColumnDisplayType.Boolean:
 			return isBoolean();
 
 		// String.
-		case ColumnSchemaTypeDisplay.String:
+		case ColumnDisplayType.String:
 			return true;
 
 		// TODO: Add more complete validation.
-		case ColumnSchemaTypeDisplay.Date:
-		case ColumnSchemaTypeDisplay.Datetime:
-		case ColumnSchemaTypeDisplay.Time:
+		case ColumnDisplayType.Date:
+		case ColumnDisplayType.Datetime:
+		case ColumnDisplayType.Time:
 			return isDate();
 
 		// Can't get here.
@@ -160,10 +160,10 @@ export const AddEditRowFilterModalPopup = (props: AddEditRowFilterModalPopupProp
 
 		// Add is less than / is greater than conditions.
 		switch (selectedColumnSchema.type_display) {
-			case ColumnSchemaTypeDisplay.Number:
-			case ColumnSchemaTypeDisplay.Date:
-			case ColumnSchemaTypeDisplay.Datetime:
-			case ColumnSchemaTypeDisplay.Time:
+			case ColumnDisplayType.Number:
+			case ColumnDisplayType.Date:
+			case ColumnDisplayType.Datetime:
+			case ColumnDisplayType.Time:
 				conditionEntries.push(new DropDownListBoxItem({
 					identifier: RowFilterCondition.CONDITION_IS_LESS_THAN,
 					title: localize(
@@ -183,12 +183,12 @@ export const AddEditRowFilterModalPopup = (props: AddEditRowFilterModalPopupProp
 
 		// Add is equal to condition.
 		switch (selectedColumnSchema.type_display) {
-			case ColumnSchemaTypeDisplay.Number:
-			case ColumnSchemaTypeDisplay.Boolean:
-			case ColumnSchemaTypeDisplay.String:
-			case ColumnSchemaTypeDisplay.Date:
-			case ColumnSchemaTypeDisplay.Datetime:
-			case ColumnSchemaTypeDisplay.Time:
+			case ColumnDisplayType.Number:
+			case ColumnDisplayType.Boolean:
+			case ColumnDisplayType.String:
+			case ColumnDisplayType.Date:
+			case ColumnDisplayType.Datetime:
+			case ColumnDisplayType.Time:
 				conditionEntries.push(new DropDownListBoxItem({
 					identifier: RowFilterCondition.CONDITION_IS_EQUAL_TO,
 					title: localize(
@@ -201,10 +201,10 @@ export const AddEditRowFilterModalPopup = (props: AddEditRowFilterModalPopupProp
 
 		// Add is between / is not between conditions.
 		switch (selectedColumnSchema.type_display) {
-			case ColumnSchemaTypeDisplay.Number:
-			case ColumnSchemaTypeDisplay.Date:
-			case ColumnSchemaTypeDisplay.Datetime:
-			case ColumnSchemaTypeDisplay.Time:
+			case ColumnDisplayType.Number:
+			case ColumnDisplayType.Date:
+			case ColumnDisplayType.Datetime:
+			case ColumnDisplayType.Time:
 				conditionEntries.push(new DropDownListBoxSeparator());
 				conditionEntries.push(new DropDownListBoxItem({
 					identifier: RowFilterCondition.CONDITION_IS_BETWEEN,
