@@ -208,9 +208,9 @@ const SavePlotModalDialog = (props: SavePlotModalDialogProps) => {
 								inputRef={inputRef} />
 						</div>
 						<div className='plot-input'>
-							<LabeledTextInput id='width' label={localize('positronSavePlotModalDialogWidth', 'Width')} value={width.value} type={'number'} onChange={e => updateWidth(e.target.value)} min={1} error={!width.valid} />
-							<LabeledTextInput id='height' label={localize('positronSavePlotModalDialogHeight', 'Height')} value={height.value} type={'number'} onChange={e => updateHeight(e.target.value)} min={1} error={!height.valid} />
-							<LabeledTextInput id='dpi' label={localize('positronSavePlotModalDialogDPI', 'DPI')} value={dpi.value} type={'number'} onChange={e => updateDpi(e.target.value)} min={1} max={300} error={!dpi.valid} />
+							<LabeledTextInput label={localize('positronSavePlotModalDialogWidth', 'Width')} value={width.value} type={'number'} onChange={e => updateWidth(e.target.value)} min={1} error={!width.valid} />
+							<LabeledTextInput label={localize('positronSavePlotModalDialogHeight', 'Height')} value={height.value} type={'number'} onChange={e => updateHeight(e.target.value)} min={1} error={!height.valid} />
+							<LabeledTextInput label={localize('positronSavePlotModalDialogDPI', 'DPI')} value={dpi.value} type={'number'} onChange={e => updateDpi(e.target.value)} min={1} max={300} error={!dpi.valid} />
 							<div className='error'>
 								<div>
 									{!path.valid && localize('positronSavePlotModalDialogNoPathMessage', 'Specify a path.')}
