@@ -3,6 +3,7 @@ import * as assert from 'assert';
 import * as fs from 'fs';
 import { CURSOR, type, withFileEditor } from './editor-utils';
 import { EXTENSION_ROOT_DIR } from '../constants';
+import { removeLeadingLines } from '../util';
 
 const snapshotsFolder = `${EXTENSION_ROOT_DIR}/src/test/snapshots`;
 const snippetsPath = `${snapshotsFolder}/indentation-cases.R`;
@@ -51,10 +52,13 @@ async function regenerateIndentSnapshots() {
 	const snapshots: string[] = ['# File generated from `indentation-cases.R`.\n\n'];
 
 	for (const snippet of snippets) {
+		const bareSnippet = snippet.split('\n').slice(0, -1).join('\n');
+
 		await withFileEditor(snippet, 'R', async (_editor, doc) => {
 			// Type one newline character to trigger indentation
 			await type(doc, `\n${CURSOR}`);
-			snapshots.push(doc.getText());
+			const snapshot = removeLeadingLines(doc.getText(), /^$|^#/);
+			snapshots.push(bareSnippet + '\n# ->\n' + snapshot);
 		});
 	}
 
