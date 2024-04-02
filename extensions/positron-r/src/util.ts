@@ -48,3 +48,18 @@ export function extractValue(str: string, key: string, delim: string = '='): str
 	const m = str.match(re);
 	return m?.[1] ?? '';
 }
+
+export function removeLeadingLines(x: string, pattern: RegExp): string {
+	const lines = x.split('\n');
+	let output = lines;
+
+	for (const line of lines) {
+		if (pattern.test(line)) {
+			output = output.slice(1);
+			continue;
+		}
+		break;
+	}
+
+	return output.join('\n');
+}
