@@ -18,17 +18,6 @@ from ._vendor.pydantic import BaseModel, Field
 
 
 @enum.unique
-class GetColumnProfileProfileType(str, enum.Enum):
-    """
-    Possible values for ProfileType in GetColumnProfile
-    """
-
-    Freqtable = "freqtable"
-
-    Histogram = "histogram"
-
-
-@enum.unique
 class ColumnSchemaTypeDisplay(str, enum.Enum):
     """
     Possible values for TypeDisplay in ColumnSchema
@@ -54,26 +43,30 @@ class ColumnSchemaTypeDisplay(str, enum.Enum):
 
 
 @enum.unique
-class ColumnFilterFilterType(str, enum.Enum):
+class RowFilterFilterType(str, enum.Enum):
     """
-    Possible values for FilterType in ColumnFilter
+    Possible values for FilterType in RowFilter
     """
 
-    Isnull = "isnull"
-
-    Notnull = "notnull"
+    Between = "between"
 
     Compare = "compare"
 
-    SetMembership = "set_membership"
+    IsNull = "is_null"
+
+    NotBetween = "not_between"
+
+    NotNull = "not_null"
 
     Search = "search"
 
+    SetMembership = "set_membership"
+
 
 @enum.unique
-class ColumnFilterCompareOp(str, enum.Enum):
+class CompareFilterParamsOp(str, enum.Enum):
     """
-    Possible values for CompareOp in ColumnFilter
+    Possible values for Op in CompareFilterParams
     """
 
     Eq = "="
@@ -90,27 +83,47 @@ class ColumnFilterCompareOp(str, enum.Enum):
 
 
 @enum.unique
-class ColumnFilterSearchType(str, enum.Enum):
+class SearchFilterParamsType(str, enum.Enum):
     """
-    Possible values for SearchType in ColumnFilter
+    Possible values for Type in SearchFilterParams
     """
 
     Contains = "contains"
 
-    Startswith = "startswith"
+    StartsWith = "starts_with"
 
-    Endswith = "endswith"
+    EndsWith = "ends_with"
 
-    Regex = "regex"
+    RegexMatch = "regex_match"
 
 
-class TableSchema(BaseModel):
+@enum.unique
+class ColumnProfileRequestType(str, enum.Enum):
     """
-    The schema for a table-like object
+    Possible values for Type in ColumnProfileRequest
     """
 
-    columns: List[ColumnSchema] = Field(
-        description="Schema for each column in the table",
+    NullCount = "null_count"
+
+    SummaryStats = "summary_stats"
+
+    FrequencyTable = "frequency_table"
+
+    Histogram = "histogram"
+
+
+class SearchSchemaResult(BaseModel):
+    """
+    Result in Methods
+    """
+
+    matches: Optional[TableSchema] = Field(
+        default=None,
+        description="A schema containing matching columns up to the max_results limit",
+    )
+
+    total_num_matches: int = Field(
+        description="The total number of columns matching the search term",
     )
 
 
@@ -139,70 +152,6 @@ class FilterResult(BaseModel):
     )
 
 
-class ProfileResult(BaseModel):
-    """
-    Result of computing column profile
-    """
-
-    null_count: int = Field(
-        description="Number of null values in column",
-    )
-
-    min_value: Optional[str] = Field(
-        default=None,
-        description="Minimum value as string computed as part of histogram",
-    )
-
-    max_value: Optional[str] = Field(
-        default=None,
-        description="Maximum value as string computed as part of histogram",
-    )
-
-    mean_value: Optional[str] = Field(
-        default=None,
-        description="Average value as string computed as part of histogram",
-    )
-
-    histogram_bin_sizes: Optional[List[int]] = Field(
-        default=None,
-        description="Absolute count of values in each histogram bin",
-    )
-
-    histogram_bin_width: Optional[float] = Field(
-        default=None,
-        description="Absolute floating-point width of a histogram bin",
-    )
-
-    histogram_quantiles: Optional[List[ColumnQuantileValue]] = Field(
-        default=None,
-        description="Quantile values computed from histogram bins",
-    )
-
-    freqtable_counts: Optional[List[FreqtableCounts]] = Field(
-        default=None,
-        description="Counts of distinct values in column",
-    )
-
-    freqtable_other_count: Optional[int] = Field(
-        default=None,
-        description="Number of other values not accounted for in counts",
-    )
-
-
-class FreqtableCounts(BaseModel):
-    """
-    Items in FreqtableCounts
-    """
-
-    value: str = Field(
-        description="Stringified value",
-    )
-
-    count: int = Field(
-        description="Number of occurrences of value",
-    )
-
-
 class TableState(BaseModel):
     """
     The current backend table state
@@ -212,8 +161,9 @@ class TableState(BaseModel):
         description="Provides number of rows and columns in table",
     )
 
-    filters: List[ColumnFilter] = Field(
-        description="The set of currently applied filters",
+    row_filters: Optional[List[RowFilter]] = Field(
+        default=None,
+        description="The set of currently applied row filters",
     )
 
     sort_keys: List[ColumnSortKey] = Field(
@@ -242,6 +192,10 @@ class ColumnSchema(BaseModel):
 
     column_name: str = Field(
         description="Name of column as UTF-8 string",
+    )
+
+    column_index: int = Field(
+        description="The position of the column within the schema",
     )
 
     type_name: str = Field(
@@ -283,16 +237,26 @@ class ColumnSchema(BaseModel):
     )
 
 
-class ColumnFilter(BaseModel):
+class TableSchema(BaseModel):
     """
-    Specifies a table row filter based on a column's values
+    The schema for a table-like object
+    """
+
+    columns: List[ColumnSchema] = Field(
+        description="Schema for each column in the table",
+    )
+
+
+class RowFilter(BaseModel):
+    """
+    Specifies a table row filter based on a single column's values
     """
 
     filter_id: str = Field(
         description="Unique identifier for this filter",
     )
 
-    filter_type: ColumnFilterFilterType = Field(
+    filter_type: RowFilterFilterType = Field(
         description="Type of filter to apply",
     )
 
@@ -300,39 +264,200 @@ class ColumnFilter(BaseModel):
         description="Column index to apply filter to",
     )
 
-    compare_op: Optional[ColumnFilterCompareOp] = Field(
+    between_params: Optional[BetweenFilterParams] = Field(
         default=None,
+        description="Parameters for the 'between' and 'not_between' filter types",
+    )
+
+    compare_params: Optional[CompareFilterParams] = Field(
+        default=None,
+        description="Parameters for the 'compare' filter type",
+    )
+
+    search_params: Optional[SearchFilterParams] = Field(
+        default=None,
+        description="Parameters for the 'search' filter type",
+    )
+
+    set_membership_params: Optional[SetMembershipFilterParams] = Field(
+        default=None,
+        description="Parameters for the 'set_membership' filter type",
+    )
+
+
+class BetweenFilterParams(BaseModel):
+    """
+    Parameters for the 'between' and 'not_between' filter types
+    """
+
+    left_value: str = Field(
+        description="The lower limit for filtering",
+    )
+
+    right_value: str = Field(
+        description="The upper limit for filtering",
+    )
+
+
+class CompareFilterParams(BaseModel):
+    """
+    Parameters for the 'compare' filter type
+    """
+
+    op: CompareFilterParamsOp = Field(
         description="String representation of a binary comparison",
     )
 
-    compare_value: Optional[str] = Field(
-        default=None,
+    value: str = Field(
         description="A stringified column value for a comparison filter",
     )
 
-    set_member_values: Optional[List[str]] = Field(
-        default=None,
+
+class SetMembershipFilterParams(BaseModel):
+    """
+    Parameters for the 'set_membership' filter type
+    """
+
+    values: List[str] = Field(
         description="Array of column values for a set membership filter",
     )
 
-    set_member_inclusive: Optional[bool] = Field(
-        default=None,
+    inclusive: bool = Field(
         description="Filter by including only values passed (true) or excluding (false)",
     )
 
-    search_type: Optional[ColumnFilterSearchType] = Field(
-        default=None,
+
+class SearchFilterParams(BaseModel):
+    """
+    Parameters for the 'search' filter type
+    """
+
+    type: SearchFilterParamsType = Field(
         description="Type of search to perform",
     )
 
-    search_term: Optional[str] = Field(
-        default=None,
+    term: str = Field(
         description="String value/regex to search for in stringified data",
     )
 
-    search_case_sensitive: Optional[bool] = Field(
-        default=None,
+    case_sensitive: bool = Field(
         description="If true, do a case-sensitive search, otherwise case-insensitive",
+    )
+
+
+class ColumnProfileRequest(BaseModel):
+    """
+    A single column profile request
+    """
+
+    column_index: int = Field(
+        description="The ordinal column index to profile",
+    )
+
+    type: ColumnProfileRequestType = Field(
+        description="The type of analytical column profile",
+    )
+
+
+class ColumnProfileResult(BaseModel):
+    """
+    Result of computing column profile
+    """
+
+    null_count: Optional[int] = Field(
+        default=None,
+        description="Result from null_count request",
+    )
+
+    summary_stats: Optional[ColumnSummaryStats] = Field(
+        default=None,
+        description="Results from summary_stats request",
+    )
+
+    histogram: Optional[ColumnHistogram] = Field(
+        default=None,
+        description="Results from summary_stats request",
+    )
+
+    frequency_table: Optional[ColumnFrequencyTable] = Field(
+        default=None,
+        description="Results from frequency_table request",
+    )
+
+
+class ColumnSummaryStats(BaseModel):
+    """
+    ColumnSummaryStats in Schemas
+    """
+
+    min_value: str = Field(
+        description="Minimum value as string",
+    )
+
+    max_value: str = Field(
+        description="Maximum value as string",
+    )
+
+    mean_value: Optional[str] = Field(
+        default=None,
+        description="Average value as string",
+    )
+
+    median: Optional[str] = Field(
+        default=None,
+        description="Sample median (50% value) value as string",
+    )
+
+    q25: Optional[str] = Field(
+        default=None,
+        description="25th percentile value as string",
+    )
+
+    q75: Optional[str] = Field(
+        default=None,
+        description="75th percentile value as string",
+    )
+
+
+class ColumnHistogram(BaseModel):
+    """
+    Result from a histogram profile request
+    """
+
+    bin_sizes: List[int] = Field(
+        description="Absolute count of values in each histogram bin",
+    )
+
+    bin_width: float = Field(
+        description="Absolute floating-point width of a histogram bin",
+    )
+
+
+class ColumnFrequencyTable(BaseModel):
+    """
+    Result from a frequency_table profile request
+    """
+
+    counts: List[ColumnFrequencyTableItem] = Field(
+        description="Counts of distinct values in column",
+    )
+
+    other_count: int = Field(
+        description="Number of other values not accounted for in counts. May be 0",
+    )
+
+
+class ColumnFrequencyTableItem(BaseModel):
+    """
+    Entry in a column's frequency table
+    """
+
+    value: str = Field(
+        description="Stringified value",
+    )
+
+    count: int = Field(
+        description="Number of occurrences of value",
     )
 
 
@@ -377,17 +502,20 @@ class DataExplorerBackendRequest(str, enum.Enum):
     # Request schema
     GetSchema = "get_schema"
 
+    # Search schema by column name
+    SearchSchema = "search_schema"
+
     # Get a rectangle of data values
     GetDataValues = "get_data_values"
 
-    # Set column filters
-    SetColumnFilters = "set_column_filters"
+    # Set row filters based on column values
+    SetRowFilters = "set_row_filters"
 
     # Set or clear sort-by-column(s)
     SetSortColumns = "set_sort_columns"
 
-    # Get a column profile
-    GetColumnProfile = "get_column_profile"
+    # Request a batch of column profiles
+    GetColumnProfiles = "get_column_profiles"
 
     # Get the state
     GetState = "get_state"
@@ -418,6 +546,43 @@ class GetSchemaRequest(BaseModel):
 
     method: Literal[DataExplorerBackendRequest.GetSchema] = Field(
         description="The JSON-RPC method name (get_schema)",
+    )
+
+    jsonrpc: str = Field(
+        default="2.0",
+        description="The JSON-RPC version specifier",
+    )
+
+
+class SearchSchemaParams(BaseModel):
+    """
+    Search schema for column names matching a passed substring
+    """
+
+    search_term: str = Field(
+        description="Substring to match for (currently case insensitive",
+    )
+
+    start_index: int = Field(
+        description="Index (starting from zero) of first result to fetch",
+    )
+
+    max_results: int = Field(
+        description="Maximum number of resulting column schemas to fetch from the start index",
+    )
+
+
+class SearchSchemaRequest(BaseModel):
+    """
+    Search schema for column names matching a passed substring
+    """
+
+    params: SearchSchemaParams = Field(
+        description="Parameters to the SearchSchema method",
+    )
+
+    method: Literal[DataExplorerBackendRequest.SearchSchema] = Field(
+        description="The JSON-RPC method name (search_schema)",
     )
 
     jsonrpc: str = Field(
@@ -463,27 +628,27 @@ class GetDataValuesRequest(BaseModel):
     )
 
 
-class SetColumnFiltersParams(BaseModel):
+class SetRowFiltersParams(BaseModel):
     """
-    Set or clear column filters on table, replacing any previous filters
+    Set or clear row filters on table, replacing any previous filters
     """
 
-    filters: List[ColumnFilter] = Field(
+    filters: List[RowFilter] = Field(
         description="Zero or more filters to apply",
     )
 
 
-class SetColumnFiltersRequest(BaseModel):
+class SetRowFiltersRequest(BaseModel):
     """
-    Set or clear column filters on table, replacing any previous filters
+    Set or clear row filters on table, replacing any previous filters
     """
 
-    params: SetColumnFiltersParams = Field(
-        description="Parameters to the SetColumnFilters method",
+    params: SetRowFiltersParams = Field(
+        description="Parameters to the SetRowFilters method",
     )
 
-    method: Literal[DataExplorerBackendRequest.SetColumnFilters] = Field(
-        description="The JSON-RPC method name (set_column_filters)",
+    method: Literal[DataExplorerBackendRequest.SetRowFilters] = Field(
+        description="The JSON-RPC method name (set_row_filters)",
     )
 
     jsonrpc: str = Field(
@@ -523,31 +688,27 @@ class SetSortColumnsRequest(BaseModel):
     )
 
 
-class GetColumnProfileParams(BaseModel):
+class GetColumnProfilesParams(BaseModel):
     """
-    Requests a statistical summary or data profile for a column
+    Requests a statistical summary or data profile for batch of columns
     """
 
-    profile_type: GetColumnProfileProfileType = Field(
-        description="The type of analytical column profile",
-    )
-
-    column_index: int = Field(
-        description="Column index to compute profile for",
+    profiles: List[ColumnProfileRequest] = Field(
+        description="Array of requested profiles",
     )
 
 
-class GetColumnProfileRequest(BaseModel):
+class GetColumnProfilesRequest(BaseModel):
     """
-    Requests a statistical summary or data profile for a column
+    Requests a statistical summary or data profile for batch of columns
     """
 
-    params: GetColumnProfileParams = Field(
-        description="Parameters to the GetColumnProfile method",
+    params: GetColumnProfilesParams = Field(
+        description="Parameters to the GetColumnProfiles method",
     )
 
-    method: Literal[DataExplorerBackendRequest.GetColumnProfile] = Field(
-        description="The JSON-RPC method name (get_column_profile)",
+    method: Literal[DataExplorerBackendRequest.GetColumnProfiles] = Field(
+        description="The JSON-RPC method name (get_column_profiles)",
     )
 
     jsonrpc: str = Field(
@@ -575,10 +736,11 @@ class DataExplorerBackendMessageContent(BaseModel):
     comm_id: str
     data: Union[
         GetSchemaRequest,
+        SearchSchemaRequest,
         GetDataValuesRequest,
-        SetColumnFiltersRequest,
+        SetRowFiltersRequest,
         SetSortColumnsRequest,
-        GetColumnProfileRequest,
+        GetColumnProfilesRequest,
         GetStateRequest,
     ] = Field(..., discriminator="method")
 
@@ -606,15 +768,11 @@ class SchemaUpdateParams(BaseModel):
     )
 
 
-TableSchema.update_forward_refs()
+SearchSchemaResult.update_forward_refs()
 
 TableData.update_forward_refs()
 
 FilterResult.update_forward_refs()
-
-ProfileResult.update_forward_refs()
-
-FreqtableCounts.update_forward_refs()
 
 TableState.update_forward_refs()
 
@@ -622,7 +780,29 @@ TableShape.update_forward_refs()
 
 ColumnSchema.update_forward_refs()
 
-ColumnFilter.update_forward_refs()
+TableSchema.update_forward_refs()
+
+RowFilter.update_forward_refs()
+
+BetweenFilterParams.update_forward_refs()
+
+CompareFilterParams.update_forward_refs()
+
+SetMembershipFilterParams.update_forward_refs()
+
+SearchFilterParams.update_forward_refs()
+
+ColumnProfileRequest.update_forward_refs()
+
+ColumnProfileResult.update_forward_refs()
+
+ColumnSummaryStats.update_forward_refs()
+
+ColumnHistogram.update_forward_refs()
+
+ColumnFrequencyTable.update_forward_refs()
+
+ColumnFrequencyTableItem.update_forward_refs()
 
 ColumnQuantileValue.update_forward_refs()
 
@@ -632,21 +812,25 @@ GetSchemaParams.update_forward_refs()
 
 GetSchemaRequest.update_forward_refs()
 
+SearchSchemaParams.update_forward_refs()
+
+SearchSchemaRequest.update_forward_refs()
+
 GetDataValuesParams.update_forward_refs()
 
 GetDataValuesRequest.update_forward_refs()
 
-SetColumnFiltersParams.update_forward_refs()
+SetRowFiltersParams.update_forward_refs()
 
-SetColumnFiltersRequest.update_forward_refs()
+SetRowFiltersRequest.update_forward_refs()
 
 SetSortColumnsParams.update_forward_refs()
 
 SetSortColumnsRequest.update_forward_refs()
 
-GetColumnProfileParams.update_forward_refs()
+GetColumnProfilesParams.update_forward_refs()
 
-GetColumnProfileRequest.update_forward_refs()
+GetColumnProfilesRequest.update_forward_refs()
 
 GetStateRequest.update_forward_refs()
 

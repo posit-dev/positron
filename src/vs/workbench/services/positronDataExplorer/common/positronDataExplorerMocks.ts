@@ -4,12 +4,12 @@
 
 import { generateUuid } from 'vs/base/common/uuid';
 import {
-	ColumnFilter,
-	ColumnFilterCompareOp,
-	ColumnFilterFilterType,
-	ColumnFilterSearchType,
+	CompareFilterParamsOp,
+	SearchFilterParamsType,
 	ColumnSchema,
-	ProfileResult,
+	ColumnProfileResult,
+	RowFilter,
+	RowFilterFilterType,
 	TableData,
 	TableSchema
 } from 'vs/workbench/services/languageRuntime/common/positronDataExplorerComm';
@@ -87,7 +87,7 @@ export function getColumnSchema(colName: string, typeName: string, typeDisplay: 
 	} as ColumnSchema;
 }
 
-export function getExampleHistogram(): ProfileResult {
+export function getExampleHistogram(): ColumnProfileResult {
 	// This example is basically made up.
 	return {
 		null_count: 10,
@@ -101,10 +101,10 @@ export function getExampleHistogram(): ProfileResult {
 			{ q: 50, value: '70', exact: true },
 			{ q: 75, value: '82', exact: true }
 		],
-	} as ProfileResult;
+	} as ColumnProfileResult;
 }
 
-export function getExampleFreqtable(): ProfileResult {
+export function getExampleFreqtable(): ColumnProfileResult {
 	return {
 		null_count: 10,
 		freqtable_counts: [
@@ -114,49 +114,44 @@ export function getExampleFreqtable(): ProfileResult {
 			{ value: 'qux444444', count: 2 }
 		],
 		freqtable_other_count: 12
-	} as ProfileResult;
+	} as ColumnProfileResult;
 }
 
 // For filtering
 
-function _getFilterWithProps(columnIndex: number, filterType: ColumnFilterFilterType,
-	props: Partial<ColumnFilter> = {}): ColumnFilter {
+function _getFilterWithProps(columnIndex: number, filterType: RowFilterFilterType,
+	props: Partial<RowFilter> = {}): RowFilter {
 	return {
 		filter_id: generateUuid(),
 		filter_type: filterType,
 		column_index: columnIndex,
 		...props
-	} as ColumnFilter;
+	} as RowFilter;
 }
 
-export function getCompareFilter(columnIndex: number, op: ColumnFilterCompareOp,
+export function getCompareFilter(columnIndex: number, op: CompareFilterParamsOp,
 	value: string) {
-	return _getFilterWithProps(columnIndex, ColumnFilterFilterType.Compare, {
-		compare_op: op,
-		compare_value: value
-	});
+	return _getFilterWithProps(columnIndex, RowFilterFilterType.Compare,
+		{ compare_params: { op, value } });
 }
 
 export function getIsNullFilter(columnIndex: number) {
-	return _getFilterWithProps(columnIndex, ColumnFilterFilterType.Isnull);
+	return _getFilterWithProps(columnIndex, RowFilterFilterType.IsNull);
 }
 
 export function getNotNullFilter(columnIndex: number) {
-	return _getFilterWithProps(columnIndex, ColumnFilterFilterType.Notnull);
+	return _getFilterWithProps(columnIndex, RowFilterFilterType.NotNull);
 }
 
 export function getSetMemberFilter(columnIndex: number, values: string[], inclusive: boolean) {
-	return _getFilterWithProps(columnIndex, ColumnFilterFilterType.SetMembership, {
-		set_member_values: values,
-		set_member_inclusive: inclusive
+	return _getFilterWithProps(columnIndex, RowFilterFilterType.SetMembership, {
+		set_membership_params: { values, inclusive }
 	});
 }
 
 export function getTextSearchFilter(columnIndex: number, searchTerm: string,
-	searchType: ColumnFilterSearchType, caseSensitive: boolean) {
-	return _getFilterWithProps(columnIndex, ColumnFilterFilterType.Search, {
-		search_term: searchTerm,
-		search_type: searchType,
-		search_case_sensitive: caseSensitive
+	searchType: SearchFilterParamsType, caseSensitive: boolean) {
+	return _getFilterWithProps(columnIndex, RowFilterFilterType.Search, {
+		search_params: { term: searchTerm, type: searchType, case_sensitive: caseSensitive }
 	});
 }

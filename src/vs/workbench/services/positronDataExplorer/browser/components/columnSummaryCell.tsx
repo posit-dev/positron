@@ -140,7 +140,7 @@ export const ColumnSummaryCell = (props: ColumnSummaryCellProps) => {
 					{props.columnSchema.column_name}
 				</div>
 				<div className='missing-values'>
-					29%
+					{props.instance.getColumnNullPercent(props.columnIndex)}%
 				</div>
 
 			</div>
