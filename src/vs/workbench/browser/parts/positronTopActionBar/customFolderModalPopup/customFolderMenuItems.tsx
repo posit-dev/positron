@@ -22,6 +22,7 @@ import { CustomFolderMenuItem } from 'vs/workbench/browser/parts/positronTopActi
 import { CustomFolderMenuSeparator } from 'vs/workbench/browser/parts/positronTopActionBar/customFolderModalPopup/customFolderMenuSeparator';
 import { CustomFolderRecentlyUsedMenuItem } from 'vs/workbench/browser/parts/positronTopActionBar/customFolderModalPopup/customFolderRecentlyUsedMenuItem';
 import { PositronNewFolderAction, PositronNewFolderFromGitAction, PositronNewProjectAction, PositronOpenFolderInNewWindowAction } from 'vs/workbench/browser/actions/positronActions';
+import { IsDevelopmentContext } from 'vs/platform/contextkey/common/contextkeys';
 
 /**
  * Constants.
@@ -142,10 +143,16 @@ export const CustomFolderMenuItems = (props: CustomFolderMenuItemsProps) => {
 		);
 	};
 
+	// TODO: [New Project] Remove feature flag when New Project action is ready for release
+	const isDevContext = IsDevelopmentContext.getValue(props.contextKeyService) === true;
+
 	// Render.
 	return (
 		<div className='custom-folder-menu-items'>
-			<CommandActionCustomFolderMenuItem id={PositronNewProjectAction.ID} />
+			{isDevContext ?
+				<CommandActionCustomFolderMenuItem id={PositronNewProjectAction.ID} />
+				: null
+			}
 			<CommandActionCustomFolderMenuItem id={PositronNewFolderAction.ID} />
 			<CommandActionCustomFolderMenuItem id={PositronNewFolderFromGitAction.ID} />
 			<CustomFolderMenuSeparator />
