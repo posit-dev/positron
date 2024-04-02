@@ -150,6 +150,8 @@ export interface IPositronPlotsService {
 	 */
 	selectHistoryPolicy(policy: HistoryPolicy): void;
 
+	copyPlotToClipboard(): void;
+
 	/**
 	 * Saves the plot.
 	 */

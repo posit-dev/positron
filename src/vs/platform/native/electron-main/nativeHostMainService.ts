@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { exec } from 'child_process';
-import { app, BrowserWindow, clipboard, Display, Menu, MessageBoxOptions, MessageBoxReturnValue, OpenDevToolsOptions, OpenDialogOptions, OpenDialogReturnValue, powerMonitor, SaveDialogOptions, SaveDialogReturnValue, screen, shell } from 'electron';
+import { app, BrowserWindow, clipboard, Display, Menu, MessageBoxOptions, MessageBoxReturnValue, nativeImage, OpenDevToolsOptions, OpenDialogOptions, OpenDialogReturnValue, powerMonitor, SaveDialogOptions, SaveDialogReturnValue, screen, shell } from 'electron';
 import { arch, cpus, freemem, loadavg, platform, release, totalmem, type } from 'os';
 import { promisify } from 'util';
 import { memoize } from 'vs/base/common/decorators';
@@ -646,6 +646,12 @@ export class NativeHostMainService extends Disposable implements INativeHostMain
 	async hasClipboard(windowId: number | undefined, format: string, type?: 'selection' | 'clipboard'): Promise<boolean> {
 		return clipboard.has(format, type);
 	}
+
+	// --- Start Positron ---
+	async writeClipboardImage(windowId: number | undefined, dataUri: string): Promise<void> {
+		return clipboard.writeImage(nativeImage.createFromDataURL(dataUri));
+	}
+	// --- End Positron ---
 
 	//#endregion
 

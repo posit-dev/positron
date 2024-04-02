@@ -189,6 +189,17 @@ export class BrowserClipboardService extends Disposable implements IClipboardSer
 		return this.resources;
 	}
 
+	// --- Start Positron ---
+	async writeImage(data: string): Promise<void> {
+		const blob = new Blob([data], { type: 'image/png' });
+		navigator.clipboard.write([
+			new ClipboardItem({
+				[blob.type]: blob
+			}
+			)]);
+	}
+	// --- End Positron ---
+
 	private async computeResourcesStateHash(): Promise<number | undefined> {
 		if (this.resources.length === 0) {
 			return undefined; // no resources, no hash needed
