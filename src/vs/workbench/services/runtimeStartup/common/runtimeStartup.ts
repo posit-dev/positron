@@ -636,6 +636,8 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 		if (storedSessions) {
 			try {
 				const serializedSessions = JSON.parse(storedSessions) as SerializedSessionMetadata[];
+
+				// Revive the URIs in the session metadata.
 				const sessions: SerializedSessionMetadata[] = serializedSessions.map(session => ({
 					...session,
 					metadata: {
@@ -643,6 +645,7 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 						notebookUri: URI.revive(session.metadata.notebookUri),
 					},
 				}));
+
 				if (sessions.length > 0) {
 					// If this workspace has sessions, attempt to reconnect to
 					// them.
