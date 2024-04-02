@@ -1,9 +1,10 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (c) Microsoft Corporation. All rights reserved.
- *  Licensed under the MIT License. See License.txt in the project root for license information.
+ *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
 import { Uri as URI } from 'vscode';
+
+// The ResourceMap class and its dependencies are copied as is from the core project.
 
 interface ResourceMapKeyFn {
 	(resource: URI): string;
