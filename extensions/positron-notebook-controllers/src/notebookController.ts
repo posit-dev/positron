@@ -64,7 +64,7 @@ export class NotebookController implements vscode.Disposable {
 
 				await Promise.all([
 					updateNotebookLanguage(e.notebook, this.languageId),
-					this.startNewRuntimeSession(e.notebook),
+					this.startRuntimeSession(e.notebook),
 				]);
 			} else {
 				await notebookSessionService.shutdownRuntimeSession(e.notebook.uri);
@@ -78,12 +78,12 @@ export class NotebookController implements vscode.Disposable {
 	}
 
 	/**
-	 * Start a new runtime session for a notebook.
+	 * Start a runtime session for a notebook.
 	 *
 	 * @param notebook The notebook to start a runtime for.
 	 * @returns Promise that resolves when the runtime has started.
 	 */
-	public async startNewRuntimeSession(notebook: vscode.NotebookDocument): Promise<positron.LanguageRuntimeSession> {
+	public async startRuntimeSession(notebook: vscode.NotebookDocument): Promise<positron.LanguageRuntimeSession> {
 		try {
 			return await this.notebookSessionService.startRuntimeSession(notebook.uri, this.languageId);
 		} catch (err) {
@@ -98,7 +98,7 @@ export class NotebookController implements vscode.Disposable {
 				retry,
 			);
 			if (selection === retry) {
-				return vscode.window.withProgress(this.startProgressOptions(notebook), () => this.startNewRuntimeSession(notebook));
+				return vscode.window.withProgress(this.startProgressOptions(notebook), () => this.startRuntimeSession(notebook));
 			}
 
 			throw err;
@@ -126,7 +126,7 @@ export class NotebookController implements vscode.Disposable {
 
 		// No session has been started for this notebook, start one.
 		if (!session) {
-			session = await vscode.window.withProgress(this.startProgressOptions(notebook), () => this.startNewRuntimeSession(notebook));
+			session = await vscode.window.withProgress(this.startProgressOptions(notebook), () => this.startRuntimeSession(notebook));
 		}
 
 		for (const cell of cells) {
