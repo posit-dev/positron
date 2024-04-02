@@ -230,6 +230,51 @@
 			}
 		},
 		{
+			"name": "set_editor_selections",
+			"summary": "Set the selections in the editor",
+			"description": "Use this to set the selection ranges/cursor in the editor",
+			"params": [
+				{
+					"name": "selections",
+					"description": "The selections (really, ranges) to set in the document",
+					"schema": {
+						"type": "array",
+						"items": {
+							"$ref": "#/components/schemas/range"
+						}
+					}
+				}
+			]
+		},
+		{
+			"name": "modify_editor_selections",
+			"summary": "Modify selections in the editor with a text edit",
+			"description": "Use this to edit a set of selection ranges/cursor in the editor",
+			"params": [
+				{
+					"name": "selections",
+					"description": "The selections (really, ranges) to set in the document",
+					"schema": {
+						"type": "array",
+						"items": {
+							"$ref": "#/components/schemas/range"
+						}
+					}
+				},
+				{
+					"name": "values",
+					"description": "The text values to insert at the selections",
+					"schema": {
+						"type": "array",
+						"items": {
+							"type": "string"
+						}
+					}
+				}
+			],
+			"result": {}
+		},
+		{
 			"name": "last_active_editor_context",
 			"summary": "Context metadata for the last editor",
 			"description": "Returns metadata such as file path for the last editor selected by the user. The result may be undefined if there are no active editors.",
@@ -382,6 +427,24 @@
 					"start",
 					"end",
 					"text"
+				]
+			},
+			"range": {
+				"type": "object",
+				"description": "Selection range",
+				"properties": {
+					"start": {
+						"description": "Start position of the selection",
+						"$ref": "#/components/schemas/position"
+					},
+					"end": {
+						"description": "End position of the selection",
+						"$ref": "#/components/schemas/position"
+					}
+				},
+				"required": [
+					"start",
+					"end"
 				]
 			}
 		}
