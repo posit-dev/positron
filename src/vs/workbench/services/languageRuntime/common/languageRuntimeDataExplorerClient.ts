@@ -6,7 +6,7 @@ import { Emitter, Event } from 'vs/base/common/event';
 import { Disposable } from 'vs/base/common/lifecycle';
 import { generateUuid } from 'vs/base/common/uuid';
 import { IRuntimeClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimeClientInstance';
-import { ColumnSchema, ColumnSortKey, PositronDataExplorerComm, SchemaUpdateEvent, TableData, TableSchema, TableState } from 'vs/workbench/services/languageRuntime/common/positronDataExplorerComm';
+import { ColumnProfileRequest, ColumnProfileResult, ColumnSchema, ColumnSortKey, PositronDataExplorerComm, SchemaUpdateEvent, TableData, TableSchema, TableState } from 'vs/workbench/services/languageRuntime/common/positronDataExplorerComm';
 
 /**
  * TableSchemaSearchResult interface. This is here temporarily until searching the tabe schema
@@ -161,6 +161,17 @@ export class DataExplorerClientInstance extends Disposable {
 		columnIndices: Array<number>
 	): Promise<TableData> {
 		return this._positronDataExplorerComm.getDataValues(rowStartIndex, numRows, columnIndices);
+	}
+
+	/**
+	 * Request a batch of column profiles
+	 * @param profiles An array of profile types and colum indexes
+	 * @returns A Promise<Array<ColumnProfileResult>> that resolves when the operation is complete.
+	 */
+	async getColumnProfiles(
+		profiles: Array<ColumnProfileRequest>
+	): Promise<Array<ColumnProfileResult>> {
+		return this._positronDataExplorerComm.getColumnProfiles(profiles);
 	}
 
 	/**

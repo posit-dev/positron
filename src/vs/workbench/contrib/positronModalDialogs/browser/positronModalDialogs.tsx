@@ -10,7 +10,7 @@ import * as React from 'react';
 
 // Other dependencies.
 import { Emitter } from 'vs/base/common/event';
-import { renderHtml } from 'vs/base/browser/renderHtml';
+import { renderHtml } from 'vs/base/browser/positron/renderHtml';
 import { IOpenerService } from 'vs/platform/opener/common/opener';
 import { ILayoutService } from 'vs/platform/layout/browser/layoutService';
 import { IKeybindingService } from 'vs/platform/keybinding/common/keybinding';
@@ -22,6 +22,7 @@ import { PositronModalReactRenderer } from 'vs/workbench/browser/positronModalRe
 import { OKCancelActionBar } from 'vs/workbench/browser/positronComponents/positronModalDialog/components/okCancelActionBar';
 import { OKCancelModalDialog } from 'vs/workbench/browser/positronComponents/positronModalDialog/positronOKCancelModalDialog';
 import { IModalDialogPromptInstance, IPositronModalDialogsService, ShowConfirmationModalDialogOptions } from 'vs/workbench/services/positronModalDialogs/common/positronModalDialogs';
+import { ExternalLink } from 'vs/base/browser/ui/ExternalLink/ExternalLink';
 
 /**
  * PositronModalDialogs class.
@@ -186,7 +187,9 @@ export class PositronModalDialogs implements IPositronModalDialogsService {
 					{renderHtml(
 						message,
 						{
-							onLinkClick: (href: string) => this._openerService.open(href)
+							componentOverrides: {
+								a: (props) => <ExternalLink {...props} openerService={this._openerService} />
+							}
 						}
 					)}
 				</ContentArea>

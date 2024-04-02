@@ -2,13 +2,18 @@
  *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
-.positron-add-cell-button {
+.positron-add-cell-buttons {
 	display: flex;
 	justify-content: center;
 	opacity: 0;
 	transition: opacity 0.2s;
+	gap: 8px;
+
+	.action-label {
+		cursor: pointer;
+	}
 }
 
-.positron-add-cell-button:hover {
+.positron-add-cell-buttons:hover {
 	opacity: 1;
 }

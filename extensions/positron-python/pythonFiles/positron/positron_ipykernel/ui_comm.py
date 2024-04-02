@@ -116,6 +116,20 @@ class Selection(BaseModel):
     )
 
 
+class Range(BaseModel):
+    """
+    Selection range
+    """
+
+    start: Position = Field(
+        description="Start position of the selection",
+    )
+
+    end: Position = Field(
+        description="End position of the selection",
+    )
+
+
 @enum.unique
 class UiBackendRequest(str, enum.Enum):
     """
@@ -197,6 +211,9 @@ class UiFrontendEvent(str, enum.Enum):
 
     # Open a workspace
     OpenWorkspace = "open_workspace"
+
+    # Set the selections in the editor
+    SetEditorSelections = "set_editor_selections"
 
     # Show a URL in Positron's Viewer pane
     ShowUrl = "show_url"
@@ -370,6 +387,30 @@ class OpenWorkspaceParams(BaseModel):
     )
 
 
+class SetEditorSelectionsParams(BaseModel):
+    """
+    Set the selections in the editor
+    """
+
+    selections: List[Range] = Field(
+        description="The selections (really, ranges) to set in the document",
+    )
+
+
+class ModifyEditorSelectionsParams(BaseModel):
+    """
+    Modify selections in the editor with a text edit
+    """
+
+    selections: List[Range] = Field(
+        description="The selections (really, ranges) to set in the document",
+    )
+
+    values: List[str] = Field(
+        description="The text values to insert at the selections",
+    )
+
+
 class ShowUrlParams(BaseModel):
     """
     Show a URL in Positron's Viewer pane
@@ -387,6 +428,8 @@ TextDocument.update_forward_refs()
 Position.update_forward_refs()
 
 Selection.update_forward_refs()
+
+Range.update_forward_refs()
 
 CallMethodParams.update_forward_refs()
 
@@ -415,5 +458,9 @@ ExecuteCommandParams.update_forward_refs()
 ExecuteCodeParams.update_forward_refs()
 
 OpenWorkspaceParams.update_forward_refs()
+
+SetEditorSelectionsParams.update_forward_refs()
+
+ModifyEditorSelectionsParams.update_forward_refs()
 
 ShowUrlParams.update_forward_refs()

@@ -4,7 +4,7 @@
 
 import { Emitter } from 'vs/base/common/event';
 import { Disposable } from 'vs/base/common/lifecycle';
-import { ColumnSchema, TableData } from 'vs/workbench/services/languageRuntime/common/positronDataExplorerComm';
+import { ColumnProfileRequestType, ColumnSchema, TableData } from 'vs/workbench/services/languageRuntime/common/positronDataExplorerComm';
 import { DataExplorerClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimeDataExplorerClient';
 
 /**
@@ -68,6 +68,11 @@ export class DataExplorerCache extends Disposable {
 	private readonly _columnSchemaCache = new Map<number, ColumnSchema>();
 
 	/**
+	 * Gets the column schema cache.
+	 */
+	private readonly _columnNullCountCache = new Map<number, number>();
+
+	/**
 	 * Gets the row label cache.
 	 */
 	private readonly _rowLabelCache = new Map<number, string>();
@@ -101,6 +106,7 @@ export class DataExplorerCache extends Disposable {
 		this._register(this._dataExplorerClientInstance.onDidSchemaUpdate(async () => {
 			// Clear the column schema cache, row label cache, and data cell cache.
 			this._columnSchemaCache.clear();
+			this._columnNullCountCache.clear();
 			this._rowLabelCache.clear();
 			this._dataCellCache.clear();
 		}));
@@ -110,6 +116,7 @@ export class DataExplorerCache extends Disposable {
 			// Clear the row label cache and data cell cache.
 			this._rowLabelCache.clear();
 			this._dataCellCache.clear();
+			this._columnNullCountCache.clear();
 		}));
 	}
 
@@ -150,6 +157,7 @@ export class DataExplorerCache extends Disposable {
 	invalidateDataCache() {
 		this._rowLabelCache.clear();
 		this._dataCellCache.clear();
+		this._columnNullCountCache.clear();
 	}
 
 	/**
@@ -171,6 +179,15 @@ export class DataExplorerCache extends Disposable {
 	 */
 	getColumnSchema(columnIndex: number) {
 		return this._columnSchemaCache.get(columnIndex);
+	}
+
+	/**
+	 * Gets the null count for the specified column index.
+	 * @param columnIndex The column index.
+	 * @returns The number of nulls in the specified column index.
+	 */
+	getColumnNullCount(columnIndex: number) {
+		return this._columnNullCountCache.get(columnIndex);
 	}
 
 	/**
@@ -236,11 +253,11 @@ export class DataExplorerCache extends Disposable {
 			this._columns - 1
 		);
 
-		// Build an array of the column indicies to cache.
-		const columnIndicies = arrayFromIndexRange(startColumnIndex, endColumnIndex);
+		// Build an array of the column indices to cache.
+		const columnIndices = arrayFromIndexRange(startColumnIndex, endColumnIndex);
 
 		// Build an array of the column schema indices that need to be cached.
-		const columnSchemaIndices = columnIndicies.filter(columnIndex =>
+		const columnSchemaIndices = columnIndices.filter(columnIndex =>
 			!this._columnSchemaCache.has(columnIndex)
 		);
 
@@ -258,6 +275,32 @@ export class DataExplorerCache extends Disposable {
 			// Update the column schema cache, overwriting any entries we already have cached.
 			for (let i = 0; i < tableSchema.columns.length; i++) {
 				this._columnSchemaCache.set(columnSchemaIndices[0] + i, tableSchema.columns[i]);
+			}
+
+			// Update the cache updated flag.
+			cacheUpdated = true;
+		}
+
+		// Build an array of the column schema indices that need to be cached.
+		const columnNullCountIndices = columnIndices.filter(columnIndex =>
+			!this._columnNullCountCache.has(columnIndex)
+		);
+
+		// If there are null counts that need to be cached, cache them.
+		if (columnNullCountIndices.length) {
+			// Request the profiles
+			const results = await this._dataExplorerClientInstance.getColumnProfiles(
+				columnNullCountIndices.map(column_index => {
+					return {
+						column_index,
+						type: ColumnProfileRequestType.NullCount
+					};
+				})
+			);
+
+			// Update the column schema cache, overwriting any entries we already have cached.
+			for (let i = 0; i < results.length; i++) {
+				this._columnNullCountCache.set(columnNullCountIndices[i], results[i].null_count!);
 			}
 
 			// Update the cache updated flag.
@@ -296,7 +339,7 @@ export class DataExplorerCache extends Disposable {
 				const tableData: TableData = await this._dataExplorerClientInstance.getDataValues(
 					rowIndices[0],
 					rows,
-					columnIndicies
+					columnIndices
 				);
 
 				// Update the data cell cache, overwriting any entries we already have cached.
@@ -311,9 +354,9 @@ export class DataExplorerCache extends Disposable {
 					}
 
 					// Cache the data cells.
-					for (let column = 0; column < columnIndicies.length; column++) {
+					for (let column = 0; column < columnIndices.length; column++) {
 						const value = tableData.columns[column][row];
-						const columnIndex = columnIndicies[column];
+						const columnIndex = columnIndices[column];
 						const rowIndex = rowIndices[row];
 						this._dataCellCache.set(`${columnIndex},${rowIndex}`, value);
 					}

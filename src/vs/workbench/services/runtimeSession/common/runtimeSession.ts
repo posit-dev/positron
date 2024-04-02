@@ -1051,6 +1051,15 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 						}
 					});
 				}));
+				this._register(uiClient.onDidSetEditorSelections(event => {
+					this._onDidReceiveRuntimeEventEmitter.fire({
+						session_id: session.sessionId,
+						event: {
+							name: UiFrontendEvent.SetEditorSelections,
+							data: event
+						}
+					});
+				}));
 				this._register(uiClient.onDidOpenEditor(event => {
 					this._onDidReceiveRuntimeEventEmitter.fire({
 						session_id: session.sessionId,

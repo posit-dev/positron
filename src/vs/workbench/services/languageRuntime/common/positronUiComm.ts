@@ -139,6 +139,22 @@ export interface Selection {
 }
 
 /**
+ * Selection range
+ */
+export interface Range {
+	/**
+	 * Start position of the selection
+	 */
+	start: Position;
+
+	/**
+	 * End position of the selection
+	 */
+	end: Position;
+
+}
+
+/**
  * Event: Change in backend's busy/idle status
  */
 export interface BusyEvent {
@@ -238,6 +254,17 @@ export interface OpenWorkspaceEvent {
 	 * Should the workspace be opened in a new window?
 	 */
 	new_window: boolean;
+
+}
+
+/**
+ * Event: Set the selections in the editor
+ */
+export interface SetEditorSelectionsEvent {
+	/**
+	 * The selections (really, ranges) to set in the document
+	 */
+	selections: Array<Range>;
 
 }
 
@@ -368,6 +395,24 @@ export interface WorkspaceFolderRequest {
 }
 
 /**
+ * Request: Modify selections in the editor with a text edit
+ *
+ * Use this to edit a set of selection ranges/cursor in the editor
+ */
+export interface ModifyEditorSelectionsRequest {
+	/**
+	 * The selections (really, ranges) to set in the document
+	 */
+	selections: Array<Range>;
+
+	/**
+	 * The text values to insert at the selections
+	 */
+	values: Array<string>;
+
+}
+
+/**
  * Request: Context metadata for the last editor
  *
  * Returns metadata such as file path for the last editor selected by the
@@ -385,6 +430,7 @@ export enum UiFrontendEvent {
 	WorkingDirectory = 'working_directory',
 	ExecuteCommand = 'execute_command',
 	OpenWorkspace = 'open_workspace',
+	SetEditorSelections = 'set_editor_selections',
 	ShowUrl = 'show_url'
 }
 
@@ -395,6 +441,7 @@ export enum UiFrontendRequest {
 	DebugSleep = 'debug_sleep',
 	ExecuteCode = 'execute_code',
 	WorkspaceFolder = 'workspace_folder',
+	ModifyEditorSelections = 'modify_editor_selections',
 	LastActiveEditorContext = 'last_active_editor_context'
 }
 
@@ -409,6 +456,7 @@ export class PositronUiComm extends PositronBaseComm {
 		this.onDidWorkingDirectory = super.createEventEmitter('working_directory', ['directory']);
 		this.onDidExecuteCommand = super.createEventEmitter('execute_command', ['command']);
 		this.onDidOpenWorkspace = super.createEventEmitter('open_workspace', ['path', 'new_window']);
+		this.onDidSetEditorSelections = super.createEventEmitter('set_editor_selections', ['selections']);
 		this.onDidShowUrl = super.createEventEmitter('show_url', ['url']);
 	}
 
@@ -483,6 +531,12 @@ export class PositronUiComm extends PositronBaseComm {
 	 * Use this to open a workspace in Positron
 	 */
 	onDidOpenWorkspace: Event<OpenWorkspaceEvent>;
+	/**
+	 * Set the selections in the editor
+	 *
+	 * Use this to set the selection ranges/cursor in the editor
+	 */
+	onDidSetEditorSelections: Event<SetEditorSelectionsEvent>;
 	/**
 	 * Show a URL in Positron's Viewer pane
 	 *

@@ -5,6 +5,7 @@
 # flake8: ignore E203
 # pyright: reportOptionalMemberAccess=false
 
+import abc
 import logging
 import operator
 import uuid
@@ -23,21 +24,29 @@ import comm
 
 from .access_keys import decode_access_key
 from .data_explorer_comm import (
-    ColumnFilter,
-    ColumnFilterCompareOp,
+    ColumnFrequencyTable,
+    ColumnHistogram,
+    ColumnSummaryStats,
+    CompareFilterParamsOp,
+    ColumnProfileRequestType,
+    ColumnProfileResult,
     ColumnSchema,
     ColumnSchemaTypeDisplay,
     ColumnSortKey,
     DataExplorerBackendMessageContent,
     DataExplorerFrontendEvent,
     FilterResult,
-    GetColumnProfileProfileType,
-    GetColumnProfileRequest,
+    GetColumnProfilesRequest,
     GetDataValuesRequest,
     GetSchemaRequest,
     GetStateRequest,
+    RowFilter,
+    RowFilterFilterType,
     SchemaUpdateParams,
-    SetColumnFiltersRequest,
+    SearchFilterParamsType,
+    SearchSchemaRequest,
+    SearchSchemaResult,
+    SetRowFiltersRequest,
     SetSortColumnsRequest,
     TableData,
     TableSchema,
@@ -60,7 +69,7 @@ logger = logging.getLogger(__name__)
 PathKey = Tuple[str, ...]
 
 
-class DataExplorerTableView:
+class DataExplorerTableView(abc.ABC):
     """
     Interface providing a consistent wrapper around different data
     frame / table types for the data explorer for serving requests from
@@ -71,7 +80,7 @@ class DataExplorerTableView:
     def __init__(
         self,
         table,
-        filters: Optional[List[ColumnFilter]],
+        filters: Optional[List[RowFilter]],
         sort_keys: Optional[List[ColumnSortKey]],
     ):
         # Note: we must not ever modify the user's data
@@ -82,13 +91,8 @@ class DataExplorerTableView:
 
         self._need_recompute = len(self.filters) > 0 or len(self.sort_keys) > 0
 
-    def invalidate_computations(self):
-        raise NotImplementedError
-
-    def ui_should_update_schema(self, new_table):
-        raise NotImplementedError
-
-    def ui_should_update_data(self, new_table):
+    @abc.abstractmethod
+    def _recompute(self):
         raise NotImplementedError
 
     def _recompute_if_needed(self) -> bool:
@@ -99,11 +103,15 @@ class DataExplorerTableView:
         else:
             return False
 
-    def _recompute(self):
-        raise NotImplementedError
-
     def get_schema(self, request: GetSchemaRequest):
         return self._get_schema(request.params.start_index, request.params.num_columns).dict()
+
+    def search_schema(self, request: SearchSchemaRequest):
+        return self._search_schema(
+            request.params.search_term,
+            request.params.start_index,
+            request.params.max_results,
+        ).dict()
 
     def get_data_values(self, request: GetDataValuesRequest):
         self._recompute_if_needed()
@@ -113,8 +121,8 @@ class DataExplorerTableView:
             request.params.column_indices,
         ).dict()
 
-    def set_column_filters(self, request: SetColumnFiltersRequest):
-        return self._set_column_filters(request.params.filters)
+    def set_row_filters(self, request: SetRowFiltersRequest):
+        return self._set_row_filters(request.params.filters)
 
     def set_sort_columns(self, request: SetSortColumnsRequest):
         self.sort_keys = request.params.sort_keys
@@ -124,39 +132,90 @@ class DataExplorerTableView:
             # trigger a sort
             self._sort_data()
 
-    def get_column_profile(self, request: GetColumnProfileRequest):
+    def get_column_profiles(self, request: GetColumnProfilesRequest):
         self._recompute_if_needed()
-        return self._get_column_profile(request.params.profile_type, request.params.column_index)
+        results = []
+
+        for req in request.params.profiles:
+            if req.type == ColumnProfileRequestType.NullCount:
+                count = self._prof_null_count(req.column_index)
+                result = ColumnProfileResult(null_count=count)
+            elif req.type == ColumnProfileRequestType.SummaryStats:
+                stats = self._prof_summary_stats(req.column_index)
+                result = ColumnProfileResult(summary_stats=stats)
+            elif req.type == ColumnProfileRequestType.FrequencyTable:
+                freq_table = self._prof_freq_table(req.column_index)
+                result = ColumnProfileResult(frequency_table=freq_table)
+            elif req.type == ColumnProfileRequestType.Histogram:
+                histogram = self._prof_histogram(req.column_index)
+                result = ColumnProfileResult(histogram=histogram)
+            else:
+                raise NotImplementedError(req.type)
+            results.append(result.dict())
+
+        return results
 
     def get_state(self, request: GetStateRequest):
         return self._get_state().dict()
 
-    def _get_schema(self, column_start: int, num_columns: int) -> TableSchema:
-        raise NotImplementedError
+    @abc.abstractmethod
+    def invalidate_computations(self):
+        pass
 
+    @abc.abstractmethod
+    def ui_should_update_schema(self, new_table) -> Tuple[bool, bool]:
+        pass
+
+    @abc.abstractmethod
+    def ui_should_update_data(self, new_table) -> bool:
+        pass
+
+    @abc.abstractmethod
+    def _get_schema(self, column_start: int, num_columns: int) -> TableSchema:
+        pass
+
+    @abc.abstractmethod
+    def _search_schema(
+        self, search_term: str, start_index: int, max_results: int
+    ) -> SearchSchemaResult:
+        pass
+
+    @abc.abstractmethod
     def _get_data_values(
         self,
         row_start: int,
         num_rows: int,
         column_indices: Sequence[int],
     ) -> TableData:
-        raise NotImplementedError
+        pass
 
-    def _set_column_filters(self, filters: List[ColumnFilter]) -> FilterResult:
-        raise NotImplementedError
+    @abc.abstractmethod
+    def _set_row_filters(self, filters: List[RowFilter]) -> FilterResult:
+        pass
 
-    def _sort_data(self) -> None:
-        raise NotImplementedError
+    @abc.abstractmethod
+    def _sort_data(self):
+        pass
 
-    def _get_column_profile(
-        self,
-        profile_type: GetColumnProfileProfileType,
-        column_index: int,
-    ) -> None:
-        raise NotImplementedError
+    @abc.abstractmethod
+    def _prof_null_count(self, column_index: int) -> int:
+        pass
 
+    @abc.abstractmethod
+    def _prof_summary_stats(self, column_index: int) -> ColumnSummaryStats:
+        pass
+
+    @abc.abstractmethod
+    def _prof_freq_table(self, column_index: int) -> ColumnFrequencyTable:
+        pass
+
+    @abc.abstractmethod
+    def _prof_histogram(self, column_index: int) -> ColumnHistogram:
+        pass
+
+    @abc.abstractmethod
     def _get_state(self) -> TableState:
-        raise NotImplementedError
+        pass
 
 
 def _pandas_format_values(col):
@@ -203,7 +262,7 @@ class PandasView(DataExplorerTableView):
     def __init__(
         self,
         table,
-        filters: Optional[List[ColumnFilter]],
+        filters: Optional[List[RowFilter]],
         sort_keys: Optional[List[ColumnSortKey]],
     ):
         super().__init__(table, filters, sort_keys)
@@ -226,6 +285,14 @@ class PandasView(DataExplorerTableView):
         # only filters, then this should be the same as
         # self.filtered_indices
         self.view_indices = None
+
+        # We store a tuple of (last_search_term, matches)
+        # here so that we can support scrolling through the search
+        # results without having to recompute the search. If the
+        # search term changes, we discard the last search result. We
+        # might add an LRU cache here or something if it helps
+        # performance.
+        self._search_schema_last_result: Optional[Tuple[str, List[ColumnSchema]]] = None
 
     def invalidate_computations(self):
         self.filtered_indices = self.view_indices = None
@@ -255,7 +322,7 @@ class PandasView(DataExplorerTableView):
     def _recompute(self):
         # Resetting the column filters will trigger filtering AND
         # sorting
-        self._set_column_filters(self.filters)
+        self._set_row_filters(self.filters)
 
     @property
     def dtypes(self):
@@ -264,36 +331,82 @@ class PandasView(DataExplorerTableView):
         return self._dtypes
 
     def _get_schema(self, column_start: int, num_columns: int) -> TableSchema:
-        from pandas.api.types import infer_dtype
-
-        # TODO: pandas MultiIndex columns
-        # TODO: time zone for datetimetz datetime64[ns] types
-        columns_slice = self.table.columns[column_start : column_start + num_columns]
-        dtypes_slice = self.dtypes.iloc[column_start : column_start + num_columns]
         column_schemas = []
 
-        for i, (c, dtype) in enumerate(zip(columns_slice, dtypes_slice)):
-            if dtype == object:
-                column_index = i + column_start
-                if column_index not in self._inferred_dtypes:
-                    self._inferred_dtypes[column_index] = infer_dtype(
-                        self.table.iloc[:, column_index]
-                    )
-                type_name = self._inferred_dtypes[column_index]
-            else:
-                # TODO: more sophisticated type mapping
-                type_name = str(dtype)
+        for column_index in range(
+            column_start,
+            min(column_start + num_columns, len(self.table.columns)),
+        ):
+            column_raw_name = self.table.columns[column_index]
+            column_name = str(column_raw_name)
 
-            type_display = self.TYPE_DISPLAY_MAPPING.get(type_name, "unknown")
-
-            col_schema = ColumnSchema(
-                column_name=str(c),
-                type_name=type_name,
-                type_display=ColumnSchemaTypeDisplay(type_display),
-            )
+            col_schema = self._get_single_column_schema(column_index, column_name)
             column_schemas.append(col_schema)
 
         return TableSchema(columns=column_schemas)
+
+    def _search_schema(
+        self, search_term: str, start_index: int, max_results: int
+    ) -> SearchSchemaResult:
+        # Sanitize user input here for now, possibly remove this later
+        search_term = search_term.lower()
+
+        if self._search_schema_last_result is not None:
+            last_search_term, matches = self._search_schema_last_result
+            if last_search_term != search_term:
+                matches = self._search_schema_get_matches(search_term)
+                self._search_schema_last_result = (search_term, matches)
+        else:
+            matches = self._search_schema_get_matches(search_term)
+            self._search_schema_last_result = (search_term, matches)
+
+        matches_slice = matches[start_index : start_index + max_results]
+        return SearchSchemaResult(
+            matches=TableSchema(columns=matches_slice),
+            total_num_matches=len(matches),
+        )
+
+    def _search_schema_get_matches(self, search_term: str) -> List[ColumnSchema]:
+        matches = []
+        for column_index in range(len(self.table.columns)):
+            column_raw_name = self.table.columns[column_index]
+            column_name = str(column_raw_name)
+
+            # Do a case-insensitive search
+            if search_term not in column_name.lower():
+                continue
+
+            col_schema = self._get_single_column_schema(column_index, column_name)
+            matches.append(col_schema)
+
+        return matches
+
+    def _get_inferred_dtype(self, column_index: int):
+        from pandas.api.types import infer_dtype
+
+        if column_index not in self._inferred_dtypes:
+            self._inferred_dtypes[column_index] = infer_dtype(self.table.iloc[:, column_index])
+        return self._inferred_dtypes[column_index]
+
+    def _get_single_column_schema(self, column_index: int, column_name: str):
+        # TODO: pandas MultiIndex columns
+        # TODO: time zone for datetimetz datetime64[ns] types
+        dtype = self.dtypes.iloc[column_index]
+
+        if dtype == object:
+            type_name = self._get_inferred_dtype(column_index)
+        else:
+            # TODO: more sophisticated type mapping
+            type_name = str(dtype)
+
+        type_display = self.TYPE_DISPLAY_MAPPING.get(type_name, "unknown")
+
+        return ColumnSchema(
+            column_name=column_name,
+            column_index=column_index,
+            type_name=type_name,
+            type_display=ColumnSchemaTypeDisplay(type_display),
+        )
 
     def _get_data_values(
         self, row_start: int, num_rows: int, column_indices: Sequence[int]
@@ -345,7 +458,7 @@ class PandasView(DataExplorerTableView):
             # reflect the filtered_indices that have just been updated
             self._sort_data()
 
-    def _set_column_filters(self, filters) -> FilterResult:
+    def _set_row_filters(self, filters) -> FilterResult:
         self.filters = filters
 
         if len(filters) == 0:
@@ -357,7 +470,7 @@ class PandasView(DataExplorerTableView):
         # Evaluate all the filters and AND them together
         combined_mask = None
         for filt in filters:
-            single_mask = _pandas_eval_filter(self.table, filt)
+            single_mask = self._eval_filter(filt)
             if combined_mask is None:
                 combined_mask = single_mask
             else:
@@ -368,6 +481,74 @@ class PandasView(DataExplorerTableView):
         # Update the view indices, re-sorting if needed
         self._update_view_indices()
         return FilterResult(selected_num_rows=len(self.filtered_indices))
+
+    def _eval_filter(self, filt: RowFilter):
+        col = self.table.iloc[:, filt.column_index]
+        mask = None
+        if filt.filter_type in (
+            RowFilterFilterType.Between,
+            RowFilterFilterType.NotBetween,
+        ):
+            params = filt.between_params
+            assert params is not None
+            left_value = _coerce_value_param(params.left_value, col.dtype)
+            right_value = _coerce_value_param(params.right_value, col.dtype)
+            if filt.filter_type == RowFilterFilterType.Between:
+                mask = (col >= left_value) & (col <= right_value)
+            else:
+                # NotBetween
+                mask = (col < left_value) | (col > right_value)
+        elif filt.filter_type == RowFilterFilterType.Compare:
+            params = filt.compare_params
+            assert params is not None
+
+            if params.op not in COMPARE_OPS:
+                raise ValueError(f"Unsupported filter type: {params.op}")
+            op = COMPARE_OPS[params.op]
+            # pandas comparison filters return False for null values
+            mask = op(col, _coerce_value_param(params.value, col.dtype))
+        elif filt.filter_type == RowFilterFilterType.IsNull:
+            mask = col.isnull()
+        elif filt.filter_type == RowFilterFilterType.NotNull:
+            mask = col.notnull()
+        elif filt.filter_type == RowFilterFilterType.SetMembership:
+            params = filt.set_membership_params
+            assert params is not None
+            boxed_values = pd_.Series(params.values).astype(col.dtype)
+            # IN
+            mask = col.isin(boxed_values)
+            if not params.inclusive:
+                # NOT-IN
+                mask = ~mask
+        elif filt.filter_type == RowFilterFilterType.Search:
+            params = filt.search_params
+            assert params is not None
+
+            col_inferred_type = self._get_inferred_dtype(filt.column_index)
+
+            if col_inferred_type != "string":
+                col = col.astype(str)
+
+            term = params.term
+
+            if params.type == SearchFilterParamsType.RegexMatch:
+                mask = col.str.match(term, case=params.case_sensitive)
+            else:
+                if not params.case_sensitive:
+                    col = col.str.lower()
+                    term = term.lower()
+                if params.type == SearchFilterParamsType.Contains:
+                    mask = col.str.contains(term)
+                elif params.type == SearchFilterParamsType.StartsWith:
+                    mask = col.str.startswith(term)
+                elif params.type == SearchFilterParamsType.EndsWith:
+                    mask = col.str.endswith(term)
+
+        # Nulls are possible in the mask, so we just fill them if any
+        if mask.dtype != bool:
+            mask = mask.fillna(False)
+
+        return mask.to_numpy()
 
     def _sort_data(self) -> None:
         from pandas.core.sorting import lexsort_indexer, nargsort
@@ -396,10 +577,8 @@ class PandasView(DataExplorerTableView):
             cols_to_sort = []
             directions = []
             for key in self.sort_keys:
-                column = self.table.iloc[:, key.column_index]
-                if self.filtered_indices is not None:
-                    column = column.take(self.filtered_indices)
-                cols_to_sort.append(column)
+                col = self._get_column(key.column_index)
+                cols_to_sort.append(col)
                 directions.append(key.ascending)
 
             # lexsort_indexer uses np.lexsort and so is always stable
@@ -413,57 +592,46 @@ class PandasView(DataExplorerTableView):
             # This will be None if the data is unfiltered
             self.view_indices = self.filtered_indices
 
-    def _get_column_profile(
-        self, profile_type: GetColumnProfileProfileType, column_index: int
-    ) -> None:
-        pass
+    def _get_column(self, column_index: int) -> "pd.Series":
+        column = self.table.iloc[:, column_index]
+        if self.filtered_indices is not None:
+            column = column.take(self.filtered_indices)
+        return column
+
+    def _prof_null_count(self, column_index: int):
+        return self._get_column(column_index).isnull().sum()
+
+    def _prof_summary_stats(self, column_index: int):
+        raise NotImplementedError
+
+    def _prof_freq_table(self, column_index: int):
+        raise NotImplementedError
+
+    def _prof_histogram(self, column_index: int):
+        raise NotImplementedError
 
     def _get_state(self) -> TableState:
         return TableState(
             table_shape=TableShape(num_rows=self.table.shape[0], num_columns=self.table.shape[1]),
-            filters=self.filters,
+            row_filters=self.filters,
             sort_keys=self.sort_keys,
         )
 
 
 COMPARE_OPS = {
-    ColumnFilterCompareOp.Gt: operator.gt,
-    ColumnFilterCompareOp.GtEq: operator.ge,
-    ColumnFilterCompareOp.Lt: operator.lt,
-    ColumnFilterCompareOp.LtEq: operator.le,
-    ColumnFilterCompareOp.Eq: operator.eq,
-    ColumnFilterCompareOp.NotEq: operator.ne,
+    CompareFilterParamsOp.Gt: operator.gt,
+    CompareFilterParamsOp.GtEq: operator.ge,
+    CompareFilterParamsOp.Lt: operator.lt,
+    CompareFilterParamsOp.LtEq: operator.le,
+    CompareFilterParamsOp.Eq: operator.eq,
+    CompareFilterParamsOp.NotEq: operator.ne,
 }
 
 
-def _pandas_eval_filter(df: "pd.DataFrame", filt: ColumnFilter):
-    col = df.iloc[:, filt.column_index]
-    mask = None
-    if filt.filter_type == "compare":
-        if filt.compare_op not in COMPARE_OPS:
-            raise ValueError(f"Unsupported filter type: {filt.compare_op}")
-        op = COMPARE_OPS[filt.compare_op]
-        # Let pandas decide how to coerce the string we got from the UI
-        dummy = pd_.Series([filt.compare_value]).astype(col.dtype)
-
-        # pandas comparison filters return False for null values
-        mask = op(col, dummy.iloc[0])
-    elif filt.filter_type == "isnull":
-        mask = col.isnull()
-    elif filt.filter_type == "notnull":
-        mask = col.notnull()
-    elif filt.filter_type == "set_membership":
-        boxed_values = pd_.Series(filt.set_member_values).astype(col.dtype)
-        # IN
-        mask = col.isin(boxed_values)
-        if not filt.set_member_inclusive:
-            # NOT-IN
-            mask = ~mask
-    elif filt.filter_type == "search":
-        raise NotImplementedError
-
-    # TODO(wesm): is it possible for there to be null values in the mask?
-    return mask.to_numpy()
+def _coerce_value_param(value, dtype):
+    # Let pandas decide how to coerce the string we got from the UI
+    dummy = pd_.Series([value]).astype(dtype)
+    return dummy.iloc[0]
 
 
 class PolarsView(DataExplorerTableView):
