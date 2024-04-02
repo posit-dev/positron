@@ -905,6 +905,16 @@ class PolarsDataFrameInspector(BaseTableInspector["pl.DataFrame", "pl.Series"]):
         return self.value.write_csv(file=None, separator="\t")
 
 
+class ConnectionInspector(ObjectInspector):
+    CLASS_QNAME = ["sqlite3.Connection", "sqlalchemy.engine.base.Engine"]
+
+    def has_viewer(self) -> bool:
+        return True
+
+    def get_kind(self) -> str:
+        return "connection"
+
+
 INSPECTOR_CLASSES: Dict[str, Type[PositronInspector]] = {
     PandasDataFrameInspector.CLASS_QNAME: PandasDataFrameInspector,
     PandasSeriesInspector.CLASS_QNAME: PandasSeriesInspector,
@@ -915,6 +925,7 @@ INSPECTOR_CLASSES: Dict[str, Type[PositronInspector]] = {
     **dict.fromkeys(PolarsDataFrameInspector.CLASS_QNAME, PolarsDataFrameInspector),
     **dict.fromkeys(PolarsSeriesInspector.CLASS_QNAME, PolarsSeriesInspector),
     DatetimeInspector.CLASS_QNAME: DatetimeInspector,
+    **dict.fromkeys(ConnectionInspector.CLASS_QNAME, ConnectionInspector),
     "boolean": BooleanInspector,
     "bytes": BytesInspector,
     "class": ClassInspector,
