@@ -11,6 +11,13 @@ import { IServiceContainer } from '../ioc/types';
 import { traceError, traceInfo } from '../logging';
 import { PythonRuntimeManager } from './manager';
 import { createPythonRuntimeMetadata } from './runtime';
+import * as vscode from 'vscode';
+
+export const UrlRegex = /(http|https):\/\/([\w_-]+(?:(?:\.[\w_-]+)+)|(localhost))([\w.,@?^=%&:\/~+#-]*[\w@?^=%&\/~+#-])/gi;
+
+interface CustomTerminalLink extends vscode.TerminalLink {
+    data: string;
+}
 
 export async function activatePositron(
     activatedPromise: Promise<void>,
@@ -28,6 +35,36 @@ export async function activatePositron(
         // Wait for all extension components to be activated before registering event listeners
         traceInfo('activatePositron: awaiting extension activation');
         await activatedPromise;
+
+        vscode.window.registerTerminalLinkProvider({
+            provideTerminalLinks: (context: vscode.TerminalLinkContext, _token: vscode.CancellationToken) => {
+                // Detect the first instance of the word "link" if it exists and linkify it
+                const matches = [...context.line.matchAll(UrlRegex)];
+                if (matches.length === 0) {
+                    return [];
+                }
+
+                return matches.map((match) => {
+                    const line = context.line;
+
+                    const startIndex = line.indexOf(match[0]);
+
+                    const uri = vscode.Uri.parse(match[0]);
+                    positron.window.previewUrl(uri);
+
+                    return {
+                        startIndex,
+                        length: match[0].length,
+                        tooltip: 'Open in Viewer',
+                        data: match[0],
+                    };
+                });
+            },
+            handleTerminalLink: (link: CustomTerminalLink) => {
+                const uri = vscode.Uri.parse(link.data);
+                positron.window.previewUrl(uri);
+            },
+        });
 
         const registerRuntime = async (interpreterPath: string) => {
             if (!manager.registeredPythonRuntimes.has(interpreterPath)) {

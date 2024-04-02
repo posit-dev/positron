@@ -1087,6 +1087,17 @@ declare module 'positron' {
 		 * Returns the current width of the console input, in characters.
 		 */
 		export function getConsoleWidth(): Thenable<number>;
+
+		/**
+		 * Create and show a new preview panel for a URL. This is a convenience
+		 * method that creates a new webview panel and sets its content to the
+		 * given URL.
+		 *
+		 * @param url The URL to preview
+		 *
+		 * @return New preview panel.
+		 */
+		export function previewUrl(url: vscode.Uri): PreviewPanel;
 	}
 
 	namespace runtime {
