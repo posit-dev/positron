@@ -683,8 +683,7 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 
 				if (plot instanceof StaticPlotClient) {
 					// if it's a static plot, save the image to disk
-					const staticPlot = plot as StaticPlotClient;
-					uri = staticPlot.uri;
+					uri = plot.uri;
 					this.showSavePlotDialog(uri);
 				} else if (plot instanceof PlotClientInstance) {
 					// if it's a dynamic plot, present options dialog

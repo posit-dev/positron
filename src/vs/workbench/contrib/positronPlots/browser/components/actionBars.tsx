@@ -30,14 +30,6 @@ const kPaddingLeft = 14;
 const kPaddingRight = 8;
 
 /**
- * Localized strings.
- */
-const positronShowPreviousPlot = localize('positronShowPreviousPlot', "Show previous plot");
-const positronShowNextPlot = localize('positronShowNextPlot', "Show next plot");
-const positronClearAllPlots = localize('positronClearAllPlots', "Clear all plots");
-const positronSavePlot = localize('positronSavePlot', "Save plot");
-
-/**
  * ActionBarsProps interface.
  */
 export interface ActionBarsProps {
@@ -72,13 +64,12 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 
 	// Only show the sizing policy controls when Positron is in control of the
 	// sizing (i.e. don't show it on static plots)
-	const enableSizingPolicy = hasPlots && selectedPlot
-		instanceof PlotClientInstance;
-
-	const enableZoomPlot = hasPlots && selectedPlot
-		instanceof StaticPlotClient;
-	const enableSavingPlots = hasPlots &&
-		(selectedPlot instanceof PlotClientInstance
+	const enableSizingPolicy = hasPlots
+		&& selectedPlot instanceof PlotClientInstance;
+	const enableZoomPlot = hasPlots
+		&& selectedPlot instanceof StaticPlotClient;
+	const enableSavingPlots = hasPlots
+		&& (selectedPlot instanceof PlotClientInstance
 			|| selectedPlot instanceof StaticPlotClient);
 
 	useEffect(() => {
@@ -119,12 +110,15 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 			<div className='action-bars'>
 				<PositronActionBar size='small' borderTop={true} borderBottom={true} paddingLeft={kPaddingLeft} paddingRight={kPaddingRight}>
 					<ActionBarRegion location='left'>
-						<ActionBarButton iconId='positron-left-arrow' disabled={disableLeft} tooltip={positronShowPreviousPlot} ariaLabel={positronShowPreviousPlot} onPressed={showPreviousPlotHandler} />
-						<ActionBarButton iconId='positron-right-arrow' disabled={disableRight} tooltip={positronShowNextPlot} ariaLabel={positronShowNextPlot} onPressed={showNextPlotHandler} />
+						<ActionBarButton iconId='positron-left-arrow' disabled={disableLeft} tooltip={localize('positronShowPreviousPlot', "Show previous plot")}
+							ariaLabel={localize('positronShowPreviousPlot', "Show previous plot")} onPressed={showPreviousPlotHandler} />
+						<ActionBarButton iconId='positron-right-arrow' disabled={disableRight} tooltip={localize('positronShowNextPlot', "Show next plot")}
+							ariaLabel={localize('positronShowNextPlot', "Show next plot")} onPressed={showNextPlotHandler} />
 
+						{(enableSizingPolicy || enableSavingPlots || enableZoomPlot) && <ActionBarSeparator />}
+						{enableSavingPlots && <ActionBarButton iconId='positron-save' tooltip={localize('positronSavePlot', "Save plot")}
+							ariaLabel={localize('positronSavePlot', "Save plot")} onPressed={savePlotHandler} />}
 						{enableZoomPlot && <ZoomPlotMenuButton actionHandler={zoomPlotHandler} zoomLevel={props.zoomLevel} />}
-						{enableSavingPlots && <ActionBarButton iconId='positron-save' tooltip={positronSavePlot} ariaLabel={positronSavePlot} onPressed={savePlotHandler} />}
-						{enableSizingPolicy && <ActionBarSeparator />}
 						{enableSizingPolicy &&
 							<SizingPolicyMenuButton
 								keybindingService={props.keybindingService}
@@ -137,7 +131,8 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 					<ActionBarRegion location='right'>
 						<HistoryPolicyMenuButton plotsService={positronPlotsContext.positronPlotsService} />
 						<ActionBarSeparator />
-						<ActionBarButton iconId='clear-all' align='right' disabled={noPlots} tooltip={positronClearAllPlots} ariaLabel={positronClearAllPlots} onPressed={clearAllPlotsHandler} />
+						<ActionBarButton iconId='clear-all' align='right' disabled={noPlots} tooltip={localize('positronClearAllPlots', "Clear all plots")}
+							ariaLabel={localize('positronClearAllPlots', "Clear all plots")} onPressed={clearAllPlotsHandler} />
 					</ActionBarRegion>
 				</PositronActionBar>
 			</div>
