@@ -2,8 +2,9 @@ import * as vscode from 'vscode';
 import * as assert from 'assert';
 import * as fs from 'fs';
 import { CURSOR, type, withFileEditor } from './editor-utils';
+import { EXTENSION_ROOT_DIR } from '../constants';
 
-const snapshotsFolder = `${__dirname}/../../src/test/snapshots`;
+const snapshotsFolder = `${EXTENSION_ROOT_DIR}/src/test/snapshots`;
 const snippetsPath = `${snapshotsFolder}/indentation-cases.R`;
 const snapshotsPath = `${snapshotsFolder}/indentation-snapshots.R`;
 
