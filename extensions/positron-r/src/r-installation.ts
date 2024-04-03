@@ -7,6 +7,7 @@ import * as path from 'path';
 import * as fs from 'fs';
 import { extractValue, readLines } from './util';
 import { LOGGER } from './extension';
+import { MINIMUM_R_VERSION } from './constants';
 
 /**
  * Extra metadata included in the LanguageRuntimeMetadata for R installations.
@@ -27,6 +28,10 @@ export class RInstallation {
 	// downstream users of RInstallation should filter for `valid` is `true`
 	public readonly valid: boolean = false;
 
+	// we have a minimum version of R
+	// downstream users of RInstallation should filter for `supported` is `true`
+	public readonly supported: boolean = false;
+
 	public readonly binpath: string = '';
 	public readonly homepath: string = '';
 	// The semVersion field was added because changing the version field from a string that's
@@ -42,10 +47,8 @@ export class RInstallation {
 	/**
 	 * Represents an installation of R on the user's system.
 	 *
-	 * @param pth Filepath for an R "binary" (on macOS and linux, this is actually a
-	 *   shell script)
-	 * @param current Whether this installation is set as the current version of
-	 *   R
+	 * @param pth Filepath for an R "binary" (on macOS and linux, this is actually a shell script)
+	 * @param current Whether this installation is known to be the current version of R
 	 */
 	constructor(pth: string, current: boolean = false) {
 		LOGGER.info(`Candidate R binary at ${pth}`);
@@ -92,6 +95,9 @@ export class RInstallation {
 		const versionPart = builtParts[0];
 		this.semVersion = semver.coerce(versionPart) ?? new semver.SemVer('0.0.1');
 		this.version = this.semVersion.format();
+
+		const minimumSupportedVersion = semver.coerce(MINIMUM_R_VERSION)!;
+		this.supported = semver.gte(this.semVersion, minimumSupportedVersion);
 
 		const platformPart = builtParts[1];
 		const architecture = platformPart.match('^(aarch64|x86_64)');
