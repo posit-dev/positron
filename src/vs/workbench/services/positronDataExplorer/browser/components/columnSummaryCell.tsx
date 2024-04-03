@@ -9,10 +9,10 @@ import 'vs/css!./columnSummaryCell';
 import * as React from 'react';
 
 // Other dependencies.
-import { positronClassNames } from 'vs/base/common/positronUtilities';
 import { ProfileNumber } from 'vs/workbench/services/positronDataExplorer/browser/components/profileNumber';
 import { ProfileString } from 'vs/workbench/services/positronDataExplorer/browser/components/profileString';
-import { ColumnSchema, ColumnDisplayType } from 'vs/workbench/services/languageRuntime/common/positronDataExplorerComm';
+import { ColumnNullPercent } from 'vs/workbench/services/positronDataExplorer/browser/components/columnNullPercent';
+import { ColumnDisplayType, ColumnSchema } from 'vs/workbench/services/languageRuntime/common/positronDataExplorerComm';
 import { TableSummaryDataGridInstance } from 'vs/workbench/services/positronDataExplorer/browser/tableSummaryDataGridInstance';
 
 /**
@@ -119,8 +119,8 @@ export const ColumnSummaryCell = (props: ColumnSummaryCellProps) => {
 	// Get the expanded state of the column.
 	const expanded = props.instance.isColumnExpanded(props.columnIndex);
 
-	// Temporary missing percent.
-	const temporaryMissingValuesPercent = props.instance.getColumnNullPercent(props.columnIndex) ?? 0;
+	// Get the column null percent.
+	const columnNullPercent = props.instance.getColumnNullPercent(props.columnIndex);
 
 	// Render.
 	return (
@@ -149,30 +149,9 @@ export const ColumnSummaryCell = (props: ColumnSummaryCellProps) => {
 					{props.columnSchema.column_name}
 				</div>
 
-				<div className='missing-values'>
-					<div
-						className={positronClassNames(
-							'percent',
-							{ 'zero': temporaryMissingValuesPercent === 0.0 }
-						)}
-					>
-						{Math.trunc(temporaryMissingValuesPercent * 100)}%
-					</div>
-					<div
-						className={positronClassNames(
-							'bar-graph',
-							{ 'missing-values': temporaryMissingValuesPercent !== 0 }
-						)}
-					>
-						{temporaryMissingValuesPercent !== 0 &&
-							<div
-								className='bar'
-								style={{ width: `${temporaryMissingValuesPercent * 100}%` }}
-							/>
-						}
-					</div>
-				</div>
-
+				{columnNullPercent !== undefined &&
+					<ColumnNullPercent columnNullPercent={columnNullPercent} />
+				}
 			</div>
 			{expanded &&
 				<div className='profile-info'>
