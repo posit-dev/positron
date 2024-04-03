@@ -301,6 +301,14 @@ class PandasView(DataExplorerTableView):
         # fillna
         pd_.set_option("future.no_silent_downcasting", True)
 
+        # Putting this here rather than in the class body before
+        # Python < 3.10 has fussier rules about staticmethods
+        self._SUMMARIZERS = {
+            ColumnDisplayType.Boolean: self._summarize_boolean,
+            ColumnDisplayType.Number: self._summarize_number,
+            ColumnDisplayType.String: self._summarize_string,
+        }
+
     def invalidate_computations(self):
         self.filtered_indices = self.view_indices = None
         self._need_recompute = True
@@ -661,12 +669,6 @@ class PandasView(DataExplorerTableView):
             type_display=ColumnDisplayType.Boolean,
             boolean_stats=SummaryStatsBoolean(true_count=true_count, false_count=false_count),
         )
-
-    _SUMMARIZERS = {
-        ColumnDisplayType.Boolean: _summarize_boolean,
-        ColumnDisplayType.Number: _summarize_number,
-        ColumnDisplayType.String: _summarize_string,
-    }
 
     def _prof_freq_table(self, column_index: int):
         raise NotImplementedError
