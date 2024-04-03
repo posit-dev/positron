@@ -6,6 +6,22 @@
 	cursor: pointer;
 }
 
-.radio-button input {
+/*
+ * When focus is in the radio button via keyboard interaction, add a border around the full radio
+ * button (both the input circle and the text label)
+ */
+.radio-button:has(:focus-visible) {
+	border-radius: 4px;
+	outline: 1px solid var(--vscode-focusBorder);
+}
+
+.radio-button
+input {
 	cursor: pointer;
+}
+
+/* Don't add an outline around the radio button circle */
+.radio-button
+input[type="radio"]:focus {
+	outline: none;
 }
