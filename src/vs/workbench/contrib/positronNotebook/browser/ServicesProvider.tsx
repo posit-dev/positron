@@ -11,6 +11,7 @@ import { IConfigurationService } from 'vs/platform/configuration/common/configur
 import { IScopedContextKeyService } from 'vs/platform/contextkey/common/contextkey';
 import { IInstantiationService } from 'vs/platform/instantiation/common/instantiation';
 import { ILogService } from 'vs/platform/log/common/log';
+import { INotificationService } from 'vs/platform/notification/common/notification';
 import { IOpenerService } from 'vs/platform/opener/common/opener';
 import { IWebviewService } from 'vs/workbench/contrib/webview/browser/webview';
 
@@ -55,6 +56,11 @@ interface ServiceBundle {
 	 * Service for envoking commands from extensions
 	 */
 	commandService: ICommandService;
+
+	/**
+	 * Service for showing notifications to the user
+	 */
+	notificationService: INotificationService;
 
 	/**
 	 * An observable for the size of the notebook.

@@ -13,6 +13,9 @@ import { CellEditorMonacoWidget } from './CellEditorMonacoWidget';
 import { localize } from 'vs/nls';
 import { Button } from 'vs/base/browser/ui/positronComponents/button/button';
 import { NotebookCellActionBar } from 'vs/workbench/contrib/positronNotebook/browser/notebookCells/NotebookCellActionBar';
+import { ANSIOutput } from 'vs/base/common/ansiOutput';
+import { OutputLines } from 'vs/workbench/browser/positronAnsiRenderer/outputLines';
+import { useServices } from 'vs/workbench/contrib/positronNotebook/browser/ServicesProvider';
 
 
 export function NodebookCodeCell({ cell }: { cell: IPositronNotebookCodeCell }) {
@@ -54,25 +57,43 @@ function NotebookCellOutput({ cellOutput }: { cellOutput: ICellOutput }) {
 	return <div>
 		{localize('cellExecutionUnknownOutputType', 'Can not handle output type: OutputId: {0}', cellOutput.outputId)}
 	</div>;
-
-
 }
+
+function CellTextOutput({ output }: { output: string }) {
+
+	const { openerService, notificationService } = useServices();
+
+	const processedAnsi = ANSIOutput.processOutput(output);
+
+	return <OutputLines
+		outputLines={processedAnsi}
+		openerService={openerService}
+		notificationService={notificationService}
+	/>;
+}
+
 function CellOutputContents(output: { data: VSBuffer; mime: string }) {
 
 	const parsed = parseOutputData(output);
 
 	switch (parsed.type) {
 		case 'stdout':
-			return <div className='notebook-stdout'>{parsed.content}</div>;
+			return <div className='notebook-stdout'>
+				<CellTextOutput output={parsed.content} />
+			</div>;
 		case 'error':
 		case 'stderr':
-			return <div className='notebook-stderr'>{parsed.content}</div>;
+			return <div className='notebook-stderr'>
+				<CellTextOutput output={parsed.content} />
+			</div>;
 		case 'interupt':
 			return <div className='notebook-error'>
 				{localize('cellExecutionKeyboardInterupt', 'Cell execution stopped due to keyboard interupt.')}
 			</div>;
 		case 'text':
-			return <div className='notebook-text'>{parsed.content}</div>;
+			return <div className='notebook-text'>
+				<CellTextOutput output={parsed.content} />
+			</div>;
 		case 'image':
 			return <img src={parsed.dataUrl} alt='output image' />;
 		case 'unknown':
