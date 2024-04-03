@@ -8,6 +8,7 @@ import { EditorExtensionsRegistry, IEditorContributionDescription } from 'vs/edi
 import { CodeEditorWidget } from 'vs/editor/browser/widget/codeEditorWidget';
 import { IContextKeyService } from 'vs/platform/contextkey/common/contextkey';
 import { ServiceCollection } from 'vs/platform/instantiation/common/serviceCollection';
+import { FloatingEditorClickMenu } from 'vs/workbench/browser/codeeditor';
 import { CellEditorOptions } from 'vs/workbench/contrib/notebook/browser/view/cellParts/cellEditorOptions';
 import { useNotebookInstance } from 'vs/workbench/contrib/positronNotebook/browser/NotebookInstanceProvider';
 import { useServices } from 'vs/workbench/contrib/positronNotebook/browser/ServicesProvider';
@@ -134,7 +135,7 @@ function getNotebookEditorContributions(): IEditorContributionDescription[] {
 
 	const skipContributions = [
 		'editor.contrib.review',
-		// FloatingEditorClickMenu.ID,
+		FloatingEditorClickMenu.ID,
 		'editor.contrib.dirtydiff',
 		'editor.contrib.testingOutputPeek',
 		'editor.contrib.testingDecorations',
