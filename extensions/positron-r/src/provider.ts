@@ -15,7 +15,7 @@ import * as winreg from 'winreg';
 import { RInstallation, RMetadataExtra, getRHomePath } from './r-installation';
 import { LOGGER } from './extension';
 import { readLines } from './util';
-import { EXTENSION_ROOT_DIR } from './constants';
+import { EXTENSION_ROOT_DIR, MINIMUM_R_VERSION } from './constants';
 
 /**
  * Discovers R language runtimes for Positron; implements
@@ -60,13 +60,33 @@ export async function* rRuntimeDiscoverer(): AsyncGenerator<positron.LanguageRun
 		rInstallations.push(new RInstallation(b));
 	});
 
-	// TODO: possible future intervention re: non-orthogonal R installations
-	// * Alert the user they have more R installations?
-	// * Offer to make installations orthogonal?
-	// * Offer to switch the current version of R?
-	// for now, we drop non-orthogonal, not-current R installations
-	// NOTE: this is also where we drop potential R installations that do not pass validity checks
-	rInstallations = rInstallations.filter(r => r.valid && (r.current || r.orthogonal));
+	// TODO: possible location to tell the user why certain R installations are being omitted from
+	// the interpreter drop-down and, in some cases, offer to help fix the situation:
+	// * version < minimum R version supported by positron-r
+	// * (macOS only) version is not orthogonal and is not the current version of R
+	// * invalid R installation
+	rInstallations = rInstallations
+		.filter(r => {
+			if (!r.valid) {
+				LOGGER.info(`Filtering out ${r.binpath}: invalid R installation.`);
+				return false;
+			}
+			return true;
+		})
+		.filter(r => {
+			if (!r.supported) {
+				LOGGER.info(`Filtering out ${r.binpath}: version is < ${MINIMUM_R_VERSION}`);
+				return false;
+			}
+			return true;
+		})
+		.filter(r => {
+			if (!(r.current || r.orthogonal)) {
+				console.log(`Filtering out ${r.binpath}: not current and also not orthogonal.`);
+				return false;
+			}
+			return true;
+		});
 
 	// FIXME? should I explicitly check that there is <= 1 R installation
 	// marked as 'current'?
