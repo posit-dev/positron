@@ -11,7 +11,6 @@ import uuid
 from typing import Dict, List, Optional, Tuple
 
 import comm
-from IPython.core.formatters import format_display_data
 
 from .plot_comm import PlotBackendMessageContent, PlotResult, RenderRequest
 from .positron_comm import CommMessage, JsonRpcErrorCode, PositronComm
@@ -157,7 +156,7 @@ class PositronDisplayPublisherHook:
         new_height_px: int = 460,
         pixel_ratio: float = 1.0,
         formats: list = ["image/png"],
-    ) -> Tuple[dict, dict]:
+    ) -> dict:
         # Delay importing matplotlib until the kernel and shell has been
         # initialized otherwise the graphics backend will be reset to the gui
         import matplotlib.pyplot as plt
@@ -201,7 +200,7 @@ class PositronDisplayPublisherHook:
 
         # Render the figure to a buffer
         # using format_display_data() crops the figure to smaller than requested size
-        figure.savefig(figure_buffer, format="png", dpi=dpi)
+        figure.savefig(figure_buffer, format="png")
         figure_buffer.seek(0)
         image_data = base64.b64encode(figure_buffer.read()).decode()
 

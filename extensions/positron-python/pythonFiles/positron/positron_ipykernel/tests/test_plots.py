@@ -215,8 +215,7 @@ def test_hook_render(figure_comm: DummyComm, images_path: Path) -> None:
     fig_ref.set_layout_engine("tight")
 
     # Serialize the reference figure as a base64-encoded image
-    # data_ref, _ = format_display_data(fig_ref, include=["image/png"], exclude=[])  # type: ignore
-    fig_ref.savefig(fig_buffer, format="png", dpi=dpi)
+    fig_ref.savefig(fig_buffer, format="png")
     fig_buffer.seek(0)
     expected = images_path / "test-hook-render-expected.png"
     _save_base64_image(base64.b64encode(fig_buffer.read()).decode(), expected)
