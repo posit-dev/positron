@@ -15,7 +15,7 @@ export function AddCellButtons({ index }: { index: number }) {
 	return <div className='positron-add-cell-buttons'>
 		<Button
 			className='action action-button'
-			ariaLabel={localize('addCodeCell', 'Add code cell')}
+			ariaLabel={(() => localize('addCodeCell', 'Add code cell'))()}
 			onPressed={() => {
 				notebookInstance.addCell(CellKind.Code, index);
 			}}
@@ -25,7 +25,7 @@ export function AddCellButtons({ index }: { index: number }) {
 		</Button>
 		<Button
 			className='action action-button'
-			ariaLabel={localize('addMarkdownell', 'Add markdown cell')}
+			ariaLabel={(() => localize('addMarkdownell', 'Add markdown cell'))()}
 			onPressed={() => {
 				notebookInstance.addCell(CellKind.Markup, index);
 			}}

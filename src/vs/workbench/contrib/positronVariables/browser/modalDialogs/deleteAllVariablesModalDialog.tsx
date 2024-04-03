@@ -41,9 +41,12 @@ export const DeleteAllVariablesModalDialog = (props: DeleteAllVariablesModalDial
 			renderer={props.renderer}
 			width={375}
 			height={175}
-			title={localize('positron.deleteAllVariablesModalDialogTitle', "Delete All Variables")}
-			okButtonTitle={localize('positron.yes', "Yes")}
-			cancelButtonTitle={localize('positron.no', "No")}
+			title={(() => localize(
+				'positron.deleteAllVariablesModalDialogTitle',
+				"Delete All Variables"
+			))()}
+			okButtonTitle={(() => localize('positron.yes', "Yes"))()}
+			cancelButtonTitle={(() => localize('positron.no', "No"))()}
 			onAccept={async () => {
 				props.renderer.dispose();
 				await props.deleteAllVariablesAction({
@@ -54,10 +57,10 @@ export const DeleteAllVariablesModalDialog = (props: DeleteAllVariablesModalDial
 		>
 			<VerticalStack>
 				<div>
-					{localize(
+					{(() => localize(
 						'positron.deleteAllVariablesModalDialogText',
 						"Are you sure you want to delete all variables? This operation cannot be undone."
-					)}
+					))()}
 				</div>
 				{/* Disabled for Private Alpha. */}
 				{/* <Checkbox label='Include hidden objects' onChanged={checked => setResult({ ...result, includeHiddenObjects: checked })} /> */}
