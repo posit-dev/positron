@@ -160,7 +160,7 @@ export const PythonEnvironmentStep = (props: PropsWithChildren<NewProjectWizardS
 				title: (() => localize(
 					'positronNewProjectWizard.createButtonTitle',
 					"Create"
-				))(),
+				))()
 			}}
 		>
 			<PositronWizardSubStep
@@ -181,29 +181,29 @@ export const PythonEnvironmentStep = (props: PropsWithChildren<NewProjectWizardS
 			{envSetupType === EnvironmentSetupType.NewEnvironment ?
 				<PositronWizardSubStep
 					title={(() => localize(
-					'pythonEnvironmentSubStep.label',
-					'Python Environment'
-				))()}
+						'pythonEnvironmentSubStep.label',
+						'Python Environment'
+					))()}
 					description={(() => localize(
-					'pythonEnvironmentSubStep.description',
-					'Select an environment type for your project.'
-				))()}
+						'pythonEnvironmentSubStep.description',
+						'Select an environment type for your project.'
+					))()}
 					// TODO: construct the env location based on the envTypeEntries above, instead of inline here
 					feedback={(() => localize(
-					'pythonEnvironmentSubStep.feedback',
-					'The {0} environment will be created at: {1}',
-					projectConfig.pythonEnvType,
-					`${projectConfig.parentFolder}/${projectConfig.projectName}/${projectConfig.pythonEnvType === 'Venv' ? '.venv' : 'Conda' ? '.conda' : ''}`
-				))()}
+						'pythonEnvironmentSubStep.feedback',
+						'The {0} environment will be created at: {1}',
+						projectConfig.pythonEnvType,
+						`${projectConfig.parentFolder}/${projectConfig.projectName}/${projectConfig.pythonEnvType === 'Venv' ? '.venv' : 'Conda' ? '.conda' : ''}`
+					))()}
 				>
 					{/* TODO: how to pre-select an option? */}
 					<DropDownListBox
 						keybindingService={keybindingService}
 						layoutService={layoutService}
 						title={(() => localize(
-						'pythonEnvironmentSubStep.dropDown.title',
-						'Select an environment type'
-					))()}
+							'pythonEnvironmentSubStep.dropDown.title',
+							'Select an environment type'
+						))()}
 						entries={envTypeEntries}
 						onSelectionChanged={identifier => onEnvTypeSelected(identifier)}
 					/>

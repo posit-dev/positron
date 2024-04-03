@@ -42,7 +42,12 @@ export const RadioGroup = (props: PropsWithChildren<RadioGroupProps>) => {
 
 	// Render.
 	return (
-		<div className='radio-group' role='radiogroup' aria-labelledby={props.labelledBy} aria-describedby={props.describedBy}>
+		<div
+			className='radio-group'
+			role='radiogroup'
+			aria-labelledby={props.labelledBy}
+			aria-describedby={props.describedBy}
+		>
 			{props.entries.map((entry, index) => {
 				return (
 					<RadioButton
