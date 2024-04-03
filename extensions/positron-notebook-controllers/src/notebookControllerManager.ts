@@ -5,7 +5,7 @@
 import * as vscode from 'vscode';
 import { log } from './extension';
 import { NotebookController } from './notebookController';
-import { INotebookSessionService } from './notebookSessionService';
+import { NotebookSessionService } from './notebookSessionService';
 
 /**
  * Manages notebook controllers.
@@ -16,9 +16,9 @@ export class NotebookControllerManager implements vscode.Disposable {
 
 	/**
 	 *
-	 * @param notebookSessionService The notebook session service.
+	 * @param _notebookSessionService The notebook session service.
 	 */
-	constructor(private readonly notebookSessionService: INotebookSessionService) { }
+	constructor(private readonly _notebookSessionService: NotebookSessionService) { }
 
 	/**
 	 * Create a notebook controller for a language.
@@ -29,7 +29,7 @@ export class NotebookControllerManager implements vscode.Disposable {
 		if (this.controllers.has(languageId)) {
 			throw new Error(`Notebook controller already exists for language: ${languageId}`);
 		}
-		const controller = new NotebookController(languageId, this.notebookSessionService);
+		const controller = new NotebookController(languageId, this._notebookSessionService);
 		this.controllers.set(languageId, controller);
 		log.info(`Registered notebook controller for language: ${languageId}`);
 	}

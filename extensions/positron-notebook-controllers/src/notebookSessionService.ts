@@ -13,63 +13,11 @@ import { DeferredPromise } from './util';
  * runtime sessions; it manages the set of active sessions and provides
  * facilities for starting, stopping, and interacting with them.
  *
- * TODO(seem): The intention is for functionality here to eventually be brought into Positron core.
+ * TODO(seem): Most of this code is copied from the runtime session service. We should bring what's
+ * required into the runtime session service and expose what's needed via the Positron Extensions
+ * API.
  */
-export interface INotebookSessionService {
-	/**
-	 * Checks for a starting notebook for the given notebook URI.
-	 *
-	 * @param notebookUri The notebook URI to check for.
-	 * @returns True if a starting notebook session exists for the given notebook URI.
-	 */
-	hasStartingNotebookSession(notebookUri: Uri): boolean;
-
-	/**
-	 * Checks for a starting or running notebook for the given notebook URI.
-	 *
-	 * @param notebookUri The notebook URI to check for.
-	 * @returns True if a starting or running notebook session exists for the given notebook URI.
-	 */
-	hasStartingOrRunningNotebookSession(notebookUri: Uri): boolean;
-
-	/**
-	 * Get the starting or running notebook session for the given notebook URI, if one exists.
-	 *
-	 * @param notebookUri The notebook URI of the session to retrieve.
-	 * @returns The starting or running notebook session for the given notebook URI, if one exists.
-	 */
-	getStartingNotebookSessionPromise(notebookUri: Uri): DeferredPromise<positron.LanguageRuntimeSession> | undefined;
-
-	/**
-	 * Get the running notebook session for the given notebook URI, if one exists.
-	 *
-	 * @param notebookUri The notebook URI of the session to retrieve.
-	 * @returns The running notebook session for the given notebook URI, if one exists.
-	 */
-	getNotebookSession(notebookUri: Uri): positron.LanguageRuntimeSession | undefined;
-
-	/**
-	 * Start a new runtime session for a notebook.
-	 *
-	 * @param notebookUri The notebook URI to start a runtime for.
-	 * @returns Promise that resolves when the runtime startup sequence has been started.
-	 */
-	startRuntimeSession(notebookUri: Uri, languageId: string): Promise<positron.LanguageRuntimeSession>;
-
-	/**
-	 * Shutdown the runtime session for a notebook.
-	 *
-	 * @param notebookUri The notebook URI whose runtime to shutdown.
-	 * @returns Promise that resolves when the runtime shutdown sequence has been started.
-	 */
-	shutdownRuntimeSession(notebookUri: Uri): Promise<void>;
-
-}
-
-/**
- * The implementation of INotebookSessionService.
- */
-export class NotebookSessionService implements INotebookSessionService {
+export class NotebookSessionService {
 
 	/**
 	 * A map of sessions currently starting, keyed by notebook URI. Values are promises that resolve
@@ -86,22 +34,52 @@ export class NotebookSessionService implements INotebookSessionService {
 	/** A map of the currently active notebook sessions, keyed by notebook URI. */
 	private readonly _notebookSessionsByNotebookUri = new ResourceMap<positron.LanguageRuntimeSession>();
 
+	/**
+	 * Checks for a starting notebook for the given notebook URI.
+	 *
+	 * @param notebookUri The notebook URI to check for.
+	 * @returns True if a starting notebook session exists for the given notebook URI.
+	 */
 	hasStartingNotebookSession(notebookUri: Uri): boolean {
 		return this._startingSessionsByNotebookUri.has(notebookUri);
 	}
 
+	/**
+	 * Checks for a starting or running notebook for the given notebook URI.
+	 *
+	 * @param notebookUri The notebook URI to check for.
+	 * @returns True if a starting or running notebook session exists for the given notebook URI.
+	 */
 	hasStartingOrRunningNotebookSession(notebookUri: Uri): boolean {
 		return this._startingSessionsByNotebookUri.has(notebookUri) || this._notebookSessionsByNotebookUri.has(notebookUri);
 	}
 
+	/**
+	 * Get the starting or running notebook session for the given notebook URI, if one exists.
+	 *
+	 * @param notebookUri The notebook URI of the session to retrieve.
+	 * @returns The starting or running notebook session for the given notebook URI, if one exists.
+	 */
 	getStartingNotebookSessionPromise(notebookUri: Uri): DeferredPromise<positron.LanguageRuntimeSession> | undefined {
 		return this._startingSessionsByNotebookUri.get(notebookUri);
 	}
 
+	/**
+	 * Get the running notebook session for the given notebook URI, if one exists.
+	 *
+	 * @param notebookUri The notebook URI of the session to retrieve.
+	 * @returns The running notebook session for the given notebook URI, if one exists.
+	 */
 	getNotebookSession(notebookUri: Uri): positron.LanguageRuntimeSession | undefined {
 		return this._notebookSessionsByNotebookUri.get(notebookUri);
 	}
 
+	/**
+	 * Start a new runtime session for a notebook.
+	 *
+	 * @param notebookUri The notebook URI to start a runtime for.
+	 * @returns Promise that resolves when the runtime startup sequence has been started.
+	 */
 	async startRuntimeSession(notebookUri: Uri, languageId: string): Promise<positron.LanguageRuntimeSession> {
 		// Return the existing promise, if there is one.
 		const startingSessionPromise = this._startingSessionsByNotebookUri.get(notebookUri);
@@ -148,6 +126,9 @@ export class NotebookSessionService implements INotebookSessionService {
 			throw err;
 		}
 
+		// TODO: If it isn't running, log an error and start a new one.
+		// TODO: If it doesn't match the runtime ID, log an error, shut it down, and start a new one.
+
 		// If we couldn't restore a session, start a new one.
 		if (!session) {
 			// Get the preferred runtime for this language.
@@ -188,6 +169,12 @@ export class NotebookSessionService implements INotebookSessionService {
 		return session;
 	}
 
+	/**
+	 * Shutdown the runtime session for a notebook.
+	 *
+	 * @param notebookUri The notebook URI whose runtime to shutdown.
+	 * @returns Promise that resolves when the runtime shutdown sequence has been started.
+	 */
 	async shutdownRuntimeSession(notebookUri: Uri): Promise<void> {
 		// Return the existing promise, if there is one.
 		const shuttingDownSessionPromise = this._shuttingDownSessionsByNotebookUri.get(notebookUri);
