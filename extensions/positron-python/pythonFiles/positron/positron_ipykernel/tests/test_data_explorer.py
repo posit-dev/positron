@@ -373,6 +373,9 @@ class DataExplorerFixture:
     def get_state(self, table_name):
         return self.do_json_rpc(table_name, "get_state")
 
+    def get_supported_features(self, table_name):
+        return self.do_json_rpc(table_name, "get_supported_features")
+
     def get_data_values(self, table_name, **params):
         return self.do_json_rpc(table_name, "get_data_values", **params)
 
@@ -451,6 +454,35 @@ def test_pandas_get_state(dxf: DataExplorerFixture):
     result = dxf.get_state("simple")
     assert result["sort_keys"] == sort_keys
     assert result["row_filters"] == [RowFilter(**f) for f in filters]
+
+
+def test_pandas_get_supported_features(dxf: DataExplorerFixture):
+    dxf.register_table("example", SIMPLE_PANDAS_DF)
+    features = dxf.get_supported_features("example")
+
+    search_schema = features["search_schema"]
+    row_filters = features["set_row_filters"]
+    column_profiles = features["get_column_profiles"]
+
+    assert search_schema["supported"]
+
+    assert row_filters["supported"]
+    assert not row_filters["supports_conditions"]
+    assert set(row_filters["supported_types"]) == {
+        "is_null",
+        "not_null",
+        "between",
+        "compare",
+        "not_between",
+        "search",
+        "set_membership",
+    }
+
+    assert column_profiles["supported"]
+    assert set(column_profiles["supported_types"]) == {
+        "null_count",
+        "summary_stats",
+    }
 
 
 def test_pandas_get_schema(dxf: DataExplorerFixture):
@@ -668,7 +700,7 @@ def _search_filter(column_index, term, case_sensitive=False, search_type="contai
         "search",
         column_index,
         search_params={
-            "type": search_type,
+            "search_type": search_type,
             "term": term,
             "case_sensitive": case_sensitive,
         },
@@ -935,7 +967,7 @@ def test_pandas_change_schema_after_sort(
 
 
 def _profile_request(column_index, profile_type):
-    return {"column_index": column_index, "type": profile_type}
+    return {"column_index": column_index, "profile_type": profile_type}
 
 
 def _get_null_count(column_index):

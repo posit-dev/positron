@@ -28,7 +28,7 @@ from .data_explorer_comm import (
     ColumnHistogram,
     ColumnSummaryStats,
     CompareFilterParamsOp,
-    ColumnProfileRequestType,
+    ColumnProfileType,
     ColumnProfileResult,
     ColumnSchema,
     ColumnDisplayType,
@@ -36,21 +36,26 @@ from .data_explorer_comm import (
     DataExplorerBackendMessageContent,
     DataExplorerFrontendEvent,
     FilterResult,
+    GetColumnProfilesFeatures,
     GetColumnProfilesRequest,
     GetDataValuesRequest,
     GetSchemaRequest,
     GetStateRequest,
+    GetSupportedFeaturesRequest,
     RowFilter,
-    RowFilterFilterType,
+    RowFilterType,
     SchemaUpdateParams,
-    SearchFilterParamsType,
+    SearchFilterType,
+    SearchSchemaFeatures,
     SearchSchemaRequest,
     SearchSchemaResult,
+    SetRowFiltersFeatures,
     SetRowFiltersRequest,
     SetSortColumnsRequest,
     SummaryStatsBoolean,
     SummaryStatsNumber,
     SummaryStatsString,
+    SupportedFeatures,
     TableData,
     TableSchema,
     TableShape,
@@ -140,26 +145,29 @@ class DataExplorerTableView(abc.ABC):
         results = []
 
         for req in request.params.profiles:
-            if req.type == ColumnProfileRequestType.NullCount:
+            if req.profile_type == ColumnProfileType.NullCount:
                 count = self._prof_null_count(req.column_index)
                 result = ColumnProfileResult(null_count=count)
-            elif req.type == ColumnProfileRequestType.SummaryStats:
+            elif req.profile_type == ColumnProfileType.SummaryStats:
                 stats = self._prof_summary_stats(req.column_index)
                 result = ColumnProfileResult(summary_stats=stats)
-            elif req.type == ColumnProfileRequestType.FrequencyTable:
+            elif req.profile_type == ColumnProfileType.FrequencyTable:
                 freq_table = self._prof_freq_table(req.column_index)
                 result = ColumnProfileResult(frequency_table=freq_table)
-            elif req.type == ColumnProfileRequestType.Histogram:
+            elif req.profile_type == ColumnProfileType.Histogram:
                 histogram = self._prof_histogram(req.column_index)
                 result = ColumnProfileResult(histogram=histogram)
             else:
-                raise NotImplementedError(req.type)
+                raise NotImplementedError(req.profile_type)
             results.append(result.dict())
 
         return results
 
     def get_state(self, request: GetStateRequest):
         return self._get_state().dict()
+
+    def get_supported_features(self, request: GetSupportedFeaturesRequest):
+        return self._get_supported_features().dict()
 
     @abc.abstractmethod
     def invalidate_computations(self):
@@ -218,6 +226,10 @@ class DataExplorerTableView(abc.ABC):
 
     @abc.abstractmethod
     def _get_state(self) -> TableState:
+        pass
+
+    @abc.abstractmethod
+    def _get_supported_features(self) -> SupportedFeatures:
         pass
 
 
@@ -498,19 +510,19 @@ class PandasView(DataExplorerTableView):
         col = self.table.iloc[:, filt.column_index]
         mask = None
         if filt.filter_type in (
-            RowFilterFilterType.Between,
-            RowFilterFilterType.NotBetween,
+            RowFilterType.Between,
+            RowFilterType.NotBetween,
         ):
             params = filt.between_params
             assert params is not None
             left_value = _coerce_value_param(params.left_value, col.dtype)
             right_value = _coerce_value_param(params.right_value, col.dtype)
-            if filt.filter_type == RowFilterFilterType.Between:
+            if filt.filter_type == RowFilterType.Between:
                 mask = (col >= left_value) & (col <= right_value)
             else:
                 # NotBetween
                 mask = (col < left_value) | (col > right_value)
-        elif filt.filter_type == RowFilterFilterType.Compare:
+        elif filt.filter_type == RowFilterType.Compare:
             params = filt.compare_params
             assert params is not None
 
@@ -519,11 +531,11 @@ class PandasView(DataExplorerTableView):
             op = COMPARE_OPS[params.op]
             # pandas comparison filters return False for null values
             mask = op(col, _coerce_value_param(params.value, col.dtype))
-        elif filt.filter_type == RowFilterFilterType.IsNull:
+        elif filt.filter_type == RowFilterType.IsNull:
             mask = col.isnull()
-        elif filt.filter_type == RowFilterFilterType.NotNull:
+        elif filt.filter_type == RowFilterType.NotNull:
             mask = col.notnull()
-        elif filt.filter_type == RowFilterFilterType.SetMembership:
+        elif filt.filter_type == RowFilterType.SetMembership:
             params = filt.set_membership_params
             assert params is not None
             boxed_values = pd_.Series(params.values).astype(col.dtype)
@@ -532,7 +544,7 @@ class PandasView(DataExplorerTableView):
             if not params.inclusive:
                 # NOT-IN
                 mask = ~mask
-        elif filt.filter_type == RowFilterFilterType.Search:
+        elif filt.filter_type == RowFilterType.Search:
             params = filt.search_params
             assert params is not None
 
@@ -543,17 +555,17 @@ class PandasView(DataExplorerTableView):
 
             term = params.term
 
-            if params.type == SearchFilterParamsType.RegexMatch:
+            if params.search_type == SearchFilterType.RegexMatch:
                 mask = col.str.match(term, case=params.case_sensitive)
             else:
                 if not params.case_sensitive:
                     col = col.str.lower()
                     term = term.lower()
-                if params.type == SearchFilterParamsType.Contains:
+                if params.search_type == SearchFilterType.Contains:
                     mask = col.str.contains(term)
-                elif params.type == SearchFilterParamsType.StartsWith:
+                elif params.search_type == SearchFilterType.StartsWith:
                     mask = col.str.startswith(term)
-                elif params.type == SearchFilterParamsType.EndsWith:
+                elif params.search_type == SearchFilterType.EndsWith:
                     mask = col.str.endswith(term)
 
         assert mask is not None
@@ -680,6 +692,35 @@ class PandasView(DataExplorerTableView):
             table_shape=TableShape(num_rows=self.table.shape[0], num_columns=self.table.shape[1]),
             row_filters=self.filters,
             sort_keys=self.sort_keys,
+        )
+
+    def _get_supported_features(self) -> SupportedFeatures:
+        row_filter_features = SetRowFiltersFeatures(
+            supported=True,
+            supports_conditions=False,
+            supported_types=[
+                RowFilterType.Between,
+                RowFilterType.Compare,
+                RowFilterType.IsNull,
+                RowFilterType.NotNull,
+                RowFilterType.NotBetween,
+                RowFilterType.Search,
+                RowFilterType.SetMembership,
+            ],
+        )
+
+        column_profile_features = GetColumnProfilesFeatures(
+            supported=True,
+            supported_types=[
+                ColumnProfileType.NullCount,
+                ColumnProfileType.SummaryStats,
+            ],
+        )
+
+        return SupportedFeatures(
+            search_schema=SearchSchemaFeatures(supported=True),
+            set_row_filters=row_filter_features,
+            get_column_profiles=column_profile_features,
         )
 
 
