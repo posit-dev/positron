@@ -14,15 +14,11 @@ from ..access_keys import encode_access_key
 from ..data_explorer import COMPARE_OPS, DataExplorerService
 from ..data_explorer_comm import (
     ColumnDisplayType,
-    ColumnSummaryStats,
     RowFilter,
     ColumnProfileResult,
     ColumnSchema,
     ColumnSortKey,
     FilterResult,
-    SummaryStatsNumber,
-    SummaryStatsString,
-    SummaryStatsBoolean,
 )
 from .conftest import DummyComm, PositronShell
 from .test_variables import BIG_ARRAY_LENGTH
