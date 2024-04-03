@@ -3,8 +3,9 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
-import { trace } from './logging';
+import { log } from './extension';
 import { NotebookController } from './notebookController';
+import { NotebookSessionService } from './notebookSessionService';
 
 /**
  * Manages notebook controllers.
@@ -12,6 +13,12 @@ import { NotebookController } from './notebookController';
 export class NotebookControllerManager implements vscode.Disposable {
 	/** Notebook controllers keyed by languageId. */
 	public readonly controllers = new Map<string, NotebookController>();
+
+	/**
+	 *
+	 * @param _notebookSessionService The notebook session service.
+	 */
+	constructor(private readonly _notebookSessionService: NotebookSessionService) { }
 
 	/**
 	 * Create a notebook controller for a language.
@@ -22,9 +29,9 @@ export class NotebookControllerManager implements vscode.Disposable {
 		if (this.controllers.has(languageId)) {
 			throw new Error(`Notebook controller already exists for language: ${languageId}`);
 		}
-		const controller = new NotebookController(languageId);
+		const controller = new NotebookController(languageId, this._notebookSessionService);
 		this.controllers.set(languageId, controller);
-		trace(`Registered notebook controller for language: ${languageId}`);
+		log.info(`Registered notebook controller for language: ${languageId}`);
 	}
 
 	/**
@@ -79,7 +86,7 @@ export class NotebookControllerManager implements vscode.Disposable {
 				? vscode.NotebookControllerAffinity.Preferred
 				: vscode.NotebookControllerAffinity.Default;
 			controller.controller.updateNotebookAffinity(notebook, affinity);
-			trace(`Updated notebook affinity for language: ${languageId}, notebook: ${notebook.uri.path}, affinity: ${affinity}`);
+			log.debug(`Updated notebook affinity for controller: ${controller.label}, notebook: ${notebook.uri.path}, affinity: ${affinity}`);
 		}
 	}
 
