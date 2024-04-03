@@ -46,7 +46,6 @@ export const RadioGroup = (props: PropsWithChildren<RadioGroupProps>) => {
 			{props.entries.map((entry, index) => {
 				return (
 					<RadioButton
-						isFirstButtonInGroup={index === 0}
 						key={index}
 						identifier={entry.options.identifier}
 						title={entry.options.title}
