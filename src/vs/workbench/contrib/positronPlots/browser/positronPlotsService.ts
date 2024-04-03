@@ -750,10 +750,11 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 	copyPlotToClipboard(): void {
 		const plot = this._plots.find(plot => plot.id === this.selectedPlotId);
 		if (plot instanceof StaticPlotClient) {
-			// this._clipboardService.writeResources([URI.parse(plot.uri)]);
 			this._clipboardService.writeImage(plot.uri);
 		} else if (plot instanceof PlotClientInstance) {
-			this._clipboardService.writeResources([plot.lastRender?.uri.toString() ? URI.parse(plot.lastRender.uri) : URI.parse('')]);
+			if (plot.lastRender?.uri) {
+				this._clipboardService.writeImage(plot.lastRender.uri);
+			}
 		}
 	}
 
