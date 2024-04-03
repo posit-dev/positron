@@ -11,6 +11,14 @@ export const log = vscode.window.createOutputChannel('Positron Notebook Controll
 
 export async function activate(context: vscode.ExtensionContext): Promise<void> {
 	const notebookSessionService = new NotebookSessionService();
+
+	// Shutdown any running sessions when a notebook is closed.
+	context.subscriptions.push(vscode.workspace.onDidCloseNotebookDocument(async (notebook) => {
+		if (notebookSessionService.hasStartingOrRunningNotebookSession(notebook.uri)) {
+			await notebookSessionService.shutdownRuntimeSession(notebook.uri);
+		}
+	}));
+
 	const manager = new NotebookControllerManager(notebookSessionService);
 	context.subscriptions.push(manager);
 

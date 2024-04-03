@@ -168,14 +168,14 @@ export class NotebookSessionService {
 		this._shuttingDownSessionsByNotebookUri.set(notebookUri, shutDownPromise);
 
 		// Get the notebook's session.
-		let session: positron.LanguageRuntimeSession | undefined;
-		const startingSessionPromise = this._startingSessionsByNotebookUri.get(notebookUri);
-		if (startingSessionPromise && !startingSessionPromise.isSettled) {
-			// If the runtime is still starting, wait for it to be ready.
-			session = await startingSessionPromise.p;
-		} else {
-			// Try to get an already running session.
-			session = this._notebookSessionsByNotebookUri.get(notebookUri);
+		let session = this._notebookSessionsByNotebookUri.get(notebookUri);
+
+		// If the runtime is still starting, wait for it to be ready.
+		if (!session) {
+			const startingSessionPromise = this._startingSessionsByNotebookUri.get(notebookUri);
+			if (startingSessionPromise && !startingSessionPromise.isSettled) {
+				session = await startingSessionPromise.p;
+			}
 		}
 
 		// Ensure that we have a session.

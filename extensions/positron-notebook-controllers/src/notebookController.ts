@@ -4,6 +4,7 @@
 import * as vscode from 'vscode';
 import * as positron from 'positron';
 import { NotebookSessionService } from './notebookSessionService';
+import { log } from './extension';
 
 /**
  * Wraps a vscode.NotebookController for a specific language, and manages a notebook runtime session
@@ -50,13 +51,9 @@ export class NotebookController implements vscode.Disposable {
 
 		this._disposables.push(this.controller);
 
-		this._disposables.push(vscode.workspace.onDidCloseNotebookDocument(async (notebook) => {
-			if (this._notebookSessionService.hasStartingOrRunningNotebookSession(notebook.uri)) {
-				await this._notebookSessionService.shutdownRuntimeSession(notebook.uri);
-			}
-		}));
-
 		this._disposables.push(this.controller.onDidChangeSelectedNotebooks(async (e) => {
+			log.debug(`Notebook ${e.notebook.uri}, controller ${this._languageId}, selected ${e.selected}`);
+
 			// Has this controller been selected for a notebook?
 			if (e.selected) {
 				// Note that this is also reached when a notebook is opened, if this controller was
