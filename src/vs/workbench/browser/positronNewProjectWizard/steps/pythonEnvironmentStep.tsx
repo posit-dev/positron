@@ -121,16 +121,25 @@ export const PythonEnvironmentStep = (props: PropsWithChildren<NewProjectWizardS
 
 	return (
 		<PositronWizardStep
-			title={localize('pythonEnvironmentStep.title', 'Set up Python environment')}
+			title={(() => localize(
+				'pythonEnvironmentStep.title',
+				'Set up Python environment'
+			))()}
 			backButtonConfig={{ onClick: props.back }}
 			cancelButtonConfig={{ onClick: props.cancel }}
 			okButtonConfig={{
 				onClick: props.accept,
-				title: localize('positronNewProjectWizard.createButtonTitle', "Create"),
+				title: (() => localize(
+					'positronNewProjectWizard.createButtonTitle',
+					"Create"
+				))(),
 			}}
 		>
 			<PositronWizardSubStep
-				title={localize('pythonEnvironmentSubStep.howToSetUpEnv', 'How would you like to set up your Python project environment?')}
+				title={(() => localize(
+					'pythonEnvironmentSubStep.howToSetUpEnv',
+					'How would you like to set up your Python project environment?'
+				))()}
 			>
 				{/* TODO: create radiogroup and radiobutton components */}
 				<div style={{ display: 'flex', flexDirection: 'column', rowGap: '4px' }}>
@@ -149,16 +158,30 @@ export const PythonEnvironmentStep = (props: PropsWithChildren<NewProjectWizardS
 				</div>
 			</PositronWizardSubStep>
 			<PositronWizardSubStep
-				title={localize('pythonEnvironmentSubStep.label', 'Python Environment')}
-				description={localize('pythonEnvironmentSubStep.description', 'Select an environment type for your project.')}
+				title={(() => localize(
+					'pythonEnvironmentSubStep.label',
+					'Python Environment'
+				))()}
+				description={(() => localize(
+					'pythonEnvironmentSubStep.description',
+					'Select an environment type for your project.'
+				))()}
 				// TODO: construct the env location based on the envTypeEntries above, instead of inline here
-				feedback={localize('pythonEnvironmentSubStep.feedback', 'The {0} environment will be created at: {1}', projectConfig.pythonEnvType, `${projectConfig.parentFolder}/${projectConfig.projectName}/${projectConfig.pythonEnvType === 'Venv' ? '.venv' : 'Conda' ? '.conda' : ''}`)}
+				feedback={(() => localize(
+					'pythonEnvironmentSubStep.feedback',
+					'The {0} environment will be created at: {1}',
+					projectConfig.pythonEnvType,
+					`${projectConfig.parentFolder}/${projectConfig.projectName}/${projectConfig.pythonEnvType === 'Venv' ? '.venv' : 'Conda' ? '.conda' : ''}`
+				))()}
 			>
 				{/* TODO: how to pre-select an option? */}
 				<DropDownListBox
 					keybindingService={keybindingService}
 					layoutService={layoutService}
-					title={localize('pythonEnvironmentSubStep.dropDown.title', 'Select an environment type')}
+					title={(() => localize(
+						'pythonEnvironmentSubStep.dropDown.title',
+						'Select an environment type'
+					))()}
 					entries={envTypeEntries}
 					onSelectionChanged={identifier => onEnvTypeSelected(identifier)}
 				/>
@@ -167,15 +190,24 @@ export const PythonEnvironmentStep = (props: PropsWithChildren<NewProjectWizardS
 			{/*       onhover tooltip, display the following note if we don't detect ipykernel for the selected interpreter */}
 			{/*       <p>Note: Positron will install <code>ipykernel</code> in this environment for Python language support.</p> */}
 			<PositronWizardSubStep
-				title={localize('pythonInterpreterSubStep.title', 'Python Interpreter')}
-				description={localize('pythonInterpreterSubStep.description', 'Select a Python installation for your project. You can modify this later if you change your mind.')}
+				title={(() => localize(
+					'pythonInterpreterSubStep.title',
+					'Python Interpreter'
+				))()}
+				description={(() => localize(
+					'pythonInterpreterSubStep.description',
+					'Select a Python installation for your project. You can modify this later if you change your mind.'
+				))()}
 			>
 				{startupPhase !== RuntimeStartupPhase.Complete ?
 					// TODO: how to disable clicking on the combo box while loading?
 					<DropDownListBox
 						keybindingService={keybindingService}
 						layoutService={layoutService}
-						title={localize('pythonInterpreterSubStep.dropDown.title.loading', 'Loading interpreters...')}
+						title={(() => localize(
+							'pythonInterpreterSubStep.dropDown.title.loading',
+							'Loading interpreters...'
+						))()}
 						entries={[]}
 						onSelectionChanged={() => { }}
 					/> : null
@@ -185,7 +217,10 @@ export const PythonEnvironmentStep = (props: PropsWithChildren<NewProjectWizardS
 					<DropDownListBox
 						keybindingService={keybindingService}
 						layoutService={layoutService}
-						title={localize('pythonInterpreterSubStep.dropDown.title', 'Select a Python interpreter')}
+						title={(() => localize(
+							'pythonInterpreterSubStep.dropDown.title',
+							'Select a Python interpreter'
+						))()}
 						// TODO: if the runtime startup phase is complete, but there are no suitable interpreters, show a message
 						// that no suitable interpreters were found and the user should install an interpreter with minimum version
 						entries={interpreterEntries}
