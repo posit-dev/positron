@@ -549,10 +549,10 @@ export const AddEditRowFilterModalPopup = (props: AddEditRowFilterModalPopupProp
 					keybindingService={props.renderer.keybindingService}
 					layoutService={props.renderer.layoutService}
 					dataExplorerClientInstance={props.dataExplorerClientInstance}
-					title={localize(
+					title={(() => localize(
 						'positron.addEditRowFilter.selectColumn',
 						"Select Column"
-					)}
+					))()}
 					selectedColumnSchema={selectedColumnSchema}
 					onSelectedColumnSchemaChanged={columnSchema => {
 						// Set the selected column schema.
@@ -569,10 +569,10 @@ export const AddEditRowFilterModalPopup = (props: AddEditRowFilterModalPopupProp
 					disabled={selectedColumnSchema === undefined}
 					keybindingService={props.renderer.keybindingService}
 					layoutService={props.renderer.layoutService}
-					title={localize(
+					title={(() => localize(
 						'positron.addEditRowFilter.selectCondition',
 						"Select Condition"
-					)}
+					))()}
 					entries={conditionEntries()}
 					selectedIdentifier={selectedCondition}
 					onSelectionChanged={identifier => {

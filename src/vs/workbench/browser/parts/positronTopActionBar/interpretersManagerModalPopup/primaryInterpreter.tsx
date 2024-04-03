@@ -90,7 +90,7 @@ export const PrimaryInterpreter = (props: PrimaryInterpreterProps) => {
 					<PositronButton className='action-button' onPressed={props.onShowAllVersions}>
 						<span
 							className='codicon codicon-positron-more-options'
-							title={localize('positronShowAllVersions', "Show all versions")}
+							title={(() => localize('positronShowAllVersions', "Show all versions"))()}
 						/>
 					</PositronButton>
 				}
