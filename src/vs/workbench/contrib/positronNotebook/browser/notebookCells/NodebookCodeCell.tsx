@@ -7,7 +7,7 @@ import { VSBuffer } from 'vs/base/common/buffer';
 import { NotebookCellOutputTextModel } from 'vs/workbench/contrib/notebook/common/model/notebookCellOutputTextModel';
 import { ICellOutput } from 'vs/workbench/contrib/notebook/common/notebookCommon';
 import { IPositronNotebookCodeCell } from 'vs/workbench/contrib/positronNotebook/browser/notebookCells/interfaces';
-import { parseOutputData } from 'vs/workbench/contrib/positronNotebook/browser/getOutputContents';
+import { isParsedTextOutput, parseOutputData } from 'vs/workbench/contrib/positronNotebook/browser/getOutputContents';
 import { useObservedValue } from 'vs/workbench/contrib/positronNotebook/browser/useObservedValue';
 import { CellEditorMonacoWidget } from './CellEditorMonacoWidget';
 import { localize } from 'vs/nls';
@@ -76,23 +76,16 @@ function CellOutputContents(output: { data: VSBuffer; mime: string }) {
 
 	const parsed = parseOutputData(output);
 
+	if (isParsedTextOutput(parsed)) {
+		return <div className={`notebook-${parsed.type}`}>
+			<CellTextOutput output={parsed.content} />
+		</div>;
+	}
+
 	switch (parsed.type) {
-		case 'stdout':
-			return <div className='notebook-stdout'>
-				<CellTextOutput output={parsed.content} />
-			</div>;
-		case 'error':
-		case 'stderr':
-			return <div className='notebook-stderr'>
-				<CellTextOutput output={parsed.content} />
-			</div>;
 		case 'interupt':
 			return <div className='notebook-error'>
 				{localize('cellExecutionKeyboardInterupt', 'Cell execution stopped due to keyboard interupt.')}
-			</div>;
-		case 'text':
-			return <div className='notebook-text'>
-				<CellTextOutput output={parsed.content} />
 			</div>;
 		case 'image':
 			return <img src={parsed.dataUrl} alt='output image' />;

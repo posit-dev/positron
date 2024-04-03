@@ -73,25 +73,21 @@ function getTextOutputContents(output: NotebookCellOutputTextModel): string {
 	}).join('\n');
 }
 
+type ParsedTextOutput = {
+	type: 'stdout' | 'text' | 'stderr' | 'error';
+	content: string;
+};
+
+const textOutputTypes: ParsedTextOutput['type'][] = ['stdout', 'text', 'stderr', 'error'];
+
+export function isParsedTextOutput(output: ParsedOutput): output is ParsedTextOutput {
+	return (textOutputTypes as string[]).includes(output.type);
+}
+
 /**
  * Contents from cell outputs parsed for React components to display
  */
-type ParsedOutput = {
-	type: 'stdout';
-	content: string;
-} |
-{
-	type: 'text';
-	content: string;
-} |
-{
-	type: 'stderr';
-	content: string;
-} |
-{
-	type: 'error';
-	content: string;
-} |
+type ParsedOutput = ParsedTextOutput |
 {
 	type: 'image';
 	dataUrl: string;
