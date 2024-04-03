@@ -4,12 +4,14 @@
 
 import * as extHostProtocol from './extHost.positron.protocol';
 import { ExtHostEditors } from '../extHostTextEditors';
-import { ExtHostModalDialogs } from '../positron/extHostModalDialogs';
+import { ExtHostDocuments } from '../extHostDocuments';
 import { ExtHostWorkspace } from '../extHostWorkspace';
-import { Range } from 'vs/workbench/api/common/extHostTypes';
+import { ExtHostModalDialogs } from '../positron/extHostModalDialogs';
+import { ExtHostLanguageRuntime } from '../positron/extHostLanguageRuntime';
 import { UiFrontendRequest, EditorContext, Range as UIRange } from 'vs/workbench/services/languageRuntime/common/positronUiComm';
 import { JsonRpcErrorCode } from 'vs/workbench/services/languageRuntime/common/positronBaseComm';
-import { EndOfLine } from '../extHostTypeConverters';
+import { Range } from 'vs/workbench/api/common/extHostTypes';
+import { EndOfLine, TextEditorOpenOptions } from '../extHostTypeConverters';
 
 type JsonRpcResponse = JsonRpcResult | JsonRpcError;
 
@@ -35,7 +37,9 @@ export class ExtHostMethods implements extHostProtocol.ExtHostMethodsShape {
 	constructor(
 		_mainContext: extHostProtocol.IMainPositronContext,
 		private readonly editors: ExtHostEditors,
+		private readonly documents: ExtHostDocuments,
 		private readonly dialogs: ExtHostModalDialogs,
+		private readonly runtime: ExtHostLanguageRuntime,
 		private readonly workspace: ExtHostWorkspace
 	) {
 	}
@@ -84,6 +88,16 @@ export class ExtHostMethods implements extHostProtocol.ExtHostMethodsShape {
 					result = await this.workspaceFolder();
 					break;
 				}
+				case UiFrontendRequest.NewDocument: {
+					if (!params ||
+						!Object.keys(params).includes('contents') ||
+						!Object.keys(params).includes('language_id')) {
+						return newInvalidParamsError(method);
+					}
+					result = await this.createDocument(params.contents as string,
+						params.language_id as string);
+					break;
+				}
 				case UiFrontendRequest.ShowQuestion: {
 					if (!params ||
 						!Object.keys(params).includes('title') ||
@@ -106,6 +120,20 @@ export class ExtHostMethods implements extHostProtocol.ExtHostMethodsShape {
 					}
 					result = await this.showDialog(params.title as string,
 						params.message as string);
+					break;
+				}
+				case UiFrontendRequest.ExecuteCode: {
+					if (!params ||
+						!Object.keys(params).includes('language_id') ||
+						!Object.keys(params).includes('code') ||
+						!Object.keys(params).includes('focus') ||
+						!Object.keys(params).includes('allow_incomplete')) {
+						return newInvalidParamsError(method);
+					}
+					result = await this.executeCode(params.language_id as string,
+						params.code as string,
+						params.focus as boolean,
+						params.allow_incomplete as boolean);
 					break;
 				}
 				case UiFrontendRequest.DebugSleep: {
@@ -219,8 +247,26 @@ export class ExtHostMethods implements extHostProtocol.ExtHostMethodsShape {
 		return this.dialogs.showSimpleModalDialogMessage(title, message);
 	}
 
+	async createDocument(contents: string, languageId: string): Promise<null> {
+
+		const uri = await this.documents.createDocumentData({
+			content: contents, language: languageId
+		});
+		const opts: TextEditorOpenOptions = { preview: true };
+		this.documents.ensureDocumentData(uri).then(documentData => {
+			this.editors.showTextDocument(documentData.document, opts);
+		});
+
+		// TODO: Return a document ID
+		return null;
+	}
+
 	async showQuestion(title: string, message: string, okButtonTitle: string, cancelButtonTitle: string): Promise<boolean> {
 		return this.dialogs.showSimpleModalDialogPrompt(title, message, okButtonTitle, cancelButtonTitle);
+	}
+
+	async executeCode(languageId: string, code: string, focus: boolean, allowIncomplete?: boolean): Promise<boolean> {
+		return this.runtime.executeCode(languageId, code, focus, allowIncomplete);
 	}
 
 	async debugSleep(ms: number): Promise<null> {

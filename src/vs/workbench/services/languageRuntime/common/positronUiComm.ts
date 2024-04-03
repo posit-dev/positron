@@ -280,6 +280,25 @@ export interface ShowUrlEvent {
 }
 
 /**
+ * Request: Create a new document with text contents
+ *
+ * Use this to create a new document with the given language ID and text
+ * contents
+ */
+export interface NewDocumentRequest {
+	/**
+	 * Document contents
+	 */
+	contents: string;
+
+	/**
+	 * Language identifier
+	 */
+	language_id: string;
+
+}
+
+/**
  * Request: Show a question
  *
  * Use this for a modal dialog that the user can accept or cancel
@@ -339,6 +358,34 @@ export interface DebugSleepRequest {
 }
 
 /**
+ * Request: Execute code in a Positron runtime
+ *
+ * Use this to execute code in a Positron runtime
+ */
+export interface ExecuteCodeRequest {
+	/**
+	 * The language ID of the code to execute
+	 */
+	language_id: string;
+
+	/**
+	 * The code to execute
+	 */
+	code: string;
+
+	/**
+	 * Whether to focus the runtime's console
+	 */
+	focus: boolean;
+
+	/**
+	 * Whether to bypass runtime code completeness checks
+	 */
+	allow_incomplete: boolean;
+
+}
+
+/**
  * Request: Path to the workspace folder
  *
  * Returns the path to the workspace folder, or first folder if there are
@@ -388,9 +435,11 @@ export enum UiFrontendEvent {
 }
 
 export enum UiFrontendRequest {
+	NewDocument = 'new_document',
 	ShowQuestion = 'show_question',
 	ShowDialog = 'show_dialog',
 	DebugSleep = 'debug_sleep',
+	ExecuteCode = 'execute_code',
 	WorkspaceFolder = 'workspace_folder',
 	ModifyEditorSelections = 'modify_editor_selections',
 	LastActiveEditorContext = 'last_active_editor_context'
