@@ -173,6 +173,7 @@ export class PositronHelpView extends ViewPane implements IReactComponentContain
 		// way to set this in any sort of configuration hence the need to override it here. If this
 		// isn't set, then the help pane will occlude parts of the editor when it is resized to be
 		// very small.
+		// TODO: See about disposing the webview entirely when the size is too small to see.
 		options = { ...options, minimumBodySize: 0 };
 
 		// Call the base class's constructor.

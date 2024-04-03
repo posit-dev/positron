@@ -85,10 +85,8 @@ export class PositronPreviewViewPane extends ViewPane implements IReactComponent
 		@IWorkbenchLayoutService private readonly layoutService: IWorkbenchLayoutService,
 		@IPositronPreviewService private readonly positronPreviewService: IPositronPreviewService
 	) {
-		// Override minimum size option if it isn't already somehow set. There doesn't seem to be a
-		// way to set this in any sort of configuration hence the need to override it here. If this
-		// isn't set, then the help pane will occlude parts of the editor when it is resized to be
-		// very small.
+		// Override minimum size option if it isn't already somehow set. See `PositronHelpView` for
+		// more context.
 		options = { ...options, minimumBodySize: 0 };
 
 		super(options, keybindingService, contextMenuService, configurationService, contextKeyService, viewDescriptorService, instantiationService, openerService, themeService, telemetryService);
