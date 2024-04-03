@@ -297,10 +297,6 @@ class PandasView(DataExplorerTableView):
         # performance.
         self._search_schema_last_result: Optional[Tuple[str, List[ColumnSchema]]] = None
 
-        # squelch a warning from pandas 2.2.0 about the use below of
-        # fillna
-        pd_.set_option("future.no_silent_downcasting", True)
-
         # Putting this here rather than in the class body before
         # Python < 3.10 has fussier rules about staticmethods
         self._SUMMARIZERS = {
@@ -560,9 +556,12 @@ class PandasView(DataExplorerTableView):
                 elif params.type == SearchFilterParamsType.EndsWith:
                     mask = col.str.endswith(term)
 
+        assert mask is not None
+
         # Nulls are possible in the mask, so we just fill them if any
         if mask.dtype != bool:
-            mask = mask.fillna(False).infer_objects(copy=False)
+            mask[mask.isna()] = False
+            mask = mask.astype(bool)
 
         return mask.to_numpy()
 

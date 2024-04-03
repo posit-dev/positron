@@ -832,7 +832,8 @@ def test_pandas_filter_search(dxf: DataExplorerFixture):
     ]
 
     for search_type, column_index, term, cs, mask in cases:
-        ex_table = df[mask.fillna(False)]
+        mask[mask.isna()] = False
+        ex_table = df[mask.astype(bool)]
         dxf.check_filter_case(
             df,
             [
