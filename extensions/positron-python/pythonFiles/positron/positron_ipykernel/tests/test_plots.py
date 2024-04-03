@@ -12,7 +12,7 @@ from typing import Iterable, cast
 import matplotlib
 import matplotlib.pyplot as plt
 import pytest
-from IPython.core.formatters import DisplayFormatter, format_display_data
+from IPython.core.formatters import DisplayFormatter
 from matplotlib.axes import Axes
 from matplotlib.figure import Figure
 from matplotlib.testing.compare import compare_images

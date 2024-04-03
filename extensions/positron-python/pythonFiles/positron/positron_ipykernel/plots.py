@@ -8,7 +8,7 @@ import io
 import logging
 import pickle
 import uuid
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional
 
 import comm
 
