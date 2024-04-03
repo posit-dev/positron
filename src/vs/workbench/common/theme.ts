@@ -1958,14 +1958,6 @@ export const POSITRON_DATA_EXPLORER_BORDER_COLOR = registerColor('positronDataEx
 	hcLight: tableColumnsBorder
 }, localize('positronDataExplorer.border', "Positron data explorer border color."));
 
-// Positron data explorer missing values color.
-export const POSITRON_DATA_EXPLORER_MISSING_VALUES_COLOR = registerColor('positronDataExplorer.missingValues', {
-	dark: '#EA3D3D',
-	light: '#EA3D3D',
-	hcDark: '#EA3D3D',
-	hcLight: '#EA3D3D'
-}, localize('positronDataExplorer.missingValues', "Positron data explorer missing values color."));
-
 // < --- Positron Variables --- >
 
 // Positron variables background color.
