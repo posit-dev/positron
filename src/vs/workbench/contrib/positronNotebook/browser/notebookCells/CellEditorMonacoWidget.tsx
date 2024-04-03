@@ -3,6 +3,7 @@
  *--------------------------------------------------------------------------------------------*/
 import * as React from 'react';
 import * as DOM from 'vs/base/browser/dom';
+import { EditorExtensionsRegistry, IEditorContributionDescription } from 'vs/editor/browser/editorExtensions';
 
 import { CodeEditorWidget } from 'vs/editor/browser/widget/codeEditorWidget';
 import { IContextKeyService } from 'vs/platform/contextkey/common/contextkey';
@@ -60,7 +61,6 @@ export function useCellEditorWidget(cell: IPositronNotebookCell) {
 		const editorContextKeyService = services.scopedContextKeyProviderCallback(editorPartRef.current);
 		const editorInstaService = services.instantiationService.createChild(new ServiceCollection([IContextKeyService, editorContextKeyService]));
 		const editorOptions = new CellEditorOptions(instance.getBaseCellEditorOptions(language), instance.notebookOptions, services.configurationService);
-		const editorContributions = instance.creationOptions?.cellEditorContributions ?? [];
 
 		const editor = editorInstaService.createInstance(CodeEditorWidget, nativeContainer, {
 			...editorOptions.getDefaultValue(),
@@ -69,7 +69,7 @@ export function useCellEditorWidget(cell: IPositronNotebookCell) {
 				height: 200
 			},
 		}, {
-			contributions: editorContributions
+			contributions: getNotebookEditorContributions()
 		});
 
 
@@ -125,3 +125,24 @@ export function useCellEditorWidget(cell: IPositronNotebookCell) {
 }
 
 
+/**
+ * Get the notebook options for the editor widget.
+ * Taken directly from `getDefaultNotebookCreationOptions()` in notebookEditorWidget.ts
+*/
+function getNotebookEditorContributions(): IEditorContributionDescription[] {
+	// Taken directly from `getDefaultNotebookCreationOptions()` in notebookEditorWidget.ts
+
+	// We inlined the id to avoid loading comment contrib in tests
+	const skipContributions = [
+		'editor.contrib.review',
+		// FloatingEditorClickMenu.ID,
+		'editor.contrib.dirtydiff',
+		'editor.contrib.testingOutputPeek',
+		'editor.contrib.testingDecorations',
+		'store.contrib.stickyScrollController',
+		'editor.contrib.findController',
+		'editor.contrib.emptyTextEditorHint'
+	];
+
+	return EditorExtensionsRegistry.getEditorContributions().filter(c => skipContributions.indexOf(c.id) === -1);
+}
