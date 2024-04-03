@@ -41,6 +41,7 @@ export const RadioButton = (props: RadioButtonProps) => {
 	return (
 		<div className='radio-button'>
 			<input
+				className='radio-button-input'
 				type='radio'
 				tabIndex={props.selected ? 0 : -1}
 				id={props.identifier}

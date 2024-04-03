@@ -2,7 +2,13 @@
  *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
+.positron-modal-dialog-box
+.radio-group
 .radio-button {
+	display: flex;
+	flex-direction: row;
+	align-items: center;
+	gap: 6px;
 	cursor: pointer;
 }
 
@@ -10,18 +16,47 @@
  * When focus is in the radio button via keyboard interaction, add a border around the full radio
  * button (both the input circle and the text label)
  */
+.positron-modal-dialog-box
+.radio-group
 .radio-button:has(:focus-visible) {
 	border-radius: 4px;
+	outline-offset: 2px;
 	outline: 1px solid var(--vscode-focusBorder);
 }
 
+/* Style the radio button circle */
+.positron-modal-dialog-box
+.radio-group
 .radio-button
-input {
+.radio-button-input {
 	cursor: pointer;
+	appearance: none;
+	margin: 0;
+	display: grid;
+	place-content: center;
+	width: 16px;
+	height: 16px;
+	border-radius: 50%;
+	background: var(--vscode-positronModalDialog-radioButtonBackground);
+	border: 1px solid var(--vscode-positronModalDialog-radioButtonBorder);
+}
+
+/* Style the selected radio button */
+.positron-modal-dialog-box
+.radio-group
+.radio-button
+.radio-button-input:checked::before {
+	content: '';
+	width: 6px;
+	height: 6px;
+	border-radius: 50%;
+	background: var(--vscode-positronModalDialog-radioButtonForeground);
 }
 
 /* Don't add an outline around the radio button circle */
+.positron-modal-dialog-box
+.radio-group
 .radio-button
-input[type="radio"]:focus {
+.radio-button-input:focus {
 	outline: none;
 }

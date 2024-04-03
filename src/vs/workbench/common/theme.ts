@@ -1663,9 +1663,31 @@ export const POSITRON_DROP_DOWN_SEPARATOR_BACKGROUND = registerColor('positronDr
 	hcLight: menuBorder
 }, localize('positronDropDownListBox.separatorBackground', "Positron drop down list box separator background color."));
 
+// < --- Positron Radio Button --- >
 
+// Positron radio button background color.
+export const POSITRON_RADIO_BUTTON_BACKGROUND = registerColor('positronModalDialog.radioButtonBackground', {
+	dark: buttonSecondaryBackground,
+	light: editorBackground,
+	hcDark: editorBackground,
+	hcLight: editorBackground
+}, localize('positronModalDialog.radioButtonBackground', "Positron modal dialog radio button background color."));
 
+// Positron radio button foreground color.
+export const POSITRON_RADIO_BUTTON_FOREGROUND = registerColor('positronModalDialog.radioButtonForeground', {
+	dark: foreground,
+	light: foreground,
+	hcDark: foreground,
+	hcLight: foreground
+}, localize('positronRadioButton.radioButtonForeground', "Positron modal dialog radio button foreground color."));
 
+// Positron radio button border color.
+export const POSITRON_RADIO_BUTTON_BORDER = registerColor('positronModalDialog.radioButtonBorder', {
+	dark: selectBorder,
+	light: selectBorder,
+	hcDark: selectBorder,
+	hcLight: selectBorder
+}, localize('positronModalDialog.radioButtonBorder', "Positron modal dialog radio button border color."));
 
 
 

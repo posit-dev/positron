@@ -5,5 +5,5 @@
 .radio-group {
 	display: flex;
 	flex-direction: column;
-	row-gap: 4px;
+	row-gap: 6px;
 }
