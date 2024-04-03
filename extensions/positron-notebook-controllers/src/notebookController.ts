@@ -117,14 +117,6 @@ export class NotebookController implements vscode.Disposable {
 		// Get the notebook's session.
 		let session = this._notebookSessionService.getNotebookSession(notebook.uri);
 
-		// If the runtime is still starting, wait for it to be ready.
-		if (!session) {
-			const startingSessionPromise = this._notebookSessionService.getStartingNotebookSessionPromise(notebook.uri);
-			if (startingSessionPromise && !startingSessionPromise.isSettled) {
-				session = await vscode.window.withProgress(this.startProgressOptions(notebook), () => startingSessionPromise.p);
-			}
-		}
-
 		// No session has been started for this notebook, start one.
 		if (!session) {
 			session = await vscode.window.withProgress(this.startProgressOptions(notebook), () => this.startRuntimeSession(notebook));

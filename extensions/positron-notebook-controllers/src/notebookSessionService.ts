@@ -35,16 +35,6 @@ export class NotebookSessionService {
 	private readonly _notebookSessionsByNotebookUri = new ResourceMap<positron.LanguageRuntimeSession>();
 
 	/**
-	 * Checks for a starting notebook for the given notebook URI.
-	 *
-	 * @param notebookUri The notebook URI to check for.
-	 * @returns True if a starting notebook session exists for the given notebook URI.
-	 */
-	hasStartingNotebookSession(notebookUri: Uri): boolean {
-		return this._startingSessionsByNotebookUri.has(notebookUri);
-	}
-
-	/**
 	 * Checks for a starting or running notebook for the given notebook URI.
 	 *
 	 * @param notebookUri The notebook URI to check for.
@@ -52,16 +42,6 @@ export class NotebookSessionService {
 	 */
 	hasStartingOrRunningNotebookSession(notebookUri: Uri): boolean {
 		return this._startingSessionsByNotebookUri.has(notebookUri) || this._notebookSessionsByNotebookUri.has(notebookUri);
-	}
-
-	/**
-	 * Get the starting or running notebook session for the given notebook URI, if one exists.
-	 *
-	 * @param notebookUri The notebook URI of the session to retrieve.
-	 * @returns The starting or running notebook session for the given notebook URI, if one exists.
-	 */
-	getStartingNotebookSessionPromise(notebookUri: Uri): DeferredPromise<positron.LanguageRuntimeSession> | undefined {
-		return this._startingSessionsByNotebookUri.get(notebookUri);
 	}
 
 	/**
