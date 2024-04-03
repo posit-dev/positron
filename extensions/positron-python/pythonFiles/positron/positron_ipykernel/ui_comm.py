@@ -247,6 +247,20 @@ class OpenEditorParams(BaseModel):
     )
 
 
+class NewDocumentParams(BaseModel):
+    """
+    Create a new document with text contents
+    """
+
+    contents: str = Field(
+        description="Document contents",
+    )
+
+    language_id: str = Field(
+        description="Language identifier",
+    )
+
+
 class ShowMessageParams(BaseModel):
     """
     Show a message
@@ -337,6 +351,28 @@ class ExecuteCommandParams(BaseModel):
     )
 
 
+class ExecuteCodeParams(BaseModel):
+    """
+    Execute code in a Positron runtime
+    """
+
+    language_id: str = Field(
+        description="The language ID of the code to execute",
+    )
+
+    code: str = Field(
+        description="The code to execute",
+    )
+
+    focus: bool = Field(
+        description="Whether to focus the runtime's console",
+    )
+
+    allow_incomplete: bool = Field(
+        description="Whether to bypass runtime code completeness checks",
+    )
+
+
 class OpenWorkspaceParams(BaseModel):
     """
     Open a workspace
@@ -403,6 +439,8 @@ BusyParams.update_forward_refs()
 
 OpenEditorParams.update_forward_refs()
 
+NewDocumentParams.update_forward_refs()
+
 ShowMessageParams.update_forward_refs()
 
 ShowQuestionParams.update_forward_refs()
@@ -416,6 +454,8 @@ WorkingDirectoryParams.update_forward_refs()
 DebugSleepParams.update_forward_refs()
 
 ExecuteCommandParams.update_forward_refs()
+
+ExecuteCodeParams.update_forward_refs()
 
 OpenWorkspaceParams.update_forward_refs()
 
