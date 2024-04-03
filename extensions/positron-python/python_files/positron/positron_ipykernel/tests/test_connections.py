@@ -39,6 +39,10 @@ def get_sqlite_connections():
     return [get_sqlalchemy_sqlite_connection(), get_sqlite3_sqlite_connection()]
 
 
+def _make_msg(method, params, comm_id):
+    return json_rpc_request(method=method, params=params, comm_id=comm_id)
+
+
 @pytest.fixture(scope="function")
 def connections_comm(
     connections_service: ConnectionsService, con
@@ -70,7 +74,7 @@ class TestSQLiteConnectionsService:
     ):
         _, comm = connections_comm
 
-        msg = self._make_msg(params={"path": path}, method="contains_data", comm_id=comm.comm_id)
+        msg = _make_msg(params={"path": path}, method="contains_data", comm_id=comm.comm_id)
         comm.handle_msg(msg)
 
         result = comm.messages[0]["data"]["result"]
@@ -86,7 +90,7 @@ class TestSQLiteConnectionsService:
     def test_get_icon(self, connections_comm: Tuple[ConnectionsService, DummyComm], path, expected):
         _, comm = connections_comm
 
-        msg = self._make_msg(params={"path": path}, method="get_icon", comm_id=comm.comm_id)
+        msg = _make_msg(params={"path": path}, method="get_icon", comm_id=comm.comm_id)
         comm.handle_msg(msg)
         result = comm.messages[0]["data"]["result"]
         assert result == expected
@@ -103,7 +107,7 @@ class TestSQLiteConnectionsService:
     ):
         _, comm = connections_comm
 
-        msg = self._make_msg(params={"path": path}, method="list_objects", comm_id=comm.comm_id)
+        msg = _make_msg(params={"path": path}, method="list_objects", comm_id=comm.comm_id)
 
         comm.handle_msg(msg)
         result = comm.messages[0]["data"]["result"]
@@ -113,7 +117,7 @@ class TestSQLiteConnectionsService:
     def test_list_fields(self, connections_comm: Tuple[ConnectionsService, DummyComm]):
         _, comm = connections_comm
 
-        msg = self._make_msg(
+        msg = _make_msg(
             params={
                 "path": [{"kind": "schema", "name": "main"}, {"kind": "table", "name": "movie"}]
             },
@@ -130,7 +134,7 @@ class TestSQLiteConnectionsService:
     def test_preview_object(self, connections_comm: Tuple[ConnectionsService, DummyComm]):
         service, comm = connections_comm
 
-        msg = self._make_msg(
+        msg = _make_msg(
             params={
                 "path": [{"kind": "schema", "name": "main"}, {"kind": "table", "name": "movie"}]
             },
@@ -142,9 +146,6 @@ class TestSQLiteConnectionsService:
         service._kernel.data_explorer_service.shutdown()
         result = comm.messages[0]["data"]["result"]
         assert result is None
-
-    def _make_msg(self, method, params, comm_id):
-        return json_rpc_request(method=method, params=params, comm_id=comm_id)
 
 
 class TestVariablePaneIntegration:
@@ -213,8 +214,8 @@ class TestVariablePaneIntegration:
         variables_comm.messages.clear()
 
     def _view_in_connections_pane(self, variables_comm: DummyComm, path):
-        path = [encode_access_key(p) for p in path]
-        msg = json_rpc_request("view", {"path": path}, comm_id="dummy_comm_id")
+        paths = [encode_access_key(p) for p in path]
+        msg = _make_msg("view", {"path": paths}, comm_id="dummy_comm_id")
         variables_comm.handle_msg(msg)
         assert variables_comm.messages == [json_rpc_response({})]
         variables_comm.messages.clear()
