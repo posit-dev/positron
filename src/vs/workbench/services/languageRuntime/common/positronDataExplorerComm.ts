@@ -65,7 +65,7 @@ export interface TableState {
 	/**
 	 * The set of currently applied row filters
 	 */
-	row_filters?: Array<RowFilter>;
+	row_filters: Array<RowFilter>;
 
 	/**
 	 * The set of currently applied sorts
@@ -87,6 +87,27 @@ export interface TableShape {
 	 * Number of columns in the unfiltered dataset
 	 */
 	num_columns: number;
+
+}
+
+/**
+ * For each field, returns flags indicating supported features
+ */
+export interface SupportedFeatures {
+	/**
+	 * Support for 'search_schema' RPC and its features
+	 */
+	search_schema: SearchSchemaFeatures;
+
+	/**
+	 * Support for 'set_row_filters' RPC and its features
+	 */
+	set_row_filters: SetRowFiltersFeatures;
+
+	/**
+	 * Support for 'get_column_profiles' RPC and its features
+	 */
+	get_column_profiles: GetColumnProfilesFeatures;
 
 }
 
@@ -167,9 +188,9 @@ export interface RowFilter {
 	filter_id: string;
 
 	/**
-	 * Type of filter to apply
+	 * Type of row filter to apply
 	 */
-	filter_type: RowFilterFilterType;
+	filter_type: RowFilterType;
 
 	/**
 	 * Column index to apply filter to
@@ -253,7 +274,7 @@ export interface SearchFilterParams {
 	/**
 	 * Type of search to perform
 	 */
-	type: SearchFilterParamsType;
+	search_type: SearchFilterType;
 
 	/**
 	 * String value/regex to search for in stringified data
@@ -279,7 +300,7 @@ export interface ColumnProfileRequest {
 	/**
 	 * The type of analytical column profile
 	 */
-	type: ColumnProfileRequestType;
+	profile_type: ColumnProfileType;
 
 }
 
@@ -486,6 +507,54 @@ export interface ColumnSortKey {
 }
 
 /**
+ * Feature flags for 'search_schema' RPC
+ */
+export interface SearchSchemaFeatures {
+	/**
+	 * Whether this RPC method is supported at all
+	 */
+	supported: boolean;
+
+}
+
+/**
+ * Feature flags for 'set_row_filters' RPC
+ */
+export interface SetRowFiltersFeatures {
+	/**
+	 * Whether this RPC method is supported at all
+	 */
+	supported: boolean;
+
+	/**
+	 * Whether AND/OR filter conditions are supported
+	 */
+	supports_conditions: boolean;
+
+	/**
+	 * A list of supported types
+	 */
+	supported_types: Array<RowFilterType>;
+
+}
+
+/**
+ * Feature flags for 'get_column_profiles' RPC
+ */
+export interface GetColumnProfilesFeatures {
+	/**
+	 * Whether this RPC method is supported at all
+	 */
+	supported: boolean;
+
+	/**
+	 * A list of supported types
+	 */
+	supported_types: Array<ColumnProfileType>;
+
+}
+
+/**
  * Possible values for ColumnDisplayType
  */
 export enum ColumnDisplayType {
@@ -501,9 +570,9 @@ export enum ColumnDisplayType {
 }
 
 /**
- * Possible values for FilterType in RowFilter
+ * Possible values for RowFilterType
  */
-export enum RowFilterFilterType {
+export enum RowFilterType {
 	Between = 'between',
 	Compare = 'compare',
 	IsNull = 'is_null',
@@ -526,9 +595,9 @@ export enum CompareFilterParamsOp {
 }
 
 /**
- * Possible values for Type in SearchFilterParams
+ * Possible values for SearchFilterType
  */
-export enum SearchFilterParamsType {
+export enum SearchFilterType {
 	Contains = 'contains',
 	StartsWith = 'starts_with',
 	EndsWith = 'ends_with',
@@ -536,9 +605,9 @@ export enum SearchFilterParamsType {
 }
 
 /**
- * Possible values for Type in ColumnProfileRequest
+ * Possible values for ColumnProfileType
  */
-export enum ColumnProfileRequestType {
+export enum ColumnProfileType {
 	NullCount = 'null_count',
 	SummaryStats = 'summary_stats',
 	FrequencyTable = 'frequency_table',
@@ -672,6 +741,19 @@ export class PositronDataExplorerComm extends PositronBaseComm {
 	 */
 	getState(): Promise<TableState> {
 		return super.performRpc('get_state', [], []);
+	}
+
+	/**
+	 * Query the backend to determine supported features
+	 *
+	 * Query the backend to determine supported features, to enable feature
+	 * toggling
+	 *
+	 *
+	 * @returns For each field, returns flags indicating supported features
+	 */
+	getSupportedFeatures(): Promise<SupportedFeatures> {
+		return super.performRpc('get_supported_features', [], []);
 	}
 
 
