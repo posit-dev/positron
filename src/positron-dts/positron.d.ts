@@ -1156,6 +1156,13 @@ declare module 'positron' {
 		export function getForegroundSession(): Thenable<LanguageRuntimeSession | undefined>;
 
 		/**
+		 * Get the session corresponding to a notebook, if any.
+		 *
+		 * @param notebookUri The URI of the notebook.
+		 */
+		export function getNotebookSession(notebookUri: vscode.Uri): Thenable<LanguageRuntimeSession | undefined>;
+
+		/**
 		 * Select and start a runtime previously registered with Positron. Any
 		 * previously active runtimes for the language will be shut down.
 		 *
