@@ -85,6 +85,9 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 			getForegroundSession(): Thenable<positron.LanguageRuntimeSession | undefined> {
 				return extHostLanguageRuntime.getForegroundSession();
 			},
+			getNotebookSession(notebookUri: vscode.Uri): Thenable<positron.LanguageRuntimeSession | undefined> {
+				return extHostLanguageRuntime.getNotebookSession(notebookUri);
+			},
 			selectLanguageRuntime(runtimeId: string): Thenable<void> {
 				return extHostLanguageRuntime.selectLanguageRuntime(runtimeId);
 			},

@@ -20,6 +20,7 @@ import { ExtensionIdentifier } from 'vs/platform/extensions/common/extensions';
 import { ILifecycleService, ShutdownReason, StartupKind } from 'vs/workbench/services/lifecycle/common/lifecycle';
 import { INotificationService } from 'vs/platform/notification/common/notification';
 import { IWorkspaceTrustManagementService } from 'vs/platform/workspace/common/workspaceTrust';
+import { URI } from 'vs/base/common/uri';
 
 interface ILanguageRuntimeProviderMetadata {
 	languageId: string;
@@ -634,7 +635,17 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 			StorageScope.WORKSPACE);
 		if (storedSessions) {
 			try {
-				const sessions = JSON.parse(storedSessions) as SerializedSessionMetadata[];
+				const serializedSessions = JSON.parse(storedSessions) as SerializedSessionMetadata[];
+
+				// Revive the URIs in the session metadata.
+				const sessions: SerializedSessionMetadata[] = serializedSessions.map(session => ({
+					...session,
+					metadata: {
+						...session.metadata,
+						notebookUri: URI.revive(session.metadata.notebookUri),
+					},
+				}));
+
 				if (sessions.length > 0) {
 					// If this workspace has sessions, attempt to reconnect to
 					// them.

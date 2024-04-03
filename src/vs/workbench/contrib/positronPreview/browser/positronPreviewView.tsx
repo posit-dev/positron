@@ -85,6 +85,10 @@ export class PositronPreviewViewPane extends ViewPane implements IReactComponent
 		@IWorkbenchLayoutService private readonly layoutService: IWorkbenchLayoutService,
 		@IPositronPreviewService private readonly positronPreviewService: IPositronPreviewService
 	) {
+		// Override minimum size option if it isn't already somehow set. See `PositronHelpView` for
+		// more context.
+		options = { ...options, minimumBodySize: 0 };
+
 		super(options, keybindingService, contextMenuService, configurationService, contextKeyService, viewDescriptorService, instantiationService, openerService, themeService, telemetryService);
 		this._register(this.onDidChangeBodyVisibility(() => this.onDidChangeVisibility(this.isBodyVisible())));
 		this._positronPreviewContainer = DOM.$('.positron-preview-container');
