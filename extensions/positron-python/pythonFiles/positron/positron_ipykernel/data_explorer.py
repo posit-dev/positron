@@ -31,7 +31,7 @@ from .data_explorer_comm import (
     ColumnProfileRequestType,
     ColumnProfileResult,
     ColumnSchema,
-    ColumnSchemaTypeDisplay,
+    ColumnDisplayType,
     ColumnSortKey,
     DataExplorerBackendMessageContent,
     DataExplorerFrontendEvent,
@@ -48,6 +48,9 @@ from .data_explorer_comm import (
     SearchSchemaResult,
     SetRowFiltersRequest,
     SetSortColumnsRequest,
+    SummaryStatsBoolean,
+    SummaryStatsNumber,
+    SummaryStatsString,
     TableData,
     TableSchema,
     TableShape,
@@ -294,6 +297,14 @@ class PandasView(DataExplorerTableView):
         # performance.
         self._search_schema_last_result: Optional[Tuple[str, List[ColumnSchema]]] = None
 
+        # Putting this here rather than in the class body before
+        # Python < 3.10 has fussier rules about staticmethods
+        self._SUMMARIZERS = {
+            ColumnDisplayType.Boolean: self._summarize_boolean,
+            ColumnDisplayType.Number: self._summarize_number,
+            ColumnDisplayType.String: self._summarize_string,
+        }
+
     def invalidate_computations(self):
         self.filtered_indices = self.view_indices = None
         self._need_recompute = True
@@ -337,10 +348,7 @@ class PandasView(DataExplorerTableView):
             column_start,
             min(column_start + num_columns, len(self.table.columns)),
         ):
-            column_raw_name = self.table.columns[column_index]
-            column_name = str(column_raw_name)
-
-            col_schema = self._get_single_column_schema(column_index, column_name)
+            col_schema = self._get_single_column_schema(column_index)
             column_schemas.append(col_schema)
 
         return TableSchema(columns=column_schemas)
@@ -376,7 +384,7 @@ class PandasView(DataExplorerTableView):
             if search_term not in column_name.lower():
                 continue
 
-            col_schema = self._get_single_column_schema(column_index, column_name)
+            col_schema = self._get_single_column_schema(column_index)
             matches.append(col_schema)
 
         return matches
@@ -388,7 +396,10 @@ class PandasView(DataExplorerTableView):
             self._inferred_dtypes[column_index] = infer_dtype(self.table.iloc[:, column_index])
         return self._inferred_dtypes[column_index]
 
-    def _get_single_column_schema(self, column_index: int, column_name: str):
+    def _get_single_column_schema(self, column_index: int):
+        column_raw_name = self.table.columns[column_index]
+        column_name = str(column_raw_name)
+
         # TODO: pandas MultiIndex columns
         # TODO: time zone for datetimetz datetime64[ns] types
         dtype = self.dtypes.iloc[column_index]
@@ -405,7 +416,7 @@ class PandasView(DataExplorerTableView):
             column_name=column_name,
             column_index=column_index,
             type_name=type_name,
-            type_display=ColumnSchemaTypeDisplay(type_display),
+            type_display=ColumnDisplayType(type_display),
         )
 
     def _get_data_values(
@@ -431,7 +442,8 @@ class PandasView(DataExplorerTableView):
 
         if self.view_indices is not None:
             # If the table is either filtered or sorted, use a slice
-            # the view_indices to select the virtual range of values for the grid
+            # the view_indices to select the virtual range of values
+            # for the grid
             view_slice = self.view_indices[row_start : row_start + num_rows]
             columns = [col.take(view_slice) for col in columns]
             indices = self.table.index.take(view_slice)
@@ -544,9 +556,12 @@ class PandasView(DataExplorerTableView):
                 elif params.type == SearchFilterParamsType.EndsWith:
                     mask = col.str.endswith(term)
 
+        assert mask is not None
+
         # Nulls are possible in the mask, so we just fill them if any
         if mask.dtype != bool:
-            mask = mask.fillna(False)
+            mask[mask.isna()] = False
+            mask = mask.astype(bool)
 
         return mask.to_numpy()
 
@@ -602,7 +617,57 @@ class PandasView(DataExplorerTableView):
         return self._get_column(column_index).isnull().sum()
 
     def _prof_summary_stats(self, column_index: int):
-        raise NotImplementedError
+        col_schema = self._get_single_column_schema(column_index)
+        col = self._get_column(column_index)
+
+        ui_type = col_schema.type_display
+        handler = self._SUMMARIZERS.get(ui_type)
+
+        if handler is None:
+            # Return nothing for types we don't yet know how to summarize
+            return ColumnSummaryStats(type_display=ui_type)
+        else:
+            return handler(col)
+
+    @staticmethod
+    def _summarize_number(col: "pd.Series"):
+        min_value = col.min()
+        max_value = col.max()
+        mean = col.mean()
+        median = col.median()
+        stdev = col.std()
+
+        return ColumnSummaryStats(
+            type_display=ColumnDisplayType.Number,
+            number_stats=SummaryStatsNumber(
+                min_value=str(min_value),
+                max_value=str(max_value),
+                mean=str(mean),
+                median=str(median),
+                stdev=str(stdev),
+            ),
+        )
+
+    @staticmethod
+    def _summarize_string(col: "pd.Series"):
+        num_empty = (col.str.len() == 0).sum()
+        num_unique = col.nunique()
+
+        return ColumnSummaryStats(
+            type_display=ColumnDisplayType.String,
+            string_stats=SummaryStatsString(num_empty=num_empty, num_unique=num_unique),
+        )
+
+    @staticmethod
+    def _summarize_boolean(col: "pd.Series"):
+        null_count = col.isnull().sum()
+        true_count = col.sum()
+        false_count = len(col) - true_count - null_count
+
+        return ColumnSummaryStats(
+            type_display=ColumnDisplayType.Boolean,
+            boolean_stats=SummaryStatsBoolean(true_count=true_count, false_count=false_count),
+        )
 
     def _prof_freq_table(self, column_index: int):
         raise NotImplementedError
