@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional, Set, Tuple, TypedDi
 
 import comm
 
+from .access_keys import decode_access_key, encode_access_key
 from .connections_comm import (
     ConnectionsBackendMessageContent,
     ContainsDataRequest,
@@ -194,12 +195,26 @@ class ConnectionsService:
 
         key = tuple(variable_path)
 
+        # a variable path can only point to a single connection, if it's already pointing
+        # to a connection, we "close the connection" and replace it with the new one
+        if key in self.path_to_comm_ids:
+            self._unregister_variable_path(key)
+
         if comm_id in self.comm_id_to_path:
             self.comm_id_to_path[comm_id].add(key)
         else:
             self.comm_id_to_path[comm_id] = {key}
 
         self.path_to_comm_ids[key] = comm_id
+
+    def _unregister_variable_path(self, variable_path: PathKey) -> None:
+        comm_id = self.path_to_comm_ids.pop(variable_path)
+        self.comm_id_to_path[comm_id].remove(variable_path)
+
+        # if comm_id no longer points to any connection, we close the comm
+        if not len(self.comm_id_to_path[comm_id]):
+            del self.comm_id_to_path[comm_id]
+            self._close_connection(comm_id)
 
     def on_comm_open(self, comm: BaseComm):
         comm_id = comm.comm_id
@@ -234,32 +249,38 @@ class ConnectionsService:
         """
         Checks if the given variable path has an active connection.
         """
-        return (variable_name,) in self.path_to_comm_ids
+        return any(decode_access_key(path[0]) == variable_name for path in self.path_to_comm_ids)
 
     def handle_variable_updated(self, variable_name: str, value: Any) -> None:
         """
         Handles a variable being updated in the kernel.
         """
-        comm_id = self.path_to_comm_ids.get((variable_name,))
+        variable_path = [encode_access_key(variable_name)]
+        comm_id = self.path_to_comm_ids.get(tuple(variable_path))
+
+        # no comm for this variable path
         if comm_id is None:
             return
 
         try:
-            new_comm_id = self.register_connection(value, variable_path=[variable_name])
+            # registering a new connection with the same variable path is going to close the
+            # variable path if the connections are different.
+            self.register_connection(value, variable_path=variable_path)
         except UnsupportedConnectionError:
-            # if an unsupported connection error, that it means the variable
-            # is no longer a connection, thus we close the connection.
-            self._close_connection(comm_id)
+            # if an unsupported connection error, then it means the variable
+            # is no longer a connection, thus we unmregister that variable path,
+            # wich might close the comm if it points only to that path.
+            self._unregister_variable_path(tuple(variable_path))
             return
 
-        # if the connection is the same, we don't need to do anything
-        if comm_id == new_comm_id:
-            return
-
-        # if the connections is different, we handle it as if it was a variable deletion
-        # TODO: we don't really want to close the connection, but 'delete' the variable
-        #       as a connection might be pointed by multiple variable paths/names
-        self._close_connection(comm_id)
+    def handle_variable_deleted(self, variable_name: str) -> None:
+        """
+        Handles a variable being deleted in the kernel.
+        """
+        for path in self.path_to_comm_ids:
+            key = decode_access_key(path[0])
+            if key == variable_name:
+                self._unregister_variable_path(path)
 
     def _close_connection(self, comm_id: str):
         try:

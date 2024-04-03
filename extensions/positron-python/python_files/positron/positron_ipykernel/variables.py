@@ -164,6 +164,9 @@ class VariablesService:
             if exp_service.variable_has_active_explorers(name):
                 exp_service.handle_variable_deleted(name)
 
+            if con_service.variable_has_active_connection(name):
+                con_service.handle_variable_deleted(name)
+
         for name, value in assigned.items():
             if exp_service.variable_has_active_explorers(name):
                 exp_service.handle_variable_updated(name, value)
@@ -554,7 +557,6 @@ class VariablesService:
         """Opens a Connections comm for the variable at the requested
         path in the current user session.
         """
-        # Use the leaf segment to get the title
         self.kernel.connections_service.register_connection(value, variable_path=path)
         self._send_result({})
 
