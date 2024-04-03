@@ -7,10 +7,11 @@ from typing import Tuple
 
 import pytest
 import sqlalchemy
+from positron_ipykernel.access_keys import encode_access_key
 from positron_ipykernel.connections import ConnectionsService
 
-from .conftest import DummyComm
-from .utils import json_rpc_request
+from .conftest import DummyComm, PositronShell
+from .utils import json_rpc_request, json_rpc_response
 
 TARGET_NAME = "positron.connections"
 
@@ -144,3 +145,77 @@ class TestSQLiteConnectionsService:
 
     def _make_msg(self, method, params, comm_id):
         return json_rpc_request(method=method, params=params, comm_id=comm_id)
+
+
+class TestVariablePaneIntegration:
+
+    @pytest.mark.parametrize("con", get_sqlite_connections())
+    def test_open_then_delete(
+        self,
+        shell: PositronShell,
+        connections_service: ConnectionsService,
+        variables_comm: DummyComm,
+        con,
+    ):
+        self._assign_variables(shell, variables_comm, x=con)
+        path = self._view_in_connections_pane(variables_comm, ["x"])
+
+        assert connections_service.path_to_comm_ids[path] is not None
+
+        self._delete_variables(shell, variables_comm, ["x"])
+        assert connections_service.path_to_comm_ids.get(path) is None
+
+    @pytest.mark.parametrize("con", get_sqlite_connections())
+    def test_open_update_variable(
+        self,
+        shell: PositronShell,
+        connections_service: ConnectionsService,
+        variables_comm: DummyComm,
+        con,
+    ):
+        self._assign_variables(shell, variables_comm, x=con)
+        path = self._view_in_connections_pane(variables_comm, ["x"])
+
+        assert connections_service.path_to_comm_ids[path] is not None
+
+        self._assign_variables(shell, variables_comm, x=1)
+        assert connections_service.path_to_comm_ids.get(path) is None
+
+    @pytest.mark.parametrize("con", get_sqlite_connections())
+    def test_nested_variable(
+        self,
+        shell: PositronShell,
+        connections_service: ConnectionsService,
+        variables_comm: DummyComm,
+        con,
+    ):
+        obj = {"y": con}
+        self._assign_variables(shell, variables_comm, x=obj)
+        path = self._view_in_connections_pane(variables_comm, ["x", "y"])
+
+        assert connections_service.path_to_comm_ids[path] is not None
+        assert connections_service.variable_has_active_connection("x")
+
+    # TODO: reuse code from test_data_explorer.py
+    def _assign_variables(self, shell: PositronShell, variables_comm: DummyComm, **variables):
+        # A hack to make sure that change events are fired when we
+        # manipulate user_ns
+        shell.kernel.variables_service.snapshot_user_ns()
+        shell.user_ns.update(**variables)
+        shell.kernel.variables_service.poll_variables()
+        variables_comm.messages.clear()
+
+    def _delete_variables(self, shell: PositronShell, variables_comm: DummyComm, names):
+        for nm in names:
+            shell.run_cell(f"del {nm}")
+
+        shell.kernel.variables_service.poll_variables()
+        variables_comm.messages.clear()
+
+    def _view_in_connections_pane(self, variables_comm: DummyComm, path):
+        path = [encode_access_key(p) for p in path]
+        msg = json_rpc_request("view", {"path": path}, comm_id="dummy_comm_id")
+        variables_comm.handle_msg(msg)
+        assert variables_comm.messages == [json_rpc_response({})]
+        variables_comm.messages.clear()
+        return tuple(path)

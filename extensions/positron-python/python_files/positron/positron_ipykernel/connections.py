@@ -277,7 +277,9 @@ class ConnectionsService:
         """
         Handles a variable being deleted in the kernel.
         """
-        for path in self.path_to_comm_ids:
+        # copy the keys, as we might modify the dict in the loop
+        paths = set(self.path_to_comm_ids.keys())
+        for path in paths:
             key = decode_access_key(path[0])
             if key == variable_name:
                 self._unregister_variable_path(path)
