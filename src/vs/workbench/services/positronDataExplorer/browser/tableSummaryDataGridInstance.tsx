@@ -9,7 +9,7 @@ import * as React from 'react';
 import { Emitter } from 'vs/base/common/event';
 import { DataGridInstance } from 'vs/workbench/browser/positronDataGrid/classes/dataGridInstance';
 import { DataExplorerCache } from 'vs/workbench/services/positronDataExplorer/common/dataExplorerCache';
-import { ColumnDisplayType } from 'vs/workbench/services/languageRuntime/common/positronDataExplorerComm';
+import { ColumnDisplayType, ColumnSummaryStats } from 'vs/workbench/services/languageRuntime/common/positronDataExplorerComm';
 import { ColumnSummaryCell } from 'vs/workbench/services/positronDataExplorer/browser/components/columnSummaryCell';
 import { DataExplorerClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimeDataExplorerClient';
 
@@ -228,6 +228,14 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 		// TODO: Is floor what we want?
 		return nullCount === undefined ? undefined : Math.floor(
 			nullCount * 100 / this._dataExplorerCache.rows);
+	}
+
+	getColumnSummaryStats(columnIndex: number): ColumnSummaryStats | undefined {
+		return this._dataExplorerCache.getColumnSummaryStats(columnIndex);
+	}
+
+	computeColumnSummaryStats(columnIndex: number) {
+		this._dataExplorerCache.updateColumnSummaryStats([columnIndex]);
 	}
 
 	//#endregion DataGridInstance Methods
