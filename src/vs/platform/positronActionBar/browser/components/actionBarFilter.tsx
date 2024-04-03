@@ -51,7 +51,7 @@ export const ActionBarFilter = (props: ActionBarFilterProps) => {
 					ref={inputRef}
 					type='text'
 					className='text-input'
-					placeholder={localize('positronFilterPlacehold', "filter")}
+					placeholder={(() => localize('positronFilterPlacehold', "filter"))()}
 					value={filterText}
 					onFocus={() => setFocused(true)}
 					onBlur={() => setFocused(false)}

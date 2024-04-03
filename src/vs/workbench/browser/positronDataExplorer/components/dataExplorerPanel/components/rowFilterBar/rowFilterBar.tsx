@@ -150,7 +150,7 @@ export const RowFilterBar = () => {
 			<Button
 				ref={filterButtonRef}
 				className='row-filter-button'
-				ariaLabel={localize('positron.dataExplorer.filtering', "Filtering")}
+				ariaLabel={(() => localize('positron.dataExplorer.filtering', "Filtering"))()}
 				onPressed={filterButtonPressedHandler}
 			>
 				<div className='codicon codicon-positron-row-filter' />
@@ -180,7 +180,7 @@ export const RowFilterBar = () => {
 				<Button
 					ref={addFilterButtonRef}
 					className='add-row-filter-button'
-					ariaLabel={localize('positron.dataExplorer.addFilter', "Add filter")}
+					ariaLabel={(() => localize('positron.dataExplorer.addFilter', "Add filter"))()}
 					onPressed={() => showAddEditRowFilterModalPopup(addFilterButtonRef.current)}
 				>
 					<div className='codicon codicon-positron-add-filter' />

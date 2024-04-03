@@ -53,7 +53,7 @@ export const ActionBarFind = (props: ActionBarFindProps) => {
 					ref={inputRef}
 					type='text'
 					className='text-input'
-					placeholder={localize('positronFindPlacehold', "find")}
+					placeholder={(() => localize('positronFindPlacehold', "find"))()}
 					value={findText}
 					onFocus={() => setFocused(true)}
 					onBlur={() => setFocused(false)}
@@ -64,8 +64,8 @@ export const ActionBarFind = (props: ActionBarFindProps) => {
 					</button>
 				)}
 			</div>
-			<ActionBarButton layout='tight' iconId='chevron-up' align='right' tooltip={localize('positronFindPrevious', "Find previous")} disabled={!props.findResults} onPressed={() => props.onFindPrevious!()} />
-			<ActionBarButton layout='tight' iconId='chevron-down' align='right' tooltip={localize('positronFindNext', "Find next")} disabled={!props.findResults} onPressed={() => props.onFindNext!()} />
+			<ActionBarButton layout='tight' iconId='chevron-up' align='right' tooltip={(() => localize('positronFindPrevious', "Find previous"))()} disabled={!props.findResults} onPressed={() => props.onFindPrevious!()} />
+			<ActionBarButton layout='tight' iconId='chevron-down' align='right' tooltip={(() => localize('positronFindNext', "Find next"))()} disabled={!props.findResults} onPressed={() => props.onFindNext!()} />
 		</div>
 	);
 };

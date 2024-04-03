@@ -104,7 +104,7 @@ export const InterpreterActions = (props: PropsWithChildren<InterpreterActionsPr
 				>
 					<span
 						className='codicon codicon-positron-interrupt-runtime'
-						title={localize('positronInterruptInterpreter', "Interrupt the interpreter")}
+						title={(() => localize('positronInterruptInterpreter', "Interrupt the interpreter"))()}
 						style={{ color: 'red' }}
 					/>
 				</PositronButton>
@@ -123,7 +123,7 @@ export const InterpreterActions = (props: PropsWithChildren<InterpreterActionsPr
 				>
 					<span
 						className='codicon codicon-positron-restart-runtime'
-						title={localize('positronRestartInterpreter', "Restart the interpreter")}
+						title={(() => localize('positronRestartInterpreter', "Restart the interpreter"))()}
 					/>
 				</PositronButton>
 			}
@@ -142,7 +142,7 @@ export const InterpreterActions = (props: PropsWithChildren<InterpreterActionsPr
 				<PositronButton className='action-button' onPressed={shutdown}>
 					<span
 						className='codicon codicon-positron-power-button'
-						title={localize('positronStopTheInterpreter', "Stop the interpreter")}
+						title={(() => localize('positronStopTheInterpreter', "Stop the interpreter"))()}
 					/>
 				</PositronButton>
 			}
@@ -159,7 +159,7 @@ export const InterpreterActions = (props: PropsWithChildren<InterpreterActionsPr
 				<PositronButton className='action-button' onPressed={() => props.onStart()}>
 					<span
 						className='codicon codicon-positron-power-button'
-						title={localize('positronStartTheInterpreter', "Start the interpreter")}
+						title={(() => localize('positronStartTheInterpreter', "Start the interpreter"))()}
 					/>
 				</PositronButton>
 			}
