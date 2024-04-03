@@ -62,29 +62,50 @@ export const ProjectNameLocationStep = (props: PropsWithChildren<NewProjectWizar
 	//   - Support mixed paragraph and code text, possibly using something like nls.
 	return (
 		<PositronWizardStep
-			title={localize('projectNameLocationStep.title', 'Set project name and location')}
+			title={(() => localize(
+				'projectNameLocationStep.title',
+				'Set project name and location'
+			))()}
 			cancelButtonConfig={{ onClick: props.cancel }}
 			nextButtonConfig={{ onClick: nextStep }}
 			backButtonConfig={{ onClick: props.back }}
 		>
 			<PositronWizardSubStep
-				title={localize('projectNameLocationSubStep.projectName.label', 'Project Name')}
+				title={(() => localize(
+					'projectNameLocationSubStep.projectName.label',
+					'Project Name'
+				))()}
 			// description={'Enter a name for your new ' + newProjectResult.projectType}
 			>
 				<LabeledTextInput
-					label={localize('projectNameLocationSubStep.projectName.description', 'Enter a name for your new {0}', projectConfig.projectType)}
+					label={(() => localize(
+						'projectNameLocationSubStep.projectName.description',
+						'Enter a name for your new {0}',
+						projectConfig.projectType
+					))()}
 					autoFocus
 					value={projectConfig.projectName}
 					onChange={e => setProjectConfig({ ...projectConfig, projectName: e.target.value })}
 				/>
 			</PositronWizardSubStep>
 			<PositronWizardSubStep
-				title={localize('projectNameLocationSubStep.parentDirectory.label', 'Parent Directory')}
+				title={(() => localize(
+					'projectNameLocationSubStep.parentDirectory.label',
+					'Parent Directory'
+				))()}
 				// description='Select a directory to create your project in.'
-				feedback={localize('projectNameLocationSubStep.parentDirectory.feedback', 'Your project will be created at: {0}/{1}', projectConfig.parentFolder, projectConfig.projectName)}
+				feedback={(() => localize(
+					'projectNameLocationSubStep.parentDirectory.feedback',
+					'Your project will be created at: {0}/{1}',
+					projectConfig.parentFolder,
+					projectConfig.projectName
+				))()}
 			>
 				<LabeledFolderInput
-					label={localize('projectNameLocationSubStep.parentDirectory.description', 'Select a directory to create your project in')}
+					label={(() => localize(
+						'projectNameLocationSubStep.parentDirectory.description',
+						'Select a directory to create your project in'
+					))()}
 					value={projectConfig.parentFolder} // this should be <code>formatted
 					onBrowse={browseHandler}
 					onChange={e => setProjectConfig({ ...projectConfig, parentFolder: e.target.value })}
@@ -99,7 +120,10 @@ export const ProjectNameLocationStep = (props: PropsWithChildren<NewProjectWizar
 			<PositronWizardSubStep>
 				{/* TODO: display a warning/message if the user doesn't have git set up */}
 				<Checkbox
-					label={localize('projectNameLocationSubStep.initGitRepo.label', 'Initialize project as Git repository')}
+					label={(() => localize(
+						'projectNameLocationSubStep.initGitRepo.label',
+						'Initialize project as Git repository'
+					))()}
 					onChanged={checked => setProjectConfig({ ...projectConfig, initGitRepo: checked })}
 				/>
 			</PositronWizardSubStep>
