@@ -112,7 +112,7 @@ export interface ColumnSchema {
 	/**
 	 * Canonical Positron display name of data type
 	 */
-	type_display: ColumnSchemaTypeDisplay;
+	type_display: ColumnDisplayType;
 
 	/**
 	 * Column annotation / description
@@ -310,9 +310,36 @@ export interface ColumnProfileResult {
 }
 
 /**
- * ColumnSummaryStats in Schemas
+ * Profile result containing summary stats for a column based on the data
+ * type
  */
 export interface ColumnSummaryStats {
+	/**
+	 * Canonical Positron display name of data type
+	 */
+	type_display: ColumnDisplayType;
+
+	/**
+	 * Statistics for a numeric data type
+	 */
+	number_stats?: SummaryStatsNumber;
+
+	/**
+	 * Statistics for a string-like data type
+	 */
+	string_stats?: SummaryStatsString;
+
+	/**
+	 * Statistics for a boolean data type
+	 */
+	boolean_stats?: SummaryStatsBoolean;
+
+}
+
+/**
+ * SummaryStatsNumber in Schemas
+ */
+export interface SummaryStatsNumber {
 	/**
 	 * Minimum value as string
 	 */
@@ -326,22 +353,49 @@ export interface ColumnSummaryStats {
 	/**
 	 * Average value as string
 	 */
-	mean_value?: string;
+	mean: string;
 
 	/**
 	 * Sample median (50% value) value as string
 	 */
-	median?: string;
+	median: string;
 
 	/**
-	 * 25th percentile value as string
+	 * Sample standard deviation as a string
 	 */
-	q25?: string;
+	stdev: string;
+
+}
+
+/**
+ * SummaryStatsBoolean in Schemas
+ */
+export interface SummaryStatsBoolean {
+	/**
+	 * The number of non-null true values
+	 */
+	true_count: number;
 
 	/**
-	 * 75th percentile value as string
+	 * The number of non-null false values
 	 */
-	q75?: string;
+	false_count: number;
+
+}
+
+/**
+ * SummaryStatsString in Schemas
+ */
+export interface SummaryStatsString {
+	/**
+	 * The number of empty / length-zero values
+	 */
+	num_empty: number;
+
+	/**
+	 * The exact number of distinct values
+	 */
+	num_unique: number;
 
 }
 
@@ -432,9 +486,9 @@ export interface ColumnSortKey {
 }
 
 /**
- * Possible values for TypeDisplay in ColumnSchema
+ * Possible values for ColumnDisplayType
  */
-export enum ColumnSchemaTypeDisplay {
+export enum ColumnDisplayType {
 	Number = 'number',
 	Boolean = 'boolean',
 	String = 'string',
@@ -540,7 +594,7 @@ export class PositronDataExplorerComm extends PositronBaseComm {
 	 *
 	 * Search schema for column names matching a passed substring
 	 *
-	 * @param searchTerm Substring to match for (currently case insensitive
+	 * @param searchTerm Substring to match for (currently case insensitive)
 	 * @param startIndex Index (starting from zero) of first result to fetch
 	 * @param maxResults Maximum number of resulting column schemas to fetch
 	 * from the start index
