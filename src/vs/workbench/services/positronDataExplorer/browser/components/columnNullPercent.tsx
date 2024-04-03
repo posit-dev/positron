@@ -22,11 +22,6 @@ interface ColumnNullPercentProps {
  * @returns The rendered component.
  */
 export const ColumnNullPercent = (props: ColumnNullPercentProps) => {
-	props.columnNullPercent = Math.floor(Math.random() * 101);
-	if (props.columnNullPercent < 10) {
-		props.columnNullPercent = 0.0;
-	}
-
 	// Render.
 	return (
 		<div className='column-null-percent'>
