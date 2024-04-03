@@ -11,7 +11,7 @@ import React = require('react');
 /**
  * RadioButtonItemOptions interface.
  */
-export interface RadioButtonItemOptions {
+interface RadioButtonItemOptions {
 	identifier: string;
 	title: string;
 }
@@ -30,12 +30,17 @@ export class RadioButtonItem {
 /**
  * RadioButtonProps interface.
  */
-export interface RadioButtonProps extends RadioButtonItemOptions {
+interface RadioButtonProps extends RadioButtonItemOptions {
 	selected: boolean;
 	groupName: string;
 	onSelected: () => void;
 }
 
+/**
+ * RadioButton component.
+ * @param props The component properties.
+ * @returns The rendered component.
+ */
 export const RadioButton = (props: RadioButtonProps) => {
 	// Render.
 	return (
