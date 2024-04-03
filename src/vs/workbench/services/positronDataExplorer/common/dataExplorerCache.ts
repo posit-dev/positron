@@ -4,7 +4,7 @@
 
 import { Emitter } from 'vs/base/common/event';
 import { Disposable } from 'vs/base/common/lifecycle';
-import { ColumnProfileRequestType, ColumnSchema, ColumnSummaryStats, TableData } from 'vs/workbench/services/languageRuntime/common/positronDataExplorerComm';
+import { ColumnProfileType, ColumnSchema, ColumnSummaryStats, TableData } from 'vs/workbench/services/languageRuntime/common/positronDataExplorerComm';
 import { DataExplorerClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimeDataExplorerClient';
 
 /**
@@ -213,7 +213,7 @@ export class DataExplorerCache extends Disposable {
 			columnIndices.map(column_index => {
 				return {
 					column_index,
-					type: ColumnProfileRequestType.SummaryStats
+					profile_type: ColumnProfileType.SummaryStats
 				};
 			})
 		);
@@ -330,7 +330,7 @@ export class DataExplorerCache extends Disposable {
 				columnNullCountIndices.map(column_index => {
 					return {
 						column_index,
-						type: ColumnProfileRequestType.NullCount
+						profile_type: ColumnProfileType.NullCount
 					};
 				})
 			);
