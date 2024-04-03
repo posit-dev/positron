@@ -18,9 +18,9 @@ from ._vendor.pydantic import BaseModel, Field
 
 
 @enum.unique
-class ColumnSchemaTypeDisplay(str, enum.Enum):
+class ColumnDisplayType(str, enum.Enum):
     """
-    Possible values for TypeDisplay in ColumnSchema
+    Possible values for ColumnDisplayType
     """
 
     Number = "number"
@@ -202,7 +202,7 @@ class ColumnSchema(BaseModel):
         description="Exact name of data type used by underlying table",
     )
 
-    type_display: ColumnSchemaTypeDisplay = Field(
+    type_display: ColumnDisplayType = Field(
         description="Canonical Positron display name of data type",
     )
 
@@ -387,7 +387,33 @@ class ColumnProfileResult(BaseModel):
 
 class ColumnSummaryStats(BaseModel):
     """
-    ColumnSummaryStats in Schemas
+    Profile result containing summary stats for a column based on the data
+    type
+    """
+
+    type_display: ColumnDisplayType = Field(
+        description="Canonical Positron display name of data type",
+    )
+
+    number_stats: Optional[SummaryStatsNumber] = Field(
+        default=None,
+        description="Statistics for a numeric data type",
+    )
+
+    string_stats: Optional[SummaryStatsString] = Field(
+        default=None,
+        description="Statistics for a string-like data type",
+    )
+
+    boolean_stats: Optional[SummaryStatsBoolean] = Field(
+        default=None,
+        description="Statistics for a boolean data type",
+    )
+
+
+class SummaryStatsNumber(BaseModel):
+    """
+    SummaryStatsNumber in Schemas
     """
 
     min_value: str = Field(
@@ -398,24 +424,44 @@ class ColumnSummaryStats(BaseModel):
         description="Maximum value as string",
     )
 
-    mean_value: Optional[str] = Field(
-        default=None,
+    mean: str = Field(
         description="Average value as string",
     )
 
-    median: Optional[str] = Field(
-        default=None,
+    median: str = Field(
         description="Sample median (50% value) value as string",
     )
 
-    q25: Optional[str] = Field(
-        default=None,
-        description="25th percentile value as string",
+    stdev: str = Field(
+        description="Sample standard deviation as a string",
     )
 
-    q75: Optional[str] = Field(
-        default=None,
-        description="75th percentile value as string",
+
+class SummaryStatsBoolean(BaseModel):
+    """
+    SummaryStatsBoolean in Schemas
+    """
+
+    true_count: int = Field(
+        description="The number of non-null true values",
+    )
+
+    false_count: int = Field(
+        description="The number of non-null false values",
+    )
+
+
+class SummaryStatsString(BaseModel):
+    """
+    SummaryStatsString in Schemas
+    """
+
+    num_empty: int = Field(
+        description="The number of empty / length-zero values",
+    )
+
+    num_unique: int = Field(
+        description="The exact number of distinct values",
     )
 
 
@@ -560,7 +606,7 @@ class SearchSchemaParams(BaseModel):
     """
 
     search_term: str = Field(
-        description="Substring to match for (currently case insensitive",
+        description="Substring to match for (currently case insensitive)",
     )
 
     start_index: int = Field(
@@ -797,6 +843,12 @@ ColumnProfileRequest.update_forward_refs()
 ColumnProfileResult.update_forward_refs()
 
 ColumnSummaryStats.update_forward_refs()
+
+SummaryStatsNumber.update_forward_refs()
+
+SummaryStatsBoolean.update_forward_refs()
+
+SummaryStatsString.update_forward_refs()
 
 ColumnHistogram.update_forward_refs()
 

@@ -9,7 +9,7 @@ import * as React from 'react';
 import { Emitter } from 'vs/base/common/event';
 import { DataGridInstance } from 'vs/workbench/browser/positronDataGrid/classes/dataGridInstance';
 import { DataExplorerCache } from 'vs/workbench/services/positronDataExplorer/common/dataExplorerCache';
-import { ColumnSchemaTypeDisplay } from 'vs/workbench/services/languageRuntime/common/positronDataExplorerComm';
+import { ColumnDisplayType, ColumnSummaryStats } from 'vs/workbench/services/languageRuntime/common/positronDataExplorerComm';
 import { ColumnSummaryCell } from 'vs/workbench/services/positronDataExplorer/browser/components/columnSummaryCell';
 import { DataExplorerClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimeDataExplorerClient';
 
@@ -161,31 +161,31 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 
 		// Return the row height.
 		switch (columnSchema.type_display) {
-			case ColumnSchemaTypeDisplay.Number:
+			case ColumnDisplayType.Number:
 				return rowHeight(6);
 
-			case ColumnSchemaTypeDisplay.Boolean:
+			case ColumnDisplayType.Boolean:
 				return rowHeight(3);
 
-			case ColumnSchemaTypeDisplay.String:
+			case ColumnDisplayType.String:
 				return rowHeight(3);
 
-			case ColumnSchemaTypeDisplay.Date:
+			case ColumnDisplayType.Date:
 				return rowHeight(7);
 
-			case ColumnSchemaTypeDisplay.Datetime:
+			case ColumnDisplayType.Datetime:
 				return rowHeight(7);
 
-			case ColumnSchemaTypeDisplay.Time:
+			case ColumnDisplayType.Time:
 				return rowHeight(7);
 
-			case ColumnSchemaTypeDisplay.Array:
+			case ColumnDisplayType.Array:
 				return rowHeight(2);
 
-			case ColumnSchemaTypeDisplay.Struct:
+			case ColumnDisplayType.Struct:
 				return rowHeight(2);
 
-			case ColumnSchemaTypeDisplay.Unknown:
+			case ColumnDisplayType.Unknown:
 				return rowHeight(2);
 
 			// This shouldn't ever happen.
@@ -228,6 +228,14 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 		// TODO: Is floor what we want?
 		return nullCount === undefined ? undefined : Math.floor(
 			nullCount * 100 / this._dataExplorerCache.rows);
+	}
+
+	getColumnSummaryStats(columnIndex: number): ColumnSummaryStats | undefined {
+		return this._dataExplorerCache.getColumnSummaryStats(columnIndex);
+	}
+
+	computeColumnSummaryStats(columnIndex: number) {
+		this._dataExplorerCache.updateColumnSummaryStats([columnIndex]);
 	}
 
 	//#endregion DataGridInstance Methods

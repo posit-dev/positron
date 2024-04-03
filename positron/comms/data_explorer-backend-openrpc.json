@@ -289,6 +289,22 @@
 	"components": {
 		"contentDescriptors": {},
 		"schemas": {
+			"column_display_type": {
+				"name": "column_display_type",
+				"type": "string",
+				"description": "Canonical Positron display name of data type",
+				"enum": [
+					"number",
+					"boolean",
+					"string",
+					"date",
+					"datetime",
+					"time",
+					"array",
+					"struct",
+					"unknown"
+				]
+			},
 			"column_schema": {
 				"type": "object",
 				"description": "Schema for a column in a table",
@@ -312,19 +328,8 @@
 						"description": "Exact name of data type used by underlying table"
 					},
 					"type_display": {
-						"type": "string",
 						"description": "Canonical Positron display name of data type",
-						"enum": [
-							"number",
-							"boolean",
-							"string",
-							"date",
-							"datetime",
-							"time",
-							"array",
-							"struct",
-							"unknown"
-						]
+						"$ref": "#/components/schemas/column_display_type"
 					},
 					"description": {
 						"type": "string",
@@ -561,9 +566,37 @@
 			},
 			"column_summary_stats": {
 				"type": "object",
+				"description": "Profile result containing summary stats for a column based on the data type",
+				"required": [
+					"type_display"
+				],
+				"properties": {
+					"type_display": {
+						"description": "Canonical Positron display name of data type",
+						"$ref": "#/components/schemas/column_display_type"
+					},
+					"number_stats": {
+						"description": "Statistics for a numeric data type",
+						"$ref": "#/components/schemas/summary_stats_number"
+					},
+					"string_stats": {
+						"description": "Statistics for a string-like data type",
+						"$ref": "#/components/schemas/summary_stats_string"
+					},
+					"boolean_stats": {
+						"description": "Statistics for a boolean data type",
+						"$ref": "#/components/schemas/summary_stats_boolean"
+					}
+				}
+			},
+			"summary_stats_number": {
+				"type": "object",
 				"required": [
 					"min_value",
-					"max_value"
+					"max_value",
+					"mean",
+					"median",
+					"stdev"
 				],
 				"properties": {
 					"min_value": {
@@ -574,7 +607,7 @@
 						"type": "string",
 						"description": "Maximum value as string"
 					},
-					"mean_value": {
+					"mean": {
 						"type": "string",
 						"description": "Average value as string"
 					},
@@ -582,13 +615,43 @@
 						"type": "string",
 						"description": "Sample median (50% value) value as string"
 					},
-					"q25": {
+					"stdev": {
 						"type": "string",
-						"description": "25th percentile value as string"
+						"description": "Sample standard deviation as a string"
+					}
+				}
+			},
+			"summary_stats_boolean": {
+				"type": "object",
+				"required": [
+					"true_count",
+					"false_count"
+				],
+				"properties": {
+					"true_count": {
+						"type": "integer",
+						"description": "The number of non-null true values"
 					},
-					"q75": {
-						"type": "string",
-						"description": "75th percentile value as string"
+					"false_count": {
+						"type": "integer",
+						"description": "The number of non-null false values"
+					}
+				}
+			},
+			"summary_stats_string": {
+				"type": "object",
+				"required": [
+					"num_empty",
+					"num_unique"
+				],
+				"properties": {
+					"num_empty": {
+						"type": "integer",
+						"description": "The number of empty / length-zero values"
+					},
+					"num_unique": {
+						"type": "integer",
+						"description": "The exact number of distinct values"
 					}
 				}
 			},

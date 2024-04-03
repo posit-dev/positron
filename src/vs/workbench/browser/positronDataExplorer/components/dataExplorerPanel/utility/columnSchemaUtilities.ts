@@ -2,7 +2,7 @@
  *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
-import { ColumnSchema, ColumnSchemaTypeDisplay } from 'vs/workbench/services/languageRuntime/common/positronDataExplorerComm';
+import { ColumnSchema, ColumnDisplayType } from 'vs/workbench/services/languageRuntime/common/positronDataExplorerComm';
 
 /**
  * Returns the data type icon for the column schema.
@@ -16,31 +16,31 @@ export const columnSchemaDataTypeIcon = (columnSchema?: ColumnSchema) => {
 
 	// Determine the alignment based on type.
 	switch (columnSchema.type_display) {
-		case ColumnSchemaTypeDisplay.Number:
+		case ColumnDisplayType.Number:
 			return 'codicon-positron-data-type-number';
 
-		case ColumnSchemaTypeDisplay.Boolean:
+		case ColumnDisplayType.Boolean:
 			return 'codicon-positron-data-type-boolean';
 
-		case ColumnSchemaTypeDisplay.String:
+		case ColumnDisplayType.String:
 			return 'codicon-positron-data-type-string';
 
-		case ColumnSchemaTypeDisplay.Date:
+		case ColumnDisplayType.Date:
 			return 'codicon-positron-data-type-date';
 
-		case ColumnSchemaTypeDisplay.Datetime:
+		case ColumnDisplayType.Datetime:
 			return 'codicon-positron-data-type-date-time';
 
-		case ColumnSchemaTypeDisplay.Time:
+		case ColumnDisplayType.Time:
 			return 'codicon-positron-data-type-time';
 
-		case ColumnSchemaTypeDisplay.Array:
+		case ColumnDisplayType.Array:
 			return 'codicon-positron-data-type-array';
 
-		case ColumnSchemaTypeDisplay.Struct:
+		case ColumnDisplayType.Struct:
 			return 'codicon-positron-data-type-struct';
 
-		case ColumnSchemaTypeDisplay.Unknown:
+		case ColumnDisplayType.Unknown:
 			return 'codicon-positron-data-type-unknown';
 
 		// This shouldn't ever happen.
