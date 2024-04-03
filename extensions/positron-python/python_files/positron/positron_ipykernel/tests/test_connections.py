@@ -214,9 +214,9 @@ class TestVariablePaneIntegration:
         variables_comm.messages.clear()
 
     def _view_in_connections_pane(self, variables_comm: DummyComm, path):
-        paths = [encode_access_key(p) for p in path]
-        msg = _make_msg("view", {"path": paths}, comm_id="dummy_comm_id")
+        encoded_paths = [encode_access_key(p) for p in path]
+        msg = _make_msg("view", {"path": encoded_paths}, comm_id="dummy_comm_id")
         variables_comm.handle_msg(msg)
         assert variables_comm.messages == [json_rpc_response({})]
         variables_comm.messages.clear()
-        return tuple(path)
+        return tuple(encoded_paths)
