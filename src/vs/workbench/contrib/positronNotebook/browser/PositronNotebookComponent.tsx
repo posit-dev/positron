@@ -28,7 +28,7 @@ export function PositronNotebookComponent() {
 				<div className='positron-notebook-cells-action-bar'>
 					<Button
 						className='action action-button run-button'
-						ariaLabel={localize('runAllCells', 'Run all cells')}
+						ariaLabel={(() => localize('runAllCells', 'Run all cells'))()}
 						onPressed={() => { notebookInstance.runAllCells(); }}
 					>
 						<span className='action-label'>

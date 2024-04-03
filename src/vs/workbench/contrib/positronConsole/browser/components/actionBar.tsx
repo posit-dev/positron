@@ -315,9 +315,11 @@ export const ActionBar = (props: ActionBarProps) => {
 						<div className='action-bar-separator' />
 						{directoryLabel &&
 							<div className='directory-label'
-								aria-label={
-									localize('directoryLabel', "Current Working Directory")
-								}>
+								aria-label={(() => localize(
+									'directoryLabel',
+									"Current Working Directory"
+								))()}
+							>
 								<span className='codicon codicon-folder' role='presentation'></span>
 								<span className='label' title={directoryLabel}>{directoryLabel}</span>
 							</div>
