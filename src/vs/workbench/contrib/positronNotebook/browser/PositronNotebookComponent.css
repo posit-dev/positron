@@ -3,6 +3,8 @@
  *--------------------------------------------------------------------------------------------*/
 
 .positron-notebook {
+	--positron-notebook-header-h: 30px;
+
 	color: var(--vscode-positronDataExplorer-foreground);
 	user-select: text;
 	height: 100%;
@@ -20,12 +22,11 @@
 }
 
 .positron-notebook-header {
-	padding: 1rem;
-	padding-bottom: 0.5rem;
+	height: var(--positron-notebook-header-h);
 	display: flex;
 	justify-content: space-between;
 	gap: 1rem;
-	align-items: baseline;
+	padding-inline: 1rem;
 	border-bottom: 1px solid var(--vscode-positronDataExplorer-border);
 }
 
@@ -36,23 +37,18 @@
 	gap: 0.75rem;
 }
 
-.positron-notebook-cells-action-bar {
-	display: flex;
-	align-items: baseline;
-	gap: 1rem;
-}
-
 .action-button {
 	display: flex;
 	align-items: center;
 	padding-block: 0.25rem;
 	padding-inline: 0.5rem;
-	outline: 1px solid var(--vscode-positronDataExplorer-border, grey);
-	border-radius: 0.25rem;
+	/* outline: 1px solid var(--vscode-positronDataExplorer-border, grey); */
+	/* border-radius: 0.25rem; */
 	width: fit-content;
 	cursor: pointer;
 	.action-label {
 		margin-inline-end: 0.2rem;
+		cursor: pointer;
 	}
 
 	.button-icon {

@@ -21,21 +21,19 @@ export function PositronNotebookComponent() {
 	return (
 		<div className='positron-notebook'>
 			<div className='positron-notebook-header'>
-				<h2>Positron Notebooks: Operation Tracer Bullet</h2>
+				<Button
+					className='action action-button run-button'
+					ariaLabel={(() => localize('runAllCells', 'Run all cells'))()}
+					onPressed={() => { notebookInstance.runAllCells(); }}
+				>
+					<div className='button-icon codicon codicon-run' />
+					<span className='action-label'>
+						{localize('runAllCells', 'Run all cells')}
+					</span>
+				</Button>
 				<KernelStatusBadge />
 			</div>
 			<div className='positron-notebook-cells-container'>
-				<div className='positron-notebook-cells-action-bar'>
-					<Button
-						className='action action-button run-button'
-						ariaLabel={(() => localize('runAllCells', 'Run all cells'))()}
-						onPressed={() => { notebookInstance.runAllCells(); }}
-					>
-						<span className='action-label'>
-							{localize('runAllCells', 'Run all cells')}</span>
-						<div className='button-icon codicon codicon-run' />
-					</Button>
-				</div>
 				<AddCellButtons index={0} />
 				{notebookCells?.length ? notebookCells?.map((cell, index) => <>
 					<NotebookCell key={cell.viewModel.handle} cell={cell} />
