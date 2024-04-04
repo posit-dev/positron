@@ -73,7 +73,7 @@ function getTextOutputContents(output: NotebookCellOutputTextModel): string {
 	}).join('\n');
 }
 
-type ParsedTextOutput = {
+export type ParsedTextOutput = {
 	type: 'stdout' | 'text' | 'stderr' | 'error';
 	content: string;
 };

@@ -13,9 +13,7 @@ import { CellEditorMonacoWidget } from './CellEditorMonacoWidget';
 import { localize } from 'vs/nls';
 import { Button } from 'vs/base/browser/ui/positronComponents/button/button';
 import { NotebookCellActionBar } from 'vs/workbench/contrib/positronNotebook/browser/notebookCells/NotebookCellActionBar';
-import { ANSIOutput } from 'vs/base/common/ansiOutput';
-import { OutputLines } from 'vs/workbench/browser/positronAnsiRenderer/outputLines';
-import { useServices } from 'vs/workbench/contrib/positronNotebook/browser/ServicesProvider';
+import { CellTextOutput } from './CellTextOutput';
 
 
 export function NodebookCodeCell({ cell }: { cell: IPositronNotebookCodeCell }) {
@@ -59,27 +57,12 @@ function NotebookCellOutput({ cellOutput }: { cellOutput: ICellOutput }) {
 	</div>;
 }
 
-function CellTextOutput({ output }: { output: string }) {
-
-	const { openerService, notificationService } = useServices();
-
-	const processedAnsi = ANSIOutput.processOutput(output);
-
-	return <OutputLines
-		outputLines={processedAnsi}
-		openerService={openerService}
-		notificationService={notificationService}
-	/>;
-}
-
 function CellOutputContents(output: { data: VSBuffer; mime: string }) {
 
 	const parsed = parseOutputData(output);
 
 	if (isParsedTextOutput(parsed)) {
-		return <div className={`notebook-${parsed.type}`}>
-			<CellTextOutput output={parsed.content} />
-		</div>;
+		return <CellTextOutput {...parsed} />;
 	}
 
 	switch (parsed.type) {
