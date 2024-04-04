@@ -4,7 +4,7 @@
 
 import { Emitter } from 'vs/base/common/event';
 import { Disposable } from 'vs/base/common/lifecycle';
-import { ColumnProfileRequestType, ColumnSchema, TableData } from 'vs/workbench/services/languageRuntime/common/positronDataExplorerComm';
+import { ColumnProfileType, ColumnSchema, ColumnSummaryStats, TableData } from 'vs/workbench/services/languageRuntime/common/positronDataExplorerComm';
 import { DataExplorerClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimeDataExplorerClient';
 
 /**
@@ -73,6 +73,11 @@ export class DataExplorerCache extends Disposable {
 	private readonly _columnNullCountCache = new Map<number, number>();
 
 	/**
+	 * Gets the column summary stats cache.
+	 */
+	private readonly _columnSummaryStatsCache = new Map<number, ColumnSummaryStats>();
+
+	/**
 	 * Gets the row label cache.
 	 */
 	private readonly _rowLabelCache = new Map<number, string>();
@@ -107,6 +112,7 @@ export class DataExplorerCache extends Disposable {
 			// Clear the column schema cache, row label cache, and data cell cache.
 			this._columnSchemaCache.clear();
 			this._columnNullCountCache.clear();
+			this._columnSummaryStatsCache.clear();
 			this._rowLabelCache.clear();
 			this._dataCellCache.clear();
 		}));
@@ -117,6 +123,7 @@ export class DataExplorerCache extends Disposable {
 			this._rowLabelCache.clear();
 			this._dataCellCache.clear();
 			this._columnNullCountCache.clear();
+			this._columnSummaryStatsCache.clear();
 		}));
 	}
 
@@ -158,6 +165,7 @@ export class DataExplorerCache extends Disposable {
 		this._rowLabelCache.clear();
 		this._dataCellCache.clear();
 		this._columnNullCountCache.clear();
+		this._columnSummaryStatsCache.clear();
 	}
 
 	/**
@@ -188,6 +196,35 @@ export class DataExplorerCache extends Disposable {
 	 */
 	getColumnNullCount(columnIndex: number) {
 		return this._columnNullCountCache.get(columnIndex);
+	}
+
+	/**
+	 * Gets the cached summary stats for the specified column index.
+	 * @param columnIndex The column index.
+	 * @returns ColumnSummaryStats in the specified column index.
+	 */
+	getColumnSummaryStats(columnIndex: number) {
+		return this._columnSummaryStatsCache.get(columnIndex);
+	}
+
+	async updateColumnSummaryStats(columnIndices: Array<number>) {
+		// Request the profiles
+		const results = await this._dataExplorerClientInstance.getColumnProfiles(
+			columnIndices.map(column_index => {
+				return {
+					column_index,
+					profile_type: ColumnProfileType.SummaryStats
+				};
+			})
+		);
+
+		// Update the column schema cache, overwriting any entries we already have cached.
+		for (let i = 0; i < results.length; i++) {
+			const stats = results[i].summary_stats;
+			if (stats !== undefined) {
+				this._columnSummaryStatsCache.set(columnIndices[i], stats);
+			}
+		}
 	}
 
 	/**
@@ -293,7 +330,7 @@ export class DataExplorerCache extends Disposable {
 				columnNullCountIndices.map(column_index => {
 					return {
 						column_index,
-						type: ColumnProfileRequestType.NullCount
+						profile_type: ColumnProfileType.NullCount
 					};
 				})
 			);

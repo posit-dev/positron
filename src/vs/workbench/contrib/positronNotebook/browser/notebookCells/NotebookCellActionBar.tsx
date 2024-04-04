@@ -15,7 +15,7 @@ export function NotebookCellActionBar({ cell, children }: { cell: IPositronNoteb
 		{children}
 		<Button
 			className='action-button'
-			ariaLabel={localize('deleteCell', 'Delete cell')}
+			ariaLabel={(() => localize('deleteCell', 'Delete cell'))()}
 			onPressed={() => cell.delete()}
 		>
 			<div className='button-icon codicon codicon-trash' />

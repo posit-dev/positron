@@ -42,7 +42,7 @@ export const ColumnSearch = (props: ColumnSearchProps) => {
 					ref={inputRef}
 					type='text'
 					className='text-input'
-					placeholder={localize('positron.searchPlacehold', "search")}
+					placeholder={(() => localize('positron.searchPlacehold', "search"))()}
 					value={searchText}
 					onFocus={() => setFocused(true)}
 					onBlur={() => setFocused(false)}

@@ -2,22 +2,22 @@
  *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
-.button {
+.positron-button {
 	border: none;
 	cursor: pointer;
 	background-color: transparent;
 	font-family: unset !important;
 }
 
-.button:focus {
+.positron-button:focus {
 	outline: none !important;
 }
 
-.button:focus-visible {
+.positron-button:focus-visible {
 	border-radius: 4px;
 	outline: 1px solid var(--vscode-focusBorder) !important;
 }
 
-.button.solid:focus-visible {
+.positron-button.solid:focus-visible {
 	outline-offset: 2px !important;
 }

@@ -18,9 +18,9 @@ from ._vendor.pydantic import BaseModel, Field
 
 
 @enum.unique
-class ColumnSchemaTypeDisplay(str, enum.Enum):
+class ColumnDisplayType(str, enum.Enum):
     """
-    Possible values for TypeDisplay in ColumnSchema
+    Possible values for ColumnDisplayType
     """
 
     Number = "number"
@@ -43,9 +43,9 @@ class ColumnSchemaTypeDisplay(str, enum.Enum):
 
 
 @enum.unique
-class RowFilterFilterType(str, enum.Enum):
+class RowFilterType(str, enum.Enum):
     """
-    Possible values for FilterType in RowFilter
+    Possible values for RowFilterType
     """
 
     Between = "between"
@@ -83,9 +83,9 @@ class CompareFilterParamsOp(str, enum.Enum):
 
 
 @enum.unique
-class SearchFilterParamsType(str, enum.Enum):
+class SearchFilterType(str, enum.Enum):
     """
-    Possible values for Type in SearchFilterParams
+    Possible values for SearchFilterType
     """
 
     Contains = "contains"
@@ -98,9 +98,9 @@ class SearchFilterParamsType(str, enum.Enum):
 
 
 @enum.unique
-class ColumnProfileRequestType(str, enum.Enum):
+class ColumnProfileType(str, enum.Enum):
     """
-    Possible values for Type in ColumnProfileRequest
+    Possible values for ColumnProfileType
     """
 
     NullCount = "null_count"
@@ -161,8 +161,7 @@ class TableState(BaseModel):
         description="Provides number of rows and columns in table",
     )
 
-    row_filters: Optional[List[RowFilter]] = Field(
-        default=None,
+    row_filters: List[RowFilter] = Field(
         description="The set of currently applied row filters",
     )
 
@@ -185,6 +184,24 @@ class TableShape(BaseModel):
     )
 
 
+class SupportedFeatures(BaseModel):
+    """
+    For each field, returns flags indicating supported features
+    """
+
+    search_schema: SearchSchemaFeatures = Field(
+        description="Support for 'search_schema' RPC and its features",
+    )
+
+    set_row_filters: SetRowFiltersFeatures = Field(
+        description="Support for 'set_row_filters' RPC and its features",
+    )
+
+    get_column_profiles: GetColumnProfilesFeatures = Field(
+        description="Support for 'get_column_profiles' RPC and its features",
+    )
+
+
 class ColumnSchema(BaseModel):
     """
     Schema for a column in a table
@@ -202,7 +219,7 @@ class ColumnSchema(BaseModel):
         description="Exact name of data type used by underlying table",
     )
 
-    type_display: ColumnSchemaTypeDisplay = Field(
+    type_display: ColumnDisplayType = Field(
         description="Canonical Positron display name of data type",
     )
 
@@ -256,8 +273,8 @@ class RowFilter(BaseModel):
         description="Unique identifier for this filter",
     )
 
-    filter_type: RowFilterFilterType = Field(
-        description="Type of filter to apply",
+    filter_type: RowFilterType = Field(
+        description="Type of row filter to apply",
     )
 
     column_index: int = Field(
@@ -332,7 +349,7 @@ class SearchFilterParams(BaseModel):
     Parameters for the 'search' filter type
     """
 
-    type: SearchFilterParamsType = Field(
+    search_type: SearchFilterType = Field(
         description="Type of search to perform",
     )
 
@@ -354,7 +371,7 @@ class ColumnProfileRequest(BaseModel):
         description="The ordinal column index to profile",
     )
 
-    type: ColumnProfileRequestType = Field(
+    profile_type: ColumnProfileType = Field(
         description="The type of analytical column profile",
     )
 
@@ -387,7 +404,33 @@ class ColumnProfileResult(BaseModel):
 
 class ColumnSummaryStats(BaseModel):
     """
-    ColumnSummaryStats in Schemas
+    Profile result containing summary stats for a column based on the data
+    type
+    """
+
+    type_display: ColumnDisplayType = Field(
+        description="Canonical Positron display name of data type",
+    )
+
+    number_stats: Optional[SummaryStatsNumber] = Field(
+        default=None,
+        description="Statistics for a numeric data type",
+    )
+
+    string_stats: Optional[SummaryStatsString] = Field(
+        default=None,
+        description="Statistics for a string-like data type",
+    )
+
+    boolean_stats: Optional[SummaryStatsBoolean] = Field(
+        default=None,
+        description="Statistics for a boolean data type",
+    )
+
+
+class SummaryStatsNumber(BaseModel):
+    """
+    SummaryStatsNumber in Schemas
     """
 
     min_value: str = Field(
@@ -398,24 +441,44 @@ class ColumnSummaryStats(BaseModel):
         description="Maximum value as string",
     )
 
-    mean_value: Optional[str] = Field(
-        default=None,
+    mean: str = Field(
         description="Average value as string",
     )
 
-    median: Optional[str] = Field(
-        default=None,
+    median: str = Field(
         description="Sample median (50% value) value as string",
     )
 
-    q25: Optional[str] = Field(
-        default=None,
-        description="25th percentile value as string",
+    stdev: str = Field(
+        description="Sample standard deviation as a string",
     )
 
-    q75: Optional[str] = Field(
-        default=None,
-        description="75th percentile value as string",
+
+class SummaryStatsBoolean(BaseModel):
+    """
+    SummaryStatsBoolean in Schemas
+    """
+
+    true_count: int = Field(
+        description="The number of non-null true values",
+    )
+
+    false_count: int = Field(
+        description="The number of non-null false values",
+    )
+
+
+class SummaryStatsString(BaseModel):
+    """
+    SummaryStatsString in Schemas
+    """
+
+    num_empty: int = Field(
+        description="The number of empty / length-zero values",
+    )
+
+    num_unique: int = Field(
+        description="The exact number of distinct values",
     )
 
 
@@ -493,6 +556,48 @@ class ColumnSortKey(BaseModel):
     )
 
 
+class SearchSchemaFeatures(BaseModel):
+    """
+    Feature flags for 'search_schema' RPC
+    """
+
+    supported: bool = Field(
+        description="Whether this RPC method is supported at all",
+    )
+
+
+class SetRowFiltersFeatures(BaseModel):
+    """
+    Feature flags for 'set_row_filters' RPC
+    """
+
+    supported: bool = Field(
+        description="Whether this RPC method is supported at all",
+    )
+
+    supports_conditions: bool = Field(
+        description="Whether AND/OR filter conditions are supported",
+    )
+
+    supported_types: List[RowFilterType] = Field(
+        description="A list of supported types",
+    )
+
+
+class GetColumnProfilesFeatures(BaseModel):
+    """
+    Feature flags for 'get_column_profiles' RPC
+    """
+
+    supported: bool = Field(
+        description="Whether this RPC method is supported at all",
+    )
+
+    supported_types: List[ColumnProfileType] = Field(
+        description="A list of supported types",
+    )
+
+
 @enum.unique
 class DataExplorerBackendRequest(str, enum.Enum):
     """
@@ -519,6 +624,9 @@ class DataExplorerBackendRequest(str, enum.Enum):
 
     # Get the state
     GetState = "get_state"
+
+    # Query the backend to determine supported features
+    GetSupportedFeatures = "get_supported_features"
 
 
 class GetSchemaParams(BaseModel):
@@ -560,7 +668,7 @@ class SearchSchemaParams(BaseModel):
     """
 
     search_term: str = Field(
-        description="Substring to match for (currently case insensitive",
+        description="Substring to match for (currently case insensitive)",
     )
 
     start_index: int = Field(
@@ -732,6 +840,22 @@ class GetStateRequest(BaseModel):
     )
 
 
+class GetSupportedFeaturesRequest(BaseModel):
+    """
+    Query the backend to determine supported features, to enable feature
+    toggling
+    """
+
+    method: Literal[DataExplorerBackendRequest.GetSupportedFeatures] = Field(
+        description="The JSON-RPC method name (get_supported_features)",
+    )
+
+    jsonrpc: str = Field(
+        default="2.0",
+        description="The JSON-RPC version specifier",
+    )
+
+
 class DataExplorerBackendMessageContent(BaseModel):
     comm_id: str
     data: Union[
@@ -742,6 +866,7 @@ class DataExplorerBackendMessageContent(BaseModel):
         SetSortColumnsRequest,
         GetColumnProfilesRequest,
         GetStateRequest,
+        GetSupportedFeaturesRequest,
     ] = Field(..., discriminator="method")
 
 
@@ -778,6 +903,8 @@ TableState.update_forward_refs()
 
 TableShape.update_forward_refs()
 
+SupportedFeatures.update_forward_refs()
+
 ColumnSchema.update_forward_refs()
 
 TableSchema.update_forward_refs()
@@ -798,6 +925,12 @@ ColumnProfileResult.update_forward_refs()
 
 ColumnSummaryStats.update_forward_refs()
 
+SummaryStatsNumber.update_forward_refs()
+
+SummaryStatsBoolean.update_forward_refs()
+
+SummaryStatsString.update_forward_refs()
+
 ColumnHistogram.update_forward_refs()
 
 ColumnFrequencyTable.update_forward_refs()
@@ -807,6 +940,12 @@ ColumnFrequencyTableItem.update_forward_refs()
 ColumnQuantileValue.update_forward_refs()
 
 ColumnSortKey.update_forward_refs()
+
+SearchSchemaFeatures.update_forward_refs()
+
+SetRowFiltersFeatures.update_forward_refs()
+
+GetColumnProfilesFeatures.update_forward_refs()
 
 GetSchemaParams.update_forward_refs()
 
@@ -833,5 +972,7 @@ GetColumnProfilesParams.update_forward_refs()
 GetColumnProfilesRequest.update_forward_refs()
 
 GetStateRequest.update_forward_refs()
+
+GetSupportedFeaturesRequest.update_forward_refs()
 
 SchemaUpdateParams.update_forward_refs()

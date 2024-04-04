@@ -545,6 +545,18 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 		return session;
 	}
 
+	public async getNotebookSession(notebookUri: URI): Promise<positron.LanguageRuntimeSession | undefined> {
+		const sessionId = await this._proxy.$getNotebookSession(notebookUri);
+		if (!sessionId) {
+			return;
+		}
+		const session = this._runtimeSessions.find(session => session.metadata.sessionId === sessionId);
+		if (!session) {
+			throw new Error(`Session ID '${sessionId}' exists for notebook '${notebookUri.toString()}', but is not known to the extension host.`);
+		}
+		return session;
+	}
+
 	/**
 	 * Registers a new language runtime manager with the extension host.
 	 *
