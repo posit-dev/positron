@@ -1,7 +1,8 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
+import * as DOM from 'vs/base/browser/dom';
 import { VSBuffer, encodeBase64 } from 'vs/base/common/buffer';
 import { Emitter, Event } from 'vs/base/common/event';
 import { Disposable } from 'vs/base/common/lifecycle';
@@ -24,6 +25,8 @@ export class WebviewPlotClient extends Disposable implements IPositronPlotClient
 	private _claimed: boolean = false;
 
 	private _renderTimer: NodeJS.Timeout | undefined;
+
+	private _element: HTMLElement | undefined;
 
 	/**
 	 * Creates a new WebviewPlotClient, which wraps a notebook output webview in
@@ -79,7 +82,7 @@ export class WebviewPlotClient extends Disposable implements IPositronPlotClient
 	 * @param claimant The object taking ownership.
 	 */
 	public claim(claimant: any) {
-		this.webview.webview.claim(claimant, undefined);
+		this.webview.webview.claim(claimant, DOM.getWindow(this._element), undefined);
 		this._claimed = true;
 	}
 
@@ -89,6 +92,7 @@ export class WebviewPlotClient extends Disposable implements IPositronPlotClient
 	 * @param ele The element over which to position the webview.
 	 */
 	public layoutWebviewOverElement(ele: HTMLElement) {
+		this._element = ele;
 		this.webview.webview.layoutWebviewOverElement(ele);
 	}
 
