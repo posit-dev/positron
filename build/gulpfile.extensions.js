@@ -131,7 +131,7 @@ const tasks = compilations.map(function (tsconfigFile) {
 			const tsFilter = filter(['**/*.ts', '**/*.tsx', '!**/lib/lib*.d.ts', '!**/node_modules/**'], { restore: true, dot: true });
 			// Check if the extension has defined a bundle-dev task to be run
 			let needsBundling = false;
-			const absoluteExtPath = path.join(extensionsPath, relativeDirname);
+			const absoluteExtPath = path.join(root, relativeDirname);
 			const metadataPath = path.join(absoluteExtPath, 'package.json');
 			const webpackConfigPath = path.join(absoluteExtPath, 'extension.webpack.config.js');
 
