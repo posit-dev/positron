@@ -197,6 +197,25 @@ class TestVariablePaneIntegration:
         assert connections_service.path_to_comm_ids[path] is not None
         assert connections_service.variable_has_active_connection("x")
 
+    @pytest.mark.parametrize("con", get_sqlite_connections())
+    def test_frontend_comm_closed(
+        self,
+        shell: PositronShell,
+        connections_service: ConnectionsService,
+        variables_comm: DummyComm,
+        con,
+    ):
+        self._assign_variables(shell, variables_comm, x=con)
+        path = self._view_in_connections_pane(variables_comm, ["x"])
+
+        comm_id = connections_service.path_to_comm_ids[path]
+        assert comm_id is not None
+
+        connections_service.comms[comm_id].comm.handle_close({})
+
+        assert connections_service.comms.get(comm_id) is None
+        assert connections_service.path_to_comm_ids.get(path) is None
+
     # TODO: reuse code from test_data_explorer.py
     def _assign_variables(self, shell: PositronShell, variables_comm: DummyComm, **variables):
         # A hack to make sure that change events are fired when we
