@@ -86,6 +86,7 @@ export class NodeLanguageServerProxy implements ILanguageServerProxy {
         undefined,
         true,
         undefined,
+        // @ts-ignore
         NodeLanguageServerProxy.versionTelemetryProps,
     )
     public async start(
@@ -161,6 +162,7 @@ export class NodeLanguageServerProxy implements ILanguageServerProxy {
         undefined,
         true,
         undefined,
+        // @ts-ignore
         NodeLanguageServerProxy.versionTelemetryProps,
     )
     private registerHandlers(client: LanguageClient, _resource: Resource) {

@@ -41,6 +41,7 @@ export class JediLanguageServerProxy implements ILanguageServerProxy {
         undefined,
         true,
         undefined,
+        // @ts-ignore
         JediLanguageServerProxy.versionTelemetryProps,
     )
     public async start(
@@ -103,6 +104,7 @@ export class JediLanguageServerProxy implements ILanguageServerProxy {
         undefined,
         true,
         undefined,
+        // @ts-ignore
         JediLanguageServerProxy.versionTelemetryProps,
     )
     private registerHandlers(client: LanguageClient) {

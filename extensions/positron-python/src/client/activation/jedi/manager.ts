@@ -118,6 +118,7 @@ export class JediLanguageServerManager implements ILanguageServerManager {
         undefined,
         true,
         undefined,
+        // @ts-ignore
         JediLanguageServerManager.versionTelemetryProps,
     )
     @traceDecoratorVerbose('Starting language server')
