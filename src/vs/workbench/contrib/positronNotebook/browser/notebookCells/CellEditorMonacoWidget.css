@@ -1,0 +1,6 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *--------------------------------------------------------------------------------------------*/
+.positron-cell-editor-monaco-widget {
+	background-color: var(--vscode-checkbox-background, #f8f8f8);
+}

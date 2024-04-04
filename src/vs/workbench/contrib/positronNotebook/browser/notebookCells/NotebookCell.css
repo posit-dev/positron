@@ -3,7 +3,8 @@
  *--------------------------------------------------------------------------------------------*/
 
 .positron-notebook-cell {
-	--positron-notebooks-border-color: var(--vscode-focusBorder, pink);
+	--positron-notebook-cell-radius: 0.25rem;
+	--positron-notebooks-border-color: var(--vscode-input-border, grey);
 	/* In the small animation we use to indicate a cell is calculating, this is the secondary color
 	used to give the spinning effect */
 	--positron-notebooks-border-color-offset: var(
@@ -18,8 +19,7 @@
 	.cell-contents {
 		border: var(--positron-notebooks-border);
 
-		border-radius: 0.25rem;
-		border-top-right-radius: 0;
+		border-radius: var(--positron-notebook-cell-radius);
 		overflow: auto;
 
 		.positron-monaco-editor-container {

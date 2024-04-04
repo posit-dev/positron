@@ -1,6 +1,9 @@
 /*---------------------------------------------------------------------------------------------
  *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
+import 'vs/css!./CellEditorMonacoWidget';
+
+
 import * as React from 'react';
 import * as DOM from 'vs/base/browser/dom';
 import { EditorExtensionsRegistry, IEditorContributionDescription } from 'vs/editor/browser/editorExtensions';
@@ -23,7 +26,7 @@ import { observeValue } from 'vs/workbench/contrib/positronNotebook/common/utils
  */
 export function CellEditorMonacoWidget({ cell }: { cell: IPositronNotebookCell }) {
 	const { editorPartRef } = useCellEditorWidget(cell);
-	return <div ref={editorPartRef} />;
+	return <div className='positron-cell-editor-monaco-widget' ref={editorPartRef} />;
 }
 
 

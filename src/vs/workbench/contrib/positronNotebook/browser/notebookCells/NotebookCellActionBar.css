@@ -2,15 +2,21 @@
  *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 .positron-notebooks-cell-action-bar {
+	--action-bar-h: 22px;
+	--action-bar-inset: calc(var(--action-bar-h) / 2);
 	--bar-h: 1rem;
+	--action-bar-background: var(--vscode-dropdown-background, white);
+	--action-bar-border-color: var(--vscode-input-border, grey);
 	position: absolute;
-	top: calc((var(--bar-h) + 0.25rem) * -1);
-	right: 0;
-	border: var(--positron-notebooks-border);
-	border-top-left-radius: 0.25rem;
-	border-top-right-radius: 0.25rem;
-	border-bottom: transparent;
-	background-color: var(--vscode-editor-background, white);
+	top: calc(var(--action-bar-inset) * -1);
+	right: var(--action-bar-inset);
+	z-index: 10;
+	/* border: var(--positron-notebooks-border); */
+	border-width: 1px;
+	border-color: var(--action-bar-border-color);
+	border-style: solid;
+	border-radius: var(--positron-notebook-cell-radius);
+	background-color: var(--action-bar-background);
 	display: flex;
 	gap: 0.25rem;
 
