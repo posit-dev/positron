@@ -45,7 +45,7 @@ export function provideTerminalLinks(
 
         // if localhost, preview through viewer
         if (localHostsPattern.test(match[0])) {
-            const pid = context.terminal.processId
+            const pid = context.terminal.processId;
             if (!_links.has(pid) || _links.get(pid) !== match[0]) {
                 positron.window.previewUrl(vscode.Uri.parse(match[0]));
 
