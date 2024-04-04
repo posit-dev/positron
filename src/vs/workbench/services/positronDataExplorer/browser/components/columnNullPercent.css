@@ -45,8 +45,8 @@
 .column-null-percent
 .graph-percent
 .background {
-	fill: var(--vscode-positronDataExplorer-missingValuesGraphBackgroundFill);
-	stroke: var(--vscode-positronDataExplorer-missingValuesGraphBackgroundStroke);
+	fill: var(--vscode-positronDataExplorer-columnNullPercentGraphBackgroundFill);
+	stroke: var(--vscode-positronDataExplorer-columnNullPercentGraphBackgroundStroke);
 }
 
 .data-grid-row-cell
@@ -55,5 +55,5 @@
 .column-null-percent
 .graph-percent
 .indicator {
-	fill: var(--vscode-positronDataExplorer-missingValuesGraphIndicatorFill);
+	fill: var(--vscode-positronDataExplorer-columnNullPercentGraphIndicatorFill);
 }
