@@ -177,9 +177,11 @@ export async function makeMetadata(
 	const runtimeId = digest.digest('hex').substring(0, 32);
 
 	// Save the R home path and binary path as extra data.
+	// Also, whether this R installation is the "current" R version.
 	const extraRuntimeData: RMetadataExtra = {
 		homepath: rInst.homepath,
 		binpath: rInst.binpath,
+		current: rInst.current
 	};
 
 	const metadata: positron.LanguageRuntimeMetadata = {

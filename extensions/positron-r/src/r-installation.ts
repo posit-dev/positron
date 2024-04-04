@@ -18,6 +18,16 @@ export interface RMetadataExtra {
 
 	/** R's binary path */
 	readonly binpath: string;
+
+	/**
+	 * Is this known to be the current version of R?
+	 * One day we will use this information when eagerly starting an affiliated R runtime.
+	 * If the ambient, current R version has increased since we last visited this workspace, we
+	 * may not want to take the affiliated binpath _literally_. Most users will expect Positron to
+	 * launch the (new) current version R. If a very specific R version is desired, renv would be
+	 * the recommend way to pin such a thing.
+	 */
+	readonly current: boolean;
 }
 
 /**
