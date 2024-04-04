@@ -145,6 +145,6 @@ function getNotebookEditorContributions(): IEditorContributionDescription[] {
 	];
 
 	// In the future we may want to be more selective about which contributions we include if our
-	// feature set diverges more drastically from the standard notebooks.
+	// feature set diverges more drastically from the standaard notebooks.
 	return EditorExtensionsRegistry.getEditorContributions().filter(c => skipContributions.indexOf(c.id) === -1);
 }
