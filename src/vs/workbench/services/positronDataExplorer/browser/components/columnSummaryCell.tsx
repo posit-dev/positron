@@ -11,7 +11,8 @@ import * as React from 'react';
 // Other dependencies.
 import { ProfileNumber } from 'vs/workbench/services/positronDataExplorer/browser/components/profileNumber';
 import { ProfileString } from 'vs/workbench/services/positronDataExplorer/browser/components/profileString';
-import { ColumnSchema, ColumnDisplayType } from 'vs/workbench/services/languageRuntime/common/positronDataExplorerComm';
+import { ColumnNullPercent } from 'vs/workbench/services/positronDataExplorer/browser/components/columnNullPercent';
+import { ColumnDisplayType, ColumnSchema } from 'vs/workbench/services/languageRuntime/common/positronDataExplorerComm';
 import { TableSummaryDataGridInstance } from 'vs/workbench/services/positronDataExplorer/browser/tableSummaryDataGridInstance';
 
 /**
@@ -118,6 +119,9 @@ export const ColumnSummaryCell = (props: ColumnSummaryCellProps) => {
 	// Get the expanded state of the column.
 	const expanded = props.instance.isColumnExpanded(props.columnIndex);
 
+	// Get the column null percent.
+	const columnNullPercent = props.instance.getColumnNullPercent(props.columnIndex);
+
 	// Render.
 	return (
 		<div
@@ -144,10 +148,10 @@ export const ColumnSummaryCell = (props: ColumnSummaryCellProps) => {
 				<div className='column-name'>
 					{props.columnSchema.column_name}
 				</div>
-				<div className='missing-values'>
-					{props.instance.getColumnNullPercent(props.columnIndex)}%
-				</div>
 
+				{columnNullPercent !== undefined &&
+					<ColumnNullPercent columnNullPercent={columnNullPercent} />
+				}
 			</div>
 			{expanded &&
 				<div className='profile-info'>
