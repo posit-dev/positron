@@ -1444,6 +1444,14 @@ export const POSITRON_MODAL_DIALOG_FOREGROUND = registerColor('positronModalDial
 	hcLight: foreground
 }, localize('positronModalDialog.foreground', "Positron modal dialog foreground color."));
 
+// Positron modal dialog contrast background color.
+export const POSITRON_MODAL_DIALOG_CONTRAST_BACKGROUND = registerColor('positronModalDialog.contrastBackground', {
+	dark: lighten(POSITRON_MODAL_DIALOG_BACKGROUND, 0.2),
+	light: darken(POSITRON_MODAL_DIALOG_BACKGROUND, 0.2),
+	hcDark: '#3a3d41',
+	hcLight: darken(POSITRON_MODAL_DIALOG_BACKGROUND, 0.2)
+}, localize('positronModalDialog.contrastBackground', "Positron modal dialog contrast background color."));
+
 // Positron modal dialog border color.
 export const POSITRON_MODAL_DIALOG_BORDER = registerColor('positronModalDialog.border', {
 	dark: selectBorder,
