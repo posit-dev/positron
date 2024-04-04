@@ -198,12 +198,6 @@ export class ChatService extends Disposable implements IChatService {
 		}
 
 		this._register(storageService.onWillSaveState(() => this.saveState()));
-
-		this._register(Event.debounce(this.chatAgentService.onDidChangeAgents, () => { }, 500)(() => {
-			for (const model of this._sessionModels.values()) {
-				this.warmSlashCommandCache(model);
-			}
-		}));
 	}
 
 	private saveState(): void {
@@ -369,15 +363,9 @@ export class ChatService extends Disposable implements IChatService {
 		this.initializeSession(model, CancellationToken.None);
 	}
 
-	private warmSlashCommandCache(model: IChatModel, agent?: IChatAgent) {
-		const agents = agent ? [agent] : this.chatAgentService.getAgents();
-		agents.forEach(agent => agent.provideSlashCommands(model, [], CancellationToken.None));
-	}
-
 	private async initializeSession(model: ChatModel, token: CancellationToken): Promise<void> {
 		try {
 			this.trace('initializeSession', `Initialize session ${model.sessionId}`);
-			this.warmSlashCommandCache(model);
 			model.startInitialize();
 			await this.extensionService.activateByEvent(`onInteractiveSession:${model.providerId}`);
 
