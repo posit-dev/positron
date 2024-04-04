@@ -67,7 +67,7 @@ export class NodeLanguageServerProxy implements ILanguageServerProxy {
         private readonly environmentService: IEnvironmentVariablesProvider,
         private readonly workspace: IWorkspaceService,
         private readonly extensions: IExtensions,
-    ) {}
+    ) { }
 
     private static versionTelemetryProps(instance: NodeLanguageServerProxy) {
         return {
@@ -86,7 +86,7 @@ export class NodeLanguageServerProxy implements ILanguageServerProxy {
         undefined,
         true,
         undefined,
-        // @ts-ignore
+        // @ts-ignore Flagged by Typescript 5.5-dev
         NodeLanguageServerProxy.versionTelemetryProps,
     )
     public async start(
@@ -162,7 +162,7 @@ export class NodeLanguageServerProxy implements ILanguageServerProxy {
         undefined,
         true,
         undefined,
-        // @ts-ignore
+        // @ts-ignore Flagged by Typescript 5.5-dev
         NodeLanguageServerProxy.versionTelemetryProps,
     )
     private registerHandlers(client: LanguageClient, _resource: Resource) {

@@ -118,7 +118,7 @@ export class JediLanguageServerManager implements ILanguageServerManager {
         undefined,
         true,
         undefined,
-        // @ts-ignore
+        // @ts-ignore Flagged by Typescript 5.5-dev
         JediLanguageServerManager.versionTelemetryProps,
     )
     @traceDecoratorVerbose('Starting language server')

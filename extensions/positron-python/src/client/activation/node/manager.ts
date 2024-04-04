@@ -111,7 +111,7 @@ export class NodeLanguageServerManager implements ILanguageServerManager {
         undefined,
         true,
         undefined,
-        // @ts-ignore
+        // @ts-ignore Flagged by Typescript 5.5-dev
         NodeLanguageServerManager.versionTelemetryProps,
     )
     @traceDecoratorVerbose('Starting language server')

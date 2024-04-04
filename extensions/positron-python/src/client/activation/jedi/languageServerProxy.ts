@@ -22,7 +22,7 @@ export class JediLanguageServerProxy implements ILanguageServerProxy {
 
     private lsVersion: string | undefined;
 
-    constructor(private readonly factory: ILanguageClientFactory) {}
+    constructor(private readonly factory: ILanguageClientFactory) { }
 
     private static versionTelemetryProps(instance: JediLanguageServerProxy) {
         return {
@@ -41,7 +41,7 @@ export class JediLanguageServerProxy implements ILanguageServerProxy {
         undefined,
         true,
         undefined,
-        // @ts-ignore
+        // @ts-ignore Flagged by Typescript 5.5-dev
         JediLanguageServerProxy.versionTelemetryProps,
     )
     public async start(
@@ -104,7 +104,7 @@ export class JediLanguageServerProxy implements ILanguageServerProxy {
         undefined,
         true,
         undefined,
-        // @ts-ignore
+        // @ts-ignore Flagged by Typescript 5.5-dev
         JediLanguageServerProxy.versionTelemetryProps,
     )
     private registerHandlers(client: LanguageClient) {
