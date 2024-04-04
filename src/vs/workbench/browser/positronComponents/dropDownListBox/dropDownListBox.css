@@ -33,10 +33,6 @@
 	grid-column: chevron / end;
 }
 
-.drop-down-list-box
-.chevron.disabled {
-}
-
 .drop-down-list-box-items {
 	width: 100%;
 	margin: 4px;

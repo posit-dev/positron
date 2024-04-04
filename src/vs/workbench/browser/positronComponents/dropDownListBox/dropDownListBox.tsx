@@ -131,7 +131,7 @@ export const DropDownListBox = (props: DropDownListBoxProps) => {
 			}}
 		>
 			<div className='title'>{titleToDisplay()}</div>
-			<div className={positronClassNames('chevron', { 'disabled': props.disabled })} aria-hidden='true'>
+			<div className='chevron' aria-hidden='true'>
 				<div className='codicon codicon-chevron-down' />
 			</div>
 		</Button>
