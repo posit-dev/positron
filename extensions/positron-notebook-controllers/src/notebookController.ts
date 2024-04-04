@@ -80,7 +80,7 @@ export class NotebookController implements vscode.Disposable {
 	 * @param notebook The notebook to start a runtime for.
 	 * @returns Promise that resolves when the runtime has started.
 	 */
-	public async startRuntimeSession(notebook: vscode.NotebookDocument): Promise<positron.LanguageRuntimeSession> {
+	private async startRuntimeSession(notebook: vscode.NotebookDocument): Promise<positron.LanguageRuntimeSession> {
 		try {
 			return await this._notebookSessionService.startRuntimeSession(notebook.uri, this._languageId);
 		} catch (err) {
@@ -100,6 +100,14 @@ export class NotebookController implements vscode.Disposable {
 
 			throw err;
 		}
+	}
+
+	public async restartRuntimeSession(notebook: vscode.NotebookDocument): Promise<void> {
+		const session = this._notebookSessionService.getNotebookSession(notebook.uri);
+		if (!session) {
+			throw new Error(`No session to restart for notebook '${notebook.uri.path}'`);
+		}
+		positron.runtime.restartSession(session.metadata.sessionId);
 	}
 
 	/**

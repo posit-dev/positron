@@ -6,6 +6,7 @@ import * as positron from 'positron';
 import * as vscode from 'vscode';
 import { NotebookControllerManager } from './notebookControllerManager';
 import { NotebookSessionService } from './notebookSessionService';
+import { registerCommands } from './commands';
 
 export const log = vscode.window.createOutputChannel('Positron Notebook Controllers', { log: true });
 
@@ -14,6 +15,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 
 	// Shutdown any running sessions when a notebook is closed.
 	context.subscriptions.push(vscode.workspace.onDidCloseNotebookDocument(async (notebook) => {
+		log.debug(`Notebook closed: ${notebook.uri.path}`);
 		if (notebookSessionService.hasStartingOrRunningNotebookSession(notebook.uri)) {
 			await notebookSessionService.shutdownRuntimeSession(notebook.uri);
 		}
@@ -45,4 +47,25 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 	for (const notebook of vscode.workspace.notebookDocuments) {
 		manager.updateNotebookAffinity(notebook);
 	}
+
+	// TODO: For some unknown reason, if this is not async, the onDidCloseNotebookDocument event
+	// doesn't fire for the notebook. Maybe this causes a reference to the notebook that prevents
+	// it from being disposed?
+	vscode.window.onDidChangeActiveNotebookEditor(async (editor) => {
+		const notebook = editor?.notebook;
+		setHasRunningNotebookSessionContext(
+			notebook ? notebookSessionService.hasRunningNotebookSession(notebook.uri) : false
+		);
+	});
+
+	registerCommands(context, notebookSessionService);
+}
+
+export function setHasRunningNotebookSessionContext(value: boolean): void {
+	log.debug(`Setting 'positron.hasRunningNotebookSession' context to: ${value}`);
+	vscode.commands.executeCommand(
+		'setContext',
+		'positron.hasRunningNotebookSession',
+		value,
+	);
 }

@@ -35,6 +35,24 @@ export class NotebookControllerManager implements vscode.Disposable {
 	}
 
 	/**
+	 * Get the notebook controller for a notebook.
+	 *
+	 * @param notebook The notebook for which to get the controller.
+	 * @returns The notebook controller, or undefined if no controller is found.
+	 */
+	public getNotebookController(notebook: vscode.NotebookDocument): NotebookController | undefined {
+		// Detect the notebook's language.
+		// First try the notebook metadata.
+		const metadata = notebook.metadata?.custom?.metadata;
+		const languageId = metadata?.language_info?.name
+			?? metadata?.kernelspec?.language
+			// Fall back to the first cell's language.
+			?? notebook.getCells()?.[0].document.languageId;
+
+		return languageId && this.controllers.get(languageId);
+	}
+
+	/**
 	 * Update a notebook's affinity for all known controllers.
 	 *
 	 * Positron automates certain decisions if a notebook only has a single 'preferred' controller.
@@ -69,16 +87,8 @@ export class NotebookControllerManager implements vscode.Disposable {
 			}
 		}
 
-		// Detect the notebook's language.
-		// First try the notebook metadata.
-		const metadata = notebook.metadata?.custom?.metadata;
-		const languageId = metadata?.language_info?.name
-			?? metadata?.kernelspec?.language
-			// Fall back to the first cell's language.
-			?? notebook.getCells()?.[0].document.languageId;
-
 		// Get the preferred controller for the language.
-		const preferredController = languageId && this.controllers.get(languageId);
+		const preferredController = this.getNotebookController(notebook);
 
 		// Set the affinity across all known controllers.
 		for (const controller of this.controllers.values()) {
