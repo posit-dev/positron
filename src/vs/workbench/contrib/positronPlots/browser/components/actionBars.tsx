@@ -111,7 +111,15 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 	};
 
 	const copyPlotHandler = () => {
-		positronPlotsContext.positronPlotsService.copyPlotToClipboard();
+		const copyResult = positronPlotsContext.positronPlotsService.copyPlotToClipboard();
+
+		if (copyResult) {
+			positronPlotsContext.notificationService.info(localize('positronPlotsServiceCopyToClipboard', 'Plot copied to clipboard'));
+		} else {
+			positronPlotsContext.notificationService.error(localize('positronPlotsServiceCopyToClipboardError', 'Failed to copy plot to clipboard'));
+
+		}
+
 	};
 
 	// Render.
@@ -124,8 +132,6 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 							ariaLabel={localize('positronShowPreviousPlot', "Show previous plot")} onPressed={showPreviousPlotHandler} />
 						<ActionBarButton iconId='positron-right-arrow' disabled={disableRight} tooltip={localize('positronShowNextPlot', "Show next plot")}
 							ariaLabel={localize('positronShowNextPlot', "Show next plot")} onPressed={showNextPlotHandler} />
-						<ActionBarButton iconId='copy' disabled={!hasPlots} tooltip={localize('positron-copy-plot', "Copy plot to clipboard")} ariaLabel={localize('positron-copy-plot', "Copy plot to clipboard")}
-							onPressed={copyPlotHandler} />
 
 						{(enableSizingPolicy || enableSavingPlots || enableZoomPlot) && <ActionBarSeparator />}
 						{enableSavingPlots && <ActionBarButton iconId='positron-save' tooltip={localize('positronSavePlot', "Save plot")}

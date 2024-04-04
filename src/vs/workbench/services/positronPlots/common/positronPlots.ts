@@ -150,7 +150,12 @@ export interface IPositronPlotsService {
 	 */
 	selectHistoryPolicy(policy: HistoryPolicy): void;
 
-	copyPlotToClipboard(): void;
+	/**
+	 * Copies the selected plot to the clipboard.
+	 *
+	 * @returns true if the plot was copied to the clipboard, false otherwise.
+	 */
+	copyPlotToClipboard(): boolean;
 
 	/**
 	 * Saves the plot.
