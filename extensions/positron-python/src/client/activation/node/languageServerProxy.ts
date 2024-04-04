@@ -67,7 +67,7 @@ export class NodeLanguageServerProxy implements ILanguageServerProxy {
         private readonly environmentService: IEnvironmentVariablesProvider,
         private readonly workspace: IWorkspaceService,
         private readonly extensions: IExtensions,
-    ) { }
+    ) {}
 
     private static versionTelemetryProps(instance: NodeLanguageServerProxy) {
         return {
