@@ -29,6 +29,9 @@ export function CellEditorMonacoWidget({ cell }: { cell: IPositronNotebookCell }
 	return <div className='positron-cell-editor-monaco-widget' ref={editorPartRef} />;
 }
 
+// Padding for the editor widget. The sizing is not perfect but this helps the editor not overflow
+// its container. In the future we should figure out how to make sure this is sized correctly.
+const EDITOR_INSET_PADDING_PX = 2;
 
 /**
  * Create a cell editor widget for a cell.
@@ -88,7 +91,7 @@ export function useCellEditorWidget(cell: IPositronNotebookCell) {
 		function resizeEditor(height: number = editor.getContentHeight()) {
 			editor.layout({
 				height,
-				width: editorPartRef.current?.offsetWidth ?? 500
+				width: (editorPartRef.current?.offsetWidth ?? 500) - EDITOR_INSET_PADDING_PX * 2
 			});
 		}
 

@@ -17,15 +17,8 @@
 	position: relative;
 
 	.cell-contents {
-		border: var(--positron-notebooks-border);
-
 		border-radius: var(--positron-notebook-cell-radius);
-		overflow: auto;
-
-		.positron-monaco-editor-container {
-			min-height: 1rem;
-			outline: 1px solid grey;
-		}
+		/* overflow: auto; */
 
 		.positron-notebook-cell-outputs {
 			background-color: var(
@@ -52,7 +45,6 @@
 		}
 
 		&[data-status='running'] {
-			/* outline-color: var(--vscode-toolbar-activeBackground, orange); */
 			--angle: 45deg;
 			--opacity: 0.5;
 
