@@ -1961,28 +1961,28 @@ export const POSITRON_DATA_EXPLORER_BORDER_COLOR = registerColor('positronDataEx
 // < --- Positron Data Explorer Graph --- >
 
 // Positron data explorer missing values graph background fill color.
-export const POSITRON_DATA_EXPLORER_MISSING_VALUES_GRAPH_BACKGROUND_FILL_COLOR = registerColor('positronDataExplorer.missingValuesGraphBackgroundFill', {
+export const POSITRON_DATA_EXPLORER_MISSING_VALUES_GRAPH_BACKGROUND_FILL_COLOR = registerColor('positronDataExplorer.columnNullPercentGraphBackgroundFill', {
 	dark: '#ea3d3d',
 	light: '#ea3d3d',
 	hcDark: '#ea3d3d',
 	hcLight: '#ea3d3d',
-}, localize('positronDataExplorer.missingValuesGraphBackgroundFill', "Positron data explorer missing values graph background fill color."));
+}, localize('positronDataExplorer.columnNullPercentGraphBackgroundFill', "Positron data explorer missing values graph background fill color."));
 
 // Positron data explorer missing values graph background stroke color.
-export const POSITRON_DATA_EXPLORER_MISSING_VALUES_GRAPH_BACKGROUND_STROKE_COLOR = registerColor('positronDataExplorer.missingValuesGraphBackgroundStroke', {
+export const POSITRON_DATA_EXPLORER_MISSING_VALUES_GRAPH_BACKGROUND_STROKE_COLOR = registerColor('positronDataExplorer.columnNullPercentGraphBackgroundStroke', {
 	dark: '#7e94a5',
 	light: '#7e94a5',
 	hcDark: '#7e94a5',
 	hcLight: '#7e94a5',
-}, localize('positronDataExplorer.missingValuesGraphBackgroundStroke', "Positron data explorer missing values graph background stroke color."));
+}, localize('positronDataExplorer.columnNullPercentGraphBackgroundStroke', "Positron data explorer missing values graph background stroke color."));
 
 // Positron data explorer missing values graph indicator fill color.
-export const POSITRON_DATA_EXPLORER_MISSING_VALUES_GRAPH_INDICATOR_FILL_COLOR = registerColor('positronDataExplorer.missingValuesGraphIndicatorFill', {
+export const POSITRON_DATA_EXPLORER_MISSING_VALUES_GRAPH_INDICATOR_FILL_COLOR = registerColor('positronDataExplorer.columnNullPercentGraphIndicatorFill', {
 	dark: '#e5edf3',
 	light: '#e5edf3',
 	hcDark: '#e5edf3',
 	hcLight: '#e5edf3',
-}, localize('positronDataExplorer.missingValuesGraphIndicatorFill', "Positron data explorer missing values graph indicator fill color."));
+}, localize('positronDataExplorer.columnNullPercentGraphIndicatorFill', "Positron data explorer missing values graph indicator fill color."));
 
 // < --- Positron Variables --- >
 
