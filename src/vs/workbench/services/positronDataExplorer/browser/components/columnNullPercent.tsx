@@ -31,18 +31,16 @@ export const ColumnNullPercent = (props: ColumnNullPercentProps) => {
 			<div className='graph-percent'>
 				<svg viewBox='0 0 52 14' shapeRendering='geometricPrecision'>
 					<g>
-						<rect
+						<rect className='background'
 							x='1'
 							y='1'
 							width='50'
 							height='12'
 							rx='6'
 							ry='6'
-							fill='#ea3d3d'
-							stroke='#7e94a5'
 							strokeWidth='1'
 						/>
-						<rect
+						<rect className='indicator'
 							x='1'
 							y='1'
 							width={props.columnNullPercent === 0.0 ?
@@ -52,7 +50,6 @@ export const ColumnNullPercent = (props: ColumnNullPercentProps) => {
 							height='12'
 							rx='6'
 							ry='6'
-							fill='#e5edf3'
 						/>
 					</g>
 				</svg>

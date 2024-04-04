@@ -38,3 +38,22 @@
 	display: flex;
 	grid-column: graph / end;
 }
+
+.data-grid-row-cell
+.content
+.column-summary
+.column-null-percent
+.graph-percent
+.background {
+	fill: var(--vscode-positronDataExplorer-missingValuesGraphBackgroundFill);
+	stroke: var(--vscode-positronDataExplorer-missingValuesGraphBackgroundStroke);
+}
+
+.data-grid-row-cell
+.content
+.column-summary
+.column-null-percent
+.graph-percent
+.indicator {
+	fill: var(--vscode-positronDataExplorer-missingValuesGraphIndicatorFill);
+}
