@@ -100,18 +100,6 @@
 .data-grid-row-cell
 .content
 .column-summary
-.basic-info
-.missing-values {
-	display: flex;
-	font-size: 90%;
-	align-items: center;
-	justify-content: left;
-	grid-column: missing-values / right-gutter;
-}
-
-.data-grid-row-cell
-.content
-.column-summary
 .profile-info {
 	display: grid;
 	grid-row: profile-info / end;
