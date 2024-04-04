@@ -6,6 +6,8 @@ import { Disposable } from 'vs/base/common/lifecycle';
 import { IPositronPlotMetadata, PlotClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimePlotClient';
 import { ILanguageRuntimeMessageOutput, RuntimeOutputKind } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { ILanguageRuntimeSession, IRuntimeSessionService, RuntimeClientType } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
+import { HTMLFileSystemProvider } from 'vs/platform/files/browser/htmlFileSystemProvider';
+import { IFileService } from 'vs/platform/files/common/files';
 import { HistoryPolicy, IPositronPlotClient, IPositronPlotsService, POSITRON_PLOTS_VIEW_ID } from 'vs/workbench/services/positronPlots/common/positronPlots';
 import { Emitter, Event } from 'vs/base/common/event';
 import { StaticPlotClient } from 'vs/workbench/services/positronPlots/common/staticPlotClient';
@@ -21,6 +23,14 @@ import { PlotSizingPolicyCustom } from 'vs/workbench/services/positronPlots/comm
 import { WebviewPlotClient } from 'vs/workbench/contrib/positronPlots/browser/webviewPlotClient';
 import { IPositronNotebookOutputWebviewService } from 'vs/workbench/contrib/positronOutputWebview/browser/notebookOutputWebviewService';
 import { IPositronIPyWidgetsService } from 'vs/workbench/services/positronIPyWidgets/common/positronIPyWidgetsService';
+import { Schemas } from 'vs/base/common/network';
+import { IFileDialogService } from 'vs/platform/dialogs/common/dialogs';
+import { decodeBase64 } from 'vs/base/common/buffer';
+import { SavePlotOptions, showSavePlotModalDialog } from 'vs/workbench/contrib/positronPlots/browser/modalDialogs/savePlotModalDialog';
+import { IWorkbenchLayoutService } from 'vs/workbench/services/layout/browser/layoutService';
+import { URI } from 'vs/base/common/uri';
+import { IWorkspaceContextService } from 'vs/platform/workspace/common/workspace';
+import { IKeybindingService } from 'vs/platform/keybinding/common/keybinding';
 
 /** The maximum number of recent executions to store. */
 const MaxRecentExecutions = 10;
@@ -92,7 +102,12 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 		@IStorageService private _storageService: IStorageService,
 		@IViewsService private _viewsService: IViewsService,
 		@IPositronNotebookOutputWebviewService private _notebookOutputWebviewService: IPositronNotebookOutputWebviewService,
-		@IPositronIPyWidgetsService private _positronIPyWidgetsService: IPositronIPyWidgetsService) {
+		@IPositronIPyWidgetsService private _positronIPyWidgetsService: IPositronIPyWidgetsService,
+		@IFileService private readonly _fileService: IFileService,
+		@IFileDialogService private readonly _fileDialogService: IFileDialogService,
+		@IWorkspaceContextService private readonly _workspaceContextService: IWorkspaceContextService,
+		@IWorkbenchLayoutService private readonly _layoutService: IWorkbenchLayoutService,
+		@IKeybindingService private readonly _keybindingService: IKeybindingService) {
 		super();
 
 		// Register for language runtime service startups
@@ -656,6 +671,78 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 		// Update the front end with the now-empty array of plots
 		this._onDidSelectPlot.fire('');
 		this._onDidReplacePlots.fire(this._plots);
+	}
+
+	savePlot(): void {
+		if (this._selectedPlotId) {
+			const plot = this._plots.find(plot => plot.id === this._selectedPlotId);
+			const workspaceFolder = this._workspaceContextService.getWorkspace().folders[0]?.uri;
+			const suggestedPath = workspaceFolder ? URI.joinPath(workspaceFolder, 'plot.png') : undefined;
+			if (plot) {
+				let uri = '';
+
+				if (plot instanceof StaticPlotClient) {
+					// if it's a static plot, save the image to disk
+					uri = plot.uri;
+					this.showSavePlotDialog(uri);
+				} else if (plot instanceof PlotClientInstance) {
+					// if it's a dynamic plot, present options dialog
+					showSavePlotModalDialog(this._layoutService, this._keybindingService, this._fileDialogService, plot, this.savePlotAs, suggestedPath);
+				} else {
+					// if it's a webview plot, do nothing
+					return;
+				}
+			}
+		}
+	}
+
+	private savePlotAs = (options: SavePlotOptions) => {
+		const htmlFileSystemProvider = this._fileService.getProvider(Schemas.file) as HTMLFileSystemProvider;
+		const matches = this.getPlotUri(options.uri);
+
+		if (!matches) {
+			return;
+		}
+
+		const data = matches[2];
+
+		htmlFileSystemProvider.writeFile(options.path, decodeBase64(data).buffer, { create: true, overwrite: true, unlock: true, atomic: false })
+			.then(() => {
+			});
+	};
+
+	private getPlotUri(plotData: string) {
+		const regex = /^data:.+\/(.+);base64,(.*)$/;
+		const matches = plotData.match(regex);
+		if (!matches || matches.length !== 3) {
+			return null;
+		}
+		return matches;
+	}
+
+	showSavePlotDialog(uri: string) {
+		const matches = this.getPlotUri(uri);
+
+		if (!matches) {
+			return;
+		}
+
+		const extension = matches[1];
+
+		this._fileDialogService.showSaveDialog({
+			title: 'Save Plot',
+			filters:
+				[
+					{
+						extensions: [extension],
+						name: extension.toUpperCase(),
+					},
+				],
+		}).then(result => {
+			if (result) {
+				this.savePlotAs({ path: result, uri });
+			}
+		});
 	}
 
 	/**
