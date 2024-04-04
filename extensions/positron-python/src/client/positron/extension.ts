@@ -12,7 +12,7 @@ import { IServiceContainer } from '../ioc/types';
 import { traceError, traceInfo } from '../logging';
 import { PythonRuntimeManager } from './manager';
 import { createPythonRuntimeMetadata } from './runtime';
-import { provider } from './linkProvider';
+import { provideTerminalLinks, handleTerminalLink } from './linkProvider';
 
 export async function activatePositron(
     activatedPromise: Promise<void>,
@@ -31,7 +31,7 @@ export async function activatePositron(
         traceInfo('activatePositron: awaiting extension activation');
         await activatedPromise;
 
-        vscode.window.registerTerminalLinkProvider(provider);
+        vscode.window.registerTerminalLinkProvider({ provideTerminalLinks, handleTerminalLink });
 
         const registerRuntime = async (interpreterPath: string) => {
             if (!manager.registeredPythonRuntimes.has(interpreterPath)) {
