@@ -1,0 +1,96 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *--------------------------------------------------------------------------------------------*/
+
+.plot-preview-input {
+	height: 100%;
+	grid-template-rows: 1fr 2fr 4px 9fr;
+	grid-template-areas:
+		"browse"
+		"plot-input"
+		"preview-progress"
+		"preview";
+	grid-gap: 10px;
+	display: grid;
+}
+
+.plot-preview-input .plot-input {
+	grid-area: plot-input;
+	display: grid;
+	grid-template-columns: repeat(3, auto);
+	grid-template-areas:
+		"input input input"
+		"error error error";
+	justify-content: space-between;
+}
+
+.plot-input input {
+	grid-area: input;
+}
+
+.plot-input div.error {
+	padding-top: 4px;
+	grid-column: 1 / span 3;
+	display: flex;
+	flex-direction: column;
+	color: var(--vscode-errorForeground);
+}
+
+.plot-preview-input .labeled-text-input {
+	width: auto;
+}
+
+.plot-preview-input .labeled-text-input input {
+	width: 100px;
+}
+
+.plot-preview-input .preview-progress {
+	grid-area: preview-progress;
+	display: flex;
+}
+
+.plot-preview-container {
+	height: 100%;
+	columns: 2;
+	display: flex;
+	flex-direction: column;
+	row-gap: 10px;
+}
+
+img.plot-preview {
+	max-height: 100%;
+	max-width: 100%;
+	position: relative;
+	top: 50%;
+	left: 50%;
+	transform: translate(-50%, -50%);
+	border-style: solid;
+	border-color: var(--vscode-positronModalDialog-contrastBackground);
+	border-width: thin;
+}
+
+.plot-save-dialog-action-bar {
+	display: flex;
+	position: absolute;
+	justify-content: space-between;
+	bottom: 0;
+	left: 0;
+	right: 0;
+	height: 64px;
+	gap: 10px;
+	margin: 0 16px;
+}
+
+.plot-preview-image-container {
+	overflow: hidden;
+	padding: 2px;
+	grid-area: preview;
+}
+
+.plot-save-dialog-action-bar div.ok-cancel-action-bar {
+	justify-content: end;
+}
+
+.plot-save-dialog-action-bar .button.action-bar-button {
+	padding: 10px;
+}
