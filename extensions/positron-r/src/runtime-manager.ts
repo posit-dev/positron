@@ -40,17 +40,18 @@ export class RRuntimeManager implements positron.LanguageRuntimeManager {
 	async validateMetadata(metadata: positron.LanguageRuntimeMetadata): Promise<positron.LanguageRuntimeMetadata> {
 		const metadataExtra = metadata.extraRuntimeData as RMetadataExtra;
 
-		// Validate that the metadata has the extra data we need
+		// Validate that the metadata has all of the extra data we need
 		if (!metadataExtra) {
 			throw new Error('R metadata is missing binary path');
 		}
-
-		// Validate that the metadata has R's home path and bin path
 		if (!metadataExtra.homepath) {
 			throw new Error('R metadata is missing home path');
 		}
 		if (!metadataExtra.binpath) {
 			throw new Error('R metadata is missing bin path');
+		}
+		if (!metadataExtra.current) {
+			throw new Error('R metadata is missing current indicator');
 		}
 
 		// Look for the current R binary. Note that this can return undefined,
@@ -58,9 +59,18 @@ export class RRuntimeManager implements positron.LanguageRuntimeManager {
 		// is okay.
 		const curBin = await findCurrentRBinary();
 
-		// Create an RInstallation object with the metadata's binary path.
-		const inst = new RInstallation(metadataExtra.binpath,
-			curBin === metadataExtra.binpath);
+		let inst: RInstallation;
+		if (curBin && metadataExtra.current) {
+			// If the metadata says that it represents the "current" version of R, interpret that to
+			// mean the current "current" version of R, at this very moment, not whatever it was
+			// when this metadata was stored.
+			// The motivation for this mindset is immediate launch of an affiliated runtime.
+			// More thoughts in this issue:
+			// https://github.com/posit-dev/positron/issues/2659
+			inst = new RInstallation(curBin, true);
+		} else {
+			inst = new RInstallation(metadataExtra.binpath, curBin === metadataExtra.binpath);
+		}
 
 		// Check the installation for validity
 		if (!inst.valid) {
