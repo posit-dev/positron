@@ -50,9 +50,6 @@ export class RRuntimeManager implements positron.LanguageRuntimeManager {
 		if (!metadataExtra.binpath) {
 			throw new Error('R metadata is missing bin path');
 		}
-		if (!metadataExtra.current) {
-			throw new Error('R metadata is missing current indicator');
-		}
 
 		// Look for the current R binary. Note that this can return undefined,
 		// if there are no current/default R installations on the system. This
