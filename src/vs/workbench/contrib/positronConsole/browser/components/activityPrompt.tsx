@@ -6,10 +6,11 @@ import 'vs/css!./activityPrompt';
 import * as React from 'react';
 import { KeyboardEvent, useEffect, useRef } from 'react'; // eslint-disable-line no-duplicate-imports
 import { DisposableStore } from 'vs/base/common/lifecycle';
-import { OutputRun } from 'vs/workbench/contrib/positronConsole/browser/components/outputRun';
+import { OutputRun } from 'vs/workbench/browser/positronAnsiRenderer/outputRun';
 import { OutputLines } from 'vs/workbench/contrib/positronConsole/browser/components/outputLines';
 import { IPositronConsoleInstance } from 'vs/workbench/services/positronConsole/browser/interfaces/positronConsoleService';
 import { ActivityItemPrompt, ActivityItemPromptState } from 'vs/workbench/services/positronConsole/browser/classes/activityItemPrompt';
+import { usePositronConsoleContext } from 'vs/workbench/contrib/positronConsole/browser/positronConsoleContext';
 
 // ActivityPromptProps interface.
 export interface ActivityPromptProps {
@@ -25,6 +26,9 @@ export interface ActivityPromptProps {
 export const ActivityPrompt = (props: ActivityPromptProps) => {
 	// Reference hooks.
 	const inputRef = useRef<HTMLInputElement>(undefined!);
+
+	// Get services from the context.
+	const { openerService, notificationService } = usePositronConsoleContext();
 
 	/**
 	 * Readies the input.
@@ -49,7 +53,7 @@ export const ActivityPrompt = (props: ActivityPromptProps) => {
 
 		// Return the cleanup function that will dispose of the disposables.
 		return () => disposableStore.dispose();
-	}, []);
+	}, [props.positronConsoleInstance]);
 
 	// useEffect hook that gets the input scrolled into view and focused.
 	useEffect(() => {
@@ -148,7 +152,12 @@ export const ActivityPrompt = (props: ActivityPromptProps) => {
 			<div className='prompt-line'>
 				{props.activityItemPrompt.outputLines.slice(-1).map(outputLine =>
 					outputLine.outputRuns.map(outputRun =>
-						<OutputRun key={outputRun.id} outputRun={outputRun} />
+						<OutputRun
+							key={outputRun.id}
+							outputRun={outputRun}
+							openerService={openerService}
+							notificationService={notificationService}
+						/>
 					)
 				)}
 				{prompt}

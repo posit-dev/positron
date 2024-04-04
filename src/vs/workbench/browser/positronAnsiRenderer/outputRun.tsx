@@ -8,9 +8,10 @@ import * as platform from 'vs/base/common/platform';
 import { CSSProperties, MouseEvent } from 'react'; // eslint-disable-line no-duplicate-imports
 import { localize } from 'vs/nls';
 import { ANSIColor, ANSIOutputRun, ANSIStyle } from 'vs/base/common/ansiOutput';
-import { usePositronConsoleContext } from 'vs/workbench/contrib/positronConsole/browser/positronConsoleContext';
 import { Schemas } from 'vs/base/common/network';
 import { OutputRunWithLinks } from 'vs/workbench/contrib/positronConsole/browser/components/outputRunWithLinks';
+import { IOpenerService } from 'vs/platform/opener/common/opener';
+import { INotificationService } from 'vs/platform/notification/common/notification';
 
 /**
  * Constants.
@@ -23,7 +24,10 @@ const fileURLWithLineAndColumn = /^(file:\/\/\/.+):(\d+):(\d+)$/;
 // OutputRunProps interface.
 export interface OutputRunProps {
 	readonly outputRun: ANSIOutputRun;
+	readonly openerService: IOpenerService;
+	readonly notificationService: INotificationService;
 }
+
 
 /**
  * OutputRun component.
@@ -31,8 +35,6 @@ export interface OutputRunProps {
  * @returns The rendered component.
  */
 export const OutputRun = (props: OutputRunProps) => {
-	// Context hooks.
-	const positronConsoleContext = usePositronConsoleContext();
 
 	/**
 	 * ColorType enumeration.
@@ -129,10 +131,10 @@ export const OutputRun = (props: OutputRunProps) => {
 		// Build the hyperlink URL. If there is one, open it.
 		const url = buildHyperlinkURL();
 		if (url) {
-			positronConsoleContext.openerService.open(url);
+			props.openerService.open(url);
 		} else {
 			// Can't happen.
-			positronConsoleContext.notificationService.error(localize(
+			props.notificationService.error(localize(
 				'positron.unableToOpenHyperlink',
 				"The hyperlink could not be opened."
 			));
