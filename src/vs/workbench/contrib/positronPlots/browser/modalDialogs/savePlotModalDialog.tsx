@@ -26,8 +26,9 @@ export interface SavePlotOptions {
 }
 
 export enum PlotFormat {
-	PNG = 'PNG',
-	SVG = 'SVG',
+	PNG = 'png',
+	SVG = 'svg',
+	PDF = 'pdf',
 }
 
 const SAVE_PLOT_MODAL_DIALOG_WIDTH = 500;
@@ -99,7 +100,7 @@ const SavePlotModalDialog = (props: SavePlotModalDialogProps) => {
 
 	const filterEntries: FileFilter[] = [];
 	for (const filter in PlotFormat) {
-		filterEntries.push({ extensions: [filter.toLowerCase()], name: filter });
+		filterEntries.push({ extensions: [filter.toLowerCase()], name: filter.toUpperCase() });
 	}
 
 	React.useEffect(() => {
@@ -149,7 +150,20 @@ const SavePlotModalDialog = (props: SavePlotModalDialogProps) => {
 		if (validateInput()) {
 			setRendering(true);
 			const extension = path.value.fsPath.split('.').pop()?.toLowerCase();
-			const format = extension === 'png' || extension === 'svg' ? extension : 'png';
+			// const format = extension === 'png' || extension === 'svg' ? extension : 'png';
+			let format = PlotFormat.PNG;
+			switch (extension) {
+				case 'svg':
+					format = PlotFormat.SVG;
+					break;
+				case 'pdf':
+					format = PlotFormat.PDF;
+					break;
+				case 'png':
+				default:
+					format = PlotFormat.PNG;
+					break;
+			}
 			const plotResult = await generatePreview(format);
 
 			if (plotResult) {
@@ -171,14 +185,14 @@ const SavePlotModalDialog = (props: SavePlotModalDialogProps) => {
 		}
 		setRendering(true);
 		try {
-			const plotResult = await generatePreview('png');
+			const plotResult = await generatePreview(PlotFormat.PNG);
 			setUri(plotResult.uri);
 		} finally {
 			setRendering(false);
 		}
 	};
 
-	const generatePreview = async (format: 'png' | 'svg'): Promise<IRenderedPlot> => {
+	const generatePreview = async (format: PlotFormat): Promise<IRenderedPlot> => {
 		return props.plotClient.preview(height.value, width.value, dpi.value / BASE_DPI, format);
 	};
 

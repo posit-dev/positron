@@ -26,6 +26,11 @@ DEFAULT_WIDTH_IN = 6.4
 DEFAULT_HEIGHT_IN = 4.8
 BASE_DPI = 100
 
+MIME_TYPE = {
+    "png": "image/png",
+    "svg": "image/svg+xml",
+    "pdf": "application/pdf",
+}
 
 class PositronDisplayPublisherHook:
     def __init__(self, target_name: str, session_mode: SessionMode):
@@ -116,7 +121,7 @@ class PositronDisplayPublisherHook:
 
             if width_px != 0 and height_px != 0:
                 format_dict = self._resize_pickled_figure(pickled, width_px, height_px, pixel_ratio, [format])
-                mime_type = f'image/{format}'
+                mime_type = MIME_TYPE[format]
                 data = format_dict[mime_type]
                 output = PlotResult(data=data, mime_type=mime_type).dict()
                 figure_comm.send_result(data=output, metadata={"mime_type": mime_type})
@@ -220,7 +225,7 @@ class PositronDisplayPublisherHook:
         figure.savefig(figure_buffer, format=formats[0])
         figure_buffer.seek(0)
         image_data = base64.b64encode(figure_buffer.read()).decode()
-        key = f'image/{formats[0]}'
+        key = MIME_TYPE[formats[0]]
 
         format_dict = {key: image_data}
 
