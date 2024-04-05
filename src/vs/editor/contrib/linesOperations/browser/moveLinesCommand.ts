@@ -76,9 +76,6 @@ export class MoveLinesCommand implements ICommand {
 				},
 			},
 			getLineContent: null as unknown as (lineNumber: number) => string,
-			getLineCount: function (): number {
-				return Math.min(model.getLineCount(), s.endLineNumber);
-			}
 		};
 
 		if (s.startLineNumber === s.endLineNumber && model.getLineMaxColumn(s.startLineNumber) === 1) {
