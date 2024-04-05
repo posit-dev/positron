@@ -97,7 +97,7 @@ data |>
 
 # ---
 # Continuing a one-liner pipeline (after a comment line)
-# FIXME (once we merge the sticky dedent PR)
+# FIXME
 data |>
 	fn1() |>
 	# foo
