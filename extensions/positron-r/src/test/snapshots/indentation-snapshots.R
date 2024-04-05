@@ -24,6 +24,7 @@ data |>
   "<>"
 
 # ---
+# Dedent after pipeline
 data |>
 	fn()"<>"
 
@@ -33,6 +34,17 @@ data |>
 "<>"
 
 # ---
+# Dedent after pipeline (trailing comment)
+data |>
+	fn()"<>" # foo
+
+# ->
+data |>
+	fn()
+"<>" # foo
+
+# ---
+# Stickiness of dedent after pipeline
 # https://github.com/posit-dev/positron/issues/1727
 # FIXME
 data |>
@@ -44,6 +56,20 @@ data |>
 	fn()
 
 	"<>"
+
+# ---
+# Stickiness of dedent after pipeline (trailing comment)
+data |>
+	fn()
+"<>" # foo
+
+
+# ->
+data |>
+	fn()
+
+"<>"	# foo
+
 
 # ---
 # https://github.com/posit-dev/positron/issues/1316
@@ -65,6 +91,16 @@ data |>
 data |>
 	fn() |> 
 	"<>"
+
+# ---
+# With trailing comment
+data |>
+	fn() |> "<>" # foo
+
+# ->
+data |>
+	fn() |> 
+	"<>" # foo
 
 # ---
 data |>
