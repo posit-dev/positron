@@ -6,7 +6,7 @@ import 'vs/css!./PositronNotebookComponent';
 
 import * as React from 'react';
 import { useNotebookInstance } from 'vs/workbench/contrib/positronNotebook/browser/NotebookInstanceProvider';
-import { AddCellButtons } from './AddCellButtons';
+import { AddCellButtons, AddCodeCellButton, AddMarkdownCellButton } from './AddCellButtons';
 import { useObservedValue } from './useObservedValue';
 import { localize } from 'vs/nls';
 import { Button } from 'vs/base/browser/ui/positronComponents/button/button';
@@ -31,10 +31,14 @@ export function PositronNotebookComponent() {
 						{localize('runAllCells', 'Run all cells')}
 					</span>
 				</Button>
+				<div style={{ marginLeft: 'auto' }}></div>
+				<AddCodeCellButton notebookInstance={notebookInstance} index={0} />
+				<HeaderDivider />
+				<AddMarkdownCellButton notebookInstance={notebookInstance} index={0} />
+				<HeaderDivider />
 				<KernelStatusBadge />
 			</div>
 			<div className='positron-notebook-cells-container'>
-				<AddCellButtons index={0} />
 				{notebookCells?.length ? notebookCells?.map((cell, index) => <>
 					<NotebookCell key={cell.viewModel.handle} cell={cell} />
 					<AddCellButtons index={index + 1} />
@@ -45,4 +49,7 @@ export function PositronNotebookComponent() {
 	);
 }
 
+function HeaderDivider() {
+	return <div className='positron-notebook-header-divider' />;
+}
 

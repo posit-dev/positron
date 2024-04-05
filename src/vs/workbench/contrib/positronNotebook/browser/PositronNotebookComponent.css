@@ -7,9 +7,11 @@
 	--vscode-positronNotebook-foreground: var(
 		--vscode-positronDataExplorer-foreground
 	);
-
 	--vscode-positronNotebook-header-border: var(
 		--vscode-positronDataExplorer-border
+	);
+	--vscode-positronNotebook-deemphasized-foreground: var(
+		--vscode-list-deemphasizedForeground
 	);
 	--vscode-positronNotebook-img-placeholder-background: var(
 		--vscode-positronVariables-activeSelectionBackground
@@ -25,7 +27,6 @@
 		--vscode-positronModalDialog-checkboxBorder,
 		grey
 	);
-
 	--vscode-positronNotebook-output-background: var(
 		--vscode-notebook-outputContainerBackgroundColor,
 		white
@@ -72,16 +73,30 @@
 }
 
 .positron-notebook-header {
+	color: var(--vscode-positronNotebook-deemphasized-foreground);
 	height: var(--vscode-positronNotebook-header-h);
+	gap: calc(var(--vscode-positronNotebook-header-h) / 2);
+	padding-inline: calc(var(--vscode-positronNotebook-header-h) / 2);
 	display: flex;
 	justify-content: space-between;
-	gap: 1rem;
-	padding-inline: 1rem;
+	align-items: center;
 	border-bottom: 1px solid var(--vscode-positronNotebook-header-border);
+
+	.positron-notebook-header-divider {
+		height: calc(var(--vscode-positronNotebook-header-h) / 2);
+		width: 1px;
+		background-color: var(--vscode-positronNotebook-header-border);
+	}
+
+	button.action-button,
+	.codicon {
+		color: var(--vscode-positronNotebook-deemphasized-foreground);
+	}
 }
 
 .positron-notebook-cells-container {
-	padding: 1rem;
+	padding-block: 1.5rem;
+	padding-inline: 1rem;
 	display: flex;
 	flex-direction: column;
 	gap: 0.75rem;

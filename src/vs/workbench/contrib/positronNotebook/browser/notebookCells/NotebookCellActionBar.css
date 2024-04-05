@@ -14,6 +14,7 @@
 	background-color: var(--vscode-positronNotebook-action-bar-background);
 	display: flex;
 	gap: 0.25rem;
+	padding-inline: 0.25rem;
 
 	.action-button {
 		aspect-ratio: 1;
@@ -35,6 +36,10 @@
 			display: flex;
 			width: 16px;
 			aspect-ratio: 1;
+			color: var(--vscode-positronNotebook-deemphasized-foreground);
+		}
+		button {
+			color: var(--vscode-positronNotebook-deemphasized-foreground);
 		}
 
 		.button-icon::before {

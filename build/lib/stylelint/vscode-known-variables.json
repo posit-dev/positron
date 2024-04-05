@@ -658,6 +658,7 @@
 		"--vscode-positronNotebook-action-bar-inset",
 		"--vscode-positronNotebook-text-output-font",
 		"--vscode-positronNotebook-border",
+		"--vscode-positronNotebook-deemphasized-foreground",
 		"--vscode-problemsErrorIcon-foreground",
 		"--vscode-problemsInfoIcon-foreground",
 		"--vscode-problemsWarningIcon-foreground",
