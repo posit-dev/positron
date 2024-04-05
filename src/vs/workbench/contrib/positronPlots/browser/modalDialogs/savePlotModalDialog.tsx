@@ -37,7 +37,7 @@ const BASE_DPI = 100; // matplotlib default DPI
  * @param savePlotCallback the action to take when the dialog closes
  * @param suggestedPath the pre-filled save path
  */
-export const showSavePlotModalDialog = async (
+export const showSavePlotModalDialog = (
 	layoutService: IWorkbenchLayoutService,
 	keybindingService: IKeybindingService,
 	fileDialogService: IFileDialogService,
