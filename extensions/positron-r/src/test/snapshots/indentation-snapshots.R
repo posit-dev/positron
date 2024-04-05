@@ -30,7 +30,7 @@ data |>
 # ->
 data |>
 	fn()
-	"<>"
+"<>"
 
 # ---
 # https://github.com/posit-dev/positron/issues/1727
