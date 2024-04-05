@@ -35,8 +35,12 @@ export const ProjectTypeStep = (props: PropsWithChildren<NewProjectWizardStepPro
 		const projectType = selectedProjectType ?? NewProjectType.PythonProject;
 		// If the project type has changed or the project name is empty, initialize the project name.
 		if (projectConfig.projectType !== projectType || projectConfig.projectName === '') {
-			// The default project name is 'my' + projectType without spaces.
-			const defaultProjectName = 'my' + projectType.replace(/\s/g, '');
+			// The default project name is 'my' + projectType without spaces, eg. 'myPythonProject'.
+			const defaultProjectName =
+				localize(
+					"positron.newProjectWizard.projectTypeStep.defaultProjectNamePrefix",
+					"my"
+				) + projectType.replace(/\s/g, '');
 			setProjectConfig({
 				...projectConfig,
 				projectType,
