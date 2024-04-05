@@ -178,7 +178,7 @@ export function getInheritIndentForLine(
 				const richEditSupport = languageConfigurationService.getLanguageConfiguration(model.tokenization.getLanguageId());
 				if (richEditSupport) {
 					const previousLineText = precedingUnIgnoredLine < 1 ? '' : model.getLineContent(precedingUnIgnoredLine - 1);
-					const afterEnterText = model.getLineContent(lineNumber);
+					const afterEnterText = '';
 					const enterResult = richEditSupport.onEnter(autoIndent, previousLineText, precedingUnIgnoredLineContent, afterEnterText);
 					if (enterResult) {
 						if (enterResult.indentAction === IndentAction.Outdent) {
