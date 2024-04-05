@@ -20,9 +20,15 @@ export function registerCommands(context: vscode.ExtensionContext, notebookSessi
 		}
 
 		// Restart the session with a progress bar.
-		await vscode.window.withProgress({
-			location: vscode.ProgressLocation.Notification,
-			title: vscode.l10n.t("Restarting {0} interpreter for '{1}'", session.runtimeMetadata.languageName, notebook.uri.path),
-		}, () => notebookSessionService.restartRuntimeSession(notebook.uri));
+		try {
+			await vscode.window.withProgress({
+				location: vscode.ProgressLocation.Notification,
+				title: vscode.l10n.t("Restarting {0} interpreter for '{1}'", session.runtimeMetadata.languageName, notebook.uri.path),
+			}, () => notebookSessionService.restartRuntimeSession(notebook.uri));
+		} catch (error) {
+			vscode.window.showErrorMessage(
+				vscode.l10n.t("Restarting {0} interpreter for '{1}' failed. Reason: {2}",
+					session.runtimeMetadata.languageName, notebook.uri.path, error.message));
+		}
 	}));
 }
