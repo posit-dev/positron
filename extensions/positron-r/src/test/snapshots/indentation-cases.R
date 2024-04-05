@@ -9,14 +9,40 @@
 # process them separately to prevent interferences between test cases.
 
 # ---
+# Starting a pipeline (+ operator)
 1 +"<>"
 
 # ---
+# Starting a pipeline (pipe operator)
+data |>"<>"
+
+# ---
+# Continuing a pipeline
 1 +
 	2 +"<>"
 
 # ---
-data |>"<>"
+# Continuing a one-liner pipeline
+# https://github.com/posit-dev/positron/issues/1316
+data |>
+	fn() |>"<>"
+
+# ---
+# Continuing a one-liner pipeline (trailing whitespace)
+# https://github.com/posit-dev/positron/pull/1655#issuecomment-1780093395
+data |>
+	fn() |> "<>"
+
+# ---
+# Continuing a one-liner pipeline (trailing comment)
+data |>
+	fn() |> "<>" # foo
+
+# ---
+# Continuing a one-liner pipeline (longer pipeline)
+data |>
+	fn1() |>
+	fn2() |>"<>"
 
 # ---
 # Dedent after pipeline
@@ -29,6 +55,15 @@ data |>
 	fn()"<>" # foo
 
 # ---
+# Dedent after pipeline (multiple lines)
+# FIXME
+data |>
+	fn1() |>
+	fn2(
+		"arg"
+	)"<>"
+
+# ---
 # Stickiness of dedent after pipeline
 # https://github.com/posit-dev/positron/issues/1727
 # FIXME
@@ -38,53 +73,20 @@ data |>
 
 # ---
 # Stickiness of dedent after pipeline (trailing comment)
+# FIXME
 data |>
 	fn()
 "<>" # foo
 
-
 # ---
-# https://github.com/posit-dev/positron/issues/1316
-data |>
-	fn() |>"<>"
-
-# ---
-# With trailing whitespace
-# https://github.com/posit-dev/positron/pull/1655#issuecomment-1780093395
-data |>
-	fn() |> "<>"
-
-# ---
-# With trailing comment
-data |>
-	fn() |> "<>" # foo
-
-# ---
-data |>
-	fn1() |>
-	fn2() |>"<>"
-
-# ---
-# FIXME
-data |>
-	fn1() |>
-	fn2(
-		"arg"
-	)"<>"
-
-# ---
-# https://github.com/posit-dev/positron-beta/discussions/46
-# FIXME
-data |>
-	fn("<>")
-
-# ---
+# Indent after function in call
 # FIXME
 {
 	fn(function() {}"<>")
 }
 
 # ---
+# Indent after function in call (multiple lines)
 # FIXME
 {
 	fn(function() {
@@ -93,9 +95,11 @@ data |>
 }
 
 # ---
+# Indent after finished loop (literal)
 for (i in NA) NULL"<>"
 
 # ---
+# Indent after finished loop (call)
 # https://github.com/posit-dev/positron/issues/1880
 # FIXME
 for (i in 1) fn()"<>"
@@ -108,6 +112,7 @@ foo("<>") +
 # ---
 # Breaking parentheses in a pipeline
 # https://github.com/posit-dev/positron/issues/2650
+# https://github.com/posit-dev/positron-beta/discussions/46
 foo() +
 	bar("<>")
 
