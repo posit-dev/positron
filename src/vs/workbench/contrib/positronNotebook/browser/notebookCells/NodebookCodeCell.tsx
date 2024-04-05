@@ -7,12 +7,13 @@ import { VSBuffer } from 'vs/base/common/buffer';
 import { NotebookCellOutputTextModel } from 'vs/workbench/contrib/notebook/common/model/notebookCellOutputTextModel';
 import { ICellOutput } from 'vs/workbench/contrib/notebook/common/notebookCommon';
 import { IPositronNotebookCodeCell } from 'vs/workbench/contrib/positronNotebook/browser/notebookCells/interfaces';
-import { parseOutputData } from 'vs/workbench/contrib/positronNotebook/browser/getOutputContents';
+import { isParsedTextOutput, parseOutputData } from 'vs/workbench/contrib/positronNotebook/browser/getOutputContents';
 import { useObservedValue } from 'vs/workbench/contrib/positronNotebook/browser/useObservedValue';
 import { CellEditorMonacoWidget } from './CellEditorMonacoWidget';
 import { localize } from 'vs/nls';
 import { Button } from 'vs/base/browser/ui/positronComponents/button/button';
 import { NotebookCellActionBar } from 'vs/workbench/contrib/positronNotebook/browser/notebookCells/NotebookCellActionBar';
+import { CellTextOutput } from './CellTextOutput';
 
 
 export function NodebookCodeCell({ cell }: { cell: IPositronNotebookCodeCell }) {
@@ -54,25 +55,21 @@ function NotebookCellOutput({ cellOutput }: { cellOutput: ICellOutput }) {
 	return <div>
 		{localize('cellExecutionUnknownOutputType', 'Can not handle output type: OutputId: {0}', cellOutput.outputId)}
 	</div>;
-
-
 }
+
 function CellOutputContents(output: { data: VSBuffer; mime: string }) {
 
 	const parsed = parseOutputData(output);
 
+	if (isParsedTextOutput(parsed)) {
+		return <CellTextOutput {...parsed} />;
+	}
+
 	switch (parsed.type) {
-		case 'stdout':
-			return <div className='notebook-stdout'>{parsed.content}</div>;
-		case 'error':
-		case 'stderr':
-			return <div className='notebook-stderr'>{parsed.content}</div>;
 		case 'interupt':
 			return <div className='notebook-error'>
 				{localize('cellExecutionKeyboardInterupt', 'Cell execution stopped due to keyboard interupt.')}
 			</div>;
-		case 'text':
-			return <div className='notebook-text'>{parsed.content}</div>;
 		case 'image':
 			return <img src={parsed.dataUrl} alt='output image' />;
 		case 'unknown':

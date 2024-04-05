@@ -5,11 +5,11 @@
 import { generateUuid } from 'vs/base/common/uuid';
 import {
 	CompareFilterParamsOp,
-	SearchFilterParamsType,
+	SearchFilterType,
 	ColumnSchema,
 	ColumnProfileResult,
 	RowFilter,
-	RowFilterFilterType,
+	RowFilterType,
 	TableData,
 	TableSchema
 } from 'vs/workbench/services/languageRuntime/common/positronDataExplorerComm';
@@ -119,7 +119,7 @@ export function getExampleFreqtable(): ColumnProfileResult {
 
 // For filtering
 
-function _getFilterWithProps(columnIndex: number, filterType: RowFilterFilterType,
+function _getFilterWithProps(columnIndex: number, filterType: RowFilterType,
 	props: Partial<RowFilter> = {}): RowFilter {
 	return {
 		filter_id: generateUuid(),
@@ -131,27 +131,27 @@ function _getFilterWithProps(columnIndex: number, filterType: RowFilterFilterTyp
 
 export function getCompareFilter(columnIndex: number, op: CompareFilterParamsOp,
 	value: string) {
-	return _getFilterWithProps(columnIndex, RowFilterFilterType.Compare,
+	return _getFilterWithProps(columnIndex, RowFilterType.Compare,
 		{ compare_params: { op, value } });
 }
 
 export function getIsNullFilter(columnIndex: number) {
-	return _getFilterWithProps(columnIndex, RowFilterFilterType.IsNull);
+	return _getFilterWithProps(columnIndex, RowFilterType.IsNull);
 }
 
 export function getNotNullFilter(columnIndex: number) {
-	return _getFilterWithProps(columnIndex, RowFilterFilterType.NotNull);
+	return _getFilterWithProps(columnIndex, RowFilterType.NotNull);
 }
 
 export function getSetMemberFilter(columnIndex: number, values: string[], inclusive: boolean) {
-	return _getFilterWithProps(columnIndex, RowFilterFilterType.SetMembership, {
+	return _getFilterWithProps(columnIndex, RowFilterType.SetMembership, {
 		set_membership_params: { values, inclusive }
 	});
 }
 
 export function getTextSearchFilter(columnIndex: number, searchTerm: string,
-	searchType: SearchFilterParamsType, caseSensitive: boolean) {
-	return _getFilterWithProps(columnIndex, RowFilterFilterType.Search, {
-		search_params: { term: searchTerm, type: searchType, case_sensitive: caseSensitive }
+	searchType: SearchFilterType, caseSensitive: boolean) {
+	return _getFilterWithProps(columnIndex, RowFilterType.Search, {
+		search_params: { term: searchTerm, search_type: searchType, case_sensitive: caseSensitive }
 	});
 }

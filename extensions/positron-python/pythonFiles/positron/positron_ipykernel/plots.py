@@ -2,14 +2,15 @@
 # Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
 #
 
+import base64
 import codecs
+import io
 import logging
 import pickle
 import uuid
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional
 
 import comm
-from IPython.core.formatters import format_display_data
 
 from .plot_comm import PlotBackendMessageContent, PlotResult, RenderRequest
 from .positron_comm import CommMessage, JsonRpcErrorCode, PositronComm
@@ -22,7 +23,7 @@ logger = logging.getLogger(__name__)
 # Matplotlib Default Figure Size
 DEFAULT_WIDTH_IN = 6.4
 DEFAULT_HEIGHT_IN = 4.8
-BASE_DPI = 96
+BASE_DPI = 100
 
 
 class PositronDisplayPublisherHook:
@@ -96,12 +97,10 @@ class PositronDisplayPublisherHook:
             pixel_ratio = request.params.pixel_ratio or 1.0
 
             if width_px != 0 and height_px != 0:
-                format_dict, md_dict = self._resize_pickled_figure(
-                    pickled, width_px, height_px, pixel_ratio
-                )
+                format_dict = self._resize_pickled_figure(pickled, width_px, height_px, pixel_ratio)
                 data = format_dict["image/png"]
                 output = PlotResult(data=data, mime_type="image/png").dict()
-                figure_comm.send_result(data=output, metadata=md_dict)
+                figure_comm.send_result(data=output, metadata={"mime_type": "image/png"})
 
         else:
             logger.warning(f"Unhandled request: {request}")
@@ -157,7 +156,7 @@ class PositronDisplayPublisherHook:
         new_height_px: int = 460,
         pixel_ratio: float = 1.0,
         formats: list = ["image/png"],
-    ) -> Tuple[dict, dict]:
+    ) -> dict:
         # Delay importing matplotlib until the kernel and shell has been
         # initialized otherwise the graphics backend will be reset to the gui
         import matplotlib.pyplot as plt
@@ -168,11 +167,13 @@ class PositronDisplayPublisherHook:
         plt.ioff()
 
         figure = pickle.loads(codecs.decode(pickled.encode(), "base64"))
+        figure_buffer = io.BytesIO()
 
         # Adjust the DPI based on pixel_ratio to accommodate high
         # resolution displays...
         dpi = BASE_DPI * pixel_ratio
         figure.set_dpi(dpi)
+        figure.set_layout_engine("tight")  # eliminates whitespace around the figure
 
         # ... but use base DPI to convert to inch based dimensions.
         width_in, height_in = figure.get_size_inches()
@@ -197,14 +198,19 @@ class PositronDisplayPublisherHook:
 
         figure.set_size_inches(width_in, height_in)
 
-        format_dict, md_dict = format_display_data(figure, include=formats, exclude=[])  # type: ignore
+        # Render the figure to a buffer
+        # using format_display_data() crops the figure to smaller than requested size
+        figure.savefig(figure_buffer, format="png")
+        figure_buffer.seek(0)
+        image_data = base64.b64encode(figure_buffer.read()).decode()
+
+        format_dict = {"image/png": image_data}
 
         plt.close(figure)
 
         if was_interactive:
             plt.ion()
-
-        return (format_dict, md_dict)
+        return format_dict
 
     def _is_figure_empty(self, figure):
         children = figure.get_children()

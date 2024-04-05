@@ -1444,6 +1444,14 @@ export const POSITRON_MODAL_DIALOG_FOREGROUND = registerColor('positronModalDial
 	hcLight: foreground
 }, localize('positronModalDialog.foreground', "Positron modal dialog foreground color."));
 
+// Positron modal dialog contrast background color.
+export const POSITRON_MODAL_DIALOG_CONTRAST_BACKGROUND = registerColor('positronModalDialog.contrastBackground', {
+	dark: lighten(POSITRON_MODAL_DIALOG_BACKGROUND, 0.2),
+	light: darken(POSITRON_MODAL_DIALOG_BACKGROUND, 0.2),
+	hcDark: '#3a3d41',
+	hcLight: darken(POSITRON_MODAL_DIALOG_BACKGROUND, 0.2)
+}, localize('positronModalDialog.contrastBackground', "Positron modal dialog contrast background color."));
+
 // Positron modal dialog border color.
 export const POSITRON_MODAL_DIALOG_BORDER = registerColor('positronModalDialog.border', {
 	dark: selectBorder,
@@ -1604,7 +1612,7 @@ export const POSITRON_MODAL_DIALOG_CHECKBOX_BORDER = registerColor('positronModa
 	hcLight: checkboxBorder
 }, localize('positronModalDialog.checkboxBorder', "Positron modal dialog checkbox border."));
 
-// < --- Positron Drop Down --- > shit
+// < --- Positron Drop Down --- >
 
 // Positron drop down border color.
 export const POSITRON_DROP_DOWN_BORDER = registerColor('positronDropDownListBox.border', {
@@ -1957,6 +1965,32 @@ export const POSITRON_DATA_EXPLORER_BORDER_COLOR = registerColor('positronDataEx
 	hcDark: tableColumnsBorder,
 	hcLight: tableColumnsBorder
 }, localize('positronDataExplorer.border', "Positron data explorer border color."));
+
+// < --- Positron Data Explorer Graph --- >
+
+// Positron data explorer missing values graph background fill color.
+export const POSITRON_DATA_EXPLORER_MISSING_VALUES_GRAPH_BACKGROUND_FILL_COLOR = registerColor('positronDataExplorer.columnNullPercentGraphBackgroundFill', {
+	dark: '#ea3d3d',
+	light: '#ea3d3d',
+	hcDark: '#ea3d3d',
+	hcLight: '#ea3d3d',
+}, localize('positronDataExplorer.columnNullPercentGraphBackgroundFill', "Positron data explorer missing values graph background fill color."));
+
+// Positron data explorer missing values graph background stroke color.
+export const POSITRON_DATA_EXPLORER_MISSING_VALUES_GRAPH_BACKGROUND_STROKE_COLOR = registerColor('positronDataExplorer.columnNullPercentGraphBackgroundStroke', {
+	dark: '#7e94a5',
+	light: '#7e94a5',
+	hcDark: '#7e94a5',
+	hcLight: '#7e94a5',
+}, localize('positronDataExplorer.columnNullPercentGraphBackgroundStroke', "Positron data explorer missing values graph background stroke color."));
+
+// Positron data explorer missing values graph indicator fill color.
+export const POSITRON_DATA_EXPLORER_MISSING_VALUES_GRAPH_INDICATOR_FILL_COLOR = registerColor('positronDataExplorer.columnNullPercentGraphIndicatorFill', {
+	dark: '#e5edf3',
+	light: '#e5edf3',
+	hcDark: '#e5edf3',
+	hcLight: '#e5edf3',
+}, localize('positronDataExplorer.columnNullPercentGraphIndicatorFill', "Positron data explorer missing values graph indicator fill color."));
 
 // < --- Positron Variables --- >
 
