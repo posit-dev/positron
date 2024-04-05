@@ -50,7 +50,9 @@ export class NotebookSessionService {
 	 * @returns True if a starting or running notebook session exists for the given notebook URI.
 	 */
 	hasStartingOrRunningNotebookSession(notebookUri: Uri): boolean {
-		return this._startingSessionsByNotebookUri.has(notebookUri) || this._notebookSessionsByNotebookUri.has(notebookUri);
+		return this._startingSessionsByNotebookUri.has(notebookUri) ||
+			this._restartingSessionsByNotebookUri.has(notebookUri) ||
+			this._notebookSessionsByNotebookUri.has(notebookUri);
 	}
 
 	/**
@@ -100,8 +102,9 @@ export class NotebookSessionService {
 	 * @returns Promise that resolves when the runtime startup sequence has been started.
 	 */
 	async startRuntimeSession(notebookUri: Uri, languageId: string): Promise<positron.LanguageRuntimeSession> {
-		// Return the existing promise, if there is one.
-		const startingSessionPromise = this._startingSessionsByNotebookUri.get(notebookUri);
+		// Return the existing start promise, if there is one.
+		const startingSessionPromise = this._startingSessionsByNotebookUri.get(notebookUri) ||
+			this._restartingSessionsByNotebookUri.get(notebookUri);
 		if (startingSessionPromise && !startingSessionPromise.isSettled) {
 			return startingSessionPromise.p;
 		}
@@ -110,15 +113,6 @@ export class NotebookSessionService {
 		// caller tries to start a runtime or access the start promise concurrently.
 		const startPromise = new DeferredPromise<positron.LanguageRuntimeSession>();
 		this._startingSessionsByNotebookUri.set(notebookUri, startPromise);
-
-		// Helper function to complete the promise and update the session maps.
-		const complete = (session: positron.LanguageRuntimeSession) => {
-			this._notebookSessionsByNotebookUri.set(notebookUri, session);
-			this._startingSessionsByNotebookUri.delete(notebookUri);
-			setHasRunningNotebookSessionContext(true);
-			startPromise.complete(session);
-			return session;
-		};
 
 		// Helper function to error the promise and update the session maps.
 		const error = (err: Error) => {
@@ -136,20 +130,6 @@ export class NotebookSessionService {
 				log.error(`Waiting for notebook runtime to shutdown before starting failed. Reason ${err}`);
 				throw error(err);
 			}
-		}
-
-		// If the notebook's session is still restarting, wait for it to finish.
-		const restartingSessionPromise = this._restartingSessionsByNotebookUri.get(notebookUri);
-		if (restartingSessionPromise && !restartingSessionPromise.isSettled) {
-			let session: positron.LanguageRuntimeSession;
-			try {
-				session = await restartingSessionPromise.p;
-			} catch (err) {
-				log.error(`Waiting for notebook runtime to restart before starting failed. Reason ${err}`);
-				throw error(err);
-			}
-			// No need to start a new session if we just restarted, exit early.
-			return complete(session);
 		}
 
 		// Ensure that we don't start a runtime for a notebook that already has one.
@@ -207,7 +187,12 @@ export class NotebookSessionService {
 
 		log.info(`Session ${session.metadata.sessionId} is ready`);
 
-		return complete(session);
+		this._notebookSessionsByNotebookUri.set(notebookUri, session);
+		this._startingSessionsByNotebookUri.delete(notebookUri);
+		setHasRunningNotebookSessionContext(true);
+		startPromise.complete(session);
+
+		return session;
 	}
 
 	/**
@@ -235,30 +220,22 @@ export class NotebookSessionService {
 			return err;
 		};
 
-		// If the notebook's session that is still shutting down, wait for it to finish.
-		const startingSessionPromise = this._startingSessionsByNotebookUri.get(notebookUri);
-		if (startingSessionPromise && !startingSessionPromise.isSettled) {
-			try {
-				await startingSessionPromise.p;
-			} catch (err) {
-				log.error(`Waiting for notebook runtime to start before shutting down failed. Reason ${err}`);
-				throw error(err);
-			}
-		}
-
-		// If the notebook's session that is still restarting, wait for it to finish.
-		const restartingSessionPromise = this._restartingSessionsByNotebookUri.get(notebookUri);
-		if (restartingSessionPromise && !restartingSessionPromise.isSettled) {
-			try {
-				await restartingSessionPromise.p;
-			} catch (err) {
-				log.error(`Waiting for notebook runtime to restart before shutting down failed. Reason ${err}`);
-				throw error(err);
-			}
-		}
-
 		// Get the notebook's session.
-		const session = this._notebookSessionsByNotebookUri.get(notebookUri);
+		let session = this._notebookSessionsByNotebookUri.get(notebookUri);
+
+		if (!session) {
+			// If the notebook's session that is still starting, wait for it to finish.
+			const startingSessionPromise = this._startingSessionsByNotebookUri.get(notebookUri) ||
+				this._restartingSessionsByNotebookUri.get(notebookUri);
+			if (startingSessionPromise && !startingSessionPromise.isSettled) {
+				try {
+					session = await startingSessionPromise.p;
+				} catch (err) {
+					log.error(`Waiting for notebook runtime to start before shutting down failed. Reason ${err}`);
+					throw error(err);
+				}
+			}
+		}
 
 		// Ensure that we have a session.
 		if (!session) {
@@ -300,32 +277,21 @@ export class NotebookSessionService {
 		this._shuttingDownSessionsByNotebookUri.delete(notebookUri);
 		this._executionOrderBySessionId.delete(session.metadata.sessionId);
 		shutDownPromise.complete();
-
-		return shutDownPromise.p;
 	}
 
 	async restartRuntimeSession(notebookUri: Uri): Promise<positron.LanguageRuntimeSession> {
-		// Return the existing promise, if there is one.
-		const restartingSessionPromise = this._restartingSessionsByNotebookUri.get(notebookUri);
-		if (restartingSessionPromise && !restartingSessionPromise.isSettled) {
-			return restartingSessionPromise.p;
+		// Return the existing start, if there is one.
+		const startingSessionPromise = this._startingSessionsByNotebookUri.get(notebookUri) ||
+			this._restartingSessionsByNotebookUri.get(notebookUri);
+		if (startingSessionPromise && !startingSessionPromise.isSettled) {
+			return startingSessionPromise.p;
 		}
 
 		// Set the promise. This needs to be set before any awaits in case another
-		// another caller tries to shutdown a runtime or access the shutdown promise concurrently.
+		// another caller tries to restart a runtime or access the restart promise concurrently.
 		const restartPromise = new DeferredPromise<positron.LanguageRuntimeSession>();
 		this._restartingSessionsByNotebookUri.set(notebookUri, restartPromise);
 		setHasRunningNotebookSessionContext(false);
-
-		// Helper function to complete the promise and update the session maps.
-		const complete = (session: positron.LanguageRuntimeSession) => {
-			this._notebookSessionsByNotebookUri.set(notebookUri, session);
-			this._restartingSessionsByNotebookUri.delete(notebookUri);
-			this._executionOrderBySessionId.delete(session.metadata.sessionId);
-			setHasRunningNotebookSessionContext(true);
-			restartPromise.complete(session);
-			return session;
-		};
 
 		// Helper function to error the promise and update the session maps.
 		const error = (err: Error) => {
@@ -334,21 +300,17 @@ export class NotebookSessionService {
 			return err;
 		};
 
-		// If the notebook's session that is still shutting down, wait for it to finish.
-		const startingSessionPromise = this._startingSessionsByNotebookUri.get(notebookUri);
-		if (startingSessionPromise && !startingSessionPromise.isSettled) {
-			let session: positron.LanguageRuntimeSession;
-			try {
-				session = await startingSessionPromise.p;
-			} catch (err) {
-				log.error(`Waiting for notebook runtime to restart before starting failed. Reason ${err}`);
-				throw error(err);
-			}
-			// No need to restart the session if we just started, exit early.
-			return complete(session);
+		// Get the notebook's session.
+		const session = this._notebookSessionsByNotebookUri.get(notebookUri);
+		if (!session) {
+			throw error(new Error(`Tried to restart runtime for notebook without a running runtime: ${notebookUri.path}`));
 		}
 
-		// If the notebook's session that is still shutting down, wait for it to finish.
+		// Remove the session from the map of active notebooks in case it's accessed while we're
+		// restarting.
+		this._notebookSessionsByNotebookUri.delete(notebookUri);
+
+		// If the notebook's session is still shutting down, wait for it to finish.
 		const shuttingDownSessionPromise = this._shuttingDownSessionsByNotebookUri.get(notebookUri);
 		if (shuttingDownSessionPromise && !shuttingDownSessionPromise.isSettled) {
 			try {
@@ -357,12 +319,6 @@ export class NotebookSessionService {
 				log.error(`Waiting for notebook runtime to shutdown before starting failed. Reason ${err}`);
 				throw error(err);
 			}
-		}
-
-		// Get the notebook's session.
-		const session = this._notebookSessionsByNotebookUri.get(notebookUri);
-		if (!session) {
-			throw error(new Error(`Tried to restart runtime for notebook without a running runtime: ${notebookUri.path}`));
 		}
 
 		// Start the restart sequence.
@@ -392,8 +348,13 @@ export class NotebookSessionService {
 			throw error(err);
 		}
 
+		this._notebookSessionsByNotebookUri.set(notebookUri, session);
+		this._restartingSessionsByNotebookUri.delete(notebookUri);
+		this._executionOrderBySessionId.delete(session.metadata.sessionId);
+		setHasRunningNotebookSessionContext(true);
+		restartPromise.complete(session);
 		log.info(`Session ${session.metadata.sessionId} is restarted`);
 
-		return complete(session);
+		return session;
 	}
 }
