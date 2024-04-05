@@ -595,6 +595,9 @@ export class AutoIndentOnPaste implements IEditorContribution {
 					} else {
 						return model.getLineContent(lineNumber);
 					}
+				},
+				getLineCount: function (): number {
+					return Math.min(model.getLineCount(), range.endLineNumber);
 				}
 			};
 			const indentOfSecondLine = getGoodIndentForLine(autoIndent, virtualModel, model.getLanguageId(), startLineNumber + 1, indentConverter, this._languageConfigurationService);

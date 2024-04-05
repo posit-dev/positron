@@ -20,6 +20,7 @@ export interface IVirtualModel {
 		getLanguageIdAtPosition(lineNumber: number, column: number): string;
 	};
 	getLineContent(lineNumber: number): string;
+	getLineCount(): number;
 }
 
 export interface IIndentConverter {
@@ -178,7 +179,7 @@ export function getInheritIndentForLine(
 				const richEditSupport = languageConfigurationService.getLanguageConfiguration(model.tokenization.getLanguageId());
 				if (richEditSupport) {
 					const previousLineText = precedingUnIgnoredLine < 1 ? '' : model.getLineContent(precedingUnIgnoredLine - 1);
-					const afterEnterText = model.getLineContent(lineNumber);
+					const afterEnterText = lineNumber > model.getLineCount() ? '' : model.getLineContent(lineNumber);
 					const enterResult = richEditSupport.onEnter(autoIndent, previousLineText, precedingUnIgnoredLineContent, afterEnterText);
 					if (enterResult) {
 						if (enterResult.indentAction === IndentAction.Outdent) {
@@ -387,6 +388,9 @@ export function getIndentForEnter(
 			} else {
 				return model.getLineContent(lineNumber);
 			}
+		},
+		getLineCount: function (): number {
+			return Math.min(model.getLineCount(), range.endLineNumber);
 		}
 	};
 
