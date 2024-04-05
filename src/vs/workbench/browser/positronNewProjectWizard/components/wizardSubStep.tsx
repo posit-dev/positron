@@ -11,8 +11,11 @@ import { PropsWithChildren } from 'react';  // eslint-disable-line no-duplicate-
  */
 export interface PositronWizardSubStepProps {
 	title?: string;
+	titleId?: string;
 	description?: string;
+	descriptionId?: string;
 	feedback?: string;
+	feedbackId?: string;
 }
 
 /**
@@ -29,12 +32,12 @@ export const PositronWizardSubStep = (props: PropsWithChildren<PositronWizardSub
 	return (
 		<div className='wizard-sub-step'>
 			{props.title ?
-				<div className='wizard-sub-step-title'>
+				<div className='wizard-sub-step-title' id={props.titleId}>
 					{props.title}
 				</div> : null
 			}
 			{props.description ?
-				<div className='wizard-sub-step-description'>
+				<div className='wizard-sub-step-description' id={props.descriptionId}>
 					{props.description}
 				</div> : null
 			}
@@ -42,7 +45,7 @@ export const PositronWizardSubStep = (props: PropsWithChildren<PositronWizardSub
 				{props.children}
 			</div>
 			{props.feedback ?
-				<div className='wizard-sub-step-feedback'>
+				<div className='wizard-sub-step-feedback' id={props.feedbackId}>
 					{props.feedback}
 				</div> : null
 			}

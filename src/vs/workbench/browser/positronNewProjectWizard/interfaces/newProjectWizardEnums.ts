@@ -14,3 +14,13 @@ export enum NewProjectWizardStep {
 	ProjectNameLocation = 'projectNameLocation',
 	PythonEnvironment = 'pythonEnvironment',
 }
+
+/**
+ * The EnvironmentSetupType enum includes the types of environment setup options.
+ * - NewEnvironment: Create a new environment.
+ * - ExistingEnvironment: Use an existing environment.
+ */
+export enum EnvironmentSetupType {
+	NewEnvironment = 'newEnvironment',
+	ExistingEnvironment = 'existingEnvironment'
+}

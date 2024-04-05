@@ -1612,6 +1612,32 @@ export const POSITRON_MODAL_DIALOG_CHECKBOX_BORDER = registerColor('positronModa
 	hcLight: checkboxBorder
 }, localize('positronModalDialog.checkboxBorder', "Positron modal dialog checkbox border."));
 
+// < --- Positron Modal Dialog Radio Button --- >
+
+// Positron modal dialog radio button background color.
+export const POSITRON_MODAL_DIALOG_RADIO_BUTTON_BACKGROUND = registerColor('positronModalDialog.radioButtonBackground', {
+	dark: buttonSecondaryBackground,
+	light: editorBackground,
+	hcDark: editorBackground,
+	hcLight: editorBackground
+}, localize('positronModalDialog.radioButtonBackground', "Positron modal dialog radio button background color."));
+
+// Positron modal dialog radio button foreground color.
+export const POSITRON_MODAL_DIALOG_RADIO_BUTTON_FOREGROUND = registerColor('positronModalDialog.radioButtonForeground', {
+	dark: foreground,
+	light: foreground,
+	hcDark: foreground,
+	hcLight: foreground
+}, localize('positronRadioButton.radioButtonForeground', "Positron modal dialog radio button foreground color."));
+
+// Positron modal dialog radio button border color.
+export const POSITRON_MODAL_DIALOG_RADIO_BUTTON_BORDER = registerColor('positronModalDialog.radioButtonBorder', {
+	dark: selectBorder,
+	light: selectBorder,
+	hcDark: selectBorder,
+	hcLight: selectBorder
+}, localize('positronModalDialog.radioButtonBorder', "Positron modal dialog radio button border color."));
+
 // < --- Positron Drop Down --- >
 
 // Positron drop down border color.
