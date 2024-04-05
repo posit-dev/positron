@@ -388,19 +388,8 @@ function spawnAsync(command, args, env, rejectOnStdErr = false) {
 }
 
 gulp.task('minSupportedPythonRequirements', async (done) => {
-    const pipArgs = [
-        '-m',
-        'pip',
-        'install',
-        '--no-deps',
-        '-r',
-        './pythonFiles/positron/min-supported.txt',
-    ];
-    const pytestArgs = [
-        '-m',
-        'pytest',
-        'pythonFiles/positron'
-    ]
+    const pipArgs = ['-m', 'pip', 'install', '--no-deps', '-r', './pythonFiles/positron/min-supported.txt'];
+    const pytestArgs = ['-m', 'pytest', 'pythonFiles/positron'];
     // install requirements
     await spawnAsync(pythonCommand, pipArgs)
         .then(() => true)
