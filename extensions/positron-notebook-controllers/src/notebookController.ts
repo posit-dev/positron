@@ -99,14 +99,6 @@ export class NotebookController implements vscode.Disposable {
 		}
 	}
 
-	public async restartRuntimeSession(notebook: vscode.NotebookDocument): Promise<void> {
-		const session = this._notebookSessionService.getNotebookSession(notebook.uri);
-		if (!session) {
-			throw new Error(`No session to restart for notebook '${notebook.uri.path}'`);
-		}
-		positron.runtime.restartSession(session.metadata.sessionId);
-	}
-
 	/**
 	 * Notebook controller execute handler.
 	 *
