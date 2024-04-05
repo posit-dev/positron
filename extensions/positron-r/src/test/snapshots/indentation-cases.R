@@ -80,3 +80,25 @@ for (i in NA) NULL"<>"
 # https://github.com/posit-dev/positron/issues/1880
 # FIXME
 for (i in 1) fn()"<>"
+
+# ---
+# Breaking parentheses
+foo("<>") +
+	bar()
+
+# ---
+# Breaking parentheses in a pipeline
+# https://github.com/posit-dev/positron/issues/2650
+foo() +
+	bar("<>")
+
+# ---
+# Breaking parentheses in a pipeline (comment in the way)
+foo() +
+	bar("<>") # foo
+
+# ---
+# Breaking parentheses in the middle of a pipeline
+foo() +
+	bar("<>") +
+	baz()
