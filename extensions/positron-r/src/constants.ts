@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2022 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2022-2024 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
 import * as path from 'path';
@@ -8,4 +8,5 @@ import * as path from 'path';
 export const EXTENSION_ROOT_DIR = path.join(__dirname, '..');
 
 // The minimum supported version of R
-export const MINIMUM_R_VERSION = '4.2.0';
+const packageJson = require('../package.json');
+export const MINIMUM_R_VERSION = packageJson.positron.minimumRVersion;
