@@ -185,31 +185,22 @@ jobs:
         include:
           - os: 'ubuntu-latest'
             python: '3.8'
-            time-elapsed: ''
+            older-versions: ''
           - os: 'macos-latest'
             python: '3.9'
-            time-elapsed: ''
+            older-versions: false
           - os: 'windows-latest'
             python: '3.10'
-            time-elapsed: ''
+            older-versions: false
           - os: 'ubuntu-latest'
             python: '3.11'
-            time-elapsed: ''
+            older-versions: false
           - os: 'ubuntu-latest'
             python: '3.12'
-            time-elapsed: ''
-          # - os: 'ubuntu-latest'
-          #   python: '3.10'
-          #   time-elapsed: '3 months'
-          # - os: 'ubuntu-latest'
-          #   python: '3.10'
-          #   time-elapsed: '6 months'
-          # - os: 'ubuntu-latest'
-          #   python: '3.10'
-          #   time-elapsed: '9 months'
-          # - os: 'ubuntu-latest'
-          #   python: '3.10'
-          #   time-elapsed: '1 year'
+            older-versions: false
+          - os: 'ubuntu-latest'
+            python: '3.8'
+            older-versions: true
 
     steps:
       - name: Checkout
@@ -227,17 +218,12 @@ jobs:
       - name: Install Positron IPyKernel test requirements
         run: python -m pip install --prefer-binary --upgrade -r pythonFiles/positron/pinned-test-requirements.txt
 
-      - name: Get date for older dependencies
-        if: ${{ matrix.time-elapsed != '' }}
-        run: |
-          echo "SNAPSHOT_DATE=$(date -d '-${{ matrix.time-elapsed }}' --iso-8601)" >> $GITHUB_ENV
-
-      - name: Get older PyPI snapshot
-        if: ${{ matrix.time-elapsed != '' }}
+      - name: Install minimum supported versions
+        if: ${{ matrix.older-versions }}
         run: |
           python -m pip config set global.index-url https://packagemanager.posit.co/pypi/${{ env.SNAPSHOT_DATE }}/simple
           python -m pip config set global.trusted-host packagemanager.posit.co
-          python -m pip install --prefer-binary --force-reinstall -r pythonFiles/positron/data-science-requirements.txt
+          python -m pip install --no-deps -r pythonFiles/positron/min-supported.txt
 
       - name: Run Positron IPyKernel unit tests
         run: pytest pythonFiles/positron
