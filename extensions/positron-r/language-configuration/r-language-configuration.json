@@ -60,7 +60,7 @@
 			"previousLineText": "^\\s*(?:#|$)",
 			"beforeText":		"^\\s*[^#]+[=\\+\\-\\*?/\\^><!&\\|~%\\$:@\\?]\\s*(?:#|$)",
 			"action":			{ "indent": "indent" }
-},
+		},
 
 		// A line ending with an operator, preceded by a line not ending with an operator.
 		{
@@ -73,6 +73,7 @@
 		{
 			"previousLineText": "^\\s*[^#]+[=\\+\\-\\*?/\\^><!&\\|~%\\$:@\\?]\\s*(?:#|$)",
 			"beforeText":		"^(?!.*[=\\+\\-\\*?/\\^><!&\\|~%\\$:@\\?]\\s*(?:#|$))[^#]+.*$",
+			"afterText":		"^\\s*(#|$)",
 			"action":			{ "indent": "outdent" }
 		},
 
