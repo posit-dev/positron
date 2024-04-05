@@ -60,7 +60,7 @@ data |>
 
 # ---
 # Continuing a one-liner pipeline (after a comment line)
-# FIXME (once we merge the sticky dedent PR)
+# FIXME
 data |>
 	fn1() |>
 	# foo
@@ -113,14 +113,12 @@ data |>
 # ---
 # Stickiness of dedent after pipeline
 # https://github.com/posit-dev/positron/issues/1727
-# FIXME
 data |>
 	fn()
 "<>"
 
 # ---
 # Stickiness of dedent after pipeline (trailing comment)
-# FIXME
 data |>
 	fn()
 "<>" # foo
