@@ -112,12 +112,14 @@ class PositronDisplayPublisherHook:
             width_px = request.params.width or 0
             height_px = request.params.height or 0
             pixel_ratio = request.params.pixel_ratio or 1.0
+            format = request.params.format or "png"
 
             if width_px != 0 and height_px != 0:
-                format_dict = self._resize_pickled_figure(pickled, width_px, height_px, pixel_ratio)
-                data = format_dict["image/png"]
-                output = PlotResult(data=data, mime_type="image/png").dict()
-                figure_comm.send_result(data=output, metadata={"mime_type": "image/png"})
+                format_dict = self._resize_pickled_figure(pickled, width_px, height_px, pixel_ratio, [format])
+                mime_type = f'image/{format}'
+                data = format_dict[mime_type]
+                output = PlotResult(data=data, mime_type=mime_type).dict()
+                figure_comm.send_result(data=output, metadata={"mime_type": mime_type})
 
         else:
             logger.warning(f"Unhandled request: {request}")
@@ -170,7 +172,7 @@ class PositronDisplayPublisherHook:
         new_width_px: int = 614,
         new_height_px: int = 460,
         pixel_ratio: float = 1.0,
-        formats: list = ["image/png"],
+        formats: list = ["png"],
     ) -> dict:
         # Delay importing matplotlib until the kernel and shell has been
         # initialized otherwise the graphics backend will be reset to the gui
@@ -215,11 +217,12 @@ class PositronDisplayPublisherHook:
 
         # Render the figure to a buffer
         # using format_display_data() crops the figure to smaller than requested size
-        figure.savefig(figure_buffer, format="png")
+        figure.savefig(figure_buffer, format=formats[0])
         figure_buffer.seek(0)
         image_data = base64.b64encode(figure_buffer.read()).decode()
+        key = f'image/{formats[0]}'
 
-        format_dict = {"image/png": image_data}
+        format_dict = {key: image_data}
 
         plt.close(figure)
 

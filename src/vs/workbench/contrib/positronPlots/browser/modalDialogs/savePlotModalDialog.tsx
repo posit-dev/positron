@@ -18,10 +18,16 @@ import { OKCancelActionBar } from 'vs/workbench/browser/positronComponents/posit
 import { PositronModalDialog } from 'vs/workbench/browser/positronComponents/positronModalDialog/positronModalDialog';
 import { IKeybindingService } from 'vs/platform/keybinding/common/keybinding';
 import { PositronModalReactRenderer } from 'vs/workbench/browser/positronModalReactRenderer/positronModalReactRenderer';
+import { FileFilter } from 'electron';
 
 export interface SavePlotOptions {
 	uri: string;
 	path: URI;
+}
+
+export enum PlotFormat {
+	PNG = 'PNG',
+	SVG = 'SVG',
 }
 
 const SAVE_PLOT_MODAL_DIALOG_WIDTH = 500;
@@ -58,6 +64,7 @@ export const showSavePlotModalDialog = (
 	renderer.render(
 		<SavePlotModalDialog
 			layoutService={layoutService}
+			keybindingService={keybindingService}
 			fileDialogService={fileDialogService}
 			renderer={renderer}
 			plotWidth={plotWidth}
@@ -71,6 +78,7 @@ export const showSavePlotModalDialog = (
 
 interface SavePlotModalDialogProps {
 	layoutService: IWorkbenchLayoutService;
+	keybindingService: IKeybindingService;
 	fileDialogService: IFileDialogService;
 	renderer: PositronModalReactRenderer;
 	plotWidth: number;
@@ -88,6 +96,11 @@ const SavePlotModalDialog = (props: SavePlotModalDialogProps) => {
 	const [uri, setUri] = React.useState('');
 	const [rendering, setRendering] = React.useState(false);
 	const inputRef = React.useRef<HTMLInputElement>(null);
+
+	const filterEntries: FileFilter[] = [];
+	for (const filter in PlotFormat) {
+		filterEntries.push({ extensions: [filter.toLowerCase()], name: filter });
+	}
 
 	React.useEffect(() => {
 		setUri(props.plotClient.lastRender?.uri ?? '');
@@ -124,13 +137,7 @@ const SavePlotModalDialog = (props: SavePlotModalDialogProps) => {
 	const browseHandler = async () => {
 		const uri = await props.fileDialogService.showSaveDialog({
 			title: localize('positron.savePlotModalDialog.title', "Save Plot"),
-			filters:
-				[
-					{
-						extensions: ['png'],
-						name: 'PNG',
-					},
-				],
+			filters: filterEntries,
 		});
 
 		if (uri?.fsPath.length) {
@@ -141,7 +148,9 @@ const SavePlotModalDialog = (props: SavePlotModalDialogProps) => {
 	const acceptHandler = async () => {
 		if (validateInput()) {
 			setRendering(true);
-			const plotResult = await generatePreview();
+			const extension = path.value.fsPath.split('.').pop()?.toLowerCase();
+			const format = extension === 'png' || extension === 'svg' ? extension : 'png';
+			const plotResult = await generatePreview(format);
 
 			if (plotResult) {
 				props.savePlotCallback({ uri: plotResult.uri, path: path.value });
@@ -162,15 +171,15 @@ const SavePlotModalDialog = (props: SavePlotModalDialogProps) => {
 		}
 		setRendering(true);
 		try {
-			const plotResult = await generatePreview();
+			const plotResult = await generatePreview('png');
 			setUri(plotResult.uri);
 		} finally {
 			setRendering(false);
 		}
 	};
 
-	const generatePreview = async (): Promise<IRenderedPlot> => {
-		return props.plotClient.preview(height.value, width.value, dpi.value / BASE_DPI);
+	const generatePreview = async (format: 'png' | 'svg'): Promise<IRenderedPlot> => {
+		return props.plotClient.preview(height.value, width.value, dpi.value / BASE_DPI, format);
 	};
 
 	const previewButton = () => {
