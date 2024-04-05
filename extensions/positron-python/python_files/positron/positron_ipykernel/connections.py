@@ -184,7 +184,6 @@ class ConnectionsService:
         raise ValueError(f"Unsupported connection type {type_name}")
 
     def _close_connection(self, comm_id: str):
-
         try:
             # calling disconnect can fail if the connection has already been closed or
             # if it's called from a different thread.
@@ -396,7 +395,6 @@ class SQLite3Connection(Connection):
         self.conn.close()
 
     def preview_object(self, path: List[ObjectSchema]):
-
         if pd_ is None:
             raise ModuleNotFoundError("Pandas is required for previewing SQLite tables.")
 
@@ -429,14 +427,12 @@ class SQLAlchemyConnection(Connection):
     """
 
     def __init__(self, conn):
-
         self.conn: sqlalchemy.Engine = conn
         self.display_name = f"SQLAlchemy ({conn.name})"
         self.host = conn.url
         self.type = "SQLAlchemy"
 
     def list_objects(self, path: List[ObjectSchema]):
-
         if sqlalchemy_ is None:
             raise ModuleNotFoundError(
                 "SQLAlchemy is required for listing objects in SQLAlchemy connections."
@@ -466,7 +462,6 @@ class SQLAlchemyConnection(Connection):
         raise ValueError(f"Path length must be at most 1, but got {len(path)}. Path: {path}")
 
     def list_fields(self, path: List[ObjectSchema]):
-
         if sqlalchemy_ is None:
             raise ModuleNotFoundError(
                 "SQLAlchemy is required for listing fields in SQLAlchemy connections."
@@ -492,7 +487,6 @@ class SQLAlchemyConnection(Connection):
         }
 
     def preview_object(self, path: List[ObjectSchema]):
-
         if sqlalchemy_ is None:
             raise ModuleNotFoundError(
                 "SQLAlchemy is required for previewing objects in SQLAlchemy connections."

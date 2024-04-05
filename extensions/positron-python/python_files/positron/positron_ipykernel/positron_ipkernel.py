@@ -2,7 +2,8 @@
 # Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
 #
 
-""" Positron extensions to the iPython Kernel."""
+"""Positron extensions to the iPython Kernel."""
+
 from __future__ import annotations
 
 import enum

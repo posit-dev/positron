@@ -20,7 +20,7 @@ docstring-to-markdown==0.13 \
     --hash=sha256:3025c428638ececae920d6d26054546a20335af3504a145327e657e7ad7ce1ce \
     --hash=sha256:aa487059d0883e70e54da25c7b230e918d9e4d40f23d6dfaa2b73e4225b2d7dd
     # via
-    #   -r pythonFiles/jedilsp_requirements/requirements.in
+    #   -r python_files/jedilsp_requirements/requirements.in
     #   jedi-language-server
 exceptiongroup==1.2.0 \
     --hash=sha256:4bfd3996ac73b41e9b9628b04e079f193850720ea5945fc96a08633c66912f14 \
@@ -33,7 +33,7 @@ jedi==0.19.1 \
 jedi-language-server==0.41.2 \
     --hash=sha256:865a93546b3711713eaca1a76b3a5d4aaacd4594c87f777aa8d54da37ae5aeca \
     --hash=sha256:bfa112d88c0bd21872522b96c64e8054854f767449bbb3d858be04fb2cda0606
-    # via -r pythonFiles/jedilsp_requirements/requirements.in
+    # via -r python_files/jedilsp_requirements/requirements.in
 lsprotocol==2023.0.0 \
     --hash=sha256:c9d92e12a3f4ed9317d3068226592860aab5357d93cf5b2451dc244eee8f35f2 \
     --hash=sha256:e85fc87ee26c816adca9eb497bb3db1a7c79c477a11563626e712eaccf926a05
@@ -43,7 +43,7 @@ lsprotocol==2023.0.0 \
 markdown-it-py==3.0.0 \
     --hash=sha256:355216845c60bd96232cd8d8c40e8f9765cc86f46880e43a8fd22dc1a1a8cab1 \
     --hash=sha256:e3f60a94fa066dc52ec76661e37c851cb232d92f9886b15cb560aaada2df8feb
-    # via -r pythonFiles/jedilsp_requirements/requirements.in
+    # via -r python_files/jedilsp_requirements/requirements.in
 mdurl==0.1.2 \
     --hash=sha256:84008a41e51615a49fc9966191ff91509e3c40b939176e643fd50a5c2196b8f8 \
     --hash=sha256:bb413d29f5eea38f31dd4754dd7377d4465116fb207585f97bf925588687c1ba
@@ -89,7 +89,7 @@ pydantic==1.10.14 \
     --hash=sha256:e897c9f35281f7889873a3e6d6b69aa1447ceb024e8495a5f0d02ecd17742a7f \
     --hash=sha256:f9f674b5c3bebc2eba401de64f29948ae1e646ba2735f884d1594c5f675d6f2a \
     --hash=sha256:fa7790e94c60f809c95602a26d906eba01a0abee9cc24150e4ce2189352deb1b
-    # via -r pythonFiles/jedilsp_requirements/requirements.in
+    # via -r python_files/jedilsp_requirements/requirements.in
 pygls==1.2.1 \
     --hash=sha256:04f9b9c115b622dcc346fb390289066565343d60245a424eca77cb429b911ed8 \
     --hash=sha256:7dcfcf12b6f15beb606afa46de2ed348b65a279c340ef2242a9a35c22eeafe94
@@ -99,7 +99,7 @@ pygls==1.2.1 \
 pygments==2.17.2 \
     --hash=sha256:b27c2826c47d0f3219f29554824c30c5e8945175d888647acd804ddd04af846c \
     --hash=sha256:da46cec9fd2de5be3a8a784f434e4c4ab670b4ff54d605c4c2717e9d49c4c367
-    # via -r pythonFiles/jedilsp_requirements/requirements.in
+    # via -r python_files/jedilsp_requirements/requirements.in
 typing-extensions==4.9.0 \
     --hash=sha256:23478f88c37f27d76ac8aee6c905017a143b0b1b886c3c9f66bc2fd94f9f5783 \
     --hash=sha256:af72aea155e91adfc61c3ae9e0e342dbc0cba726d6cba4b6c72c1f34e47291cd

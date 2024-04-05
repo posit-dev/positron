@@ -56,7 +56,12 @@ ignore = [
 line-length = 100
 exclude = [
     "tests/testing_tools/adapter/.data",
-    "tests/unittestadapter/.data"
+    "tests/unittestadapter/.data",
+    # --- Start Positron ---
+    # Ignore vendored dependencies
+    'lib/',
+    'positron/positron_ipykernel/_vendor/',
+    # --- End Positron ---
 ]
 
 [tool.ruff.format]
