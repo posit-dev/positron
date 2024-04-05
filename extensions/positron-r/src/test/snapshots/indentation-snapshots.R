@@ -24,7 +24,7 @@ data |>
 
 # ->
 data |>
-
+	
 "<>"
 
 # ---
@@ -37,7 +37,7 @@ data |>
 # ->
 data |>
 
-
+	
 "<>"
 
 # ---
@@ -69,7 +69,7 @@ data |>
 
 # ->
 data |>
-	fn() |>
+	fn() |> 
 	"<>"
 
 # ---
@@ -79,7 +79,7 @@ data |>
 
 # ->
 data |>
-	fn() |>
+	fn() |> 
 	"<>" # foo
 
 # ---
@@ -107,8 +107,8 @@ data |>
 data |>
 	fn1() |>
 	# foo
-
-	"<>"
+  
+"<>"
 
 # ---
 # Continuing a one-liner pipeline (longer pipeline)
@@ -155,7 +155,7 @@ data |>
 	fn1(
 		x,
 		y
-	) |>
+	) |> 
 		"<>" fn2()
 
 # ---
@@ -198,7 +198,6 @@ data |>
 # ---
 # Stickiness of dedent after pipeline
 # https://github.com/posit-dev/positron/issues/1727
-# FIXME
 data |>
 	fn()
 "<>"
@@ -207,11 +206,10 @@ data |>
 data |>
 	fn()
 
-	"<>"
+"<>"
 
 # ---
 # Stickiness of dedent after pipeline (trailing comment)
-# FIXME
 data |>
 	fn()
 "<>" # foo
@@ -220,7 +218,7 @@ data |>
 data |>
 	fn()
 
-"<>"	# foo
+"<>"# foo
 
 # ---
 # Indent after function in call
