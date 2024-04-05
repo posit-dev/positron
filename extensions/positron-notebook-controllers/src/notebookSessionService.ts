@@ -280,7 +280,7 @@ export class NotebookSessionService {
 	}
 
 	async restartRuntimeSession(notebookUri: Uri): Promise<positron.LanguageRuntimeSession> {
-		// Return the existing start, if there is one.
+		// Return the existing start promise, if there is one.
 		const startingSessionPromise = this._startingSessionsByNotebookUri.get(notebookUri) ||
 			this._restartingSessionsByNotebookUri.get(notebookUri);
 		if (startingSessionPromise && !startingSessionPromise.isSettled) {
@@ -291,7 +291,6 @@ export class NotebookSessionService {
 		// another caller tries to restart a runtime or access the restart promise concurrently.
 		const restartPromise = new DeferredPromise<positron.LanguageRuntimeSession>();
 		this._restartingSessionsByNotebookUri.set(notebookUri, restartPromise);
-		setHasRunningNotebookSessionContext(false);
 
 		// Helper function to error the promise and update the session maps.
 		const error = (err: Error) => {
@@ -309,6 +308,7 @@ export class NotebookSessionService {
 		// Remove the session from the map of active notebooks in case it's accessed while we're
 		// restarting.
 		this._notebookSessionsByNotebookUri.delete(notebookUri);
+		setHasRunningNotebookSessionContext(false);
 
 		// If the notebook's session is still shutting down, wait for it to finish.
 		const shuttingDownSessionPromise = this._shuttingDownSessionsByNotebookUri.get(notebookUri);
