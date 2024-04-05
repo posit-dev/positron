@@ -122,7 +122,7 @@ export function parseOutputData(output: ICellOutput['outputs'][number]): ParsedO
 		}
 
 		if (mime === 'application/vnd.code.notebook.error') {
-			return { type: 'error', content: parsedMessage.message };
+			return { type: 'error', content: parsedMessage.stack };
 		}
 
 	} catch (e) {

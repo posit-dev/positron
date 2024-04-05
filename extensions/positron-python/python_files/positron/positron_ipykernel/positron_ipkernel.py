@@ -11,7 +11,7 @@ import logging
 import re
 import warnings
 from pathlib import Path
-from typing import Any, Callable, Container, Dict, List, Optional, Type
+from typing import Any, Callable, Container, Dict, List, Optional, Type, cast
 
 import traitlets
 from ipykernel.comm.manager import CommManager
@@ -43,6 +43,27 @@ class _CommTarget(str, enum.Enum):
     Variables = "positron.variables"
     Widget = "jupyter.widget"
     Connections = "positron.connection"
+
+
+class SessionMode(str, enum.Enum):
+    """
+    The mode that the kernel application was started in.
+    """
+
+    Console = "console"
+    Notebook = "notebook"
+    Background = "background"
+
+    Default = Console
+
+    def __str__(self) -> str:
+        # Override for better display in argparse help.
+        return self.value
+
+    @classmethod
+    def trait(cls) -> traitlets.Enum:
+        # return traitlets.Enum(sorted(cls), help=cls.__doc__, default_value=cls.Default)  # type: ignore
+        return traitlets.Enum(sorted(cls), help=cls.__doc__)
 
 
 logger = logging.getLogger(__name__)
@@ -137,6 +158,18 @@ class PositronShell(ZMQInteractiveShell):
         PositronIPythonInspector,  # type: ignore
         help="Class to use to instantiate the shell inspector",
     ).tag(config=True)
+
+    # Positron-specific attributes:
+    session_mode: SessionMode = SessionMode.trait()  # type: ignore
+
+    def __init__(self, *args, **kwargs):
+        # Set custom attributes from the parent object.
+        # It would be better to pass these as explicit arguments, but there's no easy way
+        # to override the parent to do that.
+        parent = cast(PositronIPyKernel, kwargs["parent"])
+        self.session_mode = parent.session_mode
+
+        super().__init__(*args, **kwargs)
 
     def init_events(self) -> None:
         super().init_events()
@@ -250,6 +283,11 @@ class PositronShell(ZMQInteractiveShell):
         """
         Enhance tracebacks for the Positron frontend.
         """
+        if self.session_mode == SessionMode.Notebook:
+            # Don't modify the traceback in a notebook. The frontend assumes that it's unformatted
+            # and applies its own formatting.
+            return super()._showtraceback(etype, evalue, stb)  # type: ignore IPython type annotation is wrong
+
         # Remove the first two lines of the traceback, which are the "---" header and the repeated
         # exception name and "Traceback (most recent call last)".
         # Also remove the last line of the traceback, which repeats f"{etype}: {evalue}".
@@ -305,7 +343,16 @@ class PositronIPyKernel(IPythonKernel):
         klass=InteractiveShell,
     )
 
+    # Positron-specific attributes:
+    session_mode: SessionMode = SessionMode.trait()  # type: ignore
+
     def __init__(self, **kwargs) -> None:
+        # Set custom attributes from the parent object.
+        # It would be better to pass these as explicit arguments, but there's no easy way
+        # to override the parent to do that.
+        parent = cast(PositronIPKernelApp, kwargs["parent"])
+        self.session_mode = parent.session_mode
+
         super().__init__(**kwargs)
 
         # Create Positron services
@@ -380,8 +427,14 @@ class PositronIPyKernel(IPythonKernel):
 
 
 class PositronIPKernelApp(IPKernelApp):
+    kernel: PositronIPyKernel
+    shell: PositronShell
+
     # Use the PositronIPyKernel class.
     kernel_class: Type[PositronIPyKernel] = traitlets.Type(PositronIPyKernel)  # type: ignore
+
+    # Positron-specific attributes:
+    session_mode: SessionMode = SessionMode.trait()  # type: ignore
 
 
 #

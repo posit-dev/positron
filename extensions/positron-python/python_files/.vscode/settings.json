@@ -9,7 +9,8 @@
         "editor.rulers": [100],
     },
     "python.testing.pytestArgs": [
-        "tests"
+        "tests",
+        "positron/positron_ipykernel/tests"
     ],
     "python.testing.unittestEnabled": false,
     "python.testing.pytestEnabled": true,
