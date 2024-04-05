@@ -3,9 +3,59 @@
  *--------------------------------------------------------------------------------------------*/
 
 .positron-notebook {
-	--positron-notebook-header-h: 30px;
+	/* Color variables used throughout notebooks */
+	--vscode-positronNotebook-foreground: var(
+		--vscode-positronDataExplorer-foreground
+	);
 
-	color: var(--vscode-positronDataExplorer-foreground);
+	--vscode-positronNotebook-header-border: var(
+		--vscode-positronDataExplorer-border
+	);
+	--vscode-positronNotebook-img-placeholder-background: var(
+		--vscode-positronVariables-activeSelectionBackground
+	);
+	--vscode-positronNotebook-error-color: var(
+		--vscode-editorError-foreground,
+		orangered
+	);
+	--vscode-positronNotebook-border-color: var(--vscode-button-border, grey);
+	/* In the small animation we use to indicate a cell is calculating, this is the secondary color
+	used to give the spinning effect */
+	--vscode-positronNotebook-border-color-offset: var(
+		--vscode-positronModalDialog-checkboxBorder,
+		grey
+	);
+
+	--vscode-positronNotebook-output-background: var(
+		--vscode-notebook-outputContainerBackgroundColor,
+		white
+	);
+	--vscode-positronNotebook-action-bar-background: var(
+		--vscode-dropdown-background,
+		white
+	);
+	--vscode-positronNotebook-action-bar-border-color: var(
+		--vscode-input-border,
+		grey
+	);
+
+	/* Size variables used throughout notebooks */
+	--vscode-positronNotebook-header-h: 30px;
+	--vscode-positronNotebook-cell-radius: 0.25rem;
+	--vscode-positronNotebook-action-bar-h: 22px;
+	--vscode-positronNotebook-action-bar-inset: calc(
+		var(--vscode-positronNotebook-action-bar-h) / 2
+	);
+
+	/* Misc variables */
+	--vscode-positronNotebook-text-output-font: var(
+		monaco-monospace-font,
+		monospace
+	);
+	--vscode-positronNotebook-border: 1px solid
+		var(--vscode-positronNotebook-border-color);
+
+	color: var(--vscode-positronNotebook-foreground);
 	user-select: text;
 	height: 100%;
 	overflow: auto;
@@ -22,12 +72,12 @@
 }
 
 .positron-notebook-header {
-	height: var(--positron-notebook-header-h);
+	height: var(--vscode-positronNotebook-header-h);
 	display: flex;
 	justify-content: space-between;
 	gap: 1rem;
 	padding-inline: 1rem;
-	border-bottom: 1px solid var(--vscode-positronDataExplorer-border);
+	border-bottom: 1px solid var(--vscode-positronNotebook-header-border);
 }
 
 .positron-notebook-cells-container {
@@ -42,8 +92,6 @@
 	align-items: center;
 	padding-block: 0.25rem;
 	padding-inline: 0.5rem;
-	/* outline: 1px solid var(--vscode-positronDataExplorer-border, grey); */
-	/* border-radius: 0.25rem; */
 	width: fit-content;
 	cursor: pointer;
 	.action-label {
@@ -54,4 +102,6 @@
 	.button-icon {
 		transform: translateY(0px);
 	}
+
+	--other-css-variable: 9px;
 }

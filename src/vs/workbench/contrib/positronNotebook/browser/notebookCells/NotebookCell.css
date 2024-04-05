@@ -3,93 +3,19 @@
  *--------------------------------------------------------------------------------------------*/
 
 .positron-notebook-cell {
-	--positron-notebook-cell-radius: 0.25rem;
-	--positron-notebooks-border-color: var(--vscode-input-border, grey);
-	/* In the small animation we use to indicate a cell is calculating, this is the secondary color
-	used to give the spinning effect */
-	--positron-notebooks-border-color-offset: var(
-		--vscode-positronModalDialog-checkboxBorder,
-		grey
-	);
-
-	--positron-notebooks-border: 1px solid var(--positron-notebooks-border-color);
-
 	position: relative;
 
-	.cell-contents {
-		border-radius: var(--positron-notebook-cell-radius);
-		/* overflow: auto; */
-
-		.positron-notebook-cell-outputs {
-			background-color: var(
-				--vscode-notebook-outputContainerBackgroundColor,
-				white
-			);
+	.positron-notebook-cell-outputs {
+		background-color: var(--vscode-positronNotebook-output-background);
+		padding-inline: 1rem;
+		padding-block: 0.5rem;
+		& .notebook-error,
+		& .notebook-stderr {
+			color: var(--vscode-positronNotebook-error-color);
 		}
 
-		.positron-notebook-cell-outputs {
-			padding-inline: 1rem;
-			padding-block: 0.5rem;
+		&:empty {
+			display: none;
 		}
-
-		& pre {
-			margin: 0;
-		}
-
-		.execution-status {
-			position: absolute;
-			right: 3px;
-			bottom: 0;
-			font-size: 0.7rem;
-			font-style: italic;
-		}
-
-		&[data-status='running'] {
-			--angle: 45deg;
-			--opacity: 0.5;
-
-			border-style: dotted;
-			border-color: transparent;
-			background-image: linear-gradient(
-					to right,
-					rgb(255 255 255 / var(--opacity)),
-					rgb(255 255 255 / var(--opacity))
-				),
-				conic-gradient(
-					from var(--angle),
-					var(--positron-notebooks-border-color) 0deg 180deg,
-					var(--positron-notebooks-border-color-offset) 180deg 360deg
-				);
-			background-origin: border-box;
-			background-clip: padding-box, border-box;
-			animation: rotate 4s linear infinite;
-		}
-	}
-}
-@supports (background: paint(houdini)) {
-	@property --angle {
-		syntax: '<angle>';
-		initial-value: 0deg;
-		inherits: false;
-	}
-
-	@keyframes rotate {
-		to {
-			--angle: 360deg;
-		}
-	}
-}
-
-.positron-notebook-cell-outputs {
-	& .notebook-error {
-		color: orangered;
-	}
-
-	& .notebook-stderr {
-		color: orangered;
-	}
-
-	&:empty {
-		display: none;
 	}
 }

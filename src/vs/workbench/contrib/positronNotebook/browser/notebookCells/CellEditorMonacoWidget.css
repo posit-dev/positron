@@ -2,20 +2,16 @@
  *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 .positron-cell-editor-monaco-widget {
-	--positron-notebooks-border: 1px solid var(--positron-notebooks-border-color);
-
 	/* Override the default editor background */
 	--vscode-editor-background: var(--vscode-checkbox-background, #f8f8f8);
 	--vscode-editorGutter-background: var(--vscode-editor-background);
-	border: var(--positron-notebooks-border);
-	border-radius: var(--positron-notebook-cell-radius);
+	border: var(--vscode-positronNotebook-border);
+	border-radius: var(--vscode-positronNotebook-cell-radius);
 	/* background-color:  */
-	padding: 1px;
+	padding: 0;
 	overflow: hidden;
 
 	.positron-monaco-editor-container {
 		min-height: 1rem;
-		background-color: green;
-		/* outline: 1px solid grey; */
 	}
 }

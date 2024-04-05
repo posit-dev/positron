@@ -9,7 +9,7 @@
 }
 
 .positron-markdown-error {
-	color: var(--vscode-editorError-foreground, orangered);
+	color: var(--vscode-positronNotebook-error-color);
 	font-style: italic;
 }
 
