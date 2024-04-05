@@ -20,7 +20,7 @@ export enum PythonRuntimeFilter {
  * @param pythonRuntimeFilter The PythonRuntimeFilter to apply to the Python runtimes.
  * @returns An array of DropDownListBoxItem and DropDownListBoxSeparator for Python interpreters.
  */
-const getPythonInterpreterDropDownItems = (runtimeStartupService: IRuntimeStartupService, languageRuntimeService: ILanguageRuntimeService, pythonRuntimeFilter = PythonRuntimeFilter.All): (DropDownListBoxItem | DropDownListBoxSeparator)[] => {
+const getPythonInterpreterDropDownItems = (runtimeStartupService: IRuntimeStartupService, languageRuntimeService: ILanguageRuntimeService, pythonRuntimeFilter = PythonRuntimeFilter.All): (DropDownListBoxItem<string, void> | DropDownListBoxSeparator)[] => {
 	// See ILanguageRuntimeMetadata in src/vs/workbench/services/languageRuntime/common/languageRuntimeService.ts
 	// for the properties of the runtime metadata object
 	const languageId = 'python';
@@ -29,7 +29,7 @@ const getPythonInterpreterDropDownItems = (runtimeStartupService: IRuntimeStartu
 	const pythonRuntimes = discoveredRuntimes.filter(runtime => runtime.languageId === languageId);
 
 	// Group the runtimes by runtimeSource.
-	const runtimeSourceMap = new Map<string, DropDownListBoxItem[]>();
+	const runtimeSourceMap = new Map<string, DropDownListBoxItem<string, void>[]>();
 	pythonRuntimes.forEach((runtime) => {
 		const runtimeSource = runtime.runtimeSource;
 		// Only include runtimes that match the filter
@@ -48,7 +48,7 @@ const getPythonInterpreterDropDownItems = (runtimeStartupService: IRuntimeStartu
 
 	// Creates an array of DropDownListBoxItem and DropDownListBoxSeparator.
 	// The DropDownListBoxSeparator is used to separate the runtimes by runtimeSource.
-	const comboBoxItems: DropDownListBoxItem | DropDownListBoxSeparator[] = [];
+	const comboBoxItems: DropDownListBoxItem<string, void> | DropDownListBoxSeparator[] = [];
 	runtimeSourceMap.forEach((runtimeItems) => {
 		if (comboBoxItems.length > 0) {
 			comboBoxItems.push(new DropDownListBoxSeparator());
@@ -67,7 +67,7 @@ const getPythonInterpreterDropDownItems = (runtimeStartupService: IRuntimeStartu
 export const createCondaInterpreterDropDownItems = () => {
 	// TODO: we should get the list of Python versions from the Conda service
 	const pythonVersions = ['3.12', '3.11', '3.10', '3.9', '3.8'];
-	const condaRuntimes: DropDownListBoxItem[] = [];
+	const condaRuntimes: DropDownListBoxItem<string, void>[] = [];
 	pythonVersions.forEach(version => {
 		condaRuntimes.push(new DropDownListBoxItem({
 			identifier: `conda-python-${version}`,

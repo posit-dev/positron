@@ -205,7 +205,7 @@ export const PythonEnvironmentStep = (props: PropsWithChildren<NewProjectWizardS
 							'Select an environment type'
 						))()}
 						entries={envTypeEntries}
-						onSelectionChanged={identifier => onEnvTypeSelected(identifier)}
+						onSelectionChanged={dropDownListBoxItem => onEnvTypeSelected(dropDownListBoxItem.options.identifier)}
 					/>
 				</PositronWizardSubStep> : null
 			}
@@ -247,7 +247,7 @@ export const PythonEnvironmentStep = (props: PropsWithChildren<NewProjectWizardS
 						// TODO: if the runtime startup phase is complete, but there are no suitable interpreters, show a message
 						// that no suitable interpreters were found and the user should install an interpreter with minimum version
 						entries={interpreterEntries}
-						onSelectionChanged={identifier => onInterpreterSelected(identifier)}
+						onSelectionChanged={dropDownListBoxItem => onInterpreterSelected(dropDownListBoxItem.options.identifier)}
 					/> : null
 				}
 			</PositronWizardSubStep>

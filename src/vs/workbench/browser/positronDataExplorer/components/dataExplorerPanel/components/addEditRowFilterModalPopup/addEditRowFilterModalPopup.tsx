@@ -12,13 +12,13 @@ import { useEffect, useRef, useState } from 'react'; // eslint-disable-line no-d
 // Other dependencies.
 import { localize } from 'vs/nls';
 import { Button } from 'vs/base/browser/ui/positronComponents/button/button';
-import { DropDownListBox } from 'vs/workbench/browser/positronComponents/dropDownListBox/dropDownListBox';
 import { DropDownListBoxItem } from 'vs/workbench/browser/positronComponents/dropDownListBox/dropDownListBoxItem';
 import { PositronModalPopup } from 'vs/workbench/browser/positronComponents/positronModalPopup/positronModalPopup';
+import { ColumnSchema, ColumnDisplayType } from 'vs/workbench/services/languageRuntime/common/positronDataExplorerComm';
 import { PositronModalReactRenderer } from 'vs/workbench/browser/positronModalReactRenderer/positronModalReactRenderer';
 import { DropDownListBoxSeparator } from 'vs/workbench/browser/positronComponents/dropDownListBox/dropDownListBoxSeparator';
 import { DataExplorerClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimeDataExplorerClient';
-import { ColumnSchema, ColumnDisplayType } from 'vs/workbench/services/languageRuntime/common/positronDataExplorerComm';
+import { DropDownListBox, DropDownListBoxEntry } from 'vs/workbench/browser/positronComponents/dropDownListBox/dropDownListBox';
 import { RowFilterParameter } from 'vs/workbench/browser/positronDataExplorer/components/dataExplorerPanel/components/addEditRowFilterModalPopup/components/rowFilterParameter';
 import { DropDownColumnSelector } from 'vs/workbench/browser/positronDataExplorer/components/dataExplorerPanel/components/addEditRowFilterModalPopup/components/dropDownColumnSelector';
 import { RangeRowFilter, RowFilter, RowFilterCondition, RowFilterIsBetween, RowFilterIsEmpty, RowFilterIsEqualTo, RowFilterIsGreaterThan, RowFilterIsLessThan, RowFilterIsNotBetween, RowFilterIsNotEmpty, SingleValueRowFilter } from 'vs/workbench/browser/positronDataExplorer/components/dataExplorerPanel/components/addEditRowFilterModalPopup/rowFilter';
@@ -99,7 +99,7 @@ export const AddEditRowFilterModalPopup = (props: AddEditRowFilterModalPopupProp
 	const [selectedColumnSchema, setSelectedColumnSchema] = useState<ColumnSchema | undefined>(
 		props.editRowFilter?.columnSchema
 	);
-	const [selectedCondition, setSelectedCondition] = useState<string | undefined>(
+	const [selectedCondition, setSelectedCondition] = useState<RowFilterCondition | undefined>(
 		props.editRowFilter?.rowFilterCondition
 	);
 	const [firstRowFilterValue, setFirstRowFilterValue] = useState<string>(() => {
@@ -139,7 +139,7 @@ export const AddEditRowFilterModalPopup = (props: AddEditRowFilterModalPopupProp
 		}
 
 		// Build the condition entries.
-		const conditionEntries: (DropDownListBoxItem | DropDownListBoxSeparator)[] = [];
+		const conditionEntries: DropDownListBoxEntry<RowFilterCondition, void>[] = [];
 
 		// Every type allows is empty and is not empty conditions.
 		conditionEntries.push(new DropDownListBoxItem({
@@ -575,14 +575,15 @@ export const AddEditRowFilterModalPopup = (props: AddEditRowFilterModalPopupProp
 					))()}
 					entries={conditionEntries()}
 					selectedIdentifier={selectedCondition}
-					onSelectionChanged={identifier => {
+					onSelectionChanged={dropDownListBoxItem => {
 						// Set the selected condition.
-						setSelectedCondition(identifier);
+						setSelectedCondition(dropDownListBoxItem.options.identifier);
 
 						// Clear the filter values and error text.
 						clearFilterValuesAndErrorText();
 					}}
 				/>
+
 				{firstRowFilterParameterComponent}
 				{secondRowFilterParameterComponent}
 				{errorText && (

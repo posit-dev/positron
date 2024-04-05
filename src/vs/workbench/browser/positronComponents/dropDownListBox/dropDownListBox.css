@@ -18,9 +18,7 @@
 
 .drop-down-list-box
 .title {
-	display: flex;
 	padding-left: 6px;
-	align-items: center;
 	grid-column: title / chevron;
 	color: var(--vscode-positronContextMenu-foreground);
 }
