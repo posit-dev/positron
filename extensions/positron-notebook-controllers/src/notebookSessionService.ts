@@ -40,6 +40,9 @@ export class NotebookSessionService {
 	/** A map of the currently active notebook sessions, keyed by notebook URI. */
 	private readonly _notebookSessionsByNotebookUri = new ResourceMap<positron.LanguageRuntimeSession>();
 
+	/** A map of the current execution order, keyed by session ID. */
+	private readonly _executionOrderBySessionId: Map<string, number> = new Map();
+
 	/**
 	 * Checks for a starting or running notebook for the given notebook URI.
 	 *
@@ -68,6 +71,26 @@ export class NotebookSessionService {
 	 */
 	getNotebookSession(notebookUri: Uri): positron.LanguageRuntimeSession | undefined {
 		return this._notebookSessionsByNotebookUri.get(notebookUri);
+	}
+
+	/**
+	 * Get the execution order for a session.
+	 *
+	 * @param sessionId The session ID to get the execution order for.
+	 * @returns The execution order for the session, if one exists.
+	 */
+	getExecutionOrder(sessionId: string): number | undefined {
+		return this._executionOrderBySessionId.get(sessionId);
+	}
+
+	/**
+	 * Set the execution order for a session.
+	 *
+	 * @param sessionId The session ID to set the execution order for.
+	 * @param order The execution order to set.
+	 */
+	setExecutionOrder(sessionId: string, order: number): void {
+		this._executionOrderBySessionId.set(sessionId, order);
 	}
 
 	/**
@@ -205,13 +228,6 @@ export class NotebookSessionService {
 		const shutDownPromise = new DeferredPromise<void>();
 		this._shuttingDownSessionsByNotebookUri.set(notebookUri, shutDownPromise);
 
-		// Helper function to complete the promise and update the session maps.
-		const complete = () => {
-			this._notebookSessionsByNotebookUri.delete(notebookUri);
-			this._shuttingDownSessionsByNotebookUri.delete(notebookUri);
-			shutDownPromise.complete();
-		};
-
 		// Helper function to error the promise and update the session maps.
 		const error = (err: Error) => {
 			this._startingSessionsByNotebookUri.delete(notebookUri);
@@ -280,7 +296,12 @@ export class NotebookSessionService {
 
 		log.info(`Session ${session.metadata.sessionId} is shutdown`);
 
-		return complete();
+		this._notebookSessionsByNotebookUri.delete(notebookUri);
+		this._shuttingDownSessionsByNotebookUri.delete(notebookUri);
+		this._executionOrderBySessionId.delete(session.metadata.sessionId);
+		shutDownPromise.complete();
+
+		return shutDownPromise.p;
 	}
 
 	async restartRuntimeSession(notebookUri: Uri): Promise<positron.LanguageRuntimeSession> {
@@ -300,6 +321,7 @@ export class NotebookSessionService {
 		const complete = (session: positron.LanguageRuntimeSession) => {
 			this._notebookSessionsByNotebookUri.set(notebookUri, session);
 			this._restartingSessionsByNotebookUri.delete(notebookUri);
+			this._executionOrderBySessionId.delete(session.metadata.sessionId);
 			setHasRunningNotebookSessionContext(true);
 			restartPromise.complete(session);
 			return session;
