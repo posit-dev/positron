@@ -7,11 +7,11 @@ import { PropsWithChildren } from 'react';  // eslint-disable-line no-duplicate-
 import { localize } from 'vs/nls';
 import { useNewProjectWizardContext } from 'vs/workbench/browser/positronNewProjectWizard/newProjectWizardContext';
 import { URI } from 'vs/base/common/uri';
-import { NewProjectWizardStep } from 'vs/workbench/browser/positronNewProjectWizard/interfaces/newProjectWizardStep';
+import { NewProjectWizardStep } from 'vs/workbench/browser/positronNewProjectWizard/interfaces/newProjectWizardEnums';
 import { NewProjectWizardStepProps } from 'vs/workbench/browser/positronNewProjectWizard/interfaces/newProjectWizardStepProps';
 import { NewProjectType } from 'vs/workbench/browser/positronNewProjectWizard/newProjectWizardState';
-import { PositronWizardStep } from 'vs/workbench/browser/positronComponents/positronModalDialog/components/wizardStep';
-import { PositronWizardSubStep } from 'vs/workbench/browser/positronComponents/positronModalDialog/components/wizardSubStep';
+import { PositronWizardStep } from 'vs/workbench/browser/positronNewProjectWizard/components/wizardStep';
+import { PositronWizardSubStep } from 'vs/workbench/browser/positronNewProjectWizard/components/wizardSubStep';
 import { LabeledTextInput } from 'vs/workbench/browser/positronComponents/positronModalDialog/components/labeledTextInput';
 import { LabeledFolderInput } from 'vs/workbench/browser/positronComponents/positronModalDialog/components/labeledFolderInput';
 import { Checkbox } from 'vs/workbench/browser/positronComponents/positronModalDialog/components/checkbox';
