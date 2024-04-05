@@ -199,7 +199,7 @@ jobs:
             python: '3.12'
             older-versions: false
           - os: 'ubuntu-latest'
-            python: '3.8'
+            python: '3.9'
             older-versions: true
 
     steps:
@@ -220,10 +220,7 @@ jobs:
 
       - name: Install minimum supported versions
         if: ${{ matrix.older-versions }}
-        run: |
-          python -m pip config set global.index-url https://packagemanager.posit.co/pypi/${{ env.SNAPSHOT_DATE }}/simple
-          python -m pip config set global.trusted-host packagemanager.posit.co
-          python -m pip install --no-deps -r pythonFiles/positron/min-supported.txt
+        run: python -m pip install --no-deps -r pythonFiles/positron/min-supported.txt
 
       - name: Run Positron IPyKernel unit tests
         run: pytest pythonFiles/positron
