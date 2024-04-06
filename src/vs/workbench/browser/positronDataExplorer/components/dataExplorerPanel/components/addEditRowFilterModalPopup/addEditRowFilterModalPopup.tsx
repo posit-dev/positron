@@ -147,14 +147,16 @@ export const AddEditRowFilterModalPopup = (props: AddEditRowFilterModalPopupProp
 			title: localize(
 				'positron.addEditRowFilter.conditionIsEmpty',
 				"is empty"
-			)
+			),
+			value: RowFilterCondition.CONDITION_IS_EMPTY
 		}));
 		conditionEntries.push(new DropDownListBoxItem({
 			identifier: RowFilterCondition.CONDITION_IS_NOT_EMPTY,
 			title: localize(
 				'positron.addEditRowFilter.conditionIsNotEmpty',
 				"is not empty"
-			)
+			),
+			value: RowFilterCondition.CONDITION_IS_NOT_EMPTY
 		}));
 		conditionEntries.push(new DropDownListBoxSeparator());
 
@@ -169,14 +171,16 @@ export const AddEditRowFilterModalPopup = (props: AddEditRowFilterModalPopupProp
 					title: localize(
 						'positron.addEditRowFilter.conditionIsLessThan',
 						"is less than"
-					)
+					),
+					value: RowFilterCondition.CONDITION_IS_LESS_THAN
 				}));
 				conditionEntries.push(new DropDownListBoxItem({
 					identifier: RowFilterCondition.CONDITION_IS_GREATER_THAN,
 					title: localize(
 						'positron.addEditRowFilter.conditionIsGreaterThan',
 						"is greater than"
-					)
+					),
+					value: RowFilterCondition.CONDITION_IS_GREATER_THAN
 				}));
 				break;
 		}
@@ -194,7 +198,8 @@ export const AddEditRowFilterModalPopup = (props: AddEditRowFilterModalPopupProp
 					title: localize(
 						'positron.addEditRowFilter.conditionIsEqualTo',
 						"is equal to"
-					)
+					),
+					value: RowFilterCondition.CONDITION_IS_EQUAL_TO
 				}));
 				break;
 		}
@@ -211,14 +216,16 @@ export const AddEditRowFilterModalPopup = (props: AddEditRowFilterModalPopupProp
 					title: localize(
 						'positron.addEditRowFilter.conditionIsBetween',
 						"is between"
-					)
+					),
+					value: RowFilterCondition.CONDITION_IS_BETWEEN
 				}));
 				conditionEntries.push(new DropDownListBoxItem({
 					identifier: RowFilterCondition.CONDITION_IS_NOT_BETWEEN,
 					title: localize(
 						'positron.addEditRowFilter.conditionIsNotBetween',
 						"is not between"
-					)
+					),
+					value: RowFilterCondition.CONDITION_IS_NOT_BETWEEN
 				}));
 				break;
 		}

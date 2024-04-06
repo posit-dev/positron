@@ -5,18 +5,18 @@
 /**
  * DropDownListBoxItemOptions interface.
  */
-export interface DropDownListBoxItemOptions<T extends NonNullable<any>, V> {
+export interface DropDownListBoxItemOptions<T extends NonNullable<any>, V extends NonNullable<any>> {
 	readonly identifier: T;
 	readonly title?: string;
 	readonly icon?: string;
 	readonly disabled?: boolean;
-	value?: V;
+	value: V;
 }
 
 /**
  * DropDownListBoxItem class.
  */
-export class DropDownListBoxItem<T extends NonNullable<any>, V> {
+export class DropDownListBoxItem<T extends NonNullable<any>, V extends NonNullable<any>> {
 	/**
 	 * Constructor.
 	 * @param options A DropDownListBoxItemOptions that contains the down list box item options.

@@ -58,8 +58,8 @@ export const PythonEnvironmentStep = (props: PropsWithChildren<NewProjectWizardS
 	// TODO: retrieve the python environment types from the language runtime service somehow?
 	// TODO: localize these entries
 	const envTypeEntries = [
-		new DropDownListBoxItem({ identifier: 'Venv', title: 'Venv' + ' Creates a `.venv` virtual environment for your project' }),
-		new DropDownListBoxItem({ identifier: 'Conda', title: 'Conda' + ' Creates a `.conda` Conda environment for your project' })
+		new DropDownListBoxItem({ identifier: 'Venv', title: 'Venv' + ' Creates a `.venv` virtual environment for your project', value: 'Venv' }),
+		new DropDownListBoxItem({ identifier: 'Conda', title: 'Conda' + ' Creates a `.conda` Conda environment for your project', value: 'Conda' })
 	];
 
 	const envSetupRadioButtons: RadioButtonItem[] = [
@@ -245,7 +245,7 @@ export const PythonEnvironmentStep = (props: PropsWithChildren<NewProjectWizardS
 					// user should install an interpreter with minimum version
 					entries={startupPhase !== RuntimeStartupPhase.Complete ? [] : interpreterEntries}
 					createItem={dropDownListBoxItem =>
-						<PythonInterpreterEntry pythonInterpreterInfo={dropDownListBoxItem.options.value!} />
+						<PythonInterpreterEntry pythonInterpreterInfo={dropDownListBoxItem.options.value} />
 					}
 					onSelectionChanged={dropDownListBoxItem =>
 						onInterpreterSelected(dropDownListBoxItem.options.identifier)

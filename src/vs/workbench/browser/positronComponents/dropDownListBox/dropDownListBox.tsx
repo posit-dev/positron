@@ -23,12 +23,12 @@ import { DropDownListBoxSeparator } from 'vs/workbench/browser/positronComponent
 /**
  * DropDownListBoxEntry type.
  */
-export type DropDownListBoxEntry<T, V> = DropDownListBoxItem<T, V> | DropDownListBoxSeparator;
+export type DropDownListBoxEntry<T extends NonNullable<any>, V extends NonNullable<any>> = DropDownListBoxItem<T, V> | DropDownListBoxSeparator;
 
 /**
  * DropDownListBoxProps interface.
  */
-interface DropDownListBoxProps<T extends NonNullable<any>, V> {
+interface DropDownListBoxProps<T extends NonNullable<any>, V extends NonNullable<any>> {
 	keybindingService: IKeybindingService;
 	layoutService: ILayoutService;
 	className?: string;

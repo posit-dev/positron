@@ -83,11 +83,12 @@ const getPythonInterpreterDropDownItems = (
 export const createCondaInterpreterDropDownItems = () => {
 	// TODO: we should get the list of Python versions from the Conda service
 	const pythonVersions = ['3.12', '3.11', '3.10', '3.9', '3.8'];
-	const condaRuntimes: DropDownListBoxItem<string, void>[] = [];
+	const condaRuntimes: DropDownListBoxItem<string, string>[] = [];
 	pythonVersions.forEach(version => {
 		condaRuntimes.push(new DropDownListBoxItem({
 			identifier: `conda-python-${version}`,
-			title: `Python ${version}`
+			title: `Python ${version}`,
+			value: `conda-python-${version}`
 		}));
 	});
 	return condaRuntimes;
