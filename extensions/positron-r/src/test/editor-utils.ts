@@ -61,6 +61,10 @@ export async function withFileEditor(
 		const doc = await vscode.workspace.openTextDocument(file);
 		const editor = await vscode.window.showTextDocument(doc);
 
+		editor.options.insertSpaces = true;
+		editor.options.indentSize = 4;
+		editor.options.tabSize = 4;
+
 		if (cursorIndex >= 0) {
 			const pos = doc.positionAt(cursorIndex);
 			editor.selection = new vscode.Selection(pos, pos);
