@@ -592,10 +592,10 @@ export const AddEditRowFilterModalPopup = (props: AddEditRowFilterModalPopupProp
 					className='solid button-apply-row-filter'
 					onPressed={applyRowFilter}
 				>
-					{localize(
+					{(() => localize(
 						'positron.addEditRowFilter.applyFilter',
 						"Apply Filter"
-					)}
+					))()}
 				</Button>
 			</div>
 		</PositronModalPopup>

@@ -42,3 +42,9 @@
 	outline-offset: 2px;
 	outline: 1px solid var(--vscode-focusBorder) !important;
 }
+
+.positron-modal-dialog-box .labeled-folder-input span.error {
+	color: var(--vscode-errorForeground);
+	height: 1em;
+	display: block
+}

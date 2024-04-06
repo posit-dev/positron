@@ -1,6 +1,7 @@
 # File generated from `indentation-cases.R`.
 
 # ---
+# Starting a pipeline (+ operator)
 1 +"<>"
 
 # ->
@@ -8,6 +9,39 @@
   "<>"
 
 # ---
+# Starting a pipeline (pipe operator)
+data |>"<>"
+
+# ->
+data |>
+  "<>"
+
+# ---
+# Starting a pipeline (one empty line)
+# FIXME
+data |>
+	"<>"
+
+# ->
+data |>
+	
+"<>"
+
+# ---
+# Starting a pipeline (multiple empty lines)
+# FIXME
+data |>
+
+	"<>"
+
+# ->
+data |>
+
+	
+"<>"
+
+# ---
+# Continuing a pipeline
 1 +
 	2 +"<>"
 
@@ -17,35 +51,7 @@
 	"<>"
 
 # ---
-data |>"<>"
-
-# ->
-data |>
-  "<>"
-
-# ---
-data |>
-	fn()"<>"
-
-# ->
-data |>
-	fn()
-"<>"
-
-# ---
-# https://github.com/posit-dev/positron/issues/1727
-# FIXME
-data |>
-	fn()
-"<>"
-
-# ->
-data |>
-	fn()
-
-	"<>"
-
-# ---
+# Continuing a one-liner pipeline
 # https://github.com/posit-dev/positron/issues/1316
 data |>
 	fn() |>"<>"
@@ -56,7 +62,7 @@ data |>
 	"<>"
 
 # ---
-# With trailing whitespace
+# Continuing a one-liner pipeline (trailing whitespace)
 # https://github.com/posit-dev/positron/pull/1655#issuecomment-1780093395
 data |>
 	fn() |> "<>"
@@ -67,9 +73,49 @@ data |>
 	"<>"
 
 # ---
+# Continuing a one-liner pipeline (trailing comment)
+data |>
+	fn() |> "<>" # foo
+
+# ->
+data |>
+	fn() |> 
+	"<>" # foo
+
+# ---
+# Continuing a one-liner pipeline (comment line)
+# FIXME
+data |>
+	fn1() |>
+	# foo"<>"
+
+# ->
+data |>
+	fn1() |>
+	# foo
+"<>"
+
+# ---
+# Continuing a one-liner pipeline (after a comment line)
+# FIXME
+data |>
+	fn1() |>
+	# foo
+  "<>"
+
+# ->
+data |>
+	fn1() |>
+	# foo
+  
+"<>"
+
+# ---
+# Continuing a one-liner pipeline (longer pipeline)
 data |>
 	fn1() |>
 	fn2() |>"<>"
+
 
 # ->
 data |>
@@ -77,7 +123,63 @@ data |>
 	fn2() |>
 	"<>"
 
+
 # ---
+# Continuing a multi-liner pipeline
+# FIXME
+data |>
+	fn1(
+		x,
+		y
+	) |>"<>"
+
+# ->
+data |>
+	fn1(
+		x,
+		y
+	) |>
+		"<>"
+
+# ---
+# Continuing a multi-liner pipeline (trailing expression)
+# FIXME
+data |>
+	fn1(
+		x,
+		y
+	) |> "<>" fn2()
+
+# ->
+data |>
+	fn1(
+		x,
+		y
+	) |> 
+		"<>" fn2()
+
+# ---
+# Dedent after pipeline
+data |>
+	fn()"<>"
+
+# ->
+data |>
+	fn()
+"<>"
+
+# ---
+# Dedent after pipeline (trailing comment)
+data |>
+	fn()"<>" # foo
+
+# ->
+data |>
+	fn()
+"<>" # foo
+
+# ---
+# Dedent after pipeline (multiple lines)
 # FIXME
 data |>
 	fn1() |>
@@ -94,17 +196,32 @@ data |>
 	"<>"
 
 # ---
-# https://github.com/posit-dev/positron-beta/discussions/46
-# FIXME
+# Stickiness of dedent after pipeline
+# https://github.com/posit-dev/positron/issues/1727
 data |>
-	fn("<>")
+	fn()
+"<>"
 
 # ->
 data |>
-	fn(
-"<>")
+	fn()
+
+"<>"
 
 # ---
+# Stickiness of dedent after pipeline (trailing comment)
+data |>
+	fn()
+"<>" # foo
+
+# ->
+data |>
+	fn()
+
+"<>"# foo
+
+# ---
+# Indent after function in call
 # FIXME
 {
 	fn(function() {}"<>")
@@ -117,6 +234,7 @@ data |>
 }
 
 # ---
+# Indent after function in call (multiple lines)
 # FIXME
 {
 	fn(function() {
@@ -133,6 +251,7 @@ data |>
 }
 
 # ---
+# Indent after finished loop (literal)
 for (i in NA) NULL"<>"
 
 # ->
@@ -140,9 +259,58 @@ for (i in NA) NULL
 "<>"
 
 # ---
+# Indent after finished loop (call)
 # https://github.com/posit-dev/positron/issues/1880
 # FIXME
 for (i in 1) fn()"<>"
+
 # ->
 for (i in 1) fn()
   "<>"
+
+# ---
+# Breaking parentheses
+foo("<>") +
+	bar()
+
+# ->
+foo(
+	"<>"
+) +
+	bar()
+
+# ---
+# Breaking parentheses in a pipeline
+# https://github.com/posit-dev/positron/issues/2650
+# https://github.com/posit-dev/positron-beta/discussions/46
+foo() +
+	bar("<>")
+
+# ->
+foo() +
+	bar(
+		"<>"
+	)
+
+# ---
+# Breaking parentheses in a pipeline (comment in the way)
+foo() +
+	bar("<>") # foo
+
+# ->
+foo() +
+	bar(
+		"<>"
+	) # foo
+
+# ---
+# Breaking parentheses in the middle of a pipeline
+foo() +
+	bar("<>") +
+	baz()
+# ->
+foo() +
+	bar(
+		"<>"
+	) +
+	baz()
