@@ -20,123 +20,123 @@ data |>"<>"
 # Starting a pipeline (one empty line)
 # FIXME
 data |>
-	"<>"
+    "<>"
 
 # ---
 # Starting a pipeline (multiple empty lines)
 # FIXME
 data |>
 
-	"<>"
+    "<>"
 
 # ---
 # Continuing a pipeline
 1 +
-	2 +"<>"
+    2 +"<>"
 
 # ---
 # Continuing a one-liner pipeline
 # https://github.com/posit-dev/positron/issues/1316
 data |>
-	fn() |>"<>"
+    fn() |>"<>"
 
 # ---
 # Continuing a one-liner pipeline (trailing whitespace)
 # https://github.com/posit-dev/positron/pull/1655#issuecomment-1780093395
 data |>
-	fn() |> "<>"
+    fn() |> "<>"
 
 # ---
 # Continuing a one-liner pipeline (trailing comment)
 data |>
-	fn() |> "<>" # foo
+    fn() |> "<>" # foo
 
 # ---
 # Continuing a one-liner pipeline (comment line)
 # FIXME
 data |>
-	fn1() |>
-	# foo"<>"
+    fn1() |>
+    # foo"<>"
 
 # ---
 # Continuing a one-liner pipeline (after a comment line)
 # FIXME
 data |>
-	fn1() |>
-	# foo
-  "<>"
+    fn1() |>
+    # foo
+    "<>"
 
 # ---
 # Continuing a one-liner pipeline (longer pipeline)
 data |>
-	fn1() |>
-	fn2() |>"<>"
+    fn1() |>
+    fn2() |>"<>"
 
 
 # ---
 # Continuing a multi-liner pipeline
 # FIXME
 data |>
-	fn1(
-		x,
-		y
-	) |>"<>"
+    fn1(
+        x,
+        y
+    ) |>"<>"
 
 # ---
 # Continuing a multi-liner pipeline (trailing expression)
 # FIXME
 data |>
-	fn1(
-		x,
-		y
-	) |> "<>" fn2()
+    fn1(
+        x,
+        y
+    ) |> "<>" fn2()
 
 # ---
 # Dedent after pipeline
 data |>
-	fn()"<>"
+    fn()"<>"
 
 # ---
 # Dedent after pipeline (trailing comment)
 data |>
-	fn()"<>" # foo
+    fn()"<>" # foo
 
 # ---
 # Dedent after pipeline (multiple lines)
 # FIXME
 data |>
-	fn1() |>
-	fn2(
-		"arg"
-	)"<>"
+    fn1() |>
+    fn2(
+        "arg"
+    )"<>"
 
 # ---
 # Stickiness of dedent after pipeline
 # https://github.com/posit-dev/positron/issues/1727
 data |>
-	fn()
+    fn()
 "<>"
 
 # ---
 # Stickiness of dedent after pipeline (trailing comment)
 data |>
-	fn()
+    fn()
 "<>" # foo
 
 # ---
 # Indent after function in call
 # FIXME
 {
-	fn(function() {}"<>")
+    fn(function() {}"<>")
 }
 
 # ---
 # Indent after function in call (multiple lines)
 # FIXME
 {
-	fn(function() {
-		#
-	}"<>")
+    fn(function() {
+        #
+    }"<>")
 }
 
 # ---
@@ -152,22 +152,22 @@ for (i in 1) fn()"<>"
 # ---
 # Breaking parentheses
 foo("<>") +
-	bar()
+    bar()
 
 # ---
 # Breaking parentheses in a pipeline
 # https://github.com/posit-dev/positron/issues/2650
 # https://github.com/posit-dev/positron-beta/discussions/46
 foo() +
-	bar("<>")
+    bar("<>")
 
 # ---
 # Breaking parentheses in a pipeline (comment in the way)
 foo() +
-	bar("<>") # foo
+    bar("<>") # foo
 
 # ---
 # Breaking parentheses in the middle of a pipeline
 foo() +
-	bar("<>") +
-	baz()
+    bar("<>") +
+    baz()
