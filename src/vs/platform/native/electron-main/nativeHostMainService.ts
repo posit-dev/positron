@@ -44,6 +44,11 @@ import { IAuxiliaryWindowsMainService } from 'vs/platform/auxiliaryWindow/electr
 import { IAuxiliaryWindow } from 'vs/platform/auxiliaryWindow/electron-main/auxiliaryWindow';
 import { CancellationError } from 'vs/base/common/errors';
 
+// --- Start Positron ---
+// eslint-disable-next-line no-duplicate-imports
+import { nativeImage } from 'electron';
+// --- End Positron ---
+
 export interface INativeHostMainService extends AddFirstParameterToFunctions<ICommonNativeHostService, Promise<unknown> /* only methods, not events */, number | undefined /* window ID */> { }
 
 export const INativeHostMainService = createDecorator<INativeHostMainService>('nativeHostMainService');
@@ -646,6 +651,12 @@ export class NativeHostMainService extends Disposable implements INativeHostMain
 	async hasClipboard(windowId: number | undefined, format: string, type?: 'selection' | 'clipboard'): Promise<boolean> {
 		return clipboard.has(format, type);
 	}
+
+	// --- Start Positron ---
+	async writeClipboardImage(windowId: number | undefined, dataUri: string): Promise<void> {
+		return clipboard.writeImage(nativeImage.createFromDataURL(dataUri));
+	}
+	// --- End Positron ---
 
 	//#endregion
 
