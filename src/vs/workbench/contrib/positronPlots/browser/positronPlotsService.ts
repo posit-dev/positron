@@ -31,6 +31,7 @@ import { IWorkbenchLayoutService } from 'vs/workbench/services/layout/browser/la
 import { URI } from 'vs/base/common/uri';
 import { IWorkspaceContextService } from 'vs/platform/workspace/common/workspace';
 import { IKeybindingService } from 'vs/platform/keybinding/common/keybinding';
+import { IClipboardService } from 'vs/platform/clipboard/common/clipboardService';
 
 /** The maximum number of recent executions to store. */
 const MaxRecentExecutions = 10;
@@ -107,7 +108,8 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 		@IFileDialogService private readonly _fileDialogService: IFileDialogService,
 		@IWorkspaceContextService private readonly _workspaceContextService: IWorkspaceContextService,
 		@IWorkbenchLayoutService private readonly _layoutService: IWorkbenchLayoutService,
-		@IKeybindingService private readonly _keybindingService: IKeybindingService) {
+		@IKeybindingService private readonly _keybindingService: IKeybindingService,
+		@IClipboardService private _clipboardService: IClipboardService) {
 		super();
 
 		// Register for language runtime service startups
@@ -743,6 +745,25 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 				this.savePlotAs({ path: result, uri });
 			}
 		});
+	}
+
+	async copyPlotToClipboard(): Promise<void> {
+		const plot = this._plots.find(plot => plot.id === this.selectedPlotId);
+		if (plot instanceof StaticPlotClient) {
+			try {
+				await this._clipboardService.writeImage(plot.uri);
+			} catch (error) {
+				throw new Error(error.message);
+			}
+		} else if (plot instanceof PlotClientInstance) {
+			if (plot.lastRender?.uri) {
+				try {
+					await this._clipboardService.writeImage(plot.lastRender.uri);
+				} catch (error) {
+					throw new Error(error.message);
+				}
+			}
+		}
 	}
 
 	/**
