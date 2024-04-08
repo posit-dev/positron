@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
 import { spawnSync } from 'child_process';
@@ -32,7 +32,7 @@ if (platform() === 'darwin') {
 // on every invocation in that case, which is no fun.
 let zeromqVersion: string;
 if (platform() === 'darwin') {
-	zeromqVersion = 'kevinushey/zeromq.js#fa6b52f85293d9fe14958d18f031d65520afd272';
+	zeromqVersion = 'jmcphers/zeromq.js#e260089d6ede978aeba635a5e552f46410609b83';
 } else {
 	zeromqVersion = 'zeromq@6.0.0-beta.16';
 }
