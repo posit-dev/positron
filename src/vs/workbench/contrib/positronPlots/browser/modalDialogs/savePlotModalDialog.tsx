@@ -29,6 +29,7 @@ export enum PlotFormat {
 	PNG = 'png',
 	SVG = 'svg',
 	PDF = 'pdf',
+	JPEG = 'jpeg',
 }
 
 const SAVE_PLOT_MODAL_DIALOG_WIDTH = 500;

@@ -30,6 +30,7 @@ MIME_TYPE = {
     "png": "image/png",
     "svg": "image/svg+xml",
     "pdf": "application/pdf",
+    "jpeg": "image/jpeg",
 }
 
 class PositronDisplayPublisherHook:
