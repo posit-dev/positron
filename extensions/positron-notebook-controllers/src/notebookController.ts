@@ -17,6 +17,9 @@ export class NotebookController implements vscode.Disposable {
 	/** The wrapped VSCode notebook controller. */
 	public readonly controller: vscode.NotebookController;
 
+	/** A map of the current execution order, keyed by session ID. */
+	private readonly _executionOrderBySessionId: Map<string, number> = new Map();
+
 	/** Incremented for each cell we create to give it a unique ID. */
 	private static _CELL_COUNTER = 0;
 
@@ -62,6 +65,13 @@ export class NotebookController implements vscode.Disposable {
 				]);
 			} else {
 				await this._notebookSessionService.shutdownRuntimeSession(e.notebook.uri);
+			}
+		}));
+
+		// Restart the execution counter when a notebook session is started.
+		this._disposables.push(this._notebookSessionService.onDidChangeNotebookSession(async (e) => {
+			if (e.session) {
+				this._executionOrderBySessionId.delete(e.session.metadata.sessionId);
 			}
 		}));
 	}
@@ -129,7 +139,7 @@ export class NotebookController implements vscode.Disposable {
 	 */
 	private async executeCell(cell: vscode.NotebookCell, session: positron.LanguageRuntimeSession): Promise<void> {
 		// Get the execution order for the session, default to 0 for the first execution.
-		let executionOrder = this._notebookSessionService.getExecutionOrder(session.metadata.sessionId) ?? 0;
+		let executionOrder = this._executionOrderBySessionId.get(session.metadata.sessionId) ?? 0;
 
 		// Create a cell execution.
 		const currentExecution = this.controller.createNotebookCellExecution(cell);
@@ -144,7 +154,7 @@ export class NotebookController implements vscode.Disposable {
 		currentExecution.clearOutput();
 
 		// Increment the execution order.
-		this._notebookSessionService.setExecutionOrder(session.metadata.sessionId, ++executionOrder);
+		this._executionOrderBySessionId.set(session.metadata.sessionId, ++executionOrder);
 		currentExecution.executionOrder = executionOrder;
 
 		// Create a promise that resolves when the cell execution is complete i.e. when the runtime
