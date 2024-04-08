@@ -747,20 +747,23 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 		});
 	}
 
-	copyPlotToClipboard(): boolean {
+	async copyPlotToClipboard(): Promise<void> {
 		const plot = this._plots.find(plot => plot.id === this.selectedPlotId);
-		let copyStatus = false;
 		if (plot instanceof StaticPlotClient) {
-			this._clipboardService.writeImage(plot.uri);
-			copyStatus = true;
+			try {
+				await this._clipboardService.writeImage(plot.uri);
+			} catch (error) {
+				throw new Error(error.message);
+			}
 		} else if (plot instanceof PlotClientInstance) {
 			if (plot.lastRender?.uri) {
-				this._clipboardService.writeImage(plot.lastRender.uri);
-				copyStatus = true;
+				try {
+					await this._clipboardService.writeImage(plot.lastRender.uri);
+				} catch (error) {
+					throw new Error(error.message);
+				}
 			}
 		}
-
-		return copyStatus;
 	}
 
 	/**

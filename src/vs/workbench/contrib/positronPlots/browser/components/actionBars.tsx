@@ -111,14 +111,13 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 	};
 
 	const copyPlotHandler = () => {
-		const copyResult = positronPlotsContext.positronPlotsService.copyPlotToClipboard();
-
-		if (copyResult) {
-			positronPlotsContext.notificationService.info(localize('positronPlotsServiceCopyToClipboard', 'Plot copied to clipboard'));
-		} else {
-			positronPlotsContext.notificationService.error(localize('positronPlotsServiceCopyToClipboardError', 'Failed to copy plot to clipboard'));
-
-		}
+		positronPlotsContext.positronPlotsService.copyPlotToClipboard()
+			.then(() => {
+				positronPlotsContext.notificationService.info(localize('positronPlotsServiceCopyToClipboard', 'Plot copied to clipboard'));
+			})
+			.catch((error) => {
+				positronPlotsContext.notificationService.error(localize('positronPlotsServiceCopyToClipboardError', 'Failed to copy plot to clipboard: {0}', error.message));
+			});
 
 	};
 

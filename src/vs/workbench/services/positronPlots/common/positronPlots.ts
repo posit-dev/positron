@@ -153,9 +153,9 @@ export interface IPositronPlotsService {
 	/**
 	 * Copies the selected plot to the clipboard.
 	 *
-	 * @returns true if the plot was copied to the clipboard, false otherwise.
+	 * @throws An error if the plot cannot be copied.
 	 */
-	copyPlotToClipboard(): boolean;
+	copyPlotToClipboard(): Promise<void>;
 
 	/**
 	 * Saves the plot.
