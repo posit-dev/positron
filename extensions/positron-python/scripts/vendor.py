@@ -25,9 +25,11 @@ def main() -> None:
 
     cfg = Configuration(
         base_directory=project_path,
-        destination=Path("pythonFiles/positron/positron_ipykernel/_vendor/"),
+        destination=Path("python_files/positron/positron_ipykernel/_vendor/"),
         namespace="positron_ipykernel._vendor",
-        requirements=Path("pythonFiles/jedilsp_requirements/requirements.txt"),
+        requirements=Path(
+            "python_files/jedilsp_requirements/requirements.txt"
+        ),
         patches_dir=Path("scripts/patches"),
         substitutions=[
             # Fix pygments.lexers._mapping strings, via: https://github.com/pypa/pip/blob/main/pyproject.toml
@@ -151,7 +153,9 @@ def run(args: List[str], cwd: Optional[str] = None) -> None:
         if retcode is not None:
             break
     if retcode:
-        raise VendoringError(f"Command exited with non-zero exit code: {retcode}")
+        raise VendoringError(
+            f"Command exited with non-zero exit code: {retcode}"
+        )
 
 
 def detect_vendored_libs(destination: Path) -> List[str]:
