@@ -185,7 +185,7 @@ jobs:
         include:
           - os: 'ubuntu-latest'
             python: '3.8'
-            older-versions: ''
+            older-versions: false
           - os: 'macos-latest'
             python: '3.9'
             older-versions: false
