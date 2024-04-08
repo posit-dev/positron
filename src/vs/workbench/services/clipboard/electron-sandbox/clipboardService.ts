@@ -48,6 +48,12 @@ export class NativeClipboardService implements IClipboardService {
 		}
 	}
 
+	// --- Start Positron ---
+	async writeImage(data: string): Promise<void> {
+		return this.nativeHostService.writeClipboardImage(data);
+	}
+	// --- End Positron ---
+
 	async readResources(): Promise<URI[]> {
 		return this.bufferToResources(await this.nativeHostService.readClipboardBuffer(NativeClipboardService.FILE_FORMAT));
 	}

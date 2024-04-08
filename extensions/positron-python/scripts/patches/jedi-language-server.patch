@@ -1,7 +1,7 @@
-diff --git a/extensions/positron-python/pythonFiles/positron/positron_ipykernel/_vendor/jedi_language_server/jedi_utils.py b/extensions/positron-python/pythonFiles/positron/positron_ipykernel/_vendor/jedi_language_server/jedi_utils.py
+diff --git a/extensions/positron-python/python_files/positron/positron_ipykernel/_vendor/jedi_language_server/jedi_utils.py b/extensions/positron-python/python_files/positron/positron_ipykernel/_vendor/jedi_language_server/jedi_utils.py
 index 4f3ba7bd5..52524daa2 100644
---- a/extensions/positron-python/pythonFiles/positron/positron_ipykernel/_vendor/jedi_language_server/jedi_utils.py
-+++ b/extensions/positron-python/pythonFiles/positron/positron_ipykernel/_vendor/jedi_language_server/jedi_utils.py
+--- a/extensions/positron-python/python_files/positron/positron_ipykernel/_vendor/jedi_language_server/jedi_utils.py
++++ b/extensions/positron-python/python_files/positron/positron_ipykernel/_vendor/jedi_language_server/jedi_utils.py
 @@ -12,9 +12,9 @@ from inspect import Parameter
  from typing import Any, Callable, Dict, Iterator, List, Optional, Tuple, Union
  
@@ -42,10 +42,10 @@ index 4f3ba7bd5..52524daa2 100644
      """Get LSP Diagnostic from Jedi SyntaxError."""
      return Diagnostic(
          range=Range(
-diff --git a/extensions/positron-python/pythonFiles/positron/positron_ipykernel/_vendor/jedi_language_server/__init__.py b/extensions/positron-python/pythonFiles/positron/positron_ipykernel/_vendor/jedi_language_server/__init__.py
+diff --git a/extensions/positron-python/python_files/positron/positron_ipykernel/_vendor/jedi_language_server/__init__.py b/extensions/positron-python/python_files/positron/positron_ipykernel/_vendor/jedi_language_server/__init__.py
 index ba6eaf9fe..28266bd95 100644
---- a/extensions/positron-python/pythonFiles/positron/positron_ipykernel/_vendor/jedi_language_server/__init__.py
-+++ b/extensions/positron-python/pythonFiles/positron/positron_ipykernel/_vendor/jedi_language_server/__init__.py
+--- a/extensions/positron-python/python_files/positron/positron_ipykernel/_vendor/jedi_language_server/__init__.py
++++ b/extensions/positron-python/python_files/positron/positron_ipykernel/_vendor/jedi_language_server/__init__.py
 @@ -1,4 +1,3 @@
  """Jedi Language Server."""
 -from importlib.metadata import version

@@ -45,7 +45,7 @@ const tsOutputDir = `${__dirname}/../../src/vs/workbench/services/languageRuntim
 const rustOutputDir = `${__dirname}/../../../amalthea/crates/amalthea/src/comm`;
 
 /// The directory to write the generated Python files to
-const pythonOutputDir = `${__dirname}/../../extensions/positron-python/pythonFiles/positron/positron_ipykernel`;
+const pythonOutputDir = `${__dirname}/../../extensions/positron-python/python_files/positron/positron_ipykernel`;
 
 const year = new Date().getFullYear();
 
@@ -212,10 +212,12 @@ function deriveType(contracts: Array<any>,
 		}
 	} else if (schema.type === 'string' && schema.enum) {
 		if (context.length < 2) {
-			throw new Error(`missing context (need at least 2 elements): ${context[0]}`);
+			return snakeCaseToSentenceCase(context[0]);
+		} else {
+			// An enum field within another type, we add the context prefix
+			return snakeCaseToSentenceCase(context[1]) +
+				snakeCaseToSentenceCase(context[0]);
 		}
-		return snakeCaseToSentenceCase(context[1]) +
-			snakeCaseToSentenceCase(context[0]);
 	} else {
 		if (Object.keys(typeMap).includes(schema.type)) {
 			return typeMap[schema.type];
@@ -301,7 +303,7 @@ function* enumVisitor(
 				// and recurse
 				yield* enumVisitor(
 					[contract['name'], ...context], contract[key], callback);
-			} else if (key === 'properties' || key === 'params') {
+			} else if (key === 'properties' || key === 'params' || key === 'schemas' || key === 'components') {
 				// If this is a properties or params object, recurse into each
 				// property, but don't push the parent name onto the context
 				yield* enumVisitor(
@@ -397,21 +399,6 @@ use serde::Serialize;
 			continue;
 		}
 
-		// Create type aliases for all the shared types
-		if (source.components && source.components.schemas) {
-			for (const key of Object.keys(source.components.schemas)) {
-				const schema = source.components.schemas[key];
-				if (schema.type !== 'object') {
-					yield formatComment('/// ', schema.description);
-					yield `type ${snakeCaseToSentenceCase(key)} = `;
-					yield deriveType(contracts, RustTypeMap,
-						[schema.name ? schema.name : key],
-						schema);
-					yield ';\n\n';
-				}
-			}
-		}
-
 		// Create structs for all object types
 		yield* objectVisitor([], source, function* (context: Array<string>, o: Record<string, any>) {
 			if (o.description) {
@@ -463,12 +450,22 @@ use serde::Serialize;
 
 		// Create enums for all enum types
 		yield* enumVisitor([], source, function* (context: Array<string>, values: Array<string>) {
-			yield formatComment(`/// `,
-				`Possible values for ` +
-				snakeCaseToSentenceCase(context[0]) + ` in ` +
-				snakeCaseToSentenceCase(context[1]));
-			yield '#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]\n';
-			yield `pub enum ${snakeCaseToSentenceCase(context[1])}${snakeCaseToSentenceCase(context[0])} {\n`;
+			if (context.length === 1) {
+				// Shared enum at the components.schemas level
+				yield formatComment(`/// `,
+					`Possible values for ` +
+					snakeCaseToSentenceCase(context[0]));
+				yield '#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]\n';
+				yield `pub enum ${snakeCaseToSentenceCase(context[0])} {\n`;
+			} else {
+				// Enum field within another interface
+				yield formatComment(`/// `,
+					`Possible values for ` +
+					snakeCaseToSentenceCase(context[0]) + ` in ` +
+					snakeCaseToSentenceCase(context[1]));
+				yield '#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]\n';
+				yield `pub enum ${snakeCaseToSentenceCase(context[1])}${snakeCaseToSentenceCase(context[0])} {\n`;
+			}
 			for (let i = 0; i < values.length; i++) {
 				const value = values[i];
 				yield `\t#[serde(rename = "${value}")]\n`;
@@ -712,32 +709,28 @@ from ._vendor.pydantic import BaseModel, Field
 			continue;
 		}
 
-		// Create type aliases for all the shared types
-		if (source.components && source.components.schemas) {
-			for (const key of Object.keys(source.components.schemas)) {
-				const schema = source.components.schemas[key];
-				if (schema.type !== 'object') {
-					yield formatComment('# ', schema.description);
-					yield `${snakeCaseToSentenceCase(key)} = `;
-					yield deriveType(contracts, PythonTypeMap,
-						[schema.name ? schema.name : key],
-						schema);
-					yield '\n\n';
-				}
-			}
-		}
-
 		// Create enums for all enum types
 		yield* enumVisitor([], source, function* (context: Array<string>, values: Array<string>) {
-			yield '@enum.unique\n';
-			yield `class ${snakeCaseToSentenceCase(context[1])}`;
-			yield `${snakeCaseToSentenceCase(context[0])}(str, enum.Enum):\n`;
-			yield '    """\n';
-			yield formatComment(`    `,
-				`Possible values for ` +
-				snakeCaseToSentenceCase(context[0]) +
-				` in ` +
-				snakeCaseToSentenceCase(context[1]));
+			if (context.length === 1) {
+				// Shared enum at the components.schemas level
+				yield '@enum.unique\n';
+				yield `class ${snakeCaseToSentenceCase(context[0])}(str, enum.Enum):\n`;
+				yield '    """\n';
+				yield formatComment(`    `,
+					`Possible values for ` +
+					snakeCaseToSentenceCase(context[0]));
+			} else {
+				// Enum field within another interface
+				yield '@enum.unique\n';
+				yield `class ${snakeCaseToSentenceCase(context[1])}`;
+				yield `${snakeCaseToSentenceCase(context[0])}(str, enum.Enum):\n`;
+				yield '    """\n';
+				yield formatComment(`    `,
+					`Possible values for ` +
+					snakeCaseToSentenceCase(context[0]) +
+					` in ` +
+					snakeCaseToSentenceCase(context[1]));
+			}
 			yield '    """\n';
 			yield '\n';
 			for (let i = 0; i < values.length; i++) {
@@ -1051,12 +1044,22 @@ import { IRuntimeClientInstance } from 'vs/workbench/services/languageRuntime/co
 		// Create enums for all enum types
 		yield* enumVisitor([], source, function* (context: Array<string>, values: Array<string>) {
 			yield '/**\n';
-			yield formatComment(` * `,
-				`Possible values for ` +
-				snakeCaseToSentenceCase(context[0]) + ` in ` +
-				snakeCaseToSentenceCase(context[1]));
-			yield ' */\n';
-			yield `export enum ${snakeCaseToSentenceCase(context[1])}${snakeCaseToSentenceCase(context[0])} {\n`;
+			if (context.length === 1) {
+				// Shared enum at the components.schemas level
+				yield formatComment(` * `,
+					`Possible values for ` +
+					snakeCaseToSentenceCase(context[0]));
+				yield ' */\n';
+				yield `export enum ${snakeCaseToSentenceCase(context[0])} {\n`;
+			} else {
+				// Enum field within another interface
+				yield formatComment(` * `,
+					`Possible values for ` +
+					snakeCaseToSentenceCase(context[0]) + ` in ` +
+					snakeCaseToSentenceCase(context[1]));
+				yield ' */\n';
+				yield `export enum ${snakeCaseToSentenceCase(context[1])}${snakeCaseToSentenceCase(context[0])} {\n`;
+			}
 			for (let i = 0; i < values.length; i++) {
 				const value = values[i];
 				yield `\t${snakeCaseToSentenceCase(value)} = '${value}'`;
@@ -1068,25 +1071,6 @@ import { IRuntimeClientInstance } from 'vs/workbench/services/languageRuntime/co
 			}
 			yield '}\n\n';
 		});
-	}
-
-	for (const source of [backend, frontend]) {
-		if (!source) {
-			continue;
-		}
-		if (source.components && source.components.schemas) {
-			for (const key of Object.keys(source.components.schemas)) {
-				const schema = source.components.schemas[key];
-				if (schema.type !== 'object') {
-					yield `/**\n`;
-					yield formatComment(' * ', schema.description);
-					yield ' */\n';
-					yield `export type ${snakeCaseToSentenceCase(key)} = `;
-					yield deriveType(contracts, TypescriptTypeMap, [key], schema);
-					yield ';\n\n';
-				}
-			}
-		}
 	}
 
 	if (frontend) {

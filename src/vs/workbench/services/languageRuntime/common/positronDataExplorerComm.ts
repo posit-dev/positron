@@ -65,7 +65,7 @@ export interface TableState {
 	/**
 	 * The set of currently applied row filters
 	 */
-	row_filters?: Array<RowFilter>;
+	row_filters: Array<RowFilter>;
 
 	/**
 	 * The set of currently applied sorts
@@ -91,6 +91,27 @@ export interface TableShape {
 }
 
 /**
+ * For each field, returns flags indicating supported features
+ */
+export interface SupportedFeatures {
+	/**
+	 * Support for 'search_schema' RPC and its features
+	 */
+	search_schema: SearchSchemaFeatures;
+
+	/**
+	 * Support for 'set_row_filters' RPC and its features
+	 */
+	set_row_filters: SetRowFiltersFeatures;
+
+	/**
+	 * Support for 'get_column_profiles' RPC and its features
+	 */
+	get_column_profiles: GetColumnProfilesFeatures;
+
+}
+
+/**
  * Schema for a column in a table
  */
 export interface ColumnSchema {
@@ -112,7 +133,7 @@ export interface ColumnSchema {
 	/**
 	 * Canonical Positron display name of data type
 	 */
-	type_display: ColumnSchemaTypeDisplay;
+	type_display: ColumnDisplayType;
 
 	/**
 	 * Column annotation / description
@@ -167,9 +188,9 @@ export interface RowFilter {
 	filter_id: string;
 
 	/**
-	 * Type of filter to apply
+	 * Type of row filter to apply
 	 */
-	filter_type: RowFilterFilterType;
+	filter_type: RowFilterType;
 
 	/**
 	 * Column index to apply filter to
@@ -253,7 +274,7 @@ export interface SearchFilterParams {
 	/**
 	 * Type of search to perform
 	 */
-	type: SearchFilterParamsType;
+	search_type: SearchFilterType;
 
 	/**
 	 * String value/regex to search for in stringified data
@@ -279,7 +300,7 @@ export interface ColumnProfileRequest {
 	/**
 	 * The type of analytical column profile
 	 */
-	type: ColumnProfileRequestType;
+	profile_type: ColumnProfileType;
 
 }
 
@@ -310,9 +331,36 @@ export interface ColumnProfileResult {
 }
 
 /**
- * ColumnSummaryStats in Schemas
+ * Profile result containing summary stats for a column based on the data
+ * type
  */
 export interface ColumnSummaryStats {
+	/**
+	 * Canonical Positron display name of data type
+	 */
+	type_display: ColumnDisplayType;
+
+	/**
+	 * Statistics for a numeric data type
+	 */
+	number_stats?: SummaryStatsNumber;
+
+	/**
+	 * Statistics for a string-like data type
+	 */
+	string_stats?: SummaryStatsString;
+
+	/**
+	 * Statistics for a boolean data type
+	 */
+	boolean_stats?: SummaryStatsBoolean;
+
+}
+
+/**
+ * SummaryStatsNumber in Schemas
+ */
+export interface SummaryStatsNumber {
 	/**
 	 * Minimum value as string
 	 */
@@ -326,22 +374,49 @@ export interface ColumnSummaryStats {
 	/**
 	 * Average value as string
 	 */
-	mean_value?: string;
+	mean: string;
 
 	/**
 	 * Sample median (50% value) value as string
 	 */
-	median?: string;
+	median: string;
 
 	/**
-	 * 25th percentile value as string
+	 * Sample standard deviation as a string
 	 */
-	q25?: string;
+	stdev: string;
+
+}
+
+/**
+ * SummaryStatsBoolean in Schemas
+ */
+export interface SummaryStatsBoolean {
+	/**
+	 * The number of non-null true values
+	 */
+	true_count: number;
 
 	/**
-	 * 75th percentile value as string
+	 * The number of non-null false values
 	 */
-	q75?: string;
+	false_count: number;
+
+}
+
+/**
+ * SummaryStatsString in Schemas
+ */
+export interface SummaryStatsString {
+	/**
+	 * The number of empty / length-zero values
+	 */
+	num_empty: number;
+
+	/**
+	 * The exact number of distinct values
+	 */
+	num_unique: number;
 
 }
 
@@ -432,9 +507,57 @@ export interface ColumnSortKey {
 }
 
 /**
- * Possible values for TypeDisplay in ColumnSchema
+ * Feature flags for 'search_schema' RPC
  */
-export enum ColumnSchemaTypeDisplay {
+export interface SearchSchemaFeatures {
+	/**
+	 * Whether this RPC method is supported at all
+	 */
+	supported: boolean;
+
+}
+
+/**
+ * Feature flags for 'set_row_filters' RPC
+ */
+export interface SetRowFiltersFeatures {
+	/**
+	 * Whether this RPC method is supported at all
+	 */
+	supported: boolean;
+
+	/**
+	 * Whether AND/OR filter conditions are supported
+	 */
+	supports_conditions: boolean;
+
+	/**
+	 * A list of supported types
+	 */
+	supported_types: Array<RowFilterType>;
+
+}
+
+/**
+ * Feature flags for 'get_column_profiles' RPC
+ */
+export interface GetColumnProfilesFeatures {
+	/**
+	 * Whether this RPC method is supported at all
+	 */
+	supported: boolean;
+
+	/**
+	 * A list of supported types
+	 */
+	supported_types: Array<ColumnProfileType>;
+
+}
+
+/**
+ * Possible values for ColumnDisplayType
+ */
+export enum ColumnDisplayType {
 	Number = 'number',
 	Boolean = 'boolean',
 	String = 'string',
@@ -447,9 +570,9 @@ export enum ColumnSchemaTypeDisplay {
 }
 
 /**
- * Possible values for FilterType in RowFilter
+ * Possible values for RowFilterType
  */
-export enum RowFilterFilterType {
+export enum RowFilterType {
 	Between = 'between',
 	Compare = 'compare',
 	IsNull = 'is_null',
@@ -472,9 +595,9 @@ export enum CompareFilterParamsOp {
 }
 
 /**
- * Possible values for Type in SearchFilterParams
+ * Possible values for SearchFilterType
  */
-export enum SearchFilterParamsType {
+export enum SearchFilterType {
 	Contains = 'contains',
 	StartsWith = 'starts_with',
 	EndsWith = 'ends_with',
@@ -482,9 +605,9 @@ export enum SearchFilterParamsType {
 }
 
 /**
- * Possible values for Type in ColumnProfileRequest
+ * Possible values for ColumnProfileType
  */
-export enum ColumnProfileRequestType {
+export enum ColumnProfileType {
 	NullCount = 'null_count',
 	SummaryStats = 'summary_stats',
 	FrequencyTable = 'frequency_table',
@@ -540,7 +663,7 @@ export class PositronDataExplorerComm extends PositronBaseComm {
 	 *
 	 * Search schema for column names matching a passed substring
 	 *
-	 * @param searchTerm Substring to match for (currently case insensitive
+	 * @param searchTerm Substring to match for (currently case insensitive)
 	 * @param startIndex Index (starting from zero) of first result to fetch
 	 * @param maxResults Maximum number of resulting column schemas to fetch
 	 * from the start index
@@ -618,6 +741,19 @@ export class PositronDataExplorerComm extends PositronBaseComm {
 	 */
 	getState(): Promise<TableState> {
 		return super.performRpc('get_state', [], []);
+	}
+
+	/**
+	 * Query the backend to determine supported features
+	 *
+	 * Query the backend to determine supported features, to enable feature
+	 * toggling
+	 *
+	 *
+	 * @returns For each field, returns flags indicating supported features
+	 */
+	getSupportedFeatures(): Promise<SupportedFeatures> {
+		return super.performRpc('get_supported_features', [], []);
 	}
 
 

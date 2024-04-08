@@ -17,7 +17,7 @@ import { initializePositron } from './positron/initialize';
 export * from './constants';
 export * from './ciConstants';
 
-const dummyPythonFile = path.join(__dirname, '..', '..', 'src', 'test', 'pythonFiles', 'dummy.py');
+const dummyPythonFile = path.join(__dirname, '..', '..', 'src', 'test', 'python_files', 'dummy.py');
 export const multirootPath = path.join(__dirname, '..', '..', 'src', 'testMultiRootWkspc');
 const workspace3Uri = vscode.Uri.file(path.join(multirootPath, 'workspace3'));
 

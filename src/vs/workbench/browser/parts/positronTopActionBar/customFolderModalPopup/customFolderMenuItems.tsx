@@ -22,6 +22,7 @@ import { CustomFolderMenuItem } from 'vs/workbench/browser/parts/positronTopActi
 import { CustomFolderMenuSeparator } from 'vs/workbench/browser/parts/positronTopActionBar/customFolderModalPopup/customFolderMenuSeparator';
 import { CustomFolderRecentlyUsedMenuItem } from 'vs/workbench/browser/parts/positronTopActionBar/customFolderModalPopup/customFolderRecentlyUsedMenuItem';
 import { PositronNewFolderAction, PositronNewFolderFromGitAction, PositronNewProjectAction, PositronOpenFolderInNewWindowAction } from 'vs/workbench/browser/actions/positronActions';
+import { IsDevelopmentContext } from 'vs/platform/contextkey/common/contextkeys';
 
 /**
  * Constants.
@@ -98,7 +99,7 @@ export const CustomFolderMenuItems = (props: CustomFolderMenuItemsProps) => {
 		return (
 			<>
 				<CustomFolderMenuSeparator />
-				{props.recentlyOpened.workspaces.slice(0, 10).map(recent => {
+				{props.recentlyOpened.workspaces.slice(0, 10).map((recent, index) => {
 					// Setup the handler.
 					let uri: URI;
 					let label: string;
@@ -119,6 +120,7 @@ export const CustomFolderMenuItems = (props: CustomFolderMenuItemsProps) => {
 					// Render.
 					return (
 						<CustomFolderRecentlyUsedMenuItem
+							key={index}
 							label={label}
 							enabled={true}
 							onOpen={e => {
@@ -142,20 +144,24 @@ export const CustomFolderMenuItems = (props: CustomFolderMenuItemsProps) => {
 		);
 	};
 
+	const isDevContext = IsDevelopmentContext.getValue(props.contextKeyService) === true;
+
 	// Render.
 	return (
 		<div className='custom-folder-menu-items'>
-			<CommandActionCustomFolderMenuItem id={PositronNewProjectAction.ID} />
+			{/* TODO: [New Project] Remove feature flag when New Project action is ready for release */}
+			{/* This removes the action from the custom folder menu in the action bar when when not in a development context */}
+			{isDevContext && <CommandActionCustomFolderMenuItem id={PositronNewProjectAction.ID} />}
 			<CommandActionCustomFolderMenuItem id={PositronNewFolderAction.ID} />
 			<CommandActionCustomFolderMenuItem id={PositronNewFolderFromGitAction.ID} />
 			<CustomFolderMenuSeparator />
 			<CommandActionCustomFolderMenuItem
 				id={OpenFolderAction.ID}
-				label={localize('positronOpenFolder', "Open Folder...")} />
+				label={(() => localize('positronOpenFolder', "Open Folder..."))()} />
 			<CommandActionCustomFolderMenuItem id={PositronOpenFolderInNewWindowAction.ID} />
 			<CommandActionCustomFolderMenuItem
 				id={kCloseFolder}
-				label={localize('positronCloseFolder', "Close Folder")}
+				label={(() => localize('positronCloseFolder', "Close Folder"))()}
 				separator={true}
 				when={ContextKeyExpr.and(
 					WorkbenchStateContext.isEqualTo('folder'),

@@ -113,7 +113,7 @@ export const Button = forwardRef<HTMLButtonElement, PropsWithChildren<Props>>((p
 		<button
 			ref={ref}
 			className={positronClassNames(
-				'button',
+				'positron-button',
 				props.className,
 				{ 'disabled': props.disabled }
 			)}

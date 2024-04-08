@@ -137,7 +137,7 @@ const NewFolderModalDialog = (props: NewFolderModalDialogProps) => {
 			renderer={props.renderer}
 			width={400}
 			height={300}
-			title={localize('positronNewFolderModalDialogTitle', "New Folder")}
+			title={(() => localize('positronNewFolderModalDialogTitle', "New Folder"))()}
 			onAccept={async () => {
 				props.renderer.dispose();
 				await props.createFolder(result);
@@ -146,16 +146,16 @@ const NewFolderModalDialog = (props: NewFolderModalDialogProps) => {
 			<VerticalStack>
 				<LabeledTextInput
 					ref={folderNameRef}
-					label={localize('positron.folderName', "Folder name")}
+					label={(() => localize('positron.folderName', "Folder name"))()}
 					autoFocus
 					value={result.folder}
 					onChange={e => setResult({ ...result, folder: e.target.value })}
 				/>
 				<LabeledFolderInput
-					label={localize(
+					label={(() => localize(
 						'positron.createFolderAsSubfolderOf',
 						"Create folder as subfolder of"
-					)}
+					))()}
 					value={result.parentFolder}
 					onBrowse={browseHandler}
 					onChange={e => setResult({ ...result, parentFolder: e.target.value })}
@@ -163,7 +163,10 @@ const NewFolderModalDialog = (props: NewFolderModalDialogProps) => {
 			</VerticalStack>
 			<VerticalSpacer>
 				<Checkbox
-					label={localize('positron.openInNewWindow', "Open in a new window")}
+					label={(() => localize(
+						'positron.openInNewWindow',
+						"Open in a new window"
+					))()}
 					onChanged={checked => setResult({ ...result, newWindow: checked })}
 				/>
 			</VerticalSpacer>

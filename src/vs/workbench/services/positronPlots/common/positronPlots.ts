@@ -151,6 +151,18 @@ export interface IPositronPlotsService {
 	selectHistoryPolicy(policy: HistoryPolicy): void;
 
 	/**
+	 * Copies the selected plot to the clipboard.
+	 *
+	 * @throws An error if the plot cannot be copied.
+	 */
+	copyPlotToClipboard(): Promise<void>;
+
+	/**
+	 * Saves the plot.
+	 */
+	savePlot(): void;
+
+	/**
 	 * Placeholder for service initialization.
 	 */
 	initialize(): void;

@@ -244,7 +244,7 @@
 					"description": "The current backend table state",
 					"required": [
 						"table_shape",
-						"filters",
+						"row_filters",
 						"sort_keys"
 					],
 					"properties": {
@@ -284,11 +284,59 @@
 					}
 				}
 			}
+		},
+		{
+			"name": "get_supported_features",
+			"summary": "Query the backend to determine supported features",
+			"description": "Query the backend to determine supported features, to enable feature toggling",
+			"params": [],
+			"result": {
+				"schema": {
+					"type": "object",
+					"name": "supported_features",
+					"description": "For each field, returns flags indicating supported features",
+					"required": [
+						"search_schema",
+						"set_row_filters",
+						"get_column_profiles"
+					],
+					"properties": {
+						"search_schema": {
+							"description": "Support for 'search_schema' RPC and its features",
+							"$ref": "#/components/schemas/search_schema_features"
+						},
+						"set_row_filters": {
+							"description": "Support for 'set_row_filters' RPC and its features",
+							"$ref": "#/components/schemas/set_row_filters_features"
+						},
+						"get_column_profiles": {
+							"description": "Support for 'get_column_profiles' RPC and its features",
+							"$ref": "#/components/schemas/get_column_profiles_features"
+						}
+					}
+				}
+			}
 		}
 	],
 	"components": {
 		"contentDescriptors": {},
 		"schemas": {
+			"column_display_type": {
+				"name": "column_display_type",
+				"type": "string",
+				"description": "Canonical Positron display name of data type",
+				"enum": [
+					"number",
+					"boolean",
+					"string",
+					"date",
+					"datetime",
+					"time",
+					"array",
+					"struct",
+					"unknown"
+				]
+			},
 			"column_schema": {
 				"type": "object",
 				"description": "Schema for a column in a table",
@@ -312,19 +360,8 @@
 						"description": "Exact name of data type used by underlying table"
 					},
 					"type_display": {
-						"type": "string",
 						"description": "Canonical Positron display name of data type",
-						"enum": [
-							"number",
-							"boolean",
-							"string",
-							"date",
-							"datetime",
-							"time",
-							"array",
-							"struct",
-							"unknown"
-						]
+						"$ref": "#/components/schemas/column_display_type"
 					},
 					"description": {
 						"type": "string",
@@ -385,17 +422,8 @@
 						"description": "Unique identifier for this filter"
 					},
 					"filter_type": {
-						"type": "string",
-						"description": "Type of filter to apply",
-						"enum": [
-							"between",
-							"compare",
-							"is_null",
-							"not_between",
-							"not_null",
-							"search",
-							"set_membership"
-						]
+						"description": "Type of row filter to apply",
+						"$ref": "#/components/schemas/row_filter_type"
 					},
 					"column_index": {
 						"type": "integer",
@@ -418,6 +446,19 @@
 						"$ref": "#/components/schemas/set_membership_filter_params"
 					}
 				}
+			},
+			"row_filter_type": {
+				"type": "string",
+				"description": "Type of row filter",
+				"enum": [
+					"between",
+					"compare",
+					"is_null",
+					"not_between",
+					"not_null",
+					"search",
+					"set_membership"
+				]
 			},
 			"between_filter_params": {
 				"type": "object",
@@ -488,20 +529,14 @@
 				"type": "object",
 				"description": "Parameters for the 'search' filter type",
 				"required": [
-					"type",
+					"search_type",
 					"term",
 					"case_sensitive"
 				],
 				"properties": {
-					"type": {
-						"type": "string",
-						"description": "Type of search to perform",
-						"enum": [
-							"contains",
-							"starts_with",
-							"ends_with",
-							"regex_match"
-						]
+					"search_type": {
+						"$ref": "#/components/schemas/search_filter_type",
+						"description": "Type of search to perform"
 					},
 					"term": {
 						"type": "string",
@@ -513,29 +548,43 @@
 					}
 				}
 			},
+			"search_filter_type": {
+				"type": "string",
+				"description": "Type of string search filter to perform",
+				"enum": [
+					"contains",
+					"starts_with",
+					"ends_with",
+					"regex_match"
+				]
+			},
 			"column_profile_request": {
 				"type": "object",
 				"description": "A single column profile request",
 				"required": [
 					"column_index",
-					"type"
+					"profile_type"
 				],
 				"properties": {
 					"column_index": {
 						"type": "integer",
 						"description": "The ordinal column index to profile"
 					},
-					"type": {
-						"type": "string",
+					"profile_type": {
 						"description": "The type of analytical column profile",
-						"enum": [
-							"null_count",
-							"summary_stats",
-							"frequency_table",
-							"histogram"
-						]
+						"$ref": "#/components/schemas/column_profile_type"
 					}
 				}
+			},
+			"column_profile_type": {
+				"type": "string",
+				"description": "Type of analytical column profile",
+				"enum": [
+					"null_count",
+					"summary_stats",
+					"frequency_table",
+					"histogram"
+				]
 			},
 			"column_profile_result": {
 				"type": "object",
@@ -561,9 +610,37 @@
 			},
 			"column_summary_stats": {
 				"type": "object",
+				"description": "Profile result containing summary stats for a column based on the data type",
+				"required": [
+					"type_display"
+				],
+				"properties": {
+					"type_display": {
+						"description": "Canonical Positron display name of data type",
+						"$ref": "#/components/schemas/column_display_type"
+					},
+					"number_stats": {
+						"description": "Statistics for a numeric data type",
+						"$ref": "#/components/schemas/summary_stats_number"
+					},
+					"string_stats": {
+						"description": "Statistics for a string-like data type",
+						"$ref": "#/components/schemas/summary_stats_string"
+					},
+					"boolean_stats": {
+						"description": "Statistics for a boolean data type",
+						"$ref": "#/components/schemas/summary_stats_boolean"
+					}
+				}
+			},
+			"summary_stats_number": {
+				"type": "object",
 				"required": [
 					"min_value",
-					"max_value"
+					"max_value",
+					"mean",
+					"median",
+					"stdev"
 				],
 				"properties": {
 					"min_value": {
@@ -574,7 +651,7 @@
 						"type": "string",
 						"description": "Maximum value as string"
 					},
-					"mean_value": {
+					"mean": {
 						"type": "string",
 						"description": "Average value as string"
 					},
@@ -582,13 +659,43 @@
 						"type": "string",
 						"description": "Sample median (50% value) value as string"
 					},
-					"q25": {
+					"stdev": {
 						"type": "string",
-						"description": "25th percentile value as string"
+						"description": "Sample standard deviation as a string"
+					}
+				}
+			},
+			"summary_stats_boolean": {
+				"type": "object",
+				"required": [
+					"true_count",
+					"false_count"
+				],
+				"properties": {
+					"true_count": {
+						"type": "integer",
+						"description": "The number of non-null true values"
 					},
-					"q75": {
-						"type": "string",
-						"description": "75th percentile value as string"
+					"false_count": {
+						"type": "integer",
+						"description": "The number of non-null false values"
+					}
+				}
+			},
+			"summary_stats_string": {
+				"type": "object",
+				"required": [
+					"num_empty",
+					"num_unique"
+				],
+				"properties": {
+					"num_empty": {
+						"type": "integer",
+						"description": "The number of empty / length-zero values"
+					},
+					"num_unique": {
+						"type": "integer",
+						"description": "The exact number of distinct values"
 					}
 				}
 			},
@@ -690,6 +797,66 @@
 					"ascending": {
 						"type": "boolean",
 						"description": "Sort order, ascending (true) or descending (false)"
+					}
+				}
+			},
+			"search_schema_features": {
+				"type": "object",
+				"description": "Feature flags for 'search_schema' RPC",
+				"required": [
+					"supported"
+				],
+				"properties": {
+					"supported": {
+						"type": "boolean",
+						"description": "Whether this RPC method is supported at all"
+					}
+				}
+			},
+			"set_row_filters_features": {
+				"type": "object",
+				"description": "Feature flags for 'set_row_filters' RPC",
+				"required": [
+					"supported",
+					"supports_conditions",
+					"supported_types"
+				],
+				"properties": {
+					"supported": {
+						"type": "boolean",
+						"description": "Whether this RPC method is supported at all"
+					},
+					"supports_conditions": {
+						"type": "boolean",
+						"description": "Whether AND/OR filter conditions are supported"
+					},
+					"supported_types": {
+						"type": "array",
+						"description": "A list of supported types",
+						"items": {
+							"$ref": "#/components/schemas/row_filter_type"
+						}
+					}
+				}
+			},
+			"get_column_profiles_features": {
+				"type": "object",
+				"description": "Feature flags for 'get_column_profiles' RPC",
+				"required": [
+					"supported",
+					"supported_types"
+				],
+				"properties": {
+					"supported": {
+						"type": "boolean",
+						"description": "Whether this RPC method is supported at all"
+					},
+					"supported_types": {
+						"type": "array",
+						"description": "A list of supported types",
+						"items": {
+							"$ref": "#/components/schemas/column_profile_type"
+						}
 					}
 				}
 			}

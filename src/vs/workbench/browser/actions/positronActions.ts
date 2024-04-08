@@ -47,12 +47,16 @@ export class PositronNewProjectAction extends Action2 {
 			},
 			category: workspacesCategory,
 			f1: true,
-			// TODO: remove feature flag IsDevelopmentContext when the feature is ready
-			precondition: ContextKeyExpr.and(EnterMultiRootWorkspaceSupportContext, IsDevelopmentContext),
+			// TODO: [New Project] Remove feature flag when New Project action is ready for release
+			// This disables (greys out) the action in the New menu, the application bar File menu, and the command palette when not in a development context
+			precondition: ContextKeyExpr.and(EnterMultiRootWorkspaceSupportContext, IsDevelopmentContext.isEqualTo(true)),
 			menu: {
 				id: MenuId.MenubarFileMenu,
 				group: '1_newfolder',
 				order: 3,
+				// TODO: [New Project] Remove feature flag when New Project action is ready for release
+				// This removes the action from the application bar File menu when not in a development context
+				when: IsDevelopmentContext.isEqualTo(true)
 			}
 		});
 	}

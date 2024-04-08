@@ -152,6 +152,10 @@ export interface ICommonNativeHostService {
 	readClipboardBuffer(format: string): Promise<VSBuffer>;
 	hasClipboard(format: string, type?: 'selection' | 'clipboard'): Promise<boolean>;
 
+	// --- Start Positron ---
+	writeClipboardImage(dataUri: string): Promise<void>;
+	// --- End Positron ---
+
 	// macOS Touchbar
 	newWindowTab(): Promise<void>;
 	showPreviousWindowTab(): Promise<void>;

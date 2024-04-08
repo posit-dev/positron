@@ -3,7 +3,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { DataColumnAlignment } from 'vs/workbench/browser/positronDataGrid/interfaces/dataColumn';
-import { ColumnSchema, ColumnSchemaTypeDisplay } from 'vs/workbench/services/languageRuntime/common/positronDataExplorerComm';
+import { ColumnSchema, ColumnDisplayType } from 'vs/workbench/services/languageRuntime/common/positronDataExplorerComm';
 import { IPositronDataExplorerColumn } from 'vs/workbench/services/positronDataExplorer/browser/interfaces/positronDataExplorerColumn';
 
 /**
@@ -65,31 +65,31 @@ export class PositronDataExplorerColumn implements IPositronDataExplorerColumn {
 	get alignment() {
 		// Determine the alignment based on type.
 		switch (this.columnSchema.type_display) {
-			case ColumnSchemaTypeDisplay.Number:
+			case ColumnDisplayType.Number:
 				return DataColumnAlignment.Right;
 
-			case ColumnSchemaTypeDisplay.Boolean:
+			case ColumnDisplayType.Boolean:
 				return DataColumnAlignment.Left;
 
-			case ColumnSchemaTypeDisplay.String:
+			case ColumnDisplayType.String:
 				return DataColumnAlignment.Left;
 
-			case ColumnSchemaTypeDisplay.Date:
+			case ColumnDisplayType.Date:
 				return DataColumnAlignment.Right;
 
-			case ColumnSchemaTypeDisplay.Datetime:
+			case ColumnDisplayType.Datetime:
 				return DataColumnAlignment.Right;
 
-			case ColumnSchemaTypeDisplay.Time:
+			case ColumnDisplayType.Time:
 				return DataColumnAlignment.Right;
 
-			case ColumnSchemaTypeDisplay.Array:
+			case ColumnDisplayType.Array:
 				return DataColumnAlignment.Left;
 
-			case ColumnSchemaTypeDisplay.Struct:
+			case ColumnDisplayType.Struct:
 				return DataColumnAlignment.Left;
 
-			case ColumnSchemaTypeDisplay.Unknown:
+			case ColumnDisplayType.Unknown:
 				return DataColumnAlignment.Left;
 		}
 	}

@@ -107,7 +107,7 @@ const SetPlotSizeModalDialog = (props: SetPlotSizeModalDialogProps) => {
 			renderer={props.renderer}
 			width={350}
 			height={200}
-			title={localize('positronSetPlotSizeModalDialogTitle', "Custom Plot Size")}
+			title={(() => localize('positronSetPlotSizeModalDialogTitle', "Custom Plot Size"))()}
 			onAccept={acceptHandler}
 			onCancel={cancelHandler}>
 			<ContentArea>
