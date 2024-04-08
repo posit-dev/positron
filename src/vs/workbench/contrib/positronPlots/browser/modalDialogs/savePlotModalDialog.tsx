@@ -150,21 +150,15 @@ const SavePlotModalDialog = (props: SavePlotModalDialogProps) => {
 	const acceptHandler = async () => {
 		if (validateInput()) {
 			setRendering(true);
+
 			const extension = path.value.fsPath.split('.').pop()?.toLowerCase();
-			// const format = extension === 'png' || extension === 'svg' ? extension : 'png';
-			let format = PlotFormat.PNG;
-			switch (extension) {
-				case 'svg':
-					format = PlotFormat.SVG;
-					break;
-				case 'pdf':
-					format = PlotFormat.PDF;
-					break;
-				case 'png':
-				default:
-					format = PlotFormat.PNG;
-					break;
+			let format = extension as PlotFormat;
+
+			// default to PNG if the format is unknown
+			if (!Object.values(PlotFormat).includes(format)) {
+				format = PlotFormat.PNG;
 			}
+
 			const plotResult = await generatePreview(format);
 
 			if (plotResult) {
