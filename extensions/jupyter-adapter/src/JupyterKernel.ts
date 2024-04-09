@@ -1577,11 +1577,11 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 	 * Creates a detailed error object to emit to the client when the kernel fails
 	 * to start.
 	 *
-	 * @param message The error message
+	 * @param error The source error message or object
 	 * @returns A StartupFailure object containing the error message and the
 	 *   contents of the kernel's log file, if it exists
 	 */
-	private createStartupFailure(message: string): StartupFailure {
+	private createStartupFailure(err: any): StartupFailure {
 		// Read the content of the log file, if it exists; this may contain more detail
 		// about why the kernel exited.
 		let logFileContent = '';
@@ -1599,6 +1599,6 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 			.join('\n');
 
 		// Create a startup failure message
-		return new StartupFailure(message, logFileContent);
+		return new StartupFailure(err.toString(), logFileContent);
 	}
 }
