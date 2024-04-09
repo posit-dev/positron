@@ -284,7 +284,7 @@ class ConnectionsService:
         """
         Handles front-end initiated close requests
         """
-        paths = list(self.comm_id_to_path.get(comm_id, set()))
+        paths = set(self.comm_id_to_path.get(comm_id, set()))
 
         if not paths:
             # id the connection is not associated with any variable path, we close it
