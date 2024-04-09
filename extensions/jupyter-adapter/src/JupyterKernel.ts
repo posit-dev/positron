@@ -344,12 +344,12 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 		this.log(`Connecting to kernel sockets defined in ${session.state.connectionFile}...`);
 
 		// Wait for the sockets to connect or the timeout to expire. Note that
-		// each socket has 15 second timeout for connecting, so this is just an
+		// each socket has 20 second timeout for connecting, so this is just an
 		// additional safeguard.
 		await withTimeout(
 			this.connect(session.state.connectionFile),
-			20000,
-			`Timed out waiting 20 seconds for kernel to connect to sockets`);
+			25000,
+			`Timed out waiting 25 seconds for kernel to connect to sockets`);
 
 		// We're connected! Establish the socket listeners
 		return this.establishSocketListeners();
