@@ -214,6 +214,7 @@ jobs:
     strategy:
       matrix:
         include:
+          # currently only running on oldest supported Python version
           - os: 'ubuntu-latest'
             python: '3.8'
     steps:
@@ -226,13 +227,13 @@ jobs:
           python-version: ${{ matrix.python }}
           cache: 'pip'
 
-      - name: Install Positron IPyKernel requirements
-        run: python scripts/vendor.py
+      - name: Install testing requirements
+        run: |
+          python scripts/vendor.py
+          python -m pip install nox
 
       - name: Run tests
-        run: |
-          python -m pip install nox
-          yarn positron:testMinimumPythonReqs
+        run: yarn positron:testMinimumPythonReqs
 
   typescript-tests:
     name: Test TypeScript
