@@ -302,7 +302,6 @@ gulp.task('installDebugpy', async (done) => {
         '-r',
         './build/build-install-requirements.txt',
     ];
-    d;
     await spawnAsync(pythonCommand, depsArgs)
         .then(() => true)
         .catch((ex) => {
@@ -387,18 +386,6 @@ function spawnAsync(command, args, env, rejectOnStdErr = false) {
         proc.on('error', (error) => reject(error));
     });
 }
-
-gulp.task('installPositronIPyKernelRequirements', async (done) => {
-    const depsArgs = ['-m', 'pip', 'install', '--no-deps', '-r', './pythonFiles/positron/min-supported.txt'];
-    // install requirements
-    await spawnAsync(pythonCommand, pipArgs)
-        .then(() => true)
-        .catch((ex) => {
-            const msg = "Failed to install requirements using 'pip'";
-            fancyLog.error(ansiColors.red(`error`), msg, ex);
-            done(new Error(msg));
-        });
-});
 // --- End Positron ---
 
 function hasNativeDependencies() {
