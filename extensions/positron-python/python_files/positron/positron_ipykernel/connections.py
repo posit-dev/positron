@@ -224,6 +224,9 @@ class ConnectionsService:
         self.comms[comm_id] = connections_comm
 
     def _wrap_connection(self, obj: Any) -> Connection:
+        # this check is redundant with the if branches below, but allows us to make
+        # sure the `object_is_supported` method is always in sync with what we really
+        # support in the connections pane.
         if not self.object_is_supported(obj):
             type_name = type(obj).__name__
             raise UnsupportedConnectionError(f"Unsupported connection type {type_name}")
