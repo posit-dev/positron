@@ -36,6 +36,12 @@ export class TestClipboardService implements IClipboardService {
 		this.resources = resources;
 	}
 
+	// --- Start Positron ---
+	async writeImage(data: string): Promise<void> {
+		// no-op
+	}
+	// --- End Positron ---
+
 	async readResources(): Promise<URI[]> {
 		return this.resources ?? [];
 	}

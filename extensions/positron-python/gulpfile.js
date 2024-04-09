@@ -262,7 +262,7 @@ gulp.task('installPythonRequirements', async (done) => {
         'install',
         '--no-user',
         '-t',
-        './pythonFiles/lib/python',
+        './python_files/lib/python',
         '--no-cache-dir',
         '--implementation',
         'py',
@@ -298,7 +298,7 @@ gulp.task('installDebugpy', async (done) => {
         '--no-user',
         '--upgrade',
         '-t',
-        './pythonFiles/lib/temp',
+        './python_files/lib/temp',
         '-r',
         './build/build-install-requirements.txt',
     ];
@@ -311,8 +311,8 @@ gulp.task('installDebugpy', async (done) => {
         });
 
     // Install new DEBUGPY with wheels for python
-    const wheelsArgs = ['./pythonFiles/install_debugpy.py'];
-    const wheelsEnv = { PYTHONPATH: './pythonFiles/lib/temp' };
+    const wheelsArgs = ['./python_files/install_debugpy.py'];
+    const wheelsEnv = { PYTHONPATH: './python_files/lib/temp' };
     await spawnAsync(pythonCommand, wheelsArgs, wheelsEnv)
         .then(() => true)
         .catch((ex) => {
@@ -322,8 +322,8 @@ gulp.task('installDebugpy', async (done) => {
         });
 
     // Download get-pip.py
-    const getPipArgs = ['./pythonFiles/download_get_pip.py'];
-    const getPipEnv = { PYTHONPATH: './pythonFiles/lib/temp' };
+    const getPipArgs = ['./python_files/download_get_pip.py'];
+    const getPipEnv = { PYTHONPATH: './python_files/lib/temp' };
     await spawnAsync(pythonCommand, getPipArgs, getPipEnv)
         .then(() => true)
         .catch((ex) => {
@@ -332,7 +332,7 @@ gulp.task('installDebugpy', async (done) => {
             done(new Error(msg));
         });
 
-    rmrf.sync('./pythonFiles/lib/temp');
+    rmrf.sync('./python_files/lib/temp');
 });
 
 gulp.task('installPythonLibs', gulp.series('installPythonRequirements', 'installDebugpy'));

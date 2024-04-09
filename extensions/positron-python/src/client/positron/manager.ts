@@ -110,7 +110,7 @@ export class PythonRuntimeManager implements positron.LanguageRuntimeManager {
         }
 
         const command = extraData.pythonPath;
-        const lsScriptPath = path.join(EXTENSION_ROOT_DIR, 'pythonFiles', 'positron', 'positron_language_server.py');
+        const lsScriptPath = path.join(EXTENSION_ROOT_DIR, 'python_files', 'positron', 'positron_language_server.py');
         const args = [
             command,
             lsScriptPath,

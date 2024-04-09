@@ -1,0 +1,7 @@
+pandas
+polars
+matplotlib
+numpy
+torch
+fastapi
+sqlalchemy

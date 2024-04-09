@@ -23,7 +23,7 @@ env:
   NODE_VERSION: '18.17.1'
   PYTHON_VERSION: '3.10'
   PROJECT_DIR: 'extensions/positron-python'
-  PYTHON_SRC_DIR: 'extensions/positron-python/pythonFiles'
+  PYTHON_SRC_DIR: 'extensions/positron-python/python_files'
   # Force a path with spaces and to test extension works in these scenarios
   # Unicode characters are causing 2.7 failures so skip that for now.
   special-working-directory: './path with spaces'
@@ -67,16 +67,11 @@ jobs:
       - name: Check TypeScript format
         run: yarn format-check
 
-      - name: Check Python format
-        run: |
-          python -m pip install -U black
-          python -m black . --check
-        working-directory: ${{ env.PYTHON_SRC_DIR }}
-
-      - name: Run Ruff
+      - name: Lint and Check Formatting with Ruff
         run: |
           python -m pip install -U ruff
           python -m ruff check .
+          python -m ruff format --check
         working-directory: ${{ env.PYTHON_SRC_DIR }}
 
   check-types:
@@ -93,16 +88,16 @@ jobs:
           cache: 'pip'
 
       - name: Install base Python requirements
-        run: 'python -m pip install --no-deps --require-hashes --only-binary :all: -t ./pythonFiles/lib/python --no-cache-dir --implementation py -r requirements.txt'
+        run: 'python -m pip install --no-deps --require-hashes --only-binary :all: -t ./python_files/lib/python --no-cache-dir --implementation py -r requirements.txt'
 
       - name: Install Positron IPyKernel requirements
         run: python scripts/vendor.py
 
       - name: Install other Python requirements
         run: |
-          python -m pip --disable-pip-version-check install -t ./pythonFiles/lib/python --no-cache-dir --implementation py --no-deps --upgrade --pre debugpy
+          python -m pip --disable-pip-version-check install -t ./python_files/lib/python --no-cache-dir --implementation py --no-deps --upgrade --pre debugpy
           python -m pip install --upgrade -r build/test-requirements.txt
-          python -m pip install --upgrade -r ./pythonFiles/positron/pinned-test-requirements.txt
+          python -m pip install --upgrade -r ./python_files/positron/pinned-test-requirements.txt
 
       - name: Run Pyright
         uses: jakebailey/pyright-action@v2
@@ -169,13 +164,13 @@ jobs:
         run: python -m pytest --version
 
       - name: Install base Python requirements
-        run: 'python -m pip install --no-deps --require-hashes --only-binary :all: -t ./pythonFiles/lib/python --no-cache-dir --implementation py -r requirements.txt'
+        run: 'python -m pip install --no-deps --require-hashes --only-binary :all: -t ./python_files/lib/python --no-cache-dir --implementation py -r requirements.txt'
 
       - name: Install test requirements
         run: python -m pip install -r build/test-requirements.txt
 
       - name: Run Python unit tests
-        run: python pythonFiles/tests/run_all.py
+        run: python python_files/tests/run_all.py
 
   positron-ipykernel-tests:
     name: Test Positron IPyKernel
@@ -216,14 +211,14 @@ jobs:
         run: python scripts/vendor.py
 
       - name: Install Positron IPyKernel test requirements
-        run: python -m pip install --prefer-binary --upgrade -r pythonFiles/positron/pinned-test-requirements.txt
+        run: python -m pip install --prefer-binary --upgrade -r python_files/positron/pinned-test-requirements.txt
 
       - name: Install minimum supported versions
         if: ${{ matrix.older-versions }}
-        run: python -m pip install --no-deps -r pythonFiles/positron/min-supported.txt
+        run: python -m pip install --no-deps -r python_files/positron/min-supported.txt
 
       - name: Run Positron IPyKernel unit tests
-        run: pytest pythonFiles/positron
+        run: pytest python_files/positron
 
   typescript-tests:
     name: Test TypeScript
