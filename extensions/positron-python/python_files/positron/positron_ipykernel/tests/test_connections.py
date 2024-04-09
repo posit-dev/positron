@@ -149,7 +149,6 @@ class TestSQLiteConnectionsService:
 
 
 class TestVariablePaneIntegration:
-
     @pytest.mark.parametrize("con", get_sqlite_connections())
     def test_open_then_delete(
         self,

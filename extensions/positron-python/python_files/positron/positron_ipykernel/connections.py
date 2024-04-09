@@ -5,16 +5,20 @@ from __future__ import annotations
 
 import logging
 import uuid
-from typing import (TYPE_CHECKING, Any, Dict, List, Optional, Set, Tuple,
-                    TypedDict, Union)
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Set, Tuple, TypedDict, Union
 
 import comm
 
 from .access_keys import decode_access_key, encode_access_key
-from .connections_comm import (ConnectionsBackendMessageContent,
-                               ContainsDataRequest, GetIconRequest,
-                               ListFieldsRequest, ListObjectsRequest,
-                               ObjectSchema, PreviewObjectRequest)
+from .connections_comm import (
+    ConnectionsBackendMessageContent,
+    ContainsDataRequest,
+    GetIconRequest,
+    ListFieldsRequest,
+    ListObjectsRequest,
+    ObjectSchema,
+    PreviewObjectRequest,
+)
 from .positron_comm import CommMessage, JsonRpcErrorCode, PositronComm
 from .third_party import pd_, sqlalchemy_
 from .utils import JsonData, JsonRecord, safe_isinstance
@@ -220,7 +224,6 @@ class ConnectionsService:
         self.comms[comm_id] = connections_comm
 
     def _wrap_connection(self, obj: Any) -> Connection:
-
         if not self.object_is_supported(obj):
             type_name = type(obj).__name__
             raise UnsupportedConnectionError(f"Unsupported connection type {type_name}")
