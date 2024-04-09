@@ -253,10 +253,10 @@ export class JupyterSocket implements vscode.Disposable {
 			}
 			// Compute how long we've been waiting
 			const waitTime = Date.now() - startTime;
-			if (waitTime >= 10000) {
+			if (waitTime >= 15000) {
 				// If we've been waiting for more than 10 seconds, reject the promise
-				this._logger(`${this._title} socket connect timed out after 10 seconds`);
-				this._connectPromise.reject(new Error('Socket connect timed out after 10 seconds'));
+				this._logger(`${this._title} socket connect timed out after 15 seconds`);
+				this._connectPromise.reject(new Error('Socket connect timed out after 15 seconds'));
 				this._connectPromise = undefined;
 
 				// Return to the uninitialized state so a new connection can be attempted if
