@@ -5,20 +5,16 @@ from __future__ import annotations
 
 import logging
 import uuid
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Set, Tuple, TypedDict, Union
+from typing import (TYPE_CHECKING, Any, Dict, List, Optional, Set, Tuple,
+                    TypedDict, Union)
 
 import comm
 
 from .access_keys import decode_access_key, encode_access_key
-from .connections_comm import (
-    ConnectionsBackendMessageContent,
-    ContainsDataRequest,
-    GetIconRequest,
-    ListFieldsRequest,
-    ListObjectsRequest,
-    ObjectSchema,
-    PreviewObjectRequest,
-)
+from .connections_comm import (ConnectionsBackendMessageContent,
+                               ContainsDataRequest, GetIconRequest,
+                               ListFieldsRequest, ListObjectsRequest,
+                               ObjectSchema, PreviewObjectRequest)
 from .positron_comm import CommMessage, JsonRpcErrorCode, PositronComm
 from .third_party import pd_, sqlalchemy_
 from .utils import JsonData, JsonRecord, safe_isinstance
@@ -212,13 +208,13 @@ class ConnectionsService:
         self.comm_id_to_path[comm_id].remove(variable_path)
 
         # if comm_id no longer points to any connection, we close the comm
-        if not len(self.comm_id_to_path[comm_id]):
+        if not self.comm_id_to_path[comm_id]:
             del self.comm_id_to_path[comm_id]
             self._close_connection(comm_id)
 
     def on_comm_open(self, comm: BaseComm):
         comm_id = comm.comm_id
-        comm.on_close(lambda msg: self._close_connection(comm_id))
+        comm.on_close(lambda msg: self._on_comm_close(comm_id))
         connections_comm = PositronComm(comm)
         connections_comm.on_msg(self.handle_msg, ConnectionsBackendMessageContent)
         self.comms[comm_id] = connections_comm
@@ -268,7 +264,7 @@ class ConnectionsService:
             self.register_connection(value, variable_path=variable_path)
         except UnsupportedConnectionError:
             # if an unsupported connection error, then it means the variable
-            # is no longer a connection, thus we unmregister that variable path,
+            # is no longer a connection, thus we unregister that variable path,
             # wich might close the comm if it points only to that path.
             self._unregister_variable_path(tuple(variable_path))
             return
@@ -283,6 +279,22 @@ class ConnectionsService:
             key = decode_access_key(path[0])
             if key == variable_name:
                 self._unregister_variable_path(path)
+
+    def _on_comm_close(self, comm_id: str):
+        """
+        Handles front-end initiated close requests
+        """
+        paths = list(self.comm_id_to_path.get(comm_id, set()))
+
+        if not paths:
+            # id the connection is not associated with any variable path, we close it
+            # otherwise we need to check if other variables point to the same comm_id
+            # before deleting.
+            self._close_connection(comm_id)
+            return
+
+        for path in paths:
+            self._unregister_variable_path(path)
 
     def _close_connection(self, comm_id: str):
         try:
