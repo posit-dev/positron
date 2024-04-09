@@ -906,7 +906,8 @@ class PolarsDataFrameInspector(BaseTableInspector["pl.DataFrame", "pl.Series"]):
 
 
 class ConnectionInspector(ObjectInspector):
-    CLASS_QNAME = ["sqlite3.Connection", "sqlalchemy.engine.base.Engine"]
+    # in older Python versions (eg 3.9) the qualname for sqlite3.Connection is just "Connection"
+    CLASS_QNAME = ["Connection", "sqlite3.Connection", "sqlalchemy.engine.base.Engine"]
 
     def has_viewer(self) -> bool:
         return True
