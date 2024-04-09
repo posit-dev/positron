@@ -7,13 +7,32 @@ import 'vs/css!./projectType';
 
 // React.
 import React = require('react');
+import { NewProjectType } from 'vs/workbench/browser/positronNewProjectWizard/interfaces/newProjectWizardEnums';
+
+/**
+ * ProjectTypeItemOptions interface.
+ */
+interface ProjectTypeItemOptions {
+	identifier: NewProjectType;
+	title: string;
+	icon: string;
+}
+
+/**
+ * ProjectTypeItem class.
+ */
+export class ProjectTypeItem {
+	/**
+	 * Constructor.
+	 * @param options A ProjectTypeItemOptions that contains the project type item options.
+	 */
+	constructor(readonly options: ProjectTypeItemOptions) { }
+}
 
 /**
  * ProjectTypeProps interface.
  */
-interface ProjectTypeProps {
-	identifier: string;
-	title: string;
+interface ProjectTypeProps extends ProjectTypeItemOptions {
 	selected: boolean;
 	groupName: string;
 	onSelected: () => void;
@@ -28,6 +47,7 @@ export const ProjectType = (props: ProjectTypeProps) => {
 	// Render.
 	return (
 		<div className='project-type'>
+			<img className='project-type-icon' src={`data:image/svg+xml;base64,${props.icon}`} />
 			<input
 				className='project-type-input'
 				type='radio'

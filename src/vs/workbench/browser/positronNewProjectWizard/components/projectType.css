@@ -5,7 +5,19 @@
 .project-type-selection-step
 .project-type-group
 .project-type {
-	color: var(--vscode-positronModalDialog-foreground);
+	display: flex;
+	flex-direction: row;
+	align-items: center;
+	gap: 6px;
+	cursor: pointer;
+}
+
+.project-type-selection-step
+.project-type-group
+.project-type
+.project-type-icon {
+	width: 40px;
+	height: 40px;
 }
 
 
@@ -21,22 +33,15 @@
 	outline: 1px solid var(--vscode-focusBorder);
 } */
 
-/* Style the radio button circle */
-/* .positron-modal-dialog-box
-.radio-group
-.radio-button
-.radio-button-input {
+/* Hide the default input circle */
+.positron-modal-dialog-box
+.project-type-group
+.project-type
+.project-type-input {
 	cursor: pointer;
 	appearance: none;
 	margin: 0;
-	display: grid;
-	place-content: center;
-	width: 16px;
-	height: 16px;
-	border-radius: 50%;
-	background: var(--vscode-positronModalDialog-radioButtonBackground);
-	border: 1px solid var(--vscode-positronModalDialog-radioButtonBorder);
-} */
+}
 
 /* Style the selected radio button */
 /* .positron-modal-dialog-box

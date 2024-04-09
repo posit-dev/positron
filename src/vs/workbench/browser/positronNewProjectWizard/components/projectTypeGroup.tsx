@@ -10,7 +10,7 @@ import * as React from 'react';
 import { PropsWithChildren, useState } from 'react'; // eslint-disable-line no-duplicate-imports
 
 // Other dependencies.
-import { ProjectType } from 'vs/workbench/browser/positronNewProjectWizard/components/projectType';
+import { ProjectType, ProjectTypeItem } from 'vs/workbench/browser/positronNewProjectWizard/components/projectType';
 import { NewProjectType } from 'vs/workbench/browser/positronNewProjectWizard/interfaces/newProjectWizardEnums';
 
 /**
@@ -21,6 +21,7 @@ interface ProjectTypeProps {
 	initialSelectionId?: string;
 	labelledBy?: string;
 	describedBy?: string;
+	entries: ProjectTypeItem[];
 	onSelectionChanged: (projectType: NewProjectType) => void;
 }
 
@@ -48,15 +49,16 @@ export const ProjectTypeGroup = (props: PropsWithChildren<ProjectTypeProps>) => 
 			aria-labelledby={props.labelledBy}
 			aria-describedby={props.describedBy}
 		>
-			{Object.values(NewProjectType).map((projectType, index) => {
+			{props.entries.map((projectType, index) => {
 				return (
 					<ProjectType
 						key={index}
-						identifier={projectType}
-						title={projectType}
+						identifier={projectType.options.identifier}
+						title={projectType.options.title}
 						groupName={props.name}
-						selected={projectType === currentSelection}
-						onSelected={() => onSelectionChanged(projectType)}
+						icon={projectType.options.icon}
+						selected={projectType.options.identifier === currentSelection}
+						onSelected={() => onSelectionChanged(projectType.options.identifier)}
 					/>
 				);
 			})}
