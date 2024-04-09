@@ -180,22 +180,14 @@ jobs:
         include:
           - os: 'ubuntu-latest'
             python: '3.8'
-            older-versions: false
           - os: 'macos-latest'
             python: '3.9'
-            older-versions: false
           - os: 'windows-latest'
             python: '3.10'
-            older-versions: false
           - os: 'ubuntu-latest'
             python: '3.11'
-            older-versions: false
           - os: 'ubuntu-latest'
             python: '3.12'
-            older-versions: false
-          - os: 'ubuntu-latest'
-            python: '3.9'
-            older-versions: true
 
     steps:
       - name: Checkout
@@ -213,13 +205,31 @@ jobs:
       - name: Install Positron IPyKernel test requirements
         run: python -m pip install --prefer-binary --upgrade -r python_files/positron/pinned-test-requirements.txt
 
-      - name: Install minimum supported versions
-        if: ${{ matrix.older-versions }}
-        run: yarn positron:testMinimumPythonReqs
-
       - name: Run Positron IPyKernel unit tests
-        if: ${{ !matrix.older-versions }}
         run: pytest python_files/positron
+
+  python-minimum-dependencies:
+    name: Test Minimum Python Dependencies
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        include:
+          - os: 'ubuntu-latest'
+            python: '3.8'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Use Python  ${{ matrix.python }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+          cache: 'pip'
+
+      - name: Run tests
+        run: |
+          python -m pip install nox
+          yarn positron:testMinimumPythonReqs
 
   typescript-tests:
     name: Test TypeScript
