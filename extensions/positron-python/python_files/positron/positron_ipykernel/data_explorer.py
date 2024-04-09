@@ -130,7 +130,7 @@ class DataExplorerTableView(abc.ABC):
         ).dict()
 
     def set_row_filters(self, request: SetRowFiltersRequest):
-        return self._set_row_filters(request.params.filters)
+        return self._set_row_filters(request.params.filters).dict()
 
     def set_sort_columns(self, request: SetSortColumnsRequest):
         self.sort_keys = request.params.sort_keys

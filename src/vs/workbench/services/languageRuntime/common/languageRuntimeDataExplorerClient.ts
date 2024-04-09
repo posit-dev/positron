@@ -2,11 +2,11 @@
  *  Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
+import { generateUuid } from 'vs/base/common/uuid';
 import { Emitter, Event } from 'vs/base/common/event';
 import { Disposable } from 'vs/base/common/lifecycle';
-import { generateUuid } from 'vs/base/common/uuid';
 import { IRuntimeClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimeClientInstance';
-import { ColumnProfileRequest, ColumnProfileResult, ColumnSchema, ColumnSortKey, PositronDataExplorerComm, SchemaUpdateEvent, TableData, TableSchema, TableState } from 'vs/workbench/services/languageRuntime/common/positronDataExplorerComm';
+import { ColumnProfileRequest, ColumnProfileResult, ColumnSchema, ColumnSortKey, FilterResult, PositronDataExplorerComm, RowFilter, SchemaUpdateEvent, TableData, TableSchema, TableState } from 'vs/workbench/services/languageRuntime/common/positronDataExplorerComm';
 
 /**
  * TableSchemaSearchResult interface. This is here temporarily until searching the tabe schema
@@ -172,6 +172,15 @@ export class DataExplorerClientInstance extends Disposable {
 		profiles: Array<ColumnProfileRequest>
 	): Promise<Array<ColumnProfileResult>> {
 		return this._positronDataExplorerComm.getColumnProfiles(profiles);
+	}
+
+	/**
+	 * Sets row filters.
+	 * @param rowFilters The row filters.
+	 * @returns A Promise<FilterResult> that resolves when the operation is complete.
+	 */
+	async setRowFilters(filters: Array<RowFilter>): Promise<FilterResult> {
+		return this._positronDataExplorerComm.setRowFilters(filters);
 	}
 
 	/**

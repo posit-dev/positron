@@ -21,7 +21,7 @@ import { DataExplorerClientInstance } from 'vs/workbench/services/languageRuntim
 import { DropDownListBox, DropDownListBoxEntry } from 'vs/workbench/browser/positronComponents/dropDownListBox/dropDownListBox';
 import { RowFilterParameter } from 'vs/workbench/browser/positronDataExplorer/components/dataExplorerPanel/components/addEditRowFilterModalPopup/components/rowFilterParameter';
 import { DropDownColumnSelector } from 'vs/workbench/browser/positronDataExplorer/components/dataExplorerPanel/components/addEditRowFilterModalPopup/components/dropDownColumnSelector';
-import { RangeRowFilter, RowFilter, RowFilterCondition, RowFilterIsBetween, RowFilterIsEmpty, RowFilterIsEqualTo, RowFilterIsGreaterThan, RowFilterIsLessThan, RowFilterIsNotBetween, RowFilterIsNotEmpty, SingleValueRowFilter } from 'vs/workbench/browser/positronDataExplorer/components/dataExplorerPanel/components/addEditRowFilterModalPopup/rowFilter';
+import { RangeRowFilterDescriptor, RowFilterDescriptor, RowFilterCondition, RowFilterDescriptorIsBetween, RowFilterDescriptorIsEmpty, RowFilterDescriptorIsEqualTo, RowFilterDescriptorIsGreaterThan, RowFilterDescriptorIsLessThan, RowFilterDescriptorIsNotBetween, RowFilterDescriptorIsNotEmpty, SingleValueRowFilterDescriptor } from 'vs/workbench/browser/positronDataExplorer/components/dataExplorerPanel/components/addEditRowFilterModalPopup/rowFilterDescriptor';
 
 /**
  * Validates a row filter value.
@@ -81,8 +81,8 @@ interface AddEditRowFilterModalPopupProps {
 	dataExplorerClientInstance: DataExplorerClientInstance;
 	renderer: PositronModalReactRenderer;
 	anchor: HTMLElement;
-	editRowFilter?: RowFilter;
-	onApplyRowFilter: (rowFilter: RowFilter) => void;
+	editRowFilter?: RowFilterDescriptor;
+	onApplyRowFilter: (rowFilter: RowFilterDescriptor) => void;
 }
 
 /**
@@ -103,16 +103,16 @@ export const AddEditRowFilterModalPopup = (props: AddEditRowFilterModalPopupProp
 		props.editRowFilter?.rowFilterCondition
 	);
 	const [firstRowFilterValue, setFirstRowFilterValue] = useState<string>(() => {
-		if (props.editRowFilter instanceof SingleValueRowFilter) {
+		if (props.editRowFilter instanceof SingleValueRowFilterDescriptor) {
 			return props.editRowFilter.value;
-		} else if (props.editRowFilter instanceof RangeRowFilter) {
+		} else if (props.editRowFilter instanceof RangeRowFilterDescriptor) {
 			return props.editRowFilter.lowerLimit;
 		} else {
 			return '';
 		}
 	});
 	const [secondRowFilterValue, setSecondRowFilterValue] = useState<string>(() => {
-		if (props.editRowFilter instanceof RangeRowFilter) {
+		if (props.editRowFilter instanceof RangeRowFilterDescriptor) {
 			return props.editRowFilter.upperLimit;
 		} else {
 			return '';
@@ -449,7 +449,7 @@ export const AddEditRowFilterModalPopup = (props: AddEditRowFilterModalPopupProp
 		 * Applies a row filter.
 		 * @param rowFilter The row filter to add.
 		 */
-		const applyRowFilter = (rowFilter: RowFilter) => {
+		const applyRowFilter = (rowFilter: RowFilterDescriptor) => {
 			setErrorText(undefined);
 			props.renderer.dispose();
 			props.onApplyRowFilter(rowFilter);
@@ -459,13 +459,13 @@ export const AddEditRowFilterModalPopup = (props: AddEditRowFilterModalPopupProp
 		switch (selectedCondition) {
 			// Apply the is empty row filter.
 			case RowFilterCondition.CONDITION_IS_EMPTY: {
-				applyRowFilter(new RowFilterIsEmpty(selectedColumnSchema));
+				applyRowFilter(new RowFilterDescriptorIsEmpty(selectedColumnSchema));
 				break;
 			}
 
 			// Apply the is not empty row filter.
 			case RowFilterCondition.CONDITION_IS_NOT_EMPTY: {
-				applyRowFilter(new RowFilterIsNotEmpty(selectedColumnSchema));
+				applyRowFilter(new RowFilterDescriptorIsNotEmpty(selectedColumnSchema));
 				break;
 			}
 
@@ -474,7 +474,10 @@ export const AddEditRowFilterModalPopup = (props: AddEditRowFilterModalPopupProp
 				if (!validateFirstRowFilterValue()) {
 					return;
 				}
-				applyRowFilter(new RowFilterIsLessThan(selectedColumnSchema, firstRowFilterValue));
+				applyRowFilter(new RowFilterDescriptorIsLessThan(
+					selectedColumnSchema,
+					firstRowFilterValue
+				));
 				break;
 			}
 
@@ -483,7 +486,10 @@ export const AddEditRowFilterModalPopup = (props: AddEditRowFilterModalPopupProp
 				if (!validateFirstRowFilterValue()) {
 					return;
 				}
-				applyRowFilter(new RowFilterIsGreaterThan(selectedColumnSchema, firstRowFilterValue));
+				applyRowFilter(new RowFilterDescriptorIsGreaterThan(
+					selectedColumnSchema,
+					firstRowFilterValue
+				));
 				break;
 			}
 
@@ -492,7 +498,10 @@ export const AddEditRowFilterModalPopup = (props: AddEditRowFilterModalPopupProp
 				if (!validateFirstRowFilterValue()) {
 					return;
 				}
-				applyRowFilter(new RowFilterIsEqualTo(selectedColumnSchema, firstRowFilterValue));
+				applyRowFilter(new RowFilterDescriptorIsEqualTo(
+					selectedColumnSchema,
+					firstRowFilterValue
+				));
 				break;
 			}
 
@@ -504,7 +513,7 @@ export const AddEditRowFilterModalPopup = (props: AddEditRowFilterModalPopupProp
 				if (!validateSecondRowFilterValue()) {
 					return;
 				}
-				applyRowFilter(new RowFilterIsBetween(
+				applyRowFilter(new RowFilterDescriptorIsBetween(
 					selectedColumnSchema,
 					firstRowFilterValue,
 					secondRowFilterValue
@@ -520,7 +529,7 @@ export const AddEditRowFilterModalPopup = (props: AddEditRowFilterModalPopupProp
 				if (!validateSecondRowFilterValue()) {
 					return;
 				}
-				applyRowFilter(new RowFilterIsNotBetween(
+				applyRowFilter(new RowFilterDescriptorIsNotBetween(
 					selectedColumnSchema,
 					firstRowFilterValue,
 					secondRowFilterValue

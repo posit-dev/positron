@@ -12,13 +12,13 @@ import { forwardRef } from 'react'; // eslint-disable-line no-duplicate-imports
 // Other dependencies.
 import { localize } from 'vs/nls';
 import { Button } from 'vs/base/browser/ui/positronComponents/button/button';
-import { RowFilter, RowFilterIsBetween, RowFilterIsEmpty, RowFilterIsEqualTo, RowFilterIsGreaterThan, RowFilterIsLessThan, RowFilterIsNotBetween, RowFilterIsNotEmpty } from 'vs/workbench/browser/positronDataExplorer/components/dataExplorerPanel/components/addEditRowFilterModalPopup/rowFilter';
+import { RowFilterDescriptor, RowFilterDescriptorIsBetween, RowFilterDescriptorIsEmpty, RowFilterDescriptorIsEqualTo, RowFilterDescriptorIsGreaterThan, RowFilterDescriptorIsLessThan, RowFilterDescriptorIsNotBetween, RowFilterDescriptorIsNotEmpty } from 'vs/workbench/browser/positronDataExplorer/components/dataExplorerPanel/components/addEditRowFilterModalPopup/rowFilterDescriptor';
 
 /**
  * RowFilterWidgetProps interface.
  */
 interface RowFilterWidgetProps {
-	rowFilter: RowFilter;
+	rowFilter: RowFilterDescriptor;
 	booleanOperator?: 'and';
 	onEdit: () => void;
 	onClear: () => void;
@@ -32,39 +32,39 @@ interface RowFilterWidgetProps {
 export const RowFilterWidget = forwardRef<HTMLButtonElement, RowFilterWidgetProps>((props, ref) => {
 	// Compute the title.
 	const title = (() => {
-		if (props.rowFilter instanceof RowFilterIsEmpty) {
+		if (props.rowFilter instanceof RowFilterDescriptorIsEmpty) {
 			return <>
 				<span className='column-name'>{props.rowFilter.columnSchema.column_name}</span>
 				<span className='space-before'>
 					{localize('positron.dataExplorer.rowFilterWidget.isEmpty', "is empty")}
 				</span>
 			</>;
-		} else if (props.rowFilter instanceof RowFilterIsNotEmpty) {
+		} else if (props.rowFilter instanceof RowFilterDescriptorIsNotEmpty) {
 			return <>
 				<span className='column-name'>{props.rowFilter.columnSchema.column_name}</span>
 				<span className='space-before'>
 					{localize('positron.dataExplorer.rowFilterWidget.isNotEmpty', "is not empty")}
 				</span>
 			</>;
-		} else if (props.rowFilter instanceof RowFilterIsLessThan) {
+		} else if (props.rowFilter instanceof RowFilterDescriptorIsLessThan) {
 			return <>
 				<span className='column-name'>{props.rowFilter.columnSchema.column_name}</span>
 				<span className='space-before space-after'>&lt;</span>
 				<span>{props.rowFilter.value}</span>
 			</>;
-		} else if (props.rowFilter instanceof RowFilterIsGreaterThan) {
+		} else if (props.rowFilter instanceof RowFilterDescriptorIsGreaterThan) {
 			return <>
 				<span className='column-name'>{props.rowFilter.columnSchema.column_name}</span>
 				<span className='space-before space-after'>&gt;</span>
 				<span>{props.rowFilter.value}</span>
 			</>;
-		} else if (props.rowFilter instanceof RowFilterIsEqualTo) {
+		} else if (props.rowFilter instanceof RowFilterDescriptorIsEqualTo) {
 			return <>
 				<span className='column-name'>{props.rowFilter.columnSchema.column_name}</span>
 				<span className='space-before space-after'>=</span>
 				<span>{props.rowFilter.value}</span>
 			</>;
-		} else if (props.rowFilter instanceof RowFilterIsBetween) {
+		} else if (props.rowFilter instanceof RowFilterDescriptorIsBetween) {
 			return <>
 				<span className='column-name'>{props.rowFilter.columnSchema.column_name}</span>
 				<span className='space-before space-after'>&gt;=</span>
@@ -76,7 +76,7 @@ export const RowFilterWidget = forwardRef<HTMLButtonElement, RowFilterWidgetProp
 				<span className='space-before space-after'>&lt;=</span>
 				<span>{props.rowFilter.upperLimit}</span>
 			</>;
-		} else if (props.rowFilter instanceof RowFilterIsNotBetween) {
+		} else if (props.rowFilter instanceof RowFilterDescriptorIsNotBetween) {
 			return <>
 				<span className='column-name'>{props.rowFilter.columnSchema.column_name}</span>
 				<span className='space-before space-after'>&lt;</span>
