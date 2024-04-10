@@ -10,7 +10,14 @@ from typing import Callable, Generic, Optional, Type, TypeVar
 
 import comm
 
-from . import connections_comm, data_explorer_comm, help_comm, plot_comm, ui_comm, variables_comm
+from . import (
+    connections_comm,
+    data_explorer_comm,
+    help_comm,
+    plot_comm,
+    ui_comm,
+    variables_comm,
+)
 from ._vendor.pydantic import ValidationError
 from ._vendor.pydantic.generics import GenericModel
 from .utils import JsonData, JsonRecord
@@ -21,10 +28,23 @@ logger = logging.getLogger(__name__)
 ## Create an enum of JSON-RPC error codes
 @enum.unique
 class JsonRpcErrorCode(enum.IntEnum):
+    # Documentation below is taken directly from https://www.jsonrpc.org/specification#error_object
+    # for convenience.
+
+    # Invalid JSON was received by the server.
+    # An error occurred on the server while parsing the JSON text.
     PARSE_ERROR = -32700
+
+    # The JSON sent is not a valid Request object.
     INVALID_REQUEST = -32600
+
+    # The method does not exist / is not available.
     METHOD_NOT_FOUND = -32601
+
+    # Invalid method parameter(s).
     INVALID_PARAMS = -32602
+
+    # Internal JSON-RPC error.
     INTERNAL_ERROR = -32603
 
 

@@ -20,7 +20,13 @@ from ipykernel.kernelapp import IPKernelApp
 from ipykernel.zmqshell import ZMQDisplayPublisher, ZMQInteractiveShell
 from IPython.core import oinspect, page
 from IPython.core.interactiveshell import ExecutionInfo, InteractiveShell
-from IPython.core.magic import Magics, MagicsManager, line_magic, magics_class, needs_local_scope
+from IPython.core.magic import (
+    Magics,
+    MagicsManager,
+    line_magic,
+    magics_class,
+    needs_local_scope,
+)
 from IPython.utils import PyColorize
 
 from .connections import ConnectionsService
@@ -28,6 +34,7 @@ from .data_explorer import DataExplorerService
 from .help import HelpService, help
 from .lsp import LSPService
 from .plots import PositronDisplayPublisherHook
+from .session_mode import SessionMode
 from .ui import UiService
 from .utils import JsonRecord
 from .variables import VariablesService
@@ -43,26 +50,6 @@ class _CommTarget(str, enum.Enum):
     Variables = "positron.variables"
     Widget = "jupyter.widget"
     Connections = "positron.connection"
-
-
-class SessionMode(str, enum.Enum):
-    """
-    The mode that the kernel application was started in.
-    """
-
-    Console = "console"
-    Notebook = "notebook"
-    Background = "background"
-
-    Default = Console
-
-    def __str__(self) -> str:
-        # Override for better display in argparse help.
-        return self.value
-
-    @classmethod
-    def trait(cls) -> traitlets.Enum:
-        return traitlets.Enum(sorted(cls), help=cls.__doc__)
 
 
 logger = logging.getLogger(__name__)
@@ -282,7 +269,7 @@ class PositronShell(ZMQInteractiveShell):
         """
         Enhance tracebacks for the Positron frontend.
         """
-        if self.session_mode == SessionMode.Notebook:
+        if self.session_mode == SessionMode.NOTEBOOK:
             # Don't modify the traceback in a notebook. The frontend assumes that it's unformatted
             # and applies its own formatting.
             return super()._showtraceback(etype, evalue, stb)  # type: ignore IPython type annotation is wrong
@@ -356,7 +343,7 @@ class PositronIPyKernel(IPythonKernel):
 
         # Create Positron services
         self.data_explorer_service = DataExplorerService(_CommTarget.DataExplorer)
-        self.display_pub_hook = PositronDisplayPublisherHook(_CommTarget.Plot)
+        self.display_pub_hook = PositronDisplayPublisherHook(_CommTarget.Plot, self.session_mode)
         self.ui_service = UiService()
         self.help_service = HelpService()
         self.lsp_service = LSPService(self)
