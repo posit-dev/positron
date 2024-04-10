@@ -36,7 +36,8 @@
 					"description": "The requested plot format",
 					"schema": {
 						"type": "string"
-					}
+					},
+					"required": false
 				}
 			],
 			"result": {

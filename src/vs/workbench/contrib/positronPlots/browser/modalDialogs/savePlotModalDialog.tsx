@@ -66,7 +66,6 @@ export const showSavePlotModalDialog = (
 	renderer.render(
 		<SavePlotModalDialog
 			layoutService={layoutService}
-			keybindingService={keybindingService}
 			fileDialogService={fileDialogService}
 			renderer={renderer}
 			plotWidth={plotWidth}
@@ -80,7 +79,6 @@ export const showSavePlotModalDialog = (
 
 interface SavePlotModalDialogProps {
 	layoutService: IWorkbenchLayoutService;
-	keybindingService: IKeybindingService;
 	fileDialogService: IFileDialogService;
 	renderer: PositronModalReactRenderer;
 	plotWidth: number;
