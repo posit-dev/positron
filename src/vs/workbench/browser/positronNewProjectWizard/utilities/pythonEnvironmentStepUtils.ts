@@ -101,12 +101,18 @@ export const getPreferredRuntimeId = (runtimeStartupService: IRuntimeStartupServ
 export const createCondaInterpreterDropDownItems = () => {
 	// TODO: we should get the list of Python versions from the Conda service
 	const pythonVersions = ['3.12', '3.11', '3.10', '3.9', '3.8'];
-	const condaRuntimes: DropDownListBoxItem<string, string>[] = [];
+	const condaRuntimes: DropDownListBoxItem<string, PythonInterpreterInfo>[] = [];
 	pythonVersions.forEach(version => {
-		condaRuntimes.push(new DropDownListBoxItem({
+		condaRuntimes.push(new DropDownListBoxItem<string, PythonInterpreterInfo>({
 			identifier: `conda-python-${version}`,
-			title: `Python ${version}`,
-			value: `conda-python-${version}`
+			value: {
+				preferred: version === '3.12',
+				runtimeId: `conda-python-${version}`,
+				languageName: 'Python',
+				languageVersion: version,
+				runtimePath: '',
+				runtimeSource: 'Conda'
+			}
 		}));
 	});
 	return condaRuntimes;
