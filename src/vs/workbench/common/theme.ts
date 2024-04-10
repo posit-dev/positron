@@ -1996,7 +1996,7 @@ export const POSITRON_DATA_EXPLORER_BORDER_COLOR = registerColor('positronDataEx
 
 // Positron data explorer missing values graph background fill color.
 export const POSITRON_DATA_EXPLORER_MISSING_VALUES_GRAPH_BACKGROUND_FILL_COLOR = registerColor('positronDataExplorer.columnNullPercentGraphBackgroundFill', {
-	dark: '#ea3d3d',
+	dark: '#bc1a1b',
 	light: '#ea3d3d',
 	hcDark: '#ea3d3d',
 	hcLight: '#ea3d3d',
@@ -2004,7 +2004,7 @@ export const POSITRON_DATA_EXPLORER_MISSING_VALUES_GRAPH_BACKGROUND_FILL_COLOR =
 
 // Positron data explorer missing values graph background stroke color.
 export const POSITRON_DATA_EXPLORER_MISSING_VALUES_GRAPH_BACKGROUND_STROKE_COLOR = registerColor('positronDataExplorer.columnNullPercentGraphBackgroundStroke', {
-	dark: '#7e94a5',
+	dark: '#738594',
 	light: '#7e94a5',
 	hcDark: '#7e94a5',
 	hcLight: '#7e94a5',
@@ -2012,7 +2012,7 @@ export const POSITRON_DATA_EXPLORER_MISSING_VALUES_GRAPH_BACKGROUND_STROKE_COLOR
 
 // Positron data explorer missing values graph indicator fill color.
 export const POSITRON_DATA_EXPLORER_MISSING_VALUES_GRAPH_INDICATOR_FILL_COLOR = registerColor('positronDataExplorer.columnNullPercentGraphIndicatorFill', {
-	dark: '#e5edf3',
+	dark: '#b0b9bf',
 	light: '#e5edf3',
 	hcDark: '#e5edf3',
 	hcLight: '#e5edf3',
