@@ -395,7 +395,11 @@ class DataExplorerFixture:
         self.register_table(ex_id, expected_table)
 
         response = self.set_row_filters(table_id, filters=filter_set)
-        assert response == FilterResult(selected_num_rows=len(expected_table))
+
+        ex_num_rows = len(expected_table)
+        assert response == FilterResult(selected_num_rows=ex_num_rows)
+
+        assert self.get_state(table_id)["table_shape"]["num_rows"] == ex_num_rows
         self.compare_tables(table_id, ex_id, table.shape)
 
     def check_sort_case(self, table, sort_keys, expected_table, filters=None):

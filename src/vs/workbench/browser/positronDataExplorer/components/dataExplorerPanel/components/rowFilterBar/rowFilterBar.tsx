@@ -18,9 +18,92 @@ import { ContextMenuItem } from 'vs/workbench/browser/positronComponents/context
 import { ContextMenuSeparator } from 'vs/workbench/browser/positronComponents/contextMenu/contextMenuSeparator';
 import { usePositronDataExplorerContext } from 'vs/workbench/browser/positronDataExplorer/positronDataExplorerContext';
 import { PositronModalReactRenderer } from 'vs/workbench/browser/positronModalReactRenderer/positronModalReactRenderer';
-import { RowFilter } from 'vs/workbench/browser/positronDataExplorer/components/dataExplorerPanel/components/addEditRowFilterModalPopup/rowFilter';
+import { CompareFilterParamsOp, RowFilter, RowFilterType } from 'vs/workbench/services/languageRuntime/common/positronDataExplorerComm';
 import { RowFilterWidget } from 'vs/workbench/browser/positronDataExplorer/components/dataExplorerPanel/components/rowFilterBar/components/rowFilterWidget';
 import { AddEditRowFilterModalPopup } from 'vs/workbench/browser/positronDataExplorer/components/dataExplorerPanel/components/addEditRowFilterModalPopup/addEditRowFilterModalPopup';
+import { RowFilterDescriptor, RowFilterDescriptorIsEmpty, RowFilterDescriptorIsNotEmpty, RowFilterDescriptorIsLessThan, RowFilterDescriptorIsGreaterThan, RowFilterDescriptorIsEqualTo, RowFilterDescriptorIsBetween, RowFilterDescriptorIsNotBetween } from 'vs/workbench/browser/positronDataExplorer/components/dataExplorerPanel/components/addEditRowFilterModalPopup/rowFilterDescriptor';
+
+/**
+ * Creates row filters from row filter descriptors.
+ * @param rowFilterDescriptors The row filter descriptors.
+ * @returns The row filters.
+ */
+const createRowFilters = (rowFilterDescriptors: RowFilterDescriptor[]) => {
+	// Create the set of row filters.
+	return rowFilterDescriptors.reduce<RowFilter[]>((
+		rowFilters,
+		rowFilterDescriptor
+	) => {
+		//
+		if (rowFilterDescriptor instanceof RowFilterDescriptorIsEmpty) {
+			rowFilters.push({
+				filter_id: rowFilterDescriptor.identifier,
+				filter_type: RowFilterType.IsNull,
+				column_index: rowFilterDescriptor.columnSchema.column_index
+			});
+		} else if (rowFilterDescriptor instanceof RowFilterDescriptorIsNotEmpty) {
+			rowFilters.push({
+				filter_id: rowFilterDescriptor.identifier,
+				filter_type: RowFilterType.IsNull,
+				column_index: rowFilterDescriptor.columnSchema.column_index
+			});
+		} else if (rowFilterDescriptor instanceof RowFilterDescriptorIsLessThan) {
+			rowFilters.push({
+				filter_id: rowFilterDescriptor.identifier,
+				filter_type: RowFilterType.Compare,
+				column_index: rowFilterDescriptor.columnSchema.column_index,
+				compare_params: {
+					op: CompareFilterParamsOp.Lt,
+					value: rowFilterDescriptor.value
+				}
+			});
+		} else if (rowFilterDescriptor instanceof RowFilterDescriptorIsGreaterThan) {
+			rowFilters.push({
+				filter_id: rowFilterDescriptor.identifier,
+				filter_type: RowFilterType.Compare,
+				column_index: rowFilterDescriptor.columnSchema.column_index,
+				compare_params: {
+					op: CompareFilterParamsOp.Gt,
+					value: rowFilterDescriptor.value
+				}
+			});
+		} else if (rowFilterDescriptor instanceof RowFilterDescriptorIsEqualTo) {
+			rowFilters.push({
+				filter_id: rowFilterDescriptor.identifier,
+				filter_type: RowFilterType.Compare,
+				column_index: rowFilterDescriptor.columnSchema.column_index,
+				compare_params: {
+					op: CompareFilterParamsOp.Eq,
+					value: rowFilterDescriptor.value
+				}
+			});
+		} else if (rowFilterDescriptor instanceof RowFilterDescriptorIsBetween) {
+			rowFilters.push({
+				filter_id: rowFilterDescriptor.identifier,
+				filter_type: RowFilterType.Between,
+				column_index: rowFilterDescriptor.columnSchema.column_index,
+				between_params: {
+					left_value: rowFilterDescriptor.lowerLimit,
+					right_value: rowFilterDescriptor.upperLimit
+				}
+			});
+		} else if (rowFilterDescriptor instanceof RowFilterDescriptorIsNotBetween) {
+			rowFilters.push({
+				filter_id: rowFilterDescriptor.identifier,
+				filter_type: RowFilterType.NotBetween,
+				column_index: rowFilterDescriptor.columnSchema.column_index,
+				between_params: {
+					left_value: rowFilterDescriptor.lowerLimit,
+					right_value: rowFilterDescriptor.upperLimit
+				}
+			});
+		}
+
+		// Return the row filters.
+		return rowFilters;
+	}, []);
+};
+
 
 /**
  * RowFilterBar component.
@@ -32,19 +115,22 @@ export const RowFilterBar = () => {
 
 	// Reference hooks.
 	const ref = useRef<HTMLDivElement>(undefined!);
-	const filterButtonRef = useRef<HTMLButtonElement>(undefined!);
+	const rowFilterButtonRef = useRef<HTMLButtonElement>(undefined!);
 	const rowFilterWidgetRefs = useRef<(HTMLButtonElement)[]>([]);
 	const addFilterButtonRef = useRef<HTMLButtonElement>(undefined!);
 
 	// State hooks.
-	const [rowFilters, setRowFilters] = useState<RowFilter[]>([]);
-	const [filtersHidden, setFiltersHidden] = useState(false);
+	const [rowFilterDescriptors, setRowFilterDescriptors] = useState<RowFilterDescriptor[]>([]);
+	const [rowFiltersHidden, setRowFiltersHidden] = useState(false);
 
 	/**
 	 * Shows the add / edit row filter modal popup.
-	 * @param rowFilterToEdit The row filter to edit, or undefined, to add a row filter.
+	 * @param editRowFilterDescriptor The row filter to edit, or undefined, to add a row filter.
 	 */
-	const showAddEditRowFilterModalPopup = (anchor: HTMLElement, rowFilterToEdit?: RowFilter) => {
+	const showAddEditRowFilterModalPopup = (
+		anchor: HTMLElement,
+		editRowFilterDescriptor?: RowFilterDescriptor
+	) => {
 		// Create the renderer.
 		const renderer = new PositronModalReactRenderer({
 			keybindingService: context.keybindingService,
@@ -54,27 +140,36 @@ export const RowFilterBar = () => {
 
 		/**
 		 * onApplyRowFilter event handler.
-		 * @param rowFilterToApply The row filter to apply.
+		 * @param applyRowFilterDescriptor The row filter descriptor to apply.
 		 */
-		const applyRowFilterHandler = (rowFilterToApply: RowFilter) => {
-			// If this is a new row filter, append it to the array of row filters. Otherwise,
-			// replace the row filter that was edited.
-			if (!rowFilterToEdit) {
-				setRowFilters(rowFilters => [...rowFilters, rowFilterToApply]);
+		const applyRowFilterHandler = async (applyRowFilterDescriptor: RowFilterDescriptor) => {
+			// Create the new row filter descriptors. If this is a new row filter, append it;
+			// otherwise, replace the row filter that was edited.
+			let newRowFilterDescriptors: RowFilterDescriptor[];
+			if (!editRowFilterDescriptor) {
+				// Update the row filters.
+				newRowFilterDescriptors = [...rowFilterDescriptors, applyRowFilterDescriptor];
 			} else {
-				// Find the index of the row filter to edit.
-				const index = rowFilters.findIndex(rowFilter =>
-					rowFilterToEdit.identifier === rowFilter.identifier
+				// Find the index of the row filter.
+				const index = rowFilterDescriptors.findIndex(rowFilter =>
+					editRowFilterDescriptor.identifier === rowFilter.identifier
 				);
 
-				setRowFilters(rowFilters =>
-					[
-						...rowFilters.slice(0, index),
-						rowFilterToApply,
-						...rowFilters.slice(index + 1)
-					]
-				);
+				// Update the row filters.
+				newRowFilterDescriptors = [
+					...rowFilterDescriptors.slice(0, index),
+					applyRowFilterDescriptor,
+					...rowFilterDescriptors.slice(index + 1)
+				];
 			}
+
+			// Set the new row filter descriptors.
+			setRowFilterDescriptors(newRowFilterDescriptors);
+
+			// Set the new row filters.
+			await context.instance.tableDataDataGridInstance.setRowFilters(createRowFilters(
+				newRowFilterDescriptors
+			));
 		};
 
 		// Show the add /edit row filter modal popup.
@@ -83,7 +178,7 @@ export const RowFilterBar = () => {
 				dataExplorerClientInstance={context.instance.dataExplorerClientInstance}
 				renderer={renderer}
 				anchor={anchor}
-				editRowFilter={rowFilterToEdit}
+				editRowFilter={editRowFilterDescriptor}
 				onApplyRowFilter={applyRowFilterHandler}
 			/>
 		);
@@ -98,36 +193,42 @@ export const RowFilterBar = () => {
 		entries.push(new ContextMenuItem({
 			label: localize('positron.dataExplorer.addFilter', "Add filter"),
 			icon: 'positron-add-filter',
-			onSelected: () => showAddEditRowFilterModalPopup(filterButtonRef.current)
+			onSelected: () => showAddEditRowFilterModalPopup(rowFilterButtonRef.current)
 		}));
 		entries.push(new ContextMenuSeparator());
-		if (!filtersHidden) {
+		if (!rowFiltersHidden) {
 			entries.push(new ContextMenuItem({
 				label: localize('positron.dataExplorer.hideFilters', "Hide filters"),
 				icon: 'positron-hide-filters',
-				disabled: rowFilters.length === 0,
-				onSelected: () => setFiltersHidden(true)
+				disabled: rowFilterDescriptors.length === 0,
+				onSelected: () => setRowFiltersHidden(true)
 			}));
 		} else {
 			entries.push(new ContextMenuItem({
 				label: localize('positron.dataExplorer.showFilters', "Show filters"),
 				icon: 'positron-show-filters',
-				onSelected: () => setFiltersHidden(false)
+				onSelected: () => setRowFiltersHidden(false)
 			}));
 		}
 		entries.push(new ContextMenuSeparator());
 		entries.push(new ContextMenuItem({
 			label: localize('positron.dataExplorer.clearFilters', "Clear filters"),
 			icon: 'positron-clear-row-filters',
-			disabled: rowFilters.length === 0,
-			onSelected: () => setRowFilters([])
+			disabled: rowFilterDescriptors.length === 0,
+			onSelected: async () => {
+				// Clear the row filter descriptors.
+				setRowFilterDescriptors([]);
+
+				// Clear the row filters.
+				await context.instance.tableDataDataGridInstance.setRowFilters([]);
+			}
 		}));
 
 		// Show the context menu.
 		await showContextMenu(
 			context.keybindingService,
 			context.layoutService,
-			filterButtonRef.current,
+			rowFilterButtonRef.current,
 			'left',
 			200,
 			entries
@@ -138,9 +239,18 @@ export const RowFilterBar = () => {
 	 * Clears the row filter at the specified row filter index.
 	 * @param rowFilterIndex The row filter index.
 	 */
-	const clearRowFilter = (identifier: string) => {
-		setRowFilters(rowFilters => rowFilters.filter(rowFilter =>
+	const clearRowFilter = async (identifier: string): Promise<void> => {
+		// Remove the row filter.
+		const newRowFilterDescriptors = rowFilterDescriptors.filter(rowFilter =>
 			identifier !== rowFilter.identifier
+		);
+
+		// Set the new row filter descriptors.
+		setRowFilterDescriptors(newRowFilterDescriptors);
+
+		// Set the new row filters.
+		await context.instance.tableDataDataGridInstance.setRowFilters(createRowFilters(
+			newRowFilterDescriptors
 		));
 	};
 
@@ -148,16 +258,16 @@ export const RowFilterBar = () => {
 	return (
 		<div ref={ref} className='row-filter-bar'>
 			<Button
-				ref={filterButtonRef}
+				ref={rowFilterButtonRef}
 				className='row-filter-button'
 				ariaLabel={(() => localize('positron.dataExplorer.filtering', "Filtering"))()}
 				onPressed={filterButtonPressedHandler}
 			>
 				<div className='codicon codicon-positron-row-filter' />
-				{rowFilters.length !== 0 && <div className='counter'>{rowFilters.length}</div>}
+				{rowFilterDescriptors.length !== 0 && <div className='counter'>{rowFilterDescriptors.length}</div>}
 			</Button>
 			<div className='filter-entries'>
-				{!filtersHidden && rowFilters.map((rowFilter, index) =>
+				{!rowFiltersHidden && rowFilterDescriptors.map((rowFilter, index) =>
 					<RowFilterWidget
 						ref={ref => {
 							if (ref) {
@@ -175,7 +285,7 @@ export const RowFilterBar = () => {
 								);
 							}
 						}}
-						onClear={() => clearRowFilter(rowFilter.identifier)} />
+						onClear={async () => await clearRowFilter(rowFilter.identifier)} />
 				)}
 				<Button
 					ref={addFilterButtonRef}

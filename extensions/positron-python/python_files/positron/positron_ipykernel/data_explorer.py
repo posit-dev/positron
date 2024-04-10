@@ -130,7 +130,7 @@ class DataExplorerTableView(abc.ABC):
         ).dict()
 
     def set_row_filters(self, request: SetRowFiltersRequest):
-        return self._set_row_filters(request.params.filters)
+        return self._set_row_filters(request.params.filters).dict()
 
     def set_sort_columns(self, request: SetSortColumnsRequest):
         self.sort_keys = request.params.sort_keys
@@ -688,8 +688,13 @@ class PandasView(DataExplorerTableView):
         raise NotImplementedError
 
     def _get_state(self) -> TableState:
+        if self.view_indices is not None:
+            num_rows = len(self.view_indices)
+        else:
+            num_rows = self.table.shape[0]
+
         return TableState(
-            table_shape=TableShape(num_rows=self.table.shape[0], num_columns=self.table.shape[1]),
+            table_shape=TableShape(num_rows=num_rows, num_columns=self.table.shape[1]),
             row_filters=self.filters,
             sort_keys=self.sort_keys,
         )
