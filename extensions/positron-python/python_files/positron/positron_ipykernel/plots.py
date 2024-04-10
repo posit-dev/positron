@@ -33,6 +33,7 @@ MIME_TYPE = {
     "jpeg": "image/jpeg",
 }
 
+
 class PositronDisplayPublisherHook:
     def __init__(self, target_name: str, session_mode: SessionMode):
         self.target_name = target_name
@@ -121,7 +122,9 @@ class PositronDisplayPublisherHook:
             format = request.params.format or "png"
 
             if width_px != 0 and height_px != 0:
-                format_dict = self._resize_pickled_figure(pickled, width_px, height_px, pixel_ratio, [format])
+                format_dict = self._resize_pickled_figure(
+                    pickled, width_px, height_px, pixel_ratio, [format]
+                )
                 mime_type = MIME_TYPE[format]
                 data = format_dict[mime_type]
                 output = PlotResult(data=data, mime_type=mime_type).dict()
