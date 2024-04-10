@@ -9,6 +9,9 @@ import { EnvironmentSetupType, PythonEnvironmentType } from 'vs/workbench/browse
 import { ILanguageRuntimeService } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { IRuntimeStartupService } from 'vs/workbench/services/runtimeStartup/common/runtimeStartupService';
 
+/**
+ * PythonRuntimeFilter enum.
+ */
 export enum PythonRuntimeFilter {
 	All = 'All',        // Include all runtimes. This is when an existing Python installation is to be used.
 	Global = 'Global',  // Include only global runtimes. This is when a new Venv environment is being created.
@@ -157,6 +160,14 @@ export const locationForNewEnv = (parentFolder: string, projectName: string, env
 	return `${parentFolder}/${projectName}/${envDir}`;
 };
 
+/**
+ * Returns the runtime ID of the Python interpreter that should be selected in the dropdown box.
+ * If an existing selection is provided, it is returned. Otherwise, the preferred runtime ID is
+ * returned if available.
+ * @param existingSelection The existing selected interpreter ID.
+ * @param runtimeStartupService The runtime startup service.
+ * @returns The runtime ID of the selected Python interpreter.
+ */
 export const getSelectedPythonInterpreterId = (existingSelection: string | undefined, runtimeStartupService: IRuntimeStartupService) => {
 	if (existingSelection) {
 		return existingSelection;
