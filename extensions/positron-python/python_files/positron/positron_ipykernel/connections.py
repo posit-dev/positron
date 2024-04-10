@@ -342,7 +342,7 @@ class ConnectionsService:
         """
         Closes all comms and runs the `disconnect` callback.
         """
-        for comm_id in self.comms.keys():
+        for comm_id in list(self.comms.keys()):
             self._close_connection(comm_id)
 
         self.comms = {}  # implicitly deleting comms
