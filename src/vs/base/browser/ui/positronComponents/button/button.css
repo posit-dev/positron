@@ -6,7 +6,10 @@
 	border: none;
 	cursor: pointer;
 	background-color: transparent;
+
+	/* Unset user agent stylesheet styles. */
 	font-family: unset !important;
+	text-align: unset !important;
 }
 
 .positron-button:focus {

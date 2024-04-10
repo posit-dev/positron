@@ -12,13 +12,13 @@ import { useEffect, useRef, useState } from 'react'; // eslint-disable-line no-d
 // Other dependencies.
 import { localize } from 'vs/nls';
 import { Button } from 'vs/base/browser/ui/positronComponents/button/button';
-import { DropDownListBox } from 'vs/workbench/browser/positronComponents/dropDownListBox/dropDownListBox';
 import { DropDownListBoxItem } from 'vs/workbench/browser/positronComponents/dropDownListBox/dropDownListBoxItem';
 import { PositronModalPopup } from 'vs/workbench/browser/positronComponents/positronModalPopup/positronModalPopup';
+import { ColumnSchema, ColumnDisplayType } from 'vs/workbench/services/languageRuntime/common/positronDataExplorerComm';
 import { PositronModalReactRenderer } from 'vs/workbench/browser/positronModalReactRenderer/positronModalReactRenderer';
 import { DropDownListBoxSeparator } from 'vs/workbench/browser/positronComponents/dropDownListBox/dropDownListBoxSeparator';
 import { DataExplorerClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimeDataExplorerClient';
-import { ColumnSchema, ColumnDisplayType } from 'vs/workbench/services/languageRuntime/common/positronDataExplorerComm';
+import { DropDownListBox, DropDownListBoxEntry } from 'vs/workbench/browser/positronComponents/dropDownListBox/dropDownListBox';
 import { RowFilterParameter } from 'vs/workbench/browser/positronDataExplorer/components/dataExplorerPanel/components/addEditRowFilterModalPopup/components/rowFilterParameter';
 import { DropDownColumnSelector } from 'vs/workbench/browser/positronDataExplorer/components/dataExplorerPanel/components/addEditRowFilterModalPopup/components/dropDownColumnSelector';
 import { RangeRowFilter, RowFilter, RowFilterCondition, RowFilterIsBetween, RowFilterIsEmpty, RowFilterIsEqualTo, RowFilterIsGreaterThan, RowFilterIsLessThan, RowFilterIsNotBetween, RowFilterIsNotEmpty, SingleValueRowFilter } from 'vs/workbench/browser/positronDataExplorer/components/dataExplorerPanel/components/addEditRowFilterModalPopup/rowFilter';
@@ -99,7 +99,7 @@ export const AddEditRowFilterModalPopup = (props: AddEditRowFilterModalPopupProp
 	const [selectedColumnSchema, setSelectedColumnSchema] = useState<ColumnSchema | undefined>(
 		props.editRowFilter?.columnSchema
 	);
-	const [selectedCondition, setSelectedCondition] = useState<string | undefined>(
+	const [selectedCondition, setSelectedCondition] = useState<RowFilterCondition | undefined>(
 		props.editRowFilter?.rowFilterCondition
 	);
 	const [firstRowFilterValue, setFirstRowFilterValue] = useState<string>(() => {
@@ -139,7 +139,7 @@ export const AddEditRowFilterModalPopup = (props: AddEditRowFilterModalPopupProp
 		}
 
 		// Build the condition entries.
-		const conditionEntries: (DropDownListBoxItem | DropDownListBoxSeparator)[] = [];
+		const conditionEntries: DropDownListBoxEntry<RowFilterCondition, void>[] = [];
 
 		// Every type allows is empty and is not empty conditions.
 		conditionEntries.push(new DropDownListBoxItem({
@@ -147,14 +147,16 @@ export const AddEditRowFilterModalPopup = (props: AddEditRowFilterModalPopupProp
 			title: localize(
 				'positron.addEditRowFilter.conditionIsEmpty',
 				"is empty"
-			)
+			),
+			value: RowFilterCondition.CONDITION_IS_EMPTY
 		}));
 		conditionEntries.push(new DropDownListBoxItem({
 			identifier: RowFilterCondition.CONDITION_IS_NOT_EMPTY,
 			title: localize(
 				'positron.addEditRowFilter.conditionIsNotEmpty',
 				"is not empty"
-			)
+			),
+			value: RowFilterCondition.CONDITION_IS_NOT_EMPTY
 		}));
 		conditionEntries.push(new DropDownListBoxSeparator());
 
@@ -169,14 +171,16 @@ export const AddEditRowFilterModalPopup = (props: AddEditRowFilterModalPopupProp
 					title: localize(
 						'positron.addEditRowFilter.conditionIsLessThan',
 						"is less than"
-					)
+					),
+					value: RowFilterCondition.CONDITION_IS_LESS_THAN
 				}));
 				conditionEntries.push(new DropDownListBoxItem({
 					identifier: RowFilterCondition.CONDITION_IS_GREATER_THAN,
 					title: localize(
 						'positron.addEditRowFilter.conditionIsGreaterThan',
 						"is greater than"
-					)
+					),
+					value: RowFilterCondition.CONDITION_IS_GREATER_THAN
 				}));
 				break;
 		}
@@ -194,7 +198,8 @@ export const AddEditRowFilterModalPopup = (props: AddEditRowFilterModalPopupProp
 					title: localize(
 						'positron.addEditRowFilter.conditionIsEqualTo',
 						"is equal to"
-					)
+					),
+					value: RowFilterCondition.CONDITION_IS_EQUAL_TO
 				}));
 				break;
 		}
@@ -211,14 +216,16 @@ export const AddEditRowFilterModalPopup = (props: AddEditRowFilterModalPopupProp
 					title: localize(
 						'positron.addEditRowFilter.conditionIsBetween',
 						"is between"
-					)
+					),
+					value: RowFilterCondition.CONDITION_IS_BETWEEN
 				}));
 				conditionEntries.push(new DropDownListBoxItem({
 					identifier: RowFilterCondition.CONDITION_IS_NOT_BETWEEN,
 					title: localize(
 						'positron.addEditRowFilter.conditionIsNotBetween',
 						"is not between"
-					)
+					),
+					value: RowFilterCondition.CONDITION_IS_NOT_BETWEEN
 				}));
 				break;
 		}
@@ -575,14 +582,15 @@ export const AddEditRowFilterModalPopup = (props: AddEditRowFilterModalPopupProp
 					))()}
 					entries={conditionEntries()}
 					selectedIdentifier={selectedCondition}
-					onSelectionChanged={identifier => {
+					onSelectionChanged={dropDownListBoxItem => {
 						// Set the selected condition.
-						setSelectedCondition(identifier);
+						setSelectedCondition(dropDownListBoxItem.options.identifier);
 
 						// Clear the filter values and error text.
 						clearFilterValuesAndErrorText();
 					}}
 				/>
+
 				{firstRowFilterParameterComponent}
 				{secondRowFilterParameterComponent}
 				{errorText && (
