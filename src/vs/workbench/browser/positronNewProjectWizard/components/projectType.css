@@ -5,19 +5,38 @@
 .project-type-selection-step
 .project-type-group
 .project-type {
+	height: 54px;
 	display: flex;
 	flex-direction: row;
 	align-items: center;
 	gap: 6px;
 	cursor: pointer;
+	background-color: var(--vscode-positronModalDialog-projectTypeBackground);
+	color: var(--vscode-positronModalDialog-projectTypeForeground);
+	border: 1px solid transparent;
+	border-radius: 6px;
+	padding: 0px 12px;
+}
+.project-type-selection-step
+.project-type-group
+.project-type:has(:focus-visible) {
+	outline: 1px solid var(--vscode-focusBorder);
+	outline-offset: 2px;
+}
+
+.project-type-selection-step
+.project-type-group
+.project-type-selected {
+	background-color: var(--vscode-positronModalDialog-projectTypeBackgroundSelected);
+	border: 1px solid var(--vscode-positronModalDialog-projectTypeBorder);
 }
 
 .project-type-selection-step
 .project-type-group
 .project-type
 .project-type-icon {
-	width: 40px;
-	height: 40px;
+	width: 36px;
+	height: 36px;
 }
 
 

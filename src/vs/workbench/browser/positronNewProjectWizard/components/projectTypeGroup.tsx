@@ -18,10 +18,10 @@ import { NewProjectType } from 'vs/workbench/browser/positronNewProjectWizard/in
  */
 interface ProjectTypeProps {
 	name: string;
-	initialSelectionId?: string;
+	entries: ProjectTypeItem[];
+	selectedProjectId?: string;
 	labelledBy?: string;
 	describedBy?: string;
-	entries: ProjectTypeItem[];
 	onSelectionChanged: (projectType: NewProjectType) => void;
 }
 
@@ -33,11 +33,13 @@ interface ProjectTypeProps {
  */
 export const ProjectTypeGroup = (props: PropsWithChildren<ProjectTypeProps>) => {
 	// Hooks.
-	const [currentSelection, setCurrentSelection] = useState(props.initialSelectionId);
+	const [currentSelection, setCurrentSelection] = useState(props.selectedProjectId);
+	const [activeIndexId, setActiveIndexId] = useState(props.selectedProjectId ?? props.entries[0]?.options.identifier ?? '');
 
 	// On project type selected, update the current selection and notify the parent.
 	const onSelectionChanged = (projectType: NewProjectType) => {
 		setCurrentSelection(projectType);
+		setActiveIndexId(projectType);
 		props.onSelectionChanged(projectType);
 	};
 
@@ -58,6 +60,7 @@ export const ProjectTypeGroup = (props: PropsWithChildren<ProjectTypeProps>) => 
 						groupName={props.name}
 						icon={projectType.options.icon}
 						selected={projectType.options.identifier === currentSelection}
+						activeTabIndex={projectType.options.identifier === activeIndexId}
 						onSelected={() => onSelectionChanged(projectType.options.identifier)}
 					/>
 				);

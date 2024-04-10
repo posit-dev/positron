@@ -6,7 +6,10 @@
 import 'vs/css!./projectType';
 
 // React.
-import React = require('react');
+import * as React from 'react';
+import { useRef } from 'react'; // eslint-disable-line no-duplicate-imports
+
+// Other dependencies.
 import { NewProjectType } from 'vs/workbench/browser/positronNewProjectWizard/interfaces/newProjectWizardEnums';
 
 /**
@@ -35,6 +38,7 @@ export class ProjectTypeItem {
 interface ProjectTypeProps extends ProjectTypeItemOptions {
 	selected: boolean;
 	groupName: string;
+	activeTabIndex: boolean;
 	onSelected: () => void;
 }
 
@@ -44,19 +48,26 @@ interface ProjectTypeProps extends ProjectTypeItemOptions {
  * @returns The rendered component.
  */
 export const ProjectType = (props: ProjectTypeProps) => {
+	const inputRef = useRef<HTMLInputElement>(null);
+
+	const onSelected = () => {
+		inputRef.current?.focus();
+		props.onSelected();
+	};
+
 	// Render.
 	return (
-		<div className='project-type'>
+		<div className={'project-type' + (props.selected ? ' project-type-selected' : '')} onClick={onSelected}>
 			<img className='project-type-icon' src={`data:image/svg+xml;base64,${props.icon}`} />
 			<input
+				ref={inputRef}
 				className='project-type-input'
 				type='radio'
-				tabIndex={props.selected ? 0 : -1}
+				tabIndex={props.activeTabIndex ? 0 : -1}
 				id={props.identifier}
 				name={props.groupName}
 				value={props.identifier}
 				checked={props.selected}
-				onClick={props.onSelected}
 			/>
 			<label htmlFor={props.identifier}>{props.title}</label>
 		</div>

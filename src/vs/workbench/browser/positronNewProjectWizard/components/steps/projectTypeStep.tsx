@@ -2,9 +2,14 @@
  *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
+// CSS.
 import 'vs/css!./projectTypeStep';
+
+// React.
 import * as React from 'react';
 import { PropsWithChildren, useState } from 'react';  // eslint-disable-line no-duplicate-imports
+
+// Other dependencies.
 import { localize } from 'vs/nls';
 import { useNewProjectWizardContext } from 'vs/workbench/browser/positronNewProjectWizard/newProjectWizardContext';
 import { NewProjectType, NewProjectWizardStep } from 'vs/workbench/browser/positronNewProjectWizard/interfaces/newProjectWizardEnums';
@@ -24,6 +29,7 @@ export const ProjectTypeStep = (props: PropsWithChildren<NewProjectWizardStepPro
 	const newProjectWizardState = useNewProjectWizardContext();
 	const setProjectConfig = newProjectWizardState.setProjectConfig;
 	const projectConfig = newProjectWizardState.projectConfig;
+	const languageRuntimeService = newProjectWizardState.languageRuntimeService;
 
 	// Hooks.
 	const [selectedProjectType, setSelectedProjectType] = useState(projectConfig.projectType);
@@ -64,8 +70,8 @@ export const ProjectTypeStep = (props: PropsWithChildren<NewProjectWizardStepPro
 				name='projectType'
 				labelledBy='project-type-selection-step-title'
 				describedBy='project-type-selection-step-description'
-				entries={getProjectTypeItems(newProjectWizardState.languageRuntimeService)}
-				initialSelectionId={selectedProjectType}
+				entries={getProjectTypeItems(languageRuntimeService)}
+				selectedProjectId={selectedProjectType}
 				onSelectionChanged={projectType => setSelectedProjectType(projectType)}
 			/>
 			<OKCancelBackNextActionBar
