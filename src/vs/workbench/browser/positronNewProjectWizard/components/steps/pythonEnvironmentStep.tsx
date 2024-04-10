@@ -152,6 +152,12 @@ export const PythonEnvironmentStep = (props: PropsWithChildren<NewProjectWizardS
 							envType
 						);
 						setInterpreterEntries(entries);
+						setSelectedInterpreter(
+							getSelectedPythonInterpreterId(
+								projectConfig.selectedRuntime?.runtimeId,
+								newProjectWizardState.runtimeStartupService
+							)
+						);
 					}
 					setStartupPhase(phase);
 				}
