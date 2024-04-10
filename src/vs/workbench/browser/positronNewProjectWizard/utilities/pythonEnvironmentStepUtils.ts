@@ -129,19 +129,36 @@ export const createCondaInterpreterDropDownItems = () => {
  * @param envType The environment type.
  * @returns An array of DropDownListBoxItem and DropDownListBoxSeparator for Python interpreters.
  */
-export const getPythonInterpreterEntries = (runtimeStartupService: IRuntimeStartupService, languageRuntimeService: ILanguageRuntimeService, envSetupType: EnvironmentSetupType, envType: PythonEnvironmentType) => {
+export const getPythonInterpreterEntries = (
+	runtimeStartupService: IRuntimeStartupService,
+	languageRuntimeService: ILanguageRuntimeService,
+	envSetupType: EnvironmentSetupType,
+	envType: PythonEnvironmentType
+) => {
 	switch (envSetupType) {
 		case EnvironmentSetupType.NewEnvironment:
 			switch (envType) {
 				case PythonEnvironmentType.Venv:
-					return getPythonInterpreterDropDownItems(runtimeStartupService, languageRuntimeService, PythonRuntimeFilter.Global);
+					return getPythonInterpreterDropDownItems(
+						runtimeStartupService,
+						languageRuntimeService,
+						PythonRuntimeFilter.Global
+					);
 				case PythonEnvironmentType.Conda:
 					return createCondaInterpreterDropDownItems();
 				default:
-					return getPythonInterpreterDropDownItems(runtimeStartupService, languageRuntimeService, PythonRuntimeFilter.All);
+					return getPythonInterpreterDropDownItems(
+						runtimeStartupService,
+						languageRuntimeService,
+						PythonRuntimeFilter.All
+					);
 			}
 		case EnvironmentSetupType.ExistingEnvironment:
-			return getPythonInterpreterDropDownItems(runtimeStartupService, languageRuntimeService, PythonRuntimeFilter.All);
+			return getPythonInterpreterDropDownItems(
+				runtimeStartupService,
+				languageRuntimeService,
+				PythonRuntimeFilter.All
+			);
 		default:
 			return [];
 	}
@@ -155,8 +172,18 @@ export const getPythonInterpreterEntries = (runtimeStartupService: IRuntimeStart
  * @param envType The type of Python environment.
  * @returns The location for the new Python environment.
  */
-export const locationForNewEnv = (parentFolder: string, projectName: string, envType: PythonEnvironmentType) => {
-	const envDir = envType === PythonEnvironmentType.Venv ? '.venv' : envType === PythonEnvironmentType.Conda ? '.conda' : '';
+export const locationForNewEnv = (
+	parentFolder: string,
+	projectName: string,
+	envType: PythonEnvironmentType
+) => {
+	// TODO: this only works for Venv and Conda environments. We'll need to expand on this to add
+	// support for other environment types.
+	const envDir = envType === PythonEnvironmentType.Venv
+		? '.venv'
+		: envType === PythonEnvironmentType.Conda
+			? '.conda'
+			: '';
 	return `${parentFolder}/${projectName}/${envDir}`;
 };
 
@@ -168,10 +195,9 @@ export const locationForNewEnv = (parentFolder: string, projectName: string, env
  * @param runtimeStartupService The runtime startup service.
  * @returns The runtime ID of the selected Python interpreter.
  */
-export const getSelectedPythonInterpreterId = (existingSelection: string | undefined, runtimeStartupService: IRuntimeStartupService) => {
-	if (existingSelection) {
-		return existingSelection;
-	}
-	const preferredRuntimeId = getPreferredRuntimeId(runtimeStartupService, 'python');
-	return preferredRuntimeId ?? '';
+export const getSelectedPythonInterpreterId = (
+	existingSelection: string | undefined,
+	runtimeStartupService: IRuntimeStartupService
+) => {
+	return existingSelection ?? getPreferredRuntimeId(runtimeStartupService, 'python') ?? '';
 };
