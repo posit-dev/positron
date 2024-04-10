@@ -23,6 +23,87 @@ import { RowFilterWidget } from 'vs/workbench/browser/positronDataExplorer/compo
 import { AddEditRowFilterModalPopup } from 'vs/workbench/browser/positronDataExplorer/components/dataExplorerPanel/components/addEditRowFilterModalPopup/addEditRowFilterModalPopup';
 import { RowFilterDescriptor, RowFilterDescriptorIsEmpty, RowFilterDescriptorIsNotEmpty, RowFilterDescriptorIsLessThan, RowFilterDescriptorIsGreaterThan, RowFilterDescriptorIsEqualTo, RowFilterDescriptorIsBetween, RowFilterDescriptorIsNotBetween } from 'vs/workbench/browser/positronDataExplorer/components/dataExplorerPanel/components/addEditRowFilterModalPopup/rowFilterDescriptor';
 
+/**
+ * Creates row filters from row filter descriptors.
+ * @param rowFilterDescriptors The row filter descriptors.
+ * @returns The row filters.
+ */
+const createRowFilters = (rowFilterDescriptors: RowFilterDescriptor[]) => {
+	// Create the set of row filters.
+	return rowFilterDescriptors.reduce<RowFilter[]>((
+		rowFilters,
+		rowFilterDescriptor
+	) => {
+		//
+		if (rowFilterDescriptor instanceof RowFilterDescriptorIsEmpty) {
+			rowFilters.push({
+				filter_id: rowFilterDescriptor.identifier,
+				filter_type: RowFilterType.IsNull,
+				column_index: rowFilterDescriptor.columnSchema.column_index
+			});
+		} else if (rowFilterDescriptor instanceof RowFilterDescriptorIsNotEmpty) {
+			rowFilters.push({
+				filter_id: rowFilterDescriptor.identifier,
+				filter_type: RowFilterType.IsNull,
+				column_index: rowFilterDescriptor.columnSchema.column_index
+			});
+		} else if (rowFilterDescriptor instanceof RowFilterDescriptorIsLessThan) {
+			rowFilters.push({
+				filter_id: rowFilterDescriptor.identifier,
+				filter_type: RowFilterType.Compare,
+				column_index: rowFilterDescriptor.columnSchema.column_index,
+				compare_params: {
+					op: CompareFilterParamsOp.Lt,
+					value: rowFilterDescriptor.value
+				}
+			});
+		} else if (rowFilterDescriptor instanceof RowFilterDescriptorIsGreaterThan) {
+			rowFilters.push({
+				filter_id: rowFilterDescriptor.identifier,
+				filter_type: RowFilterType.Compare,
+				column_index: rowFilterDescriptor.columnSchema.column_index,
+				compare_params: {
+					op: CompareFilterParamsOp.Gt,
+					value: rowFilterDescriptor.value
+				}
+			});
+		} else if (rowFilterDescriptor instanceof RowFilterDescriptorIsEqualTo) {
+			rowFilters.push({
+				filter_id: rowFilterDescriptor.identifier,
+				filter_type: RowFilterType.Compare,
+				column_index: rowFilterDescriptor.columnSchema.column_index,
+				compare_params: {
+					op: CompareFilterParamsOp.Eq,
+					value: rowFilterDescriptor.value
+				}
+			});
+		} else if (rowFilterDescriptor instanceof RowFilterDescriptorIsBetween) {
+			rowFilters.push({
+				filter_id: rowFilterDescriptor.identifier,
+				filter_type: RowFilterType.Between,
+				column_index: rowFilterDescriptor.columnSchema.column_index,
+				between_params: {
+					left_value: rowFilterDescriptor.lowerLimit,
+					right_value: rowFilterDescriptor.upperLimit
+				}
+			});
+		} else if (rowFilterDescriptor instanceof RowFilterDescriptorIsNotBetween) {
+			rowFilters.push({
+				filter_id: rowFilterDescriptor.identifier,
+				filter_type: RowFilterType.NotBetween,
+				column_index: rowFilterDescriptor.columnSchema.column_index,
+				between_params: {
+					left_value: rowFilterDescriptor.lowerLimit,
+					right_value: rowFilterDescriptor.upperLimit
+				}
+			});
+		}
+
+		// Return the row filters.
+		return rowFilters;
+	}, []);
+};
+
 
 /**
  * RowFilterBar component.
@@ -62,8 +143,8 @@ export const RowFilterBar = () => {
 		 * @param applyRowFilterDescriptor The row filter descriptor to apply.
 		 */
 		const applyRowFilterHandler = async (applyRowFilterDescriptor: RowFilterDescriptor) => {
-			// If this is a new row filter, append it to the array of row filters. Otherwise,
-			// replace the row filter that was edited.
+			// Create the new row filter descriptors. If this is a new row filter, append it;
+			// otherwise, replace the row filter that was edited.
 			let newRowFilterDescriptors: RowFilterDescriptor[];
 			if (!editRowFilterDescriptor) {
 				// Update the row filters.
@@ -85,82 +166,10 @@ export const RowFilterBar = () => {
 			// Set the new row filter descriptors.
 			setRowFilterDescriptors(newRowFilterDescriptors);
 
-			// Create the new set of row filters.
-			const rowFilters = newRowFilterDescriptors.reduce<RowFilter[]>((
-				rowFilters,
-				rowFilterDescriptor
-			) => {
-				//
-				if (rowFilterDescriptor instanceof RowFilterDescriptorIsEmpty) {
-					rowFilters.push({
-						filter_id: rowFilterDescriptor.identifier,
-						filter_type: RowFilterType.IsNull,
-						column_index: rowFilterDescriptor.columnSchema.column_index
-					});
-				} else if (rowFilterDescriptor instanceof RowFilterDescriptorIsNotEmpty) {
-					rowFilters.push({
-						filter_id: rowFilterDescriptor.identifier,
-						filter_type: RowFilterType.IsNull,
-						column_index: rowFilterDescriptor.columnSchema.column_index
-					});
-				} else if (rowFilterDescriptor instanceof RowFilterDescriptorIsLessThan) {
-					rowFilters.push({
-						filter_id: rowFilterDescriptor.identifier,
-						filter_type: RowFilterType.Compare,
-						column_index: rowFilterDescriptor.columnSchema.column_index,
-						compare_params: {
-							op: CompareFilterParamsOp.Lt,
-							value: rowFilterDescriptor.value
-						}
-					});
-				} else if (rowFilterDescriptor instanceof RowFilterDescriptorIsGreaterThan) {
-					rowFilters.push({
-						filter_id: rowFilterDescriptor.identifier,
-						filter_type: RowFilterType.Compare,
-						column_index: rowFilterDescriptor.columnSchema.column_index,
-						compare_params: {
-							op: CompareFilterParamsOp.Gt,
-							value: rowFilterDescriptor.value
-						}
-					});
-				} else if (rowFilterDescriptor instanceof RowFilterDescriptorIsEqualTo) {
-					rowFilters.push({
-						filter_id: rowFilterDescriptor.identifier,
-						filter_type: RowFilterType.Compare,
-						column_index: rowFilterDescriptor.columnSchema.column_index,
-						compare_params: {
-							op: CompareFilterParamsOp.Eq,
-							value: rowFilterDescriptor.value
-						}
-					});
-				} else if (rowFilterDescriptor instanceof RowFilterDescriptorIsBetween) {
-					rowFilters.push({
-						filter_id: rowFilterDescriptor.identifier,
-						filter_type: RowFilterType.Between,
-						column_index: rowFilterDescriptor.columnSchema.column_index,
-						between_params: {
-							left_value: rowFilterDescriptor.lowerLimit,
-							right_value: rowFilterDescriptor.upperLimit
-						}
-					});
-				} else if (rowFilterDescriptor instanceof RowFilterDescriptorIsNotBetween) {
-					rowFilters.push({
-						filter_id: rowFilterDescriptor.identifier,
-						filter_type: RowFilterType.NotBetween,
-						column_index: rowFilterDescriptor.columnSchema.column_index,
-						between_params: {
-							left_value: rowFilterDescriptor.lowerLimit,
-							right_value: rowFilterDescriptor.upperLimit
-						}
-					});
-				}
-
-				// Return the row filters.
-				return rowFilters;
-			}, []);
-
-			// Set the row filters.
-			await context.instance.tableDataDataGridInstance.setRowFilters(rowFilters);
+			// Set the new row filters.
+			await context.instance.tableDataDataGridInstance.setRowFilters(createRowFilters(
+				newRowFilterDescriptors
+			));
 		};
 
 		// Show the add /edit row filter modal popup.
@@ -206,7 +215,13 @@ export const RowFilterBar = () => {
 			label: localize('positron.dataExplorer.clearFilters', "Clear filters"),
 			icon: 'positron-clear-row-filters',
 			disabled: rowFilterDescriptors.length === 0,
-			onSelected: () => setRowFilterDescriptors([])
+			onSelected: async () => {
+				// Clear the row filter descriptors.
+				setRowFilterDescriptors([]);
+
+				// Clear the row filters.
+				await context.instance.tableDataDataGridInstance.setRowFilters([]);
+			}
 		}));
 
 		// Show the context menu.
@@ -224,9 +239,18 @@ export const RowFilterBar = () => {
 	 * Clears the row filter at the specified row filter index.
 	 * @param rowFilterIndex The row filter index.
 	 */
-	const clearRowFilter = (identifier: string) => {
-		setRowFilterDescriptors(rowFilters => rowFilters.filter(rowFilter =>
+	const clearRowFilter = async (identifier: string): Promise<void> => {
+		// Remove the row filter.
+		const newRowFilterDescriptors = rowFilterDescriptors.filter(rowFilter =>
 			identifier !== rowFilter.identifier
+		);
+
+		// Set the new row filter descriptors.
+		setRowFilterDescriptors(newRowFilterDescriptors);
+
+		// Set the new row filters.
+		await context.instance.tableDataDataGridInstance.setRowFilters(createRowFilters(
+			newRowFilterDescriptors
 		));
 	};
 
@@ -261,7 +285,7 @@ export const RowFilterBar = () => {
 								);
 							}
 						}}
-						onClear={() => clearRowFilter(rowFilter.identifier)} />
+						onClear={async () => await clearRowFilter(rowFilter.identifier)} />
 				)}
 				<Button
 					ref={addFilterButtonRef}

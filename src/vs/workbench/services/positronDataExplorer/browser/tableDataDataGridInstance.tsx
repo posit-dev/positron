@@ -13,7 +13,7 @@ import { TableDataCell } from 'vs/workbench/services/positronDataExplorer/browse
 import { TableDataRowHeader } from 'vs/workbench/services/positronDataExplorer/browser/components/tableDataRowHeader';
 import { PositronDataExplorerColumn } from 'vs/workbench/services/positronDataExplorer/browser/positronDataExplorerColumn';
 import { DataExplorerClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimeDataExplorerClient';
-import { ColumnSortKey, FilterResult, RowFilter, SchemaUpdateEvent } from 'vs/workbench/services/languageRuntime/common/positronDataExplorerComm';
+import { ColumnSortKey, RowFilter, SchemaUpdateEvent } from 'vs/workbench/services/languageRuntime/common/positronDataExplorerComm';
 
 /**
  * TableDataDataGridInstance class.
@@ -199,9 +199,10 @@ export class TableDataDataGridInstance extends DataGridInstance {
 	 * @returns A Promise<FilterResult> that resolves when the operation is complete.
 	 */
 	async setRowFilters(filters: Array<RowFilter>): Promise<void> {
-		const result = await this._dataExplorerClientInstance.setRowFilters(filters);
-		console.log(`+++++++++++++++++++++ setRowFilters result: ${result.selected_num_rows}`);
+		// Set the row filters.
+		await this._dataExplorerClientInstance.setRowFilters(filters);
 
+		// Reload the data grid.
 		this._dataExplorerCache.invalidateDataCache();
 		this.softReset();
 		this.fetchData();
