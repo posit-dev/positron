@@ -62,7 +62,6 @@ class SessionMode(str, enum.Enum):
 
     @classmethod
     def trait(cls) -> traitlets.Enum:
-        # return traitlets.Enum(sorted(cls), help=cls.__doc__, default_value=cls.Default)  # type: ignore
         return traitlets.Enum(sorted(cls), help=cls.__doc__)
 
 
@@ -427,9 +426,6 @@ class PositronIPyKernel(IPythonKernel):
 
 
 class PositronIPKernelApp(IPKernelApp):
-    kernel: PositronIPyKernel
-    shell: PositronShell
-
     # Use the PositronIPyKernel class.
     kernel_class: Type[PositronIPyKernel] = traitlets.Type(PositronIPyKernel)  # type: ignore
 
