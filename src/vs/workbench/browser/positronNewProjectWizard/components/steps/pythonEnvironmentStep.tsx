@@ -12,10 +12,9 @@ import { NewProjectWizardStepProps } from 'vs/workbench/browser/positronNewProje
 import { localize } from 'vs/nls';
 import { RuntimeStartupPhase } from 'vs/workbench/services/runtimeStartup/common/runtimeStartupService';
 import { DisposableStore } from 'vs/base/common/lifecycle';
-import { getPythonInterpreterEntries, getSelectedPythonInterpreterId, locationForNewEnv } from 'vs/workbench/browser/positronNewProjectWizard/utilities/pythonEnvironmentStepUtils';
+import { getEnvTypeEntries, getPythonInterpreterEntries, getSelectedPythonInterpreterId, locationForNewEnv } from 'vs/workbench/browser/positronNewProjectWizard/utilities/pythonEnvironmentStepUtils';
 import { PositronWizardStep } from 'vs/workbench/browser/positronNewProjectWizard/components/wizardStep';
 import { PositronWizardSubStep } from 'vs/workbench/browser/positronNewProjectWizard/components/wizardSubStep';
-import { DropDownListBoxItem } from 'vs/workbench/browser/positronComponents/dropDownListBox/dropDownListBoxItem';
 import { DropDownListBox } from 'vs/workbench/browser/positronComponents/dropDownListBox/dropDownListBox';
 import { RadioButtonItem } from 'vs/workbench/browser/positronComponents/positronModalDialog/components/radioButton';
 import { RadioGroup } from 'vs/workbench/browser/positronComponents/positronModalDialog/components/radioGroup';
@@ -62,12 +61,7 @@ export const PythonEnvironmentStep = (props: PropsWithChildren<NewProjectWizardS
 				)
 		);
 
-	// TODO: retrieve the python environment types from the language runtime service somehow?
-	// TODO: localize these entries
-	const envTypeEntries = [
-		new DropDownListBoxItem({ identifier: PythonEnvironmentType.Venv, title: PythonEnvironmentType.Venv + ' Creates a `.venv` virtual environment for your project', value: PythonEnvironmentType.Venv }),
-		new DropDownListBoxItem({ identifier: PythonEnvironmentType.Conda, title: PythonEnvironmentType.Conda + ' Creates a `.conda` Conda environment for your project', value: PythonEnvironmentType.Conda })
-	];
+	const envTypeEntries = getEnvTypeEntries();
 
 	const envSetupRadioButtons: RadioButtonItem[] = [
 		new RadioButtonItem({ identifier: EnvironmentSetupType.NewEnvironment, title: 'Create a new Python environment _(Recommended)_' }),
@@ -226,8 +220,8 @@ export const PythonEnvironmentStep = (props: PropsWithChildren<NewProjectWizardS
 						))()}
 						entries={envTypeEntries}
 						selectedIdentifier={envType}
-						createItem={dropDownListBoxItem => <DropdownEntry title={dropDownListBoxItem.options.title} subtitle='' />}
-						onSelectionChanged={dropDownListBoxItem => onEnvTypeSelected(dropDownListBoxItem.options.identifier)}
+						createItem={item => <DropdownEntry title={item.options.value.envType} subtitle={item.options.value.envDescription} />}
+						onSelectionChanged={item => onEnvTypeSelected(item.options.identifier)}
 					/>
 				</PositronWizardSubStep> : null
 			}
@@ -263,11 +257,11 @@ export const PythonEnvironmentStep = (props: PropsWithChildren<NewProjectWizardS
 					// user should install an interpreter with minimum version
 					entries={startupPhase !== RuntimeStartupPhase.Complete ? [] : interpreterEntries}
 					selectedIdentifier={selectedInterpreter}
-					createItem={dropDownListBoxItem =>
-						<PythonInterpreterEntry pythonInterpreterInfo={dropDownListBoxItem.options.value} />
+					createItem={item =>
+						<PythonInterpreterEntry pythonInterpreterInfo={item.options.value} />
 					}
-					onSelectionChanged={dropDownListBoxItem =>
-						onInterpreterSelected(dropDownListBoxItem.options.identifier)
+					onSelectionChanged={item =>
+						onInterpreterSelected(item.options.identifier)
 					}
 				/>
 			</PositronWizardSubStep>

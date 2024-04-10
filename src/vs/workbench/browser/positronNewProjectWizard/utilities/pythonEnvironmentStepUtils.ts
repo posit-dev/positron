@@ -30,6 +30,14 @@ export interface PythonInterpreterInfo {
 }
 
 /**
+ * PythonEnvironmentTypeInfo interface.
+ */
+export interface PythonEnvironmentTypeInfo {
+	envType: PythonEnvironmentType;
+	envDescription: string;
+}
+
+/**
  * Retrieves the detected Python interpreters as DropDownListBoxItems, filtering and grouping the
  * list by runtime source if requested.
  * @param runtimeStartupService The runtime startup service.
@@ -200,4 +208,29 @@ export const getSelectedPythonInterpreterId = (
 	runtimeStartupService: IRuntimeStartupService
 ) => {
 	return existingSelection ?? getPreferredRuntimeId(runtimeStartupService, 'python') ?? '';
+};
+
+/**
+ * Constructs and returns the entries for the environment type dropdown box.
+ * @returns The entries for the environment type dropdown box.
+ */
+export const getEnvTypeEntries = () => {
+	// TODO: retrieve the python environment types from the language runtime service somehow?
+	// TODO: localize these entries
+	return [
+		new DropDownListBoxItem<PythonEnvironmentType, PythonEnvironmentTypeInfo>({
+			identifier: PythonEnvironmentType.Venv,
+			value: {
+				envType: PythonEnvironmentType.Venv,
+				envDescription: 'Creates a `.venv` virtual environment for your project'
+			}
+		}),
+		new DropDownListBoxItem<PythonEnvironmentType, PythonEnvironmentTypeInfo>({
+			identifier: PythonEnvironmentType.Conda,
+			value: {
+				envType: PythonEnvironmentType.Conda,
+				envDescription: 'Creates a `.conda` Conda environment for your project'
+			}
+		})
+	];
 };
