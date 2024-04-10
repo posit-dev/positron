@@ -199,7 +199,7 @@ const DropDownListBoxModalPopup = <T, V,>(props: DropDownListBoxModalPopupProps<
 									props.onItemSelected(entry);
 								}}
 							>
-								{props.createItem !== undefined && props.createItem(entry)}
+								{props.createItem && props.createItem(entry)}
 								{!props.createItem && (
 									<>
 										<div
