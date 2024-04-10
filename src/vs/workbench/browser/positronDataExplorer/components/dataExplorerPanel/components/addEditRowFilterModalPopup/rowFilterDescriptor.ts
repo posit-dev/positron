@@ -24,9 +24,9 @@ export enum RowFilterCondition {
 }
 
 /**
- * BaseRowFilter class.
+ * BaseRowFilterDescriptor class.
  */
-abstract class BaseRowFilter {
+abstract class BaseRowFilterDescriptor {
 	/**
 	 * Gets the identifier.
 	 */
@@ -47,9 +47,9 @@ abstract class BaseRowFilter {
 }
 
 /**
- * RowFilterIsEmpty class.
+ * RowFilterDescriptorIsEmpty class.
  */
-export class RowFilterIsEmpty extends BaseRowFilter {
+export class RowFilterDescriptorIsEmpty extends BaseRowFilterDescriptor {
 	/**
 	 * Constructor.
 	 * @param columnSchema The column schema.
@@ -67,9 +67,9 @@ export class RowFilterIsEmpty extends BaseRowFilter {
 }
 
 /**
- * RowFilterIsNotEmpty class.
+ * RowFilterDescriptorIsNotEmpty class.
  */
-export class RowFilterIsNotEmpty extends BaseRowFilter {
+export class RowFilterDescriptorIsNotEmpty extends BaseRowFilterDescriptor {
 	/**
 	 * Constructor.
 	 * @param columnSchema The column schema.
@@ -87,9 +87,9 @@ export class RowFilterIsNotEmpty extends BaseRowFilter {
 }
 
 /**
- * SingleValueRowFilter class.
+ * SingleValueRowFilterDescriptor class.
  */
-export abstract class SingleValueRowFilter extends BaseRowFilter {
+export abstract class SingleValueRowFilterDescriptor extends BaseRowFilterDescriptor {
 	/**
 	 * Constructor.
 	 * @param columnSchema The column schema.
@@ -101,9 +101,9 @@ export abstract class SingleValueRowFilter extends BaseRowFilter {
 }
 
 /**
- * RowFilterIsLessThan row filter.
+ * RowFilterDescriptorIsLessThan class.
  */
-export class RowFilterIsLessThan extends SingleValueRowFilter {
+export class RowFilterDescriptorIsLessThan extends SingleValueRowFilterDescriptor {
 	/**
 	 * Constructor.
 	 * @param columnSchema The column schema.
@@ -122,9 +122,9 @@ export class RowFilterIsLessThan extends SingleValueRowFilter {
 }
 
 /**
- * RowFilterIsGreaterThan row filter.
+ * RowFilterDescriptorIsGreaterThan class.
  */
-export class RowFilterIsGreaterThan extends SingleValueRowFilter {
+export class RowFilterDescriptorIsGreaterThan extends SingleValueRowFilterDescriptor {
 	/**
 	 * Constructor.
 	 * @param columnSchema The column schema.
@@ -143,9 +143,9 @@ export class RowFilterIsGreaterThan extends SingleValueRowFilter {
 }
 
 /**
- * RowFilterIsEqualTo row filter.
+ * RowFilterDescriptorIsEqualTo class.
  */
-export class RowFilterIsEqualTo extends SingleValueRowFilter {
+export class RowFilterDescriptorIsEqualTo extends SingleValueRowFilterDescriptor {
 	/**
 	 * Constructor.
 	 * @param columnSchema The column schema.
@@ -164,9 +164,9 @@ export class RowFilterIsEqualTo extends SingleValueRowFilter {
 }
 
 /**
- * RangeRowFilter class.
+ * RangeRowFilterDescriptor class.
  */
-export abstract class RangeRowFilter extends BaseRowFilter {
+export abstract class RangeRowFilterDescriptor extends BaseRowFilterDescriptor {
 	/**
 	 * Constructor.
 	 * @param columnSchema The column schema.
@@ -183,9 +183,9 @@ export abstract class RangeRowFilter extends BaseRowFilter {
 }
 
 /**
- * RowFilterIsBetween row filter.
+ * RowFilterDescriptorIsBetween class.
  */
-export class RowFilterIsBetween extends RangeRowFilter {
+export class RowFilterDescriptorIsBetween extends RangeRowFilterDescriptor {
 	/**
 	 * Constructor.
 	 * @param columnSchema The column schema.
@@ -205,9 +205,9 @@ export class RowFilterIsBetween extends RangeRowFilter {
 }
 
 /**
- * RowFilterIsNotBetween row filter.
+ * RowFilterDescriptorIsNotBetween class.
  */
-export class RowFilterIsNotBetween extends RangeRowFilter {
+export class RowFilterDescriptorIsNotBetween extends RangeRowFilterDescriptor {
 	/**
 	 * Constructor.
 	 * @param columnSchema The column schema.
@@ -227,12 +227,13 @@ export class RowFilterIsNotBetween extends RangeRowFilter {
 }
 
 /**
- * RowFilter type.
+ * RowFilterDescriptor type.
  */
-export type RowFilter =
-	RowFilterIsEmpty |
-	RowFilterIsNotEmpty |
-	RowFilterIsLessThan |
-	RowFilterIsGreaterThan |
-	RowFilterIsBetween |
-	RowFilterIsNotBetween;
+export type RowFilterDescriptor =
+	RowFilterDescriptorIsEmpty |
+	RowFilterDescriptorIsNotEmpty |
+	RowFilterDescriptorIsLessThan |
+	RowFilterDescriptorIsGreaterThan |
+	RowFilterDescriptorIsEqualTo |
+	RowFilterDescriptorIsBetween |
+	RowFilterDescriptorIsNotBetween;
