@@ -1265,10 +1265,10 @@
         ],
         "menus": {
             "issue/reporter": [
-				{
-					"command": "python.reportIssue"
-				}
-			],
+                {
+                    "command": "python.reportIssue"
+                }
+            ],
             "commandPalette": [
                 {
                     "category": "Python",
@@ -1613,7 +1613,8 @@
         "addExtensionPackDependencies": "gulp addExtensionPackDependencies",
         "updateBuildNumber": "gulp updateBuildNumber",
         "verifyBundle": "gulp verifyBundle",
-        "webpack": "webpack"
+        "webpack": "webpack",
+        "positron:testMinimumPythonReqs": "nox --noxfile noxfile-positron.py -- python_files/positron"
     },
     "dependencies": {
         "@iarna/toml": "^2.2.5",

@@ -180,31 +180,14 @@ jobs:
         include:
           - os: 'ubuntu-latest'
             python: '3.8'
-            time-elapsed: ''
           - os: 'macos-latest'
             python: '3.9'
-            time-elapsed: ''
           - os: 'windows-latest'
             python: '3.10'
-            time-elapsed: ''
           - os: 'ubuntu-latest'
             python: '3.11'
-            time-elapsed: ''
           - os: 'ubuntu-latest'
             python: '3.12'
-            time-elapsed: ''
-          # - os: 'ubuntu-latest'
-          #   python: '3.10'
-          #   time-elapsed: '3 months'
-          # - os: 'ubuntu-latest'
-          #   python: '3.10'
-          #   time-elapsed: '6 months'
-          # - os: 'ubuntu-latest'
-          #   python: '3.10'
-          #   time-elapsed: '9 months'
-          # - os: 'ubuntu-latest'
-          #   python: '3.10'
-          #   time-elapsed: '1 year'
 
     steps:
       - name: Checkout
@@ -222,20 +205,35 @@ jobs:
       - name: Install Positron IPyKernel test requirements
         run: python -m pip install --prefer-binary --upgrade -r python_files/positron/pinned-test-requirements.txt
 
-      - name: Get date for older dependencies
-        if: ${{ matrix.time-elapsed != '' }}
-        run: |
-          echo "SNAPSHOT_DATE=$(date -d '-${{ matrix.time-elapsed }}' --iso-8601)" >> $GITHUB_ENV
-
-      - name: Get older PyPI snapshot
-        if: ${{ matrix.time-elapsed != '' }}
-        run: |
-          python -m pip config set global.index-url https://packagemanager.posit.co/pypi/${{ env.SNAPSHOT_DATE }}/simple
-          python -m pip config set global.trusted-host packagemanager.posit.co
-          python -m pip install --prefer-binary --force-reinstall -r python_files/positron/data-science-requirements.txt
-
       - name: Run Positron IPyKernel unit tests
         run: pytest python_files/positron
+
+  python-minimum-dependencies:
+    name: Test Minimum Positron IPyKernel Dependencies
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        include:
+          # currently only running on oldest supported Python version
+          - os: 'ubuntu-latest'
+            python: '3.8'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Use Python  ${{ matrix.python }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+          cache: 'pip'
+
+      - name: Install testing requirements
+        run: |
+          python scripts/vendor.py
+          python -m pip install nox
+
+      - name: Run tests
+        run: yarn positron:testMinimumPythonReqs
 
   typescript-tests:
     name: Test TypeScript
