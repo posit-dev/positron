@@ -9,9 +9,14 @@ import nox
 @nox.session()
 @nox.parametrize('pandas', ['1.5.3'])
 @nox.parametrize('torch', ['1.12.1'])
-def tests(session, pandas, torch):
+def test_minimum_reqs(session, pandas, torch):
     session.install("-r", "python_files/positron/pinned-test-requirements.txt")
     session.install('--force-reinstall', f'pandas=={pandas}')
     session.install('--force-reinstall', f'torch=={torch}')
 
-    session.run('pytest', 'python_files/positron/positron_ipykernel/tests')
+    if session.posargs:
+        test_args = session.posargs
+    else:
+        test_args = []
+
+    session.run('pytest', *test_args)
