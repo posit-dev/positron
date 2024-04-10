@@ -26,4 +26,5 @@
 
 .dropdown-entry > .dropdown-entry-group {
 	grid-column: right / end;
+	opacity: 0.8;
 }
