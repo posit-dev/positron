@@ -11,9 +11,9 @@ import { DataGridInstance } from 'vs/workbench/browser/positronDataGrid/classes/
 import { DataExplorerCache } from 'vs/workbench/services/positronDataExplorer/common/dataExplorerCache';
 import { TableDataCell } from 'vs/workbench/services/positronDataExplorer/browser/components/tableDataCell';
 import { TableDataRowHeader } from 'vs/workbench/services/positronDataExplorer/browser/components/tableDataRowHeader';
-import { ColumnSortKey, SchemaUpdateEvent } from 'vs/workbench/services/languageRuntime/common/positronDataExplorerComm';
 import { PositronDataExplorerColumn } from 'vs/workbench/services/positronDataExplorer/browser/positronDataExplorerColumn';
 import { DataExplorerClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimeDataExplorerClient';
+import { ColumnSortKey, RowFilter, SchemaUpdateEvent } from 'vs/workbench/services/languageRuntime/common/positronDataExplorerComm';
 
 /**
  * TableDataDataGridInstance class.
@@ -190,4 +190,23 @@ export class TableDataDataGridInstance extends DataGridInstance {
 	}
 
 	//#endregion DataGridInstance Methods
+
+	//#region Public Methods
+
+	/**
+	 * Sets row filters.
+	 * @param rowFilters The row filters.
+	 * @returns A Promise<FilterResult> that resolves when the operation is complete.
+	 */
+	async setRowFilters(filters: Array<RowFilter>): Promise<void> {
+		// Set the row filters.
+		await this._dataExplorerClientInstance.setRowFilters(filters);
+
+		// Reload the data grid.
+		this._dataExplorerCache.invalidateDataCache();
+		this.softReset();
+		this.fetchData();
+	}
+
+	//#endregion Public Methods
 }
