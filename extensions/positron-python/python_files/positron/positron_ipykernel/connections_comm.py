@@ -225,6 +225,16 @@ class ConnectionsBackendMessageContent(BaseModel):
     ] = Field(..., discriminator="method")
 
 
+@enum.unique
+class ConnectionsFrontendEvent(str, enum.Enum):
+    """
+    An enumeration of all the possible events that can be sent to the frontend connections comm.
+    """
+
+    # Request to focus the Connections pane
+    Focus = "focus"
+
+
 ObjectSchema.update_forward_refs()
 
 FieldSchema.update_forward_refs()

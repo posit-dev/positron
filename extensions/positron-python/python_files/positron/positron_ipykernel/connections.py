@@ -12,6 +12,7 @@ import comm
 from .access_keys import decode_access_key, encode_access_key
 from .connections_comm import (
     ConnectionsBackendMessageContent,
+    ConnectionsFrontendEvent,
     ContainsDataRequest,
     GetIconRequest,
     ListFieldsRequest,
@@ -146,7 +147,7 @@ class ConnectionsService:
         self.comm_id_to_path: Dict[str, Set[PathKey]] = {}
 
     def register_connection(
-        self, connection: Any, variable_path: Optional[List[str]] = None
+        self, connection: Any, variable_path: Optional[List[str]] = None, display_pane: bool = True
     ) -> str:
         """
         Opens a connection to the given data source.
@@ -154,6 +155,10 @@ class ConnectionsService:
         Args:
             connection: A subclass of Connection implementing the
               necessary methods.
+            variable_path: The variable path that points to the connection.
+                If None, the connection is not associated with any variable.
+            display_pane: Wether the Connection Pane view container should be
+                displayed in the UI once the connection is registered.
         """
 
         if not isinstance(connection, Connection):
@@ -172,6 +177,10 @@ class ConnectionsService:
                     comm_id,
                 )
                 self._register_variable_path(variable_path, comm_id)
+
+                if display_pane:
+                    self.comms[comm_id].send_event(ConnectionsFrontendEvent.Focus.value, {})
+
                 return comm_id
 
         comm_id = str(uuid.uuid4())
@@ -184,6 +193,10 @@ class ConnectionsService:
         self._register_variable_path(variable_path, comm_id)
         self.comm_id_to_connection[comm_id] = connection
         self.on_comm_open(base_comm)
+
+        if display_pane:
+            self.comms[comm_id].send_event(ConnectionsFrontendEvent.Focus.value, {})
+
         return comm_id
 
     def _register_variable_path(self, variable_path: Optional[List[str]], comm_id: str) -> None:
@@ -198,6 +211,10 @@ class ConnectionsService:
         # a variable path can only point to a single connection, if it's already pointing
         # to a connection, we "close the connection" and replace it with the new one
         if key in self.path_to_comm_ids:
+            # if the variable path already points to the same comm_id, we don't need to
+            # perform any registration.
+            if self.path_to_comm_ids[key] == comm_id:
+                return
             self._unregister_variable_path(key)
 
         if comm_id in self.comm_id_to_path:
@@ -267,7 +284,8 @@ class ConnectionsService:
         try:
             # registering a new connection with the same variable path is going to close the
             # variable path if the connections are different.
-            self.register_connection(value, variable_path=variable_path)
+            # when handling a variable update we don't want to go and display the pane in the IDE
+            self.register_connection(value, variable_path=variable_path, display_pane=False)
         except UnsupportedConnectionError:
             # if an unsupported connection error, then it means the variable
             # is no longer a connection, thus we unregister that variable path,

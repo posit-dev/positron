@@ -6,6 +6,7 @@
 // AUTO-GENERATED from connections.json; do not edit.
 //
 
+import { Event } from 'vs/base/common/event';
 import { PositronBaseComm } from 'vs/workbench/services/languageRuntime/common/positronBaseComm';
 import { IRuntimeClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimeClientInstance';
 
@@ -41,9 +42,20 @@ export interface FieldSchema {
 
 }
 
+/**
+ * Event: Request to focus the Connections pane
+ */
+export interface FocusEvent {
+}
+
+export enum ConnectionsFrontendEvent {
+	Focus = 'focus'
+}
+
 export class PositronConnectionsComm extends PositronBaseComm {
 	constructor(instance: IRuntimeClientInstance<any, any>) {
 		super(instance);
+		this.onDidFocus = super.createEventEmitter('focus', []);
 	}
 
 	/**
@@ -113,5 +125,10 @@ export class PositronConnectionsComm extends PositronBaseComm {
 		return super.performRpc('preview_object', ['path'], [path]);
 	}
 
+
+	/**
+	 * Request to focus the Connections pane
+	 */
+	onDidFocus: Event<FocusEvent>;
 }
 
