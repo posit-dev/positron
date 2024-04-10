@@ -10,6 +10,7 @@ import * as React from 'react';
 
 // Other dependencies.
 import { PythonInterpreterInfo } from 'vs/workbench/browser/positronNewProjectWizard/utilities/pythonEnvironmentStepUtils';
+import { DropdownEntry } from 'vs/workbench/browser/positronNewProjectWizard/components/steps/dropdownEntry';
 
 /**
  * PythonInterpreterEntryProps interface.
@@ -26,14 +27,12 @@ interface PythonInterpreterEntryProps {
 export const PythonInterpreterEntry = ({ pythonInterpreterInfo }: PythonInterpreterEntryProps) => {
 	// Render.
 	return (
-		<div className='python-interpreter-entry'>
-			<div className='interpreter-title'>
-				{/* allow-any-unicode-next-line */}
-				{`${pythonInterpreterInfo.preferred ? '★ ' : ''}${pythonInterpreterInfo.languageName} ${pythonInterpreterInfo.languageVersion} ${pythonInterpreterInfo.runtimePath}`}
-			</div>
-			<div className='interpreter-source'>
-				{pythonInterpreterInfo.runtimeSource}
-			</div>
-		</div>
+		<DropdownEntry
+			// allow-any-unicode-next-line
+			icon={pythonInterpreterInfo.preferred ? '★' : ''}
+			title={`${pythonInterpreterInfo.languageName} ${pythonInterpreterInfo.languageVersion}`}
+			subtitle={`${pythonInterpreterInfo.runtimePath}`}
+			group={pythonInterpreterInfo.runtimeSource}
+		/>
 	);
 };

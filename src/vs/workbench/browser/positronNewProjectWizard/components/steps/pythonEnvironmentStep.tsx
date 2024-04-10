@@ -21,6 +21,7 @@ import { RadioButtonItem } from 'vs/workbench/browser/positronComponents/positro
 import { RadioGroup } from 'vs/workbench/browser/positronComponents/positronModalDialog/components/radioGroup';
 import { EnvironmentSetupType, PythonEnvironmentType } from 'vs/workbench/browser/positronNewProjectWizard/interfaces/newProjectWizardEnums';
 import { PythonInterpreterEntry } from 'vs/workbench/browser/positronNewProjectWizard/components/steps/pythonInterpreterEntry';
+import { DropdownEntry } from 'vs/workbench/browser/positronNewProjectWizard/components/steps/dropdownEntry';
 
 /**
  * The PythonEnvironmentStep component is specific to Python projects in the new project wizard.
@@ -223,8 +224,9 @@ export const PythonEnvironmentStep = (props: PropsWithChildren<NewProjectWizardS
 							'pythonEnvironmentSubStep.dropDown.title',
 							'Select an environment type'
 						))()}
-						selectedIdentifier={envType}
 						entries={envTypeEntries}
+						selectedIdentifier={envType}
+						createItem={dropDownListBoxItem => <DropdownEntry title={dropDownListBoxItem.options.title} subtitle='' />}
 						onSelectionChanged={dropDownListBoxItem => onEnvTypeSelected(dropDownListBoxItem.options.identifier)}
 					/>
 				</PositronWizardSubStep> : null
