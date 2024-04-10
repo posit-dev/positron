@@ -14,6 +14,16 @@
     "onStartupFinished"
   ],
   "contributes": {
+    "commands": [
+      {
+        "command": "positron.restartKernel",
+        "category": "Notebook",
+        "title": "%positron.command.restartKernel.title%",
+        "shortTitle": "%positron.command.restartKernel.shortTitle%",
+        "icon": "$(debug-restart)",
+        "enablement": "positron.hasRunningNotebookSession"
+      }
+    ],
     "configuration": [
       {
         "title": "Positron Notebook Controllers",
@@ -25,7 +35,16 @@
           }
         }
       }
-    ]
+    ],
+    "menus": {
+      "notebook/toolbar": [
+        {
+          "command": "positron.restartKernel",
+          "group": "navigation/execute@5",
+          "when": "notebookKernel =~ /^vscode.positron-notebook-controllers\\//"
+        }
+      ]
+    }
   },
   "main": "./out/extension.js",
   "scripts": {

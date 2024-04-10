@@ -67,6 +67,13 @@ export class NotebookController implements vscode.Disposable {
 				await this._notebookSessionService.shutdownRuntimeSession(e.notebook.uri);
 			}
 		}));
+
+		// Restart the execution counter when a notebook session is started.
+		this._disposables.push(this._notebookSessionService.onDidChangeNotebookSession(async (e) => {
+			if (e.session) {
+				this._executionOrderBySessionId.delete(e.session.metadata.sessionId);
+			}
+		}));
 	}
 
 	/** The human-readable label of the controller. */
@@ -80,7 +87,7 @@ export class NotebookController implements vscode.Disposable {
 	 * @param notebook The notebook to start a runtime for.
 	 * @returns Promise that resolves when the runtime has started.
 	 */
-	public async startRuntimeSession(notebook: vscode.NotebookDocument): Promise<positron.LanguageRuntimeSession> {
+	private async startRuntimeSession(notebook: vscode.NotebookDocument): Promise<positron.LanguageRuntimeSession> {
 		try {
 			return await this._notebookSessionService.startRuntimeSession(notebook.uri, this._languageId);
 		} catch (err) {
