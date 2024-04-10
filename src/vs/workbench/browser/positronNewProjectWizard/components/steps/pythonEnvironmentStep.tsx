@@ -217,6 +217,7 @@ export const PythonEnvironmentStep = (props: PropsWithChildren<NewProjectWizardS
 							'pythonEnvironmentSubStep.dropDown.title',
 							'Select an environment type'
 						))()}
+						selectedIdentifier={envType}
 						entries={envTypeEntries}
 						onSelectionChanged={dropDownListBoxItem => onEnvTypeSelected(dropDownListBoxItem.options.identifier)}
 					/>

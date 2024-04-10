@@ -9,7 +9,7 @@ import 'vs/css!./pythonInterpreterEntry';
 import * as React from 'react';
 
 // Other dependencies.
-import { PythonInterpreterInfo } from 'vs/workbench/browser/positronNewProjectWizard/utilities/pythonInterpreterListUtils';
+import { PythonInterpreterInfo } from 'vs/workbench/browser/positronNewProjectWizard/utilities/pythonEnvironmentStepUtils';
 
 /**
  * PythonInterpreterEntryProps interface.
