@@ -209,7 +209,7 @@ jobs:
         run: pytest python_files/positron
 
   python-minimum-dependencies:
-    name: Test Minimum Python Dependencies
+    name: Test Minimum Positron IPyKernel Dependencies
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
