@@ -16,29 +16,10 @@ import { JupyterLogo } from 'vs/workbench/browser/positronNewProjectWizard/compo
 import { RLogo } from 'vs/workbench/browser/positronNewProjectWizard/components/logos/logoR';
 
 /**
- * ProjectTypeItemOptions interface.
- */
-interface ProjectTypeItemOptions {
-	identifier: NewProjectType;
-	title: string;
-	icon: string;
-}
-
-/**
- * ProjectTypeItem class.
- */
-export class ProjectTypeItem {
-	/**
-	 * Constructor.
-	 * @param options A ProjectTypeItemOptions that contains the project type item options.
-	 */
-	constructor(readonly options: ProjectTypeItemOptions) { }
-}
-
-/**
  * ProjectTypeProps interface.
  */
-interface ProjectTypeProps extends ProjectTypeItemOptions {
+interface ProjectTypeProps {
+	identifier: NewProjectType;
 	selected: boolean;
 	groupName: string;
 	activeTabIndex: boolean;
@@ -53,6 +34,7 @@ interface ProjectTypeProps extends ProjectTypeItemOptions {
 export const ProjectType = (props: ProjectTypeProps) => {
 	const inputRef = useRef<HTMLInputElement>(null);
 
+	// On project type selected, set the focus to the input element and notify the parent.
 	const onSelected = () => {
 		inputRef.current?.focus();
 		props.onSelected();
@@ -79,7 +61,7 @@ export const ProjectType = (props: ProjectTypeProps) => {
 				value={props.identifier}
 				checked={props.selected}
 			/>
-			<label htmlFor={props.identifier}>{props.title}</label>
+			<label htmlFor={props.identifier}>{props.identifier}</label>
 		</div>
 	);
 };

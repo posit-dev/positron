@@ -10,7 +10,7 @@ import * as React from 'react';
 import { PropsWithChildren, useState } from 'react'; // eslint-disable-line no-duplicate-imports
 
 // Other dependencies.
-import { ProjectType, ProjectTypeItem } from 'vs/workbench/browser/positronNewProjectWizard/components/projectType';
+import { ProjectType } from 'vs/workbench/browser/positronNewProjectWizard/components/projectType';
 import { NewProjectType } from 'vs/workbench/browser/positronNewProjectWizard/interfaces/newProjectWizardEnums';
 
 /**
@@ -18,7 +18,6 @@ import { NewProjectType } from 'vs/workbench/browser/positronNewProjectWizard/in
  */
 interface ProjectTypeProps {
 	name: string;
-	entries: ProjectTypeItem[];
 	selectedProjectId?: string;
 	labelledBy?: string;
 	describedBy?: string;
@@ -32,9 +31,11 @@ interface ProjectTypeProps {
  * @see https://www.w3.org/WAI/ARIA/apg/patterns/radio/ for accessibility guidelines.
  */
 export const ProjectTypeGroup = (props: PropsWithChildren<ProjectTypeProps>) => {
+	const projectTypes = Object.values(NewProjectType);
+
 	// Hooks.
 	const [currentSelection, setCurrentSelection] = useState(props.selectedProjectId);
-	const [activeIndexId, setActiveIndexId] = useState(props.selectedProjectId ?? props.entries[0]?.options.identifier ?? '');
+	const [activeIndexId, setActiveIndexId] = useState(props.selectedProjectId ?? projectTypes[0] ?? '');
 
 	// On project type selected, update the current selection and notify the parent.
 	const onSelectionChanged = (projectType: NewProjectType) => {
@@ -51,17 +52,15 @@ export const ProjectTypeGroup = (props: PropsWithChildren<ProjectTypeProps>) => 
 			aria-labelledby={props.labelledBy}
 			aria-describedby={props.describedBy}
 		>
-			{props.entries.map((projectType, index) => {
+			{projectTypes.map((projectType, index) => {
 				return (
 					<ProjectType
 						key={index}
-						identifier={projectType.options.identifier}
-						title={projectType.options.title}
+						identifier={projectType}
 						groupName={props.name}
-						icon={projectType.options.icon}
-						selected={projectType.options.identifier === currentSelection}
-						activeTabIndex={projectType.options.identifier === activeIndexId}
-						onSelected={() => onSelectionChanged(projectType.options.identifier)}
+						selected={projectType === currentSelection}
+						activeTabIndex={projectType === activeIndexId}
+						onSelected={() => onSelectionChanged(projectType)}
 					/>
 				);
 			})}

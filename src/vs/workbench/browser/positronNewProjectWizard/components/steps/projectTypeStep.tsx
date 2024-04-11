@@ -16,7 +16,6 @@ import { NewProjectType, NewProjectWizardStep } from 'vs/workbench/browser/posit
 import { NewProjectWizardStepProps } from 'vs/workbench/browser/positronNewProjectWizard/interfaces/newProjectWizardStepProps';
 import { OKCancelBackNextActionBar } from 'vs/workbench/browser/positronComponents/positronModalDialog/components/okCancelBackNextActionBar';
 import { ProjectTypeGroup } from 'vs/workbench/browser/positronNewProjectWizard/components/projectTypeGroup';
-import { getProjectTypeItems } from 'vs/workbench/browser/positronNewProjectWizard/utilities/projectTypeStepUtils';
 
 /**
  * The ProjectTypeStep component is the first step in the new project wizard, used to
@@ -29,7 +28,6 @@ export const ProjectTypeStep = (props: PropsWithChildren<NewProjectWizardStepPro
 	const newProjectWizardState = useNewProjectWizardContext();
 	const setProjectConfig = newProjectWizardState.setProjectConfig;
 	const projectConfig = newProjectWizardState.projectConfig;
-	const languageRuntimeService = newProjectWizardState.languageRuntimeService;
 
 	// Hooks.
 	const [selectedProjectType, setSelectedProjectType] = useState(projectConfig.projectType);
@@ -70,7 +68,6 @@ export const ProjectTypeStep = (props: PropsWithChildren<NewProjectWizardStepPro
 				name='projectType'
 				labelledBy='project-type-selection-step-title'
 				describedBy='project-type-selection-step-description'
-				entries={getProjectTypeItems(languageRuntimeService)}
 				selectedProjectId={selectedProjectType}
 				onSelectionChanged={projectType => setSelectedProjectType(projectType)}
 			/>
