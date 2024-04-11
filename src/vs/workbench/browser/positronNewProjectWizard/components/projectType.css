@@ -17,6 +17,7 @@
 	border-radius: 6px;
 	padding: 0px 12px;
 }
+
 .project-type-selection-step
 .project-type-group
 .project-type:has(:focus-visible) {
@@ -39,19 +40,6 @@
 	height: 36px;
 }
 
-
-/*
- * When focus is in the radio button via keyboard interaction, add a border around the full radio
- * button (both the input circle and the text label)
- */
-/* .positron-modal-dialog-box
-.radio-group
-.radio-button:has(:focus-visible) {
-	border-radius: 4px;
-	outline-offset: 2px;
-	outline: 1px solid var(--vscode-focusBorder);
-} */
-
 /* Hide the default input circle */
 .positron-modal-dialog-box
 .project-type-group
@@ -61,23 +49,3 @@
 	appearance: none;
 	margin: 0;
 }
-
-/* Style the selected radio button */
-/* .positron-modal-dialog-box
-.radio-group
-.radio-button
-.radio-button-input:checked::before {
-	content: '';
-	width: 6px;
-	height: 6px;
-	border-radius: 50%;
-	background: var(--vscode-positronModalDialog-radioButtonForeground);
-} */
-
-/* Don't add an outline around the radio button circle */
-/* .positron-modal-dialog-box
-.radio-group
-.radio-button
-.radio-button-input:focus {
-	outline: none;
-} */
