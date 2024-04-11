@@ -1,0 +1,30 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *--------------------------------------------------------------------------------------------*/
+
+.dropdown-entry {
+	display: grid;
+	grid-template-columns: [icon] min-content [left] max-content [middle] 1fr [right] max-content [end];
+	align-items: center;
+}
+
+.dropdown-entry > .dropdown-entry-icon {
+	grid-column: icon / left;
+	margin-right: 0.2em;
+}
+
+.dropdown-entry > .dropdown-entry-title {
+	grid-column: left / middle;
+}
+
+.dropdown-entry > .dropdown-entry-subtitle {
+	grid-column: middle / right;
+	font-size: 0.9em;
+	opacity: 0.7;
+	margin-left: 0.6em;
+}
+
+.dropdown-entry > .dropdown-entry-group {
+	grid-column: right / end;
+	opacity: 0.8;
+}
