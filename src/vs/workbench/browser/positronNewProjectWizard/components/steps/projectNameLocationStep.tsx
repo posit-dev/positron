@@ -7,9 +7,8 @@ import { PropsWithChildren } from 'react';  // eslint-disable-line no-duplicate-
 import { localize } from 'vs/nls';
 import { useNewProjectWizardContext } from 'vs/workbench/browser/positronNewProjectWizard/newProjectWizardContext';
 import { URI } from 'vs/base/common/uri';
-import { NewProjectWizardStep } from 'vs/workbench/browser/positronNewProjectWizard/interfaces/newProjectWizardEnums';
+import { NewProjectType, NewProjectWizardStep } from 'vs/workbench/browser/positronNewProjectWizard/interfaces/newProjectWizardEnums';
 import { NewProjectWizardStepProps } from 'vs/workbench/browser/positronNewProjectWizard/interfaces/newProjectWizardStepProps';
-import { NewProjectType } from 'vs/workbench/browser/positronNewProjectWizard/newProjectWizardState';
 import { PositronWizardStep } from 'vs/workbench/browser/positronNewProjectWizard/components/wizardStep';
 import { PositronWizardSubStep } from 'vs/workbench/browser/positronNewProjectWizard/components/wizardSubStep';
 import { LabeledTextInput } from 'vs/workbench/browser/positronComponents/positronModalDialog/components/labeledTextInput';
@@ -106,7 +105,7 @@ export const ProjectNameLocationStep = (props: PropsWithChildren<NewProjectWizar
 						'projectNameLocationSubStep.parentDirectory.description',
 						'Select a directory to create your project in'
 					))()}
-					value={projectConfig.parentFolder} // this should be <code>formatted
+					value={projectConfig.parentFolder} // TODO: this should be <code>formatted
 					onBrowse={browseHandler}
 					onChange={e => setProjectConfig({ ...projectConfig, parentFolder: e.target.value })}
 				/>

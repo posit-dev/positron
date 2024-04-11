@@ -24,3 +24,27 @@ export enum EnvironmentSetupType {
 	NewEnvironment = 'newEnvironment',
 	ExistingEnvironment = 'existingEnvironment'
 }
+
+/**
+ * PythonEnvironmentType enum includes the types of Python environments.
+ * - Venv: A virtual environment.
+ * - Conda: A conda environment.
+ * TODO: retrieve these values from the appropriate extensions/services?
+ */
+export enum PythonEnvironmentType {
+	Venv = 'Venv',
+	Conda = 'Conda'
+}
+
+/**
+ * NewProjectType enum. Defines the types of projects that can be created.
+ * TODO: localize. Since this is an enum, we can't use the localize function
+ * because computed values must be numbers (not strings). So we'll probably need to
+ * turn this into an object with keys and values, maybe also using something like
+ * satisfies Readonly<Record<string, string>>.
+ */
+export enum NewProjectType {
+	PythonProject = 'Python Project',
+	RProject = 'R Project',
+	JupyterNotebook = 'Jupyter Notebook'
+}
