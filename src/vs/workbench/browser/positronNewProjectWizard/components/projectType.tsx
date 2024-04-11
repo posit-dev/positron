@@ -14,6 +14,7 @@ import { NewProjectType } from 'vs/workbench/browser/positronNewProjectWizard/in
 import { PythonLogo } from 'vs/workbench/browser/positronNewProjectWizard/components/logos/logoPython';
 import { JupyterLogo } from 'vs/workbench/browser/positronNewProjectWizard/components/logos/logoJupyter';
 import { RLogo } from 'vs/workbench/browser/positronNewProjectWizard/components/logos/logoR';
+import { useNewProjectWizardContext } from 'vs/workbench/browser/positronNewProjectWizard/newProjectWizardContext';
 
 /**
  * ProjectTypeProps interface.
@@ -32,6 +33,7 @@ interface ProjectTypeProps {
  * @returns The rendered component.
  */
 export const ProjectType = (props: ProjectTypeProps) => {
+	const projectTypeSelected = useNewProjectWizardContext().projectConfig.projectType !== undefined;
 	const inputRef = useRef<HTMLInputElement>(null);
 
 	// On project type selected, set the focus to the input element and notify the parent.
@@ -60,6 +62,9 @@ export const ProjectType = (props: ProjectTypeProps) => {
 				name={props.groupName}
 				value={props.identifier}
 				checked={props.selected}
+				// Set the autofocus to the selected project type when the user navigates back to
+				// the project type step.
+				autoFocus={projectTypeSelected && props.activeTabIndex}
 			/>
 			<label htmlFor={props.identifier}>{props.identifier}</label>
 		</div>
