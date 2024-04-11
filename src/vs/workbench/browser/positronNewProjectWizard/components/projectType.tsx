@@ -11,6 +11,9 @@ import { useRef } from 'react'; // eslint-disable-line no-duplicate-imports
 
 // Other dependencies.
 import { NewProjectType } from 'vs/workbench/browser/positronNewProjectWizard/interfaces/newProjectWizardEnums';
+import { PythonLogo } from 'vs/workbench/browser/positronNewProjectWizard/components/logos/logoPython';
+import { JupyterLogo } from 'vs/workbench/browser/positronNewProjectWizard/components/logos/logoJupyter';
+import { RLogo } from 'vs/workbench/browser/positronNewProjectWizard/components/logos/logoR';
 
 /**
  * ProjectTypeItemOptions interface.
@@ -58,7 +61,14 @@ export const ProjectType = (props: ProjectTypeProps) => {
 	// Render.
 	return (
 		<div className={'project-type' + (props.selected ? ' project-type-selected' : '')} onClick={onSelected}>
-			<img className='project-type-icon' src={`data:image/svg+xml;base64,${props.icon}`} />
+			<div className='project-type-icon'>
+				{
+					props.identifier === NewProjectType.PythonProject ? <PythonLogo /> :
+						props.identifier === NewProjectType.JupyterNotebook ? <JupyterLogo /> :
+							props.identifier === NewProjectType.RProject ? <RLogo /> :
+								null
+				}
+			</div>
 			<input
 				ref={inputRef}
 				className='project-type-input'
