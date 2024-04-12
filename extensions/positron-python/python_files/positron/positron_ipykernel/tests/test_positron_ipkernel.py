@@ -10,8 +10,9 @@ from unittest.mock import Mock
 import pandas as pd
 import pytest
 from IPython.utils.syspathcontext import prepended_to_syspath
-from positron_ipykernel.positron_ipkernel import SessionMode
+
 from positron_ipykernel.help import help
+from positron_ipykernel.session_mode import SessionMode
 from positron_ipykernel.utils import alias_home
 
 from .conftest import PositronShell
@@ -86,7 +87,7 @@ def test_console_traceback(
     shell: PositronShell, tmp_path: Path, mock_displayhook: Mock, monkeypatch
 ) -> None:
     # Ensure that we're in console mode.
-    monkeypatch.setattr(shell, "session_mode", SessionMode.Console)
+    monkeypatch.setattr(shell, "session_mode", SessionMode.CONSOLE)
 
     # We follow the approach of IPython's test_ultratb.py, which is to create a temporary module,
     # prepend its parent directory to sys.path, import it, then run a cell that calls a function
@@ -177,7 +178,7 @@ def test_notebook_traceback(
     shell: PositronShell, tmp_path: Path, mock_displayhook: Mock, monkeypatch
 ) -> None:
     # Ensure that we're in notebook mode.
-    monkeypatch.setattr(shell, "session_mode", SessionMode.Notebook)
+    monkeypatch.setattr(shell, "session_mode", SessionMode.NOTEBOOK)
 
     # We follow the approach of IPython's test_ultratb.py, which is to create a temporary module,
     # prepend its parent directory to sys.path, import it, then run a cell that calls a function

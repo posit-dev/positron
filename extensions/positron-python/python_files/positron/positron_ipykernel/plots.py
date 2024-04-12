@@ -8,14 +8,15 @@ import io
 import logging
 import pickle
 import uuid
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional
 
 import comm
 
 from .plot_comm import PlotBackendMessageContent, PlotResult, RenderRequest
 from .positron_comm import CommMessage, JsonRpcErrorCode, PositronComm
+from .session_mode import SessionMode
 from .utils import JsonRecord
-from .widget import _WIDGET_MIME_TYPE
+from .widget import WIDGET_MIME_TYPE
 
 logger = logging.getLogger(__name__)
 
@@ -27,42 +28,58 @@ BASE_DPI = 100
 
 
 class PositronDisplayPublisherHook:
-    def __init__(self, target_name: str):
+    def __init__(self, target_name: str, session_mode: SessionMode):
+        self.target_name = target_name
+        self.session_mode = session_mode
+
         self.comms: Dict[str, PositronComm] = {}
         self.figures: Dict[str, str] = {}
-        self.target_name = target_name
         self.fignums: List[int] = []
 
-    def __call__(self, msg, *args, **kwargs) -> Optional[dict]:
-        if msg["msg_type"] == "display_data":
-            # If there is no image for our display, don't create a
-            # positron.plot comm and let the parent deal with the msg.
-            data = msg["content"]["data"]
-            if _WIDGET_MIME_TYPE in data:
-                # This is a widget, let the widget hook handle it
-                return msg
-            if "image/png" not in data:
-                return msg
+    def __call__(self, msg: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+        # The display publisher calls each hook on the message in the order they were registered.
+        # If a hook returns a message, that message is passed to the next hook, and eventually sent
+        # to the frontend. If a hook returns None, no further hooks are called and the message is not
+        # sent to the frontend.
 
-            # Otherwise, try to pickle the current figure so that we
-            # can restore the context for future renderings. We construct
-            # a new plot comm to advise the client of the new figure.
-            pickled = self._pickle_current_figure()
-            if pickled is not None:
-                id = str(uuid.uuid4())
-                self.figures[id] = pickled
+        if self.session_mode == SessionMode.NOTEBOOK:
+            # We're in a notebook session, let the notebook UI handle the display
+            return msg
 
-                # Creating a comm per plot figure allows the client
-                # to request new renderings of each plot at a later time,
-                # e.g. on resizing the plots view
-                self._create_comm(id)
+        if msg["msg_type"] != "display_data":
+            # It's not a display_data message, do nothing
+            return msg
 
-                # Returning None implies our hook has processed the message
-                # and it stops the parent from sending the display_data via
-                # the standard iopub channel
-                return None
+        data = msg["content"]["data"]
 
-        return msg
+        if WIDGET_MIME_TYPE in data:
+            # This is a widget, let the widget hook handle it
+            return msg
+
+        if "image/png" not in data:
+            # There is no attached png image, do nothing
+            return msg
+
+        # Otherwise, try to pickle the current figure so that we
+        # can restore the context for future renderings. We construct
+        # a new plot comm to advise the client of the new figure.
+        pickled = self._pickle_current_figure()
+        if pickled is None:
+            logger.warning("No figure ")
+            return msg
+
+        id = str(uuid.uuid4())
+        self.figures[id] = pickled
+
+        # Creating a comm per plot figure allows the client
+        # to request new renderings of each plot at a later time,
+        # e.g. on resizing the plots view
+        self._create_comm(id)
+
+        # Returning None implies our hook has processed the message
+        # and it stops the parent from sending the display_data via
+        # the standard iopub channel
+        return None
 
     def _create_comm(self, comm_id: str) -> None:
         """
@@ -120,34 +137,32 @@ class PositronDisplayPublisherHook:
     # -- Private Methods --
 
     def _pickle_current_figure(self) -> Optional[str]:
-        pickled = None
-        figure = None
-
         # Delay importing matplotlib until the kernel and shell has been initialized
         # otherwise the graphics backend will be reset to the gui
         import matplotlib.pyplot as plt
 
         # We turn off interactive mode before accessing the plot context
-        was_interactive = plt.isinteractive()
-        plt.ioff()
+        with plt.ioff():
+            # Check to see if there are any figures left in stack to display
+            # If not, get the number of figures to display from matplotlib
+            if len(self.fignums) == 0:
+                self.fignums = plt.get_fignums()
 
-        # Check to see if there are any figures left in stack to display
-        # If not, get the number of figures to display from matplotlib
-        if len(self.fignums) == 0:
-            self.fignums = plt.get_fignums()
+            if len(self.fignums) == 0:
+                logger.warning("Hook called without a figure to display")
+                return None
 
-        # Get the current figure, remove from it from being called next hook
-        if len(self.fignums) > 0:
+            # Get the current figure, remove it from displayed in the next call
             figure = plt.figure(self.fignums.pop(0))
 
-        # Pickle the current figure
-        if figure is not None and not self._is_figure_empty(figure):
+            if self._is_figure_empty(figure):
+                logger.warning("Figure is empty")
+                return None
+
+            # Pickle the current figure
             pickled = codecs.encode(pickle.dumps(figure), "base64").decode()
 
-        if was_interactive:
-            plt.ion()
-
-        return pickled
+            return pickled
 
     def _resize_pickled_figure(
         self,
