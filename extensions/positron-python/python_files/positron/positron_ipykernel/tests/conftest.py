@@ -3,13 +3,19 @@
 #
 
 from typing import Iterable
-from unittest.mock import Mock
+from unittest.mock import MagicMock, Mock
 
 import comm
 import pytest
+from traitlets.config import Config
 from positron_ipykernel.connections import ConnectionsService
 from positron_ipykernel.data_explorer import DataExplorerService
-from positron_ipykernel.positron_ipkernel import PositronIPyKernel, PositronShell
+from positron_ipykernel.positron_ipkernel import (
+    PositronIPKernelApp,
+    PositronIPyKernel,
+    PositronShell,
+    SessionMode,
+)
 from positron_ipykernel.variables import VariablesService
 
 
@@ -43,10 +49,15 @@ def kernel() -> PositronIPyKernel:
     """
     The Positron kernel, configured for testing purposes.
     """
-    # Create a Positron kernel. The kernel calls shell_class.instance() to get the globally
-    # registered shell instance, and IPython registers a TerminalInteractiveShell instead of a
-    # PositronShell. This causes a traitlets validation error unless we pass the shell_class explicitly.
-    kernel = PositronIPyKernel.instance(shell_class=PositronShell)
+    # Mock the application object. We haven't needed to use it in tests yet, but we do need it to
+    # pass our custom attributes down to the shell.
+    app = MagicMock(PositronIPKernelApp)
+    app.config = Config()  # Needed to avoid traitlets errors
+
+    # Positron-specific attributes:
+    app.session_mode = SessionMode.Console
+
+    kernel = PositronIPyKernel.instance(parent=app)
 
     return kernel
 
