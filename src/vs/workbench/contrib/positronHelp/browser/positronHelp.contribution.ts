@@ -10,14 +10,13 @@ import { Registry } from 'vs/platform/registry/common/platform';
 import { registerIcon } from 'vs/platform/theme/common/iconRegistry';
 import { PositronHelpFocused } from 'vs/workbench/common/contextkeys';
 import { SyncDescriptor } from 'vs/platform/instantiation/common/descriptors';
-import { LifecyclePhase } from 'vs/workbench/services/lifecycle/common/lifecycle';
 import { IInstantiationService } from 'vs/platform/instantiation/common/instantiation';
 import { ViewPaneContainer } from 'vs/workbench/browser/parts/views/viewPaneContainer';
 import { PositronHelpView } from 'vs/workbench/contrib/positronHelp/browser/positronHelpView';
 import { POSITRON_HELP_VIEW_ID } from 'vs/workbench/contrib/positronHelp/browser/positronHelpService';
 import { POSITRON_HELP_COPY } from 'vs/workbench/contrib/positronHelp/browser/positronHelpIdentifiers';
 import { ICommandAndKeybindingRule, KeybindingWeight, KeybindingsRegistry } from 'vs/platform/keybinding/common/keybindingsRegistry';
-import { IWorkbenchContributionsRegistry, Extensions as WorkbenchExtensions, IWorkbenchContribution } from 'vs/workbench/common/contributions';
+import { IWorkbenchContribution, WorkbenchPhase, registerWorkbenchContribution2 } from 'vs/workbench/common/contributions';
 import { ViewContainer, IViewContainersRegistry, ViewContainerLocation, Extensions as ViewContainerExtensions, IViewsRegistry } from 'vs/workbench/common/views';
 import { registerAction2 } from 'vs/platform/actions/common/actions';
 import { LookupHelpTopic, ShowHelpAtCursor } from 'vs/workbench/contrib/positronHelp/browser/positronHelpActions';
@@ -80,6 +79,9 @@ KeybindingsRegistry.registerCommandAndKeybindingRule({
 
 
 class PositronHelpContribution extends Disposable implements IWorkbenchContribution {
+
+	static readonly ID = 'workbench.contrib.positronHelp';
+
 	constructor(
 		@IInstantiationService instantiationService: IInstantiationService
 	) {
@@ -93,6 +95,7 @@ class PositronHelpContribution extends Disposable implements IWorkbenchContribut
 	}
 }
 
-Registry.
-	as<IWorkbenchContributionsRegistry>(WorkbenchExtensions.Workbench).
-	registerWorkbenchContribution(PositronHelpContribution, LifecyclePhase.Restored);
+// Really does need to be `WorkbenchPhase.BlockStartup`. Any later and the keybindings registered
+// by `ShowHelpAtCursor` are registered "too late", i.e. after the core set of system keybindings
+// have been set https://github.com/posit-dev/positron/issues/2523.
+registerWorkbenchContribution2(PositronHelpContribution.ID, PositronHelpContribution, WorkbenchPhase.BlockStartup);
