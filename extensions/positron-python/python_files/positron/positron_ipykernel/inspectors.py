@@ -237,7 +237,8 @@ class ObjectInspector(PositronInspector[T], ABC):
         try:
             return getattr(self.value, key)
         except Exception as e:
-            return str(f"{type(e).__name__}: {e}")
+            logger.warning(msg=f"{type(e).__name__}: {e}")
+            return "Unable to show value."
 
     def get_items(self) -> Iterable[Tuple[str, Any]]:
         for key in dir(self.value):
