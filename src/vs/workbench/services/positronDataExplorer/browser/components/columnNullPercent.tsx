@@ -23,11 +23,26 @@ interface ColumnNullPercentProps {
  */
 export const ColumnNullPercent = (props: ColumnNullPercentProps) => {
 	// Render.
+	let svgWidth = 50;
+	if (props.columnNullPercent !== undefined) {
+		svgWidth = props.columnNullPercent === 0.0 ?
+			50 :
+			Math.max(50 * ((100 - props.columnNullPercent) / 100), 3);
+	}
 	return (
 		<div className='column-null-percent'>
-			<div className={positronClassNames('text-percent', { 'zero': props.columnNullPercent === 0.0 })}>
-				{props.columnNullPercent}%
-			</div>
+			{props.columnNullPercent !== undefined ?
+				(
+					<div className={positronClassNames('text-percent', { 'zero': props.columnNullPercent === 0.0 })}>
+						{props.columnNullPercent}%
+					</div>
+				) :
+				(
+					<div className={positronClassNames('text-percent')}>
+						...
+					</div>
+				)
+			}
 			<div className='graph-percent'>
 				<svg viewBox='0 0 52 14' shapeRendering='geometricPrecision'>
 					<g>
@@ -43,10 +58,7 @@ export const ColumnNullPercent = (props: ColumnNullPercentProps) => {
 						<rect className='indicator'
 							x='1'
 							y='1'
-							width={props.columnNullPercent === 0.0 ?
-								50 :
-								Math.max(50 * ((100 - props.columnNullPercent) / 100), 3)
-							}
+							width={svgWidth}
 							height='12'
 							rx='6'
 							ry='6'
