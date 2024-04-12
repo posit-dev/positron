@@ -33,7 +33,8 @@ import {
 	RowFilterDescriptorIsBetween,
 	RowFilterDescriptorIsNotBetween,
 	RowFilterDescriptorIsLessOrEqual,
-	RowFilterDescriptorIsGreaterOrEqual
+	RowFilterDescriptorIsGreaterOrEqual,
+	RowFilterDescriptorIsNotEqualTo
 } from 'vs/workbench/browser/positronDataExplorer/components/dataExplorerPanel/components/addEditRowFilterModalPopup/rowFilterDescriptor';
 
 /**
@@ -95,6 +96,8 @@ const createRowFilters = (rowFilterDescriptors: RowFilterDescriptor[]) => {
 			rowFilters.push(getCompareFilter(rowFilterDescriptor.value, CompareFilterParamsOp.GtEq));
 		} else if (rowFilterDescriptor instanceof RowFilterDescriptorIsEqualTo) {
 			rowFilters.push(getCompareFilter(rowFilterDescriptor.value, CompareFilterParamsOp.Eq));
+		} else if (rowFilterDescriptor instanceof RowFilterDescriptorIsNotEqualTo) {
+			rowFilters.push(getCompareFilter(rowFilterDescriptor.value, CompareFilterParamsOp.NotEq));
 		} else if (rowFilterDescriptor instanceof RowFilterDescriptorIsBetween) {
 			rowFilters.push({
 				filter_type: RowFilterType.Between,

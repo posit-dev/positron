@@ -778,6 +778,7 @@ def test_pandas_filter_conditions(dxf: DataExplorerFixture):
     filters = [
         _compare_filter(0, ">=", 3, condition="or"),
         _compare_filter(3, "<=", -4.5, condition="or"),
+        # Delbierately duplicated
         _compare_filter(3, "<=", -4.5, condition="or"),
     ]
 

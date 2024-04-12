@@ -21,7 +21,7 @@ import { DataExplorerClientInstance } from 'vs/workbench/services/languageRuntim
 import { DropDownListBox, DropDownListBoxEntry } from 'vs/workbench/browser/positronComponents/dropDownListBox/dropDownListBox';
 import { RowFilterParameter } from 'vs/workbench/browser/positronDataExplorer/components/dataExplorerPanel/components/addEditRowFilterModalPopup/components/rowFilterParameter';
 import { DropDownColumnSelector } from 'vs/workbench/browser/positronDataExplorer/components/dataExplorerPanel/components/addEditRowFilterModalPopup/components/dropDownColumnSelector';
-import { RangeRowFilterDescriptor, RowFilterDescriptor, RowFilterCondition, RowFilterDescriptorIsBetween, RowFilterDescriptorIsEmpty, RowFilterDescriptorIsEqualTo, RowFilterDescriptorIsGreaterThan, RowFilterDescriptorIsLessThan, RowFilterDescriptorIsNotBetween, RowFilterDescriptorIsNotEmpty, SingleValueRowFilterDescriptor, RowFilterDescriptorIsLessOrEqual, RowFilterDescriptorIsGreaterOrEqual, RowFilterDescriptorIsNotNull, RowFilterDescriptorIsNull } from 'vs/workbench/browser/positronDataExplorer/components/dataExplorerPanel/components/addEditRowFilterModalPopup/rowFilterDescriptor';
+import { RangeRowFilterDescriptor, RowFilterDescriptor, RowFilterCondition, RowFilterDescriptorIsBetween, RowFilterDescriptorIsEmpty, RowFilterDescriptorIsEqualTo, RowFilterDescriptorIsGreaterThan, RowFilterDescriptorIsLessThan, RowFilterDescriptorIsNotBetween, RowFilterDescriptorIsNotEmpty, SingleValueRowFilterDescriptor, RowFilterDescriptorIsLessOrEqual, RowFilterDescriptorIsGreaterOrEqual, RowFilterDescriptorIsNotNull, RowFilterDescriptorIsNull, RowFilterDescriptorIsNotEqualTo } from 'vs/workbench/browser/positronDataExplorer/components/dataExplorerPanel/components/addEditRowFilterModalPopup/rowFilterDescriptor';
 
 /**
  * Validates a row filter value.
@@ -71,6 +71,28 @@ const validateRowFilterValue = (columnSchema: ColumnSchema, value: string) => {
 		// Can't get here.
 		default:
 			return true;
+	}
+};
+
+/**
+ * Checks whether a RowFilterCondition is a comparison or not.
+ * @param cond A row filter condition.
+ * @returns Whether the condition is a comparison.
+ */
+const isComparison = (cond: RowFilterCondition | undefined) => {
+	if (cond === undefined) {
+		return false;
+	}
+	switch (cond) {
+		case RowFilterCondition.CONDITION_IS_EQUAL_TO:
+		case RowFilterCondition.CONDITION_IS_NOT_EQUAL_TO:
+		case RowFilterCondition.CONDITION_IS_GREATER_OR_EQUAL:
+		case RowFilterCondition.CONDITION_IS_GREATER_THAN:
+		case RowFilterCondition.CONDITION_IS_LESS_OR_EQUAL:
+		case RowFilterCondition.CONDITION_IS_LESS_THAN:
+			return true;
+		default:
+			return false;
 	}
 };
 
@@ -222,7 +244,7 @@ export const AddEditRowFilterModalPopup = (props: AddEditRowFilterModalPopupProp
 				break;
 		}
 
-		// Add is equal to condition.
+		// Add is equal to, is not equal to conditions.
 		switch (selectedColumnSchema.type_display) {
 			case ColumnDisplayType.Number:
 			case ColumnDisplayType.Boolean:
@@ -237,6 +259,14 @@ export const AddEditRowFilterModalPopup = (props: AddEditRowFilterModalPopupProp
 						"is equal to"
 					),
 					value: RowFilterCondition.CONDITION_IS_EQUAL_TO
+				}));
+				conditionEntries.push(new DropDownListBoxItem({
+					identifier: RowFilterCondition.CONDITION_IS_NOT_EQUAL_TO,
+					title: localize(
+						'positron.addEditRowFilter.conditionIsNotEqualTo',
+						"is not equal to"
+					),
+					value: RowFilterCondition.CONDITION_IS_NOT_EQUAL_TO
 				}));
 				break;
 		}
@@ -289,6 +319,7 @@ export const AddEditRowFilterModalPopup = (props: AddEditRowFilterModalPopupProp
 			case RowFilterCondition.CONDITION_IS_GREATER_THAN:
 			case RowFilterCondition.CONDITION_IS_GREATER_OR_EQUAL:
 			case RowFilterCondition.CONDITION_IS_EQUAL_TO:
+			case RowFilterCondition.CONDITION_IS_NOT_EQUAL_TO:
 				placeholderText = localize(
 					'positron.addEditRowFilter.valuePlaceholder',
 					"value"
@@ -337,6 +368,7 @@ export const AddEditRowFilterModalPopup = (props: AddEditRowFilterModalPopupProp
 			case RowFilterCondition.CONDITION_IS_GREATER_THAN:
 			case RowFilterCondition.CONDITION_IS_GREATER_OR_EQUAL:
 			case RowFilterCondition.CONDITION_IS_EQUAL_TO:
+			case RowFilterCondition.CONDITION_IS_NOT_EQUAL_TO:
 				return null;
 
 			// Render the second row filter parameter component in two-value mode.
@@ -586,6 +618,17 @@ export const AddEditRowFilterModalPopup = (props: AddEditRowFilterModalPopupProp
 				break;
 			}
 
+			// Apply the is not equal to row filter.
+			case RowFilterCondition.CONDITION_IS_NOT_EQUAL_TO: {
+				if (!validateFirstRowFilterValue()) {
+					return;
+				}
+				applyRowFilter(new RowFilterDescriptorIsNotEqualTo(
+					selectedColumnSchema,
+					firstRowFilterValue
+				));
+				break;
+			}
 
 			// Apply the is between row filter.
 			case RowFilterCondition.CONDITION_IS_BETWEEN: {
@@ -674,11 +717,15 @@ export const AddEditRowFilterModalPopup = (props: AddEditRowFilterModalPopupProp
 					entries={conditionEntries()}
 					selectedIdentifier={selectedCondition}
 					onSelectionChanged={dropDownListBoxItem => {
+						const prevSelected = selectedCondition;
+						const nextSelected = dropDownListBoxItem.options.identifier;
 						// Set the selected condition.
-						setSelectedCondition(dropDownListBoxItem.options.identifier);
+						setSelectedCondition(nextSelected);
 
 						// Clear the filter values and error text.
-						clearFilterValuesAndErrorText();
+						if (!(isComparison(prevSelected) && isComparison(nextSelected))) {
+							clearFilterValuesAndErrorText();
+						}
 					}}
 				/>
 

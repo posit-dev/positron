@@ -21,6 +21,7 @@ export enum RowFilterCondition {
 	CONDITION_IS_GREATER_THAN = 'is-greater-than',
 	CONDITION_IS_GREATER_OR_EQUAL = 'is-greater-than-or-equal-to',
 	CONDITION_IS_EQUAL_TO = 'is-equal-to',
+	CONDITION_IS_NOT_EQUAL_TO = 'is-not-equal-to',
 
 	// Conditions with two parameters.
 	CONDITION_IS_BETWEEN = 'is-between',
@@ -246,6 +247,28 @@ export class RowFilterDescriptorIsEqualTo extends SingleValueRowFilterDescriptor
 	 */
 	get rowFilterCondition() {
 		return RowFilterCondition.CONDITION_IS_EQUAL_TO;
+	}
+}
+
+
+/**
+ * RowFilterDescriptorIsNotEqualTo class.
+ */
+export class RowFilterDescriptorIsNotEqualTo extends SingleValueRowFilterDescriptor {
+	/**
+	 * Constructor.
+	 * @param columnSchema The column schema.
+	 * @param value The value.
+	 */
+	constructor(columnSchema: ColumnSchema, value: string) {
+		super(columnSchema, value);
+	}
+
+	/**
+	 * Gets the row filter condition.
+	 */
+	get rowFilterCondition() {
+		return RowFilterCondition.CONDITION_IS_NOT_EQUAL_TO;
 	}
 }
 

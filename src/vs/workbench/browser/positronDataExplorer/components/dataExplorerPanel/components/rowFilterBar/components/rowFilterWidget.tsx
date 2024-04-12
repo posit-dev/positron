@@ -24,7 +24,8 @@ import {
 	RowFilterDescriptorIsNotBetween,
 	RowFilterDescriptorIsNotEmpty,
 	RowFilterDescriptorIsNotNull,
-	RowFilterDescriptorIsNull
+	RowFilterDescriptorIsNull,
+	RowFilterDescriptorIsNotEqualTo
 } from 'vs/workbench/browser/positronDataExplorer/components/dataExplorerPanel/components/addEditRowFilterModalPopup/rowFilterDescriptor';
 
 /**
@@ -102,6 +103,12 @@ export const RowFilterWidget = forwardRef<HTMLButtonElement, RowFilterWidgetProp
 			return <>
 				<span className='column-name'>{props.rowFilter.columnSchema.column_name}</span>
 				<span className='space-before space-after'>=</span>
+				<span>{props.rowFilter.value}</span>
+			</>;
+		} else if (props.rowFilter instanceof RowFilterDescriptorIsNotEqualTo) {
+			return <>
+				<span className='column-name'>{props.rowFilter.columnSchema.column_name}</span>
+				<span className='space-before space-after'>!=</span>
 				<span>{props.rowFilter.value}</span>
 			</>;
 		} else if (props.rowFilter instanceof RowFilterDescriptorIsBetween) {
