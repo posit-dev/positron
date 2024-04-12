@@ -9,6 +9,7 @@ import { DataExplorerClientInstance } from 'vs/workbench/services/languageRuntim
 import { TableSummaryDataGridInstance } from 'vs/workbench/services/positronDataExplorer/browser/tableSummaryDataGridInstance';
 import { PositronDataExplorerLayout } from 'vs/workbench/services/positronDataExplorer/browser/interfaces/positronDataExplorerService';
 import { IPositronDataExplorerInstance } from 'vs/workbench/services/positronDataExplorer/browser/interfaces/positronDataExplorerInstance';
+import { DataExplorerCache } from 'vs/workbench/services/positronDataExplorer/common/dataExplorerCache';
 
 /**
  * PositronDataExplorerInstance class.
@@ -20,6 +21,8 @@ export class PositronDataExplorerInstance extends Disposable implements IPositro
 	 * Gets the DataExplorerClientInstance.
 	 */
 	private readonly _dataExplorerClientInstance: DataExplorerClientInstance;
+
+	private readonly _dataCache: DataExplorerCache;
 
 	/**
 	 * Gets or sets the layout.
@@ -72,11 +75,14 @@ export class PositronDataExplorerInstance extends Disposable implements IPositro
 
 		// Initialize.
 		this._dataExplorerClientInstance = dataExplorerClientInstance;
+		this._dataCache = new DataExplorerCache(dataExplorerClientInstance);
 		this._tableSchemaDataGridInstance = new TableSummaryDataGridInstance(
-			dataExplorerClientInstance
+			dataExplorerClientInstance,
+			this._dataCache
 		);
 		this._tableDataDataGridInstance = new TableDataDataGridInstance(
-			dataExplorerClientInstance
+			dataExplorerClientInstance,
+			this._dataCache
 		);
 
 		// Add event handlers.

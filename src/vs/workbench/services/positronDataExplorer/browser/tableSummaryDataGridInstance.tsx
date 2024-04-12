@@ -53,7 +53,9 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 	 * Constructor.
 	 * @param dataExplorerClientInstance The DataExplorerClientInstance.
 	 */
-	constructor(dataExplorerClientInstance: DataExplorerClientInstance) {
+	constructor(dataExplorerClientInstance: DataExplorerClientInstance,
+		dataCache: DataExplorerCache
+	) {
 		// Call the base class's constructor.
 		super({
 			columnHeaders: false,
@@ -74,19 +76,23 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 		// Set the data explorer client instance.
 		this._dataExplorerClientInstance = dataExplorerClientInstance;
 
-		// Allocate and initialize the DataExplorerCache.
-		this._dataExplorerCache = new DataExplorerCache(dataExplorerClientInstance);
+		// Set the shared data cache
+		this._dataExplorerCache = dataCache;
 
 		// Add the onDidUpdateCache event handler.
-		this._register(this._dataExplorerCache.onDidUpdateCache(() =>
-			this._onDidUpdateEmitter.fire()
-		));
-
+		this._register(this._dataExplorerCache.onDidUpdateCache(() => {
+			this._onDidUpdateEmitter.fire();
+			this._dataExplorerCache.cacheColumnSummaryStats([...this._expandedColumns]).then(
+				// Asynchronously update the summary stats for expanded columns then re-render
+				() => this._onDidUpdateEmitter.fire()
+			);
+		}));
 		// Add the onDidSchemaUpdate event handler.
 		this._register(this._dataExplorerClientInstance.onDidSchemaUpdate(async () => {
 			this.setScreenPosition(0, 0);
 			this._expandedColumns.clear();
 			this.fetchData();
+
 		}));
 	}
 
@@ -223,6 +229,10 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 		);
 	}
 
+	getColumnNullCount(columnIndex: number): number | undefined {
+		return this._dataExplorerCache.getColumnNullCount(columnIndex);
+	}
+
 	getColumnNullPercent(columnIndex: number): number | undefined {
 		const nullCount = this._dataExplorerCache.getColumnNullCount(columnIndex);
 		// TODO: Is floor what we want?
@@ -232,10 +242,6 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 
 	getColumnSummaryStats(columnIndex: number): ColumnSummaryStats | undefined {
 		return this._dataExplorerCache.getColumnSummaryStats(columnIndex);
-	}
-
-	computeColumnSummaryStats(columnIndex: number) {
-		this._dataExplorerCache.updateColumnSummaryStats([columnIndex]);
 	}
 
 	//#endregion DataGridInstance Methods
@@ -265,12 +271,17 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 	 * @param columnIndex The columm index.
 	 */
 	toggleExpandColumn(columnIndex: number) {
-		// Tottle expand column.
+		// Toggle expand column.
 		if (this._expandedColumns.has(columnIndex)) {
 			this._expandedColumns.delete(columnIndex);
 		} else {
 			this._expandedColumns.add(columnIndex);
 			this.scrollToRow(columnIndex);
+
+			this._dataExplorerCache.cacheColumnSummaryStats([columnIndex]).then(() => {
+				// Re-render when the column summary stats return
+				this._onDidUpdateEmitter.fire();
+			});
 		}
 
 		// Fire the onDidUpdate event.

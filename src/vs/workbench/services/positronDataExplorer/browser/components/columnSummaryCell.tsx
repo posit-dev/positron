@@ -76,8 +76,6 @@ export const ColumnSummaryCell = (props: ColumnSummaryCellProps) => {
 	 * @returns The profile component.
 	 */
 	const profile = () => {
-		// Hack just to get things working
-		props.instance.computeColumnSummaryStats(props.columnIndex);
 		// Determine the alignment based on type.
 		switch (props.columnSchema.type_display) {
 			case ColumnDisplayType.Number:
@@ -90,7 +88,10 @@ export const ColumnSummaryCell = (props: ColumnSummaryCellProps) => {
 				return null;
 
 			case ColumnDisplayType.String:
-				return <ProfileString />;
+				return <ProfileString
+					instance={props.instance}
+					columnIndex={props.columnIndex}
+				/>;
 
 			case ColumnDisplayType.Date:
 				return null;
