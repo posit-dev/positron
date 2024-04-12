@@ -24,6 +24,7 @@ import comm
 
 from .access_keys import decode_access_key
 from .data_explorer_comm import (
+    BackendState,
     ColumnFrequencyTable,
     ColumnHistogram,
     ColumnSummaryStats,
@@ -41,8 +42,8 @@ from .data_explorer_comm import (
     GetDataValuesRequest,
     GetSchemaRequest,
     GetStateRequest,
-    GetSupportedFeaturesRequest,
     RowFilter,
+    RowFilterCondition,
     RowFilterType,
     SchemaUpdateParams,
     SearchFilterType,
@@ -59,7 +60,6 @@ from .data_explorer_comm import (
     TableData,
     TableSchema,
     TableShape,
-    TableState,
 )
 from .positron_comm import CommMessage, PositronComm
 from .third_party import pd_
@@ -166,9 +166,6 @@ class DataExplorerTableView(abc.ABC):
     def get_state(self, request: GetStateRequest):
         return self._get_state().dict()
 
-    def get_supported_features(self, request: GetSupportedFeaturesRequest):
-        return self._get_supported_features().dict()
-
     @abc.abstractmethod
     def invalidate_computations(self):
         pass
@@ -225,11 +222,7 @@ class DataExplorerTableView(abc.ABC):
         pass
 
     @abc.abstractmethod
-    def _get_state(self) -> TableState:
-        pass
-
-    @abc.abstractmethod
-    def _get_supported_features(self) -> SupportedFeatures:
+    def _get_state(self) -> BackendState:
         pass
 
 
@@ -482,7 +475,7 @@ class PandasView(DataExplorerTableView):
             # reflect the filtered_indices that have just been updated
             self._sort_data()
 
-    def _set_row_filters(self, filters) -> FilterResult:
+    def _set_row_filters(self, filters: List[RowFilter]) -> FilterResult:
         self.filters = filters
 
         if len(filters) == 0:
@@ -491,20 +484,32 @@ class PandasView(DataExplorerTableView):
             self._update_view_indices()
             return FilterResult(selected_num_rows=len(self.table))
 
-        # Evaluate all the filters and AND them together
+        # Evaluate all the filters and combine them using the
+        # indicated conditions
         combined_mask = None
         for filt in filters:
+            if filt.is_valid is False:
+                # If filter is invalid, do not evaluate it
+                continue
+
             single_mask = self._eval_filter(filt)
             if combined_mask is None:
                 combined_mask = single_mask
-            else:
+            elif filt.condition == RowFilterCondition.And:
                 combined_mask &= single_mask
+            elif filt.condition == RowFilterCondition.Or:
+                combined_mask |= single_mask
 
-        self.filtered_indices = combined_mask.nonzero()[0]
+        if combined_mask is None:
+            self.filtered_indices = None
+            selected_num_rows = len(self.table)
+        else:
+            self.filtered_indices = combined_mask.nonzero()[0]
+            selected_num_rows = len(self.filtered_indices)
 
         # Update the view indices, re-sorting if needed
         self._update_view_indices()
-        return FilterResult(selected_num_rows=len(self.filtered_indices))
+        return FilterResult(selected_num_rows=selected_num_rows)
 
     def _eval_filter(self, filt: RowFilter):
         col = self.table.iloc[:, filt.column_index]
@@ -531,8 +536,12 @@ class PandasView(DataExplorerTableView):
             op = COMPARE_OPS[params.op]
             # pandas comparison filters return False for null values
             mask = op(col, _coerce_value_param(params.value, col.dtype))
+        elif filt.filter_type == RowFilterType.IsEmpty:
+            mask = col.str.len() == 0
         elif filt.filter_type == RowFilterType.IsNull:
             mask = col.isnull()
+        elif filt.filter_type == RowFilterType.NotEmpty:
+            mask = col.str.len() != 0
         elif filt.filter_type == RowFilterType.NotNull:
             mask = col.notnull()
         elif filt.filter_type == RowFilterType.SetMembership:
@@ -687,45 +696,45 @@ class PandasView(DataExplorerTableView):
     def _prof_histogram(self, column_index: int):
         raise NotImplementedError
 
-    def _get_state(self) -> TableState:
+    _row_filter_features = SetRowFiltersFeatures(
+        supported=True,
+        supports_conditions=False,
+        supported_types=[
+            RowFilterType.Between,
+            RowFilterType.Compare,
+            RowFilterType.IsNull,
+            RowFilterType.NotNull,
+            RowFilterType.NotBetween,
+            RowFilterType.Search,
+            RowFilterType.SetMembership,
+        ],
+    )
+
+    _column_profile_features = GetColumnProfilesFeatures(
+        supported=True,
+        supported_types=[
+            ColumnProfileType.NullCount,
+            ColumnProfileType.SummaryStats,
+        ],
+    )
+
+    FEATURES = SupportedFeatures(
+        search_schema=SearchSchemaFeatures(supported=True),
+        set_row_filters=_row_filter_features,
+        get_column_profiles=_column_profile_features,
+    )
+
+    def _get_state(self) -> BackendState:
         if self.view_indices is not None:
             num_rows = len(self.view_indices)
         else:
             num_rows = self.table.shape[0]
 
-        return TableState(
+        return BackendState(
             table_shape=TableShape(num_rows=num_rows, num_columns=self.table.shape[1]),
             row_filters=self.filters,
             sort_keys=self.sort_keys,
-        )
-
-    def _get_supported_features(self) -> SupportedFeatures:
-        row_filter_features = SetRowFiltersFeatures(
-            supported=True,
-            supports_conditions=False,
-            supported_types=[
-                RowFilterType.Between,
-                RowFilterType.Compare,
-                RowFilterType.IsNull,
-                RowFilterType.NotNull,
-                RowFilterType.NotBetween,
-                RowFilterType.Search,
-                RowFilterType.SetMembership,
-            ],
-        )
-
-        column_profile_features = GetColumnProfilesFeatures(
-            supported=True,
-            supported_types=[
-                ColumnProfileType.NullCount,
-                ColumnProfileType.SummaryStats,
-            ],
-        )
-
-        return SupportedFeatures(
-            search_schema=SearchSchemaFeatures(supported=True),
-            set_row_filters=row_filter_features,
-            get_column_profiles=column_profile_features,
+            supported_features=self.FEATURES,
         )
 
 
@@ -1020,4 +1029,13 @@ class DataExplorerService:
         table = self.table_views[comm_id]
 
         result = getattr(table, request.method.value)(request)
+
+        # To help remember to convert pydantic types to dicts
+        if result is not None:
+            if isinstance(result, list):
+                for x in result:
+                    assert isinstance(x, dict)
+            else:
+                assert isinstance(result, dict)
+
         comm.send_result(result)
