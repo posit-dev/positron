@@ -44,7 +44,7 @@ const createRowFilters = (rowFilterDescriptors: RowFilterDescriptor[]) => {
 		} else if (rowFilterDescriptor instanceof RowFilterDescriptorIsNotEmpty) {
 			rowFilters.push({
 				filter_id: rowFilterDescriptor.identifier,
-				filter_type: RowFilterType.IsNull,
+				filter_type: RowFilterType.NotNull,
 				column_index: rowFilterDescriptor.columnSchema.column_index
 			});
 		} else if (rowFilterDescriptor instanceof RowFilterDescriptorIsLessThan) {
