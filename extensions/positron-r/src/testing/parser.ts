@@ -122,29 +122,40 @@ async function findTests(uri: vscode.Uri) {
 		queryPath = path.join(EXTENSION_ROOT_DIR, 'resources', 'testing', 'describe.scm');
 		queryContent = await vscode.workspace.fs.readFile(vscode.Uri.file(queryPath));
 		query = R!.query(queryContent.toString());
-
 		raw_matches = query.matches(tree.rootNode);
 
 		for (const match of raw_matches) {
 			if (match === undefined) {
 				continue;
 			}
-			matches.push({
-				testSuperLabel: match.captures[2].node.text.substring(
-					1,
-					match.captures[2].node.text.length - 1
-				),
-				testSuperStartPosition: toVSCodePosition(
-					match.captures[0].node.startPosition
-				),
-				testSuperEndPosition: toVSCodePosition(match.captures[0].node.endPosition),
-				testLabel: match.captures[5].node.text.substring(
-					1,
-					match.captures[5].node.text.length - 1
-				),
-				testStartPosition: toVSCodePosition(match.captures[3].node.startPosition),
-				testEndPosition: toVSCodePosition(match.captures[3].node.endPosition),
-			});
+
+			const testSuperFunctionCapture = match.captures.find(capture => capture.name === '_superfunction.name');
+			const testSuperLabelCapture = match.captures.find(capture => capture.name === 'superlabel');
+			const testSuperCallCapture = match.captures.find(capture => capture.name === 'supercall');
+			const testFunctionCapture = match.captures.find(capture => capture.name === '_function.name');
+			const testLabelCapture = match.captures.find(capture => capture.name === 'label');
+			const testCallCapture = match.captures.find(capture => capture.name === 'call');
+
+			if (testSuperFunctionCapture && testSuperLabelCapture && testSuperCallCapture &&
+				testFunctionCapture && testLabelCapture && testCallCapture) {
+				matches.push({
+					testSuperFunction: testSuperFunctionCapture.node.text,
+					testSuperLabel: testSuperLabelCapture.node.text.substring(
+						1,
+						testSuperLabelCapture.node.text.length - 1
+					),
+					testSuperStartPosition: toVSCodePosition(testSuperCallCapture.node.startPosition),
+					testSuperEndPosition: toVSCodePosition(testSuperCallCapture.node.endPosition),
+
+					testFunction: testFunctionCapture.node.text,
+					testLabel: testLabelCapture.node.text.substring(
+						1,
+						testLabelCapture.node.text.length - 1
+					),
+					testStartPosition: toVSCodePosition(testCallCapture.node.startPosition),
+					testEndPosition: toVSCodePosition(testCallCapture.node.endPosition)
+				});
+			}
 		}
 
 		return matches;
