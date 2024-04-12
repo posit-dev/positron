@@ -4,6 +4,8 @@
 
 import logging
 import os
+import webbrowser
+import re
 from pathlib import Path
 from typing import Callable, Dict, List, Optional, Union
 
@@ -19,10 +21,21 @@ from .ui_comm import (
     UiBackendMessageContent,
     UiFrontendEvent,
     WorkingDirectoryParams,
+    ShowUrlParams,
 )
 from .utils import JsonData, JsonRecord, alias_home
 
 logger = logging.getLogger(__name__)
+
+_localhosts = [
+    "localhost",
+    "127.0.0.1",
+    "[0:0:0:0:0:0:0:1]",
+    "[::1]",
+    "0.0.0.0",
+    "[0:0:0:0:0:0:0:0]",
+    "[::]",
+]
 
 
 #
@@ -81,6 +94,9 @@ class UiService:
     def on_comm_open(self, comm: BaseComm, msg: JsonRecord) -> None:
         self._comm = PositronComm(comm)
         self._comm.on_msg(self.handle_msg, UiBackendMessageContent)
+
+        self.browser = PositronViewerBrowser(comm=self._comm)
+        webbrowser.register("positron_viewer", PositronViewerBrowser, self.browser, preferred=True)
 
         # Clear the current working directory to generate an event for the new
         # client (i.e. after a reconnect)
@@ -150,3 +166,27 @@ class UiService:
             if isinstance(payload, BaseModel):
                 payload = payload.dict()
             self._comm.send_event(name=name, payload=payload)
+
+
+class PositronViewerBrowser(webbrowser.BaseBrowser):
+    """Launcher class for Positron Viewer browsers."""
+
+    def __init__(self, name="positron_viewer", comm=None):
+        self.name = name
+        self.comm = comm
+
+    def open(self, url, new=0, autoraise=True):
+
+        pattern = (
+            r"\b(?:https?|ftp):\/\/(?:" + "|".join(re.escape(addr) for addr in _localhosts) + r")\b"
+        )
+        matches = re.match(pattern, url)
+        if matches:
+            if self.comm:
+                event = ShowUrlParams(url=url)
+                self.comm.send_event(name=UiFrontendEvent.ShowUrl, payload=event.dict())
+
+            return True
+        else:
+            # pass back to webbrowser's list of browsers to open up the link
+            return False
