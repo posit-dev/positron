@@ -362,6 +362,8 @@ class PositronIPyKernel(IPythonKernel):
         self.shell.display_pub.register_hook(self.display_pub_hook)
         self.shell.display_pub.register_hook(self.widget_hook)
 
+        warnings.showwarning = _showwarning
+
         # Ignore warnings that the user can't do anything about
         warnings.filterwarnings(
             "ignore",
@@ -453,3 +455,28 @@ def _link(uri: str, label: str, params: Dict[str, str] = {}) -> str:
     Create a hyperlink with the given label, URI, and params.
     """
     return _start_hyperlink(uri, params) + label + _end_hyperlink()
+
+
+# monkey patching warning.showwarning is recommended by the official documentation
+# https://docs.python.org/3/library/warnings.html#warnings.showwarning
+def _showwarning(message, category, filename, lineno, file=None, line=None):
+    # if coming from one of our files, ignore it
+    positron_files_path = Path("python_files", "positron", "positron_ipykernel")
+    # where can we get the temp path to console from?
+    console_path = Path("var", "folders")
+    if str(positron_files_path) in filename:
+        msg = f"{filename}:{lineno}: {category}: {message}"
+        logger.warn(msg)
+        return
+
+    if str(console_path) in filename:
+        filename = None
+        lineno = None
+
+    msg = "{message : %r, category : %r, filename : %r, lineno : %s}" % (
+        message,
+        category,
+        filename,
+        lineno,
+    )
+    warnings._showwarnmsg_impl(msg)
