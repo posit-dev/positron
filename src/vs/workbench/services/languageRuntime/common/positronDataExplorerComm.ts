@@ -56,7 +56,7 @@ export interface FilterResult {
 /**
  * The current backend state for the data explorer
  */
-export interface DataExplorerState {
+export interface BackendState {
 	/**
 	 * Provides number of rows and columns in table
 	 */
@@ -166,6 +166,11 @@ export interface TableSchema {
  * Specifies a table row filter based on a single column's values
  */
 export interface RowFilter {
+	/**
+	 * Unique identifier for this filter
+	 */
+	filter_id: string;
+
 	/**
 	 * Type of row filter to apply
 	 */
@@ -760,7 +765,7 @@ export class PositronDataExplorerComm extends PositronBaseComm {
 	 *
 	 * @returns The current backend state for the data explorer
 	 */
-	getState(): Promise<DataExplorerState> {
+	getState(): Promise<BackendState> {
 		return super.performRpc('get_state', [], []);
 	}
 

@@ -24,6 +24,7 @@ import comm
 
 from .access_keys import decode_access_key
 from .data_explorer_comm import (
+    BackendState,
     ColumnFrequencyTable,
     ColumnHistogram,
     ColumnSummaryStats,
@@ -35,7 +36,6 @@ from .data_explorer_comm import (
     ColumnSortKey,
     DataExplorerBackendMessageContent,
     DataExplorerFrontendEvent,
-    DataExplorerState,
     FilterResult,
     GetColumnProfilesFeatures,
     GetColumnProfilesRequest,
@@ -222,7 +222,7 @@ class DataExplorerTableView(abc.ABC):
         pass
 
     @abc.abstractmethod
-    def _get_state(self) -> DataExplorerState:
+    def _get_state(self) -> BackendState:
         pass
 
 
@@ -724,13 +724,13 @@ class PandasView(DataExplorerTableView):
         get_column_profiles=_column_profile_features,
     )
 
-    def _get_state(self) -> DataExplorerState:
+    def _get_state(self) -> BackendState:
         if self.view_indices is not None:
             num_rows = len(self.view_indices)
         else:
             num_rows = self.table.shape[0]
 
-        return DataExplorerState(
+        return BackendState(
             table_shape=TableShape(num_rows=num_rows, num_columns=self.table.shape[1]),
             row_filters=self.filters,
             sort_keys=self.sort_keys,

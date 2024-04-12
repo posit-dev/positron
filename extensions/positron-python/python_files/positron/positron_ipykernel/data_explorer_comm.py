@@ -167,7 +167,7 @@ class FilterResult(BaseModel):
     )
 
 
-class DataExplorerState(BaseModel):
+class BackendState(BaseModel):
     """
     The current backend state for the data explorer
     """
@@ -269,6 +269,10 @@ class RowFilter(BaseModel):
     """
     Specifies a table row filter based on a single column's values
     """
+
+    filter_id: str = Field(
+        description="Unique identifier for this filter",
+    )
 
     filter_type: RowFilterType = Field(
         description="Type of row filter to apply",
@@ -903,7 +907,7 @@ TableData.update_forward_refs()
 
 FilterResult.update_forward_refs()
 
-DataExplorerState.update_forward_refs()
+BackendState.update_forward_refs()
 
 TableShape.update_forward_refs()
 

@@ -672,6 +672,7 @@ def test_pandas_get_data_values(dxf: DataExplorerFixture):
 def _filter(filter_type, column_index, condition="and", is_valid=None, **kwargs):
     kwargs.update(
         {
+            "filter_id": guid(),
             "filter_type": filter_type,
             "column_index": column_index,
             "condition": condition,

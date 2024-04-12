@@ -240,7 +240,7 @@
 			"result": {
 				"schema": {
 					"type": "object",
-					"name": "data_explorer_state",
+					"name": "backend_state",
 					"description": "The current backend state for the data explorer",
 					"required": [
 						"table_shape",
@@ -385,11 +385,16 @@
 				"type": "object",
 				"description": "Specifies a table row filter based on a single column's values",
 				"required": [
+					"filter_id",
 					"filter_type",
 					"column_index",
 					"condition"
 				],
 				"properties": {
+					"filter_id": {
+						"type": "string",
+						"description": "Unique identifier for this filter"
+					},
 					"filter_type": {
 						"description": "Type of row filter to apply",
 						"$ref": "#/components/schemas/row_filter_type"

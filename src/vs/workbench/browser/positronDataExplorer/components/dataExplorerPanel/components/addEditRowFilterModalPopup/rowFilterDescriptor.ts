@@ -12,10 +12,14 @@ export enum RowFilterCondition {
 	// Conditions with no parameters.
 	CONDITION_IS_EMPTY = 'is-empty',
 	CONDITION_IS_NOT_EMPTY = 'is-not-empty',
+	CONDITION_IS_NULL = 'is-null',
+	CONDITION_IS_NOT_NULL = 'is-not-null',
 
 	// Conditions with one parameter.
 	CONDITION_IS_LESS_THAN = 'is-less-than',
+	CONDITION_IS_LESS_OR_EQUAL = 'is-less-than-or-equal-to',
 	CONDITION_IS_GREATER_THAN = 'is-greater-than',
+	CONDITION_IS_GREATER_OR_EQUAL = 'is-greater-than-or-equal-to',
 	CONDITION_IS_EQUAL_TO = 'is-equal-to',
 
 	// Conditions with two parameters.
@@ -87,6 +91,46 @@ export class RowFilterDescriptorIsNotEmpty extends BaseRowFilterDescriptor {
 }
 
 /**
+ * RowFilterDescriptorIsNull class.
+ */
+export class RowFilterDescriptorIsNull extends BaseRowFilterDescriptor {
+	/**
+	 * Constructor.
+	 * @param columnSchema The column schema.
+	 */
+	constructor(columnSchema: ColumnSchema) {
+		super(columnSchema);
+	}
+
+	/**
+	 * Gets the row filter condition.
+	 */
+	get rowFilterCondition() {
+		return RowFilterCondition.CONDITION_IS_NULL;
+	}
+}
+
+/**
+ * RowFilterDescriptorIsNotEmpty class.
+ */
+export class RowFilterDescriptorIsNotNull extends BaseRowFilterDescriptor {
+	/**
+	 * Constructor.
+	 * @param columnSchema The column schema.
+	 */
+	constructor(columnSchema: ColumnSchema) {
+		super(columnSchema);
+	}
+
+	/**
+	 * Gets the row filter condition.
+	 */
+	get rowFilterCondition() {
+		return RowFilterCondition.CONDITION_IS_NOT_NULL;
+	}
+}
+
+/**
  * SingleValueRowFilterDescriptor class.
  */
 export abstract class SingleValueRowFilterDescriptor extends BaseRowFilterDescriptor {
@@ -122,6 +166,27 @@ export class RowFilterDescriptorIsLessThan extends SingleValueRowFilterDescripto
 }
 
 /**
+ * RowFilterDescriptorIsLessOrEqual class.
+ */
+export class RowFilterDescriptorIsLessOrEqual extends SingleValueRowFilterDescriptor {
+	/**
+	 * Constructor.
+	 * @param columnSchema The column schema.
+	 * @param value The value.
+	 */
+	constructor(columnSchema: ColumnSchema, value: string) {
+		super(columnSchema, value);
+	}
+
+	/**
+	 * Gets the row filter condition.
+	 */
+	get rowFilterCondition() {
+		return RowFilterCondition.CONDITION_IS_LESS_OR_EQUAL;
+	}
+}
+
+/**
  * RowFilterDescriptorIsGreaterThan class.
  */
 export class RowFilterDescriptorIsGreaterThan extends SingleValueRowFilterDescriptor {
@@ -139,6 +204,27 @@ export class RowFilterDescriptorIsGreaterThan extends SingleValueRowFilterDescri
 	 */
 	get rowFilterCondition() {
 		return RowFilterCondition.CONDITION_IS_GREATER_THAN;
+	}
+}
+
+/**
+ * RowFilterDescriptorIsGreaterOrEqual class.
+ */
+export class RowFilterDescriptorIsGreaterOrEqual extends SingleValueRowFilterDescriptor {
+	/**
+	 * Constructor.
+	 * @param columnSchema The column schema.
+	 * @param value The value.
+	 */
+	constructor(columnSchema: ColumnSchema, value: string) {
+		super(columnSchema, value);
+	}
+
+	/**
+	 * Gets the row filter condition.
+	 */
+	get rowFilterCondition() {
+		return RowFilterCondition.CONDITION_IS_GREATER_OR_EQUAL;
 	}
 }
 
@@ -232,8 +318,12 @@ export class RowFilterDescriptorIsNotBetween extends RangeRowFilterDescriptor {
 export type RowFilterDescriptor =
 	RowFilterDescriptorIsEmpty |
 	RowFilterDescriptorIsNotEmpty |
+	RowFilterDescriptorIsNull |
+	RowFilterDescriptorIsNotNull |
 	RowFilterDescriptorIsLessThan |
+	RowFilterDescriptorIsLessOrEqual |
 	RowFilterDescriptorIsGreaterThan |
+	RowFilterDescriptorIsGreaterOrEqual |
 	RowFilterDescriptorIsEqualTo |
 	RowFilterDescriptorIsBetween |
 	RowFilterDescriptorIsNotBetween;
