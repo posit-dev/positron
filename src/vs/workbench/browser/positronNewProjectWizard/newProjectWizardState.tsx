@@ -46,8 +46,9 @@ export interface NewProjectConfiguration {
 	readonly parentFolder: string;
 	readonly initGitRepo: boolean;
 	readonly openInNewWindow: boolean;
-	readonly pythonEnvSetupType: EnvironmentSetupType;
-	readonly pythonEnvType: PythonEnvironmentType;
+	readonly pythonEnvSetupType: EnvironmentSetupType | undefined;
+	readonly pythonEnvType: PythonEnvironmentType | undefined;
+	readonly useRenv: boolean | undefined;
 }
 
 /**
@@ -78,8 +79,9 @@ export const useNewProjectWizardState = (
 		parentFolder: props.parentFolder ?? '',
 		initGitRepo: false,
 		openInNewWindow: true,
-		pythonEnvSetupType: EnvironmentSetupType.NewEnvironment,
-		pythonEnvType: PythonEnvironmentType.Venv,
+		pythonEnvSetupType: undefined,
+		pythonEnvType: undefined,
+		useRenv: undefined
 	});
 
 	// TODO: the initial step should be passed in via the props

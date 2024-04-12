@@ -39,8 +39,12 @@ export const PythonEnvironmentStep = (props: PropsWithChildren<NewProjectWizardS
 	// Hooks to manage the startup phase and interpreter entries.
 	const [startupPhase, setStartupPhase] =
 		useState(newProjectWizardState.runtimeStartupService.startupPhase);
-	const [envSetupType, setEnvSetupType] = useState(projectConfig.pythonEnvSetupType);
-	const [envType, setEnvType] = useState(projectConfig.pythonEnvType);
+	const [envSetupType, setEnvSetupType] = useState(
+		projectConfig.pythonEnvSetupType ?? EnvironmentSetupType.NewEnvironment
+	);
+	const [envType, setEnvType] = useState(
+		projectConfig.pythonEnvType ?? PythonEnvironmentType.Venv
+	);
 	const [selectedInterpreter, setSelectedInterpreter] = useState<string | undefined>(
 		getSelectedPythonInterpreterId(
 			projectConfig.selectedRuntime?.runtimeId,
@@ -64,8 +68,14 @@ export const PythonEnvironmentStep = (props: PropsWithChildren<NewProjectWizardS
 	const envTypeEntries = getEnvTypeEntries();
 
 	const envSetupRadioButtons: RadioButtonItem[] = [
-		new RadioButtonItem({ identifier: EnvironmentSetupType.NewEnvironment, title: 'Create a new Python environment _(Recommended)_' }),
-		new RadioButtonItem({ identifier: EnvironmentSetupType.ExistingEnvironment, title: 'Use an existing Python installation' })
+		new RadioButtonItem({
+			identifier: EnvironmentSetupType.NewEnvironment,
+			title: 'Create a new Python environment _(Recommended)_'
+		}),
+		new RadioButtonItem({
+			identifier: EnvironmentSetupType.ExistingEnvironment,
+			title: 'Use an existing Python installation'
+		})
 	];
 
 	// Handler for when the environment setup type is selected. If the user selects the "existing
@@ -117,7 +127,9 @@ export const PythonEnvironmentStep = (props: PropsWithChildren<NewProjectWizardS
 	// selected interpreter.
 	const onInterpreterSelected = (identifier: string) => {
 		setSelectedInterpreter(identifier);
-		const selectedRuntime = newProjectWizardState.languageRuntimeService.getRegisteredRuntime(identifier);
+		const selectedRuntime = newProjectWizardState
+			.languageRuntimeService
+			.getRegisteredRuntime(identifier);
 		if (!selectedRuntime) {
 			// This shouldn't happen, since the DropDownListBox should only allow selection of registered
 			// runtimes
@@ -191,7 +203,9 @@ export const PythonEnvironmentStep = (props: PropsWithChildren<NewProjectWizardS
 					labelledBy='pythonEnvironment-howToSetUpEnv'
 					entries={envSetupRadioButtons}
 					initialSelectionId={projectConfig.pythonEnvSetupType}
-					onSelectionChanged={identifier => onEnvSetupSelected(identifier as EnvironmentSetupType)}
+					onSelectionChanged={
+						identifier => onEnvSetupSelected(identifier as EnvironmentSetupType)
+					}
 				/>
 			</PositronWizardSubStep>
 			{envSetupType === EnvironmentSetupType.NewEnvironment ?
@@ -208,7 +222,11 @@ export const PythonEnvironmentStep = (props: PropsWithChildren<NewProjectWizardS
 						'pythonEnvironmentSubStep.feedback',
 						'The {0} environment will be created at: {1}',
 						envType,
-						locationForNewEnv(projectConfig.parentFolder, projectConfig.projectName, envType)
+						locationForNewEnv(
+							projectConfig.parentFolder,
+							projectConfig.projectName,
+							envType
+						)
 					))()}
 				>
 					<DropDownListBox
@@ -220,7 +238,12 @@ export const PythonEnvironmentStep = (props: PropsWithChildren<NewProjectWizardS
 						))()}
 						entries={envTypeEntries}
 						selectedIdentifier={envType}
-						createItem={item => <DropdownEntry title={item.options.value.envType} subtitle={item.options.value.envDescription} />}
+						createItem={item =>
+							<DropdownEntry
+								title={item.options.value.envType}
+								subtitle={item.options.value.envDescription}
+							/>
+						}
 						onSelectionChanged={item => onEnvTypeSelected(item.options.identifier)}
 					/>
 				</PositronWizardSubStep> : null

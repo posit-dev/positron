@@ -10,9 +10,10 @@
  */
 export enum NewProjectWizardStep {
 	None = 'none',
-	ProjectTypeSelection = 'projectTypeSelectionStep',
+	ProjectTypeSelection = 'projectTypeSelection',
 	ProjectNameLocation = 'projectNameLocation',
 	PythonEnvironment = 'pythonEnvironment',
+	RConfiguration = 'rConfiguration'
 }
 
 /**
