@@ -1642,16 +1642,16 @@ export const POSITRON_MODAL_DIALOG_RADIO_BUTTON_BORDER = registerColor('positron
 
 // Positron modal dialog project type background color.
 export const POSITRON_MODAL_DIALOG_PROJECT_TYPE_BACKGROUND = registerColor('positronModalDialog.projectTypeBackground', {
-	dark: editorBackground,
-	light: editorBackground,
+	dark: buttonSecondaryBackground,
+	light: darken(editorBackground, 0.05),
 	hcDark: editorBackground,
 	hcLight: editorBackground
 }, localize('positronModalDialog.projectTypeBackground', "Positron modal dialog project type background color."));
 
 // Positron modal dialog project type hover background color.
 export const POSITRON_MODAL_DIALOG_PROJECT_TYPE_BACKGROUND_HOVER = registerColor('positronModalDialog.projectTypeBackgroundHover', {
-	dark: listHoverBackground,
-	light: listHoverBackground,
+	dark: listInactiveSelectionBackground,
+	light: listInactiveSelectionBackground,
 	hcDark: listHoverBackground,
 	hcLight: listHoverBackground
 }, localize('positronModalDialog.projectTypeBackgroundHover', "Positron modal dialog project type background hover color."));
@@ -1690,23 +1690,23 @@ export const POSITRON_MODAL_DIALOG_PROJECT_TYPE_FOREGROUND_SELECTED = registerCo
 
 // Positron modal dialog project type border color.
 export const POSITRON_MODAL_DIALOG_PROJECT_TYPE_BORDER = registerColor('positronModalDialog.projectTypeBorder', {
-	dark: selectBorder,
-	light: selectBorder,
+	dark: buttonSecondaryBackground,
+	light: darken(editorBackground, 0.05),
 	hcDark: contrastBorder,
 	hcLight: contrastBorder
 }, localize('positronModalDialog.projectTypeBorder', "Positron modal dialog project type border color."));
 
 // Positron modal dialog project type border color.
 export const POSITRON_MODAL_DIALOG_PROJECT_TYPE_BORDER_HOVER = registerColor('positronModalDialog.projectTypeBorderHover', {
-	dark: selectBorder,
-	light: selectBorder,
+	dark: darken(editorForeground, 0.25),
+	light: focusBorder,
 	hcDark: activeContrastBorder,
 	hcLight: activeContrastBorder
 }, localize('positronModalDialog.projectTypeBorderHover', "Positron modal dialog project type border hover color."));
 
 // Positron modal dialog project type border selected color.
 export const POSITRON_MODAL_DIALOG_PROJECT_TYPE_BORDER_SELECTED = registerColor('positronModalDialog.projectTypeBorderSelected', {
-	dark: focusBorder,
+	dark: darken(editorForeground, 0.25),
 	light: focusBorder,
 	hcDark: activeContrastBorder,
 	hcLight: activeContrastBorder
