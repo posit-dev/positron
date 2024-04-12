@@ -232,7 +232,13 @@ class ObjectInspector(PositronInspector[T], ABC):
         return len([p for p in dir(self.value) if not (p.startswith("_"))])
 
     def get_child(self, key: str) -> Any:
-        return getattr(self.value, key)
+        if isinstance(self.value, property):
+            pass
+        try:
+            return getattr(self.value, key)
+        except Exception as e:
+            logger.warning(msg=f"{type(e).__name__}: {e}")
+            return "Unable to show value."
 
     def get_items(self) -> Iterable[Tuple[str, Any]]:
         for key in dir(self.value):
