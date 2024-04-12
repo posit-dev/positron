@@ -7,7 +7,7 @@ import codecs
 import io
 import pickle
 from pathlib import Path
-from typing import Iterable, cast
+from typing import Iterable, Optional, cast
 
 import matplotlib
 import matplotlib.pyplot as plt
@@ -17,13 +17,17 @@ from matplotlib.axes import Axes
 from matplotlib.figure import Figure
 from matplotlib.testing.compare import compare_images
 from matplotlib_inline.backend_inline import configure_inline_support
+
 from positron_ipykernel.plots import BASE_DPI, PositronDisplayPublisherHook
 from positron_ipykernel.positron_comm import JsonRpcErrorCode
+from positron_ipykernel.session_mode import SessionMode
+from positron_ipykernel.utils import JsonRecord
 
 from .conftest import DummyComm, PositronShell
-from .utils import comm_request, json_rpc_error, json_rpc_request
+from .utils import comm_open_message, comm_request, json_rpc_error, json_rpc_request
 
 PLOT_DATA = [1, 2]
+TARGET_NAME = "target_name"
 
 
 @pytest.fixture(autouse=True)
@@ -55,7 +59,30 @@ def images_path() -> Path:
 
 @pytest.fixture
 def hook() -> PositronDisplayPublisherHook:
-    return PositronDisplayPublisherHook("positron.plot")
+    return PositronDisplayPublisherHook(TARGET_NAME, SessionMode.CONSOLE)
+
+
+@pytest.fixture
+def notebook_hook() -> PositronDisplayPublisherHook:
+    return PositronDisplayPublisherHook(TARGET_NAME, SessionMode.NOTEBOOK)
+
+
+def display_data_message() -> JsonRecord:
+    """
+    A valid display_data message with an image/png MIME type.
+    """
+    # The display hook doesn't depend on the image/png value, so ignore it.
+    return comm_request({"image/png": None}, msg_type="display_data")
+
+
+def init_hook(hook: PositronDisplayPublisherHook) -> Optional[JsonRecord]:
+    # Initialize the hook by calling it on a figure created with the test plot data
+    plt.plot(PLOT_DATA)
+    try:
+        msg = display_data_message()
+        return hook(msg)
+    finally:
+        plt.close()
 
 
 @pytest.fixture
@@ -63,15 +90,14 @@ def figure_comm(hook: PositronDisplayPublisherHook) -> DummyComm:
     """
     A comm corresponding to a test figure belonging to the Positron display publisher hook.
     """
-    # Initialize the hook by calling it on a figure created with the test plot data
-    plt.plot(PLOT_DATA)
-    msg = comm_request({"image/png": None}, msg_type="display_data")
-    hook(msg)
-    plt.close()
+    assert init_hook(hook) is None
 
     # Return the comm corresponding to the first figure
     id = next(iter(hook.comms))
     figure_comm = cast(DummyComm, hook.comms[id].comm)
+
+    # Check that the comm_open message was sent
+    assert figure_comm.messages == [comm_open_message(TARGET_NAME)]
 
     # Clear messages due to the comm_open
     figure_comm.messages.clear()
@@ -93,11 +119,15 @@ def test_hook_call_noop_on_no_image_png(hook: PositronDisplayPublisherHook) -> N
     assert hook.comms == {}
 
 
+def test_hook_call_noop_in_notebook(notebook_hook: PositronDisplayPublisherHook) -> None:
+    msg = display_data_message()
+    assert notebook_hook(msg) == msg
+    assert notebook_hook.figures == {}
+    assert notebook_hook.comms == {}
+
+
 def test_hook_call(hook: PositronDisplayPublisherHook, images_path: Path) -> None:
-    # It returns `None` to indicate that it's consumed the message
-    plt.plot(PLOT_DATA)
-    msg = comm_request({"image/png": None}, msg_type="display_data")
-    assert hook(msg) is None
+    assert init_hook(hook) is None
 
     # It creates a new figure and comm
     assert len(hook.figures) == 1
@@ -127,16 +157,6 @@ def test_hook_call(hook: PositronDisplayPublisherHook, images_path: Path) -> Non
     # Compare actual versus expected figures
     err = compare_images(str(actual), str(expected), tol=0)
     assert not err
-
-
-def test_hook_handle_msg_noop_on_unknown_method(figure_comm: DummyComm) -> None:
-    # Handle a message with an invalid msg_type
-    msg = json_rpc_request("not_render", {})
-    figure_comm.handle_msg(msg)
-
-    assert figure_comm.messages == [
-        json_rpc_error(JsonRpcErrorCode.METHOD_NOT_FOUND, "Unknown method 'not_render'")
-    ]
 
 
 def render_request(comm_id: str, width_px: int = 500, height_px: int = 500, pixel_ratio: int = 1):

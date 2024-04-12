@@ -8,14 +8,15 @@ from unittest.mock import MagicMock, Mock
 import comm
 import pytest
 from traitlets.config import Config
+
 from positron_ipykernel.connections import ConnectionsService
 from positron_ipykernel.data_explorer import DataExplorerService
 from positron_ipykernel.positron_ipkernel import (
     PositronIPKernelApp,
     PositronIPyKernel,
     PositronShell,
-    SessionMode,
 )
+from positron_ipykernel.session_mode import SessionMode
 from positron_ipykernel.variables import VariablesService
 
 
@@ -55,7 +56,7 @@ def kernel() -> PositronIPyKernel:
     app.config = Config()  # Needed to avoid traitlets errors
 
     # Positron-specific attributes:
-    app.session_mode = SessionMode.Console
+    app.session_mode = SessionMode.CONSOLE
 
     kernel = PositronIPyKernel.instance(parent=app)
 

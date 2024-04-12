@@ -12,7 +12,7 @@ from ._vendor.pydantic import BaseModel, Field, ValidationError
 
 logger = logging.getLogger(__name__)
 
-_WIDGET_MIME_TYPE = "application/vnd.jupyter.widget-view+json"
+WIDGET_MIME_TYPE = "application/vnd.jupyter.widget-view+json"
 
 
 @enum.unique
@@ -48,11 +48,11 @@ class PositronWidgetHook:
         if msg["msg_type"] == "display_data":
             # If there is no widget, let the parent deal with the msg.
             data = msg["content"]["data"]
-            if _WIDGET_MIME_TYPE not in data:
+            if WIDGET_MIME_TYPE not in data:
                 logger.warning("No widget MIME type found.")
                 return msg
 
-            comm_id = data[_WIDGET_MIME_TYPE].get("model_id")
+            comm_id = data[WIDGET_MIME_TYPE].get("model_id")
 
             if comm_id is None:
                 logger.warning("No comm associated with widget.")
