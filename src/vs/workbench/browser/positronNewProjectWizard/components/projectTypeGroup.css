@@ -1,0 +1,10 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *--------------------------------------------------------------------------------------------*/
+
+.project-type-selection-step
+.project-type-group {
+	display: grid;
+	grid-template-columns: repeat(3, 1fr);
+	grid-gap: 18px;
+}
