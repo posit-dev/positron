@@ -102,12 +102,13 @@ async function findTests(uri: vscode.Uri) {
 				continue;
 			}
 
-			//const testFunctionCapture = match.captures.find(capture => capture.name === '_function.name');
+			const testFunctionCapture = match.captures.find(capture => capture.name === '_function.name');
 			const testLabelCapture = match.captures.find(capture => capture.name === 'label');
 			const testCallCapture = match.captures.find(capture => capture.name === 'call');
 
-			if (testLabelCapture && testCallCapture) {
+			if (testFunctionCapture && testLabelCapture && testCallCapture) {
 				matches.push({
+					testFunction: testFunctionCapture.node.text,
 					testLabel: testLabelCapture.node.text.substring(
 						1,
 						testLabelCapture.node.text.length - 1
