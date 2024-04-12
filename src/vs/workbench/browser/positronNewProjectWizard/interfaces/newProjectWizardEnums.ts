@@ -49,3 +49,19 @@ export enum NewProjectType {
 	RProject = 'R Project',
 	JupyterNotebook = 'Jupyter Notebook'
 }
+
+/**
+ * PythonRuntimeFilter enum.
+ */
+export enum PythonRuntimeFilter {
+	All = 'All',        // Include all runtimes. This is when an existing Python installation is to be used.
+	Global = 'Global',  // Include only global runtimes. This is when a new Venv environment is being created.
+}
+
+/**
+ * LanguageIds enum.
+ */
+export enum LanguageIds {
+	Python = 'python',
+	R = 'r'
+}

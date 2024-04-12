@@ -2,32 +2,11 @@
  *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
-import { DropDownListBoxEntry } from 'vs/workbench/browser/positronComponents/dropDownListBox/dropDownListBox';
 import { DropDownListBoxItem } from 'vs/workbench/browser/positronComponents/dropDownListBox/dropDownListBoxItem';
-import { DropDownListBoxSeparator } from 'vs/workbench/browser/positronComponents/dropDownListBox/dropDownListBoxSeparator';
-import { EnvironmentSetupType, PythonEnvironmentType } from 'vs/workbench/browser/positronNewProjectWizard/interfaces/newProjectWizardEnums';
+import { EnvironmentSetupType, LanguageIds, PythonEnvironmentType, PythonRuntimeFilter } from 'vs/workbench/browser/positronNewProjectWizard/interfaces/newProjectWizardEnums';
+import { InterpreterInfo, getInterpreterDropdownItems, getPreferredRuntimeId } from 'vs/workbench/browser/positronNewProjectWizard/utilities/interpreterDropDownUtils';
 import { ILanguageRuntimeService } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { IRuntimeStartupService } from 'vs/workbench/services/runtimeStartup/common/runtimeStartupService';
-
-/**
- * PythonRuntimeFilter enum.
- */
-export enum PythonRuntimeFilter {
-	All = 'All',        // Include all runtimes. This is when an existing Python installation is to be used.
-	Global = 'Global',  // Include only global runtimes. This is when a new Venv environment is being created.
-}
-
-/**
- * PythonInterpreterInfo interface.
- */
-export interface PythonInterpreterInfo {
-	preferred: boolean;
-	runtimeId: string;
-	languageName: string;
-	languageVersion: string;
-	runtimePath: string;
-	runtimeSource: string;
-}
 
 /**
  * PythonEnvironmentTypeInfo interface.
@@ -50,58 +29,15 @@ const getPythonInterpreterDropDownItems = (
 	languageRuntimeService: ILanguageRuntimeService,
 	pythonRuntimeFilter = PythonRuntimeFilter.All
 ) => {
-	// See ILanguageRuntimeMetadata in src/vs/workbench/services/languageRuntime/common/languageRuntimeService.ts
-	// for the properties of the runtime metadata object
-	const languageId = 'python';
+	const languageId = LanguageIds.Python;
 	const preferredRuntime = runtimeStartupService.getPreferredRuntime(languageId);
-	const all = pythonRuntimeFilter === PythonRuntimeFilter.All;
 
-	// Return the DropDownListBoxEntry array.
-	return languageRuntimeService.registeredRuntimes.
-		filter(runtime => runtime.languageId === languageId &&
-			(all || runtime.runtimeSource === pythonRuntimeFilter)
-		).
-		sort((left, right) => left.runtimeSource.localeCompare(right.runtimeSource)).
-		reduce<DropDownListBoxEntry<string, PythonInterpreterInfo>[]>(
-			(entries, runtime, index, runtimes) => {
-				// Perform break processing when the runtime source changes.
-				if (index && runtimes[index].runtimeSource !== runtimes[index - 1].runtimeSource) {
-					entries.push(new DropDownListBoxSeparator());
-				}
-
-				// Push the DropDownListBoxItem.
-				entries.push(new DropDownListBoxItem<string, PythonInterpreterInfo>({
-					identifier: runtime.runtimeId,
-					value: {
-						preferred: runtime.runtimeId === preferredRuntime.runtimeId,
-						runtimeId: runtime.runtimeId,
-						languageName: runtime.languageName,
-						languageVersion: runtime.languageVersion,
-						runtimePath: runtime.runtimePath,
-						runtimeSource: runtime.runtimeSource
-					}
-				}));
-
-				// Return the entries for the next iteration.
-				return entries;
-			}, []);
-};
-
-/**
- * Retrieves the runtimeId of the preferred interpreter for the given languageId.
- * @param runtimeStartupService The runtime startup service.
- * @param languageId The languageId of the runtime to retrieve.
- * @returns The runtimeId of the preferred interpreter or undefined if no preferred runtime is found.
- */
-export const getPreferredRuntimeId = (runtimeStartupService: IRuntimeStartupService, languageId: string) => {
-	let preferredRuntime;
-	try {
-		preferredRuntime = runtimeStartupService.getPreferredRuntime(languageId);
-	} catch (error) {
-		// Ignore the error if the preferred runtime is not found. This can happen if the interpreters
-		// are still being loaded.
-	}
-	return preferredRuntime?.runtimeId;
+	return getInterpreterDropdownItems(
+		languageRuntimeService,
+		languageId,
+		preferredRuntime?.runtimeId,
+		pythonRuntimeFilter === PythonRuntimeFilter.All ? undefined : PythonRuntimeFilter.Global
+	);
 };
 
 /**
@@ -112,9 +48,9 @@ export const getPreferredRuntimeId = (runtimeStartupService: IRuntimeStartupServ
 export const createCondaInterpreterDropDownItems = () => {
 	// TODO: we should get the list of Python versions from the Conda service
 	const pythonVersions = ['3.12', '3.11', '3.10', '3.9', '3.8'];
-	const condaRuntimes: DropDownListBoxItem<string, PythonInterpreterInfo>[] = [];
+	const condaRuntimes: DropDownListBoxItem<string, InterpreterInfo>[] = [];
 	pythonVersions.forEach(version => {
-		condaRuntimes.push(new DropDownListBoxItem<string, PythonInterpreterInfo>({
+		condaRuntimes.push(new DropDownListBoxItem<string, InterpreterInfo>({
 			identifier: `conda-python-${version}`,
 			value: {
 				preferred: version === '3.12',
@@ -207,7 +143,7 @@ export const getSelectedPythonInterpreterId = (
 	existingSelection: string | undefined,
 	runtimeStartupService: IRuntimeStartupService
 ) => {
-	return existingSelection ?? getPreferredRuntimeId(runtimeStartupService, 'python') ?? '';
+	return existingSelection || getPreferredRuntimeId(runtimeStartupService, LanguageIds.Python) || '';
 };
 
 /**

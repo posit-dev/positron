@@ -16,8 +16,8 @@ import { PositronWizardStep } from 'vs/workbench/browser/positronNewProjectWizar
 import { PositronWizardSubStep } from 'vs/workbench/browser/positronNewProjectWizard/components/wizardSubStep';
 import { DropDownListBox } from 'vs/workbench/browser/positronComponents/dropDownListBox/dropDownListBox';
 import { Checkbox } from 'vs/workbench/browser/positronComponents/positronModalDialog/components/checkbox';
-import { DropdownEntry } from 'vs/workbench/browser/positronNewProjectWizard/components/steps/dropdownEntry';
-import { DropDownListBoxItem } from 'vs/workbench/browser/positronComponents/dropDownListBox/dropDownListBoxItem';
+import { getRInterpreterEntries, getSelectedRInterpreterId } from 'vs/workbench/browser/positronNewProjectWizard/utilities/rConfigurationStepUtils';
+import { InterpreterEntry } from 'vs/workbench/browser/positronNewProjectWizard/components/steps/pythonInterpreterEntry';
 
 /**
  * The RConfigurationStep component is specific to R projects in the new project wizard.
@@ -32,10 +32,11 @@ export const RConfigurationStep = (props: PropsWithChildren<NewProjectWizardStep
 	const keybindingService = newProjectWizardState.keybindingService;
 	const layoutService = newProjectWizardState.layoutService;
 	const logService = newProjectWizardState.logService;
+	const runtimeStartupService = newProjectWizardState.runtimeStartupService;
+	const languageRuntimeService = newProjectWizardState.languageRuntimeService;
 
 	// Hooks to manage the startup phase and interpreter entries.
-	const [startupPhase, setStartupPhase] =
-		useState(newProjectWizardState.runtimeStartupService.startupPhase);
+	const [startupPhase, setStartupPhase] = useState(runtimeStartupService.startupPhase);
 	const [selectedInterpreter, setSelectedInterpreter] = useState<string | undefined>(
 		// get selected R interpreter
 		'my r interpreter'
@@ -46,26 +47,14 @@ export const RConfigurationStep = (props: PropsWithChildren<NewProjectWizardStep
 			// for that before creating the interpreter entries.
 			startupPhase !== RuntimeStartupPhase.Complete ?
 				[] :
-				[
-					new DropDownListBoxItem<string, object>({
-						identifier: 'my r interpreter',
-						value: {
-							preferred: true,
-							runtimeId: 'my r interpreter',
-							languageName: 'R',
-							languageVersion: '4.1.0',
-							runtimePath: '/usr/local/bin/R',
-							runtimeSource: 'Global'
-						}
-					})
-				]
+				getRInterpreterEntries(runtimeStartupService, languageRuntimeService)
 		);
 
 	// Handler for when the interpreter is selected. The project configuration is updated with the
 	// selected interpreter.
 	const onInterpreterSelected = (identifier: string) => {
 		setSelectedInterpreter(identifier);
-		const selectedRuntime = newProjectWizardState.languageRuntimeService.getRegisteredRuntime(identifier);
+		const selectedRuntime = languageRuntimeService.getRegisteredRuntime(identifier);
 		if (!selectedRuntime) {
 			// This shouldn't happen, since the DropDownListBox should only allow selection of registered
 			// runtimes
@@ -73,8 +62,6 @@ export const RConfigurationStep = (props: PropsWithChildren<NewProjectWizardStep
 			return;
 		}
 		setProjectConfig({ ...projectConfig, selectedRuntime });
-
-		// TODO: if the selected interpreter doesn't have ipykernel installed, show a message
 	};
 
 	// Hook to update the interpreter entries when the runtime discovery phase is complete
@@ -85,36 +72,17 @@ export const RConfigurationStep = (props: PropsWithChildren<NewProjectWizardStep
 		// Add the onDidChangeRuntimeStartupPhase event handler; when the runtime discovery phase
 		// is complete, update the interpreter entries.
 		disposableStore.add(
-			newProjectWizardState.runtimeStartupService.onDidChangeRuntimeStartupPhase(
+			runtimeStartupService.onDidChangeRuntimeStartupPhase(
 				phase => {
 					if (phase === RuntimeStartupPhase.Complete) {
-						// getRInterpreterEntries
-						// setInterpreterEntries
-						setInterpreterEntries([
-							new DropDownListBoxItem<string, object>({
-								identifier: 'my r interpreter',
-								value: {
-									preferred: true,
-									runtimeId: 'my r interpreter',
-									languageName: 'R',
-									languageVersion: '4.1.0',
-									runtimePath: '/usr/local/bin/R',
-									runtimeSource: 'Global'
-								}
-							}),
-							new DropDownListBoxItem<string, object>({
-								identifier: 'another r interpreter',
-								value: {
-									preferred: false,
-									runtimeId: 'another r interpreter',
-									languageName: 'R',
-									languageVersion: '1010101010',
-									runtimePath: '/usr/local/bin/Rsfasfdas',
-									runtimeSource: 'Globalasfsa'
-								}
-							})
-						]);
-						// setSelectedInterpreter
+						const entries = getRInterpreterEntries(
+							runtimeStartupService,
+							languageRuntimeService
+						);
+						setInterpreterEntries(entries);
+						setSelectedInterpreter(
+							getSelectedRInterpreterId(selectedInterpreter, runtimeStartupService)
+						);
 					}
 					setStartupPhase(phase);
 				}
@@ -171,7 +139,7 @@ export const RConfigurationStep = (props: PropsWithChildren<NewProjectWizardStep
 					entries={startupPhase !== RuntimeStartupPhase.Complete ? [] : interpreterEntries}
 					selectedIdentifier={selectedInterpreter}
 					createItem={item =>
-						<DropdownEntry title='r' subtitle='rrrrrr' />
+						<InterpreterEntry interpreterInfo={item.options.value} />
 					}
 					onSelectionChanged={item =>
 						onInterpreterSelected(item.options.identifier)
