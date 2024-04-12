@@ -12,15 +12,16 @@ import { NewProjectWizardStepProps } from 'vs/workbench/browser/positronNewProje
 import { localize } from 'vs/nls';
 import { RuntimeStartupPhase } from 'vs/workbench/services/runtimeStartup/common/runtimeStartupService';
 import { DisposableStore } from 'vs/base/common/lifecycle';
-import { getEnvTypeEntries, getPythonInterpreterEntries, getSelectedPythonInterpreterId, locationForNewEnv } from 'vs/workbench/browser/positronNewProjectWizard/utilities/pythonEnvironmentStepUtils';
+import { getEnvTypeEntries, getPythonInterpreterEntries, locationForNewEnv } from 'vs/workbench/browser/positronNewProjectWizard/utilities/pythonEnvironmentStepUtils';
 import { PositronWizardStep } from 'vs/workbench/browser/positronNewProjectWizard/components/wizardStep';
 import { PositronWizardSubStep } from 'vs/workbench/browser/positronNewProjectWizard/components/wizardSubStep';
 import { DropDownListBox } from 'vs/workbench/browser/positronComponents/dropDownListBox/dropDownListBox';
 import { RadioButtonItem } from 'vs/workbench/browser/positronComponents/positronModalDialog/components/radioButton';
 import { RadioGroup } from 'vs/workbench/browser/positronComponents/positronModalDialog/components/radioGroup';
-import { EnvironmentSetupType, PythonEnvironmentType } from 'vs/workbench/browser/positronNewProjectWizard/interfaces/newProjectWizardEnums';
+import { EnvironmentSetupType, LanguageIds, PythonEnvironmentType } from 'vs/workbench/browser/positronNewProjectWizard/interfaces/newProjectWizardEnums';
 import { InterpreterEntry } from 'vs/workbench/browser/positronNewProjectWizard/components/steps/pythonInterpreterEntry';
 import { DropdownEntry } from 'vs/workbench/browser/positronNewProjectWizard/components/steps/dropdownEntry';
+import { getSelectedInterpreter } from 'vs/workbench/browser/positronNewProjectWizard/utilities/interpreterDropDownUtils';
 
 /**
  * The PythonEnvironmentStep component is specific to Python projects in the new project wizard.
@@ -41,15 +42,16 @@ export const PythonEnvironmentStep = (props: PropsWithChildren<NewProjectWizardS
 	// Hooks to manage the startup phase and interpreter entries.
 	const [startupPhase, setStartupPhase] = useState(runtimeStartupService.startupPhase);
 	const [envSetupType, setEnvSetupType] = useState(
-		projectConfig.pythonEnvSetupType || EnvironmentSetupType.NewEnvironment
+		projectConfig.pythonEnvSetupType ?? EnvironmentSetupType.NewEnvironment
 	);
 	const [envType, setEnvType] = useState(
-		projectConfig.pythonEnvType || PythonEnvironmentType.Venv
+		projectConfig.pythonEnvType ?? PythonEnvironmentType.Venv
 	);
-	const [selectedInterpreter, setSelectedInterpreter] = useState<string | undefined>(
-		getSelectedPythonInterpreterId(
-			projectConfig.selectedRuntime?.runtimeId,
-			runtimeStartupService
+	const [selectedInterpreter, setSelectedInterpreter] = useState(
+		getSelectedInterpreter(
+			projectConfig.selectedRuntime,
+			runtimeStartupService,
+			LanguageIds.Python
 		)
 	);
 	const [interpreterEntries, setInterpreterEntries] =
@@ -79,6 +81,15 @@ export const PythonEnvironmentStep = (props: PropsWithChildren<NewProjectWizardS
 		})
 	];
 
+	// Utils
+	const getInterpreter = () => {
+		return getSelectedInterpreter(
+			selectedInterpreter,
+			runtimeStartupService,
+			LanguageIds.Python
+		);
+	};
+
 	// Handler for when the environment setup type is selected. If the user selects the "existing
 	// environment" setup, the env type dropdown will not show and the interpreter entries will be
 	// updated to show all existing interpreters.
@@ -94,13 +105,9 @@ export const PythonEnvironmentStep = (props: PropsWithChildren<NewProjectWizardS
 				envType
 			)
 		);
-		setSelectedInterpreter(
-			getSelectedPythonInterpreterId(
-				projectConfig.selectedRuntime?.runtimeId,
-				runtimeStartupService
-			)
-		);
-		setProjectConfig({ ...projectConfig, pythonEnvSetupType });
+		const selectedRuntime = getInterpreter();
+		setSelectedInterpreter(selectedRuntime);
+		setProjectConfig({ ...projectConfig, pythonEnvSetupType, selectedRuntime });
 	};
 
 	// Handler for when the environment type is selected. The interpreter entries are updated based
@@ -115,29 +122,25 @@ export const PythonEnvironmentStep = (props: PropsWithChildren<NewProjectWizardS
 				pythonEnvType
 			)
 		);
-		setSelectedInterpreter(
-			getSelectedPythonInterpreterId(
-				projectConfig.selectedRuntime?.runtimeId,
-				runtimeStartupService
-			)
-		);
-		setProjectConfig({ ...projectConfig, pythonEnvType });
+		const selectedRuntime = getInterpreter();
+		setSelectedInterpreter(selectedRuntime);
+		setProjectConfig({ ...projectConfig, pythonEnvType, selectedRuntime });
 	};
 
 	// Handler for when the interpreter is selected. The project configuration is updated with the
 	// selected interpreter.
 	const onInterpreterSelected = (identifier: string) => {
-		setSelectedInterpreter(identifier);
 		const selectedRuntime = languageRuntimeService.getRegisteredRuntime(identifier);
 		if (!selectedRuntime) {
 			// This shouldn't happen, since the DropDownListBox should only allow selection of registered
 			// runtimes
-			logService.error(`No runtime found for identifier: ${identifier}`);
+			logService.error(`No runtime found for identifier: ${selectedInterpreter}`);
 			return;
 		}
+		setSelectedInterpreter(selectedRuntime);
 		setProjectConfig({ ...projectConfig, selectedRuntime });
-
-		// TODO: if the selected interpreter doesn't have ipykernel installed, show a message
+		// TODO: if the selected interpreter doesn't have ipykernel installed, show a message and
+		// set projectConfig.installIpykernel to true
 	};
 
 	// Hook to update the interpreter entries when the runtime discovery phase is complete
@@ -158,12 +161,14 @@ export const PythonEnvironmentStep = (props: PropsWithChildren<NewProjectWizardS
 							envType
 						);
 						setInterpreterEntries(entries);
-						setSelectedInterpreter(
-							getSelectedPythonInterpreterId(
-								projectConfig.selectedRuntime?.runtimeId,
-								runtimeStartupService
-							)
-						);
+						const selectedRuntime = getInterpreter();
+						setSelectedInterpreter(selectedRuntime);
+						setProjectConfig({
+							...projectConfig,
+							pythonEnvType: envType,
+							pythonEnvSetupType: envSetupType,
+							selectedRuntime
+						});
 					}
 					setStartupPhase(phase);
 				}
@@ -278,7 +283,7 @@ export const PythonEnvironmentStep = (props: PropsWithChildren<NewProjectWizardS
 					// interpreters, show a message that no suitable interpreters were found and the
 					// user should install an interpreter with minimum version
 					entries={startupPhase !== RuntimeStartupPhase.Complete ? [] : interpreterEntries}
-					selectedIdentifier={selectedInterpreter}
+					selectedIdentifier={selectedInterpreter?.runtimeId}
 					createItem={item =>
 						<InterpreterEntry interpreterInfo={item.options.value} />
 					}

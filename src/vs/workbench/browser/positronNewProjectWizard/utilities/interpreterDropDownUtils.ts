@@ -6,7 +6,7 @@ import { DropDownListBoxEntry } from 'vs/workbench/browser/positronComponents/dr
 import { DropDownListBoxItem } from 'vs/workbench/browser/positronComponents/dropDownListBox/dropDownListBoxItem';
 import { DropDownListBoxSeparator } from 'vs/workbench/browser/positronComponents/dropDownListBox/dropDownListBoxSeparator';
 import { LanguageIds, PythonRuntimeFilter } from 'vs/workbench/browser/positronNewProjectWizard/interfaces/newProjectWizardEnums';
-import { ILanguageRuntimeService } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { ILanguageRuntimeMetadata, ILanguageRuntimeService } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { IRuntimeStartupService } from 'vs/workbench/services/runtimeStartup/common/runtimeStartupService';
 
 /**
@@ -78,9 +78,9 @@ export const getInterpreterDropdownItems = (
  * Retrieves the runtimeId of the preferred interpreter for the given languageId.
  * @param runtimeStartupService The runtime startup service.
  * @param languageId The languageId of the runtime to retrieve.
- * @returns The runtimeId of the preferred interpreter or undefined if no preferred runtime is found.
+ * @returns The preferred interpreter or undefined if no preferred runtime is found.
  */
-export const getPreferredRuntimeId = (runtimeStartupService: IRuntimeStartupService, languageId: LanguageIds) => {
+export const getPreferredRuntime = (runtimeStartupService: IRuntimeStartupService, languageId: LanguageIds) => {
 	let preferredRuntime;
 	try {
 		preferredRuntime = runtimeStartupService.getPreferredRuntime(languageId);
@@ -88,5 +88,15 @@ export const getPreferredRuntimeId = (runtimeStartupService: IRuntimeStartupServ
 		// Ignore the error if the preferred runtime is not found. This can happen if the interpreters
 		// are still being loaded.
 	}
-	return preferredRuntime?.runtimeId;
+	return preferredRuntime;
+};
+
+export const getSelectedInterpreter = (
+	existingSelection: ILanguageRuntimeMetadata | undefined,
+	runtimeStartupService: IRuntimeStartupService,
+	languageId: LanguageIds
+) => {
+	return existingSelection?.languageId === languageId ?
+		existingSelection :
+		getPreferredRuntime(runtimeStartupService, languageId);
 };

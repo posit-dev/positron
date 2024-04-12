@@ -16,8 +16,10 @@ import { PositronWizardStep } from 'vs/workbench/browser/positronNewProjectWizar
 import { PositronWizardSubStep } from 'vs/workbench/browser/positronNewProjectWizard/components/wizardSubStep';
 import { DropDownListBox } from 'vs/workbench/browser/positronComponents/dropDownListBox/dropDownListBox';
 import { Checkbox } from 'vs/workbench/browser/positronComponents/positronModalDialog/components/checkbox';
-import { getRInterpreterEntries, getSelectedRInterpreterId } from 'vs/workbench/browser/positronNewProjectWizard/utilities/rConfigurationStepUtils';
+import { getRInterpreterEntries } from 'vs/workbench/browser/positronNewProjectWizard/utilities/rConfigurationStepUtils';
 import { InterpreterEntry } from 'vs/workbench/browser/positronNewProjectWizard/components/steps/pythonInterpreterEntry';
+import { LanguageIds } from 'vs/workbench/browser/positronNewProjectWizard/interfaces/newProjectWizardEnums';
+import { getSelectedInterpreter } from 'vs/workbench/browser/positronNewProjectWizard/utilities/interpreterDropDownUtils';
 
 /**
  * The RConfigurationStep component is specific to R projects in the new project wizard.
@@ -37,9 +39,8 @@ export const RConfigurationStep = (props: PropsWithChildren<NewProjectWizardStep
 
 	// Hooks to manage the startup phase and interpreter entries.
 	const [startupPhase, setStartupPhase] = useState(runtimeStartupService.startupPhase);
-	const [selectedInterpreter, setSelectedInterpreter] = useState<string | undefined>(
-		// get selected R interpreter
-		'my r interpreter'
+	const [selectedInterpreter, setSelectedInterpreter] = useState(
+		getSelectedInterpreter(projectConfig.selectedRuntime, runtimeStartupService, LanguageIds.R)
 	);
 	const [interpreterEntries, setInterpreterEntries] =
 		useState(
@@ -53,7 +54,7 @@ export const RConfigurationStep = (props: PropsWithChildren<NewProjectWizardStep
 	// Handler for when the interpreter is selected. The project configuration is updated with the
 	// selected interpreter.
 	const onInterpreterSelected = (identifier: string) => {
-		setSelectedInterpreter(identifier);
+		// setSelectedInterpreter(identifier);
 		const selectedRuntime = languageRuntimeService.getRegisteredRuntime(identifier);
 		if (!selectedRuntime) {
 			// This shouldn't happen, since the DropDownListBox should only allow selection of registered
@@ -61,6 +62,7 @@ export const RConfigurationStep = (props: PropsWithChildren<NewProjectWizardStep
 			logService.error(`No runtime found for identifier: ${identifier}`);
 			return;
 		}
+		setSelectedInterpreter(selectedRuntime);
 		setProjectConfig({ ...projectConfig, selectedRuntime });
 	};
 
@@ -75,14 +77,21 @@ export const RConfigurationStep = (props: PropsWithChildren<NewProjectWizardStep
 			runtimeStartupService.onDidChangeRuntimeStartupPhase(
 				phase => {
 					if (phase === RuntimeStartupPhase.Complete) {
+						// Set the interpreter entries to show in the dropdown.
 						const entries = getRInterpreterEntries(
 							runtimeStartupService,
 							languageRuntimeService
 						);
 						setInterpreterEntries(entries);
-						setSelectedInterpreter(
-							getSelectedRInterpreterId(selectedInterpreter, runtimeStartupService)
+
+						// Set the selected interpreter to the preferred interpreter if it is available.
+						const selectedRuntime = getSelectedInterpreter(
+							selectedInterpreter,
+							runtimeStartupService,
+							LanguageIds.R
 						);
+						setSelectedInterpreter(selectedRuntime);
+						setProjectConfig({ ...projectConfig, selectedRuntime });
 					}
 					setStartupPhase(phase);
 				}
@@ -137,7 +146,7 @@ export const RConfigurationStep = (props: PropsWithChildren<NewProjectWizardStep
 					// interpreters, show a message that no suitable interpreters were found and the
 					// user should install an interpreter with minimum version
 					entries={startupPhase !== RuntimeStartupPhase.Complete ? [] : interpreterEntries}
-					selectedIdentifier={selectedInterpreter}
+					selectedIdentifier={selectedInterpreter?.runtimeId}
 					createItem={item =>
 						<InterpreterEntry interpreterInfo={item.options.value} />
 					}

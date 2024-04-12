@@ -3,7 +3,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { LanguageIds } from 'vs/workbench/browser/positronNewProjectWizard/interfaces/newProjectWizardEnums';
-import { getInterpreterDropdownItems, getPreferredRuntimeId } from 'vs/workbench/browser/positronNewProjectWizard/utilities/interpreterDropDownUtils';
+import { getInterpreterDropdownItems } from 'vs/workbench/browser/positronNewProjectWizard/utilities/interpreterDropDownUtils';
 import { ILanguageRuntimeService } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { IRuntimeStartupService } from 'vs/workbench/services/runtimeStartup/common/runtimeStartupService';
 
@@ -26,11 +26,4 @@ export const getRInterpreterEntries = (
 		languageId,
 		preferredRuntime?.runtimeId
 	);
-};
-
-export const getSelectedRInterpreterId = (
-	existingSelection: string | undefined,
-	runtimeStartupService: IRuntimeStartupService,
-) => {
-	return existingSelection || getPreferredRuntimeId(runtimeStartupService, LanguageIds.R) || '';
 };

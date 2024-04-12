@@ -48,6 +48,7 @@ export interface NewProjectConfiguration {
 	readonly openInNewWindow: boolean;
 	readonly pythonEnvSetupType: EnvironmentSetupType | undefined;
 	readonly pythonEnvType: PythonEnvironmentType | undefined;
+	readonly installIpykernel: boolean | undefined;
 	readonly useRenv: boolean | undefined;
 }
 
@@ -81,6 +82,7 @@ export const useNewProjectWizardState = (
 		openInNewWindow: true,
 		pythonEnvSetupType: undefined,
 		pythonEnvType: undefined,
+		installIpykernel: undefined,
 		useRenv: undefined
 	});
 

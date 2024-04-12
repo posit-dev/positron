@@ -4,7 +4,7 @@
 
 import { DropDownListBoxItem } from 'vs/workbench/browser/positronComponents/dropDownListBox/dropDownListBoxItem';
 import { EnvironmentSetupType, LanguageIds, PythonEnvironmentType, PythonRuntimeFilter } from 'vs/workbench/browser/positronNewProjectWizard/interfaces/newProjectWizardEnums';
-import { InterpreterInfo, getInterpreterDropdownItems, getPreferredRuntimeId } from 'vs/workbench/browser/positronNewProjectWizard/utilities/interpreterDropDownUtils';
+import { InterpreterInfo, getInterpreterDropdownItems } from 'vs/workbench/browser/positronNewProjectWizard/utilities/interpreterDropDownUtils';
 import { ILanguageRuntimeService } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { IRuntimeStartupService } from 'vs/workbench/services/runtimeStartup/common/runtimeStartupService';
 
@@ -129,21 +129,6 @@ export const locationForNewEnv = (
 			? '.conda'
 			: '';
 	return `${parentFolder}/${projectName}/${envDir}`;
-};
-
-/**
- * Returns the runtime ID of the Python interpreter that should be selected in the dropdown box.
- * If an existing selection is provided, it is returned. Otherwise, the preferred runtime ID is
- * returned if available.
- * @param existingSelection The existing selected interpreter ID.
- * @param runtimeStartupService The runtime startup service.
- * @returns The runtime ID of the selected Python interpreter.
- */
-export const getSelectedPythonInterpreterId = (
-	existingSelection: string | undefined,
-	runtimeStartupService: IRuntimeStartupService
-) => {
-	return existingSelection || getPreferredRuntimeId(runtimeStartupService, LanguageIds.Python) || '';
 };
 
 /**
