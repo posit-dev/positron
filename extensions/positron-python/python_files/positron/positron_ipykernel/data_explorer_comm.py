@@ -43,6 +43,17 @@ class ColumnDisplayType(str, enum.Enum):
 
 
 @enum.unique
+class RowFilterCondition(str, enum.Enum):
+    """
+    Possible values for Condition in RowFilter
+    """
+
+    And = "and"
+
+    Or = "or"
+
+
+@enum.unique
 class RowFilterType(str, enum.Enum):
     """
     Possible values for RowFilterType
@@ -52,9 +63,13 @@ class RowFilterType(str, enum.Enum):
 
     Compare = "compare"
 
+    IsEmpty = "is_empty"
+
     IsNull = "is_null"
 
     NotBetween = "not_between"
+
+    NotEmpty = "not_empty"
 
     NotNull = "not_null"
 
@@ -152,9 +167,9 @@ class FilterResult(BaseModel):
     )
 
 
-class TableState(BaseModel):
+class BackendState(BaseModel):
     """
-    The current backend table state
+    The current backend state for the data explorer
     """
 
     table_shape: TableShape = Field(
@@ -169,6 +184,10 @@ class TableState(BaseModel):
         description="The set of currently applied sorts",
     )
 
+    supported_features: SupportedFeatures = Field(
+        description="The features currently supported by the backend instance",
+    )
+
 
 class TableShape(BaseModel):
     """
@@ -181,24 +200,6 @@ class TableShape(BaseModel):
 
     num_columns: int = Field(
         description="Number of columns in the unfiltered dataset",
-    )
-
-
-class SupportedFeatures(BaseModel):
-    """
-    For each field, returns flags indicating supported features
-    """
-
-    search_schema: SearchSchemaFeatures = Field(
-        description="Support for 'search_schema' RPC and its features",
-    )
-
-    set_row_filters: SetRowFiltersFeatures = Field(
-        description="Support for 'set_row_filters' RPC and its features",
-    )
-
-    get_column_profiles: GetColumnProfilesFeatures = Field(
-        description="Support for 'get_column_profiles' RPC and its features",
     )
 
 
@@ -279,6 +280,15 @@ class RowFilter(BaseModel):
 
     column_index: int = Field(
         description="Column index to apply filter to",
+    )
+
+    condition: RowFilterCondition = Field(
+        description="The binary condition to use to combine with preceding row filters",
+    )
+
+    is_valid: Optional[bool] = Field(
+        default=None,
+        description="Whether the filter is valid and supported by the backend, if undefined then true",
     )
 
     between_params: Optional[BetweenFilterParams] = Field(
@@ -556,6 +566,24 @@ class ColumnSortKey(BaseModel):
     )
 
 
+class SupportedFeatures(BaseModel):
+    """
+    For each field, returns flags indicating supported features
+    """
+
+    search_schema: SearchSchemaFeatures = Field(
+        description="Support for 'search_schema' RPC and its features",
+    )
+
+    set_row_filters: SetRowFiltersFeatures = Field(
+        description="Support for 'set_row_filters' RPC and its features",
+    )
+
+    get_column_profiles: GetColumnProfilesFeatures = Field(
+        description="Support for 'get_column_profiles' RPC and its features",
+    )
+
+
 class SearchSchemaFeatures(BaseModel):
     """
     Feature flags for 'search_schema' RPC
@@ -624,9 +652,6 @@ class DataExplorerBackendRequest(str, enum.Enum):
 
     # Get the state
     GetState = "get_state"
-
-    # Query the backend to determine supported features
-    GetSupportedFeatures = "get_supported_features"
 
 
 class GetSchemaParams(BaseModel):
@@ -840,22 +865,6 @@ class GetStateRequest(BaseModel):
     )
 
 
-class GetSupportedFeaturesRequest(BaseModel):
-    """
-    Query the backend to determine supported features, to enable feature
-    toggling
-    """
-
-    method: Literal[DataExplorerBackendRequest.GetSupportedFeatures] = Field(
-        description="The JSON-RPC method name (get_supported_features)",
-    )
-
-    jsonrpc: str = Field(
-        default="2.0",
-        description="The JSON-RPC version specifier",
-    )
-
-
 class DataExplorerBackendMessageContent(BaseModel):
     comm_id: str
     data: Union[
@@ -866,7 +875,6 @@ class DataExplorerBackendMessageContent(BaseModel):
         SetSortColumnsRequest,
         GetColumnProfilesRequest,
         GetStateRequest,
-        GetSupportedFeaturesRequest,
     ] = Field(..., discriminator="method")
 
 
@@ -899,11 +907,9 @@ TableData.update_forward_refs()
 
 FilterResult.update_forward_refs()
 
-TableState.update_forward_refs()
+BackendState.update_forward_refs()
 
 TableShape.update_forward_refs()
-
-SupportedFeatures.update_forward_refs()
 
 ColumnSchema.update_forward_refs()
 
@@ -941,6 +947,8 @@ ColumnQuantileValue.update_forward_refs()
 
 ColumnSortKey.update_forward_refs()
 
+SupportedFeatures.update_forward_refs()
+
 SearchSchemaFeatures.update_forward_refs()
 
 SetRowFiltersFeatures.update_forward_refs()
@@ -972,7 +980,5 @@ GetColumnProfilesParams.update_forward_refs()
 GetColumnProfilesRequest.update_forward_refs()
 
 GetStateRequest.update_forward_refs()
-
-GetSupportedFeaturesRequest.update_forward_refs()
 
 SchemaUpdateParams.update_forward_refs()
