@@ -4,8 +4,8 @@
 
 import logging
 import os
-import webbrowser
 import re
+import webbrowser
 from pathlib import Path
 from typing import Callable, Dict, List, Optional, Union
 
@@ -18,10 +18,10 @@ from .ui_comm import (
     CallMethodParams,
     CallMethodRequest,
     OpenEditorParams,
+    ShowUrlParams,
     UiBackendMessageContent,
     UiFrontendEvent,
     WorkingDirectoryParams,
-    ShowUrlParams,
 )
 from .utils import JsonData, JsonRecord, alias_home
 
@@ -171,22 +171,19 @@ class UiService:
 class PositronViewerBrowser(webbrowser.BaseBrowser):
     """Launcher class for Positron Viewer browsers."""
 
-    def __init__(self, name="positron_viewer", comm=None):
+    def __init__(self, name: str = "positron_viewer", comm: PositronComm = None):
         self.name = name
         self.comm = comm
 
     def open(self, url, new=0, autoraise=True):
+        if not self.comm:
+            return False
 
-        pattern = (
-            r"\b(?:https?|ftp):\/\/(?:" + "|".join(re.escape(addr) for addr in _localhosts) + r")\b"
-        )
-        matches = re.match(pattern, url)
-        if matches:
-            if self.comm:
+        for addr in _localhosts:
+            if addr in url:
                 event = ShowUrlParams(url=url)
                 self.comm.send_event(name=UiFrontendEvent.ShowUrl, payload=event.dict())
+                return True
 
-            return True
-        else:
-            # pass back to webbrowser's list of browsers to open up the link
-            return False
+        # pass back to webbrowser's list of browsers to open up the link
+        return False
