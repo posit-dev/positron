@@ -9,9 +9,8 @@ import logging
 import os
 import sys
 
-from positron_ipykernel.positron_ipkernel import PositronIPKernelApp
+from positron_ipykernel.positron_ipkernel import PositronIPKernelApp, SessionMode
 from positron_ipykernel.positron_jedilsp import POSITRON
-from traitlets.config import Config
 
 logger = logging.getLogger(__name__)
 
@@ -57,9 +56,9 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--session-mode",
         help="session mode in which the kernel is to be started",
-        type=str,
-        default="console",
-        choices=["console", "notebook", "background"],
+        type=SessionMode,
+        default=SessionMode.Default,
+        choices=sorted(SessionMode),
     )
     args = parser.parse_args()
     args.loglevel = args.loglevel.upper()
@@ -108,20 +107,17 @@ if __name__ == "__main__":
             }
         }
 
-    # Start Positron's IPyKernel as the interpreter for our console.
     # IPKernelApp expects an empty string if no connection_file is provided.
     if args.connection_file is None:
         args.connection_file = ""
 
-    config = Config(
-        IPKernelApp={
-            "connection_file": args.connection_file,
-            "log_level": args.loglevel,
-            "logging_config": logging_config,
-        },
+    # Start Positron's IPyKernel as the interpreter for our console.
+    app: PositronIPKernelApp = PositronIPKernelApp.instance(
+        connection_file=args.connection_file,
+        log_level=args.loglevel,
+        logging_config=logging_config,
+        session_mode=args.session_mode,
     )
-
-    app: PositronIPKernelApp = PositronIPKernelApp.instance(config=config)
     # Initialize with empty argv, otherwise BaseIPythonApplication.initialize reuses our
     # command-line arguments in unexpected ways (e.g. logfile instructs it to log executed code).
     app.initialize(argv=[])

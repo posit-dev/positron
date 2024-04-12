@@ -10,6 +10,7 @@ from unittest.mock import Mock
 import pandas as pd
 import pytest
 from IPython.utils.syspathcontext import prepended_to_syspath
+from positron_ipykernel.positron_ipkernel import SessionMode
 from positron_ipykernel.help import help
 from positron_ipykernel.utils import alias_home
 
@@ -81,7 +82,12 @@ def g():
 """
 
 
-def test_traceback(shell: PositronShell, tmp_path: Path, mock_displayhook: Mock) -> None:
+def test_console_traceback(
+    shell: PositronShell, tmp_path: Path, mock_displayhook: Mock, monkeypatch
+) -> None:
+    # Ensure that we're in console mode.
+    monkeypatch.setattr(shell, "session_mode", SessionMode.Console)
+
     # We follow the approach of IPython's test_ultratb.py, which is to create a temporary module,
     # prepend its parent directory to sys.path, import it, then run a cell that calls a function
     # from it.
@@ -165,6 +171,44 @@ def test_traceback(shell: PositronShell, tmp_path: Path, mock_displayhook: Mock)
     assert_ansi_string_startswith(
         exc_content["evalue"], "This is an error!\nCell " + colors.filenameEm
     )
+
+
+def test_notebook_traceback(
+    shell: PositronShell, tmp_path: Path, mock_displayhook: Mock, monkeypatch
+) -> None:
+    # Ensure that we're in notebook mode.
+    monkeypatch.setattr(shell, "session_mode", SessionMode.Notebook)
+
+    # We follow the approach of IPython's test_ultratb.py, which is to create a temporary module,
+    # prepend its parent directory to sys.path, import it, then run a cell that calls a function
+    # from it.
+
+    # Create a temporary module.
+    file = tmp_path / "test_traceback.py"
+    file.write_text(code)
+
+    # Temporarily add the module to sys.path and call a function from it, which should error.
+    with prepended_to_syspath(str(tmp_path)):
+        shell.run_cell("import test_traceback; test_traceback.g()")
+
+    # Check that a single message was sent to the frontend.
+    call_args_list = mock_displayhook.session.send.call_args_list
+    assert len(call_args_list) == 1
+
+    call_args = call_args_list[0]
+
+    # Check that the message was sent over the "error" stream.
+    assert call_args.args[1] == "error"
+
+    exc_content = call_args.args[2]
+
+    # Check that we haven't removed any frames.
+    # We don't check the traceback contents in this case since that's tested in IPython.
+    assert len(exc_content["traceback"]) == 6
+
+    # Check that we haven't modified any other contents.
+    assert exc_content["ename"] == "Exception"
+    assert exc_content["evalue"] == "This is an error!"
 
 
 def assert_ansi_string_startswith(actual: str, expected: str) -> None:
