@@ -13,23 +13,33 @@
 	cursor: pointer;
 	background-color: var(--vscode-positronModalDialog-projectTypeBackground);
 	color: var(--vscode-positronModalDialog-projectTypeForeground);
-	border: 1px solid transparent;
+	border: 1px solid var(--vscode-positronModalDialog-projectTypeBorder);
 	border-radius: 6px;
 	padding: 0px 12px;
 }
 
 .project-type-selection-step
 .project-type-group
-.project-type:has(:focus-visible) {
-	outline: 1px solid var(--vscode-focusBorder);
-	outline-offset: 2px;
+.project-type:hover {
+	background-color: var(--vscode-positronModalDialog-projectTypeBackgroundHover);
+	color: var(--vscode-positronModalDialog-projectTypeForegroundHover);
+	border-color: var(--vscode-positronModalDialog-projectTypeBorderHover);
 }
 
 .project-type-selection-step
 .project-type-group
 .project-type-selected {
 	background-color: var(--vscode-positronModalDialog-projectTypeBackgroundSelected);
-	border: 1px solid var(--vscode-positronModalDialog-projectTypeBorder);
+	color: var(--vscode-positronModalDialog-projectTypeForegroundSelected);
+	border: 1px solid var(--vscode-positronModalDialog-projectTypeBorderSelected);
+}
+
+/* Include outline when project type is focused during keyboard navigation */
+.project-type-selection-step
+.project-type-group
+.project-type:has(:focus-visible) {
+	outline: 1px solid var(--vscode-focusBorder);
+	outline-offset: 2px;
 }
 
 .project-type-selection-step
