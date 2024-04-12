@@ -24,8 +24,8 @@ interface ProfileNumberProps {
  * @returns The rendered component.
  */
 export const ProfileNumber = (props: ProfileNumberProps) => {
-	// Hack
 	let stats: any = props.instance.getColumnSummaryStats(props.columnIndex)?.number_stats!;
+	const nullCount = props.instance.getColumnNullCount(props.columnIndex);
 	if (!stats) {
 		stats = {};
 	}
@@ -41,7 +41,7 @@ export const ProfileNumber = (props: ProfileNumberProps) => {
 			</div>
 			<div className='values'>
 				<div className='values-left'>
-					<div className='value'>-999999</div>
+					<div className='value'>{nullCount}</div>
 					<div className='value'>{stats.mean}</div>
 					<div className='value'>{stats.median}</div>
 					<div className='value'>{stats.stdev}</div>

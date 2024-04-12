@@ -39,7 +39,9 @@ export class TableDataDataGridInstance extends DataGridInstance {
 	 * Constructor.
 	 * @param dataExplorerClientInstance The DataExplorerClientInstance.
 	 */
-	constructor(dataExplorerClientInstance: DataExplorerClientInstance) {
+	constructor(dataExplorerClientInstance: DataExplorerClientInstance,
+		dataCache: DataExplorerCache
+	) {
 		// Call the base class's constructor.
 		super({
 			columnHeaders: true,
@@ -64,8 +66,8 @@ export class TableDataDataGridInstance extends DataGridInstance {
 		// Setup the data explorer client instance.
 		this._dataExplorerClientInstance = dataExplorerClientInstance;
 
-		// Allocate and initialize the DataExplorerCache.
-		this._dataExplorerCache = new DataExplorerCache(dataExplorerClientInstance);
+		// Set the shared data cache
+		this._dataExplorerCache = dataCache;
 
 		// Add the onDidUpdateCache event handler.
 		this._register(this._dataExplorerCache.onDidUpdateCache(() =>
