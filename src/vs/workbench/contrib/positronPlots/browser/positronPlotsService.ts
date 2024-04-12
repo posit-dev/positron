@@ -4,7 +4,7 @@
 
 import { Disposable } from 'vs/base/common/lifecycle';
 import { IPositronPlotMetadata, PlotClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimePlotClient';
-import { ILanguageRuntimeMessageOutput, RuntimeOutputKind } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { ILanguageRuntimeMessageOutput, LanguageRuntimeSessionMode, RuntimeOutputKind } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { ILanguageRuntimeSession, IRuntimeSessionService, RuntimeClientType } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
 import { HTMLFileSystemProvider } from 'vs/platform/files/browser/htmlFileSystemProvider';
 import { IFileService } from 'vs/platform/files/common/files';
@@ -446,31 +446,34 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 			}
 		}));
 
-		// Listen for static plots being emitted, and register each one with
-		// the plots service.
-		this._register(session.onDidReceiveRuntimeMessageOutput(async (message) => {
-			// Check to see if we we already have a plot client for this
-			// message ID. If so, we don't need to do anything.
-			if (this.hasPlot(session.sessionId, message.id)) {
-				return;
-			}
+		// Configure console-specific behavior.
+		if (session.metadata.sessionMode === LanguageRuntimeSessionMode.Console) {
+			// Listen for static plots being emitted, and register each one with
+			// the plots service.
+			this._register(session.onDidReceiveRuntimeMessageOutput(async (message) => {
+				// Check to see if we we already have a plot client for this
+				// message ID. If so, we don't need to do anything.
+				if (this.hasPlot(session.sessionId, message.id)) {
+					return;
+				}
 
-			const code = this._recentExecutions.has(message.parent_id) ?
-				this._recentExecutions.get(message.parent_id) : '';
-			if (message.kind === RuntimeOutputKind.StaticImage) {
-				// Create a new static plot client instance and register it with the service.
-				this.registerStaticPlot(session.sessionId, message, code);
+				const code = this._recentExecutions.has(message.parent_id) ?
+					this._recentExecutions.get(message.parent_id) : '';
+				if (message.kind === RuntimeOutputKind.StaticImage) {
+					// Create a new static plot client instance and register it with the service.
+					this.registerStaticPlot(session.sessionId, message, code);
 
-				// Raise the Plots pane so the plot is visible.
-				this._viewsService.openView(POSITRON_PLOTS_VIEW_ID, false);
-			} else if (message.kind === RuntimeOutputKind.PlotWidget) {
-				// Create a new webview plot client instance and register it with the service.
-				await this.registerWebviewPlot(session, message, code);
+					// Raise the Plots pane so the plot is visible.
+					this._viewsService.openView(POSITRON_PLOTS_VIEW_ID, false);
+				} else if (message.kind === RuntimeOutputKind.PlotWidget) {
+					// Create a new webview plot client instance and register it with the service.
+					await this.registerWebviewPlot(session, message, code);
 
-				// Raise the Plots pane so the plot is visible.
-				this._viewsService.openView(POSITRON_PLOTS_VIEW_ID, false);
-			}
-		}));
+					// Raise the Plots pane so the plot is visible.
+					this._viewsService.openView(POSITRON_PLOTS_VIEW_ID, false);
+				}
+			}));
+		}
 	}
 
 	/**

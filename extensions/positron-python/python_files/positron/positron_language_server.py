@@ -9,8 +9,9 @@ import logging
 import os
 import sys
 
-from positron_ipykernel.positron_ipkernel import PositronIPKernelApp, SessionMode
+from positron_ipykernel.positron_ipkernel import PositronIPKernelApp
 from positron_ipykernel.positron_jedilsp import POSITRON
+from positron_ipykernel.session_mode import SessionMode
 
 logger = logging.getLogger(__name__)
 
@@ -57,7 +58,7 @@ def parse_args() -> argparse.Namespace:
         "--session-mode",
         help="session mode in which the kernel is to be started",
         type=SessionMode,
-        default=SessionMode.Default,
+        default=SessionMode.DEFAULT,
         choices=sorted(SessionMode),
     )
     args = parser.parse_args()
