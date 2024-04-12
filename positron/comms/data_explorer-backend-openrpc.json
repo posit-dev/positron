@@ -240,12 +240,13 @@
 			"result": {
 				"schema": {
 					"type": "object",
-					"name": "table_state",
-					"description": "The current backend table state",
+					"name": "data_explorer_state",
+					"description": "The current backend state for the data explorer",
 					"required": [
 						"table_shape",
 						"row_filters",
-						"sort_keys"
+						"sort_keys",
+						"supported_features"
 					],
 					"properties": {
 						"table_shape": {
@@ -280,38 +281,10 @@
 							"items": {
 								"$ref": "#/components/schemas/column_sort_key"
 							}
-						}
-					}
-				}
-			}
-		},
-		{
-			"name": "get_supported_features",
-			"summary": "Query the backend to determine supported features",
-			"description": "Query the backend to determine supported features, to enable feature toggling",
-			"params": [],
-			"result": {
-				"schema": {
-					"type": "object",
-					"name": "supported_features",
-					"description": "For each field, returns flags indicating supported features",
-					"required": [
-						"search_schema",
-						"set_row_filters",
-						"get_column_profiles"
-					],
-					"properties": {
-						"search_schema": {
-							"description": "Support for 'search_schema' RPC and its features",
-							"$ref": "#/components/schemas/search_schema_features"
 						},
-						"set_row_filters": {
-							"description": "Support for 'set_row_filters' RPC and its features",
-							"$ref": "#/components/schemas/set_row_filters_features"
-						},
-						"get_column_profiles": {
-							"description": "Support for 'get_column_profiles' RPC and its features",
-							"$ref": "#/components/schemas/get_column_profiles_features"
+						"supported_features": {
+							"description": "The features currently supported by the backend instance",
+							"$ref": "#/components/schemas/supported_features"
 						}
 					}
 				}
@@ -412,15 +385,11 @@
 				"type": "object",
 				"description": "Specifies a table row filter based on a single column's values",
 				"required": [
-					"filter_id",
 					"filter_type",
-					"column_index"
+					"column_index",
+					"condition"
 				],
 				"properties": {
-					"filter_id": {
-						"type": "string",
-						"description": "Unique identifier for this filter"
-					},
 					"filter_type": {
 						"description": "Type of row filter to apply",
 						"$ref": "#/components/schemas/row_filter_type"
@@ -428,6 +397,18 @@
 					"column_index": {
 						"type": "integer",
 						"description": "Column index to apply filter to"
+					},
+					"condition": {
+						"type": "string",
+						"description": "The binary condition to use to combine with preceding row filters",
+						"enum": [
+							"and",
+							"or"
+						]
+					},
+					"is_valid": {
+						"type": "boolean",
+						"description": "Whether the filter is valid and supported by the backend, if undefined then true"
 					},
 					"between_params": {
 						"description": "Parameters for the 'between' and 'not_between' filter types",
@@ -453,8 +434,10 @@
 				"enum": [
 					"between",
 					"compare",
+					"is_empty",
 					"is_null",
 					"not_between",
+					"not_empty",
 					"not_null",
 					"search",
 					"set_membership"
@@ -797,6 +780,29 @@
 					"ascending": {
 						"type": "boolean",
 						"description": "Sort order, ascending (true) or descending (false)"
+					}
+				}
+			},
+			"supported_features": {
+				"type": "object",
+				"description": "For each field, returns flags indicating supported features",
+				"required": [
+					"search_schema",
+					"set_row_filters",
+					"get_column_profiles"
+				],
+				"properties": {
+					"search_schema": {
+						"description": "Support for 'search_schema' RPC and its features",
+						"$ref": "#/components/schemas/search_schema_features"
+					},
+					"set_row_filters": {
+						"description": "Support for 'set_row_filters' RPC and its features",
+						"$ref": "#/components/schemas/set_row_filters_features"
+					},
+					"get_column_profiles": {
+						"description": "Support for 'get_column_profiles' RPC and its features",
+						"$ref": "#/components/schemas/get_column_profiles_features"
 					}
 				}
 			},

@@ -373,9 +373,6 @@ class DataExplorerFixture:
     def get_state(self, table_name):
         return self.do_json_rpc(table_name, "get_state")
 
-    def get_supported_features(self, table_name):
-        return self.do_json_rpc(table_name, "get_supported_features")
-
     def get_data_values(self, table_name, **params):
         return self.do_json_rpc(table_name, "get_data_values", **params)
 
@@ -460,9 +457,9 @@ def test_pandas_get_state(dxf: DataExplorerFixture):
     assert result["row_filters"] == [RowFilter(**f) for f in filters]
 
 
-def test_pandas_get_supported_features(dxf: DataExplorerFixture):
+def test_pandas_supported_features(dxf: DataExplorerFixture):
     dxf.register_table("example", SIMPLE_PANDAS_DF)
-    features = dxf.get_supported_features("example")
+    features = dxf.get_state("example")["supported_features"]
 
     search_schema = features["search_schema"]
     row_filters = features["set_row_filters"]
@@ -672,37 +669,58 @@ def test_pandas_get_data_values(dxf: DataExplorerFixture):
     #     )
 
 
-def _filter(filter_type, column_index, **kwargs):
+def _filter(filter_type, column_index, condition="and", is_valid=None, **kwargs):
     kwargs.update(
         {
-            "filter_id": guid(),
             "filter_type": filter_type,
             "column_index": column_index,
+            "condition": condition,
+            "is_valid": is_valid,
         }
     )
     return kwargs
 
 
-def _compare_filter(column_index, op, value):
-    return _filter("compare", column_index, compare_params={"op": op, "value": value})
+def _compare_filter(column_index, op, value, condition="and", is_valid=None):
+    return _filter(
+        "compare",
+        column_index,
+        condition=condition,
+        is_valid=is_valid,
+        compare_params={"op": op, "value": value},
+    )
 
 
-def _between_filter(column_index, left_value, right_value, op="between"):
+def _between_filter(column_index, left_value, right_value, op="between", condition="and"):
     return _filter(
         op,
         column_index,
+        condition=condition,
         between_params={"left_value": left_value, "right_value": right_value},
     )
 
 
-def _not_between_filter(column_index, left_value, right_value):
-    return _between_filter(column_index, left_value, right_value, op="not_between")
+def _not_between_filter(column_index, left_value, right_value, condition="and"):
+    return _between_filter(
+        column_index,
+        left_value,
+        right_value,
+        op="not_between",
+        condition=condition,
+    )
 
 
-def _search_filter(column_index, term, case_sensitive=False, search_type="contains"):
+def _search_filter(
+    column_index,
+    term,
+    case_sensitive=False,
+    search_type="contains",
+    condition="and",
+):
     return _filter(
         "search",
         column_index,
+        condition=condition,
         search_params={
             "search_type": search_type,
             "term": term,
@@ -711,10 +729,16 @@ def _search_filter(column_index, term, case_sensitive=False, search_type="contai
     )
 
 
-def _set_member_filter(column_index, values, inclusive=True):
+def _set_member_filter(
+    column_index,
+    values,
+    inclusive=True,
+    condition="and",
+):
     return _filter(
         "set_membership",
         column_index,
+        condition=condition,
         set_membership_params={"values": values, "inclusive": inclusive},
     )
 
@@ -747,6 +771,25 @@ def test_pandas_filter_between(dxf: DataExplorerFixture):
         )
 
 
+def test_pandas_filter_conditions(dxf: DataExplorerFixture):
+    # Test AND/OR conditions when filtering
+    df = SIMPLE_PANDAS_DF
+    filters = [
+        _compare_filter(0, ">=", 3, condition="or"),
+        _compare_filter(3, "<=", -4.5, condition="or"),
+        _compare_filter(3, "<=", -4.5, condition="or"),
+    ]
+
+    expected_df = df[(df["a"] >= 3) | (df["d"] <= -4.5)]
+    dxf.check_filter_case(df, filters, expected_df)
+
+    # Test a single condition with or set
+    filters = [
+        _compare_filter(0, ">=", 3, condition="or"),
+    ]
+    dxf.check_filter_case(df, filters, df[df["a"] >= 3])
+
+
 def test_pandas_filter_compare(dxf: DataExplorerFixture):
     # Just use the 'a' column to smoke test comparison filters on
     # integers
@@ -773,6 +816,40 @@ def test_pandas_filter_compare(dxf: DataExplorerFixture):
     ex_id = guid()
     dxf.register_table(ex_id, df)
     dxf.compare_tables(table_name, ex_id, df.shape)
+
+
+def test_pandas_filter_is_valid(dxf: DataExplorerFixture):
+    # Test AND/OR conditions when filtering
+    df = SIMPLE_PANDAS_DF
+    filters = [
+        _compare_filter(0, ">=", 3),
+        _compare_filter(0, "<", 3, is_valid=False),
+    ]
+
+    expected_df = df[df["a"] >= 3]
+    dxf.check_filter_case(df, filters, expected_df)
+
+    # No filter is valid
+    filters = [
+        _compare_filter(0, ">=", 3, is_valid=False),
+        _compare_filter(0, "<", 3, is_valid=False),
+    ]
+
+    dxf.check_filter_case(df, filters, df)
+
+
+def test_pandas_filter_empty(dxf: DataExplorerFixture):
+    df = pd.DataFrame(
+        {
+            "a": ["foo", "bar", "", "", "", None, "baz", ""],
+            "b": [b"foo", b"bar", b"", b"", None, b"", b"baz", b""],
+        }
+    )
+
+    dxf.check_filter_case(df, [_filter("is_empty", 0)], df[df["a"].str.len() == 0])
+    dxf.check_filter_case(df, [_filter("not_empty", 0)], df[df["a"].str.len() != 0])
+    dxf.check_filter_case(df, [_filter("is_empty", 1)], df[df["b"].str.len() == 0])
+    dxf.check_filter_case(df, [_filter("not_empty", 1)], df[df["b"].str.len() != 0])
 
 
 def test_pandas_filter_is_null_not_null(dxf: DataExplorerFixture):

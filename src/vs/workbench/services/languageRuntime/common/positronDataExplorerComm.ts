@@ -54,9 +54,9 @@ export interface FilterResult {
 }
 
 /**
- * The current backend table state
+ * The current backend state for the data explorer
  */
-export interface TableState {
+export interface DataExplorerState {
 	/**
 	 * Provides number of rows and columns in table
 	 */
@@ -71,6 +71,11 @@ export interface TableState {
 	 * The set of currently applied sorts
 	 */
 	sort_keys: Array<ColumnSortKey>;
+
+	/**
+	 * The features currently supported by the backend instance
+	 */
+	supported_features: SupportedFeatures;
 
 }
 
@@ -87,27 +92,6 @@ export interface TableShape {
 	 * Number of columns in the unfiltered dataset
 	 */
 	num_columns: number;
-
-}
-
-/**
- * For each field, returns flags indicating supported features
- */
-export interface SupportedFeatures {
-	/**
-	 * Support for 'search_schema' RPC and its features
-	 */
-	search_schema: SearchSchemaFeatures;
-
-	/**
-	 * Support for 'set_row_filters' RPC and its features
-	 */
-	set_row_filters: SetRowFiltersFeatures;
-
-	/**
-	 * Support for 'get_column_profiles' RPC and its features
-	 */
-	get_column_profiles: GetColumnProfilesFeatures;
 
 }
 
@@ -183,11 +167,6 @@ export interface TableSchema {
  */
 export interface RowFilter {
 	/**
-	 * Unique identifier for this filter
-	 */
-	filter_id: string;
-
-	/**
 	 * Type of row filter to apply
 	 */
 	filter_type: RowFilterType;
@@ -196,6 +175,17 @@ export interface RowFilter {
 	 * Column index to apply filter to
 	 */
 	column_index: number;
+
+	/**
+	 * The binary condition to use to combine with preceding row filters
+	 */
+	condition: RowFilterCondition;
+
+	/**
+	 * Whether the filter is valid and supported by the backend, if undefined
+	 * then true
+	 */
+	is_valid?: boolean;
 
 	/**
 	 * Parameters for the 'between' and 'not_between' filter types
@@ -507,6 +497,27 @@ export interface ColumnSortKey {
 }
 
 /**
+ * For each field, returns flags indicating supported features
+ */
+export interface SupportedFeatures {
+	/**
+	 * Support for 'search_schema' RPC and its features
+	 */
+	search_schema: SearchSchemaFeatures;
+
+	/**
+	 * Support for 'set_row_filters' RPC and its features
+	 */
+	set_row_filters: SetRowFiltersFeatures;
+
+	/**
+	 * Support for 'get_column_profiles' RPC and its features
+	 */
+	get_column_profiles: GetColumnProfilesFeatures;
+
+}
+
+/**
  * Feature flags for 'search_schema' RPC
  */
 export interface SearchSchemaFeatures {
@@ -570,13 +581,23 @@ export enum ColumnDisplayType {
 }
 
 /**
+ * Possible values for Condition in RowFilter
+ */
+export enum RowFilterCondition {
+	And = 'and',
+	Or = 'or'
+}
+
+/**
  * Possible values for RowFilterType
  */
 export enum RowFilterType {
 	Between = 'between',
 	Compare = 'compare',
+	IsEmpty = 'is_empty',
 	IsNull = 'is_null',
 	NotBetween = 'not_between',
+	NotEmpty = 'not_empty',
 	NotNull = 'not_null',
 	Search = 'search',
 	SetMembership = 'set_membership'
@@ -737,23 +758,10 @@ export class PositronDataExplorerComm extends PositronBaseComm {
 	 * Request the current table state (applied filters and sort columns)
 	 *
 	 *
-	 * @returns The current backend table state
+	 * @returns The current backend state for the data explorer
 	 */
-	getState(): Promise<TableState> {
+	getState(): Promise<DataExplorerState> {
 		return super.performRpc('get_state', [], []);
-	}
-
-	/**
-	 * Query the backend to determine supported features
-	 *
-	 * Query the backend to determine supported features, to enable feature
-	 * toggling
-	 *
-	 *
-	 * @returns For each field, returns flags indicating supported features
-	 */
-	getSupportedFeatures(): Promise<SupportedFeatures> {
-		return super.performRpc('get_supported_features', [], []);
 	}
 
 
