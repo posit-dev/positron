@@ -46,32 +46,32 @@ export async function parseTestsFromFile(
 		}
 
 		const testItem = testingTools.controller.createTestItem(
-			encodeNodeId(testFile, match.testLabel, match.testSuperLabel),
-			match.testLabel,
+			encodeNodeId(testFile, match.match.desc, match.parentMatch?.desc),
+			match.match.desc,
 			uri
 		);
-		testItem.range = new vscode.Range(match.testStartPosition, match.testEndPosition);
+		testItem.range = new vscode.Range(match.match.startPos, match.match.endPos);
 
-		if (match.testSuperLabel === undefined) {
+		if (match.parentMatch === undefined) {
 			testingTools.testItemData.set(testItem, ItemType.TestThat);
-			tests.set(match.testLabel, testItem);
+			tests.set(match.match.desc, testItem);
 		} else {
 			testingTools.testItemData.set(testItem, ItemType.It);
-			if (tests.has(match.testSuperLabel)) {
-				tests.get(match.testSuperLabel)!.children.add(testItem);
+			if (tests.has(match.parentMatch.desc)) {
+				tests.get(match.parentMatch.desc)!.children.add(testItem);
 			} else {
 				const supertestItem = testingTools.controller.createTestItem(
-					encodeNodeId(testFile, match.testSuperLabel),
-					match.testSuperLabel,
+					encodeNodeId(testFile, match.parentMatch.desc),
+					match.parentMatch.desc,
 					uri
 				);
 				testingTools.testItemData.set(supertestItem, ItemType.Describe);
 				supertestItem.range = new vscode.Range(
-					match.testSuperStartPosition!,
-					match.testSuperEndPosition!
+					match.parentMatch.startPos!,
+					match.parentMatch.endPos!
 				);
 				supertestItem.children.add(testItem);
-				tests.set(match.testSuperLabel, supertestItem);
+				tests.set(match.parentMatch.desc, supertestItem);
 			}
 		}
 	}
@@ -88,75 +88,18 @@ async function findTests(uri: vscode.Uri) {
 	try {
 		const document = await vscode.workspace.openTextDocument(uri);
 		const tree = parser!.parse(document.getText());
-		const matches = [];
-
-		const toVSCodePosition = (pos: any) => new vscode.Position(pos.row, pos.column);
 
 		let queryPath = path.join(EXTENSION_ROOT_DIR, 'resources', 'testing', 'test_that.scm');
 		let queryContent = await vscode.workspace.fs.readFile(vscode.Uri.file(queryPath));
 		let query = R!.query(queryContent.toString());
-		let raw_matches = query.matches(tree.rootNode);
 
-		for (const match of raw_matches) {
-			if (match === undefined) {
-				continue;
-			}
-
-			const testFunctionCapture = match.captures.find(capture => capture.name === '_function.name');
-			const testLabelCapture = match.captures.find(capture => capture.name === 'label');
-			const testCallCapture = match.captures.find(capture => capture.name === 'call');
-
-			if (testFunctionCapture && testLabelCapture && testCallCapture) {
-				matches.push({
-					testFunction: testFunctionCapture.node.text,
-					testLabel: testLabelCapture.node.text.substring(
-						1,
-						testLabelCapture.node.text.length - 1
-					),
-					testStartPosition: toVSCodePosition(testCallCapture.node.startPosition),
-					testEndPosition: toVSCodePosition(testCallCapture.node.endPosition)
-				});
-			}
-		}
+		const matches = createMatchObjects(query, tree);
 
 		queryPath = path.join(EXTENSION_ROOT_DIR, 'resources', 'testing', 'describe.scm');
 		queryContent = await vscode.workspace.fs.readFile(vscode.Uri.file(queryPath));
 		query = R!.query(queryContent.toString());
-		raw_matches = query.matches(tree.rootNode);
 
-		for (const match of raw_matches) {
-			if (match === undefined) {
-				continue;
-			}
-
-			const testSuperFunctionCapture = match.captures.find(capture => capture.name === '_superfunction.name');
-			const testSuperLabelCapture = match.captures.find(capture => capture.name === 'superlabel');
-			const testSuperCallCapture = match.captures.find(capture => capture.name === 'supercall');
-			const testFunctionCapture = match.captures.find(capture => capture.name === '_function.name');
-			const testLabelCapture = match.captures.find(capture => capture.name === 'label');
-			const testCallCapture = match.captures.find(capture => capture.name === 'call');
-
-			if (testSuperFunctionCapture && testSuperLabelCapture && testSuperCallCapture &&
-				testFunctionCapture && testLabelCapture && testCallCapture) {
-				matches.push({
-					testSuperFunction: testSuperFunctionCapture.node.text,
-					testSuperLabel: testSuperLabelCapture.node.text.substring(
-						1,
-						testSuperLabelCapture.node.text.length - 1
-					),
-					testSuperStartPosition: toVSCodePosition(testSuperCallCapture.node.startPosition),
-					testSuperEndPosition: toVSCodePosition(testSuperCallCapture.node.endPosition),
-
-					testFunction: testFunctionCapture.node.text,
-					testLabel: testLabelCapture.node.text.substring(
-						1,
-						testLabelCapture.node.text.length - 1
-					),
-					testStartPosition: toVSCodePosition(testCallCapture.node.startPosition),
-					testEndPosition: toVSCodePosition(testCallCapture.node.endPosition)
-				});
-			}
-		}
+		matches.push(...createMatchObjects(query, tree));
 
 		return matches;
 	} catch (reason) {
@@ -164,37 +107,65 @@ async function findTests(uri: vscode.Uri) {
 	}
 }
 
-// interface Match {
-// 	text: string;
-// 	startPos: vscode.Position;
-// 	endPos: vscode.Position;
-// }
+interface Match {
+	functionName: string;
+	desc: string;
+	startPos: vscode.Position;
+	endPos: vscode.Position;
+}
 
-// async function processQueries(queryPaths: string[], tree: any, R: any): Promise<Match[]> {
-// 	const matches: Match[] = [];
-// 	const toVSCodePosition = (pos: any) => new vscode.Position(pos.row, pos.column);
+interface TestMatch {
+	match: Match;
+	parentMatch?: Match;
+}
 
-// 	for (const queryPath of queryPaths) {
-// 		const fullPath = path.join(EXTENSION_ROOT_DIR, 'resources', 'testing', queryPath);
-// 		const queryContent = await vscode.workspace.fs.readFile(vscode.Uri.file(fullPath));
-// 		const query = R!.query(queryContent.toString());
+function createMatchObjects(query: Parser.Query, tree: Parser.Tree): TestMatch[] {
+	const raw_matches = query.matches(tree.rootNode);
+	const matches: TestMatch[] = [];
 
-// 		const raw_matches = query.matches(tree.rootNode);
+	for (const match of raw_matches) {
+		if (match === undefined) {
+			continue;
+		}
 
-// 		for (const match of raw_matches) {
-// 			if (match === undefined) {
-// 				continue;
-// 			}
-// 			matches.push({
-// 				testLabel: match.captures[2].node.text.substring(
-// 					1,
-// 					match.captures[2].node.text.length - 1
-// 				),
-// 				testStartPosition: toVSCodePosition(match.captures[0].node.startPosition),
-// 				testEndPosition: toVSCodePosition(match.captures[0].node.endPosition),
-// 			});
-// 		}
-// 	}
+		const testFunctionCapture = match.captures.find(capture => capture.name === '_function.name');
+		const testLabelCapture = match.captures.find(capture => capture.name === 'label');
+		const testCallCapture = match.captures.find(capture => capture.name === 'call');
 
-// 	return matches;
-// }
+		if (testFunctionCapture && testLabelCapture && testCallCapture) {
+			const matchObject: TestMatch = {
+				match: processCapture(testFunctionCapture, testLabelCapture, testCallCapture)
+			};
+
+			const testSuperFunctionCapture = match.captures.find(capture => capture.name === '_superfunction.name');
+			const testSuperLabelCapture = match.captures.find(capture => capture.name === 'superlabel');
+			const testSuperCallCapture = match.captures.find(capture => capture.name === 'supercall');
+
+			if (testSuperFunctionCapture && testSuperLabelCapture && testSuperCallCapture) {
+				matchObject.parentMatch = processCapture(testSuperFunctionCapture, testSuperLabelCapture, testSuperCallCapture);
+			}
+
+			matches.push(matchObject);
+		}
+	}
+
+	return matches;
+}
+
+const toVSCodePosition = (pos: any) => new vscode.Position(pos.row, pos.column);
+
+function processCapture(
+	captureFunction: Parser.QueryCapture,
+	captureLabel: Parser.QueryCapture,
+	captureCall: Parser.QueryCapture
+): Match {
+	return {
+		functionName: captureFunction.node.text,
+		desc: captureLabel.node.text.substring(
+			1,
+			captureLabel.node.text.length - 1
+		),
+		startPos: toVSCodePosition(captureCall.node.startPosition),
+		endPos: toVSCodePosition(captureCall.node.endPosition)
+	};
+}
