@@ -192,8 +192,17 @@ class PositronDataExplorerService extends Disposable implements IPositronDataExp
 		const start = new Date();
 
 		// Open the editor.
-		await this._editorService.openEditor({
+		const editor = await this._editorService.openEditor({
 			resource: PositronDataExplorerUri.generate(dataExplorerClientInstance.identifier)
+		});
+
+		// PositronDataExplorerEditorInput
+		dataExplorerClientInstance.getState().then((state) => {
+			// Hack to be able to call PositronDataExplorerEditorInput.setName without eslint errors;
+			const dxInput = editor?.input as any;
+			if (state.display_name !== undefined) {
+				dxInput.setName?.(`Data: ${state.display_name}`);
+			}
 		});
 
 		const end = new Date();

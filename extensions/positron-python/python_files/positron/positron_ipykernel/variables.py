@@ -15,7 +15,13 @@ from comm.base_comm import BaseComm
 from .access_keys import decode_access_key, encode_access_key
 from .inspectors import get_inspector
 from .positron_comm import CommMessage, JsonRpcErrorCode, PositronComm
-from .utils import JsonData, JsonRecord, cancel_tasks, create_task, get_qualname
+from .utils import (
+    JsonData,
+    JsonRecord,
+    cancel_tasks,
+    create_task,
+    get_qualname,
+)
 from .variables_comm import (
     ClearRequest,
     ClipboardFormatFormat,
