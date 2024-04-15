@@ -59,6 +59,10 @@ class RenderParams(BaseModel):
         description="The pixel ratio of the display device",
     )
 
+    format: str = Field(
+        description="The requested plot format",
+    )
+
 
 class RenderRequest(BaseModel):
     """
