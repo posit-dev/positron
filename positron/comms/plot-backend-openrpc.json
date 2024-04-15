@@ -30,6 +30,14 @@
 					"schema": {
 						"type": "number"
 					}
+				},
+				{
+					"name": "format",
+					"description": "The requested plot format",
+					"schema": {
+						"type": "string"
+					},
+					"required": false
 				}
 			],
 			"result": {

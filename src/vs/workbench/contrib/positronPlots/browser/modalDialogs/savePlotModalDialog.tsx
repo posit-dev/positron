@@ -7,7 +7,7 @@ import * as React from 'react';
 import { localize } from 'vs/nls';
 import { IWorkbenchLayoutService } from 'vs/workbench/services/layout/browser/layoutService';
 import { IRenderedPlot, PlotClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimePlotClient';
-import { IFileDialogService } from 'vs/platform/dialogs/common/dialogs';
+import { IDialogService, IFileDialogService } from 'vs/platform/dialogs/common/dialogs';
 import { URI } from 'vs/base/common/uri';
 import { ProgressBar } from 'vs/base/browser/ui/positronComponents/progressBar';
 import { LabeledTextInput } from 'vs/workbench/browser/positronComponents/positronModalDialog/components/labeledTextInput';
@@ -18,10 +18,21 @@ import { OKCancelActionBar } from 'vs/workbench/browser/positronComponents/posit
 import { PositronModalDialog } from 'vs/workbench/browser/positronComponents/positronModalDialog/positronModalDialog';
 import { IKeybindingService } from 'vs/platform/keybinding/common/keybinding';
 import { PositronModalReactRenderer } from 'vs/workbench/browser/positronModalReactRenderer/positronModalReactRenderer';
+import { FileFilter } from 'electron';
+import { DropDownListBox } from 'vs/workbench/browser/positronComponents/dropDownListBox/dropDownListBox';
+import { DropDownListBoxItem } from 'vs/workbench/browser/positronComponents/dropDownListBox/dropDownListBoxItem';
+import { IFileService } from 'vs/platform/files/common/files';
 
 export interface SavePlotOptions {
 	uri: string;
 	path: URI;
+}
+
+export enum PlotFormat {
+	PNG = 'png',
+	SVG = 'svg',
+	PDF = 'pdf',
+	JPEG = 'jpeg',
 }
 
 const SAVE_PLOT_MODAL_DIALOG_WIDTH = 500;
@@ -32,6 +43,8 @@ const BASE_DPI = 100; // matplotlib default DPI
  * Show the save plot modal dialog for dynamic plots.
  * @param layoutService the layout service for the modal
  * @param keybindingService the keybinding service to intercept shortcuts
+ * @param dialogService the dialog service to confirm the save
+ * @param fileService the file service to check if paths exist
  * @param fileDialogService the file dialog service to prompt where to save the plot
  * @param plotClient the dynamic plot client to render previews and the final image
  * @param savePlotCallback the action to take when the dialog closes
@@ -40,6 +53,8 @@ const BASE_DPI = 100; // matplotlib default DPI
 export const showSavePlotModalDialog = (
 	layoutService: IWorkbenchLayoutService,
 	keybindingService: IKeybindingService,
+	dialogService: IDialogService,
+	fileService: IFileService,
 	fileDialogService: IFileDialogService,
 	plotClient: PlotClientInstance,
 	savePlotCallback: (options: SavePlotOptions) => void,
@@ -58,7 +73,10 @@ export const showSavePlotModalDialog = (
 	renderer.render(
 		<SavePlotModalDialog
 			layoutService={layoutService}
+			dialogService={dialogService}
+			fileService={fileService}
 			fileDialogService={fileDialogService}
+			keybindingService={keybindingService}
 			renderer={renderer}
 			plotWidth={plotWidth}
 			plotHeight={plotHeight}
@@ -71,7 +89,10 @@ export const showSavePlotModalDialog = (
 
 interface SavePlotModalDialogProps {
 	layoutService: IWorkbenchLayoutService;
+	dialogService: IDialogService;
+	fileService: IFileService;
 	fileDialogService: IFileDialogService;
+	keybindingService: IKeybindingService;
 	renderer: PositronModalReactRenderer;
 	plotWidth: number;
 	plotHeight: number;
@@ -80,8 +101,16 @@ interface SavePlotModalDialogProps {
 	suggestedPath?: URI;
 }
 
+interface DirectoryState {
+	value: URI;
+	valid: boolean;
+	errorMessage?: string;
+}
+
 const SavePlotModalDialog = (props: SavePlotModalDialogProps) => {
-	const [path, setPath] = React.useState({ value: props.suggestedPath ?? URI.file(''), valid: true });
+	const [directory, setDirectory] = React.useState<DirectoryState>({ value: props.suggestedPath ?? URI.file(''), valid: true });
+	const [name, setName] = React.useState({ value: 'plot', valid: true });
+	const [format, setFormat] = React.useState(PlotFormat.PNG);
 	const [width, setWidth] = React.useState({ value: props.plotWidth, valid: true });
 	const [height, setHeight] = React.useState({ value: props.plotHeight, valid: true });
 	const [dpi, setDpi] = React.useState({ value: 100, valid: true });
@@ -89,13 +118,18 @@ const SavePlotModalDialog = (props: SavePlotModalDialogProps) => {
 	const [rendering, setRendering] = React.useState(false);
 	const inputRef = React.useRef<HTMLInputElement>(null);
 
+	const filterEntries: FileFilter[] = [];
+	for (const filter in PlotFormat) {
+		filterEntries.push({ extensions: [filter.toLowerCase()], name: filter.toUpperCase() });
+	}
+
 	React.useEffect(() => {
 		setUri(props.plotClient.lastRender?.uri ?? '');
 	}, [props.plotClient.lastRender?.uri]);
 
 	const validateInput = React.useCallback((): boolean => {
-		return path.valid && width.valid && height.valid && dpi.valid;
-	}, [path, width, height, dpi]);
+		return directory.valid && width.valid && height.valid && dpi.valid && name.valid;
+	}, [directory, width, height, dpi, name]);
 
 	React.useEffect(() => {
 		validateInput();
@@ -117,38 +151,58 @@ const SavePlotModalDialog = (props: SavePlotModalDialogProps) => {
 	};
 
 	const updatePath = (pathString: string) => {
-		const newPath = URI.file(pathString);
-		setPath({ value: newPath, valid: !!newPath });
+		try {
+			const newPath = URI.file(pathString);
+			props.fileService.exists(newPath).then(exists => {
+				setDirectory({
+					value: newPath, valid: exists,
+					errorMessage: exists ? undefined : localize('positron.savePlotModalDialog.pathDoesNotExist', "Path does not exist.")
+				});
+			});
+		} catch (error) {
+			setDirectory({ value: URI.file(''), valid: false, errorMessage: error.message });
+		}
 	};
 
 	const browseHandler = async () => {
-		const uri = await props.fileDialogService.showSaveDialog({
+		const uri = await props.fileDialogService.showOpenDialog({
 			title: localize('positron.savePlotModalDialog.title', "Save Plot"),
-			filters:
-				[
-					{
-						extensions: ['png'],
-						name: 'PNG',
-					},
-				],
+			defaultUri: directory.value,
+			openLabel: localize('positron.savePlotModalDialog.select', "Select"),
+			canSelectFiles: false,
+			canSelectFolders: true,
+			canSelectMany: false,
 		});
 
-		if (uri?.fsPath.length) {
-			setPath({ value: uri, valid: true });
+		if (uri && uri.length > 0) {
+			updatePath(uri[0].fsPath);
 		}
 	};
 
 	const acceptHandler = async () => {
 		if (validateInput()) {
-			setRendering(true);
-			const plotResult = await generatePreview();
-
-			if (plotResult) {
-				props.savePlotCallback({ uri: plotResult.uri, path: path.value });
+			const fileExists = await props.fileService.exists(directory.value);
+			if (fileExists) {
+				const confirmation = await props.dialogService.confirm({
+					message: localize('positron.savePlotModalDialog.fileExists', "The file already exists. Do you want to overwrite it?"),
+					primaryButton: localize('positron.savePlotModalDialog.overwrite', "Overwrite"),
+					cancelButton: localize('positron.savePlotModalDialog.cancel', "Cancel"),
+				});
+				if (!confirmation.confirmed) {
+					return;
+				}
 			}
+			setRendering(true);
 
-			setRendering(false);
-			props.renderer.dispose();
+			generatePreview(format)
+				.then(async (plotResult) => {
+					const filePath = URI.joinPath(directory.value, `${name.value}.${format}`);
+					props.savePlotCallback({ uri: plotResult.uri, path: filePath });
+				})
+				.finally(() => {
+					setRendering(false);
+					props.renderer.dispose();
+				});
 		}
 	};
 
@@ -162,15 +216,15 @@ const SavePlotModalDialog = (props: SavePlotModalDialogProps) => {
 		}
 		setRendering(true);
 		try {
-			const plotResult = await generatePreview();
+			const plotResult = await generatePreview(PlotFormat.PNG);
 			setUri(plotResult.uri);
 		} finally {
 			setRendering(false);
 		}
 	};
 
-	const generatePreview = async (): Promise<IRenderedPlot> => {
-		return props.plotClient.preview(height.value, width.value, dpi.value / BASE_DPI);
+	const generatePreview = async (format: PlotFormat): Promise<IRenderedPlot> => {
+		return props.plotClient.preview(height.value, width.value, dpi.value / BASE_DPI, format);
 	};
 
 	const previewButton = () => {
@@ -195,15 +249,45 @@ const SavePlotModalDialog = (props: SavePlotModalDialogProps) => {
 						<div className='browse'>
 							<LabeledFolderInput
 								label={(() => localize(
-									'positron.savePlotModalDialog.path',
-									"Path"
+									'positron.savePlotModalDialog.directory',
+									"Directory"
 								))()}
-								value={path.value.fsPath}
+								value={directory.value.fsPath}
 								onChange={e => updatePath(e.target.value)}
 								onBrowse={browseHandler}
 								readOnlyInput={false}
-								error={!path.valid}
+								error={!directory.valid}
 								inputRef={inputRef} />
+						</div>
+						<div className='file'>
+							<LabeledTextInput
+								label={(() => localize(
+									'positron.savePlotModalDialog.name',
+									"Name"
+								))()}
+								value={name.value}
+								onChange={e => setName({ value: e.target.value, valid: !!e.target.value })}
+								error={!name.valid}
+							/>
+							<div>
+								<label>{(() => localize('positron.savePlotModalDialog.format', "Format"))()}
+									<DropDownListBox
+										title={(() => localize(
+											'positron.savePlotModalDialog.format',
+											"Format"
+										))()}
+										selectedIdentifier={format}
+										onSelectionChanged={(ext) => { setFormat(ext.options.identifier); }}
+										keybindingService={props.keybindingService}
+										layoutService={props.layoutService}
+										entries={[
+											new DropDownListBoxItem<PlotFormat, PlotFormat>({ identifier: PlotFormat.PNG, title: PlotFormat.PNG.toUpperCase(), value: PlotFormat.PNG }),
+											new DropDownListBoxItem<PlotFormat, PlotFormat>({ identifier: PlotFormat.JPEG, title: PlotFormat.JPEG.toUpperCase(), value: PlotFormat.JPEG }),
+											new DropDownListBoxItem<PlotFormat, PlotFormat>({ identifier: PlotFormat.SVG, title: PlotFormat.SVG.toUpperCase(), value: PlotFormat.SVG }),
+											new DropDownListBoxItem<PlotFormat, PlotFormat>({ identifier: PlotFormat.PDF, title: PlotFormat.PDF.toUpperCase(), value: PlotFormat.PDF }),
+										]} />
+								</label>
+							</div>
 						</div>
 						<div className='plot-input'>
 							<LabeledTextInput
@@ -242,9 +326,9 @@ const SavePlotModalDialog = (props: SavePlotModalDialogProps) => {
 							/>
 							<div className='error'>
 								<div>
-									{!path.valid && (() => localize(
-										'positron.savePlotModalDialog.noPathMessage',
-										"Specify a path."
+									{!directory.valid && (() => localize(
+										'positron.savePlotModalDialog.invalidPathError',
+										"Invalid path: {0}", directory.errorMessage
 									))()}
 								</div>
 								<div>
@@ -257,6 +341,12 @@ const SavePlotModalDialog = (props: SavePlotModalDialogProps) => {
 									{!dpi.valid && (() => localize(
 										'positron.savePlotModalDialog.dpiMinMaxError',
 										"DPI must be between 1 and 300."
+									))()}
+								</div>
+								<div>
+									{!name.valid && (() => localize(
+										'positron.savePlotModalDialog.invalidNameError',
+										"Plot name cannot be empty."
 									))()}
 								</div>
 							</div>
