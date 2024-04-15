@@ -128,8 +128,8 @@ const SavePlotModalDialog = (props: SavePlotModalDialogProps) => {
 	}, [props.plotClient.lastRender?.uri]);
 
 	const validateInput = React.useCallback((): boolean => {
-		return directory.valid && width.valid && height.valid && dpi.valid;
-	}, [directory, width, height, dpi]);
+		return directory.valid && width.valid && height.valid && dpi.valid && name.valid;
+	}, [directory, width, height, dpi, name]);
 
 	React.useEffect(() => {
 		validateInput();
@@ -341,6 +341,12 @@ const SavePlotModalDialog = (props: SavePlotModalDialogProps) => {
 									{!dpi.valid && (() => localize(
 										'positron.savePlotModalDialog.dpiMinMaxError',
 										"DPI must be between 1 and 300."
+									))()}
+								</div>
+								<div>
+									{!name.valid && (() => localize(
+										'positron.savePlotModalDialog.invalidNameError',
+										"Plot name cannot be empty."
 									))()}
 								</div>
 							</div>
