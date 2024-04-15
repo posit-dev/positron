@@ -8,7 +8,6 @@
 import abc
 import logging
 import operator
-import uuid
 from typing import (
     TYPE_CHECKING,
     Callable,
@@ -63,6 +62,8 @@ from .data_explorer_comm import (
 )
 from .positron_comm import CommMessage, PositronComm
 from .third_party import pd_
+from .utils import guid
+
 
 if TYPE_CHECKING:
     import pandas as pd
@@ -87,10 +88,13 @@ class DataExplorerTableView(abc.ABC):
 
     def __init__(
         self,
+        display_name: str,
         table,
         filters: Optional[List[RowFilter]],
         sort_keys: Optional[List[ColumnSortKey]],
     ):
+        self.display_name = display_name
+
         # Note: we must not ever modify the user's data
         self.table = table
 
@@ -269,11 +273,12 @@ class PandasView(DataExplorerTableView):
 
     def __init__(
         self,
+        display_name: str,
         table,
         filters: Optional[List[RowFilter]],
         sort_keys: Optional[List[ColumnSortKey]],
     ):
-        super().__init__(table, filters, sort_keys)
+        super().__init__(display_name, table, filters, sort_keys)
 
         self._dtypes = None
 
@@ -731,6 +736,7 @@ class PandasView(DataExplorerTableView):
             num_rows = self.table.shape[0]
 
         return BackendState(
+            display_name=self.display_name,
             table_shape=TableShape(num_rows=num_rows, num_columns=self.table.shape[1]),
             row_filters=self.filters,
             sort_keys=self.sort_keys,
@@ -762,8 +768,9 @@ class PyArrowView(DataExplorerTableView):
     pass
 
 
-def _get_table_view(table, filters=None, sort_keys=None):
-    return PandasView(table, filters, sort_keys)
+def _get_table_view(table, filters=None, sort_keys=None, name=None):
+    name = name or guid()
+    return PandasView(name, table, filters, sort_keys)
 
 
 def _value_type_is_supported(value):
@@ -828,9 +835,14 @@ class DataExplorerService:
             raise TypeError(type(table))
 
         if comm_id is None:
-            comm_id = str(uuid.uuid4())
+            comm_id = guid()
 
-        self.table_views[comm_id] = _get_table_view(table)
+        if variable_path is not None:
+            full_title = ", ".join([str(decode_access_key(k)) for k in variable_path])
+        else:
+            full_title = title
+
+        self.table_views[comm_id] = _get_table_view(table, name=full_title)
 
         base_comm = comm.create_comm(
             target_name=self.comm_target,
@@ -948,6 +960,8 @@ class DataExplorerService:
         comm = self.comms[comm_id]
         table_view = self.table_views[comm_id]
 
+        full_title = ", ".join([str(decode_access_key(k)) for k in path])
+
         # When detecting namespace assignments or changes, the first
         # level of the path has already been resolved. If there is a
         # data explorer open for a nested value, then we need to use
@@ -955,7 +969,7 @@ class DataExplorerService:
         if len(path) > 1:
             is_found, new_table = _resolve_value_from_path(new_variable, path[1:])
             if not is_found:
-                raise KeyError(f"Path {', '.join(path)} not found in value")
+                raise KeyError(f"Path {full_title} not found in value")
         else:
             new_table = new_variable
 
@@ -980,7 +994,7 @@ class DataExplorerService:
             # start over. At some point we can return here and
             # selectively preserve state if we feel it is safe enough
             # to do so.
-            self.table_views[comm_id] = _get_table_view(new_table)
+            self.table_views[comm_id] = _get_table_view(new_table, name=full_title)
             return _fire_schema_update(discard_state=True)
 
         # New value for data explorer is the same. For now, we just
@@ -1004,12 +1018,13 @@ class DataExplorerService:
         ) = table_view.ui_should_update_schema(new_table)
 
         if should_discard_state:
-            self.table_views[comm_id] = _get_table_view(new_table)
+            self.table_views[comm_id] = _get_table_view(new_table, name=full_title)
         else:
             self.table_views[comm_id] = _get_table_view(
                 new_table,
                 filters=table_view.filters,
                 sort_keys=table_view.sort_keys,
+                name=full_title,
             )
 
         if should_update_schema:

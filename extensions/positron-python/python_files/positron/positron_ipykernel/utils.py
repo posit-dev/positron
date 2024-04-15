@@ -8,10 +8,22 @@ import numbers
 import pprint
 import sys
 import types
+import uuid
 from binascii import b2a_base64
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Coroutine, Dict, List, Optional, Set, Tuple, TypeVar, Union, cast
+from typing import (
+    Any,
+    Coroutine,
+    Dict,
+    List,
+    Optional,
+    Set,
+    Tuple,
+    TypeVar,
+    Union,
+    cast,
+)
 
 JsonData = Union[Dict[str, "JsonData"], List["JsonData"], str, int, float, bool, None]
 JsonRecord = Dict[str, JsonData]
@@ -258,6 +270,10 @@ def alias_home(path: Path) -> Path:
         return Path("~") / path.relative_to(home_dir)
     except ValueError:
         return path
+
+
+def guid():
+    return str(uuid.uuid4())
 
 
 def positron_ipykernel_usage():

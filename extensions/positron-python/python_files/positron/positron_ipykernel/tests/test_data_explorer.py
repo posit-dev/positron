@@ -2,7 +2,6 @@
 # Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
 #
 
-import uuid
 from typing import Any, Dict, List, Optional, Type, cast
 
 import numpy as np
@@ -22,16 +21,13 @@ from ..data_explorer_comm import (
 )
 from .conftest import DummyComm, PositronShell
 from .test_variables import BIG_ARRAY_LENGTH
+from ..utils import guid
 from .utils import json_rpc_notification, json_rpc_request, json_rpc_response
 
 TARGET_NAME = "positron.dataExplorer"
 
 # ----------------------------------------------------------------------
 # pytest fixtures
-
-
-def guid():
-    return str(uuid.uuid4())
 
 
 def get_new_comm(
@@ -261,6 +257,7 @@ def test_explorer_variable_updates(
 
     dxf = DataExplorerFixture(de_service)
     new_state = dxf.get_state("x")
+    assert new_state["display_name"] == "x"
     assert new_state["table_shape"]["num_rows"] == 5
     assert new_state["table_shape"]["num_columns"] == 1
     assert new_state["sort_keys"] == [ColumnSortKey(**k) for k in x_sort_keys]
@@ -441,6 +438,7 @@ def _wrap_json(model: Type[BaseModel], data: JsonRecords):
 
 def test_pandas_get_state(dxf: DataExplorerFixture):
     result = dxf.get_state("simple")
+    assert result["display_name"] == "simple"
     assert result["table_shape"]["num_rows"] == 5
     assert result["table_shape"]["num_columns"] == 6
 

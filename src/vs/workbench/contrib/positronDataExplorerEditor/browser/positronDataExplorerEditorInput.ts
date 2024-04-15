@@ -2,7 +2,6 @@
  *  Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
-import { localize } from 'vs/nls';
 import { URI } from 'vs/base/common/uri';
 import { IUntypedEditorInput } from 'vs/workbench/common/editor';
 import { EditorInput } from 'vs/workbench/common/editor/editorInput';
@@ -24,6 +23,8 @@ export class PositronDataExplorerEditorInput extends EditorInput {
 	static readonly EditorID: string = 'workbench.editor.positronDataExplorer';
 
 	//#endregion Static Properties
+
+	_name: string = 'Data Explorer';
 
 	//#region Constructor & Dispose
 
@@ -67,7 +68,13 @@ export class PositronDataExplorerEditorInput extends EditorInput {
 	 * @returns The display name of this input.
 	 */
 	override getName(): string {
-		return localize('positronDataExplorerInputName', "Positron Data Explorer");
+		// This is where the tab name comes from
+		return this._name;
+	}
+
+	setName(name: string) {
+		this._name = name;
+		this._onDidChangeLabel.fire();
 	}
 
 	/**
