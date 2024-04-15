@@ -162,7 +162,7 @@ def test_hook_call(hook: PositronDisplayPublisherHook, images_path: Path) -> Non
 def render_request(comm_id: str, width_px: int = 500, height_px: int = 500, pixel_ratio: int = 1):
     return json_rpc_request(
         "render",
-        {"width": width_px, "height": height_px, "pixel_ratio": pixel_ratio},
+        {"width": width_px, "height": height_px, "pixel_ratio": pixel_ratio, "format": "png"},
         comm_id=comm_id,
     )
 
