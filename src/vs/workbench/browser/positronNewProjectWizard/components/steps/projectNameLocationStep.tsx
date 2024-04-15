@@ -14,6 +14,7 @@ import { PositronWizardSubStep } from 'vs/workbench/browser/positronNewProjectWi
 import { LabeledTextInput } from 'vs/workbench/browser/positronComponents/positronModalDialog/components/labeledTextInput';
 import { LabeledFolderInput } from 'vs/workbench/browser/positronComponents/positronModalDialog/components/labeledFolderInput';
 import { Checkbox } from 'vs/workbench/browser/positronComponents/positronModalDialog/components/checkbox';
+import { WizardFormattedText, WizardFormattedTextType } from 'vs/workbench/browser/positronNewProjectWizard/components/wizardFormattedText';
 
 /**
  * The ProjectNameLocationStep component is the second step in the new project wizard.
@@ -46,7 +47,6 @@ export const ProjectNameLocationStep = (props: PropsWithChildren<NewProjectWizar
 
 	// Navigate to the next step in the wizard, based on the selected project type.
 	const nextStep = () => {
-		// TODO: add handling for R and Jupyter projects
 		switch (projectConfig.projectType) {
 			case NewProjectType.RProject:
 				props.next(NewProjectWizardStep.RConfiguration);
@@ -57,10 +57,6 @@ export const ProjectNameLocationStep = (props: PropsWithChildren<NewProjectWizar
 		}
 	};
 
-	// General TODOs:
-	//   - Create text input and folder input components which allow for the
-	//     title + description + input box labelling in the mockups
-	//   - Support mixed paragraph and code text, possibly using something like nls.
 	return (
 		<PositronWizardStep
 			title={(() => localize(
@@ -79,7 +75,6 @@ export const ProjectNameLocationStep = (props: PropsWithChildren<NewProjectWizar
 					'projectNameLocationSubStep.projectName.label',
 					'Project Name'
 				))()}
-			// description={'Enter a name for your new ' + newProjectResult.projectType}
 			>
 				<LabeledTextInput
 					label={(() => localize(
@@ -97,29 +92,25 @@ export const ProjectNameLocationStep = (props: PropsWithChildren<NewProjectWizar
 					'projectNameLocationSubStep.parentDirectory.label',
 					'Parent Directory'
 				))()}
-				// description='Select a directory to create your project in.'
-				feedback={(() => localize(
-					'projectNameLocationSubStep.parentDirectory.feedback',
-					'Your project will be created at: {0}/{1}',
-					projectConfig.parentFolder,
-					projectConfig.projectName
-				))()}
+				feedback={() =>
+					<WizardFormattedText type={WizardFormattedTextType.Info}>
+						{(() => localize(
+							'projectNameLocationSubStep.parentDirectory.feedback',
+							'Your project will be created at: ',
+						))()}
+						<code>{projectConfig.parentFolder}/{projectConfig.projectName}</code>
+					</WizardFormattedText>
+				}
 			>
 				<LabeledFolderInput
 					label={(() => localize(
 						'projectNameLocationSubStep.parentDirectory.description',
 						'Select a directory to create your project in'
 					))()}
-					value={projectConfig.parentFolder} // TODO: this should be <code>formatted
+					value={projectConfig.parentFolder}
 					onBrowse={browseHandler}
 					onChange={e => setProjectConfig({ ...projectConfig, parentFolder: e.target.value })}
 				/>
-				{/* <div style={{ marginBottom: '16px' }}>
-					Your project will be created at:&nbsp;
-					<span style={{ fontFamily: 'monospace', color: '#D7BA7D' }}>
-						{newProjectResult.parentFolder + '/' + newProjectResult.projectName}
-					</span>
-				</div> */}
 			</PositronWizardSubStep>
 			<PositronWizardSubStep>
 				{/* TODO: display a warning/message if the user doesn't have git set up */}

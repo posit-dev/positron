@@ -1,0 +1,26 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *--------------------------------------------------------------------------------------------*/
+
+.wizard-step
+.wizard-formatted-text-info {
+	color: var(--vscode-foreground);
+}
+
+.wizard-step
+.wizard-formatted-text-warning {
+	color: var(--vscode-descriptionForeground);
+}
+
+.wizard-step
+.wizard-formatted-text-error {
+	color: var(--vscode-errorForeground);
+}
+
+.wizard-step
+.wizard-formatted-text
+code {
+	color: var(--vscode-textPreformat-foreground);
+	font-family: var(--monaco-monospace-font);
+	font-size: 11px;
+}

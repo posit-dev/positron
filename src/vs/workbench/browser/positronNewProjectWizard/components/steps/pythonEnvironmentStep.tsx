@@ -22,6 +22,7 @@ import { EnvironmentSetupType, LanguageIds, PythonEnvironmentType } from 'vs/wor
 import { InterpreterEntry } from 'vs/workbench/browser/positronNewProjectWizard/components/steps/pythonInterpreterEntry';
 import { DropdownEntry } from 'vs/workbench/browser/positronNewProjectWizard/components/steps/dropdownEntry';
 import { InterpreterInfo, getSelectedInterpreter } from 'vs/workbench/browser/positronNewProjectWizard/utilities/interpreterDropDownUtils';
+import { WizardFormattedText, WizardFormattedTextType } from 'vs/workbench/browser/positronNewProjectWizard/components/wizardFormattedText';
 
 /**
  * The PythonEnvironmentStep component is specific to Python projects in the new project wizard.
@@ -229,16 +230,26 @@ export const PythonEnvironmentStep = (props: PropsWithChildren<NewProjectWizardS
 						'pythonEnvironmentSubStep.description',
 						'Select an environment type for your project.'
 					))()}
-					feedback={(() => localize(
-						'pythonEnvironmentSubStep.feedback',
-						'The {0} environment will be created at: {1}',
-						envType,
-						locationForNewEnv(
-							projectConfig.parentFolder,
-							projectConfig.projectName,
-							envType
-						)
-					))()}
+					feedback={() =>
+						<WizardFormattedText type={WizardFormattedTextType.Info}>
+							{(() => localize(
+								'pythonEnvironmentSubStep.feedback1',
+								'The ',
+							))()}
+							<code>{envType}</code>
+							{(() => localize(
+								'pythonEnvironmentSubStep.feedback2',
+								' environment will be created at: ',
+							))()}
+							<code>
+								{locationForNewEnv(
+									projectConfig.parentFolder,
+									projectConfig.projectName,
+									envType
+								)}
+							</code>
+						</WizardFormattedText>
+					}
 				>
 					<DropDownListBox
 						keybindingService={keybindingService}

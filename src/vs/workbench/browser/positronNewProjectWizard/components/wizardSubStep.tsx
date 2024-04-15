@@ -2,7 +2,10 @@
  *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
+// CSS.
 import 'vs/css!./wizardSubStep';
+
+// React.
 import * as React from 'react';
 import { PropsWithChildren } from 'react';  // eslint-disable-line no-duplicate-imports
 
@@ -14,20 +17,19 @@ export interface PositronWizardSubStepProps {
 	titleId?: string;
 	description?: string;
 	descriptionId?: string;
-	feedback?: string;
-	feedbackId?: string;
+	feedback?: () => JSX.Element;
 }
 
 /**
- * OKCancelBackNextModalDialog component.
- * @param props A PropsWithChildren<OKCancelBackNextModalDialogProps> that contains the component properties.
+ * PositronWizardSubStep component.
+ * @param props A PropsWithChildren<PositronWizardSubStepProps> that contains the component properties.
  * @returns The rendered component.
  */
 export const PositronWizardSubStep = (props: PropsWithChildren<PositronWizardSubStepProps>) => {
 	// TODO: on focus change outside of the input element, perform validation of input
 	//       if input is invalid, notify wizardstep parent to disable the next/confirm buttons
 	//       in input is valid , notify wizardstep parent to enable the next/confirm buttons
-
+	const Feedback = () => props.feedback ? props.feedback() : null;
 	// Render.
 	return (
 		<div className='wizard-sub-step'>
@@ -44,11 +46,9 @@ export const PositronWizardSubStep = (props: PropsWithChildren<PositronWizardSub
 			<div className='wizard-sub-step-input'>
 				{props.children}
 			</div>
-			{props.feedback ?
-				<div className='wizard-sub-step-feedback' id={props.feedbackId}>
-					{props.feedback}
-				</div> : null
-			}
+			<div className='wizard-sub-step-feedback'>
+				{props.feedback ? <Feedback /> : null}
+			</div>
 		</div>
 	);
 };
