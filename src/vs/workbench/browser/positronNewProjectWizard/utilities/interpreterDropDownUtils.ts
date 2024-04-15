@@ -92,6 +92,27 @@ export const getPreferredRuntime = (runtimeStartupService: IRuntimeStartupServic
 };
 
 /**
+ * Determines if the interpreter is in the dropdown list.
+ * @param interpreter The interpreter to check.
+ * @param interpreterEntries The interpreter entries.
+ * @returns True if the interpreter is in the dropdown list, false otherwise.
+ */
+const isInterpreterInDropdown = (
+	interpreter: ILanguageRuntimeMetadata | undefined,
+	interpreterEntries: DropDownListBoxEntry<string, InterpreterInfo>[]
+) => {
+	if (!interpreter || !interpreterEntries.length) {
+		return false;
+	}
+	return interpreterEntries.find(entry => {
+		if (entry instanceof DropDownListBoxItem) {
+			return entry.options.identifier === interpreter.runtimeId;
+		}
+		return false;
+	});
+};
+
+/**
  * Retrieves the selected interpreter for the given languageId if it is a valid option in the
  * dropdown list.
  * @param existingSelection The existing selection.
@@ -107,17 +128,17 @@ export const getSelectedInterpreter = (
 	runtimeStartupService: IRuntimeStartupService,
 	languageId: LanguageIds
 ) => {
-	const interpreter = existingSelection?.languageId === languageId ?
-		existingSelection :
-		getPreferredRuntime(runtimeStartupService, languageId);
+	// Return the existing selection if it is in the dropdown list.
+	if (isInterpreterInDropdown(existingSelection, interpreterEntries)) {
+		return existingSelection;
+	}
 
-	// Check if the interpreter is a valid option in the dropdown list.
-	const isValidInterpreter = interpreterEntries.find(entry => {
-		if (entry instanceof DropDownListBoxItem) {
-			return entry.options.identifier === interpreter?.runtimeId;
-		}
-		return false;
-	});
+	// Return the preferred interpreter if it is in the dropdown list.
+	const preferredInterpreter = getPreferredRuntime(runtimeStartupService, languageId);
+	if (isInterpreterInDropdown(preferredInterpreter, interpreterEntries)) {
+		return preferredInterpreter;
+	}
 
-	return isValidInterpreter ? interpreter : undefined;
+	// Otherwise, there doesn't appear to be a valid selection.
+	return undefined;
 };
