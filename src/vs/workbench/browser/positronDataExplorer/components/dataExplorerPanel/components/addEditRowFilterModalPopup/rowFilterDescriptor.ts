@@ -24,7 +24,7 @@ export enum RowFilterCondition {
 	CONDITION_IS_NOT_EQUAL_TO = 'is-not-equal-to',
 	CONDITION_SEARCH_CONTAINS = 'search-contains',
 	CONDITION_SEARCH_STARTS_WITH = 'search-starts-with',
-	CONDITION_SEARCH_ENDS_WITH = 'search-ends-width',
+	CONDITION_SEARCH_ENDS_WITH = 'search-ends-with',
 	CONDITION_SEARCH_REGEX_MATCHES = 'search-regex',
 
 	// Conditions with two parameters.
@@ -337,4 +337,5 @@ export type RowFilterDescriptor =
 	RowFilterDescriptorIsNull |
 	RowFilterDescriptorIsNotNull |
 	RowFilterDescriptorIsBetween |
-	RowFilterDescriptorIsNotBetween;
+	RowFilterDescriptorIsNotBetween |
+	RowFilterDescriptorSearch;
