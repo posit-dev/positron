@@ -1528,6 +1528,14 @@ export const POSITRON_MODAL_DIALOG_BUTTON_ACTIVE_BACKGROUND = registerColor('pos
 	hcLight: darken(POSITRON_MODAL_DIALOG_BUTTON_BACKGROUND, 0.15)
 }, localize('positronModalDialog.buttonActiveBackground', "Positron modal dialog button active background color."));
 
+// Positron modal dialog button disabled background color.
+export const POSITRON_MODAL_DIALOG_BUTTON_DISABLED_BACKGROUND = registerColor('positronModalDialog.buttonDisabledBackground', {
+	dark: null,
+	light: null,
+	hcDark: null,
+	hcLight: null
+}, localize('positronModalDialog.buttonDisabledBackground', "Positron modal dialog button disabled background color."));
+
 // Positron modal dialog button foreground color.
 export const POSITRON_MODAL_DIALOG_BUTTON_FOREGROUND = registerColor('positronModalDialog.buttonForeground', {
 	dark: buttonSecondaryForeground,
@@ -1544,6 +1552,14 @@ export const POSITRON_MODAL_DIALOG_DEFAULT_BUTTON_FOREGROUND = registerColor('po
 	hcLight: buttonForeground
 }, localize('positronModalDialog.defaultButtonForeground', "Positron modal dialog default button foreground color."));
 
+// Positron modal dialog button disabled foreground color.
+export const POSITRON_MODAL_DIALOG_BUTTON_DISABLED_FOREGROUND = registerColor('positronModalDialog.buttonDisabledForeground', {
+	dark: disabledForeground,
+	light: disabledForeground,
+	hcDark: disabledForeground,
+	hcLight: disabledForeground
+}, localize('positronModalDialog.buttonDisabledForeground', "Positron modal dialog button disabled foreground color."));
+
 // Positron modal dialog button border color.
 export const POSITRON_MODAL_DIALOG_BUTTON_BORDER = registerColor('positronModalDialog.buttonBorder', {
 	dark: null,
@@ -1551,6 +1567,14 @@ export const POSITRON_MODAL_DIALOG_BUTTON_BORDER = registerColor('positronModalD
 	hcDark: contrastBorder,
 	hcLight: contrastBorder
 }, localize('positronModalDialog.buttonBorder', "Positron modal dialog button border color."));
+
+// Positron modal dialog button disabled border color.
+export const POSITRON_MODAL_DIALOG_BUTTON_DISABLED_BORDER = registerColor('positronModalDialog.buttonDisabledBorder', {
+	dark: disabledForeground,
+	light: disabledForeground,
+	hcDark: disabledForeground,
+	hcLight: disabledForeground
+}, localize('positronModalDialog.buttonDisabledBorder', "Positron modal dialog button disabled border color."));
 
 // < --- Positron Modal Dialog Text Input --- >
 

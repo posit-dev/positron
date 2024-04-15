@@ -68,7 +68,10 @@ export const ProjectNameLocationStep = (props: PropsWithChildren<NewProjectWizar
 				'Set project name and location'
 			))()}
 			cancelButtonConfig={{ onClick: props.cancel }}
-			nextButtonConfig={{ onClick: nextStep }}
+			nextButtonConfig={{
+				onClick: nextStep,
+				disable: !projectConfig.projectName || !projectConfig.parentFolder
+			}}
 			backButtonConfig={{ onClick: props.back }}
 		>
 			<PositronWizardSubStep
