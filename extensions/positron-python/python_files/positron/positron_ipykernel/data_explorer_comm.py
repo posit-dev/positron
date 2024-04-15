@@ -282,8 +282,8 @@ class RowFilter(BaseModel):
         description="Type of row filter to apply",
     )
 
-    column_index: int = Field(
-        description="Column index to apply filter to",
+    column_schema: ColumnSchema = Field(
+        description="Column to apply filter to",
     )
 
     condition: RowFilterCondition = Field(
@@ -888,21 +888,11 @@ class DataExplorerFrontendEvent(str, enum.Enum):
     An enumeration of all the possible events that can be sent to the frontend data_explorer comm.
     """
 
-    # Reset after a schema change
+    # Request to sync after a schema change
     SchemaUpdate = "schema_update"
 
     # Clear cache and request fresh data
     DataUpdate = "data_update"
-
-
-class SchemaUpdateParams(BaseModel):
-    """
-    Reset after a schema change
-    """
-
-    discard_state: bool = Field(
-        description="If true, the UI should discard the filter/sort state.",
-    )
 
 
 SearchSchemaResult.update_forward_refs()
@@ -984,5 +974,3 @@ GetColumnProfilesParams.update_forward_refs()
 GetColumnProfilesRequest.update_forward_refs()
 
 GetStateRequest.update_forward_refs()
-
-SchemaUpdateParams.update_forward_refs()

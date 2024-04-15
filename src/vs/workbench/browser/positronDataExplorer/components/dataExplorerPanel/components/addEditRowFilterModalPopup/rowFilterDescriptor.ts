@@ -3,33 +3,33 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { generateUuid } from 'vs/base/common/uuid';
-import { ColumnSchema, CompareFilterParamsOp, SearchFilterType } from 'vs/workbench/services/languageRuntime/common/positronDataExplorerComm';
+import { ColumnSchema, CompareFilterParamsOp, RowFilter, RowFilterCondition, RowFilterType, SearchFilterType, TableSchema } from 'vs/workbench/services/languageRuntime/common/positronDataExplorerComm';
 
 /**
- * RowFilterCondition enumeration.
+ * RowFilterDescrType enumeration.
  */
-export enum RowFilterCondition {
-	// Conditions with no parameters.
-	CONDITION_IS_EMPTY = 'is-empty',
-	CONDITION_IS_NOT_EMPTY = 'is-not-empty',
-	CONDITION_IS_NULL = 'is-null',
-	CONDITION_IS_NOT_NULL = 'is-not-null',
+export enum RowFilterDescrType {
+	// Filters with no parameters.
+	IS_EMPTY = 'is-empty',
+	IS_NOT_EMPTY = 'is-not-empty',
+	IS_NULL = 'is-null',
+	IS_NOT_NULL = 'is-not-null',
 
-	// Conditions with one parameter.
-	CONDITION_IS_LESS_THAN = 'is-less-than',
-	CONDITION_IS_LESS_OR_EQUAL = 'is-less-than-or-equal-to',
-	CONDITION_IS_GREATER_THAN = 'is-greater-than',
-	CONDITION_IS_GREATER_OR_EQUAL = 'is-greater-than-or-equal-to',
-	CONDITION_IS_EQUAL_TO = 'is-equal-to',
-	CONDITION_IS_NOT_EQUAL_TO = 'is-not-equal-to',
-	CONDITION_SEARCH_CONTAINS = 'search-contains',
-	CONDITION_SEARCH_STARTS_WITH = 'search-starts-with',
-	CONDITION_SEARCH_ENDS_WITH = 'search-ends-with',
-	CONDITION_SEARCH_REGEX_MATCHES = 'search-regex',
+	// Filters with one parameter.
+	IS_LESS_THAN = 'is-less-than',
+	IS_LESS_OR_EQUAL = 'is-less-than-or-equal-to',
+	IS_GREATER_THAN = 'is-greater-than',
+	IS_GREATER_OR_EQUAL = 'is-greater-than-or-equal-to',
+	IS_EQUAL_TO = 'is-equal-to',
+	IS_NOT_EQUAL_TO = 'is-not-equal-to',
+	SEARCH_CONTAINS = 'search-contains',
+	SEARCH_STARTS_WITH = 'search-starts-with',
+	SEARCH_ENDS_WITH = 'search-ends-with',
+	SEARCH_REGEX_MATCHES = 'search-regex',
 
-	// Conditions with two parameters.
-	CONDITION_IS_BETWEEN = 'is-between',
-	CONDITION_IS_NOT_BETWEEN = 'is-not-between'
+	// Filters with two parameters.
+	IS_BETWEEN = 'is-between',
+	IS_NOT_BETWEEN = 'is-not-between'
 }
 
 /**
@@ -44,15 +44,29 @@ abstract class BaseRowFilterDescriptor {
 	/**
 	 * Constructor.
 	 * @param columnSchema The column schema.
+	 * @param isValid Flag if the filter is valid or invalid and ignored by backend.
 	 */
-	constructor(public readonly columnSchema: ColumnSchema) {
+	constructor(public readonly columnSchema: ColumnSchema,
+		public readonly isValid: boolean
+	) {
 		this.identifier = generateUuid();
+		this.isValid = isValid;
 	}
 
 	/**
-	 * Gets the row filter condition.
+	 * Gets the row filter UI type.
 	 */
-	abstract get rowFilterCondition(): RowFilterCondition;
+	abstract get descrType(): RowFilterDescrType;
+
+	abstract get backendFilter(): RowFilter;
+
+	protected _sharedBackendParams() {
+		return {
+			filter_id: this.identifier,
+			column_schema: this.columnSchema,
+			condition: RowFilterCondition.And
+		};
+	}
 }
 
 /**
@@ -62,16 +76,29 @@ export class RowFilterDescriptorIsEmpty extends BaseRowFilterDescriptor {
 	/**
 	 * Constructor.
 	 * @param columnSchema The column schema.
+	 * @param isValid Flag if the filter is valid or invalid and ignored by backend.
 	 */
-	constructor(columnSchema: ColumnSchema) {
-		super(columnSchema);
+	constructor(columnSchema: ColumnSchema,
+		isValid: boolean = true
+	) {
+		super(columnSchema, isValid);
 	}
 
 	/**
 	 * Gets the row filter condition.
 	 */
-	get rowFilterCondition() {
-		return RowFilterCondition.CONDITION_IS_EMPTY;
+	get descrType() {
+		return RowFilterDescrType.IS_EMPTY;
+	}
+
+	/**
+	 * Get the backend OpenRPC type.
+	 */
+	get backendFilter() {
+		return {
+			filter_type: RowFilterType.IsEmpty,
+			...this._sharedBackendParams()
+		};
 	}
 }
 
@@ -82,16 +109,29 @@ export class RowFilterDescriptorIsNotEmpty extends BaseRowFilterDescriptor {
 	/**
 	 * Constructor.
 	 * @param columnSchema The column schema.
+	 * @param isValid Flag if the filter is valid or invalid and ignored by backend.
 	 */
-	constructor(columnSchema: ColumnSchema) {
-		super(columnSchema);
+	constructor(columnSchema: ColumnSchema,
+		isValid: boolean = true
+	) {
+		super(columnSchema, isValid);
 	}
 
 	/**
 	 * Gets the row filter condition.
 	 */
-	get rowFilterCondition() {
-		return RowFilterCondition.CONDITION_IS_NOT_EMPTY;
+	get descrType() {
+		return RowFilterDescrType.IS_NOT_EMPTY;
+	}
+
+	/**
+	 * Get the backend OpenRPC type.
+	 */
+	get backendFilter() {
+		return {
+			filter_type: RowFilterType.NotEmpty,
+			...this._sharedBackendParams()
+		};
 	}
 }
 
@@ -102,16 +142,29 @@ export class RowFilterDescriptorIsNull extends BaseRowFilterDescriptor {
 	/**
 	 * Constructor.
 	 * @param columnSchema The column schema.
+	 * @param isValid Flag if the filter is valid or invalid and ignored by backend.
 	 */
-	constructor(columnSchema: ColumnSchema) {
-		super(columnSchema);
+	constructor(columnSchema: ColumnSchema,
+		isValid: boolean = true
+	) {
+		super(columnSchema, isValid);
 	}
 
 	/**
 	 * Gets the row filter condition.
 	 */
-	get rowFilterCondition() {
-		return RowFilterCondition.CONDITION_IS_NULL;
+	get descrType() {
+		return RowFilterDescrType.IS_NULL;
+	}
+
+	/**
+	 * Get the backend OpenRPC type.
+	 */
+	get backendFilter() {
+		return {
+			filter_type: RowFilterType.IsNull,
+			...this._sharedBackendParams()
+		};
 	}
 }
 
@@ -122,16 +175,29 @@ export class RowFilterDescriptorIsNotNull extends BaseRowFilterDescriptor {
 	/**
 	 * Constructor.
 	 * @param columnSchema The column schema.
+	 * @param isValid Flag if the filter is valid or invalid and ignored by backend.
 	 */
-	constructor(columnSchema: ColumnSchema) {
-		super(columnSchema);
+	constructor(columnSchema: ColumnSchema,
+		isValid: boolean = true
+	) {
+		super(columnSchema, isValid);
 	}
 
 	/**
 	 * Gets the row filter condition.
 	 */
-	get rowFilterCondition() {
-		return RowFilterCondition.CONDITION_IS_NOT_NULL;
+	get descrType() {
+		return RowFilterDescrType.IS_NOT_NULL;
+	}
+
+	/**
+	 * Get the backend OpenRPC type.
+	 */
+	get backendFilter() {
+		return {
+			filter_type: RowFilterType.NotNull,
+			...this._sharedBackendParams()
+		};
 	}
 }
 
@@ -143,9 +209,12 @@ export abstract class SingleValueRowFilterDescriptor extends BaseRowFilterDescri
 	 * Constructor.
 	 * @param columnSchema The column schema.
 	 * @param value The value.
+	 * @param isValid Flag if the filter is valid or invalid and ignored by backend.
 	 */
-	constructor(columnSchema: ColumnSchema, public readonly value: string) {
-		super(columnSchema);
+	constructor(columnSchema: ColumnSchema, public readonly value: string,
+		isValid: boolean = true
+	) {
+		super(columnSchema, isValid);
 	}
 }
 
@@ -157,57 +226,73 @@ export class RowFilterDescriptorComparison extends SingleValueRowFilterDescripto
 	 * Constructor.
 	 * @param columnSchema The column schema.
 	 * @param value The value.
-	 * @param condition The filter condition.
+	 * @param descrType The filter condition.
+	 * @param isValid Flag if the filter is valid or invalid and ignored by backend.
 	 */
-	condition: RowFilterCondition;
+	_descrType: RowFilterDescrType;
 
-	constructor(columnSchema: ColumnSchema, value: string, condition: RowFilterCondition) {
-		super(columnSchema, value);
-		this.condition = condition;
+	constructor(columnSchema: ColumnSchema, value: string, descrType: RowFilterDescrType,
+		isValid: boolean = true
+	) {
+		super(columnSchema, value, isValid);
+		this._descrType = descrType;
 	}
 
 	get operatorText() {
-		switch (this.condition) {
-			case RowFilterCondition.CONDITION_IS_EQUAL_TO:
+		switch (this.descrType) {
+			case RowFilterDescrType.IS_EQUAL_TO:
 				return '=';
-			case RowFilterCondition.CONDITION_IS_GREATER_OR_EQUAL:
+			case RowFilterDescrType.IS_GREATER_OR_EQUAL:
 				return '>=';
-			case RowFilterCondition.CONDITION_IS_GREATER_THAN:
+			case RowFilterDescrType.IS_GREATER_THAN:
 				return '>';
-			case RowFilterCondition.CONDITION_IS_LESS_OR_EQUAL:
+			case RowFilterDescrType.IS_LESS_OR_EQUAL:
 				return '<=';
-			case RowFilterCondition.CONDITION_IS_LESS_THAN:
+			case RowFilterDescrType.IS_LESS_THAN:
 				return '<';
-			case RowFilterCondition.CONDITION_IS_NOT_EQUAL_TO:
+			case RowFilterDescrType.IS_NOT_EQUAL_TO:
 				return '!=';
 			default:
 				return '';
 		}
 	}
 
-	get compareFilterOp() {
-		switch (this.condition) {
-			case RowFilterCondition.CONDITION_IS_EQUAL_TO:
-				return CompareFilterParamsOp.Eq;
-			case RowFilterCondition.CONDITION_IS_GREATER_OR_EQUAL:
-				return CompareFilterParamsOp.GtEq;
-			case RowFilterCondition.CONDITION_IS_GREATER_THAN:
-				return CompareFilterParamsOp.Gt;
-			case RowFilterCondition.CONDITION_IS_LESS_OR_EQUAL:
-				return CompareFilterParamsOp.LtEq;
-			case RowFilterCondition.CONDITION_IS_LESS_THAN:
-				return CompareFilterParamsOp.Lt;
-			default:
-				// CONDITION_IS_NOT_EQUAL_TO
-				return CompareFilterParamsOp.NotEq;
-		}
+	/**
+	 * Get the backend OpenRPC type.
+	 */
+	get backendFilter() {
+		const getCompareOp = () => {
+			switch (this.descrType) {
+				case RowFilterDescrType.IS_EQUAL_TO:
+					return CompareFilterParamsOp.Eq;
+				case RowFilterDescrType.IS_GREATER_OR_EQUAL:
+					return CompareFilterParamsOp.GtEq;
+				case RowFilterDescrType.IS_GREATER_THAN:
+					return CompareFilterParamsOp.Gt;
+				case RowFilterDescrType.IS_LESS_OR_EQUAL:
+					return CompareFilterParamsOp.LtEq;
+				case RowFilterDescrType.IS_LESS_THAN:
+					return CompareFilterParamsOp.Lt;
+				default:
+					// IS_NOT_EQUAL_TO
+					return CompareFilterParamsOp.NotEq;
+			}
+		};
+		return {
+			filter_type: RowFilterType.Compare,
+			compare_params: {
+				op: getCompareOp(),
+				value: this.value
+			},
+			...this._sharedBackendParams()
+		};
 	}
 
 	/**
 	 * Gets the row filter condition.
 	 */
-	get rowFilterCondition() {
-		return this.condition;
+	get descrType() {
+		return this._descrType;
 	}
 }
 
@@ -219,48 +304,67 @@ export class RowFilterDescriptorSearch extends SingleValueRowFilterDescriptor {
 	 * Constructor.
 	 * @param columnSchema The column schema.
 	 * @param value The value.
-	 * @param condition The filter condition.
+	 * @param descrType The filter condition.
+	 * @param isValid Flag if the filter is valid or invalid and ignored by backend.
 	 */
-	condition: RowFilterCondition;
+	_descrType: RowFilterDescrType;
 
-	constructor(columnSchema: ColumnSchema, value: string, condition: RowFilterCondition) {
-		super(columnSchema, value);
-		this.condition = condition;
+	constructor(columnSchema: ColumnSchema, value: string, descrType: RowFilterDescrType,
+		isValid: boolean = true
+	) {
+		super(columnSchema, value, isValid);
+		this._descrType = descrType;
 	}
 
 	get operatorText() {
-		switch (this.condition) {
-			case RowFilterCondition.CONDITION_SEARCH_CONTAINS:
+		switch (this._descrType) {
+			case RowFilterDescrType.SEARCH_CONTAINS:
 				return 'contains';
-			case RowFilterCondition.CONDITION_SEARCH_STARTS_WITH:
+			case RowFilterDescrType.SEARCH_STARTS_WITH:
 				return 'starts with';
-			case RowFilterCondition.CONDITION_SEARCH_ENDS_WITH:
+			case RowFilterDescrType.SEARCH_ENDS_WITH:
 				return 'ends with';
 			default:
-				// CONDITION_SEARCH_REGEX_MATCHES
+				// SEARCH_REGEX_MATCHES
 				return 'matches regex';
 		}
 	}
 
-	get searchOp() {
-		switch (this.condition) {
-			case RowFilterCondition.CONDITION_SEARCH_CONTAINS:
-				return SearchFilterType.Contains;
-			case RowFilterCondition.CONDITION_SEARCH_STARTS_WITH:
-				return SearchFilterType.StartsWith;
-			case RowFilterCondition.CONDITION_SEARCH_ENDS_WITH:
-				return SearchFilterType.EndsWith;
-			default:
-				// CONDITION_SEARCH_REGEX_MATCHES
-				return SearchFilterType.RegexMatch;
-		}
-	}
 
 	/**
 	 * Gets the row filter condition.
 	 */
-	get rowFilterCondition() {
-		return this.condition;
+	get descrType() {
+		return this._descrType;
+	}
+
+	/**
+	 * Get the backend OpenRPC type.
+	 */
+	get backendFilter() {
+		const getSearchOp = () => {
+			switch (this._descrType) {
+				case RowFilterDescrType.SEARCH_CONTAINS:
+					return SearchFilterType.Contains;
+				case RowFilterDescrType.SEARCH_STARTS_WITH:
+					return SearchFilterType.StartsWith;
+				case RowFilterDescrType.SEARCH_ENDS_WITH:
+					return SearchFilterType.EndsWith;
+				default:
+					// SEARCH_REGEX_MATCHES
+					return SearchFilterType.RegexMatch;
+			}
+		};
+
+		return {
+			filter_type: RowFilterType.Search,
+			search_params: {
+				search_type: getSearchOp(),
+				term: this.value,
+				case_sensitive: false
+			},
+			...this._sharedBackendParams()
+		};
 	}
 }
 
@@ -273,13 +377,15 @@ export abstract class RangeRowFilterDescriptor extends BaseRowFilterDescriptor {
 	 * @param columnSchema The column schema.
 	 * @param lowerLimit The lower limit.
 	 * @param upperLimit The lower limit.
+	 * @param isValid Flag if the filter is valid or invalid and ignored by backend.
 	 */
 	constructor(
 		columnSchema: ColumnSchema,
 		public readonly lowerLimit: string,
-		public readonly upperLimit: string
+		public readonly upperLimit: string,
+		isValid: boolean = true
 	) {
-		super(columnSchema);
+		super(columnSchema, isValid);
 	}
 }
 
@@ -292,16 +398,33 @@ export class RowFilterDescriptorIsBetween extends RangeRowFilterDescriptor {
 	 * @param columnSchema The column schema.
 	 * @param lowerLimit The lower limit.
 	 * @param upperLimit The lower limit.
+	 * @param isValid Flag if the filter is valid or invalid and ignored by backend.
 	 */
-	constructor(columnSchema: ColumnSchema, lowerLimit: string, upperLimit: string) {
-		super(columnSchema, lowerLimit, upperLimit);
+	constructor(columnSchema: ColumnSchema, lowerLimit: string, upperLimit: string,
+		isValid: boolean = true
+	) {
+		super(columnSchema, lowerLimit, upperLimit, isValid);
 	}
 
 	/**
 	 * Gets the row filter condition.
 	 */
-	get rowFilterCondition() {
-		return RowFilterCondition.CONDITION_IS_BETWEEN;
+	get descrType() {
+		return RowFilterDescrType.IS_BETWEEN;
+	}
+
+	/**
+	 * Get the backend OpenRPC type.
+	 */
+	get backendFilter() {
+		return {
+			filter_type: RowFilterType.Between,
+			between_params: {
+				left_value: this.lowerLimit,
+				right_value: this.upperLimit
+			},
+			...this._sharedBackendParams()
+		};
 	}
 }
 
@@ -322,8 +445,71 @@ export class RowFilterDescriptorIsNotBetween extends RangeRowFilterDescriptor {
 	/**
 	 * Gets the row filter condition.
 	 */
-	get rowFilterCondition() {
-		return RowFilterCondition.CONDITION_IS_NOT_BETWEEN;
+	get descrType() {
+		return RowFilterDescrType.IS_NOT_BETWEEN;
+	}
+
+	/**
+	 * Get the backend OpenRPC type.
+	 */
+	get backendFilter() {
+		return {
+			filter_type: RowFilterType.NotBetween,
+			between_params: {
+				left_value: this.lowerLimit,
+				right_value: this.upperLimit
+			},
+			...this._sharedBackendParams()
+		};
+	}
+}
+
+
+export function getRowFilterDescriptor(backendFilter: RowFilter) {
+	switch (backendFilter.filter_type) {
+		case RowFilterType.Compare: {
+			const params = backendFilter.compare_params!;
+			let descrType = undefined;
+			switch (params.op) {
+				case CompareFilterParamsOp.Eq:
+					descrType = RowFilterDescrType.IS_EQUAL_TO;
+					break;
+				case CompareFilterParamsOp.NotEq:
+					descrType = RowFilterDescrType.IS_NOT_EQUAL_TO;
+					break;
+				case CompareFilterParamsOp.Lt:
+					descrType = RowFilterDescrType.IS_LESS_THAN;
+					break;
+				case CompareFilterParamsOp.LtEq:
+					descrType = RowFilterDescrType.IS_LESS_OR_EQUAL;
+					break;
+				case CompareFilterParamsOp.Gt:
+					descrType = RowFilterDescrType.IS_GREATER_THAN;
+					break;
+				case CompareFilterParamsOp.GtEq:
+					descrType = RowFilterDescrType.IS_GREATER_OR_EQUAL;
+					break;
+			}
+			return new RowFilterDescriptorComparison(backendFilter.column_schema,
+				params.value, descrType
+			);
+		}
+		case RowFilterType.Between:
+			break;
+		case RowFilterType.IsEmpty:
+			break;
+		case RowFilterType.IsNull:
+			break;
+		case RowFilterType.NotBetween:
+			break;
+		case RowFilterType.NotEmpty:
+			break;
+		case RowFilterType.NotNull:
+			break;
+		case RowFilterType.Search:
+			break;
+		case RowFilterType.SetMembership:
+			break;
 	}
 }
 

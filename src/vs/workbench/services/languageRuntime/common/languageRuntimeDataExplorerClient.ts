@@ -71,7 +71,7 @@ export class DataExplorerClientInstance extends Disposable {
 	 * @param client The runtime client instance.
 	 */
 	constructor(client: IRuntimeClientInstance<any, any>) {
-		// Call the disposable constrcutor.
+		// Call the disposable constructor.
 		super();
 
 		// Create and register the PositronDataExplorerComm on the client.

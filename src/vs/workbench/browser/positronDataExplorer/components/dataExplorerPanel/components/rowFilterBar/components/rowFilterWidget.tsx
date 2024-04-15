@@ -113,11 +113,16 @@ export const RowFilterWidget = forwardRef<HTMLButtonElement, RowFilterWidgetProp
 		}
 	})();
 
+	let buttonClass = 'row-filter-widget';
+	if (!props.rowFilter.isValid) {
+		buttonClass = `${buttonClass} invalid-row-filter-widget`;
+	}
+
 	// Render.
 	return (
 		<Button
 			ref={ref}
-			className='row-filter-widget'
+			className={buttonClass}
 			onPressed={() => props.onEdit()}
 		>
 			{props.booleanOperator &&
