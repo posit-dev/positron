@@ -6,6 +6,7 @@ import { NewProjectWizardStep } from 'vs/workbench/browser/positronNewProjectWiz
 import { ProjectNameLocationStep } from 'vs/workbench/browser/positronNewProjectWizard/components/steps/projectNameLocationStep';
 import { PythonEnvironmentStep } from 'vs/workbench/browser/positronNewProjectWizard/components/steps/pythonEnvironmentStep';
 import { ProjectTypeStep } from 'vs/workbench/browser/positronNewProjectWizard/components/steps/projectTypeStep';
+import { RConfigurationStep } from 'vs/workbench/browser/positronNewProjectWizard/components/steps/rConfigurationStep';
 
 /**
  * The NewProjectWizardStepLookup object is like a map of NewProjectWizardStep to the
@@ -19,4 +20,5 @@ export const NewProjectWizardStepLookup = {
 	[NewProjectWizardStep.ProjectTypeSelection]: ProjectTypeStep,
 	[NewProjectWizardStep.ProjectNameLocation]: ProjectNameLocationStep,
 	[NewProjectWizardStep.PythonEnvironment]: PythonEnvironmentStep,
+	[NewProjectWizardStep.RConfiguration]: RConfigurationStep
 };

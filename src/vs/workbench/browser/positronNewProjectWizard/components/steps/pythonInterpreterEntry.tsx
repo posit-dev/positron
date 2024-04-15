@@ -9,30 +9,30 @@ import 'vs/css!./pythonInterpreterEntry';
 import * as React from 'react';
 
 // Other dependencies.
-import { PythonInterpreterInfo } from 'vs/workbench/browser/positronNewProjectWizard/utilities/pythonEnvironmentStepUtils';
+import { InterpreterInfo } from 'vs/workbench/browser/positronNewProjectWizard/utilities/interpreterDropDownUtils';
 import { DropdownEntry } from 'vs/workbench/browser/positronNewProjectWizard/components/steps/dropdownEntry';
 
 /**
- * PythonInterpreterEntryProps interface.
+ * InterpreterEntryProps interface.
  */
-interface PythonInterpreterEntryProps {
-	pythonInterpreterInfo: PythonInterpreterInfo;
+interface InterpreterEntryProps {
+	interpreterInfo: InterpreterInfo;
 }
 
 /**
- * PythonInterpreterEntry component.
- * @param pythonInterpreterInfo The Python interpreter info.
+ * InterpreterEntry component.
+ * @param interpreterInfo The Python interpreter info.
  * @returns The rendered component
  */
-export const PythonInterpreterEntry = ({ pythonInterpreterInfo }: PythonInterpreterEntryProps) => {
+export const InterpreterEntry = ({ interpreterInfo }: InterpreterEntryProps) => {
 	// Render.
 	return (
 		<DropdownEntry
 			// allow-any-unicode-next-line
-			icon={pythonInterpreterInfo.preferred ? '★' : ''}
-			title={`${pythonInterpreterInfo.languageName} ${pythonInterpreterInfo.languageVersion}`}
-			subtitle={`${pythonInterpreterInfo.runtimePath}`}
-			group={pythonInterpreterInfo.runtimeSource}
+			icon={interpreterInfo.preferred ? '★' : ''}
+			title={`${interpreterInfo.languageName} ${interpreterInfo.languageVersion}`}
+			subtitle={`${interpreterInfo.runtimePath}`}
+			group={interpreterInfo.runtimeSource}
 		/>
 	);
 };
