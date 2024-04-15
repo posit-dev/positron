@@ -77,7 +77,7 @@ export const PythonEnvironmentStep = (props: PropsWithChildren<NewProjectWizardS
 			identifier: EnvironmentSetupType.NewEnvironment,
 			title: localize(
 				'pythonEnvironmentStep.newEnvironment.radioLabel',
-				'Create a new Python environment _(Recommended)_'
+				'Create a new Python environment (Recommended)'
 			)
 		}),
 		new RadioButtonItem({

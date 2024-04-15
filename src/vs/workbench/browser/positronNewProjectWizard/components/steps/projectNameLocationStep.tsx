@@ -2,8 +2,11 @@
  *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
+// React.
 import * as React from 'react';
-import { PropsWithChildren } from 'react';  // eslint-disable-line no-duplicate-imports
+import { PropsWithChildren, useState } from 'react';  // eslint-disable-line no-duplicate-imports
+
+// Other dependencies.
 import { localize } from 'vs/nls';
 import { useNewProjectWizardContext } from 'vs/workbench/browser/positronNewProjectWizard/newProjectWizardContext';
 import { URI } from 'vs/base/common/uri';
@@ -29,6 +32,19 @@ export const ProjectNameLocationStep = (props: PropsWithChildren<NewProjectWizar
 	const projectConfig = newProjectWizardState.projectConfig;
 	const setProjectConfig = newProjectWizardState.setProjectConfig;
 	const fileDialogs = newProjectWizardState.fileDialogService;
+
+	// Hooks.
+	const [showProjectNameFeedback, setShowProjectNameFeedback] = useState(false);
+
+	// Set the project name.
+	const setProjectName = (projectName: string) => {
+		setProjectConfig({ ...projectConfig, projectName });
+		if (!projectName.trim()) {
+			setShowProjectNameFeedback(true);
+		} else {
+			setShowProjectNameFeedback(false);
+		}
+	};
 
 	// The browse handler.
 	const browseHandler = async () => {
@@ -75,6 +91,16 @@ export const ProjectNameLocationStep = (props: PropsWithChildren<NewProjectWizar
 					'projectNameLocationSubStep.projectName.label',
 					'Project Name'
 				))()}
+				feedback={showProjectNameFeedback
+					? () =>
+						<WizardFormattedText type={WizardFormattedTextType.Error}>
+							{(() => localize(
+								'projectNameLocationSubStep.projectName.feedback',
+								'Please enter a project name'
+							))()}
+						</WizardFormattedText>
+					: undefined
+				}
 			>
 				<LabeledTextInput
 					label={(() => localize(
@@ -84,7 +110,7 @@ export const ProjectNameLocationStep = (props: PropsWithChildren<NewProjectWizar
 					))()}
 					autoFocus
 					value={projectConfig.projectName}
-					onChange={e => setProjectConfig({ ...projectConfig, projectName: e.target.value })}
+					onChange={e => setProjectName(e.target.value)}
 				/>
 			</PositronWizardSubStep>
 			<PositronWizardSubStep
