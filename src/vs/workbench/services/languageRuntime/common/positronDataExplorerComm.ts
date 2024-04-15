@@ -58,6 +58,11 @@ export interface FilterResult {
  */
 export interface BackendState {
 	/**
+	 * Variable name or other string to display for tab name in UI
+	 */
+	display_name: string;
+
+	/**
 	 * Provides number of rows and columns in table
 	 */
 	table_shape: TableShape;

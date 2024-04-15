@@ -172,6 +172,10 @@ class BackendState(BaseModel):
     The current backend state for the data explorer
     """
 
+    display_name: str = Field(
+        description="Variable name or other string to display for tab name in UI",
+    )
+
     table_shape: TableShape = Field(
         description="Provides number of rows and columns in table",
     )
