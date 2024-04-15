@@ -1,0 +1,20 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *--------------------------------------------------------------------------------------------*/
+
+.positron-modal-dialog-box
+.wizard-step
+.renv-configuration {
+	display: flex;
+	flex-direction: row;
+	column-gap: 6px;
+}
+
+.positron-modal-dialog-box
+.wizard-step
+.renv-configuration
+.codicon-link-external {
+	color: var(--vscode-textLink-foreground);
+	cursor: pointer;
+	font-size: 14px;
+}
