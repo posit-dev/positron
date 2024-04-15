@@ -1,24 +1,24 @@
 (call
 	function: [
-		(identifier) @_superfunction.name
-	] (#eq? @_superfunction.name "describe")
+		(identifier) @parent_function
+	] (#eq? @parent_function "describe")
 	arguments: (arguments
 		(argument
-			value: (string) @superlabel
+			value: (string) @parent_desc
 		)
 		(argument
 			value: (braced_expression
 				body: (call
 					function: [
-						(identifier) @_function.name
-					] (#eq? @_function.name "it")
+						(identifier) @function
+					] (#eq? @function "it")
 					arguments: (arguments
 						(argument
-							value: (string) @label
+							value: (string) @desc
 						)
 					)
 				) @call
 			)
 		)
 	)
-) @supercall
+) @parent_call

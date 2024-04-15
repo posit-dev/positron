@@ -80,7 +80,7 @@ export async function parseTestsFromFile(
 	return;
 }
 
-async function findTests(uri: vscode.Uri) {
+async function findTests(uri: vscode.Uri): Promise<TestMatch[]> {
 	if (parser === undefined) {
 		parser = await initializeParser();
 	}
@@ -93,13 +93,13 @@ async function findTests(uri: vscode.Uri) {
 		let queryContent = await vscode.workspace.fs.readFile(vscode.Uri.file(queryPath));
 		let query = R!.query(queryContent.toString());
 
-		const matches = createMatchObjects(query, tree);
+		const matches = getTestMatches(query, tree);
 
 		queryPath = path.join(EXTENSION_ROOT_DIR, 'resources', 'testing', 'describe.scm');
 		queryContent = await vscode.workspace.fs.readFile(vscode.Uri.file(queryPath));
 		query = R!.query(queryContent.toString());
 
-		matches.push(...createMatchObjects(query, tree));
+		matches.push(...getTestMatches(query, tree));
 
 		return matches;
 	} catch (reason) {
@@ -107,19 +107,39 @@ async function findTests(uri: vscode.Uri) {
 	}
 }
 
+/**
+ * Details about a query match, in a testthat test file.
+ */
 interface Match {
+	/** The name of the function we looked for, e.g. 'test_that', 'describe' or 'it'. */
 	functionName: string;
+
+	/**
+	 * The description associated with the function call, in the sense of
+	 * `test_that(desc =)`, `describe(description =)`, and `it(description =)`.
+	 */
 	desc: string;
+
+	/** Where the matched call starts in the test file. */
 	startPos: vscode.Position;
+
+	/** Where the matched call ends in the test file. */
 	endPos: vscode.Position;
 }
 
+
+/**
+ * Match data for (what will become) a single test item, e.g. a call to `test_that()`, `describe()`,
+ * or `it()`.
+ */
 interface TestMatch {
+	/** Data for the call itself. */
 	match: Match;
+	/** Data for the parent `describe()` call. Only applies to an `it()` call. */
 	parentMatch?: Match;
 }
 
-function createMatchObjects(query: Parser.Query, tree: Parser.Tree): TestMatch[] {
+function getTestMatches(query: Parser.Query, tree: Parser.Tree): TestMatch[] {
 	const raw_matches = query.matches(tree.rootNode);
 	const matches: TestMatch[] = [];
 
@@ -128,24 +148,24 @@ function createMatchObjects(query: Parser.Query, tree: Parser.Tree): TestMatch[]
 			continue;
 		}
 
-		const testFunctionCapture = match.captures.find(capture => capture.name === '_function.name');
-		const testLabelCapture = match.captures.find(capture => capture.name === 'label');
+		const testFunctionCapture = match.captures.find(capture => capture.name === 'function');
+		const testDescCapture = match.captures.find(capture => capture.name === 'desc');
 		const testCallCapture = match.captures.find(capture => capture.name === 'call');
 
-		if (testFunctionCapture && testLabelCapture && testCallCapture) {
-			const matchObject: TestMatch = {
-				match: processCapture(testFunctionCapture, testLabelCapture, testCallCapture)
+		if (testFunctionCapture && testDescCapture && testCallCapture) {
+			const tm: TestMatch = {
+				match: processCapture(testFunctionCapture, testDescCapture, testCallCapture)
 			};
 
-			const testSuperFunctionCapture = match.captures.find(capture => capture.name === '_superfunction.name');
-			const testSuperLabelCapture = match.captures.find(capture => capture.name === 'superlabel');
-			const testSuperCallCapture = match.captures.find(capture => capture.name === 'supercall');
+			const testParentFunctionCapture = match.captures.find(capture => capture.name === 'parent_function');
+			const testParentDescCapture = match.captures.find(capture => capture.name === 'parent_desc');
+			const testParentCallCapture = match.captures.find(capture => capture.name === 'parent_call');
 
-			if (testSuperFunctionCapture && testSuperLabelCapture && testSuperCallCapture) {
-				matchObject.parentMatch = processCapture(testSuperFunctionCapture, testSuperLabelCapture, testSuperCallCapture);
+			if (testParentFunctionCapture && testParentDescCapture && testParentCallCapture) {
+				tm.parentMatch = processCapture(testParentFunctionCapture, testParentDescCapture, testParentCallCapture);
 			}
 
-			matches.push(matchObject);
+			matches.push(tm);
 		}
 	}
 
@@ -156,15 +176,13 @@ const toVSCodePosition = (pos: any) => new vscode.Position(pos.row, pos.column);
 
 function processCapture(
 	captureFunction: Parser.QueryCapture,
-	captureLabel: Parser.QueryCapture,
+	captureDesc: Parser.QueryCapture,
 	captureCall: Parser.QueryCapture
 ): Match {
 	return {
 		functionName: captureFunction.node.text,
-		desc: captureLabel.node.text.substring(
-			1,
-			captureLabel.node.text.length - 1
-		),
+		// we start at 1 and end at (length - 1) because we don't want the surrounding quotes
+		desc: captureDesc.node.text.substring(1, captureDesc.node.text.length - 1),
 		startPos: toVSCodePosition(captureCall.node.startPosition),
 		endPos: toVSCodePosition(captureCall.node.endPosition)
 	};
