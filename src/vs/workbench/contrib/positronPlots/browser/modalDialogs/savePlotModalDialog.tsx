@@ -181,7 +181,8 @@ const SavePlotModalDialog = (props: SavePlotModalDialogProps) => {
 
 	const acceptHandler = async () => {
 		if (validateInput()) {
-			const fileExists = await props.fileService.exists(directory.value);
+			const filePath = URI.joinPath(directory.value, `${name.value}.${format}`);
+			const fileExists = await props.fileService.exists(filePath);
 			if (fileExists) {
 				const confirmation = await props.dialogService.confirm({
 					message: localize('positron.savePlotModalDialog.fileExists', "The file already exists. Do you want to overwrite it?"),
@@ -196,7 +197,6 @@ const SavePlotModalDialog = (props: SavePlotModalDialogProps) => {
 
 			generatePreview(format)
 				.then(async (plotResult) => {
-					const filePath = URI.joinPath(directory.value, `${name.value}.${format}`);
 					props.savePlotCallback({ uri: plotResult.uri, path: filePath });
 				})
 				.finally(() => {
