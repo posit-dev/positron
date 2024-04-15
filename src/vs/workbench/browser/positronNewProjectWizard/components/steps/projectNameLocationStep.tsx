@@ -49,6 +49,8 @@ export const ProjectNameLocationStep = (props: PropsWithChildren<NewProjectWizar
 		// TODO: add handling for R and Jupyter projects
 		switch (projectConfig.projectType) {
 			case NewProjectType.RProject:
+				props.next(NewProjectWizardStep.RConfiguration);
+				break;
 			case NewProjectType.JupyterNotebook:
 			case NewProjectType.PythonProject:
 				props.next(NewProjectWizardStep.PythonEnvironment);
