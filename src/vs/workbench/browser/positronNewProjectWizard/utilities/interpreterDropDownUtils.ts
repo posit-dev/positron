@@ -92,8 +92,10 @@ export const getPreferredRuntime = (runtimeStartupService: IRuntimeStartupServic
 };
 
 /**
- * Retrieves the selected interpreter for the given languageId.
+ * Retrieves the selected interpreter for the given languageId if it is a valid option in the
+ * dropdown list.
  * @param existingSelection The existing selection.
+ * @param interpreterEntries The interpreter entries.
  * @param runtimeStartupService The runtime startup service.
  * @param languageId The languageId of the runtime to retrieve.
  * @returns The already selected interpreter if it matches the languageId, the preferred interpreter
@@ -101,10 +103,21 @@ export const getPreferredRuntime = (runtimeStartupService: IRuntimeStartupServic
  */
 export const getSelectedInterpreter = (
 	existingSelection: ILanguageRuntimeMetadata | undefined,
+	interpreterEntries: DropDownListBoxEntry<string, InterpreterInfo>[],
 	runtimeStartupService: IRuntimeStartupService,
 	languageId: LanguageIds
 ) => {
-	return existingSelection?.languageId === languageId ?
+	const interpreter = existingSelection?.languageId === languageId ?
 		existingSelection :
 		getPreferredRuntime(runtimeStartupService, languageId);
+
+	// Check if the interpreter is a valid option in the dropdown list.
+	const isValidInterpreter = interpreterEntries.find(entry => {
+		if (entry instanceof DropDownListBoxItem) {
+			return entry.options.identifier === interpreter?.runtimeId;
+		}
+		return false;
+	});
+
+	return isValidInterpreter ? interpreter : undefined;
 };

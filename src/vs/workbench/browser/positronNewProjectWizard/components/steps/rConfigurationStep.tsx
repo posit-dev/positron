@@ -39,9 +39,6 @@ export const RConfigurationStep = (props: PropsWithChildren<NewProjectWizardStep
 
 	// Hooks to manage the startup phase and interpreter entries.
 	const [startupPhase, setStartupPhase] = useState(runtimeStartupService.startupPhase);
-	const [selectedInterpreter, setSelectedInterpreter] = useState(
-		getSelectedInterpreter(projectConfig.selectedRuntime, runtimeStartupService, LanguageIds.R)
-	);
 	const [interpreterEntries, setInterpreterEntries] =
 		useState(
 			// It's possible that the runtime discovery phase is not complete, so we need to check
@@ -50,7 +47,14 @@ export const RConfigurationStep = (props: PropsWithChildren<NewProjectWizardStep
 				[] :
 				getRInterpreterEntries(runtimeStartupService, languageRuntimeService)
 		);
-
+	const [selectedInterpreter, setSelectedInterpreter] = useState(
+		getSelectedInterpreter(
+			projectConfig.selectedRuntime,
+			interpreterEntries,
+			runtimeStartupService,
+			LanguageIds.R
+		)
+	);
 	// Handler for when the interpreter is selected. The project configuration is updated with the
 	// selected interpreter.
 	const onInterpreterSelected = (identifier: string) => {
@@ -87,6 +91,7 @@ export const RConfigurationStep = (props: PropsWithChildren<NewProjectWizardStep
 						// Set the selected interpreter to the preferred interpreter if it is available.
 						const selectedRuntime = getSelectedInterpreter(
 							selectedInterpreter,
+							entries,
 							runtimeStartupService,
 							LanguageIds.R
 						);
