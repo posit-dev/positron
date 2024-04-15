@@ -18,23 +18,19 @@ import { ContextMenuItem } from 'vs/workbench/browser/positronComponents/context
 import { ContextMenuSeparator } from 'vs/workbench/browser/positronComponents/contextMenu/contextMenuSeparator';
 import { usePositronDataExplorerContext } from 'vs/workbench/browser/positronDataExplorer/positronDataExplorerContext';
 import { PositronModalReactRenderer } from 'vs/workbench/browser/positronModalReactRenderer/positronModalReactRenderer';
-import { CompareFilterParamsOp, RowFilter, RowFilterCondition, RowFilterType } from 'vs/workbench/services/languageRuntime/common/positronDataExplorerComm';
+import { RowFilter, RowFilterCondition, RowFilterType } from 'vs/workbench/services/languageRuntime/common/positronDataExplorerComm';
 import { RowFilterWidget } from 'vs/workbench/browser/positronDataExplorer/components/dataExplorerPanel/components/rowFilterBar/components/rowFilterWidget';
 import { AddEditRowFilterModalPopup } from 'vs/workbench/browser/positronDataExplorer/components/dataExplorerPanel/components/addEditRowFilterModalPopup/addEditRowFilterModalPopup';
 import {
 	RowFilterDescriptor,
+	RowFilterDescriptorComparison,
 	RowFilterDescriptorIsEmpty,
 	RowFilterDescriptorIsNotEmpty,
 	RowFilterDescriptorIsNull,
 	RowFilterDescriptorIsNotNull,
-	RowFilterDescriptorIsLessThan,
-	RowFilterDescriptorIsGreaterThan,
-	RowFilterDescriptorIsEqualTo,
 	RowFilterDescriptorIsBetween,
 	RowFilterDescriptorIsNotBetween,
-	RowFilterDescriptorIsLessOrEqual,
-	RowFilterDescriptorIsGreaterOrEqual,
-	RowFilterDescriptorIsNotEqualTo
+	RowFilterDescriptorSearch
 } from 'vs/workbench/browser/positronDataExplorer/components/dataExplorerPanel/components/addEditRowFilterModalPopup/rowFilterDescriptor';
 
 /**
@@ -53,17 +49,6 @@ const createRowFilters = (rowFilterDescriptors: RowFilterDescriptor[]) => {
 			filter_id: rowFilterDescriptor.identifier,
 			column_index: rowFilterDescriptor.columnSchema.column_index,
 			condition: RowFilterCondition.And
-		};
-
-		const getCompareFilter = (value: string, op: CompareFilterParamsOp): RowFilter => {
-			return {
-				filter_type: RowFilterType.Compare,
-				compare_params: {
-					op,
-					value
-				},
-				...sharedParams
-			};
 		};
 
 		if (rowFilterDescriptor instanceof RowFilterDescriptorIsEmpty) {
@@ -86,18 +71,25 @@ const createRowFilters = (rowFilterDescriptors: RowFilterDescriptor[]) => {
 				filter_type: RowFilterType.NotNull,
 				...sharedParams
 			});
-		} else if (rowFilterDescriptor instanceof RowFilterDescriptorIsLessThan) {
-			rowFilters.push(getCompareFilter(rowFilterDescriptor.value, CompareFilterParamsOp.Lt));
-		} else if (rowFilterDescriptor instanceof RowFilterDescriptorIsLessOrEqual) {
-			rowFilters.push(getCompareFilter(rowFilterDescriptor.value, CompareFilterParamsOp.LtEq));
-		} else if (rowFilterDescriptor instanceof RowFilterDescriptorIsGreaterThan) {
-			rowFilters.push(getCompareFilter(rowFilterDescriptor.value, CompareFilterParamsOp.Gt));
-		} else if (rowFilterDescriptor instanceof RowFilterDescriptorIsGreaterOrEqual) {
-			rowFilters.push(getCompareFilter(rowFilterDescriptor.value, CompareFilterParamsOp.GtEq));
-		} else if (rowFilterDescriptor instanceof RowFilterDescriptorIsEqualTo) {
-			rowFilters.push(getCompareFilter(rowFilterDescriptor.value, CompareFilterParamsOp.Eq));
-		} else if (rowFilterDescriptor instanceof RowFilterDescriptorIsNotEqualTo) {
-			rowFilters.push(getCompareFilter(rowFilterDescriptor.value, CompareFilterParamsOp.NotEq));
+		} else if (rowFilterDescriptor instanceof RowFilterDescriptorComparison) {
+			rowFilters.push({
+				filter_type: RowFilterType.Compare,
+				compare_params: {
+					op: rowFilterDescriptor.compareFilterOp,
+					value: rowFilterDescriptor.value
+				},
+				...sharedParams
+			});
+		} else if (rowFilterDescriptor instanceof RowFilterDescriptorSearch) {
+			rowFilters.push({
+				filter_type: RowFilterType.Search,
+				search_params: {
+					search_type: rowFilterDescriptor.searchOp,
+					term: rowFilterDescriptor.value,
+					case_sensitive: false
+				},
+				...sharedParams
+			});
 		} else if (rowFilterDescriptor instanceof RowFilterDescriptorIsBetween) {
 			rowFilters.push({
 				filter_type: RowFilterType.Between,
