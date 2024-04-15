@@ -73,11 +73,17 @@ export const PythonEnvironmentStep = (props: PropsWithChildren<NewProjectWizardS
 	const envSetupRadioButtons: RadioButtonItem[] = [
 		new RadioButtonItem({
 			identifier: EnvironmentSetupType.NewEnvironment,
-			title: 'Create a new Python environment _(Recommended)_'
+			title: localize(
+				'pythonEnvironmentStep.newEnvironment.radioLabel',
+				'Create a new Python environment _(Recommended)_'
+			)
 		}),
 		new RadioButtonItem({
 			identifier: EnvironmentSetupType.ExistingEnvironment,
-			title: 'Use an existing Python installation'
+			title: localize(
+				'pythonEnvironmentStep.existingEnvironment.radioLabel',
+				'Use an existing Python installation'
+			)
 		})
 	];
 

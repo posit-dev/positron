@@ -91,6 +91,14 @@ export const getPreferredRuntime = (runtimeStartupService: IRuntimeStartupServic
 	return preferredRuntime;
 };
 
+/**
+ * Retrieves the selected interpreter for the given languageId.
+ * @param existingSelection The existing selection.
+ * @param runtimeStartupService The runtime startup service.
+ * @param languageId The languageId of the runtime to retrieve.
+ * @returns The already selected interpreter if it matches the languageId, the preferred interpreter
+ * if it exists, or undefined if no preferred interpreter is found.
+ */
 export const getSelectedInterpreter = (
 	existingSelection: ILanguageRuntimeMetadata | undefined,
 	runtimeStartupService: IRuntimeStartupService,
