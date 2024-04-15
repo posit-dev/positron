@@ -76,7 +76,8 @@ export const ProjectTypeStep = (props: PropsWithChildren<NewProjectWizardStepPro
 					onClick: props.cancel
 				}}
 				nextButtonConfig={{
-					onClick: nextStep
+					onClick: nextStep,
+					disable: !selectedProjectType
 				}}
 			/>
 		</div>

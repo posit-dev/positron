@@ -92,8 +92,31 @@ export const getPreferredRuntime = (runtimeStartupService: IRuntimeStartupServic
 };
 
 /**
- * Retrieves the selected interpreter for the given languageId.
+ * Determines if the interpreter is in the dropdown list.
+ * @param interpreter The interpreter to check.
+ * @param interpreterEntries The interpreter entries.
+ * @returns True if the interpreter is in the dropdown list, false otherwise.
+ */
+const isInterpreterInDropdown = (
+	interpreter: ILanguageRuntimeMetadata | undefined,
+	interpreterEntries: DropDownListBoxEntry<string, InterpreterInfo>[]
+) => {
+	if (!interpreter || !interpreterEntries.length) {
+		return false;
+	}
+	return interpreterEntries.find(entry => {
+		if (entry instanceof DropDownListBoxItem) {
+			return entry.options.identifier === interpreter.runtimeId;
+		}
+		return false;
+	});
+};
+
+/**
+ * Retrieves the selected interpreter for the given languageId if it is a valid option in the
+ * dropdown list.
  * @param existingSelection The existing selection.
+ * @param interpreterEntries The interpreter entries.
  * @param runtimeStartupService The runtime startup service.
  * @param languageId The languageId of the runtime to retrieve.
  * @returns The already selected interpreter if it matches the languageId, the preferred interpreter
@@ -101,10 +124,21 @@ export const getPreferredRuntime = (runtimeStartupService: IRuntimeStartupServic
  */
 export const getSelectedInterpreter = (
 	existingSelection: ILanguageRuntimeMetadata | undefined,
+	interpreterEntries: DropDownListBoxEntry<string, InterpreterInfo>[],
 	runtimeStartupService: IRuntimeStartupService,
 	languageId: LanguageIds
 ) => {
-	return existingSelection?.languageId === languageId ?
-		existingSelection :
-		getPreferredRuntime(runtimeStartupService, languageId);
+	// Return the existing selection if it is in the dropdown list.
+	if (isInterpreterInDropdown(existingSelection, interpreterEntries)) {
+		return existingSelection;
+	}
+
+	// Return the preferred interpreter if it is in the dropdown list.
+	const preferredInterpreter = getPreferredRuntime(runtimeStartupService, languageId);
+	if (isInterpreterInDropdown(preferredInterpreter, interpreterEntries)) {
+		return preferredInterpreter;
+	}
+
+	// Otherwise, there doesn't appear to be a valid selection.
+	return undefined;
 };
