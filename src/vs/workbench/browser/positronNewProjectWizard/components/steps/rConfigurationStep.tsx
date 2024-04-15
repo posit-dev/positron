@@ -115,7 +115,8 @@ export const RConfigurationStep = (props: PropsWithChildren<NewProjectWizardStep
 				title: (() => localize(
 					'positronNewProjectWizard.createButtonTitle',
 					"Create"
-				))()
+				))(),
+				disable: !selectedInterpreter
 			}}
 		>
 			<PositronWizardSubStep

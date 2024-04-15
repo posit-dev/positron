@@ -198,7 +198,8 @@ export const PythonEnvironmentStep = (props: PropsWithChildren<NewProjectWizardS
 				title: (() => localize(
 					'positronNewProjectWizard.createButtonTitle',
 					"Create"
-				))()
+				))(),
+				disable: !selectedInterpreter
 			}}
 		>
 			<PositronWizardSubStep
