@@ -14,18 +14,14 @@ import { localize } from 'vs/nls';
 import { Button } from 'vs/base/browser/ui/positronComponents/button/button';
 import {
 	RowFilterDescriptor,
+	RowFilterDescriptorComparison,
 	RowFilterDescriptorIsBetween,
 	RowFilterDescriptorIsEmpty,
-	RowFilterDescriptorIsEqualTo,
-	RowFilterDescriptorIsGreaterThan,
-	RowFilterDescriptorIsGreaterOrEqual,
-	RowFilterDescriptorIsLessThan,
-	RowFilterDescriptorIsLessOrEqual,
 	RowFilterDescriptorIsNotBetween,
 	RowFilterDescriptorIsNotEmpty,
 	RowFilterDescriptorIsNotNull,
 	RowFilterDescriptorIsNull,
-	RowFilterDescriptorIsNotEqualTo
+	RowFilterDescriptorSearch
 } from 'vs/workbench/browser/positronDataExplorer/components/dataExplorerPanel/components/addEditRowFilterModalPopup/rowFilterDescriptor';
 
 /**
@@ -75,40 +71,16 @@ export const RowFilterWidget = forwardRef<HTMLButtonElement, RowFilterWidgetProp
 				</span>
 			</>;
 
-		} else if (props.rowFilter instanceof RowFilterDescriptorIsLessThan) {
+		} else if (props.rowFilter instanceof RowFilterDescriptorComparison) {
 			return <>
 				<span className='column-name'>{props.rowFilter.columnSchema.column_name}</span>
-				<span className='space-before space-after'>&lt;</span>
+				<span className='space-before space-after'>{props.rowFilter.operatorText}</span>
 				<span>{props.rowFilter.value}</span>
 			</>;
-		} else if (props.rowFilter instanceof RowFilterDescriptorIsLessOrEqual) {
+		} else if (props.rowFilter instanceof RowFilterDescriptorSearch) {
 			return <>
 				<span className='column-name'>{props.rowFilter.columnSchema.column_name}</span>
-				<span className='space-before space-after'>&lt;=</span>
-				<span>{props.rowFilter.value}</span>
-			</>;
-		} else if (props.rowFilter instanceof RowFilterDescriptorIsGreaterThan) {
-			return <>
-				<span className='column-name'>{props.rowFilter.columnSchema.column_name}</span>
-				<span className='space-before space-after'>&gt;</span>
-				<span>{props.rowFilter.value}</span>
-			</>;
-		} else if (props.rowFilter instanceof RowFilterDescriptorIsGreaterOrEqual) {
-			return <>
-				<span className='column-name'>{props.rowFilter.columnSchema.column_name}</span>
-				<span className='space-before space-after'>&gt;=</span>
-				<span>{props.rowFilter.value}</span>
-			</>;
-		} else if (props.rowFilter instanceof RowFilterDescriptorIsEqualTo) {
-			return <>
-				<span className='column-name'>{props.rowFilter.columnSchema.column_name}</span>
-				<span className='space-before space-after'>=</span>
-				<span>{props.rowFilter.value}</span>
-			</>;
-		} else if (props.rowFilter instanceof RowFilterDescriptorIsNotEqualTo) {
-			return <>
-				<span className='column-name'>{props.rowFilter.columnSchema.column_name}</span>
-				<span className='space-before space-after'>!=</span>
+				<span className='space-before space-after'>{props.rowFilter.operatorText}</span>
 				<span>{props.rowFilter.value}</span>
 			</>;
 		} else if (props.rowFilter instanceof RowFilterDescriptorIsBetween) {
