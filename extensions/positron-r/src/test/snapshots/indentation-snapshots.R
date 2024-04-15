@@ -196,6 +196,22 @@ data |>
     "<>"
 
 # ---
+# Dedent after pipeline (token)
+1 +
+    foo(
+        x
+    ) +
+    bar"<>"
+
+# ->
+1 +
+    foo(
+        x
+    ) +
+    bar
+"<>"
+
+# ---
 # Stickiness of dedent after pipeline
 # https://github.com/posit-dev/positron/issues/1727
 data |>
