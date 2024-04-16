@@ -1795,6 +1795,17 @@ export class InlineSuggestionList implements vscode.InlineCompletionList {
 	}
 }
 
+export interface PartialAcceptInfo {
+	kind: PartialAcceptTriggerKind;
+}
+
+export enum PartialAcceptTriggerKind {
+	Unknown = 0,
+	Word = 1,
+	Line = 2,
+	Suggest = 3,
+}
+
 export enum ViewColumn {
 	Active = -1,
 	Beside = -2,
@@ -2775,27 +2786,63 @@ export class DataTransfer implements vscode.DataTransfer {
 
 @es5ClassCompat
 export class DocumentDropEdit {
+	title?: string;
+
 	id: string | undefined;
 
 	insertText: string | SnippetString;
 
 	additionalEdit?: WorkspaceEdit;
 
-	constructor(insertText: string | SnippetString) {
+	kind?: DocumentPasteEditKind;
+
+	constructor(insertText: string | SnippetString, title?: string, kind?: DocumentPasteEditKind) {
 		this.insertText = insertText;
+		this.title = title;
+		this.kind = kind;
 	}
 }
+
+export enum DocumentPasteTriggerKind {
+	Automatic = 0,
+	PasteAs = 1,
+}
+
+export class DocumentPasteEditKind {
+	static Empty: DocumentPasteEditKind;
+
+	private static sep = '.';
+
+	constructor(
+		public readonly value: string
+	) { }
+
+	public append(...parts: string[]): DocumentPasteEditKind {
+		return new DocumentPasteEditKind((this.value ? [this.value, ...parts] : parts).join(DocumentPasteEditKind.sep));
+	}
+
+	public intersects(other: DocumentPasteEditKind): boolean {
+		return this.contains(other) || other.contains(this);
+	}
+
+	public contains(other: DocumentPasteEditKind): boolean {
+		return this.value === other.value || other.value.startsWith(this.value + DocumentPasteEditKind.sep);
+	}
+}
+DocumentPasteEditKind.Empty = new DocumentPasteEditKind('');
 
 @es5ClassCompat
 export class DocumentPasteEdit {
 
-	label: string;
+	title: string;
 	insertText: string | SnippetString;
 	additionalEdit?: WorkspaceEdit;
+	kind: DocumentPasteEditKind;
 
-	constructor(insertText: string | SnippetString, label: string) {
-		this.label = label;
+	constructor(insertText: string | SnippetString, title: string, kind: DocumentPasteEditKind) {
+		this.title = title;
 		this.insertText = insertText;
+		this.kind = kind;
 	}
 }
 
@@ -3024,21 +3071,18 @@ export class DebugAdapterInlineImplementation implements vscode.DebugAdapterInli
 }
 
 
-@es5ClassCompat
-export class StackFrameFocus {
+export class StackFrame implements vscode.StackFrame {
 	constructor(
 		public readonly session: vscode.DebugSession,
-		readonly threadId?: number,
-		readonly frameId?: number) { }
+		readonly threadId: number,
+		readonly frameId: number) { }
 }
 
-@es5ClassCompat
-export class ThreadFocus {
+export class Thread implements vscode.Thread {
 	constructor(
 		public readonly session: vscode.DebugSession,
-		readonly threadId?: number) { }
+		readonly threadId: number) { }
 }
-
 
 
 @es5ClassCompat
@@ -3226,6 +3270,11 @@ export enum CommentState {
 export enum CommentThreadState {
 	Unresolved = 0,
 	Resolved = 1
+}
+
+export enum CommentThreadApplicability {
+	Current = 0,
+	Outdated = 1
 }
 
 //#endregion
@@ -3976,22 +4025,31 @@ export class TestTag implements vscode.TestTag {
 //#endregion
 
 //#region Test Coverage
-export class CoveredCount implements vscode.CoveredCount {
+export class TestCoverageCount implements vscode.TestCoverageCount {
 	constructor(public covered: number, public total: number) {
+		validateTestCoverageCount(this);
 	}
 }
 
-const validateCC = (cc?: vscode.CoveredCount) => {
-	if (cc && cc.covered > cc.total) {
+export function validateTestCoverageCount(cc?: vscode.TestCoverageCount) {
+	if (!cc) {
+		return;
+	}
+
+	if (cc.covered > cc.total) {
 		throw new Error(`The total number of covered items (${cc.covered}) cannot be greater than the total (${cc.total})`);
 	}
-};
+
+	if (cc.total < 0) {
+		throw new Error(`The number of covered items (${cc.total}) cannot be negative`);
+	}
+}
 
 export class FileCoverage implements vscode.FileCoverage {
-	public static fromDetails(uri: vscode.Uri, details: vscode.DetailedCoverage[]): vscode.FileCoverage {
-		const statements = new CoveredCount(0, 0);
-		const branches = new CoveredCount(0, 0);
-		const decl = new CoveredCount(0, 0);
+	public static fromDetails(uri: vscode.Uri, details: vscode.FileCoverageDetail[]): vscode.FileCoverage {
+		const statements = new TestCoverageCount(0, 0);
+		const branches = new TestCoverageCount(0, 0);
+		const decl = new TestCoverageCount(0, 0);
 
 		for (const detail of details) {
 			if ('branches' in detail) {
@@ -4020,17 +4078,14 @@ export class FileCoverage implements vscode.FileCoverage {
 		return coverage;
 	}
 
-	detailedCoverage?: vscode.DetailedCoverage[];
+	detailedCoverage?: vscode.FileCoverageDetail[];
 
 	constructor(
 		public readonly uri: vscode.Uri,
-		public statementCoverage: vscode.CoveredCount,
-		public branchCoverage?: vscode.CoveredCount,
-		public declarationCoverage?: vscode.CoveredCount,
+		public statementCoverage: vscode.TestCoverageCount,
+		public branchCoverage?: vscode.TestCoverageCount,
+		public declarationCoverage?: vscode.TestCoverageCount,
 	) {
-		validateCC(statementCoverage);
-		validateCC(branchCoverage);
-		validateCC(declarationCoverage);
 	}
 }
 
@@ -4154,6 +4209,10 @@ export class InteractiveWindowInput {
 
 export class ChatEditorTabInput {
 	constructor(readonly providerId: string) { }
+}
+
+export class TextMultiDiffTabInput {
+	constructor(readonly textDiffs: TextDiffTabInput[]) { }
 }
 //#endregion
 
@@ -4353,8 +4412,8 @@ export class ChatResponseCommandButtonPart {
 }
 
 export class ChatResponseReferencePart {
-	value: vscode.Uri | vscode.Location;
-	constructor(value: vscode.Uri | vscode.Location) {
+	value: vscode.Uri | vscode.Location | { variableName: string; value?: vscode.Uri | vscode.Location };
+	constructor(value: vscode.Uri | vscode.Location | { variableName: string; value?: vscode.Uri | vscode.Location }) {
 		this.value = value;
 	}
 }
@@ -4365,7 +4424,7 @@ export class ChatRequestTurn implements vscode.ChatRequestTurn {
 		readonly prompt: string,
 		readonly command: string | undefined,
 		readonly variables: vscode.ChatResolvedVariable[],
-		readonly participant: { extensionId: string; name: string },
+		readonly participant: string,
 	) { }
 }
 
@@ -4374,12 +4433,19 @@ export class ChatResponseTurn implements vscode.ChatResponseTurn {
 	constructor(
 		readonly response: ReadonlyArray<ChatResponseMarkdownPart | ChatResponseFileTreePart | ChatResponseAnchorPart | ChatResponseCommandButtonPart>,
 		readonly result: vscode.ChatResult,
-		readonly participant: { extensionId: string; name: string },
+		readonly participant: string,
 		readonly command?: string
 	) { }
 }
 
-export class LanguageModelSystemMessage {
+export enum ChatLocation {
+	Panel = 1,
+	Terminal = 2,
+	Notebook = 3,
+	Editor = 4,
+}
+
+export class LanguageModelChatSystemMessage {
 	content: string;
 
 	constructor(content: string) {
@@ -4387,7 +4453,7 @@ export class LanguageModelSystemMessage {
 	}
 }
 
-export class LanguageModelUserMessage {
+export class LanguageModelChatUserMessage {
 	content: string;
 	name: string | undefined;
 
@@ -4397,12 +4463,34 @@ export class LanguageModelUserMessage {
 	}
 }
 
-export class LanguageModelAssistantMessage {
+export class LanguageModelChatAssistantMessage {
 	content: string;
+	name?: string;
 
-	constructor(content: string) {
+	constructor(content: string, name?: string) {
 		this.content = content;
+		this.name = name;
 	}
+}
+
+export class LanguageModelError extends Error {
+
+	static NotFound(message?: string): LanguageModelError {
+		return new LanguageModelError(message, LanguageModelError.NotFound.name);
+	}
+
+	static NoPermissions(message?: string): LanguageModelError {
+		return new LanguageModelError(message, LanguageModelError.NoPermissions.name);
+	}
+
+	readonly code: string;
+
+	constructor(message?: string, code?: string, cause?: Error) {
+		super(message, { cause });
+		this.name = 'LanguageModelError';
+		this.code = code ?? '';
+	}
+
 }
 
 //#endregion

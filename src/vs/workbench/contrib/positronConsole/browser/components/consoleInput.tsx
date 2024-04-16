@@ -17,7 +17,6 @@ import { ISelection } from 'vs/editor/common/core/selection';
 import { IKeyboardEvent } from 'vs/base/browser/keyboardEvent';
 import { useStateRef } from 'vs/base/browser/ui/react/useStateRef';
 import { CursorChangeReason } from 'vs/editor/common/cursorEvents';
-import { CodeEditorWidget } from 'vs/editor/browser/widget/codeEditorWidget';
 import { HoverController } from 'vs/editor/contrib/hover/browser/hover';
 import { EditorExtensionsRegistry } from 'vs/editor/browser/editorExtensions';
 import { MarkerController } from 'vs/editor/contrib/gotoError/browser/gotoError';
@@ -37,6 +36,7 @@ import { HistoryBrowserPopup } from 'vs/workbench/contrib/positronConsole/browse
 import { EmptyHistoryMatchStrategy, HistoryMatch, HistoryMatchStrategy } from 'vs/workbench/contrib/positronConsole/common/historyMatchStrategy';
 import { HistoryPrefixMatchStrategy } from 'vs/workbench/contrib/positronConsole/common/historyPrefixMatchStrategy';
 import { HistoryInfixMatchStrategy } from 'vs/workbench/contrib/positronConsole/common/historyInfixMatchStrategy';
+import { CodeEditorWidget } from 'vs/editor/browser/widget/codeEditor/codeEditorWidget';
 
 // Position enumeration.
 const enum Position {

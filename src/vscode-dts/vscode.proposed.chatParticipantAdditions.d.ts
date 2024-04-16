@@ -22,9 +22,18 @@ declare module 'vscode' {
 		markdownContent: MarkdownString;
 	}
 
+	/**
+	 * Now only used for the "intent detection" API below
+	 */
+	export interface ChatCommand {
+		readonly name: string;
+		readonly description: string;
+	}
+
 	// TODO@API fit this into the stream
 	export interface ChatDetectedParticipant {
 		participant: string;
+		// TODO@API validate this against statically-declared slash commands?
 		command?: ChatCommand;
 	}
 
@@ -158,13 +167,15 @@ declare module 'vscode' {
 		constructor(label: string | CompletionItemLabel, values: ChatVariableValue[]);
 	}
 
-	export type ChatExtendedRequestHandler = (request: ChatRequest, context: ChatContext, response: ChatExtendedResponseStream, token: CancellationToken) => ProviderResult<ChatResult>;
+	export type ChatExtendedRequestHandler = (request: ChatRequest, context: ChatContext, response: ChatExtendedResponseStream, token: CancellationToken) => ProviderResult<ChatResult | void>;
 
 	export namespace chat {
 		/**
 		 * Create a chat participant with the extended progress type
 		 */
-		export function createChatParticipant(name: string, handler: ChatExtendedRequestHandler): ChatParticipant;
+		export function createChatParticipant(id: string, handler: ChatExtendedRequestHandler): ChatParticipant;
+
+		export function createDynamicChatParticipant(id: string, name: string, description: string, handler: ChatExtendedRequestHandler): ChatParticipant;
 	}
 
 	/*
@@ -229,20 +240,6 @@ declare module 'vscode' {
 		 * An optional type tag for extensions to communicate the kind of the variable. An extension might use it to interpret the shape of `value`.
 		 */
 		kind?: string;
-	}
-
-	export interface ChatCommand {
-		readonly isSticky2?: {
-			/**
-			 * Indicates that the command should be automatically repopulated.
-			 */
-			isSticky: true;
-
-			/**
-			 * This can be set to a string to use a different placeholder message in the input box when the command has been repopulated.
-			 */
-			placeholder?: string;
-		};
 	}
 
 	export interface ChatVariableResolverResponseStream {

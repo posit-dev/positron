@@ -43,7 +43,7 @@ import { flatten } from 'vs/base/common/arrays';
 import { IStorageService, StorageScope, StorageTarget } from 'vs/platform/storage/common/storage';
 import { EditorResourceAccessor, SideBySideEditor } from 'vs/workbench/common/editor';
 import { SIDE_BAR_BACKGROUND, PANEL_BACKGROUND } from 'vs/workbench/common/theme';
-import { CodeEditorWidget, ICodeEditorWidgetOptions } from 'vs/editor/browser/widget/codeEditorWidget';
+import { CodeEditorWidget, ICodeEditorWidgetOptions } from 'vs/editor/browser/widget/codeEditor/codeEditorWidget';
 import { ITextModel } from 'vs/editor/common/model';
 import { IEditorConstructionOptions } from 'vs/editor/browser/config/editorConfiguration';
 import { getSimpleEditorOptions } from 'vs/workbench/contrib/codeEditor/browser/simpleEditorOptions';
@@ -67,7 +67,7 @@ import { IListAccessibilityProvider } from 'vs/base/browser/ui/list/listWidget';
 import { ILanguageService } from 'vs/editor/common/languages/language';
 import { ILabelService } from 'vs/platform/label/common/label';
 import { KeyCode } from 'vs/base/common/keyCodes';
-import { DEFAULT_FONT_FAMILY } from 'vs/workbench/browser/style';
+import { DEFAULT_FONT_FAMILY } from 'vs/base/browser/fonts';
 import { Codicon } from 'vs/base/common/codicons';
 import { ThemeIcon } from 'vs/base/common/themables';
 import { AnchorAlignment } from 'vs/base/browser/ui/contextview/contextview';
@@ -371,6 +371,9 @@ class InputRenderer implements ICompressibleTreeRenderer<ISCMInput, FuzzyScore, 
 				this.editorSelections.set(input, selections);
 			}
 		}));
+
+		// Reset widget height so it's recalculated
+		templateData.inputWidgetHeight = InputRenderer.DEFAULT_HEIGHT;
 
 		// Rerender the element whenever the editor content height changes
 		const onDidChangeContentHeight = () => {
