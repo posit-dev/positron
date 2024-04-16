@@ -582,6 +582,7 @@
 		"--vscode-positronModalDialog-defaultButtonForeground",
 		"--vscode-positronModalDialog-defaultButtonHoverBackground",
 		"--vscode-positronModalDialog-foreground",
+		"--vscode-positronModalDialog-preformattedTextForeground",
 		"--vscode-positronModalDialog-projectTypeBackground",
 		"--vscode-positronModalDialog-projectTypeBackgroundHover",
 		"--vscode-positronModalDialog-projectTypeBackgroundSelected",
