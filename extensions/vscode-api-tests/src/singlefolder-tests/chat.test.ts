@@ -5,7 +5,7 @@
 
 import * as assert from 'assert';
 import 'mocha';
-import { CancellationToken, ChatContext, ChatRequest, ChatResult, ChatVariableLevel, Disposable, Event, EventEmitter, InteractiveSession, ProviderResult, chat, interactive } from 'vscode';
+import { commands, CancellationToken, ChatContext, ChatRequest, ChatResult, ChatVariableLevel, Disposable, Event, EventEmitter, InteractiveSession, ProviderResult, chat, interactive } from 'vscode';
 import { DeferredPromise, assertNoRpc, closeAllEditors, disposeAll } from '../utils';
 
 suite('chat', () => {
@@ -30,7 +30,7 @@ suite('chat', () => {
 
 	function setupParticipant(): Event<{ request: ChatRequest; context: ChatContext }> {
 		const emitter = new EventEmitter<{ request: ChatRequest; context: ChatContext }>();
-		disposables.push();
+		disposables.push(emitter);
 		disposables.push(interactive.registerInteractiveSessionProvider('provider', {
 			prepareSession: (_token: CancellationToken): ProviderResult<InteractiveSession> => {
 				return {
@@ -40,37 +40,31 @@ suite('chat', () => {
 			},
 		}));
 
-		const participant = chat.createChatParticipant('participant', (request, context, _progress, _token) => {
+		const participant = chat.createChatParticipant('api-test.participant', (request, context, _progress, _token) => {
 			emitter.fire({ request, context });
-			return null;
 		});
 		participant.isDefault = true;
-		participant.commandProvider = {
-			provideCommands: (_token) => {
-				return [{ name: 'hello', description: 'Hello' }];
-			}
-		};
 		disposables.push(participant);
 		return emitter.event;
 	}
 
-	test('participant and slash command', async () => {
+	test('participant and slash command history', async () => {
 		const onRequest = setupParticipant();
-		interactive.sendInteractiveRequestToProvider('provider', { message: '@participant /hello friend' });
+		commands.executeCommand('workbench.action.chat.open', { query: '@participant /hello friend' });
 
 		let i = 0;
-		onRequest(request => {
+		disposables.push(onRequest(request => {
 			if (i === 0) {
 				assert.deepStrictEqual(request.request.command, 'hello');
 				assert.strictEqual(request.request.prompt, 'friend');
 				i++;
-				interactive.sendInteractiveRequestToProvider('provider', { message: '@participant /hello friend' });
+				commands.executeCommand('workbench.action.chat.open', { query: '@participant /hello friend' });
 			} else {
 				assert.strictEqual(request.context.history.length, 1);
-				assert.strictEqual(request.context.history[0].participant.name, 'participant');
+				assert.strictEqual(request.context.history[0].participant, 'api-test.participant');
 				assert.strictEqual(request.context.history[0].command, 'hello');
 			}
-		});
+		}));
 	});
 
 	test('participant and variable', async () => {
@@ -81,7 +75,7 @@ suite('chat', () => {
 		}));
 
 		const deferred = getDeferredForRequest();
-		interactive.sendInteractiveRequestToProvider('provider', { message: '@participant hi #myVar' });
+		commands.executeCommand('workbench.action.chat.open', { query: '@participant hi #myVar' });
 		const request = await deferred.p;
 		assert.strictEqual(request.prompt, 'hi #myVar');
 		assert.strictEqual(request.variables[0].values[0].value, 'myValue');
@@ -98,24 +92,19 @@ suite('chat', () => {
 		}));
 
 		const deferred = new DeferredPromise<ChatResult>();
-		const participant = chat.createChatParticipant('participant', (_request, _context, _progress, _token) => {
+		const participant = chat.createChatParticipant('api-test.participant', (_request, _context, _progress, _token) => {
 			return { metadata: { key: 'value' } };
 		});
 		participant.isDefault = true;
-		participant.commandProvider = {
-			provideCommands: (_token) => {
-				return [{ name: 'hello', description: 'Hello' }];
-			}
-		};
 		participant.followupProvider = {
-			provideFollowups(result, _token) {
+			provideFollowups(result, _context, _token) {
 				deferred.complete(result);
 				return [];
 			},
 		};
 		disposables.push(participant);
 
-		interactive.sendInteractiveRequestToProvider('provider', { message: '@participant /hello friend' });
+		commands.executeCommand('workbench.action.chat.open', { query: '@participant /hello friend' });
 		const result = await deferred.p;
 		assert.deepStrictEqual(result.metadata, { key: 'value' });
 	});

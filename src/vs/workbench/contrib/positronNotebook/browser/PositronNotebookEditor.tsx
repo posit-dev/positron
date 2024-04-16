@@ -46,6 +46,7 @@ import { PositronNotebookComponent } from 'vs/workbench/contrib/positronNotebook
 import { ServicesProvider } from 'vs/workbench/contrib/positronNotebook/browser/ServicesProvider';
 import {
 	GroupsOrder,
+	IEditorGroup,
 	IEditorGroupsService
 } from 'vs/workbench/services/editor/common/editorGroupsService';
 import { PositronNotebookEditorInput } from './PositronNotebookEditorInput';
@@ -102,6 +103,7 @@ export class PositronNotebookEditor extends EditorPane {
 	private _scopedInstantiationService?: IInstantiationService;
 
 	constructor(
+		readonly _group: IEditorGroup,
 		@IClipboardService readonly _clipboardService: IClipboardService,
 		@ITelemetryService telemetryService: ITelemetryService,
 		@IThemeService themeService: IThemeService,
@@ -123,6 +125,7 @@ export class PositronNotebookEditor extends EditorPane {
 		// Call the base class's constructor.
 		super(
 			PositronNotebookEditorInput.EditorID,
+			_group,
 			telemetryService,
 			themeService,
 			storageService
