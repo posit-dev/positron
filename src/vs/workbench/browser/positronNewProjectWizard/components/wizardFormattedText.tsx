@@ -40,6 +40,7 @@ export interface WizardFormattedTextProps {
  * @returns The rendered component.
  */
 export const WizardFormattedText = (props: PropsWithChildren<WizardFormattedTextProps>) => {
+	// Show an icon in the formatted text if the text type is not Info.
 	const iconClass = props.type !== WizardFormattedTextType.Info
 		? `codicon codicon-${props.type}`
 		: undefined;

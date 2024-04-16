@@ -26,10 +26,6 @@ export interface PositronWizardSubStepProps {
  * @returns The rendered component.
  */
 export const PositronWizardSubStep = (props: PropsWithChildren<PositronWizardSubStepProps>) => {
-	// TODO: on focus change outside of the input element, perform validation of input
-	//       if input is invalid, notify wizardstep parent to disable the next/confirm buttons
-	//       in input is valid , notify wizardstep parent to enable the next/confirm buttons
-	const Feedback = () => props.feedback ? props.feedback() : null;
 	// Render.
 	return (
 		<div className='wizard-sub-step'>
@@ -47,7 +43,7 @@ export const PositronWizardSubStep = (props: PropsWithChildren<PositronWizardSub
 				{props.children}
 			</div>
 			<div className='wizard-sub-step-feedback'>
-				{props.feedback ? <Feedback /> : null}
+				{props.feedback ? props.feedback() : null}
 			</div>
 		</div>
 	);
