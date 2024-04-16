@@ -127,6 +127,7 @@ const hotExitConfiguration: IConfigurationPropertySchema = isNative ?
 		'scope': ConfigurationScope.APPLICATION,
 		'enum': [HotExitConfiguration.OFF, HotExitConfiguration.ON_EXIT, HotExitConfiguration.ON_EXIT_AND_WINDOW_CLOSE],
 		// --- Start Positron ---
+		// 'default': HotExitConfiguration.ON_EXIT,
 		'default': HotExitConfiguration.ON_EXIT_AND_WINDOW_CLOSE,
 		// --- End Positron ---
 		'markdownEnumDescriptions': [
