@@ -788,7 +788,8 @@ export class LanguageRuntimeSessionAdapter
 			parent_id: message.originId,
 			when: message.when,
 			type: positron.LanguageRuntimeMessageType.Input,
-			code: data.code
+			code: data.code,
+			execution_count: data.execution_count
 		} as positron.LanguageRuntimeInput);
 	}
 
