@@ -71,6 +71,13 @@ def comm_open_message(target_name: str, data: Optional[JsonRecord] = None) -> Js
     }
 
 
+def comm_close_message() -> JsonRecord:
+    return {
+        **comm_message(),
+        "msg_type": "comm_close",
+    }
+
+
 def json_rpc_error(code: int, message: str) -> JsonRecord:
     return comm_message(
         {

@@ -20,20 +20,15 @@ from ipykernel.kernelapp import IPKernelApp
 from ipykernel.zmqshell import ZMQDisplayPublisher, ZMQInteractiveShell
 from IPython.core import oinspect, page
 from IPython.core.interactiveshell import ExecutionInfo, InteractiveShell
-from IPython.core.magic import (
-    Magics,
-    MagicsManager,
-    line_magic,
-    magics_class,
-    needs_local_scope,
-)
+from IPython.core.magic import Magics, MagicsManager, line_magic, magics_class, needs_local_scope
 from IPython.utils import PyColorize
 
 from .connections import ConnectionsService
 from .data_explorer import DataExplorerService
 from .help import HelpService, help
 from .lsp import LSPService
-from .plots import PositronDisplayPublisherHook
+from .matplotlib_backend import enable_positron_matplotlib_backend
+from .plots import PlotsService
 from .session_mode import SessionMode
 from .ui import UiService
 from .utils import JsonRecord
@@ -224,6 +219,7 @@ class PositronShell(ZMQInteractiveShell):
         After execution, sends an update message to the client to summarize
         the changes observed to variables in the user's environment.
         """
+        # TODO: Split these to separate callbacks?
         # Check for changes to the working directory
         try:
             self.kernel.ui_service.poll_working_directory()
@@ -343,7 +339,7 @@ class PositronIPyKernel(IPythonKernel):
 
         # Create Positron services
         self.data_explorer_service = DataExplorerService(_CommTarget.DataExplorer)
-        self.display_pub_hook = PositronDisplayPublisherHook(_CommTarget.Plot, self.session_mode)
+        self.plots_service = PlotsService(_CommTarget.Plot, self.session_mode)
         self.ui_service = UiService()
         self.help_service = HelpService()
         self.lsp_service = LSPService(self)
@@ -359,7 +355,6 @@ class PositronIPyKernel(IPythonKernel):
             _CommTarget.Variables, self.variables_service.on_comm_open
         )
         # Register display publisher hooks
-        self.shell.display_pub.register_hook(self.display_pub_hook)
         self.shell.display_pub.register_hook(self.widget_hook)
 
         # Ignore warnings that the user can't do anything about
@@ -398,10 +393,10 @@ class PositronIPyKernel(IPythonKernel):
 
         # Shutdown Positron services
         self.data_explorer_service.shutdown()
-        self.display_pub_hook.shutdown()
         self.ui_service.shutdown()
         self.help_service.shutdown()
         self.lsp_service.shutdown()
+        self.plots_service.shutdown()
         self.widget_hook.shutdown()
         await self.variables_service.shutdown()
         self.connections_service.shutdown()
@@ -413,11 +408,24 @@ class PositronIPyKernel(IPythonKernel):
 
 
 class PositronIPKernelApp(IPKernelApp):
+    kernel: PositronIPyKernel
+
     # Use the PositronIPyKernel class.
     kernel_class: Type[PositronIPyKernel] = traitlets.Type(PositronIPyKernel)  # type: ignore
 
     # Positron-specific attributes:
     session_mode: SessionMode = SessionMode.trait()  # type: ignore
+
+    def init_gui_pylab(self):
+        try:
+            # Enable the Positron matplotlib backend if we're not in a notebook.
+            # If we're in a notebook, use IPython's default backend via the super() call below.
+            if self.session_mode != SessionMode.NOTEBOOK:
+                enable_positron_matplotlib_backend()
+        except Exception:
+            logger.error("Error setting matplotlib backend")
+
+        return super().init_gui_pylab()
 
 
 #

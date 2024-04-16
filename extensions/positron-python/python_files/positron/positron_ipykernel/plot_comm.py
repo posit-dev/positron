@@ -98,6 +98,9 @@ class PlotFrontendEvent(str, enum.Enum):
     # Notification that a plot has been updated on the backend.
     Update = "update"
 
+    # Show a plot.
+    Show = "show"
+
 
 PlotResult.update_forward_refs()
 
