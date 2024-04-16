@@ -62,6 +62,8 @@ class FigureManagerPositron(FigureManagerBase):
         Called by matplotlib when a figure is shown via `plt.show()` or `figure.show()`.
         """
         if self._plot is None:
+            # The frontend should respond with a render request, so there's no need for the explicit
+            # show call in this case.
             self._plot = self._plots_service.create_plot(self.canvas._render, self._handle_close)
         else:
             self._plot.show()
