@@ -233,13 +233,8 @@ export const PythonEnvironmentStep = (props: PropsWithChildren<NewProjectWizardS
 					feedback={() =>
 						<WizardFormattedText type={WizardFormattedTextType.Info}>
 							{(() => localize(
-								'pythonEnvironmentSubStep.feedback1',
-								'The ',
-							))()}
-							<code>{envType}</code>
-							{(() => localize(
-								'pythonEnvironmentSubStep.feedback2',
-								' environment will be created at: ',
+								'pythonEnvironmentSubStep.feedback',
+								'The environment will be created at: ',
 							))()}
 							<code>
 								{locationForNewEnv(
