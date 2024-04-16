@@ -5,13 +5,12 @@
 import * as React from 'react';
 import { PropsWithChildren } from 'react';  // eslint-disable-line no-duplicate-imports
 import { useNewProjectWizardContext } from 'vs/workbench/browser/positronNewProjectWizard/newProjectWizardContext';
-import { NewProjectConfiguration } from 'vs/workbench/browser/positronNewProjectWizard/newProjectWizardState';
-import { NewProjectWizardStep } from 'vs/workbench/browser/positronNewProjectWizard/interfaces/newProjectWizardStep';
+import { NewProjectWizardStep } from 'vs/workbench/browser/positronNewProjectWizard/interfaces/newProjectWizardEnums';
 import { NewProjectWizardStepLookup } from 'vs/workbench/browser/positronNewProjectWizard/interfaces/newProjectWizardStepLookup';
 
 interface NewProjectWizardStepContainerProps {
 	cancel: () => void;
-	accept: (projectConfig: NewProjectConfiguration) => void;
+	accept: () => void;
 }
 
 export const NewProjectWizardStepContainer = (props: PropsWithChildren<NewProjectWizardStepContainerProps>) => {
@@ -26,11 +25,7 @@ export const NewProjectWizardStepContainer = (props: PropsWithChildren<NewProjec
 		newProjectWizardState.goToPreviousStep();
 	};
 
-	const acceptHandler = () => {
-		props.accept(newProjectWizardState.projectConfig);
-	};
-
 	return (
-		<CurrentStep next={nextHandler} back={backHandler} cancel={props.cancel} accept={acceptHandler} />
+		<CurrentStep next={nextHandler} back={backHandler} cancel={props.cancel} accept={props.accept} />
 	);
 };

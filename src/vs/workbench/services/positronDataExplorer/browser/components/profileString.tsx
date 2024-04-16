@@ -7,11 +7,14 @@ import 'vs/css!./profileString';
 
 // React.
 import * as React from 'react';
+import { TableSummaryDataGridInstance } from 'vs/workbench/services/positronDataExplorer/browser/tableSummaryDataGridInstance';
 
 /**
  * ProfileStringProps interface.
  */
 interface ProfileStringProps {
+	instance: TableSummaryDataGridInstance;
+	columnIndex: number;
 }
 
 /**
@@ -20,6 +23,11 @@ interface ProfileStringProps {
  * @returns The rendered component.
  */
 export const ProfileString = (props: ProfileStringProps) => {
+	let stats: any = props.instance.getColumnSummaryStats(props.columnIndex)?.string_stats!;
+	const nullCount = props.instance.getColumnNullCount(props.columnIndex);
+	if (!stats) {
+		stats = {};
+	}
 	return (
 		<div className='tabular-info'>
 			<div className='labels'>
@@ -29,15 +37,15 @@ export const ProfileString = (props: ProfileStringProps) => {
 			</div>
 			<div className='values'>
 				<div className='values-left'>
-					<div className='value'>12</div>
-					<div className='value'>1</div>
-					<div className='value'>4</div>
+					<div className='value'>{nullCount}</div>
+					<div className='value'>{stats.num_empty}</div>
+					<div className='value'>{stats.num_unique}</div>
 				</div>
-				<div className='values-right'>
+				{/* <div className='values-right'>
 					<div className='value'>&nbsp;</div>
 					<div className='value'>.51</div>
 					<div className='value'>.20</div>
-				</div>
+				</div> */}
 			</div>
 		</div>
 	);

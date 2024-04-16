@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2022 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2022-2024 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
 import { localize } from 'vs/nls';
@@ -558,7 +558,7 @@ export class HelpEntry extends Disposable implements IHelpEntry, WebviewFindDele
 
 		// Claim and layout the help overlay webview.
 		this._element = element;
-		this._helpOverlayWebview.claim(this._element, undefined);
+		this._helpOverlayWebview.claim(this._element, DOM.getWindow(element), undefined);
 		this._helpOverlayWebview.layoutWebviewOverElement(this._element);
 	}
 

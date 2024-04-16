@@ -4,4 +4,6 @@
 
 .positron-notebook-text-output {
 	font-family: var(--monaco-monospace-font, monospace);
+	font-size:  var(--notebook-cell-output-font-size, 12px);
+	white-space: pre-wrap;
 }

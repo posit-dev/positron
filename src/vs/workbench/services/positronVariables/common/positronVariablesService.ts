@@ -14,6 +14,7 @@ import { LanguageRuntimeSessionMode, formatLanguageRuntimeSession } from 'vs/wor
 import { ILanguageRuntimeSession, IRuntimeSessionService } from '../../runtimeSession/common/runtimeSessionService';
 import { INotificationService } from 'vs/platform/notification/common/notification';
 import { RuntimeClientState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeClientInstance';
+import { isEqual } from 'vs/base/common/resources';
 
 /**
  * PositronVariablesService class.
@@ -208,8 +209,7 @@ class PositronVariablesService extends Disposable implements IPositronVariablesS
 				// Check the runtime ID and notebook URI for a match.
 				return positronVariablesInstance.session.runtimeMetadata.runtimeId ===
 					session.runtimeMetadata.runtimeId &&
-					positronVariablesInstance.session.metadata.notebookUri ===
-					session.metadata.notebookUri;
+					isEqual(positronVariablesInstance.session.metadata.notebookUri, session.metadata.notebookUri);
 			});
 
 		if (existingInstance) {

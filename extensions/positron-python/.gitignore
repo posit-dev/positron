@@ -23,9 +23,8 @@ cucumber-report.json
 **/.venv*/
 port.txt
 precommit.hook
-pythonFiles/lib/**
-pythonFiles/get-pip.py
-pythonFiles/get_pip.py
+python_files/lib/**
+python_files/get-pip.py
 debug_coverage*/**
 languageServer/**
 languageServer.*/**
@@ -52,6 +51,6 @@ dist/**
 l10n/
 tags
 # --- Start Positron ---
-pythonFiles/positron/positron_ipykernel/tests/images
-pythonFiles/positron/positron_ipykernel/_vendor/**
+python_files/positron/positron_ipykernel/tests/images
+python_files/positron/positron_ipykernel/_vendor/**
 # --- End Positron ---

@@ -111,19 +111,12 @@ export class DataExplorerCache extends Disposable {
 		this._register(this._dataExplorerClientInstance.onDidSchemaUpdate(async () => {
 			// Clear the column schema cache, row label cache, and data cell cache.
 			this._columnSchemaCache.clear();
-			this._columnNullCountCache.clear();
-			this._columnSummaryStatsCache.clear();
-			this._rowLabelCache.clear();
-			this._dataCellCache.clear();
+			this.invalidateDataCache();
 		}));
 
 		// Add the onDidDataUpdate event handler.
 		this._register(this._dataExplorerClientInstance.onDidDataUpdate(async () => {
-			// Clear the row label cache and data cell cache.
-			this._rowLabelCache.clear();
-			this._dataCellCache.clear();
-			this._columnNullCountCache.clear();
-			this._columnSummaryStatsCache.clear();
+			this.invalidateDataCache();
 		}));
 	}
 
@@ -207,7 +200,12 @@ export class DataExplorerCache extends Disposable {
 		return this._columnSummaryStatsCache.get(columnIndex);
 	}
 
-	async updateColumnSummaryStats(columnIndices: Array<number>) {
+	async cacheColumnSummaryStats(columnIndices: Array<number>) {
+		// Filter out summary stats that are already cached
+		columnIndices = columnIndices.filter(columnIndex =>
+			!this._columnSummaryStatsCache.has(columnIndex)
+		);
+
 		// Request the profiles
 		const results = await this._dataExplorerClientInstance.getColumnProfiles(
 			columnIndices.map(column_index => {

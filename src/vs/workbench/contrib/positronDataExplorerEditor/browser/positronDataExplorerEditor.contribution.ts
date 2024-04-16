@@ -31,6 +31,7 @@ class PositronDataExplorerContribution extends Disposable {
 			`${Schemas.positronDataExplorer}:**/**`,
 			{
 				id: PositronDataExplorerEditorInput.EditorID,
+				// Label will be overwritten elsewhere
 				label: localize('positronDataExplorer', "Positron Data Explorer"),
 				priority: RegisteredEditorPriority.builtin
 			},

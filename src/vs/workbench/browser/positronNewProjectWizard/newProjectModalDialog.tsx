@@ -48,10 +48,12 @@ export const showNewProjectModalDialog = async (
 		<NewProjectWizardContextProvider
 			services={{
 				fileDialogService,
+				fileService,
 				keybindingService,
 				languageRuntimeService,
 				layoutService,
 				logService,
+				pathService,
 				runtimeSessionService,
 				runtimeStartupService,
 			}}

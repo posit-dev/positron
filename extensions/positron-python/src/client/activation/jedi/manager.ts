@@ -68,7 +68,7 @@ export class JediLanguageServerManager implements ILanguageServerManager {
         try {
             // Version is actually hardcoded in our requirements.txt.
             const requirementsTxt = await fs.readFile(
-                path.join(EXTENSION_ROOT_DIR, 'pythonFiles', 'jedilsp_requirements', 'requirements.txt'),
+                path.join(EXTENSION_ROOT_DIR, 'python_files', 'jedilsp_requirements', 'requirements.txt'),
                 'utf-8',
             );
 
@@ -118,6 +118,7 @@ export class JediLanguageServerManager implements ILanguageServerManager {
         undefined,
         true,
         undefined,
+        // @ts-ignore Flagged by Typescript 5.5-dev
         JediLanguageServerManager.versionTelemetryProps,
     )
     @traceDecoratorVerbose('Starting language server')

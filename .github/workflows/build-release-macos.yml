@@ -53,7 +53,11 @@ jobs:
         run: |
           # Connect to the host; if there is a screen session running, do
           # nothing, but if there isn't one, start one up now.
-          ssh -o "StrictHostKeyChecking no" user229818@NY503.macincloud.com "/bin/zsh -li -c \"if screen -list | grep -q 'No Sockets found'; then screen -dmS agent_session /bin/zsh -li -c 'cd ./actions-runner && ./run.sh'; fi\""
+          #
+          # Lower the scheduling priority of the agent to reduce the odds of it
+          # consuming enough resources to trigger a reboot of the MacInCloud
+          # host.
+          ssh -o "StrictHostKeyChecking no" user229818@NY503.macincloud.com "/bin/zsh -li -c \"if screen -list | grep -q 'No Sockets found'; then screen -dmS agent_session /bin/zsh -li -c 'cd ./actions-runner && nice -n 19 ./run.sh'; fi\""
 
   build-archs:
     name: Build macOS

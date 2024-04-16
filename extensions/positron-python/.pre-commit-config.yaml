@@ -1,4 +1,4 @@
-exclude: "(.*\\.csv)|(^build/)|(^src/)|(^resources/)|(^pythonFiles/tests/unittestadapter)|(^pythonFiles/tests/testing_tools)"
+exclude: "(.*\\.csv)|(^build/)|(^src/)|(^resources/)|(^python_files/tests/unittestadapter)|(^python_files/tests/testing_tools)"
 repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v2.4.0

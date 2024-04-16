@@ -6,14 +6,17 @@ import * as positron from 'positron';
 import * as vscode from 'vscode';
 import { NotebookControllerManager } from './notebookControllerManager';
 import { NotebookSessionService } from './notebookSessionService';
+import { registerCommands } from './commands';
 
 export const log = vscode.window.createOutputChannel('Positron Notebook Controllers', { log: true });
 
 export async function activate(context: vscode.ExtensionContext): Promise<void> {
 	const notebookSessionService = new NotebookSessionService();
+	context.subscriptions.push(notebookSessionService);
 
 	// Shutdown any running sessions when a notebook is closed.
 	context.subscriptions.push(vscode.workspace.onDidCloseNotebookDocument(async (notebook) => {
+		log.debug(`Notebook closed: ${notebook.uri.path}`);
 		if (notebookSessionService.hasStartingOrRunningNotebookSession(notebook.uri)) {
 			await notebookSessionService.shutdownRuntimeSession(notebook.uri);
 		}
@@ -45,4 +48,28 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 	for (const notebook of vscode.workspace.notebookDocuments) {
 		manager.updateNotebookAffinity(notebook);
 	}
+
+	// Set the hasRunningNotebookSession context when the active notebook editor changes.
+	vscode.window.onDidChangeActiveNotebookEditor((editor) => {
+		const value = notebookSessionService.hasRunningNotebookSession(editor?.notebook.uri);
+		setHasRunningNotebookSessionContext(value);
+	});
+
+	// Set the hasRunningNotebookSession context when a session is started/shutdown for the active notebook.
+	context.subscriptions.push(notebookSessionService.onDidChangeNotebookSession((e) => {
+		if (e.notebookUri === vscode.window.activeNotebookEditor?.notebook.uri) {
+			setHasRunningNotebookSessionContext(!!e.session);
+		}
+	}));
+
+	registerCommands(context, notebookSessionService);
+}
+
+function setHasRunningNotebookSessionContext(value: boolean): void {
+	log.debug(`Setting 'positron.hasRunningNotebookSession' context to: ${value}`);
+	vscode.commands.executeCommand(
+		'setContext',
+		'positron.hasRunningNotebookSession',
+		value,
+	);
 }

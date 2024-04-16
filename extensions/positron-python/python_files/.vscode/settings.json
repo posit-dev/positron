@@ -1,0 +1,17 @@
+{
+    "files.exclude": {
+        "**/__pycache__/**": true,
+        "**/**/*.pyc": true
+    },
+    "[python]": {
+        "editor.defaultFormatter": "ms-python.black-formatter",
+        "editor.formatOnSave": true,
+        "editor.rulers": [100],
+    },
+    "python.testing.pytestArgs": [
+        "tests",
+        "positron/positron_ipykernel/tests"
+    ],
+    "python.testing.unittestEnabled": false,
+    "python.testing.pytestEnabled": true,
+}

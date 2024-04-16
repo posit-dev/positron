@@ -72,6 +72,12 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 		&& (selectedPlot instanceof PlotClientInstance
 			|| selectedPlot instanceof StaticPlotClient);
 
+	const enableCopyPlot = hasPlots &&
+		(positronPlotsContext.positronPlotInstances[positronPlotsContext.selectedInstanceIndex]
+			instanceof StaticPlotClient
+			|| positronPlotsContext.positronPlotInstances[positronPlotsContext.selectedInstanceIndex]
+			instanceof PlotClientInstance);
+
 	useEffect(() => {
 		// Empty for now.
 	});
@@ -104,6 +110,17 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 		positronPlotsContext.positronPlotsService.savePlot();
 	};
 
+	const copyPlotHandler = () => {
+		positronPlotsContext.positronPlotsService.copyPlotToClipboard()
+			.then(() => {
+				positronPlotsContext.notificationService.info(localize('positronPlotsServiceCopyToClipboard', 'Plot copied to clipboard'));
+			})
+			.catch((error) => {
+				positronPlotsContext.notificationService.error(localize('positronPlotsServiceCopyToClipboardError', 'Failed to copy plot to clipboard: {0}', error.message));
+			});
+
+	};
+
 	// Render.
 	return (
 		<PositronActionBarContextProvider {...props}>
@@ -118,6 +135,8 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 						{(enableSizingPolicy || enableSavingPlots || enableZoomPlot) && <ActionBarSeparator />}
 						{enableSavingPlots && <ActionBarButton iconId='positron-save' tooltip={localize('positronSavePlot', "Save plot")}
 							ariaLabel={localize('positronSavePlot', "Save plot")} onPressed={savePlotHandler} />}
+						{enableCopyPlot && <ActionBarButton iconId='copy' disabled={!hasPlots} tooltip={localize('positron-copy-plot', "Copy plot to clipboard")} ariaLabel={localize('positron-copy-plot', "Copy plot to clipboard")}
+							onPressed={copyPlotHandler} />}
 						{enableZoomPlot && <ZoomPlotMenuButton actionHandler={zoomPlotHandler} zoomLevel={props.zoomLevel} />}
 						{enableSizingPolicy &&
 							<SizingPolicyMenuButton
