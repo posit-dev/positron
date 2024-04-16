@@ -6,6 +6,7 @@ import 'vs/css!./previewContainer';
 import * as React from 'react';
 import { useEffect } from 'react'; // eslint-disable-line no-duplicate-imports
 import { PreviewWebview } from 'vs/workbench/contrib/positronPreview/browser/previewWebview';
+import * as DOM from 'vs/base/browser/dom';
 
 /**
  * PreviewContainerProps interface.
@@ -53,13 +54,14 @@ export const PreviewContainer = (props: PreviewContainerProps) => {
 			// If the preview is visible, claim the webview and release it when
 			// we're unmounted.
 			if (props.visible) {
-				webview.claim(this, undefined);
 				if (webviewRef.current) {
+					const window = DOM.getWindow(webviewRef.current);
+					webview.claim(this, window, undefined);
 					webview.layoutWebviewOverElement(webviewRef.current);
+					return () => {
+						webview?.release(this);
+					};
 				}
-				return () => {
-					webview?.release(this);
-				};
 			} else {
 				// If the preview is not visible, release the webview.
 				webview.release(this);

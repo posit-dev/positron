@@ -4,8 +4,8 @@
 import * as React from 'react';
 import * as DOM from 'vs/base/browser/dom';
 import { EditorExtensionsRegistry, IEditorContributionDescription } from 'vs/editor/browser/editorExtensions';
+import { CodeEditorWidget } from 'vs/editor/browser/widget/codeEditor/codeEditorWidget';
 
-import { CodeEditorWidget } from 'vs/editor/browser/widget/codeEditorWidget';
 import { IContextKeyService } from 'vs/platform/contextkey/common/contextkey';
 import { ServiceCollection } from 'vs/platform/instantiation/common/serviceCollection';
 import { FloatingEditorClickMenu } from 'vs/workbench/browser/codeeditor';

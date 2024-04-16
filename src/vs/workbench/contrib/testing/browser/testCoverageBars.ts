@@ -4,8 +4,8 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { h } from 'vs/base/browser/dom';
-import { getDefaultHoverDelegate } from 'vs/base/browser/ui/hover/hoverDelegate';
-import { ICustomHover, ITooltipMarkdownString, setupCustomHover } from 'vs/base/browser/ui/iconLabel/iconLabelHover';
+import { getDefaultHoverDelegate } from 'vs/base/browser/ui/hover/hoverDelegateFactory';
+import { ICustomHover, ITooltipMarkdownString, setupCustomHover } from 'vs/base/browser/ui/hover/updatableHoverWidget';
 import { assertNever } from 'vs/base/common/assert';
 import { MarkdownString } from 'vs/base/common/htmlContent';
 import { Lazy } from 'vs/base/common/lazy';
@@ -21,7 +21,7 @@ import { IExplorerFileContribution } from 'vs/workbench/contrib/files/browser/ex
 import { ITestingCoverageBarThresholds, TestingConfigKeys, TestingDisplayedCoveragePercent, getTestingConfiguration, observeTestingConfiguration } from 'vs/workbench/contrib/testing/common/configuration';
 import { AbstractFileCoverage, getTotalCoveragePercent } from 'vs/workbench/contrib/testing/common/testCoverage';
 import { ITestCoverageService } from 'vs/workbench/contrib/testing/common/testCoverageService';
-import { ICoveredCount } from 'vs/workbench/contrib/testing/common/testTypes';
+import { ICoverageCount } from 'vs/workbench/contrib/testing/common/testTypes';
 
 export interface TestCoverageBarsOptions {
 	/**
@@ -128,7 +128,7 @@ export class ManagedTestCoverageBars extends Disposable {
 	}
 }
 
-const percent = (cc: ICoveredCount) => clamp(cc.total === 0 ? 1 : cc.covered / cc.total, 0, 1);
+const percent = (cc: ICoverageCount) => clamp(cc.total === 0 ? 1 : cc.covered / cc.total, 0, 1);
 const epsilon = 10e-8;
 const barWidth = 16;
 

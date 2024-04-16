@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 'use strict';
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.getDependencies = void 0;
+exports.getDependencies = getDependencies;
 const child_process_1 = require("child_process");
 const path = require("path");
 const install_sysroot_1 = require("./debian/install-sysroot");
@@ -31,7 +31,7 @@ const types_2 = require("./rpm/types");
 // different from the machine used to build VSCode.
 const FAIL_BUILD_FOR_NEW_DEPENDENCIES = false;
 // --- End Positron --
-// Based on https://source.chromium.org/chromium/chromium/src/+/refs/tags/118.0.5993.159:chrome/installer/linux/BUILD.gn;l=64-80
+// Based on https://source.chromium.org/chromium/chromium/src/+/refs/tags/120.0.6099.268:chrome/installer/linux/BUILD.gn;l=64-80
 // and the Linux Archive build
 // Shared library dependencies that we already bundle.
 const bundledDeps = [
@@ -103,7 +103,6 @@ async function getDependencies(packageType, buildDir, applicationName, arch) {
     }
     return sortedDependencies;
 }
-exports.getDependencies = getDependencies;
 // Based on https://source.chromium.org/chromium/chromium/src/+/main:chrome/installer/linux/rpm/merge_package_deps.py.
 function mergePackageDeps(inputDeps) {
     const requires = new Set();

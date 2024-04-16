@@ -3,7 +3,8 @@
  *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.getPandoc = exports.getPandocStream = void 0;
+exports.getPandocStream = getPandocStream;
+exports.getPandoc = getPandoc;
 const fancyLog = require("fancy-log");
 const fetch_1 = require("./fetch");
 const es = require("event-stream");
@@ -106,7 +107,6 @@ function getPandocStream() {
             getPandocMacOS(version) :
             getPandocLinux(version);
 }
-exports.getPandocStream = getPandocStream;
 /**
  * Standalone helper for downloading and unpacking pandoc; downloads Pandoc to
  * thie `.build` folder for testing.
@@ -123,7 +123,6 @@ function getPandoc() {
             .on('end', resolve);
     });
 }
-exports.getPandoc = getPandoc;
 if (require.main === module) {
     getPandoc().then(() => process.exit(0)).catch(err => {
         console.error(err);

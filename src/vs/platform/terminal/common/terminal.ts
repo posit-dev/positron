@@ -103,6 +103,7 @@ export const enum TerminalSettingId {
 	PersistentSessionReviveProcess = 'terminal.integrated.persistentSessionReviveProcess',
 	HideOnStartup = 'terminal.integrated.hideOnStartup',
 	CustomGlyphs = 'terminal.integrated.customGlyphs',
+	RescaleOverlappingGlyphs = 'terminal.integrated.rescaleOverlappingGlyphs',
 	PersistentSessionScrollback = 'terminal.integrated.persistentSessionScrollback',
 	InheritEnv = 'terminal.integrated.inheritEnv',
 	ShowLinkHover = 'terminal.integrated.showLinkHover',
@@ -122,6 +123,7 @@ export const enum TerminalSettingId {
 	StickyScrollEnabled = 'terminal.integrated.stickyScroll.enabled',
 	StickyScrollMaxLineCount = 'terminal.integrated.stickyScroll.maxLineCount',
 	MouseWheelZoom = 'terminal.integrated.mouseWheelZoom',
+	ExperimentalInlineChat = 'terminal.integrated.experimentalInlineChat',
 
 	// Debug settings that are hidden from user
 
@@ -568,7 +570,7 @@ export interface IShellLaunchConfig {
 	 * until `Terminal.show` is called. The typical usage for this is when you need to run
 	 * something that may need interactivity but only want to tell the user about it when
 	 * interaction is needed. Note that the terminals will still be exposed to all extensions
-	 * as normal and they will remain hidden when the workspace is reloaded.
+	 * as normal. The hidden terminals will not be restored when the workspace is next opened.
 	 */
 	hideFromUser?: boolean;
 
@@ -610,6 +612,12 @@ export interface IShellLaunchConfig {
 	 * Opt-out of the default terminal persistence on restart and reload
 	 */
 	isTransient?: boolean;
+
+	/**
+	 * Attempt to force shell integration to be enabled by bypassing the {@link isFeatureTerminal}
+	 * equals false requirement.
+	 */
+	forceShellIntegration?: boolean;
 
 	/**
 	 * Create a terminal without shell integration even when it's enabled
