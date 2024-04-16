@@ -4,9 +4,10 @@
 
 .plot-preview-input {
 	height: 100%;
-	grid-template-rows: 1fr 2fr 4px 9fr;
+	grid-template-rows: 1fr 1fr 2fr 4px 9fr;
 	grid-template-areas:
 		"browse"
+		"file"
 		"plot-input"
 		"preview-progress"
 		"preview";
@@ -28,6 +29,17 @@
 	grid-area: input;
 }
 
+.plot-preview-input .file {
+	display: flex;
+	flex-direction: row;
+	column-gap: 10px;
+	align-items: flex-end;
+}
+
+.plot-preview-input .file button {
+	margin-top: 4px;
+}
+
 .plot-input div.error {
 	padding-top: 4px;
 	grid-column: 1 / span 3;
@@ -40,8 +52,12 @@
 	width: auto;
 }
 
-.plot-preview-input .labeled-text-input input {
+.plot-preview-input .plot-input .labeled-text-input input {
 	width: 100px;
+}
+
+.plot-preview-input .file .labeled-text-input input {
+	width: 200px;
 }
 
 .plot-preview-input .preview-progress {

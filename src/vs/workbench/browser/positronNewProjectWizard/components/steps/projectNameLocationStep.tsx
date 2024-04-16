@@ -7,9 +7,8 @@ import { PropsWithChildren } from 'react';  // eslint-disable-line no-duplicate-
 import { localize } from 'vs/nls';
 import { useNewProjectWizardContext } from 'vs/workbench/browser/positronNewProjectWizard/newProjectWizardContext';
 import { URI } from 'vs/base/common/uri';
-import { NewProjectWizardStep } from 'vs/workbench/browser/positronNewProjectWizard/interfaces/newProjectWizardEnums';
+import { NewProjectType, NewProjectWizardStep } from 'vs/workbench/browser/positronNewProjectWizard/interfaces/newProjectWizardEnums';
 import { NewProjectWizardStepProps } from 'vs/workbench/browser/positronNewProjectWizard/interfaces/newProjectWizardStepProps';
-import { NewProjectType } from 'vs/workbench/browser/positronNewProjectWizard/newProjectWizardState';
 import { PositronWizardStep } from 'vs/workbench/browser/positronNewProjectWizard/components/wizardStep';
 import { PositronWizardSubStep } from 'vs/workbench/browser/positronNewProjectWizard/components/wizardSubStep';
 import { LabeledTextInput } from 'vs/workbench/browser/positronComponents/positronModalDialog/components/labeledTextInput';
@@ -50,6 +49,8 @@ export const ProjectNameLocationStep = (props: PropsWithChildren<NewProjectWizar
 		// TODO: add handling for R and Jupyter projects
 		switch (projectConfig.projectType) {
 			case NewProjectType.RProject:
+				props.next(NewProjectWizardStep.RConfiguration);
+				break;
 			case NewProjectType.JupyterNotebook:
 			case NewProjectType.PythonProject:
 				props.next(NewProjectWizardStep.PythonEnvironment);
@@ -67,7 +68,10 @@ export const ProjectNameLocationStep = (props: PropsWithChildren<NewProjectWizar
 				'Set project name and location'
 			))()}
 			cancelButtonConfig={{ onClick: props.cancel }}
-			nextButtonConfig={{ onClick: nextStep }}
+			nextButtonConfig={{
+				onClick: nextStep,
+				disable: !projectConfig.projectName || !projectConfig.parentFolder
+			}}
 			backButtonConfig={{ onClick: props.back }}
 		>
 			<PositronWizardSubStep
@@ -106,7 +110,7 @@ export const ProjectNameLocationStep = (props: PropsWithChildren<NewProjectWizar
 						'projectNameLocationSubStep.parentDirectory.description',
 						'Select a directory to create your project in'
 					))()}
-					value={projectConfig.parentFolder} // this should be <code>formatted
+					value={projectConfig.parentFolder} // TODO: this should be <code>formatted
 					onBrowse={browseHandler}
 					onChange={e => setProjectConfig({ ...projectConfig, parentFolder: e.target.value })}
 				/>

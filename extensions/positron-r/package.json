@@ -504,6 +504,7 @@
   ],
   "devDependencies": {
     "@types/decompress": "^4.2.7",
+    "@types/fs-extra": "^9.0.13",
     "@types/glob": "^7.2.0",
     "@types/mocha": "^9.1.0",
     "@types/node": "14.x",
@@ -521,6 +522,7 @@
     "vsce": "^2.11.0"
   },
   "dependencies": {
+    "fs-extra": "^10.0.1",
     "p-queue": "^6.6.2",
     "split2": "^4.2.0",
     "vscode-languageclient": "^9.0.1",
@@ -533,7 +535,7 @@
   },
   "positron": {
     "binaryDependencies": {
-      "ark": "0.1.78"
+      "ark": "0.1.80"
     },
     "minimumRVersion": "4.2.0"
   }

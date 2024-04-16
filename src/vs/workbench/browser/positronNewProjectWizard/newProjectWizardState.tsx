@@ -7,7 +7,7 @@ import { IFileDialogService } from 'vs/platform/dialogs/common/dialogs';
 import { ILanguageRuntimeMetadata, ILanguageRuntimeService } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { IRuntimeSessionService } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
 import { IRuntimeStartupService } from 'vs/workbench/services/runtimeStartup/common/runtimeStartupService';
-import { NewProjectWizardStep } from 'vs/workbench/browser/positronNewProjectWizard/interfaces/newProjectWizardEnums';
+import { EnvironmentSetupType, NewProjectType, NewProjectWizardStep, PythonEnvironmentType } from 'vs/workbench/browser/positronNewProjectWizard/interfaces/newProjectWizardEnums';
 import { IWorkbenchLayoutService } from 'vs/workbench/services/layout/browser/layoutService';
 import { IKeybindingService } from 'vs/platform/keybinding/common/keybinding';
 import { ILogService } from 'vs/platform/log/common/log';
@@ -16,7 +16,7 @@ import { ILogService } from 'vs/platform/log/common/log';
  * NewProjectWizardServices interface. Defines the set of services that are required by the New
  * Project Wizard.
  */
-export interface NewProjectWizardServices {
+interface NewProjectWizardServices {
 	fileDialogService: IFileDialogService;
 	keybindingService: IKeybindingService;
 	languageRuntimeService: ILanguageRuntimeService;
@@ -36,31 +36,20 @@ export interface NewProjectWizardStateProps {
 }
 
 /**
- * NewProjectType enum. Defines the types of projects that can be created.
- * TODO: this should be moved to a more appropriate location.
- * TODO: localize. Since this is an enum, we can't use the localize function
- * because computed values must be numbers (not strings). So we'll probably need to
- * turn this into an object with keys and values, maybe also using something like
- * satisfies Readonly<Record<string, string>>.
- */
-export enum NewProjectType {
-	PythonProject = 'Python Project',
-	RProject = 'R Project',
-	JupyterNotebook = 'Jupyter Notebook'
-}
-
-/**
  * NewProjectConfiguration interface. Defines the configuration for a new project.
  * This information is used to initialize the workspace for a new project.
  */
 export interface NewProjectConfiguration {
-	readonly selectedRuntime: ILanguageRuntimeMetadata;
-	readonly projectType: NewProjectType | '';
+	readonly selectedRuntime: ILanguageRuntimeMetadata | undefined;
+	readonly projectType: NewProjectType | undefined;
 	readonly projectName: string;
 	readonly parentFolder: string;
 	readonly initGitRepo: boolean;
 	readonly openInNewWindow: boolean;
-	readonly pythonEnvType?: string;
+	readonly pythonEnvSetupType: EnvironmentSetupType | undefined;
+	readonly pythonEnvType: PythonEnvironmentType | undefined;
+	readonly installIpykernel: boolean | undefined;
+	readonly useRenv: boolean | undefined;
 }
 
 /**
@@ -85,13 +74,16 @@ export const useNewProjectWizardState = (
 ): NewProjectWizardState => {
 	// Hooks.
 	const [projectConfig, setProjectConfig] = useState<NewProjectConfiguration>({
-		selectedRuntime: props.services.languageRuntimeService.registeredRuntimes[0],
-		projectType: '',
+		selectedRuntime: undefined,
+		projectType: undefined,
 		projectName: '',
 		parentFolder: props.parentFolder ?? '',
 		initGitRepo: false,
 		openInNewWindow: true,
-		pythonEnvType: ''
+		pythonEnvSetupType: undefined,
+		pythonEnvType: undefined,
+		installIpykernel: undefined,
+		useRenv: undefined
 	});
 
 	// TODO: the initial step should be passed in via the props

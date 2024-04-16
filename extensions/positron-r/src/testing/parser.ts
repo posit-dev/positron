@@ -93,43 +93,37 @@ async function findTests(uri: vscode.Uri) {
 				(call
 					function: [
 						(identifier) @_function.name
-						(namespace_get
-							function: (identifier) @_function.name
-						)
 					] (#eq? @_function.name "test_that")
-					arguments:
-						(arguments
-							value: (string) @label
-							value: (_)
+					arguments: (arguments
+						(argument
+							 value: (string) @label
 						)
+					)
 				) @call
 
 				(call
 					function: [
 						(identifier) @_superfunction.name
-						(namespace_get
-							function: (identifier) @_superfunction.name
-						)
 					] (#eq? @_superfunction.name "describe")
-					arguments:
-						(arguments
+					arguments: (arguments
+						(argument
 							value: (string) @superlabel
-							value: (_
-								(call
+						)
+						(argument
+							value: (braced_expression
+								body: (call
 									function: [
 										(identifier) @_function.name
-										(namespace_get
-											function: (identifier) @_function.name
-										)
 									] (#eq? @_function.name "it")
-									arguments:
-										(arguments
+									arguments: (arguments
+										(argument
 											value: (string) @label
-											value: (_)
 										)
+									)
 								) @call
 							)
 						)
+					)
 				) @supercall
 				`
 			);

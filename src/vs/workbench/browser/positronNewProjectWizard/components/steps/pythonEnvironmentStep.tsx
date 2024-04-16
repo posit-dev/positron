@@ -2,21 +2,26 @@
  *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
+// React.
 import * as React from 'react';
 import { PropsWithChildren, useEffect, useState } from 'react';  // eslint-disable-line no-duplicate-imports
+
+// Other dependencies.
 import { useNewProjectWizardContext } from 'vs/workbench/browser/positronNewProjectWizard/newProjectWizardContext';
 import { NewProjectWizardStepProps } from 'vs/workbench/browser/positronNewProjectWizard/interfaces/newProjectWizardStepProps';
 import { localize } from 'vs/nls';
 import { RuntimeStartupPhase } from 'vs/workbench/services/runtimeStartup/common/runtimeStartupService';
 import { DisposableStore } from 'vs/base/common/lifecycle';
-import { createCondaInterpreterDropDownItems, createPythonInterpreterDropDownItems, createVenvInterpreterDropDownItems } from 'vs/workbench/browser/positronNewProjectWizard/utilities/pythonInterpreterListUtils';
+import { getEnvTypeEntries, getPythonInterpreterEntries, locationForNewEnv } from 'vs/workbench/browser/positronNewProjectWizard/utilities/pythonEnvironmentStepUtils';
 import { PositronWizardStep } from 'vs/workbench/browser/positronNewProjectWizard/components/wizardStep';
 import { PositronWizardSubStep } from 'vs/workbench/browser/positronNewProjectWizard/components/wizardSubStep';
-import { DropDownListBoxItem } from 'vs/workbench/browser/positronComponents/dropDownListBox/dropDownListBoxItem';
-import { DropDownListBox } from 'vs/workbench/browser/positronComponents/dropDownListBox/dropDownListBox';
+import { DropDownListBox, DropDownListBoxEntry } from 'vs/workbench/browser/positronComponents/dropDownListBox/dropDownListBox';
 import { RadioButtonItem } from 'vs/workbench/browser/positronComponents/positronModalDialog/components/radioButton';
 import { RadioGroup } from 'vs/workbench/browser/positronComponents/positronModalDialog/components/radioGroup';
-import { EnvironmentSetupType } from 'vs/workbench/browser/positronNewProjectWizard/interfaces/newProjectWizardEnums';
+import { EnvironmentSetupType, LanguageIds, PythonEnvironmentType } from 'vs/workbench/browser/positronNewProjectWizard/interfaces/newProjectWizardEnums';
+import { InterpreterEntry } from 'vs/workbench/browser/positronNewProjectWizard/components/steps/pythonInterpreterEntry';
+import { DropdownEntry } from 'vs/workbench/browser/positronNewProjectWizard/components/steps/dropdownEntry';
+import { InterpreterInfo, getSelectedInterpreter } from 'vs/workbench/browser/positronNewProjectWizard/utilities/interpreterDropDownUtils';
 
 /**
  * The PythonEnvironmentStep component is specific to Python projects in the new project wizard.
@@ -31,91 +36,117 @@ export const PythonEnvironmentStep = (props: PropsWithChildren<NewProjectWizardS
 	const keybindingService = newProjectWizardState.keybindingService;
 	const layoutService = newProjectWizardState.layoutService;
 	const logService = newProjectWizardState.logService;
+	const runtimeStartupService = newProjectWizardState.runtimeStartupService;
+	const languageRuntimeService = newProjectWizardState.languageRuntimeService;
 
 	// Hooks to manage the startup phase and interpreter entries.
-	const [startupPhase, setStartupPhase] =
-		useState(newProjectWizardState.runtimeStartupService.startupPhase);
+	const [startupPhase, setStartupPhase] = useState(runtimeStartupService.startupPhase);
+	const [envSetupType, setEnvSetupType] = useState(
+		projectConfig.pythonEnvSetupType ?? EnvironmentSetupType.NewEnvironment
+	);
+	const [envType, setEnvType] = useState(
+		projectConfig.pythonEnvType ?? PythonEnvironmentType.Venv
+	);
 	const [interpreterEntries, setInterpreterEntries] =
 		useState(
 			// It's possible that the runtime discovery phase is not complete, so we need to check
 			// for that before creating the interpreter entries.
 			startupPhase !== RuntimeStartupPhase.Complete ?
 				[] :
-				// TODO: we currently populate the interpreter entries with all registered runtimes,
-				// but we'll want to call the Venv or Conda interpreter creation functions based on
-				// the default selection.
-				createPythonInterpreterDropDownItems(
-					newProjectWizardState.runtimeStartupService,
-					newProjectWizardState.languageRuntimeService
+				getPythonInterpreterEntries(
+					runtimeStartupService,
+					languageRuntimeService,
+					envSetupType,
+					envType
 				)
 		);
-	const [envSetupType, setEnvSetupType] = useState(EnvironmentSetupType.NewEnvironment);
+	const [selectedInterpreter, setSelectedInterpreter] = useState(
+		getSelectedInterpreter(
+			projectConfig.selectedRuntime,
+			interpreterEntries,
+			runtimeStartupService,
+			LanguageIds.Python
+		)
+	);
 
-	// TODO: retrieve the python environment types from the language runtime service somehow?
-	// TODO: localize these entries
-	const envTypeEntries = [
-		new DropDownListBoxItem({ identifier: 'Venv', title: 'Venv' + ' Creates a `.venv` virtual environment for your project' }),
-		new DropDownListBoxItem({ identifier: 'Conda', title: 'Conda' + ' Creates a `.conda` Conda environment for your project' })
-	];
+	const envTypeEntries = getEnvTypeEntries();
 
 	const envSetupRadioButtons: RadioButtonItem[] = [
-		new RadioButtonItem({ identifier: EnvironmentSetupType.NewEnvironment, title: 'Create a new Python environment _(Recommended)_' }),
-		new RadioButtonItem({ identifier: EnvironmentSetupType.ExistingEnvironment, title: 'Use an existing Python installation' })
+		new RadioButtonItem({
+			identifier: EnvironmentSetupType.NewEnvironment,
+			title: localize(
+				'pythonEnvironmentStep.newEnvironment.radioLabel',
+				'Create a new Python environment _(Recommended)_'
+			)
+		}),
+		new RadioButtonItem({
+			identifier: EnvironmentSetupType.ExistingEnvironment,
+			title: localize(
+				'pythonEnvironmentStep.existingEnvironment.radioLabel',
+				'Use an existing Python installation'
+			)
+		})
 	];
+
+	// Utils
+	const getInterpreter = (entries: DropDownListBoxEntry<string, InterpreterInfo>[]) => {
+		return getSelectedInterpreter(
+			selectedInterpreter,
+			entries,
+			runtimeStartupService,
+			LanguageIds.Python
+		);
+	};
 
 	// Handler for when the environment setup type is selected. If the user selects the "existing
 	// environment" setup, the env type dropdown will not show and the interpreter entries will be
 	// updated to show all existing interpreters.
-	const onEnvSetupSelected = (identifier: string) => {
-		// Verify that the identifier is a valid EnvironmentSetupType value
-		if (Object.values(EnvironmentSetupType).includes(identifier as EnvironmentSetupType)) {
-			setEnvSetupType(identifier as EnvironmentSetupType);
-			// If the user selects an existing environment, update the interpreter entries dropdown
-			// to show the unfiltered list of all existing interpreters.
-			if (identifier === EnvironmentSetupType.ExistingEnvironment) {
-				setInterpreterEntries(
-					createPythonInterpreterDropDownItems(
-						newProjectWizardState.runtimeStartupService,
-						newProjectWizardState.languageRuntimeService
-					)
-				);
-			}
-		} else {
-			// This shouldn't happen, since the RadioGroup should only allow selection of the
-			// EnvironmentSetupType values
-			logService.error(`Unknown environment setup type: ${identifier}`);
-		}
+	const onEnvSetupSelected = (pythonEnvSetupType: EnvironmentSetupType) => {
+		setEnvSetupType(pythonEnvSetupType);
+		// If the user selects an existing environment, update the interpreter entries dropdown
+		// to show the unfiltered list of all existing interpreters.
+		const entries = getPythonInterpreterEntries(
+			runtimeStartupService,
+			languageRuntimeService,
+			pythonEnvSetupType,
+			envType
+		);
+		setInterpreterEntries(entries);
+		const selectedRuntime = getInterpreter(entries);
+		setSelectedInterpreter(selectedRuntime);
+		setProjectConfig({ ...projectConfig, pythonEnvSetupType, selectedRuntime });
 	};
 
 	// Handler for when the environment type is selected. The interpreter entries are updated based
 	// on the selected environment type, and the project configuration is updated as well.
-	const onEnvTypeSelected = (identifier: string) => {
-		switch (identifier) {
-			case 'Venv':
-				setInterpreterEntries(createVenvInterpreterDropDownItems(newProjectWizardState.runtimeStartupService, newProjectWizardState.languageRuntimeService));
-				break;
-			case 'Conda':
-				setInterpreterEntries(createCondaInterpreterDropDownItems());
-				break;
-			default:
-				logService.error(`Unknown environment type: ${identifier}`);
-		}
-		setProjectConfig({ ...projectConfig, pythonEnvType: identifier });
+	const onEnvTypeSelected = (pythonEnvType: PythonEnvironmentType) => {
+		setEnvType(pythonEnvType);
+		const entries = getPythonInterpreterEntries(
+			runtimeStartupService,
+			languageRuntimeService,
+			envSetupType,
+			pythonEnvType
+		);
+		setInterpreterEntries(entries);
+		const selectedRuntime = getInterpreter(entries);
+		setSelectedInterpreter(selectedRuntime);
+		setProjectConfig({ ...projectConfig, pythonEnvType, selectedRuntime });
 	};
 
 	// Handler for when the interpreter is selected. The project configuration is updated with the
 	// selected interpreter.
 	const onInterpreterSelected = (identifier: string) => {
-		const selectedRuntime = newProjectWizardState.languageRuntimeService.getRegisteredRuntime(identifier);
+		const selectedRuntime = languageRuntimeService.getRegisteredRuntime(identifier);
 		if (!selectedRuntime) {
 			// This shouldn't happen, since the DropDownListBox should only allow selection of registered
 			// runtimes
-			logService.error(`No runtime found for identifier: ${identifier}`);
+			logService.error(`No runtime found for identifier: ${selectedInterpreter}`);
 			return;
 		}
+		setSelectedInterpreter(selectedRuntime);
 		setProjectConfig({ ...projectConfig, selectedRuntime });
-
-		// TODO: if the selected interpreter doesn't have ipykernel installed, show a message
+		// TODO: if the selected interpreter doesn't have ipykernel installed, show a message and
+		// set projectConfig.installIpykernel to true
 	};
 
 	// Hook to update the interpreter entries when the runtime discovery phase is complete
@@ -126,17 +157,24 @@ export const PythonEnvironmentStep = (props: PropsWithChildren<NewProjectWizardS
 		// Add the onDidChangeRuntimeStartupPhase event handler; when the runtime discovery phase
 		// is complete, update the interpreter entries.
 		disposableStore.add(
-			newProjectWizardState.runtimeStartupService.onDidChangeRuntimeStartupPhase(
+			runtimeStartupService.onDidChangeRuntimeStartupPhase(
 				phase => {
 					if (phase === RuntimeStartupPhase.Complete) {
-						// TODO: instead of calling createPythonInterpreterComboBoxItems, it should
-						// be aware of the defaults set by the environment type (Venv, Conda)
-						setInterpreterEntries(
-							createPythonInterpreterDropDownItems(
-								newProjectWizardState.runtimeStartupService,
-								newProjectWizardState.languageRuntimeService
-							)
+						const entries = getPythonInterpreterEntries(
+							runtimeStartupService,
+							languageRuntimeService,
+							envSetupType,
+							envType
 						);
+						setInterpreterEntries(entries);
+						const selectedRuntime = getInterpreter(entries);
+						setSelectedInterpreter(selectedRuntime);
+						setProjectConfig({
+							...projectConfig,
+							pythonEnvType: envType,
+							pythonEnvSetupType: envSetupType,
+							selectedRuntime
+						});
 					}
 					setStartupPhase(phase);
 				}
@@ -160,7 +198,8 @@ export const PythonEnvironmentStep = (props: PropsWithChildren<NewProjectWizardS
 				title: (() => localize(
 					'positronNewProjectWizard.createButtonTitle',
 					"Create"
-				))()
+				))(),
+				disable: !selectedInterpreter
 			}}
 		>
 			<PositronWizardSubStep
@@ -174,8 +213,10 @@ export const PythonEnvironmentStep = (props: PropsWithChildren<NewProjectWizardS
 					name='envSetup'
 					labelledBy='pythonEnvironment-howToSetUpEnv'
 					entries={envSetupRadioButtons}
-					initialSelectionId={EnvironmentSetupType.NewEnvironment}
-					onSelectionChanged={identifier => onEnvSetupSelected(identifier)}
+					initialSelectionId={envSetupType}
+					onSelectionChanged={
+						identifier => onEnvSetupSelected(identifier as EnvironmentSetupType)
+					}
 				/>
 			</PositronWizardSubStep>
 			{envSetupType === EnvironmentSetupType.NewEnvironment ?
@@ -188,15 +229,17 @@ export const PythonEnvironmentStep = (props: PropsWithChildren<NewProjectWizardS
 						'pythonEnvironmentSubStep.description',
 						'Select an environment type for your project.'
 					))()}
-					// TODO: construct the env location based on the envTypeEntries above, instead of inline here
 					feedback={(() => localize(
 						'pythonEnvironmentSubStep.feedback',
 						'The {0} environment will be created at: {1}',
-						projectConfig.pythonEnvType,
-						`${projectConfig.parentFolder}/${projectConfig.projectName}/${projectConfig.pythonEnvType === 'Venv' ? '.venv' : 'Conda' ? '.conda' : ''}`
+						envType,
+						locationForNewEnv(
+							projectConfig.parentFolder,
+							projectConfig.projectName,
+							envType
+						)
 					))()}
 				>
-					{/* TODO: how to pre-select an option? */}
 					<DropDownListBox
 						keybindingService={keybindingService}
 						layoutService={layoutService}
@@ -205,7 +248,14 @@ export const PythonEnvironmentStep = (props: PropsWithChildren<NewProjectWizardS
 							'Select an environment type'
 						))()}
 						entries={envTypeEntries}
-						onSelectionChanged={identifier => onEnvTypeSelected(identifier)}
+						selectedIdentifier={envType}
+						createItem={item =>
+							<DropdownEntry
+								title={item.options.value.envType}
+								subtitle={item.options.value.envDescription}
+							/>
+						}
+						onSelectionChanged={item => onEnvTypeSelected(item.options.identifier)}
 					/>
 				</PositronWizardSubStep> : null
 			}
@@ -222,34 +272,32 @@ export const PythonEnvironmentStep = (props: PropsWithChildren<NewProjectWizardS
 					'Select a Python installation for your project. You can modify this later if you change your mind.'
 				))()}
 			>
-				{startupPhase !== RuntimeStartupPhase.Complete ?
-					// TODO: how to disable clicking on the combo box while loading?
-					<DropDownListBox
-						keybindingService={keybindingService}
-						layoutService={layoutService}
-						title={(() => localize(
+				<DropDownListBox
+					keybindingService={keybindingService}
+					layoutService={layoutService}
+					disabled={startupPhase !== RuntimeStartupPhase.Complete}
+					title={(() => startupPhase !== RuntimeStartupPhase.Complete ?
+						localize(
 							'pythonInterpreterSubStep.dropDown.title.loading',
 							'Loading interpreters...'
-						))()}
-						entries={[]}
-						onSelectionChanged={() => { }}
-					/> : null
-				}
-				{startupPhase === RuntimeStartupPhase.Complete ?
-					// TODO: how to pre-select an option?
-					<DropDownListBox
-						keybindingService={keybindingService}
-						layoutService={layoutService}
-						title={(() => localize(
+						) :
+						localize(
 							'pythonInterpreterSubStep.dropDown.title',
 							'Select a Python interpreter'
-						))()}
-						// TODO: if the runtime startup phase is complete, but there are no suitable interpreters, show a message
-						// that no suitable interpreters were found and the user should install an interpreter with minimum version
-						entries={interpreterEntries}
-						onSelectionChanged={identifier => onInterpreterSelected(identifier)}
-					/> : null
-				}
+						)
+					)()}
+					// TODO: if the runtime startup phase is complete, but there are no suitable
+					// interpreters, show a message that no suitable interpreters were found and the
+					// user should install an interpreter with minimum version
+					entries={startupPhase !== RuntimeStartupPhase.Complete ? [] : interpreterEntries}
+					selectedIdentifier={selectedInterpreter?.runtimeId}
+					createItem={item =>
+						<InterpreterEntry interpreterInfo={item.options.value} />
+					}
+					onSelectionChanged={item =>
+						onInterpreterSelected(item.options.identifier)
+					}
+				/>
 			</PositronWizardSubStep>
 		</PositronWizardStep>
 	);

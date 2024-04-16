@@ -37,6 +37,10 @@ export interface IClipboardService {
 	 */
 	writeResources(resources: URI[]): Promise<void>;
 
+	// --- Start Positron ---
+	writeImage(data: string): Promise<void>;
+	// --- End Positron ---
+
 	/**
 	 * Reads resources from the system clipboard.
 	 */

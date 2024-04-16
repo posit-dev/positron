@@ -280,6 +280,10 @@ export class PositronDataExplorerEditor extends EditorPane implements IReactComp
 				// Logging.
 				console.log(`PositronDataExplorerEditor ${this._instance} create PositronReactRenderer`);
 
+				// Hack -- this is usually set by setInput but we're setting it temporarily to be
+				// able to edit the editor tab name
+				this._input = input;
+
 				// Success.
 				return;
 			}

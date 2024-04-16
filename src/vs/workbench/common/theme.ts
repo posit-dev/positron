@@ -1548,6 +1548,14 @@ export const POSITRON_MODAL_DIALOG_BUTTON_ACTIVE_BACKGROUND = registerColor('pos
 	hcLight: darken(POSITRON_MODAL_DIALOG_BUTTON_BACKGROUND, 0.15)
 }, localize('positronModalDialog.buttonActiveBackground', "Positron modal dialog button active background color."));
 
+// Positron modal dialog button disabled background color.
+export const POSITRON_MODAL_DIALOG_BUTTON_DISABLED_BACKGROUND = registerColor('positronModalDialog.buttonDisabledBackground', {
+	dark: null,
+	light: null,
+	hcDark: null,
+	hcLight: null
+}, localize('positronModalDialog.buttonDisabledBackground', "Positron modal dialog button disabled background color."));
+
 // Positron modal dialog button foreground color.
 export const POSITRON_MODAL_DIALOG_BUTTON_FOREGROUND = registerColor('positronModalDialog.buttonForeground', {
 	dark: buttonSecondaryForeground,
@@ -1564,6 +1572,14 @@ export const POSITRON_MODAL_DIALOG_DEFAULT_BUTTON_FOREGROUND = registerColor('po
 	hcLight: buttonForeground
 }, localize('positronModalDialog.defaultButtonForeground', "Positron modal dialog default button foreground color."));
 
+// Positron modal dialog button disabled foreground color.
+export const POSITRON_MODAL_DIALOG_BUTTON_DISABLED_FOREGROUND = registerColor('positronModalDialog.buttonDisabledForeground', {
+	dark: disabledForeground,
+	light: disabledForeground,
+	hcDark: disabledForeground,
+	hcLight: disabledForeground
+}, localize('positronModalDialog.buttonDisabledForeground', "Positron modal dialog button disabled foreground color."));
+
 // Positron modal dialog button border color.
 export const POSITRON_MODAL_DIALOG_BUTTON_BORDER = registerColor('positronModalDialog.buttonBorder', {
 	dark: null,
@@ -1571,6 +1587,14 @@ export const POSITRON_MODAL_DIALOG_BUTTON_BORDER = registerColor('positronModalD
 	hcDark: contrastBorder,
 	hcLight: contrastBorder
 }, localize('positronModalDialog.buttonBorder', "Positron modal dialog button border color."));
+
+// Positron modal dialog button disabled border color.
+export const POSITRON_MODAL_DIALOG_BUTTON_DISABLED_BORDER = registerColor('positronModalDialog.buttonDisabledBorder', {
+	dark: disabledForeground,
+	light: disabledForeground,
+	hcDark: disabledForeground,
+	hcLight: disabledForeground
+}, localize('positronModalDialog.buttonDisabledBorder', "Positron modal dialog button disabled border color."));
 
 // < --- Positron Modal Dialog Text Input --- >
 
@@ -1648,7 +1672,7 @@ export const POSITRON_MODAL_DIALOG_RADIO_BUTTON_FOREGROUND = registerColor('posi
 	light: foreground,
 	hcDark: foreground,
 	hcLight: foreground
-}, localize('positronRadioButton.radioButtonForeground', "Positron modal dialog radio button foreground color."));
+}, localize('positronModalDialog.radioButtonForeground', "Positron modal dialog radio button foreground color."));
 
 // Positron modal dialog radio button border color.
 export const POSITRON_MODAL_DIALOG_RADIO_BUTTON_BORDER = registerColor('positronModalDialog.radioButtonBorder', {
@@ -1657,6 +1681,80 @@ export const POSITRON_MODAL_DIALOG_RADIO_BUTTON_BORDER = registerColor('positron
 	hcDark: selectBorder,
 	hcLight: selectBorder
 }, localize('positronModalDialog.radioButtonBorder', "Positron modal dialog radio button border color."));
+
+// < --- Positron Modal Dialog Project Type --- >
+
+// Positron modal dialog project type background color.
+export const POSITRON_MODAL_DIALOG_PROJECT_TYPE_BACKGROUND = registerColor('positronModalDialog.projectTypeBackground', {
+	dark: buttonSecondaryBackground,
+	light: darken(editorBackground, 0.05),
+	hcDark: editorBackground,
+	hcLight: editorBackground
+}, localize('positronModalDialog.projectTypeBackground', "Positron modal dialog project type background color."));
+
+// Positron modal dialog project type hover background color.
+export const POSITRON_MODAL_DIALOG_PROJECT_TYPE_BACKGROUND_HOVER = registerColor('positronModalDialog.projectTypeBackgroundHover', {
+	dark: listInactiveSelectionBackground,
+	light: listInactiveSelectionBackground,
+	hcDark: listHoverBackground,
+	hcLight: listHoverBackground
+}, localize('positronModalDialog.projectTypeBackgroundHover', "Positron modal dialog project type background hover color."));
+
+// Positron modal dialog project type background selected color.
+export const POSITRON_MODAL_DIALOG_PROJECT_TYPE_BACKGROUND_SELECTED = registerColor('positronModalDialog.projectTypeBackgroundSelected', {
+	dark: listInactiveSelectionBackground,
+	light: listInactiveSelectionBackground,
+	hcDark: listHoverBackground,
+	hcLight: listHoverBackground
+}, localize('positronModalDialog.projectTypeBackgroundSelected', "Positron modal dialog project type background selected color."));
+
+// Positron modal dialog project type foreground color.
+export const POSITRON_MODAL_DIALOG_PROJECT_TYPE_FOREGROUND = registerColor('positronModalDialog.projectTypeForeground', {
+	dark: editorForeground,
+	light: editorForeground,
+	hcDark: editorForeground,
+	hcLight: editorForeground
+}, localize('positronModalDialog.projectTypeForeground', "Positron modal dialog project type foreground color."));
+
+// Positron modal dialog project type foreground hover color.
+export const POSITRON_MODAL_DIALOG_PROJECT_TYPE_FOREGROUND_HOVER = registerColor('positronModalDialog.projectTypeForegroundHover', {
+	dark: listHoverForeground,
+	light: listHoverForeground,
+	hcDark: listHoverForeground,
+	hcLight: listHoverForeground
+}, localize('positronModalDialog.projectTypeForegroundHover', "Positron modal dialog project type foreground hover color."));
+
+// Positron modal dialog project type foreground selected color.
+export const POSITRON_MODAL_DIALOG_PROJECT_TYPE_FOREGROUND_SELECTED = registerColor('positronModalDialog.projectTypeForegroundSelected', {
+	dark: listInactiveSelectionForeground,
+	light: listInactiveSelectionForeground,
+	hcDark: listHoverForeground,
+	hcLight: listHoverForeground
+}, localize('positronModalDialog.projectTypeForegroundSelected', "Positron modal dialog project type foreground selected color."));
+
+// Positron modal dialog project type border color.
+export const POSITRON_MODAL_DIALOG_PROJECT_TYPE_BORDER = registerColor('positronModalDialog.projectTypeBorder', {
+	dark: buttonSecondaryBackground,
+	light: darken(editorBackground, 0.05),
+	hcDark: contrastBorder,
+	hcLight: contrastBorder
+}, localize('positronModalDialog.projectTypeBorder', "Positron modal dialog project type border color."));
+
+// Positron modal dialog project type border color.
+export const POSITRON_MODAL_DIALOG_PROJECT_TYPE_BORDER_HOVER = registerColor('positronModalDialog.projectTypeBorderHover', {
+	dark: darken(editorForeground, 0.25),
+	light: focusBorder,
+	hcDark: activeContrastBorder,
+	hcLight: activeContrastBorder
+}, localize('positronModalDialog.projectTypeBorderHover', "Positron modal dialog project type border hover color."));
+
+// Positron modal dialog project type border selected color.
+export const POSITRON_MODAL_DIALOG_PROJECT_TYPE_BORDER_SELECTED = registerColor('positronModalDialog.projectTypeBorderSelected', {
+	dark: darken(editorForeground, 0.25),
+	light: focusBorder,
+	hcDark: activeContrastBorder,
+	hcLight: activeContrastBorder
+}, localize('positronModalDialog.projectTypeBorderSelected', "Positron modal dialog project type border selected color."));
 
 // < --- Positron Drop Down --- >
 
@@ -2016,7 +2114,7 @@ export const POSITRON_DATA_EXPLORER_BORDER_COLOR = registerColor('positronDataEx
 
 // Positron data explorer missing values graph background fill color.
 export const POSITRON_DATA_EXPLORER_MISSING_VALUES_GRAPH_BACKGROUND_FILL_COLOR = registerColor('positronDataExplorer.columnNullPercentGraphBackgroundFill', {
-	dark: '#ea3d3d',
+	dark: '#bc1a1b',
 	light: '#ea3d3d',
 	hcDark: '#ea3d3d',
 	hcLight: '#ea3d3d',
@@ -2024,7 +2122,7 @@ export const POSITRON_DATA_EXPLORER_MISSING_VALUES_GRAPH_BACKGROUND_FILL_COLOR =
 
 // Positron data explorer missing values graph background stroke color.
 export const POSITRON_DATA_EXPLORER_MISSING_VALUES_GRAPH_BACKGROUND_STROKE_COLOR = registerColor('positronDataExplorer.columnNullPercentGraphBackgroundStroke', {
-	dark: '#7e94a5',
+	dark: '#738594',
 	light: '#7e94a5',
 	hcDark: '#7e94a5',
 	hcLight: '#7e94a5',
@@ -2032,7 +2130,7 @@ export const POSITRON_DATA_EXPLORER_MISSING_VALUES_GRAPH_BACKGROUND_STROKE_COLOR
 
 // Positron data explorer missing values graph indicator fill color.
 export const POSITRON_DATA_EXPLORER_MISSING_VALUES_GRAPH_INDICATOR_FILL_COLOR = registerColor('positronDataExplorer.columnNullPercentGraphIndicatorFill', {
-	dark: '#e5edf3',
+	dark: '#b0b9bf',
 	light: '#e5edf3',
 	hcDark: '#e5edf3',
 	hcLight: '#e5edf3',

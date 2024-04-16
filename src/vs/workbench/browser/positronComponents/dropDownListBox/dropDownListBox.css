@@ -18,9 +18,7 @@
 
 .drop-down-list-box
 .title {
-	display: flex;
 	padding-left: 6px;
-	align-items: center;
 	grid-column: title / chevron;
 	color: var(--vscode-positronContextMenu-foreground);
 }
@@ -31,10 +29,6 @@
 	align-items: center;
 	justify-content: center;
 	grid-column: chevron / end;
-}
-
-.drop-down-list-box
-.chevron.disabled {
 }
 
 .drop-down-list-box-items {
