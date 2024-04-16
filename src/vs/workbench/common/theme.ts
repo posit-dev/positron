@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { localize } from 'vs/nls';
-import { registerColor, editorBackground, contrastBorder, transparent, editorWidgetBackground, textLinkForeground, lighten, darken, focusBorder, activeContrastBorder, editorWidgetForeground, editorErrorForeground, editorWarningForeground, editorInfoForeground, treeIndentGuidesStroke, errorForeground, listActiveSelectionBackground, listActiveSelectionForeground, editorForeground, toolbarHoverBackground, inputBorder, widgetBorder } from 'vs/platform/theme/common/colorRegistry';
+import { registerColor, editorBackground, contrastBorder, transparent, editorWidgetBackground, textLinkForeground, lighten, darken, focusBorder, activeContrastBorder, editorWidgetForeground, editorErrorForeground, editorWarningForeground, editorInfoForeground, treeIndentGuidesStroke, errorForeground, listActiveSelectionBackground, listActiveSelectionForeground, editorForeground, toolbarHoverBackground, inputBorder, widgetBorder, textPreformatForeground, textPreformatBackground } from 'vs/platform/theme/common/colorRegistry';
 import { IColorTheme } from 'vs/platform/theme/common/themeService';
 import { Color } from 'vs/base/common/color';
 import { ColorScheme } from 'vs/platform/theme/common/theme';
@@ -1467,6 +1467,14 @@ export const POSITRON_MODAL_DIALOG_SEPARATOR = registerColor('positronModalDialo
 	hcDark: '#3a3d41',
 	hcLight: darken(POSITRON_MODAL_DIALOG_BACKGROUND, 0.2)
 }, localize('positronModalDialog.separator', "Positron modal dialog separator color."));
+
+// Positron modal dialog preformatted text foreground color.
+export const POSITRON_MODAL_DIALOG_PREFORMATTED_TEXT_FOREGROUND = registerColor('positronModalDialog.preformattedTextForeground', {
+	dark: textPreformatForeground,
+	light: textPreformatForeground,
+	hcDark: contrastBorder,
+	hcLight: contrastBorder
+}, localize('positronModalDialog.preformattedTextForeground', "Positron modal dialog preformatted text foreground color."));
 
 // < --- Positron Modal Dialog Title Bar --- >
 
