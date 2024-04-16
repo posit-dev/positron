@@ -507,14 +507,23 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 				StorageScope.WORKSPACE);
 		});
 
-		// Raise the plot if it's updated by the runtime
-		plotClient.onDidRenderUpdate((_plot) => {
+		const selectPlot = () => {
 			// Raise the Plots pane so the user can see the updated plot
 			this._viewsService.openView(POSITRON_PLOTS_VIEW_ID, false);
 
 			// Select the plot to bring it into view within the history; it's
 			// possible that it is not the most recently created plot
 			this._onDidSelectPlot.fire(plotClient.id);
+		};
+
+		// Raise the plot if it's updated by the runtime
+		plotClient.onDidRenderUpdate((_plot) => {
+			selectPlot();
+		});
+
+		// Focus the plot if the runtime requests it
+		plotClient.onDidShowPlot(() => {
+			selectPlot();
 		});
 
 		// Dispose the plot client when this service is disposed (we own this

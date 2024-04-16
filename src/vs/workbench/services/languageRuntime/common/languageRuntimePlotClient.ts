@@ -195,6 +195,9 @@ export class PlotClientInstance extends Disposable implements IPositronPlotClien
 	onDidRenderUpdate: Event<IRenderedPlot>;
 	private readonly _renderUpdateEmitter = new Emitter<IRenderedPlot>();
 
+	onDidShowPlot: Event<void>;
+	private readonly _didShowPlotEmitter = new Emitter<void>();
+
 	/**
 	 * Creates a new plot client instance.
 	 *
@@ -227,6 +230,9 @@ export class PlotClientInstance extends Disposable implements IPositronPlotClien
 		// Connect the render update emitter event
 		this.onDidRenderUpdate = this._renderUpdateEmitter.event;
 
+		// Connect the show plot emitter event
+		this.onDidShowPlot = this._didShowPlotEmitter.event;
+
 		// Listen to our own state changes
 		this.onDidChangeState((state) => {
 			this._state = state;
@@ -236,6 +242,11 @@ export class PlotClientInstance extends Disposable implements IPositronPlotClien
 		this._comm.onDidUpdate(async (_evt) => {
 			const rendered = await this.queuePlotUpdateRequest();
 			this._renderUpdateEmitter.fire(rendered);
+		});
+
+		// Listn for plot show events
+		this._comm.onDidShow(async (_evt) => {
+			this._didShowPlotEmitter.fire();
 		});
 
 		// Register the client instance with the runtime, so that when this instance is disposed,
