@@ -4,7 +4,7 @@
 
 // React.
 import * as React from 'react';
-import { PropsWithChildren, useState } from 'react';  // eslint-disable-line no-duplicate-imports
+import { PropsWithChildren, useEffect, useState } from 'react';  // eslint-disable-line no-duplicate-imports
 
 // Other dependencies.
 import { localize } from 'vs/nls';
@@ -17,7 +17,8 @@ import { PositronWizardSubStep } from 'vs/workbench/browser/positronNewProjectWi
 import { LabeledTextInput } from 'vs/workbench/browser/positronComponents/positronModalDialog/components/labeledTextInput';
 import { LabeledFolderInput } from 'vs/workbench/browser/positronComponents/positronModalDialog/components/labeledFolderInput';
 import { Checkbox } from 'vs/workbench/browser/positronComponents/positronModalDialog/components/checkbox';
-import { WizardFormattedText, WizardFormattedTextType } from 'vs/workbench/browser/positronNewProjectWizard/components/wizardFormattedText';
+import { WizardFormattedText, WizardFormattedTextItem, WizardFormattedTextType } from 'vs/workbench/browser/positronNewProjectWizard/components/wizardFormattedText';
+import { isExistingDirectory } from 'vs/workbench/browser/positronNewProjectWizard/utilities/projectNameUtils';
 
 /**
  * The ProjectNameLocationStep component is the second step in the new project wizard.
@@ -32,17 +33,67 @@ export const ProjectNameLocationStep = (props: PropsWithChildren<NewProjectWizar
 	const projectConfig = newProjectWizardState.projectConfig;
 	const setProjectConfig = newProjectWizardState.setProjectConfig;
 	const fileDialogs = newProjectWizardState.fileDialogService;
+	const fileService = newProjectWizardState.fileService;
 
 	// Hooks.
-	const [showProjectNameFeedback, setShowProjectNameFeedback] = useState(false);
+	const [projectNameFeedback, setProjectNameFeedback] = useState<
+		WizardFormattedTextItem | undefined>(
+			undefined
+		);
 
-	// Set the project name.
-	const setProjectName = (projectName: string) => {
-		setProjectConfig({ ...projectConfig, projectName });
-		if (!projectName.trim()) {
-			setShowProjectNameFeedback(true);
+	// Hook to initialize the project name feedback if the default
+	// project name is an existing directory.
+	useEffect(() => {
+		const initProjectNameFeedback = async () => {
+			if (await isExistingDirectory(
+				projectConfig.projectName,
+				projectConfig.parentFolder,
+				newProjectWizardState.pathService,
+				fileService)
+			) {
+				setProjectNameFeedback({
+					type: WizardFormattedTextType.Warning,
+					text: localize(
+						'projectNameLocationSubStep.projectName.feedback.existingDirectory',
+						'The directory `{0}` already exists and will be used for the new project',
+						projectConfig.projectName
+					)
+				});
+			}
+		};
+		initProjectNameFeedback();
+	}, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+	// Set the project name and update the project name feedback.
+	const setProjectName = async (projectName: string) => {
+		const projectNameCleaned = projectName.trim();
+		setProjectConfig({ ...projectConfig, projectName: projectNameCleaned });
+		if (!projectNameCleaned) {
+			setProjectNameFeedback({
+				type: WizardFormattedTextType.Error,
+				text: localize(
+					'projectNameLocationSubStep.projectName.feedback.emptyProjectName',
+					'Please enter a project name'
+				)
+			});
 		} else {
-			setShowProjectNameFeedback(false);
+			if (await isExistingDirectory(
+				projectNameCleaned,
+				projectConfig.parentFolder,
+				newProjectWizardState.pathService,
+				fileService)
+			) {
+				setProjectNameFeedback({
+					type: WizardFormattedTextType.Warning,
+					text: localize(
+						'projectNameLocationSubStep.projectName.feedback.existingDirectory',
+						'The directory `{0}` already exists and will be used for the new project',
+						projectNameCleaned
+					)
+				});
+			} else {
+				setProjectNameFeedback(undefined);
+			}
 		}
 	};
 
@@ -52,7 +103,8 @@ export const ProjectNameLocationStep = (props: PropsWithChildren<NewProjectWizar
 		const uri = await fileDialogs.showOpenDialog({
 			defaultUri: URI.file(projectConfig.parentFolder),
 			canSelectFiles: false,
-			canSelectFolders: true
+			canSelectFolders: true,
+			canSelectMany: false,
 		});
 
 		// If the user made a selection, set the parent directory.
@@ -91,13 +143,10 @@ export const ProjectNameLocationStep = (props: PropsWithChildren<NewProjectWizar
 					'projectNameLocationSubStep.projectName.label',
 					'Project Name'
 				))()}
-				feedback={showProjectNameFeedback
+				feedback={projectNameFeedback
 					? () =>
-						<WizardFormattedText type={WizardFormattedTextType.Error}>
-							{(() => localize(
-								'projectNameLocationSubStep.projectName.feedback',
-								'Please enter a project name'
-							))()}
+						<WizardFormattedText type={projectNameFeedback.type}>
+							{projectNameFeedback.text}
 						</WizardFormattedText>
 					: undefined
 				}
@@ -111,6 +160,11 @@ export const ProjectNameLocationStep = (props: PropsWithChildren<NewProjectWizar
 					autoFocus
 					value={projectConfig.projectName}
 					onChange={e => setProjectName(e.target.value)}
+					type='text'
+					error={
+						projectNameFeedback &&
+						projectNameFeedback.type === WizardFormattedTextType.Error
+					}
 				/>
 			</PositronWizardSubStep>
 			<PositronWizardSubStep

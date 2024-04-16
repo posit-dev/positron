@@ -11,6 +11,8 @@ import { EnvironmentSetupType, NewProjectType, NewProjectWizardStep, PythonEnvir
 import { IWorkbenchLayoutService } from 'vs/workbench/services/layout/browser/layoutService';
 import { IKeybindingService } from 'vs/platform/keybinding/common/keybinding';
 import { ILogService } from 'vs/platform/log/common/log';
+import { IPathService } from 'vs/workbench/services/path/common/pathService';
+import { IFileService } from 'vs/platform/files/common/files';
 
 /**
  * NewProjectWizardServices interface. Defines the set of services that are required by the New
@@ -18,10 +20,12 @@ import { ILogService } from 'vs/platform/log/common/log';
  */
 interface NewProjectWizardServices {
 	fileDialogService: IFileDialogService;
+	fileService: IFileService;
 	keybindingService: IKeybindingService;
 	languageRuntimeService: ILanguageRuntimeService;
 	layoutService: IWorkbenchLayoutService;
 	logService: ILogService;
+	pathService: IPathService;
 	runtimeSessionService: IRuntimeSessionService;
 	runtimeStartupService: IRuntimeStartupService;
 }

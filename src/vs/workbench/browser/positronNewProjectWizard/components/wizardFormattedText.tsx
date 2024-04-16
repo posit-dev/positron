@@ -19,12 +19,19 @@ export enum WizardFormattedTextType {
 }
 
 /**
+ * WizardFormattedTextItem interface.
+ */
+export interface WizardFormattedTextItem {
+	type: WizardFormattedTextType;
+	text: string;
+}
+
+/**
  * WizardFormattedTextProps interface.
  */
 export interface WizardFormattedTextProps {
 	type: WizardFormattedTextType;
 	id?: string;
-	className?: string;
 }
 
 /**
@@ -33,12 +40,15 @@ export interface WizardFormattedTextProps {
  * @returns The rendered component.
  */
 export const WizardFormattedText = (props: PropsWithChildren<WizardFormattedTextProps>) => {
+	const iconClass = props.type !== WizardFormattedTextType.Info
+		? `codicon codicon-${props.type}`
+		: undefined;
+
 	// Render.
 	return (
-		<div className={`wizard-formatted-text ${props.className}`}>
-			<div className={`wizard-formatted-text-${props.type}`} id={props.id}>
-				{props.children}
-			</div>
+		<div className={`wizard-formatted-text wizard-formatted-text-${props.type}`} id={props.id}>
+			{iconClass && <div className={`wizard-formatted-text-icon ${iconClass}`}></div>}
+			{props.children}
 		</div>
 	);
 };
