@@ -190,7 +190,16 @@ export async function runThatTest(
 								case 'skip':
 									run.skipped(testItem!);
 									if (data.message) {
-										run.appendOutput(data.message, undefined, testItem);
+										// Currently skip messages leak out to the TEST RESULTS
+										// area, which is presumably not the long-term plan for
+										// how we want to use that space.
+										// But in the meantime, let's at least break lines.
+										// appendOutput method is documented to need CRLF not LF.
+										run.appendOutput(
+											data.message + ': ' + data.location + '\r\n',
+											undefined,
+											testItem
+										);
 									}
 									break;
 								case 'error':
