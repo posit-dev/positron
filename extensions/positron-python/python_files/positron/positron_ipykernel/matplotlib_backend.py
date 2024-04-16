@@ -3,6 +3,14 @@
 #
 """
 The matplotlib backend for Positron.
+
+NOTE: DO NOT DIRECTLY IMPORT THIS MODULE!
+
+This module assumes that it is only ever imported by matplotlib when it sets its backend.
+Given that, it doesn't check whether matplotlib is installed in the user's environment,
+and runs code on import e.g. to enable matplotlib interactive mode. This is the same approach
+taken by IPython's matplotlib-inline backend, and seems to be the only way to run code when
+the backend is set by matplotlib.
 """
 
 from __future__ import annotations
@@ -21,6 +29,10 @@ from matplotlib.figure import Figure
 from .plots import Plot
 
 logger = logging.getLogger(__name__)
+
+
+# Enable interactive mode when this backend is used. See the note at the top of the file.
+matplotlib.interactive(True)
 
 
 class FigureManagerPositron(FigureManagerBase):
@@ -177,17 +189,6 @@ class FigureCanvasPositron(FigureCanvasAgg):
     def _hash_buffer_rgba(self) -> str:
         """Hash the canvas contents for change detection."""
         return hashlib.sha1(self.buffer_rgba()).hexdigest()
-
-
-def enable_positron_matplotlib_backend() -> None:
-    """
-    Enable this backend.
-    """
-    # Enable interactive mode to allow for redraws after each cell execution.
-    matplotlib.interactive(True)
-
-    # Set the backend.
-    matplotlib.use("module://positron_ipykernel.matplotlib_backend")
 
 
 # Fulfill the matplotlib backend API.
