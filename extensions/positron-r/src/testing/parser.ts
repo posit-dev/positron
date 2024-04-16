@@ -3,6 +3,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
+import * as fs from 'fs';
 import * as path from 'path';
 import * as Parser from 'web-tree-sitter';
 import { ItemType, TestingTools, encodeNodeId } from './util-testing';
@@ -12,7 +13,9 @@ import { EXTENSION_ROOT_DIR } from '../constants';
 const wasmPath = path.join(EXTENSION_ROOT_DIR, 'resources', 'testing', 'tree-sitter-r.wasm');
 let parser: Parser | undefined;
 let R: Parser.Language | undefined;
+let _queryStrings: string[] | null = null;
 
+// lazily initialize the parser
 export async function initializeParser(): Promise<Parser> {
 	LOGGER.info(`Initializing parser`);
 	await Parser.init();
@@ -21,6 +24,24 @@ export async function initializeParser(): Promise<Parser> {
 	R = await Parser.Language.load(wasmPath);
 	parser.setLanguage(R);
 	return parser;
+}
+
+// lazily initialize the query strings
+// future extension point to insert user-configured test functions
+function getQueryStrings() {
+	if (!_queryStrings) {
+		const dirPath = path.join(EXTENSION_ROOT_DIR, 'resources', 'testing');
+		const queryFiles = fs.readdirSync(dirPath)
+			.filter(file => path.extname(file) === '.scm')
+			.map(file => path.join(dirPath, file));
+		if (queryFiles.length === 0) {
+			LOGGER.info('No test query files found. No test items will be discovered.');
+		} else {
+			LOGGER.info(`Reading test queries from these files:\n${JSON.stringify(queryFiles, null, 2)}`);
+		}
+		_queryStrings = queryFiles.map(file => fs.readFileSync(file, 'utf8'));
+	}
+	return _queryStrings;
 }
 
 export async function parseTestsFromFile(
@@ -84,22 +105,14 @@ async function findTests(uri: vscode.Uri): Promise<TestMatch[]> {
 	if (parser === undefined) {
 		parser = await initializeParser();
 	}
+	const queryStrings = getQueryStrings();
 
 	try {
-		const document = await vscode.workspace.openTextDocument(uri);
-		const tree = parser!.parse(document.getText());
-
-		let queryPath = path.join(EXTENSION_ROOT_DIR, 'resources', 'testing', 'test_that.scm');
-		let queryContent = await vscode.workspace.fs.readFile(vscode.Uri.file(queryPath));
-		let query = R!.query(queryContent.toString());
-
-		const matches = getTestMatches(query, tree);
-
-		queryPath = path.join(EXTENSION_ROOT_DIR, 'resources', 'testing', 'describe.scm');
-		queryContent = await vscode.workspace.fs.readFile(vscode.Uri.file(queryPath));
-		query = R!.query(queryContent.toString());
-
-		matches.push(...getTestMatches(query, tree));
+		const matches: TestMatch[] = [];
+		for (const queryString of queryStrings) {
+			const queryMatches = await getMatchesForQuery(queryString, parser!, uri);
+			matches.push(...queryMatches);
+		}
 
 		return matches;
 	} catch (reason) {
@@ -128,13 +141,12 @@ interface Match {
 
 	/**
 	 * Is this a top-level call in the testthat file? Only top-level tests can be run individually.
-	 * This is really about making sure we can distinguish a top-level `describe()` (runnable) from
-	 * a `describe()` that's nested inside another `describe()` call (only runnable as part of its
-	 * enclosing `describe()` or test file).
+	 * This is really about making sure we can distinguish a top-level `describe()` (individually
+	 * runnable) from a `describe()` that's nested inside another `describe()` call (only runnable
+	 * as part of its enclosing `describe()` or test file).
 	 */
 	topLevel: boolean | null;
 }
-
 
 /**
  * Match data for (what will become) a single test item, e.g. a call to `test_that()`, `describe()`,
@@ -145,6 +157,17 @@ interface TestMatch {
 	match: Match;
 	/** Data for the parent `describe()` call. Only applies to `describe()` and `it()` calls. */
 	parentMatch?: Match;
+}
+
+async function getMatchesForQuery(
+	queryString: string,
+	parser: Parser,
+	uri: vscode.Uri
+): Promise<TestMatch[]> {
+	const document = await vscode.workspace.openTextDocument(uri);
+	const query = R!.query(queryString);
+	const tree = parser!.parse(document.getText());
+	return getTestMatches(query, tree);
 }
 
 function getTestMatches(query: Parser.Query, tree: Parser.Tree): TestMatch[] {
