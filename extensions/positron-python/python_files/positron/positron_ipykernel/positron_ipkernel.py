@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import enum
 import logging
+import os
 import re
 import warnings
 from pathlib import Path
@@ -27,7 +28,6 @@ from .connections import ConnectionsService
 from .data_explorer import DataExplorerService
 from .help import HelpService, help
 from .lsp import LSPService
-from .matplotlib_backend import enable_positron_matplotlib_backend
 from .plots import PlotsService
 from .session_mode import SessionMode
 from .ui import UiService
@@ -417,13 +417,13 @@ class PositronIPKernelApp(IPKernelApp):
     session_mode: SessionMode = SessionMode.trait()  # type: ignore
 
     def init_gui_pylab(self):
-        try:
-            # Enable the Positron matplotlib backend if we're not in a notebook.
-            # If we're in a notebook, use IPython's default backend via the super() call below.
-            if self.session_mode != SessionMode.NOTEBOOK:
-                enable_positron_matplotlib_backend()
-        except Exception:
-            logger.error("Error setting matplotlib backend")
+        # Enable the Positron matplotlib backend if we're not in a notebook.
+        # If we're in a notebook, use IPython's default backend via the super() call below.
+        if self.session_mode != SessionMode.NOTEBOOK:
+            # Matplotlib uses the MPLBACKEND environment variable to determine the backend to use.
+            # It imports the backend module when it's first needed.
+            if not os.environ.get("MPLBACKEND"):
+                os.environ["MPLBACKEND"] = "module://positron_ipykernel.matplotlib_backend"
 
         return super().init_gui_pylab()
 
