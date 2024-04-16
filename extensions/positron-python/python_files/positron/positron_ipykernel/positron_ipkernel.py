@@ -460,23 +460,19 @@ def _link(uri: str, label: str, params: Dict[str, str] = {}) -> str:
 # monkey patching warning.showwarning is recommended by the official documentation
 # https://docs.python.org/3/library/warnings.html#warnings.showwarning
 def _showwarning(message, category, filename, lineno, file=None, line=None):
-    # if coming from one of our files, ignore it
+    # if coming from one of our files, log and don't send to user
     positron_files_path = Path("python_files", "positron", "positron_ipykernel")
     # where can we get the temp path to console from?
     console_path = Path("var", "folders")
     if str(positron_files_path) in filename:
-        msg = f"{filename}:{lineno}: {category}: {message}"
-        logger.warn(msg)
+        msg = f"Console:: {category}: {message}"
+        logger.warning(msg)
         return
 
     if str(console_path) in filename:
-        filename = None
-        lineno = None
+        filename = 'Console'
+        lineno = ''
 
-    msg = "{message : %r, category : %r, filename : %r, lineno : %s}" % (
-        message,
-        category,
-        filename,
-        lineno,
-    )
+    msg = warnings.WarningMessage(message, category, filename, lineno, file, line)
+
     warnings._showwarnmsg_impl(msg)
