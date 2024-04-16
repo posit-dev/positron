@@ -1,0 +1,48 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *--------------------------------------------------------------------------------------------*/
+
+.wizard-step
+.wizard-formatted-text {
+	display: flex;
+	flex-direction: row;
+	column-gap: 2px;
+	align-items: center;
+}
+
+.wizard-step
+.wizard-formatted-text-info {
+	color: var(--vscode-descriptionForeground);
+}
+
+.wizard-step
+.wizard-formatted-text-warning {
+	color: var(--vscode-editorWarning-foreground);
+}
+
+.wizard-step
+.wizard-formatted-text-warning
+.wizard-formatted-text-icon {
+	color: var(--vscode-editorWarning-foreground);
+}
+
+.wizard-step
+.wizard-formatted-text-error {
+	color: var(--vscode-editorError-foreground);
+}
+
+.wizard-step
+.wizard-formatted-text-error
+.wizard-formatted-text-icon {
+	color: var(--vscode-editorError-foreground);
+}
+
+.wizard-step
+.wizard-formatted-text
+code {
+	color: var(--vscode-positronModalDialog-preformattedTextForeground);
+	border-radius: 4px;
+	padding: 1px 3px;
+	font-family: var(--monaco-monospace-font);
+	font-size: 11px;
+}
