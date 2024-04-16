@@ -167,10 +167,7 @@ async function getMatchesForQuery(
 	const document = await vscode.workspace.openTextDocument(uri);
 	const query = R!.query(queryString);
 	const tree = parser!.parse(document.getText());
-	return getTestMatches(query, tree);
-}
 
-function getTestMatches(query: Parser.Query, tree: Parser.Tree): TestMatch[] {
 	const raw_matches = query.matches(tree.rootNode);
 	const matches: TestMatch[] = [];
 
@@ -188,12 +185,22 @@ function getTestMatches(query: Parser.Query, tree: Parser.Tree): TestMatch[] {
 				match: processCapture(testFunctionCapture, testDescCapture, testCallCapture)
 			};
 
-			const testParentFunctionCapture = match.captures.find(capture => capture.name === 'parent_function');
-			const testParentDescCapture = match.captures.find(capture => capture.name === 'parent_desc');
-			const testParentCallCapture = match.captures.find(capture => capture.name === 'parent_call');
+			const testParentFunctionCapture = match.captures.find(
+				capture => capture.name === 'parent_function'
+			);
+			const testParentDescCapture = match.captures.find(
+				capture => capture.name === 'parent_desc'
+			);
+			const testParentCallCapture = match.captures.find(
+				capture => capture.name === 'parent_call'
+			);
 
 			if (testParentFunctionCapture && testParentDescCapture && testParentCallCapture) {
-				tm.parentMatch = processCapture(testParentFunctionCapture, testParentDescCapture, testParentCallCapture);
+				tm.parentMatch = processCapture(
+					testParentFunctionCapture,
+					testParentDescCapture,
+					testParentCallCapture
+				);
 			}
 
 			matches.push(tm);
