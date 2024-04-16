@@ -69,7 +69,7 @@ export async function runHandler(
 				LOGGER.info(`Running test with label "${test!.label}"`);
 			}
 			const stdout = await runThatTest(testingTools, run, test);
-			LOGGER.debug(`Test output:\n${stdout}`);
+			LOGGER.info(`Test output:\n${stdout}`);
 		} catch (error) {
 			LOGGER.error(`Run errored with reason: "${error}"`);
 			if (test) {

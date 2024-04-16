@@ -125,6 +125,14 @@ interface Match {
 
 	/** Where the matched call ends in the test file. */
 	endPos: vscode.Position;
+
+	/**
+	 * Is this a top-level call in the testthat file? Only top-level tests can be run individually.
+	 * This is really about making sure we can distinguish a top-level `describe()` (runnable) from
+	 * a `describe()` that's nested inside another `describe()` call (only runnable as part of its
+	 * enclosing `describe()` or test file).
+	 */
+	topLevel: boolean | null;
 }
 
 
@@ -135,7 +143,7 @@ interface Match {
 interface TestMatch {
 	/** Data for the call itself. */
 	match: Match;
-	/** Data for the parent `describe()` call. Only applies to an `it()` call. */
+	/** Data for the parent `describe()` call. Only applies to `describe()` and `it()` calls. */
 	parentMatch?: Match;
 }
 
@@ -184,6 +192,7 @@ function processCapture(
 		// we start at 1 and end at (length - 1) because we don't want the surrounding quotes
 		desc: captureDesc.node.text.substring(1, captureDesc.node.text.length - 1),
 		startPos: toVSCodePosition(captureCall.node.startPosition),
-		endPos: toVSCodePosition(captureCall.node.endPosition)
+		endPos: toVSCodePosition(captureCall.node.endPosition),
+		topLevel: captureCall.node.parent && captureCall.node.parent.type === 'program'
 	};
 }
