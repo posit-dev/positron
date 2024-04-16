@@ -85,90 +85,62 @@ async function findTests(uri: vscode.Uri) {
 		parser = await initializeParser();
 	}
 
-	return vscode.workspace.openTextDocument(uri).then(
-		(document: vscode.TextDocument) => {
-			const tree = parser!.parse(document.getText());
-			const query = R!.query(
-				`
-				(call
-					function: [
-						(identifier) @_function.name
-					] (#eq? @_function.name "test_that")
-					arguments: (arguments
-						(argument
-							 value: (string) @label
-						)
-					)
-				) @call
+	try {
+		const document = await vscode.workspace.openTextDocument(uri);
+		const tree = parser!.parse(document.getText());
+		const matches = [];
 
-				(call
-					function: [
-						(identifier) @_superfunction.name
-					] (#eq? @_superfunction.name "describe")
-					arguments: (arguments
-						(argument
-							value: (string) @superlabel
-						)
-						(argument
-							value: (braced_expression
-								body: (call
-									function: [
-										(identifier) @_function.name
-									] (#eq? @_function.name "it")
-									arguments: (arguments
-										(argument
-											value: (string) @label
-										)
-									)
-								) @call
-							)
-						)
-					)
-				) @supercall
-				`
-			);
-			const raw_matches = query.matches(tree.rootNode);
-			const toVSCodePosition = (pos: any) => new vscode.Position(pos.row, pos.column);
+		let queryPath = path.join(EXTENSION_ROOT_DIR, 'resources', 'testing', 'test_that.scm');
+		let queryContent = await vscode.workspace.fs.readFile(vscode.Uri.file(queryPath));
+		let query = R!.query(queryContent.toString());
 
-			const matches = [];
+		let raw_matches = query.matches(tree.rootNode);
+		const toVSCodePosition = (pos: any) => new vscode.Position(pos.row, pos.column);
 
-			for (const match of raw_matches) {
-				if (match === undefined) {
-					continue;
-				}
-				if (match.pattern === 0) {
-					matches.push({
-						testLabel: match.captures[2].node.text.substring(
-							1,
-							match.captures[2].node.text.length - 1
-						),
-						testStartPosition: toVSCodePosition(match.captures[0].node.startPosition),
-						testEndPosition: toVSCodePosition(match.captures[0].node.endPosition),
-					});
-				} else {
-					matches.push({
-						testSuperLabel: match.captures[2].node.text.substring(
-							1,
-							match.captures[2].node.text.length - 1
-						),
-						testSuperStartPosition: toVSCodePosition(
-							match.captures[0].node.startPosition
-						),
-						testSuperEndPosition: toVSCodePosition(match.captures[0].node.endPosition),
-						testLabel: match.captures[5].node.text.substring(
-							1,
-							match.captures[5].node.text.length - 1
-						),
-						testStartPosition: toVSCodePosition(match.captures[3].node.startPosition),
-						testEndPosition: toVSCodePosition(match.captures[3].node.endPosition),
-					});
-				}
+		for (const match of raw_matches) {
+			if (match === undefined) {
+				continue;
 			}
-
-			return matches;
-		},
-		(reason: any) => {
-			throw reason;
+			matches.push({
+				testLabel: match.captures[2].node.text.substring(
+					1,
+					match.captures[2].node.text.length - 1
+				),
+				testStartPosition: toVSCodePosition(match.captures[0].node.startPosition),
+				testEndPosition: toVSCodePosition(match.captures[0].node.endPosition),
+			});
 		}
-	);
+
+		queryPath = path.join(EXTENSION_ROOT_DIR, 'resources', 'testing', 'describe.scm');
+		queryContent = await vscode.workspace.fs.readFile(vscode.Uri.file(queryPath));
+		query = R!.query(queryContent.toString());
+
+		raw_matches = query.matches(tree.rootNode);
+
+		for (const match of raw_matches) {
+			if (match === undefined) {
+				continue;
+			}
+			matches.push({
+				testSuperLabel: match.captures[2].node.text.substring(
+					1,
+					match.captures[2].node.text.length - 1
+				),
+				testSuperStartPosition: toVSCodePosition(
+					match.captures[0].node.startPosition
+				),
+				testSuperEndPosition: toVSCodePosition(match.captures[0].node.endPosition),
+				testLabel: match.captures[5].node.text.substring(
+					1,
+					match.captures[5].node.text.length - 1
+				),
+				testStartPosition: toVSCodePosition(match.captures[3].node.startPosition),
+				testEndPosition: toVSCodePosition(match.captures[3].node.endPosition),
+			});
+		}
+
+		return matches;
+	} catch (reason) {
+		throw reason;
+	}
 }
