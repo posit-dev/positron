@@ -362,8 +362,8 @@ class PositronIPyKernel(IPythonKernel):
         self.shell.display_pub.register_hook(self.display_pub_hook)
         self.shell.display_pub.register_hook(self.widget_hook)
 
-        warnings.showwarning = _showwarning
-
+        warnings.showwarning = _positron_showwarning
+        warnings._formatwarnmsg_impl = _positron_formatwarnmsg_impl
         # Ignore warnings that the user can't do anything about
         warnings.filterwarnings(
             "ignore",
@@ -459,20 +459,84 @@ def _link(uri: str, label: str, params: Dict[str, str] = {}) -> str:
 
 # monkey patching warning.showwarning is recommended by the official documentation
 # https://docs.python.org/3/library/warnings.html#warnings.showwarning
-def _showwarning(message, category, filename, lineno, file=None, line=None):
+def _positron_showwarning(message, category, filename, lineno, file=None, line=None):
     # if coming from one of our files, log and don't send to user
     positron_files_path = Path("python_files", "positron", "positron_ipykernel")
-    # where can we get the temp path to console from?
+    # is it the same for windows (probably not?)
     console_path = Path("var", "folders")
     if str(positron_files_path) in filename:
-        msg = f"Console:: {category}: {message}"
+        msg = f"{category}: {message}"
         logger.warning(msg)
         return
 
     if str(console_path) in filename:
-        filename = 'Console'
-        lineno = ''
+        filename = ""
+        lineno = ""
 
     msg = warnings.WarningMessage(message, category, filename, lineno, file, line)
 
     warnings._showwarnmsg_impl(msg)
+
+
+# vendored as-is from warnings
+def _positron_formatwarnmsg_impl(msg):
+    category = msg.category.__name__
+    # --- Start Positron ---
+    if not msg.filename and not msg.lineno:
+        s = f"{category}: {msg.message}\n"
+    # --- Start Positron ---
+    else:
+        s = f"{msg.filename}:{msg.lineno}: {category}: {msg.message}\n"
+
+    if msg.line is None:
+        try:
+            import linecache
+
+            line = linecache.getline(msg.filename, msg.lineno)
+        except Exception:
+            # When a warning is logged during Python shutdown, linecache
+            # and the import machinery don't work anymore
+            line = None
+            linecache = None
+    else:
+        line = msg.line
+    if line:
+        line = line.strip()
+        s += "  %s\n" % line
+
+    if msg.source is not None:
+        try:
+            import tracemalloc
+        # Logging a warning should not raise a new exception:
+        # catch Exception, not only ImportError and RecursionError.
+        except Exception:
+            # don't suggest to enable tracemalloc if it's not available
+            tracing = True
+            tb = None
+        else:
+            tracing = tracemalloc.is_tracing()
+            try:
+                tb = tracemalloc.get_object_traceback(msg.source)
+            except Exception:
+                # When a warning is logged during Python shutdown, tracemalloc
+                # and the import machinery don't work anymore
+                tb = None
+
+        if tb is not None:
+            s += "Object allocated at (most recent call last):\n"
+            for frame in tb:
+                s += '  File "%s", lineno %s\n' % (frame.filename, frame.lineno)
+
+                try:
+                    if linecache is not None:
+                        line = linecache.getline(frame.filename, frame.lineno)
+                    else:
+                        line = None
+                except Exception:
+                    line = None
+                if line:
+                    line = line.strip()
+                    s += "    %s\n" % line
+        elif not tracing:
+            s += f"{category}: Enable tracemalloc to get the object " f"allocation traceback\n"
+    return s
