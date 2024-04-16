@@ -12,7 +12,6 @@ import matplotlib.pyplot as plt
 import pytest
 from PIL import Image
 
-from positron_ipykernel.matplotlib_backend import enable_positron_matplotlib_backend
 from positron_ipykernel.plots import PlotsService
 from positron_ipykernel.positron_ipkernel import PositronIPyKernel, _CommTarget
 
@@ -34,10 +33,9 @@ TARGET_NAME = "target_name"
 
 @pytest.fixture(autouse=True)
 def setup_positron_matplotlib_backend() -> None:
-    enable_positron_matplotlib_backend()
-
-    assert matplotlib.get_backend() == "module://positron_ipykernel.matplotlib_backend"
-    assert matplotlib.is_interactive()
+    # The backend is set in the kernel app, which isn't currently available in our tests,
+    # so set it here too.
+    matplotlib.use("module://positron_ipykernel.matplotlib_backend")
 
 
 @pytest.fixture(autouse=True)
