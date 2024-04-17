@@ -99,6 +99,13 @@ def shell() -> Iterable[PositronShell]:
 
 
 @pytest.fixture
+def mock_connections_service(shell: PositronShell, monkeypatch: pytest.MonkeyPatch) -> Mock:
+    mock = Mock()
+    monkeypatch.setattr(shell.kernel, "connections_service", mock)
+    return mock
+
+
+@pytest.fixture
 def mock_dataexplorer_service(shell: PositronShell, monkeypatch: pytest.MonkeyPatch) -> Mock:
     mock = Mock()
     monkeypatch.setattr(shell.kernel, "data_explorer_service", mock)
