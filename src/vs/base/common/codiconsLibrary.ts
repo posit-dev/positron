@@ -649,4 +649,6 @@ export const codiconsLibrary = {
 	positronPowerButtonThin: register('positron-power-button-thin', 0xf274),
 	positronRestartRuntimeThin: register('positron-restart-runtime-thin', 0xf275),
 	positronClearFilter: register('positron-clear-filter', 0xf276),
+	positronNotebookCodeCell: register('positron-notebook-code-cell', 0xf277),
+	positronNotebookMarkdownCell: register('positron-notebook-markdown-cell', 0xf278),
 } as const;
