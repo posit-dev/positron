@@ -126,7 +126,10 @@ const hotExitConfiguration: IConfigurationPropertySchema = isNative ?
 		'type': 'string',
 		'scope': ConfigurationScope.APPLICATION,
 		'enum': [HotExitConfiguration.OFF, HotExitConfiguration.ON_EXIT, HotExitConfiguration.ON_EXIT_AND_WINDOW_CLOSE],
-		'default': HotExitConfiguration.ON_EXIT,
+		// --- Start Positron ---
+		// 'default': HotExitConfiguration.ON_EXIT,
+		'default': HotExitConfiguration.ON_EXIT_AND_WINDOW_CLOSE,
+		// --- End Positron ---
 		'markdownEnumDescriptions': [
 			nls.localize('hotExit.off', 'Disable hot exit. A prompt will show when attempting to close a window with editors that have unsaved changes.'),
 			nls.localize('hotExit.onExit', 'Hot exit will be triggered when the last window is closed on Windows/Linux or when the `workbench.action.quit` command is triggered (command palette, keybinding, menu). All windows without folders opened will be restored upon next launch. A list of previously opened windows with unsaved files can be accessed via `File > Open Recent > More...`'),
