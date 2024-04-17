@@ -69,10 +69,10 @@ export const TopActionBarInterpretersManager = (props: TopActionBarInterpretersM
 		// Create the disposable store for cleanup.
 		const disposableStore = new DisposableStore();
 
-		// Add the onDidStartRuntime event handler.
+		// Add the onDidChangeForegroundSession event handler.
 		disposableStore.add(
-			context.runtimeSessionService.onDidStartRuntime(session => {
-				if (session.metadata.sessionMode === LanguageRuntimeSessionMode.Console) {
+			context.runtimeSessionService.onDidChangeForegroundSession(session => {
+				if (session?.metadata.sessionMode === LanguageRuntimeSessionMode.Console) {
 					setActiveSession(
 						context.runtimeSessionService.foregroundSession);
 				}
