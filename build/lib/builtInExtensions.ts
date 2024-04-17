@@ -32,6 +32,9 @@ export interface IExtensionDefinition {
 			flags: string;
 		};
 		publisherDisplayName: string;
+		// --- Start Positron ---
+		multiPlatformServiceUrl?: string;
+		// --- End Positron ---
 	};
 }
 

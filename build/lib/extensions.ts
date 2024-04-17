@@ -25,6 +25,9 @@ import { getProductionDependencies } from './dependencies';
 import { IExtensionDefinition, getExtensionStream } from './builtInExtensions';
 import { getVersion } from './getVersion';
 import { fetchUrls, fetchGithub } from './fetch';
+// --- Start Positron ---
+import { platform } from 'os';
+// --- End Positron ---
 
 const root = path.dirname(path.dirname(__dirname));
 const commit = getVersion(root);
@@ -225,7 +228,30 @@ export function fromMarketplace(serviceUrl: string, { name: extensionName, versi
 	const json = require('gulp-json-editor') as typeof import('gulp-json-editor');
 
 	const [publisher, name] = extensionName.split('.');
-	const url = `${serviceUrl}/publishers/${publisher}/vsextensions/${name}/${version}/vspackage`;
+	// --- Start Positron ---
+	let url: string;
+
+	if (metadata.multiPlatformServiceUrl) {
+		let platformDownload: string;
+		switch (platform()) {
+			case 'darwin':
+				platformDownload = 'darwin-arm64';
+				break;
+			case 'win32':
+				platformDownload = 'win32-x64';
+				break;
+			case 'linux':
+				platformDownload = 'linux-x64';
+				break;
+			default:
+				throw new Error('Unsupported platform');
+		};
+		url = `${metadata.multiPlatformServiceUrl}${publisher}/${name}/${platformDownload}/${version}/file/${extensionName}-${version}@${platformDownload}.vsix`
+
+	} else {
+		url = `${serviceUrl}/publishers/${publisher}/vsextensions/${name}/${version}/vspackage`;
+	}
+	// --- End Positron ---
 
 	fancyLog('Downloading extension:', ansiColors.yellow(`${extensionName}@${version}`), '...');
 
