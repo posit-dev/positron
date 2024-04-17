@@ -21,7 +21,7 @@ export function AddCellButtons({ index }: { index: number }) {
 			}}
 		>
 			<span className='action-label'>Code</span>
-			<div className='button-icon codicon codicon-plus' />
+			<div className='button-icon codicon codicon-positron-notebook-code-cell' />
 		</Button>
 		<Button
 			className='action action-button'
@@ -31,7 +31,7 @@ export function AddCellButtons({ index }: { index: number }) {
 			}}
 		>
 			<span className='action-label'>Markdown</span>
-			<div className='button-icon codicon codicon-plus' />
+			<div className='button-icon codicon codicon-positron-notebook-markdown-cell' />
 		</Button>
 	</div>;
 }
