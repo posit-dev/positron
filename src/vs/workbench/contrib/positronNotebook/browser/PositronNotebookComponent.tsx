@@ -9,9 +9,9 @@ import { useNotebookInstance } from 'vs/workbench/contrib/positronNotebook/brows
 import { AddCellButtons, AddCodeCellButton, AddMarkdownCellButton } from './AddCellButtons';
 import { useObservedValue } from './useObservedValue';
 import { localize } from 'vs/nls';
-import { Button } from 'vs/base/browser/ui/positronComponents/button/button';
 import { KernelStatusBadge } from './KernelStatusBadge';
 import { NotebookCell } from 'vs/workbench/contrib/positronNotebook/browser/notebookCells/NotebookCell';
+import { IconedButton } from 'vs/workbench/contrib/positronNotebook/browser/utilityComponents/IconedButton';
 
 
 export function PositronNotebookComponent() {
@@ -21,16 +21,12 @@ export function PositronNotebookComponent() {
 	return (
 		<div className='positron-notebook'>
 			<div className='positron-notebook-header'>
-				<Button
-					className='action action-button run-button'
-					ariaLabel={(() => localize('runAllCells', 'Run all cells'))()}
-					onPressed={() => { notebookInstance.runAllCells(); }}
-				>
-					<div className='button-icon codicon codicon-run' />
-					<span className='action-label'>
-						{localize('runAllCells', 'Run all cells')}
-					</span>
-				</Button>
+				<IconedButton
+					codicon='run'
+					label={localize('runAllCells', 'Run all cells')}
+					onClick={() => { notebookInstance.runAllCells(); }}
+				/>
+
 				<div style={{ marginLeft: 'auto' }}></div>
 				<AddCodeCellButton notebookInstance={notebookInstance} index={0} />
 				<HeaderDivider />

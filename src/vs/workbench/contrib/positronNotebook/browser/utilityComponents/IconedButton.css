@@ -1,0 +1,24 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *--------------------------------------------------------------------------------------------*/
+
+.positron-iconed-button {
+	cursor: pointer;
+	display: flex;
+	gap: 6px;
+	color: var(--vscode-positronNotebook-deemphasized-foreground);
+
+	.button-icon {
+		color: inherit;
+		font-size: 18px;
+	}
+
+	.action-label {
+		cursor: pointer;
+	}
+}
+
+.positron-iconed-button.bordered {
+	border: 1px solid var(--vscode-positronNotebook-deemphasized-foreground);
+	border-radius: 4px;
+}
