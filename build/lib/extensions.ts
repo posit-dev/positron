@@ -25,9 +25,6 @@ import { getProductionDependencies } from './dependencies';
 import { IExtensionDefinition, getExtensionStream } from './builtInExtensions';
 import { getVersion } from './getVersion';
 import { fetchUrls, fetchGithub } from './fetch';
-// --- Start Positron ---
-import { platform } from 'os';
-// --- End Positron ---
 
 const root = path.dirname(path.dirname(__dirname));
 const commit = getVersion(root);
@@ -233,7 +230,7 @@ export function fromMarketplace(serviceUrl: string, { name: extensionName, versi
 
 	if (metadata.multiPlatformServiceUrl) {
 		let platformDownload: string;
-		switch (platform()) {
+		switch (process.platform) {
 			case 'darwin':
 				platformDownload = 'darwin-arm64';
 				break;
@@ -246,7 +243,7 @@ export function fromMarketplace(serviceUrl: string, { name: extensionName, versi
 			default:
 				throw new Error('Unsupported platform');
 		};
-		url = `${metadata.multiPlatformServiceUrl}/${publisher}/${name}/${platformDownload}/${version}/file/${extensionName}-${version}@${platformDownload}.vsix`
+		url = `${serviceUrl}/${publisher}/${name}/${platformDownload}/${version}/file/${extensionName}-${version}@${platformDownload}`
 
 	} else {
 		url = `${serviceUrl}/publishers/${publisher}/vsextensions/${name}/${version}/vspackage`;
