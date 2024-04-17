@@ -13,6 +13,14 @@
 .positron-modal-dialog-box
 .wizard-step
 .renv-configuration
+.renv-docs-external-link {
+	display: flex;
+	align-items: center;
+}
+
+.positron-modal-dialog-box
+.wizard-step
+.renv-configuration
 .codicon-link-external {
 	color: var(--vscode-textLink-foreground);
 	cursor: pointer;

@@ -180,6 +180,7 @@ export const RConfigurationStep = (props: PropsWithChildren<NewProjectWizardStep
 						onChanged={checked => setProjectConfig({ ...projectConfig, useRenv: checked })}
 					/>
 					<ExternalLink
+						className='renv-docs-external-link'
 						openerService={newProjectWizardState.openerService}
 						href='https://rstudio.github.io/renv/articles/renv.html'
 						title='https://rstudio.github.io/renv/articles/renv.html'
