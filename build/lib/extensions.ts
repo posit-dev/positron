@@ -243,7 +243,7 @@ export function fromMarketplace(serviceUrl: string, { name: extensionName, versi
 			default:
 				throw new Error('Unsupported platform');
 		};
-		url = `${serviceUrl}/${publisher}/${name}/${platformDownload}/${version}/file/${extensionName}-${version}@${platformDownload}`
+		url = `${serviceUrl}/${publisher}/${name}/${platformDownload}/${version}/file/${extensionName}-${version}@${platformDownload}.vsix`
 
 	} else {
 		url = `${serviceUrl}/publishers/${publisher}/vsextensions/${name}/${version}/vspackage`;

@@ -45,8 +45,10 @@ function isUpToDate(extension) {
     }
 }
 function getExtensionDownloadStream(extension) {
-    const galleryServiceUrl = productjson.extensionsGallery?.serviceUrl;
-    return (galleryServiceUrl ? ext.fromMarketplace(galleryServiceUrl, extension) : ext.fromGithub(extension))
+    // --- Start Positron ---
+    const url = extension.metadata.multiPlatformServiceUrl || productjson.extensionsGallery?.serviceUrl;
+    return (url ? ext.fromMarketplace(url, extension) : ext.fromGithub(extension))
+        // --- End Positron ---
         .pipe(rename(p => p.dirname = `${extension.name}/${p.dirname}`));
 }
 function getExtensionStream(extension) {

@@ -195,7 +195,30 @@ const baseHeaders = {
 function fromMarketplace(serviceUrl, { name: extensionName, version, sha256, metadata }) {
     const json = require('gulp-json-editor');
     const [publisher, name] = extensionName.split('.');
-    const url = `${serviceUrl}/publishers/${publisher}/vsextensions/${name}/${version}/vspackage`;
+    // --- Start Positron ---
+    let url;
+    if (metadata.multiPlatformServiceUrl) {
+        let platformDownload;
+        switch (process.platform) {
+            case 'darwin':
+                platformDownload = 'darwin-arm64';
+                break;
+            case 'win32':
+                platformDownload = 'win32-x64';
+                break;
+            case 'linux':
+                platformDownload = 'linux-x64';
+                break;
+            default:
+                throw new Error('Unsupported platform');
+        }
+        ;
+        url = `${serviceUrl}/${publisher}/${name}/${platformDownload}/${version}/file/${extensionName}-${version}@${platformDownload}.vsix`;
+    }
+    else {
+        url = `${serviceUrl}/publishers/${publisher}/vsextensions/${name}/${version}/vspackage`;
+    }
+    // --- End Positron ---
     fancyLog('Downloading extension:', ansiColors.yellow(`${extensionName}@${version}`), '...');
     const packageJsonFilter = filter('package.json', { restore: true });
     return (0, fetch_1.fetchUrls)('', {
