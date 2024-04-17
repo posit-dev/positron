@@ -436,7 +436,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 
 		this._foregroundSession = session;
 
-		// Fire the onDidChangeActiveRuntime event.
+		// Fire the onDidChangeForegroundSession event.
 		this._onDidChangeForegroundSessionEmitter.fire(this._foregroundSession);
 	}
 
