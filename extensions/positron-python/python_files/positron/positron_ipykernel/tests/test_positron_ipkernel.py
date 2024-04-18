@@ -3,6 +3,7 @@
 #
 
 import os
+import logging
 from pathlib import Path
 from typing import Any, cast
 from unittest.mock import Mock
@@ -10,7 +11,9 @@ from unittest.mock import Mock
 import pandas as pd
 import pytest
 from IPython.utils.syspathcontext import prepended_to_syspath
+from ipykernel.compiler import get_tmp_directory
 
+from positron_ipykernel.positron_ipkernel import _showwarning
 from positron_ipykernel.help import help
 from positron_ipykernel.session_mode import SessionMode
 from positron_ipykernel.utils import alias_home
@@ -24,6 +27,13 @@ from .utils import assert_dataset_registered
 # with `%view` calls the data_explorer service's `register_table`
 # method with the expected arguments. The actual messages sent over
 # the comm are tested in the respective service tests.
+
+logger = logging.getLogger(__name__)
+
+
+@pytest.fixture
+def warning_kwargs():
+    return {"message": "this is a warning", "category": UserWarning, "lineno": 3}
 
 
 def test_override_help(shell: PositronShell) -> None:
@@ -273,3 +283,29 @@ def test_question_mark_help(shell: PositronShell, mock_help_service: Mock) -> No
     mock_help_service.show_help.assert_called_once_with(
         "positron_ipykernel.utils.positron_ipykernel_usage"
     )
+
+
+def test_console_warning(warning_kwargs):
+    """
+    Check message for warnings
+    """
+    filename = get_tmp_directory() + "/12345678.py"
+
+    with pytest.warns() as record:
+        _showwarning(filename=filename, **warning_kwargs)
+
+        assert len(record) == 1
+        assert record[0].filename == "POSITRON_CONSOLE"
+        assert record[0].message == "this is a warning"
+
+
+def test_console_warning_logger(caplog, warning_kwargs):
+    """
+    Check that Positron files are sent to logs
+    """
+
+    filename = "python_files/positron/positron_ipykernel/ui.py"
+
+    with caplog.at_level(logging.WARNING):
+        _showwarning(filename=filename, **warning_kwargs)
+        assert "this is a warning" in caplog.text
