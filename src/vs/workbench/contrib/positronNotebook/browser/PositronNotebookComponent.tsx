@@ -6,12 +6,11 @@ import 'vs/css!./PositronNotebookComponent';
 
 import * as React from 'react';
 import { useNotebookInstance } from 'vs/workbench/contrib/positronNotebook/browser/NotebookInstanceProvider';
-import { AddCellButtons, AddCodeCellButton, AddMarkdownCellButton } from './AddCellButtons';
+import { AddCellButtons } from './AddCellButtons';
 import { useObservedValue } from './useObservedValue';
 import { localize } from 'vs/nls';
-import { KernelStatusBadge } from './KernelStatusBadge';
 import { NotebookCell } from 'vs/workbench/contrib/positronNotebook/browser/notebookCells/NotebookCell';
-import { IconedButton } from 'vs/workbench/contrib/positronNotebook/browser/utilityComponents/IconedButton';
+import { PositronNotebookHeader } from './PositronNotebookHeader';
 
 
 export function PositronNotebookComponent() {
@@ -20,20 +19,7 @@ export function PositronNotebookComponent() {
 
 	return (
 		<div className='positron-notebook'>
-			<div className='positron-notebook-header'>
-				<IconedButton
-					codicon='run'
-					label={localize('runAllCells', 'Run all cells')}
-					onClick={() => { notebookInstance.runAllCells(); }}
-				/>
-
-				<div style={{ marginLeft: 'auto' }}></div>
-				<AddCodeCellButton notebookInstance={notebookInstance} index={0} />
-				<HeaderDivider />
-				<AddMarkdownCellButton notebookInstance={notebookInstance} index={0} />
-				<HeaderDivider />
-				<KernelStatusBadge />
-			</div>
+			<PositronNotebookHeader notebookInstance={notebookInstance} />
 			<div className='positron-notebook-cells-container'>
 				{notebookCells?.length ? notebookCells?.map((cell, index) => <>
 					<NotebookCell key={cell.viewModel.handle} cell={cell} />
@@ -44,8 +30,3 @@ export function PositronNotebookComponent() {
 		</div>
 	);
 }
-
-function HeaderDivider() {
-	return <div className='positron-notebook-header-divider' />;
-}
-

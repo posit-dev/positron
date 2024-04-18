@@ -72,28 +72,6 @@
 	}
 }
 
-.positron-notebook-header {
-	color: var(--vscode-positronNotebook-deemphasized-foreground);
-	height: var(--vscode-positronNotebook-header-h);
-	gap: calc(var(--vscode-positronNotebook-header-h) / 2);
-	padding-inline: calc(var(--vscode-positronNotebook-header-h) / 2);
-	display: flex;
-	justify-content: space-between;
-	align-items: center;
-	border-bottom: 1px solid var(--vscode-positronNotebook-header-border);
-
-	.positron-notebook-header-divider {
-		height: calc(var(--vscode-positronNotebook-header-h) / 2);
-		width: 1px;
-		background-color: var(--vscode-positronNotebook-header-border);
-	}
-
-	button.action-button,
-	.codicon {
-		color: var(--vscode-positronNotebook-deemphasized-foreground);
-	}
-}
-
 .positron-notebook-cells-container {
 	padding-block: 1.5rem;
 	padding-inline: 1rem;
@@ -109,14 +87,5 @@
 	padding-inline: 0.5rem;
 	width: fit-content;
 	cursor: pointer;
-	.action-label {
-		margin-inline-end: 0.2rem;
-		cursor: pointer;
-	}
-
-	.button-icon {
-		transform: translateY(0px);
-	}
-
 	--other-css-variable: 9px;
 }
