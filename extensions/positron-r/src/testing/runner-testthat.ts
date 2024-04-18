@@ -55,9 +55,15 @@ export async function runThatTest(
 			LOGGER.info('Single test_that() test');
 			break;
 		}
-		// TODO: testthat >= 3.2.1 introduces support for running a single top-level describe().
-		case ItemType.Describe:
-			return Promise.resolve('Single describe() test: can\'t be run individually (yet).');
+		// TODO: Should really also require that this is a top-level describe().
+		case ItemType.Describe: {
+			const testthatInstalled = await checkInstalled('testthat', '3.2.1');
+			if (!testthatInstalled) {
+				return Promise.resolve('testthat >= 3.2.1 is needed to run R a single describe() test.');
+			}
+			LOGGER.info('Single describe() test');
+			break;
+		}
 		case ItemType.It:
 			return Promise.resolve('Individual it() call: can\'t be run individually.');
 		case ItemType.File:
@@ -75,7 +81,7 @@ export async function runThatTest(
 			break;
 	}
 
-	const isSingleTest = testType === ItemType.TestThat;
+	const isSingleTest = testType === ItemType.TestThat || testType === ItemType.Describe;
 	let testPath = testType === ItemType.Directory ? testingTools.packageRoot.fsPath : test!.uri!.fsPath;
 	LOGGER.info(
 		`Started running ${isSingleTest ? 'single test' : 'all tests'
@@ -159,7 +165,7 @@ export async function runThatTest(
 						break;
 					case 'add_result':
 						if (data.result !== undefined && data.test !== undefined) {
-							const testItem = isSingleTest
+							const testItem = testType === ItemType.TestThat
 								? test
 								: findTest(hostFile, data.test, testingTools);
 							if (testItem === undefined) {
