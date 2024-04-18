@@ -41,7 +41,7 @@ def test_view(shell: PositronShell, mock_dataexplorer_service: Mock) -> None:
 def test_view_with_title(shell: PositronShell, mock_dataexplorer_service: Mock) -> None:
     name = "x"
     title = "A custom title"
-    shell.run_cell(f'{name} = object()\n%view {name} -t "{title}"')
+    shell.run_cell(f'{name} = object()\n%view {name} "{title}"')
     assert_register_table_called(mock_dataexplorer_service, shell.user_ns[name], title)
 
 

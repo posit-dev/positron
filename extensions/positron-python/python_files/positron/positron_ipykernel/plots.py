@@ -29,8 +29,8 @@ class Plot:
     """
     The backend representation of a frontend plot instance.
 
-    Paramaters:
-    -----------
+    Paramaters
+    ----------
     comm
         The communication channel to the frontend plot instance.
     render
@@ -121,8 +121,8 @@ class PlotsService:
     """
     The plots service is responsible for managing `Plot` instances.
 
-    Paramaters:
-    -----------
+    Paramaters
+    ----------
     target_name
         The name of the target for plot comms, as defined in the frontend.
     session_mode
@@ -154,8 +154,8 @@ class PlotsService:
         """
         Close a plot.
 
-        Parameters:
-        -----------
+        Parameters
+        ----------
         plot
             The plot to close.
         """

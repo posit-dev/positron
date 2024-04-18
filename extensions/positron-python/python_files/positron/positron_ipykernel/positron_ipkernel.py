@@ -115,13 +115,25 @@ class PositronMagics(Magics):
         help="The object to view.",
     )
     @magic_arguments.argument(
-        "-t",
-        "--title",
-        help="""The title of the Data Explorer tab. Defaults to the object's name.""",
+        "title",
+        nargs="?",
+        help="The title of the Data Explorer tab. Defaults to the object's name.",
     )
     @line_magic
     def view(self, line: str) -> None:
-        """View an object in the Positron Data Explorer."""
+        """
+        View an object in the Positron Data Explorer.
+
+        Examples
+        --------
+        View an object:
+
+        >>> %view df
+
+        View an object with a custom title (quotes are required if the title contains spaces):
+
+        >>> %view df "My Dataset"
+        """
         args = magic_arguments.parse_argstring(self.view, line)
 
         # Find the object.
