@@ -20,14 +20,26 @@ import { SyncDescriptor } from 'vs/platform/instantiation/common/descriptors';
 import { MarkdownString } from 'vs/base/common/htmlContent';
 
 // --- Start Positron ---
+// Ignore properties contributed by vscode-jupyter related in favor of Positron code cells and console.
 // TODO(seem): We can remove this if we eventually decide to unbundle vscode-jupyter.
 const IGNORED_JUPYTER_CONFIGURATION_PROPERTIES = new Set([
-	'jupyter.interactiveWindow.textEditor.executeSelection',
-	'jupyter.interactiveWindow.cellMarker.decorateCells',
-	'jupyter.interactiveWindow.codeLens.enable',
-	// Legacy versions of above settings.
 	'jupyter.decorateCells',
 	'jupyter.enableCellCodeLens',
+	'jupyter.interactiveWindow.cellMarker.codeRegex',
+	'jupyter.interactiveWindow.cellMarker.decorateCells',
+	'jupyter.interactiveWindow.cellMarker.default',
+	'jupyter.interactiveWindow.cellMarker.markdownRegex',
+	'jupyter.interactiveWindow.codeLens.commands',
+	'jupyter.interactiveWindow.codeLens.enable',
+	'jupyter.interactiveWindow.codeLens.enableGotoCell',
+	'jupyter.interactiveWindow.codeLes.debugCommands',
+	'jupyter.interactiveWindow.creationMode',
+	'jupyter.interactiveWindow.textEditor.autoAddNewCell',
+	'jupyter.interactiveWindow.textEditor.autoMoveToNextCell',
+	'jupyter.interactiveWindow.textEditor.cellFolding',
+	'jupyter.interactiveWindow.textEditor.executeSelection',
+	'jupyter.interactiveWindow.textEditor.magicCommandsAsComments',
+	'jupyter.interactiveWindow.viewColumn',
 ]);
 // --- End Positron ---
 const jsonRegistry = Registry.as<IJSONContributionRegistry>(JSONExtensions.JSONContribution);
