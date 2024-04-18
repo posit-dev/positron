@@ -332,9 +332,17 @@ export const VariableItem = (props: VariableItemProps) => {
 	 */
 	const RightColumn = () => {
 		if (!props.disabled && props.variableItem.hasViewer) {
+			let icon = 'codicon codicon-open-preview';
+			if (props.variableItem.kind === 'table') {
+				icon = 'codicon codicon-table';
+			} else if (props.variableItem.kind === 'connection') {
+				icon = 'codicon codicon-database';
+			}
+			icon = 'viewer-icon ' + icon + ' ' + props.variableItem.kind;
+
 			return (
 				<div className='right-column'>
-					<div className='viewer-icon codicon codicon-table' onMouseDown={viewerMouseDownHandler}></div>
+					<div className={icon} onMouseDown={viewerMouseDownHandler}></div>
 				</div>
 			);
 		} else if (props.rightColumnVisible) {

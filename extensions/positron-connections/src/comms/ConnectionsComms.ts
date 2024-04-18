@@ -9,6 +9,7 @@
 
 import { PositronBaseComm } from './BaseComm';
 import * as positron from 'positron';
+import { Event } from 'vscode';
 
 //
 // AUTO-GENERATED from connections.json; do not edit.
@@ -46,9 +47,20 @@ export interface FieldSchema {
 
 }
 
+/**
+ * Event: Request to focus the Connections pane
+ */
+export interface FocusEvent {
+}
+
+export enum ConnectionsFrontendEvent {
+	Focus = 'focus'
+}
+
 export class PositronConnectionsComm extends PositronBaseComm {
 	constructor(public instance: positron.RuntimeClientInstance) {
 		super(instance);
+		this.onDidFocus = super.createEventEmitter('focus', []);
 	}
 
 	/**
@@ -118,4 +130,8 @@ export class PositronConnectionsComm extends PositronBaseComm {
 		return super.performRpc('preview_object', ['path'], [path]);
 	}
 
+	/**
+	 * Request to focus the Connections pane
+	 */
+	onDidFocus: Event<FocusEvent>;
 }

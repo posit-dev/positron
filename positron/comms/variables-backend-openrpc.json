@@ -230,7 +230,8 @@
 							"other",
 							"string",
 							"table",
-							"lazy"
+							"lazy",
+							"connection"
 						],
 						"description": "The kind of value the variable represents, such as 'string' or 'number'"
 					},

@@ -5,12 +5,14 @@ from __future__ import annotations
 
 import logging
 import uuid
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, TypedDict, Union
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Set, Tuple, TypedDict, Union
 
 import comm
 
+from .access_keys import decode_access_key, encode_access_key
 from .connections_comm import (
     ConnectionsBackendMessageContent,
+    ConnectionsFrontendEvent,
     ContainsDataRequest,
     GetIconRequest,
     ListFieldsRequest,
@@ -47,6 +49,13 @@ class ConnectionObject(TypedDict):
 class ConnectionObjectFields(TypedDict):
     name: str
     dtype: str
+
+
+class UnsupportedConnectionError(Exception):
+    pass
+
+
+PathKey = Tuple[str, ...]
 
 
 class Connection:
@@ -128,13 +137,28 @@ class ConnectionsService:
         self._kernel = kernel
         self._comm_target_name = comm_target_name
 
-    def register_connection(self, connection: Any) -> str:
+        # Maps from variable path to set of comm_ids serving requests.
+        # A variable can point to a single connection object in the pane.
+        # But a comm_id can be shared by multiple variable paths.
+        self.path_to_comm_ids: Dict[PathKey, str] = {}
+
+        # Mapping from comm_id to the corresponding variable path.
+        # Multiple variables paths, might point to the same commm_id.
+        self.comm_id_to_path: Dict[str, Set[PathKey]] = {}
+
+    def register_connection(
+        self, connection: Any, variable_path: Optional[List[str]] = None, display_pane: bool = True
+    ) -> str:
         """
         Opens a connection to the given data source.
 
         Args:
             connection: A subclass of Connection implementing the
               necessary methods.
+            variable_path: The variable path that points to the connection.
+                If None, the connection is not associated with any variable.
+            display_pane: Wether the Connection Pane view container should be
+                displayed in the UI once the connection is registered.
         """
 
         if not isinstance(connection, Connection):
@@ -152,6 +176,11 @@ class ConnectionsService:
                     conn.type,
                     comm_id,
                 )
+                self._register_variable_path(variable_path, comm_id)
+
+                if display_pane:
+                    self.comms[comm_id].send_event(ConnectionsFrontendEvent.Focus.value, {})
+
                 return comm_id
 
         comm_id = str(uuid.uuid4())
@@ -161,27 +190,135 @@ class ConnectionsService:
             data={"name": connection.display_name},
         )
 
+        self._register_variable_path(variable_path, comm_id)
         self.comm_id_to_connection[comm_id] = connection
         self.on_comm_open(base_comm)
+
+        if display_pane:
+            self.comms[comm_id].send_event(ConnectionsFrontendEvent.Focus.value, {})
+
         return comm_id
+
+    def _register_variable_path(self, variable_path: Optional[List[str]], comm_id: str) -> None:
+        if variable_path is None:
+            return
+
+        if not isinstance(variable_path, list):
+            raise ValueError(variable_path)
+
+        key = tuple(variable_path)
+
+        # a variable path can only point to a single connection, if it's already pointing
+        # to a connection, we "close the connection" and replace it with the new one
+        if key in self.path_to_comm_ids:
+            # if the variable path already points to the same comm_id, we don't need to
+            # perform any registration.
+            if self.path_to_comm_ids[key] == comm_id:
+                return
+            self._unregister_variable_path(key)
+
+        if comm_id in self.comm_id_to_path:
+            self.comm_id_to_path[comm_id].add(key)
+        else:
+            self.comm_id_to_path[comm_id] = {key}
+
+        self.path_to_comm_ids[key] = comm_id
+
+    def _unregister_variable_path(self, variable_path: PathKey) -> None:
+        comm_id = self.path_to_comm_ids.pop(variable_path)
+        self.comm_id_to_path[comm_id].remove(variable_path)
+
+        # if comm_id no longer points to any connection, we close the comm
+        if not self.comm_id_to_path[comm_id]:
+            del self.comm_id_to_path[comm_id]
+            self._close_connection(comm_id)
 
     def on_comm_open(self, comm: BaseComm):
         comm_id = comm.comm_id
-        comm.on_close(lambda msg: self._close_connection(comm_id))
+        comm.on_close(lambda msg: self._on_comm_close(comm_id))
         connections_comm = PositronComm(comm)
         connections_comm.on_msg(self.handle_msg, ConnectionsBackendMessageContent)
         self.comms[comm_id] = connections_comm
 
     def _wrap_connection(self, obj: Any) -> Connection:
-        # we don't want to import sqlalchemy for that
-        type_name = type(obj).__name__
+        # this check is redundant with the if branches below, but allows us to make
+        # sure the `object_is_supported` method is always in sync with what we really
+        # support in the connections pane.
+        if not self.object_is_supported(obj):
+            type_name = type(obj).__name__
+            raise UnsupportedConnectionError(f"Unsupported connection type {type_name}")
 
         if safe_isinstance(obj, "sqlite3", "Connection"):
             return SQLite3Connection(obj)
         elif safe_isinstance(obj, "sqlalchemy", "Engine"):
             return SQLAlchemyConnection(obj)
+        else:
+            type_name = type(obj).__name__
+            raise UnsupportedConnectionError(f"Unsupported connection type {type(obj)}")
 
-        raise TypeError(f"Unsupported connection type {type_name}")
+    def object_is_supported(self, obj: Any) -> bool:
+        """
+        Checks if an object is supported by the connections pane.
+        """
+        return safe_isinstance(obj, "sqlite3", "Connection") or safe_isinstance(
+            obj, "sqlalchemy", "Engine"
+        )
+
+    def variable_has_active_connection(self, variable_name: str) -> bool:
+        """
+        Checks if the given variable path has an active connection.
+        """
+        return any(decode_access_key(path[0]) == variable_name for path in self.path_to_comm_ids)
+
+    def handle_variable_updated(self, variable_name: str, value: Any) -> None:
+        """
+        Handles a variable being updated in the kernel.
+        """
+        variable_path = [encode_access_key(variable_name)]
+        comm_id = self.path_to_comm_ids.get(tuple(variable_path))
+
+        # no comm for this variable path
+        if comm_id is None:
+            return
+
+        try:
+            # registering a new connection with the same variable path is going to close the
+            # variable path if the connections are different.
+            # when handling a variable update we don't want to go and display the pane in the IDE
+            self.register_connection(value, variable_path=variable_path, display_pane=False)
+        except UnsupportedConnectionError:
+            # if an unsupported connection error, then it means the variable
+            # is no longer a connection, thus we unregister that variable path,
+            # wich might close the comm if it points only to that path.
+            self._unregister_variable_path(tuple(variable_path))
+            return
+
+    def handle_variable_deleted(self, variable_name: str) -> None:
+        """
+        Handles a variable being deleted in the kernel.
+        """
+        # copy the keys, as we might modify the dict in the loop
+        paths = set(self.path_to_comm_ids.keys())
+        for path in paths:
+            key = decode_access_key(path[0])
+            if key == variable_name:
+                self._unregister_variable_path(path)
+
+    def _on_comm_close(self, comm_id: str):
+        """
+        Handles front-end initiated close requests
+        """
+        paths: Set[PathKey] = set(self.comm_id_to_path.get(comm_id, set()))
+
+        if not paths:
+            # id the connection is not associated with any variable path, we close it
+            # otherwise we need to check if other variables point to the same comm_id
+            # before deleting.
+            self._close_connection(comm_id)
+            return
+
+        for path in paths:
+            self._unregister_variable_path(path)
 
     def _close_connection(self, comm_id: str):
         try:
@@ -205,7 +342,7 @@ class ConnectionsService:
         """
         Closes all comms and runs the `disconnect` callback.
         """
-        for comm_id in self.comms.keys():
+        for comm_id in list(self.comms.keys()):
             self._close_connection(comm_id)
 
         self.comms = {}  # implicitly deleting comms

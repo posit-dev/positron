@@ -128,7 +128,7 @@ class VariablesService:
             self._send_formatted_var(request.params.path, request.params.format)
 
         elif isinstance(request, ViewRequest):
-            self._open_data_explorer(request.params.path)
+            self._perform_view_action(request.params.path)
 
         else:
             logger.warning(f"Unhandled request: {request}")
@@ -159,13 +159,20 @@ class VariablesService:
         # Look for any assigned or removed variables that are active
         # in the data explorer service
         exp_service = self.kernel.data_explorer_service
+        con_service = self.kernel.connections_service
         for name in removed:
             if exp_service.variable_has_active_explorers(name):
                 exp_service.handle_variable_deleted(name)
 
+            if con_service.variable_has_active_connection(name):
+                con_service.handle_variable_deleted(name)
+
         for name, value in assigned.items():
             if exp_service.variable_has_active_explorers(name):
                 exp_service.handle_variable_updated(name, value)
+
+            if con_service.variable_has_active_connection(name):
+                con_service.handle_variable_updated(name, value)
 
         # Ensure the number of changes does not exceed our maximum items
         if len(assigned) > MAX_ITEMS or len(removed) > MAX_ITEMS:
@@ -515,11 +522,11 @@ class VariablesService:
                 f"Cannot find variable at '{path}' to inspect",
             )
 
-    def _open_data_explorer(self, path: List[str]) -> None:
-        """Opens a DataExplorer comm for the variable at the requested
-        path in the current user session.
-
+    def _perform_view_action(self, path: List[str]) -> None:
         """
+        Performs the view action depending of the variable type.
+        """
+
         if path is None:
             return
 
@@ -530,11 +537,27 @@ class VariablesService:
                 f"Cannot find variable at '{path}' to view",
             )
 
+        if self.kernel.connections_service.object_is_supported(value):
+            self._open_connections_pane(path, value)
+        else:
+            self._open_data_explorer(path, value)
+
+    def _open_data_explorer(self, path: List[str], value: Any) -> None:
+        """Opens a DataExplorer comm for the variable at the requested
+        path in the current user session.
+        """
         # Use the leaf segment to get the title
         access_key = path[-1]
 
         title = str(decode_access_key(access_key))
         self.kernel.data_explorer_service.register_table(value, title, variable_path=path)
+        self._send_result({})
+
+    def _open_connections_pane(self, path: List[str], value: Any) -> None:
+        """Opens a Connections comm for the variable at the requested
+        path in the current user session.
+        """
+        self.kernel.connections_service.register_connection(value, variable_path=path)
         self._send_result({})
 
     def _send_event(self, name: str, payload: JsonRecord) -> None:
