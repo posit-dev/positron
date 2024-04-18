@@ -2,13 +2,13 @@
 	function: [
 		(identifier) @function
         (namespace_operator
-        	lhs: (identifier)
+			lhs: (identifier)
             rhs: (identifier) @function
         )
 	] (#eq? @function "test_that")
 	arguments: (arguments
 		(argument
-			 value: (string) @desc
+			value: (string) @desc
 		)
 	)
 ) @call
