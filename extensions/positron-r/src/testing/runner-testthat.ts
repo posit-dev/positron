@@ -86,7 +86,8 @@ export async function runThatTest(
 	testPath = testPath.replace(/\\/g, '/');
 
 	const devtoolsMethod = testType === ItemType.Directory ? 'test' : 'test_active_file';
-	const descInsert = isSingleTest ? ` desc = '${test?.label || '<all tests>'}', ` : '';
+	const escapedLabel = test?.label.replace(/(['"`])/g, '\\$1');
+	const descInsert = isSingleTest ? ` desc = '${escapedLabel || '<all tests>'}', ` : '';
 	const devtoolsCall =
 		`devtools::load_all('${testReporterPath}');` +
 		`devtools::${devtoolsMethod}('${testPath}',` +
