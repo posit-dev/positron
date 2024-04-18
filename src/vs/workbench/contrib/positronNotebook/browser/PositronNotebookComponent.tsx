@@ -9,8 +9,10 @@ import { useNotebookInstance } from 'vs/workbench/contrib/positronNotebook/brows
 import { AddCellButtons } from './AddCellButtons';
 import { useObservedValue } from './useObservedValue';
 import { localize } from 'vs/nls';
-import { NotebookCell } from 'vs/workbench/contrib/positronNotebook/browser/notebookCells/NotebookCell';
 import { PositronNotebookHeader } from './PositronNotebookHeader';
+import { IPositronNotebookCell } from 'vs/workbench/contrib/positronNotebook/browser/notebookCells/interfaces';
+import { NotebookCodeCell } from 'vs/workbench/contrib/positronNotebook/browser/notebookCells/NotebookCodeCell';
+import { NotebookMarkdownCell } from 'vs/workbench/contrib/positronNotebook/browser/notebookCells/NotebookMarkdownCell';
 
 
 export function PositronNotebookComponent() {
@@ -29,4 +31,19 @@ export function PositronNotebookComponent() {
 			</div>
 		</div>
 	);
+}
+
+function NotebookCell({ cell }: {
+	cell: IPositronNotebookCell;
+}) {
+
+	if (cell.isCodeCell()) {
+		return <NotebookCodeCell cell={cell} />;
+	}
+
+	if (cell.isMarkdownCell()) {
+		return <NotebookMarkdownCell cell={cell} />;
+	}
+
+	throw new Error('Unknown cell type');
 }

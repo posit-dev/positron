@@ -17,7 +17,7 @@ import { NotebookCellActionBar } from 'vs/workbench/contrib/positronNotebook/bro
 import { CellTextOutput } from './CellTextOutput';
 
 
-export function NodebookCodeCell({ cell }: { cell: IPositronNotebookCodeCell }) {
+export function NotebookCodeCell({ cell }: { cell: IPositronNotebookCodeCell }) {
 	const outputContents = useObservedValue(cell.outputs);
 	const executionStatus = useObservedValue(cell.executionStatus);
 	const isRunning = executionStatus === 'running';
