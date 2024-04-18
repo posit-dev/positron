@@ -150,7 +150,8 @@ export enum VariableKind {
 	Other = 'other',
 	String = 'string',
 	Table = 'table',
-	Lazy = 'lazy'
+	Lazy = 'lazy',
+	Connection = 'connection'
 }
 
 /**

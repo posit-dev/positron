@@ -256,6 +256,10 @@ export class ConnectionItemsProvider implements vscode.TreeDataProvider<Connecti
 				this._onDidChangeTreeData.fire(undefined);
 			}
 		});
+
+		client.onDidFocus(() => {
+			vscode.commands.executeCommand('connections.focus', { preserveFocus: true });
+		});
 	}
 
 	/**
