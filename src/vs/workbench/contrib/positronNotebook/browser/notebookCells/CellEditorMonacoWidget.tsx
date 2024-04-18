@@ -71,6 +71,9 @@ export function useCellEditorWidget(cell: IPositronNotebookCell) {
 
 		const editor = editorInstaService.createInstance(CodeEditorWidget, nativeContainer, {
 			...editorOptions.getDefaultValue(),
+			// Turns off the margin of the editor. This should probably be placed in a settable
+			// option somewhere eventually.
+			glyphMargin: false,
 			dimension: {
 				width: 500,
 				height: 200
