@@ -6,7 +6,6 @@
 	position: relative;
 
 	.positron-notebook-cell-outputs {
-		/* background-color: var(--vscode-positronNotebook-output-background); */
 		padding-inline: 1rem;
 		padding-block: 0.5rem;
 		& .notebook-error,
