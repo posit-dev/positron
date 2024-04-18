@@ -39,6 +39,8 @@ export class ArkLsp implements vscode.Disposable {
 	private _client?: LanguageClient;
 
 	private _state: LspState = LspState.uninitialized;
+	private _stateEmitter = new vscode.EventEmitter<LspState>();
+	onDidChangeState = this._stateEmitter.event;
 
 	/** Promise that resolves after initialization is complete */
 	private _initializing?: Promise<void>;
@@ -50,6 +52,11 @@ export class ArkLsp implements vscode.Disposable {
 		private readonly _version: string,
 		private readonly _metadata: positron.RuntimeSessionMetadata
 	) { }
+
+	private setState(state: LspState) {
+		this._state = state;
+		this._stateEmitter.fire(state);
+	}
 
 	/**
 	 * Activate the language server; returns a promise that resolves when the LSP is
@@ -134,7 +141,7 @@ export class ArkLsp implements vscode.Disposable {
 			// Convert the state to our own enum
 			switch (event.newState) {
 				case State.Starting:
-					this._state = LspState.starting;
+					this.setState(LspState.starting);
 					break;
 				case State.Running:
 					if (this._initializing) {
@@ -146,14 +153,14 @@ export class ArkLsp implements vscode.Disposable {
 						}
 						out.resolve();
 					}
-					this._state = LspState.running;
+					this.setState(LspState.running);
 					break;
 				case State.Stopped:
 					if (this._initializing) {
 						LOGGER.info(`ARK (R ${this._version}) language client init failed`);
 						out.reject('Ark LSP client stopped before initialization');
 					}
-					this._state = LspState.stopped;
+					this.setState(LspState.stopped);
 					break;
 			}
 			LOGGER.info(`ARK (R ${this._version}) language client state changed ${oldState} => ${this._state}`);
@@ -213,6 +220,53 @@ export class ArkLsp implements vscode.Disposable {
 	 */
 	get state(): LspState {
 		return this._state;
+	}
+
+	/**
+	 * Wait for the LSP to be connected.
+	 *
+	 * Resolves to `true` once the LSP is connected. Resolves to `false` if the
+	 * LSP has been stopped. Rejects if the LSP fails to start.
+	 */
+	async wait(): Promise<boolean> {
+		switch (this.state) {
+			case LspState.running: return true;
+			case LspState.stopped: return false;
+
+			case LspState.starting: {
+				// Inherit init promise. This can reject if init fails.
+				await this._initializing;
+				return true;
+			}
+
+			case LspState.uninitialized: {
+				const handles = new PromiseHandles<boolean>();
+
+				const cleanup = this.onDidChangeState(state => {
+					let out: boolean;
+					switch (this.state) {
+						case LspState.running: out = true; break;
+						case LspState.stopped: out = false; break;
+						case LspState.uninitialized: return;
+						case LspState.starting: {
+							// Inherit init promise
+							if (this._initializing) {
+								cleanup.dispose();
+								this._initializing.
+									then(() => handles.resolve(true)).
+									catch((err) => handles.reject(err));
+							}
+							return;
+						}
+					}
+
+					cleanup.dispose();
+					handles.resolve(out);
+				});
+
+				return await handles.promise;
+			}
+		}
 	}
 
 	/**
