@@ -25,7 +25,7 @@ export function NotebookMarkdownCell({ cell }: { cell: IPositronNotebookMarkdown
 					className='action-button'
 					ariaLabel={editorShown ? localize('hideEditor', 'Hide editor') : localize('showEditor', 'Show editor')}
 					onPressed={() => cell.run()} >
-					<div className={`button-icon codicon ${editorShown ? 'codicon-chevron-down' : 'codicon-chevron-right'}`} />
+					<div className={`button-icon codicon ${editorShown ? 'codicon-run' : 'codicon-primitive-square'}`} />
 				</Button>
 			</NotebookCellActionBar>
 			<div className='cell-contents'>
