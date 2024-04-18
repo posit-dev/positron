@@ -535,12 +535,12 @@ def _showwarning(message, category, filename, lineno, file=None, line=None):
     positron_files_path = Path("python_files", "positron", "positron_ipykernel")
 
     console_dir = get_tmp_directory()
-    if str(positron_files_path) in filename:
+    if str(positron_files_path) in str(filename):
         msg = f"{category}: {message}"
         logger.warning(msg)
         return
 
-    if console_dir in filename:
+    if console_dir in str(filename):
         filename = "POSITRON_CONSOLE"
 
     msg = warnings.WarningMessage(message, category, filename, lineno, file, line)

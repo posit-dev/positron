@@ -8,7 +8,6 @@ from pathlib import Path
 from typing import Any, cast
 from unittest.mock import Mock
 
-import pandas as pd
 import pytest
 from IPython.utils.syspathcontext import prepended_to_syspath
 from ipykernel.compiler import get_tmp_directory
@@ -322,11 +321,11 @@ def test_question_mark_help(shell: PositronShell, mock_help_service: Mock) -> No
     )
 
 
-def test_console_warning(warning_kwargs):
+def test_console_warning(shell: PositronShell, warning_kwargs):
     """
     Check message for warnings
     """
-    filename = get_tmp_directory() + "/12345678.py"
+    filename = get_tmp_directory() + os.sep + "12345678.py"
 
     with pytest.warns() as record:
         _showwarning(filename=filename, **warning_kwargs)
@@ -341,8 +340,6 @@ def test_console_warning_logger(caplog, warning_kwargs):
     Check that Positron files are sent to logs
     """
 
-    filename = "python_files/positron/positron_ipykernel/ui.py"
-
     with caplog.at_level(logging.WARNING):
-        _showwarning(filename=filename, **warning_kwargs)
+        _showwarning(filename=Path(__file__), **warning_kwargs)
         assert "this is a warning" in caplog.text
