@@ -134,7 +134,16 @@ class PositronMagics(Magics):
 
         >>> %view df "My Dataset"
         """
-        args = magic_arguments.parse_argstring(self.view, line)
+        try:
+            args = magic_arguments.parse_argstring(self.view, line)
+        except UsageError as e:
+            if (
+                len(e.args) > 0
+                and isinstance(e.args[0], str)
+                and e.args[0].startswith("unrecognized arguments")
+            ):
+                raise UsageError(f"{e.args[0]}. Did you quote the title?")
+            raise
 
         # Find the object.
         info = self.shell._ofind(args.object)
