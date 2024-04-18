@@ -2,6 +2,9 @@
  *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
+// CSS.
+import 'vs/css!./rConfigurationStep';
+
 // React.
 import * as React from 'react';
 import { PropsWithChildren, useEffect, useState } from 'react';  // eslint-disable-line no-duplicate-imports
@@ -20,6 +23,7 @@ import { getRInterpreterEntries } from 'vs/workbench/browser/positronNewProjectW
 import { InterpreterEntry } from 'vs/workbench/browser/positronNewProjectWizard/components/steps/pythonInterpreterEntry';
 import { LanguageIds } from 'vs/workbench/browser/positronNewProjectWizard/interfaces/newProjectWizardEnums';
 import { getSelectedInterpreter } from 'vs/workbench/browser/positronNewProjectWizard/utilities/interpreterDropDownUtils';
+import { ExternalLink } from 'vs/base/browser/ui/ExternalLink/ExternalLink';
 
 /**
  * The RConfigurationStep component is specific to R projects in the new project wizard.
@@ -167,13 +171,23 @@ export const RConfigurationStep = (props: PropsWithChildren<NewProjectWizardStep
 					'Additional Configuration'
 				))()}
 			>
-				<Checkbox
-					label={(() => localize(
-						'rConfigurationStep.additionalConfigSubStep.useRenv.label',
-						'Use `renv` to create a reproducible environment'
-					))()}
-					onChanged={checked => setProjectConfig({ ...projectConfig, useRenv: checked })}
-				/>
+				<div className='renv-configuration'>
+					<Checkbox
+						label={(() => localize(
+							'rConfigurationStep.additionalConfigSubStep.useRenv.label',
+							'Use `renv` to create a reproducible environment'
+						))()}
+						onChanged={checked => setProjectConfig({ ...projectConfig, useRenv: checked })}
+					/>
+					<ExternalLink
+						className='renv-docs-external-link'
+						openerService={newProjectWizardState.openerService}
+						href='https://rstudio.github.io/renv/articles/renv.html'
+						title='https://rstudio.github.io/renv/articles/renv.html'
+					>
+						<div className='codicon codicon-link-external' />
+					</ExternalLink>
+				</div>
 			</PositronWizardSubStep>
 		</PositronWizardStep>
 	);
