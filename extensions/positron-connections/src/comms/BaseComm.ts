@@ -86,6 +86,10 @@ class PositronCommEmitter<T> {
 	fire(data: T) {
 		Object.values(this._listeners).map((listener) => listener(data));
 	}
+
+	dispose() {
+		this._listeners = {};
+	}
 }
 
 /**
@@ -102,6 +106,9 @@ export class PositronBaseComm {
 	 * @param clientInstance The client instance to use for communication with the backend.
 	 *  This instance must be connected to the backend before it is passed to this class.
 	 */
+
+	private _disposables: Disposable[] = [];
+
 	constructor(
 		private readonly clientInstance: positron.RuntimeClientInstance
 	) { }
@@ -191,6 +198,7 @@ export class PositronBaseComm {
 
 	dispose() {
 		this.clientInstance.dispose();
+		this._disposables.forEach((d) => d.dispose());
 	}
 
 	/**
@@ -198,13 +206,13 @@ export class PositronBaseComm {
 	 * @param name The name of the event, as a JSON-RPC method name.
 	 * @param properties The names of the properties in the event payload; used
 	 *  to convert positional parameters to named parameters.
-	 * @returns
+	 * @returns An event emitter that can be used to listen for events sent from the backend.
 	 */
 	protected createEventEmitter<T>(
 		name: string,
 		properties: string[]
 	): Event<T> {
-		this.clientInstance.onDidSendEvent((event: any) => {
+		const event = this.clientInstance.onDidSendEvent((event: any) => {
 			if (event.method === name) {
 				const args = event.params;
 				const namedArgs: any = {};
@@ -214,10 +222,12 @@ export class PositronBaseComm {
 				this._emitters.get(name)?.fire(namedArgs);
 			}
 		});
+		this._disposables.push(event);
 
 		const emitter = new PositronCommEmitter<T>(name, properties);
+		this._disposables.push(emitter);
+
 		this._emitters.set(name, emitter);
-		//this._register(emitter);
 		return emitter.event;
 	}
 
