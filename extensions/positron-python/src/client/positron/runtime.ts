@@ -20,6 +20,7 @@ import { EnvLocationHeuristic, getEnvLocationHeuristic } from '../interpreter/co
 export interface PythonRuntimeExtraData {
     pythonPath: string;
     pythonEnvironmentId: string;
+    ipykernelInstalled: boolean;
 }
 
 export async function createPythonRuntimeMetadata(
@@ -60,7 +61,7 @@ export async function createPythonRuntimeMetadata(
             isLocal && recommendedForWorkspace
                 ? positron.LanguageRuntimeStartupBehavior.Immediate
                 : // If ipykernel is not installed and this is not a local Python env, require explicit startup
-                  positron.LanguageRuntimeStartupBehavior.Explicit;
+                positron.LanguageRuntimeStartupBehavior.Explicit;
     }
     traceInfo(`createPythonRuntime: startup behavior: ${startupBehavior}`);
 
@@ -101,6 +102,7 @@ export async function createPythonRuntimeMetadata(
     const extraRuntimeData: PythonRuntimeExtraData = {
         pythonPath: interpreter.path,
         pythonEnvironmentId: interpreter.id || '',
+        ipykernelInstalled: hasCompatibleKernel === ProductInstallStatus.Installed,
     };
 
     // Create the metadata for the language runtime
