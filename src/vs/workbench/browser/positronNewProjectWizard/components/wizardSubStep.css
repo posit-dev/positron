@@ -18,6 +18,7 @@
 .wizard-step
 .wizard-sub-step
 .wizard-sub-step-description {
+	color: var(--vscode-descriptionForeground);
 	margin-bottom: 8px;
 }
 

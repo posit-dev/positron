@@ -139,7 +139,7 @@ const NewProjectModalDialog = (props: NewProjectModalDialogProps) => {
 	return (
 		<PositronModalDialog
 			renderer={props.renderer}
-			width={700} height={500}
+			width={700} height={520}
 			title={(() => localize('positronNewProjectWizard.title', "Create New Project"))()}
 			onAccept={acceptHandler}
 			onCancel={cancelHandler}
