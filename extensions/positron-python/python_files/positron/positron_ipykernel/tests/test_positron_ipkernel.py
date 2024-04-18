@@ -9,7 +9,6 @@ from typing import Any, cast
 from unittest.mock import Mock
 
 import pandas as pd
-import pytest
 from IPython.utils.syspathcontext import prepended_to_syspath
 from ipykernel.compiler import get_tmp_directory
 
@@ -30,6 +29,7 @@ from .utils import assert_dataset_registered
 
 logger = logging.getLogger(__name__)
 
+import pytest
 
 @pytest.fixture
 def warning_kwargs():
