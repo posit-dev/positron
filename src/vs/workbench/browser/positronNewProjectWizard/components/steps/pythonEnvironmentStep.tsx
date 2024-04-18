@@ -226,10 +226,25 @@ export const PythonEnvironmentStep = (props: PropsWithChildren<NewProjectWizardS
 						'pythonEnvironmentSubStep.label',
 						'Python Environment'
 					))()}
-					description={(() => localize(
-						'pythonEnvironmentSubStep.description',
-						'Select an environment type for your project.'
-					))()}
+					description={() =>
+						<WizardFormattedText type={WizardFormattedTextType.Info}>
+							{(() => localize(
+								'pythonEnvironmentSubStep.description',
+								'Select an environment type for your project.'
+							))()}
+							{selectedInterpreter
+								&& !selectedInterpreter.extraRuntimeData?.ipykernelInstalled ?
+								<>
+									<code>ipykernel</code>
+									{(() => localize(
+										'pythonInterpreterSubStep.feedback',
+										' will be installed for Python language support.'
+									))()}
+								</>
+								: null
+							}
+						</WizardFormattedText>
+					}
 					feedback={() =>
 						<WizardFormattedText type={WizardFormattedTextType.Info}>
 							{(() => localize(
@@ -265,18 +280,28 @@ export const PythonEnvironmentStep = (props: PropsWithChildren<NewProjectWizardS
 					/>
 				</PositronWizardSubStep> : null
 			}
-			{/* TODO: add a tooltip icon to the end of the feedback text of the PositronWizardSubStep */}
-			{/*       onhover tooltip, display the following note if we don't detect ipykernel for the selected interpreter */}
-			{/*       <p>Note: Positron will install <code>ipykernel</code> in this environment for Python language support.</p> */}
 			<PositronWizardSubStep
 				title={(() => localize(
 					'pythonInterpreterSubStep.title',
 					'Python Interpreter'
 				))()}
-				description={(() => localize(
+				description={() => localize(
 					'pythonInterpreterSubStep.description',
 					'Select a Python installation for your project. You can modify this later if you change your mind.'
-				))()}
+				)}
+				feedback={envSetupType === EnvironmentSetupType.ExistingEnvironment
+					&& selectedInterpreter
+					&& !selectedInterpreter.extraRuntimeData?.ipykernelInstalled ?
+					() =>
+						<WizardFormattedText type={WizardFormattedTextType.Info}>
+							<code>ipykernel</code>
+							{(() => localize(
+								'pythonInterpreterSubStep.feedback',
+								' will be installed for Python language support.'
+							))()}
+						</WizardFormattedText>
+					: undefined
+				}
 			>
 				<DropDownListBox
 					keybindingService={keybindingService}
