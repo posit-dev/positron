@@ -7,11 +7,11 @@
 	--vscode-positronNotebook-foreground: var(
 		--vscode-positronDataExplorer-foreground
 	);
+	--vscode-positronNotebook-deemphasized-foreground: var(
+		--vscode-positronTopActionBar-foreground
+	);
 	--vscode-positronNotebook-header-border: var(
 		--vscode-positronDataExplorer-border
-	);
-	--vscode-positronNotebook-deemphasized-foreground: var(
-		--vscode-list-deemphasizedForeground
 	);
 	--vscode-positronNotebook-img-placeholder-background: var(
 		--vscode-positronVariables-activeSelectionBackground
