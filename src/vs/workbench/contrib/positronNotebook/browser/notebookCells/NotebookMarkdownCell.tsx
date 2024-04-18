@@ -19,7 +19,7 @@ export function NotebookMarkdownCell({ cell }: { cell: IPositronNotebookMarkdown
 	const editorShown = useObservedValue(cell.editorShown);
 
 	return (
-		<div className={`positron-notebook-cell ${editorShown ? 'editor-shown' : 'editor-hidden'}`}>
+		<div className={`positron-notebook-markdown-cell ${editorShown ? 'editor-shown' : 'editor-hidden'}`}>
 			<NotebookCellActionBar cell={cell}>
 				<Button
 					className='action-button'

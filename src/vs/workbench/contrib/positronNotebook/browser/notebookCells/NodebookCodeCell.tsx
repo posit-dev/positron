@@ -1,6 +1,7 @@
 /*---------------------------------------------------------------------------------------------
  *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
+import 'vs/css!./NotebookCodeCell';
 
 import * as React from 'react';
 import { VSBuffer } from 'vs/base/common/buffer';
@@ -21,7 +22,7 @@ export function NodebookCodeCell({ cell }: { cell: IPositronNotebookCodeCell }) 
 	const executionStatus = useObservedValue(cell.executionStatus);
 	const isRunning = executionStatus === 'running';
 
-	return <div className='positron-notebook-cell'>
+	return <div className='positron-notebook-cell positron-notebook-code-cell'>
 		<NotebookCellActionBar cell={cell}>
 			<Button
 				className='action-button'

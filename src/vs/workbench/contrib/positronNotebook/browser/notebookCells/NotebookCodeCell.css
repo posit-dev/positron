@@ -2,11 +2,11 @@
  *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
-.positron-notebook-cell {
+.positron-notebook-code-cell {
 	position: relative;
 
 	.positron-notebook-cell-outputs {
-		background-color: var(--vscode-positronNotebook-output-background);
+		/* background-color: var(--vscode-positronNotebook-output-background); */
 		padding-inline: 1rem;
 		padding-block: 0.5rem;
 		& .notebook-error,
