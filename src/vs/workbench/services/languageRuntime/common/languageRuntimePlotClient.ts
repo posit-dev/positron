@@ -76,6 +76,9 @@ interface RenderRequest {
 
 	/** The pixel ratio of the device for which the plot was rendered */
 	pixel_ratio: number;
+
+	/** The format of the plot */
+	format: string;
 }
 
 /**
@@ -192,6 +195,9 @@ export class PlotClientInstance extends Disposable implements IPositronPlotClien
 	onDidRenderUpdate: Event<IRenderedPlot>;
 	private readonly _renderUpdateEmitter = new Emitter<IRenderedPlot>();
 
+	onDidShowPlot: Event<void>;
+	private readonly _didShowPlotEmitter = new Emitter<void>();
+
 	/**
 	 * Creates a new plot client instance.
 	 *
@@ -224,6 +230,9 @@ export class PlotClientInstance extends Disposable implements IPositronPlotClien
 		// Connect the render update emitter event
 		this.onDidRenderUpdate = this._renderUpdateEmitter.event;
 
+		// Connect the show plot emitter event
+		this.onDidShowPlot = this._didShowPlotEmitter.event;
+
 		// Listen to our own state changes
 		this.onDidChangeState((state) => {
 			this._state = state;
@@ -233,6 +242,11 @@ export class PlotClientInstance extends Disposable implements IPositronPlotClien
 		this._comm.onDidUpdate(async (_evt) => {
 			const rendered = await this.queuePlotUpdateRequest();
 			this._renderUpdateEmitter.fire(rendered);
+		});
+
+		// Listn for plot show events
+		this._comm.onDidShow(async (_evt) => {
+			this._didShowPlotEmitter.fire();
 		});
 
 		// Register the client instance with the runtime, so that when this instance is disposed,
@@ -246,9 +260,10 @@ export class PlotClientInstance extends Disposable implements IPositronPlotClien
 	 * @param height The plot height, in pixels
 	 * @param width The plot width, in pixels
 	 * @param pixel_ratio The device pixel ratio (e.g. 1 for standard displays, 2 for retina displays)
+	 * @param format The format of the plot ('png', 'svg')
 	 * @returns A promise that resolves to a rendered image, or rejects with an error.
 	 */
-	public render(height: number, width: number, pixel_ratio: number): Promise<IRenderedPlot> {
+	public render(height: number, width: number, pixel_ratio: number, format = 'png'): Promise<IRenderedPlot> {
 		// Deal with whole pixels only
 		height = Math.floor(height);
 		width = Math.floor(width);
@@ -269,7 +284,8 @@ export class PlotClientInstance extends Disposable implements IPositronPlotClien
 		const request: RenderRequest = {
 			height,
 			width,
-			pixel_ratio
+			pixel_ratio,
+			format
 		};
 		const deferred = new DeferredRender(request);
 
@@ -309,7 +325,7 @@ export class PlotClientInstance extends Disposable implements IPositronPlotClien
 	 * @param pixel_ratio The device pixel ratio (e.g. 1 for standard displays, 2 for retina displays)
 	 * @returns A promise that resolves when the render request is scheduled, or rejects with an error.
 	 */
-	public preview(height: number, width: number, pixel_ratio: number): Promise<IRenderedPlot> {
+	public preview(height: number, width: number, pixel_ratio: number, format: string): Promise<IRenderedPlot> {
 		// Deal with whole pixels only
 		height = Math.floor(height);
 		width = Math.floor(width);
@@ -318,7 +334,8 @@ export class PlotClientInstance extends Disposable implements IPositronPlotClien
 		const request: RenderRequest = {
 			height,
 			width,
-			pixel_ratio
+			pixel_ratio,
+			format
 		};
 		const deferred = new DeferredRender(request);
 
@@ -384,7 +401,8 @@ export class PlotClientInstance extends Disposable implements IPositronPlotClien
 		const renderRequest = request.renderRequest;
 		this._comm.render(renderRequest.height,
 			renderRequest.width,
-			renderRequest.pixel_ratio).then((response) => {
+			renderRequest.pixel_ratio,
+			renderRequest.format).then((response) => {
 
 				// Ignore if the request was cancelled or already fulfilled
 				if (!request.isComplete) {
@@ -490,7 +508,8 @@ export class PlotClientInstance extends Disposable implements IPositronPlotClien
 		const req = new DeferredRender({
 			height: Math.floor(height!),
 			width: Math.floor(width!),
-			pixel_ratio: pixel_ratio!
+			pixel_ratio: pixel_ratio!,
+			format: this._currentRender?.renderRequest.format ?? 'png'
 		});
 
 		this.scheduleRender(req, 0);

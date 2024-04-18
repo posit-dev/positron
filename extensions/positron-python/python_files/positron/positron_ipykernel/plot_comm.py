@@ -59,6 +59,10 @@ class RenderParams(BaseModel):
         description="The pixel ratio of the display device",
     )
 
+    format: str = Field(
+        description="The requested plot format",
+    )
+
 
 class RenderRequest(BaseModel):
     """
@@ -93,6 +97,9 @@ class PlotFrontendEvent(str, enum.Enum):
 
     # Notification that a plot has been updated on the backend.
     Update = "update"
+
+    # Show a plot.
+    Show = "show"
 
 
 PlotResult.update_forward_refs()

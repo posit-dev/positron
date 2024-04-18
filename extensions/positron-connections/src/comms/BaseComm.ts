@@ -7,6 +7,8 @@
 // to the backend as well as the logic to handle errors returned by the backend.
 
 import * as positron from 'positron';
+import { Disposable, Event } from 'vscode';
+import { randomUUID } from 'crypto';
 
 /**
  * An enum representing the set of JSON-RPC error codes.
@@ -18,7 +20,7 @@ export enum JsonRpcErrorCode {
 	InvalidParams = -32602,
 	InternalError = -32603,
 	ServerErrorStart = -32000,
-	ServerErrorEnd = -32099
+	ServerErrorEnd = -32099,
 }
 
 /**
@@ -42,6 +44,55 @@ export interface PositronCommError {
 }
 
 /**
+ * An event emitter that can be used to fire events from the backend to the
+ * frontend.
+ */
+class PositronCommEmitter<T> {
+	private _event?: Event<T>;
+	private _listeners: Record<string, (data: T) => void> = {};
+	/**
+	 * Create a new event emitter.
+	 *
+	 * @param name The name of the event, as a JSON-RPC method name.
+	 * @param properties The names of the properties in the event payload; used
+	 *   to convert positional parameters to named parameters.
+	 */
+	constructor(readonly name: string, readonly properties: string[]) {
+		this.name = name;
+		this.properties = properties;
+	}
+
+	get event(): Event<T> {
+		if (!this._event) {
+			this._event = (listener: (data: T) => void, thisArgs?, disposables?) => {
+				if (disposables) {
+					throw new Error('Disposables are not supported');
+				}
+
+				if (thisArgs) {
+					throw new Error('thisArgs is not supported');
+				}
+
+				const uuid = randomUUID();
+				this._listeners[uuid] = listener;
+				return new Disposable(() => {
+					delete this._listeners[uuid];
+				});
+			};
+		}
+		return this._event;
+	}
+
+	fire(data: T) {
+		Object.values(this._listeners).map((listener) => listener(data));
+	}
+
+	dispose() {
+		this._listeners = {};
+	}
+}
+
+/**
  * A base class for Positron comm instances. This class handles communication
  * with the backend, and provides methods for creating event emitters and
  * performing RPCs.
@@ -49,14 +100,18 @@ export interface PositronCommError {
  * Used by generated comm classes.
  */
 export class PositronBaseComm {
-
 	/**
 	 * Create a new Positron com
 	 *
 	 * @param clientInstance The client instance to use for communication with the backend.
 	 *  This instance must be connected to the backend before it is passed to this class.
 	 */
-	constructor(private readonly clientInstance: positron.RuntimeClientInstance) { }
+
+	private _disposables: Disposable[] = [];
+
+	constructor(
+		private readonly clientInstance: positron.RuntimeClientInstance
+	) { }
 
 	/**
 	 * Perform an RPC and wait for the result.
@@ -67,10 +122,11 @@ export class PositronBaseComm {
 	 * @returns A promise that resolves to the result of the RPC, or rejects
 	 *  with a PositronCommError.
 	 */
-	protected async performRpc<T>(rpcName: string,
+	protected async performRpc<T>(
+		rpcName: string,
 		paramNames: Array<string>,
-		paramValues: Array<any>): Promise<T> {
-
+		paramValues: Array<any>
+	): Promise<T> {
 		// Create the RPC arguments from the parameter names and values. This
 		// allows us to pass the parameters as positional parameters, but
 		// still have them be named parameters in the RPC.
@@ -125,7 +181,8 @@ export class PositronBaseComm {
 		if (!Object.keys(response).includes('result')) {
 			const error: PositronCommError = {
 				code: JsonRpcErrorCode.InternalError,
-				message: `Invalid response from ${this.clientInstance.getClientId()}: ` +
+				message:
+					`Invalid response from ${this.clientInstance.getClientId()}: ` +
 					`no 'result' field. ` +
 					`(response = ${JSON.stringify(response)})`,
 				name: `InvalidResponseError`,
@@ -141,5 +198,42 @@ export class PositronBaseComm {
 
 	dispose() {
 		this.clientInstance.dispose();
+		this._disposables.forEach((d) => d.dispose());
 	}
+
+	/**
+	 * Create a new event emitter.
+	 * @param name The name of the event, as a JSON-RPC method name.
+	 * @param properties The names of the properties in the event payload; used
+	 *  to convert positional parameters to named parameters.
+	 * @returns An event emitter that can be used to listen for events sent from the backend.
+	 */
+	protected createEventEmitter<T>(
+		name: string,
+		properties: string[]
+	): Event<T> {
+		const event = this.clientInstance.onDidSendEvent((event: any) => {
+			if (event.method === name) {
+				const args = event.params;
+				const namedArgs: any = {};
+				for (let i = 0; i < properties.length; i++) {
+					namedArgs[properties[i]] = args[i];
+				}
+				this._emitters.get(name)?.fire(namedArgs);
+			}
+		});
+		this._disposables.push(event);
+
+		const emitter = new PositronCommEmitter<T>(name, properties);
+		this._disposables.push(emitter);
+
+		this._emitters.set(name, emitter);
+		return emitter.event;
+	}
+
+	/**
+	 * A map of event names to emitters. This is used to create event emitters
+	 * from the backend to the frontend.
+	 */
+	private _emitters = new Map<string, PositronCommEmitter<any>>();
 }

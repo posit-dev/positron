@@ -9,6 +9,7 @@ from typing import Any, cast
 from unittest.mock import Mock
 
 import pandas as pd
+import pytest
 from IPython.utils.syspathcontext import prepended_to_syspath
 from ipykernel.compiler import get_tmp_directory
 
@@ -18,7 +19,7 @@ from positron_ipykernel.session_mode import SessionMode
 from positron_ipykernel.utils import alias_home
 
 from .conftest import PositronShell
-from .utils import assert_dataset_registered
+from .utils import assert_register_table_called
 
 # The idea for these tests is to mock out communications with Positron
 # via our various comms, and only test IPython interactions. For
@@ -29,7 +30,6 @@ from .utils import assert_dataset_registered
 
 logger = logging.getLogger(__name__)
 
-import pytest
 
 @pytest.fixture
 def warning_kwargs():
@@ -44,45 +44,82 @@ def test_override_help(shell: PositronShell) -> None:
     assert shell.user_ns_hidden["help"] == help
 
 
-def test_view_pandas_df_expression(shell: PositronShell, mock_dataexplorer_service: Mock) -> None:
-    expr = "pd.DataFrame({'x': [1,2,3]})"
+def test_view(shell: PositronShell, mock_dataexplorer_service: Mock) -> None:
+    name = "x"
+    shell.run_cell(f"{name} = object()\n%view {name}")
+    assert_register_table_called(mock_dataexplorer_service, shell.user_ns[name], name)
 
-    shell.run_cell(
-        f"""import pandas as pd
-%view {expr}"""
+
+def test_view_with_title(shell: PositronShell, mock_dataexplorer_service: Mock) -> None:
+    name = "x"
+    title = "A custom title"
+    shell.run_cell(f'{name} = object()\n%view {name} "{title}"')
+    assert_register_table_called(mock_dataexplorer_service, shell.user_ns[name], title)
+
+
+def test_view_undefined(shell: PositronShell, mock_dataexplorer_service: Mock, capsys) -> None:
+    name = "x"
+    shell.run_cell(f"%view {name}")
+    mock_dataexplorer_service.register_table.assert_not_called()
+    assert capsys.readouterr().err == f"UsageError: name '{name}' is not defined\n"
+
+
+def test_view_title_unquoated(
+    shell: PositronShell, mock_dataexplorer_service: Mock, capsys
+) -> None:
+    shell.run_cell("%view x A custom title")
+    mock_dataexplorer_service.register_table.assert_not_called()
+    assert (
+        capsys.readouterr().err
+        == "UsageError: unrecognized arguments: custom title. Did you quote the title?\n"
     )
 
-    obj = pd.DataFrame({"x": [1, 2, 3]})
-    assert_dataset_registered(mock_dataexplorer_service, obj, expr)
+
+def test_view_unsupported_type(
+    shell: PositronShell, mock_dataexplorer_service: Mock, capsys
+) -> None:
+    name = "x"
+    mock_dataexplorer_service.register_table = Mock(side_effect=TypeError)
+
+    shell.run_cell(f"{name} = object()\n%view {name}")
+
+    assert_register_table_called(mock_dataexplorer_service, shell.user_ns[name], name)
+    assert capsys.readouterr().err == "UsageError: cannot view object of type 'object'\n"
 
 
-def test_view_pandas_df_var(shell: PositronShell, mock_dataexplorer_service: Mock) -> None:
-    name = "a"
-    shell.run_cell(
-        f"""import pandas as pd
-{name} = pd.DataFrame({{'x': [1,2,3]}})
-%view {name}"""
-    )
+def assert_register_connection_called(mock_connections_service: Mock, obj: Any) -> None:
+    call_args_list = mock_connections_service.register_connection.call_args_list
+    assert len(call_args_list) == 1
 
-    obj = shell.user_ns[name]
-    assert_dataset_registered(mock_dataexplorer_service, obj, name)
+    (passed_connection,) = call_args_list[0].args
+    assert passed_connection is obj
 
 
-def test_view_polars_df_var(shell: PositronShell, mock_dataexplorer_service: Mock) -> None:
-    name = "a"
-    shell.run_cell(
-        f"""import polars as pl
-{name} = pl.DataFrame({{'x': [1,2,3]}})
-%view {name}"""
-    )
-
-    obj = shell.user_ns[name]
-    assert_dataset_registered(mock_dataexplorer_service, obj, name)
+def test_connection_show(shell: PositronShell, mock_connections_service: Mock) -> None:
+    name = "x"
+    shell.run_cell(f"{name} = object()\n%connection_show {name}")
+    assert_register_connection_called(mock_connections_service, shell.user_ns[name])
 
 
-def test_view_unsupported_type(shell: PositronShell) -> None:
-    with pytest.raises(TypeError):
-        shell.run_line_magic("view", "12")
+def test_connection_show_undefined(
+    shell: PositronShell, mock_connections_service: Mock, capsys
+) -> None:
+    name = "x"
+    shell.run_cell(f"%connection_show {name}")
+    mock_connections_service.register_connection.assert_not_called()
+    assert capsys.readouterr().err == f"UsageError: name '{name}' is not defined\n"
+
+
+def test_connection_show_unsupported_type(
+    shell: PositronShell, mock_connections_service: Mock, capsys
+) -> None:
+    name = "x"
+    mock_connections_service.register_connection = Mock(side_effect=TypeError)
+
+    shell.run_cell(f"{name} = object()\n%connection_show {name}")
+
+    assert_register_connection_called(mock_connections_service, shell.user_ns[name])
+    assert capsys.readouterr().err == "UsageError: cannot show object of type 'object'\n"
 
 
 code = """def f():

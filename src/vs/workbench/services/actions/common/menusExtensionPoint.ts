@@ -27,13 +27,18 @@ import { ResolvedKeybinding } from 'vs/base/common/keybindings';
 import { IKeybindingService } from 'vs/platform/keybinding/common/keybinding';
 
 // --- Start Positron ---
+// TODO(seem): We can remove this if we eventually decide to unbundle vscode-jupyter.
 export const IGNORED_JUPYTER_COMMANDS = new Set([
+	// Disable commands that open an Interactive Window, since we have the Positron Console.
 	'jupyter.createnewinteractive',
 	'jupyter.debugFileInteractive',
 	'jupyter.execSelectionInteractive',
 	'jupyter.runFileInteractive',
 	'jupyter.runfromline',
 	'jupyter.runtoline',
+	// Disable this command which configures the Jupyter extension to run in a separate extension
+	// host process. We don't currently support running multiple extension host processes.
+	'jupyter.runInDedicatedExtensionHost',
 ]);
 // --- End Positron ---
 
@@ -302,6 +307,12 @@ const apiMenus: IAPIMenu[] = [
 		proposed: 'contribCommentPeekContext'
 	},
 	{
+		key: 'commentsView/commentThread/context',
+		id: MenuId.CommentsViewThreadActions,
+		description: localize('commentsView.threadActions', "The contributed comment thread context menu in the comments view"),
+		proposed: 'contribCommentsViewThreadMenus'
+	},
+	{
 		key: 'notebook/toolbar',
 		id: MenuId.NotebookToolbar,
 		description: localize('notebook.toolbar', "The contributed notebook toolbar menu")
@@ -347,6 +358,11 @@ const apiMenus: IAPIMenu[] = [
 		key: 'testing/item/gutter',
 		id: MenuId.TestItemGutter,
 		description: localize('testing.item.gutter.title', "The menu for a gutter decoration for a test item"),
+	},
+	{
+		key: 'testing/item/result',
+		id: MenuId.TestPeekElement,
+		description: localize('testing.item.result.title', "The menu for an item in the Test Results view or peek."),
 	},
 	{
 		key: 'testing/message/context',
@@ -441,6 +457,18 @@ const apiMenus: IAPIMenu[] = [
 		id: MenuId.MultiDiffEditorFileToolbar,
 		description: localize('menus.multiDiffEditorResource', "The resource toolbar in the multi diff editor"),
 		proposed: 'contribMultiDiffEditorMenus'
+	},
+	{
+		key: 'diffEditor/gutter/hunk',
+		id: MenuId.DiffEditorHunkToolbar,
+		description: localize('menus.diffEditorGutterToolBarMenus', "The gutter toolbar in the diff editor"),
+		proposed: 'contribDiffEditorGutterToolBarMenus'
+	},
+	{
+		key: 'diffEditor/gutter/selection',
+		id: MenuId.DiffEditorSelectionToolbar,
+		description: localize('menus.diffEditorGutterToolBarMenus', "The gutter toolbar in the diff editor"),
+		proposed: 'contribDiffEditorGutterToolBarMenus'
 	}
 ];
 

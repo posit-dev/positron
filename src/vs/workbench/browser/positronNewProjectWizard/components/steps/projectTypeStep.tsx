@@ -2,15 +2,20 @@
  *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
+// CSS.
 import 'vs/css!./projectTypeStep';
+
+// React.
 import * as React from 'react';
-import { PropsWithChildren } from 'react';  // eslint-disable-line no-duplicate-imports
-import { Button } from 'vs/base/browser/ui/positronComponents/button/button';
+import { PropsWithChildren, useState } from 'react';  // eslint-disable-line no-duplicate-imports
+
+// Other dependencies.
 import { localize } from 'vs/nls';
 import { useNewProjectWizardContext } from 'vs/workbench/browser/positronNewProjectWizard/newProjectWizardContext';
 import { NewProjectType, NewProjectWizardStep } from 'vs/workbench/browser/positronNewProjectWizard/interfaces/newProjectWizardEnums';
 import { NewProjectWizardStepProps } from 'vs/workbench/browser/positronNewProjectWizard/interfaces/newProjectWizardStepProps';
 import { OKCancelBackNextActionBar } from 'vs/workbench/browser/positronComponents/positronModalDialog/components/okCancelBackNextActionBar';
+import { ProjectTypeGroup } from 'vs/workbench/browser/positronNewProjectWizard/components/projectTypeGroup';
 
 /**
  * The ProjectTypeStep component is the first step in the new project wizard, used to
@@ -19,58 +24,60 @@ import { OKCancelBackNextActionBar } from 'vs/workbench/browser/positronComponen
  * @returns The rendered component
  */
 export const ProjectTypeStep = (props: PropsWithChildren<NewProjectWizardStepProps>) => {
+	// Retrieve the wizard state and project configuration.
 	const newProjectWizardState = useNewProjectWizardContext();
+	const setProjectConfig = newProjectWizardState.setProjectConfig;
+	const projectConfig = newProjectWizardState.projectConfig;
 
-	// Set the projectType and initialize the default project name,
+	// Hooks.
+	const [selectedProjectType, setSelectedProjectType] = useState(projectConfig.projectType);
+
+	// Set the projectType and initialize the default project name if applicable,
 	// then navigate to the ProjectNameLocation step.
 	const nextStep = () => {
-		// TODO: set the projectType according to the selected button
-		const projectType = NewProjectType.PythonProject;
-
+		// TODO: once we have input validation, the user should not be able to proceed until a
+		// project type is selected, so we won't have to check that the selectedProjectType is not null.
+		const projectType = selectedProjectType ?? NewProjectType.PythonProject;
 		// If the project type has changed or the project name is empty, initialize the project name.
-		if (newProjectWizardState.projectConfig.projectType !== projectType || newProjectWizardState.projectConfig.projectName === '') {
-			// The default project name is 'my' + projectType without spaces.
-			const defaultProjectName = 'my' + projectType.replace(/\s/g, '');
-			newProjectWizardState.setProjectConfig({
-				...newProjectWizardState.projectConfig,
+		if (projectConfig.projectType !== projectType || projectConfig.projectName === '') {
+			// The default project name is 'my' + projectType without spaces, eg. 'myPythonProject'.
+			const defaultProjectName =
+				localize(
+					"positron.newProjectWizard.projectTypeStep.defaultProjectNamePrefix",
+					"my"
+				) + projectType.replace(/\s/g, '');
+			setProjectConfig({
+				...projectConfig,
 				projectType,
 				projectName: defaultProjectName
 			});
 		}
-
 		props.next(NewProjectWizardStep.ProjectNameLocation);
 	};
 
+	// Render.
 	return (
 		<div className='project-type-selection-step'>
-			<div className='project-type-selection-step-title'>
-				{localize('positronNewProjectWizard.projectTypeStepTitle', 'Project Type')}
+			<div className='project-type-selection-step-title' id='project-type-selection-step-title' >
+				{(() => localize('positronNewProjectWizard.projectTypeStepTitle', 'Project Type'))()}
 			</div>
-			<div className='project-type-selection-step-description'>
-				{localize('positronNewProjectWizard.projectTypeStepDescription', 'Select the type of project to create.')}
+			<div className='project-type-selection-step-description' id='project-type-selection-step-description' >
+				{(() => localize('positronNewProjectWizard.projectTypeStepDescription', 'Select the type of project to create.'))()}
 			</div>
-			<div className='project-type-grid'>
-				{/* TODO: convert from buttons to radio buttons or checkboxes */}
-				{/* radio buttons support the single-selection we expect now */}
-				{/* checkboxes would open up multi-lang projects for the future, but would need
-					custom handling implemented to ensure only one is selected for now. */}
-				{/* Write tsx that creates a Button with className project-type-button for each project type in NewProjectType */}
-				<Button className='project-type-button'>
-					{NewProjectType.PythonProject}
-				</Button>
-				<Button className='project-type-button'>
-					{NewProjectType.RProject}
-				</Button>
-				<Button className='project-type-button'>
-					{NewProjectType.JupyterNotebook}
-				</Button>
-			</div>
+			<ProjectTypeGroup
+				name='projectType'
+				labelledBy='project-type-selection-step-title'
+				describedBy='project-type-selection-step-description'
+				selectedProjectId={selectedProjectType}
+				onSelectionChanged={projectType => setSelectedProjectType(projectType)}
+			/>
 			<OKCancelBackNextActionBar
 				cancelButtonConfig={{
 					onClick: props.cancel
 				}}
 				nextButtonConfig={{
-					onClick: nextStep
+					onClick: nextStep,
+					disable: !selectedProjectType
 				}}
 			/>
 		</div>

@@ -34,7 +34,7 @@ suite('HistoryService', function () {
 	const TEST_EDITOR_ID = 'MyTestEditorForEditorHistory';
 	const TEST_EDITOR_INPUT_ID = 'testEditorInputForHistoyService';
 
-	async function createServices(scope = GoScope.DEFAULT): Promise<[EditorPart, HistoryService, EditorService, ITextFileService, IInstantiationService]> {
+	async function createServices(scope = GoScope.DEFAULT): Promise<[EditorPart, HistoryService, EditorService, ITextFileService, IInstantiationService, TestConfigurationService]> {
 		const instantiationService = workbenchInstantiationService(undefined, disposables);
 
 		const part = await createEditorPart(instantiationService, disposables);
@@ -56,7 +56,7 @@ suite('HistoryService', function () {
 
 		const accessor = instantiationService.createInstance(TestServiceAccessor);
 
-		return [part, historyService, editorService, accessor.textFileService, instantiationService];
+		return [part, historyService, editorService, accessor.textFileService, instantiationService, configurationService];
 	}
 
 	const disposables = new DisposableStore();
@@ -109,28 +109,28 @@ suite('HistoryService', function () {
 
 		// [index.txt] | [>index.txt<] [other.html]
 
-		assert.strictEqual(part.activeGroup.id, pane2?.group?.id);
+		assert.strictEqual(part.activeGroup.id, pane2?.group.id);
 		assert.strictEqual(part.activeGroup.activeEditor?.resource?.toString(), resource.toString());
 
 		await historyService.goBack();
 
 		// [>index.txt<] | [index.txt] [other.html]
 
-		assert.strictEqual(part.activeGroup.id, pane1?.group?.id);
+		assert.strictEqual(part.activeGroup.id, pane1?.group.id);
 		assert.strictEqual(part.activeGroup.activeEditor?.resource?.toString(), resource.toString());
 
 		await historyService.goForward();
 
 		// [index.txt] | [>index.txt<] [other.html]
 
-		assert.strictEqual(part.activeGroup.id, pane2?.group?.id);
+		assert.strictEqual(part.activeGroup.id, pane2?.group.id);
 		assert.strictEqual(part.activeGroup.activeEditor?.resource?.toString(), resource.toString());
 
 		await historyService.goForward();
 
 		// [index.txt] | [index.txt] [>other.html<]
 
-		assert.strictEqual(part.activeGroup.id, pane2?.group?.id);
+		assert.strictEqual(part.activeGroup.id, pane2?.group.id);
 		assert.strictEqual(part.activeGroup.activeEditor?.resource?.toString(), otherResource.toString());
 
 		return workbenchTeardown(instantiationService);
@@ -313,7 +313,7 @@ suite('HistoryService', function () {
 		// [one.txt] [>two.html<] | <empty>
 
 		const editorChangePromise = Event.toPromise(editorService.onDidActiveEditorChange);
-		pane1?.group?.moveEditor(pane1.input!, sideGroup);
+		pane1?.group.moveEditor(pane1.input!, sideGroup);
 		await editorChangePromise;
 
 		// [one.txt] | [>two.html<]
@@ -322,7 +322,7 @@ suite('HistoryService', function () {
 
 		// [>one.txt<] | [two.html]
 
-		assert.strictEqual(part.activeGroup.id, pane1?.group?.id);
+		assert.strictEqual(part.activeGroup.id, pane1?.group.id);
 		assert.strictEqual(part.activeGroup.activeEditor?.resource?.toString(), resource1.toString());
 
 		return workbenchTeardown(instantiationService);
@@ -341,7 +341,7 @@ suite('HistoryService', function () {
 
 		assert.notStrictEqual(pane1, pane2);
 
-		await pane1?.group?.closeAllEditors();
+		await pane1?.group.closeAllEditors();
 
 		// [>two.html<]
 
@@ -349,7 +349,7 @@ suite('HistoryService', function () {
 
 		// [>two.html<]
 
-		assert.strictEqual(part.activeGroup.id, pane2?.group?.id);
+		assert.strictEqual(part.activeGroup.id, pane2?.group.id);
 		assert.strictEqual(part.activeGroup.activeEditor?.resource?.toString(), resource2.toString());
 
 		return workbenchTeardown(instantiationService);
@@ -545,7 +545,7 @@ suite('HistoryService', function () {
 		await historyService.goBack();
 		await historyService.goBack();
 
-		assert.strictEqual(part.activeGroup.id, pane2?.group?.id);
+		assert.strictEqual(part.activeGroup.id, pane2?.group.id);
 		assert.strictEqual(part.activeGroup.activeEditor?.resource?.toString(), resource1.toString());
 
 		// [one.txt] [two.html] [>three.html<] | [>one.txt<] [two.html] [three.html]
@@ -556,7 +556,7 @@ suite('HistoryService', function () {
 		await historyService.goBack();
 		await historyService.goBack();
 
-		assert.strictEqual(part.activeGroup.id, pane1?.group?.id);
+		assert.strictEqual(part.activeGroup.id, pane1?.group.id);
 		assert.strictEqual(part.activeGroup.activeEditor?.resource?.toString(), resource1.toString());
 
 		return workbenchTeardown(instantiationService);
@@ -631,7 +631,7 @@ suite('HistoryService', function () {
 		const resource = toResource.call(this, '/path/index.txt');
 		const pane = await editorService.openEditor({ resource });
 
-		await pane?.group?.closeAllEditors();
+		await pane?.group.closeAllEditors();
 
 		const onDidActiveEditorChange = new DeferredPromise<void>();
 		disposables.add(editorService.onDidActiveEditorChange(e => {
@@ -660,12 +660,13 @@ suite('HistoryService', function () {
 			}
 		}
 
-		const [part, historyService, , , instantiationService] = await createServices();
+		const [part, historyService, , , instantiationService, configurationService] = await createServices();
+		configurationService.setUserConfiguration('search.exclude', '{ "**/node_modules/**": true }');
 
 		let history = historyService.getHistory();
 		assert.strictEqual(history.length, 0);
 
-		const input1 = disposables.add(new TestFileEditorInput(URI.parse('foo://bar1'), TEST_EDITOR_INPUT_ID));
+		const input1 = disposables.add(new TestFileEditorInput(URI.parse('foo://bar1/node_modules/test.txt'), TEST_EDITOR_INPUT_ID));
 		await part.activeGroup.openEditor(input1, { pinned: true });
 
 		const input2 = disposables.add(new TestFileEditorInput(URI.parse('foo://bar2'), TEST_EDITOR_INPUT_ID));
@@ -692,6 +693,10 @@ suite('HistoryService', function () {
 		history = historyService.getHistory();
 		assert.strictEqual(history.length, 3);
 		assert.strictEqual(history[0].resource?.toString(), input4.resource.toString());
+
+		input1.dispose(); // disposing the editor will apply `search.exclude` rules
+		history = historyService.getHistory();
+		assert.strictEqual(history.length, 2);
 
 		return workbenchTeardown(instantiationService);
 	});
@@ -807,7 +812,7 @@ suite('HistoryService', function () {
 		return workbenchTeardown(instantiationService);
 	});
 
-	test('suspend should suspend editor changes- skip two editors and continue (single group)', async () => {
+	test('transient editors suspends editor change tracking', async () => {
 		const [part, historyService, editorService, , instantiationService] = await createServices();
 
 		const input1 = disposables.add(new TestFileEditorInput(URI.parse('foo://bar1'), TEST_EDITOR_INPUT_ID));
@@ -821,79 +826,24 @@ suite('HistoryService', function () {
 		assert.strictEqual(part.activeGroup.activeEditor, input1);
 		await editorChangePromise;
 
-		const disposable = historyService.suspendTracking();
-
-		// wait on two editor changes before disposing
-		editorChangePromise = Event.toPromise(editorService.onDidActiveEditorChange)
-			.then(() => Event.toPromise(editorService.onDidActiveEditorChange));
-
-		await part.activeGroup.openEditor(input2, { pinned: true });
+		await part.activeGroup.openEditor(input2, { transient: true });
 		assert.strictEqual(part.activeGroup.activeEditor, input2);
-		await part.activeGroup.openEditor(input3, { pinned: true });
+		await part.activeGroup.openEditor(input3, { transient: true });
 		assert.strictEqual(part.activeGroup.activeEditor, input3);
 
-		await editorChangePromise;
-		disposable.dispose();
-
-		await part.activeGroup.openEditor(input4, { pinned: true });
-		assert.strictEqual(part.activeGroup.activeEditor, input4);
-		await part.activeGroup.openEditor(input5, { pinned: true });
-		assert.strictEqual(part.activeGroup.activeEditor, input5);
-
-		// stack should be [input1, input4, input5]
-		await historyService.goBack();
-		assert.strictEqual(part.activeGroup.activeEditor, input4);
-		await historyService.goBack();
-		assert.strictEqual(part.activeGroup.activeEditor, input1);
-		await historyService.goBack();
-		assert.strictEqual(part.activeGroup.activeEditor, input1);
-
-		await historyService.goForward();
-		assert.strictEqual(part.activeGroup.activeEditor, input4);
-		await historyService.goForward();
-		assert.strictEqual(part.activeGroup.activeEditor, input5);
-
-		return workbenchTeardown(instantiationService);
-	});
-
-	test('suspend should suspend editor changes- skip two editors and continue (multi group)', async () => {
-		const [part, historyService, editorService, , instantiationService] = await createServices();
-		const rootGroup = part.activeGroup;
-
-		const input1 = disposables.add(new TestFileEditorInput(URI.parse('foo://bar1'), TEST_EDITOR_INPUT_ID));
-		const input2 = disposables.add(new TestFileEditorInput(URI.parse('foo://bar2'), TEST_EDITOR_INPUT_ID));
-		const input3 = disposables.add(new TestFileEditorInput(URI.parse('foo://bar3'), TEST_EDITOR_INPUT_ID));
-		const input4 = disposables.add(new TestFileEditorInput(URI.parse('foo://bar4'), TEST_EDITOR_INPUT_ID));
-		const input5 = disposables.add(new TestFileEditorInput(URI.parse('foo://bar5'), TEST_EDITOR_INPUT_ID));
-
-		const sideGroup = part.addGroup(rootGroup, GroupDirection.RIGHT);
-
-		let editorChangePromise = Event.toPromise(editorService.onDidActiveEditorChange);
-		await rootGroup.openEditor(input1, { pinned: true });
-		await editorChangePromise;
-
-		const disposable = historyService.suspendTracking();
 		editorChangePromise = Event.toPromise(editorService.onDidActiveEditorChange)
 			.then(() => Event.toPromise(editorService.onDidActiveEditorChange));
-		await sideGroup.openEditor(input2, { pinned: true });
-		await rootGroup.openEditor(input3, { pinned: true });
-		await editorChangePromise;
-		disposable.dispose();
 
-		await sideGroup.openEditor(input4, { pinned: true });
-		await rootGroup.openEditor(input5, { pinned: true });
+		await part.activeGroup.openEditor(input4, { pinned: true });
+		assert.strictEqual(part.activeGroup.activeEditor, input4);
+		await part.activeGroup.openEditor(input5, { pinned: true });
+		assert.strictEqual(part.activeGroup.activeEditor, input5);
 
 		// stack should be [input1, input4, input5]
 		await historyService.goBack();
 		assert.strictEqual(part.activeGroup.activeEditor, input4);
-		assert.strictEqual(part.activeGroup, sideGroup);
-		assert.strictEqual(rootGroup.activeEditor, input5);
-
 		await historyService.goBack();
 		assert.strictEqual(part.activeGroup.activeEditor, input1);
-		assert.strictEqual(part.activeGroup, rootGroup);
-		assert.strictEqual(sideGroup.activeEditor, input4);
-
 		await historyService.goBack();
 		assert.strictEqual(part.activeGroup.activeEditor, input1);
 
@@ -901,46 +851,6 @@ suite('HistoryService', function () {
 		assert.strictEqual(part.activeGroup.activeEditor, input4);
 		await historyService.goForward();
 		assert.strictEqual(part.activeGroup.activeEditor, input5);
-
-		return workbenchTeardown(instantiationService);
-	});
-
-	test('suspend should suspend editor changes - interleaved skips', async () => {
-		const [part, historyService, editorService, , instantiationService] = await createServices();
-
-		const input1 = disposables.add(new TestFileEditorInput(URI.parse('foo://bar1'), TEST_EDITOR_INPUT_ID));
-		const input2 = disposables.add(new TestFileEditorInput(URI.parse('foo://bar2'), TEST_EDITOR_INPUT_ID));
-		const input3 = disposables.add(new TestFileEditorInput(URI.parse('foo://bar3'), TEST_EDITOR_INPUT_ID));
-		const input4 = disposables.add(new TestFileEditorInput(URI.parse('foo://bar4'), TEST_EDITOR_INPUT_ID));
-		const input5 = disposables.add(new TestFileEditorInput(URI.parse('foo://bar5'), TEST_EDITOR_INPUT_ID));
-
-		let editorChangePromise = Event.toPromise(editorService.onDidActiveEditorChange);
-		await part.activeGroup.openEditor(input1, { pinned: true });
-		await editorChangePromise;
-
-		let disposable = historyService.suspendTracking();
-		editorChangePromise = Event.toPromise(editorService.onDidActiveEditorChange);
-		await part.activeGroup.openEditor(input2, { pinned: true });
-		await editorChangePromise;
-		disposable.dispose();
-
-		await part.activeGroup.openEditor(input3, { pinned: true });
-
-		disposable = historyService.suspendTracking();
-		editorChangePromise = Event.toPromise(editorService.onDidActiveEditorChange);
-		await part.activeGroup.openEditor(input4, { pinned: true });
-		await editorChangePromise;
-		disposable.dispose();
-
-		await part.activeGroup.openEditor(input5, { pinned: true });
-
-		// stack should be [input1, input3, input5]
-		await historyService.goBack();
-		assert.strictEqual(part.activeGroup.activeEditor, input3);
-		await historyService.goBack();
-		assert.strictEqual(part.activeGroup.activeEditor, input1);
-		await historyService.goBack();
-		assert.strictEqual(part.activeGroup.activeEditor, input1);
 
 		return workbenchTeardown(instantiationService);
 	});

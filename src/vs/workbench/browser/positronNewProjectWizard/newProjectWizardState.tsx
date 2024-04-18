@@ -11,6 +11,9 @@ import { EnvironmentSetupType, NewProjectType, NewProjectWizardStep, PythonEnvir
 import { IWorkbenchLayoutService } from 'vs/workbench/services/layout/browser/layoutService';
 import { IKeybindingService } from 'vs/platform/keybinding/common/keybinding';
 import { ILogService } from 'vs/platform/log/common/log';
+import { IOpenerService } from 'vs/platform/opener/common/opener';
+import { IPathService } from 'vs/workbench/services/path/common/pathService';
+import { IFileService } from 'vs/platform/files/common/files';
 
 /**
  * NewProjectWizardServices interface. Defines the set of services that are required by the New
@@ -18,10 +21,13 @@ import { ILogService } from 'vs/platform/log/common/log';
  */
 interface NewProjectWizardServices {
 	fileDialogService: IFileDialogService;
+	fileService: IFileService;
 	keybindingService: IKeybindingService;
 	languageRuntimeService: ILanguageRuntimeService;
 	layoutService: IWorkbenchLayoutService;
 	logService: ILogService;
+	openerService: IOpenerService;
+	pathService: IPathService;
 	runtimeSessionService: IRuntimeSessionService;
 	runtimeStartupService: IRuntimeStartupService;
 }
@@ -46,8 +52,10 @@ export interface NewProjectConfiguration {
 	readonly parentFolder: string;
 	readonly initGitRepo: boolean;
 	readonly openInNewWindow: boolean;
-	readonly pythonEnvSetupType: EnvironmentSetupType;
-	readonly pythonEnvType: PythonEnvironmentType;
+	readonly pythonEnvSetupType: EnvironmentSetupType | undefined;
+	readonly pythonEnvType: PythonEnvironmentType | undefined;
+	readonly installIpykernel: boolean | undefined;
+	readonly useRenv: boolean | undefined;
 }
 
 /**
@@ -78,8 +86,10 @@ export const useNewProjectWizardState = (
 		parentFolder: props.parentFolder ?? '',
 		initGitRepo: false,
 		openInNewWindow: true,
-		pythonEnvSetupType: EnvironmentSetupType.NewEnvironment,
-		pythonEnvType: PythonEnvironmentType.Venv,
+		pythonEnvSetupType: undefined,
+		pythonEnvType: undefined,
+		installIpykernel: undefined,
+		useRenv: undefined
 	});
 
 	// TODO: the initial step should be passed in via the props

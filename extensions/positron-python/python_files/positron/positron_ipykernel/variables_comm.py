@@ -58,6 +58,8 @@ class VariableKind(str, enum.Enum):
 
     Lazy = "lazy"
 
+    Connection = "connection"
+
 
 class VariableList(BaseModel):
     """

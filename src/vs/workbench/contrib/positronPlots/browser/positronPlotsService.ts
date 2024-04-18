@@ -24,14 +24,14 @@ import { WebviewPlotClient } from 'vs/workbench/contrib/positronPlots/browser/we
 import { IPositronNotebookOutputWebviewService } from 'vs/workbench/contrib/positronOutputWebview/browser/notebookOutputWebviewService';
 import { IPositronIPyWidgetsService } from 'vs/workbench/services/positronIPyWidgets/common/positronIPyWidgetsService';
 import { Schemas } from 'vs/base/common/network';
-import { IFileDialogService } from 'vs/platform/dialogs/common/dialogs';
+import { IDialogService, IFileDialogService } from 'vs/platform/dialogs/common/dialogs';
 import { decodeBase64 } from 'vs/base/common/buffer';
 import { SavePlotOptions, showSavePlotModalDialog } from 'vs/workbench/contrib/positronPlots/browser/modalDialogs/savePlotModalDialog';
 import { IWorkbenchLayoutService } from 'vs/workbench/services/layout/browser/layoutService';
-import { URI } from 'vs/base/common/uri';
 import { IWorkspaceContextService } from 'vs/platform/workspace/common/workspace';
 import { IKeybindingService } from 'vs/platform/keybinding/common/keybinding';
 import { IClipboardService } from 'vs/platform/clipboard/common/clipboardService';
+import { localize } from 'vs/nls';
 
 /** The maximum number of recent executions to store. */
 const MaxRecentExecutions = 10;
@@ -109,7 +109,8 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 		@IWorkspaceContextService private readonly _workspaceContextService: IWorkspaceContextService,
 		@IWorkbenchLayoutService private readonly _layoutService: IWorkbenchLayoutService,
 		@IKeybindingService private readonly _keybindingService: IKeybindingService,
-		@IClipboardService private _clipboardService: IClipboardService) {
+		@IClipboardService private _clipboardService: IClipboardService,
+		@IDialogService private readonly _dialogService: IDialogService) {
 		super();
 
 		// Register for language runtime service startups
@@ -506,14 +507,23 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 				StorageScope.WORKSPACE);
 		});
 
-		// Raise the plot if it's updated by the runtime
-		plotClient.onDidRenderUpdate((_plot) => {
+		const selectPlot = () => {
 			// Raise the Plots pane so the user can see the updated plot
 			this._viewsService.openView(POSITRON_PLOTS_VIEW_ID, false);
 
 			// Select the plot to bring it into view within the history; it's
 			// possible that it is not the most recently created plot
 			this._onDidSelectPlot.fire(plotClient.id);
+		};
+
+		// Raise the plot if it's updated by the runtime
+		plotClient.onDidRenderUpdate((_plot) => {
+			selectPlot();
+		});
+
+		// Focus the plot if the runtime requests it
+		plotClient.onDidShowPlot(() => {
+			selectPlot();
 		});
 
 		// Dispose the plot client when this service is disposed (we own this
@@ -682,7 +692,7 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 		if (this._selectedPlotId) {
 			const plot = this._plots.find(plot => plot.id === this._selectedPlotId);
 			const workspaceFolder = this._workspaceContextService.getWorkspace().folders[0]?.uri;
-			const suggestedPath = workspaceFolder ? URI.joinPath(workspaceFolder, 'plot.png') : undefined;
+			const suggestedPath = workspaceFolder ?? undefined;
 			if (plot) {
 				let uri = '';
 
@@ -692,7 +702,7 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 					this.showSavePlotDialog(uri);
 				} else if (plot instanceof PlotClientInstance) {
 					// if it's a dynamic plot, present options dialog
-					showSavePlotModalDialog(this._layoutService, this._keybindingService, this._fileDialogService, plot, this.savePlotAs, suggestedPath);
+					showSavePlotModalDialog(this._layoutService, this._keybindingService, this._dialogService, this._fileService, this._fileDialogService, plot, this.savePlotAs, suggestedPath);
 				} else {
 					// if it's a webview plot, do nothing
 					return;
@@ -712,7 +722,8 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 		const data = matches[2];
 
 		htmlFileSystemProvider.writeFile(options.path, decodeBase64(data).buffer, { create: true, overwrite: true, unlock: true, atomic: false })
-			.then(() => {
+			.catch((error: Error) => {
+				this._dialogService.error(localize('positronPlotsService.savePlotError.unknown', 'Error saving plot: {0}', error.message));
 			});
 	};
 

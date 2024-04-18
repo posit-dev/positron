@@ -60,14 +60,69 @@ T_content = TypeVar(
 
 
 class CommMessage(GenericModel, Generic[T_content]):
+    """
+    A generic message received from the frontend-side of a comm.
+    """
+
     content: T_content
 
 
 class PositronComm:
-    """A wrapper around a base IPython comm that provides a JSON-RPC interface"""
+    """
+    A wrapper around a base IPython comm that provides a JSON-RPC interface.
+
+    Paramaters
+    ----------
+    comm
+        The wrapped IPython comm.
+
+    Attributes
+    ----------
+    comm
+        The wrapped IPython comm.
+    comm_id
+    """
 
     def __init__(self, comm: comm.base_comm.BaseComm) -> None:
         self.comm = comm
+
+    @classmethod
+    def create(cls, target_name: str, comm_id: str) -> PositronComm:
+        """
+        Create a Positron comm.
+
+        Parameters
+        ----------
+        target_name
+            The name of the target for the comm, as defined in the frontend.
+        comm_id
+            The unique identifier for the comm.
+
+        Returns:
+        --------
+        PositronComm
+            The new PositronComm instance.
+        """
+        base_comm = comm.create_comm(target_name=target_name, comm_id=comm_id)
+        return cls(base_comm)
+
+    @property
+    def comm_id(self) -> str:
+        """
+        The unique identifier of this comm.
+        """
+        return self.comm.comm_id
+
+    def on_close(self, callback: Callable[[JsonRecord], None]):
+        """
+        Register a callback for when the frontend-side version of this comm is closed.
+
+        Paramaters:
+        -----------
+        callback
+            Called when the comm is closed, with the raw close message.
+        """
+        self.comm.on_close(callback)
 
     def on_msg(
         self,
@@ -77,9 +132,14 @@ class PositronComm:
         """
         Register a callback for an RPC request from the frontend.
 
-        Will be called with both the parsed `msg: CommMessage` and the original `raw_msg`.
-
-        If the `raw_msg` could not be parsed, a JSON-RPC error will be sent to the frontend.
+        Parameters
+        ----------
+        callback
+            Called when a message is received, with both the parsed message `msg: CommMessage` and
+            original `raw_msg`. Not called if the `raw_msg` could not be parsed; instead, a JSON-RPC
+            error will be sent to the frontend.
+        content_cls
+            The Pydantic model to parse the message with.
         """
 
         def handle_msg(
@@ -128,7 +188,16 @@ class PositronComm:
         self.comm.on_msg(handle_msg)
 
     def send_result(self, data: JsonData = None, metadata: Optional[JsonRecord] = None) -> None:
-        """Send a JSON-RPC result to the frontend-side version of this comm"""
+        """
+        Send a JSON-RPC result to the frontend-side version of this comm.
+
+        Parameters
+        ----------
+        data
+            The result data to send.
+        metadata
+            The metadata to send with the result.
+        """
         result = dict(
             jsonrpc="2.0",
             result=data,
@@ -140,7 +209,16 @@ class PositronComm:
         )
 
     def send_event(self, name: str, payload: JsonRecord) -> None:
-        """Send a JSON-RPC notification (event) to the frontend-side version of this comm"""
+        """
+        Send a JSON-RPC notification (event) to the frontend-side version of this comm.
+
+        Parameters
+        ----------
+        name
+            The name of the event.
+        payload
+            The payload of the event.
+        """
         event = dict(
             jsonrpc="2.0",
             method=name,
@@ -149,7 +227,16 @@ class PositronComm:
         self.comm.send(data=event)
 
     def send_error(self, code: JsonRpcErrorCode, message: Optional[str] = None) -> None:
-        """Send a JSON-RPC result to the frontend-side version of this comm"""
+        """
+        Send a JSON-RPC result to the frontend-side version of this comm.
+
+        Parameters
+        ----------
+        code
+            The error code to send.
+        message
+            The error message to send.
+        """
         error = dict(
             jsonrpc="2.0",
             error=dict(
@@ -164,5 +251,7 @@ class PositronComm:
         )
 
     def close(self) -> None:
-        """Close the underlying comm."""
+        """
+        Close the frontend-side version of this comm.
+        """
         self.comm.close()

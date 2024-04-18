@@ -32,14 +32,22 @@ export interface PlotResult {
 export interface UpdateEvent {
 }
 
+/**
+ * Event: Show a plot.
+ */
+export interface ShowEvent {
+}
+
 export enum PlotFrontendEvent {
-	Update = 'update'
+	Update = 'update',
+	Show = 'show'
 }
 
 export class PositronPlotComm extends PositronBaseComm {
 	constructor(instance: IRuntimeClientInstance<any, any>) {
 		super(instance);
 		this.onDidUpdate = super.createEventEmitter('update', []);
+		this.onDidShow = super.createEventEmitter('show', []);
 	}
 
 	/**
@@ -51,11 +59,12 @@ export class PositronPlotComm extends PositronBaseComm {
 	 * @param height The requested plot height, in pixels
 	 * @param width The requested plot width, in pixels
 	 * @param pixelRatio The pixel ratio of the display device
+	 * @param format The requested plot format
 	 *
 	 * @returns A rendered plot
 	 */
-	render(height: number, width: number, pixelRatio: number): Promise<PlotResult> {
-		return super.performRpc('render', ['height', 'width', 'pixel_ratio'], [height, width, pixelRatio]);
+	render(height: number, width: number, pixelRatio: number, format: string): Promise<PlotResult> {
+		return super.performRpc('render', ['height', 'width', 'pixel_ratio', 'format'], [height, width, pixelRatio, format]);
 	}
 
 
@@ -63,5 +72,9 @@ export class PositronPlotComm extends PositronBaseComm {
 	 * Notification that a plot has been updated on the backend.
 	 */
 	onDidUpdate: Event<UpdateEvent>;
+	/**
+	 * Show a plot.
+	 */
+	onDidShow: Event<ShowEvent>;
 }
 

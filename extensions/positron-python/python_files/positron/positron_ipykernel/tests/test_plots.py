@@ -3,51 +3,59 @@
 #
 
 import base64
-import codecs
 import io
-import pickle
 from pathlib import Path
-from typing import Iterable, Optional, cast
+from typing import Iterable, List, cast
 
 import matplotlib
 import matplotlib.pyplot as plt
 import pytest
-from IPython.core.formatters import DisplayFormatter
-from matplotlib.axes import Axes
-from matplotlib.figure import Figure
-from matplotlib.testing.compare import compare_images
-from matplotlib_inline.backend_inline import configure_inline_support
+from PIL import Image
 
-from positron_ipykernel.plots import BASE_DPI, PositronDisplayPublisherHook
-from positron_ipykernel.positron_comm import JsonRpcErrorCode
-from positron_ipykernel.session_mode import SessionMode
-from positron_ipykernel.utils import JsonRecord
+from positron_ipykernel.plots import PlotsService
+from positron_ipykernel.positron_ipkernel import PositronIPyKernel, _CommTarget
 
 from .conftest import DummyComm, PositronShell
-from .utils import comm_open_message, comm_request, json_rpc_error, json_rpc_request
+from .utils import (
+    comm_close_message,
+    comm_open_message,
+    json_rpc_notification,
+    json_rpc_request,
+    json_rpc_response,
+)
 
-PLOT_DATA = [1, 2]
+#
+# Matplotlib backend + shell + plots service integration tests.
+#
+
 TARGET_NAME = "target_name"
 
 
 @pytest.fixture(autouse=True)
-def setup_matplotlib(shell: PositronShell) -> Iterable[None]:
-    # Use IPython's `matplotlib_inline` backend
-    backend = "module://matplotlib_inline.backend_inline"
-    matplotlib.use(backend)
+def setup_positron_matplotlib_backend() -> None:
+    # The backend is set in the kernel app, which isn't currently available in our tests,
+    # so set it here too.
+    matplotlib.use("module://positron_ipykernel.matplotlib_backend")
 
-    # Enable all IPython mimetype formatters
-    display_formatter = cast(DisplayFormatter, shell.display_formatter)
-    active_types = display_formatter.active_types
-    display_formatter.active_types = display_formatter.format_types
 
-    # Enable matplotlib IPython formatters
-    configure_inline_support(shell, backend)
+@pytest.fixture(autouse=True)
+def import_pyplot(shell: PositronShell) -> None:
+    # Import pyplot for convenience.
+    shell.run_cell("import matplotlib.pyplot as plt")
 
-    yield
 
-    # Restore the original active formatters
-    display_formatter.active_types = active_types
+@pytest.fixture
+def plots_service(kernel: PositronIPyKernel) -> Iterable[PlotsService]:
+    """
+    The Positron plots service.
+    """
+    plots_service = kernel.plots_service
+
+    assert not plots_service._plots
+
+    yield plots_service
+
+    plt.close("all")
 
 
 @pytest.fixture(scope="session")
@@ -57,206 +65,172 @@ def images_path() -> Path:
     return images_path
 
 
-@pytest.fixture
-def hook() -> PositronDisplayPublisherHook:
-    return PositronDisplayPublisherHook(TARGET_NAME, SessionMode.CONSOLE)
-
-
-@pytest.fixture
-def notebook_hook() -> PositronDisplayPublisherHook:
-    return PositronDisplayPublisherHook(TARGET_NAME, SessionMode.NOTEBOOK)
-
-
-def display_data_message() -> JsonRecord:
-    """
-    A valid display_data message with an image/png MIME type.
-    """
-    # The display hook doesn't depend on the image/png value, so ignore it.
-    return comm_request({"image/png": None}, msg_type="display_data")
-
-
-def init_hook(hook: PositronDisplayPublisherHook) -> Optional[JsonRecord]:
-    # Initialize the hook by calling it on a figure created with the test plot data
-    plt.plot(PLOT_DATA)
-    try:
-        msg = display_data_message()
-        return hook(msg)
-    finally:
-        plt.close()
-
-
-@pytest.fixture
-def figure_comm(hook: PositronDisplayPublisherHook) -> DummyComm:
-    """
-    A comm corresponding to a test figure belonging to the Positron display publisher hook.
-    """
-    assert init_hook(hook) is None
-
-    # Return the comm corresponding to the first figure
-    id = next(iter(hook.comms))
-    figure_comm = cast(DummyComm, hook.comms[id].comm)
-
-    # Check that the comm_open message was sent
-    assert figure_comm.messages == [comm_open_message(TARGET_NAME)]
-
-    # Clear messages due to the comm_open
-    figure_comm.messages.clear()
-
-    return figure_comm
-
-
-def test_hook_call_noop_on_non_display_data(hook: PositronDisplayPublisherHook) -> None:
-    msg = comm_request({"image/png": None}, msg_type="not_display_data")
-    assert hook(msg) == msg
-    assert hook.figures == {}
-    assert hook.comms == {}
-
-
-def test_hook_call_noop_on_no_image_png(hook: PositronDisplayPublisherHook) -> None:
-    msg = comm_request({}, msg_type="display_data")
-    assert hook(msg) == msg
-    assert hook.figures == {}
-    assert hook.comms == {}
-
-
-def test_hook_call_noop_in_notebook(notebook_hook: PositronDisplayPublisherHook) -> None:
-    msg = display_data_message()
-    assert notebook_hook(msg) == msg
-    assert notebook_hook.figures == {}
-    assert notebook_hook.comms == {}
-
-
-def test_hook_call(hook: PositronDisplayPublisherHook, images_path: Path) -> None:
-    assert init_hook(hook) is None
-
-    # It creates a new figure and comm
-    assert len(hook.figures) == 1
-    id = next(iter(hook.figures))
-    assert id in hook.comms
-
-    # Check the comm's properties
-    comm = hook.comms[id].comm
-    assert comm.target_name == hook.target_name
-    assert comm.comm_id == id
-
-    # Check that the figure is a pickled base64-encoded string by decoding it and comparing it
-    # with a reference figure.
-    # First, save the hook's figure
-    fig_encoded = hook.figures[id]
-    fig: Figure = pickle.loads(codecs.decode(fig_encoded.encode(), "base64"))
-    actual = images_path / "test-hook-call-actual.png"
-    fig.savefig(str(actual))
-
-    # Create the reference figure
-    fig_ref = cast(Figure, plt.figure())
-    fig_axes = cast(Axes, fig_ref.subplots())
-    fig_axes.plot(PLOT_DATA)
-    expected = images_path / "test-hook-call-expected.png"
-    fig_ref.savefig(str(expected))
-
-    # Compare actual versus expected figures
-    err = compare_images(str(actual), str(expected), tol=0)
-    assert not err
-
-
-def render_request(comm_id: str, width_px: int = 500, height_px: int = 500, pixel_ratio: int = 1):
-    return json_rpc_request(
-        "render",
-        {"width": width_px, "height": height_px, "pixel_ratio": pixel_ratio},
-        comm_id=comm_id,
-    )
-
-
-def test_hook_render_noop_on_unknown_comm(figure_comm: DummyComm) -> None:
-    # Handle a valid message but invalid comm_id
-    msg = render_request("unknown_comm_id")
-    figure_comm.handle_msg(msg)
-
-    # No messages sent
-    assert figure_comm.messages == []
-
-
-def test_hook_render_error_on_unknown_figure(
-    hook: PositronDisplayPublisherHook, figure_comm: DummyComm
+def test_mpl_dont_create_plot_on_new_figure(
+    shell: PositronShell, plots_service: PlotsService
 ) -> None:
-    # Clear the hook's figures to simulate a missing figure
-    hook.figures.clear()
+    # Creating a figure should not yet create a plot with the plots service.
+    shell.run_cell("plt.figure()")
+    assert not plots_service._plots
 
-    # Handle a message with a valid msg_type and valid comm_id, but the hook now has a missing figure
-    msg = render_request(figure_comm.comm_id)
-    figure_comm.handle_msg(msg)
 
-    # Check that we receive an error reply
-    assert figure_comm.messages == [
-        json_rpc_error(JsonRpcErrorCode.INVALID_PARAMS, f"Figure {figure_comm.comm_id} not found")
+def _get_plot_comms(plots_service: PlotsService) -> List[DummyComm]:
+    return [cast(DummyComm, plot._comm.comm) for plot in plots_service._plots]
+
+
+def _get_single_plot_comm(plots_service: PlotsService) -> DummyComm:
+    plot_comms = _get_plot_comms(plots_service)
+    assert len(plot_comms) == 1
+    return plot_comms[0]
+
+
+@pytest.mark.parametrize("code", ["plt.figure(); plt.show()", "plt.figure().show()"])
+def test_mpl_send_open_comm_on_plt_show(
+    code: str, shell: PositronShell, plots_service: PlotsService
+) -> None:
+    # Showing a figure should create a plot with the plots service and open a corresponding comm.
+    shell.run_cell(code)
+    plot_comm = _get_single_plot_comm(plots_service)
+    assert plot_comm.pop_messages() == [comm_open_message(_CommTarget.Plot)]
+
+
+def _create_mpl_plot(shell: PositronShell, plots_service: PlotsService) -> DummyComm:
+    shell.run_cell("plt.figure().show()")
+    plot_comm = _get_single_plot_comm(plots_service)
+    plot_comm.messages.clear()
+    return plot_comm
+
+
+def test_mpl_send_show_on_successive_plt_show(
+    shell: PositronShell, plots_service: PlotsService
+) -> None:
+    plot_comm = _create_mpl_plot(shell, plots_service)
+
+    # Show the figure again.
+    shell.run_cell("plt.show()")
+    assert plot_comm.pop_messages() == [json_rpc_notification("show", {})]
+
+    # It should also work with Figure.show().
+    shell.run_cell("plt.gcf().show()")
+    assert plot_comm.pop_messages() == [json_rpc_notification("show", {})]
+
+
+def test_mpl_send_update_on_draw(shell: PositronShell, plots_service: PlotsService) -> None:
+    plot_comm = _create_mpl_plot(shell, plots_service)
+
+    # Drawing to an active plot should trigger an update.
+    shell.run_cell("plt.plot([1, 2])")
+    assert plot_comm.pop_messages() == [json_rpc_notification("update", {})]
+
+
+def test_mpl_dont_send_update_on_execution(
+    shell: PositronShell, plots_service: PlotsService
+) -> None:
+    plot_comm = _create_mpl_plot(shell, plots_service)
+
+    # Executing code that doesn't draw to the active plot should not trigger an update.
+    shell.run_cell("1")
+    assert plot_comm.pop_messages() == []
+
+
+def test_mpl_send_close_comm_on_plt_close(
+    shell: PositronShell, plots_service: PlotsService
+) -> None:
+    plot_comm = _create_mpl_plot(shell, plots_service)
+
+    # Closing the figure should close the plot and send a comm close message.
+    shell.run_cell("plt.close()")
+    assert plot_comm.pop_messages() == [comm_close_message()]
+    assert not plots_service._plots
+
+
+def test_mpl_multiple_figures(shell: PositronShell, plots_service: PlotsService) -> None:
+    # Create two figures, and show them both.
+    shell.run_cell("f1 = plt.figure(); f2 = plt.figure(); plt.show()")
+
+    plot_comms = _get_plot_comms(plots_service)
+    assert len(plot_comms) == 2
+    for plot_comm in plot_comms:
+        assert plot_comm.pop_messages() == [comm_open_message(_CommTarget.Plot)]
+
+    # Draw to the first figure.
+    shell.run_cell("plt.figure(f1); plt.plot([1, 2])")
+
+    assert plot_comms[0].pop_messages() == [json_rpc_notification("update", {})]
+    assert plot_comms[1].pop_messages() == []
+
+    # Draw to the second figure.
+    shell.run_cell("plt.figure(f2); plt.plot([1, 2])")
+
+    assert plot_comms[0].pop_messages() == []
+    assert plot_comms[1].pop_messages() == [json_rpc_notification("update", {})]
+
+    # Show the first figure.
+    shell.run_cell("f1.show()")
+
+    assert plot_comms[0].pop_messages() == [json_rpc_notification("show", {})]
+    assert plot_comms[1].pop_messages() == []
+
+    # Show the second figure.
+    shell.run_cell("f2.show()")
+
+    assert plot_comms[0].pop_messages() == []
+    assert plot_comms[1].pop_messages() == [json_rpc_notification("show", {})]
+
+
+def test_mpl_render(shell: PositronShell, plots_service: PlotsService, images_path: Path) -> None:
+    # First show the figure and get the plot comm.
+    shell.run_cell("plt.plot([1, 2])\nplt.show()")
+    plot_comm = _get_single_plot_comm(plots_service)
+    assert plot_comm.pop_messages() == [
+        comm_open_message(_CommTarget.Plot),
+        # NOTE: The update here is unnecessary since when the frontend receives a comm open, it
+        #  responds with a render request. It is probably harmless though since the frontend
+        #  debounces render requests. It happens because all figures are redrawn post cell execution,
+        #  when matplotlib interactive mode is enabled.
+        json_rpc_notification("update", {}),
     ]
 
+    # Send a render request to the plot comm.
+    width = 400
+    height = 300
+    pixel_ratio = 2
+    format = "png"
+    msg = json_rpc_request(
+        "render",
+        {"width": width, "height": height, "pixel_ratio": pixel_ratio, "format": format},
+        comm_id="dummy_comm_id",
+    )
+    plot_comm.handle_msg(msg)
 
-def _save_base64_image(encoded: str, filename: Path) -> None:
-    image = codecs.decode(encoded.encode(), "base64")
-    with open(filename, "wb") as f:
-        f.write(image)
+    responses = plot_comm.pop_messages()
+    assert len(responses) == 1
+    response = responses[0]
 
+    # Check that the response includes the expected base64-encoded resized image.
+    image_bytes = response["data"]["result"].pop("data")
+    image = Image.open(io.BytesIO(base64.b64decode(image_bytes)))
+    assert image.format == format.upper()
+    assert image.size == (width * pixel_ratio, height * pixel_ratio)
+    # Save it to disk for manual inspection.
+    image.save(images_path / "test-mpl-render.png")
 
-def test_hook_render(figure_comm: DummyComm, images_path: Path) -> None:
-    # Send a valid render message with a custom width and height
-    width_px = height_px = 100
-    pixel_ratio = 1
-    msg = render_request(figure_comm.comm_id, width_px, height_px, pixel_ratio)
-    figure_comm.handle_msg(msg)
-
-    # Check that the reply is a comm_msg
-    reply = figure_comm.messages[0]
-    assert reply["msg_type"] == "comm_msg"
-    assert reply["buffers"] is None
-    assert reply["metadata"] == {"mime_type": "image/png"}
-
-    # Check that the reply data is an `image` message
-    image_msg = reply["data"]
-    assert image_msg["result"]["mime_type"] == "image/png"
-
-    # Check that the reply data includes the expected base64-encoded resized image
-
-    # Save the reply's image
-    actual = images_path / "test-hook-render-actual.png"
-    _save_base64_image(image_msg["result"]["data"], actual)
-
-    # Create the reference figure
-    dpi = BASE_DPI * pixel_ratio
-    width_in = width_px / BASE_DPI
-    height_in = height_px / BASE_DPI
-
-    fig_buffer = io.BytesIO()
-    fig_ref = cast(Figure, plt.figure())
-    fig_axes = cast(Axes, fig_ref.subplots())
-    fig_axes.plot([1, 2])
-    fig_ref.set_dpi(dpi)
-    fig_ref.set_size_inches(width_in, height_in)
-    fig_ref.set_layout_engine("tight")
-
-    # Serialize the reference figure as a base64-encoded image
-    fig_ref.savefig(fig_buffer, format="png")
-    fig_buffer.seek(0)
-    expected = images_path / "test-hook-render-expected.png"
-    _save_base64_image(base64.b64encode(fig_buffer.read()).decode(), expected)
-
-    # Compare the actual vs expected figures
-    err = compare_images(str(actual), str(expected), tol=0)
-    assert not err
+    # Check the rest of the response.
+    assert response == json_rpc_response({"mime_type": "image/png"})
 
 
-# It's important that we depend on the figure_comm fixture too, so that the hook is initialized
-def test_shutdown(hook: PositronDisplayPublisherHook, figure_comm: DummyComm) -> None:
-    # Double-check that it still has figures and comms
-    assert len(hook.figures) == 1
-    assert len(hook.comms) == 1
+def test_mpl_shutdown(shell: PositronShell, plots_service: PlotsService) -> None:
+    # Create a figure and show it.
+    shell.run_cell("plt.figure(); plt.figure(); plt.show()")
+    plot_comms = _get_plot_comms(plots_service)
 
-    # Double-check that the comm is not yet closed
-    assert not figure_comm._closed
+    # Double-check that it still has plots.
+    assert len(plots_service._plots) == 2
 
-    hook.shutdown()
+    # Double-check that all comms are still open.
+    assert not any(comm._closed for comm in plot_comms)
 
-    # Figures and comms are closed and cleared
-    assert not hook.figures
-    assert not hook.comms
-    assert figure_comm._closed
+    plots_service.shutdown()
+
+    # Plots are closed and cleared.
+    assert not plots_service._plots
+    assert all(comm._closed for comm in plot_comms)

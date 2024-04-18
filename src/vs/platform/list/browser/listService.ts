@@ -1416,7 +1416,11 @@ configurationRegistry.registerConfiguration({
 		},
 		[treeIndentKey]: {
 			type: 'number',
-			default: 8,
+			// --- Start Positron ---
+			// https://github.com/posit-dev/positron/issues/2688
+			// default: 8,
+			default: 18,
+			// --- End Positron ---
 			minimum: 4,
 			maximum: 40,
 			description: localize('tree indent setting', "Controls tree indentation in pixels.")

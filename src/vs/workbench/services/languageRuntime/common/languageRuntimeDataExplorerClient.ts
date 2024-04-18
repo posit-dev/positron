@@ -6,7 +6,19 @@ import { generateUuid } from 'vs/base/common/uuid';
 import { Emitter, Event } from 'vs/base/common/event';
 import { Disposable } from 'vs/base/common/lifecycle';
 import { IRuntimeClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimeClientInstance';
-import { ColumnProfileRequest, ColumnProfileResult, ColumnSchema, ColumnSortKey, FilterResult, PositronDataExplorerComm, RowFilter, SchemaUpdateEvent, TableData, TableSchema, TableState } from 'vs/workbench/services/languageRuntime/common/positronDataExplorerComm';
+import {
+	BackendState,
+	ColumnProfileRequest,
+	ColumnProfileResult,
+	ColumnSchema,
+	ColumnSortKey,
+	FilterResult,
+	PositronDataExplorerComm,
+	RowFilter,
+	SchemaUpdateEvent,
+	TableData,
+	TableSchema
+} from 'vs/workbench/services/languageRuntime/common/positronDataExplorerComm';
 
 /**
  * TableSchemaSearchResult interface. This is here temporarily until searching the tabe schema
@@ -97,7 +109,7 @@ export class DataExplorerClientInstance extends Disposable {
 	 * Get the current active state of the data explorer backend.
 	 * @returns A promose that resolves to the current table state.
 	 */
-	async getState(): Promise<TableState> {
+	async getState(): Promise<BackendState> {
 		return this._positronDataExplorerComm.getState();
 	}
 

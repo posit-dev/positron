@@ -9,6 +9,11 @@
 			"name": "update",
 			"summary": "Notification that a plot has been updated on the backend.",
 			"params": []
+		},
+		{
+			"name": "show",
+			"summary": "Show a plot.",
+			"params": []
 		}
 	]
 }

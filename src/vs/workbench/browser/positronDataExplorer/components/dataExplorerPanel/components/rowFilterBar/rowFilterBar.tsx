@@ -18,10 +18,20 @@ import { ContextMenuItem } from 'vs/workbench/browser/positronComponents/context
 import { ContextMenuSeparator } from 'vs/workbench/browser/positronComponents/contextMenu/contextMenuSeparator';
 import { usePositronDataExplorerContext } from 'vs/workbench/browser/positronDataExplorer/positronDataExplorerContext';
 import { PositronModalReactRenderer } from 'vs/workbench/browser/positronModalReactRenderer/positronModalReactRenderer';
-import { CompareFilterParamsOp, RowFilter, RowFilterType } from 'vs/workbench/services/languageRuntime/common/positronDataExplorerComm';
+import { RowFilter, RowFilterCondition, RowFilterType } from 'vs/workbench/services/languageRuntime/common/positronDataExplorerComm';
 import { RowFilterWidget } from 'vs/workbench/browser/positronDataExplorer/components/dataExplorerPanel/components/rowFilterBar/components/rowFilterWidget';
 import { AddEditRowFilterModalPopup } from 'vs/workbench/browser/positronDataExplorer/components/dataExplorerPanel/components/addEditRowFilterModalPopup/addEditRowFilterModalPopup';
-import { RowFilterDescriptor, RowFilterDescriptorIsEmpty, RowFilterDescriptorIsNotEmpty, RowFilterDescriptorIsLessThan, RowFilterDescriptorIsGreaterThan, RowFilterDescriptorIsEqualTo, RowFilterDescriptorIsBetween, RowFilterDescriptorIsNotBetween } from 'vs/workbench/browser/positronDataExplorer/components/dataExplorerPanel/components/addEditRowFilterModalPopup/rowFilterDescriptor';
+import {
+	RowFilterDescriptor,
+	RowFilterDescriptorComparison,
+	RowFilterDescriptorIsEmpty,
+	RowFilterDescriptorIsNotEmpty,
+	RowFilterDescriptorIsNull,
+	RowFilterDescriptorIsNotNull,
+	RowFilterDescriptorIsBetween,
+	RowFilterDescriptorIsNotBetween,
+	RowFilterDescriptorSearch
+} from 'vs/workbench/browser/positronDataExplorer/components/dataExplorerPanel/components/addEditRowFilterModalPopup/rowFilterDescriptor';
 
 /**
  * Creates row filters from row filter descriptors.
@@ -35,67 +45,68 @@ const createRowFilters = (rowFilterDescriptors: RowFilterDescriptor[]) => {
 		rowFilterDescriptor
 	) => {
 		//
+		const sharedParams = {
+			filter_id: rowFilterDescriptor.identifier,
+			column_index: rowFilterDescriptor.columnSchema.column_index,
+			condition: RowFilterCondition.And
+		};
+
 		if (rowFilterDescriptor instanceof RowFilterDescriptorIsEmpty) {
 			rowFilters.push({
-				filter_id: rowFilterDescriptor.identifier,
-				filter_type: RowFilterType.IsNull,
-				column_index: rowFilterDescriptor.columnSchema.column_index
+				filter_type: RowFilterType.IsEmpty,
+				...sharedParams
 			});
 		} else if (rowFilterDescriptor instanceof RowFilterDescriptorIsNotEmpty) {
 			rowFilters.push({
-				filter_id: rowFilterDescriptor.identifier,
+				filter_type: RowFilterType.NotEmpty,
+				...sharedParams
+			});
+		} else if (rowFilterDescriptor instanceof RowFilterDescriptorIsNull) {
+			rowFilters.push({
+				filter_type: RowFilterType.IsNull,
+				...sharedParams
+			});
+		} else if (rowFilterDescriptor instanceof RowFilterDescriptorIsNotNull) {
+			rowFilters.push({
 				filter_type: RowFilterType.NotNull,
-				column_index: rowFilterDescriptor.columnSchema.column_index
+				...sharedParams
 			});
-		} else if (rowFilterDescriptor instanceof RowFilterDescriptorIsLessThan) {
+		} else if (rowFilterDescriptor instanceof RowFilterDescriptorComparison) {
 			rowFilters.push({
-				filter_id: rowFilterDescriptor.identifier,
 				filter_type: RowFilterType.Compare,
-				column_index: rowFilterDescriptor.columnSchema.column_index,
 				compare_params: {
-					op: CompareFilterParamsOp.Lt,
+					op: rowFilterDescriptor.compareFilterOp,
 					value: rowFilterDescriptor.value
-				}
+				},
+				...sharedParams
 			});
-		} else if (rowFilterDescriptor instanceof RowFilterDescriptorIsGreaterThan) {
+		} else if (rowFilterDescriptor instanceof RowFilterDescriptorSearch) {
 			rowFilters.push({
-				filter_id: rowFilterDescriptor.identifier,
-				filter_type: RowFilterType.Compare,
-				column_index: rowFilterDescriptor.columnSchema.column_index,
-				compare_params: {
-					op: CompareFilterParamsOp.Gt,
-					value: rowFilterDescriptor.value
-				}
-			});
-		} else if (rowFilterDescriptor instanceof RowFilterDescriptorIsEqualTo) {
-			rowFilters.push({
-				filter_id: rowFilterDescriptor.identifier,
-				filter_type: RowFilterType.Compare,
-				column_index: rowFilterDescriptor.columnSchema.column_index,
-				compare_params: {
-					op: CompareFilterParamsOp.Eq,
-					value: rowFilterDescriptor.value
-				}
+				filter_type: RowFilterType.Search,
+				search_params: {
+					search_type: rowFilterDescriptor.searchOp,
+					term: rowFilterDescriptor.value,
+					case_sensitive: false
+				},
+				...sharedParams
 			});
 		} else if (rowFilterDescriptor instanceof RowFilterDescriptorIsBetween) {
 			rowFilters.push({
-				filter_id: rowFilterDescriptor.identifier,
 				filter_type: RowFilterType.Between,
-				column_index: rowFilterDescriptor.columnSchema.column_index,
 				between_params: {
 					left_value: rowFilterDescriptor.lowerLimit,
 					right_value: rowFilterDescriptor.upperLimit
-				}
+				},
+				...sharedParams
 			});
 		} else if (rowFilterDescriptor instanceof RowFilterDescriptorIsNotBetween) {
 			rowFilters.push({
-				filter_id: rowFilterDescriptor.identifier,
 				filter_type: RowFilterType.NotBetween,
-				column_index: rowFilterDescriptor.columnSchema.column_index,
 				between_params: {
 					left_value: rowFilterDescriptor.lowerLimit,
 					right_value: rowFilterDescriptor.upperLimit
-				}
+				},
+				...sharedParams
 			});
 		}
 

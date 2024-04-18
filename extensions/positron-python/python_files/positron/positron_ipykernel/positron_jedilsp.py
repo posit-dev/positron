@@ -174,10 +174,13 @@ class PositronJediLanguageServer(JediLanguageServer):
         """Starts TCP server."""
         logger.info("Starting TCP server on %s:%s", host, port)
 
+        # Create a new event loop for the LSP server thread.
+        self.loop = asyncio.new_event_loop()
+
         # Set the event loop's debug mode.
         self.loop.set_debug(self._debug)
 
-        # Use our event loop as the thread's main event loop.
+        # Use our event loop as the thread's current event loop.
         asyncio.set_event_loop(self.loop)
 
         self._stop_event = threading.Event()
@@ -226,7 +229,8 @@ class PositronJediLanguageServer(JediLanguageServer):
 
         # Below is taken as-is from pygls.server.Server.shutdown to remove awaiting
         # server.wait_closed since it is a no-op if called after server.close in <=3.11 and blocks
-        # forever in >=3.12. See: https://github.com/python/cpython/issues/79033 for more.
+        # forever in >=3.12 when exit() is called in the console.
+        # See: https://github.com/python/cpython/issues/79033 for more.
         if self._stop_event is not None:
             self._stop_event.set()
 
@@ -242,12 +246,10 @@ class PositronJediLanguageServer(JediLanguageServer):
             # This is where we should wait for the server to close but don't due to the issue
             # described above.
 
-        # Reset the loop and thread reference to allow starting a new server in the same process,
-        # e.g. when a browser-based Positron is refreshed.
+        # Close the loop and reset the thread reference to allow starting a new server in the same
+        # process e.g. when a browser-based Positron is refreshed.
         if not self.loop.is_closed():
             self.loop.close()
-
-        self.loop = asyncio.new_event_loop()
         self._server_thread = None
 
     def stop(self) -> None:
@@ -266,9 +268,12 @@ POSITRON = PositronJediLanguageServer(
     name="jedi-language-server",
     version="0.18.2",
     protocol_cls=PositronJediLanguageServerProtocol,
-    # Provide an event loop, else the pygls Server base class sets its own event loop as the main
-    # event loop, which we use to run the kernel.
-    loop=asyncio.new_event_loop(),
+    # Provide an arbitrary not-None value for the event loop to stop `pygls.server.Server.__init__`
+    # from creating a new event loop and setting it as the current loop for the current OS thread
+    # when this module is imported in the main thread. This allows the kernel to control the event
+    # loop for its thread. The LSP's event loop will be created in its own thread in the `start_tcp`
+    # method. This may break in future versions of pygls.
+    loop=object(),
 )
 
 _MAGIC_COMPLETIONS: Dict[str, Any] = {}

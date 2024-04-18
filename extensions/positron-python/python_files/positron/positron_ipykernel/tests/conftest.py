@@ -33,6 +33,11 @@ class DummyComm(comm.base_comm.BaseComm):
         msg["msg_type"] = msg_type
         self.messages.append(msg)
 
+    def pop_messages(self):
+        messages = list(self.messages)
+        self.messages.clear()
+        return messages
+
 
 # Enable autouse so that all comms are created as DummyComms.
 @pytest.fixture(autouse=True)
@@ -91,6 +96,13 @@ def shell() -> Iterable[PositronShell]:
 
     # Reset the namespace so we don't interface with other tests (e.g. environment updates).
     shell.reset()
+
+
+@pytest.fixture
+def mock_connections_service(shell: PositronShell, monkeypatch: pytest.MonkeyPatch) -> Mock:
+    mock = Mock()
+    monkeypatch.setattr(shell.kernel, "connections_service", mock)
+    return mock
 
 
 @pytest.fixture

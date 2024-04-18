@@ -171,6 +171,7 @@ export class PositronDataExplorerEditor extends EditorPane implements IReactComp
 
 	/**
 	 * Constructor.
+	 * @param _group The editor group.
 	 * @param _clipboardService The clipboard service.
 	 * @param _commandService The command service.
 	 * @param _configurationService The configuration service.
@@ -183,6 +184,7 @@ export class PositronDataExplorerEditor extends EditorPane implements IReactComp
 	 * @param themeService The theme service.
 	 */
 	constructor(
+		readonly _group: IEditorGroup,
 		@IClipboardService readonly _clipboardService: IClipboardService,
 		@ICommandService private readonly _commandService: ICommandService,
 		@IConfigurationService private readonly _configurationService: IConfigurationService,
@@ -196,7 +198,7 @@ export class PositronDataExplorerEditor extends EditorPane implements IReactComp
 		@IThemeService themeService: IThemeService,
 	) {
 		// Call the base class's constructor.
-		super(PositronDataExplorerEditorInput.EditorID, telemetryService, themeService, storageService);
+		super(PositronDataExplorerEditorInput.EditorID, _group, telemetryService, themeService, storageService);
 
 		// Logging.
 		console.log(`PositronDataExplorerEditor ${this._instance} created`);
@@ -278,6 +280,10 @@ export class PositronDataExplorerEditor extends EditorPane implements IReactComp
 				// Logging.
 				console.log(`PositronDataExplorerEditor ${this._instance} create PositronReactRenderer`);
 
+				// Hack -- this is usually set by setInput but we're setting it temporarily to be
+				// able to edit the editor tab name
+				this._input = input;
+
 				// Success.
 				return;
 			}
@@ -307,14 +313,13 @@ export class PositronDataExplorerEditor extends EditorPane implements IReactComp
 	/**
 	 * Sets editor visibility.
 	 * @param visible A value which indicates whether the editor should be visible.
-	 * @param group The editor group.
 	 */
-	protected override setEditorVisible(visible: boolean, group: IEditorGroup | undefined): void {
+	protected override setEditorVisible(visible: boolean): void {
 		// Logging.
-		console.log(`PositronDataExplorerEditor ${this._instance} setEditorVisible ${visible} group ${group?.id}`);
+		console.log(`PositronDataExplorerEditor ${this._instance} setEditorVisible ${visible} group ${this._group?.id}`);
 
 		// Call the base class's method.
-		super.setEditorVisible(visible, group);
+		super.setEditorVisible(visible);
 	}
 
 	//#endregion Protected Overrides

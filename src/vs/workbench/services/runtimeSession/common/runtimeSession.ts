@@ -436,7 +436,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 
 		this._foregroundSession = session;
 
-		// Fire the onDidChangeActiveRuntime event.
+		// Fire the onDidChangeForegroundSession event.
 		this._onDidChangeForegroundSessionEmitter.fire(this._foregroundSession);
 	}
 
@@ -817,6 +817,17 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 						// runtime were started (e.g. focusing the console)
 						this.foregroundSession = session;
 					}
+
+					// If this is a console session and there isn't already a console session
+					// for this language, set this one as the console session.
+					// (This restores the console session in the case of a
+					// restart)
+					if (session.metadata.sessionMode === LanguageRuntimeSessionMode.Console &&
+						!this._consoleSessionsByLanguageId.has(session.runtimeMetadata.languageId)) {
+						this._consoleSessionsByLanguageId.set(session.runtimeMetadata.languageId,
+							session);
+					}
+
 
 					// Start the UI client instance once the runtime is fully online.
 					this.startUiClient(session);

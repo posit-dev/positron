@@ -126,7 +126,10 @@ const hotExitConfiguration: IConfigurationPropertySchema = isNative ?
 		'type': 'string',
 		'scope': ConfigurationScope.APPLICATION,
 		'enum': [HotExitConfiguration.OFF, HotExitConfiguration.ON_EXIT, HotExitConfiguration.ON_EXIT_AND_WINDOW_CLOSE],
-		'default': HotExitConfiguration.ON_EXIT,
+		// --- Start Positron ---
+		// 'default': HotExitConfiguration.ON_EXIT,
+		'default': HotExitConfiguration.ON_EXIT_AND_WINDOW_CLOSE,
+		// --- End Positron ---
 		'markdownEnumDescriptions': [
 			nls.localize('hotExit.off', 'Disable hot exit. A prompt will show when attempting to close a window with editors that have unsaved changes.'),
 			nls.localize('hotExit.onExit', 'Hot exit will be triggered when the last window is closed on Windows/Linux or when the `workbench.action.quit` command is triggered (command palette, keybinding, menu). All windows without folders opened will be restored upon next launch. A list of previously opened windows with unsaved files can be accessed via `File > Open Recent > More...`'),
@@ -228,6 +231,12 @@ configurationRegistry.registerConfiguration({
 			'type': 'boolean',
 			'default': false,
 			'description': nls.localize('trimTrailingWhitespace', "When enabled, will trim trailing whitespace when saving a file."),
+			'scope': ConfigurationScope.LANGUAGE_OVERRIDABLE
+		},
+		'files.trimTrailingWhitespaceInRegexAndStrings': {
+			'type': 'boolean',
+			'default': true,
+			'description': nls.localize('trimTrailingWhitespaceInRegexAndStrings', "When enabled, trailing whitespace will be removed from multiline strings and regexes will be removed on save or when executing 'editor.action.trimTrailingWhitespace'. This can cause whitespace to not be trimmed from lines when there isn't up-to-date token information."),
 			'scope': ConfigurationScope.LANGUAGE_OVERRIDABLE
 		},
 		'files.insertFinalNewline': {
