@@ -27,13 +27,18 @@ import { ResolvedKeybinding } from 'vs/base/common/keybindings';
 import { IKeybindingService } from 'vs/platform/keybinding/common/keybinding';
 
 // --- Start Positron ---
+// TODO(seem): We can remove this if we eventually decide to unbundle vscode-jupyter.
 export const IGNORED_JUPYTER_COMMANDS = new Set([
+	// Disable commands that open an Interactive Window, since we have the Positron Console.
 	'jupyter.createnewinteractive',
 	'jupyter.debugFileInteractive',
 	'jupyter.execSelectionInteractive',
 	'jupyter.runFileInteractive',
 	'jupyter.runfromline',
 	'jupyter.runtoline',
+	// Disable this command which configures the Jupyter extension to run in a separate extension
+	// host process. We don't currently support running multiple extension host processes.
+	'jupyter.runInDedicatedExtensionHost',
 ]);
 // --- End Positron ---
 
