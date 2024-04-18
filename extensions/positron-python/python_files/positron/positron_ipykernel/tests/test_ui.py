@@ -61,6 +61,10 @@ def working_directory_event() -> Dict[str, Any]:
     return json_rpc_notification("working_directory", {"directory": str(alias_home(Path.cwd()))})
 
 
+def show_url_event(url: str) -> Dict[str, Any]:
+    return json_rpc_notification("show_url", {"url": url})
+
+
 def test_comm_open(ui_service: UiService) -> None:
     # Double-check that comm is not yet open
     assert ui_service._comm is None
@@ -140,3 +144,18 @@ def test_shutdown(ui_service: UiService, ui_comm: DummyComm) -> None:
 
     # Comm is closed
     assert ui_comm._closed
+
+
+def test_viewer_webbrowser(shell: PositronShell, ui_comm: DummyComm) -> None:
+    # If webbrowser is used to open a localhost url, send to viewer
+    url = "https://localhost:8000"
+    name = "a"
+    shell.run_cell(
+        f"""import webbrowser
+{name} = webbrowser._tryorder
+webbrowser.open({url})"""
+    )
+
+    obj = shell.user_ns[name]
+    assert obj["PositronViewerBrowser"]
+    assert ui_comm.messages == [show_url_event(url)]

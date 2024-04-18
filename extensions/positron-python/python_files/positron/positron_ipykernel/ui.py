@@ -4,7 +4,6 @@
 
 import logging
 import os
-import re
 import webbrowser
 from pathlib import Path
 from typing import Callable, Dict, List, Optional, Union
