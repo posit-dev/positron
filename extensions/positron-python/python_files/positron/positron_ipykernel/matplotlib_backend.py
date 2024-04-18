@@ -39,15 +39,15 @@ class FigureManagerPositron(FigureManagerBase):
     """
     Interface for the matplotlib backend to interact with the Positron frontend.
 
-    Parameters:
-    -----------
+    Parameters
+    ----------
     canvas
         The canvas for this figure.
     num
         The figure number.
 
-    Attributes:
-    -----------
+    Attributes
+    ----------
     canvas
         The canvas for this figure.
     """
@@ -110,13 +110,13 @@ class FigureCanvasPositron(FigureCanvasAgg):
     """
     The canvas for a figure in the Positron backend.
 
-    Parameters:
-    -----------
+    Parameters
+    ----------
     figure
         The figure to draw on this canvas.
 
-    Attributes:
-    -----------
+    Attributes
+    ----------
     manager
         The manager for this canvas.
     """
@@ -135,8 +135,8 @@ class FigureCanvasPositron(FigureCanvasAgg):
         """
         Draw the canvas; send an update event if the canvas has changed.
 
-        Parameters:
-        -----------
+        Parameters
+        ----------
         is_rendering
             Whether the canvas is being rendered, to avoid recursively requesting an update from the
             frontend.

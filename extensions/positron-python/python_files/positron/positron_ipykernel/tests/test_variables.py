@@ -12,6 +12,7 @@ import numpy as np
 import pandas as pd
 import polars as pl
 import pytest
+
 from positron_ipykernel.access_keys import encode_access_key
 from positron_ipykernel.positron_comm import JsonRpcErrorCode
 from positron_ipykernel.positron_ipkernel import PositronIPyKernel
@@ -24,7 +25,7 @@ from positron_ipykernel.variables import (
 
 from .conftest import DummyComm, PositronShell
 from .utils import (
-    assert_dataset_registered,
+    assert_register_table_called,
     comm_open_message,
     json_rpc_error,
     json_rpc_notification,
@@ -367,7 +368,7 @@ def test_handle_view(
     # An acknowledgment message is sent
     assert variables_comm.messages == [json_rpc_response({})]
 
-    assert_dataset_registered(mock_dataexplorer_service, shell.user_ns["x"], "x")
+    assert_register_table_called(mock_dataexplorer_service, shell.user_ns["x"], "x")
 
 
 def test_handle_view_error(variables_comm: DummyComm) -> None:
