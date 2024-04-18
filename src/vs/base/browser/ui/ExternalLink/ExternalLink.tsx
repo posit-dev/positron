@@ -31,5 +31,8 @@ export function ExternalLink(props: ExternalLinkProps) {
 			e.preventDefault();
 			openerService.open(href);
 		}}
-	/>;
+	>
+		{props.children}
+	</a>
+		;
 }

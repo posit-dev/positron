@@ -24,6 +24,7 @@ import { ILanguageRuntimeService } from 'vs/workbench/services/languageRuntime/c
 import { IRuntimeSessionService } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
 import { IRuntimeStartupService } from 'vs/workbench/services/runtimeStartup/common/runtimeStartupService';
 import { ILogService } from 'vs/platform/log/common/log';
+import { IOpenerService } from 'vs/platform/opener/common/opener';
 
 /**
  * The PositronNewProjectAction.
@@ -78,6 +79,7 @@ export class PositronNewProjectAction extends Action2 {
 			accessor.get(ILanguageRuntimeService),
 			accessor.get(IWorkbenchLayoutService),
 			accessor.get(ILogService),
+			accessor.get(IOpenerService),
 			accessor.get(IPathService),
 			accessor.get(IRuntimeSessionService),
 			accessor.get(IRuntimeStartupService),

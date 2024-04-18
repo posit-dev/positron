@@ -11,6 +11,7 @@ import { EnvironmentSetupType, NewProjectType, NewProjectWizardStep, PythonEnvir
 import { IWorkbenchLayoutService } from 'vs/workbench/services/layout/browser/layoutService';
 import { IKeybindingService } from 'vs/platform/keybinding/common/keybinding';
 import { ILogService } from 'vs/platform/log/common/log';
+import { IOpenerService } from 'vs/platform/opener/common/opener';
 import { IPathService } from 'vs/workbench/services/path/common/pathService';
 import { IFileService } from 'vs/platform/files/common/files';
 
@@ -25,6 +26,7 @@ interface NewProjectWizardServices {
 	languageRuntimeService: ILanguageRuntimeService;
 	layoutService: IWorkbenchLayoutService;
 	logService: ILogService;
+	openerService: IOpenerService;
 	pathService: IPathService;
 	runtimeSessionService: IRuntimeSessionService;
 	runtimeStartupService: IRuntimeStartupService;
