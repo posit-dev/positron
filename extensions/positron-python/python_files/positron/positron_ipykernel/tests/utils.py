@@ -30,19 +30,13 @@ def preserve_working_directory():
         os.chdir(cwd)
 
 
-def assert_dataset_registered(mock_datatool_service: Mock, obj: Any, title: str) -> None:
-    call_args_list = mock_datatool_service.register_table.call_args_list
-
+def assert_register_table_called(mock_dataexplorer_service: Mock, obj: Any, title: str) -> None:
+    call_args_list = mock_dataexplorer_service.register_table.call_args_list
     assert len(call_args_list) == 1
 
     passed_table, passed_title = call_args_list[0].args
-
     assert passed_title == title
-
-    try:
-        assert passed_table.equals(obj)
-    except AttributeError:  # polars.DataFrame.equals was introduced in v0.19.16
-        assert passed_table.frame_equal(obj)
+    assert passed_table is obj
 
 
 def comm_message(

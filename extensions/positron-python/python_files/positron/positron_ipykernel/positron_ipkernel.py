@@ -19,9 +19,15 @@ from ipykernel.comm.manager import CommManager
 from ipykernel.ipkernel import IPythonKernel
 from ipykernel.kernelapp import IPKernelApp
 from ipykernel.zmqshell import ZMQDisplayPublisher, ZMQInteractiveShell
-from IPython.core import oinspect, page
+from IPython.core import magic_arguments, oinspect, page
+from IPython.core.error import UsageError
 from IPython.core.interactiveshell import ExecutionInfo, InteractiveShell
-from IPython.core.magic import Magics, MagicsManager, line_magic, magics_class, needs_local_scope
+from IPython.core.magic import (
+    Magics,
+    MagicsManager,
+    line_magic,
+    magics_class,
+)
 from IPython.utils import PyColorize
 
 from .connections import ConnectionsService
@@ -31,7 +37,7 @@ from .lsp import LSPService
 from .plots import PlotsService
 from .session_mode import SessionMode
 from .ui import UiService
-from .utils import JsonRecord
+from .utils import JsonRecord, get_qualname
 from .variables import VariablesService
 from .widget import PositronWidgetHook
 
@@ -96,34 +102,90 @@ class PositronIPythonInspector(oinspect.Inspector):
 class PositronMagics(Magics):
     shell: PositronShell
 
+    # This will override the default `clear` defined in `ipykernel.zmqshell.KernelMagics`.
     @line_magic
-    def clear(self, line: str) -> None:  # type: ignore reportIncompatibleMethodOverride
+    def clear(self, line: str) -> None:
         """Clear the console."""
         # Send a message to the frontend to clear the console.
         self.shell.kernel.ui_service.clear_console()
 
-    @needs_local_scope
+    @magic_arguments.magic_arguments()
+    @magic_arguments.argument(
+        "object",
+        help="The object to view.",
+    )
+    @magic_arguments.argument(
+        "title",
+        nargs="?",
+        help="The title of the Data Explorer tab. Defaults to the object's name.",
+    )
     @line_magic
-    def view(self, line: str, local_ns: Dict[str, Any]):
-        """View an object in the Positron Data Explorer."""
+    def view(self, line: str) -> None:
+        """
+        View an object in the Positron Data Explorer.
+
+        Examples
+        --------
+        View an object:
+
+        >>> %view df
+
+        View an object with a custom title (quotes are required if the title contains spaces):
+
+        >>> %view df "My Dataset"
+        """
         try:
-            obj = local_ns[line]
-        except KeyError:  # not in namespace
-            obj = eval(line, local_ns, local_ns)
+            args = magic_arguments.parse_argstring(self.view, line)
+        except UsageError as e:
+            if (
+                len(e.args) > 0
+                and isinstance(e.args[0], str)
+                and e.args[0].startswith("unrecognized arguments")
+            ):
+                raise UsageError(f"{e.args[0]}. Did you quote the title?")
+            raise
 
-        # Register a dataset with the dataviewer service.
-        self.shell.kernel.data_explorer_service.register_table(obj, line)
+        # Find the object.
+        info = self.shell._ofind(args.object)
+        if not info.found:
+            raise UsageError(f"name '{args.object}' is not defined")
 
-    @needs_local_scope
+        title = args.title
+        if title is None:
+            title = args.object
+        else:
+            # Remove quotes around the title if they exist.
+            if (title.startswith('"') and title.endswith('"')) or (
+                title.startswith("'") and title.endswith("'")
+            ):
+                title = title[1:-1]
+
+        # Register a dataset with the data explorer service.
+        obj = info.obj
+        try:
+            self.shell.kernel.data_explorer_service.register_table(obj, title)
+        except TypeError:
+            raise UsageError(f"cannot view object of type '{get_qualname(obj)}'")
+
+    @magic_arguments.magic_arguments()
+    @magic_arguments.argument(
+        "object",
+        help="The connection object to show.",
+    )
     @line_magic
-    def connection_show(self, line: str, local_ns: Dict[str, Any]):
+    def connection_show(self, line: str) -> None:
         """Show a connection object in the Positron Connections Pane."""
-        try:
-            obj = local_ns[line]
-        except KeyError:  # not in namespace
-            obj = eval(line, local_ns, local_ns)
+        args = magic_arguments.parse_argstring(self.connection_show, line)
 
-        self.shell.kernel.connections_service.register_connection(obj)
+        # Find the object.
+        info = self.shell._ofind(args.object)
+        if not info.found:
+            raise UsageError(f"name '{args.object}' is not defined")
+
+        try:
+            self.shell.kernel.connections_service.register_connection(info.obj)
+        except TypeError:
+            raise UsageError(f"cannot show object of type '{get_qualname(info.obj)}'")
 
 
 _traceback_file_link_re = re.compile(r"^(File \x1b\[\d+;\d+m)(.+):(\d+)")

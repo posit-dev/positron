@@ -181,7 +181,7 @@ class ConnectionsService:
         elif safe_isinstance(obj, "sqlalchemy", "Engine"):
             return SQLAlchemyConnection(obj)
 
-        raise ValueError(f"Unsupported connection type {type_name}")
+        raise TypeError(f"Unsupported connection type {type_name}")
 
     def _close_connection(self, comm_id: str):
         try:

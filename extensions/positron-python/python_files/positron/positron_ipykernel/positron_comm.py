@@ -71,13 +71,13 @@ class PositronComm:
     """
     A wrapper around a base IPython comm that provides a JSON-RPC interface.
 
-    Paramaters:
-    -----------
+    Paramaters
+    ----------
     comm
         The wrapped IPython comm.
 
-    Attributes:
-    -----------
+    Attributes
+    ----------
     comm
         The wrapped IPython comm.
     comm_id
@@ -91,8 +91,8 @@ class PositronComm:
         """
         Create a Positron comm.
 
-        Parameters:
-        -----------
+        Parameters
+        ----------
         target_name
             The name of the target for the comm, as defined in the frontend.
         comm_id
@@ -132,8 +132,8 @@ class PositronComm:
         """
         Register a callback for an RPC request from the frontend.
 
-        Parameters:
-        -----------
+        Parameters
+        ----------
         callback
             Called when a message is received, with both the parsed message `msg: CommMessage` and
             original `raw_msg`. Not called if the `raw_msg` could not be parsed; instead, a JSON-RPC
@@ -191,8 +191,8 @@ class PositronComm:
         """
         Send a JSON-RPC result to the frontend-side version of this comm.
 
-        Parameters:
-        -----------
+        Parameters
+        ----------
         data
             The result data to send.
         metadata
@@ -212,8 +212,8 @@ class PositronComm:
         """
         Send a JSON-RPC notification (event) to the frontend-side version of this comm.
 
-        Parameters:
-        -----------
+        Parameters
+        ----------
         name
             The name of the event.
         payload
@@ -230,8 +230,8 @@ class PositronComm:
         """
         Send a JSON-RPC result to the frontend-side version of this comm.
 
-        Parameters:
-        -----------
+        Parameters
+        ----------
         code
             The error code to send.
         message
