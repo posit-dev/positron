@@ -7,7 +7,6 @@
 	--vscode-editorGutter-background: var(--vscode-editor-background);
 	border: var(--vscode-positronNotebook-border);
 	border-radius: var(--vscode-positronNotebook-cell-radius);
-	/* background-color:  */
 	padding: 0;
 	overflow: hidden;
 
