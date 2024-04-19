@@ -380,18 +380,28 @@ class PandasView(DataExplorerTableView):
             else:
                 old_index = new_index
 
-            # We must proceed under the conservative possibility that
-            # the table was modified in place
             new_column = new_table.iloc[:, new_index]
 
             # For object dtype columns, we refuse to make any
             # assumptions about whether the data type has changed
             # and will let re-filtering fail later if there is a
             # problem
-            if new_column.dtype != object:
+            if new_column.dtype == object:
                 # The inferred type could be different
                 schema_updated = True
+            elif new_table is not self.table:
+                # While we must proceed under the conservative
+                # possibility that the table was modified in place, if
+                # the tables are indeed different we can check for
+                # schema changes more confidently
+                old_dtype = self.table.iloc[:, old_index].dtype
+                if new_column.dtype == old_dtype:
+                    # Type is the same and not object dtype
+                    continue
             elif old_index in filtered_columns:
+                # If it was an in place modification, as a last ditch
+                # effort we check if we remember the data type because
+                # of a prior filter
                 if filtered_columns[old_index].type_name == str(
                     new_column.dtype
                 ):
