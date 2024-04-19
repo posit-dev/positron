@@ -218,8 +218,10 @@ def _check_update_variable(de_service, name, update_type="schema"):
 
     # Check that comms were all closed
     for comm in comms:
-        last_message = cast(DummyComm, comm.comm).messages[-1]
+        dummy_comm = cast(DummyComm, comm.comm)
+        last_message = dummy_comm.messages[-1]
         assert last_message == expected_msg
+        dummy_comm.messages.clear()
 
 
 def test_register_table(de_service: DataExplorerService):
@@ -441,6 +443,10 @@ def test_pandas_get_state(dxf: DataExplorerFixture):
 
     result = dxf.get_state("simple")
     assert result["sort_keys"] == sort_keys
+
+    # Validity is checked in set_row_filters
+    for f in filters:
+        f["is_valid"] = True
     assert result["row_filters"] == [RowFilter(**f) for f in filters]
 
 
@@ -457,7 +463,9 @@ def test_pandas_supported_features(dxf: DataExplorerFixture):
     assert row_filters["supported"]
     assert row_filters["supports_conditions"]
     assert set(row_filters["supported_types"]) == {
+        "is_empty",
         "is_null",
+        "not_empty",
         "not_null",
         "between",
         "compare",
@@ -1000,7 +1008,8 @@ def test_pandas_variable_updates(
     dxf: DataExplorerFixture,
 ):
     x = pd.DataFrame({"a": [1, 0, 3, 4]})
-    big_x = pd.DataFrame({"a": np.arange(BIG_ARRAY_LENGTH)})
+    big_array = np.arange(BIG_ARRAY_LENGTH)
+    big_x = pd.DataFrame({"a": big_array})
 
     _assign_variables(
         shell,
@@ -1043,7 +1052,7 @@ def test_pandas_variable_updates(
 
     # Execute code that triggers an update event for big_x because it's large
     shell.run_cell("print('hello world')")
-    _check_update_variable(de_service, "big_x", update_type="data")
+    _check_update_variable(de_service, "big_x", update_type="schema")
 
     # Update nested values in y and check for schema updates
     shell.run_cell(
@@ -1051,7 +1060,7 @@ def test_pandas_variable_updates(
     'key2': y['key2'].copy()}
     """
     )
-    _check_update_variable(de_service, "y", update_type="update")
+    _check_update_variable(de_service, "y", update_type="schema")
 
     shell.run_cell(
         """y = {'key1': y['key1'].iloc[:-1, :-1],
@@ -1083,8 +1092,16 @@ def test_pandas_schema_change_update_filters(dxf: DataExplorerFixture):
         for i, (_, is_still_valid) in enumerate(scenario):
             assert updated_filters[i]["is_valid"] == is_still_valid
 
+            orig_col_schema = row_filters[i]["column_schema"]
+            new_col_schema = None
+            for c in new_schema:
+                if c["column_name"] == orig_col_schema["column_name"]:
+                    new_col_schema = c
+                    break
+            assert new_col_schema is not None
+
             # Check that schema was updated
-            assert updated_filters[i]["column_schema"] == new_schema[i]
+            assert updated_filters[i]["column_schema"] == new_col_schema
 
     # Scenario 1: convert "a" from integer to string
     # (filter, is_valid_after_change)
@@ -1179,10 +1196,10 @@ def test_pandas_change_schema_after_sort(
     df = pd.DataFrame(
         {
             "a": np.arange(10),
-            "b": np.arange(10),
-            "c": np.arange(10),
-            "d": np.arange(10),
-            "e": np.arange(10),
+            "b": np.arange(10) + 1,
+            "c": np.arange(10) + 2,
+            "d": np.arange(10) + 3,
+            "e": np.arange(10) + 4,
         }
     )
     _assign_variables(shell, variables_comm, df=df)
@@ -1190,17 +1207,29 @@ def test_pandas_change_schema_after_sort(
 
     # Sort a column that is out of bounds for the table after the
     # schema change below
-    dxf.set_sort_columns("df", [{"column_index": 4, "ascending": True}])
+    dxf.set_sort_columns(
+        "df",
+        [
+            {"column_index": 4, "ascending": True},
+            {"column_index": 0, "ascending": False},
+        ],
+    )
 
-    expected_df = df[["a", "b"]]
-    dxf.register_table("expected_df", df)
+    expected_df = df[["b", "a"]].sort_values("a", ascending=False)  # type: ignore
+    dxf.register_table("expected_df", expected_df)
 
     # Sort last column, and we will then change the schema
-    shell.run_cell("df = df[['a', 'b']]")
+    shell.run_cell("df = df[['b', 'a']]")
     _check_update_variable(de_service, "df", update_type="schema")
 
     # Call get_data_values and make sure it works
     dxf.compare_tables("df", "expected_df", expected_df.shape)
+
+    # Check that the out of bounds column index was evicted, and the
+    # shift was correct
+    dxf.get_state("df")["sort_keys"] = [
+        {"column_index": 1, "ascending": False}
+    ]
 
 
 def _profile_request(column_index, profile_type):

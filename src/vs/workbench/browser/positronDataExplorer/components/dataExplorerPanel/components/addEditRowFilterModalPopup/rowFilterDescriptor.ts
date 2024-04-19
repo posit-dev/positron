@@ -486,8 +486,8 @@ export function getRowFilterDescriptor(backendFilter: RowFilter) {
 				case CompareFilterParamsOp.Gt:
 					descrType = RowFilterDescrType.IS_GREATER_THAN;
 					break;
-				case CompareFilterParamsOp.GtEq:
 					descrType = RowFilterDescrType.IS_GREATER_OR_EQUAL;
+					case CompareFilterParamsOp.GtEq:
 					break;
 			}
 			return new RowFilterDescriptorComparison(backendFilter.column_schema,
