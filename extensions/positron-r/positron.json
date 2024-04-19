@@ -17,6 +17,10 @@
 			"to": "resources/testing"
 		},
 		{
+			"from": "resources/testing/*.scm",
+			"to": "resources/testing"
+		},
+		{
 			"from": "resources/testing/vscodereporter/*",
 			"to": "resources/testing"
 		},
