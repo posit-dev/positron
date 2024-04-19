@@ -20,7 +20,7 @@ jobs:
         with:
           version: tags/${{ env.RELEASE_TAG }}
           regex: true
-          file: "Positron-.*\\.(dmg|exe|deb|rpm)"
+          file: "Positron-.*\\.(dmg|exe|deb)"
           token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Create Release to Private Beta
@@ -39,7 +39,7 @@ jobs:
 
             Positron is currently in Private Beta.
 
-            To download Positron, go to **Assets** and select the `.dmg` for Mac (Universal), `.exe` for Windows x64 (System), `.deb` for Debian-based Linux (Ubuntu), or `.rpm` for Red Hat-based Linux.
+            To download Positron, go to **Assets** and select the `.dmg` for Mac (Universal), `.exe` for Windows x64 (System), or `.deb` for Debian-based Linux (Ubuntu).
 
             Releases are made available under the terms of the [Software Evaluation License](https://github.com/posit-dev/positron-beta?tab=License-1-ov-file) from [Posit Software, PBC](https://posit.co/).
 
@@ -49,4 +49,3 @@ jobs:
             Positron-${{ env.RELEASE_TAG }}-Setup.exe
             Positron-${{ env.RELEASE_TAG }}.dmg
             Positron-${{ env.RELEASE_TAG }}.deb
-            Positron-${{ env.RELEASE_TAG }}.rpm
