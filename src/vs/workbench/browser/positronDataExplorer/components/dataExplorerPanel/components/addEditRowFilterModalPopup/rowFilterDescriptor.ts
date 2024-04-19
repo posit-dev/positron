@@ -3,7 +3,14 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { generateUuid } from 'vs/base/common/uuid';
-import { ColumnSchema, CompareFilterParamsOp, RowFilter, RowFilterCondition, RowFilterType, SearchFilterType, TableSchema } from 'vs/workbench/services/languageRuntime/common/positronDataExplorerComm';
+import {
+	ColumnSchema,
+	CompareFilterParamsOp,
+	RowFilter,
+	RowFilterCondition,
+	RowFilterType,
+	SearchFilterType
+} from 'vs/workbench/services/languageRuntime/common/positronDataExplorerComm';
 
 /**
  * RowFilterDescrType enumeration.
@@ -47,7 +54,7 @@ abstract class BaseRowFilterDescriptor {
 	 * @param isValid Flag if the filter is valid or invalid and ignored by backend.
 	 */
 	constructor(public readonly columnSchema: ColumnSchema,
-		public readonly isValid: boolean
+		public readonly isValid: boolean | undefined
 	) {
 		this.identifier = generateUuid();
 		this.isValid = isValid;
@@ -79,7 +86,7 @@ export class RowFilterDescriptorIsEmpty extends BaseRowFilterDescriptor {
 	 * @param isValid Flag if the filter is valid or invalid and ignored by backend.
 	 */
 	constructor(columnSchema: ColumnSchema,
-		isValid: boolean = true
+		isValid = true
 	) {
 		super(columnSchema, isValid);
 	}
@@ -112,7 +119,7 @@ export class RowFilterDescriptorIsNotEmpty extends BaseRowFilterDescriptor {
 	 * @param isValid Flag if the filter is valid or invalid and ignored by backend.
 	 */
 	constructor(columnSchema: ColumnSchema,
-		isValid: boolean = true
+		isValid = true
 	) {
 		super(columnSchema, isValid);
 	}
@@ -145,7 +152,7 @@ export class RowFilterDescriptorIsNull extends BaseRowFilterDescriptor {
 	 * @param isValid Flag if the filter is valid or invalid and ignored by backend.
 	 */
 	constructor(columnSchema: ColumnSchema,
-		isValid: boolean = true
+		isValid = true
 	) {
 		super(columnSchema, isValid);
 	}
@@ -178,7 +185,7 @@ export class RowFilterDescriptorIsNotNull extends BaseRowFilterDescriptor {
 	 * @param isValid Flag if the filter is valid or invalid and ignored by backend.
 	 */
 	constructor(columnSchema: ColumnSchema,
-		isValid: boolean = true
+		isValid = true
 	) {
 		super(columnSchema, isValid);
 	}
@@ -212,7 +219,7 @@ export abstract class SingleValueRowFilterDescriptor extends BaseRowFilterDescri
 	 * @param isValid Flag if the filter is valid or invalid and ignored by backend.
 	 */
 	constructor(columnSchema: ColumnSchema, public readonly value: string,
-		isValid: boolean = true
+		isValid = true
 	) {
 		super(columnSchema, isValid);
 	}
@@ -232,7 +239,7 @@ export class RowFilterDescriptorComparison extends SingleValueRowFilterDescripto
 	_descrType: RowFilterDescrType;
 
 	constructor(columnSchema: ColumnSchema, value: string, descrType: RowFilterDescrType,
-		isValid: boolean = true
+		isValid = true
 	) {
 		super(columnSchema, value, isValid);
 		this._descrType = descrType;
@@ -310,7 +317,7 @@ export class RowFilterDescriptorSearch extends SingleValueRowFilterDescriptor {
 	_descrType: RowFilterDescrType;
 
 	constructor(columnSchema: ColumnSchema, value: string, descrType: RowFilterDescrType,
-		isValid: boolean = true
+		isValid = true
 	) {
 		super(columnSchema, value, isValid);
 		this._descrType = descrType;
@@ -369,6 +376,51 @@ export class RowFilterDescriptorSearch extends SingleValueRowFilterDescriptor {
 }
 
 /**
+ * RowFilterDescriptorSetMembership class.
+ */
+export class RowFilterDescriptorSetMembership extends BaseRowFilterDescriptor {
+	/**
+	 * Constructor.
+	 * @param columnSchema The column schema.
+	 * @param values The values to include.
+	 * @param isValid Flag if the filter is valid or invalid and ignored by backend.
+	 */
+	values: Array<string>;
+
+	constructor(columnSchema: ColumnSchema, values: Array<string>, isValid = true
+	) {
+		super(columnSchema, isValid);
+		this.values = values;
+	}
+
+	/**
+	 * Gets the row filter condition.
+	 */
+	get descrType() {
+		// TODO: Add case and implement this
+		return RowFilterDescrType.IS_NULL;
+	}
+
+	get operatorText() {
+		return 'includes';
+	}
+
+	/**
+	 * Get the backend OpenRPC type.
+	 */
+	get backendFilter() {
+		return {
+			filter_type: RowFilterType.SetMembership,
+			set_membership_filter_params: {
+				values: this.values,
+				inclusive: true
+			},
+			...this._sharedBackendParams()
+		};
+	}
+}
+
+/**
  * RangeRowFilterDescriptor class.
  */
 export abstract class RangeRowFilterDescriptor extends BaseRowFilterDescriptor {
@@ -383,7 +435,7 @@ export abstract class RangeRowFilterDescriptor extends BaseRowFilterDescriptor {
 		columnSchema: ColumnSchema,
 		public readonly lowerLimit: string,
 		public readonly upperLimit: string,
-		isValid: boolean = true
+		isValid = true
 	) {
 		super(columnSchema, isValid);
 	}
@@ -401,7 +453,7 @@ export class RowFilterDescriptorIsBetween extends RangeRowFilterDescriptor {
 	 * @param isValid Flag if the filter is valid or invalid and ignored by backend.
 	 */
 	constructor(columnSchema: ColumnSchema, lowerLimit: string, upperLimit: string,
-		isValid: boolean = true
+		isValid = true
 	) {
 		super(columnSchema, lowerLimit, upperLimit, isValid);
 	}
@@ -437,8 +489,9 @@ export class RowFilterDescriptorIsNotBetween extends RangeRowFilterDescriptor {
 	 * @param columnSchema The column schema.
 	 * @param lowerLimit The lower limit.
 	 * @param upperLimit The lower limit.
+	 * @param isValid Flag if the filter is valid or invalid and ignored by backend.
 	 */
-	constructor(columnSchema: ColumnSchema, lowerLimit: string, upperLimit: string) {
+	constructor(columnSchema: ColumnSchema, lowerLimit: string, upperLimit: string, isValid = true) {
 		super(columnSchema, lowerLimit, upperLimit);
 	}
 
@@ -464,52 +517,85 @@ export class RowFilterDescriptorIsNotBetween extends RangeRowFilterDescriptor {
 	}
 }
 
+function getCompareDescrType(op: CompareFilterParamsOp) {
+	switch (op) {
+		case CompareFilterParamsOp.Eq:
+			return RowFilterDescrType.IS_EQUAL_TO;
+		case CompareFilterParamsOp.NotEq:
+			return RowFilterDescrType.IS_NOT_EQUAL_TO;
+		case CompareFilterParamsOp.Lt:
+			return RowFilterDescrType.IS_LESS_THAN;
+		case CompareFilterParamsOp.LtEq:
+			return RowFilterDescrType.IS_LESS_OR_EQUAL;
+		case CompareFilterParamsOp.Gt:
+			return RowFilterDescrType.IS_GREATER_THAN;
+		case CompareFilterParamsOp.GtEq:
+			return RowFilterDescrType.IS_GREATER_OR_EQUAL;
+	}
+}
+
+function getSearchDescrType(searchType: SearchFilterType) {
+	switch (searchType) {
+		case SearchFilterType.Contains:
+			return RowFilterDescrType.SEARCH_CONTAINS;
+		case SearchFilterType.EndsWith:
+			return RowFilterDescrType.SEARCH_ENDS_WITH;
+		case SearchFilterType.StartsWith:
+			return RowFilterDescrType.SEARCH_STARTS_WITH;
+		case SearchFilterType.RegexMatch:
+			return RowFilterDescrType.SEARCH_REGEX_MATCHES;
+	}
+}
 
 export function getRowFilterDescriptor(backendFilter: RowFilter) {
 	switch (backendFilter.filter_type) {
 		case RowFilterType.Compare: {
 			const params = backendFilter.compare_params!;
-			let descrType = undefined;
-			switch (params.op) {
-				case CompareFilterParamsOp.Eq:
-					descrType = RowFilterDescrType.IS_EQUAL_TO;
-					break;
-				case CompareFilterParamsOp.NotEq:
-					descrType = RowFilterDescrType.IS_NOT_EQUAL_TO;
-					break;
-				case CompareFilterParamsOp.Lt:
-					descrType = RowFilterDescrType.IS_LESS_THAN;
-					break;
-				case CompareFilterParamsOp.LtEq:
-					descrType = RowFilterDescrType.IS_LESS_OR_EQUAL;
-					break;
-				case CompareFilterParamsOp.Gt:
-					descrType = RowFilterDescrType.IS_GREATER_THAN;
-					break;
-					descrType = RowFilterDescrType.IS_GREATER_OR_EQUAL;
-					case CompareFilterParamsOp.GtEq:
-					break;
-			}
 			return new RowFilterDescriptorComparison(backendFilter.column_schema,
-				params.value, descrType
+				params.value, getCompareDescrType(params.op),
+				backendFilter.is_valid
 			);
 		}
-		case RowFilterType.Between:
-			break;
+		case RowFilterType.Between: {
+			const params = backendFilter.between_params!;
+			return new RowFilterDescriptorIsBetween(backendFilter.column_schema,
+				params.left_value, params.right_value, backendFilter.is_valid
+			);
+		}
+		case RowFilterType.NotBetween: {
+			const params = backendFilter.between_params!;
+			return new RowFilterDescriptorIsNotBetween(backendFilter.column_schema,
+				params.left_value, params.right_value, backendFilter.is_valid
+			);
+		}
 		case RowFilterType.IsEmpty:
-			break;
-		case RowFilterType.IsNull:
-			break;
-		case RowFilterType.NotBetween:
-			break;
+			return new RowFilterDescriptorIsEmpty(backendFilter.column_schema,
+				backendFilter.is_valid
+			);
 		case RowFilterType.NotEmpty:
-			break;
+			return new RowFilterDescriptorIsNotEmpty(backendFilter.column_schema,
+				backendFilter.is_valid
+			);
+		case RowFilterType.IsNull:
+			return new RowFilterDescriptorIsNull(backendFilter.column_schema,
+				backendFilter.is_valid
+			);
 		case RowFilterType.NotNull:
-			break;
-		case RowFilterType.Search:
-			break;
-		case RowFilterType.SetMembership:
-			break;
+			return new RowFilterDescriptorIsNotNull(backendFilter.column_schema,
+				backendFilter.is_valid
+			);
+		case RowFilterType.Search: {
+			const params = backendFilter.search_params!;
+			return new RowFilterDescriptorSearch(backendFilter.column_schema,
+				params.term, getSearchDescrType(params.search_type),
+				backendFilter.is_valid);
+		}
+		case RowFilterType.SetMembership: {
+			const params = backendFilter.set_membership_params!;
+			return new RowFilterDescriptorSetMembership(backendFilter.column_schema,
+				params.values, backendFilter.is_valid
+			);
+		}
 	}
 }
 
