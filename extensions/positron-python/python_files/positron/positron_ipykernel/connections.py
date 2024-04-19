@@ -61,12 +61,23 @@ PathKey = Tuple[str, ...]
 class Connection:
     """
     Base class representing a connection to a data source.
+
+    Attributes:
+        type: The type of the connection as a free form string. It's used along with `host` to
+            determine the uniqueness of a connection.
+        host: The host of the connection as a free form string.
+        display_name: The name of the connection to be displayed in the UI.
+        icon: The path to an icon to be used by the UI.
+        code: The code used to recreate the connection.
+        conn: The connection object.
+        actions: A list of actions to be displayed in the UI.
     """
 
     type: str
     host: str
     display_name: Optional[str] = None
     icon: Optional[str] = None
+    code: Optional[str] = None
     conn: Any = None
     actions: Any = None
 
@@ -187,7 +198,11 @@ class ConnectionsService:
         base_comm = comm.create_comm(
             target_name=self._comm_target_name,
             comm_id=comm_id,
-            data={"name": connection.display_name, "language_id": "python"},
+            data={
+                "name": connection.display_name,
+                "language_id": "python",
+                "code": connection.code,
+            },
         )
 
         self._register_variable_path(variable_path, comm_id)
