@@ -152,6 +152,7 @@ module.exports.indentationFilter = [
 	// --- Start Positron ---
 	'!**/amalthea/**/*',
 	'!extensions/positron-r/resources/scripts/*.R',
+	'!extensions/positron-r/resources/testing/**',
 	'!scripts/positron/**/*',
 	// --- End Positron ---
 ];
@@ -196,6 +197,7 @@ module.exports.copyrightFilter = [
 
 	// --- Start Positron ---
 	'!**/amalthea/**/*',
+	'!extensions/positron-r/resources/testing/**',
 	// --- End Positron ---
 ];
 
