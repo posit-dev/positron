@@ -4,6 +4,7 @@
 
 import 'vs/css!./PositronNotebookComponent';
 
+import * as DOM from 'vs/base/browser/dom';
 import * as React from 'react';
 import { useNotebookInstance } from 'vs/workbench/contrib/positronNotebook/browser/NotebookInstanceProvider';
 import { AddCellButtons } from './AddCellButtons';
@@ -13,14 +14,20 @@ import { PositronNotebookHeader } from './PositronNotebookHeader';
 import { IPositronNotebookCell } from 'vs/workbench/contrib/positronNotebook/browser/notebookCells/interfaces';
 import { NotebookCodeCell } from 'vs/workbench/contrib/positronNotebook/browser/notebookCells/NotebookCodeCell';
 import { NotebookMarkdownCell } from 'vs/workbench/contrib/positronNotebook/browser/notebookCells/NotebookMarkdownCell';
+import { useServices } from 'vs/workbench/contrib/positronNotebook/browser/ServicesProvider';
+import { IEditorOptions } from 'vs/editor/common/config/editorOptions';
+import { FontMeasurements } from 'vs/editor/browser/config/fontMeasurements';
+import { BareFontInfo } from 'vs/editor/common/config/fontInfo';
+import { PixelRatio } from 'vs/base/browser/pixelRatio';
 
 
 export function PositronNotebookComponent() {
 	const notebookInstance = useNotebookInstance();
 	const notebookCells = useObservedValue(notebookInstance.cells);
+	const fontStyles = useFontStyles();
 
 	return (
-		<div className='positron-notebook'>
+		<div className='positron-notebook' style={{ ...fontStyles }}>
 			<PositronNotebookHeader notebookInstance={notebookInstance} />
 			<div className='positron-notebook-cells-container'>
 				{notebookCells?.length ? notebookCells?.map((cell, index) => <>
@@ -31,6 +38,23 @@ export function PositronNotebookComponent() {
 			</div>
 		</div>
 	);
+}
+/**
+ * Get css properties for fonts in the notebook.
+ * @returns A css properties object that sets css variables associated with fonts in the notebook.
+ */
+function useFontStyles(): React.CSSProperties {
+	const { configurationService } = useServices();
+
+	const editorOptions = configurationService.getValue<IEditorOptions>('editor');
+	const targetWindow = DOM.getActiveWindow();
+	const fontInfo = FontMeasurements.readFontInfo(targetWindow, BareFontInfo.createFromRawSettings(editorOptions, PixelRatio.getInstance(targetWindow).value));
+	const family = fontInfo.fontFamily ?? `"SF Mono", Monaco, Menlo, Consolas, "Ubuntu Mono", "Liberation Mono", "DejaVu Sans Mono", "Courier New", monospace`;
+
+	return {
+		'--vscode-positronNotebook-text-output-font-family': family,
+		'--vscode-positronNotebook-text-output-font-size': `${fontInfo.fontSize}px`,
+	} as React.CSSProperties;
 }
 
 function NotebookCell({ cell }: {

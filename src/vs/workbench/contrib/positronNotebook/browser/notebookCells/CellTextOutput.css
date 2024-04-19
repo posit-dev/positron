@@ -3,5 +3,9 @@
  *--------------------------------------------------------------------------------------------*/
 
 .positron-notebook-text-output {
-	font-family: var(--vscode-positronNotebook-text-output-font);
+	font-family: var(
+		--vscode-positronNotebook-text-output-font-family,
+		var(--monaco-monospace-font)
+	);
+	font-size: var(--vscode-positronNotebook-text-output-font-size);
 }

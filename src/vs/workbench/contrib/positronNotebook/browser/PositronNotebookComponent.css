@@ -49,10 +49,6 @@
 	);
 
 	/* Misc variables */
-	--vscode-positronNotebook-text-output-font: var(
-		monaco-monospace-font,
-		monospace
-	);
 	--vscode-positronNotebook-border: 1px solid
 		var(--vscode-positronNotebook-border-color);
 
