@@ -9,19 +9,19 @@
 		font-weight: bold;
 	}
 
-	& > .uninitialized {
+	& > .Uninitialized {
 		color: grey;
 	}
 
-	& > .connected {
+	& > .Connected {
 		color: forestgreen;
 	}
 
-	& > .disconnected {
+	& > .Disconnected {
 		color: red;
 	}
 
-	& > .connecting {
+	& > .Connecting {
 		color: orange;
 	}
 }

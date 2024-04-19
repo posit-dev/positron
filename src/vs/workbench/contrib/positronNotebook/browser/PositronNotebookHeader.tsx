@@ -14,7 +14,7 @@ export function PositronNotebookHeader({ notebookInstance }: { notebookInstance:
 	return <div className='positron-notebook-header'>
 		<IconedButton
 			codicon='run'
-			label={(() => localize('runAllCells', 'Run all cells'))()}
+			label={(() => localize('runAllCells', 'Run All Cells'))()}
 			onClick={() => { notebookInstance.runAllCells(); }} />
 		<div style={{ marginLeft: 'auto' }}></div>
 		<AddCodeCellButton notebookInstance={notebookInstance} index={0} />
