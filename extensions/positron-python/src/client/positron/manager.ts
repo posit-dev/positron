@@ -13,12 +13,11 @@ import { IServiceContainer } from '../ioc/types';
 import { PythonExtension } from '../api/types';
 import { pythonRuntimeDiscoverer } from './discoverer';
 import { traceInfo } from '../logging';
-import { IConfigurationService, IInstaller, Product, ProductInstallStatus } from '../common/types';
+import { IConfigurationService } from '../common/types';
 import { PythonRuntimeSession } from './session';
 import { PythonRuntimeExtraData } from './runtime';
-import { EXTENSION_ROOT_DIR, IPYKERNEL_VERSION } from '../common/constants';
+import { EXTENSION_ROOT_DIR } from '../common/constants';
 import { JupyterKernelSpec } from '../jupyter-adapter.d';
-import { IInterpreterService } from '../interpreter/contracts';
 
 /**
  * Provides Python language runtime metadata and sessions to Positron;
@@ -185,18 +184,6 @@ export class PythonRuntimeManager implements positron.LanguageRuntimeManager {
             // Consider: Could we return metadata for an interpreter compatible
             // with the one requested rather than throwing?
             throw new Error(`Python interpreter path is missing: ${extraData.pythonPath}`);
-        } else {
-            const interpreterService = this.serviceContainer.get<IInterpreterService>(IInterpreterService);
-            const interpreter = await interpreterService.getInterpreterDetails(extraData.pythonPath);
-            const installer = this.serviceContainer.get<IInstaller>(IInstaller);
-            if (interpreter) {
-                const hasCompatibleKernel = await installer.isProductVersionCompatible(
-                    Product.ipykernel,
-                    IPYKERNEL_VERSION,
-                    interpreter,
-                )
-                extraData.ipykernelInstalled = hasCompatibleKernel === ProductInstallStatus.Installed;
-            }
         }
 
         // Metadata is valid
