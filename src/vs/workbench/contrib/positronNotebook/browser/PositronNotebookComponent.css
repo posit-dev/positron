@@ -77,7 +77,7 @@
 	padding-inline: 1rem;
 	display: flex;
 	flex-direction: column;
-	gap: 0.75rem;
+	gap: 4px;
 }
 
 .action-button {
