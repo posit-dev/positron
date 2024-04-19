@@ -99,35 +99,45 @@ def shell() -> Iterable[PositronShell]:
 
 
 @pytest.fixture
-def mock_connections_service(shell: PositronShell, monkeypatch: pytest.MonkeyPatch) -> Mock:
+def mock_connections_service(
+    shell: PositronShell, monkeypatch: pytest.MonkeyPatch
+) -> Mock:
     mock = Mock()
     monkeypatch.setattr(shell.kernel, "connections_service", mock)
     return mock
 
 
 @pytest.fixture
-def mock_dataexplorer_service(shell: PositronShell, monkeypatch: pytest.MonkeyPatch) -> Mock:
+def mock_dataexplorer_service(
+    shell: PositronShell, monkeypatch: pytest.MonkeyPatch
+) -> Mock:
     mock = Mock()
     monkeypatch.setattr(shell.kernel, "data_explorer_service", mock)
     return mock
 
 
 @pytest.fixture
-def mock_ui_service(shell: PositronShell, monkeypatch: pytest.MonkeyPatch) -> Mock:
+def mock_ui_service(
+    shell: PositronShell, monkeypatch: pytest.MonkeyPatch
+) -> Mock:
     mock = Mock()
     monkeypatch.setattr(shell.kernel, "ui_service", mock)
     return mock
 
 
 @pytest.fixture
-def mock_help_service(shell: PositronShell, monkeypatch: pytest.MonkeyPatch) -> Mock:
+def mock_help_service(
+    shell: PositronShell, monkeypatch: pytest.MonkeyPatch
+) -> Mock:
     mock = Mock()
     monkeypatch.setattr(shell.kernel, "help_service", mock)
     return mock
 
 
 @pytest.fixture
-def mock_displayhook(shell: PositronShell, monkeypatch: pytest.MonkeyPatch) -> Mock:
+def mock_displayhook(
+    shell: PositronShell, monkeypatch: pytest.MonkeyPatch
+) -> Mock:
     mock = Mock()
     monkeypatch.setattr(shell, "displayhook", mock)
     return mock
@@ -156,15 +166,17 @@ def variables_comm(variables_service: VariablesService) -> DummyComm:
     return variables_comm
 
 
-@pytest.fixture()
-def de_service(kernel: PositronIPyKernel) -> DataExplorerService:
+@pytest.fixture
+def de_service(kernel: PositronIPyKernel):
     """
     The Positron dataviewer service.
     """
-    return kernel.data_explorer_service
+    fixture = kernel.data_explorer_service
+    yield fixture
+    fixture.shutdown()
 
 
-@pytest.fixture()
+@pytest.fixture
 def connections_service(kernel: PositronIPyKernel) -> ConnectionsService:
     """
     The Positron connections service.

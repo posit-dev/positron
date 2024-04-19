@@ -1075,19 +1075,19 @@ def test_pandas_schema_change_update_filters(dxf: DataExplorerFixture):
         {"a": [1, 2, 3, 4, 5], "b": ["foo", "bar", None, "baz", "qux"]}
     )
 
-    dxf.assign_and_open_viewer("df", df)
+    dxf.assign_and_open_viewer("df", df.copy())
     schema = dxf.get_schema("df")["columns"]
 
-    def _check_scenario(scenario, code: str):
+    def _check_scenario(var, scenario, code: str):
         row_filters = list(zip(*scenario))[0]
-        dxf.set_row_filters("df", filters=row_filters)
+        dxf.set_row_filters(var, filters=row_filters)
         dxf.execute_code(code)
 
         # Get state and confirm that the right filters were made
         # invalid
-        state = dxf.get_state("df")
+        state = dxf.get_state(var)
         updated_filters = state["row_filters"]
-        new_schema = dxf.get_schema("df")["columns"]
+        new_schema = dxf.get_schema(var)["columns"]
 
         for i, (_, is_still_valid) in enumerate(scenario):
             assert updated_filters[i]["is_valid"] == is_still_valid
@@ -1098,10 +1098,13 @@ def test_pandas_schema_change_update_filters(dxf: DataExplorerFixture):
                 if c["column_name"] == orig_col_schema["column_name"]:
                     new_col_schema = c
                     break
-            assert new_col_schema is not None
 
-            # Check that schema was updated
-            assert updated_filters[i]["column_schema"] == new_col_schema
+            if new_col_schema is None:
+                # Column deleted, check that filter is invalid
+                assert not updated_filters[i]["is_valid"]
+            else:
+                # Check that schema was updated
+                assert updated_filters[i]["column_schema"] == new_col_schema
 
     # Scenario 1: convert "a" from integer to string
     # (filter, is_valid_after_change)
@@ -1123,7 +1126,52 @@ def test_pandas_schema_change_update_filters(dxf: DataExplorerFixture):
         (_not_between_filter(schema[0], "1", "3"), False),
     ]
 
-    _check_scenario(scenario1, "df['a'] = df['a'].astype(str)")
+    _check_scenario("df", scenario1, "df['a'] = df['a'].astype(str)")
+
+    # Scenario 2: convert "a" from int64 to int16
+    dxf.assign_and_open_viewer("df2", df.copy())
+    schema = dxf.get_schema("df2")["columns"]
+    scenario2 = [
+        (_filter("is_null", schema[0]), True),
+        (_compare_filter(schema[0], "<", "4"), True),
+        (_between_filter(schema[0], "1", "3"), True),
+    ]
+    _check_scenario("df2", scenario2, "df2['a'] = df2['a'].astype('int16')")
+
+    # Scenario 3: delete "a" in place
+    dxf.assign_and_open_viewer("df3", df.copy())
+    schema = dxf.get_schema("df3")["columns"]
+    scenario3 = [
+        (_filter("is_null", schema[0]), False),
+        (_compare_filter(schema[0], "<", "4"), False),
+    ]
+    _check_scenario("df3", scenario3, "del df3['a']")
+
+    # Scenario 4: delete "a" in a new DataFrame
+    dxf.assign_and_open_viewer("df4", df.copy())
+    schema = dxf.get_schema("df4")["columns"]
+    scenario3 = [
+        (_filter("is_null", schema[0]), False),
+        (_compare_filter(schema[0], "<", "4"), False),
+    ]
+    _check_scenario("df4", scenario3, "df4 = df4[['b']]")
+
+    # Scenario 5: replace a column in place with a new name
+    dxf.assign_and_open_viewer("df5", df.copy())
+    schema = dxf.get_schema("df5")["columns"]
+    scenario3 = [
+        (_compare_filter(schema[1], "=", "foo"), False),
+    ]
+    _check_scenario("df5", scenario3, "df5.insert(1, 'c', df5.pop('b'))")
+
+    # Scenario 6: add some columns, but do not disturb filters
+    dxf.assign_and_open_viewer("df6", df.copy())
+    schema = dxf.get_schema("df6")["columns"]
+    scenario3 = [
+        (_compare_filter(schema[0], "=", "1"), True),
+        (_compare_filter(schema[1], "=", "foo"), True),
+    ]
+    _check_scenario("df6", scenario3, "df6['c'] = df6['b']")
 
 
 def test_pandas_set_sort_columns(dxf: DataExplorerFixture):

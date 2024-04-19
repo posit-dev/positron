@@ -287,8 +287,6 @@ class PandasView(DataExplorerTableView):
     ):
         super().__init__(display_name, table, filters, sort_keys)
 
-        self._dtypes = None
-
         # Maintain a mapping of column index to inferred dtype for any
         # object columns, to avoid recomputing. If the underlying
         # object is changed, this needs to be reset
@@ -356,6 +354,14 @@ class PandasView(DataExplorerTableView):
         shifted_columns: Dict[int, int] = {}
         schema_changes: Dict[int, ColumnSchema] = {}
 
+        # First, we look for deleted columns
+        deleted_columns: Set[int] = set()
+        if not self.table.columns.equals(new_table.columns):
+            for old_index, column in enumerate(self.table.columns):
+                if column not in new_table.columns:
+                    deleted_columns.add(old_index)
+                    schema_updated = True
+
         # When computing the new display type of a column requires
         # calling infer_dtype, we are careful to only do it for
         # columns that are involved in a filter
@@ -368,30 +374,31 @@ class PandasView(DataExplorerTableView):
                     # New column
                     schema_updated = True
                     continue
-
                 # Column was shifted
                 old_index = old_columns.get_loc(column_name)
                 shifted_columns[old_index] = new_index
             else:
                 old_index = new_index
 
+            # We must proceed under the conservative possibility that
+            # the table was modified in place
             new_column = new_table.iloc[:, new_index]
-            old_dtype = self.dtypes[old_index]
 
-            if new_column.dtype == old_dtype:
-                # For object dtype columns, we refuse to make any
-                # assumptions about whether the data type has changed
-                # and will let re-filtering fail later if there is a
-                # problem
-                if new_column.dtype == object:
-                    # The inferred type could be different, and it is
-                    # too expensive for us to always check
-                    schema_updated = True
-                else:
+            # For object dtype columns, we refuse to make any
+            # assumptions about whether the data type has changed
+            # and will let re-filtering fail later if there is a
+            # problem
+            if new_column.dtype != object:
+                # The inferred type could be different
+                schema_updated = True
+            elif old_index in filtered_columns:
+                if filtered_columns[old_index].type_name == str(
+                    new_column.dtype
+                ):
                     # Type is the same and not object dtype
                     continue
 
-            # The type changed
+            # The type maybe changed
             schema_updated = True
 
             if old_index not in filtered_columns:
@@ -413,31 +420,36 @@ class PandasView(DataExplorerTableView):
                 type_display=new_type_display,
             )
 
-        # Finally, we look for deleted columns
-        deleted_columns: Set[int] = set()
-        if not self.table.columns.equals(new_table.columns):
-            for old_index, column in enumerate(self.table.columns):
-                if column not in new_table.columns:
-                    deleted_columns.add(old_index)
-                    schema_updated = True
-
         new_filters = []
         for filt in self.filters:
             column_index = filt.column_schema.column_index
 
             filt = filt.copy(deep=True)
+
+            is_deleted = False
             if column_index in schema_changes:
-                filt.column_schema = schema_changes[column_index].copy()
+                # A schema change is only valid if the column name is
+                # the same, otherwise it's a deletion
+                change = schema_changes[column_index]
+
+                if filt.column_schema.column_name == change.column_name:
+                    filt.column_schema = change.copy()
+                else:
+                    # Column deleted
+                    is_deleted = True
             elif column_index in shifted_columns:
                 filt.column_schema.column_index = shifted_columns[column_index]
+            elif column_index in deleted_columns:
+                # Column deleted
+                is_deleted = True
 
-            if column_index in deleted_columns:
+            # If the column was not deleted, we always reset the
+            # validity state of the filter in case something we
+            # did to the data made a previous filter error (which
+            # set the is_valid flag to False) to go away.
+            if is_deleted:
                 filt.is_valid = False
             else:
-                # If the column was not deleted, we always reset the
-                # validity state of the filter in case something we
-                # did to the data made a previous filter error (which
-                # set the is_valid flag to False) to go away.
                 filt.is_valid = self._is_supported_filter(filt)
 
             new_filters.append(filt)
@@ -462,12 +474,6 @@ class PandasView(DataExplorerTableView):
         # Re-setting the column filters will trigger filtering AND
         # sorting
         self._set_row_filters(self.filters)
-
-    @property
-    def dtypes(self):
-        if self._dtypes is None:
-            self._dtypes = self.table.dtypes
-        return self._dtypes
 
     def _get_schema(self, column_start: int, num_columns: int) -> TableSchema:
         column_schemas = []
@@ -551,7 +557,7 @@ class PandasView(DataExplorerTableView):
         column_name = str(column_raw_name)
 
         type_name, type_display = self._get_type_display(
-            self.dtypes.iloc[column_index],
+            self.table.iloc[:, column_index].dtype,
             lambda: self._get_inferred_dtype(column_index),
         )
 
