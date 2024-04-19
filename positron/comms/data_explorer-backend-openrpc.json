@@ -779,13 +779,13 @@
 				"type": "object",
 				"description": "Specifies a column to sort by",
 				"required": [
-					"column_index",
+					"column_schema",
 					"ascending"
 				],
 				"properties": {
-					"column_index": {
-						"type": "integer",
-						"description": "Column index to sort by"
+					"column_schema": {
+						"description": "Column to sort by",
+						"$ref": "#/components/schemas/column_schema"
 					},
 					"ascending": {
 						"type": "boolean",

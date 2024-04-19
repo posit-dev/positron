@@ -561,8 +561,8 @@ class ColumnSortKey(BaseModel):
     Specifies a column to sort by
     """
 
-    column_index: int = Field(
-        description="Column index to sort by",
+    column_schema: ColumnSchema = Field(
+        description="Column to sort by",
     )
 
     ascending: bool = Field(

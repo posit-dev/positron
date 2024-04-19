@@ -495,9 +495,9 @@ export interface ColumnQuantileValue {
  */
 export interface ColumnSortKey {
 	/**
-	 * Column index to sort by
+	 * Column to sort by
 	 */
-	column_index: number;
+	column_schema: ColumnSchema;
 
 	/**
 	 * Sort order, ascending (true) or descending (false)

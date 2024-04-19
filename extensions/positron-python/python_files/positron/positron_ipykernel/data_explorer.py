@@ -117,9 +117,7 @@ class DataExplorerTableView(abc.ABC):
             return False
 
     def get_schema(self, request: GetSchemaRequest):
-        return self._get_schema(
-            request.params.start_index, request.params.num_columns
-        ).dict()
+        return self._get_schema(request.params.start_index, request.params.num_columns).dict()
 
     def search_schema(self, request: SearchSchemaRequest):
         return self._search_schema(
@@ -310,9 +308,7 @@ class PandasView(DataExplorerTableView):
         # search term changes, we discard the last search result. We
         # might add an LRU cache here or something if it helps
         # performance.
-        self._search_schema_last_result: Optional[
-            Tuple[str, List[ColumnSchema]]
-        ] = None
+        self._search_schema_last_result: Optional[Tuple[str, List[ColumnSchema]]] = None
 
         # Putting this here rather than in the class body before
         # Python < 3.10 has fussier rules about staticmethods
@@ -330,8 +326,7 @@ class PandasView(DataExplorerTableView):
         from pandas.api.types import infer_dtype
 
         filtered_columns = {
-            filt.column_schema.column_index: filt.column_schema
-            for filt in self.filters
+            filt.column_schema.column_index: filt.column_schema for filt in self.filters
         }
 
         # self.table may have been modified in place, so we cannot
@@ -402,9 +397,7 @@ class PandasView(DataExplorerTableView):
                 # If it was an in place modification, as a last ditch
                 # effort we check if we remember the data type because
                 # of a prior filter
-                if filtered_columns[old_index].type_name == str(
-                    new_column.dtype
-                ):
+                if filtered_columns[old_index].type_name == str(new_column.dtype):
                     # Type is the same and not object dtype
                     continue
 
@@ -465,18 +458,28 @@ class PandasView(DataExplorerTableView):
             new_filters.append(filt)
 
         new_sort_keys = []
-        for sort_key in self.sort_keys:
-            column_index = sort_key.column_index
+        for key in self.sort_keys:
+            column_index = key.column_schema.column_index
 
-            if column_index in deleted_columns:
-                # Evict any sort key that was deleted
+            key = key.copy()
+
+            # Evict any sort key that was deleted
+            if column_index in schema_changes:
+                # A schema change is only valid if the column name is
+                # the same, otherwise it's a deletion
+                change = schema_changes[column_index]
+                if key.column_schema.column_name == change.column_name:
+                    key.column_schema = change.copy()
+                else:
+                    # Column deleted
+                    continue
+            elif column_index in shifted_columns:
+                key.column_schema.column_index = shifted_columns[column_index]
+            elif column_index in deleted_columns:
+                # Column deleted
                 continue
 
-            sort_key = sort_key.copy()
-            if column_index in shifted_columns:
-                sort_key.column_index = shifted_columns[column_index]
-
-            new_sort_keys.append(sort_key)
+            new_sort_keys.append(key)
 
         return schema_updated, new_filters, new_sort_keys
 
@@ -518,9 +521,7 @@ class PandasView(DataExplorerTableView):
             total_num_matches=len(matches),
         )
 
-    def _search_schema_get_matches(
-        self, search_term: str
-    ) -> List[ColumnSchema]:
+    def _search_schema_get_matches(self, search_term: str) -> List[ColumnSchema]:
         matches = []
         for column_index in range(len(self.table.columns)):
             column_raw_name = self.table.columns[column_index]
@@ -539,9 +540,7 @@ class PandasView(DataExplorerTableView):
         from pandas.api.types import infer_dtype
 
         if column_index not in self._inferred_dtypes:
-            self._inferred_dtypes[column_index] = infer_dtype(
-                self.table.iloc[:, column_index]
-            )
+            self._inferred_dtypes[column_index] = infer_dtype(self.table.iloc[:, column_index])
         return self._inferred_dtypes[column_index]
 
     @classmethod
@@ -609,9 +608,7 @@ class PandasView(DataExplorerTableView):
         else:
             # No filtering or sorting, just slice directly
             indices = self.table.index[row_start : row_start + num_rows]
-            columns = [
-                col.iloc[row_start : row_start + num_rows] for col in columns
-            ]
+            columns = [col.iloc[row_start : row_start + num_rows] for col in columns]
 
         formatted_columns = [_pandas_format_values(col) for col in columns]
 
@@ -791,7 +788,7 @@ class PandasView(DataExplorerTableView):
 
         if len(self.sort_keys) == 1:
             key = self.sort_keys[0]
-            column = self.table.iloc[:, key.column_index]
+            column = self.table.iloc[:, key.column_schema.column_index]
             if self.filtered_indices is not None:
                 # pandas's univariate null-friendly argsort (computes
                 # the sorting indices). Mergesort is needed to make it
@@ -807,15 +804,13 @@ class PandasView(DataExplorerTableView):
                 self.view_indices = self.filtered_indices.take(sort_indexer)
             else:
                 # Data is not filtered
-                self.view_indices = nargsort(
-                    column, kind="mergesort", ascending=key.ascending
-                )
+                self.view_indices = nargsort(column, kind="mergesort", ascending=key.ascending)
         elif len(self.sort_keys) > 1:
             # Multiple sorting keys
             cols_to_sort = []
             directions = []
             for key in self.sort_keys:
-                col = self._get_column(key.column_index)
+                col = self._get_column(key.column_schema.column_index)
                 cols_to_sort.append(col)
                 directions.append(key.ascending)
 
@@ -878,9 +873,7 @@ class PandasView(DataExplorerTableView):
 
         return ColumnSummaryStats(
             type_display=ColumnDisplayType.String,
-            string_stats=SummaryStatsString(
-                num_empty=num_empty, num_unique=num_unique
-            ),
+            string_stats=SummaryStatsString(num_empty=num_empty, num_unique=num_unique),
         )
 
     @staticmethod
@@ -891,9 +884,7 @@ class PandasView(DataExplorerTableView):
 
         return ColumnSummaryStats(
             type_display=ColumnDisplayType.Boolean,
-            boolean_stats=SummaryStatsBoolean(
-                true_count=true_count, false_count=false_count
-            ),
+            boolean_stats=SummaryStatsBoolean(true_count=true_count, false_count=false_count),
         )
 
     def _prof_freq_table(self, column_index: int):
@@ -938,9 +929,7 @@ class PandasView(DataExplorerTableView):
 
         return BackendState(
             display_name=self.display_name,
-            table_shape=TableShape(
-                num_rows=num_rows, num_columns=self.table.shape[1]
-            ),
+            table_shape=TableShape(num_rows=num_rows, num_columns=self.table.shape[1]),
             row_filters=self.filters,
             sort_keys=self.sort_keys,
             supported_features=self.FEATURES,
@@ -1041,9 +1030,7 @@ class DataExplorerService:
             comm_id = guid()
 
         if variable_path is not None:
-            full_title = ", ".join(
-                [str(decode_access_key(k)) for k in variable_path]
-            )
+            full_title = ", ".join([str(decode_access_key(k)) for k in variable_path])
         else:
             full_title = title
 
@@ -1136,9 +1123,7 @@ class DataExplorerService:
             for comm_id in list(self.path_to_comm_ids[path]):
                 self._update_explorer_for_comm(comm_id, path, new_variable)
 
-    def _update_explorer_for_comm(
-        self, comm_id: str, path: PathKey, new_variable
-    ):
+    def _update_explorer_for_comm(self, comm_id: str, path: PathKey, new_variable):
         """
         If a variable is updated, we have to handle the different scenarios:
 
@@ -1174,9 +1159,7 @@ class DataExplorerService:
         # data explorer open for a nested value, then we need to use
         # the same variables inspection logic to resolve it here.
         if len(path) > 1:
-            is_found, new_table = _resolve_value_from_path(
-                new_variable, path[1:]
-            )
+            is_found, new_table = _resolve_value_from_path(new_variable, path[1:])
             if not is_found:
                 raise KeyError(f"Path {full_title} not found in value")
         else:
@@ -1199,9 +1182,7 @@ class DataExplorerService:
             new_filters = []
             new_sort_keys = []
         else:
-            (schema_updated, new_filters, new_sort_keys) = (
-                table_view.get_updated_state(new_table)
-            )
+            (schema_updated, new_filters, new_sort_keys) = table_view.get_updated_state(new_table)
 
         self.table_views[comm_id] = _get_table_view(
             new_table,
@@ -1215,9 +1196,7 @@ class DataExplorerService:
         else:
             comm.send_event(DataExplorerFrontendEvent.DataUpdate.value, {})
 
-    def handle_msg(
-        self, msg: CommMessage[DataExplorerBackendMessageContent], raw_msg
-    ):
+    def handle_msg(self, msg: CommMessage[DataExplorerBackendMessageContent], raw_msg):
         """
         Handle messages received from the client via the
         positron.data_explorer comm.
