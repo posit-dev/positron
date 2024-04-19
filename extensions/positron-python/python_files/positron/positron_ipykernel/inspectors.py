@@ -62,6 +62,14 @@ logger = logging.getLogger(__name__)
 T = TypeVar("T")
 
 
+class UncopiableError(Exception):
+    """
+    Raised by inspector.copy() when an object can't be copied.
+    """
+
+    pass
+
+
 class PositronInspector(Generic[T]):
     """
     Base inspector for any type
@@ -910,10 +918,31 @@ class ConnectionInspector(ObjectInspector):
     CLASS_QNAME = ["Connection", "sqlite3.Connection", "sqlalchemy.engine.base.Engine"]
 
     def has_viewer(self) -> bool:
-        return True
+        return self._is_active(self.value)
 
     def get_kind(self) -> str:
         return "connection"
+
+    def is_mutable(self) -> bool:
+        return True
+
+    def copy(self) -> Any:
+        # Connections are mutable but not copiable.
+        raise UncopiableError("Connections are not copiable")
+
+    def _is_active(self, value) -> bool:
+        try:
+            value.cursor()
+        except Exception:
+            return False
+        return True
+
+    def equals(self, value: Any) -> bool:
+        if not super().equals(value):
+            return False
+
+        # check if the connection is still open
+        return self._is_active(value)
 
 
 INSPECTOR_CLASSES: Dict[str, Type[PositronInspector]] = {

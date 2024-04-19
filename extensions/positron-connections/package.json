@@ -58,9 +58,34 @@
         "command": "positron.connections.refresh",
         "title": "%commands.refresh.title%",
         "icon": "$(refresh)"
+      },
+      {
+        "command": "positron.connections.removeFromHistory",
+        "title": "%commands.removeFromHistory.title%",
+        "icon": "$(trash)"
+      },
+      {
+        "command": "positron.connections.reopenConnection",
+        "title": "%commands.reopenConnection.title%",
+        "icon": "$(open-preview)"
+      },
+      {
+        "command": "positron.connections.copyCodeToClipboard",
+        "title": "%commands.copyCodeToClipboard.title%",
+        "icon": "$(clippy)"
+      },
+      {
+        "command": "positron.connections.clearConnectionsHistory",
+        "title": "%commands.clearConnectionsHistory.title%",
+        "icon": "$(clear-all)"
       }
     ],
     "menus": {
+      "view/title": [
+        {
+          "command": "positron.connections.clearConnectionsHistory"
+        }
+      ],
       "view/item/context": [
         {
           "command": "positron.connections.closeConnection",
@@ -76,6 +101,27 @@
           "command": "positron.connections.refresh",
           "group": "inline",
           "when": "viewItem == database"
+        },
+        {
+          "command": "positron.connections.removeFromHistory",
+          "group": "inline",
+          "when": "viewItem =~ /disconnected/"
+        },
+        {
+          "command": "positron.connections.reopenConnection",
+          "group": "inline",
+          "when": "viewItem =~ /disconnected-hasCode/"
+        },
+        {
+          "command": "positron.connections.reopenConnection",
+          "group": "code",
+          "when": "viewItem =~ /disconnected-hasCode/",
+          "contextualTitle": "Connect to database"
+        },
+        {
+          "command": "positron.connections.copyCodeToClipboard",
+          "when": "viewItem =~ /disconnected-hasCode/",
+          "group": "code"
         }
       ]
     }
