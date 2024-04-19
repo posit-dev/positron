@@ -6,7 +6,6 @@
 	top: calc(var(--vscode-positronNotebook-action-bar-inset) * -1);
 	right: var(--vscode-positronNotebook-action-bar-inset);
 	z-index: 10;
-	/* border: var(--vscode-positronNotebook-border); */
 	border-width: 1px;
 	border-color: var(--vscode-positronNotebook-action-bar-border-color);
 	border-style: solid;
