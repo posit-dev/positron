@@ -16,6 +16,7 @@ from typing import Any, Callable, Container, Dict, List, Optional, Type, cast
 
 import traitlets
 from ipykernel.comm.manager import CommManager
+from ipykernel.compiler import get_tmp_directory
 from ipykernel.ipkernel import IPythonKernel
 from ipykernel.kernelapp import IPKernelApp
 from ipykernel.zmqshell import ZMQDisplayPublisher, ZMQInteractiveShell
@@ -189,6 +190,9 @@ class PositronMagics(Magics):
 
 
 _traceback_file_link_re = re.compile(r"^(File \x1b\[\d+;\d+m)(.+):(\d+)")
+
+# keep reference to original showwarning
+original_showwarning = warnings.showwarning
 
 
 class PositronShell(ZMQInteractiveShell):
@@ -419,6 +423,8 @@ class PositronIPyKernel(IPythonKernel):
         # Register display publisher hooks
         self.shell.display_pub.register_hook(self.widget_hook)
 
+        warnings.showwarning = self._showwarning
+
         # Ignore warnings that the user can't do anything about
         warnings.filterwarnings(
             "ignore",
@@ -467,6 +473,29 @@ class PositronIPyKernel(IPythonKernel):
         # stop the event loop at the same time as self.shutdown_request (since self.shell_stream.io_loop
         # points to the same underlying asyncio loop).
         return dict(status="ok", restart=restart)
+
+    # monkey patching warning.showwarning is recommended by the official documentation
+    # https://docs.python.org/3/library/warnings.html#warnings.showwarning
+    def _showwarning(self, message, category, filename, lineno, file=None, line=None):
+        # if coming from one of our files, log and don't send to user
+        positron_files_path = Path(__file__).parent
+
+        if str(positron_files_path) in str(filename):
+            msg = f"{filename}-{lineno}: {category}: {message}"
+            logger.warning(msg)
+            return
+
+        # Check if the filename refers to a cell in the Positron Console.
+        # We use the fact that ipykernel sets the filename to a path starting in the root temporary
+        # directory. We can't determine the full filename since it depends on the cell's code which
+        # is unknown at this point. See ipykernel.compiler.XCachingCompiler.get_code_name.
+        console_dir = get_tmp_directory()
+        if console_dir in str(filename):
+            filename = f"<positron-console-cell-{self.execution_count}>"
+
+        msg = warnings.WarningMessage(message, category, filename, lineno, file, line)
+
+        return original_showwarning(message, category, filename, lineno, file, line)  # type: ignore reportAttributeAccessIssue
 
 
 class PositronIPKernelApp(IPKernelApp):
