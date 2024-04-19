@@ -49,6 +49,7 @@ export const showNewProjectModalDialog = async (
 	renderer.render(
 		<NewProjectWizardContextProvider
 			services={{
+				commandService,
 				fileDialogService,
 				fileService,
 				keybindingService,

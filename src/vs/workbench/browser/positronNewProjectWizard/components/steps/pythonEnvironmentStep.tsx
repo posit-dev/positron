@@ -69,6 +69,9 @@ export const PythonEnvironmentStep = (props: PropsWithChildren<NewProjectWizardS
 			LanguageIds.Python
 		)
 	);
+	const [willInstallIpykernel, setWillInstallIpykernel] = useState(
+		projectConfig.installIpykernel ?? false
+	);
 
 	const envTypeEntries = getEnvTypeEntries();
 
@@ -98,14 +101,21 @@ export const PythonEnvironmentStep = (props: PropsWithChildren<NewProjectWizardS
 			LanguageIds.Python
 		);
 	};
+	const isIpykernelInstalled = (runtimePath: string) => {
+		return newProjectWizardState.commandService.executeCommand(
+			'python.isIpykernelInstalled',
+			runtimePath
+		);
+	};
 
 	// Handler for when the environment setup type is selected. If the user selects the "existing
 	// environment" setup, the env type dropdown will not show and the interpreter entries will be
-	// updated to show all existing interpreters.
-	const onEnvSetupSelected = (pythonEnvSetupType: EnvironmentSetupType) => {
+	// updated to show all existing interpreters. The project configuration is updated as well.
+	const onEnvSetupSelected = async (pythonEnvSetupType: EnvironmentSetupType) => {
+		// Update the project configuration with the new environment setup type.
 		setEnvSetupType(pythonEnvSetupType);
-		// If the user selects an existing environment, update the interpreter entries dropdown
-		// to show the unfiltered list of all existing interpreters.
+
+		// Update the interpreter entries dropdown based on the new environment setup type.
 		const entries = getPythonInterpreterEntries(
 			runtimeStartupService,
 			languageRuntimeService,
@@ -113,15 +123,34 @@ export const PythonEnvironmentStep = (props: PropsWithChildren<NewProjectWizardS
 			envType
 		);
 		setInterpreterEntries(entries);
+
+		// Update the default selected interpreter based on the new entries.
 		const selectedRuntime = getInterpreter(entries);
 		setSelectedInterpreter(selectedRuntime);
-		setProjectConfig({ ...projectConfig, pythonEnvSetupType, selectedRuntime });
+
+		// Update the installIpykernel flag if the selected interpreter doesn't have ipykernel installed.
+		let installIpykernel = false;
+		if (selectedRuntime) {
+			installIpykernel = !(await isIpykernelInstalled(selectedRuntime.runtimePath));
+			setWillInstallIpykernel(installIpykernel);
+		}
+
+		// Save the changes to the project configuration.
+		setProjectConfig({
+			...projectConfig,
+			pythonEnvSetupType,
+			selectedRuntime,
+			installIpykernel
+		});
 	};
 
 	// Handler for when the environment type is selected. The interpreter entries are updated based
 	// on the selected environment type, and the project configuration is updated as well.
-	const onEnvTypeSelected = (pythonEnvType: PythonEnvironmentType) => {
+	const onEnvTypeSelected = async (pythonEnvType: PythonEnvironmentType) => {
+		// Update the project configuration with the new environment type.
 		setEnvType(pythonEnvType);
+
+		// Update the interpreter entries dropdown based on the new environment type.
 		const entries = getPythonInterpreterEntries(
 			runtimeStartupService,
 			languageRuntimeService,
@@ -129,14 +158,31 @@ export const PythonEnvironmentStep = (props: PropsWithChildren<NewProjectWizardS
 			pythonEnvType
 		);
 		setInterpreterEntries(entries);
+
+		// Update the default selected interpreter based on the new entries.
 		const selectedRuntime = getInterpreter(entries);
 		setSelectedInterpreter(selectedRuntime);
-		setProjectConfig({ ...projectConfig, pythonEnvType, selectedRuntime });
+
+		// Update the installIpykernel flag if the selected interpreter doesn't have ipykernel installed.
+		let installIpykernel = false;
+		if (selectedRuntime) {
+			installIpykernel = !(await isIpykernelInstalled(selectedRuntime.runtimePath));
+			setWillInstallIpykernel(installIpykernel);
+		}
+
+		// Save the changes to the project configuration.
+		setProjectConfig({
+			...projectConfig,
+			pythonEnvType,
+			selectedRuntime,
+			installIpykernel
+		});
 	};
 
 	// Handler for when the interpreter is selected. The project configuration is updated with the
-	// selected interpreter.
-	const onInterpreterSelected = (identifier: string) => {
+	// selected interpreter and if ipykernel needs to be installed.
+	const onInterpreterSelected = async (identifier: string) => {
+		// Update the selected interpreter.
 		const selectedRuntime = languageRuntimeService.getRegisteredRuntime(identifier);
 		if (!selectedRuntime) {
 			// This shouldn't happen, since the DropDownListBox should only allow selection of registered
@@ -145,9 +191,13 @@ export const PythonEnvironmentStep = (props: PropsWithChildren<NewProjectWizardS
 			return;
 		}
 		setSelectedInterpreter(selectedRuntime);
-		setProjectConfig({ ...projectConfig, selectedRuntime });
-		// TODO: if the selected interpreter doesn't have ipykernel installed, show a message and
-		// set projectConfig.installIpykernel to true
+
+		// Update the installIpykernel flag if the selected interpreter doesn't have ipykernel installed.
+		const installIpykernel = !(await isIpykernelInstalled(selectedRuntime.runtimePath));
+		setWillInstallIpykernel(installIpykernel);
+
+		// Save the changes to the project configuration.
+		setProjectConfig({ ...projectConfig, selectedRuntime, installIpykernel });
 	};
 
 	// Hook to update the interpreter entries when the runtime discovery phase is complete
@@ -159,8 +209,9 @@ export const PythonEnvironmentStep = (props: PropsWithChildren<NewProjectWizardS
 		// is complete, update the interpreter entries.
 		disposableStore.add(
 			runtimeStartupService.onDidChangeRuntimeStartupPhase(
-				phase => {
+				async phase => {
 					if (phase === RuntimeStartupPhase.Complete) {
+						// Update the interpreter entries once the runtime discovery phase is complete.
 						const entries = getPythonInterpreterEntries(
 							runtimeStartupService,
 							languageRuntimeService,
@@ -168,13 +219,25 @@ export const PythonEnvironmentStep = (props: PropsWithChildren<NewProjectWizardS
 							envType
 						);
 						setInterpreterEntries(entries);
+
+						// Update the default selected interpreter based on the new entries.
 						const selectedRuntime = getInterpreter(entries);
 						setSelectedInterpreter(selectedRuntime);
+
+						// Update the installIpykernel flag if the selected interpreter doesn't have ipykernel installed.
+						let installIpykernel = false;
+						if (selectedRuntime) {
+							installIpykernel = !(await isIpykernelInstalled(selectedRuntime.runtimePath));
+							setWillInstallIpykernel(installIpykernel);
+						}
+
+						// Save the changes to the project configuration.
 						setProjectConfig({
 							...projectConfig,
 							pythonEnvType: envType,
 							pythonEnvSetupType: envSetupType,
-							selectedRuntime
+							selectedRuntime,
+							installIpykernel
 						});
 					}
 					setStartupPhase(phase);
@@ -232,17 +295,11 @@ export const PythonEnvironmentStep = (props: PropsWithChildren<NewProjectWizardS
 								'pythonEnvironmentSubStep.description',
 								'Select an environment type for your project.'
 							))()}
-							{selectedInterpreter
-								&& !selectedInterpreter.extraRuntimeData?.ipykernelInstalled ?
-								<>
-									<code>ipykernel</code>
-									{(() => localize(
-										'pythonInterpreterSubStep.feedback',
-										' will be installed for Python language support.'
-									))()}
-								</>
-								: null
-							}
+							<code>ipykernel</code>
+							{(() => localize(
+								'pythonInterpreterSubStep.feedback',
+								' will be installed for Python language support.'
+							))()}
 						</WizardFormattedText>
 					}
 					feedback={() =>
@@ -291,7 +348,7 @@ export const PythonEnvironmentStep = (props: PropsWithChildren<NewProjectWizardS
 				)}
 				feedback={envSetupType === EnvironmentSetupType.ExistingEnvironment
 					&& selectedInterpreter
-					&& !selectedInterpreter.extraRuntimeData?.ipykernelInstalled ?
+					&& willInstallIpykernel ?
 					() =>
 						<WizardFormattedText type={WizardFormattedTextType.Info}>
 							<code>ipykernel</code>
