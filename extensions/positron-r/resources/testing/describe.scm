@@ -1,10 +1,10 @@
 (call
 	function: [
 		(identifier) @parent_function
-        (namespace_operator
+		(namespace_operator
 			lhs: (identifier)
-            rhs: (identifier) @parent_function
-        )
+			rhs: (identifier) @parent_function
+		)
 	] (#eq? @parent_function "describe")
 	arguments: (arguments
 		(argument
@@ -15,7 +15,7 @@
 				body: (call
 					function: [
 						(identifier) @function
-                        (namespace_operator
+						(namespace_operator
 							lhs: (identifier)
 							rhs: (identifier) @function
 						)

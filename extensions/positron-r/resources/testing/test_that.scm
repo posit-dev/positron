@@ -1,10 +1,10 @@
 (call
 	function: [
 		(identifier) @function
-        (namespace_operator
+		(namespace_operator
 			lhs: (identifier)
-            rhs: (identifier) @function
-        )
+			rhs: (identifier) @function
+		)
 	] (#eq? @function "test_that")
 	arguments: (arguments
 		(argument
