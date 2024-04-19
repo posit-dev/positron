@@ -667,6 +667,12 @@ export function createJupyterKernelSpec(
 	};
 	/* eslint-enable */
 
+	if (process.platform === 'linux') {
+		// Workaround for
+		// https://github.com/posit-dev/positron/issues/1619#issuecomment-1971552522
+		env['LD_LIBRARY_PATH'] = rHomePath + '/lib';
+	}
+
 	// Inject the path to the Pandoc executable into the environment; R packages
 	// that use Pandoc for rendering will need this.
 	//
