@@ -210,7 +210,7 @@ async function getMatchesForQuery(
 	return matches;
 }
 
-const toVSCodePosition = (pos: any) => new vscode.Position(pos.row, pos.column);
+const toVSCodePosition = (pos: Parser.Point) => new vscode.Position(pos.row, pos.column);
 
 function processCapture(
 	captureFunction: Parser.QueryCapture,
