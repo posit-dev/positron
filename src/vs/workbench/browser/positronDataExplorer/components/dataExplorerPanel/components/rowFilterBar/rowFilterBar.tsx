@@ -24,7 +24,7 @@ import {
 	getRowFilterDescriptor,
 	RowFilterDescriptor,
 } from 'vs/workbench/browser/positronDataExplorer/components/dataExplorerPanel/components/addEditRowFilterModalPopup/rowFilterDescriptor';
-import { BackendState, RowFilterType } from 'vs/workbench/services/languageRuntime/common/positronDataExplorerComm';
+import { BackendState } from 'vs/workbench/services/languageRuntime/common/positronDataExplorerComm';
 
 /**
  * RowFilterBar component.

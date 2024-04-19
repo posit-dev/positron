@@ -138,12 +138,7 @@ class DataExplorerTableView(abc.ABC):
         return self._set_row_filters(request.params.filters).dict()
 
     def set_sort_columns(self, request: SetSortColumnsRequest):
-        self.sort_keys = request.params.sort_keys
-
-        if not self._recompute_if_needed():
-            # If a re-filter is pending, then it will automatically
-            # trigger a sort
-            self._sort_data()
+        return self._set_sort_columns(request.params.sort_keys)
 
     def get_column_profiles(self, request: GetColumnProfilesRequest):
         self._recompute_if_needed()
@@ -200,6 +195,10 @@ class DataExplorerTableView(abc.ABC):
 
     @abc.abstractmethod
     def _set_row_filters(self, filters: List[RowFilter]) -> FilterResult:
+        pass
+
+    @abc.abstractmethod
+    def _set_sort_columns(self, sort_keys: List[ColumnSortKey]):
         pass
 
     @abc.abstractmethod
@@ -289,6 +288,10 @@ class PandasView(DataExplorerTableView):
         # object columns, to avoid recomputing. If the underlying
         # object is changed, this needs to be reset
         self._inferred_dtypes = {}
+
+        # We store the column schemas for each sort key to help with
+        # eviction later during updates
+        self._sort_key_schemas: List[ColumnSchema] = []
 
         # NumPy array of selected ("true") indices using filters. If
         # there are also sort keys, we first filter the unsorted data,
@@ -458,8 +461,8 @@ class PandasView(DataExplorerTableView):
             new_filters.append(filt)
 
         new_sort_keys = []
-        for key in self.sort_keys:
-            column_index = key.column_schema.column_index
+        for i, key in enumerate(self.sort_keys):
+            column_index = key.column_index
 
             key = key.copy()
 
@@ -468,13 +471,14 @@ class PandasView(DataExplorerTableView):
                 # A schema change is only valid if the column name is
                 # the same, otherwise it's a deletion
                 change = schema_changes[column_index]
-                if key.column_schema.column_name == change.column_name:
+                prior_name = self._sort_key_schemas[i].column_name
+                if prior_name == change.column_name:
                     key.column_schema = change.copy()
                 else:
                     # Column deleted
                     continue
             elif column_index in shifted_columns:
-                key.column_schema.column_index = shifted_columns[column_index]
+                key.column_index = shifted_columns[column_index]
             elif column_index in deleted_columns:
                 # Column deleted
                 continue
@@ -626,6 +630,18 @@ class PandasView(DataExplorerTableView):
         else:
             # If we have just applied a new filter, we now resort to
             # reflect the filtered_indices that have just been updated
+            self._sort_data()
+
+    def _set_sort_columns(self, sort_keys: List[ColumnSortKey]):
+        self.sort_keys = sort_keys
+
+        self._sort_key_schemas = [
+            self._get_single_column_schema(key.column_index) for key in sort_keys
+        ]
+
+        if not self._recompute_if_needed():
+            # If a re-filter is pending, then it will automatically
+            # trigger a sort
             self._sort_data()
 
     def _set_row_filters(self, filters: List[RowFilter]) -> FilterResult:
@@ -788,7 +804,7 @@ class PandasView(DataExplorerTableView):
 
         if len(self.sort_keys) == 1:
             key = self.sort_keys[0]
-            column = self.table.iloc[:, key.column_schema.column_index]
+            column = self.table.iloc[:, key.column_index]
             if self.filtered_indices is not None:
                 # pandas's univariate null-friendly argsort (computes
                 # the sorting indices). Mergesort is needed to make it
@@ -810,7 +826,7 @@ class PandasView(DataExplorerTableView):
             cols_to_sort = []
             directions = []
             for key in self.sort_keys:
-                col = self._get_column(key.column_schema.column_index)
+                col = self._get_column(key.column_index)
                 cols_to_sort.append(col)
                 directions.append(key.ascending)
 

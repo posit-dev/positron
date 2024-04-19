@@ -413,8 +413,8 @@ def test_pandas_get_state(dxf: DataExplorerFixture):
     schema = dxf.get_schema("simple")["columns"]
 
     sort_keys = [
-        {"column_schema": schema[0], "ascending": True},
-        {"column_schema": schema[1], "ascending": False},
+        {"column_index": 0, "ascending": True},
+        {"column_index": 1, "ascending": False},
     ]
     filters = [
         _compare_filter(schema[0], ">", 0),
@@ -986,7 +986,7 @@ def test_pandas_variable_updates(
     # Do a simple update and make sure that sort keys are preserved
     x_comm_id = list(de_service.path_to_comm_ids[path_x])[0]
     x_schema = dxf.get_schema_for(x)["columns"]
-    x_sort_keys = [{"column_schema": x_schema[0], "ascending": True}]
+    x_sort_keys = [{"column_index": 0, "ascending": True}]
     msg = json_rpc_request(
         "set_sort_columns",
         params={"sort_keys": x_sort_keys},  # type: ignore
@@ -1008,7 +1008,7 @@ def test_pandas_variable_updates(
     assert new_state["sort_keys"] == [ColumnSortKey(**k) for k in x_sort_keys]
 
     # Execute code that triggers an update event for big_x because it's large
-    shell.run_cell("print('hello world')")
+    shell.run_cell("None")
     _check_update_variable(de_service, "big_x", update_type="schema")
 
     # Update nested values in y and check for schema updates
@@ -1112,7 +1112,7 @@ def test_pandas_schema_change_state_updates(dxf: DataExplorerFixture):
             (_filter("is_null", schema[0]), False),
             (_compare_filter(schema[0], "<", "4"), False),
         ],
-        "sort_keys": [{"column_schema": schema[0], "ascending": True}],
+        "sort_keys": [{"column_index": 0, "ascending": True}],
         "updated_sort_keys": [],
     }
     _check_scenario("df3", scenario3, "del df3['a']")
@@ -1189,10 +1189,8 @@ def test_pandas_set_sort_columns(dxf: DataExplorerFixture):
 
     for df_name, sort_keys, expected_params in cases:
         df = tables[df_name]
-        schema = dxf.get_schema_for(df)["columns"]
         wrapped_keys = [
-            {"column_schema": schema[index], "ascending": ascending}
-            for index, ascending in sort_keys
+            {"column_index": index, "ascending": ascending} for index, ascending in sort_keys
         ]
 
         expected_params["kind"] = "mergesort"
@@ -1231,8 +1229,8 @@ def test_pandas_change_schema_after_sort(
     dxf.set_sort_columns(
         "df",
         [
-            {"column_schema": schema[4], "ascending": True},
-            {"column_schema": schema[0], "ascending": False},
+            {"column_index": 4, "ascending": True},
+            {"column_index": 0, "ascending": False},
         ],
     )
 
@@ -1249,7 +1247,7 @@ def test_pandas_change_schema_after_sort(
 
     # Check that the out of bounds column index was evicted, and the
     # shift was correct
-    dxf.get_state("df")["sort_keys"] = [{"column_schema": schema[1], "ascending": False}]
+    dxf.get_state("df")["sort_keys"] = [{"column_index": 1, "ascending": False}]
 
 
 def _profile_request(column_index, profile_type):

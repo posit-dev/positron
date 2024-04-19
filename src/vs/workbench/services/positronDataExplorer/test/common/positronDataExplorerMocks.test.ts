@@ -41,7 +41,7 @@ suite('DataExplorerMocks', () => {
 	test('Test getCompareFilter', () => {
 		const filter = mocks.getCompareFilter(2, CompareFilterParamsOp.Gt, '1234');
 		assert.equal(filter.filter_type, RowFilterType.Compare);
-		assert.equal(filter.column_index, 2);
+		assert.equal(filter.column_schema.column_index, 2);
 
 		const params = filter.compare_params!;
 
@@ -51,7 +51,7 @@ suite('DataExplorerMocks', () => {
 
 	test('Test getIsNullFilter', () => {
 		let filter = mocks.getIsNullFilter(3);
-		assert.equal(filter.column_index, 3);
+		assert.equal(filter.column_schema.column_index, 3);
 		assert.equal(filter.filter_type, RowFilterType.IsNull);
 
 		filter = mocks.getNotNullFilter(3);
@@ -61,7 +61,7 @@ suite('DataExplorerMocks', () => {
 	test('Test getTextSearchFilter', () => {
 		const filter = mocks.getTextSearchFilter(5, 'needle',
 			SearchFilterType.Contains, false);
-		assert.equal(filter.column_index, 5);
+		assert.equal(filter.column_schema.column_index, 5);
 		assert.equal(filter.filter_type, RowFilterType.Search);
 
 		const params = filter.search_params!;
@@ -74,7 +74,7 @@ suite('DataExplorerMocks', () => {
 	test('Test getSetMemberFilter', () => {
 		const set_values = ['need1', 'need2'];
 		const filter = mocks.getSetMemberFilter(6, set_values, true);
-		assert.equal(filter.column_index, 6);
+		assert.equal(filter.column_schema.column_index, 6);
 		assert.equal(filter.filter_type, RowFilterType.SetMembership);
 
 		const params = filter.set_membership_params!;
