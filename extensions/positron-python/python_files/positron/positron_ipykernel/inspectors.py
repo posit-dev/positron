@@ -932,17 +932,11 @@ class ConnectionInspector(ObjectInspector):
 
     def _is_active(self, value) -> bool:
         try:
+            # a connection is active if you can acquire a cursor from it
             value.cursor()
         except Exception:
             return False
         return True
-
-    def equals(self, value: Any) -> bool:
-        if not super().equals(value):
-            return False
-
-        # check if the connection is still open
-        return self._is_active(value)
 
 
 INSPECTOR_CLASSES: Dict[str, Type[PositronInspector]] = {
