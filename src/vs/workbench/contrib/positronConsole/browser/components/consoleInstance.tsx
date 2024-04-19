@@ -44,7 +44,7 @@ import { RuntimeItemReconnected } from 'vs/workbench/services/positronConsole/br
 import { RuntimeStartupFailure } from 'vs/workbench/contrib/positronConsole/browser/components/runtimeStartupFailure';
 import { RuntimeItemPendingInput } from 'vs/workbench/services/positronConsole/browser/classes/runtimeItemPendingInput';
 import { RuntimeItemRestartButton } from 'vs/workbench/services/positronConsole/browser/classes/runtimeItemRestartButton';
-import { IPositronConsoleInstance } from 'vs/workbench/services/positronConsole/browser/interfaces/positronConsoleService';
+import { IPositronConsoleInstance, PositronConsoleState } from 'vs/workbench/services/positronConsole/browser/interfaces/positronConsoleService';
 import { RuntimeItemStartupFailure } from 'vs/workbench/services/positronConsole/browser/classes/runtimeItemStartupFailure';
 import { POSITRON_CONSOLE_COPY, POSITRON_CONSOLE_CUT, POSITRON_CONSOLE_PASTE, POSITRON_CONSOLE_SELECT_ALL } from 'vs/workbench/contrib/positronConsole/browser/positronConsoleIdentifiers';
 
@@ -272,6 +272,11 @@ export const ConsoleInstance = (props: ConsoleInstanceProps) => {
 
 		// Add the onDidChangeState event handler.
 		disposableStore.add(props.positronConsoleInstance.onDidChangeState(state => {
+			if (state === PositronConsoleState.Starting) {
+				// Scroll to bottom when restarting
+				// https://github.com/posit-dev/positron/issues/2807
+				scrollVertically(consoleInstanceRef.current.scrollHeight);
+			}
 		}));
 
 		// Add the onDidChangeTrace event handler.
