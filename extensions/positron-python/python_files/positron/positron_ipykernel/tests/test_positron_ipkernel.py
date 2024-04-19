@@ -12,7 +12,6 @@ import pytest
 from IPython.utils.syspathcontext import prepended_to_syspath
 from ipykernel.compiler import get_tmp_directory
 
-from positron_ipykernel.positron_ipkernel import _showwarning
 from positron_ipykernel.help import help
 from positron_ipykernel.session_mode import SessionMode
 from positron_ipykernel.utils import alias_home
@@ -328,18 +327,18 @@ def test_console_warning(shell: PositronShell, warning_kwargs):
     filename = get_tmp_directory() + os.sep + "12345678.py"
 
     with pytest.warns() as record:
-        _showwarning(filename=filename, **warning_kwargs)
+        shell.kernel._showwarning(filename=filename, **warning_kwargs)
 
         assert len(record) == 1
-        assert record[0].filename == "POSITRON_CONSOLE"
+        assert record[0].filename == "<positron-console-cell-1>"
         assert record[0].message == "this is a warning"
 
 
-def test_console_warning_logger(caplog, warning_kwargs):
+def test_console_warning_logger(shell: PositronShell, caplog, warning_kwargs):
     """
     Check that Positron files are sent to logs
     """
 
     with caplog.at_level(logging.WARNING):
-        _showwarning(filename=Path(__file__), **warning_kwargs)
+        shell.kernel._showwarning(filename=Path(__file__), **warning_kwargs)
         assert "this is a warning" in caplog.text
