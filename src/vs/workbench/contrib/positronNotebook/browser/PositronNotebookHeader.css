@@ -7,7 +7,7 @@
 	color: var(--vscode-positronNotebook-deemphasized-foreground);
 	height: var(--vscode-positronNotebook-header-h);
 	gap: 2px;
-	padding-inline: calc(var(--vscode-positronNotebook-header-h) / 2);
+	padding-inline: calc(var(--vscode-positronNotebook-header-h) / 4);
 	display: flex;
 	justify-content: space-between;
 	align-items: center;

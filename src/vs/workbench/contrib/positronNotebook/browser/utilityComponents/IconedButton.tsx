@@ -13,10 +13,10 @@ import { ActionButton } from './ActionButton';
  * @param onClick The function to call when the button is clicked
  * @returns A button with an icon as given by a codicon to the left.
  */
-export function IconedButton({ codicon, label, onClick, bordered = false }: { codicon: string; label: string; onClick: () => void; bordered?: boolean }) {
+export function IconedButton({ codicon, label, fullLabel = label, onClick, bordered = false }: { codicon: string; label: string; fullLabel?: string; onClick: () => void; bordered?: boolean }) {
 	return <ActionButton
 		className={`positron-iconed-button ${bordered ? 'bordered' : ''}`}
-		ariaLabel={label}
+		ariaLabel={fullLabel}
 		onPressed={onClick}
 	>
 		<div className={`button-icon codicon codicon-${codicon}`} />

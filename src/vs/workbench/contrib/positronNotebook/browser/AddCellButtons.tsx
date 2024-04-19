@@ -22,10 +22,12 @@ export function AddCellButtons({ index }: { index: number }) {
 
 export function AddCodeCellButton({ notebookInstance, index, bordered }: { notebookInstance: PositronNotebookInstance; index: number; bordered?: boolean }) {
 
-	const label = localize('newCodeCell', 'New Code Cell');
+	const label = localize('newCodeCellshort', 'Code');
+	const fullLabel = localize('newCodeCellLong', 'New Code Cell');
 	return <IconedButton
 		codicon='positron-notebook-code-cell'
 		label={label}
+		fullLabel={fullLabel}
 		onClick={() => notebookInstance.addCell(CellKind.Code, index)}
 		bordered={bordered}
 	/>;
@@ -35,11 +37,12 @@ export function AddCodeCellButton({ notebookInstance, index, bordered }: { noteb
 
 export function AddMarkdownCellButton({ notebookInstance, index, bordered }: { notebookInstance: PositronNotebookInstance; index: number; bordered?: boolean }) {
 
-	const label = localize('newMarkdownCell', 'New Markdown Cell');
-
+	const label = localize('newMarkdownCellShort', 'Markdown');
+	const fullLabel = localize('newMarkdownCellLong', 'New Markdown Cell');
 	return <IconedButton
 		codicon='positron-notebook-markdown-cell'
 		label={label}
+		fullLabel={fullLabel}
 		onClick={() => notebookInstance.addCell(CellKind.Markup, index)}
 		bordered={bordered}
 	/>;

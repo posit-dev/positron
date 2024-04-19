@@ -14,11 +14,11 @@ export function PositronNotebookHeader({ notebookInstance }: { notebookInstance:
 	return <div className='positron-notebook-header'>
 		<IconedButton
 			codicon='notebook-execute-all'
-			label={(() => localize('runAllCells', 'Run All Cells'))()}
+			label={(() => localize('runAllCellsShort', 'Run All'))()}
+			fullLabel={(() => localize('runAllCellsLong', 'Run All Cells'))()}
 			onClick={() => { notebookInstance.runAllCells(); }} />
 		<div style={{ marginLeft: 'auto' }}></div>
 		<AddCodeCellButton notebookInstance={notebookInstance} index={0} />
-		<HeaderDivider />
 		<AddMarkdownCellButton notebookInstance={notebookInstance} index={0} />
 		<HeaderDivider />
 		<KernelStatusBadge />
