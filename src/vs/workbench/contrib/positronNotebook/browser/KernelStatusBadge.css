@@ -3,7 +3,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 .positron-notebook-kernel-status-badge {
-	padding: 0.25rem;
+	padding-inline: 0.5rem;
 
 	& > .kernel-status {
 		font-weight: bold;
