@@ -59,7 +59,8 @@
 	color: var(--vscode-positronNotebook-foreground);
 	user-select: text;
 	height: 100%;
-	overflow: auto;
+	display: flex;
+	flex-direction: column;
 
 	p,
 	h1,
@@ -78,5 +79,8 @@
 	display: flex;
 	flex-direction: column;
 	gap: 4px;
+
+	height: 100%;
+	overflow: auto;
 }
 
