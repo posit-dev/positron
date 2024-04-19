@@ -534,12 +534,16 @@ def _showwarning(message, category, filename, lineno, file=None, line=None):
     # if coming from one of our files, log and don't send to user
     positron_files_path = Path("python_files", "positron", "positron_ipykernel")
 
-    console_dir = get_tmp_directory()
     if str(positron_files_path) in str(filename):
         msg = f"{category}: {message}"
         logger.warning(msg)
         return
 
+    # Check if the filename refers to a cell in the Positron Console.
+    # We use the fact that ipykernel sets the filename to a path starting in the root temporary
+    # directory. We can't determine the full filename since it depends on the cell's code which
+    # is unknown at this point. See ipykernel.compiler.XCachingCompiler.get_code_name.
+    console_dir = get_tmp_directory()
     if console_dir in str(filename):
         filename = "POSITRON_CONSOLE"
 
