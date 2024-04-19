@@ -59,7 +59,7 @@ export async function runThatTest(
 		case ItemType.Describe: {
 			const testthatInstalled = await checkInstalled('testthat', '3.2.1');
 			if (!testthatInstalled) {
-				return Promise.resolve('testthat >= 3.2.1 is needed to run R a single describe() test.');
+				return Promise.resolve('testthat >= 3.2.1 is needed to run a single describe() test.');
 			}
 			LOGGER.info('Single describe() test');
 			break;
