@@ -19,9 +19,5 @@
 		background-color: var(--vscode-positronNotebook-header-border);
 	}
 
-	button.action-button,
-	.codicon {
-		color: var(--vscode-positronNotebook-deemphasized-foreground);
-	}
 }
 

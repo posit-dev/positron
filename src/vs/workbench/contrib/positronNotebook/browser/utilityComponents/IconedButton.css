@@ -23,5 +23,4 @@
 
 .positron-iconed-button.bordered {
 	border: 1px solid var(--vscode-positronNotebook-deemphasized-foreground);
-	border-radius: 4px;
 }

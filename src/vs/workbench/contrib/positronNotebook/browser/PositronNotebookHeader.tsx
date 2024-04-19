@@ -13,7 +13,7 @@ import { PositronNotebookInstance } from 'vs/workbench/contrib/positronNotebook/
 export function PositronNotebookHeader({ notebookInstance }: { notebookInstance: PositronNotebookInstance }) {
 	return <div className='positron-notebook-header'>
 		<IconedButton
-			codicon='run'
+			codicon='notebook-execute-all'
 			label={(() => localize('runAllCells', 'Run All Cells'))()}
 			onClick={() => { notebookInstance.runAllCells(); }} />
 		<div style={{ marginLeft: 'auto' }}></div>

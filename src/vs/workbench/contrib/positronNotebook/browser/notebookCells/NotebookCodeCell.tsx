@@ -12,9 +12,9 @@ import { isParsedTextOutput, parseOutputData } from 'vs/workbench/contrib/positr
 import { useObservedValue } from 'vs/workbench/contrib/positronNotebook/browser/useObservedValue';
 import { CellEditorMonacoWidget } from './CellEditorMonacoWidget';
 import { localize } from 'vs/nls';
-import { Button } from 'vs/base/browser/ui/positronComponents/button/button';
 import { NotebookCellActionBar } from 'vs/workbench/contrib/positronNotebook/browser/notebookCells/NotebookCellActionBar';
 import { CellTextOutput } from './CellTextOutput';
+import { ActionButton } from 'vs/workbench/contrib/positronNotebook/browser/utilityComponents/ActionButton';
 
 
 export function NotebookCodeCell({ cell }: { cell: IPositronNotebookCodeCell }) {
@@ -24,12 +24,11 @@ export function NotebookCodeCell({ cell }: { cell: IPositronNotebookCodeCell }) 
 
 	return <div className='positron-notebook-cell positron-notebook-code-cell'>
 		<NotebookCellActionBar cell={cell}>
-			<Button
-				className='action-button'
+			<ActionButton
 				ariaLabel={isRunning ? localize('stopExecution', 'Stop execution') : localize('runCell', 'Run cell')}
 				onPressed={() => cell.run()} >
 				<div className={`button-icon codicon ${isRunning ? 'codicon-primitive-square' : 'codicon-run'}`} />
-			</Button>
+			</ActionButton>
 		</NotebookCellActionBar>
 		<div className='cell-contents'>
 			<CellEditorMonacoWidget cell={cell} />

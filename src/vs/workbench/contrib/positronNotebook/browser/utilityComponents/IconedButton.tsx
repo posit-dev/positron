@@ -4,7 +4,7 @@
 import 'vs/css!./IconedButton';
 
 import * as React from 'react';
-import { Button } from 'vs/base/browser/ui/positronComponents/button/button';
+import { ActionButton } from './ActionButton';
 
 /**
  * Button with icon to the left for notebook actions etc..
@@ -14,8 +14,8 @@ import { Button } from 'vs/base/browser/ui/positronComponents/button/button';
  * @returns A button with an icon as given by a codicon to the left.
  */
 export function IconedButton({ codicon, label, onClick, bordered = false }: { codicon: string; label: string; onClick: () => void; bordered?: boolean }) {
-	return <Button
-		className={`action action-button positron-iconed-button ${bordered ? 'bordered' : ''}`}
+	return <ActionButton
+		className={`positron-iconed-button ${bordered ? 'bordered' : ''}`}
 		ariaLabel={label}
 		onPressed={onClick}
 	>
@@ -23,5 +23,5 @@ export function IconedButton({ codicon, label, onClick, bordered = false }: { co
 		<span className='action-label'>
 			{label}
 		</span>
-	</Button>;
+	</ActionButton>;
 }
