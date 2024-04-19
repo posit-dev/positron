@@ -15,6 +15,10 @@ export interface TestResult {
 	 */
 	filename?: string;
 	/**
+	 * Location relevant to the result, e.g. test-thingy.R:3:3
+	 */
+	location?: string;
+	/**
 	 * Test label if available
 	 */
 	test?: string;
