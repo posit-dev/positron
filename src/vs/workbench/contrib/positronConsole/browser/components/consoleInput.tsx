@@ -672,7 +672,12 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 			positronConsoleContext.positronConsoleService.onDidChangeActivePositronConsoleInstance(
 				positronConsoleInstance => {
 					if (positronConsoleInstance === props.positronConsoleInstance) {
-						codeEditorWidget.focus();
+						// https://github.com/posit-dev/positron/issues/2802
+						// Only take focus if there is no focused editor to avoid stealing
+						// focus when the user could be actively working in an editor
+						if (!positronConsoleContext.codeEditorService.getFocusedCodeEditor()) {
+							codeEditorWidget.focus();
+						}
 					}
 				}
 			)
@@ -680,6 +685,8 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 
 		// Add the onFocusInput event handler.
 		disposableStore.add(props.positronConsoleInstance.onFocusInput(() => {
+			// Focus the input editor when the Console takes focus, i.e. when the
+			// user clicks somewhere on the console output
 			codeEditorWidget.focus();
 		}));
 
@@ -776,9 +783,6 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 				codeEditorWidget.render(true);
 			})
 		);
-
-		// Focus the console.
-		codeEditorWidget.focus();
 
 		// Return the cleanup function that will dispose of the disposables.
 		return () => disposableStore.dispose();
