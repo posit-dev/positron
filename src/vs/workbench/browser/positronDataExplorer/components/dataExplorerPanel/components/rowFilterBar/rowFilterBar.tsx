@@ -24,7 +24,6 @@ import {
 	getRowFilterDescriptor,
 	RowFilterDescriptor,
 } from 'vs/workbench/browser/positronDataExplorer/components/dataExplorerPanel/components/addEditRowFilterModalPopup/rowFilterDescriptor';
-import { BackendState } from 'vs/workbench/services/languageRuntime/common/positronDataExplorerComm';
 
 /**
  * RowFilterBar component.
@@ -175,10 +174,11 @@ export const RowFilterBar = () => {
 		);
 	};
 
-	const syncFromBackendState = (state: BackendState) => {
+	// Set up event handler for backend state sync updating the filter bar
+	context.instance.dataExplorerClientInstance.onDidUpdateBackendState((state) => {
 		const newDescriptors = state.row_filters.map(getRowFilterDescriptor);
 		setRowFilterDescriptors(newDescriptors);
-	};
+	});
 
 	// Render.
 	return (

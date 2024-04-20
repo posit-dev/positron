@@ -204,6 +204,9 @@ export class TableDataDataGridInstance extends DataGridInstance {
 		// Set the row filters.
 		await this._dataExplorerClientInstance.setRowFilters(filters);
 
+		// Synchronize the backend state.
+		await this._dataExplorerClientInstance.updateBackendState();
+
 		// Reload the data grid.
 		this._dataExplorerCache.invalidateDataCache();
 		this.softReset();

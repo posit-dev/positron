@@ -196,7 +196,7 @@ class PositronDataExplorerService extends Disposable implements IPositronDataExp
 			resource: PositronDataExplorerUri.generate(dataExplorerClientInstance.identifier)
 		});
 
-		dataExplorerClientInstance.getState().then((state) => {
+		dataExplorerClientInstance.onDidUpdateBackendState((state) => {
 			// Hack to be able to call PositronDataExplorerEditorInput.setName without
 			// eslint errors;
 			const dxInput = editor?.input as any;
@@ -205,8 +205,10 @@ class PositronDataExplorerService extends Disposable implements IPositronDataExp
 			}
 		});
 
-		const end = new Date();
+		// Trigger the initial state update.
+		dataExplorerClientInstance.updateBackendState();
 
+		const end = new Date();
 		console.log(`this._editorService.openEditor took ${end.getTime() - start.getTime()}ms`);
 	}
 

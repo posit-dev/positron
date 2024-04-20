@@ -48,6 +48,16 @@ export class DataExplorerClientInstance extends Disposable {
 	private readonly _identifier = generateUuid();
 
 	/**
+	 * The current backend state.
+	 */
+	private _backendState: BackendState | undefined = undefined;
+
+	/**
+	 * A promise resolving to an active request for the backend state.
+	 */
+	private _backendPromise: Promise<BackendState> | undefined = undefined;
+
+	/**
 	 * Gets the PositronDataExplorerComm.
 	 */
 	private readonly _positronDataExplorerComm: PositronDataExplorerComm;
@@ -56,6 +66,13 @@ export class DataExplorerClientInstance extends Disposable {
 	 * The onDidSchemaUpdate event emitter.
 	 */
 	private readonly _onDidSchemaUpdateEmitter = this._register(new Emitter<SchemaUpdateEvent>());
+
+	/**
+	 * The onDidUpdateBackendState event emitter.
+	 */
+	private readonly _onDidUpdateBackendStateEmitter = this._register(
+		new Emitter<BackendState>
+	);
 
 	/**
 	 * The onDidDataUpdate event emitter.
@@ -82,10 +99,12 @@ export class DataExplorerClientInstance extends Disposable {
 		this.onDidClose = this._positronDataExplorerComm.onDidClose;
 
 		this._positronDataExplorerComm.onDidSchemaUpdate(async (e: SchemaUpdateEvent) => {
+			this.updateBackendState();
 			this._onDidSchemaUpdateEmitter.fire(e);
 		});
 
 		this._positronDataExplorerComm.onDidDataUpdate(async (_evt) => {
+			this.updateBackendState();
 			this._onDidDataUpdateEmitter.fire();
 		});
 	}
@@ -109,8 +128,37 @@ export class DataExplorerClientInstance extends Disposable {
 	 * Get the current active state of the data explorer backend.
 	 * @returns A promose that resolves to the current table state.
 	 */
-	async getState(): Promise<BackendState> {
-		return this._positronDataExplorerComm.getState();
+	async getBackendState(): Promise<BackendState> {
+		if (this._backendPromise) {
+			// If there is a request for the state pending
+			return this._backendPromise;
+		} else if (this._backendState === undefined) {
+			// The state is being requested for the first time
+			return this.updateBackendState();
+		} else {
+			// The state was previously computed
+			return this._backendState;
+		}
+	}
+
+	/**
+	 * Requests a fresh update of the backend state and fires event to notify state listeners.
+	 * @returns A promise that resolves to the latest table state.
+	 */
+	async updateBackendState(): Promise<BackendState> {
+		if (this._backendPromise) {
+			return this._backendPromise;
+		}
+
+		this._backendPromise = this._positronDataExplorerComm.getState();
+		this._backendState = await this._backendPromise;
+		this._backendPromise = undefined;
+
+		// Notify listeners
+		this._onDidUpdateBackendStateEmitter.fire(this._backendState);
+
+		// Fulfill to anyone waiting on the backend state.
+		return this._backendState;
 	}
 
 	/**
@@ -140,7 +188,7 @@ export class DataExplorerClientInstance extends Disposable {
 		 */
 
 		// Get the table state so we know now many columns there are.
-		const tableState = await this._positronDataExplorerComm.getState();
+		const tableState = await this.getBackendState();
 
 		// Load the entire schema of the table so it can be searched.
 		const tableSchema = await this._positronDataExplorerComm.getSchema(
@@ -219,6 +267,11 @@ export class DataExplorerClientInstance extends Disposable {
 	 * Event that fires when the schema has been updated.
 	 */
 	onDidSchemaUpdate = this._onDidSchemaUpdateEmitter.event;
+
+	/**
+	 * Event that fires when the backend state has been updated.
+	 */
+	onDidUpdateBackendState = this._onDidUpdateBackendStateEmitter.event;
 
 	/**
 	 * Event that fires when the data has been updated.
