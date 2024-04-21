@@ -2,8 +2,12 @@
  *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
-import { DOMWidgetView, IClassicComm, WidgetModel, WidgetView } from '@jupyter-widgets/base';
+import * as base from '@jupyter-widgets/base';
+import * as controls from '@jupyter-widgets/controls';
+import * as LuminoWidget from '@lumino/widgets';
+// import * as outputs from '@jupyter-widgets/jupyterlab-manager/lib/output';
 import { ManagerBase, IManagerState } from '@jupyter-widgets/base-manager';
+// TODO: Do we really need to depend on this?
 import { JSONObject } from '@lumino/coreutils';
 
 const vscode = acquireVsCodeApi();
@@ -16,52 +20,83 @@ interface ICommInfoReply {
 // TODO: Does everything need to be protected?
 class HTMLManager extends ManagerBase {
 	// TODO: Can we make a very simple RPC mechanism?
-	private commInfoReplyPromise: Promise<ICommInfoReply> | undefined;
-	private resolveCommInfoReplyPromise: ((value: ICommInfoReply | PromiseLike<ICommInfoReply>) => void) | undefined;
+	private commInfoPromise: Promise<string[]> | undefined;
+	private resolveCommInfoPromise: ((value: string[] | PromiseLike<string[]>) => void) | undefined;
 
 	// IWidgetManager interface
 
-	protected override loadClass(className: string, moduleName: string, moduleVersion: string): Promise<typeof WidgetModel | typeof WidgetView> {
+	protected override loadClass(className: string, moduleName: string, moduleVersion: string): Promise<typeof base.WidgetModel | typeof base.WidgetView> {
 		console.log('loadClass', className, moduleName, moduleVersion);
-		throw new Error('Method not implemented.');
+		if (moduleName === '@jupyter-widgets/base') {
+			return Promise.resolve((base as any)[className]);
+		}
+		if (moduleName === '@jupyter-widgets/controls') {
+			return Promise.resolve((controls as any)[className]);
+		}
+		// TODO: Find a usecase for this
+		// if (moduleName === '@jupyter-widgets/outputs') {
+		// 	return Promise.resolve((outputs as any)[className]);
+		// }
+		// TODO: We don't actually "register" anything... How does Jupyter Lab do this?
+		throw new Error(`No version of module ${moduleName} is registered`);
 	}
 
-	protected override _create_comm(comm_target_name: string, model_id?: string | undefined, data?: JSONObject | undefined, metadata?: JSONObject | undefined, buffers?: ArrayBuffer[] | ArrayBufferView[] | undefined): Promise<IClassicComm> {
+	protected override _create_comm(comm_target_name: string, model_id?: string | undefined, data?: JSONObject | undefined, metadata?: JSONObject | undefined, buffers?: ArrayBuffer[] | ArrayBufferView[] | undefined): Promise<base.IClassicComm> {
 		console.log('_create_comm', comm_target_name, model_id, data, metadata, buffers);
 		throw new Error('Method not implemented.');
 	}
 
 	protected override _get_comm_info(): Promise<{}> {
 		console.log('_get_comm_info');
-		if (this.commInfoReplyPromise) {
-			return this.commInfoReplyPromise;
+		if (this.commInfoPromise) {
+			return this.commInfoPromise;
 		}
 
-		this.commInfoReplyPromise = new Promise<ICommInfoReply>((resolve, reject) => {
-			this.resolveCommInfoReplyPromise = resolve;
+		this.commInfoPromise = new Promise<string[]>((resolve, reject) => {
+			this.resolveCommInfoPromise = resolve;
 			setTimeout(() => reject(new Error('Timeout waiting for comm_info_reply')), 5000);
 		});
 
 		vscode.postMessage({ type: 'comm_info_request' });
 
-		return this.commInfoReplyPromise;
+		return this.commInfoPromise;
 	}
 
 	// New methods
 
 	async display_view(
-		view: Promise<DOMWidgetView> | DOMWidgetView,
+		view: Promise<base.DOMWidgetView> | base.DOMWidgetView,
 		el: HTMLElement
 	): Promise<void> {
-		console.log('display_view', view, el);
-		throw new Error('Method not implemented.');
+		let v: base.DOMWidgetView;
+		try {
+			v = await view;
+		} catch (error) {
+			const msg = `Could not create a view for ${view}`;
+			console.error(msg);
+			const ModelCls = base.createErrorWidgetModel(error, msg);
+			const errorModel = new ModelCls();
+			v = new base.ErrorWidgetView({
+				model: errorModel,
+			});
+			v.render();
+		}
+
+		LuminoWidget.Widget.attach(v.luminoWidget, el);
+		// TODO: Do we need to maintain a _viewList?
+		// this._viewList.add(v);
+		// v.once('remove', () => {
+		// 	this._viewList.delete(v);
+		// });
 	}
 
-	onCommInfoReply(comms: ICommInfoReply) {
-		if (!this.commInfoReplyPromise) {
+	onCommInfoReply(message: ICommInfoReply) {
+		if (!this.commInfoPromise) {
 			throw new Error('Unexpected comm_info_reply');
 		}
-		this.resolveCommInfoReplyPromise!(comms);
+		// TODO: Should we make the webview container send exactly what's needed for get_comm_info (comm_ids)?
+		// TODO: Should we implement a "kernel", or is that too much overhead?
+		this.resolveCommInfoPromise!(message.comms.map((comm) => comm.comm_id));
 	}
 }
 
@@ -136,7 +171,6 @@ window.addEventListener('message', (event) => {
 	const message = event.data;
 	if (message?.type === 'comm_info_reply') {
 		// TODO: error handling?
-		const comms = (message as ICommInfoReply).comms;
-		manager.onCommInfoReply(comms);
+		manager.onCommInfoReply(message);
 	}
 });
