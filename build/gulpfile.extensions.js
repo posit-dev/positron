@@ -32,6 +32,9 @@ const compilations = [
 	'extensions/positron-code-cells/tsconfig.json',
 	'extensions/positron-connections/tsconfig.json',
 	'extensions/positron-javascript/tsconfig.json',
+	// TODO: Do we need this?
+	'extensions/positron-ipywidgets/tsconfig.json',
+	'extensions/positron-ipywidgets/webview/tsconfig.json',
 	'extensions/positron-notebook-controllers/tsconfig.json',
 	'extensions/positron-notebooks/tsconfig.json',
 	'extensions/positron-r/tsconfig.json',

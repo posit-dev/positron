@@ -1,0 +1,33 @@
+{
+  "name": "positron-ipywidgets",
+  "displayName": "%displayName%",
+  "description": "%description%",
+  "version": "0.0.1",
+  "publisher": "vscode",
+  "engines": {
+    "vscode": "^1.75.0"
+  },
+  "categories": [
+    "Data Science",
+    "Notebooks",
+    "Visualization"
+  ],
+  "keywords": [
+    "jupyter",
+    "ipywidgets",
+    "python"
+  ],
+  "scripts": {
+    "vscode:prepublish": "yarn build-webview",
+    "build-webview": "node ./esbuild-webview"
+  },
+  "dependencies": {
+    "@jupyter-widgets/base-manager": "^1.0.8",
+    "@jupyter-widgets/html-manager": "^1.0.10"
+  },
+  "devDependencies": {
+    "@types/vscode-webview": "^1.57.5",
+    "typescript": "^5.4.5",
+    "webpack": "^5.91.0"
+  }
+}

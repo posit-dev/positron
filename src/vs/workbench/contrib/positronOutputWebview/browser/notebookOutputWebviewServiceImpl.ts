@@ -332,8 +332,14 @@ window.onload = function() {
 		const requiresPath = asWebviewUri(
 			URI.joinPath(pythonExtension.extensionLocation, 'resources/js/requirejs/require.js'));
 
-		const htmlManagerPath = asWebviewUri(
-			URI.joinPath(pythonExtension.extensionLocation, 'resources/js/@jupyter-widgets/html-manager/dist/embed-amd.js'));
+		// TODO: Find a better way
+		const positronIpywidgetsExtension = await this._extensionService.getExtension('vscode.positron-ipywidgets');
+		if (!positronIpywidgetsExtension) {
+			return Promise.reject(`positron-ipywidgets not found`);
+		}
+		const positronIPyWidgetsPath = asWebviewUri(
+			URI.joinPath(positronIpywidgetsExtension.extensionLocation, 'media/index.js'));
+		// URI.joinPath(positronIpywidgetsExtension.extensionLocation, 'dist/browser/webview.js'));
 
 		let additionalScripts = '';
 		const usesJupyterMatplotlib = managerState.includes('"model_module":"jupyter-matplotlib"');
@@ -348,7 +354,10 @@ window.onload = function() {
 		const webviewInitInfo: WebviewInitInfo = {
 			contentOptions: {
 				allowScripts: true,
-				localResourceRoots: [pythonExtension.extensionLocation]
+				localResourceRoots: [
+					pythonExtension.extensionLocation,
+					positronIpywidgetsExtension.extensionLocation,
+				]
 			},
 			extension: {
 				id: runtime.runtimeMetadata.extensionId
@@ -375,11 +384,12 @@ window.onload = function() {
 <html>
 <head>
 
+<!-- TODO: We currently bundle requirejs in positron-ipywidgets -->
 <!-- Load RequireJS, used by the IPywidgets for dependency management -->
-<script src='${requiresPath}'></script>
+<!-- <script src='${requiresPath}'></script> -->
 
 <!-- Load the HTML manager, which is used to render the widgets -->
-<script src='${htmlManagerPath}'></script>
+<script src="${positronIPyWidgetsPath}" type="module"></script>
 
 <!-- Load additional dependencies that may be required by the widget type -->
 <!-- If these are not included, they will just be loaded from CDN -->
@@ -396,10 +406,54 @@ ${managerState}
 	${widgetDivs}
 </body>
 <script>
-	const vscode = acquireVsCodeApi();
-	window.onload = function() {
-		vscode.postMessage('${RENDER_COMPLETE}');
-};
+	// const vscode = acquireVsCodeApi();
+
+	// require(['@jupyter-widgets/manager-base'], function(managerBase) {
+	// 	console.log(managerBase.BaseManager);
+	// })
+
+	// TODO: Can we 'import' this instead?
+	// require([
+	// 	'@jupyter-widgets/html-manager',
+	// 	'@jupyter-widgets/html-manager/dist/libembed-amd'
+	// ], function(htmlManager, embed) {
+	// 	console.log(htmlManager);
+
+	// 	class PositronManager extends htmlManager.HTMLManager {
+	// 		_create_comm(
+	// 			comm_target_name,
+	// 			model_id,
+	// 			data?,
+	// 			metadata?,
+	// 			buffers?,
+	// 		) {
+	// 			console.log('WASIM, called create_comm');
+	// 			return Promise.resolve({
+	// 				on_close: () => {
+	// 					return;
+	// 				},
+	// 				on_msg: () => {
+	// 					return;
+	// 				},
+	// 				close: () => {
+	// 					return;
+	// 				},
+	// 			  });
+	// 		}
+	// 	}
+
+	// 	const manager = PositronManager();
+
+	// 	console.log(PositronManager);
+	// })
+
+	// require(['positron-ipywidgets'], function(positronIPyWidgets) {
+		// console.log('WASIM:', positronIPyWidgets);
+	// });
+
+	// window.onload = function() {
+		// vscode.postMessage('${RENDER_COMPLETE}');
+	// };
 </script>
 </html>
 		`);

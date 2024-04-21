@@ -14,6 +14,8 @@ const dirs = [
 	'extensions/positron-code-cells',
 	'extensions/positron-connections',
 	'extensions/positron-javascript',
+	// TODO: Do we need this?
+	'extensions/positron-ipywidgets',
 	'extensions/positron-notebook-controllers',
 	'extensions/positron-notebooks',
 	'extensions/positron-r',
