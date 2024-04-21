@@ -17,7 +17,7 @@ import { IWebviewService, WebviewInitInfo } from 'vs/workbench/contrib/webview/b
 import { asWebviewUri } from 'vs/workbench/contrib/webview/common/webview';
 import { IExtensionService } from 'vs/workbench/services/extensions/common/extensions';
 import { ILanguageRuntimeMessageWebOutput } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
-import { ILanguageRuntimeSession } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
+import { ILanguageRuntimeSession, RuntimeClientType } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
 import { MIME_TYPE_WIDGET_STATE, MIME_TYPE_WIDGET_VIEW, IPyWidgetViewSpec } from 'vs/workbench/services/positronIPyWidgets/common/positronIPyWidgetsService';
 
 export class PositronNotebookOutputWebviewService implements IPositronNotebookOutputWebviewService {
@@ -457,6 +457,18 @@ ${managerState}
 </script>
 </html>
 		`);
+
+		webview.onMessage(async e => {
+			const type = e.message?.type;
+			console.log('webview.onMessage:', type);
+			if (type === 'comm_info_request') {
+				const clients = await runtime.listClients(RuntimeClientType.IPyWidget);
+				const comms = clients.map(client => ({ comm_id: client.getClientId() }));
+				console.log('comms:', comms);
+				webview.postMessage({ type: 'comm_info_reply', comms });
+			}
+		});
+
 		return new NotebookOutputWebview(id, runtime.runtimeMetadata.runtimeId, webview);
 	}
 }

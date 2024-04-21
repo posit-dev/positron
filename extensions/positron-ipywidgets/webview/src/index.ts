@@ -2,20 +2,25 @@
  *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
-// import { IClassicComm, WidgetModel, WidgetView } from '@jupyter-widgets/base';
 import { DOMWidgetView, IClassicComm, WidgetModel, WidgetView } from '@jupyter-widgets/base';
 import { ManagerBase, IManagerState } from '@jupyter-widgets/base-manager';
 import { JSONObject } from '@lumino/coreutils';
-// import { HTMLManager } from '@jupyter-widgets/html-manager';
-// import { JSONObject } from '@lumino/coreutils';
-
-// TODO: Could we type this? Is this necessarily loaded?
-// const define = (window as any).define;
 
 const vscode = acquireVsCodeApi();
 
+
+interface ICommInfoReply {
+	comms: { comm_id: string }[];
+}
+
 // TODO: Does everything need to be protected?
 class HTMLManager extends ManagerBase {
+	// TODO: Can we make a very simple RPC mechanism?
+	private commInfoReplyPromise: Promise<ICommInfoReply> | undefined;
+	private resolveCommInfoReplyPromise: ((value: ICommInfoReply | PromiseLike<ICommInfoReply>) => void) | undefined;
+
+	// IWidgetManager interface
+
 	protected override loadClass(className: string, moduleName: string, moduleVersion: string): Promise<typeof WidgetModel | typeof WidgetView> {
 		console.log('loadClass', className, moduleName, moduleVersion);
 		throw new Error('Method not implemented.');
@@ -28,8 +33,21 @@ class HTMLManager extends ManagerBase {
 
 	protected override _get_comm_info(): Promise<{}> {
 		console.log('_get_comm_info');
-		throw new Error('Method not implemented.');
+		if (this.commInfoReplyPromise) {
+			return this.commInfoReplyPromise;
+		}
+
+		this.commInfoReplyPromise = new Promise<ICommInfoReply>((resolve, reject) => {
+			this.resolveCommInfoReplyPromise = resolve;
+			setTimeout(() => reject(new Error('Timeout waiting for comm_info_reply')), 5000);
+		});
+
+		vscode.postMessage({ type: 'comm_info_request' });
+
+		return this.commInfoReplyPromise;
 	}
+
+	// New methods
 
 	async display_view(
 		view: Promise<DOMWidgetView> | DOMWidgetView,
@@ -38,36 +56,27 @@ class HTMLManager extends ManagerBase {
 		console.log('display_view', view, el);
 		throw new Error('Method not implemented.');
 	}
-	// loadClass(className: string, moduleName: string, moduleVersion: string): Promise<typeof WidgetModel | typeof WidgetView> {
-	// 	throw new Error('Method not implemented.');
-	// }
 
-	// _create_comm(comm_target_name: string, model_id?: string, data?: JSONObject, metadata?: JSONObject, buffers?: ArrayBuffer[] | ArrayBufferView[]): Promise<IClassicComm> {
-	// 	throw new Error('Method not implemented.');
-	// }
-
-	// _get_comm_info(): Promise<{}> {
-	// 	throw new Error('Method not implemented.');
-	// }
+	onCommInfoReply(comms: ICommInfoReply) {
+		if (!this.commInfoReplyPromise) {
+			throw new Error('Unexpected comm_info_reply');
+		}
+		this.resolveCommInfoReplyPromise!(comms);
+	}
 }
 
-console.log(HTMLManager);
-// console.log(ManagerBase);
-// console.log(HTMLManager);
+const manager = new HTMLManager();
 
-// define('positron-ipywidgets', () => { return { WidgetManager }; });
 
 async function renderManager(
 	element: HTMLElement,
 	widgetState: unknown,
-	managerFactory: () => HTMLManager
 ): Promise<void> {
 	// TODO: validate widgetState?
 	// const valid = model_validate(widgetState);
 	// if (!valid) {
 	//   throw new Error(`Model state has errors: ${model_validate.errors}`);
 	// }
-	const manager = managerFactory();
 	const models = await manager.set_state(widgetState as IManagerState);
 	const tags = element.querySelectorAll(
 		'script[type="application/vnd.jupyter.widget-view+json"]'
@@ -104,29 +113,30 @@ async function renderManager(
 
 async function renderWidgets() {
 	const element = document.documentElement;
-	const managerFactory = () => new HTMLManager();
-
-	// manager.register('positron-ipywidgets', WidgetManager as any);
-	// manager.set_loader_options({ paths: { 'positron-ipywidgets': 'https://localhost:8080/' } });
-	// manager.loadClass('positron-ipywidgets', 'WidgetManager', '0.1').then((module: any) => {
-	// 	console.log('module', module);
-	// });
 	const tags = element.querySelectorAll(
 		'script[type="application/vnd.jupyter.widget-state+json"]'
 	);
 	await Promise.all(
 		Array.from(tags).map(async (t) =>
-			renderManager(element, JSON.parse(t.innerHTML), managerFactory)
+			renderManager(element, JSON.parse(t.innerHTML))
 		)
 	);
 }
 
-// TODO: Do we also need to check document.readyState === 'complete'?
-window.onload = function () {
-	console.log('window.onload');
+window.addEventListener('load', () => {
 	renderWidgets().then(() => {
 		vscode.postMessage({ type: 'render_complete' });
 	}).catch((error) => {
 		console.error('Error rendering widgets:', error);
 	});
-};
+});
+
+window.addEventListener('message', (event) => {
+	console.log('window.onmessage', event);
+	const message = event.data;
+	if (message?.type === 'comm_info_reply') {
+		// TODO: error handling?
+		const comms = (message as ICommInfoReply).comms;
+		manager.onCommInfoReply(comms);
+	}
+});
