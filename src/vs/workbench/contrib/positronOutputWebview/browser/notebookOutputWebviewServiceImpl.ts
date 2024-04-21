@@ -461,11 +461,26 @@ ${managerState}
 		webview.onMessage(async e => {
 			const type = e.message?.type;
 			console.log('webview.onMessage:', type);
+			// TODO: Feel like these shouldn't be named after Jupyter API and should return exactly
+			//  what we need for ipywidgets?
 			if (type === 'comm_info_request') {
+				// TODO: Can we use clientInstances instead like comm_open?
 				const clients = await runtime.listClients(RuntimeClientType.IPyWidget);
 				const comms = clients.map(client => ({ comm_id: client.getClientId() }));
 				console.log('comms:', comms);
 				webview.postMessage({ type: 'comm_info_reply', comms });
+			} else if (type === 'comm_open') {
+				const { comm_id, target_name, data, metadata, buffers } = e.message.content;
+				console.log('comm_open:', comm_id, target_name, data, metadata, buffers);
+				const client = runtime.clientInstances.find(
+					client => client.getClientType() === target_name && client.getClientId() === comm_id);
+				if (!client) {
+					// TODO: Support creating a comm from the frontend
+					throw new Error(`Client not found: ${comm_id}`);
+				}
+				webview.postMessage({ type: 'comm_open_reply' });
+			} else {
+				console.log('Unhandled message:', e.message);
 			}
 		});
 

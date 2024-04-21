@@ -6,15 +6,45 @@ import * as base from '@jupyter-widgets/base';
 import * as controls from '@jupyter-widgets/controls';
 import * as LuminoWidget from '@lumino/widgets';
 // import * as outputs from '@jupyter-widgets/jupyterlab-manager/lib/output';
-import { ManagerBase, IManagerState } from '@jupyter-widgets/base-manager';
+import { ManagerBase } from '@jupyter-widgets/base-manager';
 // TODO: Do we really need to depend on this?
-import { JSONObject } from '@lumino/coreutils';
+import { JSONObject, JSONValue } from '@lumino/coreutils';
 
 const vscode = acquireVsCodeApi();
 
 
 interface ICommInfoReply {
 	comms: { comm_id: string }[];
+}
+
+class Comm implements base.IClassicComm {
+	constructor(
+		readonly comm_id: string,
+		readonly target_name: string,
+	) { }
+
+	open(data: JSONValue, callbacks?: base.ICallbacks | undefined, metadata?: JSONObject | undefined, buffers?: ArrayBuffer[] | ArrayBufferView[] | undefined): string {
+		console.log('Comm.open', data, callbacks, metadata, buffers);
+		return '';
+	}
+
+	send(data: JSONValue, callbacks?: base.ICallbacks | undefined, metadata?: JSONObject | undefined, buffers?: ArrayBuffer[] | ArrayBufferView[] | undefined): string {
+		console.log('Comm.send', data, callbacks, metadata, buffers);
+		return '';
+	}
+
+	close(data?: JSONValue | undefined, callbacks?: base.ICallbacks | undefined, metadata?: JSONObject | undefined, buffers?: ArrayBuffer[] | ArrayBufferView[] | undefined): string {
+		console.log('Comm.close', data, callbacks, metadata, buffers);
+		return '';
+	}
+
+	on_msg(callback: (x: any) => void): void {
+		console.log('Comm.on_msg', callback);
+	}
+
+	on_close(callback: (x: any) => void): void {
+		console.log('Comm.on_close', callback);
+	}
 }
 
 // TODO: Does everything need to be protected?
@@ -41,9 +71,25 @@ class HTMLManager extends ManagerBase {
 		throw new Error(`No version of module ${moduleName} is registered`);
 	}
 
-	protected override _create_comm(comm_target_name: string, model_id?: string | undefined, data?: JSONObject | undefined, metadata?: JSONObject | undefined, buffers?: ArrayBuffer[] | ArrayBufferView[] | undefined): Promise<base.IClassicComm> {
+	protected override async _create_comm(comm_target_name: string, model_id?: string | undefined, data?: JSONObject | undefined, metadata?: JSONObject | undefined, buffers?: ArrayBuffer[] | ArrayBufferView[] | undefined): Promise<base.IClassicComm> {
 		console.log('_create_comm', comm_target_name, model_id, data, metadata, buffers);
-		throw new Error('Method not implemented.');
+		if (!model_id) {
+			// TODO: Supporting creating a comm from the frontend
+			throw new Error('model_id is required');
+		}
+		vscode.postMessage(
+			{
+				type: 'comm_open',
+				content: {
+					comm_id: model_id,
+					target_name: comm_target_name,
+					data,
+					metadata,
+					buffers
+				}
+			}
+		);
+		return new Comm(model_id, comm_target_name);
 	}
 
 	protected override _get_comm_info(): Promise<{}> {
@@ -98,68 +144,17 @@ class HTMLManager extends ManagerBase {
 		// TODO: Should we implement a "kernel", or is that too much overhead?
 		this.resolveCommInfoPromise!(message.comms.map((comm) => comm.comm_id));
 	}
+
+	async loadFromKernel(): Promise<void> {
+		return super._loadFromKernel();
+	}
 }
 
 const manager = new HTMLManager();
 
 
-async function renderManager(
-	element: HTMLElement,
-	widgetState: unknown,
-): Promise<void> {
-	// TODO: validate widgetState?
-	// const valid = model_validate(widgetState);
-	// if (!valid) {
-	//   throw new Error(`Model state has errors: ${model_validate.errors}`);
-	// }
-	const models = await manager.set_state(widgetState as IManagerState);
-	const tags = element.querySelectorAll(
-		'script[type="application/vnd.jupyter.widget-view+json"]'
-	);
-	await Promise.all(
-		Array.from(tags).map(async (viewtag) => {
-			const widgetViewObject = JSON.parse(viewtag.innerHTML);
-			// TODO: validate view state?
-			// const valid = view_validate(widgetViewObject);
-			// if (!valid) {
-			// 	throw new Error(`View state has errors: ${view_validate.errors}`);
-			// }
-			const model_id: string = widgetViewObject.model_id;
-			const model = models.find((item) => item.model_id === model_id);
-			if (model !== undefined && viewtag.parentElement !== null) {
-				const prev = viewtag.previousElementSibling;
-				if (
-					prev &&
-					prev.tagName === 'img' &&
-					prev.classList.contains('jupyter-widget')
-				) {
-					viewtag.parentElement.removeChild(prev);
-				}
-				const widgetTag = document.createElement('div');
-				widgetTag.className = 'widget-subarea';
-				viewtag.parentElement.insertBefore(widgetTag, viewtag);
-				const view = await manager.create_view(model);
-				manager.display_view(view, widgetTag);
-			}
-		})
-	);
-}
-
-
-async function renderWidgets() {
-	const element = document.documentElement;
-	const tags = element.querySelectorAll(
-		'script[type="application/vnd.jupyter.widget-state+json"]'
-	);
-	await Promise.all(
-		Array.from(tags).map(async (t) =>
-			renderManager(element, JSON.parse(t.innerHTML))
-		)
-	);
-}
-
 window.addEventListener('load', () => {
-	renderWidgets().then(() => {
+	manager.loadFromKernel().then(() => {
 		vscode.postMessage({ type: 'render_complete' });
 	}).catch((error) => {
 		console.error('Error rendering widgets:', error);
