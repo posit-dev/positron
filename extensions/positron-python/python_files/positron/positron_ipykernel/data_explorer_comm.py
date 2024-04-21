@@ -166,6 +166,11 @@ class FilterResult(BaseModel):
         description="Number of rows in table after applying filters",
     )
 
+    had_errors: Optional[bool] = Field(
+        default=None,
+        description="Flag indicating if there were errors in evaluation",
+    )
+
 
 class BackendState(BaseModel):
     """
@@ -293,6 +298,11 @@ class RowFilter(BaseModel):
     is_valid: Optional[bool] = Field(
         default=None,
         description="Whether the filter is valid and supported by the backend, if undefined then true",
+    )
+
+    error_message: Optional[str] = Field(
+        default=None,
+        description="Optional error message when the filter is invalid",
     )
 
     between_params: Optional[BetweenFilterParams] = Field(

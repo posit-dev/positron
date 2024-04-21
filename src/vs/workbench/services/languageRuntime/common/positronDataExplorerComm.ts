@@ -51,6 +51,11 @@ export interface FilterResult {
 	 */
 	selected_num_rows: number;
 
+	/**
+	 * Flag indicating if there were errors in evaluation
+	 */
+	had_errors?: boolean;
+
 }
 
 /**
@@ -196,6 +201,11 @@ export interface RowFilter {
 	 * then true
 	 */
 	is_valid?: boolean;
+
+	/**
+	 * Optional error message when the filter is invalid
+	 */
+	error_message?: string;
 
 	/**
 	 * Parameters for the 'between' and 'not_between' filter types

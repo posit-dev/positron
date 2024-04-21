@@ -48,9 +48,9 @@ export class DataExplorerClientInstance extends Disposable {
 	private readonly _identifier = generateUuid();
 
 	/**
-	 * The current backend state.
+	 * The current cached backend state.
 	 */
-	private _backendState: BackendState | undefined = undefined;
+	public cachedBackendState: BackendState | undefined = undefined;
 
 	/**
 	 * A promise resolving to an active request for the backend state.
@@ -104,7 +104,6 @@ export class DataExplorerClientInstance extends Disposable {
 		});
 
 		this._positronDataExplorerComm.onDidDataUpdate(async (_evt) => {
-			this.updateBackendState();
 			this._onDidDataUpdateEmitter.fire();
 		});
 	}
@@ -126,18 +125,18 @@ export class DataExplorerClientInstance extends Disposable {
 
 	/**
 	 * Get the current active state of the data explorer backend.
-	 * @returns A promose that resolves to the current table state.
+	 * @returns A promose that resolves to the current backend state.
 	 */
 	async getBackendState(): Promise<BackendState> {
 		if (this._backendPromise) {
 			// If there is a request for the state pending
 			return this._backendPromise;
-		} else if (this._backendState === undefined) {
+		} else if (this.cachedBackendState === undefined) {
 			// The state is being requested for the first time
 			return this.updateBackendState();
 		} else {
 			// The state was previously computed
-			return this._backendState;
+			return this.cachedBackendState;
 		}
 	}
 
@@ -151,14 +150,14 @@ export class DataExplorerClientInstance extends Disposable {
 		}
 
 		this._backendPromise = this._positronDataExplorerComm.getState();
-		this._backendState = await this._backendPromise;
+		this.cachedBackendState = await this._backendPromise;
 		this._backendPromise = undefined;
 
 		// Notify listeners
-		this._onDidUpdateBackendStateEmitter.fire(this._backendState);
+		this._onDidUpdateBackendStateEmitter.fire(this.cachedBackendState);
 
 		// Fulfill to anyone waiting on the backend state.
-		return this._backendState;
+		return this.cachedBackendState;
 	}
 
 	/**

@@ -200,7 +200,7 @@ class PositronDataExplorerService extends Disposable implements IPositronDataExp
 			// Hack to be able to call PositronDataExplorerEditorInput.setName without
 			// eslint errors;
 			const dxInput = editor?.input as any;
-			if (state.display_name !== undefined) {
+			if (dxInput !== undefined && state.display_name !== undefined) {
 				dxInput.setName?.(`Data: ${state.display_name}`);
 			}
 		});

@@ -147,7 +147,7 @@ export const AddEditRowFilterModalPopup = (props: AddEditRowFilterModalPopupProp
 
 	// State hooks.
 	const [selectedColumnSchema, setSelectedColumnSchema] = useState<ColumnSchema | undefined>(
-		props.editRowFilter?.columnSchema
+		props.editRowFilter?.schema
 	);
 	const [selectedFilterType, setSelectedFilterType] = useState<RowFilterDescrType | undefined>(
 		props.editRowFilter?.descrType
@@ -168,7 +168,9 @@ export const AddEditRowFilterModalPopup = (props: AddEditRowFilterModalPopupProp
 			return '';
 		}
 	});
-	const [errorText, setErrorText] = useState<string | undefined>(undefined);
+	const [errorText, setErrorText] = useState<string | undefined>(
+		props.editRowFilter?.props.errorMessage
+	);
 
 	// useEffect for when the selectedFilterType changes.
 	useEffect(() => {
@@ -582,25 +584,27 @@ export const AddEditRowFilterModalPopup = (props: AddEditRowFilterModalPopupProp
 		switch (selectedFilterType) {
 			// Apply the is empty row filter.
 			case RowFilterDescrType.IS_EMPTY: {
-				applyRowFilter(new RowFilterDescriptorIsEmpty(selectedColumnSchema));
+				applyRowFilter(new RowFilterDescriptorIsEmpty({ columnSchema: selectedColumnSchema }));
 				break;
 			}
 
 			// Apply the is not empty row filter.
 			case RowFilterDescrType.IS_NOT_EMPTY: {
-				applyRowFilter(new RowFilterDescriptorIsNotEmpty(selectedColumnSchema));
+				applyRowFilter(new RowFilterDescriptorIsNotEmpty({ columnSchema: selectedColumnSchema }));
 				break;
 			}
 
 			// Apply the is null row filter.
 			case RowFilterDescrType.IS_NULL: {
-				applyRowFilter(new RowFilterDescriptorIsNull(selectedColumnSchema));
+				applyRowFilter(new RowFilterDescriptorIsNull(
+					{ columnSchema: selectedColumnSchema }));
 				break;
 			}
 
 			// Apply the is not null row filter.
 			case RowFilterDescrType.IS_NOT_NULL: {
-				applyRowFilter(new RowFilterDescriptorIsNotNull(selectedColumnSchema));
+				applyRowFilter(new RowFilterDescriptorIsNotNull(
+					{ columnSchema: selectedColumnSchema }));
 				break;
 			}
 
@@ -613,7 +617,7 @@ export const AddEditRowFilterModalPopup = (props: AddEditRowFilterModalPopupProp
 					return;
 				}
 				applyRowFilter(new RowFilterDescriptorSearch(
-					selectedColumnSchema,
+					{ columnSchema: selectedColumnSchema },
 					firstRowFilterValue,
 					selectedFilterType
 				));
@@ -631,7 +635,7 @@ export const AddEditRowFilterModalPopup = (props: AddEditRowFilterModalPopupProp
 					return;
 				}
 				applyRowFilter(new RowFilterDescriptorComparison(
-					selectedColumnSchema,
+					{ columnSchema: selectedColumnSchema },
 					firstRowFilterValue,
 					selectedFilterType
 				));
@@ -647,7 +651,7 @@ export const AddEditRowFilterModalPopup = (props: AddEditRowFilterModalPopupProp
 					return;
 				}
 				applyRowFilter(new RowFilterDescriptorIsBetween(
-					selectedColumnSchema,
+					{ columnSchema: selectedColumnSchema },
 					firstRowFilterValue,
 					secondRowFilterValue
 				));
@@ -663,7 +667,7 @@ export const AddEditRowFilterModalPopup = (props: AddEditRowFilterModalPopupProp
 					return;
 				}
 				applyRowFilter(new RowFilterDescriptorIsNotBetween(
-					selectedColumnSchema,
+					{ columnSchema: selectedColumnSchema },
 					firstRowFilterValue,
 					secondRowFilterValue
 				));

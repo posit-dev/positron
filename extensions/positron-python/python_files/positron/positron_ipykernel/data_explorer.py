@@ -164,6 +164,7 @@ class DataExplorerTableView(abc.ABC):
         return results
 
     def get_state(self, _: GetStateRequest):
+        self._recompute_if_needed()
         return self._get_state().dict()
 
     @abc.abstractmethod
@@ -455,8 +456,11 @@ class PandasView(DataExplorerTableView):
             # set the is_valid flag to False) to go away.
             if is_deleted:
                 filt.is_valid = False
+                filt.error_message = "Column was deleted"
             else:
                 filt.is_valid = self._is_supported_filter(filt)
+                if not filt.is_valid:
+                    filt.error_message = "Unsupported column type for filter"
 
             new_filters.append(filt)
 
@@ -662,12 +666,27 @@ class PandasView(DataExplorerTableView):
         # Evaluate all the filters and combine them using the
         # indicated conditions
         combined_mask = None
+        had_errors = False
         for filt in filters:
             if filt.is_valid is False:
                 # If filter is invalid, do not evaluate it
                 continue
 
-            single_mask = self._eval_filter(filt)
+            try:
+                single_mask = self._eval_filter(filt)
+            except Exception as e:
+                had_errors = True
+
+                # Filter fails: we capture the error message and mark
+                # the filter as invalid
+                filt.is_valid = False
+                filt.error_message = str(e)
+
+                # Perhaps use a different log level, but to help with
+                # debugging for now.
+                logger.warning(e, exc_info=True)
+                continue
+
             if combined_mask is None:
                 combined_mask = single_mask
             elif filt.condition == RowFilterCondition.And:
@@ -684,7 +703,7 @@ class PandasView(DataExplorerTableView):
 
         # Update the view indices, re-sorting if needed
         self._update_view_indices()
-        return FilterResult(selected_num_rows=selected_num_rows)
+        return FilterResult(selected_num_rows=selected_num_rows, had_errors=had_errors)
 
     def _is_supported_filter(self, filt: RowFilter) -> bool:
         if filt.filter_type not in self.SUPPORTED_FILTERS:

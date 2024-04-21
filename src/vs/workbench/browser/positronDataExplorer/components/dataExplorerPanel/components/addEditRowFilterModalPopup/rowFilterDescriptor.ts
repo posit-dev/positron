@@ -39,6 +39,12 @@ export enum RowFilterDescrType {
 	IS_NOT_BETWEEN = 'is-not-between'
 }
 
+interface RowFilterCommonProps {
+	readonly columnSchema: ColumnSchema;
+	readonly isValid?: boolean;
+	readonly errorMessage?: string;
+}
+
 /**
  * BaseRowFilterDescriptor class.
  */
@@ -50,14 +56,10 @@ abstract class BaseRowFilterDescriptor {
 
 	/**
 	 * Constructor.
-	 * @param columnSchema The column schema.
-	 * @param isValid Flag if the filter is valid or invalid and ignored by backend.
+	 * @param props The common row filter descriptor properties.
 	 */
-	constructor(public readonly columnSchema: ColumnSchema,
-		public readonly isValid: boolean | undefined
-	) {
+	constructor(public readonly props: RowFilterCommonProps) {
 		this.identifier = generateUuid();
-		this.isValid = isValid;
 	}
 
 	/**
@@ -67,10 +69,14 @@ abstract class BaseRowFilterDescriptor {
 
 	abstract get backendFilter(): RowFilter;
 
+	get schema() {
+		return this.props.columnSchema;
+	}
+
 	protected _sharedBackendParams() {
 		return {
 			filter_id: this.identifier,
-			column_schema: this.columnSchema,
+			column_schema: this.props.columnSchema,
 			condition: RowFilterCondition.And
 		};
 	}
@@ -82,13 +88,10 @@ abstract class BaseRowFilterDescriptor {
 export class RowFilterDescriptorIsEmpty extends BaseRowFilterDescriptor {
 	/**
 	 * Constructor.
-	 * @param columnSchema The column schema.
-	 * @param isValid Flag if the filter is valid or invalid and ignored by backend.
+	 * @param props The common row filter descriptor properties.
 	 */
-	constructor(columnSchema: ColumnSchema,
-		isValid = true
-	) {
-		super(columnSchema, isValid);
+	constructor(props: RowFilterCommonProps) {
+		super(props);
 	}
 
 	/**
@@ -115,13 +118,10 @@ export class RowFilterDescriptorIsEmpty extends BaseRowFilterDescriptor {
 export class RowFilterDescriptorIsNotEmpty extends BaseRowFilterDescriptor {
 	/**
 	 * Constructor.
-	 * @param columnSchema The column schema.
-	 * @param isValid Flag if the filter is valid or invalid and ignored by backend.
+	 * @param props The common row filter descriptor properties.
 	 */
-	constructor(columnSchema: ColumnSchema,
-		isValid = true
-	) {
-		super(columnSchema, isValid);
+	constructor(props: RowFilterCommonProps) {
+		super(props);
 	}
 
 	/**
@@ -148,13 +148,10 @@ export class RowFilterDescriptorIsNotEmpty extends BaseRowFilterDescriptor {
 export class RowFilterDescriptorIsNull extends BaseRowFilterDescriptor {
 	/**
 	 * Constructor.
-	 * @param columnSchema The column schema.
-	 * @param isValid Flag if the filter is valid or invalid and ignored by backend.
+	 * @param props The common row filter descriptor properties.
 	 */
-	constructor(columnSchema: ColumnSchema,
-		isValid = true
-	) {
-		super(columnSchema, isValid);
+	constructor(props: RowFilterCommonProps) {
+		super(props);
 	}
 
 	/**
@@ -181,13 +178,10 @@ export class RowFilterDescriptorIsNull extends BaseRowFilterDescriptor {
 export class RowFilterDescriptorIsNotNull extends BaseRowFilterDescriptor {
 	/**
 	 * Constructor.
-	 * @param columnSchema The column schema.
-	 * @param isValid Flag if the filter is valid or invalid and ignored by backend.
+	 * @param props The common row filter descriptor properties.
 	 */
-	constructor(columnSchema: ColumnSchema,
-		isValid = true
-	) {
-		super(columnSchema, isValid);
+	constructor(props: RowFilterCommonProps) {
+		super(props);
 	}
 
 	/**
@@ -214,14 +208,12 @@ export class RowFilterDescriptorIsNotNull extends BaseRowFilterDescriptor {
 export abstract class SingleValueRowFilterDescriptor extends BaseRowFilterDescriptor {
 	/**
 	 * Constructor.
-	 * @param columnSchema The column schema.
+	 * @param props The common row filter descriptor properties.
 	 * @param value The value.
-	 * @param isValid Flag if the filter is valid or invalid and ignored by backend.
 	 */
-	constructor(columnSchema: ColumnSchema, public readonly value: string,
-		isValid = true
-	) {
-		super(columnSchema, isValid);
+	constructor(props: RowFilterCommonProps,
+		public readonly value: string) {
+		super(props);
 	}
 }
 
@@ -231,17 +223,14 @@ export abstract class SingleValueRowFilterDescriptor extends BaseRowFilterDescri
 export class RowFilterDescriptorComparison extends SingleValueRowFilterDescriptor {
 	/**
 	 * Constructor.
-	 * @param columnSchema The column schema.
+	 * @param props The common row filter descriptor properties.
 	 * @param value The value.
 	 * @param descrType The filter condition.
-	 * @param isValid Flag if the filter is valid or invalid and ignored by backend.
 	 */
 	_descrType: RowFilterDescrType;
 
-	constructor(columnSchema: ColumnSchema, value: string, descrType: RowFilterDescrType,
-		isValid = true
-	) {
-		super(columnSchema, value, isValid);
+	constructor(props: RowFilterCommonProps, value: string, descrType: RowFilterDescrType) {
+		super(props, value);
 		this._descrType = descrType;
 	}
 
@@ -309,17 +298,14 @@ export class RowFilterDescriptorComparison extends SingleValueRowFilterDescripto
 export class RowFilterDescriptorSearch extends SingleValueRowFilterDescriptor {
 	/**
 	 * Constructor.
-	 * @param columnSchema The column schema.
+	 * @param props The common row filter descriptor properties.
 	 * @param value The value.
 	 * @param descrType The filter condition.
-	 * @param isValid Flag if the filter is valid or invalid and ignored by backend.
 	 */
 	_descrType: RowFilterDescrType;
 
-	constructor(columnSchema: ColumnSchema, value: string, descrType: RowFilterDescrType,
-		isValid = true
-	) {
-		super(columnSchema, value, isValid);
+	constructor(props: RowFilterCommonProps, value: string, descrType: RowFilterDescrType) {
+		super(props, value);
 		this._descrType = descrType;
 	}
 
@@ -381,15 +367,13 @@ export class RowFilterDescriptorSearch extends SingleValueRowFilterDescriptor {
 export class RowFilterDescriptorSetMembership extends BaseRowFilterDescriptor {
 	/**
 	 * Constructor.
-	 * @param columnSchema The column schema.
+	 * @param props The common row filter descriptor properties.
 	 * @param values The values to include.
-	 * @param isValid Flag if the filter is valid or invalid and ignored by backend.
 	 */
 	values: Array<string>;
 
-	constructor(columnSchema: ColumnSchema, values: Array<string>, isValid = true
-	) {
-		super(columnSchema, isValid);
+	constructor(props: RowFilterCommonProps, values: Array<string>) {
+		super(props);
 		this.values = values;
 	}
 
@@ -426,18 +410,16 @@ export class RowFilterDescriptorSetMembership extends BaseRowFilterDescriptor {
 export abstract class RangeRowFilterDescriptor extends BaseRowFilterDescriptor {
 	/**
 	 * Constructor.
-	 * @param columnSchema The column schema.
+	 * @param props The common row filter descriptor properties.
 	 * @param lowerLimit The lower limit.
 	 * @param upperLimit The lower limit.
-	 * @param isValid Flag if the filter is valid or invalid and ignored by backend.
 	 */
 	constructor(
-		columnSchema: ColumnSchema,
+		props: RowFilterCommonProps,
 		public readonly lowerLimit: string,
 		public readonly upperLimit: string,
-		isValid = true
 	) {
-		super(columnSchema, isValid);
+		super(props);
 	}
 }
 
@@ -447,15 +429,12 @@ export abstract class RangeRowFilterDescriptor extends BaseRowFilterDescriptor {
 export class RowFilterDescriptorIsBetween extends RangeRowFilterDescriptor {
 	/**
 	 * Constructor.
-	 * @param columnSchema The column schema.
+	 * @param props The common row filter descriptor properties.
 	 * @param lowerLimit The lower limit.
 	 * @param upperLimit The lower limit.
-	 * @param isValid Flag if the filter is valid or invalid and ignored by backend.
 	 */
-	constructor(columnSchema: ColumnSchema, lowerLimit: string, upperLimit: string,
-		isValid = true
-	) {
-		super(columnSchema, lowerLimit, upperLimit, isValid);
+	constructor(props: RowFilterCommonProps, lowerLimit: string, upperLimit: string) {
+		super(props, lowerLimit, upperLimit);
 	}
 
 	/**
@@ -486,13 +465,12 @@ export class RowFilterDescriptorIsBetween extends RangeRowFilterDescriptor {
 export class RowFilterDescriptorIsNotBetween extends RangeRowFilterDescriptor {
 	/**
 	 * Constructor.
-	 * @param columnSchema The column schema.
+	 * @param props The common row filter descriptor properties.
 	 * @param lowerLimit The lower limit.
 	 * @param upperLimit The lower limit.
-	 * @param isValid Flag if the filter is valid or invalid and ignored by backend.
 	 */
-	constructor(columnSchema: ColumnSchema, lowerLimit: string, upperLimit: string, isValid = true) {
-		super(columnSchema, lowerLimit, upperLimit);
+	constructor(props: RowFilterCommonProps, lowerLimit: string, upperLimit: string) {
+		super(props, lowerLimit, upperLimit);
 	}
 
 	/**
@@ -548,52 +526,47 @@ function getSearchDescrType(searchType: SearchFilterType) {
 }
 
 export function getRowFilterDescriptor(backendFilter: RowFilter) {
+	const commonProps = {
+		columnSchema: backendFilter.column_schema,
+		isValid: backendFilter.is_valid,
+		errorMessage: backendFilter.error_message
+	};
 	switch (backendFilter.filter_type) {
 		case RowFilterType.Compare: {
 			const params = backendFilter.compare_params!;
-			return new RowFilterDescriptorComparison(backendFilter.column_schema,
+			return new RowFilterDescriptorComparison(commonProps,
 				params.value, getCompareDescrType(params.op),
-				backendFilter.is_valid
 			);
 		}
 		case RowFilterType.Between: {
 			const params = backendFilter.between_params!;
-			return new RowFilterDescriptorIsBetween(backendFilter.column_schema,
-				params.left_value, params.right_value, backendFilter.is_valid
+			return new RowFilterDescriptorIsBetween(commonProps,
+				params.left_value, params.right_value
 			);
 		}
 		case RowFilterType.NotBetween: {
 			const params = backendFilter.between_params!;
-			return new RowFilterDescriptorIsNotBetween(backendFilter.column_schema,
-				params.left_value, params.right_value, backendFilter.is_valid
+			return new RowFilterDescriptorIsNotBetween(commonProps,
+				params.left_value, params.right_value
 			);
 		}
 		case RowFilterType.IsEmpty:
-			return new RowFilterDescriptorIsEmpty(backendFilter.column_schema,
-				backendFilter.is_valid
-			);
+			return new RowFilterDescriptorIsEmpty(commonProps);
 		case RowFilterType.NotEmpty:
-			return new RowFilterDescriptorIsNotEmpty(backendFilter.column_schema,
-				backendFilter.is_valid
-			);
+			return new RowFilterDescriptorIsNotEmpty(commonProps);
 		case RowFilterType.IsNull:
-			return new RowFilterDescriptorIsNull(backendFilter.column_schema,
-				backendFilter.is_valid
-			);
+			return new RowFilterDescriptorIsNull(commonProps);
 		case RowFilterType.NotNull:
-			return new RowFilterDescriptorIsNotNull(backendFilter.column_schema,
-				backendFilter.is_valid
-			);
+			return new RowFilterDescriptorIsNotNull(commonProps);
 		case RowFilterType.Search: {
 			const params = backendFilter.search_params!;
-			return new RowFilterDescriptorSearch(backendFilter.column_schema,
-				params.term, getSearchDescrType(params.search_type),
-				backendFilter.is_valid);
+			return new RowFilterDescriptorSearch(commonProps,
+				params.term, getSearchDescrType(params.search_type));
 		}
 		case RowFilterType.SetMembership: {
 			const params = backendFilter.set_membership_params!;
-			return new RowFilterDescriptorSetMembership(backendFilter.column_schema,
-				params.values, backendFilter.is_valid
+			return new RowFilterDescriptorSetMembership(commonProps,
+				params.values
 			);
 		}
 	}

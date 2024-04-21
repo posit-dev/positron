@@ -44,28 +44,28 @@ export const RowFilterWidget = forwardRef<HTMLButtonElement, RowFilterWidgetProp
 	const title = (() => {
 		if (props.rowFilter instanceof RowFilterDescriptorIsEmpty) {
 			return <>
-				<span className='column-name'>{props.rowFilter.columnSchema.column_name}</span>
+				<span className='column-name'>{props.rowFilter.schema.column_name}</span>
 				<span className='space-before'>
 					{localize('positron.dataExplorer.rowFilterWidget.isEmpty', "is empty")}
 				</span>
 			</>;
 		} else if (props.rowFilter instanceof RowFilterDescriptorIsNotEmpty) {
 			return <>
-				<span className='column-name'>{props.rowFilter.columnSchema.column_name}</span>
+				<span className='column-name'>{props.rowFilter.schema.column_name}</span>
 				<span className='space-before'>
 					{localize('positron.dataExplorer.rowFilterWidget.isNotEmpty', "is not empty")}
 				</span>
 			</>;
 		} else if (props.rowFilter instanceof RowFilterDescriptorIsNull) {
 			return <>
-				<span className='column-name'>{props.rowFilter.columnSchema.column_name}</span>
+				<span className='column-name'>{props.rowFilter.schema.column_name}</span>
 				<span className='space-before'>
 					{localize('positron.dataExplorer.rowFilterWidget.isNull', "is null")}
 				</span>
 			</>;
 		} else if (props.rowFilter instanceof RowFilterDescriptorIsNotNull) {
 			return <>
-				<span className='column-name'>{props.rowFilter.columnSchema.column_name}</span>
+				<span className='column-name'>{props.rowFilter.schema.column_name}</span>
 				<span className='space-before'>
 					{localize('positron.dataExplorer.rowFilterWidget.isNotNull', "is not null")}
 				</span>
@@ -73,37 +73,37 @@ export const RowFilterWidget = forwardRef<HTMLButtonElement, RowFilterWidgetProp
 
 		} else if (props.rowFilter instanceof RowFilterDescriptorComparison) {
 			return <>
-				<span className='column-name'>{props.rowFilter.columnSchema.column_name}</span>
+				<span className='column-name'>{props.rowFilter.schema.column_name}</span>
 				<span className='space-before space-after'>{props.rowFilter.operatorText}</span>
 				<span>{props.rowFilter.value}</span>
 			</>;
 		} else if (props.rowFilter instanceof RowFilterDescriptorSearch) {
 			return <>
-				<span className='column-name'>{props.rowFilter.columnSchema.column_name}</span>
+				<span className='column-name'>{props.rowFilter.schema.column_name}</span>
 				<span className='space-before space-after'>{props.rowFilter.operatorText}</span>
 				<span>{props.rowFilter.value}</span>
 			</>;
 		} else if (props.rowFilter instanceof RowFilterDescriptorIsBetween) {
 			return <>
-				<span className='column-name'>{props.rowFilter.columnSchema.column_name}</span>
+				<span className='column-name'>{props.rowFilter.schema.column_name}</span>
 				<span className='space-before space-after'>&gt;=</span>
 				<span>{props.rowFilter.lowerLimit}</span>
 				<span className='space-before space-after'>
 					{localize('positron.dataExplorer.rowFilterWidget.and', "and")}
 				</span>
-				<span className='column-name'>{props.rowFilter.columnSchema.column_name}</span>
+				<span className='column-name'>{props.rowFilter.schema.column_name}</span>
 				<span className='space-before space-after'>&lt;=</span>
 				<span>{props.rowFilter.upperLimit}</span>
 			</>;
 		} else if (props.rowFilter instanceof RowFilterDescriptorIsNotBetween) {
 			return <>
-				<span className='column-name'>{props.rowFilter.columnSchema.column_name}</span>
+				<span className='column-name'>{props.rowFilter.schema.column_name}</span>
 				<span className='space-before space-after'>&lt;</span>
 				<span>{props.rowFilter.lowerLimit}</span>
 				<span className='space-before space-after'>
 					{localize('positron.dataExplorer.rowFilterWidget.and', "and")}
 				</span>
-				<span className='column-name'>{props.rowFilter.columnSchema.column_name}</span>
+				<span className='column-name'>{props.rowFilter.schema.column_name}</span>
 				<span className='space-before space-after'>&gt;</span>
 				<span>{props.rowFilter.upperLimit}</span>
 			</>;
@@ -114,7 +114,7 @@ export const RowFilterWidget = forwardRef<HTMLButtonElement, RowFilterWidgetProp
 	})();
 
 	let buttonClass = 'row-filter-widget';
-	if (!props.rowFilter.isValid) {
+	if (!props.rowFilter.props.isValid) {
 		buttonClass = `${buttonClass} invalid-row-filter-widget`;
 	}
 

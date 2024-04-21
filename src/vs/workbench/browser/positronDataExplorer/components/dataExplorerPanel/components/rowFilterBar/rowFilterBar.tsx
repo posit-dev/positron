@@ -7,9 +7,10 @@ import 'vs/css!./rowFilterBar';
 
 // React.
 import * as React from 'react';
-import { useRef, useState } from 'react'; // eslint-disable-line no-duplicate-imports
+import { useEffect, useRef, useState } from 'react'; // eslint-disable-line no-duplicate-imports
 
 // Other dependencies.
+import { DisposableStore } from 'vs/base/common/lifecycle';
 import { localize } from 'vs/nls';
 import * as DOM from 'vs/base/browser/dom';
 import { Button } from 'vs/base/browser/ui/positronComponents/button/button';
@@ -32,6 +33,7 @@ import {
 export const RowFilterBar = () => {
 	// Context hooks.
 	const context = usePositronDataExplorerContext();
+	const backendClient = context.instance.dataExplorerClientInstance;
 
 	// Reference hooks.
 	const ref = useRef<HTMLDivElement>(undefined!);
@@ -40,8 +42,28 @@ export const RowFilterBar = () => {
 	const addFilterButtonRef = useRef<HTMLButtonElement>(undefined!);
 
 	// State hooks.
-	const [rowFilterDescriptors, setRowFilterDescriptors] = useState<RowFilterDescriptor[]>([]);
+	const [rowFilterDescriptors, setRowFilterDescriptors] = useState<RowFilterDescriptor[]>(
+		backendClient.cachedBackendState === undefined ? [] :
+			backendClient.cachedBackendState.row_filters.map(getRowFilterDescriptor)
+	);
 	const [rowFiltersHidden, setRowFiltersHidden] = useState(false);
+
+	// Main useEffect. This is where we set up event handlers.
+	useEffect(() => {
+		// Create the disposable store for cleanup.
+		const disposableStore = new DisposableStore();
+
+		// Set up event handler for backend state sync updating the filter bar
+		disposableStore.add(context.instance.dataExplorerClientInstance.onDidUpdateBackendState(
+			(state) => {
+				const newDescriptors = state.row_filters.map(getRowFilterDescriptor);
+				setRowFilterDescriptors(newDescriptors);
+			})
+		);
+
+		// Return the cleanup function that will dispose of the event handlers.
+		return () => disposableStore.dispose();
+	}, [context.instance]);
 
 	/**
 	 * Shows the add / edit row filter modal popup.
@@ -173,12 +195,6 @@ export const RowFilterBar = () => {
 			newRowFilterDescriptors.map(descr => descr.backendFilter)
 		);
 	};
-
-	// Set up event handler for backend state sync updating the filter bar
-	context.instance.dataExplorerClientInstance.onDidUpdateBackendState((state) => {
-		const newDescriptors = state.row_filters.map(getRowFilterDescriptor);
-		setRowFilterDescriptors(newDescriptors);
-	});
 
 	// Render.
 	return (
