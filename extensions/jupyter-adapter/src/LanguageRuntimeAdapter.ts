@@ -430,7 +430,8 @@ export class LanguageRuntimeSessionAdapter
 			type === positron.RuntimeClientType.Lsp ||
 			type === positron.RuntimeClientType.Dap ||
 			type === positron.RuntimeClientType.Ui ||
-			type === positron.RuntimeClientType.Help) {
+			type === positron.RuntimeClientType.Help ||
+			type === positron.RuntimeClientType.IPyWidgetControl) {
 			this._kernel.log(`Creating '${type}' client for ${this.runtimeMetadata.languageName}`);
 
 			// Does the comm wrap a server? In that case the

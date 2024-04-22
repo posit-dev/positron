@@ -505,6 +505,7 @@ declare module 'positron' {
 		Help = 'positron.help',
 		Connection = 'positron.connection',
 		IPyWidget = 'jupyter.widget',
+		IPyWidgetControl = 'jupyter.widget.control',
 
 		// Future client types may include:
 		// - Watch window/variable explorer

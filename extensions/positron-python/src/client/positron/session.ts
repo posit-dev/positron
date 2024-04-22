@@ -422,15 +422,15 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
         this.adapterApi = ext?.exports as JupyterAdapterApi;
         const kernel = this.kernelSpec
             ? // We have a kernel spec, so we're creating a new session
-              this.adapterApi.createSession(
-                  this.runtimeMetadata,
-                  this.metadata,
-                  this.kernelSpec,
-                  this.dynState,
-                  createJupyterKernelExtra(),
-              )
+            this.adapterApi.createSession(
+                this.runtimeMetadata,
+                this.metadata,
+                this.kernelSpec,
+                this.dynState,
+                createJupyterKernelExtra(),
+            )
             : // We don't have a kernel spec, so we're restoring a session
-              this.adapterApi.restoreSession(this.runtimeMetadata, this.metadata);
+            this.adapterApi.restoreSession(this.runtimeMetadata, this.metadata);
 
         kernel.onDidChangeRuntimeState((state) => {
             this._stateEmitter.fire(state);

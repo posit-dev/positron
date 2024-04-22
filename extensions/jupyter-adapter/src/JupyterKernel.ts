@@ -813,7 +813,7 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 		const msg: JupyterCommOpen = {
 			target_name: targetName,  // eslint-disable-line
 			comm_id: id,  // eslint-disable-line
-			data: data
+			data,
 		};
 
 		// Dispatch it

@@ -41,8 +41,9 @@ export enum RuntimeClientType {
 	DataExplorer = 'positron.dataExplorer',
 	Ui = 'positron.ui',
 	Help = 'positron.help',
-	IPyWidget = 'jupyter.widget',
 	Connection = 'positron.connection',
+	IPyWidget = 'jupyter.widget',
+	IPyWidgetControl = 'jupyter.widget.control',
 
 	// Future client types may include:
 	// - Watch window/variable explorer

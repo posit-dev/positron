@@ -472,11 +472,33 @@ ${managerState}
 			} else if (type === 'comm_open') {
 				const { comm_id, target_name, data, metadata, buffers } = e.message.content;
 				console.log('comm_open:', comm_id, target_name, data, metadata, buffers);
-				const client = runtime.clientInstances.find(
+				let client = runtime.clientInstances.find(
 					client => client.getClientType() === target_name && client.getClientId() === comm_id);
 				if (!client) {
 					// TODO: Support creating a comm from the frontend
-					throw new Error(`Client not found: ${comm_id}`);
+					// TODO: Should we create the client elsewhere?
+					let runtimeClientType: RuntimeClientType;
+					switch (target_name as string) {
+						case 'jupyter.widget':
+							runtimeClientType = RuntimeClientType.IPyWidget;
+							break;
+						case 'jupyter.widget.control':
+							runtimeClientType = RuntimeClientType.IPyWidgetControl;
+							break;
+						default:
+							throw new Error(`Unknown target_name: ${target_name}`);
+					}
+					client = await runtime.createClient<any, any>(
+						runtimeClientType,
+						{},
+						metadata,
+						// comm_id,
+						undefined,
+					);
+					// TODO: Dispose client?
+					client.onDidReceiveData(data => {
+						console.log('onDidReceiveData:', data);
+					});
 				}
 				webview.postMessage({ type: 'comm_open_reply' });
 			} else {
