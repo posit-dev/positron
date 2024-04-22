@@ -114,6 +114,8 @@ export function registerPositronConsoleActions() {
 	/**
 	 * Register the focus console action. This action places focus in the active console,
 	 * if one exists.
+	 *
+	 * This action is an alias for `workbench.panel.positronConsole.focus`.
 	 */
 	registerAction2(class extends Action2 {
 		/**
@@ -144,21 +146,10 @@ export function registerPositronConsoleActions() {
 
 			const layoutService = accessor.get(IWorkbenchLayoutService);
 			const viewsService = accessor.get(IViewsService);
-			const positronConsoleService = accessor.get(IPositronConsoleService);
 
 			// Ensure that the panel and console are visible.
 			layoutService.restorePanel();
 			await viewsService.openView(POSITRON_CONSOLE_VIEW_ID, true);
-
-			// Look up the active console instance.
-			const activeInstance = positronConsoleService.activePositronConsoleInstance;
-			if (!activeInstance) {
-				// No console to focus; don't do anything.
-				return;
-			}
-
-			// Drive focus to the console's input control.
-			activeInstance.focusInput();
 		}
 	});
 

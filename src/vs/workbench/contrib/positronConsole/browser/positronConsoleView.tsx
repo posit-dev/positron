@@ -124,6 +124,10 @@ export class PositronConsoleViewPane extends ViewPane implements IReactComponent
 		this.focus();
 	}
 
+	focusChanged(focused: boolean) {
+		this._positronConsoleFocusedContextKey.set(focused);
+	}
+
 	/**
 	 * The onSizeChanged event.
 	 */
@@ -280,15 +284,12 @@ export class PositronConsoleViewPane extends ViewPane implements IReactComponent
 			/>
 		);
 
-		// Create a focus tracker that updates the PositronConsoleFocused context key.
-		const focusTracker = DOM.trackFocus(this.element);
-		this._register(focusTracker);
-		this._register(focusTracker.onDidFocus(() =>
-			this._positronConsoleFocusedContextKey.set(true)
-		));
-		this._register(focusTracker.onDidBlur(() =>
-			this._positronConsoleFocusedContextKey.set(false)
-		));
+		// We used to create our own focus tracker for `this.element` but the focus events
+		// did not fire correctly when the viewpane was toggled
+		this.onDidFocus(e => {
+			// Relay the event for the IReactComponentContainer `onFocused()` method.
+			this._onFocusedEmitter.fire();
+		});
 	}
 
 	/**
@@ -298,8 +299,10 @@ export class PositronConsoleViewPane extends ViewPane implements IReactComponent
 		// Call the base class's method.
 		super.focus();
 
-		// Fire the onFocused event.
-		this._onFocusedEmitter.fire();
+		// Trigger event that eventually causes console input widgets (main
+		// input, readline input, or restart buttons) to focus. Must be after
+		// the super call.
+		this.positronConsoleService.activePositronConsoleInstance?.focusInput();
 	}
 
 	/**
