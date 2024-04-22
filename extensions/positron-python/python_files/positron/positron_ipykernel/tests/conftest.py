@@ -100,7 +100,7 @@ class TestSession(Session):
 def shell() -> Iterable[PositronShell]:
     shell = PositronShell.instance()
 
-    shell.displayhook.session = TestSession()
+    shell.displayhook.session = TestSession()  # type: ignore
 
     # TODO: For some reason these vars are in user_ns but not user_ns_hidden during tests. For now,
     #       manually add them to user_ns_hidden to replicate running in Positron.
