@@ -182,12 +182,11 @@ class BackendState(BaseModel):
     )
 
     table_shape: TableShape = Field(
-        description="Number of rows and columns in table including any filters",
+        description="Number of rows and columns in table with filters applied",
     )
 
-    table_unfiltered_shape: Optional[TableShape] = Field(
-        default=None,
-        description="Number of rows and columns in table without any filters",
+    table_unfiltered_shape: TableShape = Field(
+        description="Number of rows and columns in table without any filters applied",
     )
 
     row_filters: List[RowFilter] = Field(

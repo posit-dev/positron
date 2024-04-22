@@ -249,6 +249,7 @@
 					"required": [
 						"display_name",
 						"table_shape",
+						"table_unfiltered_shape",
 						"row_filters",
 						"sort_keys",
 						"supported_features"
@@ -259,11 +260,11 @@
 							"description": "Variable name or other string to display for tab name in UI"
 						},
 						"table_shape": {
-							"description": "Number of rows and columns in table including any filters",
+							"description": "Number of rows and columns in table with filters applied",
 							"$ref": "#/components/schemas/table_shape"
 						},
 						"table_unfiltered_shape": {
-							"description": "Number of rows and columns in table without any filters",
+							"description": "Number of rows and columns in table without any filters applied",
 							"$ref": "#/components/schemas/table_shape"
 						},
 						"row_filters": {

@@ -68,14 +68,14 @@ export interface BackendState {
 	display_name: string;
 
 	/**
-	 * Number of rows and columns in table including any filters
+	 * Number of rows and columns in table with filters applied
 	 */
 	table_shape: TableShape;
 
 	/**
-	 * Number of rows and columns in table without any filters
+	 * Number of rows and columns in table without any filters applied
 	 */
-	table_unfiltered_shape?: TableShape;
+	table_unfiltered_shape: TableShape;
 
 	/**
 	 * The set of currently applied row filters
