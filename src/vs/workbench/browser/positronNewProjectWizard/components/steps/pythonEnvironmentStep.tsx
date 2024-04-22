@@ -279,7 +279,7 @@ export const PythonEnvironmentStep = (props: PropsWithChildren<NewProjectWizardS
 						'pythonEnvironmentSubStep.label',
 						'Python Environment'
 					))()}
-					description={() =>
+					description={
 						<WizardFormattedText type={WizardFormattedTextType.Info}>
 							{(() => localize(
 								'pythonEnvironmentSubStep.description',
@@ -292,7 +292,7 @@ export const PythonEnvironmentStep = (props: PropsWithChildren<NewProjectWizardS
 							))()}
 						</WizardFormattedText>
 					}
-					feedback={() =>
+					feedback={
 						<WizardFormattedText type={WizardFormattedTextType.Info}>
 							{(() => localize(
 								'pythonEnvironmentSubStep.feedback',
@@ -332,21 +332,20 @@ export const PythonEnvironmentStep = (props: PropsWithChildren<NewProjectWizardS
 					'pythonInterpreterSubStep.title',
 					'Python Interpreter'
 				))()}
-				description={() => localize(
+				description={(() => localize(
 					'pythonInterpreterSubStep.description',
 					'Select a Python installation for your project. You can modify this later if you change your mind.'
-				)}
+				))()}
 				feedback={envSetupType === EnvironmentSetupType.ExistingEnvironment
 					&& selectedInterpreter
 					&& willInstallIpykernel ?
-					() =>
-						<WizardFormattedText type={WizardFormattedTextType.Info}>
-							<code>ipykernel</code>
-							{(() => localize(
-								'pythonInterpreterSubStep.feedback',
-								' will be installed for Python language support.'
-							))()}
-						</WizardFormattedText>
+					<WizardFormattedText type={WizardFormattedTextType.Info}>
+						<code>ipykernel</code>
+						{(() => localize(
+							'pythonInterpreterSubStep.feedback',
+							' will be installed for Python language support.'
+						))()}
+					</WizardFormattedText>
 					: undefined
 				}
 			>
