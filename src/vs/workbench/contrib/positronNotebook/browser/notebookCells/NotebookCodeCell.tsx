@@ -1,6 +1,7 @@
 /*---------------------------------------------------------------------------------------------
  *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
+import 'vs/css!./NotebookCodeCell';
 
 import * as React from 'react';
 import { VSBuffer } from 'vs/base/common/buffer';
@@ -11,24 +12,23 @@ import { isParsedTextOutput, parseOutputData } from 'vs/workbench/contrib/positr
 import { useObservedValue } from 'vs/workbench/contrib/positronNotebook/browser/useObservedValue';
 import { CellEditorMonacoWidget } from './CellEditorMonacoWidget';
 import { localize } from 'vs/nls';
-import { Button } from 'vs/base/browser/ui/positronComponents/button/button';
 import { NotebookCellActionBar } from 'vs/workbench/contrib/positronNotebook/browser/notebookCells/NotebookCellActionBar';
 import { CellTextOutput } from './CellTextOutput';
+import { ActionButton } from 'vs/workbench/contrib/positronNotebook/browser/utilityComponents/ActionButton';
 
 
-export function NodebookCodeCell({ cell }: { cell: IPositronNotebookCodeCell }) {
+export function NotebookCodeCell({ cell }: { cell: IPositronNotebookCodeCell }) {
 	const outputContents = useObservedValue(cell.outputs);
 	const executionStatus = useObservedValue(cell.executionStatus);
 	const isRunning = executionStatus === 'running';
 
-	return <div className='positron-notebook-cell'>
+	return <div className='positron-notebook-cell positron-notebook-code-cell'>
 		<NotebookCellActionBar cell={cell}>
-			<Button
-				className='action-button'
+			<ActionButton
 				ariaLabel={isRunning ? localize('stopExecution', 'Stop execution') : localize('runCell', 'Run cell')}
 				onPressed={() => cell.run()} >
 				<div className={`button-icon codicon ${isRunning ? 'codicon-primitive-square' : 'codicon-run'}`} />
-			</Button>
+			</ActionButton>
 		</NotebookCellActionBar>
 		<div className='cell-contents'>
 			<CellEditorMonacoWidget cell={cell} />

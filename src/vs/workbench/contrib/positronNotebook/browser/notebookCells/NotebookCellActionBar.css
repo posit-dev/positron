@@ -2,15 +2,15 @@
  *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 .positron-notebooks-cell-action-bar {
-	--bar-h: 1rem;
 	position: absolute;
-	top: calc((var(--bar-h) + 0.25rem) * -1);
-	right: 0;
-	border: var(--positron-notebooks-border);
-	border-top-left-radius: 0.25rem;
-	border-top-right-radius: 0.25rem;
-	border-bottom: transparent;
-	background-color: var(--vscode-editor-background, white);
+	top: calc(var(--vscode-positronNotebook-action-bar-inset) * -1);
+	right: var(--vscode-positronNotebook-action-bar-inset);
+	z-index: 10;
+	border-width: 1px;
+	border-color: var(--vscode-positronNotebook-action-bar-border-color);
+	border-style: solid;
+	border-radius: var(--vscode-positronNotebook-cell-radius);
+	background-color: var(--vscode-positronNotebook-action-bar-background);
 	display: flex;
 	gap: 0.25rem;
 
@@ -18,15 +18,13 @@
 		aspect-ratio: 1;
 		display: grid;
 		place-content: center;
-		padding: 2px;
+		padding: 3px;
 		/* The added outline here is distracting */
 		outline: revert;
 
-		&:hover {
-			.button-icon::before {
-				color: blue;
-			}
-		}
+		/* Update the border radius so it fits cleanly with the inset on the containing box. The 1px
+		comes from the border of that box */
+		border-radius: calc(var(--vscode-positronNotebook-cell-radius) - 1px);
 
 		.button-icon {
 			align-items: center;
@@ -36,12 +34,8 @@
 			aspect-ratio: 1;
 		}
 
-		.button-icon::before {
-			color: inherit;
-		}
-
 		&.disabled {
-			color: grey;
+			color: var(--vscode-positronTopActionBar-disabledForeground);
 		}
 	}
 }

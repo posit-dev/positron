@@ -1,6 +1,9 @@
 /*---------------------------------------------------------------------------------------------
  *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
+import 'vs/css!./CellEditorMonacoWidget';
+
+
 import * as React from 'react';
 import * as DOM from 'vs/base/browser/dom';
 import { EditorExtensionsRegistry, IEditorContributionDescription } from 'vs/editor/browser/editorExtensions';
@@ -23,9 +26,12 @@ import { observeValue } from 'vs/workbench/contrib/positronNotebook/common/utils
  */
 export function CellEditorMonacoWidget({ cell }: { cell: IPositronNotebookCell }) {
 	const { editorPartRef } = useCellEditorWidget(cell);
-	return <div ref={editorPartRef} />;
+	return <div className='positron-cell-editor-monaco-widget' ref={editorPartRef} />;
 }
 
+// Padding for the editor widget. The sizing is not perfect but this helps the editor not overflow
+// its container. In the future we should figure out how to make sure this is sized correctly.
+const EDITOR_INSET_PADDING_PX = 1;
 
 /**
  * Create a cell editor widget for a cell.
@@ -65,6 +71,9 @@ export function useCellEditorWidget(cell: IPositronNotebookCell) {
 
 		const editor = editorInstaService.createInstance(CodeEditorWidget, nativeContainer, {
 			...editorOptions.getDefaultValue(),
+			// Turns off the margin of the editor. This should probably be placed in a settable
+			// option somewhere eventually.
+			glyphMargin: false,
 			dimension: {
 				width: 500,
 				height: 200
@@ -85,7 +94,7 @@ export function useCellEditorWidget(cell: IPositronNotebookCell) {
 		function resizeEditor(height: number = editor.getContentHeight()) {
 			editor.layout({
 				height,
-				width: editorPartRef.current?.offsetWidth ?? 500
+				width: (editorPartRef.current?.offsetWidth ?? 500) - EDITOR_INSET_PADDING_PX * 2
 			});
 		}
 

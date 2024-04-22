@@ -28,11 +28,11 @@ import { IPositronNotebookCell } from 'vs/workbench/contrib/positronNotebook/bro
 
 
 enum KernelStatus {
-	Uninitialized = 'uninitialized',
-	Connecting = 'connecting',
-	Connected = 'connected',
-	Disconnected = 'disconnected',
-	Errored = 'errored'
+	Uninitialized = 'Uninitialized',
+	Connecting = 'Connecting',
+	Connected = 'Connected',
+	Disconnected = 'Disconnected',
+	Errored = 'Errored'
 }
 
 /**
@@ -528,7 +528,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	 */
 	private async _trySetupKernel(): Promise<void> {
 		const kernelStatus = this.kernelStatus.get();
-		if (kernelStatus === 'connected' || kernelStatus === 'connecting') {
+		if (kernelStatus === KernelStatus.Connected || kernelStatus === KernelStatus.Connecting) {
 			return;
 		}
 		this.kernelStatus.set(KernelStatus.Connecting, undefined);
