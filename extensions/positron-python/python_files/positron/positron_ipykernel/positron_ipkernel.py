@@ -11,6 +11,7 @@ import logging
 import os
 import re
 import warnings
+from collections import OrderedDict
 from pathlib import Path
 from typing import Any, Callable, Container, Dict, List, Optional, Type, cast
 
@@ -275,10 +276,26 @@ class PositronShell(ZMQInteractiveShell):
         """
         Prior to execution, reset the user environment watch state.
         """
+        # Temporarily detach all figures from pyplot's state management. While snapshotting the user
+        # namespace, we may deepcopy a figure. This calls Figure.__getstate__ and __setstate__. If
+        # the figure exists in Gcf.figs during __getstate__, then __setstate__ will create a
+        # figure manager which may incorrectly be shown in the frontend.
+        # See https://github.com/posit-dev/positron/issues/2824.
+        try:
+            from matplotlib._pylab_helpers import Gcf
+
+            figs = Gcf.figs
+            Gcf.figs = OrderedDict()
+        except Exception:
+            Gcf = None
+
         try:
             self.kernel.variables_service.snapshot_user_ns()
         except Exception:
             logger.warning("Failed to snapshot user namespace", exc_info=True)
+        finally:
+            if Gcf is not None:
+                Gcf.figs = figs
 
     def _handle_post_run_cell(self, info: ExecutionInfo) -> None:
         """
