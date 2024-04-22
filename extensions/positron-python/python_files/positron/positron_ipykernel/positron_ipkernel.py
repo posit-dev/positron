@@ -286,7 +286,8 @@ class PositronShell(ZMQInteractiveShell):
 
             figs = Gcf.figs
             Gcf.figs = OrderedDict()
-        except Exception:
+        except ImportError:
+            figs = None
             Gcf = None
 
         try:
@@ -294,7 +295,7 @@ class PositronShell(ZMQInteractiveShell):
         except Exception:
             logger.warning("Failed to snapshot user namespace", exc_info=True)
         finally:
-            if Gcf is not None:
+            if Gcf is not None and figs is not None:
                 Gcf.figs = figs
 
     def _handle_post_run_cell(self, info: ExecutionInfo) -> None:
