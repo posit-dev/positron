@@ -147,8 +147,39 @@ def test_shutdown(ui_service: UiService, ui_comm: DummyComm) -> None:
     assert ui_comm._closed
 
 
-def test_viewer_webbrowser(shell: PositronShell, ui_comm: DummyComm) -> None:
-    # Assert positron viewer is registered
-    webbrowser.register("positron_viewer", PositronViewerBrowser, preferred=True)
-    browsers = webbrowser._tryorder
-    assert browsers[0] == "positron_viewer"
+# def test_viewer_webbrowser_opens(
+#     shell: PositronShell, ui_comm: DummyComm, ui_service: UiService
+# ) -> None:
+#     # Assert positron viewer is registered and opens local urls
+
+#     shell.run_cell(
+#         """
+# import webbrowser
+# x = webbrowser._tryorder
+# webbrowser.get('positron_viewer').open()
+# """
+#     )
+#     assert isinstance(ui_service.browser, PositronViewerBrowser)
+#     assert shell.user_ns["x"][0] == "positron_viewer"
+#     assert ui_comm.messages ==
+
+
+@pytest.mark.parametrize(
+    ("url", "expected"),
+    [("https://google.com", []), ("localhost:8000", [show_url_event("localhost:8000")])],
+)
+def test_viewer_webbrowser_does_not_open(
+    url, expected, shell: PositronShell, ui_comm: DummyComm, ui_service: UiService
+) -> None:
+    # Assert positron viewer does not open non-local urls
+
+    shell.run_cell(
+        f"""
+import webbrowser
+x = webbrowser._tryorder
+webbrowser.get('positron_viewer').open({repr(url)})
+"""
+    )
+    assert isinstance(ui_service.browser, PositronViewerBrowser)
+    assert shell.user_ns["x"][0] == "positron_viewer"
+    assert ui_comm.messages == expected

@@ -172,17 +172,16 @@ class PositronViewerBrowser(webbrowser.BaseBrowser):
 
     def __init__(self, name: str = "positron_viewer", comm: Optional[PositronComm] = None):
         self.name = name
-        self.comm = comm
+        self._comm = comm
 
     def open(self, url, new=0, autoraise=True):
-        if not self.comm:
+        if not self._comm:
             return False
 
         for addr in _localhosts:
             if addr in url:
                 event = ShowUrlParams(url=url)
-                self.comm.send_event(name=UiFrontendEvent.ShowUrl, payload=event.dict())
+                self._comm.send_event(name=UiFrontendEvent.ShowUrl, payload=event.dict())
                 return True
-
         # pass back to webbrowser's list of browsers to open up the link
         return False
