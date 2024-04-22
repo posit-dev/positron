@@ -34,6 +34,11 @@ export interface IPositronNotebookCell extends Disposable {
 	get notebookUri(): URI;
 
 	/**
+	 * Is this cell selected?
+	 */
+	selected: ISettableObservable<Boolean>;
+
+	/**
 	 * The content of the cell. This is the raw text of the cell.
 	 */
 	getContent(): string;
@@ -72,6 +77,12 @@ export interface IPositronNotebookCell extends Disposable {
 	 * Type guard for checking if cell is a code cell
 	 */
 	isCodeCell(): this is IPositronNotebookCodeCell;
+
+
+	/**
+	 * Select this cell
+	 */
+	select(): void;
 }
 
 

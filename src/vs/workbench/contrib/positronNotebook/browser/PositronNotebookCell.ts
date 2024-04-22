@@ -13,6 +13,7 @@ import { NotebookCellTextModel } from 'vs/workbench/contrib/notebook/common/mode
 import { CellKind, ICellOutput } from 'vs/workbench/contrib/notebook/common/notebookCommon';
 import { IPositronNotebookInstance } from 'vs/workbench/contrib/positronNotebook/browser/PositronNotebookInstance';
 import { ExecutionStatus, IPositronNotebookCodeCell, IPositronNotebookCell, IPositronNotebookMarkdownCell } from 'vs/workbench/contrib/positronNotebook/browser/notebookCells/interfaces';
+import { DisposableObserveValue } from '../common/utils/DisposableObserveValue';
 
 
 abstract class PositronNotebookCellGeneral extends Disposable implements IPositronNotebookCell {
@@ -21,12 +22,20 @@ abstract class PositronNotebookCellGeneral extends Disposable implements IPositr
 	// Not marked as private so we can access it in subclasses
 	_disposableStore = new DisposableStore();
 
+	selected = observableValue<Boolean, void>('selected', false);
+
 	constructor(
 		public cellModel: NotebookCellTextModel,
 		public _instance: IPositronNotebookInstance,
 		@ITextModelService private readonly textModelResolverService: ITextModelService,
 	) {
 		super();
+
+		this._disposableStore.add(
+			new DisposableObserveValue(this._instance.selectedCells, () => {
+				this.selected.set(this._instance.selectedCells.get().includes(this), undefined);
+			})
+		);
 	}
 
 	get uri(): URI {
@@ -83,6 +92,11 @@ abstract class PositronNotebookCellGeneral extends Disposable implements IPositr
 	isCodeCell(): this is IPositronNotebookCodeCell {
 		return this.kind === CellKind.Code;
 	}
+
+	select(): void {
+		this._instance.setSelectedCells([this]);
+	}
+
 }
 
 

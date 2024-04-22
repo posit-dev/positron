@@ -62,7 +62,7 @@ export interface IPositronNotebookInstance {
 	/**
 	 * The currently selected cells. Typically a single cell but can be multiple cells.
 	 */
-	selectedCells: IPositronNotebookCell[];
+	selectedCells: ISettableObservable<IPositronNotebookCell[]>;
 
 	/**
 	 * Has the notebook instance been disposed?
@@ -111,6 +111,12 @@ export interface IPositronNotebookInstance {
 	 * all the logic and variables related to the view/DOM.
 	 */
 	detachView(): void;
+
+	/**
+	 * Set the currently selected cells for notebook instance
+	 * @param cellOrCells The cell or cells to set as selected
+	 */
+	setSelectedCells(cellOrCells: IPositronNotebookCell[]): void;
 }
 
 export class PositronNotebookInstance extends Disposable implements IPositronNotebookInstance {
@@ -123,17 +129,17 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	private _identifier: string = `Positron Notebook | NotebookInstance(${PositronNotebookInstance.count++}) |`;
 
 
-	selectedCells: IPositronNotebookCell[] = [];
 
 	/**
 	 * Internal cells that we use to manage the state of the notebook
-	 */
+	*/
 	private _cells: IPositronNotebookCell[] = [];
 
 	/**
 	 * User facing cells wrapped in an observerable for the UI to react to changes
-	 */
+	*/
 	cells: ISettableObservable<IPositronNotebookCell[]>;
+	selectedCells: ISettableObservable<IPositronNotebookCell[]> = observableValue<IPositronNotebookCell[]>('positronNotebookSelectedCells', []);
 
 	/**
 	 * Status of kernel for the notebook.
@@ -347,7 +353,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	}
 
 	async runSelectedCells(): Promise<void> {
-		await this._runCells(this.selectedCells);
+		await this._runCells(this.selectedCells.get());
 	}
 
 	/**
@@ -448,7 +454,6 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 
 	}
 
-
 	/**
 	 * Get the current `NotebookTextModel` for the editor.
 	 */
@@ -462,6 +467,14 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	 */
 	hasModel(): this is IActiveNotebookEditorDelegate {
 		return Boolean(this._viewModel);
+	}
+
+	/**
+	 * Set the currently selected cells for notebook instance
+	 * @param cellOrCells The cell or cells to set as selected
+	 */
+	setSelectedCells(cells: IPositronNotebookCell[]): void {
+		this.selectedCells.set(cells, undefined);
 	}
 
 
