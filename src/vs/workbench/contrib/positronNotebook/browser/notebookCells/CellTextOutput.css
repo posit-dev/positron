@@ -8,4 +8,5 @@
 		var(--monaco-monospace-font)
 	);
 	font-size: var(--vscode-positronNotebook-text-output-font-size);
+	white-space: pre-wrap;
 }
