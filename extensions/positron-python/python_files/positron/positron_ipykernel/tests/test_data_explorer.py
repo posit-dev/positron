@@ -1380,7 +1380,7 @@ def _assert_close(expected, actual):
 
 def _assert_numeric_stats_equal(expected, actual):
     for attr, value in expected.items():
-        _assert_close(value, float(actual.get(attr)))
+        _assert_close(float(value), float(actual.get(attr)))
 
 
 def _assert_string_stats_equal(expected, actual):
@@ -1394,6 +1394,8 @@ def _assert_boolean_stats_equal(expected, actual):
 
 
 def test_pandas_profile_summary_stats(dxf: DataExplorerFixture):
+    import pandas.io.formats.format as fmt
+
     arr = np.random.standard_normal(100)
     arr_with_nulls = arr.copy()
     arr_with_nulls[::10] = np.nan
@@ -1420,27 +1422,30 @@ def test_pandas_profile_summary_stats(dxf: DataExplorerFixture):
     )
     dxf.register_table("df1", df1)
 
+    def _format_float(x):
+        return fmt.format_array(np.array([x], dtype="float64"), None, leading_space=False)[0]
+
     cases = [
         (
             "df1",
             0,
             {
-                "min_value": arr.min(),
-                "max_value": arr.max(),
-                "mean": df1["a"].mean(),
-                "stdev": df1["a"].std(),
-                "median": df1["a"].median(),
+                "min_value": _format_float(arr.min()),
+                "max_value": _format_float(arr.max()),
+                "mean": _format_float(df1["a"].mean()),
+                "stdev": _format_float(df1["a"].std()),
+                "median": _format_float(df1["a"].median()),
             },
         ),
         (
             "df1",
             1,
             {
-                "min_value": df1["b"].min(),
-                "max_value": df1["b"].max(),
-                "mean": df1["b"].mean(),
-                "stdev": df1["b"].std(),
-                "median": df1["b"].median(),
+                "min_value": _format_float(df1["b"].min()),
+                "max_value": _format_float(df1["b"].max()),
+                "mean": _format_float(df1["b"].mean()),
+                "stdev": _format_float(df1["b"].std()),
+                "median": _format_float(df1["b"].median()),
             },
         ),
         (
