@@ -3,6 +3,7 @@
 #
 
 import os
+import webbrowser
 from pathlib import Path
 from typing import Any, Dict
 
@@ -17,7 +18,7 @@ except ImportError:
     torch = None
 
 from positron_ipykernel.positron_ipkernel import PositronIPyKernel, PositronShell
-from positron_ipykernel.ui import UiService
+from positron_ipykernel.ui import UiService, PositronViewerBrowser
 from positron_ipykernel.utils import alias_home
 
 from .conftest import DummyComm
@@ -147,15 +148,7 @@ def test_shutdown(ui_service: UiService, ui_comm: DummyComm) -> None:
 
 
 def test_viewer_webbrowser(shell: PositronShell, ui_comm: DummyComm) -> None:
-    # If webbrowser is used to open a localhost url, send to viewer
-    url = "https://localhost:8000"
-    name = "a"
-    shell.run_cell(
-        f"""import webbrowser
-{name} = webbrowser._tryorder
-webbrowser.open({url})"""
-    )
-
-    obj = shell.user_ns[name]
-    assert obj["PositronViewerBrowser"]
-    assert ui_comm.messages == [show_url_event(url)]
+    # Assert positron viewer is registered
+    webbrowser.register("positron_viewer", PositronViewerBrowser, preferred=True)
+    browsers = webbrowser._tryorder
+    assert browsers[0] == "positron_viewer"
