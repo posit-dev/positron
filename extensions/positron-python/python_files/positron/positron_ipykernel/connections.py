@@ -310,7 +310,7 @@ class ConnectionsService:
             self._unregister_variable_path(tuple(variable_path))
             return
         except Exception:
-            # Most likely the object refers to a closed conneciton. In this case
+            # Most likely the object refers to a closed connection. In this case
             # we also close the connection.
             self._unregister_variable_path(tuple(variable_path))
             return
