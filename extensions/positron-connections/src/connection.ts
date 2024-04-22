@@ -28,8 +28,9 @@ enum ConnectionState {
 interface ConnectionMetadata {
 	name: string;
 	language_id: string;
-	host?: string;
-	type?: string;
+	// host and type are used to indentidy a unique connection
+	host: string;
+	type: string;
 	code?: string;
 	icon?: string; // base64 encoded icon image (if available)
 }
@@ -190,7 +191,7 @@ export class ConnectionItemsProvider
 	> = new vscode.EventEmitter<ConnectionItem | undefined>();
 
 	// The list of active connections
-	private _connections: ConnectionItem[] = [];
+	private _connections: (DatabaseConnectionItem | DisconnectedConnectionItem)[] = [];
 
 	// The list of icons bundled for connections
 	private _icons: { [key: string]: { light: vscode.Uri; dark: vscode.Uri } } = {};
@@ -378,9 +379,10 @@ export class ConnectionItemsProvider
 	addConnection(client: PositronConnectionsComm, metadata: ConnectionMetadata) {
 		// Add the connection to the list
 		// if there's already a connection with the same name, we replace it
-		// TODO: we want to check by type and host instead in the future.
 		const index = this._connections.findIndex((connection) => {
-			if (connection.name === metadata.name) {
+			if (connection.metadata.language_id === metadata.language_id &&
+				connection.metadata.host === metadata.host &&
+				connection.metadata.type === metadata.type) {
 				return true;
 			}
 			return false;
@@ -393,7 +395,12 @@ export class ConnectionItemsProvider
 			this._connections[index] = conn;
 		}
 
-		this.context.workspaceState.update(conn.name, conn.metadata);
+		// they key is a combination of the language_id, host and the type, so we can identify the
+		// connection uniquely
+		this.context.workspaceState.update(
+			`language_id-${conn.metadata.language_id}-host-${conn.metadata.host}-type-${conn.metadata.type}`,
+			conn.metadata
+		);
 
 		// Fire the event to indicate that the tree data has changed. This will
 		// trigger a refresh.

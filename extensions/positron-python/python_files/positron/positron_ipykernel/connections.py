@@ -201,6 +201,8 @@ class ConnectionsService:
             data={
                 "name": connection.display_name,
                 "language_id": "python",
+                "host": connection.host,
+                "type": connection.type,
                 "code": connection.code,
             },
         )
