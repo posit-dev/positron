@@ -355,7 +355,7 @@ class DataExplorerFixture:
         response = self.set_row_filters(table_id, filters=filter_set)
 
         ex_num_rows = len(expected_table)
-        assert response == FilterResult(selected_num_rows=ex_num_rows)
+        assert response == FilterResult(selected_num_rows=ex_num_rows, had_errors=False)
 
         assert self.get_state(table_id)["table_shape"]["num_rows"] == ex_num_rows
         self.compare_tables(table_id, ex_id, table.shape)
@@ -790,7 +790,7 @@ def test_pandas_filter_compare(dxf: DataExplorerFixture):
     filt = _compare_filter(schema[0], "<", str(compare_value))
     _ = dxf.set_row_filters(table_name, filters=[filt])
     response = dxf.set_row_filters(table_name, filters=[])
-    assert response == FilterResult(selected_num_rows=len(df))
+    assert response == FilterResult(selected_num_rows=len(df), had_errors=False)
 
     # register the whole table to make sure the filters are really cleared
     ex_id = guid()
@@ -985,7 +985,6 @@ def test_pandas_variable_updates(
 
     # Do a simple update and make sure that sort keys are preserved
     x_comm_id = list(de_service.path_to_comm_ids[path_x])[0]
-    x_schema = dxf.get_schema_for(x)["columns"]
     x_sort_keys = [{"column_index": 0, "ascending": True}]
     msg = json_rpc_request(
         "set_sort_columns",
@@ -1222,8 +1221,6 @@ def test_pandas_change_schema_after_sort(
     _assign_variables(shell, variables_comm, df=df)
     _open_viewer(variables_comm, ["df"])
 
-    schema = dxf.get_schema("df")["columns"]
-
     # Sort a column that is out of bounds for the table after the
     # schema change below
     dxf.set_sort_columns(
@@ -1243,7 +1240,6 @@ def test_pandas_change_schema_after_sort(
 
     # Call get_data_values and make sure it works
     dxf.compare_tables("df", "expected_df", expected_df.shape)
-    schema = dxf.get_schema("df")["columns"]
 
     # Check that the out of bounds column index was evicted, and the
     # shift was correct

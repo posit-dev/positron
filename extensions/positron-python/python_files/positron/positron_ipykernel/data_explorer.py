@@ -10,7 +10,6 @@ import logging
 import operator
 from typing import (
     TYPE_CHECKING,
-    Any,
     Callable,
     Dict,
     List,
@@ -661,7 +660,7 @@ class PandasView(DataExplorerTableView):
             # Simply reset if empty filter set passed
             self.filtered_indices = None
             self._update_view_indices()
-            return FilterResult(selected_num_rows=len(self.table))
+            return FilterResult(selected_num_rows=len(self.table), had_errors=False)
 
         # Evaluate all the filters and combine them using the
         # indicated conditions
@@ -1208,7 +1207,7 @@ class DataExplorerService:
             # looking at invalid.
             return self._close_explorer(comm_id)
 
-        if type(new_table) is not type(table_view.table):  # noqa:
+        if not isinstance(new_table, type(table_view.table)):
             # Data structure type has changed. For now, we drop the
             # entire state: sorting keys, filters, etc. and start
             # over. At some point we can return here and selectively

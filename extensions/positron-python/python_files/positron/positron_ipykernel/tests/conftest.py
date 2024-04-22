@@ -10,7 +10,6 @@ import pytest
 from traitlets.config import Config
 
 from positron_ipykernel.connections import ConnectionsService
-from positron_ipykernel.data_explorer import DataExplorerService
 from positron_ipykernel.positron_ipkernel import (
     PositronIPKernelApp,
     PositronIPyKernel,
