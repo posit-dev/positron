@@ -3,7 +3,6 @@
  *--------------------------------------------------------------------------------------------*/
 
 .positron-notebook-markdown-cell {
-	position: relative;
 
 	&.editor-hidden:not(:hover)
 		.positron-notebooks-cell-action-bar {

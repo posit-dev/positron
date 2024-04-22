@@ -12,6 +12,7 @@ import { useObservedValue } from 'vs/workbench/contrib/positronNotebook/browser/
 import { Markdown } from './Markdown';
 import { localize } from 'vs/nls';
 import { ActionButton } from 'vs/workbench/contrib/positronNotebook/browser/utilityComponents/ActionButton';
+import { NotebookCellWrapper } from 'vs/workbench/contrib/positronNotebook/browser/notebookCells/NotebookCellWrapper';
 
 export function NotebookMarkdownCell({ cell }: { cell: IPositronNotebookMarkdownCell }) {
 
@@ -19,7 +20,8 @@ export function NotebookMarkdownCell({ cell }: { cell: IPositronNotebookMarkdown
 	const editorShown = useObservedValue(cell.editorShown);
 
 	return (
-		<div className={`positron-notebook-markdown-cell ${editorShown ? 'editor-shown' : 'editor-hidden'}`}>
+		<NotebookCellWrapper cell={cell}>
+
 			<NotebookCellActionBar cell={cell}>
 				<ActionButton
 					ariaLabel={editorShown ? localize('hideEditor', 'Hide editor') : localize('showEditor', 'Show editor')}
@@ -41,7 +43,7 @@ export function NotebookMarkdownCell({ cell }: { cell: IPositronNotebookMarkdown
 					}
 				</div>
 			</div>
-		</div>
+		</NotebookCellWrapper>
 	);
 }
 
