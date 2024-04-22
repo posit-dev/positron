@@ -22,34 +22,62 @@ export const StatusBar = () => {
 	const context = usePositronDataExplorerContext();
 
 	// State hooks.
-	const [rows, setRows] = useState(context.instance.tableDataDataGridInstance.rows);
-	const [columns, setColumns] = useState(context.instance.tableDataDataGridInstance.columns);
+	const [backendState, setBackendState] = useState(
+		context.instance.dataExplorerClientInstance.cachedBackendState);
 
 	// Main useEffect.
 	useEffect(() => {
 		// Create the disposable store for cleanup.
 		const disposableStore = new DisposableStore();
 
-		// Add the onDidChangeLayout event handler.
-		disposableStore.add(context.instance.tableDataDataGridInstance.onDidUpdate(() => {
-			setRows(context.instance.tableDataDataGridInstance.rows);
-			setColumns(context.instance.tableDataDataGridInstance.columns);
-		}));
+		// Add the onDidUpdateBackendState event handler.
+		disposableStore.add(context.instance.dataExplorerClientInstance.onDidUpdateBackendState(
+			state => setBackendState(state)
+		));
 
 		// Return the cleanup function that will dispose of the event handlers.
 		return () => disposableStore.dispose();
-	}, [context.instance.tableDataDataGridInstance]);
+	}, [context.instance.dataExplorerClientInstance]);
 
 	// Render.
-	return (
-		<div className='status-bar'>
-			<span className='counter'>{rows.toLocaleString()}</span>
-			<span>&nbsp;</span>
-			<span className='label'>rows</span>
-			<span>&nbsp;&nbsp;</span>
-			<span className='counter'>{columns.toLocaleString()}</span>
-			<span>&nbsp;</span>
-			<span className='label'>columns</span>
-		</div>
-	);
+	let numRows = 0;
+	let numColumns = 0;
+	if (backendState !== undefined) {
+		numRows = backendState.table_shape.num_rows;
+		numColumns = backendState?.table_shape.num_columns;
+	}
+	if (backendState && backendState.row_filters.length > 0) {
+		const numUnfilteredRows = backendState.table_unfiltered_shape.num_rows;
+		const pctFiltered = numUnfilteredRows === 0 ? 0 : 100 * numRows / numUnfilteredRows;
+
+		return (
+			<div className='status-bar'>
+				<span className='label'>Showing</span>
+				<span>&nbsp;</span>
+				<span className='counter'>{numRows.toLocaleString()}</span>
+				<span>&nbsp;</span>
+				<span className='label'>rows&nbsp;(</span>
+				<span className='counter'>{pctFiltered.toFixed(2)}%</span>
+				<span className='label'>&nbsp;of&nbsp;</span>
+				<span className='counter'>{numUnfilteredRows.toLocaleString()}</span>
+				<span className='label'>&nbsp;total)</span>
+				<span>&nbsp;&nbsp;</span>
+				<span className='counter'>{numColumns.toLocaleString()}</span>
+				<span>&nbsp;</span>
+				<span className='label'>columns</span>
+			</div>
+		);
+	} else {
+		return (
+			<div className='status-bar'>
+				<span className='counter'>{numRows.toLocaleString()}</span>
+				<span>&nbsp;</span>
+				<span className='label'>rows</span>
+				<span>&nbsp;&nbsp;</span>
+				<span className='counter'>{numColumns.toLocaleString()}</span>
+				<span>&nbsp;</span>
+				<span className='label'>columns</span>
+			</div>
+		);
+	}
 };

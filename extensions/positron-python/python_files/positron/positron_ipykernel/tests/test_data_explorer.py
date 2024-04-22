@@ -357,7 +357,16 @@ class DataExplorerFixture:
         ex_num_rows = len(expected_table)
         assert response == FilterResult(selected_num_rows=ex_num_rows, had_errors=False)
 
-        assert self.get_state(table_id)["table_shape"]["num_rows"] == ex_num_rows
+        state = self.get_state(table_id)
+        assert state["table_shape"] == {
+            "num_rows": ex_num_rows,
+            "num_columns": len(table.columns),
+        }
+        assert state["table_unfiltered_shape"] == {
+            "num_rows": len(table),
+            "num_columns": len(table.columns),
+        }
+
         self.compare_tables(table_id, ex_id, table.shape)
 
     def check_sort_case(self, table, sort_keys, expected_table, filters=None):
@@ -407,8 +416,9 @@ def _wrap_json(model: Type[BaseModel], data: JsonRecords):
 def test_pandas_get_state(dxf: DataExplorerFixture):
     result = dxf.get_state("simple")
     assert result["display_name"] == "simple"
-    assert result["table_shape"]["num_rows"] == 5
-    assert result["table_shape"]["num_columns"] == 6
+    ex_shape = {"num_rows": 5, "num_columns": 6}
+    assert result["table_shape"] == ex_shape
+    assert result["table_unfiltered_shape"] == ex_shape
 
     schema = dxf.get_schema("simple")["columns"]
 
@@ -417,7 +427,7 @@ def test_pandas_get_state(dxf: DataExplorerFixture):
         {"column_index": 1, "ascending": False},
     ]
     filters = [
-        _compare_filter(schema[0], ">", 0),
+        _compare_filter(schema[0], ">", 2),
         _compare_filter(schema[0], "<", 5),
     ]
     dxf.set_sort_columns("simple", sort_keys=sort_keys)
@@ -425,6 +435,10 @@ def test_pandas_get_state(dxf: DataExplorerFixture):
 
     result = dxf.get_state("simple")
     assert result["sort_keys"] == sort_keys
+
+    ex_filtered_shape = {"num_rows": 2, "num_columns": 6}
+    assert result["table_shape"] == ex_filtered_shape
+    assert result["table_unfiltered_shape"] == ex_shape
 
     # Validity is checked in set_row_filters
     for f in filters:
