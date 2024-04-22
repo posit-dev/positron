@@ -31,24 +31,18 @@ from .utils import (
 TARGET_NAME = "target_name"
 
 
-@pytest.fixture(autouse=True)
-def setup_positron_matplotlib_backend() -> None:
+@pytest.fixture
+def plots_service(kernel: PositronIPyKernel, shell: PositronShell) -> Iterable[PlotsService]:
+    """
+    The Positron plots service.
+    """
     # The backend is set in the kernel app, which isn't currently available in our tests,
     # so set it here too.
     matplotlib.use("module://positron_ipykernel.matplotlib_backend")
 
-
-@pytest.fixture(autouse=True)
-def import_pyplot(shell: PositronShell) -> None:
     # Import pyplot for convenience.
     shell.run_cell("import matplotlib.pyplot as plt")
 
-
-@pytest.fixture
-def plots_service(kernel: PositronIPyKernel) -> Iterable[PlotsService]:
-    """
-    The Positron plots service.
-    """
     plots_service = kernel.plots_service
 
     assert not plots_service._plots
@@ -234,3 +228,14 @@ def test_mpl_shutdown(shell: PositronShell, plots_service: PlotsService) -> None
     # Plots are closed and cleared.
     assert not plots_service._plots
     assert all(comm._closed for comm in plot_comms)
+
+
+def test_mpl_issue_2824(shell: PositronShell, plots_service: PlotsService) -> None:
+    """
+    Creating a mutable collection of figures should not create a duplicate plot.
+    See https://github.com/posit-dev/positron/issues/2824.
+    """
+    shell.run_cell("figs = [plt.figure()]")
+    # This step triggers the variables service to create a snapshot, which shouldn't duplicate the plot.
+    shell.run_cell("plt.show()")
+    assert len(plots_service._plots) == 1
