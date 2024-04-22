@@ -25,7 +25,7 @@ export function AddCodeCellButton({ notebookInstance, index, bordered }: { noteb
 	const label = localize('newCodeCellshort', 'Code');
 	const fullLabel = localize('newCodeCellLong', 'New Code Cell');
 	return <IconedButton
-		codicon='positron-notebook-code-cell'
+		codicon='code'
 		label={label}
 		fullLabel={fullLabel}
 		onClick={() => notebookInstance.addCell(CellKind.Code, index)}
@@ -40,7 +40,7 @@ export function AddMarkdownCellButton({ notebookInstance, index, bordered }: { n
 	const label = localize('newMarkdownCellShort', 'Markdown');
 	const fullLabel = localize('newMarkdownCellLong', 'New Markdown Cell');
 	return <IconedButton
-		codicon='positron-notebook-markdown-cell'
+		codicon='markdown'
 		label={label}
 		fullLabel={fullLabel}
 		onClick={() => notebookInstance.addCell(CellKind.Markup, index)}
