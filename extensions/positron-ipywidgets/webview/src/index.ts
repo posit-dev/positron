@@ -36,17 +36,11 @@ class Comm implements base.IClassicComm {
 
 	send(data: any, callbacks?: base.ICallbacks | undefined, metadata?: JSONObject | undefined, buffers?: ArrayBuffer[] | ArrayBufferView[] | undefined): string {
 		console.log('Comm.send', data, callbacks, metadata, buffers);
-		const method = data?.method;
-		if (method) {
-			vscode.postMessage({
-				type: 'comm_msg',
-				// TODO: Need content?
-				content: {
-					comm_id: this.comm_id,
-					method
-				},
-			});
-		}
+		vscode.postMessage({
+			type: 'comm_msg',
+			comm_id: this.comm_id,
+			content: data,
+		});
 		// TODO: Handle callbacks?
 		return '';
 	}
@@ -112,7 +106,6 @@ class HTMLManager extends ManagerBase {
 	}
 
 	protected override async _create_comm(comm_target_name: string, model_id?: string | undefined, data?: JSONObject | undefined, metadata?: JSONObject | undefined, buffers?: ArrayBuffer[] | ArrayBufferView[] | undefined): Promise<base.IClassicComm> {
-		console.log('_create_comm', comm_target_name, model_id, data, metadata, buffers);
 		if (!model_id) {
 			// TODO: Supporting creating a comm from the frontend
 			throw new Error('model_id is required');
@@ -189,7 +182,7 @@ class HTMLManager extends ManagerBase {
 	}
 
 	async loadFromKernel(): Promise<void> {
-		return super._loadFromKernel();
+		await super._loadFromKernel();
 	}
 }
 
@@ -197,7 +190,40 @@ const manager = new HTMLManager();
 
 
 window.addEventListener('load', () => {
-	manager.loadFromKernel().then(() => {
+	// TODO: Is there a better way for us to control what gets rendered than passing via HTML?
+	//  Can we directly use the data from the display message?
+	manager.loadFromKernel().then(async () => {
+		const element = document.documentElement;
+		const tags = element.querySelectorAll(
+			'script[type="application/vnd.jupyter.widget-view+json"]'
+		);
+		await Promise.all(
+			Array.from(tags).map(async (viewtag) => {
+				const widgetViewObject = JSON.parse(viewtag.innerHTML);
+				// TODO: Validate view?
+				// const valid = view_validate(widgetViewObject);
+				// if (!valid) {
+				// 	throw new Error(`View state has errors: ${view_validate.errors}`);
+				// }
+				const model_id: string = widgetViewObject.model_id;
+				const model = await manager.get_model(model_id);
+				if (model !== undefined && viewtag.parentElement !== null) {
+					const prev = viewtag.previousElementSibling;
+					if (
+						prev &&
+						prev.tagName === 'img' &&
+						prev.classList.contains('jupyter-widget')
+					) {
+						viewtag.parentElement.removeChild(prev);
+					}
+					const widgetTag = document.createElement('div');
+					widgetTag.className = 'widget-subarea';
+					viewtag.parentElement.insertBefore(widgetTag, viewtag);
+					const view = await manager.create_view(model);
+					manager.display_view(view, widgetTag);
+				}
+			})
+		);
 		vscode.postMessage({ type: 'render_complete' });
 	}).catch((error) => {
 		console.error('Error rendering widgets:', error);
@@ -205,7 +231,6 @@ window.addEventListener('load', () => {
 });
 
 window.addEventListener('message', (event) => {
-	console.log('window.onmessage', event);
 	const message = event.data;
 	if (message?.type === 'comm_info_reply') {
 		// TODO: error handling?
@@ -216,11 +241,13 @@ window.addEventListener('message', (event) => {
 			throw new Error(`Comm not found ${message.comm_id}`);
 		}
 		comm.handle_msg(message);
-	} else if (message?.type === 'comm_closed') {
+	} else if (message?.type === 'comm_close') {
 		const comm = comms.get(message.comm_id);
 		if (!comm) {
 			throw new Error(`Comm not found ${message.comm_id}`);
 		}
 		comm.handle_close(message);
+	} else {
+		console.info('Unhandled message in webview', message);
 	}
 });

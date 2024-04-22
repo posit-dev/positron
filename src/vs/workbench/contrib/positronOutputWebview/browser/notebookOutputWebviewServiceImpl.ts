@@ -463,22 +463,22 @@ ${managerState}
 
 		webview.onMessage(async e => {
 			const type = e.message?.type;
-			console.log('webview.onMessage:', type);
 			// TODO: Feel like these shouldn't be named after Jupyter API and should return exactly
 			//  what we need for ipywidgets?
 			if (type === 'comm_info_request') {
 				// TODO: Can we use clientInstances instead like comm_open?
 				// TODO: Do we still need this?
-				console.log('comm_info_request');
+				console.log('SEND comm_info_request');
 				const allClients = await runtime.listClients(RuntimeClientType.IPyWidget);
 				const comms = allClients.map(client => ({ comm_id: client.getClientId() }));
+				console.log('RECV comm_info_reply');
 				webview.postMessage({ type: 'comm_info_reply', comms });
 			} else if (type === 'comm_open') {
-				const { comm_id, target_name, data, metadata, buffers } = e.message.content;
+				const { comm_id, target_name, metadata } = e.message.content;
+				console.log('SEND comm_open', comm_id, target_name, metadata);
 				if (clients.has(comm_id)) {
 					return;
 				}
-				console.log('comm_open:', comm_id, target_name, data, metadata, buffers);
 				let client = runtime.clientInstances.find(
 					client => client.getClientType() === target_name && client.getClientId() === comm_id);
 				// TODO: Should we allow creating jupyter.widget comms?
@@ -503,28 +503,41 @@ ${managerState}
 						// comm_id,
 						undefined,
 					);
-
-					const stateChangeEvent = Event.fromObservable(client.clientState);
-					// TODO: Dispose!
-					stateChangeEvent(state => {
-						console.log('client.clientState changed:', state);
-						if (state === 'closed') {
-							clients.delete(comm_id);
-							webview.postMessage({ type: 'comm_close', comm_id });
-						}
-					});
 				}
+
+				// TODO: Will we only add these once?
+				client.onDidReceiveData(data => {
+					console.error(`Unhandled message for comm ${comm_id}: ${JSON.stringify(data)}`);
+				});
+
+				const stateChangeEvent = Event.fromObservable(client.clientState);
+				// TODO: Dispose!
+				stateChangeEvent(state => {
+					console.log('client.clientState changed:', state);
+					if (state === 'closed' && clients.has(comm_id)) {
+						clients.delete(comm_id);
+						webview.postMessage({ type: 'comm_close', comm_id });
+					}
+				});
 				clients.set(comm_id, client);
 			} else if (type === 'comm_msg') {
-				const { comm_id, method } = e.message.content;
-				console.log('comm_msg:', method);
+				const { comm_id } = e.message;
+				const message = e.message.content;
+				console.log('SEND comm_msg:', message);
 				const client = clients.get(comm_id);
 				if (!client) {
 					throw new Error(`Client not found for comm_id: ${comm_id}`);
 				}
-				const output = await client.performRpc({ method });
+				// TODO: List of RPC calls?
+				// if (message?.method === 'request_states') {
+				const output = await client.performRpc(message);
 				// TODO: Do we need the buffers attribute too (not buffer_paths)?
+				console.log('RECV comm_msg:', output);
 				webview.postMessage({ type: 'comm_msg', comm_id: comm_id, content: { data: output } });
+				// } else {
+				// 	// TODO: Why doesn't performRpc work for this?
+				// 	client.sendMessage(message);
+				// }
 			} else if (type === 'comm_close') {
 				const { comm_id } = e.message.content;
 				console.log('comm_close:', comm_id);
@@ -534,8 +547,10 @@ ${managerState}
 				}
 				client.dispose();
 				clients.delete(comm_id);
+			} else if (type === 'render_complete') {
+				// Do nothing.
 			} else {
-				console.log('Unhandled message:', e.message);
+				console.log('Unhandled message in browser:', e.message);
 			}
 		});
 
