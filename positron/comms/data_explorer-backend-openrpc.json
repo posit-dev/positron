@@ -259,23 +259,12 @@
 							"description": "Variable name or other string to display for tab name in UI"
 						},
 						"table_shape": {
-							"type": "object",
-							"name": "table_shape",
-							"description": "Provides number of rows and columns in table",
-							"required": [
-								"num_rows",
-								"num_columns"
-							],
-							"properties": {
-								"num_rows": {
-									"type": "integer",
-									"description": "Numbers of rows in the unfiltered dataset"
-								},
-								"num_columns": {
-									"type": "integer",
-									"description": "Number of columns in the unfiltered dataset"
-								}
-							}
+							"description": "Number of rows and columns in table including any filters",
+							"$ref": "#/components/schemas/table_shape"
+						},
+						"table_unfiltered_shape": {
+							"description": "Number of rows and columns in table without any filters",
+							"$ref": "#/components/schemas/table_shape"
 						},
 						"row_filters": {
 							"type": "array",
@@ -387,6 +376,24 @@
 						"items": {
 							"$ref": "#/components/schemas/column_schema"
 						}
+					}
+				}
+			},
+			"table_shape": {
+				"type": "object",
+				"description": "Provides number of rows and columns in a table",
+				"required": [
+					"num_rows",
+					"num_columns"
+				],
+				"properties": {
+					"num_rows": {
+						"type": "integer",
+						"description": "Numbers of rows in the unfiltered dataset"
+					},
+					"num_columns": {
+						"type": "integer",
+						"description": "Number of columns in the unfiltered dataset"
 					}
 				}
 			},

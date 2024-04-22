@@ -182,7 +182,12 @@ class BackendState(BaseModel):
     )
 
     table_shape: TableShape = Field(
-        description="Provides number of rows and columns in table",
+        description="Number of rows and columns in table including any filters",
+    )
+
+    table_unfiltered_shape: Optional[TableShape] = Field(
+        default=None,
+        description="Number of rows and columns in table without any filters",
     )
 
     row_filters: List[RowFilter] = Field(
@@ -195,20 +200,6 @@ class BackendState(BaseModel):
 
     supported_features: SupportedFeatures = Field(
         description="The features currently supported by the backend instance",
-    )
-
-
-class TableShape(BaseModel):
-    """
-    Provides number of rows and columns in table
-    """
-
-    num_rows: int = Field(
-        description="Numbers of rows in the unfiltered dataset",
-    )
-
-    num_columns: int = Field(
-        description="Number of columns in the unfiltered dataset",
     )
 
 
@@ -271,6 +262,20 @@ class TableSchema(BaseModel):
 
     columns: List[ColumnSchema] = Field(
         description="Schema for each column in the table",
+    )
+
+
+class TableShape(BaseModel):
+    """
+    Provides number of rows and columns in a table
+    """
+
+    num_rows: int = Field(
+        description="Numbers of rows in the unfiltered dataset",
+    )
+
+    num_columns: int = Field(
+        description="Number of columns in the unfiltered dataset",
     )
 
 
@@ -913,11 +918,11 @@ FilterResult.update_forward_refs()
 
 BackendState.update_forward_refs()
 
-TableShape.update_forward_refs()
-
 ColumnSchema.update_forward_refs()
 
 TableSchema.update_forward_refs()
+
+TableShape.update_forward_refs()
 
 RowFilter.update_forward_refs()
 
