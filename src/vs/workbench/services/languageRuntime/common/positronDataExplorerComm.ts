@@ -68,9 +68,14 @@ export interface BackendState {
 	display_name: string;
 
 	/**
-	 * Provides number of rows and columns in table
+	 * Number of rows and columns in table with filters applied
 	 */
 	table_shape: TableShape;
+
+	/**
+	 * Number of rows and columns in table without any filters applied
+	 */
+	table_unfiltered_shape: TableShape;
 
 	/**
 	 * The set of currently applied row filters
@@ -86,22 +91,6 @@ export interface BackendState {
 	 * The features currently supported by the backend instance
 	 */
 	supported_features: SupportedFeatures;
-
-}
-
-/**
- * Provides number of rows and columns in table
- */
-export interface TableShape {
-	/**
-	 * Numbers of rows in the unfiltered dataset
-	 */
-	num_rows: number;
-
-	/**
-	 * Number of columns in the unfiltered dataset
-	 */
-	num_columns: number;
 
 }
 
@@ -169,6 +158,22 @@ export interface TableSchema {
 	 * Schema for each column in the table
 	 */
 	columns: Array<ColumnSchema>;
+
+}
+
+/**
+ * Provides number of rows and columns in a table
+ */
+export interface TableShape {
+	/**
+	 * Numbers of rows in the table
+	 */
+	num_rows: number;
+
+	/**
+	 * Number of columns in the table
+	 */
+	num_columns: number;
 
 }
 
@@ -770,7 +775,8 @@ export class PositronDataExplorerComm extends PositronBaseComm {
 	/**
 	 * Get the state
 	 *
-	 * Request the current table state (applied filters and sort columns)
+	 * Request the current backend state (shape, filters, sort keys,
+	 * features)
 	 *
 	 *
 	 * @returns The current backend state for the data explorer
