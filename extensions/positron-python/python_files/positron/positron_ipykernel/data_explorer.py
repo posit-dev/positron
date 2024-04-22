@@ -360,6 +360,20 @@ class PandasView(DataExplorerTableView):
                     deleted_columns.add(old_index)
                     schema_updated = True
 
+        def _get_column_schema(column, column_name, column_index):
+            # We only use infer_dtype for columns that are involved in
+            # a filter
+            type_name, type_display = self._get_type_display(
+                column.dtype, lambda: infer_dtype(column)
+            )
+
+            return ColumnSchema(
+                column_name=column_name,
+                column_index=column_index,
+                type_name=type_name,
+                type_display=type_display,
+            )
+
         # When computing the new display type of a column requires
         # calling infer_dtype, we are careful to only do it for
         # columns that are involved in a filter
@@ -413,22 +427,12 @@ class PandasView(DataExplorerTableView):
                 # unnecessary
                 continue
 
-            # We only use infer_dtype for columns that are involved in
-            # a filter
-            new_type_name, new_type_display = self._get_type_display(
-                new_column.dtype, lambda: infer_dtype(new_column)
-            )
-
-            schema_changes[old_index] = ColumnSchema(
-                column_name=str(column_name),
-                column_index=new_index,
-                type_name=new_type_name,
-                type_display=new_type_display,
-            )
+            schema_changes[old_index] = _get_column_schema(new_column, str(column_name), new_index)
 
         new_filters = []
         for filt in self.filters:
             column_index = filt.column_schema.column_index
+            column_name = filt.column_schema.column_name
 
             filt = filt.copy(deep=True)
 
@@ -437,12 +441,26 @@ class PandasView(DataExplorerTableView):
                 # A schema change is only valid if the column name is
                 # the same, otherwise it's a deletion
                 change = schema_changes[column_index]
-
-                if filt.column_schema.column_name == change.column_name:
+                if column_name == change.column_name:
                     filt.column_schema = change.copy()
                 else:
-                    # Column deleted
-                    is_deleted = True
+                    # Column may be deleted. We need to distinguish
+                    # between the case of a deleted column that was
+                    # filtered and a filter that was invalid and is
+                    # now valid again as a result of changes in the
+                    # data (e.g. deleting a column and then re-adding
+                    # it right away)
+                    if str(new_table.columns[column_index]) == column_name:
+                        # Probably a new column that allows the old
+                        # filter to become valid again if the type is
+                        # compatible
+                        filt.column_schema = _get_column_schema(
+                            new_table.iloc[:, column_index],
+                            column_name,
+                            column_index,
+                        )
+                    else:
+                        is_deleted = True
             elif column_index in shifted_columns:
                 filt.column_schema.column_index = shifted_columns[column_index]
             elif column_index in deleted_columns:
@@ -458,7 +476,9 @@ class PandasView(DataExplorerTableView):
                 filt.error_message = "Column was deleted"
             else:
                 filt.is_valid = self._is_supported_filter(filt)
-                if not filt.is_valid:
+                if filt.is_valid:
+                    filt.error_message = None
+                else:
                     filt.error_message = "Unsupported column type for filter"
 
             new_filters.append(filt)

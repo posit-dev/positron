@@ -1069,6 +1069,7 @@ def test_pandas_schema_change_state_updates(dxf: DataExplorerFixture):
 
     # Scenario 1: convert "a" from integer to string
     # (filter, is_valid_after_change)
+    dxf.assign_and_open_viewer("df1", df.copy())
     scenario1 = {
         "filters": [
             # is null, not null, set membership remain valid
@@ -1089,7 +1090,7 @@ def test_pandas_schema_change_state_updates(dxf: DataExplorerFixture):
         ]
     }
 
-    _check_scenario("df", scenario1, "df['a'] = df['a'].astype(str)")
+    _check_scenario("df1", scenario1, "df1['a'] = df1['a'].astype(str)")
 
     # Scenario 2: convert "a" from int64 to int16
     dxf.assign_and_open_viewer("df2", df.copy())
@@ -1147,6 +1148,29 @@ def test_pandas_schema_change_state_updates(dxf: DataExplorerFixture):
         ]
     }
     _check_scenario("df6", scenario6, "df6['c'] = df6['b']")
+
+    # Scenario 7: delete column, then restore it and check that the
+    # filter was made invalid and then valid again
+    dxf.assign_and_open_viewer("df7", df.copy())
+    schema = dxf.get_schema("df7")["columns"]
+    scenario7 = {
+        "filters": [
+            (_compare_filter(schema[0], "<", "4"), False),
+        ]
+    }
+    # Scenario 7 -- Validate the setup, so the filter will be invalid
+    # after this
+    _check_scenario("df7", scenario7, "del df7['a']")
+
+    # Scenario 7 -- Now restore df7 to its prior state
+    dxf.execute_code("df7 = df.copy()")
+    state = dxf.get_state("df7")
+
+    # Filter is made valid again because the column reappeared where
+    # it was before and with a compatible type
+    filt = state["row_filters"][0]
+    assert filt["is_valid"]
+    assert filt["error_message"] is None
 
 
 def test_pandas_set_sort_columns(dxf: DataExplorerFixture):

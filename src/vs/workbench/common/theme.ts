@@ -2100,7 +2100,7 @@ export const POSITRON_DATA_GRID_INVALID_FILTER_BACKGROUND_COLOR = registerColor(
 	light: '#e95b5b',
 	hcDark: '#e95b5b',
 	hcLight: '#e95b5b'
-}, localize('positronDataExplorer.invalidFilterBackground', "Positron data grid selection background color."));
+}, localize('positronDataExplorer.invalidFilterBackground', "Positron data grid invalid background color."));
 
 // Positron data explorer selection background color.
 export const POSITRON_DATA_EXPLORER_SELECTION_BACKGROUND_COLOR = registerColor('positronDataExplorer.selectionBackground', {
