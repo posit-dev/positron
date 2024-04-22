@@ -183,7 +183,12 @@ class PositronComm:
                 )
                 return
 
-            callback(comm_msg, raw_msg)
+            # Catch any errors in the callback and send them to the frontend.
+            try:
+                callback(comm_msg, raw_msg)
+            except Exception as exception:
+                logger.exception(f"Error handling comm message: {comm_msg}")
+                self.send_error(JsonRpcErrorCode.INTERNAL_ERROR, str(exception))
 
         self.comm.on_msg(handle_msg)
 
