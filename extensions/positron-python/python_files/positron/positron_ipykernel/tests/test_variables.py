@@ -60,20 +60,20 @@ def test_comm_open(kernel: PositronIPyKernel) -> None:
         #
         # Same types
         #
-        ("import numpy as np", [f"np.array({x})" for x in [3, [3], [[3]]]]),
-        ("import torch", [f"torch.tensor({x})" for x in [3, [3], [[3]]]]),
+        ("import numpy as np", [f"x = np.array({x})" for x in [3, [3], [[3]]]]),
+        ("import torch", [f"x = torch.tensor({x})" for x in [3, [3], [[3]]]]),
         pytest.param(
             "import pandas as pd",
-            [f"pd.Series({x})" for x in [[], [3], [3, 3], ["3"]]],
+            [f"x = pd.Series({x})" for x in [[], [3], [3, 3], ["3"]]],
         ),
         pytest.param(
             "import polars as pl",
-            [f"pl.Series({x})" for x in [[], [3], [3, 3], ["3"]]],
+            [f"x = pl.Series({x})" for x in [[], [3], [3, 3], ["3"]]],
         ),
         (
             "import pandas as pd",
             [
-                f"pd.DataFrame({x})"
+                f"x = pd.DataFrame({x})"
                 for x in [
                     {"a": []},
                     {"a": [3]},
@@ -85,7 +85,7 @@ def test_comm_open(kernel: PositronIPyKernel) -> None:
         (
             "import polars as pl",
             [
-                f"pl.DataFrame({x})"
+                f"x = pl.DataFrame({x})"
                 for x in [
                     {"a": []},
                     {"a": [3]},
@@ -94,11 +94,11 @@ def test_comm_open(kernel: PositronIPyKernel) -> None:
                 ]
             ],
         ),
-        #
+        # Nested mutable types
+        ("", ["x = [{}]", "x[0]['a'] = 0"]),
+        ("", ["x = {'a': []}", "x['a'].append(0)"]),
         # Changing types
-        #
-        ("", ["3", "'3'"]),
-        ("import numpy as np", ["3", "np.array(3)"]),
+        ("import numpy as np", ["x = 3", "x = np.array(3)"]),
     ],
 )
 def test_change_detection(
@@ -117,7 +117,7 @@ def test_change_detection(
 
 def _assert_assigned(shell: PositronShell, value_code: str, variables_comm: DummyComm):
     # Assign the value to a variable.
-    shell.run_cell(f"x = {value_code}")
+    shell.run_cell(value_code)
 
     # Test that the expected `update` message was sent with the
     # expected `assigned` value.
