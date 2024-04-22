@@ -114,7 +114,7 @@ export const RowFilterWidget = forwardRef<HTMLButtonElement, RowFilterWidgetProp
 	})();
 
 	let buttonClass = 'row-filter-widget';
-	if (!props.rowFilter.props.isValid) {
+	if (props.rowFilter.props.isValid === false) {
 		buttonClass = `${buttonClass} invalid-row-filter-widget`;
 	}
 
