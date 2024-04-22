@@ -143,12 +143,12 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 
 	/**
 	 * Internal cells that we use to manage the state of the notebook
-	 */
+	*/
 	private _cells: IPositronNotebookCell[] = [];
 
 	/**
 	 * User facing cells wrapped in an observerable for the UI to react to changes
-	 */
+	*/
 	cells: ISettableObservable<IPositronNotebookCell[]>;
 	selectedCells: ISettableObservable<IPositronNotebookCell[]> = observableValue<IPositronNotebookCell[]>('positronNotebookSelectedCells', []);
 	editingCell: ISettableObservable<IPositronNotebookCell | undefined, void> = observableValue<IPositronNotebookCell | undefined>('positronNotebookEditingCell', undefined);
