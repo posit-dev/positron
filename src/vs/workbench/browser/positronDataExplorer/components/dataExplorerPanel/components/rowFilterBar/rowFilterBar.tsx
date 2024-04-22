@@ -7,9 +7,10 @@ import 'vs/css!./rowFilterBar';
 
 // React.
 import * as React from 'react';
-import { useRef, useState } from 'react'; // eslint-disable-line no-duplicate-imports
+import { useEffect, useRef, useState } from 'react'; // eslint-disable-line no-duplicate-imports
 
 // Other dependencies.
+import { DisposableStore } from 'vs/base/common/lifecycle';
 import { localize } from 'vs/nls';
 import * as DOM from 'vs/base/browser/dom';
 import { Button } from 'vs/base/browser/ui/positronComponents/button/button';
@@ -18,103 +19,12 @@ import { ContextMenuItem } from 'vs/workbench/browser/positronComponents/context
 import { ContextMenuSeparator } from 'vs/workbench/browser/positronComponents/contextMenu/contextMenuSeparator';
 import { usePositronDataExplorerContext } from 'vs/workbench/browser/positronDataExplorer/positronDataExplorerContext';
 import { PositronModalReactRenderer } from 'vs/workbench/browser/positronModalReactRenderer/positronModalReactRenderer';
-import { RowFilter, RowFilterCondition, RowFilterType } from 'vs/workbench/services/languageRuntime/common/positronDataExplorerComm';
 import { RowFilterWidget } from 'vs/workbench/browser/positronDataExplorer/components/dataExplorerPanel/components/rowFilterBar/components/rowFilterWidget';
 import { AddEditRowFilterModalPopup } from 'vs/workbench/browser/positronDataExplorer/components/dataExplorerPanel/components/addEditRowFilterModalPopup/addEditRowFilterModalPopup';
 import {
+	getRowFilterDescriptor,
 	RowFilterDescriptor,
-	RowFilterDescriptorComparison,
-	RowFilterDescriptorIsEmpty,
-	RowFilterDescriptorIsNotEmpty,
-	RowFilterDescriptorIsNull,
-	RowFilterDescriptorIsNotNull,
-	RowFilterDescriptorIsBetween,
-	RowFilterDescriptorIsNotBetween,
-	RowFilterDescriptorSearch
 } from 'vs/workbench/browser/positronDataExplorer/components/dataExplorerPanel/components/addEditRowFilterModalPopup/rowFilterDescriptor';
-
-/**
- * Creates row filters from row filter descriptors.
- * @param rowFilterDescriptors The row filter descriptors.
- * @returns The row filters.
- */
-const createRowFilters = (rowFilterDescriptors: RowFilterDescriptor[]) => {
-	// Create the set of row filters.
-	return rowFilterDescriptors.reduce<RowFilter[]>((
-		rowFilters,
-		rowFilterDescriptor
-	) => {
-		//
-		const sharedParams = {
-			filter_id: rowFilterDescriptor.identifier,
-			column_index: rowFilterDescriptor.columnSchema.column_index,
-			condition: RowFilterCondition.And
-		};
-
-		if (rowFilterDescriptor instanceof RowFilterDescriptorIsEmpty) {
-			rowFilters.push({
-				filter_type: RowFilterType.IsEmpty,
-				...sharedParams
-			});
-		} else if (rowFilterDescriptor instanceof RowFilterDescriptorIsNotEmpty) {
-			rowFilters.push({
-				filter_type: RowFilterType.NotEmpty,
-				...sharedParams
-			});
-		} else if (rowFilterDescriptor instanceof RowFilterDescriptorIsNull) {
-			rowFilters.push({
-				filter_type: RowFilterType.IsNull,
-				...sharedParams
-			});
-		} else if (rowFilterDescriptor instanceof RowFilterDescriptorIsNotNull) {
-			rowFilters.push({
-				filter_type: RowFilterType.NotNull,
-				...sharedParams
-			});
-		} else if (rowFilterDescriptor instanceof RowFilterDescriptorComparison) {
-			rowFilters.push({
-				filter_type: RowFilterType.Compare,
-				compare_params: {
-					op: rowFilterDescriptor.compareFilterOp,
-					value: rowFilterDescriptor.value
-				},
-				...sharedParams
-			});
-		} else if (rowFilterDescriptor instanceof RowFilterDescriptorSearch) {
-			rowFilters.push({
-				filter_type: RowFilterType.Search,
-				search_params: {
-					search_type: rowFilterDescriptor.searchOp,
-					term: rowFilterDescriptor.value,
-					case_sensitive: false
-				},
-				...sharedParams
-			});
-		} else if (rowFilterDescriptor instanceof RowFilterDescriptorIsBetween) {
-			rowFilters.push({
-				filter_type: RowFilterType.Between,
-				between_params: {
-					left_value: rowFilterDescriptor.lowerLimit,
-					right_value: rowFilterDescriptor.upperLimit
-				},
-				...sharedParams
-			});
-		} else if (rowFilterDescriptor instanceof RowFilterDescriptorIsNotBetween) {
-			rowFilters.push({
-				filter_type: RowFilterType.NotBetween,
-				between_params: {
-					left_value: rowFilterDescriptor.lowerLimit,
-					right_value: rowFilterDescriptor.upperLimit
-				},
-				...sharedParams
-			});
-		}
-
-		// Return the row filters.
-		return rowFilters;
-	}, []);
-};
-
 
 /**
  * RowFilterBar component.
@@ -123,6 +33,7 @@ const createRowFilters = (rowFilterDescriptors: RowFilterDescriptor[]) => {
 export const RowFilterBar = () => {
 	// Context hooks.
 	const context = usePositronDataExplorerContext();
+	const backendClient = context.instance.dataExplorerClientInstance;
 
 	// Reference hooks.
 	const ref = useRef<HTMLDivElement>(undefined!);
@@ -131,8 +42,28 @@ export const RowFilterBar = () => {
 	const addFilterButtonRef = useRef<HTMLButtonElement>(undefined!);
 
 	// State hooks.
-	const [rowFilterDescriptors, setRowFilterDescriptors] = useState<RowFilterDescriptor[]>([]);
+	const [rowFilterDescriptors, setRowFilterDescriptors] = useState<RowFilterDescriptor[]>(
+		backendClient.cachedBackendState === undefined ? [] :
+			backendClient.cachedBackendState.row_filters.map(getRowFilterDescriptor)
+	);
 	const [rowFiltersHidden, setRowFiltersHidden] = useState(false);
+
+	// Main useEffect. This is where we set up event handlers.
+	useEffect(() => {
+		// Create the disposable store for cleanup.
+		const disposableStore = new DisposableStore();
+
+		// Set up event handler for backend state sync updating the filter bar
+		disposableStore.add(context.instance.dataExplorerClientInstance.onDidUpdateBackendState(
+			(state) => {
+				const newDescriptors = state.row_filters.map(getRowFilterDescriptor);
+				setRowFilterDescriptors(newDescriptors);
+			})
+		);
+
+		// Return the cleanup function that will dispose of the event handlers.
+		return () => disposableStore.dispose();
+	}, [context.instance]);
 
 	/**
 	 * Shows the add / edit row filter modal popup.
@@ -178,9 +109,9 @@ export const RowFilterBar = () => {
 			setRowFilterDescriptors(newRowFilterDescriptors);
 
 			// Set the new row filters.
-			await context.instance.tableDataDataGridInstance.setRowFilters(createRowFilters(
-				newRowFilterDescriptors
-			));
+			await context.instance.tableDataDataGridInstance.setRowFilters(
+				newRowFilterDescriptors.map(descr => descr.backendFilter)
+			);
 		};
 
 		// Show the add /edit row filter modal popup.
@@ -260,9 +191,9 @@ export const RowFilterBar = () => {
 		setRowFilterDescriptors(newRowFilterDescriptors);
 
 		// Set the new row filters.
-		await context.instance.tableDataDataGridInstance.setRowFilters(createRowFilters(
-			newRowFilterDescriptors
-		));
+		await context.instance.tableDataDataGridInstance.setRowFilters(
+			newRowFilterDescriptors.map(descr => descr.backendFilter)
+		);
 	};
 
 	// Render.

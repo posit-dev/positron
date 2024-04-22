@@ -51,6 +51,11 @@ export interface FilterResult {
 	 */
 	selected_num_rows: number;
 
+	/**
+	 * Flag indicating if there were errors in evaluation
+	 */
+	had_errors?: boolean;
+
 }
 
 /**
@@ -182,9 +187,9 @@ export interface RowFilter {
 	filter_type: RowFilterType;
 
 	/**
-	 * Column index to apply filter to
+	 * Column to apply filter to
 	 */
-	column_index: number;
+	column_schema: ColumnSchema;
 
 	/**
 	 * The binary condition to use to combine with preceding row filters
@@ -196,6 +201,11 @@ export interface RowFilter {
 	 * then true
 	 */
 	is_valid?: boolean;
+
+	/**
+	 * Optional error message when the filter is invalid
+	 */
+	error_message?: string;
 
 	/**
 	 * Parameters for the 'between' and 'not_between' filter types
@@ -646,14 +656,9 @@ export enum ColumnProfileType {
 }
 
 /**
- * Event: Reset after a schema change
+ * Event: Request to sync after a schema change
  */
 export interface SchemaUpdateEvent {
-	/**
-	 * If true, the UI should discard the filter/sort state.
-	 */
-	discard_state: boolean;
-
 }
 
 /**
@@ -670,7 +675,7 @@ export enum DataExplorerFrontendEvent {
 export class PositronDataExplorerComm extends PositronBaseComm {
 	constructor(instance: IRuntimeClientInstance<any, any>) {
 		super(instance);
-		this.onDidSchemaUpdate = super.createEventEmitter('schema_update', ['discard_state']);
+		this.onDidSchemaUpdate = super.createEventEmitter('schema_update', []);
 		this.onDidDataUpdate = super.createEventEmitter('data_update', []);
 	}
 
@@ -776,9 +781,9 @@ export class PositronDataExplorerComm extends PositronBaseComm {
 
 
 	/**
-	 * Reset after a schema change
+	 * Request to sync after a schema change
 	 *
-	 * Fully reset and redraw the data explorer after a schema change.
+	 * Notify the data explorer to do a state sync after a schema change.
 	 */
 	onDidSchemaUpdate: Event<SchemaUpdateEvent>;
 	/**
