@@ -502,6 +502,15 @@ ${managerState}
 						// comm_id,
 						undefined,
 					);
+
+					// TODO: Notify the webview when the client is closed
+					// client.clientState.addObserver(state => {
+					// 	console.log('clientState:', state);
+					// 	if (state === 'closed') {
+					// 		clients.delete(comm_id);
+					// 		webview.postMessage({ type: 'comm_close', comm_id });
+					// 	}
+					// });
 				}
 				clients.set(comm_id, client);
 			} else if (type === 'comm_msg') {
@@ -514,6 +523,15 @@ ${managerState}
 				const output = await client.performRpc({ method });
 				// TODO: Do we need the buffers attribute too (not buffer_paths)?
 				webview.postMessage({ type: 'comm_msg', comm_id: comm_id, content: { data: output } });
+			} else if (type === 'comm_close') {
+				const { comm_id } = e.message.content;
+				console.log('comm_close:', comm_id);
+				const client = clients.get(comm_id);
+				if (!client) {
+					throw new Error(`Client not found for comm_id: ${comm_id}`);
+				}
+				client.dispose();
+				clients.delete(comm_id);
 			} else {
 				console.log('Unhandled message:', e.message);
 			}

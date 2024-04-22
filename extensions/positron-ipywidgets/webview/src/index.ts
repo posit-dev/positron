@@ -52,6 +52,12 @@ class Comm implements base.IClassicComm {
 
 	close(data?: JSONValue | undefined, callbacks?: base.ICallbacks | undefined, metadata?: JSONObject | undefined, buffers?: ArrayBuffer[] | ArrayBufferView[] | undefined): string {
 		console.log('Comm.close', data, callbacks, metadata, buffers);
+		vscode.postMessage({
+			type: 'comm_close',
+			content: {
+				comm_id: this.comm_id,
+			}
+		});
 		return '';
 	}
 
