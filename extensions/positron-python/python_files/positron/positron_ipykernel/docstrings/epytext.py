@@ -204,7 +204,7 @@ class EpytextDocstring:
             elif name == "Rtype:":
                 unique_sections[
                     "Return:"
-                    ].content = (f"({content.rstrip()}) {unique_sections['Return:'].content}")
+                ].content = f"({content.rstrip()}) {unique_sections['Return:'].content}"
             else:
                 matching_type = type_sections.get(str(section.arg_name))
 
