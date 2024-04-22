@@ -11,22 +11,24 @@ import {
 	RowFilter,
 	RowFilterType,
 	TableData,
-	TableSchema
+	TableSchema,
+	RowFilterCondition,
+	ColumnDisplayType
 } from 'vs/workbench/services/languageRuntime/common/positronDataExplorerComm';
 
-const exampleTypes: [string, string, object][] = [
-	['int64', 'number', {}],
-	['string', 'string', {}],
-	['boolean', 'boolean', {}],
-	['double', 'number', {}],
-	['timestamp', 'datetime', { timezone: 'America/New_York' }]
+const exampleTypes: [string, ColumnDisplayType, object][] = [
+	['int64', ColumnDisplayType.Number, {}],
+	['string', ColumnDisplayType.String, {}],
+	['boolean', ColumnDisplayType.Boolean, {}],
+	['double', ColumnDisplayType.Number, {}],
+	['timestamp', ColumnDisplayType.Datetime, { timezone: 'America/New_York' }]
 ];
 
 export function getTableSchema(numRows: number = 100, numColumns: number = 10): TableSchema {
 	const columns = [];
 	for (let i = 0; i < numColumns; i++) {
 		const typeProto = exampleTypes[i % exampleTypes.length];
-		columns.push(getColumnSchema('column_' + i, typeProto[0], typeProto[1], typeProto[2]));
+		columns.push(getColumnSchema('column_' + i, i, typeProto[0], typeProto[1], typeProto[2]));
 	}
 	return {
 		columns: columns,
@@ -77,14 +79,16 @@ export function getExampleTableData(shape: [number, number], schema: TableSchema
 	};
 }
 
-export function getColumnSchema(colName: string, typeName: string, typeDisplay: string,
+export function getColumnSchema(column_name: string, column_index: number,
+	type_name: string, type_display: ColumnDisplayType,
 	extraProps: object = {}): ColumnSchema {
 	return {
-		column_name: colName,
-		type_name: typeName,
-		type_display: typeDisplay,
+		column_name,
+		column_index,
+		type_name,
+		type_display,
 		...extraProps
-	} as ColumnSchema;
+	};
 }
 
 export function getExampleHistogram(): ColumnProfileResult {
@@ -119,39 +123,53 @@ export function getExampleFreqtable(): ColumnProfileResult {
 
 // For filtering
 
-function _getFilterWithProps(columnIndex: number, filterType: RowFilterType,
-	props: Partial<RowFilter> = {}): RowFilter {
+function _getCommonFilterProps(column_schema: ColumnSchema, filter_type: RowFilterType) {
 	return {
 		filter_id: generateUuid(),
-		filter_type: filterType,
-		column_index: columnIndex,
-		...props
-	} as RowFilter;
+		filter_type,
+		column_schema,
+		condition: RowFilterCondition.And
+	};
 }
 
-export function getCompareFilter(columnIndex: number, op: CompareFilterParamsOp,
-	value: string) {
-	return _getFilterWithProps(columnIndex, RowFilterType.Compare,
-		{ compare_params: { op, value } });
+export function getCompareFilter(columnSchema: ColumnSchema, op: CompareFilterParamsOp,
+	value: string): RowFilter {
+	return {
+		..._getCommonFilterProps(columnSchema, RowFilterType.Compare),
+		compare_params: {
+			op, value
+		}
+	};
 }
 
-export function getIsNullFilter(columnIndex: number) {
-	return _getFilterWithProps(columnIndex, RowFilterType.IsNull);
+export function getIsNullFilter(columnSchema: ColumnSchema): RowFilter {
+	return {
+		..._getCommonFilterProps(columnSchema, RowFilterType.IsNull)
+	};
 }
 
-export function getNotNullFilter(columnIndex: number) {
-	return _getFilterWithProps(columnIndex, RowFilterType.NotNull);
+export function getNotNullFilter(columnSchema: ColumnSchema): RowFilter {
+	return {
+		..._getCommonFilterProps(columnSchema, RowFilterType.NotNull)
+	};
 }
 
-export function getSetMemberFilter(columnIndex: number, values: string[], inclusive: boolean) {
-	return _getFilterWithProps(columnIndex, RowFilterType.SetMembership, {
-		set_membership_params: { values, inclusive }
-	});
+export function getSetMemberFilter(columnSchema: ColumnSchema, values: string[],
+	inclusive: boolean): RowFilter {
+	return {
+		..._getCommonFilterProps(columnSchema, RowFilterType.SetMembership),
+		set_membership_params: {
+			values, inclusive
+		}
+	};
 }
 
-export function getTextSearchFilter(columnIndex: number, searchTerm: string,
-	searchType: SearchFilterType, caseSensitive: boolean) {
-	return _getFilterWithProps(columnIndex, RowFilterType.Search, {
-		search_params: { term: searchTerm, search_type: searchType, case_sensitive: caseSensitive }
-	});
+export function getTextSearchFilter(columnSchema: ColumnSchema, searchTerm: string,
+	searchType: SearchFilterType, caseSensitive: boolean): RowFilter {
+	return {
+		..._getCommonFilterProps(columnSchema, RowFilterType.Search),
+		search_params: {
+			term: searchTerm, search_type: searchType, case_sensitive: caseSensitive
+		}
+	};
 }
