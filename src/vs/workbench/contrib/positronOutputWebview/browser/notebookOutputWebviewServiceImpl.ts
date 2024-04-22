@@ -19,6 +19,7 @@ import { IExtensionService } from 'vs/workbench/services/extensions/common/exten
 import { ILanguageRuntimeMessageWebOutput } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { ILanguageRuntimeSession, IRuntimeClientInstance, RuntimeClientType } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
 import { MIME_TYPE_WIDGET_STATE, MIME_TYPE_WIDGET_VIEW, IPyWidgetViewSpec } from 'vs/workbench/services/positronIPyWidgets/common/positronIPyWidgetsService';
+import { Event } from 'vs/base/common/event';
 
 export class PositronNotebookOutputWebviewService implements IPositronNotebookOutputWebviewService {
 
@@ -503,14 +504,15 @@ ${managerState}
 						undefined,
 					);
 
-					// TODO: Notify the webview when the client is closed
-					// client.clientState.addObserver(state => {
-					// 	console.log('clientState:', state);
-					// 	if (state === 'closed') {
-					// 		clients.delete(comm_id);
-					// 		webview.postMessage({ type: 'comm_close', comm_id });
-					// 	}
-					// });
+					const stateChangeEvent = Event.fromObservable(client.clientState);
+					// TODO: Dispose!
+					stateChangeEvent(state => {
+						console.log('client.clientState changed:', state);
+						if (state === 'closed') {
+							clients.delete(comm_id);
+							webview.postMessage({ type: 'comm_close', comm_id });
+						}
+					});
 				}
 				clients.set(comm_id, client);
 			} else if (type === 'comm_msg') {

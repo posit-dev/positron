@@ -21,6 +21,7 @@ const comms = new Map<string, Comm>();
 
 class Comm implements base.IClassicComm {
 	private readonly _onMsgCallbacks: ((x: any) => void)[] = [];
+	private readonly _onCloseCallbacks: ((x: any) => void)[] = [];
 
 	constructor(
 		readonly comm_id: string,
@@ -68,11 +69,19 @@ class Comm implements base.IClassicComm {
 
 	on_close(callback: (x: any) => void): void {
 		console.log('Comm.on_close', callback);
+		this._onCloseCallbacks.push(callback);
 	}
 
 	handle_msg(message: JSONObject): void {
 		console.log('Comm.handle_msg', message);
 		for (const callback of this._onMsgCallbacks) {
+			callback(message);
+		}
+	}
+
+	handle_close(message: JSONObject): void {
+		console.log('Comm.handle_close', message);
+		for (const callback of this._onCloseCallbacks) {
 			callback(message);
 		}
 	}
@@ -207,5 +216,11 @@ window.addEventListener('message', (event) => {
 			throw new Error(`Comm not found ${message.comm_id}`);
 		}
 		comm.handle_msg(message);
+	} else if (message?.type === 'comm_closed') {
+		const comm = comms.get(message.comm_id);
+		if (!comm) {
+			throw new Error(`Comm not found ${message.comm_id}`);
+		}
+		comm.handle_close(message);
 	}
 });
