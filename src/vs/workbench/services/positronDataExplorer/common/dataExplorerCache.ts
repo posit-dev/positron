@@ -274,7 +274,7 @@ export class DataExplorerCache extends Disposable {
 		} = cacheUpdateDescriptor;
 
 		// Get the size of the data.
-		const tableState = await this._dataExplorerClientInstance.getState();
+		const tableState = await this._dataExplorerClientInstance.getBackendState();
 		this._columns = tableState.table_shape.num_columns;
 		this._rows = tableState.table_shape.num_rows;
 

@@ -10,7 +10,6 @@ import pytest
 from traitlets.config import Config
 
 from positron_ipykernel.connections import ConnectionsService
-from positron_ipykernel.data_explorer import DataExplorerService
 from positron_ipykernel.positron_ipkernel import (
     PositronIPKernelApp,
     PositronIPyKernel,
@@ -156,15 +155,17 @@ def variables_comm(variables_service: VariablesService) -> DummyComm:
     return variables_comm
 
 
-@pytest.fixture()
-def de_service(kernel: PositronIPyKernel) -> DataExplorerService:
+@pytest.fixture
+def de_service(kernel: PositronIPyKernel):
     """
     The Positron dataviewer service.
     """
-    return kernel.data_explorer_service
+    fixture = kernel.data_explorer_service
+    yield fixture
+    fixture.shutdown()
 
 
-@pytest.fixture()
+@pytest.fixture
 def connections_service(kernel: PositronIPyKernel) -> ConnectionsService:
     """
     The Positron connections service.

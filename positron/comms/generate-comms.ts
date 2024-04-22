@@ -1334,7 +1334,7 @@ async function createCommInterface() {
 				// Use black to format the Python file; the lint tests for the
 				// Python extension require that the Python files have exactly the
 				// format that black produces.
-				execSync(`python3 -m black ${pythonOutputFile}`, { stdio: 'ignore' });
+				execSync(`python3 -m ruff format ${pythonOutputFile}`, { stdio: 'ignore' });
 			}
 		} catch (e: any) {
 			if (e.message) {
