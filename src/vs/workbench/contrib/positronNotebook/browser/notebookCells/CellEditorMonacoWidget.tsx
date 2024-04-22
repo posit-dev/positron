@@ -15,8 +15,9 @@ import { FloatingEditorClickMenu } from 'vs/workbench/browser/codeeditor';
 import { CellEditorOptions } from 'vs/workbench/contrib/notebook/browser/view/cellParts/cellEditorOptions';
 import { useNotebookInstance } from 'vs/workbench/contrib/positronNotebook/browser/NotebookInstanceProvider';
 import { useServices } from 'vs/workbench/contrib/positronNotebook/browser/ServicesProvider';
-import { IPositronNotebookCell } from 'vs/workbench/contrib/positronNotebook/browser/notebookCells/interfaces';
+import { CellSelectionState, IPositronNotebookCell } from 'vs/workbench/contrib/positronNotebook/browser/notebookCells/interfaces';
 import { observeValue } from 'vs/workbench/contrib/positronNotebook/common/utils/observeValue';
+import { DisposableStore } from 'vs/base/common/lifecycle';
 
 
 /**
@@ -55,7 +56,10 @@ export function useCellEditorWidget(cell: IPositronNotebookCell) {
 		if (!editorPartRef.current) {
 			console.log('no editor part or container');
 			return;
+
 		}
+
+		const disposableStore = new DisposableStore();
 
 		// We need to use a native dom element here instead of a react ref one because the elements
 		// created by react's refs are not _true_ dom elements and thus calls like `refEl instanceof
@@ -66,8 +70,10 @@ export function useCellEditorWidget(cell: IPositronNotebookCell) {
 
 		const language = cell.cellModel.language;
 		const editorContextKeyService = services.scopedContextKeyProviderCallback(editorPartRef.current);
+		disposableStore.add(editorContextKeyService);
 		const editorInstaService = services.instantiationService.createChild(new ServiceCollection([IContextKeyService, editorContextKeyService]));
 		const editorOptions = new CellEditorOptions(instance.getBaseCellEditorOptions(language), instance.notebookOptions, services.configurationService);
+
 
 		const editor = editorInstaService.createInstance(CodeEditorWidget, nativeContainer, {
 			...editorOptions.getDefaultValue(),
@@ -81,9 +87,21 @@ export function useCellEditorWidget(cell: IPositronNotebookCell) {
 		}, {
 			contributions: getNotebookEditorContributions()
 		});
-
+		disposableStore.add(editor);
 
 		editor.setValue(cell.getContent());
+
+		disposableStore.add(
+			editor.onDidFocusEditorWidget(() => {
+				cell.selected.set(CellSelectionState.Editing, undefined);
+			})
+		);
+
+		disposableStore.add(
+			editor.onDidBlurEditorWidget(() => {
+				cell.selected.set(CellSelectionState.Selected, undefined);
+			})
+		);
 
 
 		/**
@@ -121,9 +139,9 @@ export function useCellEditorWidget(cell: IPositronNotebookCell) {
 
 		return () => {
 			services.logService.info('Positron Notebook | useCellEditorWidget() | Disposing editor widget');
-			editor.dispose();
+			disposableStore.dispose();
 			nativeContainer.remove();
-			editorContextKeyService.dispose();
+
 			sizeObserver();
 		};
 	}, [cell, instance, services, sizeObservable]);

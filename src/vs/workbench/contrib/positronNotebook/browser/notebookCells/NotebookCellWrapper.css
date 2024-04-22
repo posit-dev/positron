@@ -11,4 +11,8 @@
 		outline: 1px solid var(--vscode-focusBorder);
 	}
 
+	&.editing {
+		outline: 1px solid green;
+	}
+
 }

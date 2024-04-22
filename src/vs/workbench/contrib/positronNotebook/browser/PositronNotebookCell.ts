@@ -12,8 +12,10 @@ import { ICellViewModel } from 'vs/workbench/contrib/notebook/browser/notebookBr
 import { NotebookCellTextModel } from 'vs/workbench/contrib/notebook/common/model/notebookCellTextModel';
 import { CellKind, ICellOutput } from 'vs/workbench/contrib/notebook/common/notebookCommon';
 import { IPositronNotebookInstance } from 'vs/workbench/contrib/positronNotebook/browser/PositronNotebookInstance';
-import { ExecutionStatus, IPositronNotebookCodeCell, IPositronNotebookCell, IPositronNotebookMarkdownCell } from 'vs/workbench/contrib/positronNotebook/browser/notebookCells/interfaces';
+import { ExecutionStatus, IPositronNotebookCodeCell, IPositronNotebookCell, IPositronNotebookMarkdownCell, CellSelectionState } from 'vs/workbench/contrib/positronNotebook/browser/notebookCells/interfaces';
 import { DisposableObserveValue } from '../common/utils/DisposableObserveValue';
+
+
 
 
 abstract class PositronNotebookCellGeneral extends Disposable implements IPositronNotebookCell {
@@ -22,7 +24,7 @@ abstract class PositronNotebookCellGeneral extends Disposable implements IPositr
 	// Not marked as private so we can access it in subclasses
 	_disposableStore = new DisposableStore();
 
-	selected = observableValue<Boolean, void>('selected', false);
+	selected = observableValue<CellSelectionState, void>('selected', CellSelectionState.Unselected);
 
 	constructor(
 		public cellModel: NotebookCellTextModel,
@@ -33,7 +35,7 @@ abstract class PositronNotebookCellGeneral extends Disposable implements IPositr
 
 		this._disposableStore.add(
 			new DisposableObserveValue(this._instance.selectedCells, () => {
-				this.selected.set(this._instance.selectedCells.get().includes(this), undefined);
+				this.selected.set(this._instance.selectedCells.get().includes(this) ? CellSelectionState.Selected : CellSelectionState.Unselected, undefined);
 			})
 		);
 	}
@@ -94,7 +96,9 @@ abstract class PositronNotebookCellGeneral extends Disposable implements IPositr
 	}
 
 	select(): void {
-		this._instance.setSelectedCells([this]);
+		if (this.selected.get() === CellSelectionState.Unselected) {
+			this._instance.setSelectedCells([this]);
+		}
 	}
 
 }
