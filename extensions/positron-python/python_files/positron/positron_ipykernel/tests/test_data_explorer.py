@@ -1027,18 +1027,26 @@ def test_pandas_variable_updates(
 
 
 def test_pandas_schema_change_state_updates(dxf: DataExplorerFixture):
-    df = pd.DataFrame({"a": [1, 2, 3, 4, 5], "b": ["foo", "bar", None, "baz", "qux"]})
+    df = pd.DataFrame(
+        {
+            "a": [1, 2, 3, 4, 5],
+            "b": ["foo", "bar", None, "baz", "qux"],
+            "c": [False, True, False, True, False],
+        }
+    )
 
     dxf.assign_and_open_viewer("df", df.copy())
     schema = dxf.get_schema("df")["columns"]
 
     def _check_scenario(var, scenario, code: str):
-        row_filters = list(zip(*scenario["filters"]))[0]
+        filter_spec = scenario.get("filters", [])
 
         if "sort_keys" in scenario:
             dxf.set_sort_columns(var, sort_keys=scenario["sort_keys"])
 
-        dxf.set_row_filters(var, filters=row_filters)
+        if len(filter_spec) > 0:
+            dxf.set_row_filters(var, filters=list(zip(*filter_spec))[0])
+
         dxf.execute_code(code)
 
         # Get state and confirm that the right filters were made
@@ -1050,10 +1058,10 @@ def test_pandas_schema_change_state_updates(dxf: DataExplorerFixture):
         if "sort_keys" in scenario:
             assert state["sort_keys"] == scenario["updated_sort_keys"]
 
-        for i, (_, is_still_valid) in enumerate(scenario["filters"]):
+        for i, (spec, is_still_valid) in enumerate(filter_spec):
             assert updated_filters[i]["is_valid"] == is_still_valid
 
-            orig_col_schema = row_filters[i]["column_schema"]
+            orig_col_schema = spec["column_schema"]
             new_col_schema = None
             for c in new_schema:
                 if c["column_name"] == orig_col_schema["column_name"]:
@@ -1171,6 +1179,14 @@ def test_pandas_schema_change_state_updates(dxf: DataExplorerFixture):
     filt = state["row_filters"][0]
     assert filt["is_valid"]
     assert filt["error_message"] is None
+
+    # Scenario 8: Delete sorted column in middle of table
+    dxf.assign_and_open_viewer("df8", df.copy())
+    scenario8 = {
+        "sort_keys": [{"column_index": 1, "ascending": False}],
+        "updated_sort_keys": [],
+    }
+    _check_scenario("df8", scenario8, "del df8['b']")
 
 
 def test_pandas_set_sort_columns(dxf: DataExplorerFixture):

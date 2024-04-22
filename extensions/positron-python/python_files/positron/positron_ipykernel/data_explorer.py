@@ -352,7 +352,7 @@ class PandasView(DataExplorerTableView):
         shifted_columns: Dict[int, int] = {}
         schema_changes: Dict[int, ColumnSchema] = {}
 
-        # First, we look for deleted columns
+        # First, we look for detectable deleted columns
         deleted_columns: Set[int] = set()
         if not self.table.columns.equals(new_table.columns):
             for old_index, column in enumerate(self.table.columns):
@@ -486,6 +486,7 @@ class PandasView(DataExplorerTableView):
         new_sort_keys = []
         for i, key in enumerate(self.sort_keys):
             column_index = key.column_index
+            prior_name = self._sort_key_schemas[i].column_name
 
             key = key.copy()
 
@@ -494,7 +495,6 @@ class PandasView(DataExplorerTableView):
                 # A schema change is only valid if the column name is
                 # the same, otherwise it's a deletion
                 change = schema_changes[column_index]
-                prior_name = self._sort_key_schemas[i].column_name
                 if prior_name == change.column_name:
                     key.column_schema = change.copy()
                 else:
@@ -502,7 +502,9 @@ class PandasView(DataExplorerTableView):
                     continue
             elif column_index in shifted_columns:
                 key.column_index = shifted_columns[column_index]
-            elif column_index in deleted_columns:
+            elif column_index in deleted_columns or prior_name != str(
+                new_table.columns[column_index]
+            ):
                 # Column deleted
                 continue
 

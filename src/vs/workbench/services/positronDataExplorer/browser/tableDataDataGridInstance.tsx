@@ -7,13 +7,13 @@ import * as React from 'react';
 
 // Other dependencies.
 import { IColumnSortKey } from 'vs/workbench/browser/positronDataGrid/interfaces/columnSortKey';
-import { DataGridInstance } from 'vs/workbench/browser/positronDataGrid/classes/dataGridInstance';
+import { ColumnSortKeyDescriptor, DataGridInstance } from 'vs/workbench/browser/positronDataGrid/classes/dataGridInstance';
 import { DataExplorerCache } from 'vs/workbench/services/positronDataExplorer/common/dataExplorerCache';
 import { TableDataCell } from 'vs/workbench/services/positronDataExplorer/browser/components/tableDataCell';
 import { TableDataRowHeader } from 'vs/workbench/services/positronDataExplorer/browser/components/tableDataRowHeader';
 import { PositronDataExplorerColumn } from 'vs/workbench/services/positronDataExplorer/browser/positronDataExplorerColumn';
 import { DataExplorerClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimeDataExplorerClient';
-import { ColumnSortKey, RowFilter, SchemaUpdateEvent } from 'vs/workbench/services/languageRuntime/common/positronDataExplorerComm';
+import { BackendState, RowFilter, SchemaUpdateEvent } from 'vs/workbench/services/languageRuntime/common/positronDataExplorerComm';
 
 /**
  * TableDataDataGridInstance class.
@@ -75,15 +75,29 @@ export class TableDataDataGridInstance extends DataGridInstance {
 		));
 
 		// Add the onDidSchemaUpdate event handler.
-		this._dataExplorerClientInstance.onDidSchemaUpdate(async (e: SchemaUpdateEvent) => {
+		this._register(this._dataExplorerClientInstance.onDidSchemaUpdate(async (e: SchemaUpdateEvent) => {
 			this.softReset();
 			this.fetchData();
-		});
+		}));
 
 		// Add the onDidDataUpdate event handler.
-		this._dataExplorerClientInstance.onDidDataUpdate(async () => {
+		this._register(this._dataExplorerClientInstance.onDidDataUpdate(async () => {
 			this.fetchData();
-		});
+		}));
+
+		// Add the onDidUpdateBackendState event handler.
+		this._register(this._dataExplorerClientInstance.onDidUpdateBackendState(
+			async (state: BackendState) => {
+				// Clear column sort keys.
+				this._columnSortKeys.clear();
+				state.sort_keys.forEach((key, sortIndex) => {
+					this._columnSortKeys.set(key.column_index,
+						new ColumnSortKeyDescriptor(sortIndex, key.column_index, key.ascending)
+					);
+				});
+				this._onDidUpdateEmitter.fire();
+			}
+		));
 	}
 
 	//#endregion Constructor
@@ -118,7 +132,7 @@ export class TableDataDataGridInstance extends DataGridInstance {
 			{
 				column_index: columnSort.columnIndex,
 				ascending: columnSort.ascending
-			} satisfies ColumnSortKey
+			}
 		)));
 
 		// Clear the data cache and fetch new data.
