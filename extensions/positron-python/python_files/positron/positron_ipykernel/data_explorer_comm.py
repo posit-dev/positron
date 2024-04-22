@@ -270,11 +270,11 @@ class TableShape(BaseModel):
     """
 
     num_rows: int = Field(
-        description="Numbers of rows in the unfiltered dataset",
+        description="Numbers of rows in the table",
     )
 
     num_columns: int = Field(
-        description="Number of columns in the unfiltered dataset",
+        description="Number of columns in the table",
     )
 
 
@@ -870,7 +870,8 @@ class GetColumnProfilesRequest(BaseModel):
 
 class GetStateRequest(BaseModel):
     """
-    Request the current table state (applied filters and sort columns)
+    Request the current backend state (shape, filters, sort keys,
+    features)
     """
 
     method: Literal[DataExplorerBackendRequest.GetState] = Field(

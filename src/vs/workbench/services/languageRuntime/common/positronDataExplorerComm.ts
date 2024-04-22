@@ -166,12 +166,12 @@ export interface TableSchema {
  */
 export interface TableShape {
 	/**
-	 * Numbers of rows in the unfiltered dataset
+	 * Numbers of rows in the table
 	 */
 	num_rows: number;
 
 	/**
-	 * Number of columns in the unfiltered dataset
+	 * Number of columns in the table
 	 */
 	num_columns: number;
 
@@ -775,7 +775,8 @@ export class PositronDataExplorerComm extends PositronBaseComm {
 	/**
 	 * Get the state
 	 *
-	 * Request the current table state (applied filters and sort columns)
+	 * Request the current backend state (shape, filters, sort keys,
+	 * features)
 	 *
 	 *
 	 * @returns The current backend state for the data explorer

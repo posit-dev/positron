@@ -239,7 +239,7 @@
 		{
 			"name": "get_state",
 			"summary": "Get the state",
-			"description": "Request the current table state (applied filters and sort columns)",
+			"description": "Request the current backend state (shape, filters, sort keys, features)",
 			"params": [],
 			"result": {
 				"schema": {
@@ -390,11 +390,11 @@
 				"properties": {
 					"num_rows": {
 						"type": "integer",
-						"description": "Numbers of rows in the unfiltered dataset"
+						"description": "Numbers of rows in the table"
 					},
 					"num_columns": {
 						"type": "integer",
-						"description": "Number of columns in the unfiltered dataset"
+						"description": "Number of columns in the table"
 					}
 				}
 			},
