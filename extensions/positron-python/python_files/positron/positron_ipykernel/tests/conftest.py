@@ -2,11 +2,13 @@
 # Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
 #
 
-from typing import Iterable
+import logging
+from typing import Any, Dict, Iterable, Optional, Union
 from unittest.mock import MagicMock, Mock
 
 import comm
 import pytest
+from jupyter_client.session import Session
 from traitlets.config import Config
 
 from positron_ipykernel.connections import ConnectionsService
@@ -18,6 +20,8 @@ from positron_ipykernel.positron_ipkernel import (
 )
 from positron_ipykernel.session_mode import SessionMode
 from positron_ipykernel.variables import VariablesService
+
+logger = logging.getLogger(__name__)
 
 
 class DummyComm(comm.base_comm.BaseComm):
@@ -68,11 +72,35 @@ def kernel() -> PositronIPyKernel:
     return kernel
 
 
+class TestSession(Session):
+    """
+    A session that logs error messages, otherwise they fail silently during tests.
+    """
+
+    def send(
+        self,
+        stream,
+        msg_or_type: Union[Dict[str, Any], str],
+        content: Optional[Dict[str, Any]] = None,
+        *args,
+        **kwargs,
+    ) -> None:
+        try:
+            if msg_or_type == "error" and content is not None:
+                traceback = "\n".join([content["evalue"]] + content["traceback"])
+                logger.error(f"Error while executing cell: {content['ename']}: {traceback}")
+        except Exception:
+            # If we don't catch this, errors will be silently caught in IPython.
+            logger.error("Error while sending message")
+
+
 # Enable autouse to ensure a clean namespace and correct user_ns_hidden in every test,
 # even if it doesn't explicitly use the `shell` fixture.
 @pytest.fixture(autouse=True)
 def shell() -> Iterable[PositronShell]:
     shell = PositronShell.instance()
+
+    shell.displayhook.session = TestSession()
 
     # TODO: For some reason these vars are in user_ns but not user_ns_hidden during tests. For now,
     #       manually add them to user_ns_hidden to replicate running in Positron.
