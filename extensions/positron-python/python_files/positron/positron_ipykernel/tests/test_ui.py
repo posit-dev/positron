@@ -3,7 +3,6 @@
 #
 
 import os
-import webbrowser
 from pathlib import Path
 from typing import Any, Dict
 
@@ -145,23 +144,6 @@ def test_shutdown(ui_service: UiService, ui_comm: DummyComm) -> None:
 
     # Comm is closed
     assert ui_comm._closed
-
-
-# def test_viewer_webbrowser_opens(
-#     shell: PositronShell, ui_comm: DummyComm, ui_service: UiService
-# ) -> None:
-#     # Assert positron viewer is registered and opens local urls
-
-#     shell.run_cell(
-#         """
-# import webbrowser
-# x = webbrowser._tryorder
-# webbrowser.get('positron_viewer').open()
-# """
-#     )
-#     assert isinstance(ui_service.browser, PositronViewerBrowser)
-#     assert shell.user_ns["x"][0] == "positron_viewer"
-#     assert ui_comm.messages ==
 
 
 @pytest.mark.parametrize(
