@@ -83,12 +83,14 @@ export async function activatePositron(
                         Product.ipykernel,
                         IPYKERNEL_VERSION,
                         interpreter,
-                    )
+                    );
                     return hasCompatibleKernel === ProductInstallStatus.Installed;
                 }
-                traceError(`Could not check if ipykernel is installed due to an invalid interpreter path: ${pythonPath}`);
+                traceError(
+                    `Could not check if ipykernel is installed due to an invalid interpreter path: ${pythonPath}`,
+                );
                 return false;
-            })
+            }),
         );
         traceInfo('activatePositron: done!');
     } catch (ex) {
