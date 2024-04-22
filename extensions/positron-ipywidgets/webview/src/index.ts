@@ -17,7 +17,11 @@ interface ICommInfoReply {
 	comms: { comm_id: string }[];
 }
 
+const comms = new Map<string, Comm>();
+
 class Comm implements base.IClassicComm {
+	private readonly _onMsgCallbacks: ((x: any) => void)[] = [];
+
 	constructor(
 		readonly comm_id: string,
 		readonly target_name: string,
@@ -25,11 +29,24 @@ class Comm implements base.IClassicComm {
 
 	open(data: JSONValue, callbacks?: base.ICallbacks | undefined, metadata?: JSONObject | undefined, buffers?: ArrayBuffer[] | ArrayBufferView[] | undefined): string {
 		console.log('Comm.open', data, callbacks, metadata, buffers);
+		// TODO: Move open logic here?
 		return '';
 	}
 
-	send(data: JSONValue, callbacks?: base.ICallbacks | undefined, metadata?: JSONObject | undefined, buffers?: ArrayBuffer[] | ArrayBufferView[] | undefined): string {
+	send(data: any, callbacks?: base.ICallbacks | undefined, metadata?: JSONObject | undefined, buffers?: ArrayBuffer[] | ArrayBufferView[] | undefined): string {
 		console.log('Comm.send', data, callbacks, metadata, buffers);
+		const method = data?.method;
+		if (method) {
+			vscode.postMessage({
+				type: 'comm_msg',
+				// TODO: Need content?
+				content: {
+					comm_id: this.comm_id,
+					method
+				},
+			});
+		}
+		// TODO: Handle callbacks?
 		return '';
 	}
 
@@ -40,10 +57,18 @@ class Comm implements base.IClassicComm {
 
 	on_msg(callback: (x: any) => void): void {
 		console.log('Comm.on_msg', callback);
+		this._onMsgCallbacks.push(callback);
 	}
 
 	on_close(callback: (x: any) => void): void {
 		console.log('Comm.on_close', callback);
+	}
+
+	handle_msg(message: JSONObject): void {
+		console.log('Comm.handle_msg', message);
+		for (const callback of this._onMsgCallbacks) {
+			callback(message);
+		}
 	}
 }
 
@@ -80,6 +105,7 @@ class HTMLManager extends ManagerBase {
 		vscode.postMessage(
 			{
 				type: 'comm_open',
+				// TODO: need content?
 				content: {
 					comm_id: model_id,
 					target_name: comm_target_name,
@@ -89,7 +115,9 @@ class HTMLManager extends ManagerBase {
 				}
 			}
 		);
-		return new Comm(model_id, comm_target_name);
+		const comm = new Comm(model_id, comm_target_name);
+		comms.set(model_id, comm);
+		return comm;
 	}
 
 	protected override _get_comm_info(): Promise<{}> {
@@ -167,5 +195,11 @@ window.addEventListener('message', (event) => {
 	if (message?.type === 'comm_info_reply') {
 		// TODO: error handling?
 		manager.onCommInfoReply(message);
+	} else if (message?.type === 'comm_msg') {
+		const comm = comms.get(message.comm_id);
+		if (!comm) {
+			throw new Error(`Comm not found ${message.comm_id}`);
+		}
+		comm.handle_msg(message);
 	}
 });

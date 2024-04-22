@@ -17,7 +17,7 @@ import { IWebviewService, WebviewInitInfo } from 'vs/workbench/contrib/webview/b
 import { asWebviewUri } from 'vs/workbench/contrib/webview/common/webview';
 import { IExtensionService } from 'vs/workbench/services/extensions/common/extensions';
 import { ILanguageRuntimeMessageWebOutput } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
-import { ILanguageRuntimeSession, RuntimeClientType } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
+import { ILanguageRuntimeSession, IRuntimeClientInstance, RuntimeClientType } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
 import { MIME_TYPE_WIDGET_STATE, MIME_TYPE_WIDGET_VIEW, IPyWidgetViewSpec } from 'vs/workbench/services/positronIPyWidgets/common/positronIPyWidgetsService';
 
 export class PositronNotebookOutputWebviewService implements IPositronNotebookOutputWebviewService {
@@ -458,6 +458,8 @@ ${managerState}
 </html>
 		`);
 
+		const clients = new Map<string, IRuntimeClientInstance<any, any>>();
+
 		webview.onMessage(async e => {
 			const type = e.message?.type;
 			console.log('webview.onMessage:', type);
@@ -465,15 +467,20 @@ ${managerState}
 			//  what we need for ipywidgets?
 			if (type === 'comm_info_request') {
 				// TODO: Can we use clientInstances instead like comm_open?
-				const clients = await runtime.listClients(RuntimeClientType.IPyWidget);
-				const comms = clients.map(client => ({ comm_id: client.getClientId() }));
-				console.log('comms:', comms);
+				// TODO: Do we still need this?
+				console.log('comm_info_request');
+				const allClients = await runtime.listClients(RuntimeClientType.IPyWidget);
+				const comms = allClients.map(client => ({ comm_id: client.getClientId() }));
 				webview.postMessage({ type: 'comm_info_reply', comms });
 			} else if (type === 'comm_open') {
 				const { comm_id, target_name, data, metadata, buffers } = e.message.content;
+				if (clients.has(comm_id)) {
+					return;
+				}
 				console.log('comm_open:', comm_id, target_name, data, metadata, buffers);
 				let client = runtime.clientInstances.find(
 					client => client.getClientType() === target_name && client.getClientId() === comm_id);
+				// TODO: Should we allow creating jupyter.widget comms?
 				if (!client) {
 					// TODO: Support creating a comm from the frontend
 					// TODO: Should we create the client elsewhere?
@@ -495,12 +502,18 @@ ${managerState}
 						// comm_id,
 						undefined,
 					);
-					// TODO: Dispose client?
-					client.onDidReceiveData(data => {
-						console.log('onDidReceiveData:', data);
-					});
 				}
-				webview.postMessage({ type: 'comm_open_reply' });
+				clients.set(comm_id, client);
+			} else if (type === 'comm_msg') {
+				const { comm_id, method } = e.message.content;
+				console.log('comm_msg:', method);
+				const client = clients.get(comm_id);
+				if (!client) {
+					throw new Error(`Client not found for comm_id: ${comm_id}`);
+				}
+				const output = await client.performRpc({ method });
+				// TODO: Do we need the buffers attribute too (not buffer_paths)?
+				webview.postMessage({ type: 'comm_msg', comm_id: comm_id, content: { data: output } });
 			} else {
 				console.log('Unhandled message:', e.message);
 			}
