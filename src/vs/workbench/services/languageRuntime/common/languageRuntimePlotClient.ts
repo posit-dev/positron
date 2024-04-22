@@ -7,7 +7,7 @@ import { IRuntimeClientInstance, RuntimeClientState } from 'vs/workbench/service
 import { Event, Emitter } from 'vs/base/common/event';
 import { DeferredPromise } from 'vs/base/common/async';
 import { IPositronPlotClient } from 'vs/workbench/services/positronPlots/common/positronPlots';
-import { PositronPlotComm } from 'vs/workbench/services/languageRuntime/common/positronPlotComm';
+import { PositronPlotComm, RenderFormat } from 'vs/workbench/services/languageRuntime/common/positronPlotComm';
 
 /**
  * The possible states for the plot client instance
@@ -78,7 +78,7 @@ interface RenderRequest {
 	pixel_ratio: number;
 
 	/** The format of the plot */
-	format: string;
+	format: RenderFormat;
 }
 
 /**
@@ -263,7 +263,7 @@ export class PlotClientInstance extends Disposable implements IPositronPlotClien
 	 * @param format The format of the plot ('png', 'svg')
 	 * @returns A promise that resolves to a rendered image, or rejects with an error.
 	 */
-	public render(height: number, width: number, pixel_ratio: number, format = 'png'): Promise<IRenderedPlot> {
+	public render(height: number, width: number, pixel_ratio: number, format = RenderFormat.Png): Promise<IRenderedPlot> {
 		// Deal with whole pixels only
 		height = Math.floor(height);
 		width = Math.floor(width);
@@ -325,7 +325,7 @@ export class PlotClientInstance extends Disposable implements IPositronPlotClien
 	 * @param pixel_ratio The device pixel ratio (e.g. 1 for standard displays, 2 for retina displays)
 	 * @returns A promise that resolves when the render request is scheduled, or rejects with an error.
 	 */
-	public preview(height: number, width: number, pixel_ratio: number, format: string): Promise<IRenderedPlot> {
+	public preview(height: number, width: number, pixel_ratio: number, format: RenderFormat): Promise<IRenderedPlot> {
 		// Deal with whole pixels only
 		height = Math.floor(height);
 		width = Math.floor(width);
@@ -509,7 +509,7 @@ export class PlotClientInstance extends Disposable implements IPositronPlotClien
 			height: Math.floor(height!),
 			width: Math.floor(width!),
 			pixel_ratio: pixel_ratio!,
-			format: this._currentRender?.renderRequest.format ?? 'png'
+			format: this._currentRender?.renderRequest.format ?? RenderFormat.Png
 		});
 
 		this.scheduleRender(req, 0);

@@ -17,6 +17,21 @@ from typing import Any, List, Literal, Optional, Union
 from ._vendor.pydantic import BaseModel, Field
 
 
+@enum.unique
+class RenderFormat(str, enum.Enum):
+    """
+    Possible values for Format in Render
+    """
+
+    Png = "png"
+
+    Jpeg = "jpeg"
+
+    Svg = "svg"
+
+    Pdf = "pdf"
+
+
 class PlotResult(BaseModel):
     """
     A rendered plot
@@ -59,7 +74,7 @@ class RenderParams(BaseModel):
         description="The pixel ratio of the display device",
     )
 
-    format: str = Field(
+    format: RenderFormat = Field(
         description="The requested plot format",
     )
 
