@@ -9,7 +9,7 @@
 }
 
 .positron-markdown-error {
-	color: var(--vscode-editorError-foreground, orangered);
+	color: var(--vscode-positronNotebook-error-color);
 	font-style: italic;
 }
 
@@ -22,10 +22,12 @@
 
 	a {
 		text-decoration: none;
+		color: var(--vscode-textLink-foreground);
 	}
 
 	a:hover {
 		text-decoration: underline;
+		color: var(--vscode-textLink-activeForeground);
 	}
 
 	a:focus,
