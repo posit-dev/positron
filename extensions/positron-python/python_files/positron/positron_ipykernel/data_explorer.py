@@ -905,20 +905,22 @@ class PandasView(DataExplorerTableView):
 
     @staticmethod
     def _summarize_number(col: "pd.Series"):
-        min_value = col.min()
-        max_value = col.max()
-        mean = col.mean()
-        median = col.median()
-        stdev = col.std()
+        import pandas.io.formats.format as fmt
+
+        minmax = pd_.Series([col.min(), col.max()], dtype=col.dtype)
+        numeric_stats = pd_.Series([col.mean(), col.median(), col.std()])
+
+        min_value, max_value = fmt.format_array(minmax.to_numpy(), None, leading_space=False)
+        mean, median, stdev = fmt.format_array(numeric_stats.to_numpy(), None, leading_space=False)
 
         return ColumnSummaryStats(
             type_display=ColumnDisplayType.Number,
             number_stats=SummaryStatsNumber(
-                min_value=str(min_value),
-                max_value=str(max_value),
-                mean=str(mean),
-                median=str(median),
-                stdev=str(stdev),
+                min_value=min_value,
+                max_value=max_value,
+                mean=mean,
+                median=median,
+                stdev=stdev,
             ),
         )
 
