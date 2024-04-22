@@ -173,7 +173,7 @@ export class ColumnSchemaCache extends Disposable {
 		this._searchText = searchText;
 
 		// // Get the size of the data.
-		// const tableState = await this._dataExplorerClientInstance.getState();
+		// const tableState = await this._dataExplorerClientInstance.getBackendState();
 		// this._columns = tableState.table_shape.num_columns;
 
 		// Set the start column index and the end column index of the columns to cache.

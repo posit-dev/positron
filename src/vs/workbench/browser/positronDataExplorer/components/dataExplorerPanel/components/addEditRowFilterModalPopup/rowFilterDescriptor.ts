@@ -3,33 +3,46 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { generateUuid } from 'vs/base/common/uuid';
-import { ColumnSchema, CompareFilterParamsOp, SearchFilterType } from 'vs/workbench/services/languageRuntime/common/positronDataExplorerComm';
+import {
+	ColumnSchema,
+	CompareFilterParamsOp,
+	RowFilter,
+	RowFilterCondition,
+	RowFilterType,
+	SearchFilterType
+} from 'vs/workbench/services/languageRuntime/common/positronDataExplorerComm';
 
 /**
- * RowFilterCondition enumeration.
+ * RowFilterDescrType enumeration.
  */
-export enum RowFilterCondition {
-	// Conditions with no parameters.
-	CONDITION_IS_EMPTY = 'is-empty',
-	CONDITION_IS_NOT_EMPTY = 'is-not-empty',
-	CONDITION_IS_NULL = 'is-null',
-	CONDITION_IS_NOT_NULL = 'is-not-null',
+export enum RowFilterDescrType {
+	// Filters with no parameters.
+	IS_EMPTY = 'is-empty',
+	IS_NOT_EMPTY = 'is-not-empty',
+	IS_NULL = 'is-null',
+	IS_NOT_NULL = 'is-not-null',
 
-	// Conditions with one parameter.
-	CONDITION_IS_LESS_THAN = 'is-less-than',
-	CONDITION_IS_LESS_OR_EQUAL = 'is-less-than-or-equal-to',
-	CONDITION_IS_GREATER_THAN = 'is-greater-than',
-	CONDITION_IS_GREATER_OR_EQUAL = 'is-greater-than-or-equal-to',
-	CONDITION_IS_EQUAL_TO = 'is-equal-to',
-	CONDITION_IS_NOT_EQUAL_TO = 'is-not-equal-to',
-	CONDITION_SEARCH_CONTAINS = 'search-contains',
-	CONDITION_SEARCH_STARTS_WITH = 'search-starts-with',
-	CONDITION_SEARCH_ENDS_WITH = 'search-ends-with',
-	CONDITION_SEARCH_REGEX_MATCHES = 'search-regex',
+	// Filters with one parameter.
+	IS_LESS_THAN = 'is-less-than',
+	IS_LESS_OR_EQUAL = 'is-less-than-or-equal-to',
+	IS_GREATER_THAN = 'is-greater-than',
+	IS_GREATER_OR_EQUAL = 'is-greater-than-or-equal-to',
+	IS_EQUAL_TO = 'is-equal-to',
+	IS_NOT_EQUAL_TO = 'is-not-equal-to',
+	SEARCH_CONTAINS = 'search-contains',
+	SEARCH_STARTS_WITH = 'search-starts-with',
+	SEARCH_ENDS_WITH = 'search-ends-with',
+	SEARCH_REGEX_MATCHES = 'search-regex',
 
-	// Conditions with two parameters.
-	CONDITION_IS_BETWEEN = 'is-between',
-	CONDITION_IS_NOT_BETWEEN = 'is-not-between'
+	// Filters with two parameters.
+	IS_BETWEEN = 'is-between',
+	IS_NOT_BETWEEN = 'is-not-between'
+}
+
+interface RowFilterCommonProps {
+	readonly columnSchema: ColumnSchema;
+	readonly isValid?: boolean;
+	readonly errorMessage?: string;
 }
 
 /**
@@ -43,16 +56,30 @@ abstract class BaseRowFilterDescriptor {
 
 	/**
 	 * Constructor.
-	 * @param columnSchema The column schema.
+	 * @param props The common row filter descriptor properties.
 	 */
-	constructor(public readonly columnSchema: ColumnSchema) {
+	constructor(public readonly props: RowFilterCommonProps) {
 		this.identifier = generateUuid();
 	}
 
 	/**
-	 * Gets the row filter condition.
+	 * Gets the row filter UI type.
 	 */
-	abstract get rowFilterCondition(): RowFilterCondition;
+	abstract get descrType(): RowFilterDescrType;
+
+	abstract get backendFilter(): RowFilter;
+
+	get schema() {
+		return this.props.columnSchema;
+	}
+
+	protected _sharedBackendParams() {
+		return {
+			filter_id: this.identifier,
+			column_schema: this.props.columnSchema,
+			condition: RowFilterCondition.And
+		};
+	}
 }
 
 /**
@@ -61,17 +88,27 @@ abstract class BaseRowFilterDescriptor {
 export class RowFilterDescriptorIsEmpty extends BaseRowFilterDescriptor {
 	/**
 	 * Constructor.
-	 * @param columnSchema The column schema.
+	 * @param props The common row filter descriptor properties.
 	 */
-	constructor(columnSchema: ColumnSchema) {
-		super(columnSchema);
+	constructor(props: RowFilterCommonProps) {
+		super(props);
 	}
 
 	/**
 	 * Gets the row filter condition.
 	 */
-	get rowFilterCondition() {
-		return RowFilterCondition.CONDITION_IS_EMPTY;
+	get descrType() {
+		return RowFilterDescrType.IS_EMPTY;
+	}
+
+	/**
+	 * Get the backend OpenRPC type.
+	 */
+	get backendFilter() {
+		return {
+			filter_type: RowFilterType.IsEmpty,
+			...this._sharedBackendParams()
+		};
 	}
 }
 
@@ -81,17 +118,27 @@ export class RowFilterDescriptorIsEmpty extends BaseRowFilterDescriptor {
 export class RowFilterDescriptorIsNotEmpty extends BaseRowFilterDescriptor {
 	/**
 	 * Constructor.
-	 * @param columnSchema The column schema.
+	 * @param props The common row filter descriptor properties.
 	 */
-	constructor(columnSchema: ColumnSchema) {
-		super(columnSchema);
+	constructor(props: RowFilterCommonProps) {
+		super(props);
 	}
 
 	/**
 	 * Gets the row filter condition.
 	 */
-	get rowFilterCondition() {
-		return RowFilterCondition.CONDITION_IS_NOT_EMPTY;
+	get descrType() {
+		return RowFilterDescrType.IS_NOT_EMPTY;
+	}
+
+	/**
+	 * Get the backend OpenRPC type.
+	 */
+	get backendFilter() {
+		return {
+			filter_type: RowFilterType.NotEmpty,
+			...this._sharedBackendParams()
+		};
 	}
 }
 
@@ -101,17 +148,27 @@ export class RowFilterDescriptorIsNotEmpty extends BaseRowFilterDescriptor {
 export class RowFilterDescriptorIsNull extends BaseRowFilterDescriptor {
 	/**
 	 * Constructor.
-	 * @param columnSchema The column schema.
+	 * @param props The common row filter descriptor properties.
 	 */
-	constructor(columnSchema: ColumnSchema) {
-		super(columnSchema);
+	constructor(props: RowFilterCommonProps) {
+		super(props);
 	}
 
 	/**
 	 * Gets the row filter condition.
 	 */
-	get rowFilterCondition() {
-		return RowFilterCondition.CONDITION_IS_NULL;
+	get descrType() {
+		return RowFilterDescrType.IS_NULL;
+	}
+
+	/**
+	 * Get the backend OpenRPC type.
+	 */
+	get backendFilter() {
+		return {
+			filter_type: RowFilterType.IsNull,
+			...this._sharedBackendParams()
+		};
 	}
 }
 
@@ -121,17 +178,27 @@ export class RowFilterDescriptorIsNull extends BaseRowFilterDescriptor {
 export class RowFilterDescriptorIsNotNull extends BaseRowFilterDescriptor {
 	/**
 	 * Constructor.
-	 * @param columnSchema The column schema.
+	 * @param props The common row filter descriptor properties.
 	 */
-	constructor(columnSchema: ColumnSchema) {
-		super(columnSchema);
+	constructor(props: RowFilterCommonProps) {
+		super(props);
 	}
 
 	/**
 	 * Gets the row filter condition.
 	 */
-	get rowFilterCondition() {
-		return RowFilterCondition.CONDITION_IS_NOT_NULL;
+	get descrType() {
+		return RowFilterDescrType.IS_NOT_NULL;
+	}
+
+	/**
+	 * Get the backend OpenRPC type.
+	 */
+	get backendFilter() {
+		return {
+			filter_type: RowFilterType.NotNull,
+			...this._sharedBackendParams()
+		};
 	}
 }
 
@@ -141,11 +208,12 @@ export class RowFilterDescriptorIsNotNull extends BaseRowFilterDescriptor {
 export abstract class SingleValueRowFilterDescriptor extends BaseRowFilterDescriptor {
 	/**
 	 * Constructor.
-	 * @param columnSchema The column schema.
+	 * @param props The common row filter descriptor properties.
 	 * @param value The value.
 	 */
-	constructor(columnSchema: ColumnSchema, public readonly value: string) {
-		super(columnSchema);
+	constructor(props: RowFilterCommonProps,
+		public readonly value: string) {
+		super(props);
 	}
 }
 
@@ -155,59 +223,72 @@ export abstract class SingleValueRowFilterDescriptor extends BaseRowFilterDescri
 export class RowFilterDescriptorComparison extends SingleValueRowFilterDescriptor {
 	/**
 	 * Constructor.
-	 * @param columnSchema The column schema.
+	 * @param props The common row filter descriptor properties.
 	 * @param value The value.
-	 * @param condition The filter condition.
+	 * @param descrType The filter condition.
 	 */
-	condition: RowFilterCondition;
+	_descrType: RowFilterDescrType;
 
-	constructor(columnSchema: ColumnSchema, value: string, condition: RowFilterCondition) {
-		super(columnSchema, value);
-		this.condition = condition;
+	constructor(props: RowFilterCommonProps, value: string, descrType: RowFilterDescrType) {
+		super(props, value);
+		this._descrType = descrType;
 	}
 
 	get operatorText() {
-		switch (this.condition) {
-			case RowFilterCondition.CONDITION_IS_EQUAL_TO:
+		switch (this.descrType) {
+			case RowFilterDescrType.IS_EQUAL_TO:
 				return '=';
-			case RowFilterCondition.CONDITION_IS_GREATER_OR_EQUAL:
+			case RowFilterDescrType.IS_GREATER_OR_EQUAL:
 				return '>=';
-			case RowFilterCondition.CONDITION_IS_GREATER_THAN:
+			case RowFilterDescrType.IS_GREATER_THAN:
 				return '>';
-			case RowFilterCondition.CONDITION_IS_LESS_OR_EQUAL:
+			case RowFilterDescrType.IS_LESS_OR_EQUAL:
 				return '<=';
-			case RowFilterCondition.CONDITION_IS_LESS_THAN:
+			case RowFilterDescrType.IS_LESS_THAN:
 				return '<';
-			case RowFilterCondition.CONDITION_IS_NOT_EQUAL_TO:
+			case RowFilterDescrType.IS_NOT_EQUAL_TO:
 				return '!=';
 			default:
 				return '';
 		}
 	}
 
-	get compareFilterOp() {
-		switch (this.condition) {
-			case RowFilterCondition.CONDITION_IS_EQUAL_TO:
-				return CompareFilterParamsOp.Eq;
-			case RowFilterCondition.CONDITION_IS_GREATER_OR_EQUAL:
-				return CompareFilterParamsOp.GtEq;
-			case RowFilterCondition.CONDITION_IS_GREATER_THAN:
-				return CompareFilterParamsOp.Gt;
-			case RowFilterCondition.CONDITION_IS_LESS_OR_EQUAL:
-				return CompareFilterParamsOp.LtEq;
-			case RowFilterCondition.CONDITION_IS_LESS_THAN:
-				return CompareFilterParamsOp.Lt;
-			default:
-				// CONDITION_IS_NOT_EQUAL_TO
-				return CompareFilterParamsOp.NotEq;
-		}
+	/**
+	 * Get the backend OpenRPC type.
+	 */
+	get backendFilter() {
+		const getCompareOp = () => {
+			switch (this.descrType) {
+				case RowFilterDescrType.IS_EQUAL_TO:
+					return CompareFilterParamsOp.Eq;
+				case RowFilterDescrType.IS_GREATER_OR_EQUAL:
+					return CompareFilterParamsOp.GtEq;
+				case RowFilterDescrType.IS_GREATER_THAN:
+					return CompareFilterParamsOp.Gt;
+				case RowFilterDescrType.IS_LESS_OR_EQUAL:
+					return CompareFilterParamsOp.LtEq;
+				case RowFilterDescrType.IS_LESS_THAN:
+					return CompareFilterParamsOp.Lt;
+				default:
+					// IS_NOT_EQUAL_TO
+					return CompareFilterParamsOp.NotEq;
+			}
+		};
+		return {
+			filter_type: RowFilterType.Compare,
+			compare_params: {
+				op: getCompareOp(),
+				value: this.value
+			},
+			...this._sharedBackendParams()
+		};
 	}
 
 	/**
 	 * Gets the row filter condition.
 	 */
-	get rowFilterCondition() {
-		return this.condition;
+	get descrType() {
+		return this._descrType;
 	}
 }
 
@@ -217,50 +298,109 @@ export class RowFilterDescriptorComparison extends SingleValueRowFilterDescripto
 export class RowFilterDescriptorSearch extends SingleValueRowFilterDescriptor {
 	/**
 	 * Constructor.
-	 * @param columnSchema The column schema.
+	 * @param props The common row filter descriptor properties.
 	 * @param value The value.
-	 * @param condition The filter condition.
+	 * @param descrType The filter condition.
 	 */
-	condition: RowFilterCondition;
+	_descrType: RowFilterDescrType;
 
-	constructor(columnSchema: ColumnSchema, value: string, condition: RowFilterCondition) {
-		super(columnSchema, value);
-		this.condition = condition;
+	constructor(props: RowFilterCommonProps, value: string, descrType: RowFilterDescrType) {
+		super(props, value);
+		this._descrType = descrType;
 	}
 
 	get operatorText() {
-		switch (this.condition) {
-			case RowFilterCondition.CONDITION_SEARCH_CONTAINS:
+		switch (this._descrType) {
+			case RowFilterDescrType.SEARCH_CONTAINS:
 				return 'contains';
-			case RowFilterCondition.CONDITION_SEARCH_STARTS_WITH:
+			case RowFilterDescrType.SEARCH_STARTS_WITH:
 				return 'starts with';
-			case RowFilterCondition.CONDITION_SEARCH_ENDS_WITH:
+			case RowFilterDescrType.SEARCH_ENDS_WITH:
 				return 'ends with';
 			default:
-				// CONDITION_SEARCH_REGEX_MATCHES
+				// SEARCH_REGEX_MATCHES
 				return 'matches regex';
 		}
 	}
 
-	get searchOp() {
-		switch (this.condition) {
-			case RowFilterCondition.CONDITION_SEARCH_CONTAINS:
-				return SearchFilterType.Contains;
-			case RowFilterCondition.CONDITION_SEARCH_STARTS_WITH:
-				return SearchFilterType.StartsWith;
-			case RowFilterCondition.CONDITION_SEARCH_ENDS_WITH:
-				return SearchFilterType.EndsWith;
-			default:
-				// CONDITION_SEARCH_REGEX_MATCHES
-				return SearchFilterType.RegexMatch;
-		}
+
+	/**
+	 * Gets the row filter condition.
+	 */
+	get descrType() {
+		return this._descrType;
+	}
+
+	/**
+	 * Get the backend OpenRPC type.
+	 */
+	get backendFilter() {
+		const getSearchOp = () => {
+			switch (this._descrType) {
+				case RowFilterDescrType.SEARCH_CONTAINS:
+					return SearchFilterType.Contains;
+				case RowFilterDescrType.SEARCH_STARTS_WITH:
+					return SearchFilterType.StartsWith;
+				case RowFilterDescrType.SEARCH_ENDS_WITH:
+					return SearchFilterType.EndsWith;
+				default:
+					// SEARCH_REGEX_MATCHES
+					return SearchFilterType.RegexMatch;
+			}
+		};
+
+		return {
+			filter_type: RowFilterType.Search,
+			search_params: {
+				search_type: getSearchOp(),
+				term: this.value,
+				case_sensitive: false
+			},
+			...this._sharedBackendParams()
+		};
+	}
+}
+
+/**
+ * RowFilterDescriptorSetMembership class.
+ */
+export class RowFilterDescriptorSetMembership extends BaseRowFilterDescriptor {
+	/**
+	 * Constructor.
+	 * @param props The common row filter descriptor properties.
+	 * @param values The values to include.
+	 */
+	values: Array<string>;
+
+	constructor(props: RowFilterCommonProps, values: Array<string>) {
+		super(props);
+		this.values = values;
 	}
 
 	/**
 	 * Gets the row filter condition.
 	 */
-	get rowFilterCondition() {
-		return this.condition;
+	get descrType() {
+		// TODO: Add case and implement this
+		return RowFilterDescrType.IS_NULL;
+	}
+
+	get operatorText() {
+		return 'includes';
+	}
+
+	/**
+	 * Get the backend OpenRPC type.
+	 */
+	get backendFilter() {
+		return {
+			filter_type: RowFilterType.SetMembership,
+			set_membership_filter_params: {
+				values: this.values,
+				inclusive: true
+			},
+			...this._sharedBackendParams()
+		};
 	}
 }
 
@@ -270,16 +410,16 @@ export class RowFilterDescriptorSearch extends SingleValueRowFilterDescriptor {
 export abstract class RangeRowFilterDescriptor extends BaseRowFilterDescriptor {
 	/**
 	 * Constructor.
-	 * @param columnSchema The column schema.
+	 * @param props The common row filter descriptor properties.
 	 * @param lowerLimit The lower limit.
 	 * @param upperLimit The lower limit.
 	 */
 	constructor(
-		columnSchema: ColumnSchema,
+		props: RowFilterCommonProps,
 		public readonly lowerLimit: string,
-		public readonly upperLimit: string
+		public readonly upperLimit: string,
 	) {
-		super(columnSchema);
+		super(props);
 	}
 }
 
@@ -289,19 +429,33 @@ export abstract class RangeRowFilterDescriptor extends BaseRowFilterDescriptor {
 export class RowFilterDescriptorIsBetween extends RangeRowFilterDescriptor {
 	/**
 	 * Constructor.
-	 * @param columnSchema The column schema.
+	 * @param props The common row filter descriptor properties.
 	 * @param lowerLimit The lower limit.
 	 * @param upperLimit The lower limit.
 	 */
-	constructor(columnSchema: ColumnSchema, lowerLimit: string, upperLimit: string) {
-		super(columnSchema, lowerLimit, upperLimit);
+	constructor(props: RowFilterCommonProps, lowerLimit: string, upperLimit: string) {
+		super(props, lowerLimit, upperLimit);
 	}
 
 	/**
 	 * Gets the row filter condition.
 	 */
-	get rowFilterCondition() {
-		return RowFilterCondition.CONDITION_IS_BETWEEN;
+	get descrType() {
+		return RowFilterDescrType.IS_BETWEEN;
+	}
+
+	/**
+	 * Get the backend OpenRPC type.
+	 */
+	get backendFilter() {
+		return {
+			filter_type: RowFilterType.Between,
+			between_params: {
+				left_value: this.lowerLimit,
+				right_value: this.upperLimit
+			},
+			...this._sharedBackendParams()
+		};
 	}
 }
 
@@ -311,19 +465,110 @@ export class RowFilterDescriptorIsBetween extends RangeRowFilterDescriptor {
 export class RowFilterDescriptorIsNotBetween extends RangeRowFilterDescriptor {
 	/**
 	 * Constructor.
-	 * @param columnSchema The column schema.
+	 * @param props The common row filter descriptor properties.
 	 * @param lowerLimit The lower limit.
 	 * @param upperLimit The lower limit.
 	 */
-	constructor(columnSchema: ColumnSchema, lowerLimit: string, upperLimit: string) {
-		super(columnSchema, lowerLimit, upperLimit);
+	constructor(props: RowFilterCommonProps, lowerLimit: string, upperLimit: string) {
+		super(props, lowerLimit, upperLimit);
 	}
 
 	/**
 	 * Gets the row filter condition.
 	 */
-	get rowFilterCondition() {
-		return RowFilterCondition.CONDITION_IS_NOT_BETWEEN;
+	get descrType() {
+		return RowFilterDescrType.IS_NOT_BETWEEN;
+	}
+
+	/**
+	 * Get the backend OpenRPC type.
+	 */
+	get backendFilter() {
+		return {
+			filter_type: RowFilterType.NotBetween,
+			between_params: {
+				left_value: this.lowerLimit,
+				right_value: this.upperLimit
+			},
+			...this._sharedBackendParams()
+		};
+	}
+}
+
+function getCompareDescrType(op: CompareFilterParamsOp) {
+	switch (op) {
+		case CompareFilterParamsOp.Eq:
+			return RowFilterDescrType.IS_EQUAL_TO;
+		case CompareFilterParamsOp.NotEq:
+			return RowFilterDescrType.IS_NOT_EQUAL_TO;
+		case CompareFilterParamsOp.Lt:
+			return RowFilterDescrType.IS_LESS_THAN;
+		case CompareFilterParamsOp.LtEq:
+			return RowFilterDescrType.IS_LESS_OR_EQUAL;
+		case CompareFilterParamsOp.Gt:
+			return RowFilterDescrType.IS_GREATER_THAN;
+		case CompareFilterParamsOp.GtEq:
+			return RowFilterDescrType.IS_GREATER_OR_EQUAL;
+	}
+}
+
+function getSearchDescrType(searchType: SearchFilterType) {
+	switch (searchType) {
+		case SearchFilterType.Contains:
+			return RowFilterDescrType.SEARCH_CONTAINS;
+		case SearchFilterType.EndsWith:
+			return RowFilterDescrType.SEARCH_ENDS_WITH;
+		case SearchFilterType.StartsWith:
+			return RowFilterDescrType.SEARCH_STARTS_WITH;
+		case SearchFilterType.RegexMatch:
+			return RowFilterDescrType.SEARCH_REGEX_MATCHES;
+	}
+}
+
+export function getRowFilterDescriptor(backendFilter: RowFilter) {
+	const commonProps = {
+		columnSchema: backendFilter.column_schema,
+		isValid: backendFilter.is_valid,
+		errorMessage: backendFilter.error_message
+	};
+	switch (backendFilter.filter_type) {
+		case RowFilterType.Compare: {
+			const params = backendFilter.compare_params!;
+			return new RowFilterDescriptorComparison(commonProps,
+				params.value, getCompareDescrType(params.op),
+			);
+		}
+		case RowFilterType.Between: {
+			const params = backendFilter.between_params!;
+			return new RowFilterDescriptorIsBetween(commonProps,
+				params.left_value, params.right_value
+			);
+		}
+		case RowFilterType.NotBetween: {
+			const params = backendFilter.between_params!;
+			return new RowFilterDescriptorIsNotBetween(commonProps,
+				params.left_value, params.right_value
+			);
+		}
+		case RowFilterType.IsEmpty:
+			return new RowFilterDescriptorIsEmpty(commonProps);
+		case RowFilterType.NotEmpty:
+			return new RowFilterDescriptorIsNotEmpty(commonProps);
+		case RowFilterType.IsNull:
+			return new RowFilterDescriptorIsNull(commonProps);
+		case RowFilterType.NotNull:
+			return new RowFilterDescriptorIsNotNull(commonProps);
+		case RowFilterType.Search: {
+			const params = backendFilter.search_params!;
+			return new RowFilterDescriptorSearch(commonProps,
+				params.term, getSearchDescrType(params.search_type));
+		}
+		case RowFilterType.SetMembership: {
+			const params = backendFilter.set_membership_params!;
+			return new RowFilterDescriptorSetMembership(commonProps,
+				params.values
+			);
+		}
 	}
 }
 

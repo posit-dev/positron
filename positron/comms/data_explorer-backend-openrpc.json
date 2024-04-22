@@ -181,6 +181,10 @@
 						"selected_num_rows": {
 							"type": "integer",
 							"description": "Number of rows in table after applying filters"
+						},
+						"had_errors": {
+							"type": "boolean",
+							"description": "Flag indicating if there were errors in evaluation"
 						}
 					}
 				}
@@ -392,7 +396,7 @@
 				"required": [
 					"filter_id",
 					"filter_type",
-					"column_index",
+					"column_schema",
 					"condition"
 				],
 				"properties": {
@@ -404,9 +408,9 @@
 						"description": "Type of row filter to apply",
 						"$ref": "#/components/schemas/row_filter_type"
 					},
-					"column_index": {
-						"type": "integer",
-						"description": "Column index to apply filter to"
+					"column_schema": {
+						"description": "Column to apply filter to",
+						"$ref": "#/components/schemas/column_schema"
 					},
 					"condition": {
 						"type": "string",
@@ -419,6 +423,10 @@
 					"is_valid": {
 						"type": "boolean",
 						"description": "Whether the filter is valid and supported by the backend, if undefined then true"
+					},
+					"error_message": {
+						"type": "string",
+						"description": "Optional error message when the filter is invalid"
 					},
 					"between_params": {
 						"description": "Parameters for the 'between' and 'not_between' filter types",
