@@ -1087,7 +1087,6 @@ declare module 'positron' {
 		 * Returns the current width of the console input, in characters.
 		 */
 		export function getConsoleWidth(): Thenable<number>;
-
 	}
 
 	namespace runtime {

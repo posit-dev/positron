@@ -170,7 +170,7 @@ class UiService:
 class PositronViewerBrowser(webbrowser.BaseBrowser):
     """Launcher class for Positron Viewer browsers."""
 
-    def __init__(self, name: str = "positron_viewer", comm: PositronComm = None):
+    def __init__(self, name: str = "positron_viewer", comm: Optional[PositronComm] = None):
         self.name = name
         self.comm = comm
 
