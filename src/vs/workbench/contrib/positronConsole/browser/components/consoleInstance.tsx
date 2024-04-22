@@ -348,8 +348,17 @@ export const ConsoleInstance = (props: ConsoleInstanceProps) => {
 			e.stopPropagation();
 		};
 
-		// Determine whether the cmd or ctrl key is pressed.
-		const cmdOrCtrlKey = isMacintosh ? e.metaKey : e.ctrlKey;
+		// Determine that a key is pressed without any modifiers
+		const noModifierKey = !e.ctrlKey && !e.metaKey && !e.shiftKey && !e.altKey;
+
+		// Determine whether the cmd or ctrl key is pressed without other modifiers.
+		const onlyCmdOrCtrlKey = (isMacintosh ? e.metaKey : e.ctrlKey) &&
+			(isMacintosh ? !e.ctrlKey : !e.metaKey) &&
+			!e.shiftKey &&
+			!e.altKey;
+
+		// Shift key is pressed without other modifiers.
+		const onlyShiftKey = e.shiftKey && !e.ctrlKey && !e.metaKey && !e.altKey;;
 
 		// Calculates the page height.
 		const pageHeight = () =>
@@ -359,7 +368,7 @@ export const ConsoleInstance = (props: ConsoleInstanceProps) => {
 			) * editorFontInfo.lineHeight;
 
 		// Handle the key.
-		if (!cmdOrCtrlKey) {
+		if (noModifierKey) {
 			// Handle scrolling keys.
 			switch (e.code) {
 				// Page up key.
@@ -367,13 +376,13 @@ export const ConsoleInstance = (props: ConsoleInstanceProps) => {
 					consumeEvent();
 					setScrollLock(scrollable());
 					scrollVertically(consoleInstanceRef.current.scrollTop - pageHeight());
-					break;
+					return;
 
 				// Page down key.
 				case 'PageDown':
 					consumeEvent();
 					scrollVertically(consoleInstanceRef.current.scrollTop + pageHeight());
-					break;
+					return;
 
 				// Home key.
 				case 'Home':
@@ -381,22 +390,17 @@ export const ConsoleInstance = (props: ConsoleInstanceProps) => {
 					consumeEvent();
 					setScrollLock(scrollable());
 					scrollVertically(0);
-					break;
+					return;
 
 				// End key.
 				case 'End':
 					consumeEvent();
 					scrollToBottom();
-					break;
-
-				// Any other key gets driven to the input.
-				default: {
-					scrollToBottom();
-					props.positronConsoleInstance.focusInput();
-					break;
-				}
+					return;
 			}
-		} else {
+		}
+
+		if (onlyCmdOrCtrlKey) {
 			// Process the key.
 			switch (e.code) {
 				// A key.
@@ -409,7 +413,7 @@ export const ConsoleInstance = (props: ConsoleInstanceProps) => {
 						// Select all runtime items.
 						selectAllRuntimeItems();
 					}
-					break;
+					return;
 				}
 
 				// C key.
@@ -423,7 +427,7 @@ export const ConsoleInstance = (props: ConsoleInstanceProps) => {
 						// Copy the selection to the clipboard.
 						positronConsoleContext.clipboardService.writeText(selection.toString());
 					}
-					break;
+					return;
 				}
 
 				// V key.
@@ -433,9 +437,16 @@ export const ConsoleInstance = (props: ConsoleInstanceProps) => {
 
 					// Paste text.
 					pasteText(await positronConsoleContext.clipboardService.readText());
-					break;
+					return;
 				}
 			}
+		}
+
+		// Typing keys get driven to the input.
+		if (noModifierKey || onlyShiftKey) {
+			scrollToBottom();
+			props.positronConsoleInstance.focusInput();
+			return;
 		}
 	};
 

@@ -75,44 +75,59 @@ export const ActivityPrompt = (props: ActivityPromptProps) => {
 			e.stopPropagation();
 		};
 
-		// Process the key.
-		switch (e.key) {
-			// Enter key.
-			case 'Enter': {
-				// Consume the event.
-				consumeEvent();
+		// Determine that a key is pressed without any modifiers
+		const noModifierKey = !e.ctrlKey && !e.metaKey && !e.shiftKey && !e.altKey;
 
-				// Upate the prompt state and reply to it.
-				const value = inputRef.current?.value;
-				props.activityItemPrompt.state = ActivityItemPromptState.Answered;
-				props.activityItemPrompt.answer = !props.activityItemPrompt.password ? value : '';
-				props.positronConsoleInstance.replyToPrompt(props.activityItemPrompt.id, value);
-				break;
-			}
+		// Determine whether the ctrl key is pressed without other modifiers.
+		const onlyCtrlKey = e.ctrlKey && !e.metaKey && !e.shiftKey && !e.altKey;
 
-			// Escape key.
-			case 'Escape': {
-				// Consume the event.
-				consumeEvent();
+		if (noModifierKey) {
+			switch (e.key) {
+				// Enter key.
+				case 'Enter': {
+					// Consume the event.
+					consumeEvent();
 
-				// Update the prompt state and interrupt it.
-				props.activityItemPrompt.state = ActivityItemPromptState.Interrupted;
-				props.positronConsoleInstance.interruptPrompt(props.activityItemPrompt.id);
-				break;
-			}
+					// Upate the prompt state and reply to it.
+					const value = inputRef.current?.value;
+					props.activityItemPrompt.state = ActivityItemPromptState.Answered;
+					props.activityItemPrompt.answer = !props.activityItemPrompt.password ? value : '';
+					props.positronConsoleInstance.replyToPrompt(props.activityItemPrompt.id, value);
+					return;
+				}
 
-			// C key.
-			case 'c': {
-				// Handle Ctrl+C.
-				if (e.ctrlKey) {
+				// Escape key.
+				case 'Escape': {
 					// Consume the event.
 					consumeEvent();
 
 					// Update the prompt state and interrupt it.
 					props.activityItemPrompt.state = ActivityItemPromptState.Interrupted;
 					props.positronConsoleInstance.interruptPrompt(props.activityItemPrompt.id);
+					return;
 				}
-				break;
+
+				default: {
+					return;
+				}
+			}
+		}
+
+		if (onlyCtrlKey) {
+			switch (e.key) {
+				// C key.
+				case 'c': {
+					consumeEvent();
+
+					// Update the prompt state and interrupt it.
+					props.activityItemPrompt.state = ActivityItemPromptState.Interrupted;
+					props.positronConsoleInstance.interruptPrompt(props.activityItemPrompt.id);
+					return;
+				}
+
+				default: {
+					return;
+				}
 			}
 		}
 	};
