@@ -102,7 +102,7 @@ export interface IPositronNotebookInstance {
 	 * @param viewModel View model for the notebook
 	 * @param viewState Optional view state for the notebook
 	 */
-	attachView(viewModel: NotebookViewModel, viewState?: INotebookEditorViewState): void;
+	attachView(viewModel: NotebookViewModel, container: HTMLElement, viewState?: INotebookEditorViewState): void;
 
 	readonly viewModel: NotebookViewModel | undefined;
 
@@ -117,6 +117,18 @@ export interface IPositronNotebookInstance {
 	 * @param cellOrCells The cell or cells to set as selected
 	 */
 	setSelectedCells(cellOrCells: IPositronNotebookCell[]): void;
+
+	/**
+	 * Move the current selected cell upwards
+	 * @param addMode If true, add the cell to the selection. If false, replace the selection.
+	 */
+	moveSelectionUp(addMode: boolean): void;
+
+	/**
+	 * Move the current selected cell downwards
+	 * @param addMode If true, add the cell to the selection. If false, replace the selection.
+	 */
+	moveSelectionDown(addMode: boolean): void;
 }
 
 export class PositronNotebookInstance extends Disposable implements IPositronNotebookInstance {
@@ -127,8 +139,6 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	static count = 0;
 
 	private _identifier: string = `Positron Notebook | NotebookInstance(${PositronNotebookInstance.count++}) |`;
-
-
 
 	/**
 	 * Internal cells that we use to manage the state of the notebook
@@ -162,6 +172,10 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	private _textModel: NotebookTextModel | undefined = undefined;
 	private _viewModel: NotebookViewModel | undefined = undefined;
 
+	/**
+	 * Callback to clear the keyboard navigation listeners. Set when listeners are attached.
+	 */
+	private _clearKeyboardNavigation: (() => void) | undefined = undefined;
 
 	/**
 	 * Key-value map of language to base cell editor options for cells of that language.
@@ -478,7 +492,41 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	}
 
 
-	async attachView(viewModel: NotebookViewModel, viewState?: INotebookEditorViewState) {
+	private _moveSelection(addMode: boolean, direction: 'up' | 'down'): void {
+		const selectedCells = this.selectedCells.get();
+		if (selectedCells.length === 0) {
+			return;
+		}
+
+		const indicesOfSelected = selectedCells.map(cell => this._cells.indexOf(cell));
+
+		const indexOfSelection = indicesOfSelected.reduce((acc, index) => {
+			if (direction === 'up') {
+				return Math.min(acc, index);
+			} else {
+				return Math.max(acc, index);
+			}
+		}, indicesOfSelected[0]);
+
+		const indexOfNewSelection = indexOfSelection + (direction === 'up' ? -1 : 1);
+
+		const selectedCell = this._cells[indexOfNewSelection];
+
+		if (addMode) {
+			this.selectedCells.set([...selectedCells, selectedCell], undefined);
+		} else {
+			this.selectedCells.set([selectedCell], undefined);
+		}
+	}
+	moveSelectionUp(addMode: boolean): void {
+		this._moveSelection(addMode, 'up');
+	}
+
+	moveSelectionDown(addMode: boolean): void {
+		this._moveSelection(addMode, 'down');
+	}
+
+	async attachView(viewModel: NotebookViewModel, container: HTMLElement, viewState?: INotebookEditorViewState) {
 		// Make sure we're detethered from existing views. (Useful when we're swapping to a new
 		// window and the old window still exists)
 
@@ -513,8 +561,35 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 			}));
 		}
 
+		this._setupKeyboardNavigation(container);
 
 		this._logService.info(this._identifier, 'attachView');
+	}
+
+
+	/**
+	 * Setup keyboard navigation for the current notebook.
+	 * @param container The main containing node the notebook is rendered into
+	 */
+	private _setupKeyboardNavigation(container: HTMLElement) {
+		// Get the window for the renderer.
+		const window = DOM.getWindow(container);
+
+		const onKeyDown = (event: KeyboardEvent) => {
+			const addMode = event.metaKey || event.ctrlKey;
+
+			if (event.key === 'ArrowUp') {
+				this.moveSelectionUp(addMode);
+			} else if (event.key === 'ArrowDown') {
+				this.moveSelectionDown(addMode);
+			}
+		};
+
+		window.addEventListener('keydown', onKeyDown);
+
+		this._clearKeyboardNavigation = () => {
+			window.removeEventListener('keydown', onKeyDown);
+		};
 	}
 
 	/**
@@ -664,6 +739,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 
 	detachView(): void {
 		this._logService.info(this._identifier, 'detachView');
+		this._clearKeyboardNavigation?.();
 		this._notebookOptions?.dispose();
 		this._detachModel();
 		this._localStore.clear();
