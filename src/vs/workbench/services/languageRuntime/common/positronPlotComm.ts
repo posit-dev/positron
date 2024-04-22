@@ -27,6 +27,16 @@ export interface PlotResult {
 }
 
 /**
+ * Possible values for Format in Render
+ */
+export enum RenderFormat {
+	Png = 'png',
+	Jpeg = 'jpeg',
+	Svg = 'svg',
+	Pdf = 'pdf'
+}
+
+/**
  * Event: Notification that a plot has been updated on the backend.
  */
 export interface UpdateEvent {
@@ -63,7 +73,7 @@ export class PositronPlotComm extends PositronBaseComm {
 	 *
 	 * @returns A rendered plot
 	 */
-	render(height: number, width: number, pixelRatio: number, format: string): Promise<PlotResult> {
+	render(height: number, width: number, pixelRatio: number, format: RenderFormat): Promise<PlotResult> {
 		return super.performRpc('render', ['height', 'width', 'pixel_ratio', 'format'], [height, width, pixelRatio, format]);
 	}
 

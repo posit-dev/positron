@@ -22,17 +22,11 @@ import { FileFilter } from 'electron';
 import { DropDownListBox } from 'vs/workbench/browser/positronComponents/dropDownListBox/dropDownListBox';
 import { DropDownListBoxItem } from 'vs/workbench/browser/positronComponents/dropDownListBox/dropDownListBoxItem';
 import { IFileService } from 'vs/platform/files/common/files';
+import { RenderFormat } from 'vs/workbench/services/languageRuntime/common/positronPlotComm';
 
 export interface SavePlotOptions {
 	uri: string;
 	path: URI;
-}
-
-export enum PlotFormat {
-	PNG = 'png',
-	SVG = 'svg',
-	PDF = 'pdf',
-	JPEG = 'jpeg',
 }
 
 const SAVE_PLOT_MODAL_DIALOG_WIDTH = 500;
@@ -110,7 +104,7 @@ interface DirectoryState {
 const SavePlotModalDialog = (props: SavePlotModalDialogProps) => {
 	const [directory, setDirectory] = React.useState<DirectoryState>({ value: props.suggestedPath ?? URI.file(''), valid: true });
 	const [name, setName] = React.useState({ value: 'plot', valid: true });
-	const [format, setFormat] = React.useState(PlotFormat.PNG);
+	const [format, setFormat] = React.useState(RenderFormat.Png);
 	const [width, setWidth] = React.useState({ value: props.plotWidth, valid: true });
 	const [height, setHeight] = React.useState({ value: props.plotHeight, valid: true });
 	const [dpi, setDpi] = React.useState({ value: 100, valid: true });
@@ -119,7 +113,7 @@ const SavePlotModalDialog = (props: SavePlotModalDialogProps) => {
 	const inputRef = React.useRef<HTMLInputElement>(null);
 
 	const filterEntries: FileFilter[] = [];
-	for (const filter in PlotFormat) {
+	for (const filter in RenderFormat) {
 		filterEntries.push({ extensions: [filter.toLowerCase()], name: filter.toUpperCase() });
 	}
 
@@ -216,14 +210,14 @@ const SavePlotModalDialog = (props: SavePlotModalDialogProps) => {
 		}
 		setRendering(true);
 		try {
-			const plotResult = await generatePreview(PlotFormat.PNG);
+			const plotResult = await generatePreview(RenderFormat.Png);
 			setUri(plotResult.uri);
 		} finally {
 			setRendering(false);
 		}
 	};
 
-	const generatePreview = async (format: PlotFormat): Promise<IRenderedPlot> => {
+	const generatePreview = async (format: RenderFormat): Promise<IRenderedPlot> => {
 		return props.plotClient.preview(height.value, width.value, dpi.value / BASE_DPI, format);
 	};
 
@@ -281,10 +275,10 @@ const SavePlotModalDialog = (props: SavePlotModalDialogProps) => {
 										keybindingService={props.keybindingService}
 										layoutService={props.layoutService}
 										entries={[
-											new DropDownListBoxItem<PlotFormat, PlotFormat>({ identifier: PlotFormat.PNG, title: PlotFormat.PNG.toUpperCase(), value: PlotFormat.PNG }),
-											new DropDownListBoxItem<PlotFormat, PlotFormat>({ identifier: PlotFormat.JPEG, title: PlotFormat.JPEG.toUpperCase(), value: PlotFormat.JPEG }),
-											new DropDownListBoxItem<PlotFormat, PlotFormat>({ identifier: PlotFormat.SVG, title: PlotFormat.SVG.toUpperCase(), value: PlotFormat.SVG }),
-											new DropDownListBoxItem<PlotFormat, PlotFormat>({ identifier: PlotFormat.PDF, title: PlotFormat.PDF.toUpperCase(), value: PlotFormat.PDF }),
+											new DropDownListBoxItem<RenderFormat, RenderFormat>({ identifier: RenderFormat.Png, title: RenderFormat.Png.toUpperCase(), value: RenderFormat.Png }),
+											new DropDownListBoxItem<RenderFormat, RenderFormat>({ identifier: RenderFormat.Jpeg, title: RenderFormat.Jpeg.toUpperCase(), value: RenderFormat.Jpeg }),
+											new DropDownListBoxItem<RenderFormat, RenderFormat>({ identifier: RenderFormat.Svg, title: RenderFormat.Svg.toUpperCase(), value: RenderFormat.Svg }),
+											new DropDownListBoxItem<RenderFormat, RenderFormat>({ identifier: RenderFormat.Pdf, title: RenderFormat.Pdf.toUpperCase(), value: RenderFormat.Pdf }),
 										]} />
 								</label>
 							</div>
