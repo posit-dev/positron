@@ -235,9 +235,13 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 
 	getColumnNullPercent(columnIndex: number): number | undefined {
 		const nullCount = this._dataExplorerCache.getColumnNullCount(columnIndex);
-		// TODO: Is floor what we want?
-		return nullCount === undefined ? undefined : Math.floor(
-			nullCount * 100 / this._dataExplorerCache.rows);
+		if (this._dataExplorerCache.rows === 0) {
+			// #2770: do not divide by zero
+			return 0;
+		} else {
+			return nullCount === undefined ? undefined : Math.floor(
+				nullCount * 100 / this._dataExplorerCache.rows);
+		}
 	}
 
 	getColumnSummaryStats(columnIndex: number): ColumnSummaryStats | undefined {
