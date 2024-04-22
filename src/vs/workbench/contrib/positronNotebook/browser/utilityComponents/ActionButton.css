@@ -2,15 +2,16 @@
  *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
-.positron-add-cell-buttons {
+.action-button {
 	display: flex;
-	justify-content: center;
-	opacity: 0;
-	transition: opacity 0.2s;
-	gap: 8px;
-	color: inherit;
-}
+	align-items: center;
+	padding-block: 0.25rem;
+	padding-inline: 0.5rem;
+	width: fit-content;
+	cursor: pointer;
+	border-radius: var(--vscode-positronNotebook-cell-radius);
 
-.positron-add-cell-buttons:hover {
-	opacity: 1;
+	&:hover {
+		background-color: var(--vscode-positronTopActionBar-hoverBackground);
+	}
 }

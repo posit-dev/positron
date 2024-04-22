@@ -6,12 +6,12 @@ import * as React from 'react';
 
 import { IPositronNotebookMarkdownCell } from 'vs/workbench/contrib/positronNotebook/browser/notebookCells/interfaces';
 
-import { Button } from 'vs/base/browser/ui/positronComponents/button/button';
 import { CellEditorMonacoWidget } from 'vs/workbench/contrib/positronNotebook/browser/notebookCells/CellEditorMonacoWidget';
 import { NotebookCellActionBar } from 'vs/workbench/contrib/positronNotebook/browser/notebookCells/NotebookCellActionBar';
 import { useObservedValue } from 'vs/workbench/contrib/positronNotebook/browser/useObservedValue';
 import { Markdown } from './Markdown';
 import { localize } from 'vs/nls';
+import { ActionButton } from 'vs/workbench/contrib/positronNotebook/browser/utilityComponents/ActionButton';
 
 export function NotebookMarkdownCell({ cell }: { cell: IPositronNotebookMarkdownCell }) {
 
@@ -19,14 +19,13 @@ export function NotebookMarkdownCell({ cell }: { cell: IPositronNotebookMarkdown
 	const editorShown = useObservedValue(cell.editorShown);
 
 	return (
-		<div className={`positron-notebook-cell ${editorShown ? 'editor-shown' : 'editor-hidden'}`}>
+		<div className={`positron-notebook-markdown-cell ${editorShown ? 'editor-shown' : 'editor-hidden'}`}>
 			<NotebookCellActionBar cell={cell}>
-				<Button
-					className='action-button'
+				<ActionButton
 					ariaLabel={editorShown ? localize('hideEditor', 'Hide editor') : localize('showEditor', 'Show editor')}
 					onPressed={() => cell.run()} >
-					<div className={`button-icon codicon ${editorShown ? 'codicon-chevron-down' : 'codicon-chevron-right'}`} />
-				</Button>
+					<div className={`button-icon codicon ${editorShown ? 'codicon-run' : 'codicon-primitive-square'}`} />
+				</ActionButton>
 			</NotebookCellActionBar>
 			<div className='cell-contents'>
 				{editorShown ? <CellEditorMonacoWidget cell={cell} /> : null}

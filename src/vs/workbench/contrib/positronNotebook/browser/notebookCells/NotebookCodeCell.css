@@ -1,0 +1,20 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *--------------------------------------------------------------------------------------------*/
+
+.positron-notebook-code-cell {
+	position: relative;
+
+	.positron-notebook-cell-outputs {
+		padding-inline: 1rem;
+		padding-block: 0.5rem;
+		& .notebook-error,
+		& .notebook-stderr {
+			color: var(--vscode-positronNotebook-error-color);
+		}
+
+		&:empty {
+			display: none;
+		}
+	}
+}

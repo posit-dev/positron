@@ -6,32 +6,45 @@ import 'vs/css!./AddCellButtons';
 import * as React from 'react';
 import { useNotebookInstance } from 'vs/workbench/contrib/positronNotebook/browser/NotebookInstanceProvider';
 import { localize } from 'vs/nls';
-import { Button } from 'vs/base/browser/ui/positronComponents/button/button';
 import { CellKind } from 'vs/workbench/contrib/notebook/common/notebookCommon';
+import { PositronNotebookInstance } from 'vs/workbench/contrib/positronNotebook/browser/PositronNotebookInstance';
+import { IconedButton } from './utilityComponents/IconedButton';
 
 export function AddCellButtons({ index }: { index: number }) {
 	const notebookInstance = useNotebookInstance();
 
 	return <div className='positron-add-cell-buttons'>
-		<Button
-			className='action action-button'
-			ariaLabel={(() => localize('addCodeCell', 'Add code cell'))()}
-			onPressed={() => {
-				notebookInstance.addCell(CellKind.Code, index);
-			}}
-		>
-			<span className='action-label'>Code</span>
-			<div className='button-icon codicon codicon-positron-notebook-code-cell' />
-		</Button>
-		<Button
-			className='action action-button'
-			ariaLabel={(() => localize('addMarkdownell', 'Add markdown cell'))()}
-			onPressed={() => {
-				notebookInstance.addCell(CellKind.Markup, index);
-			}}
-		>
-			<span className='action-label'>Markdown</span>
-			<div className='button-icon codicon codicon-positron-notebook-markdown-cell' />
-		</Button>
+		<AddCodeCellButton notebookInstance={notebookInstance} index={index} bordered />
+		<AddMarkdownCellButton notebookInstance={notebookInstance} index={index} bordered />
 	</div>;
+}
+
+
+export function AddCodeCellButton({ notebookInstance, index, bordered }: { notebookInstance: PositronNotebookInstance; index: number; bordered?: boolean }) {
+
+	const label = localize('newCodeCellshort', 'Code');
+	const fullLabel = localize('newCodeCellLong', 'New Code Cell');
+	return <IconedButton
+		codicon='code'
+		label={label}
+		fullLabel={fullLabel}
+		onClick={() => notebookInstance.addCell(CellKind.Code, index)}
+		bordered={bordered}
+	/>;
+
+}
+
+
+export function AddMarkdownCellButton({ notebookInstance, index, bordered }: { notebookInstance: PositronNotebookInstance; index: number; bordered?: boolean }) {
+
+	const label = localize('newMarkdownCellShort', 'Markdown');
+	const fullLabel = localize('newMarkdownCellLong', 'New Markdown Cell');
+	return <IconedButton
+		codicon='markdown'
+		label={label}
+		fullLabel={fullLabel}
+		onClick={() => notebookInstance.addCell(CellKind.Markup, index)}
+		bordered={bordered}
+	/>;
+
 }
