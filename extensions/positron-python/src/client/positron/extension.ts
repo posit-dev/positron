@@ -4,7 +4,6 @@
 
 // eslint-disable-next-line import/no-unresolved
 import * as positron from 'positron';
-import * as vscode from 'vscode';
 import { PythonExtension } from '../api/types';
 import { IDisposableRegistry } from '../common/types';
 import { IInterpreterService } from '../interpreter/contracts';
