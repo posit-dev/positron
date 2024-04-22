@@ -77,8 +77,8 @@ export async function activatePositron(
             vscode.commands.registerCommand('python.isIpykernelInstalled', async (pythonPath: string) => {
                 const interpreterService = serviceContainer.get<IInterpreterService>(IInterpreterService);
                 const interpreter = await interpreterService.getInterpreterDetails(pythonPath);
-                const installer = serviceContainer.get<IInstaller>(IInstaller);
                 if (interpreter) {
+                    const installer = serviceContainer.get<IInstaller>(IInstaller);
                     const hasCompatibleKernel = await installer.isProductVersionCompatible(
                         Product.ipykernel,
                         IPYKERNEL_VERSION,
