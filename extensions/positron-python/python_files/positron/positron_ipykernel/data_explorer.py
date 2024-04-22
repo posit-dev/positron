@@ -978,14 +978,23 @@ class PandasView(DataExplorerTableView):
     )
 
     def _get_state(self) -> BackendState:
+        table_unfiltered_shape = TableShape(
+            num_rows=self.table.shape[0], num_columns=self.table.shape[1]
+        )
+
         if self.view_indices is not None:
-            num_rows = len(self.view_indices)
+            # Account for filters
+            table_shape = TableShape(
+                num_rows=len(self.view_indices),
+                num_columns=self.table.shape[1],
+            )
         else:
-            num_rows = self.table.shape[0]
+            table_shape = table_unfiltered_shape
 
         return BackendState(
             display_name=self.display_name,
-            table_shape=TableShape(num_rows=num_rows, num_columns=self.table.shape[1]),
+            table_shape=table_shape,
+            table_unfiltered_shape=table_unfiltered_shape,
             row_filters=self.filters,
             sort_keys=self.sort_keys,
             supported_features=self.FEATURES,
