@@ -280,7 +280,7 @@ class PositronShell(ZMQInteractiveShell):
         # namespace, we may deepcopy a figure. This calls Figure.__getstate__ and __setstate__. If
         # the figure exists in Gcf.figs during __getstate__, then __setstate__ will create a
         # figure manager which may incorrectly be shown in the frontend.
-        # See https://github.com/posit-dev/positron/issues/2824.
+        # See https://github.com/posit-dev/positron/issues/2824
         try:
             from matplotlib._pylab_helpers import Gcf
 
