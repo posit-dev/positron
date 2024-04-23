@@ -507,6 +507,7 @@ ${managerState}
 
 				// TODO: Will we only add these once?
 				client.onDidReceiveData(data => {
+					// Handle an update from the runtime
 					console.log('RECV comm_msg:', data);
 					if (data?.method === 'update') {
 						webview.postMessage({ type: 'comm_msg', comm_id, content: { data } });
@@ -526,7 +527,7 @@ ${managerState}
 				});
 				clients.set(comm_id, client);
 			} else if (type === 'comm_msg') {
-				const { comm_id } = e.message;
+				const { comm_id, msg_id } = e.message;
 				const message = e.message.content;
 				console.log('SEND comm_msg:', message);
 				const client = clients.get(comm_id);
@@ -538,7 +539,12 @@ ${managerState}
 				const output = await client.performRpc(message);
 				// TODO: Do we need the buffers attribute too (not buffer_paths)?
 				console.log('RECV comm_msg:', output);
-				webview.postMessage({ type: 'comm_msg', comm_id: comm_id, content: { data: output } });
+				webview.postMessage({
+					type: 'comm_msg',
+					comm_id: comm_id,
+					parent_header: { msg_id },
+					content: { data: output }
+				});
 				// } else {
 				// 	// TODO: Why doesn't performRpc work for this?
 				// 	client.sendMessage(message);

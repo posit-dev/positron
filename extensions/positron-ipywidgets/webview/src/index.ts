@@ -8,7 +8,7 @@ import * as LuminoWidget from '@lumino/widgets';
 // import * as outputs from '@jupyter-widgets/jupyterlab-manager/lib/output';
 import { ManagerBase } from '@jupyter-widgets/base-manager';
 // TODO: Do we really need to depend on this?
-import { JSONObject, JSONValue } from '@lumino/coreutils';
+import { JSONObject, JSONValue, UUID } from '@lumino/coreutils';
 
 const vscode = acquireVsCodeApi();
 
@@ -35,14 +35,17 @@ class Comm implements base.IClassicComm {
 	}
 
 	send(data: any, callbacks?: base.ICallbacks | undefined, metadata?: JSONObject | undefined, buffers?: ArrayBuffer[] | ArrayBufferView[] | undefined): string {
-		console.log('Comm.send', data, callbacks, metadata, buffers);
+		const msgId = UUID.uuid4();
+		console.log('Comm.send', data, callbacks, metadata, buffers, msgId);
+		// This should return a string msgId. If this initiated an RPC call, the response should contain parent_header.msg_id with the same value.
 		vscode.postMessage({
 			type: 'comm_msg',
 			comm_id: this.comm_id,
+			msg_id: msgId,
 			content: data,
 		});
 		// TODO: Handle callbacks?
-		return '';
+		return msgId;
 	}
 
 	close(data?: JSONValue | undefined, callbacks?: base.ICallbacks | undefined, metadata?: JSONObject | undefined, buffers?: ArrayBuffer[] | ArrayBufferView[] | undefined): string {
@@ -240,6 +243,7 @@ window.addEventListener('message', (event) => {
 		if (!comm) {
 			throw new Error(`Comm not found ${message.comm_id}`);
 		}
+		// TODO: Don't need the type or comm_id in this.
 		comm.handle_msg(message);
 	} else if (message?.type === 'comm_close') {
 		const comm = comms.get(message.comm_id);
