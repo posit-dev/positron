@@ -23,6 +23,7 @@ import { InterpreterEntry } from 'vs/workbench/browser/positronNewProjectWizard/
 import { DropdownEntry } from 'vs/workbench/browser/positronNewProjectWizard/components/steps/dropdownEntry';
 import { InterpreterInfo, getSelectedInterpreter } from 'vs/workbench/browser/positronNewProjectWizard/utilities/interpreterDropDownUtils';
 import { WizardFormattedText, WizardFormattedTextType } from 'vs/workbench/browser/positronNewProjectWizard/components/wizardFormattedText';
+import { ILanguageRuntimeMetadata } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 
 /**
  * The PythonEnvironmentStep component is specific to Python projects in the new project wizard.
@@ -102,10 +103,18 @@ export const PythonEnvironmentStep = (props: PropsWithChildren<NewProjectWizardS
 			LanguageIds.Python
 		);
 	};
-	const isIpykernelInstalled = (runtimePath: string) => {
+	const isIpykernelInstalled = (pythonInterpreter: ILanguageRuntimeMetadata) => {
+		// Use the pythonPath from the extraRuntimeData if it exists, otherwise use the runtimePath.
+		// In particular, the pythonPath is needed to check if ipykernel is installed for Pyenv
+		// environments (the runtimePath results in an error, although the pythonPath works fine,
+		// seemingly because the runtimePath is aliased, i.e. starts with `~`). In many cases, the
+		// pythonPath and runtimePath are the same. When they differ, it seems that the pythonPath
+		// is the non-aliased path to the python interpreter.
+		const interpreterPath = pythonInterpreter.extraRuntimeData?.pythonPath
+			?? pythonInterpreter.runtimePath;
 		return newProjectWizardState.commandService.executeCommand(
 			'python.isIpykernelInstalled',
-			runtimePath
+			interpreterPath
 		);
 	};
 
@@ -133,7 +142,7 @@ export const PythonEnvironmentStep = (props: PropsWithChildren<NewProjectWizardS
 			// Update the installIpykernel flag for the selected interpreter.
 			let installIpykernel = false;
 			if (selectedRuntime) {
-				installIpykernel = !(await isIpykernelInstalled(selectedRuntime.runtimePath));
+				installIpykernel = !(await isIpykernelInstalled(selectedRuntime));
 				setWillInstallIpykernel(installIpykernel);
 			}
 
@@ -170,7 +179,7 @@ export const PythonEnvironmentStep = (props: PropsWithChildren<NewProjectWizardS
 			// Update the installIpykernel flag for the selected interpreter.
 			let installIpykernel = false;
 			if (selectedRuntime) {
-				installIpykernel = !(await isIpykernelInstalled(selectedRuntime.runtimePath));
+				installIpykernel = !(await isIpykernelInstalled(selectedRuntime));
 				setWillInstallIpykernel(installIpykernel);
 			}
 
@@ -201,7 +210,7 @@ export const PythonEnvironmentStep = (props: PropsWithChildren<NewProjectWizardS
 		setSelectedInterpreter(selectedRuntime);
 
 		// Update the installIpykernel flag for the selected interpreter.
-		const installIpykernel = !(await isIpykernelInstalled(selectedRuntime.runtimePath));
+		const installIpykernel = !(await isIpykernelInstalled(selectedRuntime));
 		setWillInstallIpykernel(installIpykernel);
 
 		// Save the changes to the project configuration.
@@ -235,7 +244,7 @@ export const PythonEnvironmentStep = (props: PropsWithChildren<NewProjectWizardS
 						// Update the installIpykernel flag for the selected interpreter.
 						let installIpykernel = false;
 						if (selectedRuntime) {
-							installIpykernel = !(await isIpykernelInstalled(selectedRuntime.runtimePath));
+							installIpykernel = !(await isIpykernelInstalled(selectedRuntime));
 							setWillInstallIpykernel(installIpykernel);
 						}
 
