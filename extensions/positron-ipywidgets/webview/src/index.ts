@@ -6,7 +6,7 @@ import * as base from '@jupyter-widgets/base';
 import * as controls from '@jupyter-widgets/controls';
 import { IIOPubMessage, IOPubMessageType } from '@jupyterlab/services/lib/kernel/messages';
 import * as LuminoWidget from '@lumino/widgets';
-// import * as outputs from '@jupyter-widgets/jupyterlab-manager/lib/output';
+import * as output from '@jupyter-widgets/output';
 import { ManagerBase } from '@jupyter-widgets/base-manager';
 // TODO: Do we really need to depend on this?
 import { JSONObject, JSONValue, UUID } from '@lumino/coreutils';
@@ -168,10 +168,9 @@ class HTMLManager extends ManagerBase {
 		if (moduleName === '@jupyter-widgets/controls') {
 			return Promise.resolve((controls as any)[className]);
 		}
-		// TODO: Find a usecase for this
-		// if (moduleName === '@jupyter-widgets/outputs') {
-		// 	return Promise.resolve((outputs as any)[className]);
-		// }
+		if (moduleName === '@jupyter-widgets/output') {
+			return Promise.resolve((output as any)[className]);
+		}
 		// TODO: We don't actually "register" anything... How does Jupyter Lab do this?
 		throw new Error(`No version of module ${moduleName} is registered`);
 	}
