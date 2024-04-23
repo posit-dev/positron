@@ -103,7 +103,10 @@ export const PythonEnvironmentStep = (props: PropsWithChildren<NewProjectWizardS
 			LanguageIds.Python
 		);
 	};
-	const getInstallIpykernel = async (pythonInterpreter: ILanguageRuntimeMetadata | undefined) => {
+	const getInstallIpykernel = async (
+		envSetupType: EnvironmentSetupType,
+		pythonInterpreter: ILanguageRuntimeMetadata | undefined
+	) => {
 		let install = false;
 		if (envSetupType === EnvironmentSetupType.NewEnvironment) {
 			// ipykernel will always be installed for new environments.
@@ -115,8 +118,9 @@ export const PythonEnvironmentStep = (props: PropsWithChildren<NewProjectWizardS
 			// seemingly because the runtimePath is aliased, i.e. starts with `~`). In many cases,
 			// the pythonPath and runtimePath are the same. When they differ, it seems that the
 			// pythonPath is the non-aliased path to the python interpreter.
-			const interpreterPath = pythonInterpreter.extraRuntimeData?.pythonPath
-				?? pythonInterpreter.runtimePath;
+			const interpreterPath =
+				pythonInterpreter.extraRuntimeData?.pythonPath ??
+				pythonInterpreter.runtimePath;
 			install = !(await newProjectWizardState.commandService.executeCommand(
 				'python.isIpykernelInstalled',
 				interpreterPath
@@ -147,7 +151,7 @@ export const PythonEnvironmentStep = (props: PropsWithChildren<NewProjectWizardS
 			setSelectedInterpreter(selectedRuntime);
 
 			// Update the installIpykernel flag for the selected interpreter.
-			const installIpykernel = await getInstallIpykernel(selectedRuntime);
+			const installIpykernel = await getInstallIpykernel(pythonEnvSetupType, selectedRuntime);
 			setWillInstallIpykernel(installIpykernel);
 
 			// Save the changes to the project configuration.
@@ -181,7 +185,7 @@ export const PythonEnvironmentStep = (props: PropsWithChildren<NewProjectWizardS
 			setSelectedInterpreter(selectedRuntime);
 
 			// Update the installIpykernel flag for the selected interpreter.
-			const installIpykernel = await getInstallIpykernel(selectedRuntime);
+			const installIpykernel = await getInstallIpykernel(envSetupType, selectedRuntime);
 			setWillInstallIpykernel(installIpykernel);
 
 			// Save the changes to the project configuration.
@@ -211,7 +215,7 @@ export const PythonEnvironmentStep = (props: PropsWithChildren<NewProjectWizardS
 		setSelectedInterpreter(selectedRuntime);
 
 		// Update the installIpykernel flag for the selected interpreter.
-		const installIpykernel = await getInstallIpykernel(selectedRuntime);
+		const installIpykernel = await getInstallIpykernel(envSetupType, selectedRuntime);
 		setWillInstallIpykernel(installIpykernel);
 
 		// Save the changes to the project configuration.
@@ -243,7 +247,10 @@ export const PythonEnvironmentStep = (props: PropsWithChildren<NewProjectWizardS
 						setSelectedInterpreter(selectedRuntime);
 
 						// Update the installIpykernel flag for the selected interpreter.
-						const installIpykernel = await getInstallIpykernel(selectedRuntime);
+						const installIpykernel = await getInstallIpykernel(
+							envSetupType,
+							selectedRuntime
+						);
 						setWillInstallIpykernel(installIpykernel);
 
 						// Save the changes to the project configuration.
