@@ -119,7 +119,7 @@ export const getPythonInterpreterEntries = (
 export const locationForNewEnv = (
 	parentFolder: string,
 	projectName: string,
-	envType: PythonEnvironmentType
+	envType: PythonEnvironmentType | undefined
 ) => {
 	// TODO: this only works for Venv and Conda environments. We'll need to expand on this to add
 	// support for other environment types.
