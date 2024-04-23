@@ -461,6 +461,10 @@ ${managerState}
 
 		const clients = new Map<string, IRuntimeClientInstance<any, any>>();
 
+		// runtime.onDidChangeRuntimeState(state => {
+		// 	webview.postMessage({ type: 'state', state });
+		// });
+
 		webview.onMessage(async e => {
 			const type = e.message?.type;
 			// TODO: Feel like these shouldn't be named after Jupyter API and should return exactly
@@ -545,6 +549,8 @@ ${managerState}
 					parent_header: { msg_id },
 					content: { data: output }
 				});
+				// TODO: Is this correct? Simulate a idle state here so ipywidgets knows that the RPC call is done
+				// webview.postMessage({ type: 'state', state: 'idle' });
 				// } else {
 				// 	// TODO: Why doesn't performRpc work for this?
 				// 	client.sendMessage(message);

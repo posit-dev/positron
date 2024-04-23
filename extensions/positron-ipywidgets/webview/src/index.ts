@@ -4,6 +4,7 @@
 
 import * as base from '@jupyter-widgets/base';
 import * as controls from '@jupyter-widgets/controls';
+import { IIOPubMessage, IOPubMessageType } from '@jupyterlab/services/lib/kernel/messages';
 import * as LuminoWidget from '@lumino/widgets';
 // import * as outputs from '@jupyter-widgets/jupyterlab-manager/lib/output';
 import { ManagerBase } from '@jupyter-widgets/base-manager';
@@ -19,9 +20,11 @@ interface ICommInfoReply {
 
 const comms = new Map<string, Comm>();
 
+// TODO: implement Kernel.IComm instead, and use the shim to convert to IClassicComm. Then we don't have to implement callbacks, I think?
 class Comm implements base.IClassicComm {
 	private readonly _onMsgCallbacks: ((x: any) => void)[] = [];
 	private readonly _onCloseCallbacks: ((x: any) => void)[] = [];
+	private _callbacks: base.ICallbacks | undefined;
 
 	constructor(
 		readonly comm_id: string,
@@ -29,12 +32,21 @@ class Comm implements base.IClassicComm {
 	) { }
 
 	open(data: JSONValue, callbacks?: base.ICallbacks | undefined, metadata?: JSONObject | undefined, buffers?: ArrayBuffer[] | ArrayBufferView[] | undefined): string {
+		this.set_callbacks(callbacks);
+
 		console.log('Comm.open', data, callbacks, metadata, buffers);
 		// TODO: Move open logic here?
 		return '';
 	}
 
 	send(data: any, callbacks?: base.ICallbacks | undefined, metadata?: JSONObject | undefined, buffers?: ArrayBuffer[] | ArrayBufferView[] | undefined): string {
+		// TODO: Support the callbacks argument
+		// This seems to be the only requirement so far:
+		// 1. Call callbacks.iopub.status with a msg = { content: { execution_state: string } } when
+		//   the 'idle' message is received.
+		// Raise on unhandled callbacks?
+		this.set_callbacks(callbacks);
+
 		const msgId = UUID.uuid4();
 		console.log('Comm.send', data, callbacks, metadata, buffers, msgId);
 		// This should return a string msgId. If this initiated an RPC call, the response should contain parent_header.msg_id with the same value.
@@ -44,11 +56,12 @@ class Comm implements base.IClassicComm {
 			msg_id: msgId,
 			content: data,
 		});
-		// TODO: Handle callbacks?
 		return msgId;
 	}
 
 	close(data?: JSONValue | undefined, callbacks?: base.ICallbacks | undefined, metadata?: JSONObject | undefined, buffers?: ArrayBuffer[] | ArrayBufferView[] | undefined): string {
+		this.set_callbacks(callbacks);
+
 		console.log('Comm.close', data, callbacks, metadata, buffers);
 		vscode.postMessage({
 			type: 'comm_close',
@@ -69,17 +82,68 @@ class Comm implements base.IClassicComm {
 		this._onCloseCallbacks.push(callback);
 	}
 
+	set_callbacks(callbacks: base.ICallbacks | undefined): void {
+		// TODO: How are we supposed to handle multiple calls to set_callbacks?
+
+		// if (this._callbacks !== undefined) {
+		// 	throw new Error('Callbacks already set');
+		// }
+
+		// List of all possible callbacks supported by the shim:
+		//
+		// callbacks.shell.reply
+		// callbacks.input
+		// callbacks.iopub.status
+		//  assumes msg.header.msg_type === 'status'
+		// callbacks.iopub.clear_output
+		//  assumes msg.header.msg_type === 'clear_output'
+		// callbacks.iopub.output
+		//  assumes msg.header.msg_type in ['display_data', 'execute_result', 'stream', 'error']
+		//
+		// But so far I've only seen callbacks.iopub.status being used by widgets.
+
+		if (callbacks?.shell?.reply) {
+			throw new Error('Unimplemented callbacks.shell.reply');
+		}
+		if (callbacks?.input) {
+			throw new Error('Unimplemented callbacks.input');
+		}
+		if (callbacks?.iopub?.clear_output) {
+			throw new Error('Unimplemented callbacks.iopub.clear_output');
+		}
+		if (callbacks?.iopub?.output) {
+			throw new Error('Unimplemented callbacks.iopub.output');
+		}
+		if (callbacks?.iopub?.status) {
+			this._callbacks = { iopub: { status: callbacks.iopub.status } };
+		}
+	}
+
 	handle_msg(message: JSONObject): void {
 		console.log('Comm.handle_msg', message);
 		for (const callback of this._onMsgCallbacks) {
 			callback(message);
 		}
+
+		// TODO: Maybe this needs to happen on the next tick so that the callbacks are done? Try remove this
+		// TODO: Is this correct? Simulate an 'idle' message so that callers know the RPC call is done.
+		//  I think it's safe since we know that this method is only called at the end of an RPC call,
+		//  which I _think_ happens on idle?
+		// setTimeout(() => {
+		this.handle_status({ content: { execution_state: 'idle' } } as IIOPubMessage<IOPubMessageType>);
+		// }, 0);
 	}
 
 	handle_close(message: JSONObject): void {
 		console.log('Comm.handle_close', message);
 		for (const callback of this._onCloseCallbacks) {
 			callback(message);
+		}
+	}
+
+	handle_status(message: IIOPubMessage<IOPubMessageType>): void {
+		if (this._callbacks?.iopub?.status) {
+			this._callbacks.iopub.status(message);
 		}
 	}
 }
