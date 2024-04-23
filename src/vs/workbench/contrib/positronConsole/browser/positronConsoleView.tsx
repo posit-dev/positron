@@ -33,7 +33,6 @@ import { IExecutionHistoryService } from 'vs/workbench/contrib/executionHistory/
 import { IPositronConsoleService } from 'vs/workbench/services/positronConsole/browser/interfaces/positronConsoleService';
 import { IRuntimeSessionService } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
 import { IRuntimeStartupService } from 'vs/workbench/services/runtimeStartup/common/runtimeStartupService';
-import { ICodeEditorService } from 'vs/editor/browser/services/codeEditorService';
 
 /**
  * PositronConsoleViewPane class.
@@ -204,8 +203,7 @@ export class PositronConsoleViewPane extends ViewPane implements IReactComponent
 		@IThemeService themeService: IThemeService,
 		@IViewDescriptorService viewDescriptorService: IViewDescriptorService,
 		@IViewsService private readonly viewsService: IViewsService,
-		@IWorkbenchLayoutService private readonly workbenchLayoutService: IWorkbenchLayoutService,
-		@ICodeEditorService private readonly codeEditorService: ICodeEditorService
+		@IWorkbenchLayoutService private readonly workbenchLayoutService: IWorkbenchLayoutService
 	) {
 		super(
 			options,
@@ -287,7 +285,6 @@ export class PositronConsoleViewPane extends ViewPane implements IReactComponent
 				positronPlotsService={this.positronPlotsService}
 				viewsService={this.viewsService}
 				workbenchLayoutService={this.workbenchLayoutService}
-				codeEditorService={this.codeEditorService}
 				reactComponentContainer={this}
 			/>
 		);

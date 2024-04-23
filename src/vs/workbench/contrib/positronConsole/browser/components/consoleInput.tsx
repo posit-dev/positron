@@ -37,6 +37,10 @@ import { EmptyHistoryMatchStrategy, HistoryMatch, HistoryMatchStrategy } from 'v
 import { HistoryPrefixMatchStrategy } from 'vs/workbench/contrib/positronConsole/common/historyPrefixMatchStrategy';
 import { HistoryInfixMatchStrategy } from 'vs/workbench/contrib/positronConsole/common/historyInfixMatchStrategy';
 import { CodeEditorWidget } from 'vs/editor/browser/widget/codeEditor/codeEditorWidget';
+import { getActiveElement } from 'vs/base/browser/dom';
+import { EditorContextKeys } from 'vs/editor/common/editorContextKeys';
+import { InQuickPickContextKey } from 'vs/workbench/browser/quickaccess';
+import { TerminalContextKeys } from 'vs/workbench/contrib/terminal/common/terminalContextKey';
 
 // Position enumeration.
 const enum Position {
@@ -675,7 +679,17 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 						// https://github.com/posit-dev/positron/issues/2802
 						// Only take focus if there is no focused editor to avoid stealing
 						// focus when the user could be actively working in an editor
-						if (!positronConsoleContext.codeEditorService.getFocusedCodeEditor()) {
+
+						const ctxt = positronConsoleContext.contextKeyService.getContext(getActiveElement());
+
+						// Sensitive to all editor contexts, simple (e.g. git commit textbox) or not (e.g. code editor)
+						const inTextInput = ctxt.getValue(EditorContextKeys.textInputFocus.key);
+						// Sensitive to all quick pick contexts, e.g. the commande palette or the file picker						const inQuickPick = positronConsoleContext.contextKeyService.getContextKeyValue(InQuickPickContextKey.key);
+						const inQuickPick = ctxt.getValue(InQuickPickContextKey.key);
+						// Sensitive to terminal focus
+						const inTerminal = ctxt.getValue(TerminalContextKeys.focus.key);
+
+						if (!inTextInput && !inQuickPick && !inTerminal) {
 							codeEditorWidget.focus();
 						}
 					}
