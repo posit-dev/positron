@@ -11,6 +11,14 @@ import { ManagerBase } from '@jupyter-widgets/base-manager';
 // TODO: Do we really need to depend on this?
 import { JSONObject, JSONValue, UUID } from '@lumino/coreutils';
 
+// TODO: Need these?
+import '@fortawesome/fontawesome-free/css/all.min.css';
+import '@fortawesome/fontawesome-free/css/v4-shims.min.css';
+
+import '@lumino/widgets/style/index.css';
+import '@jupyter-widgets/base/css/index.css';
+import '@jupyter-widgets/controls/css/widgets.css'; // This imports labvariables and widgets-base
+
 const vscode = acquireVsCodeApi();
 
 

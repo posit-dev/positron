@@ -340,6 +340,8 @@ window.onload = function() {
 		}
 		const positronIPyWidgetsPath = asWebviewUri(
 			URI.joinPath(positronIpywidgetsExtension.extensionLocation, 'media/index.js'));
+		const positronIPyWidgetsStylesPath = asWebviewUri(
+			URI.joinPath(positronIpywidgetsExtension.extensionLocation, 'media/index.css'));
 		// URI.joinPath(positronIpywidgetsExtension.extensionLocation, 'dist/browser/webview.js'));
 
 		let additionalScripts = '';
@@ -388,6 +390,8 @@ window.onload = function() {
 <!-- TODO: We currently bundle requirejs in positron-ipywidgets -->
 <!-- Load RequireJS, used by the IPywidgets for dependency management -->
 <!-- <script src='${requiresPath}'></script> -->
+
+<link rel="stylesheet" href="${positronIPyWidgetsStylesPath}">
 
 <!-- Load the HTML manager, which is used to render the widgets -->
 <script src="${positronIPyWidgetsPath}" type="module"></script>
