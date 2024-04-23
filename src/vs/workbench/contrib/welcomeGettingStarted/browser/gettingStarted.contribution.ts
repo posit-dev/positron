@@ -31,6 +31,10 @@ import { StartupPageEditorResolverContribution, StartupPageRunnerContribution } 
 import { ExtensionsInput } from 'vs/workbench/contrib/extensions/common/extensionsInput';
 import { Categories } from 'vs/platform/action/common/actionCommonCategories';
 
+// --- Start Positron ---
+import { IsDevelopmentContext } from 'vs/platform/contextkey/common/contextkeys';
+// --- End Positron ---
+
 export * as icons from 'vs/workbench/contrib/welcomeGettingStarted/browser/gettingStartedIcons';
 
 registerAction2(class extends Action2 {
@@ -44,7 +48,13 @@ registerAction2(class extends Action2 {
 				id: MenuId.MenubarHelpMenu,
 				group: '1_welcome',
 				order: 1,
-			}
+				// --- Start Positron ---
+				when: IsDevelopmentContext
+				// --- End Positron ---
+			},
+			// --- Start Positron ---
+			precondition: IsDevelopmentContext
+			// --- End Positron ---
 		});
 	}
 
@@ -217,6 +227,9 @@ registerAction2(class extends Action2 {
 			title: localize2('welcome.showAllWalkthroughs', 'Open Walkthrough...'),
 			category,
 			f1: true,
+			// --- Start Positron ---
+			precondition: IsDevelopmentContext
+			// --- End Positron ---
 		});
 	}
 
