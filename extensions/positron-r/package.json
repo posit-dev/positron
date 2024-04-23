@@ -403,6 +403,11 @@
         },
         {
           "category": "R",
+          "command": "r.packageInstall",
+          "when": "isRPackage"
+        },
+        {
+          "category": "R",
           "command": "r.packageTest",
           "when": "isRPackage"
         },
