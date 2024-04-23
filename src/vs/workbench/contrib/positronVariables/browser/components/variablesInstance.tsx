@@ -308,9 +308,9 @@ export const VariablesInstance = (props: VariablesInstanceProps) => {
 		}
 
 		if (onlyCmdOrCtrlKey) {
-			switch (e.code) {
+			switch (e.key) {
 				// C key.
-				case 'KeyC': {
+				case 'c': {
 					// Process the key.
 					if (selectedId) {
 						const selectedEntryIndex = variableEntries.findIndex(entry =>

@@ -370,7 +370,7 @@ export const ConsoleInstance = (props: ConsoleInstanceProps) => {
 		// Handle the key.
 		if (noModifierKey) {
 			// Handle scrolling keys.
-			switch (e.code) {
+			switch (e.key) {
 				// Page up key.
 				case 'PageUp':
 					consumeEvent();
@@ -402,9 +402,9 @@ export const ConsoleInstance = (props: ConsoleInstanceProps) => {
 
 		if (onlyCmdOrCtrlKey) {
 			// Process the key.
-			switch (e.code) {
+			switch (e.key) {
 				// A key.
-				case 'KeyA': {
+				case 'a': {
 					// Handle select all shortcut.
 					if (getSelection()) {
 						// Consume the event.
@@ -417,7 +417,7 @@ export const ConsoleInstance = (props: ConsoleInstanceProps) => {
 				}
 
 				// C key.
-				case 'KeyC': {
+				case 'c': {
 					// Consume the event.
 					consumeEvent();
 
@@ -431,7 +431,7 @@ export const ConsoleInstance = (props: ConsoleInstanceProps) => {
 				}
 
 				// V key.
-				case 'KeyV': {
+				case 'v': {
 					// Consume the event.
 					consumeEvent();
 
