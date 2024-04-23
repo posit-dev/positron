@@ -62,7 +62,7 @@ logger = logging.getLogger(__name__)
 T = TypeVar("T")
 
 
-class UncopiableError(Exception):
+class CopyError(Exception):
     """
     Raised by inspector.copy() when an object can't be copied.
     """
