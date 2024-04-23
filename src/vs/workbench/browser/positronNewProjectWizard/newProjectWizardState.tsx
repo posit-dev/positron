@@ -14,12 +14,14 @@ import { ILogService } from 'vs/platform/log/common/log';
 import { IOpenerService } from 'vs/platform/opener/common/opener';
 import { IPathService } from 'vs/workbench/services/path/common/pathService';
 import { IFileService } from 'vs/platform/files/common/files';
+import { ICommandService } from 'vs/platform/commands/common/commands';
 
 /**
  * NewProjectWizardServices interface. Defines the set of services that are required by the New
  * Project Wizard.
  */
 interface NewProjectWizardServices {
+	commandService: ICommandService;
 	fileDialogService: IFileDialogService;
 	fileService: IFileService;
 	keybindingService: IKeybindingService;
