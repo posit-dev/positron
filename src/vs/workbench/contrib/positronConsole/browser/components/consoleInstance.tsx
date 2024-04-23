@@ -647,7 +647,7 @@ export const ConsoleInstance = (props: ConsoleInstanceProps) => {
 					} else if (runtimeItem instanceof RuntimeItemExited) {
 						return <RuntimeExited key={runtimeItem.id} runtimeItemExited={runtimeItem} />;
 					} else if (runtimeItem instanceof RuntimeItemRestartButton) {
-						return <RuntimeRestartButton key={runtimeItem.id} runtimeItemRestartButton={runtimeItem} />;
+						return <RuntimeRestartButton key={runtimeItem.id} runtimeItemRestartButton={runtimeItem} positronConsoleInstance={props.positronConsoleInstance}/>;
 					} else if (runtimeItem instanceof RuntimeItemStartupFailure) {
 						return <RuntimeStartupFailure key={runtimeItem.id} runtimeItemStartupFailure={runtimeItem} />;
 					} else if (runtimeItem instanceof RuntimeItemTrace) {
