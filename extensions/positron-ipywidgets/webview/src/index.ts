@@ -22,8 +22,8 @@ const comms = new Map<string, Comm>();
 
 // TODO: implement Kernel.IComm instead, and use the shim to convert to IClassicComm. Then we don't have to implement callbacks, I think?
 class Comm implements base.IClassicComm {
-	private readonly _onMsgCallbacks: ((x: any) => void)[] = [];
-	private readonly _onCloseCallbacks: ((x: any) => void)[] = [];
+	private _on_msg: ((x: any) => void) | undefined;
+	private _on_close: ((x: any) => void) | undefined;
 	private _callbacks: base.ICallbacks | undefined;
 
 	constructor(
@@ -74,12 +74,12 @@ class Comm implements base.IClassicComm {
 
 	on_msg(callback: (x: any) => void): void {
 		console.log('Comm.on_msg', callback);
-		this._onMsgCallbacks.push(callback);
+		this._on_msg = callback;
 	}
 
 	on_close(callback: (x: any) => void): void {
 		console.log('Comm.on_close', callback);
-		this._onCloseCallbacks.push(callback);
+		this._on_close = callback;
 	}
 
 	set_callbacks(callbacks: base.ICallbacks | undefined): void {
@@ -121,24 +121,22 @@ class Comm implements base.IClassicComm {
 
 	handle_msg(message: JSONObject): void {
 		console.log('Comm.handle_msg', message);
-		for (const callback of this._onMsgCallbacks) {
-			callback(message);
-		}
+		this._on_msg?.(message);
 
 		// TODO: Maybe this needs to happen on the next tick so that the callbacks are done? Try remove this
 		// TODO: Is this correct? Simulate an 'idle' message so that callers know the RPC call is done.
 		//  I think it's safe since we know that this method is only called at the end of an RPC call,
 		//  which I _think_ happens on idle?
 		// setTimeout(() => {
+		// TODO: Currently this also fires when the kernel initiates the update...
+		//  In that case, I'm not sure if the iopub.status callback set earlier should fire.
 		this.handle_status({ content: { execution_state: 'idle' } } as IIOPubMessage<IOPubMessageType>);
 		// }, 0);
 	}
 
 	handle_close(message: JSONObject): void {
 		console.log('Comm.handle_close', message);
-		for (const callback of this._onCloseCallbacks) {
-			callback(message);
-		}
+		this._on_close?.(message);
 	}
 
 	handle_status(message: IIOPubMessage<IOPubMessageType>): void {
