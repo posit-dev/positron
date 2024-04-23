@@ -2,15 +2,17 @@
  *  Copyright (C) 2023 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
+import * as vscode from 'vscode';
 // eslint-disable-next-line import/no-unresolved
 import * as positron from 'positron';
 import { PythonExtension } from '../api/types';
-import { IDisposableRegistry } from '../common/types';
+import { IDisposableRegistry, IInstaller, Product, ProductInstallStatus } from '../common/types';
 import { IInterpreterService } from '../interpreter/contracts';
 import { IServiceContainer } from '../ioc/types';
 import { traceError, traceInfo } from '../logging';
 import { PythonRuntimeManager } from './manager';
 import { createPythonRuntimeMetadata } from './runtime';
+import { IPYKERNEL_VERSION } from '../common/constants';
 
 export async function activatePositron(
     activatedPromise: Promise<void>,
@@ -68,6 +70,26 @@ export async function activatePositron(
                     const interpreterPath = event.env.path;
                     await registerRuntime(interpreterPath);
                 }
+            }),
+        );
+        // Register a command to check if ipykernel is installed for a given interpreter.
+        disposables.push(
+            vscode.commands.registerCommand('python.isIpykernelInstalled', async (pythonPath: string) => {
+                const interpreterService = serviceContainer.get<IInterpreterService>(IInterpreterService);
+                const interpreter = await interpreterService.getInterpreterDetails(pythonPath);
+                if (interpreter) {
+                    const installer = serviceContainer.get<IInstaller>(IInstaller);
+                    const hasCompatibleKernel = await installer.isProductVersionCompatible(
+                        Product.ipykernel,
+                        IPYKERNEL_VERSION,
+                        interpreter,
+                    );
+                    return hasCompatibleKernel === ProductInstallStatus.Installed;
+                }
+                traceError(
+                    `Could not check if ipykernel is installed due to an invalid interpreter path: ${pythonPath}`,
+                );
+                return false;
             }),
         );
         traceInfo('activatePositron: done!');

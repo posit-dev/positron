@@ -52,7 +52,7 @@
 .ok-cancel-action-bar
 .action-bar-button:disabled {
 	color: var(--vscode-positronModalDialog-buttonDisabledForeground);
-	background-color: var(--vscode-positronModalDialog-buttonDisabledBackground);
+	background-color: var(--vscode-positronModalDialog-buttonDisabledBackground) !important;
 	border: 1px solid var(--vscode-positronModalDialog-buttonDisabledBorder);
 	cursor: default;
 }

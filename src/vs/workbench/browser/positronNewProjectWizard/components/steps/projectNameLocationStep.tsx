@@ -143,11 +143,10 @@ export const ProjectNameLocationStep = (props: PropsWithChildren<NewProjectWizar
 					'projectNameLocationSubStep.projectName.label',
 					'Project Name'
 				))()}
-				feedback={projectNameFeedback
-					? () =>
-						<WizardFormattedText type={projectNameFeedback.type}>
-							{projectNameFeedback.text}
-						</WizardFormattedText>
+				feedback={projectNameFeedback ?
+					<WizardFormattedText type={projectNameFeedback.type}>
+						{projectNameFeedback.text}
+					</WizardFormattedText>
 					: undefined
 				}
 			>
@@ -172,7 +171,7 @@ export const ProjectNameLocationStep = (props: PropsWithChildren<NewProjectWizar
 					'projectNameLocationSubStep.parentDirectory.label',
 					'Parent Directory'
 				))()}
-				feedback={() =>
+				feedback={
 					<WizardFormattedText type={WizardFormattedTextType.Info}>
 						{(() => localize(
 							'projectNameLocationSubStep.parentDirectory.feedback',
