@@ -403,6 +403,13 @@ export const ConsoleInstance = (props: ConsoleInstanceProps) => {
 		if (onlyCmdOrCtrlKey) {
 			// Process the key.
 			switch (e.key) {
+				// We don't handle 'x' here because:
+				// - It's already correctly disabled in the read-only parts
+				//   of the output. It's also disabled when the selection
+				//   overlaps writable and read-only sections.
+				// - It's easier to let the native command handle the writable
+				//   parts.
+
 				// A key.
 				case 'a': {
 					// Handle select all shortcut.
