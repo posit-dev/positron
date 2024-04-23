@@ -77,7 +77,7 @@ export const getPythonInterpreterEntries = (
 	runtimeStartupService: IRuntimeStartupService,
 	languageRuntimeService: ILanguageRuntimeService,
 	envSetupType: EnvironmentSetupType,
-	envType: PythonEnvironmentType
+	envType: PythonEnvironmentType | undefined
 ) => {
 	switch (envSetupType) {
 		case EnvironmentSetupType.NewEnvironment:
