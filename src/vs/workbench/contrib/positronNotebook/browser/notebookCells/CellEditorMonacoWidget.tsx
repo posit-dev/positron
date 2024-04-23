@@ -15,7 +15,7 @@ import { FloatingEditorClickMenu } from 'vs/workbench/browser/codeeditor';
 import { CellEditorOptions } from 'vs/workbench/contrib/notebook/browser/view/cellParts/cellEditorOptions';
 import { useNotebookInstance } from 'vs/workbench/contrib/positronNotebook/browser/NotebookInstanceProvider';
 import { useServices } from 'vs/workbench/contrib/positronNotebook/browser/ServicesProvider';
-import { CellSelectionState, IPositronNotebookCell } from 'vs/workbench/contrib/positronNotebook/browser/notebookCells/interfaces';
+import { IPositronNotebookCell } from 'vs/workbench/contrib/positronNotebook/browser/notebookCells/interfaces';
 import { observeValue } from 'vs/workbench/contrib/positronNotebook/common/utils/observeValue';
 import { DisposableStore } from 'vs/base/common/lifecycle';
 
@@ -93,13 +93,15 @@ export function useCellEditorWidget(cell: IPositronNotebookCell) {
 
 		disposableStore.add(
 			editor.onDidFocusEditorWidget(() => {
-				cell.selected.set(CellSelectionState.Editing, undefined);
+				cell.selected.set(true, undefined);
+				instance.setEditingCell(cell);
 			})
 		);
 
 		disposableStore.add(
 			editor.onDidBlurEditorWidget(() => {
-				cell.selected.set(CellSelectionState.Selected, undefined);
+				cell.select();
+				instance.setEditingCell(undefined);
 			})
 		);
 

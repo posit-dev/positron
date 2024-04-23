@@ -12,14 +12,7 @@ import { CellKind, ICellOutput } from 'vs/workbench/contrib/notebook/common/note
 
 export type ExecutionStatus = 'running' | 'pending' | 'unconfirmed' | 'idle';
 
-/**
- * Possible states a cell can be in
- */
-export enum CellSelectionState {
-	Selected,
-	Unselected,
-	Editing,
-}
+
 /**
  * Wrapper class for notebook cell that exposes the properties that the UI needs to render the cell.
  * This interface is extended to provide the specific properties for code and markdown cells.
@@ -44,7 +37,12 @@ export interface IPositronNotebookCell extends Disposable {
 	/**
 	 * Is this cell selected?
 	 */
-	selected: ISettableObservable<CellSelectionState>;
+	selected: ISettableObservable<boolean>;
+
+	/**
+	 * Is this cell currently being edited?
+	 */
+	editing: ISettableObservable<boolean>;
 
 	/**
 	 * The content of the cell. This is the raw text of the cell.
@@ -86,11 +84,15 @@ export interface IPositronNotebookCell extends Disposable {
 	 */
 	isCodeCell(): this is IPositronNotebookCodeCell;
 
-
 	/**
 	 * Select this cell
 	 */
 	select(): void;
+
+	/**
+	 * Deselect this cell
+	 */
+	deselect(): void;
 }
 
 

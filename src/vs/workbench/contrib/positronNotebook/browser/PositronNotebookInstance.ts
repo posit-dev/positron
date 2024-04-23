@@ -65,6 +65,11 @@ export interface IPositronNotebookInstance {
 	selectedCells: ISettableObservable<IPositronNotebookCell[]>;
 
 	/**
+	 * Cell currently being edited. Undefined if no cell is being edited.
+	 */
+	editingCell: ISettableObservable<IPositronNotebookCell | undefined>;
+
+	/**
 	 * Has the notebook instance been disposed?
 	 */
 	isDisposed: boolean;
@@ -129,6 +134,11 @@ export interface IPositronNotebookInstance {
 	 * @param addMode If true, add the cell to the selection. If false, replace the selection.
 	 */
 	moveSelectionDown(addMode: boolean): void;
+
+	/**
+	 * Set the currently editing cell.
+	 */
+	setEditingCell(cell: IPositronNotebookCell | undefined): void;
 }
 
 export class PositronNotebookInstance extends Disposable implements IPositronNotebookInstance {
@@ -150,6 +160,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	*/
 	cells: ISettableObservable<IPositronNotebookCell[]>;
 	selectedCells: ISettableObservable<IPositronNotebookCell[]> = observableValue<IPositronNotebookCell[]>('positronNotebookSelectedCells', []);
+	editingCell: ISettableObservable<IPositronNotebookCell | undefined, void> = observableValue<IPositronNotebookCell | undefined>('positronNotebookEditingCell', undefined);
 
 	/**
 	 * Status of kernel for the notebook.
@@ -491,6 +502,9 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		this.selectedCells.set(cells, undefined);
 	}
 
+	setEditingCell(cell: IPositronNotebookCell | undefined): void {
+		this.editingCell.set(cell, undefined);
+	}
 
 	private _moveSelection(addMode: boolean, direction: 'up' | 'down'): void {
 		const selectedCells = this.selectedCells.get();

@@ -12,7 +12,7 @@ import { ICellViewModel } from 'vs/workbench/contrib/notebook/browser/notebookBr
 import { NotebookCellTextModel } from 'vs/workbench/contrib/notebook/common/model/notebookCellTextModel';
 import { CellKind, ICellOutput } from 'vs/workbench/contrib/notebook/common/notebookCommon';
 import { IPositronNotebookInstance } from 'vs/workbench/contrib/positronNotebook/browser/PositronNotebookInstance';
-import { ExecutionStatus, IPositronNotebookCodeCell, IPositronNotebookCell, IPositronNotebookMarkdownCell, CellSelectionState } from 'vs/workbench/contrib/positronNotebook/browser/notebookCells/interfaces';
+import { ExecutionStatus, IPositronNotebookCodeCell, IPositronNotebookCell, IPositronNotebookMarkdownCell } from 'vs/workbench/contrib/positronNotebook/browser/notebookCells/interfaces';
 import { DisposableObserveValue } from '../common/utils/DisposableObserveValue';
 
 
@@ -24,7 +24,8 @@ abstract class PositronNotebookCellGeneral extends Disposable implements IPositr
 	// Not marked as private so we can access it in subclasses
 	_disposableStore = new DisposableStore();
 
-	selected = observableValue<CellSelectionState, void>('selected', CellSelectionState.Unselected);
+	selected = observableValue<boolean, void>('selected', false);
+	editing: ISettableObservable<boolean> = observableValue<boolean, void>('editing', false);
 
 	constructor(
 		public cellModel: NotebookCellTextModel,
@@ -35,7 +36,13 @@ abstract class PositronNotebookCellGeneral extends Disposable implements IPositr
 
 		this._disposableStore.add(
 			new DisposableObserveValue(this._instance.selectedCells, () => {
-				this.selected.set(this._instance.selectedCells.get().includes(this) ? CellSelectionState.Selected : CellSelectionState.Unselected, undefined);
+				this.selected.set(this._instance.selectedCells.get().includes(this), undefined);
+			})
+		);
+
+		this._disposableStore.add(
+			new DisposableObserveValue(this._instance.editingCell, () => {
+				this.editing.set(this._instance.editingCell.get() === this, undefined);
 			})
 		);
 	}
@@ -96,9 +103,13 @@ abstract class PositronNotebookCellGeneral extends Disposable implements IPositr
 	}
 
 	select(): void {
-		if (this.selected.get() === CellSelectionState.Unselected) {
-			this._instance.setSelectedCells([this]);
-		}
+		this._instance.setSelectedCells([this]);
+	}
+
+	deselect(): void {
+		const existingSelection = this._instance.selectedCells.get();
+		const newSelection = existingSelection.filter(cell => cell !== this);
+		this._instance.setSelectedCells(newSelection);
 	}
 
 }
@@ -106,8 +117,8 @@ abstract class PositronNotebookCellGeneral extends Disposable implements IPositr
 
 class PositronNotebookCodeCell extends PositronNotebookCellGeneral implements IPositronNotebookCodeCell {
 	override kind: CellKind.Code = CellKind.Code;
-	executionStatus: ISettableObservable<ExecutionStatus, void>;
-	outputs: ISettableObservable<ICellOutput[], void>;
+	outputs: ISettableObservable<ICellOutput[]>;
+	executionStatus: ISettableObservable<ExecutionStatus> = observableValue<ExecutionStatus, void>('cellExecutionStatus', 'idle');
 
 	constructor(
 		cellModel: NotebookCellTextModel,
@@ -115,8 +126,6 @@ class PositronNotebookCodeCell extends PositronNotebookCellGeneral implements IP
 		textModelResolverService: ITextModelService,
 	) {
 		super(cellModel, instance, textModelResolverService);
-
-		this.executionStatus = observableValue<ExecutionStatus, void>('cellExecutionStatus', 'idle');
 		this.outputs = observableValue<ICellOutput[], void>('cellOutputs', this.cellModel.outputs);
 
 		// Listen for changes to the cell outputs and update the observable
@@ -129,6 +138,7 @@ class PositronNotebookCodeCell extends PositronNotebookCellGeneral implements IP
 			})
 		);
 	}
+
 
 	override run(): void {
 		this._instance.runCells([this]);
