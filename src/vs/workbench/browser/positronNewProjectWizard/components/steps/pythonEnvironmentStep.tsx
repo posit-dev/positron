@@ -112,12 +112,13 @@ export const PythonEnvironmentStep = (props: PropsWithChildren<NewProjectWizardS
 			// ipykernel will always be installed for new environments.
 			install = true;
 		} else if (pythonInterpreter) {
-			// Use the pythonPath from extraRuntimeData if it exists, otherwise use the runtimePath.
-			// In particular, the pythonPath is needed to check if ipykernel is installed for Pyenv
-			// environments (the runtimePath results in an error, although the pythonPath works fine,
-			// seemingly because the runtimePath is aliased, i.e. starts with `~`). In many cases,
-			// the pythonPath and runtimePath are the same. When they differ, it seems that the
-			// pythonPath is the non-aliased path to the python interpreter.
+			// When using an aliased runtimePath (starts with `~`) such as ~/myEnv/python instead of
+			// a non-aliased path like /home/sharon/myEnv/python or /usr/bin/python, the ipykernel
+			// version check errors, although the non-aliased pythonPath works fine.
+			// In many cases, the pythonPath and runtimePath are the same. When they differ, it
+			// seems that the pythonPath is the non-aliased runtimePath to the python interpreter.
+			// From some brief debugging, it looks like many Conda, Pyenv and Venv environments have
+			// aliased runtimePaths.
 			const interpreterPath =
 				pythonInterpreter.extraRuntimeData?.pythonPath ??
 				pythonInterpreter.runtimePath;
