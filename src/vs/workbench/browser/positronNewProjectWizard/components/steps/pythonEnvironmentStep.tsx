@@ -210,7 +210,25 @@ export const PythonEnvironmentStep = (props: PropsWithChildren<NewProjectWizardS
 		await updateEnvConfig(envSetupType, envType, selectedRuntime);
 	};
 
-	// Hook to update the interpreter entries when the runtime discovery phase is complete
+	// Update the project configuration with the initial selections. This is done once when the
+	// component is mounted, assuming the runtime discovery phase is complete. If the runtime
+	// discovery phase is not complete, the project configuration will be updated when the phase is
+	// complete in the other useEffect hook below.
+	useEffect(() => {
+		if (runtimeStartupComplete()) {
+			setProjectConfig({
+				...projectConfig,
+				pythonEnvSetupType: envSetupType,
+				pythonEnvType: envType,
+				selectedRuntime: selectedInterpreter,
+				installIpykernel: willInstallIpykernel
+			});
+		}
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, []);
+
+	// Hook to update the interpreter entries when the runtime discovery phase is complete. The
+	// interpreter discovery phase may still be in progress when the component is mounted.
 	useEffect(() => {
 		// Create the disposable store for cleanup.
 		const disposableStore = new DisposableStore();
