@@ -507,7 +507,12 @@ ${managerState}
 
 				// TODO: Will we only add these once?
 				client.onDidReceiveData(data => {
-					console.error(`Unhandled message for comm ${comm_id}: ${JSON.stringify(data)}`);
+					console.log('RECV comm_msg:', data);
+					if (data?.method === 'update') {
+						webview.postMessage({ type: 'comm_msg', comm_id, content: { data } });
+					} else {
+						console.error(`Unhandled message for comm ${comm_id}: ${JSON.stringify(data)}`);
+					}
 				});
 
 				const stateChangeEvent = Event.fromObservable(client.clientState);
