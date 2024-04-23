@@ -928,7 +928,7 @@ class ConnectionInspector(ObjectInspector):
 
     def copy(self) -> Any:
         # Connections are mutable but not copiable.
-        raise UncopiableError("Connections are not copiable")
+        raise CopyError("Connections are not copiable")
 
     def _is_active(self, value) -> bool:
         try:
