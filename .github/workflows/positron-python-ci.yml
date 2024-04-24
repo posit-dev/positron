@@ -126,7 +126,9 @@ jobs:
           - os: 'ubuntu-latest'
             python: '3.8'
             pytest-version: 'pytest<8.1.1'
-          - os: 'macos-latest'
+          # TODO: go back to macos-latest once we have a stable version of Python 3.9
+          # on that image.
+          - os: 'macos-13'
             python: '3.9'
             pytest-version: 'pytest<8.1.1'
           - os: 'windows-latest'
@@ -180,7 +182,7 @@ jobs:
         include:
           - os: 'ubuntu-latest'
             python: '3.8'
-          - os: 'macos-latest'
+          - os: 'macos-13'
             python: '3.9'
           - os: 'windows-latest'
             python: '3.10'
