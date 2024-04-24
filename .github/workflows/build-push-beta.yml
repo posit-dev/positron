@@ -16,11 +16,11 @@ jobs:
     steps:
 
       - name: Download Release Assets
-        uses: dsaltares/fetch-gh-release-asset@master
+        uses: dsaltares/fetch-gh-release-asset@1.1.1
         with:
           version: tags/${{ env.RELEASE_TAG }}
           regex: true
-          file: "Positron-.*\\.(dmg|exe|deb)"
+          file: "Positron-[0-9\\.\\-]*(?:-Setup|)\\.(?:dmg|exe|deb)"
           token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Create Release to Private Beta
