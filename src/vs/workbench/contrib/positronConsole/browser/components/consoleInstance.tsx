@@ -317,6 +317,12 @@ export const ConsoleInstance = (props: ConsoleInstanceProps) => {
 			scrollToBottom();
 		}));
 
+		disposableStore.add(props.reactComponentContainer.onSizeChanged(_ => {
+			if (!scrollLockRef.current) {
+				scrollToBottom();
+			}
+		}));
+
 		// Add the onDidSelectPlot event handler.
 		disposableStore.add(props.positronConsoleInstance.onDidSelectPlot(plotId => {
 			// Ensure that the Plots pane is visible.
