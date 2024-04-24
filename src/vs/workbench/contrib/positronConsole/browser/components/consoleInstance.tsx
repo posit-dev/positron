@@ -4,7 +4,7 @@
 
 import 'vs/css!./consoleInstance';
 import * as React from 'react';
-import { KeyboardEvent, MouseEvent, UIEvent, useEffect, useLayoutEffect, useRef, useState, WheelEvent } from 'react'; // eslint-disable-line no-duplicate-imports
+import { KeyboardEvent, MouseEvent, UIEvent, useCallback, useEffect, useLayoutEffect, useRef, useState, WheelEvent } from 'react'; // eslint-disable-line no-duplicate-imports
 import * as nls from 'vs/nls';
 import * as DOM from 'vs/base/browser/dom';
 import { generateUuid } from 'vs/base/common/uuid';
@@ -106,6 +106,23 @@ export const ConsoleInstance = (props: ConsoleInstanceProps) => {
 	const [, setLastScrollTop, lastScrollTopRef] = useStateRef(0);
 	const [, setScrollLock, scrollLockRef] = useStateRef(false);
 	const [, setIgnoreNextScrollEvent, ignoreNextScrollEventRef] = useStateRef(false);
+
+
+	// Determines whether the console is scrollable.
+	const scrollable = () =>
+		consoleInstanceRef.current.scrollHeight > consoleInstanceRef.current.clientHeight;
+
+	// Scrolls to the bottom.
+	const scrollToBottom = useCallback(() => {
+		setScrollLock(false);
+		setIgnoreNextScrollEvent(true);
+		scrollVertically(consoleInstanceRef.current.scrollHeight);
+	}, [setIgnoreNextScrollEvent, setScrollLock]);
+
+	// Scrolls the console vertically.
+	const scrollVertically = (y: number) => {
+		consoleInstanceRef.current.scrollTo(consoleInstanceRef.current.scrollLeft, y);
+	};
 
 	/**
 	 * Gets the selection.
@@ -275,6 +292,7 @@ export const ConsoleInstance = (props: ConsoleInstanceProps) => {
 			if (state === PositronConsoleState.Starting) {
 				// Scroll to bottom when restarting
 				// https://github.com/posit-dev/positron/issues/2807
+				// scrollToBottom();
 				scrollVertically(consoleInstanceRef.current.scrollHeight);
 			}
 		}));
@@ -296,7 +314,7 @@ export const ConsoleInstance = (props: ConsoleInstanceProps) => {
 
 		// Add the onDidExecuteCode event handler.
 		disposableStore.add(props.positronConsoleInstance.onDidExecuteCode(_code => {
-			scrollVertically(consoleInstanceRef.current.scrollHeight);
+			scrollToBottom();
 		}));
 
 		// Add the onDidSelectPlot event handler.
@@ -320,7 +338,7 @@ export const ConsoleInstance = (props: ConsoleInstanceProps) => {
 
 		// Return the cleanup function that will dispose of the event handlers.
 		return () => disposableStore.dispose();
-	}, [editorFontInfo, lastScrollTopRef, positronConsoleContext.activePositronConsoleInstance?.session, positronConsoleContext.configurationService, positronConsoleContext.positronPlotsService, positronConsoleContext.runtimeSessionService, positronConsoleContext.viewsService, props.positronConsoleInstance, props.reactComponentContainer, setLastScrollTop]);
+	}, [editorFontInfo, lastScrollTopRef, positronConsoleContext.activePositronConsoleInstance?.session, positronConsoleContext.configurationService, positronConsoleContext.positronPlotsService, positronConsoleContext.runtimeSessionService, positronConsoleContext.viewsService, props.positronConsoleInstance, props.reactComponentContainer, scrollToBottom, setLastScrollTop]);
 
 	useLayoutEffect(() => {
 		// If the view is not scroll locked, scroll to the bottom to reveal the most recent items.
@@ -549,22 +567,6 @@ export const ConsoleInstance = (props: ConsoleInstanceProps) => {
 			setScrollLock(scrollable());
 			return;
 		}
-	};
-
-	// Determines whether the console is scrollable.
-	const scrollable = () =>
-		consoleInstanceRef.current.scrollHeight > consoleInstanceRef.current.clientHeight;
-
-	// Scrolls to the bottom.
-	const scrollToBottom = () => {
-		setScrollLock(false);
-		setIgnoreNextScrollEvent(true);
-		scrollVertically(consoleInstanceRef.current.scrollHeight);
-	};
-
-	// Scrolls the console vertically.
-	const scrollVertically = (y: number) => {
-		consoleInstanceRef.current.scrollTo(consoleInstanceRef.current.scrollLeft, y);
 	};
 
 	// Calculate the adjusted width (to account for indentation of the entire console instance).
