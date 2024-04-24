@@ -228,6 +228,13 @@ export class PositronConsoleViewPane extends ViewPane implements IReactComponent
 			themeService,
 			telemetryService);
 
+		// Make the view pane focusable even when there are no components
+		// available to take the focus (such as the console input). This happens
+		// when no interpreter has been started yet. The viewpane must be able
+		// to take focus at all times because otherwise blurring events do not
+		// occur and the viewpane management state becomes confused on toggle.
+		this.element.tabIndex = 0;
+
 		// Bind the PositronConsoleFocused context key.
 		this._positronConsoleFocusedContextKey = PositronConsoleFocused.bindTo(contextKeyService);
 
