@@ -246,4 +246,12 @@ export class PlaywrightDriver {
 	private async getDriverHandle(): Promise<playwright.JSHandle<IWindowDriver>> {
 		return this.page.evaluateHandle('window.driver');
 	}
+
+	async typeKeys(locator: string, text: string): Promise<void> {
+		return this.page.locator(locator).pressSequentially(text);
+	}
+
+	getLocator(selector: string): playwright.Locator {
+		return this.page.locator(selector);
+	}
 }
