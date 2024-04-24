@@ -592,7 +592,7 @@ class SQLAlchemyConnection(Connection):
     def __init__(self, conn):
         self.conn: sqlalchemy.Engine = conn
         self.display_name = f"SQLAlchemy ({conn.name})"
-        self.host = conn.url
+        self.host = conn.url.render_as_string()
         self.type = "SQLAlchemy"
 
     def list_objects(self, path: List[ObjectSchema]):
