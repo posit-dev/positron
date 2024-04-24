@@ -1063,6 +1063,7 @@ export class MainThreadLanguageRuntime
 
 	// Called by the extension host to register a language runtime
 	$registerLanguageRuntime(handle: number, metadata: ILanguageRuntimeMetadata): void {
+		this._registeredRuntimes.set(handle, metadata);
 		this._languageRuntimeService.registerRuntime(metadata);
 	}
 
@@ -1136,6 +1137,22 @@ export class MainThreadLanguageRuntime
 
 	public dispose(): void {
 		this._disposables.dispose();
+	}
+
+	/**
+	 * Checks to see whether a runtime is registered.
+	 *
+	 * @param runtimeId The ID of the runtime to check for
+	 * @returns Whether the runtime is registered
+	 */
+	hasRuntime(runtimeId: string): boolean {
+		this._logService.warn(`Checking for runtime ${runtimeId} (count: ${this._registeredRuntimes.size})`);
+		for (const runtime of this._registeredRuntimes.values()) {
+			if (runtime.runtimeId === runtimeId) {
+				return true;
+			}
+		}
+		return false;
 	}
 
 	/**

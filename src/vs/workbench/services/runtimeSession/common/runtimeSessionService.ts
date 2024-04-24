@@ -181,6 +181,13 @@ export interface ILanguageRuntimeSession {
  */
 export interface ILanguageRuntimeSessionManager {
 	/**
+	 * Indicate whether this session manager can handle the given runtime.
+	 *
+	 * @param runtimeId The runtime identifier to check.
+	 */
+	hasRuntime(runtimeId: string): boolean;
+
+	/**
 	 * Create (provision) a new session.
 	 *
 	 * @param runtimeMetadata The metadata of the runtime for which a session is
@@ -256,7 +263,7 @@ export interface IRuntimeSessionService {
 	readonly activeSessions: ILanguageRuntimeSession[];
 
 	/**
-	 * Register a session manager. Used only once, by the extension host.
+	 * Register a session manager.
 	 */
 	registerSessionManager(manager: ILanguageRuntimeSessionManager): void;
 
