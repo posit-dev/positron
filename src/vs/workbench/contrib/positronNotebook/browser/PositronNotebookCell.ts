@@ -35,16 +35,26 @@ abstract class PositronNotebookCellGeneral extends Disposable implements IPositr
 		super();
 
 		this._disposableStore.add(
-			new DisposableObserveValue(this._instance.selectedCells, () => {
-				this.selected.set(this._instance.selectedCells.get().includes(this), undefined);
+			new DisposableObserveValue(this._instance.selectionState, () => {
+				const { selectedCells, editingCell } = this._instance.selectionState.get();
+
+				if (!selectedCells) {
+					this.selected.set(false, undefined);
+					return;
+				}
+
+				const isSelected = Array.isArray(selectedCells) ? selectedCells.includes(this) : selectedCells === this;
+
+				this.selected.set(isSelected, undefined);
+				this.editing.set(isSelected && editingCell, undefined);
 			})
 		);
 
-		this._disposableStore.add(
-			new DisposableObserveValue(this._instance.editingCell, () => {
-				this.editing.set(this._instance.editingCell.get() === this, undefined);
-			})
-		);
+		// this._disposableStore.add(
+		// 	new DisposableObserveValue(this._instance.editingCell, () => {
+		// 		this.editing.set(this._instance.editingCell.get() === this, undefined);
+		// 	})
+		// );
 	}
 
 	get uri(): URI {
@@ -103,13 +113,13 @@ abstract class PositronNotebookCellGeneral extends Disposable implements IPositr
 	}
 
 	select(): void {
-		this._instance.setSelectedCells([this]);
+		this._instance.selectionStateMachine.send({ type: 'selectCell', cell: this });
+		// this._instance.setSelectedCells([this]);
 	}
 
 	deselect(): void {
-		const existingSelection = this._instance.selectedCells.get();
-		const newSelection = existingSelection.filter(cell => cell !== this);
-		this._instance.setSelectedCells(newSelection);
+		this._instance.selectionStateMachine.send({ type: 'deselectCell', cell: this });
+		// this._instance.deselectCell(this);
 	}
 
 }

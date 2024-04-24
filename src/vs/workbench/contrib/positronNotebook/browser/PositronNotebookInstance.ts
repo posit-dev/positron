@@ -25,6 +25,10 @@ import { PositronNotebookEditorInput } from 'vs/workbench/contrib/positronNotebo
 import { BaseCellEditorOptions } from './BaseCellEditorOptions';
 import * as DOM from 'vs/base/browser/dom';
 import { IPositronNotebookCell } from 'vs/workbench/contrib/positronNotebook/browser/notebookCells/interfaces';
+import { selectionMachine, SelectionState } from 'vs/workbench/contrib/positronNotebook/browser/notebookCells/selectionMachine';
+
+// eslint-disable-next-line local/code-import-patterns
+import { Actor, createActor } from 'xstate';
 
 
 enum KernelStatus {
@@ -59,15 +63,22 @@ export interface IPositronNotebookInstance {
 	 */
 	kernelStatus: ISettableObservable<KernelStatus>;
 
-	/**
-	 * The currently selected cells. Typically a single cell but can be multiple cells.
-	 */
-	selectedCells: ISettableObservable<IPositronNotebookCell[]>;
+	// /**
+	//  * The currently selected cells. Typically a single cell but can be multiple cells.
+	//  */
+	// selectedCells: ISettableObservable<IPositronNotebookCell[]>;
+
+	selectionStateMachine: Actor<typeof selectionMachine>;
 
 	/**
-	 * Cell currently being edited. Undefined if no cell is being edited.
+	 * The current selection state of the notebook.
 	 */
-	editingCell: ISettableObservable<IPositronNotebookCell | undefined>;
+	selectionState: ISettableObservable<SelectionState>;
+
+	// /**
+	//  * Cell currently being edited. Undefined if no cell is being edited.
+	//  */
+	// editingCell: ISettableObservable<IPositronNotebookCell | undefined>;
 
 	/**
 	 * Has the notebook instance been disposed?
@@ -124,6 +135,12 @@ export interface IPositronNotebookInstance {
 	setSelectedCells(cellOrCells: IPositronNotebookCell[]): void;
 
 	/**
+	 * Remove selection from cell
+	 * @param cell The cell to deselect
+	 */
+	deselectCell(cell: IPositronNotebookCell): void;
+
+	/**
 	 * Move the current selected cell upwards
 	 * @param addMode If true, add the cell to the selection. If false, replace the selection.
 	 */
@@ -160,7 +177,10 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	*/
 	cells: ISettableObservable<IPositronNotebookCell[]>;
 	selectedCells: ISettableObservable<IPositronNotebookCell[]> = observableValue<IPositronNotebookCell[]>('positronNotebookSelectedCells', []);
+	selectionState: ISettableObservable<SelectionState> = observableValue<SelectionState>('positronNotebookSelectionState', { cells: [], selectedCells: null, editingCell: false });
 	editingCell: ISettableObservable<IPositronNotebookCell | undefined, void> = observableValue<IPositronNotebookCell | undefined>('positronNotebookEditingCell', undefined);
+
+	selectionStateMachine = createActor(selectionMachine);
 
 	/**
 	 * Status of kernel for the notebook.
@@ -277,6 +297,13 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		this.cells = observableValue<IPositronNotebookCell[]>('positronNotebookCells', this._cells);
 		this.kernelStatus = observableValue<KernelStatus>('positronNotebookKernelStatus', KernelStatus.Uninitialized);
 
+		this.selectionStateMachine.subscribe((state) => {
+			console.log('~~~~~~~~~~State:', state.context, state.value);
+			this.selectionState.set(state.context, undefined);
+		});
+		this.selectionStateMachine.start();
+		// this.selectionStateMachine.send({ type: 'setCells', cells: this._cells });
+
 		this.isReadOnly = this.creationOptions?.isReadOnly ?? false;
 
 		this.setupNotebookTextModel();
@@ -339,6 +366,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 
 			this.language = notebookModel.cells[0].language;
 			this.cells.set(this._cells, undefined);
+			this.selectionStateMachine.send({ type: 'setCells', cells: this._cells });
 		};
 
 		fillCells();
@@ -499,11 +527,19 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	 * @param cellOrCells The cell or cells to set as selected
 	 */
 	setSelectedCells(cells: IPositronNotebookCell[]): void {
-		this.selectedCells.set(cells, undefined);
+		this.selectionStateMachine.send({ type: 'selectCell', cell: cells[0] });
+	}
+
+	deselectCell(cell: IPositronNotebookCell): void {
+		this.selectionStateMachine.send({ type: 'deselectCell', cell });
 	}
 
 	setEditingCell(cell: IPositronNotebookCell | undefined): void {
-		this.editingCell.set(cell, undefined);
+		if (cell === undefined) {
+			return;
+		}
+		this.selectionStateMachine.send({ type: 'selectCell', cell });
+		this.selectionStateMachine.send({ type: 'enterPress' });
 	}
 
 	private _moveSelection(addMode: boolean, direction: 'up' | 'down'): void {
@@ -581,21 +617,54 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	}
 
 
+
 	/**
 	 * Setup keyboard navigation for the current notebook.
 	 * @param container The main containing node the notebook is rendered into
 	 */
 	private _setupKeyboardNavigation(container: HTMLElement) {
-		// Get the window for the renderer.
+
 		const window = DOM.getWindow(container);
 
 		const onKeyDown = (event: KeyboardEvent) => {
+			const editingCell = this.editingCell.get() !== undefined;
 			const addMode = event.metaKey || event.ctrlKey;
 
-			if (event.key === 'ArrowUp') {
-				this.moveSelectionUp(addMode);
-			} else if (event.key === 'ArrowDown') {
-				this.moveSelectionDown(addMode);
+			if (editingCell) {
+				switch (event.key) {
+					case 'Escape':
+						this.setEditingCell(undefined);
+						break;
+				}
+			} else {
+				switch (event.key) {
+					case 'ArrowUp':
+						// this.moveSelectionUp(addMode);
+
+						this.selectionStateMachine.send({
+							type: 'arrowKeys',
+							up: true,
+							meta: addMode
+						});
+
+						break;
+					case 'ArrowDown':
+						// this.moveSelectionDown(addMode);
+						this.selectionStateMachine.send({
+							type: 'arrowKeys',
+							up: false,
+							meta: addMode
+						});
+						break;
+					case 'Enter': {
+						const selectedCells = this.selectedCells.get();
+						if (selectedCells.length === 1) {
+							this.setEditingCell(this.selectedCells.get()[0]);
+							event.stopImmediatePropagation();
+						}
+						break;
+					}
+				}
 			}
 		};
 

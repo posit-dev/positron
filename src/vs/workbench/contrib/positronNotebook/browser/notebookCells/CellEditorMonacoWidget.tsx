@@ -18,6 +18,7 @@ import { useServices } from 'vs/workbench/contrib/positronNotebook/browser/Servi
 import { IPositronNotebookCell } from 'vs/workbench/contrib/positronNotebook/browser/notebookCells/interfaces';
 import { observeValue } from 'vs/workbench/contrib/positronNotebook/common/utils/observeValue';
 import { DisposableStore } from 'vs/base/common/lifecycle';
+import { DisposableObserveValue } from 'vs/workbench/contrib/positronNotebook/common/utils/DisposableObserveValue';
 
 
 /**
@@ -102,6 +103,22 @@ export function useCellEditorWidget(cell: IPositronNotebookCell) {
 			editor.onDidBlurEditorWidget(() => {
 				cell.select();
 				instance.setEditingCell(undefined);
+			})
+		);
+
+		disposableStore.add(
+			new DisposableObserveValue(cell.editing, {
+				handleChange(obs, change) {
+					console.log(obs, change);
+					const isEditing = cell.editing.get();
+
+					if (isEditing) {
+						editor.focus();
+					} else {
+						nativeContainer.blur();
+						// console.log("not editing");
+					}
+				}
 			})
 		);
 
