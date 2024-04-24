@@ -9,8 +9,14 @@ import { RStatementRangeProvider } from './statement-range';
 import { LOGGER } from './extension';
 
 import {
+	CloseAction,
+	CloseHandlerResult,
+	ErrorAction,
+	ErrorHandler,
+	ErrorHandlerResult,
 	LanguageClient,
 	LanguageClientOptions,
+	Message,
 	State,
 	StreamInfo,
 } from 'vscode-languageclient/node';
@@ -103,13 +109,14 @@ export class ArkLsp implements vscode.Disposable {
 				undefined :
 				{
 					fileEvents: vscode.workspace.createFileSystemWatcher('**/*.R')
-				}
+				},
+			errorHandler: new ArkErrorHandler(this._version, port)
 		};
 
 		// With a `.` rather than a `-` so vscode-languageserver can look up related options correctly
 		const id = 'positron.r';
 
-		LOGGER.trace(`Creating Positron R ${this._version} language client (port ${port})...`);
+		LOGGER.info(`Creating Positron R ${this._version} language client (port ${port})...`);
 		this._client = new LanguageClient(id, `Positron R Language Server (${this._version})`, serverOptions, clientOptions);
 
 		const out = new PromiseHandles<void>();
@@ -124,7 +131,7 @@ export class ArkLsp implements vscode.Disposable {
 					break;
 				case State.Running:
 					if (this._initializing) {
-						LOGGER.trace(`ARK (R ${this._version}) language client init successful`);
+						LOGGER.info(`ARK (R ${this._version}) language client init successful`);
 						this._initializing = undefined;
 						if (this._client) {
 							// Register Positron-specific LSP extension methods
@@ -136,13 +143,13 @@ export class ArkLsp implements vscode.Disposable {
 					break;
 				case State.Stopped:
 					if (this._initializing) {
-						LOGGER.trace(`ARK (R ${this._version}) language client init failed`);
+						LOGGER.info(`ARK (R ${this._version}) language client init failed`);
 						out.reject('Ark LSP client stopped before initialization');
 					}
 					this._state = LspState.stopped;
 					break;
 			}
-			LOGGER.trace(`ARK (R ${this._version}) language client state changed ${oldState} => ${this._state}`);
+			LOGGER.info(`ARK (R ${this._version}) language client state changed ${oldState} => ${this._state}`);
 		}));
 
 		this._client.start();
@@ -227,5 +234,30 @@ export class ArkLsp implements vscode.Disposable {
 	async dispose() {
 		this.activationDisposables.forEach(d => d.dispose());
 		await this.deactivate(false);
+	}
+}
+
+// The `DefaultErrorHandler` adds restarts on close, which we don't want. We want to be fully in
+// control over restarting the client side of the LSP, both because we have our own runtime restart
+// behavior, and because we have state that relies on client status changes being accurate (i.e.
+// in `this._client.onDidChangeState()`). Additionally, we set `handled: true` to avoid a toast
+// notification that is inactionable from the user's point of view.
+// https://github.com/microsoft/vscode-languageserver-node/blob/8e625564b531da607859b8cb982abb7cdb2fbe2e/client/src/common/client.ts#L420
+// https://github.com/microsoft/vscode-languageserver-node/blob/8e625564b531da607859b8cb982abb7cdb2fbe2e/client/src/common/client.ts#L1617
+class ArkErrorHandler implements ErrorHandler {
+	constructor(
+		private readonly _version: string,
+		private readonly _port: number
+	) {
+	}
+
+	public error(error: Error, _message: Message, count: number): ErrorHandlerResult {
+		LOGGER.error(`ARK (R ${this._version}) language client error occurred (port ${this._port}). '${error.name}' with message: ${error.message}. This is error number ${count}.`);
+		return { action: ErrorAction.Shutdown };
+	}
+
+	public closed(): CloseHandlerResult {
+		LOGGER.info(`ARK (R ${this._version}) language client was closed unexpectedly (port ${this._port}).`);
+		return { action: CloseAction.DoNotRestart, handled: true };
 	}
 }
