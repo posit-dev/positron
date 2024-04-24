@@ -36,6 +36,13 @@ export interface TableSchemaSearchResult {
 	columns: Array<ColumnSchema>;
 }
 
+export enum DataExplorerClientStatus {
+	Idle,
+	Computing,
+	Disconnected,
+	Error
+}
+
 /**
  * A data explorer client instance.
  */
@@ -51,6 +58,11 @@ export class DataExplorerClientInstance extends Disposable {
 	 * The current cached backend state.
 	 */
 	public cachedBackendState: BackendState | undefined = undefined;
+
+	/**
+	 * The latest client status.
+	 */
+	public status: DataExplorerClientStatus = DataExplorerClientStatus.Idle;
 
 	/**
 	 * A promise resolving to an active request for the backend state.
@@ -79,6 +91,16 @@ export class DataExplorerClientInstance extends Disposable {
 	 */
 	private readonly _onDidDataUpdateEmitter = this._register(new Emitter<void>());
 
+	/**
+	 * The onDidStatusUpdate event emitter.
+	 */
+	private readonly _onDidStatusUpdateEmitter = this._register(new Emitter<DataExplorerClientStatus>());
+
+	/**
+	 * Number of pending backend requests. When returns to 0, status is set to Idle.
+	 */
+	private _numPendingTasks: number = 0;
+
 	//#endregion Private Properties
 
 	//#region Constructor & Dispose
@@ -98,13 +120,18 @@ export class DataExplorerClientInstance extends Disposable {
 		// Close emitter
 		this.onDidClose = this._positronDataExplorerComm.onDidClose;
 
-		this._positronDataExplorerComm.onDidSchemaUpdate(async (e: SchemaUpdateEvent) => {
+		this._register(this._positronDataExplorerComm.onDidSchemaUpdate(async (e: SchemaUpdateEvent) => {
 			this.updateBackendState();
 			this._onDidSchemaUpdateEmitter.fire(e);
-		});
+		}));
 
-		this._positronDataExplorerComm.onDidDataUpdate(async (_evt) => {
+		this._register(this._positronDataExplorerComm.onDidDataUpdate(async (_evt) => {
 			this._onDidDataUpdateEmitter.fire();
+		}));
+
+		this.onDidClose(() => {
+			this.status = DataExplorerClientStatus.Disconnected;
+			this._onDidStatusUpdateEmitter.fire(this.status);
 		});
 	}
 
@@ -149,7 +176,30 @@ export class DataExplorerClientInstance extends Disposable {
 			return this._backendPromise;
 		}
 
-		this._backendPromise = this._positronDataExplorerComm.getState();
+		this._backendPromise = this.runBackendTask(
+			() => this._positronDataExplorerComm.getState(),
+			() => {
+				return {
+					display_name: 'disconnected',
+					table_shape: { num_rows: 0, num_columns: 0 },
+					table_unfiltered_shape: { num_rows: 0, num_columns: 0 },
+					row_filters: [],
+					sort_keys: [],
+					supported_features: {
+						search_schema: { supported: false },
+						set_row_filters: {
+							supported: false,
+							supports_conditions: false,
+							supported_types: []
+						},
+						get_column_profiles: {
+							supported: false,
+							supported_types: []
+						}
+					}
+				};
+			});
+
 		this.cachedBackendState = await this._backendPromise;
 		this._backendPromise = undefined;
 
@@ -167,7 +217,12 @@ export class DataExplorerClientInstance extends Disposable {
 	 * @returns A promise that resolves to the table schema.
 	 */
 	async getSchema(startIndex: number, numColumns: number): Promise<TableSchema> {
-		return this._positronDataExplorerComm.getSchema(startIndex, numColumns);
+		return this.runBackendTask(
+			() => this._positronDataExplorerComm.getSchema(startIndex, numColumns),
+			() => {
+				return { columns: [] };
+			}
+		);
 	}
 
 	/**
@@ -219,7 +274,12 @@ export class DataExplorerClientInstance extends Disposable {
 		numRows: number,
 		columnIndices: Array<number>
 	): Promise<TableData> {
-		return this._positronDataExplorerComm.getDataValues(rowStartIndex, numRows, columnIndices);
+		return this.runBackendTask(
+			() => this._positronDataExplorerComm.getDataValues(rowStartIndex, numRows, columnIndices),
+			() => {
+				return { columns: [[]] };
+			}
+		);
 	}
 
 	/**
@@ -230,7 +290,10 @@ export class DataExplorerClientInstance extends Disposable {
 	async getColumnProfiles(
 		profiles: Array<ColumnProfileRequest>
 	): Promise<Array<ColumnProfileResult>> {
-		return this._positronDataExplorerComm.getColumnProfiles(profiles);
+		return this.runBackendTask(
+			() => this._positronDataExplorerComm.getColumnProfiles(profiles),
+			() => []
+		);
 	}
 
 	/**
@@ -239,7 +302,12 @@ export class DataExplorerClientInstance extends Disposable {
 	 * @returns A Promise<FilterResult> that resolves when the operation is complete.
 	 */
 	async setRowFilters(filters: Array<RowFilter>): Promise<FilterResult> {
-		return this._positronDataExplorerComm.setRowFilters(filters);
+		return this.runBackendTask(
+			() => this._positronDataExplorerComm.setRowFilters(filters),
+			() => {
+				return { selected_num_rows: 0 };
+			}
+		);
 	}
 
 	/**
@@ -248,10 +316,37 @@ export class DataExplorerClientInstance extends Disposable {
 	 * @returns A Promise<void> that resolves when the operation is complete.
 	 */
 	async setSortColumns(sortKeys: Array<ColumnSortKey>): Promise<void> {
-		return this._positronDataExplorerComm.setSortColumns(sortKeys);
+		return this.runBackendTask(
+			() => this._positronDataExplorerComm.setSortColumns(sortKeys),
+			() => { }
+		);
 	}
 
 	//#endregion Public Methods
+
+	//#region Private Methods
+
+	private async runBackendTask<Type, F extends () => Promise<Type>,
+		Alt extends () => Type>(task: F, disconnectedResult: Alt) {
+		if (this.status === DataExplorerClientStatus.Disconnected) {
+			return disconnectedResult();
+		}
+		this._numPendingTasks += 1;
+		this.setStatus(DataExplorerClientStatus.Computing);
+		const result = await task();
+		this._numPendingTasks -= 1;
+		if (this._numPendingTasks === 0) {
+			this.setStatus(DataExplorerClientStatus.Idle);
+		}
+		return result;
+	}
+
+	private setStatus(status: DataExplorerClientStatus) {
+		this.status = status;
+		this._onDidStatusUpdateEmitter.fire(status);
+	}
+
+	//#endregion Private Methods
 
 	//#region Public Events
 
@@ -276,6 +371,11 @@ export class DataExplorerClientInstance extends Disposable {
 	 * Event that fires when the data has been updated.
 	 */
 	onDidDataUpdate = this._onDidDataUpdateEmitter.event;
+
+	/**
+	 * Event that fires when the status has been updated.
+	 */
+	onDidStatusUpdate = this._onDidStatusUpdateEmitter.event;
 
 	//#endregion Public Events
 }

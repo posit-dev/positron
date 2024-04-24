@@ -17,3 +17,37 @@
 	--positronActionBar-textInputSelectionForeground: var(--vscode-positronSideActionBar-textInputSelectionForeground);
 	--positronActionBar-textInputSelectionBackground: var(--vscode-positronSideActionBar-textInputSelectionBackground);
 }
+
+.positron-data-explorer
+.status-indicator {
+	padding: 0;
+	height: 20px;
+	display: flex;
+	cursor: pointer;
+	border-radius: 3px;
+	align-items: center;
+	box-sizing: border-box;
+	justify-content: center;
+	color: var(--vscode-positronDataExplorer-foreground);
+	border: 1px solid var(--vscode-positronDataExplorer-border);
+}
+
+.positron-data-explorer
+.status-indicator .title {
+	margin: 2px 8px 2px 8px;
+}
+
+.positron-data-explorer
+.status-indicator.idle {
+	background-color: #9dbb9e !important;
+}
+
+.positron-data-explorer
+.status-indicator.computing {
+	background-color: #f6e8b1 !important;
+}
+
+.positron-data-explorer
+.status-indicator.disconnected {
+	background-color: #b0b0b0 !important;
+}
