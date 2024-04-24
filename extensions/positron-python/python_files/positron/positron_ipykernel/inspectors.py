@@ -913,10 +913,7 @@ class PolarsDataFrameInspector(BaseTableInspector["pl.DataFrame", "pl.Series"]):
         return self.value.write_csv(file=None, separator="\t")
 
 
-class ConnectionInspector(ObjectInspector):
-    # in older Python versions (eg 3.9) the qualname for sqlite3.Connection is just "Connection"
-    CLASS_QNAME = ["Connection", "sqlite3.Connection", "sqlalchemy.engine.base.Engine"]
-
+class BaseConnectionInspector(ObjectInspector):
     def has_viewer(self) -> bool:
         return self._is_active(self.value)
 
@@ -931,9 +928,29 @@ class ConnectionInspector(ObjectInspector):
         raise CopyError("Connections are not copiable")
 
     def _is_active(self, value) -> bool:
+        raise NotImplementedError
+
+
+class SQLiteConnectionInspector(BaseConnectionInspector):
+    # in older Python versions (eg 3.9) the qualname for sqlite3.Connection is just "Connection"
+    CLASS_QNAME = ["Connection", "sqlite3.Connection"]
+
+    def _is_active(self, value) -> bool:
         try:
             # a connection is active if you can acquire a cursor from it
             value.cursor()
+        except Exception:
+            return False
+        return True
+
+
+class SQLAlchemyEngineInspector(BaseConnectionInspector):
+    CLASS_QNAME = ["sqlalchemy.engine.base.Engine"]
+
+    def _is_active(self, value) -> bool:
+        try:
+            # a connection is active if you can acquire a connection from it
+            value.connect()
         except Exception:
             return False
         return True
@@ -949,7 +966,8 @@ INSPECTOR_CLASSES: Dict[str, Type[PositronInspector]] = {
     **dict.fromkeys(PolarsDataFrameInspector.CLASS_QNAME, PolarsDataFrameInspector),
     **dict.fromkeys(PolarsSeriesInspector.CLASS_QNAME, PolarsSeriesInspector),
     DatetimeInspector.CLASS_QNAME: DatetimeInspector,
-    **dict.fromkeys(ConnectionInspector.CLASS_QNAME, ConnectionInspector),
+    **dict.fromkeys(SQLiteConnectionInspector.CLASS_QNAME, SQLiteConnectionInspector),
+    **dict.fromkeys(SQLAlchemyEngineInspector.CLASS_QNAME, SQLAlchemyEngineInspector),
     "boolean": BooleanInspector,
     "bytes": BytesInspector,
     "class": ClassInspector,
