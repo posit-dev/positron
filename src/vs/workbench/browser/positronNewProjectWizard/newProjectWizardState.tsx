@@ -44,10 +44,10 @@ export interface NewProjectWizardStateProps {
 }
 
 /**
- * NewProjectConfiguration interface. Defines the configuration for a new project.
- * This information is used to initialize the workspace for a new project.
+ * NewProjectWizardConfiguration interface. Used to keep track of the new project configuration state
+ * in the New Project Wizard Modal.
  */
-export interface NewProjectConfiguration {
+export interface NewProjectWizardConfiguration {
 	readonly selectedRuntime: ILanguageRuntimeMetadata | undefined;
 	readonly projectType: NewProjectType | undefined;
 	readonly projectName: string;
@@ -64,10 +64,10 @@ export interface NewProjectConfiguration {
  * NewProjectWizardState interface. Defines the state of the New Project Wizard.
  */
 export interface NewProjectWizardState extends NewProjectWizardServices {
-	projectConfig: NewProjectConfiguration;
+	projectConfig: NewProjectWizardConfiguration;
 	wizardSteps: NewProjectWizardStep[]; // TODO: remove: this is for debugging
 	currentStep: NewProjectWizardStep;
-	setProjectConfig(config: NewProjectConfiguration): void;
+	setProjectConfig(config: NewProjectWizardConfiguration): void;
 	goToNextStep: (step: NewProjectWizardStep) => void;
 	goToPreviousStep: () => void;
 }
@@ -81,13 +81,13 @@ export const useNewProjectWizardState = (
 	props: NewProjectWizardStateProps
 ): NewProjectWizardState => {
 	// Hooks.
-	const [projectConfig, setProjectConfig] = useState<NewProjectConfiguration>({
+	const [projectConfig, setProjectConfig] = useState<NewProjectWizardConfiguration>({
 		selectedRuntime: undefined,
 		projectType: undefined,
 		projectName: '',
 		parentFolder: props.parentFolder ?? '',
 		initGitRepo: false,
-		openInNewWindow: true,
+		openInNewWindow: false,
 		pythonEnvSetupType: undefined,
 		pythonEnvType: undefined,
 		installIpykernel: undefined,

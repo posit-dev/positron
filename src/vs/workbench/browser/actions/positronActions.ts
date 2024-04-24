@@ -25,6 +25,7 @@ import { IRuntimeSessionService } from 'vs/workbench/services/runtimeSession/com
 import { IRuntimeStartupService } from 'vs/workbench/services/runtimeStartup/common/runtimeStartupService';
 import { ILogService } from 'vs/platform/log/common/log';
 import { IOpenerService } from 'vs/platform/opener/common/opener';
+import { IStorageService } from 'vs/platform/storage/common/storage';
 
 /**
  * The PositronNewProjectAction.
@@ -83,6 +84,7 @@ export class PositronNewProjectAction extends Action2 {
 			accessor.get(IPathService),
 			accessor.get(IRuntimeSessionService),
 			accessor.get(IRuntimeStartupService),
+			accessor.get(IStorageService),
 		);
 	}
 }
