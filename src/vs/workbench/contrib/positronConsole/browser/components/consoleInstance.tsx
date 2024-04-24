@@ -597,6 +597,20 @@ export const ConsoleInstance = (props: ConsoleInstanceProps) => {
 		}
 	};
 
+	/**
+	 * onFocus event handler.
+	 */
+	const focusHandler = () => {
+		props.reactComponentContainer.focusChanged?.(true);
+	};
+
+	/**
+	 * onBlur event handler.
+	 */
+	const blurHandler = () => {
+		props.reactComponentContainer.focusChanged?.(false);
+	};
+
 	// Calculate the adjusted width (to account for indentation of the entire console instance).
 	const adjustedWidth = props.width - 10;
 
@@ -622,6 +636,8 @@ export const ConsoleInstance = (props: ConsoleInstanceProps) => {
 				whiteSpace: wordWrap ? 'pre-wrap' : 'pre',
 				zIndex: props.active ? 'auto' : -1
 			}}
+			onFocus={focusHandler}
+			onBlur={blurHandler}
 			onClick={clickHandler}
 			onKeyDown={keyDownHandler}
 			onMouseDown={mouseDownHandler}

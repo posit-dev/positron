@@ -125,7 +125,14 @@ export class PositronConsoleViewPane extends ViewPane implements IReactComponent
 	}
 
 	focusChanged(focused: boolean) {
+		// NOTE: A blurring event fires up when selecting text in the console
+		// (i.e. the code editor widget is no longer focused). Can/should we do
+		// better? The blurring event also happens with `ViewPane::onDidBlur()`.
 		this._positronConsoleFocusedContextKey.set(focused);
+
+		if (focused) {
+			this._onFocusedEmitter.fire();
+		}
 	}
 
 	/**
@@ -283,13 +290,6 @@ export class PositronConsoleViewPane extends ViewPane implements IReactComponent
 				reactComponentContainer={this}
 			/>
 		);
-
-		// We used to create our own focus tracker for `this.element` but the focus events
-		// did not fire correctly when the viewpane was toggled
-		this.onDidFocus(e => {
-			// Relay the event for the IReactComponentContainer `onFocused()` method.
-			this._onFocusedEmitter.fire();
-		});
 	}
 
 	/**

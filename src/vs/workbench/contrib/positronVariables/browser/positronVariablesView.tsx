@@ -121,6 +121,9 @@ export class PositronVariablesViewPane extends ViewPane implements IReactCompone
 	 */
 	focusChanged(focused: boolean) {
 		this._positronVariablesFocusedContextKey?.set(focused);
+		if (focused) {
+			this._onFocusedEmitter.fire();
+		}
 	}
 
 	/**
@@ -244,11 +247,6 @@ export class PositronVariablesViewPane extends ViewPane implements IReactCompone
 		this._positronVariablesFocusedContextKey = PositronVariablesFocused.bindTo(
 			scopedContextKeyService
 		);
-
-		this.onDidFocus(e => {
-			// Relay the event for the IReactComponentContainer `onFocused()` method.
-			this._onFocusedEmitter.fire();
-		});
 
 		// Create the PositronReactRenderer for the PositronVariables component and render it.
 		this._positronReactRenderer = new PositronReactRenderer(this._positronVariablesContainer);
