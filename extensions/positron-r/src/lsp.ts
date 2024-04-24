@@ -110,7 +110,7 @@ export class ArkLsp implements vscode.Disposable {
 				{
 					fileEvents: vscode.workspace.createFileSystemWatcher('**/*.R')
 				},
-			errorHandler: new ArkErrorHandler(this._version, port)
+			errorHandler: new ArkLanguageClientErrorHandler(this._version, port)
 		};
 
 		// With a `.` rather than a `-` so vscode-languageserver can look up related options correctly
@@ -242,9 +242,10 @@ export class ArkLsp implements vscode.Disposable {
 // behavior, and because we have state that relies on client status changes being accurate (i.e.
 // in `this._client.onDidChangeState()`). Additionally, we set `handled: true` to avoid a toast
 // notification that is inactionable from the user's point of view.
+// https://github.com/posit-dev/positron/pull/2880
 // https://github.com/microsoft/vscode-languageserver-node/blob/8e625564b531da607859b8cb982abb7cdb2fbe2e/client/src/common/client.ts#L420
 // https://github.com/microsoft/vscode-languageserver-node/blob/8e625564b531da607859b8cb982abb7cdb2fbe2e/client/src/common/client.ts#L1617
-class ArkErrorHandler implements ErrorHandler {
+class ArkLanguageClientErrorHandler implements ErrorHandler {
 	constructor(
 		private readonly _version: string,
 		private readonly _port: number
