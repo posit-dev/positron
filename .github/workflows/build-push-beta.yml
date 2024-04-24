@@ -27,7 +27,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           token: ${{ secrets.POSITRON_GITHUB_PAT }}
-          repository: posit-dev/positron-beta
+          repository: posit-dev/positron-temp-beta
           tag_name: ${{ env.RELEASE_TAG }}
           prerelease: true
           fail_on_unmatched_files: true
