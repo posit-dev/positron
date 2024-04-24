@@ -4,7 +4,7 @@
 import * as vscode from 'vscode';
 // eslint-disable-next-line import/no-unresolved
 import * as positron from 'positron';
-import { LanguageClient, LanguageClientOptions, State, StreamInfo } from 'vscode-languageclient/node';
+import { CloseAction, CloseHandlerResult, ErrorAction, ErrorHandler, ErrorHandlerResult, LanguageClient, LanguageClientOptions, Message, State, StreamInfo } from 'vscode-languageclient/node';
 import { Socket } from 'net';
 
 import { PYTHON_LANGUAGE } from '../common/constants';
@@ -45,7 +45,7 @@ export class PythonLsp implements vscode.Disposable {
         private readonly _version: string,
         private readonly _clientOptions: LanguageClientOptions,
         private readonly _notebookUri: vscode.Uri | undefined,
-    ) {}
+    ) { }
 
     /**
      * Activate the language server; returns a promise that resolves when the LSP is
@@ -84,10 +84,14 @@ export class PythonLsp implements vscode.Disposable {
         this._clientOptions.documentSelector = this._notebookUri
             ? [{ language: 'python', pattern: this._notebookUri.path }]
             : [
-                  { language: 'python', scheme: 'untitled' },
-                  { language: 'python', scheme: 'inmemory' }, // Console
-                  { language: 'python', pattern: '**/*.py' },
-              ];
+                { language: 'python', scheme: 'untitled' },
+                { language: 'python', scheme: 'inmemory' }, // Console
+                { language: 'python', pattern: '**/*.py' },
+            ];
+
+        // Override default error handler with one that doesn't automatically restart the client,
+        // and that logs to the appropriate place.
+        this._clientOptions.errorHandler = new PythonLanguageClientErrorHandler(this._version, port);
 
         traceInfo(`Creating Positron Python ${this._version} language client (port ${port})...`);
         this._client = new LanguageClient(
@@ -165,22 +169,22 @@ export class PythonLsp implements vscode.Disposable {
         // partially initialized client.
         await this._initializing;
 
-        const promise = awaitStop
-            ? // If the kernel hasn't exited, we can just await the promise directly
-              this._client!.stop()
-            : // The promise returned by `stop()` never resolves if the server
-              // side is disconnected, so rather than awaiting it when the runtime
-              // has exited, we wait for the client to change state to `stopped`,
-              // which does happen reliably.
-              new Promise<void>((resolve) => {
-                  const disposable = this._client!.onDidChangeState((event) => {
-                      if (event.newState === State.Stopped) {
-                          resolve();
-                          disposable.dispose();
-                      }
-                  });
-                  this._client!.stop();
-              });
+        const promise = awaitStop ?
+            // If the kernel hasn't exited, we can just await the promise directly
+            this._client!.stop() :
+            // The promise returned by `stop()` never resolves if the server
+            // side is disconnected, so rather than awaiting it when the runtime
+            // has exited, we wait for the client to change state to `stopped`,
+            // which does happen reliably.
+            new Promise<void>((resolve) => {
+                const disposable = this._client!.onDidChangeState((event) => {
+                    if (event.newState === State.Stopped) {
+                        resolve();
+                        disposable.dispose();
+                    }
+                });
+                this._client!.stop();
+            });
 
         // Don't wait more than a couple of seconds for the client to stop.
         const timeout = new Promise<void>((_, reject) => {
@@ -230,5 +234,31 @@ export class PythonLsp implements vscode.Disposable {
     async dispose(): Promise<void> {
         this.activationDisposables.forEach((d) => d.dispose());
         await this.deactivate(false);
+    }
+}
+
+// The `DefaultErrorHandler` adds restarts on close, which we don't want. We want to be fully in
+// control over restarting the client side of the LSP, both because we have our own runtime restart
+// behavior, and because we have state that relies on client status changes being accurate (i.e.
+// in `this._client.onDidChangeState()`). Additionally, we set `handled: true` to avoid a toast
+// notification that is inactionable from the user's point of view.
+// https://github.com/posit-dev/positron/pull/2880
+// https://github.com/microsoft/vscode-languageserver-node/blob/8e625564b531da607859b8cb982abb7cdb2fbe2e/client/src/common/client.ts#L420
+// https://github.com/microsoft/vscode-languageserver-node/blob/8e625564b531da607859b8cb982abb7cdb2fbe2e/client/src/common/client.ts#L1617
+class PythonLanguageClientErrorHandler implements ErrorHandler {
+    constructor(
+        private readonly _version: string,
+        private readonly _port: number
+    ) {
+    }
+
+    public error(error: Error, _message: Message, count: number): ErrorHandlerResult {
+        traceInfo(`Python (${this._version}) language client error occurred (port ${this._port}). '${error.name}' with message: ${error.message}. This is error number ${count}.`);
+        return { action: ErrorAction.Shutdown };
+    }
+
+    public closed(): CloseHandlerResult {
+        traceInfo(`Python (${this._version}) language client was closed unexpectedly (port ${this._port}).`);
+        return { action: CloseAction.DoNotRestart, handled: true };
     }
 }
