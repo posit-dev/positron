@@ -37,7 +37,7 @@ export const RuntimeRestartButton = (props: RuntimeRestartButtonProps) => {
 		}));
 
 		return () => disposableStore.dispose();
-	});
+        },[props.positronConsoleInstance]);
 
 	const handleRestart = () => {
 		// Invoke the restart callback.
