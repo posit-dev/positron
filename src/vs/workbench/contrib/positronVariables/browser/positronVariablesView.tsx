@@ -281,8 +281,7 @@ export class PositronVariablesViewPane extends ViewPane implements IReactCompone
 		// Call the base class's method.
 		super.focus();
 
-		// Trigger event that eventually causes console input widgets (main
-		// input, readline input, or restart buttons) to focus
+		// Trigger event that eventually causes variable pane widgets to focus
 		this._positronVariablesService.activePositronVariablesInstance?.focusElement();
 	}
 
