@@ -46,7 +46,7 @@ export class PythonLsp implements vscode.Disposable {
         private readonly _version: string,
         private readonly _clientOptions: LanguageClientOptions,
         private readonly _notebookUri: vscode.Uri | undefined,
-    ) { }
+    ) {}
 
     /**
      * Activate the language server; returns a promise that resolves when the LSP is
@@ -85,10 +85,10 @@ export class PythonLsp implements vscode.Disposable {
         this._clientOptions.documentSelector = this._notebookUri
             ? [{ language: 'python', pattern: this._notebookUri.path }]
             : [
-                { language: 'python', scheme: 'untitled' },
-                { language: 'python', scheme: 'inmemory' }, // Console
-                { language: 'python', pattern: '**/*.py' },
-            ];
+                  { language: 'python', scheme: 'untitled' },
+                  { language: 'python', scheme: 'inmemory' }, // Console
+                  { language: 'python', pattern: '**/*.py' },
+              ];
 
         // Override default error handler with one that doesn't automatically restart the client,
         // and that logs to the appropriate place.
@@ -170,22 +170,22 @@ export class PythonLsp implements vscode.Disposable {
         // partially initialized client.
         await this._initializing;
 
-        const promise = awaitStop ?
-            // If the kernel hasn't exited, we can just await the promise directly
-            this._client!.stop() :
-            // The promise returned by `stop()` never resolves if the server
-            // side is disconnected, so rather than awaiting it when the runtime
-            // has exited, we wait for the client to change state to `stopped`,
-            // which does happen reliably.
-            new Promise<void>((resolve) => {
-                const disposable = this._client!.onDidChangeState((event) => {
-                    if (event.newState === State.Stopped) {
-                        resolve();
-                        disposable.dispose();
-                    }
-                });
-                this._client!.stop();
-            });
+        const promise = awaitStop
+            ? // If the kernel hasn't exited, we can just await the promise directly
+              this._client!.stop()
+            : // The promise returned by `stop()` never resolves if the server
+              // side is disconnected, so rather than awaiting it when the runtime
+              // has exited, we wait for the client to change state to `stopped`,
+              // which does happen reliably.
+              new Promise<void>((resolve) => {
+                  const disposable = this._client!.onDidChangeState((event) => {
+                      if (event.newState === State.Stopped) {
+                          resolve();
+                          disposable.dispose();
+                      }
+                  });
+                  this._client!.stop();
+              });
 
         // Don't wait more than a couple of seconds for the client to stop.
         const timeout = new Promise<void>((_, reject) => {

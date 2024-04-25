@@ -5,12 +5,12 @@
 // Keep in sync with positron-r's `error-handler.ts`
 
 import {
-	CloseAction,
-	CloseHandlerResult,
-	ErrorAction,
-	ErrorHandler,
-	ErrorHandlerResult,
-	Message
+    CloseAction,
+    CloseHandlerResult,
+    ErrorAction,
+    ErrorHandler,
+    ErrorHandlerResult,
+    Message,
 } from 'vscode-languageclient/node';
 
 import { traceWarn } from '../logging';
@@ -24,19 +24,17 @@ import { traceWarn } from '../logging';
 // https://github.com/microsoft/vscode-languageserver-node/blob/8e625564b531da607859b8cb982abb7cdb2fbe2e/client/src/common/client.ts#L420
 // https://github.com/microsoft/vscode-languageserver-node/blob/8e625564b531da607859b8cb982abb7cdb2fbe2e/client/src/common/client.ts#L1617
 export class PythonErrorHandler implements ErrorHandler {
-	constructor(
-		private readonly _version: string,
-		private readonly _port: number
-	) {
-	}
+    constructor(private readonly _version: string, private readonly _port: number) {}
 
-	public error(error: Error, _message: Message, count: number): ErrorHandlerResult {
-		traceWarn(`Python (${this._version}) language client error occurred (port ${this._port}). '${error.name}' with message: ${error.message}. This is error number ${count}.`);
-		return { action: ErrorAction.Shutdown };
-	}
+    public error(error: Error, _message: Message, count: number): ErrorHandlerResult {
+        traceWarn(
+            `Python (${this._version}) language client error occurred (port ${this._port}). '${error.name}' with message: ${error.message}. This is error number ${count}.`,
+        );
+        return { action: ErrorAction.Shutdown };
+    }
 
-	public closed(): CloseHandlerResult {
-		traceWarn(`Python (${this._version}) language client was closed unexpectedly (port ${this._port}).`);
-		return { action: CloseAction.DoNotRestart, handled: true };
-	}
+    public closed(): CloseHandlerResult {
+        traceWarn(`Python (${this._version}) language client was closed unexpectedly (port ${this._port}).`);
+        return { action: CloseAction.DoNotRestart, handled: true };
+    }
 }
