@@ -17,3 +17,38 @@
 .label {
 	opacity: 80%;
 }
+
+.data-explorer-panel
+.status-bar
+.status-bar-indicator {
+	cursor: pointer;
+	border-radius: 3px;
+	box-sizing: border-box;
+	justify-content: left;
+	display: flex;
+}
+
+.data-explorer-panel
+.status-bar
+.status-bar-indicator
+.action-bar-separator {
+	margin-left: 4px;
+}
+
+.data-explorer-panel
+.status-bar
+.status-bar-indicator .title {
+	margin: 0 6px 0px 2px;
+}
+
+.data-explorer-panel
+.status-bar
+.status-bar-indicator .title.computing {
+	background-color: var(--vscode-positronDataExplorer-statusIndicatorComputing) !important;
+}
+
+.data-explorer-panel
+.status-bar
+.status-bar-indicator .title.disconnected {
+	background-color: var(--vscode-positronDataExplorer-statusIndicatorDisconnected) !important;
+}

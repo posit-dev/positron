@@ -129,10 +129,10 @@ export class DataExplorerClientInstance extends Disposable {
 			this._onDidDataUpdateEmitter.fire();
 		}));
 
-		this.onDidClose(() => {
+		this._register(this.onDidClose(() => {
 			this.status = DataExplorerClientStatus.Disconnected;
 			this._onDidStatusUpdateEmitter.fire(this.status);
-		});
+		}));
 	}
 
 	//#endregion Constructor & Dispose
