@@ -2,7 +2,7 @@
  *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 import { IPositronNotebookCell } from 'vs/workbench/contrib/positronNotebook/browser/notebookCells/interfaces';
-import { assign, setup } from 'xstate';
+import { assign, not, setup } from 'xstate';
 
 type SingleSelection = IPositronNotebookCell;
 type MultiSelection = IPositronNotebookCell[];
@@ -25,9 +25,26 @@ export const selectionMachine = setup({
 			| { type: 'escapePress' }
 			| { type: 'enterPress' }
 			| { type: 'arrowKeys'; up: boolean; meta: boolean }
-			| { type: 'selectCell'; cell: IPositronNotebookCell }
+			| { type: 'selectCell'; cell: IPositronNotebookCell; editMode: boolean }
 			| { type: 'deselectCell'; cell: IPositronNotebookCell }
 	},
+	guards: {
+		isMetaKey: (_, params: { meta: boolean }) => {
+			return params.meta;
+		},
+		isNotMetaKey: (_, params: { meta: boolean }) => {
+			return !params.meta;
+		},
+		twoItemsSelected: ({ context }, params: unknown) => {
+			return Array.isArray(context.selectedCells) && context.selectedCells.length === 2;
+		},
+		isEditMode: (_, params: { editMode: boolean }) => {
+			return params.editMode;
+		},
+		isNotEditMode: (_, params: { editMode: boolean }) => {
+			return !params.editMode;
+		}
+	}
 }).createMachine({
 	context: { cells: [], selectedCells: null, editingCell: false },
 	id: 'NotebookSelection',
@@ -44,24 +61,16 @@ export const selectionMachine = setup({
 			}
 		},
 		'No Selection': {
-			on: {
-				selectCell: {
-					target: 'Single Selection',
-					actions: assign({
-						selectedCells: ({ context, event }) => {
-							return event.cell;
-						},
-					}),
-				},
-			},
 		},
 		'Single Selection': {
-			initial: 'notEditing',
 			on: {
-				'arrowKeys': [
+				arrowKeys: [
 					{
 						target: 'Multi Selection',
-						guard: ({ event }) => event.meta,
+						guard: {
+							type: 'isMetaKey',
+							params: ({ event }) => ({ meta: event.meta })
+						},
 						actions: assign({
 							selectedCells: ({ context, event }) => {
 								const currentSelection = context.selectedCells as SingleSelection;
@@ -73,7 +82,10 @@ export const selectionMachine = setup({
 					},
 					{
 						target: 'Single Selection',
-						guard: ({ event }) => !event.meta,
+						guard: {
+							type: 'isNotMetaKey',
+							params: ({ event }) => ({ meta: event.meta })
+						},
 						actions: assign({
 							selectedCells: ({ context, event }) => {
 								const currentSelection = context.selectedCells as SingleSelection;
@@ -89,30 +101,23 @@ export const selectionMachine = setup({
 					actions: assign({
 						selectedCells: null,
 					})
-				}
-			},
-			states: {
-				'editing': {
-					on: {
-						escapePress: {
-							target: 'notEditing',
-							actions: assign({
-								selectedCells: ({ context }) => null
-							}),
-						},
-					}
 				},
-				'notEditing': {
-					on: {
-						enterPress: {
-							target: 'editing',
-							actions: assign({
-								editingCell: true,
-							})
-						},
-
-					},
-				}
+				enterPress: {
+					target: 'Editing Selection',
+					actions: assign({
+						editingCell: true,
+					})
+				},
+			}
+		},
+		'Editing Selection': {
+			on: {
+				escapePress: {
+					target: 'Single Selection',
+					actions: assign({
+						editingCell: false,
+					}),
+				},
 			}
 		},
 		'Multi Selection': {
@@ -138,12 +143,7 @@ export const selectionMachine = setup({
 				deselectCell: [
 					{
 						target: 'Single Selection',
-						guard: ({ context, event }) => {
-							const currentSelection = context.selectedCells as MultiSelection;
-							// Are there just two cells selected? If so deselecting one
-							// will lead to the single selection state
-							return currentSelection.length === 2;
-						},
+						guard: 'twoItemsSelected',
 						actions: assign({
 							selectedCells: ({ context, event }) => {
 								const currentSelection = context.selectedCells as MultiSelection;
@@ -153,12 +153,7 @@ export const selectionMachine = setup({
 					},
 					{
 						target: 'Multi Selection',
-						guard: ({ context, event }) => {
-							const currentSelection = context.selectedCells as MultiSelection;
-							// Are there more than two cells selected? If so deselecting one
-							// will keep the multi selection state
-							return currentSelection.length > 2;
-						},
+						guard: not('twoItemsSelected'),
 						actions: assign({
 							selectedCells: ({ context, event }) => {
 								const currentSelection = context.selectedCells as MultiSelection;
@@ -169,15 +164,35 @@ export const selectionMachine = setup({
 				]
 			},
 		},
-		// 'Editing Cell': {
-		// 	on: {
-		// 		escapePress: {
-		// 			target: 'Selection',
-		// 			actions: assign({
-		// 				editingCell: false
-		// 			}),
-		// 		},
-		// 	},
-		// },
+	},
+	on: {
+		selectCell: [
+			{
+				target: '.Single Selection',
+				guard: {
+					type: 'isNotEditMode',
+					params: ({ event }) => ({ editMode: event.editMode })
+				},
+				actions: assign({
+					selectedCells: ({ context, event }) => {
+						return event.cell;
+					},
+					editingCell: false
+				}),
+			},
+			{
+				target: '.Editing Selection',
+				guard: {
+					type: 'isEditMode',
+					params: ({ event }) => ({ editMode: event.editMode })
+				},
+				actions: assign({
+					selectedCells: ({ context, event }) => {
+						return event.cell;
+					},
+					editingCell: true
+				}),
+			}
+		],
 	},
 });
