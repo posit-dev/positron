@@ -222,17 +222,8 @@ export class PositronConsoleViewPane extends ViewPane implements IReactComponent
 
 		// Register the onDidChangeBodyVisibility event handler.
 		this._register(this.onDidChangeBodyVisibility(visible => {
-			// The browser will automatically set scrollTop to 0 on child components that have been
-			// hidden and made visible. (This is called "desperate" elsewhere in Visual Studio Code.
-			// Search for that word and you'll see other examples of hacks that have been added to
-			// to fix this problem.) IReactComponentContainers can counteract this behavior by
-			// firing onSaveScrollPosition and onRestoreScrollPosition events to have their children
-			// save and restore their scroll positions.
-			if (!visible) {
-				this._onSaveScrollPositionEmitter.fire();
-			} else {
-				this._onRestoreScrollPositionEmitter.fire();
-			}
+			// Relay event for our `IReactComponentContainer` implementation
+			this._onVisibilityChangedEmitter.fire(visible);
 		}));
 	}
 

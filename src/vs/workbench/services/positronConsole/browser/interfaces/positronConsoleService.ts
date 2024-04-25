@@ -148,6 +148,16 @@ export interface IPositronConsoleInstance {
 	readonly runtimeAttached: boolean;
 
 	/**
+	 * Is scroll-lock engaged?
+	 */
+	scrollLocked: boolean;
+
+	/**
+	 * Last saved scroll top.
+	 */
+	lastScrollTop: number;
+
+	/**
 	 * The onFocusInput event.
 	 */
 	readonly onFocusInput: Event<void>;
