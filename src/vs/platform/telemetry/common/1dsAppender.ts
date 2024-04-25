@@ -21,8 +21,8 @@ export interface IAppInsightsCore {
 // --- Start Positron ---
 // const endpointUrl = 'https://mobile.events.data.microsoft.com/OneCollector/1.0';
 // const endpointHealthUrl = 'https://mobile.events.data.microsoft.com/ping';
-const endpointUrl = 'https://mobile.events.0.0.0.0/OneCollector/1.0';
-const endpointHealthUrl = 'https://mobile.events.0.0.0.0/ping';
+const endpointUrl = 'https://0.0.0.0/OneCollector/1.0';
+const endpointHealthUrl = 'https://0.0.0.0/ping';
 // --- End Positron ---
 
 async function getClient(instrumentationKey: string, addInternalFlag?: boolean, xhrOverride?: IXHROverride): Promise<IAppInsightsCore> {
