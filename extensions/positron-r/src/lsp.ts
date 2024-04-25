@@ -10,14 +10,8 @@ import { LOGGER } from './extension';
 import { RErrorHandler } from './error-handler';
 
 import {
-	CloseAction,
-	CloseHandlerResult,
-	ErrorAction,
-	ErrorHandler,
-	ErrorHandlerResult,
 	LanguageClient,
 	LanguageClientOptions,
-	Message,
 	State,
 	StreamInfo,
 } from 'vscode-languageclient/node';
