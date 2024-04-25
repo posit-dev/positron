@@ -322,10 +322,14 @@ export const ConsoleInstance = (props: ConsoleInstanceProps) => {
 				// scrolling to 0 followed by our scroll to `lastScrollTop` is
 				// unfortunately noticeable, though not too bad.
 				setTimeout(() => {
-					if (props.positronConsoleInstance.scrollLocked) {
-						scrollVertically(props.positronConsoleInstance.lastScrollTop);
-					} else {
-						scrollToBottom();
+					// Since we are in a timeout and teardown might have been called,
+					// check that our component is still mounted
+					if (consoleInstanceRef.current) {
+						if (props.positronConsoleInstance.scrollLocked) {
+							scrollVertically(props.positronConsoleInstance.lastScrollTop);
+						} else {
+							scrollToBottom();
+						}
 					}
 				});
 			}
