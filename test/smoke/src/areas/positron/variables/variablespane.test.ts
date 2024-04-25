@@ -34,6 +34,8 @@ export function setup(logger: Logger) {
 			await app.code.waitForElement(POSITRON_MODAL_POPUP);
 
 			const primaryPython = await awaitDesiredPrimaryInterpreterGroupLoaded(app, desiredInterpreterType);
+			console.log(`Found primary python ${primaryPython.description} at index ${primaryPython.index}`, {});
+			// remove me:
 			logger.log(`Found primary python ${primaryPython.description} at index ${primaryPython.index}`, {});
 
 			const primaryIsMatch = primaryPython.description.includes(desiredPython);
@@ -50,29 +52,36 @@ export function setup(logger: Logger) {
 				}
 
 			} else {
+				console.log('Primary Python interpreter matched');
 				await app.code.waitAndClick(INTERPRETER_GROUPS, primaryPython.index);
 			}
 
-			await app.code.wait(1000);
+			await app.code.wait(5000);
 
 			// best way to handle something that might not be present?
 			try {
 				await app.code.waitForElement(POSITRON_MODAL_DIALOG_BOX, undefined, 50);
 				await app.code.waitAndClick(POSITRON_MODAL_DIALOG_BOX_OK);
 				console.log('Installed ipykernel');
-				await app.code.wait(10000); // need to look for cursor instead
+				await app.code.wait(20000); // need to look for cursor instead
 			} catch { }
+
+			const consoleTextContainer = await app.code.getElements('.console-instance .runtime-items div', false);
+			consoleTextContainer?.forEach(item => console.log(item.textContent));
+			console.log('*****');
 
 			await app.code.driver.typeKeys('.lines-content .view-lines div', 'x=1\n');
 			await app.code.driver.typeKeys('.lines-content .view-lines div', 'y=10\n');
 			await app.code.driver.typeKeys('.lines-content .view-lines div', 'z=100\n');
 
+			await app.code.driver.takeScreenshot('bug');
+
 			console.log('Entered lines in console defining variables');
 
 			await app.code.wait(5000);
 
-			const consoleTextContainer = await app.code.getElements('.console-instance .runtime-items div', false);
-			consoleTextContainer?.forEach(item => console.log(item.textContent));
+			const consoleTextContainer2 = await app.code.getElements('.console-instance .runtime-items div', false);
+			consoleTextContainer2?.forEach(item => console.log(item.textContent));
 
 			const variablesLocator = app.code.driver.getLocator('.variables-instance .list .variable-item');
 			const nameLocators = variablesLocator.locator('.name-column');
