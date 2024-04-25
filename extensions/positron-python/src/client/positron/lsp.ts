@@ -4,7 +4,7 @@
 import * as vscode from 'vscode';
 // eslint-disable-next-line import/no-unresolved
 import * as positron from 'positron';
-import { CloseAction, CloseHandlerResult, ErrorAction, ErrorHandler, ErrorHandlerResult, LanguageClient, LanguageClientOptions, Message, State, StreamInfo } from 'vscode-languageclient/node';
+import { LanguageClient, LanguageClientOptions, State, StreamInfo } from 'vscode-languageclient/node';
 import { Socket } from 'net';
 
 import { PYTHON_LANGUAGE } from '../common/constants';
@@ -12,6 +12,7 @@ import { IServiceContainer } from '../ioc/types';
 import { traceError, traceInfo } from '../logging';
 import { ProgressReporting } from '../activation/progress';
 import { PromiseHandles } from './util';
+import { PythonErrorHandler } from './errorHandler';
 import { PythonHelpTopicProvider } from './help';
 import { PythonStatementRangeProvider } from './statementRange';
 
@@ -91,7 +92,7 @@ export class PythonLsp implements vscode.Disposable {
 
         // Override default error handler with one that doesn't automatically restart the client,
         // and that logs to the appropriate place.
-        this._clientOptions.errorHandler = new PythonLanguageClientErrorHandler(this._version, port);
+        this._clientOptions.errorHandler = new PythonErrorHandler(this._version, port);
 
         traceInfo(`Creating Positron Python ${this._version} language client (port ${port})...`);
         this._client = new LanguageClient(
@@ -234,31 +235,5 @@ export class PythonLsp implements vscode.Disposable {
     async dispose(): Promise<void> {
         this.activationDisposables.forEach((d) => d.dispose());
         await this.deactivate(false);
-    }
-}
-
-// The `DefaultErrorHandler` adds restarts on close, which we don't want. We want to be fully in
-// control over restarting the client side of the LSP, both because we have our own runtime restart
-// behavior, and because we have state that relies on client status changes being accurate (i.e.
-// in `this._client.onDidChangeState()`). Additionally, we set `handled: true` to avoid a toast
-// notification that is inactionable from the user's point of view.
-// https://github.com/posit-dev/positron/pull/2880
-// https://github.com/microsoft/vscode-languageserver-node/blob/8e625564b531da607859b8cb982abb7cdb2fbe2e/client/src/common/client.ts#L420
-// https://github.com/microsoft/vscode-languageserver-node/blob/8e625564b531da607859b8cb982abb7cdb2fbe2e/client/src/common/client.ts#L1617
-class PythonLanguageClientErrorHandler implements ErrorHandler {
-    constructor(
-        private readonly _version: string,
-        private readonly _port: number
-    ) {
-    }
-
-    public error(error: Error, _message: Message, count: number): ErrorHandlerResult {
-        traceInfo(`Python (${this._version}) language client error occurred (port ${this._port}). '${error.name}' with message: ${error.message}. This is error number ${count}.`);
-        return { action: ErrorAction.Shutdown };
-    }
-
-    public closed(): CloseHandlerResult {
-        traceInfo(`Python (${this._version}) language client was closed unexpectedly (port ${this._port}).`);
-        return { action: CloseAction.DoNotRestart, handled: true };
     }
 }

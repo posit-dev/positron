@@ -7,6 +7,7 @@ import * as positron from 'positron';
 import { PromiseHandles, timeout } from './util';
 import { RStatementRangeProvider } from './statement-range';
 import { LOGGER } from './extension';
+import { RErrorHandler } from './error-handler';
 
 import {
 	CloseAction,
@@ -110,7 +111,7 @@ export class ArkLsp implements vscode.Disposable {
 				{
 					fileEvents: vscode.workspace.createFileSystemWatcher('**/*.R')
 				},
-			errorHandler: new ArkLanguageClientErrorHandler(this._version, port)
+			errorHandler: new RErrorHandler(this._version, port)
 		};
 
 		// With a `.` rather than a `-` so vscode-languageserver can look up related options correctly
@@ -234,31 +235,5 @@ export class ArkLsp implements vscode.Disposable {
 	async dispose() {
 		this.activationDisposables.forEach(d => d.dispose());
 		await this.deactivate(false);
-	}
-}
-
-// The `DefaultErrorHandler` adds restarts on close, which we don't want. We want to be fully in
-// control over restarting the client side of the LSP, both because we have our own runtime restart
-// behavior, and because we have state that relies on client status changes being accurate (i.e.
-// in `this._client.onDidChangeState()`). Additionally, we set `handled: true` to avoid a toast
-// notification that is inactionable from the user's point of view.
-// https://github.com/posit-dev/positron/pull/2880
-// https://github.com/microsoft/vscode-languageserver-node/blob/8e625564b531da607859b8cb982abb7cdb2fbe2e/client/src/common/client.ts#L420
-// https://github.com/microsoft/vscode-languageserver-node/blob/8e625564b531da607859b8cb982abb7cdb2fbe2e/client/src/common/client.ts#L1617
-class ArkLanguageClientErrorHandler implements ErrorHandler {
-	constructor(
-		private readonly _version: string,
-		private readonly _port: number
-	) {
-	}
-
-	public error(error: Error, _message: Message, count: number): ErrorHandlerResult {
-		LOGGER.error(`ARK (R ${this._version}) language client error occurred (port ${this._port}). '${error.name}' with message: ${error.message}. This is error number ${count}.`);
-		return { action: ErrorAction.Shutdown };
-	}
-
-	public closed(): CloseHandlerResult {
-		LOGGER.info(`ARK (R ${this._version}) language client was closed unexpectedly (port ${this._port}).`);
-		return { action: CloseAction.DoNotRestart, handled: true };
 	}
 }
