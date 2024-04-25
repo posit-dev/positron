@@ -333,12 +333,14 @@ export class DataExplorerClientInstance extends Disposable {
 		}
 		this._numPendingTasks += 1;
 		this.setStatus(DataExplorerClientStatus.Computing);
-		const result = await task();
-		this._numPendingTasks -= 1;
-		if (this._numPendingTasks === 0) {
-			this.setStatus(DataExplorerClientStatus.Idle);
+		try {
+			return await task();
+		} finally {
+			this._numPendingTasks -= 1;
+			if (this._numPendingTasks === 0) {
+				this.setStatus(DataExplorerClientStatus.Idle);
+			}
 		}
-		return result;
 	}
 
 	private setStatus(status: DataExplorerClientStatus) {
