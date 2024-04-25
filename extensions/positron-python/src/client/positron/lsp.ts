@@ -12,6 +12,7 @@ import { IServiceContainer } from '../ioc/types';
 import { traceError, traceInfo } from '../logging';
 import { ProgressReporting } from '../activation/progress';
 import { PromiseHandles } from './util';
+import { PythonErrorHandler } from './errorHandler';
 import { PythonHelpTopicProvider } from './help';
 import { PythonStatementRangeProvider } from './statementRange';
 
@@ -88,6 +89,10 @@ export class PythonLsp implements vscode.Disposable {
                   { language: 'python', scheme: 'inmemory' }, // Console
                   { language: 'python', pattern: '**/*.py' },
               ];
+
+        // Override default error handler with one that doesn't automatically restart the client,
+        // and that logs to the appropriate place.
+        this._clientOptions.errorHandler = new PythonErrorHandler(this._version, port);
 
         traceInfo(`Creating Positron Python ${this._version} language client (port ${port})...`);
         this._client = new LanguageClient(
