@@ -890,7 +890,7 @@ export class LanguageRuntimeSessionAdapter
 		this._kernel.log(`Starting LSP server ${clientId} for ${clientAddress}`);
 
 		// Notify Positron that we're handling messages from this client
-		positron.runtime.registerClientInstance(clientId);
+		this._disposables.push(positron.runtime.registerClientInstance(clientId));
 
 		await this.createClient(
 			clientId,
@@ -929,7 +929,7 @@ export class LanguageRuntimeSessionAdapter
 		this._kernel.log(`Starting DAP server ${clientId} for ${serverAddress}`);
 
 		// Notify Positron that we're handling messages from this client
-		positron.runtime.registerClientInstance(clientId);
+		this._disposables.push(positron.runtime.registerClientInstance(clientId));
 
 		await this.createClient(
 			clientId,
