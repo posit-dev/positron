@@ -11,6 +11,7 @@ import { OutputLines } from 'vs/workbench/contrib/positronConsole/browser/compon
 import { IPositronConsoleInstance } from 'vs/workbench/services/positronConsole/browser/interfaces/positronConsoleService';
 import { ActivityItemPrompt, ActivityItemPromptState } from 'vs/workbench/services/positronConsole/browser/classes/activityItemPrompt';
 import { usePositronConsoleContext } from 'vs/workbench/contrib/positronConsole/browser/positronConsoleContext';
+import { isMacintosh } from 'vs/base/common/platform';
 
 // ActivityPromptProps interface.
 export interface ActivityPromptProps {
@@ -28,7 +29,7 @@ export const ActivityPrompt = (props: ActivityPromptProps) => {
 	const inputRef = useRef<HTMLInputElement>(undefined!);
 
 	// Get services from the context.
-	const { openerService, notificationService } = usePositronConsoleContext();
+	const { openerService, notificationService, clipboardService } = usePositronConsoleContext();
 
 	/**
 	 * Readies the input.
@@ -75,44 +76,112 @@ export const ActivityPrompt = (props: ActivityPromptProps) => {
 			e.stopPropagation();
 		};
 
-		// Process the key.
-		switch (e.key) {
-			// Enter key.
-			case 'Enter': {
-				// Consume the event.
-				consumeEvent();
+		// Determine that a key is pressed without any modifiers
+		const noModifierKey = !e.ctrlKey && !e.metaKey && !e.shiftKey && !e.altKey;
 
-				// Upate the prompt state and reply to it.
-				const value = inputRef.current?.value;
-				props.activityItemPrompt.state = ActivityItemPromptState.Answered;
-				props.activityItemPrompt.answer = !props.activityItemPrompt.password ? value : '';
-				props.positronConsoleInstance.replyToPrompt(props.activityItemPrompt.id, value);
-				break;
-			}
+		// Determine whether the ctrl key is pressed without other modifiers.
+		const onlyCtrlKey = e.ctrlKey && !e.metaKey && !e.shiftKey && !e.altKey;
 
-			// Escape key.
-			case 'Escape': {
-				// Consume the event.
-				consumeEvent();
+		// Determine whether the cmd or ctrl key is pressed without other modifiers.
+		const onlyCmdOrCtrlKey = (isMacintosh ? e.metaKey : e.ctrlKey) &&
+			(isMacintosh ? !e.ctrlKey : !e.metaKey) &&
+			!e.shiftKey &&
+			!e.altKey;
 
-				// Update the prompt state and interrupt it.
-				props.activityItemPrompt.state = ActivityItemPromptState.Interrupted;
-				props.positronConsoleInstance.interruptPrompt(props.activityItemPrompt.id);
-				break;
-			}
+		if (noModifierKey) {
+			switch (e.key) {
+				// Enter key.
+				case 'Enter': {
+					// Consume the event.
+					consumeEvent();
 
-			// C key.
-			case 'c': {
-				// Handle Ctrl+C.
-				if (e.ctrlKey) {
+					// Upate the prompt state and reply to it.
+					const value = inputRef.current?.value;
+					props.activityItemPrompt.state = ActivityItemPromptState.Answered;
+					props.activityItemPrompt.answer = !props.activityItemPrompt.password ? value : '';
+					props.positronConsoleInstance.replyToPrompt(props.activityItemPrompt.id, value);
+					return;
+				}
+
+				// Escape key.
+				case 'Escape': {
 					// Consume the event.
 					consumeEvent();
 
 					// Update the prompt state and interrupt it.
 					props.activityItemPrompt.state = ActivityItemPromptState.Interrupted;
 					props.positronConsoleInstance.interruptPrompt(props.activityItemPrompt.id);
+					return;
 				}
-				break;
+
+				default: {
+					return;
+				}
+			}
+		}
+
+		if (onlyCtrlKey) {
+			switch (e.key) {
+				// C key.
+				case 'c': {
+					consumeEvent();
+
+					// Update the prompt state and interrupt it.
+					props.activityItemPrompt.state = ActivityItemPromptState.Interrupted;
+					props.positronConsoleInstance.interruptPrompt(props.activityItemPrompt.id);
+					return;
+				}
+
+				default: {
+					return;
+				}
+			}
+		}
+
+		if (onlyCmdOrCtrlKey) {
+			switch (e.key) {
+				// Select all handler
+				case 'a': {
+					consumeEvent();
+
+					const input = inputRef.current;
+					if (!input) {
+						return;
+					}
+
+					inputRef.current.selectionStart = 0;
+					inputRef.current.selectionEnd = input.value.length;
+
+					return;
+				}
+
+				// Paste handler
+				case 'v': {
+					// This is a stopgap implementation. Because we are
+					// manipulating the HTML directly, undo/redo does not work
+					// as expected after pasting.
+					consumeEvent();
+
+					const input = inputRef.current;
+					if (!input) {
+						return;
+					}
+
+					const clipboard = await clipboardService.readText();
+
+					const start = input.selectionStart!;
+					const before = input.value.substring(0, start);
+					const after = input.value.substring(input.selectionEnd!);
+					inputRef.current.value = before + clipboard + after;
+					inputRef.current.selectionStart = start + clipboard.length;
+					inputRef.current.selectionEnd = start + clipboard.length;
+
+					return;
+				}
+
+				default: {
+					return;
+				}
 			}
 		}
 	};
