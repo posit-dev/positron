@@ -94,6 +94,12 @@ export interface IPositronVariablesInstance {
 	readonly onDidChangeState: Event<RuntimeClientState>;
 
 	/**
+	 * The onFocusElement event.
+	 * Used by variable widgets to respond to focus requests.
+	 */
+	readonly onFocusElement: Event<void>;
+
+	/**
 	 * Requests refresh.
 	 */
 	requestRefresh(): void;
@@ -139,4 +145,9 @@ export interface IPositronVariablesInstance {
 	 * @param filterText The filter text.
 	 */
 	setFilterText(filterText: string): void;
+
+	/**
+	 * Focuses element in the variable tree.
+	 */
+	focusElement(): void;
 }

@@ -121,6 +121,9 @@ export class PositronVariablesViewPane extends ViewPane implements IReactCompone
 	 */
 	focusChanged(focused: boolean) {
 		this._positronVariablesFocusedContextKey?.set(focused);
+		if (focused) {
+			this._onFocusedEmitter.fire();
+		}
 	}
 
 	/**
@@ -202,6 +205,12 @@ export class PositronVariablesViewPane extends ViewPane implements IReactCompone
 			themeService,
 			telemetryService);
 
+		// Make the viewpane focusable even when there are no components
+		// available to take the focus. The viewpane must be able to take focus
+		// at all times because otherwise blurring events do not occur and the
+		// viewpane management state becomes confused on toggle.
+		this.element.tabIndex = 0;
+
 		// Register the onDidChangeBodyVisibility event handler.
 		this._register(this.onDidChangeBodyVisibility(visible => {
 			// The browser will automatically set scrollTop to 0 on child components that have been
@@ -272,8 +281,8 @@ export class PositronVariablesViewPane extends ViewPane implements IReactCompone
 		// Call the base class's method.
 		super.focus();
 
-		// Fire the onFocused event.
-		this._onFocusedEmitter.fire();
+		// Trigger event that eventually causes variable pane widgets to focus
+		this._positronVariablesService.activePositronVariablesInstance?.focusElement();
 	}
 
 	/**

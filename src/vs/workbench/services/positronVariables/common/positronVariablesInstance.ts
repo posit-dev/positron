@@ -102,6 +102,11 @@ export class PositronVariablesInstance extends Disposable implements IPositronVa
 	 */
 	private readonly _onDidChangeStateEmitter = this._register(new Emitter<RuntimeClientState>());
 
+	/**
+	 * The _onFocusInput event emitter.
+	 */
+	private readonly _onFocusElementEmitter = this._register(new Emitter<void>);
+
 	//#endregion Private Properties
 
 	//#region Constructor & Dispose
@@ -208,6 +213,11 @@ export class PositronVariablesInstance extends Disposable implements IPositronVa
 	 * onDidChangeState event.
 	 */
 	readonly onDidChangeState: Event<RuntimeClientState> = this._onDidChangeStateEmitter.event;
+
+	/**
+	 * onFocusElement event.
+	 */
+	readonly onFocusElement = this._onFocusElementEmitter.event;
 
 	/**
 	 * Requests refresh.
@@ -381,6 +391,14 @@ export class PositronVariablesInstance extends Disposable implements IPositronVa
 
 		// Attach the runtime.
 		this.attachRuntime();
+	}
+
+	/**
+	 * Focuses current element in the variable tree.
+	 *
+	 */
+	focusElement(): void {
+		this._onFocusElementEmitter.fire();
 	}
 
 	//#endregion Public Methods

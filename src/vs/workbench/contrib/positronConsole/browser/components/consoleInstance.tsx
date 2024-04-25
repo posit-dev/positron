@@ -597,6 +597,20 @@ export const ConsoleInstance = (props: ConsoleInstanceProps) => {
 		}
 	};
 
+	/**
+	 * onFocus event handler.
+	 */
+	const focusHandler = () => {
+		props.reactComponentContainer.focusChanged?.(true);
+	};
+
+	/**
+	 * onBlur event handler.
+	 */
+	const blurHandler = () => {
+		props.reactComponentContainer.focusChanged?.(false);
+	};
+
 	// Calculate the adjusted width (to account for indentation of the entire console instance).
 	const adjustedWidth = props.width - 10;
 
@@ -622,6 +636,8 @@ export const ConsoleInstance = (props: ConsoleInstanceProps) => {
 				whiteSpace: wordWrap ? 'pre-wrap' : 'pre',
 				zIndex: props.active ? 'auto' : -1
 			}}
+			onFocus={focusHandler}
+			onBlur={blurHandler}
 			onClick={clickHandler}
 			onKeyDown={keyDownHandler}
 			onMouseDown={mouseDownHandler}
@@ -647,7 +663,7 @@ export const ConsoleInstance = (props: ConsoleInstanceProps) => {
 					} else if (runtimeItem instanceof RuntimeItemExited) {
 						return <RuntimeExited key={runtimeItem.id} runtimeItemExited={runtimeItem} />;
 					} else if (runtimeItem instanceof RuntimeItemRestartButton) {
-						return <RuntimeRestartButton key={runtimeItem.id} runtimeItemRestartButton={runtimeItem} />;
+						return <RuntimeRestartButton key={runtimeItem.id} runtimeItemRestartButton={runtimeItem} positronConsoleInstance={props.positronConsoleInstance}/>;
 					} else if (runtimeItem instanceof RuntimeItemStartupFailure) {
 						return <RuntimeStartupFailure key={runtimeItem.id} runtimeItemStartupFailure={runtimeItem} />;
 					} else if (runtimeItem instanceof RuntimeItemTrace) {
