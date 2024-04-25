@@ -76,7 +76,7 @@ jobs:
         run: |
           yarn gulp vscode-linux-${{ matrix.arch }}
 
-      - name: Prepare binary
+      - name: Prepare Linux packages
         run: |
           yarn gulp vscode-linux-${{ matrix.arch }}-prepare-deb
           yarn gulp vscode-linux-${{ matrix.arch }}-prepare-rpm
@@ -103,6 +103,23 @@ jobs:
         with:
           name: positron-binary-deb
           path: Positron-${{ inputs.short_version }}.deb
+
+      # Build the Remote Extension Host (REH) version of Positron. This
+      # contains the bits that are copied into SSH hosts or containers for
+      # remote development workflows.
+      - name: Build Positron Remote Extension Host
+        env:
+          npm_config_arch: ${{ matrix.arch }}
+        run: |
+          yarn gulp vscode-reh-linux-${{ matrix.arch }}
+          cd ..
+          tar czvf positron-reh-linux-${{ matrix.arch }}-${{ inputs.short_version }}.tar.gz vscode-reh-linux-${{ matrix.arch }}
+
+      - name: Upload REH .tar.gz
+        uses: actions/upload-artifact@v4
+        with:
+          name: positron-binary-reh
+          path: ../positron-reh-linux-${{ matrix.arch }}-${{ inputs.short_version }}.tar.gz
 
   status:
     if: ${{ failure() }}
