@@ -112,6 +112,9 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 			registerClientHandler(handler: positron.RuntimeClientHandler): vscode.Disposable {
 				return extHostLanguageRuntime.registerClientHandler(handler);
 			},
+			registerClientInstance(clientInstanceId: string): vscode.Disposable {
+				return extHostLanguageRuntime.registerClientInstance(clientInstanceId);
+			},
 			get onDidRegisterRuntime() {
 				return extHostLanguageRuntime.onDidRegisterRuntime;
 			}
