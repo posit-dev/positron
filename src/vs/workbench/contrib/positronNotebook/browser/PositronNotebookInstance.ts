@@ -171,7 +171,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	selectionStateMachine = createActor(selectionMachine, {
 		inspect: (inspectionEvent) => {
 			if (inspectionEvent.type === '@xstate.event') {
-				console.log('xstate event:', inspectionEvent.event);
+				console.log(`xstate event: ${inspectionEvent.event.type}`, inspectionEvent.event);
 			}
 		}
 	});
@@ -213,7 +213,6 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	 * Mirrored cell state listeners from the notebook model.
 	 */
 	private _localCellStateListeners: DisposableStore[] = [];
-	// private readonly _scopedContextKeyService: IContextKeyService;
 
 	get uri(): URI {
 		return this._input.resource;
@@ -292,7 +291,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		this.kernelStatus = observableValue<KernelStatus>('positronNotebookKernelStatus', KernelStatus.Uninitialized);
 
 		this.selectionStateMachine.subscribe((state) => {
-			console.log('~~~~~~~~~~State:', state.context, state.value);
+			console.log(`xstate state: ${state.value}`, state.context);
 			this.selectionState.set(state.context, undefined);
 		});
 		this.selectionStateMachine.start();
@@ -351,12 +350,36 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 
 		const fillCells = () => {
 
-			// dispose old cells
-			this._cells.forEach(cell => cell.dispose());
+			const cellModelToCellMap = new Map(
+				this._cells.map(cell => [cell.cellModel, cell])
+			);
+
+			const newlyAddedCells: IPositronNotebookCell[] = [];
 
 			// Update cells with new cells
-			this._cells = notebookModel.cells.map(cell => createNotebookCell(cell, this, this._instantiationService));
+			this._cells = notebookModel.cells.map(cell => {
+				const existingCell = cellModelToCellMap.get(cell);
+				if (existingCell) {
+					// Remove cell from map so we know it's been used.
+					cellModelToCellMap.delete(cell);
+					return existingCell;
+				}
+				const newCell = createNotebookCell(cell, this, this._instantiationService);
+				newlyAddedCells.push(newCell);
 
+				return newCell;
+			});
+
+			if (newlyAddedCells.length === 1) {
+				// If we've only added one cell, we can set it as the selected cell.
+				setTimeout(() => {
+					newlyAddedCells[0].select();
+					newlyAddedCells[0].focusEditor();
+				}, 0);
+			}
+
+			// Dispose of any cells that were not reused.
+			cellModelToCellMap.forEach(cell => cell.dispose());
 
 			this.language = notebookModel.cells[0].language;
 			this.cells.set(this._cells, undefined);
