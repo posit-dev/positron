@@ -26,6 +26,7 @@ import { IRuntimeStartupService } from 'vs/workbench/services/runtimeStartup/com
 import { ILogService } from 'vs/platform/log/common/log';
 import { IOpenerService } from 'vs/platform/opener/common/opener';
 import { IStorageService } from 'vs/platform/storage/common/storage';
+import { USE_POSITRON_PROJECT_WIZARD_CONFIG_KEY } from 'vs/workbench/services/positronNewProject/common/positronNewProjectEnablement';
 
 /**
  * The PositronNewProjectAction.
@@ -40,6 +41,9 @@ export class PositronNewProjectAction extends Action2 {
 	 * Constructor.
 	 */
 	constructor() {
+		// TODO: [New Project] Remove feature flag when New Project action is ready for release
+		// This disables (greys out) the action in the New menu, the application bar File menu, and the command palette when not in a development context
+		const projectWizardEnabled = ContextKeyExpr.deserialize(`config.${USE_POSITRON_PROJECT_WIZARD_CONFIG_KEY}`) ?? IsDevelopmentContext;
 		super({
 			id: PositronNewProjectAction.ID,
 			title: {
@@ -49,16 +53,15 @@ export class PositronNewProjectAction extends Action2 {
 			},
 			category: workspacesCategory,
 			f1: true,
-			// TODO: [New Project] Remove feature flag when New Project action is ready for release
-			// This disables (greys out) the action in the New menu, the application bar File menu, and the command palette when not in a development context
-			precondition: ContextKeyExpr.and(EnterMultiRootWorkspaceSupportContext, IsDevelopmentContext.isEqualTo(true)),
+			precondition: ContextKeyExpr.and(
+				EnterMultiRootWorkspaceSupportContext,
+				projectWizardEnabled
+			),
 			menu: {
 				id: MenuId.MenubarFileMenu,
 				group: '1_newfolder',
 				order: 3,
-				// TODO: [New Project] Remove feature flag when New Project action is ready for release
-				// This removes the action from the application bar File menu when not in a development context
-				when: IsDevelopmentContext.isEqualTo(true)
+				when: projectWizardEnabled
 			}
 		});
 	}
