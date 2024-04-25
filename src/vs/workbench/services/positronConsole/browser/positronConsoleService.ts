@@ -937,7 +937,7 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 	 * Pastes text into the console.
 	 */
 	pasteText(text: string) {
-		this._onFocusInputEmitter.fire();
+		this.focusInput();
 		this._onDidPasteTextEmitter.fire(text);
 	}
 

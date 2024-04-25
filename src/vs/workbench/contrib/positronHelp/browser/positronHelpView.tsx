@@ -190,6 +190,12 @@ export class PositronHelpView extends ViewPane implements IReactComponentContain
 			telemetryService
 		);
 
+		// Make the viewpane focusable even when there are no components
+		// available to take the focus. The viewpane must be able to take focus
+		// at all times because otherwise blurring events do not occur and the
+		// viewpane management state becomes confused on toggle.
+		this.element.tabIndex = 0;
+
 		// Create containers.
 		this.positronHelpContainer = DOM.$('.positron-help-container');
 		this.helpActionBarsContainer = DOM.$('.help-action-bars-container');
