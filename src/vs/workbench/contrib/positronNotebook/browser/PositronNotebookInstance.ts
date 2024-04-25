@@ -272,7 +272,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		this.kernelStatus = observableValue<KernelStatus>('positronNotebookKernelStatus', KernelStatus.Uninitialized);
 
 		this.selectionStateMachine.subscribe((state) => {
-			console.log('~~~~~~~~~~State:', state.context, state.value);
+			console.log(`xstate state: ${state.value}`, state.context);
 			this.selectionState.set(state.context, undefined);
 		});
 		this.selectionStateMachine.start();

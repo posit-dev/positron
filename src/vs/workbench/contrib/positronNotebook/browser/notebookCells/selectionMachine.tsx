@@ -11,11 +11,22 @@ function clampIndices(cells: IPositronNotebookCell[], index: number) {
 	return Math.max(0, Math.min(cells.length - 1, index));
 }
 
+
 export type SelectionState = {
 	cells: IPositronNotebookCell[];
 	selectedCells: SingleSelection | MultiSelection | null;
 	editingCell: boolean;
 };
+
+
+function cellSelectionIntersection(cells: IPositronNotebookCell[], selection: SelectionState['selectedCells']) {
+	if (selection === null) {
+		return [];
+	}
+	const selectedCells = Array.isArray(selection) ? selection : [selection];
+
+	return selectedCells.filter(c => cells.includes(c));
+}
 
 export const selectionMachine = setup({
 	types: {
@@ -49,14 +60,27 @@ export const selectionMachine = setup({
 		},
 		isNotEditMode: (_, params: { editMode: boolean }) => {
 			return !params.editMode;
-		}
+		},
+		hasSelection: ({ context }, params: unknown) => {
+			return context.selectedCells !== null;
+		},
+		noSelectionAfterNewCells: ({ context }, params: { cells: IPositronNotebookCell[] }) => {
+			return cellSelectionIntersection(params.cells, context.selectedCells).length === 0;
+		},
+		singleSelectionAfterNewCells: ({ context }, params: { cells: IPositronNotebookCell[] }) => {
+			return cellSelectionIntersection(params.cells, context.selectedCells).length === 1;
+		},
+		multiSelectionAfterNewCells: ({ context }, params: { cells: IPositronNotebookCell[] }) => {
+			return cellSelectionIntersection(params.cells, context.selectedCells).length > 1;
+		},
+
 	}
 }).createMachine({
 	context: { cells: [], selectedCells: null, editingCell: false },
 	id: 'NotebookSelection',
-	initial: 'Uninitialized',
+	initial: 'No Selection',
 	states: {
-		Uninitialized: {
+		'No Selection': {
 			on: {
 				setCells: {
 					target: 'No Selection',
@@ -65,8 +89,6 @@ export const selectionMachine = setup({
 					})
 				}
 			}
-		},
-		'No Selection': {
 		},
 		'Single Selection': {
 			on: {
@@ -121,6 +143,31 @@ export const selectionMachine = setup({
 						},
 					})
 				},
+				setCells: [
+					{
+						// If the selection still exists in new cells no need to change state.
+						target: 'Single Selection',
+						guard: {
+							type: 'singleSelectionAfterNewCells',
+							params: ({ event }) => ({ cells: event.cells })
+						},
+						actions: assign({
+							cells: ({ event }) => event.cells
+						})
+					},
+					{
+						// If the selection is missing in new cells, reset selection.
+						target: 'No Selection',
+						guard: {
+							type: 'noSelectionAfterNewCells',
+							params: ({ event }) => ({ cells: event.cells })
+						},
+						actions: assign({
+							cells: ({ event }) => event.cells,
+							selectedCells: null
+						})
+					}
+				]
 			}
 		},
 		'Editing Selection': {
@@ -174,6 +221,42 @@ export const selectionMachine = setup({
 								const currentSelection = context.selectedCells as MultiSelection;
 								return currentSelection.filter(c => c !== event.cell);
 							}
+						})
+					}
+				],
+				setCells: [
+					{
+						// If the selection is missing in new cells, reset selection.
+						target: 'No Selection',
+						guard: {
+							type: 'noSelectionAfterNewCells',
+							params: ({ event }) => ({ cells: event.cells })
+						},
+						actions: assign({
+							cells: ({ event }) => event.cells,
+							selectedCells: null
+						})
+					},
+					{
+						// If the selection still exists in new cells no need to change state.
+						target: 'Single Selection',
+						guard: {
+							type: 'singleSelectionAfterNewCells',
+							params: ({ event }) => ({ cells: event.cells })
+						},
+						actions: assign({
+							cells: ({ event }) => event.cells
+						})
+					},
+					{
+						// If the selection is missing in new cells, reset selection.
+						target: 'Multi Selection',
+						guard: {
+							type: 'multiSelectionAfterNewCells',
+							params: ({ event }) => ({ cells: event.cells })
+						},
+						actions: assign({
+							cells: ({ event }) => event.cells
 						})
 					}
 				]
