@@ -28,6 +28,12 @@ export const selectionMachine = setup({
 			| { type: 'selectCell'; cell: IPositronNotebookCell; editMode: boolean }
 			| { type: 'deselectCell'; cell: IPositronNotebookCell }
 	},
+	actions: {
+		defocusEditor: ({ context }, params: unknown) => {
+			const currentSelection = context.selectedCells as SingleSelection;
+			currentSelection.defocusEditor();
+		}
+	},
 	guards: {
 		isMetaKey: (_, params: { meta: boolean }) => {
 			return params.meta;
@@ -55,7 +61,7 @@ export const selectionMachine = setup({
 				setCells: {
 					target: 'No Selection',
 					actions: assign({
-						cells: ({ context, event }) => event.cells
+						cells: ({ event }) => event.cells
 					})
 				}
 			}
@@ -91,7 +97,9 @@ export const selectionMachine = setup({
 								const currentSelection = context.selectedCells as SingleSelection;
 								const indexOfCell = context.cells.indexOf(currentSelection);
 								const indexOfNextSelection = clampIndices(context.cells, indexOfCell + (event.up ? -1 : 1));
-								return context.cells[indexOfNextSelection];
+								const nextSelection = context.cells[indexOfNextSelection];
+								nextSelection.focus();
+								return nextSelection;
 							}
 						})
 					},
@@ -105,7 +113,12 @@ export const selectionMachine = setup({
 				enterPress: {
 					target: 'Editing Selection',
 					actions: assign({
-						editingCell: true,
+						editingCell: ({ context }) => {
+							const currentSelection = context.selectedCells as SingleSelection;
+							// Use timeout so that enter key press is not propagated to the editor
+							setTimeout(() => currentSelection.focusEditor(), 0);
+							return true;
+						},
 					})
 				},
 			}
@@ -114,9 +127,11 @@ export const selectionMachine = setup({
 			on: {
 				escapePress: {
 					target: 'Single Selection',
-					actions: assign({
-						editingCell: false,
-					}),
+					actions: [
+						'defocusEditor',
+						assign({
+							editingCell: false,
+						})],
 				},
 			}
 		},
@@ -174,7 +189,7 @@ export const selectionMachine = setup({
 					params: ({ event }) => ({ editMode: event.editMode })
 				},
 				actions: assign({
-					selectedCells: ({ context, event }) => {
+					selectedCells: ({ event }) => {
 						return event.cell;
 					},
 					editingCell: false

@@ -28,7 +28,12 @@ import { DisposableObserveValue } from 'vs/workbench/contrib/positronNotebook/co
  */
 export function CellEditorMonacoWidget({ cell }: { cell: IPositronNotebookCell }) {
 	const { editorPartRef } = useCellEditorWidget(cell);
-	return <div className='positron-cell-editor-monaco-widget' ref={editorPartRef} />;
+	return <div
+		className='positron-cell-editor-monaco-widget'
+		// onFocus={cell.select}
+		tabIndex={-1}
+		ref={editorPartRef}
+	/>;
 }
 
 // Padding for the editor widget. The sizing is not perfect but this helps the editor not overflow
@@ -89,6 +94,7 @@ export function useCellEditorWidget(cell: IPositronNotebookCell) {
 			contributions: getNotebookEditorContributions()
 		});
 		disposableStore.add(editor);
+		cell.attachEditor(editor);
 
 		editor.setValue(cell.getContent());
 
@@ -157,6 +163,7 @@ export function useCellEditorWidget(cell: IPositronNotebookCell) {
 			services.logService.info('Positron Notebook | useCellEditorWidget() | Disposing editor widget');
 			disposableStore.dispose();
 			nativeContainer.remove();
+			cell.detachEditor();
 
 			sizeObserver();
 		};

@@ -650,9 +650,6 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		this._viewModel = undefined;
 	}
 
-
-
-
 	/**
 	 * Attempt to connect to the kernel for running notebook code.
 	 * Eventually this will be replaced with a more robust kernel selection system.

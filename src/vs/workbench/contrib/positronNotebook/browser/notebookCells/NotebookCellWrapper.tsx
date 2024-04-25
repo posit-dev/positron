@@ -11,10 +11,20 @@ import { useObservedValue } from 'vs/workbench/contrib/positronNotebook/browser/
 export function NotebookCellWrapper({ cell, children }: { cell: IPositronNotebookCell; children: React.ReactNode }) {
 	const selected = useObservedValue(cell.selected);
 	const editing = useObservedValue(cell.editing);
+	const cellRef = React.useRef<HTMLDivElement>(null);
+
+	React.useEffect(() => {
+		if (cellRef.current) {
+			cell.attachContainer(cellRef.current);
+		}
+	}, [cell, cellRef]);
 
 	const selectionClass = editing ? 'editing' : selected ? 'selected' : 'unselected';
 	return <div
 		className={`positron-notebook-cell positron-notebook-${cell.kind === CellKind.Code ? 'code' : 'markdown'}-cell ${selectionClass}`}
+		ref={cellRef}
+		tabIndex={0}
+		// onFocus={cell.select}
 		onClick={(e) => {
 			const clickTarget = e.nativeEvent.target as HTMLElement;
 			// If any of the element or its parents have the class

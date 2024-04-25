@@ -14,6 +14,7 @@ import { CellKind, ICellOutput } from 'vs/workbench/contrib/notebook/common/note
 import { IPositronNotebookInstance } from 'vs/workbench/contrib/positronNotebook/browser/PositronNotebookInstance';
 import { ExecutionStatus, IPositronNotebookCodeCell, IPositronNotebookCell, IPositronNotebookMarkdownCell } from 'vs/workbench/contrib/positronNotebook/browser/notebookCells/interfaces';
 import { DisposableObserveValue } from '../common/utils/DisposableObserveValue';
+import { CodeEditorWidget } from 'vs/editor/browser/widget/codeEditor/codeEditorWidget';
 
 
 
@@ -23,6 +24,9 @@ abstract class PositronNotebookCellGeneral extends Disposable implements IPositr
 
 	// Not marked as private so we can access it in subclasses
 	_disposableStore = new DisposableStore();
+
+	private _container: HTMLElement | undefined;
+	private _editor: CodeEditorWidget | undefined;
 
 	selected = observableValue<boolean, void>('selected', false);
 	editing: ISettableObservable<boolean> = observableValue<boolean, void>('editing', false);
@@ -110,11 +114,37 @@ abstract class PositronNotebookCellGeneral extends Disposable implements IPositr
 		this._instance.selectionStateMachine.send({ type: 'selectCell', cell: this, editMode: false });
 	}
 
-	deselect(): void {
-		this._instance.selectionStateMachine.send({ type: 'deselectCell', cell: this });
-		// this._instance.deselectCell(this);
+	attachContainer(container: HTMLElement): void {
+		this._container = container;
 	}
 
+
+	attachEditor(editor: CodeEditorWidget): void {
+		this._editor = editor;
+	}
+
+	detachEditor(): void {
+		this._editor = undefined;
+	}
+
+	focus(): void {
+		if (this._container) {
+			this._container.focus();
+		}
+	}
+
+	focusEditor(): void {
+		this._editor?.focus();
+	}
+
+	defocusEditor(): void {
+		// Send focus to the enclosing cell itself to blur the editor
+		this.focus();
+	}
+
+	deselect(): void {
+		this._instance.selectionStateMachine.send({ type: 'deselectCell', cell: this });
+	}
 }
 
 

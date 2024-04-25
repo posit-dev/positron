@@ -5,6 +5,7 @@
 import { Disposable } from 'vs/base/common/lifecycle';
 import { ISettableObservable } from 'vs/base/common/observableInternal/base';
 import { URI } from 'vs/base/common/uri';
+import { CodeEditorWidget } from 'vs/editor/browser/widget/codeEditor/codeEditorWidget';
 import { ITextModel } from 'vs/editor/common/model';
 import { ICellViewModel } from 'vs/workbench/contrib/notebook/browser/notebookBrowser';
 import { NotebookCellTextModel } from 'vs/workbench/contrib/notebook/common/model/notebookCellTextModel';
@@ -90,9 +91,40 @@ export interface IPositronNotebookCell extends Disposable {
 	select(): void;
 
 	/**
+	 * Set focus to this cell
+	 */
+	focus(): void;
+
+	/**
+	 * Set focus on the editor within the cell
+	 */
+	focusEditor(): void;
+
+	/**
+	 * Remove focus from within monaco editor and out to the cell itself
+	 */
+	defocusEditor(): void;
+
+	/**
 	 * Deselect this cell
 	 */
 	deselect(): void;
+
+	/**
+	 * Attach the cell to a container. Used for things like focus management
+	 */
+	attachContainer(container: HTMLElement): void;
+
+	/**
+	 *
+	 * @param editor Code editor widget associated with cell.
+	 */
+	attachEditor(editor: CodeEditorWidget): void;
+
+	/**
+	 * Detach the editor from the cell
+	 */
+	detachEditor(): void;
 }
 
 
