@@ -13,7 +13,6 @@ import { localize } from 'vs/nls';
 import { PositronActionBar } from 'vs/platform/positronActionBar/browser/positronActionBar';
 import { ActionBarRegion } from 'vs/platform/positronActionBar/browser/components/actionBarRegion';
 import { ActionBarButton } from 'vs/platform/positronActionBar/browser/components/actionBarButton';
-import { ActionBarSeparator } from 'vs/platform/positronActionBar/browser/components/actionBarSeparator';
 import { PositronActionBarContextProvider } from 'vs/platform/positronActionBar/browser/positronActionBarContext';
 import { usePositronDataExplorerContext } from 'vs/workbench/browser/positronDataExplorer/positronDataExplorerContext';
 import { LayoutMenuButton } from 'vs/workbench/browser/positronDataExplorer/components/actionBar/components/layoutMenuButton';
@@ -59,7 +58,6 @@ export const ActionBar = () => {
 								context.instance.tableDataDataGridInstance.clearColumnSortKeys()
 							}
 						/>
-						<ActionBarSeparator />
 					</ActionBarRegion>
 					<ActionBarRegion location='right'>
 						<LayoutMenuButton />
