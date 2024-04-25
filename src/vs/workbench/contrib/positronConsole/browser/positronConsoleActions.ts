@@ -115,7 +115,7 @@ export function registerPositronConsoleActions() {
 	 * Register the focus console action. This action places focus in the active console,
 	 * if one exists.
 	 *
-	 * This action is an alias for `workbench.panel.positronConsole.focus`.
+	 * This action is equivalent to the `workbench.panel.positronConsole.focus` command.
 	 */
 	registerAction2(class extends Action2 {
 		/**
@@ -147,7 +147,8 @@ export function registerPositronConsoleActions() {
 			const layoutService = accessor.get(IWorkbenchLayoutService);
 			const viewsService = accessor.get(IViewsService);
 
-			// Ensure that the panel and console are visible.
+			// Ensure that the panel and console are visible. This is essentially
+			// equivalent to what `workbench.panel.positronConsole.focus` does.
 			layoutService.restorePanel();
 			await viewsService.openView(POSITRON_CONSOLE_VIEW_ID, true);
 		}
