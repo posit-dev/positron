@@ -44,7 +44,7 @@ import { RuntimeItemReconnected } from 'vs/workbench/services/positronConsole/br
 import { RuntimeStartupFailure } from 'vs/workbench/contrib/positronConsole/browser/components/runtimeStartupFailure';
 import { RuntimeItemPendingInput } from 'vs/workbench/services/positronConsole/browser/classes/runtimeItemPendingInput';
 import { RuntimeItemRestartButton } from 'vs/workbench/services/positronConsole/browser/classes/runtimeItemRestartButton';
-import { IPositronConsoleInstance } from 'vs/workbench/services/positronConsole/browser/interfaces/positronConsoleService';
+import { IPositronConsoleInstance, PositronConsoleState } from 'vs/workbench/services/positronConsole/browser/interfaces/positronConsoleService';
 import { RuntimeItemStartupFailure } from 'vs/workbench/services/positronConsole/browser/classes/runtimeItemStartupFailure';
 import { POSITRON_CONSOLE_COPY, POSITRON_CONSOLE_CUT, POSITRON_CONSOLE_PASTE, POSITRON_CONSOLE_SELECT_ALL } from 'vs/workbench/contrib/positronConsole/browser/positronConsoleIdentifiers';
 
@@ -106,6 +106,23 @@ export const ConsoleInstance = (props: ConsoleInstanceProps) => {
 	const [, setLastScrollTop, lastScrollTopRef] = useStateRef(0);
 	const [, setScrollLock, scrollLockRef] = useStateRef(false);
 	const [, setIgnoreNextScrollEvent, ignoreNextScrollEventRef] = useStateRef(false);
+
+
+	// Determines whether the console is scrollable.
+	const scrollable = () =>
+		consoleInstanceRef.current.scrollHeight > consoleInstanceRef.current.clientHeight;
+
+	// Scrolls to the bottom.
+	const scrollToBottom = () => {
+		setScrollLock(false);
+		setIgnoreNextScrollEvent(true);
+		scrollVertically(consoleInstanceRef.current.scrollHeight);
+	};
+
+	// Scrolls the console vertically.
+	const scrollVertically = (y: number) => {
+		consoleInstanceRef.current.scrollTo(consoleInstanceRef.current.scrollLeft, y);
+	};
 
 	/**
 	 * Gets the selection.
@@ -272,6 +289,11 @@ export const ConsoleInstance = (props: ConsoleInstanceProps) => {
 
 		// Add the onDidChangeState event handler.
 		disposableStore.add(props.positronConsoleInstance.onDidChangeState(state => {
+			if (state === PositronConsoleState.Starting) {
+				// Scroll to bottom when restarting
+				// https://github.com/posit-dev/positron/issues/2807
+				scrollToBottom();
+			}
 		}));
 
 		// Add the onDidChangeTrace event handler.
@@ -291,7 +313,13 @@ export const ConsoleInstance = (props: ConsoleInstanceProps) => {
 
 		// Add the onDidExecuteCode event handler.
 		disposableStore.add(props.positronConsoleInstance.onDidExecuteCode(_code => {
-			scrollVertically(consoleInstanceRef.current.scrollHeight);
+			scrollToBottom();
+		}));
+
+		disposableStore.add(props.reactComponentContainer.onSizeChanged(_ => {
+			if (!scrollLockRef.current) {
+				scrollToBottom();
+			}
 		}));
 
 		// Add the onDidSelectPlot event handler.
@@ -315,7 +343,7 @@ export const ConsoleInstance = (props: ConsoleInstanceProps) => {
 
 		// Return the cleanup function that will dispose of the event handlers.
 		return () => disposableStore.dispose();
-	}, [editorFontInfo, lastScrollTopRef, positronConsoleContext.activePositronConsoleInstance?.session, positronConsoleContext.configurationService, positronConsoleContext.positronPlotsService, positronConsoleContext.runtimeSessionService, positronConsoleContext.viewsService, props.positronConsoleInstance, props.reactComponentContainer, setLastScrollTop]);
+	}, [editorFontInfo, lastScrollTopRef, positronConsoleContext.activePositronConsoleInstance?.session, positronConsoleContext.configurationService, positronConsoleContext.positronPlotsService, positronConsoleContext.runtimeSessionService, positronConsoleContext.viewsService, props.positronConsoleInstance, props.reactComponentContainer, scrollToBottom, setLastScrollTop]);
 
 	useLayoutEffect(() => {
 		// If the view is not scroll locked, scroll to the bottom to reveal the most recent items.
@@ -544,22 +572,6 @@ export const ConsoleInstance = (props: ConsoleInstanceProps) => {
 			setScrollLock(scrollable());
 			return;
 		}
-	};
-
-	// Determines whether the console is scrollable.
-	const scrollable = () =>
-		consoleInstanceRef.current.scrollHeight > consoleInstanceRef.current.clientHeight;
-
-	// Scrolls to the bottom.
-	const scrollToBottom = () => {
-		setScrollLock(false);
-		setIgnoreNextScrollEvent(true);
-		scrollVertically(consoleInstanceRef.current.scrollHeight);
-	};
-
-	// Scrolls the console vertically.
-	const scrollVertically = (y: number) => {
-		consoleInstanceRef.current.scrollTo(consoleInstanceRef.current.scrollLeft, y);
 	};
 
 	// Calculate the adjusted width (to account for indentation of the entire console instance).
