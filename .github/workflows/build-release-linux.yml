@@ -34,9 +34,9 @@ jobs:
       POSITRON_BUILD_NUMBER: ${{ inputs.build_number }}
 
     strategy:
-      max-parallel: 1
       matrix:
         arch: [x64]
+        flavor: [installer, reh]
 
     steps:
       # Checkout sources
@@ -70,13 +70,14 @@ jobs:
           # dependencies
           yarn --immutable --network-timeout 120000
 
-      - name: Build Positron
+      - name: Build Positron Client
+        if: matrix.flavor == 'installer'
         env:
           npm_config_arch: ${{ matrix.arch }}
         run: |
           yarn gulp vscode-linux-${{ matrix.arch }}
 
-      - name: Prepare binary
+      - name: Prepare Linux packages
         run: |
           yarn gulp vscode-linux-${{ matrix.arch }}-prepare-deb
           yarn gulp vscode-linux-${{ matrix.arch }}-prepare-rpm
@@ -86,6 +87,7 @@ jobs:
       # file and are just a convenient way of matching the generated
       # filename.
       - name: Build binary
+        if: matrix.flavor == 'installer'
         run: |
           yarn gulp vscode-linux-${{ matrix.arch }}-build-deb
           yarn gulp vscode-linux-${{ matrix.arch }}-build-rpm
@@ -93,16 +95,37 @@ jobs:
           mv .build/linux/rpm/*/*.rpm Positron-${{ inputs.short_version }}.rpm
 
       - name: Upload .rpm
+        if: matrix.flavor == 'installer'
         uses: actions/upload-artifact@v4
         with:
           name: positron-binary-rpm
           path: Positron-${{ inputs.short_version }}.rpm
 
       - name: Upload .deb
+        if: matrix.flavor == 'installer'
         uses: actions/upload-artifact@v4
         with:
           name: positron-binary-deb
           path: Positron-${{ inputs.short_version }}.deb
+
+      # Build the Remote Extension Host (REH) version of Positron. This
+      # contains the bits that are copied into SSH hosts or containers for
+      # remote development workflows.
+      - name: Build Positron Remote Extension Host
+        if: matrix.flavor == 'reh'
+        env:
+          npm_config_arch: ${{ matrix.arch }}
+        run: |
+          yarn gulp vscode-reh-linux-${{ matrix.arch }}
+          cd ..
+          tar czvf positron/positron-reh-linux-${{ matrix.arch }}-${{ inputs.short_version }}.tar.gz vscode-reh-linux-${{ matrix.arch }}
+
+      - name: Upload REH .tar.gz
+        if: matrix.flavor == 'reh'
+        uses: actions/upload-artifact@v4
+        with:
+          name: positron-binary-reh
+          path: positron-reh-linux-${{ matrix.arch }}-${{ inputs.short_version }}.tar.gz
 
   status:
     if: ${{ failure() }}
