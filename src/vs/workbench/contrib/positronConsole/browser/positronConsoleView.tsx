@@ -309,7 +309,13 @@ export class PositronConsoleViewPane extends ViewPane implements IReactComponent
 		// Trigger event that eventually causes console input widgets (main
 		// input, readline input, or restart buttons) to focus. Must be after
 		// the super call.
-		this.positronConsoleService.activePositronConsoleInstance?.focusInput();
+		//
+		// We do this at the next tick because in some cases `focus()` is called
+		// when the viewpane is not visible yet (don't trust `this.isBodyVisible()`).
+		// In this case the `focus()` call fails (don't trust `this.onFocus()`).
+		// This happens for instance with `workbench.action.togglePanel` or
+		// `workbench.action.toggleSecondarySideBar`.
+		setTimeout(() => this.positronConsoleService.activePositronConsoleInstance?.focusInput());
 	}
 
 	/**
