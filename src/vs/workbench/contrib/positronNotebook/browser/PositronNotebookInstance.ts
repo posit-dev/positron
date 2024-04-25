@@ -140,17 +140,6 @@ export interface IPositronNotebookInstance {
 	 */
 	deselectCell(cell: IPositronNotebookCell): void;
 
-	/**
-	 * Move the current selected cell upwards
-	 * @param addMode If true, add the cell to the selection. If false, replace the selection.
-	 */
-	moveSelectionUp(addMode: boolean): void;
-
-	/**
-	 * Move the current selected cell downwards
-	 * @param addMode If true, add the cell to the selection. If false, replace the selection.
-	 */
-	moveSelectionDown(addMode: boolean): void;
 
 	/**
 	 * Set the currently editing cell.
@@ -180,7 +169,13 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	selectionState: ISettableObservable<SelectionState> = observableValue<SelectionState>('positronNotebookSelectionState', { cells: [], selectedCells: null, editingCell: false });
 	editingCell: ISettableObservable<IPositronNotebookCell | undefined, void> = observableValue<IPositronNotebookCell | undefined>('positronNotebookEditingCell', undefined);
 
-	selectionStateMachine = createActor(selectionMachine);
+	selectionStateMachine = createActor(selectionMachine, {
+		inspect: (inspectionEvent) => {
+			if (inspectionEvent.type === '@xstate.event') {
+				console.log('xstate event:', inspectionEvent.event);
+			}
+		}
+	});
 
 	/**
 	 * Status of kernel for the notebook.
@@ -527,7 +522,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	 * @param cellOrCells The cell or cells to set as selected
 	 */
 	setSelectedCells(cells: IPositronNotebookCell[]): void {
-		this.selectionStateMachine.send({ type: 'selectCell', cell: cells[0] });
+		this.selectionStateMachine.send({ type: 'selectCell', cell: cells[0], editMode: false });
 	}
 
 	deselectCell(cell: IPositronNotebookCell): void {
@@ -538,42 +533,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		if (cell === undefined) {
 			return;
 		}
-		this.selectionStateMachine.send({ type: 'selectCell', cell });
-		this.selectionStateMachine.send({ type: 'enterPress' });
-	}
-
-	private _moveSelection(addMode: boolean, direction: 'up' | 'down'): void {
-		const selectedCells = this.selectedCells.get();
-		if (selectedCells.length === 0) {
-			return;
-		}
-
-		const indicesOfSelected = selectedCells.map(cell => this._cells.indexOf(cell));
-
-		const indexOfSelection = indicesOfSelected.reduce((acc, index) => {
-			if (direction === 'up') {
-				return Math.min(acc, index);
-			} else {
-				return Math.max(acc, index);
-			}
-		}, indicesOfSelected[0]);
-
-		const indexOfNewSelection = indexOfSelection + (direction === 'up' ? -1 : 1);
-
-		const selectedCell = this._cells[indexOfNewSelection];
-
-		if (addMode) {
-			this.selectedCells.set([...selectedCells, selectedCell], undefined);
-		} else {
-			this.selectedCells.set([selectedCell], undefined);
-		}
-	}
-	moveSelectionUp(addMode: boolean): void {
-		this._moveSelection(addMode, 'up');
-	}
-
-	moveSelectionDown(addMode: boolean): void {
-		this._moveSelection(addMode, 'down');
+		this.selectionStateMachine.send({ type: 'selectCell', cell, editMode: true });
 	}
 
 	async attachView(viewModel: NotebookViewModel, container: HTMLElement, viewState?: INotebookEditorViewState) {
@@ -639,8 +599,6 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 			} else {
 				switch (event.key) {
 					case 'ArrowUp':
-						// this.moveSelectionUp(addMode);
-
 						this.selectionStateMachine.send({
 							type: 'arrowKeys',
 							up: true,
@@ -649,7 +607,6 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 
 						break;
 					case 'ArrowDown':
-						// this.moveSelectionDown(addMode);
 						this.selectionStateMachine.send({
 							type: 'arrowKeys',
 							up: false,
@@ -657,13 +614,16 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 						});
 						break;
 					case 'Enter': {
-						const selectedCells = this.selectedCells.get();
-						if (selectedCells.length === 1) {
-							this.setEditingCell(this.selectedCells.get()[0]);
-							event.stopImmediatePropagation();
-						}
+						this.selectionStateMachine.send({
+							type: 'enterPress',
+						});
 						break;
 					}
+					case 'Escape':
+						this.selectionStateMachine.send({
+							type: 'escapePress',
+						});
+						break;
 				}
 			}
 		};

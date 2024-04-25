@@ -49,12 +49,6 @@ abstract class PositronNotebookCellGeneral extends Disposable implements IPositr
 				this.editing.set(isSelected && editingCell, undefined);
 			})
 		);
-
-		// this._disposableStore.add(
-		// 	new DisposableObserveValue(this._instance.editingCell, () => {
-		// 		this.editing.set(this._instance.editingCell.get() === this, undefined);
-		// 	})
-		// );
 	}
 
 	get uri(): URI {
@@ -113,8 +107,7 @@ abstract class PositronNotebookCellGeneral extends Disposable implements IPositr
 	}
 
 	select(): void {
-		this._instance.selectionStateMachine.send({ type: 'selectCell', cell: this });
-		// this._instance.setSelectedCells([this]);
+		this._instance.selectionStateMachine.send({ type: 'selectCell', cell: this, editMode: false });
 	}
 
 	deselect(): void {

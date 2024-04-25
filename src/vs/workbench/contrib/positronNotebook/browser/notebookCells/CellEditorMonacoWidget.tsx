@@ -94,15 +94,12 @@ export function useCellEditorWidget(cell: IPositronNotebookCell) {
 
 		disposableStore.add(
 			editor.onDidFocusEditorWidget(() => {
-				cell.selected.set(true, undefined);
 				instance.setEditingCell(cell);
 			})
 		);
 
 		disposableStore.add(
 			editor.onDidBlurEditorWidget(() => {
-				cell.select();
-				instance.setEditingCell(undefined);
 			})
 		);
 
@@ -110,14 +107,14 @@ export function useCellEditorWidget(cell: IPositronNotebookCell) {
 			new DisposableObserveValue(cell.editing, {
 				handleChange(obs, change) {
 					console.log(obs, change);
-					const isEditing = cell.editing.get();
+					// const isEditing = cell.editing.get();
 
-					if (isEditing) {
-						editor.focus();
-					} else {
-						nativeContainer.blur();
-						// console.log("not editing");
-					}
+					// if (isEditing) {
+					// 	editor.focus();
+					// } else {
+					// 	nativeContainer.blur();
+					// 	// console.log("not editing");
+					// }
 				}
 			})
 		);

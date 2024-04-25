@@ -12,7 +12,6 @@
 	}
 
 	&.editing {
-		outline: 1px solid green;
+		outline: 2px solid green;
 	}
-
 }

@@ -15,7 +15,17 @@ export function NotebookCellWrapper({ cell, children }: { cell: IPositronNoteboo
 	const selectionClass = editing ? 'editing' : selected ? 'selected' : 'unselected';
 	return <div
 		className={`positron-notebook-cell positron-notebook-${cell.kind === CellKind.Code ? 'code' : 'markdown'}-cell ${selectionClass}`}
-		onClick={() => { cell.select(); }}
+		onClick={(e) => {
+			const clickTarget = e.nativeEvent.target as HTMLElement;
+			// If any of the element or its parents have the class
+			// 'positron-cell-editor-monaco-widget' then don't run the select code as the editor
+			// widget itself handles that logic
+			const childOfEditor = clickTarget.closest('.positron-cell-editor-monaco-widget');
+			if (childOfEditor) {
+				return;
+			}
+			cell.select();
+		}}
 	>
 		{children}
 	</div>;
