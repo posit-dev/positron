@@ -163,6 +163,12 @@ export class PositronPlotsViewPane extends ViewPane implements IReactComponentCo
 		// Call the base class's constructor.
 		super(options, keybindingService, contextMenuService, configurationService, contextKeyService, viewDescriptorService, instantiationService, openerService, themeService, telemetryService);
 
+		// Make the viewpane focusable even when there are no components
+		// available to take the focus. The viewpane must be able to take focus
+		// at all times because otherwise blurring events do not occur and the
+		// viewpane management state becomes confused on toggle.
+		this.element.tabIndex = 0;
+
 		// Register the onDidChangeBodyVisibility event handler.
 		this._register(this.onDidChangeBodyVisibility(visible => {
 			this._onVisibilityChangedEmitter.fire(visible);
