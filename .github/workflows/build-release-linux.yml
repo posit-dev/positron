@@ -113,13 +113,13 @@ jobs:
         run: |
           yarn gulp vscode-reh-linux-${{ matrix.arch }}
           cd ..
-          tar czvf positron-reh-linux-${{ matrix.arch }}-${{ inputs.short_version }}.tar.gz vscode-reh-linux-${{ matrix.arch }}
+          tar czvf positron-reh-linux-${{ matrix.arch }}-${{ inputs.short_version }}.tar.gz positron/vscode-reh-linux-${{ matrix.arch }}
 
       - name: Upload REH .tar.gz
         uses: actions/upload-artifact@v4
         with:
           name: positron-binary-reh
-          path: ../positron-reh-linux-${{ matrix.arch }}-${{ inputs.short_version }}.tar.gz
+          path: positron-reh-linux-${{ matrix.arch }}-${{ inputs.short_version }}.tar.gz
 
   status:
     if: ${{ failure() }}
