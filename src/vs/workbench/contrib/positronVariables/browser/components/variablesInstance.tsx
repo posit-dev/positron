@@ -107,7 +107,7 @@ export const VariablesInstance = (props: VariablesInstanceProps) => {
 			setClientState(state);
 		}));
 
-		// Register event to drive focus inside the variable tree
+		// Register listener to drive focus inside the variable tree
 		disposableStore.add(props.positronVariablesInstance.onFocusElement(state => {
 			outerRef.current.focus();
 		}));
