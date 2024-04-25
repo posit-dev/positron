@@ -30,7 +30,6 @@ import { selectionMachine, SelectionState } from 'vs/workbench/contrib/positronN
 // eslint-disable-next-line local/code-import-patterns
 import { Actor, createActor } from 'xstate';
 
-
 enum KernelStatus {
 	Uninitialized = 'Uninitialized',
 	Connecting = 'Connecting',
@@ -587,44 +586,35 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		const window = DOM.getWindow(container);
 
 		const onKeyDown = (event: KeyboardEvent) => {
-			const editingCell = this.editingCell.get() !== undefined;
 			const addMode = event.metaKey || event.ctrlKey;
 
-			if (editingCell) {
-				switch (event.key) {
-					case 'Escape':
-						this.setEditingCell(undefined);
-						break;
-				}
-			} else {
-				switch (event.key) {
-					case 'ArrowUp':
-						this.selectionStateMachine.send({
-							type: 'arrowKeys',
-							up: true,
-							meta: addMode
-						});
+			switch (event.key) {
+				case 'ArrowUp':
+					this.selectionStateMachine.send({
+						type: 'arrowKeys',
+						up: true,
+						meta: addMode
+					});
 
-						break;
-					case 'ArrowDown':
-						this.selectionStateMachine.send({
-							type: 'arrowKeys',
-							up: false,
-							meta: addMode
-						});
-						break;
-					case 'Enter': {
-						this.selectionStateMachine.send({
-							type: 'enterPress',
-						});
-						break;
-					}
-					case 'Escape':
-						this.selectionStateMachine.send({
-							type: 'escapePress',
-						});
-						break;
+					break;
+				case 'ArrowDown':
+					this.selectionStateMachine.send({
+						type: 'arrowKeys',
+						up: false,
+						meta: addMode
+					});
+					break;
+				case 'Enter': {
+					this.selectionStateMachine.send({
+						type: 'enterPress',
+					});
+					break;
 				}
+				case 'Escape':
+					this.selectionStateMachine.send({
+						type: 'escapePress',
+					});
+					break;
 			}
 		};
 

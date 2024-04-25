@@ -14,4 +14,16 @@
 	&.editing {
 		outline: 2px solid green;
 	}
+
+	.positron-notebooks-cell-action-bar {
+		visibility: hidden;
+	}
+
+	&.editing,
+	&.selected,
+	&:hover {
+		.positron-notebooks-cell-action-bar {
+			visibility: visible;
+		}
+	}
 }
