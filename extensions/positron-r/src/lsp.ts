@@ -7,6 +7,7 @@ import * as positron from 'positron';
 import { PromiseHandles, timeout } from './util';
 import { RStatementRangeProvider } from './statement-range';
 import { LOGGER } from './extension';
+import { RErrorHandler } from './error-handler';
 
 import {
 	LanguageClient,
@@ -103,13 +104,14 @@ export class ArkLsp implements vscode.Disposable {
 				undefined :
 				{
 					fileEvents: vscode.workspace.createFileSystemWatcher('**/*.R')
-				}
+				},
+			errorHandler: new RErrorHandler(this._version, port)
 		};
 
 		// With a `.` rather than a `-` so vscode-languageserver can look up related options correctly
 		const id = 'positron.r';
 
-		LOGGER.trace(`Creating Positron R ${this._version} language client (port ${port})...`);
+		LOGGER.info(`Creating Positron R ${this._version} language client (port ${port})...`);
 		this._client = new LanguageClient(id, `Positron R Language Server (${this._version})`, serverOptions, clientOptions);
 
 		const out = new PromiseHandles<void>();
@@ -124,7 +126,7 @@ export class ArkLsp implements vscode.Disposable {
 					break;
 				case State.Running:
 					if (this._initializing) {
-						LOGGER.trace(`ARK (R ${this._version}) language client init successful`);
+						LOGGER.info(`ARK (R ${this._version}) language client init successful`);
 						this._initializing = undefined;
 						if (this._client) {
 							// Register Positron-specific LSP extension methods
@@ -136,13 +138,13 @@ export class ArkLsp implements vscode.Disposable {
 					break;
 				case State.Stopped:
 					if (this._initializing) {
-						LOGGER.trace(`ARK (R ${this._version}) language client init failed`);
+						LOGGER.info(`ARK (R ${this._version}) language client init failed`);
 						out.reject('Ark LSP client stopped before initialization');
 					}
 					this._state = LspState.stopped;
 					break;
 			}
-			LOGGER.trace(`ARK (R ${this._version}) language client state changed ${oldState} => ${this._state}`);
+			LOGGER.info(`ARK (R ${this._version}) language client state changed ${oldState} => ${this._state}`);
 		}));
 
 		this._client.start();
