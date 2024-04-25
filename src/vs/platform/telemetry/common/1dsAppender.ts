@@ -18,8 +18,12 @@ export interface IAppInsightsCore {
 	unload(isAsync: boolean, unloadComplete: (unloadState: ITelemetryUnloadState) => void): void;
 }
 
-const endpointUrl = 'https://mobile.events.data.microsoft.com/OneCollector/1.0';
-const endpointHealthUrl = 'https://mobile.events.data.microsoft.com/ping';
+// --- Start Positron ---
+// const endpointUrl = 'https://mobile.events.data.microsoft.com/OneCollector/1.0';
+// const endpointHealthUrl = 'https://mobile.events.data.microsoft.com/ping';
+const endpointUrl = 'https://0.0.0.0/OneCollector/1.0';
+const endpointHealthUrl = 'https://0.0.0.0/ping';
+// --- End Positron ---
 
 async function getClient(instrumentationKey: string, addInternalFlag?: boolean, xhrOverride?: IXHROverride): Promise<IAppInsightsCore> {
 	const oneDs = await importAMDNodeModule<typeof import('@microsoft/1ds-core-js')>('@microsoft/1ds-core-js', 'dist/ms.core.js');
