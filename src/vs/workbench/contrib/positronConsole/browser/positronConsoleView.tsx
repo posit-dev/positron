@@ -33,6 +33,8 @@ import { IExecutionHistoryService } from 'vs/workbench/contrib/executionHistory/
 import { IPositronConsoleService } from 'vs/workbench/services/positronConsole/browser/interfaces/positronConsoleService';
 import { IRuntimeSessionService } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
 import { IRuntimeStartupService } from 'vs/workbench/services/runtimeStartup/common/runtimeStartupService';
+import { disposableTimeout } from 'vs/base/common/async';
+import { DisposableStore } from 'vs/base/common/lifecycle';
 
 /**
  * PositronConsoleViewPane class.
@@ -91,6 +93,8 @@ export class PositronConsoleViewPane extends ViewPane implements IReactComponent
 	 * Gets or sets the PositronConsoleFocused context key.
 	 */
 	private _positronConsoleFocusedContextKey: IContextKey<boolean>;
+
+	private _disposableStore: DisposableStore;
 
 	//#endregion Private Properties
 
@@ -243,6 +247,8 @@ export class PositronConsoleViewPane extends ViewPane implements IReactComponent
 			// Relay event for our `IReactComponentContainer` implementation
 			this._onVisibilityChangedEmitter.fire(visible);
 		}));
+
+		this._disposableStore = this._register(new DisposableStore());
 	}
 
 	/**
@@ -315,7 +321,7 @@ export class PositronConsoleViewPane extends ViewPane implements IReactComponent
 		// In this case the `focus()` call fails (don't trust `this.onFocus()`).
 		// This happens for instance with `workbench.action.togglePanel` or
 		// `workbench.action.toggleSecondarySideBar`.
-		setTimeout(() => this.positronConsoleService.activePositronConsoleInstance?.focusInput());
+		disposableTimeout(() => this.positronConsoleService.activePositronConsoleInstance?.focusInput(), 0, this._disposableStore);
 	}
 
 	/**
@@ -344,4 +350,3 @@ export class PositronConsoleViewPane extends ViewPane implements IReactComponent
 
 	//#endregion Public Overrides
 }
-
