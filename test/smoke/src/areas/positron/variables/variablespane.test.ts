@@ -24,26 +24,26 @@ export function setup(logger: Logger) {
 		// Shared before/after handling
 		installAllHandlers(logger);
 
-		it('verifies Variables pane basic Python function', async function () {
+		it('Verifies Variables pane basic function with python interpreter', async function () {
 			const app = this.app as Application;
 
 			const desiredInterpreterType = 'Python';
-			const desiredPython = /3.10.14 \(Pyenv\)/;
+			const desiredPython = process.env.POSITRON_PY_VER_SEL || '3.10.12 (PyEnv)';
 
 			await app.code.waitAndClick(INTERPRETER_SELECTOR);
 			await app.code.waitForElement(POSITRON_MODAL_POPUP);
 
 			const primaryPython = await awaitDesiredPrimaryInterpreterGroupLoaded(app, desiredInterpreterType);
-			console.log(`Found primary python ${primaryPython.description} at index ${primaryPython.index}`);
+			logger.log(`Found primary python ${primaryPython.description} at index ${primaryPython.index}`, {});
 
-			const primaryIsMatch = desiredPython.test(primaryPython.description);
+			const primaryIsMatch = primaryPython.description.includes(desiredPython);
 			if (!primaryIsMatch) {
 
 				const secondaryInterpreters = await getSecondaryInterpreters(app, primaryPython.index);
-				console.log(secondaryInterpreters);
+				console.log(secondaryInterpreters.toString());
 
 				for (const secondaryInterpreter of secondaryInterpreters) {
-					if (desiredPython.test(secondaryInterpreter.description)) {
+					if (secondaryInterpreter.description.includes(desiredPython)) {
 						await app.code.waitAndClick(`${SECONDARY_INTERPRETER}:nth-of-type(${secondaryInterpreter.index})`);
 						break;
 					}
@@ -53,18 +53,26 @@ export function setup(logger: Logger) {
 				await app.code.waitAndClick(INTERPRETER_GROUPS, primaryPython.index);
 			}
 
+			await app.code.wait(1000);
+
 			// best way to handle something that might not be present?
 			try {
 				await app.code.waitForElement(POSITRON_MODAL_DIALOG_BOX, undefined, 50);
 				await app.code.waitAndClick(POSITRON_MODAL_DIALOG_BOX_OK);
-				await app.code.wait(2000); // need to look for cursor instead
+				console.log('Installed ipykernel');
+				await app.code.wait(10000); // need to look for cursor instead
 			} catch { }
 
 			await app.code.driver.typeKeys('.lines-content .view-lines div', 'x=1\n');
 			await app.code.driver.typeKeys('.lines-content .view-lines div', 'y=10\n');
 			await app.code.driver.typeKeys('.lines-content .view-lines div', 'z=100\n');
 
-			await app.code.wait(1000);
+			console.log('Entered lines in console defining variables');
+
+			await app.code.wait(5000);
+
+			const consoleTextContainer = await app.code.getElements('.console-instance .runtime-items div', false);
+			consoleTextContainer?.forEach(item => console.log(item.textContent));
 
 			const variablesLocator = app.code.driver.getLocator('.variables-instance .list .variable-item');
 			const nameLocators = variablesLocator.locator('.name-column');
@@ -74,9 +82,13 @@ export function setup(logger: Logger) {
 				return await nameLocators.nth(i).innerText();
 			}));
 
+			console.log(names);
+
 			const details = await Promise.all(Array.from({ length: await detailLocators.count() }, async (_, i) => {
 				return await detailLocators.nth(i).innerText();
 			}));
+
+			console.log(details);
 
 			const variablesMap = new Map<string, FlatVariables>();
 			for (let i = 0; i < names.length; i++) {
@@ -87,6 +99,7 @@ export function setup(logger: Logger) {
 			expect(variablesMap.get('x')).toStrictEqual({ value: '1', type: 'int' });
 			expect(variablesMap.get('y')).toStrictEqual({ value: '10', type: 'int' });
 			expect(variablesMap.get('z')).toStrictEqual({ value: '100', type: 'int' });
+
 		});
 	});
 }
