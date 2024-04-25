@@ -5,7 +5,8 @@
 import { Disposable } from 'vs/base/common/lifecycle';
 import { Event } from 'vs/base/common/event';
 import { IRuntimeClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimeClientInstance';
-import { BusyEvent, ClearConsoleEvent, UiFrontendEvent, OpenEditorEvent, OpenWorkspaceEvent, PositronUiComm, PromptStateEvent, ShowMessageEvent, WorkingDirectoryEvent, ExecuteCommandEvent, ShowUrlEvent, SetEditorSelectionsEvent } from './positronUiComm';
+import { BusyEvent, ClearConsoleEvent, UiFrontendEvent, OpenEditorEvent, OpenWorkspaceEvent, PromptStateEvent, ShowMessageEvent, WorkingDirectoryEvent, ExecuteCommandEvent, ShowUrlEvent, SetEditorSelectionsEvent } from './positronUiComm';
+import { PositronUiCommInstance } from 'vs/workbench/services/languageRuntime/common/positronUiCommInstance';
 
 
 /**
@@ -58,7 +59,7 @@ export interface IUiClientMessageOutputEvent
  * the backend know when Positron is connected.
  */
 export class UiClientInstance extends Disposable {
-	private _comm: PositronUiComm;
+	private _comm: PositronUiCommInstance;
 
 	/** Emitters for events forwarded from the UI comm */
 	onDidBusy: Event<BusyEvent>;
@@ -84,7 +85,7 @@ export class UiClientInstance extends Disposable {
 		super();
 		this._register(this._client);
 
-		this._comm = new PositronUiComm(this._client);
+		this._comm = new PositronUiCommInstance(this._client);
 		this.onDidBusy = this._comm.onDidBusy;
 		this.onDidClearConsole = this._comm.onDidClearConsole;
 		this.onDidSetEditorSelections = this._comm.onDidSetEditorSelections;
