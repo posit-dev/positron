@@ -247,6 +247,8 @@ export class PlaywrightDriver {
 		return this.page.evaluateHandle('window.driver');
 	}
 
+	// --- Start Positron ---
+
 	async typeKeys(locator: string, text: string): Promise<void> {
 		return this.page.locator(locator).pressSequentially(text);
 	}
@@ -254,4 +256,6 @@ export class PlaywrightDriver {
 	getLocator(selector: string): playwright.Locator {
 		return this.page.locator(selector);
 	}
+
+	// --- End Positron ---
 }
