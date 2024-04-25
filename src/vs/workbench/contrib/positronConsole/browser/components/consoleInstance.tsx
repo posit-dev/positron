@@ -4,7 +4,7 @@
 
 import 'vs/css!./consoleInstance';
 import * as React from 'react';
-import { KeyboardEvent, MouseEvent, UIEvent, useCallback, useEffect, useLayoutEffect, useRef, useState, WheelEvent } from 'react'; // eslint-disable-line no-duplicate-imports
+import { KeyboardEvent, MouseEvent, UIEvent, useEffect, useLayoutEffect, useRef, useState, WheelEvent } from 'react'; // eslint-disable-line no-duplicate-imports
 import * as nls from 'vs/nls';
 import * as DOM from 'vs/base/browser/dom';
 import { generateUuid } from 'vs/base/common/uuid';
@@ -113,11 +113,11 @@ export const ConsoleInstance = (props: ConsoleInstanceProps) => {
 		consoleInstanceRef.current.scrollHeight > consoleInstanceRef.current.clientHeight;
 
 	// Scrolls to the bottom.
-	const scrollToBottom = useCallback(() => {
+	const scrollToBottom = () => {
 		setScrollLock(false);
 		setIgnoreNextScrollEvent(true);
 		scrollVertically(consoleInstanceRef.current.scrollHeight);
-	}, [setIgnoreNextScrollEvent, setScrollLock]);
+	};
 
 	// Scrolls the console vertically.
 	const scrollVertically = (y: number) => {
@@ -292,8 +292,7 @@ export const ConsoleInstance = (props: ConsoleInstanceProps) => {
 			if (state === PositronConsoleState.Starting) {
 				// Scroll to bottom when restarting
 				// https://github.com/posit-dev/positron/issues/2807
-				// scrollToBottom();
-				scrollVertically(consoleInstanceRef.current.scrollHeight);
+				scrollToBottom();
 			}
 		}));
 
