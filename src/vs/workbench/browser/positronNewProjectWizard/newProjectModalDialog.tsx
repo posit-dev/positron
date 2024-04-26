@@ -21,8 +21,7 @@ import { IFileService } from 'vs/platform/files/common/files';
 import { ICommandService } from 'vs/platform/commands/common/commands';
 import { ILogService } from 'vs/platform/log/common/log';
 import { IOpenerService } from 'vs/platform/opener/common/opener';
-import { IStorageService, StorageScope, StorageTarget } from 'vs/platform/storage/common/storage';
-import { NewProjectConfiguration } from 'vs/workbench/browser/positronNewProjectWizard/interfaces/newProjectConfiguration';
+import { IPositronNewProjectService, NewProjectConfiguration } from 'vs/workbench/services/positronNewProject/common/positronNewProjectService';
 import { EnvironmentSetupType } from 'vs/workbench/browser/positronNewProjectWizard/interfaces/newProjectWizardEnums';
 
 /**
@@ -38,9 +37,9 @@ export const showNewProjectModalDialog = async (
 	logService: ILogService,
 	openerService: IOpenerService,
 	pathService: IPathService,
+	positronNewProjectService: IPositronNewProjectService,
 	runtimeSessionService: IRuntimeSessionService,
 	runtimeStartupService: IRuntimeStartupService,
-	storageService: IStorageService
 ): Promise<void> => {
 	// Create the renderer.
 	const renderer = new PositronModalReactRenderer({
@@ -93,15 +92,8 @@ export const showNewProjectModalDialog = async (
 						useRenv: result.useRenv || false,
 					};
 
-					// Store the new project configuration in the StorageService.
-					// The object is stringified here and can be parsed back into a
-					// NewProjectConfiguration object when read from storage.
-					storageService.store(
-						'positron.newProjectConfig',
-						JSON.stringify(newProjectConfig),
-						StorageScope.APPLICATION,
-						StorageTarget.MACHINE
-					);
+					// Store the new project configuration.
+					positronNewProjectService.storeNewProjectConfig(newProjectConfig);
 
 					// Any context-dependent work needs to be done before opening the folder
 					// because the extension host gets destroyed when a new project is opened,
