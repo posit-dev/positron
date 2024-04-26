@@ -1,25 +1,177 @@
 /*---------------------------------------------------------------------------------------------
  *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
+import { ISettableObservable, observableValue } from 'vs/base/common/observable';
 import { IPositronNotebookCell } from 'vs/workbench/contrib/positronNotebook/browser/notebookCells/interfaces';
-import { assign, not, setup } from 'xstate';
 
-type SingleSelection = IPositronNotebookCell;
-type MultiSelection = IPositronNotebookCell[];
+type NoSelection = {
+	type: 'No Selection';
+};
 
-function clampIndices(cells: IPositronNotebookCell[], index: number) {
-	return Math.max(0, Math.min(cells.length - 1, index));
+function isNoSelection(state: SelectionStates): state is NoSelection {
+	return state.type === 'No Selection';
+}
+
+type SingleSelection = {
+	type: 'Single Selection';
+	selected: IPositronNotebookCell[];
+};
+function isSingleSelection(state: SelectionStates): state is SingleSelection {
+	return state.type === 'Single Selection';
+}
+
+type MultiSelection = {
+	type: 'Multi Selection';
+	selected: IPositronNotebookCell[];
+};
+function isMultiSelection(state: SelectionStates): state is MultiSelection {
+	return state.type === 'Multi Selection';
+}
+
+type EditingSelection = {
+	type: 'Editing Selection';
+	selectedCell: IPositronNotebookCell;
+};
+function isEditingSelection(state: SelectionStates): state is EditingSelection {
+	return state.type === 'Editing Selection';
+}
+
+type SelectionStates =
+	| NoSelection
+	| SingleSelection
+	| MultiSelection
+	| EditingSelection;
+
+export class SelectionStateMachine {
+
+	private __state: SelectionStates = { type: 'No Selection' };
+
+	private get _state() {
+		return this.__state;
+	}
+
+	// Alert the observable that the state has changed.
+	private set _state(state: SelectionStates) {
+		this.__state = state;
+		this.state.set(this.__state, undefined);
+	}
+
+	private _cells: IPositronNotebookCell[] = [];
+
+	state: ISettableObservable<SelectionStates>;
+
+	constructor() {
+		this.state = observableValue('selectionState', this._state);
+	}
+
+	setCells(cells: IPositronNotebookCell[]) {
+		this._cells = cells;
+
+		if (isNoSelection(this._state)) {
+			return;
+		}
+
+		// If we're editing a cell when setCells is called. We need to check if the cell is still in the new cells.
+		// If it isn't we need to reset the selection.
+		if (isEditingSelection(this._state)) {
+			if (!cells.includes(this._state.selectedCell)) {
+				this._state = { type: 'No Selection' };
+				return;
+			}
+			return;
+		}
+
+		const selectionAfterNewCells = cellSelectionIntersection(cells, this._state.selected);
+		if (selectionAfterNewCells.length === 0) {
+			this._state = { type: 'No Selection' };
+			return;
+		}
+
+		this._state = { type: selectionAfterNewCells.length === 1 ? 'Single Selection' : 'Multi Selection', selected: selectionAfterNewCells };
+	}
+
+	selectCell(cell: IPositronNotebookCell, editMode: boolean) {
+		// TODO: Eventually add ability to build multi selection with meta key
+		this._state = editMode ?
+			{ type: 'Editing Selection', selectedCell: cell } :
+			{ type: 'Single Selection', selected: [cell] };
+	}
+
+	deselectCell(cell: IPositronNotebookCell) {
+		if (isNoSelection(this._state)) {
+			return;
+		}
+
+		const deselectingCurrentSelection = isSingleSelection(this._state) || isEditingSelection(this._state) && this._state.selectedCell === cell;
+
+		if (deselectingCurrentSelection) {
+			this._state = { type: 'No Selection' };
+			return;
+		}
+
+		if (isMultiSelection(this._state)) {
+			const updatedSelection = this._state.selected.filter(c => c !== cell);
+			this._state = { type: updatedSelection.length === 1 ? 'Single Selection' : 'Multi Selection', selected: updatedSelection };
+		}
+
+		// If the cell is not in the selection, do nothing.
+	}
+
+	arrowKeys(up: boolean, meta: boolean) {
+
+		if (isNoSelection(this._state) || isEditingSelection(this._state)) {
+			return;
+		}
+
+		const edgeCell = this._state.selected.at(up ? -1 : 0)!;
+		const indexOfEdgeCell = this._cells.indexOf(edgeCell);
+
+		// If the edge cell is at the top or bottom of the cells, and the up or down arrow key is pressed, respectively, do nothing.
+		if (indexOfEdgeCell <= 0 && up || indexOfEdgeCell >= this._cells.length - 1 && !up) {
+			// Already at the edge of the cells.
+			return;
+		}
+
+		const nextCell = this._cells[indexOfEdgeCell + (up ? -1 : 1)];
+
+		// If meta is held down we're building a multi selection.
+		if (meta) {
+			const newSelection = up ? [nextCell, ...this._state.selected] : [...this._state.selected, nextCell];
+			this._state = { type: 'Multi Selection', selected: newSelection };
+			return;
+		}
+
+		// If meta is not held down, we're in single selection mode.
+		this._state = { type: 'Single Selection', selected: [nextCell] };
+		nextCell.focus();
+	}
+
+	upArrow(meta: boolean) {
+		this.arrowKeys(true, meta);
+	}
+
+	downArrow(meta: boolean) {
+		this.arrowKeys(false, meta);
+	}
+
+	enterPress() {
+		if (isSingleSelection(this._state)) {
+			const cellToEdit = this._state.selected[0];
+			this._state = { type: 'Editing Selection', selectedCell: cellToEdit };
+			setTimeout(() => cellToEdit.focusEditor(), 0);
+		}
+	}
+
+	escPress() {
+		if (isEditingSelection(this._state)) {
+			this._state.selectedCell.defocusEditor();
+			this._state = { type: 'Single Selection', selected: [this._state.selectedCell] };
+		}
+	}
 }
 
 
-export type SelectionState = {
-	cells: IPositronNotebookCell[];
-	selectedCells: SingleSelection | MultiSelection | null;
-	editingCell: boolean;
-};
-
-
-function cellSelectionIntersection(cells: IPositronNotebookCell[], selection: SelectionState['selectedCells']) {
+function cellSelectionIntersection(cells: IPositronNotebookCell[], selection: IPositronNotebookCell[]) {
 	if (selection === null) {
 		return [];
 	}
@@ -27,270 +179,3 @@ function cellSelectionIntersection(cells: IPositronNotebookCell[], selection: Se
 
 	return selectedCells.filter(c => cells.includes(c));
 }
-
-export const selectionMachine = setup({
-	types: {
-		context: {} as SelectionState,
-		events: {} as
-			| { type: 'setCells'; cells: IPositronNotebookCell[] }
-			| { type: 'escapePress' }
-			| { type: 'enterPress' }
-			| { type: 'arrowKeys'; up: boolean; meta: boolean }
-			| { type: 'selectCell'; cell: IPositronNotebookCell; editMode: boolean }
-			| { type: 'deselectCell'; cell: IPositronNotebookCell }
-	},
-	actions: {
-		defocusEditor: ({ context }, params: unknown) => {
-			const currentSelection = context.selectedCells as SingleSelection;
-			currentSelection.defocusEditor();
-		}
-	},
-	guards: {
-		isMetaKey: (_, params: { meta: boolean }) => {
-			return params.meta;
-		},
-		isNotMetaKey: (_, params: { meta: boolean }) => {
-			return !params.meta;
-		},
-		twoItemsSelected: ({ context }, params: unknown) => {
-			return Array.isArray(context.selectedCells) && context.selectedCells.length === 2;
-		},
-		isEditMode: (_, params: { editMode: boolean }) => {
-			return params.editMode;
-		},
-		isNotEditMode: (_, params: { editMode: boolean }) => {
-			return !params.editMode;
-		},
-		hasSelection: ({ context }, params: unknown) => {
-			return context.selectedCells !== null;
-		},
-		noSelectionAfterNewCells: ({ context }, params: { cells: IPositronNotebookCell[] }) => {
-			return cellSelectionIntersection(params.cells, context.selectedCells).length === 0;
-		},
-		singleSelectionAfterNewCells: ({ context }, params: { cells: IPositronNotebookCell[] }) => {
-			return cellSelectionIntersection(params.cells, context.selectedCells).length === 1;
-		},
-		multiSelectionAfterNewCells: ({ context }, params: { cells: IPositronNotebookCell[] }) => {
-			return cellSelectionIntersection(params.cells, context.selectedCells).length > 1;
-		},
-
-	}
-}).createMachine({
-	context: { cells: [], selectedCells: null, editingCell: false },
-	id: 'NotebookSelection',
-	initial: 'No Selection',
-	states: {
-		'No Selection': {
-			on: {
-				setCells: {
-					target: 'No Selection',
-					actions: assign({
-						cells: ({ event }) => event.cells
-					})
-				}
-			}
-		},
-		'Single Selection': {
-			on: {
-				arrowKeys: [
-					{
-						target: 'Multi Selection',
-						guard: {
-							type: 'isMetaKey',
-							params: ({ event }) => ({ meta: event.meta })
-						},
-						actions: assign({
-							selectedCells: ({ context, event }) => {
-								const currentSelection = context.selectedCells as SingleSelection;
-								const indexOfCell = context.cells.indexOf(currentSelection);
-								const indexOfNextSelection = clampIndices(context.cells, indexOfCell + (event.up ? -1 : 1));
-								return [currentSelection, context.cells[indexOfNextSelection]];
-							}
-						})
-					},
-					{
-						target: 'Single Selection',
-						guard: {
-							type: 'isNotMetaKey',
-							params: ({ event }) => ({ meta: event.meta })
-						},
-						actions: assign({
-							selectedCells: ({ context, event }) => {
-								const currentSelection = context.selectedCells as SingleSelection;
-								const indexOfCell = context.cells.indexOf(currentSelection);
-								const indexOfNextSelection = clampIndices(context.cells, indexOfCell + (event.up ? -1 : 1));
-								const nextSelection = context.cells[indexOfNextSelection];
-								nextSelection.focus();
-								return nextSelection;
-							}
-						})
-					},
-				],
-				deselectCell: {
-					target: 'No Selection',
-					actions: assign({
-						selectedCells: null,
-					})
-				},
-				enterPress: {
-					target: 'Editing Selection',
-					actions: assign({
-						editingCell: ({ context }) => {
-							const currentSelection = context.selectedCells as SingleSelection;
-							// Use timeout so that enter key press is not propagated to the editor
-							setTimeout(() => currentSelection.focusEditor(), 0);
-							return true;
-						},
-					})
-				},
-				setCells: [
-					{
-						// If the selection still exists in new cells no need to change state.
-						target: 'Single Selection',
-						guard: {
-							type: 'singleSelectionAfterNewCells',
-							params: ({ event }) => ({ cells: event.cells })
-						},
-						actions: assign({
-							cells: ({ event }) => event.cells
-						})
-					},
-					{
-						// If the selection is missing in new cells, reset selection.
-						target: 'No Selection',
-						guard: {
-							type: 'noSelectionAfterNewCells',
-							params: ({ event }) => ({ cells: event.cells })
-						},
-						actions: assign({
-							cells: ({ event }) => event.cells,
-							selectedCells: null
-						})
-					}
-				]
-			}
-		},
-		'Editing Selection': {
-			on: {
-				escapePress: {
-					target: 'Single Selection',
-					actions: [
-						'defocusEditor',
-						assign({
-							editingCell: false,
-						})],
-				},
-			}
-		},
-		'Multi Selection': {
-			on: {
-				escapePress: {
-					target: 'Single Selection',
-					actions: assign({
-						selectedCells: ({ context }) => {
-							const currentSelection = context.selectedCells as MultiSelection;
-							return currentSelection.at(-1) as SingleSelection;
-						}
-					})
-				},
-				arrowKeys: {
-					target: 'Single Selection',
-					actions: assign({
-						selectedCells: ({ context, event }) => {
-							const currentSelection = context.selectedCells as MultiSelection;
-							return (event.up ? currentSelection.at(0) : currentSelection.at(-1)) as SingleSelection;
-						}
-					})
-				},
-				deselectCell: [
-					{
-						target: 'Single Selection',
-						guard: 'twoItemsSelected',
-						actions: assign({
-							selectedCells: ({ context, event }) => {
-								const currentSelection = context.selectedCells as MultiSelection;
-								return currentSelection.filter(c => c !== event.cell)[0];
-							}
-						})
-					},
-					{
-						target: 'Multi Selection',
-						guard: not('twoItemsSelected'),
-						actions: assign({
-							selectedCells: ({ context, event }) => {
-								const currentSelection = context.selectedCells as MultiSelection;
-								return currentSelection.filter(c => c !== event.cell);
-							}
-						})
-					}
-				],
-				setCells: [
-					{
-						// If the selection is missing in new cells, reset selection.
-						target: 'No Selection',
-						guard: {
-							type: 'noSelectionAfterNewCells',
-							params: ({ event }) => ({ cells: event.cells })
-						},
-						actions: assign({
-							cells: ({ event }) => event.cells,
-							selectedCells: null
-						})
-					},
-					{
-						// If the selection still exists in new cells no need to change state.
-						target: 'Single Selection',
-						guard: {
-							type: 'singleSelectionAfterNewCells',
-							params: ({ event }) => ({ cells: event.cells })
-						},
-						actions: assign({
-							cells: ({ event }) => event.cells
-						})
-					},
-					{
-						// If the selection is missing in new cells, reset selection.
-						target: 'Multi Selection',
-						guard: {
-							type: 'multiSelectionAfterNewCells',
-							params: ({ event }) => ({ cells: event.cells })
-						},
-						actions: assign({
-							cells: ({ event }) => event.cells
-						})
-					}
-				]
-			},
-		},
-	},
-	on: {
-		selectCell: [
-			{
-				target: '.Single Selection',
-				guard: {
-					type: 'isNotEditMode',
-					params: ({ event }) => ({ editMode: event.editMode })
-				},
-				actions: assign({
-					selectedCells: ({ event }) => {
-						return event.cell;
-					},
-					editingCell: false
-				}),
-			},
-			{
-				target: '.Editing Selection',
-				guard: {
-					type: 'isEditMode',
-					params: ({ event }) => ({ editMode: event.editMode })
-				},
-				actions: assign({
-					selectedCells: ({ context, event }) => {
-						return event.cell;
-					},
-					editingCell: true
-				}),
-			}
-		],
-	},
-});

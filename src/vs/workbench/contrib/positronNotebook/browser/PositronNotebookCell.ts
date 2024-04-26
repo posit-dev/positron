@@ -39,18 +39,25 @@ abstract class PositronNotebookCellGeneral extends Disposable implements IPositr
 		super();
 
 		this._disposableStore.add(
-			new DisposableObserveValue(this._instance.selectionState, () => {
-				const { selectedCells, editingCell } = this._instance.selectionState.get();
+			new DisposableObserveValue(this._instance.selectionStateMachine.state, () => {
+				const state = this._instance.selectionStateMachine.state.get();
 
-				if (!selectedCells) {
+				if (state.type === 'No Selection') {
 					this.selected.set(false, undefined);
+					this.editing.set(false, undefined);
 					return;
 				}
 
-				const isSelected = Array.isArray(selectedCells) ? selectedCells.includes(this) : selectedCells === this;
+				if (state.type === 'Editing Selection') {
+					const editingThisCell = state.selectedCell === this;
+					this.selected.set(editingThisCell, undefined);
+					this.editing.set(editingThisCell, undefined);
+					return;
+				}
 
-				this.selected.set(isSelected, undefined);
-				this.editing.set(isSelected && editingCell, undefined);
+				const cellIsSelected = state.selected.includes(this);
+				this.selected.set(cellIsSelected, undefined);
+				this.editing.set(false, undefined);
 			})
 		);
 	}
@@ -111,7 +118,7 @@ abstract class PositronNotebookCellGeneral extends Disposable implements IPositr
 	}
 
 	select(): void {
-		this._instance.selectionStateMachine.send({ type: 'selectCell', cell: this, editMode: false });
+		this._instance.selectionStateMachine.selectCell(this, false);
 	}
 
 	attachContainer(container: HTMLElement): void {
@@ -143,7 +150,7 @@ abstract class PositronNotebookCellGeneral extends Disposable implements IPositr
 	}
 
 	deselect(): void {
-		this._instance.selectionStateMachine.send({ type: 'deselectCell', cell: this });
+		this._instance.selectionStateMachine.deselectCell(this);
 	}
 }
 

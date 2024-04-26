@@ -25,10 +25,8 @@ import { PositronNotebookEditorInput } from 'vs/workbench/contrib/positronNotebo
 import { BaseCellEditorOptions } from './BaseCellEditorOptions';
 import * as DOM from 'vs/base/browser/dom';
 import { IPositronNotebookCell } from 'vs/workbench/contrib/positronNotebook/browser/notebookCells/interfaces';
-import { selectionMachine, SelectionState } from 'vs/workbench/contrib/positronNotebook/browser/notebookCells/selectionMachine';
+import { SelectionStateMachine } from 'vs/workbench/contrib/positronNotebook/browser/notebookCells/selectionMachine';
 
-// eslint-disable-next-line local/code-import-patterns
-import { Actor, createActor } from 'xstate';
 
 enum KernelStatus {
 	Uninitialized = 'Uninitialized',
@@ -67,12 +65,12 @@ export interface IPositronNotebookInstance {
 	//  */
 	// selectedCells: ISettableObservable<IPositronNotebookCell[]>;
 
-	selectionStateMachine: Actor<typeof selectionMachine>;
+	selectionStateMachine: SelectionStateMachine;
 
-	/**
-	 * The current selection state of the notebook.
-	 */
-	selectionState: ISettableObservable<SelectionState>;
+	// /**
+	//  * The current selection state of the notebook.
+	//  */
+	// selectionState: ISettableObservable<SelectionState>;
 
 	// /**
 	//  * Cell currently being edited. Undefined if no cell is being edited.
@@ -165,16 +163,9 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	*/
 	cells: ISettableObservable<IPositronNotebookCell[]>;
 	selectedCells: ISettableObservable<IPositronNotebookCell[]> = observableValue<IPositronNotebookCell[]>('positronNotebookSelectedCells', []);
-	selectionState: ISettableObservable<SelectionState> = observableValue<SelectionState>('positronNotebookSelectionState', { cells: [], selectedCells: null, editingCell: false });
 	editingCell: ISettableObservable<IPositronNotebookCell | undefined, void> = observableValue<IPositronNotebookCell | undefined>('positronNotebookEditingCell', undefined);
 
-	selectionStateMachine = createActor(selectionMachine, {
-		inspect: (inspectionEvent) => {
-			if (inspectionEvent.type === '@xstate.event') {
-				console.log(`xstate event: ${inspectionEvent.event.type}`, inspectionEvent.event);
-			}
-		}
-	});
+	selectionStateMachine = new SelectionStateMachine();
 
 	/**
 	 * Status of kernel for the notebook.
@@ -290,11 +281,15 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		this.cells = observableValue<IPositronNotebookCell[]>('positronNotebookCells', this._cells);
 		this.kernelStatus = observableValue<KernelStatus>('positronNotebookKernelStatus', KernelStatus.Uninitialized);
 
-		this.selectionStateMachine.subscribe((state) => {
-			console.log(`xstate state: ${state.value}`, state.context);
-			this.selectionState.set(state.context, undefined);
-		});
-		this.selectionStateMachine.start();
+		// this.selectionStateMachine.state.addObserver({
+		// 	handleChange: (state) => {
+		// 		console.log(`state machine`, state);
+		// 	}
+		// });
+		// subscribe((state) => {
+		// 	this.selectionState.set(state.context, undefined);
+		// });
+		// this.selectionStateMachine.start();
 		// this.selectionStateMachine.send({ type: 'setCells', cells: this._cells });
 
 		this.isReadOnly = this.creationOptions?.isReadOnly ?? false;
@@ -383,7 +378,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 
 			this.language = notebookModel.cells[0].language;
 			this.cells.set(this._cells, undefined);
-			this.selectionStateMachine.send({ type: 'setCells', cells: this._cells });
+			this.selectionStateMachine.setCells(this._cells);
 		};
 
 		fillCells();
@@ -544,18 +539,20 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	 * @param cellOrCells The cell or cells to set as selected
 	 */
 	setSelectedCells(cells: IPositronNotebookCell[]): void {
-		this.selectionStateMachine.send({ type: 'selectCell', cell: cells[0], editMode: false });
+		// this.selectionStateMachine.send({ type: 'selectCell', cell: cells[0], editMode: false });
+		this.selectionStateMachine.selectCell(cells[0], false);
 	}
 
 	deselectCell(cell: IPositronNotebookCell): void {
-		this.selectionStateMachine.send({ type: 'deselectCell', cell });
+		// this.selectionStateMachine.send({ type: 'deselectCell', cell });
+		this.selectionStateMachine.deselectCell(cell);
 	}
 
 	setEditingCell(cell: IPositronNotebookCell | undefined): void {
 		if (cell === undefined) {
 			return;
 		}
-		this.selectionStateMachine.send({ type: 'selectCell', cell, editMode: true });
+		this.selectionStateMachine.selectCell(cell, true);
 	}
 
 	async attachView(viewModel: NotebookViewModel, container: HTMLElement, viewState?: INotebookEditorViewState) {
@@ -613,30 +610,17 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 
 			switch (event.key) {
 				case 'ArrowUp':
-					this.selectionStateMachine.send({
-						type: 'arrowKeys',
-						up: true,
-						meta: addMode
-					});
-
+					this.selectionStateMachine.upArrow(addMode);
 					break;
 				case 'ArrowDown':
-					this.selectionStateMachine.send({
-						type: 'arrowKeys',
-						up: false,
-						meta: addMode
-					});
+					this.selectionStateMachine.downArrow(addMode);
 					break;
 				case 'Enter': {
-					this.selectionStateMachine.send({
-						type: 'enterPress',
-					});
+					this.selectionStateMachine.enterPress();
 					break;
 				}
 				case 'Escape':
-					this.selectionStateMachine.send({
-						type: 'escapePress',
-					});
+					this.selectionStateMachine.escPress();
 					break;
 			}
 		};
