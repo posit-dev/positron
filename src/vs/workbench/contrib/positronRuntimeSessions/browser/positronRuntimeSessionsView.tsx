@@ -15,17 +15,18 @@ import { IKeybindingService } from 'vs/platform/keybinding/common/keybinding';
 import { IContextMenuService } from 'vs/platform/contextview/browser/contextView';
 import { IInstantiationService } from 'vs/platform/instantiation/common/instantiation';
 import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
-import { ViewPane, IViewPaneOptions } from 'vs/workbench/browser/parts/views/viewPane';
+import { IViewPaneOptions } from 'vs/workbench/browser/parts/views/viewPane';
 import { IContextKey, IContextKeyService } from 'vs/platform/contextkey/common/contextkey';
 import { PositronSessions } from 'vs/workbench/contrib/positronRuntimeSessions/browser/positronRuntimeSessions';
 import { IReactComponentContainer, ISize, PositronReactRenderer } from 'vs/base/browser/positronReactRenderer';
 import { IRuntimeSessionService } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
 import { IWorkbenchLayoutService } from 'vs/workbench/services/layout/browser/layoutService';
+import { PositronViewPane } from 'vs/workbench/browser/positronViewPane/positronViewPane';
 
 /**
  * PositronSessionsViewPane class.
  */
-export class PositronRuntimeSessionsViewPane extends ViewPane implements IReactComponentContainer {
+export class PositronRuntimeSessionsViewPane extends PositronViewPane implements IReactComponentContainer {
 	//#region Private Properties
 
 	/**
@@ -193,12 +194,6 @@ export class PositronRuntimeSessionsViewPane extends ViewPane implements IReactC
 			openerService,
 			themeService,
 			telemetryService);
-
-		// Make the viewpane focusable even when there are no components
-		// available to take the focus. The viewpane must be able to take focus
-		// at all times because otherwise blurring events do not occur and the
-		// viewpane management state becomes confused on toggle.
-		this.element.tabIndex = 0;
 
 		// Register the onDidChangeBodyVisibility event handler.
 		this._register(this.onDidChangeBodyVisibility(visible => {

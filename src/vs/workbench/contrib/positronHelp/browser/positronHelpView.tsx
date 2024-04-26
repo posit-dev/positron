@@ -17,15 +17,16 @@ import { IHelpEntry } from 'vs/workbench/contrib/positronHelp/browser/helpEntry'
 import { IContextMenuService } from 'vs/platform/contextview/browser/contextView';
 import { IInstantiationService } from 'vs/platform/instantiation/common/instantiation';
 import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
-import { ViewPane, IViewPaneOptions } from 'vs/workbench/browser/parts/views/viewPane';
+import { IViewPaneOptions } from 'vs/workbench/browser/parts/views/viewPane';
 import { ActionBars } from 'vs/workbench/contrib/positronHelp/browser/components/actionBars';
 import { IPositronHelpService } from 'vs/workbench/contrib/positronHelp/browser/positronHelpService';
 import { IReactComponentContainer, ISize, PositronReactRenderer } from 'vs/base/browser/positronReactRenderer';
+import { PositronViewPane } from 'vs/workbench/browser/positronViewPane/positronViewPane';
 
 /**
  * PositronHelpView class.
  */
-export class PositronHelpView extends ViewPane implements IReactComponentContainer {
+export class PositronHelpView extends PositronViewPane implements IReactComponentContainer {
 	//#region Private Properties
 
 	// The width. This value is set in layoutBody and is used to implement the
@@ -189,12 +190,6 @@ export class PositronHelpView extends ViewPane implements IReactComponentContain
 			themeService,
 			telemetryService
 		);
-
-		// Make the viewpane focusable even when there are no components
-		// available to take the focus. The viewpane must be able to take focus
-		// at all times because otherwise blurring events do not occur and the
-		// viewpane management state becomes confused on toggle.
-		this.element.tabIndex = 0;
 
 		// Create containers.
 		this.positronHelpContainer = DOM.$('.positron-help-container');
