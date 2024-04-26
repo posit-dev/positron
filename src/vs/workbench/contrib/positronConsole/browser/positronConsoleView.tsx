@@ -309,9 +309,6 @@ export class PositronConsoleViewPane extends ViewPane implements IReactComponent
 	 * focus override method.
 	 */
 	override focus(): void {
-		// Call the base class's method.
-		super.focus();
-
 		// Trigger event that eventually causes console input widgets (main
 		// input, readline input, or restart buttons) to focus. Must be after
 		// the super call.
@@ -320,8 +317,17 @@ export class PositronConsoleViewPane extends ViewPane implements IReactComponent
 		// when the viewpane is not visible yet (don't trust `this.isBodyVisible()`).
 		// In this case the `focus()` call fails (don't trust `this.onFocus()`).
 		// This happens for instance with `workbench.action.togglePanel` or
-		// `workbench.action.toggleSecondarySideBar`.
-		disposableTimeout(() => this.positronConsoleService.activePositronConsoleInstance?.focusInput(), 0, this._disposableStore);
+		// `workbench.action.toggleSecondarySideBar`. Not doing it at the next tick
+		// would result in broken viewpane toggling, see
+		// https://github.com/posit-dev/positron/pull/2867
+		const focus = () => {
+			// The base class focuses the whole pane (we set its tabIndex to make this possible).
+			// Also needs to be in the next tick.
+			super.focus();
+
+			return this.positronConsoleService.activePositronConsoleInstance?.focusInput();
+		};
+		disposableTimeout(focus, 0, this._disposableStore);
 	}
 
 	/**
