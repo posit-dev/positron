@@ -176,6 +176,55 @@ def test_handle_refresh(shell: PositronShell, variables_comm: DummyComm) -> None
     ]
 
 
+def test_list_1000(shell: PositronShell, variables_comm: DummyComm) -> None:
+
+    # Create 1000 variables
+    for j in range(0, 1000, 1):
+        shell.user_ns["var{}".format(j)] = j
+
+    # Request the list of variables
+    msg = json_rpc_request("list", comm_id="dummy_comm_id")
+    variables_comm.handle_msg(msg)
+
+    # Assert that a message with 1000 variables is sent
+    result_msg = variables_comm.messages[0]
+    assert result_msg.get("data").get("result").get("length") == 1000
+
+    # Also spot check the first and last variables
+    variables = result_msg.get("data").get("result").get("variables")
+    assert variables[0].get("display_name") == "var0"
+    assert variables[999].get("display_name") == "var999"
+
+
+def test_update_101(shell: PositronShell, variables_comm: DummyComm) -> None:
+
+    # Create 101 variables
+    assign_101 = ""
+    for j in range(0, 101, 1):
+        assign_101 += "x{} = {}".format(j, j) + "\n"
+
+    shell.run_cell(assign_101)
+    variables_comm.messages.clear()
+
+    # Re-assign the variables to trigger an update message
+    update101 = ""
+    for j in range(0, 101, 1):
+        update101 += "x{} = {}".format(j, j + 500) + "\n"
+
+    shell.run_cell(update101)
+
+    # Assert that an update message with 101 assigned values is sent
+    msg = variables_comm.messages[0]
+    assert msg.get("data").get("method") == "update"
+
+    assigned = msg.get("data").get("params").get("assigned")
+    assert len(assigned) == 101
+
+    # Spot check the first and last variables
+    assert assigned[0].get("display_value") == "500"
+    assert assigned[100].get("display_value") == "600"
+
+
 @pytest.mark.asyncio
 async def test_handle_clear(
     shell: PositronShell,
