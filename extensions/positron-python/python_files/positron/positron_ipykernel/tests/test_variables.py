@@ -177,7 +177,6 @@ def test_handle_refresh(shell: PositronShell, variables_comm: DummyComm) -> None
 
 
 def test_list_1000(shell: PositronShell, variables_comm: DummyComm) -> None:
-
     # Create 1000 variables
     for j in range(0, 1000, 1):
         shell.user_ns["var{}".format(j)] = j
@@ -197,7 +196,6 @@ def test_list_1000(shell: PositronShell, variables_comm: DummyComm) -> None:
 
 
 def test_update_101(shell: PositronShell, variables_comm: DummyComm) -> None:
-
     # Create 101 variables
     assign_101 = ""
     for j in range(0, 101, 1):
