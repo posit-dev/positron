@@ -2094,6 +2094,28 @@ export const POSITRON_DATA_EXPLORER_CONTRAST_BACKGROUND_COLOR = registerColor('p
 	hcLight: editorBackground
 }, localize('positronDataExplorer.contrastBackground', "Positron data explorer contrast background color."));
 
+// Positron data explorer invalid filter background color.
+export const POSITRON_DATA_EXPLORER_INVALID_FILTER_BACKGROUND_COLOR = registerColor('positronDataExplorer.invalidFilterBackground', {
+	dark: '#e95b5b',
+	light: '#e95b5b',
+	hcDark: '#e95b5b',
+	hcLight: '#e95b5b'
+}, localize('positronDataExplorer.invalidFilterBackground', "Positron data explorer invalid filter background color."));
+
+export const POSITRON_DATA_EXPLORER_STATUS_INDICATOR_COMPUTING = registerColor('positronDataExplorer.statusIndicatorComputing', {
+	dark: '#f6e8b1',
+	light: '#f6e8b1',
+	hcDark: '#f6e8b1',
+	hcLight: '#f6e8b1'
+}, localize('positronDataExplorer.statusIndicatorComputing', "Positron data explorer status indicator computing color."));
+
+export const POSITRON_DATA_EXPLORER_STATUS_INDICATOR_DISCONNECTED = registerColor('positronDataExplorer.statusIndicatorDisconnected', {
+	dark: '#b0b0b0',
+	light: '#b0b0b0',
+	hcDark: '#b0b0b0',
+	hcLight: '#b0b0b0'
+}, localize('positronDataExplorer.statusIndicatorDisconnected', "Positron data explorer status indicator disconnected color."));
+
 // Positron data explorer selection background color.
 export const POSITRON_DATA_EXPLORER_SELECTION_BACKGROUND_COLOR = registerColor('positronDataExplorer.selectionBackground', {
 	dark: lighten(editorBackground, 0.2),

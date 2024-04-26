@@ -107,6 +107,11 @@ export const VariablesInstance = (props: VariablesInstanceProps) => {
 			setClientState(state);
 		}));
 
+		// Register listener to drive focus inside the variable tree
+		disposableStore.add(props.positronVariablesInstance.onFocusElement(state => {
+			outerRef.current.focus();
+		}));
+
 		// Request the initial refresh.
 		props.positronVariablesInstance.requestRefresh();
 
@@ -162,152 +167,175 @@ export const VariablesInstance = (props: VariablesInstanceProps) => {
 			0
 		);
 
-		// Process the code.
-		switch (e.code) {
-			// Home key.
-			case 'Home': {
-				consumeEvent();
-				listRef.current.scrollTo(0);
-				break;
-			}
+		// Determine that a key is pressed without any modifiers
+		const noModifierKey = !e.ctrlKey && !e.metaKey && !e.shiftKey && !e.altKey;
 
-			// End key.
-			case 'End': {
-				consumeEvent();
-				listRef.current.scrollTo(maxScrollOffset());
-				break;
-			}
+		// Determine whether the cmd or ctrl key is pressed without other modifiers.
+		const onlyCmdOrCtrlKey = (isMacintosh ? e.metaKey : e.ctrlKey) &&
+			(isMacintosh ? !e.ctrlKey : !e.metaKey) &&
+			!e.shiftKey &&
+			!e.altKey;
 
-			// Page up key.
-			case 'PageUp': {
-				consumeEvent();
-				listRef.current.scrollTo(Math.max(scrollOffsetRef.current - props.height, 0));
-				break;
-			}
-
-			// Page down key.
-			case 'PageDown': {
-				consumeEvent();
-				listRef.current.scrollTo(
-					Math.min(
-						scrollOffsetRef.current + props.height,
-						maxScrollOffset()
-					)
-				);
-				break;
-			}
-
-			// Up arrow key.
-			case 'ArrowUp': {
-				consumeEvent();
-				if (!selectedId) {
-					if (variableEntries.length) {
-						setSelectedId(variableEntries[variableEntries.length - 1].id);
-						listRef.current.scrollToItem(variableEntries.length - 1);
-					}
-				} else {
-					const selectedIndex = variableEntries.findIndex(entry =>
-						entry.id === selectedId
-					);
-					if (selectedIndex > 0) {
-						const index = selectedIndex - 1;
-						setSelectedId(variableEntries[index].id);
-						listRef.current.scrollToItem(index);
-					}
+		if (noModifierKey) {
+			// Process the code.
+			switch (e.code) {
+				// Home key.
+				case 'Home': {
+					consumeEvent();
+					listRef.current.scrollTo(0);
+					return;
 				}
-				break;
-			}
 
-			// Down arrow key.
-			case 'ArrowDown': {
-				consumeEvent();
-				if (!selectedId) {
-					if (variableEntries.length) {
-						setSelectedId(variableEntries[0].id);
-						listRef.current.scrollToItem(0);
-					}
-				} else {
-					const selectedEntryIndex = variableEntries.findIndex(entry =>
-						entry.id === selectedId
-					);
-					if (selectedEntryIndex < variableEntries.length - 1) {
-						const index = selectedEntryIndex + 1;
-						setSelectedId(variableEntries[index].id);
-						listRef.current.scrollToItem(index);
-					}
+				// End key.
+				case 'End': {
+					consumeEvent();
+					listRef.current.scrollTo(maxScrollOffset());
+					return;
 				}
-				break;
-			}
 
-			// Left arrow key.
-			case 'ArrowLeft': {
-				consumeEvent();
-				if (selectedId) {
-					const selectedEntryIndex = variableEntries.findIndex(entry =>
-						entry.id === selectedId
-					);
-					const selectedVariableEntry = variableEntries[selectedEntryIndex];
-					if (isVariableGroup(selectedVariableEntry)) {
-						if (selectedVariableEntry.expanded) {
-							props.positronVariablesInstance.collapseVariableGroup(
-								selectedVariableEntry.id
-							);
-						}
-					} else if (isVariableItem(selectedVariableEntry) &&
-						selectedVariableEntry.hasChildren) {
-						if (selectedVariableEntry.expanded) {
-							props.positronVariablesInstance.collapseVariableItem(
-								selectedVariableEntry.path
-							);
-						}
-					}
+				// Page up key.
+				case 'PageUp': {
+					consumeEvent();
+					listRef.current.scrollTo(Math.max(scrollOffsetRef.current - props.height, 0));
+					return;
 				}
-				break;
-			}
 
-			// Right arrow key.
-			case 'ArrowRight': {
-				consumeEvent();
-				if (selectedId) {
-					const selectedEntryIndex = variableEntries.findIndex(entry =>
-						entry.id === selectedId
+				// Page down key.
+				case 'PageDown': {
+					consumeEvent();
+					listRef.current.scrollTo(
+						Math.min(
+							scrollOffsetRef.current + props.height,
+							maxScrollOffset()
+						)
 					);
-					const selectedVariableEntry = variableEntries[selectedEntryIndex];
-					if (isVariableGroup(selectedVariableEntry)) {
-						if (!selectedVariableEntry.expanded) {
-							props.positronVariablesInstance.expandVariableGroup(
-								selectedVariableEntry.id
-							);
-						}
-					} else if (isVariableItem(selectedVariableEntry) &&
-						selectedVariableEntry.hasChildren) {
-						if (!selectedVariableEntry.expanded) {
-							props.positronVariablesInstance.expandVariableItem(
-								selectedVariableEntry.path
-							);
-						}
-					}
+					return;
 				}
-				break;
-			}
 
-			// C key.
-			case 'KeyC': {
-				// Process the key.
-				if (isMacintosh ? e.metaKey : e.ctrlKey && selectedId) {
-					const selectedEntryIndex = variableEntries.findIndex(entry =>
-						entry.id === selectedId
-					);
-					const selectedEntry = variableEntries[selectedEntryIndex];
-					if (isVariableItem(selectedEntry)) {
-						consumeEvent();
-						const text = await selectedEntry.formatForClipboard(
-							e.shiftKey ? 'text/html' : 'text/plain'
+				// Up arrow key.
+				case 'ArrowUp': {
+					consumeEvent();
+					if (!selectedId) {
+						if (variableEntries.length) {
+							setSelectedId(variableEntries[variableEntries.length - 1].id);
+							listRef.current.scrollToItem(variableEntries.length - 1);
+						}
+					} else {
+						const selectedIndex = variableEntries.findIndex(entry =>
+							entry.id === selectedId
 						);
-						positronVariablesContext.clipboardService.writeText(text);
+						if (selectedIndex > 0) {
+							const index = selectedIndex - 1;
+							setSelectedId(variableEntries[index].id);
+							listRef.current.scrollToItem(index);
+						}
 					}
+					return;
 				}
-				break;
+
+				// Down arrow key.
+				case 'ArrowDown': {
+					consumeEvent();
+					if (!selectedId) {
+						if (variableEntries.length) {
+							setSelectedId(variableEntries[0].id);
+							listRef.current.scrollToItem(0);
+						}
+					} else {
+						const selectedEntryIndex = variableEntries.findIndex(entry =>
+							entry.id === selectedId
+						);
+						if (selectedEntryIndex < variableEntries.length - 1) {
+							const index = selectedEntryIndex + 1;
+							setSelectedId(variableEntries[index].id);
+							listRef.current.scrollToItem(index);
+						}
+					}
+					return;
+				}
+
+				// Left arrow key.
+				case 'ArrowLeft': {
+					consumeEvent();
+					if (selectedId) {
+						const selectedEntryIndex = variableEntries.findIndex(entry =>
+							entry.id === selectedId
+						);
+						const selectedVariableEntry = variableEntries[selectedEntryIndex];
+						if (isVariableGroup(selectedVariableEntry)) {
+							if (selectedVariableEntry.expanded) {
+								props.positronVariablesInstance.collapseVariableGroup(
+									selectedVariableEntry.id
+								);
+							}
+						} else if (isVariableItem(selectedVariableEntry) &&
+							selectedVariableEntry.hasChildren) {
+							if (selectedVariableEntry.expanded) {
+								props.positronVariablesInstance.collapseVariableItem(
+									selectedVariableEntry.path
+								);
+							}
+						}
+					}
+					return;
+				}
+
+				// Right arrow key.
+				case 'ArrowRight': {
+					consumeEvent();
+					if (selectedId) {
+						const selectedEntryIndex = variableEntries.findIndex(entry =>
+							entry.id === selectedId
+						);
+						const selectedVariableEntry = variableEntries[selectedEntryIndex];
+						if (isVariableGroup(selectedVariableEntry)) {
+							if (!selectedVariableEntry.expanded) {
+								props.positronVariablesInstance.expandVariableGroup(
+									selectedVariableEntry.id
+								);
+							}
+						} else if (isVariableItem(selectedVariableEntry) &&
+							selectedVariableEntry.hasChildren) {
+							if (!selectedVariableEntry.expanded) {
+								props.positronVariablesInstance.expandVariableItem(
+									selectedVariableEntry.path
+								);
+							}
+						}
+					}
+					return;
+				}
+
+				default: {
+					return;
+				}
+			}
+		}
+
+		if (onlyCmdOrCtrlKey) {
+			switch (e.key) {
+				// C key.
+				case 'c': {
+					// Process the key.
+					if (selectedId) {
+						const selectedEntryIndex = variableEntries.findIndex(entry =>
+							entry.id === selectedId
+						);
+						const selectedEntry = variableEntries[selectedEntryIndex];
+						if (isVariableItem(selectedEntry)) {
+							consumeEvent();
+							const text = await selectedEntry.formatForClipboard(
+								e.shiftKey ? 'text/html' : 'text/plain'
+							);
+							positronVariablesContext.clipboardService.writeText(text);
+						}
+					}
+					return;
+				}
+
+				default: {
+					return;
+				}
 			}
 		}
 	};

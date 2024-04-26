@@ -90,6 +90,13 @@ export class PositronPreviewViewPane extends ViewPane implements IReactComponent
 		options = { ...options, minimumBodySize: 0 };
 
 		super(options, keybindingService, contextMenuService, configurationService, contextKeyService, viewDescriptorService, instantiationService, openerService, themeService, telemetryService);
+
+		// Make the viewpane focusable even when there are no components
+		// available to take the focus. The viewpane must be able to take focus
+		// at all times because otherwise blurring events do not occur and the
+		// viewpane management state becomes confused on toggle.
+		this.element.tabIndex = 0;
+
 		this._register(this.onDidChangeBodyVisibility(() => this.onDidChangeVisibility(this.isBodyVisible())));
 		this._positronPreviewContainer = DOM.$('.positron-preview-container');
 	}

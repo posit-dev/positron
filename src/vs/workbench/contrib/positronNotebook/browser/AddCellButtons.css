@@ -8,10 +8,7 @@
 	opacity: 0;
 	transition: opacity 0.2s;
 	gap: 8px;
-
-	.action-label {
-		cursor: pointer;
-	}
+	color: inherit;
 }
 
 .positron-add-cell-buttons:hover {

@@ -403,6 +403,11 @@
         },
         {
           "category": "R",
+          "command": "r.packageInstall",
+          "when": "isRPackage"
+        },
+        {
+          "category": "R",
           "command": "r.packageTest",
           "when": "isRPackage"
         },
@@ -535,7 +540,7 @@
   },
   "positron": {
     "binaryDependencies": {
-      "ark": "0.1.84"
+      "ark": "0.1.87"
     },
     "minimumRVersion": "4.2.0"
   }

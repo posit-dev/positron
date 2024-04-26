@@ -218,9 +218,11 @@ interface CellSelectionRange {
 }
 
 /**
- * ColumnSortKey class.
+ * ColumnSortKeyDescriptor class.
+ *
+ * "Descriptor" added to disambiguate from ColumnSortKey in generated comm.
  */
-class ColumnSortKey implements IColumnSortKey {
+export class ColumnSortKeyDescriptor implements IColumnSortKey {
 	//#region Private Properties
 
 	/**
@@ -476,12 +478,16 @@ export abstract class DataGridInstance extends Disposable {
 	 */
 	private readonly _rowHeights = new Map<number, number>();
 
+	//#endregion Private Properties
+
+	//#region Protected Properties
+
 	/**
 	 * Gets the column sort keys.
 	 */
-	private readonly _columnSortKeys = new Map<number, ColumnSortKey>();
+	protected readonly _columnSortKeys = new Map<number, ColumnSortKeyDescriptor>();
 
-	//#endregion Private Properties
+	//#endregion Protected Properties
 
 	//#region Protected Events
 
@@ -994,7 +1000,7 @@ export abstract class DataGridInstance extends Disposable {
 			// Add the column sort key.
 			this._columnSortKeys.set(
 				columnIndex,
-				new ColumnSortKey(this._columnSortKeys.size, columnIndex, ascending)
+				new ColumnSortKeyDescriptor(this._columnSortKeys.size, columnIndex, ascending)
 			);
 
 			// Fire the onDidUpdate event.
@@ -2054,7 +2060,6 @@ export abstract class DataGridInstance extends Disposable {
 		this._rowSelectionIndexes.clear();
 		this._columnWidths.clear();
 		this._rowHeights.clear();
-		this._columnSortKeys.clear();
 	}
 
 	//#endregion Protected Methods

@@ -21,6 +21,7 @@ import { MarkdownString } from 'vs/base/common/htmlContent';
 
 // --- Start Positron ---
 // Ignore properties contributed by vscode-jupyter related in favor of Positron code cells and console.
+// These are disabled in the settings UI. To override their actual values see extHostConfiguration.ts.
 // TODO(seem): We can remove this if we eventually decide to unbundle vscode-jupyter.
 const IGNORED_JUPYTER_CONFIGURATION_PROPERTIES = new Set([
 	'jupyter.decorateCells',
@@ -32,6 +33,7 @@ const IGNORED_JUPYTER_CONFIGURATION_PROPERTIES = new Set([
 	'jupyter.interactiveWindow.codeLens.commands',
 	'jupyter.interactiveWindow.codeLens.enable',
 	'jupyter.interactiveWindow.codeLens.enableGotoCell',
+	// The typo in the following property is intentional, don't fix it.
 	'jupyter.interactiveWindow.codeLes.debugCommands',
 	'jupyter.interactiveWindow.creationMode',
 	'jupyter.interactiveWindow.textEditor.autoAddNewCell',

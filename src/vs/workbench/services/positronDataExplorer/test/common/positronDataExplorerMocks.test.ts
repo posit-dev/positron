@@ -39,9 +39,11 @@ suite('DataExplorerMocks', () => {
 	});
 
 	test('Test getCompareFilter', () => {
-		const filter = mocks.getCompareFilter(2, CompareFilterParamsOp.Gt, '1234');
+		const schema = mocks.getTableSchema(1000, 10);
+
+		const filter = mocks.getCompareFilter(schema.columns[2], CompareFilterParamsOp.Gt, '1234');
 		assert.equal(filter.filter_type, RowFilterType.Compare);
-		assert.equal(filter.column_index, 2);
+		assert.equal(filter.column_schema.column_index, 2);
 
 		const params = filter.compare_params!;
 
@@ -50,18 +52,20 @@ suite('DataExplorerMocks', () => {
 	});
 
 	test('Test getIsNullFilter', () => {
-		let filter = mocks.getIsNullFilter(3);
-		assert.equal(filter.column_index, 3);
+		const schema = mocks.getTableSchema(1000, 10);
+		let filter = mocks.getIsNullFilter(schema.columns[3]);
+		assert.equal(filter.column_schema.column_index, 3);
 		assert.equal(filter.filter_type, RowFilterType.IsNull);
 
-		filter = mocks.getNotNullFilter(3);
+		filter = mocks.getNotNullFilter(schema.columns[3]);
 		assert.equal(filter.filter_type, RowFilterType.NotNull);
 	});
 
 	test('Test getTextSearchFilter', () => {
-		const filter = mocks.getTextSearchFilter(5, 'needle',
+		const schema = mocks.getTableSchema(1000, 10);
+		const filter = mocks.getTextSearchFilter(schema.columns[5], 'needle',
 			SearchFilterType.Contains, false);
-		assert.equal(filter.column_index, 5);
+		assert.equal(filter.column_schema.column_index, 5);
 		assert.equal(filter.filter_type, RowFilterType.Search);
 
 		const params = filter.search_params!;
@@ -72,9 +76,10 @@ suite('DataExplorerMocks', () => {
 	});
 
 	test('Test getSetMemberFilter', () => {
+		const schema = mocks.getTableSchema(1000, 10);
 		const set_values = ['need1', 'need2'];
-		const filter = mocks.getSetMemberFilter(6, set_values, true);
-		assert.equal(filter.column_index, 6);
+		const filter = mocks.getSetMemberFilter(schema.columns[6], set_values, true);
+		assert.equal(filter.column_schema.column_index, 6);
 		assert.equal(filter.filter_type, RowFilterType.SetMembership);
 
 		const params = filter.set_membership_params!;

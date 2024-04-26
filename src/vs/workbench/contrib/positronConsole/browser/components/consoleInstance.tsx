@@ -4,7 +4,7 @@
 
 import 'vs/css!./consoleInstance';
 import * as React from 'react';
-import { KeyboardEvent, MouseEvent, UIEvent, useEffect, useLayoutEffect, useRef, useState, WheelEvent } from 'react'; // eslint-disable-line no-duplicate-imports
+import { KeyboardEvent, MouseEvent, UIEvent, useCallback, useEffect, useLayoutEffect, useRef, useState, WheelEvent } from 'react'; // eslint-disable-line no-duplicate-imports
 import * as nls from 'vs/nls';
 import * as DOM from 'vs/base/browser/dom';
 import { generateUuid } from 'vs/base/common/uuid';
@@ -44,7 +44,7 @@ import { RuntimeItemReconnected } from 'vs/workbench/services/positronConsole/br
 import { RuntimeStartupFailure } from 'vs/workbench/contrib/positronConsole/browser/components/runtimeStartupFailure';
 import { RuntimeItemPendingInput } from 'vs/workbench/services/positronConsole/browser/classes/runtimeItemPendingInput';
 import { RuntimeItemRestartButton } from 'vs/workbench/services/positronConsole/browser/classes/runtimeItemRestartButton';
-import { IPositronConsoleInstance } from 'vs/workbench/services/positronConsole/browser/interfaces/positronConsoleService';
+import { IPositronConsoleInstance, PositronConsoleState } from 'vs/workbench/services/positronConsole/browser/interfaces/positronConsoleService';
 import { RuntimeItemStartupFailure } from 'vs/workbench/services/positronConsole/browser/classes/runtimeItemStartupFailure';
 import { POSITRON_CONSOLE_COPY, POSITRON_CONSOLE_CUT, POSITRON_CONSOLE_PASTE, POSITRON_CONSOLE_SELECT_ALL } from 'vs/workbench/contrib/positronConsole/browser/positronConsoleIdentifiers';
 
@@ -103,9 +103,24 @@ export const ConsoleInstance = (props: ConsoleInstanceProps) => {
 	const [trace, setTrace] = useState(props.positronConsoleInstance.trace);
 	const [wordWrap, setWordWrap] = useState(props.positronConsoleInstance.wordWrap);
 	const [marker, setMarker] = useState(generateUuid());
-	const [, setLastScrollTop, lastScrollTopRef] = useStateRef(0);
-	const [, setScrollLock, scrollLockRef] = useStateRef(false);
 	const [, setIgnoreNextScrollEvent, ignoreNextScrollEventRef] = useStateRef(false);
+
+
+	// Determines whether the console is scrollable.
+	const scrollable = () =>
+		consoleInstanceRef.current.scrollHeight > consoleInstanceRef.current.clientHeight;
+
+	// Scrolls to the bottom.
+	const scrollToBottom = useCallback(() => {
+		props.positronConsoleInstance.scrollLocked = false;
+		setIgnoreNextScrollEvent(true);
+		scrollVertically(consoleInstanceRef.current.scrollHeight);
+	}, [props.positronConsoleInstance, setIgnoreNextScrollEvent]);
+
+	// Scrolls the console vertically.
+	const scrollVertically = (y: number) => {
+		consoleInstanceRef.current.scrollTo(consoleInstanceRef.current.scrollLeft, y);
+	};
 
 	/**
 	 * Gets the selection.
@@ -260,18 +275,13 @@ export const ConsoleInstance = (props: ConsoleInstanceProps) => {
 			}
 		));
 
-		// Add the onSaveScrollPosition event handler.
-		disposableStore.add(props.reactComponentContainer.onSaveScrollPosition(() => {
-			setLastScrollTop(consoleInstanceRef.current.scrollTop);
-		}));
-
-		// Add the onRestoreScrollPosition event handler.
-		disposableStore.add(props.reactComponentContainer.onRestoreScrollPosition(() => {
-			consoleInstanceRef.current.scrollTop = lastScrollTopRef.current;
-		}));
-
 		// Add the onDidChangeState event handler.
 		disposableStore.add(props.positronConsoleInstance.onDidChangeState(state => {
+			if (state === PositronConsoleState.Starting) {
+				// Scroll to bottom when restarting
+				// https://github.com/posit-dev/positron/issues/2807
+				scrollToBottom();
+			}
 		}));
 
 		// Add the onDidChangeTrace event handler.
@@ -291,7 +301,44 @@ export const ConsoleInstance = (props: ConsoleInstanceProps) => {
 
 		// Add the onDidExecuteCode event handler.
 		disposableStore.add(props.positronConsoleInstance.onDidExecuteCode(_code => {
-			scrollVertically(consoleInstanceRef.current.scrollHeight);
+			scrollToBottom();
+		}));
+
+		disposableStore.add(props.reactComponentContainer.onVisibilityChanged(visible => {
+			if (visible) {
+				// The browser will automatically set scrollTop to 0 on child
+				// components that have been hidden and made visible. (This is
+				// called "desperate" elsewhere in Visual Studio Code.  Search
+				// for that word and you'll see other examples of hacks that
+				// have been added to to fix this problem.).  To counteract this
+				// we restore the scroll state saved on the last scroll event.
+				//
+				// We restore in the next tick because otherwise our scrolling
+				// gets overwritten by whatever is setting the scrollTop to 0 on
+				// redraw. This is also what VS Code's debug console does.
+				//
+				// Note that the scroll-to-zero somehow only happens when we are
+				// not scrolled all the way to the bottom. In this case, the
+				// scrolling to 0 followed by our scroll to `lastScrollTop` is
+				// unfortunately noticeable, though not too bad.
+				setTimeout(() => {
+					// Since we are in a timeout and teardown might have been called,
+					// check that our component is still mounted
+					if (consoleInstanceRef.current) {
+						if (props.positronConsoleInstance.scrollLocked) {
+							scrollVertically(props.positronConsoleInstance.lastScrollTop);
+						} else {
+							scrollToBottom();
+						}
+					}
+				});
+			}
+		}));
+
+		disposableStore.add(props.reactComponentContainer.onSizeChanged(_ => {
+			if (!props.positronConsoleInstance.scrollLocked) {
+				scrollToBottom();
+			}
 		}));
 
 		// Add the onDidSelectPlot event handler.
@@ -315,14 +362,14 @@ export const ConsoleInstance = (props: ConsoleInstanceProps) => {
 
 		// Return the cleanup function that will dispose of the event handlers.
 		return () => disposableStore.dispose();
-	}, [editorFontInfo, lastScrollTopRef, positronConsoleContext.activePositronConsoleInstance?.session, positronConsoleContext.configurationService, positronConsoleContext.positronPlotsService, positronConsoleContext.runtimeSessionService, positronConsoleContext.viewsService, props.positronConsoleInstance, props.reactComponentContainer, setLastScrollTop]);
+	}, [editorFontInfo, positronConsoleContext.activePositronConsoleInstance?.session, positronConsoleContext.configurationService, positronConsoleContext.positronPlotsService, positronConsoleContext.runtimeSessionService, positronConsoleContext.viewsService, props.positronConsoleInstance, props.reactComponentContainer, scrollToBottom]);
 
 	useLayoutEffect(() => {
 		// If the view is not scroll locked, scroll to the bottom to reveal the most recent items.
-		if (!scrollLockRef.current) {
+		if (!props.positronConsoleInstance.scrollLocked) {
 			scrollVertically(consoleInstanceRef.current.scrollHeight);
 		}
-	}, [marker, scrollLockRef]);
+	}, [marker, props.positronConsoleInstance.scrollLocked]);
 
 	/**
 	 * onClick event handler.
@@ -348,8 +395,17 @@ export const ConsoleInstance = (props: ConsoleInstanceProps) => {
 			e.stopPropagation();
 		};
 
-		// Determine whether the cmd or ctrl key is pressed.
-		const cmdOrCtrlKey = isMacintosh ? e.metaKey : e.ctrlKey;
+		// Determine that a key is pressed without any modifiers
+		const noModifierKey = !e.ctrlKey && !e.metaKey && !e.shiftKey && !e.altKey;
+
+		// Determine whether the cmd or ctrl key is pressed without other modifiers.
+		const onlyCmdOrCtrlKey = (isMacintosh ? e.metaKey : e.ctrlKey) &&
+			(isMacintosh ? !e.ctrlKey : !e.metaKey) &&
+			!e.shiftKey &&
+			!e.altKey;
+
+		// Shift key is pressed without other modifiers.
+		const onlyShiftKey = e.shiftKey && !e.ctrlKey && !e.metaKey && !e.altKey;;
 
 		// Calculates the page height.
 		const pageHeight = () =>
@@ -359,48 +415,50 @@ export const ConsoleInstance = (props: ConsoleInstanceProps) => {
 			) * editorFontInfo.lineHeight;
 
 		// Handle the key.
-		if (!cmdOrCtrlKey) {
+		if (noModifierKey) {
 			// Handle scrolling keys.
-			switch (e.code) {
+			switch (e.key) {
 				// Page up key.
 				case 'PageUp':
 					consumeEvent();
-					setScrollLock(scrollable());
+					props.positronConsoleInstance.scrollLocked = scrollable();
 					scrollVertically(consoleInstanceRef.current.scrollTop - pageHeight());
-					break;
+					return;
 
 				// Page down key.
 				case 'PageDown':
 					consumeEvent();
 					scrollVertically(consoleInstanceRef.current.scrollTop + pageHeight());
-					break;
+					return;
 
 				// Home key.
 				case 'Home':
 					// Consume the event, set scroll lock, and scroll to the top.
 					consumeEvent();
-					setScrollLock(scrollable());
+					props.positronConsoleInstance.scrollLocked = scrollable();
 					scrollVertically(0);
-					break;
+					return;
 
 				// End key.
 				case 'End':
 					consumeEvent();
 					scrollToBottom();
-					break;
-
-				// Any other key gets driven to the input.
-				default: {
-					scrollToBottom();
-					props.positronConsoleInstance.focusInput();
-					break;
-				}
+					return;
 			}
-		} else {
+		}
+
+		if (onlyCmdOrCtrlKey) {
 			// Process the key.
-			switch (e.code) {
+			switch (e.key) {
+				// We don't handle 'x' here because:
+				// - It's already correctly disabled in the read-only parts
+				//   of the output. It's also disabled when the selection
+				//   overlaps writable and read-only sections.
+				// - It's easier to let the native command handle the writable
+				//   parts.
+
 				// A key.
-				case 'KeyA': {
+				case 'a': {
 					// Handle select all shortcut.
 					if (getSelection()) {
 						// Consume the event.
@@ -409,11 +467,11 @@ export const ConsoleInstance = (props: ConsoleInstanceProps) => {
 						// Select all runtime items.
 						selectAllRuntimeItems();
 					}
-					break;
+					return;
 				}
 
 				// C key.
-				case 'KeyC': {
+				case 'c': {
 					// Consume the event.
 					consumeEvent();
 
@@ -423,19 +481,26 @@ export const ConsoleInstance = (props: ConsoleInstanceProps) => {
 						// Copy the selection to the clipboard.
 						positronConsoleContext.clipboardService.writeText(selection.toString());
 					}
-					break;
+					return;
 				}
 
 				// V key.
-				case 'KeyV': {
+				case 'v': {
 					// Consume the event.
 					consumeEvent();
 
 					// Paste text.
 					pasteText(await positronConsoleContext.clipboardService.readText());
-					break;
+					return;
 				}
 			}
+		}
+
+		// Typing keys get driven to the input.
+		if (noModifierKey || onlyShiftKey) {
+			scrollToBottom();
+			props.positronConsoleInstance.focusInput();
+			return;
 		}
 	};
 
@@ -511,8 +576,12 @@ export const ConsoleInstance = (props: ConsoleInstanceProps) => {
 				consoleInstanceRef.current.scrollTop
 			);
 
-			// Update scroll lock.
-			setScrollLock(scrollPosition >= 1);
+			// Update scroll lock state
+			props.positronConsoleInstance.scrollLocked = scrollPosition >= 1;
+
+			// This used to be saved in an event handler when visibility changed
+			// to `false` but the `scrollTop` already became 0 at that point.
+			props.positronConsoleInstance.lastScrollTop = consoleInstanceRef.current.scrollTop;
 		}
 	};
 
@@ -522,26 +591,24 @@ export const ConsoleInstance = (props: ConsoleInstanceProps) => {
 	 */
 	const wheelHandler = (e: WheelEvent<HTMLDivElement>) => {
 		// Negative delta Y immediantly engages scroll lock, if the console is scrollable.
-		if (e.deltaY < 0 && !scrollLockRef.current) {
-			setScrollLock(scrollable());
+		if (e.deltaY < 0 && !props.positronConsoleInstance.scrollLocked) {
+			props.positronConsoleInstance.scrollLocked = scrollable();
 			return;
 		}
 	};
 
-	// Determines whether the console is scrollable.
-	const scrollable = () =>
-		consoleInstanceRef.current.scrollHeight > consoleInstanceRef.current.clientHeight;
-
-	// Scrolls to the bottom.
-	const scrollToBottom = () => {
-		setScrollLock(false);
-		setIgnoreNextScrollEvent(true);
-		scrollVertically(consoleInstanceRef.current.scrollHeight);
+	/**
+	 * onFocus event handler.
+	 */
+	const focusHandler = () => {
+		props.reactComponentContainer.focusChanged?.(true);
 	};
 
-	// Scrolls the console vertically.
-	const scrollVertically = (y: number) => {
-		consoleInstanceRef.current.scrollTo(consoleInstanceRef.current.scrollLeft, y);
+	/**
+	 * onBlur event handler.
+	 */
+	const blurHandler = () => {
+		props.reactComponentContainer.focusChanged?.(false);
 	};
 
 	// Calculate the adjusted width (to account for indentation of the entire console instance).
@@ -569,6 +636,8 @@ export const ConsoleInstance = (props: ConsoleInstanceProps) => {
 				whiteSpace: wordWrap ? 'pre-wrap' : 'pre',
 				zIndex: props.active ? 'auto' : -1
 			}}
+			onFocus={focusHandler}
+			onBlur={blurHandler}
 			onClick={clickHandler}
 			onKeyDown={keyDownHandler}
 			onMouseDown={mouseDownHandler}
@@ -594,7 +663,7 @@ export const ConsoleInstance = (props: ConsoleInstanceProps) => {
 					} else if (runtimeItem instanceof RuntimeItemExited) {
 						return <RuntimeExited key={runtimeItem.id} runtimeItemExited={runtimeItem} />;
 					} else if (runtimeItem instanceof RuntimeItemRestartButton) {
-						return <RuntimeRestartButton key={runtimeItem.id} runtimeItemRestartButton={runtimeItem} />;
+						return <RuntimeRestartButton key={runtimeItem.id} runtimeItemRestartButton={runtimeItem} positronConsoleInstance={props.positronConsoleInstance}/>;
 					} else if (runtimeItem instanceof RuntimeItemStartupFailure) {
 						return <RuntimeStartupFailure key={runtimeItem.id} runtimeItemStartupFailure={runtimeItem} />;
 					} else if (runtimeItem instanceof RuntimeItemTrace) {

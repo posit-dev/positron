@@ -197,89 +197,23 @@ def test_explorer_delete_variable(
     _check_delete_variable("y")
 
 
-def _check_update_variable(de_service, name, update_type="schema", discard_state=True):
+def _check_update_variable(de_service, name, update_type="schema"):
     paths = de_service.get_paths_for_variable(name)
     assert len(paths) > 0
 
     comms = [de_service.comms[comm_id] for p in paths for comm_id in de_service.path_to_comm_ids[p]]
 
     if update_type == "schema":
-        expected_msg = json_rpc_notification("schema_update", {"discard_state": discard_state})
+        expected_msg = json_rpc_notification("schema_update", {})
     else:
         expected_msg = json_rpc_notification("data_update", {})
 
     # Check that comms were all closed
     for comm in comms:
-        last_message = cast(DummyComm, comm.comm).messages[-1]
+        dummy_comm = cast(DummyComm, comm.comm)
+        last_message = dummy_comm.messages[-1]
         assert last_message == expected_msg
-
-
-def test_explorer_variable_updates(
-    shell: PositronShell,
-    de_service: DataExplorerService,
-    variables_comm: DummyComm,
-):
-    x = pd.DataFrame({"a": [1, 0, 3, 4]})
-    big_x = pd.DataFrame({"a": np.arange(BIG_ARRAY_LENGTH)})
-
-    _assign_variables(
-        shell,
-        variables_comm,
-        x=x,
-        big_x=big_x,
-        y={"key1": SIMPLE_PANDAS_DF, "key2": SIMPLE_PANDAS_DF},
-    )
-
-    # Check updates
-
-    path_x = _open_viewer(variables_comm, ["x"])
-    _open_viewer(variables_comm, ["big_x"])
-    _open_viewer(variables_comm, ["y", "key1"])
-    _open_viewer(variables_comm, ["y", "key2"])
-    _open_viewer(variables_comm, ["y", "key2"])
-
-    # Do a simple update and make sure that sort keys are preserved
-    x_comm_id = list(de_service.path_to_comm_ids[path_x])[0]
-    x_sort_keys = [{"column_index": 0, "ascending": True}]
-    msg = json_rpc_request(
-        "set_sort_columns",
-        params={"sort_keys": [{"column_index": 0, "ascending": True}]},
-        comm_id=x_comm_id,
-    )
-    de_service.comms[x_comm_id].comm.handle_msg(msg)
-    shell.run_cell("import pandas as pd")
-    shell.run_cell("x = pd.DataFrame({'a': [1, 0, 3, 4, 5]})")
-    _check_update_variable(de_service, "x", update_type="data")
-
-    tv = de_service.table_views[x_comm_id]
-    assert tv.sort_keys == [ColumnSortKey(**k) for k in x_sort_keys]
-    assert tv._need_recompute
-
-    dxf = DataExplorerFixture(de_service)
-    new_state = dxf.get_state("x")
-    assert new_state["display_name"] == "x"
-    assert new_state["table_shape"]["num_rows"] == 5
-    assert new_state["table_shape"]["num_columns"] == 1
-    assert new_state["sort_keys"] == [ColumnSortKey(**k) for k in x_sort_keys]
-
-    # Execute code that triggers an update event for big_x because it's large
-    shell.run_cell("print('hello world')")
-    _check_update_variable(de_service, "big_x", update_type="data")
-
-    # Update nested values in y and check for schema updates
-    shell.run_cell(
-        """y = {'key1': y['key1'].iloc[:1]],
-    'key2': y['key2'].copy()}
-    """
-    )
-    _check_update_variable(de_service, "y", update_type="update", discard_state=False)
-
-    shell.run_cell(
-        """y = {'key1': y['key1'].iloc[:-1, :-1],
-    'key2': y['key2'].copy().iloc[:, 1:]}
-    """
-    )
-    _check_update_variable(de_service, "y", update_type="schema", discard_state=True)
+        dummy_comm.messages.clear()
 
 
 def test_register_table(de_service: DataExplorerService):
@@ -311,10 +245,27 @@ JsonRecords = List[Dict[str, Any]]
 
 
 class DataExplorerFixture:
-    def __init__(self, de_service: DataExplorerService):
+    def __init__(
+        self,
+        shell: PositronShell,
+        de_service: DataExplorerService,
+        variables_comm: DummyComm,
+    ):
+        self.shell = shell
         self.de_service = de_service
-
+        self.variables_comm = variables_comm
         self.register_table("simple", SIMPLE_PANDAS_DF)
+        self._table_views = {}
+
+    def assign_and_open_viewer(self, table_name: str, table):
+        _assign_variables(self.shell, self.variables_comm, **{table_name: table})
+        path_df = _open_viewer(self.variables_comm, [table_name])
+        comm_id = list(self.de_service.path_to_comm_ids[path_df])[0]
+
+        return comm_id
+
+    def execute_code(self, code: str):
+        self.shell.run_cell(code)
 
     def register_table(self, table_name: str, table):
         comm_id = guid()
@@ -330,6 +281,12 @@ class DataExplorerFixture:
             comm_id=comm_id,
             variable_path=[encode_access_key(table_name)],
         )
+
+    def get_schema_for(self, df):
+        comm_id = guid()
+        self.register_table(comm_id, df)
+        result = self.get_schema(comm_id)
+        return result
 
     def do_json_rpc(self, table_name, method, **params):
         paths = self.de_service.get_paths_for_variable(table_name)
@@ -350,7 +307,14 @@ class DataExplorerFixture:
         else:
             return data["result"]
 
-    def get_schema(self, table_name, start_index, num_columns):
+    def get_schema(self, table_name, start_index=None, num_columns=None):
+        if start_index is None:
+            start_index = 0
+
+        if num_columns is None:
+            shape = self.get_state(table_name)["table_shape"]
+            num_columns = shape["num_columns"]
+
         return self.do_json_rpc(
             table_name,
             "get_schema",
@@ -391,9 +355,18 @@ class DataExplorerFixture:
         response = self.set_row_filters(table_id, filters=filter_set)
 
         ex_num_rows = len(expected_table)
-        assert response == FilterResult(selected_num_rows=ex_num_rows)
+        assert response == FilterResult(selected_num_rows=ex_num_rows, had_errors=False)
 
-        assert self.get_state(table_id)["table_shape"]["num_rows"] == ex_num_rows
+        state = self.get_state(table_id)
+        assert state["table_shape"] == {
+            "num_rows": ex_num_rows,
+            "num_columns": len(table.columns),
+        }
+        assert state["table_unfiltered_shape"] == {
+            "num_rows": len(table),
+            "num_columns": len(table.columns),
+        }
+
         self.compare_tables(table_id, ex_id, table.shape)
 
     def check_sort_case(self, table, sort_keys, expected_table, filters=None):
@@ -428,8 +401,12 @@ class DataExplorerFixture:
 
 
 @pytest.fixture()
-def dxf(de_service: DataExplorerService):
-    return DataExplorerFixture(de_service)
+def dxf(
+    shell: PositronShell,
+    de_service: DataExplorerService,
+    variables_comm: DummyComm,
+):
+    return DataExplorerFixture(shell, de_service, variables_comm)
 
 
 def _wrap_json(model: Type[BaseModel], data: JsonRecords):
@@ -439,19 +416,33 @@ def _wrap_json(model: Type[BaseModel], data: JsonRecords):
 def test_pandas_get_state(dxf: DataExplorerFixture):
     result = dxf.get_state("simple")
     assert result["display_name"] == "simple"
-    assert result["table_shape"]["num_rows"] == 5
-    assert result["table_shape"]["num_columns"] == 6
+    ex_shape = {"num_rows": 5, "num_columns": 6}
+    assert result["table_shape"] == ex_shape
+    assert result["table_unfiltered_shape"] == ex_shape
+
+    schema = dxf.get_schema("simple")["columns"]
 
     sort_keys = [
         {"column_index": 0, "ascending": True},
         {"column_index": 1, "ascending": False},
     ]
-    filters = [_compare_filter(0, ">", 0), _compare_filter(0, "<", 5)]
+    filters = [
+        _compare_filter(schema[0], ">", 2),
+        _compare_filter(schema[0], "<", 5),
+    ]
     dxf.set_sort_columns("simple", sort_keys=sort_keys)
     dxf.set_row_filters("simple", filters=filters)
 
     result = dxf.get_state("simple")
     assert result["sort_keys"] == sort_keys
+
+    ex_filtered_shape = {"num_rows": 2, "num_columns": 6}
+    assert result["table_shape"] == ex_filtered_shape
+    assert result["table_unfiltered_shape"] == ex_shape
+
+    # Validity is checked in set_row_filters
+    for f in filters:
+        f["is_valid"] = True
     assert result["row_filters"] == [RowFilter(**f) for f in filters]
 
 
@@ -466,9 +457,11 @@ def test_pandas_supported_features(dxf: DataExplorerFixture):
     assert search_schema["supported"]
 
     assert row_filters["supported"]
-    assert not row_filters["supports_conditions"]
+    assert row_filters["supports_conditions"]
     assert set(row_filters["supported_types"]) == {
+        "is_empty",
         "is_null",
+        "not_empty",
         "not_null",
         "between",
         "compare",
@@ -667,12 +660,12 @@ def test_pandas_get_data_values(dxf: DataExplorerFixture):
     #     )
 
 
-def _filter(filter_type, column_index, condition="and", is_valid=None, **kwargs):
+def _filter(filter_type, column_schema, condition="and", is_valid=None, **kwargs):
     kwargs.update(
         {
             "filter_id": guid(),
             "filter_type": filter_type,
-            "column_index": column_index,
+            "column_schema": column_schema,
             "condition": condition,
             "is_valid": is_valid,
         }
@@ -680,28 +673,28 @@ def _filter(filter_type, column_index, condition="and", is_valid=None, **kwargs)
     return kwargs
 
 
-def _compare_filter(column_index, op, value, condition="and", is_valid=None):
+def _compare_filter(column_schema, op, value, condition="and", is_valid=None):
     return _filter(
         "compare",
-        column_index,
+        column_schema,
         condition=condition,
         is_valid=is_valid,
         compare_params={"op": op, "value": value},
     )
 
 
-def _between_filter(column_index, left_value, right_value, op="between", condition="and"):
+def _between_filter(column_schema, left_value, right_value, op="between", condition="and"):
     return _filter(
         op,
-        column_index,
+        column_schema,
         condition=condition,
         between_params={"left_value": left_value, "right_value": right_value},
     )
 
 
-def _not_between_filter(column_index, left_value, right_value, condition="and"):
+def _not_between_filter(column_schema, left_value, right_value, condition="and"):
     return _between_filter(
-        column_index,
+        column_schema,
         left_value,
         right_value,
         op="not_between",
@@ -710,7 +703,7 @@ def _not_between_filter(column_index, left_value, right_value, condition="and"):
 
 
 def _search_filter(
-    column_index,
+    column_schema,
     term,
     case_sensitive=False,
     search_type="contains",
@@ -718,7 +711,7 @@ def _search_filter(
 ):
     return _filter(
         "search",
-        column_index,
+        column_schema,
         condition=condition,
         search_params={
             "search_type": search_type,
@@ -729,14 +722,14 @@ def _search_filter(
 
 
 def _set_member_filter(
-    column_index,
+    column_schema,
     values,
     inclusive=True,
     condition="and",
 ):
     return _filter(
         "set_membership",
-        column_index,
+        column_schema,
         condition=condition,
         set_membership_params={"values": values, "inclusive": inclusive},
     )
@@ -744,28 +737,27 @@ def _set_member_filter(
 
 def test_pandas_filter_between(dxf: DataExplorerFixture):
     df = SIMPLE_PANDAS_DF
-    column = "a"
-    column_index = df.columns.get_loc(column)
+    schema = dxf.get_schema("simple")["columns"]
 
     cases = [
-        (0, 2, 4),  # a column
-        (3, 0, 2),  # d column
+        (schema[0], 2, 4),  # a column
+        (schema[0], 0, 2),  # d column
     ]
 
-    for column_index, left_value, right_value in cases:
-        col = df.iloc[:, column_index]
+    for column_schema, left_value, right_value in cases:
+        col = df.iloc[:, column_schema["column_index"]]
 
         ex_between = df[(col >= left_value) & (col <= right_value)]
         ex_not_between = df[(col < left_value) | (col > right_value)]
 
         dxf.check_filter_case(
             df,
-            [_between_filter(column_index, str(left_value), str(right_value))],
+            [_between_filter(column_schema, str(left_value), str(right_value))],
             ex_between,
         )
         dxf.check_filter_case(
             df,
-            [_not_between_filter(column_index, str(left_value), str(right_value))],
+            [_not_between_filter(column_schema, str(left_value), str(right_value))],
             ex_not_between,
         )
 
@@ -773,11 +765,13 @@ def test_pandas_filter_between(dxf: DataExplorerFixture):
 def test_pandas_filter_conditions(dxf: DataExplorerFixture):
     # Test AND/OR conditions when filtering
     df = SIMPLE_PANDAS_DF
+    schema = dxf.get_schema("simple")["columns"]
+
     filters = [
-        _compare_filter(0, ">=", 3, condition="or"),
-        _compare_filter(3, "<=", -4.5, condition="or"),
+        _compare_filter(schema[0], ">=", 3, condition="or"),
+        _compare_filter(schema[3], "<=", -4.5, condition="or"),
         # Delbierately duplicated
-        _compare_filter(3, "<=", -4.5, condition="or"),
+        _compare_filter(schema[3], "<=", -4.5, condition="or"),
     ]
 
     expected_df = df[(df["a"] >= 3) | (df["d"] <= -4.5)]
@@ -785,7 +779,7 @@ def test_pandas_filter_conditions(dxf: DataExplorerFixture):
 
     # Test a single condition with or set
     filters = [
-        _compare_filter(0, ">=", 3, condition="or"),
+        _compare_filter(schema[0], ">=", 3, condition="or"),
     ]
     dxf.check_filter_case(df, filters, df[df["a"] >= 3])
 
@@ -797,20 +791,20 @@ def test_pandas_filter_compare(dxf: DataExplorerFixture):
     df = SIMPLE_PANDAS_DF
     compare_value = 3
     column = "a"
-    column_index = df.columns.get_loc(column)
+    schema = dxf.get_schema("simple")["columns"]
 
     for op, op_func in COMPARE_OPS.items():
-        filt = _compare_filter(column_index, op, str(compare_value))
+        filt = _compare_filter(schema[0], op, str(compare_value))
         expected_df = df[op_func(df[column], compare_value)]
         dxf.check_filter_case(df, [filt], expected_df)
 
     # TODO(wesm): move these tests to their own test case
 
     # Test that passing empty filter set resets to unfiltered state
-    filt = _compare_filter(column_index, "<", str(compare_value))
+    filt = _compare_filter(schema[0], "<", str(compare_value))
     _ = dxf.set_row_filters(table_name, filters=[filt])
     response = dxf.set_row_filters(table_name, filters=[])
-    assert response == FilterResult(selected_num_rows=len(df))
+    assert response == FilterResult(selected_num_rows=len(df), had_errors=False)
 
     # register the whole table to make sure the filters are really cleared
     ex_id = guid()
@@ -821,9 +815,11 @@ def test_pandas_filter_compare(dxf: DataExplorerFixture):
 def test_pandas_filter_is_valid(dxf: DataExplorerFixture):
     # Test AND/OR conditions when filtering
     df = SIMPLE_PANDAS_DF
+    schema = dxf.get_schema("simple")["columns"]
+
     filters = [
-        _compare_filter(0, ">=", 3),
-        _compare_filter(0, "<", 3, is_valid=False),
+        _compare_filter(schema[0], ">=", 3),
+        _compare_filter(schema[0], "<", 3, is_valid=False),
     ]
 
     expected_df = df[df["a"] >= 3]
@@ -831,8 +827,8 @@ def test_pandas_filter_is_valid(dxf: DataExplorerFixture):
 
     # No filter is valid
     filters = [
-        _compare_filter(0, ">=", 3, is_valid=False),
-        _compare_filter(0, "<", 3, is_valid=False),
+        _compare_filter(schema[0], ">=", 3, is_valid=False),
+        _compare_filter(schema[0], "<", 3, is_valid=False),
     ]
 
     dxf.check_filter_case(df, filters, df)
@@ -846,17 +842,20 @@ def test_pandas_filter_empty(dxf: DataExplorerFixture):
         }
     )
 
-    dxf.check_filter_case(df, [_filter("is_empty", 0)], df[df["a"].str.len() == 0])
-    dxf.check_filter_case(df, [_filter("not_empty", 0)], df[df["a"].str.len() != 0])
-    dxf.check_filter_case(df, [_filter("is_empty", 1)], df[df["b"].str.len() == 0])
-    dxf.check_filter_case(df, [_filter("not_empty", 1)], df[df["b"].str.len() != 0])
+    schema = dxf.get_schema_for(df)["columns"]
+
+    dxf.check_filter_case(df, [_filter("is_empty", schema[0])], df[df["a"].str.len() == 0])
+    dxf.check_filter_case(df, [_filter("not_empty", schema[0])], df[df["a"].str.len() != 0])
+    dxf.check_filter_case(df, [_filter("is_empty", schema[1])], df[df["b"].str.len() == 0])
+    dxf.check_filter_case(df, [_filter("not_empty", schema[1])], df[df["b"].str.len() != 0])
 
 
 def test_pandas_filter_is_null_not_null(dxf: DataExplorerFixture):
     df = SIMPLE_PANDAS_DF
-    b_is_null = _filter("is_null", 1)
-    b_not_null = _filter("not_null", 1)
-    c_not_null = _filter("not_null", 2)
+    schema = dxf.get_schema_for(df)["columns"]
+    b_is_null = _filter("is_null", schema[1])
+    b_not_null = _filter("not_null", schema[1])
+    c_not_null = _filter("not_null", schema[2])
 
     cases = [
         [[b_is_null], df[df["b"].isnull()]],
@@ -870,16 +869,20 @@ def test_pandas_filter_is_null_not_null(dxf: DataExplorerFixture):
 
 def test_pandas_filter_set_membership(dxf: DataExplorerFixture):
     df = SIMPLE_PANDAS_DF
+    schema = dxf.get_schema_for(df)["columns"]
 
     cases = [
-        [[_set_member_filter(0, [2, 4])], df[df["a"].isin([2, 4])]],
+        [[_set_member_filter(schema[0], [2, 4])], df[df["a"].isin([2, 4])]],
         [
-            [_set_member_filter(2, ["bar", "foo"])],
+            [_set_member_filter(schema[2], ["bar", "foo"])],
             df[df["c"].isin(["bar", "foo"])],
         ],
-        [[_set_member_filter(2, [])], df[df["c"].isin([])]],
-        [[_set_member_filter(2, ["bar"], False)], df[~df["c"].isin(["bar"])]],
-        [[_set_member_filter(2, [], False)], df],
+        [[_set_member_filter(schema[2], [])], df[df["c"].isin([])]],
+        [
+            [_set_member_filter(schema[2], ["bar"], False)],
+            df[~df["c"].isin(["bar"])],
+        ],
+        [[_set_member_filter(schema[2], [], False)], df],
     ]
 
     for filter_set, expected_df in cases:
@@ -895,63 +898,70 @@ def test_pandas_filter_search(dxf: DataExplorerFixture):
     )
 
     dxf.register_table("df", df)
+    schema = dxf.get_schema("df")["columns"]
 
-    # (search_type, column_index, term, case_sensitive, boolean mask)
+    # (search_type, column_schema, term, case_sensitive, boolean mask)
     cases = [
-        ("contains", 0, "foo", False, df["a"].str.lower().str.contains("foo")),
-        ("contains", 0, "foo", True, df["a"].str.contains("foo")),
+        (
+            "contains",
+            schema[0],
+            "foo",
+            False,
+            df["a"].str.lower().str.contains("foo"),
+        ),
+        ("contains", schema[0], "foo", True, df["a"].str.contains("foo")),
         (
             "starts_with",
-            0,
+            schema[0],
             "foo",
             False,
             df["a"].str.lower().str.startswith("foo"),
         ),
         (
             "starts_with",
-            0,
+            schema[0],
             "foo",
             True,
             df["a"].str.startswith("foo"),
         ),
         (
             "ends_with",
-            0,
+            schema[0],
             "foo",
             False,
             df["a"].str.lower().str.endswith("foo"),
         ),
         (
             "ends_with",
-            0,
+            schema[0],
             "foo",
             True,
             df["a"].str.endswith("foo"),
         ),
         (
             "regex_match",
-            0,
+            schema[0],
             "f[o]+",
             False,
             df["a"].str.match("f[o]+", case=False),
         ),
         (
             "regex_match",
-            0,
+            schema[0],
             "f[o]+[^o]*",
             True,
             df["a"].str.match("f[o]+[^o]*", case=True),
         ),
     ]
 
-    for search_type, column_index, term, cs, mask in cases:
+    for search_type, column_schema, term, cs, mask in cases:
         mask[mask.isna()] = False
         ex_table = df[mask.astype(bool)]
         dxf.check_filter_case(
             df,
             [
                 _search_filter(
-                    column_index,
+                    column_schema,
                     term,
                     case_sensitive=cs,
                     search_type=search_type,
@@ -959,6 +969,238 @@ def test_pandas_filter_search(dxf: DataExplorerFixture):
             ],
             ex_table,
         )
+
+
+def test_pandas_variable_updates(
+    shell: PositronShell,
+    de_service: DataExplorerService,
+    variables_comm: DummyComm,
+    dxf: DataExplorerFixture,
+):
+    x = pd.DataFrame({"a": [1, 0, 3, 4]})
+    big_array = np.arange(BIG_ARRAY_LENGTH)
+    big_x = pd.DataFrame({"a": big_array})
+
+    _assign_variables(
+        shell,
+        variables_comm,
+        x=x,
+        big_x=big_x,
+        y={"key1": SIMPLE_PANDAS_DF, "key2": SIMPLE_PANDAS_DF},
+    )
+
+    # Check updates
+
+    path_x = _open_viewer(variables_comm, ["x"])
+    _open_viewer(variables_comm, ["big_x"])
+    _open_viewer(variables_comm, ["y", "key1"])
+    _open_viewer(variables_comm, ["y", "key2"])
+    _open_viewer(variables_comm, ["y", "key2"])
+
+    # Do a simple update and make sure that sort keys are preserved
+    x_comm_id = list(de_service.path_to_comm_ids[path_x])[0]
+    x_sort_keys = [{"column_index": 0, "ascending": True}]
+    msg = json_rpc_request(
+        "set_sort_columns",
+        params={"sort_keys": x_sort_keys},  # type: ignore
+        comm_id=x_comm_id,
+    )
+    de_service.comms[x_comm_id].comm.handle_msg(msg)
+    shell.run_cell("import pandas as pd")
+    shell.run_cell("x = pd.DataFrame({'a': [1, 0, 3, 4, 5]})")
+    _check_update_variable(de_service, "x", update_type="data")
+
+    tv = de_service.table_views[x_comm_id]
+    assert tv.sort_keys == [ColumnSortKey(**k) for k in x_sort_keys]
+    assert tv._need_recompute
+
+    new_state = dxf.get_state("x")
+    assert new_state["display_name"] == "x"
+    assert new_state["table_shape"]["num_rows"] == 5
+    assert new_state["table_shape"]["num_columns"] == 1
+    assert new_state["sort_keys"] == [ColumnSortKey(**k) for k in x_sort_keys]
+
+    # Execute code that triggers an update event for big_x because it's large
+    shell.run_cell("None")
+    _check_update_variable(de_service, "big_x", update_type="schema")
+
+    # Update nested values in y and check for schema updates
+    shell.run_cell(
+        """y = {'key1': y['key1'].iloc[:1]],
+    'key2': y['key2'].copy()}
+    """
+    )
+    _check_update_variable(de_service, "y", update_type="schema")
+
+    shell.run_cell(
+        """y = {'key1': y['key1'].iloc[:-1, :-1],
+    'key2': y['key2'].copy().iloc[:, 1:]}
+    """
+    )
+    _check_update_variable(de_service, "y", update_type="schema")
+
+
+def test_pandas_schema_change_state_updates(dxf: DataExplorerFixture):
+    df = pd.DataFrame(
+        {
+            "a": [1, 2, 3, 4, 5],
+            "b": ["foo", "bar", None, "baz", "qux"],
+            "c": [False, True, False, True, False],
+        }
+    )
+
+    dxf.assign_and_open_viewer("df", df.copy())
+    schema = dxf.get_schema("df")["columns"]
+
+    def _check_scenario(var, scenario, code: str):
+        filter_spec = scenario.get("filters", [])
+
+        if "sort_keys" in scenario:
+            dxf.set_sort_columns(var, sort_keys=scenario["sort_keys"])
+
+        if len(filter_spec) > 0:
+            dxf.set_row_filters(var, filters=list(zip(*filter_spec))[0])
+
+        dxf.execute_code(code)
+
+        # Get state and confirm that the right filters were made
+        # invalid
+        state = dxf.get_state(var)
+        updated_filters = state["row_filters"]
+        new_schema = dxf.get_schema(var)["columns"]
+
+        if "sort_keys" in scenario:
+            assert state["sort_keys"] == scenario["updated_sort_keys"]
+
+        for i, (spec, is_still_valid) in enumerate(filter_spec):
+            assert updated_filters[i]["is_valid"] == is_still_valid
+
+            orig_col_schema = spec["column_schema"]
+            new_col_schema = None
+            for c in new_schema:
+                if c["column_name"] == orig_col_schema["column_name"]:
+                    new_col_schema = c
+                    break
+
+            if new_col_schema is None:
+                # Column deleted, check that filter is invalid
+                assert not updated_filters[i]["is_valid"]
+            else:
+                # Check that schema was updated
+                assert updated_filters[i]["column_schema"] == new_col_schema
+
+    # Scenario 1: convert "a" from integer to string
+    # (filter, is_valid_after_change)
+    dxf.assign_and_open_viewer("df1", df.copy())
+    scenario1 = {
+        "filters": [
+            # is null, not null, set membership remain valid
+            (_filter("is_null", schema[0]), True),
+            (_filter("not_null", schema[0]), True),
+            (_set_member_filter(schema[0], ["1", "2"]), True),
+            # range comparison becomes invalid
+            (_compare_filter(schema[0], "<", "4"), False),
+            (_compare_filter(schema[0], "<=", "4"), False),
+            (_compare_filter(schema[0], ">=", "4"), False),
+            (_compare_filter(schema[0], ">", "4"), False),
+            # equals, not-equals remain valid
+            (_compare_filter(schema[0], "=", "4"), True),
+            (_compare_filter(schema[0], "!=", "4"), True),
+            # between, not between becomes invalid
+            (_between_filter(schema[0], "1", "3"), False),
+            (_not_between_filter(schema[0], "1", "3"), False),
+        ]
+    }
+
+    _check_scenario("df1", scenario1, "df1['a'] = df1['a'].astype(str)")
+
+    # Scenario 2: convert "a" from int64 to int16
+    dxf.assign_and_open_viewer("df2", df.copy())
+    schema = dxf.get_schema("df2")["columns"]
+    scenario2 = {
+        "filters": [
+            (_filter("is_null", schema[0]), True),
+            (_compare_filter(schema[0], "<", "4"), True),
+            (_between_filter(schema[0], "1", "3"), True),
+        ]
+    }
+    _check_scenario("df2", scenario2, "df2['a'] = df2['a'].astype('int16')")
+
+    # Scenario 3: delete "a" in place
+    dxf.assign_and_open_viewer("df3", df.copy())
+    schema = dxf.get_schema("df3")["columns"]
+    scenario3 = {
+        "filters": [
+            (_filter("is_null", schema[0]), False),
+            (_compare_filter(schema[0], "<", "4"), False),
+        ],
+        "sort_keys": [{"column_index": 0, "ascending": True}],
+        "updated_sort_keys": [],
+    }
+    _check_scenario("df3", scenario3, "del df3['a']")
+
+    # Scenario 4: delete "a" in a new DataFrame
+    dxf.assign_and_open_viewer("df4", df.copy())
+    schema = dxf.get_schema("df4")["columns"]
+    scenario4 = {
+        "filters": [
+            (_filter("is_null", schema[0]), False),
+            (_compare_filter(schema[0], "<", "4"), False),
+        ]
+    }
+    _check_scenario("df4", scenario4, "df4 = df4[['b']]")
+
+    # Scenario 5: replace a column in place with a new name
+    dxf.assign_and_open_viewer("df5", df.copy())
+    schema = dxf.get_schema("df5")["columns"]
+    scenario5 = {
+        "filters": [
+            (_compare_filter(schema[1], "=", "foo"), False),
+        ]
+    }
+    _check_scenario("df5", scenario5, "df5.insert(1, 'c', df5.pop('b'))")
+
+    # Scenario 6: add some columns, but do not disturb filters
+    dxf.assign_and_open_viewer("df6", df.copy())
+    schema = dxf.get_schema("df6")["columns"]
+    scenario6 = {
+        "filters": [
+            (_compare_filter(schema[0], "=", "1"), True),
+            (_compare_filter(schema[1], "=", "foo"), True),
+        ]
+    }
+    _check_scenario("df6", scenario6, "df6['c'] = df6['b']")
+
+    # Scenario 7: delete column, then restore it and check that the
+    # filter was made invalid and then valid again
+    dxf.assign_and_open_viewer("df7", df.copy())
+    schema = dxf.get_schema("df7")["columns"]
+    scenario7 = {
+        "filters": [
+            (_compare_filter(schema[0], "<", "4"), False),
+        ]
+    }
+    # Scenario 7 -- Validate the setup, so the filter will be invalid
+    # after this
+    _check_scenario("df7", scenario7, "del df7['a']")
+
+    # Scenario 7 -- Now restore df7 to its prior state
+    dxf.execute_code("df7 = df.copy()")
+    state = dxf.get_state("df7")
+
+    # Filter is made valid again because the column reappeared where
+    # it was before and with a compatible type
+    filt = state["row_filters"][0]
+    assert filt["is_valid"]
+    assert filt["error_message"] is None
+
+    # Scenario 8: Delete sorted column in middle of table
+    dxf.assign_and_open_viewer("df8", df.copy())
+    scenario8 = {
+        "sort_keys": [{"column_index": 1, "ascending": False}],
+        "updated_sort_keys": [],
+    }
+    _check_scenario("df8", scenario8, "del df8['b']")
 
 
 def test_pandas_set_sort_columns(dxf: DataExplorerFixture):
@@ -974,6 +1216,7 @@ def test_pandas_set_sort_columns(dxf: DataExplorerFixture):
             }
         ),
     }
+    df2_schema = dxf.get_schema_for(tables["df2"])["columns"]
 
     cases = [
         ("df1", [(2, True)], {"by": "c"}),
@@ -995,13 +1238,13 @@ def test_pandas_set_sort_columns(dxf: DataExplorerFixture):
     ]
 
     # Test sort AND filter
-    filter_cases = {"df2": [(lambda x: x[x["a"] > 0], [_compare_filter(0, ">", 0)])]}
+    filter_cases = {"df2": [(lambda x: x[x["a"] > 0], [_compare_filter(df2_schema[0], ">", 0)])]}
 
-    for df_name, keys, expected_params in cases:
-        wrapped_keys = [
-            {"column_index": index, "ascending": ascending} for index, ascending in keys
-        ]
+    for df_name, sort_keys, expected_params in cases:
         df = tables[df_name]
+        wrapped_keys = [
+            {"column_index": index, "ascending": ascending} for index, ascending in sort_keys
+        ]
 
         expected_params["kind"] = "mergesort"
 
@@ -1023,10 +1266,10 @@ def test_pandas_change_schema_after_sort(
     df = pd.DataFrame(
         {
             "a": np.arange(10),
-            "b": np.arange(10),
-            "c": np.arange(10),
-            "d": np.arange(10),
-            "e": np.arange(10),
+            "b": np.arange(10) + 1,
+            "c": np.arange(10) + 2,
+            "d": np.arange(10) + 3,
+            "e": np.arange(10) + 4,
         }
     )
     _assign_variables(shell, variables_comm, df=df)
@@ -1034,17 +1277,27 @@ def test_pandas_change_schema_after_sort(
 
     # Sort a column that is out of bounds for the table after the
     # schema change below
-    dxf.set_sort_columns("df", [{"column_index": 4, "ascending": True}])
+    dxf.set_sort_columns(
+        "df",
+        [
+            {"column_index": 4, "ascending": True},
+            {"column_index": 0, "ascending": False},
+        ],
+    )
 
-    expected_df = df[["a", "b"]]
-    dxf.register_table("expected_df", df)
+    expected_df = df[["b", "a"]].sort_values("a", ascending=False)  # type: ignore
+    dxf.register_table("expected_df", expected_df)
 
     # Sort last column, and we will then change the schema
-    shell.run_cell("df = df[['a', 'b']]")
-    _check_update_variable(de_service, "df", update_type="schema", discard_state=True)
+    shell.run_cell("df = df[['b', 'a']]")
+    _check_update_variable(de_service, "df", update_type="schema")
 
     # Call get_data_values and make sure it works
     dxf.compare_tables("df", "expected_df", expected_df.shape)
+
+    # Check that the out of bounds column index was evicted, and the
+    # shift was correct
+    dxf.get_state("df")["sort_keys"] = [{"column_index": 1, "ascending": False}]
 
 
 def _profile_request(column_index, profile_type):
@@ -1106,9 +1359,18 @@ def test_pandas_profile_null_counts(dxf: DataExplorerFixture):
 
         assert results == ex_results
 
+    df1_schema = dxf.get_schema_for(df1)["columns"]
+
     # Test profiling with filter
     # format: (table, filters, filtered_table, profiles)
-    filter_cases = [(df1, [_filter("not_null", 0)], df1[df1["a"].notnull()], all_profiles)]
+    filter_cases = [
+        (
+            df1,
+            [_filter("not_null", df1_schema[0])],
+            df1[df1["a"].notnull()],
+            all_profiles,
+        )
+    ]
     for table, filters, filtered_table, profiles in filter_cases:
         table_id = guid()
         dxf.register_table(table_id, table)
@@ -1132,7 +1394,7 @@ def _assert_close(expected, actual):
 
 def _assert_numeric_stats_equal(expected, actual):
     for attr, value in expected.items():
-        _assert_close(value, float(actual.get(attr)))
+        _assert_close(float(value), float(actual.get(attr)))
 
 
 def _assert_string_stats_equal(expected, actual):
@@ -1146,6 +1408,8 @@ def _assert_boolean_stats_equal(expected, actual):
 
 
 def test_pandas_profile_summary_stats(dxf: DataExplorerFixture):
+    import pandas.io.formats.format as fmt
+
     arr = np.random.standard_normal(100)
     arr_with_nulls = arr.copy()
     arr_with_nulls[::10] = np.nan
@@ -1172,27 +1436,30 @@ def test_pandas_profile_summary_stats(dxf: DataExplorerFixture):
     )
     dxf.register_table("df1", df1)
 
+    def _format_float(x):
+        return fmt.format_array(np.array([x], dtype="float64"), None, leading_space=False)[0]
+
     cases = [
         (
             "df1",
             0,
             {
-                "min_value": arr.min(),
-                "max_value": arr.max(),
-                "mean": df1["a"].mean(),
-                "stdev": df1["a"].std(),
-                "median": df1["a"].median(),
+                "min_value": _format_float(arr.min()),
+                "max_value": _format_float(arr.max()),
+                "mean": _format_float(df1["a"].mean()),
+                "stdev": _format_float(df1["a"].std()),
+                "median": _format_float(df1["a"].median()),
             },
         ),
         (
             "df1",
             1,
             {
-                "min_value": df1["b"].min(),
-                "max_value": df1["b"].max(),
-                "mean": df1["b"].mean(),
-                "stdev": df1["b"].std(),
-                "median": df1["b"].median(),
+                "min_value": _format_float(df1["b"].min()),
+                "max_value": _format_float(df1["b"].max()),
+                "mean": _format_float(df1["b"].mean()),
+                "stdev": _format_float(df1["b"].std()),
+                "median": _format_float(df1["b"].median()),
             },
         ),
         (
@@ -1220,11 +1487,3 @@ def test_pandas_profile_summary_stats(dxf: DataExplorerFixture):
             _assert_string_stats_equal(ex_result, stats["string_stats"])
         elif ui_type == ColumnDisplayType.Boolean:
             _assert_boolean_stats_equal(ex_result, stats["boolean_stats"])
-
-
-# ----------------------------------------------------------------------
-# Test RPCs for polars DataFrame
-
-
-# ----------------------------------------------------------------------
-# Test RPCs for pyarrow Table

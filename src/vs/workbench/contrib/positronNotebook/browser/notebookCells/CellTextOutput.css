@@ -3,7 +3,10 @@
  *--------------------------------------------------------------------------------------------*/
 
 .positron-notebook-text-output {
-	font-family: var(--monaco-monospace-font, monospace);
-	font-size:  var(--notebook-cell-output-font-size, 12px);
+	font-family: var(
+		--vscode-positronNotebook-text-output-font-family,
+		var(--monaco-monospace-font)
+	);
+	font-size: var(--vscode-positronNotebook-text-output-font-size);
 	white-space: pre-wrap;
 }

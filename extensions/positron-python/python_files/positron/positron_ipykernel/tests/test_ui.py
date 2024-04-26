@@ -17,7 +17,7 @@ except ImportError:
     torch = None
 
 from positron_ipykernel.positron_ipkernel import PositronIPyKernel, PositronShell
-from positron_ipykernel.ui import UiService
+from positron_ipykernel.ui import UiService, PositronViewerBrowser
 from positron_ipykernel.utils import alias_home
 
 from .conftest import DummyComm
@@ -59,6 +59,10 @@ def ui_comm(ui_service: UiService) -> DummyComm:
 
 def working_directory_event() -> Dict[str, Any]:
     return json_rpc_notification("working_directory", {"directory": str(alias_home(Path.cwd()))})
+
+
+def show_url_event(url: str) -> Dict[str, Any]:
+    return json_rpc_notification("show_url", {"url": url})
 
 
 def test_comm_open(ui_service: UiService) -> None:
@@ -140,3 +144,24 @@ def test_shutdown(ui_service: UiService, ui_comm: DummyComm) -> None:
 
     # Comm is closed
     assert ui_comm._closed
+
+
+@pytest.mark.parametrize(
+    ("url", "expected"),
+    [("https://google.com", []), ("localhost:8000", [show_url_event("localhost:8000")])],
+)
+def test_viewer_webbrowser_does_not_open(
+    url, expected, shell: PositronShell, ui_comm: DummyComm, ui_service: UiService
+) -> None:
+    # Assert positron viewer does not open non-local urls
+
+    shell.run_cell(
+        f"""
+import webbrowser
+x = webbrowser._tryorder
+webbrowser.get('positron_viewer').open({repr(url)})
+"""
+    )
+    assert isinstance(ui_service.browser, PositronViewerBrowser)
+    assert shell.user_ns["x"][0] == "positron_viewer"
+    assert ui_comm.messages == expected

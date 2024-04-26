@@ -42,6 +42,8 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 
 	private readonly _clientHandlers = new Array<positron.RuntimeClientHandler>();
 
+	private readonly _registeredClientIds = new Set<string>();
+
 	/**
 	 * Lamport clocks, used for event ordering. Each runtime has its own clock since
 	 * events are only ordered within a runtime.
@@ -520,6 +522,13 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 		});
 	}
 
+	public registerClientInstance(clientInstanceId: string): IDisposable {
+		this._registeredClientIds.add(clientInstanceId);
+		return new Disposable(() => {
+			this._registeredClientIds.delete(clientInstanceId);
+		});
+	}
+
 	public getRegisteredRuntimes(): Promise<positron.LanguageRuntimeMetadata[]> {
 		return Promise.resolve(this._registeredRuntimes);
 	}
@@ -756,13 +765,22 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 	 * @param message The message to handle
 	 */
 	private handleCommData(handle: number, message: ILanguageRuntimeMessageCommData): void {
-		// Find the client instance
+		// Check to see if this message is handled by an active client instance
+		// tracked by the extension host
 		const clientInstance = this._clientInstances.find(instance =>
 			instance.getClientId() === message.comm_id);
 		if (clientInstance) {
 			clientInstance.emitMessage(message);
+			return;
 		}
 
+		// Check to see if this message is owned by a registered client ID
+		if (this._registeredClientIds.has(message.comm_id)) {
+			return;
+		}
+
+		// Neither a client instance nor a registered client ID; pass it to the
+		// main thread
 		this._proxy.$emitLanguageRuntimeMessage(handle, message);
 	}
 

@@ -30,6 +30,11 @@ import { localize } from 'vs/nls';
 import { IEditorResolverService, RegisteredEditorPriority } from 'vs/workbench/services/editor/common/editorResolverService';
 import { TerminalCommandId } from 'vs/workbench/contrib/terminal/common/terminal';
 
+// --- Start Positron ---
+import { IsDevelopmentContext } from 'vs/platform/contextkey/common/contextkeys';
+import { IContextKeyService } from 'vs/platform/contextkey/common/contextkey';
+// --- End Positron ---
+
 export const restoreWalkthroughsConfigurationKey = 'workbench.welcomePage.restorableWalkthroughs';
 export type RestoreWalkthroughsConfigurationValue = { folder: string; category?: string; step?: string };
 
@@ -76,6 +81,9 @@ export class StartupPageRunnerContribution implements IWorkbenchContribution {
 	static readonly ID = 'workbench.contrib.startupPageRunner';
 
 	constructor(
+		// --- Start Positron ---
+		@IContextKeyService private readonly contextKeyService: IContextKeyService,
+		// --- End Positron ---
 		@IConfigurationService private readonly configurationService: IConfigurationService,
 		@IEditorService private readonly editorService: IEditorService,
 		@IWorkingCopyBackupService private readonly workingCopyBackupService: IWorkingCopyBackupService,
@@ -115,7 +123,10 @@ export class StartupPageRunnerContribution implements IWorkbenchContribution {
 			return;
 		}
 
-		const enabled = isStartupPageEnabled(this.configurationService, this.contextService, this.environmentService);
+		// --- Start Positron ---
+		const enabled = isStartupPageEnabled(this.configurationService, this.contextService, this.environmentService)
+			&& isPositronStartupPageEnabled(this.contextKeyService);
+		// --- End Positron ---
 		if (enabled && this.lifecycleService.startupKind !== StartupKind.ReloadedWindow) {
 			const hasBackups = await this.workingCopyBackupService.hasBackups();
 			if (hasBackups) { return; }
@@ -232,3 +243,9 @@ function isStartupPageEnabled(configurationService: IConfigurationService, conte
 		|| (contextService.getWorkbenchState() === WorkbenchState.EMPTY && startupEditor.value === 'welcomePageInEmptyWorkbench')
 		|| startupEditor.value === 'terminal';
 }
+
+// --- Start Positron ---
+function isPositronStartupPageEnabled(contextKeyService: IContextKeyService): boolean {
+	return IsDevelopmentContext.getValue(contextKeyService) === true;
+}
+// --- End Positron ---

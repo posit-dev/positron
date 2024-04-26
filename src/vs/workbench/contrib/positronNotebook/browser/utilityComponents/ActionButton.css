@@ -1,0 +1,17 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *--------------------------------------------------------------------------------------------*/
+
+.action-button {
+	display: flex;
+	align-items: center;
+	padding-block: 0.25rem;
+	padding-inline: 0.5rem;
+	width: fit-content;
+	cursor: pointer;
+	border-radius: var(--vscode-positronNotebook-cell-radius);
+
+	&:hover {
+		background-color: var(--vscode-positronTopActionBar-hoverBackground);
+	}
+}

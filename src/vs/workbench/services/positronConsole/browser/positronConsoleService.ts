@@ -588,6 +588,16 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 	private _promptActive = false;
 
 	/**
+	 * Is scroll-lock engaged?
+	 */
+	private _scrollLocked = false;
+
+	/**
+	 * Last saved scroll top.
+	 */
+	private _lastScrollTop = 0;
+
+	/**
 	 * The _onFocusInput event emitter.
 	 */
 	private readonly _onFocusInputEmitter = this._register(new Emitter<void>);
@@ -808,6 +818,26 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 	}
 
 	/**
+	 * Is scroll-lock engaged?
+	 */
+	get scrollLocked(): boolean {
+		return this._scrollLocked;
+	}
+	set scrollLocked(value: boolean) {
+		this._scrollLocked = value;
+	}
+
+	/**
+	 * Last saved scroll top.
+	 */
+	get lastScrollTop(): number {
+		return this._lastScrollTop;
+	}
+	set lastScrollTop(value: number) {
+		this._lastScrollTop = value;
+	}
+
+	/**
 	 * onFocusInput event.
 	 */
 	readonly onFocusInput = this._onFocusInputEmitter.event;
@@ -907,7 +937,7 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 	 * Pastes text into the console.
 	 */
 	pasteText(text: string) {
-		this._onFocusInputEmitter.fire();
+		this.focusInput();
 		this._onDidPasteTextEmitter.fire(text);
 	}
 

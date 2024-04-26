@@ -4,6 +4,7 @@
 
 import logging
 import os
+import webbrowser
 from pathlib import Path
 from typing import Callable, Dict, List, Optional, Union
 
@@ -16,6 +17,7 @@ from .ui_comm import (
     CallMethodParams,
     CallMethodRequest,
     OpenEditorParams,
+    ShowUrlParams,
     UiBackendMessageContent,
     UiFrontendEvent,
     WorkingDirectoryParams,
@@ -23,6 +25,16 @@ from .ui_comm import (
 from .utils import JsonData, JsonRecord, alias_home
 
 logger = logging.getLogger(__name__)
+
+_localhosts = [
+    "localhost",
+    "127.0.0.1",
+    "[0:0:0:0:0:0:0:1]",
+    "[::1]",
+    "0.0.0.0",
+    "[0:0:0:0:0:0:0:0]",
+    "[::]",
+]
 
 
 #
@@ -81,6 +93,9 @@ class UiService:
     def on_comm_open(self, comm: BaseComm, msg: JsonRecord) -> None:
         self._comm = PositronComm(comm)
         self._comm.on_msg(self.handle_msg, UiBackendMessageContent)
+
+        self.browser = PositronViewerBrowser(comm=self._comm)
+        webbrowser.register(self.browser.name, PositronViewerBrowser, self.browser, preferred=True)
 
         # Clear the current working directory to generate an event for the new
         # client (i.e. after a reconnect)
@@ -150,3 +165,23 @@ class UiService:
             if isinstance(payload, BaseModel):
                 payload = payload.dict()
             self._comm.send_event(name=name, payload=payload)
+
+
+class PositronViewerBrowser(webbrowser.BaseBrowser):
+    """Launcher class for Positron Viewer browsers."""
+
+    def __init__(self, name: str = "positron_viewer", comm: Optional[PositronComm] = None):
+        self.name = name
+        self._comm = comm
+
+    def open(self, url, new=0, autoraise=True):
+        if not self._comm:
+            return False
+
+        for addr in _localhosts:
+            if addr in url:
+                event = ShowUrlParams(url=url)
+                self._comm.send_event(name=UiFrontendEvent.ShowUrl, payload=event.dict())
+                return True
+        # pass back to webbrowser's list of browsers to open up the link
+        return False

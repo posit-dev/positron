@@ -33,6 +33,8 @@ import { IExecutionHistoryService } from 'vs/workbench/contrib/executionHistory/
 import { IPositronConsoleService } from 'vs/workbench/services/positronConsole/browser/interfaces/positronConsoleService';
 import { IRuntimeSessionService } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
 import { IRuntimeStartupService } from 'vs/workbench/services/runtimeStartup/common/runtimeStartupService';
+import { disposableTimeout } from 'vs/base/common/async';
+import { DisposableStore } from 'vs/base/common/lifecycle';
 
 /**
  * PositronConsoleViewPane class.
@@ -92,6 +94,8 @@ export class PositronConsoleViewPane extends ViewPane implements IReactComponent
 	 */
 	private _positronConsoleFocusedContextKey: IContextKey<boolean>;
 
+	private _disposableStore: DisposableStore;
+
 	//#endregion Private Properties
 
 	//#region IReactComponentContainer
@@ -122,6 +126,17 @@ export class PositronConsoleViewPane extends ViewPane implements IReactComponent
 	 */
 	takeFocus(): void {
 		this.focus();
+	}
+
+	focusChanged(focused: boolean) {
+		// NOTE: A blurring event fires up when selecting text in the console
+		// (i.e. the code editor widget is no longer focused). Can/should we do
+		// better? The blurring event also happens with `ViewPane::onDidBlur()`.
+		this._positronConsoleFocusedContextKey.set(focused);
+
+		if (focused) {
+			this._onFocusedEmitter.fire();
+		}
 	}
 
 	/**
@@ -217,23 +232,23 @@ export class PositronConsoleViewPane extends ViewPane implements IReactComponent
 			themeService,
 			telemetryService);
 
+		// Make the view pane focusable even when there are no components
+		// available to take the focus (such as the console input). This happens
+		// when no interpreter has been started yet. The viewpane must be able
+		// to take focus at all times because otherwise blurring events do not
+		// occur and the viewpane management state becomes confused on toggle.
+		this.element.tabIndex = 0;
+
 		// Bind the PositronConsoleFocused context key.
 		this._positronConsoleFocusedContextKey = PositronConsoleFocused.bindTo(contextKeyService);
 
 		// Register the onDidChangeBodyVisibility event handler.
 		this._register(this.onDidChangeBodyVisibility(visible => {
-			// The browser will automatically set scrollTop to 0 on child components that have been
-			// hidden and made visible. (This is called "desperate" elsewhere in Visual Studio Code.
-			// Search for that word and you'll see other examples of hacks that have been added to
-			// to fix this problem.) IReactComponentContainers can counteract this behavior by
-			// firing onSaveScrollPosition and onRestoreScrollPosition events to have their children
-			// save and restore their scroll positions.
-			if (!visible) {
-				this._onSaveScrollPositionEmitter.fire();
-			} else {
-				this._onRestoreScrollPositionEmitter.fire();
-			}
+			// Relay event for our `IReactComponentContainer` implementation
+			this._onVisibilityChangedEmitter.fire(visible);
 		}));
+
+		this._disposableStore = this._register(new DisposableStore());
 	}
 
 	/**
@@ -288,16 +303,6 @@ export class PositronConsoleViewPane extends ViewPane implements IReactComponent
 				reactComponentContainer={this}
 			/>
 		);
-
-		// Create a focus tracker that updates the PositronConsoleFocused context key.
-		const focusTracker = DOM.trackFocus(this.element);
-		this._register(focusTracker);
-		this._register(focusTracker.onDidFocus(() =>
-			this._positronConsoleFocusedContextKey.set(true)
-		));
-		this._register(focusTracker.onDidBlur(() =>
-			this._positronConsoleFocusedContextKey.set(false)
-		));
 	}
 
 	/**
@@ -307,8 +312,16 @@ export class PositronConsoleViewPane extends ViewPane implements IReactComponent
 		// Call the base class's method.
 		super.focus();
 
-		// Fire the onFocused event.
-		this._onFocusedEmitter.fire();
+		// Trigger event that eventually causes console input widgets (main
+		// input, readline input, or restart buttons) to focus. Must be after
+		// the super call.
+		//
+		// We do this at the next tick because in some cases `focus()` is called
+		// when the viewpane is not visible yet (don't trust `this.isBodyVisible()`).
+		// In this case the `focus()` call fails (don't trust `this.onFocus()`).
+		// This happens for instance with `workbench.action.togglePanel` or
+		// `workbench.action.toggleSecondarySideBar`.
+		disposableTimeout(() => this.positronConsoleService.activePositronConsoleInstance?.focusInput(), 0, this._disposableStore);
 	}
 
 	/**
@@ -337,4 +350,3 @@ export class PositronConsoleViewPane extends ViewPane implements IReactComponent
 
 	//#endregion Public Overrides
 }
-

@@ -166,6 +166,11 @@ class FilterResult(BaseModel):
         description="Number of rows in table after applying filters",
     )
 
+    had_errors: Optional[bool] = Field(
+        default=None,
+        description="Flag indicating if there were errors in evaluation",
+    )
+
 
 class BackendState(BaseModel):
     """
@@ -177,7 +182,11 @@ class BackendState(BaseModel):
     )
 
     table_shape: TableShape = Field(
-        description="Provides number of rows and columns in table",
+        description="Number of rows and columns in table with filters applied",
+    )
+
+    table_unfiltered_shape: TableShape = Field(
+        description="Number of rows and columns in table without any filters applied",
     )
 
     row_filters: List[RowFilter] = Field(
@@ -190,20 +199,6 @@ class BackendState(BaseModel):
 
     supported_features: SupportedFeatures = Field(
         description="The features currently supported by the backend instance",
-    )
-
-
-class TableShape(BaseModel):
-    """
-    Provides number of rows and columns in table
-    """
-
-    num_rows: int = Field(
-        description="Numbers of rows in the unfiltered dataset",
-    )
-
-    num_columns: int = Field(
-        description="Number of columns in the unfiltered dataset",
     )
 
 
@@ -269,6 +264,20 @@ class TableSchema(BaseModel):
     )
 
 
+class TableShape(BaseModel):
+    """
+    Provides number of rows and columns in a table
+    """
+
+    num_rows: int = Field(
+        description="Numbers of rows in the table",
+    )
+
+    num_columns: int = Field(
+        description="Number of columns in the table",
+    )
+
+
 class RowFilter(BaseModel):
     """
     Specifies a table row filter based on a single column's values
@@ -282,8 +291,8 @@ class RowFilter(BaseModel):
         description="Type of row filter to apply",
     )
 
-    column_index: int = Field(
-        description="Column index to apply filter to",
+    column_schema: ColumnSchema = Field(
+        description="Column to apply filter to",
     )
 
     condition: RowFilterCondition = Field(
@@ -293,6 +302,11 @@ class RowFilter(BaseModel):
     is_valid: Optional[bool] = Field(
         default=None,
         description="Whether the filter is valid and supported by the backend, if undefined then true",
+    )
+
+    error_message: Optional[str] = Field(
+        default=None,
+        description="Optional error message when the filter is invalid",
     )
 
     between_params: Optional[BetweenFilterParams] = Field(
@@ -856,7 +870,8 @@ class GetColumnProfilesRequest(BaseModel):
 
 class GetStateRequest(BaseModel):
     """
-    Request the current table state (applied filters and sort columns)
+    Request the current backend state (shape, filters, sort keys,
+    features)
     """
 
     method: Literal[DataExplorerBackendRequest.GetState] = Field(
@@ -888,21 +903,11 @@ class DataExplorerFrontendEvent(str, enum.Enum):
     An enumeration of all the possible events that can be sent to the frontend data_explorer comm.
     """
 
-    # Reset after a schema change
+    # Request to sync after a schema change
     SchemaUpdate = "schema_update"
 
     # Clear cache and request fresh data
     DataUpdate = "data_update"
-
-
-class SchemaUpdateParams(BaseModel):
-    """
-    Reset after a schema change
-    """
-
-    discard_state: bool = Field(
-        description="If true, the UI should discard the filter/sort state.",
-    )
 
 
 SearchSchemaResult.update_forward_refs()
@@ -913,11 +918,11 @@ FilterResult.update_forward_refs()
 
 BackendState.update_forward_refs()
 
-TableShape.update_forward_refs()
-
 ColumnSchema.update_forward_refs()
 
 TableSchema.update_forward_refs()
+
+TableShape.update_forward_refs()
 
 RowFilter.update_forward_refs()
 
@@ -984,5 +989,3 @@ GetColumnProfilesParams.update_forward_refs()
 GetColumnProfilesRequest.update_forward_refs()
 
 GetStateRequest.update_forward_refs()
-
-SchemaUpdateParams.update_forward_refs()

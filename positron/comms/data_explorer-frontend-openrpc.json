@@ -7,17 +7,9 @@
 	"methods": [
 		{
 			"name": "schema_update",
-			"summary": "Reset after a schema change",
-			"description": "Fully reset and redraw the data explorer after a schema change.",
-			"params": [
-				{
-					"name": "discard_state",
-					"description": "If true, the UI should discard the filter/sort state.",
-					"schema": {
-						"type": "boolean"
-					}
-				}
-			]
+			"summary": "Request to sync after a schema change",
+			"description": "Notify the data explorer to do a state sync after a schema change.",
+			"params": []
 		},
 		{
 			"name": "data_update",
