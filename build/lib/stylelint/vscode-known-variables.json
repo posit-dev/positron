@@ -669,6 +669,7 @@
 		"--vscode-positronNotebook-output-background",
 		"--vscode-positronNotebook-text-output-font-family",
 		"--vscode-positronNotebook-text-output-font-size",
+		"--vscode-positronWelcome-foreground",
 		"--vscode-problemsErrorIcon-foreground",
 		"--vscode-problemsInfoIcon-foreground",
 		"--vscode-problemsWarningIcon-foreground",

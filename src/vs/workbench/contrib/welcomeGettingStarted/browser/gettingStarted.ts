@@ -69,7 +69,13 @@ import { IExtensionService } from 'vs/workbench/services/extensions/common/exten
 import { IHostService } from 'vs/workbench/services/host/browser/host';
 import { IWorkbenchThemeService } from 'vs/workbench/services/themes/common/workbenchThemeService';
 import { GettingStartedIndexList } from './gettingStartedList';
-import { IWorkbenchAssignmentService } from 'vs/workbench/services/assignment/common/assignmentService';
+
+/*--- Start Positron ---*/
+// import { IWorkbenchAssignmentService } from 'vs/workbench/services/assignment/common/assignmentService';
+import 'vs/css!./media/positronGettingStarted';
+import { PositronReactRenderer } from 'vs/base/browser/positronReactRenderer';
+import { createWelcomePageLeft } from 'vs/workbench/contrib/welcomeGettingStarted/browser/positronWelcomePageLeft';
+/*--- End Positron ---*/
 
 const SLIDE_TRANSITION_TIME_MS = 250;
 const configurationKey = 'workbench.startupEditor';
@@ -163,6 +169,10 @@ export class GettingStartedPage extends EditorPane {
 	private readonly categoriesSlideDisposables: DisposableStore;
 	private showFeaturedWalkthrough = true;
 
+	/*--- Start Positron ---*/
+	private positronReactRenderer!: PositronReactRenderer;
+	/*--- End Positron ---*/
+
 	constructor(
 		group: IEditorGroup,
 		@ICommandService private readonly commandService: ICommandService,
@@ -188,7 +198,7 @@ export class GettingStartedPage extends EditorPane {
 		@IWebviewService private readonly webviewService: IWebviewService,
 		@IWorkspaceContextService private readonly workspaceContextService: IWorkspaceContextService,
 		@IAccessibilityService private readonly accessibilityService: IAccessibilityService,
-		@IWorkbenchAssignmentService private readonly tasExperimentService: IWorkbenchAssignmentService
+		// @IWorkbenchAssignmentService private readonly tasExperimentService: IWorkbenchAssignmentService
 	) {
 
 		super(GettingStartedPage.ID, group, telemetryService, themeService, storageService);
@@ -811,12 +821,12 @@ export class GettingStartedPage extends EditorPane {
 			onShowOnStartupChanged();
 		}));
 
+		// --- Start Positron ---
 		const header = $('.header', {},
-			$('h1.product-name.caption', {}, this.productService.nameLong),
-			// --- Start Positron ---
-			$('p.subtitle.description', {}, localize({ key: 'gettingStarted.editingEvolved', comment: ['Shown as subtitle on the Welcome page.'] }, "An IDE for data science"))
-			// --- End Positron ---
+			$('h1.product-name.positron.caption', {}, this.productService.nameLong),
+			$('p.subtitle.positron.description', {}, localize({ key: 'gettingStarted.editingEvolved', comment: ['Shown as subtitle on the Welcome page.'] }, "An IDE for data science"))
 		);
+		// --- End Positron ---
 
 		const leftColumn = $('.categories-column.categories-column-left', {},);
 		const rightColumn = $('.categories-column.categories-column-right', {},);
@@ -824,29 +834,29 @@ export class GettingStartedPage extends EditorPane {
 		const startList = this.buildStartList();
 		const recentList = this.buildRecentlyOpenedList();
 
-		const showVideoTutorials = await Promise.race([
-			this.tasExperimentService?.getTreatment<boolean>('gettingStarted.showVideoTutorials'),
-			new Promise<boolean | undefined>(resolve => setTimeout(() => resolve(false), 200))
-		]);
+		// const showVideoTutorials = await Promise.race([
+		// 	this.tasExperimentService?.getTreatment<boolean>('gettingStarted.showVideoTutorials'),
+		// 	new Promise<boolean | undefined>(resolve => setTimeout(() => resolve(false), 200))
+		// ]);
 
-		let videoList: GettingStartedIndexList<IWelcomePageStartEntry>;
-		if (showVideoTutorials === true) {
-			this.showFeaturedWalkthrough = false;
-			videoList = this.buildVideosList();
-			const layoutVideos = () => {
-				if (videoList?.itemCount > 0) {
-					reset(rightColumn, videoList?.getDomElement(), gettingStartedList.getDomElement());
-				}
-				else {
-					reset(rightColumn, gettingStartedList.getDomElement());
-				}
-				setTimeout(() => this.categoriesPageScrollbar?.scanDomNode(), 50);
-				layoutRecentList();
-			};
-			videoList.onDidChange(layoutVideos);
-		}
+		// let videoList: GettingStartedIndexList<IWelcomePageStartEntry>;
+		// if (showVideoTutorials === true) {
+		// 	this.showFeaturedWalkthrough = false;
+		// 	videoList = this.buildVideosList();
+		// 	const layoutVideos = () => {
+		// 		if (videoList?.itemCount > 0) {
+		// 			reset(rightColumn, videoList?.getDomElement(), gettingStartedList.getDomElement());
+		// 		}
+		// 		else {
+		// 			reset(rightColumn, gettingStartedList.getDomElement());
+		// 		}
+		// 		setTimeout(() => this.categoriesPageScrollbar?.scanDomNode(), 50);
+		// 		layoutRecentList();
+		// 	};
+		// 	videoList.onDidChange(layoutVideos);
+		// }
 
-		const gettingStartedList = this.buildGettingStartedWalkthroughsList();
+		// const gettingStartedList = this.buildGettingStartedWalkthroughsList();
 
 		const footer = $('.footer', {},
 			$('p.showOnStartup', {},
@@ -854,45 +864,48 @@ export class GettingStartedPage extends EditorPane {
 				showOnStartupLabel,
 			));
 
-		const layoutLists = () => {
-			if (gettingStartedList.itemCount) {
-				this.container.classList.remove('noWalkthroughs');
-				if (videoList?.itemCount > 0) {
-					this.container.classList.remove('noVideos');
-					reset(rightColumn, videoList?.getDomElement(), gettingStartedList.getDomElement());
-				} else {
-					this.container.classList.add('noVideos');
-					reset(rightColumn, gettingStartedList.getDomElement());
-				}
-			}
-			else {
-				this.container.classList.add('noWalkthroughs');
-				if (videoList?.itemCount > 0) {
-					this.container.classList.remove('noVideos');
-					reset(rightColumn, videoList?.getDomElement());
-				}
-				else {
-					this.container.classList.add('noVideos');
-					reset(rightColumn);
-				}
-			}
-			setTimeout(() => this.categoriesPageScrollbar?.scanDomNode(), 50);
-			layoutRecentList();
-		};
+		// const layoutLists = () => {
+		// 	if (gettingStartedList.itemCount) {
+		// 		this.container.classList.remove('noWalkthroughs');
+		// 		if (videoList?.itemCount > 0) {
+		// 			this.container.classList.remove('noVideos');
+		// 			reset(rightColumn, videoList?.getDomElement(), gettingStartedList.getDomElement());
+		// 		} else {
+		// 			this.container.classList.add('noVideos');
+		// 			reset(rightColumn, gettingStartedList.getDomElement());
+		// 		}
+		// 	}
+		// 	else {
+		// 		this.container.classList.add('noWalkthroughs');
+		// 		if (videoList?.itemCount > 0) {
+		// 			this.container.classList.remove('noVideos');
+		// 			reset(rightColumn, videoList?.getDomElement());
+		// 		}
+		// 		else {
+		// 			this.container.classList.add('noVideos');
+		// 			reset(rightColumn);
+		// 		}
+		// 	}
+		// 	setTimeout(() => this.categoriesPageScrollbar?.scanDomNode(), 50);
+		// 	layoutRecentList();
+		// };
 
 		const layoutRecentList = () => {
-			if (this.container.classList.contains('noWalkthroughs') && this.container.classList.contains('noVideos')) {
-				recentList.setLimit(10);
-				reset(leftColumn, startList.getDomElement());
-				reset(rightColumn, recentList.getDomElement());
-			} else {
-				recentList.setLimit(5);
-				reset(leftColumn, startList.getDomElement(), recentList.getDomElement());
-			}
+			// if (this.container.classList.contains('noWalkthroughs') && this.container.classList.contains('noVideos')) {
+			// 	recentList.setLimit(10);
+			// 	reset(leftColumn, recentList.getDomElement());
+			// 	reset(rightColumn, startList.getDomElement());
+			// } else {
+			const leftContent = $('div.positron-welcome-left-column');
+			this.positronReactRenderer = createWelcomePageLeft(leftContent);
+			reset(leftColumn, leftContent);
+			reset(rightColumn, startList.getDomElement(), recentList.getDomElement());
+			// }
 		};
+		layoutRecentList();
 
-		gettingStartedList.onDidChange(layoutLists);
-		layoutLists();
+		// gettingStartedList.onDidChange(layoutLists);
+		// layoutLists();
 
 		reset(this.categoriesSlide, $('.gettingStartedCategoriesContainer', {}, header, leftColumn, rightColumn, footer,));
 		this.categoriesPageScrollbar?.scanDomNode();
@@ -1041,7 +1054,7 @@ export class GettingStartedPage extends EditorPane {
 
 		const startList = this.startList = new GettingStartedIndexList(
 			{
-				title: localize('start', "Start"),
+				title: localize('open', "Open"),
 				klass: 'start-container',
 				limit: 10,
 				renderElement: renderStartEntry,
@@ -1054,155 +1067,157 @@ export class GettingStartedPage extends EditorPane {
 		return startList;
 	}
 
-	private buildGettingStartedWalkthroughsList(): GettingStartedIndexList<IResolvedWalkthrough> {
+	/*--- Start Positron ---*/
+	// private buildGettingStartedWalkthroughsList(): GettingStartedIndexList<IResolvedWalkthrough> {
 
-		const renderGetttingStaredWalkthrough = (category: IResolvedWalkthrough): HTMLElement => {
+	// 	const renderGetttingStaredWalkthrough = (category: IResolvedWalkthrough): HTMLElement => {
 
-			const renderNewBadge = (category.newItems || category.newEntry) && !category.isFeatured;
-			const newBadge = $('.new-badge', {});
-			if (category.newEntry) {
-				reset(newBadge, $('.new-category', {}, localize('new', "New")));
-			} else if (category.newItems) {
-				reset(newBadge, $('.new-items', {}, localize({ key: 'newItems', comment: ['Shown when a list of items has changed based on an update from a remote source'] }, "Updated")));
-			}
+	// 		const renderNewBadge = (category.newItems || category.newEntry) && !category.isFeatured;
+	// 		const newBadge = $('.new-badge', {});
+	// 		if (category.newEntry) {
+	// 			reset(newBadge, $('.new-category', {}, localize('new', "New")));
+	// 		} else if (category.newItems) {
+	// 			reset(newBadge, $('.new-items', {}, localize({ key: 'newItems', comment: ['Shown when a list of items has changed based on an update from a remote source'] }, "Updated")));
+	// 		}
 
-			const featuredBadge = $('.featured-badge', {});
-			const descriptionContent = $('.description-content', {},);
+	// 		const featuredBadge = $('.featured-badge', {});
+	// 		const descriptionContent = $('.description-content', {},);
 
-			if (category.isFeatured && this.showFeaturedWalkthrough) {
-				reset(featuredBadge, $('.featured', {}, $('span.featured-icon.codicon.codicon-star-full')));
-				reset(descriptionContent, ...renderLabelWithIcons(category.description));
-			}
+	// 		if (category.isFeatured && this.showFeaturedWalkthrough) {
+	// 			reset(featuredBadge, $('.featured', {}, $('span.featured-icon.codicon.codicon-star-full')));
+	// 			reset(descriptionContent, ...renderLabelWithIcons(category.description));
+	// 		}
 
-			const titleContent = $('h3.category-title.max-lines-3', { 'x-category-title-for': category.id });
-			reset(titleContent, ...renderLabelWithIcons(category.title));
+	// 		const titleContent = $('h3.category-title.max-lines-3', { 'x-category-title-for': category.id });
+	// 		reset(titleContent, ...renderLabelWithIcons(category.title));
 
-			return $('button.getting-started-category' + (category.isFeatured && this.showFeaturedWalkthrough ? '.featured' : ''),
-				{
-					'x-dispatch': 'selectCategory:' + category.id,
-					'title': category.description
-				},
-				featuredBadge,
-				$('.main-content', {},
-					this.iconWidgetFor(category),
-					titleContent,
-					renderNewBadge ? newBadge : $('.no-badge'),
-					$('a.codicon.codicon-close.hide-category-button', {
-						'tabindex': 0,
-						'x-dispatch': 'hideCategory:' + category.id,
-						'title': localize('close', "Hide"),
-						'role': 'button',
-						'aria-label': localize('closeAriaLabel', "Hide"),
-					}),
-				),
-				descriptionContent,
-				$('.category-progress', { 'x-data-category-id': category.id, },
-					$('.progress-bar-outer', { 'role': 'progressbar' },
-						$('.progress-bar-inner'))));
-		};
+	// 		return $('button.getting-started-category' + (category.isFeatured && this.showFeaturedWalkthrough ? '.featured' : ''),
+	// 			{
+	// 				'x-dispatch': 'selectCategory:' + category.id,
+	// 				'title': category.description
+	// 			},
+	// 			featuredBadge,
+	// 			$('.main-content', {},
+	// 				this.iconWidgetFor(category),
+	// 				titleContent,
+	// 				renderNewBadge ? newBadge : $('.no-badge'),
+	// 				$('a.codicon.codicon-close.hide-category-button', {
+	// 					'tabindex': 0,
+	// 					'x-dispatch': 'hideCategory:' + category.id,
+	// 					'title': localize('close', "Hide"),
+	// 					'role': 'button',
+	// 					'aria-label': localize('closeAriaLabel', "Hide"),
+	// 				}),
+	// 			),
+	// 			descriptionContent,
+	// 			$('.category-progress', { 'x-data-category-id': category.id, },
+	// 				$('.progress-bar-outer', { 'role': 'progressbar' },
+	// 					$('.progress-bar-inner'))));
+	// 	};
 
-		if (this.gettingStartedList) { this.gettingStartedList.dispose(); }
+	// 	if (this.gettingStartedList) { this.gettingStartedList.dispose(); }
 
-		const rankWalkthrough = (e: IResolvedWalkthrough) => {
-			let rank: number | null = e.order;
+	// 	const rankWalkthrough = (e: IResolvedWalkthrough) => {
+	// 		let rank: number | null = e.order;
 
-			if (e.isFeatured) { rank += 7; }
-			if (e.newEntry) { rank += 3; }
-			if (e.newItems) { rank += 2; }
-			if (e.recencyBonus) { rank += 4 * e.recencyBonus; }
+	// 		if (e.isFeatured) { rank += 7; }
+	// 		if (e.newEntry) { rank += 3; }
+	// 		if (e.newItems) { rank += 2; }
+	// 		if (e.recencyBonus) { rank += 4 * e.recencyBonus; }
 
-			if (this.getHiddenCategories().has(e.id)) { rank = null; }
-			return rank;
-		};
+	// 		if (this.getHiddenCategories().has(e.id)) { rank = null; }
+	// 		return rank;
+	// 	};
 
-		const gettingStartedList = this.gettingStartedList = new GettingStartedIndexList(
-			{
-				title: localize('walkthroughs', "Walkthroughs"),
-				klass: 'getting-started',
-				limit: 5,
-				footer: $('span.button-link.see-all-walkthroughs', { 'x-dispatch': 'seeAllWalkthroughs', 'tabindex': 0 }, localize('showAll', "More...")),
-				renderElement: renderGetttingStaredWalkthrough,
-				rankElement: rankWalkthrough,
-				contextService: this.contextService,
-			});
+	// 	const gettingStartedList = this.gettingStartedList = new GettingStartedIndexList(
+	// 		{
+	// 			title: localize('walkthroughs', "Walkthroughs"),
+	// 			klass: 'getting-started',
+	// 			limit: 5,
+	// 			footer: $('span.button-link.see-all-walkthroughs', { 'x-dispatch': 'seeAllWalkthroughs', 'tabindex': 0 }, localize('showAll', "More...")),
+	// 			renderElement: renderGetttingStaredWalkthrough,
+	// 			rankElement: rankWalkthrough,
+	// 			contextService: this.contextService,
+	// 		});
 
-		gettingStartedList.onDidChange(() => {
-			const hidden = this.getHiddenCategories();
-			const someWalkthroughsHidden = hidden.size || gettingStartedList.itemCount < this.gettingStartedCategories.filter(c => this.contextService.contextMatchesRules(c.when)).length;
-			this.container.classList.toggle('someWalkthroughsHidden', !!someWalkthroughsHidden);
-			this.registerDispatchListeners();
-			allWalkthroughsHiddenContext.bindTo(this.contextService).set(gettingStartedList.itemCount === 0);
-			this.updateCategoryProgress();
-		});
+	// 	gettingStartedList.onDidChange(() => {
+	// 		const hidden = this.getHiddenCategories();
+	// 		const someWalkthroughsHidden = hidden.size || gettingStartedList.itemCount < this.gettingStartedCategories.filter(c => this.contextService.contextMatchesRules(c.when)).length;
+	// 		this.container.classList.toggle('someWalkthroughsHidden', !!someWalkthroughsHidden);
+	// 		this.registerDispatchListeners();
+	// 		allWalkthroughsHiddenContext.bindTo(this.contextService).set(gettingStartedList.itemCount === 0);
+	// 		this.updateCategoryProgress();
+	// 	});
 
-		gettingStartedList.setEntries(this.gettingStartedCategories);
-		allWalkthroughsHiddenContext.bindTo(this.contextService).set(gettingStartedList.itemCount === 0);
+	// 	gettingStartedList.setEntries(this.gettingStartedCategories);
+	// 	allWalkthroughsHiddenContext.bindTo(this.contextService).set(gettingStartedList.itemCount === 0);
 
-		return gettingStartedList;
-	}
+	// 	return gettingStartedList;
+	// }
 
-	private buildVideosList(): GettingStartedIndexList<IWelcomePageStartEntry> {
+	// private buildVideosList(): GettingStartedIndexList<IWelcomePageStartEntry> {
 
-		const renderFeaturedExtensions = (entry: IWelcomePageStartEntry): HTMLElement => {
+	// 	const renderFeaturedExtensions = (entry: IWelcomePageStartEntry): HTMLElement => {
 
-			const featuredBadge = $('.featured-badge', {});
-			const descriptionContent = $('.description-content', {},);
+	// 		const featuredBadge = $('.featured-badge', {});
+	// 		const descriptionContent = $('.description-content', {},);
 
-			reset(featuredBadge, $('.featured', {}, $('span.featured-icon.codicon.codicon-star-full')));
-			reset(descriptionContent, ...renderLabelWithIcons(entry.description));
+	// 		reset(featuredBadge, $('.featured', {}, $('span.featured-icon.codicon.codicon-star-full')));
+	// 		reset(descriptionContent, ...renderLabelWithIcons(entry.description));
 
-			const titleContent = $('h3.category-title.max-lines-3', { 'x-category-title-for': entry.id });
-			reset(titleContent, ...renderLabelWithIcons(entry.title));
+	// 		const titleContent = $('h3.category-title.max-lines-3', { 'x-category-title-for': entry.id });
+	// 		reset(titleContent, ...renderLabelWithIcons(entry.title));
 
-			return $('button.getting-started-category' + '.featured',
-				{
-					'x-dispatch': 'openLink:' + entry.command,
-					'title': entry.title
-				},
-				featuredBadge,
-				$('.main-content', {},
-					this.iconWidgetFor(entry),
-					titleContent,
-					$('a.codicon.codicon-close.hide-category-button', {
-						'tabindex': 0,
-						'x-dispatch': 'hideVideos',
-						'title': localize('close', "Hide"),
-						'role': 'button',
-						'aria-label': localize('closeAriaLabel', "Hide"),
-					}),
-				),
-				descriptionContent);
-		};
+	// 		return $('button.getting-started-category' + '.featured',
+	// 			{
+	// 				'x-dispatch': 'openLink:' + entry.command,
+	// 				'title': entry.title
+	// 			},
+	// 			featuredBadge,
+	// 			$('.main-content', {},
+	// 				this.iconWidgetFor(entry),
+	// 				titleContent,
+	// 				$('a.codicon.codicon-close.hide-category-button', {
+	// 					'tabindex': 0,
+	// 					'x-dispatch': 'hideVideos',
+	// 					'title': localize('close', "Hide"),
+	// 					'role': 'button',
+	// 					'aria-label': localize('closeAriaLabel', "Hide"),
+	// 				}),
+	// 			),
+	// 			descriptionContent);
+	// 	};
 
-		if (this.videoList) {
-			this.videoList.dispose();
-		}
-		const videoList = this.videoList = new GettingStartedIndexList(
-			{
-				title: localize('videos', "Videos"),
-				klass: 'getting-started-videos',
-				limit: 1,
-				renderElement: renderFeaturedExtensions,
-				contextService: this.contextService,
-			});
+	// 	if (this.videoList) {
+	// 		this.videoList.dispose();
+	// 	}
+	// 	const videoList = this.videoList = new GettingStartedIndexList(
+	// 		{
+	// 			title: localize('videos', "Videos"),
+	// 			klass: 'getting-started-videos',
+	// 			limit: 1,
+	// 			renderElement: renderFeaturedExtensions,
+	// 			contextService: this.contextService,
+	// 		});
 
-		if (this.getHiddenCategories().has('getting-started-videos')) {
-			return videoList;
-		}
+	// 	if (this.getHiddenCategories().has('getting-started-videos')) {
+	// 		return videoList;
+	// 	}
 
-		videoList.setEntries([{
-			id: 'getting-started-videos',
-			title: localize('videos-title', 'Watch Getting Started Tutorials'),
-			description: localize('videos-description', 'Learn VS Code\'s must-have features in short and practical videos'),
-			command: 'https://aka.ms/vscode-getting-started-tutorials',
-			order: 0,
-			icon: { type: 'icon', icon: Codicon.deviceCameraVideo },
-			when: ContextKeyExpr.true(),
-		}]);
-		videoList.onDidChange(() => this.registerDispatchListeners());
+	// 	videoList.setEntries([{
+	// 		id: 'getting-started-videos',
+	// 		title: localize('videos-title', 'Watch Getting Started Tutorials'),
+	// 		description: localize('videos-description', 'Learn VS Code\'s must-have features in short and practical videos'),
+	// 		command: 'https://aka.ms/vscode-getting-started-tutorials',
+	// 		order: 0,
+	// 		icon: { type: 'icon', icon: Codicon.deviceCameraVideo },
+	// 		when: ContextKeyExpr.true(),
+	// 	}]);
+	// 	videoList.onDidChange(() => this.registerDispatchListeners());
 
-		return videoList;
-	}
+	// 	return videoList;
+	// }
+	/*--- End Positron ---*/
 
 	layout(size: Dimension) {
 		this.detailsScrollbar?.scanDomNode();
@@ -1430,6 +1445,7 @@ export class GettingStartedPage extends EditorPane {
 
 	override clearInput() {
 		this.stepDisposables.clear();
+		this.positronReactRenderer?.dispose();
 		super.clearInput();
 	}
 

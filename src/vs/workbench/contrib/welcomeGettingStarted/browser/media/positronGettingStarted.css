@@ -1,0 +1,25 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
+ *--------------------------------------------------------------------------------------------*/
+
+.gettingStartedContainer .header {
+	margin-bottom: 50px;
+}
+
+.gettingStartedContainer .welcome-page-section {
+	margin-bottom: 16px;
+}
+
+.gettingStartedContainer .header h1.product-name.positron.caption {
+	font-size: 3.5em;
+	font-weight: 800;
+	color: var(--vscode-positronWelcome-foreground);
+	margin: 0;
+	padding-top: 0.2em;
+}
+
+.gettingStartedContainer .header p.subtitle.positron.description {
+	font-size: 1.5em;
+	opacity: 0.5;
+	margin: 0;
+}
