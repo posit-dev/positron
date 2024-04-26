@@ -117,14 +117,36 @@ export class SelectionStateMachine {
 		// If the cell is not in the selection, do nothing.
 	}
 
-	arrowKeys(up: boolean, meta: boolean) {
+	arrowKeys(up: boolean, addMode: boolean) {
 
 		if (isNoSelection(this._state) || isEditingSelection(this._state)) {
 			return;
 		}
 
-		const edgeCell = this._state.selected.at(up ? -1 : 0)!;
+		const edgeCell = this._state.selected.at(up ? 0 : -1)!;
 		const indexOfEdgeCell = this._cells.indexOf(edgeCell);
+		const nextCell = this._cells[indexOfEdgeCell + (up ? -1 : 1)];
+
+		if (addMode) {
+			// If the edge cell is at the top or bottom of the cells, and the up or down arrow key is pressed, respectively, do nothing.
+			if (indexOfEdgeCell <= 0 && up || indexOfEdgeCell >= this._cells.length - 1 && !up) {
+				// Already at the edge of the cells.
+				return;
+			}
+			const newSelection = up ? [nextCell, ...this._state.selected] : [...this._state.selected, nextCell];
+			this._state = {
+				type: 'Multi Selection',
+				selected: newSelection
+			};
+
+			return;
+		}
+
+		if (isMultiSelection(this._state)) {
+			this._state = { type: 'Single Selection', selected: [edgeCell] };
+			edgeCell.focus();
+			return;
+		}
 
 		// If the edge cell is at the top or bottom of the cells, and the up or down arrow key is pressed, respectively, do nothing.
 		if (indexOfEdgeCell <= 0 && up || indexOfEdgeCell >= this._cells.length - 1 && !up) {
@@ -132,26 +154,18 @@ export class SelectionStateMachine {
 			return;
 		}
 
-		const nextCell = this._cells[indexOfEdgeCell + (up ? -1 : 1)];
-
-		// If meta is held down we're building a multi selection.
-		if (meta) {
-			const newSelection = up ? [nextCell, ...this._state.selected] : [...this._state.selected, nextCell];
-			this._state = { type: 'Multi Selection', selected: newSelection };
-			return;
-		}
-
 		// If meta is not held down, we're in single selection mode.
 		this._state = { type: 'Single Selection', selected: [nextCell] };
+
 		nextCell.focus();
 	}
 
-	upArrow(meta: boolean) {
-		this.arrowKeys(true, meta);
+	upArrow(addMode: boolean) {
+		this.arrowKeys(true, addMode);
 	}
 
-	downArrow(meta: boolean) {
-		this.arrowKeys(false, meta);
+	downArrow(addMode: boolean) {
+		this.arrowKeys(false, addMode);
 	}
 
 	enterPress() {
