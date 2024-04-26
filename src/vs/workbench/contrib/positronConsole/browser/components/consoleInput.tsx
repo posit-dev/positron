@@ -260,23 +260,6 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 
 		// Process the key code.
 		switch (e.keyCode) {
-			// Escape handling.
-			case KeyCode.Escape: {
-				// If the history browser is active, deactivate it.
-				if (historyBrowserActiveRef.current) {
-					disengageHistoryBrowser();
-					consumeEvent();
-					break;
-				}
-
-				// Consume the event.
-				consumeEvent();
-
-				// Interrupt the console.
-				props.positronConsoleInstance.interrupt();
-				break;
-			}
-
 			// Ctrl-A handling.
 			case KeyCode.KeyA: {
 				// If the cmd or ctrl key is pressed, see if the user wants to select all.
