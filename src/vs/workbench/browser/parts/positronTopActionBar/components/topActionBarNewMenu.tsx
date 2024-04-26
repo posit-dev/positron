@@ -41,10 +41,10 @@ export const TopActionBarNewMenu = () => {
 		const projectWizardEnabled =
 			ContextKeyExpr.deserialize(
 				`config.${USE_POSITRON_PROJECT_WIZARD_CONFIG_KEY}`
-			) ?? IsDevelopmentContext;
+			);
 		positronActionBarContext.appendCommandAction(actions, {
 			id: PositronNewProjectAction.ID,
-			when: projectWizardEnabled,
+			when: ContextKeyExpr.or(projectWizardEnabled, IsDevelopmentContext),
 		});
 		positronActionBarContext.appendCommandAction(actions, {
 			id: PositronNewFolderAction.ID

@@ -42,8 +42,9 @@ export class PositronNewProjectAction extends Action2 {
 	 */
 	constructor() {
 		// TODO: [New Project] Remove feature flag when New Project action is ready for release
-		// This disables (greys out) the action in the New menu, the application bar File menu, and the command palette when not in a development context
-		const projectWizardEnabled = ContextKeyExpr.deserialize(`config.${USE_POSITRON_PROJECT_WIZARD_CONFIG_KEY}`) ?? IsDevelopmentContext;
+		// This removes the action in the New menu, the application bar File menu, and the command
+		// palette when the feature flag is not enabled.
+		const projectWizardEnabled = ContextKeyExpr.deserialize(`config.${USE_POSITRON_PROJECT_WIZARD_CONFIG_KEY}`);
 		super({
 			id: PositronNewProjectAction.ID,
 			title: {
@@ -55,14 +56,14 @@ export class PositronNewProjectAction extends Action2 {
 			f1: true,
 			precondition: ContextKeyExpr.and(
 				EnterMultiRootWorkspaceSupportContext,
-				projectWizardEnabled
+				ContextKeyExpr.or(projectWizardEnabled, IsDevelopmentContext)
 			),
 			menu: {
 				id: MenuId.MenubarFileMenu,
 				group: '1_newfolder',
 				order: 3,
-				when: projectWizardEnabled
-			}
+				when: ContextKeyExpr.or(projectWizardEnabled, IsDevelopmentContext),
+			},
 		});
 	}
 

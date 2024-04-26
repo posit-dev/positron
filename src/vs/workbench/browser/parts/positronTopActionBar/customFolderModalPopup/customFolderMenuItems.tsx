@@ -150,14 +150,14 @@ export const CustomFolderMenuItems = (props: CustomFolderMenuItemsProps) => {
 	const projectWizardEnabled =
 		ContextKeyExpr.deserialize(
 			`config.${USE_POSITRON_PROJECT_WIZARD_CONFIG_KEY}`
-		) ?? IsDevelopmentContext;
+		);
 
 	// Render.
 	return (
 		<div className='custom-folder-menu-items'>
 			<CommandActionCustomFolderMenuItem
 				id={PositronNewProjectAction.ID}
-				when={projectWizardEnabled}
+				when={ContextKeyExpr.or(projectWizardEnabled, IsDevelopmentContext)}
 			/>
 			<CommandActionCustomFolderMenuItem id={PositronNewFolderAction.ID} />
 			<CommandActionCustomFolderMenuItem id={PositronNewFolderFromGitAction.ID} />
