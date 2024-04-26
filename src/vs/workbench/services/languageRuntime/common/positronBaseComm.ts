@@ -127,7 +127,7 @@ export class PositronBaseComm extends Disposable {
 				console.warn(`Dropping event '${data.method}' ` +
 					`on comm ${this.clientInstance.getClientId()}: ` +
 					`${JSON.stringify(data.params)} ` +
-					`(No listeners for event event '${data.method}'`);
+					`(No listeners for event '${data.method}'`);
 			}
 		}));
 

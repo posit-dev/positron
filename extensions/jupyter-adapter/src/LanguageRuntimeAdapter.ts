@@ -889,6 +889,9 @@ export class LanguageRuntimeSessionAdapter
 		const clientId = `positron-lsp-${this.runtimeMetadata.languageId}-${LanguageRuntimeSessionAdapter._clientCounter++}-${uniqueId}`;
 		this._kernel.log(`Starting LSP server ${clientId} for ${clientAddress}`);
 
+		// Notify Positron that we're handling messages from this client
+		this._disposables.push(positron.runtime.registerClientInstance(clientId));
+
 		await this.createClient(
 			clientId,
 			positron.RuntimeClientType.Lsp,
@@ -924,6 +927,9 @@ export class LanguageRuntimeSessionAdapter
 		const uniqueId = Math.floor(Math.random() * 0x100000000).toString(16);
 		const clientId = `positron-dap-${this.runtimeMetadata.languageId}-${LanguageRuntimeSessionAdapter._clientCounter++}-${uniqueId}`;
 		this._kernel.log(`Starting DAP server ${clientId} for ${serverAddress}`);
+
+		// Notify Positron that we're handling messages from this client
+		this._disposables.push(positron.runtime.registerClientInstance(clientId));
 
 		await this.createClient(
 			clientId,
