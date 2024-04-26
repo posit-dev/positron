@@ -38,3 +38,7 @@
 	text-align: right;
 	display: inline-block;
 }
+
+.activity-input.cancelled {
+	opacity: 0.65;
+}

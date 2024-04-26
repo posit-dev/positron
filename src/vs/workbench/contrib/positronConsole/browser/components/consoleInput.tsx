@@ -302,7 +302,8 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 					consumeEvent();
 
 					// Interrupt the console.
-					props.positronConsoleInstance.interrupt();
+					const code = codeEditorWidgetRef.current.getValue();
+					props.positronConsoleInstance.interrupt(code);
 				}
 				break;
 			}
