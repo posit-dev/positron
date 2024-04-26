@@ -113,6 +113,12 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 				return extHostLanguageRuntime.registerClientHandler(handler);
 			},
 			registerClientInstance(clientInstanceId: string): vscode.Disposable {
+				/**
+				 * Register a runtime client instance. Registering the instance
+				 * indicates that the caller has ownership of the instance, and that
+				 * messages the instance receives do not need to be forwarded to the
+				 * Positron core.
+				 */
 				return extHostLanguageRuntime.registerClientInstance(clientInstanceId);
 			},
 			get onDidRegisterRuntime() {
