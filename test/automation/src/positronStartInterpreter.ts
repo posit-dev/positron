@@ -30,13 +30,14 @@ export class StartInterpreter {
 		await this.code.waitForElement(POSITRON_MODAL_POPUP);
 
 		const primaryPython = await this.awaitDesiredPrimaryInterpreterGroupLoaded(desiredInterpreterType);
-		console.log(`Found primary python ${primaryPython.description} at index ${primaryPython.index}`, {});
+		console.log(`Found primary python ${primaryPython.description} at index ${primaryPython.index}`);
 
 		const primaryIsMatch = primaryPython.description.includes(desiredPython);
 		if (!primaryIsMatch) {
 
 			const secondaryInterpreters = await this.getSecondaryInterpreters(primaryPython.index);
-			console.log(secondaryInterpreters.toString());
+			console.log('Secondary Interpreters:');
+			secondaryInterpreters.forEach(interpreter => console.log(interpreter.description));
 
 			for (const secondaryInterpreter of secondaryInterpreters) {
 				if (secondaryInterpreter.description.includes(desiredPython)) {

@@ -18,23 +18,22 @@ export function setup(logger: Logger) {
 			const desiredPython = process.env.POSITRON_PY_VER_SEL || '3.10.12 (PyEnv)';
 			await app.workbench.startInterpreter.selectInterpreter('Python', desiredPython);
 
-			await app.code.wait(5000);
-
 			// noop if dialog does not appear
 			await app.workbench.positronPopups.installIPyKernel();
 
+			await app.workbench.positronConsole.waitForPrompt();
+
 			await app.workbench.positronConsole.logConsoleContents();
-			console.log('Pre entry of variables above');
 
 			await app.workbench.positronConsole.typeToConsole('x=1\n');
 			await app.workbench.positronConsole.typeToConsole('y=10\n');
 			await app.workbench.positronConsole.typeToConsole('z=100\n');
 
-			await app.code.driver.takeScreenshot('bug');
+			// await app.code.driver.takeScreenshot('bug');
 
 			console.log('Entered lines in console defining variables');
 
-			await app.code.wait(5000);
+			await app.workbench.positronConsole.waitForPrompt();
 
 			await app.workbench.positronConsole.logConsoleContents();
 
