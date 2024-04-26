@@ -221,6 +221,13 @@ class PositronNotebookMarkdownCell extends PositronNotebookCellGeneral implement
 	override run(): void {
 		this.toggleEditor();
 	}
+
+	override focusEditor(): void {
+		this.editorShown.set(true, undefined);
+		setTimeout(() => {
+			super.focusEditor();
+		}, 0);
+	}
 }
 
 /**
