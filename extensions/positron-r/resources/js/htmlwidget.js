@@ -16,6 +16,11 @@
  * port of `asWebviewUri` from VS Code.
  */
 const asWebviewUri = (path) => {
+	// Ensure path starts with '/'. On Windows, the path starts with the drive letter, e.g.
+	// c/Users/bob/path/to/file.
+	if (!path.startsWith('/')) {
+		path = '/' + path;
+	}
 	return 'https://file%2B.vscode-resource.vscode-cdn.net' + path;
 };
 
