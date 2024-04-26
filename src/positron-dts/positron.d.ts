@@ -1201,6 +1201,14 @@ declare module 'positron' {
 		export function registerClientHandler(handler: RuntimeClientHandler): vscode.Disposable;
 
 		/**
+		 * Register a runtime client instance. Registering the instance
+		 * indicates that the caller has ownership of the instance, and that
+		 * messages the instance receives do not need to be forwarded to the
+		 * Positron core.
+		 */
+		export function registerClientInstance(clientInstanceId: string): vscode.Disposable;
+
+		/**
 		 * An event that fires when a new runtime is registered.
 		 */
 		export const onDidRegisterRuntime: vscode.Event<LanguageRuntimeMetadata>;
