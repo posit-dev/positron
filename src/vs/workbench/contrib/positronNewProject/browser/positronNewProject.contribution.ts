@@ -9,8 +9,9 @@ import { IContextKeyService } from 'vs/platform/contextkey/common/contextkey';
 import { InstantiationType, registerSingleton } from 'vs/platform/instantiation/common/extensions';
 import { IWorkbenchContribution, WorkbenchPhase, registerWorkbenchContribution2 } from 'vs/workbench/common/contributions';
 import { ILifecycleService, LifecyclePhase, StartupKind } from 'vs/workbench/services/lifecycle/common/lifecycle';
+import { IPositronNewProjectService } from 'vs/workbench/services/positronNewProject/common/positronNewProject';
 import { projectWizardEnabled } from 'vs/workbench/services/positronNewProject/common/positronNewProjectEnablement';
-import { IPositronNewProjectService, PositronNewProjectService } from 'vs/workbench/services/positronNewProject/common/positronNewProjectService';
+import { PositronNewProjectService } from 'vs/workbench/services/positronNewProject/common/positronNewProjectService';
 
 // Register the Positron New Project service
 registerSingleton(IPositronNewProjectService, PositronNewProjectService, InstantiationType.Delayed);

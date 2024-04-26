@@ -26,7 +26,7 @@ import { IRuntimeStartupService } from 'vs/workbench/services/runtimeStartup/com
 import { ILogService } from 'vs/platform/log/common/log';
 import { IOpenerService } from 'vs/platform/opener/common/opener';
 import { USE_POSITRON_PROJECT_WIZARD_CONFIG_KEY } from 'vs/workbench/services/positronNewProject/common/positronNewProjectEnablement';
-import { IPositronNewProjectService } from 'vs/workbench/services/positronNewProject/common/positronNewProjectService';
+import { IPositronNewProjectService } from 'vs/workbench/services/positronNewProject/common/positronNewProject';
 
 /**
  * The PositronNewProjectAction.

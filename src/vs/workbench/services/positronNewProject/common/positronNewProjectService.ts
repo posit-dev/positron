@@ -3,63 +3,10 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { Disposable } from 'vs/base/common/lifecycle';
-import { createDecorator } from 'vs/platform/instantiation/common/instantiation';
 import { ILogService } from 'vs/platform/log/common/log';
 import { IStorageService, StorageScope, StorageTarget } from 'vs/platform/storage/common/storage';
 import { IWorkspaceContextService } from 'vs/platform/workspace/common/workspace';
-
-/**
- * NewProjectConfiguration interface. Defines the configuration for a new project.
- */
-export interface NewProjectConfiguration {
-	readonly runtimeId: string;
-	readonly projectType: string;
-	readonly projectFolder: string;
-	readonly initGitRepo: boolean;
-	readonly pythonEnvType: string;
-	readonly installIpykernel: boolean;
-	readonly useRenv: boolean;
-}
-
-const POSITRON_NEW_PROJECT_CONFIG_STORAGE_KEY = 'positron.newProjectConfig';
-const POSITRON_NEW_PROJECT_SERVICE_ID = 'positronNewProjectService';
-
-export const IPositronNewProjectService = createDecorator<IPositronNewProjectService>(POSITRON_NEW_PROJECT_SERVICE_ID);
-
-/**
- * IPositronNewProjectService interface.
- */
-export interface IPositronNewProjectService {
-	/**
-	 * For service branding in dependency injector.
-	 */
-	readonly _serviceBrand: undefined;
-
-	/**
-	 * Clears the new project configuration from the storage service.
-	 */
-	clearNewProjectConfig(): void;
-
-	/**
-	 * Initializes the new project if applicable. Initialization involves tasks such as starting
-	 * the user-selected interpreter, creating the appropriate unsaved new file, initializing the
-	 * git repository, etc..
-	 * @returns Whether the new project was initialized.
-	 */
-	initNewProject(): boolean;
-
-	/**
-	 * Determines whether the current window the new project that was just created.
-	 * @returns Whether the current window is the newly created project.
-	 */
-	isCurrentWindowNewProject(): boolean;
-
-	/**
-	 * Stores the new project configuration in the storage service.
-	 * @param newProjectConfig The new project configuration to store.
-	 */
-	storeNewProjectConfig(newProjectConfig: NewProjectConfiguration): void;
-}
+import { IPositronNewProjectService, NewProjectConfiguration, POSITRON_NEW_PROJECT_CONFIG_STORAGE_KEY } from 'vs/workbench/services/positronNewProject/common/positronNewProject';
 
 /**
  * PositronNewProjectService class.
