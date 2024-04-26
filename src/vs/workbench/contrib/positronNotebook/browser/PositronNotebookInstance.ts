@@ -606,7 +606,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		const window = DOM.getWindow(container);
 
 		const onKeyDown = (event: KeyboardEvent) => {
-			const addMode = event.metaKey || event.ctrlKey;
+			const addMode = event.shiftKey;
 
 			switch (event.key) {
 				case 'ArrowUp':
