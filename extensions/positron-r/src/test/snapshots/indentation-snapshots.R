@@ -18,18 +18,16 @@ data |>
 
 # ---
 # Starting a pipeline (one empty line)
-# FIXME
 data |>
     "<>"
 
 # ->
 data |>
     
-"<>"
+    "<>"
 
 # ---
 # Starting a pipeline (multiple empty lines)
-# FIXME
 data |>
 
     "<>"
@@ -38,7 +36,7 @@ data |>
 data |>
 
     
-"<>"
+    "<>"
 
 # ---
 # Continuing a pipeline
@@ -80,11 +78,10 @@ data |>
 # ->
 data |>
     fn() |> 
-    "<>" # foo
+    "<>"# foo
 
 # ---
 # Continuing a one-liner pipeline (comment line)
-# FIXME
 data |>
     fn1() |>
     # foo"<>"
@@ -93,11 +90,10 @@ data |>
 data |>
     fn1() |>
     # foo
-"<>"
+    "<>"
 
 # ---
 # Continuing a one-liner pipeline (after a comment line)
-# FIXME
 data |>
     fn1() |>
     # foo
@@ -108,7 +104,7 @@ data |>
     fn1() |>
     # foo
     
-"<>"
+    "<>"
 
 # ---
 # Continuing a one-liner pipeline (longer pipeline)
@@ -126,7 +122,6 @@ data |>
 
 # ---
 # Continuing a multi-liner pipeline
-# FIXME
 data |>
     fn1(
         x,
@@ -139,11 +134,10 @@ data |>
         x,
         y
     ) |>
-        "<>"
+    "<>"
 
 # ---
 # Continuing a multi-liner pipeline (trailing expression)
-# FIXME
 data |>
     fn1(
         x,
@@ -156,7 +150,7 @@ data |>
         x,
         y
     ) |> 
-        "<>" fn2()
+    "<>"fn2()
 
 # ---
 # Dedent after pipeline
