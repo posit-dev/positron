@@ -6,7 +6,7 @@
 import { Code } from './code';
 
 const CONSOLE_ITEMS = '.console-instance .runtime-items span';
-const CONSOLE_INPUT = '.view-line';
+const CONSOLE_INSTANCES_CONTAINER = '.console-instances-container';
 
 export class PositronConsole {
 
@@ -17,12 +17,9 @@ export class PositronConsole {
 		const consoleTextContainer = this.code.driver.getLocator(CONSOLE_ITEMS);
 		const consoleTextItems = await consoleTextContainer.all();
 
-		const consoleContents: string[] = [];
-		for (let i = 0; i < consoleTextItems.length; i++) {
-			const item = consoleTextItems[i];
-			const text = await item.innerText();
-			consoleContents.push(text);
-		}
+		const consoleContents = await Promise.all(consoleTextItems.map(async (item) => {
+			return await item.innerText();
+		}));
 
 		return consoleContents;
 	}
@@ -33,8 +30,7 @@ export class PositronConsole {
 	}
 
 	async typeToConsole(text: string) {
-		console.log(CONSOLE_INPUT);
-		await this.code.driver.typeKeys(CONSOLE_INPUT, text);
+		await this.code.driver.typeKeys(CONSOLE_INSTANCES_CONTAINER, text);
 	}
 
 	async waitForStarted() {
@@ -55,5 +51,8 @@ export class PositronConsole {
 				}
 			}
 		}
+
+		await this.code.waitForElement('.console-input');
+
 	}
 }

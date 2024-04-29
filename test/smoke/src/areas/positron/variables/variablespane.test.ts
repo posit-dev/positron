@@ -7,7 +7,7 @@ import { Application, Logger } from '../../../../../automation';
 import { installAllHandlers } from '../../../utils';
 
 export function setup(logger: Logger) {
-	describe('Python Variables Pane', () => {
+	describe('Variables Pane', () => {
 
 		// Shared before/after handling
 		installAllHandlers(logger);
@@ -25,9 +25,7 @@ export function setup(logger: Logger) {
 
 			await app.workbench.positronConsole.logConsoleContents();
 
-			await app.workbench.positronConsole.typeToConsole('x=1\n');
-			await app.workbench.positronConsole.typeToConsole('y=10\n');
-			await app.workbench.positronConsole.typeToConsole('z=100\n');
+			await app.workbench.positronConsole.typeToConsole('x=1\ny=10\nz=100\n');
 
 			console.log('Entered lines in console defining variables');
 
@@ -40,12 +38,6 @@ export function setup(logger: Logger) {
 			expect(variablesMap.get('z')).toStrictEqual({ value: '100', type: 'int' });
 
 		});
-	});
-
-	describe('R Variables Pane', () => {
-
-		// Shared before/after handling
-		installAllHandlers(logger);
 
 		it('Verifies Variables pane basic function with R interpreter', async function () {
 			const app = this.app as Application;
@@ -53,13 +45,13 @@ export function setup(logger: Logger) {
 			const desiredR = process.env.POSITRON_R_VER_SEL || 'R 4.3.3';
 			await app.workbench.startInterpreter.selectInterpreter('R', desiredR);
 
+			await app.code.wait(2000);
+
 			await app.workbench.positronConsole.waitForStarted();
 
 			await app.workbench.positronConsole.logConsoleContents();
 
-			await app.workbench.positronConsole.typeToConsole('x=1\n');
-			await app.workbench.positronConsole.typeToConsole('y=10\n');
-			await app.workbench.positronConsole.typeToConsole('z=100\n');
+			await app.workbench.positronConsole.typeToConsole('x=1\ny=10\nz=100\n');
 
 			console.log('Entered lines in console defining variables');
 
