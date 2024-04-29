@@ -10,6 +10,7 @@ import * as React from 'react';
 import { useEffect, useState } from 'react'; // eslint-disable-line no-duplicate-imports
 
 // Other dependencies.
+import * as nls from 'vs/nls';
 import { DisposableStore } from 'vs/base/common/lifecycle';
 import { usePositronDataExplorerContext } from 'vs/workbench/browser/positronDataExplorer/positronDataExplorerContext';
 import { DataExplorerClientStatus } from 'vs/workbench/services/languageRuntime/common/languageRuntimeDataExplorerClient';
@@ -20,16 +21,15 @@ interface ActivityIndicatorProps {
 
 const StatusBarActivityIndicator = (props: ActivityIndicatorProps) => {
 	const getStatusText = () => {
-		// TODO: localize
 		switch (props.status) {
 			case DataExplorerClientStatus.Idle:
-				return 'Idle';
+				return nls.localize('positron.dataExplorer.idle', 'Idle');
 			case DataExplorerClientStatus.Computing:
-				return 'Computing';
+				return nls.localize('positron.dataExplorer.computing', 'Computing');
 			case DataExplorerClientStatus.Disconnected:
-				return 'Disconnected';
+				return nls.localize('positron.dataExplorer.disconnected', 'Disconnected');
 			case DataExplorerClientStatus.Error:
-				return 'Error';
+				return nls.localize('positron.dataExplorer.error', 'Error');
 		}
 	};
 
@@ -48,13 +48,9 @@ const StatusBarActivityIndicator = (props: ActivityIndicatorProps) => {
 
 	return (
 		<div className='status-bar-indicator'>
-			{/* TODO: Use different CSS  */}
-			<div className='action-bar-separator' aria-hidden='true' >
-				<div className='action-bar-separator-icon codicon codicon-positron-separator' />
-			</div>
-			<div className={`title ${getStatusClass()}`}>
-				{getStatusText()}
-			</div>
+			<div className={`icon ${getStatusClass()}`}
+				title={getStatusText()}
+				aria-label={getStatusText()}></div>
 		</div>
 	);
 };
@@ -107,6 +103,9 @@ export const StatusBar = () => {
 
 		return (
 			<div className='status-bar'>
+				<StatusBarActivityIndicator
+					status={clientStatus}
+				/>
 				<span className='label'>Showing</span>
 				<span>&nbsp;</span>
 				<span className='counter'>{numRows.toLocaleString()}</span>
@@ -128,6 +127,9 @@ export const StatusBar = () => {
 	} else {
 		return (
 			<div className='status-bar'>
+				<StatusBarActivityIndicator
+					status={clientStatus}
+				/>
 				<span className='counter'>{numRows.toLocaleString()}</span>
 				<span>&nbsp;</span>
 				<span className='label'>rows</span>
@@ -135,9 +137,6 @@ export const StatusBar = () => {
 				<span className='counter'>{numColumns.toLocaleString()}</span>
 				<span>&nbsp;</span>
 				<span className='label'>columns</span>
-				<StatusBarActivityIndicator
-					status={clientStatus}
-				/>
 			</div>
 		);
 	}
