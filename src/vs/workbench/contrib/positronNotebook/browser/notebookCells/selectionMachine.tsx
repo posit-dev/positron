@@ -50,16 +50,12 @@ type SelectionStates =
 
 export class SelectionStateMachine {
 
-	private __state: SelectionStates = { type: 'No Selection' };
-
-	private get _state() {
-		return this.__state;
-	}
+	private _state: SelectionStates = { type: 'No Selection' };
 
 	// Alert the observable that the state has changed.
-	private set _state(state: SelectionStates) {
-		this.__state = state;
-		this.state.set(this.__state, undefined);
+	private _setState(state: SelectionStates) {
+		this._state = state;
+		this.state.set(this._state, undefined);
 	}
 
 	private _cells: IPositronNotebookCell[] = [];
@@ -88,7 +84,7 @@ export class SelectionStateMachine {
 		// If it isn't we need to reset the selection.
 		if (isEditingSelection(this._state)) {
 			if (!cells.includes(this._state.selectedCell)) {
-				this._state = { type: 'No Selection' };
+				this._setState({ type: 'No Selection' });
 				return;
 			}
 			return;
@@ -96,11 +92,11 @@ export class SelectionStateMachine {
 
 		const selectionAfterNewCells = cellSelectionIntersection(cells, this._state.selected);
 		if (selectionAfterNewCells.length === 0) {
-			this._state = { type: 'No Selection' };
+			this._setState({ type: 'No Selection' });
 			return;
 		}
 
-		this._state = { type: selectionAfterNewCells.length === 1 ? 'Single Selection' : 'Multi Selection', selected: selectionAfterNewCells };
+		this._setState({ type: selectionAfterNewCells.length === 1 ? 'Single Selection' : 'Multi Selection', selected: selectionAfterNewCells });
 	}
 
 	/**
@@ -111,17 +107,17 @@ export class SelectionStateMachine {
 	selectCell(cell: IPositronNotebookCell, selectType: CellSelectionType = CellSelectionType.Normal): void {
 
 		if (selectType === CellSelectionType.Normal || isNoSelection(this._state) && selectType === CellSelectionType.Add) {
-			this._state = { type: 'Single Selection', selected: [cell] };
+			this._setState({ type: 'Single Selection', selected: [cell] });
 			return;
 		}
 
 		if (selectType === CellSelectionType.Edit) {
-			this._state = { type: 'Editing Selection', selectedCell: cell };
+			this._setState({ type: 'Editing Selection', selectedCell: cell });
 			return;
 		}
 
 		if (isSingleSelection(this._state) || isMultiSelection(this._state)) {
-			this._state = { type: 'Multi Selection', selected: [...this._state.selected, cell] };
+			this._setState({ type: 'Multi Selection', selected: [...this._state.selected, cell] });
 			return;
 		}
 
@@ -141,7 +137,7 @@ export class SelectionStateMachine {
 		const deselectingCurrentSelection = isSingleSelection(this._state) || isEditingSelection(this._state) && this._state.selectedCell === cell;
 
 		if (deselectingCurrentSelection) {
-			this._state = { type: 'No Selection' };
+			this._setState({ type: 'No Selection' });
 			return;
 		}
 
@@ -150,7 +146,7 @@ export class SelectionStateMachine {
 			// Set focus on the last cell in the selection to avoid confusingly leaving selection
 			// styles on cell just deselected. Not sure if this is the best UX.
 			updatedSelection.at(-1)?.focus();
-			this._state = { type: updatedSelection.length === 1 ? 'Single Selection' : 'Multi Selection', selected: updatedSelection };
+			this._setState({ type: updatedSelection.length === 1 ? 'Single Selection' : 'Multi Selection', selected: updatedSelection });
 		}
 
 		// If the cell is not in the selection, do nothing.
@@ -173,16 +169,16 @@ export class SelectionStateMachine {
 				return;
 			}
 			const newSelection = up ? [nextCell, ...this._state.selected] : [...this._state.selected, nextCell];
-			this._state = {
+			this._setState({
 				type: 'Multi Selection',
 				selected: newSelection
-			};
+			});
 
 			return;
 		}
 
 		if (isMultiSelection(this._state)) {
-			this._state = { type: 'Single Selection', selected: [edgeCell] };
+			this._setState({ type: 'Single Selection', selected: [edgeCell] });
 			edgeCell.focus();
 			return;
 		}
@@ -194,7 +190,7 @@ export class SelectionStateMachine {
 		}
 
 		// If meta is not held down, we're in single selection mode.
-		this._state = { type: 'Single Selection', selected: [nextCell] };
+		this._setState({ type: 'Single Selection', selected: [nextCell] });
 
 		nextCell.focus();
 	}
@@ -222,7 +218,7 @@ export class SelectionStateMachine {
 	enterEditor(): void {
 		if (isSingleSelection(this._state)) {
 			const cellToEdit = this._state.selected[0];
-			this._state = { type: 'Editing Selection', selectedCell: cellToEdit };
+			this._setState({ type: 'Editing Selection', selectedCell: cellToEdit });
 			// Timeout here avoids the problem of enter applying to the editor widget itself.
 			setTimeout(() => cellToEdit.focusEditor(), 0);
 		}
@@ -234,7 +230,7 @@ export class SelectionStateMachine {
 	exitEditor(): void {
 		if (isEditingSelection(this._state)) {
 			this._state.selectedCell.defocusEditor();
-			this._state = { type: 'Single Selection', selected: [this._state.selectedCell] };
+			this._setState({ type: 'Single Selection', selected: [this._state.selectedCell] });
 		}
 	}
 }
