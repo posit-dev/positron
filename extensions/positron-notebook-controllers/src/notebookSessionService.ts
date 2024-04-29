@@ -4,6 +4,7 @@
 
 import * as positron from 'positron';
 import * as vscode from 'vscode';
+import * as path from 'path';
 import { log } from './extension';
 import { ResourceMap } from './map';
 
@@ -192,7 +193,7 @@ export class NotebookSessionService implements vscode.Disposable {
 		try {
 			const session = await positron.runtime.startLanguageRuntime(
 				preferredRuntime.runtimeId,
-				notebookUri.path, // Use the notebook's path as the session name.
+				path.basename(notebookUri.path), // Use the notebook's file name as the session name.
 				notebookUri);
 			log.info(
 				`Starting session for language runtime ${session.metadata.sessionId} `
