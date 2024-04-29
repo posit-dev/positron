@@ -709,6 +709,8 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 		// Use the VS Code terminal API to create a terminal for the kernel
 		this._terminal = vscode.window.createTerminal(<vscode.TerminalOptions>{
 			name: this._spec.display_name,
+			// Always start notebook sessions in the directory of the notebook
+			cwd: this._notebookUri ? path.dirname(this._notebookUri.path) : undefined,
 			shellPath: shellPath,
 			shellArgs: shellArgs,
 			env,
