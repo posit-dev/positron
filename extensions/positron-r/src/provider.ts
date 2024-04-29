@@ -337,8 +337,16 @@ export async function findCurrentRBinary(): Promise<string | undefined> {
 }
 
 async function findCurrentRBinaryFromRegistry(): Promise<string | undefined> {
-	const userPath = await getRegistryInstallPath(winreg.HKCU);
-	const machinePath = await getRegistryInstallPath(winreg.HKLM);
+	let userPath = await getRegistryInstallPath(winreg.HKCU);
+	if (!userPath) {
+		// If we didn't find R in the default user location, check WOW64
+		userPath = await getRegistryInstallPath(winreg.HKCU, 'WOW6432Node');
+	}
+	let machinePath = await getRegistryInstallPath(winreg.HKLM);
+	if (!machinePath) {
+		// If we didn't find R in the default machine location, check WOW64
+		machinePath = await getRegistryInstallPath(winreg.HKLM, 'WOW6432Node');
+	}
 	if (!userPath && !machinePath) {
 		return undefined;
 	}
@@ -353,12 +361,24 @@ async function findCurrentRBinaryFromRegistry(): Promise<string | undefined> {
 	return binPath;
 }
 
-async function getRegistryInstallPath(hive: string): Promise<string | undefined> {
+/**
+ * Get the registry install path for R.
+ *
+ * @param hive The Windows registry hive to check -- HKCU or HKLM
+ * @param wow Optionally, the WOW node to check under `Software`. R's install
+ * path is written to a WOW (Windows on Windows) node when e.g. an x86 build of
+ * R is installed on an ARM version of Windows.
+ *
+ * @returns The install path for R, or undefined if an R installation file could
+ * not be found at the install path.
+ */
+async function getRegistryInstallPath(hive: string, wow?: string | undefined): Promise<string | undefined> {
 	try {
 		const key = new winreg({
 			hive: hive as keyof typeof winreg,
 			// 'R64' here is another place where we explicitly ignore 32-bit R
-			key: '\\Software\\R-Core\\R64',
+			// Amend a WOW path after "Software" if requested
+			key: `\\Software\\${wow ? wow + '\\' : ''}R-Core\\R64`,
 		});
 
 		LOGGER.info(`Checking for 'InstallPath' in registry key ${key.key} for hive ${key.hive}`);
