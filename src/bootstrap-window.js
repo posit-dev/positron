@@ -136,7 +136,6 @@
 			'tas-client-umd': `${baseNodeModulesPath}/tas-client-umd/lib/tas-client-umd.js`,
 			// --- Start Positron ---
 			'he': `${baseNodeModulesPath}/he/he.js`,
-			'xstate': `${baseNodeModulesPath}/xstate/dist/xstate.umd.min.js`,
 			// -------------------------------------------------------------------------------------
 			// If you need to debug React, you can switch to the development version by temporarily
 			// commenting out production React and uncommenting development React. (The fixup for
