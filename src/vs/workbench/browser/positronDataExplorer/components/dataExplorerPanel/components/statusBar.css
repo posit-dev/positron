@@ -36,10 +36,10 @@
 
 .data-explorer-panel .status-bar .status-bar-indicator .icon.computing {
 	background-image: url(status-active.svg);
-	animation: rotate-computing 1.5s linear infinite;
+	animation: status-icon-rotate-computing 1.5s linear infinite;
 }
 
-@keyframes rotate-computing {
+@keyframes status-icon-rotate-computing {
 	to {
 		transform: rotate(360deg);
 	}
