@@ -610,17 +610,17 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 
 			switch (event.key) {
 				case 'ArrowUp':
-					this.selectionStateMachine.upArrow(addMode);
+					this.selectionStateMachine.moveUp(addMode);
 					break;
 				case 'ArrowDown':
-					this.selectionStateMachine.downArrow(addMode);
+					this.selectionStateMachine.moveDown(addMode);
 					break;
 				case 'Enter': {
-					this.selectionStateMachine.enterPress();
+					this.selectionStateMachine.enterEditor();
 					break;
 				}
 				case 'Escape':
-					this.selectionStateMachine.escPress();
+					this.selectionStateMachine.exitEditor();
 					break;
 			}
 		};

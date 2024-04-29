@@ -64,7 +64,14 @@ export class SelectionStateMachine {
 		this.state = observableValue('selectionState', this._state);
 	}
 
-	setCells(cells: IPositronNotebookCell[]) {
+	/**
+	 * Updates the known cells.
+	 *
+	 * Handles updating selection if neccesary when cells are added or removed.
+	 *
+	 * @param cells The new cells to set.
+	 */
+	setCells(cells: IPositronNotebookCell[]): void {
 		this._cells = cells;
 
 		if (isNoSelection(this._state)) {
@@ -90,14 +97,24 @@ export class SelectionStateMachine {
 		this._state = { type: selectionAfterNewCells.length === 1 ? 'Single Selection' : 'Multi Selection', selected: selectionAfterNewCells };
 	}
 
-	selectCell(cell: IPositronNotebookCell, editMode: boolean) {
+	/**
+	 * Selects a cell.
+	 * @param cell The cell to select.
+	 * @param editMode If true, the cell will be selected in edit mode.
+	 */
+	selectCell(cell: IPositronNotebookCell, editMode: boolean): void {
 		// TODO: Eventually add ability to build multi selection with meta key
 		this._state = editMode ?
 			{ type: 'Editing Selection', selectedCell: cell } :
 			{ type: 'Single Selection', selected: [cell] };
 	}
 
-	deselectCell(cell: IPositronNotebookCell) {
+	/**
+	 * Removes selection from a cell.
+	 * @param cell The cell to deselect.
+	 * @returns
+	 */
+	deselectCell(cell: IPositronNotebookCell): void {
 		if (isNoSelection(this._state)) {
 			return;
 		}
@@ -117,7 +134,7 @@ export class SelectionStateMachine {
 		// If the cell is not in the selection, do nothing.
 	}
 
-	arrowKeys(up: boolean, addMode: boolean) {
+	private _moveSelection(up: boolean, addMode: boolean) {
 
 		if (isNoSelection(this._state) || isEditingSelection(this._state)) {
 			return;
@@ -160,23 +177,39 @@ export class SelectionStateMachine {
 		nextCell.focus();
 	}
 
-	upArrow(addMode: boolean) {
-		this.arrowKeys(true, addMode);
+	/**
+	 * Move the selection up.
+	 * @param addMode If true, the selection will be added to the current selection.
+	 */
+	moveUp(addMode: boolean): void {
+		this._moveSelection(true, addMode);
 	}
 
-	downArrow(addMode: boolean) {
-		this.arrowKeys(false, addMode);
+	/**
+	 * Move the selection down.
+	 * @param addMode If true, the selection will be added to the current selection.
+	 */
+	moveDown(addMode: boolean): void {
+		this._moveSelection(false, addMode);
 	}
 
-	enterPress() {
+
+	/**
+	 * Enters the editor for the selected cell.
+	 */
+	enterEditor(): void {
 		if (isSingleSelection(this._state)) {
 			const cellToEdit = this._state.selected[0];
 			this._state = { type: 'Editing Selection', selectedCell: cellToEdit };
+			// Timeout here avoids the problem of enter applying to the editor widget itself.
 			setTimeout(() => cellToEdit.focusEditor(), 0);
 		}
 	}
 
-	escPress() {
+	/**
+	 * Reset the selection to the cell so user can navigate between cells
+	 */
+	exitEditor(): void {
 		if (isEditingSelection(this._state)) {
 			this._state.selectedCell.defocusEditor();
 			this._state = { type: 'Single Selection', selected: [this._state.selectedCell] };
