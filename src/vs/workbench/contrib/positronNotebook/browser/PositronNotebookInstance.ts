@@ -60,22 +60,10 @@ export interface IPositronNotebookInstance {
 	 */
 	kernelStatus: ISettableObservable<KernelStatus>;
 
-	// /**
-	//  * The currently selected cells. Typically a single cell but can be multiple cells.
-	//  */
-	// selectedCells: ISettableObservable<IPositronNotebookCell[]>;
-
+	/**
+	 * Selection state machine object.
+	 */
 	selectionStateMachine: SelectionStateMachine;
-
-	// /**
-	//  * The current selection state of the notebook.
-	//  */
-	// selectionState: ISettableObservable<SelectionState>;
-
-	// /**
-	//  * Cell currently being edited. Undefined if no cell is being edited.
-	//  */
-	// editingCell: ISettableObservable<IPositronNotebookCell | undefined>;
 
 	/**
 	 * Has the notebook instance been disposed?
@@ -155,12 +143,12 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 
 	/**
 	 * Internal cells that we use to manage the state of the notebook
-	*/
+	 */
 	private _cells: IPositronNotebookCell[] = [];
 
 	/**
 	 * User facing cells wrapped in an observerable for the UI to react to changes
-	*/
+	 */
 	cells: ISettableObservable<IPositronNotebookCell[]>;
 	selectedCells: ISettableObservable<IPositronNotebookCell[]> = observableValue<IPositronNotebookCell[]>('positronNotebookSelectedCells', []);
 	editingCell: ISettableObservable<IPositronNotebookCell | undefined, void> = observableValue<IPositronNotebookCell | undefined>('positronNotebookEditingCell', undefined);
@@ -281,17 +269,6 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		this.cells = observableValue<IPositronNotebookCell[]>('positronNotebookCells', this._cells);
 		this.kernelStatus = observableValue<KernelStatus>('positronNotebookKernelStatus', KernelStatus.Uninitialized);
 
-		// this.selectionStateMachine.state.addObserver({
-		// 	handleChange: (state) => {
-		// 		console.log(`state machine`, state);
-		// 	}
-		// });
-		// subscribe((state) => {
-		// 	this.selectionState.set(state.context, undefined);
-		// });
-		// this.selectionStateMachine.start();
-		// this.selectionStateMachine.send({ type: 'setCells', cells: this._cells });
-
 		this.isReadOnly = this.creationOptions?.isReadOnly ?? false;
 
 		this.setupNotebookTextModel();
@@ -309,7 +286,6 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 			return this._notebookOptions;
 		}
 		this._logService.info(this._identifier, 'Generating new notebook options');
-
 
 		this._notebookOptions = this.creationOptions?.options ?? new NotebookOptions(
 			DOM.getActiveWindow(),
@@ -539,12 +515,10 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	 * @param cellOrCells The cell or cells to set as selected
 	 */
 	setSelectedCells(cells: IPositronNotebookCell[]): void {
-		// this.selectionStateMachine.send({ type: 'selectCell', cell: cells[0], editMode: false });
 		this.selectionStateMachine.selectCell(cells[0], CellSelectionType.Normal);
 	}
 
 	deselectCell(cell: IPositronNotebookCell): void {
-		// this.selectionStateMachine.send({ type: 'deselectCell', cell });
 		this.selectionStateMachine.deselectCell(cell);
 	}
 
