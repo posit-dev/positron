@@ -40,12 +40,11 @@ class PositronNewProjectContribution extends Disposable implements IWorkbenchCon
 		if (projectWizardEnabled(this._contextKeyService, this._configurationService)) {
 			// Whether the project was opened in a new window or the existing window, the startup kind
 			// will be `StartupKind.NewWindow`.
-			if (this._lifecycleService.startupKind === StartupKind.NewWindow) {
-				this.run().then((projectInitialized) => {
-					if (projectInitialized) {
-						this._positronNewProjectService.clearNewProjectConfig();
-					}
-				}, onUnexpectedError);
+			if (
+				this._lifecycleService.startupKind === StartupKind.NewWindow ||
+				this._lifecycleService.startupKind === StartupKind.ReopenedWindow
+			) {
+				this.run().then(undefined, onUnexpectedError);
 			}
 		}
 	}
@@ -57,7 +56,7 @@ class PositronNewProjectContribution extends Disposable implements IWorkbenchCon
 	private async run() {
 		// Wait until after the workbench has been restored
 		await this._lifecycleService.when(LifecyclePhase.Restored);
-		return this._positronNewProjectService.initNewProject();
+		await this._positronNewProjectService.initNewProject();
 	}
 }
 

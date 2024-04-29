@@ -43,13 +43,7 @@ export interface IPositronNewProjectService {
 	 * git repository, etc..
 	 * @returns Whether the new project was initialized.
 	 */
-	initNewProject(): boolean;
-
-	/**
-	 * Determines whether the current window the new project that was just created.
-	 * @returns Whether the current window is the newly created project.
-	 */
-	isCurrentWindowNewProject(): boolean;
+	initNewProject(): Promise<void>;
 
 	/**
 	 * Stores the new project configuration in the storage service.
