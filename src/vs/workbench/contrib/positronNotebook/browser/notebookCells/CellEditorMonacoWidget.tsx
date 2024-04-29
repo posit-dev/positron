@@ -29,8 +29,6 @@ export function CellEditorMonacoWidget({ cell }: { cell: IPositronNotebookCell }
 	const { editorPartRef } = useCellEditorWidget(cell);
 	return <div
 		className='positron-cell-editor-monaco-widget'
-		// onFocus={cell.select}
-		tabIndex={-1}
 		ref={editorPartRef}
 	/>;
 }
@@ -58,11 +56,7 @@ export function useCellEditorWidget(cell: IPositronNotebookCell) {
 
 	// Create the editor
 	React.useEffect(() => {
-		if (!editorPartRef.current) {
-			console.log('no editor part or container');
-			return;
-
-		}
+		if (!editorPartRef.current) { return; }
 
 		const disposableStore = new DisposableStore();
 
