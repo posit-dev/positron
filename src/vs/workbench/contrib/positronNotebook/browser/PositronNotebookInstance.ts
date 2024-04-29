@@ -143,12 +143,12 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 
 	/**
 	 * Internal cells that we use to manage the state of the notebook
-	*/
+	 */
 	private _cells: IPositronNotebookCell[] = [];
 
 	/**
 	 * User facing cells wrapped in an observerable for the UI to react to changes
-	*/
+	 */
 	cells: ISettableObservable<IPositronNotebookCell[]>;
 	selectedCells: ISettableObservable<IPositronNotebookCell[]> = observableValue<IPositronNotebookCell[]>('positronNotebookSelectedCells', []);
 	editingCell: ISettableObservable<IPositronNotebookCell | undefined, void> = observableValue<IPositronNotebookCell | undefined>('positronNotebookEditingCell', undefined);
@@ -269,17 +269,6 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 
 		this.cells = observableValue<IPositronNotebookCell[]>('positronNotebookCells', this._cells);
 		this.kernelStatus = observableValue<KernelStatus>('positronNotebookKernelStatus', KernelStatus.Uninitialized);
-
-		// this.selectionStateMachine.state.addObserver({
-		// 	handleChange: (state) => {
-		// 		console.log(`state machine`, state);
-		// 	}
-		// });
-		// subscribe((state) => {
-		// 	this.selectionState.set(state.context, undefined);
-		// });
-		// this.selectionStateMachine.start();
-		// this.selectionStateMachine.send({ type: 'setCells', cells: this._cells });
 
 		this.isReadOnly = this.creationOptions?.isReadOnly ?? false;
 
