@@ -42,28 +42,30 @@ export const PythonEnvironmentStep = (props: PropsWithChildren<NewProjectWizardS
 	const languageRuntimeService = newProjectWizardState.languageRuntimeService;
 
 	// Hooks to manage the startup phase and interpreter entries.
-	const [startupPhase, setStartupPhase] = useState(runtimeStartupService.startupPhase);
-	const runtimeStartupComplete = () => startupPhase === RuntimeStartupPhase.Complete;
+	const [startupPhase, setStartupPhase] = useState(
+		runtimeStartupService.startupPhase
+	);
+	const runtimeStartupComplete = () =>
+		startupPhase === RuntimeStartupPhase.Complete;
 	const [envSetupType, setEnvSetupType] = useState(
 		projectConfig.pythonEnvSetupType ?? EnvironmentSetupType.NewEnvironment
 	);
 	const [envType, setEnvType] = useState<PythonEnvironmentType | undefined>(
 		projectConfig.pythonEnvType ?? PythonEnvironmentType.Venv
 	);
-	const [interpreterEntries, setInterpreterEntries] =
-		useState(
-			// It's possible that the runtime discovery phase is not complete, so we need to check
-			// for that before creating the interpreter entries.
-			!runtimeStartupComplete() ?
-				[] :
-				getPythonInterpreterEntries(
-					runtimeStartupService,
-					languageRuntimeService,
-					envSetupType,
-					envType
-				)
-		);
-	const [selectedInterpreter, setSelectedInterpreter] = useState(
+	const [interpreterEntries, setInterpreterEntries] = useState(() =>
+		// It's possible that the runtime discovery phase is not complete, so we need to check
+		// for that before creating the interpreter entries.
+		!runtimeStartupComplete()
+			? []
+			: getPythonInterpreterEntries(
+				runtimeStartupService,
+				languageRuntimeService,
+				envSetupType,
+				envType
+			)
+	);
+	const [selectedInterpreter, setSelectedInterpreter] = useState(() =>
 		getSelectedInterpreter(
 			projectConfig.selectedRuntime,
 			interpreterEntries,
