@@ -129,7 +129,7 @@ export class ConnectionItemsProvider implements vscode.TreeDataProvider<Connecti
 	private _connections: ConnectionItem[] = [];
 
 	// The list of icons bundled for connections
-	private _icons: { [key: string]: vscode.Uri } = {};
+	private _icons: { [key: string]: { light: vscode.Uri; dark: vscode.Uri } } = {};
 
 	/**
 	 * Create a new ConnectionItemsProvider instance
@@ -139,7 +139,10 @@ export class ConnectionItemsProvider implements vscode.TreeDataProvider<Connecti
 	constructor(readonly context: vscode.ExtensionContext) {
 		this.onDidChangeTreeData = this._onDidChangeTreeData.event;
 		Object.values(ConnectionIcon).forEach((icon) => {
-			this._icons[icon] = vscode.Uri.file(path.join(context.extensionPath, 'media', `${icon}.svg`));
+			this._icons[icon] = {
+				light: vscode.Uri.file(path.join(context.extensionPath, 'media', `${icon}.svg`)),
+				dark: vscode.Uri.file(path.join(context.extensionPath, 'media', `${icon}-dark.svg`))
+			};
 		});
 	}
 
