@@ -15,8 +15,6 @@ import { IPositronNotebookInstance } from 'vs/workbench/contrib/positronNotebook
 import { ExecutionStatus, IPositronNotebookCodeCell, IPositronNotebookCell, IPositronNotebookMarkdownCell } from 'vs/workbench/contrib/positronNotebook/browser/notebookCells/interfaces';
 import { CodeEditorWidget } from 'vs/editor/browser/widget/codeEditor/codeEditorWidget';
 import { CellSelectionType } from 'vs/workbench/contrib/positronNotebook/browser/notebookCells/selectionMachine';
-import { Event } from 'vs/base/common/event';
-
 
 abstract class PositronNotebookCellGeneral extends Disposable implements IPositronNotebookCell {
 	kind!: CellKind;
@@ -37,29 +35,26 @@ abstract class PositronNotebookCellGeneral extends Disposable implements IPositr
 	) {
 		super();
 
-
 		this._disposableStore.add(
-			Event.fromObservable(this._instance.selectionStateMachine.state)(
-				() => {
-					const state = this._instance.selectionStateMachine.state.get();
+			this._instance.selectionStateMachine.onNewState((state) => {
 
-					if (state.type === 'No Selection') {
-						this.selected.set(false, undefined);
-						this.editing.set(false, undefined);
-						return;
-					}
-
-					if (state.type === 'Editing Selection') {
-						const editingThisCell = state.selectedCell === this;
-						this.selected.set(editingThisCell, undefined);
-						this.editing.set(editingThisCell, undefined);
-						return;
-					}
-
-					const cellIsSelected = state.selected.includes(this);
-					this.selected.set(cellIsSelected, undefined);
+				if (state.type === 'No Selection') {
+					this.selected.set(false, undefined);
 					this.editing.set(false, undefined);
+					return;
 				}
+
+				if (state.type === 'Editing Selection') {
+					const editingThisCell = state.selectedCell === this;
+					this.selected.set(editingThisCell, undefined);
+					this.editing.set(editingThisCell, undefined);
+					return;
+				}
+
+				const cellIsSelected = state.selected.includes(this);
+				this.selected.set(cellIsSelected, undefined);
+				this.editing.set(false, undefined);
+			}
 			)
 		);
 	}
