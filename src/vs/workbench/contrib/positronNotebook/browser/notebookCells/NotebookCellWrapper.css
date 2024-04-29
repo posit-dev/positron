@@ -7,14 +7,6 @@
 
 	border-radius: var(--vscode-positronNotebook-cell-radius);
 
-	&.selected {
-		outline: 1px solid var(--vscode-focusBorder);
-	}
-
-	&.editing {
-		outline: 2px solid green;
-	}
-
 	.positron-notebooks-cell-action-bar {
 		visibility: hidden;
 	}
