@@ -23,6 +23,7 @@ import { ILogService } from 'vs/platform/log/common/log';
 import { IOpenerService } from 'vs/platform/opener/common/opener';
 import { IStorageService, StorageScope, StorageTarget } from 'vs/platform/storage/common/storage';
 import { NewProjectConfiguration } from 'vs/workbench/browser/positronNewProjectWizard/interfaces/newProjectConfiguration';
+import { EnvironmentSetupType } from 'vs/workbench/browser/positronNewProjectWizard/interfaces/newProjectWizardEnums';
 
 /**
  * Shows the NewProjectModalDialog.
@@ -75,13 +76,19 @@ export const showNewProjectModalDialog = async (
 						await fileService.createFolder(folder);
 					}
 
+					// The python environment type is only relevant if a new environment is being created.
+					const pythonEnvType =
+						result.pythonEnvSetupType === EnvironmentSetupType.NewEnvironment
+							? result.pythonEnvType
+							: '';
+
 					// Create the new project configuration.
 					const newProjectConfig: NewProjectConfiguration = {
 						runtimeId: result.selectedRuntime?.runtimeId || '',
 						projectType: result.projectType || '',
 						projectFolder: folder.fsPath,
 						initGitRepo: result.initGitRepo,
-						pythonEnvType: result.pythonEnvType || '',
+						pythonEnvType: pythonEnvType || '',
 						installIpykernel: result.installIpykernel || false,
 						useRenv: result.useRenv || false,
 					};

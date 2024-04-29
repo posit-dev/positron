@@ -178,9 +178,7 @@ export const PythonEnvironmentStep = (props: PropsWithChildren<NewProjectWizardS
 	const onEnvSetupSelected = async (pythonEnvSetupType: EnvironmentSetupType) => {
 		await updateEnvConfig(
 			pythonEnvSetupType,
-			pythonEnvSetupType === EnvironmentSetupType.NewEnvironment
-				? envType
-				: undefined,
+			envType,
 			selectedInterpreter
 		);
 	};
