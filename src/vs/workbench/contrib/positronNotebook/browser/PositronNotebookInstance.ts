@@ -25,7 +25,7 @@ import { PositronNotebookEditorInput } from 'vs/workbench/contrib/positronNotebo
 import { BaseCellEditorOptions } from './BaseCellEditorOptions';
 import * as DOM from 'vs/base/browser/dom';
 import { IPositronNotebookCell } from 'vs/workbench/contrib/positronNotebook/browser/notebookCells/interfaces';
-import { SelectionStateMachine } from 'vs/workbench/contrib/positronNotebook/browser/notebookCells/selectionMachine';
+import { CellSelectionType, SelectionStateMachine } from 'vs/workbench/contrib/positronNotebook/browser/notebookCells/selectionMachine';
 
 
 enum KernelStatus {
@@ -368,7 +368,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 			if (newlyAddedCells.length === 1) {
 				// If we've only added one cell, we can set it as the selected cell.
 				setTimeout(() => {
-					newlyAddedCells[0].select();
+					newlyAddedCells[0].select(CellSelectionType.Edit);
 					newlyAddedCells[0].focusEditor();
 				}, 0);
 			}
@@ -540,7 +540,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	 */
 	setSelectedCells(cells: IPositronNotebookCell[]): void {
 		// this.selectionStateMachine.send({ type: 'selectCell', cell: cells[0], editMode: false });
-		this.selectionStateMachine.selectCell(cells[0], false);
+		this.selectionStateMachine.selectCell(cells[0], CellSelectionType.Normal);
 	}
 
 	deselectCell(cell: IPositronNotebookCell): void {
@@ -552,7 +552,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		if (cell === undefined) {
 			return;
 		}
-		this.selectionStateMachine.selectCell(cell, true);
+		this.selectionStateMachine.selectCell(cell, CellSelectionType.Edit);
 	}
 
 	async attachView(viewModel: NotebookViewModel, container: HTMLElement, viewState?: INotebookEditorViewState) {

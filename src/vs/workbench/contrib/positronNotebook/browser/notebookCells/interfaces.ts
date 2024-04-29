@@ -10,6 +10,7 @@ import { ITextModel } from 'vs/editor/common/model';
 import { ICellViewModel } from 'vs/workbench/contrib/notebook/browser/notebookBrowser';
 import { NotebookCellTextModel } from 'vs/workbench/contrib/notebook/common/model/notebookCellTextModel';
 import { CellKind, ICellOutput } from 'vs/workbench/contrib/notebook/common/notebookCommon';
+import { CellSelectionType } from 'vs/workbench/contrib/positronNotebook/browser/notebookCells/selectionMachine';
 
 export type ExecutionStatus = 'running' | 'pending' | 'unconfirmed' | 'idle';
 
@@ -88,7 +89,7 @@ export interface IPositronNotebookCell extends Disposable {
 	/**
 	 * Select this cell
 	 */
-	select(): void;
+	select(type: CellSelectionType): void;
 
 	/**
 	 * Set focus to this cell

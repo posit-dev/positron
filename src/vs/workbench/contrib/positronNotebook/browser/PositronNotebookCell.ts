@@ -15,6 +15,7 @@ import { IPositronNotebookInstance } from 'vs/workbench/contrib/positronNotebook
 import { ExecutionStatus, IPositronNotebookCodeCell, IPositronNotebookCell, IPositronNotebookMarkdownCell } from 'vs/workbench/contrib/positronNotebook/browser/notebookCells/interfaces';
 import { DisposableObserveValue } from '../common/utils/DisposableObserveValue';
 import { CodeEditorWidget } from 'vs/editor/browser/widget/codeEditor/codeEditorWidget';
+import { CellSelectionType } from 'vs/workbench/contrib/positronNotebook/browser/notebookCells/selectionMachine';
 
 
 
@@ -117,8 +118,8 @@ abstract class PositronNotebookCellGeneral extends Disposable implements IPositr
 		return this.kind === CellKind.Code;
 	}
 
-	select(): void {
-		this._instance.selectionStateMachine.selectCell(this, false);
+	select(type: CellSelectionType): void {
+		this._instance.selectionStateMachine.selectCell(this, type);
 	}
 
 	attachContainer(container: HTMLElement): void {

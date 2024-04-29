@@ -7,6 +7,7 @@ import * as React from 'react';
 import { CellKind } from 'vs/workbench/contrib/notebook/common/notebookCommon';
 import { IPositronNotebookCell } from 'vs/workbench/contrib/positronNotebook/browser/notebookCells/interfaces';
 import { useObservedValue } from 'vs/workbench/contrib/positronNotebook/browser/useObservedValue';
+import { CellSelectionType } from 'vs/workbench/contrib/positronNotebook/browser/notebookCells/selectionMachine';
 
 export function NotebookCellWrapper({ cell, children }: { cell: IPositronNotebookCell; children: React.ReactNode }) {
 	const selected = useObservedValue(cell.selected);
@@ -34,7 +35,12 @@ export function NotebookCellWrapper({ cell, children }: { cell: IPositronNoteboo
 			if (childOfEditor) {
 				return;
 			}
-			cell.select();
+			if (selected) {
+				cell.deselect();
+				return;
+			}
+			const addMode = e.shiftKey || e.ctrlKey || e.metaKey;
+			cell.select(addMode ? CellSelectionType.Add : CellSelectionType.Normal);
 		}}
 	>
 		{children}
