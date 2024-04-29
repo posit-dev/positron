@@ -176,6 +176,8 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	private _textModel: NotebookTextModel | undefined = undefined;
 	private _viewModel: NotebookViewModel | undefined = undefined;
 
+	private _container: HTMLElement | undefined = undefined;
+
 	/**
 	 * Callback to clear the keyboard navigation listeners. Set when listeners are attached.
 	 */
@@ -535,6 +537,8 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 
 		this.detachView();
 
+		this._container = container;
+
 		const alreadyHasModel = this._viewModel !== undefined && this._viewModel.equal(viewModel.notebookDocument);
 		if (alreadyHasModel) {
 			// No need to do anything if the model is already set.
@@ -577,8 +581,6 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	 */
 	private _setupKeyboardNavigation(container: HTMLElement) {
 
-		const window = DOM.getWindow(container);
-
 		const onKeyDown = (event: KeyboardEvent) => {
 			const addMode = event.shiftKey;
 
@@ -599,10 +601,10 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 			}
 		};
 
-		window.addEventListener('keydown', onKeyDown);
+		this._container?.addEventListener('keydown', onKeyDown);
 
 		this._clearKeyboardNavigation = () => {
-			window.removeEventListener('keydown', onKeyDown);
+			this._container?.removeEventListener('keydown', onKeyDown);
 		};
 	}
 
@@ -749,6 +751,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	}
 
 	detachView(): void {
+		this._container = undefined;
 		this._logService.info(this._identifier, 'detachView');
 		this._clearKeyboardNavigation?.();
 		this._notebookOptions?.dispose();
