@@ -35,6 +35,7 @@ abstract class PositronNotebookCellGeneral extends Disposable implements IPositr
 	) {
 		super();
 
+
 		this._disposableStore.add(
 			this._instance.selectionStateMachine.onNewState((state) => {
 
