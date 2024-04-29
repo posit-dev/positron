@@ -7,7 +7,7 @@ import { Application, Logger } from '../../../../../automation';
 import { installAllHandlers } from '../../../utils';
 
 export function setup(logger: Logger) {
-	describe('Variables Pane', () => {
+	describe('Python Variables Pane', () => {
 
 		// Shared before/after handling
 		installAllHandlers(logger);
@@ -21,7 +21,7 @@ export function setup(logger: Logger) {
 			// noop if dialog does not appear
 			await app.workbench.positronPopups.installIPyKernel();
 
-			await app.workbench.positronConsole.waitForPrompt();
+			await app.workbench.positronConsole.waitForStarted();
 
 			await app.workbench.positronConsole.logConsoleContents();
 
@@ -29,11 +29,7 @@ export function setup(logger: Logger) {
 			await app.workbench.positronConsole.typeToConsole('y=10\n');
 			await app.workbench.positronConsole.typeToConsole('z=100\n');
 
-			// await app.code.driver.takeScreenshot('bug');
-
 			console.log('Entered lines in console defining variables');
-
-			await app.workbench.positronConsole.waitForPrompt();
 
 			await app.workbench.positronConsole.logConsoleContents();
 
@@ -42,6 +38,38 @@ export function setup(logger: Logger) {
 			expect(variablesMap.get('x')).toStrictEqual({ value: '1', type: 'int' });
 			expect(variablesMap.get('y')).toStrictEqual({ value: '10', type: 'int' });
 			expect(variablesMap.get('z')).toStrictEqual({ value: '100', type: 'int' });
+
+		});
+	});
+
+	describe('R Variables Pane', () => {
+
+		// Shared before/after handling
+		installAllHandlers(logger);
+
+		it('Verifies Variables pane basic function with R interpreter', async function () {
+			const app = this.app as Application;
+
+			const desiredR = process.env.POSITRON_R_VER_SEL || 'R 4.3.3';
+			await app.workbench.startInterpreter.selectInterpreter('R', desiredR);
+
+			await app.workbench.positronConsole.waitForStarted();
+
+			await app.workbench.positronConsole.logConsoleContents();
+
+			await app.workbench.positronConsole.typeToConsole('x=1\n');
+			await app.workbench.positronConsole.typeToConsole('y=10\n');
+			await app.workbench.positronConsole.typeToConsole('z=100\n');
+
+			console.log('Entered lines in console defining variables');
+
+			await app.workbench.positronConsole.logConsoleContents();
+
+			const variablesMap = await app.workbench.positronVariables.getFlatVariables();
+
+			expect(variablesMap.get('x')).toStrictEqual({ value: '1', type: 'dbl' });
+			expect(variablesMap.get('y')).toStrictEqual({ value: '10', type: 'dbl' });
+			expect(variablesMap.get('z')).toStrictEqual({ value: '100', type: 'dbl' });
 
 		});
 	});

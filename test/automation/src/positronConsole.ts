@@ -5,9 +5,8 @@
 
 import { Code } from './code';
 
-const CONSOLE_ITEMS = '.console-instance .runtime-items div';
-const CONSOLE_INPUT = '.lines-content .view-lines div';
-const CONSOLE_ACTIVE_LINE = '.console-input .monaco-editor .active-line-number';
+const CONSOLE_ITEMS = '.console-instance .runtime-items span';
+const CONSOLE_INPUT = '.view-line';
 
 export class PositronConsole {
 
@@ -19,13 +18,11 @@ export class PositronConsole {
 		const consoleTextItems = await consoleTextContainer.all();
 
 		const consoleContents: string[] = [];
-		consoleTextItems.forEach(async item => {
+		for (let i = 0; i < consoleTextItems.length; i++) {
+			const item = consoleTextItems[i];
 			const text = await item.innerText();
-			const classList = await item.evaluate(el => el.classList);
-			if (classList[0] === undefined) {
-				consoleContents.push(text);
-			}
-		});
+			consoleContents.push(text);
+		}
 
 		return consoleContents;
 	}
@@ -33,14 +30,14 @@ export class PositronConsole {
 	async logConsoleContents() {
 		const contents = await this.getConsoleContents();
 		contents.forEach(line => console.log(line));
-
 	}
 
 	async typeToConsole(text: string) {
+		console.log(CONSOLE_INPUT);
 		await this.code.driver.typeKeys(CONSOLE_INPUT, text);
 	}
 
-	async waitForPrompt() {
+	async waitForStarted() {
 
 		console.log('Waiting for prompt');
 		let contents = await this.getConsoleContents();
@@ -56,19 +53,6 @@ export class PositronConsole {
 				} else {
 					break;
 				}
-			}
-		}
-
-		let activeLine = await this.code.getElement(CONSOLE_ACTIVE_LINE);
-
-		for (let i = 1; i < 20; i++) {
-			const activeText = activeLine?.textContent;
-			if (activeText === '>>>') {
-				break;
-			} else {
-				console.log('Polling for prompt');
-				await this.code.wait(1000);
-				activeLine = await this.code.getElement(CONSOLE_ACTIVE_LINE);
 			}
 		}
 	}

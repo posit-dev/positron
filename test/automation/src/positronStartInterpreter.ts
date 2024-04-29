@@ -24,31 +24,31 @@ export class StartInterpreter {
 
 	constructor(private code: Code) { }
 
-	async selectInterpreter(desiredInterpreterType: string, desiredPython: string) {
+	async selectInterpreter(desiredInterpreterType: string, desiredInterpreterString: string) {
 
 		await this.code.waitAndClick(INTERPRETER_SELECTOR);
 		await this.code.waitForElement(POSITRON_MODAL_POPUP);
 
-		const primaryPython = await this.awaitDesiredPrimaryInterpreterGroupLoaded(desiredInterpreterType);
-		console.log(`Found primary python ${primaryPython.description} at index ${primaryPython.index}`);
+		const primaryInterpreter = await this.awaitDesiredPrimaryInterpreterGroupLoaded(desiredInterpreterType);
+		console.log(`Found primary interpreter ${primaryInterpreter.description} at index ${primaryInterpreter.index}`);
 
-		const primaryIsMatch = primaryPython.description.includes(desiredPython);
+		const primaryIsMatch = primaryInterpreter.description.includes(desiredInterpreterString);
 		if (!primaryIsMatch) {
 
-			const secondaryInterpreters = await this.getSecondaryInterpreters(primaryPython.index);
+			const secondaryInterpreters = await this.getSecondaryInterpreters(primaryInterpreter.index);
 			console.log('Secondary Interpreters:');
 			secondaryInterpreters.forEach(interpreter => console.log(interpreter.description));
 
 			for (const secondaryInterpreter of secondaryInterpreters) {
-				if (secondaryInterpreter.description.includes(desiredPython)) {
+				if (secondaryInterpreter.description.includes(desiredInterpreterString)) {
 					await this.code.waitAndClick(`${SECONDARY_INTERPRETER}:nth-of-type(${secondaryInterpreter.index})`);
 					break;
 				}
 			}
 
 		} else {
-			console.log('Primary Python interpreter matched');
-			await this.code.waitAndClick(INTERPRETER_GROUPS, primaryPython.index);
+			console.log('Primary interpreter matched');
+			await this.code.waitAndClick(`${INTERPRETER_GROUPS}:nth-of-type(${primaryInterpreter.index})`);
 		}
 	}
 
@@ -66,6 +66,7 @@ export class StartInterpreter {
 			let groupIndex = 0;
 			for (const loadedInterpreter of loadedInterpreters) {
 				groupIndex++;
+				console.log(`Found interpreter: ${loadedInterpreter}`);
 				if (loadedInterpreter.startsWith(interpreterNamePrefix)) {
 					found = loadedInterpreter;
 					break;
