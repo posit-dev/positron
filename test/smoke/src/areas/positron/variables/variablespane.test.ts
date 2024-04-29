@@ -50,7 +50,7 @@ export function setup(logger: Logger) {
 			const desiredR = process.env.POSITRON_R_VER_SEL || 'R 4.3.3';
 			await app.workbench.startInterpreter.selectInterpreter('R', desiredR);
 
-			await app.code.wait(2000);
+			await app.code.wait(5000);
 
 			await app.workbench.positronConsole.waitForStarted();
 
