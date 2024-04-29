@@ -11,6 +11,10 @@
 		visibility: hidden;
 	}
 
+	&.selected {
+		outline: 1px solid var(--vscode-focusBorder);
+	}
+
 	&.editing,
 	&.selected,
 	&:hover {
