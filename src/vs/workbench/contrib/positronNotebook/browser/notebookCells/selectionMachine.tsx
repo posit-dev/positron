@@ -36,6 +36,12 @@ function isEditingSelection(state: SelectionStates): state is EditingSelection {
 	return state.type === 'Editing Selection';
 }
 
+export enum CellSelectionType {
+	Add,
+	Edit,
+	Normal
+}
+
 type SelectionStates =
 	| NoSelection
 	| SingleSelection
@@ -102,11 +108,24 @@ export class SelectionStateMachine {
 	 * @param cell The cell to select.
 	 * @param editMode If true, the cell will be selected in edit mode.
 	 */
-	selectCell(cell: IPositronNotebookCell, editMode: boolean): void {
-		// TODO: Eventually add ability to build multi selection with meta key
-		this._state = editMode ?
-			{ type: 'Editing Selection', selectedCell: cell } :
-			{ type: 'Single Selection', selected: [cell] };
+	selectCell(cell: IPositronNotebookCell, selectType: CellSelectionType = CellSelectionType.Normal): void {
+
+		if (selectType === CellSelectionType.Normal || isNoSelection(this._state) && selectType === CellSelectionType.Add) {
+			this._state = { type: 'Single Selection', selected: [cell] };
+			return;
+		}
+
+		if (selectType === CellSelectionType.Edit) {
+			this._state = { type: 'Editing Selection', selectedCell: cell };
+			return;
+		}
+
+		if (isSingleSelection(this._state) || isMultiSelection(this._state)) {
+			this._state = { type: 'Multi Selection', selected: [...this._state.selected, cell] };
+			return;
+		}
+
+		// Shouldn't get here.
 	}
 
 	/**
@@ -128,6 +147,9 @@ export class SelectionStateMachine {
 
 		if (isMultiSelection(this._state)) {
 			const updatedSelection = this._state.selected.filter(c => c !== cell);
+			// Set focus on the last cell in the selection to avoid confusingly leaving selection
+			// styles on cell just deselected. Not sure if this is the best UX.
+			updatedSelection.at(-1)?.focus();
 			this._state = { type: updatedSelection.length === 1 ? 'Single Selection' : 'Multi Selection', selected: updatedSelection };
 		}
 
