@@ -16,21 +16,21 @@ jobs:
     steps:
 
       - name: Download Windows Release Asset
-        uses: dsaltares/fetch-gh-release-asset@1.1.1
+        uses: dsaltares/fetch-gh-release-asset@1.1.2
         with:
           version: tags/${{ env.RELEASE_TAG }}
           file: Positron-${{ env.RELEASE_TAG }}-Setup.exe
           token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Download MacOS Release Asset
-        uses: dsaltares/fetch-gh-release-asset@1.1.1
+        uses: dsaltares/fetch-gh-release-asset@1.1.2
         with:
           version: tags/${{ env.RELEASE_TAG }}
           file: Positron-${{ env.RELEASE_TAG }}.dmg
           token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Download Debian Linux Release Asset
-        uses: dsaltares/fetch-gh-release-asset@1.1.1
+        uses: dsaltares/fetch-gh-release-asset@1.1.2
         with:
           version: tags/${{ env.RELEASE_TAG }}
           file: Positron-${{ env.RELEASE_TAG }}.deb
