@@ -380,12 +380,7 @@ export class ConnectionItemsProvider
 		// Add the connection to the list
 		// if there's already a connection with the same name, we replace it
 		const index = this._connections.findIndex((connection) => {
-			if (connection.metadata.language_id === metadata.language_id &&
-				connection.metadata.host === metadata.host &&
-				connection.metadata.type === metadata.type) {
-				return true;
-			}
-			return false;
+			return compareConnectionsMetadata(connection.metadata, metadata);
 		});
 
 		const conn = new DatabaseConnectionItem(metadata, client);
@@ -508,7 +503,7 @@ export class ConnectionItemsProvider
 	removeFromHistory(item: DisconnectedConnectionItem) {
 		this.context.workspaceState.update(item.name, undefined);
 		this._connections = this._connections.filter((connection) => {
-			return connection.name !== item.name;
+			return !compareConnectionsMetadata(connection.metadata, item.metadata);
 		});
 		this.fireOnDidChangeTreeData();
 	}
@@ -575,4 +570,11 @@ export class TreeItemDecorationProvider
 	updateFileDecorations(uris: vscode.Uri[]): void {
 		this._onDidChangeFileDecorations.fire(uris);
 	}
+}
+
+// Connections are considered identical if they have the same language_id, host, and type.
+function compareConnectionsMetadata(a: ConnectionMetadata, b: ConnectionMetadata): boolean {
+	return a.language_id === b.language_id &&
+		a.host === b.host &&
+		a.type === b.type;
 }
