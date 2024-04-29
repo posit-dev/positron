@@ -82,7 +82,6 @@ async function regenerateIndentSnapshots() {
 				'\n',
 				{
 					insertSpaces: true,
-					indentSize: 4,
 					tabSize: 4,
 				}
 			);

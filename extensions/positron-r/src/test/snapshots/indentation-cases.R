@@ -97,7 +97,7 @@ data |>
 
 # ---
 # Dedent after pipeline (multiple lines)
-# FIXME
+# https://github.com/posit-dev/positron/issues/2764
 data |>
     fn1() |>
     fn2(
@@ -148,7 +148,6 @@ for (i in NA) NULL"<>"
 # ---
 # Indent after finished loop (call)
 # https://github.com/posit-dev/positron/issues/1880
-# FIXME
 for (i in 1) fn()"<>"
 
 # ---
