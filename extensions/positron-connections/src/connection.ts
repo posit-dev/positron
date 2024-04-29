@@ -28,7 +28,7 @@ enum ConnectionState {
 interface ConnectionMetadata {
 	name: string;
 	language_id: string;
-	// host and type are used to indentidy a unique connection
+	// host and type are used to identify a unique connection
 	host: string;
 	type: string;
 	code?: string;
