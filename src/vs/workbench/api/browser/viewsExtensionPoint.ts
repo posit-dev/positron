@@ -358,6 +358,11 @@ class ViewsExtensionHandler implements IWorkbenchContribution {
 					case 'panel':
 						panelOrder = this.registerCustomViewContainers(value, description, panelOrder, existingViewContainers, ViewContainerLocation.Panel);
 						break;
+					// --- Start Positron ---
+					case 'auxiliarybar':
+						this.registerAuxiliaryBarViewContainers(value, description, existingViewContainers);
+						break;
+					// --- End Positron ---
 				}
 			});
 		}
@@ -457,6 +462,14 @@ class ViewsExtensionHandler implements IWorkbenchContribution {
 
 		return viewContainer;
 	}
+
+	// --- Start Positron ---
+	private registerAuxiliaryBarViewContainers(containers: IUserFriendlyViewsContainerDescriptor[], extension: IExtensionDescription, existingViewContainers: ViewContainer[]): void {
+		const viewContainersRegistry = Registry.as<IViewContainersRegistry>(ViewContainerExtensions.ViewContainersRegistry);
+		const order = 5 + viewContainersRegistry.all.filter(v => !!v.extensionId && viewContainersRegistry.getViewContainerLocation(v) === ViewContainerLocation.AuxiliaryBar).length + 1;
+		this.registerCustomViewContainers(containers, extension, order, existingViewContainers, ViewContainerLocation.AuxiliaryBar);
+	}
+	// --- End Positron ---
 
 	private deregisterCustomViewContainer(viewContainer: ViewContainer): void {
 		this.viewContainersRegistry.deregisterViewContainer(viewContainer);
