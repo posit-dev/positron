@@ -3,6 +3,7 @@
  *--------------------------------------------------------------------------------------------*/
 import { ISettableObservable, observableValue } from 'vs/base/common/observable';
 import { IPositronNotebookCell } from 'vs/workbench/contrib/positronNotebook/browser/notebookCells/interfaces';
+import { Event } from 'vs/base/common/event';
 
 type NoSelection = {
 	type: 'No Selection';
@@ -61,9 +62,11 @@ export class SelectionStateMachine {
 	private _cells: IPositronNotebookCell[] = [];
 
 	state: ISettableObservable<SelectionStates>;
+	onNewState: Event<SelectionStates>;
 
 	constructor() {
 		this.state = observableValue('selectionState', this._state);
+		this.onNewState = Event.fromObservable(this.state);
 	}
 
 	/**
