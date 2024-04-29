@@ -228,6 +228,7 @@ export const PythonEnvironmentStep = (props: PropsWithChildren<NewProjectWizardS
 				installIpykernel: willInstallIpykernel
 			});
 		}
+		// Pass an empty dependency array to run this effect only once when the component is mounted.
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, []);
 
@@ -282,6 +283,7 @@ export const PythonEnvironmentStep = (props: PropsWithChildren<NewProjectWizardS
 
 		// Return the cleanup function that will dispose of the event handlers.
 		return () => disposableStore.dispose();
+		// Pass an empty dependency array to run this effect only once when the component is mounted.
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, []);
 
