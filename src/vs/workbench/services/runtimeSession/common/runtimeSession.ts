@@ -5,7 +5,7 @@
 import * as nls from 'vs/nls';
 import { DeferredPromise } from 'vs/base/common/async';
 import { Emitter } from 'vs/base/common/event';
-import { Disposable, IDisposable } from 'vs/base/common/lifecycle';
+import { Disposable, IDisposable, toDisposable } from 'vs/base/common/lifecycle';
 import { URI } from 'vs/base/common/uri';
 import { InstantiationType, registerSingleton } from 'vs/platform/instantiation/common/extensions';
 import { ILogService } from 'vs/platform/log/common/log';
@@ -188,10 +188,17 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 	 * Registers a session manager with the service.
 	 *
 	 * @param manager The session manager to register
+	 * @returns A Disposable that can be used to unregister the session manager.
 	 */
-	registerSessionManager(manager: ILanguageRuntimeSessionManager): void {
+	registerSessionManager(manager: ILanguageRuntimeSessionManager): IDisposable {
 		this._sessionManagers.push(manager);
 		this._logService.warn(`Session manager registered ${this._sessionManagers.length}`);
+		return toDisposable(() => {
+			const index = this._sessionManagers.indexOf(manager);
+			if (index !== -1) {
+				this._sessionManagers.splice(index, 1);
+			}
+		});
 	}
 
 	/**

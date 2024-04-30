@@ -1046,7 +1046,7 @@ export class MainThreadLanguageRuntime
 			}
 		});
 
-		this._runtimeSessionService.registerSessionManager(this);
+		this._disposables.add(this._runtimeSessionService.registerSessionManager(this));
 	}
 
 	$emitLanguageRuntimeMessage(handle: number, message: ILanguageRuntimeMessage): void {
