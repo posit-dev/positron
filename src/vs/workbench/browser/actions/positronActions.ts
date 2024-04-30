@@ -240,11 +240,11 @@ export class PositronActivateDeveloperExtensionsAction extends Action2 {
 			id: PositronActivateDeveloperExtensionsAction.ID,
 			title: {
 				value: localize('positronActivateDeveloperExtensionsAction', 'Activate Developer Extensions...'),
-				original: 'Open Folder in New Window...'
+				original: 'Activate Developer Extensions...'
 			},
 			category: Categories.Developer,
 			f1: true,
-			precondition: IsDevelopmentContext.isEqualTo(true),
+			precondition: IsDevelopmentContext,
 		});
 	}
 
