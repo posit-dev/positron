@@ -435,6 +435,7 @@ import 'vs/workbench/contrib/positronRuntimeSessions/browser/positronRuntimeSess
 import 'vs/workbench/contrib/languageRuntime/browser/languageRuntime.contribution';
 import 'vs/workbench/contrib/executionHistory/common/executionHistory';
 import 'vs/workbench/contrib/positronIPyWidgets/browser/positronIPyWidgets.contribution';
+import 'vs/workbench/contrib/positronNewProject/browser/positronNewProject.contribution';
 
 // Workbench services
 import 'vs/workbench/services/languageRuntime/common/languageRuntime';
