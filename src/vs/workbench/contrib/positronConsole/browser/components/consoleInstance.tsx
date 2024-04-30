@@ -47,6 +47,7 @@ import { RuntimeItemRestartButton } from 'vs/workbench/services/positronConsole/
 import { IPositronConsoleInstance, PositronConsoleState } from 'vs/workbench/services/positronConsole/browser/interfaces/positronConsoleService';
 import { RuntimeItemStartupFailure } from 'vs/workbench/services/positronConsole/browser/classes/runtimeItemStartupFailure';
 import { POSITRON_CONSOLE_COPY, POSITRON_CONSOLE_CUT, POSITRON_CONSOLE_PASTE, POSITRON_CONSOLE_SELECT_ALL } from 'vs/workbench/contrib/positronConsole/browser/positronConsoleIdentifiers';
+import { disposableTimeout } from 'vs/base/common/async';
 
 // ConsoleInstanceProps interface.
 interface ConsoleInstanceProps {
@@ -321,17 +322,14 @@ export const ConsoleInstance = (props: ConsoleInstanceProps) => {
 				// not scrolled all the way to the bottom. In this case, the
 				// scrolling to 0 followed by our scroll to `lastScrollTop` is
 				// unfortunately noticeable, though not too bad.
-				setTimeout(() => {
-					// Since we are in a timeout and teardown might have been called,
-					// check that our component is still mounted
-					if (consoleInstanceRef.current) {
-						if (props.positronConsoleInstance.scrollLocked) {
-							scrollVertically(props.positronConsoleInstance.lastScrollTop);
-						} else {
-							scrollToBottom();
-						}
+				const restoreScrollTop = () => {
+					if (props.positronConsoleInstance.scrollLocked) {
+						scrollVertically(props.positronConsoleInstance.lastScrollTop);
+					} else {
+						scrollToBottom();
 					}
-				});
+				};
+				disposableTimeout(restoreScrollTop, 0, disposableStore);
 			}
 		}));
 
