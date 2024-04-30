@@ -21,6 +21,8 @@ export enum RowFilterDescrType {
 	IS_NOT_EMPTY = 'is-not-empty',
 	IS_NULL = 'is-null',
 	IS_NOT_NULL = 'is-not-null',
+	IS_TRUE = 'is-true',
+	IS_FALSE = 'is-false',
 
 	// Filters with one parameter.
 	IS_LESS_THAN = 'is-less-than',
