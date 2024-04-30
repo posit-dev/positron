@@ -198,7 +198,7 @@ def test_list_1000(shell: PositronShell, variables_comm: DummyComm) -> None:
 
 
 def test_update_max_children_plus_one(shell: PositronShell, variables_comm: DummyComm) -> None:
-    # Create and update 101 variables, which is more than MAX_CHILDREN
+    # Create and update more than MAX_CHILDREN variables
     n = MAX_CHILDREN + 1
     add_value = 500
     msg: Any = create_and_update_n_vars(n, add_value, shell, variables_comm)
