@@ -212,7 +212,8 @@
     "configurationDefaults": {
       "[r]": {
         "editor.tabSize": 2,
-        "editor.wordSeparators": "`~!@#$%^&*()-=+[{]}\\|;:'\",<>/?"
+        "editor.wordSeparators": "`~!@#$%^&*()-=+[{]}\\|;:'\",<>/?",
+        "editor.smartSelect.selectLeadingAndTrailingWhitespace": false
       }
     },
     "languages": [
