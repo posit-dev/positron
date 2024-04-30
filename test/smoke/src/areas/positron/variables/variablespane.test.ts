@@ -21,19 +21,19 @@ export function setup(logger: Logger) {
 			// noop if dialog does not appear
 			await app.workbench.positronPopups.installIPyKernel();
 
-			await app.workbench.positronConsole.waitForStarted();
+			await app.workbench.positronConsole.waitForStarted('>>>');
 
 			await app.workbench.positronConsole.logConsoleContents();
 
 			await app.workbench.positronConsole.typeToConsole('x=1');
 			await app.workbench.positronConsole.sendEnterKey();
-			await app.code.wait(1000);
+			await app.code.wait(500);
 			await app.workbench.positronConsole.typeToConsole('y=10');
 			await app.workbench.positronConsole.sendEnterKey();
-			await app.code.wait(1000);
+			await app.code.wait(500);
 			await app.workbench.positronConsole.typeToConsole('z=100');
 			await app.workbench.positronConsole.sendEnterKey();
-			await app.code.wait(1000);
+			await app.code.wait(500);
 
 			console.log('Entered lines in console defining variables');
 
@@ -53,21 +53,21 @@ export function setup(logger: Logger) {
 			const desiredR = process.env.POSITRON_R_VER_SEL || 'R 4.3.3';
 			await app.workbench.startInterpreter.selectInterpreter('R', desiredR);
 
-			await app.code.wait(5000);
+			await app.code.wait(2000);
 
-			await app.workbench.positronConsole.waitForStarted();
+			await app.workbench.positronConsole.waitForStarted('>');
 
 			await app.workbench.positronConsole.logConsoleContents();
 
 			await app.workbench.positronConsole.typeToConsole('x=1');
 			await app.workbench.positronConsole.sendEnterKey();
-			await app.code.wait(1000);
+			await app.code.wait(500);
 			await app.workbench.positronConsole.typeToConsole('y=10');
 			await app.workbench.positronConsole.sendEnterKey();
-			await app.code.wait(1000);
+			await app.code.wait(500);
 			await app.workbench.positronConsole.typeToConsole('z=100');
 			await app.workbench.positronConsole.sendEnterKey();
-			await app.code.wait(1000);
+			await app.code.wait(500);
 
 			console.log('Entered lines in console defining variables');
 

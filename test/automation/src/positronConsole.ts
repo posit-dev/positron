@@ -3,23 +3,31 @@
  *--------------------------------------------------------------------------------------------*/
 
 
+import { Locator } from '@playwright/test';
 import { Code } from './code';
 
 const CONSOLE_ITEMS = '.console-instance .runtime-items span';
-const CONSOLE_INSTANCES_CONTAINER = '.console-instances-container';
+const CONSOLE_INSTANCE = '.console-instance';
+const ACTIVE_LINE_NUMBER = '.active-line-number';
 
 export class PositronConsole {
 
 	constructor(private code: Code) { }
 
-	async getConsoleContents(): Promise<string[]> {
+	async getConsoleContents(index?: number): Promise<string[]> {
 
-		const consoleTextContainer = this.code.driver.getLocator(CONSOLE_ITEMS);
-		const consoleTextItems = await consoleTextContainer.all();
+		const activeConsole = await this.getActiveConsole();
 
-		const consoleContents = await Promise.all(consoleTextItems.map(async (item) => {
+		const consoleTextContainer = activeConsole?.locator(CONSOLE_ITEMS);
+		const consoleTextItems = await consoleTextContainer?.all();
+
+		const consoleContents = await Promise.all(consoleTextItems!.map(async (item) => {
 			return await item.innerText();
 		}));
+
+		if (index) {
+			return consoleContents.slice(index);
+		}
 
 		return consoleContents;
 	}
@@ -30,33 +38,53 @@ export class PositronConsole {
 	}
 
 	async typeToConsole(text: string) {
-		await this.code.driver.typeKeys(CONSOLE_INSTANCES_CONTAINER, text);
+		const activeConsole = await this.getActiveConsole();
+
+		await activeConsole?.pressSequentially(text);
 	}
 
 	async sendEnterKey() {
 		await this.code.driver.getKeyboard().press('Enter');
 	}
 
-	async waitForStarted() {
+	async getActiveConsole(): Promise<Locator | undefined> {
 
-		console.log('Waiting for prompt');
-		let contents = await this.getConsoleContents();
+		for (let i = 0; i < 10; i++) {
+			const consoleInstances = this.code.driver.getLocator(CONSOLE_INSTANCE);
+			const consoleInstancesCount = await consoleInstances.count();
+			for (let j = 0; j < consoleInstancesCount; j++) {
+				const consoleInstance = consoleInstances.nth(j);
+				const zIndex = await consoleInstance.evaluate((e) => {
+					return window.getComputedStyle(e).getPropertyValue('z-index');
+				});
 
-		// Don't proceed if an interpreter is starting
-		for (let i = 0; i < 20; i++) {
-			for (let j = 0; j < contents.length; j++) {
-				const line = contents[j];
-				if (line.includes('starting')) {
-					console.log('Interpreter starting');
-					await this.code.wait(2000);
-					contents = await this.getConsoleContents();
+				if (zIndex === 'auto') {
+					return consoleInstance;
 				} else {
-					break;
+					await this.code.wait(1000);
 				}
+
 			}
 		}
+		return undefined;
+	}
 
-		await this.code.waitForElement('.console-input');
+	async waitForStarted(prompt: string) {
 
+		const activeConsole = await this.getActiveConsole();
+
+		let activeLine = await activeConsole?.locator(ACTIVE_LINE_NUMBER).innerText();
+
+		for (let i = 0; i < 20; i++) {
+
+			if (activeLine === prompt) {
+				break;
+			} else {
+				console.log('Waiting for prompt');
+				await this.code.wait(1000);
+				activeLine = await activeConsole?.locator(ACTIVE_LINE_NUMBER).innerText();
+				console.log(activeLine);
+			}
+		}
 	}
 }
