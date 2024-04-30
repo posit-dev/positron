@@ -120,8 +120,7 @@ export class PositronNewProjectService extends Disposable implements IPositronNe
 	}
 
 	runJupyterTasks() {
-		// TODO: This command errors for some reason
-		// this._commandService.executeCommand('ipynb.newUntitledIpynb');
+		this._commandService.executeCommand('ipynb.newUntitledIpynb');
 	}
 
 	runRTasks() {
