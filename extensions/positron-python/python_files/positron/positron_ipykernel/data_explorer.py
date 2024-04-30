@@ -793,9 +793,9 @@ class PandasView(DataExplorerTableView):
         elif filt.filter_type == RowFilterType.NotNull:
             mask = col.notnull()
         elif filt.filter_type == RowFilterType.IsTrue:
-            mask = col == True
+            mask = col == True  # noqa: E712
         elif filt.filter_type == RowFilterType.IsFalse:
-            mask = col == False
+            mask = col == False  # noqa: E712
         elif filt.filter_type == RowFilterType.SetMembership:
             params = filt.set_membership_params
             assert params is not None

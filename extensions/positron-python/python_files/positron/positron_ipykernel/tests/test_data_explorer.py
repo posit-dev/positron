@@ -459,13 +459,15 @@ def test_pandas_supported_features(dxf: DataExplorerFixture):
     assert row_filters["supported"]
     assert row_filters["supports_conditions"]
     assert set(row_filters["supported_types"]) == {
-        "is_empty",
-        "is_null",
-        "not_empty",
-        "not_null",
         "between",
         "compare",
+        "is_empty",
+        "is_false",
+        "is_null",
+        "is_true",
         "not_between",
+        "not_empty",
+        "not_null",
         "search",
         "set_membership",
     }
