@@ -34,6 +34,8 @@ import {
 	RowFilterDescriptorIsNotNull,
 	RowFilterDescriptorIsNull,
 	RowFilterDescriptorSearch,
+	RowFilterDescriptorIsTrue,
+	RowFilterDescriptorIsFalse,
 } from 'vs/workbench/browser/positronDataExplorer/components/dataExplorerPanel/components/addEditRowFilterModalPopup/rowFilterDescriptor';
 
 /**
@@ -627,6 +629,16 @@ export const AddEditRowFilterModalPopup = (props: AddEditRowFilterModalPopupProp
 			case RowFilterDescrType.IS_NOT_NULL: {
 				applyRowFilter(new RowFilterDescriptorIsNotNull(
 					{ columnSchema: selectedColumnSchema }));
+				break;
+			}
+
+			// Apply boolean filters.
+			case RowFilterDescrType.IS_TRUE: {
+				applyRowFilter(new RowFilterDescriptorIsTrue({ columnSchema: selectedColumnSchema }));
+				break;
+			}
+			case RowFilterDescrType.IS_FALSE: {
+				applyRowFilter(new RowFilterDescriptorIsFalse({ columnSchema: selectedColumnSchema }));
 				break;
 			}
 

@@ -17,10 +17,12 @@ import {
 	RowFilterDescriptorComparison,
 	RowFilterDescriptorIsBetween,
 	RowFilterDescriptorIsEmpty,
+	RowFilterDescriptorIsFalse,
 	RowFilterDescriptorIsNotBetween,
 	RowFilterDescriptorIsNotEmpty,
 	RowFilterDescriptorIsNotNull,
 	RowFilterDescriptorIsNull,
+	RowFilterDescriptorIsTrue,
 	RowFilterDescriptorSearch
 } from 'vs/workbench/browser/positronDataExplorer/components/dataExplorerPanel/components/addEditRowFilterModalPopup/rowFilterDescriptor';
 
@@ -70,7 +72,20 @@ export const RowFilterWidget = forwardRef<HTMLButtonElement, RowFilterWidgetProp
 					{localize('positron.dataExplorer.rowFilterWidget.isNotNull', "is not null")}
 				</span>
 			</>;
-
+		} else if (props.rowFilter instanceof RowFilterDescriptorIsTrue) {
+			return <>
+				<span className='column-name'>{props.rowFilter.schema.column_name}</span>
+				<span className='space-before'>
+					{localize('positron.dataExplorer.rowFilterWidget.isTrue', "is true")}
+				</span>
+			</>;
+		} else if (props.rowFilter instanceof RowFilterDescriptorIsFalse) {
+			return <>
+				<span className='column-name'>{props.rowFilter.schema.column_name}</span>
+				<span className='space-before'>
+					{localize('positron.dataExplorer.rowFilterWidget.isFalse', "is false")}
+				</span>
+			</>;
 		} else if (props.rowFilter instanceof RowFilterDescriptorComparison) {
 			return <>
 				<span className='column-name'>{props.rowFilter.schema.column_name}</span>
