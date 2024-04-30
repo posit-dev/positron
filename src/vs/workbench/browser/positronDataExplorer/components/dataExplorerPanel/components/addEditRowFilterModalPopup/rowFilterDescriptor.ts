@@ -587,7 +587,7 @@ function getSearchDescrType(searchType: SearchFilterType) {
 	}
 }
 
-export function getRowFilterDescriptor(backendFilter: RowFilter) {
+export function getRowFilterDescriptor(backendFilter: RowFilter): RowFilterDescriptor {
 	const commonProps = {
 		columnSchema: backendFilter.column_schema,
 		isValid: backendFilter.is_valid,
@@ -647,6 +647,8 @@ export type RowFilterDescriptor =
 	RowFilterDescriptorIsNotEmpty |
 	RowFilterDescriptorIsNull |
 	RowFilterDescriptorIsNotNull |
+	RowFilterDescriptorIsTrue |
+	RowFilterDescriptorIsFalse |
 	RowFilterDescriptorIsBetween |
 	RowFilterDescriptorIsNotBetween |
 	RowFilterDescriptorSearch;
