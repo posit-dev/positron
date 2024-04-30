@@ -13,15 +13,9 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional, Set, Tuple
 from comm.base_comm import BaseComm
 
 from .access_keys import decode_access_key, encode_access_key
-from .inspectors import get_inspector
+from .inspectors import CopyError, get_inspector
 from .positron_comm import CommMessage, JsonRpcErrorCode, PositronComm
-from .utils import (
-    JsonData,
-    JsonRecord,
-    cancel_tasks,
-    create_task,
-    get_qualname,
-)
+from .utils import JsonData, JsonRecord, cancel_tasks, create_task, get_qualname
 from .variables_comm import (
     ClearRequest,
     ClipboardFormatFormat,
@@ -293,7 +287,12 @@ class VariablesService:
                     mutable_vars_excluded[key] = value
                 else:
                     comparison_cost += cost
-                    mutable_vars_copied[key] = inspector.copy()
+                    try:
+                        mutable_vars_copied[key] = inspector.copy()
+                    except CopyError:
+                        # when a variable is mutable, but not copiable we can't
+                        # detect changes on it
+                        mutable_vars_excluded[key] = value
             else:
                 immutable_vars[key] = value
 

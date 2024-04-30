@@ -4,7 +4,7 @@
 
 import * as vscode from 'vscode';
 import * as positron from 'positron';
-import { ConnectionItemDatabase, ConnectionItemNode, ConnectionItemsProvider } from './connection';
+import { ConnectionItem, ConnectionItemsProvider, isActiveConnectionItem, DatabaseConnectionItem, DisconnectedConnectionItem } from './connection';
 import { PositronConnectionsComm } from './comms/ConnectionsComms';
 
 /**
@@ -13,11 +13,12 @@ import { PositronConnectionsComm } from './comms/ConnectionsComms';
  * @param context An ExtensionContext that contains the extention context.
  */
 export function activate(context: vscode.ExtensionContext) {
+	const viewId = 'connections';
 	const connectionProvider = new ConnectionItemsProvider(context);
 
 	// Register the tree data provider that will provide the connections
 	context.subscriptions.push(
-		vscode.window.registerTreeDataProvider('connections', connectionProvider));
+		vscode.window.registerTreeDataProvider(viewId, connectionProvider));
 
 	// Register a handler for the positron.connection client type. This client
 	// represents an active, queryable database connection.
@@ -25,15 +26,60 @@ export function activate(context: vscode.ExtensionContext) {
 		positron.runtime.registerClientHandler({
 			clientType: 'positron.connection',
 			callback: (client, params: any) => {
-				connectionProvider.addConnection(new PositronConnectionsComm(client), params.name);
+				connectionProvider.addConnection(
+					new PositronConnectionsComm(client),
+					params
+				);
 				return true;
 			}
 		}));
 
+	context.subscriptions.push(
+		vscode.commands.registerCommand(
+			'positron.connections.removeFromHistory',
+			(item: DisconnectedConnectionItem) => {
+				connectionProvider.removeFromHistory(item);
+			}
+		));
+
+	context.subscriptions.push(
+		vscode.commands.registerCommand(
+			'positron.connections.clearConnectionsHistory',
+			() => {
+				connectionProvider.clearConnectionsHistory();
+			}
+		));
+
+	context.subscriptions.push(
+		vscode.commands.registerCommand(
+			'positron.connections.copyCodeToClipboard',
+			(item: DisconnectedConnectionItem) => {
+				const code = item.metadata.code;
+				if (code) {
+					vscode.env.clipboard.writeText(code);
+				}
+			}
+		));
+
+	context.subscriptions.push(
+		vscode.commands.registerCommand(
+			'positron.connections.reopenConnection',
+			(item: DisconnectedConnectionItem) => {
+				const code = item.metadata.code;
+				if (code) {
+					positron.runtime.executeCode(item.metadata.language_id, code, true);
+				}
+			}
+		));
+
 	// Register a command to preview a table
 	context.subscriptions.push(
 		vscode.commands.registerCommand('positron.connections.previewTable',
-			(item: ConnectionItemNode) => {
+			(item: ConnectionItem) => {
+				if (!isActiveConnectionItem(item)) {
+					throw new Error('Only active connection items can be previewed');
+				}
+
 				item.preview().catch((e: any) => {
 					vscode.window.showErrorMessage(`Error previewing '${item.name}': ${e.message}`);
 				});
@@ -41,7 +87,7 @@ export function activate(context: vscode.ExtensionContext) {
 
 	context.subscriptions.push(
 		vscode.commands.registerCommand('positron.connections.closeConnection',
-			(item: ConnectionItemDatabase) => {
+			(item: DatabaseConnectionItem) => {
 				item.close();
 			}));
 
