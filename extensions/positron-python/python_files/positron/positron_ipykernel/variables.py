@@ -215,7 +215,7 @@ class VariablesService:
         }
         """
         variables = self._get_filtered_vars()
-        filtered_variables = _summarize_children(variables)
+        filtered_variables = _summarize_children(variables, MAX_ITEMS)
 
         msg = RefreshParams(
             variables=filtered_variables,
@@ -735,7 +735,7 @@ def _summarize_variable(key: Any, value: Any) -> Optional[Variable]:
 def _summarize_children(parent: Any, limit: int = MAX_CHILDREN) -> List[Variable]:
     children = []
     for i, (key, value) in enumerate(get_inspector(parent).get_items()):
-        if i > limit:
+        if len(children) >= limit:
             break
         summary = _summarize_variable(key, value)
         if summary is not None:
