@@ -42,28 +42,30 @@ export const PythonEnvironmentStep = (props: PropsWithChildren<NewProjectWizardS
 	const languageRuntimeService = newProjectWizardState.languageRuntimeService;
 
 	// Hooks to manage the startup phase and interpreter entries.
-	const [startupPhase, setStartupPhase] = useState(runtimeStartupService.startupPhase);
-	const runtimeStartupComplete = () => startupPhase === RuntimeStartupPhase.Complete;
+	const [startupPhase, setStartupPhase] = useState(
+		runtimeStartupService.startupPhase
+	);
+	const runtimeStartupComplete = () =>
+		startupPhase === RuntimeStartupPhase.Complete;
 	const [envSetupType, setEnvSetupType] = useState(
 		projectConfig.pythonEnvSetupType ?? EnvironmentSetupType.NewEnvironment
 	);
-	const [envType, setEnvType] = useState(
+	const [envType, setEnvType] = useState<PythonEnvironmentType | undefined>(
 		projectConfig.pythonEnvType ?? PythonEnvironmentType.Venv
 	);
-	const [interpreterEntries, setInterpreterEntries] =
-		useState(
-			// It's possible that the runtime discovery phase is not complete, so we need to check
-			// for that before creating the interpreter entries.
-			!runtimeStartupComplete() ?
-				[] :
-				getPythonInterpreterEntries(
-					runtimeStartupService,
-					languageRuntimeService,
-					envSetupType,
-					envType
-				)
-		);
-	const [selectedInterpreter, setSelectedInterpreter] = useState(
+	const [interpreterEntries, setInterpreterEntries] = useState(() =>
+		// It's possible that the runtime discovery phase is not complete, so we need to check
+		// for that before creating the interpreter entries.
+		!runtimeStartupComplete()
+			? []
+			: getPythonInterpreterEntries(
+				runtimeStartupService,
+				languageRuntimeService,
+				envSetupType,
+				envType
+			)
+	);
+	const [selectedInterpreter, setSelectedInterpreter] = useState(() =>
 		getSelectedInterpreter(
 			projectConfig.selectedRuntime,
 			interpreterEntries,
@@ -94,7 +96,7 @@ export const PythonEnvironmentStep = (props: PropsWithChildren<NewProjectWizardS
 		})
 	];
 
-	// Utils
+	// Utility function to get the interpreter based on the selected interpreter entries.
 	const getInterpreter = (entries: DropDownListBoxEntry<string, InterpreterInfo>[]) => {
 		return getSelectedInterpreter(
 			selectedInterpreter,
@@ -103,6 +105,8 @@ export const PythonEnvironmentStep = (props: PropsWithChildren<NewProjectWizardS
 			LanguageIds.Python
 		);
 	};
+
+	// Utility function to check if ipykernel needs to be installed for the selected interpreter.
 	const getInstallIpykernel = async (
 		envSetupType: EnvironmentSetupType,
 		pythonInterpreter: ILanguageRuntimeMetadata | undefined
@@ -130,68 +134,61 @@ export const PythonEnvironmentStep = (props: PropsWithChildren<NewProjectWizardS
 		return install;
 	};
 
+	// Utility function to update the project configuration with the environment setup type,
+	// environment type, selected interpreter, and ipykernel installation flag.
+	const updateEnvConfig = async (
+		envSetupType: EnvironmentSetupType,
+		envType: PythonEnvironmentType | undefined,
+		interpreter: ILanguageRuntimeMetadata | undefined
+	) => {
+		// Update the project configuration with the new environment setup type.
+		setEnvSetupType(envSetupType);
+
+		// Update the project configuration with the new environment type.
+		setEnvType(envType);
+
+		// Update the interpreter entries.
+		const entries = getPythonInterpreterEntries(
+			runtimeStartupService,
+			languageRuntimeService,
+			envSetupType,
+			envType
+		);
+		setInterpreterEntries(entries);
+
+		// Update the default selected interpreter based on the new entries.
+		const selectedRuntime = interpreter ?? getInterpreter(entries);
+		setSelectedInterpreter(selectedRuntime);
+
+		// Update the installIpykernel flag for the selected interpreter.
+		const installIpykernel = await getInstallIpykernel(envSetupType, selectedRuntime);
+		setWillInstallIpykernel(installIpykernel);
+
+		// Save the changes to the project configuration.
+		setProjectConfig({
+			...projectConfig,
+			pythonEnvType: envType,
+			pythonEnvSetupType: envSetupType,
+			selectedRuntime,
+			installIpykernel
+		});
+	};
+
 	// Handler for when the environment setup type is selected. If the user selects the "existing
 	// environment" setup, the env type dropdown will not show and the interpreter entries will be
 	// updated to show all existing interpreters. The project configuration is updated as well.
 	const onEnvSetupSelected = async (pythonEnvSetupType: EnvironmentSetupType) => {
-		// Update the project configuration with the new environment setup type.
-		setEnvSetupType(pythonEnvSetupType);
-
-		if (runtimeStartupComplete()) {
-			// Update the interpreter entries dropdown based on the new environment setup type.
-			const entries = getPythonInterpreterEntries(
-				runtimeStartupService,
-				languageRuntimeService,
-				pythonEnvSetupType,
-				envType
-			);
-			setInterpreterEntries(entries);
-
-			// Update the default selected interpreter based on the new entries.
-			const selectedRuntime = getInterpreter(entries);
-			setSelectedInterpreter(selectedRuntime);
-
-			// Update the installIpykernel flag for the selected interpreter.
-			const installIpykernel = await getInstallIpykernel(pythonEnvSetupType, selectedRuntime);
-			setWillInstallIpykernel(installIpykernel);
-
-			// Save the changes to the project configuration.
-			setProjectConfig({
-				...projectConfig,
-				pythonEnvSetupType,
-				selectedRuntime,
-				installIpykernel
-			});
-		}
+		await updateEnvConfig(
+			pythonEnvSetupType,
+			envType,
+			selectedInterpreter
+		);
 	};
 
 	// Handler for when the environment type is selected. The interpreter entries are updated based
 	// on the selected environment type, and the project configuration is updated as well.
 	const onEnvTypeSelected = async (pythonEnvType: PythonEnvironmentType) => {
-		// Update the project configuration with the new environment type.
-		setEnvType(pythonEnvType);
-
-		if (runtimeStartupComplete()) {
-			// Update the interpreter entries dropdown based on the new environment type.
-			const entries = getPythonInterpreterEntries(
-				runtimeStartupService,
-				languageRuntimeService,
-				envSetupType,
-				pythonEnvType
-			);
-			setInterpreterEntries(entries);
-
-			// Update the default selected interpreter based on the new entries.
-			const selectedRuntime = getInterpreter(entries);
-			setSelectedInterpreter(selectedRuntime);
-
-			// Update the installIpykernel flag for the selected interpreter.
-			const installIpykernel = await getInstallIpykernel(envSetupType, selectedRuntime);
-			setWillInstallIpykernel(installIpykernel);
-
-			// Save the changes to the project configuration.
-			setProjectConfig({ ...projectConfig, pythonEnvType, selectedRuntime, installIpykernel });
-		}
+		await updateEnvConfig(envSetupType, pythonEnvType, selectedInterpreter);
 	};
 
 	// Handler for when the interpreter is selected. The project configuration is updated with the
@@ -213,17 +210,30 @@ export const PythonEnvironmentStep = (props: PropsWithChildren<NewProjectWizardS
 			logService.error(`No Python runtime found for identifier: ${selectedInterpreter}`);
 			return;
 		}
-		setSelectedInterpreter(selectedRuntime);
 
-		// Update the installIpykernel flag for the selected interpreter.
-		const installIpykernel = await getInstallIpykernel(envSetupType, selectedRuntime);
-		setWillInstallIpykernel(installIpykernel);
-
-		// Save the changes to the project configuration.
-		setProjectConfig({ ...projectConfig, selectedRuntime, installIpykernel });
+		await updateEnvConfig(envSetupType, envType, selectedRuntime);
 	};
 
-	// Hook to update the interpreter entries when the runtime discovery phase is complete
+	// Update the project configuration with the initial selections. This is done once when the
+	// component is mounted, assuming the runtime discovery phase is complete. If the runtime
+	// discovery phase is not complete, the project configuration will be updated when the phase is
+	// complete in the other useEffect hook below.
+	useEffect(() => {
+		if (runtimeStartupComplete()) {
+			setProjectConfig({
+				...projectConfig,
+				pythonEnvSetupType: envSetupType,
+				pythonEnvType: envType,
+				selectedRuntime: selectedInterpreter,
+				installIpykernel: willInstallIpykernel
+			});
+		}
+		// Pass an empty dependency array to run this effect only once when the component is mounted.
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, []);
+
+	// Hook to update the interpreter entries when the runtime discovery phase is complete. The
+	// interpreter discovery phase may still be in progress when the component is mounted.
 	useEffect(() => {
 		// Create the disposable store for cleanup.
 		const disposableStore = new DisposableStore();
@@ -234,7 +244,13 @@ export const PythonEnvironmentStep = (props: PropsWithChildren<NewProjectWizardS
 			runtimeStartupService.onDidChangeRuntimeStartupPhase(
 				async phase => {
 					if (phase === RuntimeStartupPhase.Complete) {
-						// Update the interpreter entries once the runtime discovery phase is complete.
+						// Update the project configuration with the new environment setup type.
+						setEnvSetupType(envSetupType);
+
+						// Update the project configuration with the new environment type.
+						setEnvType(envType);
+
+						// Update the interpreter entries.
 						const entries = getPythonInterpreterEntries(
 							runtimeStartupService,
 							languageRuntimeService,
@@ -248,17 +264,14 @@ export const PythonEnvironmentStep = (props: PropsWithChildren<NewProjectWizardS
 						setSelectedInterpreter(selectedRuntime);
 
 						// Update the installIpykernel flag for the selected interpreter.
-						const installIpykernel = await getInstallIpykernel(
-							envSetupType,
-							selectedRuntime
-						);
+						const installIpykernel = await getInstallIpykernel(envSetupType, selectedRuntime);
 						setWillInstallIpykernel(installIpykernel);
 
 						// Save the changes to the project configuration.
 						setProjectConfig({
 							...projectConfig,
-							pythonEnvType: envType,
 							pythonEnvSetupType: envSetupType,
+							pythonEnvType: envType,
 							selectedRuntime,
 							installIpykernel
 						});
@@ -270,7 +283,9 @@ export const PythonEnvironmentStep = (props: PropsWithChildren<NewProjectWizardS
 
 		// Return the cleanup function that will dispose of the event handlers.
 		return () => disposableStore.dispose();
-	});
+		// Pass an empty dependency array to run this effect only once when the component is mounted.
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, []);
 
 	return (
 		<PositronWizardStep

@@ -9,7 +9,7 @@ import { IWorkbenchLayoutService } from 'vs/workbench/services/layout/browser/la
 import { NewProjectWizardContextProvider, useNewProjectWizardContext } from 'vs/workbench/browser/positronNewProjectWizard/newProjectWizardContext';
 import { ILanguageRuntimeService } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { IRuntimeSessionService } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
-import { NewProjectConfiguration } from 'vs/workbench/browser/positronNewProjectWizard/newProjectWizardState';
+import { NewProjectWizardConfiguration } from 'vs/workbench/browser/positronNewProjectWizard/newProjectWizardState';
 import { NewProjectWizardStepContainer } from 'vs/workbench/browser/positronNewProjectWizard/newProjectWizardStepContainer';
 import { IRuntimeStartupService } from 'vs/workbench/services/runtimeStartup/common/runtimeStartupService';
 import { IKeybindingService } from 'vs/platform/keybinding/common/keybinding';
@@ -21,6 +21,9 @@ import { IFileService } from 'vs/platform/files/common/files';
 import { ICommandService } from 'vs/platform/commands/common/commands';
 import { ILogService } from 'vs/platform/log/common/log';
 import { IOpenerService } from 'vs/platform/opener/common/opener';
+import { IStorageService, StorageScope, StorageTarget } from 'vs/platform/storage/common/storage';
+import { NewProjectConfiguration } from 'vs/workbench/browser/positronNewProjectWizard/interfaces/newProjectConfiguration';
+import { EnvironmentSetupType } from 'vs/workbench/browser/positronNewProjectWizard/interfaces/newProjectWizardEnums';
 
 /**
  * Shows the NewProjectModalDialog.
@@ -37,6 +40,7 @@ export const showNewProjectModalDialog = async (
 	pathService: IPathService,
 	runtimeSessionService: IRuntimeSessionService,
 	runtimeStartupService: IRuntimeStartupService,
+	storageService: IStorageService
 ): Promise<void> => {
 	// Create the renderer.
 	const renderer = new PositronModalReactRenderer({
@@ -66,11 +70,42 @@ export const showNewProjectModalDialog = async (
 			<NewProjectModalDialog
 				renderer={renderer}
 				createProject={async result => {
-					// Create the new project.
+					// Create the new project folder if it doesn't already exist.
 					const folder = URI.file((await pathService.path).join(result.parentFolder, result.projectName));
 					if (!(await fileService.exists(folder))) {
 						await fileService.createFolder(folder);
 					}
+
+					// The python environment type is only relevant if a new environment is being created.
+					const pythonEnvType =
+						result.pythonEnvSetupType === EnvironmentSetupType.NewEnvironment
+							? result.pythonEnvType
+							: '';
+
+					// Create the new project configuration.
+					const newProjectConfig: NewProjectConfiguration = {
+						runtimeId: result.selectedRuntime?.runtimeId || '',
+						projectType: result.projectType || '',
+						projectFolder: folder.fsPath,
+						initGitRepo: result.initGitRepo,
+						pythonEnvType: pythonEnvType || '',
+						installIpykernel: result.installIpykernel || false,
+						useRenv: result.useRenv || false,
+					};
+
+					// Store the new project configuration in the StorageService.
+					// The object is stringified here and can be parsed back into a
+					// NewProjectConfiguration object when read from storage.
+					storageService.store(
+						'positron.newProjectConfig',
+						JSON.stringify(newProjectConfig),
+						StorageScope.APPLICATION,
+						StorageTarget.MACHINE
+					);
+
+					// Any context-dependent work needs to be done before opening the folder
+					// because the extension host gets destroyed when a new project is opened,
+					// whether the folder is opened in a new window or in the existing window.
 					await commandService.executeCommand(
 						'vscode.openFolder',
 						folder,
@@ -80,11 +115,11 @@ export const showNewProjectModalDialog = async (
 						}
 					);
 
-					// TODO: whether the folder is opened in a new window or not, we will need to store the
-					// project configuration in some workspace state so that we can use it to start the runtime.
-					// The extension host gets destroyed when a new project is opened in the same window.
-					//   - Where can the new project config be stored?
-					//       - See IStorageService, maybe StorageScope.WORKSPACE and StorageTarget.MACHINE
+					// TODO: handle if the new project is the same directory as the current workspace
+					// in this case, a window doesn't get opened, so the new project initialization
+					// doesn't happen unless we listen to some event. Maybe a different command can be
+					// executed to initialize the new project in the current workspace instead of
+					// vscode.openFolder.
 
 					// 1) Create the directory for the new project (done above)
 					// 2) Set up the initial workspace for the new project
@@ -115,7 +150,7 @@ export const showNewProjectModalDialog = async (
 
 interface NewProjectModalDialogProps {
 	renderer: PositronModalReactRenderer;
-	createProject: (result: NewProjectConfiguration) => Promise<void>;
+	createProject: (result: NewProjectWizardConfiguration) => Promise<void>;
 }
 
 /**
