@@ -25,6 +25,7 @@ import { IRuntimeSessionService } from 'vs/workbench/services/runtimeSession/com
 import { IRuntimeStartupService } from 'vs/workbench/services/runtimeStartup/common/runtimeStartupService';
 import { ILogService } from 'vs/platform/log/common/log';
 import { IOpenerService } from 'vs/platform/opener/common/opener';
+import { Categories } from 'vs/platform/action/common/actionCommonCategories';
 import { IStorageService } from 'vs/platform/storage/common/storage';
 import { USE_POSITRON_PROJECT_WIZARD_CONFIG_KEY } from 'vs/workbench/services/positronNewProject/common/positronNewProjectEnablement';
 
@@ -229,6 +230,29 @@ export class PositronOpenFolderInNewWindowAction extends Action2 {
 		});
 	}
 }
+
+export class PositronActivateDeveloperExtensionsAction extends Action2 {
+
+	static readonly ID = 'positron.action.activateDeveloperExtensions';
+
+	constructor() {
+		super({
+			id: PositronActivateDeveloperExtensionsAction.ID,
+			title: {
+				value: localize('positronActivateDeveloperExtensionsAction', 'Activate Developer Extensions...'),
+				original: 'Open Folder in New Window...'
+			},
+			category: Categories.Developer,
+			f1: true,
+			precondition: IsDevelopmentContext.isEqualTo(true),
+		});
+	}
+
+	override async run(): Promise<boolean> {
+		return true;
+	}
+}
+
 
 // Register the actions defined above.
 registerAction2(PositronNewProjectAction);
