@@ -972,7 +972,7 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 	/**
 	 * Interrupts the console.
 	 */
-	interrupt() {
+	interrupt(code: string) {
 		// Get the runtime state.
 		const runtimeState = this._session.getRuntimeState();
 
@@ -989,13 +989,13 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 			this.addOrUpdateUpdateRuntimeItemActivity(
 				id,
 				new ActivityItemInput(
-					ActivityItemInputState.Completed,
+					ActivityItemInputState.Cancelled,
 					id,
 					id,
 					new Date(),
 					this._session.dynState.inputPrompt,
 					this._session.dynState.continuationPrompt,
-					''
+					code,
 				)
 			);
 		}

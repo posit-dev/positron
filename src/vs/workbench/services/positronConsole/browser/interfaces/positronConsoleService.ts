@@ -277,7 +277,7 @@ export interface IPositronConsoleInstance {
 	/**
 	 * Interrupts the console.
 	 */
-	interrupt(): void;
+	interrupt(code: string): void;
 
 	/**
 	 * Enqueues code to be executed.
