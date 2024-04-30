@@ -213,7 +213,6 @@
       "[r]": {
         "editor.tabSize": 2,
         "editor.wordSeparators": "`~!@#$%^&*()-=+[{]}\\|;:'\",<>/?",
-        "editor.smartSelect.selectSubwords": false,
         "editor.smartSelect.selectLeadingAndTrailingWhitespace": false
       }
     },
