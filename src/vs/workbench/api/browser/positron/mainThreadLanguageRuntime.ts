@@ -1046,6 +1046,9 @@ export class MainThreadLanguageRuntime
 			}
 		});
 
+		// Start the Positron developer extensions.
+		this._commandService.executeCommand('positron.action.activateDeveloperExtensions');
+
 		this._runtimeSessionService.registerSessionManager(this);
 	}
 
