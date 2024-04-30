@@ -116,6 +116,9 @@ export const startEntries: GettingStartedStartEntryContent = [
 		title: localize('gettingStarted.newProject.title', "New Project..."),
 		description: localize('gettingStarted.newProject.description', "Create a new project."),
 		icon: Codicon.newFolder,
+		// TODO: [New Project] Remove feature flag when New Project action is ready for release
+		// This removes the New Project entry from the Welcome page when the feature is not enabled.
+		when: 'config.positron.projectWizardEnabled || isDevelopment',
 		content: {
 			type: 'startEntry',
 			command: 'command:positron.workbench.action.newProject',
