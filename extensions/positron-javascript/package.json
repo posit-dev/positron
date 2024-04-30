@@ -10,7 +10,9 @@
   "categories": [
     "Programming Languages"
   ],
-  "activationEvents": [],
+  "activationEvents": [
+    "onCommand:positron.action.activateDeveloperExtensions"
+  ],
   "main": "./out/extension.js",
   "scripts": {
     "vscode:prepublish": "yarn run compile",

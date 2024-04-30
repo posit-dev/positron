@@ -12,7 +12,7 @@
   ],
   "main": "./out/extension.js",
   "activationEvents": [
-    "onStartupFinished"
+    "onCommand:positron.action.activateDeveloperExtensions"
   ],
   "contributes": {
     "languages": [
