@@ -56,7 +56,8 @@ export const ActivityInput = (props: ActivityInputProps) => {
 	// Generate the class names.
 	const classNames = positronClassNames(
 		'activity-input',
-		{ 'executing': state === ActivityItemInputState.Executing }
+		{ 'executing': state === ActivityItemInputState.Executing },
+		{ 'cancelled': state === ActivityItemInputState.Cancelled }
 	);
 
 	// Render.

@@ -11,7 +11,8 @@ import { ANSIOutput, ANSIOutputLine } from 'vs/base/common/ansiOutput';
 export const enum ActivityItemInputState {
 	Provisional = 'provisional',
 	Executing = 'executing',
-	Completed = 'completed'
+	Completed = 'completed',
+	Cancelled = 'cancelled'
 }
 
 /**
