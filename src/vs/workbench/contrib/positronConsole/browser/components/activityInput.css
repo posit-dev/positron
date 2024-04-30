@@ -40,5 +40,5 @@
 }
 
 .activity-input.cancelled {
-	opacity: 0.65;
+	color: var(--vscode-positronTopActionBar-disabledForeground);
 }
