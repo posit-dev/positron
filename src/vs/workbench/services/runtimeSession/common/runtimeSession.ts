@@ -19,6 +19,7 @@ import { IUiClientMessageInput, IUiClientMessageOutput, UiClientInstance } from 
 import { UiFrontendEvent } from 'vs/workbench/services/languageRuntime/common/positronUiComm';
 import { ILanguageService } from 'vs/editor/common/languages/language';
 import { ResourceMap } from 'vs/base/common/map';
+import { IExtensionService } from 'vs/workbench/services/extensions/common/extensions';
 
 /**
  * Utility class for tracking state changes in a language runtime session.
@@ -122,7 +123,8 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 		@ILogService private readonly _logService: ILogService,
 		@IOpenerService private readonly _openerService: IOpenerService,
 		@IPositronModalDialogsService private readonly _positronModalDialogsService: IPositronModalDialogsService,
-		@IWorkspaceTrustManagementService private readonly _workspaceTrustManagementService: IWorkspaceTrustManagementService) {
+		@IWorkspaceTrustManagementService private readonly _workspaceTrustManagementService: IWorkspaceTrustManagementService,
+		@IExtensionService private readonly _extensionService: IExtensionService) {
 
 		super();
 
@@ -158,6 +160,18 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 			this._logService.trace(`Language runtime ${formatLanguageRuntimeMetadata(languageRuntimeInfos[0])} automatically starting`);
 			this.autoStartRuntime(languageRuntimeInfos[0],
 				`A file with the language ID ${languageId} was opened.`);
+		}));
+
+		this._register(this._extensionService.onWillStop((e) => {
+			// Temporarily mark all sessions offline.
+			for (const session of this._activeSessionsBySessionId.values()) {
+				this._onDidChangeRuntimeStateEmitter.fire({
+					session_id: session.session.sessionId,
+					old_state: session.state,
+					new_state: RuntimeState.Offline
+				});
+				session.state = RuntimeState.Offline;
+			}
 		}));
 	}
 
