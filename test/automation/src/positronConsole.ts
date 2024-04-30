@@ -33,6 +33,10 @@ export class PositronConsole {
 		await this.code.driver.typeKeys(CONSOLE_INSTANCES_CONTAINER, text);
 	}
 
+	async sendEnterKey() {
+		await this.code.driver.getKeyboard().press('Enter');
+	}
+
 	async waitForStarted() {
 
 		console.log('Waiting for prompt');

@@ -257,5 +257,9 @@ export class PlaywrightDriver {
 		return this.page.locator(selector);
 	}
 
+	getKeyboard() {
+		return this.page.keyboard;
+	}
+
 	// --- End Positron ---
 }

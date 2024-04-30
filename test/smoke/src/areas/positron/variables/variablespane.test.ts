@@ -25,11 +25,14 @@ export function setup(logger: Logger) {
 
 			await app.workbench.positronConsole.logConsoleContents();
 
-			await app.workbench.positronConsole.typeToConsole('x=1\n');
+			await app.workbench.positronConsole.typeToConsole('x=1');
+			await app.workbench.positronConsole.sendEnterKey();
 			await app.code.wait(1000);
-			await app.workbench.positronConsole.typeToConsole('y=10\n');
+			await app.workbench.positronConsole.typeToConsole('y=10');
+			await app.workbench.positronConsole.sendEnterKey();
 			await app.code.wait(1000);
-			await app.workbench.positronConsole.typeToConsole('z=100\n');
+			await app.workbench.positronConsole.typeToConsole('z=100');
+			await app.workbench.positronConsole.sendEnterKey();
 			await app.code.wait(1000);
 
 			console.log('Entered lines in console defining variables');
@@ -56,11 +59,14 @@ export function setup(logger: Logger) {
 
 			await app.workbench.positronConsole.logConsoleContents();
 
-			await app.workbench.positronConsole.typeToConsole('x=1\n');
+			await app.workbench.positronConsole.typeToConsole('x=1');
+			await app.workbench.positronConsole.sendEnterKey();
 			await app.code.wait(1000);
-			await app.workbench.positronConsole.typeToConsole('y=10\n');
+			await app.workbench.positronConsole.typeToConsole('y=10');
+			await app.workbench.positronConsole.sendEnterKey();
 			await app.code.wait(1000);
-			await app.workbench.positronConsole.typeToConsole('z=100\n');
+			await app.workbench.positronConsole.typeToConsole('z=100');
+			await app.workbench.positronConsole.sendEnterKey();
 			await app.code.wait(1000);
 
 			console.log('Entered lines in console defining variables');
