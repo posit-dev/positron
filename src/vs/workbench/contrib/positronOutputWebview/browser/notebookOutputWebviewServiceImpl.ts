@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
 import { VSBuffer, encodeBase64 } from 'vs/base/common/buffer';
@@ -48,6 +48,12 @@ export class PositronNotebookOutputWebviewService implements IPositronNotebookOu
 			if (mimeType === 'text/plain') {
 				continue;
 			}
+
+			// Don't render HTML outputs here; we'll render them as raw HTML below
+			if (mimeType === 'text/html') {
+				continue;
+			}
+
 			const renderer = this._notebookService.getPreferredRenderer(mimeType);
 			if (renderer) {
 				return this.createNotebookRenderOutput(output.id, runtime,
@@ -219,7 +225,8 @@ export class PositronNotebookOutputWebviewService implements IPositronNotebookOu
 
 	// Activate the renderer and create the data object
 	var renderer = activate(ctx);
-	var rawData = atob('${rawData}');
+	var utf8bytes = Uint8Array.from(atob('${rawData}'), (m) => m.codePointAt(0));
+	var rawData = new TextDecoder().decode(utf8bytes);
 	var data = {
 		id: '${id}',
 		mime: '${mimeType}',
