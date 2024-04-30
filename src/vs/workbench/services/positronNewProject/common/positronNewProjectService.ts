@@ -64,29 +64,10 @@ export class PositronNewProjectService extends Disposable implements IPositronNe
 		return newProjectPath === currentFolderPath;
 	}
 
-	async initNewProject() {
-		if (this._newProjectConfig && this.isCurrentWindowNewProject()) {
-			// We're in the new project window, so we can clear the config from the storage service.
-			this.clearNewProjectConfig();
-
-			// Run tasks that require the extension service to be ready.
-			this.runExtensionTasks();
-
-			const runtimeId = this._newProjectConfig.runtimeId;
-			// Do the initialization tasks here.
-			this._register(this._runtimeStartupService.onDidChangeRuntimeStartupPhase(phase => {
-				if (phase === RuntimeStartupPhase.Complete) {
-					this._runtimeSessionService.selectRuntime(
-						runtimeId,
-						'User-requested startup from the Positron Project Wizard'
-					);
-				}
-			}));
-
-		}
-	}
-
-	runExtensionTasks() {
+	/**
+	 * Runs tasks that require the extension service to be ready.
+	 */
+	private runExtensionTasks() {
 		if (!this._newProjectConfig) {
 			return;
 		}
@@ -115,21 +96,55 @@ export class PositronNewProjectService extends Disposable implements IPositronNe
 		});
 	}
 
-	runPythonTasks() {
+	/**
+	 * Runs Python Project specific tasks.
+	 */
+	private runPythonTasks() {
 		this._commandService.executeCommand('python.createNewFile');
 	}
 
-	runJupyterTasks() {
+	/**
+	 * Runs Jupyter Notebook specific tasks.
+	 */
+	private runJupyterTasks() {
 		this._commandService.executeCommand('ipynb.newUntitledIpynb');
 	}
 
-	runRTasks() {
+	/**
+	 * Runs R Project specific tasks.
+	 */
+	private runRTasks() {
 		this._commandService.executeCommand('r.createNewFile');
 	}
 
-	runGitInit() {
+	/**
+	 * Runs the git init command.
+	 */
+	private runGitInit() {
 		// TODO: This command works, but requires a quick pick selection
 		// this._commandService.executeCommand('git.init');
+	}
+
+	async initNewProject() {
+		if (this._newProjectConfig && this.isCurrentWindowNewProject()) {
+			// We're in the new project window, so we can clear the config from the storage service.
+			this.clearNewProjectConfig();
+
+			// Run tasks that require the extension service to be ready.
+			this.runExtensionTasks();
+
+			const runtimeId = this._newProjectConfig.runtimeId;
+			// Do the initialization tasks here.
+			this._register(this._runtimeStartupService.onDidChangeRuntimeStartupPhase(phase => {
+				if (phase === RuntimeStartupPhase.Complete) {
+					this._runtimeSessionService.selectRuntime(
+						runtimeId,
+						'User-requested startup from the Positron Project Wizard'
+					);
+				}
+			}));
+
+		}
 	}
 
 	clearNewProjectConfig() {
