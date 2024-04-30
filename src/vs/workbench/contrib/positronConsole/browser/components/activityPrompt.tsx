@@ -103,17 +103,6 @@ export const ActivityPrompt = (props: ActivityPromptProps) => {
 					return;
 				}
 
-				// Escape key.
-				case 'Escape': {
-					// Consume the event.
-					consumeEvent();
-
-					// Update the prompt state and interrupt it.
-					props.activityItemPrompt.state = ActivityItemPromptState.Interrupted;
-					props.positronConsoleInstance.interruptPrompt(props.activityItemPrompt.id);
-					return;
-				}
-
 				default: {
 					return;
 				}

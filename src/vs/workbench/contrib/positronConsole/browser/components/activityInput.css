@@ -38,3 +38,7 @@
 	text-align: right;
 	display: inline-block;
 }
+
+.activity-input.cancelled {
+	color: var(--vscode-positronTopActionBar-disabledForeground);
+}
