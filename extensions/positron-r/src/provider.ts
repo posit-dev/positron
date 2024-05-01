@@ -458,14 +458,26 @@ function isRStudioUser(): boolean {
 }
 
 /**
- * Returns the path to RStudio's state folder directory. Doesn't currently work
- * on Windows; see XDG specification for the correct path there.
+ * Returns the path to RStudio's state folder directory. Currently checks only the default for each
+ * OS. A more earnest effort would require fully implementing the logic in RStudio's `userDataDir()`
+ * functions (there are implementations in both C++ and Typescript). That would add logic to
+ * check the variables RSTUDIO_DATA_HOME and XDG_DATA_HOME.
  *
  * @param pathToAppend The path to append, if any
  * @returns The path to RStudio's state folder directory.
  */
 function rstudioStateFolderPath(pathToAppend = ''): string {
-	// TODO: Windows
-	const newPath = path.join(process.env.HOME!, '.local/share/rstudio', pathToAppend);
+	let newPath: string;
+	switch (process.platform) {
+		case 'darwin':
+		case 'linux':
+			newPath = path.join(process.env.HOME!, '.local/share/rstudio', pathToAppend);
+			break;
+		case 'win32':
+			newPath = path.join(process.env.LOCALAPPDATA!, 'RStudio', pathToAppend);
+			break;
+		default:
+			throw new Error('Unsupported platform');
+	}
 	return newPath;
 }
