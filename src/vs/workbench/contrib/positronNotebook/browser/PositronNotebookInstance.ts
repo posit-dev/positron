@@ -26,6 +26,7 @@ import { BaseCellEditorOptions } from './BaseCellEditorOptions';
 import * as DOM from 'vs/base/browser/dom';
 import { IPositronNotebookCell } from 'vs/workbench/contrib/positronNotebook/browser/notebookCells/interfaces';
 import { CellSelectionType, SelectionStateMachine } from 'vs/workbench/contrib/positronNotebook/browser/notebookCells/selectionMachine';
+import { PositronNotebookContextKeyManager } from 'vs/workbench/contrib/positronNotebook/browser/ContextKeysManager';
 
 
 enum KernelStatus {
@@ -130,6 +131,11 @@ export interface IPositronNotebookInstance {
 	 * Set the currently editing cell.
 	 */
 	setEditingCell(cell: IPositronNotebookCell | undefined): void;
+
+	/**
+	 * Class for managing context keys for notebook.
+	 */
+	contextManager: PositronNotebookContextKeyManager;
 }
 
 export class PositronNotebookInstance extends Disposable implements IPositronNotebookInstance {
@@ -152,7 +158,9 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	cells: ISettableObservable<IPositronNotebookCell[]>;
 	selectedCells: ISettableObservable<IPositronNotebookCell[]> = observableValue<IPositronNotebookCell[]>('positronNotebookSelectedCells', []);
 	editingCell: ISettableObservable<IPositronNotebookCell | undefined, void> = observableValue<IPositronNotebookCell | undefined>('positronNotebookEditingCell', undefined);
-	selectionStateMachine: SelectionStateMachine;
+
+	selectionStateMachine = new SelectionStateMachine();
+	contextManager: PositronNotebookContextKeyManager;
 
 	/**
 	 * Status of kernel for the notebook.
@@ -274,7 +282,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 
 		this.setupNotebookTextModel();
 
-		this.selectionStateMachine = this._instantiationService.createInstance(SelectionStateMachine);
+		this.contextManager = this._instantiationService.createInstance(PositronNotebookContextKeyManager);
 
 		this._logService.info(this._identifier, 'constructor');
 	}
@@ -539,6 +547,8 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		this.detachView();
 
 		this._container = container;
+
+		this.contextManager.setContainer(container);
 
 		const alreadyHasModel = this._viewModel !== undefined && this._viewModel.equal(viewModel.notebookDocument);
 		if (alreadyHasModel) {
