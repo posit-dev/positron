@@ -246,7 +246,6 @@ export class PlaywrightDriver {
 	private async getDriverHandle(): Promise<playwright.JSHandle<IWindowDriver>> {
 		return this.page.evaluateHandle('window.driver');
 	}
-
 	// --- Start Positron ---
 
 	async typeKeys(locator: string, text: string): Promise<void> {
