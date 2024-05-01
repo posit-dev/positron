@@ -177,7 +177,9 @@ function loadTests(opts) {
 
 	const _allowedTestOutput = [
 		/The vm module of Node\.js is deprecated in the renderer process and will be removed./,
+		// --- Start Positron ---
 		/Download the React DevTools for a better development experience/
+		// --- End Positron ---
 	];
 
 	// allow snapshot mutation messages locally
