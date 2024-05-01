@@ -4,6 +4,7 @@
 import { ISettableObservable, observableValue } from 'vs/base/common/observable';
 import { IPositronNotebookCell } from 'vs/workbench/contrib/positronNotebook/browser/notebookCells/interfaces';
 import { Event } from 'vs/base/common/event';
+import { ILogService } from 'vs/platform/log/common/log';
 
 type NoSelection = {
 	type: 'No Selection';
@@ -64,7 +65,9 @@ export class SelectionStateMachine {
 	state: ISettableObservable<SelectionStates>;
 	onNewState: Event<SelectionStates>;
 
-	constructor() {
+	constructor(
+		@ILogService private readonly _logService: ILogService,
+	) {
 		this.state = observableValue('selectionState', this._state);
 		this.onNewState = Event.fromObservable(this.state);
 	}
@@ -125,6 +128,7 @@ export class SelectionStateMachine {
 		}
 
 		// Shouldn't get here.
+		this._logService.error('Unknown selection state', this._state, { selectType });
 	}
 
 	/**
