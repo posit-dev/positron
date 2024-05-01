@@ -18,6 +18,8 @@ from positron_ipykernel.positron_comm import JsonRpcErrorCode
 from positron_ipykernel.positron_ipkernel import PositronIPyKernel
 from positron_ipykernel.utils import JsonRecord, not_none
 from positron_ipykernel.variables import (
+    MAX_CHILDREN,
+    MAX_ITEMS,
     VariablesService,
     _summarize_children,
     _summarize_variable,
@@ -174,6 +176,82 @@ def test_handle_refresh(shell: PositronShell, variables_comm: DummyComm) -> None
             }
         )
     ]
+
+
+def test_list_1000(shell: PositronShell, variables_comm: DummyComm) -> None:
+    # Create 1000 variables
+    for j in range(0, 1000, 1):
+        shell.user_ns["var{}".format(j)] = j
+
+    # Request the list of variables
+    msg = json_rpc_request("list", comm_id="dummy_comm_id")
+    variables_comm.handle_msg(msg)
+
+    # Assert that a message with 1000 variables is sent
+    result_msg = variables_comm.messages[0]
+    assert result_msg.get("data").get("result").get("length") == 1000
+
+    # Also spot check the first and last variables
+    variables = result_msg.get("data").get("result").get("variables")
+    assert variables[0].get("display_name") == "var0"
+    assert variables[999].get("display_name") == "var999"
+
+
+def test_update_max_children_plus_one(shell: PositronShell, variables_comm: DummyComm) -> None:
+    # Create and update more than MAX_CHILDREN variables
+    n = MAX_CHILDREN + 1
+    add_value = 500
+    msg: Any = create_and_update_n_vars(n, add_value, shell, variables_comm)
+
+    # Check we received an update message
+    assert msg.get("data").get("method") == "update"
+
+    # Check we did not lose any variables
+    assigned = msg.get("data").get("params").get("assigned")
+    assert len(assigned) == n
+
+    # Spot check the first and last variables display values
+    assert assigned[0].get("display_value") == str(add_value)
+    assert assigned[n - 1].get("display_value") == str(n - 1 + add_value)
+
+
+def test_update_max_items_plus_one(shell: PositronShell, variables_comm: DummyComm) -> None:
+    # Create and update more than MAX_ITEMS variables
+    n = MAX_ITEMS + 1
+    add_value = 500
+    msg: Any = create_and_update_n_vars(n, add_value, shell, variables_comm)
+
+    # If we exceed MAX_ITEMS, the kernel sends a refresh message instead
+    assert msg.get("data").get("method") == "refresh"
+
+    # Check we did not exceed MAX_ITEMS variables
+    variables = msg.get("data").get("params").get("variables")
+    variables_len = len(variables)
+    assert variables_len == MAX_ITEMS
+
+    # Spot check the first and last variables display values
+    assert variables[0].get("display_value") == str(add_value)
+    assert variables[variables_len - 1].get("display_value") == str(variables_len - 1 + add_value)
+
+
+def create_and_update_n_vars(
+    n: int, add_value: int, shell: PositronShell, variables_comm: DummyComm
+) -> Any:
+    # Create n variables
+    assign_n = ""
+    for j in range(0, n, 1):
+        assign_n += "x{} = {}".format(j, j) + "\n"
+
+    shell.run_cell(assign_n)
+    variables_comm.messages.clear()
+
+    # Re-assign the variables to trigger an update message
+    update_n = ""
+    for j in range(0, n, 1):
+        update_n += "x{} = {}".format(j, j + add_value) + "\n"
+
+    shell.run_cell(update_n)
+    return variables_comm.messages[0]
 
 
 @pytest.mark.asyncio

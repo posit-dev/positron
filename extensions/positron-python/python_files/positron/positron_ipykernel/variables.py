@@ -174,7 +174,7 @@ class VariablesService:
 
         # Filter out hidden assigned variables
         variables = self._get_filtered_vars(assigned)
-        filtered_assigned = _summarize_children(variables)
+        filtered_assigned = _summarize_children(variables, MAX_ITEMS)
 
         # Filter out hidden removed variables and encode access keys
         hidden = self._get_user_ns_hidden()
@@ -209,7 +209,7 @@ class VariablesService:
         }
         """
         variables = self._get_filtered_vars()
-        filtered_variables = _summarize_children(variables)
+        filtered_variables = _summarize_children(variables, MAX_ITEMS)
 
         msg = RefreshParams(
             variables=filtered_variables,
@@ -423,7 +423,7 @@ class VariablesService:
 
     def _list_all_vars(self) -> List[Variable]:
         variables = self._get_filtered_vars()
-        return _summarize_children(variables)
+        return _summarize_children(variables, MAX_ITEMS)
 
     def _send_list(self) -> None:
         filtered_variables = self._list_all_vars()
@@ -731,10 +731,10 @@ def _summarize_variable(key: Any, value: Any) -> Optional[Variable]:
         )
 
 
-def _summarize_children(parent: Any) -> List[Variable]:
+def _summarize_children(parent: Any, limit: int = MAX_CHILDREN) -> List[Variable]:
     children = []
     for i, (key, value) in enumerate(get_inspector(parent).get_items()):
-        if i > MAX_CHILDREN:
+        if len(children) >= limit:
             break
         summary = _summarize_variable(key, value)
         if summary is not None:
