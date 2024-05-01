@@ -87,4 +87,20 @@ export class PositronConsole {
 			}
 		}
 	}
+
+	async waitForEndingConsoleText(text: string) {
+
+		let lastConsoleLine = await this.getConsoleContents(-1);
+
+		for (let i = 0; i < 30; i++) {
+			if (lastConsoleLine[0] === text) {
+				break;
+			} else {
+				console.log(lastConsoleLine[0]);
+				console.log(text);
+				await this.code.wait(100);
+				lastConsoleLine = await this.getConsoleContents(-1);
+			}
+		}
+	}
 }
