@@ -96,8 +96,6 @@ export class PositronConsole {
 			if (lastConsoleLine[0] === text) {
 				break;
 			} else {
-				console.log(lastConsoleLine[0]);
-				console.log(text);
 				await this.code.wait(100);
 				lastConsoleLine = await this.getConsoleContents(-1);
 			}

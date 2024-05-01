@@ -5,6 +5,7 @@
 import { expect } from '@playwright/test';
 import { Application, Logger } from '../../../../../automation';
 import { installAllHandlers } from '../../../utils';
+import { fail } from 'assert';
 
 export function setup(logger: Logger) {
 	describe('Variables Pane', () => {
@@ -15,7 +16,10 @@ export function setup(logger: Logger) {
 		it('Verifies Variables pane basic function with python interpreter', async function () {
 			const app = this.app as Application;
 
-			const desiredPython = process.env.POSITRON_PY_VER_SEL || '3.10.12 (PyEnv)';
+			const desiredPython = process.env.POSITRON_PY_VER_SEL;
+			if (desiredPython === undefined) {
+				fail('Please be sure to set env var POSITRON_PY_VER_SEL to the UI text corresponding to the Python version for the test');
+			}
 			await app.workbench.startInterpreter.selectInterpreter('Python', desiredPython);
 
 			// noop if dialog does not appear
@@ -55,10 +59,11 @@ export function setup(logger: Logger) {
 		it('Verifies Variables pane basic function with R interpreter', async function () {
 			const app = this.app as Application;
 
-			const desiredR = process.env.POSITRON_R_VER_SEL || 'R 4.3.3';
+			const desiredR = process.env.POSITRON_R_VER_SEL;
+			if (desiredR === undefined) {
+				fail('Please be sure to set env var POSITRON_R_VER_SEL to the UI text corresponding to the R version for the test');
+			}
 			await app.workbench.startInterpreter.selectInterpreter('R', desiredR);
-
-			await app.code.wait(2000);
 
 			await app.workbench.positronConsole.waitForStarted('>');
 
