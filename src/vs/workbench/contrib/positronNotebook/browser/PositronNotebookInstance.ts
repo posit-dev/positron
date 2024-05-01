@@ -152,8 +152,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	cells: ISettableObservable<IPositronNotebookCell[]>;
 	selectedCells: ISettableObservable<IPositronNotebookCell[]> = observableValue<IPositronNotebookCell[]>('positronNotebookSelectedCells', []);
 	editingCell: ISettableObservable<IPositronNotebookCell | undefined, void> = observableValue<IPositronNotebookCell | undefined>('positronNotebookEditingCell', undefined);
-
-	selectionStateMachine = new SelectionStateMachine();
+	selectionStateMachine: SelectionStateMachine;
 
 	/**
 	 * Status of kernel for the notebook.
@@ -274,6 +273,8 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		this.isReadOnly = this.creationOptions?.isReadOnly ?? false;
 
 		this.setupNotebookTextModel();
+
+		this.selectionStateMachine = this._instantiationService.createInstance(SelectionStateMachine);
 
 		this._logService.info(this._identifier, 'constructor');
 	}
