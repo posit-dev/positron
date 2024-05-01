@@ -221,6 +221,7 @@ class PositronNotebookMarkdownCell extends PositronNotebookCellGeneral implement
 
 	override focusEditor(): void {
 		this.editorShown.set(true, undefined);
+		// Need a timeout here so that the editor is shown before we try to focus it.
 		setTimeout(() => {
 			super.focusEditor();
 		}, 0);
