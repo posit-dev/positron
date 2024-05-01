@@ -2,6 +2,7 @@
  *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
+import { URI } from 'vs/base/common/uri';
 import { createDecorator } from 'vs/platform/instantiation/common/instantiation';
 
 export const POSITRON_NEW_PROJECT_CONFIG_STORAGE_KEY = 'positron.newProjectConfig';
@@ -43,11 +44,24 @@ export interface IPositronNewProjectService {
 	 * git repository, etc..
 	 * @returns Whether the new project was initialized.
 	 */
-	initNewProject(): Promise<void>;
+	initNewProject(): void;
+
+	/**
+	 * Initializes the new project with the provided configuration. This method is used when the new
+	 * project is being created in the current workspace.
+	 * @param newProjectConfig The new project configuration.
+	 */
+	initNewProjectWithConfig(newProjectConfig: NewProjectConfiguration): void;
 
 	/**
 	 * Stores the new project configuration in the storage service.
 	 * @param newProjectConfig The new project configuration to store.
 	 */
 	storeNewProjectConfig(newProjectConfig: NewProjectConfiguration): void;
+
+	/**
+	 * Checks whether the current directory is where the new project is being created.
+	 * @param newProjectUri The URI of the new project.
+	 */
+	isNewProjectCurrentWorkspace(newProjectUri: URI): boolean;
 }

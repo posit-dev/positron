@@ -3,6 +3,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { Disposable } from 'vs/base/common/lifecycle';
+import { URI } from 'vs/base/common/uri';
 import { ICommandService } from 'vs/platform/commands/common/commands';
 import { ILogService } from 'vs/platform/log/common/log';
 import { IStorageService, StorageScope, StorageTarget } from 'vs/platform/storage/common/storage';
@@ -58,7 +59,6 @@ export class PositronNewProjectService extends Disposable implements IPositronNe
 		if (!this._newProjectConfig) {
 			return false;
 		}
-
 		const newProjectPath = this._newProjectConfig.projectFolder;
 		const currentFolderPath = this._contextService.getWorkspace().folders[0].uri.fsPath;
 		return newProjectPath === currentFolderPath;
@@ -100,6 +100,7 @@ export class PositronNewProjectService extends Disposable implements IPositronNe
 	 * Runs Python Project specific tasks.
 	 */
 	private runPythonTasks() {
+		this.createPythonEnvironment();
 		this._commandService.executeCommand('python.createNewFile');
 	}
 
@@ -107,6 +108,7 @@ export class PositronNewProjectService extends Disposable implements IPositronNe
 	 * Runs Jupyter Notebook specific tasks.
 	 */
 	private runJupyterTasks() {
+		this.createPythonEnvironment();
 		this._commandService.executeCommand('ipynb.newUntitledIpynb');
 	}
 
@@ -115,6 +117,9 @@ export class PositronNewProjectService extends Disposable implements IPositronNe
 	 */
 	private runRTasks() {
 		this._commandService.executeCommand('r.createNewFile');
+		if (this._newProjectConfig?.useRenv) {
+			this.createREnvironment();
+		}
 	}
 
 	/**
@@ -123,9 +128,28 @@ export class PositronNewProjectService extends Disposable implements IPositronNe
 	private runGitInit() {
 		// TODO: This command works, but requires a quick pick selection
 		// this._commandService.executeCommand('git.init');
+
+		// TODO: create .gitignore and README.md
 	}
 
-	async initNewProject() {
+	/**
+	 * Creates the Python environment.
+	 */
+	private createPythonEnvironment() {
+		const pythonEnvType = this._newProjectConfig?.pythonEnvType;
+		if (pythonEnvType && pythonEnvType.length > 0) {
+			// TODO: create the .venv/.conda/etc. as appropriate
+		}
+	}
+
+	/**
+	 * Creates the R environment.
+	 */
+	private createREnvironment() {
+		// TODO: run renv::init()
+	}
+
+	initNewProject() {
 		if (this._newProjectConfig && this.isCurrentWindowNewProject()) {
 			// We're in the new project window, so we can clear the config from the storage service.
 			this.clearNewProjectConfig();
@@ -137,14 +161,28 @@ export class PositronNewProjectService extends Disposable implements IPositronNe
 			// Do the initialization tasks here.
 			this._register(this._runtimeStartupService.onDidChangeRuntimeStartupPhase(phase => {
 				if (phase === RuntimeStartupPhase.Complete) {
+					// TODO: this may try to start a runtime that is already running
 					this._runtimeSessionService.selectRuntime(
 						runtimeId,
-						'User-requested startup from the Positron Project Wizard'
+						'User-requested startup from the Positron Project Wizard during project initialization'
 					);
 				}
 			}));
-
 		}
+	}
+
+	initNewProjectWithConfig(newProjectConfig: NewProjectConfiguration) {
+		this._newProjectConfig = newProjectConfig;
+		if (this.isCurrentWindowNewProject()) {
+			this.runExtensionTasks();
+			const runtimeId = this._newProjectConfig.runtimeId;
+			// TODO: this may try to start a runtime that is already running
+			this._runtimeSessionService.selectRuntime(
+				runtimeId,
+				'User-requested startup from the Positron Project Wizard in the current workspace'
+			);
+		}
+		this.initNewProject();
 	}
 
 	clearNewProjectConfig() {
@@ -161,5 +199,13 @@ export class PositronNewProjectService extends Disposable implements IPositronNe
 			StorageScope.APPLICATION,
 			StorageTarget.MACHINE
 		);
+	}
+
+	isNewProjectCurrentWorkspace(newProjectUri: URI): boolean {
+		// if it is, then we can initialize the project right away
+		// if it's the current window, initialize the project right away
+		// if it's a different window, store the config and open the folder? or can we send a task
+		// to the other window to initialize the project?
+		return this._contextService.isCurrentWorkspace(newProjectUri);
 	}
 }
