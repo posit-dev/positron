@@ -15,6 +15,12 @@
 		outline: 1px solid var(--vscode-focusBorder);
 	}
 
+	&:has(.action-button:focus) {
+		/* De-emphasize the outline of the main cell when the user has tabbed onto the action
+		buttons */
+		outline-style: dotted !important;
+	}
+
 	&.editing,
 	&.selected,
 	&:hover {
