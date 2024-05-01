@@ -10,13 +10,12 @@ import { ITextModelService } from 'vs/editor/common/services/resolverService';
 import { IInstantiationService } from 'vs/platform/instantiation/common/instantiation';
 import { NotebookCellTextModel } from 'vs/workbench/contrib/notebook/common/model/notebookCellTextModel';
 import { CellKind } from 'vs/workbench/contrib/notebook/common/notebookCommon';
-import { IPositronNotebookInstance } from '../../../services/positronNotebook/browser/IPositronNotebookInstance';
 import { ExecutionStatus, IPositronNotebookCodeCell, IPositronNotebookCell, IPositronNotebookMarkdownCell, NotebookCellOutputs } from 'vs/workbench/services/positronNotebook/browser/IPositronNotebookCell';
 import { CodeEditorWidget } from 'vs/editor/browser/widget/codeEditor/codeEditorWidget';
 import { CellSelectionType } from 'vs/workbench/services/positronNotebook/browser/selectionMachine';
-import { NotebookViewModel } from 'vs/workbench/contrib/notebook/browser/viewModel/notebookViewModelImpl';
+import { PositronNotebookInstance } from 'vs/workbench/contrib/positronNotebook/browser/PositronNotebookInstance';
 
-abstract class PositronNotebookCellGeneral extends Disposable implements IPositronNotebookCell {
+export abstract class PositronNotebookCellGeneral extends Disposable implements IPositronNotebookCell {
 	kind!: CellKind;
 
 	// Not marked as private so we can access it in subclasses
@@ -30,7 +29,7 @@ abstract class PositronNotebookCellGeneral extends Disposable implements IPositr
 
 	constructor(
 		public cellModel: NotebookCellTextModel,
-		public _instance: IPositronNotebookInstance,
+		public _instance: PositronNotebookInstance,
 		@ITextModelService private readonly textModelResolverService: ITextModelService,
 	) {
 		super();
@@ -67,14 +66,14 @@ abstract class PositronNotebookCellGeneral extends Disposable implements IPositr
 		return this._instance.uri;
 	}
 
-	get handle(): number {
+	get handleId(): number {
 
 		const notebookViewModel = this._instance.viewModel;
 		if (!notebookViewModel) {
 			throw new Error('Notebook view model not found');
 		}
 
-		const viewCells = (notebookViewModel as NotebookViewModel).viewCells;
+		const viewCells = notebookViewModel.viewCells;
 
 		const cell = viewCells.find(cell => cell.uri.toString() === this.cellModel.uri.toString());
 
@@ -152,14 +151,14 @@ abstract class PositronNotebookCellGeneral extends Disposable implements IPositr
 }
 
 
-class PositronNotebookCodeCell extends PositronNotebookCellGeneral implements IPositronNotebookCodeCell {
+export class PositronNotebookCodeCell extends PositronNotebookCellGeneral implements IPositronNotebookCodeCell {
 	override kind: CellKind.Code = CellKind.Code;
 	outputs: ISettableObservable<NotebookCellOutputs[]>;
 	executionStatus: ISettableObservable<ExecutionStatus> = observableValue<ExecutionStatus, void>('cellExecutionStatus', 'idle');
 
 	constructor(
 		cellModel: NotebookCellTextModel,
-		instance: IPositronNotebookInstance,
+		instance: PositronNotebookInstance,
 		textModelResolverService: ITextModelService,
 	) {
 		super(cellModel, instance, textModelResolverService);
@@ -184,9 +183,7 @@ class PositronNotebookCodeCell extends PositronNotebookCellGeneral implements IP
 }
 
 
-
-
-class PositronNotebookMarkdownCell extends PositronNotebookCellGeneral implements IPositronNotebookMarkdownCell {
+export class PositronNotebookMarkdownCell extends PositronNotebookCellGeneral implements IPositronNotebookMarkdownCell {
 
 	markdownString: ISettableObservable<string | undefined> = observableValue<string | undefined, void>('markdownString', undefined);
 	editorShown: ISettableObservable<boolean> = observableValue<boolean, void>('editorShown', false);
@@ -195,7 +192,7 @@ class PositronNotebookMarkdownCell extends PositronNotebookCellGeneral implement
 
 	constructor(
 		cellModel: NotebookCellTextModel,
-		instance: IPositronNotebookInstance,
+		instance: PositronNotebookInstance,
 		textModelResolverService: ITextModelService,
 	) {
 		super(cellModel, instance, textModelResolverService);
@@ -236,7 +233,7 @@ class PositronNotebookMarkdownCell extends PositronNotebookCellGeneral implement
  * @param instantiationService The instantiation service to use to create the cell
  * @returns The instantiated notebook cell of the correct type.
  */
-export function createNotebookCell(cell: NotebookCellTextModel, instance: IPositronNotebookInstance, instantiationService: IInstantiationService) {
+export function createNotebookCell(cell: NotebookCellTextModel, instance: PositronNotebookInstance, instantiationService: IInstantiationService) {
 	if (cell.cellKind === CellKind.Code) {
 		return instantiationService.createInstance(PositronNotebookCodeCell, cell, instance);
 	} else {

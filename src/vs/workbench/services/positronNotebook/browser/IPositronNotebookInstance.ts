@@ -4,15 +4,8 @@
 
 import { ISettableObservable } from 'vs/base/common/observableInternal/base';
 import { URI } from 'vs/base/common/uri';
-import { IPositronNotebookCell } from 'vs/workbench/services/positronNotebook/browser/IPositronNotebookCell';
+import { CellKind, IPositronNotebookCell } from 'vs/workbench/services/positronNotebook/browser/IPositronNotebookCell';
 import { SelectionStateMachine } from 'vs/workbench/services/positronNotebook/browser/selectionMachine';
-import { PositronNotebookContextKeyManager } from 'vs/workbench/services/positronNotebook/browser/ContextKeysManager';
-import { ICodeEditorViewState } from 'vs/editor/common/editorCommon';
-
-export enum CellKind {
-	Markup = 1,
-	Code = 2
-}
 
 export enum KernelStatus {
 	Uninitialized = 'Uninitialized',
@@ -21,6 +14,7 @@ export enum KernelStatus {
 	Disconnected = 'Disconnected',
 	Errored = 'Errored'
 }
+
 /**
  * Class that abstracts away _most_ of the interfacing with existing notebook classes/models/functions
  * in an attempt to control the complexity of the notebook. This class is passed into React
@@ -89,21 +83,6 @@ export interface IPositronNotebookInstance {
 	deleteCell(cell: IPositronNotebookCell): void;
 
 	/**
-	 * Attach a view model to this instance
-	 * @param viewModel View model for the notebook
-	 * @param viewState Optional view state for the notebook
-	 */
-	attachView(viewModel: unknown, container: HTMLElement, viewState?: INotebookEditorViewState): void;
-
-	readonly viewModel: unknown | undefined;
-
-	/**
-	 * Method called when the instance is detached from a view. This is used to cleanup
-	 * all the logic and variables related to the view/DOM.
-	 */
-	detachView(): void;
-
-	/**
 	 * Set the currently selected cells for notebook instance
 	 * @param cellOrCells The cell or cells to set as selected
 	 */
@@ -115,39 +94,8 @@ export interface IPositronNotebookInstance {
 	 */
 	deselectCell(cell: IPositronNotebookCell): void;
 
-
 	/**
 	 * Set the currently editing cell.
 	 */
 	setEditingCell(cell: IPositronNotebookCell | undefined): void;
-
-	/**
-	 * Class for managing context keys for notebook.
-	 */
-	contextManager: PositronNotebookContextKeyManager;
-}
-
-interface INotebookEditorViewState {
-	editingCells: { [key: number]: boolean };
-	collapsedInputCells: { [key: number]: boolean };
-	collapsedOutputCells: { [key: number]: boolean };
-	cellLineNumberStates: { [key: number]: 'on' | 'off' };
-	editorViewStates: { [key: number]: ICodeEditorViewState | null };
-	hiddenFoldingRanges?: {
-		/**
-		 * zero based index
-		 */
-		start: number;
-
-		/**
-		 * zero based index
-		 */
-		end: number;
-	}[];
-	cellTotalHeights?: { [key: number]: number };
-	scrollPosition?: { left: number; top: number };
-	focus?: number;
-	editorFocused?: boolean;
-	contributionsState?: { [id: string]: unknown };
-	selectedKernelId?: string;
 }

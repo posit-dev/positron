@@ -105,7 +105,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	/**
 	 * Returns view model. Type of unknown is used to deal with type import rules. Should be type-cast to NotebookViewModel.
 	 */
-	get viewModel(): unknown | undefined {
+	get viewModel(): NotebookViewModel | undefined {
 		return this._viewModel;
 	}
 

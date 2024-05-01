@@ -7,12 +7,14 @@ import { Disposable } from 'vs/base/common/lifecycle';
 import { ISettableObservable } from 'vs/base/common/observableInternal/base';
 import { URI } from 'vs/base/common/uri';
 import { CodeEditorWidget } from 'vs/editor/browser/widget/codeEditor/codeEditorWidget';
-import { ITextModel } from 'vs/editor/common/model';
-import { CellKind } from 'vs/workbench/services/positronNotebook/browser/IPositronNotebookInstance';
 import { CellSelectionType } from 'vs/workbench/services/positronNotebook/browser/selectionMachine';
 
 export type ExecutionStatus = 'running' | 'pending' | 'unconfirmed' | 'idle';
 
+export enum CellKind {
+	Markup = 1,
+	Code = 2
+}
 
 /**
  * Wrapper class for notebook cell that exposes the properties that the UI needs to render the cell.
@@ -58,12 +60,7 @@ export interface IPositronNotebookCell extends Disposable {
 	/**
 	 * Get the handle number for cell from cell model
 	 */
-	get handle(): number;
-
-	/**
-	 * Get the text editor model for use in the monaco editor widgets
-	 */
-	getTextEditorModel(): Promise<ITextModel>;
+	get handleId(): number;
 
 	/**
 	 * Delete this cell
@@ -143,8 +140,6 @@ export interface IPositronNotebookCodeCell extends IPositronNotebookCell {
 	 * Current cell outputs as an observable
 	 */
 	outputs: ISettableObservable<NotebookCellOutputs[], void>;
-
-
 }
 
 
