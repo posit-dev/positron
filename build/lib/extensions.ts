@@ -299,6 +299,8 @@ const excludedExtensions = [
 	'vscode-test-resolver',
 	'ms-vscode.node-debug',
 	'ms-vscode.node-debug2',
+	'positron-zed',
+	'positron-javascript',
 ];
 
 const marketplaceWebExtensionsExclude = new Set([
