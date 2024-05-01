@@ -88,6 +88,7 @@ export interface IPositronNotebookCell extends Disposable {
 
 	/**
 	 * Select this cell
+	 * @param type The type of selection to apply. E.g. an editing selection or a normal selection.
 	 */
 	select(type: CellSelectionType): void;
 
@@ -113,11 +114,12 @@ export interface IPositronNotebookCell extends Disposable {
 
 	/**
 	 * Attach the cell to a container. Used for things like focus management
+	 * @param container Element that the cell is rendered into.
 	 */
 	attachContainer(container: HTMLElement): void;
 
 	/**
-	 *
+	 * Attach the editor widget to the cell
 	 * @param editor Code editor widget associated with cell.
 	 */
 	attachEditor(editor: CodeEditorWidget): void;
@@ -144,8 +146,6 @@ export interface IPositronNotebookCodeCell extends IPositronNotebookCell {
 	 * Current cell outputs as an observable
 	 */
 	outputs: ISettableObservable<ICellOutput[], void>;
-
-
 }
 
 
