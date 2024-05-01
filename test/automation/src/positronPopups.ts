@@ -3,7 +3,6 @@
  *--------------------------------------------------------------------------------------------*/
 
 
-import { request } from '@playwright/test';
 import { Code } from './code';
 
 const POSITRON_MODAL_DIALOG_BOX = '.positron-modal-dialog-box';
