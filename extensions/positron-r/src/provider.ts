@@ -82,7 +82,7 @@ export async function* rRuntimeDiscoverer(): AsyncGenerator<positron.LanguageRun
 		})
 		.filter(r => {
 			if (!(r.current || r.orthogonal)) {
-				console.log(`Filtering out ${r.binpath}: not current and also not orthogonal.`);
+				LOGGER.info(`Filtering out ${r.binpath}: not current and also not orthogonal.`);
 				return false;
 			}
 			return true;
