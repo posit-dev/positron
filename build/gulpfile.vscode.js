@@ -290,9 +290,13 @@ function packageTask(platform, arch, sourceFolderName, destinationFolderName, op
 		const positronApi = gulp.src('src/positron-dts/positron.d.ts')
 			.pipe(rename('out/positron-dts/positron.d.ts'));
 
-		// Bundled Pandoc binary
+		// Bundled Pandoc binary. Place this in a `pandoc` subfolder of `bin`
+		// since `bin` can be placed in the $PATH, and we don't want to pollute
+		// the $PATH with the Pandoc binary.
 		const pandocExt = process.platform === 'win32' ? '.exe' : '';
-		const binFolder = process.platform === 'darwin' ? 'bin' : path.join('..', '..', 'bin');
+		const binFolder = process.platform === 'darwin' ?
+			path.join('bin', 'pandoc') :
+			path.join('..', '..', 'bin', 'pandoc');
 		const pandoc = getPandocStream()
 			.pipe(rename(path.join(binFolder, `pandoc${pandocExt}`)))
 			.pipe(util.setExecutableBit());
