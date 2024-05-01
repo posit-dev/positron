@@ -679,7 +679,9 @@ export function createJupyterKernelSpec(
 	// On MacOS, the binary path lives alongside the app bundle; on other
 	// platforms, it's a couple of directories up from the app root.
 	const pandocPath = path.join(vscode.env.appRoot,
-		process.platform === 'darwin' ? 'bin' : path.join('..', '..', 'bin'));
+		process.platform === 'darwin' ?
+			path.join('bin', 'pandoc') :
+			path.join('..', '..', 'bin', 'pandoc'));
 	if (existsSync(pandocPath)) {
 		env['RSTUDIO_PANDOC'] = pandocPath;
 	}
