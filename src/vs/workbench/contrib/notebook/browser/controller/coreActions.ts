@@ -22,6 +22,9 @@ import { IJSONSchema } from 'vs/base/common/jsonSchema';
 import { MarshalledId } from 'vs/base/common/marshallingIds';
 import { ICodeEditor } from 'vs/editor/browser/editorBrowser';
 import { isEqual } from 'vs/base/common/resources';
+// --- Begin Positron ---
+import { IPositronNotebookService } from 'vs/workbench/services/positronNotebook/browser/positronNotebookService';
+// --- End Positron ---
 
 // Kernel Command
 export const SELECT_KERNEL_ID = '_notebook.selectKernel';
@@ -161,6 +164,10 @@ export abstract class NotebookAction extends Action2 {
 		if (!this.isNotebookActionContext(context)) {
 			context = this.getEditorContextFromArgsOrActive(accessor, context, ...additionalArgs);
 			if (!context) {
+				// --- Begin Positron ---
+				const positronNotebookService = accessor.get(IPositronNotebookService);
+				positronNotebookService.sayHi();
+				// --- End Positron ---
 				return;
 			}
 		}
