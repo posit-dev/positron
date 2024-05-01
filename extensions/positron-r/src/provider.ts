@@ -74,15 +74,15 @@ export async function* rRuntimeDiscoverer(): AsyncGenerator<positron.LanguageRun
 			return true;
 		})
 		.filter(r => {
-			if (!r.supported) {
-				LOGGER.info(`Filtering out ${r.binpath}: version is < ${MINIMUM_R_VERSION}`);
+			if (!(r.current || r.orthogonal)) {
+				LOGGER.info(`Filtering out ${r.binpath}: not current and also not orthogonal.`);
 				return false;
 			}
 			return true;
 		})
 		.filter(r => {
-			if (!(r.current || r.orthogonal)) {
-				console.log(`Filtering out ${r.binpath}: not current and also not orthogonal.`);
+			if (!r.supported) {
+				LOGGER.info(`Filtering out ${r.binpath}: version is < ${MINIMUM_R_VERSION}`);
 				return false;
 			}
 			return true;
