@@ -92,34 +92,25 @@ export const showNewProjectModalDialog = async (
 						useRenv: result.useRenv || false,
 					};
 
-					// TODO: this should check if the existing directory is already open
-					// if it is, switch to that window and do the project initialization steps there
-					if (positronNewProjectService.isNewProjectCurrentWorkspace(folder)) {
-						// The new project is being created in the current workspace, so initialize
-						// the project immediately.
-						positronNewProjectService.initNewProjectWithConfig(newProjectConfig);
-						return;
-					} else {
-						// Store the new project configuration.
-						positronNewProjectService.storeNewProjectConfig(newProjectConfig);
+					// TODO: we may want to allow the user to select an already existing directory
+					// and then create the project in that directory. We will need to handle if the
+					// directory is the same as the current workspace directory in the active window
+					// or if the new project directory is already open in another window.
 
-						// Any context-dependent work needs to be done before opening the folder
-						// because the extension host gets destroyed when a new project is opened,
-						// whether the folder is opened in a new window or in the existing window.
-						await commandService.executeCommand(
-							'vscode.openFolder',
-							folder,
-							{
-								forceNewWindow: result.openInNewWindow,
-								forceReuseWindow: !result.openInNewWindow
-							}
-						);
-					}
+					// Store the new project configuration.
+					positronNewProjectService.storeNewProjectConfig(newProjectConfig);
 
-					// Other Thoughts
-					//   - Can the interpreter discovery at startup be modified to directly use the selected
-					//     interpreter, so that the user doesn't have to wait for the interpreter discovery to
-					//     complete before the runtime is started?
+					// Any context-dependent work needs to be done before opening the folder
+					// because the extension host gets destroyed when a new project is opened,
+					// whether the folder is opened in a new window or in the existing window.
+					await commandService.executeCommand(
+						'vscode.openFolder',
+						folder,
+						{
+							forceNewWindow: result.openInNewWindow,
+							forceReuseWindow: !result.openInNewWindow
+						}
+					);
 				}}
 			/>
 		</NewProjectWizardContextProvider>

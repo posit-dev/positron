@@ -3,7 +3,6 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { Disposable } from 'vs/base/common/lifecycle';
-import { URI } from 'vs/base/common/uri';
 import { ICommandService } from 'vs/platform/commands/common/commands';
 import { ILogService } from 'vs/platform/log/common/log';
 import { IStorageService, StorageScope, StorageTarget } from 'vs/platform/storage/common/storage';
@@ -157,9 +156,14 @@ export class PositronNewProjectService extends Disposable implements IPositronNe
 			// Run tasks that require the extension service to be ready.
 			this.runExtensionTasks();
 
+			// Start the selected runtime
 			const runtimeId = this._newProjectConfig.runtimeId;
-			// Do the initialization tasks here.
 			this._register(this._runtimeStartupService.onDidChangeRuntimeStartupPhase(phase => {
+				// Thought: Can the interpreter discovery at startup be modified to directly use the
+				// selected interpreter, so that the user doesn't have to wait for the interpreter
+				// discovery to complete before the runtime is started? Can we set the affiliated
+				// runtime metadata directly, so the selected interpreter can be started immediately
+				// without having to explicitly select it?
 				if (phase === RuntimeStartupPhase.Complete) {
 					// TODO: this may try to start a runtime that is already running
 					this._runtimeSessionService.selectRuntime(
@@ -169,20 +173,6 @@ export class PositronNewProjectService extends Disposable implements IPositronNe
 				}
 			}));
 		}
-	}
-
-	initNewProjectWithConfig(newProjectConfig: NewProjectConfiguration) {
-		this._newProjectConfig = newProjectConfig;
-		if (this.isCurrentWindowNewProject()) {
-			this.runExtensionTasks();
-			const runtimeId = this._newProjectConfig.runtimeId;
-			// TODO: this may try to start a runtime that is already running
-			this._runtimeSessionService.selectRuntime(
-				runtimeId,
-				'User-requested startup from the Positron Project Wizard in the current workspace'
-			);
-		}
-		this.initNewProject();
 	}
 
 	clearNewProjectConfig() {
@@ -199,13 +189,5 @@ export class PositronNewProjectService extends Disposable implements IPositronNe
 			StorageScope.APPLICATION,
 			StorageTarget.MACHINE
 		);
-	}
-
-	isNewProjectCurrentWorkspace(newProjectUri: URI): boolean {
-		// if it is, then we can initialize the project right away
-		// if it's the current window, initialize the project right away
-		// if it's a different window, store the config and open the folder? or can we send a task
-		// to the other window to initialize the project?
-		return this._contextService.isCurrentWorkspace(newProjectUri);
 	}
 }
