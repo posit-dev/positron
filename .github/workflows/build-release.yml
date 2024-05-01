@@ -72,6 +72,7 @@ jobs:
     needs: version_string
     secrets: inherit
     with:
+      build_number: ${{ needs.version_string.outputs.build_number }}
       short_version: ${{ needs.version_string.outputs.short_version }}
 
   releases:
