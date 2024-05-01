@@ -480,11 +480,6 @@ class PositronIPyKernel(IPythonKernel):
         # if coming from one of our files, log and don't send to user
         positron_files_path = Path(__file__).parent
 
-        if str(positron_files_path) in str(filename):
-            msg = f"{filename}-{lineno}: {category}: {message}"
-            logger.warning(msg)
-            return
-
         # Check if the filename refers to a cell in the Positron Console.
         # We use the fact that ipykernel sets the filename to a path starting in the root temporary
         # directory. We can't determine the full filename since it depends on the cell's code which
@@ -492,6 +487,17 @@ class PositronIPyKernel(IPythonKernel):
         console_dir = get_tmp_directory()
         if console_dir in str(filename):
             filename = f"<positron-console-cell-{self.execution_count}>"
+
+        # send to logs if warning is coming from Positron files
+        # or if it is a SyntaxWarning for escape sequences, which can be noisy
+        if (
+            str(positron_files_path) in str(filename)
+            or "invalid escape sequence" in str(message)
+            and category is SyntaxWarning
+        ):
+            msg = f"{filename}-{lineno}: {category}: {message}"
+            logger.warning(msg)
+            return
 
         msg = warnings.WarningMessage(message, category, filename, lineno, file, line)
 
