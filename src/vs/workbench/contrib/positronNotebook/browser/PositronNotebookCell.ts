@@ -14,7 +14,7 @@ import { CellKind, ICellOutput } from 'vs/workbench/contrib/notebook/common/note
 import { IPositronNotebookInstance } from 'vs/workbench/contrib/positronNotebook/browser/PositronNotebookInstance';
 import { ExecutionStatus, IPositronNotebookCodeCell, IPositronNotebookCell, IPositronNotebookMarkdownCell } from 'vs/workbench/contrib/positronNotebook/browser/notebookCells/interfaces';
 import { CodeEditorWidget } from 'vs/editor/browser/widget/codeEditor/codeEditorWidget';
-import { CellSelectionType } from 'vs/workbench/contrib/positronNotebook/browser/notebookCells/selectionMachine';
+import { CellSelectionType, SelectionState } from 'vs/workbench/contrib/positronNotebook/browser/notebookCells/selectionMachine';
 
 abstract class PositronNotebookCellGeneral extends Disposable implements IPositronNotebookCell {
 	kind!: CellKind;
@@ -38,13 +38,13 @@ abstract class PositronNotebookCellGeneral extends Disposable implements IPositr
 		this._disposableStore.add(
 			this._instance.selectionStateMachine.onNewState((state) => {
 
-				if (state.type === 'No Selection') {
+				if (state.type === SelectionState.NoSelection) {
 					this.selected.set(false, undefined);
 					this.editing.set(false, undefined);
 					return;
 				}
 
-				if (state.type === 'Editing Selection') {
+				if (state.type === SelectionState.EditingSelection) {
 					const editingThisCell = state.selectedCell === this;
 					this.selected.set(editingThisCell, undefined);
 					this.editing.set(editingThisCell, undefined);

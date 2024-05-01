@@ -6,37 +6,29 @@ import { IPositronNotebookCell } from 'vs/workbench/contrib/positronNotebook/bro
 import { Event } from 'vs/base/common/event';
 import { ILogService } from 'vs/platform/log/common/log';
 
-type NoSelection = {
-	type: 'No Selection';
-};
-
-function isNoSelection(state: SelectionStates): state is NoSelection {
-	return state.type === 'No Selection';
+export enum SelectionState {
+	NoSelection,
+	SingleSelection,
+	MultiSelection,
+	EditingSelection
 }
 
-type SingleSelection = {
-	type: 'Single Selection';
-	selected: IPositronNotebookCell[];
-};
-function isSingleSelection(state: SelectionStates): state is SingleSelection {
-	return state.type === 'Single Selection';
-}
-
-type MultiSelection = {
-	type: 'Multi Selection';
-	selected: IPositronNotebookCell[];
-};
-function isMultiSelection(state: SelectionStates): state is MultiSelection {
-	return state.type === 'Multi Selection';
-}
-
-type EditingSelection = {
-	type: 'Editing Selection';
-	selectedCell: IPositronNotebookCell;
-};
-function isEditingSelection(state: SelectionStates): state is EditingSelection {
-	return state.type === 'Editing Selection';
-}
+type SelectionStates =
+	| {
+		type: SelectionState.NoSelection;
+	}
+	| {
+		type: SelectionState.SingleSelection;
+		selected: IPositronNotebookCell[];
+	}
+	| {
+		type: SelectionState.MultiSelection;
+		selected: IPositronNotebookCell[];
+	}
+	| {
+		type: SelectionState.EditingSelection;
+		selectedCell: IPositronNotebookCell;
+	};
 
 export enum CellSelectionType {
 	Add,
@@ -44,15 +36,9 @@ export enum CellSelectionType {
 	Normal
 }
 
-type SelectionStates =
-	| NoSelection
-	| SingleSelection
-	| MultiSelection
-	| EditingSelection;
-
 export class SelectionStateMachine {
 
-	private _state: SelectionStates = { type: 'No Selection' };
+	private _state: SelectionStates = { type: SelectionState.NoSelection };
 
 	// Alert the observable that the state has changed.
 	private _setState(state: SelectionStates) {
@@ -82,15 +68,15 @@ export class SelectionStateMachine {
 	setCells(cells: IPositronNotebookCell[]): void {
 		this._cells = cells;
 
-		if (isNoSelection(this._state)) {
+		if (this._state.type === SelectionState.NoSelection) {
 			return;
 		}
 
 		// If we're editing a cell when setCells is called. We need to check if the cell is still in the new cells.
 		// If it isn't we need to reset the selection.
-		if (isEditingSelection(this._state)) {
+		if (this._state.type === SelectionState.EditingSelection) {
 			if (!cells.includes(this._state.selectedCell)) {
-				this._setState({ type: 'No Selection' });
+				this._setState({ type: SelectionState.NoSelection });
 				return;
 			}
 			return;
@@ -98,11 +84,11 @@ export class SelectionStateMachine {
 
 		const selectionAfterNewCells = cellSelectionIntersection(cells, this._state.selected);
 		if (selectionAfterNewCells.length === 0) {
-			this._setState({ type: 'No Selection' });
+			this._setState({ type: SelectionState.NoSelection });
 			return;
 		}
 
-		this._setState({ type: selectionAfterNewCells.length === 1 ? 'Single Selection' : 'Multi Selection', selected: selectionAfterNewCells });
+		this._setState({ type: selectionAfterNewCells.length === 1 ? SelectionState.SingleSelection : SelectionState.MultiSelection, selected: selectionAfterNewCells });
 	}
 
 	/**
@@ -112,18 +98,18 @@ export class SelectionStateMachine {
 	 */
 	selectCell(cell: IPositronNotebookCell, selectType: CellSelectionType = CellSelectionType.Normal): void {
 
-		if (selectType === CellSelectionType.Normal || isNoSelection(this._state) && selectType === CellSelectionType.Add) {
-			this._setState({ type: 'Single Selection', selected: [cell] });
+		if (selectType === CellSelectionType.Normal || this._state.type === SelectionState.NoSelection && selectType === CellSelectionType.Add) {
+			this._setState({ type: SelectionState.SingleSelection, selected: [cell] });
 			return;
 		}
 
 		if (selectType === CellSelectionType.Edit) {
-			this._setState({ type: 'Editing Selection', selectedCell: cell });
+			this._setState({ type: SelectionState.EditingSelection, selectedCell: cell });
 			return;
 		}
 
-		if (isSingleSelection(this._state) || isMultiSelection(this._state)) {
-			this._setState({ type: 'Multi Selection', selected: [...this._state.selected, cell] });
+		if (this._state.type === SelectionState.SingleSelection || this._state.type === SelectionState.MultiSelection) {
+			this._setState({ type: SelectionState.MultiSelection, selected: [...this._state.selected, cell] });
 			return;
 		}
 
@@ -137,23 +123,25 @@ export class SelectionStateMachine {
 	 * @returns
 	 */
 	deselectCell(cell: IPositronNotebookCell): void {
-		if (isNoSelection(this._state)) {
+		if (this._state.type === SelectionState.NoSelection) {
 			return;
 		}
 
-		const deselectingCurrentSelection = isSingleSelection(this._state) || isEditingSelection(this._state) && this._state.selectedCell === cell;
+		const deselectingCurrentSelection = this._state.type === SelectionState.SingleSelection
+			|| this._state.type === SelectionState.EditingSelection
+			&& this._state.selectedCell === cell;
 
 		if (deselectingCurrentSelection) {
-			this._setState({ type: 'No Selection' });
+			this._setState({ type: SelectionState.NoSelection });
 			return;
 		}
 
-		if (isMultiSelection(this._state)) {
+		if (this._state.type === SelectionState.MultiSelection) {
 			const updatedSelection = this._state.selected.filter(c => c !== cell);
 			// Set focus on the last cell in the selection to avoid confusingly leaving selection
 			// styles on cell just deselected. Not sure if this is the best UX.
 			updatedSelection.at(-1)?.focus();
-			this._setState({ type: updatedSelection.length === 1 ? 'Single Selection' : 'Multi Selection', selected: updatedSelection });
+			this._setState({ type: updatedSelection.length === 1 ? SelectionState.SingleSelection : SelectionState.MultiSelection, selected: updatedSelection });
 		}
 
 		// If the cell is not in the selection, do nothing.
@@ -161,7 +149,7 @@ export class SelectionStateMachine {
 
 	private _moveSelection(up: boolean, addMode: boolean) {
 
-		if (isNoSelection(this._state) || isEditingSelection(this._state)) {
+		if (this._state.type === SelectionState.NoSelection || this._state.type === SelectionState.EditingSelection) {
 			return;
 		}
 
@@ -177,15 +165,15 @@ export class SelectionStateMachine {
 			}
 			const newSelection = up ? [nextCell, ...this._state.selected] : [...this._state.selected, nextCell];
 			this._setState({
-				type: 'Multi Selection',
+				type: SelectionState.MultiSelection,
 				selected: newSelection
 			});
 
 			return;
 		}
 
-		if (isMultiSelection(this._state)) {
-			this._setState({ type: 'Single Selection', selected: [edgeCell] });
+		if (this._state.type === SelectionState.MultiSelection) {
+			this._setState({ type: SelectionState.SingleSelection, selected: [edgeCell] });
 			edgeCell.focus();
 			return;
 		}
@@ -197,7 +185,7 @@ export class SelectionStateMachine {
 		}
 
 		// If meta is not held down, we're in single selection mode.
-		this._setState({ type: 'Single Selection', selected: [nextCell] });
+		this._setState({ type: SelectionState.SingleSelection, selected: [nextCell] });
 
 		nextCell.focus();
 	}
@@ -223,9 +211,9 @@ export class SelectionStateMachine {
 	 * Enters the editor for the selected cell.
 	 */
 	enterEditor(): void {
-		if (isSingleSelection(this._state)) {
+		if (this._state.type === SelectionState.SingleSelection) {
 			const cellToEdit = this._state.selected[0];
-			this._setState({ type: 'Editing Selection', selectedCell: cellToEdit });
+			this._setState({ type: SelectionState.EditingSelection, selectedCell: cellToEdit });
 			// Timeout here avoids the problem of enter applying to the editor widget itself.
 			setTimeout(() => cellToEdit.focusEditor(), 0);
 		}
@@ -235,9 +223,9 @@ export class SelectionStateMachine {
 	 * Reset the selection to the cell so user can navigate between cells
 	 */
 	exitEditor(): void {
-		if (isEditingSelection(this._state)) {
+		if (this._state.type === SelectionState.EditingSelection) {
 			this._state.selectedCell.defocusEditor();
-			this._setState({ type: 'Single Selection', selected: [this._state.selectedCell] });
+			this._setState({ type: SelectionState.SingleSelection, selected: [this._state.selectedCell] });
 		}
 	}
 }
