@@ -15,7 +15,7 @@ import { FloatingEditorClickMenu } from 'vs/workbench/browser/codeeditor';
 import { CellEditorOptions } from 'vs/workbench/contrib/notebook/browser/view/cellParts/cellEditorOptions';
 import { useNotebookInstance } from 'vs/workbench/contrib/positronNotebook/browser/NotebookInstanceProvider';
 import { useServices } from 'vs/workbench/contrib/positronNotebook/browser/ServicesProvider';
-import { IPositronNotebookCell } from 'vs/workbench/contrib/positronNotebook/browser/notebookCells/interfaces';
+import { IPositronNotebookCell } from 'vs/workbench/services/positronNotebook/browser/IPositronNotebookCell';
 import { observeValue } from 'vs/workbench/contrib/positronNotebook/common/utils/observeValue';
 import { DisposableStore } from 'vs/base/common/lifecycle';
 

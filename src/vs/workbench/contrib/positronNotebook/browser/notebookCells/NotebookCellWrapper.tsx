@@ -5,9 +5,9 @@ import 'vs/css!./NotebookCellWrapper';
 
 import * as React from 'react';
 import { CellKind } from 'vs/workbench/contrib/notebook/common/notebookCommon';
-import { IPositronNotebookCell } from 'vs/workbench/contrib/positronNotebook/browser/notebookCells/interfaces';
+import { IPositronNotebookCell } from 'vs/workbench/services/positronNotebook/browser/IPositronNotebookCell';
 import { useObservedValue } from 'vs/workbench/contrib/positronNotebook/browser/useObservedValue';
-import { CellSelectionType } from 'vs/workbench/contrib/positronNotebook/browser/notebookCells/selectionMachine';
+import { CellSelectionType } from 'vs/workbench/services/positronNotebook/browser/selectionMachine';
 
 export function NotebookCellWrapper({ cell, children }: { cell: IPositronNotebookCell; children: React.ReactNode }) {
 	const selected = useObservedValue(cell.selected);

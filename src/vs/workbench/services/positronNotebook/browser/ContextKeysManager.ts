@@ -5,13 +5,16 @@
 import * as DOM from 'vs/base/browser/dom';
 import { Disposable } from 'vs/base/common/lifecycle';
 import { IContextKey, IContextKeyService, RawContextKey } from 'vs/platform/contextkey/common/contextkey';
-import { NOTEBOOK_EDITOR_FOCUSED } from 'vs/workbench/contrib/notebook/common/notebookContextKeys';
 
 /**
  * Context key that is set when the Positron notebook editor is focused. Used for rerouting
  * actions meant for vscode notebooks.
  */
 export const POSITRON_NOTEBOOK_EDITOR_FOCUSED = new RawContextKey<boolean>('positronNotebookEditorFocused', false);
+
+// This is a copy of the existing vscode notebook context key. We can't directly import their copy
+// due to import rules
+const NOTEBOOK_EDITOR_FOCUSED = new RawContextKey<boolean>('notebookEditorFocused', false);
 
 /**
  * Class to handle context keys for positron notebooks

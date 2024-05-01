@@ -6,7 +6,7 @@ import { Disposable } from 'vs/base/common/lifecycle';
 import { IAction2Options } from 'vs/platform/actions/common/actions';
 import { InstantiationType, registerSingleton } from 'vs/platform/instantiation/common/extensions';
 import { createDecorator } from 'vs/platform/instantiation/common/instantiation';
-import { IPositronNotebookInstance } from 'vs/workbench/contrib/positronNotebook/browser/PositronNotebookInstance';
+import { IPositronNotebookInstance } from 'vs/workbench/services/positronNotebook/browser/IPositronNotebookInstance';
 
 export const IPositronNotebookService = createDecorator<IPositronNotebookService>('positronNotebookService');
 export interface IPositronNotebookService {

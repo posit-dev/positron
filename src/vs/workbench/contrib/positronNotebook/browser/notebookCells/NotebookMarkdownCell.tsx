@@ -4,7 +4,7 @@
 import 'vs/css!./NotebookMarkdownCell';
 import * as React from 'react';
 
-import { IPositronNotebookMarkdownCell } from 'vs/workbench/contrib/positronNotebook/browser/notebookCells/interfaces';
+import { IPositronNotebookMarkdownCell } from 'vs/workbench/services/positronNotebook/browser/IPositronNotebookCell';
 
 import { CellEditorMonacoWidget } from 'vs/workbench/contrib/positronNotebook/browser/notebookCells/CellEditorMonacoWidget';
 import { NotebookCellActionBar } from 'vs/workbench/contrib/positronNotebook/browser/notebookCells/NotebookCellActionBar';

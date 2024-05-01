@@ -24,125 +24,15 @@ import { createNotebookCell } from 'vs/workbench/contrib/positronNotebook/browse
 import { PositronNotebookEditorInput } from 'vs/workbench/contrib/positronNotebook/browser/PositronNotebookEditorInput';
 import { BaseCellEditorOptions } from './BaseCellEditorOptions';
 import * as DOM from 'vs/base/browser/dom';
-import { IPositronNotebookCell } from 'vs/workbench/contrib/positronNotebook/browser/notebookCells/interfaces';
-import { CellSelectionType, SelectionStateMachine } from 'vs/workbench/contrib/positronNotebook/browser/notebookCells/selectionMachine';
-import { PositronNotebookContextKeyManager } from 'vs/workbench/contrib/positronNotebook/browser/ContextKeysManager';
+import { IPositronNotebookCell } from 'vs/workbench/services/positronNotebook/browser/IPositronNotebookCell';
+import { CellSelectionType, SelectionStateMachine } from 'vs/workbench/services/positronNotebook/browser/selectionMachine';
+import { PositronNotebookContextKeyManager } from 'vs/workbench/services/positronNotebook/browser/ContextKeysManager';
 import { IPositronNotebookService } from 'vs/workbench/services/positronNotebook/browser/positronNotebookService';
+import { IPositronNotebookInstance, KernelStatus } from '../../../services/positronNotebook/browser/IPositronNotebookInstance';
+import { NotebookCellTextModel } from 'vs/workbench/contrib/notebook/common/model/notebookCellTextModel';
 
 
-enum KernelStatus {
-	Uninitialized = 'Uninitialized',
-	Connecting = 'Connecting',
-	Connected = 'Connected',
-	Disconnected = 'Disconnected',
-	Errored = 'Errored'
-}
 
-/**
- * Class that abstracts away _most_ of the interfacing with existing notebook classes/models/functions
- * in an attempt to control the complexity of the notebook. This class is passed into React
- * and is the source of truth for rendering and controlling the notebook.
- * This is where all the logic and state for the notebooks is controlled and encapsulated.
- * This is then given to the UI to render.
- */
-export interface IPositronNotebookInstance {
-
-	/**
-	 * URI of the notebook file being edited
-	 */
-	get uri(): URI;
-
-	/**
-	 * The cells that make up the notebook
-	 */
-	cells: ISettableObservable<IPositronNotebookCell[]>;
-
-	/**
-	 * Status of kernel for the notebook.
-	 */
-	kernelStatus: ISettableObservable<KernelStatus>;
-
-	/**
-	 * Selection state machine object.
-	 */
-	selectionStateMachine: SelectionStateMachine;
-
-	/**
-	 * Has the notebook instance been disposed?
-	 */
-	isDisposed: boolean;
-
-	// Methods for interacting with the notebook
-
-	/**
-	 * Run the given cells
-	 * @param cells The cells to run
-	 */
-	runCells(cells: IPositronNotebookCell[]): Promise<void>;
-
-	/**
-	 * Run the selected cells
-	 */
-	runSelectedCells(): Promise<void>;
-
-	/**
-	 * Run all cells in the notebook
-	 */
-	runAllCells(): Promise<void>;
-
-	/**
-	 * Add a new cell of a given type to the notebook at the requested index
-	 */
-	addCell(type: CellKind, index: number): void;
-
-	/**
-	 * Action mirror
-	 */
-	insertCodeCellAboveAndFocusContainer(): void;
-
-	/**
-	 * Delete a cell from the notebook
-	 */
-	deleteCell(cell: IPositronNotebookCell): void;
-
-	/**
-	 * Attach a view model to this instance
-	 * @param viewModel View model for the notebook
-	 * @param viewState Optional view state for the notebook
-	 */
-	attachView(viewModel: NotebookViewModel, container: HTMLElement, viewState?: INotebookEditorViewState): void;
-
-	readonly viewModel: NotebookViewModel | undefined;
-
-	/**
-	 * Method called when the instance is detached from a view. This is used to cleanup
-	 * all the logic and variables related to the view/DOM.
-	 */
-	detachView(): void;
-
-	/**
-	 * Set the currently selected cells for notebook instance
-	 * @param cellOrCells The cell or cells to set as selected
-	 */
-	setSelectedCells(cellOrCells: IPositronNotebookCell[]): void;
-
-	/**
-	 * Remove selection from cell
-	 * @param cell The cell to deselect
-	 */
-	deselectCell(cell: IPositronNotebookCell): void;
-
-
-	/**
-	 * Set the currently editing cell.
-	 */
-	setEditingCell(cell: IPositronNotebookCell | undefined): void;
-
-	/**
-	 * Class for managing context keys for notebook.
-	 */
-	contextManager: PositronNotebookContextKeyManager;
-}
 
 export class PositronNotebookInstance extends Disposable implements IPositronNotebookInstance {
 	/**
@@ -212,7 +102,10 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		return this._input.resource;
 	}
 
-	get viewModel(): NotebookViewModel | undefined {
+	/**
+	 * Returns view model. Type of unknown is used to deal with type import rules. Should be type-cast to NotebookViewModel.
+	 */
+	get viewModel(): unknown | undefined {
 		return this._viewModel;
 	}
 
@@ -442,11 +335,11 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		const hasExecutions = [...cells].some(cell => Boolean(this.notebookExecutionStateService.getCellExecution(cell.uri)));
 
 		if (hasExecutions) {
-			this.notebookExecutionService.cancelNotebookCells(this._textModel, Array.from(cells).map(c => c.cellModel));
+			this.notebookExecutionService.cancelNotebookCells(this._textModel, Array.from(cells).map(c => c.cellModel as NotebookCellTextModel));
 			return;
 		}
 
-		await this.notebookExecutionService.executeNotebookCells(this._textModel, Array.from(cells).map(c => c.cellModel), this._contextKeyService);
+		await this.notebookExecutionService.executeNotebookCells(this._textModel, Array.from(cells).map(c => c.cellModel as NotebookCellTextModel), this._contextKeyService);
 		for (const cell of codeCells) {
 			if (cell.isCodeCell()) {
 				cell.executionStatus.set('idle', undefined);
@@ -496,7 +389,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		// TODO: Hook up readOnly to the notebook actual value
 		const readOnly = false;
 		const computeUndoRedo = !readOnly || textModel.viewType === 'interactive';
-		const cellIndex = textModel.cells.indexOf(cell.cellModel);
+		const cellIndex = textModel.cells.indexOf(cell.cellModel as NotebookCellTextModel);
 
 		const edits: ICellReplaceEdit = {
 			editType: CellEditType.Replace, index: cellIndex, count: 1, cells: []

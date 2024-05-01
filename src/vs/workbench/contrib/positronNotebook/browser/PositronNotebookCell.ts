@@ -8,13 +8,13 @@ import { URI } from 'vs/base/common/uri';
 import { ITextModel } from 'vs/editor/common/model';
 import { ITextModelService } from 'vs/editor/common/services/resolverService';
 import { IInstantiationService } from 'vs/platform/instantiation/common/instantiation';
-import { ICellViewModel } from 'vs/workbench/contrib/notebook/browser/notebookBrowser';
 import { NotebookCellTextModel } from 'vs/workbench/contrib/notebook/common/model/notebookCellTextModel';
-import { CellKind, ICellOutput } from 'vs/workbench/contrib/notebook/common/notebookCommon';
-import { IPositronNotebookInstance } from 'vs/workbench/contrib/positronNotebook/browser/PositronNotebookInstance';
-import { ExecutionStatus, IPositronNotebookCodeCell, IPositronNotebookCell, IPositronNotebookMarkdownCell } from 'vs/workbench/contrib/positronNotebook/browser/notebookCells/interfaces';
+import { CellKind } from 'vs/workbench/contrib/notebook/common/notebookCommon';
+import { IPositronNotebookInstance } from '../../../services/positronNotebook/browser/IPositronNotebookInstance';
+import { ExecutionStatus, IPositronNotebookCodeCell, IPositronNotebookCell, IPositronNotebookMarkdownCell, NotebookCellOutputs } from 'vs/workbench/services/positronNotebook/browser/IPositronNotebookCell';
 import { CodeEditorWidget } from 'vs/editor/browser/widget/codeEditor/codeEditorWidget';
-import { CellSelectionType, SelectionState } from 'vs/workbench/contrib/positronNotebook/browser/notebookCells/selectionMachine';
+import { CellSelectionType } from 'vs/workbench/services/positronNotebook/browser/selectionMachine';
+import { NotebookViewModel } from 'vs/workbench/contrib/notebook/browser/viewModel/notebookViewModelImpl';
 
 abstract class PositronNotebookCellGeneral extends Disposable implements IPositronNotebookCell {
 	kind!: CellKind;
@@ -67,19 +67,19 @@ abstract class PositronNotebookCellGeneral extends Disposable implements IPositr
 		return this._instance.uri;
 	}
 
-	get viewModel(): ICellViewModel {
+	get handle(): number {
 
 		const notebookViewModel = this._instance.viewModel;
 		if (!notebookViewModel) {
 			throw new Error('Notebook view model not found');
 		}
 
-		const viewCells = notebookViewModel.viewCells;
+		const viewCells = (notebookViewModel as NotebookViewModel).viewCells;
 
 		const cell = viewCells.find(cell => cell.uri.toString() === this.cellModel.uri.toString());
 
 		if (cell) {
-			return cell;
+			return cell.handle;
 		}
 
 		throw new Error('Cell view model not found');
@@ -154,7 +154,7 @@ abstract class PositronNotebookCellGeneral extends Disposable implements IPositr
 
 class PositronNotebookCodeCell extends PositronNotebookCellGeneral implements IPositronNotebookCodeCell {
 	override kind: CellKind.Code = CellKind.Code;
-	outputs: ISettableObservable<ICellOutput[]>;
+	outputs: ISettableObservable<NotebookCellOutputs[]>;
 	executionStatus: ISettableObservable<ExecutionStatus> = observableValue<ExecutionStatus, void>('cellExecutionStatus', 'idle');
 
 	constructor(
@@ -163,7 +163,8 @@ class PositronNotebookCodeCell extends PositronNotebookCellGeneral implements IP
 		textModelResolverService: ITextModelService,
 	) {
 		super(cellModel, instance, textModelResolverService);
-		this.outputs = observableValue<ICellOutput[], void>('cellOutputs', this.cellModel.outputs);
+
+		this.outputs = observableValue<NotebookCellOutputs[], void>('cellOutputs', this.cellModel.outputs);
 
 		// Listen for changes to the cell outputs and update the observable
 		this._register(
