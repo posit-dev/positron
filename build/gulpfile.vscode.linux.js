@@ -84,7 +84,14 @@ function prepareDebPackage(arch) {
 			async function () {
 				const that = this;
 				const dependencies = await dependenciesGenerator.getDependencies('deb', binaryDir, product.applicationName, debArch);
-				gulp.src('resources/linux/debian/control.template', { base: '.' })
+				// --- Start Positron ---
+				// VS Code's Debian control file is replaced with Positron's
+				// control file. This file contains metadata about the package,
+				// such as its name and description.
+
+				// gulp.src('resources/linux/debian/control.template', { base: '.' })
+				gulp.src('resources/linux/debian/positron.control.template', { base: '.' })
+					// --- End Positron ---
 					.pipe(replace('@@NAME@@', product.applicationName))
 					// --- Start Positron ---
 					.pipe(replace('@@VERSION@@', product.positronVersion + '-' + linuxPackageRevision))
