@@ -26,8 +26,6 @@ from matplotlib.backend_bases import FigureManagerBase
 from matplotlib.backends.backend_agg import FigureCanvasAgg
 from matplotlib.figure import Figure
 
-from .plots import Plot
-
 logger = logging.getLogger(__name__)
 
 
@@ -59,33 +57,20 @@ class FigureManagerPositron(FigureManagerBase):
 
         super().__init__(canvas, num)
 
-        self._plot: Optional[Plot] = None
         self._plots_service = cast(PositronIPyKernel, PositronIPyKernel.instance()).plots_service
-
-    @property
-    def is_visible(self) -> bool:
-        """
-        Whether the figure is visible to the frontend.
-        """
-        return self._plot is not None
+        self._plot = self._plots_service.create_plot(self.canvas._render, self._handle_close)
 
     def show(self) -> None:
         """
         Called by matplotlib when a figure is shown via `plt.show()` or `figure.show()`.
         """
-        if self._plot is None:
-            # The frontend should respond with a render request, so there's no need for the explicit
-            # show call in this case.
-            self._plot = self._plots_service.create_plot(self.canvas._render, self._handle_close)
-        else:
-            self._plot.show()
+        self._plot.show()
 
     def destroy(self) -> None:
         """
         Called by matplotlib when a figure is closed via `plt.close()`.
         """
-        if self._plot is not None:
-            self._plots_service.close_plot(self._plot)
+        self._plots_service.close_plot(self._plot)
 
     def update(self) -> None:
         """
@@ -93,10 +78,7 @@ class FigureManagerPositron(FigureManagerBase):
 
         Called by the canvas when a figure is drawn and its contents have changed.
         """
-        if self._plot is None:
-            logger.warning("Cannot update a plot that is not visible")
-        else:
-            self._plot.update()
+        self._plot.update()
 
     def _handle_close(self) -> None:
         """
@@ -131,6 +113,9 @@ class FigureCanvasPositron(FigureCanvasAgg):
         # Track the hash of the canvas contents for change detection.
         self._last_hash = ""
 
+        # True if the canvas has been rendered at least once.
+        self._did_render = False
+
     def draw(self, is_rendering=False) -> None:
         """
         Draw the canvas; send an update event if the canvas has changed.
@@ -145,14 +130,19 @@ class FigureCanvasPositron(FigureCanvasAgg):
         try:
             super().draw()
         finally:
-            if self.manager.is_visible and not is_rendering:
+            # Notify the manager that the canvas has been updated if:
+            # 1. The figure has been rendered at least once (to avoid an unnecessary update on
+            #    creation), and
+            # 2. This draw was not triggered during a render (to avoid an infinite loop), and
+            # 3. The hash of the canvas contents has changed.
+            if self._did_render and not is_rendering:
                 current_hash = self._hash_buffer_rgba()
                 logger.debug(f"Canvas: last hash: {self._last_hash[:6]}")
                 logger.debug(f"Canvas: current hash: {current_hash[:6]}")
                 if current_hash == self._last_hash:
-                    logger.debug("Canvas: hash is the same, no need to render")
+                    logger.debug("Canvas: hash is the same, no need to update")
                 else:
-                    logger.debug("Canvas: hash changed, requesting a render")
+                    logger.debug("Canvas: hash changed, requesting a update")
                     self.manager.update()
 
     def _render(self, width_px: int, height_px: int, pixel_ratio: float, format: str) -> bytes:
@@ -183,6 +173,7 @@ class FigureCanvasPositron(FigureCanvasAgg):
         #  spuriously detect a change.
         self.draw(is_rendering=True)
         self._last_hash = self._hash_buffer_rgba()
+        self._did_render = True
 
         return rendered
 
