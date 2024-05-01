@@ -200,12 +200,12 @@ function prepareRpmPackage(arch) {
 		// --- Start Positron ---
 		// Fixes an upstream bug where the template was generated once per code
 		// source file and overwhelming the build.
-		const spec = gulp.src('resources/linux/rpm/code.spec.template', { base: '.' }).pipe(es.through(
-			function (f) {},
+		const spec = gulp.src('resources/linux/rpm/positron.spec.template', { base: '.' }).pipe(es.through(
+			function (f) { },
 			async function (spec) {
 				const that = this;
 				const dependencies = await dependenciesGenerator.getDependencies('rpm', binaryDir, product.applicationName, rpmArch);
-				gulp.src('resources/linux/rpm/code.spec.template', { base: '.' })
+				gulp.src('resources/linux/rpm/positron.spec.template', { base: '.' })
 					.pipe(replace('@@NAME@@', product.applicationName))
 					.pipe(replace('@@NAME_LONG@@', product.nameLong))
 					.pipe(replace('@@ICON@@', product.linuxIconName))
