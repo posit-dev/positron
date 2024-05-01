@@ -6,7 +6,7 @@
 import { Locator } from '@playwright/test';
 import { Code } from './code';
 
-const CONSOLE_ITEMS = '.console-instance .runtime-items span';
+const CONSOLE_ITEMS = '.runtime-items span';
 const CONSOLE_INSTANCE = '.console-instance';
 const ACTIVE_LINE_NUMBER = '.active-line-number';
 
