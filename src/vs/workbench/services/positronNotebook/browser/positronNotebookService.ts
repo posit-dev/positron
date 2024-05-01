@@ -3,6 +3,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { Disposable } from 'vs/base/common/lifecycle';
+import { IAction2Options } from 'vs/platform/actions/common/actions';
 import { InstantiationType, registerSingleton } from 'vs/platform/instantiation/common/extensions';
 import { createDecorator } from 'vs/platform/instantiation/common/instantiation';
 import { IPositronNotebookInstance } from 'vs/workbench/contrib/positronNotebook/browser/PositronNotebookInstance';
@@ -22,7 +23,7 @@ export interface IPositronNotebookService {
 	/**
 	 * Get all notebook instances currently running.
 	 */
-	getInstances(): IPositronNotebookInstance[];
+	getInstances(): Set<IPositronNotebookInstance>;
 
 	/**
 	 * Get the currently active notebook instance, if it exists.
@@ -30,9 +31,22 @@ export interface IPositronNotebookService {
 	getActiveInstance(): IPositronNotebookInstance | null;
 
 	/**
-	 * Testing to see if things are working
+	 * Register a new notebook instance.
+	 * @param instance The instance to register.
 	 */
-	sayHi(): void;
+	registerInstance(instance: IPositronNotebookInstance): void;
+
+	/**
+	 * Unregister a notebook instance.
+	 * @param instance The instance to unregister.
+	 */
+	unregisterInstance(instance: IPositronNotebookInstance): void;
+
+	/**
+	 * Dispatch an action to appropriate notebook instance.
+	 * @param desc The action to dispatch info.
+	 */
+	dispatchAction(desc: IAction2Options): void;
 }
 
 class PositronNotebookService extends Disposable implements IPositronNotebookService {
@@ -41,7 +55,7 @@ class PositronNotebookService extends Disposable implements IPositronNotebookSer
 	_serviceBrand: undefined;
 
 	//#region Private Properties
-	private _instances: IPositronNotebookInstance[] = [];
+	private _instances = new Set<IPositronNotebookInstance>();
 	private _activeInstance: IPositronNotebookInstance | null = null;
 	//#endregion Private Properties
 
@@ -61,7 +75,7 @@ class PositronNotebookService extends Disposable implements IPositronNotebookSer
 		// Placeholder.
 	}
 
-	public getInstances(): IPositronNotebookInstance[] {
+	public getInstances(): Set<IPositronNotebookInstance> {
 		return this._instances;
 	}
 
@@ -69,8 +83,30 @@ class PositronNotebookService extends Disposable implements IPositronNotebookSer
 		return this._activeInstance;
 	}
 
-	public sayHi(): void {
-		console.log('Hi from PositronNotebookService!');
+	public registerInstance(instance: IPositronNotebookInstance): void {
+		this._instances.add(instance);
+		this._activeInstance = instance;
+	}
+
+	public unregisterInstance(instance: IPositronNotebookInstance): void {
+		this._instances.delete(instance);
+		if (this._activeInstance === instance) {
+			this._activeInstance = null;
+		}
+	}
+
+	public dispatchAction(desc: IAction2Options): void {
+		console.log('Dispatching action:', desc);
+		if (!this._activeInstance) { return; }
+
+		switch (desc.id) {
+			case 'notebook.cell.insertCodeCellAboveAndFocusContainer':
+				this._activeInstance.insertCodeCellAboveAndFocusContainer();
+				break;
+			default:
+				console.log('Unknown action:', desc);
+				break;
+		}
 	}
 	//#endregion Public Methods
 }

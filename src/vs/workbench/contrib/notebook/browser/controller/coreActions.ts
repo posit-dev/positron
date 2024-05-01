@@ -165,8 +165,7 @@ export abstract class NotebookAction extends Action2 {
 			context = this.getEditorContextFromArgsOrActive(accessor, context, ...additionalArgs);
 			if (!context) {
 				// --- Begin Positron ---
-				const positronNotebookService = accessor.get(IPositronNotebookService);
-				positronNotebookService.sayHi();
+				accessor.get(IPositronNotebookService).dispatchAction(this.desc);
 				// --- End Positron ---
 				return;
 			}

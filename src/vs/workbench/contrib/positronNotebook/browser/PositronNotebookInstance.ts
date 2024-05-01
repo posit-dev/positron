@@ -27,6 +27,7 @@ import * as DOM from 'vs/base/browser/dom';
 import { IPositronNotebookCell } from 'vs/workbench/contrib/positronNotebook/browser/notebookCells/interfaces';
 import { CellSelectionType, SelectionStateMachine } from 'vs/workbench/contrib/positronNotebook/browser/notebookCells/selectionMachine';
 import { PositronNotebookContextKeyManager } from 'vs/workbench/contrib/positronNotebook/browser/ContextKeysManager';
+import { IPositronNotebookService } from 'vs/workbench/services/positronNotebook/browser/positronNotebookService';
 
 
 enum KernelStatus {
@@ -93,6 +94,11 @@ export interface IPositronNotebookInstance {
 	 * Add a new cell of a given type to the notebook at the requested index
 	 */
 	addCell(type: CellKind, index: number): void;
+
+	/**
+	 * Action mirror
+	 */
+	insertCodeCellAboveAndFocusContainer(): void;
 
 	/**
 	 * Delete a cell from the notebook
@@ -272,6 +278,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		@IContextKeyService private readonly _contextKeyService: IContextKeyService,
 		@ICodeEditorService private readonly _codeEditorService: ICodeEditorService,
 		@ILogService private readonly _logService: ILogService,
+		@IPositronNotebookService private readonly _positronNotebookService: IPositronNotebookService,
 	) {
 		super();
 
@@ -283,6 +290,8 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		this.setupNotebookTextModel();
 
 		this.contextManager = this._instantiationService.createInstance(PositronNotebookContextKeyManager);
+
+		this._positronNotebookService.registerInstance(this);
 
 		this._logService.info(this._identifier, 'constructor');
 	}
@@ -466,6 +475,16 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 			synchronous,
 			pushUndoStop
 		);
+	}
+
+	insertCodeCellAboveAndFocusContainer(): void {
+		// Add a code cell above the currently selected cell.
+		const selectionState = this.selectionStateMachine.state.get();
+		if (selectionState.type !== 'Single Selection') {
+			return;
+		}
+		const indexOfSelectedCell = this._cells.indexOf(selectionState.selected[0]);
+		this.addCell(CellKind.Code, indexOfSelectedCell);
 	}
 
 	deleteCell(cell: IPositronNotebookCell): void {
@@ -773,6 +792,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	override dispose() {
 
 		this._logService.info(this._identifier, 'dispose');
+		this._positronNotebookService.unregisterInstance(this);
 
 		super.dispose();
 		this.detachView();
