@@ -61,7 +61,7 @@ jobs:
 
   build-archs:
     name: Build macOS
-    runs-on: [self-hosted, macos, arm64]
+    runs-on: [self-hosted-production, macos, arm64]
     needs: [revive_agent]
     timeout-minutes: 60
 
