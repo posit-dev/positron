@@ -448,12 +448,11 @@ function isRStudioUser(): boolean {
 		const filenames = fs.readdirSync(rstudioStateFolderPath());
 		const today = new Date();
 		const thirtyDaysAgo = new Date(new Date().setDate(today.getDate() - 30));
-		const recentlyModified = new Array<boolean>();
-		filenames.forEach(file => {
+		const isRecentlyModified = filenames.some(file => {
 			const stats = fs.statSync(rstudioStateFolderPath(file));
-			recentlyModified.push(stats.mtime > thirtyDaysAgo);
+			return stats.mtime > thirtyDaysAgo;
 		});
-		return recentlyModified.some(bool => bool === true);
+		return isRecentlyModified;
 	} catch { }
 	return false;
 }
