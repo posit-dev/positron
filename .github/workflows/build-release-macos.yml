@@ -25,44 +25,9 @@ on:
   workflow_dispatch:
 
 jobs:
-  revive_agent:
-    # The build agent runs on a MacInCloud instance that is frequently (at
-    # least once a day) rebooted, which shuts down the build agent. Before we
-    # run a build, ensure that the build agent is running; otherwise, the
-    # `runs-on: macos` steps will not execute.
-    #
-    # We run the build agent in a persistent screen session so that it's
-    # possible to connect to the live session for debugging purposes with
-    # the `screen -r` command.
-    name: Revive build agent
-    runs-on: ubuntu-latest
-    steps:
-      # Establish an SSH agent into which we can load the key. The build host
-      # has the public side of this trusted keypair.
-      - name: Setup SSH Keys and known_hosts
-        env:
-          SSH_AUTH_SOCK: /tmp/ssh_agent.sock
-        run: |
-          ssh-agent -a $SSH_AUTH_SOCK > /dev/null
-          ssh-add - <<< "${{ secrets.MACOS_PRIVATE_SSH_KEY }}"
-
-      - name: Revive Screen session
-        id: revive_agent
-        env:
-          SSH_AUTH_SOCK: /tmp/ssh_agent.sock
-        run: |
-          # Connect to the host; if there is a screen session running, do
-          # nothing, but if there isn't one, start one up now.
-          #
-          # Lower the scheduling priority of the agent to reduce the odds of it
-          # consuming enough resources to trigger a reboot of the MacInCloud
-          # host.
-          ssh -o "StrictHostKeyChecking no" user229818@NY503.macincloud.com "/bin/zsh -li -c \"if screen -list | grep -q 'No Sockets found'; then screen -dmS agent_session /bin/zsh -li -c 'cd ./actions-runner && nice -n 19 ./run.sh'; fi\""
-
   build-archs:
     name: Build macOS
-    runs-on: [self-hosted-production, macos, arm64]
-    needs: [revive_agent]
+    runs-on: [self-hosted-staging, macos, arm64]
     timeout-minutes: 60
 
     env:
@@ -75,11 +40,11 @@ jobs:
         include:
           - arch: arm64
             arch_terminal: arm64
-            homebrew_folder: homebrew
+            homebrew_folder: /opt/homebrew
             rust_target_prefix: aarch64
           - arch: x64
             arch_terminal: x86_64
-            homebrew_folder: homebrew-x86_64
+            homebrew_folder: /usr/local
             rust_target_prefix: x86_64
 
     steps:
@@ -93,8 +58,8 @@ jobs:
       - name: Install zeromq dependencies
         id: install_zeromq_dependencies
         run: |
-          arch -${{matrix.arch_terminal}} /bin/bash -c "~/${{matrix.homebrew_folder}}/bin/brew install pkg-config"
-          arch -${{matrix.arch_terminal}} /bin/bash -c "~/${{matrix.homebrew_folder}}/bin/brew install libsodium"
+          arch -${{matrix.arch_terminal}} /bin/bash -c "${{matrix.homebrew_folder}}/bin/brew install pkg-config"
+          arch -${{matrix.arch_terminal}} /bin/bash -c "${{matrix.homebrew_folder}}/bin/brew install libsodium"
 
       # Zeromq calls whatever pkg-config version is findable on the PATH to be
       # able to locate libsodium, so we have to ensure the x86_64 version is
@@ -104,7 +69,7 @@ jobs:
         id: update_path_for_zeromq
         if: matrix.arch == 'x64'
         run: |
-          echo "~/${{matrix.homebrew_folder}}/bin" >> $GITHUB_PATH
+          echo "${{matrix.homebrew_folder}}/bin" >> $GITHUB_PATH
 
       # Install node_modules binaries and compile the R kernel
       - name: Install dependencies
