@@ -21,6 +21,8 @@ export enum RowFilterDescrType {
 	IS_NOT_EMPTY = 'is-not-empty',
 	IS_NULL = 'is-null',
 	IS_NOT_NULL = 'is-not-null',
+	IS_TRUE = 'is-true',
+	IS_FALSE = 'is-false',
 
 	// Filters with one parameter.
 	IS_LESS_THAN = 'is-less-than',
@@ -167,6 +169,66 @@ export class RowFilterDescriptorIsNull extends BaseRowFilterDescriptor {
 	get backendFilter() {
 		return {
 			filter_type: RowFilterType.IsNull,
+			...this._sharedBackendParams()
+		};
+	}
+}
+
+/**
+ * RowFilterDescriptorIsTrue class.
+ */
+export class RowFilterDescriptorIsTrue extends BaseRowFilterDescriptor {
+	/**
+	 * Constructor.
+	 * @param props The common row filter descriptor properties.
+	 */
+	constructor(props: RowFilterCommonProps) {
+		super(props);
+	}
+
+	/**
+	 * Gets the row filter condition.
+	 */
+	get descrType() {
+		return RowFilterDescrType.IS_TRUE;
+	}
+
+	/**
+	 * Get the backend OpenRPC type.
+	 */
+	get backendFilter() {
+		return {
+			filter_type: RowFilterType.IsTrue,
+			...this._sharedBackendParams()
+		};
+	}
+}
+
+/**
+ * RowFilterDescriptorIsFalse class.
+ */
+export class RowFilterDescriptorIsFalse extends BaseRowFilterDescriptor {
+	/**
+	 * Constructor.
+	 * @param props The common row filter descriptor properties.
+	 */
+	constructor(props: RowFilterCommonProps) {
+		super(props);
+	}
+
+	/**
+	 * Gets the row filter condition.
+	 */
+	get descrType() {
+		return RowFilterDescrType.IS_FALSE;
+	}
+
+	/**
+	 * Get the backend OpenRPC type.
+	 */
+	get backendFilter() {
+		return {
+			filter_type: RowFilterType.IsFalse,
 			...this._sharedBackendParams()
 		};
 	}
@@ -525,7 +587,7 @@ function getSearchDescrType(searchType: SearchFilterType) {
 	}
 }
 
-export function getRowFilterDescriptor(backendFilter: RowFilter) {
+export function getRowFilterDescriptor(backendFilter: RowFilter): RowFilterDescriptor {
 	const commonProps = {
 		columnSchema: backendFilter.column_schema,
 		isValid: backendFilter.is_valid,
@@ -558,6 +620,10 @@ export function getRowFilterDescriptor(backendFilter: RowFilter) {
 			return new RowFilterDescriptorIsNull(commonProps);
 		case RowFilterType.NotNull:
 			return new RowFilterDescriptorIsNotNull(commonProps);
+		case RowFilterType.IsTrue:
+			return new RowFilterDescriptorIsTrue(commonProps);
+		case RowFilterType.IsFalse:
+			return new RowFilterDescriptorIsFalse(commonProps);
 		case RowFilterType.Search: {
 			const params = backendFilter.search_params!;
 			return new RowFilterDescriptorSearch(commonProps,
@@ -581,6 +647,8 @@ export type RowFilterDescriptor =
 	RowFilterDescriptorIsNotEmpty |
 	RowFilterDescriptorIsNull |
 	RowFilterDescriptorIsNotNull |
+	RowFilterDescriptorIsTrue |
+	RowFilterDescriptorIsFalse |
 	RowFilterDescriptorIsBetween |
 	RowFilterDescriptorIsNotBetween |
 	RowFilterDescriptorSearch;
