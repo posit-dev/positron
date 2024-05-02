@@ -111,7 +111,10 @@ export const ConsoleInstance = (props: ConsoleInstanceProps) => {
 	const scrollable = () =>
 		consoleInstanceRef.current.scrollHeight > consoleInstanceRef.current.clientHeight;
 
-	// Scrolls to the bottom.
+	// Scroll to the bottom.
+	// Wrapped in a `useCallback()` because the function is used as dependency
+	// in a `useEffect()`. Caching it prevents the `useEffect()` from being
+	// called on every rerender.
 	const scrollToBottom = useCallback(() => {
 		props.positronConsoleInstance.scrollLocked = false;
 		setIgnoreNextScrollEvent(true);
