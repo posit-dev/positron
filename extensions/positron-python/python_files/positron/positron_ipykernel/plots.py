@@ -7,7 +7,7 @@ from __future__ import annotations
 import base64
 import logging
 import uuid
-from typing import Callable, List, Optional, Protocol
+from typing import List, Protocol
 
 from .plot_comm import PlotBackendMessageContent, PlotFrontendEvent, PlotResult, RenderRequest
 from .positron_comm import CommMessage, PositronComm
