@@ -318,7 +318,8 @@ class VariablesService:
         """
         Attempts to detect changes to variables in the user's environment.
 
-        Returns:
+        Returns
+        -------
             A tuple (dict, set) containing a dict of variables that
             were modified (added or updated) and a set of variables
             that were removed.
@@ -394,9 +395,10 @@ class VariablesService:
 
     def _get_filtered_vars(self, variables: Optional[Mapping[str, Any]] = None) -> Dict[str, Any]:
         """
-        Returns:
-            A filtered dict of the variables, excluding hidden variables. If variables
-            is None, the current user namespace in the environment is used.
+        Returns
+        -------
+        A filtered dict of the variables, excluding hidden variables. If variables
+        is None, the current user namespace in the environment is used.
         """
         hidden = self._get_user_ns_hidden()
 
@@ -413,14 +415,17 @@ class VariablesService:
         """
         Finds the variable at the requested path in the current user session.
 
-        Args:
-            path: A list of path segments that will be traversed to find
-              the requested variable.
-            context: The context from which to start the search.
+        Parameters
+        ----------
+        path :
+            A list of path segments that will be traversed to find the requested variable.
+        context
+            The context from which to start the search.
 
-        Returns:
-            A tuple (bool, Any) containing a boolean indicating whether the
-            variable was found, as well as the value of the variable, if found.
+        Returns
+        -------
+        A tuple (bool, Any) containing a boolean indicating whether the variable was found, as well
+        as the value of the variable, if found.
         """
 
         if path is None:
@@ -445,10 +450,11 @@ class VariablesService:
         """
         Deletes all of the variables in the current user session.
 
-        Args:
-            parent:
-                A dict providing the parent context for the response,
-                e.g. the client message requesting the clear operation
+        Parameters
+        ----------
+        parent
+            A dict providing the parent context for the response,
+            e.g. the client message requesting the clear operation
         """
         create_task(self._soft_reset(parent), self._pending_tasks)
 
@@ -475,12 +481,13 @@ class VariablesService:
         """
         Deletes the requested variables by name from the current user session.
 
-        Args:
-            names:
-                A list of variable names to delete
-            parent:
-                A dict providing the parent context for the response,
-                e.g. the client message requesting the delete operation
+        Parameters
+        ----------
+        names:
+            A list of variable names to delete
+        parent:
+            A dict providing the parent context for the response,
+            e.g. the client message requesting the delete operation
         """
         if names is None:
             return
@@ -514,9 +521,10 @@ class VariablesService:
         """
         Describes the variable at the requested path in the current user session.
 
-        Args:
-            path:
-                A list of names describing the path to the variable.
+        Parameters
+        ----------
+        path:
+            A list of names describing the path to the variable.
         """
 
         is_known, value = self._find_var(path)
@@ -603,12 +611,13 @@ class VariablesService:
         using the requested clipboard format and sends the result through the
         variables comm to the client.
 
-        Args:
-            path:
-                A list of names describing the path to the variable.
-            clipboard_format:
-                The format to use for the clipboard copy, described as a mime type.
-                Defaults to "text/plain".
+        Parameters
+        ----------
+        path:
+            A list of names describing the path to the variable.
+        clipboard_format:
+            The format to use for the clipboard copy, described as a mime type.
+            Defaults to "text/plain".
         """
         if path is None:
             return
@@ -650,11 +659,12 @@ class VariablesService:
             ...
         }
 
-        Args:
-            path:
-                A list of names describing the path to the variable.
-            value:
-                The variable's value to summarize.
+        Parameters
+        ----------
+        path:
+            A list of names describing the path to the variable.
+        value:
+            The variable's value to summarize.
         """
 
         children = []

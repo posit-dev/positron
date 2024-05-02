@@ -181,7 +181,7 @@ class PositronInspector(Generic[T]):
     @classmethod
     def value_from_json(cls, type_name: str, data: JsonData) -> T:
         raise NotImplementedError(
-            f"value_from_json() is not implemented for this type: {type_name}, data: {data}"
+            f"value_from_json() is not implemented for this type. type_name: {type_name}, data: {data}"
         )
 
 
