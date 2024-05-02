@@ -854,8 +854,6 @@ class ExtHostRuntimeClientInstance<Input, Output>
 
 	private readonly _pendingRpcs = new Map<string, DeferredPromise<any>>();
 
-	private _state: RuntimeClientState = RuntimeClientState.Uninitialized;
-
 	/**
 	 * An observable value that tracks the number of messages sent and received
 	 * by this client.
@@ -986,10 +984,10 @@ class ExtHostRuntimeClientInstance<Input, Output>
 		}
 
 		// If we aren't currently closed, clean up before completing disposal.
-		if (this._state !== RuntimeClientState.Closed) {
+		if (this.clientState.get() !== RuntimeClientState.Closed) {
 			// If we are actually connected to the backend, notify the backend that we are
 			// closing the connection from our side.
-			if (this._state === RuntimeClientState.Connected) {
+			if (this.clientState.get() === RuntimeClientState.Connected) {
 				this.setClientState(RuntimeClientState.Closing);
 				this._proxy.$removeClient(this._handle, this._id);
 			}
