@@ -23,6 +23,7 @@ import { PositronPreview } from 'vs/workbench/contrib/positronPreview/browser/po
 import { IRuntimeSessionService } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
 import { INotificationService } from 'vs/platform/notification/common/notification';
 import { PositronViewPane } from 'vs/workbench/browser/positronViewPane/positronViewPane';
+import { IHoverService } from 'vs/platform/hover/browser/hover';
 
 /**
  * PositronPreviewViewPane class.
@@ -84,13 +85,14 @@ export class PositronPreviewViewPane extends PositronViewPane implements IReactC
 		@IRuntimeSessionService private readonly runtimeSessionService: IRuntimeSessionService,
 		@ICommandService private readonly commandService: ICommandService,
 		@IWorkbenchLayoutService private readonly layoutService: IWorkbenchLayoutService,
-		@IPositronPreviewService private readonly positronPreviewService: IPositronPreviewService
+		@IPositronPreviewService private readonly positronPreviewService: IPositronPreviewService,
+		@IHoverService hoverService: IHoverService,
 	) {
 		// Override minimum size option if it isn't already somehow set. See `PositronHelpView` for
 		// more context.
 		options = { ...options, minimumBodySize: 0 };
 
-		super(options, keybindingService, contextMenuService, configurationService, contextKeyService, viewDescriptorService, instantiationService, openerService, themeService, telemetryService);
+		super(options, keybindingService, contextMenuService, configurationService, contextKeyService, viewDescriptorService, instantiationService, openerService, themeService, telemetryService, hoverService);
 
 		this._register(this.onDidChangeBodyVisibility(() => this.onDidChangeVisibility(this.isBodyVisible())));
 		this._positronPreviewContainer = DOM.$('.positron-preview-container');
