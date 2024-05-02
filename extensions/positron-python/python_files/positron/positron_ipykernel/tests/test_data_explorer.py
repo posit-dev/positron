@@ -13,15 +13,15 @@ from ..access_keys import encode_access_key
 from ..data_explorer import COMPARE_OPS, DataExplorerService
 from ..data_explorer_comm import (
     ColumnDisplayType,
-    RowFilter,
     ColumnProfileResult,
     ColumnSchema,
     ColumnSortKey,
     FilterResult,
+    RowFilter,
 )
+from ..utils import guid
 from .conftest import DummyComm, PositronShell
 from .test_variables import BIG_ARRAY_LENGTH
-from ..utils import guid
 from .utils import json_rpc_notification, json_rpc_request, json_rpc_response
 
 TARGET_NAME = "positron.dataExplorer"
@@ -459,13 +459,15 @@ def test_pandas_supported_features(dxf: DataExplorerFixture):
     assert row_filters["supported"]
     assert row_filters["supports_conditions"]
     assert set(row_filters["supported_types"]) == {
-        "is_empty",
-        "is_null",
-        "not_empty",
-        "not_null",
         "between",
         "compare",
+        "is_empty",
+        "is_false",
+        "is_null",
+        "is_true",
         "not_between",
+        "not_empty",
+        "not_null",
         "search",
         "set_membership",
     }
@@ -848,6 +850,19 @@ def test_pandas_filter_empty(dxf: DataExplorerFixture):
     dxf.check_filter_case(df, [_filter("not_empty", schema[0])], df[df["a"].str.len() != 0])
     dxf.check_filter_case(df, [_filter("is_empty", schema[1])], df[df["b"].str.len() == 0])
     dxf.check_filter_case(df, [_filter("not_empty", schema[1])], df[df["b"].str.len() != 0])
+
+
+def test_pandas_filter_boolean(dxf: DataExplorerFixture):
+    df = pd.DataFrame(
+        {
+            "a": [True, True, None, False, False, False, True, True],
+        }
+    )
+
+    schema = dxf.get_schema_for(df)["columns"]
+
+    dxf.check_filter_case(df, [_filter("is_true", schema[0])], df[df["a"] == True])  # noqa: E712
+    dxf.check_filter_case(df, [_filter("is_false", schema[0])], df[df["a"] == False])  # noqa: E712
 
 
 def test_pandas_filter_is_null_not_null(dxf: DataExplorerFixture):
