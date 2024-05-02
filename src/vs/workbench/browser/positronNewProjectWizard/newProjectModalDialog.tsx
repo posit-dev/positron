@@ -21,8 +21,7 @@ import { IFileService } from 'vs/platform/files/common/files';
 import { ICommandService } from 'vs/platform/commands/common/commands';
 import { ILogService } from 'vs/platform/log/common/log';
 import { IOpenerService } from 'vs/platform/opener/common/opener';
-import { IStorageService, StorageScope, StorageTarget } from 'vs/platform/storage/common/storage';
-import { NewProjectConfiguration } from 'vs/workbench/browser/positronNewProjectWizard/interfaces/newProjectConfiguration';
+import { IPositronNewProjectService, NewProjectConfiguration } from 'vs/workbench/services/positronNewProject/common/positronNewProject';
 import { EnvironmentSetupType } from 'vs/workbench/browser/positronNewProjectWizard/interfaces/newProjectWizardEnums';
 
 /**
@@ -38,9 +37,9 @@ export const showNewProjectModalDialog = async (
 	logService: ILogService,
 	openerService: IOpenerService,
 	pathService: IPathService,
+	positronNewProjectService: IPositronNewProjectService,
 	runtimeSessionService: IRuntimeSessionService,
 	runtimeStartupService: IRuntimeStartupService,
-	storageService: IStorageService
 ): Promise<void> => {
 	// Create the renderer.
 	const renderer = new PositronModalReactRenderer({
@@ -93,15 +92,13 @@ export const showNewProjectModalDialog = async (
 						useRenv: result.useRenv || false,
 					};
 
-					// Store the new project configuration in the StorageService.
-					// The object is stringified here and can be parsed back into a
-					// NewProjectConfiguration object when read from storage.
-					storageService.store(
-						'positron.newProjectConfig',
-						JSON.stringify(newProjectConfig),
-						StorageScope.APPLICATION,
-						StorageTarget.MACHINE
-					);
+					// TODO: we may want to allow the user to select an already existing directory
+					// and then create the project in that directory. We will need to handle if the
+					// directory is the same as the current workspace directory in the active window
+					// or if the new project directory is already open in another window.
+
+					// Store the new project configuration.
+					positronNewProjectService.storeNewProjectConfig(newProjectConfig);
 
 					// Any context-dependent work needs to be done before opening the folder
 					// because the extension host gets destroyed when a new project is opened,
@@ -114,34 +111,6 @@ export const showNewProjectModalDialog = async (
 							forceReuseWindow: !result.openInNewWindow
 						}
 					);
-
-					// TODO: handle if the new project is the same directory as the current workspace
-					// in this case, a window doesn't get opened, so the new project initialization
-					// doesn't happen unless we listen to some event. Maybe a different command can be
-					// executed to initialize the new project in the current workspace instead of
-					// vscode.openFolder.
-
-					// 1) Create the directory for the new project (done above)
-					// 2) Set up the initial workspace for the new project
-					//   For Python
-					//     - If new environment creation is selected, create the .venv/.conda/etc. as appropriate
-					//     - If git init selected, create the .gitignore and README.md
-					//     - Create an unsaved Python file
-					//     - Set the active interpreter to the selected interpreter
-					//   For R
-					//     - If renv selected, run renv::init()
-					//     - Whether or not git init selected, create the .gitignore and README.md
-					//     - Create an unsaved R file
-					//     - Set the active interpreter to the selected interpreter
-					//   For Jupyter Notebook
-					//     - If git init selected, create the .gitignore and README.md
-					//     - Create an unsaved notebook file
-					//     - Set the active interpreter to the selected interpreter
-
-					// Other Thoughts
-					//   - Can the interpreter discovery at startup be modified to directly use the selected
-					//     interpreter, so that the user doesn't have to wait for the interpreter discovery to
-					//     complete before the runtime is started?
 				}}
 			/>
 		</NewProjectWizardContextProvider>

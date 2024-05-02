@@ -7,14 +7,11 @@ import { Disposable } from 'vs/base/common/lifecycle';
 import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
 import { IContextKeyService } from 'vs/platform/contextkey/common/contextkey';
 import { InstantiationType, registerSingleton } from 'vs/platform/instantiation/common/extensions';
-import { ILogService } from 'vs/platform/log/common/log';
-import { IStorageService, StorageScope } from 'vs/platform/storage/common/storage';
-import { IWorkspaceContextService } from 'vs/platform/workspace/common/workspace';
-import { NewProjectConfiguration } from 'vs/workbench/browser/positronNewProjectWizard/interfaces/newProjectConfiguration';
 import { IWorkbenchContribution, WorkbenchPhase, registerWorkbenchContribution2 } from 'vs/workbench/common/contributions';
 import { ILifecycleService, LifecyclePhase, StartupKind } from 'vs/workbench/services/lifecycle/common/lifecycle';
+import { IPositronNewProjectService } from 'vs/workbench/services/positronNewProject/common/positronNewProject';
 import { projectWizardEnabled } from 'vs/workbench/services/positronNewProject/common/positronNewProjectEnablement';
-import { IPositronNewProjectService, PositronNewProjectService } from 'vs/workbench/services/positronNewProject/common/positronNewProjectService';
+import { PositronNewProjectService } from 'vs/workbench/services/positronNewProject/common/positronNewProjectService';
 
 // Register the Positron New Project service
 registerSingleton(IPositronNewProjectService, PositronNewProjectService, InstantiationType.Delayed);
@@ -25,47 +22,41 @@ registerSingleton(IPositronNewProjectService, PositronNewProjectService, Instant
 class PositronNewProjectContribution extends Disposable implements IWorkbenchContribution {
 	static readonly ID = 'workbench.contrib.positronNewProject';
 
+	/**
+	 * Create a new instance of the PositronNewProjectContribution.
+	 * @param _contextKeyService The context key service.
+	 * @param _configurationService The configuration service.
+	 * @param _lifecycleService The lifecycle service.
+	 * @param _positronNewProjectService The Positron New Project service.
+	 */
 	constructor(
 		@IContextKeyService private readonly _contextKeyService: IContextKeyService,
 		@IConfigurationService private readonly _configurationService: IConfigurationService,
-		@ILogService private readonly _logService: ILogService,
 		@ILifecycleService private readonly _lifecycleService: ILifecycleService,
-		@IStorageService private readonly _storageService: IStorageService,
-		@IWorkspaceContextService private readonly _contextService: IWorkspaceContextService,
+		@IPositronNewProjectService private readonly _positronNewProjectService: IPositronNewProjectService,
 	) {
 		super();
 		// TODO: [New Project] Remove feature flag when New Project action is ready for release
 		if (projectWizardEnabled(this._contextKeyService, this._configurationService)) {
 			// Whether the project was opened in a new window or the existing window, the startup kind
 			// will be `StartupKind.NewWindow`.
-			if (this._lifecycleService.startupKind === StartupKind.NewWindow) {
+			if (
+				this._lifecycleService.startupKind === StartupKind.NewWindow ||
+				this._lifecycleService.startupKind === StartupKind.ReopenedWindow
+			) {
 				this.run().then(undefined, onUnexpectedError);
 			}
 		}
 	}
 
-	// TODO: move some of this logic to the PositronNewProjectService
+	/**
+	 * Run the Positron New Project contribution, which initializes the new project if applicable.
+	 * @returns A promise that resolves to a boolean indicating whether the new project was initialized.
+	 */
 	private async run() {
-		// Not sure if needed: wait until after the workbench has been restored
+		// Wait until after the workbench has been restored
 		await this._lifecycleService.when(LifecyclePhase.Restored);
-
-		const newProjectConfigStr = this._storageService.get('positron.newProjectConfig', StorageScope.APPLICATION);
-
-		if (!newProjectConfigStr) {
-			this._logService.error('No new project configuration found in storage');
-			return;
-		}
-
-		const newProjectConfig = JSON.parse(newProjectConfigStr) as NewProjectConfiguration;
-		const newProjectPath = newProjectConfig.projectFolder;
-		const currentFolderPath = this._contextService.getWorkspace().folders[0].uri.fsPath;
-
-		if (newProjectPath === currentFolderPath) {
-			// TODO: Do new project initialization
-
-			// Once initialization is done, remove the new project configuration from storage
-			this._storageService.remove('positron.newProjectConfig', StorageScope.APPLICATION);
-		}
+		await this._positronNewProjectService.initNewProject();
 	}
 }
 
