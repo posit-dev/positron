@@ -588,10 +588,6 @@ export const ConsoleInstance = (props: ConsoleInstanceProps) => {
 	 * @param e A WheelEvent<HTMLDivElement> that describes a user interaction with the wheel.
 	 */
 	const wheelHandler = (e: WheelEvent<HTMLDivElement>) => {
-		// Also save state here, apparently `scrollHandler` is not always called?
-		// https://github.com/posit-dev/positron/issues/2868#issuecomment-2083264595
-		props.positronConsoleInstance.lastScrollTop = consoleInstanceRef.current.scrollTop;
-
 		// Negative delta Y immediantly engages scroll lock, if the console is scrollable.
 		if (e.deltaY < 0 && !props.positronConsoleInstance.scrollLocked) {
 			props.positronConsoleInstance.scrollLocked = scrollable();
