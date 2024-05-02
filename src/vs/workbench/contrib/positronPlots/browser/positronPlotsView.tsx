@@ -16,18 +16,19 @@ import { IKeybindingService } from 'vs/platform/keybinding/common/keybinding';
 import { IContextMenuService } from 'vs/platform/contextview/browser/contextView';
 import { IInstantiationService } from 'vs/platform/instantiation/common/instantiation';
 import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
-import { ViewPane, IViewPaneOptions } from 'vs/workbench/browser/parts/views/viewPane';
+import { IViewPaneOptions } from 'vs/workbench/browser/parts/views/viewPane';
 import { IWorkbenchLayoutService } from 'vs/workbench/services/layout/browser/layoutService';
 import { PositronPlots } from 'vs/workbench/contrib/positronPlots/browser/positronPlots';
 import { ILanguageRuntimeService } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { IElementPosition, IReactComponentContainer, ISize, PositronReactRenderer } from 'vs/base/browser/positronReactRenderer';
 import { IPositronPlotsService } from 'vs/workbench/services/positronPlots/common/positronPlots';
 import { INotificationService } from 'vs/platform/notification/common/notification';
+import { PositronViewPane } from 'vs/workbench/browser/positronViewPane/positronViewPane';
 
 /**
  * PositronPlotsViewPane class.
  */
-export class PositronPlotsViewPane extends ViewPane implements IReactComponentContainer {
+export class PositronPlotsViewPane extends PositronViewPane implements IReactComponentContainer {
 	//#region Private Properties
 
 	// The onSizeChanged emitter.
@@ -162,12 +163,6 @@ export class PositronPlotsViewPane extends ViewPane implements IReactComponentCo
 	) {
 		// Call the base class's constructor.
 		super(options, keybindingService, contextMenuService, configurationService, contextKeyService, viewDescriptorService, instantiationService, openerService, themeService, telemetryService);
-
-		// Make the viewpane focusable even when there are no components
-		// available to take the focus. The viewpane must be able to take focus
-		// at all times because otherwise blurring events do not occur and the
-		// viewpane management state becomes confused on toggle.
-		this.element.tabIndex = 0;
 
 		// Register the onDidChangeBodyVisibility event handler.
 		this._register(this.onDidChangeBodyVisibility(visible => {
