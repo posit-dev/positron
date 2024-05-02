@@ -14,7 +14,6 @@ import asyncio
 import logging
 import time
 import types
-from inspect import getattr_static
 from collections.abc import Iterable, Mapping
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Set, Tuple
 
@@ -742,34 +741,19 @@ def _summarize_variable(key: Any, value: Any) -> Optional[Variable]:
 
 
 def _summarize_children(parent: Any, limit: int = MAX_CHILDREN) -> List[Variable]:
-    # children = []
-    # for i, (key, value) in enumerate(get_inspector(parent).get_items()):
-    #     if len(children) >= limit:
-    #         break
-    #     summary = _summarize_variable(key, value)
-    #     if summary is not None:
-    #         children.append(summary)
-    # return children
-    num_summaries = 0
-    children = get_inspector(parent).get_children()
+    inspector = get_inspector(parent)
+    keys = inspector.get_children()
     summaries = []
-    while True:
-        if num_summaries > MAX_CHILDREN:
+    for key in keys:
+        if len(summaries) >= limit:
             break
-        for child in children:
-            try:
-                value = getattr_static(parent, child)
-                print(str(value))
-            except StopIteration:
-                break
-            except Exception as e:
-                logger.error(e)
-                value = "Unable to show value."
-            summary = _summarize_variable(child, value)
-            if summary is not None:
-                summaries.append(summary)
-                num_summaries += 1
-                print(summaries)
+        try:
+            value = inspector.get_child(key)
+        except Exception:
+            value = "Cannot get value."
+        summary = _summarize_variable(key, value)
+        if summary is not None:
+            summaries.append(summary)
     return summaries
 
 

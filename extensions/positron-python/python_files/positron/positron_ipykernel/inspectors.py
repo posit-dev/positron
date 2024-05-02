@@ -12,6 +12,7 @@ import pydoc
 import re
 import sys
 import types
+from inspect import getattr_static
 from abc import ABC, abstractmethod
 from collections.abc import Mapping, MutableMapping, MutableSequence, MutableSet, Sequence, Set
 from typing import (
@@ -248,13 +249,12 @@ class ObjectInspector(PositronInspector[T], ABC):
         return [p for p in dir(self.value) if not (p.startswith("_"))]
 
     def get_child(self, key: str) -> Any:
-        if isinstance(self.value, property):
-            pass
-        try:
-            return getattr(self.value, key)
-        except Exception as e:
-            logger.warning(msg=f"{type(e).__name__}: {e}")
-            return "Unable to show value."
+        # let function inspector handle callables
+        if hasattr(self.value, "key"):
+            if callable(self.value.key):
+                return getattr(self.value, key)
+        else:
+            return getattr_static(self.value, key)
 
     def get_items(self) -> Iterable[Tuple[str, Any]]:
         for key in dir(self.value):
@@ -468,10 +468,9 @@ class _BaseCollectionInspector(PositronInspector[CT], ABC):
         # Treat collection items as children, with the index as the name
         return enumerate(self.value)
 
-    # TODO FIX
     def get_children(self) -> Iterable[Tuple[int, Any]]:
         # Treat collection items as children, with the index as the name
-        return self.value
+        return range(len(self.value))
 
 
 # We don't use typing.Sequence here since it includes mappings,
@@ -704,7 +703,7 @@ class _BaseMapInspector(PositronInspector[MT], ABC):
             yield key, self.value[key]
 
     def get_children(self) -> Iterable[Tuple[Any, Any]]:
-        return list(self.value.keys())
+        return list(self.get_keys())
 
 
 class MapInspector(_BaseMapInspector[Mapping]):
