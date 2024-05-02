@@ -3,7 +3,6 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { Disposable } from 'vs/base/common/lifecycle';
-import { IAction2Options } from 'vs/platform/actions/common/actions';
 import { InstantiationType, registerSingleton } from 'vs/platform/instantiation/common/extensions';
 import { createDecorator } from 'vs/platform/instantiation/common/instantiation';
 import { IPositronNotebookInstance } from 'vs/workbench/services/positronNotebook/browser/IPositronNotebookInstance';
@@ -46,7 +45,7 @@ export interface IPositronNotebookService {
 	 * Dispatch an action to appropriate notebook instance.
 	 * @param desc The action to dispatch info.
 	 */
-	dispatchAction(desc: IAction2Options): void;
+	dispatchAction(desc: { id: string }): void;
 }
 
 class PositronNotebookService extends Disposable implements IPositronNotebookService {
@@ -95,13 +94,18 @@ class PositronNotebookService extends Disposable implements IPositronNotebookSer
 		}
 	}
 
-	public dispatchAction(desc: IAction2Options): void {
-		console.log('Dispatching action:', desc);
+	public dispatchAction(desc: { id: string }): void {
 		if (!this._activeInstance) { return; }
 
 		switch (desc.id) {
 			case 'notebook.cell.insertCodeCellAboveAndFocusContainer':
 				this._activeInstance.insertCodeCellAboveAndFocusContainer();
+				break;
+			case 'list.focusUp':
+				this._activeInstance.selectionStateMachine.moveUp(false);
+				break;
+			case 'list.focusDown':
+				this._activeInstance.selectionStateMachine.moveDown(false);
 				break;
 			default:
 				console.log('Unknown action:', desc);

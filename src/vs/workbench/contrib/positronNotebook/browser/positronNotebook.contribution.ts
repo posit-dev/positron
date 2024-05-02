@@ -23,6 +23,11 @@ import { LifecyclePhase } from 'vs/workbench/services/lifecycle/common/lifecycle
 import { PositronNotebookEditor } from './PositronNotebookEditor';
 import { PositronNotebookEditorInput, PositronNotebookEditorInputOptions } from './PositronNotebookEditorInput';
 import { positronConfigurationNodeBase } from 'vs/workbench/services/languageRuntime/common/languageRuntime';
+import { KeyCode, KeyMod } from 'vs/base/common/keyCodes';
+import { KeybindingsRegistry, KeybindingWeight } from 'vs/platform/keybinding/common/keybindingsRegistry';
+import { POSITRON_NOTEBOOK_EDITOR_FOCUSED } from 'vs/workbench/services/positronNotebook/browser/ContextKeysManager';
+import { IPositronNotebookService } from 'vs/workbench/services/positronNotebook/browser/positronNotebookService';
+
 
 
 /**
@@ -143,3 +148,33 @@ Registry.as<IEditorFactoryRegistry>(EditorExtensions.EditorFactory).registerEdit
 	PositronNotebookEditorInput.ID,
 	PositronNotebookEditorSerializer
 );
+
+
+
+KeybindingsRegistry.registerCommandAndKeybindingRule({
+	id: 'list.focusUp',
+	weight: KeybindingWeight.WorkbenchContrib,
+	when: POSITRON_NOTEBOOK_EDITOR_FOCUSED,
+	primary: KeyCode.UpArrow,
+	mac: {
+		primary: KeyCode.UpArrow,
+		secondary: [KeyMod.WinCtrl | KeyCode.KeyP]
+	},
+	handler: (accessor) => {
+		accessor.get(IPositronNotebookService).dispatchAction({ id: 'list.focusUp' });
+	}
+});
+
+KeybindingsRegistry.registerCommandAndKeybindingRule({
+	id: 'list.focusDown',
+	weight: KeybindingWeight.WorkbenchContrib,
+	when: POSITRON_NOTEBOOK_EDITOR_FOCUSED,
+	primary: KeyCode.DownArrow,
+	mac: {
+		primary: KeyCode.DownArrow,
+		secondary: [KeyMod.WinCtrl | KeyCode.KeyN]
+	},
+	handler: (accessor) => {
+		accessor.get(IPositronNotebookService).dispatchAction({ id: 'list.focusDown' });
+	}
+});

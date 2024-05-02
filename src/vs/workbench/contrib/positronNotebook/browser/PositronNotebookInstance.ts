@@ -505,24 +505,20 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	 */
 	private _setupKeyboardNavigation(container: HTMLElement) {
 
-		const onKeyDown = (event: KeyboardEvent) => {
-			const addMode = event.shiftKey;
+		const onKeyDown = ({ key, shiftKey }: KeyboardEvent) => {
 
-			switch (event.key) {
-				case 'ArrowUp':
-					this.selectionStateMachine.moveUp(addMode);
-					break;
-				case 'ArrowDown':
-					this.selectionStateMachine.moveDown(addMode);
-					break;
-				case 'Enter': {
-					this.selectionStateMachine.enterEditor();
-					break;
-				}
-				case 'Escape':
-					this.selectionStateMachine.exitEditor();
-					break;
+			if (key === 'Enter') {
+				this.selectionStateMachine.enterEditor();
+			} else if (key === 'Escape') {
+				this.selectionStateMachine.exitEditor();
+				// Arrow keys are used in conjunction with shift to create multi-selections. Plain arrow
+				// key movement is handled by the `list.focusUp` and `list.focusDown` commands.
+			} else if (key === 'ArrowUp' && shiftKey) {
+				this.selectionStateMachine.moveUp(true);
+			} else if (key === 'ArrowDown' && shiftKey) {
+				this.selectionStateMachine.moveDown(true);
 			}
+
 		};
 
 		this._container?.addEventListener('keydown', onKeyDown);
