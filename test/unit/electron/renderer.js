@@ -177,6 +177,9 @@ function loadTests(opts) {
 
 	const _allowedTestOutput = [
 		/The vm module of Node\.js is deprecated in the renderer process and will be removed./,
+		// --- Start Positron ---
+		/Download the React DevTools for a better development experience/
+		// --- End Positron ---
 	];
 
 	// allow snapshot mutation messages locally
@@ -200,10 +203,17 @@ function loadTests(opts) {
 
 	let _testsWithUnexpectedOutput = false;
 
+	// --- Start Positron ---
+	let _unexpectedOut = '';
+	// --- End Positron ---
+
 	for (const consoleFn of [console.log, console.error, console.info, console.warn, console.trace, console.debug]) {
 		console[consoleFn.name] = function (msg) {
 			if (!_allowedTestOutput.some(a => a.test(msg)) && !_allowedTestsWithOutput.has(currentTestTitle)) {
 				_testsWithUnexpectedOutput = true;
+				// --- Start Positron ---
+				_unexpectedOut = msg;
+				// --- End Positron ---
 				consoleFn.apply(console, arguments);
 			}
 		};
@@ -279,7 +289,9 @@ function loadTests(opts) {
 
 			// should not have unexpected output
 			if (_testsWithUnexpectedOutput && !opts.dev) {
-				assert.ok(false, 'Error: Unexpected console output in test run. Please ensure no console.[log|error|info|warn] usage in tests or runtime errors.');
+				// --- Start Positron ---
+				assert.ok(false, `Error: Unexpected console output: ${_unexpectedOut} in test run. Please ensure no console.[log|error|info|warn] usage in tests or runtime errors.`);
+				// --- End Positron ---
 			}
 
 			// should not have unexpected errors
