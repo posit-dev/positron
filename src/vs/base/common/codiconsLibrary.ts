@@ -651,4 +651,7 @@ export const codiconsLibrary = {
 	positronClearFilter: register('positron-clear-filter', 0xf276),
 	positronNotebookCodeCell: register('positron-notebook-code-cell', 0xf277),
 	positronNotebookMarkdownCell: register('positron-notebook-markdown-cell', 0xf278),
+	goToSearch: register('go-to-search', 0xec32),
+	percentage: register('percentage', 0xec33),
+	sortPercentage: register('sort-percentage', 0xec33),
 } as const;
