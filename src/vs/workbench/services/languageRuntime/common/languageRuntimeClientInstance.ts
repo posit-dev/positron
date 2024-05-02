@@ -1,10 +1,10 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
 import { Event } from 'vs/base/common/event';
 import { Disposable } from 'vs/base/common/lifecycle';
-import { ObservableValue } from 'vs/base/common/observableInternal/base';
+import { ISettableObservable } from 'vs/base/common/observableInternal/base';
 
 /**
  * The possible states for a language runtime client instance. These
@@ -74,6 +74,6 @@ export interface IRuntimeClientInstance<Input, Output> extends Disposable {
 	getClientId(): string;
 	getClientType(): RuntimeClientType;
 	performRpc(request: Input): Promise<Output>;
-	messageCounter: ObservableValue<number>;
-	clientState: ObservableValue<RuntimeClientState>;
+	messageCounter: ISettableObservable<number>;
+	clientState: ISettableObservable<RuntimeClientState>;
 }
