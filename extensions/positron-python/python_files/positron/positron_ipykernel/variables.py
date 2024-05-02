@@ -1,3 +1,10 @@
+"""
+Inspectors are totally decoupled from the variables pane and
+all other Positron (and even non-Positron) components.
+They solve the general problem of providing a consistent interface
+over a variety types from popular Python libraries.
+"""
+
 #
 # Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
 #
@@ -7,6 +14,7 @@ import asyncio
 import logging
 import time
 import types
+from inspect import getattr_static
 from collections.abc import Iterable, Mapping
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Set, Tuple
 
@@ -669,16 +677,18 @@ def _summarize_variable(key: Any, value: Any) -> Optional[Variable]:
     """
     Summarizes the given variable into a Variable object.
 
-    Args:
-        key:
-            The actual key of the variable in its parent object, used as an input to determine the
-            variable's string access key.
-        value:
-            The variable's value.
+    Parameters
+    ----------
+    key:
+        The actual key of the variable in its parent object, used as an input to determine the
+        variable's string access key.
+    value:
+        The variable's value.
 
 
-    Returns:
-        An Variable summary, or None if the variable should be skipped.
+    Returns
+    -------
+    A Variable summary, or None if the variable should be skipped.
     """
     # Hide module types for now
     if isinstance(value, types.ModuleType):
@@ -732,14 +742,35 @@ def _summarize_variable(key: Any, value: Any) -> Optional[Variable]:
 
 
 def _summarize_children(parent: Any, limit: int = MAX_CHILDREN) -> List[Variable]:
-    children = []
-    for i, (key, value) in enumerate(get_inspector(parent).get_items()):
-        if len(children) >= limit:
+    # children = []
+    # for i, (key, value) in enumerate(get_inspector(parent).get_items()):
+    #     if len(children) >= limit:
+    #         break
+    #     summary = _summarize_variable(key, value)
+    #     if summary is not None:
+    #         children.append(summary)
+    # return children
+    num_summaries = 0
+    children = get_inspector(parent).get_children()
+    summaries = []
+    while True:
+        if num_summaries > MAX_CHILDREN:
             break
-        summary = _summarize_variable(key, value)
-        if summary is not None:
-            children.append(summary)
-    return children
+        for child in children:
+            try:
+                value = getattr_static(parent, child)
+                print(str(value))
+            except StopIteration:
+                break
+            except Exception as e:
+                logger.error(e)
+                value = "Unable to show value."
+            summary = _summarize_variable(child, value)
+            if summary is not None:
+                summaries.append(summary)
+                num_summaries += 1
+                print(summaries)
+    return summaries
 
 
 def _format_value(value: Any, clipboard_format: ClipboardFormatFormat) -> str:

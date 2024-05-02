@@ -118,6 +118,9 @@ class PositronInspector(Generic[T]):
     def get_child(self, key: Any) -> Any:
         raise TypeError(f"get_child() is not implemented for type: {type(self.value)}")
 
+    def get_children(self, key: Any) -> Any:
+        raise TypeError(f"get_children() is not implemented for type: {type(self.value)}")
+
     def get_items(self) -> Iterable[Tuple[Any, Any]]:
         return []
 
@@ -177,7 +180,7 @@ class PositronInspector(Generic[T]):
     @classmethod
     def value_from_json(cls, type_name: str, data: JsonData) -> T:
         raise NotImplementedError(
-            f"value_from_json() is not implemented for this type. type_name: {type_name}, data: {data}"
+            f"value_from_json() is not implemented for this type: {type_name}, data: {data}"
         )
 
 
@@ -227,7 +230,9 @@ class BytesInspector(PositronInspector[bytes]):
         return data.encode()
 
 
-### object
+#
+# Objects
+#
 
 
 class ObjectInspector(PositronInspector[T], ABC):
@@ -238,6 +243,9 @@ class ObjectInspector(PositronInspector[T], ABC):
         if isinstance(self.value, property):
             return 0
         return len([p for p in dir(self.value) if not (p.startswith("_"))])
+
+    def get_children(self):
+        return [p for p in dir(self.value) if not (p.startswith("_"))]
 
     def get_child(self, key: str) -> Any:
         if isinstance(self.value, property):
@@ -459,6 +467,11 @@ class _BaseCollectionInspector(PositronInspector[CT], ABC):
     def get_items(self) -> Iterable[Tuple[int, Any]]:
         # Treat collection items as children, with the index as the name
         return enumerate(self.value)
+
+    # TODO FIX
+    def get_children(self) -> Iterable[Tuple[int, Any]]:
+        # Treat collection items as children, with the index as the name
+        return self.value
 
 
 # We don't use typing.Sequence here since it includes mappings,
@@ -689,6 +702,9 @@ class _BaseMapInspector(PositronInspector[MT], ABC):
     def get_items(self) -> Iterable[Tuple[Any, Any]]:
         for key in self.get_keys():
             yield key, self.value[key]
+
+    def get_children(self) -> Iterable[Tuple[Any, Any]]:
+        return list(self.value.keys())
 
 
 class MapInspector(_BaseMapInspector[Mapping]):
