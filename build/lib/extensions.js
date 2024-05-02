@@ -268,6 +268,10 @@ const excludedExtensions = [
     'vscode-test-resolver',
     'ms-vscode.node-debug',
     'ms-vscode.node-debug2',
+    // --- Start Positron ---
+    'positron-zed',
+    'positron-javascript',
+    // --- End Positron ---
 ];
 const marketplaceWebExtensionsExclude = new Set([
     'ms-vscode.node-debug',
@@ -536,6 +540,11 @@ async function copyExtensionBinaries(outputRoot) {
         // be copied.  The Positron extension metadata lives in the
         // `positron.json` file in the extension's root directory.
         const binaryMetadata = (glob.sync('extensions/*/positron.json')
+            .filter(metadataPath => {
+            // Don't copy binaries for excluded extensions.
+            const extension = path.basename(path.dirname(metadataPath));
+            return excludedExtensions.indexOf(extension) === -1;
+        })
             .map(metadataPath => {
             // Read the metadata file.
             const metadata = JSON.parse(fs.readFileSync(metadataPath).toString('utf8'));
