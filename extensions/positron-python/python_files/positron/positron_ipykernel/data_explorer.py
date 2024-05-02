@@ -8,31 +8,22 @@
 import abc
 import logging
 import operator
-from typing import (
-    TYPE_CHECKING,
-    Callable,
-    Dict,
-    List,
-    Optional,
-    Sequence,
-    Set,
-    Tuple,
-)
+from typing import TYPE_CHECKING, Callable, Dict, List, Optional, Sequence, Set, Tuple
 
 import comm
 
 from .access_keys import decode_access_key
 from .data_explorer_comm import (
     BackendState,
+    ColumnDisplayType,
     ColumnFrequencyTable,
     ColumnHistogram,
+    ColumnProfileResult,
+    ColumnProfileType,
+    ColumnSchema,
+    ColumnSortKey,
     ColumnSummaryStats,
     CompareFilterParamsOp,
-    ColumnProfileType,
-    ColumnProfileResult,
-    ColumnSchema,
-    ColumnDisplayType,
-    ColumnSortKey,
     DataExplorerBackendMessageContent,
     DataExplorerFrontendEvent,
     FilterResult,
@@ -62,7 +53,6 @@ from .data_explorer_comm import (
 from .positron_comm import CommMessage, PositronComm
 from .third_party import pd_
 from .utils import guid
-
 
 if TYPE_CHECKING:
     import pandas as pd
@@ -753,6 +743,11 @@ class PandasView(DataExplorerTableView):
             RowFilterType.NotBetween,
         ]:
             return display_type in _FILTER_RANGE_COMPARE_SUPPORTED
+        elif filt.filter_type in [
+            RowFilterType.IsTrue,
+            RowFilterType.IsFalse,
+        ]:
+            return display_type == ColumnDisplayType.Boolean
         else:
             # Filters always supported
             assert filt.filter_type in [
@@ -797,6 +792,10 @@ class PandasView(DataExplorerTableView):
             mask = col.str.len() != 0
         elif filt.filter_type == RowFilterType.NotNull:
             mask = col.notnull()
+        elif filt.filter_type == RowFilterType.IsTrue:
+            mask = col == True  # noqa: E712
+        elif filt.filter_type == RowFilterType.IsFalse:
+            mask = col == False  # noqa: E712
         elif filt.filter_type == RowFilterType.SetMembership:
             params = filt.set_membership_params
             assert params is not None
@@ -955,10 +954,12 @@ class PandasView(DataExplorerTableView):
         RowFilterType.Between,
         RowFilterType.Compare,
         RowFilterType.IsEmpty,
-        RowFilterType.NotEmpty,
+        RowFilterType.IsFalse,
         RowFilterType.IsNull,
-        RowFilterType.NotNull,
+        RowFilterType.IsTrue,
         RowFilterType.NotBetween,
+        RowFilterType.NotEmpty,
+        RowFilterType.NotNull,
         RowFilterType.Search,
         RowFilterType.SetMembership,
     }

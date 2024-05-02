@@ -65,7 +65,11 @@ class RowFilterType(str, enum.Enum):
 
     IsEmpty = "is_empty"
 
+    IsFalse = "is_false"
+
     IsNull = "is_null"
+
+    IsTrue = "is_true"
 
     NotBetween = "not_between"
 
