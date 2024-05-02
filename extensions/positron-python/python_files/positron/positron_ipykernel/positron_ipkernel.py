@@ -489,12 +489,9 @@ class PositronIPyKernel(IPythonKernel):
             filename = f"<positron-console-cell-{self.execution_count}>"
 
         # send to logs if warning is coming from Positron files
-        # or if it is a SyntaxWarning for escape sequences, which can be noisy
-        if (
-            str(positron_files_path) in str(filename)
-            or "invalid escape sequence" in str(message)
-            and category is SyntaxWarning
-        ):
+        # also send warnings from attempted compiles from IPython to logs
+        # https://github.com/ipython/ipython/blob/8.24.0/IPython/core/async_helpers.py#L151
+        if (str(positron_files_path) in str(filename) or str(filename) == "<>"):
             msg = f"{filename}-{lineno}: {category}: {message}"
             logger.warning(msg)
             return
