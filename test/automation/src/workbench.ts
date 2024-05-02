@@ -23,6 +23,13 @@ import { Notebook } from './notebook';
 import { Localization } from './localization';
 import { Task } from './task';
 
+// --- Start Positron ---
+import { StartInterpreter } from './positronStartInterpreter';
+import { PositronPopups } from './positronPopups';
+import { PositronConsole } from './positronConsole';
+import { PositronVariables } from './positronVariables';
+// --- End Positron ---
+
 export interface Commands {
 	runCommand(command: string, options?: { exactLabelMatch?: boolean }): Promise<any>;
 }
@@ -48,6 +55,13 @@ export class Workbench {
 	readonly localization: Localization;
 	readonly task: Task;
 
+	// --- Start Positron ---
+	readonly startInterpreter: StartInterpreter;
+	readonly positronPopups: PositronPopups;
+	readonly positronConsole: PositronConsole;
+	readonly positronVariables: PositronVariables;
+	// --- End Positron ---
+
 	constructor(code: Code) {
 		this.editors = new Editors(code);
 		this.quickinput = new QuickInput(code);
@@ -67,5 +81,12 @@ export class Workbench {
 		this.notebook = new Notebook(this.quickaccess, this.quickinput, code);
 		this.localization = new Localization(code);
 		this.task = new Task(code, this.editor, this.editors, this.quickaccess, this.quickinput, this.terminal);
+
+		// --- Start Positron ---
+		this.startInterpreter = new StartInterpreter(code);
+		this.positronPopups = new PositronPopups(code);
+		this.positronConsole = new PositronConsole(code);
+		this.positronVariables = new PositronVariables(code);
+		// --- End Positron ---
 	}
 }
