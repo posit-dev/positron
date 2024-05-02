@@ -21,7 +21,6 @@ import logging
 from typing import Optional, Union, cast
 
 import matplotlib
-from matplotlib._pylab_helpers import Gcf
 from matplotlib.backend_bases import FigureManagerBase
 from matplotlib.backends.backend_agg import FigureCanvasAgg
 from matplotlib.figure import Figure
@@ -58,7 +57,11 @@ class FigureManagerPositron(FigureManagerBase):
         super().__init__(canvas, num)
 
         self._plots_service = cast(PositronIPyKernel, PositronIPyKernel.instance()).plots_service
-        self._plot = self._plots_service.create_plot(self.canvas._render, self._handle_close)
+        self._plot = self._plots_service.create_plot(self.canvas.render)
+
+    @property
+    def closed(self) -> bool:
+        return self._plot.closed
 
     def show(self) -> None:
         """
@@ -70,7 +73,7 @@ class FigureManagerPositron(FigureManagerBase):
         """
         Called by matplotlib when a figure is closed via `plt.close()`.
         """
-        self._plots_service.close_plot(self._plot)
+        self._plot.close()
 
     def update(self) -> None:
         """
@@ -79,13 +82,6 @@ class FigureManagerPositron(FigureManagerBase):
         Called by the canvas when a figure is drawn and its contents have changed.
         """
         self._plot.update()
-
-    def _handle_close(self) -> None:
-        """
-        Called by the plots service after the plot is closed in the frontend.
-        """
-        # Notify matplotlib to close the figure (and its manager and canvas).
-        Gcf.destroy(self)
 
 
 class FigureCanvasPositron(FigureCanvasAgg):
@@ -110,11 +106,11 @@ class FigureCanvasPositron(FigureCanvasAgg):
     def __init__(self, figure: Optional[Figure] = None) -> None:
         super().__init__(figure)
 
-        # Track the hash of the canvas contents for change detection.
-        self._last_hash = ""
+        # Hash of the canvas contents after the previous render for change detection.
+        self._previous_hash = ""
 
-        # True if the canvas has been rendered at least once.
-        self._did_render = False
+        # True after the canvas has been rendered at least once.
+        self._first_render_completed = False
 
     def draw(self, is_rendering=False) -> None:
         """
@@ -123,29 +119,39 @@ class FigureCanvasPositron(FigureCanvasAgg):
         Parameters
         ----------
         is_rendering
-            Whether the canvas is being rendered, to avoid recursively requesting an update from the
+            Whether the canvas is being rendered, to avoid an infinite draw-render loop with the
             frontend.
         """
         logger.debug("Drawing to canvas")
         try:
             super().draw()
         finally:
-            # Notify the manager that the canvas has been updated if:
-            # 1. The figure has been rendered at least once (to avoid an unnecessary update on
-            #    creation), and
-            # 2. This draw was not triggered during a render (to avoid an infinite loop), and
-            # 3. The hash of the canvas contents has changed.
-            if self._did_render and not is_rendering:
-                current_hash = self._hash_buffer_rgba()
-                logger.debug(f"Canvas: last hash: {self._last_hash[:6]}")
-                logger.debug(f"Canvas: current hash: {current_hash[:6]}")
-                if current_hash == self._last_hash:
-                    logger.debug("Canvas: hash is the same, no need to update")
-                else:
-                    logger.debug("Canvas: hash changed, requesting a update")
-                    self.manager.update()
+            # Do nothing if the canvas has not been rendered yet, to avoid an unnecessary update
+            # since opening the comm will trigger a render from the frontend.
+            if not self._first_render_completed:
+                return
 
-    def _render(self, width_px: int, height_px: int, pixel_ratio: float, format: str) -> bytes:
+            # Do nothing if the canvas is currently being rendered, to avoid an infinite draw-render loop.
+            if is_rendering:
+                return
+
+            # If the plot was closed after being opened, request an update to re-open the plot.
+            if self.manager.closed:
+                self.manager.update()
+                return
+
+            # Check if the canvas contents have changed, and request an update if they have.
+            current_hash = self._hash_buffer_rgba()
+            logger.debug(f"Canvas: previous hash: {self._previous_hash[:6]}")
+            logger.debug(f"Canvas: current hash: {current_hash[:6]}")
+            if current_hash == self._previous_hash:
+                logger.debug("Canvas: hash is the same, no need to update")
+                return
+
+            logger.debug("Canvas: hash changed, requesting an update")
+            self.manager.update()
+
+    def render(self, width_px: int, height_px: int, pixel_ratio: float, format: str) -> bytes:
         # Set the device pixel ratio to the requested value.
         self._set_device_pixel_ratio(pixel_ratio)  # type: ignore
 
@@ -172,8 +178,8 @@ class FigureCanvasPositron(FigureCanvasAgg):
         #  requires this redraw before calculating the hash else the next draw() call will
         #  spuriously detect a change.
         self.draw(is_rendering=True)
-        self._last_hash = self._hash_buffer_rgba()
-        self._did_render = True
+        self._previous_hash = self._hash_buffer_rgba()
+        self._first_render_completed = True
 
         return rendered
 

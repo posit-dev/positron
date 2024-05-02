@@ -52,9 +52,11 @@ def plots_service(kernel: PositronIPyKernel) -> Iterable[PlotsService]:
     plots_service = kernel.plots_service
 
     assert not plots_service._plots
+    assert not plt.get_fignums()
 
     yield plots_service
 
+    plots_service.shutdown()
     plt.close("all")
 
 
@@ -148,13 +150,56 @@ def test_mpl_update(shell: PositronShell, plots_service: PlotsService) -> None:
     assert plot_comm.messages == []
 
 
+def _assert_plot_comm_closed(plot_comm: DummyComm) -> None:
+    assert plot_comm._closed
+    assert plot_comm.messages == [comm_close_message()]
+
+
 def test_mpl_close(shell: PositronShell, plots_service: PlotsService) -> None:
     plot_comm = _create_mpl_plot(shell, plots_service)
 
-    # Closing the figure should close the plot and send a comm close message.
+    # Closing the figure
     shell.run_cell("plt.close()")
-    assert plot_comm.messages == [comm_close_message()]
-    assert not plots_service._plots
+    # should close the plot comm,
+    _assert_plot_comm_closed(plot_comm)
+    # but the comm should still be registered with the plots service.
+    assert len(plots_service._plots) == 1
+
+
+def _do_close(plot_comm: DummyComm) -> None:
+    plot_comm.handle_close(comm_close_message())
+
+    _assert_plot_comm_closed(plot_comm)
+    plot_comm.messages.clear()
+
+
+def test_mpl_frontend_close(shell: PositronShell, plots_service: PlotsService) -> None:
+    plot_comm = _create_mpl_plot(shell, plots_service)
+    _do_close(plot_comm)
+
+
+def test_mpl_frontend_close_then_draw(shell: PositronShell, plots_service: PlotsService) -> None:
+    plot_comm = _create_mpl_plot(shell, plots_service)
+    _do_render(plot_comm)
+    _do_close(plot_comm)
+
+    # Drawing again should re-open the comm
+    shell.run_cell("plt.plot([1, 2])")
+
+    assert not plot_comm._closed
+    assert plot_comm.messages == [comm_open_message(_CommTarget.Plot)]
+
+
+def test_mpl_frontend_close_then_show(shell: PositronShell, plots_service: PlotsService) -> None:
+    plot_comm = _create_mpl_plot(shell, plots_service)
+    _do_render(plot_comm)
+    _do_close(plot_comm)
+
+    # Showing again should re-open the comm
+    shell.run_cell("plt.show()")
+
+    assert not plot_comm._closed
+    assert plot_comm.messages == [comm_open_message(_CommTarget.Plot)]
 
 
 def test_mpl_multiple_figures(shell: PositronShell, plots_service: PlotsService) -> None:

@@ -35,23 +35,20 @@ class Plot:
         The communication channel to the frontend plot instance.
     render
         A callable that renders the plot. See `plot_comm.RenderRequest` for parameter details.
-    close_callback
-        A callback that is called after the plot comm is closed.
     """
 
     def __init__(
         self,
         comm: PositronComm,
         render: Renderer,
-        close_callback: Optional[Callable[[], None]] = None,
     ) -> None:
         self._comm = comm
         self._render = render
-        self._close_callback = close_callback
 
         self._closed = False
 
         self._comm.on_msg(self._handle_msg, PlotBackendMessageContent)
+        self._comm.on_close(self._handle_close)
 
     @property
     def closed(self) -> bool:
@@ -60,29 +57,44 @@ class Plot:
         """
         return self._closed
 
+    def _open(self) -> None:
+        """
+        Re-open the plot after it's been closed.
+        """
+        if not self._closed:
+            return
+
+        self._comm.open()
+        self._closed = False
+
     def close(self) -> None:
         """
         Close the plot.
         """
         if self._closed:
             return
-
         self._closed = True
         self._comm.close()
-        if self._close_callback:
-            self._close_callback()
 
     def show(self) -> None:
         """
         Show the plot.
         """
-        self._comm.send_event(PlotFrontendEvent.Show, {})
+        if self._closed:
+            # No need to send a show event since opening the comm will trigger a render from the frontend.
+            self._open()
+        else:
+            self._comm.send_event(PlotFrontendEvent.Show, {})
 
     def update(self) -> None:
         """
         Notify the frontend that the plot needs to be rerendered.
         """
-        self._comm.send_event(PlotFrontendEvent.Update, {})
+        if self._closed:
+            # No need to send an update event since opening the comm will trigger a render from the frontend.
+            self._open()
+        else:
+            self._comm.send_event(PlotFrontendEvent.Update, {})
 
     def _handle_msg(self, msg: CommMessage[PlotBackendMessageContent], raw_msg: JsonRecord) -> None:
         request = msg.content.data
@@ -107,6 +119,9 @@ class Plot:
         data = base64.b64encode(rendered).decode()
         result = PlotResult(data=data, mime_type=MIME_TYPE[format]).dict()
         self._comm.send_result(data=result)
+
+    def _handle_close(self, msg: JsonRecord) -> None:
+        self.close()
 
 
 class Renderer(Protocol):
@@ -135,7 +150,7 @@ class PlotsService:
 
         self._plots: List[Plot] = []
 
-    def create_plot(self, render: Renderer, close_callback: Callable[[], None]) -> Plot:
+    def create_plot(self, render: Renderer) -> Plot:
         """
         Create a plot.
 
@@ -146,27 +161,14 @@ class PlotsService:
         comm_id = str(uuid.uuid4())
         logger.info(f"Creating plot with comm {comm_id}")
         plot_comm = PositronComm.create(self._target_name, comm_id)
-        plot = Plot(plot_comm, render, close_callback)
+        plot = Plot(plot_comm, render)
         self._plots.append(plot)
         return plot
-
-    def close_plot(self, plot: Plot) -> None:
-        """
-        Close a plot.
-
-        Parameters
-        ----------
-        plot
-            The plot to close.
-        """
-        if plot.closed:
-            return
-        plot.close()
-        self._plots.remove(plot)
 
     def shutdown(self) -> None:
         """
         Shutdown the plots service.
         """
         for plot in list(self._plots):
-            self.close_plot(plot)
+            plot.close()
+            self._plots.remove(plot)
