@@ -81,6 +81,17 @@ export const showNewProjectModalDialog = async (
 							? result.pythonEnvType
 							: '';
 
+					if (result.installIpykernel) {
+						const pythonPath =
+							result.selectedRuntime?.extraRuntimeData?.pythonPath ??
+							result.selectedRuntime?.runtimePath ??
+							'';
+						await commandService.executeCommand(
+							'python.installIpykernel',
+							String(pythonPath)
+						);
+					}
+
 					// Create the new project configuration.
 					const newProjectConfig: NewProjectConfiguration = {
 						runtimeId: result.selectedRuntime?.runtimeId || '',
