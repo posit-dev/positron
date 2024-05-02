@@ -25,8 +25,8 @@ import { IRuntimeSessionService } from 'vs/workbench/services/runtimeSession/com
 import { IRuntimeStartupService } from 'vs/workbench/services/runtimeStartup/common/runtimeStartupService';
 import { ILogService } from 'vs/platform/log/common/log';
 import { IOpenerService } from 'vs/platform/opener/common/opener';
-import { IStorageService } from 'vs/platform/storage/common/storage';
 import { USE_POSITRON_PROJECT_WIZARD_CONFIG_KEY } from 'vs/workbench/services/positronNewProject/common/positronNewProjectEnablement';
+import { IPositronNewProjectService } from 'vs/workbench/services/positronNewProject/common/positronNewProject';
 
 /**
  * The PositronNewProjectAction.
@@ -86,9 +86,9 @@ export class PositronNewProjectAction extends Action2 {
 			accessor.get(ILogService),
 			accessor.get(IOpenerService),
 			accessor.get(IPathService),
+			accessor.get(IPositronNewProjectService),
 			accessor.get(IRuntimeSessionService),
 			accessor.get(IRuntimeStartupService),
-			accessor.get(IStorageService),
 		);
 	}
 }
