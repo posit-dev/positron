@@ -7,6 +7,7 @@ import { DisposableStore } from 'vs/base/common/lifecycle';
 import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
 import { IContextKeyService } from 'vs/platform/contextkey/common/contextkey';
 import { IContextMenuService } from 'vs/platform/contextview/browser/contextView';
+import { IHoverService } from 'vs/platform/hover/browser/hover';
 import { IInstantiationService } from 'vs/platform/instantiation/common/instantiation';
 import { IKeybindingService } from 'vs/platform/keybinding/common/keybinding';
 import { IOpenerService } from 'vs/platform/opener/common/opener';
@@ -16,7 +17,7 @@ import { IViewPaneOptions, ViewPane } from 'vs/workbench/browser/parts/views/vie
 import { IViewDescriptorService } from 'vs/workbench/common/views';
 
 export abstract class PositronViewPane extends ViewPane {
-	private _disposableStore: DisposableStore;
+	private readonly _disposableStore: DisposableStore;
 
 	/**
 	 * Drive focus to an element inside the view.
@@ -35,6 +36,7 @@ export abstract class PositronViewPane extends ViewPane {
 		@IOpenerService openerService: IOpenerService,
 		@IThemeService themeService: IThemeService,
 		@ITelemetryService telemetryService: ITelemetryService,
+		@IHoverService hoverService: IHoverService,
 	) {
 		super(
 			options,
@@ -46,7 +48,8 @@ export abstract class PositronViewPane extends ViewPane {
 			instantiationService,
 			openerService,
 			themeService,
-			telemetryService
+			telemetryService,
+			hoverService
 		);
 		this._disposableStore = this._register(new DisposableStore());
 
@@ -71,7 +74,7 @@ export abstract class PositronViewPane extends ViewPane {
 
 			// Drive focus to an inner element if any. Also needs to be at the next tick,
 			// and after the `super.focus()` call.
-		        this.focusElement?.();
+			this.focusElement?.();
 		};
 		disposableTimeout(focus, 0, this._disposableStore);
 	}

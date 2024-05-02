@@ -147,6 +147,7 @@ export class PositronNotebookOutputWebviewService implements IPositronNotebookOu
 			outputScrolling: true,
 			outputWordWrap: false,
 			linkifyFilePaths: false,
+			minimalError: false,
 		},
 			this.getRendererData(mimeType),
 			await this.getStaticPreloadsData(renderer.extensionId),

@@ -553,13 +553,19 @@ export class IssueReporter extends Disposable {
 	}
 
 	// --- Start Positron ---
-	// private searchVSCodeIssues(title: string, issueDescription?: string): void {
-	// 	if (title) {
-	// 		this.searchDuplicates(title, issueDescription);
-	// 	} else {
-	// 		this.clearSearchResults();
-	// 	}
-	// }
+	/*
+	private getExtensionData(): string | undefined {
+		return this.issueReporterModel.getData().selectedExtension?.extensionData;
+	}
+
+	private searchVSCodeIssues(title: string, issueDescription?: string): void {
+		if (title) {
+			this.searchDuplicates(title, issueDescription);
+		} else {
+			this.clearSearchResults();
+		}
+	}
+	*/
 
 	private searchPositronIssues(_title: string): void {
 		// TODO: While positron repositories are private, they cannot be searched.
@@ -572,18 +578,6 @@ export class IssueReporter extends Disposable {
 		// 	this.clearSearchResults();
 		// }
 		this.clearSearchResults();
-	}
-
-	private getExtensionData(): string | undefined {
-		return this.issueReporterModel.getData().selectedExtension?.extensionData;
-	}
-
-	private searchVSCodeIssues(title: string, issueDescription?: string): void {
-		if (title) {
-			this.searchDuplicates(title, issueDescription);
-		} else {
-			this.clearSearchResults();
-		}
 	}
 	// --- End Positron ---
 
