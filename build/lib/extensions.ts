@@ -624,6 +624,11 @@ export async function copyExtensionBinaries(outputRoot: string) {
 		// `positron.json` file in the extension's root directory.
 		const binaryMetadata = (
 			(<string[]>glob.sync('extensions/*/positron.json'))
+				.filter(metadataPath => {
+					// Don't copy binaries for excluded extensions.
+					const extension = path.basename(path.dirname(metadataPath));
+					return excludedExtensions.indexOf(extension) === -1;
+				})
 				.map(metadataPath => {
 					// Read the metadata file.
 					const metadata = JSON.parse(fs.readFileSync(metadataPath).toString('utf8'));
