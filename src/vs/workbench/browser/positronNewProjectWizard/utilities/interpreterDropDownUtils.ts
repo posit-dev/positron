@@ -28,24 +28,40 @@ export interface InterpreterInfo {
 }
 
 /**
+ * Determines if the runtime source should be included based on the filters.
+ * @param runtimeSource The runtime source to check.
+ * @param filters The runtime source filters to apply.
+ * @returns True if the runtime source should be included, false otherwise.
+ * If no filters are provided, all runtime sources are included.
+ */
+const includeRuntimeSource = (
+	runtimeSource: string,
+	filters?: RuntimeFilter[]
+) => {
+	return (
+		!filters || !filters.length || filters.find((rs) => rs === runtimeSource) !== undefined
+	);
+};
+
+/**
  * Retrieves the detected interpreters as DropDownListBoxItems, filtering and grouping the list by
  * runtime source if requested.
  * @param languageRuntimeService The language runtime service.
  * @param languageId The language ID of the runtime to retrieve interpreters for.
  * @param preferredRuntimeId The runtime ID of the preferred interpreter.
- * @param runtimeSourceFilter The runtime source filter to apply to the runtimes.
+ * @param runtimeSourceFilters The runtime source filters to apply to the runtimes.
  * @returns An array of DropDownListBoxEntry for the interpreters.
  */
 export const getInterpreterDropdownItems = (
 	languageRuntimeService: ILanguageRuntimeService,
 	languageId: LanguageIds,
 	preferredRuntimeId: string,
-	runtimeSourceFilter?: RuntimeFilter
+	runtimeSourceFilters?: RuntimeFilter[]
 ) => {
 	// Return the DropDownListBoxEntry array.
 	return languageRuntimeService.registeredRuntimes
 		.filter(runtime => runtime.languageId === languageId &&
-			(!runtimeSourceFilter || runtime.runtimeSource === runtimeSourceFilter)
+			includeRuntimeSource(runtime.runtimeSource, runtimeSourceFilters)
 		)
 		.sort((left, right) => left.runtimeSource.localeCompare(right.runtimeSource))
 		.reduce<DropDownListBoxEntry<string, InterpreterInfo>[]>(

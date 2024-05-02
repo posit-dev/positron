@@ -21,13 +21,14 @@ export interface PythonEnvironmentTypeInfo {
  * list by runtime source if requested.
  * @param runtimeStartupService The runtime startup service.
  * @param languageRuntimeService The language runtime service.
- * @param pythonRuntimeFilter The PythonRuntimeFilter to apply to the Python runtimes.
+ * @param pythonRuntimeFilters The PythonRuntimeFilters to apply to the Python runtimes.
  * @returns An array of DropDownListBoxEntry for Python interpreters.
  */
 const getPythonInterpreterDropDownItems = (
 	runtimeStartupService: IRuntimeStartupService,
 	languageRuntimeService: ILanguageRuntimeService,
-	pythonRuntimeFilter = PythonRuntimeFilter.All
+	pythonRuntimeFilters?: PythonRuntimeFilter[]
+
 ) => {
 	const languageId = LanguageIds.Python;
 	const preferredRuntime = runtimeStartupService.getPreferredRuntime(languageId);
@@ -36,7 +37,7 @@ const getPythonInterpreterDropDownItems = (
 		languageRuntimeService,
 		languageId,
 		preferredRuntime?.runtimeId,
-		pythonRuntimeFilter === PythonRuntimeFilter.All ? undefined : PythonRuntimeFilter.Global
+		pythonRuntimeFilters
 	);
 };
 
@@ -86,7 +87,7 @@ export const getPythonInterpreterEntries = (
 					return getPythonInterpreterDropDownItems(
 						runtimeStartupService,
 						languageRuntimeService,
-						PythonRuntimeFilter.Global
+						[PythonRuntimeFilter.Global, PythonRuntimeFilter.Pyenv]
 					);
 				case PythonEnvironmentType.Conda:
 					return createCondaInterpreterDropDownItems();
@@ -94,14 +95,12 @@ export const getPythonInterpreterEntries = (
 					return getPythonInterpreterDropDownItems(
 						runtimeStartupService,
 						languageRuntimeService,
-						PythonRuntimeFilter.All
 					);
 			}
 		case EnvironmentSetupType.ExistingEnvironment:
 			return getPythonInterpreterDropDownItems(
 				runtimeStartupService,
 				languageRuntimeService,
-				PythonRuntimeFilter.All
 			);
 		default:
 			return [];
