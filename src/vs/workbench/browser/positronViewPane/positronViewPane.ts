@@ -71,9 +71,7 @@ export abstract class PositronViewPane extends ViewPane {
 
 			// Drive focus to an inner element if any. Also needs to be at the next tick,
 			// and after the `super.focus()` call.
-			if (this.focusElement) {
-				this.focusElement();
-			}
+		        this.focusElement?.();
 		};
 		disposableTimeout(focus, 0, this._disposableStore);
 	}
