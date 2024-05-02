@@ -250,7 +250,7 @@ class ObjectInspector(PositronInspector[T], ABC):
 
     def get_child(self, key: str) -> Any:
         # let function inspector handle callables
-        if hasattr(self.value, key) and callable(getattr(self.value, key)):
+        if hasattr(self.value, key) and callable(getattr_static(self.value, key)):
             return getattr(self.value, key)
         else:
             return getattr_static(self.value, key)
