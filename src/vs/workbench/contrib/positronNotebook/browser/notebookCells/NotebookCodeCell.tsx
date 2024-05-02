@@ -15,6 +15,7 @@ import { localize } from 'vs/nls';
 import { NotebookCellActionBar } from 'vs/workbench/contrib/positronNotebook/browser/notebookCells/NotebookCellActionBar';
 import { CellTextOutput } from './CellTextOutput';
 import { ActionButton } from 'vs/workbench/contrib/positronNotebook/browser/utilityComponents/ActionButton';
+import { NotebookCellWrapper } from './NotebookCellWrapper';
 
 
 export function NotebookCodeCell({ cell }: { cell: IPositronNotebookCodeCell }) {
@@ -22,7 +23,7 @@ export function NotebookCodeCell({ cell }: { cell: IPositronNotebookCodeCell }) 
 	const executionStatus = useObservedValue(cell.executionStatus);
 	const isRunning = executionStatus === 'running';
 
-	return <div className='positron-notebook-cell positron-notebook-code-cell'>
+	return <NotebookCellWrapper cell={cell}>
 		<NotebookCellActionBar cell={cell}>
 			<ActionButton
 				ariaLabel={isRunning ? localize('stopExecution', 'Stop execution') : localize('runCell', 'Run cell')}
@@ -36,7 +37,7 @@ export function NotebookCodeCell({ cell }: { cell: IPositronNotebookCodeCell }) 
 				{outputContents?.map((output) => <NotebookCellOutput key={output.outputId} cellOutput={output} />)}
 			</div>
 		</div>
-	</div>;
+	</NotebookCellWrapper>;
 
 }
 
