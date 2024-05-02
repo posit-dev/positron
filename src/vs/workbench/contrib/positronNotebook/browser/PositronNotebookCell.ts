@@ -12,7 +12,7 @@ import { NotebookCellTextModel } from 'vs/workbench/contrib/notebook/common/mode
 import { CellKind } from 'vs/workbench/contrib/notebook/common/notebookCommon';
 import { ExecutionStatus, IPositronNotebookCodeCell, IPositronNotebookCell, IPositronNotebookMarkdownCell, NotebookCellOutputs } from 'vs/workbench/services/positronNotebook/browser/IPositronNotebookCell';
 import { CodeEditorWidget } from 'vs/editor/browser/widget/codeEditor/codeEditorWidget';
-import { CellSelectionType } from 'vs/workbench/services/positronNotebook/browser/selectionMachine';
+import { CellSelectionType, SelectionState } from 'vs/workbench/services/positronNotebook/browser/selectionMachine';
 import { PositronNotebookInstance } from 'vs/workbench/contrib/positronNotebook/browser/PositronNotebookInstance';
 
 export abstract class PositronNotebookCellGeneral extends Disposable implements IPositronNotebookCell {

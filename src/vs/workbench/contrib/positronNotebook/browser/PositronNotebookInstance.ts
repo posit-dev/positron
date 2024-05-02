@@ -25,7 +25,7 @@ import { PositronNotebookEditorInput } from 'vs/workbench/contrib/positronNotebo
 import { BaseCellEditorOptions } from './BaseCellEditorOptions';
 import * as DOM from 'vs/base/browser/dom';
 import { IPositronNotebookCell } from 'vs/workbench/services/positronNotebook/browser/IPositronNotebookCell';
-import { CellSelectionType, SelectionStateMachine } from 'vs/workbench/services/positronNotebook/browser/selectionMachine';
+import { CellSelectionType, SelectionState, SelectionStateMachine } from 'vs/workbench/services/positronNotebook/browser/selectionMachine';
 import { PositronNotebookContextKeyManager } from 'vs/workbench/services/positronNotebook/browser/ContextKeysManager';
 import { IPositronNotebookService } from 'vs/workbench/services/positronNotebook/browser/positronNotebookService';
 import { IPositronNotebookInstance, KernelStatus } from '../../../services/positronNotebook/browser/IPositronNotebookInstance';
@@ -55,7 +55,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	selectedCells: ISettableObservable<IPositronNotebookCell[]> = observableValue<IPositronNotebookCell[]>('positronNotebookSelectedCells', []);
 	editingCell: ISettableObservable<IPositronNotebookCell | undefined, void> = observableValue<IPositronNotebookCell | undefined>('positronNotebookEditingCell', undefined);
 
-	selectionStateMachine = new SelectionStateMachine();
+	selectionStateMachine: SelectionStateMachine;
 	contextManager: PositronNotebookContextKeyManager;
 
 	/**
@@ -183,6 +183,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		this.setupNotebookTextModel();
 
 		this.contextManager = this._instantiationService.createInstance(PositronNotebookContextKeyManager);
+		this.selectionStateMachine = this._instantiationService.createInstance(SelectionStateMachine);
 
 		this._positronNotebookService.registerInstance(this);
 
@@ -373,7 +374,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	insertCodeCellAboveAndFocusContainer(): void {
 		// Add a code cell above the currently selected cell.
 		const selectionState = this.selectionStateMachine.state.get();
-		if (selectionState.type !== 'Single Selection') {
+		if (selectionState.type !== SelectionState.SingleSelection) {
 			return;
 		}
 		const indexOfSelectedCell = this._cells.indexOf(selectionState.selected[0]);
