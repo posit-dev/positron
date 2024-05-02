@@ -491,7 +491,7 @@ class PositronIPyKernel(IPythonKernel):
         # send to logs if warning is coming from Positron files
         # also send warnings from attempted compiles from IPython to logs
         # https://github.com/ipython/ipython/blob/8.24.0/IPython/core/async_helpers.py#L151
-        if (str(positron_files_path) in str(filename) or str(filename) == "<>"):
+        if str(positron_files_path) in str(filename) or str(filename) == "<>":
             msg = f"{filename}-{lineno}: {category}: {message}"
             logger.warning(msg)
             return
