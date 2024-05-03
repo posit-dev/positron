@@ -67,6 +67,8 @@ export const RowFilterBar = () => {
 
 	/**
 	 * Shows the add / edit row filter modal popup.
+	 * @param anchor The anchor element.
+	 * @param isFirstFilter Whether this is the first filter.
 	 * @param editRowFilterDescriptor The row filter to edit, or undefined, to add a row filter.
 	 */
 	const showAddEditRowFilterModalPopup = (
@@ -222,7 +224,7 @@ export const RowFilterBar = () => {
 						}}
 						key={index}
 						rowFilter={rowFilter}
-						booleanOperator={index ? 'and' : undefined}
+						booleanOperator={index === 0 ? undefined : rowFilter.props.condition}
 						onEdit={() => {
 							if (rowFilterWidgetRefs.current[index]) {
 								showAddEditRowFilterModalPopup(
@@ -238,7 +240,9 @@ export const RowFilterBar = () => {
 					ref={addFilterButtonRef}
 					className='add-row-filter-button'
 					ariaLabel={(() => localize('positron.dataExplorer.addFilter', "Add filter"))()}
-					onPressed={() => showAddEditRowFilterModalPopup(addFilterButtonRef.current)}
+					onPressed={() => showAddEditRowFilterModalPopup(addFilterButtonRef.current,
+						rowFilterDescriptors.length === 0
+					)}
 				>
 					<div className='codicon codicon-positron-add-filter' />
 				</Button>

@@ -177,8 +177,8 @@ export const AddEditRowFilterModalPopup = (props: AddEditRowFilterModalPopupProp
 		props.editRowFilter?.props.errorMessage
 	);
 	const [selectedCondtion, setSelectedCondition] =
-		useState<RowFilterCondition | undefined>(
-			props.editRowFilter?.props.condition
+		useState<RowFilterCondition>(
+			props.editRowFilter?.props.condition ?? RowFilterCondition.And
 		);
 
 	// useEffect for when the selectedFilterType changes.
@@ -775,7 +775,7 @@ export const AddEditRowFilterModalPopup = (props: AddEditRowFilterModalPopupProp
 								identifier: RowFilterCondition.And,
 								title: localize(
 									'positron.addEditRowFilter.conditionAnd',
-									"AND"
+									"and"
 								),
 								value: RowFilterCondition.And,
 							}),
@@ -783,7 +783,7 @@ export const AddEditRowFilterModalPopup = (props: AddEditRowFilterModalPopupProp
 								identifier: RowFilterCondition.Or,
 								title: localize(
 									'positron.addEditRowFilter.conditionOr',
-									"OR"
+									"or"
 								),
 								value: RowFilterCondition.Or
 							})
