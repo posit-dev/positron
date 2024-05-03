@@ -90,7 +90,7 @@ abstract class BaseRowFilterDescriptor {
 		return {
 			filter_id: this.identifier,
 			column_schema: this.props.columnSchema,
-			condition: RowFilterCondition.And
+			condition: this.props.condition
 		};
 	}
 }
