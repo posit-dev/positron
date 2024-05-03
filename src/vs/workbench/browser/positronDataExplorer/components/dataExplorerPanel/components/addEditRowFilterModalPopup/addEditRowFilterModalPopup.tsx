@@ -733,6 +733,36 @@ export const AddEditRowFilterModalPopup = (props: AddEditRowFilterModalPopupProp
 			onAccept={applyRowFilter}
 		>
 			<div className='add-edit-row-filter-modal-popup-body'>
+				{!props.isFirstFilter &&
+					<DropDownListBox
+						onSelectionChanged={() => { }}
+						keybindingService={props.renderer.keybindingService}
+						layoutService={props.renderer.layoutService}
+						title={(() => localize(
+							'positron.addEditRowFilter.selectCombiningOperator',
+							"Select Combining Operator"
+						))()}
+						entries={[
+							new DropDownListBoxItem({
+								identifier: 'AND',
+								title: localize(
+									'positron.addEditRowFilter.combiningOperatorAnd',
+									"AND"
+								),
+								value: 'AND'
+							}),
+							new DropDownListBoxItem({
+								identifier: 'OR',
+								title: localize(
+									'positron.addEditRowFilter.combiningOperatorOr',
+									"OR"
+								),
+								value: 'OR'
+							})
+						]}
+						selectedIdentifier={selectedFilterType}
+					/>
+				}
 				<DropDownColumnSelector
 					keybindingService={props.renderer.keybindingService}
 					layoutService={props.renderer.layoutService}
