@@ -157,6 +157,11 @@ registerNotebookKeybinding({
 });
 
 registerNotebookKeybinding({
+	id: 'notebook.cell.insertCodeCellBelowAndFocusContainer',
+	keys: KeyCode.KeyB,
+});
+
+registerNotebookKeybinding({
 	id: 'list.focusUp',
 	keys: KeyCode.UpArrow,
 	macKeys: { primary: KeyCode.UpArrow, secondary: [KeyMod.WinCtrl | KeyCode.KeyP] },

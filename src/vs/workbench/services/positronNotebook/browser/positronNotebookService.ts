@@ -99,7 +99,10 @@ class PositronNotebookService extends Disposable implements IPositronNotebookSer
 
 		switch (desc.id) {
 			case 'notebook.cell.insertCodeCellAboveAndFocusContainer':
-				this._activeInstance.insertCodeCellAboveAndFocusContainer();
+				this._activeInstance.insertCodeCellAndFocusContainer('above');
+				break;
+			case 'notebook.cell.insertCodeCellBelowAndFocusContainer':
+				this._activeInstance.insertCodeCellAndFocusContainer('below');
 				break;
 			case 'list.focusUp':
 				this._activeInstance.selectionStateMachine.moveUp(false);

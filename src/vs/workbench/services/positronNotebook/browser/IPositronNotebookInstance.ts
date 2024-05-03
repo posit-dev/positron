@@ -75,7 +75,7 @@ export interface IPositronNotebookInstance {
 	/**
 	 * Action mirror
 	 */
-	insertCodeCellAboveAndFocusContainer(): void;
+	insertCodeCellAndFocusContainer(aboveOrBelow: 'above' | 'below'): void;
 
 	/**
 	 * Delete a cell from the notebook

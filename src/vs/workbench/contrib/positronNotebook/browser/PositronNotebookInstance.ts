@@ -25,7 +25,7 @@ import { PositronNotebookEditorInput } from 'vs/workbench/contrib/positronNotebo
 import { BaseCellEditorOptions } from './BaseCellEditorOptions';
 import * as DOM from 'vs/base/browser/dom';
 import { IPositronNotebookCell } from 'vs/workbench/services/positronNotebook/browser/IPositronNotebookCell';
-import { CellSelectionType, SelectionState, SelectionStateMachine } from 'vs/workbench/services/positronNotebook/browser/selectionMachine';
+import { CellSelectionType, SelectionStateMachine } from 'vs/workbench/services/positronNotebook/browser/selectionMachine';
 import { PositronNotebookContextKeyManager } from 'vs/workbench/services/positronNotebook/browser/ContextKeysManager';
 import { IPositronNotebookService } from 'vs/workbench/services/positronNotebook/browser/positronNotebookService';
 import { IPositronNotebookInstance, KernelStatus } from '../../../services/positronNotebook/browser/IPositronNotebookInstance';
@@ -371,14 +371,13 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		);
 	}
 
-	insertCodeCellAboveAndFocusContainer(): void {
-		// Add a code cell above the currently selected cell.
-		const selectionState = this.selectionStateMachine.state.get();
-		if (selectionState.type !== SelectionState.SingleSelection) {
+	insertCodeCellAndFocusContainer(aboveOrBelow: 'above' | 'below'): void {
+		const indexOfSelectedCell = this.selectionStateMachine.getIndexOfSelectedCell();
+		if (indexOfSelectedCell === null) {
 			return;
 		}
-		const indexOfSelectedCell = this._cells.indexOf(selectionState.selected[0]);
-		this.addCell(CellKind.Code, indexOfSelectedCell);
+
+		this.addCell(CellKind.Code, indexOfSelectedCell + (aboveOrBelow === 'above' ? 0 : 1));
 	}
 
 	deleteCell(cell: IPositronNotebookCell): void {

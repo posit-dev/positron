@@ -38,25 +38,28 @@ export enum CellSelectionType {
 
 export class SelectionStateMachine {
 
+	//#region Private Properties
 	private _state: SelectionStates = { type: SelectionState.NoSelection };
-
-	// Alert the observable that the state has changed.
-	private _setState(state: SelectionStates) {
-		this._state = state;
-		this.state.set(this._state, undefined);
-	}
-
 	private _cells: IPositronNotebookCell[] = [];
+	//#endregion Private Properties
 
+
+	//#region Public Properties
 	state: ISettableObservable<SelectionStates>;
 	onNewState: Event<SelectionStates>;
+	//#endregion Public Properties
 
+	//#region Constructor & Dispose
 	constructor(
 		@ILogService private readonly _logService: ILogService,
 	) {
 		this.state = observableValue('selectionState', this._state);
 		this.onNewState = Event.fromObservable(this.state);
 	}
+
+	//#endregion Constructor & Dispose
+
+	//#region Public Methods
 
 	/**
 	 * Updates the known cells.
@@ -147,6 +150,67 @@ export class SelectionStateMachine {
 		// If the cell is not in the selection, do nothing.
 	}
 
+	/**
+	 * Move the selection up.
+	 * @param addMode If true, the selection will be added to the current selection.
+	 */
+	moveUp(addMode: boolean): void {
+		this._moveSelection(true, addMode);
+	}
+
+	/**
+	 * Move the selection down.
+	 * @param addMode If true, the selection will be added to the current selection.
+	 */
+	moveDown(addMode: boolean): void {
+		this._moveSelection(false, addMode);
+	}
+
+
+	/**
+	 * Enters the editor for the selected cell.
+	 */
+	enterEditor(): void {
+		if (this._state.type === SelectionState.SingleSelection) {
+			const cellToEdit = this._state.selected[0];
+			this._setState({ type: SelectionState.EditingSelection, selectedCell: cellToEdit });
+			// Timeout here avoids the problem of enter applying to the editor widget itself.
+			setTimeout(() => cellToEdit.focusEditor(), 0);
+		}
+	}
+
+	/**
+	 * Reset the selection to the cell so user can navigate between cells
+	 */
+	exitEditor(): void {
+		if (this._state.type === SelectionState.EditingSelection) {
+			this._state.selectedCell.defocusEditor();
+			this._setState({ type: SelectionState.SingleSelection, selected: [this._state.selectedCell] });
+		}
+	}
+
+	/**
+	 * Get the index of the selected cell.
+	 * @returns The index of the selected cell. -1 if there is no selection.
+	 */
+	getIndexOfSelectedCell(): number | null {
+		if (this._state.type === SelectionState.SingleSelection) {
+			return this._cells.indexOf(this._state.selected[0]);
+		}
+
+		return null;
+	}
+	//#endregion Public Methods
+
+
+	//#region Private Methods
+	private _setState(state: SelectionStates) {
+		this._state = state;
+		// Alert the observable that the state has changed.
+		this.state.set(this._state, undefined);
+	}
+
+
 	private _moveSelection(up: boolean, addMode: boolean) {
 
 		if (this._state.type === SelectionState.NoSelection || this._state.type === SelectionState.EditingSelection) {
@@ -189,45 +253,8 @@ export class SelectionStateMachine {
 
 		nextCell.focus();
 	}
+	//#endregion Private Methods
 
-	/**
-	 * Move the selection up.
-	 * @param addMode If true, the selection will be added to the current selection.
-	 */
-	moveUp(addMode: boolean): void {
-		this._moveSelection(true, addMode);
-	}
-
-	/**
-	 * Move the selection down.
-	 * @param addMode If true, the selection will be added to the current selection.
-	 */
-	moveDown(addMode: boolean): void {
-		this._moveSelection(false, addMode);
-	}
-
-
-	/**
-	 * Enters the editor for the selected cell.
-	 */
-	enterEditor(): void {
-		if (this._state.type === SelectionState.SingleSelection) {
-			const cellToEdit = this._state.selected[0];
-			this._setState({ type: SelectionState.EditingSelection, selectedCell: cellToEdit });
-			// Timeout here avoids the problem of enter applying to the editor widget itself.
-			setTimeout(() => cellToEdit.focusEditor(), 0);
-		}
-	}
-
-	/**
-	 * Reset the selection to the cell so user can navigate between cells
-	 */
-	exitEditor(): void {
-		if (this._state.type === SelectionState.EditingSelection) {
-			this._state.selectedCell.defocusEditor();
-			this._setState({ type: SelectionState.SingleSelection, selected: [this._state.selectedCell] });
-		}
-	}
 }
 
 
