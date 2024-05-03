@@ -32,11 +32,6 @@ class DummyComm(comm.base_comm.BaseComm):
         msg["msg_type"] = msg_type
         self.messages.append(msg)
 
-    def pop_messages(self):
-        messages = list(self.messages)
-        self.messages.clear()
-        return messages
-
 
 # Enable autouse so that all comms are created as DummyComms.
 @pytest.fixture(autouse=True)
