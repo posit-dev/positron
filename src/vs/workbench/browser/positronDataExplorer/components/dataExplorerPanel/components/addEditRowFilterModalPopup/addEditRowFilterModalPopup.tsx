@@ -14,7 +14,7 @@ import { localize } from 'vs/nls';
 import { Button } from 'vs/base/browser/ui/positronComponents/button/button';
 import { DropDownListBoxItem } from 'vs/workbench/browser/positronComponents/dropDownListBox/dropDownListBoxItem';
 import { PositronModalPopup } from 'vs/workbench/browser/positronComponents/positronModalPopup/positronModalPopup';
-import { ColumnSchema, ColumnDisplayType } from 'vs/workbench/services/languageRuntime/common/positronDataExplorerComm';
+import { ColumnSchema, ColumnDisplayType, RowFilterCondition } from 'vs/workbench/services/languageRuntime/common/positronDataExplorerComm';
 import { PositronModalReactRenderer } from 'vs/workbench/browser/positronModalReactRenderer/positronModalReactRenderer';
 import { DropDownListBoxSeparator } from 'vs/workbench/browser/positronComponents/dropDownListBox/dropDownListBoxSeparator';
 import { DataExplorerClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimeDataExplorerClient';
@@ -176,6 +176,10 @@ export const AddEditRowFilterModalPopup = (props: AddEditRowFilterModalPopupProp
 	const [errorText, setErrorText] = useState<string | undefined>(
 		props.editRowFilter?.props.errorMessage
 	);
+	const [selectedCondtion, setSelectedCondition] =
+		useState<RowFilterCondition | undefined>(
+			props.editRowFilter?.props.condition
+		);
 
 	// useEffect for when the selectedFilterType changes.
 	useEffect(() => {
@@ -605,41 +609,60 @@ export const AddEditRowFilterModalPopup = (props: AddEditRowFilterModalPopupProp
 			props.onApplyRowFilter(rowFilter);
 		};
 
+		const condition = props.isFirstFilter ? RowFilterCondition.And :
+			selectedCondtion ?? RowFilterCondition.And;
+
 		// Validate the condition and row filter values. If things are valid, add the row filter.
 		switch (selectedFilterType) {
 			// Apply the is empty row filter.
 			case RowFilterDescrType.IS_EMPTY: {
-				applyRowFilter(new RowFilterDescriptorIsEmpty({ columnSchema: selectedColumnSchema }));
+				applyRowFilter(new RowFilterDescriptorIsEmpty({
+					columnSchema: selectedColumnSchema,
+					condition
+				}));
 				break;
 			}
 
 			// Apply the is not empty row filter.
 			case RowFilterDescrType.IS_NOT_EMPTY: {
-				applyRowFilter(new RowFilterDescriptorIsNotEmpty({ columnSchema: selectedColumnSchema }));
+				applyRowFilter(new RowFilterDescriptorIsNotEmpty({
+					columnSchema: selectedColumnSchema,
+					condition
+				}));
 				break;
 			}
 
 			// Apply the is null row filter.
 			case RowFilterDescrType.IS_NULL: {
-				applyRowFilter(new RowFilterDescriptorIsNull(
-					{ columnSchema: selectedColumnSchema }));
+				applyRowFilter(new RowFilterDescriptorIsNull({
+					columnSchema: selectedColumnSchema,
+					condition
+				}));
 				break;
 			}
 
 			// Apply the is not null row filter.
 			case RowFilterDescrType.IS_NOT_NULL: {
-				applyRowFilter(new RowFilterDescriptorIsNotNull(
-					{ columnSchema: selectedColumnSchema }));
+				applyRowFilter(new RowFilterDescriptorIsNotNull({
+					columnSchema: selectedColumnSchema,
+					condition
+				}));
 				break;
 			}
 
 			// Apply boolean filters.
 			case RowFilterDescrType.IS_TRUE: {
-				applyRowFilter(new RowFilterDescriptorIsTrue({ columnSchema: selectedColumnSchema }));
+				applyRowFilter(new RowFilterDescriptorIsTrue({
+					columnSchema: selectedColumnSchema,
+					condition
+				}));
 				break;
 			}
 			case RowFilterDescrType.IS_FALSE: {
-				applyRowFilter(new RowFilterDescriptorIsFalse({ columnSchema: selectedColumnSchema }));
+				applyRowFilter(new RowFilterDescriptorIsFalse({
+					columnSchema: selectedColumnSchema,
+					condition
+				}));
 				break;
 			}
 
@@ -652,7 +675,10 @@ export const AddEditRowFilterModalPopup = (props: AddEditRowFilterModalPopupProp
 					return;
 				}
 				applyRowFilter(new RowFilterDescriptorSearch(
-					{ columnSchema: selectedColumnSchema },
+					{
+						columnSchema: selectedColumnSchema,
+						condition
+					},
 					firstRowFilterValue,
 					selectedFilterType
 				));
@@ -670,7 +696,7 @@ export const AddEditRowFilterModalPopup = (props: AddEditRowFilterModalPopupProp
 					return;
 				}
 				applyRowFilter(new RowFilterDescriptorComparison(
-					{ columnSchema: selectedColumnSchema },
+					{ columnSchema: selectedColumnSchema, condition },
 					firstRowFilterValue,
 					selectedFilterType
 				));
@@ -686,7 +712,7 @@ export const AddEditRowFilterModalPopup = (props: AddEditRowFilterModalPopupProp
 					return;
 				}
 				applyRowFilter(new RowFilterDescriptorIsBetween(
-					{ columnSchema: selectedColumnSchema },
+					{ columnSchema: selectedColumnSchema, condition },
 					firstRowFilterValue,
 					secondRowFilterValue
 				));
@@ -702,7 +728,7 @@ export const AddEditRowFilterModalPopup = (props: AddEditRowFilterModalPopupProp
 					return;
 				}
 				applyRowFilter(new RowFilterDescriptorIsNotBetween(
-					{ columnSchema: selectedColumnSchema },
+					{ columnSchema: selectedColumnSchema, condition },
 					firstRowFilterValue,
 					secondRowFilterValue
 				));
@@ -735,7 +761,9 @@ export const AddEditRowFilterModalPopup = (props: AddEditRowFilterModalPopupProp
 			<div className='add-edit-row-filter-modal-popup-body'>
 				{!props.isFirstFilter &&
 					<DropDownListBox
-						onSelectionChanged={() => { }}
+						onSelectionChanged={dropDownListBoxItem => {
+							setSelectedCondition(dropDownListBoxItem.options.identifier);
+						}}
 						keybindingService={props.renderer.keybindingService}
 						layoutService={props.renderer.layoutService}
 						title={(() => localize(
@@ -744,23 +772,23 @@ export const AddEditRowFilterModalPopup = (props: AddEditRowFilterModalPopupProp
 						))()}
 						entries={[
 							new DropDownListBoxItem({
-								identifier: 'AND',
+								identifier: RowFilterCondition.And,
 								title: localize(
-									'positron.addEditRowFilter.combiningOperatorAnd',
+									'positron.addEditRowFilter.conditionAnd',
 									"AND"
 								),
-								value: 'AND'
+								value: RowFilterCondition.And,
 							}),
 							new DropDownListBoxItem({
-								identifier: 'OR',
+								identifier: RowFilterCondition.Or,
 								title: localize(
-									'positron.addEditRowFilter.combiningOperatorOr',
+									'positron.addEditRowFilter.conditionOr',
 									"OR"
 								),
-								value: 'OR'
+								value: RowFilterCondition.Or
 							})
 						]}
-						selectedIdentifier={selectedFilterType}
+						selectedIdentifier={selectedCondtion}
 					/>
 				}
 				<DropDownColumnSelector
