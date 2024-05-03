@@ -380,9 +380,15 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		this.addCell(CellKind.Code, indexOfSelectedCell + (aboveOrBelow === 'above' ? 0 : 1));
 	}
 
-	deleteCell(cell: IPositronNotebookCell): void {
+	deleteCell(cellToDelete?: IPositronNotebookCell): void {
 		if (!this._textModel) {
 			throw new Error(localize('noModelForDelete', "No model for notebook to delete cell from"));
+		}
+
+		const cell = cellToDelete ?? this.selectionStateMachine.getSelectedCell();
+
+		if (!cell) {
+			return;
 		}
 
 		const textModel = this._textModel;

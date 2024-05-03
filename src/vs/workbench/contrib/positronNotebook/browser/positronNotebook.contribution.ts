@@ -173,6 +173,11 @@ registerNotebookKeybinding({
 	macKeys: { primary: KeyCode.DownArrow, secondary: [KeyMod.WinCtrl | KeyCode.KeyN] },
 });
 
+registerNotebookKeybinding({
+	id: 'notebook.cell.delete',
+	keys: KeyCode.Backspace,
+});
+
 
 /**
  * Register a keybinding for the Positron Notebook editor. These are typically used to intercept

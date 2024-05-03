@@ -200,6 +200,18 @@ export class SelectionStateMachine {
 
 		return null;
 	}
+
+	/**
+	 *
+	 * @returns The selected cell. Null if there is no selection.
+	 */
+	getSelectedCell(): IPositronNotebookCell | null {
+		if (this._state.type === SelectionState.SingleSelection) {
+			return this._state.selected[0];
+		}
+
+		return null;
+	}
 	//#endregion Public Methods
 
 

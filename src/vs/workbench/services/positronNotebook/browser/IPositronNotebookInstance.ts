@@ -80,7 +80,7 @@ export interface IPositronNotebookInstance {
 	/**
 	 * Delete a cell from the notebook
 	 */
-	deleteCell(cell: IPositronNotebookCell): void;
+	deleteCell(cell?: IPositronNotebookCell): void;
 
 	/**
 	 * Set the currently selected cells for notebook instance
