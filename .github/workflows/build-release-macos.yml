@@ -117,6 +117,10 @@ jobs:
       artifact-file: ${{ steps.artifact-file.outputs.result }}
       artifact-name: ${{ steps.artifact-name.outputs.result }}
     steps:
+      # Checkout sources (for .nvmrc below)
+      - name: Checkout sources
+        uses: actions/checkout@v4
+
       # Download arm64 and x64 binaries
       - name: Download arm64 client
         uses: actions/download-artifact@v4
