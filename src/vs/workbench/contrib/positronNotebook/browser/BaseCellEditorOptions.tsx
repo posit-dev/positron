@@ -35,7 +35,7 @@ export class BaseCellEditorOptions extends Disposable implements IBaseCellEditor
 		lineNumbersMinChars: 3
 	};
 
-	private _localDisposableStore = this._register(new DisposableStore());
+	private readonly _localDisposableStore = this._register(new DisposableStore());
 	private readonly _onDidChange = this._register(new Emitter<void>());
 	readonly onDidChange: Event<void> = this._onDidChange.event;
 	private _value: IEditorOptions;
@@ -86,7 +86,7 @@ export class BaseCellEditorOptions extends Disposable implements IBaseCellEditor
 
 	private _computeEditorOptions() {
 		const editorOptions = deepClone(this.configurationService.getValue<IEditorOptions>('editor', { overrideIdentifier: this.language }));
-		const editorOptionsOverrideRaw = this.notebookOptions.getDisplayOptions().editorOptionsCustomizations ?? {};
+		const editorOptionsOverrideRaw = this.notebookOptions.getDisplayOptions().editorOptionsCustomizations ?? {} as any;
 		const editorOptionsOverride: { [key: string]: any } = {};
 		for (const key in editorOptionsOverrideRaw) {
 			if (key.indexOf('editor.') === 0) {
