@@ -92,6 +92,10 @@ export const showNewProjectModalDialog = async (
 						} else {
 							// Awaiting the command execution is necessary to ensure ipykernel is
 							// installed before the project is opened.
+							// If an error occurs while installing ipykernel, a message will be
+							// logged and once the project is opened, when the chosen runtime is
+							// starting, the user will be prompted again to install ipykernel.
+							
 							await commandService.executeCommand(
 								'python.installIpykernel',
 								String(pythonPath)
