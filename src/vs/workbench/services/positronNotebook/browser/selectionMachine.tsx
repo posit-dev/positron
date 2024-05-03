@@ -7,10 +7,10 @@ import { Event } from 'vs/base/common/event';
 import { ILogService } from 'vs/platform/log/common/log';
 
 export enum SelectionState {
-	NoSelection,
-	SingleSelection,
-	MultiSelection,
-	EditingSelection
+	NoSelection = 'NoSelection',
+	SingleSelection = 'SingleSelection',
+	MultiSelection = 'MultiSelection',
+	EditingSelection = 'EditingSelection'
 }
 
 type SelectionStates =
@@ -31,9 +31,9 @@ type SelectionStates =
 	};
 
 export enum CellSelectionType {
-	Add,
-	Edit,
-	Normal
+	Add = 'Add',
+	Edit = 'Edit',
+	Normal = 'Normal'
 }
 
 export class SelectionStateMachine {
