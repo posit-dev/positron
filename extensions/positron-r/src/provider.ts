@@ -17,6 +17,16 @@ import { LOGGER } from './extension';
 import { readLines } from './util';
 import { EXTENSION_ROOT_DIR, MINIMUM_R_VERSION } from './constants';
 
+// We don't give this a type so it's compatible with both the VS Code
+// and the LSP types
+export const R_DOCUMENT_SELECTORS = [
+	{ language: 'r', scheme: 'untitled' },
+	{ language: 'r', scheme: 'inmemory' },  // Console
+	{ language: 'r', pattern: '**/*.{r,R}' },
+	{ language: 'r', pattern: '**/*.{qmd,Qmd}' },
+	{ language: 'r', pattern: '**/*.{rmd,Rmd}' },
+];
+
 /**
  * Discovers R language runtimes for Positron; implements
  * positron.LanguageRuntimeDiscoverer.

@@ -12,6 +12,7 @@ import { randomUUID } from 'crypto';
 import { RSessionManager } from './session-manager';
 import { Disposable, DocumentOnTypeFormattingParams, RequestType, TextDocumentIdentifier } from 'vscode-languageclient';
 import { LanguageClient } from 'vscode-languageclient/node';
+import { R_DOCUMENT_SELECTORS } from './provider';
 
 export async function registerFormatter(context: vscode.ExtensionContext) {
 
@@ -109,8 +110,11 @@ class FormatterProvider implements vscode.DocumentFormattingEditProvider {
 // document (unlike the OnTypeFormatting LSP request which doesn't include a
 // version) to let Ark detect out of order messages.
 export function registerOnTypeFormatter(client: LanguageClient): Disposable {
-	const rSel = { scheme: 'file', language: 'r' } as vscode.DocumentSelector;
-	return vscode.languages.registerOnTypeFormattingEditProvider(rSel, new ROnTypeFormattingEditProvider(client), '\n');
+	return vscode.languages.registerOnTypeFormattingEditProvider(
+		R_DOCUMENT_SELECTORS,
+		new ROnTypeFormattingEditProvider(client),
+		'\n'
+	);
 }
 
 class ROnTypeFormattingEditProvider implements vscode.OnTypeFormattingEditProvider {

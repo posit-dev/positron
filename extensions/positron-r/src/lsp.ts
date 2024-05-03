@@ -20,7 +20,7 @@ import { Socket } from 'net';
 import { RHelpTopicProvider } from './help';
 import { RLspOutputChannelManager } from './lsp-output-channel-manager';
 import { registerOnTypeFormatter } from './formatting';
-
+import { R_DOCUMENT_SELECTORS } from './provider';
 /**
  * The state of the language server.
  */
@@ -109,13 +109,7 @@ export class ArkLsp implements vscode.Disposable {
 			// untitled R files, in-memory R files (e.g. the console), and R / Quarto / R Markdown files on disk.
 			documentSelector: notebookUri ?
 				[{ language: 'r', pattern: notebookUri.path }] :
-				[
-					{ language: 'r', scheme: 'untitled' },
-					{ language: 'r', scheme: 'inmemory' },  // Console
-					{ language: 'r', pattern: '**/*.{r,R}' },
-					{ language: 'r', pattern: '**/*.{qmd,Qmd}' },
-					{ language: 'r', pattern: '**/*.{rmd,Rmd}' },
-				],
+				R_DOCUMENT_SELECTORS,
 			synchronize: notebookUri ?
 				undefined :
 				{
