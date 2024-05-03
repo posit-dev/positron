@@ -155,33 +155,51 @@ Registry.as<IEditorFactoryRegistry>(EditorExtensions.EditorFactory).registerEdit
 registerNotebookKeybinding({
 	id: 'notebook.cell.insertCodeCellAboveAndFocusContainer',
 	keys: KeyCode.KeyA,
+	onRun: ({ activeNotebook }) => {
+		activeNotebook.insertCodeCellAndFocusContainer('above');
+	}
 });
 
 registerNotebookKeybinding({
 	id: 'notebook.cell.insertCodeCellBelowAndFocusContainer',
 	keys: KeyCode.KeyB,
+	onRun: ({ activeNotebook }) => {
+		activeNotebook.insertCodeCellAndFocusContainer('below');
+	}
 });
 
 registerNotebookKeybinding({
 	id: 'list.focusUp',
 	keys: KeyCode.UpArrow,
 	macKeys: { primary: KeyCode.UpArrow, secondary: [KeyMod.WinCtrl | KeyCode.KeyP] },
+	onRun: ({ activeNotebook }) => {
+		activeNotebook.selectionStateMachine.moveUp(false);
+	}
 });
 
 registerNotebookKeybinding({
 	id: 'list.focusDown',
 	keys: KeyCode.DownArrow,
 	macKeys: { primary: KeyCode.DownArrow, secondary: [KeyMod.WinCtrl | KeyCode.KeyN] },
+	onRun: ({ activeNotebook }) => {
+		activeNotebook.selectionStateMachine.moveDown(false);
+	}
 });
 
 registerNotebookKeybinding({
 	id: 'notebook.cell.delete',
 	keys: KeyCode.Backspace,
+	onRun: ({ activeNotebook }) => {
+		activeNotebook.deleteCell();
+	}
 });
 
 registerNotebookKeybinding({
 	id: 'notebook.cell.executeAndFocusContainer',
 	keys: KeyMod.CtrlCmd | KeyCode.Enter,
+	onRun: ({ activeNotebook }) => {
+		activeNotebook.runCurrentCell(false);
+	}
 });
 
 registerNotebookKeybinding({
@@ -199,14 +217,14 @@ registerNotebookKeybinding({
  * @param id The id of the command to run. E.g. 'list.focusDown'
  * @param keys The primary keybinding to use.
  * @param macKeys The primary and secondary keybindings to use on macOS.
- * @param onRun A function to run when the keybinding is triggered. If not provided the
- * `PositronNotebookService.dispatchAction` function will be called with the id.
+ * @param onRun A function to run when the keybinding is triggered. Will be called if there is an
+ * active notebook instance.
  */
 function registerNotebookKeybinding({ id, keys, macKeys, onRun }: {
 	id: string;
 	keys: KeyCode;
 	macKeys?: { primary: KeyCode; secondary?: KeyCode[] };
-	onRun?: (args: { activeNotebook: IPositronNotebookInstance; accessor: ServicesAccessor }) => void;
+	onRun: (args: { activeNotebook: IPositronNotebookInstance; accessor: ServicesAccessor }) => void;
 
 }) {
 	KeybindingsRegistry.registerCommandAndKeybindingRule({
@@ -217,14 +235,9 @@ function registerNotebookKeybinding({ id, keys, macKeys, onRun }: {
 		mac: macKeys,
 		handler: (accessor) => {
 			const notebookService = accessor.get(IPositronNotebookService);
-			if (!onRun) {
-				// If no onRun function provided, just run the dispatch function with the id.
-				notebookService.dispatchAction({ id });
-			} else {
-				const activeNotebook = notebookService.getActiveInstance();
-				if (!activeNotebook) { return; }
-				onRun({ activeNotebook, accessor });
-			}
+			const activeNotebook = notebookService.getActiveInstance();
+			if (!activeNotebook) { return; }
+			onRun({ activeNotebook, accessor });
 		}
 	});
 }

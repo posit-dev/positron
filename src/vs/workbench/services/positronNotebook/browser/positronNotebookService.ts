@@ -41,11 +41,11 @@ export interface IPositronNotebookService {
 	 */
 	unregisterInstance(instance: IPositronNotebookInstance): void;
 
-	/**
-	 * Dispatch an action to appropriate notebook instance.
-	 * @param desc The action to dispatch info.
-	 */
-	dispatchAction(desc: { id: string }): void;
+	// /**
+	//  * Dispatch an action to appropriate notebook instance.
+	//  * @param desc The action to dispatch info.
+	//  */
+	// dispatchAction(desc: { id: string }): void;
 }
 
 class PositronNotebookService extends Disposable implements IPositronNotebookService {
@@ -91,39 +91,6 @@ class PositronNotebookService extends Disposable implements IPositronNotebookSer
 		this._instances.delete(instance);
 		if (this._activeInstance === instance) {
 			this._activeInstance = null;
-		}
-	}
-
-	public dispatchAction(desc: { id: string }): void {
-		if (!this._activeInstance) { return; }
-
-		switch (desc.id) {
-			case 'notebook.cell.insertCodeCellAboveAndFocusContainer':
-				this._activeInstance.insertCodeCellAndFocusContainer('above');
-				break;
-			case 'notebook.cell.insertCodeCellBelowAndFocusContainer':
-				this._activeInstance.insertCodeCellAndFocusContainer('below');
-				break;
-			case 'list.focusUp':
-				this._activeInstance.selectionStateMachine.moveUp(false);
-				break;
-			case 'list.focusDown':
-				this._activeInstance.selectionStateMachine.moveDown(false);
-				break;
-			case 'notebook.cell.delete':
-				this._activeInstance.deleteCell();
-				break;
-			case 'notebook.cell.executeAndFocusContainer': {
-				this._activeInstance.runCurrentCell(false);
-				break;
-			}
-			case 'notebook.cell.executeAndSelectBelow': {
-				this._activeInstance.runCurrentCell(true);
-				break;
-			}
-			default:
-				console.log('Unknown action:', desc);
-				break;
 		}
 	}
 	//#endregion Public Methods
