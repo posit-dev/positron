@@ -41,7 +41,9 @@ export class StartInterpreter {
 
 			for (const secondaryInterpreter of secondaryInterpreters) {
 				if (secondaryInterpreter.description.includes(desiredInterpreterString)) {
-					await this.code.waitAndClick(`${SECONDARY_INTERPRETER}:nth-of-type(${secondaryInterpreter.index})`);
+					const chosenInterpreter = this.code.driver.getLocator(`${SECONDARY_INTERPRETER}:nth-of-type(${secondaryInterpreter.index})`);
+					await chosenInterpreter.scrollIntoViewIfNeeded();
+					await chosenInterpreter.click();
 					break;
 				}
 			}
@@ -50,12 +52,15 @@ export class StartInterpreter {
 			console.log('Primary interpreter matched');
 			await this.code.waitAndClick(`${INTERPRETER_GROUPS}:nth-of-type(${primaryInterpreter.index})`);
 		}
+
+		const dialog = this.code.driver.getLocator(POSITRON_MODAL_POPUP);
+		await dialog.waitFor({ state: 'detached' });
 	}
 
 	private async awaitDesiredPrimaryInterpreterGroupLoaded(interpreterNamePrefix: string): Promise<InterpreterGroupLocation> {
 
 		let iterations = 0;
-		while (iterations < 10) {
+		while (iterations < 30) {
 
 			const interpreters = await this.code.getElements(PRIMARY_INTERPRETER_GROUP_NAMES, false);
 

@@ -260,5 +260,9 @@ export class PlaywrightDriver {
 		return this.page.keyboard;
 	}
 
+	getPage() {
+		return this.page;
+	}
+
 	// --- End Positron ---
 }

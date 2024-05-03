@@ -3,8 +3,9 @@
  *--------------------------------------------------------------------------------------------*/
 
 
-import { Locator } from '@playwright/test';
+import { expect, Locator } from '@playwright/test';
 import { Code } from './code';
+import * as os from 'os';
 
 const CONSOLE_ITEMS = '.runtime-items span';
 const CONSOLE_INSTANCE = '.console-instance';
@@ -47,6 +48,10 @@ export class PositronConsole {
 		await this.code.driver.getKeyboard().press('Enter');
 	}
 
+	async sendShiftEnterKeys() {
+		await this.code.driver.getKeyboard().press('Shift+Enter');
+	}
+
 	async getActiveConsole(): Promise<Locator | undefined> {
 
 		for (let i = 0; i < 10; i++) {
@@ -83,7 +88,6 @@ export class PositronConsole {
 				console.log('Waiting for prompt');
 				await this.code.wait(1000);
 				activeLine = await activeConsole?.locator(ACTIVE_LINE_NUMBER).innerText();
-				console.log(activeLine);
 			}
 		}
 	}
@@ -99,6 +103,66 @@ export class PositronConsole {
 				await this.code.wait(100);
 				lastConsoleLine = await this.getConsoleContents(-1);
 			}
+		}
+	}
+
+
+	async sendCodeToConsole(code: string) {
+
+		const activeConsole = await this.getActiveConsole();
+
+		this.pasteInMonaco(activeConsole!, code);
+	}
+
+	async pasteInMonaco(
+		locator: Locator,
+		text: string
+	): Promise<void> {
+		const page = locator.page();
+		const isMac = os.platform() === 'darwin';
+		const modifier = isMac ? 'Meta' : 'Control';
+
+		// Create a hidden textarea with the contents to paste
+		const inputId = await page.evaluate(async evalText => {
+			const tempInput = document.createElement('textarea');
+			tempInput.id = 'super-secret-temp-input-id';
+			tempInput.value = evalText;
+			tempInput.style.width = '0';
+			tempInput.style.height = '0';
+			document.body.appendChild(tempInput);
+			tempInput.select();
+			return tempInput.id;
+		}, text);
+
+		// Copy the contents of the textarea which was selected above
+		await page.keyboard.press(`${modifier}+C`);
+
+		// Remove the textarea
+		await page.evaluate(id => {
+			document.getElementById(id)?.remove();
+		}, inputId);
+
+		// Focus monaco
+		await locator.click();
+
+		const browserName = locator.page().context().browser()?.browserType().name();
+		if (browserName !== 'firefox') {
+			// Chromium on mac and webkit on any OS don't seem to paste w/ the keyboard shortcut
+			await locator.locator('textarea').evaluate(async (element, evalText) => {
+				const clipboardData = new DataTransfer();
+				clipboardData.setData('text/plain', evalText);
+				const clipboardEvent = new ClipboardEvent('paste', {
+					clipboardData,
+				});
+				element.dispatchEvent(clipboardEvent);
+			}, text);
+		} else {
+			await page.keyboard.press(`${modifier}+V`);
+		}
+
+		if (text.length > 0) {
+			// Sanity check the paste happened
+			await expect(locator.locator('textarea')).not.toBeEmpty();
 		}
 	}
 }
