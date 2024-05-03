@@ -22,6 +22,7 @@ import { IReactComponentContainer, ISize, PositronReactRenderer } from 'vs/base/
 import { IRuntimeSessionService } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
 import { IWorkbenchLayoutService } from 'vs/workbench/services/layout/browser/layoutService';
 import { PositronViewPane } from 'vs/workbench/browser/positronViewPane/positronViewPane';
+import { IHoverService } from 'vs/platform/hover/browser/hover';
 
 /**
  * PositronSessionsViewPane class.
@@ -156,6 +157,7 @@ export class PositronRuntimeSessionsViewPane extends PositronViewPane implements
 	 * @param configurationService The configuration service.
 	 * @param contextKeyService The context key service.
 	 * @param contextMenuService The context menu service.
+	 * @param hoverService The hover service.
 	 * @param instantiationService The instantiation service.
 	 * @param keybindingService The keybinding service.
 	 * @param _layoutService The layout service.
@@ -173,6 +175,7 @@ export class PositronRuntimeSessionsViewPane extends PositronViewPane implements
 		@IConfigurationService configurationService: IConfigurationService,
 		@IContextKeyService contextKeyService: IContextKeyService,
 		@IContextMenuService contextMenuService: IContextMenuService,
+		@IHoverService hoverService: IHoverService,
 		@IInstantiationService instantiationService: IInstantiationService,
 		@IKeybindingService keybindingService: IKeybindingService,
 		@IWorkbenchLayoutService private readonly _layoutService: IWorkbenchLayoutService,
@@ -193,7 +196,8 @@ export class PositronRuntimeSessionsViewPane extends PositronViewPane implements
 			instantiationService,
 			openerService,
 			themeService,
-			telemetryService);
+			telemetryService,
+			hoverService);
 
 		// Register the onDidChangeBodyVisibility event handler.
 		this._register(this.onDidChangeBodyVisibility(visible => {

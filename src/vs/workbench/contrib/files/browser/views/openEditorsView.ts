@@ -54,6 +54,7 @@ import { extUriIgnorePathCase } from 'vs/base/common/resources';
 import { ILocalizedString } from 'vs/platform/action/common/action';
 import { mainWindow } from 'vs/base/browser/window';
 import { EditorGroupView } from 'vs/workbench/browser/parts/editor/editorGroupView';
+import { IHoverService } from 'vs/platform/hover/browser/hover';
 
 // --- Start Positron ---
 // eslint-disable-next-line no-duplicate-imports
@@ -95,11 +96,12 @@ export class OpenEditorsView extends ViewPane {
 		@IContextKeyService contextKeyService: IContextKeyService,
 		@IThemeService themeService: IThemeService,
 		@ITelemetryService telemetryService: ITelemetryService,
+		@IHoverService hoverService: IHoverService,
 		@IWorkingCopyService private readonly workingCopyService: IWorkingCopyService,
 		@IFilesConfigurationService private readonly filesConfigurationService: IFilesConfigurationService,
 		@IOpenerService openerService: IOpenerService,
 	) {
-		super(options, keybindingService, contextMenuService, configurationService, contextKeyService, viewDescriptorService, instantiationService, openerService, themeService, telemetryService);
+		super(options, keybindingService, contextMenuService, configurationService, contextKeyService, viewDescriptorService, instantiationService, openerService, themeService, telemetryService, hoverService);
 
 		this.structuralRefreshDelay = 0;
 		this.sortOrder = configurationService.getValue('explorer.openEditors.sortOrder');
@@ -213,9 +215,7 @@ export class OpenEditorsView extends ViewPane {
 		], {
 			identityProvider: { getId: (element: OpenEditor | IEditorGroup) => element instanceof OpenEditor ? element.getId() : element.id.toString() },
 			dnd: this.dnd,
-			overrideStyles: {
-				listBackground: this.getBackgroundColor()
-			},
+			overrideStyles: this.getLocationBasedColors().listOverrideStyles,
 			accessibilityProvider: new OpenEditorsAccessibilityProvider()
 		}) as WorkbenchList<OpenEditor | IEditorGroup>;
 		this._register(this.list);
@@ -749,7 +749,7 @@ class OpenEditorsDragAndDrop implements IListDragAndDrop<OpenEditor | IEditorGro
 				return false;
 			} else {
 				// Allow droping files to open them
-				return { accept: true, effect: { type: ListDragOverEffectType.Move }, feedback: [-1] } as IListDragOverReaction;
+				return { accept: true, effect: { type: ListDragOverEffectType.Move }, feedback: [-1] };
 			}
 		}
 
@@ -763,7 +763,7 @@ class OpenEditorsDragAndDrop implements IListDragAndDrop<OpenEditor | IEditorGro
 				dropEffectPosition = ListDragOverEffectPosition.After; break;
 		}
 
-		return { accept: true, effect: { type: ListDragOverEffectType.Move, position: dropEffectPosition }, feedback: [_targetIndex] } as IListDragOverReaction;
+		return { accept: true, effect: { type: ListDragOverEffectType.Move, position: dropEffectPosition }, feedback: [_targetIndex] };
 	}
 
 	drop(data: IDragAndDropData, targetElement: OpenEditor | IEditorGroup | undefined, _targetIndex: number, targetSector: ListViewTargetSector | undefined, originalEvent: DragEvent): void {

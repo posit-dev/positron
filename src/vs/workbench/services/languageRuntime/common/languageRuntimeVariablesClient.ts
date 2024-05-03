@@ -4,7 +4,7 @@
 
 import { Emitter } from 'vs/base/common/event';
 import { Disposable } from 'vs/base/common/lifecycle';
-import { ObservableValue } from 'vs/base/common/observableInternal/base';
+import { ISettableObservable } from 'vs/base/common/observableInternal/base';
 import { IRuntimeClientInstance, RuntimeClientState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeClientInstance';
 import { ClipboardFormatFormat, PositronVariablesComm, RefreshEvent, UpdateEvent, Variable } from 'vs/workbench/services/languageRuntime/common/positronVariablesComm';
 
@@ -122,7 +122,7 @@ export class VariablesClientInstance extends Disposable {
 	/**
 	 * The state of the client instance.
 	 */
-	public clientState: ObservableValue<RuntimeClientState>;
+	public clientState: ISettableObservable<RuntimeClientState>;
 
 	/**
 	 * Ceate a new variable client instance.

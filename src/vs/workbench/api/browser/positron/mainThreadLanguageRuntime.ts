@@ -34,7 +34,7 @@ import { IEditor } from 'vs/editor/common/editorCommon';
 import { Selection } from 'vs/editor/common/core/selection';
 import { ITextResourceEditorInput } from 'vs/platform/editor/common/editor';
 import { IPositronDataExplorerService } from 'vs/workbench/services/positronDataExplorer/browser/interfaces/positronDataExplorerService';
-import { ObservableValue } from 'vs/base/common/observableInternal/base';
+import { ISettableObservable, observableValue } from 'vs/base/common/observableInternal/base';
 import { IRuntimeStartupService, RuntimeStartupPhase } from 'vs/workbench/services/runtimeStartup/common/runtimeStartupService';
 
 /**
@@ -858,12 +858,12 @@ class ExtHostRuntimeClientInstance<Input, Output>
 	 * An observable value that tracks the number of messages sent and received
 	 * by this client.
 	 */
-	public messageCounter: ObservableValue<number>;
+	public messageCounter: ISettableObservable<number>;
 
 	/**
 	 * An observable value that tracks the current state of the client.
 	 */
-	public clientState: ObservableValue<RuntimeClientState>;
+	public clientState: ISettableObservable<RuntimeClientState>;
 
 	constructor(
 		private readonly _id: string,
@@ -872,9 +872,9 @@ class ExtHostRuntimeClientInstance<Input, Output>
 		private readonly _proxy: ExtHostLanguageRuntimeShape) {
 		super();
 
-		this.messageCounter = new ObservableValue(this, this._id, 0);
+		this.messageCounter = observableValue(`msg-counter-${this._id}`, 0);
 
-		this.clientState = new ObservableValue(this, this._id, RuntimeClientState.Uninitialized);
+		this.clientState = observableValue(`client-state-${this._id}`, RuntimeClientState.Uninitialized);
 
 		this.onDidReceiveData = this._dataEmitter.event;
 		this._register(this._dataEmitter);
