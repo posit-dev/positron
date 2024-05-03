@@ -393,7 +393,7 @@ export class ConnectionItemsProvider
 		// they key is a combination of the language_id, host and the type, so we can identify the
 		// connection uniquely
 		this.context.workspaceState.update(
-			`language_id-${conn.metadata.language_id}-host-${conn.metadata.host}-type-${conn.metadata.type}`,
+			makeConnectionKey(conn.metadata),
 			conn.metadata
 		);
 
@@ -501,7 +501,7 @@ export class ConnectionItemsProvider
 	 * @param item The connection to remove
 	 */
 	removeFromHistory(item: DisconnectedConnectionItem) {
-		this.context.workspaceState.update(item.name, undefined);
+		this.context.workspaceState.update(makeConnectionKey(item.metadata), undefined);
 		this._connections = this._connections.filter((connection) => {
 			return !compareConnectionsMetadata(connection.metadata, item.metadata);
 		});
@@ -577,4 +577,8 @@ function compareConnectionsMetadata(a: ConnectionMetadata, b: ConnectionMetadata
 	return a.language_id === b.language_id &&
 		a.host === b.host &&
 		a.type === b.type;
+}
+
+function makeConnectionKey(metadata: ConnectionMetadata): string {
+	return `language_id-${metadata.language_id}-host-${metadata.host}-type-${metadata.type}`;
 }
