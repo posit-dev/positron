@@ -81,6 +81,28 @@ export const showNewProjectModalDialog = async (
 							? result.pythonEnvType
 							: '';
 
+					// Install ipykernel if applicable.
+					if (result.installIpykernel) {
+						const pythonPath =
+							result.selectedRuntime?.extraRuntimeData?.pythonPath ??
+							result.selectedRuntime?.runtimePath ??
+							'';
+						if (!pythonPath) {
+							logService.error('Could not determine python path to install ipykernel via Positron Project Wizard');
+						} else {
+							// Awaiting the command execution is necessary to ensure ipykernel is
+							// installed before the project is opened.
+							// If an error occurs while installing ipykernel, a message will be
+							// logged and once the project is opened, when the chosen runtime is
+							// starting, the user will be prompted again to install ipykernel.
+							
+							await commandService.executeCommand(
+								'python.installIpykernel',
+								String(pythonPath)
+							);
+						}
+					}
+
 					// Create the new project configuration.
 					const newProjectConfig: NewProjectConfiguration = {
 						runtimeId: result.selectedRuntime?.runtimeId || '',
