@@ -4,6 +4,15 @@
 
 .gettingStartedContainer .header {
 	margin-bottom: 50px;
+	display: flex;
+	column-gap: 24px;
+}
+
+.gettingStartedContainer .product-logo.welcome-positron-logo {
+	font-size: 6em;
+	background-color: var(--vscode-positronWelcome-foreground);
+	color: #ffffff;
+	border-radius: 25%;
 }
 
 .gettingStartedContainer .welcome-page-section {
@@ -18,8 +27,67 @@
 	padding-top: 0.2em;
 }
 
-.gettingStartedContainer .header p.subtitle.positron.description {
-	font-size: 1.5em;
-	opacity: 0.5;
-	margin: 0;
+.content .gettingStartedContainer .header p.subtitle.positron.description {
+	font-weight: 600;
+	color: var(--vscode-positronWelcome-secondaryForeground);
+	margin: 0.6em 0 0 0
+}
+
+.welcome-help-links {
+	display: inline-grid;
+}
+
+.positron-welcome-page-start.buttons {
+	display: flex;
+	column-gap: 2px;
+	overflow: scroll;
+}
+
+.positron-welcome-page-start.buttons button.positron-welcome-button.action-button.action {
+	background-color: var(--vscode-positronWelcome-background);
+	display: block;
+	width: 125px;
+	text-wrap: nowrap;
+	color: var(--vscode-positronWelcome-foreground)
+}
+
+.positron-welcome-page-start.buttons button.positron-welcome-button.action-button.action:hover {
+	background-color: var(--vscode-positronWelcome-hoverBackground);
+	border-radius: 5%;
+}
+
+.positron-welcome-button .button-container {
+	display: grid;
+	text-align: center;
+}
+
+.positron-welcome-button.positron-button .button-container .button-icon.codicon {
+	color: var(--vscode-positronWelcome-foreground);
+	font-size: 70px;
+}
+
+.welcome-page-start.menu-button-container {
+	display: grid;
+	width: 100%
+}
+
+.welcome-page-start .positron-welcome-menu-item {
+	display: grid;
+	column-gap: 10px;
+	grid-template-areas: "icon label";
+	grid-template-columns: 50px auto;
+	padding: 10px;
+}
+
+.welcome-page-start div.positron-welcome-menu-item:hover {
+	background-color: var(--vscode-positronWelcome-hoverBackground);
+}
+
+.welcome-page-start .positron-welcome-menu-item .label {
+	align-self: center;
+}
+
+.welcome-page-start div.icon {
+	width: 36px;
+	height: 36px;
 }

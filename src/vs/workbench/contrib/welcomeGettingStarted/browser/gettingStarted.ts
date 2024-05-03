@@ -75,6 +75,10 @@ import { GettingStartedIndexList } from './gettingStartedList';
 import 'vs/css!./media/positronGettingStarted';
 import { PositronReactRenderer } from 'vs/base/browser/positronReactRenderer';
 import { createWelcomePageLeft } from 'vs/workbench/contrib/welcomeGettingStarted/browser/positronWelcomePageLeft';
+import { ILayoutService } from 'vs/platform/layout/browser/layoutService';
+import { IRuntimeSessionService } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
+import { IRuntimeStartupService } from 'vs/workbench/services/runtimeStartup/common/runtimeStartupService';
+import { ILanguageRuntimeService } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 /*--- End Positron ---*/
 
 const SLIDE_TRANSITION_TIME_MS = 250;
@@ -171,7 +175,6 @@ export class GettingStartedPage extends EditorPane {
 
 	/*--- Start Positron ---*/
 	private positronReactRenderer!: PositronReactRenderer;
-	/*--- End Positron ---*/
 
 	constructor(
 		group: IEditorGroup,
@@ -198,6 +201,10 @@ export class GettingStartedPage extends EditorPane {
 		@IWebviewService private readonly webviewService: IWebviewService,
 		@IWorkspaceContextService private readonly workspaceContextService: IWorkspaceContextService,
 		@IAccessibilityService private readonly accessibilityService: IAccessibilityService,
+		@ILayoutService private readonly layoutService: ILayoutService,
+		@IRuntimeSessionService private readonly runtimeSessionService: IRuntimeSessionService,
+		@IRuntimeStartupService private readonly runtimeStartupService: IRuntimeStartupService,
+		@ILanguageRuntimeService private readonly languageRuntimeService: ILanguageRuntimeService,
 		// @IWorkbenchAssignmentService private readonly tasExperimentService: IWorkbenchAssignmentService
 	) {
 
@@ -321,6 +328,8 @@ export class GettingStartedPage extends EditorPane {
 				StorageScope.PROFILE, StorageTarget.MACHINE);
 		}));
 	}
+
+	/*--- End Positron ---*/
 
 	// remove when 'workbench.welcomePage.preferReducedMotion' deprecated
 	private shouldAnimate() {
@@ -822,11 +831,16 @@ export class GettingStartedPage extends EditorPane {
 		}));
 
 		// --- Start Positron ---
-		const header = $('.header', {},
+		// Removes Walkthroughs from the Welcome Page
+
+		const headerText = $('div', {},
 			$('h1.product-name.positron.caption', {}, this.productService.nameLong),
-			$('p.subtitle.positron.description', {}, localize({ key: 'gettingStarted.editingEvolved', comment: ['Shown as subtitle on the Welcome page.'] }, "An IDE for data science"))
+			$('p.subtitle.positron.description', {}, localize({ key: 'gettingStarted.editingEvolved', comment: ['Shown as subtitle on the Welcome page.'] }, "an IDE for data science"))
 		);
-		// --- End Positron ---
+		const header = $('.header', {},
+			$('span.product-logo.codicon.codicon-positron-logo.welcome-positron-logo'),
+			headerText
+		);
 
 		const leftColumn = $('.categories-column.categories-column-left', {},);
 		const rightColumn = $('.categories-column.categories-column-right', {},);
@@ -897,7 +911,8 @@ export class GettingStartedPage extends EditorPane {
 			// 	reset(rightColumn, startList.getDomElement());
 			// } else {
 			const leftContent = $('div.positron-welcome-left-column');
-			this.positronReactRenderer = createWelcomePageLeft(leftContent);
+			this.positronReactRenderer = createWelcomePageLeft(leftContent, this.openerService, this.keybindingService,
+				this.layoutService, this.commandService, this.runtimeSessionService, this.runtimeStartupService, this.languageRuntimeService);
 			reset(leftColumn, leftContent);
 			reset(rightColumn, startList.getDomElement(), recentList.getDomElement());
 			// }
@@ -906,6 +921,8 @@ export class GettingStartedPage extends EditorPane {
 
 		// gettingStartedList.onDidChange(layoutLists);
 		// layoutLists();
+
+		// --- End Positron ---
 
 		reset(this.categoriesSlide, $('.gettingStartedCategoriesContainer', {}, header, leftColumn, rightColumn, footer,));
 		this.categoriesPageScrollbar?.scanDomNode();
@@ -1445,7 +1462,9 @@ export class GettingStartedPage extends EditorPane {
 
 	override clearInput() {
 		this.stepDisposables.clear();
+		/*-- Start Positron ---*/
 		this.positronReactRenderer?.dispose();
+		/*-- End Positron ---*/
 		super.clearInput();
 	}
 
