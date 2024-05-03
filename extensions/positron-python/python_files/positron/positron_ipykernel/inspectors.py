@@ -119,7 +119,7 @@ class PositronInspector(Generic[T]):
     def get_child(self, key: Any) -> Any:
         raise TypeError(f"get_child() is not implemented for type: {type(self.value)}")
 
-    def get_children(self, key: Any) -> Any:
+    def get_children(self) -> Any:
         raise TypeError(f"get_children() is not implemented for type: {type(self.value)}")
 
     def get_items(self) -> Iterable[Tuple[Any, Any]]:
@@ -467,7 +467,7 @@ class _BaseCollectionInspector(PositronInspector[CT], ABC):
         # Treat collection items as children, with the index as the name
         return enumerate(self.value)
 
-    def get_children(self) -> Iterable[Tuple[int, Any]]:
+    def get_children(self) -> Iterable:
         # Treat collection items as children, with the index as the name
         return range(len(self.value))
 

@@ -320,9 +320,9 @@ class VariablesService:
 
         Returns
         -------
-            A tuple (dict, set) containing a dict of variables that
-            were modified (added or updated) and a set of variables
-            that were removed.
+        A tuple (dict, set) containing a dict of variables that
+        were modified (added or updated) and a set of variables
+        that were removed.
         """
         assigned = {}
         removed = set()
@@ -417,10 +417,8 @@ class VariablesService:
 
         Parameters
         ----------
-        path :
+        path : Iterable[str]
             A list of path segments that will be traversed to find the requested variable.
-        context
-            The context from which to start the search.
 
         Returns
         -------
@@ -452,7 +450,7 @@ class VariablesService:
 
         Parameters
         ----------
-        parent
+        parent :  Dict[str, Any]
             A dict providing the parent context for the response,
             e.g. the client message requesting the clear operation
         """
@@ -483,9 +481,9 @@ class VariablesService:
 
         Parameters
         ----------
-        names:
+        names :  Iterable[str]
             A list of variable names to delete
-        parent:
+        parent : Dict[str, Any]
             A dict providing the parent context for the response,
             e.g. the client message requesting the delete operation
         """
@@ -523,7 +521,7 @@ class VariablesService:
 
         Parameters
         ----------
-        path:
+        path : List[str]
             A list of names describing the path to the variable.
         """
 
@@ -613,9 +611,9 @@ class VariablesService:
 
         Parameters
         ----------
-        path:
+        path : List[str]
             A list of names describing the path to the variable.
-        clipboard_format:
+        clipboard_format : ClipboardFormatFormat
             The format to use for the clipboard copy, described as a mime type.
             Defaults to "text/plain".
         """
@@ -661,9 +659,9 @@ class VariablesService:
 
         Parameters
         ----------
-        path:
+        path : List[str]
             A list of names describing the path to the variable.
-        value:
+        value : Any
             The variable's value to summarize.
         """
 
@@ -688,10 +686,10 @@ def _summarize_variable(key: Any, value: Any) -> Optional[Variable]:
 
     Parameters
     ----------
-    key:
+    key : Any
         The actual key of the variable in its parent object, used as an input to determine the
         variable's string access key.
-    value:
+    value : Any
         The variable's value.
 
 
@@ -752,16 +750,16 @@ def _summarize_variable(key: Any, value: Any) -> Optional[Variable]:
 
 def _summarize_children(parent: Any, limit: int = MAX_CHILDREN) -> List[Variable]:
     inspector = get_inspector(parent)
-    keys = inspector.get_children()
+    children = inspector.get_children()
     summaries = []
-    for key in keys:
+    for child in children:
         if len(summaries) >= limit:
             break
         try:
-            value = inspector.get_child(key)
+            value = inspector.get_child(child)
         except Exception:
             value = "Cannot get value."
-        summary = _summarize_variable(key, value)
+        summary = _summarize_variable(child, value)
         if summary is not None:
             summaries.append(summary)
     return summaries
