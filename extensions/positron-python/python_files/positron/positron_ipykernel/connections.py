@@ -158,7 +158,10 @@ class ConnectionsService:
         self.comm_id_to_path: Dict[str, Set[PathKey]] = {}
 
     def register_connection(
-        self, connection: Any, variable_path: Optional[List[str]] = None, display_pane: bool = True
+        self,
+        connection: Any,
+        variable_path: Optional[List[str] | str] = None,
+        display_pane: bool = True,
     ) -> str:
         """
         Opens a connection to the given data source.
@@ -216,9 +219,14 @@ class ConnectionsService:
 
         return comm_id
 
-    def _register_variable_path(self, variable_path: Optional[List[str]], comm_id: str) -> None:
+    def _register_variable_path(
+        self, variable_path: Optional[List[str] | str], comm_id: str
+    ) -> None:
         if variable_path is None:
             return
+
+        if isinstance(variable_path, str):
+            variable_path = [encode_access_key(variable_path)]
 
         if not isinstance(variable_path, list):
             raise ValueError(variable_path)
