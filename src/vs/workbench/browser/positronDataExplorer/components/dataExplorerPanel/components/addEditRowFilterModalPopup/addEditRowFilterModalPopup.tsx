@@ -34,6 +34,8 @@ import {
 	RowFilterDescriptorIsNotNull,
 	RowFilterDescriptorIsNull,
 	RowFilterDescriptorSearch,
+	RowFilterDescriptorIsTrue,
+	RowFilterDescriptorIsFalse,
 } from 'vs/workbench/browser/positronDataExplorer/components/dataExplorerPanel/components/addEditRowFilterModalPopup/rowFilterDescriptor';
 
 /**
@@ -94,6 +96,8 @@ const filterNumParams = (filterType: RowFilterDescrType | undefined) => {
 		case RowFilterDescrType.IS_NOT_EMPTY:
 		case RowFilterDescrType.IS_NULL:
 		case RowFilterDescrType.IS_NOT_NULL:
+		case RowFilterDescrType.IS_TRUE:
+		case RowFilterDescrType.IS_FALSE:
 			return 0;
 		case RowFilterDescrType.IS_EQUAL_TO:
 		case RowFilterDescrType.IS_NOT_EQUAL_TO:
@@ -310,7 +314,6 @@ export const AddEditRowFilterModalPopup = (props: AddEditRowFilterModalPopupProp
 		// Add is equal to, is not equal to conditions.
 		switch (selectedColumnSchema.type_display) {
 			case ColumnDisplayType.Number:
-			case ColumnDisplayType.Boolean:
 			case ColumnDisplayType.String:
 			case ColumnDisplayType.Date:
 			case ColumnDisplayType.Datetime:
@@ -332,6 +335,27 @@ export const AddEditRowFilterModalPopup = (props: AddEditRowFilterModalPopupProp
 					value: RowFilterDescrType.IS_NOT_EQUAL_TO
 				}));
 				break;
+		}
+
+		// Add is true, is false conditions.
+		switch (selectedColumnSchema.type_display) {
+			case ColumnDisplayType.Boolean:
+				conditionEntries.push(new DropDownListBoxItem({
+					identifier: RowFilterDescrType.IS_TRUE,
+					title: localize(
+						'positron.addEditRowFilter.conditionIsTrue',
+						"is true"
+					),
+					value: RowFilterDescrType.IS_TRUE
+				}));
+				conditionEntries.push(new DropDownListBoxItem({
+					identifier: RowFilterDescrType.IS_FALSE,
+					title: localize(
+						'positron.addEditRowFilter.conditionIsFalse',
+						"is false"
+					),
+					value: RowFilterDescrType.IS_FALSE
+				}));
 		}
 
 		// Add is between / is not between conditions.
@@ -605,6 +629,16 @@ export const AddEditRowFilterModalPopup = (props: AddEditRowFilterModalPopupProp
 			case RowFilterDescrType.IS_NOT_NULL: {
 				applyRowFilter(new RowFilterDescriptorIsNotNull(
 					{ columnSchema: selectedColumnSchema }));
+				break;
+			}
+
+			// Apply boolean filters.
+			case RowFilterDescrType.IS_TRUE: {
+				applyRowFilter(new RowFilterDescriptorIsTrue({ columnSchema: selectedColumnSchema }));
+				break;
+			}
+			case RowFilterDescrType.IS_FALSE: {
+				applyRowFilter(new RowFilterDescriptorIsFalse({ columnSchema: selectedColumnSchema }));
 				break;
 			}
 

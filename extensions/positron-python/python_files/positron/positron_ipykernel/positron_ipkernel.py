@@ -23,12 +23,7 @@ from ipykernel.zmqshell import ZMQDisplayPublisher, ZMQInteractiveShell
 from IPython.core import magic_arguments, oinspect, page
 from IPython.core.error import UsageError
 from IPython.core.interactiveshell import ExecutionInfo, InteractiveShell
-from IPython.core.magic import (
-    Magics,
-    MagicsManager,
-    line_magic,
-    magics_class,
-)
+from IPython.core.magic import Magics, MagicsManager, line_magic, magics_class
 from IPython.utils import PyColorize
 
 from .connections import ConnectionsService
@@ -184,7 +179,9 @@ class PositronMagics(Magics):
             raise UsageError(f"name '{args.object}' is not defined")
 
         try:
-            self.shell.kernel.connections_service.register_connection(info.obj)
+            self.shell.kernel.connections_service.register_connection(
+                info.obj, variable_path=args.object
+            )
         except TypeError:
             raise UsageError(f"cannot show object of type '{get_qualname(info.obj)}'")
 

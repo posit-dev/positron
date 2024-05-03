@@ -52,10 +52,10 @@ export const ProjectNameLocationStep = (props: PropsWithChildren<NewProjectWizar
 				fileService)
 			) {
 				setProjectNameFeedback({
-					type: WizardFormattedTextType.Warning,
+					type: WizardFormattedTextType.Error,
 					text: localize(
 						'projectNameLocationSubStep.projectName.feedback.existingDirectory',
-						'The directory `{0}` already exists and will be used for the new project',
+						'The directory `{0}` already exists. Please enter a different project name.',
 						projectConfig.projectName
 					)
 				});
@@ -84,11 +84,11 @@ export const ProjectNameLocationStep = (props: PropsWithChildren<NewProjectWizar
 				fileService)
 			) {
 				setProjectNameFeedback({
-					type: WizardFormattedTextType.Warning,
+					type: WizardFormattedTextType.Error,
 					text: localize(
 						'projectNameLocationSubStep.projectName.feedback.existingDirectory',
-						'The directory `{0}` already exists and will be used for the new project',
-						projectNameCleaned
+						'The directory `{0}` already exists. Please enter a different project name.',
+						projectConfig.projectName
 					)
 				});
 			} else {
@@ -127,38 +127,46 @@ export const ProjectNameLocationStep = (props: PropsWithChildren<NewProjectWizar
 
 	return (
 		<PositronWizardStep
-			title={(() => localize(
-				'projectNameLocationStep.title',
-				'Set project name and location'
-			))()}
+			title={(() =>
+				localize(
+					'projectNameLocationStep.title',
+					'Set project name and location'
+				))()}
 			cancelButtonConfig={{ onClick: props.cancel }}
 			nextButtonConfig={{
 				onClick: nextStep,
-				disable: !projectConfig.projectName || !projectConfig.parentFolder
+				disable:
+					!projectConfig.projectName ||
+					!projectConfig.parentFolder ||
+					(projectNameFeedback &&
+						projectNameFeedback.type === WizardFormattedTextType.Error),
 			}}
 			backButtonConfig={{ onClick: props.back }}
 		>
 			<PositronWizardSubStep
-				title={(() => localize(
-					'projectNameLocationSubStep.projectName.label',
-					'Project Name'
-				))()}
-				feedback={projectNameFeedback ?
-					<WizardFormattedText type={projectNameFeedback.type}>
-						{projectNameFeedback.text}
-					</WizardFormattedText>
-					: undefined
+				title={(() =>
+					localize(
+						'projectNameLocationSubStep.projectName.label',
+						'Project Name'
+					))()}
+				feedback={
+					projectNameFeedback ? (
+						<WizardFormattedText type={projectNameFeedback.type}>
+							{projectNameFeedback.text}
+						</WizardFormattedText>
+					) : undefined
 				}
 			>
 				<LabeledTextInput
-					label={(() => localize(
-						'projectNameLocationSubStep.projectName.description',
-						'Enter a name for your new {0}',
-						projectConfig.projectType
-					))()}
+					label={(() =>
+						localize(
+							'projectNameLocationSubStep.projectName.description',
+							'Enter a name for your new {0}',
+							projectConfig.projectType
+						))()}
 					autoFocus
 					value={projectConfig.projectName}
-					onChange={e => setProjectName(e.target.value)}
+					onChange={(e) => setProjectName(e.target.value)}
 					type='text'
 					error={
 						projectNameFeedback &&
@@ -167,38 +175,48 @@ export const ProjectNameLocationStep = (props: PropsWithChildren<NewProjectWizar
 				/>
 			</PositronWizardSubStep>
 			<PositronWizardSubStep
-				title={(() => localize(
-					'projectNameLocationSubStep.parentDirectory.label',
-					'Parent Directory'
-				))()}
+				title={(() =>
+					localize(
+						'projectNameLocationSubStep.parentDirectory.label',
+						'Parent Directory'
+					))()}
 				feedback={
 					<WizardFormattedText type={WizardFormattedTextType.Info}>
-						{(() => localize(
-							'projectNameLocationSubStep.parentDirectory.feedback',
-							'Your project will be created at: ',
-						))()}
-						<code>{projectConfig.parentFolder}/{projectConfig.projectName}</code>
+						{(() =>
+							localize(
+								'projectNameLocationSubStep.parentDirectory.feedback',
+								'Your project will be created at: '
+							))()}
+						<code>
+							{projectConfig.parentFolder}/{projectConfig.projectName}
+						</code>
 					</WizardFormattedText>
 				}
 			>
 				<LabeledFolderInput
-					label={(() => localize(
-						'projectNameLocationSubStep.parentDirectory.description',
-						'Select a directory to create your project in'
-					))()}
+					label={(() =>
+						localize(
+							'projectNameLocationSubStep.parentDirectory.description',
+							'Select a directory to create your project in'
+						))()}
 					value={projectConfig.parentFolder}
 					onBrowse={browseHandler}
-					onChange={e => setProjectConfig({ ...projectConfig, parentFolder: e.target.value })}
+					onChange={(e) =>
+						setProjectConfig({ ...projectConfig, parentFolder: e.target.value })
+					}
 				/>
 			</PositronWizardSubStep>
 			<PositronWizardSubStep>
 				{/* TODO: display a warning/message if the user doesn't have git set up */}
 				<Checkbox
-					label={(() => localize(
-						'projectNameLocationSubStep.initGitRepo.label',
-						'Initialize project as Git repository'
-					))()}
-					onChanged={checked => setProjectConfig({ ...projectConfig, initGitRepo: checked })}
+					label={(() =>
+						localize(
+							'projectNameLocationSubStep.initGitRepo.label',
+							'Initialize project as Git repository'
+						))()}
+					onChanged={(checked) =>
+						setProjectConfig({ ...projectConfig, initGitRepo: checked })
+					}
 				/>
 			</PositronWizardSubStep>
 		</PositronWizardStep>

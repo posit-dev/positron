@@ -14,7 +14,7 @@ import { ILanguageRuntimeExit, ILanguageRuntimeMetadata, ILanguageRuntimeService
 import { IRuntimeStartupService, RuntimeStartupPhase } from 'vs/workbench/services/runtimeStartup/common/runtimeStartupService';
 import { ILanguageRuntimeSession, IRuntimeSessionMetadata, IRuntimeSessionService } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
 import { Event } from 'vs/base/common/event';
-import { ObservableValue } from 'vs/base/common/observableInternal/base';
+import { ISettableObservable, observableValue } from 'vs/base/common/observableInternal/base';
 import { ExtensionsRegistry } from 'vs/workbench/services/extensions/common/extensionsRegistry';
 import { ExtensionIdentifier } from 'vs/platform/extensions/common/extensions';
 import { ILifecycleService, ShutdownReason, StartupKind } from 'vs/workbench/services/lifecycle/common/lifecycle';
@@ -76,7 +76,7 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 	private readonly _mostRecentlyStartedRuntimesByLanguageId = new Map<string, ILanguageRuntimeMetadata>();
 
 	// The current startup phase; an observeable value.
-	private _startupPhase: ObservableValue<RuntimeStartupPhase>;
+	private _startupPhase: ISettableObservable<RuntimeStartupPhase>;
 
 	onDidChangeRuntimeStartupPhase: Event<RuntimeStartupPhase>;
 
@@ -102,8 +102,8 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 			this._languageRuntimeService.onDidRegisterRuntime(
 				this.onDidRegisterRuntime, this));
 
-		this._startupPhase = new ObservableValue<RuntimeStartupPhase>(
-			this, 'runtime-startup-phase', RuntimeStartupPhase.Initializing);
+		this._startupPhase = observableValue(
+			'runtime-startup-phase', RuntimeStartupPhase.Initializing);
 		this.onDidChangeRuntimeStartupPhase = Event.fromObservable(this._startupPhase);
 
 		this._register(this.onDidChangeRuntimeStartupPhase(phase => {

@@ -68,6 +68,7 @@ const dirs = [
 	'test/integration/browser',
 	'test/monaco',
 	'test/smoke',
+	'.vscode/extensions/vscode-selfhost-test-provider',
 ];
 
 if (fs.existsSync(`${__dirname}/../../.build/distro/npm`)) {

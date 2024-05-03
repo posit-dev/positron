@@ -14,7 +14,7 @@ import { IElementPosition, IReactComponentContainer, ISize, PositronReactRendere
 import { IContextMenuService } from 'vs/platform/contextview/browser/contextView';
 import { IInstantiationService } from 'vs/platform/instantiation/common/instantiation';
 import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
-import { ViewPane, IViewPaneOptions } from 'vs/workbench/browser/parts/views/viewPane';
+import { IViewPaneOptions } from 'vs/workbench/browser/parts/views/viewPane';
 import { Event, Emitter } from 'vs/base/common/event';
 import { ICommandService } from 'vs/platform/commands/common/commands';
 import { IWorkbenchLayoutService } from 'vs/workbench/services/layout/browser/layoutService';
@@ -22,11 +22,13 @@ import { IPositronPreviewService } from 'vs/workbench/contrib/positronPreview/br
 import { PositronPreview } from 'vs/workbench/contrib/positronPreview/browser/positronPreview';
 import { IRuntimeSessionService } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
 import { INotificationService } from 'vs/platform/notification/common/notification';
+import { PositronViewPane } from 'vs/workbench/browser/positronViewPane/positronViewPane';
+import { IHoverService } from 'vs/platform/hover/browser/hover';
 
 /**
  * PositronPreviewViewPane class.
  */
-export class PositronPreviewViewPane extends ViewPane implements IReactComponentContainer {
+export class PositronPreviewViewPane extends PositronViewPane implements IReactComponentContainer {
 	//#region Private Properties
 
 	// The PositronReactRenderer.
@@ -83,19 +85,14 @@ export class PositronPreviewViewPane extends ViewPane implements IReactComponent
 		@IRuntimeSessionService private readonly runtimeSessionService: IRuntimeSessionService,
 		@ICommandService private readonly commandService: ICommandService,
 		@IWorkbenchLayoutService private readonly layoutService: IWorkbenchLayoutService,
-		@IPositronPreviewService private readonly positronPreviewService: IPositronPreviewService
+		@IPositronPreviewService private readonly positronPreviewService: IPositronPreviewService,
+		@IHoverService hoverService: IHoverService,
 	) {
 		// Override minimum size option if it isn't already somehow set. See `PositronHelpView` for
 		// more context.
 		options = { ...options, minimumBodySize: 0 };
 
-		super(options, keybindingService, contextMenuService, configurationService, contextKeyService, viewDescriptorService, instantiationService, openerService, themeService, telemetryService);
-
-		// Make the viewpane focusable even when there are no components
-		// available to take the focus. The viewpane must be able to take focus
-		// at all times because otherwise blurring events do not occur and the
-		// viewpane management state becomes confused on toggle.
-		this.element.tabIndex = 0;
+		super(options, keybindingService, contextMenuService, configurationService, contextKeyService, viewDescriptorService, instantiationService, openerService, themeService, telemetryService, hoverService);
 
 		this._register(this.onDidChangeBodyVisibility(() => this.onDidChangeVisibility(this.isBodyVisible())));
 		this._positronPreviewContainer = DOM.$('.positron-preview-container');

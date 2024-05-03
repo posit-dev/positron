@@ -22,7 +22,7 @@ import { IViewDescriptorService } from 'vs/workbench/common/views';
 import { INotificationService } from 'vs/platform/notification/common/notification';
 import { IInstantiationService } from 'vs/platform/instantiation/common/instantiation';
 import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
-import { ViewPane, IViewPaneOptions } from 'vs/workbench/browser/parts/views/viewPane';
+import { IViewPaneOptions } from 'vs/workbench/browser/parts/views/viewPane';
 import { IContextKey, IContextKeyService } from 'vs/platform/contextkey/common/contextkey';
 import { IWorkbenchLayoutService } from 'vs/workbench/services/layout/browser/layoutService';
 import { PositronConsole } from 'vs/workbench/contrib/positronConsole/browser/positronConsole';
@@ -33,13 +33,13 @@ import { IExecutionHistoryService } from 'vs/workbench/contrib/executionHistory/
 import { IPositronConsoleService } from 'vs/workbench/services/positronConsole/browser/interfaces/positronConsoleService';
 import { IRuntimeSessionService } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
 import { IRuntimeStartupService } from 'vs/workbench/services/runtimeStartup/common/runtimeStartupService';
-import { disposableTimeout } from 'vs/base/common/async';
-import { DisposableStore } from 'vs/base/common/lifecycle';
+import { PositronViewPane } from 'vs/workbench/browser/positronViewPane/positronViewPane';
+import { IHoverService } from 'vs/platform/hover/browser/hover';
 
 /**
  * PositronConsoleViewPane class.
  */
-export class PositronConsoleViewPane extends ViewPane implements IReactComponentContainer {
+export class PositronConsoleViewPane extends PositronViewPane implements IReactComponentContainer {
 	//#region Private Properties
 
 	/**
@@ -93,8 +93,6 @@ export class PositronConsoleViewPane extends ViewPane implements IReactComponent
 	 * Gets or sets the PositronConsoleFocused context key.
 	 */
 	private _positronConsoleFocusedContextKey: IContextKey<boolean>;
-
-	private _disposableStore: DisposableStore;
 
 	//#endregion Private Properties
 
@@ -177,6 +175,7 @@ export class PositronConsoleViewPane extends ViewPane implements IReactComponent
 	 * @param contextKeyService The context key service.
 	 * @param contextMenuService The context menu service.
 	 * @param executionHistoryService The execution history service.
+	 * @param hoverService The hover service.
 	 * @param instantiationService The instantiation service.
 	 * @param keybindingService The keybinding service.
 	 * @param languageRuntimeService The language runtime service.
@@ -202,6 +201,7 @@ export class PositronConsoleViewPane extends ViewPane implements IReactComponent
 		@IContextKeyService contextKeyService: IContextKeyService,
 		@IContextMenuService contextMenuService: IContextMenuService,
 		@IExecutionHistoryService private readonly executionHistoryService: IExecutionHistoryService,
+		@IHoverService hoverService: IHoverService,
 		@IInstantiationService instantiationService: IInstantiationService,
 		@IKeybindingService keybindingService: IKeybindingService,
 		@ILanguageRuntimeService private readonly languageRuntimeService: ILanguageRuntimeService,
@@ -230,14 +230,8 @@ export class PositronConsoleViewPane extends ViewPane implements IReactComponent
 			instantiationService,
 			openerService,
 			themeService,
-			telemetryService);
-
-		// Make the view pane focusable even when there are no components
-		// available to take the focus (such as the console input). This happens
-		// when no interpreter has been started yet. The viewpane must be able
-		// to take focus at all times because otherwise blurring events do not
-		// occur and the viewpane management state becomes confused on toggle.
-		this.element.tabIndex = 0;
+			telemetryService,
+			hoverService);
 
 		// Bind the PositronConsoleFocused context key.
 		this._positronConsoleFocusedContextKey = PositronConsoleFocused.bindTo(contextKeyService);
@@ -247,8 +241,6 @@ export class PositronConsoleViewPane extends ViewPane implements IReactComponent
 			// Relay event for our `IReactComponentContainer` implementation
 			this._onVisibilityChangedEmitter.fire(visible);
 		}));
-
-		this._disposableStore = this._register(new DisposableStore());
 	}
 
 	/**
@@ -306,22 +298,14 @@ export class PositronConsoleViewPane extends ViewPane implements IReactComponent
 	}
 
 	/**
-	 * focus override method.
+	 * Drive focus to inner element.
+	 * Called by `super.focus()`.
 	 */
-	override focus(): void {
-		// Call the base class's method.
-		super.focus();
-
+	override focusElement(): void {
 		// Trigger event that eventually causes console input widgets (main
 		// input, readline input, or restart buttons) to focus. Must be after
 		// the super call.
-		//
-		// We do this at the next tick because in some cases `focus()` is called
-		// when the viewpane is not visible yet (don't trust `this.isBodyVisible()`).
-		// In this case the `focus()` call fails (don't trust `this.onFocus()`).
-		// This happens for instance with `workbench.action.togglePanel` or
-		// `workbench.action.toggleSecondarySideBar`.
-		disposableTimeout(() => this.positronConsoleService.activePositronConsoleInstance?.focusInput(), 0, this._disposableStore);
+		this.positronConsoleService.activePositronConsoleInstance?.focusInput();
 	}
 
 	/**

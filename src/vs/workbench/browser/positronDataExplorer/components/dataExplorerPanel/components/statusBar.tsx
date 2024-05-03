@@ -119,9 +119,6 @@ export const StatusBar = () => {
 				<span className='counter'>{numColumns.toLocaleString()}</span>
 				<span>&nbsp;</span>
 				<span className='label'>columns</span>
-				<StatusBarActivityIndicator
-					status={clientStatus}
-				/>
 			</div>
 		);
 	} else {

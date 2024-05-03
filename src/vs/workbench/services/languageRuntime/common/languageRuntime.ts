@@ -6,7 +6,6 @@ import * as nls from 'vs/nls';
 import { Emitter } from 'vs/base/common/event';
 import { ILogService } from 'vs/platform/log/common/log';
 import { Disposable, IDisposable, toDisposable } from 'vs/base/common/lifecycle';
-import { CommandsRegistry } from 'vs/platform/commands/common/commands';
 import { InstantiationType, registerSingleton } from 'vs/platform/instantiation/common/extensions';
 import { ILanguageRuntimeMetadata, ILanguageRuntimeService, formatLanguageRuntimeMetadata } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { Registry } from 'vs/platform/registry/common/platform';
@@ -119,8 +118,6 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 
 	//#endregion ILanguageRuntimeService Implementation
 }
-
-CommandsRegistry.registerCommand('positron.activateInterpreters', () => true);
 
 // Instantiate the language runtime service "eagerly", meaning as soon as a
 // consumer depdends on it. This fixes an issue where languages are encountered

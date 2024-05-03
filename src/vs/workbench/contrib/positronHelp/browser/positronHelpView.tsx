@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2022 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2022-2024 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
 import 'vs/css!./positronHelpView';
@@ -17,15 +17,17 @@ import { IHelpEntry } from 'vs/workbench/contrib/positronHelp/browser/helpEntry'
 import { IContextMenuService } from 'vs/platform/contextview/browser/contextView';
 import { IInstantiationService } from 'vs/platform/instantiation/common/instantiation';
 import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
-import { ViewPane, IViewPaneOptions } from 'vs/workbench/browser/parts/views/viewPane';
+import { IViewPaneOptions } from 'vs/workbench/browser/parts/views/viewPane';
 import { ActionBars } from 'vs/workbench/contrib/positronHelp/browser/components/actionBars';
 import { IPositronHelpService } from 'vs/workbench/contrib/positronHelp/browser/positronHelpService';
 import { IReactComponentContainer, ISize, PositronReactRenderer } from 'vs/base/browser/positronReactRenderer';
+import { PositronViewPane } from 'vs/workbench/browser/positronViewPane/positronViewPane';
+import { IHoverService } from 'vs/platform/hover/browser/hover';
 
 /**
  * PositronHelpView class.
  */
-export class PositronHelpView extends ViewPane implements IReactComponentContainer {
+export class PositronHelpView extends PositronViewPane implements IReactComponentContainer {
 	//#region Private Properties
 
 	// The width. This value is set in layoutBody and is used to implement the
@@ -146,6 +148,7 @@ export class PositronHelpView extends ViewPane implements IReactComponentContain
 	 * @param configurationService The IConfigurationService.
 	 * @param contextKeyService The IContextKeyService.
 	 * @param contextMenuService The IContextMenuService.
+	 * @param hoverService The IHoverService.
 	 * @param instantiationService The IInstantiationService.
 	 * @param keybindingService The IKeybindingService.
 	 * @param openerService The IOpenerService.
@@ -161,6 +164,7 @@ export class PositronHelpView extends ViewPane implements IReactComponentContain
 		@IConfigurationService configurationService: IConfigurationService,
 		@IContextKeyService contextKeyService: IContextKeyService,
 		@IContextMenuService contextMenuService: IContextMenuService,
+		@IHoverService hoverService: IHoverService,
 		@IInstantiationService instantiationService: IInstantiationService,
 		@IKeybindingService keybindingService: IKeybindingService,
 		@IOpenerService openerService: IOpenerService,
@@ -187,14 +191,9 @@ export class PositronHelpView extends ViewPane implements IReactComponentContain
 			instantiationService,
 			openerService,
 			themeService,
-			telemetryService
+			telemetryService,
+			hoverService
 		);
-
-		// Make the viewpane focusable even when there are no components
-		// available to take the focus. The viewpane must be able to take focus
-		// at all times because otherwise blurring events do not occur and the
-		// viewpane management state becomes confused on toggle.
-		this.element.tabIndex = 0;
 
 		// Create containers.
 		this.positronHelpContainer = DOM.$('.positron-help-container');

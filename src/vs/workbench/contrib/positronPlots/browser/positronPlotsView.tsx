@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
 import 'vs/css!./positronPlotsView';
@@ -16,18 +16,20 @@ import { IKeybindingService } from 'vs/platform/keybinding/common/keybinding';
 import { IContextMenuService } from 'vs/platform/contextview/browser/contextView';
 import { IInstantiationService } from 'vs/platform/instantiation/common/instantiation';
 import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
-import { ViewPane, IViewPaneOptions } from 'vs/workbench/browser/parts/views/viewPane';
+import { IViewPaneOptions } from 'vs/workbench/browser/parts/views/viewPane';
 import { IWorkbenchLayoutService } from 'vs/workbench/services/layout/browser/layoutService';
 import { PositronPlots } from 'vs/workbench/contrib/positronPlots/browser/positronPlots';
 import { ILanguageRuntimeService } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { IElementPosition, IReactComponentContainer, ISize, PositronReactRenderer } from 'vs/base/browser/positronReactRenderer';
 import { IPositronPlotsService } from 'vs/workbench/services/positronPlots/common/positronPlots';
 import { INotificationService } from 'vs/platform/notification/common/notification';
+import { PositronViewPane } from 'vs/workbench/browser/positronViewPane/positronViewPane';
+import { IHoverService } from 'vs/platform/hover/browser/hover';
 
 /**
  * PositronPlotsViewPane class.
  */
-export class PositronPlotsViewPane extends ViewPane implements IReactComponentContainer {
+export class PositronPlotsViewPane extends PositronViewPane implements IReactComponentContainer {
 	//#region Private Properties
 
 	// The onSizeChanged emitter.
@@ -142,6 +144,9 @@ export class PositronPlotsViewPane extends ViewPane implements IReactComponentCo
 	 * @param telemetryService The ITelemetryService.
 	 * @param themeService The IThemeService.
 	 * @param viewDescriptorService The IViewDescriptorService.
+	 * @param workbenchLayoutService The IWorkbenchLayoutService.
+	 * @param notificationService The INotificationService.
+	 * @param hoverService The IHoverService.
 	 */
 	constructor(
 		options: IViewPaneOptions,
@@ -158,16 +163,11 @@ export class PositronPlotsViewPane extends ViewPane implements IReactComponentCo
 		@IThemeService themeService: IThemeService,
 		@IViewDescriptorService viewDescriptorService: IViewDescriptorService,
 		@IWorkbenchLayoutService private readonly layoutService: IWorkbenchLayoutService,
-		@INotificationService private readonly notificationService: INotificationService
+		@INotificationService private readonly notificationService: INotificationService,
+		@IHoverService hoverService: IHoverService,
 	) {
 		// Call the base class's constructor.
-		super(options, keybindingService, contextMenuService, configurationService, contextKeyService, viewDescriptorService, instantiationService, openerService, themeService, telemetryService);
-
-		// Make the viewpane focusable even when there are no components
-		// available to take the focus. The viewpane must be able to take focus
-		// at all times because otherwise blurring events do not occur and the
-		// viewpane management state becomes confused on toggle.
-		this.element.tabIndex = 0;
+		super(options, keybindingService, contextMenuService, configurationService, contextKeyService, viewDescriptorService, instantiationService, openerService, themeService, telemetryService, hoverService);
 
 		// Register the onDidChangeBodyVisibility event handler.
 		this._register(this.onDidChangeBodyVisibility(visible => {
