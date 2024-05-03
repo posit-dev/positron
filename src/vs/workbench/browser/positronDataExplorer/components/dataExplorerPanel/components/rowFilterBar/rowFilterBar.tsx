@@ -71,6 +71,7 @@ export const RowFilterBar = () => {
 	 */
 	const showAddEditRowFilterModalPopup = (
 		anchor: HTMLElement,
+		isFirstFilter: boolean = false,
 		editRowFilterDescriptor?: RowFilterDescriptor
 	) => {
 		// Create the renderer.
@@ -120,6 +121,7 @@ export const RowFilterBar = () => {
 				dataExplorerClientInstance={context.instance.dataExplorerClientInstance}
 				renderer={renderer}
 				anchor={anchor}
+				isFirstFilter={isFirstFilter}
 				editRowFilter={editRowFilterDescriptor}
 				onApplyRowFilter={applyRowFilterHandler}
 			/>
@@ -135,7 +137,9 @@ export const RowFilterBar = () => {
 		entries.push(new ContextMenuItem({
 			label: localize('positron.dataExplorer.addFilter', "Add filter"),
 			icon: 'positron-add-filter',
-			onSelected: () => showAddEditRowFilterModalPopup(rowFilterButtonRef.current)
+			onSelected: () => showAddEditRowFilterModalPopup(
+				rowFilterButtonRef.current,
+				rowFilterDescriptors.length === 0)
 		}));
 		entries.push(new ContextMenuSeparator());
 		if (!rowFiltersHidden) {
@@ -223,6 +227,7 @@ export const RowFilterBar = () => {
 							if (rowFilterWidgetRefs.current[index]) {
 								showAddEditRowFilterModalPopup(
 									rowFilterWidgetRefs.current[index],
+									index === 0,
 									rowFilter
 								);
 							}

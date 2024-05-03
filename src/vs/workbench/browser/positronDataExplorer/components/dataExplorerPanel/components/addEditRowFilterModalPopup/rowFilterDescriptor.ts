@@ -41,9 +41,17 @@ export enum RowFilterDescrType {
 	IS_NOT_BETWEEN = 'is-not-between'
 }
 
+/**
+ * Common properties for row filters.
+ */
 interface RowFilterCommonProps {
+	/** The column schema */
 	readonly columnSchema: ColumnSchema;
+
+	/** The filter validity, if known */
 	readonly isValid?: boolean;
+
+	/** For an invalid filter, the error message */
 	readonly errorMessage?: string;
 }
 

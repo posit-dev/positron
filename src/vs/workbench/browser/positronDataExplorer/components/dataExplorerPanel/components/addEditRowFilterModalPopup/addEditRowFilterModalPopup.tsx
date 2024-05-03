@@ -135,6 +135,7 @@ interface AddEditRowFilterModalPopupProps {
 	dataExplorerClientInstance: DataExplorerClientInstance;
 	renderer: PositronModalReactRenderer;
 	anchor: HTMLElement;
+	isFirstFilter: boolean;
 	editRowFilter?: RowFilterDescriptor;
 	onApplyRowFilter: (rowFilter: RowFilterDescriptor) => void;
 }
