@@ -220,14 +220,13 @@
 	],
 	"extensionEnabledApiProposals": {
 		"ms-vscode.vscode-selfhost-test-provider": [
-			"testObserver",
-			"testCoverage"
-		],
-		"ms-vscode.extension-test-runner": [
-			"testCoverage"
+			"testObserver"
 		],
 		"VisualStudioExptTeam.vscodeintellicode-completions": [
 			"inlineCompletionsAdditions"
+		],
+		"ms-toolsai.datawrangler": [
+			"debugFocus"
 		],
 		"ms-vsliveshare.vsliveshare": [
 			"contribMenuBarHome",
@@ -249,9 +248,6 @@
 			"workspaceTrust",
 			"tunnels"
 		],
-		"vscjava.vscode-java-test": [
-			"testCoverage"
-		],
 		"ms-toolsai.vscode-ai-remote": [
 			"resolvers"
 		],
@@ -259,11 +255,12 @@
 			"contribEditorContentMenu",
 			"quickPickSortByLabel",
 			"portsAttributes",
-			"handleIssueUri",
 			"testObserver",
 			"quickPickItemTooltip",
 			"terminalDataWriteEvent",
-			"terminalExecuteCommandEvent"
+			"terminalExecuteCommandEvent",
+			"contribIssueReporter",
+			"terminalShellIntegration"
 		],
 		"ms-dotnettools.dotnet-interactive-vscode": [
 			"notebookMessaging"
@@ -353,20 +350,25 @@
 		],
 		"GitHub.vscode-pull-request-github": [
 			"activeComment",
-			"contribCommentThreadAdditionalMenu",
-			"tokenInformation",
-			"codeActionRanges",
-			"commentReactor",
-			"contribShareMenu",
-			"fileComments",
-			"contribCommentPeekContext",
 			"codiconDecoration",
-			"diffCommand",
+			"codeActionRanges",
+			"commentingRangeHint",
+			"commentReactor",
+			"commentThreadApplicability",
+			"contribAccessibilityHelpContent",
 			"contribCommentEditorActionsMenu",
-			"treeViewMarkdownMessage",
-			"tabInputTextMerge",
+			"contribCommentPeekContext",
+			"contribCommentThreadAdditionalMenu",
+			"contribCommentsViewThreadMenus",
+			"contribEditorContentMenu",
+			"contribShareMenu",
+			"diffCommand",
+			"fileComments",
+			"quickDiffProvider",
 			"shareProvider",
-			"quickDiffProvider"
+			"tabInputTextMerge",
+			"tokenInformation",
+			"treeViewMarkdownMessage"
 		],
 		"GitHub.copilot": [
 			"inlineCompletionsAdditions"
@@ -375,7 +377,6 @@
 			"inlineCompletionsAdditions"
 		],
 		"GitHub.copilot-chat": [
-			"handleIssueUri",
 			"interactive",
 			"terminalDataWriteEvent",
 			"terminalExecuteCommandEvent",
@@ -393,7 +394,10 @@
 			"textSearchProvider",
 			"contribSourceControlInputBoxMenu",
 			"newSymbolNamesProvider",
-			"findFiles2"
+			"findFiles2",
+			"extensionsAny",
+			"authLearnMore",
+			"testObserver"
 		],
 		"GitHub.remotehub": [
 			"contribRemoteHelp",
@@ -417,7 +421,9 @@
 			"notebookCellExecutionState"
 		],
 		"ms-python.debugpy": [
-			"portsAttributes"
+			"portsAttributes",
+			"contribIssueReporter",
+			"debugVisualization"
 		],
 		"ms-toolsai.jupyter-renderers": [
 			"contribNotebookStaticPreloads"
@@ -435,6 +441,7 @@
 			"contribNotebookStaticPreloads",
 			"quickPickItemTooltip",
 			"notebookExecution",
+			"notebookCellExecution",
 			"notebookVariableProvider"
 		],
 		"dbaeumer.vscode-eslint": [
