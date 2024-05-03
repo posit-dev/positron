@@ -312,14 +312,10 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	}
 
 	async runCurrentCell(focusBelow: boolean): Promise<void> {
-		const cell = this.selectionStateMachine.getSelectedCell();
-		if (!cell) {
-			return;
-		}
+		this.selectionStateMachine.getSelectedCell()?.run();
 		if (focusBelow) {
 			this.selectionStateMachine.moveDown(false);
 		}
-		await this._runCells([cell]);
 	}
 
 	/**
