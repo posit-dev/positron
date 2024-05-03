@@ -480,6 +480,9 @@ class SQLite3Connection(Connection):
         self.display_name = "SQLite Connection"
         self.host = self._find_path(conn)
         self.type = "SQLite"
+        self.code = (
+            "import sqlite3\n" f'conn = sqlite3.connect("{self.host}")\n' "%connection_show conn\n"
+        )
 
     def _find_path(self, conn: sqlite3.Connection):
         """
@@ -594,6 +597,11 @@ class SQLAlchemyConnection(Connection):
         self.display_name = f"SQLAlchemy ({conn.name})"
         self.host = conn.url.render_as_string()
         self.type = "SQLAlchemy"
+        self.code = (
+            "import sqlalchemy\n"
+            f"engine = sqlalchemy.create_engine('{self.host}')\n"
+            "%connection_show engine\n"
+        )
 
     def list_objects(self, path: List[ObjectSchema]):
         if sqlalchemy_ is None:
