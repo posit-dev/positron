@@ -7,7 +7,7 @@ import { Schemas } from 'vs/base/common/network';
 import { URI } from 'vs/base/common/uri';
 import { localize } from 'vs/nls';
 import { SyncDescriptor } from 'vs/platform/instantiation/common/descriptors';
-import { IInstantiationService } from 'vs/platform/instantiation/common/instantiation';
+import { IInstantiationService, ServicesAccessor } from 'vs/platform/instantiation/common/instantiation';
 import { Registry } from 'vs/platform/registry/common/platform';
 import { EditorPaneDescriptor, IEditorPaneRegistry } from 'vs/workbench/browser/editor';
 import { IWorkbenchContributionsRegistry, Extensions as WorkbenchExtensions } from 'vs/workbench/common/contributions';
@@ -150,31 +150,55 @@ Registry.as<IEditorFactoryRegistry>(EditorExtensions.EditorFactory).registerEdit
 );
 
 
+//#region Keybindings
+registerNotebookKeybinding({
+	id: 'notebook.cell.insertCodeCellAboveAndFocusContainer',
+	keys: KeyCode.KeyA,
+});
 
-KeybindingsRegistry.registerCommandAndKeybindingRule({
+registerNotebookKeybinding({
 	id: 'list.focusUp',
-	weight: KeybindingWeight.WorkbenchContrib,
-	when: POSITRON_NOTEBOOK_EDITOR_FOCUSED,
-	primary: KeyCode.UpArrow,
-	mac: {
-		primary: KeyCode.UpArrow,
-		secondary: [KeyMod.WinCtrl | KeyCode.KeyP]
-	},
-	handler: (accessor) => {
-		accessor.get(IPositronNotebookService).dispatchAction({ id: 'list.focusUp' });
-	}
+	keys: KeyCode.UpArrow,
+	macKeys: { primary: KeyCode.UpArrow, secondary: [KeyMod.WinCtrl | KeyCode.KeyP] },
 });
 
-KeybindingsRegistry.registerCommandAndKeybindingRule({
+registerNotebookKeybinding({
 	id: 'list.focusDown',
-	weight: KeybindingWeight.WorkbenchContrib,
-	when: POSITRON_NOTEBOOK_EDITOR_FOCUSED,
-	primary: KeyCode.DownArrow,
-	mac: {
-		primary: KeyCode.DownArrow,
-		secondary: [KeyMod.WinCtrl | KeyCode.KeyN]
-	},
-	handler: (accessor) => {
-		accessor.get(IPositronNotebookService).dispatchAction({ id: 'list.focusDown' });
-	}
+	keys: KeyCode.DownArrow,
+	macKeys: { primary: KeyCode.DownArrow, secondary: [KeyMod.WinCtrl | KeyCode.KeyN] },
 });
+
+
+/**
+ * Register a keybinding for the Positron Notebook editor. These are typically used to intercept
+ * existing notebook keybindings/commands and run them on positron notebooks instead.
+ * @param id The id of the command to run. E.g. 'list.focusDown'
+ * @param keys The primary keybinding to use.
+ * @param macKeys The primary and secondary keybindings to use on macOS.
+ * @param onRun A function to run when the keybinding is triggered. If not provided the
+ * `PositronNotebookService.dispatchAction` function will be called with the id.
+ */
+function registerNotebookKeybinding({ id, keys, macKeys, onRun }: {
+	id: string;
+	keys: KeyCode;
+	macKeys?: { primary: KeyCode; secondary?: KeyCode[] };
+	onRun?: (args: { notebookService: IPositronNotebookService; accessor: ServicesAccessor }) => void;
+}) {
+	KeybindingsRegistry.registerCommandAndKeybindingRule({
+		id: id,
+		weight: KeybindingWeight.WorkbenchContrib,
+		when: POSITRON_NOTEBOOK_EDITOR_FOCUSED,
+		primary: keys,
+		mac: macKeys,
+		handler: (accessor) => {
+			const notebookService = accessor.get(IPositronNotebookService);
+			if (!onRun) {
+				// If no onRun function provided, just run the dispatch function with the id.
+				notebookService.dispatchAction({ id });
+			} else {
+				onRun({ notebookService, accessor });
+			}
+		}
+	});
+}
+//#endregion Keybindings
