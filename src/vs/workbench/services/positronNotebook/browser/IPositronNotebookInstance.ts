@@ -58,17 +58,6 @@ export interface IPositronNotebookInstance {
 	runCells(cells: IPositronNotebookCell[]): Promise<void>;
 
 	/**
-	 * Run the selected cells
-	 */
-	runSelectedCells(): Promise<void>;
-
-	/**
-	 * Run the current cell
-	 * @param focusBelow Whether to focus the cell below after running
-	 */
-	runCurrentCell(focusBelow: boolean): Promise<void>;
-
-	/**
 	 * Run all cells in the notebook
 	 */
 	runAllCells(): Promise<void>;

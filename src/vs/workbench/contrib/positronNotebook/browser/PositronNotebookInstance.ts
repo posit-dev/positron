@@ -307,17 +307,6 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		await this._runCells(this._cells);
 	}
 
-	async runSelectedCells(): Promise<void> {
-		await this._runCells(this.selectedCells.get());
-	}
-
-	async runCurrentCell(focusBelow: boolean): Promise<void> {
-		this.selectionStateMachine.getSelectedCell()?.run();
-		if (focusBelow) {
-			this.selectionStateMachine.moveDown(false);
-		}
-	}
-
 	/**
 	 * Internal method to run cells, used by other cell running methods.
 	 * @param cells Cells to run

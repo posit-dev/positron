@@ -198,7 +198,7 @@ registerNotebookKeybinding({
 	id: 'notebook.cell.executeAndFocusContainer',
 	keys: KeyMod.CtrlCmd | KeyCode.Enter,
 	onRun: ({ activeNotebook }) => {
-		activeNotebook.runCurrentCell(false);
+		activeNotebook.selectionStateMachine.getSelectedCell()?.run();
 	}
 });
 
@@ -206,7 +206,11 @@ registerNotebookKeybinding({
 	id: 'notebook.cell.executeAndSelectBelow',
 	keys: KeyMod.Shift | KeyCode.Enter,
 	onRun: ({ activeNotebook }) => {
-		activeNotebook.runCurrentCell(true);
+		const selectedCell = activeNotebook.selectionStateMachine.getSelectedCell();
+		if (selectedCell) {
+			selectedCell.run();
+			activeNotebook.selectionStateMachine.moveDown(false);
+		}
 	}
 });
 
