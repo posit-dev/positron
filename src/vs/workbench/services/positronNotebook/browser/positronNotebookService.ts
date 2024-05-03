@@ -113,6 +113,14 @@ class PositronNotebookService extends Disposable implements IPositronNotebookSer
 			case 'notebook.cell.delete':
 				this._activeInstance.deleteCell();
 				break;
+			case 'notebook.cell.executeAndFocusContainer': {
+				this._activeInstance.runCurrentCell(false);
+				break;
+			}
+			case 'notebook.cell.executeAndSelectBelow': {
+				this._activeInstance.runCurrentCell(true);
+				break;
+			}
 			default:
 				console.log('Unknown action:', desc);
 				break;

@@ -311,6 +311,17 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		await this._runCells(this.selectedCells.get());
 	}
 
+	async runCurrentCell(focusBelow: boolean): Promise<void> {
+		const cell = this.selectionStateMachine.getSelectedCell();
+		if (!cell) {
+			return;
+		}
+		if (focusBelow) {
+			this.selectionStateMachine.moveDown(false);
+		}
+		await this._runCells([cell]);
+	}
+
 	/**
 	 * Internal method to run cells, used by other cell running methods.
 	 * @param cells Cells to run
@@ -510,9 +521,9 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	 */
 	private _setupKeyboardNavigation(container: HTMLElement) {
 
-		const onKeyDown = ({ key, shiftKey }: KeyboardEvent) => {
+		const onKeyDown = ({ key, shiftKey, ctrlKey, metaKey }: KeyboardEvent) => {
 
-			if (key === 'Enter') {
+			if (key === 'Enter' && !(ctrlKey || metaKey || shiftKey)) {
 				this.selectionStateMachine.enterEditor();
 			} else if (key === 'Escape') {
 				this.selectionStateMachine.exitEditor();

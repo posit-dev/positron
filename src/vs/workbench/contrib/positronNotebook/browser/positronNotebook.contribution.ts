@@ -27,6 +27,7 @@ import { KeyCode, KeyMod } from 'vs/base/common/keyCodes';
 import { KeybindingsRegistry, KeybindingWeight } from 'vs/platform/keybinding/common/keybindingsRegistry';
 import { POSITRON_NOTEBOOK_EDITOR_FOCUSED } from 'vs/workbench/services/positronNotebook/browser/ContextKeysManager';
 import { IPositronNotebookService } from 'vs/workbench/services/positronNotebook/browser/positronNotebookService';
+import { IPositronNotebookInstance } from 'vs/workbench/services/positronNotebook/browser/IPositronNotebookInstance';
 
 
 
@@ -178,6 +179,19 @@ registerNotebookKeybinding({
 	keys: KeyCode.Backspace,
 });
 
+registerNotebookKeybinding({
+	id: 'notebook.cell.executeAndFocusContainer',
+	keys: KeyMod.CtrlCmd | KeyCode.Enter,
+});
+
+registerNotebookKeybinding({
+	id: 'notebook.cell.executeAndSelectBelow',
+	keys: KeyMod.Shift | KeyCode.Enter,
+	onRun: ({ activeNotebook }) => {
+		activeNotebook.runCurrentCell(true);
+	}
+});
+
 
 /**
  * Register a keybinding for the Positron Notebook editor. These are typically used to intercept
@@ -192,7 +206,8 @@ function registerNotebookKeybinding({ id, keys, macKeys, onRun }: {
 	id: string;
 	keys: KeyCode;
 	macKeys?: { primary: KeyCode; secondary?: KeyCode[] };
-	onRun?: (args: { notebookService: IPositronNotebookService; accessor: ServicesAccessor }) => void;
+	onRun?: (args: { activeNotebook: IPositronNotebookInstance; accessor: ServicesAccessor }) => void;
+
 }) {
 	KeybindingsRegistry.registerCommandAndKeybindingRule({
 		id: id,
@@ -206,7 +221,9 @@ function registerNotebookKeybinding({ id, keys, macKeys, onRun }: {
 				// If no onRun function provided, just run the dispatch function with the id.
 				notebookService.dispatchAction({ id });
 			} else {
-				onRun({ notebookService, accessor });
+				const activeNotebook = notebookService.getActiveInstance();
+				if (!activeNotebook) { return; }
+				onRun({ activeNotebook, accessor });
 			}
 		}
 	});
