@@ -225,7 +225,16 @@ export class SelectionStateMachine {
 
 	private _moveSelection(up: boolean, addMode: boolean) {
 
-		if (this._state.type === SelectionState.NoSelection || this._state.type === SelectionState.EditingSelection) {
+		if (this._state.type === SelectionState.EditingSelection) {
+			return;
+		}
+		if (this._state.type === SelectionState.NoSelection) {
+			// Select first cell if selecting down and the last cell if selecting up.
+			const cellToSelect = this._cells.at(up ? -1 : 0);
+			if (cellToSelect) {
+				this._setState({ type: SelectionState.SingleSelection, selected: [cellToSelect] });
+				cellToSelect.focus();
+			}
 			return;
 		}
 
