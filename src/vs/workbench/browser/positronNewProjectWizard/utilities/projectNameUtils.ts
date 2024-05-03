@@ -3,23 +3,53 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { URI } from 'vs/base/common/uri';
+import { localize } from 'vs/nls';
 import { IFileService } from 'vs/platform/files/common/files';
+import { WizardFormattedTextType } from 'vs/workbench/browser/positronNewProjectWizard/components/wizardFormattedText';
 import { IPathService } from 'vs/workbench/services/path/common/pathService';
 
 /**
- * Determines if the specified folder is an existing directory.
- * @param folder The folder to check.
- * @param parentFolder The parent folder of the folder to check.
+ * Checks the project name to ensure it is valid.
+ * @param projectName The project name to check.
+ * @param parentFolder The parent folder of the project.
  * @param pathService The path service.
  * @param fileService The file service.
- * @returns A promise that resolves to true if the folder is an existing directory; otherwise, false.
+ * @returns A promise that resolves to a WizardFormattedTextItem if the project name is invalid; otherwise, undefined.
  */
-export const isExistingDirectory = async (
-	folder: string,
+export const checkProjectName = async (
+	projectName: string,
 	parentFolder: string,
 	pathService: IPathService,
 	fileService: IFileService
 ) => {
-	const folderPath = URI.file((await pathService.path).join(parentFolder, folder));
-	return await fileService.exists(folderPath);
+	// The project name can't be empty.
+	if (!projectName.trim()) {
+		return {
+			type: WizardFormattedTextType.Error,
+			text: localize(
+				'projectNameLocationSubStep.projectName.feedback.emptyProjectName',
+				'Please enter a project name'
+			),
+		};
+	}
+
+	// TODO: Additional project name validation (i.e. unsupported characters, length, etc.)
+
+	// The project directory can't already exist.
+	const folderPath = URI.file(
+		(await pathService.path).join(parentFolder, projectName)
+	);
+	if (await fileService.exists(folderPath)) {
+		return {
+			type: WizardFormattedTextType.Error,
+			text: localize(
+				'projectNameLocationSubStep.projectName.feedback.existingDirectory',
+				'The directory `{0}` already exists. Please enter a different project name.',
+				projectName
+			),
+		};
+	}
+
+	// The project name is valid, so don't return any feedback.
+	return undefined;
 };
