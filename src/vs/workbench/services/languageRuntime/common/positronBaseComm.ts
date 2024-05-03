@@ -5,7 +5,7 @@
 import { IRuntimeClientInstance, RuntimeClientState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeClientInstance';
 import { Event, Emitter } from 'vs/base/common/event';
 import { Disposable } from 'vs/base/common/lifecycle';
-import { ObservableValue } from 'vs/base/common/observableInternal/base';
+import { ISettableObservable } from 'vs/base/common/observableInternal/base';
 
 /**
  * An enum representing the set of JSON-RPC error codes.
@@ -79,7 +79,7 @@ export class PositronBaseComm extends Disposable {
 	/**
 	 * The current state of the client instance
 	 */
-	public readonly clientState: ObservableValue<RuntimeClientState>;
+	public readonly clientState: ISettableObservable<RuntimeClientState>;
 
 	/**
 	 * Create a new Positron com

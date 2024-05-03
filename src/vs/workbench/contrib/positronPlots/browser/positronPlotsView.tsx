@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
 import 'vs/css!./positronPlotsView';
@@ -24,6 +24,7 @@ import { IElementPosition, IReactComponentContainer, ISize, PositronReactRendere
 import { IPositronPlotsService } from 'vs/workbench/services/positronPlots/common/positronPlots';
 import { INotificationService } from 'vs/platform/notification/common/notification';
 import { PositronViewPane } from 'vs/workbench/browser/positronViewPane/positronViewPane';
+import { IHoverService } from 'vs/platform/hover/browser/hover';
 
 /**
  * PositronPlotsViewPane class.
@@ -143,6 +144,9 @@ export class PositronPlotsViewPane extends PositronViewPane implements IReactCom
 	 * @param telemetryService The ITelemetryService.
 	 * @param themeService The IThemeService.
 	 * @param viewDescriptorService The IViewDescriptorService.
+	 * @param workbenchLayoutService The IWorkbenchLayoutService.
+	 * @param notificationService The INotificationService.
+	 * @param hoverService The IHoverService.
 	 */
 	constructor(
 		options: IViewPaneOptions,
@@ -159,10 +163,11 @@ export class PositronPlotsViewPane extends PositronViewPane implements IReactCom
 		@IThemeService themeService: IThemeService,
 		@IViewDescriptorService viewDescriptorService: IViewDescriptorService,
 		@IWorkbenchLayoutService private readonly layoutService: IWorkbenchLayoutService,
-		@INotificationService private readonly notificationService: INotificationService
+		@INotificationService private readonly notificationService: INotificationService,
+		@IHoverService hoverService: IHoverService,
 	) {
 		// Call the base class's constructor.
-		super(options, keybindingService, contextMenuService, configurationService, contextKeyService, viewDescriptorService, instantiationService, openerService, themeService, telemetryService);
+		super(options, keybindingService, contextMenuService, configurationService, contextKeyService, viewDescriptorService, instantiationService, openerService, themeService, telemetryService, hoverService);
 
 		// Register the onDidChangeBodyVisibility event handler.
 		this._register(this.onDidChangeBodyVisibility(visible => {

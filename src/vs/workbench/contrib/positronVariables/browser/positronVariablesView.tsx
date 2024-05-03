@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2022 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2022-2024 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
 import 'vs/css!./positronVariablesView';
@@ -26,6 +26,7 @@ import { IReactComponentContainer, ISize, PositronReactRenderer } from 'vs/base/
 import { IPositronVariablesService } from 'vs/workbench/services/positronVariables/common/interfaces/positronVariablesService';
 import { IRuntimeSessionService } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
 import { PositronViewPane } from 'vs/workbench/browser/positronViewPane/positronViewPane';
+import { IHoverService } from 'vs/platform/hover/browser/hover';
 
 /**
  * PositronVariablesViewPane class.
@@ -164,6 +165,7 @@ export class PositronVariablesViewPane extends PositronViewPane implements IReac
 	 * @param configurationService The configuration service.
 	 * @param contextKeyService The context key service.
 	 * @param contextMenuService The context menu service.
+	 * @param hoverService The hover service.
 	 * @param instantiationService The instantiation service.
 	 * @param keybindingService The keybinding service.
 	 * @param _languageRuntimeService The language runtime service.
@@ -182,6 +184,7 @@ export class PositronVariablesViewPane extends PositronViewPane implements IReac
 		@IConfigurationService configurationService: IConfigurationService,
 		@IContextKeyService contextKeyService: IContextKeyService,
 		@IContextMenuService contextMenuService: IContextMenuService,
+		@IHoverService hoverService: IHoverService,
 		@IInstantiationService instantiationService: IInstantiationService,
 		@IKeybindingService keybindingService: IKeybindingService,
 		@ILanguageRuntimeService private readonly _languageRuntimeService: ILanguageRuntimeService,
@@ -204,7 +207,8 @@ export class PositronVariablesViewPane extends PositronViewPane implements IReac
 			instantiationService,
 			openerService,
 			themeService,
-			telemetryService);
+			telemetryService,
+			hoverService);
 
 		// Register the onDidChangeBodyVisibility event handler.
 		this._register(this.onDidChangeBodyVisibility(visible => {
