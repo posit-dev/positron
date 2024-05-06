@@ -117,6 +117,9 @@ const SavePlotModalDialog = (props: SavePlotModalDialogProps) => {
 		filterEntries.push({ extensions: [filter.toLowerCase()], name: filter.toUpperCase() });
 	}
 
+	// hide DPI as it may be configurable for PDF in the future
+	const enableDPI = false;
+
 	React.useEffect(() => {
 		setUri(props.plotClient.lastRender?.uri ?? '');
 	}, [props.plotClient.lastRender?.uri]);
@@ -306,7 +309,7 @@ const SavePlotModalDialog = (props: SavePlotModalDialogProps) => {
 								min={1}
 								error={!height.valid}
 							/>
-							<LabeledTextInput
+							{enableDPI && <LabeledTextInput
 								label={(() => localize(
 									'positron.savePlotModalDialog.dpi',
 									"DPI"
@@ -317,7 +320,7 @@ const SavePlotModalDialog = (props: SavePlotModalDialogProps) => {
 								min={1}
 								max={300}
 								error={!dpi.valid}
-							/>
+							/>}
 							<div className='error'>
 								<div>
 									{!directory.valid && (() => localize(
