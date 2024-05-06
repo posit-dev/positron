@@ -25,13 +25,14 @@ import {
 	RowFilterDescriptorIsTrue,
 	RowFilterDescriptorSearch
 } from 'vs/workbench/browser/positronDataExplorer/components/dataExplorerPanel/components/addEditRowFilterModalPopup/rowFilterDescriptor';
+import { RowFilterCondition } from 'vs/workbench/services/languageRuntime/common/positronDataExplorerComm';
 
 /**
  * RowFilterWidgetProps interface.
  */
 interface RowFilterWidgetProps {
 	rowFilter: RowFilterDescriptor;
-	booleanOperator?: 'and';
+	booleanOperator?: RowFilterCondition;
 	onEdit: () => void;
 	onClear: () => void;
 }
@@ -142,7 +143,10 @@ export const RowFilterWidget = forwardRef<HTMLButtonElement, RowFilterWidgetProp
 		>
 			{props.booleanOperator &&
 				<div className='boolean-operator'>
-					{localize('positron.dataExplorer.rowFilterWidget.and', "and")}
+					{props.rowFilter.props.condition === RowFilterCondition.And ?
+						localize('positron.dataExplorer.rowFilterWidget.and', "and") :
+						localize('positron.dataExplorer.rowFilterWidget.or', "or")
+					}
 				</div>
 			}
 			<div className='title'>

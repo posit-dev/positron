@@ -41,9 +41,20 @@ export enum RowFilterDescrType {
 	IS_NOT_BETWEEN = 'is-not-between'
 }
 
+/**
+ * Common properties for row filters.
+ */
 interface RowFilterCommonProps {
+	/** The combining operator  */
+	readonly condition: RowFilterCondition;
+
+	/** The column schema */
 	readonly columnSchema: ColumnSchema;
+
+	/** The filter validity, if known */
 	readonly isValid?: boolean;
+
+	/** For an invalid filter, the error message */
 	readonly errorMessage?: string;
 }
 
@@ -79,7 +90,7 @@ abstract class BaseRowFilterDescriptor {
 		return {
 			filter_id: this.identifier,
 			column_schema: this.props.columnSchema,
-			condition: RowFilterCondition.And
+			condition: this.props.condition
 		};
 	}
 }
@@ -591,7 +602,8 @@ export function getRowFilterDescriptor(backendFilter: RowFilter): RowFilterDescr
 	const commonProps = {
 		columnSchema: backendFilter.column_schema,
 		isValid: backendFilter.is_valid,
-		errorMessage: backendFilter.error_message
+		errorMessage: backendFilter.error_message,
+		condition: backendFilter.condition
 	};
 	switch (backendFilter.filter_type) {
 		case RowFilterType.Compare: {

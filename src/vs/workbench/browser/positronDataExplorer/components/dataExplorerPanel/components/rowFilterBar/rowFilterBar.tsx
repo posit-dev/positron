@@ -67,10 +67,13 @@ export const RowFilterBar = () => {
 
 	/**
 	 * Shows the add / edit row filter modal popup.
+	 * @param anchor The anchor element.
+	 * @param isFirstFilter Whether this is the first filter.
 	 * @param editRowFilterDescriptor The row filter to edit, or undefined, to add a row filter.
 	 */
 	const showAddEditRowFilterModalPopup = (
 		anchor: HTMLElement,
+		isFirstFilter: boolean = false,
 		editRowFilterDescriptor?: RowFilterDescriptor
 	) => {
 		// Create the renderer.
@@ -120,6 +123,7 @@ export const RowFilterBar = () => {
 				dataExplorerClientInstance={context.instance.dataExplorerClientInstance}
 				renderer={renderer}
 				anchor={anchor}
+				isFirstFilter={isFirstFilter}
 				editRowFilter={editRowFilterDescriptor}
 				onApplyRowFilter={applyRowFilterHandler}
 			/>
@@ -135,7 +139,9 @@ export const RowFilterBar = () => {
 		entries.push(new ContextMenuItem({
 			label: localize('positron.dataExplorer.addFilter', "Add filter"),
 			icon: 'positron-add-filter',
-			onSelected: () => showAddEditRowFilterModalPopup(rowFilterButtonRef.current)
+			onSelected: () => showAddEditRowFilterModalPopup(
+				rowFilterButtonRef.current,
+				rowFilterDescriptors.length === 0)
 		}));
 		entries.push(new ContextMenuSeparator());
 		if (!rowFiltersHidden) {
@@ -218,11 +224,12 @@ export const RowFilterBar = () => {
 						}}
 						key={index}
 						rowFilter={rowFilter}
-						booleanOperator={index ? 'and' : undefined}
+						booleanOperator={index === 0 ? undefined : rowFilter.props.condition}
 						onEdit={() => {
 							if (rowFilterWidgetRefs.current[index]) {
 								showAddEditRowFilterModalPopup(
 									rowFilterWidgetRefs.current[index],
+									index === 0,
 									rowFilter
 								);
 							}
@@ -233,7 +240,9 @@ export const RowFilterBar = () => {
 					ref={addFilterButtonRef}
 					className='add-row-filter-button'
 					ariaLabel={(() => localize('positron.dataExplorer.addFilter', "Add filter"))()}
-					onPressed={() => showAddEditRowFilterModalPopup(addFilterButtonRef.current)}
+					onPressed={() => showAddEditRowFilterModalPopup(addFilterButtonRef.current,
+						rowFilterDescriptors.length === 0
+					)}
 				>
 					<div className='codicon codicon-positron-add-filter' />
 				</Button>
