@@ -3,7 +3,8 @@
  *--------------------------------------------------------------------------------------------*/
 
 
-import { Code } from './code';
+import { Code } from '../code';
+import { PositronPopups } from './positronPopups';
 
 interface InterpreterGroupLocation {
 	description: string;
@@ -19,12 +20,22 @@ const PRIMARY_INTERPRETER_GROUP_NAMES = `${INTERPRETER_GROUPS} .primary-interpre
 const SECONDARY_INTERPRETER_GROUP_NAMES = `${INTERPRETER_GROUPS} .secondary-interpreter .line:nth-of-type(1)`;
 const SECONDARY_INTERPRETER = `${INTERPRETER_GROUPS} .secondary-interpreter`;
 const INTERPRETER_ACTION_BUTTON = '.primary-interpreter .interpreter-actions .action-button span';
+const DISCOVERY = '.discovery';
 
 export class StartInterpreter {
 
-	constructor(private code: Code) { }
+	constructor(private code: Code, private positronPopups: PositronPopups) { }
 
 	async selectInterpreter(desiredInterpreterType: string, desiredInterpreterString: string) {
+
+		// discover might be present but might not
+		// if it is present, wait for it to detach
+		// if it is not present, take no action
+		try {
+			const discovery = this.code.driver.getLocator(DISCOVERY);
+			await discovery.waitFor({ state: 'attached', timeout: 2000 });
+			await discovery.waitFor({ state: 'detached', timeout: 120000 });
+		} catch { }
 
 		await this.code.waitAndClick(INTERPRETER_SELECTOR);
 		await this.code.waitForElement(POSITRON_MODAL_POPUP);
@@ -43,7 +54,7 @@ export class StartInterpreter {
 				if (secondaryInterpreter.description.includes(desiredInterpreterString)) {
 					const chosenInterpreter = this.code.driver.getLocator(`${SECONDARY_INTERPRETER}:nth-of-type(${secondaryInterpreter.index})`);
 					await chosenInterpreter.scrollIntoViewIfNeeded();
-					await chosenInterpreter.click();
+					await chosenInterpreter.click({ delay: 1000 });
 					break;
 				}
 			}
@@ -52,6 +63,9 @@ export class StartInterpreter {
 			console.log('Primary interpreter matched');
 			await this.code.waitAndClick(`${INTERPRETER_GROUPS}:nth-of-type(${primaryInterpreter.index})`);
 		}
+
+		// noop if dialog does not appear
+		await this.positronPopups.installIPyKernel();
 
 		const dialog = this.code.driver.getLocator(POSITRON_MODAL_POPUP);
 		await dialog.waitFor({ state: 'detached' });

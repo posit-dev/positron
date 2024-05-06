@@ -4,12 +4,13 @@
 
 
 import { expect, Locator } from '@playwright/test';
-import { Code } from './code';
+import { Code } from '../code';
 import * as os from 'os';
 
 const CONSOLE_ITEMS = '.runtime-items span';
 const CONSOLE_INSTANCE = '.console-instance';
 const ACTIVE_LINE_NUMBER = '.active-line-number';
+const CONSOLE_INPUT = '.console-input';
 
 export class PositronConsole {
 
@@ -108,12 +109,13 @@ export class PositronConsole {
 
 
 	async sendCodeToConsole(code: string) {
-
 		const activeConsole = await this.getActiveConsole();
-
-		this.pasteInMonaco(activeConsole!, code);
+		const consoleInput = activeConsole?.locator(CONSOLE_INPUT);
+		await this.pasteInMonaco(consoleInput!, code);
 	}
 
+	// adapted from:
+	// https://github.com/deephaven/web-client-ui/blob/9d905fca86aa8ba4ff53debd1fd12dcc9132299b/tests/utils.ts#L107
 	async pasteInMonaco(
 		locator: Locator,
 		text: string

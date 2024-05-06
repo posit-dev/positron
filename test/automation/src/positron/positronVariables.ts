@@ -3,7 +3,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 
-import { Code } from './code';
+import { Code } from '../code';
 
 interface FlatVariables {
 	value: string;

@@ -22,9 +22,6 @@ export function setup(logger: Logger) {
 			}
 			await app.workbench.startInterpreter.selectInterpreter('Python', desiredPython);
 
-			// noop if dialog does not appear
-			await app.workbench.positronPopups.installIPyKernel();
-
 			await app.workbench.positronConsole.waitForStarted('>>>');
 
 			await app.workbench.positronConsole.logConsoleContents();
