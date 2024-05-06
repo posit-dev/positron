@@ -5,7 +5,6 @@ import { ISettableObservable, observableValue } from 'vs/base/common/observable'
 import { IPositronNotebookCell } from 'vs/workbench/services/positronNotebook/browser/IPositronNotebookCell';
 import { Event } from 'vs/base/common/event';
 import { ILogService } from 'vs/platform/log/common/log';
-import { disposableTimeout } from 'vs/base/common/async';
 import { Disposable } from 'vs/base/common/lifecycle';
 
 export enum SelectionState {
@@ -43,6 +42,13 @@ export class SelectionStateMachine extends Disposable {
 	//#region Private Properties
 	private _state: SelectionStates = { type: SelectionState.NoSelection };
 	private _cells: IPositronNotebookCell[] = [];
+
+	/**
+	 * A timeout timer that's used to keep track of any pending selection changes. Controlled
+	 * with `_cleanTimeout` and `_setSelectionTimeout`.
+	 */
+	private _selectionTimeout: NodeJS.Timeout | undefined;
+
 	//#endregion Private Properties
 
 
@@ -61,6 +67,7 @@ export class SelectionStateMachine extends Disposable {
 	}
 
 	override dispose() {
+		this._cleanTimeout();
 		super.dispose();
 	}
 
@@ -76,6 +83,7 @@ export class SelectionStateMachine extends Disposable {
 	 * @param cells The new cells to set.
 	 */
 	setCells(cells: IPositronNotebookCell[]): void {
+		this._cleanTimeout();
 		this._cells = cells;
 
 		if (this._state.type === SelectionState.NoSelection) {
@@ -107,7 +115,7 @@ export class SelectionStateMachine extends Disposable {
 	 * @param editMode If true, the cell will be selected in edit mode.
 	 */
 	selectCell(cell: IPositronNotebookCell, selectType: CellSelectionType = CellSelectionType.Normal): void {
-
+		this._cleanTimeout();
 		if (selectType === CellSelectionType.Normal || this._state.type === SelectionState.NoSelection && selectType === CellSelectionType.Add) {
 			this._setState({ type: SelectionState.SingleSelection, selected: [cell] });
 			return;
@@ -133,6 +141,7 @@ export class SelectionStateMachine extends Disposable {
 	 * @returns
 	 */
 	deselectCell(cell: IPositronNotebookCell): void {
+		this._cleanTimeout();
 		if (this._state.type === SelectionState.NoSelection) {
 			return;
 		}
@@ -173,27 +182,27 @@ export class SelectionStateMachine extends Disposable {
 		this._moveSelection(false, addMode);
 	}
 
-
 	/**
 	 * Enters the editor for the selected cell.
 	 */
 	enterEditor(): void {
-		if (this._state.type === SelectionState.SingleSelection) {
-			const cellToEdit = this._state.selected[0];
-			this._setState({ type: SelectionState.EditingSelection, selectedCell: cellToEdit });
-			// Timeout here avoids the problem of enter applying to the editor widget itself.
-			this._register(disposableTimeout(() => cellToEdit.focusEditor(), 0));
+		if (this._state.type !== SelectionState.SingleSelection) {
+			return;
 		}
+
+		const cellToEdit = this._state.selected[0];
+		this._setState({ type: SelectionState.EditingSelection, selectedCell: cellToEdit });
+		// Timeout here avoids the problem of enter applying to the editor widget itself.
+		this._setSelectionTimeout(() => cellToEdit.focusEditor());
 	}
 
 	/**
 	 * Reset the selection to the cell so user can navigate between cells
 	 */
 	exitEditor(): void {
-		if (this._state.type === SelectionState.EditingSelection) {
-			this._state.selectedCell.defocusEditor();
-			this._setState({ type: SelectionState.SingleSelection, selected: [this._state.selectedCell] });
-		}
+		if (this._state.type !== SelectionState.EditingSelection) { return; }
+		this._state.selectedCell.defocusEditor();
+		this._setState({ type: SelectionState.SingleSelection, selected: [this._state.selectedCell] });
 	}
 
 	/**
@@ -229,9 +238,26 @@ export class SelectionStateMachine extends Disposable {
 		this.state.set(this._state, undefined);
 	}
 
+	/**
+	 * Clears the selection timeout. Useful to prevent weird conditions where a cell is selected
+	 * after it has been navigated away from or deselected etc.. Can happen if the user is quickly
+	 * navigating between cells.
+	 */
+	private _cleanTimeout() {
+		if (this._selectionTimeout) {
+			clearTimeout(this._selectionTimeout);
+		}
+	}
+
+	private _setSelectionTimeout(fn: () => void) {
+		this._cleanTimeout();
+		this._selectionTimeout = setTimeout(fn, 0);
+	}
+
 
 	private _moveSelection(up: boolean, addMode: boolean) {
 
+		this._cleanTimeout();
 		if (this._state.type === SelectionState.EditingSelection) {
 			return;
 		}

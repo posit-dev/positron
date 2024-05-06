@@ -184,7 +184,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		this.setupNotebookTextModel();
 
 		this.contextManager = this._instantiationService.createInstance(PositronNotebookContextKeyManager);
-		this.selectionStateMachine = this._instantiationService.createInstance(SelectionStateMachine);
+		this.selectionStateMachine = this._register(this._instantiationService.createInstance(SelectionStateMachine));
 
 		this._positronNotebookService.registerInstance(this);
 
