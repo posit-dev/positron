@@ -67,7 +67,7 @@ jobs:
         run: |
           echo "${{matrix.homebrew_folder}}/bin" >> $GITHUB_PATH
 
-      # Install node_modules binaries and compile the R kernel
+      # Install node_modules binaries
       - name: Install dependencies
         env:
           npm_config_arch: ${{ matrix.arch }}
@@ -117,9 +117,19 @@ jobs:
       artifact-file: ${{ steps.artifact-file.outputs.result }}
       artifact-name: ${{ steps.artifact-name.outputs.result }}
     steps:
-      # Checkout sources (for .nvmrc below)
+      # Checkout sources
       - name: Checkout sources
         uses: actions/checkout@v4
+
+      # Install node_modules binaries
+      - name: Install dependencies
+        env:
+          POSITRON_GITHUB_PAT: ${{ secrets.POSITRON_GITHUB_PAT }}
+        run: |
+          export NVM_DIR="$HOME/.nvm"
+          [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+          nvm use
+          yarn --network-timeout 120000
 
       # Download arm64 and x64 binaries
       - name: Download arm64 client
