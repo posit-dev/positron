@@ -75,7 +75,7 @@ export class PositronConsole {
 		return undefined;
 	}
 
-	async waitForStarted(prompt: string) {
+	async waitForReady(prompt: string) {
 
 		const activeConsole = await this.getActiveConsole();
 

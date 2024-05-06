@@ -42,5 +42,13 @@ export class PositronVariables {
 
 	}
 
+	async doubleClickVariableRow(variableName: string) {
+
+		const desiredRow = this.code.driver.getLocator(`.variable-item .name-column .name-value:text("${variableName}")`);
+
+		await desiredRow.dblclick();
+
+	}
+
 
 }

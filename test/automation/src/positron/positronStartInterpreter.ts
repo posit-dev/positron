@@ -44,6 +44,7 @@ export class StartInterpreter {
 		console.log(`Found primary interpreter ${primaryInterpreter.description} at index ${primaryInterpreter.index}`);
 
 		const primaryIsMatch = primaryInterpreter.description.includes(desiredInterpreterString);
+		let chosenInterpreter;
 		if (!primaryIsMatch) {
 
 			const secondaryInterpreters = await this.getSecondaryInterpreters(primaryInterpreter.index);
@@ -52,9 +53,12 @@ export class StartInterpreter {
 
 			for (const secondaryInterpreter of secondaryInterpreters) {
 				if (secondaryInterpreter.description.includes(desiredInterpreterString)) {
-					const chosenInterpreter = this.code.driver.getLocator(`${SECONDARY_INTERPRETER}:nth-of-type(${secondaryInterpreter.index})`);
+					chosenInterpreter = this.code.driver.getLocator(`${SECONDARY_INTERPRETER}:nth-of-type(${secondaryInterpreter.index})`);
+
 					await chosenInterpreter.scrollIntoViewIfNeeded();
-					await chosenInterpreter.click({ delay: 1000 });
+					await chosenInterpreter.isVisible();
+
+					await chosenInterpreter.click();
 					break;
 				}
 			}
@@ -67,8 +71,16 @@ export class StartInterpreter {
 		// noop if dialog does not appear
 		await this.positronPopups.installIPyKernel();
 
-		const dialog = this.code.driver.getLocator(POSITRON_MODAL_POPUP);
-		await dialog.waitFor({ state: 'detached' });
+		for (let i = 0; i < 10; i++) {
+			try {
+				const dialog = this.code.driver.getLocator(POSITRON_MODAL_POPUP);
+				await dialog.waitFor({ state: 'detached', timeout: 2000 });
+				break;
+			} catch {
+				console.log('Retrying row click');
+				try { await chosenInterpreter!.click({ timeout: 1000 }); } catch { }
+			}
+		}
 	}
 
 	private async awaitDesiredPrimaryInterpreterGroupLoaded(interpreterNamePrefix: string): Promise<InterpreterGroupLocation> {
@@ -79,7 +91,9 @@ export class StartInterpreter {
 			const interpreters = await this.code.getElements(PRIMARY_INTERPRETER_GROUP_NAMES, false);
 
 			const loadedInterpreters: string[] = [];
-			interpreters?.forEach((interpreter) => { loadedInterpreters.push(interpreter.textContent); });
+			interpreters?.forEach((interpreter) => {
+				loadedInterpreters.push(interpreter.textContent);
+			});
 
 			let found: string = '';
 			let groupIndex = 0;

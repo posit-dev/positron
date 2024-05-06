@@ -3,9 +3,8 @@
  *--------------------------------------------------------------------------------------------*/
 
 
-import { Application, Logger } from '../../../../../automation';
+import { Application, Logger, PositronPythonFixtures } from '../../../../../automation';
 import { installAllHandlers } from '../../../utils';
-import { fail } from 'assert';
 
 export function setup(logger: Logger) {
 	describe('Data Explorer', () => {
@@ -13,28 +12,27 @@ export function setup(logger: Logger) {
 		// Shared before/after handling
 		installAllHandlers(logger);
 
-		it.only('Verifies basic data explorer functionality', async function () {
-			const app = this.app as Application;
+		describe('Python Data Explorer', () => {
 
-			const desiredPython = process.env.POSITRON_PY_VER_SEL;
-			if (desiredPython === undefined) {
-				fail('Please be sure to set env var POSITRON_PY_VER_SEL to the UI text corresponding to the Python version for the test');
-			}
-			await app.workbench.startInterpreter.selectInterpreter('Python', desiredPython);
+			before(async function () {
 
-			await app.workbench.positronConsole.waitForStarted('>>>');
+				const pythonFixtures = new PositronPythonFixtures(this.app);
+				await pythonFixtures.startPythonInterpreter();
 
-			await app.workbench.positronConsole.logConsoleContents();
+			});
 
-			await app.workbench.positronConsole.typeToConsole('pip install pandas');
-			await app.workbench.positronConsole.sendEnterKey();
+			it.only('Verifies basic data explorer functionality', async function () {
+				const app = this.app as Application;
 
-			const restartMessage = 'Note: you may need to restart the kernel to use updated packages.';
-			await app.workbench.positronConsole.waitForEndingConsoleText(restartMessage);
+				await app.workbench.positronConsole.typeToConsole('pip install pandas');
+				await app.workbench.positronConsole.sendEnterKey();
 
-			await app.workbench.positronConsole.waitForStarted('>>>');
+				const restartMessage = 'Note: you may need to restart the kernel to use updated packages.';
+				await app.workbench.positronConsole.waitForEndingConsoleText(restartMessage);
 
-			const script = `import pandas as pd
+				await app.workbench.positronConsole.waitForReady('>>>');
+
+				const script = `import pandas as pd
 data = {'Name':['Jai', 'Princi', 'Gaurav', 'Anuj'],
 		'Age':[27, 24, 22, 32],
 		'Address':['Delhi', 'Kanpur', 'Allahabad', 'Kannauj'],
@@ -42,8 +40,13 @@ data = {'Name':['Jai', 'Princi', 'Gaurav', 'Anuj'],
 df = pd.DataFrame(data)
 print(df[['Name', 'Qualification']])`;
 
-			await app.workbench.positronConsole.sendCodeToConsole(script);
-			await app.workbench.positronConsole.sendEnterKey();
+				await app.workbench.positronConsole.sendCodeToConsole(script);
+				await app.workbench.positronConsole.sendEnterKey();
+				await app.workbench.positronConsole.waitForReady('>>>');
+				await app.workbench.positronVariables.doubleClickVariableRow('df');
+
+				console.log('debug');
+			});
 
 		});
 
