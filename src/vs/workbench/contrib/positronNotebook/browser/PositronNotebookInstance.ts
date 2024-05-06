@@ -70,12 +70,12 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	 * A set of disposables that are linked to a given model
 	 * that need to be cleaned up when the model is changed.
 	 */
-	private _modelStore = this._register(new DisposableStore());
+	private readonly _modelStore = this._register(new DisposableStore());
 
 	/**
 	 * Store of disposables.
 	 */
-	private _localStore = this._register(new DisposableStore());
+	private readonly _localStore = this._register(new DisposableStore());
 
 	private _textModel: NotebookTextModel | undefined = undefined;
 	private _viewModel: NotebookViewModel | undefined = undefined;
