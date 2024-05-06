@@ -28,7 +28,6 @@ import { IDialogService, IFileDialogService } from 'vs/platform/dialogs/common/d
 import { decodeBase64 } from 'vs/base/common/buffer';
 import { SavePlotOptions, showSavePlotModalDialog } from 'vs/workbench/contrib/positronPlots/browser/modalDialogs/savePlotModalDialog';
 import { IWorkbenchLayoutService } from 'vs/workbench/services/layout/browser/layoutService';
-import { IWorkspaceContextService } from 'vs/platform/workspace/common/workspace';
 import { IKeybindingService } from 'vs/platform/keybinding/common/keybinding';
 import { IClipboardService } from 'vs/platform/clipboard/common/clipboardService';
 import { localize } from 'vs/nls';
@@ -106,7 +105,6 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 		@IPositronIPyWidgetsService private _positronIPyWidgetsService: IPositronIPyWidgetsService,
 		@IFileService private readonly _fileService: IFileService,
 		@IFileDialogService private readonly _fileDialogService: IFileDialogService,
-		@IWorkspaceContextService private readonly _workspaceContextService: IWorkspaceContextService,
 		@IWorkbenchLayoutService private readonly _layoutService: IWorkbenchLayoutService,
 		@IKeybindingService private readonly _keybindingService: IKeybindingService,
 		@IClipboardService private _clipboardService: IClipboardService,
@@ -691,23 +689,28 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 	savePlot(): void {
 		if (this._selectedPlotId) {
 			const plot = this._plots.find(plot => plot.id === this._selectedPlotId);
-			const workspaceFolder = this._workspaceContextService.getWorkspace().folders[0]?.uri;
-			const suggestedPath = workspaceFolder ?? undefined;
-			if (plot) {
-				let uri = '';
+			this._fileDialogService.defaultFilePath()
+				.then(defaultPath => {
+					const suggestedPath = defaultPath;
+					if (plot) {
+						let uri = '';
 
-				if (plot instanceof StaticPlotClient) {
-					// if it's a static plot, save the image to disk
-					uri = plot.uri;
-					this.showSavePlotDialog(uri);
-				} else if (plot instanceof PlotClientInstance) {
-					// if it's a dynamic plot, present options dialog
-					showSavePlotModalDialog(this._layoutService, this._keybindingService, this._dialogService, this._fileService, this._fileDialogService, plot, this.savePlotAs, suggestedPath);
-				} else {
-					// if it's a webview plot, do nothing
-					return;
-				}
-			}
+						if (plot instanceof StaticPlotClient) {
+							// if it's a static plot, save the image to disk
+							uri = plot.uri;
+							this.showSavePlotDialog(uri);
+						} else if (plot instanceof PlotClientInstance) {
+							// if it's a dynamic plot, present options dialog
+							showSavePlotModalDialog(this._layoutService, this._keybindingService, this._dialogService, this._fileService, this._fileDialogService, plot, this.savePlotAs, suggestedPath);
+						} else {
+							// if it's a webview plot, do nothing
+							return;
+						}
+					}
+				})
+				.catch((error) => {
+					throw new Error(`Error saving plot: ${error.message}`);
+				});
 		}
 	}
 

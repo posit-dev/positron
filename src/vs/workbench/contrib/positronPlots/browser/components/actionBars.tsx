@@ -106,8 +106,12 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 	const zoomPlotHandler = (zoomLevel: number) => {
 		props.zoomHandler(zoomLevel);
 	};
-	const savePlotHandler = async () => {
-		positronPlotsContext.positronPlotsService.savePlot();
+	const savePlotHandler = () => {
+		try {
+			positronPlotsContext.positronPlotsService.savePlot();
+		} catch (error) {
+			positronPlotsContext.notificationService.error(localize('positronPlotsServiceSavePlotError', 'Failed to save plot: {0}', error.message));
+		}
 	};
 
 	const copyPlotHandler = () => {
