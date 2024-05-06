@@ -28,49 +28,77 @@ export interface InterpreterInfo {
 }
 
 /**
+ * Determines if the runtime source should be included based on the filters.
+ * @param runtimeSource The runtime source to check.
+ * @param filters The runtime source filters to apply.
+ * @returns True if the runtime source should be included, false otherwise.
+ * If no filters are provided, all runtime sources are included.
+ */
+const includeRuntimeSource = (
+	runtimeSource: string,
+	filters?: RuntimeFilter[]
+) => {
+	return (
+		!filters ||
+		!filters.length ||
+		filters.find((rs) => rs === runtimeSource) !== undefined
+	);
+};
+
+/**
  * Retrieves the detected interpreters as DropDownListBoxItems, filtering and grouping the list by
  * runtime source if requested.
  * @param languageRuntimeService The language runtime service.
  * @param languageId The language ID of the runtime to retrieve interpreters for.
  * @param preferredRuntimeId The runtime ID of the preferred interpreter.
- * @param runtimeSourceFilter The runtime source filter to apply to the runtimes.
+ * @param runtimeSourceFilters The runtime source filters to apply to the runtimes.
  * @returns An array of DropDownListBoxEntry for the interpreters.
  */
 export const getInterpreterDropdownItems = (
 	languageRuntimeService: ILanguageRuntimeService,
 	languageId: LanguageIds,
 	preferredRuntimeId: string,
-	runtimeSourceFilter?: RuntimeFilter
+	runtimeSourceFilters?: RuntimeFilter[]
 ) => {
 	// Return the DropDownListBoxEntry array.
 	return languageRuntimeService.registeredRuntimes
-		.filter(runtime => runtime.languageId === languageId &&
-			(!runtimeSourceFilter || runtime.runtimeSource === runtimeSourceFilter)
+		.filter(
+			(runtime) =>
+				runtime.languageId === languageId &&
+				includeRuntimeSource(runtime.runtimeSource, runtimeSourceFilters)
 		)
-		.sort((left, right) => left.runtimeSource.localeCompare(right.runtimeSource))
+		.sort((left, right) =>
+			left.runtimeSource.localeCompare(right.runtimeSource)
+		)
 		.reduce<DropDownListBoxEntry<string, InterpreterInfo>[]>(
 			(entries, runtime, index, runtimes) => {
 				// Perform break processing when the runtime source changes.
-				if (index && runtimes[index].runtimeSource !== runtimes[index - 1].runtimeSource) {
+				if (
+					index &&
+					runtimes[index].runtimeSource !== runtimes[index - 1].runtimeSource
+				) {
 					entries.push(new DropDownListBoxSeparator());
 				}
 
 				// Push the DropDownListBoxItem.
-				entries.push(new DropDownListBoxItem<string, InterpreterInfo>({
-					identifier: runtime.runtimeId,
-					value: {
-						preferred: runtime.runtimeId === preferredRuntimeId,
-						runtimeId: runtime.runtimeId,
-						languageName: runtime.languageName,
-						languageVersion: runtime.languageVersion,
-						runtimePath: runtime.runtimePath,
-						runtimeSource: runtime.runtimeSource
-					}
-				}));
+				entries.push(
+					new DropDownListBoxItem<string, InterpreterInfo>({
+						identifier: runtime.runtimeId,
+						value: {
+							preferred: runtime.runtimeId === preferredRuntimeId,
+							runtimeId: runtime.runtimeId,
+							languageName: runtime.languageName,
+							languageVersion: runtime.languageVersion,
+							runtimePath: runtime.runtimePath,
+							runtimeSource: runtime.runtimeSource,
+						},
+					})
+				);
 
 				// Return the entries for the next iteration.
 				return entries;
-			}, []
+			},
+			[]
 		);
 };
 
@@ -80,7 +108,10 @@ export const getInterpreterDropdownItems = (
  * @param languageId The languageId of the runtime to retrieve.
  * @returns The preferred interpreter or undefined if no preferred runtime is found.
  */
-export const getPreferredRuntime = (runtimeStartupService: IRuntimeStartupService, languageId: LanguageIds) => {
+export const getPreferredRuntime = (
+	runtimeStartupService: IRuntimeStartupService,
+	languageId: LanguageIds
+) => {
 	let preferredRuntime;
 	try {
 		preferredRuntime = runtimeStartupService.getPreferredRuntime(languageId);
@@ -104,7 +135,7 @@ const isInterpreterInDropdown = (
 	if (!interpreter || !interpreterEntries.length) {
 		return false;
 	}
-	return interpreterEntries.find(entry => {
+	return interpreterEntries.find((entry) => {
 		if (entry instanceof DropDownListBoxItem) {
 			return entry.options.identifier === interpreter.runtimeId;
 		}
@@ -134,7 +165,10 @@ export const getSelectedInterpreter = (
 	}
 
 	// Return the preferred interpreter if it is in the dropdown list.
-	const preferredInterpreter = getPreferredRuntime(runtimeStartupService, languageId);
+	const preferredInterpreter = getPreferredRuntime(
+		runtimeStartupService,
+		languageId
+	);
 	if (isInterpreterInDropdown(preferredInterpreter, interpreterEntries)) {
 		return preferredInterpreter;
 	}
