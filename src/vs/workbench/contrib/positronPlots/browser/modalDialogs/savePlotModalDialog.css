@@ -18,11 +18,10 @@
 .plot-preview-input .plot-input {
 	grid-area: plot-input;
 	display: grid;
-	grid-template-columns: repeat(3, auto);
+	grid-template-columns: repeat(3, 1fr);
 	grid-template-areas:
 		"input input input"
 		"error error error";
-	justify-content: space-between;
 }
 
 .plot-input input {
