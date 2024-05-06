@@ -8,6 +8,7 @@ import * as React from 'react';
 import * as DOM from 'vs/base/browser/dom';
 import { EditorExtensionsRegistry, IEditorContributionDescription } from 'vs/editor/browser/editorExtensions';
 import { CodeEditorWidget } from 'vs/editor/browser/widget/codeEditor/codeEditorWidget';
+import { Event } from 'vs/base/common/event';
 
 import { IContextKeyService } from 'vs/platform/contextkey/common/contextkey';
 import { ServiceCollection } from 'vs/platform/instantiation/common/serviceCollection';
@@ -15,7 +16,6 @@ import { FloatingEditorClickMenu } from 'vs/workbench/browser/codeeditor';
 import { CellEditorOptions } from 'vs/workbench/contrib/notebook/browser/view/cellParts/cellEditorOptions';
 import { useNotebookInstance } from 'vs/workbench/contrib/positronNotebook/browser/NotebookInstanceProvider';
 import { useServices } from 'vs/workbench/contrib/positronNotebook/browser/ServicesProvider';
-import { observeValue } from 'vs/workbench/contrib/positronNotebook/common/utils/observeValue';
 import { DisposableStore } from 'vs/base/common/lifecycle';
 import { PositronNotebookCellGeneral } from 'vs/workbench/contrib/positronNotebook/browser/PositronNotebookCell';
 
@@ -127,11 +127,10 @@ export function useCellEditorWidget(cell: PositronNotebookCellGeneral) {
 		});
 
 		// Keep the width up-to-date as the window resizes.
-		const sizeObserver = observeValue(sizeObservable, {
-			handleChange() {
-				resizeEditor();
-			}
-		});
+
+		disposableStore.add(Event.fromObservable(sizeObservable)(() => {
+			resizeEditor();
+		}));
 
 		services.logService.info('Positron Notebook | useCellEditorWidget() | Setting up editor widget');
 
@@ -141,8 +140,6 @@ export function useCellEditorWidget(cell: PositronNotebookCellGeneral) {
 			disposableStore.dispose();
 			nativeContainer.remove();
 			cell.detachEditor();
-
-			sizeObserver();
 		};
 	}, [cell, instance, services, sizeObservable]);
 

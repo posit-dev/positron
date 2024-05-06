@@ -4,7 +4,7 @@
 
 import * as React from 'react';
 import { ISettableObservable } from 'vs/base/common/observableInternal/base';
-import { observeValue } from '../common/utils/observeValue';
+import { Event } from 'vs/base/common/event';
 
 /**
  * Automatically updates the component when the observable changes.
@@ -18,12 +18,13 @@ export function useObservedValue<T, M>(observable: ISettableObservable<T>, map?:
 
 	const [value, setValue] = React.useState(typeof map === 'function' ? map(observable.get()) : observable.get());
 
-	React.useEffect(() => observeValue(observable, {
-		handleChange() {
+	React.useEffect(() => {
+		const onObservableChange = Event.fromObservable(observable);
+		onObservableChange(() => {
 			const val = observable.get();
 			setValue(typeof map === 'function' ? map(val) : val);
-		}
-	}), [map, observable]);
+		});
+	}, [map, observable]);
 
 	return value as T | undefined | M extends (x: T) => infer Out ? Out : never;
 }
