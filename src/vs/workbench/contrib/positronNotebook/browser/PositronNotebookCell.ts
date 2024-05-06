@@ -14,12 +14,13 @@ import { ExecutionStatus, IPositronNotebookCodeCell, IPositronNotebookCell, IPos
 import { CodeEditorWidget } from 'vs/editor/browser/widget/codeEditor/codeEditorWidget';
 import { CellSelectionType, SelectionState } from 'vs/workbench/services/positronNotebook/browser/selectionMachine';
 import { PositronNotebookInstance } from 'vs/workbench/contrib/positronNotebook/browser/PositronNotebookInstance';
+import { disposableTimeout } from 'vs/base/common/async';
 
 export abstract class PositronNotebookCellGeneral extends Disposable implements IPositronNotebookCell {
 	kind!: CellKind;
 
 	// Not marked as private so we can access it in subclasses
-	_disposableStore = new DisposableStore();
+	readonly _disposableStore = new DisposableStore();
 
 	private _container: HTMLElement | undefined;
 	private _editor: CodeEditorWidget | undefined;
@@ -220,9 +221,10 @@ export class PositronNotebookMarkdownCell extends PositronNotebookCellGeneral im
 	override focusEditor(): void {
 		this.editorShown.set(true, undefined);
 		// Need a timeout here so that the editor is shown before we try to focus it.
-		setTimeout(() => {
+		this._register(disposableTimeout(() => {
 			super.focusEditor();
-		}, 0);
+		}, 0));
+
 	}
 }
 

@@ -5,6 +5,8 @@ import { ISettableObservable, observableValue } from 'vs/base/common/observable'
 import { IPositronNotebookCell } from 'vs/workbench/services/positronNotebook/browser/IPositronNotebookCell';
 import { Event } from 'vs/base/common/event';
 import { ILogService } from 'vs/platform/log/common/log';
+import { disposableTimeout } from 'vs/base/common/async';
+import { Disposable } from 'vs/base/common/lifecycle';
 
 export enum SelectionState {
 	NoSelection = 'NoSelection',
@@ -36,7 +38,7 @@ export enum CellSelectionType {
 	Normal = 'Normal'
 }
 
-export class SelectionStateMachine {
+export class SelectionStateMachine extends Disposable {
 
 	//#region Private Properties
 	private _state: SelectionStates = { type: SelectionState.NoSelection };
@@ -53,8 +55,13 @@ export class SelectionStateMachine {
 	constructor(
 		@ILogService private readonly _logService: ILogService,
 	) {
+		super();
 		this.state = observableValue('selectionState', this._state);
 		this.onNewState = Event.fromObservable(this.state);
+	}
+
+	override dispose() {
+		super.dispose();
 	}
 
 	//#endregion Constructor & Dispose
@@ -175,7 +182,7 @@ export class SelectionStateMachine {
 			const cellToEdit = this._state.selected[0];
 			this._setState({ type: SelectionState.EditingSelection, selectedCell: cellToEdit });
 			// Timeout here avoids the problem of enter applying to the editor widget itself.
-			setTimeout(() => cellToEdit.focusEditor(), 0);
+			this._register(disposableTimeout(() => cellToEdit.focusEditor(), 0));
 		}
 	}
 

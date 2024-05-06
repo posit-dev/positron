@@ -30,6 +30,7 @@ import { PositronNotebookContextKeyManager } from 'vs/workbench/services/positro
 import { IPositronNotebookService } from 'vs/workbench/services/positronNotebook/browser/positronNotebookService';
 import { IPositronNotebookInstance, KernelStatus } from '../../../services/positronNotebook/browser/IPositronNotebookInstance';
 import { NotebookCellTextModel } from 'vs/workbench/contrib/notebook/common/model/notebookCellTextModel';
+import { disposableTimeout } from 'vs/base/common/async';
 
 
 
@@ -257,10 +258,10 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 
 			if (newlyAddedCells.length === 1) {
 				// If we've only added one cell, we can set it as the selected cell.
-				setTimeout(() => {
+				this._register(disposableTimeout(() => {
 					newlyAddedCells[0].select(CellSelectionType.Edit);
 					newlyAddedCells[0].focusEditor();
-				}, 0);
+				}, 0));
 			}
 
 			// Dispose of any cells that were not reused.
