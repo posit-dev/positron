@@ -16,6 +16,12 @@ export enum CellKind {
 	Code = 2
 }
 
+export enum CellSelectionStatus {
+	UnSelected = 'UnSelected',
+	Selected = 'Selected',
+	Editing = 'Editing'
+}
+
 /**
  * Wrapper class for notebook cell that exposes the properties that the UI needs to render the cell.
  * This interface is extended to provide the specific properties for code and markdown cells.
@@ -38,14 +44,9 @@ export interface IPositronNotebookCell extends Disposable {
 	get notebookUri(): URI;
 
 	/**
-	 * Is this cell selected?
+	 * Is this cell selected, editing, or unselected?
 	 */
-	selected: ISettableObservable<boolean>;
-
-	/**
-	 * Is this cell currently being edited?
-	 */
-	editing: ISettableObservable<boolean>;
+	selectionStatus: ISettableObservable<CellSelectionStatus>;
 
 	/**
 	 * The content of the cell. This is the raw text of the cell.

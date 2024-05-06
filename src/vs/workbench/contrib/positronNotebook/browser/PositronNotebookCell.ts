@@ -10,7 +10,7 @@ import { ITextModelService } from 'vs/editor/common/services/resolverService';
 import { IInstantiationService } from 'vs/platform/instantiation/common/instantiation';
 import { NotebookCellTextModel } from 'vs/workbench/contrib/notebook/common/model/notebookCellTextModel';
 import { CellKind } from 'vs/workbench/contrib/notebook/common/notebookCommon';
-import { ExecutionStatus, IPositronNotebookCodeCell, IPositronNotebookCell, IPositronNotebookMarkdownCell, NotebookCellOutputs } from 'vs/workbench/services/positronNotebook/browser/IPositronNotebookCell';
+import { ExecutionStatus, IPositronNotebookCodeCell, IPositronNotebookCell, IPositronNotebookMarkdownCell, NotebookCellOutputs, CellSelectionStatus } from 'vs/workbench/services/positronNotebook/browser/IPositronNotebookCell';
 import { CodeEditorWidget } from 'vs/editor/browser/widget/codeEditor/codeEditorWidget';
 import { CellSelectionType, SelectionState } from 'vs/workbench/services/positronNotebook/browser/selectionMachine';
 import { PositronNotebookInstance } from 'vs/workbench/contrib/positronNotebook/browser/PositronNotebookInstance';
@@ -25,8 +25,8 @@ export abstract class PositronNotebookCellGeneral extends Disposable implements 
 	private _container: HTMLElement | undefined;
 	private _editor: CodeEditorWidget | undefined;
 
-	selected = observableValue<boolean, void>('selected', false);
-	editing: ISettableObservable<boolean> = observableValue<boolean, void>('editing', false);
+
+	selectionStatus = observableValue<CellSelectionStatus, void>('selected', CellSelectionStatus.UnSelected);
 
 	constructor(
 		public cellModel: NotebookCellTextModel,
@@ -39,23 +39,29 @@ export abstract class PositronNotebookCellGeneral extends Disposable implements 
 			this._instance.selectionStateMachine.onNewState((state) => {
 
 				if (state.type === SelectionState.NoSelection) {
-					this.selected.set(false, undefined);
-					this.editing.set(false, undefined);
+					this.selectionStatus.set(CellSelectionStatus.UnSelected, undefined);
+					// this.editing.set(false, undefined);
 					return;
 				}
 
 				if (state.type === SelectionState.EditingSelection) {
 					const editingThisCell = state.selectedCell === this;
-					this.selected.set(editingThisCell, undefined);
-					this.editing.set(editingThisCell, undefined);
+					this.selectionStatus.set(
+						editingThisCell
+							? CellSelectionStatus.Editing
+							: CellSelectionStatus.UnSelected,
+						undefined);
+					// this.editing.set(editingThisCell, undefined);
 					return;
 				}
 
 				const cellIsSelected = state.selected.includes(this);
-				this.selected.set(cellIsSelected, undefined);
-				this.editing.set(false, undefined);
-			}
-			)
+				this.selectionStatus.set(
+					cellIsSelected
+						? CellSelectionStatus.Selected
+						: CellSelectionStatus.UnSelected,
+					undefined);
+			})
 		);
 	}
 
