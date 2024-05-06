@@ -119,11 +119,8 @@ class PositronInspector(Generic[T]):
     def get_child(self, key: Any) -> Any:
         raise TypeError(f"get_child() is not implemented for type: {type(self.value)}")
 
-    def get_children(self, key: Any) -> Iterable[Any]:
+    def get_children(self) -> Iterable[Any]:
         raise TypeError(f"get_children() is not implemented for type: {type(self.value)}")
-
-    def get_items(self) -> Iterable[Tuple[Any, Any]]:
-        return []
 
     def has_viewer(self) -> bool:
         return False
@@ -249,21 +246,12 @@ class ObjectInspector(PositronInspector[T], ABC):
         return (p for p in dir(self.value) if not (p.startswith("_")))
 
     def get_child(self, key: str) -> Any:
-        # If the attr is a method, getattr_static will return the wrapped function, but we want the method 
+        # If the attr is a method, getattr_static will return the wrapped function, but we want the method
         attr = getattr_static(self.value, key)
         if callable(attr):
             return getattr(self.value, key)
         else:
             return attr
-
-    def get_items(self) -> Iterable[Tuple[str, Any]]:
-        for key in dir(self.value):
-            if key.startswith("_"):
-                continue
-            try:
-                yield key, self.get_child(key)
-            except AttributeError:
-                pass
 
 
 class ClassInspector(ObjectInspector[type]):
@@ -463,10 +451,6 @@ class _BaseCollectionInspector(PositronInspector[CT], ABC):
 
         # TODO(pyright): type should be narrowed to exclude frozen set, retry in a future version of pyright
         return self.value[key]  # type: ignore
-
-    def get_items(self) -> Iterable[Tuple[int, Any]]:
-        # Treat collection items as children, with the index as the name
-        return enumerate(self.value)
 
     def get_children(self) -> Iterable:
         # Treat collection items as children, with the index as the name
@@ -679,10 +663,6 @@ class _BaseMapInspector(PositronInspector[MT], ABC):
     def get_kind(self) -> str:
         return "map"
 
-    @abstractmethod
-    def get_keys(self) -> Collection[Any]:
-        pass
-
     def get_size(self) -> int:
         result = 1
         for dim in getattr(self.value, "shape", [len(self.value)]):
@@ -697,10 +677,6 @@ class _BaseMapInspector(PositronInspector[MT], ABC):
 
     def get_child(self, key: Any) -> Any:
         return self.value[key]
-
-    def get_items(self) -> Iterable[Tuple[Any, Any]]:
-        for key in self.get_keys():
-            yield key, self.value[key]
 
     def get_children(self) -> Iterable[Tuple[Any, Any]]:
         return list(self.get_keys())
