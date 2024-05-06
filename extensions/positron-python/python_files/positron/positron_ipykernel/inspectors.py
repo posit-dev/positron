@@ -119,7 +119,7 @@ class PositronInspector(Generic[T]):
     def get_child(self, key: Any) -> Any:
         raise TypeError(f"get_child() is not implemented for type: {type(self.value)}")
 
-    def get_children(self) -> Any:
+    def get_children(self, key: Any) -> Iterable[Any]:
         raise TypeError(f"get_children() is not implemented for type: {type(self.value)}")
 
     def get_items(self) -> Iterable[Tuple[Any, Any]]:
@@ -246,14 +246,15 @@ class ObjectInspector(PositronInspector[T], ABC):
         return len([p for p in dir(self.value) if not (p.startswith("_"))])
 
     def get_children(self):
-        return [p for p in dir(self.value) if not (p.startswith("_"))]
+        return (p for p in dir(self.value) if not (p.startswith("_")))
 
     def get_child(self, key: str) -> Any:
-        # let function inspector handle callables
-        if hasattr(self.value, key) and callable(getattr_static(self.value, key)):
+        # If the attr is a method, getattr_static will return the wrapped function, but we want the method 
+        attr = getattr_static(self.value, key)
+        if callable(attr):
             return getattr(self.value, key)
         else:
-            return getattr_static(self.value, key)
+            return attr
 
     def get_items(self) -> Iterable[Tuple[str, Any]]:
         for key in dir(self.value):
@@ -469,7 +470,7 @@ class _BaseCollectionInspector(PositronInspector[CT], ABC):
 
     def get_children(self) -> Iterable:
         # Treat collection items as children, with the index as the name
-        return range(len(self.value))
+        return range(self.get_length())
 
 
 # We don't use typing.Sequence here since it includes mappings,
