@@ -672,7 +672,7 @@ def _publish_diagnostics(server: JediLanguageServer, uri: str) -> None:
     # --- Start Positron ---
     try:
         with warnings.catch_warnings():
-            warnings.simplefilter("ignore", SyntaxWarning)
+            warnings.simplefilter("ignore")
             diagnostic = jedi_utils.lsp_python_diagnostic(uri, doc.source)
     except Exception:
         logger.exception(f"Failed to publish diagnostics for uri {uri}", exc_info=True)
