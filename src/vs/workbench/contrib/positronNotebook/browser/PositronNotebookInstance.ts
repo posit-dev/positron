@@ -36,6 +36,38 @@ import { disposableTimeout } from 'vs/base/common/async';
 
 
 export class PositronNotebookInstance extends Disposable implements IPositronNotebookInstance {
+
+	/**
+	 * Either makes or retrieves an instance of a Positron Notebook based on the resource. This
+	 * helps avoid having multiple instances open for the same file when the input is rebuilt.
+	 * @param input Positron Notebook input object for the notebook.
+	 * @param creationOptions Options for opening notebook
+	 * @param instantiationService Instantiation service for creating instance with proper DI.
+	 * @returns Instance of the notebook, either retrieved from existing or created.
+	 */
+	static getOrCreate(
+		input: PositronNotebookEditorInput,
+		creationOptions: INotebookEditorCreationOptions | undefined,
+		instantiationService: IInstantiationService,
+	): PositronNotebookInstance {
+
+		const uri = input.resource.toString();
+		const existingInstance = PositronNotebookInstance._instanceMap.get(uri);
+		if (existingInstance) {
+			// Update input
+			existingInstance._input = input;
+			existingInstance._creationOptions = creationOptions;
+			return existingInstance;
+		}
+
+		const instance = instantiationService.createInstance(PositronNotebookInstance, input, creationOptions);
+		PositronNotebookInstance._instanceMap.set(uri, instance);
+		return instance;
+	}
+
+	static _instanceMap: Map<string, PositronNotebookInstance> = new Map();
+
+
 	/**
 	 * Value to keep track of what instance number.
 	 * Used for keeping track in the logs.
@@ -92,7 +124,6 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	 */
 	private _baseCellEditorOptions: Map<string, IBaseCellEditorOptions> = new Map();
 
-	readonly isReadOnly: boolean;
 
 	/**
 	 * Mirrored cell state listeners from the notebook model.
@@ -108,6 +139,10 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	 */
 	get viewModel(): NotebookViewModel | undefined {
 		return this._viewModel;
+	}
+
+	get connectedToEditor(): boolean {
+		return Boolean(this._container);
 	}
 
 
@@ -150,6 +185,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	 */
 	readonly onWillChangeModel: Event<NotebookTextModel | undefined> = this._onWillChangeModel.event;
 	private readonly _onDidChangeModel = this._register(new Emitter<NotebookTextModel | undefined>());
+
 	/**
 	 * Fires an event when the notebook model for the editor has changed. The argument is the new
 	 * `NotebookTextModel` model.
@@ -162,8 +198,8 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	isDisposed: boolean = false;
 
 	constructor(
-		public _input: PositronNotebookEditorInput,
-		public readonly creationOptions: INotebookEditorCreationOptions | undefined,
+		private _input: PositronNotebookEditorInput,
+		private _creationOptions: INotebookEditorCreationOptions | undefined,
 		@INotebookKernelService private readonly notebookKernelService: INotebookKernelService,
 		@INotebookExecutionService private readonly notebookExecutionService: INotebookExecutionService,
 		@INotebookExecutionStateService private readonly notebookExecutionStateService: INotebookExecutionStateService,
@@ -179,8 +215,6 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		this.cells = observableValue<IPositronNotebookCell[]>('positronNotebookCells', this._cells);
 		this.kernelStatus = observableValue<KernelStatus>('positronNotebookKernelStatus', KernelStatus.Uninitialized);
 
-		this.isReadOnly = this.creationOptions?.isReadOnly ?? false;
-
 		this.setupNotebookTextModel();
 
 		this.contextManager = this._instantiationService.createInstance(PositronNotebookContextKeyManager);
@@ -189,6 +223,10 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		this._positronNotebookService.registerInstance(this);
 
 		this._logService.info(this._identifier, 'constructor');
+	}
+
+	get isReadOnly(): boolean {
+		return this._creationOptions?.isReadOnly ?? false;
 	}
 
 	/**
@@ -202,7 +240,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		}
 		this._logService.info(this._identifier, 'Generating new notebook options');
 
-		this._notebookOptions = this.creationOptions?.options ?? new NotebookOptions(
+		this._notebookOptions = this._creationOptions?.options ?? new NotebookOptions(
 			DOM.getActiveWindow(),
 			this.configurationService,
 			this.notebookExecutionStateService,

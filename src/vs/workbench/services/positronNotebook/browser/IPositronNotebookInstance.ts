@@ -22,13 +22,17 @@ export enum KernelStatus {
  * This is where all the logic and state for the notebooks is controlled and encapsulated.
  * This is then given to the UI to render.
  */
-
 export interface IPositronNotebookInstance {
 
 	/**
 	 * URI of the notebook file being edited
 	 */
 	get uri(): URI;
+
+	/**
+	 * Is this instance connected to a view/editor?
+	 */
+	readonly connectedToEditor: boolean;
 
 	/**
 	 * The cells that make up the notebook

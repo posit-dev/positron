@@ -3,6 +3,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { Disposable } from 'vs/base/common/lifecycle';
+import { URI } from 'vs/base/common/uri';
 import { InstantiationType, registerSingleton } from 'vs/platform/instantiation/common/extensions';
 import { createDecorator } from 'vs/platform/instantiation/common/instantiation';
 import { IPositronNotebookInstance } from 'vs/workbench/services/positronNotebook/browser/IPositronNotebookInstance';
@@ -41,11 +42,10 @@ export interface IPositronNotebookService {
 	 */
 	unregisterInstance(instance: IPositronNotebookInstance): void;
 
-	// /**
-	//  * Dispatch an action to appropriate notebook instance.
-	//  * @param desc The action to dispatch info.
-	//  */
-	// dispatchAction(desc: { id: string }): void;
+	/**
+	 * Get instance by resource if it exists.
+	 */
+	getInstance(resource: URI): IPositronNotebookInstance | undefined;
 }
 
 class PositronNotebookService extends Disposable implements IPositronNotebookService {
@@ -83,7 +83,9 @@ class PositronNotebookService extends Disposable implements IPositronNotebookSer
 	}
 
 	public registerInstance(instance: IPositronNotebookInstance): void {
-		this._instances.add(instance);
+		if (!this._instances.has(instance)) {
+			this._instances.add(instance);
+		}
 		this._activeInstance = instance;
 	}
 
@@ -92,6 +94,15 @@ class PositronNotebookService extends Disposable implements IPositronNotebookSer
 		if (this._activeInstance === instance) {
 			this._activeInstance = null;
 		}
+	}
+
+	public getInstance(resource: URI): IPositronNotebookInstance | undefined {
+		for (const instance of this._instances) {
+			if (instance.uri.toString() === resource.toString()) {
+				return instance;
+			}
+		}
+		return undefined;
 	}
 	//#endregion Public Methods
 }

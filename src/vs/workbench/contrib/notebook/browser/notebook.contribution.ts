@@ -127,6 +127,7 @@ import { NotebookVariables } from 'vs/workbench/contrib/notebook/browser/contrib
 // --- Start Positron ---
 import { getShouldUsePositronEditor } from 'vs/workbench/contrib/positronNotebook/browser/positronNotebook.contribution';
 import { PositronNotebookEditorInput } from 'vs/workbench/contrib/positronNotebook/browser/PositronNotebookEditorInput';
+import { IPositronNotebookService } from 'vs/workbench/services/positronNotebook/browser/positronNotebookService';
 // --- End Positron ---
 /*--------------------------------------------------------------------------------------------- */
 
@@ -582,6 +583,9 @@ class NotebookEditorManager implements IWorkbenchContribution {
 	constructor(
 		@IEditorService private readonly _editorService: IEditorService,
 		@INotebookEditorModelResolverService private readonly _notebookEditorModelService: INotebookEditorModelResolverService,
+		// --- Start Positron ---
+		@IPositronNotebookService private readonly _positronNotebookService: IPositronNotebookService,
+		// --- End Positron ---
 		@IEditorGroupsService editorGroups: IEditorGroupsService
 	) {
 		// OPEN notebook editor for models that have turned dirty without being visible in an editor
@@ -614,13 +618,11 @@ class NotebookEditorManager implements IWorkbenchContribution {
 				// Make sure that we dont try and open the same editor twice if we're using positron
 				// notebooks. This is a separate if-statement so we don't have to put the diff
 				// inside the inline conditional.
-				if (
-					this._editorService.isOpened({
-						resource: model.resource,
-						typeId: PositronNotebookEditorInput.ID,
-						editorId: model.viewType
-					})
-				) { continue; }
+				const positronNotebookInstance = this._positronNotebookService.getInstance(model.resource);
+				// Check to see if the instance is connected to the view.
+				if (positronNotebookInstance && positronNotebookInstance.connectedToEditor) {
+					continue;
+				}
 				// --- End Positron ---
 				result.push({
 					resource: model.resource,
