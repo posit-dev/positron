@@ -22,6 +22,7 @@ export function setup(logger: Logger) {
 			});
 
 			after(async function () {
+				console.log('running after');
 				const app = this.app as Application;
 				await app.code.driver.takeScreenshot('debug');
 
@@ -38,7 +39,9 @@ export function setup(logger: Logger) {
 				await app.workbench.positronConsole.waitForEndingConsoleText(restartMessage);
 				console.log('pandas installed');
 
+				await app.code.driver.takeScreenshot('debug2');
 				await app.workbench.positronConsole.waitForReady('>>>');
+				await app.code.driver.takeScreenshot('debug3');
 
 				const script = `import pandas as pd
 data = {'Name':['Jai', 'Princi', 'Gaurav', 'Anuj'],

@@ -105,5 +105,5 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: playwright-screenshot-1-debug.png
-          path: .build/logs/smoke-tests-electron/1_suite_Data_Explorer/playwright-screenshot-1-debug.png
+          name: screen-shots
+          path: .build/logs/smoke-tests-electron/1_suite_Data_Explorer/
