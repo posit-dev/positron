@@ -33,7 +33,7 @@ export function setup(logger: Logger) {
 
 				console.log('Installing pandas');
 				await app.workbench.positronConsole.sendCodeToConsole('pip install pandas\n');
-				//await app.workbench.positronConsole.sendEnterKey();
+				await app.workbench.positronConsole.sendEnterKey();
 
 				const restartMessage = 'Note: you may need to restart the kernel to use updated packages.';
 				await app.workbench.positronConsole.waitForEndingConsoleText(restartMessage);
@@ -53,8 +53,8 @@ print(df[['Name', 'Qualification']])\n`;
 
 				console.log('Sending code to console');
 				await app.workbench.positronConsole.sendCodeToConsole(script);
-				//console.log('Sending enter key');
-				//await app.workbench.positronConsole.sendEnterKey();
+				console.log('Sending enter key');
+				await app.workbench.positronConsole.sendEnterKey();
 				await app.workbench.positronConsole.waitForReady('>>>');
 
 				console.log('Opening data grid');
