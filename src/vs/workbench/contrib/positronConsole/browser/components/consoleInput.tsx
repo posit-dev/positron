@@ -17,7 +17,6 @@ import { ISelection } from 'vs/editor/common/core/selection';
 import { IKeyboardEvent } from 'vs/base/browser/keyboardEvent';
 import { useStateRef } from 'vs/base/browser/ui/react/useStateRef';
 import { CursorChangeReason } from 'vs/editor/common/cursorEvents';
-import { HoverController } from 'vs/editor/contrib/hover/browser/hover';
 import { EditorExtensionsRegistry } from 'vs/editor/browser/editorExtensions';
 import { MarkerController } from 'vs/editor/contrib/gotoError/browser/gotoError';
 import { IEditorOptions, LineNumbersType } from 'vs/editor/common/config/editorOptions';
@@ -41,6 +40,7 @@ import { getActiveElement } from 'vs/base/browser/dom';
 import { EditorContextKeys } from 'vs/editor/common/editorContextKeys';
 import { InQuickPickContextKey } from 'vs/workbench/browser/quickaccess';
 import { TerminalContextKeys } from 'vs/workbench/contrib/terminal/common/terminalContextKey';
+import { HoverController } from 'vs/editor/contrib/hover/browser/hoverController';
 
 // Position enumeration.
 const enum Position {

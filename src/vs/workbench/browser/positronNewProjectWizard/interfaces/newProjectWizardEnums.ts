@@ -54,8 +54,8 @@ export enum NewProjectType {
  * PythonRuntimeFilter enum.
  */
 export enum PythonRuntimeFilter {
-	All = 'All',        // Include all runtimes. This is when an existing Python installation is to be used.
-	Global = 'Global',  // Include only global runtimes. This is when a new Venv environment is being created.
+	Global = 'Global',
+	Pyenv = 'Pyenv'
 }
 
 /**

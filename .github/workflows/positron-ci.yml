@@ -55,9 +55,6 @@ jobs:
       - name: Compile Integration Tests
         run: yarn --cwd test/integration/browser compile
 
-      - name: Compile Smoke Tests
-        run: yarn --cwd test/smoke compile
-
       - name: Run Unit Tests (node.js)
         id: nodejs-unit-tests
         run: yarn test-node
@@ -65,7 +62,3 @@ jobs:
       - name: Run Integration Tests (Electron)
         id: electron-integration-tests
         run: DISPLAY=:10 ./scripts/test-integration.sh
-
-      - name: Run Smoke Tests (Electron)
-        id: electron-smoke-tests
-        run: DISPLAY=:10 yarn smoketest-no-compile --tracing

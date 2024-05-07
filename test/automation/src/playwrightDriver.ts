@@ -83,7 +83,7 @@ export class PlaywrightDriver {
 		await this.whenLoaded;
 	}
 
-	private async takeScreenshot(name: string): Promise<void> {
+	async takeScreenshot(name: string): Promise<void> {
 		try {
 			const persistPath = join(this.options.logsPath, `playwright-screenshot-${PlaywrightDriver.screenShotCounter++}-${name.replace(/\s+/g, '-')}.png`);
 
@@ -246,4 +246,19 @@ export class PlaywrightDriver {
 	private async getDriverHandle(): Promise<playwright.JSHandle<IWindowDriver>> {
 		return this.page.evaluateHandle('window.driver');
 	}
+	// --- Start Positron ---
+
+	async typeKeys(locator: string, text: string): Promise<void> {
+		return this.page.locator(locator).pressSequentially(text);
+	}
+
+	getLocator(selector: string): playwright.Locator {
+		return this.page.locator(selector);
+	}
+
+	getKeyboard() {
+		return this.page.keyboard;
+	}
+
+	// --- End Positron ---
 }

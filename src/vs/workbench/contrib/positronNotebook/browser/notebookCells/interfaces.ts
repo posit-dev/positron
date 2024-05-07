@@ -5,12 +5,15 @@
 import { Disposable } from 'vs/base/common/lifecycle';
 import { ISettableObservable } from 'vs/base/common/observableInternal/base';
 import { URI } from 'vs/base/common/uri';
+import { CodeEditorWidget } from 'vs/editor/browser/widget/codeEditor/codeEditorWidget';
 import { ITextModel } from 'vs/editor/common/model';
 import { ICellViewModel } from 'vs/workbench/contrib/notebook/browser/notebookBrowser';
 import { NotebookCellTextModel } from 'vs/workbench/contrib/notebook/common/model/notebookCellTextModel';
 import { CellKind, ICellOutput } from 'vs/workbench/contrib/notebook/common/notebookCommon';
+import { CellSelectionType } from 'vs/workbench/contrib/positronNotebook/browser/notebookCells/selectionMachine';
 
 export type ExecutionStatus = 'running' | 'pending' | 'unconfirmed' | 'idle';
+
 
 /**
  * Wrapper class for notebook cell that exposes the properties that the UI needs to render the cell.
@@ -32,6 +35,16 @@ export interface IPositronNotebookCell extends Disposable {
 	 * URI for the notebook that contains this cell
 	 */
 	get notebookUri(): URI;
+
+	/**
+	 * Is this cell selected?
+	 */
+	selected: ISettableObservable<boolean>;
+
+	/**
+	 * Is this cell currently being edited?
+	 */
+	editing: ISettableObservable<boolean>;
 
 	/**
 	 * The content of the cell. This is the raw text of the cell.
@@ -72,6 +85,49 @@ export interface IPositronNotebookCell extends Disposable {
 	 * Type guard for checking if cell is a code cell
 	 */
 	isCodeCell(): this is IPositronNotebookCodeCell;
+
+	/**
+	 * Select this cell
+	 * @param type The type of selection to apply. E.g. an editing selection or a normal selection.
+	 */
+	select(type: CellSelectionType): void;
+
+	/**
+	 * Set focus to this cell
+	 */
+	focus(): void;
+
+	/**
+	 * Set focus on the editor within the cell
+	 */
+	focusEditor(): void;
+
+	/**
+	 * Remove focus from within monaco editor and out to the cell itself
+	 */
+	defocusEditor(): void;
+
+	/**
+	 * Deselect this cell
+	 */
+	deselect(): void;
+
+	/**
+	 * Attach the cell to a container. Used for things like focus management
+	 * @param container Element that the cell is rendered into.
+	 */
+	attachContainer(container: HTMLElement): void;
+
+	/**
+	 * Attach the editor widget to the cell
+	 * @param editor Code editor widget associated with cell.
+	 */
+	attachEditor(editor: CodeEditorWidget): void;
+
+	/**
+	 * Detach the editor from the cell
+	 */
+	detachEditor(): void;
 }
 
 
@@ -90,8 +146,6 @@ export interface IPositronNotebookCodeCell extends IPositronNotebookCell {
 	 * Current cell outputs as an observable
 	 */
 	outputs: ISettableObservable<ICellOutput[], void>;
-
-
 }
 
 

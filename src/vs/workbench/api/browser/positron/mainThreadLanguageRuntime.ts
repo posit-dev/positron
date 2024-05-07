@@ -34,7 +34,7 @@ import { IEditor } from 'vs/editor/common/editorCommon';
 import { Selection } from 'vs/editor/common/core/selection';
 import { ITextResourceEditorInput } from 'vs/platform/editor/common/editor';
 import { IPositronDataExplorerService } from 'vs/workbench/services/positronDataExplorer/browser/interfaces/positronDataExplorerService';
-import { ObservableValue } from 'vs/base/common/observableInternal/base';
+import { ISettableObservable, observableValue } from 'vs/base/common/observableInternal/base';
 import { IRuntimeStartupService, RuntimeStartupPhase } from 'vs/workbench/services/runtimeStartup/common/runtimeStartupService';
 
 /**
@@ -854,18 +854,16 @@ class ExtHostRuntimeClientInstance<Input, Output>
 
 	private readonly _pendingRpcs = new Map<string, DeferredPromise<any>>();
 
-	private _state: RuntimeClientState = RuntimeClientState.Uninitialized;
-
 	/**
 	 * An observable value that tracks the number of messages sent and received
 	 * by this client.
 	 */
-	public messageCounter: ObservableValue<number>;
+	public messageCounter: ISettableObservable<number>;
 
 	/**
 	 * An observable value that tracks the current state of the client.
 	 */
-	public clientState: ObservableValue<RuntimeClientState>;
+	public clientState: ISettableObservable<RuntimeClientState>;
 
 	constructor(
 		private readonly _id: string,
@@ -874,9 +872,9 @@ class ExtHostRuntimeClientInstance<Input, Output>
 		private readonly _proxy: ExtHostLanguageRuntimeShape) {
 		super();
 
-		this.messageCounter = new ObservableValue(this, this._id, 0);
+		this.messageCounter = observableValue(`msg-counter-${this._id}`, 0);
 
-		this.clientState = new ObservableValue(this, this._id, RuntimeClientState.Uninitialized);
+		this.clientState = observableValue(`client-state-${this._id}`, RuntimeClientState.Uninitialized);
 
 		this.onDidReceiveData = this._dataEmitter.event;
 		this._register(this._dataEmitter);
@@ -986,10 +984,10 @@ class ExtHostRuntimeClientInstance<Input, Output>
 		}
 
 		// If we aren't currently closed, clean up before completing disposal.
-		if (this._state !== RuntimeClientState.Closed) {
+		if (this.clientState.get() !== RuntimeClientState.Closed) {
 			// If we are actually connected to the backend, notify the backend that we are
 			// closing the connection from our side.
-			if (this._state === RuntimeClientState.Connected) {
+			if (this.clientState.get() === RuntimeClientState.Connected) {
 				this.setClientState(RuntimeClientState.Closing);
 				this._proxy.$removeClient(this._handle, this._id);
 			}

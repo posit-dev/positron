@@ -290,9 +290,13 @@ function packageTask(platform, arch, sourceFolderName, destinationFolderName, op
 		const positronApi = gulp.src('src/positron-dts/positron.d.ts')
 			.pipe(rename('out/positron-dts/positron.d.ts'));
 
-		// Bundled Pandoc binary
+		// Bundled Pandoc binary. Place this in a `pandoc` subfolder of `bin`
+		// since `bin` can be placed in the $PATH, and we don't want to pollute
+		// the $PATH with the Pandoc binary.
 		const pandocExt = process.platform === 'win32' ? '.exe' : '';
-		const binFolder = process.platform === 'darwin' ? 'bin' : path.join('..', '..', 'bin');
+		const binFolder = process.platform === 'darwin' ?
+			path.join('bin', 'pandoc') :
+			path.join('..', '..', 'bin', 'pandoc');
 		const pandoc = getPandocStream()
 			.pipe(rename(path.join(binFolder, `pandoc${pandocExt}`)))
 			.pipe(util.setExecutableBit());
@@ -355,6 +359,9 @@ function packageTask(platform, arch, sourceFolderName, destinationFolderName, op
 				'resources/win32/less.ico',
 				'resources/win32/markdown.ico',
 				'resources/win32/php.ico',
+				// --- Start Positron ---
+				'resources/win32/positron.ico',
+				// --- End Positron ---
 				'resources/win32/powershell.ico',
 				'resources/win32/python.ico',
 				'resources/win32/react.ico',
@@ -366,8 +373,10 @@ function packageTask(platform, arch, sourceFolderName, destinationFolderName, op
 				'resources/win32/vue.ico',
 				'resources/win32/xml.ico',
 				'resources/win32/yaml.ico',
-				'resources/win32/code_70x70.png',
-				'resources/win32/code_150x150.png'
+				// --- Start Positron ---
+				'resources/win32/positron_70x70.png',
+				'resources/win32/positron_150x150.png'
+				// --- End Positron ---
 			], { base: '.' }));
 		} else if (platform === 'linux') {
 			// --- Start Positron ---
@@ -435,9 +444,15 @@ function packageTask(platform, arch, sourceFolderName, destinationFolderName, op
 	};
 }
 
-function patchWin32DependenciesTask(destinationFolderName) {
-	const cwd = path.join(path.dirname(root), destinationFolderName);
+// --- Start Positron ---
+function updateIcon(cwd, executablePath, icon) {
+	return cb => {
+		rcedit(path.join(cwd, executablePath), { icon }, cb);
+	};
+}
 
+function patchWin32DependenciesTask(cwd) {
+	// --- End Positron ---
 	return async () => {
 		const deps = await glob('**/*.node', { cwd });
 		const packageJson = JSON.parse(await fs.promises.readFile(path.join(cwd, 'resources', 'app', 'package.json'), 'utf8'));
@@ -496,7 +511,14 @@ BUILD_TARGETS.forEach(buildTarget => {
 		];
 
 		if (platform === 'win32') {
-			tasks.push(patchWin32DependenciesTask(destinationFolderName));
+			// --- Start Positron ---
+			const cwd = path.join(path.dirname(root), destinationFolderName);
+			tasks.push(patchWin32DependenciesTask(cwd));
+
+			const executablePath = `${product.nameShort}.exe`;
+			const iconPath = path.join(cwd, 'resources', 'app', 'resources', 'win32', 'positron.ico');
+			tasks.push(updateIcon(cwd, executablePath, iconPath));
+			// --- End Positron ---
 		}
 
 		const vscodeTaskCI = task.define(`vscode${dashed(platform)}${dashed(arch)}${dashed(minified)}-ci`, task.series(...tasks));

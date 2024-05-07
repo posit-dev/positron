@@ -259,6 +259,14 @@ function packageTask(type, platform, arch, sourceFolderName, destinationFolderNa
 				}
 			}
 		};
+		// --- Start Positron ---
+		const excludedExtensions = [
+			'vscode-api-tests',
+			'vscode-test-resolver',
+			'positron-zed',
+			'positron-javascript',
+		];
+		// --- End Positron ---
 		const localWorkspaceExtensions = glob.sync('extensions/*/package.json')
 			.filter((extensionPath) => {
 				if (type === 'reh-web') {
@@ -270,7 +278,11 @@ function packageTask(type, platform, arch, sourceFolderName, destinationFolderNa
 				const manifest = JSON.parse(fs.readFileSync(path.join(REPO_ROOT, extensionPath)).toString());
 				return !isUIExtension(manifest);
 			}).map((extensionPath) => path.basename(path.dirname(extensionPath)))
-			.filter(name => name !== 'vscode-api-tests' && name !== 'vscode-test-resolver'); // Do not ship the test extensions
+			// --- Start Positron ---
+			// Add Positron dev extensions to the list that we don't ship with the REH
+			// .filter(name => name !== 'vscode-api-tests' && name !== 'vscode-test-resolver'); // Do not ship the test extensions
+			.filter(name => excludedExtensions.indexOf(name) === -1);
+		// --- End Positron ---
 		const marketplaceExtensions = JSON.parse(fs.readFileSync(path.join(REPO_ROOT, 'product.json'), 'utf8')).builtInExtensions
 			.filter(entry => !entry.platforms || new Set(entry.platforms).has(platform))
 			.filter(entry => !entry.clientOnly)

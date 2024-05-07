@@ -1,7 +1,7 @@
 {
 	"nameShort": "Positron",
 	"nameLong": "Positron",
-	"positronVersion": "2024.04.0",
+	"positronVersion": "2024.05.0",
 	"positronBuildNumber": 0,
 	"applicationName": "positron",
 	"dataFolderName": ".positron",
@@ -54,8 +54,8 @@
 		},
 		{
 			"name": "ms-vscode.js-debug",
-			"version": "1.88.0",
-			"sha256": "3a048d87c0fac116fce9190ff6042ec7691e66fc17211a058faf0db91bb6605e",
+			"version": "1.89.0",
+			"sha256": "2abd9c01f711c0d60d40b722b5bed0930701be173931f3c6251906f692858221",
 			"repo": "https://github.com/microsoft/vscode-js-debug",
 			"metadata": {
 				"id": "25629058-ddac-4e17-abba-74678e126c5d",
@@ -70,8 +70,8 @@
 		},
 		{
 			"name": "ms-vscode.vscode-js-profile-table",
-			"version": "1.0.8",
-			"sha256": "ca30069e21fbf576b49638ff8ff7c316b028c2faca924c23526737c65b8762bf",
+			"version": "1.0.9",
+			"sha256": "3b62ee4276a2bbea3fe230f94b1d5edd915b05966090ea56f882e1e0ab53e1a6",
 			"repo": "https://github.com/microsoft/vscode-js-profile-visualizer",
 			"metadata": {
 				"id": "7e52b41b-71ad-457b-ab7e-0620f1fc4feb",
@@ -220,14 +220,13 @@
 	],
 	"extensionEnabledApiProposals": {
 		"ms-vscode.vscode-selfhost-test-provider": [
-			"testObserver",
-			"testCoverage"
-		],
-		"ms-vscode.extension-test-runner": [
-			"testCoverage"
+			"testObserver"
 		],
 		"VisualStudioExptTeam.vscodeintellicode-completions": [
 			"inlineCompletionsAdditions"
+		],
+		"ms-toolsai.datawrangler": [
+			"debugFocus"
 		],
 		"ms-vsliveshare.vsliveshare": [
 			"contribMenuBarHome",
@@ -249,9 +248,6 @@
 			"workspaceTrust",
 			"tunnels"
 		],
-		"vscjava.vscode-java-test": [
-			"testCoverage"
-		],
 		"ms-toolsai.vscode-ai-remote": [
 			"resolvers"
 		],
@@ -259,11 +255,12 @@
 			"contribEditorContentMenu",
 			"quickPickSortByLabel",
 			"portsAttributes",
-			"handleIssueUri",
 			"testObserver",
 			"quickPickItemTooltip",
 			"terminalDataWriteEvent",
-			"terminalExecuteCommandEvent"
+			"terminalExecuteCommandEvent",
+			"contribIssueReporter",
+			"terminalShellIntegration"
 		],
 		"ms-dotnettools.dotnet-interactive-vscode": [
 			"notebookMessaging"
@@ -353,20 +350,25 @@
 		],
 		"GitHub.vscode-pull-request-github": [
 			"activeComment",
-			"contribCommentThreadAdditionalMenu",
-			"tokenInformation",
-			"codeActionRanges",
-			"commentReactor",
-			"contribShareMenu",
-			"fileComments",
-			"contribCommentPeekContext",
 			"codiconDecoration",
-			"diffCommand",
+			"codeActionRanges",
+			"commentingRangeHint",
+			"commentReactor",
+			"commentThreadApplicability",
+			"contribAccessibilityHelpContent",
 			"contribCommentEditorActionsMenu",
-			"treeViewMarkdownMessage",
-			"tabInputTextMerge",
+			"contribCommentPeekContext",
+			"contribCommentThreadAdditionalMenu",
+			"contribCommentsViewThreadMenus",
+			"contribEditorContentMenu",
+			"contribShareMenu",
+			"diffCommand",
+			"fileComments",
+			"quickDiffProvider",
 			"shareProvider",
-			"quickDiffProvider"
+			"tabInputTextMerge",
+			"tokenInformation",
+			"treeViewMarkdownMessage"
 		],
 		"GitHub.copilot": [
 			"inlineCompletionsAdditions"
@@ -375,7 +377,6 @@
 			"inlineCompletionsAdditions"
 		],
 		"GitHub.copilot-chat": [
-			"handleIssueUri",
 			"interactive",
 			"terminalDataWriteEvent",
 			"terminalExecuteCommandEvent",
@@ -393,7 +394,10 @@
 			"textSearchProvider",
 			"contribSourceControlInputBoxMenu",
 			"newSymbolNamesProvider",
-			"findFiles2"
+			"findFiles2",
+			"extensionsAny",
+			"authLearnMore",
+			"testObserver"
 		],
 		"GitHub.remotehub": [
 			"contribRemoteHelp",
@@ -417,7 +421,9 @@
 			"notebookCellExecutionState"
 		],
 		"ms-python.debugpy": [
-			"portsAttributes"
+			"portsAttributes",
+			"contribIssueReporter",
+			"debugVisualization"
 		],
 		"ms-toolsai.jupyter-renderers": [
 			"contribNotebookStaticPreloads"
@@ -435,6 +441,7 @@
 			"contribNotebookStaticPreloads",
 			"quickPickItemTooltip",
 			"notebookExecution",
+			"notebookCellExecution",
 			"notebookVariableProvider"
 		],
 		"dbaeumer.vscode-eslint": [

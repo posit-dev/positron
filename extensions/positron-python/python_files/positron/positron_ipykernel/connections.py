@@ -158,7 +158,10 @@ class ConnectionsService:
         self.comm_id_to_path: Dict[str, Set[PathKey]] = {}
 
     def register_connection(
-        self, connection: Any, variable_path: Optional[List[str]] = None, display_pane: bool = True
+        self,
+        connection: Any,
+        variable_path: Optional[List[str] | str] = None,
+        display_pane: bool = True,
     ) -> str:
         """
         Opens a connection to the given data source.
@@ -216,9 +219,14 @@ class ConnectionsService:
 
         return comm_id
 
-    def _register_variable_path(self, variable_path: Optional[List[str]], comm_id: str) -> None:
+    def _register_variable_path(
+        self, variable_path: Optional[List[str] | str], comm_id: str
+    ) -> None:
         if variable_path is None:
             return
+
+        if isinstance(variable_path, str):
+            variable_path = [encode_access_key(variable_path)]
 
         if not isinstance(variable_path, list):
             raise ValueError(variable_path)
@@ -480,6 +488,9 @@ class SQLite3Connection(Connection):
         self.display_name = "SQLite Connection"
         self.host = self._find_path(conn)
         self.type = "SQLite"
+        self.code = (
+            "import sqlite3\n" f'conn = sqlite3.connect("{self.host}")\n' "%connection_show conn\n"
+        )
 
     def _find_path(self, conn: sqlite3.Connection):
         """
@@ -594,6 +605,11 @@ class SQLAlchemyConnection(Connection):
         self.display_name = f"SQLAlchemy ({conn.name})"
         self.host = conn.url.render_as_string()
         self.type = "SQLAlchemy"
+        self.code = (
+            "import sqlalchemy\n"
+            f"engine = sqlalchemy.create_engine('{self.host}')\n"
+            "%connection_show engine\n"
+        )
 
     def list_objects(self, path: List[ObjectSchema]):
         if sqlalchemy_ is None:

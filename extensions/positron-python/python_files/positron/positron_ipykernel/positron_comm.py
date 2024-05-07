@@ -255,3 +255,9 @@ class PositronComm:
         Close the frontend-side version of this comm.
         """
         self.comm.close()
+
+    def open(self) -> None:
+        """
+        Open the frontend-side version of this comm.
+        """
+        self.comm.open()

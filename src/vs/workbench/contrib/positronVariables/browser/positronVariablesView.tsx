@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2022 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2022-2024 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
 import 'vs/css!./positronVariablesView';
@@ -17,7 +17,7 @@ import { IContextMenuService } from 'vs/platform/contextview/browser/contextView
 import { IClipboardService } from 'vs/platform/clipboard/common/clipboardService';
 import { IInstantiationService } from 'vs/platform/instantiation/common/instantiation';
 import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
-import { ViewPane, IViewPaneOptions } from 'vs/workbench/browser/parts/views/viewPane';
+import { IViewPaneOptions } from 'vs/workbench/browser/parts/views/viewPane';
 import { IContextKey, IContextKeyService } from 'vs/platform/contextkey/common/contextkey';
 import { IWorkbenchLayoutService } from 'vs/workbench/services/layout/browser/layoutService';
 import { PositronVariables } from 'vs/workbench/contrib/positronVariables/browser/positronVariables';
@@ -25,11 +25,13 @@ import { ILanguageRuntimeService } from 'vs/workbench/services/languageRuntime/c
 import { IReactComponentContainer, ISize, PositronReactRenderer } from 'vs/base/browser/positronReactRenderer';
 import { IPositronVariablesService } from 'vs/workbench/services/positronVariables/common/interfaces/positronVariablesService';
 import { IRuntimeSessionService } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
+import { PositronViewPane } from 'vs/workbench/browser/positronViewPane/positronViewPane';
+import { IHoverService } from 'vs/platform/hover/browser/hover';
 
 /**
  * PositronVariablesViewPane class.
  */
-export class PositronVariablesViewPane extends ViewPane implements IReactComponentContainer {
+export class PositronVariablesViewPane extends PositronViewPane implements IReactComponentContainer {
 	//#region Private Properties
 
 	/**
@@ -163,6 +165,7 @@ export class PositronVariablesViewPane extends ViewPane implements IReactCompone
 	 * @param configurationService The configuration service.
 	 * @param contextKeyService The context key service.
 	 * @param contextMenuService The context menu service.
+	 * @param hoverService The hover service.
 	 * @param instantiationService The instantiation service.
 	 * @param keybindingService The keybinding service.
 	 * @param _languageRuntimeService The language runtime service.
@@ -181,6 +184,7 @@ export class PositronVariablesViewPane extends ViewPane implements IReactCompone
 		@IConfigurationService configurationService: IConfigurationService,
 		@IContextKeyService contextKeyService: IContextKeyService,
 		@IContextMenuService contextMenuService: IContextMenuService,
+		@IHoverService hoverService: IHoverService,
 		@IInstantiationService instantiationService: IInstantiationService,
 		@IKeybindingService keybindingService: IKeybindingService,
 		@ILanguageRuntimeService private readonly _languageRuntimeService: ILanguageRuntimeService,
@@ -203,13 +207,8 @@ export class PositronVariablesViewPane extends ViewPane implements IReactCompone
 			instantiationService,
 			openerService,
 			themeService,
-			telemetryService);
-
-		// Make the viewpane focusable even when there are no components
-		// available to take the focus. The viewpane must be able to take focus
-		// at all times because otherwise blurring events do not occur and the
-		// viewpane management state becomes confused on toggle.
-		this.element.tabIndex = 0;
+			telemetryService,
+			hoverService);
 
 		// Register the onDidChangeBodyVisibility event handler.
 		this._register(this.onDidChangeBodyVisibility(visible => {
@@ -275,12 +274,10 @@ export class PositronVariablesViewPane extends ViewPane implements IReactCompone
 	}
 
 	/**
-	 * focus override method.
+	 * Drive focus to inner element.
+	 * Called by `super.focus()`.
 	 */
-	override focus(): void {
-		// Call the base class's method.
-		super.focus();
-
+	override focusElement(): void {
 		// Trigger event that eventually causes variable pane widgets to focus
 		this._positronVariablesService.activePositronVariablesInstance?.focusElement();
 	}
