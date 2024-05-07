@@ -21,22 +21,23 @@ export interface PythonEnvironmentTypeInfo {
  * list by runtime source if requested.
  * @param runtimeStartupService The runtime startup service.
  * @param languageRuntimeService The language runtime service.
- * @param pythonRuntimeFilter The PythonRuntimeFilter to apply to the Python runtimes.
+ * @param pythonRuntimeFilters The PythonRuntimeFilters to apply to the Python runtimes.
  * @returns An array of DropDownListBoxEntry for Python interpreters.
  */
 const getPythonInterpreterDropDownItems = (
 	runtimeStartupService: IRuntimeStartupService,
 	languageRuntimeService: ILanguageRuntimeService,
-	pythonRuntimeFilter = PythonRuntimeFilter.All
+	pythonRuntimeFilters?: PythonRuntimeFilter[]
 ) => {
 	const languageId = LanguageIds.Python;
-	const preferredRuntime = runtimeStartupService.getPreferredRuntime(languageId);
+	const preferredRuntime =
+		runtimeStartupService.getPreferredRuntime(languageId);
 
 	return getInterpreterDropdownItems(
 		languageRuntimeService,
 		languageId,
 		preferredRuntime?.runtimeId,
-		pythonRuntimeFilter === PythonRuntimeFilter.All ? undefined : PythonRuntimeFilter.Global
+		pythonRuntimeFilters
 	);
 };
 
@@ -49,18 +50,20 @@ export const createCondaInterpreterDropDownItems = () => {
 	// TODO: we should get the list of Python versions from the Conda service
 	const pythonVersions = ['3.12', '3.11', '3.10', '3.9', '3.8'];
 	const condaRuntimes: DropDownListBoxItem<string, InterpreterInfo>[] = [];
-	pythonVersions.forEach(version => {
-		condaRuntimes.push(new DropDownListBoxItem<string, InterpreterInfo>({
-			identifier: `conda-python-${version}`,
-			value: {
-				preferred: version === '3.12',
-				runtimeId: `conda-python-${version}`,
-				languageName: 'Python',
-				languageVersion: version,
-				runtimePath: '',
-				runtimeSource: 'Conda'
-			}
-		}));
+	pythonVersions.forEach((version) => {
+		condaRuntimes.push(
+			new DropDownListBoxItem<string, InterpreterInfo>({
+				identifier: `conda-python-${version}`,
+				value: {
+					preferred: version === '3.12',
+					runtimeId: `conda-python-${version}`,
+					languageName: 'Python',
+					languageVersion: version,
+					runtimePath: '',
+					runtimeSource: 'Conda',
+				},
+			})
+		);
 	});
 	return condaRuntimes;
 };
@@ -86,22 +89,20 @@ export const getPythonInterpreterEntries = (
 					return getPythonInterpreterDropDownItems(
 						runtimeStartupService,
 						languageRuntimeService,
-						PythonRuntimeFilter.Global
+						[PythonRuntimeFilter.Global, PythonRuntimeFilter.Pyenv]
 					);
 				case PythonEnvironmentType.Conda:
 					return createCondaInterpreterDropDownItems();
 				default:
 					return getPythonInterpreterDropDownItems(
 						runtimeStartupService,
-						languageRuntimeService,
-						PythonRuntimeFilter.All
+						languageRuntimeService
 					);
 			}
 		case EnvironmentSetupType.ExistingEnvironment:
 			return getPythonInterpreterDropDownItems(
 				runtimeStartupService,
-				languageRuntimeService,
-				PythonRuntimeFilter.All
+				languageRuntimeService
 			);
 		default:
 			return [];
@@ -123,11 +124,12 @@ export const locationForNewEnv = (
 ) => {
 	// TODO: this only works for Venv and Conda environments. We'll need to expand on this to add
 	// support for other environment types.
-	const envDir = envType === PythonEnvironmentType.Venv
-		? '.venv'
-		: envType === PythonEnvironmentType.Conda
-			? '.conda'
-			: '';
+	const envDir =
+		envType === PythonEnvironmentType.Venv
+			? '.venv'
+			: envType === PythonEnvironmentType.Conda
+				? '.conda'
+				: '';
 	return `${parentFolder}/${projectName}/${envDir}`;
 };
 
@@ -143,15 +145,16 @@ export const getEnvTypeEntries = () => {
 			identifier: PythonEnvironmentType.Venv,
 			value: {
 				envType: PythonEnvironmentType.Venv,
-				envDescription: 'Creates a `.venv` virtual environment for your project'
-			}
+				envDescription:
+					'Creates a `.venv` virtual environment for your project',
+			},
 		}),
 		new DropDownListBoxItem<PythonEnvironmentType, PythonEnvironmentTypeInfo>({
 			identifier: PythonEnvironmentType.Conda,
 			value: {
 				envType: PythonEnvironmentType.Conda,
-				envDescription: 'Creates a `.conda` Conda environment for your project'
-			}
-		})
+				envDescription: 'Creates a `.conda` Conda environment for your project',
+			},
+		}),
 	];
 };

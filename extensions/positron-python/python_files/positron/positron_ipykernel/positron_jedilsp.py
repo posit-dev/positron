@@ -7,6 +7,7 @@ import enum
 import logging
 import re
 import threading
+import warnings
 from functools import lru_cache
 from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Type, Union, cast
 
@@ -670,7 +671,9 @@ def _publish_diagnostics(server: JediLanguageServer, uri: str) -> None:
 
     # --- Start Positron ---
     try:
-        diagnostic = jedi_utils.lsp_python_diagnostic(uri, doc.source)
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            diagnostic = jedi_utils.lsp_python_diagnostic(uri, doc.source)
     except Exception:
         logger.exception(f"Failed to publish diagnostics for uri {uri}", exc_info=True)
         diagnostic = None
