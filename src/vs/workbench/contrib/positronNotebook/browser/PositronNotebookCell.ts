@@ -19,8 +19,6 @@ import { disposableTimeout } from 'vs/base/common/async';
 export abstract class PositronNotebookCellGeneral extends Disposable implements IPositronNotebookCell {
 	kind!: CellKind;
 
-	// Not marked as private so we can access it in subclasses
-	readonly _disposableStore = new DisposableStore();
 
 	private _container: HTMLElement | undefined;
 	private _editor: CodeEditorWidget | undefined;
@@ -79,7 +77,6 @@ export abstract class PositronNotebookCellGeneral extends Disposable implements 
 	abstract run(): void;
 
 	override dispose(): void {
-		this._disposableStore.dispose();
 		super.dispose();
 	}
 
@@ -176,7 +173,7 @@ export class PositronNotebookMarkdownCell extends PositronNotebookCellGeneral im
 		super(cellModel, instance, textModelResolverService);
 
 		// Render the markdown content and update the observable when the cell content changes
-		this._disposableStore.add(this.cellModel.onDidChangeContent(() => {
+		this._register(this.cellModel.onDidChangeContent(() => {
 			this.markdownString.set(this.getContent(), undefined);
 		}));
 
