@@ -679,10 +679,13 @@ class _BaseMapInspector(PositronInspector[MT], ABC):
         return self.value[key]
 
     def get_children(self) -> Iterable[Tuple[Any, Any]]:
-        return self.value.keys()
+        pass
 
 
 class MapInspector(_BaseMapInspector[Mapping]):
+
+    def get_children(self) -> Iterable[Tuple[Any, Any]]:
+        return self.value.keys()
 
     def is_mutable(self) -> bool:
         return isinstance(self.value, MutableMapping)
@@ -694,6 +697,9 @@ Column = TypeVar("Column", "pd.Series", "pl.Series", "pd.Index")
 class BaseColumnInspector(_BaseMapInspector[Column], ABC):
     def get_child(self, key: Any) -> Any:
         return self.value[key]
+
+    def get_children(self) -> Collection[Any]:
+        return list(range(len(self.value)))
 
     def get_display_type(self) -> str:
         return f"{self.value.dtype} [{self.get_length()}]"
@@ -758,9 +764,6 @@ class PandasIndexInspector(BaseColumnInspector["pd.Index"]):
 
         return super().has_children()
 
-    def get_children(self) -> Collection[Any]:
-        return range(len(self.value))
-
     def equals(self, value: pd.Index) -> bool:
         return self.value.equals(value)
 
@@ -782,9 +785,6 @@ class PolarsSeriesInspector(BaseColumnInspector["pl.Series"]):
         "polars.series.series.Series",
         "polars.internals.series.series.Series",
     ]
-
-    def get_children(self) -> Collection[Any]:
-        return range(len(self.value))
 
     def equals(self, value: pl.Series) -> bool:
         return self.value.series_equal(value)

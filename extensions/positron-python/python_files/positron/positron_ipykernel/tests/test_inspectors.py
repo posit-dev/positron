@@ -715,13 +715,13 @@ def test_inspect_polars_series() -> None:
     ("data", "expected"),
     [
         (pd.Series({"a": 0, "b": 1}), ["a", "b"]),
-        (pl.Series([0, 1]), range(0, 2)),
+        (pl.Series([0, 1]), [0, 1]),
         (pd.DataFrame({"a": [1, 2], "b": ["3", "4"]}), ["a", "b"]),
         (pl.DataFrame({"a": [1, 2], "b": ["3", "4"]}), ["a", "b"]),
-        (pd.Index([0, 1]), range(0, 2)),
+        (pd.Index([0, 1]), [0, 1]),
         (
             pd.Index([datetime.datetime(2021, 1, 1), datetime.datetime(2021, 1, 2)]),
-            range(0, 2),
+            [0, 1],
         ),
         (np.array([0, 1]), range(0, 2)),  # 1D
         (np.array([[0, 1], [2, 3]]), range(0, 2)),  # 2D
