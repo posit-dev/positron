@@ -187,6 +187,25 @@ registerNotebookKeybinding({
 });
 
 registerNotebookKeybinding({
+	id: 'positronNotebook.addSelectionDown',
+	keys: KeyMod.Shift | KeyCode.DownArrow,
+	macKeys: { primary: KeyMod.Shift | KeyCode.DownArrow, secondary: [KeyMod.WinCtrl | KeyCode.KeyN] },
+	onRun: ({ activeNotebook }) => {
+		activeNotebook.selectionStateMachine.moveDown(true);
+	}
+});
+
+
+registerNotebookKeybinding({
+	id: 'positronNotebook.addSelectionUp',
+	keys: KeyMod.Shift | KeyCode.UpArrow,
+	macKeys: { primary: KeyMod.Shift | KeyCode.UpArrow, secondary: [KeyMod.WinCtrl | KeyCode.KeyP] },
+	onRun: ({ activeNotebook }) => {
+		activeNotebook.selectionStateMachine.moveUp(true);
+	}
+});
+
+registerNotebookKeybinding({
 	id: 'notebook.cell.delete',
 	keys: KeyCode.Backspace,
 	onRun: ({ activeNotebook }) => {

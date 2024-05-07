@@ -544,21 +544,15 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	 * @param container The main containing node the notebook is rendered into
 	 */
 	private _setupKeyboardNavigation(container: HTMLElement) {
-
+		// Add some keyboard navigation for cases not covered by the keybindings. I'm not sure if
+		// there's a way to do this directly with keybindings but this feels acceptable due to the
+		// ubiquity of the enter key and escape keys for these types of actions.
 		const onKeyDown = ({ key, shiftKey, ctrlKey, metaKey }: KeyboardEvent) => {
-
 			if (key === 'Enter' && !(ctrlKey || metaKey || shiftKey)) {
 				this.selectionStateMachine.enterEditor();
 			} else if (key === 'Escape') {
 				this.selectionStateMachine.exitEditor();
-				// Arrow keys are used in conjunction with shift to create multi-selections. Plain arrow
-				// key movement is handled by the `list.focusUp` and `list.focusDown` commands.
-			} else if (key === 'ArrowUp' && shiftKey) {
-				this.selectionStateMachine.moveUp(true);
-			} else if (key === 'ArrowDown' && shiftKey) {
-				this.selectionStateMachine.moveDown(true);
 			}
-
 		};
 
 		this._container?.addEventListener('keydown', onKeyDown);
