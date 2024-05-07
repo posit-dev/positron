@@ -106,4 +106,4 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: screen-shots
-          path: .build/logs/smoke-tests-electron/1_suite_Data_Explorer/
+          path: .build/logs/smoke-tests-electron/2_suite_Data_Explorer/
