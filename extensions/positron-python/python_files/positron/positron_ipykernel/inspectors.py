@@ -673,18 +673,16 @@ class _BaseMapInspector(PositronInspector[MT], ABC):
         return result * 8
 
     def has_child(self, key: Any) -> bool:
-        return key in self.get_keys()
+        return key in self.get_children()
 
     def get_child(self, key: Any) -> Any:
         return self.value[key]
 
     def get_children(self) -> Iterable[Tuple[Any, Any]]:
-        return list(self.get_keys())
+        return self.value.keys()
 
 
 class MapInspector(_BaseMapInspector[Mapping]):
-    def get_keys(self) -> Collection[Any]:
-        return self.value.keys()
 
     def is_mutable(self) -> bool:
         return isinstance(self.value, MutableMapping)
@@ -713,8 +711,8 @@ class BaseColumnInspector(_BaseMapInspector[Column], ABC):
 class PandasSeriesInspector(BaseColumnInspector["pd.Series"]):
     CLASS_QNAME = "pandas.core.series.Series"
 
-    def get_keys(self) -> Collection[Any]:
-        return self.value.index
+    def get_children(self) -> Collection[Any]:
+        return list(self.value.index)
 
     def equals(self, value: pd.Series) -> bool:
         return self.value.equals(value)
@@ -760,7 +758,7 @@ class PandasIndexInspector(BaseColumnInspector["pd.Index"]):
 
         return super().has_children()
 
-    def get_keys(self) -> Collection[Any]:
+    def get_children(self) -> Collection[Any]:
         return range(len(self.value))
 
     def equals(self, value: pd.Index) -> bool:
@@ -785,7 +783,7 @@ class PolarsSeriesInspector(BaseColumnInspector["pl.Series"]):
         "polars.internals.series.series.Series",
     ]
 
-    def get_keys(self) -> Collection[Any]:
+    def get_children(self) -> Collection[Any]:
         return range(len(self.value))
 
     def equals(self, value: pl.Series) -> bool:
@@ -825,8 +823,8 @@ class BaseTableInspector(_BaseMapInspector[Table], Generic[Table, Column], ABC):
         # number of rows per column is handled by ColumnInspector
         return self.value.shape[1]
 
-    def get_keys(self) -> Collection[Any]:
-        return self.value.columns
+    def get_children(self) -> Collection[Any]:
+        return list(self.value.columns)
 
     def has_viewer(self) -> bool:
         return True

@@ -8,7 +8,7 @@ import pprint
 import random
 import string
 import types
-from typing import Any, Callable, Tuple
+from typing import Any, Callable, Tuple, Iterable
 
 import numpy as np
 import pandas as pd
@@ -715,22 +715,21 @@ def test_inspect_polars_series() -> None:
     ("data", "expected"),
     [
         (pd.Series({"a": 0, "b": 1}), ["a", "b"]),
-        (pl.Series([0, 1]), [0, 1]),
+        (pl.Series([0, 1]), range(0, 2)),
         (pd.DataFrame({"a": [1, 2], "b": ["3", "4"]}), ["a", "b"]),
         (pl.DataFrame({"a": [1, 2], "b": ["3", "4"]}), ["a", "b"]),
-        (pd.Index([0, 1]), [0, 1]),
+        (pd.Index([0, 1]), range(0, 2)),
         (
             pd.Index([datetime.datetime(2021, 1, 1), datetime.datetime(2021, 1, 2)]),
-            [0, 1],
+            range(0, 2),
         ),
         (np.array([0, 1]), range(0, 2)),  # 1D
         (np.array([[0, 1], [2, 3]]), range(0, 2)),  # 2D
     ],
 )
-def test_get_children(data: Any, expected: list) -> None:
+def test_get_children(data: Any, expected: Iterable) -> None:
     children = get_inspector(data).get_children()
 
-    assert len(children) == len(expected)
     assert children == expected
 
 

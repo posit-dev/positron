@@ -340,7 +340,7 @@ class TestClass:
 
     @property
     def x_plus_one(self):
-        self.x + 1
+        return self.x + 1
 
 
 @pytest.mark.parametrize(
