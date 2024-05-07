@@ -389,6 +389,9 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 			return;
 		}
 
+		// Ensure all extension hosts are started before we start activating extensions
+		await this._extensionService.whenAllExtensionHostsStarted();
+
 		// Activate all extensions that contribute language runtimes.
 		const activationPromises = Array.from(this._languagePacks.keys()).map(
 			async (languageId) => {
