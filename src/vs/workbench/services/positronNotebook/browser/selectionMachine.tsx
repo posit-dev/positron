@@ -228,6 +228,18 @@ export class SelectionStateMachine extends Disposable {
 
 		return null;
 	}
+
+	/**
+	 * Get the cell that is currently being edited.
+	 * @returns The cell that is currently being edited. Null if no cell is being edited.
+	 */
+	getEditingCell(): IPositronNotebookCell | null {
+		if (this._state.type !== SelectionState.EditingSelection) {
+			return null;
+		}
+		return this._state.selectedCell;
+	}
+
 	//#endregion Public Methods
 
 
@@ -265,8 +277,7 @@ export class SelectionStateMachine extends Disposable {
 			// Select first cell if selecting down and the last cell if selecting up.
 			const cellToSelect = this._cells.at(up ? -1 : 0);
 			if (cellToSelect) {
-				this._setState({ type: SelectionState.SingleSelection, selected: [cellToSelect] });
-				cellToSelect.focus();
+				this.selectCell(cellToSelect, CellSelectionType.Normal);
 			}
 			return;
 		}
@@ -291,8 +302,7 @@ export class SelectionStateMachine extends Disposable {
 		}
 
 		if (this._state.type === SelectionState.MultiSelection) {
-			this._setState({ type: SelectionState.SingleSelection, selected: [edgeCell] });
-			edgeCell.focus();
+			this.selectCell(nextCell, CellSelectionType.Normal);
 			return;
 		}
 
@@ -303,7 +313,7 @@ export class SelectionStateMachine extends Disposable {
 		}
 
 		// If meta is not held down, we're in single selection mode.
-		this._setState({ type: SelectionState.SingleSelection, selected: [nextCell] });
+		this.selectCell(nextCell, CellSelectionType.Normal);
 
 		nextCell.focus();
 	}

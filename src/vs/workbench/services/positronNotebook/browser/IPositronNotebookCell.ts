@@ -7,7 +7,6 @@ import { Disposable } from 'vs/base/common/lifecycle';
 import { ISettableObservable } from 'vs/base/common/observableInternal/base';
 import { URI } from 'vs/base/common/uri';
 import { CodeEditorWidget } from 'vs/editor/browser/widget/codeEditor/codeEditorWidget';
-import { CellSelectionType } from 'vs/workbench/services/positronNotebook/browser/selectionMachine';
 
 export type ExecutionStatus = 'running' | 'pending' | 'unconfirmed' | 'idle';
 
@@ -17,9 +16,9 @@ export enum CellKind {
 }
 
 export enum CellSelectionStatus {
-	UnSelected = 'UnSelected',
-	Selected = 'Selected',
-	Editing = 'Editing'
+	UnSelected = 'unselected',
+	Selected = 'selected',
+	Editing = 'editing'
 }
 
 /**
@@ -42,11 +41,6 @@ export interface IPositronNotebookCell extends Disposable {
 	 * URI for the notebook that contains this cell
 	 */
 	get notebookUri(): URI;
-
-	/**
-	 * Is this cell selected, editing, or unselected?
-	 */
-	selectionStatus: ISettableObservable<CellSelectionStatus>;
 
 	/**
 	 * The content of the cell. This is the raw text of the cell.
@@ -83,10 +77,6 @@ export interface IPositronNotebookCell extends Disposable {
 	 */
 	isCodeCell(): this is IPositronNotebookCodeCell;
 
-	/**
-	 * Select this cell
-	 */
-	select(type: CellSelectionType): void;
 
 	/**
 	 * Set focus to this cell

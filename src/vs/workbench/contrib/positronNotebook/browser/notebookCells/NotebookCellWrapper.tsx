@@ -6,12 +6,14 @@ import 'vs/css!./NotebookCellWrapper';
 import * as React from 'react';
 import { CellKind } from 'vs/workbench/contrib/notebook/common/notebookCommon';
 import { CellSelectionStatus, IPositronNotebookCell } from 'vs/workbench/services/positronNotebook/browser/IPositronNotebookCell';
-import { useObservedValue } from 'vs/workbench/contrib/positronNotebook/browser/useObservedValue';
 import { CellSelectionType } from 'vs/workbench/services/positronNotebook/browser/selectionMachine';
+import { useNotebookInstance } from 'vs/workbench/contrib/positronNotebook/browser/NotebookInstanceProvider';
+import { useSelectionStatus } from './useSelectionStatus';
 
 export function NotebookCellWrapper({ cell, children }: { cell: IPositronNotebookCell; children: React.ReactNode }) {
-	const selected = useObservedValue(cell.selectionStatus);
 	const cellRef = React.useRef<HTMLDivElement>(null);
+	const selectionStateMachine = useNotebookInstance().selectionStateMachine;
+	const selectionStatus = useSelectionStatus(cell);
 
 	React.useEffect(() => {
 		if (cellRef.current) {
@@ -20,13 +22,8 @@ export function NotebookCellWrapper({ cell, children }: { cell: IPositronNoteboo
 		}
 	}, [cell, cellRef]);
 
-	const selectionClass = selected === CellSelectionStatus.Editing
-		? 'editing'
-		: selected === CellSelectionStatus.Selected
-			? 'selected'
-			: 'unselected';
 	return <div
-		className={`positron-notebook-cell positron-notebook-${cell.kind === CellKind.Code ? 'code' : 'markdown'}-cell ${selectionClass}`}
+		className={`positron-notebook-cell positron-notebook-${cell.kind === CellKind.Code ? 'code' : 'markdown'}-cell ${selectionStatus}`}
 		ref={cellRef}
 		tabIndex={0}
 		onClick={(e) => {
@@ -35,15 +32,15 @@ export function NotebookCellWrapper({ cell, children }: { cell: IPositronNoteboo
 			// 'positron-cell-editor-monaco-widget' then don't run the select code as the editor
 			// widget itself handles that logic
 			const childOfEditor = clickTarget.closest('.positron-cell-editor-monaco-widget');
-			if (childOfEditor) {
+			if (childOfEditor || selectionStatus === CellSelectionStatus.Editing) {
 				return;
 			}
-			if (selected) {
+			if (selectionStatus === CellSelectionStatus.Selected) {
 				cell.deselect();
 				return;
 			}
 			const addMode = e.shiftKey || e.ctrlKey || e.metaKey;
-			cell.select(addMode ? CellSelectionType.Add : CellSelectionType.Normal);
+			selectionStateMachine.selectCell(cell, addMode ? CellSelectionType.Add : CellSelectionType.Normal);
 		}}
 	>
 		{children}

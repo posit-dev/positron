@@ -1,0 +1,37 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *--------------------------------------------------------------------------------------------*/
+
+import * as React from 'react';
+import { CellSelectionStatus, IPositronNotebookCell } from 'vs/workbench/services/positronNotebook/browser/IPositronNotebookCell';
+import { SelectionState } from 'vs/workbench/services/positronNotebook/browser/selectionMachine';
+import { useNotebookInstance } from 'vs/workbench/contrib/positronNotebook/browser/NotebookInstanceProvider';
+
+/**
+ * Hook to get selection status of a given cell.
+ * @param cell Cell who's selection status is to be observed.
+ * @returns The current selection status of the cell.
+ */
+export function useSelectionStatus(cell: IPositronNotebookCell): CellSelectionStatus {
+	const notebookInstance = useNotebookInstance();
+
+	const [selectionStatus, setSelectionStatus] = React.useState<CellSelectionStatus>(CellSelectionStatus.UnSelected);
+
+	React.useEffect(() => {
+		const selectionMachine = notebookInstance.selectionStateMachine;
+		const observer = selectionMachine.onNewState((state) => {
+			if (state.type === SelectionState.EditingSelection) {
+				setSelectionStatus(state.selectedCell === cell ? CellSelectionStatus.Editing : CellSelectionStatus.UnSelected);
+			} else if (state.type === SelectionState.NoSelection) {
+				setSelectionStatus(CellSelectionStatus.UnSelected);
+				return;
+			} else {
+				setSelectionStatus(state.selected.includes(cell) ? CellSelectionStatus.Selected : CellSelectionStatus.UnSelected);
+			}
+		});
+
+		return observer.dispose;
+	}, [notebookInstance, cell]);
+
+	return selectionStatus;
+}
