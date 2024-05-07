@@ -100,3 +100,10 @@ jobs:
         with:
           name: smoke-test-runner.log
           path: .build/logs/smoke-tests-electron/smoke-test-runner.log
+
+      - name: Upload failure screenshot
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-screenshot-1-debug.png
+          path: .build/logs/smoke-tests-electron/1_suite_Data_Explorer/playwright-screenshot-1-debug.png

@@ -21,14 +21,22 @@ export function setup(logger: Logger) {
 
 			});
 
+			after(async function () {
+				const app = this.app as Application;
+				await app.code.driver.takeScreenshot('debug');
+
+			});
+
 			it('Verifies basic data explorer functionality', async function () {
 				const app = this.app as Application;
 
+				console.log('Installing pandas');
 				await app.workbench.positronConsole.typeToConsole('pip install pandas');
 				await app.workbench.positronConsole.sendEnterKey();
 
 				const restartMessage = 'Note: you may need to restart the kernel to use updated packages.';
 				await app.workbench.positronConsole.waitForEndingConsoleText(restartMessage);
+				console.log('pandas installed');
 
 				await app.workbench.positronConsole.waitForReady('>>>');
 
@@ -40,12 +48,16 @@ data = {'Name':['Jai', 'Princi', 'Gaurav', 'Anuj'],
 df = pd.DataFrame(data)
 print(df[['Name', 'Qualification']])`;
 
+				console.log('Sending code to console');
 				await app.workbench.positronConsole.sendCodeToConsole(script);
+				console.log('Sending enter key');
 				await app.workbench.positronConsole.sendEnterKey();
 				await app.workbench.positronConsole.waitForReady('>>>');
 
+				console.log('Opening data grid');
 				await app.workbench.positronVariables.doubleClickVariableRow('df');
 
+				console.log('Hiding secondary side bar');
 				const hideSecondarySideBar = app.code.driver.getLocator('[aria-label="Hide Secondary Side Bar"]');
 				await hideSecondarySideBar.click();
 
