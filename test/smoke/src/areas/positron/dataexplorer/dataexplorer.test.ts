@@ -32,7 +32,7 @@ export function setup(logger: Logger) {
 				const app = this.app as Application;
 
 				console.log('Installing pandas');
-				await app.workbench.positronConsole.typeToConsole('pip install pandas');
+				await app.workbench.positronConsole.sendCodeToConsole('pip install pandas');
 				await app.workbench.positronConsole.sendEnterKey();
 
 				const restartMessage = 'Note: you may need to restart the kernel to use updated packages.';

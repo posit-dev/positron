@@ -78,7 +78,10 @@ export class StartInterpreter {
 				break;
 			} catch {
 				console.log('Retrying row click');
-				try { await chosenInterpreter!.click({ timeout: 1000 }); } catch { }
+				try {
+					await chosenInterpreter!.click({ timeout: 1000 });
+					await this.positronPopups.installIPyKernel();
+				} catch { }
 			}
 		}
 	}

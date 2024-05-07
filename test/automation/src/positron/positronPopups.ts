@@ -16,6 +16,7 @@ export class PositronPopups {
 	async installIPyKernel() {
 
 		try {
+			console.log('Checking for modal dialog box');
 			await this.code.waitForElement(POSITRON_MODAL_DIALOG_BOX, undefined, 50);
 			await this.code.waitAndClick(POSITRON_MODAL_DIALOG_BOX_OK);
 			console.log('Installing ipykernel');
@@ -25,7 +26,9 @@ export class PositronPopups {
 			// after toast disappears console may not yet be refreshed (still on old interpreter)
 			// TODO: make this smart later, perhaps by getting the console state from the API
 			await this.code.wait(5000);
-		} catch { }
+		} catch {
+			console.log('Did not find modal dialog box');
+		}
 	}
 
 	async waitForToastToDisappear() {
