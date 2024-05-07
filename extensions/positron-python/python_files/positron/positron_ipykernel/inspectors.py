@@ -684,7 +684,6 @@ class _BaseMapInspector(PositronInspector[MT], ABC):
 
 
 class MapInspector(_BaseMapInspector[Mapping]):
-
     def get_children(self) -> Iterable[Tuple[Any, Any]]:
         return self.value.keys()
 
