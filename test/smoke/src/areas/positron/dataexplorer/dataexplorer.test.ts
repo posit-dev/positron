@@ -43,9 +43,49 @@ print(df[['Name', 'Qualification']])`;
 				await app.workbench.positronConsole.sendCodeToConsole(script);
 				await app.workbench.positronConsole.sendEnterKey();
 				await app.workbench.positronConsole.waitForReady('>>>');
+
 				await app.workbench.positronVariables.doubleClickVariableRow('df');
 
-				console.log('debug');
+				const hideSecondarySideBar = app.code.driver.getLocator('[aria-label="Hide Secondary Side Bar"]');
+				await hideSecondarySideBar.click();
+
+				const columnHeaders = app.code.driver.getLocator('.data-explorer-panel .column-2 .data-grid-column-headers');
+				await columnHeaders.waitFor({ state: 'attached' });
+
+				const headers = columnHeaders.locator('.data-grid-column-header .title-description .title');
+				const headerContents = await headers.all();
+				const headerNames: string[] = [];
+
+				for (const headerContent of headerContents) {
+					const header = await headerContent.innerText();
+					headerNames.push(header);
+				}
+
+				const dataGridRows = app.code.driver.getLocator('.data-explorer-panel .column-2 .data-grid-rows');
+				await dataGridRows.waitFor({ state: 'attached' });
+
+				const rows = dataGridRows.locator('.data-grid-row');
+				const rowContents = await rows.all();
+
+				const tableData: any[] = [];
+
+				for (const rowContent of rowContents) {
+					const cells = rowContent.locator('.data-grid-row-cell .content .text');
+					const cellContents = await cells.all();
+					const rowData: any = {};
+					let columnIndex = 0;
+
+					for (const cellContent of cellContents) {
+						const innerText = await cellContent.innerText();
+						rowData[headerNames[columnIndex]] = innerText;
+						columnIndex++;
+					}
+
+					tableData.push(rowData);
+				}
+
+				console.log(tableData);
+
 			});
 
 		});
