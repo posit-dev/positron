@@ -265,7 +265,7 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 
 				// Pass everything else to the main thread
 				default:
-					this._proxy.$emitLanguageRuntimeMessage(handle, runtimeMessage);
+					this._proxy.$emitLanguageRuntimeMessage(handle, false, runtimeMessage);
 					break;
 			}
 		});
@@ -740,6 +740,7 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 		});
 
 		// See if one of the registered client handlers wants to handle this
+		let handled = false;
 		for (const handler of this._clientHandlers) {
 			// If the client type matches, then call the handler
 			if (message.target_name === handler.clientType) {
@@ -747,15 +748,13 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 				if (handler.callback(clientInstance, message.data)) {
 					// Add the client instance to the list
 					this._clientInstances.push(clientInstance);
+					handled = true;
 				}
 			}
 		}
 
 		// Notify the main thread that a client has been opened.
-		//
-		// Consider: should this event include information on whether a client
-		// handler took ownership of the client?
-		this._proxy.$emitLanguageRuntimeMessage(handle, message);
+		this._proxy.$emitLanguageRuntimeMessage(handle, handled, message);
 	}
 
 	/**
@@ -769,19 +768,20 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 		// tracked by the extension host
 		const clientInstance = this._clientInstances.find(instance =>
 			instance.getClientId() === message.comm_id);
+		let handled = false;
 		if (clientInstance) {
 			clientInstance.emitMessage(message);
-			return;
+			handled = true;
 		}
 
 		// Check to see if this message is owned by a registered client ID
-		if (this._registeredClientIds.has(message.comm_id)) {
-			return;
+		if (!handled && this._registeredClientIds.has(message.comm_id)) {
+			handled = true;
 		}
 
-		// Neither a client instance nor a registered client ID; pass it to the
-		// main thread
-		this._proxy.$emitLanguageRuntimeMessage(handle, message);
+		// Notify the main thread that a comm data message has been received,
+		// and whether it was handled in the extension host
+		this._proxy.$emitLanguageRuntimeMessage(handle, handled, message);
 	}
 
 	/**
@@ -794,13 +794,15 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 		// See if this client instance is still active
 		const idx = this._clientInstances.findIndex(instance =>
 			instance.getClientId() === message.comm_id);
+		let handled = false;
 		if (idx >= 0) {
 			// If it is, dispose and remove it
 			const clientInstance = this._clientInstances[idx];
 			clientInstance.dispose();
 			this._clientInstances.splice(idx, 1);
+			handled = true;
 		}
 
-		this._proxy.$emitLanguageRuntimeMessage(handle, message);
+		this._proxy.$emitLanguageRuntimeMessage(handle, handled, message);
 	}
 }
