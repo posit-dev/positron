@@ -10,13 +10,8 @@ import { CodeEditorWidget } from 'vs/editor/browser/widget/codeEditor/codeEditor
 
 export type ExecutionStatus = 'running' | 'pending' | 'unconfirmed' | 'idle';
 
-export enum CellKind {
-	Markup = 1,
-	Code = 2
-}
-
 export enum CellSelectionStatus {
-	UnSelected = 'unselected',
+	Unselected = 'unselected',
 	Selected = 'selected',
 	Editing = 'editing'
 }
@@ -160,6 +155,11 @@ export interface IPositronNotebookMarkdownCell extends IPositronNotebookCell {
 
 // Lightweight copies of vscode interfaces for the purpose of not breaking the import rules
 
+export enum CellKind {
+	Markup = 1,
+	Code = 2
+}
+
 export interface NotebookCellOutputs {
 	outputId: string;
 	outputs: {
@@ -171,7 +171,7 @@ export interface NotebookCellOutputs {
 /**
  * Lightweight copy of the vscode `NotebookCellTextModel` interface.
  */
-export interface PositronNotebookCellTextModel {
+interface PositronNotebookCellTextModel {
 	readonly uri: URI;
 	handle: number;
 	language: string;

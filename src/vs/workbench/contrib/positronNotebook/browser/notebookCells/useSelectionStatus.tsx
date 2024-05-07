@@ -15,18 +15,18 @@ import { useNotebookInstance } from 'vs/workbench/contrib/positronNotebook/brows
 export function useSelectionStatus(cell: IPositronNotebookCell): CellSelectionStatus {
 	const notebookInstance = useNotebookInstance();
 
-	const [selectionStatus, setSelectionStatus] = React.useState<CellSelectionStatus>(CellSelectionStatus.UnSelected);
+	const [selectionStatus, setSelectionStatus] = React.useState<CellSelectionStatus>(CellSelectionStatus.Unselected);
 
 	React.useEffect(() => {
 		const selectionMachine = notebookInstance.selectionStateMachine;
 		const observer = selectionMachine.onNewState((state) => {
 			if (state.type === SelectionState.EditingSelection) {
-				setSelectionStatus(state.selectedCell === cell ? CellSelectionStatus.Editing : CellSelectionStatus.UnSelected);
+				setSelectionStatus(state.selectedCell === cell ? CellSelectionStatus.Editing : CellSelectionStatus.Unselected);
 			} else if (state.type === SelectionState.NoSelection) {
-				setSelectionStatus(CellSelectionStatus.UnSelected);
+				setSelectionStatus(CellSelectionStatus.Unselected);
 				return;
 			} else {
-				setSelectionStatus(state.selected.includes(cell) ? CellSelectionStatus.Selected : CellSelectionStatus.UnSelected);
+				setSelectionStatus(state.selected.includes(cell) ? CellSelectionStatus.Selected : CellSelectionStatus.Unselected);
 			}
 		});
 
