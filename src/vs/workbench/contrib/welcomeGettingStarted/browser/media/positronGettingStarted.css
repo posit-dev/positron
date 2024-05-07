@@ -40,25 +40,28 @@
 .positron-welcome-page-start.buttons {
 	display: flex;
 	column-gap: 2px;
-	overflow: scroll;
+	flex-flow: wrap;
 }
 
 .positron-welcome-page-start.buttons button.positron-welcome-button.action-button.action {
 	background-color: var(--vscode-positronWelcome-background);
 	display: block;
-	width: 125px;
+	width: 115px;
 	text-wrap: nowrap;
-	color: var(--vscode-positronWelcome-foreground)
+	color: var(--vscode-positronWelcome-foreground);
+	border-radius: 5%;
+	padding: 12px;
+	margin: 4px;
 }
 
 .positron-welcome-page-start.buttons button.positron-welcome-button.action-button.action:hover {
 	background-color: var(--vscode-positronWelcome-hoverBackground);
-	border-radius: 5%;
 }
 
 .positron-welcome-button .button-container {
 	display: grid;
 	text-align: center;
+	width: 96px;
 }
 
 .positron-welcome-button.positron-button .button-container .button-icon.codicon {

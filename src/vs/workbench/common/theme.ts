@@ -2309,10 +2309,10 @@ export const POSITRON_PLOTS_BACKGROUND_COLOR = registerColor('positronPlots.back
 
 // Positron Welcome page foreground color.
 export const POSITRON_WELCOME_FOREGROUND_COLOR = registerColor('positronWelcome.foreground', {
-	dark: '#3B88B2',
-	light: '#3B88B2',
-	hcDark: '#3B88B2',
-	hcLight: '#3B88B2'
+	dark: '#4AB4E8',
+	light: '#1371A0',
+	hcDark: '#4AB4E8',
+	hcLight: '#1371A0'
 }, localize('positronWelcome.foreground', "Positron welcome page foreground color."));
 
 // Positron Welcome page secondary foreground color.

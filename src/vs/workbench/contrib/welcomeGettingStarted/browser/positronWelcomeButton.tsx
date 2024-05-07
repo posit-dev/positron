@@ -16,9 +16,10 @@ interface WelcomeButtonProps {
 }
 
 /**
- *
- * @param param0
- * @returns
+ * Inner component to ref the WelcomeButton.
+ * @param props The WelcomeButtonProps
+ * @param ref The ref to the button (HTMLDivElement)
+ * @returns The rendered component.
  */
 export function WelcomeButtonInner(props: WelcomeButtonProps, ref?: React.ForwardedRef<HTMLDivElement>) {
 
