@@ -3,7 +3,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 
-import { expect, Locator } from '@playwright/test';
+import { Locator } from '@playwright/test';
 import { Code } from '../code';
 import * as os from 'os';
 
