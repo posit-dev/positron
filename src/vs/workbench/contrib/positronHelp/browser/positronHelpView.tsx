@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2022 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2022-2024 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
 import 'vs/css!./positronHelpView';
@@ -22,6 +22,7 @@ import { ActionBars } from 'vs/workbench/contrib/positronHelp/browser/components
 import { IPositronHelpService } from 'vs/workbench/contrib/positronHelp/browser/positronHelpService';
 import { IReactComponentContainer, ISize, PositronReactRenderer } from 'vs/base/browser/positronReactRenderer';
 import { PositronViewPane } from 'vs/workbench/browser/positronViewPane/positronViewPane';
+import { IHoverService } from 'vs/platform/hover/browser/hover';
 
 /**
  * PositronHelpView class.
@@ -147,6 +148,7 @@ export class PositronHelpView extends PositronViewPane implements IReactComponen
 	 * @param configurationService The IConfigurationService.
 	 * @param contextKeyService The IContextKeyService.
 	 * @param contextMenuService The IContextMenuService.
+	 * @param hoverService The IHoverService.
 	 * @param instantiationService The IInstantiationService.
 	 * @param keybindingService The IKeybindingService.
 	 * @param openerService The IOpenerService.
@@ -162,6 +164,7 @@ export class PositronHelpView extends PositronViewPane implements IReactComponen
 		@IConfigurationService configurationService: IConfigurationService,
 		@IContextKeyService contextKeyService: IContextKeyService,
 		@IContextMenuService contextMenuService: IContextMenuService,
+		@IHoverService hoverService: IHoverService,
 		@IInstantiationService instantiationService: IInstantiationService,
 		@IKeybindingService keybindingService: IKeybindingService,
 		@IOpenerService openerService: IOpenerService,
@@ -188,7 +191,8 @@ export class PositronHelpView extends PositronViewPane implements IReactComponen
 			instantiationService,
 			openerService,
 			themeService,
-			telemetryService
+			telemetryService,
+			hoverService
 		);
 
 		// Create containers.

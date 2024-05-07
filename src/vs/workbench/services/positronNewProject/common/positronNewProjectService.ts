@@ -165,7 +165,8 @@ export class PositronNewProjectService extends Disposable implements IPositronNe
 				// runtime metadata directly, so the selected interpreter can be started immediately
 				// without having to explicitly select it?
 				if (phase === RuntimeStartupPhase.Complete) {
-					// TODO: this may try to start a runtime that is already running
+					// TODO: this may try to start a runtime that is already running. This may also
+					// cause the active interpreter to be changed in other windows.
 					this._runtimeSessionService.selectRuntime(
 						runtimeId,
 						'User-requested startup from the Positron Project Wizard during project initialization'

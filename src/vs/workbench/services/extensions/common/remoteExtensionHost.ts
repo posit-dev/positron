@@ -259,7 +259,7 @@ export class RemoteExtensionHost extends Disposable implements IExtensionHost {
 		};
 	}
 
-	getInspectPort(): number | undefined {
+	getInspectPort(): undefined {
 		return undefined;
 	}
 

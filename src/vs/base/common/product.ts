@@ -206,6 +206,7 @@ export interface IProductConfiguration {
 	readonly aiGeneratedWorkspaceTrust?: IAiGeneratedWorkspaceTrust;
 	readonly gitHubEntitlement?: IGitHubEntitlement;
 	readonly chatWelcomeView?: IChatWelcomeView;
+	readonly chatParticipantRegistry?: string;
 }
 
 export interface ITunnelApplicationConfig {

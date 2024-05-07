@@ -34,6 +34,7 @@ import { IPositronConsoleService } from 'vs/workbench/services/positronConsole/b
 import { IRuntimeSessionService } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
 import { IRuntimeStartupService } from 'vs/workbench/services/runtimeStartup/common/runtimeStartupService';
 import { PositronViewPane } from 'vs/workbench/browser/positronViewPane/positronViewPane';
+import { IHoverService } from 'vs/platform/hover/browser/hover';
 
 /**
  * PositronConsoleViewPane class.
@@ -174,6 +175,7 @@ export class PositronConsoleViewPane extends PositronViewPane implements IReactC
 	 * @param contextKeyService The context key service.
 	 * @param contextMenuService The context menu service.
 	 * @param executionHistoryService The execution history service.
+	 * @param hoverService The hover service.
 	 * @param instantiationService The instantiation service.
 	 * @param keybindingService The keybinding service.
 	 * @param languageRuntimeService The language runtime service.
@@ -199,6 +201,7 @@ export class PositronConsoleViewPane extends PositronViewPane implements IReactC
 		@IContextKeyService contextKeyService: IContextKeyService,
 		@IContextMenuService contextMenuService: IContextMenuService,
 		@IExecutionHistoryService private readonly executionHistoryService: IExecutionHistoryService,
+		@IHoverService hoverService: IHoverService,
 		@IInstantiationService instantiationService: IInstantiationService,
 		@IKeybindingService keybindingService: IKeybindingService,
 		@ILanguageRuntimeService private readonly languageRuntimeService: ILanguageRuntimeService,
@@ -227,7 +230,8 @@ export class PositronConsoleViewPane extends PositronViewPane implements IReactC
 			instantiationService,
 			openerService,
 			themeService,
-			telemetryService);
+			telemetryService,
+			hoverService);
 
 		// Bind the PositronConsoleFocused context key.
 		this._positronConsoleFocusedContextKey = PositronConsoleFocused.bindTo(contextKeyService);

@@ -10,6 +10,7 @@
   "categories": [
     "Programming Languages"
   ],
+  "private": true,
   "activationEvents": [],
   "main": "./out/extension.js",
   "scripts": {

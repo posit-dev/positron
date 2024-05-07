@@ -53,8 +53,11 @@ registerAction2(class extends Action2 {
 				// --- End Positron ---
 			},
 			// --- Start Positron ---
-			precondition: IsDevelopmentContext
+			precondition: IsDevelopmentContext,
 			// --- End Positron ---
+			metadata: {
+				description: localize2('minWelcomeDescription', 'Opens a Walkthrough to help you get started in VS Code.')
+			}
 		});
 	}
 
@@ -76,7 +79,7 @@ registerAction2(class extends Action2 {
 			if (!selectedCategory && !selectedStep) {
 				editorService.openEditor({
 					resource: GettingStartedInput.RESOURCE,
-					options: <GettingStartedEditorOptions>{ preserveFocus: toSide ?? false }
+					options: { preserveFocus: toSide ?? false }
 				}, toSide ? SIDE_GROUP : undefined);
 				return;
 			}
@@ -119,9 +122,10 @@ registerAction2(class extends Action2 {
 				}]);
 			} else {
 				// else open respecting toSide
+				const options: GettingStartedEditorOptions = { selectedCategory: selectedCategory, selectedStep: selectedStep, preserveFocus: toSide ?? false };
 				editorService.openEditor({
 					resource: GettingStartedInput.RESOURCE,
-					options: <GettingStartedEditorOptions>{ selectedCategory: selectedCategory, selectedStep: selectedStep, preserveFocus: toSide ?? false }
+					options
 				}, toSide ? SIDE_GROUP : undefined).then((editor) => {
 					(editor as GettingStartedPage)?.makeCategoryVisibleWhenAvailable(selectedCategory, selectedStep);
 				});
@@ -130,7 +134,7 @@ registerAction2(class extends Action2 {
 		} else {
 			editorService.openEditor({
 				resource: GettingStartedInput.RESOURCE,
-				options: <GettingStartedEditorOptions>{ preserveFocus: toSide ?? false }
+				options: { preserveFocus: toSide ?? false }
 			}, toSide ? SIDE_GROUP : undefined);
 		}
 	}
