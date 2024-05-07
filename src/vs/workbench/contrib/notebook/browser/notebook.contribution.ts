@@ -610,6 +610,18 @@ class NotebookEditorManager implements IWorkbenchContribution {
 		const result: IResourceEditorInput[] = [];
 		for (const model of models) {
 			if (model.isDirty() && !this._editorService.isOpened({ resource: model.resource, typeId: NotebookEditorInput.ID, editorId: model.viewType }) && extname(model.resource) !== '.interactive') {
+				// --- Start Positron ---
+				// Make sure that we dont try and open the same editor twice if we're using positron
+				// notebooks. This is a separate if-statement so we don't have to put the diff
+				// inside the inline conditional.
+				if (
+					this._editorService.isOpened({
+						resource: model.resource,
+						typeId: PositronNotebookEditorInput.ID,
+						editorId: model.viewType
+					})
+				) { continue; }
+				// --- End Positron ---
 				result.push({
 					resource: model.resource,
 					options: { inactive: true, preserveFocus: true, pinned: true, override: model.viewType }
