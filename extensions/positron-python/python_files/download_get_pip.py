@@ -10,7 +10,12 @@ from packaging.version import parse as version_parser
 EXTENSION_ROOT = pathlib.Path(__file__).parent.parent
 GET_PIP_DEST = EXTENSION_ROOT / "python_files"
 PIP_PACKAGE = "pip"
-PIP_VERSION = "latest"  # Can be "latest", or specific version "23.1.2"
+
+# --- Start Positron ---
+# Temporarily disable "latest" due to upstream break with pre-release version
+# PIP_VERSION = "latest"  # Can be "latest", or specific version "23.1.2"
+PIP_VERSION = "24.0"
+# --- End Positron ---
 
 
 def _get_package_data():
