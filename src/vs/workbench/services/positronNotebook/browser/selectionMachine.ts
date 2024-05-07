@@ -61,11 +61,6 @@ export class SelectionStateMachine extends Disposable {
 		this.state = observableValue('selectionState', this._state);
 		this.onNewState = Event.fromObservable(this.state);
 	}
-
-	override dispose() {
-		super.dispose();
-	}
-
 	//#endregion Constructor & Dispose
 
 	//#region Public Methods
