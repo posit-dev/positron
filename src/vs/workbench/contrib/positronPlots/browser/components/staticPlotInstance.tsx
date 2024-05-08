@@ -28,7 +28,8 @@ export const StaticPlotInstance = (props: StaticPlotInstanceProps) => {
 	const [width, setWidth] = React.useState<number>(1);
 	const [height, setHeight] = React.useState<number>(1);
 	const imageWrapperRef = React.useRef<HTMLDivElement>(null);
-	const [zoomMultiplier, setZoomMultiplier] = React.useState<number>(1);
+	const [moveX, setMoveX] = React.useState<number>(0);
+	const [moveY, setMoveY] = React.useState<number>(0);
 
 	const onImgLoad = (event: React.SyntheticEvent<HTMLImageElement>) => {
 		const img = event.target as HTMLImageElement;
@@ -39,8 +40,18 @@ export const StaticPlotInstance = (props: StaticPlotInstanceProps) => {
 	};
 
 	React.useEffect(() => {
-		setZoomMultiplier(props.zoom.valueOf());
-	}, [props.zoom]);
+		const { clientWidth, clientHeight } = imageWrapperRef.current ?? { clientWidth: 0, clientHeight: 0 };
+		if (clientWidth > width) {
+			setMoveX(0);
+		} else {
+			setMoveX(-width / 2 * props.zoom);
+		}
+		if (clientHeight > height) {
+			setMoveY(0);
+		} else {
+			setMoveY(-height / 2 * props.zoom);
+		}
+	}, [width, height, props.zoom]);
 
 	React.useLayoutEffect(() => {
 		if (!imageWrapperRef.current || props.zoom === ZoomLevel.Fill) {
@@ -52,8 +63,16 @@ export const StaticPlotInstance = (props: StaticPlotInstanceProps) => {
 		const { clientWidth, clientHeight } = imageWrapperRef.current ?? { clientWidth: 0, clientHeight: 0 };
 		let style: React.CSSProperties = {};
 
-		const wide = width * zoomMultiplier > clientWidth;
-		const tall = height * zoomMultiplier > clientHeight;
+		const wide = width * props.zoom > clientWidth;
+		const tall = height * props.zoom > clientHeight;
+
+		const panMovement = `translateX(${moveX}px) translateY(${moveY}px)`;
+
+		style = {
+			cursor: 'grab',
+			maxWidth: 'none',
+			maxHeight: 'none',
+		};
 
 		switch (props.zoom) {
 			case ZoomLevel.Fifty:
@@ -63,38 +82,39 @@ export const StaticPlotInstance = (props: StaticPlotInstanceProps) => {
 				if (wide && tall) {
 					// If the plot is wider and taller than the container, no centering is needed.
 					style = {
-						maxWidth: 'none',
-						maxHeight: 'none',
-						top: '0px',
-						left: '0px',
-						transform: 'none',
+						...style,
+						...{
+							top: '0px',
+							left: '0px',
+							transform: panMovement,
+						}
 					};
 				} else if (wide && !tall) {
 					// If the plot is wider than the container, center it vertically.
 					style = {
-						maxWidth: 'none',
-						maxHeight: 'none',
-						top: '50%',
-						left: '0px',
-						transform: 'translateY(-50%)',
+						...style, ...{
+							top: '50%',
+							left: '0px',
+							transform: panMovement,
+						}
 					};
 				} else if (tall && !wide) {
 					// If the plot is taller than the container, center it horizontally.
 					style = {
-						maxWidth: 'none',
-						maxHeight: 'none',
-						top: '0px',
-						left: '50%',
-						transform: 'translateX(-50%)',
+						...style, ...{
+							top: '0px',
+							left: '50%',
+							transform: panMovement,
+						}
 					};
 				} else {
 					// If the plot is smaller than the container, center it both horizontally and vertically.
 					style = {
-						maxWidth: 'none',
-						maxHeight: 'none',
-						top: '50%',
-						left: '50%',
-						transform: 'translate(-50%, -50%)',
+						...style, ...{
+							top: '50%',
+							left: '50%',
+							transform: panMovement,
+						}
 					};
 				}
 				break;
@@ -114,10 +134,18 @@ export const StaticPlotInstance = (props: StaticPlotInstanceProps) => {
 
 	const applyZoom = (value: number): string => {
 		if (props.zoom !== ZoomLevel.Fill) {
-			return `${value * zoomMultiplier}px`;
+			return `${value * props.zoom}px`;
 		}
 
 		return '100%';
+	};
+
+	const panImage = (event: React.MouseEvent<HTMLImageElement>) => {
+		if (event.buttons !== 1 || props.zoom === ZoomLevel.Fill) {
+			return;
+		}
+		setMoveX(moveX + event.movementX);
+		setMoveY(moveY + event.movementY);
 	};
 
 	return (
@@ -129,6 +157,8 @@ export const StaticPlotInstance = (props: StaticPlotInstanceProps) => {
 					style={getStyle()}
 					width={applyZoom(width)}
 					height={applyZoom(height)}
+					onMouseMoveCapture={panImage}
+					draggable={false}
 				/>
 			</div>
 		</div>);
