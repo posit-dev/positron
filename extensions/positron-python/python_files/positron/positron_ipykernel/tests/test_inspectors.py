@@ -8,7 +8,7 @@ import pprint
 import random
 import string
 import types
-from typing import Any, Callable, Tuple, Type
+from typing import Any, Callable, Tuple, Iterable
 
 import numpy as np
 import pandas as pd
@@ -712,33 +712,28 @@ def test_inspect_polars_series() -> None:
 
 
 @pytest.mark.parametrize(
-    ("cls", "data"),
+    ("data", "expected"),
     [
-        (pd.Series, {"a": 0, "b": 1}),
-        (pl.Series, [0, 1]),
-        (pd.DataFrame, {"a": [1, 2], "b": ["3", "4"]}),
-        (pl.DataFrame, {"a": [1, 2], "b": ["3", "4"]}),
-        (pd.Index, [0, 1]),
+        (pd.Series({"a": 0, "b": 1}), ["a", "b"]),
+        (pl.Series([0, 1]), range(0, 2)),
+        (pd.DataFrame({"a": [1, 2], "b": ["3", "4"]}), ["a", "b"]),
+        (pl.DataFrame({"a": [1, 2], "b": ["3", "4"]}), ["a", "b"]),
+        (pd.Index([0, 1]), range(0, 2)),
         (
-            pd.Index,
-            [datetime.datetime(2021, 1, 1), datetime.datetime(2021, 1, 2)],
+            pd.Index([datetime.datetime(2021, 1, 1), datetime.datetime(2021, 1, 2)]),
+            range(0, 2),
         ),
-        (np.array, [0, 1]),  # 1D
-        (np.array, [[0, 1], [2, 3]]),  # 2D
+        (np.array([0, 1]), range(0, 2)),  # 1D
+        (np.array([[0, 1], [2, 3]]), range(0, 2)),  # 2D
     ],
 )
-def test_get_items(cls: Type, data: Any) -> None:
-    parent = cls(data)
-    inspector = get_inspector(parent)
+def test_get_children(data: Any, expected: Iterable) -> None:
+    children = get_inspector(data).get_children()
 
-    items = list(inspector.get_items())
+    if isinstance(children, pd.Index):
+        children = children.to_list()
 
-    expected_keys = data.keys() if isinstance(data, dict) else range(len(data))
-    assert len(items) == len(expected_keys)
-    for (key, value), expected_key in zip(items, expected_keys):
-        expected_value = parent[expected_key]
-        assert key == expected_key
-        assert get_inspector(value).equals(expected_value)
+    assert children == expected
 
 
 @pytest.mark.parametrize(
