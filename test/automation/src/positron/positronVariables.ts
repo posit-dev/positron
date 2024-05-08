@@ -46,9 +46,9 @@ export class PositronVariables {
 
 		const desiredRow = this.code.driver.getLocator(`.variable-item .name-column .name-value:text("${variableName}")`);
 
+		await desiredRow.waitFor({ state: 'attached' });
+
 		await desiredRow.dblclick();
 
 	}
-
-
 }
