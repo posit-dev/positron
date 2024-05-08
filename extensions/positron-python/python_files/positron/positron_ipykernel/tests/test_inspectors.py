@@ -729,7 +729,8 @@ def test_inspect_polars_series() -> None:
 )
 def test_get_children(data: Any, expected: Iterable) -> None:
     children = get_inspector(data).get_children()
-    if hasattr(children, "to_list"):
+
+    if isinstance(children, pd.Index):
         children = children.to_list()
 
     assert children == expected
