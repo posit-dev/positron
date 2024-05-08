@@ -96,11 +96,10 @@ export const TopActionBarCustonFolderMenu = () => {
 				<div className='label'>
 					<div className={'action-bar-button-icon codicon codicon-folder'} />
 					{context.workspaceFolder &&
-						<div className='label'>
+						<div className='label-text'>
 							{context.workspaceFolder ? context.workspaceFolder.name : ''}
 						</div>
 					}
-
 				</div>
 			</div>
 			<div className='right' aria-hidden='true'>
