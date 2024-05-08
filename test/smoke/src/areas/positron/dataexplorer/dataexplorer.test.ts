@@ -31,17 +31,17 @@ export function setup(logger: Logger) {
 			it('Verifies basic data explorer functionality', async function () {
 				const app = this.app as Application;
 
-				console.log('Installing pandas');
-				await app.workbench.positronConsole.sendCodeToConsole('pip install pandas\n');
-				await app.workbench.positronConsole.sendEnterKey();
+				// console.log('Installing pandas');
+				// await app.workbench.positronConsole.sendCodeToConsole('pip install pandas\n');
+				// await app.workbench.positronConsole.sendEnterKey();
 
-				const restartMessage = 'Note: you may need to restart the kernel to use updated packages.';
-				await app.workbench.positronConsole.waitForEndingConsoleText(restartMessage);
-				console.log('pandas installed');
+				// const restartMessage = 'Note: you may need to restart the kernel to use updated packages.';
+				// await app.workbench.positronConsole.waitForEndingConsoleText(restartMessage);
+				// console.log('pandas installed');
 
-				await app.code.driver.takeScreenshot('debug2');
-				await app.workbench.positronConsole.waitForReady('>>>');
-				await app.code.driver.takeScreenshot('debug3');
+				// await app.code.driver.takeScreenshot('debug2');
+				// await app.workbench.positronConsole.waitForReady('>>>');
+				// await app.code.driver.takeScreenshot('debug3');
 
 				const script = `import pandas as pd
 data = {'Name':['Jai', 'Princi', 'Gaurav', 'Anuj'],
