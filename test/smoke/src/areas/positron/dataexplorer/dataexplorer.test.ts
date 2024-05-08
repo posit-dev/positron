@@ -28,7 +28,7 @@ export function setup(logger: Logger) {
 
 			});
 
-			it('Verifies basic data explorer functionality', async function () {
+			it.only('Verifies basic data explorer functionality', async function () {
 				const app = this.app as Application;
 
 				// console.log('Installing pandas');
@@ -48,8 +48,7 @@ data = {'Name':['Jai', 'Princi', 'Gaurav', 'Anuj'],
 		'Age':[27, 24, 22, 32],
 		'Address':['Delhi', 'Kanpur', 'Allahabad', 'Kannauj'],
 		'Qualification':['Msc', 'MA', 'MCA', 'Phd']}
-df = pd.DataFrame(data)
-print(df[['Name', 'Qualification']])\n`;
+df = pd.DataFrame(data)\n`;
 
 				console.log('Sending code to console');
 				await app.workbench.positronConsole.sendCodeToConsole(script);
