@@ -813,6 +813,39 @@ registerAction2(class extends Action2 {
 	}
 });
 
+// --- Start Positron ---
+registerAction2(class EnterFourPaneDataScienceLayout extends Action2 {
+
+	constructor() {
+		super({
+			id: 'workbench.action.fourPaneDataScienceMode',
+			title: localize2('toggle4Pane', "Toggle Four-Pane Data Science Mode"),
+			category: Categories.View,
+			f1: true,
+		});
+	}
+
+	run(accessor: ServicesAccessor): void {
+		return accessor.get(IViewDescriptorService).enterFourPaneDataScienceLayout();
+	}
+});
+registerAction2(class DumpViewCustomizations extends Action2 {
+
+	constructor() {
+		super({
+			id: 'workbench.action.dumpViewCustomizations',
+			title: localize2('dumpViewCustomizations', "Dump view customizations to console"),
+			category: Categories.View,
+			f1: true,
+		});
+	}
+
+	run(accessor: ServicesAccessor): void {
+		return accessor.get(IViewDescriptorService).dumpViewCustomizations();
+	}
+});
+// --- End Positron ---
+
 // --- Move View
 
 registerAction2(class extends Action2 {

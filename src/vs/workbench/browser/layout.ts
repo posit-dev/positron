@@ -1385,6 +1385,14 @@ export abstract class Layout extends Disposable implements IWorkbenchLayoutServi
 		this.stateModel.setRuntimeValue(LayoutStateKeys.ZEN_MODE_ACTIVE, active);
 	}
 
+	// --- Start Positron ---
+	// TODO: Make this setup the pane layout as needed for Positron
+	enterFourPaneDataScienceLayout(): void {
+		this.setSideBarHidden(true, true);
+		this.layout();
+	}
+	// --- End Positron ---
+
 	toggleZenMode(skipLayout?: boolean, restoring = false): void {
 		this.setZenModeActive(!this.isZenModeActive());
 		this.state.runtime.zenMode.transitionDisposables.clearAndDisposeAll();

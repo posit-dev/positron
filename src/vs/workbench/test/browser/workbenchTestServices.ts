@@ -667,6 +667,9 @@ export class TestLayoutService implements IWorkbenchLayoutService {
 	updateWindowMaximizedState(targetWindow: Window, maximized: boolean): void { }
 	getVisibleNeighborPart(part: Parts, direction: Direction): Parts | undefined { return undefined; }
 	focus() { }
+	// --- Start Positron ---
+	enterFourPaneDataScienceLayout(): void { }
+	// --- End Positron ---
 }
 
 const activeViewlet: PaneComposite = {} as any;

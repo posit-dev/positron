@@ -301,6 +301,12 @@ export interface IWorkbenchLayoutService extends ILayoutService {
 	 * Toggles the workbench in and out of zen mode - parts get hidden and window goes fullscreen.
 	 */
 	toggleZenMode(): void;
+	// --- Start Positron ---
+	/**
+	 * Enter or exit four-pane data science mode
+	 */
+	enterFourPaneDataScienceLayout(): void;
+	// --- End Positron ---
 
 	/**
 	 * Returns whether the centered editor layout is active on the main editor part.

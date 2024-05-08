@@ -609,6 +609,10 @@ export interface IViewDescriptorService {
 	getViewContainerByViewId(id: string): ViewContainer | null;
 	getDefaultContainerById(id: string): ViewContainer | null;
 	getViewLocationById(id: string): ViewContainerLocation | null;
+	// --- Start Positron ---
+	enterFourPaneDataScienceLayout(): void;
+	dumpViewCustomizations(): void;
+	// --- End Positron ---
 
 	readonly onDidChangeContainer: Event<{ views: IViewDescriptor[]; from: ViewContainer; to: ViewContainer }>;
 	moveViewsToContainer(views: IViewDescriptor[], viewContainer: ViewContainer, visibilityState?: ViewVisibilityState, reason?: string): void;
