@@ -45,6 +45,8 @@ df = pd.DataFrame(data)`;
 				await app.workbench.positronConsole.sendEnterKey();
 				await app.workbench.positronConsole.waitForReady('>>>');
 
+				await app.code.wait(5000);
+
 				console.log('Opening data grid');
 				await app.workbench.positronVariables.doubleClickVariableRow('df');
 
@@ -100,6 +102,8 @@ df = pd.DataFrame(data)`;
 				console.log('Sending enter key');
 				await app.workbench.positronConsole.sendEnterKey();
 				await app.workbench.positronConsole.waitForReady('>');
+
+				await app.code.wait(5000);
 
 				console.log('Opening data grid');
 				await app.workbench.positronVariables.doubleClickVariableRow('Data_Frame');
