@@ -84,11 +84,10 @@ export function activate(context: vscode.ExtensionContext) {
 		}
 	});
 
-	context.subscriptions.push(vscode.commands.registerCommand('ipynb.newUntitledIpynb', async () => {
-		// --- Start Positron ---
+	// --- Start Positron ---
+	context.subscriptions.push(vscode.commands.registerCommand('ipynb.newUntitledIpynb', async (languageRuntime?: string) => {
 		// Try to use Positron's foreground session's language, fall back to 'python' (as before this change).
-		const language = (await positron.runtime.getForegroundSession())?.runtimeMetadata?.languageId ?? 'python';
-		// --- End Positron ---
+		const language = languageRuntime ?? (await positron.runtime.getForegroundSession())?.runtimeMetadata?.languageId ?? 'python';
 		const cell = new vscode.NotebookCellData(vscode.NotebookCellKind.Code, '', language);
 		const data = new vscode.NotebookData([cell]);
 		data.metadata = useCustomPropertyInMetadata() ? {
@@ -107,6 +106,7 @@ export function activate(context: vscode.ExtensionContext) {
 		const doc = await vscode.workspace.openNotebookDocument('jupyter-notebook', data);
 		await vscode.window.showNotebookDocument(doc);
 	}));
+	// --- End Positron ---
 
 	context.subscriptions.push(vscode.commands.registerCommand('ipynb.openIpynbInNotebookEditor', async (uri: vscode.Uri) => {
 		if (vscode.window.activeTextEditor?.document.uri.toString() === uri.toString()) {

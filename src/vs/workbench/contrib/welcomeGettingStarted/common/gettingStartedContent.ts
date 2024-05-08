@@ -98,32 +98,17 @@ export const startEntries: GettingStartedStartEntryContent = [
 	//
 	// On all platforms, "New File..." allows a user to create a new file.
 	//
-	{
-		id: 'welcome.showNewFileEntries',
-		title: localize('gettingStarted.newFile.title', "New File..."),
-		description: localize('gettingStarted.newFile.description', "Open a new untitled text file, notebook, or custom editor."),
-		icon: Codicon.newFile,
-		content: {
-			type: 'startEntry',
-			command: 'command:welcome.showNewFileEntries',
-		}
-	},
-	//
-	// New Project...
-	//
-	{
-		id: 'topLevelNewProject',
-		title: localize('gettingStarted.newProject.title', "New Project..."),
-		description: localize('gettingStarted.newProject.description', "Create a new project."),
-		icon: Codicon.newFolder,
-		// TODO: [New Project] Remove feature flag when New Project action is ready for release
-		// This removes the New Project entry from the Welcome page when the feature is not enabled.
-		when: 'config.positron.projectWizardEnabled || isDevelopment',
-		content: {
-			type: 'startEntry',
-			command: 'command:positron.workbench.action.newProject',
-		}
-	},
+	// Disabled since it is available in the Start section
+	// {
+	// 	id: 'welcome.showNewFileEntries',
+	// 	title: localize('gettingStarted.newFile.title', "New File..."),
+	// 	description: localize('gettingStarted.newFile.description', "Open a new untitled text file, notebook, or custom editor."),
+	// 	icon: Codicon.newFile,
+	// 	content: {
+	// 		type: 'startEntry',
+	// 		command: 'command:welcome.showNewFileEntries',
+	// 	}
+	// },
 	//
 	// New Folder...
 	//
@@ -150,28 +135,31 @@ export const startEntries: GettingStartedStartEntryContent = [
 			command: 'command:positron.workbench.action.newFolderFromGit',
 		}
 	},
-	{
-		id: 'topLevelShowWalkthroughs',
-		title: localize('gettingStarted.topLevelShowWalkthroughs.title', "Open a Walkthrough..."),
-		description: localize('gettingStarted.topLevelShowWalkthroughs.description', "View a walkthrough on the editor or an extension"),
-		icon: Codicon.checklist,
-		when: 'allWalkthroughsHidden',
-		content: {
-			type: 'startEntry',
-			command: 'command:welcome.showAllWalkthroughs',
-		}
-	},
-	{
-		id: 'topLevelRemoteOpen',
-		title: localize('gettingStarted.topLevelRemoteOpen.title', "Connect to..."),
-		description: localize('gettingStarted.topLevelRemoteOpen.description', "Connect to remote development workspaces."),
-		when: '!isWeb',
-		icon: Codicon.remote,
-		content: {
-			type: 'startEntry',
-			command: 'command:workbench.action.remote.showMenu',
-		}
-	},
+	// Walkthroughs may be re-enabled in the future
+	// {
+	// 	id: 'topLevelShowWalkthroughs',
+	// 	title: localize('gettingStarted.topLevelShowWalkthroughs.title', "Open a Walkthrough..."),
+	// 	description: localize('gettingStarted.topLevelShowWalkthroughs.description', "View a walkthrough on the editor or an extension"),
+	// 	icon: Codicon.checklist,
+	// 	when: 'allWalkthroughsHidden',
+	// 	content: {
+	// 		type: 'startEntry',
+	// 		command: 'command:welcome.showAllWalkthroughs',
+	// 	}
+	// },
+
+	// Remote development may be re-enabled in the future when it is ready
+	// {
+	// 	id: 'topLevelRemoteOpen',
+	// 	title: localize('gettingStarted.topLevelRemoteOpen.title', "Connect to..."),
+	// 	description: localize('gettingStarted.topLevelRemoteOpen.description', "Connect to remote development workspaces."),
+	// when: '!isWeb',
+	// 	icon: Codicon.remote,
+	// 	content: {
+	// 		type: 'startEntry',
+	// 		command: 'command:workbench.action.remote.showMenu',
+	// 	}
+	// },
 	{
 		id: 'topLevelOpenTunnel',
 		title: localize('gettingStarted.topLevelOpenTunnel.title', "Open Tunnel..."),
@@ -234,7 +222,7 @@ export const startEntries: GettingStartedStartEntryContent = [
 	// 	id: 'topLevelRemoteOpen',
 	// 	title: localize('gettingStarted.topLevelRemoteOpen.title', "Connect to..."),
 	// 	description: localize('gettingStarted.topLevelRemoteOpen.description', "Connect to remote development workspaces."),
-	// 	when: '!isWeb && config.workbench.remote.experimental.showStartListEntry',
+	// when: '!isWeb && config.workbench.remote.experimental.showStartListEntry',
 	// 	icon: Codicon.remote,
 	// 	content: {
 	// 		type: 'startEntry',
