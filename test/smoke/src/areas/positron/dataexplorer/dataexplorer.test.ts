@@ -50,7 +50,7 @@ df = pd.DataFrame(data)`;
 
 				await app.workbench.positronSideBar.closeSecondarySideBar();
 
-				await app.code.wait(2000);
+				await app.code.wait(5000);
 
 				const tableData = await app.workbench.positronDataExplorer.getDataExplorerTableData();
 
@@ -106,7 +106,7 @@ df = pd.DataFrame(data)`;
 
 				await app.workbench.positronSideBar.closeSecondarySideBar();
 
-				await app.code.wait(2000);
+				await app.code.wait(5000);
 
 				const tableData = await app.workbench.positronDataExplorer.getDataExplorerTableData();
 
