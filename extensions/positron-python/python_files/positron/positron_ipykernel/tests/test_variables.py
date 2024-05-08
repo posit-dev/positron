@@ -340,7 +340,7 @@ class TestClass:
 
     @property
     def x_plus_one(self):
-        return self.x + 1
+        raise AssertionError("Should not be evaluated")
 
 
 @pytest.mark.parametrize(
