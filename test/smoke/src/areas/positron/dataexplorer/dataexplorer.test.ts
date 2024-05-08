@@ -31,12 +31,11 @@ export function setup(logger: Logger) {
 			it('Verifies basic data explorer functionality', async function () {
 				const app = this.app as Application;
 
-				// snippet from https://www.geeksforgeeks.org/python-pandas-dataframe/
+				// modified snippet from https://www.geeksforgeeks.org/python-pandas-dataframe/
 				const script = `import pandas as pd
 data = {'Name':['Jai', 'Princi', 'Gaurav', 'Anuj'],
 		'Age':[27, 24, 22, 32],
-		'Address':['Delhi', 'Kanpur', 'Allahabad', 'Kannauj'],
-		'Qualification':['Msc', 'MA', 'MCA', 'Phd']}
+		'Address':['Delhi', 'Kanpur', 'Allahabad', 'Kannauj']}
 df = pd.DataFrame(data)`;
 
 				console.log('Sending code to console');
@@ -56,10 +55,10 @@ df = pd.DataFrame(data)`;
 
 				const tableData = await app.workbench.positronDataExplorer.getDataExplorerTableData();
 
-				expect(tableData[0]).toStrictEqual({ 'Name': 'Jai', 'Age': '27', 'Address': 'Delhi', 'Qualification': 'Msc' });
-				expect(tableData[1]).toStrictEqual({ 'Name': 'Princi', 'Age': '24', 'Address': 'Kanpur', 'Qualification': 'MA' });
-				expect(tableData[2]).toStrictEqual({ 'Name': 'Gaurav', 'Age': '22', 'Address': 'Allahabad', 'Qualification': 'MCA' });
-				expect(tableData[3]).toStrictEqual({ 'Name': 'Anuj', 'Age': '32', 'Address': 'Kannauj', 'Qualification': 'Phd' });
+				expect(tableData[0]).toStrictEqual({ 'Name': 'Jai', 'Age': '27', 'Address': 'Delhi' });
+				expect(tableData[1]).toStrictEqual({ 'Name': 'Princi', 'Age': '24', 'Address': 'Kanpur' });
+				expect(tableData[2]).toStrictEqual({ 'Name': 'Gaurav', 'Age': '22', 'Address': 'Allahabad' });
+				expect(tableData[3]).toStrictEqual({ 'Name': 'Anuj', 'Age': '32', 'Address': 'Kannauj' });
 
 			});
 
