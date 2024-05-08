@@ -81,11 +81,11 @@ jobs:
 #        id: browser-integration-tests
 #        run: DISPLAY=:10 ./scripts/test-web-integration.sh --browser chromium
 
-      - name: Add Python 3.10.12
-        uses: actions/setup-python@v5
-        with:
-          python-version: 3.10.12
-          cache: 'pip'
+#      - name: Add Python 3.10.12
+#        uses: actions/setup-python@v5
+#        with:
+#          python-version: 3.10.12
+#          cache: 'pip'
 
       - name: Check Python version
         run: |
@@ -100,7 +100,7 @@ jobs:
 
       - name: Run Smoke Tests (Electron)
         env:
-          POSITRON_PY_VER_SEL: 3.11 (Global)
+          POSITRON_PY_VER_SEL: 3.10.12 (Global)
           POSITRON_R_VER_SEL: R 4.3.3
         id: electron-smoke-tests
         run: DISPLAY=:10 yarn smoketest-no-compile --tracing
