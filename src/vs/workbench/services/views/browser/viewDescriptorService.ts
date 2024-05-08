@@ -596,6 +596,8 @@ export class ViewDescriptorService extends Disposable implements IViewDescriptor
 	}
 
 	// --- Start Positron ---
+	// This is essentially this.onDidViewCustomizationsStorageChange() just
+	// with a different source of the view customizations
 	loadCustomViewDescriptor({ viewContainerLocations, viewLocations, viewContainerBadgeEnablementStates }: IViewsCustomizations): void {
 
 		const newViewContainerCustomizations = new Map<string, ViewContainerLocation>(Object.entries(viewContainerLocations));
