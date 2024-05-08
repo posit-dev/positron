@@ -62,11 +62,6 @@ jobs:
           arch -${{matrix.arch_terminal}} /bin/bash -c "${{matrix.homebrew_folder}}/bin/brew install libsodium"
           arch -${{matrix.arch_terminal}} /bin/bash -c "${{matrix.homebrew_folder}}/bin/brew install xz"
 
-      - name: Update PATH to pkg-config for zeromq
-        id: update_path_for_zeromq
-        run: |
-          echo "${{matrix.homebrew_folder}}/bin" >> $GITHUB_PATH
-
       # Check Python environment
       - name: Check Python
         run: |
