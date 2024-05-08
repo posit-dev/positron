@@ -611,6 +611,7 @@ export interface IViewDescriptorService {
 	getViewLocationById(id: string): ViewContainerLocation | null;
 	// --- Start Positron ---
 	enterFourPaneDataScienceLayout(): void;
+	enterSideBySideDSLayout(): void;
 	dumpViewCustomizations(): void;
 	// --- End Positron ---
 

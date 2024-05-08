@@ -829,6 +829,26 @@ registerAction2(class EnterFourPaneDataScienceLayout extends Action2 {
 		return accessor.get(IViewDescriptorService).enterFourPaneDataScienceLayout();
 	}
 });
+
+registerAction2(class EnterSideBySideDSLayout extends Action2 {
+
+	constructor() {
+		super({
+			id: 'workbench.action.sideBySideDataScienceMode',
+			title: localize2('toggleSideBySide', 'Toggle Side-by-Side Data Science Mode'),
+			category: Categories.View,
+			f1: true,
+		});
+	}
+
+	run(accessor: ServicesAccessor): void {
+
+		accessor.get(IWorkbenchLayoutService).enterSideBySideDSLayout();
+		accessor.get(IViewDescriptorService).enterSideBySideDSLayout();
+
+	}
+});
+
 registerAction2(class DumpViewCustomizations extends Action2 {
 
 	constructor() {

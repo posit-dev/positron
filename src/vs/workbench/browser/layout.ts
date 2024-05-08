@@ -1391,6 +1391,11 @@ export abstract class Layout extends Disposable implements IWorkbenchLayoutServi
 		this.setSideBarHidden(true, true);
 		this.layout();
 	}
+	enterSideBySideDSLayout(): void {
+		this.setSideBarHidden(true, true);
+		this.setPanelHidden(true, true);
+		this.layout();
+	}
 	// --- End Positron ---
 
 	toggleZenMode(skipLayout?: boolean, restoring = false): void {

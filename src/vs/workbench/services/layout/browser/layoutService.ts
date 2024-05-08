@@ -306,6 +306,7 @@ export interface IWorkbenchLayoutService extends ILayoutService {
 	 * Enter or exit four-pane data science mode
 	 */
 	enterFourPaneDataScienceLayout(): void;
+	enterSideBySideDSLayout(): void;
 	// --- End Positron ---
 
 	/**

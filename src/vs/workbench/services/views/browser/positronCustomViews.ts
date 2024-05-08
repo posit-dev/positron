@@ -26,3 +26,16 @@ export const fourPaneDS: IViewsCustomizations = {
 	},
 	'viewContainerBadgeEnablementStates': {}
 };
+
+export const sideBySideDS: IViewsCustomizations = {
+	'viewContainerLocations': {
+		'workbench.view.extension.positron-connections': 1,
+		'workbench.panel.positronSessions': 1,
+		'workbench.views.service.panel.d54dbb97-967d-4598-a183-f19c8cfc8a3a': 1
+	},
+	'viewLocations': {
+		'connections': 'workbench.views.service.panel.d54dbb97-967d-4598-a183-f19c8cfc8a3a',
+		'workbench.panel.positronConsole': 'workbench.panel.positronVariables'
+	},
+	'viewContainerBadgeEnablementStates': {}
+};

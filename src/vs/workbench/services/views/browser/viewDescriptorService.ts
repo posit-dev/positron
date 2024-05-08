@@ -23,7 +23,7 @@ import { IStringDictionary } from 'vs/base/common/collections';
 import { ILogger, ILoggerService } from 'vs/platform/log/common/log';
 import { Lazy } from 'vs/base/common/lazy';
 // --- Start Positron ---
-import { fourPaneDS } from './positronCustomViews';
+import { fourPaneDS, sideBySideDS } from './positronCustomViews';
 // --- End Positron ---
 
 interface IViewsCustomizations {
@@ -600,8 +600,10 @@ export class ViewDescriptorService extends Disposable implements IViewDescriptor
 
 	// --- Start Positron ---
 	enterFourPaneDataScienceLayout(): void {
-		console.log('Going to four pane mode!', fourPaneDS);
 		this.updateToCustomView(fourPaneDS);
+	}
+	enterSideBySideDSLayout(): void {
+		this.updateToCustomView(sideBySideDS);
 	}
 
 	private updateToCustomView({ viewContainerLocations, viewLocations, viewContainerBadgeEnablementStates }: IViewsCustomizations): void {

@@ -646,6 +646,8 @@ export class TestLayoutService implements IWorkbenchLayoutService {
 	restorePanel(): void { }
 	maximizePanel(): void { }
 	isPanelMinimized(): boolean { return false; }
+	enterFourPaneDataScienceLayout(): void { }
+	enterSideBySideDSLayout(): void { }
 	// --- End Positron ---
 	isPanelMaximized(): boolean { return false; }
 	getMenubarVisibility(): MenuBarVisibility { throw new Error('not implemented'); }
@@ -667,9 +669,6 @@ export class TestLayoutService implements IWorkbenchLayoutService {
 	updateWindowMaximizedState(targetWindow: Window, maximized: boolean): void { }
 	getVisibleNeighborPart(part: Parts, direction: Direction): Parts | undefined { return undefined; }
 	focus() { }
-	// --- Start Positron ---
-	enterFourPaneDataScienceLayout(): void { }
-	// --- End Positron ---
 }
 
 const activeViewlet: PaneComposite = {} as any;
