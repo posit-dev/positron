@@ -610,8 +610,13 @@ export interface IViewDescriptorService {
 	getDefaultContainerById(id: string): ViewContainer | null;
 	getViewLocationById(id: string): ViewContainerLocation | null;
 	// --- Start Positron ---
-	enterFourPaneDataScienceLayout(): void;
-	enterSideBySideDSLayout(): void;
+	// Manually writing out the type here because the original type is defined in a
+	// `browser/` level and thus can't be imported in this file.
+	loadCustomViewDescriptor(customViewDescriptor: {
+		viewContainerLocations: Record<string, ViewContainerLocation>;
+		viewLocations: Record<string, string>;
+		viewContainerBadgeEnablementStates: Record<string, boolean>;
+	}): void;
 	dumpViewCustomizations(): void;
 	// --- End Positron ---
 

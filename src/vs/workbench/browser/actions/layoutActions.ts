@@ -35,6 +35,7 @@ import { TitlebarStyle } from 'vs/platform/window/common/window';
 // --- Start Positron ---
 import { PositronToggleTopActionBarVisibilityAction } from 'vs/workbench/browser/parts/positronTopActionBar/positronTopActionBarActions';
 import { PositronTopActionBarVisibleContext } from 'vs/workbench/common/contextkeys';  // eslint-disable-line no-duplicate-imports
+import { fourPaneDS, loadCustomPositronLayout, sideBySideDS } from 'vs/workbench/browser/positronCustomViews';
 // --- End Positron ---
 
 // Register Icons
@@ -826,7 +827,7 @@ registerAction2(class EnterFourPaneDataScienceLayout extends Action2 {
 	}
 
 	run(accessor: ServicesAccessor): void {
-		return accessor.get(IViewDescriptorService).enterFourPaneDataScienceLayout();
+		loadCustomPositronLayout(fourPaneDS, accessor);
 	}
 });
 
@@ -842,10 +843,7 @@ registerAction2(class EnterSideBySideDSLayout extends Action2 {
 	}
 
 	run(accessor: ServicesAccessor): void {
-
-		accessor.get(IWorkbenchLayoutService).enterSideBySideDSLayout();
-		accessor.get(IViewDescriptorService).enterSideBySideDSLayout();
-
+		loadCustomPositronLayout(sideBySideDS, accessor);
 	}
 });
 

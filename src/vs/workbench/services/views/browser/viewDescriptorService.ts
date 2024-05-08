@@ -22,9 +22,6 @@ import { localize, localize2 } from 'vs/nls';
 import { IStringDictionary } from 'vs/base/common/collections';
 import { ILogger, ILoggerService } from 'vs/platform/log/common/log';
 import { Lazy } from 'vs/base/common/lazy';
-// --- Start Positron ---
-import { fourPaneDS, sideBySideDS } from './positronCustomViews';
-// --- End Positron ---
 
 interface IViewsCustomizations {
 	viewContainerLocations: IStringDictionary<ViewContainerLocation>;
@@ -599,14 +596,7 @@ export class ViewDescriptorService extends Disposable implements IViewDescriptor
 	}
 
 	// --- Start Positron ---
-	enterFourPaneDataScienceLayout(): void {
-		this.updateToCustomView(fourPaneDS);
-	}
-	enterSideBySideDSLayout(): void {
-		this.updateToCustomView(sideBySideDS);
-	}
-
-	private updateToCustomView({ viewContainerLocations, viewLocations, viewContainerBadgeEnablementStates }: IViewsCustomizations): void {
+	loadCustomViewDescriptor({ viewContainerLocations, viewLocations, viewContainerBadgeEnablementStates }: IViewsCustomizations): void {
 
 		const newViewContainerCustomizations = new Map<string, ViewContainerLocation>(Object.entries(viewContainerLocations));
 		const newViewDescriptorCustomizations = new Map<string, string>(Object.entries(viewLocations));

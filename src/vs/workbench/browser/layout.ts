@@ -52,6 +52,7 @@ import { CustomTitleBarVisibility } from '../../platform/window/common/window';
 
 // --- Start Positron ---
 import { IPositronTopActionBarService } from 'vs/workbench/services/positronTopActionBar/browser/positronTopActionBarService';
+import { PositronCustomLayoutDescriptor } from 'vs/workbench/browser/positronCustomViews';
 // --- End Positron ---
 
 //#region Layout Implementation
@@ -1386,14 +1387,10 @@ export abstract class Layout extends Disposable implements IWorkbenchLayoutServi
 	}
 
 	// --- Start Positron ---
-	// TODO: Make this setup the pane layout as needed for Positron
-	enterFourPaneDataScienceLayout(): void {
-		this.setSideBarHidden(true, true);
-		this.layout();
-	}
-	enterSideBySideDSLayout(): void {
-		this.setSideBarHidden(true, true);
-		this.setPanelHidden(true, true);
+	enterCustomLayout(layout: PositronCustomLayoutDescriptor['layout']) {
+		this.setSideBarHidden(layout.sideBar, true);
+		this.setPanelHidden(layout.panel, true);
+		this.setActivityBarHidden(layout.activityBar, true);
 		this.layout();
 	}
 	// --- End Positron ---
