@@ -1,0 +1,96 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
+ *--------------------------------------------------------------------------------------------*/
+
+.gettingStartedContainer .header {
+	margin-bottom: 50px;
+	display: flex;
+	column-gap: 24px;
+}
+
+.gettingStartedContainer .product-logo.welcome-positron-logo {
+	font-size: 6em;
+	background-color: var(--vscode-positronWelcome-foreground);
+	color: #ffffff;
+	border-radius: 25%;
+}
+
+.gettingStartedContainer .welcome-page-section {
+	margin-bottom: 16px;
+}
+
+.gettingStartedContainer .header h1.product-name.positron.caption {
+	font-size: 3.5em;
+	font-weight: 800;
+	color: var(--vscode-positronWelcome-foreground);
+	margin: 0;
+	padding-top: 0.2em;
+}
+
+.content .gettingStartedContainer .header p.subtitle.positron.description {
+	font-weight: 600;
+	color: var(--vscode-positronWelcome-secondaryForeground);
+	margin: 0.6em 0 0 0
+}
+
+.welcome-help-links {
+	display: inline-grid;
+}
+
+.positron-welcome-page-start.buttons {
+	display: flex;
+	column-gap: 2px;
+	flex-flow: wrap;
+}
+
+.positron-welcome-page-start.buttons button.positron-welcome-button.action-button.action {
+	background-color: var(--vscode-positronWelcome-background);
+	display: block;
+	width: 115px;
+	text-wrap: nowrap;
+	color: var(--vscode-positronWelcome-foreground);
+	border-radius: 5%;
+	padding: 12px;
+	margin: 4px;
+}
+
+.positron-welcome-page-start.buttons button.positron-welcome-button.action-button.action:hover {
+	background-color: var(--vscode-positronWelcome-hoverBackground);
+}
+
+.positron-welcome-button .button-container {
+	display: grid;
+	text-align: center;
+	width: 96px;
+}
+
+.positron-welcome-button.positron-button .button-container .button-icon.codicon {
+	color: var(--vscode-positronWelcome-foreground);
+	font-size: 70px;
+}
+
+.welcome-page-start.menu-button-container {
+	display: grid;
+	width: 100%
+}
+
+.welcome-page-start .positron-welcome-menu-item {
+	display: grid;
+	column-gap: 10px;
+	grid-template-areas: "icon label";
+	grid-template-columns: 50px auto;
+	padding: 10px;
+}
+
+.welcome-page-start div.positron-welcome-menu-item:hover {
+	background-color: var(--vscode-positronWelcome-hoverBackground);
+}
+
+.welcome-page-start .positron-welcome-menu-item .label {
+	align-self: center;
+}
+
+.welcome-page-start div.icon {
+	width: 36px;
+	height: 36px;
+}

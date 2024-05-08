@@ -2307,6 +2307,38 @@ export const POSITRON_PLOTS_BACKGROUND_COLOR = registerColor('positronPlots.back
 	hcLight: 'terminal.background'
 }, localize('positronPlots.background', "Positron plots background color."));
 
+// Positron Welcome page foreground color.
+export const POSITRON_WELCOME_FOREGROUND_COLOR = registerColor('positronWelcome.foreground', {
+	dark: '#4AB4E8',
+	light: '#1371A0',
+	hcDark: '#4AB4E8',
+	hcLight: '#1371A0'
+}, localize('positronWelcome.foreground', "Positron welcome page foreground color."));
+
+// Positron Welcome page secondary foreground color.
+export const POSITRON_WELCOME_SECONDARY_FOREGROUND_COLOR = registerColor('positronWelcome.secondaryForeground', {
+	dark: '#cbd0d4',
+	light: '#cbd0d4',
+	hcDark: '#e5e5e5',
+	hcLight: '#262626'
+}, localize('positronWelcome.secondaryForeground', "Positron welcome page secondary foreground color."));
+
+// Positron plots background color.
+export const POSITRON_WELCOME_BACKGROUND_COLOR = registerColor('positronWelcome.background', {
+	dark: 'terminal.background',
+	light: 'terminal.background',
+	hcDark: 'terminal.background',
+	hcLight: 'terminal.background'
+}, localize('positronWelcome.background', "Positron Welcome page background color."));
+
+// Positron Welcome page hover background.
+export const POSITRON_WELCOME_HOVER_BACKGROUND = registerColor('positronWelcome.hoverBackground', {
+	dark: listHoverBackground,
+	light: listHoverBackground,
+	hcDark: listHoverBackground,
+	hcLight: listHoverBackground
+}, localize('positronWelcome.hoverBackground', "Positron welcome page hover background color."));
+
 // *************************************************************************************************
 // *************************************************************************************************
 // *************************************************************************************************
