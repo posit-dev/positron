@@ -147,18 +147,22 @@ export function parseOutputData(output: ICellOutput['outputs'][number]): ParsedO
 		};
 	}
 
-
 	return { type: 'unknown', contents: message };
 }
 
 
-function uint8ToBase64(u8: Uint8Array): string {
+/**
+ * Convert a Uint8Array to a base64 encoded string.
+ * @param u8 Uint8Array to convert to base64
+ * @returns The base64 encoded string
+ */
+function uint8ToBase64(u8: Uint8Array) {
+	const output = [];
 
-	return btoa(
-		String.fromCharCode.apply(
-			null,
-			// Forgive me for I have sinned
-			u8 as unknown as number[]
-		)
-	);
+	for (let i = 0, length = u8.length; i < length; i++) {
+		output.push(String.fromCharCode(u8[i]));
+	}
+
+	// btoa() is depreciated but there doesn't seem to be a better way to do this
+	return btoa(output.join(''));
 }
