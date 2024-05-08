@@ -157,10 +157,10 @@ export function parseOutputData(output: ICellOutput['outputs'][number]): ParsedO
  * @returns The base64 encoded string
  */
 function uint8ToBase64(u8: Uint8Array) {
-	const output = [];
+	const output = new Array(u8.length);
 
 	for (let i = 0, length = u8.length; i < length; i++) {
-		output.push(String.fromCharCode(u8[i]));
+		output[i] = String.fromCharCode(u8[i]);
 	}
 
 	// btoa() is deprecated but there doesn't seem to be a better way to do this
