@@ -48,7 +48,8 @@ data = {'Name':['Jai', 'Princi', 'Gaurav', 'Anuj'],
 		'Age':[27, 24, 22, 32],
 		'Address':['Delhi', 'Kanpur', 'Allahabad', 'Kannauj'],
 		'Qualification':['Msc', 'MA', 'MCA', 'Phd']}
-df = pd.DataFrame(data)\n`;
+df = pd.DataFrame(data)
+print(df[['Name', 'Qualification']])\n`;
 
 				console.log('Sending code to console');
 				await app.workbench.positronConsole.sendCodeToConsole(script);
