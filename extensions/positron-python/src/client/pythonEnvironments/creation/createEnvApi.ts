@@ -76,6 +76,20 @@ export function registerCreateEnvironmentFeatures(
                 await executeCommand(Commands.Create_Environment);
             },
         ),
+        // --- Start Positron ---
+        registerCommand(
+            Commands.Get_Create_Environment_Providers,
+            () => {
+                const providers = _createEnvironmentProviders.getAll();
+                const providersForWizard = providers.map((provider) => ({
+                    id: provider.id,
+                    name: provider.name,
+                    description: provider.description,
+                }));
+                return providersForWizard;
+            },
+        ),
+        // --- End Positron ---
         registerCreateEnvironmentProvider(new VenvCreationProvider(interpreterQuickPick)),
         registerCreateEnvironmentProvider(condaCreationProvider()),
         onCreateEnvironmentExited(async (e: EnvironmentDidCreateEvent) => {

@@ -23,6 +23,7 @@ import { ILogService } from 'vs/platform/log/common/log';
 import { IOpenerService } from 'vs/platform/opener/common/opener';
 import { IPositronNewProjectService, NewProjectConfiguration } from 'vs/workbench/services/positronNewProject/common/positronNewProject';
 import { EnvironmentSetupType } from 'vs/workbench/browser/positronNewProjectWizard/interfaces/newProjectWizardEnums';
+import { getEnvProviderInfoList } from 'vs/workbench/browser/positronNewProjectWizard/utilities/pythonEnvironmentStepUtils';
 
 /**
  * Shows the NewProjectModalDialog.
@@ -65,6 +66,7 @@ export const showNewProjectModalDialog = async (
 				runtimeStartupService,
 			}}
 			parentFolder={(await fileDialogService.defaultFolderPath()).fsPath}
+			pythonEnvProviders={await getEnvProviderInfoList(commandService, logService)}
 		>
 			<NewProjectModalDialog
 				renderer={renderer}
@@ -78,7 +80,7 @@ export const showNewProjectModalDialog = async (
 					// The python environment type is only relevant if a new environment is being created.
 					const pythonEnvType =
 						result.pythonEnvSetupType === EnvironmentSetupType.NewEnvironment
-							? result.pythonEnvType
+							? result.pythonEnvProvider
 							: '';
 
 					// Install ipykernel if applicable.
@@ -95,7 +97,7 @@ export const showNewProjectModalDialog = async (
 							// If an error occurs while installing ipykernel, a message will be
 							// logged and once the project is opened, when the chosen runtime is
 							// starting, the user will be prompted again to install ipykernel.
-							
+
 							await commandService.executeCommand(
 								'python.installIpykernel',
 								String(pythonPath)
