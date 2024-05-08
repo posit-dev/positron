@@ -28,7 +28,7 @@ export function setup(logger: Logger) {
 
 			});
 
-			it.only('Verifies basic data explorer functionality', async function () {
+			it('Verifies basic data explorer functionality', async function () {
 				const app = this.app as Application;
 
 				// console.log('Installing pandas');
