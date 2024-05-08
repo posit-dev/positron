@@ -335,6 +335,14 @@ def _assert_inspect(value: Any, path: List[Any], variables_comm: DummyComm) -> N
     variables_comm.messages.clear()
 
 
+class TestClass:
+    x: int = 0
+
+    @property
+    def x_plus_one(self):
+        raise AssertionError("Should not be evaluated")
+
+
 @pytest.mark.parametrize(
     ("value_fn"),
     [
@@ -344,6 +352,7 @@ def _assert_inspect(value: Any, path: List[Any], variables_comm: DummyComm) -> N
         lambda: np.array([[0, 1], [2, 3]]),
         # Inspecting large objects should not trigger update messages: https://github.com/posit-dev/positron/issues/2308.
         lambda: np.arange(BIG_ARRAY_LENGTH),
+        lambda: TestClass(),
     ],
 )
 def test_handle_inspect(value_fn, shell: PositronShell, variables_comm: DummyComm) -> None:
