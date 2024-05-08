@@ -4,6 +4,7 @@
 
 import { fail } from 'assert';
 import { Application } from '../../application';
+import { InterpreterType } from '../positronStartInterpreter';
 
 export class PositronRFixtures {
 
@@ -15,7 +16,7 @@ export class PositronRFixtures {
 		if (desiredR === undefined) {
 			fail('Please be sure to set env var POSITRON_R_VER_SEL to the UI text corresponding to the R version for the test');
 		}
-		await this.app.workbench.startInterpreter.selectInterpreter('R', desiredR);
+		await this.app.workbench.startInterpreter.selectInterpreter(InterpreterType.R, desiredR);
 
 		await this.app.workbench.positronConsole.waitForReady('>');
 

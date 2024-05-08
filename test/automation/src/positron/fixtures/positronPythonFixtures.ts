@@ -4,6 +4,7 @@
 
 import { fail } from 'assert';
 import { Application } from '../../application';
+import { InterpreterType } from '../positronStartInterpreter';
 
 export class PositronPythonFixtures {
 
@@ -15,7 +16,7 @@ export class PositronPythonFixtures {
 		if (desiredPython === undefined) {
 			fail('Please be sure to set env var POSITRON_PY_VER_SEL to the UI text corresponding to the Python version for the test');
 		}
-		await this.app.workbench.startInterpreter.selectInterpreter('Python', desiredPython);
+		await this.app.workbench.startInterpreter.selectInterpreter(InterpreterType.Python, desiredPython);
 
 		await this.app.workbench.positronConsole.waitForReady('>>>');
 

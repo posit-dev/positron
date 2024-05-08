@@ -20,22 +20,17 @@ const PRIMARY_INTERPRETER_GROUP_NAMES = `${INTERPRETER_GROUPS} .primary-interpre
 const SECONDARY_INTERPRETER_GROUP_NAMES = `${INTERPRETER_GROUPS} .secondary-interpreter .line:nth-of-type(1)`;
 const SECONDARY_INTERPRETER = `${INTERPRETER_GROUPS} .secondary-interpreter`;
 const INTERPRETER_ACTION_BUTTON = '.primary-interpreter .interpreter-actions .action-button span';
-const DISCOVERY = '.discovery';
+
+export enum InterpreterType {
+	Python = 'Python',
+	R = 'R'
+}
 
 export class StartInterpreter {
 
 	constructor(private code: Code, private positronPopups: PositronPopups) { }
 
-	async selectInterpreter(desiredInterpreterType: string, desiredInterpreterString: string) {
-
-		// discover might be present but might not
-		// if it is present, wait for it to detach
-		// if it is not present, take no action
-		try {
-			const discovery = this.code.driver.getLocator(DISCOVERY);
-			await discovery.waitFor({ state: 'attached', timeout: 2000 });
-			await discovery.waitFor({ state: 'detached', timeout: 120000 });
-		} catch { }
+	async selectInterpreter(desiredInterpreterType: InterpreterType, desiredInterpreterString: string) {
 
 		await this.code.waitAndClick(INTERPRETER_SELECTOR);
 		await this.code.waitForElement(POSITRON_MODAL_POPUP);
@@ -68,8 +63,10 @@ export class StartInterpreter {
 			await this.code.waitAndClick(`${INTERPRETER_GROUPS}:nth-of-type(${primaryInterpreter.index})`);
 		}
 
-		// noop if dialog does not appear
-		await this.positronPopups.installIPyKernel();
+		if (desiredInterpreterType === InterpreterType.Python) {
+			// noop if dialog does not appear
+			await this.positronPopups.installIPyKernel();
+		}
 
 		for (let i = 0; i < 10; i++) {
 			try {
@@ -80,7 +77,9 @@ export class StartInterpreter {
 				console.log('Retrying row click');
 				try {
 					await chosenInterpreter!.click({ timeout: 1000 });
-					await this.positronPopups.installIPyKernel();
+					if (desiredInterpreterType === InterpreterType.Python) {
+						await this.positronPopups.installIPyKernel();
+					}
 				} catch { }
 			}
 		}

@@ -3,7 +3,8 @@
  *--------------------------------------------------------------------------------------------*/
 
 
-import { Application, Logger, PositronPythonFixtures } from '../../../../../automation';
+import { expect } from '@playwright/test';
+import { Application, Logger, PositronPythonFixtures, PositronRFixtures } from '../../../../../automation';
 import { installAllHandlers } from '../../../utils';
 
 export function setup(logger: Logger) {
@@ -22,7 +23,6 @@ export function setup(logger: Logger) {
 			});
 
 			after(async function () {
-				console.log('running after');
 				const app = this.app as Application;
 				await app.code.driver.takeScreenshot('debug');
 
@@ -31,25 +31,13 @@ export function setup(logger: Logger) {
 			it('Verifies basic data explorer functionality', async function () {
 				const app = this.app as Application;
 
-				// console.log('Installing pandas');
-				// await app.workbench.positronConsole.sendCodeToConsole('pip install pandas\n');
-				// await app.workbench.positronConsole.sendEnterKey();
-
-				// const restartMessage = 'Note: you may need to restart the kernel to use updated packages.';
-				// await app.workbench.positronConsole.waitForEndingConsoleText(restartMessage);
-				// console.log('pandas installed');
-
-				// await app.code.driver.takeScreenshot('debug2');
-				// await app.workbench.positronConsole.waitForReady('>>>');
-				// await app.code.driver.takeScreenshot('debug3');
-
+				// snippet from https://www.geeksforgeeks.org/python-pandas-dataframe/
 				const script = `import pandas as pd
 data = {'Name':['Jai', 'Princi', 'Gaurav', 'Anuj'],
 		'Age':[27, 24, 22, 32],
 		'Address':['Delhi', 'Kanpur', 'Allahabad', 'Kannauj'],
 		'Qualification':['Msc', 'MA', 'MCA', 'Phd']}
-df = pd.DataFrame(data)
-print(df[['Name', 'Qualification']])\n`;
+df = pd.DataFrame(data)`;
 
 				console.log('Sending code to console');
 				await app.workbench.positronConsole.sendCodeToConsole(script);
@@ -60,46 +48,71 @@ print(df[['Name', 'Qualification']])\n`;
 				console.log('Opening data grid');
 				await app.workbench.positronVariables.doubleClickVariableRow('df');
 
-				console.log('Hiding secondary side bar');
-				const hideSecondarySideBar = app.code.driver.getLocator('[aria-label="Hide Secondary Side Bar"]');
-				await hideSecondarySideBar.click();
+				await app.workbench.positronSideBar.closeSecondarySideBar();
 
-				const columnHeaders = app.code.driver.getLocator('.data-explorer-panel .column-2 .data-grid-column-headers');
-				await columnHeaders.waitFor({ state: 'attached' });
+				await app.code.wait(2000);
 
-				const headers = columnHeaders.locator('.data-grid-column-header .title-description .title');
-				const headerContents = await headers.all();
-				const headerNames: string[] = [];
+				const tableData = await app.workbench.positronDataExplorer.getDataExplorerTableData();
 
-				for (const headerContent of headerContents) {
-					const header = await headerContent.innerText();
-					headerNames.push(header);
-				}
+				expect(tableData[0]).toStrictEqual({ 'Name': 'Jai', 'Age': '27', 'Address': 'Delhi', 'Qualification': 'Msc' });
+				expect(tableData[1]).toStrictEqual({ 'Name': 'Princi', 'Age': '24', 'Address': 'Kanpur', 'Qualification': 'MA' });
+				expect(tableData[2]).toStrictEqual({ 'Name': 'Gaurav', 'Age': '22', 'Address': 'Allahabad', 'Qualification': 'MCA' });
+				expect(tableData[3]).toStrictEqual({ 'Name': 'Anuj', 'Age': '32', 'Address': 'Kannauj', 'Qualification': 'Phd' });
 
-				const dataGridRows = app.code.driver.getLocator('.data-explorer-panel .column-2 .data-grid-rows');
-				await dataGridRows.waitFor({ state: 'attached' });
+			});
 
-				const rows = dataGridRows.locator('.data-grid-row');
-				const rowContents = await rows.all();
+		});
 
-				const tableData: any[] = [];
+	});
 
-				for (const rowContent of rowContents) {
-					const cells = rowContent.locator('.data-grid-row-cell .content .text');
-					const cellContents = await cells.all();
-					const rowData: any = {};
-					let columnIndex = 0;
+	describe('Data Explorer', () => {
 
-					for (const cellContent of cellContents) {
-						const innerText = await cellContent.innerText();
-						rowData[headerNames[columnIndex]] = innerText;
-						columnIndex++;
-					}
+		// Shared before/after handling
+		installAllHandlers(logger);
 
-					tableData.push(rowData);
-				}
+		describe('R Data Explorer', () => {
 
-				console.log(tableData);
+			before(async function () {
+
+				const rFixtures = new PositronRFixtures(this.app);
+				await rFixtures.startRInterpreter();
+
+			});
+
+			after(async function () {
+				const app = this.app as Application;
+				await app.code.driver.takeScreenshot('debug');
+
+			});
+
+			it('Verifies basic data explorer functionality', async function () {
+				const app = this.app as Application;
+
+				// snippet from https://www.w3schools.com/r/r_data_frames.asp
+				const script = `Data_Frame <- data.frame (
+	Training = c("Strength", "Stamina", "Other"),
+	Pulse = c(100, 150, 120),
+	Duration = c(60, 30, 45)
+)`;
+
+				console.log('Sending code to console');
+				await app.workbench.positronConsole.sendCodeToConsole(script);
+				console.log('Sending enter key');
+				await app.workbench.positronConsole.sendEnterKey();
+				await app.workbench.positronConsole.waitForReady('>');
+
+				console.log('Opening data grid');
+				await app.workbench.positronVariables.doubleClickVariableRow('Data_Frame');
+
+				await app.workbench.positronSideBar.closeSecondarySideBar();
+
+				await app.code.wait(2000);
+
+				const tableData = await app.workbench.positronDataExplorer.getDataExplorerTableData();
+
+				expect(tableData[0]).toStrictEqual({ 'Training': '\"Strength\"', 'Pulse': '100', 'Duration': '60' });
+				expect(tableData[1]).toStrictEqual({ 'Training': '\"Stamina\"', 'Pulse': '150', 'Duration': '30' });
+				expect(tableData[2]).toStrictEqual({ 'Training': '\"Other\"', 'Pulse': '120', 'Duration': '45' });
 
 			});
 

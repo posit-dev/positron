@@ -26,10 +26,14 @@ export * from './viewlet';
 export * from './localization';
 export * from './workbench';
 export * from './task';
+// --- Start Positron ---
 export * from './positron/positronConsole';
 export * from './positron/positronPopups';
 export * from './positron/positronStartInterpreter';
 export * from './positron/positronVariables';
+export * from './positron/positronDataExplorer';
+export * from './positron/positronSideBar';
 export * from './positron/fixtures/positronPythonFixtures';
 export * from './positron/fixtures/positronRFixtures';
+// --- End Positron ---
 export { getDevElectronPath, getBuildElectronPath, getBuildVersion } from './electron';
