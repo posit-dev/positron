@@ -163,6 +163,6 @@ function uint8ToBase64(u8: Uint8Array) {
 		output.push(String.fromCharCode(u8[i]));
 	}
 
-	// btoa() is depreciated but there doesn't seem to be a better way to do this
+	// btoa() is deprecated but there doesn't seem to be a better way to do this
 	return btoa(output.join(''));
 }
