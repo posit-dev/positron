@@ -49,10 +49,6 @@ export class PositronConsole {
 		await this.code.driver.getKeyboard().press('Enter');
 	}
 
-	async sendShiftEnterKeys() {
-		await this.code.driver.getKeyboard().press('Shift+Enter');
-	}
-
 	async getActiveConsole(): Promise<Locator | undefined> {
 
 		for (let i = 0; i < 10; i++) {

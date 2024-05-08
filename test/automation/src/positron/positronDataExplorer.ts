@@ -26,7 +26,6 @@ export class PositronDataExplorer {
 		const dataGridRows = this.code.driver.getLocator(DATA_GRID_ROWS);
 		dataGridRows.waitFor({ state: 'attached' });
 
-
 		const headers = columnHeaders.locator(HEADER_TITLES);
 		const headerContents = await headers.all();
 		const headerNames: string[] = [];
@@ -51,7 +50,12 @@ export class PositronDataExplorer {
 
 			for (const cellContent of cellContents) {
 				const innerText = await cellContent.innerText();
-				rowData[headerNames[columnIndex]] = innerText;
+				const headerName = headerNames[columnIndex];
+				// workaround for extra offscreen cells
+				if (headerName === undefined) {
+					continue;
+				}
+				rowData[headerName] = innerText;
 				columnIndex++;
 			}
 
