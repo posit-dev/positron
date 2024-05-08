@@ -1388,9 +1388,10 @@ export abstract class Layout extends Disposable implements IWorkbenchLayoutServi
 
 	// --- Start Positron ---
 	enterCustomLayout(layout: PositronCustomLayoutDescriptor['layout']) {
-		this.setSideBarHidden(layout.sideBar, true);
-		this.setPanelHidden(layout.panel, true);
-		this.setActivityBarHidden(layout.activityBar, true);
+
+		this.setSideBarHidden(layout.sideBarHidden, true);
+		this.setPanelHidden(layout.panelHidden, true);
+		this.setActivityBarHidden(layout.activityBarHidden, true);
 		this.layout();
 	}
 	// --- End Positron ---

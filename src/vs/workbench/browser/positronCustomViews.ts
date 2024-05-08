@@ -18,10 +18,9 @@ interface IViewsCustomizations {
 }
 
 interface CustomPositronLayoutDescription {
-	panel: boolean;
-	sideBar: boolean;
-	activityBar: boolean;
-	editor: boolean;
+	panelHidden: boolean;
+	sideBarHidden: boolean;
+	activityBarHidden: boolean;
 }
 
 export interface PositronCustomLayoutDescriptor {
@@ -42,10 +41,9 @@ export function loadCustomPositronLayout(description: PositronCustomLayoutDescri
 export const fourPaneDS: PositronCustomLayoutDescriptor =
 {
 	layout: {
-		panel: true,
-		sideBar: true,
-		activityBar: true,
-		editor: true
+		panelHidden: false,
+		sideBarHidden: false,
+		activityBarHidden: false,
 	},
 	views: {
 		'viewContainerLocations': {
@@ -63,10 +61,9 @@ export const fourPaneDS: PositronCustomLayoutDescriptor =
 export const sideBySideDS: PositronCustomLayoutDescriptor =
 {
 	layout: {
-		panel: true,
-		sideBar: false,
-		activityBar: false,
-		editor: true
+		panelHidden: true,
+		sideBarHidden: true,
+		activityBarHidden: false,
 	},
 	views: {
 		'viewContainerLocations': {
