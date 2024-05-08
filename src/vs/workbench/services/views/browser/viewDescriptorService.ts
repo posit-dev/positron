@@ -666,7 +666,7 @@ export class ViewDescriptorService extends Disposable implements IViewDescriptor
 
 	// Helper function to make it easier to develop custom views.
 	dumpViewCustomizations(): void {
-		console.log(JSON.stringify(this.viewCustomizations), null, 2);
+		console.log(JSON.stringify(this.viewCustomizations, null, 2));
 	}
 	// --- End Positron ---
 	// Generated Container Id Format
