@@ -452,7 +452,7 @@ class _BaseCollectionInspector(PositronInspector[CT], ABC):
         # TODO(pyright): type should be narrowed to exclude frozen set, retry in a future version of pyright
         return self.value[key]  # type: ignore
 
-    def get_children(self) -> Iterable:
+    def get_children(self) -> Iterable[int]:
         # Treat collection items as children, with the index as the name
         return range(self.get_length())
 
@@ -678,13 +678,10 @@ class _BaseMapInspector(PositronInspector[MT], ABC):
     def get_child(self, key: Any) -> Any:
         return self.value[key]
 
-    @abstractmethod
-    def get_children(self) -> Iterable[Tuple[Any, Any]]:
-        pass
 
 
 class MapInspector(_BaseMapInspector[Mapping]):
-    def get_children(self) -> Iterable[Tuple[Any, Any]]:
+    def get_children(self) -> Collection[Any]:
         return self.value.keys()
 
     def is_mutable(self) -> bool:
@@ -699,7 +696,7 @@ class BaseColumnInspector(_BaseMapInspector[Column], ABC):
         return self.value[key]
 
     def get_children(self) -> Collection[Any]:
-        return list(range(len(self.value)))
+        return range(len(self.value))
 
     def get_display_type(self) -> str:
         return f"{self.value.dtype} [{self.get_length()}]"
@@ -718,7 +715,7 @@ class PandasSeriesInspector(BaseColumnInspector["pd.Series"]):
     CLASS_QNAME = "pandas.core.series.Series"
 
     def get_children(self) -> Collection[Any]:
-        return list(self.value.index)
+        return self.value.index
 
     def equals(self, value: pd.Series) -> bool:
         return self.value.equals(value)
@@ -824,7 +821,7 @@ class BaseTableInspector(_BaseMapInspector[Table], Generic[Table, Column], ABC):
         return self.value.shape[1]
 
     def get_children(self) -> Collection[Any]:
-        return list(self.value.columns)
+        return self.value.columns
 
     def has_viewer(self) -> bool:
         return True
