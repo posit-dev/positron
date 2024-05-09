@@ -12,9 +12,9 @@ import pydoc
 import re
 import sys
 import types
-from inspect import getattr_static
 from abc import ABC, abstractmethod
 from collections.abc import Mapping, MutableMapping, MutableSequence, MutableSet, Sequence, Set
+from inspect import getattr_static
 from typing import (
     TYPE_CHECKING,
     Any,
@@ -34,7 +34,7 @@ from typing import (
 )
 
 from .third_party import np_, pd_, torch_
-from .utils import JsonData, get_qualname, not_none, pretty_format
+from .utils import JsonData, get_qualname, not_none, pretty_format, safe_isinstance
 
 if TYPE_CHECKING:
     import numpy as np
@@ -61,14 +61,6 @@ logger = logging.getLogger(__name__)
 #
 
 T = TypeVar("T")
-
-
-class CopyError(Exception):
-    """
-    Raised by inspector.copy() when an object can't be copied.
-    """
-
-    pass
 
 
 class PositronInspector(Generic[T]):
@@ -126,7 +118,9 @@ class PositronInspector(Generic[T]):
         return False
 
     def is_mutable(self) -> bool:
-        return False
+        # Without any additional information it's safer to assume that the inspector is mutable,
+        # which also disables deepcopying. See the __deepcopy__ docstring for more.
+        return True
 
     def get_comparison_cost(self) -> int:
         return self.get_size()
@@ -140,12 +134,23 @@ class PositronInspector(Generic[T]):
             # objects), this will error
             return False
 
-    def copy(self) -> T:
-        # TODO: Need to add unit tests for the deepcopy case
+    def deepcopy(self) -> T:
+        return copy.deepcopy(self).value
+
+    def __deepcopy__(self, memo: Dict[int, Any]):
+        """
+        Inspectors are not deepcopyable by default, since deepcopying may have unintended
+        side-effects (see https://github.com/posit-dev/positron/issues/2833). To support
+        deepcopying, sub-classes must override `__deepcopy__`.
+
+        Inspectors for containers of arbitrary types (e.g. `CollectionInspector`, `MapInspector`)
+        should ensure that wrap children in inspectors before calling down to `copy.deepcopy`.
+        This lets us control the deepcopy behavior at every level to avoid unintended side-effects.
+        """
         if self.is_mutable():
-            return copy.deepcopy(self.value)
-        else:
-            return copy.copy(self.value)
+            raise copy.Error(f"Deepcopying is not supported for type: {type(self.value)}")
+        # If the value is immutable, the deepcopy may reference the same value.
+        return type(self)(self.value)
 
     def to_html(self) -> str:
         return repr(self.value)
@@ -187,7 +192,15 @@ class PositronInspector(Generic[T]):
 #
 
 
+class NoneInspector(PositronInspector[types.NoneType]):
+    def is_mutable(self) -> bool:
+        return False
+
+
 class BooleanInspector(PositronInspector[bool]):
+    def is_mutable(self) -> bool:
+        return False
+
     def get_kind(self) -> str:
         return "boolean"
 
@@ -203,6 +216,16 @@ class BooleanInspector(PositronInspector[bool]):
 
 
 class BytesInspector(PositronInspector[bytes]):
+    def is_mutable(self) -> bool:
+        return not isinstance(self.value, bytes)
+
+    def __deepcopy__(self, memo: Dict[int, Any]) -> BytesInspector:
+        if isinstance(self.value, bytearray):
+            # Bytearrays are mutable, but can only hold bytes, so it's safe to use the default
+            # deepcopy implementation.
+            return type(self)(copy.deepcopy(self.value, memo))
+        return super().__deepcopy__(memo)
+
     def get_display_value(
         self,
         print_width: Optional[int] = PRINT_WIDTH,
@@ -278,14 +301,14 @@ class ClassInspector(ObjectInspector[type]):
 
 
 class PropertyInspector(PositronInspector[property]):
-    def has_children(self) -> bool:
+    def is_mutable(self) -> bool:
         return False
-
-    def get_length(self) -> int:
-        return 0
 
 
 class FunctionInspector(PositronInspector[Callable]):
+    def is_mutable(self) -> bool:
+        return False
+
     def get_display_value(
         self,
         print_width: Optional[int] = PRINT_WIDTH,
@@ -302,6 +325,9 @@ class FunctionInspector(PositronInspector[Callable]):
 
 
 class NumberInspector(PositronInspector[numbers.Number]):
+    def is_mutable(self) -> bool:
+        return False
+
     def get_kind(self) -> str:
         return "number"
 
@@ -349,6 +375,9 @@ class NumberInspector(PositronInspector[numbers.Number]):
 
 
 class StringInspector(PositronInspector[str]):
+    def is_mutable(self) -> bool:
+        return False
+
     def get_display_value(
         self,
         print_width: Optional[int] = PRINT_WIDTH,
@@ -385,7 +414,8 @@ Timestamp = TypeVar("Timestamp", datetime.datetime, "pd.Timestamp")
 
 
 class _BaseTimestampInspector(PositronInspector[Timestamp], ABC):
-    CLASS: Type[Timestamp]
+    def is_mutable(self) -> bool:
+        return False
 
     @classmethod
     @abstractmethod
@@ -462,6 +492,42 @@ class _BaseCollectionInspector(PositronInspector[CT], ABC):
 
 
 class CollectionInspector(_BaseCollectionInspector[CollectionT]):
+    def __deepcopy__(self, memo: Dict[int, Any]):
+        if not self.is_mutable():
+            return super().__deepcopy__(memo)
+
+        # To avoid infinite recursion if the value contains a circular reference to the inspector,
+        # check if the copy is already in the memo.
+        key = id(self)
+        if key in memo:
+            return memo[key]
+
+        # Start with a shallow copy and store it in the memo before we call down to copy.deepcopy
+        # for the value.
+        copied = copy.copy(self)
+        memo[key] = copied
+
+        # Convince the type checker that self.value is not a range - true because of the is_mutable
+        # early exit above.
+        assert not isinstance(self.value, range)
+
+        # Deepcopy the value, wrapping each child in an inspector, so that we can control deepcopy
+        # behavior at every level.
+        copied.value = type(self.value)(
+            (
+                # If there is a circular reference, return self instead of a new inspector so that
+                # the next call to deepcopy gets the item we set earlier in the memo.
+                copied.value
+                if self.value is child
+                else copy.deepcopy(
+                    get_inspector(child),
+                    memo,
+                ).value
+            )
+            for child in self.value
+        )
+        return copied
+
     def get_display_type(self) -> str:
         # Display length for various collections and maps
         # using the Python notation for the type
@@ -480,7 +546,9 @@ class CollectionInspector(_BaseCollectionInspector[CollectionT]):
         return 10 * self.get_length()
 
     def is_mutable(self) -> bool:
-        return isinstance(self.value, (MutableSequence, MutableSet))
+        return isinstance(self.value, (MutableSequence, MutableSet)) or safe_isinstance(
+            self.value, "fastcore.foundation", "L"
+        )
 
     def value_to_json(self) -> JsonData:
         if isinstance(self.value, range):
@@ -587,8 +655,11 @@ class NumpyNdarrayInspector(_BaseArrayInspector["np.ndarray"]):
     def equals(self, value: np.ndarray) -> bool:
         return not_none(np_).array_equal(self.value, value)
 
-    def copy(self) -> np.ndarray:
-        return self.value.copy()
+    def __deepcopy__(self, memo: Dict[int, Any]):
+        # TODO: ndarray.copy() is actually a shallow copy which could cause unexpected behavior for
+        #       arrays of Python objects. We should either follow the approach of
+        #       CollectionInspector in that case, or raise a copy.Error.
+        return type(self)(self.value.copy())
 
 
 class TorchTensorInspector(_BaseArrayInspector["torch.Tensor"]):
@@ -625,22 +696,12 @@ class TorchTensorInspector(_BaseArrayInspector["torch.Tensor"]):
     def equals(self, value: torch.Tensor) -> bool:
         return not_none(torch_).equal(self.value, value)
 
-    def copy(self) -> torch.Tensor:
+    def __deepcopy__(self, memo: Dict[int, Any]):
         # Detach the tensor from any existing computation graphs to avoid gradients propagating
         # through them.
         # TODO: This creates a completely new tensor using new memory. Is there a more
         #       memory-efficient way to do this?
-        return self.value.detach().clone()
-
-    def get_size(self) -> int:
-        if self.value.ndim == 0:
-            return self.value.element_size()
-
-        num_elements = 1
-        for dim in self.value.shape:
-            num_elements *= dim
-
-        return num_elements * self.value.element_size()
+        return type(self)(self.value.detach().clone())
 
 
 #
@@ -680,6 +741,40 @@ class _BaseMapInspector(PositronInspector[MT], ABC):
 
 
 class MapInspector(_BaseMapInspector[Mapping]):
+    def __deepcopy__(self, memo: Dict[int, Any]):
+        if not self.is_mutable():
+            return super().__deepcopy__(memo)
+
+        # To avoid infinite recursion if the value contains a circular reference to the inspector,
+        # check if the copy is already in the memo.
+        key = id(self)
+        if key in memo:
+            return memo[key]
+
+        # Start with a shallow copy and store it in the memo before we call down to copy.deepcopy
+        # for the value.
+        copied = copy.copy(self)
+        memo[key] = copied
+
+        # Deepcopy the value, wrapping each child in an inspector, so that we can control deepcopy
+        # behavior at every level.
+        copied.value = type(self.value)(
+            (
+                key,
+                # If there is a circular reference, return self instead of a new inspector so that
+                # the next call to deepcopy gets the item we set earlier in the memo.
+                (
+                    copied.value
+                    if self.value is value
+                    else copy.deepcopy(
+                        self if self.value is value else get_inspector(value), memo
+                    ).value
+                ),
+            )
+            for key, value in self.value.items()
+        )
+        return copied
+
     def get_children(self) -> Collection[Any]:
         return self.value.keys()
 
@@ -691,6 +786,9 @@ Column = TypeVar("Column", "pd.Series", "pl.Series", "pd.Index")
 
 
 class BaseColumnInspector(_BaseMapInspector[Column], ABC):
+    def is_mutable(self) -> bool:
+        return True
+
     def get_child(self, key: Any) -> Any:
         return self.value[key]
 
@@ -719,10 +817,10 @@ class PandasSeriesInspector(BaseColumnInspector["pd.Series"]):
     def equals(self, value: pd.Series) -> bool:
         return self.value.equals(value)
 
-    def copy(self) -> pd.Series:
+    def __deepcopy__(self, memo: Dict[int, Any]):
         # Copies memory because pandas < 3.0 does not have
         # copy-on-write.
-        return self.value.copy(deep=True)
+        return type(self)(self.value.copy(deep=True))
 
     def to_html(self) -> str:
         # TODO: Support HTML
@@ -740,6 +838,9 @@ class PandasIndexInspector(BaseColumnInspector["pd.Index"]):
         "pandas.core.indexes.multi.MultiIndex",
         "pandas.core.indexes.numeric.Int64Index",
     ]
+
+    def is_mutable(self) -> bool:
+        return False
 
     def get_display_value(
         self,
@@ -763,11 +864,6 @@ class PandasIndexInspector(BaseColumnInspector["pd.Index"]):
     def equals(self, value: pd.Index) -> bool:
         return self.value.equals(value)
 
-    def copy(self) -> pd.Index:
-        # Copies memory because pandas < 3.0 does not have
-        # copy-on-write.
-        return self.value.copy(deep=True)
-
     def to_html(self) -> str:
         # TODO: Support HTML
         return self.to_plaintext()
@@ -783,12 +879,15 @@ class PolarsSeriesInspector(BaseColumnInspector["pl.Series"]):
     ]
 
     def equals(self, value: pl.Series) -> bool:
-        return self.value.series_equal(value)
+        try:
+            return self.value.equals(value)
+        except AttributeError:  # polars.Series.equals was introduced in v0.19.16
+            return self.value.series_equal(value)
 
-    def copy(self) -> pl.Series:
+    def __deepcopy__(self, memo: Dict[int, Any]):
         # Polars produces a shallow clone and does not copy any memory
         # in this operation.
-        return self.value.clone()
+        return type(self)(self.value.clone())
 
     def to_html(self) -> str:
         # TODO: Support HTML
@@ -852,10 +951,10 @@ class PandasDataFrameInspector(BaseTableInspector["pd.DataFrame", "pd.Series"]):
     def equals(self, value: pd.DataFrame) -> bool:
         return self.value.equals(value)
 
-    def copy(self) -> pd.DataFrame:
+    def __deepcopy__(self, memo: Dict[int, Any]):
         # Copies memory because pandas < 3.0 does not have
         # copy-on-write.
-        return self.value.copy(deep=True)
+        return type(self)(self.value.copy(deep=True))
 
     def to_html(self) -> str:
         return self.value.to_html()
@@ -886,10 +985,10 @@ class PolarsDataFrameInspector(BaseTableInspector["pl.DataFrame", "pl.Series"]):
         except AttributeError:  # polars.DataFrame.equals was introduced in v0.19.16
             return self.value.frame_equal(value)
 
-    def copy(self) -> pl.DataFrame:
+    def __deepcopy__(self, memo: Dict[int, Any]):
         # Polars produces a shallow clone and does not copy any memory
         # in this operation.
-        return self.value.clone()
+        return type(self)(self.value.clone())
 
     def to_html(self) -> str:
         return self.value._repr_html_()
@@ -908,9 +1007,9 @@ class BaseConnectionInspector(ObjectInspector):
     def is_mutable(self) -> bool:
         return True
 
-    def copy(self) -> Any:
-        # Connections are mutable but not copiable.
-        raise CopyError("Connections are not copiable")
+    def __deepcopy__(self, memo: Dict[int, Any]):
+        # Connections are mutable but not deepcopiable.
+        raise copy.Error("Connections are not copiable")
 
     def _is_active(self, value) -> bool:
         raise NotImplementedError
@@ -957,10 +1056,12 @@ INSPECTOR_CLASSES: Dict[str, Type[PositronInspector]] = {
     "bytes": BytesInspector,
     "class": ClassInspector,
     "collection": CollectionInspector,
+    "empty": NoneInspector,
     "function": FunctionInspector,
     "map": MapInspector,
     "number": NumberInspector,
     "other": ObjectInspector,
+    "property": PropertyInspector,
     "string": StringInspector,
 }
 
@@ -972,7 +1073,9 @@ INSPECTOR_CLASSES: Dict[str, Type[PositronInspector]] = {
 def get_inspector(value: T) -> PositronInspector[T]:
     # Look for a specific inspector by qualified classname
     if isinstance(value, type):
-        qualname = str("type")
+        qualname = "type"
+    elif isinstance(value, property):
+        qualname = "property"
     else:
         qualname = get_qualname(value)
     inspector_cls = INSPECTOR_CLASSES.get(qualname, None)

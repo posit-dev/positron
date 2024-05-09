@@ -1,20 +1,22 @@
 #
 # Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
 #
-
+import copy
 import datetime
 import inspect
+import math
 import pprint
 import random
 import string
 import types
-from typing import Any, Callable, Tuple, Iterable
+from typing import Any, Callable, Iterable, Optional, Tuple
 
 import numpy as np
 import pandas as pd
 import polars as pl
 import pytest
 from fastcore.foundation import L
+
 from positron_ipykernel.inspectors import PRINT_WIDTH, TRUNCATE_AT, get_inspector
 from positron_ipykernel.utils import get_qualname
 from positron_ipykernel.variables_comm import VariableKind
@@ -49,9 +51,11 @@ def verify_inspector(
     type_info: str,
     has_children: bool = False,
     has_viewer: bool = False,
+    check_deepcopy: bool = True,
+    supports_deepcopy: bool = True,
+    mutable: bool = False,
+    mutate: Optional[Callable[[Any], None]] = None,
 ) -> None:
-    # NOTE: Skip `get_size` for now, since it depends on platform, Python version, and package version.
-
     inspector = get_inspector(value)
 
     assert inspector.get_length() == length
@@ -61,6 +65,33 @@ def verify_inspector(
     assert inspector.get_kind() == kind
     assert inspector.get_display_type() == display_type
     assert inspector.get_type_info() == type_info
+
+    if check_deepcopy:
+        if supports_deepcopy:
+            copied = copy.deepcopy(inspector)
+
+            if mutable:
+                # Check that the value is the same.
+                assert copied.equals(value)
+
+                # Mutate the copied object, and check that the original object was not mutated.
+                assert (
+                    mutate is not None
+                ), "mutate function must be provided to test mutable objects"
+                mutate(copied.value)
+                assert not copied.equals(value)
+            else:
+                # Deepcopying an immutable object should return the exact same object.
+
+                # Handle an edge case where a bound method object returns a new object not equal to
+                # the original but wrapping the same underlying function.
+                if isinstance(value, types.MethodType):
+                    assert copied.value.__func__ is inspector.value.__func__
+                else:
+                    assert copied.value is inspector.value
+        else:
+            with pytest.raises(copy.Error):
+                copy.deepcopy(inspector)
 
 
 class HelperClass:
@@ -210,6 +241,7 @@ def test_inspect_classes(value: type) -> None:
         kind=VariableKind.Class,
         display_type="type",
         type_info="type",
+        supports_deepcopy=False,
     )
 
 
@@ -251,6 +283,8 @@ def test_inspect_bytearray(value: bytearray) -> None:
         display_type=f"bytearray [{length}]",
         type_info="bytearray",
         length=length,
+        mutable=True,
+        mutate=lambda x: x.append(0),
     )
 
 
@@ -265,6 +299,8 @@ def test_inspect_bytearray_truncated() -> None:
         type_info="bytearray",
         length=length,
         is_truncated=True,
+        mutable=True,
+        mutate=lambda x: x.append(0),
     )
 
 
@@ -280,6 +316,7 @@ def test_inspect_memoryview() -> None:
         display_type=f"memoryview [{length}]",
         type_info="memoryview",
         length=length,
+        supports_deepcopy=False,
     )
 
 
@@ -348,6 +385,8 @@ def test_inspect_set(value: set) -> None:
         display_type=f"set {{{length}}}",
         type_info="set",
         length=length,
+        mutable=True,
+        mutate=lambda x: x.add(object()),
     )
 
 
@@ -362,6 +401,8 @@ def test_inspect_set_truncated() -> None:
         type_info="set",
         length=length,
         is_truncated=True,
+        mutable=True,
+        mutate=lambda x: x.add(object()),
     )
 
 
@@ -390,7 +431,18 @@ def test_inspect_list(value: list) -> None:
         type_info="list",
         length=length,
         has_children=length > 0,
+        mutable=True,
+        mutate=lambda x: x.append(1),
     )
+
+
+def test_deepcopy_list_of_mutables() -> None:
+    # Deepcopying a list of mutable items with no custom deepcopy implementation should raise an error.
+    obj = object()
+    value = [obj]
+    inspector = get_inspector(value)
+    with pytest.raises(copy.Error):
+        copy.deepcopy(inspector)
 
 
 def test_inspect_list_truncated() -> None:
@@ -405,6 +457,8 @@ def test_inspect_list_truncated() -> None:
         length=length,
         has_children=True,
         is_truncated=True,
+        mutable=True,
+        mutate=lambda x: x.append(1),
     )
 
 
@@ -421,7 +475,11 @@ def test_inspect_list_cycle() -> None:
         type_info="list",
         length=length,
         has_children=True,
+        # We can't validate that deepcopying a circular list works since the equality check fails,
+        # so we simply ensure that the deepcopy doesn't error below.
+        check_deepcopy=False,
     )
+    copy.deepcopy(get_inspector(value))
 
 
 @pytest.mark.parametrize("value", RANGE_CASES)
@@ -454,6 +512,7 @@ FASTCORE_LIST_CASES = [
 @pytest.mark.parametrize("value", FASTCORE_LIST_CASES)
 def test_inspect_fastcore_list(value: L) -> None:
     length = len(value)
+    check_deepcopy = not any(isinstance(x, float) and math.isnan(x) for x in value)
     verify_inspector(
         value=value,
         is_truncated=False,
@@ -463,6 +522,9 @@ def test_inspect_fastcore_list(value: L) -> None:
         type_info="fastcore.foundation.L",
         length=length,
         has_children=length > 0,
+        check_deepcopy=check_deepcopy,
+        mutable=True,
+        mutate=lambda x: x.append(1),
     )
 
 
@@ -502,7 +564,29 @@ def test_inspect_map(value: dict) -> None:
         type_info="dict",
         length=length,
         has_children=length > 0,
+        mutable=True,
+        mutate=lambda x: x.update({object(): 1}),
     )
+
+
+def test_inspect_map_cycle() -> None:
+    value = {}
+    value["cycle"] = value
+    length = len(value)
+    verify_inspector(
+        value=value,
+        is_truncated=False,
+        display_value=pprint.pformat(value, width=PRINT_WIDTH, compact=True),
+        kind=VariableKind.Map,
+        display_type=f"dict [{length}]",
+        type_info="dict",
+        length=length,
+        has_children=length > 0,
+        # We can't validate that deepcopying a circular map works since the equality check fails,
+        # so we simply ensure that the deepcopy doesn't error below.
+        check_deepcopy=False,
+    )
+    copy.deepcopy(get_inspector(value))
 
 
 #
@@ -553,6 +637,7 @@ def test_inspect_object(value: Any) -> None:
         kind=VariableKind.Other,
         display_type="HelperClass",
         type_info="positron_ipykernel.tests.test_inspectors.HelperClass",
+        supports_deepcopy=False,
     )
 
 
@@ -599,6 +684,8 @@ def test_inspect_numpy_array(value: np.ndarray) -> None:
         has_children=True,
         is_truncated=True,
         length=shape[0],
+        mutable=True,
+        mutate=lambda x: x.fill(0),
     )
 
 
@@ -617,6 +704,8 @@ def test_inspect_numpy_array_0d(value: np.ndarray) -> None:
         type_info="numpy.ndarray",
         is_truncated=True,
         length=0,
+        mutable=True,
+        mutate=lambda x: x.fill(0),
     )
 
 
@@ -628,6 +717,10 @@ def test_inspect_numpy_array_0d(value: np.ndarray) -> None:
 def test_inspect_pandas_dataframe() -> None:
     value = pd.DataFrame({"a": [1, 2], "b": ["3", "4"]})
     rows, cols = value.shape
+
+    def mutate(x):
+        x["c"] = [5, 6]
+
     verify_inspector(
         value=value,
         display_value=f"[{rows} rows x {cols} columns] {get_type_as_str(value)}",
@@ -638,6 +731,8 @@ def test_inspect_pandas_dataframe() -> None:
         has_viewer=True,
         is_truncated=True,
         length=rows,
+        mutable=True,
+        mutate=mutate,
     )
 
 
@@ -653,6 +748,7 @@ def test_inspect_pandas_dataframe() -> None:
 def test_inspect_pandas_index(value: pd.Index) -> None:
     (rows,) = value.shape
     not_range_index = not isinstance(value, pd.RangeIndex)
+
     verify_inspector(
         value=value,
         display_value=str(value.to_list() if not_range_index else value),
@@ -668,6 +764,10 @@ def test_inspect_pandas_index(value: pd.Index) -> None:
 def test_inspect_pandas_series() -> None:
     value = pd.Series({"a": 0, "b": 1})
     (rows,) = value.shape
+
+    def mutate(x):
+        x["a"] = 1
+
     verify_inspector(
         value=value,
         display_value="[0, 1]",
@@ -677,6 +777,8 @@ def test_inspect_pandas_series() -> None:
         has_children=True,
         is_truncated=True,
         length=rows,
+        mutable=True,
+        mutate=mutate,
     )
 
 
@@ -693,12 +795,18 @@ def test_inspect_polars_dataframe() -> None:
         has_viewer=True,
         is_truncated=True,
         length=rows,
+        mutable=True,
+        mutate=lambda x: x.drop_in_place("a"),
     )
 
 
 def test_inspect_polars_series() -> None:
     value = pl.Series([0, 1])
     (rows,) = value.shape
+
+    def mutate(x):
+        x[0] = 1
+
     verify_inspector(
         value=value,
         display_value="[0, 1]",
@@ -708,6 +816,8 @@ def test_inspect_polars_series() -> None:
         has_children=True,
         is_truncated=True,
         length=rows,
+        mutable=True,
+        mutate=mutate,
     )
 
 
@@ -765,22 +875,3 @@ def test_get_children(data: Any, expected: Iterable) -> None:
 def test_get_child(value: Any, key: Any, expected: Any) -> None:
     child = get_inspector(value).get_child(key)
     assert get_inspector(child).equals(expected)
-
-
-@pytest.mark.parametrize(
-    ("value", "expected"),
-    [
-        (np.array([[1, 2, 3], [4, 5, 6]], dtype="int64"), 48),
-        (torch.Tensor([[1, 2, 3], [4, 5, 6]]) if torch else None, 24),
-        (pd.Series([1, 2, 3, 4]), 32),
-        (pl.Series([1, 2, 3, 4]), 32),
-        (pd.DataFrame({"a": [1, 2], "b": ["3", "4"]}), 32),
-        (pl.DataFrame({"a": [1, 2], "b": ["3", "4"]}), 32),
-        (pd.Index([0, 1]), 16),
-    ],
-)
-def test_arrays_maps_get_size(value: Any, expected: int) -> None:
-    if value is None:
-        return
-    inspector = get_inspector(value)
-    assert inspector.get_size() == expected
