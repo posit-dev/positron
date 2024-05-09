@@ -21,7 +21,12 @@ export const PositronWelcomePageHelp = (props: PropsWithChildren<PositronWelcome
 	const buildLinks = () => {
 		return (
 			<div className='welcome-help-links'>
-				<ExternalLink href='https://github.com/posit-dev/positron-beta/wiki' openerService={props.openerService}>{(() => localize('positronWelcome.positronDocumentation', 'Positron Documentation'))()}</ExternalLink>
+				<ExternalLink
+					href='https://github.com/posit-dev/positron-beta/wiki'
+					openerService={props.openerService}
+				>
+					{localize('positron.welcome.positronDocumentation', "Positron Documentation")}
+				</ExternalLink>
 				<ExternalLink href='https://github.com/posit-dev/positron-beta/discussions' openerService={props.openerService}>Positron Community</ExternalLink>
 				<ExternalLink href='https://github.com/posit-dev/positron-beta/issues' openerService={props.openerService}>Report a bug</ExternalLink>
 			</div>

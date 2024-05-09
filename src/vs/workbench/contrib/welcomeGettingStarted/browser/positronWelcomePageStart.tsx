@@ -39,31 +39,33 @@ export const PositronWelcomePageStart = (props: PropsWithChildren<PositronWelcom
 		<div className='positron-welcome-page-open welcome-page-section'>
 			<h2>Start</h2>
 			<div className='positron-welcome-page-start buttons'>
-				<WelcomeMenuButton label={(() => localize('positronWelcome.newNotebook', "New Notebook"))()}
+				<WelcomeMenuButton
+					label={(() => localize('positron.welcome.newNotebook', "New Notebook"))()}
 					codicon='positron-new-notebook'
-					ariaLabel={(() => localize('positronWelcome.newNotebookDescription', "Create a Python or R Notebook"))()}
+					ariaLabel={(() => localize('positron.welcome.newNotebookDescription', "Create a Python or R Notebook"))()}
 					actions={[
 						{
 							renderIcon: () => <PythonLogo />,
-							label: (() => localize('positronWelcome.newPythonNotebook', "Python Notebook"))(),
+							label: (() => localize('positron.welcome.newPythonNotebook', "Python Notebook"))(),
 							run: () => props.commandService.executeCommand('ipynb.newUntitledIpynb', 'python'),
 							id: 'welcome.newPythonNotebook',
-							tooltip: localize('positronWelcome.newPythonNotebookDescription', "Create a new Python notebook"),
+							tooltip: localize('positron.welcome.newPythonNotebookDescription', "Create a new Python notebook"),
 						},
 						{
 							renderIcon: () => <RLogo />,
-							label: (() => localize('positronWelcome.newRNotebook', "R Notebook"))(),
+							label: (() => localize('positron.welcome.newRNotebook', "R Notebook"))(),
 							run: () => props.commandService.executeCommand('ipynb.newUntitledIpynb', 'r'),
 							id: 'welcome.newRNotebook',
-							tooltip: localize('positronWelcome.newRNotebookDescription', "Create a new R notebook"),
+							tooltip: localize('positron.welcome.newRNotebookDescription', "Create a new R notebook"),
 						},
 					]}
 					keybindingService={props.keybindingService}
 					layoutService={props.layoutService}
 				/>
-				<WelcomeButton label={(() => localize('positronWelcome.newFile', "New File"))()}
+				<WelcomeButton
+					label={(() => localize('positron.welcome.newFile', "New File"))()}
 					codicon='positron-new-file'
-					ariaLabel={(() => localize('positronWelcome.newFileDescription', "Create a new file"))()}
+					ariaLabel={(() => localize('positron.welcome.newFileDescription', "Create a new file"))()}
 					onPressed={() => props.commandService.executeCommand('welcome.showNewFileEntries')}
 				/>
 				<WelcomeConsoleButton keybindingService={props.keybindingService}
@@ -73,9 +75,10 @@ export const PositronWelcomePageStart = (props: PropsWithChildren<PositronWelcom
 					runtimeStartupService={props.runtimeStartupService}
 					commandService={props.commandService}
 				/>
-				<WelcomeButton label={(() => localize('positronWelcome.newProject', "New Project"))()}
+				<WelcomeButton
+					label={(() => localize('positron.welcome.newProject', "New Project"))()}
 					codicon='positron-new-project'
-					ariaLabel={(() => localize('positronWelcome.newProjectDescription', "Create a new project"))()}
+					ariaLabel={(() => localize('positron.welcome.newProjectDescription', "Create a new project"))()}
 					onPressed={() => props.commandService.executeCommand(PositronNewProjectAction.ID)}
 				/>
 			</div>
