@@ -96,7 +96,7 @@ export class PositronConsole {
 				if (line.includes('started')) {
 					return;
 				} else {
-					this.code.wait(1000);
+					await this.code.wait(1000);
 					consoleContents = await this.getConsoleContents();
 				}
 			}
