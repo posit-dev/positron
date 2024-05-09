@@ -142,10 +142,6 @@ class PositronInspector(Generic[T]):
         Inspectors are not deepcopyable by default, since deepcopying may have unintended
         side-effects (see https://github.com/posit-dev/positron/issues/2833). To support
         deepcopying, sub-classes must override `__deepcopy__`.
-
-        Inspectors for containers of arbitrary types (e.g. `CollectionInspector`, `MapInspector`)
-        should ensure that wrap children in inspectors before calling down to `copy.deepcopy`.
-        This lets us control the deepcopy behavior at every level to avoid unintended side-effects.
         """
         if self.is_mutable():
             raise copy.Error(f"Deepcopying is not supported for type: {type(self.value)}")
@@ -492,42 +488,6 @@ class _BaseCollectionInspector(PositronInspector[CT], ABC):
 
 
 class CollectionInspector(_BaseCollectionInspector[CollectionT]):
-    def __deepcopy__(self, memo: Dict[int, Any]):
-        if not self.is_mutable():
-            return super().__deepcopy__(memo)
-
-        # To avoid infinite recursion if the value contains a circular reference to the inspector,
-        # check if the copy is already in the memo.
-        key = id(self)
-        if key in memo:
-            return memo[key]
-
-        # Start with a shallow copy and store it in the memo before we call down to copy.deepcopy
-        # for the value.
-        copied = copy.copy(self)
-        memo[key] = copied
-
-        # Convince the type checker that self.value is not a range - true because of the is_mutable
-        # early exit above.
-        assert not isinstance(self.value, range)
-
-        # Deepcopy the value, wrapping each child in an inspector, so that we can control deepcopy
-        # behavior at every level.
-        copied.value = type(self.value)(
-            (
-                # If there is a circular reference, return self instead of a new inspector so that
-                # the next call to deepcopy gets the item we set earlier in the memo.
-                copied.value
-                if self.value is child
-                else copy.deepcopy(
-                    get_inspector(child),
-                    memo,
-                ).value
-            )
-            for child in self.value
-        )
-        return copied
-
     def get_display_type(self) -> str:
         # Display length for various collections and maps
         # using the Python notation for the type
@@ -546,8 +506,10 @@ class CollectionInspector(_BaseCollectionInspector[CollectionT]):
         return 10 * self.get_length()
 
     def is_mutable(self) -> bool:
-        return isinstance(self.value, (MutableSequence, MutableSet)) or safe_isinstance(
-            self.value, "fastcore.foundation", "L"
+        return (
+            isinstance(self.value, (MutableSequence, MutableSet))
+            # fastcore's L is a mutable list but doesn't pass the isinstance check.
+            or safe_isinstance(self.value, "fastcore.foundation", "L")
         )
 
     def value_to_json(self) -> JsonData:
@@ -703,6 +665,16 @@ class TorchTensorInspector(_BaseArrayInspector["torch.Tensor"]):
         #       memory-efficient way to do this?
         return type(self)(self.value.detach().clone())
 
+    def get_size(self) -> int:
+        if self.value.ndim == 0:
+            return self.value.element_size()
+
+        num_elements = 1
+        for dim in self.value.shape:
+            num_elements *= dim
+
+        return num_elements * self.value.element_size()
+
 
 #
 # Maps
@@ -741,40 +713,6 @@ class _BaseMapInspector(PositronInspector[MT], ABC):
 
 
 class MapInspector(_BaseMapInspector[Mapping]):
-    def __deepcopy__(self, memo: Dict[int, Any]):
-        if not self.is_mutable():
-            return super().__deepcopy__(memo)
-
-        # To avoid infinite recursion if the value contains a circular reference to the inspector,
-        # check if the copy is already in the memo.
-        key = id(self)
-        if key in memo:
-            return memo[key]
-
-        # Start with a shallow copy and store it in the memo before we call down to copy.deepcopy
-        # for the value.
-        copied = copy.copy(self)
-        memo[key] = copied
-
-        # Deepcopy the value, wrapping each child in an inspector, so that we can control deepcopy
-        # behavior at every level.
-        copied.value = type(self.value)(
-            (
-                key,
-                # If there is a circular reference, return self instead of a new inspector so that
-                # the next call to deepcopy gets the item we set earlier in the memo.
-                (
-                    copied.value
-                    if self.value is value
-                    else copy.deepcopy(
-                        self if self.value is value else get_inspector(value), memo
-                    ).value
-                ),
-            )
-            for key, value in self.value.items()
-        )
-        return copied
-
     def get_children(self) -> Collection[Any]:
         return self.value.keys()
 
