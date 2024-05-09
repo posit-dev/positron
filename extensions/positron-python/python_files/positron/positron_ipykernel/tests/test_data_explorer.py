@@ -2,6 +2,8 @@
 # Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
 #
 
+# ruff: noqa: E712
+
 from typing import Any, Dict, List, Optional, Type, cast
 
 import numpy as np
@@ -87,6 +89,7 @@ SIMPLE_PANDAS_DF = pd.DataFrame(
             ]
         ),
         "f": [None, MyData(5), MyData(-1), None, None],
+        "g": [True, False, True, False, True],
     }
 )
 
@@ -416,7 +419,7 @@ def _wrap_json(model: Type[BaseModel], data: JsonRecords):
 def test_pandas_get_state(dxf: DataExplorerFixture):
     result = dxf.get_state("simple")
     assert result["display_name"] == "simple"
-    ex_shape = {"num_rows": 5, "num_columns": 6}
+    ex_shape = {"num_rows": 5, "num_columns": 7}
     assert result["table_shape"] == ex_shape
     assert result["table_unfiltered_shape"] == ex_shape
 
@@ -436,7 +439,7 @@ def test_pandas_get_state(dxf: DataExplorerFixture):
     result = dxf.get_state("simple")
     assert result["sort_keys"] == sort_keys
 
-    ex_filtered_shape = {"num_rows": 2, "num_columns": 6}
+    ex_filtered_shape = {"num_rows": 2, "num_columns": 7}
     assert result["table_shape"] == ex_filtered_shape
     assert result["table_unfiltered_shape"] == ex_shape
 
@@ -519,6 +522,12 @@ def test_pandas_get_schema(dxf: DataExplorerFixture):
             "type_name": "mixed",
             "type_display": "unknown",
         },
+        {
+            "column_name": "g",
+            "column_index": 6,
+            "type_name": "bool",
+            "type_display": "boolean",
+        },
     ]
 
     assert result["columns"] == _wrap_json(ColumnSchema, full_schema)
@@ -526,7 +535,7 @@ def test_pandas_get_schema(dxf: DataExplorerFixture):
     result = dxf.get_schema("simple", 2, 100)
     assert result["columns"] == _wrap_json(ColumnSchema, full_schema[2:])
 
-    result = dxf.get_schema("simple", 6, 100)
+    result = dxf.get_schema("simple", 7, 100)
     assert result["columns"] == []
 
     # Make a really big schema
