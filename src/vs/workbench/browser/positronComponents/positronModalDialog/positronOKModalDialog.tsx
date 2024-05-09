@@ -18,9 +18,7 @@ import { PositronModalDialog, PositronModalDialogProps } from 'vs/workbench/brow
  * OKModalDialogProps interface.
  */
 export interface OKModalDialogProps extends PositronModalDialogProps {
-	title: string;
 	okButtonTitle?: string;
-	onAccept: () => void;
 }
 
 /**
