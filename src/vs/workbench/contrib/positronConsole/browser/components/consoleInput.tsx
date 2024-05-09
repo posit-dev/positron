@@ -301,33 +301,45 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 					// Consume the event.
 					consumeEvent();
 
-					// Get the selection.
-					const selection = codeEditorWidgetRef.current.getSelection();
-
-					// If there isn't a selection, the Ctrl-C interrupts the console. Otherwise,
-					// Ctrl-C copies the selection to the clipboard.
-					if (!selection || selection.isEmpty()) {
-						// Interrupt the runtime.
+					/**
+					 * Interrupts the runtime.
+					 */
+					const interruptRuntime = () => {
 						const code = codeEditorWidgetRef.current.getValue();
 						props.positronConsoleInstance.interrupt(code);
+					};
+
+					// On macOS, Ctrl-C always interrupts the runtime. Otherwise, Ctrl-C will either
+					// copy the selection to the clipboard or interrup the runtime.
+					if (isMacintosh) {
+						interruptRuntime();
 					} else {
-						// Get the text model and, if there is one, copy the selection value to the
-						// clipboard.
-						const textModel = codeEditorWidgetRef.current.getModel();
-						if (textModel) {
-							// Get the selection value.
-							const value = textModel.getValueInRange(selection);
+						// Get the selection.
+						const selection = codeEditorWidgetRef.current.getSelection();
 
-							// Write the selection value to the clipboard.
-							await positronConsoleContext.clipboardService.writeText(value);
+						// If there isn't a selection, the Ctrl-C interrupts the console. Otherwise,
+						// Ctrl-C copies the selection to the clipboard.
+						if (!selection || selection.isEmpty()) {
+							interruptRuntime();
+						} else {
+							// Get the text model and, if there is one, copy the selection value to
+							// the clipboard.
+							const textModel = codeEditorWidgetRef.current.getModel();
+							if (textModel) {
+								// Get the selection value.
+								const value = textModel.getValueInRange(selection);
 
-							// Unselect the selection.
-							codeEditorWidgetRef.current.setSelection({
-								startLineNumber: Number.MAX_VALUE,
-								startColumn: Number.MAX_VALUE,
-								endLineNumber: Number.MAX_VALUE,
-								endColumn: Number.MAX_VALUE
-							});
+								// Write the selection value to the clipboard.
+								await positronConsoleContext.clipboardService.writeText(value);
+
+								// Unselect the selection.
+								codeEditorWidgetRef.current.setSelection({
+									startLineNumber: Number.MAX_VALUE,
+									startColumn: Number.MAX_VALUE,
+									endLineNumber: Number.MAX_VALUE,
+									endColumn: Number.MAX_VALUE
+								});
+							}
 						}
 					}
 				}
