@@ -87,6 +87,22 @@ export class PositronConsole {
 				activeLine = await activeConsole?.locator(ACTIVE_LINE_NUMBER).innerText();
 			}
 		}
+
+
+		// wait up to 20 seconds for the console to show that the interpreter is started
+		let consoleContents = await this.getConsoleContents();
+		for (let j = 0; j < 20; j++) {
+			for (const line of consoleContents) {
+				if (line.includes('started')) {
+					return;
+				} else {
+					this.code.wait(1000);
+					consoleContents = await this.getConsoleContents();
+				}
+			}
+		}
+
+		throw new Error('Console never ready to proceed');
 	}
 
 	async waitForEndingConsoleText(text: string) {
