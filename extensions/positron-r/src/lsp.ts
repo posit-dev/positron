@@ -18,6 +18,7 @@ import {
 
 import { Socket } from 'net';
 import { RHelpTopicProvider } from './help';
+import { RLspOutputChannelManager } from './lsp-output-channel-manager';
 
 /**
  * The state of the language server.
@@ -47,9 +48,8 @@ export class ArkLsp implements vscode.Disposable {
 
 	public constructor(
 		private readonly _version: string,
-		private readonly _notebookUri: vscode.Uri | undefined
-	) {
-	}
+		private readonly _metadata: positron.RuntimeSessionMetadata
+	) { }
 
 	/**
 	 * Activate the language server; returns a promise that resolves when the LSP is
@@ -87,12 +87,20 @@ export class ArkLsp implements vscode.Disposable {
 			return out.promise;
 		};
 
+		const notebookUri = this._metadata.notebookUri;
+
+		// Persistant output channel, used across multiple sessions of the same name + mode combination
+		const outputChannel = RLspOutputChannelManager.instance.getOutputChannel(
+			this._metadata.sessionName,
+			this._metadata.sessionMode
+		);
+
 		const clientOptions: LanguageClientOptions = {
 			// If this client belongs to a notebook, set the document selector to only include that notebook.
 			// Otherwise, this is the main client for this language, so set the document selector to include
 			// untitled R files, in-memory R files (e.g. the console), and R / Quarto / R Markdown files on disk.
-			documentSelector: this._notebookUri ?
-				[{ language: 'r', pattern: this._notebookUri.path }] :
+			documentSelector: notebookUri ?
+				[{ language: 'r', pattern: notebookUri.path }] :
 				[
 					{ language: 'r', scheme: 'untitled' },
 					{ language: 'r', scheme: 'inmemory' },  // Console
@@ -100,12 +108,13 @@ export class ArkLsp implements vscode.Disposable {
 					{ language: 'r', pattern: '**/*.{qmd,Qmd}' },
 					{ language: 'r', pattern: '**/*.{rmd,Rmd}' },
 				],
-			synchronize: this._notebookUri ?
+			synchronize: notebookUri ?
 				undefined :
 				{
 					fileEvents: vscode.workspace.createFileSystemWatcher('**/*.R')
 				},
-			errorHandler: new RErrorHandler(this._version, port)
+			errorHandler: new RErrorHandler(this._version, port),
+			outputChannel: outputChannel
 		};
 
 		// With a `.` rather than a `-` so vscode-languageserver can look up related options correctly
