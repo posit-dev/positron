@@ -24,11 +24,13 @@ export type PartLayoutDescription = {
 };
 
 
-interface CustomPositronLayoutDescription {
+export interface CustomPositronLayoutDescription {
 	[Parts.PANEL_PART]: PartLayoutDescription;
 	[Parts.SIDEBAR_PART]: PartLayoutDescription;
-	[Parts.ACTIVITYBAR_PART]: PartLayoutDescription;
+	[Parts.AUXILIARYBAR_PART]: PartLayoutDescription;
 }
+
+export type KnownPositronLayoutParts = keyof CustomPositronLayoutDescription;
 
 export interface PositronCustomLayoutDescriptor {
 	layout: CustomPositronLayoutDescription;
@@ -45,12 +47,26 @@ export function loadCustomPositronLayout(description: PositronCustomLayoutDescri
 	accessor.get(IViewDescriptorService).loadCustomViewDescriptor(description.views);
 }
 
+export function createPositronCustomLayoutDescriptor(accessor: ServicesAccessor) {
+	const views = accessor.get(IViewDescriptorService).dumpViewCustomizations();
+	const layout = accessor.get(IWorkbenchLayoutService).dumpCurrentLayout();
+
+	const viewDescription: PositronCustomLayoutDescriptor = {
+		layout,
+		views
+	};
+
+	console.log(
+		JSON.stringify(viewDescription, null, 2)
+	);
+}
+
 export const fourPaneDS: PositronCustomLayoutDescriptor =
 {
 	layout: {
 		[Parts.PANEL_PART]: { hidden: false },
 		[Parts.SIDEBAR_PART]: { hidden: false, width: 250 },
-		[Parts.ACTIVITYBAR_PART]: { hidden: false },
+		[Parts.AUXILIARYBAR_PART]: { hidden: false },
 	},
 	views: {
 		'viewContainerLocations': {
@@ -70,7 +86,7 @@ export const sideBySideDS: PositronCustomLayoutDescriptor =
 	layout: {
 		[Parts.PANEL_PART]: { hidden: true },
 		[Parts.SIDEBAR_PART]: { hidden: true },
-		[Parts.ACTIVITYBAR_PART]: { hidden: false },
+		[Parts.AUXILIARYBAR_PART]: { hidden: false },
 	},
 	views: {
 		'viewContainerLocations': {

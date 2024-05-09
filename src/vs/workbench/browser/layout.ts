@@ -52,7 +52,7 @@ import { CustomTitleBarVisibility } from '../../platform/window/common/window';
 
 // --- Start Positron ---
 import { IPositronTopActionBarService } from 'vs/workbench/services/positronTopActionBar/browser/positronTopActionBarService';
-import { PartLayoutDescription, PositronCustomLayoutDescriptor } from 'vs/workbench/browser/positronCustomViews';
+import { KnownPositronLayoutParts, PartLayoutDescription, PositronCustomLayoutDescriptor } from 'vs/workbench/browser/positronCustomViews';
 // --- End Positron ---
 
 //#region Layout Implementation
@@ -1387,37 +1387,64 @@ export abstract class Layout extends Disposable implements IWorkbenchLayoutServi
 	}
 
 	// --- Start Positron ---
-	private _setCustomPartSize(part: Parts, { hidden, width, height }: PartLayoutDescription) {
-		let partView: ISerializableView;
-		let hideFn: (hidden: boolean, layout?: boolean) => void;
+	private _getPartViewInfo(part: KnownPositronLayoutParts): {
+		partView: ISerializableView;
+		currentSize: IViewSize;
+		hidden: boolean;
+		hideFn: (hidden: boolean, skipLayout?: boolean | undefined) => void;
+	} {
+		const mainClasses = this.mainContainer.classList;
+
 		switch (part) {
 			case Parts.SIDEBAR_PART:
-				partView = this.sideBarPartView;
-				hideFn = this.setSideBarHidden.bind(this);
-				break;
+				return {
+					partView: this.sideBarPartView,
+					currentSize: this.workbenchGrid.getViewSize(this.sideBarPartView),
+					hidden: mainClasses.contains(LayoutClasses.SIDEBAR_HIDDEN),
+					hideFn: this.setSideBarHidden.bind(this),
+				};
 			case Parts.PANEL_PART:
-				partView = this.panelPartView;
-				hideFn = this.setPanelHidden.bind(this);
-				break;
-			case Parts.ACTIVITYBAR_PART:
-				partView = this.activityBarPartView;
-				hideFn = this.setActivityBarHidden.bind(this);
-				break;
-			default:
-				throw new Error('Don\'t yet support that part for resizing.');
+				return {
+					partView: this.panelPartView,
+					currentSize: this.workbenchGrid.getViewSize(this.panelPartView),
+					hidden: mainClasses.contains(LayoutClasses.PANEL_HIDDEN),
+					hideFn: this.setPanelHidden.bind(this),
+				};
+			case Parts.AUXILIARYBAR_PART:
+				return {
+					partView: this.auxiliaryBarPartView,
+					currentSize: this.workbenchGrid.getViewSize(this.auxiliaryBarPartView),
+					hidden: mainClasses.contains(LayoutClasses.AUXILIARYBAR_HIDDEN),
+					hideFn: this.setAuxiliaryBarHidden.bind(this),
+				};
 		}
+	}
 
-		const existingSize = this.workbenchGrid.getViewSize(partView);
-		const newSize = { width: width ?? existingSize.width, height: height ?? existingSize.height };
+	private _setCustomPartSize(part: KnownPositronLayoutParts, { hidden, width, height }: PartLayoutDescription) {
+		const { partView, hideFn, currentSize } = this._getPartViewInfo(part);
+		const newSize = { width: width ?? currentSize.width, height: height ?? currentSize.height };
 		this.workbenchGrid.resizeView(partView, newSize);
 		hideFn(hidden, true);
+	}
+
+	private _getPartLayout(part: KnownPositronLayoutParts): PartLayoutDescription {
+		const { currentSize, hidden } = this._getPartViewInfo(part);
+		return { width: currentSize.width, height: currentSize.height, hidden };
+	}
+
+	dumpCurrentLayout() {
+		return {
+			[Parts.SIDEBAR_PART]: this._getPartLayout(Parts.SIDEBAR_PART),
+			[Parts.PANEL_PART]: this._getPartLayout(Parts.PANEL_PART),
+			[Parts.AUXILIARYBAR_PART]: this._getPartLayout(Parts.AUXILIARYBAR_PART),
+		};
 	}
 
 	enterCustomLayout(layout: PositronCustomLayoutDescriptor['layout']) {
 
 		this._setCustomPartSize(Parts.SIDEBAR_PART, layout[Parts.SIDEBAR_PART]);
 		this._setCustomPartSize(Parts.PANEL_PART, layout[Parts.PANEL_PART]);
-		this._setCustomPartSize(Parts.ACTIVITYBAR_PART, layout[Parts.ACTIVITYBAR_PART]);
+		this._setCustomPartSize(Parts.AUXILIARYBAR_PART, layout[Parts.AUXILIARYBAR_PART]);
 
 		// Trigger layout refresh to reflect new settings.
 		this.layout();

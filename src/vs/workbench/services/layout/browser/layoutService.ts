@@ -16,7 +16,7 @@ import { isFullscreen, isWCOEnabled } from 'vs/base/browser/browser';
 import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
 import { IDisposable } from 'vs/base/common/lifecycle';
 // --- Start Positron ---
-import { PositronCustomLayoutDescriptor } from 'vs/workbench/browser/positronCustomViews';
+import { CustomPositronLayoutDescription } from 'vs/workbench/browser/positronCustomViews';
 // --- End Positron ---
 
 export const IWorkbenchLayoutService = refineServiceDecorator<ILayoutService, IWorkbenchLayoutService>(ILayoutService);
@@ -308,7 +308,12 @@ export interface IWorkbenchLayoutService extends ILayoutService {
 	/**
 	 * Enter or exit four-pane data science mode
 	 */
-	enterCustomLayout(layout: PositronCustomLayoutDescriptor['layout']): void;
+	enterCustomLayout(layout: CustomPositronLayoutDescription): void;
+
+	/**
+	 * Get the current layout definition for saving to custom layouts
+	 */
+	dumpCurrentLayout(): CustomPositronLayoutDescription;
 	// --- End Positron ---
 
 	/**
