@@ -26,6 +26,7 @@ from IPython.core.interactiveshell import ExecutionInfo, InteractiveShell
 from IPython.core.magic import Magics, MagicsManager, line_magic, magics_class
 from IPython.utils import PyColorize
 
+from .access_keys import encode_access_key
 from .connections import ConnectionsService
 from .data_explorer import DataExplorerService
 from .help import HelpService, help
@@ -159,7 +160,9 @@ class PositronMagics(Magics):
         # Register a dataset with the data explorer service.
         obj = info.obj
         try:
-            self.shell.kernel.data_explorer_service.register_table(obj, title)
+            self.shell.kernel.data_explorer_service.register_table(
+                obj, title, variable_path=[encode_access_key(args.object)]
+            )
         except TypeError:
             raise UsageError(f"cannot view object of type '{get_qualname(obj)}'")
 
