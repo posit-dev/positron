@@ -80,7 +80,7 @@ export class PythonLsp implements vscode.Disposable {
             return out.promise;
         };
 
-        const notebookUri = this._metadata.notebookUri;
+        const {notebookUri} = this._metadata;
 
         // Persistant output channel, used across multiple sessions of the same name + mode combination
         const outputChannel = PythonLspOutputChannelManager.instance.getOutputChannel(

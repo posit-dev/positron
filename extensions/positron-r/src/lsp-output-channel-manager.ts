@@ -21,6 +21,7 @@ export class RLspOutputChannelManager {
 	private _channels: Map<string, vscode.OutputChannel> = new Map();
 
 	/// Constructor; private since we only want one of these
+	// eslint-disable-next-line @typescript-eslint/no-empty-function
 	private constructor() { }
 
 	/**
@@ -41,11 +42,11 @@ export class RLspOutputChannelManager {
 	 * @returns An output channel.
 	 */
 	getOutputChannel(sessionName: string, sessionMode: string): vscode.OutputChannel {
-		let key = sessionName + '-' + sessionMode;
+		const key = `${sessionName}-${sessionMode}`;
 		let out = this._channels.get(key);
 
 		if (!out) {
-			let name = `${LSP_OUTPUT_CHANNEL_PREFIX}${sessionName} (${sessionMode})`;
+			const name = `${LSP_OUTPUT_CHANNEL_PREFIX}${sessionName} (${sessionMode})`;
 			out = vscode.window.createOutputChannel(name);
 			this._channels.set(key, out);
 		}

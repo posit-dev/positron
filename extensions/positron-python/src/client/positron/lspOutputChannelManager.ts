@@ -14,42 +14,43 @@ const LSP_OUTPUT_CHANNEL_PREFIX = 'Positron Language Server: ';
  * debugging after a kernel crashes.
  */
 export class PythonLspOutputChannelManager {
-    /// Singleton instance
-    private static _instance: PythonLspOutputChannelManager;
+	/// Singleton instance
+	private static _instance: PythonLspOutputChannelManager;
 
-    /// Map of keys to OutputChannel instances
-    private _channels: Map<string, vscode.OutputChannel> = new Map();
+	/// Map of keys to OutputChannel instances
+	private _channels: Map<string, vscode.OutputChannel> = new Map();
 
-    /// Constructor; private since we only want one of these
-    private constructor() {}
+	/// Constructor; private since we only want one of these
+	// eslint-disable-next-line @typescript-eslint/no-empty-function
+	private constructor() { }
 
-    /**
-     * Accessor for the singleton instance; creates it if it doesn't exist.
-     */
-    static get instance(): PythonLspOutputChannelManager {
-        if (!PythonLspOutputChannelManager._instance) {
-            PythonLspOutputChannelManager._instance = new PythonLspOutputChannelManager();
-        }
-        return PythonLspOutputChannelManager._instance;
-    }
+	/**
+	 * Accessor for the singleton instance; creates it if it doesn't exist.
+	 */
+	static get instance(): PythonLspOutputChannelManager {
+		if (!PythonLspOutputChannelManager._instance) {
+			PythonLspOutputChannelManager._instance = new PythonLspOutputChannelManager();
+		}
+		return PythonLspOutputChannelManager._instance;
+	}
 
-    /**
-     * Gets the output channel for the given key. Creates one if the key hasn't been provided yet.
-     *
-     * @param sessionName The session name of the session to get the output channel for.
-     * @param sessionMode The session mode of the session to get the output channel for.
-     * @returns An output channel.
-     */
-    getOutputChannel(sessionName: string, sessionMode: string): vscode.OutputChannel {
-        let key = sessionName + '-' + sessionMode;
-        let out = this._channels.get(key);
+	/**
+	 * Gets the output channel for the given key. Creates one if the key hasn't been provided yet.
+	 *
+	 * @param sessionName The session name of the session to get the output channel for.
+	 * @param sessionMode The session mode of the session to get the output channel for.
+	 * @returns An output channel.
+	 */
+	getOutputChannel(sessionName: string, sessionMode: string): vscode.OutputChannel {
+		const key = `${sessionName}-${sessionMode}`;
+		let out = this._channels.get(key);
 
-        if (!out) {
-            let name = `${LSP_OUTPUT_CHANNEL_PREFIX}${sessionName} (${sessionMode})`;
-            out = vscode.window.createOutputChannel(name);
-            this._channels.set(key, out);
-        }
+		if (!out) {
+			const name = `${LSP_OUTPUT_CHANNEL_PREFIX}${sessionName} (${sessionMode})`;
+			out = vscode.window.createOutputChannel(name);
+			this._channels.set(key, out);
+		}
 
-        return out;
-    }
+		return out;
+	}
 }
