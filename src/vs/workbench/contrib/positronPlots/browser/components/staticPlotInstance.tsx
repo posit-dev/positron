@@ -30,6 +30,7 @@ export const StaticPlotInstance = (props: StaticPlotInstanceProps) => {
 	const imageWrapperRef = React.useRef<HTMLDivElement>(null);
 	const [moveX, setMoveX] = React.useState<number>(0);
 	const [moveY, setMoveY] = React.useState<number>(0);
+	const [grabbing, setGrabbing] = React.useState<boolean>(false);
 
 	const onImgLoad = (event: React.SyntheticEvent<HTMLImageElement>) => {
 		const img = event.target as HTMLImageElement;
@@ -41,16 +42,8 @@ export const StaticPlotInstance = (props: StaticPlotInstanceProps) => {
 
 	React.useEffect(() => {
 		const { clientWidth, clientHeight } = imageWrapperRef.current ?? { clientWidth: 0, clientHeight: 0 };
-		if (clientWidth > width) {
-			setMoveX(0);
-		} else {
-			setMoveX(-width / 2 * props.zoom);
-		}
-		if (clientHeight > height) {
-			setMoveY(0);
-		} else {
-			setMoveY(-height / 2 * props.zoom);
-		}
+		setMoveX((clientWidth - (width * props.zoom)) / 2);
+		setMoveY((clientHeight - (height * props.zoom)) / 2);
 	}, [width, height, props.zoom]);
 
 	React.useLayoutEffect(() => {
@@ -60,75 +53,28 @@ export const StaticPlotInstance = (props: StaticPlotInstanceProps) => {
 	});
 
 	const getStyle = (): React.CSSProperties => {
-		const { clientWidth, clientHeight } = imageWrapperRef.current ?? { clientWidth: 0, clientHeight: 0 };
+		const panMovement = `translateX(${moveX}px) translateY(${moveY}px)`;
 		let style: React.CSSProperties = {};
 
-		const wide = width * props.zoom > clientWidth;
-		const tall = height * props.zoom > clientHeight;
-
-		const panMovement = `translateX(${moveX}px) translateY(${moveY}px)`;
-
-		style = {
-			cursor: 'grab',
-			maxWidth: 'none',
-			maxHeight: 'none',
-		};
-
-		switch (props.zoom) {
-			case ZoomLevel.Fifty:
-			case ZoomLevel.SeventyFive:
-			case ZoomLevel.OneHundred:
-			case ZoomLevel.TwoHundred:
-				if (wide && tall) {
-					// If the plot is wider and taller than the container, no centering is needed.
-					style = {
-						...style,
-						...{
-							top: '0px',
-							left: '0px',
-							transform: panMovement,
-						}
-					};
-				} else if (wide && !tall) {
-					// If the plot is wider than the container, center it vertically.
-					style = {
-						...style, ...{
-							top: '50%',
-							left: '0px',
-							transform: panMovement,
-						}
-					};
-				} else if (tall && !wide) {
-					// If the plot is taller than the container, center it horizontally.
-					style = {
-						...style, ...{
-							top: '0px',
-							left: '50%',
-							transform: panMovement,
-						}
-					};
-				} else {
-					// If the plot is smaller than the container, center it both horizontally and vertically.
-					style = {
-						...style, ...{
-							top: '50%',
-							left: '50%',
-							transform: panMovement,
-						}
-					};
-				}
-				break;
-			case ZoomLevel.Fill:
-			default:
-				// no centering and let the entire plot be visible
-				style = {
-					width: '100%',
-					height: '100%',
-					position: 'unset',
-					transform: 'none',
-				};
-				break;
+		if (props.zoom === ZoomLevel.Fill) {
+			// no centering and let the entire plot be visible
+			style = {
+				width: '100%',
+				height: '100%',
+				position: 'unset',
+				transform: 'none',
+			};
+		} else {
+			style = {
+				cursor: grabbing ? 'grabbing' : 'grab',
+				maxWidth: 'none',
+				maxHeight: 'none',
+				top: 0,
+				left: 0,
+				transform: panMovement,
+			};
 		}
+
 		return style;
 	};
 
@@ -141,11 +87,23 @@ export const StaticPlotInstance = (props: StaticPlotInstanceProps) => {
 	};
 
 	const panImage = (event: React.MouseEvent<HTMLImageElement>) => {
+		if (event.type === 'wheel') {
+			const wheelEvent = event as React.WheelEvent<HTMLImageElement>;
+			console.log(`Wheel event: ${wheelEvent.deltaX}, ${wheelEvent.deltaY}`);
+			setMoveX(moveX + wheelEvent.deltaX);
+			setMoveY(moveY + wheelEvent.deltaY);
+			return;
+		}
 		if (event.buttons !== 1 || props.zoom === ZoomLevel.Fill) {
 			return;
 		}
+		console.log(`Mouse event: ${event.movementX}, ${event.movementY}`);
 		setMoveX(moveX + event.movementX);
 		setMoveY(moveY + event.movementY);
+	};
+
+	const updateCursor = (event: React.MouseEvent<HTMLImageElement>) => {
+		setGrabbing(event.type === 'mousedown');
 	};
 
 	return (
@@ -158,6 +116,9 @@ export const StaticPlotInstance = (props: StaticPlotInstanceProps) => {
 					width={applyZoom(width)}
 					height={applyZoom(height)}
 					onMouseMoveCapture={panImage}
+					onMouseDown={updateCursor}
+					onMouseUp={updateCursor}
+					onWheel={panImage}
 					draggable={false}
 				/>
 			</div>
