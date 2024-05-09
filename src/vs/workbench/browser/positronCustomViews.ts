@@ -5,7 +5,7 @@
 import { IStringDictionary } from 'vs/base/common/collections';
 import { ServicesAccessor } from 'vs/platform/instantiation/common/instantiation';
 import { IViewDescriptorService, ViewContainerLocation } from 'vs/workbench/common/views';
-import { IWorkbenchLayoutService } from 'vs/workbench/services/layout/browser/layoutService';
+import { IWorkbenchLayoutService, Parts } from 'vs/workbench/services/layout/browser/layoutService';
 
 
 // Copied from src/vs/workbench/services/views/browser/viewDescriptorService.ts to
@@ -17,10 +17,17 @@ interface IViewsCustomizations {
 	viewContainerBadgeEnablementStates: IStringDictionary<boolean>;
 }
 
+export type PartLayoutDescription = {
+	width?: number;
+	height?: number;
+	hidden: boolean;
+};
+
+
 interface CustomPositronLayoutDescription {
-	panelHidden: boolean;
-	sideBarHidden: boolean;
-	activityBarHidden: boolean;
+	[Parts.PANEL_PART]: PartLayoutDescription;
+	[Parts.SIDEBAR_PART]: PartLayoutDescription;
+	[Parts.ACTIVITYBAR_PART]: PartLayoutDescription;
 }
 
 export interface PositronCustomLayoutDescriptor {
@@ -41,9 +48,9 @@ export function loadCustomPositronLayout(description: PositronCustomLayoutDescri
 export const fourPaneDS: PositronCustomLayoutDescriptor =
 {
 	layout: {
-		panelHidden: false,
-		sideBarHidden: false,
-		activityBarHidden: false,
+		[Parts.PANEL_PART]: { hidden: false },
+		[Parts.SIDEBAR_PART]: { hidden: false, width: 250 },
+		[Parts.ACTIVITYBAR_PART]: { hidden: false },
 	},
 	views: {
 		'viewContainerLocations': {
@@ -61,9 +68,9 @@ export const fourPaneDS: PositronCustomLayoutDescriptor =
 export const sideBySideDS: PositronCustomLayoutDescriptor =
 {
 	layout: {
-		panelHidden: true,
-		sideBarHidden: true,
-		activityBarHidden: false,
+		[Parts.PANEL_PART]: { hidden: true },
+		[Parts.SIDEBAR_PART]: { hidden: true },
+		[Parts.ACTIVITYBAR_PART]: { hidden: false },
 	},
 	views: {
 		'viewContainerLocations': {

@@ -52,7 +52,7 @@ import { CustomTitleBarVisibility } from '../../platform/window/common/window';
 
 // --- Start Positron ---
 import { IPositronTopActionBarService } from 'vs/workbench/services/positronTopActionBar/browser/positronTopActionBarService';
-import { PositronCustomLayoutDescriptor } from 'vs/workbench/browser/positronCustomViews';
+import { PartLayoutDescription, PositronCustomLayoutDescriptor } from 'vs/workbench/browser/positronCustomViews';
 // --- End Positron ---
 
 //#region Layout Implementation
@@ -1387,11 +1387,39 @@ export abstract class Layout extends Disposable implements IWorkbenchLayoutServi
 	}
 
 	// --- Start Positron ---
+	private _setCustomPartSize(part: Parts, { hidden, width, height }: PartLayoutDescription) {
+		let partView: ISerializableView;
+		let hideFn: (hidden: boolean, layout?: boolean) => void;
+		switch (part) {
+			case Parts.SIDEBAR_PART:
+				partView = this.sideBarPartView;
+				hideFn = this.setSideBarHidden.bind(this);
+				break;
+			case Parts.PANEL_PART:
+				partView = this.panelPartView;
+				hideFn = this.setPanelHidden.bind(this);
+				break;
+			case Parts.ACTIVITYBAR_PART:
+				partView = this.activityBarPartView;
+				hideFn = this.setActivityBarHidden.bind(this);
+				break;
+			default:
+				throw new Error('Don\'t yet support that part for resizing.');
+		}
+
+		const existingSize = this.workbenchGrid.getViewSize(partView);
+		const newSize = { width: width ?? existingSize.width, height: height ?? existingSize.height };
+		this.workbenchGrid.resizeView(partView, newSize);
+		hideFn(hidden, true);
+	}
+
 	enterCustomLayout(layout: PositronCustomLayoutDescriptor['layout']) {
 
-		this.setSideBarHidden(layout.sideBarHidden, true);
-		this.setPanelHidden(layout.panelHidden, true);
-		this.setActivityBarHidden(layout.activityBarHidden, true);
+		this._setCustomPartSize(Parts.SIDEBAR_PART, layout[Parts.SIDEBAR_PART]);
+		this._setCustomPartSize(Parts.PANEL_PART, layout[Parts.PANEL_PART]);
+		this._setCustomPartSize(Parts.ACTIVITYBAR_PART, layout[Parts.ACTIVITYBAR_PART]);
+
+		// Trigger layout refresh to reflect new settings.
 		this.layout();
 	}
 	// --- End Positron ---
