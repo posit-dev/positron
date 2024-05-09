@@ -29,6 +29,7 @@ export class PositronDataExplorer {
 		const headers = columnHeaders.locator(HEADER_TITLES);
 		const rows = dataGridRows.locator(DATA_GRID_ROW);
 
+		// wait until the expected column count is ready
 		let headerCount = await headers.count();
 		for (let i = 0; i < 10; i++) {
 			if (headerCount === expectedColumns) {
@@ -39,6 +40,7 @@ export class PositronDataExplorer {
 			}
 		}
 
+		// wait until the expected row count is ready
 		let rowCount = await rows.count();
 		for (let j = 0; j < 10; j++) {
 			if (rowCount === expectedRows) {
@@ -49,14 +51,15 @@ export class PositronDataExplorer {
 			}
 		}
 
+		// get all the headers
 		const headerContents = await headers.all();
 		const headerNames: string[] = [];
-
 		for (const headerContent of headerContents) {
 			const header = await headerContent.innerText();
 			headerNames.push(header);
 		}
 
+		// get rows and create structure to return to caller
 		const rowContents = await rows.all();
 		const tableData: object[] = [];
 

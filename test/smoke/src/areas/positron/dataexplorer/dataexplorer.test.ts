@@ -22,12 +22,6 @@ export function setup(logger: Logger) {
 
 			});
 
-			after(async function () {
-				const app = this.app as Application;
-				await app.code.driver.takeScreenshot('afterPy');
-
-			});
-
 			it('Python - Verifies basic data explorer functionality', async function () {
 				const app = this.app as Application;
 
@@ -71,15 +65,8 @@ df = pd.DataFrame(data)`;
 		describe('R Data Explorer', () => {
 
 			before(async function () {
-
 				const rFixtures = new PositronRFixtures(this.app);
 				await rFixtures.startRInterpreter();
-
-			});
-
-			after(async function () {
-				const app = this.app as Application;
-				await app.code.driver.takeScreenshot('afterR');
 
 			});
 

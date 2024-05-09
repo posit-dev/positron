@@ -17,6 +17,7 @@ export class PositronPopups {
 
 		try {
 			console.log('Checking for modal dialog box');
+			// fail fast if the modal is not present
 			await this.code.waitForElement(POSITRON_MODAL_DIALOG_BOX, undefined, 50);
 			await this.code.waitAndClick(POSITRON_MODAL_DIALOG_BOX_OK);
 			console.log('Installing ipykernel');
