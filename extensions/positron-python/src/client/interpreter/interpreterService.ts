@@ -44,7 +44,10 @@ import {
     TriggerRefreshOptions,
 } from '../pythonEnvironments/base/locator';
 import { sleep } from '../common/utils/async';
-
+import * as fs from 'fs';
+import { Common, CreateEnv } from '../common/utils/localize';
+import { executeCommand } from '../common/vscodeApis/commandApis';
+import { showErrorMessage } from '../common/vscodeApis/windowApis';
 type StoredPythonEnvironment = PythonEnvironment & { store?: boolean };
 
 @injectable()
@@ -262,6 +265,12 @@ export class InterpreterService implements Disposable, IInterpreterService {
         const pySettings = this.configService.getSettings(resource);
         this.didChangeInterpreterConfigurationEmitter.fire(resource);
         if (this._pythonPathSetting === '' || this._pythonPathSetting !== pySettings.pythonPath) {
+            // --- Start Positron ---
+            if (!fs.existsSync(pySettings.pythonPath)) {
+                showErrorMessage(`${CreateEnv.pathDoesntExist} ${pySettings.pythonPath}`);
+                return undefined;
+            }
+            // --- End Positron ---
             this._pythonPathSetting = pySettings.pythonPath;
             this.didChangeInterpreterEmitter.fire(resource);
             const workspaceFolder = this.serviceContainer
