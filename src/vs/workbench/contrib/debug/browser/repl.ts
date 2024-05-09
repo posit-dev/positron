@@ -975,7 +975,7 @@ registerAction2(class extends ViewAction<Repl> {
 			id: 'workbench.debug.panel.action.clearReplAction',
 			viewId: REPL_VIEW_ID,
 			// --- Start Positron ---
-			// Rename 'Clear Console' to 'Clear Debgug Console' to differentiate it from Positron's
+			// Rename 'Clear Console' to 'Clear Debug Console' to differentiate it from Positron's
 			// Clear Console command.
 			title: localize2('clearRepl', 'Clear Debug Console'),
 			// --- End Positron ---
