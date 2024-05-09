@@ -143,18 +143,12 @@ export const PythonEnvironmentStep = (props: PropsWithChildren<NewProjectWizardS
 		envProvider: string | undefined,
 		interpreter: ILanguageRuntimeMetadata | undefined
 	) => {
-		// Update the project configuration with the new environment setup type.
-		setEnvSetupType(envSetupType);
-
-		// Update the project configuration with the new environment type.
-		setEnvProviderId(envProvider);
-
 		// Update the interpreter entries.
 		const entries = getPythonInterpreterEntries(
 			runtimeStartupService,
 			languageRuntimeService,
 			envSetupType,
-			envProviderNameForId(envProviderId, envProviders)
+			envProviderNameForId(envProvider, envProviders)
 		);
 		setInterpreterEntries(entries);
 
@@ -165,6 +159,14 @@ export const PythonEnvironmentStep = (props: PropsWithChildren<NewProjectWizardS
 		// Update the installIpykernel flag for the selected interpreter.
 		const installIpykernel = await getInstallIpykernel(envSetupType, selectedRuntime);
 		setWillInstallIpykernel(installIpykernel);
+
+		// Update the project configuration with the new environment type.
+		setEnvProviderId(envProvider);
+
+		// Update the project configuration with the new environment setup type.
+		// Set this last so that the above state changes have been applied before changing to the
+		// new env setup type view.
+		setEnvSetupType(envSetupType);
 
 		// Save the changes to the project configuration.
 		setProjectConfig({
