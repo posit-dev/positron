@@ -185,7 +185,7 @@ class PositronInspector(Generic[T]):
 #
 
 
-class NoneInspector(PositronInspector[types.NoneType]):
+class NoneInspector(PositronInspector[type(None)]):
     def is_mutable(self) -> bool:
         return False
 
