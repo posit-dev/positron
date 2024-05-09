@@ -81,13 +81,13 @@ export function WelcomeConsoleButton(props: WelcomeConsoleButtonProps) {
 	return (
 		<ActionButton
 			className='positron-welcome-button'
-			ariaLabel={(() => localize('positronWelcome.newConsoleDescription', "Create a new console"))()}
+			ariaLabel={(() => localize('positron.welcome.newConsoleDescription', "Create a new console"))()}
 			onPressed={showPopup}
 		>
 			<div className='button-container' ref={ref}>
 				<div className={`button-icon codicon codicon-positron-new-console`} />
 				<div className='action-label'>
-					{(() => localize('positronWelcome.newConsole', "New Console"))()}
+					{(() => localize('positron.welcome.newConsole', "New Console"))()}
 				</div>
 			</div>
 		</ActionButton>
