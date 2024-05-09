@@ -56,6 +56,8 @@ def verify_inspector(
     mutable: bool = False,
     mutate: Optional[Callable[[Any], None]] = None,
 ) -> None:
+    # NOTE: Skip `get_size` for now, since it depends on platform, Python version, and package version.
+
     inspector = get_inspector(value)
 
     assert inspector.get_length() == length
@@ -404,6 +406,8 @@ def test_inspect_set_truncated() -> None:
     )
 
 
+LIST_WITH_CYCLE = list([1, 2])
+LIST_WITH_CYCLE.append(LIST_WITH_CYCLE)  # type: ignore
 LIST_CASES = [
     [],
     NONE_CASES,
@@ -414,6 +418,7 @@ LIST_CASES = [
     BYTES_CASES,
     BYTEARRAY_CASES,
     STRING_CASES,
+    LIST_WITH_CYCLE,
 ]
 
 
@@ -445,23 +450,6 @@ def test_inspect_list_truncated() -> None:
         length=length,
         has_children=True,
         is_truncated=True,
-        supports_deepcopy=False,
-    )
-
-
-def test_inspect_list_cycle() -> None:
-    value = list([1, 2])
-    value.append(value)  # type: ignore
-    length = len(value)
-    verify_inspector(
-        value=value,
-        is_truncated=False,
-        display_value=pprint.pformat(value, width=PRINT_WIDTH, compact=True)[:TRUNCATE_AT],
-        kind=VariableKind.Collection,
-        display_type=f"list [{length}]",
-        type_info="list",
-        length=length,
-        has_children=True,
         supports_deepcopy=False,
     )
 
@@ -514,6 +502,8 @@ def test_inspect_fastcore_list(value: L) -> None:
 #
 
 
+MAP_WITH_CYCLE = {}
+MAP_WITH_CYCLE["cycle"] = MAP_WITH_CYCLE
 MAP_CASES = [
     {},  # empty dict
     {"": None},  # empty key
@@ -530,28 +520,12 @@ MAP_CASES = [
     {"J": {1, 2, 3}},  # set value
     {"K": range(3)},  # range value
     {"L": {"L1": 1, "L2": 2, "L3": 3}},  # nested dict value
+    MAP_WITH_CYCLE,
 ]
 
 
 @pytest.mark.parametrize("value", MAP_CASES)
 def test_inspect_map(value: dict) -> None:
-    length = len(value)
-    verify_inspector(
-        value=value,
-        is_truncated=False,
-        display_value=pprint.pformat(value, width=PRINT_WIDTH, compact=True),
-        kind=VariableKind.Map,
-        display_type=f"dict [{length}]",
-        type_info="dict",
-        length=length,
-        has_children=length > 0,
-        supports_deepcopy=False,
-    )
-
-
-def test_inspect_map_cycle() -> None:
-    value = {}
-    value["cycle"] = value
     length = len(value)
     verify_inspector(
         value=value,
