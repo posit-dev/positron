@@ -1472,7 +1472,8 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 					const htmlContent = languageRuntimeMessageOutput.data['text/html'].toLowerCase();
 					if (htmlContent.indexOf('<script') >= 0 ||
 						htmlContent.indexOf('<body') >= 0 ||
-						htmlContent.indexOf('<html') >= 0) {
+						htmlContent.indexOf('<html') >= 0 ||
+						htmlContent.indexOf('<iframe') >= 0) {
 						// We only want to render HTML fragments for now; if it has
 						// scripts or looks like it is a self-contained document,
 						// hard pass. In the future, we'll need to render those in a

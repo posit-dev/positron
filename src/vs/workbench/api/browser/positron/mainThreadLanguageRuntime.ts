@@ -754,8 +754,9 @@ class ExtHostLanguageRuntimeSessionAdapter implements ILanguageRuntimeSession {
 
 		// If there's an HTML representation, use that.
 		if (mimeTypes.includes('text/html')) {
-			// Check to see if there are any <script>, <html>, or <body> tags.
-			if (/<(script|html|body)/.test(message.data['text/html'])) {
+			// Check to see if there are any tags that look like they belong in
+			// a standalone HTML document.
+			if (/<(script|html|body|iframe)/.test(message.data['text/html'])) {
 				// This looks like standalone HTML.
 				if (message.data['text/html'].includes('<table')) {
 					// Tabular data? Probably best in the Viewer pane.
