@@ -514,6 +514,7 @@
 		"--vscode-pickerGroup-foreground",
 		"--vscode-ports-iconRunningProcessForeground",
 		"--positronActionBar-foreground",
+		"--positronActionBar-hoverBackground",
 		"--positronActionBar-textInputBackground",
 		"--positronActionBar-textInputSelectionBackground",
 		"--positronActionBar-textInputSelectionForeground",
