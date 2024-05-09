@@ -296,14 +296,40 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 
 			// Ctrl-C handling.
 			case KeyCode.KeyC: {
-				// Check for the right modifiers and if this is a Ctrl-C, interrupt the runtime.
+				// Check for the right modifiers and if this is a Ctrl-C, process it.
 				if (e.ctrlKey && !e.shiftKey && !e.altKey && !e.metaKey && !e.altGraphKey) {
 					// Consume the event.
 					consumeEvent();
 
-					// Interrupt the console.
-					const code = codeEditorWidgetRef.current.getValue();
-					props.positronConsoleInstance.interrupt(code);
+					// Get the selection.
+					const selection = codeEditorWidgetRef.current.getSelection();
+
+					// If there isn't a selection, the Ctrl-C interrupts the console. Otherwise,
+					// Ctrl-C copies the selection to the clipboard.
+					if (!selection || selection.isEmpty()) {
+						// Interrupt the runtime.
+						const code = codeEditorWidgetRef.current.getValue();
+						props.positronConsoleInstance.interrupt(code);
+					} else {
+						// Get the text model and, if there is one, copy the selection value to the
+						// clipboard.
+						const textModel = codeEditorWidgetRef.current.getModel();
+						if (textModel) {
+							// Get the selection value.
+							const value = textModel.getValueInRange(selection);
+
+							// Write the selection value to the clipboard.
+							await positronConsoleContext.clipboardService.writeText(value);
+
+							// Unselect the selection.
+							codeEditorWidgetRef.current.setSelection({
+								startLineNumber: Number.MAX_VALUE,
+								startColumn: Number.MAX_VALUE,
+								endLineNumber: Number.MAX_VALUE,
+								endColumn: Number.MAX_VALUE
+							});
+						}
+					}
 				}
 				break;
 			}
