@@ -8,7 +8,16 @@
 import abc
 import logging
 import operator
-from typing import TYPE_CHECKING, Callable, Dict, List, Optional, Sequence, Set, Tuple
+from typing import (
+    TYPE_CHECKING,
+    Callable,
+    Dict,
+    List,
+    Optional,
+    Sequence,
+    Set,
+    Tuple,
+)
 
 import comm
 
@@ -256,6 +265,7 @@ class PandasView(DataExplorerTableView):
         "complex": "number",
         "categorical": "categorical",
         "boolean": "boolean",
+        "bool": "boolean",
         "datetime64": "datetime",
         "datetime64[ns]": "datetime",
         "datetime": "datetime",
