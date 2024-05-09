@@ -12,6 +12,7 @@ import pydoc
 import re
 import sys
 import types
+from inspect import getattr_static
 from abc import ABC, abstractmethod
 from collections.abc import Mapping, MutableMapping, MutableSequence, MutableSet, Sequence, Set
 from typing import (
@@ -118,8 +119,8 @@ class PositronInspector(Generic[T]):
     def get_child(self, key: Any) -> Any:
         raise TypeError(f"get_child() is not implemented for type: {type(self.value)}")
 
-    def get_items(self) -> Iterable[Tuple[Any, Any]]:
-        return []
+    def get_children(self) -> Iterable[Any]:
+        raise TypeError(f"get_children() is not implemented for type: {type(self.value)}")
 
     def has_viewer(self) -> bool:
         return False
@@ -227,7 +228,9 @@ class BytesInspector(PositronInspector[bytes]):
         return data.encode()
 
 
-### object
+#
+# Objects
+#
 
 
 class ObjectInspector(PositronInspector[T], ABC):
@@ -239,23 +242,16 @@ class ObjectInspector(PositronInspector[T], ABC):
             return 0
         return len([p for p in dir(self.value) if not (p.startswith("_"))])
 
-    def get_child(self, key: str) -> Any:
-        if isinstance(self.value, property):
-            pass
-        try:
-            return getattr(self.value, key)
-        except Exception as e:
-            logger.warning(msg=f"{type(e).__name__}: {e}")
-            return "Unable to show value."
+    def get_children(self):
+        return (p for p in dir(self.value) if not (p.startswith("_")))
 
-    def get_items(self) -> Iterable[Tuple[str, Any]]:
-        for key in dir(self.value):
-            if key.startswith("_"):
-                continue
-            try:
-                yield key, self.get_child(key)
-            except AttributeError:
-                pass
+    def get_child(self, key: str) -> Any:
+        # If the attr is a method, getattr_static will return the wrapped function, but we want the method
+        attr = getattr_static(self.value, key)
+        if callable(attr):
+            return getattr(self.value, key)
+        else:
+            return attr
 
 
 class ClassInspector(ObjectInspector[type]):
@@ -456,9 +452,9 @@ class _BaseCollectionInspector(PositronInspector[CT], ABC):
         # TODO(pyright): type should be narrowed to exclude frozen set, retry in a future version of pyright
         return self.value[key]  # type: ignore
 
-    def get_items(self) -> Iterable[Tuple[int, Any]]:
+    def get_children(self) -> Iterable[int]:
         # Treat collection items as children, with the index as the name
-        return enumerate(self.value)
+        return range(self.get_length())
 
 
 # We don't use typing.Sequence here since it includes mappings,
@@ -667,10 +663,6 @@ class _BaseMapInspector(PositronInspector[MT], ABC):
     def get_kind(self) -> str:
         return "map"
 
-    @abstractmethod
-    def get_keys(self) -> Collection[Any]:
-        pass
-
     def get_size(self) -> int:
         result = 1
         for dim in getattr(self.value, "shape", [len(self.value)]):
@@ -681,18 +673,14 @@ class _BaseMapInspector(PositronInspector[MT], ABC):
         return result * 8
 
     def has_child(self, key: Any) -> bool:
-        return key in self.get_keys()
+        return key in self.get_children()
 
     def get_child(self, key: Any) -> Any:
         return self.value[key]
 
-    def get_items(self) -> Iterable[Tuple[Any, Any]]:
-        for key in self.get_keys():
-            yield key, self.value[key]
-
 
 class MapInspector(_BaseMapInspector[Mapping]):
-    def get_keys(self) -> Collection[Any]:
+    def get_children(self) -> Collection[Any]:
         return self.value.keys()
 
     def is_mutable(self) -> bool:
@@ -705,6 +693,9 @@ Column = TypeVar("Column", "pd.Series", "pl.Series", "pd.Index")
 class BaseColumnInspector(_BaseMapInspector[Column], ABC):
     def get_child(self, key: Any) -> Any:
         return self.value[key]
+
+    def get_children(self) -> Collection[Any]:
+        return range(len(self.value))
 
     def get_display_type(self) -> str:
         return f"{self.value.dtype} [{self.get_length()}]"
@@ -722,7 +713,7 @@ class BaseColumnInspector(_BaseMapInspector[Column], ABC):
 class PandasSeriesInspector(BaseColumnInspector["pd.Series"]):
     CLASS_QNAME = "pandas.core.series.Series"
 
-    def get_keys(self) -> Collection[Any]:
+    def get_children(self) -> Collection[Any]:
         return self.value.index
 
     def equals(self, value: pd.Series) -> bool:
@@ -769,9 +760,6 @@ class PandasIndexInspector(BaseColumnInspector["pd.Index"]):
 
         return super().has_children()
 
-    def get_keys(self) -> Collection[Any]:
-        return range(len(self.value))
-
     def equals(self, value: pd.Index) -> bool:
         return self.value.equals(value)
 
@@ -793,9 +781,6 @@ class PolarsSeriesInspector(BaseColumnInspector["pl.Series"]):
         "polars.series.series.Series",
         "polars.internals.series.series.Series",
     ]
-
-    def get_keys(self) -> Collection[Any]:
-        return range(len(self.value))
 
     def equals(self, value: pl.Series) -> bool:
         return self.value.series_equal(value)
@@ -834,7 +819,7 @@ class BaseTableInspector(_BaseMapInspector[Table], Generic[Table, Column], ABC):
         # number of rows per column is handled by ColumnInspector
         return self.value.shape[1]
 
-    def get_keys(self) -> Collection[Any]:
+    def get_children(self) -> Collection[Any]:
         return self.value.columns
 
     def has_viewer(self) -> bool:

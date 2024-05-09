@@ -42,10 +42,10 @@
 	color: var(--positronActionBar-foreground);
 }
 
-.top-action-bar-custom-folder-menu .left .label .icon {
-	width: 16px;
-	height: 16px;
-	margin-right: 6px;
+.top-action-bar-custom-folder-menu .left .label .label-text {
+	overflow: hidden;
+	max-width: 200px;
+	text-overflow: ellipsis;
 }
 
 .top-action-bar-custom-folder-menu .right {
