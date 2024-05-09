@@ -119,7 +119,7 @@ class PositronInspector(Generic[T]):
 
     def is_mutable(self) -> bool:
         # Without any additional information it's safer to assume that the inspector is mutable,
-        # which also disables deepcopying. See the __deepcopy__ docstring for more.
+        # which also disables deepcopying. See the `deepcopy` docstring for more.
         return True
 
     def get_comparison_cost(self) -> int:
@@ -135,18 +135,15 @@ class PositronInspector(Generic[T]):
             return False
 
     def deepcopy(self) -> T:
-        return copy.deepcopy(self).value
-
-    def __deepcopy__(self, memo: Dict[int, Any]):
         """
-        Inspectors are not deepcopyable by default, since deepcopying may have unintended
-        side-effects (see https://github.com/posit-dev/positron/issues/2833). To support
-        deepcopying, sub-classes must override `__deepcopy__`.
+        Inspectors of mutable types are not deepcopyable by default, since deepcopying may have
+        unintended side-effects (see https://github.com/posit-dev/positron/issues/2833). To support
+        deepcopying, sub-classes must override `deepcopy`.
         """
         if self.is_mutable():
             raise copy.Error(f"Deepcopying is not supported for type: {type(self.value)}")
         # If the value is immutable, the deepcopy may reference the same value.
-        return type(self)(self.value)
+        return self.value
 
     def to_html(self) -> str:
         return repr(self.value)
@@ -215,12 +212,12 @@ class BytesInspector(PositronInspector[bytes]):
     def is_mutable(self) -> bool:
         return not isinstance(self.value, bytes)
 
-    def __deepcopy__(self, memo: Dict[int, Any]) -> BytesInspector:
+    def deepcopy(self) -> bytes:
         if isinstance(self.value, bytearray):
             # Bytearrays are mutable, but can only hold bytes, so it's safe to use the default
             # deepcopy implementation.
-            return type(self)(copy.deepcopy(self.value, memo))
-        return super().__deepcopy__(memo)
+            return copy.deepcopy(self.value)
+        return super().deepcopy()
 
     def get_display_value(
         self,
@@ -617,11 +614,10 @@ class NumpyNdarrayInspector(_BaseArrayInspector["np.ndarray"]):
     def equals(self, value: np.ndarray) -> bool:
         return not_none(np_).array_equal(self.value, value)
 
-    def __deepcopy__(self, memo: Dict[int, Any]):
+    def deepcopy(self) -> np.ndarray:
         # TODO: ndarray.copy() is actually a shallow copy which could cause unexpected behavior for
-        #       arrays of Python objects. We should either follow the approach of
-        #       CollectionInspector in that case, or raise a copy.Error.
-        return type(self)(self.value.copy())
+        #       arrays of Python objects. We should raise a copy.Error in that case.
+        return self.value.copy()
 
 
 class TorchTensorInspector(_BaseArrayInspector["torch.Tensor"]):
@@ -658,12 +654,12 @@ class TorchTensorInspector(_BaseArrayInspector["torch.Tensor"]):
     def equals(self, value: torch.Tensor) -> bool:
         return not_none(torch_).equal(self.value, value)
 
-    def __deepcopy__(self, memo: Dict[int, Any]):
+    def deepcopy(self) -> torch.Tensor:
         # Detach the tensor from any existing computation graphs to avoid gradients propagating
         # through them.
         # TODO: This creates a completely new tensor using new memory. Is there a more
         #       memory-efficient way to do this?
-        return type(self)(self.value.detach().clone())
+        return self.value.detach().clone()
 
     def get_size(self) -> int:
         if self.value.ndim == 0:
@@ -755,10 +751,10 @@ class PandasSeriesInspector(BaseColumnInspector["pd.Series"]):
     def equals(self, value: pd.Series) -> bool:
         return self.value.equals(value)
 
-    def __deepcopy__(self, memo: Dict[int, Any]):
+    def deepcopy(self) -> pd.Series:
         # Copies memory because pandas < 3.0 does not have
         # copy-on-write.
-        return type(self)(self.value.copy(deep=True))
+        return self.value.copy(deep=True)
 
     def to_html(self) -> str:
         # TODO: Support HTML
@@ -822,10 +818,10 @@ class PolarsSeriesInspector(BaseColumnInspector["pl.Series"]):
         except AttributeError:  # polars.Series.equals was introduced in v0.19.16
             return self.value.series_equal(value)
 
-    def __deepcopy__(self, memo: Dict[int, Any]):
+    def deepcopy(self) -> pl.Series:
         # Polars produces a shallow clone and does not copy any memory
         # in this operation.
-        return type(self)(self.value.clone())
+        return self.value.clone()
 
     def to_html(self) -> str:
         # TODO: Support HTML
@@ -889,10 +885,10 @@ class PandasDataFrameInspector(BaseTableInspector["pd.DataFrame", "pd.Series"]):
     def equals(self, value: pd.DataFrame) -> bool:
         return self.value.equals(value)
 
-    def __deepcopy__(self, memo: Dict[int, Any]):
+    def deepcopy(self) -> pd.DataFrame:
         # Copies memory because pandas < 3.0 does not have
         # copy-on-write.
-        return type(self)(self.value.copy(deep=True))
+        return self.value.copy(deep=True)
 
     def to_html(self) -> str:
         return self.value.to_html()
@@ -923,10 +919,10 @@ class PolarsDataFrameInspector(BaseTableInspector["pl.DataFrame", "pl.Series"]):
         except AttributeError:  # polars.DataFrame.equals was introduced in v0.19.16
             return self.value.frame_equal(value)
 
-    def __deepcopy__(self, memo: Dict[int, Any]):
+    def deepcopy(self) -> pl.DataFrame:
         # Polars produces a shallow clone and does not copy any memory
         # in this operation.
-        return type(self)(self.value.clone())
+        return self.value.clone()
 
     def to_html(self) -> str:
         return self.value._repr_html_()
@@ -945,7 +941,7 @@ class BaseConnectionInspector(ObjectInspector):
     def is_mutable(self) -> bool:
         return True
 
-    def __deepcopy__(self, memo: Dict[int, Any]):
+    def deepcopy(self):
         # Connections are mutable but not deepcopiable.
         raise copy.Error("Connections are not copiable")
 
