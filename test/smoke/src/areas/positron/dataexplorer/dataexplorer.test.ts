@@ -24,11 +24,11 @@ export function setup(logger: Logger) {
 
 			after(async function () {
 				const app = this.app as Application;
-				await app.code.driver.takeScreenshot('debug');
+				await app.code.driver.takeScreenshot('afterPy');
 
 			});
 
-			it('Verifies basic data explorer functionality', async function () {
+			it('Python - Verifies basic data explorer functionality', async function () {
 				const app = this.app as Application;
 
 				// modified snippet from https://www.geeksforgeeks.org/python-pandas-dataframe/
@@ -42,6 +42,10 @@ df = pd.DataFrame(data)`;
 				await app.workbench.positronConsole.sendCodeToConsole(script);
 				console.log('Sending enter key');
 				await app.workbench.positronConsole.sendEnterKey();
+
+				// debug
+				await app.code.driver.takeScreenshot('postEnterKey');
+
 				await app.workbench.positronConsole.waitForReady('>>>');
 
 				await app.code.wait(5000);
@@ -82,11 +86,11 @@ df = pd.DataFrame(data)`;
 
 			after(async function () {
 				const app = this.app as Application;
-				await app.code.driver.takeScreenshot('debug');
+				await app.code.driver.takeScreenshot('afterR');
 
 			});
 
-			it('Verifies basic data explorer functionality', async function () {
+			it('R - Verifies basic data explorer functionality', async function () {
 				const app = this.app as Application;
 
 				// snippet from https://www.w3schools.com/r/r_data_frames.asp

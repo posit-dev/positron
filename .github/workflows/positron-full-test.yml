@@ -105,16 +105,9 @@ jobs:
         id: electron-smoke-tests
         run: DISPLAY=:10 yarn smoketest-no-compile --tracing
 
-      - name: Upload smoke test run log
+      - name: Upload run artifacts
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: smoke-test-runner.log
-          path: .build/logs/smoke-tests-electron/smoke-test-runner.log
-
-      - name: Upload failure screenshot
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: screen-shots
-          path: .build/logs/smoke-tests-electron/2_suite_Data_Explorer/
+          name: run-artifacts
+          path: .build/logs/smoke-tests-electron/
