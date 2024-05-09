@@ -317,8 +317,8 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 						// Get the selection.
 						const selection = codeEditorWidgetRef.current.getSelection();
 
-						// If there isn't a selection, the Ctrl-C interrupts the console. Otherwise,
-						// Ctrl-C copies the selection to the clipboard.
+						// If there isn't a selection, the Ctrl-C interrupts the runtime. Otherwise,
+						// Ctrl-C copies the selection to the clipboard and clears the selection.
 						if (!selection || selection.isEmpty()) {
 							interruptRuntime();
 						} else {
@@ -332,7 +332,7 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 								// Write the selection value to the clipboard.
 								await positronConsoleContext.clipboardService.writeText(value);
 
-								// Unselect the selection.
+								// Clear the selection.
 								codeEditorWidgetRef.current.setSelection({
 									startLineNumber: Number.MAX_VALUE,
 									startColumn: Number.MAX_VALUE,
