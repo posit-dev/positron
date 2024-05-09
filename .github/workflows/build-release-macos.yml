@@ -27,7 +27,7 @@ on:
 jobs:
   build-archs:
     name: Build macOS
-    runs-on: [self-hosted-staging, macos, arm64]
+    runs-on: [self-hosted-production, macos, arm64]
     timeout-minutes: 60
 
     env:
@@ -62,7 +62,8 @@ jobs:
           arch -${{matrix.arch_terminal}} /bin/bash -c "${{matrix.homebrew_folder}}/bin/brew install libsodium"
           arch -${{matrix.arch_terminal}} /bin/bash -c "${{matrix.homebrew_folder}}/bin/brew install xz"
 
-      # Check Python environment
+      # Check Python environment. This helps diagnose build issues that are due
+      # to Python version and environment problems.
       - name: Check Python
         run: |
           echo "--- PATH ---"
@@ -71,8 +72,6 @@ jobs:
           which python3
           echo "--- Python Version ---"
           python3 --version
-          echo "--- Emotional Support Smiley ---"
-          echo ":-)"
 
       # Install node_modules binaries
       - name: Install dependencies
@@ -84,12 +83,6 @@ jobs:
           [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
           nvm use
           yarn --network-timeout 120000
-
-      # Check RECORD
-      - name: Print RECORD
-        run: |
-          echo "--- RECORD ---"
-          cat extensions/positron-python/python_files/lib/python/importlib_metadata-7.0.1.dist-info/RECORD
 
       # Build client
       - name: Build client
@@ -122,7 +115,7 @@ jobs:
   macos-universal:
     name: Create macOS universal binary
     needs: [build-archs]
-    runs-on: [self-hosted-staging, macos, arm64]
+    runs-on: [self-hosted-production, macos, arm64]
     timeout-minutes: 60
     env:
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
