@@ -1,5 +1,8 @@
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License.
+// --- Start Positron ---
+/* eslint-disable import/no-duplicates */
+// --- End Positron ---
 
 import { expect, use } from 'chai';
 import * as chaiAsPromised from 'chai-as-promised';
@@ -22,6 +25,9 @@ import { closeActiveWindows, initialize, initializeTest, IS_MULTI_ROOT_TEST } fr
 import { MockAutoSelectionService } from '../../mocks/autoSelector';
 import { MockProcess } from '../../mocks/process';
 import { UnitTestIocContainer } from '../../testing/serviceRegistry';
+// --- Start Positron ---
+import { IExtensionContext } from '../../../client/common/types';
+// --- End Positron ---
 
 use(chaiAsPromised);
 
@@ -72,12 +78,18 @@ suite('Multiroot Environment Variables Provider', () => {
         const disposables = ioc.serviceContainer.get<Disposable[]>(IDisposableRegistry);
         ioc.serviceManager.addSingletonInstance(IInterpreterAutoSelectionService, new MockAutoSelectionService());
         const workspaceService = new WorkspaceService();
+        // --- Start Positron ---
+        const context: IExtensionContext = mock(IExtensionContext);
+        // --- End Positron ---
         return new EnvironmentVariablesProvider(
             variablesService,
             disposables,
             new PlatformService(),
             workspaceService,
             mockProcess,
+            // --- Start Positron ---
+            instance(context),
+            // --- End Positron ---
         );
     }
 

@@ -1,6 +1,9 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License.
+// --- Start Positron ---
+/* eslint-disable import/no-duplicates */
+// --- End Positron ---
 
 'use strict';
 
@@ -22,6 +25,9 @@ import { EnvironmentVariablesProvider } from '../../../client/common/variables/e
 import { IEnvironmentVariablesService } from '../../../client/common/variables/types';
 import * as EnvFileTelemetry from '../../../client/telemetry/envFileTelemetry';
 import { noop } from '../../core';
+// --- Start Positron ---
+import { IExtensionContext } from '../../../client/common/types';
+// --- End Positron ---
 
 suite('Multiroot Environment Variables Provider', () => {
     let provider: EnvironmentVariablesProvider;
@@ -29,6 +35,9 @@ suite('Multiroot Environment Variables Provider', () => {
     let platform: IPlatformService;
     let workspace: IWorkspaceService;
     let currentProcess: ICurrentProcess;
+    // --- Start Positron ---
+    let context: IExtensionContext;
+    // --- End Positron ---
     let envFile: string;
 
     setup(() => {
@@ -37,6 +46,9 @@ suite('Multiroot Environment Variables Provider', () => {
         platform = mock(PlatformService);
         workspace = mock(WorkspaceService);
         currentProcess = mock(CurrentProcess);
+        // --- Start Positron ---
+        context = mock(IExtensionContext);
+        // --- End Positron ---
 
         when(workspace.onDidChangeConfiguration).thenReturn(noop as any);
         when(workspace.getConfiguration('python', anything())).thenReturn({
@@ -48,6 +60,9 @@ suite('Multiroot Environment Variables Provider', () => {
             instance(platform),
             instance(workspace),
             instance(currentProcess),
+            // --- Start Positron ---
+            instance(context),
+            // --- End Positron ---
         );
 
         sinon.stub(EnvFileTelemetry, 'sendFileCreationTelemetry').returns();
@@ -312,6 +327,9 @@ suite('Multiroot Environment Variables Provider', () => {
                 instance(platform),
                 instance(workspace),
                 instance(currentProcess),
+                // --- Start Positron ---
+                instance(context),
+                // --- End Positron ---
                 100,
             );
             const vars = await provider.getEnvironmentVariables(workspaceUri);
