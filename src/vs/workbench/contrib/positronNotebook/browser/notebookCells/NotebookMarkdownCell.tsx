@@ -4,8 +4,6 @@
 import 'vs/css!./NotebookMarkdownCell';
 import * as React from 'react';
 
-import { IPositronNotebookMarkdownCell } from 'vs/workbench/contrib/positronNotebook/browser/notebookCells/interfaces';
-
 import { CellEditorMonacoWidget } from 'vs/workbench/contrib/positronNotebook/browser/notebookCells/CellEditorMonacoWidget';
 import { NotebookCellActionBar } from 'vs/workbench/contrib/positronNotebook/browser/notebookCells/NotebookCellActionBar';
 import { useObservedValue } from 'vs/workbench/contrib/positronNotebook/browser/useObservedValue';
@@ -13,8 +11,9 @@ import { Markdown } from './Markdown';
 import { localize } from 'vs/nls';
 import { ActionButton } from 'vs/workbench/contrib/positronNotebook/browser/utilityComponents/ActionButton';
 import { NotebookCellWrapper } from 'vs/workbench/contrib/positronNotebook/browser/notebookCells/NotebookCellWrapper';
+import { PositronNotebookMarkdownCell } from 'vs/workbench/contrib/positronNotebook/browser/PositronNotebookCell';
 
-export function NotebookMarkdownCell({ cell }: { cell: IPositronNotebookMarkdownCell }) {
+export function NotebookMarkdownCell({ cell }: { cell: PositronNotebookMarkdownCell }) {
 
 	const markdownString = useObservedValue(cell.markdownString);
 	const editorShown = useObservedValue(cell.editorShown);
