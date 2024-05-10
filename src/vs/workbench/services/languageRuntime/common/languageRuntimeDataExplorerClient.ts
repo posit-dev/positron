@@ -2,7 +2,6 @@
  *  Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
-import { generateUuid } from 'vs/base/common/uuid';
 import { Emitter, Event } from 'vs/base/common/event';
 import { Disposable } from 'vs/base/common/lifecycle';
 import { IRuntimeClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimeClientInstance';
@@ -48,11 +47,6 @@ export enum DataExplorerClientStatus {
  */
 export class DataExplorerClientInstance extends Disposable {
 	//#region Private Properties
-
-	/**
-	 * Gets the identifier.
-	 */
-	private readonly _identifier = generateUuid();
 
 	/**
 	 * The current cached backend state.
@@ -143,7 +137,7 @@ export class DataExplorerClientInstance extends Disposable {
 	 * Gets the identifier.
 	 */
 	get identifier() {
-		return this._identifier;
+		return this._positronDataExplorerComm.clientId;
 	}
 
 	//#endregion Public Properties

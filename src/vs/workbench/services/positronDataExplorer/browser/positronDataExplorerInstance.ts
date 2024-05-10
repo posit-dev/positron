@@ -61,6 +61,11 @@ export class PositronDataExplorerInstance extends Disposable implements IPositro
 	 */
 	private readonly _onDidChangeColumnsScrollOffsetEmitter = this._register(new Emitter<number>);
 
+	/**
+	 * The onDidRequestFocus event emitter.
+	 */
+	private readonly _onDidRequestFocusEmitter = this._register(new Emitter<void>());
+
 	//#endregion Private Properties
 
 	//#region Constructor & Dispose
@@ -148,6 +153,13 @@ export class PositronDataExplorerInstance extends Disposable implements IPositro
 	}
 
 	/**
+	 * Requests focus.
+	 */
+	requestFocus(): void {
+		this._onDidRequestFocusEmitter.fire();
+	}
+
+	/**
 	 * onDidChangeLayout event.
 	 */
 	readonly onDidChangeLayout = this._onDidChangeLayoutEmitter.event;
@@ -161,6 +173,11 @@ export class PositronDataExplorerInstance extends Disposable implements IPositro
 	 * onDidChangeColumnsScrollOffset event.
 	 */
 	readonly onDidChangeColumnsScrollOffset = this._onDidChangeColumnsScrollOffsetEmitter.event;
+
+	/**
+	 * onDidRequestFocus event.
+	 */
+	readonly onDidRequestFocus = this._onDidRequestFocusEmitter.event;
 
 	//#endregion IPositronDataExplorerInstance Implementation
 }

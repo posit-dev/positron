@@ -46,4 +46,14 @@ export interface IPositronDataExplorerInstance {
 	 * The onDidChangeColumnsWidthPercent event.
 	 */
 	readonly onDidChangeColumnsWidthPercent: Event<number>;
+
+	/**
+	 * The onDidRequestFocus event.
+	 */
+	readonly onDidRequestFocus: Event<void>;
+
+	/**
+	 * Requests focus for the instance.
+	 */
+	requestFocus(): void;
 }

@@ -104,7 +104,8 @@ export const VariableItem = (props: VariableItemProps) => {
 		const explorerService = positronVariablesContext.dataExplorerService;
 		const instance = explorerService.getInstanceForVar(item.id);
 		if (instance) {
-			// TODO: focus the viewer
+			// There's an existing viewer instance, so activate it.
+			instance.requestFocus();
 		} else {
 			// Open a viewer for the variable item.
 			const viewerId = await item.view();
