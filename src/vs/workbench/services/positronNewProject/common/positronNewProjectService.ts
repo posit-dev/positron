@@ -52,9 +52,9 @@ export class PositronNewProjectService extends Disposable implements IPositronNe
 			this._startupPhase
 		);
 		this._register(
-			this.onDidChangeNewProjectStartupPhase(() => {
+			this.onDidChangeNewProjectStartupPhase((phase) => {
 				this._logService.debug(
-					`[New project startup] Phase changed to ${this._startupPhase}`
+					`[New project startup] Phase changed to ${phase}`
 				);
 			})
 		);
@@ -71,9 +71,12 @@ export class PositronNewProjectService extends Disposable implements IPositronNe
 		);
 		this.onDidChangePendingTasks = Event.fromObservable(this._pendingTasks);
 		this._register(
-			this.onDidChangePendingTasks((pendingTasks) => {
+			this.onDidChangePendingTasks((tasks) => {
+				this._logService.debug(
+					`[New project startup] Pending tasks changed to ${tasks}`
+				);
 				// If there are no pending tasks, the new project startup is complete
-				if (pendingTasks.size === 0) {
+				if (tasks.size === 0) {
 					this._startupPhase.set(
 						NewProjectStartupPhase.Complete,
 						undefined
@@ -333,8 +336,9 @@ export class PositronNewProjectService extends Disposable implements IPositronNe
 	 * Removes a pending task.
 	 */
 	private _removePendingTask(task: NewProjectTask) {
-		this.pendingTasks.delete(task);
-		this._pendingTasks.set(this.pendingTasks, undefined);
+		const updatedPendingTasks = new Set(this.pendingTasks);
+		updatedPendingTasks.delete(task);
+		this._pendingTasks.set(updatedPendingTasks, undefined);
 	}
 
 	/**
