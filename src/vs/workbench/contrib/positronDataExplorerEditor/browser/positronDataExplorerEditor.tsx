@@ -283,6 +283,11 @@ export class PositronDataExplorerEditor extends EditorPane implements IReactComp
 				this._register(positronDataExplorerInstance.onDidRequestFocus(() => {
 					this._editorService.openEditor(input);
 				}));
+				this._register(this._group.onDidCloseEditor(e => {
+					if (e.editor === input) {
+						positronDataExplorerInstance.dispose();
+					}
+				}));
 
 				// Logging.
 				console.log(`PositronDataExplorerEditor ${this._instance} create PositronReactRenderer`);

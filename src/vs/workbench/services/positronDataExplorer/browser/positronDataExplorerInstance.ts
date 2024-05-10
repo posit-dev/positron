@@ -72,7 +72,9 @@ export class PositronDataExplorerInstance extends Disposable implements IPositro
 
 	/**
 	 * Constructor.
-	 * @param dataExplorerClientInstance The DataExplorerClientInstance.
+	 * @param dataExplorerClientInstance The DataExplorerClientInstance. The
+	 * data explorer takes ownership of the client instance and will dispose it
+	 * when it is disposed.
 	 */
 	constructor(dataExplorerClientInstance: DataExplorerClientInstance) {
 		// Call the base class's constructor.
@@ -95,6 +97,17 @@ export class PositronDataExplorerInstance extends Disposable implements IPositro
 			this._tableDataDataGridInstance.selectColumn(columnIndex);
 			this._tableDataDataGridInstance.scrollToColumn(columnIndex);
 		}));
+	}
+
+	/**
+	 * dispose override method.
+	 */
+	override dispose(): void {
+		// Dispose the client instance.
+		this._dataExplorerClientInstance.dispose();
+
+		// Call the base class's dispose method.
+		super.dispose();
 	}
 
 	//#endregion Constructor & Dispose

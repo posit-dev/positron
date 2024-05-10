@@ -216,9 +216,10 @@ class PositronDataExplorerService extends Disposable implements IPositronDataExp
 	}
 
 	async open(dataExplorerClientInstance: DataExplorerClientInstance): Promise<void> {
+		const dataExplorer = new PositronDataExplorerInstance(dataExplorerClientInstance);
 		this._positronDataExplorerInstanceMap.set(
 			dataExplorerClientInstance.identifier,
-			new PositronDataExplorerInstance(dataExplorerClientInstance)
+			dataExplorer
 		);
 
 		const start = new Date();
@@ -282,7 +283,15 @@ class PositronDataExplorerService extends Disposable implements IPositronDataExp
 		});
 
 		dataExplorerRuntime.onDidCloseDataExplorerClient(dataExplorerClientInstance => {
-
+			// When the data explorer client instance is closed, clean up
+			// references to variables. We may still need to keep the instance
+			// map since the defunct instances may still be bound to open
+			// editors.
+			for (const [key, value] of this._varIdToInstanceIdMap.entries()) {
+				if (value === dataExplorerClientInstance.identifier) {
+					this._varIdToInstanceIdMap.delete(key);
+				}
+			}
 		});
 	}
 

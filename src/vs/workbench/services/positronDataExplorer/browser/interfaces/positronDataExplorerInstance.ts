@@ -7,11 +7,12 @@ import { TableDataDataGridInstance } from 'vs/workbench/services/positronDataExp
 import { DataExplorerClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimeDataExplorerClient';
 import { TableSummaryDataGridInstance } from 'vs/workbench/services/positronDataExplorer/browser/tableSummaryDataGridInstance';
 import { PositronDataExplorerLayout } from 'vs/workbench/services/positronDataExplorer/browser/interfaces/positronDataExplorerService';
+import { IDisposable } from 'vs/base/common/lifecycle';
 
 /**
  * IPositronDataExplorerInstance interface.
  */
-export interface IPositronDataExplorerInstance {
+export interface IPositronDataExplorerInstance extends IDisposable {
 	/**
 	 * Gets the data explorer client instance.
 	 */
