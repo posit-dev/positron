@@ -596,74 +596,10 @@ export class ViewDescriptorService extends Disposable implements IViewDescriptor
 	}
 
 	// --- Start Positron ---
-	// This is essentially this.onDidViewCustomizationsStorageChange() just
-	// with a different source of the view customizations
-	loadCustomViewDescriptor({ viewContainerLocations, viewLocations, viewContainerBadgeEnablementStates }: IViewsCustomizations): void {
-
-		const newViewContainerCustomizations = new Map<string, ViewContainerLocation>(Object.entries(viewContainerLocations));
-		const newViewDescriptorCustomizations = new Map<string, string>(Object.entries(viewLocations));
-		const viewContainersToMove: [ViewContainer, ViewContainerLocation][] = [];
-		const viewsToMove: { views: IViewDescriptor[]; from: ViewContainer; to: ViewContainer }[] = [];
-
-		for (const [containerId, location] of newViewContainerCustomizations.entries()) {
-			const container = this.getViewContainerById(containerId);
-			if (container) {
-				if (location !== this.getViewContainerLocation(container)) {
-					viewContainersToMove.push([container, location]);
-				}
-			}
-			// If the container is generated and not registered, we register it now
-			else if (this.isGeneratedContainerId(containerId)) {
-				this.registerGeneratedViewContainer(location, containerId);
-			}
-		}
-
-		for (const viewContainer of this.viewContainers) {
-			if (!newViewContainerCustomizations.has(viewContainer.id)) {
-				const currentLocation = this.getViewContainerLocation(viewContainer);
-				const defaultLocation = this.getDefaultViewContainerLocation(viewContainer);
-				if (currentLocation !== defaultLocation) {
-					viewContainersToMove.push([viewContainer, defaultLocation]);
-				}
-			}
-		}
-
-		for (const [viewId, viewContainerId] of newViewDescriptorCustomizations.entries()) {
-			const viewDescriptor = this.getViewDescriptorById(viewId);
-			if (viewDescriptor) {
-				const prevViewContainer = this.getViewContainerByViewId(viewId);
-				const newViewContainer = this.viewContainersRegistry.get(viewContainerId);
-				if (prevViewContainer && newViewContainer && newViewContainer !== prevViewContainer) {
-					viewsToMove.push({ views: [viewDescriptor], from: prevViewContainer, to: newViewContainer });
-				}
-			}
-		}
-
-		// If a value is not present in the cache, it must be reset to default
-		for (const viewContainer of this.viewContainers) {
-			const viewContainerModel = this.getViewContainerModel(viewContainer);
-			for (const viewDescriptor of viewContainerModel.allViewDescriptors) {
-				if (!newViewDescriptorCustomizations.has(viewDescriptor.id)) {
-					const currentContainer = this.getViewContainerByViewId(viewDescriptor.id);
-					const defaultContainer = this.getDefaultContainerById(viewDescriptor.id);
-					if (currentContainer && defaultContainer && currentContainer !== defaultContainer) {
-						viewsToMove.push({ views: [viewDescriptor], from: currentContainer, to: defaultContainer });
-					}
-				}
-			}
-		}
-
-		// Execute View Container Movements
-		for (const [container, location] of viewContainersToMove) {
-			this.moveViewContainerToLocationWithoutSaving(container, location);
-		}
-		// Execute View Movements
-		for (const { views, from, to } of viewsToMove) {
-			this.moveViewsWithoutSaving(views, from, to, ViewVisibilityState.Default);
-		}
-
-		this.viewContainersCustomLocations = newViewContainerCustomizations;
-		this.viewDescriptorsCustomLocations = newViewDescriptorCustomizations;
+	loadCustomViewDescriptor(vc: IViewsCustomizations): void {
+		// By setting this variable we are saving the view customizations to the storage which then
+		// causes this.onDidViewCustomizationsStorageChange() to be called and the views updated
+		this.viewCustomizations = vc;
 	}
 
 	// Helper function to make it easier to develop custom views.
