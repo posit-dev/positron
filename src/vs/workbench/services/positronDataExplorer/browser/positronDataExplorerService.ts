@@ -99,9 +99,14 @@ class PositronDataExplorerService extends Disposable implements IPositronDataExp
 	private readonly _dataExplorerSessions = new Map<string, DataExplorerRuntime>();
 
 	/**
-	 * The Positron data explorer instance map keyed by
+	 * The Positron data explorer instance map keyed by instance ID.
 	 */
 	private _positronDataExplorerInstanceMap = new Map<string, PositronDataExplorerInstance>();
+
+	/**
+	 * The Positron data explorer variable-to-instance map.
+	 */
+	private _varIdToInstanceIdMap = new Map<string, string>();
 
 	//#endregion Private Properties
 
@@ -166,6 +171,33 @@ class PositronDataExplorerService extends Disposable implements IPositronDataExp
 
 		// Call the base class's dispose method.
 		super.dispose();
+	}
+
+	/**
+	 * Gets the Positron data explorer instance for the specified variable.
+	 *
+	 * @param variableId The variable ID.
+	 * @returns The Positron data explorer instance.
+	 */
+	getInstanceForVar(variableId: string): IPositronDataExplorerInstance | undefined {
+		const instanceId = this._varIdToInstanceIdMap.get(variableId);
+		if (instanceId === undefined) {
+			return undefined;
+		}
+		return this._positronDataExplorerInstanceMap.get(instanceId);
+	}
+
+	/**
+	 * Sets the instance for the specified variable.
+	 *
+	 * It's OK if the instance doesn't exist yet; this binding will be used when
+	 * the instance is created.
+	 *
+	 * @param instanceId The instance ID.
+	 * @param variableId The variable ID.
+	 */
+	setInstanceForVar(instanceId: string, variableId: string): void {
+		this._varIdToInstanceIdMap.set(variableId, instanceId);
 	}
 
 	//#endregion Constructor & Dispose
