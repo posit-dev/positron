@@ -5,6 +5,7 @@
 
 import { Code } from '../code';
 
+const HIDE_SECONDARY_SIDE_BAR = '[aria-label="Hide Secondary Side Bar"]';
 
 export class PositronSideBar {
 
@@ -12,7 +13,7 @@ export class PositronSideBar {
 
 	async closeSecondarySideBar() {
 		console.log('Hiding secondary side bar');
-		const hideSecondarySideBar = this.code.driver.getLocator('[aria-label="Hide Secondary Side Bar"]');
+		const hideSecondarySideBar = this.code.driver.getLocator(HIDE_SECONDARY_SIDE_BAR);
 		await hideSecondarySideBar.click();
 	}
 

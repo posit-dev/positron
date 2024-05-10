@@ -22,6 +22,14 @@ export function setup(logger: Logger) {
 
 			});
 
+			after(async function () {
+
+				const app = this.app as Application;
+				await app.workbench.positronDataExplorer.closeDataExplorer();
+				await app.workbench.positronVariables.openVariables();
+
+			});
+
 			it('Python - Verifies basic data explorer functionality', async function () {
 				const app = this.app as Application;
 
@@ -52,21 +60,21 @@ df = pd.DataFrame(data)`;
 				expect(tableData[3]).toStrictEqual({ 'Name': 'Anuj', 'Age': '32', 'Address': 'Kannauj' });
 
 			});
-
 		});
-
-	});
-
-	describe('Data Explorer', () => {
-
-		// Shared before/after handling
-		installAllHandlers(logger);
 
 		describe('R Data Explorer', () => {
 
 			before(async function () {
 				const rFixtures = new PositronRFixtures(this.app);
 				await rFixtures.startRInterpreter();
+
+			});
+
+			after(async function () {
+
+				const app = this.app as Application;
+				await app.workbench.positronDataExplorer.closeDataExplorer();
+				await app.workbench.positronVariables.openVariables();
 
 			});
 
@@ -98,8 +106,6 @@ df = pd.DataFrame(data)`;
 				expect(tableData[2]).toStrictEqual({ 'Training': '\"Other\"', 'Pulse': '120', 'Duration': '45' });
 
 			});
-
 		});
-
 	});
 }

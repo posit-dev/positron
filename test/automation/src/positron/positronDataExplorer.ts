@@ -10,6 +10,7 @@ const HEADER_TITLES = '.data-grid-column-header .title-description .title';
 const DATA_GRID_ROWS = '.data-explorer-panel .column-2 .data-grid-rows';
 const DATA_GRID_ROW = '.data-grid-row';
 const CELL_TEXT = '.data-grid-row-cell .content .text';
+const CLOSE_DATA_EXPLORER = '.tab .codicon-close';
 
 export interface CellData {
 	[key: string]: string;
@@ -84,5 +85,9 @@ export class PositronDataExplorer {
 		}
 
 		return tableData;
+	}
+
+	async closeDataExplorer() {
+		await this.code.waitAndClick(CLOSE_DATA_EXPLORER);
 	}
 }
