@@ -27,10 +27,8 @@ export enum EnvironmentSetupType {
 }
 
 /**
- * PythonEnvironmentType enum includes the types of Python environments.
- * - Venv: A virtual environment.
- * - Conda: A conda environment.
- * TODO: retrieve these values from the appropriate extensions/services?
+ * PythonEnvironmentType enum includes the types of Python environments that are supported by the
+ * New Project Wizard.
  */
 export enum PythonEnvironmentType {
 	Venv = 'Venv',

@@ -2,12 +2,15 @@
  *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
+// React.
 import { useState } from 'react';
+
+// Other dependencies.
 import { IFileDialogService } from 'vs/platform/dialogs/common/dialogs';
 import { ILanguageRuntimeMetadata, ILanguageRuntimeService } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { IRuntimeSessionService } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
 import { IRuntimeStartupService } from 'vs/workbench/services/runtimeStartup/common/runtimeStartupService';
-import { EnvironmentSetupType, NewProjectType, NewProjectWizardStep, PythonEnvironmentType } from 'vs/workbench/browser/positronNewProjectWizard/interfaces/newProjectWizardEnums';
+import { EnvironmentSetupType, NewProjectType, NewProjectWizardStep } from 'vs/workbench/browser/positronNewProjectWizard/interfaces/newProjectWizardEnums';
 import { IWorkbenchLayoutService } from 'vs/workbench/services/layout/browser/layoutService';
 import { IKeybindingService } from 'vs/platform/keybinding/common/keybinding';
 import { ILogService } from 'vs/platform/log/common/log';
@@ -15,6 +18,7 @@ import { IOpenerService } from 'vs/platform/opener/common/opener';
 import { IPathService } from 'vs/workbench/services/path/common/pathService';
 import { IFileService } from 'vs/platform/files/common/files';
 import { ICommandService } from 'vs/platform/commands/common/commands';
+import { PythonEnvironmentProviderInfo } from 'vs/workbench/browser/positronNewProjectWizard/utilities/pythonEnvironmentStepUtils';
 
 /**
  * NewProjectWizardServices interface. Defines the set of services that are required by the New
@@ -41,6 +45,7 @@ interface NewProjectWizardServices {
 export interface NewProjectWizardStateProps {
 	readonly services: NewProjectWizardServices;
 	readonly parentFolder: string;
+	readonly pythonEnvProviders: PythonEnvironmentProviderInfo[];
 }
 
 /**
@@ -55,7 +60,7 @@ export interface NewProjectWizardConfiguration {
 	readonly initGitRepo: boolean;
 	readonly openInNewWindow: boolean;
 	readonly pythonEnvSetupType: EnvironmentSetupType | undefined;
-	readonly pythonEnvType: PythonEnvironmentType | undefined;
+	readonly pythonEnvProvider: string | undefined;
 	readonly installIpykernel: boolean | undefined;
 	readonly useRenv: boolean | undefined;
 }
@@ -67,6 +72,7 @@ export interface NewProjectWizardState extends NewProjectWizardServices {
 	projectConfig: NewProjectWizardConfiguration;
 	wizardSteps: NewProjectWizardStep[]; // TODO: remove: this is for debugging
 	currentStep: NewProjectWizardStep;
+	pythonEnvProviders: PythonEnvironmentProviderInfo[];
 	setProjectConfig(config: NewProjectWizardConfiguration): void;
 	goToNextStep: (step: NewProjectWizardStep) => void;
 	goToPreviousStep: () => void;
@@ -89,7 +95,7 @@ export const useNewProjectWizardState = (
 		initGitRepo: false,
 		openInNewWindow: false,
 		pythonEnvSetupType: undefined,
-		pythonEnvType: undefined,
+		pythonEnvProvider: undefined,
 		installIpykernel: undefined,
 		useRenv: undefined
 	});
@@ -126,6 +132,7 @@ export const useNewProjectWizardState = (
 		projectConfig,
 		wizardSteps, // TODO: remove: this is for debugging
 		currentStep,
+		pythonEnvProviders: props.pythonEnvProviders,
 		setProjectConfig,
 		goToNextStep,
 		goToPreviousStep,
