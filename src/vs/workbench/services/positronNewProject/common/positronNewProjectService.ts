@@ -156,6 +156,9 @@ export class PositronNewProjectService extends Disposable implements IPositronNe
 	 * Relies on extension vscode.ipynb
 	 */
 	private runJupyterTasks() {
+		// For now, Jupyter notebooks are always Python based. In the future, we'll need to surface
+		// some UI in the Project Wizard for the user to select the language/kernel and pass that
+		// metadata to the new project configuration.
 		if (this.pendingTasks.has(NewProjectTask.PythonEnvironment)) {
 			this.createPythonEnvironment();
 		}
@@ -255,12 +258,10 @@ export class PositronNewProjectService extends Disposable implements IPositronNe
 	}
 
 	/**
-	 * Runs the tasks for the new project.
+	 * Runs the tasks for the new project. This function assumes that we've already checked that the
+	 * current window is the new project that was just created.
 	 */
 	private newProjectTasks() {
-		if (!this.isCurrentWindowNewProject()) {
-			return;
-		}
 		this._startupPhase.set(
 			NewProjectStartupPhase.CreatingProject,
 			undefined
