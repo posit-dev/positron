@@ -122,10 +122,7 @@ export async function activatePositron(
         );
         // Register a command to get the minimum version of python supported by the extension.
         disposables.push(
-            vscode.commands.registerCommand(
-                'python.getMinimumPythonVersion',
-                (): string => MINIMUM_PYTHON_VERSION.raw,
-            ),
+            vscode.commands.registerCommand('python.getMinimumPythonVersion', (): string => MINIMUM_PYTHON_VERSION.raw),
         );
         traceInfo('activatePositron: done!');
     } catch (ex) {
