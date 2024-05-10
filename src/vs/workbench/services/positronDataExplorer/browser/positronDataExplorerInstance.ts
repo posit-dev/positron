@@ -22,7 +22,10 @@ export class PositronDataExplorerInstance extends Disposable implements IPositro
 	 */
 	private readonly _dataExplorerClientInstance: DataExplorerClientInstance;
 
-	private readonly _dataCache: DataExplorerCache;
+	/**
+	 * Gets the DataExplorerCache.
+	 */
+	private readonly _dataExplorerCache: DataExplorerCache;
 
 	/**
 	 * Gets or sets the layout.
@@ -75,14 +78,14 @@ export class PositronDataExplorerInstance extends Disposable implements IPositro
 
 		// Initialize.
 		this._dataExplorerClientInstance = dataExplorerClientInstance;
-		this._dataCache = new DataExplorerCache(dataExplorerClientInstance);
+		this._dataExplorerCache = new DataExplorerCache(dataExplorerClientInstance);
 		this._tableSchemaDataGridInstance = new TableSummaryDataGridInstance(
 			dataExplorerClientInstance,
-			this._dataCache
+			this._dataExplorerCache
 		);
 		this._tableDataDataGridInstance = new TableDataDataGridInstance(
 			dataExplorerClientInstance,
-			this._dataCache
+			this._dataExplorerCache
 		);
 
 		// Add event handlers.
