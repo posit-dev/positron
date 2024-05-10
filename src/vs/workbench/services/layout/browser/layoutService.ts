@@ -16,7 +16,7 @@ import { isFullscreen, isWCOEnabled } from 'vs/base/browser/browser';
 import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
 import { IDisposable } from 'vs/base/common/lifecycle';
 // --- Start Positron ---
-import { CustomPositronLayoutDescription } from 'vs/workbench/browser/positronCustomViews';
+import { CustomPositronLayoutDescription, KnownPositronLayoutParts, PartViewInfo } from 'vs/workbench/browser/positronCustomViews';
 // --- End Positron ---
 
 export const IWorkbenchLayoutService = refineServiceDecorator<ILayoutService, IWorkbenchLayoutService>(ILayoutService);
@@ -313,7 +313,8 @@ export interface IWorkbenchLayoutService extends ILayoutService {
 	/**
 	 * Get the current layout definition for saving to custom layouts
 	 */
-	dumpCurrentLayout(): CustomPositronLayoutDescription;
+	// dumpCurrentLayout(): CustomPositronLayoutDescription;
+	getPartViewInfo(part: KnownPositronLayoutParts): PartViewInfo;
 	// --- End Positron ---
 
 	/**

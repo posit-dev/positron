@@ -859,7 +859,9 @@ registerAction2(class DumpViewCustomizations extends Action2 {
 	}
 
 	run(accessor: ServicesAccessor): void {
-		return createPositronCustomLayoutDescriptor(accessor);
+		console.log(
+			JSON.stringify(createPositronCustomLayoutDescriptor(accessor), null, 2)
+		);
 	}
 });
 // --- End Positron ---

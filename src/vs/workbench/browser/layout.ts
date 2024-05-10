@@ -52,7 +52,7 @@ import { CustomTitleBarVisibility } from '../../platform/window/common/window';
 
 // --- Start Positron ---
 import { IPositronTopActionBarService } from 'vs/workbench/services/positronTopActionBar/browser/positronTopActionBarService';
-import { KnownPositronLayoutParts, PartLayoutDescription, PositronCustomLayoutDescriptor } from 'vs/workbench/browser/positronCustomViews';
+import { KnownPositronLayoutParts, PartLayoutDescription, PartViewInfo, PositronCustomLayoutDescriptor } from 'vs/workbench/browser/positronCustomViews';
 // --- End Positron ---
 
 //#region Layout Implementation
@@ -1387,12 +1387,7 @@ export abstract class Layout extends Disposable implements IWorkbenchLayoutServi
 	}
 
 	// --- Start Positron ---
-	private _getPartViewInfo(part: KnownPositronLayoutParts): {
-		partView: ISerializableView;
-		currentSize: IViewSize;
-		hidden: boolean;
-		hideFn: (hidden: boolean, skipLayout?: boolean | undefined) => void;
-	} {
+	getPartViewInfo(part: KnownPositronLayoutParts): PartViewInfo {
 		const mainClasses = this.mainContainer.classList;
 
 		switch (part) {
@@ -1421,24 +1416,13 @@ export abstract class Layout extends Disposable implements IWorkbenchLayoutServi
 	}
 
 	private _setCustomPartSize(part: KnownPositronLayoutParts, { hidden, width, height }: PartLayoutDescription) {
-		const { partView, hideFn, currentSize } = this._getPartViewInfo(part);
+		const { partView, hideFn, currentSize } = this.getPartViewInfo(part);
 		const newSize = { width: width ?? currentSize.width, height: height ?? currentSize.height };
 		this.workbenchGrid.resizeView(partView, newSize);
 		hideFn(hidden, true);
 	}
 
-	private _getPartLayout(part: KnownPositronLayoutParts): PartLayoutDescription {
-		const { currentSize, hidden } = this._getPartViewInfo(part);
-		return { width: currentSize.width, height: currentSize.height, hidden };
-	}
 
-	dumpCurrentLayout() {
-		return {
-			[Parts.SIDEBAR_PART]: this._getPartLayout(Parts.SIDEBAR_PART),
-			[Parts.PANEL_PART]: this._getPartLayout(Parts.PANEL_PART),
-			[Parts.AUXILIARYBAR_PART]: this._getPartLayout(Parts.AUXILIARYBAR_PART),
-		};
-	}
 
 	enterCustomLayout(layout: PositronCustomLayoutDescriptor['layout']) {
 

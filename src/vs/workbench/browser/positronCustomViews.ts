@@ -2,6 +2,7 @@
  *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
+import { ISerializableView, IViewSize } from 'vs/base/browser/ui/grid/gridview';
 import { IStringDictionary } from 'vs/base/common/collections';
 import { ServicesAccessor } from 'vs/platform/instantiation/common/instantiation';
 import { IViewDescriptorService, ViewContainerLocation } from 'vs/workbench/common/views';
@@ -10,7 +11,6 @@ import { IWorkbenchLayoutService, Parts } from 'vs/workbench/services/layout/bro
 
 // Copied from src/vs/workbench/services/views/browser/viewDescriptorService.ts to
 // avoid exporting the interface and creating more diffs
-
 interface IViewsCustomizations {
 	viewContainerLocations: IStringDictionary<ViewContainerLocation>;
 	viewLocations: IStringDictionary<string>;
@@ -30,6 +30,13 @@ export interface CustomPositronLayoutDescription {
 	[Parts.AUXILIARYBAR_PART]: PartLayoutDescription;
 }
 
+export type PartViewInfo = {
+	partView: ISerializableView;
+	currentSize: IViewSize;
+	hidden: boolean;
+	hideFn: (hidden: boolean, skipLayout?: boolean | undefined) => void;
+};
+
 export type KnownPositronLayoutParts = keyof CustomPositronLayoutDescription;
 
 export interface PositronCustomLayoutDescriptor {
@@ -47,18 +54,23 @@ export function loadCustomPositronLayout(description: PositronCustomLayoutDescri
 	accessor.get(IViewDescriptorService).loadCustomViewDescriptor(description.views);
 }
 
-export function createPositronCustomLayoutDescriptor(accessor: ServicesAccessor) {
+export function createPositronCustomLayoutDescriptor(accessor: ServicesAccessor): PositronCustomLayoutDescriptor {
 	const views = accessor.get(IViewDescriptorService).dumpViewCustomizations();
-	const layout = accessor.get(IWorkbenchLayoutService).dumpCurrentLayout();
+	const layoutService = accessor.get(IWorkbenchLayoutService);
 
-	const viewDescription: PositronCustomLayoutDescriptor = {
-		layout,
-		views
+	const getPartLayout = (part: KnownPositronLayoutParts) => {
+		const { currentSize, hidden } = layoutService.getPartViewInfo(part);
+		return { width: currentSize.width, height: currentSize.height, hidden };
 	};
 
-	console.log(
-		JSON.stringify(viewDescription, null, 2)
-	);
+	return {
+		layout: {
+			[Parts.SIDEBAR_PART]: getPartLayout(Parts.SIDEBAR_PART),
+			[Parts.PANEL_PART]: getPartLayout(Parts.PANEL_PART),
+			[Parts.AUXILIARYBAR_PART]: getPartLayout(Parts.AUXILIARYBAR_PART),
+		},
+		views
+	};
 }
 
 export const fourPaneDS: PositronCustomLayoutDescriptor =

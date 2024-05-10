@@ -181,7 +181,7 @@ import { EnvironmentVariableService } from 'vs/workbench/contrib/terminal/common
 import { ContextMenuService } from 'vs/platform/contextview/browser/contextMenuService';
 
 // --- Start Positron ---
-import { CustomPositronLayoutDescription } from 'vs/workbench/browser/positronCustomViews';
+import { CustomPositronLayoutDescription, KnownPositronLayoutParts, PartViewInfo } from 'vs/workbench/browser/positronCustomViews';
 // --- End Positron ---
 export function createFileEditorInput(instantiationService: IInstantiationService, resource: URI): FileEditorInput {
 	return instantiationService.createInstance(FileEditorInput, resource, undefined, undefined, undefined, undefined, undefined, undefined);
@@ -650,7 +650,7 @@ export class TestLayoutService implements IWorkbenchLayoutService {
 	maximizePanel(): void { }
 	isPanelMinimized(): boolean { return false; }
 	enterCustomLayout(layout: CustomPositronLayoutDescription): void { }
-	dumpCurrentLayout(): CustomPositronLayoutDescription { throw new Error('not implemented'); }
+	getPartViewInfo(part: KnownPositronLayoutParts): PartViewInfo { throw new Error('not implemented'); }
 	// --- End Positron ---
 	isPanelMaximized(): boolean { return false; }
 	getMenubarVisibility(): MenuBarVisibility { throw new Error('not implemented'); }
