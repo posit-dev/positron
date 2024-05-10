@@ -10,9 +10,9 @@ import { InstantiationType, registerSingleton } from 'vs/platform/instantiation/
 import { PositronDataExplorerUri } from 'vs/workbench/services/positronDataExplorer/common/positronDataExplorerUri';
 import { DataExplorerClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimeDataExplorerClient';
 import { PositronDataExplorerInstance } from 'vs/workbench/services/positronDataExplorer/browser/positronDataExplorerInstance';
+import { ILanguageRuntimeSession, IRuntimeSessionService, RuntimeClientType } from '../../runtimeSession/common/runtimeSessionService';
 import { IPositronDataExplorerService } from 'vs/workbench/services/positronDataExplorer/browser/interfaces/positronDataExplorerService';
 import { IPositronDataExplorerInstance } from 'vs/workbench/services/positronDataExplorer/browser/interfaces/positronDataExplorerInstance';
-import { ILanguageRuntimeSession, IRuntimeSessionService, RuntimeClientType } from '../../runtimeSession/common/runtimeSessionService';
 
 /**
  * DataExplorerRuntime class.
@@ -47,8 +47,9 @@ class DataExplorerRuntime extends Disposable {
 	//#region Constructor & Dispose
 
 	/**
-	 *
-	 * @param runtime
+	 * Constructor.
+	 * @param _session The session.
+	 * @param _notificationService The notification service.
 	 */
 	constructor(
 		private readonly _session: ILanguageRuntimeSession,

@@ -352,7 +352,6 @@ export class DataExplorerClientInstance extends Disposable {
 
 	//#region Public Events
 
-
 	/**
 	 * Event that fires when the data explorer is closed on the runtime side, as a result of
 	 * a dataset being deallocated or overwritten with a non-dataset.
