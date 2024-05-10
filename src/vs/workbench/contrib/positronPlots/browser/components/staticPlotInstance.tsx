@@ -87,19 +87,31 @@ export const StaticPlotInstance = (props: StaticPlotInstanceProps) => {
 	};
 
 	const panImage = (event: React.MouseEvent<HTMLImageElement>) => {
-		if (event.type === 'wheel') {
+		const { clientWidth, clientHeight } = imageWrapperRef.current ?? { clientWidth: 0, clientHeight: 0 };
+		const adjustedWidth = width * props.zoom;
+		const adjustedHeight = height * props.zoom;
+		const maxMoveX = adjustedWidth > clientWidth ? 0 : clientWidth - adjustedWidth;
+		const minMoveX = adjustedWidth > clientWidth ? -adjustedWidth + clientWidth : 0;
+		const maxMoveY = adjustedHeight > clientHeight ? 0 : clientHeight - adjustedHeight;
+		const minMoveY = adjustedHeight > clientHeight ? -adjustedHeight + clientHeight : 0;
+
+		let newMoveX = 0, newMoveY = 0;
+
+		if (event.type === 'wheel' && event.buttons === 0) {
 			const wheelEvent = event as React.WheelEvent<HTMLImageElement>;
-			console.log(`Wheel event: ${wheelEvent.deltaX}, ${wheelEvent.deltaY}`);
-			setMoveX(moveX + wheelEvent.deltaX);
-			setMoveY(moveY + wheelEvent.deltaY);
+			newMoveX = moveX + wheelEvent.deltaX;
+			newMoveY = moveY + wheelEvent.deltaY;
+		} else if (event.buttons === 1 && props.zoom !== ZoomLevel.Fill) {
+			newMoveX = moveX + event.movementX;
+			newMoveY = moveY + event.movementY;
+		} else {
 			return;
 		}
-		if (event.buttons !== 1 || props.zoom === ZoomLevel.Fill) {
-			return;
-		}
-		console.log(`Mouse event: ${event.movementX}, ${event.movementY}`);
-		setMoveX(moveX + event.movementX);
-		setMoveY(moveY + event.movementY);
+
+		const finalMoveX = Math.max(Math.min(newMoveX, maxMoveX), minMoveX);
+		const finalMoveY = Math.max(Math.min(newMoveY, maxMoveY), minMoveY);
+		setMoveX(finalMoveX);
+		setMoveY(finalMoveY);
 	};
 
 	const updateCursor = (event: React.MouseEvent<HTMLImageElement>) => {
