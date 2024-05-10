@@ -1402,6 +1402,7 @@ export abstract class Layout extends Disposable implements IWorkbenchLayoutServi
 				return {
 					partView: this.panelPartView,
 					currentSize: this.workbenchGrid.getViewSize(this.panelPartView),
+					alignment: this.getPanelAlignment(),
 					hidden: mainClasses.contains(LayoutClasses.PANEL_HIDDEN),
 					hideFn: this.setPanelHidden.bind(this),
 				};
@@ -1422,12 +1423,11 @@ export abstract class Layout extends Disposable implements IWorkbenchLayoutServi
 		hideFn(hidden, true);
 	}
 
-
-
 	enterCustomLayout(layout: PositronCustomLayoutDescriptor['layout']) {
 
 		this._setCustomPartSize(Parts.SIDEBAR_PART, layout[Parts.SIDEBAR_PART]);
 		this._setCustomPartSize(Parts.PANEL_PART, layout[Parts.PANEL_PART]);
+		this.setPanelAlignment(layout[Parts.PANEL_PART].alignment);
 		this._setCustomPartSize(Parts.AUXILIARYBAR_PART, layout[Parts.AUXILIARYBAR_PART]);
 
 		// Trigger layout refresh to reflect new settings.

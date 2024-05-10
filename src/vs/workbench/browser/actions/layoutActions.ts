@@ -35,7 +35,7 @@ import { TitlebarStyle } from 'vs/platform/window/common/window';
 // --- Start Positron ---
 import { PositronToggleTopActionBarVisibilityAction } from 'vs/workbench/browser/parts/positronTopActionBar/positronTopActionBarActions';
 import { PositronTopActionBarVisibleContext } from 'vs/workbench/common/contextkeys';  // eslint-disable-line no-duplicate-imports
-import { createPositronCustomLayoutDescriptor, fourPaneDS, loadCustomPositronLayout, sideBySideDS } from 'vs/workbench/browser/positronCustomViews';
+import { createPositronCustomLayoutDescriptor, fourPaneDS, heathenLayout, loadCustomPositronLayout, sideBySideDS } from 'vs/workbench/browser/positronCustomViews';
 // --- End Positron ---
 
 // Register Icons
@@ -816,7 +816,6 @@ registerAction2(class extends Action2 {
 
 // --- Start Positron ---
 registerAction2(class EnterFourPaneDataScienceLayout extends Action2 {
-
 	constructor() {
 		super({
 			id: 'workbench.action.fourPaneDataScienceMode',
@@ -825,14 +824,12 @@ registerAction2(class EnterFourPaneDataScienceLayout extends Action2 {
 			f1: true,
 		});
 	}
-
 	run(accessor: ServicesAccessor): void {
 		loadCustomPositronLayout(fourPaneDS, accessor);
 	}
 });
 
 registerAction2(class EnterSideBySideDSLayout extends Action2 {
-
 	constructor() {
 		super({
 			id: 'workbench.action.sideBySideDataScienceMode',
@@ -841,9 +838,22 @@ registerAction2(class EnterSideBySideDSLayout extends Action2 {
 			f1: true,
 		});
 	}
-
 	run(accessor: ServicesAccessor): void {
 		loadCustomPositronLayout(sideBySideDS, accessor);
+	}
+});
+
+registerAction2(class extends Action2 {
+	constructor() {
+		super({
+			id: 'workbench.action.heathenLayout',
+			title: localize2('heathenLayout', 'Switch to heathen layout mode'),
+			category: Categories.View,
+			f1: true,
+		});
+	}
+	run(accessor: ServicesAccessor): void {
+		loadCustomPositronLayout(heathenLayout, accessor);
 	}
 });
 
