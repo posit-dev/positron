@@ -115,7 +115,7 @@ export const ProjectNameLocationStep = (props: PropsWithChildren<NewProjectWizar
 			title={(() =>
 				localize(
 					'projectNameLocationStep.title',
-					'Set project name and location'
+					"Set project name and location"
 				))()}
 			cancelButtonConfig={{ onClick: props.cancel }}
 			nextButtonConfig={{
@@ -132,7 +132,7 @@ export const ProjectNameLocationStep = (props: PropsWithChildren<NewProjectWizar
 				title={(() =>
 					localize(
 						'projectNameLocationSubStep.projectName.label',
-						'Project Name'
+						"Project Name"
 					))()}
 				feedback={
 					projectNameFeedback ? (
@@ -146,7 +146,7 @@ export const ProjectNameLocationStep = (props: PropsWithChildren<NewProjectWizar
 					label={(() =>
 						localize(
 							'projectNameLocationSubStep.projectName.description',
-							'Enter a name for your new {0}',
+							"Enter a name for your new {0}",
 							projectConfig.projectType
 						))()}
 					autoFocus
@@ -163,14 +163,14 @@ export const ProjectNameLocationStep = (props: PropsWithChildren<NewProjectWizar
 				title={(() =>
 					localize(
 						'projectNameLocationSubStep.parentDirectory.label',
-						'Parent Directory'
+						"Parent Directory"
 					))()}
 				feedback={
 					<WizardFormattedText type={WizardFormattedTextType.Info}>
 						{(() =>
 							localize(
 								'projectNameLocationSubStep.parentDirectory.feedback',
-								'Your project will be created at: '
+								"Your project will be created at: "
 							))()}
 						<code>
 							{projectConfig.parentFolder}/{projectConfig.projectName}
@@ -182,7 +182,7 @@ export const ProjectNameLocationStep = (props: PropsWithChildren<NewProjectWizar
 					label={(() =>
 						localize(
 							'projectNameLocationSubStep.parentDirectory.description',
-							'Select a directory to create your project in'
+							"Select a directory to create your project in"
 						))()}
 					value={projectConfig.parentFolder}
 					onBrowse={browseHandler}
@@ -195,7 +195,7 @@ export const ProjectNameLocationStep = (props: PropsWithChildren<NewProjectWizar
 					label={(() =>
 						localize(
 							'projectNameLocationSubStep.initGitRepo.label',
-							'Initialize project as Git repository'
+							"Initialize project as Git repository"
 						))()}
 					onChanged={(checked) =>
 						setProjectConfig({ ...projectConfig, initGitRepo: checked })

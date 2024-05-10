@@ -28,7 +28,7 @@ export const checkProjectName = async (
 			type: WizardFormattedTextType.Error,
 			text: localize(
 				'projectNameLocationSubStep.projectName.feedback.emptyProjectName',
-				'Please enter a project name'
+				"Please enter a project name"
 			),
 		};
 	}
@@ -44,7 +44,7 @@ export const checkProjectName = async (
 			type: WizardFormattedTextType.Error,
 			text: localize(
 				'projectNameLocationSubStep.projectName.feedback.existingDirectory',
-				'The directory `{0}` already exists. Please enter a different project name.',
+				"The directory `{0}` already exists. Please enter a different project name.",
 				projectName
 			),
 		};
