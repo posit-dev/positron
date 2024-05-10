@@ -12,7 +12,7 @@ import { RuntimeClientType } from 'vs/workbench/api/common/positron/extHostTypes
 import { ExtHostRuntimeClientInstance } from 'vs/workbench/api/common/positron/extHostClientInstance';
 import { ExtensionIdentifier, IExtensionDescription } from 'vs/platform/extensions/common/extensions';
 import { URI } from 'vs/base/common/uri';
-import { DeferredPromise } from 'vs/base/common/async';
+import { Barrier, DeferredPromise } from 'vs/base/common/async';
 import { IRuntimeSessionMetadata } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
 
 /**
@@ -53,7 +53,7 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 	/**
 	 * Indicates whether language runtime discovery is complete.
 	 */
-	private _runtimeDiscoveryComplete = false;
+	private _runtimeDiscoveryComplete = new Barrier();
 
 	// The event emitter for the onDidRegisterRuntime event.
 	private readonly _onDidRegisterRuntimeEmitter = new Emitter<positron.LanguageRuntimeMetadata>;
@@ -419,7 +419,7 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 		}
 
 		// Notify the main thread that discovery is complete
-		this._runtimeDiscoveryComplete = true;
+		this._runtimeDiscoveryComplete.open();
 		this._proxy.$completeLanguageRuntimeDiscovery();
 	}
 
@@ -534,6 +534,7 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 	}
 
 	public async getPreferredRuntime(languageId: string): Promise<positron.LanguageRuntimeMetadata> {
+		await this._runtimeDiscoveryComplete.wait();
 		const metadata = await this._proxy.$getPreferredRuntime(languageId);
 		const runtime = this._registeredRuntimes.find(runtime => runtime.runtimeId === metadata.runtimeId);
 		if (!runtime) {
@@ -587,7 +588,7 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 			this._pendingRuntimeManagers.delete(ExtensionIdentifier.toKey(extension.identifier));
 		}
 
-		if (this._runtimeDiscoveryComplete) {
+		if (this._runtimeDiscoveryComplete.isOpen()) {
 			// We missed the discovery phase. Invoke the provider's async
 			// generator and register each runtime it returns right away.
 			//
