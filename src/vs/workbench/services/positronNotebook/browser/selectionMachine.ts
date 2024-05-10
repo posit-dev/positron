@@ -2,15 +2,17 @@
  *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 import { ISettableObservable, observableValue } from 'vs/base/common/observable';
-import { IPositronNotebookCell } from 'vs/workbench/contrib/positronNotebook/browser/notebookCells/interfaces';
+import { IPositronNotebookCell } from 'vs/workbench/services/positronNotebook/browser/IPositronNotebookCell';
 import { Event } from 'vs/base/common/event';
 import { ILogService } from 'vs/platform/log/common/log';
+import { Disposable } from 'vs/base/common/lifecycle';
+import { disposableTimeout } from 'vs/base/common/async';
 
 export enum SelectionState {
-	NoSelection,
-	SingleSelection,
-	MultiSelection,
-	EditingSelection
+	NoSelection = 'NoSelection',
+	SingleSelection = 'SingleSelection',
+	MultiSelection = 'MultiSelection',
+	EditingSelection = 'EditingSelection'
 }
 
 type SelectionStates =
@@ -31,32 +33,37 @@ type SelectionStates =
 	};
 
 export enum CellSelectionType {
-	Add,
-	Edit,
-	Normal
+	Add = 'Add',
+	Edit = 'Edit',
+	Normal = 'Normal'
 }
 
-export class SelectionStateMachine {
+export class SelectionStateMachine extends Disposable {
 
+	//#region Private Properties
 	private _state: SelectionStates = { type: SelectionState.NoSelection };
-
-	// Alert the observable that the state has changed.
-	private _setState(state: SelectionStates) {
-		this._state = state;
-		this.state.set(this._state, undefined);
-	}
-
 	private _cells: IPositronNotebookCell[] = [];
 
+
+	//#endregion Private Properties
+
+
+	//#region Public Properties
 	state: ISettableObservable<SelectionStates>;
 	onNewState: Event<SelectionStates>;
+	//#endregion Public Properties
 
+	//#region Constructor & Dispose
 	constructor(
 		@ILogService private readonly _logService: ILogService,
 	) {
+		super();
 		this.state = observableValue('selectionState', this._state);
 		this.onNewState = Event.fromObservable(this.state);
 	}
+	//#endregion Constructor & Dispose
+
+	//#region Public Methods
 
 	/**
 	 * Updates the known cells.
@@ -97,7 +104,6 @@ export class SelectionStateMachine {
 	 * @param editMode If true, the cell will be selected in edit mode.
 	 */
 	selectCell(cell: IPositronNotebookCell, selectType: CellSelectionType = CellSelectionType.Normal): void {
-
 		if (selectType === CellSelectionType.Normal || this._state.type === SelectionState.NoSelection && selectType === CellSelectionType.Add) {
 			this._setState({ type: SelectionState.SingleSelection, selected: [cell] });
 			return;
@@ -147,9 +153,105 @@ export class SelectionStateMachine {
 		// If the cell is not in the selection, do nothing.
 	}
 
+	/**
+	 * Move the selection up.
+	 * @param addMode If true, the selection will be added to the current selection.
+	 */
+	moveUp(addMode: boolean): void {
+		this._moveSelection(true, addMode);
+	}
+
+	/**
+	 * Move the selection down.
+	 * @param addMode If true, the selection will be added to the current selection.
+	 */
+	moveDown(addMode: boolean): void {
+		this._moveSelection(false, addMode);
+	}
+
+	/**
+	 * Enters the editor for the selected cell.
+	 */
+	enterEditor(): void {
+		if (this._state.type !== SelectionState.SingleSelection) {
+			return;
+		}
+
+		const cellToEdit = this._state.selected[0];
+		this._setState({ type: SelectionState.EditingSelection, selectedCell: cellToEdit });
+		// Timeout here avoids the problem of enter applying to the editor widget itself.
+		this._register(
+			disposableTimeout(() => cellToEdit.focusEditor(), 0)
+		);
+	}
+
+	/**
+	 * Reset the selection to the cell so user can navigate between cells
+	 */
+	exitEditor(): void {
+		if (this._state.type !== SelectionState.EditingSelection) { return; }
+		this._state.selectedCell.defocusEditor();
+		this._setState({ type: SelectionState.SingleSelection, selected: [this._state.selectedCell] });
+	}
+
+	/**
+	 * Get the index of the selected cell.
+	 * @returns The index of the selected cell. -1 if there is no selection.
+	 */
+	getIndexOfSelectedCell(): number | null {
+		if (this._state.type === SelectionState.SingleSelection) {
+			return this._cells.indexOf(this._state.selected[0]);
+		}
+
+		return null;
+	}
+
+	/**
+	 *
+	 * @returns The selected cell. Null if there is no selection.
+	 */
+	getSelectedCell(): IPositronNotebookCell | null {
+		if (this._state.type === SelectionState.SingleSelection) {
+			return this._state.selected[0];
+		}
+
+		return null;
+	}
+
+	/**
+	 * Get the cell that is currently being edited.
+	 * @returns The cell that is currently being edited. Null if no cell is being edited.
+	 */
+	getEditingCell(): IPositronNotebookCell | null {
+		if (this._state.type !== SelectionState.EditingSelection) {
+			return null;
+		}
+		return this._state.selectedCell;
+	}
+
+	//#endregion Public Methods
+
+
+	//#region Private Methods
+	private _setState(state: SelectionStates) {
+		this._state = state;
+		// Alert the observable that the state has changed.
+		this.state.set(this._state, undefined);
+	}
+
+
+
 	private _moveSelection(up: boolean, addMode: boolean) {
 
-		if (this._state.type === SelectionState.NoSelection || this._state.type === SelectionState.EditingSelection) {
+		if (this._state.type === SelectionState.EditingSelection) {
+			return;
+		}
+		if (this._state.type === SelectionState.NoSelection) {
+			// Select first cell if selecting down and the last cell if selecting up.
+			const cellToSelect = this._cells.at(up ? -1 : 0);
+			if (cellToSelect) {
+				this.selectCell(cellToSelect, CellSelectionType.Normal);
+			}
 			return;
 		}
 
@@ -173,8 +275,7 @@ export class SelectionStateMachine {
 		}
 
 		if (this._state.type === SelectionState.MultiSelection) {
-			this._setState({ type: SelectionState.SingleSelection, selected: [edgeCell] });
-			edgeCell.focus();
+			this.selectCell(nextCell, CellSelectionType.Normal);
 			return;
 		}
 
@@ -185,49 +286,12 @@ export class SelectionStateMachine {
 		}
 
 		// If meta is not held down, we're in single selection mode.
-		this._setState({ type: SelectionState.SingleSelection, selected: [nextCell] });
+		this.selectCell(nextCell, CellSelectionType.Normal);
 
 		nextCell.focus();
 	}
+	//#endregion Private Methods
 
-	/**
-	 * Move the selection up.
-	 * @param addMode If true, the selection will be added to the current selection.
-	 */
-	moveUp(addMode: boolean): void {
-		this._moveSelection(true, addMode);
-	}
-
-	/**
-	 * Move the selection down.
-	 * @param addMode If true, the selection will be added to the current selection.
-	 */
-	moveDown(addMode: boolean): void {
-		this._moveSelection(false, addMode);
-	}
-
-
-	/**
-	 * Enters the editor for the selected cell.
-	 */
-	enterEditor(): void {
-		if (this._state.type === SelectionState.SingleSelection) {
-			const cellToEdit = this._state.selected[0];
-			this._setState({ type: SelectionState.EditingSelection, selectedCell: cellToEdit });
-			// Timeout here avoids the problem of enter applying to the editor widget itself.
-			setTimeout(() => cellToEdit.focusEditor(), 0);
-		}
-	}
-
-	/**
-	 * Reset the selection to the cell so user can navigate between cells
-	 */
-	exitEditor(): void {
-		if (this._state.type === SelectionState.EditingSelection) {
-			this._state.selectedCell.defocusEditor();
-			this._setState({ type: SelectionState.SingleSelection, selected: [this._state.selectedCell] });
-		}
-	}
 }
 
 
