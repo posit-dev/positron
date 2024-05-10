@@ -121,19 +121,19 @@ export class PositronNewProjectService extends Disposable implements IPositronNe
 	 */
 	private async _runExtensionTasks() {
 		if (this.pendingTasks.has(NewProjectTask.Python)) {
-			this._runPythonTasks();
+			await this._runPythonTasks();
 		}
 
 		if (this.pendingTasks.has(NewProjectTask.Jupyter)) {
-			this._runJupyterTasks();
+			await this._runJupyterTasks();
 		}
 
 		if (this.pendingTasks.has(NewProjectTask.R)) {
-			this._runRTasks();
+			await this._runRTasks();
 		}
 
 		if (this.pendingTasks.has(NewProjectTask.Git)) {
-			this._runGitInit();
+			await this._runGitInit();
 		}
 	}
 
@@ -141,52 +141,49 @@ export class PositronNewProjectService extends Disposable implements IPositronNe
 	 * Runs Python Project specific tasks.
 	 * Relies on extension ms-python.python
 	 */
-	private _runPythonTasks() {
+	private async _runPythonTasks() {
 		if (this.pendingTasks.has(NewProjectTask.PythonEnvironment)) {
-			this._createPythonEnvironment();
+			await this._createPythonEnvironment();
 		}
 
-		this._commandService
-			.executeCommand('python.createNewFile')
-			.then(() => this._removePendingTask(NewProjectTask.Python));
+		await this._commandService.executeCommand('python.createNewFile');
+		this._removePendingTask(NewProjectTask.Python);
 	}
 
 	/**
 	 * Runs Jupyter Notebook specific tasks.
 	 * Relies on extension vscode.ipynb
 	 */
-	private _runJupyterTasks() {
+	private async _runJupyterTasks() {
 		// For now, Jupyter notebooks are always Python based. In the future, we'll need to surface
 		// some UI in the Project Wizard for the user to select the language/kernel and pass that
 		// metadata to the new project configuration.
 		if (this.pendingTasks.has(NewProjectTask.PythonEnvironment)) {
-			this._createPythonEnvironment();
+			await this._createPythonEnvironment();
 		}
 
-		this._commandService
-			.executeCommand('ipynb.newUntitledIpynb')
-			.then(() => this._removePendingTask(NewProjectTask.Jupyter));
+		await this._commandService.executeCommand('ipynb.newUntitledIpynb');
+		this._removePendingTask(NewProjectTask.Jupyter);
 	}
 
 	/**
 	 * Runs R Project specific tasks.
 	 * Relies on extension vscode.positron-r
 	 */
-	private _runRTasks() {
+	private async _runRTasks() {
 		if (this.pendingTasks.has(NewProjectTask.REnvironment)) {
-			this._createREnvironment();
+			await this._createREnvironment();
 		}
 
-		this._commandService
-			.executeCommand('r.createNewFile')
-			.then(() => this._removePendingTask(NewProjectTask.R));
+		await this._commandService.executeCommand('r.createNewFile');
+		this._removePendingTask(NewProjectTask.R);
 	}
 
 	/**
 	 * Runs the git init command.
 	 * Relies on extension vscode.git
 	 */
-	private _runGitInit() {
+	private async _runGitInit() {
 		// TODO: This command works, but requires a quick pick selection
 		// this._commandService.executeCommand('git.init');
 
@@ -198,7 +195,7 @@ export class PositronNewProjectService extends Disposable implements IPositronNe
 	 * Creates the Python environment.
 	 * Relies on extension ms-python.python
 	 */
-	private _createPythonEnvironment() {
+	private async _createPythonEnvironment() {
 		const pythonEnvType = this._newProjectConfig?.pythonEnvType;
 		if (pythonEnvType && pythonEnvType.length > 0) {
 			// TODO: create the .venv/.conda/etc. as appropriate
@@ -210,7 +207,7 @@ export class PositronNewProjectService extends Disposable implements IPositronNe
 	 * Creates the R environment.
 	 * Relies on extension vscode.positron-r
 	 */
-	private _createREnvironment() {
+	private async _createREnvironment() {
 		// TODO: run renv::init()
 		this._removePendingTask(NewProjectTask.REnvironment);
 	}
@@ -271,12 +268,12 @@ export class PositronNewProjectService extends Disposable implements IPositronNe
 			const runtimeId = this._newProjectConfig.runtimeId;
 			this._register(
 				this._runtimeStartupService.onDidChangeRuntimeStartupPhase(
-					(phase) => {
+					async (phase) => {
 						if (phase === RuntimeStartupPhase.Discovering) {
 							// Run tasks that use extensions. At this point, extensions should be ready,
 							// and extensions that contribute language runtimes should have been
 							// activated as well.
-							this._runExtensionTasks();
+							await this._runExtensionTasks();
 						} else if (phase === RuntimeStartupPhase.Complete) {
 							// Thought: Can the interpreter discovery at startup be modified to directly use the
 							// selected interpreter, so that the user doesn't have to wait for the interpreter
@@ -286,7 +283,7 @@ export class PositronNewProjectService extends Disposable implements IPositronNe
 
 							// TODO: this may try to start a runtime that is already running. This may also
 							// cause the active interpreter to be changed in other windows.
-							this._runtimeSessionService.selectRuntime(
+							await this._runtimeSessionService.selectRuntime(
 								runtimeId,
 								'User-requested startup from the Positron Project Wizard during project initialization'
 							);
