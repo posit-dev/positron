@@ -357,8 +357,16 @@ export class PositronNewProjectService extends Disposable implements IPositronNe
 				break;
 			case 'Jupyter Notebook':
 				tasks.add(NewProjectTask.Jupyter);
+				break;
 			case 'R Project':
 				tasks.add(NewProjectTask.R);
+				break;
+			default:
+				this._logService.error(
+					'Cannot determine new project tasks for unknown project type',
+					this._newProjectConfig.projectType
+				);
+				return new Set();
 		}
 
 		if (this._newProjectConfig.initGitRepo) {
