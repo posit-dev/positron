@@ -24,7 +24,6 @@ export function useSelectionStatus(cell: IPositronNotebookCell): CellSelectionSt
 				setSelectionStatus(state.selectedCell === cell ? CellSelectionStatus.Editing : CellSelectionStatus.Unselected);
 			} else if (state.type === SelectionState.NoSelection) {
 				setSelectionStatus(CellSelectionStatus.Unselected);
-				return;
 			} else {
 				setSelectionStatus(state.selected.includes(cell) ? CellSelectionStatus.Selected : CellSelectionStatus.Unselected);
 			}
