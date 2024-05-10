@@ -89,6 +89,7 @@ suite('Multiroot Environment Variables Provider', () => {
             mockProcess,
             // --- Start Positron ---
             instance(context),
+            fs,
             // --- End Positron ---
         );
     }
