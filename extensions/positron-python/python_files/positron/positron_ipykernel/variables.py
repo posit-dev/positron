@@ -11,6 +11,7 @@ over a variety types from popular Python libraries.
 from __future__ import annotations
 
 import asyncio
+import copy
 import logging
 import time
 import types
@@ -20,7 +21,7 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional, Set, Tuple
 from comm.base_comm import BaseComm
 
 from .access_keys import decode_access_key, encode_access_key
-from .inspectors import CopyError, get_inspector
+from .inspectors import get_inspector
 from .positron_comm import CommMessage, JsonRpcErrorCode, PositronComm
 from .utils import JsonData, JsonRecord, cancel_tasks, create_task, get_qualname
 from .variables_comm import (
@@ -56,6 +57,7 @@ MAX_ITEMS: int = 10000
 
 # Budget for number of "units" of work to allow for namespace change
 # detection. The costs are defined in inspectors.py
+# Units are rough estimates of the number of bytes copied.
 MAX_SNAPSHOT_COMPARISON_BUDGET: int = 10_000_000
 
 
@@ -295,8 +297,8 @@ class VariablesService:
                 else:
                     comparison_cost += cost
                     try:
-                        mutable_vars_copied[key] = inspector.copy()
-                    except CopyError:
+                        mutable_vars_copied[key] = inspector.deepcopy()
+                    except copy.Error:
                         # when a variable is mutable, but not copiable we can't
                         # detect changes on it
                         mutable_vars_excluded[key] = value
