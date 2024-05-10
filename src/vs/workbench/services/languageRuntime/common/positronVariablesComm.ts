@@ -287,8 +287,9 @@ export class PositronVariablesComm extends PositronBaseComm {
 	 * @param path The path to the variable to view, as an array of access
 	 * keys.
 	 *
+	 * @returns The ID of the viewer that was opened.
 	 */
-	view(path: Array<string>): Promise<void> {
+	view(path: Array<string>): Promise<string> {
 		return super.performRpc('view', ['path'], [path]);
 	}
 
