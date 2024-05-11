@@ -110,8 +110,10 @@ export const VariableItem = (props: VariableItemProps) => {
 			// Open a viewer for the variable item.
 			const viewerId = await item.view();
 
-			// Save the binding between the viewer and the variable item.
-			explorerService.setInstanceForVar(viewerId, item.id);
+			// If a binding was returned, save the binding between the viewer and the variable item.
+			if (viewerId) {
+				explorerService.setInstanceForVar(viewerId, item.id);
+			}
 		}
 	};
 
