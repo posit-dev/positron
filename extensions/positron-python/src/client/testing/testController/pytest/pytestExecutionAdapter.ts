@@ -26,7 +26,7 @@ export class PytestTestExecutionAdapter implements ITestExecutionAdapter {
         private readonly outputChannel: ITestOutputChannel,
         private readonly resultResolver?: ITestResultResolver,
         private readonly envVarsService?: IEnvironmentVariablesProvider,
-    ) { }
+    ) {}
 
     async runTests(
         uri: Uri,

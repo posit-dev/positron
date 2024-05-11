@@ -34,7 +34,7 @@ export class PytestTestDiscoveryAdapter implements ITestDiscoveryAdapter {
         private readonly outputChannel: ITestOutputChannel,
         private readonly resultResolver?: ITestResultResolver,
         private readonly envVarsService?: IEnvironmentVariablesProvider,
-    ) { }
+    ) {}
 
     async discoverTests(uri: Uri, executionFactory?: IPythonExecutionFactory): Promise<DiscoveredTestPayload> {
         const deferredTillEOT: Deferred<void> = createDeferred<void>();

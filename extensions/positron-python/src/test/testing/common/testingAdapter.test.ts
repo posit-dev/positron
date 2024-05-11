@@ -545,9 +545,9 @@ suite('End to End Tests: test adapters', () => {
             .setup((t) => t.token)
             .returns(
                 () =>
-                ({
-                    onCancellationRequested: () => undefined,
-                } as any),
+                    ({
+                        onCancellationRequested: () => undefined,
+                    } as any),
             );
         let collectedOutput = '';
         testRun
@@ -625,9 +625,9 @@ suite('End to End Tests: test adapters', () => {
             .setup((t) => t.token)
             .returns(
                 () =>
-                ({
-                    onCancellationRequested: () => undefined,
-                } as any),
+                    ({
+                        onCancellationRequested: () => undefined,
+                    } as any),
             );
         let collectedOutput = '';
         testRun
@@ -700,9 +700,9 @@ suite('End to End Tests: test adapters', () => {
             .setup((t) => t.token)
             .returns(
                 () =>
-                ({
-                    onCancellationRequested: () => undefined,
-                } as any),
+                    ({
+                        onCancellationRequested: () => undefined,
+                    } as any),
             );
         let collectedOutput = '';
         testRun
@@ -797,9 +797,9 @@ suite('End to End Tests: test adapters', () => {
             .setup((t) => t.token)
             .returns(
                 () =>
-                ({
-                    onCancellationRequested: () => undefined,
-                } as any),
+                    ({
+                        onCancellationRequested: () => undefined,
+                    } as any),
             );
         let collectedOutput = '';
         testRun
@@ -869,9 +869,9 @@ suite('End to End Tests: test adapters', () => {
             .setup((t) => t.token)
             .returns(
                 () =>
-                ({
-                    onCancellationRequested: () => undefined,
-                } as any),
+                    ({
+                        onCancellationRequested: () => undefined,
+                    } as any),
             );
         await discoveryAdapter.discoverTests(workspaceUri, pythonExecFactory).finally(() => {
             assert.strictEqual(callCount, 1, 'Expected _resolveDiscovery to be called once');
@@ -1003,9 +1003,9 @@ suite('End to End Tests: test adapters', () => {
             .setup((t) => t.token)
             .returns(
                 () =>
-                ({
-                    onCancellationRequested: () => undefined,
-                } as any),
+                    ({
+                        onCancellationRequested: () => undefined,
+                    } as any),
             );
         await executionAdapter.runTests(workspaceUri, testIds, false, testRun.object, pythonExecFactory).finally(() => {
             assert.strictEqual(callCount, 1, 'Expected _resolveExecution to be called once');
@@ -1064,9 +1064,9 @@ suite('End to End Tests: test adapters', () => {
             .setup((t) => t.token)
             .returns(
                 () =>
-                ({
-                    onCancellationRequested: () => undefined,
-                } as any),
+                    ({
+                        onCancellationRequested: () => undefined,
+                    } as any),
             );
         await executionAdapter.runTests(workspaceUri, testIds, false, testRun.object, pythonExecFactory).finally(() => {
             assert.strictEqual(callCount, 1, 'Expected _resolveExecution to be called once');

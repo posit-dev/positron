@@ -38,10 +38,10 @@
         }
     ],
     "license": "MIT",
-    "homepage": "https://github.com/posit-dev/positron-python",
+    "homepage": "https://github.com/posit-dev/positron",
     "repository": {
         "type": "git",
-        "url": "https://github.com/posit-dev/positron-python"
+        "url": "https://github.com/posit-dev/positron"
     },
     "bugs": {
         "url": "https://github.com/posit-dev/positron/issues"
