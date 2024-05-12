@@ -256,7 +256,7 @@ suite('Multiroot Environment Variables Provider', () => {
             verify(envVarsService.mergeVariables(deepEqual(currentProcEnv), deepEqual({}))).once();
             verify(platform.pathVariableName).atLeast(1);
             // --- Start Positron ---
-            assert.deepEqual(vars, { PYTHONPYCACHEPREFIX: '/pycache' });
+            assert.deepEqual(vars, { PYTHONPYCACHEPREFIX: path.join('', 'pycache') });
             // --- End Positron ---
         });
         test(`Getting environment variables (with an envfile, without PATH in current env, without PYTHONPATH in current env) & ${workspaceTitle}`, async () => {
@@ -277,7 +277,7 @@ suite('Multiroot Environment Variables Provider', () => {
             verify(envVarsService.mergeVariables(deepEqual(currentProcEnv), deepEqual(envFileVars))).once();
             verify(platform.pathVariableName).atLeast(1);
             // --- Start Positron ---
-            assert.deepEqual(vars, { ...envFileVars, PYTHONPYCACHEPREFIX: '/pycache' });
+            assert.deepEqual(vars, { ...envFileVars, PYTHONPYCACHEPREFIX: path.join('', 'pycache') });
             // --- End Positron ---
         });
         test(`Getting environment variables (with an envfile, with PATH in current env, with PYTHONPATH in current env) & ${workspaceTitle}`, async () => {
@@ -300,7 +300,7 @@ suite('Multiroot Environment Variables Provider', () => {
             verify(envVarsService.appendPythonPath(deepEqual(envFileVars), currentProcEnv.PYTHONPATH)).once();
             verify(platform.pathVariableName).atLeast(1);
             // --- Start Positron ---
-            assert.deepEqual(vars, { ...envFileVars, PYTHONPYCACHEPREFIX: '/pycache' });
+            assert.deepEqual(vars, { ...envFileVars, PYTHONPYCACHEPREFIX: path.join('', 'pycache') });
             // --- End Positron ---
         });
 
@@ -317,7 +317,7 @@ suite('Multiroot Environment Variables Provider', () => {
             const vars = await provider.getEnvironmentVariables(workspaceUri);
 
             // --- Start Positron ---
-            assert.deepEqual(vars, { PYTHONPYCACHEPREFIX: '/pycache' });
+            assert.deepEqual(vars, { PYTHONPYCACHEPREFIX: path.join('', 'pycache') });
             // --- End Positron ---
 
             await provider.getEnvironmentVariables(workspaceUri);
@@ -325,7 +325,7 @@ suite('Multiroot Environment Variables Provider', () => {
             // Verify that the contents of `_getEnvironmentVariables()` method are only invoked once
             verify(workspace.getConfiguration('python', anything())).once();
             // --- Start Positron ---
-            assert.deepEqual(vars, { PYTHONPYCACHEPREFIX: '/pycache' });
+            assert.deepEqual(vars, { PYTHONPYCACHEPREFIX: path.join('', 'pycache') });
             // --- End Positron ---
         });
 
@@ -354,7 +354,7 @@ suite('Multiroot Environment Variables Provider', () => {
             const vars = await provider.getEnvironmentVariables(workspaceUri);
 
             // --- Start Positron ---
-            assert.deepEqual(vars, { PYTHONPYCACHEPREFIX: '/pycache' });
+            assert.deepEqual(vars, { PYTHONPYCACHEPREFIX: path.join('', 'pycache') });
             // --- End Positron ---
 
             await sleep(110);
@@ -363,7 +363,7 @@ suite('Multiroot Environment Variables Provider', () => {
             // Verify that the contents of `_getEnvironmentVariables()` method are invoked twice
             verify(workspace.getConfiguration('python', anything())).twice();
             // --- Start Positron ---
-            assert.deepEqual(vars, { PYTHONPYCACHEPREFIX: '/pycache' });
+            assert.deepEqual(vars, { PYTHONPYCACHEPREFIX: path.join('', 'pycache') });
             // --- End Positron ---
         });
 
@@ -405,17 +405,17 @@ suite('Multiroot Environment Variables Provider', () => {
             async function checkVars() {
                 let vars = await provider.getEnvironmentVariables(undefined);
                 // --- Start Positron ---
-                assert.deepEqual(vars, { ...envFileVars, PYTHONPYCACHEPREFIX: '/pycache' });
+                assert.deepEqual(vars, { ...envFileVars, PYTHONPYCACHEPREFIX: path.join('', 'pycache') });
                 // --- End Positron ---
 
                 vars = await provider.getEnvironmentVariables(Uri.file(sourceFile));
                 // --- Start Positron ---
-                assert.deepEqual(vars, { ...envFileVars, PYTHONPYCACHEPREFIX: '/pycache' });
+                assert.deepEqual(vars, { ...envFileVars, PYTHONPYCACHEPREFIX: path.join('', 'pycache') });
                 // --- End Positron ---
 
                 vars = await provider.getEnvironmentVariables(Uri.file(sourceDir));
                 // --- Start Positron ---
-                assert.deepEqual(vars, { ...envFileVars, PYTHONPYCACHEPREFIX: '/pycache' });
+                assert.deepEqual(vars, { ...envFileVars, PYTHONPYCACHEPREFIX: path.join('', 'pycache') });
                 // --- End Positron ---
             }
 
