@@ -101,7 +101,7 @@
 		},
 		{
 			"name": "ms-toolsai.vscode-jupyter-cell-tags",
-			"version": "0.1.8",
+			"version": "0.1.9",
 			"repo": "https://github.com/Microsoft/vscode-jupyter-cell-tags",
 			"metadata": {
 				"id": "ab4fb32a-befb-4102-adf9-1652d0cd6a5e",
@@ -116,7 +116,7 @@
 		},
 		{
 			"name": "ms-toolsai.vscode-jupyter-slideshow",
-			"version": "0.1.5",
+			"version": "0.1.6",
 			"repo": "https://github.com/Microsoft/vscode-jupyter-slideshow",
 			"metadata": {
 				"id": "e153ca70-b543-4865-b4c5-b31d34185948",
@@ -131,7 +131,7 @@
 		},
 		{
 			"name": "ms-toolsai.jupyter-renderers",
-			"version": "1.0.15",
+			"version": "1.0.17",
 			"repo": "https://github.com/Microsoft/vscode-notebook-renderers",
 			"metadata": {
 				"id": "b15c72f8-d5fe-421a-a4f7-27ed9f6addbf",
@@ -146,7 +146,7 @@
 		},
 		{
 			"name": "ms-toolsai.jupyter",
-			"version": "2023.3.100",
+			"version": "2024.3.1",
 			"repo": "https://github.com/Microsoft/vscode-jupyter",
 			"metadata": {
 				"id": "6c2f1801-1e7f-45b2-9b5c-7782f1e076e8",
