@@ -10,6 +10,7 @@ import { getRPackageName } from './contexts';
 import { getRPackageTasks } from './tasks';
 import { randomUUID } from 'crypto';
 import { RSessionManager } from './session-manager';
+import { MINIMUM_R_VERSION } from './constants';
 
 export async function registerCommands(context: vscode.ExtensionContext) {
 
@@ -180,6 +181,9 @@ export async function registerCommands(context: vscode.ExtensionContext) {
 				// https://github.com/posit-dev/positron/issues/780
 			}
 		}),
+
+		// Command used to get the minimum version of R supported by the extension
+		vscode.commands.registerCommand('r.getMinimumRVersion', (): string => MINIMUM_R_VERSION),
 	);
 }
 
