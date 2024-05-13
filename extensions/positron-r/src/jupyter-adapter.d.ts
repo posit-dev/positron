@@ -32,7 +32,7 @@ export interface JupyterKernelSpec {
 	interrupt_mode?: 'signal' | 'message'; // eslint-disable-line
 
 	/** Environment variables to set when starting the kernel */
-	env?: { [key: string]: string };
+	env?: NodeJS.ProcessEnv;
 }
 
 /**
@@ -99,7 +99,8 @@ export interface JupyterAdapterApi extends vscode.Disposable {
 	 *   start the kernel.
 	 * @param dynState The initial dynamic state of the session.
 	 * @param extra Optional implementations for extra functionality.
-	 * @returns A LanguageRuntimeAdapter that wraps the kernel.
+	 *
+	 * @returns A JupyterLanguageRuntimeSession that wraps the kernel.
 	 */
 	createSession(
 		runtimeMetadata: positron.LanguageRuntimeMetadata,
