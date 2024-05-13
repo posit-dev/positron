@@ -12,7 +12,7 @@
 		},
 		{
 			"name": "update",
-			"summary": "Request the UI to refresh a connection information",
+			"summary": "Request the UI to refresh the connection information",
 			"params": []
 		}
 	]
