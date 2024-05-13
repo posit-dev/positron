@@ -10,7 +10,7 @@ import * as React from 'react';
 import { useEffect, useState } from 'react'; // eslint-disable-line no-duplicate-imports
 
 // Other dependencies.
-import * as nls from 'vs/nls';
+import { localize } from 'vs/nls';
 import { DisposableStore } from 'vs/base/common/lifecycle';
 import { usePositronDataExplorerContext } from 'vs/workbench/browser/positronDataExplorer/positronDataExplorerContext';
 import { DataExplorerClientStatus } from 'vs/workbench/services/languageRuntime/common/languageRuntimeDataExplorerClient';
@@ -23,13 +23,13 @@ const StatusBarActivityIndicator = (props: ActivityIndicatorProps) => {
 	const getStatusText = () => {
 		switch (props.status) {
 			case DataExplorerClientStatus.Idle:
-				return nls.localize('positron.dataExplorer.idle', 'Idle');
+				return localize('positron.dataExplorer.idle', 'Idle');
 			case DataExplorerClientStatus.Computing:
-				return nls.localize('positron.dataExplorer.computing', 'Computing');
+				return localize('positron.dataExplorer.computing', 'Computing');
 			case DataExplorerClientStatus.Disconnected:
-				return nls.localize('positron.dataExplorer.disconnected', 'Disconnected');
+				return localize('positron.dataExplorer.disconnected', 'Disconnected');
 			case DataExplorerClientStatus.Error:
-				return nls.localize('positron.dataExplorer.error', 'Error');
+				return localize('positron.dataExplorer.error', 'Error');
 		}
 	};
 
