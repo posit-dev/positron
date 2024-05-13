@@ -22,6 +22,7 @@ import { localize, localize2 } from 'vs/nls';
 import { IStringDictionary } from 'vs/base/common/collections';
 import { ILogger, ILoggerService } from 'vs/platform/log/common/log';
 import { Lazy } from 'vs/base/common/lazy';
+import { IPositronViewCustomizations } from 'vs/workbench/browser/positronCustomViews';
 
 interface IViewsCustomizations {
 	viewContainerLocations: IStringDictionary<ViewContainerLocation>;
@@ -596,7 +597,7 @@ export class ViewDescriptorService extends Disposable implements IViewDescriptor
 	}
 
 	// --- Start Positron ---
-	loadCustomViewDescriptor(vc: IViewsCustomizations): void {
+	loadCustomViewDescriptor(vc: IPositronViewCustomizations): void {
 		// Here we are essentially copying the logic from onDidViewCustomizationsStorageChange
 		// but using our own custom passed view customizations instead of reading from storage
 		const newViewContainerCustomizations = new Map<string, ViewContainerLocation>(Object.entries(vc.viewContainerLocations));
@@ -663,6 +664,21 @@ export class ViewDescriptorService extends Disposable implements IViewDescriptor
 
 		this.viewContainersCustomLocations = newViewContainerCustomizations;
 		this.viewDescriptorsCustomLocations = newViewDescriptorCustomizations;
+
+		if (!vc.viewOptions) { return; }
+
+		console.log('View options!', vc.viewOptions);
+		for (const [viewId, options] of Object.entries(vc.viewOptions)) {
+			const viewDescriptor = this.getViewDescriptorById(viewId);
+			// const viewContainer = this.getViewContainerByViewId(viewId);
+
+			if (viewDescriptor) {
+				// this.moveViewContainerToLocation(viewDescriptor, options.location);
+				console.log('View Descriptor!', options);
+				// Set the view options
+			}
+		}
+
 	}
 
 	// Helper function to make it easier to develop custom views.

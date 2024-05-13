@@ -13,10 +13,12 @@ import { IWorkbenchLayoutService, PanelAlignment, Parts } from 'vs/workbench/ser
 
 // Copied from src/vs/workbench/services/views/browser/viewDescriptorService.ts to
 // avoid exporting the interface and creating more diffs
-interface IViewsCustomizations {
+export interface IPositronViewCustomizations {
 	viewContainerLocations: IStringDictionary<ViewContainerLocation>;
 	viewLocations: IStringDictionary<string>;
 	viewContainerBadgeEnablementStates: IStringDictionary<boolean>;
+	// Our own logic here
+	viewOptions?: IStringDictionary<{ indexInContainer?: number; expanded?: boolean }>;
 }
 
 export interface PartLayoutDescription {
@@ -46,9 +48,15 @@ export type PartViewInfo = {
 
 export type KnownPositronLayoutParts = keyof CustomPositronLayoutDescription;
 
+
+// export interface IPositronViewCustomizations extends IViewsCustomizations {
+// 	viewOptions?: {
+// 		[viewId: string]: { indexInContainer?: number; expanded?: boolean };
+// 	};
+// }
 export interface PositronCustomLayoutDescriptor {
 	layout: CustomPositronLayoutDescription;
-	views: IViewsCustomizations;
+	views: IPositronViewCustomizations;
 }
 
 /**
@@ -110,26 +118,6 @@ export const fourPaneDS: PositronCustomLayoutDescriptor = {
 	}
 };
 
-export const sideBySideDS: PositronCustomLayoutDescriptor =
-{
-	layout: {
-		[Parts.PANEL_PART]: { hidden: true, alignment: 'center' },
-		[Parts.SIDEBAR_PART]: { hidden: true },
-		[Parts.AUXILIARYBAR_PART]: { hidden: false },
-	},
-	views: {
-		'viewContainerLocations': {
-			'workbench.view.extension.positron-connections': ViewContainerLocation.Panel,
-			'workbench.panel.positronSessions': ViewContainerLocation.Panel,
-			'workbench.views.service.panel.d54dbb97-967d-4598-a183-f19c8cfc8a3a': ViewContainerLocation.Panel
-		},
-		'viewLocations': {
-			'connections': 'workbench.views.service.panel.d54dbb97-967d-4598-a183-f19c8cfc8a3a',
-			'workbench.panel.positronConsole': 'workbench.panel.positronVariables'
-		},
-		'viewContainerBadgeEnablementStates': {}
-	}
-};
 
 
 export const heathenLayout: PositronCustomLayoutDescriptor = {
@@ -171,7 +159,53 @@ export const positronCustomLayoutOptions: LayoutPick[] = [
 	{
 		id: 'sideBySideDS',
 		label: localize('choseLayout.sideBySideDS', 'Side by Side Data Science'),
-		layoutDescriptor: sideBySideDS,
+		layoutDescriptor: {
+			layout: {
+				[Parts.PANEL_PART]: { hidden: true, alignment: 'center' },
+				[Parts.SIDEBAR_PART]: { hidden: true },
+				[Parts.AUXILIARYBAR_PART]: { hidden: false },
+			},
+			views: {
+				'viewContainerLocations': {
+					'workbench.view.extension.positron-connections': 1,
+					'workbench.panel.positronSessions': 1
+				},
+				'viewLocations': {
+					'connections': 'workbench.view.explorer',
+					'workbench.panel.positronConsole': 'workbench.panel.positronVariables'
+				},
+				'viewContainerBadgeEnablementStates': {}
+			}
+		},
+	},
+	{
+		id: 'plot-console-variables',
+		label: localize('choseLayout.plotConsoleVariables', 'Plot, Console, Variables'),
+		layoutDescriptor: {
+			layout: {
+				[Parts.PANEL_PART]: { hidden: true, alignment: 'center' },
+				[Parts.SIDEBAR_PART]: { hidden: true },
+				[Parts.AUXILIARYBAR_PART]: { hidden: false },
+			},
+			views: {
+				'viewContainerLocations': {
+					'workbench.view.extension.positron-connections': 1,
+					'workbench.panel.positronSessions': 1
+				},
+				'viewLocations': {
+					'connections': 'workbench.view.explorer',
+					'workbench.panel.positronPlots': 'workbench.panel.positronVariables',
+					'workbench.panel.positronConsole': 'workbench.panel.positronVariables',
+					'workbench.panel.positronVariables': 'workbench.panel.positronVariables',
+				},
+				'viewContainerBadgeEnablementStates': {},
+				viewOptions: {
+					'workbench.panel.positronPlots': { indexInContainer: 0, expanded: true },
+					'workbench.panel.positronConsole': { indexInContainer: 1, expanded: true },
+					'workbench.panel.positronVariables': { indexInContainer: 2, expanded: true }
+				}
+			},
+		},
 	},
 	{
 		id: 'heathen',
