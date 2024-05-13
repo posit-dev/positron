@@ -25,6 +25,7 @@ vscode-python-signing.*
 .github/**
 .mocha-reporter/**
 .nvm/**
+.nox/**
 .nyc_output
 .prettierrc.js
 .sonarcloud.properties
@@ -59,7 +60,6 @@ precommit.hook
 python_files/**/*.pyc
 python_files/lib/**/*.egg-info/**
 python_files/lib/python/bin/**
-python_files/jedilsp_requirements/**
 python_files/tests/**
 scripts/**
 src/**
