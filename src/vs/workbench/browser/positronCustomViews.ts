@@ -4,10 +4,9 @@
 
 import { ISerializableView, IViewSize } from 'vs/base/browser/ui/grid/gridview';
 import { IStringDictionary } from 'vs/base/common/collections';
-// import { localize2 } from 'vs/nls';
-// import { Categories } from 'vs/platform/action/common/actionCommonCategories';
-// import { Action2, registerAction2 } from 'vs/platform/actions/common/actions';
+import { localize } from 'vs/nls';
 import { ServicesAccessor } from 'vs/platform/instantiation/common/instantiation';
+import { IQuickPickItem } from 'vs/platform/quickinput/common/quickInput';
 import { IViewDescriptorService, ViewContainerLocation } from 'vs/workbench/common/views';
 import { IWorkbenchLayoutService, PanelAlignment, Parts } from 'vs/workbench/services/layout/browser/layoutService';
 
@@ -111,7 +110,6 @@ export const fourPaneDS: PositronCustomLayoutDescriptor = {
 	}
 };
 
-
 export const sideBySideDS: PositronCustomLayoutDescriptor =
 {
 	layout: {
@@ -121,9 +119,9 @@ export const sideBySideDS: PositronCustomLayoutDescriptor =
 	},
 	views: {
 		'viewContainerLocations': {
-			'workbench.view.extension.positron-connections': 1,
-			'workbench.panel.positronSessions': 1,
-			'workbench.views.service.panel.d54dbb97-967d-4598-a183-f19c8cfc8a3a': 1
+			'workbench.view.extension.positron-connections': ViewContainerLocation.Panel,
+			'workbench.panel.positronSessions': ViewContainerLocation.Panel,
+			'workbench.views.service.panel.d54dbb97-967d-4598-a183-f19c8cfc8a3a': ViewContainerLocation.Panel
 		},
 		'viewLocations': {
 			'connections': 'workbench.views.service.panel.d54dbb97-967d-4598-a183-f19c8cfc8a3a',
@@ -152,65 +150,32 @@ export const heathenLayout: PositronCustomLayoutDescriptor = {
 		'viewContainerLocations': {
 			'workbench.view.extension.positron-connections': 1,
 			'workbench.panel.positronSessions': 1,
-			'workbench.views.service.panel.f732882e-ffdb-495b-b500-31b109474b78': 1,
-			'workbench.views.service.panel.925bfe8a-2a2a-4038-83de-e8ebf53cfdc8': 1
 		},
 		'viewLocations': {
 			'connections': 'workbench.view.explorer',
-			'workbench.panel.positronConsole': 'workbench.views.service.panel.f732882e-ffdb-495b-b500-31b109474b78',
-			'workbench.panel.positronVariables': 'workbench.views.service.panel.925bfe8a-2a2a-4038-83de-e8ebf53cfdc8'
+			'workbench.panel.positronConsole': 'workbench.panel.positronSessions',
+			'workbench.panel.positronVariables': 'workbench.panel.positronSessions',
+			'terminal': 'workbench.panel.positronSessions'
 		},
 		'viewContainerBadgeEnablementStates': {}
 	}
 };
 
-
-// registerAction2(class EnterFourPaneDataScienceLayout extends Action2 {
-
-// 	constructor() {
-// 		super({
-// 			id: 'workbench.action.fourPaneDataScienceMode',
-// 			title: localize2('toggle4Pane', "Toggle Four-Pane Data Science Mode"),
-// 			category: Categories.View,
-// 			f1: true,
-// 		});
-// 	}
-
-// 	run(accessor: ServicesAccessor): void {
-// 		loadCustomPositronLayout(fourPaneDS, accessor);
-// 	}
-// });
-
-// registerAction2(class EnterSideBySideDSLayout extends Action2 {
-
-// 	constructor() {
-// 		super({
-// 			id: 'workbench.action.sideBySideDataScienceMode',
-// 			title: localize2('toggleSideBySide', 'Toggle Side-by-Side Data Science Mode'),
-// 			category: Categories.View,
-// 			f1: true,
-// 		});
-// 	}
-
-// 	run(accessor: ServicesAccessor): void {
-// 		loadCustomPositronLayout(sideBySideDS, accessor);
-// 	}
-// });
-
-// registerAction2(class DumpViewCustomizations extends Action2 {
-
-// 	constructor() {
-// 		super({
-// 			id: 'workbench.action.dumpViewCustomizations',
-// 			title: localize2('dumpViewCustomizations', "Dump view customizations to console"),
-// 			category: Categories.View,
-// 			f1: true,
-// 		});
-// 	}
-
-// 	run(accessor: ServicesAccessor): void {
-// 		console.log(
-// 			JSON.stringify(createPositronCustomLayoutDescriptor(accessor), null, 2)
-// 		);
-// 	}
-// });
+type LayoutPick = IQuickPickItem & { layoutDescriptor: PositronCustomLayoutDescriptor };
+export const positronCustomLayoutOptions: LayoutPick[] = [
+	{
+		id: 'fourPaneDS',
+		label: localize('choseLayout.fourPaneDS', 'Four Pane Data Science'),
+		layoutDescriptor: fourPaneDS,
+	},
+	{
+		id: 'sideBySideDS',
+		label: localize('choseLayout.sideBySideDS', 'Side by Side Data Science'),
+		layoutDescriptor: sideBySideDS,
+	},
+	{
+		id: 'heathen',
+		label: localize('choseLayout.heathenLayout', 'Heathen Layout'),
+		layoutDescriptor: heathenLayout,
+	}
+];

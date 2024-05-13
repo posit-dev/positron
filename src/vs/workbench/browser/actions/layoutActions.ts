@@ -35,7 +35,7 @@ import { TitlebarStyle } from 'vs/platform/window/common/window';
 // --- Start Positron ---
 import { PositronToggleTopActionBarVisibilityAction } from 'vs/workbench/browser/parts/positronTopActionBar/positronTopActionBarActions';
 import { PositronTopActionBarVisibleContext } from 'vs/workbench/common/contextkeys';  // eslint-disable-line no-duplicate-imports
-import { createPositronCustomLayoutDescriptor, fourPaneDS, heathenLayout, loadCustomPositronLayout, sideBySideDS } from 'vs/workbench/browser/positronCustomViews';
+import { createPositronCustomLayoutDescriptor, positronCustomLayoutOptions } from 'vs/workbench/browser/positronCustomViews';
 // --- End Positron ---
 
 // Register Icons
@@ -815,45 +815,34 @@ registerAction2(class extends Action2 {
 });
 
 // --- Start Positron ---
-registerAction2(class EnterFourPaneDataScienceLayout extends Action2 {
-	constructor() {
-		super({
-			id: 'workbench.action.fourPaneDataScienceMode',
-			title: localize2('toggle4Pane', "Toggle Four-Pane Data Science Mode"),
-			category: Categories.View,
-			f1: true,
-		});
-	}
-	run(accessor: ServicesAccessor): void {
-		loadCustomPositronLayout(fourPaneDS, accessor);
-	}
-});
-
-registerAction2(class EnterSideBySideDSLayout extends Action2 {
-	constructor() {
-		super({
-			id: 'workbench.action.sideBySideDataScienceMode',
-			title: localize2('toggleSideBySide', 'Toggle Side-by-Side Data Science Mode'),
-			category: Categories.View,
-			f1: true,
-		});
-	}
-	run(accessor: ServicesAccessor): void {
-		loadCustomPositronLayout(sideBySideDS, accessor);
-	}
-});
-
 registerAction2(class extends Action2 {
 	constructor() {
 		super({
-			id: 'workbench.action.heathenLayout',
-			title: localize2('heathenLayout', 'Switch to heathen layout mode'),
+			id: 'workbench.action.chooseLayout',
+			title: localize2('chooseLayout', 'Choose a layout'),
 			category: Categories.View,
 			f1: true,
 		});
 	}
 	run(accessor: ServicesAccessor): void {
-		loadCustomPositronLayout(heathenLayout, accessor);
+		const quickInputService = accessor.get(IQuickInputService);
+		const layoutService = accessor.get(IWorkbenchLayoutService);
+		const viewDescriptorService = accessor.get(IViewDescriptorService);
+		const quickPick = quickInputService.createQuickPick();
+		quickPick.placeholder = localize('choseLayout.layoutChooser', 'Choose a layout');
+		quickPick.title = localize('choseLayout.title', 'Choose new layout');
+		quickPick.items = positronCustomLayoutOptions;
+
+		quickPick.onDidAccept(() => {
+			const selected = quickPick.selectedItems[0] as (typeof positronCustomLayoutOptions[number]) | undefined;
+			if (selected?.id) {
+				const { layout, views } = selected.layoutDescriptor;
+				layoutService.enterCustomLayout(layout);
+				viewDescriptorService.loadCustomViewDescriptor(views);
+			}
+			quickPick.hide();
+		});
+		quickPick.show();
 	}
 });
 
