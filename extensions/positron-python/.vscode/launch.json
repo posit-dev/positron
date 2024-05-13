@@ -27,7 +27,6 @@
             "request": "launch",
             "runtimeExecutable": "${execPath}",
             "args": ["--extensionDevelopmentPath=${workspaceFolder}"],
-            "stopOnEntry": false,
             "smartStep": true,
             "sourceMaps": true,
             "outFiles": ["${workspaceFolder}/out/**/*", "!${workspaceFolder}/**/node_modules**/*"],
@@ -50,18 +49,10 @@
             "request": "launch",
             "runtimeExecutable": "${execPath}",
             "args": ["--extensionDevelopmentPath=${workspaceFolder}", "${workspaceFolder}/data"],
-            "stopOnEntry": false,
             "smartStep": true,
             "sourceMaps": true,
             "outFiles": ["${workspaceFolder}/out/**/*", "!${workspaceFolder}/**/node_modules**/*"],
             "preLaunchTask": "Compile"
-        },
-        {
-            "name": "Python: Current File",
-            "type": "python",
-            "request": "launch",
-            "program": "${file}",
-            "console": "integratedTerminal"
         },
         {
             "name": "Tests (Debugger, VS Code, *.test.ts)",
@@ -74,7 +65,6 @@
                 "--extensionDevelopmentPath=${workspaceFolder}",
                 "--extensionTestsPath=${workspaceFolder}/out/test"
             ],
-            "stopOnEntry": false,
             "sourceMaps": true,
             "smartStep": true,
             "outFiles": ["${workspaceFolder}/out/**/*", "!${workspaceFolder}/**/node_modules**/*"],
@@ -102,7 +92,6 @@
                 "VSC_PYTHON_SMOKE_TEST": "1",
                 "TEST_FILES_SUFFIX": "smoke.test"
             },
-            "stopOnEntry": false,
             "sourceMaps": true,
             "outFiles": ["${workspaceFolder}/out/**/*.js", "!${workspaceFolder}/**/node_modules**/*"],
             "preLaunchTask": "Compile",
@@ -122,7 +111,6 @@
             "env": {
                 "VSC_PYTHON_CI_TEST_GREP": "" // Modify this to run a subset of the single workspace tests
             },
-            "stopOnEntry": false,
             "sourceMaps": true,
             "outFiles": ["${workspaceFolder}/out/**/*.js", "!${workspaceFolder}/**/node_modules**/*"],
             "preLaunchTask": "Compile",
@@ -142,7 +130,6 @@
             "env": {
                 "VSC_PYTHON_CI_TEST_GREP": "Language Server:"
             },
-            "stopOnEntry": false,
             "sourceMaps": true,
             "outFiles": ["${workspaceFolder}/out/**/*.js", "!${workspaceFolder}/**/node_modules**/*"],
             "preLaunchTask": "preTestJediLSP",
@@ -159,7 +146,6 @@
                 "--extensionDevelopmentPath=${workspaceFolder}",
                 "--extensionTestsPath=${workspaceFolder}/out/test"
             ],
-            "stopOnEntry": false,
             "sourceMaps": true,
             "smartStep": true,
             "outFiles": ["${workspaceFolder}/out/**/*", "!${workspaceFolder}/**/node_modules**/*"],
@@ -255,11 +241,11 @@
             "program": "${file}",
             "request": "launch",
             "skipFiles": ["<node_internals>/**"],
-            "type": "pwa-node"
+            "type": "node"
         },
         {
             "name": "Python: Current File",
-            "type": "python",
+            "type": "debugpy",
             "justMyCode": true,
             "request": "launch",
             "program": "${file}",
@@ -267,7 +253,7 @@
             "cwd": "${workspaceFolder}"
         },
         {
-            "name": "Listen",
+            "name": "Python: Attach Listen",
             "type": "debugpy",
             "request": "attach",
             "listen": { "host": "localhost", "port": 5678 },
@@ -286,7 +272,7 @@
     "compounds": [
         {
             "name": "Debug Test Discovery",
-            "configurations": ["Listen", "Extension"]
+            "configurations": ["Python: Attach Listen", "Extension"]
         }
     ]
 }
