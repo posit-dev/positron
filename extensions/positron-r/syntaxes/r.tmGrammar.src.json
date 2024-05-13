@@ -345,13 +345,7 @@
 				},
 				{
 					"name": "markup.quote",
-					"begin": "`",
-					"end": "`",
-					"patterns": [
-						{
-							"match": "\\\\`"
-						}
-					]
+					"match": "(`(?:[^`\\\\]|\\\\.)*`)"
 				},
 				{
 					"name": "markup.underline.link",
