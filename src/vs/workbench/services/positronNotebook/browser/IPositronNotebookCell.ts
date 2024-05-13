@@ -2,18 +2,19 @@
  *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
+import { VSBuffer } from 'vs/base/common/buffer';
 import { Disposable } from 'vs/base/common/lifecycle';
 import { ISettableObservable } from 'vs/base/common/observableInternal/base';
 import { URI } from 'vs/base/common/uri';
 import { CodeEditorWidget } from 'vs/editor/browser/widget/codeEditor/codeEditorWidget';
-import { ITextModel } from 'vs/editor/common/model';
-import { ICellViewModel } from 'vs/workbench/contrib/notebook/browser/notebookBrowser';
-import { NotebookCellTextModel } from 'vs/workbench/contrib/notebook/common/model/notebookCellTextModel';
-import { CellKind, ICellOutput } from 'vs/workbench/contrib/notebook/common/notebookCommon';
-import { CellSelectionType } from 'vs/workbench/contrib/positronNotebook/browser/notebookCells/selectionMachine';
 
 export type ExecutionStatus = 'running' | 'pending' | 'unconfirmed' | 'idle';
 
+export enum CellSelectionStatus {
+	Unselected = 'unselected',
+	Selected = 'selected',
+	Editing = 'editing'
+}
 
 /**
  * Wrapper class for notebook cell that exposes the properties that the UI needs to render the cell.
@@ -37,16 +38,6 @@ export interface IPositronNotebookCell extends Disposable {
 	get notebookUri(): URI;
 
 	/**
-	 * Is this cell selected?
-	 */
-	selected: ISettableObservable<boolean>;
-
-	/**
-	 * Is this cell currently being edited?
-	 */
-	editing: ISettableObservable<boolean>;
-
-	/**
 	 * The content of the cell. This is the raw text of the cell.
 	 */
 	getContent(): string;
@@ -54,17 +45,12 @@ export interface IPositronNotebookCell extends Disposable {
 	/**
 	 * The notebook text model for the cell.
 	 */
-	cellModel: NotebookCellTextModel;
+	cellModel: PositronNotebookCellTextModel;
 
 	/**
-	 * Get the view model for the cell
+	 * Get the handle number for cell from cell model
 	 */
-	get viewModel(): ICellViewModel;
-
-	/**
-	 * Get the text editor model for use in the monaco editor widgets
-	 */
-	getTextEditorModel(): Promise<ITextModel>;
+	get handleId(): number;
 
 	/**
 	 * Delete this cell
@@ -86,11 +72,6 @@ export interface IPositronNotebookCell extends Disposable {
 	 */
 	isCodeCell(): this is IPositronNotebookCodeCell;
 
-	/**
-	 * Select this cell
-	 * @param type The type of selection to apply. E.g. an editing selection or a normal selection.
-	 */
-	select(type: CellSelectionType): void;
 
 	/**
 	 * Set focus to this cell
@@ -114,12 +95,11 @@ export interface IPositronNotebookCell extends Disposable {
 
 	/**
 	 * Attach the cell to a container. Used for things like focus management
-	 * @param container Element that the cell is rendered into.
 	 */
 	attachContainer(container: HTMLElement): void;
 
 	/**
-	 * Attach the editor widget to the cell
+	 *
 	 * @param editor Code editor widget associated with cell.
 	 */
 	attachEditor(editor: CodeEditorWidget): void;
@@ -145,7 +125,7 @@ export interface IPositronNotebookCodeCell extends IPositronNotebookCell {
 	/**
 	 * Current cell outputs as an observable
 	 */
-	outputs: ISettableObservable<ICellOutput[], void>;
+	outputs: ISettableObservable<NotebookCellOutputs[], void>;
 }
 
 
@@ -172,3 +152,29 @@ export interface IPositronNotebookMarkdownCell extends IPositronNotebookCell {
 	toggleEditor(): void;
 }
 
+
+// Lightweight copies of vscode interfaces for the purpose of not breaking the import rules
+
+export enum CellKind {
+	Markup = 1,
+	Code = 2
+}
+
+export interface NotebookCellOutputs {
+	outputId: string;
+	outputs: {
+		readonly mime: string;
+		readonly data: VSBuffer;
+	}[];
+}
+
+/**
+ * Lightweight copy of the vscode `NotebookCellTextModel` interface.
+ */
+interface PositronNotebookCellTextModel {
+	readonly uri: URI;
+	handle: number;
+	language: string;
+	cellKind: CellKind;
+	outputs: NotebookCellOutputs[];
+}

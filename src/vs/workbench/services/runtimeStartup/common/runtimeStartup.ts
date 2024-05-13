@@ -389,6 +389,9 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 			return;
 		}
 
+		// Ensure all extension hosts are started before we start activating extensions
+		await this._extensionService.whenAllExtensionHostsStarted();
+
 		// Activate all extensions that contribute language runtimes.
 		const activationPromises = Array.from(this._languagePacks.keys()).map(
 			async (languageId) => {
@@ -740,7 +743,10 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 		}
 
 		// Ignore if the runtime exited for a Good Reason.
-		if (exit.reason !== RuntimeExitReason.Error && exit.reason !== RuntimeExitReason.Unknown) {
+		// If the reason is `Unknown`, then we don't know the reason for the exit, but the
+		// `exit_code` was `0`, so we don't treat it as a crash. If the `exit_code` had not been
+		// `0`, then `onKernelExited()` would have upgraded the crash from `Unknown` to `Error`.
+		if (exit.reason !== RuntimeExitReason.Error) {
 			return;
 		}
 

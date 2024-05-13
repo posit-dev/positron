@@ -49,6 +49,7 @@
 
 .data-grid-row-header
 .content {
+	overflow: hidden;
 	grid-row: content / splitter;
 	grid-column: content / splitter;
 }

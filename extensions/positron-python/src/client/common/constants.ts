@@ -1,4 +1,9 @@
 /* eslint-disable camelcase */
+
+// --- Start Positron ---
+import { PythonVersion } from '../pythonEnvironments/info/pythonVersion';
+// --- End Positron ---
+
 /* eslint-disable @typescript-eslint/no-namespace */
 export const PYTHON_LANGUAGE = 'python';
 export const PYTHON_WARNINGS = 'PYTHONWARNINGS';
@@ -53,6 +58,9 @@ export namespace Commands {
     export const Exec_Selection_In_Django_Shell = 'python.execSelectionInDjangoShell';
     export const Exec_Selection_In_Terminal = 'python.execSelectionInTerminal';
     export const GetSelectedInterpreterPath = 'python.interpreterPath';
+    // --- Start Positron ---
+    export const Get_Create_Environment_Providers = 'python.getCreateEnvironmentProviders';
+    // --- End Positron ---
     export const InstallJupyter = 'python.installJupyter';
     export const InstallPython = 'python.installPython';
     export const InstallPythonOnLinux = 'python.installPythonOnLinux';
@@ -121,6 +129,7 @@ export const UseProposedApi = Symbol('USE_VSC_PROPOSED_API');
 
 // --- Start Positron ---
 export const IPYKERNEL_VERSION = '>=6.19.1';
+export const MINIMUM_PYTHON_VERSION = { major: 3, minor: 8, patch: 0, raw: '3.8.0' } as PythonVersion;
 // --- End Positron
 
 export * from '../constants';

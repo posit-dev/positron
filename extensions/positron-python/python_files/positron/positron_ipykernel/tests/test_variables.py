@@ -62,20 +62,20 @@ def test_comm_open(kernel: PositronIPyKernel) -> None:
         #
         # Same types
         #
-        ("import numpy as np", [f"np.array({x})" for x in [3, [3], [[3]]]]),
-        ("import torch", [f"torch.tensor({x})" for x in [3, [3], [[3]]]]),
+        ("import numpy as np", [f"x = np.array({x})" for x in [3, [3], [[3]]]]),
+        ("import torch", [f"x = torch.tensor({x})" for x in [3, [3], [[3]]]]),
         pytest.param(
             "import pandas as pd",
-            [f"pd.Series({x})" for x in [[], [3], [3, 3], ["3"]]],
+            [f"x = pd.Series({x})" for x in [[], [3], [3, 3], ["3"]]],
         ),
         pytest.param(
             "import polars as pl",
-            [f"pl.Series({x})" for x in [[], [3], [3, 3], ["3"]]],
+            [f"x = pl.Series({x})" for x in [[], [3], [3, 3], ["3"]]],
         ),
         (
             "import pandas as pd",
             [
-                f"pd.DataFrame({x})"
+                f"x = pd.DataFrame({x})"
                 for x in [
                     {"a": []},
                     {"a": [3]},
@@ -87,7 +87,7 @@ def test_comm_open(kernel: PositronIPyKernel) -> None:
         (
             "import polars as pl",
             [
-                f"pl.DataFrame({x})"
+                f"x = pl.DataFrame({x})"
                 for x in [
                     {"a": []},
                     {"a": [3]},
@@ -96,11 +96,9 @@ def test_comm_open(kernel: PositronIPyKernel) -> None:
                 ]
             ],
         ),
-        #
-        # Changing types
-        #
-        ("", ["3", "'3'"]),
-        ("import numpy as np", ["3", "np.array(3)"]),
+        # Nested mutable types
+        ("", ["x = [{}]", "x[0]['a'] = 0"]),
+        ("", ["x = {'a': []}", "x['a'].append(0)"]),
     ],
 )
 def test_change_detection(
@@ -119,7 +117,7 @@ def test_change_detection(
 
 def _assert_assigned(shell: PositronShell, value_code: str, variables_comm: DummyComm):
     # Assign the value to a variable.
-    shell.run_cell(f"x = {value_code}")
+    shell.run_cell(value_code)
 
     # Test that the expected `update` message was sent with the
     # expected `assigned` value.
@@ -335,6 +333,14 @@ def _assert_inspect(value: Any, path: List[Any], variables_comm: DummyComm) -> N
     variables_comm.messages.clear()
 
 
+class TestClass:
+    x: int = 0
+
+    @property
+    def x_plus_one(self):
+        raise AssertionError("Should not be evaluated")
+
+
 @pytest.mark.parametrize(
     ("value_fn"),
     [
@@ -344,6 +350,7 @@ def _assert_inspect(value: Any, path: List[Any], variables_comm: DummyComm) -> N
         lambda: np.array([[0, 1], [2, 3]]),
         # Inspecting large objects should not trigger update messages: https://github.com/posit-dev/positron/issues/2308.
         lambda: np.arange(BIG_ARRAY_LENGTH),
+        lambda: TestClass(),
     ],
 )
 def test_handle_inspect(value_fn, shell: PositronShell, variables_comm: DummyComm) -> None:

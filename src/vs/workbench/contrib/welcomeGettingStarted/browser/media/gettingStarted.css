@@ -104,18 +104,20 @@
 	transition: left 0.0s, opacity 0.0s;
 }
 
+/*--- Start Positron ---*/
 .monaco-workbench .part.editor > .content .gettingStartedContainer .gettingStartedSlideCategories > .gettingStartedCategoriesContainer {
 	display: grid;
 	height: 100%;
-	max-width: 1200px;
+	max-width: 1400px;
 	margin: 0 auto;
 	grid-template-rows: 25% minmax(min-content, auto) min-content;
-	grid-template-columns: 1fr 6fr 1fr 6fr 1fr;
+	grid-template-columns: 1fr 8fr 1fr 6fr 1fr;
 	grid-template-areas:
 		".  header header header ."
 		". left-column . right-column ."
 		". footer footer footer .";
 }
+/*--- End Positron ---*/
 
 .monaco-workbench .part.editor > .content .gettingStartedContainer.width-constrained .gettingStartedSlideCategories > .gettingStartedCategoriesContainer {
 	grid-template-rows: auto min-content minmax(min-content, auto) min-content;

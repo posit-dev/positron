@@ -59,7 +59,7 @@ class QueuedRuntimeMessageEvent extends QueuedRuntimeEvent {
 		return `${this.message.type}`;
 	}
 
-	constructor(clock: number, readonly message: ILanguageRuntimeMessage) {
+	constructor(clock: number, readonly handled: boolean, readonly message: ILanguageRuntimeMessage) {
 		super(clock);
 	}
 }
@@ -249,9 +249,9 @@ class ExtHostLanguageRuntimeSessionAdapter implements ILanguageRuntimeSession {
 	onDidReceiveRuntimeMessagePromptConfig = this._onDidReceiveRuntimeMessagePromptConfigEmitter.event;
 	onDidCreateClientInstance = this._onDidCreateClientInstanceEmitter.event;
 
-	handleRuntimeMessage(message: ILanguageRuntimeMessage): void {
+	handleRuntimeMessage(message: ILanguageRuntimeMessage, handled: boolean): void {
 		// Add the message to the event queue
-		const event = new QueuedRuntimeMessageEvent(message.event_clock, message);
+		const event = new QueuedRuntimeMessageEvent(message.event_clock, handled, message);
 		this.addToEventQueue(event);
 	}
 
@@ -678,7 +678,11 @@ class ExtHostLanguageRuntimeSessionAdapter implements ILanguageRuntimeSession {
 
 	private handleQueuedEvent(event: QueuedRuntimeEvent): void {
 		if (event instanceof QueuedRuntimeMessageEvent) {
-			this.processMessage(event.message);
+			// If the message wasn't already handled by the extension host,
+			// process it here.
+			if (!event.handled) {
+				this.processMessage(event.message);
+			}
 		} else if (event instanceof QueuedRuntimeStateEvent) {
 			this._stateEmitter.fire(event.state);
 		}
@@ -750,8 +754,9 @@ class ExtHostLanguageRuntimeSessionAdapter implements ILanguageRuntimeSession {
 
 		// If there's an HTML representation, use that.
 		if (mimeTypes.includes('text/html')) {
-			// Check to see if there are any <script>, <html>, or <body> tags.
-			if (/<(script|html|body)/.test(message.data['text/html'])) {
+			// Check to see if there are any tags that look like they belong in
+			// a standalone HTML document.
+			if (/<(script|html|body|iframe)/.test(message.data['text/html'])) {
 				// This looks like standalone HTML.
 				if (message.data['text/html'].includes('<table')) {
 					// Tabular data? Probably best in the Viewer pane.
@@ -1047,8 +1052,8 @@ export class MainThreadLanguageRuntime
 		this._runtimeSessionService.registerSessionManager(this);
 	}
 
-	$emitLanguageRuntimeMessage(handle: number, message: ILanguageRuntimeMessage): void {
-		this.findSession(handle).handleRuntimeMessage(message);
+	$emitLanguageRuntimeMessage(handle: number, handled: boolean, message: ILanguageRuntimeMessage): void {
+		this.findSession(handle).handleRuntimeMessage(message, handled);
 	}
 
 	$emitLanguageRuntimeState(handle: number, clock: number, state: RuntimeState): void {

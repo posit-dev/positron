@@ -1,9 +1,17 @@
+"""
+Inspectors are totally decoupled from the variables pane and
+all other Positron (and even non-Positron) components.
+They solve the general problem of providing a consistent interface
+over a variety types from popular Python libraries.
+"""
+
 #
 # Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
 #
 from __future__ import annotations
 
 import asyncio
+import copy
 import logging
 import time
 import types
@@ -13,7 +21,7 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional, Set, Tuple
 from comm.base_comm import BaseComm
 
 from .access_keys import decode_access_key, encode_access_key
-from .inspectors import CopyError, get_inspector
+from .inspectors import get_inspector
 from .positron_comm import CommMessage, JsonRpcErrorCode, PositronComm
 from .utils import JsonData, JsonRecord, cancel_tasks, create_task, get_qualname
 from .variables_comm import (
@@ -49,6 +57,7 @@ MAX_ITEMS: int = 10000
 
 # Budget for number of "units" of work to allow for namespace change
 # detection. The costs are defined in inspectors.py
+# Units are rough estimates of the number of bytes copied.
 MAX_SNAPSHOT_COMPARISON_BUDGET: int = 10_000_000
 
 
@@ -288,8 +297,8 @@ class VariablesService:
                 else:
                     comparison_cost += cost
                     try:
-                        mutable_vars_copied[key] = inspector.copy()
-                    except CopyError:
+                        mutable_vars_copied[key] = inspector.deepcopy()
+                    except copy.Error:
                         # when a variable is mutable, but not copiable we can't
                         # detect changes on it
                         mutable_vars_excluded[key] = value
@@ -311,10 +320,11 @@ class VariablesService:
         """
         Attempts to detect changes to variables in the user's environment.
 
-        Returns:
-            A tuple (dict, set) containing a dict of variables that
-            were modified (added or updated) and a set of variables
-            that were removed.
+        Returns
+        -------
+        A tuple (dict, set) containing a dict of variables that
+        were modified (added or updated) and a set of variables
+        that were removed.
         """
         assigned = {}
         removed = set()
@@ -387,9 +397,10 @@ class VariablesService:
 
     def _get_filtered_vars(self, variables: Optional[Mapping[str, Any]] = None) -> Dict[str, Any]:
         """
-        Returns:
-            A filtered dict of the variables, excluding hidden variables. If variables
-            is None, the current user namespace in the environment is used.
+        Returns
+        -------
+        A filtered dict of the variables, excluding hidden variables. If variables
+        is None, the current user namespace in the environment is used.
         """
         hidden = self._get_user_ns_hidden()
 
@@ -406,14 +417,15 @@ class VariablesService:
         """
         Finds the variable at the requested path in the current user session.
 
-        Args:
-            path: A list of path segments that will be traversed to find
-              the requested variable.
-            context: The context from which to start the search.
+        Parameters
+        ----------
+        path : Iterable[str]
+            A list of path segments that will be traversed to find the requested variable.
 
-        Returns:
-            A tuple (bool, Any) containing a boolean indicating whether the
-            variable was found, as well as the value of the variable, if found.
+        Returns
+        -------
+        A tuple (bool, Any) containing a boolean indicating whether the variable was found, as well
+        as the value of the variable, if found.
         """
 
         if path is None:
@@ -438,10 +450,11 @@ class VariablesService:
         """
         Deletes all of the variables in the current user session.
 
-        Args:
-            parent:
-                A dict providing the parent context for the response,
-                e.g. the client message requesting the clear operation
+        Parameters
+        ----------
+        parent :  Dict[str, Any]
+            A dict providing the parent context for the response,
+            e.g. the client message requesting the clear operation
         """
         create_task(self._soft_reset(parent), self._pending_tasks)
 
@@ -468,12 +481,13 @@ class VariablesService:
         """
         Deletes the requested variables by name from the current user session.
 
-        Args:
-            names:
-                A list of variable names to delete
-            parent:
-                A dict providing the parent context for the response,
-                e.g. the client message requesting the delete operation
+        Parameters
+        ----------
+        names :  Iterable[str]
+            A list of variable names to delete
+        parent : Dict[str, Any]
+            A dict providing the parent context for the response,
+            e.g. the client message requesting the delete operation
         """
         if names is None:
             return
@@ -507,9 +521,10 @@ class VariablesService:
         """
         Describes the variable at the requested path in the current user session.
 
-        Args:
-            path:
-                A list of names describing the path to the variable.
+        Parameters
+        ----------
+        path : List[str]
+            A list of names describing the path to the variable.
         """
 
         is_known, value = self._find_var(path)
@@ -596,12 +611,13 @@ class VariablesService:
         using the requested clipboard format and sends the result through the
         variables comm to the client.
 
-        Args:
-            path:
-                A list of names describing the path to the variable.
-            clipboard_format:
-                The format to use for the clipboard copy, described as a mime type.
-                Defaults to "text/plain".
+        Parameters
+        ----------
+        path : List[str]
+            A list of names describing the path to the variable.
+        clipboard_format : ClipboardFormatFormat
+            The format to use for the clipboard copy, described as a mime type.
+            Defaults to "text/plain".
         """
         if path is None:
             return
@@ -643,11 +659,12 @@ class VariablesService:
             ...
         }
 
-        Args:
-            path:
-                A list of names describing the path to the variable.
-            value:
-                The variable's value to summarize.
+        Parameters
+        ----------
+        path : List[str]
+            A list of names describing the path to the variable.
+        value : Any
+            The variable's value to summarize.
         """
 
         children = []
@@ -669,16 +686,18 @@ def _summarize_variable(key: Any, value: Any) -> Optional[Variable]:
     """
     Summarizes the given variable into a Variable object.
 
-    Args:
-        key:
-            The actual key of the variable in its parent object, used as an input to determine the
-            variable's string access key.
-        value:
-            The variable's value.
+    Parameters
+    ----------
+    key : Any
+        The actual key of the variable in its parent object, used as an input to determine the
+        variable's string access key.
+    value : Any
+        The variable's value.
 
 
-    Returns:
-        An Variable summary, or None if the variable should be skipped.
+    Returns
+    -------
+    A Variable summary, or None if the variable should be skipped.
     """
     # Hide module types for now
     if isinstance(value, types.ModuleType):
@@ -732,14 +751,20 @@ def _summarize_variable(key: Any, value: Any) -> Optional[Variable]:
 
 
 def _summarize_children(parent: Any, limit: int = MAX_CHILDREN) -> List[Variable]:
-    children = []
-    for i, (key, value) in enumerate(get_inspector(parent).get_items()):
-        if len(children) >= limit:
+    inspector = get_inspector(parent)
+    children = inspector.get_children()
+    summaries = []
+    for child in children:
+        if len(summaries) >= limit:
             break
-        summary = _summarize_variable(key, value)
+        try:
+            value = inspector.get_child(child)
+        except Exception:
+            value = "Cannot get value."
+        summary = _summarize_variable(child, value)
         if summary is not None:
-            children.append(summary)
-    return children
+            summaries.append(summary)
+    return summaries
 
 
 def _format_value(value: Any, clipboard_format: ClipboardFormatFormat) -> str:

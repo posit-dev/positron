@@ -100,7 +100,7 @@ export class PositronNotebookEditorInput extends EditorInput {
 		super();
 		this._logService.info(this._identifier, 'constructor');
 
-		this.notebookInstance = instantiationService.createInstance(PositronNotebookInstance, this, undefined);
+		this.notebookInstance = PositronNotebookInstance.getOrCreate(this, undefined, instantiationService);
 	}
 
 	/**

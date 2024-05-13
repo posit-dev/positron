@@ -10,21 +10,24 @@ import * as React from 'react';
 import { useEffect, useRef, useState } from 'react'; // eslint-disable-line no-duplicate-imports
 
 // Other dependencies.
-import { DisposableStore } from 'vs/base/common/lifecycle';
 import { localize } from 'vs/nls';
 import * as DOM from 'vs/base/browser/dom';
+import { DisposableStore } from 'vs/base/common/lifecycle';
 import { Button } from 'vs/base/browser/ui/positronComponents/button/button';
 import { showContextMenu } from 'vs/workbench/browser/positronComponents/contextMenu/contextMenu';
 import { ContextMenuItem } from 'vs/workbench/browser/positronComponents/contextMenu/contextMenuItem';
 import { ContextMenuSeparator } from 'vs/workbench/browser/positronComponents/contextMenu/contextMenuSeparator';
+import { OKModalDialog } from 'vs/workbench/browser/positronComponents/positronModalDialog/positronOKModalDialog';
 import { usePositronDataExplorerContext } from 'vs/workbench/browser/positronDataExplorer/positronDataExplorerContext';
 import { PositronModalReactRenderer } from 'vs/workbench/browser/positronModalReactRenderer/positronModalReactRenderer';
 import { RowFilterWidget } from 'vs/workbench/browser/positronDataExplorer/components/dataExplorerPanel/components/rowFilterBar/components/rowFilterWidget';
 import { AddEditRowFilterModalPopup } from 'vs/workbench/browser/positronDataExplorer/components/dataExplorerPanel/components/addEditRowFilterModalPopup/addEditRowFilterModalPopup';
-import {
-	getRowFilterDescriptor,
-	RowFilterDescriptor,
-} from 'vs/workbench/browser/positronDataExplorer/components/dataExplorerPanel/components/addEditRowFilterModalPopup/rowFilterDescriptor';
+import { getRowFilterDescriptor, RowFilterDescriptor } from 'vs/workbench/browser/positronDataExplorer/components/dataExplorerPanel/components/addEditRowFilterModalPopup/rowFilterDescriptor';
+
+/**
+ * Constants.
+ */
+const MAX_ROW_FILTERS = 15;
 
 /**
  * RowFilterBar component.
@@ -66,12 +69,12 @@ export const RowFilterBar = () => {
 	}, [context.instance]);
 
 	/**
-	 * Shows the add / edit row filter modal popup.
+	 * Add row filter handler.
 	 * @param anchor The anchor element.
 	 * @param isFirstFilter Whether this is the first filter.
 	 * @param editRowFilterDescriptor The row filter to edit, or undefined, to add a row filter.
 	 */
-	const showAddEditRowFilterModalPopup = (
+	const addRowFilterHandler = (
 		anchor: HTMLElement,
 		isFirstFilter: boolean = false,
 		editRowFilterDescriptor?: RowFilterDescriptor
@@ -83,51 +86,70 @@ export const RowFilterBar = () => {
 			container: context.layoutService.getContainer(DOM.getWindow(ref.current))
 		});
 
-		/**
-		 * onApplyRowFilter event handler.
-		 * @param applyRowFilterDescriptor The row filter descriptor to apply.
-		 */
-		const applyRowFilterHandler = async (applyRowFilterDescriptor: RowFilterDescriptor) => {
-			// Create the new row filter descriptors. If this is a new row filter, append it;
-			// otherwise, replace the row filter that was edited.
-			let newRowFilterDescriptors: RowFilterDescriptor[];
-			if (!editRowFilterDescriptor) {
-				// Update the row filters.
-				newRowFilterDescriptors = [...rowFilterDescriptors, applyRowFilterDescriptor];
-			} else {
-				// Find the index of the row filter.
-				const index = rowFilterDescriptors.findIndex(rowFilter =>
-					editRowFilterDescriptor.identifier === rowFilter.identifier
-				);
-
-				// Update the row filters.
-				newRowFilterDescriptors = [
-					...rowFilterDescriptors.slice(0, index),
-					applyRowFilterDescriptor,
-					...rowFilterDescriptors.slice(index + 1)
-				];
-			}
-
-			// Set the new row filter descriptors.
-			setRowFilterDescriptors(newRowFilterDescriptors);
-
-			// Set the new row filters.
-			await context.instance.tableDataDataGridInstance.setRowFilters(
-				newRowFilterDescriptors.map(descr => descr.backendFilter)
+		// If a new row filter is being added, and we've reached the row filter limit, inform the
+		// user that another filter cannot be added. Otherwise, show the add / edit row filter modal
+		// popup.
+		if (!editRowFilterDescriptor && rowFilterDescriptors.length >= MAX_ROW_FILTERS) {
+			// Inform the user that another filter cannot be added.
+			renderer.render(
+				<OKModalDialog
+					renderer={renderer}
+					title={(() => localize('positron.dataExplorer.filtering.addFilter', "Add Filter"))()}
+					width={350}
+					height={150}
+					onAccept={() => renderer.dispose()}
+					onCancel={() => renderer.dispose()}
+				>
+					<div>{(() => localize('positron.dataExplorer.filtering.filterLimit', "The maximum number of filters has been reached."))()}</div>
+				</OKModalDialog>
 			);
-		};
+		} else {
+			/**
+			 * onApplyRowFilter event handler.
+			 * @param applyRowFilterDescriptor The row filter descriptor to apply.
+			 */
+			const applyRowFilterHandler = async (applyRowFilterDescriptor: RowFilterDescriptor) => {
+				// Create the new row filter descriptors. If this is a new row filter, append it;
+				// otherwise, replace the row filter that was edited.
+				let newRowFilterDescriptors: RowFilterDescriptor[];
+				if (!editRowFilterDescriptor) {
+					// Update the row filters.
+					newRowFilterDescriptors = [...rowFilterDescriptors, applyRowFilterDescriptor];
+				} else {
+					// Find the index of the row filter.
+					const index = rowFilterDescriptors.findIndex(rowFilter =>
+						editRowFilterDescriptor.identifier === rowFilter.identifier
+					);
 
-		// Show the add /edit row filter modal popup.
-		renderer.render(
-			<AddEditRowFilterModalPopup
-				dataExplorerClientInstance={context.instance.dataExplorerClientInstance}
-				renderer={renderer}
-				anchor={anchor}
-				isFirstFilter={isFirstFilter}
-				editRowFilter={editRowFilterDescriptor}
-				onApplyRowFilter={applyRowFilterHandler}
-			/>
-		);
+					// Update the row filters.
+					newRowFilterDescriptors = [
+						...rowFilterDescriptors.slice(0, index),
+						applyRowFilterDescriptor,
+						...rowFilterDescriptors.slice(index + 1)
+					];
+				}
+
+				// Set the new row filter descriptors.
+				setRowFilterDescriptors(newRowFilterDescriptors);
+
+				// Set the new row filters.
+				await context.instance.tableDataDataGridInstance.setRowFilters(
+					newRowFilterDescriptors.map(descr => descr.backendFilter)
+				);
+			};
+
+			// Show the add /edit row filter modal popup.
+			renderer.render(
+				<AddEditRowFilterModalPopup
+					dataExplorerClientInstance={context.instance.dataExplorerClientInstance}
+					renderer={renderer}
+					anchor={anchor}
+					isFirstFilter={isFirstFilter}
+					editRowFilter={editRowFilterDescriptor}
+					onApplyRowFilter={applyRowFilterHandler}
+				/>
+			);
+		}
 	};
 
 	/**
@@ -139,9 +161,10 @@ export const RowFilterBar = () => {
 		entries.push(new ContextMenuItem({
 			label: localize('positron.dataExplorer.addFilter', "Add filter"),
 			icon: 'positron-add-filter',
-			onSelected: () => showAddEditRowFilterModalPopup(
+			onSelected: () => addRowFilterHandler(
 				rowFilterButtonRef.current,
-				rowFilterDescriptors.length === 0)
+				rowFilterDescriptors.length === 0
+			)
 		}));
 		entries.push(new ContextMenuSeparator());
 		if (!rowFiltersHidden) {
@@ -227,7 +250,7 @@ export const RowFilterBar = () => {
 						booleanOperator={index === 0 ? undefined : rowFilter.props.condition}
 						onEdit={() => {
 							if (rowFilterWidgetRefs.current[index]) {
-								showAddEditRowFilterModalPopup(
+								addRowFilterHandler(
 									rowFilterWidgetRefs.current[index],
 									index === 0,
 									rowFilter
@@ -240,13 +263,14 @@ export const RowFilterBar = () => {
 					ref={addFilterButtonRef}
 					className='add-row-filter-button'
 					ariaLabel={(() => localize('positron.dataExplorer.addFilter', "Add filter"))()}
-					onPressed={() => showAddEditRowFilterModalPopup(addFilterButtonRef.current,
+					onPressed={() => addRowFilterHandler(
+						addFilterButtonRef.current,
 						rowFilterDescriptors.length === 0
 					)}
 				>
 					<div className='codicon codicon-positron-add-filter' />
 				</Button>
 			</div>
-		</div>
+		</div >
 	);
 };

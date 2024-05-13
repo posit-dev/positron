@@ -8,7 +8,16 @@
 import abc
 import logging
 import operator
-from typing import TYPE_CHECKING, Callable, Dict, List, Optional, Sequence, Set, Tuple
+from typing import (
+    TYPE_CHECKING,
+    Callable,
+    Dict,
+    List,
+    Optional,
+    Sequence,
+    Set,
+    Tuple,
+)
 
 import comm
 
@@ -256,6 +265,7 @@ class PandasView(DataExplorerTableView):
         "complex": "number",
         "categorical": "categorical",
         "boolean": "boolean",
+        "bool": "boolean",
         "datetime64": "datetime",
         "datetime64[ns]": "datetime",
         "datetime": "datetime",
@@ -264,6 +274,7 @@ class PandasView(DataExplorerTableView):
         "bytes": "string",
         "string": "string",
     }
+    TYPE_NAME_MAPPING = {"boolean": "bool"}
 
     def __init__(
         self,
@@ -572,6 +583,7 @@ class PandasView(DataExplorerTableView):
         # TODO: time zone for datetimetz datetime64[ns] types
         if dtype == object:
             type_name = get_inferred_dtype()
+            type_name = cls.TYPE_NAME_MAPPING.get(type_name, type_name)
         else:
             # TODO: more sophisticated type mapping
             type_name = str(dtype)
