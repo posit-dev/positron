@@ -234,7 +234,7 @@ class ConnectionsFrontendEvent(str, enum.Enum):
     # Request to focus the Connections pane
     Focus = "focus"
 
-    # Request the UI to refresh a connection information
+    # Request the UI to refresh the connection information
     Update = "update"
 
 

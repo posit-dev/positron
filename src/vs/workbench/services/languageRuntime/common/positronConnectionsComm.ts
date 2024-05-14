@@ -49,7 +49,7 @@ export interface FocusEvent {
 }
 
 /**
- * Event: Request the UI to refresh a connection information
+ * Event: Request the UI to refresh the connection information
  */
 export interface UpdateEvent {
 }
@@ -139,7 +139,7 @@ export class PositronConnectionsComm extends PositronBaseComm {
 	 */
 	onDidFocus: Event<FocusEvent>;
 	/**
-	 * Request the UI to refresh a connection information
+	 * Request the UI to refresh the connection information
 	 */
 	onDidUpdate: Event<UpdateEvent>;
 }
