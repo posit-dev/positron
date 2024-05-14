@@ -32,6 +32,8 @@ export function setup(logger: Logger) {
 			after(async function () {
 
 				const app = this.app as Application;
+				await app.workbench.settingsEditor.clearUserSettings();
+
 				await app.workbench.positronDataExplorer.closeDataExplorer();
 				await app.workbench.positronVariables.openVariables();
 
@@ -85,6 +87,8 @@ df = pd.DataFrame(data)`;
 			after(async function () {
 
 				const app = this.app as Application;
+				await app.workbench.settingsEditor.clearUserSettings();
+
 				await app.workbench.positronDataExplorer.closeDataExplorer();
 				await app.workbench.positronVariables.openVariables();
 
@@ -113,9 +117,9 @@ df = pd.DataFrame(data)`;
 
 				const tableData = await app.workbench.positronDataExplorer.getDataExplorerTableData(3, 3);
 
-				expect(tableData[0]).toStrictEqual({ 'Training': '\"Strength\"', 'Pulse': '100', 'Duration': '60' });
-				expect(tableData[1]).toStrictEqual({ 'Training': '\"Stamina\"', 'Pulse': '150', 'Duration': '30' });
-				expect(tableData[2]).toStrictEqual({ 'Training': '\"Other\"', 'Pulse': '120', 'Duration': '45' });
+				expect(tableData[0]).toStrictEqual({ 'Training': 'Strength', 'Pulse': '100', 'Duration': '60' });
+				expect(tableData[1]).toStrictEqual({ 'Training': 'Stamina', 'Pulse': '150', 'Duration': '30' });
+				expect(tableData[2]).toStrictEqual({ 'Training': 'Other', 'Pulse': '120', 'Duration': '45' });
 
 			});
 		});
