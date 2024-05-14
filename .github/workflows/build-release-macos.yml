@@ -36,14 +36,13 @@ jobs:
     strategy:
       max-parallel: 1
       matrix:
-#       arch: [arm64, x64]
-        arch: [x64]
+        arch: [arm64, x64]
         include:
-#         - arch: arm64
-#           prebuild_arch: arm64
-#           arch_terminal: arm64
-#           homebrew_folder: /opt/homebrew
-#           rust_target_prefix: aarch64
+          - arch: arm64
+            prebuild_arch: arm64
+            arch_terminal: arm64
+            homebrew_folder: /opt/homebrew
+            rust_target_prefix: aarch64
           - arch: x64
             prebuild_arch: x86
             arch_terminal: x86_64
@@ -75,9 +74,8 @@ jobs:
         run: |
           echo "/opt/homebrew/opt/python@3.10/libexec/bin:${{matrix.homebrew_folder}}/bin" >> $GITHUB_PATH
 
-      # Check Python environment. This helps diagnose build issues that are due
-      # to Python version and environment problems.
-      - name: Check Python
+      # Check environment. This helps diagnose build issues.
+      - name: Inspect Environment
         env:
           npm_config_arch: ${{ matrix.arch }}
         run: |
