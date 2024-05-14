@@ -12,7 +12,7 @@ import { RuntimeClientType } from 'vs/workbench/api/common/positron/extHostTypes
 import { ExtHostRuntimeClientInstance } from 'vs/workbench/api/common/positron/extHostClientInstance';
 import { ExtensionIdentifier, IExtensionDescription } from 'vs/platform/extensions/common/extensions';
 import { URI } from 'vs/base/common/uri';
-import { Barrier, DeferredPromise, raceTimeout } from 'vs/base/common/async';
+import { DeferredPromise, retry } from 'vs/base/common/async';
 import { IRuntimeSessionMetadata } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
 
 /**
@@ -51,14 +51,9 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 	private _eventClocks = new Array<number>();
 
 	/**
-	 * Indicates whether language runtime discovery has started.
-	 */
-	private _runtimeDiscoveryStarted = new Barrier();
-
-	/**
 	 * Indicates whether language runtime discovery is complete.
 	 */
-	private _runtimeDiscoveryComplete = new Barrier();
+	private _runtimeDiscoveryComplete = false;
 
 	// The event emitter for the onDidRegisterRuntime event.
 	private readonly _onDidRegisterRuntimeEmitter = new Emitter<positron.LanguageRuntimeMetadata>;
@@ -397,8 +392,6 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 	 * Discovers language runtimes and registers them with the main thread.
 	 */
 	public async $discoverLanguageRuntimes(): Promise<void> {
-		this._runtimeDiscoveryStarted.open();
-
 		// Extract all the runtime discoverers from the runtime managers
 		let start = 0;
 		let end = this._runtimeManagers.length;
@@ -426,7 +419,7 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 		}
 
 		// Notify the main thread that discovery is complete
-		this._runtimeDiscoveryComplete.open();
+		this._runtimeDiscoveryComplete = true;
 		this._proxy.$completeLanguageRuntimeDiscovery();
 	}
 
@@ -541,19 +534,19 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 	}
 
 	public async getPreferredRuntime(languageId: string): Promise<positron.LanguageRuntimeMetadata> {
-		const discoveryStarted = await raceTimeout(this._runtimeDiscoveryStarted.wait(), 5000);
-		if (!discoveryStarted) {
-			throw new Error(`Timed out waiting for language runtime discovery to start. Is this an untrusted workspace?`);
-		}
-
-		await this._runtimeDiscoveryComplete.wait();
-
 		const metadata = await this._proxy.$getPreferredRuntime(languageId);
-		const runtime = this._registeredRuntimes.find(runtime => runtime.runtimeId === metadata.runtimeId);
-		if (!runtime) {
-			throw new Error(`Runtime exists on main thread but not extension host: ${metadata.runtimeId}`);
-		}
-		return runtime;
+
+		// If discovery is in progress, a runtime may exist on the main thread but not
+		// the extension host, so retry a bunch of times. Retrying is more likely to return
+		// faster than waiting for the entire discovery phase to complete since runtimes are
+		// discovered concurrently across languages.
+		return retry(async () => {
+			const runtime = this._registeredRuntimes.find(runtime => runtime.runtimeId === metadata.runtimeId);
+			if (!runtime) {
+				throw new Error(`Runtime exists on main thread but not extension host: ${metadata.runtimeId}`);
+			}
+			return runtime;
+		}, 2000, 5);
 	}
 
 	public async getForegroundSession(): Promise<positron.LanguageRuntimeSession | undefined> {
@@ -601,7 +594,7 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 			this._pendingRuntimeManagers.delete(ExtensionIdentifier.toKey(extension.identifier));
 		}
 
-		if (this._runtimeDiscoveryComplete.isOpen()) {
+		if (this._runtimeDiscoveryComplete) {
 			// We missed the discovery phase. Invoke the provider's async
 			// generator and register each runtime it returns right away.
 			//
