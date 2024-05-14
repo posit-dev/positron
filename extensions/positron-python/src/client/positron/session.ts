@@ -11,6 +11,9 @@ import * as vscode from 'vscode';
 import PQueue from 'p-queue';
 import { PythonExtension } from '../api/types';
 import { ProductNames } from '../common/installer/productNames';
+import { Interpreters } from '../common/utils/localize';
+import { Resource } from '../common/types';
+import { EnvironmentType } from '../pythonEnvironments/info';
 import { InstallOptions } from '../common/installer/types';
 import {
     IConfigurationService,
@@ -26,14 +29,18 @@ import { traceInfo } from '../logging';
 import { PythonEnvironment } from '../pythonEnvironments/info';
 import { PythonLsp, LspState } from './lsp';
 import { whenTimeout } from './util';
-import { IPYKERNEL_VERSION } from '../common/constants';
+import { Commands, IPYKERNEL_VERSION } from '../common/constants';
 import { IEnvironmentVariablesProvider } from '../common/variables/types';
 import { PythonRuntimeExtraData } from './runtime';
 import { JediLanguageServerAnalysisOptions } from '../activation/jedi/analysisOptions';
 import { ILanguageServerOutputChannel } from '../activation/types';
-import { IWorkspaceService } from '../common/application/types';
+import { IApplicationShell, IWorkspaceService } from '../common/application/types';
 import { IInterpreterService } from '../interpreter/contracts';
-
+import { showErrorMessage } from '../common/vscodeApis/windowApis';
+import { CreateEnv } from '../common/utils/localize';
+import * as fs from 'fs';
+import { isProblematicCondaEnvironment } from '../interpreter/configuration/environmentTypeComparer';
+import { reportActiveInterpreterChanged } from '../environmentApi';
 /**
  * A Positron language runtime that wraps a Jupyter kernel and a Language Server
  * Protocol client.
@@ -206,7 +213,7 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
             this.interpreter,
         );
 
-        if (hasCompatibleKernel !== ProductInstallStatus.Installed) {
+        if (hasCompatibleKernel !== ProductInstallStatus.Installed || hasCompatibleKernel == 0) {
             // Pass a cancellation token to enable VSCode's progress indicator and let the user
             // cancel the install.
             const tokenSource = new vscode.CancellationTokenSource();
@@ -250,7 +257,50 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
         }
     }
 
+    public async _installPython(): Promise<void> {
+        // conda may use an interpreter path that does not exist
+        if (
+            isProblematicCondaEnvironment(this.interpreter) ||
+            (this.interpreter.id &&
+                !fs.existsSync(this.interpreter.id) &&
+                this.interpreter.envType === EnvironmentType.Conda)
+        ) {
+            // Get the installer service
+            const installer = this.serviceContainer.get<IInstaller>(IInstaller);
+            const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+            const interpreterService = this.serviceContainer.get<IInterpreterService>(IInterpreterService);
+
+            try {
+                // If Python is not installed into the environment, install it.
+                if (this.interpreter.envPath) {
+                    await installer.install(
+                        Product.python,
+                        await interpreterService.getInterpreterDetails(this.interpreter.envPath),
+                    );
+                } else {
+                    await installer.install(
+                        Product.python,
+                        await interpreterService.getInterpreterDetails(this.interpreter.path),
+                    );
+                }
+                reportActiveInterpreterChanged({
+                    path: this.interpreter.path,
+                    resource: workspaceFolder,
+                });
+            } catch (e) {
+                console.log(`cannot install python ${e}`);
+            }
+        }
+    }
+
     async start(): Promise<positron.LanguageRuntimeInfo> {
+        await this._installPython();
+
+        // Give feedback to users if the entered path does not exist
+        if (this.interpreter.id && !fs.existsSync(this.interpreter.id)) {
+            showErrorMessage(`${CreateEnv.pathDoesntExist} ${this.interpreter.id}`);
+        }
+
         // Ensure the LSP client instance is created
         if (!this._lsp) {
             await this.createLsp();
