@@ -26,16 +26,13 @@ import { traceInfo } from '../logging';
 import { PythonEnvironment } from '../pythonEnvironments/info';
 import { PythonLsp, LspState } from './lsp';
 import { whenTimeout } from './util';
-import { Commands, IPYKERNEL_VERSION } from '../common/constants';
+import { IPYKERNEL_VERSION } from '../common/constants';
 import { IEnvironmentVariablesProvider } from '../common/variables/types';
 import { PythonRuntimeExtraData } from './runtime';
 import { JediLanguageServerAnalysisOptions } from '../activation/jedi/analysisOptions';
 import { ILanguageServerOutputChannel } from '../activation/types';
-import { IApplicationShell, IWorkspaceService } from '../common/application/types';
+import { IWorkspaceService } from '../common/application/types';
 import { IInterpreterService } from '../interpreter/contracts';
-import { showErrorMessage } from '../common/vscodeApis/windowApis';
-import { InterpreterQuickPickList } from '../common/utils/localize';
-import * as fs from 'fs';
 
 /**
  * A Positron language runtime that wraps a Jupyter kernel and a Language Server
