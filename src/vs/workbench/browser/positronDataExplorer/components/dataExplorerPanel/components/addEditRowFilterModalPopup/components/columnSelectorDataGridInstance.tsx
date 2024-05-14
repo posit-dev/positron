@@ -182,7 +182,7 @@ export class ColumnSelectorDataGridInstance extends DataGridInstance {
 	async setSearchText(searchText?: string): Promise<void> {
 		// When the search text changes, perform a soft reset and search.
 		if (searchText !== this._searchText) {
-			// Each search performs a soft
+			// Each search performs a soft reset.
 			this.softReset();
 
 			// Set the search text and fetch data.
