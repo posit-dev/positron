@@ -2058,8 +2058,6 @@ export abstract class DataGridInstance extends Disposable {
 		this._columnSelectionIndexes.clear();
 		this._rowSelectionRange = undefined;
 		this._rowSelectionIndexes.clear();
-		this._columnWidths.clear();
-		this._rowHeights.clear();
 	}
 
 	//#endregion Protected Methods
