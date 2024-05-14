@@ -12,7 +12,7 @@ import { RuntimeClientType } from 'vs/workbench/api/common/positron/extHostTypes
 import { ExtHostRuntimeClientInstance } from 'vs/workbench/api/common/positron/extHostClientInstance';
 import { ExtensionIdentifier, IExtensionDescription } from 'vs/platform/extensions/common/extensions';
 import { URI } from 'vs/base/common/uri';
-import { Barrier, DeferredPromise } from 'vs/base/common/async';
+import { Barrier, DeferredPromise, raceTimeout } from 'vs/base/common/async';
 import { IRuntimeSessionMetadata } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
 
 /**
@@ -49,6 +49,11 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 	 * events are only ordered within a runtime.
 	 */
 	private _eventClocks = new Array<number>();
+
+	/**
+	 * Indicates whether language runtime discovery has started.
+	 */
+	private _runtimeDiscoveryStarted = new Barrier();
 
 	/**
 	 * Indicates whether language runtime discovery is complete.
@@ -392,6 +397,8 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 	 * Discovers language runtimes and registers them with the main thread.
 	 */
 	public async $discoverLanguageRuntimes(): Promise<void> {
+		this._runtimeDiscoveryStarted.open();
+
 		// Extract all the runtime discoverers from the runtime managers
 		let start = 0;
 		let end = this._runtimeManagers.length;
@@ -534,7 +541,13 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 	}
 
 	public async getPreferredRuntime(languageId: string): Promise<positron.LanguageRuntimeMetadata> {
+		const discoveryStarted = await raceTimeout(this._runtimeDiscoveryStarted.wait(), 5000);
+		if (!discoveryStarted) {
+			throw new Error(`Timed out waiting for language runtime discovery to start. Is this an untrusted workspace?`);
+		}
+
 		await this._runtimeDiscoveryComplete.wait();
+
 		const metadata = await this._proxy.$getPreferredRuntime(languageId);
 		const runtime = this._registeredRuntimes.find(runtime => runtime.runtimeId === metadata.runtimeId);
 		if (!runtime) {
