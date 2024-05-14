@@ -9,11 +9,11 @@ import * as React from 'react';
 import { IColumnSortKey } from 'vs/workbench/browser/positronDataGrid/interfaces/columnSortKey';
 import { DataExplorerCache } from 'vs/workbench/services/positronDataExplorer/common/dataExplorerCache';
 import { TableDataCell } from 'vs/workbench/services/positronDataExplorer/browser/components/tableDataCell';
+import { BackendState, RowFilter } from 'vs/workbench/services/languageRuntime/common/positronDataExplorerComm';
 import { TableDataRowHeader } from 'vs/workbench/services/positronDataExplorer/browser/components/tableDataRowHeader';
 import { PositronDataExplorerColumn } from 'vs/workbench/services/positronDataExplorer/browser/positronDataExplorerColumn';
 import { ColumnSortKeyDescriptor, DataGridInstance } from 'vs/workbench/browser/positronDataGrid/classes/dataGridInstance';
 import { DataExplorerClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimeDataExplorerClient';
-import { BackendState, RowFilter, SchemaUpdateEvent } from 'vs/workbench/services/languageRuntime/common/positronDataExplorerComm';
 
 /**
  * TableDataDataGridInstance class.
@@ -77,13 +77,15 @@ export class TableDataDataGridInstance extends DataGridInstance {
 		));
 
 		// Add the onDidSchemaUpdate event handler.
-		this._register(this._dataExplorerClientInstance.onDidSchemaUpdate(async (e: SchemaUpdateEvent) => {
+		this._register(this._dataExplorerClientInstance.onDidSchemaUpdate(e => {
+			this._dataExplorerCache.invalidateDataCache();
 			this.softReset();
 			this.fetchData();
 		}));
 
 		// Add the onDidDataUpdate event handler.
-		this._register(this._dataExplorerClientInstance.onDidDataUpdate(async () => {
+		this._register(this._dataExplorerClientInstance.onDidDataUpdate(() => {
+			this._dataExplorerCache.invalidateDataCache();
 			this.fetchData();
 		}));
 
