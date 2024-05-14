@@ -454,7 +454,7 @@ export namespace SwitchToDefaultLS {
 
 export namespace CreateEnv {
     // --- Start Positron ---
-    export const pathDoesntExist = l10n.t('The following path does not exist: ');
+    export const pathDoesntExist = l10n.t('The entered path does not exist: ');
     // --- End Positron ---
     export const informEnvCreation = l10n.t('The following environment is selected:');
     export const statusTitle = l10n.t('Creating environment');

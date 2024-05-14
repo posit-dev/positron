@@ -3,6 +3,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
+import * as fs from 'fs';
 // eslint-disable-next-line import/no-unresolved
 import * as positron from 'positron';
 import { PythonExtension } from '../api/types';
@@ -14,6 +15,10 @@ import { PythonRuntimeManager } from './manager';
 import { createPythonRuntimeMetadata } from './runtime';
 import { IPYKERNEL_VERSION, MINIMUM_PYTHON_VERSION } from '../common/constants';
 import { InstallOptions } from '../common/installer/types';
+import { EnvironmentType } from '../pythonEnvironments/info';
+import { showErrorMessage } from '../common/vscodeApis/windowApis';
+import { isProblematicCondaEnvironment } from '../interpreter/configuration/environmentTypeComparer';
+import { CreateEnv } from '../common/utils/localize';
 
 export async function activatePositron(
     activatedPromise: Promise<void>,
@@ -69,6 +74,10 @@ export async function activatePositron(
             pythonApi.environments.onDidChangeEnvironments(async (event) => {
                 if (event.type === 'add') {
                     const interpreterPath = event.env.path;
+                    await checkAndInstallPython(interpreterPath, serviceContainer);
+                    if (!fs.existsSync(interpreterPath)) {
+                        showErrorMessage(`${CreateEnv.pathDoesntExist} ${interpreterPath}`);
+                    }
                     await registerRuntime(interpreterPath);
                 }
             }),
@@ -127,5 +136,26 @@ export async function activatePositron(
         traceInfo('activatePositron: done!');
     } catch (ex) {
         traceError('activatePositron() failed.', ex);
+    }
+}
+
+export async function checkAndInstallPython(pythonPath: string, serviceContainer: IServiceContainer): Promise<void> {
+    const interpreterService = serviceContainer.get<IInterpreterService>(IInterpreterService);
+    const interpreter = await interpreterService.getInterpreterDetails(pythonPath);
+    if (!interpreter) {
+        return;
+    }
+    if (
+        isProblematicCondaEnvironment(interpreter) ||
+        (interpreter.id && !fs.existsSync(interpreter.id) && interpreter.envType === EnvironmentType.Conda)
+    ) {
+        if (interpreter) {
+            const installer = serviceContainer.get<IInstaller>(IInstaller);
+            // If Python is not installed into the environment, install it.
+            await installer.install(Product.python, await interpreterService.getInterpreterDetails(pythonPath));
+            if (!(await installer.isInstalled(Product.python))) {
+                traceInfo(`Python not able to be installed.`);
+            }
+        }
     }
 }
