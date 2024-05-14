@@ -28,4 +28,16 @@
 			visibility: visible;
 		}
 	}
+
+	.positron-notebooks-cell-action-bar {
+		visibility: hidden;
+	}
+
+	&.editing,
+	&.selected,
+	&:hover {
+		.positron-notebooks-cell-action-bar {
+			visibility: visible;
+		}
+	}
 }

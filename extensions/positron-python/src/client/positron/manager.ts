@@ -18,6 +18,7 @@ import { PythonRuntimeSession } from './session';
 import { PythonRuntimeExtraData } from './runtime';
 import { EXTENSION_ROOT_DIR } from '../common/constants';
 import { JupyterKernelSpec } from '../jupyter-adapter.d';
+import { IEnvironmentVariablesProvider } from '../common/variables/types';
 
 /**
  * Provides Python language runtime metadata and sessions to Positron;
@@ -81,6 +82,9 @@ export class PythonRuntimeManager implements positron.LanguageRuntimeManager {
         traceInfo('createPythonSession: getting service instances');
 
         const configService = this.serviceContainer.get<IConfigurationService>(IConfigurationService);
+        const environmentVariablesProvider = this.serviceContainer.get<IEnvironmentVariablesProvider>(
+            IEnvironmentVariablesProvider,
+        );
 
         // Extract the extra data from the runtime metadata; it contains the
         // environment ID that was saved when the metadata was created.
@@ -131,10 +135,12 @@ export class PythonRuntimeManager implements positron.LanguageRuntimeManager {
         // Create a kernel spec for this Python installation. The kernel spec is
         // only provided for new sessions; existing (restored) sessions already
         // have one.
+        const env = await environmentVariablesProvider.getEnvironmentVariables();
         const kernelSpec: JupyterKernelSpec = {
             argv: args,
             display_name: `${runtimeMetadata.runtimeName}`,
             language: 'Python',
+            env,
         };
 
         traceInfo(`createPythonSession: kernelSpec argv: ${args}`);

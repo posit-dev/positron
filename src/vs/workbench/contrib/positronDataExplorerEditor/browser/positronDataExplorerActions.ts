@@ -3,13 +3,10 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { localize } from 'vs/nls';
-import { KeyCode, KeyMod } from 'vs/base/common/keyCodes';
 import { ILocalizedString } from 'vs/platform/action/common/action';
 import { Action2, registerAction2 } from 'vs/platform/actions/common/actions';
 import { IsDevelopmentContext } from 'vs/platform/contextkey/common/contextkeys';
 import { ServicesAccessor } from 'vs/platform/instantiation/common/instantiation';
-import { KeybindingWeight } from 'vs/platform/keybinding/common/keybindingsRegistry';
-import { IPositronDataExplorerService } from 'vs/workbench/services/positronDataExplorer/browser/interfaces/positronDataExplorerService';
 
 /**
  * Positron data explorer action category.
@@ -31,33 +28,29 @@ const category: ILocalizedString = {
  * Positron data explorer command ID's.
  */
 const enum PositronDataExplorerCommandId {
-	TestAction = 'workbench.action.positronDataExplorer.open',
+	PlaceholderAction = 'workbench.action.positronDataExplorer.placeholder',
 }
 
 /**
- * OpenPositronDataExplorer action.
+ * PositronDataExplorerPlaceholderAction action.
  */
-class OpenPositronDataExplorer extends Action2 {
+class PositronDataExplorerPlaceholderAction extends Action2 {
 	/**
 	 * Constructor.
 	 */
 	constructor() {
 		super({
-			id: PositronDataExplorerCommandId.TestAction,
+			id: PositronDataExplorerCommandId.PlaceholderAction,
 			title: {
 				value: localize(
-					'workbench.action.positronDataExplorer.openPositronDataExplorer',
-					"Open Positron Data Explorer"
+					'workbench.action.positronDataExplorer.placeholder',
+					"Positron Data Explorer Placeholder"
 				),
-				original: 'Open Positron Data Explorer'
+				original: 'Positron Data Explorer Placeholder'
 			},
 			f1: true,
 			category,
-			precondition: IsDevelopmentContext,
-			keybinding: {
-				weight: KeybindingWeight.WorkbenchContrib,
-				primary: KeyMod.Shift | KeyMod.WinCtrl | KeyMod.Alt | KeyCode.KeyT
-			},
+			precondition: IsDevelopmentContext
 		});
 	}
 
@@ -66,11 +59,7 @@ class OpenPositronDataExplorer extends Action2 {
 	 * @param accessor The services accessor.
 	 */
 	async run(accessor: ServicesAccessor) {
-		// Access services.
-		const positronDataExplorerService = accessor.get(IPositronDataExplorerService);
-
-		// Test opening a positron data explorer.
-		await positronDataExplorerService.testOpen('b809490e-1801-4f2f-911c-7b9539c78204');
+		// Empty for now.
 	}
 }
 
@@ -78,5 +67,5 @@ class OpenPositronDataExplorer extends Action2 {
  * Registers Positron data explorer actions.
  */
 export function registerPositronDataExplorerActions() {
-	registerAction2(OpenPositronDataExplorer);
+	registerAction2(PositronDataExplorerPlaceholderAction);
 }

@@ -238,6 +238,17 @@ def test_mpl_multiple_figures(shell: PositronShell, plots_service: PlotsService)
     assert plot_comms[1].messages == [json_rpc_notification("show", {})]
 
 
+def test_mpl_issue_2824(shell: PositronShell, plots_service: PlotsService) -> None:
+    """
+    Creating a mutable collection of figures should not create a duplicate plot.
+    See https://github.com/posit-dev/positron/issues/2824
+    """
+    shell.run_cell("figs = [plt.figure()]")
+    # This step triggers the variables service to create a snapshot, which shouldn't duplicate the plot.
+    shell.run_cell("plt.show()")
+    assert len(plots_service._plots) == 1
+
+
 def test_mpl_shutdown(shell: PositronShell, plots_service: PlotsService) -> None:
     plot_comms = [_create_mpl_plot(shell, plots_service) for _ in range(2)]
 

@@ -7,11 +7,14 @@ import 'vs/css!./positronDataExplorer';
 
 // React.
 import * as React from 'react';
-import { PropsWithChildren } from 'react'; // eslint-disable-line no-duplicate-imports
+import { PropsWithChildren, useEffect, useState } from 'react'; // eslint-disable-line no-duplicate-imports
 
 // Other dependencies.
+import { localize } from 'vs/nls';
+import { DisposableStore } from 'vs/base/common/lifecycle';
 import { ILayoutService } from 'vs/platform/layout/browser/layoutService';
 import { IClipboardService } from 'vs/platform/clipboard/common/clipboardService';
+import { PositronButton } from 'vs/base/browser/ui/positronComponents/button/positronButton';
 import { ActionBar } from 'vs/workbench/browser/positronDataExplorer/components/actionBar/actionBar';
 import { PositronActionBarServices } from 'vs/platform/positronActionBar/browser/positronActionBarState';
 import { PositronDataExplorerContextProvider } from 'vs/workbench/browser/positronDataExplorer/positronDataExplorerContext';
@@ -36,7 +39,9 @@ export interface PositronDataExplorerConfiguration extends PositronDataExplorerS
 /**
  * PositronDataExplorerProps interface.
  */
-export interface PositronDataExplorerProps extends PositronDataExplorerConfiguration { }
+export interface PositronDataExplorerProps extends PositronDataExplorerConfiguration {
+	onClose: () => void;
+}
 
 /**
  * PositronDataExplorer component.
@@ -44,12 +49,50 @@ export interface PositronDataExplorerProps extends PositronDataExplorerConfigura
  * @returns The rendered component.
  */
 export const PositronDataExplorer = (props: PropsWithChildren<PositronDataExplorerProps>) => {
+	// State hooks.
+	const [closed, setClosed] = useState(false);
+
+	// Main useEffect.
+	useEffect(() => {
+		// Create the disposable store for cleanup.
+		const disposableStore = new DisposableStore();
+
+		// Add the onDidUpdateBackendState event handler.
+		disposableStore.add(props.instance.onDidClose(() => {
+			setClosed(true);
+		}));
+
+		// Return the cleanup function that will dispose of the event handlers.
+		return () => disposableStore.dispose();
+	}, [props.instance]);
+
 	// Render.
 	return (
 		<PositronDataExplorerContextProvider {...props}>
 			<div className='positron-data-explorer'>
 				<ActionBar />
 				<DataExplorerPanel />
+				{closed && (
+					<div className='positron-data-explorer-overlay'>
+						<PositronButton className='message' onPressed={props.onClose}>
+							<div className='message-line'>
+								{localize(
+									'positron.dataExplorer.dataDisplayName',
+									'{0} Data: {1}',
+									props.instance.languageName,
+									props.instance.dataExplorerClientInstance.cachedBackendState?.display_name
+								)}
+							</div>
+							<div className='message-line'>
+								{localize(
+									'positron.dataExplorer.isNoLongerAvailable',
+									'is no longer available'
+								)}
+							</div>
+							<div className='message-line close'>{(() => localize('positron.dataExplorer.clickToClose', "Click To Close"))()}</div>
+						</PositronButton>
+					</div>
+				)}
 			</div>
 		</PositronDataExplorerContextProvider>
 	);

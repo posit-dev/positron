@@ -5,6 +5,8 @@
 import { URI } from 'vs/base/common/uri';
 import { IUntypedEditorInput } from 'vs/workbench/common/editor';
 import { EditorInput } from 'vs/workbench/common/editor/editorInput';
+import { PositronDataExplorerUri } from 'vs/workbench/services/positronDataExplorer/common/positronDataExplorerUri';
+import { IPositronDataExplorerService } from 'vs/workbench/services/positronDataExplorer/browser/interfaces/positronDataExplorerService';
 
 /**
  * PositronDataExplorerEditorInput class.
@@ -31,8 +33,12 @@ export class PositronDataExplorerEditorInput extends EditorInput {
 	/**
 	 * Constructor.
 	 * @param resource The resource.
+	 * @param _positronDataExplorerService The Positron data explorer service.
 	 */
-	constructor(readonly resource: URI) {
+	constructor(
+		readonly resource: URI,
+		@IPositronDataExplorerService private readonly _positronDataExplorerService: IPositronDataExplorerService
+	) {
 		// Call the base class's constructor.
 		super();
 	}
@@ -41,6 +47,15 @@ export class PositronDataExplorerEditorInput extends EditorInput {
 	 * dispose override method.
 	 */
 	override dispose(): void {
+		// Dispose of the data explorer client instance.
+		const identifier = PositronDataExplorerUri.parse(this.resource);
+		if (identifier) {
+			const instance = this._positronDataExplorerService.getInstance(identifier);
+			if (instance) {
+				instance.dataExplorerClientInstance.dispose();
+			}
+		}
+
 		// Call the base class's dispose method.
 		super.dispose();
 	}

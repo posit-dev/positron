@@ -1,5 +1,8 @@
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License.
+// --- Start Positron ---
+/* eslint-disable import/no-duplicates */
+// --- End Positron ---
 
 import { inject, injectable, optional } from 'inversify';
 import * as path from 'path';
@@ -13,6 +16,10 @@ import { ICurrentProcess, IDisposableRegistry } from '../types';
 import { InMemoryCache } from '../utils/cacheUtils';
 import { SystemVariables } from './systemVariables';
 import { EnvironmentVariables, IEnvironmentVariablesProvider, IEnvironmentVariablesService } from './types';
+// --- Start Positron ---
+import { IFileSystem } from '../platform/types';
+import { IExtensionContext } from '../types';
+// --- End Positron ---
 
 const CACHE_DURATION = 60 * 60 * 1000;
 @injectable()
@@ -33,6 +40,10 @@ export class EnvironmentVariablesProvider implements IEnvironmentVariablesProvid
         @inject(IPlatformService) private platformService: IPlatformService,
         @inject(IWorkspaceService) private workspaceService: IWorkspaceService,
         @inject(ICurrentProcess) private process: ICurrentProcess,
+        // --- Start Positron ---
+        @inject(IExtensionContext) private context: IExtensionContext,
+        @inject(IFileSystem) private fs: IFileSystem,
+        // --- End Positron ---
         @optional() private cacheDuration: number = CACHE_DURATION,
     ) {
         disposableRegistry.push(this);
@@ -117,7 +128,25 @@ export class EnvironmentVariablesProvider implements IEnvironmentVariablesProvid
         if (this.process.env.PYTHONPATH) {
             this.envVarsService.appendPythonPath(mergedVars!, this.process.env.PYTHONPATH);
         }
-        return mergedVars;
+        // --- Start Positron ---
+        // TODO(seem): We can remove this if we decide to unbundle this extension from Positron.
+
+        // Store __pycache__ files in the extension's global storage directory for the user rather
+        // than the application directory.
+        // See https://github.com/posit-dev/positron/issues/960
+        const pythonCacheDir = path.join(this.context.globalStorageUri.fsPath, 'pycache');
+        this.fs.createDirectory(pythonCacheDir).catch((ex) => {
+            traceError('Failed to create Python cache directory', ex);
+        });
+        // Mutating mergedVars will break the unit tests due to the way ts-mockito works:
+        // Calling verify() to verify that a stubbed method was called with a given set of arguments
+        // compares with the argument values at the time verify() is called, not when the stubbed
+        // method was called.
+        const result: EnvironmentVariables = {};
+        Object.assign(result, mergedVars);
+        result.PYTHONPYCACHEPREFIX = pythonCacheDir;
+        return result;
+        // --- End Positron ---
     }
 
     public async getCustomEnvironmentVariables(resource?: Uri): Promise<EnvironmentVariables | undefined> {

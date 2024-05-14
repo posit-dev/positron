@@ -42,16 +42,22 @@ export const RConfigurationStep = (props: PropsWithChildren<NewProjectWizardStep
 	const languageRuntimeService = newProjectWizardState.languageRuntimeService;
 
 	// Hooks to manage the startup phase and interpreter entries.
-	const [startupPhase, setStartupPhase] = useState(runtimeStartupService.startupPhase);
-	const [interpreterEntries, setInterpreterEntries] =
-		useState(
-			// It's possible that the runtime discovery phase is not complete, so we need to check
-			// for that before creating the interpreter entries.
-			startupPhase !== RuntimeStartupPhase.Complete ?
-				[] :
-				getRInterpreterEntries(runtimeStartupService, languageRuntimeService)
-		);
-	const [selectedInterpreter, setSelectedInterpreter] = useState(
+	const [startupPhase, setStartupPhase] = useState(
+		runtimeStartupService.startupPhase
+	);
+	const runtimeStartupComplete = () =>
+		startupPhase === RuntimeStartupPhase.Complete;
+	const [interpreterEntries, setInterpreterEntries] = useState(() =>
+		// It's possible that the runtime discovery phase is not complete, so we need to check
+		// for that before creating the interpreter entries.
+		!runtimeStartupComplete()
+			? []
+			: getRInterpreterEntries(
+				runtimeStartupService,
+				languageRuntimeService
+			)
+	);
+	const [selectedInterpreter, setSelectedInterpreter] = useState(() =>
 		getSelectedInterpreter(
 			projectConfig.selectedRuntime,
 			interpreterEntries,
@@ -73,6 +79,21 @@ export const RConfigurationStep = (props: PropsWithChildren<NewProjectWizardStep
 		setSelectedInterpreter(selectedRuntime);
 		setProjectConfig({ ...projectConfig, selectedRuntime });
 	};
+
+	// Update the project configuration with the initial selections. This is done once when the
+	// component is mounted, assuming the runtime discovery phase is complete. If the runtime
+	// discovery phase is not complete, the project configuration will be updated when the phase is
+	// complete in the other useEffect hook below.
+	useEffect(() => {
+		if (runtimeStartupComplete()) {
+			setProjectConfig({
+				...projectConfig,
+				selectedRuntime: selectedInterpreter,
+			});
+		}
+		// Pass an empty dependency array to run this effect only once when the component is mounted.
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, []);
 
 	// Hook to update the interpreter entries when the runtime discovery phase is complete
 	useEffect(() => {
@@ -109,7 +130,9 @@ export const RConfigurationStep = (props: PropsWithChildren<NewProjectWizardStep
 
 		// Return the cleanup function that will dispose of the event handlers.
 		return () => disposableStore.dispose();
-	});
+		// Pass an empty dependency array to run this effect only once when the component is mounted.
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, []);
 
 	return (
 		<PositronWizardStep
@@ -141,26 +164,30 @@ export const RConfigurationStep = (props: PropsWithChildren<NewProjectWizardStep
 				<DropDownListBox
 					keybindingService={keybindingService}
 					layoutService={layoutService}
-					disabled={startupPhase !== RuntimeStartupPhase.Complete}
-					title={(() => startupPhase !== RuntimeStartupPhase.Complete ?
-						localize(
-							'rConfigurationStep.versionSubStep.dropDown.title.loading',
-							'Discovering R versions...'
-						) :
-						localize(
-							'rConfigurationStep.versionSubStep.dropDown.title',
-							'Select a version of R'
-						)
-					)()}
+					disabled={!runtimeStartupComplete()}
+					title={(() =>
+						!runtimeStartupComplete()
+							? localize(
+								'rConfigurationStep.versionSubStep.dropDown.title.loading',
+								'Discovering R versions...'
+							)
+							: localize(
+								'rConfigurationStep.versionSubStep.dropDown.title',
+								'Select a version of R'
+							))()}
 					// TODO: if the runtime startup phase is complete, but there are no suitable
 					// interpreters, show a message that no suitable interpreters were found and the
 					// user should install an interpreter with minimum version
-					entries={startupPhase !== RuntimeStartupPhase.Complete ? [] : interpreterEntries}
-					selectedIdentifier={selectedInterpreter?.runtimeId}
-					createItem={item =>
-						<InterpreterEntry interpreterInfo={item.options.value} />
+					entries={
+						!runtimeStartupComplete() ? [] : interpreterEntries
 					}
-					onSelectionChanged={item =>
+					selectedIdentifier={selectedInterpreter?.runtimeId}
+					createItem={(item) => (
+						<InterpreterEntry
+							interpreterInfo={item.options.value}
+						/>
+					)}
+					onSelectionChanged={(item) =>
 						onInterpreterSelected(item.options.identifier)
 					}
 				/>
