@@ -6,6 +6,8 @@
 import { expect } from '@playwright/test';
 import { Application, Logger, PositronPythonFixtures, PositronRFixtures } from '../../../../../automation';
 import { installAllHandlers } from '../../../utils';
+import { PositronConsoleFixtures } from '../../../fixtures/positronConsoleFixtures';
+
 
 export function setup(logger: Logger) {
 	describe('Data Explorer', () => {
@@ -17,8 +19,13 @@ export function setup(logger: Logger) {
 
 			before(async function () {
 
-				const pythonFixtures = new PositronPythonFixtures(this.app);
+				const app = this.app as Application;
+
+				const pythonFixtures = new PositronPythonFixtures(app);
 				await pythonFixtures.startPythonInterpreter();
+
+				const consoleFixtures = new PositronConsoleFixtures(app);
+				await consoleFixtures.updateTerminalSettings();
 
 			});
 
@@ -41,7 +48,7 @@ data = {'Name':['Jai', 'Princi', 'Gaurav', 'Anuj'],
 df = pd.DataFrame(data)`;
 
 				console.log('Sending code to console');
-				await app.workbench.positronConsole.sendCodeToConsole(script);
+				await app.workbench.positronConsole.typeToConsole(script);
 				console.log('Sending enter key');
 				await app.workbench.positronConsole.sendEnterKey();
 
@@ -65,8 +72,13 @@ df = pd.DataFrame(data)`;
 		describe('R Data Explorer', () => {
 
 			before(async function () {
-				const rFixtures = new PositronRFixtures(this.app);
+				const app = this.app as Application;
+
+				const rFixtures = new PositronRFixtures(app);
 				await rFixtures.startRInterpreter();
+
+				const consoleFixtures = new PositronConsoleFixtures(app);
+				await consoleFixtures.updateTerminalSettings();
 
 			});
 
@@ -89,7 +101,7 @@ df = pd.DataFrame(data)`;
 )`;
 
 				console.log('Sending code to console');
-				await app.workbench.positronConsole.sendCodeToConsole(script);
+				await app.workbench.positronConsole.typeToConsole(script);
 				console.log('Sending enter key');
 				await app.workbench.positronConsole.sendEnterKey();
 				await app.workbench.positronConsole.waitForReady('>');
