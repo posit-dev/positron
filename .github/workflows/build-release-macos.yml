@@ -36,12 +36,13 @@ jobs:
     strategy:
       max-parallel: 1
       matrix:
-        arch: [arm64, x64]
+#       arch: [arm64, x64]
+        arch: [x64]
         include:
-          - arch: arm64
-            arch_terminal: arm64
-            homebrew_folder: /opt/homebrew
-            rust_target_prefix: aarch64
+#         - arch: arm64
+#           arch_terminal: arm64
+#           homebrew_folder: /opt/homebrew
+#           rust_target_prefix: aarch64
           - arch: x64
             arch_terminal: x86_64
             homebrew_folder: /usr/local
@@ -84,8 +85,9 @@ jobs:
           python3 --version
           echo "--- pkg-config Path ---"
           which pkg-config
-          echo "--- libsodium path---"
+          echo "--- library paths---"
           pkg-config --libs libsodium
+          pkg-config --libs liblzma
 
       # Install node_modules binaries
       - name: Install dependencies
