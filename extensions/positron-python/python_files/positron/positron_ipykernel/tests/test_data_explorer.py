@@ -24,7 +24,7 @@ from ..data_explorer_comm import (
 from ..utils import guid
 from .conftest import DummyComm, PositronShell
 from .test_variables import BIG_ARRAY_LENGTH
-from .utils import json_rpc_notification, json_rpc_request, json_rpc_response
+from .utils import json_rpc_notification, json_rpc_request
 
 TARGET_NAME = "positron.dataExplorer"
 
