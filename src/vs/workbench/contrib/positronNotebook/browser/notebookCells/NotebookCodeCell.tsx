@@ -6,8 +6,7 @@ import 'vs/css!./NotebookCodeCell';
 import * as React from 'react';
 import { VSBuffer } from 'vs/base/common/buffer';
 import { NotebookCellOutputTextModel } from 'vs/workbench/contrib/notebook/common/model/notebookCellOutputTextModel';
-import { ICellOutput } from 'vs/workbench/contrib/notebook/common/notebookCommon';
-import { IPositronNotebookCodeCell } from 'vs/workbench/contrib/positronNotebook/browser/notebookCells/interfaces';
+import { NotebookCellOutputs } from 'vs/workbench/services/positronNotebook/browser/IPositronNotebookCell';
 import { isParsedTextOutput, parseOutputData } from 'vs/workbench/contrib/positronNotebook/browser/getOutputContents';
 import { useObservedValue } from 'vs/workbench/contrib/positronNotebook/browser/useObservedValue';
 import { CellEditorMonacoWidget } from './CellEditorMonacoWidget';
@@ -16,9 +15,10 @@ import { NotebookCellActionBar } from 'vs/workbench/contrib/positronNotebook/bro
 import { CellTextOutput } from './CellTextOutput';
 import { ActionButton } from 'vs/workbench/contrib/positronNotebook/browser/utilityComponents/ActionButton';
 import { NotebookCellWrapper } from './NotebookCellWrapper';
+import { PositronNotebookCodeCell } from 'vs/workbench/contrib/positronNotebook/browser/PositronNotebookCell';
 
 
-export function NotebookCodeCell({ cell }: { cell: IPositronNotebookCodeCell }) {
+export function NotebookCodeCell({ cell }: { cell: PositronNotebookCodeCell }) {
 	const outputContents = useObservedValue(cell.outputs);
 	const executionStatus = useObservedValue(cell.executionStatus);
 	const isRunning = executionStatus === 'running';
@@ -41,7 +41,7 @@ export function NotebookCodeCell({ cell }: { cell: IPositronNotebookCodeCell }) 
 
 }
 
-function NotebookCellOutput({ cellOutput }: { cellOutput: ICellOutput }) {
+function NotebookCellOutput({ cellOutput }: { cellOutput: NotebookCellOutputs }) {
 
 	const { outputs } = cellOutput;
 

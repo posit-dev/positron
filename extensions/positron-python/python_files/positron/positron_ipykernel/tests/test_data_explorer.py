@@ -495,7 +495,7 @@ def test_pandas_get_schema(dxf: DataExplorerFixture):
         {
             "column_name": "b",
             "column_index": 1,
-            "type_name": "boolean",
+            "type_name": "bool",
             "type_display": "boolean",
         },
         {

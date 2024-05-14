@@ -12,7 +12,7 @@ import { IServiceContainer } from '../ioc/types';
 import { traceError, traceInfo } from '../logging';
 import { PythonRuntimeManager } from './manager';
 import { createPythonRuntimeMetadata } from './runtime';
-import { IPYKERNEL_VERSION } from '../common/constants';
+import { IPYKERNEL_VERSION, MINIMUM_PYTHON_VERSION } from '../common/constants';
 import { InstallOptions } from '../common/installer/types';
 
 export async function activatePositron(
@@ -119,6 +119,10 @@ export async function activatePositron(
                     traceError(`Could not install ipykernel due to an invalid interpreter path: ${pythonPath}`);
                 }
             }),
+        );
+        // Register a command to get the minimum version of python supported by the extension.
+        disposables.push(
+            vscode.commands.registerCommand('python.getMinimumPythonVersion', (): string => MINIMUM_PYTHON_VERSION.raw),
         );
         traceInfo('activatePositron: done!');
     } catch (ex) {
