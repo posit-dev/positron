@@ -25,10 +25,10 @@ import { ProjectTypeGroup } from 'vs/workbench/browser/positronNewProjectWizard/
  */
 export const ProjectTypeStep = (props: PropsWithChildren<NewProjectWizardStepProps>) => {
 	// State.
-	const context = useNewProjectWizardContext();
+	const { wizardState } = useNewProjectWizardContext();
 
 	// Hooks.
-	const [selectedProjectType, setSelectedProjectType] = useState(context.projectConfig.projectType);
+	const [selectedProjectType, setSelectedProjectType] = useState(wizardState.projectType);
 
 	// Set the projectType and initialize the default project name if applicable,
 	// then navigate to the ProjectNameLocation step.
@@ -40,8 +40,8 @@ export const ProjectTypeStep = (props: PropsWithChildren<NewProjectWizardStepPro
 		}
 		// If the project type has changed or the project name is empty, initialize the project name.
 		if (
-			context.projectConfig.projectType !== selectedProjectType ||
-			context.projectConfig.projectName === ''
+			wizardState.projectType !== selectedProjectType ||
+			wizardState.projectName === ''
 		) {
 			// The default project name is 'my' + projectType without spaces, eg. 'myPythonProject'.
 			const defaultProjectName =
@@ -49,8 +49,8 @@ export const ProjectTypeStep = (props: PropsWithChildren<NewProjectWizardStepPro
 					'positron.newProjectWizard.projectTypeStep.defaultProjectNamePrefix',
 					"my"
 				) + selectedProjectType.replace(/\s/g, '');
-			context.projectConfig.projectType = selectedProjectType;
-			context.projectConfig.projectName = defaultProjectName;
+			wizardState.projectType = selectedProjectType;
+			wizardState.projectName = defaultProjectName;
 		}
 		props.next(NewProjectWizardStep.ProjectNameLocation);
 	};

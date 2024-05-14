@@ -32,7 +32,7 @@ import { ExternalLink } from 'vs/base/browser/ui/ExternalLink/ExternalLink';
  */
 export const RConfigurationStep = (props: PropsWithChildren<NewProjectWizardStepProps>) => {
 	// Retrieve the wizard state and project configuration.
-	const { projectConfig, services } = useNewProjectWizardContext();
+	const { wizardState, services } = useNewProjectWizardContext();
 	const {
 		keybindingService,
 		languageRuntimeService,
@@ -60,7 +60,7 @@ export const RConfigurationStep = (props: PropsWithChildren<NewProjectWizardStep
 	);
 	const [selectedInterpreter, setSelectedInterpreter] = useState(() =>
 		getSelectedInterpreter(
-			projectConfig.selectedRuntime,
+			wizardState.selectedRuntime,
 			interpreterEntries,
 			runtimeStartupService,
 			LanguageIds.R
@@ -78,7 +78,7 @@ export const RConfigurationStep = (props: PropsWithChildren<NewProjectWizardStep
 			return;
 		}
 		setSelectedInterpreter(selectedRuntime);
-		projectConfig.selectedRuntime = selectedRuntime;
+		wizardState.selectedRuntime = selectedRuntime;
 	};
 
 	// Update the project configuration with the initial selections. This is done once when the
@@ -87,7 +87,7 @@ export const RConfigurationStep = (props: PropsWithChildren<NewProjectWizardStep
 	// complete in the other useEffect hook below.
 	useEffect(() => {
 		if (runtimeStartupComplete()) {
-			projectConfig.selectedRuntime = selectedInterpreter;
+			wizardState.selectedRuntime = selectedInterpreter;
 		}
 		// Pass an empty dependency array to run this effect only once when the component is mounted.
 		// eslint-disable-next-line react-hooks/exhaustive-deps
@@ -119,7 +119,7 @@ export const RConfigurationStep = (props: PropsWithChildren<NewProjectWizardStep
 							LanguageIds.R
 						);
 						setSelectedInterpreter(selectedRuntime);
-						projectConfig.selectedRuntime = selectedRuntime;
+						wizardState.selectedRuntime = selectedRuntime;
 					}
 					setStartupPhase(phase);
 				}
@@ -202,7 +202,7 @@ export const RConfigurationStep = (props: PropsWithChildren<NewProjectWizardStep
 							'rConfigurationStep.additionalConfigSubStep.useRenv.label',
 							"Use `renv` to create a reproducible environment"
 						))()}
-						onChanged={checked => projectConfig.useRenv = checked}
+						onChanged={checked => wizardState.useRenv = checked}
 					/>
 					<ExternalLink
 						className='renv-docs-external-link'

@@ -33,7 +33,9 @@ interface ProjectTypeProps {
  * @returns The rendered component.
  */
 export const ProjectType = (props: ProjectTypeProps) => {
-	const projectTypeSelected = useNewProjectWizardContext().projectConfig.projectType !== undefined;
+	// State.
+	const { wizardState } = useNewProjectWizardContext();
+	const projectTypeSelected = () => wizardState.projectType !== undefined;
 	const inputRef = useRef<HTMLInputElement>(null);
 
 	// On project type selected, set the focus to the input element and notify the parent.
@@ -44,14 +46,21 @@ export const ProjectType = (props: ProjectTypeProps) => {
 
 	// Render.
 	return (
-		<div className={'project-type' + (props.selected ? ' project-type-selected' : '')} onClick={onSelected}>
+		<div
+			className={
+				'project-type' +
+				(props.selected ? ' project-type-selected' : '')
+			}
+			onClick={onSelected}
+		>
 			<div className='project-type-icon'>
-				{
-					props.identifier === NewProjectType.PythonProject ? <PythonLogo /> :
-						props.identifier === NewProjectType.JupyterNotebook ? <JupyterLogo /> :
-							props.identifier === NewProjectType.RProject ? <RLogo /> :
-								null
-				}
+				{props.identifier === NewProjectType.PythonProject ? (
+					<PythonLogo />
+				) : props.identifier === NewProjectType.JupyterNotebook ? (
+					<JupyterLogo />
+				) : props.identifier === NewProjectType.RProject ? (
+					<RLogo />
+				) : null}
 			</div>
 			<input
 				ref={inputRef}
@@ -64,7 +73,7 @@ export const ProjectType = (props: ProjectTypeProps) => {
 				checked={props.selected}
 				// Set the autofocus to the selected project type when the user navigates back to
 				// the project type step.
-				autoFocus={projectTypeSelected && props.activeTabIndex}
+				autoFocus={projectTypeSelected() && props.activeTabIndex}
 			/>
 			<label htmlFor={props.identifier}>{props.identifier}</label>
 		</div>

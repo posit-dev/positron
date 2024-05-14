@@ -2,14 +2,17 @@
  *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
+// React.
 import * as React from 'react';
+
+// Other dependencies.
 import { localize } from 'vs/nls';
 import { IFileDialogService } from 'vs/platform/dialogs/common/dialogs';
 import { IWorkbenchLayoutService } from 'vs/workbench/services/layout/browser/layoutService';
 import { NewProjectWizardContextProvider, useNewProjectWizardContext } from 'vs/workbench/browser/positronNewProjectWizard/newProjectWizardContext';
 import { ILanguageRuntimeService } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { IRuntimeSessionService } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
-import { NewProjectWizardConfiguration } from 'vs/workbench/browser/positronNewProjectWizard/newProjectWizardState';
+import { NewProjectWizardState } from 'vs/workbench/browser/positronNewProjectWizard/newProjectWizardState';
 import { NewProjectWizardStepContainer } from 'vs/workbench/browser/positronNewProjectWizard/newProjectWizardStepContainer';
 import { IRuntimeStartupService } from 'vs/workbench/services/runtimeStartup/common/runtimeStartupService';
 import { IKeybindingService } from 'vs/platform/keybinding/common/keybinding';
@@ -150,7 +153,7 @@ export const showNewProjectModalDialog = async (
 
 interface NewProjectModalDialogProps {
 	renderer: PositronModalReactRenderer;
-	createProject: (result: NewProjectWizardConfiguration) => Promise<void>;
+	createProject: (result: NewProjectWizardState) => Promise<void>;
 }
 
 /**
@@ -158,12 +161,13 @@ interface NewProjectModalDialogProps {
  * @returns The rendered component.
  */
 const NewProjectModalDialog = (props: NewProjectModalDialogProps) => {
-	const projectState = useNewProjectWizardContext();
+	// State.
+	const { wizardState } = useNewProjectWizardContext();
 
 	// The accept handler.
 	const acceptHandler = async () => {
 		props.renderer.dispose();
-		await props.createProject(projectState.projectConfig);
+		await props.createProject(wizardState);
 	};
 
 	// The cancel handler.

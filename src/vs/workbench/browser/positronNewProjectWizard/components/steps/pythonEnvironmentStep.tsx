@@ -33,9 +33,9 @@ import { ILanguageRuntimeMetadata } from 'vs/workbench/services/languageRuntime/
 export const PythonEnvironmentStep = (props: PropsWithChildren<NewProjectWizardStepProps>) => {
 	// State.
 	const {
-		projectConfig,
-		pythonEnvProviders,
+		wizardState,
 		services,
+		pythonEnvProviders,
 	} = useNewProjectWizardContext();
 	const {
 		commandService,
@@ -53,14 +53,14 @@ export const PythonEnvironmentStep = (props: PropsWithChildren<NewProjectWizardS
 	const runtimeStartupComplete = () =>
 		startupPhase === RuntimeStartupPhase.Complete;
 	const [envSetupType, setEnvSetupType] = useState(
-		projectConfig.pythonEnvSetupType ?? EnvironmentSetupType.NewEnvironment
+		wizardState.pythonEnvSetupType ?? EnvironmentSetupType.NewEnvironment
 	);
 	const [envProviders] = useState(pythonEnvProviders);
 	const [envProviderId, setEnvProviderId] = useState<string | undefined>(
-		// Use the environment type already set in the project configuration; if not set, use the
+		// Use the environment type already set in the wizardState; if not set, use the
 		// first environment type in the provider list.
 		// TODO: in the future, we may want to use the user's preferred environment type.
-		projectConfig.pythonEnvProvider ?? envProviders[0]?.id
+		wizardState.pythonEnvProvider ?? envProviders[0]?.id
 	);
 	const [interpreterEntries, setInterpreterEntries] = useState(() =>
 		// It's possible that the runtime discovery phase is not complete, so we need to check
@@ -76,14 +76,14 @@ export const PythonEnvironmentStep = (props: PropsWithChildren<NewProjectWizardS
 	);
 	const [selectedInterpreter, setSelectedInterpreter] = useState(() =>
 		getSelectedInterpreter(
-			projectConfig.selectedRuntime,
+			wizardState.selectedRuntime,
 			interpreterEntries,
 			runtimeStartupService,
 			LanguageIds.Python
 		)
 	);
 	const [willInstallIpykernel, setWillInstallIpykernel] = useState(
-		projectConfig.installIpykernel ?? false
+		wizardState.installIpykernel ?? false
 	);
 
 	const envSetupRadioButtons: RadioButtonItem[] = [
@@ -169,15 +169,15 @@ export const PythonEnvironmentStep = (props: PropsWithChildren<NewProjectWizardS
 		setEnvProviderId(envProvider);
 
 		// Update the project configuration with the new environment setup type.
-		// Set this last so that the above state changes have been applied before changing to the
+		// Set this last so that the above wizardState changes have been applied before changing to the
 		// new env setup type view.
 		setEnvSetupType(envSetupType);
 
 		// Save the changes to the project configuration.
-		projectConfig.pythonEnvProvider = envProvider;
-		projectConfig.pythonEnvSetupType = envSetupType;
-		projectConfig.selectedRuntime = selectedRuntime;
-		projectConfig.installIpykernel = installIpykernel;
+		wizardState.pythonEnvProvider = envProvider;
+		wizardState.pythonEnvSetupType = envSetupType;
+		wizardState.selectedRuntime = selectedRuntime;
+		wizardState.installIpykernel = installIpykernel;
 	};
 
 	// Handler for when the environment setup type is selected. If the user selects the "existing
@@ -226,10 +226,10 @@ export const PythonEnvironmentStep = (props: PropsWithChildren<NewProjectWizardS
 	// complete in the other useEffect hook below.
 	useEffect(() => {
 		if (runtimeStartupComplete()) {
-			projectConfig.pythonEnvSetupType = envSetupType;
-			projectConfig.pythonEnvProvider = envProviderId;
-			projectConfig.selectedRuntime = selectedInterpreter;
-			projectConfig.installIpykernel = willInstallIpykernel;
+			wizardState.pythonEnvSetupType = envSetupType;
+			wizardState.pythonEnvProvider = envProviderId;
+			wizardState.selectedRuntime = selectedInterpreter;
+			wizardState.installIpykernel = willInstallIpykernel;
 		}
 		// Pass an empty dependency array to run this effect only once when the component is mounted.
 		// eslint-disable-next-line react-hooks/exhaustive-deps
@@ -271,10 +271,10 @@ export const PythonEnvironmentStep = (props: PropsWithChildren<NewProjectWizardS
 						setWillInstallIpykernel(installIpykernel);
 
 						// Save the changes to the project configuration.
-						projectConfig.pythonEnvSetupType = envSetupType;
-						projectConfig.pythonEnvProvider = envProviderId;
-						projectConfig.selectedRuntime = selectedInterpreter;
-						projectConfig.installIpykernel = willInstallIpykernel;
+						wizardState.pythonEnvSetupType = envSetupType;
+						wizardState.pythonEnvProvider = envProviderId;
+						wizardState.selectedRuntime = selectedInterpreter;
+						wizardState.installIpykernel = willInstallIpykernel;
 					}
 					setStartupPhase(phase);
 				}
@@ -352,8 +352,8 @@ export const PythonEnvironmentStep = (props: PropsWithChildren<NewProjectWizardS
 									))()}
 								<code>
 									{locationForNewEnv(
-										projectConfig.parentFolder,
-										projectConfig.projectName,
+										wizardState.parentFolder,
+										wizardState.projectName,
 										envProviderNameForId(
 											envProviderId,
 											envProviders

@@ -19,26 +19,26 @@ import { PythonEnvironmentProviderInfo } from 'vs/workbench/browser/positronNewP
 import { Disposable } from 'vs/base/common/lifecycle';
 
 /**
- * NewProjectWizardServices interface. Defines the set of services that are required by the New
- * Project Wizard.
+ * NewProjectWizardServices interface.
+ * Defines the set of services that are required by the New Project Wizard.
  */
 interface NewProjectWizardServices {
-	commandService: ICommandService;
-	fileDialogService: IFileDialogService;
-	fileService: IFileService;
-	keybindingService: IKeybindingService;
-	languageRuntimeService: ILanguageRuntimeService;
-	layoutService: IWorkbenchLayoutService;
-	logService: ILogService;
-	openerService: IOpenerService;
-	pathService: IPathService;
-	runtimeSessionService: IRuntimeSessionService;
-	runtimeStartupService: IRuntimeStartupService;
+	readonly commandService: ICommandService;
+	readonly fileDialogService: IFileDialogService;
+	readonly fileService: IFileService;
+	readonly keybindingService: IKeybindingService;
+	readonly languageRuntimeService: ILanguageRuntimeService;
+	readonly layoutService: IWorkbenchLayoutService;
+	readonly logService: ILogService;
+	readonly openerService: IOpenerService;
+	readonly pathService: IPathService;
+	readonly runtimeSessionService: IRuntimeSessionService;
+	readonly runtimeStartupService: IRuntimeStartupService;
 }
 
 /**
- * NewProjectWizardStateProps interface. Defines the set of properties to initialize the New Project
- * Wizard state.
+ * NewProjectWizardStateConfig interface.
+ * Defines the configuration to initialize the New Project Wizard state.
  */
 export interface NewProjectWizardStateConfig {
 	readonly services: NewProjectWizardServices;
@@ -48,10 +48,10 @@ export interface NewProjectWizardStateConfig {
 }
 
 /**
- * NewProjectWizardConfiguration interface. Used to keep track of the new project configuration state
- * in the New Project Wizard Modal.
+ * NewProjectWizardState interface.
+ * Used to keep track of the new project configuration in the New Project Wizard.
  */
-export interface NewProjectWizardConfiguration {
+export interface NewProjectWizardState {
 	selectedRuntime: ILanguageRuntimeMetadata | undefined;
 	projectType: NewProjectType | undefined;
 	projectName: string;
@@ -65,33 +65,36 @@ export interface NewProjectWizardConfiguration {
 }
 
 /**
- * INewProjectWizardState interface. Defines the state of the New Project Wizard.
+ * INewProjectWizardStateManager interface.
+ * Defines the state and state operations of the New Project Wizard.
  */
-export interface INewProjectWizardState {
-	projectConfig: NewProjectWizardConfiguration; // (config: NewProjectWizardConfiguration) => void;
+export interface INewProjectWizardStateManager {
+	wizardState: NewProjectWizardState;
 	goToNextStep: (step: NewProjectWizardStep) => void;
 	goToPreviousStep: () => void;
 }
 
 /**
- * NewProjectWizardState class.
- * This class is used to keep track of the state of the New Project Wizard.
+ * NewProjectWizardStateManager class.
+ * This class is used to manage the state of the New Project Wizard.
  */
-export class NewProjectWizardState extends Disposable implements INewProjectWizardState {
+export class NewProjectWizardStateManager
+	extends Disposable
+	implements INewProjectWizardStateManager {
 	private _services: NewProjectWizardServices;
-	private _projectConfig: NewProjectWizardConfiguration;
+	private _wizardState: NewProjectWizardState;
 	private _steps: NewProjectWizardStep[];
 	private _currentStep: NewProjectWizardStep;
 	private _pythonEnvProviders: PythonEnvironmentProviderInfo[];
 
 	/**
-	 * Constructor for the NewProjectWizardState class.
-	 * @param config The NewProjectWizardStateConfiguration.
+	 * Constructor for the NewProjectWizardStateManager class.
+	 * @param config The NewProjectWizardStateConfig.
 	 */
 	constructor(config: NewProjectWizardStateConfig) {
 		super();
 		this._services = config.services;
-		this._projectConfig = {
+		this._wizardState = {
 			selectedRuntime: undefined,
 			projectType: undefined,
 			projectName: '',
@@ -108,28 +111,32 @@ export class NewProjectWizardState extends Disposable implements INewProjectWiza
 		this._pythonEnvProviders = [];
 
 		this._register(
-			this._services.runtimeStartupService.onDidChangeRuntimeStartupPhase(async (phase) => {
-				if (phase === RuntimeStartupPhase.Discovering) {
-					// At this phase, the extensions that provide language runtimes will have been activated.
-					this._pythonEnvProviders = await this._services.commandService.executeCommand(
-						'python.getCreateEnvironmentProviders'
-					) ?? [];
+			this._services.runtimeStartupService.onDidChangeRuntimeStartupPhase(
+				async (phase) => {
+					if (phase === RuntimeStartupPhase.Discovering) {
+						// At this phase, the extensions that provide language runtimes will have been activated.
+						this._pythonEnvProviders =
+							(await this._services.commandService.executeCommand(
+								'python.getCreateEnvironmentProviders'
+							)) ?? [];
+					}
 				}
-			}));
+			)
+		);
 	}
 
 	/**
 	 * Gets the New Project Wizard state.
 	 */
-	get projectConfig(): NewProjectWizardConfiguration {
-		return this._projectConfig;
+	get wizardState(): NewProjectWizardState {
+		return this._wizardState;
 	}
 
 	/**
 	 * Sets the New Project Wizard state.
 	 */
-	set projectConfig(config: NewProjectWizardConfiguration) {
-		this._projectConfig = config;
+	set wizardState(state: NewProjectWizardState) {
+		this._wizardState = state;
 	}
 
 	/**
@@ -164,9 +171,12 @@ export class NewProjectWizardState extends Disposable implements INewProjectWiza
 		// If the step already exists in the stack, don't add it again. Although the
 		// steps are not expected to be repeated, this check prevents us from adding
 		// the same step multiple times.
-		const stepAlreadyExists = this._steps.findIndex((s) => s === step) !== -1;
+		const stepAlreadyExists =
+			this._steps.findIndex((s) => s === step) !== -1;
 		if (stepAlreadyExists) {
-			this._services.logService.error('[Project Wizard] Step already exists');
+			this._services.logService.error(
+				'[Project Wizard] Step already exists'
+			);
 			return this._currentStep;
 		}
 		this._steps.push(step);
@@ -186,7 +196,9 @@ export class NewProjectWizardState extends Disposable implements INewProjectWiza
 		const currentStepIsFirstStep =
 			this._steps.findIndex((step) => step === this._currentStep) === 0;
 		if (currentStepIsFirstStep) {
-			this._services.logService.error('[Project Wizard] No previous step to go to');
+			this._services.logService.error(
+				'[Project Wizard] No previous step to go to'
+			);
 			return this._currentStep;
 		}
 		this._steps.pop();
