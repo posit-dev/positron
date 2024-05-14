@@ -73,7 +73,7 @@ jobs:
         id: update_path_for_zeromq
         if: matrix.arch == 'x64'
         run: |
-          echo "${{matrix.homebrew_folder}}/opt/python@3.10/libexec/bin:${{matrix.homebrew_folder}}/bin" >> $GITHUB_PATH
+          echo "/opt/homebrew/opt/python@3.10/libexec/bin:${{matrix.homebrew_folder}}/bin" >> $GITHUB_PATH
 
       # Check Python environment. This helps diagnose build issues that are due
       # to Python version and environment problems.
