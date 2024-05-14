@@ -186,7 +186,7 @@ class PositronDataExplorerService extends Disposable implements IPositronDataExp
 		if (instanceId === undefined) {
 			return undefined;
 		}
-		return this._positronDataExplorerInstanceMap.get(instanceId);
+		return this._positronDataExplorerInstances.get(instanceId);
 	}
 
 	/**

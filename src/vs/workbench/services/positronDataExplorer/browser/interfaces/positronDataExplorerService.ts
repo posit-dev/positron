@@ -32,12 +32,6 @@ export interface IPositronDataExplorerService {
 	initialize(): void;
 
 	/**
-	 * Test open function.
-	 * @param identifier The identifier.
-	 */
-	testOpen(identifier: string): Promise<void>;
-
-	/**
 	 * Associates a variable with an instance.
 	 *
 	 * @param instanceId The instance identifier.
