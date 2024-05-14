@@ -76,7 +76,12 @@ jobs:
       # Check Python environment. This helps diagnose build issues that are due
       # to Python version and environment problems.
       - name: Check Python
+        env:
+          npm_config_arch: ${{ matrix.arch }}
         run: |
+          export NVM_DIR="$HOME/.nvm"
+          [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+          nvm use
           echo "--- PATH ---"
           echo $PATH
           echo "--- Python Path (${{matrix.arch_terminal}}) ---"
@@ -88,6 +93,12 @@ jobs:
           echo "--- library paths---"
           pkg-config --libs libsodium
           pkg-config --libs liblzma
+          echo "--- node environment ---"
+          which node
+          node --version
+          which yarn
+          yarn --version
+
 
       # Install node_modules binaries
       - name: Install dependencies
