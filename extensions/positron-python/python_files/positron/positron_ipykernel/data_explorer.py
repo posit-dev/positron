@@ -60,7 +60,7 @@ from .data_explorer_comm import (
     TableShape,
 )
 from .positron_comm import CommMessage, PositronComm
-from .third_party import pd_
+from .third_party import pd_, np_
 from .utils import guid
 
 if TYPE_CHECKING:
@@ -225,14 +225,14 @@ class DataExplorerTableView(abc.ABC):
         pass
 
 
-def _pandas_format_values(col):
-    import pandas.io.formats.format as fmt
+def _format_value(x):
+    if isinstance(x, float) and np_.isnan(x):
+        return "NaN"
+    return str(x)
 
-    try:
-        return fmt.format_array(col._values, None, leading_space=False)
-    except Exception:
-        logger.warning(f"Failed to format column '{col.name}'")
-        return col.astype(str).tolist()
+
+def _pandas_format_values(col):
+    return col.map(_format_value).tolist()
 
 
 _FILTER_RANGE_COMPARE_SUPPORTED = {
