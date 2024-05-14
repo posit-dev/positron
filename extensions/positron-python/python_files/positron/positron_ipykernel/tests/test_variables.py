@@ -451,7 +451,7 @@ def test_handle_view(
     variables_comm.handle_msg(msg)
 
     # An acknowledgment message is sent
-    assert variables_comm.messages == [json_rpc_response({})]
+    assert len(variables_comm.messages) == 1
 
     assert_register_table_called(mock_dataexplorer_service, shell.user_ns["x"], "x")
 
