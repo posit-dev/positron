@@ -15,6 +15,11 @@ export interface IPositronDataExplorerInstance {
 	/**
 	 * Gets the data explorer client instance.
 	 */
+	readonly languageName: string;
+
+	/**
+	 * Gets the data explorer client instance.
+	 */
 	readonly dataExplorerClientInstance: DataExplorerClientInstance;
 
 	/**
@@ -36,6 +41,11 @@ export interface IPositronDataExplorerInstance {
 	 * Gets the TableDataDataGridInstance.
 	 */
 	readonly tableDataDataGridInstance: TableDataDataGridInstance;
+
+	/**
+	 * The onDidClose event.
+	 */
+	readonly onDidClose: Event<void>;
 
 	/**
 	 * The onDidChangeLayout event.

@@ -4,8 +4,8 @@
 
 import { Emitter } from 'vs/base/common/event';
 import { Disposable } from 'vs/base/common/lifecycle';
-import { ColumnProfileType, ColumnSchema, ColumnSummaryStats, TableData } from 'vs/workbench/services/languageRuntime/common/positronDataExplorerComm';
 import { DataExplorerClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimeDataExplorerClient';
+import { ColumnProfileType, ColumnSchema, ColumnSummaryStats, TableData } from 'vs/workbench/services/languageRuntime/common/positronDataExplorerComm';
 
 /**
  * Constants.
@@ -417,7 +417,7 @@ export class DataExplorerCache extends Disposable {
 			this._cacheUpdateDescriptor = undefined;
 
 			// Update the cache for the pending cache update descriptor.
-			await this.updateCache(pendingCacheUpdateDescriptor);
+			this.updateCache(pendingCacheUpdateDescriptor);
 		}
 	}
 
