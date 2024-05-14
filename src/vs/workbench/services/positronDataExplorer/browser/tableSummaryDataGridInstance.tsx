@@ -9,9 +9,9 @@ import * as React from 'react';
 import { Emitter } from 'vs/base/common/event';
 import { DataGridInstance } from 'vs/workbench/browser/positronDataGrid/classes/dataGridInstance';
 import { DataExplorerCache } from 'vs/workbench/services/positronDataExplorer/common/dataExplorerCache';
-import { ColumnDisplayType, ColumnSummaryStats } from 'vs/workbench/services/languageRuntime/common/positronDataExplorerComm';
 import { ColumnSummaryCell } from 'vs/workbench/services/positronDataExplorer/browser/components/columnSummaryCell';
 import { DataExplorerClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimeDataExplorerClient';
+import { ColumnDisplayType, ColumnSummaryStats } from 'vs/workbench/services/languageRuntime/common/positronDataExplorerComm';
 
 /**
  * Constants.
@@ -52,9 +52,11 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 	/**
 	 * Constructor.
 	 * @param dataExplorerClientInstance The DataExplorerClientInstance.
+	 * @param dataExplorerCache The DataExplorerCache.
 	 */
-	constructor(dataExplorerClientInstance: DataExplorerClientInstance,
-		dataCache: DataExplorerCache
+	constructor(
+		dataExplorerClientInstance: DataExplorerClientInstance,
+		dataExplorerCache: DataExplorerCache
 	) {
 		// Call the base class's constructor.
 		super({
@@ -76,8 +78,8 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 		// Set the data explorer client instance.
 		this._dataExplorerClientInstance = dataExplorerClientInstance;
 
-		// Set the shared data cache
-		this._dataExplorerCache = dataCache;
+		// Set the data explorer cache.
+		this._dataExplorerCache = dataExplorerCache;
 
 		// Add the onDidUpdateCache event handler.
 		this._register(this._dataExplorerCache.onDidUpdateCache(() => {
@@ -87,12 +89,12 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 				() => this._onDidUpdateEmitter.fire()
 			);
 		}));
+
 		// Add the onDidSchemaUpdate event handler.
 		this._register(this._dataExplorerClientInstance.onDidSchemaUpdate(async () => {
 			this.setScreenPosition(0, 0);
 			this._expandedColumns.clear();
 			this.fetchData();
-
 		}));
 	}
 

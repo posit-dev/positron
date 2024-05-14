@@ -16,6 +16,11 @@ export interface IPositronDataExplorerInstance extends IDisposable {
 	/**
 	 * Gets the data explorer client instance.
 	 */
+	readonly languageName: string;
+
+	/**
+	 * Gets the data explorer client instance.
+	 */
 	readonly dataExplorerClientInstance: DataExplorerClientInstance;
 
 	/**
@@ -37,6 +42,11 @@ export interface IPositronDataExplorerInstance extends IDisposable {
 	 * Gets the TableDataDataGridInstance.
 	 */
 	readonly tableDataDataGridInstance: TableDataDataGridInstance;
+
+	/**
+	 * The onDidClose event.
+	 */
+	readonly onDidClose: Event<void>;
 
 	/**
 	 * The onDidChangeLayout event.

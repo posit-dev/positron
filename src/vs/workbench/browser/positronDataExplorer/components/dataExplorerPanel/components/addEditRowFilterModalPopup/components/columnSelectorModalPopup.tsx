@@ -38,7 +38,7 @@ export const ColumnSelectorModalPopup = (props: ColumnSelectorModalPopupProps) =
 	// Reference hooks.
 	const positronDataGridRef = useRef<HTMLDivElement>(undefined!);
 
-	// Main use effect.
+	// Main useEffect.
 	useEffect(() => {
 		// Drive focus into the data grid so the user can immediately navigate.
 		positronDataGridRef.current.focus();

@@ -4,12 +4,12 @@
 
 import { Emitter } from 'vs/base/common/event';
 import { Disposable } from 'vs/base/common/lifecycle';
+import { DataExplorerCache } from 'vs/workbench/services/positronDataExplorer/common/dataExplorerCache';
 import { TableDataDataGridInstance } from 'vs/workbench/services/positronDataExplorer/browser/tableDataDataGridInstance';
 import { DataExplorerClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimeDataExplorerClient';
 import { TableSummaryDataGridInstance } from 'vs/workbench/services/positronDataExplorer/browser/tableSummaryDataGridInstance';
 import { PositronDataExplorerLayout } from 'vs/workbench/services/positronDataExplorer/browser/interfaces/positronDataExplorerService';
 import { IPositronDataExplorerInstance } from 'vs/workbench/services/positronDataExplorer/browser/interfaces/positronDataExplorerInstance';
-import { DataExplorerCache } from 'vs/workbench/services/positronDataExplorer/common/dataExplorerCache';
 
 /**
  * PositronDataExplorerInstance class.
@@ -18,11 +18,19 @@ export class PositronDataExplorerInstance extends Disposable implements IPositro
 	//#region Private Properties
 
 	/**
+	 * Gets the language name.
+	 */
+	private readonly _languageName: string;
+
+	/**
 	 * Gets the DataExplorerClientInstance.
 	 */
 	private readonly _dataExplorerClientInstance: DataExplorerClientInstance;
 
-	private readonly _dataCache: DataExplorerCache;
+	/**
+	 * Gets the DataExplorerCache.
+	 */
+	private readonly _dataExplorerCache: DataExplorerCache;
 
 	/**
 	 * Gets or sets the layout.
@@ -43,6 +51,11 @@ export class PositronDataExplorerInstance extends Disposable implements IPositro
 	 * Gets the TableDataDataGridInstance.
 	 */
 	private readonly _tableDataDataGridInstance: TableDataDataGridInstance;
+
+	/**
+	 * The onDidClose event emitter.
+	 */
+	private readonly _onDidCloseEmitter = this._register(new Emitter<void>);
 
 	/**
 	 * The onDidChangeLayout event emitter.
@@ -72,27 +85,34 @@ export class PositronDataExplorerInstance extends Disposable implements IPositro
 
 	/**
 	 * Constructor.
+	 * @param languageName The language name.
 	 * @param dataExplorerClientInstance The DataExplorerClientInstance. The
 	 * data explorer takes ownership of the client instance and will dispose it
 	 * when it is disposed.
 	 */
-	constructor(dataExplorerClientInstance: DataExplorerClientInstance) {
+	constructor(languageName: string, dataExplorerClientInstance: DataExplorerClientInstance) {
 		// Call the base class's constructor.
 		super();
 
 		// Initialize.
+		this._languageName = languageName;
 		this._dataExplorerClientInstance = dataExplorerClientInstance;
-		this._dataCache = new DataExplorerCache(dataExplorerClientInstance);
+		this._dataExplorerCache = new DataExplorerCache(dataExplorerClientInstance);
 		this._tableSchemaDataGridInstance = new TableSummaryDataGridInstance(
 			dataExplorerClientInstance,
-			this._dataCache
+			this._dataExplorerCache
 		);
 		this._tableDataDataGridInstance = new TableDataDataGridInstance(
 			dataExplorerClientInstance,
-			this._dataCache
+			this._dataExplorerCache
 		);
 
-		// Add event handlers.
+		// Add the onDidClose event handler.
+		this._register(this._dataExplorerClientInstance.onDidClose(() => {
+			this._onDidCloseEmitter.fire();
+		}));
+
+		// Add the onDidSelectColumn event handler.
 		this._register(this._tableSchemaDataGridInstance.onDidSelectColumn(columnIndex => {
 			this._tableDataDataGridInstance.selectColumn(columnIndex);
 			this._tableDataDataGridInstance.scrollToColumn(columnIndex);
@@ -113,6 +133,13 @@ export class PositronDataExplorerInstance extends Disposable implements IPositro
 	//#endregion Constructor & Dispose
 
 	//#region IPositronDataExplorerInstance Implementation
+
+	/**
+	 * Gets the language name.
+	 */
+	get languageName() {
+		return this._languageName;
+	}
 
 	/**
 	 * Gets the data explorer client instance.
@@ -171,6 +198,11 @@ export class PositronDataExplorerInstance extends Disposable implements IPositro
 	requestFocus(): void {
 		this._onDidRequestFocusEmitter.fire();
 	}
+
+	/**
+	 * onDidClose event.
+	 */
+	readonly onDidClose = this._onDidCloseEmitter.event;
 
 	/**
 	 * onDidChangeLayout event.

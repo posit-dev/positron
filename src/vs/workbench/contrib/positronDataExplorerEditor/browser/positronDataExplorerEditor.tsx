@@ -276,6 +276,7 @@ export class PositronDataExplorerEditor extends EditorPane implements IReactComp
 						keybindingService={this._keybindingService}
 						layoutService={this._layoutService}
 						instance={positronDataExplorerInstance}
+						onClose={() => this._group.closeEditor(this.input)}
 					/>
 				);
 

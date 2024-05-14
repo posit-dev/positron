@@ -2,22 +2,10 @@
  *  Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
-import { Emitter, Event } from 'vs/base/common/event';
+import { Emitter } from 'vs/base/common/event';
 import { Disposable } from 'vs/base/common/lifecycle';
 import { IRuntimeClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimeClientInstance';
-import {
-	BackendState,
-	ColumnProfileRequest,
-	ColumnProfileResult,
-	ColumnSchema,
-	ColumnSortKey,
-	FilterResult,
-	PositronDataExplorerComm,
-	RowFilter,
-	SchemaUpdateEvent,
-	TableData,
-	TableSchema
-} from 'vs/workbench/services/languageRuntime/common/positronDataExplorerComm';
+import { BackendState, ColumnProfileRequest, ColumnProfileResult, ColumnSchema, ColumnSortKey, FilterResult, PositronDataExplorerComm, RowFilter, SchemaUpdateEvent, TableData, TableSchema } from 'vs/workbench/services/languageRuntime/common/positronDataExplorerComm';
 
 /**
  * TableSchemaSearchResult interface. This is here temporarily until searching the tabe schema
@@ -69,6 +57,11 @@ export class DataExplorerClientInstance extends Disposable {
 	private readonly _positronDataExplorerComm: PositronDataExplorerComm;
 
 	/**
+	 * The onDidClose event emitter.
+	 */
+	private readonly _onDidCloseEmitter = this._register(new Emitter<void>());
+
+	/**
 	 * The onDidSchemaUpdate event emitter.
 	 */
 	private readonly _onDidSchemaUpdateEmitter = this._register(new Emitter<SchemaUpdateEvent>());
@@ -76,9 +69,7 @@ export class DataExplorerClientInstance extends Disposable {
 	/**
 	 * The onDidUpdateBackendState event emitter.
 	 */
-	private readonly _onDidUpdateBackendStateEmitter = this._register(
-		new Emitter<BackendState>
-	);
+	private readonly _onDidUpdateBackendStateEmitter = this._register(new Emitter<BackendState>);
 
 	/**
 	 * The onDidDataUpdate event emitter.
@@ -111,21 +102,21 @@ export class DataExplorerClientInstance extends Disposable {
 		this._positronDataExplorerComm = new PositronDataExplorerComm(client);
 		this._register(this._positronDataExplorerComm);
 
-		// Close emitter
-		this.onDidClose = this._positronDataExplorerComm.onDidClose;
+		// Register the onDidClose event handler.
+		this._register(this._positronDataExplorerComm.onDidClose(() => {
+			this.setStatus(DataExplorerClientStatus.Disconnected);
+			this._onDidCloseEmitter.fire();
+		}));
 
+		// Register the onDidSchemaUpdate event handler.
 		this._register(this._positronDataExplorerComm.onDidSchemaUpdate(async (e: SchemaUpdateEvent) => {
-			this.updateBackendState();
+			await this.updateBackendState();
 			this._onDidSchemaUpdateEmitter.fire(e);
 		}));
 
-		this._register(this._positronDataExplorerComm.onDidDataUpdate(async (_evt) => {
+		// Register the onDidDataUpdate event handler.
+		this._register(this._positronDataExplorerComm.onDidDataUpdate(() => {
 			this._onDidDataUpdateEmitter.fire();
-		}));
-
-		this._register(this.onDidClose(() => {
-			this.status = DataExplorerClientStatus.Disconnected;
-			this._onDidStatusUpdateEmitter.fire(this.status);
 		}));
 	}
 
@@ -346,12 +337,11 @@ export class DataExplorerClientInstance extends Disposable {
 
 	//#region Public Events
 
-
 	/**
 	 * Event that fires when the data explorer is closed on the runtime side, as a result of
 	 * a dataset being deallocated or overwritten with a non-dataset.
 	 */
-	onDidClose: Event<void>;
+	onDidClose = this._onDidCloseEmitter.event;
 
 	/**
 	 * Event that fires when the schema has been updated.

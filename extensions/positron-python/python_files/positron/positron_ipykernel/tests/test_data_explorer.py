@@ -620,10 +620,6 @@ def test_pandas_search_schema(dxf: DataExplorerFixture):
         assert matches == ex_matches
 
 
-def _trim_whitespace(columns):
-    return [[x.strip() for x in column] for column in columns]
-
-
 def test_pandas_get_data_values(dxf: DataExplorerFixture):
     result = dxf.get_data_values(
         "simple",
@@ -632,8 +628,6 @@ def test_pandas_get_data_values(dxf: DataExplorerFixture):
         column_indices=list(range(6)),
     )
 
-    # TODO: pandas pads all values to fixed width, do we want to do
-    # something different?
     expected_columns = [
         ["1", "2", "3", "4", "5"],
         ["True", "False", "True", "None", "True"],
@@ -649,7 +643,7 @@ def test_pandas_get_data_values(dxf: DataExplorerFixture):
         ["None", "5", "-1", "None", "None"],
     ]
 
-    assert _trim_whitespace(result["columns"]) == expected_columns
+    assert result["columns"] == expected_columns
 
     assert result["row_labels"] == [["0", "1", "2", "3", "4"]]
 
@@ -662,7 +656,7 @@ def test_pandas_get_data_values(dxf: DataExplorerFixture):
     response = dxf.get_data_values(
         "simple", row_start_index=0, num_rows=5, column_indices=[2, 3, 4, 5]
     )
-    assert _trim_whitespace(response["columns"]) == expected_columns[2:]
+    assert response["columns"] == expected_columns[2:]
 
     # Edge case: request invalid column index
     # Per issue #2149, until we can align on whether the UI is allowed
@@ -672,6 +666,31 @@ def test_pandas_get_data_values(dxf: DataExplorerFixture):
     #     dxf.get_data_values(
     #         "simple", row_start_index=0, num_rows=10, column_indices=[4]
     #     )
+
+
+def test_pandas_leading_whitespace(dxf: DataExplorerFixture):
+    # See GH#3138
+    df = pd.DataFrame(
+        {
+            "a": ["   foo", "  bar", " baz", "qux", "potato"],
+            "c": [True, False, True, False, True],
+        }
+    )
+
+    dxf.register_table("ws", df)
+    result = dxf.get_data_values(
+        "ws",
+        row_start_index=0,
+        num_rows=5,
+        column_indices=list(range(6)),
+    )
+
+    expected_columns = [
+        ["   foo", "  bar", " baz", "qux", "potato"],
+        ["True", "False", "True", "False", "True"],
+    ]
+
+    assert result["columns"] == expected_columns
 
 
 def _filter(filter_type, column_schema, condition="and", is_valid=None, **kwargs):

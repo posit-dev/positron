@@ -18,7 +18,7 @@ import { IWorkbenchContributionsRegistry, Extensions as WorkbenchExtensions, IWo
 import { Extensions as ViewContainerExtensions, IViewsRegistry } from 'vs/workbench/common/views';
 import { registerAction2 } from 'vs/platform/actions/common/actions';
 import { PlotsRefreshAction } from 'vs/workbench/contrib/positronPlots/browser/positronPlotsActions';
-import { VIEW_CONTAINER } from 'vs/workbench/contrib/positronVariables/browser/positronVariables.contribution';
+import { POSITRON_SESSION_CONTAINER } from 'vs/workbench/contrib/positronSession/browser/positronSessionContainer';
 
 // Register the Positron plots service.
 registerSingleton(IPositronPlotsService, PositronPlotsService, InstantiationType.Delayed);
@@ -48,7 +48,7 @@ Registry.as<IViewsRegistry>(ViewContainerExtensions.ViewsRegistry).registerViews
 			}
 		}
 	],
-	VIEW_CONTAINER
+	POSITRON_SESSION_CONTAINER
 );
 
 class PositronPlotsContribution extends Disposable implements IWorkbenchContribution {
