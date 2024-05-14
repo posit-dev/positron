@@ -144,8 +144,6 @@ export const DataExplorer = () => {
 		context.instance.columnsWidthPercent = newColumnsWidth / width;
 	};
 
-	console.log('Rendering data explorer');
-
 	// Render.
 	return (
 		<div ref={dataExplorerRef} className='data-explorer'>

@@ -185,7 +185,7 @@ export class PositronDataExplorerEditor extends EditorPane implements IReactComp
 	 */
 	constructor(
 		readonly _group: IEditorGroup,
-		@IClipboardService readonly _clipboardService: IClipboardService,
+		@IClipboardService private readonly _clipboardService: IClipboardService,
 		@ICommandService private readonly _commandService: ICommandService,
 		@IConfigurationService private readonly _configurationService: IConfigurationService,
 		@IContextKeyService private readonly _contextKeyService: IContextKeyService,
@@ -274,6 +274,7 @@ export class PositronDataExplorerEditor extends EditorPane implements IReactComp
 						keybindingService={this._keybindingService}
 						layoutService={this._layoutService}
 						instance={positronDataExplorerInstance}
+						onClose={() => this._group.closeEditor(this.input)}
 					/>
 				);
 
