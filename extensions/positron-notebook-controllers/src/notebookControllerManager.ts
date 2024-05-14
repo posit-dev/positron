@@ -80,7 +80,14 @@ export class NotebookControllerManager implements vscode.Disposable {
 			?? notebook.getCells()?.[0].document.languageId;
 
 		// Get the preferred controller for the language.
-		const preferredRuntime = await positron.runtime.getPreferredRuntime(languageId);
+		let preferredRuntime: positron.LanguageRuntimeMetadata;
+		try {
+			preferredRuntime = await positron.runtime.getPreferredRuntime(languageId);
+		} catch (ex) {
+			// It may error if there are no registered runtimes for the language, so log and return.
+			log.debug(`Failed to get preferred runtime for language: ${languageId}`, ex);
+			return;
+		}
 		const preferredController = this.controllers.get(preferredRuntime.runtimeId);
 
 		// Set the affinity across all known controllers.
