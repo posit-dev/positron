@@ -69,7 +69,7 @@ export interface NewProjectWizardState {
  * Defines the state and state operations of the New Project Wizard.
  */
 export interface INewProjectWizardStateManager {
-	wizardState: NewProjectWizardState;
+	getState: () => NewProjectWizardState;
 	goToNextStep: (step: NewProjectWizardStep) => void;
 	goToPreviousStep: () => void;
 }
@@ -81,11 +81,30 @@ export interface INewProjectWizardStateManager {
 export class NewProjectWizardStateManager
 	extends Disposable
 	implements INewProjectWizardStateManager {
+	// Services used by the New Project Wizard.
 	private _services: NewProjectWizardServices;
-	private _wizardState: NewProjectWizardState;
+
+	// The state of the New Project Wizard.
+	private _selectedRuntime: ILanguageRuntimeMetadata | undefined;
+	private _projectType: NewProjectType | undefined;
+	private _projectName: string;
+	private _parentFolder: string;
+	private _initGitRepo: boolean;
+	private _openInNewWindow: boolean;
+	// Python-specific state.
+	private _pythonEnvSetupType: EnvironmentSetupType | undefined;
+	private _pythonEnvProvider: string | undefined;
+	private _installIpykernel: boolean | undefined;
+	// R-specific state.
+	private _useRenv: boolean | undefined;
+
+	// The steps in the New Project Wizard.
 	private _steps: NewProjectWizardStep[];
 	private _currentStep: NewProjectWizardStep;
+
+	// Dynamically populated data.
 	private _pythonEnvProviders: PythonEnvironmentProviderInfo[];
+	private _interpreters: ILanguageRuntimeMetadata[];
 
 	/**
 	 * Constructor for the NewProjectWizardStateManager class.
@@ -93,23 +112,25 @@ export class NewProjectWizardStateManager
 	 */
 	constructor(config: NewProjectWizardStateConfig) {
 		super();
+
+		// Initialize the state.
 		this._services = config.services;
-		this._wizardState = {
-			selectedRuntime: undefined,
-			projectType: undefined,
-			projectName: '',
-			parentFolder: config.parentFolder ?? '',
-			initGitRepo: false,
-			openInNewWindow: false,
-			pythonEnvSetupType: undefined,
-			pythonEnvProvider: undefined,
-			installIpykernel: undefined,
-			useRenv: undefined,
-		};
+		this._selectedRuntime = undefined;
+		this._projectType = undefined;
+		this._projectName = '';
+		this._parentFolder = config.parentFolder ?? '';
+		this._initGitRepo = false;
+		this._openInNewWindow = false;
+		this._pythonEnvSetupType = undefined;
+		this._pythonEnvProvider = undefined;
+		this._installIpykernel = undefined;
+		this._useRenv = undefined;
 		this._steps = config.steps ?? [config.initialStep];
 		this._currentStep = config.initialStep;
 		this._pythonEnvProviders = [];
+		this._interpreters = [];
 
+		// Register disposables.
 		this._register(
 			this._services.runtimeStartupService.onDidChangeRuntimeStartupPhase(
 				async (phase) => {
@@ -119,6 +140,9 @@ export class NewProjectWizardStateManager
 							(await this._services.commandService.executeCommand(
 								'python.getCreateEnvironmentProviders'
 							)) ?? [];
+					} else if (phase === RuntimeStartupPhase.Complete) {
+						this._interpreters =
+							this._services.languageRuntimeService.registeredRuntimes;
 					}
 				}
 			)
@@ -126,17 +150,163 @@ export class NewProjectWizardStateManager
 	}
 
 	/**
-	 * Gets the New Project Wizard state.
+	 * Gets the selected runtime.
+	 * @returns The selected runtime.
 	 */
-	get wizardState(): NewProjectWizardState {
-		return this._wizardState;
+	get selectedRuntime(): ILanguageRuntimeMetadata | undefined {
+		return this._selectedRuntime;
 	}
 
 	/**
-	 * Sets the New Project Wizard state.
+	 * Sets the selected runtime.
+	 * @param value The selected runtime.
 	 */
-	set wizardState(state: NewProjectWizardState) {
-		this._wizardState = state;
+	set selectedRuntime(value: ILanguageRuntimeMetadata | undefined) {
+		this._selectedRuntime = value;
+	}
+
+	/**
+	 * Gets the project type.
+	 * @returns The project type.
+	 */
+	get projectType(): NewProjectType | undefined {
+		return this._projectType;
+	}
+
+	/**
+	 * Sets the project type.
+	 * @param value The project type.
+	 */
+	set projectType(value: NewProjectType | undefined) {
+		this._projectType = value;
+	}
+
+	/**
+	 * Gets the project name.
+	 * @returns The project name.
+	 */
+	get projectName(): string {
+		return this._projectName;
+	}
+
+	/**
+	 * Sets the project name.
+	 * @param value The project name.
+	 */
+	set projectName(value: string) {
+		this._projectName = value;
+	}
+
+	/**
+	 * Gets the parent folder.
+	 * @returns The parent folder.
+	 */
+	get parentFolder(): string {
+		return this._parentFolder;
+	}
+
+	/**
+	 * Sets the parent folder.
+	 * @param value The parent folder.
+	 */
+	set parentFolder(value: string) {
+		this._parentFolder = value;
+	}
+
+	/**
+	 * Gets the initGitRepo flag.
+	 * @returns The initGitRepo flag.
+	 */
+	get initGitRepo(): boolean {
+		return this._initGitRepo;
+	}
+
+	/**
+	 * Sets the initGitRepo flag.
+	 * @param value Whether to initialize a Git repository.
+	 */
+	set initGitRepo(value: boolean) {
+		this._initGitRepo = value;
+	}
+
+	/**
+	 * Gets the openInNewWindow flag.
+	 * @returns The openInNewWindow flag.
+	 */
+	get openInNewWindow(): boolean {
+		return this._openInNewWindow;
+	}
+
+	/**
+	 * Sets the openInNewWindow flag.
+	 * @param value Whether to open the project in a new window.
+	 */
+	set openInNewWindow(value: boolean) {
+		this._openInNewWindow = value;
+	}
+
+	/**
+	 * Gets the Python environment setup type.
+	 * @returns The Python environment setup type.
+	 */
+	get pythonEnvSetupType(): EnvironmentSetupType | undefined {
+		return this._pythonEnvSetupType;
+	}
+
+	/**
+	 * Sets the Python environment setup type.
+	 * @param value The Python environment setup type.
+	 */
+	set pythonEnvSetupType(value: EnvironmentSetupType | undefined) {
+		this._pythonEnvSetupType = value;
+	}
+
+	/**
+	 * Gets the Python environment provider.
+	 * @returns The Python environment provider.
+	 */
+	get pythonEnvProvider(): string | undefined {
+		return this._pythonEnvProvider;
+	}
+
+	/**
+	 * Sets the Python environment provider.
+	 * @param value The Python environment provider.
+	 */
+	set pythonEnvProvider(value: string | undefined) {
+		this._pythonEnvProvider = value;
+	}
+
+	/**
+	 * Gets the installIpykernel flag.
+	 * @returns The installIpykernel flag.
+	 */
+	get installIpykernel(): boolean | undefined {
+		return this._installIpykernel;
+	}
+
+	/**
+	 * Sets the installIpykernel flag.
+	 * @param value Whether to install ipykernel.
+	 */
+	set installIpykernel(value: boolean | undefined) {
+		this._installIpykernel = value;
+	}
+
+	/**
+	 * Gets the useRenv flag.
+	 * @returns The useRenv flag.
+	 */
+	get useRenv(): boolean | undefined {
+		return this._useRenv;
+	}
+
+	/**
+	 * Sets the useRenv flag.
+	 * @param value Whether to use renv.
+	 */
+	set useRenv(value: boolean | undefined) {
+		this._useRenv = value;
 	}
 
 	/**
@@ -144,6 +314,13 @@ export class NewProjectWizardStateManager
 	 */
 	get pythonEnvProviders(): PythonEnvironmentProviderInfo[] {
 		return this._pythonEnvProviders;
+	}
+
+	/**
+	 * Gets the interpreters.
+	 */
+	get interpreters(): ILanguageRuntimeMetadata[] {
+		return this._interpreters;
 	}
 
 	/**
@@ -204,5 +381,24 @@ export class NewProjectWizardStateManager
 		this._steps.pop();
 		this._currentStep = this._steps[this._steps.length - 1];
 		return this._currentStep;
+	}
+
+	/**
+	 * Gets the state of the New Project Wizard as a NewProjectWizardState object.
+	 * @returns The NewProjectWizardState object.
+	 */
+	getState(): NewProjectWizardState {
+		return {
+			selectedRuntime: this._selectedRuntime,
+			projectType: this._projectType,
+			projectName: this._projectName,
+			parentFolder: this._parentFolder,
+			initGitRepo: this._initGitRepo,
+			openInNewWindow: this._openInNewWindow,
+			pythonEnvSetupType: this._pythonEnvSetupType,
+			pythonEnvProvider: this._pythonEnvProvider,
+			installIpykernel: this._installIpykernel,
+			useRenv: this._useRenv
+		} satisfies NewProjectWizardState;
 	}
 }

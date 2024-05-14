@@ -6,7 +6,7 @@ import { DropDownListBoxEntry } from 'vs/workbench/browser/positronComponents/dr
 import { DropDownListBoxItem } from 'vs/workbench/browser/positronComponents/dropDownListBox/dropDownListBoxItem';
 import { DropDownListBoxSeparator } from 'vs/workbench/browser/positronComponents/dropDownListBox/dropDownListBoxSeparator';
 import { LanguageIds, PythonRuntimeFilter } from 'vs/workbench/browser/positronNewProjectWizard/interfaces/newProjectWizardEnums';
-import { ILanguageRuntimeMetadata, ILanguageRuntimeService } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { ILanguageRuntimeMetadata } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { IRuntimeStartupService } from 'vs/workbench/services/runtimeStartup/common/runtimeStartupService';
 
 /**
@@ -46,22 +46,22 @@ const includeRuntimeSource = (
 };
 
 /**
- * Retrieves the detected interpreters as DropDownListBoxItems, filtering and grouping the list by
+ * Converts an array of interpreters to DropDownListBoxItems, filtering and grouping the list by
  * runtime source if requested.
- * @param languageRuntimeService The language runtime service.
+ * @param interpreters The interpreters to convert to DropDownListBoxItems.
  * @param languageId The language ID of the runtime to retrieve interpreters for.
  * @param preferredRuntimeId The runtime ID of the preferred interpreter.
  * @param runtimeSourceFilters The runtime source filters to apply to the runtimes.
  * @returns An array of DropDownListBoxEntry for the interpreters.
  */
-export const getInterpreterDropdownItems = (
-	languageRuntimeService: ILanguageRuntimeService,
+export const interpretersToDropdownItems = (
+	interpreters: ILanguageRuntimeMetadata[],
 	languageId: LanguageIds,
 	preferredRuntimeId: string,
 	runtimeSourceFilters?: RuntimeFilter[]
 ) => {
 	// Return the DropDownListBoxEntry array.
-	return languageRuntimeService.registeredRuntimes
+	return interpreters
 		.filter(
 			(runtime) =>
 				runtime.languageId === languageId &&

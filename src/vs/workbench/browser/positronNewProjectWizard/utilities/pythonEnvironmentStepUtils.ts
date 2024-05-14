@@ -4,8 +4,8 @@
 
 import { DropDownListBoxItem } from 'vs/workbench/browser/positronComponents/dropDownListBox/dropDownListBoxItem';
 import { EnvironmentSetupType, LanguageIds, PythonEnvironmentType, PythonRuntimeFilter } from 'vs/workbench/browser/positronNewProjectWizard/interfaces/newProjectWizardEnums';
-import { InterpreterInfo, getInterpreterDropdownItems } from 'vs/workbench/browser/positronNewProjectWizard/utilities/interpreterDropDownUtils';
-import { ILanguageRuntimeService } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { InterpreterInfo, interpretersToDropdownItems } from 'vs/workbench/browser/positronNewProjectWizard/utilities/interpreterDropDownUtils';
+import { ILanguageRuntimeMetadata } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { IRuntimeStartupService } from 'vs/workbench/services/runtimeStartup/common/runtimeStartupService';
 
 /**
@@ -18,24 +18,24 @@ export interface PythonEnvironmentProviderInfo {
 }
 
 /**
- * Retrieves the detected Python interpreters as DropDownListBoxItems, filtering and grouping the
- * list by runtime source if requested.
+ * Returns a DropDownListBoxEntry array for Python interpreters, filtering and grouping the list by
+ * runtime source if requested.
+ * @param interpreters The interpreters to convert to dropdown items
  * @param runtimeStartupService The runtime startup service.
- * @param languageRuntimeService The language runtime service.
  * @param pythonRuntimeFilters The PythonRuntimeFilters to apply to the Python runtimes.
  * @returns An array of DropDownListBoxEntry for Python interpreters.
  */
 const getPythonInterpreterDropDownItems = (
+	interpreters: ILanguageRuntimeMetadata[],
 	runtimeStartupService: IRuntimeStartupService,
-	languageRuntimeService: ILanguageRuntimeService,
 	pythonRuntimeFilters?: PythonRuntimeFilter[]
 ) => {
 	const languageId = LanguageIds.Python;
 	const preferredRuntime =
 		runtimeStartupService.getPreferredRuntime(languageId);
 
-	return getInterpreterDropdownItems(
-		languageRuntimeService,
+	return interpretersToDropdownItems(
+		interpreters,
 		languageId,
 		preferredRuntime?.runtimeId,
 		pythonRuntimeFilters
@@ -73,15 +73,15 @@ export const createCondaInterpreterDropDownItems = () => {
 
 /**
  * Gets the Python interpreter entries based on the environment setup type and environment type.
+ * @param interpreters The interpreters to convert to dropdown items
  * @param runtimeStartupService The runtime startup service.
- * @param languageRuntimeService The language runtime service.
  * @param envSetupType The environment setup type.
  * @param envType The environment type.
- * @returns An array of DropDownListBoxItem and DropDownListBoxSeparator for Python interpreters.
+ * @returns An array of DropDownListBoxEntry for Python interpreters.
  */
 export const getPythonInterpreterEntries = (
+	interpreters: ILanguageRuntimeMetadata[],
 	runtimeStartupService: IRuntimeStartupService,
-	languageRuntimeService: ILanguageRuntimeService,
 	envSetupType: EnvironmentSetupType,
 	envProviderName: string | undefined,
 ) => {
@@ -90,23 +90,23 @@ export const getPythonInterpreterEntries = (
 			switch (envProviderName) {
 				case PythonEnvironmentType.Venv:
 					return getPythonInterpreterDropDownItems(
+						interpreters,
 						runtimeStartupService,
-						languageRuntimeService,
 						[PythonRuntimeFilter.Global, PythonRuntimeFilter.Pyenv]
 					);
 				case PythonEnvironmentType.Conda:
 					return createCondaInterpreterDropDownItems();
 				default:
 					return getPythonInterpreterDropDownItems(
-						runtimeStartupService,
-						languageRuntimeService
+						interpreters,
+						runtimeStartupService
 					);
 			}
 		}
 		case EnvironmentSetupType.ExistingEnvironment:
 			return getPythonInterpreterDropDownItems(
-				runtimeStartupService,
-				languageRuntimeService
+				interpreters,
+				runtimeStartupService
 			);
 		default:
 			return [];

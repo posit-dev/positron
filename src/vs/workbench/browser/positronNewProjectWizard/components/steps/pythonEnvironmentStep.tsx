@@ -32,11 +32,7 @@ import { ILanguageRuntimeMetadata } from 'vs/workbench/services/languageRuntime/
  */
 export const PythonEnvironmentStep = (props: PropsWithChildren<NewProjectWizardStepProps>) => {
 	// State.
-	const {
-		wizardState,
-		services,
-		pythonEnvProviders,
-	} = useNewProjectWizardContext();
+	const context = useNewProjectWizardContext();
 	const {
 		commandService,
 		keybindingService,
@@ -44,7 +40,7 @@ export const PythonEnvironmentStep = (props: PropsWithChildren<NewProjectWizardS
 		logService,
 		runtimeStartupService,
 		languageRuntimeService,
-	} = services;
+	} = context.services;
 
 	// Hooks to manage the startup phase and interpreter entries.
 	const [startupPhase, setStartupPhase] = useState(
@@ -53,14 +49,14 @@ export const PythonEnvironmentStep = (props: PropsWithChildren<NewProjectWizardS
 	const runtimeStartupComplete = () =>
 		startupPhase === RuntimeStartupPhase.Complete;
 	const [envSetupType, setEnvSetupType] = useState(
-		wizardState.pythonEnvSetupType ?? EnvironmentSetupType.NewEnvironment
+		context.pythonEnvSetupType ?? EnvironmentSetupType.NewEnvironment
 	);
-	const [envProviders] = useState(pythonEnvProviders);
+	const [envProviders] = useState(context.pythonEnvProviders);
 	const [envProviderId, setEnvProviderId] = useState<string | undefined>(
-		// Use the environment type already set in the wizardState; if not set, use the
+		// Use the environment type already set in the context; if not set, use the
 		// first environment type in the provider list.
 		// TODO: in the future, we may want to use the user's preferred environment type.
-		wizardState.pythonEnvProvider ?? envProviders[0]?.id
+		context.pythonEnvProvider ?? envProviders[0]?.id
 	);
 	const [interpreterEntries, setInterpreterEntries] = useState(() =>
 		// It's possible that the runtime discovery phase is not complete, so we need to check
@@ -68,22 +64,22 @@ export const PythonEnvironmentStep = (props: PropsWithChildren<NewProjectWizardS
 		!runtimeStartupComplete()
 			? []
 			: getPythonInterpreterEntries(
+				context.interpreters,
 				runtimeStartupService,
-				languageRuntimeService,
 				envSetupType,
 				envProviderNameForId(envProviderId, envProviders)
 			)
 	);
 	const [selectedInterpreter, setSelectedInterpreter] = useState(() =>
 		getSelectedInterpreter(
-			wizardState.selectedRuntime,
+			context.selectedRuntime,
 			interpreterEntries,
 			runtimeStartupService,
 			LanguageIds.Python
 		)
 	);
 	const [willInstallIpykernel, setWillInstallIpykernel] = useState(
-		wizardState.installIpykernel ?? false
+		context.installIpykernel ?? false
 	);
 
 	const envSetupRadioButtons: RadioButtonItem[] = [
@@ -150,8 +146,8 @@ export const PythonEnvironmentStep = (props: PropsWithChildren<NewProjectWizardS
 	) => {
 		// Update the interpreter entries.
 		const entries = getPythonInterpreterEntries(
+			context.interpreters,
 			runtimeStartupService,
-			languageRuntimeService,
 			envSetupType,
 			envProviderNameForId(envProvider, envProviders)
 		);
@@ -169,15 +165,15 @@ export const PythonEnvironmentStep = (props: PropsWithChildren<NewProjectWizardS
 		setEnvProviderId(envProvider);
 
 		// Update the project configuration with the new environment setup type.
-		// Set this last so that the above wizardState changes have been applied before changing to the
+		// Set this last so that the above context changes have been applied before changing to the
 		// new env setup type view.
 		setEnvSetupType(envSetupType);
 
 		// Save the changes to the project configuration.
-		wizardState.pythonEnvProvider = envProvider;
-		wizardState.pythonEnvSetupType = envSetupType;
-		wizardState.selectedRuntime = selectedRuntime;
-		wizardState.installIpykernel = installIpykernel;
+		context.pythonEnvProvider = envProvider;
+		context.pythonEnvSetupType = envSetupType;
+		context.selectedRuntime = selectedRuntime;
+		context.installIpykernel = installIpykernel;
 	};
 
 	// Handler for when the environment setup type is selected. If the user selects the "existing
@@ -226,10 +222,10 @@ export const PythonEnvironmentStep = (props: PropsWithChildren<NewProjectWizardS
 	// complete in the other useEffect hook below.
 	useEffect(() => {
 		if (runtimeStartupComplete()) {
-			wizardState.pythonEnvSetupType = envSetupType;
-			wizardState.pythonEnvProvider = envProviderId;
-			wizardState.selectedRuntime = selectedInterpreter;
-			wizardState.installIpykernel = willInstallIpykernel;
+			context.pythonEnvSetupType = envSetupType;
+			context.pythonEnvProvider = envProviderId;
+			context.selectedRuntime = selectedInterpreter;
+			context.installIpykernel = willInstallIpykernel;
 		}
 		// Pass an empty dependency array to run this effect only once when the component is mounted.
 		// eslint-disable-next-line react-hooks/exhaustive-deps
@@ -255,8 +251,8 @@ export const PythonEnvironmentStep = (props: PropsWithChildren<NewProjectWizardS
 
 						// Update the interpreter entries.
 						const entries = getPythonInterpreterEntries(
+							context.interpreters,
 							runtimeStartupService,
-							languageRuntimeService,
 							envSetupType,
 							envProviderNameForId(envProviderId, envProviders)
 						);
@@ -271,10 +267,10 @@ export const PythonEnvironmentStep = (props: PropsWithChildren<NewProjectWizardS
 						setWillInstallIpykernel(installIpykernel);
 
 						// Save the changes to the project configuration.
-						wizardState.pythonEnvSetupType = envSetupType;
-						wizardState.pythonEnvProvider = envProviderId;
-						wizardState.selectedRuntime = selectedInterpreter;
-						wizardState.installIpykernel = willInstallIpykernel;
+						context.pythonEnvSetupType = envSetupType;
+						context.pythonEnvProvider = envProviderId;
+						context.selectedRuntime = selectedInterpreter;
+						context.installIpykernel = willInstallIpykernel;
 					}
 					setStartupPhase(phase);
 				}
@@ -352,8 +348,8 @@ export const PythonEnvironmentStep = (props: PropsWithChildren<NewProjectWizardS
 									))()}
 								<code>
 									{locationForNewEnv(
-										wizardState.parentFolder,
-										wizardState.projectName,
+										context.parentFolder,
+										context.projectName,
 										envProviderNameForId(
 											envProviderId,
 											envProviders

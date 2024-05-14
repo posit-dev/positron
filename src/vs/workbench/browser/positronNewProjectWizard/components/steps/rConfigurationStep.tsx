@@ -31,8 +31,8 @@ import { ExternalLink } from 'vs/base/browser/ui/ExternalLink/ExternalLink';
  * @returns The rendered component
  */
 export const RConfigurationStep = (props: PropsWithChildren<NewProjectWizardStepProps>) => {
-	// Retrieve the wizard state and project configuration.
-	const { wizardState, services } = useNewProjectWizardContext();
+	// State.
+	const context = useNewProjectWizardContext();
 	const {
 		keybindingService,
 		languageRuntimeService,
@@ -40,7 +40,7 @@ export const RConfigurationStep = (props: PropsWithChildren<NewProjectWizardStep
 		logService,
 		openerService,
 		runtimeStartupService,
-	} = services;
+	} = context.services;
 
 	// Hooks to manage the startup phase and interpreter entries.
 	const [startupPhase, setStartupPhase] = useState(
@@ -54,13 +54,13 @@ export const RConfigurationStep = (props: PropsWithChildren<NewProjectWizardStep
 		!runtimeStartupComplete()
 			? []
 			: getRInterpreterEntries(
-				runtimeStartupService,
-				languageRuntimeService
+				context.interpreters,
+				runtimeStartupService
 			)
 	);
 	const [selectedInterpreter, setSelectedInterpreter] = useState(() =>
 		getSelectedInterpreter(
-			wizardState.selectedRuntime,
+			context.selectedRuntime,
 			interpreterEntries,
 			runtimeStartupService,
 			LanguageIds.R
@@ -78,7 +78,7 @@ export const RConfigurationStep = (props: PropsWithChildren<NewProjectWizardStep
 			return;
 		}
 		setSelectedInterpreter(selectedRuntime);
-		wizardState.selectedRuntime = selectedRuntime;
+		context.selectedRuntime = selectedRuntime;
 	};
 
 	// Update the project configuration with the initial selections. This is done once when the
@@ -87,7 +87,7 @@ export const RConfigurationStep = (props: PropsWithChildren<NewProjectWizardStep
 	// complete in the other useEffect hook below.
 	useEffect(() => {
 		if (runtimeStartupComplete()) {
-			wizardState.selectedRuntime = selectedInterpreter;
+			context.selectedRuntime = selectedInterpreter;
 		}
 		// Pass an empty dependency array to run this effect only once when the component is mounted.
 		// eslint-disable-next-line react-hooks/exhaustive-deps
@@ -106,8 +106,8 @@ export const RConfigurationStep = (props: PropsWithChildren<NewProjectWizardStep
 					if (phase === RuntimeStartupPhase.Complete) {
 						// Set the interpreter entries to show in the dropdown.
 						const entries = getRInterpreterEntries(
-							runtimeStartupService,
-							languageRuntimeService
+							context.interpreters,
+							runtimeStartupService
 						);
 						setInterpreterEntries(entries);
 
@@ -119,7 +119,7 @@ export const RConfigurationStep = (props: PropsWithChildren<NewProjectWizardStep
 							LanguageIds.R
 						);
 						setSelectedInterpreter(selectedRuntime);
-						wizardState.selectedRuntime = selectedRuntime;
+						context.selectedRuntime = selectedRuntime;
 					}
 					setStartupPhase(phase);
 				}
@@ -202,7 +202,7 @@ export const RConfigurationStep = (props: PropsWithChildren<NewProjectWizardStep
 							'rConfigurationStep.additionalConfigSubStep.useRenv.label',
 							"Use `renv` to create a reproducible environment"
 						))()}
-						onChanged={checked => wizardState.useRenv = checked}
+						onChanged={checked => context.useRenv = checked}
 					/>
 					<ExternalLink
 						className='renv-docs-external-link'

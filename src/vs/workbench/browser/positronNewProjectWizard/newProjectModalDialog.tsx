@@ -162,12 +162,12 @@ interface NewProjectModalDialogProps {
  */
 const NewProjectModalDialog = (props: NewProjectModalDialogProps) => {
 	// State.
-	const { wizardState } = useNewProjectWizardContext();
+	const context = useNewProjectWizardContext();
 
 	// The accept handler.
 	const acceptHandler = async () => {
 		props.renderer.dispose();
-		await props.createProject(wizardState);
+		await props.createProject(context.getState());
 	};
 
 	// The cancel handler.

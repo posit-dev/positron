@@ -34,8 +34,8 @@ interface ProjectTypeProps {
  */
 export const ProjectType = (props: ProjectTypeProps) => {
 	// State.
-	const { wizardState } = useNewProjectWizardContext();
-	const projectTypeSelected = () => wizardState.projectType !== undefined;
+	const { projectType } = useNewProjectWizardContext();
+	const projectTypeSelected = () => projectType !== undefined;
 	const inputRef = useRef<HTMLInputElement>(null);
 
 	// On project type selected, set the focus to the input element and notify the parent.
