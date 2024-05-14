@@ -22,8 +22,7 @@ import { ICommandService } from 'vs/platform/commands/common/commands';
 import { ILogService } from 'vs/platform/log/common/log';
 import { IOpenerService } from 'vs/platform/opener/common/opener';
 import { IPositronNewProjectService, NewProjectConfiguration } from 'vs/workbench/services/positronNewProject/common/positronNewProject';
-import { EnvironmentSetupType } from 'vs/workbench/browser/positronNewProjectWizard/interfaces/newProjectWizardEnums';
-import { getEnvProviderInfoList } from 'vs/workbench/browser/positronNewProjectWizard/utilities/pythonEnvironmentStepUtils';
+import { EnvironmentSetupType, NewProjectWizardStep } from 'vs/workbench/browser/positronNewProjectWizard/interfaces/newProjectWizardEnums';
 import { IWorkspaceTrustManagementService } from 'vs/platform/workspace/common/workspaceTrust';
 
 /**
@@ -68,7 +67,7 @@ export const showNewProjectModalDialog = async (
 				runtimeStartupService,
 			}}
 			parentFolder={(await fileDialogService.defaultFolderPath()).fsPath}
-			pythonEnvProviders={await getEnvProviderInfoList(commandService, logService)}
+			initialStep={NewProjectWizardStep.ProjectTypeSelection}
 		>
 			<NewProjectModalDialog
 				renderer={renderer}

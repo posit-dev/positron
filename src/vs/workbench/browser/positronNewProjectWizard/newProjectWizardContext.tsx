@@ -4,23 +4,27 @@
 
 import * as React from 'react';
 import { PropsWithChildren, createContext, useContext } from 'react'; // eslint-disable-line no-duplicate-imports
-import { NewProjectWizardState, NewProjectWizardStateProps, useNewProjectWizardState } from 'vs/workbench/browser/positronNewProjectWizard/newProjectWizardState';
+import { NewProjectWizardState, NewProjectWizardStateConfig } from 'vs/workbench/browser/positronNewProjectWizard/newProjectWizardState';
 
 /**
  * Create the New Project Wizard context.
  */
-const NewProjectWizardContext = createContext<NewProjectWizardState | undefined>(undefined);
+const NewProjectWizardContext = createContext<
+	NewProjectWizardState | undefined
+>(undefined);
 
 /**
- * Export the NewProjectWizardContextProvider provider
+ * Export the NewProjectWizardContextProvider provider.
  */
-export const NewProjectWizardContextProvider = (props: PropsWithChildren<NewProjectWizardStateProps>) => {
+export const NewProjectWizardContextProvider = (
+	props: PropsWithChildren<NewProjectWizardStateConfig>
+) => {
 	// Hooks.
-	const newProjectWizardState = useNewProjectWizardState(props);
+	const state = new NewProjectWizardState(props);
 
 	// Render.
 	return (
-		<NewProjectWizardContext.Provider value={newProjectWizardState}>
+		<NewProjectWizardContext.Provider value={state}>
 			{props.children}
 		</NewProjectWizardContext.Provider>
 	);

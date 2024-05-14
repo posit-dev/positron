@@ -20,7 +20,7 @@ import { PositronWizardSubStep } from 'vs/workbench/browser/positronNewProjectWi
 import { DropDownListBox } from 'vs/workbench/browser/positronComponents/dropDownListBox/dropDownListBox';
 import { Checkbox } from 'vs/workbench/browser/positronComponents/positronModalDialog/components/checkbox';
 import { getRInterpreterEntries } from 'vs/workbench/browser/positronNewProjectWizard/utilities/rConfigurationStepUtils';
-import { InterpreterEntry } from 'vs/workbench/browser/positronNewProjectWizard/components/steps/pythonInterpreterEntry';
+import { InterpreterEntry } from 'vs/workbench/browser/positronNewProjectWizard/components/steps/interpreterEntry';
 import { LanguageIds } from 'vs/workbench/browser/positronNewProjectWizard/interfaces/newProjectWizardEnums';
 import { getSelectedInterpreter } from 'vs/workbench/browser/positronNewProjectWizard/utilities/interpreterDropDownUtils';
 import { ExternalLink } from 'vs/base/browser/ui/ExternalLink/ExternalLink';
@@ -32,14 +32,15 @@ import { ExternalLink } from 'vs/base/browser/ui/ExternalLink/ExternalLink';
  */
 export const RConfigurationStep = (props: PropsWithChildren<NewProjectWizardStepProps>) => {
 	// Retrieve the wizard state and project configuration.
-	const newProjectWizardState = useNewProjectWizardContext();
-	const setProjectConfig = newProjectWizardState.setProjectConfig;
-	const projectConfig = newProjectWizardState.projectConfig;
-	const keybindingService = newProjectWizardState.keybindingService;
-	const layoutService = newProjectWizardState.layoutService;
-	const logService = newProjectWizardState.logService;
-	const runtimeStartupService = newProjectWizardState.runtimeStartupService;
-	const languageRuntimeService = newProjectWizardState.languageRuntimeService;
+	const { projectConfig, services } = useNewProjectWizardContext();
+	const {
+		keybindingService,
+		languageRuntimeService,
+		layoutService,
+		logService,
+		openerService,
+		runtimeStartupService,
+	} = services;
 
 	// Hooks to manage the startup phase and interpreter entries.
 	const [startupPhase, setStartupPhase] = useState(
@@ -77,7 +78,7 @@ export const RConfigurationStep = (props: PropsWithChildren<NewProjectWizardStep
 			return;
 		}
 		setSelectedInterpreter(selectedRuntime);
-		setProjectConfig({ ...projectConfig, selectedRuntime });
+		projectConfig.selectedRuntime = selectedRuntime;
 	};
 
 	// Update the project configuration with the initial selections. This is done once when the
@@ -86,10 +87,7 @@ export const RConfigurationStep = (props: PropsWithChildren<NewProjectWizardStep
 	// complete in the other useEffect hook below.
 	useEffect(() => {
 		if (runtimeStartupComplete()) {
-			setProjectConfig({
-				...projectConfig,
-				selectedRuntime: selectedInterpreter,
-			});
+			projectConfig.selectedRuntime = selectedInterpreter;
 		}
 		// Pass an empty dependency array to run this effect only once when the component is mounted.
 		// eslint-disable-next-line react-hooks/exhaustive-deps
@@ -121,7 +119,7 @@ export const RConfigurationStep = (props: PropsWithChildren<NewProjectWizardStep
 							LanguageIds.R
 						);
 						setSelectedInterpreter(selectedRuntime);
-						setProjectConfig({ ...projectConfig, selectedRuntime });
+						projectConfig.selectedRuntime = selectedRuntime;
 					}
 					setStartupPhase(phase);
 				}
@@ -138,7 +136,7 @@ export const RConfigurationStep = (props: PropsWithChildren<NewProjectWizardStep
 		<PositronWizardStep
 			title={(() => localize(
 				'rConfigurationStep.title',
-				'Set up project configuration'
+				"Set up project configuration"
 			))()}
 			backButtonConfig={{ onClick: props.back }}
 			cancelButtonConfig={{ onClick: props.cancel }}
@@ -154,11 +152,11 @@ export const RConfigurationStep = (props: PropsWithChildren<NewProjectWizardStep
 			<PositronWizardSubStep
 				title={(() => localize(
 					'rConfigurationStep.versionSubStep.title',
-					'R Version'
+					"R Version"
 				))()}
 				description={(() => localize(
 					'rConfigurationStep.versionSubStep.description',
-					'Select a version of R to launch your project with. You can modify this later if you change your mind.'
+					"Select a version of R to launch your project with. You can modify this later if you change your mind."
 				))()}
 			>
 				<DropDownListBox
@@ -169,11 +167,11 @@ export const RConfigurationStep = (props: PropsWithChildren<NewProjectWizardStep
 						!runtimeStartupComplete()
 							? localize(
 								'rConfigurationStep.versionSubStep.dropDown.title.loading',
-								'Discovering R versions...'
+								"Discovering R versions..."
 							)
 							: localize(
 								'rConfigurationStep.versionSubStep.dropDown.title',
-								'Select a version of R'
+								"Select a version of R"
 							))()}
 					// TODO: if the runtime startup phase is complete, but there are no suitable
 					// interpreters, show a message that no suitable interpreters were found and the
@@ -195,20 +193,20 @@ export const RConfigurationStep = (props: PropsWithChildren<NewProjectWizardStep
 			<PositronWizardSubStep
 				title={(() => localize(
 					'rConfigurationStep.additionalConfigSubStep.title',
-					'Additional Configuration'
+					"Additional Configuration"
 				))()}
 			>
 				<div className='renv-configuration'>
 					<Checkbox
 						label={(() => localize(
 							'rConfigurationStep.additionalConfigSubStep.useRenv.label',
-							'Use `renv` to create a reproducible environment'
+							"Use `renv` to create a reproducible environment"
 						))()}
-						onChanged={checked => setProjectConfig({ ...projectConfig, useRenv: checked })}
+						onChanged={checked => projectConfig.useRenv = checked}
 					/>
 					<ExternalLink
 						className='renv-docs-external-link'
-						openerService={newProjectWizardState.openerService}
+						openerService={openerService}
 						href='https://rstudio.github.io/renv/articles/renv.html'
 						title='https://rstudio.github.io/renv/articles/renv.html'
 					>

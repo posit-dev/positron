@@ -2,14 +2,11 @@
  *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
-// React.
-import { useState } from 'react';
-
 // Other dependencies.
 import { IFileDialogService } from 'vs/platform/dialogs/common/dialogs';
 import { ILanguageRuntimeMetadata, ILanguageRuntimeService } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { IRuntimeSessionService } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
-import { IRuntimeStartupService } from 'vs/workbench/services/runtimeStartup/common/runtimeStartupService';
+import { IRuntimeStartupService, RuntimeStartupPhase } from 'vs/workbench/services/runtimeStartup/common/runtimeStartupService';
 import { EnvironmentSetupType, NewProjectType, NewProjectWizardStep } from 'vs/workbench/browser/positronNewProjectWizard/interfaces/newProjectWizardEnums';
 import { IWorkbenchLayoutService } from 'vs/workbench/services/layout/browser/layoutService';
 import { IKeybindingService } from 'vs/platform/keybinding/common/keybinding';
@@ -19,6 +16,7 @@ import { IPathService } from 'vs/workbench/services/path/common/pathService';
 import { IFileService } from 'vs/platform/files/common/files';
 import { ICommandService } from 'vs/platform/commands/common/commands';
 import { PythonEnvironmentProviderInfo } from 'vs/workbench/browser/positronNewProjectWizard/utilities/pythonEnvironmentStepUtils';
+import { Disposable } from 'vs/base/common/lifecycle';
 
 /**
  * NewProjectWizardServices interface. Defines the set of services that are required by the New
@@ -42,10 +40,11 @@ interface NewProjectWizardServices {
  * NewProjectWizardStateProps interface. Defines the set of properties to initialize the New Project
  * Wizard state.
  */
-export interface NewProjectWizardStateProps {
+export interface NewProjectWizardStateConfig {
 	readonly services: NewProjectWizardServices;
 	readonly parentFolder: string;
-	readonly pythonEnvProviders: PythonEnvironmentProviderInfo[];
+	readonly initialStep: NewProjectWizardStep;
+	readonly steps?: NewProjectWizardStep[];
 }
 
 /**
@@ -53,88 +52,145 @@ export interface NewProjectWizardStateProps {
  * in the New Project Wizard Modal.
  */
 export interface NewProjectWizardConfiguration {
-	readonly selectedRuntime: ILanguageRuntimeMetadata | undefined;
-	readonly projectType: NewProjectType | undefined;
-	readonly projectName: string;
-	readonly parentFolder: string;
-	readonly initGitRepo: boolean;
-	readonly openInNewWindow: boolean;
-	readonly pythonEnvSetupType: EnvironmentSetupType | undefined;
-	readonly pythonEnvProvider: string | undefined;
-	readonly installIpykernel: boolean | undefined;
-	readonly useRenv: boolean | undefined;
+	selectedRuntime: ILanguageRuntimeMetadata | undefined;
+	projectType: NewProjectType | undefined;
+	projectName: string;
+	parentFolder: string;
+	initGitRepo: boolean;
+	openInNewWindow: boolean;
+	pythonEnvSetupType: EnvironmentSetupType | undefined;
+	pythonEnvProvider: string | undefined;
+	installIpykernel: boolean | undefined;
+	useRenv: boolean | undefined;
 }
 
 /**
- * NewProjectWizardState interface. Defines the state of the New Project Wizard.
+ * INewProjectWizardState interface. Defines the state of the New Project Wizard.
  */
-export interface NewProjectWizardState extends NewProjectWizardServices {
-	projectConfig: NewProjectWizardConfiguration;
-	wizardSteps: NewProjectWizardStep[]; // TODO: remove: this is for debugging
-	currentStep: NewProjectWizardStep;
-	pythonEnvProviders: PythonEnvironmentProviderInfo[];
-	setProjectConfig(config: NewProjectWizardConfiguration): void;
+export interface INewProjectWizardState {
+	projectConfig: NewProjectWizardConfiguration; // (config: NewProjectWizardConfiguration) => void;
 	goToNextStep: (step: NewProjectWizardStep) => void;
 	goToPreviousStep: () => void;
 }
 
 /**
- * The useNewProjectWizardState hook. This hook initializes the state for the New Project Wizard.
- * @param props The NewProjectWizardStateProps.
- * @returns The initial NewProjectWizardState.
+ * NewProjectWizardState class.
+ * This class is used to keep track of the state of the New Project Wizard.
  */
-export const useNewProjectWizardState = (
-	props: NewProjectWizardStateProps
-): NewProjectWizardState => {
-	// Hooks.
-	const [projectConfig, setProjectConfig] = useState<NewProjectWizardConfiguration>({
-		selectedRuntime: undefined,
-		projectType: undefined,
-		projectName: '',
-		parentFolder: props.parentFolder ?? '',
-		initGitRepo: false,
-		openInNewWindow: false,
-		pythonEnvSetupType: undefined,
-		pythonEnvProvider: undefined,
-		installIpykernel: undefined,
-		useRenv: undefined
-	});
+export class NewProjectWizardState extends Disposable implements INewProjectWizardState {
+	private _services: NewProjectWizardServices;
+	private _projectConfig: NewProjectWizardConfiguration;
+	private _steps: NewProjectWizardStep[];
+	private _currentStep: NewProjectWizardStep;
+	private _pythonEnvProviders: PythonEnvironmentProviderInfo[];
 
-	// TODO: the initial step should be passed in via the props
-	const [wizardSteps, setWizardSteps] = useState([NewProjectWizardStep.ProjectTypeSelection]);
-	const [currentStep, setCurrentStep] = useState(NewProjectWizardStep.ProjectTypeSelection);
+	/**
+	 * Constructor for the NewProjectWizardState class.
+	 * @param config The NewProjectWizardStateConfiguration.
+	 */
+	constructor(config: NewProjectWizardStateConfig) {
+		super();
+		this._services = config.services;
+		this._projectConfig = {
+			selectedRuntime: undefined,
+			projectType: undefined,
+			projectName: '',
+			parentFolder: config.parentFolder ?? '',
+			initGitRepo: false,
+			openInNewWindow: false,
+			pythonEnvSetupType: undefined,
+			pythonEnvProvider: undefined,
+			installIpykernel: undefined,
+			useRenv: undefined,
+		};
+		this._steps = config.steps ?? [config.initialStep];
+		this._currentStep = config.initialStep;
+		this._pythonEnvProviders = [];
 
-	// Go to the next step by pushing the next step onto the stack of steps,
-	// and setting the new current step to the next step.
-	const goToNextStep = (step: NewProjectWizardStep) => {
-		setWizardSteps([...wizardSteps, step]);
-		setCurrentStep(step);
-	};
+		this._register(
+			this._services.runtimeStartupService.onDidChangeRuntimeStartupPhase(async (phase) => {
+				if (phase === RuntimeStartupPhase.Discovering) {
+					// At this phase, the extensions that provide language runtimes will have been activated.
+					this._pythonEnvProviders = await this._services.commandService.executeCommand(
+						'python.getCreateEnvironmentProviders'
+					) ?? [];
+				}
+			}));
+	}
 
-	// Go to the previous step by popping the current step off the stack,
-	// and setting the new current step to the previous step.
-	const goToPreviousStep = () => {
-		// TODO: if the current step is the only step and this function is called,
-		// should this be a no-op?
-		const steps = wizardSteps;
-		steps.pop();
-		setWizardSteps(steps);
-		if (steps.length === 0) {
-			setCurrentStep(NewProjectWizardStep.None);
-			return;
+	/**
+	 * Gets the New Project Wizard state.
+	 */
+	get projectConfig(): NewProjectWizardConfiguration {
+		return this._projectConfig;
+	}
+
+	/**
+	 * Sets the New Project Wizard state.
+	 */
+	set projectConfig(config: NewProjectWizardConfiguration) {
+		this._projectConfig = config;
+	}
+
+	/**
+	 * Gets the Python environment providers.
+	 */
+	get pythonEnvProviders(): PythonEnvironmentProviderInfo[] {
+		return this._pythonEnvProviders;
+	}
+
+	/**
+	 * Gets the current step in the New Project Wizard.
+	 */
+	get currentStep(): NewProjectWizardStep {
+		return this._currentStep;
+	}
+
+	/**
+	 * Gets the services used by the New Project Wizard.
+	 */
+	get services(): NewProjectWizardServices {
+		return this._services;
+	}
+
+	/**
+	 * Sets the provided next step as the current step in the New Project Wizard.
+	 * Go to the next step by pushing the next step onto the stack of steps,
+	 * and setting the new current step to the next step.
+	 * @param step The step to go to.
+	 * @returns The next step.
+	 */
+	goToNextStep(step: NewProjectWizardStep): NewProjectWizardStep {
+		// If the step already exists in the stack, don't add it again. Although the
+		// steps are not expected to be repeated, this check prevents us from adding
+		// the same step multiple times.
+		const stepAlreadyExists = this._steps.findIndex((s) => s === step) !== -1;
+		if (stepAlreadyExists) {
+			this._services.logService.error('[Project Wizard] Step already exists');
+			return this._currentStep;
 		}
-		setCurrentStep(steps[steps.length - 1]);
-	};
+		this._steps.push(step);
+		this._currentStep = step;
+		return this._currentStep;
+	}
 
-	// Return the New Project Wizard state.
-	return {
-		...props.services,
-		projectConfig,
-		wizardSteps, // TODO: remove: this is for debugging
-		currentStep,
-		pythonEnvProviders: props.pythonEnvProviders,
-		setProjectConfig,
-		goToNextStep,
-		goToPreviousStep,
-	};
-};
+	/**
+	 * Retrieves the previous step in the New Project Wizard and sets it as the current step.
+	 * Go to the previous step by popping the current step off the stack,
+	 * and setting the new current step to the previous step.
+	 * @returns The previous step.
+	 */
+	goToPreviousStep(): NewProjectWizardStep {
+		// If the current step is the only step and this function is called,
+		// there is no previous step to go to.
+		const currentStepIsFirstStep =
+			this._steps.findIndex((step) => step === this._currentStep) === 0;
+		if (currentStepIsFirstStep) {
+			this._services.logService.error('[Project Wizard] No previous step to go to');
+			return this._currentStep;
+		}
+		this._steps.pop();
+		this._currentStep = this._steps[this._steps.length - 1];
+		return this._currentStep;
+	}
+}

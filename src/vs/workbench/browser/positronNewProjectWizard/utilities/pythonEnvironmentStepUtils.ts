@@ -2,8 +2,6 @@
  *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
-import { ICommandService } from 'vs/platform/commands/common/commands';
-import { ILogService } from 'vs/platform/log/common/log';
 import { DropDownListBoxItem } from 'vs/workbench/browser/positronComponents/dropDownListBox/dropDownListBoxItem';
 import { EnvironmentSetupType, LanguageIds, PythonEnvironmentType, PythonRuntimeFilter } from 'vs/workbench/browser/positronNewProjectWizard/interfaces/newProjectWizardEnums';
 import { InterpreterInfo, getInterpreterDropdownItems } from 'vs/workbench/browser/positronNewProjectWizard/utilities/interpreterDropDownUtils';
@@ -137,24 +135,6 @@ export const locationForNewEnv = (
 				? '.conda'
 				: '';
 	return `${parentFolder}/${projectName}/${envDir}`;
-};
-
-/**
- * Constructs and returns the entries for the environment providers dropdown box.
- * @returns The entries for the environment providers dropdown box.
- */
-export const getEnvProviderInfoList = async (
-	commandService: ICommandService,
-	logService: ILogService,
-): Promise<PythonEnvironmentProviderInfo[]> => {
-	const envTypes = await commandService.executeCommand(
-		'python.getCreateEnvironmentProviders'
-	);
-	if (!envTypes) {
-		logService.debug('No Python Create Environment Providers found.');
-		return [];
-	}
-	return envTypes;
 };
 
 /**
