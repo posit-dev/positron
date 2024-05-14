@@ -39,12 +39,10 @@ jobs:
         arch: [arm64, x64]
         include:
           - arch: arm64
-            prebuild_arch: arm64
             arch_terminal: arm64
             homebrew_folder: /opt/homebrew
             rust_target_prefix: aarch64
           - arch: x64
-            prebuild_arch: x86
             arch_terminal: x86_64
             homebrew_folder: /usr/local
             rust_target_prefix: x86_64
@@ -66,8 +64,8 @@ jobs:
 
 
       # When running under x86, put x86 homebrew on the $PATH ahead of arm64
-      # homebrew. We also force Python 3.10 since 3.12 is not compatible with
-      # the version of node-gyp currently used by Positron.
+      # homebrew. We also force Python 3.10 (arm64) on x86 since 3.12 is not
+      # compatible with the version of node-gyp currently used by Positron.
       - name: Update PATH for x86_64
         id: update_path_for_zeromq
         if: matrix.arch == 'x64'
@@ -104,7 +102,6 @@ jobs:
       - name: Install dependencies
         env:
           npm_config_arch: ${{ matrix.arch }}
-          PREBUILD_ARCH: ${{ matrix.prebuild_arch }}
           POSITRON_GITHUB_PAT: ${{ secrets.POSITRON_GITHUB_PAT }}
         run: |
           export NVM_DIR="$HOME/.nvm"
