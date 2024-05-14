@@ -30,9 +30,6 @@
 		"basic": {
 			"patterns": [
 				{
-					"include": "#section"
-				},
-				{
 					"include": "#roxygen"
 				},
 				{
@@ -533,20 +530,6 @@
 					"match": "@(?!@)\\w*"
 				}
 			]
-		},
-		"section": {
-			"match": "^\\s*(#+)\\s*(.*?)(={4,}|-{4,}|#{4,})\\s*$",
-			"captures": {
-				"1": {
-					"name": "comment.line"
-				},
-				"2": {
-					"name": "entity.name.section"
-				},
-				"3": {
-					"name": "comment.line"
-				}
-			}
 		}
 	}
 }
