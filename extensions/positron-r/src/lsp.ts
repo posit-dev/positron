@@ -120,7 +120,10 @@ export class ArkLsp implements vscode.Disposable {
 		// With a `.` rather than a `-` so vscode-languageserver can look up related options correctly
 		const id = 'positron.r';
 
-		LOGGER.info(`Creating Positron R ${this._version} language client (port ${port})...`);
+		const message = `Creating Positron R ${this._version} language client (port ${port})`;
+		LOGGER.info(message);
+		outputChannel.appendLine(message);
+
 		this._client = new LanguageClient(id, `Positron R Language Server (${this._version})`, serverOptions, clientOptions);
 
 		const out = new PromiseHandles<void>();
