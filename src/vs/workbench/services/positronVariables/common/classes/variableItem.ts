@@ -39,12 +39,16 @@ export class VariableItem implements IVariableItem {
 	//#region Public Properties
 
 	/**
-	 * Gets the identifier.
+	 * Gets the unique identifier for the variable item.
 	 */
 	get id() {
-		// If the cached identifier hasn't been set yet, set it.
+		// If the cached identifier hasn't been set yet, set it. The identifier
+		// is formed by joining all of the path components with the client ID of
+		// variable, so that IDs are unique even if variables with the same name
+		// are present in different runtimes.
 		if (!this._cachedId) {
-			this._cachedId = JSON.stringify(this._variable.path);
+			this._cachedId =
+				`${this._variable.clientId}-${JSON.stringify(this._variable.path)}`;
 		}
 
 		// Return the cached identifier.
@@ -288,8 +292,8 @@ export class VariableItem implements IVariableItem {
 	/**
 	 * Requests that a viewer be opened for this variable.
 	 */
-	async view(): Promise<void> {
-		await this._variable.view();
+	async view(): Promise<string> {
+		return this._variable.view();
 	}
 
 	//#endregion Public Methods

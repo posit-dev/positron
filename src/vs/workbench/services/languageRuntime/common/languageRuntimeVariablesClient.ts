@@ -35,6 +35,13 @@ export class PositronVariable {
 	}
 
 	/**
+	 * Gets the ID of the comm client that owns the variable.
+	 */
+	get clientId() {
+		return this._comm.clientId;
+	}
+
+	/**
 	 * Gets the children of this variable, if any.
 	 *
 	 * @returns A promise that resolves to the list of children.
@@ -66,11 +73,11 @@ export class PositronVariable {
 	/**
 	 * Requests that the language runtime open a viewer for this variable.
 	 *
-	 * @returns A promise that resolves when the request has been sent.
+	 * @returns The ID of the viewer that was opened.
 	 */
-	async view(): Promise<void> {
+	async view(): Promise<string> {
 		const path = this.parentKeys.concat(this.data.access_key);
-		await this._comm.view(path);
+		return this._comm.view(path);
 	}
 }
 

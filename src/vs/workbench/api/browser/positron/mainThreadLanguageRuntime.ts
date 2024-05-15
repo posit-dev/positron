@@ -981,8 +981,6 @@ class ExtHostRuntimeClientInstance<Input, Output>
 	}
 
 	public override dispose(): void {
-		super.dispose();
-
 		// Cancel any pending RPCs
 		for (const promise of this._pendingRpcs.values()) {
 			promise.error('The language runtime exited before the RPC completed.');
@@ -1000,6 +998,10 @@ class ExtHostRuntimeClientInstance<Input, Output>
 			// Emit the closed event.
 			this.setClientState(RuntimeClientState.Closed);
 		}
+
+		// Dispose of the base class. We do this last so that the emitters for
+		// close events aren't disposed before we emit the close event.
+		super.dispose();
 	}
 }
 

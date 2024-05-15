@@ -32,6 +32,22 @@ export interface IPositronDataExplorerService {
 	initialize(): void;
 
 	/**
+	 * Associates a variable with an instance.
+	 *
+	 * @param instanceId The instance identifier.
+	 * @param variableId The variable identifier.
+	 */
+	setInstanceForVar(instanceId: string, variableId: string): void;
+
+	/**
+	 * Gets the instance for the specified variable.
+	 *
+	 * @param variableId The variable identifier.
+	 */
+	getInstanceForVar(variableId: string): IPositronDataExplorerInstance | undefined;
+
+	/**
+	 * Gets the instance for the specified identifier.
 	 *
 	 * @param identifier
 	 */

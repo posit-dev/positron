@@ -182,7 +182,12 @@
 					}
 				}
 			],
-			"result": {}
+			"result": {
+				"schema": {
+					"description": "The ID of the viewer that was opened.",
+					"type": "string"
+				}
+			}
 		}
 	],
 	"components": {
