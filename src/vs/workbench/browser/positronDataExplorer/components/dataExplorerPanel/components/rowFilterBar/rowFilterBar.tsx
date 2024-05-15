@@ -7,17 +7,18 @@ import 'vs/css!./rowFilterBar';
 
 // React.
 import * as React from 'react';
-import { useEffect, useRef, useState } from 'react'; // eslint-disable-line no-duplicate-imports
+import { useCallback, useEffect, useRef, useState } from 'react'; // eslint-disable-line no-duplicate-imports
 
 // Other dependencies.
 import { localize } from 'vs/nls';
 import * as DOM from 'vs/base/browser/dom';
 import { DisposableStore } from 'vs/base/common/lifecycle';
 import { Button } from 'vs/base/browser/ui/positronComponents/button/button';
-import { showContextMenu } from 'vs/workbench/browser/positronComponents/contextMenu/contextMenu';
+import { ColumnSchema } from 'vs/workbench/services/languageRuntime/common/positronDataExplorerComm';
 import { ContextMenuItem } from 'vs/workbench/browser/positronComponents/contextMenu/contextMenuItem';
 import { ContextMenuSeparator } from 'vs/workbench/browser/positronComponents/contextMenu/contextMenuSeparator';
 import { OKModalDialog } from 'vs/workbench/browser/positronComponents/positronModalDialog/positronOKModalDialog';
+import { ContextMenuEntry, showContextMenu } from 'vs/workbench/browser/positronComponents/contextMenu/contextMenu';
 import { usePositronDataExplorerContext } from 'vs/workbench/browser/positronDataExplorer/positronDataExplorerContext';
 import { PositronModalReactRenderer } from 'vs/workbench/browser/positronModalReactRenderer/positronModalReactRenderer';
 import { RowFilterWidget } from 'vs/workbench/browser/positronDataExplorer/components/dataExplorerPanel/components/rowFilterBar/components/rowFilterWidget';
@@ -51,33 +52,18 @@ export const RowFilterBar = () => {
 	);
 	const [rowFiltersHidden, setRowFiltersHidden] = useState(false);
 
-	// Main useEffect. This is where we set up event handlers.
-	useEffect(() => {
-		// Create the disposable store for cleanup.
-		const disposableStore = new DisposableStore();
-
-		// Set up event handler for backend state sync updating the filter bar
-		disposableStore.add(context.instance.dataExplorerClientInstance.onDidUpdateBackendState(
-			(state) => {
-				const newDescriptors = state.row_filters.map(getRowFilterDescriptor);
-				setRowFilterDescriptors(newDescriptors);
-			})
-		);
-
-		// Return the cleanup function that will dispose of the event handlers.
-		return () => disposableStore.dispose();
-	}, [context.instance]);
-
 	/**
 	 * Add row filter handler.
 	 * @param anchor The anchor element.
 	 * @param isFirstFilter Whether this is the first filter.
+	 * @param schema The column schema to preselect.
 	 * @param editRowFilterDescriptor The row filter to edit, or undefined, to add a row filter.
 	 */
-	const addRowFilterHandler = (
+	const addRowFilterHandler = useCallback((
 		anchor: HTMLElement,
-		isFirstFilter: boolean = false,
-		editRowFilterDescriptor?: RowFilterDescriptor
+		isFirstFilter: boolean,
+		schema?: ColumnSchema,
+		editRowFilterDescriptor?: RowFilterDescriptor,
 	) => {
 		// Create the renderer.
 		const renderer = new PositronModalReactRenderer({
@@ -145,19 +131,26 @@ export const RowFilterBar = () => {
 					renderer={renderer}
 					anchor={anchor}
 					isFirstFilter={isFirstFilter}
+					schema={schema}
 					editRowFilter={editRowFilterDescriptor}
 					onApplyRowFilter={applyRowFilterHandler}
 				/>
 			);
 		}
-	};
+	}, [
+		context.instance.dataExplorerClientInstance,
+		context.instance.tableDataDataGridInstance,
+		context.keybindingService,
+		context.layoutService,
+		rowFilterDescriptors
+	]);
 
 	/**
 	 * Filter button pressed handler.
 	 */
 	const filterButtonPressedHandler = async () => {
 		// Build the context menu entries.
-		const entries: (ContextMenuItem | ContextMenuSeparator)[] = [];
+		const entries: ContextMenuEntry[] = [];
 		entries.push(new ContextMenuItem({
 			label: localize('positron.dataExplorer.addFilter', "Add Filter"),
 			icon: 'positron-add-filter',
@@ -225,6 +218,32 @@ export const RowFilterBar = () => {
 		);
 	};
 
+	// Main useEffect. This is where we set up event handlers.
+	useEffect(() => {
+		// Create the disposable store for cleanup.
+		const disposableStore = new DisposableStore();
+
+		// Add the onAddFilter event handler.
+		disposableStore.add(context.instance.tableDataDataGridInstance.onAddFilter(schema => {
+			addRowFilterHandler(
+				addFilterButtonRef.current,
+				rowFilterDescriptors.length === 0,
+				schema
+			);
+		}));
+
+		// Add the onDidUpdateBackendState event handler.
+		disposableStore.add(context.instance.dataExplorerClientInstance.onDidUpdateBackendState(
+			state => {
+				const newDescriptors = state.row_filters.map(getRowFilterDescriptor);
+				setRowFilterDescriptors(newDescriptors);
+			})
+		);
+
+		// Return the cleanup function that will dispose of the event handlers.
+		return () => disposableStore.dispose();
+	}, [addRowFilterHandler, context.instance, rowFilterDescriptors.length]);
+
 	// Render.
 	return (
 		<div ref={ref} className='row-filter-bar'>
@@ -253,6 +272,7 @@ export const RowFilterBar = () => {
 								addRowFilterHandler(
 									rowFilterWidgetRefs.current[index],
 									index === 0,
+									rowFilter.schema,
 									rowFilter
 								);
 							}
