@@ -15,6 +15,7 @@ import { PromiseHandles } from './util';
 import { PythonErrorHandler } from './errorHandler';
 import { PythonHelpTopicProvider } from './help';
 import { PythonStatementRangeProvider } from './statementRange';
+import { PythonLspOutputChannelManager } from './lspOutputChannelManager';
 
 /**
  * The state of the language server.
@@ -45,7 +46,7 @@ export class PythonLsp implements vscode.Disposable {
         private readonly serviceContainer: IServiceContainer,
         private readonly _version: string,
         private readonly _clientOptions: LanguageClientOptions,
-        private readonly _notebookUri: vscode.Uri | undefined,
+        private readonly _metadata: positron.RuntimeSessionMetadata,
     ) {}
 
     /**
@@ -79,11 +80,19 @@ export class PythonLsp implements vscode.Disposable {
             return out.promise;
         };
 
+        const { notebookUri } = this._metadata;
+
+        // Persistant output channel, used across multiple sessions of the same name + mode combination
+        const outputChannel = PythonLspOutputChannelManager.instance.getOutputChannel(
+            this._metadata.sessionName,
+            this._metadata.sessionMode,
+        );
+
         // If this client belongs to a notebook, set the document selector to only include that notebook.
         // Otherwise, this is the main client for this language, so set the document selector to include
         // untitled Python files, in-memory Python files (e.g. the console), and Python files on disk.
-        this._clientOptions.documentSelector = this._notebookUri
-            ? [{ language: 'python', pattern: this._notebookUri.path }]
+        this._clientOptions.documentSelector = notebookUri
+            ? [{ language: 'python', pattern: notebookUri.path }]
             : [
                   { language: 'python', scheme: 'untitled' },
                   { language: 'python', scheme: 'inmemory' }, // Console
@@ -94,7 +103,13 @@ export class PythonLsp implements vscode.Disposable {
         // and that logs to the appropriate place.
         this._clientOptions.errorHandler = new PythonErrorHandler(this._version, port);
 
-        traceInfo(`Creating Positron Python ${this._version} language client (port ${port})...`);
+        // Override default output channel with our persistant one that is reused across sessions.
+        this._clientOptions.outputChannel = outputChannel;
+
+        const message = `Creating Positron Python ${this._version} language client (port ${port})`;
+        traceInfo(message);
+        outputChannel.appendLine(message);
+
         this._client = new LanguageClient(
             PYTHON_LANGUAGE,
             `Positron Python Language Server (${this._version})`,
