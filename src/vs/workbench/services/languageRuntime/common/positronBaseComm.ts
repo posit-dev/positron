@@ -155,6 +155,13 @@ export class PositronBaseComm extends Disposable {
 	public onDidClose: Event<void>;
 
 	/**
+	 * Provides access to the ID of the client instance.
+	 */
+	get clientId(): string {
+		return this.clientInstance.getClientId();
+	}
+
+	/**
 	 * Create a new event emitter.
 	 * @param name The name of the event, as a JSON-RPC method name.
 	 * @param properties The names of the properties in the event payload; used

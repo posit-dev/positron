@@ -74,6 +74,11 @@ export class PositronDataExplorerInstance extends Disposable implements IPositro
 	 */
 	private readonly _onDidChangeColumnsScrollOffsetEmitter = this._register(new Emitter<number>);
 
+	/**
+	 * The onDidRequestFocus event emitter.
+	 */
+	private readonly _onDidRequestFocusEmitter = this._register(new Emitter<void>());
+
 	//#endregion Private Properties
 
 	//#region Constructor & Dispose
@@ -81,7 +86,9 @@ export class PositronDataExplorerInstance extends Disposable implements IPositro
 	/**
 	 * Constructor.
 	 * @param languageName The language name.
-	 * @param dataExplorerClientInstance The DataExplorerClientInstance.
+	 * @param dataExplorerClientInstance The DataExplorerClientInstance. The
+	 * data explorer takes ownership of the client instance and will dispose it
+	 * when it is disposed.
 	 */
 	constructor(languageName: string, dataExplorerClientInstance: DataExplorerClientInstance) {
 		// Call the base class's constructor.
@@ -110,6 +117,17 @@ export class PositronDataExplorerInstance extends Disposable implements IPositro
 			this._tableDataDataGridInstance.selectColumn(columnIndex);
 			this._tableDataDataGridInstance.scrollToColumn(columnIndex);
 		}));
+	}
+
+	/**
+	 * dispose override method.
+	 */
+	override dispose(): void {
+		// Dispose the client instance.
+		this._dataExplorerClientInstance.dispose();
+
+		// Call the base class's dispose method.
+		super.dispose();
 	}
 
 	//#endregion Constructor & Dispose
@@ -175,6 +193,13 @@ export class PositronDataExplorerInstance extends Disposable implements IPositro
 	}
 
 	/**
+	 * Requests focus.
+	 */
+	requestFocus(): void {
+		this._onDidRequestFocusEmitter.fire();
+	}
+
+	/**
 	 * onDidClose event.
 	 */
 	readonly onDidClose = this._onDidCloseEmitter.event;
@@ -193,6 +218,11 @@ export class PositronDataExplorerInstance extends Disposable implements IPositro
 	 * onDidChangeColumnsScrollOffset event.
 	 */
 	readonly onDidChangeColumnsScrollOffset = this._onDidChangeColumnsScrollOffsetEmitter.event;
+
+	/**
+	 * onDidRequestFocus event.
+	 */
+	readonly onDidRequestFocus = this._onDidRequestFocusEmitter.event;
 
 	//#endregion IPositronDataExplorerInstance Implementation
 }

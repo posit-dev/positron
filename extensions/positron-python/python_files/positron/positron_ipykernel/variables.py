@@ -564,8 +564,8 @@ class VariablesService:
         access_key = path[-1]
 
         title = str(decode_access_key(access_key))
-        self.kernel.data_explorer_service.register_table(value, title, variable_path=path)
-        self._send_result({})
+        comm_id = self.kernel.data_explorer_service.register_table(value, title, variable_path=path)
+        self._send_result(comm_id)
 
     def _open_connections_pane(self, path: List[str], value: Any) -> None:
         """Opens a Connections comm for the variable at the requested
