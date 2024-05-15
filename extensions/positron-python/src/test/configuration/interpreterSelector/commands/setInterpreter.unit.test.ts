@@ -47,6 +47,10 @@ import { Commands, Octicons } from '../../../../client/common/constants';
 import { IInterpreterService, PythonEnvironmentsChangedEvent } from '../../../../client/interpreter/contracts';
 import { createDeferred, sleep } from '../../../../client/common/utils/async';
 import { SystemVariables } from '../../../../client/common/variables/systemVariables';
+import { IServiceContainer } from '../../../../client/ioc/types';
+import { checkAndInstallPython } from '../../../../client/positron/extension';
+import { IInstaller } from '../../../../client/common/types';
+import { Product } from '../../../../client/common/types';
 
 const untildify = require('untildify');
 
@@ -387,6 +391,7 @@ suite('Set Interpreter Command', () => {
             assert.deepStrictEqual(actualParameters, expectedParameters, 'Params not equal');
         });
 
+        // iiz potential
         test('Picker should install python if corresponding item is selected', async () => {
             const state: InterpreterStateArgs = { path: 'some path', workspace: undefined };
             const multiStepInput = TypeMoq.Mock.ofType<IMultiStepInput<InterpreterStateArgs>>();
@@ -1198,15 +1203,13 @@ suite('Set Interpreter Command', () => {
             };
 
             for (const testValue of discoveredPropertyTestMatrix) {
-                test(`A telemetry event should be sent with the discovered prop set to ${
-                    testValue.discovered
-                } if the interpreter had ${
-                    testValue.discovered ? 'already' : 'not'
-                } been discovered, with an interpreter path path that is ${testValue.pathType})`, async () => {
-                    const telemetryResult = await testDiscovered(testValue.discovered, testValue.pathType);
+                test(`A telemetry event should be sent with the discovered prop set to ${testValue.discovered
+                    } if the interpreter had ${testValue.discovered ? 'already' : 'not'
+                    } been discovered, with an interpreter path path that is ${testValue.pathType})`, async () => {
+                        const telemetryResult = await testDiscovered(testValue.discovered, testValue.pathType);
 
-                    expect(telemetryResult.properties).to.deep.equal({ discovered: testValue.discovered });
-                });
+                        expect(telemetryResult.properties).to.deep.equal({ discovered: testValue.discovered });
+                    });
             }
         });
     });
@@ -1528,4 +1531,27 @@ suite('Set Interpreter Command', () => {
             assert(pickInterpreter.calledOnce);
         });
     });
+});
+suite('Set up extension', () => {
+    let serviceContainer: IServiceContainer;
+    let interpreterService: IInterpreterService;
+    let installer: IInstaller;
+
+    setup(() => {
+        serviceContainer = mock<IServiceContainer>();
+        interpreterService = mock<IInterpreterService>();
+        installer = mock<IInstaller>();
+    });
+
+    test('checkAndInstallPython should install Python if necessary', async () => {
+        const pythonPath = 'path/to/env';
+
+        when(interpreterService.getInterpreterDetails(anything(), anything())).thenResolve();
+        when(installer.install(anything(), anything())).thenResolve();
+
+        await checkAndInstallPython(pythonPath, serviceContainer);
+
+        verify(installer.install(TypeMoq.It.isValue(Product.python), TypeMoq.It.isAny())).once();
+    });
+
 });
