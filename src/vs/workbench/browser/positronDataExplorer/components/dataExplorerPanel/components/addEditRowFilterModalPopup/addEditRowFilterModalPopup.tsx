@@ -136,6 +136,7 @@ interface AddEditRowFilterModalPopupProps {
 	renderer: PositronModalReactRenderer;
 	anchor: HTMLElement;
 	isFirstFilter: boolean;
+	schema?: ColumnSchema;
 	editRowFilter?: RowFilterDescriptor;
 	onApplyRowFilter: (rowFilter: RowFilterDescriptor) => void;
 }
@@ -152,7 +153,7 @@ export const AddEditRowFilterModalPopup = (props: AddEditRowFilterModalPopupProp
 
 	// State hooks.
 	const [selectedColumnSchema, setSelectedColumnSchema] = useState<ColumnSchema | undefined>(
-		props.editRowFilter?.schema
+		props.schema
 	);
 	const [selectedFilterType, setSelectedFilterType] = useState<RowFilterDescrType | undefined>(
 		props.editRowFilter?.descrType
