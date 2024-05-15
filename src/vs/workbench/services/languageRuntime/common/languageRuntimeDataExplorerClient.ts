@@ -58,8 +58,11 @@ export class DataExplorerClientInstance extends Disposable {
 
 	/**
 	 * The onDidClose event emitter.
+	 *
+	 * Note that this is not registered with the default disposable store
+	 * since can be fired during disposal.
 	 */
-	private readonly _onDidCloseEmitter = this._register(new Emitter<void>());
+	private readonly _onDidCloseEmitter = new Emitter<void>();
 
 	/**
 	 * The onDidSchemaUpdate event emitter.
@@ -118,6 +121,16 @@ export class DataExplorerClientInstance extends Disposable {
 		this._register(this._positronDataExplorerComm.onDidDataUpdate(() => {
 			this._onDidDataUpdateEmitter.fire();
 		}));
+	}
+
+	override dispose(): void {
+		// Call the base class's dispose method.
+		super.dispose();
+
+		// Dispose of the close emitter. We need to do this after calling the
+		// base class's dispose method so that the `onDidClose` event can be fired
+		// and handled during disposal.
+		this._onDidCloseEmitter.dispose();
 	}
 
 	//#endregion Constructor & Dispose
