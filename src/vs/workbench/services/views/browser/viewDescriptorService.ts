@@ -604,9 +604,8 @@ export class ViewDescriptorService extends Disposable implements IViewDescriptor
 	async loadCustomViewDescriptor(vc: IPositronViewCustomizations): Promise<void> {
 		// Here we are essentially copying the logic from onDidViewCustomizationsStorageChange
 		// but using our own custom passed view customizations instead of reading from storage
-		const viewLocations = viewOrderToViewLocations(vc.viewOrder);
 		const newViewContainerCustomizations = new Map<string, ViewContainerLocation>(Object.entries(vc.viewContainerLocations));
-		const newViewDescriptorCustomizations = new Map<string, string>(Object.entries(viewLocations));
+		const newViewDescriptorCustomizations = new Map<string, string>(Object.entries(viewOrderToViewLocations(vc.viewOrder)));
 		const viewContainersToMove: [ViewContainer, ViewContainerLocation][] = [];
 		const viewsToMove: { views: IViewDescriptor[]; from: ViewContainer; to: ViewContainer }[] = [];
 
@@ -677,10 +676,7 @@ export class ViewDescriptorService extends Disposable implements IViewDescriptor
 			if (!viewContainer) { continue; }
 			const viewContainerLocation = this.getViewContainerLocation(viewContainer);
 			const paneComposite = await this.paneCompositePartService.openPaneComposite(viewContainer.id, viewContainerLocation, false);
-
-			if (!paneComposite) { continue; }
-
-			const viewPaneContainer = paneComposite.getViewPaneContainer();
+			const viewPaneContainer = paneComposite?.getViewPaneContainer();
 			if (!viewPaneContainer) { continue; }
 
 			const model = this.getViewContainerModel(viewContainer);
@@ -688,11 +684,15 @@ export class ViewDescriptorService extends Disposable implements IViewDescriptor
 			// Move each view to the correct location
 			for (let i = 0; i < views.length; i++) {
 				const viewId = views[i];
+
+				// This physically moves the view
+				(viewPaneContainer as ViewPaneContainer).movePaneToIndex(viewId, i);
+
 				const viewDescriptor = model.visibleViewDescriptors.find(vd => vd.id === viewId)!;
 				const newPosition = model.visibleViewDescriptors[i];
 				if (viewDescriptor.id === newPosition.id) { continue; }
-				(viewPaneContainer as ViewPaneContainer).movePaneToIndex(viewId, i);
 
+				// This updates the model so the view is in the correct position on a restart
 				model.move(viewDescriptor.id, newPosition.id);
 			}
 		}
@@ -704,7 +704,6 @@ export class ViewDescriptorService extends Disposable implements IViewDescriptor
 		return {
 			viewContainerLocations: this.viewCustomizations.viewContainerLocations,
 			viewOrder: viewLocationsToViewOrder(this.viewCustomizations.viewLocations),
-			viewContainerBadgeEnablementStates: this.viewCustomizations.viewContainerBadgeEnablementStates
 		};
 	}
 	// --- End Positron ---
