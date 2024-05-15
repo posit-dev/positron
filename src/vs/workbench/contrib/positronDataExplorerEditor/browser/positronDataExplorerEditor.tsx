@@ -11,7 +11,7 @@ import * as React from 'react';
 // Other dependencies.
 import * as DOM from 'vs/base/browser/dom';
 import { Event, Emitter } from 'vs/base/common/event';
-import { EditorCloseContext, IEditorOpenContext } from 'vs/workbench/common/editor';
+import { IEditorOpenContext } from 'vs/workbench/common/editor';
 import { CancellationToken } from 'vs/base/common/cancellation';
 import { IEditorOptions } from 'vs/platform/editor/common/editor';
 import { IStorageService } from 'vs/platform/storage/common/storage';
@@ -283,13 +283,6 @@ export class PositronDataExplorerEditor extends EditorPane implements IReactComp
 				// Add event handlers.
 				this._register(positronDataExplorerInstance.onDidRequestFocus(() => {
 					this._editorService.openEditor(input);
-				}));
-				this._register(this._group.onDidCloseEditor(e => {
-					// When the editor is closed via user gesture, dispose the
-					// PositronDataExplorer instance.
-					if (e.editor === input && e.context === EditorCloseContext.UNKNOWN) {
-						positronDataExplorerInstance.dispose();
-					}
 				}));
 
 				// Logging.
