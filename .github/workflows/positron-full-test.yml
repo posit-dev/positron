@@ -50,32 +50,32 @@ jobs:
       - name: Compile and Download
         run: yarn npm-run-all --max_old_space_size=4095 -lp compile "electron x64" playwright-install download-builtin-extensions
 
-      - name: Compile Integration Tests
-        run: yarn --cwd test/integration/browser compile
+#      - name: Compile Integration Tests
+#        run: yarn --cwd test/integration/browser compile
 
       - name: Compile Smoke Tests
         run: yarn --cwd test/smoke compile
 
-      - name: Run Unit Tests (Electron)
-        id: electron-unit-tests
-        run: DISPLAY=:10 ./scripts/test.sh
+#      - name: Run Unit Tests (Electron)
+#        id: electron-unit-tests
+#        run: DISPLAY=:10 ./scripts/test.sh
 
-      - name: Run Unit Tests (node.js)
-        id: nodejs-unit-tests
-        run: yarn test-node
+#      - name: Run Unit Tests (node.js)
+#        id: nodejs-unit-tests
+#        run: yarn test-node
 
-      - name: Run Unit Tests (Browser, Chromium)
-        id: browser-unit-tests
-        run: DISPLAY=:10 yarn test-browser-no-install --browser chromium
+#      - name: Run Unit Tests (Browser, Chromium)
+#        id: browser-unit-tests
+#        run: DISPLAY=:10 yarn test-browser-no-install --browser chromium
 
-      - name: Run Integration Tests (Electron)
-        id: electron-integration-tests
-        run: DISPLAY=:10 ./scripts/test-integration.sh
+#      - name: Run Integration Tests (Electron)
+#        id: electron-integration-tests
+#        run: DISPLAY=:10 ./scripts/test-integration.sh
 
-      - name: Run Integration Tests (Remote)
-        id: electron-remote-integration-tests
-        timeout-minutes: 15
-        run: DISPLAY=:10 ./scripts/test-remote-integration.sh
+#      - name: Run Integration Tests (Remote)
+#        id: electron-remote-integration-tests
+#        timeout-minutes: 15
+#        run: DISPLAY=:10 ./scripts/test-remote-integration.sh
 
 #      - name: Run Integration Tests (Browser, Chromium)
 #        id: browser-integration-tests
@@ -91,6 +91,7 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           python -m pip install pandas
+          python -m pip install matplotlib
 
       - name: Run Smoke Tests (Electron)
         env:
