@@ -63,10 +63,19 @@ type OpenCommandActionDescriptor = {
 // --- Start Positron ---
 // Manually writing out the type here because the original type is defined in a
 // `browser/` level and thus can't be imported in this file.
-type CustomViewDescriptor = {
-	viewContainerLocations: Record<string, ViewContainerLocation>;
-	viewOrder: Record<string, string[]>;
-};
+type CustomViewDescriptor = Record<
+	string,
+	{
+		width?: number;
+		height?: number;
+		hidden: boolean;
+		alignment?: string;
+		viewContainers?: {
+			id: string;
+			views: string[];
+		}[];
+	}
+>;
 // --- End Positron ---
 
 /**
@@ -620,7 +629,7 @@ export interface IViewDescriptorService {
 	getViewLocationById(id: string): ViewContainerLocation | null;
 	// --- Start Positron ---
 	loadCustomViewDescriptor(customViewDescriptor: CustomViewDescriptor): void;
-	dumpViewCustomizations(): CustomViewDescriptor;
+	// dumpViewCustomizations(): CustomViewDescriptor;
 	// --- End Positron ---
 
 	readonly onDidChangeContainer: Event<{ views: IViewDescriptor[]; from: ViewContainer; to: ViewContainer }>;

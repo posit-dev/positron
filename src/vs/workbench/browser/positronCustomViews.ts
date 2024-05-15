@@ -10,26 +10,71 @@ import { IQuickPickItem } from 'vs/platform/quickinput/common/quickInput';
 import { IViewDescriptorService, ViewContainerLocation } from 'vs/workbench/common/views';
 import { IWorkbenchLayoutService, PanelAlignment, Parts } from 'vs/workbench/services/layout/browser/layoutService';
 
+export type KnownPositronLayoutParts = Parts.PANEL_PART | Parts.SIDEBAR_PART | Parts.AUXILIARYBAR_PART;
 
-// Copied from src/vs/workbench/services/views/browser/viewDescriptorService.ts to
-// avoid exporting the interface and creating more diffs
-export interface IPositronViewCustomizations {
-	viewContainerLocations: IStringDictionary<ViewContainerLocation>;
-	// Our own logic here
-	// Keyed by view container ID and then the view ids in the order they are desired.
-	viewOrder: IStringDictionary<string[]>;
-}
-
-export function viewOrderToViewLocations(viewOrder: IStringDictionary<string[]>) {
-	const viewLocations: IStringDictionary<string> = {};
-	for (const containerId in viewOrder) {
-		const viewIds = viewOrder[containerId];
-		viewIds.forEach((viewId, index) => {
-			viewLocations[viewId] = containerId;
-		});
+export type CustomPositronLayoutDescription = Record<
+	KnownPositronLayoutParts,
+	{
+		width?: number;
+		height?: number;
+		hidden: boolean;
+		alignment?: PanelAlignment;
+		viewContainers?: {
+			id: string;
+			views: string[];
+		}[];
 	}
-	return viewLocations;
+>;
+
+export type PartLayoutDescription = CustomPositronLayoutDescription[KnownPositronLayoutParts];
+
+
+export type PartViewInfo = {
+	partView: ISerializableView;
+	currentSize: IViewSize;
+	alignment?: PanelAlignment;
+	hidden: boolean;
+	hideFn: (hidden: boolean, skipLayout?: boolean | undefined) => void;
+};
+
+
+const partToViewContainerLocation: Record<KnownPositronLayoutParts, ViewContainerLocation> = {
+	[Parts.PANEL_PART]: ViewContainerLocation.Panel,
+	[Parts.SIDEBAR_PART]: ViewContainerLocation.Sidebar,
+	[Parts.AUXILIARYBAR_PART]: ViewContainerLocation.AuxiliaryBar,
+};
+
+/**
+ * Convert our custom layout description to the `IViewsCustomizations` format that the
+ * `viewDescriptorService` uses for its internal state.
+ * @param layout Positron custom layout description
+ * @returns Simplified view info in the form of viewContainerLocations and
+ * viewDescriptorCustomizations. See `IViewsCustomizations` for more info.
+ */
+export function layoutDescriptionToViewInfo(layout: CustomPositronLayoutDescription) {
+	const viewContainerLocations = new Map<string, ViewContainerLocation>();
+	const viewDescriptorCustomizations = new Map<string, string>();
+
+	for (const [part, info] of Object.entries(layout)) {
+		const viewContainers = info.viewContainers;
+		if (!viewContainers) { continue; }
+		const viewContainerLocation = partToViewContainerLocation[part as KnownPositronLayoutParts];
+
+		for (const viewContainer of viewContainers) {
+			viewContainerLocations.set(viewContainer.id, viewContainerLocation);
+
+			for (const viewId of viewContainer.views) {
+				viewDescriptorCustomizations.set(viewId, viewContainer.id);
+			}
+		}
+	}
+
+	return {
+		viewContainerLocations,
+		viewDescriptorCustomizations,
+	};
 }
+
 
 export function viewLocationsToViewOrder(viewLocations: IStringDictionary<string>) {
 	const viewOrder: IStringDictionary<string[]> = {};
@@ -43,138 +88,61 @@ export function viewLocationsToViewOrder(viewLocations: IStringDictionary<string
 	return viewOrder;
 }
 
-export interface PartLayoutDescription {
-	width?: number;
-	height?: number;
-	hidden: boolean;
-}
-
-interface PanelLayoutDescription extends PartLayoutDescription {
-	alignment: PanelAlignment;
-}
-
-
-export interface CustomPositronLayoutDescription {
-	[Parts.PANEL_PART]: PanelLayoutDescription;
-	[Parts.SIDEBAR_PART]: PartLayoutDescription;
-	[Parts.AUXILIARYBAR_PART]: PartLayoutDescription;
-}
-
-export type PartViewInfo = {
-	partView: ISerializableView;
-	currentSize: IViewSize;
-	alignment?: PanelAlignment;
-	hidden: boolean;
-	hideFn: (hidden: boolean, skipLayout?: boolean | undefined) => void;
-};
-
-export type KnownPositronLayoutParts = keyof CustomPositronLayoutDescription;
-
-
-// export interface IPositronViewCustomizations extends IViewsCustomizations {
-// 	viewOptions?: {
-// 		[viewId: string]: { indexInContainer?: number; expanded?: boolean };
-// 	};
-// }
-export interface PositronCustomLayoutDescriptor {
-	layout: CustomPositronLayoutDescription;
-	views: IPositronViewCustomizations;
-}
-
 /**
  * Convenience function to load a custom layout and views from a descriptor.
  * @param description Description of the custom layout and views
  * @param accessor Services accessor
  */
-export function loadCustomPositronLayout(description: PositronCustomLayoutDescriptor, accessor: ServicesAccessor) {
-	accessor.get(IWorkbenchLayoutService).enterCustomLayout(description.layout);
-	accessor.get(IViewDescriptorService).loadCustomViewDescriptor(description.views);
+export function loadCustomPositronLayout(description: CustomPositronLayoutDescription, accessor: ServicesAccessor) {
+	accessor.get(IWorkbenchLayoutService).enterCustomLayout(description);
+	accessor.get(IViewDescriptorService).loadCustomViewDescriptor(description);
 }
 
-export function createPositronCustomLayoutDescriptor(accessor: ServicesAccessor): PositronCustomLayoutDescriptor {
-	const views = accessor.get(IViewDescriptorService).dumpViewCustomizations();
-	const layoutService = accessor.get(IWorkbenchLayoutService);
+// export function createPositronCustomLayoutDescriptor(accessor: ServicesAccessor): CustomPositronLayoutDescription {
+// 	const views = accessor.get(IViewDescriptorService).dumpViewCustomizations();
+// 	const layoutService = accessor.get(IWorkbenchLayoutService);
 
-	const getPartLayout = (part: KnownPositronLayoutParts) => {
-		const { currentSize, hidden } = layoutService.getPartViewInfo(part);
-		return { width: currentSize.width, height: currentSize.height, hidden };
-	};
+// 	const getPartLayout = (part: KnownPositronLayoutParts) => {
+// 		const { currentSize, hidden } = layoutService.getPartViewInfo(part);
+// 		return { width: currentSize.width, height: currentSize.height, hidden };
+// 	};
 
-	return {
-		layout: {
-			[Parts.SIDEBAR_PART]: getPartLayout(Parts.SIDEBAR_PART),
-			[Parts.PANEL_PART]: getPartLayout(Parts.PANEL_PART) as PanelLayoutDescription,
-			[Parts.AUXILIARYBAR_PART]: getPartLayout(Parts.AUXILIARYBAR_PART),
-		},
-		views
-	};
-}
+// 	return {
+// 		[Parts.SIDEBAR_PART]: getPartLayout(Parts.SIDEBAR_PART),
+// 		[Parts.PANEL_PART]: getPartLayout(Parts.PANEL_PART),
+// 		[Parts.AUXILIARYBAR_PART]: getPartLayout(Parts.AUXILIARYBAR_PART),
+// 	};
+// }
 
 
-
-
-
-type LayoutPick = IQuickPickItem & { layoutDescriptor: PositronCustomLayoutDescriptor };
+type LayoutPick = IQuickPickItem & { layoutDescriptor: CustomPositronLayoutDescription };
 export const positronCustomLayoutOptions: LayoutPick[] = [
 	{
 		id: 'fourPaneDS',
 		label: localize('choseLayout.fourPaneDS', 'Four Pane Data Science'),
 		layoutDescriptor: {
-			'layout': {
-				'workbench.parts.sidebar': {
-					'width': 150,
-					'hidden': true
-				},
-				'workbench.parts.panel': {
-					'height': 400,
-					'hidden': false,
-					'alignment': 'center'
-				},
-				'workbench.parts.auxiliarybar': {
-					'width': 700,
-					'hidden': false
-				}
+			[Parts.SIDEBAR_PART]: {
+				'width': 150,
+				'hidden': true,
 			},
-			'views': {
-				'viewContainerLocations': {
-					'workbench.view.extension.positron-connections': 1,
-					'workbench.panel.positronSessions': 1,
-					'workbench.views.service.panel.f732882e-ffdb-495b-b500-31b109474b78': 1
-				},
-				viewOrder: {
-					'workbench.view.explorer': [
-						'connections'
-					],
-					'workbench.views.service.panel.f732882e-ffdb-495b-b500-31b109474b78': [
-						'workbench.panel.positronConsole',
-					]
-				},
-			}
-		},
-	},
-	{
-		id: 'sideBySideDS',
-		label: localize('choseLayout.sideBySideDS', 'Side by Side Data Science'),
-		layoutDescriptor: {
-			layout: {
-				[Parts.PANEL_PART]: { hidden: true, alignment: 'center' },
-				[Parts.SIDEBAR_PART]: { hidden: true },
-				[Parts.AUXILIARYBAR_PART]: { hidden: false },
+			[Parts.PANEL_PART]: {
+				'height': 400,
+				'hidden': false,
+				'alignment': 'center',
+				viewContainers: [
+					{
+						id: 'workbench.panel.positronSessions',
+						views: ['workbench.panel.positronConsole']
+					},
+					{
+						id: 'workbench.views.service.panel.f732882e-ffdb-495b-b500-31b109474b78',
+						views: ['connections']
+					}
+				]
 			},
-			views: {
-				'viewContainerLocations': {
-					'workbench.view.extension.positron-connections': 1,
-					'workbench.panel.positronSessions': 1
-				},
-				viewOrder: {
-					'workbench.view.explorer': [
-						'connections'
-
-					],
-					'workbench.panel.positronSessions': [
-						'workbench.panel.positronConsole',
-					]
-				},
+			[Parts.AUXILIARYBAR_PART]: {
+				'width': 700,
+				'hidden': false,
 			}
 		},
 	},
@@ -182,57 +150,92 @@ export const positronCustomLayoutOptions: LayoutPick[] = [
 		id: 'plot-console-variables',
 		label: localize('choseLayout.plotConsoleVariables', 'Plot, Console, Variables'),
 		layoutDescriptor: {
-			layout: {
-				[Parts.PANEL_PART]: { hidden: true, alignment: 'center' },
-				[Parts.SIDEBAR_PART]: { hidden: true },
-				[Parts.AUXILIARYBAR_PART]: { hidden: false },
-			},
-			views: {
-				'viewContainerLocations': {},
-				viewOrder: {
-					'workbench.panel.positronSession': [
-						'workbench.panel.positronPlots',
-						'workbench.panel.positronConsole',
-						'workbench.panel.positronVariables'
-					]
-				}
-
+			[Parts.PANEL_PART]: { hidden: true, alignment: 'center' },
+			[Parts.SIDEBAR_PART]: { hidden: true },
+			[Parts.AUXILIARYBAR_PART]: {
+				hidden: false,
+				viewContainers: [
+					{
+						id: 'workbench.panel.positronSession',
+						views: [
+							'workbench.panel.positronPlots',
+							'workbench.panel.positronConsole',
+							'workbench.panel.positronVariables'
+						]
+					}
+				]
 			},
 		},
 	},
-	{
-		id: 'heathen',
-		label: localize('choseLayout.heathenLayout', 'Heathen Layout'),
-		layoutDescriptor: {
-			'layout': {
-				'workbench.parts.sidebar': {
-					'hidden': true
-				},
-				'workbench.parts.panel': {
-					'height': 734,
-					'hidden': false,
-					alignment: 'center'
-				},
-				'workbench.parts.auxiliarybar': {
-					'hidden': true
-				}
-			},
-			'views': {
-				'viewContainerLocations': {
-					'workbench.view.extension.positron-connections': 1,
-					'workbench.panel.positronSessions': 1,
-				},
-				viewOrder: {
-					'workbench.panel.positronSessions': [
-						'workbench.panel.positronConsole',
-						'workbench.panel.positronVariables',
-						'terminal'
-					],
-					'workbench.view.explorer': [
-						'connections'
-					]
-				},
-			}
-		},
-	}
+	// {
+	// 	id: 'sideBySideDS',
+	// 	label: localize('choseLayout.sideBySideDS', 'Side by Side Data Science'),
+	// 	layoutDescriptor: {
+	// 		layout: {
+	// 			[Parts.PANEL_PART]: {
+	// 				hidden: true,
+	// 				alignment: 'center',
+	// 				viewContainers: [
+	// 					{
+	// 						id: 'workbench.panel.positronSessions',
+	// 						views: ['workbench.panel.positronConsole']
+	// 					}
+	// 				]
+	// 			 },
+	// 			[Parts.SIDEBAR_PART]: { hidden: true },
+	// 			[Parts.AUXILIARYBAR_PART]: { hidden: false },
+	// 		},
+	// 		views: {
+	// 			'viewContainerLocations': {
+	// 				'workbench.view.extension.positron-connections': 1,
+	// 				'workbench.panel.positronSessions': 1
+	// 			},
+	// 			viewOrder: {
+	// 				'workbench.view.explorer': [
+	// 					'connections'
+
+	// 				],
+	// 				'workbench.panel.positronSessions': [
+	// 					'workbench.panel.positronConsole',
+	// 				]
+	// 			},
+	// 		}
+	// 	},
+	// },
+
+	// {
+	// 	id: 'heathen',
+	// 	label: localize('choseLayout.heathenLayout', 'Heathen Layout'),
+	// 	layoutDescriptor: {
+	// 		'layout': {
+	// 			'workbench.parts.sidebar': {
+	// 				'hidden': true
+	// 			},
+	// 			'workbench.parts.panel': {
+	// 				'height': 734,
+	// 				'hidden': false,
+	// 				alignment: 'center'
+	// 			},
+	// 			'workbench.parts.auxiliarybar': {
+	// 				'hidden': true
+	// 			}
+	// 		},
+	// 		'views': {
+	// 			'viewContainerLocations': {
+	// 				'workbench.view.extension.positron-connections': 1,
+	// 				'workbench.panel.positronSessions': 1,
+	// 			},
+	// 			viewOrder: {
+	// 				'workbench.panel.positronSessions': [
+	// 					'workbench.panel.positronConsole',
+	// 					'workbench.panel.positronVariables',
+	// 					'terminal'
+	// 				],
+	// 				'workbench.view.explorer': [
+	// 					'connections'
+	// 				]
+	// 			},
+	// 		}
+	// 	},
+	// }
 ];

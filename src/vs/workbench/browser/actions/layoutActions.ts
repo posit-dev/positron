@@ -35,7 +35,7 @@ import { TitlebarStyle } from 'vs/platform/window/common/window';
 // --- Start Positron ---
 import { PositronToggleTopActionBarVisibilityAction } from 'vs/workbench/browser/parts/positronTopActionBar/positronTopActionBarActions';
 import { PositronTopActionBarVisibleContext } from 'vs/workbench/common/contextkeys';  // eslint-disable-line no-duplicate-imports
-import { createPositronCustomLayoutDescriptor, positronCustomLayoutOptions } from 'vs/workbench/browser/positronCustomViews';
+import { positronCustomLayoutOptions } from 'vs/workbench/browser/positronCustomViews';
 // --- End Positron ---
 
 // Register Icons
@@ -836,9 +836,8 @@ registerAction2(class extends Action2 {
 		quickPick.onDidAccept(() => {
 			const selected = quickPick.selectedItems[0] as (typeof positronCustomLayoutOptions[number]) | undefined;
 			if (selected?.id) {
-				const { layout, views } = selected.layoutDescriptor;
-				layoutService.enterCustomLayout(layout);
-				viewDescriptorService.loadCustomViewDescriptor(views);
+				layoutService.enterCustomLayout(selected.layoutDescriptor);
+				viewDescriptorService.loadCustomViewDescriptor(selected.layoutDescriptor);
 			}
 			quickPick.hide();
 		});
@@ -846,23 +845,23 @@ registerAction2(class extends Action2 {
 	}
 });
 
-registerAction2(class DumpViewCustomizations extends Action2 {
+// registerAction2(class DumpViewCustomizations extends Action2 {
 
-	constructor() {
-		super({
-			id: 'workbench.action.dumpViewCustomizations',
-			title: localize2('dumpViewCustomizations', "Dump view customizations to console"),
-			category: Categories.View,
-			f1: true,
-		});
-	}
+// 	constructor() {
+// 		super({
+// 			id: 'workbench.action.dumpViewCustomizations',
+// 			title: localize2('dumpViewCustomizations', "Dump view customizations to console"),
+// 			category: Categories.View,
+// 			f1: true,
+// 		});
+// 	}
 
-	run(accessor: ServicesAccessor): void {
-		console.log(
-			JSON.stringify(createPositronCustomLayoutDescriptor(accessor), null, 2)
-		);
-	}
-});
+// 	run(accessor: ServicesAccessor): void {
+// 		console.log(
+// 			JSON.stringify(createPositronCustomLayoutDescriptor(accessor), null, 2)
+// 		);
+// 	}
+// });
 // --- End Positron ---
 
 // --- Move View

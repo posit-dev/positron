@@ -52,7 +52,7 @@ import { CustomTitleBarVisibility } from '../../platform/window/common/window';
 
 // --- Start Positron ---
 import { IPositronTopActionBarService } from 'vs/workbench/services/positronTopActionBar/browser/positronTopActionBarService';
-import { KnownPositronLayoutParts, PartLayoutDescription, PartViewInfo, PositronCustomLayoutDescriptor } from 'vs/workbench/browser/positronCustomViews';
+import { KnownPositronLayoutParts, PartLayoutDescription, PartViewInfo, CustomPositronLayoutDescription } from 'vs/workbench/browser/positronCustomViews';
 // --- End Positron ---
 
 //#region Layout Implementation
@@ -1423,11 +1423,14 @@ export abstract class Layout extends Disposable implements IWorkbenchLayoutServi
 		hideFn(hidden, true);
 	}
 
-	enterCustomLayout(layout: PositronCustomLayoutDescriptor['layout']) {
+	enterCustomLayout(layout: CustomPositronLayoutDescription) {
 
 		this._setCustomPartSize(Parts.SIDEBAR_PART, layout[Parts.SIDEBAR_PART]);
 		this._setCustomPartSize(Parts.PANEL_PART, layout[Parts.PANEL_PART]);
-		this.setPanelAlignment(layout[Parts.PANEL_PART].alignment);
+		const alignment = layout[Parts.PANEL_PART].alignment;
+		if (alignment) {
+			this.setPanelAlignment(alignment);
+		}
 		this._setCustomPartSize(Parts.AUXILIARYBAR_PART, layout[Parts.AUXILIARYBAR_PART]);
 
 		// Trigger layout refresh to reflect new settings.
