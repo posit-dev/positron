@@ -44,6 +44,7 @@ import {
     TriggerRefreshOptions,
 } from '../pythonEnvironments/base/locator';
 import { sleep } from '../common/utils/async';
+
 type StoredPythonEnvironment = PythonEnvironment & { store?: boolean };
 
 @injectable()
