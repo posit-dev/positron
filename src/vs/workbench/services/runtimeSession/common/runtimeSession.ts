@@ -206,7 +206,6 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 	 */
 	registerSessionManager(manager: ILanguageRuntimeSessionManager): IDisposable {
 		this._sessionManagers.push(manager);
-		this._logService.warn(`Session manager registered ${this._sessionManagers.length}`);
 		return toDisposable(() => {
 			const index = this._sessionManagers.indexOf(manager);
 			if (index !== -1) {
@@ -819,9 +818,19 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 	 * Throws an errror if no session manager is found for the runtime.
 	 */
 	private getManagerForRuntime(runtime: ILanguageRuntimeMetadata): ILanguageRuntimeSessionManager {
+		// If we only have one session manager, return it. This is the common
+		// case, and handles the startup sequence wherein we need to start a
+		// runtime before it has been registered from the extension host.
+		if (this._sessionManagers.length === 1) {
+			return this._sessionManagers[0];
+		}
+
+		// Look for the session manager that manages the runtime.
 		const manager = this._sessionManagers.find(m => m.hasRuntime(runtime.runtimeId));
 		if (!manager) {
-			throw new Error(`No session manager found for runtime ${formatLanguageRuntimeMetadata(runtime)}`);
+			throw new Error(`No session manager found for runtime ` +
+				`${formatLanguageRuntimeMetadata(runtime)} ` +
+				`(${this._sessionManagers.length} managers registered).`);
 		}
 		return manager;
 	}

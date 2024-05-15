@@ -1151,7 +1151,6 @@ export class MainThreadLanguageRuntime
 	 * @returns Whether the runtime is registered
 	 */
 	hasRuntime(runtimeId: string): boolean {
-		this._logService.warn(`Checking for runtime ${runtimeId} (count: ${this._registeredRuntimes.size})`);
 		for (const runtime of this._registeredRuntimes.values()) {
 			if (runtime.runtimeId === runtimeId) {
 				return true;
