@@ -66,7 +66,6 @@ type OpenCommandActionDescriptor = {
 type CustomViewDescriptor = {
 	viewContainerLocations: Record<string, ViewContainerLocation>;
 	viewOrder: Record<string, string[]>;
-	viewContainerBadgeEnablementStates: Record<string, boolean>;
 };
 // --- End Positron ---
 

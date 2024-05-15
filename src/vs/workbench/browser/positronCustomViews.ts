@@ -15,7 +15,6 @@ import { IWorkbenchLayoutService, PanelAlignment, Parts } from 'vs/workbench/ser
 // avoid exporting the interface and creating more diffs
 export interface IPositronViewCustomizations {
 	viewContainerLocations: IStringDictionary<ViewContainerLocation>;
-	viewContainerBadgeEnablementStates: IStringDictionary<boolean>;
 	// Our own logic here
 	// Keyed by view container ID and then the view ids in the order they are desired.
 	viewOrder: IStringDictionary<string[]>;
@@ -150,7 +149,6 @@ export const positronCustomLayoutOptions: LayoutPick[] = [
 						'workbench.panel.positronConsole',
 					]
 				},
-				'viewContainerBadgeEnablementStates': {}
 			}
 		},
 	},
@@ -177,7 +175,6 @@ export const positronCustomLayoutOptions: LayoutPick[] = [
 						'workbench.panel.positronConsole',
 					]
 				},
-				'viewContainerBadgeEnablementStates': {}
 			}
 		},
 	},
@@ -192,7 +189,6 @@ export const positronCustomLayoutOptions: LayoutPick[] = [
 			},
 			views: {
 				'viewContainerLocations': {},
-				'viewContainerBadgeEnablementStates': {},
 				viewOrder: {
 					'workbench.panel.positronSession': [
 						'workbench.panel.positronPlots',
@@ -236,7 +232,6 @@ export const positronCustomLayoutOptions: LayoutPick[] = [
 						'connections'
 					]
 				},
-				'viewContainerBadgeEnablementStates': {}
 			}
 		},
 	}
