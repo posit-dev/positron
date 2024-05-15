@@ -72,7 +72,7 @@ export const ColumnSelectorModalPopup = (props: ColumnSelectorModalPopupProps) =
 			keyboardNavigation='dialog'
 		>
 			<div className='column-selector'>
-				<div className='search'>
+				<div className='column-selector-search'>
 					<ColumnSearch
 						onSearchTextChanged={searchText => {
 							props.columnSelectorDataGridInstance.setSearchText(
@@ -81,7 +81,7 @@ export const ColumnSelectorModalPopup = (props: ColumnSelectorModalPopupProps) =
 						}}
 					/>
 				</div>
-				<div className='view' style={{ height: 400 }}>
+				<div className='column-selector-data-grid' style={{ height: 400 }}>
 					<PositronDataGrid
 						configurationService={props.configurationService}
 						keybindingService={props.renderer.keybindingService}

@@ -10,12 +10,12 @@
 }
 
 .column-selector
-.search {
+.column-selector-search {
 	grid-row: search / view;
 	border-bottom: 1px solid var(--vscode-positronDataExplorer-border);
 }
 
 .column-selector
-.view {
+.column-selector-data-grid {
 	grid-row: view / end;
 }
