@@ -105,6 +105,11 @@ class PositronDataExplorerService extends Disposable implements IPositronDataExp
 	 */
 	private _positronDataExplorerInstances = new Map<string, PositronDataExplorerInstance>();
 
+	/**
+	 * The Positron data explorer variable-to-instance map.
+	 */
+	private _varIdToInstanceIdMap = new Map<string, string>();
+
 	//#endregion Private Properties
 
 	//#region Constructor & Dispose
@@ -168,6 +173,33 @@ class PositronDataExplorerService extends Disposable implements IPositronDataExp
 
 		// Call the base class's dispose method.
 		super.dispose();
+	}
+
+	/**
+	 * Gets the Positron data explorer instance for the specified variable.
+	 *
+	 * @param variableId The variable ID.
+	 * @returns The Positron data explorer instance.
+	 */
+	getInstanceForVar(variableId: string): IPositronDataExplorerInstance | undefined {
+		const instanceId = this._varIdToInstanceIdMap.get(variableId);
+		if (instanceId === undefined) {
+			return undefined;
+		}
+		return this._positronDataExplorerInstances.get(instanceId);
+	}
+
+	/**
+	 * Sets the instance for the specified variable.
+	 *
+	 * It's OK if the instance doesn't exist yet; this binding will be used when
+	 * the instance is created.
+	 *
+	 * @param instanceId The instance ID.
+	 * @param variableId The variable ID.
+	 */
+	setInstanceForVar(instanceId: string, variableId: string): void {
+		this._varIdToInstanceIdMap.set(variableId, instanceId);
 	}
 
 	//#endregion Constructor & Dispose
@@ -259,12 +291,24 @@ class PositronDataExplorerService extends Disposable implements IPositronDataExp
 		}
 
 		// Hack to be able to call PositronDataExplorerEditorInput.setName without eslint errors.
-		dataExplorerClientInstance.onDidUpdateBackendState(backendState => {
+		this._register(dataExplorerClientInstance.onDidUpdateBackendState(backendState => {
 			const dxInput = editorPane?.input as any;
 			if (dxInput !== undefined && backendState.display_name !== undefined) {
 				dxInput.setName?.(`Data: ${backendState.display_name}`);
 			}
-		});
+		}));
+
+		this._register(dataExplorerClientInstance.onDidClose(() => {
+			// When the data explorer client instance is closed, clean up
+			// references to variables. We may still need to keep the instance
+			// map since the defunct instances may still be bound to open
+			// editors.
+			for (const [key, value] of this._varIdToInstanceIdMap.entries()) {
+				if (value === dataExplorerClientInstance.identifier) {
+					this._varIdToInstanceIdMap.delete(key);
+				}
+			}
+		}));
 
 		// Trigger the initial state update.
 		await dataExplorerClientInstance.updateBackendState();

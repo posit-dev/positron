@@ -3,7 +3,6 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { Emitter } from 'vs/base/common/event';
-import { generateUuid } from 'vs/base/common/uuid';
 import { Disposable } from 'vs/base/common/lifecycle';
 import { IRuntimeClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimeClientInstance';
 import { BackendState, ColumnProfileRequest, ColumnProfileResult, ColumnSchema, ColumnSortKey, FilterResult, PositronDataExplorerComm, RowFilter, SchemaUpdateEvent, TableData, TableSchema } from 'vs/workbench/services/languageRuntime/common/positronDataExplorerComm';
@@ -38,11 +37,6 @@ export class DataExplorerClientInstance extends Disposable {
 	//#region Private Properties
 
 	/**
-	 * Gets the identifier.
-	 */
-	private readonly _identifier = generateUuid();
-
-	/**
 	 * The current cached backend state.
 	 */
 	public cachedBackendState: BackendState | undefined = undefined;
@@ -64,8 +58,11 @@ export class DataExplorerClientInstance extends Disposable {
 
 	/**
 	 * The onDidClose event emitter.
+	 *
+	 * Note that this is not registered with the default disposable store
+	 * since can be fired during disposal.
 	 */
-	private readonly _onDidCloseEmitter = this._register(new Emitter<void>());
+	private readonly _onDidCloseEmitter = new Emitter<void>();
 
 	/**
 	 * The onDidSchemaUpdate event emitter.
@@ -126,6 +123,16 @@ export class DataExplorerClientInstance extends Disposable {
 		}));
 	}
 
+	override dispose(): void {
+		// Call the base class's dispose method.
+		super.dispose();
+
+		// Dispose of the close emitter. We need to do this after calling the
+		// base class's dispose method so that the `onDidClose` event can be fired
+		// and handled during disposal.
+		this._onDidCloseEmitter.dispose();
+	}
+
 	//#endregion Constructor & Dispose
 
 	//#region Public Properties
@@ -134,7 +141,7 @@ export class DataExplorerClientInstance extends Disposable {
 	 * Gets the identifier.
 	 */
 	get identifier() {
-		return this._identifier;
+		return this._positronDataExplorerComm.clientId;
 	}
 
 	//#endregion Public Properties

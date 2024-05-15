@@ -24,7 +24,7 @@ from ..data_explorer_comm import (
 from ..utils import guid
 from .conftest import DummyComm, PositronShell
 from .test_variables import BIG_ARRAY_LENGTH
-from .utils import json_rpc_notification, json_rpc_request, json_rpc_response
+from .utils import json_rpc_notification, json_rpc_request
 
 TARGET_NAME = "positron.dataExplorer"
 
@@ -106,7 +106,10 @@ def _open_viewer(variables_comm, path):
     path = [encode_access_key(p) for p in path]
     msg = _dummy_rpc_request("view", {"path": path})
     variables_comm.handle_msg(msg)
-    assert variables_comm.messages == [json_rpc_response({})]
+    # We should get a string back as a result, naming the ID of the viewer comm
+    # that was opened
+    assert len(variables_comm.messages) == 1
+    assert isinstance(variables_comm.messages[0]["data"]["result"], str)
     variables_comm.messages.clear()
     return tuple(path)
 

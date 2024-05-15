@@ -1146,6 +1146,7 @@ class DataExplorerService:
         wrapped_comm = PositronComm(base_comm)
         wrapped_comm.on_msg(self.handle_msg, DataExplorerBackendMessageContent)
         self.comms[comm_id] = wrapped_comm
+        return comm_id
 
     def _close_explorer(self, comm_id: str):
         try:
