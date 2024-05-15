@@ -28,7 +28,6 @@ import { ContextMenuSeparator } from 'vs/workbench/browser/positronComponents/co
 const sortAscendingTitle = localize('positron.sortAscending', "Sort Ascending");
 const sortDescendingTitle = localize('positron.sortDescending', "Sort Descending");
 const clearSortingTitle = localize('positron.clearSorting', "Clear Sorting");
-const copyColumnTitle = localize('positron.copyColumn', "Copy Column");
 
 /**
  * DataGridColumnHeaderProps interface.
@@ -108,14 +107,7 @@ export const DataGridColumnHeader = (props: DataGridColumnHeaderProps) => {
 					onSelected: async () =>
 						context.instance.removeColumnSortKey(props.columnIndex)
 				}),
-				new ContextMenuSeparator(),
-				new ContextMenuItem({
-					checked: false,
-					label: copyColumnTitle,
-					disabled: false,
-					icon: 'copy',
-					onSelected: () => console.log('Copy')
-				}),
+				...context.instance.columnContextMenuEntries(props.columnIndex)
 			]
 		);
 	};
