@@ -315,20 +315,9 @@ export function registerPositronConsoleActions() {
 				return;
 			}
 
-			// If we have a language ID opt (such as from Quarto), temporarily switch to it.
-			const originalLanguageId = model.getLanguageId();
-			if (opts.languageId) {
-				model.setLanguage(opts.languageId);
-			}
-
 			// Get all the statement range providers for the active document.
 			const statementRangeProviders =
 				languageFeaturesService.statementRangeProvider.all(model);
-
-			// If we have a languageId opt (such as from Quarto), put back original languageId.
-			if (opts.languageId) {
-				model.setLanguage(originalLanguageId);
-			}
 
 			// If the user doesn't have an explicit selection, consult a statement range provider,
 			// which can be used to get the code to execute.
