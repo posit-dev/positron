@@ -518,8 +518,6 @@ export const DataGridWaffle = forwardRef<HTMLDivElement>((_: unknown, ref) => {
 		top += context.instance.getRowHeight(rowIndex);
 	}
 
-	console.log(`Rendering waffle ${width}, ${height}`);
-
 	// Render.
 	return (
 		<div
