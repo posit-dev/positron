@@ -18,7 +18,8 @@ export interface IPositronViewCustomizations {
 	viewLocations: IStringDictionary<string>;
 	viewContainerBadgeEnablementStates: IStringDictionary<boolean>;
 	// Our own logic here
-	viewOptions?: IStringDictionary<{ indexInContainer?: number; expanded?: boolean }>;
+	// Keyed by view container ID and then the view ids in the order they are desired.
+	viewOrder?: IStringDictionary<string[]>;
 }
 
 export interface PartLayoutDescription {
@@ -88,73 +89,44 @@ export function createPositronCustomLayoutDescriptor(accessor: ServicesAccessor)
 	};
 }
 
-export const fourPaneDS: PositronCustomLayoutDescriptor = {
-	'layout': {
-		'workbench.parts.sidebar': {
-			'width': 150,
-			'hidden': true
-		},
-		'workbench.parts.panel': {
-			'height': 400,
-			'hidden': false,
-			'alignment': 'center'
-		},
-		'workbench.parts.auxiliarybar': {
-			'width': 700,
-			'hidden': false
-		}
-	},
-	'views': {
-		'viewContainerLocations': {
-			'workbench.view.extension.positron-connections': 1,
-			'workbench.panel.positronSessions': 1,
-			'workbench.views.service.panel.f732882e-ffdb-495b-b500-31b109474b78': 1
-		},
-		'viewLocations': {
-			'connections': 'workbench.view.explorer',
-			'workbench.panel.positronConsole': 'workbench.views.service.panel.f732882e-ffdb-495b-b500-31b109474b78'
-		},
-		'viewContainerBadgeEnablementStates': {}
-	}
-};
 
 
 
-export const heathenLayout: PositronCustomLayoutDescriptor = {
-	'layout': {
-		'workbench.parts.sidebar': {
-			'hidden': true
-		},
-		'workbench.parts.panel': {
-			'height': 734,
-			'hidden': false,
-			alignment: 'center'
-		},
-		'workbench.parts.auxiliarybar': {
-			'hidden': true
-		}
-	},
-	'views': {
-		'viewContainerLocations': {
-			'workbench.view.extension.positron-connections': 1,
-			'workbench.panel.positronSessions': 1,
-		},
-		'viewLocations': {
-			'connections': 'workbench.view.explorer',
-			'workbench.panel.positronConsole': 'workbench.panel.positronSessions',
-			'workbench.panel.positronVariables': 'workbench.panel.positronSessions',
-			'terminal': 'workbench.panel.positronSessions'
-		},
-		'viewContainerBadgeEnablementStates': {}
-	}
-};
 
 type LayoutPick = IQuickPickItem & { layoutDescriptor: PositronCustomLayoutDescriptor };
 export const positronCustomLayoutOptions: LayoutPick[] = [
 	{
 		id: 'fourPaneDS',
 		label: localize('choseLayout.fourPaneDS', 'Four Pane Data Science'),
-		layoutDescriptor: fourPaneDS,
+		layoutDescriptor: {
+			'layout': {
+				'workbench.parts.sidebar': {
+					'width': 150,
+					'hidden': true
+				},
+				'workbench.parts.panel': {
+					'height': 400,
+					'hidden': false,
+					'alignment': 'center'
+				},
+				'workbench.parts.auxiliarybar': {
+					'width': 700,
+					'hidden': false
+				}
+			},
+			'views': {
+				'viewContainerLocations': {
+					'workbench.view.extension.positron-connections': 1,
+					'workbench.panel.positronSessions': 1,
+					'workbench.views.service.panel.f732882e-ffdb-495b-b500-31b109474b78': 1
+				},
+				'viewLocations': {
+					'connections': 'workbench.view.explorer',
+					'workbench.panel.positronConsole': 'workbench.views.service.panel.f732882e-ffdb-495b-b500-31b109474b78'
+				},
+				'viewContainerBadgeEnablementStates': {}
+			}
+		},
 	},
 	{
 		id: 'sideBySideDS',
@@ -188,28 +160,52 @@ export const positronCustomLayoutOptions: LayoutPick[] = [
 				[Parts.AUXILIARYBAR_PART]: { hidden: false },
 			},
 			views: {
-				'viewContainerLocations': {
-					'workbench.view.extension.positron-connections': 1,
-					'workbench.panel.positronSessions': 1
-				},
+				'viewContainerLocations': {},
 				'viewLocations': {
-					'connections': 'workbench.view.explorer',
-					'workbench.panel.positronPlots': 'workbench.panel.positronVariables',
-					'workbench.panel.positronConsole': 'workbench.panel.positronVariables',
-					'workbench.panel.positronVariables': 'workbench.panel.positronVariables',
+					'workbench.panel.positronConsole': 'workbench.panel.positronSession'
 				},
 				'viewContainerBadgeEnablementStates': {},
-				viewOptions: {
-					'workbench.panel.positronPlots': { indexInContainer: 0, expanded: true },
-					'workbench.panel.positronConsole': { indexInContainer: 1, expanded: true },
-					'workbench.panel.positronVariables': { indexInContainer: 2, expanded: true }
+				viewOrder: {
+					'workbench.panel.positronSession': [
+						'workbench.panel.positronPlots',
+						'workbench.panel.positronConsole',
+						'workbench.panel.positronVariables'
+					]
 				}
+
 			},
 		},
 	},
 	{
 		id: 'heathen',
 		label: localize('choseLayout.heathenLayout', 'Heathen Layout'),
-		layoutDescriptor: heathenLayout,
+		layoutDescriptor: {
+			'layout': {
+				'workbench.parts.sidebar': {
+					'hidden': true
+				},
+				'workbench.parts.panel': {
+					'height': 734,
+					'hidden': false,
+					alignment: 'center'
+				},
+				'workbench.parts.auxiliarybar': {
+					'hidden': true
+				}
+			},
+			'views': {
+				'viewContainerLocations': {
+					'workbench.view.extension.positron-connections': 1,
+					'workbench.panel.positronSessions': 1,
+				},
+				'viewLocations': {
+					'connections': 'workbench.view.explorer',
+					'workbench.panel.positronConsole': 'workbench.panel.positronSessions',
+					'workbench.panel.positronVariables': 'workbench.panel.positronSessions',
+					'terminal': 'workbench.panel.positronSessions'
+				},
+				'viewContainerBadgeEnablementStates': {}
+			}
+		},
 	}
 ];

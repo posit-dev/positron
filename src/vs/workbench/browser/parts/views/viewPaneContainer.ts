@@ -1057,6 +1057,19 @@ export class ViewPaneContainer extends Component implements IViewPaneContainer {
 
 		this.updateTitleArea();
 	}
+	// --- Start Positron ---
+	/**
+	 * Move a view pane to a specific index.
+	 * @param paneId Id of view pane to move
+	 * @param toIndex Index to move view pane to
+	 */
+	movePaneToIndex(paneId: string, toIndex: number): void {
+		const pane = this.panes.find(p => p.id === paneId);
+		if (!pane) { return; }
+		const to = this.paneItems[toIndex].pane;
+		this.movePane(pane, to);
+	}
+	// --- End Positron ---
 
 	resizePane(pane: ViewPane, size: number): void {
 		assertIsDefined(this.paneview).resizePane(pane, size);

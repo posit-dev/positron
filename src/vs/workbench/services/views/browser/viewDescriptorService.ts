@@ -23,6 +23,9 @@ import { IStringDictionary } from 'vs/base/common/collections';
 import { ILogger, ILoggerService } from 'vs/platform/log/common/log';
 import { Lazy } from 'vs/base/common/lazy';
 import { IPositronViewCustomizations } from 'vs/workbench/browser/positronCustomViews';
+// --- Start Positron ---
+import { IPaneCompositePartService } from 'vs/workbench/services/panecomposite/browser/panecomposite';
+// --- End Positron ---
 
 interface IViewsCustomizations {
 	viewContainerLocations: IStringDictionary<ViewContainerLocation>;
@@ -75,6 +78,7 @@ export class ViewDescriptorService extends Disposable implements IViewDescriptor
 		@IStorageService private readonly storageService: IStorageService,
 		@IExtensionService private readonly extensionService: IExtensionService,
 		@ITelemetryService private readonly telemetryService: ITelemetryService,
+		@IPaneCompositePartService private readonly paneCompositePartService: IPaneCompositePartService,
 		@ILoggerService loggerService: ILoggerService,
 	) {
 		super();
@@ -597,7 +601,7 @@ export class ViewDescriptorService extends Disposable implements IViewDescriptor
 	}
 
 	// --- Start Positron ---
-	loadCustomViewDescriptor(vc: IPositronViewCustomizations): void {
+	async loadCustomViewDescriptor(vc: IPositronViewCustomizations): Promise<void> {
 		// Here we are essentially copying the logic from onDidViewCustomizationsStorageChange
 		// but using our own custom passed view customizations instead of reading from storage
 		const newViewContainerCustomizations = new Map<string, ViewContainerLocation>(Object.entries(vc.viewContainerLocations));
@@ -665,17 +669,30 @@ export class ViewDescriptorService extends Disposable implements IViewDescriptor
 		this.viewContainersCustomLocations = newViewContainerCustomizations;
 		this.viewDescriptorsCustomLocations = newViewDescriptorCustomizations;
 
-		if (!vc.viewOptions) { return; }
+		if (!vc.viewOrder) { return; }
 
-		console.log('View options!', vc.viewOptions);
-		for (const [viewId, options] of Object.entries(vc.viewOptions)) {
-			const viewDescriptor = this.getViewDescriptorById(viewId);
-			// const viewContainer = this.getViewContainerByViewId(viewId);
+		for (const [containerId, views] of Object.entries(vc.viewOrder)) {
+			const viewContainer = this.getViewContainerById(containerId);
+			if (!viewContainer) { continue; }
+			const viewContainerLocation = this.getViewContainerLocation(viewContainer);
+			const paneComposite = await this.paneCompositePartService.openPaneComposite(viewContainer.id, viewContainerLocation, false);
 
-			if (viewDescriptor) {
-				// this.moveViewContainerToLocation(viewDescriptor, options.location);
-				console.log('View Descriptor!', options);
-				// Set the view options
+			if (!paneComposite) { continue; }
+
+			const viewPaneContainer = paneComposite.getViewPaneContainer();
+			if (!viewPaneContainer) { continue; }
+
+			const model = this.getViewContainerModel(viewContainer);
+
+			// Move each view to the correct location
+			for (let i = 0; i < views.length; i++) {
+				const viewId = views[i];
+				const viewDescriptor = model.visibleViewDescriptors.find(vd => vd.id === viewId)!;
+				const newPosition = model.visibleViewDescriptors[i];
+				if (viewDescriptor.id === newPosition.id) { continue; }
+				(viewPaneContainer as ViewPaneContainer).movePaneToIndex(viewId, i);
+
+				model.move(viewDescriptor.id, newPosition.id);
 			}
 		}
 
