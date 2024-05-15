@@ -94,6 +94,30 @@ export const VariableItem = (props: VariableItemProps) => {
 	const positronVariablesContext = usePositronVariablesContext();
 
 	/**
+	 * Opens a viewer for the variable item, or activates the existing viewer
+	 * if one is already open.
+	 *
+	 * @param item The variable item to view or open.
+	 */
+	const viewVariableItem = async (item: IVariableItem) => {
+		// Check for an existing viewer instance.
+		const explorerService = positronVariablesContext.dataExplorerService;
+		const instance = explorerService.getInstanceForVar(item.id);
+		if (instance) {
+			// There's an existing viewer instance, so activate it.
+			instance.requestFocus();
+		} else {
+			// Open a viewer for the variable item.
+			const viewerId = await item.view();
+
+			// If a binding was returned, save the binding between the viewer and the variable item.
+			if (viewerId) {
+				explorerService.setInstanceForVar(viewerId, item.id);
+			}
+		}
+	};
+
+	/**
 	 * onDoubleClick handler.
 	 * @param e A MouseEvent<HTMLElement> that describes a user interaction with the mouse.
 	 */
@@ -109,7 +133,7 @@ export const VariableItem = (props: VariableItemProps) => {
 
 		// If the variable item has a viewer, launch it.
 		if (props.variableItem.hasViewer) {
-			props.variableItem.view();
+			viewVariableItem(props.variableItem);
 		}
 	};
 
@@ -203,7 +227,7 @@ export const VariableItem = (props: VariableItemProps) => {
 		e.stopPropagation();
 
 		// Launch the viewer.
-		props.variableItem.view();
+		viewVariableItem(props.variableItem);
 	};
 
 	/**
@@ -223,7 +247,7 @@ export const VariableItem = (props: VariableItemProps) => {
 				tooltip: '',
 				class: undefined,
 				enabled: true,
-				run: () => props.variableItem.view()
+				run: () => viewVariableItem(props.variableItem)
 			});
 		}
 

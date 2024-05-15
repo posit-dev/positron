@@ -11,7 +11,6 @@ import { AddCellButtons } from './AddCellButtons';
 import { useObservedValue } from './useObservedValue';
 import { localize } from 'vs/nls';
 import { PositronNotebookHeader } from './PositronNotebookHeader';
-import { IPositronNotebookCell } from 'vs/workbench/contrib/positronNotebook/browser/notebookCells/interfaces';
 import { NotebookCodeCell } from 'vs/workbench/contrib/positronNotebook/browser/notebookCells/NotebookCodeCell';
 import { NotebookMarkdownCell } from 'vs/workbench/contrib/positronNotebook/browser/notebookCells/NotebookMarkdownCell';
 import { useServices } from 'vs/workbench/contrib/positronNotebook/browser/ServicesProvider';
@@ -19,6 +18,7 @@ import { IEditorOptions } from 'vs/editor/common/config/editorOptions';
 import { FontMeasurements } from 'vs/editor/browser/config/fontMeasurements';
 import { BareFontInfo } from 'vs/editor/common/config/fontInfo';
 import { PixelRatio } from 'vs/base/browser/pixelRatio';
+import { PositronNotebookCellGeneral } from 'vs/workbench/contrib/positronNotebook/browser/PositronNotebookCell';
 
 
 export function PositronNotebookComponent() {
@@ -31,7 +31,7 @@ export function PositronNotebookComponent() {
 			<PositronNotebookHeader notebookInstance={notebookInstance} />
 			<div className='positron-notebook-cells-container'>
 				{notebookCells?.length ? notebookCells?.map((cell, index) => <>
-					<NotebookCell key={cell.viewModel.handle} cell={cell} />
+					<NotebookCell key={cell.handleId} cell={cell as PositronNotebookCellGeneral} />
 					<AddCellButtons index={index + 1} />
 				</>) : <div>{localize('noCells', 'No cells')}</div>
 				}
@@ -58,7 +58,7 @@ function useFontStyles(): React.CSSProperties {
 }
 
 function NotebookCell({ cell }: {
-	cell: IPositronNotebookCell;
+	cell: PositronNotebookCellGeneral;
 }) {
 
 	if (cell.isCodeCell()) {

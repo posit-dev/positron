@@ -7,11 +7,17 @@ import { TableDataDataGridInstance } from 'vs/workbench/services/positronDataExp
 import { DataExplorerClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimeDataExplorerClient';
 import { TableSummaryDataGridInstance } from 'vs/workbench/services/positronDataExplorer/browser/tableSummaryDataGridInstance';
 import { PositronDataExplorerLayout } from 'vs/workbench/services/positronDataExplorer/browser/interfaces/positronDataExplorerService';
+import { IDisposable } from 'vs/base/common/lifecycle';
 
 /**
  * IPositronDataExplorerInstance interface.
  */
-export interface IPositronDataExplorerInstance {
+export interface IPositronDataExplorerInstance extends IDisposable {
+	/**
+	 * Gets the data explorer client instance.
+	 */
+	readonly languageName: string;
+
 	/**
 	 * Gets the data explorer client instance.
 	 */
@@ -38,6 +44,11 @@ export interface IPositronDataExplorerInstance {
 	readonly tableDataDataGridInstance: TableDataDataGridInstance;
 
 	/**
+	 * The onDidClose event.
+	 */
+	readonly onDidClose: Event<void>;
+
+	/**
 	 * The onDidChangeLayout event.
 	 */
 	readonly onDidChangeLayout: Event<PositronDataExplorerLayout>;
@@ -46,4 +57,14 @@ export interface IPositronDataExplorerInstance {
 	 * The onDidChangeColumnsWidthPercent event.
 	 */
 	readonly onDidChangeColumnsWidthPercent: Event<number>;
+
+	/**
+	 * The onDidRequestFocus event.
+	 */
+	readonly onDidRequestFocus: Event<void>;
+
+	/**
+	 * Requests focus for the instance.
+	 */
+	requestFocus(): void;
 }

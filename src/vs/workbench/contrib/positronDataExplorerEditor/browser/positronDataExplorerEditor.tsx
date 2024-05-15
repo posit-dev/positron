@@ -31,6 +31,7 @@ import { IReactComponentContainer, ISize, PositronReactRenderer } from 'vs/base/
 import { PositronDataExplorerUri } from 'vs/workbench/services/positronDataExplorer/common/positronDataExplorerUri';
 import { IPositronDataExplorerService } from 'vs/workbench/services/positronDataExplorer/browser/interfaces/positronDataExplorerService';
 import { PositronDataExplorerEditorInput } from 'vs/workbench/contrib/positronDataExplorerEditor/browser/positronDataExplorerEditorInput';
+import { IEditorService } from 'vs/workbench/services/editor/common/editorService';
 
 // Temporary instance counter.
 let instance = 0;
@@ -137,7 +138,6 @@ export class PositronDataExplorerEditor extends EditorPane implements IReactComp
 	 * Notifies the React component container when focus changes.
 	 */
 	focusChanged(focused: boolean) {
-		// this._positronVariablesFocusedContextKey?.set(focused);
 	}
 
 	/**
@@ -177,6 +177,7 @@ export class PositronDataExplorerEditor extends EditorPane implements IReactComp
 	 * @param _configurationService The configuration service.
 	 * @param _contextKeyService The context key service.
 	 * @param _contextMenuService The context menu service.
+	 * @param _editorService The editor service.
 	 * @param _keybindingService The keybinding service.
 	 * @param _positronDataExplorerService The Positron data explorer service.
 	 * @param storageService The storage service.
@@ -185,11 +186,12 @@ export class PositronDataExplorerEditor extends EditorPane implements IReactComp
 	 */
 	constructor(
 		readonly _group: IEditorGroup,
-		@IClipboardService readonly _clipboardService: IClipboardService,
+		@IClipboardService private readonly _clipboardService: IClipboardService,
 		@ICommandService private readonly _commandService: ICommandService,
 		@IConfigurationService private readonly _configurationService: IConfigurationService,
 		@IContextKeyService private readonly _contextKeyService: IContextKeyService,
 		@IContextMenuService private readonly _contextMenuService: IContextMenuService,
+		@IEditorService private readonly _editorService: IEditorService,
 		@IKeybindingService private readonly _keybindingService: IKeybindingService,
 		@ILayoutService private readonly _layoutService: ILayoutService,
 		@IPositronDataExplorerService private readonly _positronDataExplorerService: IPositronDataExplorerService,
@@ -274,8 +276,14 @@ export class PositronDataExplorerEditor extends EditorPane implements IReactComp
 						keybindingService={this._keybindingService}
 						layoutService={this._layoutService}
 						instance={positronDataExplorerInstance}
+						onClose={() => this._group.closeEditor(this.input)}
 					/>
 				);
+
+				// Add event handlers.
+				this._register(positronDataExplorerInstance.onDidRequestFocus(() => {
+					this._editorService.openEditor(input);
+				}));
 
 				// Logging.
 				console.log(`PositronDataExplorerEditor ${this._instance} create PositronReactRenderer`);

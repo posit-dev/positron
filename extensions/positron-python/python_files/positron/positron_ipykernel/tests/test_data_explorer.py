@@ -2,6 +2,8 @@
 # Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
 #
 
+# ruff: noqa: E712
+
 from typing import Any, Dict, List, Optional, Type, cast
 
 import numpy as np
@@ -13,16 +15,16 @@ from ..access_keys import encode_access_key
 from ..data_explorer import COMPARE_OPS, DataExplorerService
 from ..data_explorer_comm import (
     ColumnDisplayType,
-    RowFilter,
     ColumnProfileResult,
     ColumnSchema,
     ColumnSortKey,
     FilterResult,
+    RowFilter,
 )
+from ..utils import guid
 from .conftest import DummyComm, PositronShell
 from .test_variables import BIG_ARRAY_LENGTH
-from ..utils import guid
-from .utils import json_rpc_notification, json_rpc_request, json_rpc_response
+from .utils import json_rpc_notification, json_rpc_request
 
 TARGET_NAME = "positron.dataExplorer"
 
@@ -87,6 +89,7 @@ SIMPLE_PANDAS_DF = pd.DataFrame(
             ]
         ),
         "f": [None, MyData(5), MyData(-1), None, None],
+        "g": [True, False, True, False, True],
     }
 )
 
@@ -103,7 +106,10 @@ def _open_viewer(variables_comm, path):
     path = [encode_access_key(p) for p in path]
     msg = _dummy_rpc_request("view", {"path": path})
     variables_comm.handle_msg(msg)
-    assert variables_comm.messages == [json_rpc_response({})]
+    # We should get a string back as a result, naming the ID of the viewer comm
+    # that was opened
+    assert len(variables_comm.messages) == 1
+    assert isinstance(variables_comm.messages[0]["data"]["result"], str)
     variables_comm.messages.clear()
     return tuple(path)
 
@@ -416,7 +422,7 @@ def _wrap_json(model: Type[BaseModel], data: JsonRecords):
 def test_pandas_get_state(dxf: DataExplorerFixture):
     result = dxf.get_state("simple")
     assert result["display_name"] == "simple"
-    ex_shape = {"num_rows": 5, "num_columns": 6}
+    ex_shape = {"num_rows": 5, "num_columns": 7}
     assert result["table_shape"] == ex_shape
     assert result["table_unfiltered_shape"] == ex_shape
 
@@ -436,7 +442,7 @@ def test_pandas_get_state(dxf: DataExplorerFixture):
     result = dxf.get_state("simple")
     assert result["sort_keys"] == sort_keys
 
-    ex_filtered_shape = {"num_rows": 2, "num_columns": 6}
+    ex_filtered_shape = {"num_rows": 2, "num_columns": 7}
     assert result["table_shape"] == ex_filtered_shape
     assert result["table_unfiltered_shape"] == ex_shape
 
@@ -459,13 +465,15 @@ def test_pandas_supported_features(dxf: DataExplorerFixture):
     assert row_filters["supported"]
     assert row_filters["supports_conditions"]
     assert set(row_filters["supported_types"]) == {
-        "is_empty",
-        "is_null",
-        "not_empty",
-        "not_null",
         "between",
         "compare",
+        "is_empty",
+        "is_false",
+        "is_null",
+        "is_true",
         "not_between",
+        "not_empty",
+        "not_null",
         "search",
         "set_membership",
     }
@@ -490,7 +498,7 @@ def test_pandas_get_schema(dxf: DataExplorerFixture):
         {
             "column_name": "b",
             "column_index": 1,
-            "type_name": "boolean",
+            "type_name": "bool",
             "type_display": "boolean",
         },
         {
@@ -517,6 +525,12 @@ def test_pandas_get_schema(dxf: DataExplorerFixture):
             "type_name": "mixed",
             "type_display": "unknown",
         },
+        {
+            "column_name": "g",
+            "column_index": 6,
+            "type_name": "bool",
+            "type_display": "boolean",
+        },
     ]
 
     assert result["columns"] == _wrap_json(ColumnSchema, full_schema)
@@ -524,7 +538,7 @@ def test_pandas_get_schema(dxf: DataExplorerFixture):
     result = dxf.get_schema("simple", 2, 100)
     assert result["columns"] == _wrap_json(ColumnSchema, full_schema[2:])
 
-    result = dxf.get_schema("simple", 6, 100)
+    result = dxf.get_schema("simple", 7, 100)
     assert result["columns"] == []
 
     # Make a really big schema
@@ -606,10 +620,6 @@ def test_pandas_search_schema(dxf: DataExplorerFixture):
         assert matches == ex_matches
 
 
-def _trim_whitespace(columns):
-    return [[x.strip() for x in column] for column in columns]
-
-
 def test_pandas_get_data_values(dxf: DataExplorerFixture):
     result = dxf.get_data_values(
         "simple",
@@ -618,8 +628,6 @@ def test_pandas_get_data_values(dxf: DataExplorerFixture):
         column_indices=list(range(6)),
     )
 
-    # TODO: pandas pads all values to fixed width, do we want to do
-    # something different?
     expected_columns = [
         ["1", "2", "3", "4", "5"],
         ["True", "False", "True", "None", "True"],
@@ -635,7 +643,7 @@ def test_pandas_get_data_values(dxf: DataExplorerFixture):
         ["None", "5", "-1", "None", "None"],
     ]
 
-    assert _trim_whitespace(result["columns"]) == expected_columns
+    assert result["columns"] == expected_columns
 
     assert result["row_labels"] == [["0", "1", "2", "3", "4"]]
 
@@ -648,7 +656,7 @@ def test_pandas_get_data_values(dxf: DataExplorerFixture):
     response = dxf.get_data_values(
         "simple", row_start_index=0, num_rows=5, column_indices=[2, 3, 4, 5]
     )
-    assert _trim_whitespace(response["columns"]) == expected_columns[2:]
+    assert response["columns"] == expected_columns[2:]
 
     # Edge case: request invalid column index
     # Per issue #2149, until we can align on whether the UI is allowed
@@ -658,6 +666,31 @@ def test_pandas_get_data_values(dxf: DataExplorerFixture):
     #     dxf.get_data_values(
     #         "simple", row_start_index=0, num_rows=10, column_indices=[4]
     #     )
+
+
+def test_pandas_leading_whitespace(dxf: DataExplorerFixture):
+    # See GH#3138
+    df = pd.DataFrame(
+        {
+            "a": ["   foo", "  bar", " baz", "qux", "potato"],
+            "c": [True, False, True, False, True],
+        }
+    )
+
+    dxf.register_table("ws", df)
+    result = dxf.get_data_values(
+        "ws",
+        row_start_index=0,
+        num_rows=5,
+        column_indices=list(range(6)),
+    )
+
+    expected_columns = [
+        ["   foo", "  bar", " baz", "qux", "potato"],
+        ["True", "False", "True", "False", "True"],
+    ]
+
+    assert result["columns"] == expected_columns
 
 
 def _filter(filter_type, column_schema, condition="and", is_valid=None, **kwargs):
@@ -848,6 +881,19 @@ def test_pandas_filter_empty(dxf: DataExplorerFixture):
     dxf.check_filter_case(df, [_filter("not_empty", schema[0])], df[df["a"].str.len() != 0])
     dxf.check_filter_case(df, [_filter("is_empty", schema[1])], df[df["b"].str.len() == 0])
     dxf.check_filter_case(df, [_filter("not_empty", schema[1])], df[df["b"].str.len() != 0])
+
+
+def test_pandas_filter_boolean(dxf: DataExplorerFixture):
+    df = pd.DataFrame(
+        {
+            "a": [True, True, None, False, False, False, True, True],
+        }
+    )
+
+    schema = dxf.get_schema_for(df)["columns"]
+
+    dxf.check_filter_case(df, [_filter("is_true", schema[0])], df[df["a"] == True])  # noqa: E712
+    dxf.check_filter_case(df, [_filter("is_false", schema[0])], df[df["a"] == False])  # noqa: E712
 
 
 def test_pandas_filter_is_null_not_null(dxf: DataExplorerFixture):

@@ -1,0 +1,16 @@
+Package: @@NAME@@
+Version: @@VERSION@@
+Section: devel
+Depends: @@DEPENDS@@
+Recommends: @@RECOMMENDS@@
+Priority: optional
+Architecture: @@ARCHITECTURE@@
+Maintainer: Posit Software, PBC <info@posit.co>
+Homepage: https://www.posit.co/
+Installed-Size: @@INSTALLEDSIZE@@
+Provides: positron-@@NAME@@
+Conflicts: positron-@@NAME@@
+Replaces: positron-@@NAME@@
+Description: A next-generation data science IDE.
+ Positron is an extensible, polyglot tool for writing code and exploring data
+ in Python, R, and other languages.

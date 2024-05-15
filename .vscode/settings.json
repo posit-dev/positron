@@ -177,4 +177,5 @@
 		100
 	],
 	"typescript.enablePromptUseWorkspaceTsdk": true,
+	"typescript.tsserver.experimental.useVsCodeWatcher": true
 }

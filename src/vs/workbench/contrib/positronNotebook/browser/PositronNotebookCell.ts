@@ -2,31 +2,36 @@
  *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
-import { Disposable, DisposableStore } from 'vs/base/common/lifecycle';
+import { Disposable } from 'vs/base/common/lifecycle';
 import { ISettableObservable, observableValue } from 'vs/base/common/observableInternal/base';
 import { URI } from 'vs/base/common/uri';
 import { ITextModel } from 'vs/editor/common/model';
 import { ITextModelService } from 'vs/editor/common/services/resolverService';
 import { IInstantiationService } from 'vs/platform/instantiation/common/instantiation';
-import { ICellViewModel } from 'vs/workbench/contrib/notebook/browser/notebookBrowser';
 import { NotebookCellTextModel } from 'vs/workbench/contrib/notebook/common/model/notebookCellTextModel';
-import { CellKind, ICellOutput } from 'vs/workbench/contrib/notebook/common/notebookCommon';
-import { IPositronNotebookInstance } from 'vs/workbench/contrib/positronNotebook/browser/PositronNotebookInstance';
-import { ExecutionStatus, IPositronNotebookCodeCell, IPositronNotebookCell, IPositronNotebookMarkdownCell } from 'vs/workbench/contrib/positronNotebook/browser/notebookCells/interfaces';
+import { CellKind } from 'vs/workbench/contrib/notebook/common/notebookCommon';
+import { ExecutionStatus, IPositronNotebookCodeCell, IPositronNotebookCell, IPositronNotebookMarkdownCell, NotebookCellOutputs } from 'vs/workbench/services/positronNotebook/browser/IPositronNotebookCell';
+import { CodeEditorWidget } from 'vs/editor/browser/widget/codeEditor/codeEditorWidget';
+import { CellSelectionType } from 'vs/workbench/services/positronNotebook/browser/selectionMachine';
+import { PositronNotebookInstance } from 'vs/workbench/contrib/positronNotebook/browser/PositronNotebookInstance';
+import { disposableTimeout } from 'vs/base/common/async';
 
-
-abstract class PositronNotebookCellGeneral extends Disposable implements IPositronNotebookCell {
+export abstract class PositronNotebookCellGeneral extends Disposable implements IPositronNotebookCell {
 	kind!: CellKind;
 
-	// Not marked as private so we can access it in subclasses
-	_disposableStore = new DisposableStore();
+
+	private _container: HTMLElement | undefined;
+	private _editor: CodeEditorWidget | undefined;
+
+
 
 	constructor(
 		public cellModel: NotebookCellTextModel,
-		public _instance: IPositronNotebookInstance,
+		public _instance: PositronNotebookInstance,
 		@ITextModelService private readonly textModelResolverService: ITextModelService,
 	) {
 		super();
+
 	}
 
 	get uri(): URI {
@@ -37,7 +42,7 @@ abstract class PositronNotebookCellGeneral extends Disposable implements IPositr
 		return this._instance.uri;
 	}
 
-	get viewModel(): ICellViewModel {
+	get handleId(): number {
 
 		const notebookViewModel = this._instance.viewModel;
 		if (!notebookViewModel) {
@@ -49,7 +54,7 @@ abstract class PositronNotebookCellGeneral extends Disposable implements IPositr
 		const cell = viewCells.find(cell => cell.uri.toString() === this.cellModel.uri.toString());
 
 		if (cell) {
-			return cell;
+			return cell.handle;
 		}
 
 		throw new Error('Cell view model not found');
@@ -72,7 +77,6 @@ abstract class PositronNotebookCellGeneral extends Disposable implements IPositr
 	abstract run(): void;
 
 	override dispose(): void {
-		this._disposableStore.dispose();
 		super.dispose();
 	}
 
@@ -83,23 +87,58 @@ abstract class PositronNotebookCellGeneral extends Disposable implements IPositr
 	isCodeCell(): this is IPositronNotebookCodeCell {
 		return this.kind === CellKind.Code;
 	}
+
+	select(type: CellSelectionType): void {
+		this._instance.selectionStateMachine.selectCell(this, type);
+	}
+
+	attachContainer(container: HTMLElement): void {
+		this._container = container;
+	}
+
+
+	attachEditor(editor: CodeEditorWidget): void {
+		this._editor = editor;
+	}
+
+	detachEditor(): void {
+		this._editor = undefined;
+	}
+
+	focus(): void {
+		if (this._container) {
+			this._container.focus();
+		}
+	}
+
+	focusEditor(): void {
+		this._editor?.focus();
+	}
+
+	defocusEditor(): void {
+		// Send focus to the enclosing cell itself to blur the editor
+		this.focus();
+	}
+
+	deselect(): void {
+		this._instance.selectionStateMachine.deselectCell(this);
+	}
 }
 
 
-class PositronNotebookCodeCell extends PositronNotebookCellGeneral implements IPositronNotebookCodeCell {
+export class PositronNotebookCodeCell extends PositronNotebookCellGeneral implements IPositronNotebookCodeCell {
 	override kind: CellKind.Code = CellKind.Code;
-	executionStatus: ISettableObservable<ExecutionStatus, void>;
-	outputs: ISettableObservable<ICellOutput[], void>;
+	outputs: ISettableObservable<NotebookCellOutputs[]>;
+	executionStatus: ISettableObservable<ExecutionStatus> = observableValue<ExecutionStatus, void>('cellExecutionStatus', 'idle');
 
 	constructor(
 		cellModel: NotebookCellTextModel,
-		instance: IPositronNotebookInstance,
+		instance: PositronNotebookInstance,
 		textModelResolverService: ITextModelService,
 	) {
 		super(cellModel, instance, textModelResolverService);
 
-		this.executionStatus = observableValue<ExecutionStatus, void>('cellExecutionStatus', 'idle');
-		this.outputs = observableValue<ICellOutput[], void>('cellOutputs', this.cellModel.outputs);
+		this.outputs = observableValue<NotebookCellOutputs[], void>('cellOutputs', this.cellModel.outputs);
 
 		// Listen for changes to the cell outputs and update the observable
 		this._register(
@@ -112,15 +151,14 @@ class PositronNotebookCodeCell extends PositronNotebookCellGeneral implements IP
 		);
 	}
 
+
 	override run(): void {
 		this._instance.runCells([this]);
 	}
 }
 
 
-
-
-class PositronNotebookMarkdownCell extends PositronNotebookCellGeneral implements IPositronNotebookMarkdownCell {
+export class PositronNotebookMarkdownCell extends PositronNotebookCellGeneral implements IPositronNotebookMarkdownCell {
 
 	markdownString: ISettableObservable<string | undefined> = observableValue<string | undefined, void>('markdownString', undefined);
 	editorShown: ISettableObservable<boolean> = observableValue<boolean, void>('editorShown', false);
@@ -129,13 +167,13 @@ class PositronNotebookMarkdownCell extends PositronNotebookCellGeneral implement
 
 	constructor(
 		cellModel: NotebookCellTextModel,
-		instance: IPositronNotebookInstance,
+		instance: PositronNotebookInstance,
 		textModelResolverService: ITextModelService,
 	) {
 		super(cellModel, instance, textModelResolverService);
 
 		// Render the markdown content and update the observable when the cell content changes
-		this._disposableStore.add(this.cellModel.onDidChangeContent(() => {
+		this._register(this.cellModel.onDidChangeContent(() => {
 			this.markdownString.set(this.getContent(), undefined);
 		}));
 
@@ -153,6 +191,15 @@ class PositronNotebookMarkdownCell extends PositronNotebookCellGeneral implement
 	override run(): void {
 		this.toggleEditor();
 	}
+
+	override focusEditor(): void {
+		this.editorShown.set(true, undefined);
+		// Need a timeout here so that the editor is shown before we try to focus it.
+		this._register(disposableTimeout(() => {
+			super.focusEditor();
+		}, 0));
+
+	}
 }
 
 /**
@@ -162,7 +209,7 @@ class PositronNotebookMarkdownCell extends PositronNotebookCellGeneral implement
  * @param instantiationService The instantiation service to use to create the cell
  * @returns The instantiated notebook cell of the correct type.
  */
-export function createNotebookCell(cell: NotebookCellTextModel, instance: IPositronNotebookInstance, instantiationService: IInstantiationService) {
+export function createNotebookCell(cell: NotebookCellTextModel, instance: PositronNotebookInstance, instantiationService: IInstantiationService) {
 	if (cell.cellKind === CellKind.Code) {
 		return instantiationService.createInstance(PositronNotebookCodeCell, cell, instance);
 	} else {

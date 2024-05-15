@@ -23,14 +23,10 @@ from ipykernel.zmqshell import ZMQDisplayPublisher, ZMQInteractiveShell
 from IPython.core import magic_arguments, oinspect, page
 from IPython.core.error import UsageError
 from IPython.core.interactiveshell import ExecutionInfo, InteractiveShell
-from IPython.core.magic import (
-    Magics,
-    MagicsManager,
-    line_magic,
-    magics_class,
-)
+from IPython.core.magic import Magics, MagicsManager, line_magic, magics_class
 from IPython.utils import PyColorize
 
+from .access_keys import encode_access_key
 from .connections import ConnectionsService
 from .data_explorer import DataExplorerService
 from .help import HelpService, help
@@ -164,7 +160,9 @@ class PositronMagics(Magics):
         # Register a dataset with the data explorer service.
         obj = info.obj
         try:
-            self.shell.kernel.data_explorer_service.register_table(obj, title)
+            self.shell.kernel.data_explorer_service.register_table(
+                obj, title, variable_path=[encode_access_key(args.object)]
+            )
         except TypeError:
             raise UsageError(f"cannot view object of type '{get_qualname(obj)}'")
 
@@ -184,7 +182,9 @@ class PositronMagics(Magics):
             raise UsageError(f"name '{args.object}' is not defined")
 
         try:
-            self.shell.kernel.connections_service.register_connection(info.obj)
+            self.shell.kernel.connections_service.register_connection(
+                info.obj, variable_path=args.object
+            )
         except TypeError:
             raise UsageError(f"cannot show object of type '{get_qualname(info.obj)}'")
 
@@ -480,11 +480,6 @@ class PositronIPyKernel(IPythonKernel):
         # if coming from one of our files, log and don't send to user
         positron_files_path = Path(__file__).parent
 
-        if str(positron_files_path) in str(filename):
-            msg = f"{filename}-{lineno}: {category}: {message}"
-            logger.warning(msg)
-            return
-
         # Check if the filename refers to a cell in the Positron Console.
         # We use the fact that ipykernel sets the filename to a path starting in the root temporary
         # directory. We can't determine the full filename since it depends on the cell's code which
@@ -492,6 +487,14 @@ class PositronIPyKernel(IPythonKernel):
         console_dir = get_tmp_directory()
         if console_dir in str(filename):
             filename = f"<positron-console-cell-{self.execution_count}>"
+
+        # send to logs if warning is coming from Positron files
+        # also send warnings from attempted compiles from IPython to logs
+        # https://github.com/ipython/ipython/blob/8.24.0/IPython/core/async_helpers.py#L151
+        if str(positron_files_path) in str(filename) or str(filename) == "<>":
+            msg = f"{filename}-{lineno}: {category}: {message}"
+            logger.warning(msg)
+            return
 
         msg = warnings.WarningMessage(message, category, filename, lineno, file, line)
 

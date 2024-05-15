@@ -335,7 +335,7 @@ gulp.task('installDebugpy', async (done) => {
     rmrf.sync('./python_files/lib/temp');
 });
 
-gulp.task('installPythonLibs', gulp.series('installPythonRequirements', 'installDebugpy'));
+gulp.task('installPythonLibs', gulp.series('installPythonRequirements'));
 
 function locatePython() {
     let pythonPath = process.env.CI_PYTHON_PATH || 'python3';

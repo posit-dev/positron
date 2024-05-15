@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
 /**
@@ -71,5 +71,5 @@ export interface IVariableItem {
 	/**
 	 * Requests that a data viewer be opened for this variable.
 	 */
-	view(): Promise<void>;
+	view(): Promise<string>;
 }

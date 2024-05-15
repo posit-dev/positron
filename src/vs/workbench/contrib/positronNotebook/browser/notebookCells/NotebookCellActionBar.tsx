@@ -5,7 +5,7 @@ import 'vs/css!./NotebookCellActionBar';
 
 import * as React from 'react';
 import { localize } from 'vs/nls';
-import { IPositronNotebookCell } from 'vs/workbench/contrib/positronNotebook/browser/notebookCells/interfaces';
+import { IPositronNotebookCell } from 'vs/workbench/services/positronNotebook/browser/IPositronNotebookCell';
 import { ActionButton } from 'vs/workbench/contrib/positronNotebook/browser/utilityComponents/ActionButton';
 
 

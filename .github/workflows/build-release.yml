@@ -72,6 +72,7 @@ jobs:
     needs: version_string
     secrets: inherit
     with:
+      build_number: ${{ needs.version_string.outputs.build_number }}
       short_version: ${{ needs.version_string.outputs.short_version }}
 
   releases:
@@ -180,3 +181,15 @@ jobs:
           asset_path: Positron-${{ needs.version_string.outputs.short_version }}.rpm
           asset_name: Positron-${{ needs.version_string.outputs.short_version }}.rpm
           asset_content_type: application/octet-stream
+
+      - name: Upload Linux Remote Extension Host release asset
+        uses: actions/upload-release-asset@v1
+        if: github.ref == 'refs/heads/main'
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        with:
+          upload_url: ${{ needs.releases.outputs.upload_url }}
+          asset_path: positron-reh-linux-x64-${{ needs.version_string.outputs.short_version }}.tar.gz
+          asset_name: positron-reh-linux-x64-${{ needs.version_string.outputs.short_version }}.tar.gz
+          asset_content_type: application/octet-stream
+

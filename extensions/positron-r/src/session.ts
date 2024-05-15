@@ -84,7 +84,7 @@ export class RSession implements positron.LanguageRuntimeSession, vscode.Disposa
 		readonly kernelSpec?: JupyterKernelSpec,
 		readonly extra?: JupyterKernelExtra,
 	) {
-		this._lsp = new ArkLsp(runtimeMetadata.languageVersion, metadata.notebookUri);
+		this._lsp = new ArkLsp(runtimeMetadata.languageVersion, metadata);
 		this._queue = new PQueue({ concurrency: 1 });
 		this.onDidReceiveRuntimeMessage = this._messageEmitter.event;
 		this.onDidChangeRuntimeState = this._stateEmitter.event;
@@ -679,7 +679,9 @@ export function createJupyterKernelSpec(
 	// On MacOS, the binary path lives alongside the app bundle; on other
 	// platforms, it's a couple of directories up from the app root.
 	const pandocPath = path.join(vscode.env.appRoot,
-		process.platform === 'darwin' ? 'bin' : path.join('..', '..', 'bin'));
+		process.platform === 'darwin' ?
+			path.join('bin', 'pandoc') :
+			path.join('..', '..', 'bin', 'pandoc'));
 	if (existsSync(pandocPath)) {
 		env['RSTUDIO_PANDOC'] = pandocPath;
 	}

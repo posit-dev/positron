@@ -1,0 +1,43 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *--------------------------------------------------------------------------------------------*/
+
+.positron-notebook-cell {
+	position: relative;
+
+	border-radius: var(--vscode-positronNotebook-cell-radius);
+
+	.positron-notebooks-cell-action-bar {
+		visibility: hidden;
+	}
+
+	&.selected {
+		outline: 1px solid var(--vscode-focusBorder);
+	}
+
+	&:has(.action-button:focus) {
+		/* De-emphasize the outline of the main cell when the user has tabbed onto the action
+		buttons */
+		outline-style: dotted !important;
+	}
+
+	&.editing,
+	&.selected,
+	&:hover {
+		.positron-notebooks-cell-action-bar {
+			visibility: visible;
+		}
+	}
+
+	.positron-notebooks-cell-action-bar {
+		visibility: hidden;
+	}
+
+	&.editing,
+	&.selected,
+	&:hover {
+		.positron-notebooks-cell-action-bar {
+			visibility: visible;
+		}
+	}
+}

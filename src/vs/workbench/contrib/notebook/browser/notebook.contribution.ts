@@ -57,6 +57,7 @@ import { ILabelService } from 'vs/platform/label/common/label';
 import { IEditorGroupsService } from 'vs/workbench/services/editor/common/editorGroupsService';
 import { NotebookRendererMessagingService } from 'vs/workbench/contrib/notebook/browser/services/notebookRendererMessagingServiceImpl';
 import { INotebookRendererMessagingService } from 'vs/workbench/contrib/notebook/common/notebookRendererMessagingService';
+import { INotebookCellOutlineProviderFactory, NotebookCellOutlineProviderFactory } from 'vs/workbench/contrib/notebook/browser/viewModel/notebookOutlineProviderFactory';
 
 // Editor Controller
 import 'vs/workbench/contrib/notebook/browser/controller/coreActions';
@@ -126,6 +127,7 @@ import { NotebookVariables } from 'vs/workbench/contrib/notebook/browser/contrib
 // --- Start Positron ---
 import { getShouldUsePositronEditor } from 'vs/workbench/contrib/positronNotebook/browser/positronNotebook.contribution';
 import { PositronNotebookEditorInput } from 'vs/workbench/contrib/positronNotebook/browser/PositronNotebookEditorInput';
+import { IPositronNotebookService } from 'vs/workbench/services/positronNotebook/browser/positronNotebookService';
 // --- End Positron ---
 /*--------------------------------------------------------------------------------------------- */
 
@@ -581,6 +583,9 @@ class NotebookEditorManager implements IWorkbenchContribution {
 	constructor(
 		@IEditorService private readonly _editorService: IEditorService,
 		@INotebookEditorModelResolverService private readonly _notebookEditorModelService: INotebookEditorModelResolverService,
+		// --- Start Positron ---
+		@IPositronNotebookService private readonly _positronNotebookService: IPositronNotebookService,
+		// --- End Positron ---
 		@IEditorGroupsService editorGroups: IEditorGroupsService
 	) {
 		// OPEN notebook editor for models that have turned dirty without being visible in an editor
@@ -609,6 +614,16 @@ class NotebookEditorManager implements IWorkbenchContribution {
 		const result: IResourceEditorInput[] = [];
 		for (const model of models) {
 			if (model.isDirty() && !this._editorService.isOpened({ resource: model.resource, typeId: NotebookEditorInput.ID, editorId: model.viewType }) && extname(model.resource) !== '.interactive') {
+				// --- Start Positron ---
+				// Make sure that we dont try and open the same editor twice if we're using positron
+				// notebooks. This is a separate if-statement so we don't have to put the diff
+				// inside the inline conditional.
+				const positronNotebookInstance = this._positronNotebookService.getInstance(model.resource);
+				// Check to see if the instance is connected to the view.
+				if (positronNotebookInstance && positronNotebookInstance.connectedToEditor) {
+					continue;
+				}
+				// --- End Positron ---
 				result.push({
 					resource: model.resource,
 					options: { inactive: true, preserveFocus: true, pinned: true, override: model.viewType }
@@ -772,6 +787,7 @@ registerSingleton(INotebookExecutionStateService, NotebookExecutionStateService,
 registerSingleton(INotebookRendererMessagingService, NotebookRendererMessagingService, InstantiationType.Delayed);
 registerSingleton(INotebookKeymapService, NotebookKeymapService, InstantiationType.Delayed);
 registerSingleton(INotebookLoggingService, NotebookLoggingService, InstantiationType.Delayed);
+registerSingleton(INotebookCellOutlineProviderFactory, NotebookCellOutlineProviderFactory, InstantiationType.Delayed);
 
 const schemas: IJSONSchemaMap = {};
 function isConfigurationPropertySchema(x: IConfigurationPropertySchema | { [path: string]: IConfigurationPropertySchema }): x is IConfigurationPropertySchema {
@@ -975,6 +991,12 @@ configurationRegistry.registerConfiguration({
 			default: true,
 			tags: ['notebookOutputLayout']
 		},
+		[NotebookSetting.minimalErrorRendering]: {
+			description: nls.localize('notebook.minimalErrorRendering', "Control whether to render error output in a minimal style."),
+			type: 'boolean',
+			default: false,
+			tags: ['notebookOutputLayout']
+		},
 		[NotebookSetting.markupFontSize]: {
 			markdownDescription: nls.localize('notebook.markup.fontSize', "Controls the font size in pixels of rendered markup in notebooks. When set to {0}, 120% of {1} is used.", '`0`', '`#editor.fontSize#`'),
 			type: 'number',
@@ -1096,21 +1118,16 @@ configurationRegistry.registerConfiguration({
 			],
 			default: 'fullCell'
 		},
-		[NotebookSetting.anchorToFocusedCell]: {
-			markdownDescription: nls.localize('notebook.scrolling.anchorToFocusedCell.description', "Experimental. Keep the focused cell steady while surrounding cells change size."),
-			type: 'string',
-			enum: ['auto', 'on', 'off'],
-			markdownEnumDescriptions: [
-				nls.localize('notebook.scrolling.anchorToFocusedCell.auto.description', "Anchor the viewport to the focused cell depending on context unless {0} is set to {1}.", 'notebook.scrolling.revealCellBehavior', 'none'),
-				nls.localize('notebook.scrolling.anchorToFocusedCell.on.description', "Always anchor the viewport to the focused cell."),
-				nls.localize('notebook.scrolling.anchorToFocusedCell.off.description', "The focused cell may shift around as cells resize.")
-			],
-			default: 'auto'
-		},
 		[NotebookSetting.cellChat]: {
 			markdownDescription: nls.localize('notebook.cellChat', "Enable experimental floating chat widget in notebooks."),
 			type: 'boolean',
 			default: false
+		},
+		[NotebookSetting.cellGenerate]: {
+			markdownDescription: nls.localize('notebook.cellGenerate', "Enable experimental generate action to create code cell with inline chat enabled."),
+			type: 'boolean',
+			default: typeof product.quality === 'string' && product.quality !== 'stable',
+			tags: ['experimental']
 		},
 		[NotebookSetting.notebookVariablesView]: {
 			markdownDescription: nls.localize('notebook.VariablesView.description', "Enable the experimental notebook variables view within the debug panel."),
@@ -1122,5 +1139,10 @@ configurationRegistry.registerConfiguration({
 			type: 'boolean',
 			default: true
 		},
+		[NotebookSetting.outputBackupSizeLimit]: {
+			markdownDescription: nls.localize('notebook.backup.sizeLimit', "The limit of notebook output size in kilobytes (KB) where notebook files will no longer be backed up for hot reload. Use 0 for unlimited."),
+			type: 'number',
+			default: 10000
+		}
 	}
 });

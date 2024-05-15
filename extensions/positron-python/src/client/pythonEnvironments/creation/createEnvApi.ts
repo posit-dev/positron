@@ -20,6 +20,7 @@ import {
 } from './proposed.createEnvApis';
 import { sendTelemetryEvent } from '../../telemetry';
 import { EventName } from '../../telemetry/constants';
+import { CreateEnvironmentOptionsInternal } from './types';
 
 class CreateEnvironmentProviders {
     private _createEnvProviders: CreateEnvironmentProvider[] = [];
@@ -64,7 +65,9 @@ export function registerCreateEnvironmentFeatures(
     disposables.push(
         registerCommand(
             Commands.Create_Environment,
-            (options?: CreateEnvironmentOptions): Promise<CreateEnvironmentResult | undefined> => {
+            (
+                options?: CreateEnvironmentOptions & CreateEnvironmentOptionsInternal,
+            ): Promise<CreateEnvironmentResult | undefined> => {
                 const providers = _createEnvironmentProviders.getAll();
                 return handleCreateEnvironmentCommand(providers, options);
             },
@@ -76,6 +79,17 @@ export function registerCreateEnvironmentFeatures(
                 await executeCommand(Commands.Create_Environment);
             },
         ),
+        // --- Start Positron ---
+        registerCommand(Commands.Get_Create_Environment_Providers, () => {
+            const providers = _createEnvironmentProviders.getAll();
+            const providersForWizard = providers.map((provider) => ({
+                id: provider.id,
+                name: provider.name,
+                description: provider.description,
+            }));
+            return providersForWizard;
+        }),
+        // --- End Positron ---
         registerCreateEnvironmentProvider(new VenvCreationProvider(interpreterQuickPick)),
         registerCreateEnvironmentProvider(condaCreationProvider()),
         onCreateEnvironmentExited(async (e: EnvironmentDidCreateEvent) => {

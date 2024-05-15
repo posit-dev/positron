@@ -2,6 +2,8 @@
  *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
+import { ICommandService } from 'vs/platform/commands/common/commands';
+import { ILogService } from 'vs/platform/log/common/log';
 import { DropDownListBoxItem } from 'vs/workbench/browser/positronComponents/dropDownListBox/dropDownListBoxItem';
 import { EnvironmentSetupType, LanguageIds, PythonEnvironmentType, PythonRuntimeFilter } from 'vs/workbench/browser/positronNewProjectWizard/interfaces/newProjectWizardEnums';
 import { InterpreterInfo, getInterpreterDropdownItems } from 'vs/workbench/browser/positronNewProjectWizard/utilities/interpreterDropDownUtils';
@@ -9,11 +11,12 @@ import { ILanguageRuntimeService } from 'vs/workbench/services/languageRuntime/c
 import { IRuntimeStartupService } from 'vs/workbench/services/runtimeStartup/common/runtimeStartupService';
 
 /**
- * PythonEnvironmentTypeInfo interface.
+ * PythonEnvironmentProviderInfo interface.
  */
-export interface PythonEnvironmentTypeInfo {
-	envType: PythonEnvironmentType;
-	envDescription: string;
+export interface PythonEnvironmentProviderInfo {
+	id: string;
+	name: string;
+	description: string;
 }
 
 /**
@@ -21,22 +24,23 @@ export interface PythonEnvironmentTypeInfo {
  * list by runtime source if requested.
  * @param runtimeStartupService The runtime startup service.
  * @param languageRuntimeService The language runtime service.
- * @param pythonRuntimeFilter The PythonRuntimeFilter to apply to the Python runtimes.
+ * @param pythonRuntimeFilters The PythonRuntimeFilters to apply to the Python runtimes.
  * @returns An array of DropDownListBoxEntry for Python interpreters.
  */
 const getPythonInterpreterDropDownItems = (
 	runtimeStartupService: IRuntimeStartupService,
 	languageRuntimeService: ILanguageRuntimeService,
-	pythonRuntimeFilter = PythonRuntimeFilter.All
+	pythonRuntimeFilters?: PythonRuntimeFilter[]
 ) => {
 	const languageId = LanguageIds.Python;
-	const preferredRuntime = runtimeStartupService.getPreferredRuntime(languageId);
+	const preferredRuntime =
+		runtimeStartupService.getPreferredRuntime(languageId);
 
 	return getInterpreterDropdownItems(
 		languageRuntimeService,
 		languageId,
 		preferredRuntime?.runtimeId,
-		pythonRuntimeFilter === PythonRuntimeFilter.All ? undefined : PythonRuntimeFilter.Global
+		pythonRuntimeFilters
 	);
 };
 
@@ -47,20 +51,24 @@ const getPythonInterpreterDropDownItems = (
  */
 export const createCondaInterpreterDropDownItems = () => {
 	// TODO: we should get the list of Python versions from the Conda service
+	// see extensions/positron-python/src/client/pythonEnvironments/creation/provider/condaUtils.ts
+	// pickPythonVersion function
 	const pythonVersions = ['3.12', '3.11', '3.10', '3.9', '3.8'];
 	const condaRuntimes: DropDownListBoxItem<string, InterpreterInfo>[] = [];
-	pythonVersions.forEach(version => {
-		condaRuntimes.push(new DropDownListBoxItem<string, InterpreterInfo>({
-			identifier: `conda-python-${version}`,
-			value: {
-				preferred: version === '3.12',
-				runtimeId: `conda-python-${version}`,
-				languageName: 'Python',
-				languageVersion: version,
-				runtimePath: '',
-				runtimeSource: 'Conda'
-			}
-		}));
+	pythonVersions.forEach((version) => {
+		condaRuntimes.push(
+			new DropDownListBoxItem<string, InterpreterInfo>({
+				identifier: `conda-python-${version}`,
+				value: {
+					preferred: version === '3.12',
+					runtimeId: `conda-python-${version}`,
+					languageName: 'Python',
+					languageVersion: version,
+					runtimePath: '',
+					runtimeSource: 'Conda',
+				},
+			})
+		);
 	});
 	return condaRuntimes;
 };
@@ -77,31 +85,30 @@ export const getPythonInterpreterEntries = (
 	runtimeStartupService: IRuntimeStartupService,
 	languageRuntimeService: ILanguageRuntimeService,
 	envSetupType: EnvironmentSetupType,
-	envType: PythonEnvironmentType
+	envProviderName: string | undefined,
 ) => {
 	switch (envSetupType) {
-		case EnvironmentSetupType.NewEnvironment:
-			switch (envType) {
+		case EnvironmentSetupType.NewEnvironment: {
+			switch (envProviderName) {
 				case PythonEnvironmentType.Venv:
 					return getPythonInterpreterDropDownItems(
 						runtimeStartupService,
 						languageRuntimeService,
-						PythonRuntimeFilter.Global
+						[PythonRuntimeFilter.Global, PythonRuntimeFilter.Pyenv]
 					);
 				case PythonEnvironmentType.Conda:
 					return createCondaInterpreterDropDownItems();
 				default:
 					return getPythonInterpreterDropDownItems(
 						runtimeStartupService,
-						languageRuntimeService,
-						PythonRuntimeFilter.All
+						languageRuntimeService
 					);
 			}
+		}
 		case EnvironmentSetupType.ExistingEnvironment:
 			return getPythonInterpreterDropDownItems(
 				runtimeStartupService,
-				languageRuntimeService,
-				PythonRuntimeFilter.All
+				languageRuntimeService
 			);
 		default:
 			return [];
@@ -119,39 +126,67 @@ export const getPythonInterpreterEntries = (
 export const locationForNewEnv = (
 	parentFolder: string,
 	projectName: string,
-	envType: PythonEnvironmentType
+	envProviderName: string | undefined,
 ) => {
 	// TODO: this only works for Venv and Conda environments. We'll need to expand on this to add
 	// support for other environment types.
-	const envDir = envType === PythonEnvironmentType.Venv
-		? '.venv'
-		: envType === PythonEnvironmentType.Conda
-			? '.conda'
-			: '';
+	const envDir =
+		envProviderName === PythonEnvironmentType.Venv
+			? '.venv'
+			: envProviderName === PythonEnvironmentType.Conda
+				? '.conda'
+				: '';
 	return `${parentFolder}/${projectName}/${envDir}`;
 };
 
 /**
- * Constructs and returns the entries for the environment type dropdown box.
- * @returns The entries for the environment type dropdown box.
+ * Constructs and returns the entries for the environment providers dropdown box.
+ * @returns The entries for the environment providers dropdown box.
  */
-export const getEnvTypeEntries = () => {
-	// TODO: retrieve the python environment types from the language runtime service somehow?
-	// TODO: localize these entries
-	return [
-		new DropDownListBoxItem<PythonEnvironmentType, PythonEnvironmentTypeInfo>({
-			identifier: PythonEnvironmentType.Venv,
-			value: {
-				envType: PythonEnvironmentType.Venv,
-				envDescription: 'Creates a `.venv` virtual environment for your project'
-			}
-		}),
-		new DropDownListBoxItem<PythonEnvironmentType, PythonEnvironmentTypeInfo>({
-			identifier: PythonEnvironmentType.Conda,
-			value: {
-				envType: PythonEnvironmentType.Conda,
-				envDescription: 'Creates a `.conda` Conda environment for your project'
-			}
-		})
-	];
+export const getEnvProviderInfoList = async (
+	commandService: ICommandService,
+	logService: ILogService,
+): Promise<PythonEnvironmentProviderInfo[]> => {
+	const envTypes = await commandService.executeCommand(
+		'python.getCreateEnvironmentProviders'
+	);
+	if (!envTypes) {
+		logService.debug('No Python Create Environment Providers found.');
+		return [];
+	}
+	return envTypes;
+};
+
+/**
+ * Converts PythonEnvironmentProviderInfo objects to DropDownListBoxItem objects.
+ * @param providers The PythonEnvironmentProviderInfo objects to convert.
+ * @returns The array of DropDownListBoxItem objects.
+ */
+export const envProviderInfoToDropDownItems = (
+	providers: PythonEnvironmentProviderInfo[]
+): DropDownListBoxItem<string, PythonEnvironmentProviderInfo>[] => {
+	return providers.map(
+		(provider) =>
+			new DropDownListBoxItem<string, PythonEnvironmentProviderInfo>({
+				identifier: provider.id,
+				value: provider,
+			})
+	);
+};
+
+/**
+ * Retrieves the name of the environment provider based on the provider ID.
+ * @param providerId The ID of the environment provider.
+ * @param providers The list of environment providers.
+ * @returns The name of the environment provider or undefined if not found.
+ */
+export const envProviderNameForId = (
+	providerId: string | undefined,
+	providers: PythonEnvironmentProviderInfo[]
+): string | undefined => {
+	if (!providerId) {
+		return undefined;
+	}
+	const provider = providers.find((p) => p.id === providerId);
+	return provider ? provider.name : undefined;
 };

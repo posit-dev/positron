@@ -24,15 +24,15 @@ import comm
 from .access_keys import decode_access_key
 from .data_explorer_comm import (
     BackendState,
+    ColumnDisplayType,
     ColumnFrequencyTable,
     ColumnHistogram,
+    ColumnProfileResult,
+    ColumnProfileType,
+    ColumnSchema,
+    ColumnSortKey,
     ColumnSummaryStats,
     CompareFilterParamsOp,
-    ColumnProfileType,
-    ColumnProfileResult,
-    ColumnSchema,
-    ColumnDisplayType,
-    ColumnSortKey,
     DataExplorerBackendMessageContent,
     DataExplorerFrontendEvent,
     FilterResult,
@@ -60,9 +60,8 @@ from .data_explorer_comm import (
     TableShape,
 )
 from .positron_comm import CommMessage, PositronComm
-from .third_party import pd_
+from .third_party import pd_, np_
 from .utils import guid
-
 
 if TYPE_CHECKING:
     import pandas as pd
@@ -226,14 +225,14 @@ class DataExplorerTableView(abc.ABC):
         pass
 
 
-def _pandas_format_values(col):
-    import pandas.io.formats.format as fmt
+def _format_value(x):
+    if isinstance(x, float) and np_.isnan(x):
+        return "NaN"
+    return str(x)
 
-    try:
-        return fmt.format_array(col._values, None, leading_space=False)
-    except Exception:
-        logger.warning(f"Failed to format column '{col.name}'")
-        return col.astype(str).tolist()
+
+def _pandas_format_values(col):
+    return col.map(_format_value).tolist()
 
 
 _FILTER_RANGE_COMPARE_SUPPORTED = {
@@ -266,6 +265,7 @@ class PandasView(DataExplorerTableView):
         "complex": "number",
         "categorical": "categorical",
         "boolean": "boolean",
+        "bool": "boolean",
         "datetime64": "datetime",
         "datetime64[ns]": "datetime",
         "datetime": "datetime",
@@ -274,6 +274,7 @@ class PandasView(DataExplorerTableView):
         "bytes": "string",
         "string": "string",
     }
+    TYPE_NAME_MAPPING = {"boolean": "bool"}
 
     def __init__(
         self,
@@ -582,6 +583,7 @@ class PandasView(DataExplorerTableView):
         # TODO: time zone for datetimetz datetime64[ns] types
         if dtype == object:
             type_name = get_inferred_dtype()
+            type_name = cls.TYPE_NAME_MAPPING.get(type_name, type_name)
         else:
             # TODO: more sophisticated type mapping
             type_name = str(dtype)
@@ -753,6 +755,11 @@ class PandasView(DataExplorerTableView):
             RowFilterType.NotBetween,
         ]:
             return display_type in _FILTER_RANGE_COMPARE_SUPPORTED
+        elif filt.filter_type in [
+            RowFilterType.IsTrue,
+            RowFilterType.IsFalse,
+        ]:
+            return display_type == ColumnDisplayType.Boolean
         else:
             # Filters always supported
             assert filt.filter_type in [
@@ -797,6 +804,10 @@ class PandasView(DataExplorerTableView):
             mask = col.str.len() != 0
         elif filt.filter_type == RowFilterType.NotNull:
             mask = col.notnull()
+        elif filt.filter_type == RowFilterType.IsTrue:
+            mask = col == True  # noqa: E712
+        elif filt.filter_type == RowFilterType.IsFalse:
+            mask = col == False  # noqa: E712
         elif filt.filter_type == RowFilterType.SetMembership:
             params = filt.set_membership_params
             assert params is not None
@@ -955,10 +966,12 @@ class PandasView(DataExplorerTableView):
         RowFilterType.Between,
         RowFilterType.Compare,
         RowFilterType.IsEmpty,
-        RowFilterType.NotEmpty,
+        RowFilterType.IsFalse,
         RowFilterType.IsNull,
-        RowFilterType.NotNull,
+        RowFilterType.IsTrue,
         RowFilterType.NotBetween,
+        RowFilterType.NotEmpty,
+        RowFilterType.NotNull,
         RowFilterType.Search,
         RowFilterType.SetMembership,
     }
@@ -1133,6 +1146,7 @@ class DataExplorerService:
         wrapped_comm = PositronComm(base_comm)
         wrapped_comm.on_msg(self.handle_msg, DataExplorerBackendMessageContent)
         self.comms[comm_id] = wrapped_comm
+        return comm_id
 
     def _close_explorer(self, comm_id: str):
         try:

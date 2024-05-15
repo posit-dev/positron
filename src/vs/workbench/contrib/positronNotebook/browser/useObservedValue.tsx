@@ -4,7 +4,7 @@
 
 import * as React from 'react';
 import { ISettableObservable } from 'vs/base/common/observableInternal/base';
-import { observeValue } from '../common/utils/observeValue';
+import { Event } from 'vs/base/common/event';
 
 /**
  * Automatically updates the component when the observable changes.
@@ -16,14 +16,16 @@ export function useObservedValue<T>(observable: ISettableObservable<T>): T | und
 export function useObservedValue<T, M extends (x: T) => unknown>(observable: ISettableObservable<T>, map: M): M extends (x: T) => infer Out ? Out : never;
 export function useObservedValue<T, M>(observable: ISettableObservable<T>, map?: (x: T) => unknown): T | undefined | M extends (x: T) => infer Out ? Out : never {
 
-	const [value, setValue] = React.useState(typeof map === 'function' ? map(observable.get()) : observable.get());
+	const [value, setValue] = React.useState(() => typeof map === 'function' ? map(observable.get()) : observable.get());
 
-	React.useEffect(() => observeValue(observable, {
-		handleChange() {
-			const val = observable.get();
+	React.useEffect(() => {
+		const onObservableChange = Event.fromObservable(observable);
+		const observer = onObservableChange((val) => {
 			setValue(typeof map === 'function' ? map(val) : val);
-		}
-	}), [map, observable]);
+		});
+
+		return observer.dispose;
+	}, [map, observable]);
 
 	return value as T | undefined | M extends (x: T) => infer Out ? Out : never;
 }

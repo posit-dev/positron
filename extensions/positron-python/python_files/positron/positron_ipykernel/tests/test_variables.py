@@ -18,6 +18,8 @@ from positron_ipykernel.positron_comm import JsonRpcErrorCode
 from positron_ipykernel.positron_ipkernel import PositronIPyKernel
 from positron_ipykernel.utils import JsonRecord, not_none
 from positron_ipykernel.variables import (
+    MAX_CHILDREN,
+    MAX_ITEMS,
     VariablesService,
     _summarize_children,
     _summarize_variable,
@@ -60,20 +62,20 @@ def test_comm_open(kernel: PositronIPyKernel) -> None:
         #
         # Same types
         #
-        ("import numpy as np", [f"np.array({x})" for x in [3, [3], [[3]]]]),
-        ("import torch", [f"torch.tensor({x})" for x in [3, [3], [[3]]]]),
+        ("import numpy as np", [f"x = np.array({x})" for x in [3, [3], [[3]]]]),
+        ("import torch", [f"x = torch.tensor({x})" for x in [3, [3], [[3]]]]),
         pytest.param(
             "import pandas as pd",
-            [f"pd.Series({x})" for x in [[], [3], [3, 3], ["3"]]],
+            [f"x = pd.Series({x})" for x in [[], [3], [3, 3], ["3"]]],
         ),
         pytest.param(
             "import polars as pl",
-            [f"pl.Series({x})" for x in [[], [3], [3, 3], ["3"]]],
+            [f"x = pl.Series({x})" for x in [[], [3], [3, 3], ["3"]]],
         ),
         (
             "import pandas as pd",
             [
-                f"pd.DataFrame({x})"
+                f"x = pd.DataFrame({x})"
                 for x in [
                     {"a": []},
                     {"a": [3]},
@@ -85,7 +87,7 @@ def test_comm_open(kernel: PositronIPyKernel) -> None:
         (
             "import polars as pl",
             [
-                f"pl.DataFrame({x})"
+                f"x = pl.DataFrame({x})"
                 for x in [
                     {"a": []},
                     {"a": [3]},
@@ -94,11 +96,9 @@ def test_comm_open(kernel: PositronIPyKernel) -> None:
                 ]
             ],
         ),
-        #
-        # Changing types
-        #
-        ("", ["3", "'3'"]),
-        ("import numpy as np", ["3", "np.array(3)"]),
+        # Nested mutable types
+        ("", ["x = [{}]", "x[0]['a'] = 0"]),
+        ("", ["x = {'a': []}", "x['a'].append(0)"]),
     ],
 )
 def test_change_detection(
@@ -117,7 +117,7 @@ def test_change_detection(
 
 def _assert_assigned(shell: PositronShell, value_code: str, variables_comm: DummyComm):
     # Assign the value to a variable.
-    shell.run_cell(f"x = {value_code}")
+    shell.run_cell(value_code)
 
     # Test that the expected `update` message was sent with the
     # expected `assigned` value.
@@ -174,6 +174,82 @@ def test_handle_refresh(shell: PositronShell, variables_comm: DummyComm) -> None
             }
         )
     ]
+
+
+def test_list_1000(shell: PositronShell, variables_comm: DummyComm) -> None:
+    # Create 1000 variables
+    for j in range(0, 1000, 1):
+        shell.user_ns["var{}".format(j)] = j
+
+    # Request the list of variables
+    msg = json_rpc_request("list", comm_id="dummy_comm_id")
+    variables_comm.handle_msg(msg)
+
+    # Assert that a message with 1000 variables is sent
+    result_msg = variables_comm.messages[0]
+    assert result_msg.get("data").get("result").get("length") == 1000
+
+    # Also spot check the first and last variables
+    variables = result_msg.get("data").get("result").get("variables")
+    assert variables[0].get("display_name") == "var0"
+    assert variables[999].get("display_name") == "var999"
+
+
+def test_update_max_children_plus_one(shell: PositronShell, variables_comm: DummyComm) -> None:
+    # Create and update more than MAX_CHILDREN variables
+    n = MAX_CHILDREN + 1
+    add_value = 500
+    msg: Any = create_and_update_n_vars(n, add_value, shell, variables_comm)
+
+    # Check we received an update message
+    assert msg.get("data").get("method") == "update"
+
+    # Check we did not lose any variables
+    assigned = msg.get("data").get("params").get("assigned")
+    assert len(assigned) == n
+
+    # Spot check the first and last variables display values
+    assert assigned[0].get("display_value") == str(add_value)
+    assert assigned[n - 1].get("display_value") == str(n - 1 + add_value)
+
+
+def test_update_max_items_plus_one(shell: PositronShell, variables_comm: DummyComm) -> None:
+    # Create and update more than MAX_ITEMS variables
+    n = MAX_ITEMS + 1
+    add_value = 500
+    msg: Any = create_and_update_n_vars(n, add_value, shell, variables_comm)
+
+    # If we exceed MAX_ITEMS, the kernel sends a refresh message instead
+    assert msg.get("data").get("method") == "refresh"
+
+    # Check we did not exceed MAX_ITEMS variables
+    variables = msg.get("data").get("params").get("variables")
+    variables_len = len(variables)
+    assert variables_len == MAX_ITEMS
+
+    # Spot check the first and last variables display values
+    assert variables[0].get("display_value") == str(add_value)
+    assert variables[variables_len - 1].get("display_value") == str(variables_len - 1 + add_value)
+
+
+def create_and_update_n_vars(
+    n: int, add_value: int, shell: PositronShell, variables_comm: DummyComm
+) -> Any:
+    # Create n variables
+    assign_n = ""
+    for j in range(0, n, 1):
+        assign_n += "x{} = {}".format(j, j) + "\n"
+
+    shell.run_cell(assign_n)
+    variables_comm.messages.clear()
+
+    # Re-assign the variables to trigger an update message
+    update_n = ""
+    for j in range(0, n, 1):
+        update_n += "x{} = {}".format(j, j + add_value) + "\n"
+
+    shell.run_cell(update_n)
+    return variables_comm.messages[0]
 
 
 @pytest.mark.asyncio
@@ -257,6 +333,14 @@ def _assert_inspect(value: Any, path: List[Any], variables_comm: DummyComm) -> N
     variables_comm.messages.clear()
 
 
+class TestClass:
+    x: int = 0
+
+    @property
+    def x_plus_one(self):
+        raise AssertionError("Should not be evaluated")
+
+
 @pytest.mark.parametrize(
     ("value_fn"),
     [
@@ -266,6 +350,7 @@ def _assert_inspect(value: Any, path: List[Any], variables_comm: DummyComm) -> N
         lambda: np.array([[0, 1], [2, 3]]),
         # Inspecting large objects should not trigger update messages: https://github.com/posit-dev/positron/issues/2308.
         lambda: np.arange(BIG_ARRAY_LENGTH),
+        lambda: TestClass(),
     ],
 )
 def test_handle_inspect(value_fn, shell: PositronShell, variables_comm: DummyComm) -> None:
@@ -366,7 +451,7 @@ def test_handle_view(
     variables_comm.handle_msg(msg)
 
     # An acknowledgment message is sent
-    assert variables_comm.messages == [json_rpc_response({})]
+    assert len(variables_comm.messages) == 1
 
     assert_register_table_called(mock_dataexplorer_service, shell.user_ns["x"], "x")
 

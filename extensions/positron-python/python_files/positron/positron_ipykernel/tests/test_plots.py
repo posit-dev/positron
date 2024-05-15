@@ -5,7 +5,7 @@
 import base64
 import io
 from pathlib import Path
-from typing import Iterable, List, cast
+from typing import Any, Dict, Iterable, cast
 
 import matplotlib
 import matplotlib.pyplot as plt
@@ -52,9 +52,11 @@ def plots_service(kernel: PositronIPyKernel) -> Iterable[PlotsService]:
     plots_service = kernel.plots_service
 
     assert not plots_service._plots
+    assert not plt.get_fignums()
 
     yield plots_service
 
+    plots_service.shutdown()
     plt.close("all")
 
 
@@ -65,136 +67,17 @@ def images_path() -> Path:
     return images_path
 
 
-def test_mpl_dont_create_plot_on_new_figure(
-    shell: PositronShell, plots_service: PlotsService
-) -> None:
-    # Creating a figure should not yet create a plot with the plots service.
-    shell.run_cell("plt.figure()")
-    assert not plots_service._plots
-
-
-def _get_plot_comms(plots_service: PlotsService) -> List[DummyComm]:
-    return [cast(DummyComm, plot._comm.comm) for plot in plots_service._plots]
-
-
-def _get_single_plot_comm(plots_service: PlotsService) -> DummyComm:
-    plot_comms = _get_plot_comms(plots_service)
-    assert len(plot_comms) == 1
-    return plot_comms[0]
-
-
-@pytest.mark.parametrize("code", ["plt.figure(); plt.show()", "plt.figure().show()"])
-def test_mpl_send_open_comm_on_plt_show(
-    code: str, shell: PositronShell, plots_service: PlotsService
-) -> None:
-    # Showing a figure should create a plot with the plots service and open a corresponding comm.
-    shell.run_cell(code)
-    plot_comm = _get_single_plot_comm(plots_service)
-    assert plot_comm.pop_messages() == [comm_open_message(_CommTarget.Plot)]
-
-
 def _create_mpl_plot(shell: PositronShell, plots_service: PlotsService) -> DummyComm:
-    shell.run_cell("plt.figure().show()")
-    plot_comm = _get_single_plot_comm(plots_service)
+    shell.run_cell("plt.figure()")
+    plot_comm = cast(DummyComm, plots_service._plots[-1]._comm.comm)
+    assert plot_comm.messages == [comm_open_message(_CommTarget.Plot)]
     plot_comm.messages.clear()
     return plot_comm
 
 
-def test_mpl_send_show_on_successive_plt_show(
-    shell: PositronShell, plots_service: PlotsService
-) -> None:
-    plot_comm = _create_mpl_plot(shell, plots_service)
-
-    # Show the figure again.
-    shell.run_cell("plt.show()")
-    assert plot_comm.pop_messages() == [json_rpc_notification("show", {})]
-
-    # It should also work with Figure.show().
-    shell.run_cell("plt.gcf().show()")
-    assert plot_comm.pop_messages() == [json_rpc_notification("show", {})]
-
-
-def test_mpl_send_update_on_draw(shell: PositronShell, plots_service: PlotsService) -> None:
-    plot_comm = _create_mpl_plot(shell, plots_service)
-
-    # Drawing to an active plot should trigger an update.
-    shell.run_cell("plt.plot([1, 2])")
-    assert plot_comm.pop_messages() == [json_rpc_notification("update", {})]
-
-
-def test_mpl_dont_send_update_on_execution(
-    shell: PositronShell, plots_service: PlotsService
-) -> None:
-    plot_comm = _create_mpl_plot(shell, plots_service)
-
-    # Executing code that doesn't draw to the active plot should not trigger an update.
-    shell.run_cell("1")
-    assert plot_comm.pop_messages() == []
-
-
-def test_mpl_send_close_comm_on_plt_close(
-    shell: PositronShell, plots_service: PlotsService
-) -> None:
-    plot_comm = _create_mpl_plot(shell, plots_service)
-
-    # Closing the figure should close the plot and send a comm close message.
-    shell.run_cell("plt.close()")
-    assert plot_comm.pop_messages() == [comm_close_message()]
-    assert not plots_service._plots
-
-
-def test_mpl_multiple_figures(shell: PositronShell, plots_service: PlotsService) -> None:
-    # Create two figures, and show them both.
-    shell.run_cell("f1 = plt.figure(); f2 = plt.figure(); plt.show()")
-
-    plot_comms = _get_plot_comms(plots_service)
-    assert len(plot_comms) == 2
-    for plot_comm in plot_comms:
-        assert plot_comm.pop_messages() == [comm_open_message(_CommTarget.Plot)]
-
-    # Draw to the first figure.
-    shell.run_cell("plt.figure(f1); plt.plot([1, 2])")
-
-    assert plot_comms[0].pop_messages() == [json_rpc_notification("update", {})]
-    assert plot_comms[1].pop_messages() == []
-
-    # Draw to the second figure.
-    shell.run_cell("plt.figure(f2); plt.plot([1, 2])")
-
-    assert plot_comms[0].pop_messages() == []
-    assert plot_comms[1].pop_messages() == [json_rpc_notification("update", {})]
-
-    # Show the first figure.
-    shell.run_cell("f1.show()")
-
-    assert plot_comms[0].pop_messages() == [json_rpc_notification("show", {})]
-    assert plot_comms[1].pop_messages() == []
-
-    # Show the second figure.
-    shell.run_cell("f2.show()")
-
-    assert plot_comms[0].pop_messages() == []
-    assert plot_comms[1].pop_messages() == [json_rpc_notification("show", {})]
-
-
-def test_mpl_render(shell: PositronShell, plots_service: PlotsService, images_path: Path) -> None:
-    # First show the figure and get the plot comm.
-    shell.run_cell("plt.plot([1, 2])\nplt.show()")
-    plot_comm = _get_single_plot_comm(plots_service)
-    assert plot_comm.pop_messages() == [
-        comm_open_message(_CommTarget.Plot),
-        # NOTE: The update here is unnecessary since when the frontend receives a comm open, it
-        #  responds with a render request. It is probably harmless though since the frontend
-        #  debounces render requests. It happens because all figures are redrawn post cell execution,
-        #  when matplotlib interactive mode is enabled.
-        json_rpc_notification("update", {}),
-    ]
-
-    # Send a render request to the plot comm.
-    width = 400
-    height = 300
-    pixel_ratio = 2
-    format = "png"
+def _do_render(
+    plot_comm: DummyComm, width=400, height=300, pixel_ratio=2, format="png"
+) -> Dict[str, Any]:
     msg = json_rpc_request(
         "render",
         {"width": width, "height": height, "pixel_ratio": pixel_ratio, "format": format},
@@ -202,9 +85,43 @@ def test_mpl_render(shell: PositronShell, plots_service: PlotsService, images_pa
     )
     plot_comm.handle_msg(msg)
 
-    responses = plot_comm.pop_messages()
-    assert len(responses) == 1
-    response = responses[0]
+    assert len(plot_comm.messages) == 1
+    response = plot_comm.messages[0]
+    plot_comm.messages.clear()
+
+    return response
+
+
+def test_mpl_create(shell: PositronShell, plots_service: PlotsService) -> None:
+    # Creating a figure should create a plot with the plots service and open a corresponding comm.
+    _create_mpl_plot(shell, plots_service)
+
+    assert len(plots_service._plots) == 1
+
+
+def test_mpl_show(shell: PositronShell, plots_service: PlotsService) -> None:
+    plot_comm = _create_mpl_plot(shell, plots_service)
+
+    # Show the figure again.
+    shell.run_cell("plt.show()")
+    assert plot_comm.messages == [json_rpc_notification("show", {})]
+    plot_comm.messages.clear()
+
+    # It should also work with Figure.show().
+    shell.run_cell("plt.gcf().show()")
+    assert plot_comm.messages == [json_rpc_notification("show", {})]
+
+
+def test_mpl_render(shell: PositronShell, plots_service: PlotsService, images_path: Path) -> None:
+    # First create the figure and get the plot comm.
+    plot_comm = _create_mpl_plot(shell, plots_service)
+
+    # Send a render request to the plot comm. The frontend would send this on comm creation.
+    width = 400
+    height = 300
+    pixel_ratio = 2
+    format = "png"
+    response = _do_render(plot_comm, width, height, pixel_ratio, format)
 
     # Check that the response includes the expected base64-encoded resized image.
     image_bytes = response["data"]["result"].pop("data")
@@ -215,13 +132,125 @@ def test_mpl_render(shell: PositronShell, plots_service: PlotsService, images_pa
     image.save(images_path / "test-mpl-render.png")
 
     # Check the rest of the response.
-    assert response == json_rpc_response({"mime_type": "image/png"})
+    assert response == json_rpc_response({"mime_type": f"image/{format}"})
+
+
+def test_mpl_update(shell: PositronShell, plots_service: PlotsService) -> None:
+    plot_comm = _create_mpl_plot(shell, plots_service)
+
+    _do_render(plot_comm)
+
+    # Drawing to an active plot should trigger an update.
+    shell.run_cell("plt.plot([1, 2])")
+    assert plot_comm.messages == [json_rpc_notification("update", {})]
+    plot_comm.messages.clear()
+
+    # Executing code that doesn't draw to the active plot should not trigger an update.
+    shell.run_cell("1")
+    assert plot_comm.messages == []
+
+
+def _assert_plot_comm_closed(plot_comm: DummyComm) -> None:
+    assert plot_comm._closed
+    assert plot_comm.messages == [comm_close_message()]
+
+
+def test_mpl_close(shell: PositronShell, plots_service: PlotsService) -> None:
+    plot_comm = _create_mpl_plot(shell, plots_service)
+
+    # Closing the figure
+    shell.run_cell("plt.close()")
+    # should close the plot comm,
+    _assert_plot_comm_closed(plot_comm)
+    # but the comm should still be registered with the plots service.
+    assert len(plots_service._plots) == 1
+
+
+def _do_close(plot_comm: DummyComm) -> None:
+    plot_comm.handle_close(comm_close_message())
+
+    _assert_plot_comm_closed(plot_comm)
+    plot_comm.messages.clear()
+
+
+def test_mpl_frontend_close(shell: PositronShell, plots_service: PlotsService) -> None:
+    plot_comm = _create_mpl_plot(shell, plots_service)
+    _do_close(plot_comm)
+
+
+def test_mpl_frontend_close_then_draw(shell: PositronShell, plots_service: PlotsService) -> None:
+    plot_comm = _create_mpl_plot(shell, plots_service)
+    _do_render(plot_comm)
+    _do_close(plot_comm)
+
+    # Drawing again should re-open the comm
+    shell.run_cell("plt.plot([1, 2])")
+
+    assert not plot_comm._closed
+    assert plot_comm.messages == [comm_open_message(_CommTarget.Plot)]
+
+
+def test_mpl_frontend_close_then_show(shell: PositronShell, plots_service: PlotsService) -> None:
+    plot_comm = _create_mpl_plot(shell, plots_service)
+    _do_render(plot_comm)
+    _do_close(plot_comm)
+
+    # Showing again should re-open the comm
+    shell.run_cell("plt.show()")
+
+    assert not plot_comm._closed
+    assert plot_comm.messages == [comm_open_message(_CommTarget.Plot)]
+
+
+def test_mpl_multiple_figures(shell: PositronShell, plots_service: PlotsService) -> None:
+    # Create two figures, and show them both.
+    plot_comms = [_create_mpl_plot(shell, plots_service) for _ in range(2)]
+
+    # Render both figures to complete their initialization.
+    for plot_comm in plot_comms:
+        _do_render(plot_comm)
+
+    # Draw to the first figure.
+    shell.run_cell("plt.figure(1); plt.plot([1, 2])")
+
+    assert plot_comms[0].messages == [json_rpc_notification("update", {})]
+    assert plot_comms[1].messages == []
+    plot_comms[0].messages.clear()
+
+    # Draw to the second figure.
+    shell.run_cell("plt.figure(2); plt.plot([1, 2])")
+
+    assert plot_comms[0].messages == []
+    assert plot_comms[1].messages == [json_rpc_notification("update", {})]
+    plot_comms[1].messages.clear()
+
+    # Show the first figure.
+    shell.run_cell("plt.figure(1).show()")
+
+    assert plot_comms[0].messages == [json_rpc_notification("show", {})]
+    assert plot_comms[1].messages == []
+    plot_comms[0].messages.clear()
+
+    # Show the second figure.
+    shell.run_cell("plt.figure(2).show()")
+
+    assert plot_comms[0].messages == []
+    assert plot_comms[1].messages == [json_rpc_notification("show", {})]
+
+
+def test_mpl_issue_2824(shell: PositronShell, plots_service: PlotsService) -> None:
+    """
+    Creating a mutable collection of figures should not create a duplicate plot.
+    See https://github.com/posit-dev/positron/issues/2824
+    """
+    shell.run_cell("figs = [plt.figure()]")
+    # This step triggers the variables service to create a snapshot, which shouldn't duplicate the plot.
+    shell.run_cell("plt.show()")
+    assert len(plots_service._plots) == 1
 
 
 def test_mpl_shutdown(shell: PositronShell, plots_service: PlotsService) -> None:
-    # Create a figure and show it.
-    shell.run_cell("plt.figure(); plt.figure(); plt.show()")
-    plot_comms = _get_plot_comms(plots_service)
+    plot_comms = [_create_mpl_plot(shell, plots_service) for _ in range(2)]
 
     # Double-check that it still has plots.
     assert len(plots_service._plots) == 2

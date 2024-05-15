@@ -337,7 +337,7 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
             this.serviceContainer,
             this.runtimeMetadata.languageVersion,
             languageClientOptions,
-            this.metadata.notebookUri,
+            this.metadata,
         );
     }
 

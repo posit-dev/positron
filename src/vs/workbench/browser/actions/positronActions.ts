@@ -25,6 +25,8 @@ import { IRuntimeSessionService } from 'vs/workbench/services/runtimeSession/com
 import { IRuntimeStartupService } from 'vs/workbench/services/runtimeStartup/common/runtimeStartupService';
 import { ILogService } from 'vs/platform/log/common/log';
 import { IOpenerService } from 'vs/platform/opener/common/opener';
+import { USE_POSITRON_PROJECT_WIZARD_CONFIG_KEY } from 'vs/workbench/services/positronNewProject/common/positronNewProjectEnablement';
+import { IPositronNewProjectService } from 'vs/workbench/services/positronNewProject/common/positronNewProject';
 
 /**
  * The PositronNewProjectAction.
@@ -39,6 +41,10 @@ export class PositronNewProjectAction extends Action2 {
 	 * Constructor.
 	 */
 	constructor() {
+		// TODO: [New Project] Remove feature flag when New Project action is ready for release
+		// This removes the action in the New menu, the application bar File menu, and the command
+		// palette when the feature flag is not enabled.
+		const projectWizardEnabled = ContextKeyExpr.deserialize(`config.${USE_POSITRON_PROJECT_WIZARD_CONFIG_KEY}`);
 		super({
 			id: PositronNewProjectAction.ID,
 			title: {
@@ -48,17 +54,16 @@ export class PositronNewProjectAction extends Action2 {
 			},
 			category: workspacesCategory,
 			f1: true,
-			// TODO: [New Project] Remove feature flag when New Project action is ready for release
-			// This disables (greys out) the action in the New menu, the application bar File menu, and the command palette when not in a development context
-			precondition: ContextKeyExpr.and(EnterMultiRootWorkspaceSupportContext, IsDevelopmentContext.isEqualTo(true)),
+			precondition: ContextKeyExpr.and(
+				EnterMultiRootWorkspaceSupportContext,
+				ContextKeyExpr.or(projectWizardEnabled, IsDevelopmentContext)
+			),
 			menu: {
 				id: MenuId.MenubarFileMenu,
 				group: '1_newfolder',
 				order: 3,
-				// TODO: [New Project] Remove feature flag when New Project action is ready for release
-				// This removes the action from the application bar File menu when not in a development context
-				when: IsDevelopmentContext.isEqualTo(true)
-			}
+				when: ContextKeyExpr.or(projectWizardEnabled, IsDevelopmentContext),
+			},
 		});
 	}
 
@@ -81,6 +86,7 @@ export class PositronNewProjectAction extends Action2 {
 			accessor.get(ILogService),
 			accessor.get(IOpenerService),
 			accessor.get(IPathService),
+			accessor.get(IPositronNewProjectService),
 			accessor.get(IRuntimeSessionService),
 			accessor.get(IRuntimeStartupService),
 		);

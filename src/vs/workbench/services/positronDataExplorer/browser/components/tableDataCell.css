@@ -13,6 +13,7 @@
 	white-space: nowrap;
 	line-height: normal;
 	text-overflow: ellipsis;
+	white-space-collapse: preserve;
 }
 
 .data-grid-row-cell

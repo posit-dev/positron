@@ -14,6 +14,7 @@ import { PythonEnvironment } from '../pythonEnvironments/info';
 import { PythonVersion } from '../pythonEnvironments/info/pythonVersion';
 import { createPythonRuntimeMetadata } from './runtime';
 import { comparePythonVersionDescending } from '../interpreter/configuration/environmentTypeComparer';
+import { MINIMUM_PYTHON_VERSION } from '../common/constants';
 
 /**
  * Provides Python language runtime metadata to Positron; called during the
@@ -78,10 +79,9 @@ export async function* pythonRuntimeDiscoverer(
         traceInfo(`pythonRuntimeDiscoverer: recommended for workspace: ${recommendedForWorkspace}`);
 
         // Register each interpreter as a language runtime metadata entry
-        const minimumSupportedVersion = { major: 3, minor: 8, patch: 0, raw: '3.8.0' } as PythonVersion;
         for (const interpreter of interpreters) {
             try {
-                if (isVersionSupported(interpreter?.version, minimumSupportedVersion)) {
+                if (isVersionSupported(interpreter?.version, MINIMUM_PYTHON_VERSION)) {
                     const runtime = await createPythonRuntimeMetadata(
                         interpreter,
                         serviceContainer,

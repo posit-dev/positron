@@ -21,12 +21,19 @@ import { PositronDataExplorerEditorInput } from 'vs/workbench/contrib/positronDa
  * PositronDataExplorerContribution class.
  */
 class PositronDataExplorerContribution extends Disposable {
+	/**
+	 * Constructor.
+	 * @param editorResolverService The editor resolver service.
+	 * @param instantiationService The instantiation service.
+	 */
 	constructor(
 		@IEditorResolverService editorResolverService: IEditorResolverService,
 		@IInstantiationService instantiationService: IInstantiationService,
 	) {
+		// Call the base class's constructor.
 		super();
 
+		// Register the editor.
 		this._register(editorResolverService.registerEditor(
 			`${Schemas.positronDataExplorer}:**/**`,
 			{
@@ -41,7 +48,13 @@ class PositronDataExplorerContribution extends Disposable {
 			},
 			{
 				createEditorInput: ({ resource, options }) => {
-					return { editor: instantiationService.createInstance(PositronDataExplorerEditorInput, resource), options };
+					return {
+						editor: instantiationService.createInstance(
+							PositronDataExplorerEditorInput,
+							resource
+						),
+						options
+					};
 				}
 			}
 		));

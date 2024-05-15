@@ -8,7 +8,7 @@ import { Event, Emitter } from 'vs/base/common/event';
 import { IEditor } from 'vs/editor/common/editorCommon';
 import { ILogService } from 'vs/platform/log/common/log';
 import { Disposable, DisposableStore } from 'vs/base/common/lifecycle';
-import { ObservableValue } from 'vs/base/common/observableInternal/base';
+import { ISettableObservable, observableValue } from 'vs/base/common/observableInternal/base';
 import { IViewsService } from 'vs/workbench/services/views/common/viewsService';
 import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
 import { IInstantiationService } from 'vs/platform/instantiation/common/instantiation';
@@ -675,7 +675,7 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 	/**
 	 * An observable value representing the current console width in characters
 	 */
-	private readonly _widthInChars: ObservableValue<number>;
+	private readonly _widthInChars: ISettableObservable<number>;
 
 	//#endregion Private Properties
 
@@ -704,7 +704,7 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 		this.attachRuntime(attachMode);
 
 		// Initialize the width in characters.
-		this._widthInChars = new ObservableValue<number>(this, undefined, 80);
+		this._widthInChars = observableValue<number>('console-width', 80);
 		this.onDidChangeWidthInChars = Event.fromObservable(this._widthInChars);
 	}
 
@@ -1472,7 +1472,8 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 					const htmlContent = languageRuntimeMessageOutput.data['text/html'].toLowerCase();
 					if (htmlContent.indexOf('<script') >= 0 ||
 						htmlContent.indexOf('<body') >= 0 ||
-						htmlContent.indexOf('<html') >= 0) {
+						htmlContent.indexOf('<html') >= 0 ||
+						htmlContent.indexOf('<iframe') >= 0) {
 						// We only want to render HTML fragments for now; if it has
 						// scripts or looks like it is a self-contained document,
 						// hard pass. In the future, we'll need to render those in a
@@ -1659,12 +1660,13 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 			const crashedAndNeedRestartButton = exit.reason === RuntimeExitReason.Error &&
 				!this._configurationService.getValue<boolean>('positron.interpreters.restartOnCrash');
 
-			// In the case of a forced quit or normal shutdown, we don't attempt
-			// to automatically start the runtime again. In this case, we add an
-			// activity item that shows a button the user can use to start the
+			// In the case of a forced quit, normal shutdown, or unknown shutdown where the exit
+			// code was `0`, we don't attempt to automatically start the runtime again. In this
+			// case, we add an activity item that shows a button the user can use to start the
 			// runtime manually.
 			if (exit.reason === RuntimeExitReason.ForcedQuit ||
 				exit.reason === RuntimeExitReason.Shutdown ||
+				exit.reason === RuntimeExitReason.Unknown ||
 				crashedAndNeedRestartButton) {
 				const restartButton = new RuntimeItemRestartButton(generateUuid(),
 					this._session.runtimeMetadata.languageName,

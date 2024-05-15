@@ -10,10 +10,12 @@ import * as React from 'react';
 
 // Other dependencies.
 import { localize } from 'vs/nls';
+import { useEffect, useState } from 'react'; // eslint-disable-line no-duplicate-imports
 import { IAction, Separator } from 'vs/base/common/actions';
 import { ActionBarMenuButton } from 'vs/platform/positronActionBar/browser/components/actionBarMenuButton';
 import { usePositronDataExplorerContext } from 'vs/workbench/browser/positronDataExplorer/positronDataExplorerContext';
 import { PositronDataExplorerLayout } from 'vs/workbench/services/positronDataExplorer/browser/interfaces/positronDataExplorerService';
+import { DisposableStore } from 'vs/base/common/lifecycle';
 
 /**
  * Localized strings.
@@ -31,6 +33,23 @@ const columnsHidden = localize('positron.columnsHidden', "Columns Hidden");
 export const LayoutMenuButton = () => {
 	// Context hooks.
 	const context = usePositronDataExplorerContext();
+
+	// State hooks.
+	const [currentLayout, setCurrentLayout] = useState(context.instance.layout);
+
+	// Main useEffect. Listen for layout changes and update the current layout
+	// state.
+	useEffect(() => {
+		// Create the disposable store for cleanup.
+		const disposableStore = new DisposableStore();
+
+		// Add the onDidChangeLayout event handler.
+		disposableStore.add(context.instance.onDidChangeLayout(layout => {
+			setCurrentLayout(layout);
+		}));
+
+		return () => disposableStore.dispose();
+	}, [context.instance]);
 
 	// Builds the actions.
 	const actions = () => {
@@ -90,8 +109,8 @@ export const LayoutMenuButton = () => {
 	 * Selects the icon ID for the layout.
 	 * @returns The icon ID for the layout.
 	 */
-	const selectIconId = () => {
-		switch (context.instance.layout) {
+	const selectIconId = (layout: PositronDataExplorerLayout) => {
+		switch (layout) {
 			// Columns left.
 			case PositronDataExplorerLayout.ColumnsLeft:
 				return 'positron-data-explorer-columns-left';
@@ -113,7 +132,7 @@ export const LayoutMenuButton = () => {
 	// Render.
 	return (
 		<ActionBarMenuButton
-			iconId={selectIconId()}
+			iconId={selectIconId(currentLayout)}
 			text={layoutButtonTitle}
 			tooltip={layoutButtonDescription}
 			ariaLabel={layoutButtonDescription}

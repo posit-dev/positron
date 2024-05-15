@@ -9,7 +9,7 @@ import { IWorkbenchLayoutService } from 'vs/workbench/services/layout/browser/la
 import { NewProjectWizardContextProvider, useNewProjectWizardContext } from 'vs/workbench/browser/positronNewProjectWizard/newProjectWizardContext';
 import { ILanguageRuntimeService } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { IRuntimeSessionService } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
-import { NewProjectConfiguration } from 'vs/workbench/browser/positronNewProjectWizard/newProjectWizardState';
+import { NewProjectWizardConfiguration } from 'vs/workbench/browser/positronNewProjectWizard/newProjectWizardState';
 import { NewProjectWizardStepContainer } from 'vs/workbench/browser/positronNewProjectWizard/newProjectWizardStepContainer';
 import { IRuntimeStartupService } from 'vs/workbench/services/runtimeStartup/common/runtimeStartupService';
 import { IKeybindingService } from 'vs/platform/keybinding/common/keybinding';
@@ -21,6 +21,9 @@ import { IFileService } from 'vs/platform/files/common/files';
 import { ICommandService } from 'vs/platform/commands/common/commands';
 import { ILogService } from 'vs/platform/log/common/log';
 import { IOpenerService } from 'vs/platform/opener/common/opener';
+import { IPositronNewProjectService, NewProjectConfiguration } from 'vs/workbench/services/positronNewProject/common/positronNewProject';
+import { EnvironmentSetupType } from 'vs/workbench/browser/positronNewProjectWizard/interfaces/newProjectWizardEnums';
+import { getEnvProviderInfoList } from 'vs/workbench/browser/positronNewProjectWizard/utilities/pythonEnvironmentStepUtils';
 
 /**
  * Shows the NewProjectModalDialog.
@@ -35,6 +38,7 @@ export const showNewProjectModalDialog = async (
 	logService: ILogService,
 	openerService: IOpenerService,
 	pathService: IPathService,
+	positronNewProjectService: IPositronNewProjectService,
 	runtimeSessionService: IRuntimeSessionService,
 	runtimeStartupService: IRuntimeStartupService,
 ): Promise<void> => {
@@ -62,15 +66,67 @@ export const showNewProjectModalDialog = async (
 				runtimeStartupService,
 			}}
 			parentFolder={(await fileDialogService.defaultFolderPath()).fsPath}
+			pythonEnvProviders={await getEnvProviderInfoList(commandService, logService)}
 		>
 			<NewProjectModalDialog
 				renderer={renderer}
 				createProject={async result => {
-					// Create the new project.
+					// Create the new project folder if it doesn't already exist.
 					const folder = URI.file((await pathService.path).join(result.parentFolder, result.projectName));
 					if (!(await fileService.exists(folder))) {
 						await fileService.createFolder(folder);
 					}
+
+					// The python environment type is only relevant if a new environment is being created.
+					const pythonEnvType =
+						result.pythonEnvSetupType === EnvironmentSetupType.NewEnvironment
+							? result.pythonEnvProvider
+							: '';
+
+					// Install ipykernel if applicable.
+					if (result.installIpykernel) {
+						const pythonPath =
+							result.selectedRuntime?.extraRuntimeData?.pythonPath ??
+							result.selectedRuntime?.runtimePath ??
+							'';
+						if (!pythonPath) {
+							logService.error('Could not determine python path to install ipykernel via Positron Project Wizard');
+						} else {
+							// Awaiting the command execution is necessary to ensure ipykernel is
+							// installed before the project is opened.
+							// If an error occurs while installing ipykernel, a message will be
+							// logged and once the project is opened, when the chosen runtime is
+							// starting, the user will be prompted again to install ipykernel.
+
+							await commandService.executeCommand(
+								'python.installIpykernel',
+								String(pythonPath)
+							);
+						}
+					}
+
+					// Create the new project configuration.
+					const newProjectConfig: NewProjectConfiguration = {
+						runtimeId: result.selectedRuntime?.runtimeId || '',
+						projectType: result.projectType || '',
+						projectFolder: folder.fsPath,
+						initGitRepo: result.initGitRepo,
+						pythonEnvType: pythonEnvType || '',
+						installIpykernel: result.installIpykernel || false,
+						useRenv: result.useRenv || false,
+					};
+
+					// TODO: we may want to allow the user to select an already existing directory
+					// and then create the project in that directory. We will need to handle if the
+					// directory is the same as the current workspace directory in the active window
+					// or if the new project directory is already open in another window.
+
+					// Store the new project configuration.
+					positronNewProjectService.storeNewProjectConfig(newProjectConfig);
+
+					// Any context-dependent work needs to be done before opening the folder
+					// because the extension host gets destroyed when a new project is opened,
+					// whether the folder is opened in a new window or in the existing window.
 					await commandService.executeCommand(
 						'vscode.openFolder',
 						folder,
@@ -79,34 +135,6 @@ export const showNewProjectModalDialog = async (
 							forceReuseWindow: !result.openInNewWindow
 						}
 					);
-
-					// TODO: whether the folder is opened in a new window or not, we will need to store the
-					// project configuration in some workspace state so that we can use it to start the runtime.
-					// The extension host gets destroyed when a new project is opened in the same window.
-					//   - Where can the new project config be stored?
-					//       - See IStorageService, maybe StorageScope.WORKSPACE and StorageTarget.MACHINE
-
-					// 1) Create the directory for the new project (done above)
-					// 2) Set up the initial workspace for the new project
-					//   For Python
-					//     - If new environment creation is selected, create the .venv/.conda/etc. as appropriate
-					//     - If git init selected, create the .gitignore and README.md
-					//     - Create an unsaved Python file
-					//     - Set the active interpreter to the selected interpreter
-					//   For R
-					//     - If renv selected, run renv::init()
-					//     - Whether or not git init selected, create the .gitignore and README.md
-					//     - Create an unsaved R file
-					//     - Set the active interpreter to the selected interpreter
-					//   For Jupyter Notebook
-					//     - If git init selected, create the .gitignore and README.md
-					//     - Create an unsaved notebook file
-					//     - Set the active interpreter to the selected interpreter
-
-					// Other Thoughts
-					//   - Can the interpreter discovery at startup be modified to directly use the selected
-					//     interpreter, so that the user doesn't have to wait for the interpreter discovery to
-					//     complete before the runtime is started?
 				}}
 			/>
 		</NewProjectWizardContextProvider>
@@ -115,7 +143,7 @@ export const showNewProjectModalDialog = async (
 
 interface NewProjectModalDialogProps {
 	renderer: PositronModalReactRenderer;
-	createProject: (result: NewProjectConfiguration) => Promise<void>;
+	createProject: (result: NewProjectWizardConfiguration) => Promise<void>;
 }
 
 /**

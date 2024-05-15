@@ -32,7 +32,7 @@ export interface JupyterKernelSpec {
 	interrupt_mode?: 'signal' | 'message'; // eslint-disable-line
 
 	/** Environment variables to set when starting the kernel */
-	env?: { [key: string]: string };
+	env?: NodeJS.ProcessEnv;
 }
 
 /**

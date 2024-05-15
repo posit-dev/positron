@@ -14,7 +14,7 @@ import { ILanguageRuntimeExit, ILanguageRuntimeMetadata, ILanguageRuntimeService
 import { IRuntimeStartupService, RuntimeStartupPhase } from 'vs/workbench/services/runtimeStartup/common/runtimeStartupService';
 import { ILanguageRuntimeSession, IRuntimeSessionMetadata, IRuntimeSessionService } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
 import { Event } from 'vs/base/common/event';
-import { ObservableValue } from 'vs/base/common/observableInternal/base';
+import { ISettableObservable, observableValue } from 'vs/base/common/observableInternal/base';
 import { ExtensionsRegistry } from 'vs/workbench/services/extensions/common/extensionsRegistry';
 import { ExtensionIdentifier } from 'vs/platform/extensions/common/extensions';
 import { ILifecycleService, ShutdownReason, StartupKind } from 'vs/workbench/services/lifecycle/common/lifecycle';
@@ -76,7 +76,7 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 	private readonly _mostRecentlyStartedRuntimesByLanguageId = new Map<string, ILanguageRuntimeMetadata>();
 
 	// The current startup phase; an observeable value.
-	private _startupPhase: ObservableValue<RuntimeStartupPhase>;
+	private _startupPhase: ISettableObservable<RuntimeStartupPhase>;
 
 	onDidChangeRuntimeStartupPhase: Event<RuntimeStartupPhase>;
 
@@ -102,8 +102,8 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 			this._languageRuntimeService.onDidRegisterRuntime(
 				this.onDidRegisterRuntime, this));
 
-		this._startupPhase = new ObservableValue<RuntimeStartupPhase>(
-			this, 'runtime-startup-phase', RuntimeStartupPhase.Initializing);
+		this._startupPhase = observableValue(
+			'runtime-startup-phase', RuntimeStartupPhase.Initializing);
 		this.onDidChangeRuntimeStartupPhase = Event.fromObservable(this._startupPhase);
 
 		this._register(this.onDidChangeRuntimeStartupPhase(phase => {
@@ -388,6 +388,9 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 			}, 5000);
 			return;
 		}
+
+		// Ensure all extension hosts are started before we start activating extensions
+		await this._extensionService.whenAllExtensionHostsStarted();
 
 		// Activate all extensions that contribute language runtimes.
 		const activationPromises = Array.from(this._languagePacks.keys()).map(
@@ -740,7 +743,10 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 		}
 
 		// Ignore if the runtime exited for a Good Reason.
-		if (exit.reason !== RuntimeExitReason.Error && exit.reason !== RuntimeExitReason.Unknown) {
+		// If the reason is `Unknown`, then we don't know the reason for the exit, but the
+		// `exit_code` was `0`, so we don't treat it as a crash. If the `exit_code` had not been
+		// `0`, then `onKernelExited()` would have upgraded the crash from `Unknown` to `Error`.
+		if (exit.reason !== RuntimeExitReason.Error) {
 			return;
 		}
 

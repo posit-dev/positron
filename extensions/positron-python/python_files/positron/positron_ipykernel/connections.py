@@ -61,12 +61,23 @@ PathKey = Tuple[str, ...]
 class Connection:
     """
     Base class representing a connection to a data source.
+
+    Attributes:
+        type: The type of the connection as a free form string. It's used along with `host` to
+            determine the uniqueness of a connection.
+        host: The host of the connection as a free form string.
+        display_name: The name of the connection to be displayed in the UI.
+        icon: The path to an icon to be used by the UI.
+        code: The code used to recreate the connection.
+        conn: The connection object.
+        actions: A list of actions to be displayed in the UI.
     """
 
     type: str
     host: str
     display_name: Optional[str] = None
     icon: Optional[str] = None
+    code: Optional[str] = None
     conn: Any = None
     actions: Any = None
 
@@ -147,7 +158,10 @@ class ConnectionsService:
         self.comm_id_to_path: Dict[str, Set[PathKey]] = {}
 
     def register_connection(
-        self, connection: Any, variable_path: Optional[List[str]] = None, display_pane: bool = True
+        self,
+        connection: Any,
+        variable_path: Optional[List[str] | str] = None,
+        display_pane: bool = True,
     ) -> str:
         """
         Opens a connection to the given data source.
@@ -187,7 +201,13 @@ class ConnectionsService:
         base_comm = comm.create_comm(
             target_name=self._comm_target_name,
             comm_id=comm_id,
-            data={"name": connection.display_name},
+            data={
+                "name": connection.display_name,
+                "language_id": "python",
+                "host": connection.host,
+                "type": connection.type,
+                "code": connection.code,
+            },
         )
 
         self._register_variable_path(variable_path, comm_id)
@@ -199,9 +219,14 @@ class ConnectionsService:
 
         return comm_id
 
-    def _register_variable_path(self, variable_path: Optional[List[str]], comm_id: str) -> None:
+    def _register_variable_path(
+        self, variable_path: Optional[List[str] | str], comm_id: str
+    ) -> None:
         if variable_path is None:
             return
+
+        if isinstance(variable_path, str):
+            variable_path = [encode_access_key(variable_path)]
 
         if not isinstance(variable_path, list):
             raise ValueError(variable_path)
@@ -292,6 +317,11 @@ class ConnectionsService:
             # wich might close the comm if it points only to that path.
             self._unregister_variable_path(tuple(variable_path))
             return
+        except Exception:
+            # Most likely the object refers to a closed connection. In this case
+            # we also close the connection.
+            self._unregister_variable_path(tuple(variable_path))
+            return
 
     def handle_variable_deleted(self, variable_name: str) -> None:
         """
@@ -319,6 +349,10 @@ class ConnectionsService:
 
         for path in paths:
             self._unregister_variable_path(path)
+
+        # this allows the variable pane to no longer display the 'view' action for a
+        # connection that has been closed.
+        self._kernel.variables_service.send_refresh_event()
 
     def _close_connection(self, comm_id: str):
         try:
@@ -454,6 +488,9 @@ class SQLite3Connection(Connection):
         self.display_name = "SQLite Connection"
         self.host = self._find_path(conn)
         self.type = "SQLite"
+        self.code = (
+            "import sqlite3\n" f'conn = sqlite3.connect("{self.host}")\n' "%connection_show conn\n"
+        )
 
     def _find_path(self, conn: sqlite3.Connection):
         """
@@ -566,8 +603,13 @@ class SQLAlchemyConnection(Connection):
     def __init__(self, conn):
         self.conn: sqlalchemy.Engine = conn
         self.display_name = f"SQLAlchemy ({conn.name})"
-        self.host = conn.url
+        self.host = conn.url.render_as_string()
         self.type = "SQLAlchemy"
+        self.code = (
+            "import sqlalchemy\n"
+            f"engine = sqlalchemy.create_engine('{self.host}')\n"
+            "%connection_show engine\n"
+        )
 
     def list_objects(self, path: List[ObjectSchema]):
         if sqlalchemy_ is None:

@@ -8,6 +8,7 @@ import * as React from 'react';
 import * as DOM from 'vs/base/browser/dom';
 import { EditorExtensionsRegistry, IEditorContributionDescription } from 'vs/editor/browser/editorExtensions';
 import { CodeEditorWidget } from 'vs/editor/browser/widget/codeEditor/codeEditorWidget';
+import { Event } from 'vs/base/common/event';
 
 import { IContextKeyService } from 'vs/platform/contextkey/common/contextkey';
 import { ServiceCollection } from 'vs/platform/instantiation/common/serviceCollection';
@@ -15,8 +16,8 @@ import { FloatingEditorClickMenu } from 'vs/workbench/browser/codeeditor';
 import { CellEditorOptions } from 'vs/workbench/contrib/notebook/browser/view/cellParts/cellEditorOptions';
 import { useNotebookInstance } from 'vs/workbench/contrib/positronNotebook/browser/NotebookInstanceProvider';
 import { useServices } from 'vs/workbench/contrib/positronNotebook/browser/ServicesProvider';
-import { IPositronNotebookCell } from 'vs/workbench/contrib/positronNotebook/browser/notebookCells/interfaces';
-import { observeValue } from 'vs/workbench/contrib/positronNotebook/common/utils/observeValue';
+import { DisposableStore } from 'vs/base/common/lifecycle';
+import { PositronNotebookCellGeneral } from 'vs/workbench/contrib/positronNotebook/browser/PositronNotebookCell';
 
 
 /**
@@ -24,9 +25,12 @@ import { observeValue } from 'vs/workbench/contrib/positronNotebook/common/utils
  * @param opts.cell Cell to be shown and edited in the editor widget
  * @returns An editor widget for the cell
  */
-export function CellEditorMonacoWidget({ cell }: { cell: IPositronNotebookCell }) {
+export function CellEditorMonacoWidget({ cell }: { cell: PositronNotebookCellGeneral }) {
 	const { editorPartRef } = useCellEditorWidget(cell);
-	return <div className='positron-cell-editor-monaco-widget' ref={editorPartRef} />;
+	return <div
+		className='positron-cell-editor-monaco-widget'
+		ref={editorPartRef}
+	/>;
 }
 
 // Padding for the editor widget. The sizing is not perfect but this helps the editor not overflow
@@ -38,7 +42,7 @@ const EDITOR_INSET_PADDING_PX = 1;
  * @param cell Cell whose editor is to be created
  * @returns Refs to place the editor and the wrapping div
  */
-export function useCellEditorWidget(cell: IPositronNotebookCell) {
+export function useCellEditorWidget(cell: PositronNotebookCellGeneral) {
 	const services = useServices();
 	const instance = useNotebookInstance();
 
@@ -52,10 +56,9 @@ export function useCellEditorWidget(cell: IPositronNotebookCell) {
 
 	// Create the editor
 	React.useEffect(() => {
-		if (!editorPartRef.current) {
-			console.log('no editor part or container');
-			return;
-		}
+		if (!editorPartRef.current) { return; }
+
+		const disposableStore = new DisposableStore();
 
 		// We need to use a native dom element here instead of a react ref one because the elements
 		// created by react's refs are not _true_ dom elements and thus calls like `refEl instanceof
@@ -66,8 +69,10 @@ export function useCellEditorWidget(cell: IPositronNotebookCell) {
 
 		const language = cell.cellModel.language;
 		const editorContextKeyService = services.scopedContextKeyProviderCallback(editorPartRef.current);
+		disposableStore.add(editorContextKeyService);
 		const editorInstaService = services.instantiationService.createChild(new ServiceCollection([IContextKeyService, editorContextKeyService]));
 		const editorOptions = new CellEditorOptions(instance.getBaseCellEditorOptions(language), instance.notebookOptions, services.configurationService);
+
 
 		const editor = editorInstaService.createInstance(CodeEditorWidget, nativeContainer, {
 			...editorOptions.getDefaultValue(),
@@ -81,9 +86,21 @@ export function useCellEditorWidget(cell: IPositronNotebookCell) {
 		}, {
 			contributions: getNotebookEditorContributions()
 		});
-
+		disposableStore.add(editor);
+		cell.attachEditor(editor);
 
 		editor.setValue(cell.getContent());
+
+		disposableStore.add(
+			editor.onDidFocusEditorWidget(() => {
+				instance.setEditingCell(cell);
+			})
+		);
+
+		disposableStore.add(
+			editor.onDidBlurEditorWidget(() => {
+			})
+		);
 
 
 		/**
@@ -110,21 +127,19 @@ export function useCellEditorWidget(cell: IPositronNotebookCell) {
 		});
 
 		// Keep the width up-to-date as the window resizes.
-		const sizeObserver = observeValue(sizeObservable, {
-			handleChange() {
-				resizeEditor();
-			}
-		});
+
+		disposableStore.add(Event.fromObservable(sizeObservable)(() => {
+			resizeEditor();
+		}));
 
 		services.logService.info('Positron Notebook | useCellEditorWidget() | Setting up editor widget');
 
 
 		return () => {
 			services.logService.info('Positron Notebook | useCellEditorWidget() | Disposing editor widget');
-			editor.dispose();
+			disposableStore.dispose();
 			nativeContainer.remove();
-			editorContextKeyService.dispose();
-			sizeObserver();
+			cell.detachEditor();
 		};
 	}, [cell, instance, services, sizeObservable]);
 

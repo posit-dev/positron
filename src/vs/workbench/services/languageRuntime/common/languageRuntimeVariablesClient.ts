@@ -4,7 +4,7 @@
 
 import { Emitter } from 'vs/base/common/event';
 import { Disposable } from 'vs/base/common/lifecycle';
-import { ObservableValue } from 'vs/base/common/observableInternal/base';
+import { ISettableObservable } from 'vs/base/common/observableInternal/base';
 import { IRuntimeClientInstance, RuntimeClientState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeClientInstance';
 import { ClipboardFormatFormat, PositronVariablesComm, RefreshEvent, UpdateEvent, Variable } from 'vs/workbench/services/languageRuntime/common/positronVariablesComm';
 
@@ -32,6 +32,13 @@ export class PositronVariable {
 	 */
 	get path() {
 		return [...this.parentKeys, this.data.access_key];
+	}
+
+	/**
+	 * Gets the ID of the comm client that owns the variable.
+	 */
+	get clientId() {
+		return this._comm.clientId;
 	}
 
 	/**
@@ -66,11 +73,11 @@ export class PositronVariable {
 	/**
 	 * Requests that the language runtime open a viewer for this variable.
 	 *
-	 * @returns A promise that resolves when the request has been sent.
+	 * @returns The ID of the viewer that was opened.
 	 */
-	async view(): Promise<void> {
+	async view(): Promise<string> {
 		const path = this.parentKeys.concat(this.data.access_key);
-		await this._comm.view(path);
+		return this._comm.view(path);
 	}
 }
 
@@ -122,7 +129,7 @@ export class VariablesClientInstance extends Disposable {
 	/**
 	 * The state of the client instance.
 	 */
-	public clientState: ObservableValue<RuntimeClientState>;
+	public clientState: ISettableObservable<RuntimeClientState>;
 
 	/**
 	 * Ceate a new variable client instance.
