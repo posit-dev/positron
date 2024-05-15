@@ -19,7 +19,7 @@ export class PositronDataExplorerColumn implements IPositronDataExplorerColumn {
 
 	//#endregion Private Properties
 
-	//#region Constructor & Dispose
+	//#region Constructor
 
 	/**
 	 * Constructor.
@@ -30,7 +30,7 @@ export class PositronDataExplorerColumn implements IPositronDataExplorerColumn {
 		this._columnSchema = columnSchema;
 	}
 
-	//#endregion Constructor & Dispose
+	//#endregion Constructor
 
 	//#region IPositronDataExplorerColumn Implementation
 
