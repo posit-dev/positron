@@ -65,7 +65,7 @@ type OpenCommandActionDescriptor = {
 // `browser/` level and thus can't be imported in this file.
 type CustomViewDescriptor = {
 	viewContainerLocations: Record<string, ViewContainerLocation>;
-	viewLocations: Record<string, string>;
+	viewOrder: Record<string, string[]>;
 	viewContainerBadgeEnablementStates: Record<string, boolean>;
 };
 // --- End Positron ---

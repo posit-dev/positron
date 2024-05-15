@@ -15,11 +15,33 @@ import { IWorkbenchLayoutService, PanelAlignment, Parts } from 'vs/workbench/ser
 // avoid exporting the interface and creating more diffs
 export interface IPositronViewCustomizations {
 	viewContainerLocations: IStringDictionary<ViewContainerLocation>;
-	viewLocations: IStringDictionary<string>;
 	viewContainerBadgeEnablementStates: IStringDictionary<boolean>;
 	// Our own logic here
 	// Keyed by view container ID and then the view ids in the order they are desired.
-	viewOrder?: IStringDictionary<string[]>;
+	viewOrder: IStringDictionary<string[]>;
+}
+
+export function viewOrderToViewLocations(viewOrder: IStringDictionary<string[]>) {
+	const viewLocations: IStringDictionary<string> = {};
+	for (const containerId in viewOrder) {
+		const viewIds = viewOrder[containerId];
+		viewIds.forEach((viewId, index) => {
+			viewLocations[viewId] = containerId;
+		});
+	}
+	return viewLocations;
+}
+
+export function viewLocationsToViewOrder(viewLocations: IStringDictionary<string>) {
+	const viewOrder: IStringDictionary<string[]> = {};
+	for (const viewId in viewLocations) {
+		const containerId = viewLocations[viewId];
+		if (!viewOrder[containerId]) {
+			viewOrder[containerId] = [];
+		}
+		viewOrder[containerId].push(viewId);
+	}
+	return viewOrder;
 }
 
 export interface PartLayoutDescription {
@@ -120,9 +142,13 @@ export const positronCustomLayoutOptions: LayoutPick[] = [
 					'workbench.panel.positronSessions': 1,
 					'workbench.views.service.panel.f732882e-ffdb-495b-b500-31b109474b78': 1
 				},
-				'viewLocations': {
-					'connections': 'workbench.view.explorer',
-					'workbench.panel.positronConsole': 'workbench.views.service.panel.f732882e-ffdb-495b-b500-31b109474b78'
+				viewOrder: {
+					'workbench.view.explorer': [
+						'connections'
+					],
+					'workbench.views.service.panel.f732882e-ffdb-495b-b500-31b109474b78': [
+						'workbench.panel.positronConsole',
+					]
 				},
 				'viewContainerBadgeEnablementStates': {}
 			}
@@ -142,9 +168,14 @@ export const positronCustomLayoutOptions: LayoutPick[] = [
 					'workbench.view.extension.positron-connections': 1,
 					'workbench.panel.positronSessions': 1
 				},
-				'viewLocations': {
-					'connections': 'workbench.view.explorer',
-					'workbench.panel.positronConsole': 'workbench.panel.positronVariables'
+				viewOrder: {
+					'workbench.view.explorer': [
+						'connections'
+
+					],
+					'workbench.panel.positronSessions': [
+						'workbench.panel.positronConsole',
+					]
 				},
 				'viewContainerBadgeEnablementStates': {}
 			}
@@ -161,9 +192,6 @@ export const positronCustomLayoutOptions: LayoutPick[] = [
 			},
 			views: {
 				'viewContainerLocations': {},
-				'viewLocations': {
-					'workbench.panel.positronConsole': 'workbench.panel.positronSession'
-				},
 				'viewContainerBadgeEnablementStates': {},
 				viewOrder: {
 					'workbench.panel.positronSession': [
@@ -198,11 +226,15 @@ export const positronCustomLayoutOptions: LayoutPick[] = [
 					'workbench.view.extension.positron-connections': 1,
 					'workbench.panel.positronSessions': 1,
 				},
-				'viewLocations': {
-					'connections': 'workbench.view.explorer',
-					'workbench.panel.positronConsole': 'workbench.panel.positronSessions',
-					'workbench.panel.positronVariables': 'workbench.panel.positronSessions',
-					'terminal': 'workbench.panel.positronSessions'
+				viewOrder: {
+					'workbench.panel.positronSessions': [
+						'workbench.panel.positronConsole',
+						'workbench.panel.positronVariables',
+						'terminal'
+					],
+					'workbench.view.explorer': [
+						'connections'
+					]
 				},
 				'viewContainerBadgeEnablementStates': {}
 			}

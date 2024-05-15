@@ -22,8 +22,8 @@ import { localize, localize2 } from 'vs/nls';
 import { IStringDictionary } from 'vs/base/common/collections';
 import { ILogger, ILoggerService } from 'vs/platform/log/common/log';
 import { Lazy } from 'vs/base/common/lazy';
-import { IPositronViewCustomizations } from 'vs/workbench/browser/positronCustomViews';
 // --- Start Positron ---
+import { IPositronViewCustomizations, viewLocationsToViewOrder, viewOrderToViewLocations } from 'vs/workbench/browser/positronCustomViews';
 import { IPaneCompositePartService } from 'vs/workbench/services/panecomposite/browser/panecomposite';
 // --- End Positron ---
 
@@ -604,8 +604,9 @@ export class ViewDescriptorService extends Disposable implements IViewDescriptor
 	async loadCustomViewDescriptor(vc: IPositronViewCustomizations): Promise<void> {
 		// Here we are essentially copying the logic from onDidViewCustomizationsStorageChange
 		// but using our own custom passed view customizations instead of reading from storage
+		const viewLocations = viewOrderToViewLocations(vc.viewOrder);
 		const newViewContainerCustomizations = new Map<string, ViewContainerLocation>(Object.entries(vc.viewContainerLocations));
-		const newViewDescriptorCustomizations = new Map<string, string>(Object.entries(vc.viewLocations));
+		const newViewDescriptorCustomizations = new Map<string, string>(Object.entries(viewLocations));
 		const viewContainersToMove: [ViewContainer, ViewContainerLocation][] = [];
 		const viewsToMove: { views: IViewDescriptor[]; from: ViewContainer; to: ViewContainer }[] = [];
 
@@ -700,7 +701,11 @@ export class ViewDescriptorService extends Disposable implements IViewDescriptor
 
 	// Helper function to make it easier to develop custom views.
 	dumpViewCustomizations() {
-		return this.viewCustomizations;
+		return {
+			viewContainerLocations: this.viewCustomizations.viewContainerLocations,
+			viewOrder: viewLocationsToViewOrder(this.viewCustomizations.viewLocations),
+			viewContainerBadgeEnablementStates: this.viewCustomizations.viewContainerBadgeEnablementStates
+		};
 	}
 	// --- End Positron ---
 	// Generated Container Id Format
