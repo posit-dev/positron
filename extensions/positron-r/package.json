@@ -110,6 +110,11 @@
         "shortTitle": "%r.menu.packageDocument.title%"
       },
       {
+        "command": "r.selectInterpreter",
+        "category": "R",
+        "title": "%r.command.selectInterpreter.title%"
+      },
+      {
         "command": "r.sourceCurrentFile",
         "category": "R",
         "title": "%r.command.sourceCurrentFile.title%",
