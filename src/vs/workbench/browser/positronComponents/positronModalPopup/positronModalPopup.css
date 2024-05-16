@@ -22,8 +22,8 @@
 	border-radius: 4px;
 	box-sizing: border-box;
 	color: var(--vscode-positronModalDialog-foreground);
-	background: var(--vscode-positronModalDialog-background);
 	border: 1px solid var(--vscode-positronModalDialog-border);
+	background-color: var(--vscode-positronModalDialog-background);
 }
 
 .positron-modal-popup.shadow-top {
