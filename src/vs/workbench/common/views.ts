@@ -66,8 +66,7 @@ type OpenCommandActionDescriptor = {
 type CustomViewDescriptor = Record<
 	string,
 	{
-		width?: number;
-		height?: number;
+		size?: number;
 		hidden: boolean;
 		alignment?: string;
 		viewContainers?: {

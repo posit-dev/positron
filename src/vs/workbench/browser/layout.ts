@@ -1416,10 +1416,27 @@ export abstract class Layout extends Disposable implements IWorkbenchLayoutServi
 		}
 	}
 
-	private _setCustomPartSize(part: KnownPositronLayoutParts, { hidden, width, height }: PartLayoutDescription) {
+	private _setCustomPartSize(part: KnownPositronLayoutParts, { hidden, size }: PartLayoutDescription) {
 		const { partView, hideFn, currentSize } = this.getPartViewInfo(part);
-		const newSize = { width: width ?? currentSize.width, height: height ?? currentSize.height };
-		this.workbenchGrid.resizeView(partView, newSize);
+
+		if (size !== undefined) {
+			const newSize = { width: currentSize.width, height: currentSize.height };
+			switch (part) {
+				case Parts.PANEL_PART:
+					newSize.height = size;
+					break;
+				case Parts.SIDEBAR_PART:
+				case Parts.AUXILIARYBAR_PART:
+					newSize.width = size;
+					break;
+				default:
+					throw new Error(`Don't know how to set custom size for ${part}`);
+			}
+
+			this.workbenchGrid.resizeView(partView, newSize);
+		}
+
+		// If we tryy and resize after we run this then we risk re-opening the panel.
 		hideFn(hidden, true);
 	}
 

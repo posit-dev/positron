@@ -15,8 +15,7 @@ export type KnownPositronLayoutParts = Parts.PANEL_PART | Parts.SIDEBAR_PART | P
 export type CustomPositronLayoutDescription = Record<
 	KnownPositronLayoutParts,
 	{
-		width?: number;
-		height?: number;
+		size?: number;
 		hidden: boolean;
 		alignment?: PanelAlignment;
 		viewContainers?: {
@@ -123,11 +122,11 @@ export const positronCustomLayoutOptions: LayoutPick[] = [
 		label: localize('choseLayout.fourPaneDS', 'Four Pane Data Science'),
 		layoutDescriptor: {
 			[Parts.SIDEBAR_PART]: {
-				'width': 150,
+				size: 150,
 				'hidden': true,
 			},
 			[Parts.PANEL_PART]: {
-				'height': 400,
+				size: 400,
 				'hidden': false,
 				'alignment': 'center',
 				viewContainers: [
@@ -137,7 +136,7 @@ export const positronCustomLayoutOptions: LayoutPick[] = [
 				]
 			},
 			[Parts.AUXILIARYBAR_PART]: {
-				'width': 700,
+				size: 700,
 				'hidden': false,
 				viewContainers: [
 					{
@@ -162,7 +161,7 @@ export const positronCustomLayoutOptions: LayoutPick[] = [
 				// Dont hide the auxiliary bar
 				hidden: false,
 				// Make it 800px wide
-				width: 800,
+				size: 800,
 				// Add the positron session view container in the first position
 				viewContainers: [
 					{
