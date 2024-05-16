@@ -14,13 +14,12 @@ import { IServiceContainer } from '../ioc/types';
 import { traceError, traceInfo, traceLog } from '../logging';
 import { PythonRuntimeManager } from './manager';
 import { createPythonRuntimeMetadata } from './runtime';
-import { IPYKERNEL_VERSION, MINIMUM_PYTHON_VERSION } from '../common/constants';
+import { IPYKERNEL_VERSION, MINIMUM_PYTHON_VERSION, Commands } from '../common/constants';
 import { InstallOptions } from '../common/installer/types';
 import { EnvironmentType } from '../pythonEnvironments/info';
 import { showErrorMessage } from '../common/vscodeApis/windowApis';
 import { isProblematicCondaEnvironment } from '../interpreter/configuration/environmentTypeComparer';
 import { CreateEnv, Interpreters } from '../common/utils/localize';
-import { Commands } from '../common/constants';
 import { IApplicationShell } from '../common/application/types';
 
 export async function activatePositron(
