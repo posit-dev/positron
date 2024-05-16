@@ -5,14 +5,18 @@
 
 import { Code } from '../code';
 
-const HIDE_SECONDARY_SIDE_BAR = '[aria-label="Hide Secondary Side Bar"]';
+const CURRENT_PLOT = '.plot-instance .image-wrapper img';
+const CLEAR_PLOTS = '.positron-plots-container .action-bar-tool-tip-container .codicon-clear-all';
 
-export class PositronSideBar {
+export class PositronPlots {
 
 	constructor(private code: Code) { }
 
-	async closeSecondarySideBar() {
-		console.log('Hiding secondary side bar');
-		this.code.waitAndClick(HIDE_SECONDARY_SIDE_BAR);
+	async waitForCurrentPlot() {
+		await this.code.waitForElement(CURRENT_PLOT);
+	}
+
+	async clearPlots() {
+		await this.code.waitAndClick(CLEAR_PLOTS);
 	}
 }

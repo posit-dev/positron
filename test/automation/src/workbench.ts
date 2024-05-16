@@ -30,6 +30,7 @@ import { PositronConsole } from './positron/positronConsole';
 import { PositronVariables } from './positron/positronVariables';
 import { PositronDataExplorer } from './positron/positronDataExplorer';
 import { PositronSideBar } from './positron/positronSideBar';
+import { PositronPlots } from './positron/positronPlots';
 // --- End Positron ---
 
 export interface Commands {
@@ -64,6 +65,7 @@ export class Workbench {
 	readonly positronVariables: PositronVariables;
 	readonly positronDataExplorer: PositronDataExplorer;
 	readonly positronSideBar: PositronSideBar;
+	readonly positronPlots: PositronPlots;
 	// --- End Positron ---
 
 	constructor(code: Code) {
@@ -93,6 +95,7 @@ export class Workbench {
 		this.positronVariables = new PositronVariables(code);
 		this.positronDataExplorer = new PositronDataExplorer(code);
 		this.positronSideBar = new PositronSideBar(code);
+		this.positronPlots = new PositronPlots(code);
 		// --- End Positron ---
 	}
 }

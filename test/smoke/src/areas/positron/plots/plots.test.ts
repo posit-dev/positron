@@ -3,9 +3,8 @@
  *--------------------------------------------------------------------------------------------*/
 
 
-import { Application, Logger, PositronPythonFixtures } from '../../../../../automation';
+import { Application, Logger, PositronPythonFixtures, PositronRFixtures } from '../../../../../automation';
 import { installAllHandlers } from '../../../utils';
-import { PositronConsoleFixtures } from '../../../fixtures/positronConsoleFixtures';
 
 
 export function setup(logger: Logger) {
@@ -23,19 +22,9 @@ export function setup(logger: Logger) {
 				const pythonFixtures = new PositronPythonFixtures(app);
 				await pythonFixtures.startPythonInterpreter();
 
-				const consoleFixtures = new PositronConsoleFixtures(app);
-				await consoleFixtures.updateTerminalSettings();
-
 			});
 
-			after(async function () {
-
-				const app = this.app as Application;
-				await app.workbench.settingsEditor.clearUserSettings();
-
-			});
-
-			it.only('Python - Verifies basic plot functionality', async function () {
+			it('Python - Verifies basic plot functionality', async function () {
 				const app = this.app as Application;
 
 				// modified snippet from https://www.geeksforgeeks.org/python-pandas-dataframe/
@@ -59,15 +48,38 @@ plt.title('ScatterPlot')
 plt.show()`;
 
 				console.log('Sending code to console');
-				await app.workbench.positronConsole.typeToConsole(script);
-				console.log('Sending enter key');
-				await app.workbench.positronConsole.sendEnterKey();
+				await app.workbench.positronConsole.executeCode('Python', script, '>>>');
 
-				await app.workbench.positronConsole.waitForReady('>>>');
+				await app.workbench.positronPlots.waitForCurrentPlot();
 
-				const plotLocator = app.code.driver.getLocator('.image-wrapper img');
+				await app.workbench.positronPlots.clearPlots();
+			});
+		});
 
-				await plotLocator.waitFor({ state: 'attached' });
+		describe('R Plots', () => {
+
+			before(async function () {
+
+				const app = this.app as Application;
+
+				const rFixtures = new PositronRFixtures(app);
+				await rFixtures.startRInterpreter();
+
+			});
+
+			it('R - Verifies basic plot functionality', async function () {
+				const app = this.app as Application;
+
+				const script = `cars <- c(1, 3, 6, 4, 9)
+plot(cars, type="o", col="blue")
+title(main="Autos", col.main="red", font.main=4)`;
+
+				console.log('Sending code to console');
+				await app.workbench.positronConsole.executeCode('R', script, '>');
+
+				await app.workbench.positronPlots.waitForCurrentPlot();
+
+				await app.workbench.positronPlots.clearPlots();
 			});
 		});
 
