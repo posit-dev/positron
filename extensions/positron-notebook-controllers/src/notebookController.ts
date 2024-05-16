@@ -21,16 +21,16 @@ export class NotebookController implements vscode.Disposable {
 	private static _CELL_COUNTER = 0;
 
 	/**
-	 * @param _languageId The language ID for which this controller is responsible.
+	 * @param _runtimeMetadata The metadata of the language runtime for which this controller is responsible.
 	 * @param _notebookSessionService The notebook session service.
 	 */
 	constructor(
-		private readonly _languageId: string,
+		private readonly _runtimeMetadata: positron.LanguageRuntimeMetadata,
 		private readonly _notebookSessionService: NotebookSessionService,
 	) {
 		// Create a VSCode notebook controller for this language.
 		this.controller = vscode.notebooks.createNotebookController(
-			`positron-${_languageId}`,
+			`positron-${_runtimeMetadata.runtimeId}`,
 			// The 'jupyter-notebook' notebook type is contributed via the built-in extension
 			// extensions/ipynb. Registering our notebook controllers with the same type ensures
 			// that they show up in the notebook UI's kernel picker for .ipynb files.
@@ -38,6 +38,7 @@ export class NotebookController implements vscode.Disposable {
 			// Display name in the notebook UI's kernel picker.
 			this.label,
 		);
+		this.controller.description = _runtimeMetadata.runtimePath;
 		this.controller.supportsExecutionOrder = true;
 		this.controller.executeHandler = this.executeCells.bind(this);
 
@@ -49,7 +50,7 @@ export class NotebookController implements vscode.Disposable {
 		this._disposables.push(this.controller);
 
 		this._disposables.push(this.controller.onDidChangeSelectedNotebooks(async (e) => {
-			log.debug(`Notebook ${e.notebook.uri}, controller ${this._languageId}, selected ${e.selected}`);
+			log.debug(`Notebook ${e.notebook.uri}, controller ${this.label}, selected ${e.selected}`);
 
 			// Has this controller been selected for a notebook?
 			if (e.selected) {
@@ -57,7 +58,7 @@ export class NotebookController implements vscode.Disposable {
 				// already selected.
 
 				await Promise.all([
-					updateNotebookLanguage(e.notebook, this._languageId),
+					updateNotebookLanguage(e.notebook, _runtimeMetadata.languageId),
 					this.startRuntimeSession(e.notebook),
 				]);
 			} else {
@@ -68,7 +69,7 @@ export class NotebookController implements vscode.Disposable {
 
 	/** The human-readable label of the controller. */
 	public get label(): string {
-		return `${this._languageId[0].toUpperCase()}${this._languageId.slice(1)}`;
+		return this._runtimeMetadata.runtimeName;
 	}
 
 	/**
@@ -79,7 +80,7 @@ export class NotebookController implements vscode.Disposable {
 	 */
 	private async startRuntimeSession(notebook: vscode.NotebookDocument): Promise<positron.LanguageRuntimeSession> {
 		try {
-			return await this._notebookSessionService.startRuntimeSession(notebook.uri, this._languageId);
+			return await this._notebookSessionService.startRuntimeSession(notebook.uri, this._runtimeMetadata.runtimeId);
 		} catch (err) {
 			const retry = vscode.l10n.t('Retry');
 			const selection = await vscode.window.showErrorMessage(
