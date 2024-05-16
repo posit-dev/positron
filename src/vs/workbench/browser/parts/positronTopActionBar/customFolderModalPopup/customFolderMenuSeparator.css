@@ -5,5 +5,5 @@
 .custom-folder-menu-separator {
 	min-height: 1px;
 	margin: 4px 10px;
-	background: var(--vscode-menu-border)
+	background: var(--vscode-menu-border);
 }
