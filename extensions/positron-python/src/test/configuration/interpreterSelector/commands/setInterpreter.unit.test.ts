@@ -20,7 +20,7 @@ import { anything, instance, mock, when, verify } from 'ts-mockito';
 import { IApplicationShell, ICommandManager, IWorkspaceService } from '../../../../client/common/application/types';
 import { PathUtils } from '../../../../client/common/platform/pathUtils';
 import { IPlatformService } from '../../../../client/common/platform/types';
-import { IConfigurationService, IPythonSettings, IInstaller, Product } from '../../../../client/common/types';
+import { IConfigurationService, IPythonSettings } from '../../../../client/common/types';
 import { Common, InterpreterQuickPickList, Interpreters } from '../../../../client/common/utils/localize';
 import {
     IMultiStepInput,
@@ -47,8 +47,6 @@ import { Commands, Octicons } from '../../../../client/common/constants';
 import { IInterpreterService, PythonEnvironmentsChangedEvent } from '../../../../client/interpreter/contracts';
 import { createDeferred, sleep } from '../../../../client/common/utils/async';
 import { SystemVariables } from '../../../../client/common/variables/systemVariables';
-import { IServiceContainer } from '../../../../client/ioc/types';
-import { checkAndInstallPython } from '../../../../client/positron/extension';
 
 const untildify = require('untildify');
 
@@ -1530,27 +1528,5 @@ suite('Set Interpreter Command', () => {
             await inputStep();
             assert(pickInterpreter.calledOnce);
         });
-    });
-});
-suite('Set up extension', () => {
-    let serviceContainer: IServiceContainer;
-    let interpreterService: IInterpreterService;
-    let installer: IInstaller;
-
-    setup(() => {
-        serviceContainer = mock<IServiceContainer>();
-        interpreterService = mock<IInterpreterService>();
-        installer = mock<IInstaller>();
-    });
-
-    test('checkAndInstallPython should install Python if necessary', async () => {
-        const pythonPath = 'path/to/env';
-
-        when(interpreterService.getInterpreterDetails(anything())).thenResolve();
-        when(installer.install(anything(), anything())).thenResolve();
-
-        await checkAndInstallPython(pythonPath, serviceContainer);
-
-        verify(installer.install(TypeMoq.It.isValue(Product.python), TypeMoq.It.isAny())).once();
     });
 });
