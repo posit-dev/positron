@@ -119,6 +119,8 @@ export function loadCustomPositronLayout(description: CustomPositronLayoutDescri
 	accessor.get(IViewDescriptorService).loadCustomViewDescriptor(description);
 }
 
+// Currently not in use because the layout description format is in flux and so it's hard to keep
+// this synced.
 // export function createPositronCustomLayoutDescriptor(accessor: ServicesAccessor): CustomPositronLayoutDescription {
 // 	const views = accessor.get(IViewDescriptorService).dumpViewCustomizations();
 // 	const layoutService = accessor.get(IWorkbenchLayoutService);
