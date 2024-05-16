@@ -14,6 +14,7 @@ import { ExtensionIdentifier, IExtensionDescription } from 'vs/platform/extensio
 import { URI } from 'vs/base/common/uri';
 import { DeferredPromise, retry } from 'vs/base/common/async';
 import { IRuntimeSessionMetadata } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
+import { ILogService } from 'vs/platform/log/common/log';
 
 /**
  * A language runtime manager and metadata about the extension that registered it.
@@ -62,7 +63,8 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 	public onDidRegisterRuntime = this._onDidRegisterRuntimeEmitter.event;
 
 	constructor(
-		mainContext: extHostProtocol.IMainPositronContext
+		mainContext: extHostProtocol.IMainPositronContext,
+		private readonly _logService: ILogService,
 	) {
 		// Trigger creation of the proxy
 		this._proxy = mainContext.getProxy(extHostProtocol.MainPositronContext.MainThreadLanguageRuntime);
@@ -543,6 +545,7 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 		return retry(async () => {
 			const runtime = this._registeredRuntimes.find(runtime => runtime.runtimeId === metadata.runtimeId);
 			if (!runtime) {
+				this._logService.warn(`Could not find runtime ${metadata.runtimeId} on extension host. Waiting 2 seconds and retrying.`);
 				throw new Error(`Runtime exists on main thread but not extension host: ${metadata.runtimeId}`);
 			}
 			return runtime;
