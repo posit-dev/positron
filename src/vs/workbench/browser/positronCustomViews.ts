@@ -162,6 +162,10 @@ export const positronCustomLayoutOptions: LayoutPick[] = [
 							'workbench.panel.positronConsole',
 							'workbench.panel.positronVariables'
 						]
+					},
+					{
+						id: 'terminal',
+						views: ['terminal']
 					}
 				]
 			},

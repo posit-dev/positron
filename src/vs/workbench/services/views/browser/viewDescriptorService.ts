@@ -25,6 +25,7 @@ import { Lazy } from 'vs/base/common/lazy';
 // --- Start Positron ---
 import { CustomPositronLayoutDescription, layoutDescriptionToViewInfo } from 'vs/workbench/browser/positronCustomViews';
 import { IPaneCompositePartService } from 'vs/workbench/services/panecomposite/browser/panecomposite';
+import { PaneCompositeBar } from 'vs/workbench/browser/parts/paneCompositeBar';
 // --- End Positron ---
 
 interface IViewsCustomizations {
@@ -671,13 +672,27 @@ export class ViewDescriptorService extends Disposable implements IViewDescriptor
 		this.viewContainersCustomLocations = newViewContainerCustomizations;
 		this.viewDescriptorsCustomLocations = newViewDescriptorCustomizations;
 
+		// Order view containers within each pane location
 
-		for (const info of Object.values(vc)) {
+		for (const [part, info] of Object.entries(vc)) {
+
+			const partCompositeBar = PaneCompositeBar.compositeBarByPart.get(part);
+			if (!partCompositeBar) { continue; }
+			console.log({ partCompositeBar });
+
 			const viewContainers = info.viewContainers;
-			if (!viewContainers) {
-				continue;
-			}
-			for (const { id: containerId, views } of viewContainers) {
+			if (!viewContainers) { continue; }
+
+			for (let i = 0; i < viewContainers.length; i++) {
+				const { id: containerId, views } = viewContainers[i];
+
+				const existingContainerOrder = partCompositeBar.getVisibleComposites();
+
+				const viewAtDesiredIndex = existingContainerOrder[i].id;
+				if (viewAtDesiredIndex !== containerId) {
+					partCompositeBar.move(containerId, viewAtDesiredIndex);
+				}
+
 				const viewContainer = this.getViewContainerById(containerId);
 				if (!viewContainer) { continue; }
 				const viewContainerLocation = this.getViewContainerLocation(viewContainer);
@@ -688,14 +703,14 @@ export class ViewDescriptorService extends Disposable implements IViewDescriptor
 				const model = this.getViewContainerModel(viewContainer);
 
 				// Move each view to the correct location
-				for (let i = 0; i < views.length; i++) {
-					const viewId = views[i];
+				for (let j = 0; j < views.length; j++) {
+					const viewId = views[j];
 
 					// This physically moves the view
-					(viewPaneContainer as ViewPaneContainer).movePaneToIndex(viewId, i);
+					(viewPaneContainer as ViewPaneContainer).movePaneToIndex(viewId, j);
 
 					const viewDescriptor = model.visibleViewDescriptors.find(vd => vd.id === viewId)!;
-					const newPosition = model.visibleViewDescriptors[i];
+					const newPosition = model.visibleViewDescriptors[j];
 					if (viewDescriptor.id === newPosition.id) { continue; }
 
 					// This updates the model so the view is in the correct position on a restart
