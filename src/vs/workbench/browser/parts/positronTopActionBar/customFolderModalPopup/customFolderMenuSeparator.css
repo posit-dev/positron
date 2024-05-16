@@ -3,7 +3,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 .custom-folder-menu-separator {
-	height: 1px;
+	min-height: 1px;
 	margin: 4px 10px;
 	background: var(--vscode-menu-border)
 }
