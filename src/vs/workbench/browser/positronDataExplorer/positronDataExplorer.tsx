@@ -51,6 +51,7 @@ export interface PositronDataExplorerProps extends PositronDataExplorerConfigura
 export const PositronDataExplorer = (props: PropsWithChildren<PositronDataExplorerProps>) => {
 	// State hooks.
 	const [closed, setClosed] = useState(false);
+	const [displayName, setDisplayName] = useState('');
 
 	// Main useEffect.
 	useEffect(() => {
@@ -58,9 +59,18 @@ export const PositronDataExplorer = (props: PropsWithChildren<PositronDataExplor
 		const disposableStore = new DisposableStore();
 
 		// Add the onDidUpdateBackendState event handler.
-		disposableStore.add(props.instance.onDidClose(() => {
-			setClosed(true);
-		}));
+		disposableStore.add(
+			props.instance.dataExplorerClientInstance.onDidUpdateBackendState(backendState => {
+				setDisplayName(backendState.display_name);
+			})
+		);
+
+		// Add the onDidClose event handler.
+		disposableStore.add(
+			props.instance.onDidClose(() => {
+				setClosed(true);
+			})
+		);
 
 		// Return the cleanup function that will dispose of the event handlers.
 		return () => disposableStore.dispose();
@@ -75,21 +85,29 @@ export const PositronDataExplorer = (props: PropsWithChildren<PositronDataExplor
 				{closed && (
 					<div className='positron-data-explorer-overlay'>
 						<PositronButton className='message' onPressed={props.onClose}>
-							<div className='message-line'>
-								{localize(
+							<div
+								className='message-line'>
+								{(() => localize(
 									'positron.dataExplorer.dataDisplayName',
 									'{0} Data: {1}',
 									props.instance.languageName,
-									props.instance.dataExplorerClientInstance.cachedBackendState?.display_name
-								)}
+									displayName
+								))()}
 							</div>
-							<div className='message-line'>
-								{localize(
+							<div
+								className='message-line'>
+								{(() => localize(
 									'positron.dataExplorer.isNoLongerAvailable',
-									'is no longer available'
-								)}
+									'Is no longer available'
+								))()}
 							</div>
-							<div className='message-line close'>{(() => localize('positron.dataExplorer.clickToClose', "Click To Close"))()}</div>
+							<div
+								className='message-line'>
+								{(() => localize(
+									'positron.dataExplorer.clickToClose',
+									"Click to close Data Explorer"
+								))()}
+							</div>
 						</PositronButton>
 					</div>
 				)}
