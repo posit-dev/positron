@@ -6,14 +6,24 @@
 import * as React from 'react';
 
 // Other dependencies.
+import { localize } from 'vs/nls';
+import { Emitter } from 'vs/base/common/event';
 import { IColumnSortKey } from 'vs/workbench/browser/positronDataGrid/interfaces/columnSortKey';
+import { ContextMenuEntry } from 'vs/workbench/browser/positronComponents/contextMenu/contextMenu';
+import { ContextMenuItem } from 'vs/workbench/browser/positronComponents/contextMenu/contextMenuItem';
 import { DataExplorerCache } from 'vs/workbench/services/positronDataExplorer/common/dataExplorerCache';
 import { TableDataCell } from 'vs/workbench/services/positronDataExplorer/browser/components/tableDataCell';
+import { ContextMenuSeparator } from 'vs/workbench/browser/positronComponents/contextMenu/contextMenuSeparator';
 import { TableDataRowHeader } from 'vs/workbench/services/positronDataExplorer/browser/components/tableDataRowHeader';
 import { PositronDataExplorerColumn } from 'vs/workbench/services/positronDataExplorer/browser/positronDataExplorerColumn';
 import { ColumnSortKeyDescriptor, DataGridInstance } from 'vs/workbench/browser/positronDataGrid/classes/dataGridInstance';
 import { DataExplorerClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimeDataExplorerClient';
-import { BackendState, RowFilter, SchemaUpdateEvent } from 'vs/workbench/services/languageRuntime/common/positronDataExplorerComm';
+import { BackendState, ColumnSchema, RowFilter } from 'vs/workbench/services/languageRuntime/common/positronDataExplorerComm';
+
+/**
+ * Localized strings.
+ */
+const addFilterTitle = localize('positron.addFilter', "Add Filter");
 
 /**
  * TableDataDataGridInstance class.
@@ -30,6 +40,11 @@ export class TableDataDataGridInstance extends DataGridInstance {
 	 * Gets the data explorer cache.
 	 */
 	private readonly _dataExplorerCache: DataExplorerCache;
+
+	/**
+	 * The onAddFilter event emitter.
+	 */
+	private readonly _onAddFilterEmitter = this._register(new Emitter<ColumnSchema>);
 
 	//#endregion Private Properties
 
@@ -77,13 +92,15 @@ export class TableDataDataGridInstance extends DataGridInstance {
 		));
 
 		// Add the onDidSchemaUpdate event handler.
-		this._register(this._dataExplorerClientInstance.onDidSchemaUpdate(async (e: SchemaUpdateEvent) => {
+		this._register(this._dataExplorerClientInstance.onDidSchemaUpdate(e => {
+			this._dataExplorerCache.invalidateDataCache();
 			this.softReset();
 			this.fetchData();
 		}));
 
 		// Add the onDidDataUpdate event handler.
-		this._register(this._dataExplorerClientInstance.onDidDataUpdate(async () => {
+		this._register(this._dataExplorerClientInstance.onDidDataUpdate(() => {
+			this._dataExplorerCache.invalidateDataCache();
 			this.fetchData();
 		}));
 
@@ -123,6 +140,29 @@ export class TableDataDataGridInstance extends DataGridInstance {
 	//#endregion DataGridInstance Properties
 
 	//#region DataGridInstance Methods
+
+	/**
+	 * Returns column context menu entries.
+	 * @param columnIndex The column index.
+	 * @returns The column context menu entries.
+	 */
+	override columnContextMenuEntries(columnIndex: number): ContextMenuEntry[] {
+		return [
+			new ContextMenuSeparator(),
+			new ContextMenuItem({
+				checked: false,
+				label: addFilterTitle,
+				disabled: false,
+				icon: 'positron-add-filter',
+				onSelected: () => {
+					const columnSchema = this._dataExplorerCache.getColumnSchema(columnIndex);
+					if (columnSchema) {
+						this._onAddFilterEmitter.fire(columnSchema);
+					}
+				}
+			}),
+		];
+	}
 
 	/**
 	 * Sorts the data.
@@ -208,6 +248,13 @@ export class TableDataDataGridInstance extends DataGridInstance {
 	}
 
 	//#endregion DataGridInstance Methods
+
+	//#region Public Events
+
+	/**
+	 * The onAddFilter event.
+	 */
+	readonly onAddFilter = this._onAddFilterEmitter.event;
 
 	//#region Public Methods
 

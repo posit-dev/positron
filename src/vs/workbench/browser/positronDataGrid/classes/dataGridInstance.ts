@@ -6,6 +6,7 @@ import { Emitter } from 'vs/base/common/event';
 import { Disposable } from 'vs/base/common/lifecycle';
 import { IDataColumn } from 'vs/workbench/browser/positronDataGrid/interfaces/dataColumn';
 import { IColumnSortKey } from 'vs/workbench/browser/positronDataGrid/interfaces/columnSortKey';
+import { ContextMenuEntry } from 'vs/workbench/browser/positronComponents/contextMenu/contextMenu';
 
 /**
  * ColumnHeaderOptions type.
@@ -946,6 +947,15 @@ export abstract class DataGridInstance extends Disposable {
 
 		// Fire the onDidUpdate event.
 		this._onDidUpdateEmitter.fire();
+	}
+
+	/**
+	 * Returns column context menu entries.
+	 * @param columnIndex The column index.
+	 * @returns The column context menu entries.
+	 */
+	columnContextMenuEntries(columnIndex: number): ContextMenuEntry[] {
+		return [];
 	}
 
 	/**
@@ -2058,8 +2068,6 @@ export abstract class DataGridInstance extends Disposable {
 		this._columnSelectionIndexes.clear();
 		this._rowSelectionRange = undefined;
 		this._rowSelectionIndexes.clear();
-		this._columnWidths.clear();
-		this._rowHeights.clear();
 	}
 
 	//#endregion Protected Methods

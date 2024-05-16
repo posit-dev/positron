@@ -20,6 +20,11 @@ import { PositronModalReactRenderer } from 'vs/workbench/browser/positronModalRe
 import { ContextMenuItem, ContextMenuItemOptions } from 'vs/workbench/browser/positronComponents/contextMenu/contextMenuItem';
 
 /**
+ * ContextMenuEntry type.
+ */
+export type ContextMenuEntry = ContextMenuItem | ContextMenuSeparator;
+
+/**
  * Shows a context menu.
  * @param keybindingService The keybinding service.
  * @param layoutService The layout service.
@@ -34,7 +39,7 @@ export const showContextMenu = async (
 	anchor: HTMLElement,
 	popupAlignment: 'left' | 'right',
 	width: number,
-	entries: (ContextMenuItem | ContextMenuSeparator)[]
+	entries: ContextMenuEntry[]
 ) => {
 	// Create the renderer.
 	const renderer = new PositronModalReactRenderer({
@@ -64,7 +69,7 @@ interface ContextMenuModalPopupProps {
 	anchor: HTMLElement;
 	popupAlignment: 'left' | 'right';
 	width: number;
-	entries: (ContextMenuItem | ContextMenuSeparator)[];
+	entries: ContextMenuEntry[];
 }
 
 /**

@@ -114,9 +114,10 @@ export class NotebookSessionService implements vscode.Disposable {
 	 * Start a new runtime session for a notebook.
 	 *
 	 * @param notebookUri The notebook URI to start a runtime for.
+	 * @param runtimeId The language runtime ID to start.
 	 * @returns Promise that resolves when the runtime startup sequence has been started.
 	 */
-	async startRuntimeSession(notebookUri: vscode.Uri, languageId: string): Promise<positron.LanguageRuntimeSession> {
+	async startRuntimeSession(notebookUri: vscode.Uri, runtimeId: string): Promise<positron.LanguageRuntimeSession> {
 		// Return the existing promise, if there is one.
 		const startingSessionPromise = this._startingSessionsByNotebookUri.get(notebookUri) ||
 			this._restartingSessionsByNotebookUri.get(notebookUri);
@@ -127,7 +128,7 @@ export class NotebookSessionService implements vscode.Disposable {
 		// Construct a wrapping promise that resolves/rejects after the session maps have been updated.
 		const startPromise = (async () => {
 			try {
-				const session = await this.doStartRuntimeSession(notebookUri, languageId);
+				const session = await this.doStartRuntimeSession(notebookUri, runtimeId);
 				this._startingSessionsByNotebookUri.delete(notebookUri);
 				this.setNotebookSession(notebookUri, session);
 				log.info(`Session ${session.metadata.sessionId} is started`);
@@ -143,7 +144,7 @@ export class NotebookSessionService implements vscode.Disposable {
 		return startPromise;
 	}
 
-	async doStartRuntimeSession(notebookUri: vscode.Uri, languageId: string): Promise<positron.LanguageRuntimeSession> {
+	async doStartRuntimeSession(notebookUri: vscode.Uri, runtimeId: string): Promise<positron.LanguageRuntimeSession> {
 		// If the session is still shutting down, wait for it to finish.
 		const shuttingDownSessionPromise = this._shuttingDownSessionsByNotebookUri.get(notebookUri);
 		if (shuttingDownSessionPromise) {
@@ -181,18 +182,9 @@ export class NotebookSessionService implements vscode.Disposable {
 		}
 
 		// If we couldn't restore a session, start a new one.
-		// Get the preferred runtime for this language.
-		let preferredRuntime: positron.LanguageRuntimeMetadata;
-		try {
-			preferredRuntime = await positron.runtime.getPreferredRuntime(languageId);
-		} catch (err) {
-			log.error(`Getting preferred runtime for language '${languageId}' failed. Reason: ${err}`);
-			throw err;
-		}
-
 		try {
 			const session = await positron.runtime.startLanguageRuntime(
-				preferredRuntime.runtimeId,
+				runtimeId,
 				path.basename(notebookUri.path), // Use the notebook's file name as the session name.
 				notebookUri);
 			log.info(
@@ -202,7 +194,7 @@ export class NotebookSessionService implements vscode.Disposable {
 			);
 			return session;
 		} catch (err) {
-			log.error(`Starting session for language runtime ${preferredRuntime.runtimeName} failed. Reason: ${err}`);
+			log.error(`Starting session for language runtime ${runtimeId} failed. Reason: ${err}`);
 			throw err;
 		}
 	}

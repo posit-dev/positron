@@ -27,6 +27,7 @@ import { IPositronVariablesService } from 'vs/workbench/services/positronVariabl
 import { IRuntimeSessionService } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
 import { PositronViewPane } from 'vs/workbench/browser/positronViewPane/positronViewPane';
 import { IHoverService } from 'vs/platform/hover/browser/hover';
+import { IPositronDataExplorerService } from 'vs/workbench/services/positronDataExplorer/browser/interfaces/positronDataExplorerService';
 
 /**
  * PositronVariablesViewPane class.
@@ -184,6 +185,7 @@ export class PositronVariablesViewPane extends PositronViewPane implements IReac
 		@IConfigurationService configurationService: IConfigurationService,
 		@IContextKeyService contextKeyService: IContextKeyService,
 		@IContextMenuService contextMenuService: IContextMenuService,
+		@IPositronDataExplorerService private readonly _dataExplorerService: IPositronDataExplorerService,
 		@IHoverService hoverService: IHoverService,
 		@IInstantiationService instantiationService: IInstantiationService,
 		@IKeybindingService keybindingService: IKeybindingService,
@@ -263,6 +265,7 @@ export class PositronVariablesViewPane extends PositronViewPane implements IReac
 				configurationService={this.configurationService}
 				contextKeyService={this.contextKeyService}
 				contextMenuService={this.contextMenuService}
+				dataExplorerService={this._dataExplorerService}
 				keybindingService={this.keybindingService}
 				runtimeSessionService={this._runtimeSessionService}
 				languageRuntimeService={this._languageRuntimeService}

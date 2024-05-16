@@ -11,6 +11,7 @@ import { IPositronVariablesService } from 'vs/workbench/services/positronVariabl
 import { IPositronVariablesInstance } from 'vs/workbench/services/positronVariables/common/interfaces/positronVariablesInstance';
 import { PositronActionBarServices } from 'vs/platform/positronActionBar/browser/positronActionBarState';
 import { IRuntimeSessionService } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
+import { IPositronDataExplorerService } from 'vs/workbench/services/positronDataExplorer/browser/interfaces/positronDataExplorerService';
 
 /**
  * PositronVariablesServices interface.
@@ -21,6 +22,7 @@ export interface PositronVariablesServices extends PositronActionBarServices {
 	readonly runtimeSessionService: IRuntimeSessionService;
 	readonly positronVariablesService: IPositronVariablesService;
 	readonly reactComponentContainer: IReactComponentContainer;
+	readonly dataExplorerService: IPositronDataExplorerService;
 }
 
 /**
@@ -63,7 +65,7 @@ export const usePositronVariablesState = (services: PositronVariablesServices): 
 
 		// Return the clean up for our event handlers.
 		return () => disposableStore.dispose();
-	}, []);
+	});
 
 	// Return the Positron variables state.
 	return {
