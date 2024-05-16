@@ -89,7 +89,7 @@ export class Workbench {
 		// --- Start Positron ---
 		this.positronPopups = new PositronPopups(code);
 		this.startInterpreter = new StartInterpreter(code, this.positronPopups);
-		this.positronConsole = new PositronConsole(code);
+		this.positronConsole = new PositronConsole(code, this.quickaccess, this.quickinput);
 		this.positronVariables = new PositronVariables(code);
 		this.positronDataExplorer = new PositronDataExplorer(code);
 		this.positronSideBar = new PositronSideBar(code);
