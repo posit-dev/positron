@@ -20,7 +20,7 @@ export type CustomPositronLayoutDescription = Record<
 		alignment?: PanelAlignment;
 		viewContainers?: {
 			id: string;
-			views?: string[];
+			views?: { id: string; size?: number }[];
 		}[];
 	}
 >;
@@ -63,8 +63,8 @@ export function layoutDescriptionToViewInfo(layout: CustomPositronLayoutDescript
 			viewContainerLocations.set(viewContainer.id, viewContainerLocation);
 
 			if (!viewContainer.views) { continue; }
-			for (const viewId of viewContainer.views) {
-				viewDescriptorCustomizations.set(viewId, viewContainer.id);
+			for (const view of viewContainer.views) {
+				viewDescriptorCustomizations.set(view.id, viewContainer.id);
 			}
 		}
 	}
@@ -177,9 +177,17 @@ export const positronCustomLayoutOptions: LayoutPick[] = [
 						id: 'workbench.panel.positronSession',
 						// Order the following views in the positron session view container
 						views: [
-							'workbench.panel.positronPlots',
-							'workbench.panel.positronConsole',
-							'workbench.panel.positronVariables'
+							{
+								id: 'workbench.panel.positronPlots',
+								size: 25,
+							},
+							{
+								id: 'workbench.panel.positronConsole',
+								size: 25,
+							},
+							{
+								id: 'workbench.panel.positronVariables',
+							}
 						]
 					},
 					// Add the terminal in the second position with default views.

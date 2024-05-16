@@ -1069,6 +1069,12 @@ export class ViewPaneContainer extends Component implements IViewPaneContainer {
 		const to = this.paneItems[toIndex].pane;
 		this.movePane(pane, to);
 	}
+
+	resizePaneById(paneId: string, size: number): void {
+		const pane = this.panes.find(p => p.id === paneId);
+		if (!pane) { return; }
+		this.resizePane(pane, size);
+	}
 	// --- End Positron ---
 
 	resizePane(pane: ViewPane, size: number): void {

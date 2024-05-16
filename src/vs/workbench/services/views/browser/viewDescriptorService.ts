@@ -699,19 +699,22 @@ export class ViewDescriptorService extends Disposable implements IViewDescriptor
 					this.getViewContainerLocation(viewContainer),
 					false
 				);
-				const viewPaneContainer = paneComposite?.getViewPaneContainer();
+				const viewPaneContainer = paneComposite?.getViewPaneContainer() as ViewPaneContainer | undefined;
 				if (!viewPaneContainer) { continue; }
 
 				const model = this.getViewContainerModel(viewContainer);
 
 				// Move each view to the correct location
 				for (let j = 0; j < views.length; j++) {
-					const viewId = views[j];
+					const view = views[j];
 
 					// This physically moves the view
-					(viewPaneContainer as ViewPaneContainer).movePaneToIndex(viewId, j);
+					viewPaneContainer.movePaneToIndex(view.id, j);
+					if (typeof view.size === 'number') {
+						viewPaneContainer.resizePaneById(view.id, view.size);
+					}
 
-					const viewDescriptor = model.visibleViewDescriptors.find(vd => vd.id === viewId)!;
+					const viewDescriptor = model.visibleViewDescriptors.find(vd => vd.id === view.id)!;
 					const newPosition = model.visibleViewDescriptors[j];
 					if (viewDescriptor.id === newPosition.id) { continue; }
 
