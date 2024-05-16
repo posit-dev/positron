@@ -1070,10 +1070,39 @@ export class ViewPaneContainer extends Component implements IViewPaneContainer {
 		this.movePane(pane, to);
 	}
 
-	resizePaneById(paneId: string, size: number): void {
-		const pane = this.panes.find(p => p.id === paneId);
-		if (!pane) { return; }
-		this.resizePane(pane, size);
+	/**
+	 * Resize the panes in the container relative to each other. By doing this in one call we can
+	 * ensure every view gets sized as expected as otherwise a size set on a panel in one resize
+	 * call may get overwritten by a subsequent resize call to an adjacent panel.
+	 * @param paneSizes An array of pane sizes to apply. Each object in the array should have an
+	 * `id` property that matches the id of a pane in the container and a `sizeUnit` property that
+	 * is a number representing the relative size of the pane. If a size unit is not provided for a
+	 * pane it will default to 1. This sizing protocol is inspired by css grid layout's `fr` unit.
+	 * @returns
+	 */
+	resizePanes(paneSizes: { id: string; sizeUnit?: number }[]): void {
+
+		const availableSize = this.dimension?.[this.orientation === Orientation.VERTICAL ? 'height' : 'width'];
+		if (!availableSize) { return; }
+
+		// First make sure we have the same number of panes currently in the container as we do pane
+		// sizes. If we don't add the missing panes to the size array with a default size unit of 1.
+		if (this.panes.length !== paneSizes.length) {
+			const missingPanes = this.panes.filter(p => !paneSizes.some(p2 => p2.id === p.id));
+			missingPanes.forEach(pane => paneSizes.push({ id: pane.id, sizeUnit: 1 }));
+		}
+
+		// Next, calculate the total size of all panes
+		const totalSizeUnits = paneSizes.reduce((total, { sizeUnit }) => total + (sizeUnit ?? 1), 0);
+
+		// Now calculate the size of each pane in pixels based on the available size and the size unit
+		// and apply.
+		paneSizes.forEach(({ id, sizeUnit }) => {
+			const pane = this.panes.find(p => p.id === id);
+			if (!pane) { return; }
+			const size = Math.round((sizeUnit ?? 1) / totalSizeUnits * availableSize);
+			this.resizePane(pane, size);
+		});
 	}
 	// --- End Positron ---
 

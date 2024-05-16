@@ -710,9 +710,6 @@ export class ViewDescriptorService extends Disposable implements IViewDescriptor
 
 					// This physically moves the view
 					viewPaneContainer.movePaneToIndex(view.id, j);
-					if (typeof view.size === 'number') {
-						viewPaneContainer.resizePaneById(view.id, view.size);
-					}
 
 					const viewDescriptor = model.visibleViewDescriptors.find(vd => vd.id === view.id)!;
 					const newPosition = model.visibleViewDescriptors[j];
@@ -721,6 +718,9 @@ export class ViewDescriptorService extends Disposable implements IViewDescriptor
 					// This updates the model so the view is in the correct position on a restart
 					model.move(viewDescriptor.id, newPosition.id);
 				}
+
+				// Resize panes within the container now they've been ordered properly.
+				viewPaneContainer.resizePanes(views);
 			}
 		}
 		// Save updated view customizations

@@ -20,7 +20,9 @@ export type CustomPositronLayoutDescription = Record<
 		alignment?: PanelAlignment;
 		viewContainers?: {
 			id: string;
-			views?: { id: string; size?: number }[];
+			// Size units are relative. Every view sharing the same sizeUnit will have the same size.
+			// if not provided, will default to 1.
+			views?: { id: string; sizeUnit?: number }[];
 		}[];
 	}
 >;
@@ -179,11 +181,11 @@ export const positronCustomLayoutOptions: LayoutPick[] = [
 						views: [
 							{
 								id: 'workbench.panel.positronPlots',
-								size: 25,
+								sizeUnit: 2,
 							},
 							{
 								id: 'workbench.panel.positronConsole',
-								size: 25,
+								sizeUnit: 1,
 							},
 							{
 								id: 'workbench.panel.positronVariables',
