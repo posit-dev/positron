@@ -4,7 +4,7 @@
 
 
 import { Locator } from '@playwright/test';
-import { Code } from './code';
+import { Code } from '../code';
 
 const CONSOLE_ITEMS = '.runtime-items span';
 const CONSOLE_INSTANCE = '.console-instance';
@@ -39,11 +39,13 @@ export class PositronConsole {
 
 	async typeToConsole(text: string) {
 		const activeConsole = await this.getActiveConsole();
-
-		await activeConsole?.pressSequentially(text);
+		await activeConsole?.click();
+		await activeConsole?.pressSequentially(text, { delay: 30 });
 	}
 
 	async sendEnterKey() {
+		const activeConsole = await this.getActiveConsole();
+		await activeConsole?.click();
 		await this.code.driver.getKeyboard().press('Enter');
 	}
 
@@ -69,7 +71,7 @@ export class PositronConsole {
 		return undefined;
 	}
 
-	async waitForStarted(prompt: string) {
+	async waitForReady(prompt: string) {
 
 		const activeConsole = await this.getActiveConsole();
 
@@ -83,9 +85,24 @@ export class PositronConsole {
 				console.log('Waiting for prompt');
 				await this.code.wait(1000);
 				activeLine = await activeConsole?.locator(ACTIVE_LINE_NUMBER).innerText();
-				console.log(activeLine);
 			}
 		}
+
+
+		// wait up to 20 seconds for the console to show that the interpreter is started
+		let consoleContents = await this.getConsoleContents();
+		for (let j = 0; j < 20; j++) {
+			for (const line of consoleContents) {
+				if (line.includes('started')) {
+					return;
+				} else {
+					await this.code.wait(1000);
+					consoleContents = await this.getConsoleContents();
+				}
+			}
+		}
+
+		throw new Error('Console never ready to proceed');
 	}
 
 	async waitForEndingConsoleText(text: string) {
