@@ -12,8 +12,9 @@ import { RuntimeClientType } from 'vs/workbench/api/common/positron/extHostTypes
 import { ExtHostRuntimeClientInstance } from 'vs/workbench/api/common/positron/extHostClientInstance';
 import { ExtensionIdentifier, IExtensionDescription } from 'vs/platform/extensions/common/extensions';
 import { URI } from 'vs/base/common/uri';
-import { DeferredPromise } from 'vs/base/common/async';
+import { DeferredPromise, retry } from 'vs/base/common/async';
 import { IRuntimeSessionMetadata } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
+import { ILogService } from 'vs/platform/log/common/log';
 
 /**
  * A language runtime manager and metadata about the extension that registered it.
@@ -62,7 +63,8 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 	public onDidRegisterRuntime = this._onDidRegisterRuntimeEmitter.event;
 
 	constructor(
-		mainContext: extHostProtocol.IMainPositronContext
+		mainContext: extHostProtocol.IMainPositronContext,
+		private readonly _logService: ILogService,
 	) {
 		// Trigger creation of the proxy
 		this._proxy = mainContext.getProxy(extHostProtocol.MainPositronContext.MainThreadLanguageRuntime);
@@ -535,11 +537,19 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 
 	public async getPreferredRuntime(languageId: string): Promise<positron.LanguageRuntimeMetadata> {
 		const metadata = await this._proxy.$getPreferredRuntime(languageId);
-		const runtime = this._registeredRuntimes.find(runtime => runtime.runtimeId === metadata.runtimeId);
-		if (!runtime) {
-			throw new Error(`Runtime exists on main thread but not extension host: ${metadata.runtimeId}`);
-		}
-		return runtime;
+
+		// If discovery is in progress, a runtime may exist on the main thread but not
+		// the extension host, so retry a bunch of times. Retrying is more likely to return
+		// faster than waiting for the entire discovery phase to complete since runtimes are
+		// discovered concurrently across languages.
+		return retry(async () => {
+			const runtime = this._registeredRuntimes.find(runtime => runtime.runtimeId === metadata.runtimeId);
+			if (!runtime) {
+				this._logService.warn(`Could not find runtime ${metadata.runtimeId} on extension host. Waiting 2 seconds and retrying.`);
+				throw new Error(`Runtime exists on main thread but not extension host: ${metadata.runtimeId}`);
+			}
+			return runtime;
+		}, 2000, 5);
 	}
 
 	public async getForegroundSession(): Promise<positron.LanguageRuntimeSession | undefined> {

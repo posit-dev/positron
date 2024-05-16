@@ -2,6 +2,7 @@
  *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
+import * as positron from 'positron';
 import * as vscode from 'vscode';
 import { log } from './extension';
 import { NotebookController } from './notebookController';
@@ -11,7 +12,7 @@ import { NotebookSessionService } from './notebookSessionService';
  * Manages notebook controllers.
  */
 export class NotebookControllerManager implements vscode.Disposable {
-	/** Notebook controllers keyed by languageId. */
+	/** Notebook controllers keyed by language runtime ID. */
 	public readonly controllers = new Map<string, NotebookController>();
 
 	/**
@@ -21,17 +22,18 @@ export class NotebookControllerManager implements vscode.Disposable {
 	constructor(private readonly _notebookSessionService: NotebookSessionService) { }
 
 	/**
-	 * Create a notebook controller for a language.
+	 * Create a notebook controller for a runtime.
 	 *
-	 * @param languageId The language ID for which to create a notebook controller.
+	 * @param runtimeMetadata The language runtime metadata for which to create a notebook controller.
 	 */
-	public createNotebookController(languageId: string): void {
-		if (this.controllers.has(languageId)) {
-			throw new Error(`Notebook controller already exists for language: ${languageId}`);
+	public createNotebookController(runtimeMetadata: positron.LanguageRuntimeMetadata): void {
+		const { runtimeId } = runtimeMetadata;
+		if (this.controllers.has(runtimeId)) {
+			throw new Error(`Notebook controller already exists for runtime: ${runtimeId}`);
 		}
-		const controller = new NotebookController(languageId, this._notebookSessionService);
-		this.controllers.set(languageId, controller);
-		log.info(`Registered notebook controller for language: ${languageId}`);
+		const controller = new NotebookController(runtimeMetadata, this._notebookSessionService);
+		this.controllers.set(runtimeId, controller);
+		log.info(`Registered notebook controller for runtime: ${runtimeId}`);
 	}
 
 	/**
@@ -78,7 +80,15 @@ export class NotebookControllerManager implements vscode.Disposable {
 			?? notebook.getCells()?.[0].document.languageId;
 
 		// Get the preferred controller for the language.
-		const preferredController = languageId && this.controllers.get(languageId);
+		let preferredRuntime: positron.LanguageRuntimeMetadata;
+		try {
+			preferredRuntime = await positron.runtime.getPreferredRuntime(languageId);
+		} catch (ex) {
+			// It may error if there are no registered runtimes for the language, so log and return.
+			log.debug(`Failed to get preferred runtime for language: ${languageId}`, ex);
+			return;
+		}
+		const preferredController = this.controllers.get(preferredRuntime.runtimeId);
 
 		// Set the affinity across all known controllers.
 		for (const controller of this.controllers.values()) {
