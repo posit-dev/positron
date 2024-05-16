@@ -169,7 +169,9 @@ export class Terminal {
 	}
 
 	async assertSingleTab(label: TerminalLabel, editor?: boolean): Promise<void> {
-		let regex = undefined;
+		// --- Start Positron ---
+		let regex;
+		// --- End Positron ---
 		if (label.name && label.description) {
 			regex = new RegExp(label.name + ' - ' + label.description);
 		} else if (label.name) {
