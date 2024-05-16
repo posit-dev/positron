@@ -387,7 +387,6 @@ suite('Set Interpreter Command', () => {
             assert.deepStrictEqual(actualParameters, expectedParameters, 'Params not equal');
         });
 
-        // iiz potential
         test('Picker should install python if corresponding item is selected', async () => {
             const state: InterpreterStateArgs = { path: 'some path', workspace: undefined };
             const multiStepInput = TypeMoq.Mock.ofType<IMultiStepInput<InterpreterStateArgs>>();
