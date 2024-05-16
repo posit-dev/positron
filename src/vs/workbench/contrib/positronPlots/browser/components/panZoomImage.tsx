@@ -3,18 +3,22 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as React from 'react';
-import { isMacintosh } from 'vs/base/common/platform';
+import { DomScrollableElement } from 'vs/base/browser/ui/scrollbar/scrollableElement';
+import { ScrollbarVisibility } from 'vs/base/common/scrollable';
 import { ZoomLevel } from 'vs/workbench/contrib/positronPlots/browser/components/zoomPlotMenuButton';
 
 interface PanZoomImageProps {
+	width: number;
+	height: number;
 	imageUri: string;
 	description: string;
 	zoom: ZoomLevel;
 }
 
 /**
- * A component to pan the image using mouse drag or wheel
- * and set the image zoom (scale multiplier).
+ * A component to pan the image and set the image zoom (scale multiplier).
+ * The component is composed of the image and scrollable controls. The controls are provided
+ * by the DomScrollableElement class.
  * @param props A PanZoomImageProps that contains the component properties.
  * @returns The rendered component.
  */
@@ -22,44 +26,93 @@ export const PanZoomImage = (props: PanZoomImageProps) => {
 	const [width, setWidth] = React.useState<number>(1);
 	const [height, setHeight] = React.useState<number>(1);
 	const imageWrapperRef = React.useRef<HTMLDivElement>(null);
-	const [moveX, setMoveX] = React.useState<number>(0);
-	const [moveY, setMoveY] = React.useState<number>(0);
+	const imageRef = React.useRef<HTMLImageElement>(null);
 	const [grabbing, setGrabbing] = React.useState<boolean>(false);
+	const [scrollableElement, setScrollableElement] = React.useState<DomScrollableElement>();
 
-	const reverseScroll = isMacintosh;
-
+	// updates the scrollable element when the image size changes
 	React.useEffect(() => {
-		// centers the image
-		const { clientWidth, clientHeight } = imageWrapperRef.current ?? { clientWidth: 0, clientHeight: 0 };
-		setMoveX((clientWidth - (width * props.zoom)) / 2);
-		setMoveY((clientHeight - (height * props.zoom)) / 2);
-	}, [width, height, props.zoom]);
-
-	const getStyle = (): React.CSSProperties => {
-		let style: React.CSSProperties = {};
-
+		if (!scrollableElement || !imageRef.current) {
+			return;
+		}
+		const adjustedWidth = props.zoom === ZoomLevel.Fill ? width : width * props.zoom;
+		const adjustedHeight = props.zoom === ZoomLevel.Fill ? height : height * props.zoom;
 		if (props.zoom === ZoomLevel.Fill) {
-			// no translation added and let the entire plot be visible
-			style = {
-				width: '100%',
-				height: '100%',
-				position: 'unset',
-				transform: 'none',
-			};
+			if (adjustedWidth < props.width) {
+				imageRef.current.style.height = '100%';
+				imageRef.current.style.width = 'auto';
+			} else if (adjustedHeight < props.height) {
+				imageRef.current.style.width = '100%';
+				imageRef.current.style.height = 'auto';
+			}
 		} else {
-			const panMovement = `translateX(${moveX}px) translateY(${moveY}px)`;
-			style = {
-				cursor: grabbing ? 'grabbing' : 'grab',
-				maxWidth: 'none',
-				maxHeight: 'none',
-				top: 0,
-				left: 0,
-				transform: panMovement,
-			};
+			imageRef.current.style.width = `${adjustedWidth}px`;
+			imageRef.current.style.height = `${adjustedHeight}px`;
 		}
 
-		return style;
-	};
+		imageRef.current.style.position = 'relative';
+		if (adjustedWidth < props.width && adjustedHeight < props.height) {
+			imageRef.current.style.top = '50%';
+			imageRef.current.style.left = '50%';
+			imageRef.current.style.transform = 'translate(-50%, -50%)';
+		} else if (adjustedWidth < props.width) {
+			imageRef.current.style.top = '0';
+			imageRef.current.style.left = '50%';
+			imageRef.current.style.transform = 'translate(-50%, 0)';
+		} else if (adjustedHeight < props.height) {
+			imageRef.current.style.top = '50%';
+			imageRef.current.style.left = '0';
+			imageRef.current.style.transform = 'translate(0, -50%)';
+		} else {
+			imageRef.current.style.top = '0';
+			imageRef.current.style.left = '0';
+			imageRef.current.style.transform = 'none';
+		}
+		scrollableElement.scanDomNode();
+	}, [width, height, props.zoom, props.width, props.height, scrollableElement]);
+
+	React.useEffect(() => {
+		if (!imageWrapperRef.current || !scrollableElement) {
+			return;
+		}
+
+		scrollableElement.scanDomNode();
+	}, [scrollableElement]);
+
+	// Wrap the image in a scrollable element
+	React.useEffect(() => {
+		if (!imageWrapperRef.current || !imageRef.current) {
+			return;
+		}
+
+		// only create the scrollable element once
+		if (!scrollableElement) {
+			/* The imageArea should contain the scrollable element and the imageWrapperRef contains all
+			 * of the scrollable content. The DOM will look liks this:
+			 * <div class="image-area">
+			 *  <div class="positron-scrollable-element">
+			 *    <div class="image-wrapper">
+			 *      <img src="..." alt="..." />
+			 *    </div>
+			 *  </div>
+			 * </div>
+			 *
+			 */
+			const imageArea = imageWrapperRef.current.parentElement;
+			const domScrollableElement = new DomScrollableElement(imageWrapperRef.current, {
+				horizontal: ScrollbarVisibility.Visible,
+				vertical: ScrollbarVisibility.Visible,
+				useShadows: false,
+				className: 'positron-scrollable-element',
+			});
+			setScrollableElement(domScrollableElement);
+			imageArea?.appendChild(domScrollableElement.getDomNode());
+		} else {
+			// scrollableElement.scanDomNode();
+		}
+		return () => scrollableElement?.dispose();
+	}, [imageWrapperRef, scrollableElement]);
+
 	const onImgLoad = (event: React.SyntheticEvent<HTMLImageElement>) => {
 		const img = event.target as HTMLImageElement;
 		const width = img.naturalWidth;
@@ -68,65 +121,44 @@ export const PanZoomImage = (props: PanZoomImageProps) => {
 		setHeight(height);
 	};
 
-	const applyZoom = (value: number): string => {
-		if (props.zoom !== ZoomLevel.Fill) {
-			return `${value * props.zoom}px`;
-		}
-
-		return '100%';
-	};
-
 	const panImage = (event: React.MouseEvent<HTMLElement>) => {
-		const { clientWidth, clientHeight } = imageWrapperRef.current ?? { clientWidth: 0, clientHeight: 0 };
-		const adjustedWidth = width * props.zoom;
-		const adjustedHeight = height * props.zoom;
-
-		// Clamp the movement to the parent's boundaries
-		const maxMoveX = adjustedWidth > clientWidth ? 0 : clientWidth - adjustedWidth;
-		const minMoveX = adjustedWidth > clientWidth ? -adjustedWidth + clientWidth : 0;
-		const maxMoveY = adjustedHeight > clientHeight ? 0 : clientHeight - adjustedHeight;
-		const minMoveY = adjustedHeight > clientHeight ? -adjustedHeight + clientHeight : 0;
-
-		let newMoveX = 0, newMoveY = 0;
-
-		if (event.type === 'wheel' && event.buttons === 0) {
-			const wheelEvent = event as React.WheelEvent<HTMLImageElement>;
-
-			// Adds the reverse scroll effect if on Mac
-			newMoveX = moveX + (reverseScroll ? -wheelEvent.deltaX : wheelEvent.deltaX);
-			newMoveY = moveY + (reverseScroll ? -wheelEvent.deltaY : wheelEvent.deltaY);
-		} else if (event.buttons === 1 && props.zoom !== ZoomLevel.Fill) {
-			newMoveX = moveX + event.movementX;
-			newMoveY = moveY + event.movementY;
-		} else {
+		if (!scrollableElement || event.buttons !== 1) {
 			return;
 		}
 
-		const finalMoveX = Math.max(Math.min(newMoveX, maxMoveX), minMoveX);
-		const finalMoveY = Math.max(Math.min(newMoveY, maxMoveY), minMoveY);
-		setMoveX(finalMoveX);
-		setMoveY(finalMoveY);
+		const position = scrollableElement.getScrollPosition();
+
+		scrollableElement.setScrollPosition(
+			{
+				scrollLeft: position.scrollLeft - event.movementX,
+				scrollTop: position.scrollTop - event.movementY,
+			},
+		);
 	};
 
 	const updateCursor = (event: React.MouseEvent<HTMLElement>) => {
 		setGrabbing(event.type === 'mousedown');
 	};
 
+	// Renders the image-wrapper div that contains the image element but this is
+	// wrapped in a scrollable element to allow panning. See useEffect hook above.
 	return (
 		<div className='image-wrapper'
 			ref={imageWrapperRef}
 			onMouseMoveCapture={panImage}
 			onMouseDown={updateCursor}
 			onMouseUp={updateCursor}
-			onWheel={panImage}
+			style={{ width: props.width, height: props.height }}
 		>
 			<img src={props.imageUri}
 				alt={props.description}
 				onLoad={onImgLoad}
-				style={getStyle()}
-				width={applyZoom(width)}
-				height={applyZoom(height)}
+				className={grabbing ? 'grabbing' : 'grab'}
 				draggable={false}
+				// style={getStyle()}
+				// width={applyZoom(width)}
+				// height={applyZoom(height)}z
+				ref={imageRef}
 			/>
 		</div>
 	);

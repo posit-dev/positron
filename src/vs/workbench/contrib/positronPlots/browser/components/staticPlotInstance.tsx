@@ -26,12 +26,34 @@ interface StaticPlotInstanceProps {
  * @returns The rendered component.
  */
 export const StaticPlotInstance = (props: StaticPlotInstanceProps) => {
+	const ref = React.useRef<HTMLDivElement>(null);
+	const [width, setWidth] = React.useState<number>(1);
+	const [height, setHeight] = React.useState<number>(1);
+
+	React.useEffect(() => {
+		if (ref.current) {
+			const resizeObserver = new ResizeObserver((entries: ResizeObserverEntry[]) => {
+				if (entries.length > 0) {
+					const entry = entries[0];
+					const width = entry.contentRect.width;
+					const height = entry.contentRect.height;
+					setWidth(width);
+					setHeight(height);
+				}
+			});
+			resizeObserver.observe(ref.current);
+		}
+
+	}, []);
+
 	return (
-		<div className='plot-instance static-plot-instance'>
+		<div className='plot-instance static-plot-instance' ref={ref}>
 			<PanZoomImage
 				imageUri={props.plotClient.uri}
 				description={props.plotClient.code ? props.plotClient.code : 'Plot ' + props.plotClient.id}
 				zoom={props.zoom}
+				width={width}
+				height={height}
 			/>
 		</div>);
 };

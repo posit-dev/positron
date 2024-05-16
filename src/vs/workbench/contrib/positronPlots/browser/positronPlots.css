@@ -64,6 +64,7 @@
 
 .history-bottom .plot-history-scroller {
 	border-top: 1px solid var(--vscode-statusBar-border);
+	min-height: 100px;
 	height: 100px;
 }
 
@@ -150,7 +151,7 @@
 	position: relative;
 }
 
-.plot-instance .image-wrapper {
+/* .plot-instance .image-wrapper {
 	display: block;
 	object-fit: none;
 	position: absolute;
@@ -159,7 +160,7 @@
 	height: 100%;
 }
 
-.plot-instance .image-wrapper img,
+.plot-instance .image-wrapper img, */
 .plot-thumbnail .image-wrapper img {
 	display: block;
 	max-width: 100%;
@@ -198,4 +199,13 @@
 
 .monaco-pane-view .pane .plots-container .monaco-progress-container {
 	top: 0px;
+}
+
+/* image panning */
+.grabbing {
+	cursor: grabbing;
+}
+
+.grab {
+	cursor: grab;
 }
