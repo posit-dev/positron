@@ -12,22 +12,31 @@ import { IWorkbenchLayoutService, PanelAlignment, Parts } from 'vs/workbench/ser
 
 export type KnownPositronLayoutParts = Parts.PANEL_PART | Parts.SIDEBAR_PART | Parts.AUXILIARYBAR_PART;
 
+/**
+ * Description of the custom layout for a given part (e.g. Sidebar, Panel, ...) of the editor.
+ */
+export type PartLayoutDescription = {
+	size?: number | `${number}%`;
+	hidden: boolean;
+	alignment?: PanelAlignment;
+	viewContainers?: {
+		id: string;
+		// Is this view container shown? Only one of these can be shown at a time so if
+		// multiple are set, the last one will be respected.
+		opened?: boolean;
+		// Size units are relative. Every view sharing the same sizeUnit will have the same size.
+		// if not provided, will default to 1.
+		views?: { id: string; sizeUnit?: number }[];
+	}[];
+};
+
+/**
+ * Full description of custom layout for the editor.
+ */
 export type CustomPositronLayoutDescription = Record<
 	KnownPositronLayoutParts,
-	{
-		size?: number | `${number}%`;
-		hidden: boolean;
-		alignment?: PanelAlignment;
-		viewContainers?: {
-			id: string;
-			// Size units are relative. Every view sharing the same sizeUnit will have the same size.
-			// if not provided, will default to 1.
-			views?: { id: string; sizeUnit?: number }[];
-		}[];
-	}
+	PartLayoutDescription
 >;
-
-export type PartLayoutDescription = CustomPositronLayoutDescription[KnownPositronLayoutParts];
 
 
 export type PartViewInfo = {
@@ -195,6 +204,7 @@ export const positronCustomLayoutOptions: LayoutPick[] = [
 					// Add the terminal in the second position with default views.
 					{
 						id: 'terminal',
+						opened: true,
 					}
 				]
 			},

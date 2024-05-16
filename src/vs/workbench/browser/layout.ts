@@ -53,6 +53,7 @@ import { CustomTitleBarVisibility } from '../../platform/window/common/window';
 // --- Start Positron ---
 import { IPositronTopActionBarService } from 'vs/workbench/services/positronTopActionBar/browser/positronTopActionBarService';
 import { KnownPositronLayoutParts, PartLayoutDescription, PartViewInfo, CustomPositronLayoutDescription, viewPartToResizeDimension } from 'vs/workbench/browser/positronCustomViews';
+import { AbstractPaneCompositePart } from 'vs/workbench/browser/parts/paneCompositePart';
 // --- End Positron ---
 
 //#region Layout Implementation
@@ -1416,7 +1417,7 @@ export abstract class Layout extends Disposable implements IWorkbenchLayoutServi
 		}
 	}
 
-	private _setCustomPartSize(part: KnownPositronLayoutParts, { hidden, size }: PartLayoutDescription) {
+	private _setCustomPartSize(part: KnownPositronLayoutParts, { hidden, size, viewContainers = [] }: PartLayoutDescription) {
 		const { partView, hideFn, currentSize } = this.getPartViewInfo(part);
 
 		if (size !== undefined) {
@@ -1432,6 +1433,12 @@ export abstract class Layout extends Disposable implements IWorkbenchLayoutServi
 			newSize[dimensionToBeSized] = size;
 
 			this.workbenchGrid.resizeView(partView, newSize);
+		}
+
+		// Make sure the requested view container is visible
+		const openedContainer = viewContainers.find(vc => vc.opened);
+		if (openedContainer) {
+			(partView as AbstractPaneCompositePart).openPaneComposite(openedContainer.id);
 		}
 
 		// If we try and resize after we run this then we risk re-opening the panel.

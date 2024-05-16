@@ -836,8 +836,11 @@ registerAction2(class extends Action2 {
 		quickPick.onDidAccept(() => {
 			const selected = quickPick.selectedItems[0] as (typeof positronCustomLayoutOptions[number]) | undefined;
 			if (selected?.id) {
-				layoutService.enterCustomLayout(selected.layoutDescriptor);
 				viewDescriptorService.loadCustomViewDescriptor(selected.layoutDescriptor);
+				// Run the layout service action after the view descriptor has been loaded.
+				// This is needed so that the changing of the contents of the parts doesn't
+				// break the currently open view container that is set by the layoutService.
+				layoutService.enterCustomLayout(selected.layoutDescriptor);
 			}
 			quickPick.hide();
 		});

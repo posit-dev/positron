@@ -1059,12 +1059,20 @@ export class ViewPaneContainer extends Component implements IViewPaneContainer {
 	}
 	// --- Start Positron ---
 	/**
+	 * Helper function to make it easier to access a given pane in the container by id.
+	 * @param id Id of view pane to get. E.g. 'workbench.view.explorer'
+	 * @returns ViewPane with the given id or undefined if not found
+	 */
+	private getPaneById(id: string): ViewPane | undefined {
+		return this.panes.find(p => p.id === id);
+	}
+	/**
 	 * Move a view pane to a specific index.
 	 * @param paneId Id of view pane to move
 	 * @param toIndex Index to move view pane to
 	 */
 	movePaneToIndex(paneId: string, toIndex: number): void {
-		const pane = this.panes.find(p => p.id === paneId);
+		const pane = this.getPaneById(paneId);
 		if (!pane) { return; }
 		const to = this.paneItems[toIndex].pane;
 		this.movePane(pane, to);
@@ -1098,11 +1106,15 @@ export class ViewPaneContainer extends Component implements IViewPaneContainer {
 		// Now calculate the size of each pane in pixels based on the available size and the size unit
 		// and apply.
 		paneSizes.forEach(({ id, sizeUnit }) => {
-			const pane = this.panes.find(p => p.id === id);
+			const pane = this.getPaneById(id);
 			if (!pane) { return; }
 			const size = Math.round((sizeUnit ?? 1) / totalSizeUnits * availableSize);
 			this.resizePane(pane, size);
 		});
+	}
+
+	openPaneById(id: string): void {
+		this.getPaneById(id)?.setExpanded(true);
 	}
 	// --- End Positron ---
 
