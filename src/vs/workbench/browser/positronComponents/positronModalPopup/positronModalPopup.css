@@ -14,12 +14,12 @@
 }
 
 .positron-modal-popup {
-	height: min-content;
-	width: min-content;
 	display: flex;
-	overflow: hidden;
+	overflow: auto;
 	position: absolute;
 	border-radius: 4px;
+	width: min-content;
+	height: min-content;
 	box-sizing: border-box;
 	color: var(--vscode-positronModalDialog-foreground);
 	border: 1px solid var(--vscode-positronModalDialog-border);

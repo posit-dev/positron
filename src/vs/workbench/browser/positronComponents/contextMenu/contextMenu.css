@@ -64,7 +64,7 @@
 	white-space: nowrap;
 	text-overflow: ellipsis;
 	grid-column: title / icon;
-	padding: 10px 5px 10px 10px;
+	margin: 10px 5px 10px 10px;
 }
 
 .context-menu-item
@@ -74,7 +74,7 @@
 
 .context-menu-item
 .icon {
-	padding: 10px;
+	margin: 10px;
 	grid-column: icon / end;
 }
 

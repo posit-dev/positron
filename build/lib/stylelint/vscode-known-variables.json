@@ -539,6 +539,7 @@
 		"--vscode-positronConsole-errorForeground",
 		"--vscode-positronConsole-foreground",
 		"--vscode-positronConsole-traceBackground",
+		"--vscode-positronContextMenu-actionHoverBackground",
 		"--vscode-positronContextMenu-background",
 		"--vscode-positronContextMenu-foreground",
 		"--vscode-positronContextMenu-hoverBackground",
