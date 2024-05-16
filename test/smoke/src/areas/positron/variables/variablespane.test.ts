@@ -24,20 +24,13 @@ export function setup(logger: Logger) {
 			it('Verifies Variables pane basic function with python interpreter', async function () {
 				const app = this.app as Application;
 
-				const varOne = 'x=1';
-				await app.workbench.positronConsole.typeToConsole(varOne);
-				await app.workbench.positronConsole.sendEnterKey();
-				await app.workbench.positronConsole.waitForEndingConsoleText(varOne);
+				const executeCode = async (code: string) => {
+					await app.workbench.positronConsole.executeCode('Python', code, '>>>');
+				};
 
-				const varTwo = 'y=10';
-				await app.workbench.positronConsole.typeToConsole(varTwo);
-				await app.workbench.positronConsole.sendEnterKey();
-				await app.workbench.positronConsole.waitForEndingConsoleText(varTwo);
-
-				const varThree = 'z=100';
-				await app.workbench.positronConsole.typeToConsole(varThree);
-				await app.workbench.positronConsole.sendEnterKey();
-				await app.workbench.positronConsole.waitForEndingConsoleText(varThree);
+				await executeCode('x=1');
+				await executeCode('y=10');
+				await executeCode('z=100');
 
 				console.log('Entered lines in console defining variables');
 
@@ -65,20 +58,13 @@ export function setup(logger: Logger) {
 			it('Verifies Variables pane basic function with R interpreter', async function () {
 				const app = this.app as Application;
 
-				const varOne = 'x=1';
-				await app.workbench.positronConsole.typeToConsole(varOne);
-				await app.workbench.positronConsole.sendEnterKey();
-				await app.workbench.positronConsole.waitForEndingConsoleText(varOne);
+				const executeCode = async (code: string) => {
+					await app.workbench.positronConsole.executeCode('R', code, '>');
+				};
 
-				const varTwo = 'y=10';
-				await app.workbench.positronConsole.typeToConsole(varTwo);
-				await app.workbench.positronConsole.sendEnterKey();
-				await app.workbench.positronConsole.waitForEndingConsoleText(varTwo);
-
-				const varThree = 'z=100';
-				await app.workbench.positronConsole.typeToConsole(varThree);
-				await app.workbench.positronConsole.sendEnterKey();
-				await app.workbench.positronConsole.waitForEndingConsoleText(varThree);
+				await executeCode('x=1');
+				await executeCode('y=10');
+				await executeCode('z=100');
 
 				console.log('Entered lines in console defining variables');
 
