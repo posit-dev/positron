@@ -2,16 +2,6 @@
  *  Copyright (C) 2022 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
-@keyframes fade-in {
-	0% {
-		opacity: 0;
-	}
-
-	100% {
-		opacity: 1;
-	}
-}
-
 .positron-modal-popup-container {
 	top: 0;
 	left: 0;
@@ -19,7 +9,6 @@
 	height: 100%;
 	position: absolute;
 	outline: none !important;
-	/* animation: fade-in 0.25s; */
 	/* Makes some devices run their hardware acceleration. */
 	transform: translate3d(0px, 0px, 0px);
 }
