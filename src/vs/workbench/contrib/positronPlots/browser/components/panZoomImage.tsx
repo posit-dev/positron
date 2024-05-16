@@ -38,14 +38,18 @@ export const PanZoomImage = (props: PanZoomImageProps) => {
 		const adjustedWidth = props.zoom === ZoomLevel.Fill ? width : width * props.zoom;
 		const adjustedHeight = props.zoom === ZoomLevel.Fill ? height : height * props.zoom;
 		if (props.zoom === ZoomLevel.Fill) {
-			if (adjustedWidth < props.width) {
-				imageRef.current.style.height = '100%';
-				imageRef.current.style.width = 'auto';
-			} else if (adjustedHeight < props.height) {
-				imageRef.current.style.width = '100%';
-				imageRef.current.style.height = 'auto';
-			}
+			scrollableElement.updateOptions({
+				horizontal: ScrollbarVisibility.Hidden,
+				vertical: ScrollbarVisibility.Hidden,
+			});
+			imageRef.current.style.width = '100%';
+			imageRef.current.style.height = '100%';
+			imageRef.current.style.objectFit = 'contain';
 		} else {
+			scrollableElement.updateOptions({
+				horizontal: ScrollbarVisibility.Visible,
+				vertical: ScrollbarVisibility.Visible,
+			});
 			imageRef.current.style.width = `${adjustedWidth}px`;
 			imageRef.current.style.height = `${adjustedHeight}px`;
 		}
@@ -155,9 +159,6 @@ export const PanZoomImage = (props: PanZoomImageProps) => {
 				onLoad={onImgLoad}
 				className={grabbing ? 'grabbing' : 'grab'}
 				draggable={false}
-				// style={getStyle()}
-				// width={applyZoom(width)}
-				// height={applyZoom(height)}z
 				ref={imageRef}
 			/>
 		</div>
