@@ -332,11 +332,6 @@ isexe@^2.0.0:
   resolved "https://registry.yarnpkg.com/isexe/-/isexe-2.0.0.tgz#e8fbf374dc556ff8947a10dcb0572d633f2cfa10"
   integrity sha1-6PvzdNxVb/iUehDcsFctYz8s+hA=
 
-jpeg-js@0.2.0:
-  version "0.2.0"
-  resolved "https://registry.yarnpkg.com/jpeg-js/-/jpeg-js-0.2.0.tgz#53e448ec9d263e683266467e9442d2c5a2ef5482"
-  integrity sha512-Ni9PffhJtYtdD7VwxH6V2MnievekGfUefosGCHadog0/jAevRu6HPjYeMHbUemn0IPE8d4wGa8UsOGsX+iKy2g==
-
 json-parse-better-errors@^1.0.1:
   version "1.0.2"
   resolved "https://registry.yarnpkg.com/json-parse-better-errors/-/json-parse-better-errors-1.0.2.tgz#bb867cfb3450e69107c131d1c514bab3dc8bcaa9"
@@ -500,11 +495,6 @@ pify@^3.0.0:
   resolved "https://registry.yarnpkg.com/pify/-/pify-3.0.0.tgz#e5a4acd2c101fdf3d9a4d07f0dbc4db49dd28176"
   integrity sha1-5aSs0sEB/fPZpNB/DbxNtJ3SgXY=
 
-pngjs@3.2.0:
-  version "3.2.0"
-  resolved "https://registry.yarnpkg.com/pngjs/-/pngjs-3.2.0.tgz#fc9fcea1a8a375da54a51148019d5abd41dbabde"
-  integrity sha512-MCRe3RYxSIqrYgJjgo0DrYcsgN8oaMvR6RmBGo75rZQnQIYLisvvcP7eESsWHY9b7TcZPc9jtOWWwDrCQ6xc2A==
-
 read-pkg@^3.0.0:
   version "3.0.0"
   resolved "https://registry.yarnpkg.com/read-pkg/-/read-pkg-3.0.0.tgz#9cbc686978fee65d16c00e2b19c237fcf6e38389"
@@ -513,14 +503,6 @@ read-pkg@^3.0.0:
     load-json-file "^4.0.0"
     normalize-package-data "^2.3.2"
     path-type "^3.0.0"
-
-resemblejs-node@^1.0.0:
-  version "1.0.0"
-  resolved "https://registry.yarnpkg.com/resemblejs-node/-/resemblejs-node-1.0.0.tgz#6a8226ef35eac383997454c7f0ba8f3db7565ddb"
-  integrity sha512-cRMGqnQk78tec4NYgBUz1OF6IXJ0V+EkKSwGeVdb4JO+iHXmGxHE2HH6A8KpZumZc43MkKv9j6zTu5gwcbg8CA==
-  dependencies:
-    jpeg-js "0.2.0"
-    pngjs "3.2.0"
 
 resolve@^1.10.0:
   version "1.19.0"

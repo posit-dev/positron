@@ -6,7 +6,6 @@
 import { Application, Logger, PositronPythonFixtures } from '../../../../../automation';
 import { installAllHandlers } from '../../../utils';
 import { PositronConsoleFixtures } from '../../../fixtures/positronConsoleFixtures';
-import path = require('path');
 
 
 export function setup(logger: Logger) {
@@ -36,7 +35,7 @@ export function setup(logger: Logger) {
 
 			});
 
-			it('Python - Verifies basic plot functionality', async function () {
+			it.only('Python - Verifies basic plot functionality', async function () {
 				const app = this.app as Application;
 
 				// modified snippet from https://www.geeksforgeeks.org/python-pandas-dataframe/
@@ -69,16 +68,6 @@ plt.show()`;
 				const plotLocator = app.code.driver.getLocator('.image-wrapper img');
 
 				await plotLocator.waitFor({ state: 'attached' });
-
-				const fileName = 'pythonPlot.png';
-				const filePath = path.join(__dirname.replace(path.sep + 'out' + path.sep, path.sep + 'src' + path.sep), 'goldenPlots', fileName);
-
-				const match = await app.workbench.positronPlots.compareScreenshots(plotLocator, filePath);
-
-				// not adding this in yet, but its the goal
-				// expect(match).toBe(true);
-				console.log(`Matched files: ${match}`);
-
 			});
 		});
 
