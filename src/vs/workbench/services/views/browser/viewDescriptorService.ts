@@ -720,6 +720,8 @@ export class ViewDescriptorService extends Disposable implements IViewDescriptor
 				}
 			}
 		}
+		// Save updated view customizations
+		this.saveViewCustomizations();
 	}
 
 	// Helper function to make it easier to develop custom views.
