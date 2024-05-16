@@ -72,7 +72,7 @@ type CustomViewDescriptor = Record<
 		alignment?: string;
 		viewContainers?: {
 			id: string;
-			views: string[];
+			views?: string[];
 		}[];
 	}
 >;

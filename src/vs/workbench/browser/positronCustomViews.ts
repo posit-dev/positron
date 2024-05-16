@@ -21,7 +21,7 @@ export type CustomPositronLayoutDescription = Record<
 		alignment?: PanelAlignment;
 		viewContainers?: {
 			id: string;
-			views: string[];
+			views?: string[];
 		}[];
 	}
 >;
@@ -63,6 +63,7 @@ export function layoutDescriptionToViewInfo(layout: CustomPositronLayoutDescript
 		for (const viewContainer of viewContainers) {
 			viewContainerLocations.set(viewContainer.id, viewContainerLocation);
 
+			if (!viewContainer.views) { continue; }
 			for (const viewId of viewContainer.views) {
 				viewDescriptorCustomizations.set(viewId, viewContainer.id);
 			}
@@ -131,18 +132,18 @@ export const positronCustomLayoutOptions: LayoutPick[] = [
 				'alignment': 'center',
 				viewContainers: [
 					{
-						id: 'workbench.panel.positronSessions',
-						views: ['workbench.panel.positronConsole']
+						id: 'workbench.panel.positronConsole',
 					},
-					{
-						id: 'workbench.views.service.panel.f732882e-ffdb-495b-b500-31b109474b78',
-						views: ['connections']
-					}
 				]
 			},
 			[Parts.AUXILIARYBAR_PART]: {
 				'width': 700,
 				'hidden': false,
+				viewContainers: [
+					{
+						id: 'workbench.panel.positronSession',
+					},
+				]
 			}
 		},
 	},
@@ -150,22 +151,32 @@ export const positronCustomLayoutOptions: LayoutPick[] = [
 		id: 'plot-console-variables',
 		label: localize('choseLayout.plotConsoleVariables', 'Plot, Console, Variables'),
 		layoutDescriptor: {
-			[Parts.PANEL_PART]: { hidden: true, alignment: 'center' },
-			[Parts.SIDEBAR_PART]: { hidden: true },
+			[Parts.PANEL_PART]: {
+				hidden: true,
+				alignment: 'center'
+			},
+			[Parts.SIDEBAR_PART]: {
+				hidden: true
+			},
 			[Parts.AUXILIARYBAR_PART]: {
+				// Dont hide the auxiliary bar
 				hidden: false,
+				// Make it 800px wide
+				width: 800,
+				// Add the positron session view container in the first position
 				viewContainers: [
 					{
 						id: 'workbench.panel.positronSession',
+						// Order the following views in the positron session view container
 						views: [
 							'workbench.panel.positronPlots',
 							'workbench.panel.positronConsole',
 							'workbench.panel.positronVariables'
 						]
 					},
+					// Add the terminal in the second position with default views.
 					{
 						id: 'terminal',
-						views: ['terminal']
 					}
 				]
 			},

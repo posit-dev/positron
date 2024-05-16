@@ -676,12 +676,9 @@ export class ViewDescriptorService extends Disposable implements IViewDescriptor
 
 		for (const [part, info] of Object.entries(vc)) {
 
-			const partCompositeBar = PaneCompositeBar.compositeBarByPart.get(part);
-			if (!partCompositeBar) { continue; }
-			console.log({ partCompositeBar });
-
 			const viewContainers = info.viewContainers;
-			if (!viewContainers) { continue; }
+			const partCompositeBar = PaneCompositeBar.compositeBarByPart.get(part);
+			if (!partCompositeBar || !viewContainers) { continue; }
 
 			for (let i = 0; i < viewContainers.length; i++) {
 				const { id: containerId, views } = viewContainers[i];
@@ -693,10 +690,15 @@ export class ViewDescriptorService extends Disposable implements IViewDescriptor
 					partCompositeBar.move(containerId, viewAtDesiredIndex);
 				}
 
+				if (!views) { continue; }
+
 				const viewContainer = this.getViewContainerById(containerId);
 				if (!viewContainer) { continue; }
-				const viewContainerLocation = this.getViewContainerLocation(viewContainer);
-				const paneComposite = await this.paneCompositePartService.openPaneComposite(viewContainer.id, viewContainerLocation, false);
+				const paneComposite = await this.paneCompositePartService.openPaneComposite(
+					viewContainer.id,
+					this.getViewContainerLocation(viewContainer),
+					false
+				);
 				const viewPaneContainer = paneComposite?.getViewPaneContainer();
 				if (!viewPaneContainer) { continue; }
 
