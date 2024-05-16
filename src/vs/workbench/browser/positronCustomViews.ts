@@ -15,7 +15,7 @@ export type KnownPositronLayoutParts = Parts.PANEL_PART | Parts.SIDEBAR_PART | P
 export type CustomPositronLayoutDescription = Record<
 	KnownPositronLayoutParts,
 	{
-		size?: number;
+		size?: number | `${number}%`;
 		hidden: boolean;
 		alignment?: PanelAlignment;
 		viewContainers?: {
@@ -89,6 +89,16 @@ export function viewLocationsToViewOrder(viewLocations: IStringDictionary<string
 }
 
 /**
+ * Mapping of the layout part to what size we want to resize with the `size` parameter of the layout
+ * description. E.g. the panel is resized by changing its height.
+ */
+export const viewPartToResizeDimension: Record<KnownPositronLayoutParts, 'width' | 'height'> = {
+	[Parts.PANEL_PART]: 'height',
+	[Parts.SIDEBAR_PART]: 'width',
+	[Parts.AUXILIARYBAR_PART]: 'width',
+};
+
+/**
  * Convenience function to load a custom layout and views from a descriptor.
  * @param description Description of the custom layout and views
  * @param accessor Services accessor
@@ -160,8 +170,7 @@ export const positronCustomLayoutOptions: LayoutPick[] = [
 			[Parts.AUXILIARYBAR_PART]: {
 				// Dont hide the auxiliary bar
 				hidden: false,
-				// Make it 800px wide
-				size: 800,
+				size: '50%',
 				// Add the positron session view container in the first position
 				viewContainers: [
 					{

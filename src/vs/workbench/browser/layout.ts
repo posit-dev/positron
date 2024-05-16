@@ -52,7 +52,7 @@ import { CustomTitleBarVisibility } from '../../platform/window/common/window';
 
 // --- Start Positron ---
 import { IPositronTopActionBarService } from 'vs/workbench/services/positronTopActionBar/browser/positronTopActionBarService';
-import { KnownPositronLayoutParts, PartLayoutDescription, PartViewInfo, CustomPositronLayoutDescription } from 'vs/workbench/browser/positronCustomViews';
+import { KnownPositronLayoutParts, PartLayoutDescription, PartViewInfo, CustomPositronLayoutDescription, viewPartToResizeDimension } from 'vs/workbench/browser/positronCustomViews';
 // --- End Positron ---
 
 //#region Layout Implementation
@@ -1420,23 +1420,21 @@ export abstract class Layout extends Disposable implements IWorkbenchLayoutServi
 		const { partView, hideFn, currentSize } = this.getPartViewInfo(part);
 
 		if (size !== undefined) {
-			const newSize = { width: currentSize.width, height: currentSize.height };
-			switch (part) {
-				case Parts.PANEL_PART:
-					newSize.height = size;
-					break;
-				case Parts.SIDEBAR_PART:
-				case Parts.AUXILIARYBAR_PART:
-					newSize.width = size;
-					break;
-				default:
-					throw new Error(`Don't know how to set custom size for ${part}`);
+			const dimensionToBeSized = viewPartToResizeDimension[part];
+
+			if (typeof size === 'string') {
+				// Need to convert the percentage to a number relative to the viewport.
+				const viewportDimension = this.getContainerDimension(this.mainContainer)[dimensionToBeSized];
+				size = Math.floor(viewportDimension * parseFloat(size) / 100);
 			}
+
+			const newSize = { width: currentSize.width, height: currentSize.height };
+			newSize[dimensionToBeSized] = size;
 
 			this.workbenchGrid.resizeView(partView, newSize);
 		}
 
-		// If we tryy and resize after we run this then we risk re-opening the panel.
+		// If we try and resize after we run this then we risk re-opening the panel.
 		hideFn(hidden, true);
 	}
 
