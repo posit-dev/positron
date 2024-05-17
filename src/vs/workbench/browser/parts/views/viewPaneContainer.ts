@@ -1088,24 +1088,37 @@ export class ViewPaneContainer extends Component implements IViewPaneContainer {
 	 * pane it will default to 1. This sizing protocol is inspired by css grid layout's `fr` unit.
 	 * @returns
 	 */
-	resizePanes(paneSizes: { id: string; relativeSize?: number }[]): void {
+	resizePanes(paneSizes: { id: string; relativeSize?: number; collapsed?: boolean }[]): void {
 
 		const availableSize = this.dimension?.[this.orientation === Orientation.VERTICAL ? 'height' : 'width'];
 		if (!availableSize) { return; }
 
 		// First make sure we have the same number of panes currently in the container as we do pane
-		// sizes. If we don't add the missing panes to the size array with a default size unit of 1.
+		// sizes. If we don't add the missing panes and set them to collapsed.
 		if (this.panes.length !== paneSizes.length) {
 			const missingPanes = this.panes.filter(p => !paneSizes.some(p2 => p2.id === p.id));
-			missingPanes.forEach(pane => paneSizes.push({ id: pane.id, relativeSize: 1 }));
+			missingPanes.forEach(pane => paneSizes.push({ id: pane.id, collapsed: true }));
 		}
 
+		// First, collapse all the panes that are marked as collapsed
+		const collapsedViews = paneSizes.filter(({ collapsed }) => collapsed);
+		collapsedViews.forEach(({ id }) => {
+			const pane = this.getPaneById(id);
+			if (!pane) { return; }
+			pane.setExpanded(false);
+		});
+
+		// Next, go throught the non-collapsed views and set them to their appropriate size. Note
+		// that because collapsed panes aren't 0 height, the sizing here may not be perfectly
+		// accurate but it should be close enough unless there's a ton of collapsed panes.
+		const shownViews = paneSizes.filter(({ collapsed }) => !collapsed);
+
 		// Next, calculate the total size of all panes
-		const totalSizeUnits = paneSizes.reduce((total, { relativeSize }) => total + (relativeSize ?? 1), 0);
+		const totalSizeUnits = shownViews.reduce((total, { relativeSize = 1 }) => total + relativeSize, 0);
 
 		// Now calculate the size of each pane in pixels based on the available size and the size unit
 		// and apply.
-		paneSizes.forEach(({ id, relativeSize }) => {
+		shownViews.forEach(({ id, relativeSize }) => {
 			const pane = this.getPaneById(id);
 			if (!pane) { return; }
 			const size = Math.round((relativeSize ?? 1) / totalSizeUnits * availableSize);

@@ -63,7 +63,7 @@ type ViewContainerLayoutDescription = {
 	views?: ViewLayoutDescription[];
 };
 
-export type ViewLayoutDescription = {
+type ViewLayoutDescription = {
 	/**
 	 * Id of this view. This is the id that the view is registered with.
 	 * E.g. `workbench.panel.positronPlots` or `terminal`.
@@ -74,6 +74,11 @@ export type ViewLayoutDescription = {
 	 * If not provided, will default to 1.
 	 */
 	relativeSize?: number;
+
+	/**
+	 * Should this view be collapsed by default? By default views are expanded.
+	 */
+	collapsed?: boolean;
 };
 
 /**
@@ -249,15 +254,13 @@ export const positronCustomLayoutOptions: LayoutPick[] = [
 						views: [
 							{
 								id: 'workbench.panel.positronConsole',
-								relativeSize: 1,
 							},
 							{
 								id: 'workbench.panel.positronVariables',
-								relativeSize: 1,
 							},
 							{
 								id: 'workbench.panel.positronPlots',
-								relativeSize: 1,
+								collapsed: true,
 							},
 						]
 					},
