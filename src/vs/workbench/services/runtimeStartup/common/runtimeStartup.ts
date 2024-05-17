@@ -283,7 +283,7 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 		// try to start them.
 		if (!this._runtimeSessionService.hasStartingOrRunningConsole() &&
 			this.hasAffiliatedRuntime()) {
-			this.startAffiliatedLanguageRuntimes();
+			await this.startAffiliatedLanguageRuntimes();
 		}
 
 		// Then, discover all language runtimes.
@@ -393,24 +393,7 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 		await this._extensionService.whenAllExtensionHostsStarted();
 
 		// Activate all extensions that contribute language runtimes.
-		const activationPromises = Array.from(this._languagePacks.keys()).map(
-			async (languageId) => {
-				for (const extension of this._languagePacks.get(languageId) || []) {
-					this._logService.debug(`[Runtime startup] Activating extension ${extension.value} for language ID ${languageId}`);
-					try {
-						await this._extensionService.activateById(extension,
-							{
-								extensionId: extension,
-								activationEvent: `onLanguageRuntime:${languageId}`,
-								startup: false
-							});
-					} catch (e) {
-						this._logService.error(
-							`[Runtime startup] Error activating extension ${extension.value}: ${e}`);
-					}
-				}
-			});
-		await Promise.all(activationPromises);
+		await this.activateExtensionsForLanguages(Array.from(this._languagePacks.keys()));
 		this._logService.debug(`[Runtime startup] All extensions contributing language runtimes have been activated.`);
 
 		// Enter the discovery phase; this triggers us to ask each extension for its
@@ -576,11 +559,14 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 	/**
 	 * Starts all affiliated runtimes for the workspace.
 	 */
-	private startAffiliatedLanguageRuntimes(): void {
+	private async startAffiliatedLanguageRuntimes(): Promise<void> {
 		this._startupPhase.set(RuntimeStartupPhase.Starting, undefined);
 		const languageIds = this.getAffiliatedRuntimeLanguageIds();
 		if (languageIds) {
-			languageIds?.map(languageId => this.startAffiliatedRuntime(languageId));
+			// Activate all the extensions that provide language runtimes for the
+			// affiliated languages.
+			await this.activateExtensionsForLanguages(languageIds);
+			languageIds.map(languageId => this.startAffiliatedRuntime(languageId));
 		}
 	}
 
@@ -593,6 +579,33 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 	 */
 	private storageKeyForRuntime(metadata: ILanguageRuntimeMetadata): string {
 		return `${this.storageKey}.${metadata.languageId}`;
+	}
+
+	/**
+	 * Activates the extensions that provide language runtimes for the given
+	 * language IDs.
+	 *
+	 * @param languageIds The language IDs for which to activate the extensions.
+	 */
+	private async activateExtensionsForLanguages(languageIds: Array<string>): Promise<void> {
+		const activationPromises = languageIds.map(
+			async (languageId) => {
+				for (const extension of this._languagePacks.get(languageId) || []) {
+					this._logService.debug(`[Runtime startup] Activating extension ${extension.value} for language ID ${languageId}`);
+					try {
+						await this._extensionService.activateById(extension,
+							{
+								extensionId: extension,
+								activationEvent: `onLanguageRuntime:${languageId}`,
+								startup: false
+							});
+					} catch (e) {
+						this._logService.debug(
+							`[Runtime startup] Error activating extension ${extension.value}: ${e}`);
+					}
+				}
+			});
+		await Promise.all(activationPromises);
 	}
 
 	/**
