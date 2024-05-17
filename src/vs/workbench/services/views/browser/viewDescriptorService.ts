@@ -79,8 +79,10 @@ export class ViewDescriptorService extends Disposable implements IViewDescriptor
 		@IStorageService private readonly storageService: IStorageService,
 		@IExtensionService private readonly extensionService: IExtensionService,
 		@ITelemetryService private readonly telemetryService: ITelemetryService,
-		@IPaneCompositePartService private readonly paneCompositePartService: IPaneCompositePartService,
 		@ILoggerService loggerService: ILoggerService,
+		// --- Start Positron ---
+		@IPaneCompositePartService private readonly paneCompositePartService: IPaneCompositePartService,
+		// --- End Positron ---
 	) {
 		super();
 
@@ -603,8 +605,10 @@ export class ViewDescriptorService extends Disposable implements IViewDescriptor
 
 	// --- Start Positron ---
 	async loadCustomViewDescriptor(vc: CustomPositronLayoutDescription): Promise<void> {
-		// Here we are essentially copying the logic from onDidViewCustomizationsStorageChange
-		// but using our own custom passed view customizations instead of reading from storage
+		// A large amount of this logic is duplicated from onDidViewCustomizationsStorageChange with
+		// the change that we supply the view container customizations instead of using the one in
+		// state. At the end of the function we also do more custom stuff with the ordering of views
+		// within containers.
 
 		const newViewInfo = layoutDescriptionToViewInfo(vc);
 		const newViewContainerCustomizations = newViewInfo.viewContainerLocations;
@@ -673,7 +677,6 @@ export class ViewDescriptorService extends Disposable implements IViewDescriptor
 		this.viewDescriptorsCustomLocations = newViewDescriptorCustomizations;
 
 		// Order view containers within each pane location
-
 		for (const [part, info] of Object.entries(vc)) {
 
 			const viewContainers = info.viewContainers;
@@ -728,6 +731,7 @@ export class ViewDescriptorService extends Disposable implements IViewDescriptor
 	}
 
 	// Helper function to make it easier to develop custom views.
+	// Temporarily disabled while we finalize the layout format.
 	// dumpViewCustomizations() {
 	// 	return {
 	// 		viewContainerLocations: this.viewCustomizations.viewContainerLocations,

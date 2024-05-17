@@ -1459,7 +1459,6 @@ export abstract class Layout extends Disposable implements IWorkbenchLayoutServi
 		this.layout();
 	}
 	// --- End Positron ---
-
 	toggleZenMode(skipLayout?: boolean, restoring = false): void {
 		this.setZenModeActive(!this.isZenModeActive());
 		this.state.runtime.zenMode.transitionDisposables.clearAndDisposeAll();

@@ -311,9 +311,15 @@ export interface IWorkbenchLayoutService extends ILayoutService {
 	enterCustomLayout(layout: CustomPositronLayoutDescription): void;
 
 	/**
-	 * Get the current layout definition for saving to custom layouts
+	 * Get the current layout definition for saving to custom layouts Temporarily commented out
+	 * until the format of the layout description is finalized
 	 */
 	// dumpCurrentLayout(): CustomPositronLayoutDescription;
+
+	/**
+	 * Gather information about a part for use in creating a custom layout
+	 * @param part Part to get the view info for. E.g. the Panel or Sidebar
+	 */
 	getPartViewInfo(part: KnownPositronLayoutParts): PartViewInfo;
 	// --- End Positron ---
 

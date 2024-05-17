@@ -868,7 +868,6 @@ registerAction2(class extends Action2 {
 // 	}
 // });
 // --- End Positron ---
-
 // --- Move View
 
 registerAction2(class extends Action2 {

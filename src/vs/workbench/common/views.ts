@@ -76,7 +76,6 @@ type CustomViewDescriptor = Record<
 	}
 >;
 // --- End Positron ---
-
 /**
  * View Container Contexts
  */
@@ -628,6 +627,7 @@ export interface IViewDescriptorService {
 	getViewLocationById(id: string): ViewContainerLocation | null;
 	// --- Start Positron ---
 	loadCustomViewDescriptor(customViewDescriptor: CustomViewDescriptor): void;
+	// Temporarily disabled while custom view format is finalized
 	// dumpViewCustomizations(): CustomViewDescriptor;
 	// --- End Positron ---
 
