@@ -244,59 +244,20 @@ export const positronCustomLayoutOptions: LayoutPick[] = [
 				size: '50%',
 				viewContainers: [
 					{
-						id: 'workbench.panel.positronConsole',
+						id: 'workbench.panel.positronSession',
 						opened: true,
 						views: [
 							{
 								id: 'workbench.panel.positronConsole',
 								relativeSize: 1,
 							},
-							{
-								id: 'workbench.panel.positronPlots',
-								relativeSize: 1,
-							},
-						]
-					},
-					{
-						id: 'workbench.panel.positronSession',
-					},
-				]
-			},
-		},
-	},
-	{
-		id: 'side-by-side-console-only',
-		label: localize('choseLayout.sideBySideConsole', 'Side-by-side Data Science (Console Only)'),
-		layoutDescriptor: {
-			[Parts.PANEL_PART]: {
-				hidden: true,
-				alignment: 'center'
-			},
-			[Parts.SIDEBAR_PART]: {
-				hidden: true
-			},
-			[Parts.AUXILIARYBAR_PART]: {
-				hidden: false,
-				size: '50%',
-				viewContainers: [
-					{
-						id: 'workbench.panel.positronConsole',
-						opened: true,
-						views: [
-							{
-								id: 'workbench.panel.positronConsole',
-								relativeSize: 1,
-							},
-						]
-					},
-					{
-						id: 'workbench.panel.positronSession',
-						views: [
 							{
 								id: 'workbench.panel.positronVariables',
+								relativeSize: 1,
 							},
 							{
 								id: 'workbench.panel.positronPlots',
+								relativeSize: 1,
 							},
 						]
 					},
@@ -304,5 +265,4 @@ export const positronCustomLayoutOptions: LayoutPick[] = [
 			},
 		},
 	},
-
 ];
