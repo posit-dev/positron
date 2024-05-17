@@ -19,4 +19,8 @@ export class PositronPlots {
 	async clearPlots() {
 		await this.code.waitAndClick(CLEAR_PLOTS);
 	}
+
+	async waitForNoPlots() {
+		await this.code.waitForElement(CURRENT_PLOT, (result) => !result);
+	}
 }

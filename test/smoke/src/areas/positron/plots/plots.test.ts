@@ -53,6 +53,8 @@ plt.show()`;
 				await app.workbench.positronPlots.waitForCurrentPlot();
 
 				await app.workbench.positronPlots.clearPlots();
+
+				await app.workbench.positronPlots.waitForNoPlots();
 			});
 		});
 
@@ -80,6 +82,8 @@ title(main="Autos", col.main="red", font.main=4)`;
 				await app.workbench.positronPlots.waitForCurrentPlot();
 
 				await app.workbench.positronPlots.clearPlots();
+
+				await app.workbench.positronPlots.waitForNoPlots();
 			});
 		});
 
