@@ -1110,7 +1110,7 @@ export class ViewPaneContainer extends Component implements IViewPaneContainer {
 			pane.setExpanded(false);
 		});
 
-		// Next, go throught the non-collapsed views and set them to their appropriate size. Note
+		// Next, go through the non-collapsed views and set them to their appropriate size. Note
 		// that because collapsed panes aren't 0 height, the sizing here may not be perfectly
 		// accurate but it should be close enough unless there's a ton of collapsed panes.
 		const shownViews = paneSizes.filter(({ collapsed }) => !collapsed);
