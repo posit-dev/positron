@@ -1073,7 +1073,9 @@ export class ViewPaneContainer extends Component implements IViewPaneContainer {
 	 */
 	movePaneToIndex(paneId: string, toIndex: number): void {
 		const pane = this.getPaneById(paneId);
-		if (!pane) { return; }
+		if (!pane) {
+			throw new Error(`Failed to move pane ${paneId} to index. Pane not found.`);
+		}
 		const to = this.paneItems[toIndex].pane;
 		this.movePane(pane, to);
 	}

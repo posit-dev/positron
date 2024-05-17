@@ -712,7 +712,11 @@ export class ViewDescriptorService extends Disposable implements IViewDescriptor
 					const view = views[j];
 
 					// This physically moves the view
-					viewPaneContainer.movePaneToIndex(view.id, j);
+					try {
+						viewPaneContainer.movePaneToIndex(view.id, j);
+					} catch (e) {
+						this.logger.value.error('Error moving view', e);
+					}
 
 					const viewDescriptor = model.visibleViewDescriptors.find(vd => vd.id === view.id)!;
 					const newPosition = model.visibleViewDescriptors[j];
