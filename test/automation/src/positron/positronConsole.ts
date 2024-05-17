@@ -5,6 +5,8 @@
 
 import { Locator } from '@playwright/test';
 import { Code } from '../code';
+import { QuickAccess } from '../quickaccess';
+import { QuickInput } from '../quickinput';
 
 const CONSOLE_ITEMS = '.runtime-items span';
 const CONSOLE_INSTANCE = '.console-instance';
@@ -12,7 +14,7 @@ const ACTIVE_LINE_NUMBER = '.active-line-number';
 
 export class PositronConsole {
 
-	constructor(private code: Code) { }
+	constructor(private code: Code, private quickaccess: QuickAccess, private quickinput: QuickInput) { }
 
 	async getConsoleContents(index?: number): Promise<string[]> {
 
@@ -30,6 +32,26 @@ export class PositronConsole {
 		}
 
 		return consoleContents;
+	}
+
+	async executeCode(languageName: string, code: string, prompt: string): Promise<void> {
+		await this.quickaccess.runCommand('workbench.action.executeCode.console', { keepOpen: true });
+
+		await this.quickinput.waitForQuickInputOpened();
+		await this.quickinput.type(languageName);
+		await this.quickinput.waitForQuickInputElements(e => e.length === 1 && e[0] === languageName);
+		await this.code.dispatchKeybinding('enter');
+
+		await this.quickinput.waitForQuickInputOpened();
+		const unescapedCode = code
+			.replace(/\n/g, '\\n')
+			.replace(/\r/g, '\\r');
+		await this.quickinput.type(unescapedCode);
+		await this.code.dispatchKeybinding('enter');
+		await this.quickinput.waitForQuickInputClosed();
+
+		// The console will show the prompt after the code is done executing.
+		await this.waitForReady(prompt);
 	}
 
 	async logConsoleContents() {

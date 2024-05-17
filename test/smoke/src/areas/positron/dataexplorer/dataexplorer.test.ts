@@ -6,7 +6,6 @@
 import { expect } from '@playwright/test';
 import { Application, Logger, PositronPythonFixtures, PositronRFixtures } from '../../../../../automation';
 import { installAllHandlers } from '../../../utils';
-import { PositronConsoleFixtures } from '../../../fixtures/positronConsoleFixtures';
 
 
 export function setup(logger: Logger) {
@@ -24,15 +23,11 @@ export function setup(logger: Logger) {
 				const pythonFixtures = new PositronPythonFixtures(app);
 				await pythonFixtures.startPythonInterpreter();
 
-				const consoleFixtures = new PositronConsoleFixtures(app);
-				await consoleFixtures.updateTerminalSettings();
-
 			});
 
 			after(async function () {
 
 				const app = this.app as Application;
-				await app.workbench.settingsEditor.clearUserSettings();
 
 				await app.workbench.positronDataExplorer.closeDataExplorer();
 				await app.workbench.positronVariables.openVariables();
@@ -50,11 +45,7 @@ data = {'Name':['Jai', 'Princi', 'Gaurav', 'Anuj'],
 df = pd.DataFrame(data)`;
 
 				console.log('Sending code to console');
-				await app.workbench.positronConsole.typeToConsole(script);
-				console.log('Sending enter key');
-				await app.workbench.positronConsole.sendEnterKey();
-
-				await app.workbench.positronConsole.waitForReady('>>>');
+				await app.workbench.positronConsole.executeCode('Python', script, '>>>');
 
 				console.log('Opening data grid');
 				await app.workbench.positronVariables.doubleClickVariableRow('df');
@@ -79,15 +70,11 @@ df = pd.DataFrame(data)`;
 				const rFixtures = new PositronRFixtures(app);
 				await rFixtures.startRInterpreter();
 
-				const consoleFixtures = new PositronConsoleFixtures(app);
-				await consoleFixtures.updateTerminalSettings();
-
 			});
 
 			after(async function () {
 
 				const app = this.app as Application;
-				await app.workbench.settingsEditor.clearUserSettings();
 
 				await app.workbench.positronDataExplorer.closeDataExplorer();
 				await app.workbench.positronVariables.openVariables();
@@ -105,10 +92,7 @@ df = pd.DataFrame(data)`;
 )`;
 
 				console.log('Sending code to console');
-				await app.workbench.positronConsole.typeToConsole(script);
-				console.log('Sending enter key');
-				await app.workbench.positronConsole.sendEnterKey();
-				await app.workbench.positronConsole.waitForReady('>');
+				await app.workbench.positronConsole.executeCode('R', script, '>');
 
 				console.log('Opening data grid');
 				await app.workbench.positronVariables.doubleClickVariableRow('Data_Frame');
