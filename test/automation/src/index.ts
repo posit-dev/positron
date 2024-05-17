@@ -33,6 +33,7 @@ export * from './positron/positronStartInterpreter';
 export * from './positron/positronVariables';
 export * from './positron/positronDataExplorer';
 export * from './positron/positronSideBar';
+export * from './positron/positronPlots';
 export * from './positron/fixtures/positronPythonFixtures';
 export * from './positron/fixtures/positronRFixtures';
 // --- End Positron ---
