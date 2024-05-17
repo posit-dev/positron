@@ -21,21 +21,15 @@ export class PositronDataExplorer {
 
 	async getDataExplorerTableData(expectedColumns: number, expectedRows: number): Promise<object[]> {
 
-		const headers = await this.code.waitForElements(`${COLUMN_HEADERS} ${HEADER_TITLES}`, false, (elements) => {
-			return elements.length === expectedColumns;
-		});
-
-		const rows = await this.code.waitForElements(`${DATA_GRID_ROWS} ${DATA_GRID_ROW}`, true, (elements) => {
-			return elements.length === expectedRows;
-		});
-
-		const headerNames = headers.map((header) => { return header.textContent; });
+		const headers = await this.code.waitForElements(`${COLUMN_HEADERS} ${HEADER_TITLES}`, false, (elements) => elements.length === expectedColumns);
+		const rows = await this.code.waitForElements(`${DATA_GRID_ROWS} ${DATA_GRID_ROW}`, true, (elements) => elements.length === expectedRows);
+		const headerNames = headers.map((header) => header.textContent);
 
 		const tableData: object[] = [];
 		for (const row of rows) {
 			const rowData: CellData = {};
 			let columnIndex = 0;
-			for (const cell of row?.children ?? []) {
+			for (const cell of row.children) {
 				const innerText = cell.textContent;
 				const headerName = headerNames[columnIndex];
 				// workaround for extra offscreen cells
