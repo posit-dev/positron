@@ -8,6 +8,9 @@ import { EventName } from '../../telemetry/constants';
 import { PythonInterpreterTelemetry } from '../../telemetry/types';
 import { IComponentAdapter } from '../contracts';
 import { IPythonPathUpdaterServiceFactory, IPythonPathUpdaterServiceManager } from './types';
+// --- Start Positron ---
+import { PythonRuntimeManager } from '../../positron/manager';
+// --- End Positron ---
 
 @injectable()
 export class PythonPathUpdaterService implements IPythonPathUpdaterServiceManager {
@@ -35,6 +38,16 @@ export class PythonPathUpdaterService implements IPythonPathUpdaterServiceManage
             window.showErrorMessage(l10n.t('Failed to set interpreter path. Error: {0}', message));
             traceError(reason);
         }
+        // --- Start Positron ---
+        // If the interpreter path is set, make it the active interpreter in the Positron console.
+        if (pythonPath) {
+            PythonRuntimeManager.instance()
+                .selectLanguageRuntimeFromPath(pythonPath)
+                .catch((ex) => {
+                    traceError(`Failed to select language runtime for path ${pythonPath}. ${ex}`);
+                });
+        }
+        // --- End Positron ---
         // do not wait for this to complete
         this.sendTelemetry(stopWatch.elapsedTime, failed, trigger, pythonPath, wkspace).catch((ex) =>
             traceError('Python Extension: sendTelemetry', ex),

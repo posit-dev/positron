@@ -10,12 +10,12 @@ import * as fs from 'fs-extra';
 
 import { Event, EventEmitter } from 'vscode';
 import { IServiceContainer } from '../ioc/types';
-import { PythonExtension } from '../api/types';
 import { pythonRuntimeDiscoverer } from './discoverer';
-import { traceInfo } from '../logging';
+import { IInterpreterService } from '../interpreter/contracts';
+import { traceError, traceInfo } from '../logging';
 import { IConfigurationService } from '../common/types';
 import { PythonRuntimeSession } from './session';
-import { PythonRuntimeExtraData } from './runtime';
+import { createPythonRuntimeMetadata, PythonRuntimeExtraData } from './runtime';
 import { EXTENSION_ROOT_DIR } from '../common/constants';
 import { JupyterKernelSpec } from '../jupyter-adapter.d';
 import { IEnvironmentVariablesProvider } from '../common/variables/types';
@@ -25,6 +25,8 @@ import { IEnvironmentVariablesProvider } from '../common/variables/types';
  * implements positron.LanguageRuntimeManager.
  */
 export class PythonRuntimeManager implements positron.LanguageRuntimeManager {
+    private static _instance: PythonRuntimeManager | undefined;
+
     /**
      * A map of Python interpreter paths to their language runtime metadata.
      */
@@ -34,10 +36,21 @@ export class PythonRuntimeManager implements positron.LanguageRuntimeManager {
 
     constructor(
         private readonly serviceContainer: IServiceContainer,
-        private readonly pythonApi: PythonExtension,
         private readonly activatedPromise: Promise<void>,
     ) {
+        if (PythonRuntimeManager._instance) {
+            throw new Error('PythonRuntimeManager already initialized');
+        }
+        PythonRuntimeManager._instance = this;
+
         this.onDidDiscoverRuntime = this.onDidDiscoverRuntimeEmitter.event;
+    }
+
+    static instance(): PythonRuntimeManager {
+        if (!PythonRuntimeManager._instance) {
+            throw new Error('PythonRuntimeManager not initialized');
+        }
+        return PythonRuntimeManager._instance;
     }
 
     /**
@@ -147,13 +160,7 @@ export class PythonRuntimeManager implements positron.LanguageRuntimeManager {
 
         // Create an adapter for the kernel to fulfill the LanguageRuntime interface.
         traceInfo(`createPythonSession: creating PythonRuntime`);
-        return new PythonRuntimeSession(
-            runtimeMetadata,
-            sessionMetadata,
-            this.serviceContainer,
-            this.pythonApi,
-            kernelSpec,
-        );
+        return new PythonRuntimeSession(runtimeMetadata, sessionMetadata, this.serviceContainer, kernelSpec);
     }
 
     /**
@@ -168,7 +175,7 @@ export class PythonRuntimeManager implements positron.LanguageRuntimeManager {
         runtimeMetadata: positron.LanguageRuntimeMetadata,
         sessionMetadata: positron.RuntimeSessionMetadata,
     ): Promise<positron.LanguageRuntimeSession> {
-        return new PythonRuntimeSession(runtimeMetadata, sessionMetadata, this.serviceContainer, this.pythonApi);
+        return new PythonRuntimeSession(runtimeMetadata, sessionMetadata, this.serviceContainer);
     }
 
     /**
@@ -212,6 +219,47 @@ export class PythonRuntimeManager implements positron.LanguageRuntimeManager {
 
             // Return the runtime to Positron
             yield runtime;
+        }
+    }
+
+    /**
+     * Register a Python language runtime given its interpreter path.
+     *
+     * @param pythonPath The path to the Python interpreter.
+     * @returns Promise that resolves when the runtime is registered.
+     */
+    async registerLanguageRuntimeFromPath(pythonPath: string): Promise<void> {
+        if (this.registeredPythonRuntimes.has(pythonPath)) {
+            return;
+        }
+        // Get the interpreter corresponding to the new runtime.
+        const interpreterService = this.serviceContainer.get<IInterpreterService>(IInterpreterService);
+        const interpreter = await interpreterService.getInterpreterDetails(pythonPath);
+        // Create the runtime and register it with Positron.
+        if (interpreter) {
+            // Set recommendedForWorkspace to false, since we change the active runtime
+            // in the onDidChangeActiveEnvironmentPath listener.
+            const runtime = await createPythonRuntimeMetadata(interpreter, this.serviceContainer, false);
+            // Register the runtime with Positron.
+            this.registerLanguageRuntime(runtime);
+        } else {
+            traceError(`Could not register runtime due to an invalid interpreter path: ${pythonPath}`);
+        }
+    }
+
+    /**
+     * Select a Python language runtime in the console by its interpreter path.
+     *
+     * @param pythonPath The path to the Python interpreter.
+     * @returns Promise that resolves when the runtime is selected.
+     */
+    async selectLanguageRuntimeFromPath(pythonPath: string): Promise<void> {
+        await this.registerLanguageRuntimeFromPath(pythonPath);
+        const runtimeMetadata = this.registeredPythonRuntimes.get(pythonPath);
+        if (runtimeMetadata) {
+            await positron.runtime.selectLanguageRuntime(runtimeMetadata.runtimeId);
+        } else {
+            traceError(`Tried to switch to a language runtime that has not been registered: ${pythonPath}`);
         }
     }
 }
