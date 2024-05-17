@@ -11,6 +11,7 @@ import { useEffect, useRef } from 'react'; // eslint-disable-line no-duplicate-i
 
 // Other dependencies.
 import { DisposableStore } from 'vs/base/common/lifecycle';
+import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
 import { PositronDataGrid } from 'vs/workbench/browser/positronDataGrid/positronDataGrid';
 import { ColumnSchema } from 'vs/workbench/services/languageRuntime/common/positronDataExplorerComm';
 import { PositronModalPopup } from 'vs/workbench/browser/positronComponents/positronModalPopup/positronModalPopup';
@@ -22,6 +23,7 @@ import { ColumnSelectorDataGridInstance } from 'vs/workbench/browser/positronDat
  * ColumnSelectorModalPopupProps interface.
  */
 interface ColumnSelectorModalPopupProps {
+	readonly configurationService: IConfigurationService;
 	readonly renderer: PositronModalReactRenderer;
 	readonly columnSelectorDataGridInstance: ColumnSelectorDataGridInstance;
 	readonly anchor: HTMLElement;
@@ -81,10 +83,11 @@ export const ColumnSelectorModalPopup = (props: ColumnSelectorModalPopupProps) =
 				</div>
 				<div className='view' style={{ height: 400 }}>
 					<PositronDataGrid
-						ref={positronDataGridRef}
-						id='column-positron-data-grid'
+						configurationService={props.configurationService}
 						keybindingService={props.renderer.keybindingService}
 						layoutService={props.renderer.layoutService}
+						ref={positronDataGridRef}
+						id='column-positron-data-grid'
 						instance={props.columnSelectorDataGridInstance}
 					/>
 				</div>

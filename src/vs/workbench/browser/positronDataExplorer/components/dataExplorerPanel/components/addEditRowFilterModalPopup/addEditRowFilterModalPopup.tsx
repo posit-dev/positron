@@ -12,31 +12,17 @@ import { useEffect, useRef, useState } from 'react'; // eslint-disable-line no-d
 // Other dependencies.
 import { localize } from 'vs/nls';
 import { Button } from 'vs/base/browser/ui/positronComponents/button/button';
+import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
 import { DropDownListBoxItem } from 'vs/workbench/browser/positronComponents/dropDownListBox/dropDownListBoxItem';
 import { PositronModalPopup } from 'vs/workbench/browser/positronComponents/positronModalPopup/positronModalPopup';
-import { ColumnSchema, ColumnDisplayType, RowFilterCondition } from 'vs/workbench/services/languageRuntime/common/positronDataExplorerComm';
 import { PositronModalReactRenderer } from 'vs/workbench/browser/positronModalReactRenderer/positronModalReactRenderer';
 import { DropDownListBoxSeparator } from 'vs/workbench/browser/positronComponents/dropDownListBox/dropDownListBoxSeparator';
 import { DataExplorerClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimeDataExplorerClient';
 import { DropDownListBox, DropDownListBoxEntry } from 'vs/workbench/browser/positronComponents/dropDownListBox/dropDownListBox';
+import { ColumnSchema, ColumnDisplayType, RowFilterCondition } from 'vs/workbench/services/languageRuntime/common/positronDataExplorerComm';
 import { RowFilterParameter } from 'vs/workbench/browser/positronDataExplorer/components/dataExplorerPanel/components/addEditRowFilterModalPopup/components/rowFilterParameter';
 import { DropDownColumnSelector } from 'vs/workbench/browser/positronDataExplorer/components/dataExplorerPanel/components/addEditRowFilterModalPopup/components/dropDownColumnSelector';
-import {
-	RangeRowFilterDescriptor,
-	RowFilterDescriptor,
-	RowFilterDescrType,
-	RowFilterDescriptorComparison,
-	RowFilterDescriptorIsBetween,
-	RowFilterDescriptorIsEmpty,
-	RowFilterDescriptorIsNotBetween,
-	RowFilterDescriptorIsNotEmpty,
-	SingleValueRowFilterDescriptor,
-	RowFilterDescriptorIsNotNull,
-	RowFilterDescriptorIsNull,
-	RowFilterDescriptorSearch,
-	RowFilterDescriptorIsTrue,
-	RowFilterDescriptorIsFalse,
-} from 'vs/workbench/browser/positronDataExplorer/components/dataExplorerPanel/components/addEditRowFilterModalPopup/rowFilterDescriptor';
+import { RangeRowFilterDescriptor, RowFilterDescriptor, RowFilterDescrType, RowFilterDescriptorComparison, RowFilterDescriptorIsBetween, RowFilterDescriptorIsEmpty, RowFilterDescriptorIsNotBetween, RowFilterDescriptorIsNotEmpty, SingleValueRowFilterDescriptor, RowFilterDescriptorIsNotNull, RowFilterDescriptorIsNull, RowFilterDescriptorSearch, RowFilterDescriptorIsTrue, RowFilterDescriptorIsFalse } from 'vs/workbench/browser/positronDataExplorer/components/dataExplorerPanel/components/addEditRowFilterModalPopup/rowFilterDescriptor';
 
 /**
  * Validates a row filter value.
@@ -132,6 +118,7 @@ const isSingleParam = (filterType: RowFilterDescrType | undefined) => {
  * AddEditRowFilterModalPopupProps interface.
  */
 interface AddEditRowFilterModalPopupProps {
+	configurationService: IConfigurationService;
 	dataExplorerClientInstance: DataExplorerClientInstance;
 	renderer: PositronModalReactRenderer;
 	anchor: HTMLElement;
@@ -793,6 +780,7 @@ export const AddEditRowFilterModalPopup = (props: AddEditRowFilterModalPopupProp
 					/>
 				}
 				<DropDownColumnSelector
+					configurationService={props.configurationService}
 					keybindingService={props.renderer.keybindingService}
 					layoutService={props.renderer.layoutService}
 					dataExplorerClientInstance={props.dataExplorerClientInstance}

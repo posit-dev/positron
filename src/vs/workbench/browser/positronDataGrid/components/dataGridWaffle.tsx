@@ -10,10 +10,17 @@ import * as React from 'react';
 import { forwardRef, KeyboardEvent, useEffect, useImperativeHandle, useRef, useState, WheelEvent } from 'react'; // eslint-disable-line no-duplicate-imports
 
 // Other dependencies.
+import * as DOM from 'vs/base/browser/dom';
 import { generateUuid } from 'vs/base/common/uuid';
 import { isMacintosh } from 'vs/base/common/platform';
+import { PixelRatio } from 'vs/base/browser/pixelRatio';
 import { DisposableStore } from 'vs/base/common/lifecycle';
 import { pinToRange } from 'vs/base/common/positronUtilities';
+import { applyFontInfo } from 'vs/editor/browser/config/domFontInfo';
+import { IEditorOptions } from 'vs/editor/common/config/editorOptions';
+import { BareFontInfo, FontInfo } from 'vs/editor/common/config/fontInfo';
+import { FontMeasurements } from 'vs/editor/browser/config/fontMeasurements';
+import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
 import { DataGridRow } from 'vs/workbench/browser/positronDataGrid/components/dataGridRow';
 import { DataGridScrollbar } from 'vs/workbench/browser/positronDataGrid/components/dataGridScrollbar';
 import { DataGridRowHeaders } from 'vs/workbench/browser/positronDataGrid/components/dataGridRowHeaders';
@@ -27,6 +34,33 @@ import { ExtendColumnSelectionBy, ExtendRowSelectionBy } from 'vs/workbench/brow
  * Constants.
  */
 const MOUSE_WHEEL_SENSITIVITY = 50;
+
+/**
+ * Gets the font info for the editor font.
+ *
+ * @param editorContainer The HTML element containing the editor, if known.
+ * @param configurationService The configuration service.
+ *
+ * @returns The font info.
+ */
+const getEditorFontInfo = (
+	editorContainer: HTMLElement | undefined,
+	configurationService: IConfigurationService) => {
+
+	// Get the editor options and read the font info.
+	const editorOptions = configurationService.getValue<IEditorOptions>('editor');
+
+	// Use the editor container to get the window, if it's available. Otherwise, use the active
+	// window.
+	const window = editorContainer ?
+		DOM.getActiveWindow() :
+		DOM.getWindow(editorContainer);
+
+	return FontMeasurements.readFontInfo(
+		window,
+		BareFontInfo.createFromRawSettings(editorOptions, PixelRatio.getInstance(window).value)
+	);
+};
 
 /**
  * DataGridWaffle component.
@@ -46,6 +80,9 @@ export const DataGridWaffle = forwardRef<HTMLDivElement>((_: unknown, ref) => {
 	// State hooks.
 	const [width, setWidth] = useState(0);
 	const [height, setHeight] = useState(0);
+	const [editorFontInfo, setEditorFontInfo] = useState<FontInfo>(
+		getEditorFontInfo(undefined, context.configurationService)
+	);
 	const [, setRenderMarker] = useState(generateUuid());
 	const [lastWheelEvent, setLastWheelEvent] = useState(0);
 	const [wheelDeltaX, setWheelDeltaX] = useState(0);
@@ -56,6 +93,39 @@ export const DataGridWaffle = forwardRef<HTMLDivElement>((_: unknown, ref) => {
 		// Create the disposable store for cleanup.
 		const disposableStore = new DisposableStore();
 
+		// Apply the font info to the waffle.
+		applyFontInfo(dataGridWaffleRef.current, editorFontInfo);
+
+		// Add the onDidChangeConfiguration event handler.
+		disposableStore.add(context.configurationService.onDidChangeConfiguration(
+			configurationChangeEvent => {
+				// When something in the editor changes, determine whether it's font-related and, if
+				// it is, apply the new font info to the waffle..
+				if (configurationChangeEvent.affectsConfiguration('editor')) {
+					if (configurationChangeEvent.affectedKeys.has('editor.fontFamily') ||
+						configurationChangeEvent.affectedKeys.has('editor.fontWeight') ||
+						configurationChangeEvent.affectedKeys.has('editor.fontSize') ||
+						configurationChangeEvent.affectedKeys.has('editor.fontLigatures') ||
+						configurationChangeEvent.affectedKeys.has('editor.fontVariations') ||
+						configurationChangeEvent.affectedKeys.has('editor.lineHeight') ||
+						configurationChangeEvent.affectedKeys.has('editor.letterSpacing')
+					) {
+						// Get the font info.
+						const editorFontInfo = getEditorFontInfo(
+							dataGridWaffleRef.current,
+							context.configurationService
+						);
+
+						// Set the editor font info.
+						setEditorFontInfo(editorFontInfo);
+
+						// Apply the font info to the waffle.
+						applyFontInfo(dataGridWaffleRef.current, editorFontInfo);
+					}
+				}
+			}
+		));
+
 		// Add the onDidUpdate event handler.
 		disposableStore.add(context.instance.onDidUpdate(() => {
 			setRenderMarker(generateUuid());
@@ -63,7 +133,7 @@ export const DataGridWaffle = forwardRef<HTMLDivElement>((_: unknown, ref) => {
 
 		// Return the cleanup function that will dispose of the event handlers.
 		return () => disposableStore.dispose();
-	}, [context.instance]);
+	}, [context.configurationService, context.instance, editorFontInfo]);
 
 	// Layout useEffect.
 	useEffect(() => {
@@ -145,7 +215,6 @@ export const DataGridWaffle = forwardRef<HTMLDivElement>((_: unknown, ref) => {
 
 			// Enter key.
 			case 'Enter': {
-				console.log(`User pressed enter on ${context.instance.cursorColumnIndex},${context.instance.cursorRowIndex}`);
 				break;
 			}
 
@@ -526,8 +595,6 @@ export const DataGridWaffle = forwardRef<HTMLDivElement>((_: unknown, ref) => {
 			className='data-grid-waffle'
 			onKeyDown={keyDownHandler}
 			onWheel={wheelHandler}
-			onFocus={() => console.log('data-grid-waffle focus')}
-			onBlur={() => console.log('data-grid-waffle blur')}
 		>
 			{context.instance.columnHeaders && context.instance.rowHeaders &&
 				<DataGridCornerTopLeft
