@@ -18,6 +18,7 @@ import { ILanguageRuntimeMetadata, ILanguageRuntimeService, LanguageRuntimeSessi
 import { ILanguageRuntimeSession, IRuntimeClientInstance, IRuntimeSessionService, RuntimeClientType } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
 import { INotificationService } from 'vs/platform/notification/common/notification';
 import { ILanguageService } from 'vs/editor/common/languages/language';
+import { dispose } from 'vs/base/common/lifecycle';
 
 // The category for language runtime actions.
 const category: ILocalizedString = { value: LANGUAGE_RUNTIME_ACTION_CATEGORY, original: 'Interpreter' };
@@ -27,6 +28,62 @@ interface LanguageRuntimeSessionQuickPickItem extends IQuickPickItem { session: 
 interface LanguageRuntimeQuickPickItem extends IQuickPickItem { runtime: ILanguageRuntimeMetadata }
 interface RuntimeClientTypeQuickPickItem extends IQuickPickItem { runtimeClientType: RuntimeClientType }
 interface RuntimeClientInstanceQuickPickItem extends IQuickPickItem { runtimeClientInstance: IRuntimeClientInstance<any, any> }
+
+/**
+ * Helper function that askses the user to select a language from the list of registered language
+ * runtimes.
+ *
+ * @param accessor The service accessor.
+ * @returns The selected language quickpick item, or undefined, if the user canceled the operation.
+ */
+async function selectLanguage(accessor: ServicesAccessor) {
+	const quickInputService = accessor.get(IQuickInputService);
+	const languageRuntimeService = accessor.get(ILanguageRuntimeService);
+
+	// TODO: Handle untrusted workspace - maybe error?
+
+	return new Promise<IQuickPickItem | undefined>((resolve) => {
+		const input = quickInputService.createQuickPick();
+
+		const picks = new Map<string, IQuickPickItem>();
+		const addRuntime = (runtimeMetadata: ILanguageRuntimeMetadata) => {
+			if (!picks.has(runtimeMetadata.languageId)) {
+				picks.set(runtimeMetadata.languageId, {
+					id: runtimeMetadata.languageId,
+					label: runtimeMetadata.languageName,
+				});
+				const sortedPicks = Array.from(picks.values()).sort((a, b) => a.label.localeCompare(b.label));
+				input.items = sortedPicks;
+			}
+		};
+
+		const disposables = [
+			input,
+			input.onDidAccept(() => {
+				resolve(input.activeItems[0]);
+				input.hide();
+			}),
+			input.onDidHide(() => {
+				dispose(disposables);
+				resolve(undefined);
+			}),
+			languageRuntimeService.onDidRegisterRuntime((runtimeMetadata) => {
+				addRuntime(runtimeMetadata);
+			}),
+		];
+
+		input.canSelectMany = false;
+		input.placeholder = 'Select the language to execute code in';
+
+		for (const runtimeMetadata of languageRuntimeService.registeredRuntimes) {
+			addRuntime(runtimeMetadata);
+		}
+
+		// TODO: Start with input.busy = true and set it to false when runtime discovery completes.
+
+		input.show();
+	});
+}
 
 /**
  * Helper function that asks the user to select a language runtime session from
@@ -398,7 +455,7 @@ export function registerLanguageRuntimeActions() {
 			super({
 				id: 'workbench.action.executeCode.console',
 				title: nls.localize2('positron.command.executeCode.console', "Execute Code in Console"),
-				f1: false,
+				f1: true,
 				category
 			});
 		}
@@ -408,9 +465,35 @@ export function registerLanguageRuntimeActions() {
 		 *
 		 * @param accessor The service accessor.
 		 */
-		async run(accessor: ServicesAccessor, args: ExecuteCodeArgs | string) {
+		async run(accessor: ServicesAccessor, args: ExecuteCodeArgs | string | undefined) {
 			const consoleService = accessor.get(IPositronConsoleService);
 			const notificationService = accessor.get(INotificationService);
+			const quickInputService = accessor.get(IQuickInputService);
+
+			// TODO: Should this be in a "Developer: " command?
+			// If no arguments are passed, prompt the user.
+			if (!args) {
+				// Prompt the user to select a language.
+				const langPick = await selectLanguage(accessor);
+				if (!langPick) {
+					return;
+				}
+
+				// Prompt the user to enter the code to execute.
+				const code = await quickInputService.input({
+					value: '',
+					placeHolder: 'Enter the code to execute',
+					prompt: nls.localize('positron.executeCode.prompt', "Enter the code to execute in {0}", langPick.label),
+				});
+				if (!code) {
+					return;
+				}
+				const escapedCode = code
+					.replace(/\\n/g, '\n')
+					.replace(/\\r/g, '\r');
+
+				args = { langId: langPick.id, code: escapedCode, focus: false };
+			}
 
 			// If a single string argument is passed, assume it's the code to execute.
 			if (typeof args === 'string') {
