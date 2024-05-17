@@ -210,10 +210,11 @@ export const positronCustomLayoutOptions: LayoutPick[] = [
 			},
 			[Parts.AUXILIARYBAR_PART]: {
 				size: 500, // Use pixel sizes for auxiliary bar to allow editor to take up the rest of the space
-				'hidden': false,
+				hidden: false,
 				viewContainers: [
 					{
 						id: 'workbench.panel.positronSession',
+						opened: true,
 						views: [
 							{
 								id: 'workbench.panel.positronVariables',
