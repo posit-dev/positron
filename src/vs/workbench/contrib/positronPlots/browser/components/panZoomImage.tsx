@@ -3,8 +3,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as React from 'react';
-import { DomScrollableElement } from 'vs/base/browser/ui/scrollbar/scrollableElement';
-import { ScrollbarVisibility } from 'vs/base/common/scrollable';
+import { Scrollable } from 'vs/base/browser/ui/positronComponents/scrollable/Scrollable';
 import { ZoomLevel } from 'vs/workbench/contrib/positronPlots/browser/components/zoomPlotMenuButton';
 
 interface PanZoomImageProps {
@@ -25,33 +24,31 @@ interface PanZoomImageProps {
 export const PanZoomImage = (props: PanZoomImageProps) => {
 	const [width, setWidth] = React.useState<number>(1);
 	const [height, setHeight] = React.useState<number>(1);
-	const imageWrapperRef = React.useRef<HTMLDivElement>(null);
 	const imageRef = React.useRef<HTMLImageElement>(null);
-	const [grabbing, setGrabbing] = React.useState<boolean>(false);
-	const [scrollableElement, setScrollableElement] = React.useState<DomScrollableElement>();
 
-	// updates the scrollable element when the image size changes
+	// updates the image size and position based on the zoom level
 	React.useEffect(() => {
-		if (!scrollableElement || !imageRef.current) {
+		if (!imageRef.current) {
 			return;
 		}
-		const adjustedWidth = props.zoom === ZoomLevel.Fill ? width : width * props.zoom;
-		const adjustedHeight = props.zoom === ZoomLevel.Fill ? height : height * props.zoom;
+		const naturalWidth = imageRef.current.naturalWidth;
+		const naturalHeight = imageRef.current.naturalHeight;
+		// scale by the zoom level
+		// if the zoom level is Fill, then the image should fill the container using css
+		const adjustedWidth = props.zoom === ZoomLevel.Fill ? naturalWidth : naturalWidth * props.zoom;
+		const adjustedHeight = props.zoom === ZoomLevel.Fill ? naturalHeight : naturalHeight * props.zoom;
+
 		if (props.zoom === ZoomLevel.Fill) {
-			scrollableElement.updateOptions({
-				horizontal: ScrollbarVisibility.Hidden,
-				vertical: ScrollbarVisibility.Hidden,
-			});
 			imageRef.current.style.width = '100%';
 			imageRef.current.style.height = '100%';
 			imageRef.current.style.objectFit = 'contain';
+			setWidth(props.width);
+			setHeight(props.height);
 		} else {
-			scrollableElement.updateOptions({
-				horizontal: ScrollbarVisibility.Visible,
-				vertical: ScrollbarVisibility.Visible,
-			});
 			imageRef.current.style.width = `${adjustedWidth}px`;
 			imageRef.current.style.height = `${adjustedHeight}px`;
+			setWidth(adjustedWidth);
+			setHeight(adjustedHeight);
 		}
 
 		imageRef.current.style.position = 'relative';
@@ -72,85 +69,15 @@ export const PanZoomImage = (props: PanZoomImageProps) => {
 			imageRef.current.style.left = '0';
 			imageRef.current.style.transform = 'none';
 		}
-		scrollableElement.scanDomNode();
-	}, [width, height, props.zoom, props.width, props.height, scrollableElement]);
+	}, [imageRef.current?.naturalWidth, imageRef.current?.naturalHeight, props.width, props.height, props.zoom]);
 
-	// Wrap the image in a scrollable element
-	React.useEffect(() => {
-		if (!imageWrapperRef.current || !imageRef.current) {
-			return;
-		}
-
-		// only create the scrollable element once
-		if (!scrollableElement) {
-			/* The imageArea should contain the scrollable element and the imageWrapperRef contains all
-			 * of the scrollable content. The DOM will look liks this:
-			 * <div class="image-area">
-			 *  <div class="positron-scrollable-element">
-			 *    <div class="image-wrapper">
-			 *      <img src="..." alt="..." />
-			 *    </div>
-			 *  </div>
-			 * </div>
-			 *
-			 */
-			const imageArea = imageWrapperRef.current.parentElement;
-			const domScrollableElement = new DomScrollableElement(imageWrapperRef.current, {
-				horizontal: ScrollbarVisibility.Visible,
-				vertical: ScrollbarVisibility.Visible,
-				useShadows: false,
-				className: 'positron-scrollable-element',
-			});
-			setScrollableElement(domScrollableElement);
-			imageArea?.appendChild(domScrollableElement.getDomNode());
-		}
-		return () => scrollableElement?.dispose();
-	}, [imageWrapperRef, scrollableElement]);
-
-	const onImgLoad = (event: React.SyntheticEvent<HTMLImageElement>) => {
-		const img = event.target as HTMLImageElement;
-		const width = img.naturalWidth;
-		const height = img.naturalHeight;
-		setWidth(width);
-		setHeight(height);
-	};
-
-	const panImage = (event: React.MouseEvent<HTMLElement>) => {
-		if (!scrollableElement || event.buttons !== 1) {
-			return;
-		}
-
-		const position = scrollableElement.getScrollPosition();
-
-		scrollableElement.setScrollPosition(
-			{
-				scrollLeft: position.scrollLeft - event.movementX,
-				scrollTop: position.scrollTop - event.movementY,
-			},
-		);
-	};
-
-	const updateCursor = (event: React.MouseEvent<HTMLElement>) => {
-		setGrabbing(event.type === 'mousedown');
-	};
-
-	// Renders the image-wrapper div that contains the image element but this is
-	// wrapped in a scrollable element to allow panning. See useEffect hook above.
 	return (
-		<div className='image-wrapper'
-			ref={imageWrapperRef}
-			onMouseMoveCapture={panImage}
-			onMouseDown={updateCursor}
-			onMouseUp={updateCursor}
-			style={{ width: props.width, height: props.height }}
-		>
+		<Scrollable width={props.width} height={props.height} scrollableWidth={width} scrollableHeight={height} mousePan={true}>
 			<img src={props.imageUri}
 				alt={props.description}
-				onLoad={onImgLoad}
-				className={grabbing ? 'grabbing' : 'grab'}
 				draggable={false}
 				ref={imageRef}
 			/>
-		</div>
+		</Scrollable>
 	);
 };
