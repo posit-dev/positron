@@ -75,14 +75,6 @@ export const PanZoomImage = (props: PanZoomImageProps) => {
 		scrollableElement.scanDomNode();
 	}, [width, height, props.zoom, props.width, props.height, scrollableElement]);
 
-	React.useEffect(() => {
-		if (!imageWrapperRef.current || !scrollableElement) {
-			return;
-		}
-
-		scrollableElement.scanDomNode();
-	}, [scrollableElement]);
-
 	// Wrap the image in a scrollable element
 	React.useEffect(() => {
 		if (!imageWrapperRef.current || !imageRef.current) {
