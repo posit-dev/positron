@@ -103,8 +103,6 @@ export const PanZoomImage = (props: PanZoomImageProps) => {
 			});
 			setScrollableElement(domScrollableElement);
 			imageArea?.appendChild(domScrollableElement.getDomNode());
-		} else {
-			// scrollableElement.scanDomNode();
 		}
 		return () => scrollableElement?.dispose();
 	}, [imageWrapperRef, scrollableElement]);
