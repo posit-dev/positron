@@ -71,12 +71,12 @@ type ViewLayoutDescription = {
 	id: string;
 	/**
 	 * Size units are relative. Every view sharing the same `relativeSize` will have the same size.
-	 * If not provided, will default to 1.
+	 * If not provided, will default to 1. Is ignored if `collapsed` is set to `true`.
 	 */
 	relativeSize?: number;
-
 	/**
-	 * Should this view be collapsed by default? By default views are expanded.
+	 * Should this view be collapsed by default? By default views are expanded. If set to `true`,
+	 * the `relativeSize` will be ignored.
 	 */
 	collapsed?: boolean;
 };
