@@ -8,6 +8,7 @@ import { createDecorator } from 'vs/platform/instantiation/common/instantiation'
 import { ILanguageRuntimeMetadata, LanguageRuntimeSessionMode, ILanguageRuntimeSessionState, RuntimeState, ILanguageRuntimeInfo, ILanguageRuntimeStartupFailure, ILanguageRuntimeExit, ILanguageRuntimeClientCreatedEvent, ILanguageRuntimeMessageOutput, ILanguageRuntimeMessageStream, ILanguageRuntimeMessageInput, ILanguageRuntimeMessageError, ILanguageRuntimeMessagePrompt, ILanguageRuntimeMessageState, RuntimeCodeExecutionMode, RuntimeErrorBehavior, RuntimeCodeFragmentStatus, RuntimeExitReason } from '../../languageRuntime/common/languageRuntimeService';
 import { RuntimeClientType, IRuntimeClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimeClientInstance';
 import { IRuntimeClientEvent } from 'vs/workbench/services/languageRuntime/common/languageRuntimeUiClient';
+import { IDisposable } from 'vs/base/common/lifecycle';
 
 export const IRuntimeSessionService =
 	createDecorator<IRuntimeSessionService>('runtimeSessionService');
@@ -181,6 +182,13 @@ export interface ILanguageRuntimeSession {
  */
 export interface ILanguageRuntimeSessionManager {
 	/**
+	 * Indicate whether this session manager is responsible for the given runtime.
+	 *
+	 * @param runtimeId The runtime identifier to check.
+	 */
+	managesRuntime(runtime: ILanguageRuntimeMetadata): Promise<boolean>;
+
+	/**
 	 * Create (provision) a new session.
 	 *
 	 * @param runtimeMetadata The metadata of the runtime for which a session is
@@ -256,9 +264,9 @@ export interface IRuntimeSessionService {
 	readonly activeSessions: ILanguageRuntimeSession[];
 
 	/**
-	 * Register a session manager. Used only once, by the extension host.
+	 * Register a session manager.
 	 */
-	registerSessionManager(manager: ILanguageRuntimeSessionManager): void;
+	registerSessionManager(manager: ILanguageRuntimeSessionManager): IDisposable;
 
 	/**
 	 * Gets a specific runtime session by session identifier.

@@ -5,7 +5,7 @@
 import * as nls from 'vs/nls';
 import { DeferredPromise } from 'vs/base/common/async';
 import { Emitter } from 'vs/base/common/event';
-import { Disposable, IDisposable } from 'vs/base/common/lifecycle';
+import { Disposable, IDisposable, toDisposable } from 'vs/base/common/lifecycle';
 import { URI } from 'vs/base/common/uri';
 import { InstantiationType, registerSingleton } from 'vs/platform/instantiation/common/extensions';
 import { ILogService } from 'vs/platform/log/common/log';
@@ -19,6 +19,7 @@ import { IUiClientMessageInput, IUiClientMessageOutput, UiClientInstance } from 
 import { UiFrontendEvent } from 'vs/workbench/services/languageRuntime/common/positronUiComm';
 import { ILanguageService } from 'vs/editor/common/languages/language';
 import { ResourceMap } from 'vs/base/common/map';
+import { IExtensionService } from 'vs/workbench/services/extensions/common/extensions';
 
 /**
  * Utility class for tracking state changes in a language runtime session.
@@ -28,7 +29,16 @@ import { ResourceMap } from 'vs/base/common/map';
  */
 class LanguageRuntimeSessionInfo {
 	public state: RuntimeState;
-	constructor(public session: ILanguageRuntimeSession) {
+
+	/**
+	 * Create a new LanguageRuntimeSessionInfo.
+	 *
+	 * @param session The session
+	 * @param manager The session's manager
+	 */
+	constructor(
+		public session: ILanguageRuntimeSession,
+		public manager: ILanguageRuntimeSessionManager) {
 		this.state = session.getRuntimeState();
 	}
 }
@@ -41,8 +51,8 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 	// Needed for service branding in dependency injector.
 	declare readonly _serviceBrand: undefined;
 
-	// The session manager.
-	private _sessionManager: ILanguageRuntimeSessionManager | undefined;
+	// The session managers.
+	private _sessionManagers: Array<ILanguageRuntimeSessionManager> = [];
 
 	// The set of encountered languages. This is keyed by the languageId and is
 	// used to orchestrate implicit runtime startup.
@@ -113,7 +123,8 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 		@ILogService private readonly _logService: ILogService,
 		@IOpenerService private readonly _openerService: IOpenerService,
 		@IPositronModalDialogsService private readonly _positronModalDialogsService: IPositronModalDialogsService,
-		@IWorkspaceTrustManagementService private readonly _workspaceTrustManagementService: IWorkspaceTrustManagementService) {
+		@IWorkspaceTrustManagementService private readonly _workspaceTrustManagementService: IWorkspaceTrustManagementService,
+		@IExtensionService private readonly _extensionService: IExtensionService) {
 
 		super();
 
@@ -150,6 +161,18 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 			this.autoStartRuntime(languageRuntimeInfos[0],
 				`A file with the language ID ${languageId} was opened.`);
 		}));
+
+		this._register(this._extensionService.onWillStop((e) => {
+			// Temporarily mark all sessions offline.
+			for (const session of this._activeSessionsBySessionId.values()) {
+				this._onDidChangeRuntimeStateEmitter.fire({
+					session_id: session.session.sessionId,
+					old_state: session.state,
+					new_state: RuntimeState.Offline
+				});
+				session.state = RuntimeState.Offline;
+			}
+		}));
 	}
 
 	//#region ILanguageRuntimeService Implementation
@@ -176,23 +199,19 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 	readonly onDidChangeForegroundSession = this._onDidChangeForegroundSessionEmitter.event;
 
 	/**
-	 * Registers the session manager with the service.
-	 *
-	 * Currently there's only one of these, and it's registered by the extension
-	 * host, which provides sessions from extensions (language packs).
+	 * Registers a session manager with the service.
 	 *
 	 * @param manager The session manager to register
+	 * @returns A Disposable that can be used to unregister the session manager.
 	 */
-	registerSessionManager(manager: ILanguageRuntimeSessionManager): void {
-		if (this._sessionManager === manager) {
-			return;
-		}
-		if (this._sessionManager) {
-			this._logService.warn(
-				`Language runtime service already has a session manager registered! Ignoring.`);
-			return;
-		}
-		this._sessionManager = manager;
+	registerSessionManager(manager: ILanguageRuntimeSessionManager): IDisposable {
+		this._sessionManagers.push(manager);
+		return toDisposable(() => {
+			const index = this._sessionManagers.indexOf(manager);
+			if (index !== -1) {
+				this._sessionManagers.splice(index, 1);
+			}
+		});
 	}
 
 	/**
@@ -396,7 +415,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 
 		// We should already have a session manager registered, since we can't
 		// get here until the extension host has been activated.
-		if (!this._sessionManager) {
+		if (this._sessionManagers.length === 0) {
 			throw new Error(`No session manager has been registered.`);
 		}
 
@@ -404,8 +423,9 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 		// for the extension to finish activating and the network to attempt to
 		// reconnect, etc.
 		let session: ILanguageRuntimeSession;
+		const sessionManager = await this.getManagerForRuntime(runtimeMetadata);
 		try {
-			session = await this._sessionManager.restoreSession(runtimeMetadata, sessionMetadata);
+			session = await sessionManager.restoreSession(runtimeMetadata, sessionMetadata);
 		} catch (err) {
 			this._logService.error(
 				`Reconnecting to session '${sessionMetadata.sessionId}' for language runtime ` +
@@ -418,7 +438,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 
 		// Actually reconnect the session.
 		try {
-			await this.doStartRuntimeSession(session, false);
+			await this.doStartRuntimeSession(session, sessionManager, false);
 			startPromise.complete(sessionMetadata.sessionId);
 		} catch (err) {
 			startPromise.error(err);
@@ -600,15 +620,11 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 		metadata: ILanguageRuntimeMetadata,
 		source: string): Promise<string> {
 
-		// We need a session manager to start a runtime.
-		if (!this._sessionManager) {
-			throw new Error(`No session manager has been registered.`);
-		}
-
 		// Check to see if the runtime has already been registered with the
 		// language runtime service.
 		const languageRuntime =
 			this._languageRuntimeService.getRegisteredRuntime(metadata.runtimeId);
+		const sessionManager = await this.getManagerForRuntime(metadata);
 
 		// If it has not been registered, validate the metadata.
 		if (!languageRuntime) {
@@ -619,7 +635,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 
 				// Attempt to validate the metadata. Note that this can throw if the metadata
 				// is invalid!
-				const validated = await this._sessionManager.validateMetadata(metadata);
+				const validated = await sessionManager.validateMetadata(metadata);
 
 				// Did the validator change the runtime ID? If so, we're starting a different
 				// runtime than the one that we were asked for.
@@ -690,10 +706,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 		const startPromise = new DeferredPromise<string>();
 		this._startingRuntimesByRuntimeId.set(runtimeMetadata.runtimeId, startPromise);
 
-		if (!this._sessionManager) {
-			throw new Error(`No session manager has been registered.`);
-		}
-
+		const sessionManager = await this.getManagerForRuntime(runtimeMetadata);
 		const sessionId = this.generateNewSessionId(runtimeMetadata);
 		const sessionMetadata: IRuntimeSessionMetadata = {
 			sessionId,
@@ -707,7 +720,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 		// Provision the new session.
 		let session: ILanguageRuntimeSession;
 		try {
-			session = await this._sessionManager.createSession(runtimeMetadata, sessionMetadata);
+			session = await sessionManager.createSession(runtimeMetadata, sessionMetadata);
 		} catch (err) {
 			this._logService.error(
 				`Creating session for language runtime ` +
@@ -722,7 +735,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 
 		// Actually start the session.
 		try {
-			await this.doStartRuntimeSession(session, true);
+			await this.doStartRuntimeSession(session, sessionManager, true);
 			startPromise.complete(sessionId);
 		} catch (err) {
 			startPromise.error(err);
@@ -735,9 +748,12 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 	 * Internal method to start a runtime session.
 	 *
 	 * @param session The session to start.
+	 * @param manager The session manager for the session.
 	 * @param isNew Whether the session is new.
 	 */
-	private async doStartRuntimeSession(session: ILanguageRuntimeSession, isNew: boolean):
+	private async doStartRuntimeSession(session: ILanguageRuntimeSession,
+		manager: ILanguageRuntimeSessionManager,
+		isNew: boolean):
 		Promise<void> {
 
 		// Fire the onWillStartRuntime event.
@@ -748,7 +764,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 		this._onWillStartRuntimeEmitter.fire(evt);
 
 		// Attach event handlers to the newly provisioned session.
-		this.attachToSession(session);
+		this.attachToSession(session, manager);
 
 		try {
 			// Attempt to start, or reconnect to, the session.
@@ -794,15 +810,36 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 	}
 
 	/**
+	 * Gets the session manager that manages the runtime with the given runtime ID.
+	 *
+	 * @param runtime The runtime to get the manager for.
+	 * @returns The session manager that manages the runtime.
+	 *
+	 * Throws an errror if no session manager is found for the runtime.
+	 */
+	private async getManagerForRuntime(runtime: ILanguageRuntimeMetadata): Promise<ILanguageRuntimeSessionManager> {
+		// Look for the session manager that manages the runtime.
+		for (const manager of this._sessionManagers) {
+			if (await manager.managesRuntime(runtime)) {
+				return manager;
+			}
+		}
+		throw new Error(`No session manager found for runtime ` +
+			`${formatLanguageRuntimeMetadata(runtime)} ` +
+			`(${this._sessionManagers.length} managers registered).`);
+	}
+
+	/**
 	 * Attaches event handlers and registers a freshly created language runtime
 	 * session with the service.
 	 *
 	 * @param session The session to attach.
 	 */
-	private attachToSession(session: ILanguageRuntimeSession): void {
+	private attachToSession(session: ILanguageRuntimeSession,
+		manager: ILanguageRuntimeSessionManager): void {
 		// Save the session info.
 		this._activeSessionsBySessionId.set(session.sessionId,
-			new LanguageRuntimeSessionInfo(session));
+			new LanguageRuntimeSessionInfo(session, manager));
 
 		// Add the onDidChangeRuntimeState event handler.
 		this._register(session.onDidChangeRuntimeState(state => {
