@@ -82,7 +82,7 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 		runtimeMetadata: ILanguageRuntimeMetadata,
 		sessionMetadata: IRuntimeSessionMetadata): Promise<extHostProtocol.RuntimeInitialState> {
 		// Look up the session manager responsible for restoring this session
-		const sessionManager = await this.runtimeManagerForRuntime(runtimeMetadata);
+		const sessionManager = await this.runtimeManagerForRuntime(runtimeMetadata, true);
 		if (sessionManager) {
 			const session =
 				await sessionManager.manager.createSession(runtimeMetadata, sessionMetadata);
@@ -99,6 +99,22 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 	}
 
 	/**
+	 * Indicates whether the extension host is the host for a given language runtime.
+	 *
+	 * @param runtimeMetadata The metadata for the language runtime to test.
+	 * @returns The result of the test.
+	 */
+	async $isHostForLanguageRuntime(runtimeMetadata: ILanguageRuntimeMetadata): Promise<boolean> {
+		// Shortcut: if there aren't any managers, then we can't be the host
+		if (this._runtimeManagers.length === 0) {
+			return false;
+		}
+		const sessionManager =
+			await this.runtimeManagerForRuntime(runtimeMetadata, false /* don't wait */);
+		return !!sessionManager;
+	}
+
+	/**
 	 * Validates an ILanguageRuntimeMetadata object; typically used to validate
 	 * stored metadata prior to starting a runtime.
 	 *
@@ -108,7 +124,7 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 	async $validateLangaugeRuntimeMetadata(metadata: ILanguageRuntimeMetadata):
 		Promise<ILanguageRuntimeMetadata> {
 		// Find the runtime manager that should be used for this metadata
-		const m = await this.runtimeManagerForRuntime(metadata);
+		const m = await this.runtimeManagerForRuntime(metadata, true);
 		if (m) {
 			if (m.manager.validateMetadata) {
 				// The runtime manager has a validateMetadata function; use it to
@@ -145,7 +161,7 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 		sessionMetadata: IRuntimeSessionMetadata): Promise<extHostProtocol.RuntimeInitialState> {
 		// Look up the session manager responsible for restoring this session
 		console.debug(`[Reconnect ${sessionMetadata.sessionId}]: Await runtime manager for runtime ${runtimeMetadata.extensionId.value}...`);
-		const sessionManager = await this.runtimeManagerForRuntime(runtimeMetadata);
+		const sessionManager = await this.runtimeManagerForRuntime(runtimeMetadata, true);
 		if (sessionManager) {
 			if (sessionManager.manager.restoreSession) {
 				// Attempt to restore the session. There are a lot of reasons
@@ -176,16 +192,20 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 	/**
 	 * Utility function to look up the manager for a given runtime.
 	 *
-	 * If it can't find the runtime manager, then it will wait until the runtime
-	 * manager is registered (up to 10 seconds). If the runtime manager is not
-	 * registered within that time, then it will reject the promise.
+	 * If it can't find the runtime manager, then it will (optionally) wait
+	 * until the runtime manager is registered (up to 10 seconds). If the
+	 * runtime manager is not registered within that time, then it will reject
+	 * the promise.
 	 *
 	 * @param metadata The metadata for the runtime
+	 * @param wait Whether to wait for the runtime manager to be registered if
+	 *  it is not already registered.
+	 *
 	 *
 	 * @returns A promise that resolves with the runtime manager for the
 	 * runtime.
 	 */
-	private async runtimeManagerForRuntime(metadata: ILanguageRuntimeMetadata): Promise<LanguageRuntimeManager | undefined> {
+	private async runtimeManagerForRuntime(metadata: ILanguageRuntimeMetadata, wait: boolean): Promise<LanguageRuntimeManager | undefined> {
 		// Do we already have a manager for this runtime? This happens when we
 		// look up a runtime manager for a runtime that has already been
 		// registered.
@@ -201,6 +221,13 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 			manager.extension.id === metadata.extensionId.value);
 		if (managerByExt) {
 			return managerByExt;
+		}
+
+
+		// If we don't have a manager for this runtime, and we're not waiting
+		// for one, then return undefined.
+		if (!wait) {
+			return undefined;
 		}
 
 		// Do we already have a pending promise for this extension? If so,

@@ -1017,6 +1017,17 @@ export class MainThreadLanguageRuntime
 
 	private readonly _registeredRuntimes: Map<number, ILanguageRuntimeMetadata> = new Map();
 
+	/**
+	 * Instance counter
+	 */
+	private static MAX_ID = 0;
+
+	/**
+	 * Instance ID; helps us distinguish between different instances of this class
+	 * in the debug logs.
+	 */
+	private readonly _id;
+
 	constructor(
 		extHostContext: IExtHostContext,
 		@ILanguageRuntimeService private readonly _languageRuntimeService: ILanguageRuntimeService,
@@ -1032,7 +1043,7 @@ export class MainThreadLanguageRuntime
 		@ILogService private readonly _logService: ILogService,
 		@ICommandService private readonly _commandService: ICommandService,
 		@INotebookService private readonly _notebookService: INotebookService,
-		@IEditorService private readonly _editorService: IEditorService,
+		@IEditorService private readonly _editorService: IEditorService
 	) {
 		// TODO@softwarenerd - We needed to find a central place where we could ensure that certain
 		// Positron services were up and running early in the application lifecycle. For now, this
@@ -1044,6 +1055,7 @@ export class MainThreadLanguageRuntime
 		this._positronPlotService.initialize();
 		this._positronIPyWidgetsService.initialize();
 		this._proxy = extHostContext.getProxy(ExtHostPositronContext.ExtHostLanguageRuntime);
+		this._id = MainThreadLanguageRuntime.MAX_ID++;
 
 		this._runtimeStartupService.onDidChangeRuntimeStartupPhase((phase) => {
 			if (phase === RuntimeStartupPhase.Discovering) {
@@ -1051,7 +1063,7 @@ export class MainThreadLanguageRuntime
 			}
 		});
 
-		this._runtimeSessionService.registerSessionManager(this);
+		this._disposables.add(this._runtimeSessionService.registerSessionManager(this));
 	}
 
 	$emitLanguageRuntimeMessage(handle: number, handled: boolean, message: ILanguageRuntimeMessage): void {
@@ -1068,6 +1080,7 @@ export class MainThreadLanguageRuntime
 
 	// Called by the extension host to register a language runtime
 	$registerLanguageRuntime(handle: number, metadata: ILanguageRuntimeMetadata): void {
+		this._registeredRuntimes.set(handle, metadata);
 		this._languageRuntimeService.registerRuntime(metadata);
 	}
 
@@ -1141,6 +1154,32 @@ export class MainThreadLanguageRuntime
 
 	public dispose(): void {
 		this._disposables.dispose();
+	}
+
+	/**
+	 * Checks to see whether we manage the given runtime.
+	 */
+	async managesRuntime(runtime: ILanguageRuntimeMetadata): Promise<boolean> {
+		// Check to see if the runtime is already registered locally. This only
+		// works after all runtimes are registered, but saves us a trip to the
+		// proxy.
+		let manages = false;
+		for (const registeredRuntime of this._registeredRuntimes.values()) {
+			if (registeredRuntime.runtimeId === runtime.runtimeId) {
+				manages = true;
+				break;
+			}
+		}
+
+		// If the runtime isn't registered, ask the proxy.
+		if (!manages) {
+			manages = await this._proxy.$isHostForLanguageRuntime(runtime);
+		}
+
+		this._logService.debug(`[Ext host ${this._id}] Runtime manager for ` +
+			`'${runtime.runtimeName}': ${manages}`);
+
+		return manages;
 	}
 
 	/**
