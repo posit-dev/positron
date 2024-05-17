@@ -162,15 +162,16 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 				`A file with the language ID ${languageId} was opened.`);
 		}));
 
-		this._register(this._extensionService.onWillStop((e) => {
-			// Temporarily mark all sessions offline.
-			for (const session of this._activeSessionsBySessionId.values()) {
-				this._onDidChangeRuntimeStateEmitter.fire({
-					session_id: session.session.sessionId,
-					old_state: session.state,
-					new_state: RuntimeState.Offline
-				});
-				session.state = RuntimeState.Offline;
+		this._register(this._extensionService.onDidChangeExtensionsStatus((e) => {
+			for (const extensionId of e) {
+				// TODO: Look for sessions that stopped by the extension host instead
+				for (const session of this._activeSessionsBySessionId.values()) {
+					if (session.session.runtimeMetadata.extensionId === extensionId &&
+						session.state === RuntimeState.Offline
+					) {
+						this.reconnectOfflineSession(session.session);
+					}
+				}
 			}
 		}));
 	}
@@ -827,6 +828,19 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 		throw new Error(`No session manager found for runtime ` +
 			`${formatLanguageRuntimeMetadata(runtime)} ` +
 			`(${this._sessionManagers.length} managers registered).`);
+	}
+
+	private async reconnectOfflineSession(session: ILanguageRuntimeSession): Promise<void> {
+		// Find the session manager for the runtime.
+		const sessionManager = await this.getManagerForRuntime(session.runtimeMetadata);
+		try {
+			await sessionManager.restoreSession(
+				session.runtimeMetadata, session.metadata);
+		}
+		catch (err) {
+			this._logService.error(`Reconnecting to session '${session.sessionId}' for language runtime ` +
+				`${formatLanguageRuntimeMetadata(session.runtimeMetadata)} failed. Reason: ${err}`);
+		}
 	}
 
 	/**

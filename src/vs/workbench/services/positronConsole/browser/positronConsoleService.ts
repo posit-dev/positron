@@ -1699,6 +1699,9 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 			case RuntimeExitReason.StartupFailed:
 				return localize('positronConsole.exit.startupFailed', "{0} failed to start up (exit code {1})", exit.runtime_name, exit.exit_code);
 
+			case RuntimeExitReason.ExtensionHost:
+				return localize('positronConsole.exit.extensionHost', "{0} was disconnected from the extension host.", exit.runtime_name);
+
 			default:
 			case RuntimeExitReason.Unknown:
 				return localize('positronConsole.exit.unknown', "{0} exited (exit code {1})", exit.runtime_name, exit.exit_code);
