@@ -182,11 +182,11 @@ export interface ILanguageRuntimeSession {
  */
 export interface ILanguageRuntimeSessionManager {
 	/**
-	 * Indicate whether this session manager can handle the given runtime.
+	 * Indicate whether this session manager is responsible for the given runtime.
 	 *
 	 * @param runtimeId The runtime identifier to check.
 	 */
-	hasRuntime(runtimeId: string): boolean;
+	managesRuntime(runtime: ILanguageRuntimeMetadata): Promise<boolean>;
 
 	/**
 	 * Create (provision) a new session.

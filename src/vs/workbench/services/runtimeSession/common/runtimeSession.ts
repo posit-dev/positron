@@ -423,7 +423,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 		// for the extension to finish activating and the network to attempt to
 		// reconnect, etc.
 		let session: ILanguageRuntimeSession;
-		const sessionManager = this.getManagerForRuntime(runtimeMetadata);
+		const sessionManager = await this.getManagerForRuntime(runtimeMetadata);
 		try {
 			session = await sessionManager.restoreSession(runtimeMetadata, sessionMetadata);
 		} catch (err) {
@@ -624,7 +624,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 		// language runtime service.
 		const languageRuntime =
 			this._languageRuntimeService.getRegisteredRuntime(metadata.runtimeId);
-		const sessionManager = this.getManagerForRuntime(metadata);
+		const sessionManager = await this.getManagerForRuntime(metadata);
 
 		// If it has not been registered, validate the metadata.
 		if (!languageRuntime) {
@@ -706,7 +706,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 		const startPromise = new DeferredPromise<string>();
 		this._startingRuntimesByRuntimeId.set(runtimeMetadata.runtimeId, startPromise);
 
-		const sessionManager = this.getManagerForRuntime(runtimeMetadata);
+		const sessionManager = await this.getManagerForRuntime(runtimeMetadata);
 		const sessionId = this.generateNewSessionId(runtimeMetadata);
 		const sessionMetadata: IRuntimeSessionMetadata = {
 			sessionId,
@@ -817,22 +817,16 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 	 *
 	 * Throws an errror if no session manager is found for the runtime.
 	 */
-	private getManagerForRuntime(runtime: ILanguageRuntimeMetadata): ILanguageRuntimeSessionManager {
-		// If we only have one session manager, return it. This is the common
-		// case, and handles the startup sequence wherein we need to start a
-		// runtime before it has been registered from the extension host.
-		if (this._sessionManagers.length === 1) {
-			return this._sessionManagers[0];
-		}
-
+	private async getManagerForRuntime(runtime: ILanguageRuntimeMetadata): Promise<ILanguageRuntimeSessionManager> {
 		// Look for the session manager that manages the runtime.
-		const manager = this._sessionManagers.find(m => m.hasRuntime(runtime.runtimeId));
-		if (!manager) {
-			throw new Error(`No session manager found for runtime ` +
-				`${formatLanguageRuntimeMetadata(runtime)} ` +
-				`(${this._sessionManagers.length} managers registered).`);
+		for (const manager of this._sessionManagers) {
+			if (await manager.managesRuntime(runtime)) {
+				return manager;
+			}
 		}
-		return manager;
+		throw new Error(`No session manager found for runtime ` +
+			`${formatLanguageRuntimeMetadata(runtime)} ` +
+			`(${this._sessionManagers.length} managers registered).`);
 	}
 
 	/**
