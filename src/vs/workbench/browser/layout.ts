@@ -52,8 +52,9 @@ import { CustomTitleBarVisibility } from '../../platform/window/common/window';
 
 // --- Start Positron ---
 import { IPositronTopActionBarService } from 'vs/workbench/services/positronTopActionBar/browser/positronTopActionBarService';
-import { KnownPositronLayoutParts, PartLayoutDescription, PartViewInfo, CustomPositronLayoutDescription, viewPartToResizeDimension } from 'vs/workbench/browser/positronCustomViews';
+import { PartViewInfo, viewPartToResizeDimension } from 'vs/workbench/browser/positronCustomViews';
 import { AbstractPaneCompositePart } from 'vs/workbench/browser/parts/paneCompositePart';
+import { CustomPositronLayoutDescription, KnownPositronLayoutParts, PartLayoutDescription } from 'vs/workbench/common/positronCustomViews';
 // --- End Positron ---
 
 //#region Layout Implementation
@@ -1392,14 +1393,14 @@ export abstract class Layout extends Disposable implements IWorkbenchLayoutServi
 		const mainClasses = this.mainContainer.classList;
 
 		switch (part) {
-			case Parts.SIDEBAR_PART:
+			case 'workbench.parts.sidebar':
 				return {
 					partView: this.sideBarPartView,
 					currentSize: this.workbenchGrid.getViewSize(this.sideBarPartView),
 					hidden: mainClasses.contains(LayoutClasses.SIDEBAR_HIDDEN),
 					hideFn: this.setSideBarHidden.bind(this),
 				};
-			case Parts.PANEL_PART:
+			case 'workbench.parts.panel':
 				return {
 					partView: this.panelPartView,
 					currentSize: this.workbenchGrid.getViewSize(this.panelPartView),
@@ -1407,7 +1408,7 @@ export abstract class Layout extends Disposable implements IWorkbenchLayoutServi
 					hidden: mainClasses.contains(LayoutClasses.PANEL_HIDDEN),
 					hideFn: this.setPanelHidden.bind(this),
 				};
-			case Parts.AUXILIARYBAR_PART:
+			case 'workbench.parts.auxiliarybar':
 				return {
 					partView: this.auxiliaryBarPartView,
 					currentSize: this.workbenchGrid.getViewSize(this.auxiliaryBarPartView),

@@ -181,7 +181,8 @@ import { EnvironmentVariableService } from 'vs/workbench/contrib/terminal/common
 import { ContextMenuService } from 'vs/platform/contextview/browser/contextMenuService';
 
 // --- Start Positron ---
-import { CustomPositronLayoutDescription, KnownPositronLayoutParts, PartViewInfo } from 'vs/workbench/browser/positronCustomViews';
+import { PartViewInfo } from 'vs/workbench/browser/positronCustomViews';
+import { CustomPositronLayoutDescription, KnownPositronLayoutParts } from 'vs/workbench/common/positronCustomViews';
 // --- End Positron ---
 export function createFileEditorInput(instantiationService: IInstantiationService, resource: URI): FileEditorInput {
 	return instantiationService.createInstance(FileEditorInput, resource, undefined, undefined, undefined, undefined, undefined, undefined);

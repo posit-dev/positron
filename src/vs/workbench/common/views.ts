@@ -26,6 +26,9 @@ import { registerIcon } from 'vs/platform/theme/common/iconRegistry';
 import { CancellationToken } from 'vs/base/common/cancellation';
 import { VSDataTransfer } from 'vs/base/common/dataTransfer';
 import { ILocalizedString } from 'vs/platform/action/common/action';
+// --- Start Positron ---
+import { CustomPositronLayoutDescription } from 'vs/workbench/common/positronCustomViews';
+// --- End Positron ---
 
 export const VIEWS_LOG_ID = 'views';
 export const VIEWS_LOG_NAME = localize('views log', "Views");
@@ -60,22 +63,6 @@ type OpenCommandActionDescriptor = {
 	readonly keybindings?: IKeybindings & { when?: ContextKeyExpression };
 };
 
-// --- Start Positron ---
-// Manually writing out the type here because the original type is defined in a
-// `browser/` level and thus can't be imported in this file.
-type CustomViewDescriptor = Record<
-	string,
-	{
-		size?: number | `${number}%`;
-		hidden: boolean;
-		alignment?: string;
-		viewContainers?: {
-			id: string;
-			views?: { id: string; relativeSize?: number; collapsed?: boolean }[];
-		}[];
-	}
->;
-// --- End Positron ---
 /**
  * View Container Contexts
  */
@@ -626,7 +613,7 @@ export interface IViewDescriptorService {
 	getDefaultContainerById(id: string): ViewContainer | null;
 	getViewLocationById(id: string): ViewContainerLocation | null;
 	// --- Start Positron ---
-	loadCustomViewDescriptor(customViewDescriptor: CustomViewDescriptor): void;
+	loadCustomViewDescriptor(customViewDescriptor: CustomPositronLayoutDescription): void;
 	// Temporarily disabled while custom view format is finalized
 	// dumpViewCustomizations(): CustomViewDescriptor;
 	// --- End Positron ---
