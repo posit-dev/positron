@@ -10,7 +10,7 @@ import { QuickInput } from '../quickinput';
 
 const CONSOLE_ITEMS = '.runtime-items span';
 const CONSOLE_INSTANCE = '.console-instance';
-const ACTIVE_LINE_NUMBER = '.active-line-number';
+const ACTIVE_CONSOLE_INSTANCE = '.console-instance[style*="z-index: auto"]';
 
 export class PositronConsole {
 
@@ -55,7 +55,7 @@ export class PositronConsole {
 	}
 
 	async logConsoleContents() {
-		const contents = await this.getConsoleContents();
+		const contents = await this.waitForConsoleContents();
 		contents.forEach(line => console.log(line));
 	}
 
@@ -94,37 +94,18 @@ export class PositronConsole {
 	}
 
 	async waitForReady(prompt: string) {
+		// Wait for the prompt to show up.
+		await this.code.waitForTextContent(`${ACTIVE_CONSOLE_INSTANCE} .active-line-number`, prompt);
 
-		const activeConsole = await this.getActiveConsole();
+		// Wait for the interpreter to start.
+		await this.waitForConsoleContents((contents) => contents.some((line) => line.includes('started')));
+	}
 
-		let activeLine = await activeConsole?.locator(ACTIVE_LINE_NUMBER).innerText();
-
-		for (let i = 0; i < 20; i++) {
-
-			if (activeLine === prompt) {
-				break;
-			} else {
-				console.log('Waiting for prompt');
-				await this.code.wait(1000);
-				activeLine = await activeConsole?.locator(ACTIVE_LINE_NUMBER).innerText();
-			}
-		}
-
-
-		// wait up to 20 seconds for the console to show that the interpreter is started
-		let consoleContents = await this.getConsoleContents();
-		for (let j = 0; j < 20; j++) {
-			for (const line of consoleContents) {
-				if (line.includes('started')) {
-					return;
-				} else {
-					await this.code.wait(1000);
-					consoleContents = await this.getConsoleContents();
-				}
-			}
-		}
-
-		throw new Error('Console never ready to proceed');
+	async waitForConsoleContents(accept?: (contents: string[]) => boolean) {
+		const elements = await this.code.waitForElements(`${ACTIVE_CONSOLE_INSTANCE} .runtime-items span`,
+			false,
+			(elements) => accept ? (!!elements && accept(elements.map(e => e.textContent))) : true);
+		return elements.map(e => e.textContent);
 	}
 
 	async waitForEndingConsoleText(text: string) {
