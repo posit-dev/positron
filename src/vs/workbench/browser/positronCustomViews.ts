@@ -3,14 +3,12 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { ISerializableView, IViewSize } from 'vs/base/browser/ui/grid/gridview';
-import { IStringDictionary } from 'vs/base/common/collections';
 import { localize } from 'vs/nls';
 import { ServicesAccessor } from 'vs/platform/instantiation/common/instantiation';
 import { IQuickPickItem } from 'vs/platform/quickinput/common/quickInput';
 import { CustomPositronLayoutDescription, KnownPositronLayoutParts } from 'vs/workbench/common/positronCustomViews';
 import { IViewDescriptorService, ViewContainerLocation } from 'vs/workbench/common/views';
 import { IWorkbenchLayoutService, PanelAlignment, Parts } from 'vs/workbench/services/layout/browser/layoutService';
-
 
 export type PartViewInfo = {
 	partView: ISerializableView;
@@ -57,29 +55,6 @@ export function layoutDescriptionToViewInfo(layout: CustomPositronLayoutDescript
 		viewDescriptorCustomizations,
 	};
 }
-
-
-export function viewLocationsToViewOrder(viewLocations: IStringDictionary<string>) {
-	const viewOrder: IStringDictionary<string[]> = {};
-	for (const viewId in viewLocations) {
-		const containerId = viewLocations[viewId];
-		if (!viewOrder[containerId]) {
-			viewOrder[containerId] = [];
-		}
-		viewOrder[containerId].push(viewId);
-	}
-	return viewOrder;
-}
-
-/**
- * Mapping of the layout part to what size we want to resize with the `size` parameter of the layout
- * description. E.g. the panel is resized by changing its height.
- */
-export const viewPartToResizeDimension: Record<KnownPositronLayoutParts, 'width' | 'height'> = {
-	[Parts.PANEL_PART]: 'height',
-	[Parts.SIDEBAR_PART]: 'width',
-	[Parts.AUXILIARYBAR_PART]: 'width',
-};
 
 /**
  * Convenience function to load a custom layout and views from a descriptor.

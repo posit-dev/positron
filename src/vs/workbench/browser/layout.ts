@@ -52,7 +52,7 @@ import { CustomTitleBarVisibility } from '../../platform/window/common/window';
 
 // --- Start Positron ---
 import { IPositronTopActionBarService } from 'vs/workbench/services/positronTopActionBar/browser/positronTopActionBarService';
-import { PartViewInfo, viewPartToResizeDimension } from 'vs/workbench/browser/positronCustomViews';
+import { PartViewInfo } from 'vs/workbench/browser/positronCustomViews';
 import { AbstractPaneCompositePart } from 'vs/workbench/browser/parts/paneCompositePart';
 import { CustomPositronLayoutDescription, KnownPositronLayoutParts, PartLayoutDescription } from 'vs/workbench/common/positronCustomViews';
 // --- End Positron ---
@@ -1422,7 +1422,11 @@ export abstract class Layout extends Disposable implements IWorkbenchLayoutServi
 		const { partView, hideFn, currentSize } = this.getPartViewInfo(part);
 
 		if (size !== undefined) {
-			const dimensionToBeSized = viewPartToResizeDimension[part];
+			const dimensionToBeSized = ({
+				[Parts.PANEL_PART]: 'height',
+				[Parts.SIDEBAR_PART]: 'width',
+				[Parts.AUXILIARYBAR_PART]: 'width',
+			} satisfies Record<KnownPositronLayoutParts, 'width' | 'height'>)[part];
 
 			if (typeof size === 'string') {
 				// Need to convert the percentage to a number relative to the viewport.
