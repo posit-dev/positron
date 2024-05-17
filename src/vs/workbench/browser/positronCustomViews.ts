@@ -63,17 +63,17 @@ type ViewContainerLayoutDescription = {
 	views?: ViewLayoutDescription[];
 };
 
-type ViewLayoutDescription = {
+export type ViewLayoutDescription = {
 	/**
 	 * Id of this view. This is the id that the view is registered with.
 	 * E.g. `workbench.panel.positronPlots` or `terminal`.
 	 */
 	id: string;
 	/**
-	 * Size units are relative. Every view sharing the same sizeUnit will have the same size. If not
-	 * provided, will default to 1.
+	 * Size units are relative. Every view sharing the same `relativeSize` will have the same size.
+	 * If not provided, will default to 1.
 	 */
-	sizeUnit?: number;
+	relativeSize?: number;
 };
 
 /**
@@ -247,11 +247,11 @@ export const positronCustomLayoutOptions: LayoutPick[] = [
 						views: [
 							{
 								id: 'workbench.panel.positronConsole',
-								sizeUnit: 1,
+								relativeSize: 1,
 							},
 							{
 								id: 'workbench.panel.positronPlots',
-								sizeUnit: 1,
+								relativeSize: 1,
 							},
 						]
 					},
@@ -283,7 +283,7 @@ export const positronCustomLayoutOptions: LayoutPick[] = [
 						views: [
 							{
 								id: 'workbench.panel.positronConsole',
-								sizeUnit: 1,
+								relativeSize: 1,
 							},
 						]
 					},

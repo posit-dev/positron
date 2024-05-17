@@ -1083,12 +1083,12 @@ export class ViewPaneContainer extends Component implements IViewPaneContainer {
 	 * ensure every view gets sized as expected as otherwise a size set on a panel in one resize
 	 * call may get overwritten by a subsequent resize call to an adjacent panel.
 	 * @param paneSizes An array of pane sizes to apply. Each object in the array should have an
-	 * `id` property that matches the id of a pane in the container and a `sizeUnit` property that
+	 * `id` property that matches the id of a pane in the container and a `relativeSize` property that
 	 * is a number representing the relative size of the pane. If a size unit is not provided for a
 	 * pane it will default to 1. This sizing protocol is inspired by css grid layout's `fr` unit.
 	 * @returns
 	 */
-	resizePanes(paneSizes: { id: string; sizeUnit?: number }[]): void {
+	resizePanes(paneSizes: { id: string; relativeSize?: number }[]): void {
 
 		const availableSize = this.dimension?.[this.orientation === Orientation.VERTICAL ? 'height' : 'width'];
 		if (!availableSize) { return; }
@@ -1097,18 +1097,18 @@ export class ViewPaneContainer extends Component implements IViewPaneContainer {
 		// sizes. If we don't add the missing panes to the size array with a default size unit of 1.
 		if (this.panes.length !== paneSizes.length) {
 			const missingPanes = this.panes.filter(p => !paneSizes.some(p2 => p2.id === p.id));
-			missingPanes.forEach(pane => paneSizes.push({ id: pane.id, sizeUnit: 1 }));
+			missingPanes.forEach(pane => paneSizes.push({ id: pane.id, relativeSize: 1 }));
 		}
 
 		// Next, calculate the total size of all panes
-		const totalSizeUnits = paneSizes.reduce((total, { sizeUnit }) => total + (sizeUnit ?? 1), 0);
+		const totalSizeUnits = paneSizes.reduce((total, { relativeSize }) => total + (relativeSize ?? 1), 0);
 
 		// Now calculate the size of each pane in pixels based on the available size and the size unit
 		// and apply.
-		paneSizes.forEach(({ id, sizeUnit }) => {
+		paneSizes.forEach(({ id, relativeSize }) => {
 			const pane = this.getPaneById(id);
 			if (!pane) { return; }
-			const size = Math.round((sizeUnit ?? 1) / totalSizeUnits * availableSize);
+			const size = Math.round((relativeSize ?? 1) / totalSizeUnits * availableSize);
 			this.resizePane(pane, size);
 		});
 	}
