@@ -1127,10 +1127,6 @@ export class ViewPaneContainer extends Component implements IViewPaneContainer {
 			this.resizePane(pane, size);
 		});
 	}
-
-	openPaneById(id: string): void {
-		this.getPaneById(id)?.setExpanded(true);
-	}
 	// --- End Positron ---
 
 	resizePane(pane: ViewPane, size: number): void {

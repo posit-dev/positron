@@ -4,11 +4,10 @@
 
 import { ISerializableView, IViewSize } from 'vs/base/browser/ui/grid/gridview';
 import { localize } from 'vs/nls';
-import { ServicesAccessor } from 'vs/platform/instantiation/common/instantiation';
 import { IQuickPickItem } from 'vs/platform/quickinput/common/quickInput';
 import { CustomPositronLayoutDescription, KnownPositronLayoutParts } from 'vs/workbench/common/positronCustomViews';
-import { IViewDescriptorService, ViewContainerLocation } from 'vs/workbench/common/views';
-import { IWorkbenchLayoutService, PanelAlignment, Parts } from 'vs/workbench/services/layout/browser/layoutService';
+import { ViewContainerLocation } from 'vs/workbench/common/views';
+import { PanelAlignment, Parts } from 'vs/workbench/services/layout/browser/layoutService';
 
 export type PartViewInfo = {
 	partView: ISerializableView;
@@ -56,15 +55,6 @@ export function layoutDescriptionToViewInfo(layout: CustomPositronLayoutDescript
 	};
 }
 
-/**
- * Convenience function to load a custom layout and views from a descriptor.
- * @param description Description of the custom layout and views
- * @param accessor Services accessor
- */
-export function loadCustomPositronLayout(description: CustomPositronLayoutDescription, accessor: ServicesAccessor) {
-	accessor.get(IWorkbenchLayoutService).enterCustomLayout(description);
-	accessor.get(IViewDescriptorService).loadCustomViewDescriptor(description);
-}
 
 // Currently not in use because the layout description format is in flux and so it's hard to keep
 // this synced.
