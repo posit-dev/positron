@@ -245,6 +245,7 @@ export const positronCustomLayoutOptions: LayoutPick[] = [
 				viewContainers: [
 					{
 						id: 'workbench.panel.positronConsole',
+						opened: true,
 						views: [
 							{
 								id: 'workbench.panel.positronConsole',
