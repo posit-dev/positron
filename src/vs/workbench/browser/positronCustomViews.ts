@@ -145,71 +145,40 @@ export const positronCustomLayoutOptions: LayoutPick[] = [
 		label: localize('choseLayout.fourPaneDS', 'Four Pane Data Science'),
 		layoutDescriptor: {
 			[Parts.SIDEBAR_PART]: {
-				size: 150,
-				'hidden': true,
+				size: 200,
+				hidden: false,
 			},
 			[Parts.PANEL_PART]: {
-				size: 400,
-				'hidden': false,
-				'alignment': 'center',
+				size: '40%',
+				hidden: false,
+				alignment: 'center',
 				viewContainers: [
 					{
 						id: 'workbench.panel.positronConsole',
+						opened: true,
+					},
+					{
+						id: 'terminal',
 					},
 				]
 			},
 			[Parts.AUXILIARYBAR_PART]: {
-				size: 700,
+				size: 500, // Use pixel sizes for auxiliary bar to allow editor to take up the rest of the space
 				'hidden': false,
 				viewContainers: [
 					{
 						id: 'workbench.panel.positronSession',
+						views: [
+							{
+								id: 'workbench.panel.positronVariables',
+							},
+							{
+								id: 'workbench.panel.positronPlots',
+							},
+						]
 					},
 				]
 			}
-		},
-	},
-	{
-		id: 'plot-console-variables',
-		label: localize('choseLayout.plotConsoleVariables', 'Plot, Console, Variables'),
-		layoutDescriptor: {
-			[Parts.PANEL_PART]: {
-				hidden: true,
-				alignment: 'center'
-			},
-			[Parts.SIDEBAR_PART]: {
-				hidden: true
-			},
-			[Parts.AUXILIARYBAR_PART]: {
-				// Dont hide the auxiliary bar
-				hidden: false,
-				size: '50%',
-				// Add the positron session view container in the first position
-				viewContainers: [
-					{
-						id: 'workbench.panel.positronSession',
-						// Order the following views in the positron session view container
-						views: [
-							{
-								id: 'workbench.panel.positronPlots',
-								sizeUnit: 2,
-							},
-							{
-								id: 'workbench.panel.positronConsole',
-								sizeUnit: 1,
-							},
-							{
-								id: 'workbench.panel.positronVariables',
-							}
-						]
-					},
-					// Add the terminal in the second position with default views.
-					{
-						id: 'terminal',
-						opened: true,
-					}
-				]
-			},
 		},
 	},
 	{
