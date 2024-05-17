@@ -31,6 +31,8 @@ import { retry, timeout } from './utils';
 // import { setup as setupTerminalTests } from './areas/terminal/terminal.test';
 // import { setup as setupTaskTests } from './areas/task/task.test';
 import { setup as setupVariablesTest } from './areas/positron/variables/variablespane.test';
+import { setup as setupDataExplorerTest } from './areas/positron/dataexplorer/dataexplorer.test';
+import { setup as setupPlotsTest } from './areas/positron/plots/plots.test';
 // --- End Positron ---
 
 const rootPath = path.join(__dirname, '..', '..', '..');
@@ -416,5 +418,7 @@ describe(`VSCode Smoke Tests (${opts.web ? 'Web' : 'Electron'})`, () => {
 	// if (!opts.web && !opts.remote && quality !== Quality.Dev && quality !== Quality.OSS) { setupLocalizationTests(logger); }
 	// if (!opts.web && !opts.remote) { setupLaunchTests(logger); }
 	setupVariablesTest(logger);
+	setupDataExplorerTest(logger);
+	setupPlotsTest(logger);
 	// --- End Positron ---
 });

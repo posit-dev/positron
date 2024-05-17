@@ -3,7 +3,8 @@
  *--------------------------------------------------------------------------------------------*/
 
 
-import { Code } from './code';
+import { Code } from '../code';
+import { PositronPopups } from './positronPopups';
 
 interface InterpreterGroupLocation {
 	description: string;
@@ -20,11 +21,16 @@ const SECONDARY_INTERPRETER_GROUP_NAMES = `${INTERPRETER_GROUPS} .secondary-inte
 const SECONDARY_INTERPRETER = `${INTERPRETER_GROUPS} .secondary-interpreter`;
 const INTERPRETER_ACTION_BUTTON = '.primary-interpreter .interpreter-actions .action-button span';
 
+export enum InterpreterType {
+	Python = 'Python',
+	R = 'R'
+}
+
 export class StartInterpreter {
 
-	constructor(private code: Code) { }
+	constructor(private code: Code, private positronPopups: PositronPopups) { }
 
-	async selectInterpreter(desiredInterpreterType: string, desiredInterpreterString: string) {
+	async selectInterpreter(desiredInterpreterType: InterpreterType, desiredInterpreterString: string) {
 
 		await this.code.waitAndClick(INTERPRETER_SELECTOR);
 		await this.code.waitForElement(POSITRON_MODAL_POPUP);
@@ -33,6 +39,7 @@ export class StartInterpreter {
 		console.log(`Found primary interpreter ${primaryInterpreter.description} at index ${primaryInterpreter.index}`);
 
 		const primaryIsMatch = primaryInterpreter.description.includes(desiredInterpreterString);
+		let chosenInterpreter;
 		if (!primaryIsMatch) {
 
 			const secondaryInterpreters = await this.getSecondaryInterpreters(primaryInterpreter.index);
@@ -41,7 +48,12 @@ export class StartInterpreter {
 
 			for (const secondaryInterpreter of secondaryInterpreters) {
 				if (secondaryInterpreter.description.includes(desiredInterpreterString)) {
-					await this.code.waitAndClick(`${SECONDARY_INTERPRETER}:nth-of-type(${secondaryInterpreter.index})`);
+					chosenInterpreter = this.code.driver.getLocator(`${SECONDARY_INTERPRETER}:nth-of-type(${secondaryInterpreter.index})`);
+
+					await chosenInterpreter.scrollIntoViewIfNeeded();
+					await chosenInterpreter.isVisible();
+
+					await chosenInterpreter.click();
 					break;
 				}
 			}
@@ -50,17 +62,40 @@ export class StartInterpreter {
 			console.log('Primary interpreter matched');
 			await this.code.waitAndClick(`${INTERPRETER_GROUPS}:nth-of-type(${primaryInterpreter.index})`);
 		}
+
+		if (desiredInterpreterType === InterpreterType.Python) {
+			// noop if dialog does not appear
+			await this.positronPopups.installIPyKernel();
+		}
+
+		for (let i = 0; i < 10; i++) {
+			try {
+				const dialog = this.code.driver.getLocator(POSITRON_MODAL_POPUP);
+				await dialog.waitFor({ state: 'detached', timeout: 2000 });
+				break;
+			} catch {
+				console.log('Retrying row click');
+				try {
+					await chosenInterpreter!.click({ timeout: 1000 });
+					if (desiredInterpreterType === InterpreterType.Python) {
+						await this.positronPopups.installIPyKernel();
+					}
+				} catch { }
+			}
+		}
 	}
 
 	private async awaitDesiredPrimaryInterpreterGroupLoaded(interpreterNamePrefix: string): Promise<InterpreterGroupLocation> {
 
 		let iterations = 0;
-		while (iterations < 10) {
+		while (iterations < 30) {
 
 			const interpreters = await this.code.getElements(PRIMARY_INTERPRETER_GROUP_NAMES, false);
 
 			const loadedInterpreters: string[] = [];
-			interpreters?.forEach((interpreter) => { loadedInterpreters.push(interpreter.textContent); });
+			interpreters?.forEach((interpreter) => {
+				loadedInterpreters.push(interpreter.textContent);
+			});
 
 			let found: string = '';
 			let groupIndex = 0;
