@@ -25,9 +25,12 @@ export class QuickInput {
 		await this.code.waitForSetValue(QuickInput.QUICK_INPUT_INPUT, value);
 	}
 
-	async waitForQuickInputElementFocused(): Promise<void> {
-		await this.code.waitForTextContent(QuickInput.QUICK_INPUT_FOCUSED_ELEMENT);
+	// --- Start Positron ---
+	// Updated to return the focused element text instead of void.
+	async waitForQuickInputElementFocused(): Promise<string> {
+		return await this.code.waitForTextContent(QuickInput.QUICK_INPUT_FOCUSED_ELEMENT);
 	}
+	// --- End Positron ---
 
 	async waitForQuickInputElementText(): Promise<string> {
 		return this.code.waitForTextContent(QuickInput.QUICK_INPUT_ENTRY_LABEL_SPAN);

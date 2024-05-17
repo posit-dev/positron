@@ -7,6 +7,7 @@ import { Locator } from '@playwright/test';
 import { Code } from '../code';
 import { QuickAccess } from '../quickaccess';
 import { QuickInput } from '../quickinput';
+import { InterpreterType } from './positronStartInterpreter';
 
 const CONSOLE_ITEMS = '.runtime-items span';
 const CONSOLE_INSTANCE = '.console-instance';
@@ -16,6 +17,38 @@ const MAXIMIZE_CONSOLE = '.bottom .codicon-positron-maximize-panel';
 export class PositronConsole {
 
 	constructor(private code: Code, private quickaccess: QuickAccess, private quickinput: QuickInput) { }
+
+	async selectInterpreter(desiredInterpreterType: InterpreterType, desiredInterpreterString: string) {
+		let command: string;
+		if (desiredInterpreterType === InterpreterType.Python) {
+			command = 'python.setInterpreter';
+		} else if (desiredInterpreterType === InterpreterType.R) {
+			command = 'r.selectInterpreter';
+		} else {
+			throw new Error(`Interpreter type ${desiredInterpreterType} not supported`);
+		}
+
+		await this.quickaccess.runCommand(command, { keepOpen: true });
+
+		await this.quickinput.waitForQuickInputOpened();
+		await this.quickinput.type(desiredInterpreterString);
+
+		// The Python select interpreter command may include additional items above the desired
+		// interpreter string, if the interpreter is registered after the command is run.
+		// In that case, we have to scroll down to select the desired interpreter.
+
+		// Wait until the desired interpreter string appears in the list.
+		await this.quickinput.waitForQuickInputElements(elements =>
+			!!elements && !!elements.find(e => e === desiredInterpreterString)
+		);
+
+		// Select the desired interpreter string.
+		while (await this.quickinput.waitForQuickInputElementFocused() !== desiredInterpreterString) {
+			await this.code.dispatchKeybinding('down');
+		}
+		await this.code.dispatchKeybinding('enter');
+		await this.quickinput.waitForQuickInputClosed();
+	}
 
 	async getConsoleContents(index?: number): Promise<string[]> {
 
