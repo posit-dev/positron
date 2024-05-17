@@ -212,75 +212,80 @@ export const positronCustomLayoutOptions: LayoutPick[] = [
 			},
 		},
 	},
-	// {
-	// 	id: 'sideBySideDS',
-	// 	label: localize('choseLayout.sideBySideDS', 'Side by Side Data Science'),
-	// 	layoutDescriptor: {
-	// 		layout: {
-	// 			[Parts.PANEL_PART]: {
-	// 				hidden: true,
-	// 				alignment: 'center',
-	// 				viewContainers: [
-	// 					{
-	// 						id: 'workbench.panel.positronSessions',
-	// 						views: ['workbench.panel.positronConsole']
-	// 					}
-	// 				]
-	// 			 },
-	// 			[Parts.SIDEBAR_PART]: { hidden: true },
-	// 			[Parts.AUXILIARYBAR_PART]: { hidden: false },
-	// 		},
-	// 		views: {
-	// 			'viewContainerLocations': {
-	// 				'workbench.view.extension.positron-connections': 1,
-	// 				'workbench.panel.positronSessions': 1
-	// 			},
-	// 			viewOrder: {
-	// 				'workbench.view.explorer': [
-	// 					'connections'
+	{
+		id: 'side-by-side',
+		label: localize('choseLayout.sideBySide', 'Side-by-side Data Science'),
+		layoutDescriptor: {
+			[Parts.PANEL_PART]: {
+				hidden: true,
+				alignment: 'center'
+			},
+			[Parts.SIDEBAR_PART]: {
+				hidden: true
+			},
+			[Parts.AUXILIARYBAR_PART]: {
+				hidden: false,
+				size: '50%',
+				viewContainers: [
+					{
+						id: 'workbench.panel.positronConsole',
+						views: [
+							{
+								id: 'workbench.panel.positronConsole',
+								sizeUnit: 1,
+							},
+							{
+								id: 'workbench.panel.positronPlots',
+								sizeUnit: 1,
+							},
+						]
+					},
+					{
+						id: 'workbench.panel.positronSession',
+					},
+				]
+			},
+		},
+	},
+	{
+		id: 'side-by-side-console-only',
+		label: localize('choseLayout.sideBySideConsole', 'Side-by-side Data Science (Console Only)'),
+		layoutDescriptor: {
+			[Parts.PANEL_PART]: {
+				hidden: true,
+				alignment: 'center'
+			},
+			[Parts.SIDEBAR_PART]: {
+				hidden: true
+			},
+			[Parts.AUXILIARYBAR_PART]: {
+				hidden: false,
+				size: '50%',
+				viewContainers: [
+					{
+						id: 'workbench.panel.positronConsole',
+						opened: true,
+						views: [
+							{
+								id: 'workbench.panel.positronConsole',
+								sizeUnit: 1,
+							},
+						]
+					},
+					{
+						id: 'workbench.panel.positronSession',
+						views: [
+							{
+								id: 'workbench.panel.positronVariables',
+							},
+							{
+								id: 'workbench.panel.positronPlots',
+							},
+						]
+					},
+				]
+			},
+		},
+	},
 
-	// 				],
-	// 				'workbench.panel.positronSessions': [
-	// 					'workbench.panel.positronConsole',
-	// 				]
-	// 			},
-	// 		}
-	// 	},
-	// },
-
-	// {
-	// 	id: 'heathen',
-	// 	label: localize('choseLayout.heathenLayout', 'Heathen Layout'),
-	// 	layoutDescriptor: {
-	// 		'layout': {
-	// 			'workbench.parts.sidebar': {
-	// 				'hidden': true
-	// 			},
-	// 			'workbench.parts.panel': {
-	// 				'height': 734,
-	// 				'hidden': false,
-	// 				alignment: 'center'
-	// 			},
-	// 			'workbench.parts.auxiliarybar': {
-	// 				'hidden': true
-	// 			}
-	// 		},
-	// 		'views': {
-	// 			'viewContainerLocations': {
-	// 				'workbench.view.extension.positron-connections': 1,
-	// 				'workbench.panel.positronSessions': 1,
-	// 			},
-	// 			viewOrder: {
-	// 				'workbench.panel.positronSessions': [
-	// 					'workbench.panel.positronConsole',
-	// 					'workbench.panel.positronVariables',
-	// 					'terminal'
-	// 				],
-	// 				'workbench.view.explorer': [
-	// 					'connections'
-	// 				]
-	// 			},
-	// 		}
-	// 	},
-	// }
 ];
