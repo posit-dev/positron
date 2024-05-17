@@ -10,24 +10,70 @@ import { IQuickPickItem } from 'vs/platform/quickinput/common/quickInput';
 import { IViewDescriptorService, ViewContainerLocation } from 'vs/workbench/common/views';
 import { IWorkbenchLayoutService, PanelAlignment, Parts } from 'vs/workbench/services/layout/browser/layoutService';
 
+/**
+ * Known parts that can be customized in for layouts.
+ */
 export type KnownPositronLayoutParts = Parts.PANEL_PART | Parts.SIDEBAR_PART | Parts.AUXILIARYBAR_PART;
 
 /**
  * Description of the custom layout for a given part (e.g. Sidebar, Panel, ...) of the editor.
  */
 export type PartLayoutDescription = {
+	/**
+	 * Size of the part. If a number, it's an absolute size in pixels. If it's a string it's a
+	 * relative size in percentage of the viewport size. If the size controls the width or the
+	 * height depends on the part. E.g. for the sidebar it's the width.
+	 */
 	size?: number | `${number}%`;
+	/**
+	 * Should this part be hidden by default?
+	 */
 	hidden: boolean;
+	/**
+	 * Alignment of the part. Only used for the panel part.
+	 */
 	alignment?: PanelAlignment;
-	viewContainers?: {
-		id: string;
-		// Is this view container shown? Only one of these can be shown at a time so if
-		// multiple are set, the last one will be respected.
-		opened?: boolean;
-		// Size units are relative. Every view sharing the same sizeUnit will have the same size.
-		// if not provided, will default to 1.
-		views?: { id: string; sizeUnit?: number }[];
-	}[];
+	/**
+	 * Description of the view containers in this part. The order as they appear in the array
+	 * will be the order they are shown in the UI. Any non-specified view containers will be
+	 * added after the specified ones.
+	 */
+	viewContainers?: ViewContainerLayoutDescription[];
+};
+
+/**
+ * Description of a view container within an editor part. E.g. the "Sessions" tab.
+ */
+type ViewContainerLayoutDescription = {
+	/**
+	 * Id of this view container. This is the id that the view container is registered with.
+	 * E.g. `workbench.panel.positronSession`.
+	 */
+	id: string;
+	/**
+	 * Is this view container shown? Only one of these can be shown at a time so if multiple are
+	 * set, the last one will be respected.
+	 */
+	opened?: boolean;
+	/**
+	 * Description of the views within this view container. The order as they appear in the array
+	 * will be the order they are shown in the UI. Any non-specified views will be added after the
+	 * specified ones.
+	 */
+	views?: ViewLayoutDescription[];
+};
+
+type ViewLayoutDescription = {
+	/**
+	 * Id of this view. This is the id that the view is registered with.
+	 * E.g. `workbench.panel.positronPlots` or `terminal`.
+	 */
+	id: string;
+	/**
+	 * Size units are relative. Every view sharing the same sizeUnit will have the same size. If not
+	 * provided, will default to 1.
+	 */
+	sizeUnit?: number;
 };
 
 /**
