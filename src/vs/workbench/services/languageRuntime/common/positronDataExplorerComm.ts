@@ -27,22 +27,6 @@ export interface SearchSchemaResult {
 }
 
 /**
- * Table values formatted as strings
- */
-export interface TableData {
-	/**
-	 * The columns of data
-	 */
-	columns: Array<Array<string>>;
-
-	/**
-	 * Zero or more arrays of row labels
-	 */
-	row_labels?: Array<Array<string>>;
-
-}
-
-/**
  * The result of applying filters to a table
  */
 export interface FilterResult {
@@ -147,6 +131,22 @@ export interface ColumnSchema {
 	 * Size parameter for fixed-size types (list, binary)
 	 */
 	type_size?: number;
+
+}
+
+/**
+ * Table values formatted as strings
+ */
+export interface TableData {
+	/**
+	 * The columns of data
+	 */
+	columns: Array<Array<ColumnValue>>;
+
+	/**
+	 * Zero or more arrays of row labels
+	 */
+	row_labels?: Array<Array<string>>;
 
 }
 
@@ -589,6 +589,9 @@ export interface GetColumnProfilesFeatures {
 	supported_types: Array<ColumnProfileType>;
 
 }
+
+/// ColumnValue
+export type ColumnValue = string | number;
 
 /**
  * Possible values for ColumnDisplayType

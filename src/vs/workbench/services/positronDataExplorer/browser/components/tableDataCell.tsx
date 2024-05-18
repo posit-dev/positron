@@ -11,13 +11,14 @@ import * as React from 'react';
 // Other dependencies.
 import { positronClassNames } from 'vs/base/common/positronUtilities';
 import { PositronDataExplorerColumn } from 'vs/workbench/services/positronDataExplorer/browser/positronDataExplorerColumn';
+import { DataCell } from 'vs/workbench/services/positronDataExplorer/common/dataExplorerCache';
 
 /**
  * TableDataCellProps interface.
  */
 interface TableDataCellProps {
 	column: PositronDataExplorerColumn;
-	cellValue: string;
+	cellValue: DataCell;
 }
 
 /**
@@ -29,7 +30,7 @@ export const TableDataCell = (props: TableDataCellProps) => {
 	// Render.
 	return (
 		<div className={positronClassNames('text', props.column.alignment)}>
-			{props.cellValue}
+			{props.cellValue.formatted}
 		</div>
 	);
 };

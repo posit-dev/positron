@@ -32,6 +32,69 @@ interface CacheUpdateDescriptor {
 }
 
 /**
+ * DataCellKind enum
+ */
+export enum DataCellKind {
+	NON_NULL = '',
+	NULL = 'null',
+	NA = 'na',
+	NaN = 'NaN',
+	NotATime = 'NaT',
+	None = 'None',
+	INFINITY = 'inf',
+	NEG_INFINITY = 'neginf',
+	UNKNOWN = 'unknown'
+}
+
+/**
+ * DataCell interface
+ */
+export interface DataCell {
+	formatted: string;
+	kind: DataCellKind;
+}
+
+function decodeSpecialValue(value: number) {
+	switch (value) {
+		case 0:
+			return {
+				kind: DataCellKind.NULL,
+				formatted: 'NULL'
+			};
+		case 1:
+			return {
+				kind: DataCellKind.NA,
+				formatted: 'NA'
+			};
+		case 2:
+			return {
+				kind: DataCellKind.NaN,
+				formatted: 'NaN'
+			};
+		case 3:
+			return {
+				kind: DataCellKind.NotATime,
+				formatted: 'NaT'
+			};
+		case 10:
+			return {
+				kind: DataCellKind.INFINITY,
+				formatted: 'INF'
+			};
+		case 11:
+			return {
+				kind: DataCellKind.NEG_INFINITY,
+				formatted: '-INF'
+			};
+		default:
+			return {
+				kind: DataCellKind.UNKNOWN,
+				formatted: 'UNKNOWN'
+			};
+	}
+}
+
+/**
  * DataExplorerCache class.
  */
 export class DataExplorerCache extends Disposable {
@@ -85,7 +148,7 @@ export class DataExplorerCache extends Disposable {
 	/**
 	 * Gets the data cell cache.
 	 */
-	private readonly _dataCellCache = new Map<string, string>();
+	private readonly _dataCellCache = new Map<string, DataCell>();
 
 	/**
 	 * The onDidUpdateCache event emitter.
@@ -393,7 +456,16 @@ export class DataExplorerCache extends Disposable {
 						const value = tableData.columns[column][row];
 						const columnIndex = columnIndices[column];
 						const rowIndex = rowIndices[row];
-						this._dataCellCache.set(`${columnIndex},${rowIndex}`, value);
+						if (typeof value === 'number') {
+							this._dataCellCache.set(`${columnIndex},${rowIndex}`,
+								decodeSpecialValue(value)
+							);
+						} else {
+							this._dataCellCache.set(`${columnIndex},${rowIndex}`, {
+								formatted: value,
+								kind: DataCellKind.NON_NULL
+							});
+						}
 					}
 				}
 
