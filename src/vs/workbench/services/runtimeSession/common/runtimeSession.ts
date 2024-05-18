@@ -106,10 +106,6 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 	private readonly _onDidFailStartRuntimeEmitter =
 		this._register(new Emitter<ILanguageRuntimeSession>);
 
-	// The event emitter for the onDidReconnectRuntime event.
-	private readonly _onDidReconnectRuntimeEmitter =
-		this._register(new Emitter<ILanguageRuntimeSession>);
-
 	// The event emitter for the onDidChangeRuntimeState event.
 	private readonly _onDidChangeRuntimeStateEmitter =
 		this._register(new Emitter<ILanguageRuntimeSessionStateEvent>());
@@ -194,9 +190,6 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 
 	// An event that fires when a runtime fails to start.
 	readonly onDidFailStartRuntime = this._onDidFailStartRuntimeEmitter.event;
-
-	// An event that fires when a runtime is reconnected.
-	readonly onDidReconnectRuntime = this._onDidReconnectRuntimeEmitter.event;
 
 	// An event that fires when a runtime changes state.
 	readonly onDidChangeRuntimeState = this._onDidChangeRuntimeStateEmitter.event;
