@@ -489,15 +489,7 @@ const newCommands: ApiCommand[] = [
 	// -- statement range
 	new ApiCommand(
 		'vscode.executeStatementRangeProvider', '_executeStatementRangeProvider', 'Execute statement range provider.',
-		[ApiCommandArgument.Uri,
-		new ApiCommandArgument<types.Position, IPosition>('position',
-			'A position in a text document',
-			// validator: check for a valid position
-			v => types.Position.isPosition(v),
-			// converter: convert from vscode.Position to IPosition (API type)
-			v => {
-				return typeConverters.Position.from(v);
-			})],
+		[ApiCommandArgument.Uri, ApiCommandArgument.Position],
 		new ApiCommandResult<IRange, types.Range>('A promise that resolves to a range.', result => {
 			// converter: convert from IRange (API type) to vscode.Range
 			return typeConverters.Range.to(result);
