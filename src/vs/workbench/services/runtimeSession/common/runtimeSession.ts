@@ -20,6 +20,7 @@ import { UiFrontendEvent } from 'vs/workbench/services/languageRuntime/common/po
 import { ILanguageService } from 'vs/editor/common/languages/language';
 import { ResourceMap } from 'vs/base/common/map';
 import { IExtensionService } from 'vs/workbench/services/extensions/common/extensions';
+import { LanguageRuntimeSessionLocation } from 'vs/workbench/api/common/positron/extHostTypes.positron';
 
 /**
  * Utility class for tracking state changes in a language runtime session.
@@ -87,6 +88,11 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 	// A map of the currently active notebook sessions. This is keyed by the notebook URI
 	// owning the session.
 	private readonly _notebookSessionsByNotebookUri = new ResourceMap<ILanguageRuntimeSession>();
+
+	// An map of sessions that have been disconnected from the extension host,
+	// from ID to session. We keep these around so we can reconnect them when
+	// the extension host comes back online.
+	private readonly _disconnectedSessions = new Map<string, ILanguageRuntimeSession>();
 
 	// The event emitter for the onWillStartRuntime event.
 	private readonly _onWillStartRuntimeEmitter =
@@ -164,12 +170,14 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 
 		this._register(this._extensionService.onDidChangeExtensionsStatus((e) => {
 			for (const extensionId of e) {
-				// TODO: Look for sessions that stopped by the extension host instead
-				for (const session of this._activeSessionsBySessionId.values()) {
-					if (session.session.runtimeMetadata.extensionId === extensionId &&
-						session.state === RuntimeState.Offline
-					) {
-						this.reconnectOfflineSession(session.session);
+				for (const session of this._disconnectedSessions.values()) {
+					if (session.runtimeMetadata.extensionId.value === extensionId.value) {
+						// Remove the session from the disconnected sessions so we don't
+						// try to reconnect it again (no matter the outcome below)
+						this._disconnectedSessions.delete(session.sessionId);
+						this._logService.debug(`Extension ${extensionId} has been reloaded; ` +
+							`attempting to reconnect session ${session.sessionId}`);
+						this.restoreRuntimeSession(session.runtimeMetadata, session.metadata);
 					}
 				}
 			}
@@ -830,19 +838,6 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 			`(${this._sessionManagers.length} managers registered).`);
 	}
 
-	private async reconnectOfflineSession(session: ILanguageRuntimeSession): Promise<void> {
-		// Find the session manager for the runtime.
-		const sessionManager = await this.getManagerForRuntime(session.runtimeMetadata);
-		try {
-			await sessionManager.restoreSession(
-				session.runtimeMetadata, session.metadata);
-		}
-		catch (err) {
-			this._logService.error(`Reconnecting to session '${session.sessionId}' for language runtime ` +
-				`${formatLanguageRuntimeMetadata(session.runtimeMetadata)} failed. Reason: ${err}`);
-		}
-	}
-
 	/**
 	 * Attaches event handlers and registers a freshly created language runtime
 	 * session with the service.
@@ -948,8 +943,16 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 					};
 					this._onWillStartRuntimeEmitter.fire(evt);
 				}
-			}, 0);
 
+				// If a workspace session ended because the extension host was
+				// disconnected, remember it so we can attempt to reconnect it
+				// when the extension host comes back online.
+				if (exit.reason === RuntimeExitReason.ExtensionHost &&
+					session.runtimeMetadata.sessionLocation ===
+					LanguageRuntimeSessionLocation.Workspace) {
+					this._disconnectedSessions.set(session.sessionId, session);
+				}
+			}, 0);
 		}));
 	}
 
