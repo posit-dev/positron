@@ -506,7 +506,7 @@ export class PositronVariablesInstance extends Disposable implements IPositronVa
 		const promises: Promise<void>[] = [];
 		for (const environmentVariable of variablesList.variables) {
 			// Create the variable item.
-			const variableItem = new VariableItem(environmentVariable);
+			const variableItem = new VariableItem(environmentVariable, false);
 
 			// Add the variable item.
 			variableItems.set(variableItem.accessKey, variableItem);
@@ -546,7 +546,7 @@ export class PositronVariablesInstance extends Disposable implements IPositronVa
 			const environmentVariable = environmentClientUpdate.assigned[i];
 
 			// Create the variable item.
-			const variableItem = new VariableItem(environmentVariable);
+			const variableItem = new VariableItem(environmentVariable, true);
 
 			// Add the variable item.
 			this._variableItems.set(variableItem.accessKey, variableItem);

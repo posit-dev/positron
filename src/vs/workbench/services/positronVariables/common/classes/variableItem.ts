@@ -168,6 +168,10 @@ export class VariableItem implements IVariableItem {
 		this._expanded = value;
 	}
 
+	get updatedTime() {
+		return this._variable.data.updated_time;
+	}
+
 	/**
 	 * Get the value which indicates whether the variable item has been recently
 	 * updated.
@@ -183,10 +187,14 @@ export class VariableItem implements IVariableItem {
 	/**
 	 * Constructor.
 	 * @param name The variable.
+	 * @param isRecent Whether the variable item is newly created or updated.
 	 */
-	constructor(variable: PositronVariable) {
+	constructor(variable: PositronVariable, isRecent: boolean) {
 		this._variable = variable;
-		this._isRecent = observableValue(variable.data.access_key, false);
+		this._isRecent = observableValue(variable.data.access_key, isRecent);
+
+		// Clear recent flag after 5 seconds.
+		setTimeout(() => this._isRecent.set(false, undefined), 5000);
 	}
 
 	//#endregion Constructor
@@ -232,7 +240,7 @@ export class VariableItem implements IVariableItem {
 		const promises: Promise<void>[] = [];
 		for (const variable of environmentClientList.variables) {
 			// Create and add the variable item.
-			const variableItem = new VariableItem(variable);
+			const variableItem = new VariableItem(variable, false);
 			this._childEntries.set(variableItem.accessKey, variableItem);
 
 			// If the child variable item has children and is expanded, recursively load its

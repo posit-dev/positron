@@ -29,6 +29,10 @@
 	background: var(--vscode-positronVariables-activeSelectionBackground);
 }
 
+.variable-item.recent {
+	background: var(--vscode-positronVariables-activeSelectionBackground);
+}
+
 .variable-item .name-column {
 	display: flex;
 	flex-shrink: 0;

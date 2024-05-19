@@ -64,8 +64,13 @@ export interface IVariableItem {
 	readonly expanded: boolean;
 
 	/**
+	 * Gets the time the variable was created or updated.
+	 */
+	readonly updatedTime: number;
+
+	/**
 	 * Gets a value which indicates whether the variable item is recent
-	 * (i.e. was recently updated ore created).
+	 * (i.e. was recently updated or created).
 	 */
 	readonly isRecent: IObservable<boolean>;
 
