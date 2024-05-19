@@ -125,6 +125,12 @@ export interface Variable {
 	 */
 	is_truncated: boolean;
 
+	/**
+	 * The time the variable was created or updated, in milliseconds since
+	 * the epoch, or 0 if unknown.
+	 */
+	updated_time: number;
+
 }
 
 /**

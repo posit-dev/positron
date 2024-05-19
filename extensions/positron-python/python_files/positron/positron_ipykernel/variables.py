@@ -718,6 +718,7 @@ def _summarize_variable(key: Any, value: Any) -> Optional[Variable]:
         size = ins.get_size()
         has_children = ins.has_children()
         has_viewer = ins.has_viewer()
+        updated_time = int(time.time() * 1000)
 
         return Variable(
             display_name=display_name,
@@ -731,6 +732,7 @@ def _summarize_variable(key: Any, value: Any) -> Optional[Variable]:
             has_children=has_children,
             has_viewer=has_viewer,
             is_truncated=is_truncated,
+            updated_time=updated_time,
         )
 
     except Exception as err:

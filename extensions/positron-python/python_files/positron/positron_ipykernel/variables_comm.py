@@ -153,6 +153,10 @@ class Variable(BaseModel):
         description="True if the 'value' field is a truncated representation of the variable's value",
     )
 
+    updated_time: int = Field(
+        description="The time the variable was created or updated, in milliseconds since the epoch, or 0 if unknown.",
+    )
+
 
 @enum.unique
 class VariablesBackendRequest(str, enum.Enum):

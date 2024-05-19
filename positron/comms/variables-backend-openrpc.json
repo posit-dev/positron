@@ -255,6 +255,10 @@
 					"is_truncated": {
 						"type": "boolean",
 						"description": "True if the 'value' field is a truncated representation of the variable's value"
+					},
+					"updated_time": {
+						"type": "integer",
+						"description": "The time the variable was created or updated, in milliseconds since the epoch, or 0 if unknown."
 					}
 				},
 				"required": [
@@ -268,7 +272,8 @@
 					"length",
 					"has_children",
 					"has_viewer",
-					"is_truncated"
+					"is_truncated",
+					"updated_time"
 				]
 			}
 		}
