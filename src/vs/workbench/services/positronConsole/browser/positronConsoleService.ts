@@ -1106,7 +1106,11 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 					this.emitStartRuntimeItems(attachMode);
 				}
 			} else {
-				// It's the same one, but it isn't attached. Reattach it.
+				// It's the same one, but it isn't attached. Reattach it. Note
+				// that even though the IDs match we may still need to update
+				// our reference to the session object (it changes during e.g.
+				// extension host restarts)
+				this._session = session;
 				this.attachRuntime(attachMode);
 			}
 			return;
