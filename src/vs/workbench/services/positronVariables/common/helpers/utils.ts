@@ -49,3 +49,22 @@ export const sortVariableItemsBySize = (
 		}
 	});
 };
+
+/**
+ * Sorts an array of variable items by recency.
+ * @param variableItems The array of variable items to sort.
+ */
+export const sortVariableItemsByRecent = (
+	variableItems: VariableItem[]
+) => {
+	// Sort the variable items by recency. Break ties by sorting by name.
+	variableItems.sort((a, b) => {
+		if (a.updatedTime > b.updatedTime) {
+			return -1;
+		} else if (a.updatedTime < b.updatedTime) {
+			return 1;
+		} else {
+			return a.displayName.localeCompare(b.displayName, undefined, { numeric: true });
+		}
+	});
+};

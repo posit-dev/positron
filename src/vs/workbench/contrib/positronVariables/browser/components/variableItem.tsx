@@ -387,16 +387,16 @@ export const VariableItem = (props: VariableItemProps) => {
 				</div>
 			);
 		} else if (props.rightColumnVisible) {
-			if (props.positronVariablesInstance.sorting === PositronVariablesSorting.Name) {
+			if (props.positronVariablesInstance.sorting === PositronVariablesSorting.Size) {
 				return (
 					<div className='right-column'>
-						<span>{props.variableItem.displayType}</span>
+						<span>{formatSize(props.variableItem.size)}</span>
 					</div>
 				);
 			} else {
 				return (
 					<div className='right-column'>
-						<span>{formatSize(props.variableItem.size)}</span>
+						<span>{props.variableItem.displayType}</span>
 					</div>
 				);
 			}

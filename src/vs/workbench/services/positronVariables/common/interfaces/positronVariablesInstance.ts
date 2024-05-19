@@ -23,7 +23,8 @@ export const enum PositronVariablesGrouping {
  */
 export const enum PositronVariablesSorting {
 	Name,
-	Size
+	Size,
+	Recent
 }
 
 /**

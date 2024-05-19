@@ -73,6 +73,24 @@ export const SortingMenuButton = () => {
 			}
 		});
 
+		// Recent.
+		actions.push({
+			id: 'Recent',
+			label: 'Recent',
+			tooltip: '',
+			class: undefined,
+			enabled: true,
+			checked: sorting === PositronVariablesSorting.Recent,
+			run: () => {
+				if (!positronVariablesContext.activePositronVariablesInstance) {
+					return;
+				}
+
+				positronVariablesContext.activePositronVariablesInstance.sorting =
+					PositronVariablesSorting.Recent;
+			}
+		});
+
 		// Done. Return the actions.
 		return actions;
 	};

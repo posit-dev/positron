@@ -10,7 +10,7 @@ import { VariableGroup } from 'vs/workbench/services/positronVariables/common/cl
 import { VariableOverflow } from 'vs/workbench/services/positronVariables/common/classes/variableOverflow';
 import { RuntimeState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { ILanguageRuntimeSession, RuntimeClientType } from '../../runtimeSession/common/runtimeSessionService';
-import { sortVariableItemsByName, sortVariableItemsBySize } from 'vs/workbench/services/positronVariables/common/helpers/utils';
+import { sortVariableItemsByName, sortVariableItemsByRecent, sortVariableItemsBySize } from 'vs/workbench/services/positronVariables/common/helpers/utils';
 import { PositronVariablesList, PositronVariablesUpdate, VariablesClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimeVariablesClient';
 import { VariableEntry, IPositronVariablesInstance, PositronVariablesGrouping, PositronVariablesSorting } from 'vs/workbench/services/positronVariables/common/interfaces/positronVariablesInstance';
 import { VariableKind } from 'vs/workbench/services/languageRuntime/common/positronVariablesComm';
@@ -617,6 +617,11 @@ export class PositronVariablesInstance extends Disposable implements IPositronVa
 			case PositronVariablesSorting.Size:
 				sortVariableItemsBySize(items);
 				break;
+
+			// Sort the variable items by recency.
+			case PositronVariablesSorting.Recent:
+				sortVariableItemsByRecent(items);
+				break;
 		}
 
 		// Update the entries.
@@ -790,6 +795,11 @@ export class PositronVariablesInstance extends Disposable implements IPositronVa
 			// Sort by size.
 			case PositronVariablesSorting.Size:
 				sortVariableItemsBySize(items);
+				break;
+
+			// Sort by recency.
+			case PositronVariablesSorting.Recent:
+				sortVariableItemsByRecent(items);
 				break;
 		}
 
