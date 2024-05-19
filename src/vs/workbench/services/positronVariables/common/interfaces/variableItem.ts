@@ -2,6 +2,8 @@
  *  Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
+import { IObservable } from 'vs/base/common/observable';
+
 /**
  * IVariableItem interface.
  */
@@ -60,6 +62,12 @@ export interface IVariableItem {
 	 * Gets a value which indicates whether the variable item is expanded.
 	 */
 	readonly expanded: boolean;
+
+	/**
+	 * Gets a value which indicates whether the variable item is recent
+	 * (i.e. was recently updated ore created).
+	 */
+	readonly isRecent: IObservable<boolean>;
 
 	/**
 	 * Formats the value of this variable item in a format suitable for placing on the clipboard.
