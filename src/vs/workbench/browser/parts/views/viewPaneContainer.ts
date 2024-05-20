@@ -1057,6 +1057,77 @@ export class ViewPaneContainer extends Component implements IViewPaneContainer {
 
 		this.updateTitleArea();
 	}
+	// --- Start Positron ---
+	/**
+	 * Helper function to make it easier to access a given pane in the container by id.
+	 * @param id Id of view pane to get. E.g. 'workbench.view.explorer'
+	 * @returns ViewPane with the given id or undefined if not found
+	 */
+	private getPaneById(id: string): ViewPane | undefined {
+		return this.panes.find(p => p.id === id);
+	}
+	/**
+	 * Move a view pane to a specific index.
+	 * @param paneId Id of view pane to move
+	 * @param toIndex Index to move view pane to
+	 */
+	movePaneToIndex(paneId: string, toIndex: number): void {
+		const pane = this.getPaneById(paneId);
+		if (!pane) {
+			throw new Error(`Failed to move pane ${paneId} to index. Pane not found.`);
+		}
+		const to = this.paneItems[toIndex].pane;
+		this.movePane(pane, to);
+	}
+
+	/**
+	 * Resize the panes in the container relative to each other. By doing this in one call we can
+	 * ensure every view gets sized as expected as otherwise a size set on a panel in one resize
+	 * call may get overwritten by a subsequent resize call to an adjacent panel.
+	 * @param paneSizes An array of pane sizes to apply. Each object in the array should have an
+	 * `id` property that matches the id of a pane in the container and a `relativeSize` property that
+	 * is a number representing the relative size of the pane. If a size unit is not provided for a
+	 * pane it will default to 1. This sizing protocol is inspired by css grid layout's `fr` unit.
+	 * @returns
+	 */
+	resizePanes(paneSizes: { id: string; relativeSize?: number; collapsed?: boolean }[]): void {
+
+		const availableSize = this.dimension?.[this.orientation === Orientation.VERTICAL ? 'height' : 'width'];
+		if (!availableSize) { return; }
+
+		// First make sure we have the same number of panes currently in the container as we do pane
+		// sizes. If we don't add the missing panes and set them to collapsed.
+		if (this.panes.length !== paneSizes.length) {
+			const missingPanes = this.panes.filter(p => !paneSizes.some(p2 => p2.id === p.id));
+			missingPanes.forEach(pane => paneSizes.push({ id: pane.id, collapsed: true }));
+		}
+
+		// First, collapse all the panes that are marked as collapsed
+		const collapsedViews = paneSizes.filter(({ collapsed }) => collapsed);
+		collapsedViews.forEach(({ id }) => {
+			const pane = this.getPaneById(id);
+			if (!pane) { return; }
+			pane.setExpanded(false);
+		});
+
+		// Next, go through the non-collapsed views and set them to their appropriate size. Note
+		// that because collapsed panes aren't 0 height, the sizing here may not be perfectly
+		// accurate but it should be close enough unless there's a ton of collapsed panes.
+		const shownViews = paneSizes.filter(({ collapsed }) => !collapsed);
+
+		// Next, calculate the total size of all panes
+		const totalSizeUnits = shownViews.reduce((total, { relativeSize = 1 }) => total + relativeSize, 0);
+
+		// Now calculate the size of each pane in pixels based on the available size and the size unit
+		// and apply.
+		shownViews.forEach(({ id, relativeSize }) => {
+			const pane = this.getPaneById(id);
+			if (!pane) { return; }
+			const size = Math.round((relativeSize ?? 1) / totalSizeUnits * availableSize);
+			this.resizePane(pane, size);
+		});
+	}
+	// --- End Positron ---
 
 	resizePane(pane: ViewPane, size: number): void {
 		assertIsDefined(this.paneview).resizePane(pane, size);

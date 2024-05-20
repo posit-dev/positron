@@ -35,6 +35,7 @@ import { TitlebarStyle } from 'vs/platform/window/common/window';
 // --- Start Positron ---
 import { PositronToggleTopActionBarVisibilityAction } from 'vs/workbench/browser/parts/positronTopActionBar/positronTopActionBarActions';
 import { PositronTopActionBarVisibleContext } from 'vs/workbench/common/contextkeys';  // eslint-disable-line no-duplicate-imports
+import { positronCustomLayoutOptions } from 'vs/workbench/browser/positronCustomViews';
 // --- End Positron ---
 
 // Register Icons
@@ -813,6 +814,59 @@ registerAction2(class extends Action2 {
 	}
 });
 
+// --- Start Positron ---
+registerAction2(class extends Action2 {
+	constructor() {
+		super({
+			id: 'workbench.action.chooseLayout',
+			title: localize2('chooseLayout', 'Choose a layout'),
+			category: Categories.View,
+			f1: true,
+		});
+	}
+	run(accessor: ServicesAccessor): void {
+		const quickInputService = accessor.get(IQuickInputService);
+		const layoutService = accessor.get(IWorkbenchLayoutService);
+		const viewDescriptorService = accessor.get(IViewDescriptorService);
+		const quickPick = quickInputService.createQuickPick();
+		quickPick.placeholder = localize('choseLayout.layoutChooser', 'Choose a layout');
+		quickPick.title = localize('choseLayout.title', 'Choose new layout');
+		quickPick.items = positronCustomLayoutOptions;
+
+		quickPick.onDidAccept(() => {
+			const selected = quickPick.selectedItems[0] as (typeof positronCustomLayoutOptions[number]) | undefined;
+			if (selected?.id) {
+				viewDescriptorService.loadCustomViewDescriptor(selected.layoutDescriptor);
+				// Run the layout service action after the view descriptor has been loaded.
+				// This is needed so that the changing of the contents of the parts doesn't
+				// break the currently open view container that is set by the layoutService.
+				layoutService.enterCustomLayout(selected.layoutDescriptor);
+			}
+			quickPick.hide();
+		});
+		quickPick.show();
+	}
+});
+
+// Action to dump json of the current layout to the console for creation of a custom layout.
+// registerAction2(class DumpViewCustomizations extends Action2 {
+
+// 	constructor() {
+// 		super({
+// 			id: 'workbench.action.dumpViewCustomizations',
+// 			title: localize2('dumpViewCustomizations', "Dump view customizations to console"),
+// 			category: Categories.View,
+// 			f1: true,
+// 		});
+// 	}
+
+// 	run(accessor: ServicesAccessor): void {
+// 		console.log(
+// 			JSON.stringify(createPositronCustomLayoutDescriptor(accessor), null, 2)
+// 		);
+// 	}
+// });
+// --- End Positron ---
 // --- Move View
 
 registerAction2(class extends Action2 {

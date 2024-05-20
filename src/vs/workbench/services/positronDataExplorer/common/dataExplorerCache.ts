@@ -32,6 +32,56 @@ interface CacheUpdateDescriptor {
 }
 
 /**
+ * DataCellKind enum
+ */
+export enum DataCellKind {
+	NON_NULL = '',
+	NULL = 'null',
+	NA = 'na',
+	NaN = 'NaN',
+	NotATime = 'NaT',
+	None = 'None',
+	INFINITY = 'inf',
+	NEG_INFINITY = 'neginf',
+	UNKNOWN = 'unknown'
+}
+
+
+
+/**
+ * DataCell interface
+ */
+export interface DataCell {
+	formatted: string;
+	kind: DataCellKind;
+}
+
+const SpecialValues: Record<number, [DataCellKind, string]> = {
+	0: [DataCellKind.NULL, 'NULL'],
+	1: [DataCellKind.NA, 'NA'],
+	2: [DataCellKind.NaN, 'NaN'],
+	3: [DataCellKind.NotATime, 'NaT'],
+	4: [DataCellKind.None, 'None'],
+	10: [DataCellKind.INFINITY, 'INF'],
+	11: [DataCellKind.NEG_INFINITY, '-INF'],
+};
+
+function decodeSpecialValue(value: number) {
+	if (value in SpecialValues) {
+		const [kind, formatted] = SpecialValues[value];
+		return {
+			kind,
+			formatted
+		};
+	} else {
+		return {
+			kind: DataCellKind.UNKNOWN,
+			formatted: 'UNKNOWN'
+		};
+	}
+}
+
+/**
  * DataExplorerCache class.
  */
 export class DataExplorerCache extends Disposable {
@@ -85,7 +135,7 @@ export class DataExplorerCache extends Disposable {
 	/**
 	 * Gets the data cell cache.
 	 */
-	private readonly _dataCellCache = new Map<string, string>();
+	private readonly _dataCellCache = new Map<string, DataCell>();
 
 	/**
 	 * The onDidUpdateCache event emitter.
@@ -393,7 +443,16 @@ export class DataExplorerCache extends Disposable {
 						const value = tableData.columns[column][row];
 						const columnIndex = columnIndices[column];
 						const rowIndex = rowIndices[row];
-						this._dataCellCache.set(`${columnIndex},${rowIndex}`, value);
+						if (typeof value === 'number') {
+							this._dataCellCache.set(`${columnIndex},${rowIndex}`,
+								decodeSpecialValue(value)
+							);
+						} else {
+							this._dataCellCache.set(`${columnIndex},${rowIndex}`, {
+								formatted: value,
+								kind: DataCellKind.NON_NULL
+							});
+						}
 					}
 				}
 
