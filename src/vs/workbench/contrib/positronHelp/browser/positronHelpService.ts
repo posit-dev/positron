@@ -21,7 +21,7 @@ import { InstantiationType, registerSingleton } from 'vs/platform/instantiation/
 import { IInstantiationService, createDecorator } from 'vs/platform/instantiation/common/instantiation';
 import { HelpClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimeHelpClient';
 import { RuntimeState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
-import { ILanguageRuntimeSession, IRuntimeClientInstance, IRuntimeSessionService, RuntimeClientType } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
+import { ILanguageRuntimeSession, IRuntimeSessionService, RuntimeClientType } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
 
 /**
  * The help HTML file path.
@@ -511,10 +511,22 @@ class PositronHelpService extends Disposable implements IPositronHelpService {
 			this._logService.error(`PositronHelpService could not attach to session ${sessionId}.`);
 			return;
 		}
-
 		try {
-			// Create the server side of the help client.
-			const client: IRuntimeClientInstance<any, any> =
+			// Check for an existing help client.
+			const existingClients = await session.listClients(RuntimeClientType.Help);
+
+			// It'd be surprising if we had more than one of these clients, since we
+			// try to only make one of them, so log a warning if we do.
+			if (existingClients.length > 1) {
+				const clientIds = existingClients.map(client => client.getClientId()).join(', ');
+				this._logService.warn(
+					`Session ${session.metadata.sessionName} has multiple help clients: ` +
+					`${clientIds}`);
+			}
+
+			// Use an existing client if there is one; otherwise, create a new one.
+			const client = existingClients.length > 0 ?
+				existingClients[0] :
 				await session.createClient(RuntimeClientType.Help, {});
 
 			// Create and attach the help client wrapper.

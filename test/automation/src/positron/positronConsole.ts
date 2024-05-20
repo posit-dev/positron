@@ -11,6 +11,7 @@ import { QuickInput } from '../quickinput';
 const CONSOLE_ITEMS = '.runtime-items span';
 const CONSOLE_INSTANCE = '.console-instance';
 const ACTIVE_CONSOLE_INSTANCE = '.console-instance[style*="z-index: auto"]';
+const MAXIMIZE_CONSOLE = '.bottom .codicon-positron-maximize-panel';
 
 export class PositronConsole {
 
@@ -52,6 +53,7 @@ export class PositronConsole {
 
 		// The console will show the prompt after the code is done executing.
 		await this.waitForReady(prompt);
+		await this.maximizeConsole();
 	}
 
 	async logConsoleContents() {
@@ -120,5 +122,9 @@ export class PositronConsole {
 				lastConsoleLine = await this.getConsoleContents(-1);
 			}
 		}
+	}
+
+	async maximizeConsole() {
+		await this.code.waitAndClick(MAXIMIZE_CONSOLE);
 	}
 }
