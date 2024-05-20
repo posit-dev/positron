@@ -104,6 +104,18 @@ const PythonTypeMap: Record<string, string> = {
 	'object': 'Dict',
 };
 
+// Maps from JSON schema types to strict Python types
+const PythonStrictTypeMap: Record<string, string> = {
+	'boolean': 'StrictBool',
+	'integer': 'StrictInt',
+	'number': 'StrictFloat',
+	'string': 'StrictStr',
+	'null': 'null',
+	'array-begin': 'List[',
+	'array-end': ']',
+	'object': 'Dict',
+};
+
 function resolveComm(s: string) {
 	return s
 		.replace(/\.json$/, '')
@@ -777,7 +789,7 @@ from __future__ import annotations
 import enum
 from typing import Any, List, Literal, Optional, Union
 
-from ._vendor.pydantic import BaseModel, Field
+from ._vendor.pydantic import BaseModel, Field, StrictBool, StrictFloat, StrictInt, StrictStr
 
 `;
 
@@ -896,7 +908,7 @@ from ._vendor.pydantic import BaseModel, Field
 			yield `${name} = Union[`;
 			// Options
 			for (const schema of o.oneOf) {
-				yield deriveType(contracts, PythonTypeMap, [schema.name, ...context], schema);
+				yield deriveType(contracts, PythonStrictTypeMap, [schema.name, ...context], schema);
 				yield ', ';
 			}
 			yield ']\n';

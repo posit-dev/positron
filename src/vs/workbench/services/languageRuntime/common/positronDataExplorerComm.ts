@@ -591,7 +591,7 @@ export interface GetColumnProfilesFeatures {
 }
 
 /// ColumnValue
-export type ColumnValue = string | number;
+export type ColumnValue = number | string;
 
 /**
  * Possible values for ColumnDisplayType

@@ -145,7 +145,7 @@ class DataExplorerTableView(abc.ABC):
         for req in request.params.profiles:
             if req.profile_type == ColumnProfileType.NullCount:
                 count = self._prof_null_count(req.column_index)
-                result = ColumnProfileResult(null_count=count)
+                result = ColumnProfileResult(null_count=int(count))
             elif req.profile_type == ColumnProfileType.SummaryStats:
                 stats = self._prof_summary_stats(req.column_index)
                 result = ColumnProfileResult(summary_stats=stats)
@@ -225,14 +225,25 @@ class DataExplorerTableView(abc.ABC):
         pass
 
 
+# Special value codes for the protocol
+_VALUE_NAN = 2
+_VALUE_NAT = 3
+_VALUE_NONE = 4
+
+
 def _format_value(x):
     if isinstance(x, float) and np_.isnan(x):
-        return "NaN"
-    return str(x)
+        return _VALUE_NAN
+    elif x is None:
+        return _VALUE_NONE
+    elif x is getattr(pd_, "NaT"):
+        return _VALUE_NAT
+    else:
+        return str(x)
 
 
 def _pandas_format_values(col):
-    return col.map(_format_value).tolist()
+    return [_format_value(x) for x in col]
 
 
 _FILTER_RANGE_COMPARE_SUPPORTED = {
@@ -942,7 +953,7 @@ class PandasView(DataExplorerTableView):
 
         return ColumnSummaryStats(
             type_display=ColumnDisplayType.String,
-            string_stats=SummaryStatsString(num_empty=num_empty, num_unique=num_unique),
+            string_stats=SummaryStatsString(num_empty=int(num_empty), num_unique=int(num_unique)),
         )
 
     @staticmethod
@@ -953,7 +964,9 @@ class PandasView(DataExplorerTableView):
 
         return ColumnSummaryStats(
             type_display=ColumnDisplayType.Boolean,
-            boolean_stats=SummaryStatsBoolean(true_count=true_count, false_count=false_count),
+            boolean_stats=SummaryStatsBoolean(
+                true_count=int(true_count), false_count=int(false_count)
+            ),
         )
 
     def _prof_freq_table(self, column_index: int):

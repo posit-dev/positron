@@ -339,12 +339,12 @@
 			"column_value": {
 				"oneOf": [
 					{
-						"type": "string",
-						"name": "formatted_value"
-					},
-					{
 						"type": "integer",
 						"name": "special_value_code"
+					},
+					{
+						"type": "string",
+						"name": "formatted_value"
 					}
 				]
 			},
