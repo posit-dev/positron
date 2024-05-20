@@ -563,6 +563,10 @@ export class PositronVariablesInstance extends Disposable implements IPositronVa
 		 */
 		const isExpanded = (path: string[]) => this._expandedPaths.has(JSON.stringify(path));
 
+		// Clear the recency flag from all existing variables, so they don't get
+		// re-highlighted as recent on the next update.
+		this._variableItems.forEach(variableItem => variableItem.isRecent.set(false, undefined));
+
 		// Add / replace assigned variable items.
 		const promises: Promise<void>[] = [];
 		for (let i = 0; i < environmentClientUpdate.assigned.length; i++) {
