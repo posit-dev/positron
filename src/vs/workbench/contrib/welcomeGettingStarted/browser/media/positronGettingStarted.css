@@ -9,10 +9,8 @@
 }
 
 .gettingStartedContainer .product-logo.welcome-positron-logo {
-	font-size: 6em;
-	background-color: var(--vscode-positronWelcome-foreground);
-	color: #ffffff;
-	border-radius: 25%;
+	width: 90px;
+	height: 90px;
 }
 
 .gettingStartedContainer .welcome-page-section {
