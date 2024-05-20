@@ -61,6 +61,13 @@ MAX_ITEMS: int = 10000
 MAX_SNAPSHOT_COMPARISON_BUDGET: int = 10_000_000
 
 
+def timestamp() -> int:
+    """
+    Returns the current time in milliseconds; used for timestamping updates.
+    """
+    return int(time.time() * 1000)
+
+
 def _resolve_value_from_path(context: Any, path: Iterable[str]) -> Any:
     """
     Use inspectors to possibly resolve nested value from context
@@ -718,7 +725,7 @@ def _summarize_variable(key: Any, value: Any) -> Optional[Variable]:
         size = ins.get_size()
         has_children = ins.has_children()
         has_viewer = ins.has_viewer()
-        updated_time = int(time.time() * 1000)
+        updated_time = timestamp()
 
         return Variable(
             display_name=display_name,

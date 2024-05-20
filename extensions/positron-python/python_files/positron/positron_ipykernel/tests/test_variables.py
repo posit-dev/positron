@@ -6,7 +6,7 @@ from __future__ import annotations
 
 import asyncio
 from typing import Any, List, Type, cast
-from unittest.mock import Mock
+from unittest.mock import Mock, patch
 
 import numpy as np
 import pandas as pd
@@ -116,21 +116,22 @@ def test_change_detection(
 
 
 def _assert_assigned(shell: PositronShell, value_code: str, variables_comm: DummyComm):
-    # Assign the value to a variable.
-    shell.run_cell(value_code)
-
     # Test that the expected `update` message was sent with the
     # expected `assigned` value.
-    assert variables_comm.messages == [
-        json_rpc_notification(
-            "update",
-            {
-                "assigned": [not_none(_summarize_variable("x", shell.user_ns["x"])).dict()],
-                "removed": [],
-                "version": 0,
-            },
-        )
-    ]
+    with patch("positron_ipykernel.variables.timestamp", return_value=0):
+        # Assign the value to a variable.
+        shell.run_cell(value_code)
+
+        assert variables_comm.messages == [
+            json_rpc_notification(
+                "update",
+                {
+                    "assigned": [not_none(_summarize_variable("x", shell.user_ns["x"])).dict()],
+                    "removed": [],
+                    "version": 0,
+                },
+            )
+        ]
 
     # Clear messages for the next assignment.
     variables_comm.messages.clear()
@@ -160,20 +161,21 @@ def test_handle_refresh(shell: PositronShell, variables_comm: DummyComm) -> None
     shell.user_ns["x"] = 3
 
     msg = json_rpc_request("list", comm_id="dummy_comm_id")
-    variables_comm.handle_msg(msg)
+    with patch("positron_ipykernel.variables.timestamp", return_value=0):
+        variables_comm.handle_msg(msg)
 
-    # A list message is sent
-    assert variables_comm.messages == [
-        json_rpc_response(
-            {
-                "variables": [
-                    not_none(_summarize_variable("x", shell.user_ns["x"])).dict(),
-                ],
-                "length": 1,
-                "version": 0,
-            }
-        )
-    ]
+        # A list message is sent
+        assert variables_comm.messages == [
+            json_rpc_response(
+                {
+                    "variables": [
+                        not_none(_summarize_variable("x", shell.user_ns["x"])).dict(),
+                    ],
+                    "length": 1,
+                    "version": 0,
+                }
+            )
+        ]
 
 
 def test_list_1000(shell: PositronShell, variables_comm: DummyComm) -> None:
@@ -316,19 +318,21 @@ def _assert_inspect(value: Any, path: List[Any], variables_comm: DummyComm) -> N
         cast(JsonRecord, {"path": encoded_path}),
         comm_id="dummy_comm_id",
     )
-    variables_comm.handle_msg(msg)
 
-    assert len(variables_comm.messages) == 1
+    with patch("positron_ipykernel.variables.timestamp", return_value=0):
+        variables_comm.handle_msg(msg)
 
-    children = _summarize_children(value)
-    assert variables_comm.messages == [
-        json_rpc_response(
-            {
-                "children": [child.dict() for child in children],
-                "length": len(children),
-            }
-        )
-    ]
+        assert len(variables_comm.messages) == 1
+
+        children = _summarize_children(value)
+        assert variables_comm.messages == [
+            json_rpc_response(
+                {
+                    "children": [child.dict() for child in children],
+                    "length": len(children),
+                }
+            )
+        ]
 
     variables_comm.messages.clear()
 
