@@ -26,6 +26,9 @@ import { registerIcon } from 'vs/platform/theme/common/iconRegistry';
 import { CancellationToken } from 'vs/base/common/cancellation';
 import { VSDataTransfer } from 'vs/base/common/dataTransfer';
 import { ILocalizedString } from 'vs/platform/action/common/action';
+// --- Start Positron ---
+import { CustomPositronLayoutDescription } from 'vs/workbench/common/positronCustomViews';
+// --- End Positron ---
 
 export const VIEWS_LOG_ID = 'views';
 export const VIEWS_LOG_NAME = localize('views log', "Views");
@@ -609,6 +612,10 @@ export interface IViewDescriptorService {
 	getViewContainerByViewId(id: string): ViewContainer | null;
 	getDefaultContainerById(id: string): ViewContainer | null;
 	getViewLocationById(id: string): ViewContainerLocation | null;
+	// --- Start Positron ---
+	loadCustomViewDescriptor(customViewDescriptor: CustomPositronLayoutDescription): void;
+	// dumpViewCustomizations(): CustomViewDescriptor;
+	// --- End Positron ---
 
 	readonly onDidChangeContainer: Event<{ views: IViewDescriptor[]; from: ViewContainer; to: ViewContainer }>;
 	moveViewsToContainer(views: IViewDescriptor[], viewContainer: ViewContainer, visibilityState?: ViewVisibilityState, reason?: string): void;

@@ -84,6 +84,12 @@ export interface IPaneCompositeBarOptions {
 }
 
 export class PaneCompositeBar extends Disposable {
+	// --- Start Positron ---
+	// A map so that we can access the composite bar by part. Doing this here
+	// instead of in the `CompositeBar` class because the `CompositeBar` doesn't
+	// know what part it belongs to.
+	static compositeBarByPart = new Map<string, CompositeBar>();
+	// --- End Positron ---
 
 	private readonly viewContainerDisposables = this._register(new DisposableMap<string, IDisposable>());
 	private readonly location: ViewContainerLocation;
@@ -126,9 +132,18 @@ export class PaneCompositeBar extends Disposable {
 				pinned: container.pinned,
 			}));
 		this.compositeBar = this.createCompositeBar(cachedItems);
+		// --- Start Positron ---
+		PaneCompositeBar.compositeBarByPart.set(part, this.compositeBar);
+		// --- End Positron ---
 		this.onDidRegisterViewContainers(this.getViewContainers());
 		this.registerListeners();
 	}
+	// --- Start Positron ---
+	override dispose(): void {
+		super.dispose();
+		PaneCompositeBar.compositeBarByPart.delete(this.part);
+	}
+	// --- End Positron ---
 
 	private createCompositeBar(cachedItems: ICompositeBarItem[]) {
 		return this._register(this.instantiationService.createInstance(CompositeBar, cachedItems, {
