@@ -1162,9 +1162,9 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 	 * Dispose the kernel connection. Note that this does not dispose the
 	 * session or the kernel itself; it remains running in a terminal.
 	 */
-	public async dispose() {
+	public dispose() {
 		// Clean up file watcher for log file
-		await this.disposeLogTail();
+		this.disposeLogTail();
 
 		// Dispose heartbeat timers
 		this.disposeHeartbeatTimers();
@@ -1173,19 +1173,23 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 		this.disposeAllSockets();
 	}
 
-	async disposeLogTail() {
+	disposeLogTail() {
 		if (!this._logTail) {
 			return;
 		}
 
 		this._logTail.unwatch();
 
-		const file = this._session!.state.logFile;
+		if (!this._session) {
+			return;
+		}
+
+		const file = this._session.state.logFile;
 		if (!file || !fs.existsSync(file) || !this._logChannel) {
 			return;
 		}
 
-		const lines = fs.readFileSync(this._session!.state.logFile, 'utf8').split('\n');
+		const lines = fs.readFileSync(this._session.state.logFile, 'utf8').split('\n');
 
 		// Push remaining lines in case new line events haven't had time to
 		// fire up before unwatching. We skip lines that we've already seen and
@@ -1421,7 +1425,7 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 			this._terminal = undefined;
 
 			// Dispose the remainder of the connection state
-			await this.dispose();
+			this.dispose();
 		}
 	}
 
