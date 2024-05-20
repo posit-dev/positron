@@ -614,7 +614,6 @@ export interface IViewDescriptorService {
 	getViewLocationById(id: string): ViewContainerLocation | null;
 	// --- Start Positron ---
 	loadCustomViewDescriptor(customViewDescriptor: CustomPositronLayoutDescription): void;
-	// Temporarily disabled while custom view format is finalized
 	// dumpViewCustomizations(): CustomViewDescriptor;
 	// --- End Positron ---
 

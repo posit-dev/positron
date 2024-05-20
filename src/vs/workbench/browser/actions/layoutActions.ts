@@ -848,8 +848,7 @@ registerAction2(class extends Action2 {
 	}
 });
 
-// Currently not in use because the layout description format is in flux and so it's hard to keep
-// this synced.
+// Action to dump json of the current layout to the console for creation of a custom layout.
 // registerAction2(class DumpViewCustomizations extends Action2 {
 
 // 	constructor() {

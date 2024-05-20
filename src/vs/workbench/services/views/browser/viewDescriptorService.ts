@@ -736,7 +736,6 @@ export class ViewDescriptorService extends Disposable implements IViewDescriptor
 	}
 
 	// Helper function to make it easier to develop custom views.
-	// Temporarily disabled while we finalize the layout format.
 	// dumpViewCustomizations() {
 	// 	return {
 	// 		viewContainerLocations: this.viewCustomizations.viewContainerLocations,
