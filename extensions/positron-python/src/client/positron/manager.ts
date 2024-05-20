@@ -3,54 +3,75 @@
  *--------------------------------------------------------------------------------------------*/
 /* eslint-disable global-require */
 /* eslint-disable class-methods-use-this */
+import * as portfinder from 'portfinder';
 // eslint-disable-next-line import/no-unresolved
 import * as positron from 'positron';
 import * as path from 'path';
 import * as fs from 'fs-extra';
 
 import { Event, EventEmitter } from 'vscode';
+import { inject } from 'inversify';
 import { IServiceContainer } from '../ioc/types';
 import { pythonRuntimeDiscoverer } from './discoverer';
 import { IInterpreterService } from '../interpreter/contracts';
 import { traceError, traceInfo } from '../logging';
-import { IConfigurationService } from '../common/types';
+import { IConfigurationService, IDisposable } from '../common/types';
 import { PythonRuntimeSession } from './session';
 import { createPythonRuntimeMetadata, PythonRuntimeExtraData } from './runtime';
 import { EXTENSION_ROOT_DIR } from '../common/constants';
 import { JupyterKernelSpec } from '../jupyter-adapter.d';
 import { IEnvironmentVariablesProvider } from '../common/variables/types';
+import { checkAndInstallPython } from './extension';
+import { showErrorMessage } from '../common/vscodeApis/windowApis';
+import { CreateEnv } from '../common/utils/localize';
+
+export const IPythonRuntimeManager = Symbol('IPythonRuntimeManager');
+
+export interface IPythonRuntimeManager extends positron.LanguageRuntimeManager {
+    registerLanguageRuntimeFromPath(pythonPath: string): Promise<void>;
+    selectLanguageRuntimeFromPath(pythonPath: string): Promise<void>;
+}
 
 /**
  * Provides Python language runtime metadata and sessions to Positron;
  * implements positron.LanguageRuntimeManager.
  */
-export class PythonRuntimeManager implements positron.LanguageRuntimeManager {
-    private static _instance: PythonRuntimeManager | undefined;
-
+export class PythonRuntimeManager implements IPythonRuntimeManager {
     /**
      * A map of Python interpreter paths to their language runtime metadata.
      */
     readonly registeredPythonRuntimes: Map<string, positron.LanguageRuntimeMetadata> = new Map();
 
+    private disposables: IDisposable[] = [];
+
     private readonly onDidDiscoverRuntimeEmitter = new EventEmitter<positron.LanguageRuntimeMetadata>();
 
     constructor(
-        private readonly serviceContainer: IServiceContainer,
-        private readonly activatedPromise: Promise<void>,
+        @inject(IServiceContainer) private readonly serviceContainer: IServiceContainer,
+        @inject(IInterpreterService) private readonly interpreterService: IInterpreterService,
     ) {
-        if (PythonRuntimeManager._instance) {
-            throw new Error('PythonRuntimeManager already initialized');
-        }
-        PythonRuntimeManager._instance = this;
-
         this.onDidDiscoverRuntime = this.onDidDiscoverRuntimeEmitter.event;
+
+        positron.runtime.registerLanguageRuntimeManager(this);
+
+        this.disposables.push(
+            // When an interpreter is added, register a corresponding language runtime.
+            interpreterService.onDidChangeInterpreters(async (event) => {
+                if (!event.old && event.new) {
+                    // An interpreter was added.
+                    const interpreterPath = event.new.path;
+                    await checkAndInstallPython(interpreterPath, serviceContainer);
+                    if (!fs.existsSync(interpreterPath)) {
+                        showErrorMessage(`${CreateEnv.pathDoesntExist} ${interpreterPath}`);
+                    }
+                    await this.registerLanguageRuntimeFromPath(interpreterPath);
+                }
+            }),
+        );
     }
 
-    static instance(): PythonRuntimeManager {
-        if (!PythonRuntimeManager._instance) {
-            throw new Error('PythonRuntimeManager not initialized');
-        }
-        return PythonRuntimeManager._instance;
+    dispose(): void {
+        this.disposables.forEach((d) => d.dispose());
     }
 
     /**
@@ -117,7 +138,6 @@ export class PythonRuntimeManager implements positron.LanguageRuntimeManager {
 
         // If required, also locate an available port for the debugger
         traceInfo('createPythonSession: locating available debug port');
-        const portfinder = require('portfinder');
         let debugPort;
         if (debug) {
             if (debugPort === undefined) {
@@ -209,7 +229,7 @@ export class PythonRuntimeManager implements positron.LanguageRuntimeManager {
      */
     private async *discoverPythonRuntimes(): AsyncGenerator<positron.LanguageRuntimeMetadata> {
         // Get the async generator for Python runtimes
-        const discoverer = pythonRuntimeDiscoverer(this.serviceContainer, this.activatedPromise);
+        const discoverer = pythonRuntimeDiscoverer(this.serviceContainer);
 
         // As each runtime metadata element is returned, cache and return it
         for await (const runtime of discoverer) {
@@ -233,8 +253,7 @@ export class PythonRuntimeManager implements positron.LanguageRuntimeManager {
             return;
         }
         // Get the interpreter corresponding to the new runtime.
-        const interpreterService = this.serviceContainer.get<IInterpreterService>(IInterpreterService);
-        const interpreter = await interpreterService.getInterpreterDetails(pythonPath);
+        const interpreter = await this.interpreterService.getInterpreterDetails(pythonPath);
         // Create the runtime and register it with Positron.
         if (interpreter) {
             // Set recommendedForWorkspace to false, since we change the active runtime

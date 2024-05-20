@@ -1,57 +1,24 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
 import { ProgressLocation, ProgressOptions } from 'vscode';
 import * as fs from 'fs';
-// eslint-disable-next-line import/no-unresolved
-import * as positron from 'positron';
-import { PythonExtension } from '../api/types';
 import { IDisposableRegistry, IInstaller, InstallerResponse, Product, ProductInstallStatus } from '../common/types';
 import { IInterpreterService } from '../interpreter/contracts';
 import { IServiceContainer } from '../ioc/types';
 import { traceError, traceInfo, traceLog } from '../logging';
-import { PythonRuntimeManager } from './manager';
 import { IPYKERNEL_VERSION, MINIMUM_PYTHON_VERSION, Commands } from '../common/constants';
 import { InstallOptions } from '../common/installer/types';
 import { EnvironmentType } from '../pythonEnvironments/info';
-import { showErrorMessage } from '../common/vscodeApis/windowApis';
 import { isProblematicCondaEnvironment } from '../interpreter/configuration/environmentTypeComparer';
-import { CreateEnv, Interpreters } from '../common/utils/localize';
+import { Interpreters } from '../common/utils/localize';
 import { IApplicationShell } from '../common/application/types';
 
-export async function activatePositron(
-    activatedPromise: Promise<void>,
-    pythonApi: PythonExtension,
-    serviceContainer: IServiceContainer,
-): Promise<void> {
+export async function activatePositron(serviceContainer: IServiceContainer): Promise<void> {
     try {
-        traceInfo('activatePositron: creating runtime manager');
-        const manager = new PythonRuntimeManager(serviceContainer, activatedPromise);
-
-        // Register the Python runtime discoverer (to find all available runtimes) with positron.
-        traceInfo('activatePositron: registering python runtime manager');
-        positron.runtime.registerLanguageRuntimeManager(manager);
-
-        // Wait for all extension components to be activated before registering event listeners
-        traceInfo('activatePositron: awaiting extension activation');
-        await activatedPromise;
-
         const disposables = serviceContainer.get<IDisposableRegistry>(IDisposableRegistry);
-        // If a new runtime is registered via the Python extension, create and register a corresponding language runtime.
-        disposables.push(
-            pythonApi.environments.onDidChangeEnvironments(async (event) => {
-                if (event.type === 'add') {
-                    const interpreterPath = event.env.path;
-                    await checkAndInstallPython(interpreterPath, serviceContainer);
-                    if (!fs.existsSync(interpreterPath)) {
-                        showErrorMessage(`${CreateEnv.pathDoesntExist} ${interpreterPath}`);
-                    }
-                    await manager.registerLanguageRuntimeFromPath(interpreterPath);
-                }
-            }),
-        );
         // Register a command to check if ipykernel is installed for a given interpreter.
         disposables.push(
             vscode.commands.registerCommand('python.isIpykernelInstalled', async (pythonPath: string) => {
