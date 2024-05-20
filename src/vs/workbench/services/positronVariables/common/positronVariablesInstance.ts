@@ -69,6 +69,11 @@ export class PositronVariablesInstance extends Disposable implements IPositronVa
 	private _filterText = '';
 
 	/**
+	 * Gets or sets the "highlight recent values" behavior.
+	 */
+	private _highlightRecent = true;
+
+	/**
 	 * Gets the collapsed groups set, which is used to keep track of which groups the user has
 	 * collapsed. This is keyed by group ID. By default, all groups are expanded.
 	 */
@@ -202,6 +207,20 @@ export class PositronVariablesInstance extends Disposable implements IPositronVa
 
 		// Update entries.
 		this.updateEntries();
+	}
+
+	/**
+	 * Gets the highlight recent setting.
+	 */
+	get highlightRecent(): boolean {
+		return this._highlightRecent;
+	}
+
+	/**
+	 * Sets the highlight recent setting.
+	 */
+	set highlightRecent(highlighRecent: boolean) {
+		this._highlightRecent = highlighRecent;
 	}
 
 	/**
@@ -545,8 +564,10 @@ export class PositronVariablesInstance extends Disposable implements IPositronVa
 			// Get the environment variable.
 			const environmentVariable = environmentClientUpdate.assigned[i];
 
-			// Create the variable item.
-			const variableItem = new VariableItem(environmentVariable, true);
+			// Create the variable item. Mark it as recent if it was just
+			// assigned and we're highlighting recent values.
+			const variableItem = new VariableItem(environmentVariable,
+				this._highlightRecent);
 
 			// Add the variable item.
 			this._variableItems.set(variableItem.accessKey, variableItem);

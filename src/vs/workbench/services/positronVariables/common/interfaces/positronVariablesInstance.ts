@@ -84,6 +84,11 @@ export interface IPositronVariablesInstance {
 	sorting: PositronVariablesSorting;
 
 	/**
+	 * Gets or sets recent value highlight.
+	 */
+	highlightRecent: boolean;
+
+	/**
 	 * The onDidChangeEntries event.
 	 */
 	readonly onDidChangeEntries: Event<VariableEntry[]>;
