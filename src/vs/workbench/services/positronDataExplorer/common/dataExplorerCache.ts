@@ -46,6 +46,8 @@ export enum DataCellKind {
 	UNKNOWN = 'unknown'
 }
 
+
+
 /**
  * DataCell interface
  */
@@ -54,48 +56,28 @@ export interface DataCell {
 	kind: DataCellKind;
 }
 
+const SpecialValues: Record<number, [DataCellKind, string]> = {
+	0: [DataCellKind.NULL, 'NULL'],
+	1: [DataCellKind.NA, 'NA'],
+	2: [DataCellKind.NaN, 'NaN'],
+	3: [DataCellKind.NotATime, 'NaT'],
+	4: [DataCellKind.None, 'None'],
+	10: [DataCellKind.INFINITY, 'INF'],
+	11: [DataCellKind.NEG_INFINITY, '-INF'],
+};
+
 function decodeSpecialValue(value: number) {
-	switch (value) {
-		case 0:
-			return {
-				kind: DataCellKind.NULL,
-				formatted: 'NULL'
-			};
-		case 1:
-			return {
-				kind: DataCellKind.NA,
-				formatted: 'NA'
-			};
-		case 2:
-			return {
-				kind: DataCellKind.NaN,
-				formatted: 'NaN'
-			};
-		case 3:
-			return {
-				kind: DataCellKind.NotATime,
-				formatted: 'NaT'
-			};
-		case 4:
-			return {
-				kind: DataCellKind.None,
-				formatted: 'None'
-			};
-		case 10:
-			return {
-				kind: DataCellKind.INFINITY,
-				formatted: 'INF'
-			};
-		case 11:
-			return {
-				kind: DataCellKind.NEG_INFINITY,
-				formatted: '-INF'
-			};
-		default:
-			return {
-				kind: DataCellKind.UNKNOWN,
-				formatted: 'UNKNOWN'
-			};
+	if (value in SpecialValues) {
+		const [kind, formatted] = SpecialValues[value];
+		return {
+			kind,
+			formatted
+		};
+	} else {
+		return {
+			kind: DataCellKind.UNKNOWN,
+			formatted: 'UNKNOWN'
+		};
 	}
 }
 
