@@ -76,6 +76,11 @@ function decodeSpecialValue(value: number) {
 				kind: DataCellKind.NotATime,
 				formatted: 'NaT'
 			};
+		case 4:
+			return {
+				kind: DataCellKind.None,
+				formatted: 'None'
+			};
 		case 10:
 			return {
 				kind: DataCellKind.INFINITY,
