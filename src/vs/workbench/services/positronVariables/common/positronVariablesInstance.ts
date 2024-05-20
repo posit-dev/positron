@@ -18,6 +18,7 @@ import { INotificationService } from 'vs/platform/notification/common/notificati
 import { PositronCommError } from 'vs/workbench/services/languageRuntime/common/positronBaseComm';
 import { localize } from 'vs/nls';
 import { RuntimeClientState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeClientInstance';
+import { IAccessibilityService } from 'vs/platform/accessibility/common/accessibility';
 
 /**
  * Constants.
@@ -124,13 +125,17 @@ export class PositronVariablesInstance extends Disposable implements IPositronVa
 	constructor(
 		session: ILanguageRuntimeSession,
 		@ILogService private _logService: ILogService,
-		@INotificationService private _notificationService: INotificationService
+		@INotificationService private _notificationService: INotificationService,
+		@IAccessibilityService private _accessibilityService: IAccessibilityService
 	) {
 		// Call the base class's constructor.
 		super();
 
 		// Set the runtime.
 		this._session = session;
+
+		// Set highlight recent value default based on accessibility service.
+		this._highlightRecent = !this._accessibilityService.isMotionReduced();
 
 		// Attach to the runtime.
 		this.attachRuntime();
