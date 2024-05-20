@@ -53,14 +53,22 @@ export interface FieldSchema {
 export interface FocusEvent {
 }
 
+/**
+ * Event: Request the UI to refresh a connection information
+ */
+export interface UpdateEvent {
+}
+
 export enum ConnectionsFrontendEvent {
-	Focus = 'focus'
+	Focus = 'focus',
+	Update = 'update'
 }
 
 export class PositronConnectionsComm extends PositronBaseComm {
 	constructor(public instance: positron.RuntimeClientInstance) {
 		super(instance);
 		this.onDidFocus = super.createEventEmitter('focus', []);
+		this.onDidUpdate = super.createEventEmitter('update', []);
 	}
 
 	/**
@@ -134,4 +142,8 @@ export class PositronConnectionsComm extends PositronBaseComm {
 	 * Request to focus the Connections pane
 	 */
 	onDidFocus: Event<FocusEvent>;
+	/**
+	 * Request the UI to refresh a connection information
+	 */
+	onDidUpdate: Event<UpdateEvent>;
 }
