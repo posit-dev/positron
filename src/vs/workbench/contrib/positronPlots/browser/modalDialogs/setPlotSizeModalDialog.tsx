@@ -116,7 +116,7 @@ const SetPlotSizeModalDialog = (props: SetPlotSizeModalDialogProps) => {
 						<tr>
 							<td>
 								<label htmlFor='width'>
-									{localize('positronPlotWidth', "Width")}
+									{(() => localize('positronPlotWidth', "Width"))()}
 								</label>
 							</td>
 							<td>
@@ -128,12 +128,12 @@ const SetPlotSizeModalDialog = (props: SetPlotSizeModalDialogProps) => {
 									defaultValue={props.customSize ? props.customSize.width : ''}
 								/>
 							</td>
-							<td>{localize('positronPlotPixelsAbbrev', "px")}</td>
+							<td>{(() => localize('positronPlotPixelsAbbrev', "px"))()}</td>
 						</tr>
 						<tr>
 							<td>
 								<label htmlFor='height'>
-									{localize('positronPlotHeight', "Height")}
+									{(() => localize('positronPlotHeight', "Height"))()}
 								</label>
 							</td>
 							<td>
@@ -145,7 +145,7 @@ const SetPlotSizeModalDialog = (props: SetPlotSizeModalDialogProps) => {
 									defaultValue={props.customSize ? props.customSize.height : ''}
 								/>
 							</td>
-							<td>{localize('positronPlotPixelsAbbrev', "px")}</td>
+							<td>{(() => localize('positronPlotPixelsAbbrev', "px"))()}</td>
 						</tr>
 					</tbody>
 				</table>
@@ -158,7 +158,7 @@ const SetPlotSizeModalDialog = (props: SetPlotSizeModalDialogProps) => {
 						tabIndex={0}
 						onClick={deleteHandler}
 					>
-						{localize('positronDeletePlotSize', "Delete")}
+						{(() => localize('positronDeletePlotSize', "Delete"))()}
 					</button>
 				</div>
 				<div className='right'>
@@ -167,14 +167,14 @@ const SetPlotSizeModalDialog = (props: SetPlotSizeModalDialogProps) => {
 						tabIndex={0}
 						onClick={acceptHandler}
 					>
-						{localize('positronOK', "OK")}
+						{(() => localize('positronOK', "OK"))()}
 					</button>
 					<button
 						className='button action-bar-button'
 						tabIndex={0}
 						onClick={cancelHandler}
 					>
-						{localize('positronCancel', "Cancel")}
+						{(() => localize('positronCancel', "Cancel"))()}
 					</button>
 				</div>
 			</div>
