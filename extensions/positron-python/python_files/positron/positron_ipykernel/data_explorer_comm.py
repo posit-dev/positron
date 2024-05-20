@@ -14,7 +14,7 @@ from __future__ import annotations
 import enum
 from typing import Any, List, Literal, Optional, Union
 
-from ._vendor.pydantic import BaseModel, Field
+from ._vendor.pydantic import BaseModel, Field, StrictBool, StrictFloat, StrictInt, StrictStr
 
 
 @enum.unique
@@ -146,21 +146,6 @@ class SearchSchemaResult(BaseModel):
     )
 
 
-class TableData(BaseModel):
-    """
-    Table values formatted as strings
-    """
-
-    columns: List[List[str]] = Field(
-        description="The columns of data",
-    )
-
-    row_labels: Optional[List[List[str]]] = Field(
-        default=None,
-        description="Zero or more arrays of row labels",
-    )
-
-
 class FilterResult(BaseModel):
     """
     The result of applying filters to a table
@@ -255,6 +240,21 @@ class ColumnSchema(BaseModel):
     type_size: Optional[int] = Field(
         default=None,
         description="Size parameter for fixed-size types (list, binary)",
+    )
+
+
+class TableData(BaseModel):
+    """
+    Table values formatted as strings
+    """
+
+    columns: List[List[ColumnValue]] = Field(
+        description="The columns of data",
+    )
+
+    row_labels: Optional[List[List[str]]] = Field(
+        default=None,
+        description="Zero or more arrays of row labels",
     )
 
 
@@ -648,6 +648,13 @@ class GetColumnProfilesFeatures(BaseModel):
     )
 
 
+# ColumnValue
+ColumnValue = Union[
+    StrictInt,
+    StrictStr,
+]
+
+
 @enum.unique
 class DataExplorerBackendRequest(str, enum.Enum):
     """
@@ -916,13 +923,13 @@ class DataExplorerFrontendEvent(str, enum.Enum):
 
 SearchSchemaResult.update_forward_refs()
 
-TableData.update_forward_refs()
-
 FilterResult.update_forward_refs()
 
 BackendState.update_forward_refs()
 
 ColumnSchema.update_forward_refs()
+
+TableData.update_forward_refs()
 
 TableSchema.update_forward_refs()
 

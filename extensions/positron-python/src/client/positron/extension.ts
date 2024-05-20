@@ -3,17 +3,24 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
+import { ProgressLocation, ProgressOptions } from 'vscode';
+import * as fs from 'fs';
 // eslint-disable-next-line import/no-unresolved
 import * as positron from 'positron';
 import { PythonExtension } from '../api/types';
 import { IDisposableRegistry, IInstaller, InstallerResponse, Product, ProductInstallStatus } from '../common/types';
 import { IInterpreterService } from '../interpreter/contracts';
 import { IServiceContainer } from '../ioc/types';
-import { traceError, traceInfo } from '../logging';
+import { traceError, traceInfo, traceLog } from '../logging';
 import { PythonRuntimeManager } from './manager';
 import { createPythonRuntimeMetadata } from './runtime';
-import { IPYKERNEL_VERSION, MINIMUM_PYTHON_VERSION } from '../common/constants';
+import { IPYKERNEL_VERSION, MINIMUM_PYTHON_VERSION, Commands } from '../common/constants';
 import { InstallOptions } from '../common/installer/types';
+import { EnvironmentType } from '../pythonEnvironments/info';
+import { showErrorMessage } from '../common/vscodeApis/windowApis';
+import { isProblematicCondaEnvironment } from '../interpreter/configuration/environmentTypeComparer';
+import { CreateEnv, Interpreters } from '../common/utils/localize';
+import { IApplicationShell } from '../common/application/types';
 
 export async function activatePositron(
     activatedPromise: Promise<void>,
@@ -69,6 +76,10 @@ export async function activatePositron(
             pythonApi.environments.onDidChangeEnvironments(async (event) => {
                 if (event.type === 'add') {
                     const interpreterPath = event.env.path;
+                    await checkAndInstallPython(interpreterPath, serviceContainer);
+                    if (!fs.existsSync(interpreterPath)) {
+                        showErrorMessage(`${CreateEnv.pathDoesntExist} ${interpreterPath}`);
+                    }
                     await registerRuntime(interpreterPath);
                 }
             }),
@@ -128,4 +139,41 @@ export async function activatePositron(
     } catch (ex) {
         traceError('activatePositron() failed.', ex);
     }
+}
+
+export async function checkAndInstallPython(
+    pythonPath: string,
+    serviceContainer: IServiceContainer,
+): Promise<InstallerResponse> {
+    const interpreterService = serviceContainer.get<IInterpreterService>(IInterpreterService);
+    const interpreter = await interpreterService.getInterpreterDetails(pythonPath);
+    if (!interpreter) {
+        return InstallerResponse.Ignore;
+    }
+    if (
+        isProblematicCondaEnvironment(interpreter) ||
+        (interpreter.id && !fs.existsSync(interpreter.id) && interpreter.envType === EnvironmentType.Conda)
+    ) {
+        if (interpreter) {
+            const installer = serviceContainer.get<IInstaller>(IInstaller);
+            const shell = serviceContainer.get<IApplicationShell>(IApplicationShell);
+            const progressOptions: ProgressOptions = {
+                location: ProgressLocation.Window,
+                title: `[${Interpreters.installingPython}](command:${Commands.ViewOutput})`,
+            };
+            traceLog('Conda envs without Python are known to not work well; fixing conda environment...');
+            const promise = installer.install(
+                Product.python,
+                await interpreterService.getInterpreterDetails(pythonPath),
+            );
+            shell.withProgress(progressOptions, () => promise);
+
+            // If Python is not installed into the environment, install it.
+            if (!(await installer.isInstalled(Product.python))) {
+                traceInfo(`Python not able to be installed.`);
+                return InstallerResponse.Ignore;
+            }
+        }
+    }
+    return InstallerResponse.Installed;
 }

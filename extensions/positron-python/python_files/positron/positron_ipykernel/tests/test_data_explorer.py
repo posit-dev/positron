@@ -12,7 +12,13 @@ import pytest
 
 from .._vendor.pydantic import BaseModel
 from ..access_keys import encode_access_key
-from ..data_explorer import COMPARE_OPS, DataExplorerService
+from ..data_explorer import (
+    COMPARE_OPS,
+    DataExplorerService,
+    _VALUE_NAN,
+    _VALUE_NAT,
+    _VALUE_NONE,
+)
 from ..data_explorer_comm import (
     ColumnDisplayType,
     ColumnProfileResult,
@@ -77,7 +83,7 @@ SIMPLE_PANDAS_DF = pd.DataFrame(
     {
         "a": [1, 2, 3, 4, 5],
         "b": [True, False, True, None, True],
-        "c": ["foo", "bar", None, "bar", "qux"],
+        "c": ["foo", "bar", None, "bar", "None"],
         "d": [0, 1.2, -4.5, 6, np.nan],
         "e": pd.to_datetime(
             [
@@ -630,17 +636,17 @@ def test_pandas_get_data_values(dxf: DataExplorerFixture):
 
     expected_columns = [
         ["1", "2", "3", "4", "5"],
-        ["True", "False", "True", "None", "True"],
-        ["foo", "bar", "None", "bar", "qux"],
-        ["0.0", "1.2", "-4.5", "6.0", "NaN"],
+        ["True", "False", "True", _VALUE_NONE, "True"],
+        ["foo", "bar", _VALUE_NONE, "bar", "None"],
+        ["0.0", "1.2", "-4.5", "6.0", _VALUE_NAN],
         [
             "2024-01-01 00:00:00",
             "2024-01-02 12:34:45",
-            "NaT",
+            _VALUE_NAT,
             "2024-01-04 00:00:00",
             "2024-01-05 00:00:00",
         ],
-        ["None", "5", "-1", "None", "None"],
+        [_VALUE_NONE, "5", "-1", _VALUE_NONE, _VALUE_NONE],
     ]
 
     assert result["columns"] == expected_columns
@@ -712,7 +718,7 @@ def _compare_filter(column_schema, op, value, condition="and", is_valid=None):
         column_schema,
         condition=condition,
         is_valid=is_valid,
-        compare_params={"op": op, "value": value},
+        compare_params={"op": op, "value": str(value)},
     )
 
 
@@ -721,7 +727,10 @@ def _between_filter(column_schema, left_value, right_value, op="between", condit
         op,
         column_schema,
         condition=condition,
-        between_params={"left_value": left_value, "right_value": right_value},
+        between_params={
+            "left_value": str(left_value),
+            "right_value": str(right_value),
+        },
     )
 
 
@@ -764,7 +773,10 @@ def _set_member_filter(
         "set_membership",
         column_schema,
         condition=condition,
-        set_membership_params={"values": values, "inclusive": inclusive},
+        set_membership_params={
+            "values": [str(x) for x in values],
+            "inclusive": inclusive,
+        },
     )
 
 
