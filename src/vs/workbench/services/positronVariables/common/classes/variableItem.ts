@@ -193,8 +193,8 @@ export class VariableItem implements IVariableItem {
 		this._variable = variable;
 		this._isRecent = observableValue(variable.data.access_key, isRecent);
 
-		// Clear recent flag after 5 seconds.
-		setTimeout(() => this._isRecent.set(false, undefined), 5000);
+		// Clear recent flag after 2 seconds.
+		setTimeout(() => this._isRecent.set(false, undefined), 2000);
 	}
 
 	//#endregion Constructor

@@ -30,7 +30,17 @@
 }
 
 .variable-item.recent {
-	background: var(--vscode-positronVariables-activeSelectionBackground);
+	animation: pulseUpdate 2s;
+}
+
+@keyframes pulseUpdate {
+	0% {
+		background-color: var(--vscode-positronVariables-activeSelectionBackground);
+	}
+
+	100% {
+		background-color: transparent;
+	}
 }
 
 .variable-item .name-column {
