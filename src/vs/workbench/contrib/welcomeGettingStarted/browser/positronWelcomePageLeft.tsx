@@ -18,6 +18,9 @@ import { ICommandService } from 'vs/platform/commands/common/commands';
 import { IRuntimeSessionService } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
 import { ILanguageRuntimeService } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { IRuntimeStartupService } from 'vs/workbench/services/runtimeStartup/common/runtimeStartupService';
+import { IContextKeyService } from 'vs/platform/contextkey/common/contextkey';
+import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
+import { projectWizardEnabled } from 'vs/workbench/services/positronNewProject/common/positronNewProjectEnablement';
 
 export interface PositronWelcomePageLeftProps {
 	openerService: IOpenerService;
@@ -27,6 +30,7 @@ export interface PositronWelcomePageLeftProps {
 	runtimesSessionService: IRuntimeSessionService;
 	languageRuntimeService: ILanguageRuntimeService;
 	runtimeStartupService: IRuntimeStartupService;
+	projectWizardEnabled: boolean;
 }
 
 export const PositronWelcomePageLeft = (props: PropsWithChildren<PositronWelcomePageLeftProps>) => {
@@ -40,6 +44,7 @@ export const PositronWelcomePageLeft = (props: PropsWithChildren<PositronWelcome
 				runtimeSessionService={props.runtimesSessionService}
 				runtimeStartupService={props.runtimeStartupService}
 				languageRuntimeService={props.languageRuntimeService}
+				projectWizardEnabled={props.projectWizardEnabled}
 			/>
 			<PositronWelcomePageHelp openerService={props.openerService} />
 		</>
@@ -49,7 +54,8 @@ export const PositronWelcomePageLeft = (props: PropsWithChildren<PositronWelcome
 export const createWelcomePageLeft = (container: HTMLElement, openerService: IOpenerService,
 	keybindingService: IKeybindingService, layoutService: ILayoutService, commandService: ICommandService,
 	runtimeSessionService: IRuntimeSessionService, runtimeStartupService: IRuntimeStartupService,
-	languageRuntimeService: ILanguageRuntimeService): PositronReactRenderer => {
+	languageRuntimeService: ILanguageRuntimeService, contextKeyService: IContextKeyService, configurationService: IConfigurationService): PositronReactRenderer => {
+	const enableProjectWizard = projectWizardEnabled(contextKeyService, configurationService);
 	const renderer = new PositronReactRenderer(container);
 	renderer.render(<PositronWelcomePageLeft
 		openerService={openerService}
@@ -59,6 +65,7 @@ export const createWelcomePageLeft = (container: HTMLElement, openerService: IOp
 		runtimesSessionService={runtimeSessionService}
 		runtimeStartupService={runtimeStartupService}
 		languageRuntimeService={languageRuntimeService}
+		projectWizardEnabled={enableProjectWizard}
 	/>);
 	return renderer;
 };
