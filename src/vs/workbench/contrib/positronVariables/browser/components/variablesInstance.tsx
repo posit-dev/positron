@@ -150,6 +150,17 @@ export const VariablesInstance = (props: VariablesInstanceProps) => {
 		}
 	}, [selectedId, variableEntries]);
 
+	// useEffect to scroll to recently defined variable(s).
+	useEffect(() => {
+		if (!innerRef.current) {
+			return;
+		}
+		const recent = innerRef.current.querySelector('.recent');
+		if (recent) {
+			recent.scrollIntoView();
+		}
+	});
+
 	/**
 	 * onKeyDown event handler.
 	 * @param e A KeyboardEvent<HTMLDivElement> that describes a user interaction with the keyboard.
