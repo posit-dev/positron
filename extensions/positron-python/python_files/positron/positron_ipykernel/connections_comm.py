@@ -14,7 +14,7 @@ from __future__ import annotations
 import enum
 from typing import Any, List, Literal, Optional, Union
 
-from ._vendor.pydantic import BaseModel, Field
+from ._vendor.pydantic import BaseModel, Field, StrictBool, StrictFloat, StrictInt, StrictStr
 
 
 class ObjectSchema(BaseModel):

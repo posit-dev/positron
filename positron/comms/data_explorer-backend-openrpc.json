@@ -119,36 +119,8 @@
 			],
 			"result": {
 				"schema": {
-					"type": "object",
-					"name": "table_data",
 					"description": "Table values formatted as strings",
-					"required": [
-						"columns"
-					],
-					"properties": {
-						"columns": {
-							"type": "array",
-							"description": "The columns of data",
-							"items": {
-								"type": "array",
-								"description": "Column values formatted as strings",
-								"items": {
-									"type": "string"
-								}
-							}
-						},
-						"row_labels": {
-							"type": "array",
-							"description": "Zero or more arrays of row labels",
-							"items": {
-								"type": "array",
-								"description": "Column values formatted as strings",
-								"items": {
-									"type": "string"
-								}
-							}
-						}
-					}
+					"$ref": "#/components/schemas/table_data"
 				}
 			}
 		},
@@ -361,6 +333,49 @@
 					"type_size": {
 						"type": "integer",
 						"description": "Size parameter for fixed-size types (list, binary)"
+					}
+				}
+			},
+			"column_value": {
+				"oneOf": [
+					{
+						"type": "integer",
+						"name": "special_value_code"
+					},
+					{
+						"type": "string",
+						"name": "formatted_value"
+					}
+				]
+			},
+			"table_data": {
+				"type": "object",
+				"description": "Table values formatted as strings",
+				"required": [
+					"columns"
+				],
+				"properties": {
+					"columns": {
+						"type": "array",
+						"description": "The columns of data",
+						"items": {
+							"type": "array",
+							"description": "Column values",
+							"items": {
+								"$ref": "#/components/schemas/column_value"
+							}
+						}
+					},
+					"row_labels": {
+						"type": "array",
+						"description": "Zero or more arrays of row labels",
+						"items": {
+							"type": "array",
+							"description": "Column values formatted as strings",
+							"items": {
+								"type": "string"
+							}
+						}
 					}
 				}
 			},

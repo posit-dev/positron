@@ -104,6 +104,18 @@ const PythonTypeMap: Record<string, string> = {
 	'object': 'Dict',
 };
 
+// Maps from JSON schema types to strict Python types
+const PythonStrictTypeMap: Record<string, string> = {
+	'boolean': 'StrictBool',
+	'integer': 'StrictInt',
+	'number': 'StrictFloat',
+	'string': 'StrictStr',
+	'null': 'null',
+	'array-begin': 'List[',
+	'array-end': ']',
+	'object': 'Dict',
+};
+
 function resolveComm(s: string) {
 	return s
 		.replace(/\.json$/, '')
@@ -171,6 +183,7 @@ function parseRefFromContract(ref: string, contract: any): string | undefined {
  * @returns The name of the object referred to by the ref.
  */
 function parseRef(ref: string, contracts: Array<any>): string {
+	console.log(ref);
 	for (const contract of contracts) {
 		if (!contract) {
 			continue;
@@ -217,6 +230,13 @@ function deriveType(contracts: Array<any>,
 			// An enum field within another type, we add the context prefix
 			return snakeCaseToSentenceCase(context[1]) +
 				snakeCaseToSentenceCase(context[0]);
+		}
+	} else if (schema.oneOf) {
+		// Unions we always extract like objects
+		if (schema.name) {
+			return snakeCaseToSentenceCase(schema.name);
+		} else {
+			return snakeCaseToSentenceCase(context[0]);
 		}
 	} else {
 		if (Object.keys(typeMap).includes(schema.type)) {
@@ -365,6 +385,46 @@ function* objectVisitor(
 }
 
 /**
+ * Visitor function for oneOf/union definitions in an OpenRPC contract. Recursively discovers all
+ * oneOf declarations and invokes the callback for each one.
+ *
+ * @param context The current context stack (names of keys leading to the oneOf)
+ * @param contract The OpenRPC contract to visit
+ * @param callback The callback function to call for each oneOf
+ *
+ * @returns An generator that yields the results of the callback function,
+ * invoked for each oneOf declaration
+ */
+function* oneOfVisitor(
+	context: Array<string>,
+	contract: any,
+	callback: (context: Array<string>, o: Record<string, any>) => Generator<string>
+): Generator<string> {
+	if (contract.oneOf) {
+		// This is a oneOf, so call the callback function and yield
+		// the result. For simplicity's sake, we don't allow nesting of oneOf
+		// values.
+		yield* callback(context, contract);
+	} else if (Array.isArray(contract)) {
+		// If this object is an array, recurse into each item
+		for (const item of contract) {
+			yield* oneOfVisitor(context, item, callback);
+		}
+	} else if (typeof contract === 'object') {
+		// If this object is an object, recurse into each property
+		for (const key of Object.keys(contract)) {
+			if (key === 'schema' || key === 'schemas' || key === 'components') {
+				// In these scenarios, we drop the parent context
+				yield* oneOfVisitor(context, contract[key], callback);
+			} else {
+				yield* oneOfVisitor(
+					[key, ...context], contract[key], callback);
+			}
+		}
+	}
+}
+
+/**
  * Create a Rust comm for a given OpenRPC contract.
  *
  * @param name The name of the comm
@@ -447,7 +507,6 @@ use serde::Serialize;
 			yield '}\n\n';
 		});
 
-
 		// Create enums for all enum types
 		yield* enumVisitor([], source, function* (context: Array<string>, values: Array<string>) {
 			if (context.length === 1) {
@@ -471,6 +530,39 @@ use serde::Serialize;
 				yield `\t#[serde(rename = "${value}")]\n`;
 				yield `\t${snakeCaseToSentenceCase(value)}`;
 				if (i < values.length - 1) {
+					yield ',\n\n';
+				} else {
+					yield '\n';
+				}
+			}
+			yield '}\n\n';
+		});
+
+		// Create enums for all oneOf types for unions
+		yield* oneOfVisitor([], source, function* (context: Array<string>, o: Record<string, any>) {
+			if (context.length === 1) {
+				// Shared oneOf at the components.schemas level
+				yield formatComment(`/// `,
+					`Union type ` +
+					snakeCaseToSentenceCase(context[0]));
+				yield '#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]\n';
+				yield `pub enum ${snakeCaseToSentenceCase(context[0])} {\n`;
+			} else {
+				// Enum field within another interface
+				yield formatComment(`/// `,
+					`Union type ` +
+					snakeCaseToSentenceCase(context[0]) + ` in ` +
+					snakeCaseToSentenceCase(context[1]));
+				yield '#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]\n';
+				yield `pub enum ${snakeCaseToSentenceCase(context[1])}${snakeCaseToSentenceCase(context[0])} {\n`;
+			}
+			// TODO: require that unions be named
+			for (let i = 0; i < o.oneOf.length; i++) {
+				const option = o.oneOf[i];
+				const derivedType = deriveType(contracts, RustTypeMap, [option.name, ...context],
+					option);
+				yield `\t${snakeCaseToSentenceCase(option.name)}(${derivedType})`;
+				if (i < o.oneOf.length - 1) {
 					yield ',\n\n';
 				} else {
 					yield '\n';
@@ -697,7 +789,7 @@ from __future__ import annotations
 import enum
 from typing import Any, List, Literal, Optional, Union
 
-from ._vendor.pydantic import BaseModel, Field
+from ._vendor.pydantic import BaseModel, Field, StrictBool, StrictFloat, StrictInt, StrictStr
 
 `;
 
@@ -796,6 +888,30 @@ from ._vendor.pydantic import BaseModel, Field
 				yield `    )\n\n`;
 			}
 			yield '\n\n';
+		});
+
+		// Create declare out-of-line union types
+		yield* oneOfVisitor([], source, function* (
+			context: Array<string>,
+			o: Record<string, any>) {
+
+			let name = o.name ? o.name : context[0] === 'items' ? context[1] : context[0];
+			name = snakeCaseToSentenceCase(name);
+
+			// Document origin of union
+			if (context.length === 1) {
+				yield formatComment('# ', snakeCaseToSentenceCase(context[0]));
+			} else {
+				yield formatComment('# ', snakeCaseToSentenceCase(context[0]) + ' in ' +
+					snakeCaseToSentenceCase(context[1]));
+			}
+			yield `${name} = Union[`;
+			// Options
+			for (const schema of o.oneOf) {
+				yield deriveType(contracts, PythonStrictTypeMap, [schema.name, ...context], schema);
+				yield ', ';
+			}
+			yield ']\n';
 		});
 	}
 
@@ -1040,6 +1156,33 @@ import { IRuntimeClientInstance } from 'vs/workbench/services/languageRuntime/co
 				yield* createTypescriptInterface(contracts, context, name, description, o.properties,
 					o.required ? o.required : [], additionalProperties);
 			});
+
+		// Create declare out-of-line union types
+		yield* oneOfVisitor([], source, function* (
+			context: Array<string>,
+			o: Record<string, any>) {
+
+			let name = o.name ? o.name : context[0] === 'items' ? context[1] : context[0];
+			name = snakeCaseToSentenceCase(name);
+
+			// Document origin of union
+			if (context.length === 1) {
+				yield formatComment('/// ', snakeCaseToSentenceCase(context[0]));
+			} else {
+				yield formatComment('/// ', snakeCaseToSentenceCase(context[0]) + ' in ' +
+					snakeCaseToSentenceCase(context[1]));
+			}
+			yield `export type ${name} = `;
+			// Options
+			for (let i = 0; i < o.oneOf.length; i++) {
+				const schema = o.oneOf[i];
+				yield deriveType(contracts, TypescriptTypeMap, [schema.name, ...context], schema);
+				if (i < o.oneOf.length - 1) {
+					yield ' | ';
+				}
+			}
+			yield ';\n\n';
+		});
 
 		// Create enums for all enum types
 		yield* enumVisitor([], source, function* (context: Array<string>, values: Array<string>) {
