@@ -42,7 +42,7 @@ export class PythonPathUpdaterService implements IPythonPathUpdaterServiceManage
             traceError(reason);
         }
         // --- Start Positron ---
-        // If the interpreter path is set, make it the active interpreter in the Positron console.
+        // If the interpreter path is set, ensure that it's the active interpreter in the Positron console.
         if (pythonPath) {
             this.pythonRuntimeManager.selectLanguageRuntimeFromPath(pythonPath).catch((ex) => {
                 traceError(`Failed to select language runtime for path ${pythonPath}. ${ex}`);

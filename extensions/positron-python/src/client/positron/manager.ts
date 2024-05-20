@@ -10,7 +10,7 @@ import * as path from 'path';
 import * as fs from 'fs-extra';
 
 import { Event, EventEmitter } from 'vscode';
-import { inject } from 'inversify';
+import { inject, injectable } from 'inversify';
 import { IServiceContainer } from '../ioc/types';
 import { pythonRuntimeDiscoverer } from './discoverer';
 import { IInterpreterService } from '../interpreter/contracts';
@@ -36,6 +36,7 @@ export interface IPythonRuntimeManager extends positron.LanguageRuntimeManager {
  * Provides Python language runtime metadata and sessions to Positron;
  * implements positron.LanguageRuntimeManager.
  */
+@injectable()
 export class PythonRuntimeManager implements IPythonRuntimeManager {
     /**
      * A map of Python interpreter paths to their language runtime metadata.

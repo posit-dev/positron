@@ -24,10 +24,17 @@ type Positron = typeof positron;
 
 // Create the mocked Positron API; a partial type of Positron (all attributes are optional).
 const mockedPositron: Partial<Positron> = {};
+export const mockedPositronNamespaces: { [P in keyof Positron]?: Positron[P] } = {};
 
 // TODO(seem): mockedPositron is currently empty. We can update it as needed as we add tests.
 
 import { patchMockingLibs } from './positron/initialize';
+
+function generatePositronMock<K extends keyof Positron>(name: K): void {
+    const mockedObj = mock<Positron[K]>();
+    (mockedPositron as any)[name] = instance(mockedObj);
+    mockedPositronNamespaces[name] = mockedObj;
+}
 // --- End Positron ---
 
 function generateMock<K extends keyof VSCode>(name: K): void {
@@ -70,6 +77,15 @@ export function initialize() {
     when(contributes.debuggers).thenReturn([{ aiKey: '' }]);
     when(mockedVSCodeNamespaces.extensions!.getExtension(anything())).thenReturn(instance(extension));
     when(mockedVSCodeNamespaces.extensions!.all).thenReturn([]);
+
+    // --- Start Positron ---
+    generatePositronMock('languages');
+    generatePositronMock('methods');
+    generatePositronMock('runtime');
+    generatePositronMock('window');
+
+    generatePositronMock('RuntimeState');
+    // --- End Positron ---
 
     // When upgrading to npm 9-10, this might have to change, as we could have explicit imports (named imports).
     Module._load = function (request: any, _parent: any) {
