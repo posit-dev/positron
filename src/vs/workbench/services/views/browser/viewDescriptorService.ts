@@ -22,6 +22,12 @@ import { localize, localize2 } from 'vs/nls';
 import { IStringDictionary } from 'vs/base/common/collections';
 import { ILogger, ILoggerService } from 'vs/platform/log/common/log';
 import { Lazy } from 'vs/base/common/lazy';
+// --- Start Positron ---
+import { layoutDescriptionToViewInfo } from 'vs/workbench/browser/positronCustomViews';
+import { IPaneCompositePartService } from 'vs/workbench/services/panecomposite/browser/panecomposite';
+import { PaneCompositeBar } from 'vs/workbench/browser/parts/paneCompositeBar';
+import { CustomPositronLayoutDescription } from 'vs/workbench/common/positronCustomViews';
+// --- End Positron ---
 
 interface IViewsCustomizations {
 	viewContainerLocations: IStringDictionary<ViewContainerLocation>;
@@ -75,6 +81,9 @@ export class ViewDescriptorService extends Disposable implements IViewDescriptor
 		@IExtensionService private readonly extensionService: IExtensionService,
 		@ITelemetryService private readonly telemetryService: ITelemetryService,
 		@ILoggerService loggerService: ILoggerService,
+		// --- Start Positron ---
+		@IPaneCompositePartService private readonly paneCompositePartService: IPaneCompositePartService,
+		// --- End Positron ---
 	) {
 		super();
 
@@ -595,6 +604,145 @@ export class ViewDescriptorService extends Disposable implements IViewDescriptor
 		this.viewDescriptorsCustomLocations = newViewDescriptorCustomizations;
 	}
 
+	// --- Start Positron ---
+	async loadCustomViewDescriptor(vc: CustomPositronLayoutDescription): Promise<void> {
+		// A large amount of this logic is duplicated from onDidViewCustomizationsStorageChange with
+		// the change that we supply the view container customizations instead of using the one in
+		// state. At the end of the function we also do more custom stuff with the ordering of views
+		// within containers.
+
+		const newViewInfo = layoutDescriptionToViewInfo(vc);
+		const newViewContainerCustomizations = newViewInfo.viewContainerLocations;
+		const newViewDescriptorCustomizations = newViewInfo.viewDescriptorCustomizations;
+		const viewContainersToMove: [ViewContainer, ViewContainerLocation][] = [];
+		const viewsToMove: { views: IViewDescriptor[]; from: ViewContainer; to: ViewContainer }[] = [];
+
+		for (const [containerId, location] of newViewContainerCustomizations.entries()) {
+			const container = this.getViewContainerById(containerId);
+			if (container) {
+				if (location !== this.getViewContainerLocation(container)) {
+					viewContainersToMove.push([container, location]);
+				}
+			}
+			// If the container is generated and not registered, we register it now
+			else if (this.isGeneratedContainerId(containerId)) {
+				this.registerGeneratedViewContainer(location, containerId);
+			}
+		}
+
+		for (const viewContainer of this.viewContainers) {
+			if (!newViewContainerCustomizations.has(viewContainer.id)) {
+				const currentLocation = this.getViewContainerLocation(viewContainer);
+				const defaultLocation = this.getDefaultViewContainerLocation(viewContainer);
+				if (currentLocation !== defaultLocation) {
+					viewContainersToMove.push([viewContainer, defaultLocation]);
+				}
+			}
+		}
+
+		for (const [viewId, viewContainerId] of newViewDescriptorCustomizations.entries()) {
+			const viewDescriptor = this.getViewDescriptorById(viewId);
+			if (viewDescriptor) {
+				const prevViewContainer = this.getViewContainerByViewId(viewId);
+				const newViewContainer = this.viewContainersRegistry.get(viewContainerId);
+				if (prevViewContainer && newViewContainer && newViewContainer !== prevViewContainer) {
+					viewsToMove.push({ views: [viewDescriptor], from: prevViewContainer, to: newViewContainer });
+				}
+			}
+		}
+
+		// If a value is not present in the cache, it must be reset to default
+		for (const viewContainer of this.viewContainers) {
+			const viewContainerModel = this.getViewContainerModel(viewContainer);
+			for (const viewDescriptor of viewContainerModel.allViewDescriptors) {
+				if (!newViewDescriptorCustomizations.has(viewDescriptor.id)) {
+					const currentContainer = this.getViewContainerByViewId(viewDescriptor.id);
+					const defaultContainer = this.getDefaultContainerById(viewDescriptor.id);
+					if (currentContainer && defaultContainer && currentContainer !== defaultContainer) {
+						viewsToMove.push({ views: [viewDescriptor], from: currentContainer, to: defaultContainer });
+					}
+				}
+			}
+		}
+
+		// Execute View Container Movements
+		for (const [container, location] of viewContainersToMove) {
+			this.moveViewContainerToLocationWithoutSaving(container, location);
+		}
+		// Execute View Movements
+		for (const { views, from, to } of viewsToMove) {
+			this.moveViewsWithoutSaving(views, from, to, ViewVisibilityState.Default);
+		}
+
+		this.viewContainersCustomLocations = newViewContainerCustomizations;
+		this.viewDescriptorsCustomLocations = newViewDescriptorCustomizations;
+
+		// Order view containers within each pane location
+		for (const [part, info] of Object.entries(vc)) {
+
+			const viewContainers = info.viewContainers;
+			const partCompositeBar = PaneCompositeBar.compositeBarByPart.get(part);
+			if (!partCompositeBar || !viewContainers) { continue; }
+
+			for (let i = 0; i < viewContainers.length; i++) {
+				const { id: containerId, views } = viewContainers[i];
+
+				const existingContainerOrder = partCompositeBar.getVisibleComposites();
+
+				const viewAtDesiredIndex = existingContainerOrder[i].id;
+				if (viewAtDesiredIndex !== containerId) {
+					partCompositeBar.move(containerId, viewAtDesiredIndex);
+				}
+
+				if (!views) { continue; }
+
+				const viewContainer = this.getViewContainerById(containerId);
+				if (!viewContainer) { continue; }
+				const paneComposite = await this.paneCompositePartService.openPaneComposite(
+					viewContainer.id,
+					this.getViewContainerLocation(viewContainer),
+					false
+				);
+				const viewPaneContainer = paneComposite?.getViewPaneContainer() as ViewPaneContainer | undefined;
+				if (!viewPaneContainer) { continue; }
+
+				const model = this.getViewContainerModel(viewContainer);
+
+				// Move each view to the correct location
+				for (let j = 0; j < views.length; j++) {
+					const view = views[j];
+
+					// This physically moves the view
+					try {
+						viewPaneContainer.movePaneToIndex(view.id, j);
+					} catch (e) {
+						this.logger.value.error('Error moving view', e);
+					}
+
+					const viewDescriptor = model.visibleViewDescriptors.find(vd => vd.id === view.id)!;
+					const newPosition = model.visibleViewDescriptors[j];
+					if (viewDescriptor.id === newPosition.id) { continue; }
+
+					// This updates the model so the view is in the correct position on a restart
+					model.move(viewDescriptor.id, newPosition.id);
+				}
+
+				// Resize panes within the container now they've been ordered properly.
+				viewPaneContainer.resizePanes(views);
+			}
+		}
+		// Save updated view customizations
+		this.saveViewCustomizations();
+	}
+
+	// Helper function to make it easier to develop custom views.
+	// dumpViewCustomizations() {
+	// 	return {
+	// 		viewContainerLocations: this.viewCustomizations.viewContainerLocations,
+	// 		viewOrder: viewLocationsToViewOrder(this.viewCustomizations.viewLocations),
+	// 	};
+	// }
+	// --- End Positron ---
 	// Generated Container Id Format
 	// {Common Prefix}.{Location}.{Uniqueness Id}
 	// Old Format (deprecated)

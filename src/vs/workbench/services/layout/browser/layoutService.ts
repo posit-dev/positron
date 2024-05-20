@@ -15,6 +15,10 @@ import { CustomTitleBarVisibility, TitleBarSetting, getMenuBarVisibility, hasCus
 import { isFullscreen, isWCOEnabled } from 'vs/base/browser/browser';
 import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
 import { IDisposable } from 'vs/base/common/lifecycle';
+// --- Start Positron ---
+import { PartViewInfo } from 'vs/workbench/browser/positronCustomViews';
+import { CustomPositronLayoutDescription, KnownPositronLayoutParts } from 'vs/workbench/common/positronCustomViews';
+// --- End Positron ---
 
 export const IWorkbenchLayoutService = refineServiceDecorator<ILayoutService, IWorkbenchLayoutService>(ILayoutService);
 
@@ -301,6 +305,23 @@ export interface IWorkbenchLayoutService extends ILayoutService {
 	 * Toggles the workbench in and out of zen mode - parts get hidden and window goes fullscreen.
 	 */
 	toggleZenMode(): void;
+	// --- Start Positron ---
+	/**
+	 * Enter or exit four-pane data science mode
+	 */
+	enterCustomLayout(layout: CustomPositronLayoutDescription): void;
+
+	/**
+	 * Get the current layout definition for saving to custom layouts
+	 */
+	// dumpCurrentLayout(): CustomPositronLayoutDescription;
+
+	/**
+	 * Gather information about a part for use in creating a custom layout
+	 * @param part Part to get the view info for. E.g. the Panel or Sidebar
+	 */
+	getPartViewInfo(part: KnownPositronLayoutParts): PartViewInfo;
+	// --- End Positron ---
 
 	/**
 	 * Returns whether the centered editor layout is active on the main editor part.

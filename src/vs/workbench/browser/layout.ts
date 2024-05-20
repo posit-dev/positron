@@ -52,6 +52,9 @@ import { CustomTitleBarVisibility } from '../../platform/window/common/window';
 
 // --- Start Positron ---
 import { IPositronTopActionBarService } from 'vs/workbench/services/positronTopActionBar/browser/positronTopActionBarService';
+import { PartViewInfo } from 'vs/workbench/browser/positronCustomViews';
+import { AbstractPaneCompositePart } from 'vs/workbench/browser/parts/paneCompositePart';
+import { CustomPositronLayoutDescription, KnownPositronLayoutParts, PartLayoutDescription } from 'vs/workbench/common/positronCustomViews';
 // --- End Positron ---
 
 //#region Layout Implementation
@@ -1385,6 +1388,82 @@ export abstract class Layout extends Disposable implements IWorkbenchLayoutServi
 		this.stateModel.setRuntimeValue(LayoutStateKeys.ZEN_MODE_ACTIVE, active);
 	}
 
+	// --- Start Positron ---
+	getPartViewInfo(part: KnownPositronLayoutParts): PartViewInfo {
+		const mainClasses = this.mainContainer.classList;
+
+		switch (part) {
+			case 'workbench.parts.sidebar':
+				return {
+					partView: this.sideBarPartView,
+					currentSize: this.workbenchGrid.getViewSize(this.sideBarPartView),
+					hidden: mainClasses.contains(LayoutClasses.SIDEBAR_HIDDEN),
+					hideFn: this.setSideBarHidden.bind(this),
+				};
+			case 'workbench.parts.panel':
+				return {
+					partView: this.panelPartView,
+					currentSize: this.workbenchGrid.getViewSize(this.panelPartView),
+					alignment: this.getPanelAlignment(),
+					hidden: mainClasses.contains(LayoutClasses.PANEL_HIDDEN),
+					hideFn: this.setPanelHidden.bind(this),
+				};
+			case 'workbench.parts.auxiliarybar':
+				return {
+					partView: this.auxiliaryBarPartView,
+					currentSize: this.workbenchGrid.getViewSize(this.auxiliaryBarPartView),
+					hidden: mainClasses.contains(LayoutClasses.AUXILIARYBAR_HIDDEN),
+					hideFn: this.setAuxiliaryBarHidden.bind(this),
+				};
+		}
+	}
+
+	private _setCustomPartSize(part: KnownPositronLayoutParts, { hidden, size, viewContainers = [] }: PartLayoutDescription) {
+		const { partView, hideFn, currentSize } = this.getPartViewInfo(part);
+
+		if (size !== undefined) {
+			const dimensionToBeSized = ({
+				[Parts.PANEL_PART]: 'height',
+				[Parts.SIDEBAR_PART]: 'width',
+				[Parts.AUXILIARYBAR_PART]: 'width',
+			} satisfies Record<KnownPositronLayoutParts, 'width' | 'height'>)[part];
+
+			if (typeof size === 'string') {
+				// Need to convert the percentage to a number relative to the viewport.
+				const viewportDimension = this.getContainerDimension(this.mainContainer)[dimensionToBeSized];
+				size = Math.floor(viewportDimension * parseFloat(size) / 100);
+			}
+
+			const newSize = { width: currentSize.width, height: currentSize.height };
+			newSize[dimensionToBeSized] = size;
+
+			this.workbenchGrid.resizeView(partView, newSize);
+		}
+
+		// Make sure the requested view container is visible
+		const openedContainer = viewContainers.find(vc => vc.opened);
+		if (openedContainer) {
+			(partView as AbstractPaneCompositePart).openPaneComposite(openedContainer.id);
+		}
+
+		// If we try and resize after we run this then we risk re-opening the panel.
+		hideFn(hidden, true);
+	}
+
+	enterCustomLayout(layout: CustomPositronLayoutDescription) {
+
+		this._setCustomPartSize(Parts.SIDEBAR_PART, layout[Parts.SIDEBAR_PART]);
+		this._setCustomPartSize(Parts.PANEL_PART, layout[Parts.PANEL_PART]);
+		const alignment = layout[Parts.PANEL_PART].alignment;
+		if (alignment) {
+			this.setPanelAlignment(alignment);
+		}
+		this._setCustomPartSize(Parts.AUXILIARYBAR_PART, layout[Parts.AUXILIARYBAR_PART]);
+
+		// Trigger layout refresh to reflect new settings.
+		this.layout();
+	}
+	// --- End Positron ---
 	toggleZenMode(skipLayout?: boolean, restoring = false): void {
 		this.setZenModeActive(!this.isZenModeActive());
 		this.state.runtime.zenMode.transitionDisposables.clearAndDisposeAll();
