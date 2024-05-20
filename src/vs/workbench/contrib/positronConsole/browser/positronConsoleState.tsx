@@ -21,6 +21,7 @@ import { IPositronConsoleInstance, IPositronConsoleService } from 'vs/workbench/
 import { IRuntimeSessionService } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
 import { IRuntimeStartupService } from 'vs/workbench/services/runtimeStartup/common/runtimeStartupService';
 import { IContextKeyService } from 'vs/platform/contextkey/common/contextkey';
+import { ICommandService } from 'vs/platform/commands/common/commands';
 
 /**
  * PositronConsoleServices interface. Defines the set of services that are required by the Positron
@@ -43,6 +44,7 @@ export interface PositronConsoleServices extends PositronActionBarServices {
 	readonly viewsService: IViewsService;
 	readonly workbenchLayoutService: IWorkbenchLayoutService;
 	readonly contextKeyService: IContextKeyService;
+	readonly commandService: ICommandService;
 }
 
 /**
