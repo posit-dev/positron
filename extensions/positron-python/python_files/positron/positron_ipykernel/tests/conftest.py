@@ -2,7 +2,6 @@
 # Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
 #
 
-from typing import Iterable
 from unittest.mock import MagicMock, Mock
 
 import comm
@@ -42,9 +41,7 @@ def patch_create_comm(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(comm, "create_comm", DummyComm)
 
 
-# Enable autouse to ensure that the kernel is instantiated with the correct shell_class before
-# anyone else tries to instantiate it.
-@pytest.fixture(autouse=True)
+@pytest.fixture
 def kernel() -> PositronIPyKernel:
     """
     The Positron kernel, configured for testing purposes.
@@ -57,16 +54,24 @@ def kernel() -> PositronIPyKernel:
     # Positron-specific attributes:
     app.session_mode = SessionMode.CONSOLE
 
-    kernel = PositronIPyKernel.instance(parent=app)
+    try:
+        kernel = PositronIPyKernel.instance(parent=app)
+    except Exception:
+        print(
+            "Error instantiating PositronIPyKernel. Did you import IPython.conftest, "
+            "which instantiates a different kernel class?"
+        )
+        raise
 
     return kernel
 
 
-# Enable autouse to ensure a clean namespace and correct user_ns_hidden in every test,
-# even if it doesn't explicitly use the `shell` fixture.
-@pytest.fixture(autouse=True)
-def shell() -> Iterable[PositronShell]:
+@pytest.fixture
+def shell() -> PositronShell:
     shell = PositronShell.instance()
+
+    # Ensure a clean namespace
+    shell.reset()
 
     # TODO: For some reason these vars are in user_ns but not user_ns_hidden during tests. For now,
     #       manually add them to user_ns_hidden to replicate running in Positron.
@@ -86,10 +91,7 @@ def shell() -> Iterable[PositronShell]:
         }
     )
 
-    yield shell
-
-    # Reset the namespace so we don't interface with other tests (e.g. environment updates).
-    shell.reset()
+    return shell
 
 
 @pytest.fixture

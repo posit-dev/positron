@@ -39,7 +39,8 @@ BIG_ARRAY_LENGTH = 10_000_001
 TARGET_NAME = "target_name"
 
 
-def test_comm_open(kernel: PositronIPyKernel) -> None:
+# Depend on shell fixture for a clean namespace
+def test_comm_open(kernel: PositronIPyKernel, shell) -> None:
     service = VariablesService(kernel)
 
     # Double-check that comm is not yet open
@@ -390,7 +391,8 @@ def test_handle_inspect_2d(
         _assert_inspect(value[key], ["x", key], variables_comm)
 
 
-def test_handle_inspect_error(variables_comm: DummyComm) -> None:
+# Depend on shell fixture for a clean namespace
+def test_handle_inspect_error(variables_comm: DummyComm, shell) -> None:
     path = [encode_access_key("x")]
     # TODO(pyright): We shouldn't need to cast; may be a pyright bug
     msg = json_rpc_request("inspect", cast(JsonRecord, {"path": path}), comm_id="dummy_comm_id")
@@ -421,7 +423,8 @@ def test_handle_clipboard_format(shell: PositronShell, variables_comm: DummyComm
     assert variables_comm.messages == [json_rpc_response({"content": "3"})]
 
 
-def test_handle_clipboard_format_error(variables_comm: DummyComm) -> None:
+# Depend on shell fixture for a clean namespace
+def test_handle_clipboard_format_error(variables_comm: DummyComm, shell) -> None:
     path = [encode_access_key("x")]
     # TODO(pyright): We shouldn't need to cast; may be a pyright bug
     msg = json_rpc_request(
@@ -456,7 +459,8 @@ def test_handle_view(
     assert_register_table_called(mock_dataexplorer_service, shell.user_ns["x"], "x")
 
 
-def test_handle_view_error(variables_comm: DummyComm) -> None:
+# Depend on shell fixture for a clean namespace
+def test_handle_view_error(variables_comm: DummyComm, shell) -> None:
     path = [encode_access_key("x")]
     # TODO(pyright): We shouldn't need to cast; may be a pyright bug
     msg = json_rpc_request("view", cast(JsonRecord, {"path": path}), comm_id="dummy_comm_id")
