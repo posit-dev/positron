@@ -20,7 +20,7 @@ import { splitRecentLabel } from 'vs/base/common/labels';
 import { DisposableStore, toDisposable } from 'vs/base/common/lifecycle';
 import { ILink, LinkedText } from 'vs/base/common/linkedText';
 import { parse } from 'vs/base/common/marshalling';
-import { Schemas, matchesScheme } from 'vs/base/common/network';
+import { FileAccess, Schemas, matchesScheme } from 'vs/base/common/network';
 import { isMacintosh } from 'vs/base/common/platform';
 import { ThemeIcon } from 'vs/base/common/themables';
 import { assertIsDefined } from 'vs/base/common/types';
@@ -837,8 +837,9 @@ export class GettingStartedPage extends EditorPane {
 			$('h1.product-name.positron.caption', {}, this.productService.nameLong),
 			$('p.subtitle.positron.description', {}, localize({ key: 'gettingStarted.editingEvolved', comment: ['Shown as subtitle on the Welcome page.'] }, "an IDE for data science"))
 		);
+		const logoPath = FileAccess.asBrowserUri('vs/workbench/contrib/welcomeGettingStarted/common/media/positronLogo.svg');
 		const header = $('.header', {},
-			$('span.product-logo.codicon.codicon-positron-logo.welcome-positron-logo'),
+			$('img.product-logo.welcome-positron-logo', { src: logoPath }),
 			headerText
 		);
 
