@@ -8,6 +8,7 @@
 import abc
 import logging
 import operator
+from datetime import datetime
 from typing import (
     TYPE_CHECKING,
     Callable,
@@ -708,7 +709,7 @@ class PandasView(DataExplorerTableView):
 
             try:
                 single_mask = self._eval_filter(filt)
-            except Exception as e:
+            except ValueError as e:
                 had_errors = True
 
                 # Filter fails: we capture the error message and mark
@@ -782,8 +783,11 @@ class PandasView(DataExplorerTableView):
 
     def _eval_filter(self, filt: RowFilter):
         column_index = filt.column_schema.column_index
-
         col = self.table.iloc[:, column_index]
+
+        dtype = col.dtype
+        inferred_type = self._get_inferred_dtype(column_index)
+
         mask = None
         if filt.filter_type in (
             RowFilterType.Between,
@@ -791,8 +795,8 @@ class PandasView(DataExplorerTableView):
         ):
             params = filt.between_params
             assert params is not None
-            left_value = _coerce_value_param(params.left_value, col.dtype)
-            right_value = _coerce_value_param(params.right_value, col.dtype)
+            left_value = _pandas_coerce_value(params.left_value, dtype, inferred_type)
+            right_value = _pandas_coerce_value(params.right_value, dtype, inferred_type)
             if filt.filter_type == RowFilterType.Between:
                 mask = (col >= left_value) & (col <= right_value)
             else:
@@ -806,7 +810,7 @@ class PandasView(DataExplorerTableView):
                 raise ValueError(f"Unsupported filter type: {params.op}")
             op = COMPARE_OPS[params.op]
             # pandas comparison filters return False for null values
-            mask = op(col, _coerce_value_param(params.value, col.dtype))
+            mask = op(col, _pandas_coerce_value(params.value, dtype, inferred_type))
         elif filt.filter_type == RowFilterType.IsEmpty:
             mask = col.str.len() == 0
         elif filt.filter_type == RowFilterType.IsNull:
@@ -822,7 +826,7 @@ class PandasView(DataExplorerTableView):
         elif filt.filter_type == RowFilterType.SetMembership:
             params = filt.set_membership_params
             assert params is not None
-            boxed_values = pd_.Series(params.values).astype(col.dtype)
+            boxed_values = pd_.Series(params.values).astype(dtype)
             # IN
             mask = col.isin(boxed_values)
             if not params.inclusive:
@@ -832,9 +836,7 @@ class PandasView(DataExplorerTableView):
             params = filt.search_params
             assert params is not None
 
-            col_inferred_type = self._get_inferred_dtype(column_index)
-
-            if col_inferred_type != "string":
+            if inferred_type != "string":
                 col = col.astype(str)
 
             term = params.term
@@ -1039,10 +1041,52 @@ COMPARE_OPS = {
 }
 
 
-def _coerce_value_param(value, dtype):
-    # Let pandas decide how to coerce the string we got from the UI
-    dummy = pd_.Series([value]).astype(dtype)
-    return dummy.iloc[0]
+def _pandas_coerce_value(value, dtype, inferred_type):
+    import pandas.api.types as pat
+
+    if pat.is_integer_dtype(dtype):
+        # For integer types, try to coerce to integer, but if this
+        # fails, allow a looser conversion to float
+        try:
+            return int(value)
+        except ValueError as e1:
+            try:
+                return pd_.Series([value], dtype="float64").iloc[0]
+            except ValueError:
+                raise e1
+    elif pat.is_bool_dtype(dtype):
+        lvalue = value.lower()
+        if lvalue == "true":
+            return True
+        elif lvalue == "false":
+            return False
+        else:
+            raise ValueError(f"Unable to convert {value} to boolean")
+    elif "datetime" in inferred_type:
+        return _parse_iso8601_like(value)
+    else:
+        # As a fallback, let Series.astype do the coercion
+        dummy = pd_.Series([value])
+        if dummy.dtype != dtype:
+            dummy = dummy.astype(dtype)
+        return dummy.iloc[0]
+
+
+_ISO_8601_FORMATS = [
+    "%Y-%m-%d %H:%M:%S",
+    "%Y-%m-%d %H:%M",
+    "%Y-%m-%d",
+]
+
+
+def _parse_iso8601_like(x):
+    for fmt in _ISO_8601_FORMATS:
+        try:
+            return datetime.strptime(x, fmt)
+        except ValueError:
+            continue
+
+    raise ValueError(f'"{x}" not ISO8601 YYYY-MM-DD HH:MM:SS format')
 
 
 class PolarsView(DataExplorerTableView):
