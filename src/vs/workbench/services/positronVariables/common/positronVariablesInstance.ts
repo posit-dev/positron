@@ -576,7 +576,7 @@ export class PositronVariablesInstance extends Disposable implements IPositronVa
 			// Create the variable item. Mark it as recent if it was just
 			// assigned and we're highlighting recent values.
 			const variableItem = new VariableItem(environmentVariable,
-				this._highlightRecent);
+				environmentVariable.evaluated && this._highlightRecent);
 
 			// Add the variable item.
 			this._variableItems.set(variableItem.accessKey, variableItem);
