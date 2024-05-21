@@ -18,12 +18,12 @@ on:
       - '.github/workflows/positron-python-nightly-ci.yml'
       - 'extensions/positron-python/**'
   # to help develop this CI suite, temporary --- end ---
-  # schedule:
-  #   - cron: "0 2 * * 1-5"
-  #   displayName: Nightly Python CI
-  #   branches:
-  #     include:
-  #       - main
+  schedule:
+    - cron: "0 2 * * 1-5"
+
+defaults:
+ run:
+  working-directory: 'extensions/positron-python'
 
 env:
   NODE_VERSION: '18.17.1'
