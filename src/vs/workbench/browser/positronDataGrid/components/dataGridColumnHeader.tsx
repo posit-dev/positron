@@ -73,13 +73,13 @@ export const DataGridColumnHeader = (props: DataGridColumnHeaderProps) => {
 		const columnSortKey = context.instance.columnSortKey(props.columnIndex);
 
 		// Show the context menu.
-		await showContextMenu(
-			context.keybindingService,
-			context.layoutService,
-			sortingButtonRef.current,
-			'right',
-			200,
-			[
+		await showContextMenu({
+			keybindingService: context.keybindingService,
+			layoutService: context.layoutService,
+			anchor: sortingButtonRef.current,
+			popupPosition: 'auto',
+			popupAlignment: 'right',
+			entries: [
 				new ContextMenuItem({
 					checked: columnSortKey !== undefined && columnSortKey.ascending,
 					label: sortAscendingTitle,
@@ -109,7 +109,7 @@ export const DataGridColumnHeader = (props: DataGridColumnHeaderProps) => {
 				}),
 				...context.instance.columnContextMenuEntries(props.columnIndex)
 			]
-		);
+		});
 	};
 
 	// Get the column sort key.

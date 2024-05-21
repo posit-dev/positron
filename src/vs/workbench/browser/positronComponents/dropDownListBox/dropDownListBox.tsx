@@ -180,8 +180,8 @@ const DropDownListBoxModalPopup = <T, V,>(props: DropDownListBoxModalPopupProps<
 			anchor={props.anchor}
 			popupPosition='bottom'
 			popupAlignment='left'
-			minWidth={props.anchor.offsetWidth}
 			width={'max-content'}
+			minWidth={props.anchor.offsetWidth}
 			height={'min-content'}
 			keyboardNavigation='menu'
 		>

@@ -4,9 +4,10 @@
 
 .context-menu-items {
 	width: 100%;
-	margin: 4px;
+	padding: 4px;
 	display: flex;
 	flex-direction: column;
+	box-sizing: border-box;
 	background: var(--vscode-positronContextMenu-background);
 }
 

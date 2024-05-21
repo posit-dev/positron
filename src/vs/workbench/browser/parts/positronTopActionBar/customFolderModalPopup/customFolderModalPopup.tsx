@@ -49,8 +49,8 @@ export const CustomFolderModalPopup = (props: CustomFolderModalPopupProps) => {
 			anchor={props.anchor}
 			popupPosition='bottom'
 			popupAlignment='right'
-			minWidth={275}
 			width={'max-content'}
+			minWidth={275}
 			height={'min-content'}
 			keyboardNavigation='menu'
 		>

@@ -191,14 +191,15 @@ export const RowFilterBar = () => {
 		}));
 
 		// Show the context menu.
-		await showContextMenu(
-			context.keybindingService,
-			context.layoutService,
-			rowFilterButtonRef.current,
-			'left',
-			200,
+		await showContextMenu({
+			keybindingService: context.keybindingService,
+			layoutService: context.layoutService,
+			anchor: rowFilterButtonRef.current,
+			popupPosition: 'auto',
+			popupAlignment: 'left',
+			minWidth: 175,
 			entries
-		);
+		});
 	};
 
 	/**
