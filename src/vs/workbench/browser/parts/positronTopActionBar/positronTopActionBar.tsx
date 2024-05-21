@@ -19,6 +19,7 @@ import { IQuickInputService } from 'vs/platform/quickinput/common/quickInput';
 import { IWorkspacesService } from 'vs/platform/workspaces/common/workspaces';
 import { CommandCenter } from 'vs/platform/commandCenter/common/commandCenter';
 import { IWorkspaceContextService } from 'vs/platform/workspace/common/workspace';
+import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
 import { PositronActionBar } from 'vs/platform/positronActionBar/browser/positronActionBar';
 import { ActionBarRegion } from 'vs/platform/positronActionBar/browser/components/actionBarRegion';
 import { ActionBarSeparator } from 'vs/platform/positronActionBar/browser/components/actionBarSeparator';
@@ -66,6 +67,7 @@ export interface IPositronTopActionBarContainer {
  * Positron top action bar.
  */
 export interface PositronTopActionBarServices extends PositronActionBarServices {
+	configurationService: IConfigurationService;
 	hostService: IHostService;
 	labelService: ILabelService;
 	languageRuntimeService: ILanguageRuntimeService;
