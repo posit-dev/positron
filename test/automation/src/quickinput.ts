@@ -25,12 +25,9 @@ export class QuickInput {
 		await this.code.waitForSetValue(QuickInput.QUICK_INPUT_INPUT, value);
 	}
 
-	// --- Start Positron ---
-	// Updated to return the focused element text instead of void.
-	async waitForQuickInputElementFocused(): Promise<string> {
-		return await this.code.waitForTextContent(QuickInput.QUICK_INPUT_FOCUSED_ELEMENT);
+	async waitForQuickInputElementFocused(): Promise<void> {
+		await this.code.waitForTextContent(QuickInput.QUICK_INPUT_FOCUSED_ELEMENT);
 	}
-	// --- End Positron ---
 
 	async waitForQuickInputElementText(): Promise<string> {
 		return this.code.waitForTextContent(QuickInput.QUICK_INPUT_ENTRY_LABEL_SPAN);
@@ -59,4 +56,10 @@ export class QuickInput {
 			await this.waitForQuickInputClosed();
 		}
 	}
+	// --- Start Positron ---
+	async selectQuickInputElementContaining(contains: string): Promise<void> {
+		const selector = `${QuickInput.QUICK_INPUT_ROW}[aria-label*="${contains}"]`;
+		await this.code.waitAndClick(selector);
+	}
+	// --- End Positron ---
 }

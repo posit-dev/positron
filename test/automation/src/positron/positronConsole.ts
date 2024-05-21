@@ -33,20 +33,10 @@ export class PositronConsole {
 		await this.quickinput.waitForQuickInputOpened();
 		await this.quickinput.type(desiredInterpreterString);
 
-		// The Python select interpreter command may include additional items above the desired
-		// interpreter string, if the interpreter is registered after the command is run.
-		// In that case, we have to scroll down to select the desired interpreter.
-
-		// Wait until the desired interpreter string appears in the list.
-		await this.quickinput.waitForQuickInputElements(elements =>
-			!!elements && !!elements.find(e => e === desiredInterpreterString)
-		);
-
-		// Select the desired interpreter string.
-		while (await this.quickinput.waitForQuickInputElementFocused() !== desiredInterpreterString) {
-			await this.code.dispatchKeybinding('down');
-		}
-		await this.code.dispatchKeybinding('enter');
+		// Wait until the desired interpreter string appears in the list and select it.
+		// We need to click instead of using 'enter' because the Python select interpreter command
+		// may include additional items above the desired interpreter string.
+		await this.quickinput.selectQuickInputElementContaining(desiredInterpreterString);
 		await this.quickinput.waitForQuickInputClosed();
 	}
 
