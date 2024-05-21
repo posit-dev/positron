@@ -62,7 +62,8 @@ export class QuickInput {
 		try {
 			await this.code.waitAndClick(selector);
 		} catch (ex) {
-			// Show a more helpful error message.
+			// Show a more helpful error message by clearing the input and logging the list of items
+			await this.type('');
 			await this.waitForQuickInputElements((names) => {
 				console.error(`Could not find item containing '${contains}' in list: ${names}`);
 				return true;
