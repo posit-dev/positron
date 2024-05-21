@@ -68,8 +68,8 @@ def kernel() -> PositronIPyKernel:
 
 
 @pytest.fixture
-def shell() -> Iterable[PositronShell]:
-    shell = PositronShell.instance()
+def shell(kernel) -> Iterable[PositronShell]:
+    shell = PositronShell.instance(parent=kernel)
 
     # TODO: For some reason these vars are in user_ns but not user_ns_hidden during tests. For now,
     #       manually add them to user_ns_hidden to replicate running in Positron.

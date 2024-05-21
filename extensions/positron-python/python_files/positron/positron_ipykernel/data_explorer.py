@@ -99,9 +99,12 @@ class DataExplorerTableView(abc.ABC):
         self.table = table
 
         self.filters = filters if filters is not None else []
-        self.sort_keys = sort_keys if sort_keys is not None else []
+        self._set_sort_keys(sort_keys)
 
         self._need_recompute = len(self.filters) > 0 or len(self.sort_keys) > 0
+
+    def _set_sort_keys(self, sort_keys):
+        self.sort_keys = sort_keys if sort_keys is not None else []
 
     @abc.abstractmethod
     def _recompute(self):
@@ -302,10 +305,6 @@ class PandasView(DataExplorerTableView):
         # object is changed, this needs to be reset
         self._inferred_dtypes = {}
 
-        # We store the column schemas for each sort key to help with
-        # eviction later during updates
-        self._sort_key_schemas: List[ColumnSchema] = []
-
         # NumPy array of selected ("true") indices using filters. If
         # there are also sort keys, we first filter the unsorted data,
         # and then sort the filtered data only, for the optimistic
@@ -333,6 +332,15 @@ class PandasView(DataExplorerTableView):
             ColumnDisplayType.Number: self._summarize_number,
             ColumnDisplayType.String: self._summarize_string,
         }
+
+    def _set_sort_keys(self, sort_keys):
+        super()._set_sort_keys(sort_keys)
+
+        # We store the column schemas for each sort key to help with
+        # eviction later during updates
+        self._sort_key_schemas = [
+            self._get_single_column_schema(key.column_index) for key in self.sort_keys
+        ]
 
     def invalidate_computations(self):
         self.filtered_indices = self.view_indices = None
@@ -672,11 +680,7 @@ class PandasView(DataExplorerTableView):
             self._sort_data()
 
     def _set_sort_columns(self, sort_keys: List[ColumnSortKey]):
-        self.sort_keys = sort_keys
-
-        self._sort_key_schemas = [
-            self._get_single_column_schema(key.column_index) for key in sort_keys
-        ]
+        self._set_sort_keys(sort_keys)
 
         if not self._recompute_if_needed():
             # If a re-filter is pending, then it will automatically
