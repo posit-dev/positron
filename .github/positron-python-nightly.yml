@@ -2,18 +2,22 @@ name: 'Nightly: Python CI'
 
 # Run builds daily at 2am UTC (10p EST) on weekdays for now, or manually
 on:
+  # to help develop this CI suite, temporary --- start ---
   push:
-    # to help develop this CI suite, temporary
     branches:
-      - 'ci/nightly-python'
+      - main
     paths:
       - '.github/workflows/positron-python-ci.yml'
+      - '.github/workflows/positron-python-nightly-ci.yml'
       - 'extensions/positron-python/**'
   pull_request:
-      - 'ci/nightly-python'
+    branches:
+      - main
     paths:
       - '.github/workflows/positron-python-ci.yml'
+      - '.github/workflows/positron-python-nightly-ci.yml'
       - 'extensions/positron-python/**'
+  # to help develop this CI suite, temporary --- end ---
   schedule:
     - cron: "0 2 * * 1-5"
     displayName: Nightly Python CI
