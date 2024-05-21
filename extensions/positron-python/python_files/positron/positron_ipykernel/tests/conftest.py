@@ -32,6 +32,19 @@ class DummyComm(comm.base_comm.BaseComm):
         msg["msg_type"] = msg_type
         self.messages.append(msg)
 
+    def handle_msg(self, msg, raise_errors=True):
+        message_count = len(self.messages)
+
+        super().handle_msg(msg)
+
+        # Raise JSON RPC error responses as test failures.
+        if raise_errors:
+            new_messages = self.messages[message_count:]
+            for message in new_messages:
+                error = message.get("data", {}).get("error")
+                if error is not None:
+                    raise AssertionError(error["message"])
+
 
 # Enable autouse so that all comms are created as DummyComms.
 @pytest.fixture(autouse=True)

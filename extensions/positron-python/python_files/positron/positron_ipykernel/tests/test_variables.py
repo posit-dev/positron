@@ -405,7 +405,8 @@ def test_handle_inspect_error(variables_comm: DummyComm) -> None:
     path = [encode_access_key("x")]
     # TODO(pyright): We shouldn't need to cast; may be a pyright bug
     msg = json_rpc_request("inspect", cast(JsonRecord, {"path": path}), comm_id="dummy_comm_id")
-    variables_comm.handle_msg(msg)
+
+    variables_comm.handle_msg(msg, raise_errors=False)
 
     # An error message is sent
     assert variables_comm.messages == [
@@ -440,7 +441,7 @@ def test_handle_clipboard_format_error(variables_comm: DummyComm) -> None:
         cast(JsonRecord, {"path": path, "format": "text/plain"}),
         comm_id="dummy_comm_id",
     )
-    variables_comm.handle_msg(msg)
+    variables_comm.handle_msg(msg, raise_errors=False)
 
     # An error message is sent
     assert variables_comm.messages == [
@@ -471,7 +472,7 @@ def test_handle_view_error(variables_comm: DummyComm) -> None:
     path = [encode_access_key("x")]
     # TODO(pyright): We shouldn't need to cast; may be a pyright bug
     msg = json_rpc_request("view", cast(JsonRecord, {"path": path}), comm_id="dummy_comm_id")
-    variables_comm.handle_msg(msg)
+    variables_comm.handle_msg(msg, raise_errors=False)
 
     # An error message is sent
     assert variables_comm.messages == [
@@ -484,7 +485,7 @@ def test_handle_view_error(variables_comm: DummyComm) -> None:
 
 def test_handle_unknown_method(variables_comm: DummyComm) -> None:
     msg = json_rpc_request("unknown_method", comm_id="dummy_comm_id")
-    variables_comm.handle_msg(msg)
+    variables_comm.handle_msg(msg, raise_errors=False)
 
     assert variables_comm.messages == [
         json_rpc_error(
