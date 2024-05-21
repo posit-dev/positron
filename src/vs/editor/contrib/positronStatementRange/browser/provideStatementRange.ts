@@ -46,9 +46,9 @@ CommandsRegistry.registerCommand('_executeStatementRangeProvider', async (access
 	if (!model) {
 		return undefined;
 	}
-	const { statementRangeProvider } = accessor.get(ILanguageFeaturesService);
+	const languageFeaturesService = accessor.get(ILanguageFeaturesService);
 	const result = await provideStatementRange(
-		statementRangeProvider,
+		languageFeaturesService.statementRangeProvider,
 		model,
 		Position.lift(position),
 		CancellationToken.None
