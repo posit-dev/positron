@@ -60,7 +60,6 @@
 .title {
 	display: block;
 	max-width: 100%;
-	max-width: 600px;
 	overflow: hidden;
 	white-space: nowrap;
 	text-overflow: ellipsis;

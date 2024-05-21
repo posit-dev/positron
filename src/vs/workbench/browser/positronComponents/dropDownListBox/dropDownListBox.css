@@ -32,7 +32,6 @@
 }
 
 .drop-down-list-box-items {
-	width: 100%;
 	margin: 4px;
 	display: flex;
 	flex-direction: column;
@@ -48,18 +47,14 @@
 
 .drop-down-list-box-items
 .item {
-	width: 100%;
 	height: 26px;
 	border: none;
 	display: grid;
 	cursor: pointer;
-	text-align: left;
-	align-items: center;
 	align-content: center;
 	background: transparent;
 	color: var(--vscode-positronDropDownListBox-foreground);
 	grid-template-columns: [title] 1fr [icon] min-content [end];
-	color: var(--vscode-positronContextMenu-foreground);
 }
 
 .drop-down-list-box-items
@@ -88,14 +83,10 @@
 .drop-down-list-box-items
 .item
 .title {
-	display: block;
-	max-width: 100%;
-	max-width: 600px;
-	overflow: hidden;
+
 	white-space: nowrap;
 	text-overflow: ellipsis;
 	grid-column: title / icon;
-	padding: 10px 5px 10px 10px;
 }
 
 .drop-down-list-box-items
@@ -116,4 +107,3 @@
 .icon.disabled {
 	opacity: 50%;
 }
-
