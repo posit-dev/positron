@@ -22,21 +22,14 @@ import { MINIMUM_PYTHON_VERSION } from '../common/constants';
  *
  * @param serviceContainer The Python extension's service container to use for
  * dependency injection.
- * @param runtimes A map from interpreter path to language runtime metadata.
- * @param activatedPromise Resolves when all Python extension components are activated.
  *
  * @returns An async generator that yields Python language runtime metadata.
  */
 export async function* pythonRuntimeDiscoverer(
     serviceContainer: IServiceContainer,
-    activatedPromise: Promise<void>,
 ): AsyncGenerator<positron.LanguageRuntimeMetadata> {
     try {
         traceInfo('pythonRuntimeDiscoverer: Starting Python runtime discoverer');
-
-        // Wait for all extension components to be activated
-        traceInfo('pythonRuntimeDiscoverer: awaiting extension activation');
-        await activatedPromise;
 
         const interpreterService = serviceContainer.get<IInterpreterService>(IInterpreterService);
         const interpreterSelector = serviceContainer.get<IInterpreterSelector>(IInterpreterSelector);
