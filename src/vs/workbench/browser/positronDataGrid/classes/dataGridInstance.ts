@@ -87,6 +87,7 @@ type ScrollbarOptions = | {
  * DisplayOptions type.
  */
 type DisplayOptions = | {
+	useEditorFont: boolean;
 	automaticLayout: boolean;
 	rowsMargin?: number;
 	cellBorders?: boolean;
@@ -380,6 +381,11 @@ export abstract class DataGridInstance extends Disposable {
 	private readonly _scrollbarWidth: number;
 
 	/**
+	 * Gets a value which indicates whether to use the editor font to display data.
+	 */
+	private readonly _useEditorFont: boolean;
+
+	/**
 	 * Gets a value which indicates whether to perform automatic layout using a ResizeObserver.
 	 */
 	private readonly _automaticLayout: boolean;
@@ -530,7 +536,8 @@ export abstract class DataGridInstance extends Disposable {
 		this._verticalScrollbar = options.verticalScrollbar || false;
 		this._scrollbarWidth = options.scrollbarWidth ?? 0;
 
-		this._automaticLayout = options.automaticLayout ?? true;
+		this._useEditorFont = options.useEditorFont;
+		this._automaticLayout = options.automaticLayout;
 		this._rowsMargin = options.rowsMargin ?? 0;
 		this._cellBorders = options.cellBorders ?? true;
 
@@ -646,6 +653,13 @@ export abstract class DataGridInstance extends Disposable {
 	 */
 	get scrollbarWidth() {
 		return this._scrollbarWidth;
+	}
+
+	/**
+	 * Gets a value which indicates whether to perform automatic layout using a ResizeObserver.
+	 */
+	get useEditorFont() {
+		return this._useEditorFont;
 	}
 
 	/**

@@ -14,6 +14,7 @@ import { generateUuid } from 'vs/base/common/uuid';
 import { isMacintosh } from 'vs/base/common/platform';
 import { DisposableStore } from 'vs/base/common/lifecycle';
 import { pinToRange } from 'vs/base/common/positronUtilities';
+import { editorFontApplier } from 'vs/workbench/browser/editorFontApplier';
 import { DataGridRow } from 'vs/workbench/browser/positronDataGrid/components/dataGridRow';
 import { DataGridScrollbar } from 'vs/workbench/browser/positronDataGrid/components/dataGridScrollbar';
 import { DataGridRowHeaders } from 'vs/workbench/browser/positronDataGrid/components/dataGridRowHeaders';
@@ -39,6 +40,7 @@ export const DataGridWaffle = forwardRef<HTMLDivElement>((_: unknown, ref) => {
 
 	// Reference hooks.
 	const dataGridWaffleRef = useRef<HTMLDivElement>(undefined!);
+	const dataGridRowsRef = useRef<HTMLDivElement>(undefined!);
 
 	// Customize the ref handle that is exposed.
 	useImperativeHandle(ref, () => dataGridWaffleRef.current, []);
@@ -56,6 +58,16 @@ export const DataGridWaffle = forwardRef<HTMLDivElement>((_: unknown, ref) => {
 		// Create the disposable store for cleanup.
 		const disposableStore = new DisposableStore();
 
+		// Use the editor font, if so configured.
+		if (context.instance.useEditorFont) {
+			disposableStore.add(
+				editorFontApplier(
+					context.configurationService,
+					dataGridRowsRef.current
+				)
+			);
+		}
+
 		// Add the onDidUpdate event handler.
 		disposableStore.add(context.instance.onDidUpdate(() => {
 			setRenderMarker(generateUuid());
@@ -63,7 +75,7 @@ export const DataGridWaffle = forwardRef<HTMLDivElement>((_: unknown, ref) => {
 
 		// Return the cleanup function that will dispose of the event handlers.
 		return () => disposableStore.dispose();
-	}, [context.instance]);
+	}, [context.configurationService, context.instance]);
 
 	// Layout useEffect.
 	useEffect(() => {
@@ -145,7 +157,6 @@ export const DataGridWaffle = forwardRef<HTMLDivElement>((_: unknown, ref) => {
 
 			// Enter key.
 			case 'Enter': {
-				console.log(`User pressed enter on ${context.instance.cursorColumnIndex},${context.instance.cursorRowIndex}`);
 				break;
 			}
 
@@ -526,8 +537,6 @@ export const DataGridWaffle = forwardRef<HTMLDivElement>((_: unknown, ref) => {
 			className='data-grid-waffle'
 			onKeyDown={keyDownHandler}
 			onWheel={wheelHandler}
-			onFocus={() => console.log('data-grid-waffle focus')}
-			onBlur={() => console.log('data-grid-waffle blur')}
 		>
 			{context.instance.columnHeaders && context.instance.rowHeaders &&
 				<DataGridCornerTopLeft
@@ -602,6 +611,7 @@ export const DataGridWaffle = forwardRef<HTMLDivElement>((_: unknown, ref) => {
 			}
 
 			<div
+				ref={dataGridRowsRef}
 				className='data-grid-rows'
 				style={{
 					width: width - context.instance.rowHeadersWidth,

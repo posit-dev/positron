@@ -64,6 +64,7 @@ export class ColumnSelectorDataGridInstance extends DataGridInstance {
 			horizontalScrollbar: false,
 			verticalScrollbar: true,
 			scrollbarWidth: 8,
+			useEditorFont: false,
 			automaticLayout: true,
 			rowsMargin: 4,
 			cellBorders: false,
