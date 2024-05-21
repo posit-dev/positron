@@ -88,10 +88,10 @@ type PositronLayoutInfo = {
 export const positronFourPaneDsLayout: PositronLayoutInfo = {
 	id: 'workbench.action.positronFourPaneDataScienceLayout',
 	codicon: 'positron-four-pane-ds-layout',
-	label: localize2('choseLayout.fourPaneDS', 'Four Pane Data Science'),
+	label: localize2('choseLayout.stacked', 'Stacked Layout'),
 	layoutDescriptor: {
 		[Parts.SIDEBAR_PART]: {
-			size: 200,
+			size: '15%',
 			hidden: false,
 		},
 		[Parts.PANEL_PART]: {
@@ -109,7 +109,7 @@ export const positronFourPaneDsLayout: PositronLayoutInfo = {
 			]
 		},
 		[Parts.AUXILIARYBAR_PART]: {
-			size: 500, // Use pixel sizes for auxiliary bar to allow editor to take up the rest of the space
+			size: '30%',
 			hidden: false,
 			viewContainers: [
 				{
@@ -132,7 +132,7 @@ export const positronFourPaneDsLayout: PositronLayoutInfo = {
 export const positronTwoPaneLayout: PositronLayoutInfo = {
 	id: 'workbench.action.positronTwoPaneDataScienceLayout',
 	codicon: 'positron-two-pane-ds-layout',
-	label: localize2('choseLayout.sideBySide', 'Side-by-side Data Science'),
+	label: localize2('choseLayout.sideBySide', 'Side-By-Side Layout'),
 	layoutDescriptor: {
 		[Parts.PANEL_PART]: {
 			hidden: true,
@@ -143,7 +143,7 @@ export const positronTwoPaneLayout: PositronLayoutInfo = {
 		},
 		[Parts.AUXILIARYBAR_PART]: {
 			hidden: false,
-			size: '50%',
+			size: '40%',
 			viewContainers: [
 				{
 					id: 'workbench.panel.positronSession',
@@ -154,6 +154,7 @@ export const positronTwoPaneLayout: PositronLayoutInfo = {
 						},
 						{
 							id: 'workbench.panel.positronVariables',
+							collapsed: true,
 						},
 						{
 							id: 'workbench.panel.positronPlots',
@@ -161,6 +162,9 @@ export const positronTwoPaneLayout: PositronLayoutInfo = {
 						},
 					]
 				},
+				{
+					id: 'terminal',
+				}
 			]
 		},
 	},
@@ -187,7 +191,7 @@ export const positronNotebookLayout: PositronLayoutInfo = {
 		},
 		[Parts.SIDEBAR_PART]: {
 			hidden: false,
-			size: 400,
+			size: '15%',
 		},
 		[Parts.AUXILIARYBAR_PART]: {
 			hidden: true,

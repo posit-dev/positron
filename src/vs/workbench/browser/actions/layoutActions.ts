@@ -1440,6 +1440,13 @@ registerAction2(class CustomizeLayoutAction extends Action2 {
 			};
 		};
 		return [
+			// --- Start Positron ---
+			{
+				type: 'separator',
+				label: localize('positronLayouts', "Layout Presets"),
+			},
+			...positronCustomLayoutOptions,
+			// --- End Positron ---
 			{
 				type: 'separator',
 				label: localize('toggleVisibility', "Visibility")
@@ -1460,13 +1467,6 @@ registerAction2(class CustomizeLayoutAction extends Action2 {
 				label: localize('layoutModes', "Modes"),
 			},
 			...MiscLayoutOptions.map(toQuickPickItem),
-			// --- Start Positron ---
-			{
-				type: 'separator',
-				label: localize('positronLayouts', "Data Science Quick Layouts"),
-			},
-			...positronCustomLayoutOptions,
-			// --- End Positron ---
 		];
 	}
 

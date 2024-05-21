@@ -1428,6 +1428,7 @@ export abstract class Layout extends Disposable implements IWorkbenchLayoutServi
 				[Parts.AUXILIARYBAR_PART]: 'width',
 			} satisfies Record<KnownPositronLayoutParts, 'width' | 'height'>)[part];
 
+			// TODO: Make this able to take min and max sizes.
 			if (typeof size === 'string') {
 				// Need to convert the percentage to a number relative to the viewport.
 				const viewportDimension = this.getContainerDimension(this.mainContainer)[dimensionToBeSized];
