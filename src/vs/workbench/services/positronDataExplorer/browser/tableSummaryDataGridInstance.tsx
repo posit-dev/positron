@@ -7,6 +7,7 @@ import * as React from 'react';
 
 // Other dependencies.
 import { Emitter } from 'vs/base/common/event';
+import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
 import { DataGridInstance } from 'vs/workbench/browser/positronDataGrid/classes/dataGridInstance';
 import { DataExplorerCache } from 'vs/workbench/services/positronDataExplorer/common/dataExplorerCache';
 import { ColumnSummaryCell } from 'vs/workbench/services/positronDataExplorer/browser/components/columnSummaryCell';
@@ -26,16 +27,6 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 	//#region Private Properties
 
 	/**
-	 * Gets the data explorer client instance.
-	 */
-	private readonly _dataExplorerClientInstance: DataExplorerClientInstance;
-
-	/**
-	 * Gets the data explorer cache.
-	 */
-	private readonly _dataExplorerCache: DataExplorerCache;
-
-	/**
 	 * Gets the expanded columns set.
 	 */
 	private readonly _expandedColumns = new Set<number>();
@@ -51,12 +42,14 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 
 	/**
 	 * Constructor.
-	 * @param dataExplorerClientInstance The DataExplorerClientInstance.
-	 * @param dataExplorerCache The DataExplorerCache.
+	 * @param _configurationService The configuration service.
+	 * @param _dataExplorerClientInstance The DataExplorerClientInstance.
+	 * @param _dataExplorerCache The DataExplorerCache.
 	 */
 	constructor(
-		dataExplorerClientInstance: DataExplorerClientInstance,
-		dataExplorerCache: DataExplorerCache
+		private readonly _configurationService: IConfigurationService,
+		private readonly _dataExplorerClientInstance: DataExplorerClientInstance,
+		private readonly _dataExplorerCache: DataExplorerCache
 	) {
 		// Call the base class's constructor.
 		super({
@@ -69,17 +62,12 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 			horizontalScrollbar: false,
 			verticalScrollbar: true,
 			scrollbarWidth: 14,
+			useEditorFont: false,
 			automaticLayout: true,
 			cellBorders: false,
 			internalCursor: false,
 			selection: false
 		});
-
-		// Set the data explorer client instance.
-		this._dataExplorerClientInstance = dataExplorerClientInstance;
-
-		// Set the data explorer cache.
-		this._dataExplorerCache = dataExplorerCache;
 
 		// Add the onDidUpdateCache event handler.
 		this._register(this._dataExplorerCache.onDidUpdateCache(() => {
@@ -260,6 +248,17 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 	readonly onDidSelectColumn = this._onDidSelectColumnEmitter.event;
 
 	//#endregion Public Events
+
+	//#region Public Properties
+
+	/**
+	 * Gets the configuration service.
+	 */
+	get configurationService() {
+		return this._configurationService;
+	}
+
+	//#endregion Public Properties
 
 	//#region Public Methods
 

@@ -127,6 +127,7 @@ export const RowFilterBar = () => {
 			// Show the add /edit row filter modal popup.
 			renderer.render(
 				<AddEditRowFilterModalPopup
+					configurationService={context.configurationService}
 					dataExplorerClientInstance={context.instance.dataExplorerClientInstance}
 					renderer={renderer}
 					anchor={anchor}
@@ -138,6 +139,7 @@ export const RowFilterBar = () => {
 			);
 		}
 	}, [
+		context.configurationService,
 		context.instance.dataExplorerClientInstance,
 		context.instance.tableDataDataGridInstance,
 		context.keybindingService,

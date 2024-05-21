@@ -48,13 +48,7 @@ registerAction2(class extends Action2 {
 				id: MenuId.MenubarHelpMenu,
 				group: '1_welcome',
 				order: 1,
-				// --- Start Positron ---
-				when: IsDevelopmentContext
-				// --- End Positron ---
 			},
-			// --- Start Positron ---
-			precondition: IsDevelopmentContext,
-			// --- End Positron ---
 			metadata: {
 				description: localize2('minWelcomeDescription', 'Opens a Walkthrough to help you get started in VS Code.')
 			}

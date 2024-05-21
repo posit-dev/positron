@@ -433,6 +433,10 @@ export class ConnectionItemsProvider
 				preserveFocus: true,
 			});
 		});
+
+		client.onDidUpdate(() => {
+			this._onDidChangeTreeData.fire(undefined);
+		});
 	}
 
 	/**
