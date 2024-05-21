@@ -4,8 +4,11 @@
 
 
 import { ISerializableView, IViewSize } from 'vs/base/browser/ui/grid/gridview';
-import { localize } from 'vs/nls';
-import { IQuickPickItem } from 'vs/platform/quickinput/common/quickInput';
+import { localize, localize2 } from 'vs/nls';
+import { Categories } from 'vs/platform/action/common/actionCommonCategories';
+import { Action2, registerAction2 } from 'vs/platform/actions/common/actions';
+import { ServicesAccessor } from 'vs/platform/instantiation/common/instantiation';
+import { IQuickInputService, IQuickPickItem } from 'vs/platform/quickinput/common/quickInput';
 import { CustomPositronLayoutDescription, KnownPositronLayoutParts } from 'vs/workbench/common/positronCustomViews';
 import { IViewDescriptorService, ViewContainerLocation } from 'vs/workbench/common/views';
 import { IWorkbenchLayoutService, PanelAlignment, Parts } from 'vs/workbench/services/layout/browser/layoutService';
@@ -175,9 +178,139 @@ export const positronTwoPaneLayout: PositronLayoutInfo = {
 	},
 };
 
+export const positronNotebookLayout: PositronLayoutInfo = {
+	id: 'workbench.action.positronNotebookLayout',
+	codicon: 'positron-notebook-layout',
+	label: localize('chooseLayout.notebookLayout', 'Notebook Layout'),
+	layoutDescriptor: {
+		[Parts.PANEL_PART]: {
+			size: '40%',
+			hidden: true,
+			alignment: 'center',
+			viewContainers: [
+				{
+					id: 'workbench.panel.positronConsole',
+					opened: true,
+				},
+				{
+					id: 'terminal',
+				},
+			]
+		},
+		[Parts.SIDEBAR_PART]: {
+			hidden: false,
+			size: 300,
+		},
+		[Parts.AUXILIARYBAR_PART]: {
+			hidden: true,
+			size: 200,
+		},
+	},
+};
+
+registerAction2(class extends Action2 {
+	constructor() {
+		super({
+			id: positronNotebookLayout.id,
+			title: localize2('notebookDsLayout', 'Notebook Data Science Layout'),
+			category: Categories.View,
+			f1: true,
+		});
+	}
+	run(accessor: ServicesAccessor): void {
+		const layoutService = accessor.get(IWorkbenchLayoutService);
+		const viewDescriptorService = accessor.get(IViewDescriptorService);
+		enterPositronLayout(positronNotebookLayout.layoutDescriptor, layoutService, viewDescriptorService);
+	}
+});
+
+
+
+registerAction2(class extends Action2 {
+	constructor() {
+		super({
+			id: positronTwoPaneLayout.id,
+			title: localize2('twoPaneDataScienceLayout', 'Two Pane Data Science Layout'),
+			category: Categories.View,
+			f1: true,
+		});
+	}
+	run(accessor: ServicesAccessor): void {
+		const layoutService = accessor.get(IWorkbenchLayoutService);
+		const viewDescriptorService = accessor.get(IViewDescriptorService);
+		enterPositronLayout(positronTwoPaneLayout.layoutDescriptor, layoutService, viewDescriptorService);
+	}
+});
+
+registerAction2(class extends Action2 {
+	constructor() {
+		super({
+			id: positronFourPaneDsLayout.id,
+			title: localize2('fourPaneDataScienceLayout', 'Four Pane Data Science Layout'),
+			category: Categories.View,
+			f1: true,
+		});
+	}
+	run(accessor: ServicesAccessor): void {
+		const layoutService = accessor.get(IWorkbenchLayoutService);
+		const viewDescriptorService = accessor.get(IViewDescriptorService);
+		enterPositronLayout(positronFourPaneDsLayout.layoutDescriptor, layoutService, viewDescriptorService);
+	}
+});
+
+registerAction2(class extends Action2 {
+	constructor() {
+		super({
+			id: 'workbench.action.chooseLayout',
+			title: localize2('chooseLayout', 'Choose a layout'),
+			category: Categories.View,
+			f1: true,
+		});
+	}
+	run(accessor: ServicesAccessor): void {
+		const quickInputService = accessor.get(IQuickInputService);
+		const layoutService = accessor.get(IWorkbenchLayoutService);
+		const viewDescriptorService = accessor.get(IViewDescriptorService);
+		const quickPick = quickInputService.createQuickPick();
+		quickPick.placeholder = localize('choseLayout.layoutChooser', 'Choose a layout');
+		quickPick.title = localize('choseLayout.title', 'Choose new layout');
+		quickPick.items = positronCustomLayoutOptions;
+
+		quickPick.onDidAccept(() => {
+			const selected = quickPick.selectedItems[0] as (typeof positronCustomLayoutOptions[number]) | undefined;
+			if (selected?.id) {
+				enterPositronLayout(selected.layoutDescriptor, layoutService, viewDescriptorService);
+			}
+			quickPick.hide();
+		});
+		quickPick.show();
+	}
+});
+
+
+// Action to dump json of the current layout to the console for creation of a custom layout.
+// registerAction2(class DumpViewCustomizations extends Action2 {
+
+// 	constructor() {
+// 		super({
+// 			id: 'workbench.action.dumpViewCustomizations',
+// 			title: localize2('dumpViewCustomizations', "Dump view customizations to console"),
+// 			category: Categories.View,
+// 			f1: true,
+// 		});
+// 	}
+
+// 	run(accessor: ServicesAccessor): void {
+// 		console.log(
+// 			JSON.stringify(createPositronCustomLayoutDescriptor(accessor), null, 2)
+// 		);
+// 	}
+// });
+
 export const positronCustomLayoutOptions: LayoutPick[] = [
 	positronFourPaneDsLayout,
-	positronTwoPaneLayout
+	positronTwoPaneLayout,
+	positronNotebookLayout
 ].map(positronLayoutInfoToQuickPick);
 
 export function enterPositronLayout(layout: CustomPositronLayoutDescription, layoutService: IWorkbenchLayoutService, viewDescriptorService: IViewDescriptorService) {
