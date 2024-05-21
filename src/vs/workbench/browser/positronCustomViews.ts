@@ -4,11 +4,11 @@
 
 
 import { ISerializableView, IViewSize } from 'vs/base/browser/ui/grid/gridview';
-import { ILocalizedString, localize, localize2 } from 'vs/nls';
+import { ILocalizedString, localize2 } from 'vs/nls';
 import { Categories } from 'vs/platform/action/common/actionCommonCategories';
 import { Action2, registerAction2 } from 'vs/platform/actions/common/actions';
 import { ServicesAccessor } from 'vs/platform/instantiation/common/instantiation';
-import { IQuickInputService, IQuickPickItem } from 'vs/platform/quickinput/common/quickInput';
+import { IQuickPickItem } from 'vs/platform/quickinput/common/quickInput';
 import { CustomPositronLayoutDescription, KnownPositronLayoutParts } from 'vs/workbench/common/positronCustomViews';
 import { IViewDescriptorService, ViewContainerLocation } from 'vs/workbench/common/views';
 import { IWorkbenchLayoutService, PanelAlignment, Parts } from 'vs/workbench/services/layout/browser/layoutService';
@@ -77,8 +77,6 @@ export function layoutDescriptionToViewInfo(layout: CustomPositronLayoutDescript
 // 	};
 // }
 
-// const fourPaneLayoutIcon = registerIcon('positron-four-pane-ds-layout', Codicon.positronFourPaneDsLayout, localize('icon.fourPaneLayout', "Represents the four pane layout for data science."));
-
 
 type PositronLayoutInfo = {
 	id: string;
@@ -86,8 +84,6 @@ type PositronLayoutInfo = {
 	label: ILocalizedString;
 	layoutDescriptor: CustomPositronLayoutDescription;
 };
-
-
 
 export const positronFourPaneDsLayout: PositronLayoutInfo = {
 	id: 'workbench.action.positronFourPaneDataScienceLayout',
@@ -241,39 +237,6 @@ registerAction2(class extends PositronLayoutAction {
 registerAction2(class extends PositronLayoutAction {
 	constructor() {
 		super(positronFourPaneDsLayout);
-	}
-});
-
-registerAction2(class extends Action2 {
-	constructor() {
-		super({
-			id: 'workbench.action.chooseLayout',
-			title: localize2('chooseLayout', 'Choose a layout'),
-			category: Categories.View,
-			f1: true,
-		});
-	}
-	run(accessor: ServicesAccessor): void {
-		const quickInputService = accessor.get(IQuickInputService);
-		const layoutService = accessor.get(IWorkbenchLayoutService);
-		const viewDescriptorService = accessor.get(IViewDescriptorService);
-		const quickPick = quickInputService.createQuickPick();
-		quickPick.placeholder = localize('choseLayout.layoutChooser', 'Choose a layout');
-		quickPick.title = localize('choseLayout.title', 'Choose new layout');
-		quickPick.items = positronCustomLayoutOptions;
-
-		quickPick.onDidAccept(() => {
-			const selected = quickPick.selectedItems[0] as (typeof positronCustomLayoutOptions[number]) | undefined;
-			if (selected?.id) {
-				viewDescriptorService.loadCustomViewDescriptor(selected.layoutDescriptor);
-				// Run the layout service action after the view descriptor has been loaded.
-				// This is needed so that the changing of the contents of the parts doesn't
-				// break the currently open view container that is set by the layoutService.
-				layoutService.enterCustomLayout(selected.layoutDescriptor);
-			}
-			quickPick.hide();
-		});
-		quickPick.show();
 	}
 });
 
