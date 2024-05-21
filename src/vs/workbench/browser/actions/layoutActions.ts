@@ -35,7 +35,7 @@ import { TitlebarStyle } from 'vs/platform/window/common/window';
 // --- Start Positron ---
 import { PositronToggleTopActionBarVisibilityAction } from 'vs/workbench/browser/parts/positronTopActionBar/positronTopActionBarActions';
 import { PositronTopActionBarVisibleContext } from 'vs/workbench/common/contextkeys';  // eslint-disable-line no-duplicate-imports
-import { positronCustomLayoutOptions } from 'vs/workbench/browser/positronCustomViews';
+import { enterPositronLayout, positronCustomLayoutOptions, positronFourPaneDsLayout, positronTwoPaneLayout } from 'vs/workbench/browser/positronCustomViews';
 // --- End Positron ---
 
 // Register Icons
@@ -836,15 +836,42 @@ registerAction2(class extends Action2 {
 		quickPick.onDidAccept(() => {
 			const selected = quickPick.selectedItems[0] as (typeof positronCustomLayoutOptions[number]) | undefined;
 			if (selected?.id) {
-				viewDescriptorService.loadCustomViewDescriptor(selected.layoutDescriptor);
-				// Run the layout service action after the view descriptor has been loaded.
-				// This is needed so that the changing of the contents of the parts doesn't
-				// break the currently open view container that is set by the layoutService.
-				layoutService.enterCustomLayout(selected.layoutDescriptor);
+				enterPositronLayout(selected.layoutDescriptor, layoutService, viewDescriptorService);
 			}
 			quickPick.hide();
 		});
 		quickPick.show();
+	}
+});
+registerAction2(class extends Action2 {
+	constructor() {
+		super({
+			id: 'workbench.action.positronFourPaneDataScienceLayout',
+			title: localize2('fourPaneDataScienceLayout', 'Four Pane Data Science Layout'),
+			category: Categories.View,
+			f1: true,
+		});
+	}
+	run(accessor: ServicesAccessor): void {
+		const layoutService = accessor.get(IWorkbenchLayoutService);
+		const viewDescriptorService = accessor.get(IViewDescriptorService);
+		enterPositronLayout(positronFourPaneDsLayout.layoutDescriptor, layoutService, viewDescriptorService);
+	}
+});
+
+registerAction2(class extends Action2 {
+	constructor() {
+		super({
+			id: 'workbench.action.positronTwoPaneDataScienceLayout',
+			title: localize2('twoPaneDataScienceLayout', 'Two Pane Data Science Layout'),
+			category: Categories.View,
+			f1: true,
+		});
+	}
+	run(accessor: ServicesAccessor): void {
+		const layoutService = accessor.get(IWorkbenchLayoutService);
+		const viewDescriptorService = accessor.get(IViewDescriptorService);
+		enterPositronLayout(positronTwoPaneLayout.layoutDescriptor, layoutService, viewDescriptorService);
 	}
 });
 
@@ -1512,6 +1539,13 @@ registerAction2(class CustomizeLayoutAction extends Action2 {
 				label: localize('layoutModes', "Modes"),
 			},
 			...MiscLayoutOptions.map(toQuickPickItem),
+			// --- Start Positron ---
+			{
+				type: 'separator',
+				label: localize('positronLayouts', "Data Science Quick Layouts"),
+			},
+			...positronCustomLayoutOptions,
+			// --- End Positron ---
 		];
 	}
 
@@ -1568,6 +1602,13 @@ registerAction2(class CustomizeLayoutAction extends Action2 {
 			if (quickPick.selectedItems.length) {
 				selectedItem = quickPick.selectedItems[0] as CustomizeLayoutItem;
 				commandService.executeCommand(selectedItem.id);
+				// --- Start Positron ---
+				// If the string workbench.action.positron starts the id then we want to
+				// close the quick pick
+				if (selectedItem.id.startsWith('workbench.action.positron')) {
+					quickPick.hide();
+				}
+				// --- End Positron ---
 			}
 		});
 

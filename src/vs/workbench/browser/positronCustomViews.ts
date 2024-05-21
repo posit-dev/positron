@@ -2,12 +2,14 @@
  *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
+
 import { ISerializableView, IViewSize } from 'vs/base/browser/ui/grid/gridview';
 import { localize } from 'vs/nls';
 import { IQuickPickItem } from 'vs/platform/quickinput/common/quickInput';
 import { CustomPositronLayoutDescription, KnownPositronLayoutParts } from 'vs/workbench/common/positronCustomViews';
-import { ViewContainerLocation } from 'vs/workbench/common/views';
-import { PanelAlignment, Parts } from 'vs/workbench/services/layout/browser/layoutService';
+import { IViewDescriptorService, ViewContainerLocation } from 'vs/workbench/common/views';
+import { IWorkbenchLayoutService, PanelAlignment, Parts } from 'vs/workbench/services/layout/browser/layoutService';
+
 
 export type PartViewInfo = {
 	partView: ISerializableView;
@@ -72,84 +74,116 @@ export function layoutDescriptionToViewInfo(layout: CustomPositronLayoutDescript
 // 	};
 // }
 
+// const fourPaneLayoutIcon = registerIcon('positron-four-pane-ds-layout', Codicon.positronFourPaneDsLayout, localize('icon.fourPaneLayout', "Represents the four pane layout for data science."));
+
+
+type PositronLayoutInfo = {
+	id: string;
+	codicon: string;
+	label: string;
+	layoutDescriptor: CustomPositronLayoutDescription;
+};
+
+function positronLayoutInfoToQuickPick(layoutInfo: PositronLayoutInfo): LayoutPick {
+	return {
+		id: layoutInfo.id,
+		label: `$(${layoutInfo.codicon}) ${layoutInfo.label}`,
+		layoutDescriptor: layoutInfo.layoutDescriptor,
+	};
+}
 
 type LayoutPick = IQuickPickItem & { layoutDescriptor: CustomPositronLayoutDescription };
+
+export const positronFourPaneDsLayout: PositronLayoutInfo = {
+	id: 'workbench.action.positronFourPaneDataScienceLayout',
+	codicon: 'positron-four-pane-ds-layout',
+	label: localize('choseLayout.fourPaneDS', 'Four Pane Data Science'),
+	layoutDescriptor: {
+		[Parts.SIDEBAR_PART]: {
+			size: 200,
+			hidden: false,
+		},
+		[Parts.PANEL_PART]: {
+			size: '40%',
+			hidden: false,
+			alignment: 'center',
+			viewContainers: [
+				{
+					id: 'workbench.panel.positronConsole',
+					opened: true,
+				},
+				{
+					id: 'terminal',
+				},
+			]
+		},
+		[Parts.AUXILIARYBAR_PART]: {
+			size: 500, // Use pixel sizes for auxiliary bar to allow editor to take up the rest of the space
+			hidden: false,
+			viewContainers: [
+				{
+					id: 'workbench.panel.positronSession',
+					opened: true,
+					views: [
+						{
+							id: 'workbench.panel.positronVariables',
+						},
+						{
+							id: 'workbench.panel.positronPlots',
+						},
+					]
+				},
+			]
+		}
+	},
+};
+
+export const positronTwoPaneLayout: PositronLayoutInfo = {
+	id: 'workbench.action.positronTwoPaneDataScienceLayout',
+	codicon: 'positron-two-pane-ds-layout',
+	label: localize('choseLayout.sideBySide', 'Side-by-side Data Science'),
+	layoutDescriptor: {
+		[Parts.PANEL_PART]: {
+			hidden: true,
+			alignment: 'center'
+		},
+		[Parts.SIDEBAR_PART]: {
+			hidden: true
+		},
+		[Parts.AUXILIARYBAR_PART]: {
+			hidden: false,
+			size: '50%',
+			viewContainers: [
+				{
+					id: 'workbench.panel.positronSession',
+					opened: true,
+					views: [
+						{
+							id: 'workbench.panel.positronConsole',
+						},
+						{
+							id: 'workbench.panel.positronVariables',
+						},
+						{
+							id: 'workbench.panel.positronPlots',
+							collapsed: true,
+						},
+					]
+				},
+			]
+		},
+	},
+};
+
 export const positronCustomLayoutOptions: LayoutPick[] = [
-	{
-		id: 'fourPaneDS',
-		label: localize('choseLayout.fourPaneDS', 'Four Pane Data Science'),
-		layoutDescriptor: {
-			[Parts.SIDEBAR_PART]: {
-				size: 200,
-				hidden: false,
-			},
-			[Parts.PANEL_PART]: {
-				size: '40%',
-				hidden: false,
-				alignment: 'center',
-				viewContainers: [
-					{
-						id: 'workbench.panel.positronConsole',
-						opened: true,
-					},
-					{
-						id: 'terminal',
-					},
-				]
-			},
-			[Parts.AUXILIARYBAR_PART]: {
-				size: 500, // Use pixel sizes for auxiliary bar to allow editor to take up the rest of the space
-				hidden: false,
-				viewContainers: [
-					{
-						id: 'workbench.panel.positronSession',
-						opened: true,
-						views: [
-							{
-								id: 'workbench.panel.positronVariables',
-							},
-							{
-								id: 'workbench.panel.positronPlots',
-							},
-						]
-					},
-				]
-			}
-		},
-	},
-	{
-		id: 'side-by-side',
-		label: localize('choseLayout.sideBySide', 'Side-by-side Data Science'),
-		layoutDescriptor: {
-			[Parts.PANEL_PART]: {
-				hidden: true,
-				alignment: 'center'
-			},
-			[Parts.SIDEBAR_PART]: {
-				hidden: true
-			},
-			[Parts.AUXILIARYBAR_PART]: {
-				hidden: false,
-				size: '50%',
-				viewContainers: [
-					{
-						id: 'workbench.panel.positronSession',
-						opened: true,
-						views: [
-							{
-								id: 'workbench.panel.positronConsole',
-							},
-							{
-								id: 'workbench.panel.positronVariables',
-							},
-							{
-								id: 'workbench.panel.positronPlots',
-								collapsed: true,
-							},
-						]
-					},
-				]
-			},
-		},
-	},
-];
+	positronFourPaneDsLayout,
+	positronTwoPaneLayout
+].map(positronLayoutInfoToQuickPick);
+
+export function enterPositronLayout(layout: CustomPositronLayoutDescription, layoutService: IWorkbenchLayoutService, viewDescriptorService: IViewDescriptorService) {
+	viewDescriptorService.loadCustomViewDescriptor(layout);
+	// Run the layout service action after the view descriptor has been loaded.
+	// This is needed so that the changing of the contents of the parts doesn't
+	// break the currently open view container that is set by the layoutService.
+	layoutService.enterCustomLayout(layout);
+}
