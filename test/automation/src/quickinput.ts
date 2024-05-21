@@ -59,7 +59,16 @@ export class QuickInput {
 	// --- Start Positron ---
 	async selectQuickInputElementContaining(contains: string): Promise<void> {
 		const selector = `${QuickInput.QUICK_INPUT_ROW}[aria-label*="${contains}"]`;
-		await this.code.waitAndClick(selector);
+		try {
+			await this.code.waitAndClick(selector);
+		} catch (ex) {
+			// Show a more helpful error message.
+			await this.waitForQuickInputElements((names) => {
+				console.error(`Could not find item containing '${contains}' in list: ${names}`);
+				return true;
+			});
+			throw ex;
+		}
 	}
 	// --- End Positron ---
 }
