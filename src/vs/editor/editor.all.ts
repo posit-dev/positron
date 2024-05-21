@@ -64,6 +64,7 @@ import 'vs/editor/contrib/diffEditorBreadcrumbs/browser/contribution';
 
 // --- Start Positron ---
 import 'vs/editor/contrib/positronEditorActions/browser/positronEditorActions';
+import 'vs/editor/contrib/positronStatementRange/browser/provideStatementRange';
 // --- End Positron ---
 
 // Load up these strings even in VSCode, even if they are not used
