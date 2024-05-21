@@ -406,7 +406,7 @@ export const ConsoleInstance = (props: ConsoleInstanceProps) => {
 			!e.altKey;
 
 		// Shift key is pressed without other modifiers.
-		const onlyShiftKey = e.shiftKey && !e.ctrlKey && !e.metaKey && !e.altKey;;
+		const onlyShiftKey = e.shiftKey && !e.ctrlKey && !e.metaKey && !e.altKey;
 
 		// Calculates the page height.
 		const pageHeight = () =>
@@ -598,20 +598,6 @@ export const ConsoleInstance = (props: ConsoleInstanceProps) => {
 		}
 	};
 
-	/**
-	 * onFocus event handler.
-	 */
-	const focusHandler = () => {
-		props.reactComponentContainer.focusChanged?.(true);
-	};
-
-	/**
-	 * onBlur event handler.
-	 */
-	const blurHandler = () => {
-		props.reactComponentContainer.focusChanged?.(false);
-	};
-
 	// Calculate the adjusted width (to account for indentation of the entire console instance).
 	const adjustedWidth = props.width - 10;
 
@@ -637,8 +623,6 @@ export const ConsoleInstance = (props: ConsoleInstanceProps) => {
 				whiteSpace: wordWrap ? 'pre-wrap' : 'pre',
 				zIndex: props.active ? 'auto' : -1
 			}}
-			onFocus={focusHandler}
-			onBlur={blurHandler}
 			onClick={clickHandler}
 			onKeyDown={keyDownHandler}
 			onMouseDown={mouseDownHandler}
