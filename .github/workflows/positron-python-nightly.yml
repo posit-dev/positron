@@ -49,7 +49,7 @@ jobs:
       matrix:
         include:
           # Python 3.8 and 3.12 are run per-PR, omitting those
-          - os: 'macos-13'
+          - os: 'macos-latest'
             python: '3.9'
           - os: 'windows-latest'
             python: '3.10'
@@ -92,7 +92,7 @@ jobs:
         include:
           - os: 'ubuntu-latest'
             python: '3.8'
-          - os: 'macos-13'
+          - os: 'macos-latest'
             python: '3.9'
           - os: 'windows-latest'
             python: '3.10'
