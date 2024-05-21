@@ -76,7 +76,7 @@ def _create_mpl_plot(shell: PositronShell, plots_service: PlotsService) -> Dummy
 
 
 def _do_render(
-    plot_comm: DummyComm, width=400, height=300, pixel_ratio=2, format="png"
+    plot_comm: DummyComm, width=400, height=300, pixel_ratio=2.0, format="png"
 ) -> Dict[str, Any]:
     msg = json_rpc_request(
         "render",
@@ -119,7 +119,7 @@ def test_mpl_render(shell: PositronShell, plots_service: PlotsService, images_pa
     # Send a render request to the plot comm. The frontend would send this on comm creation.
     width = 400
     height = 300
-    pixel_ratio = 2
+    pixel_ratio = 2.0
     format = "png"
     response = _do_render(plot_comm, width, height, pixel_ratio, format)
 
