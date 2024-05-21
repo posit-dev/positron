@@ -15,6 +15,7 @@ from ..access_keys import encode_access_key
 from ..data_explorer import (
     COMPARE_OPS,
     DataExplorerService,
+    PandasView,
     _VALUE_NAN,
     _VALUE_NAT,
     _VALUE_NONE,
@@ -1393,6 +1394,32 @@ def test_pandas_change_schema_after_sort(
     # Check that the out of bounds column index was evicted, and the
     # shift was correct
     dxf.get_state("df")["sort_keys"] = [{"column_index": 1, "ascending": False}]
+
+
+def test_pandas_updated_with_sort_keys(dxf: DataExplorerFixture):
+    # GitHub #3044, PandasView gets into an inconsistent state when a
+    # dataset with sort keys set is updated (or the view is refreshed
+    # because the dataset is large)
+    df = pd.DataFrame(
+        {
+            "a": [1, 2, 3, 4, 5],
+            "b": [True, False, True, None, True],
+            "c": ["foo", "bar", None, "bar", "None"],
+        }
+    )
+
+    comm_id = dxf.assign_and_open_viewer("df", df)
+    view = dxf.de_service.table_views[comm_id]
+    dxf.set_sort_columns("df", [{"column_index": 0, "ascending": False}])
+
+    view = PandasView("df", df, view.filters, view.sort_keys)
+
+    schema_updated, new_filt, new_sort_keys = view.get_updated_state(df)
+
+    # Object dtype makes schema_updated always true
+    assert schema_updated
+    assert new_filt == view.filters
+    assert new_sort_keys == view.sort_keys
 
 
 def _profile_request(column_index, profile_type):
