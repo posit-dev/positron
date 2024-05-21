@@ -37,11 +37,11 @@ class PlotResult(BaseModel):
     A rendered plot
     """
 
-    data: str = Field(
+    data: StrictStr = Field(
         description="The plot data, as a base64-encoded string",
     )
 
-    mime_type: str = Field(
+    mime_type: StrictStr = Field(
         description="The MIME type of the plot data",
     )
 
@@ -62,15 +62,15 @@ class RenderParams(BaseModel):
     data is returned in a base64-encoded string.
     """
 
-    height: int = Field(
+    height: StrictInt = Field(
         description="The requested plot height, in pixels",
     )
 
-    width: int = Field(
+    width: StrictInt = Field(
         description="The requested plot width, in pixels",
     )
 
-    pixel_ratio: float = Field(
+    pixel_ratio: StrictFloat = Field(
         description="The pixel ratio of the display device",
     )
 
