@@ -33,7 +33,7 @@ export class PositronDataExplorer {
 				const innerText = cell.textContent;
 				const headerName = headerNames[columnIndex];
 				// workaround for extra offscreen cells
-				if (headerName === undefined) {
+				if (!headerName) {
 					continue;
 				}
 				rowData[headerName] = innerText;
