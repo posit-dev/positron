@@ -43,10 +43,7 @@ export const DEFAULT_EDITOR_PART_OPTIONS: IEditorPartOptions = {
 	focusRecentEditorAfterClose: true,
 	showIcons: true,
 	hasIcons: true, // 'vs-seti' is our default icon theme
-	// --- Start Positron ---
-	// enablePreview: true,
-	enablePreview: false,
-	// --- End Positron ---
+	enablePreview: true,
 	openPositioning: 'right',
 	openSideBySideDirection: 'right',
 	closeEmptyGroups: true,
