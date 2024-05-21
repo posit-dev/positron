@@ -17,7 +17,6 @@ on:
   schedule:
     - cron: "0 2 * * 1-5"
     displayName: Nightly Python CI
-    always: false # only run if there are source code changes
     branches:
       include:
         - main
@@ -48,13 +47,10 @@ jobs:
           # Python 3.8 and 3.12 are run per-PR, omitting those
           - os: 'macos-13'
             python: '3.9'
-            pytest-version: 'pytest<8.1.1'
           - os: 'windows-latest'
             python: '3.10'
-            pytest-version: 'pytest<8.1.1'
           - os: 'ubuntu-latest'
             python: '3.11'
-            pytest-version: 'pytest<8.1.1'
 
     steps:
       - name: Checkout
@@ -68,14 +64,8 @@ jobs:
           python-version: ${{ matrix.python }}
 
       - name: Install specific pytest version
-        if: matrix.pytest-version == 'pytest@pre-release'
         run: |
-          python -m pip install --pre pytest
-
-      - name: Install specific pytest version
-        if: matrix.pytest-version != 'pytest@pre-release'
-        run: |
-          python -m pip install "${{ matrix.pytest-version }}"
+          python -m pip install pytest
 
       - name: Install specific pytest version
         run: python -m pytest --version
@@ -91,7 +81,7 @@ jobs:
 
   # Install the latest releases of test dependencies
   positron-ipykernel-tests-latest:
-    name: Test Positron IPyKernel
+    name: Test latest Positron IPyKernel
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
