@@ -4,7 +4,7 @@
 
 
 import { ISerializableView, IViewSize } from 'vs/base/browser/ui/grid/gridview';
-import { localize, localize2 } from 'vs/nls';
+import { ILocalizedString, localize, localize2 } from 'vs/nls';
 import { Categories } from 'vs/platform/action/common/actionCommonCategories';
 import { Action2, registerAction2 } from 'vs/platform/actions/common/actions';
 import { ServicesAccessor } from 'vs/platform/instantiation/common/instantiation';
@@ -83,24 +83,16 @@ export function layoutDescriptionToViewInfo(layout: CustomPositronLayoutDescript
 type PositronLayoutInfo = {
 	id: string;
 	codicon: string;
-	label: string;
+	label: ILocalizedString;
 	layoutDescriptor: CustomPositronLayoutDescription;
 };
 
-function positronLayoutInfoToQuickPick(layoutInfo: PositronLayoutInfo): LayoutPick {
-	return {
-		id: layoutInfo.id,
-		label: `$(${layoutInfo.codicon}) ${layoutInfo.label}`,
-		layoutDescriptor: layoutInfo.layoutDescriptor,
-	};
-}
 
-type LayoutPick = IQuickPickItem & { layoutDescriptor: CustomPositronLayoutDescription };
 
 export const positronFourPaneDsLayout: PositronLayoutInfo = {
 	id: 'workbench.action.positronFourPaneDataScienceLayout',
 	codicon: 'positron-four-pane-ds-layout',
-	label: localize('choseLayout.fourPaneDS', 'Four Pane Data Science'),
+	label: localize2('choseLayout.fourPaneDS', 'Four Pane Data Science'),
 	layoutDescriptor: {
 		[Parts.SIDEBAR_PART]: {
 			size: 200,
@@ -144,7 +136,7 @@ export const positronFourPaneDsLayout: PositronLayoutInfo = {
 export const positronTwoPaneLayout: PositronLayoutInfo = {
 	id: 'workbench.action.positronTwoPaneDataScienceLayout',
 	codicon: 'positron-two-pane-ds-layout',
-	label: localize('choseLayout.sideBySide', 'Side-by-side Data Science'),
+	label: localize2('choseLayout.sideBySide', 'Side-by-side Data Science'),
 	layoutDescriptor: {
 		[Parts.PANEL_PART]: {
 			hidden: true,
@@ -181,7 +173,7 @@ export const positronTwoPaneLayout: PositronLayoutInfo = {
 export const positronNotebookLayout: PositronLayoutInfo = {
 	id: 'workbench.action.positronNotebookLayout',
 	codicon: 'positron-notebook-layout',
-	label: localize('chooseLayout.notebookLayout', 'Notebook Layout'),
+	label: localize2('chooseLayout.notebookLayout', 'Notebook Layout'),
 	layoutDescriptor: {
 		[Parts.PANEL_PART]: {
 			size: '40%',
@@ -199,7 +191,7 @@ export const positronNotebookLayout: PositronLayoutInfo = {
 		},
 		[Parts.SIDEBAR_PART]: {
 			hidden: false,
-			size: 300,
+			size: 400,
 		},
 		[Parts.AUXILIARYBAR_PART]: {
 			hidden: true,
@@ -208,53 +200,47 @@ export const positronNotebookLayout: PositronLayoutInfo = {
 	},
 };
 
-registerAction2(class extends Action2 {
-	constructor() {
+
+abstract class PositronLayoutAction extends Action2 {
+	private _layout: CustomPositronLayoutDescription;
+	constructor(
+		layoutInfo: PositronLayoutInfo
+	) {
 		super({
-			id: positronNotebookLayout.id,
-			title: localize2('notebookDsLayout', 'Notebook Data Science Layout'),
+			id: layoutInfo.id,
+			title: layoutInfo.label,
 			category: Categories.View,
 			f1: true,
 		});
+
+		this._layout = layoutInfo.layoutDescriptor;
 	}
 	run(accessor: ServicesAccessor): void {
 		const layoutService = accessor.get(IWorkbenchLayoutService);
 		const viewDescriptorService = accessor.get(IViewDescriptorService);
-		enterPositronLayout(positronNotebookLayout.layoutDescriptor, layoutService, viewDescriptorService);
+
+		viewDescriptorService.loadCustomViewDescriptor(this._layout);
+		// Run the layout service action after the view descriptor has been loaded.
+		// This is needed so that the changing of the contents of the parts doesn't
+		// break the currently open view container that is set by the layoutService.
+		layoutService.enterCustomLayout(this._layout);
+	}
+}
+registerAction2(class extends PositronLayoutAction {
+	constructor() {
+		super(positronNotebookLayout);
 	}
 });
 
-
-
-registerAction2(class extends Action2 {
+registerAction2(class extends PositronLayoutAction {
 	constructor() {
-		super({
-			id: positronTwoPaneLayout.id,
-			title: localize2('twoPaneDataScienceLayout', 'Two Pane Data Science Layout'),
-			category: Categories.View,
-			f1: true,
-		});
-	}
-	run(accessor: ServicesAccessor): void {
-		const layoutService = accessor.get(IWorkbenchLayoutService);
-		const viewDescriptorService = accessor.get(IViewDescriptorService);
-		enterPositronLayout(positronTwoPaneLayout.layoutDescriptor, layoutService, viewDescriptorService);
+		super(positronTwoPaneLayout);
 	}
 });
 
-registerAction2(class extends Action2 {
+registerAction2(class extends PositronLayoutAction {
 	constructor() {
-		super({
-			id: positronFourPaneDsLayout.id,
-			title: localize2('fourPaneDataScienceLayout', 'Four Pane Data Science Layout'),
-			category: Categories.View,
-			f1: true,
-		});
-	}
-	run(accessor: ServicesAccessor): void {
-		const layoutService = accessor.get(IWorkbenchLayoutService);
-		const viewDescriptorService = accessor.get(IViewDescriptorService);
-		enterPositronLayout(positronFourPaneDsLayout.layoutDescriptor, layoutService, viewDescriptorService);
+		super(positronFourPaneDsLayout);
 	}
 });
 
@@ -279,7 +265,11 @@ registerAction2(class extends Action2 {
 		quickPick.onDidAccept(() => {
 			const selected = quickPick.selectedItems[0] as (typeof positronCustomLayoutOptions[number]) | undefined;
 			if (selected?.id) {
-				enterPositronLayout(selected.layoutDescriptor, layoutService, viewDescriptorService);
+				viewDescriptorService.loadCustomViewDescriptor(selected.layoutDescriptor);
+				// Run the layout service action after the view descriptor has been loaded.
+				// This is needed so that the changing of the contents of the parts doesn't
+				// break the currently open view container that is set by the layoutService.
+				layoutService.enterCustomLayout(selected.layoutDescriptor);
 			}
 			quickPick.hide();
 		});
@@ -307,16 +297,17 @@ registerAction2(class extends Action2 {
 // 	}
 // });
 
+type LayoutPick = IQuickPickItem & { layoutDescriptor: CustomPositronLayoutDescription };
+
 export const positronCustomLayoutOptions: LayoutPick[] = [
 	positronFourPaneDsLayout,
 	positronTwoPaneLayout,
 	positronNotebookLayout
-].map(positronLayoutInfoToQuickPick);
+].map(function positronLayoutInfoToQuickPick(layoutInfo: PositronLayoutInfo): LayoutPick {
+	return {
+		id: layoutInfo.id,
+		label: `$(${layoutInfo.codicon}) ${layoutInfo.label.value}`,
+		layoutDescriptor: layoutInfo.layoutDescriptor,
+	};
+});
 
-export function enterPositronLayout(layout: CustomPositronLayoutDescription, layoutService: IWorkbenchLayoutService, viewDescriptorService: IViewDescriptorService) {
-	viewDescriptorService.loadCustomViewDescriptor(layout);
-	// Run the layout service action after the view descriptor has been loaded.
-	// This is needed so that the changing of the contents of the parts doesn't
-	// break the currently open view container that is set by the layoutService.
-	layoutService.enterCustomLayout(layout);
-}
