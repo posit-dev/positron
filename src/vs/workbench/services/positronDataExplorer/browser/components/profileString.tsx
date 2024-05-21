@@ -7,6 +7,11 @@ import 'vs/css!./profileString';
 
 // React.
 import * as React from 'react';
+import { useEffect, useRef } from 'react'; // eslint-disable-line no-duplicate-imports
+
+// Other dependencies.
+import { DisposableStore } from 'vs/base/common/lifecycle';
+import { editorFontApplier } from 'vs/workbench/browser/editorFontApplier';
 import { TableSummaryDataGridInstance } from 'vs/workbench/services/positronDataExplorer/browser/tableSummaryDataGridInstance';
 
 /**
@@ -28,8 +33,30 @@ export const ProfileString = (props: ProfileStringProps) => {
 	if (!stats) {
 		stats = {};
 	}
+
+	// Reference hooks.
+	const ref = useRef<HTMLDivElement>(undefined!);
+
+	// Main useEffect.
+	useEffect(() => {
+		// Create the disposable store for cleanup.
+		const disposableStore = new DisposableStore();
+
+		// Use the editor font.
+		disposableStore.add(
+			editorFontApplier(
+				props.instance.configurationService,
+				ref.current
+			)
+		);
+
+		// Return the cleanup function that will dispose of the disposables.
+		return () => disposableStore.dispose();
+	}, [props.instance.configurationService]);
+
+	// Render.
 	return (
-		<div className='tabular-info'>
+		<div ref={ref} className='tabular-info'>
 			<div className='labels'>
 				<div className='label'>NA</div>
 				<div className='label'>Empty</div>
@@ -41,11 +68,6 @@ export const ProfileString = (props: ProfileStringProps) => {
 					<div className='value'>{stats.num_empty}</div>
 					<div className='value'>{stats.num_unique}</div>
 				</div>
-				{/* <div className='values-right'>
-					<div className='value'>&nbsp;</div>
-					<div className='value'>.51</div>
-					<div className='value'>.20</div>
-				</div> */}
 			</div>
 		</div>
 	);

@@ -149,6 +149,7 @@ export const DataExplorer = () => {
 		<div ref={dataExplorerRef} className='data-explorer'>
 			<div ref={column1Ref} className='column-1'>
 				<PositronDataGrid
+					configurationService={context.configurationService}
 					keybindingService={context.keybindingService}
 					layoutService={context.layoutService}
 					instance={context.instance.tableSchemaDataGridInstance}
@@ -163,6 +164,7 @@ export const DataExplorer = () => {
 			</div>
 			<div ref={column2Ref} className='column-2'>
 				<PositronDataGrid
+					configurationService={context.configurationService}
 					keybindingService={context.keybindingService}
 					layoutService={context.layoutService}
 					instance={context.instance.tableDataDataGridInstance}
