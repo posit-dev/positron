@@ -2,6 +2,7 @@
 # Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
 #
 
+from typing import Iterable
 from unittest.mock import MagicMock, Mock
 
 import comm
@@ -67,11 +68,8 @@ def kernel() -> PositronIPyKernel:
 
 
 @pytest.fixture
-def shell() -> PositronShell:
+def shell() -> Iterable[PositronShell]:
     shell = PositronShell.instance()
-
-    # Ensure a clean namespace
-    shell.reset()
 
     # TODO: For some reason these vars are in user_ns but not user_ns_hidden during tests. For now,
     #       manually add them to user_ns_hidden to replicate running in Positron.
@@ -91,7 +89,14 @@ def shell() -> PositronShell:
         }
     )
 
-    return shell
+    user_ns_keys = set(shell.user_ns.keys())
+
+    yield shell
+
+    # Ensure a clean namespace
+    new_user_ns_keys = set(shell.user_ns.keys()) - user_ns_keys
+    for key in new_user_ns_keys:
+        del shell.user_ns[key]
 
 
 @pytest.fixture
