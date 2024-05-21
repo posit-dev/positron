@@ -7,6 +7,7 @@ import * as vscode from 'vscode';
 import { NotebookControllerManager } from './notebookControllerManager';
 import { NotebookSessionService } from './notebookSessionService';
 import { registerCommands } from './commands';
+import { JUPYTER_NOTEBOOK_TYPE } from './constants';
 
 export const log = vscode.window.createOutputChannel('Positron Notebook Controllers', { log: true });
 
@@ -59,6 +60,22 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 	context.subscriptions.push(notebookSessionService.onDidChangeNotebookSession((e) => {
 		if (e.notebookUri === vscode.window.activeNotebookEditor?.notebook.uri) {
 			setHasRunningNotebookSessionContext(!!e.session);
+		}
+	}));
+
+	// Register kernel source action providers for the kernel selection quickpick.
+	context.subscriptions.push(vscode.notebooks.registerKernelSourceActionProvider(JUPYTER_NOTEBOOK_TYPE, {
+		provideNotebookKernelSourceActions: () => {
+			return [
+				{
+					label: 'Python Environments...',
+					command: 'positron.notebooks.selectPythonEnvironment',
+				},
+				{
+					label: 'R Environments...',
+					command: 'positron.notebooks.selectREnvironment'
+				}
+			];
 		}
 	}));
 

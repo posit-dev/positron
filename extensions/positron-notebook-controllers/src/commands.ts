@@ -30,5 +30,9 @@ export function registerCommands(context: vscode.ExtensionContext, notebookSessi
 				vscode.l10n.t("Restarting {0} interpreter for '{1}' failed. Reason: {2}",
 					session.runtimeMetadata.languageName, notebook.uri.path, error.message));
 		}
+	}), vscode.commands.registerCommand('positron.notebooks.selectPythonEnvironment', async () => {
+		return await vscode.commands.executeCommand('workbench.action.languageRuntime.pick', 'python');
+	}), vscode.commands.registerCommand('positron.notebooks.selectREnvironment', async () => {
+		return await vscode.commands.executeCommand('workbench.action.languageRuntime.pick', 'r');
 	}));
 }

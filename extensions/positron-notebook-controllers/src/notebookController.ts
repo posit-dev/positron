@@ -4,6 +4,7 @@
 import * as vscode from 'vscode';
 import * as positron from 'positron';
 import { NotebookSessionService } from './notebookSessionService';
+import { JUPYTER_NOTEBOOK_TYPE } from './constants';
 import { log } from './extension';
 
 /**
@@ -30,11 +31,11 @@ export class NotebookController implements vscode.Disposable {
 	) {
 		// Create a VSCode notebook controller for this language.
 		this.controller = vscode.notebooks.createNotebookController(
-			`positron-${_runtimeMetadata.runtimeId}`,
+			_runtimeMetadata.runtimeId,
 			// The 'jupyter-notebook' notebook type is contributed via the built-in extension
 			// extensions/ipynb. Registering our notebook controllers with the same type ensures
 			// that they show up in the notebook UI's kernel picker for .ipynb files.
-			'jupyter-notebook',
+			JUPYTER_NOTEBOOK_TYPE,
 			// Display name in the notebook UI's kernel picker.
 			this.label,
 		);

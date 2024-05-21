@@ -129,10 +129,11 @@ export const selectLanguageRuntimeSession = async (
  */
 const selectLanguageRuntime = async (
 	accessor: ServicesAccessor,
-	languageId: string): Promise<ILanguageRuntimeMetadata | undefined> => {
+	languageId: string,
+	preferredRuntime: ILanguageRuntimeMetadata | undefined,
+): Promise<ILanguageRuntimeMetadata | undefined> => {
 
 	const quickInputService = accessor.get(IQuickInputService);
-	const runtimeStartupService = accessor.get(IRuntimeStartupService);
 	const languageRuntimeService = accessor.get(ILanguageRuntimeService);
 	const languageService = accessor.get(ILanguageService);
 
@@ -144,7 +145,7 @@ const selectLanguageRuntime = async (
 		const addRuntime = (runtimeMetadata: ILanguageRuntimeMetadata) => {
 			runtimePicks.set(runtimeMetadata.runtimeId, {
 				id: runtimeMetadata.runtimeId,
-				label: `${runtimeMetadata.languageName} ${runtimeMetadata.languageVersion}`,
+				label: runtimeMetadata.runtimeName,
 				description: runtimeMetadata.runtimePath,
 				runtime: runtimeMetadata
 			});
@@ -188,13 +189,6 @@ const selectLanguageRuntime = async (
 			}
 		}
 
-		let preferredRuntime: ILanguageRuntimeMetadata | undefined;
-		try {
-			preferredRuntime = runtimeStartupService.getPreferredRuntime(languageId);
-		} catch (e) {
-			// getPreferredRuntime can error if a workspace-affiliated runtime is not
-			// yet registered. Do nothing.
-		}
 		if (preferredRuntime) {
 			input.placeholder = nls.localize('positron.languageRuntime.select.selectedInterpreer', 'Selected Interpreter: {0}', preferredRuntime.runtimeName);
 			const activeItem = runtimePicks.get(preferredRuntime.runtimeId);
@@ -278,6 +272,22 @@ export function registerLanguageRuntimeActions() {
 		});
 	};
 
+	registerAction2(class PickInterpreterAction extends Action2 {
+		constructor() {
+			super({
+				id: 'workbench.action.languageRuntime.pick',
+				title: nls.localize2('positron.command.pickInterpreter', "Pick Interpreter"),
+				f1: false,
+				category,
+			});
+		}
+
+		async run(accessor: ServicesAccessor, languageId: string) {
+			const languageRuntime = await selectLanguageRuntime(accessor, languageId, undefined);
+			return languageRuntime?.runtimeId;
+		}
+	});
+
 	// Registers the start language runtime action.
 	registerAction2(class SelectInterpreterAction extends Action2 {
 		constructor() {
@@ -293,9 +303,17 @@ export function registerLanguageRuntimeActions() {
 			// Access services.
 			const commandService = accessor.get(ICommandService);
 			const runtimeSessionService = accessor.get(IRuntimeSessionService);
+			const runtimeStartupService = accessor.get(IRuntimeStartupService);
 
 			// Ask the user to select the language runtime to start. If they selected one, start it.
-			const languageRuntime = await selectLanguageRuntime(accessor, languageId);
+			let preferredRuntime: ILanguageRuntimeMetadata | undefined;
+			try {
+				preferredRuntime = runtimeStartupService.getPreferredRuntime(languageId);
+			} catch {
+				// getPreferredRuntime can error if a workspace-affiliated runtime is not
+				// yet registered. Do nothing.
+			}
+			const languageRuntime = await selectLanguageRuntime(accessor, languageId, preferredRuntime);
 
 			if (languageRuntime) {
 				// Start the language runtime.

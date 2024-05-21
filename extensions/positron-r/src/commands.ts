@@ -136,7 +136,7 @@ export async function registerCommands(context: vscode.ExtensionContext) {
 		}),
 
 		vscode.commands.registerCommand('r.selectInterpreter', async () => {
-			vscode.commands.executeCommand('workbench.action.languageRuntime.select', 'r');
+			await vscode.commands.executeCommand('workbench.action.languageRuntime.select', 'r');
 		}),
 
 		// Command used to source the current file
