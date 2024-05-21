@@ -42,9 +42,7 @@ def patch_create_comm(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(comm, "create_comm", DummyComm)
 
 
-# Enable autouse to ensure that the kernel is instantiated with the correct shell_class before
-# anyone else tries to instantiate it.
-@pytest.fixture(autouse=True)
+@pytest.fixture
 def kernel() -> PositronIPyKernel:
     """
     The Positron kernel, configured for testing purposes.
@@ -57,14 +55,19 @@ def kernel() -> PositronIPyKernel:
     # Positron-specific attributes:
     app.session_mode = SessionMode.CONSOLE
 
-    kernel = PositronIPyKernel.instance(parent=app)
+    try:
+        kernel = PositronIPyKernel.instance(parent=app)
+    except Exception:
+        print(
+            "Error instantiating PositronIPyKernel. Did you import IPython.conftest, "
+            "which instantiates a different kernel class?"
+        )
+        raise
 
     return kernel
 
 
-# Enable autouse to ensure a clean namespace and correct user_ns_hidden in every test,
-# even if it doesn't explicitly use the `shell` fixture.
-@pytest.fixture(autouse=True)
+@pytest.fixture
 def shell() -> Iterable[PositronShell]:
     shell = PositronShell.instance()
 
@@ -86,10 +89,14 @@ def shell() -> Iterable[PositronShell]:
         }
     )
 
+    user_ns_keys = set(shell.user_ns.keys())
+
     yield shell
 
-    # Reset the namespace so we don't interface with other tests (e.g. environment updates).
-    shell.reset()
+    # Ensure a clean namespace
+    new_user_ns_keys = set(shell.user_ns.keys()) - user_ns_keys
+    for key in new_user_ns_keys:
+        del shell.user_ns[key]
 
 
 @pytest.fixture
