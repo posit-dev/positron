@@ -385,6 +385,10 @@ class UpdateParams(BaseModel):
         description="An array of variables that have been newly assigned.",
     )
 
+    unevaluated: List[Variable] = Field(
+        description="An array of variables that were not evaluated for value updates.",
+    )
+
     removed: List[str] = Field(
         description="An array of variable names that have been removed.",
     )

@@ -143,7 +143,9 @@ class VariablesService:
         else:
             logger.warning(f"Unhandled request: {request}")
 
-    def _send_update(self, assigned: Mapping[str, Any], removed: Set[str]) -> None:
+    def _send_update(
+        self, assigned: Mapping[str, Any], unevaluated: Mapping[str, Any], removed: Set[str]
+    ) -> None:
         """
         Sends the list of variables that have changed in the current
         user session through the variables comm to the client.
@@ -160,6 +162,7 @@ class VariablesService:
                         "display_value": "Hello",
                         "kind": "string"
                     }],
+                    "unevaluated": [],
                     "removed": ["oldvar1", "oldvar2"]
                 }
             }
@@ -177,7 +180,8 @@ class VariablesService:
             if con_service.variable_has_active_connection(name):
                 con_service.handle_variable_deleted(name)
 
-        for name, value in assigned.items():
+        updated = {**assigned, **unevaluated}
+        for name, value in updated.items():
             if exp_service.variable_has_active_explorers(name):
                 exp_service.handle_variable_updated(name, value)
 
@@ -192,15 +196,20 @@ class VariablesService:
         variables = self._get_filtered_vars(assigned)
         filtered_assigned = _summarize_children(variables, MAX_ITEMS)
 
+        # Filter out hidden unevaluated variables
+        variables = self._get_filtered_vars(unevaluated)
+        filtered_unevaluated = _summarize_children(variables, MAX_ITEMS)
+
         # Filter out hidden removed variables and encode access keys
         hidden = self._get_user_ns_hidden()
         filtered_removed = [
             encode_access_key(name) for name in sorted(removed) if name not in hidden
         ]
 
-        if filtered_assigned or filtered_removed:
+        if filtered_assigned or filtered_unevaluated or filtered_removed:
             msg = UpdateParams(
                 assigned=filtered_assigned,
+                unevaluated=filtered_unevaluated,
                 removed=filtered_removed,
                 version=0,
             )
@@ -251,8 +260,8 @@ class VariablesService:
 
         try:
             # Try to detect the changes made since the last execution
-            assigned, removed = self._compare_user_ns()
-            self._send_update(assigned, removed)
+            assigned, unevaluated, removed = self._compare_user_ns()
+            self._send_update(assigned, unevaluated, removed)
         except Exception as err:
             logger.warning(err, exc_info=True)
 
@@ -323,21 +332,22 @@ class VariablesService:
         copied = repr(list(self._snapshot["mutable_copied"].keys()))
         logger.debug(f"Variables copied: {copied}")
 
-    def _compare_user_ns(self) -> Tuple[Dict[str, Any], Set[str]]:
+    def _compare_user_ns(self) -> Tuple[Dict[str, Any], Dict[str, Any], Set[str]]:
         """
         Attempts to detect changes to variables in the user's environment.
 
         Returns
         -------
-        A tuple (dict, set) containing a dict of variables that
-        were modified (added or updated) and a set of variables
-        that were removed.
+        A tuple (dict, dict, set) containing a dict of variables that were
+        modified (added or updated), a set of variables that were not evaluated
+        for updates, and a set of variables that were removed.
         """
         assigned = {}
+        unevaluated = {}
         removed = set()
 
         if self._snapshot is None:
-            return assigned, removed
+            return assigned, unevaluated, removed
 
         after = self._get_user_ns()
         hidden = self._get_user_ns_hidden()
@@ -359,7 +369,7 @@ class VariablesService:
 
         all_snapshot_keys = set()
 
-        def _check_ns_subset(ns_subset, are_different_func):
+        def _check_ns_subset(ns_subset, evaluated, are_different_func):
             all_snapshot_keys.update(ns_subset.keys())
 
             for key, value in ns_subset.items():
@@ -371,16 +381,19 @@ class VariablesService:
                         # Key was removed
                         removed.add(key)
                     elif are_different_func(value, after[key]):
-                        assigned[key] = after[key]
+                        if evaluated:
+                            assigned[key] = after[key]
+                        else:
+                            unevaluated[key] = after[key]
                 except Exception as err:
                     logger.warning("err: %s", err, exc_info=True)
                     raise
 
         start = time.time()
 
-        _check_ns_subset(snapshot["immutable"], _compare_immutable)
-        _check_ns_subset(snapshot["mutable_copied"], _compare_mutable)
-        _check_ns_subset(snapshot["mutable_excluded"], _compare_always_different)
+        _check_ns_subset(snapshot["immutable"], True, _compare_immutable)
+        _check_ns_subset(snapshot["mutable_copied"], True, _compare_mutable)
+        _check_ns_subset(snapshot["mutable_excluded"], False, _compare_always_different)
 
         for key, value in after.items():
             if key in hidden:
@@ -392,7 +405,7 @@ class VariablesService:
         elapsed = time.time() - start
         logger.debug(f"Detecting namespace changes took {elapsed:.4f} seconds")
 
-        return assigned, removed
+        return assigned, unevaluated, removed
 
     def _get_user_ns(self) -> Dict[str, Any]:
         return self.kernel.shell.user_ns or {}
@@ -508,7 +521,7 @@ class VariablesService:
                 logger.warning(f"Unable to delete variable '{name}'")
                 pass
 
-        _, removed = self._compare_user_ns()
+        _, _, removed = self._compare_user_ns()
 
         # Publish an input to inform clients of the variables that were deleted
         if len(removed) > 0:

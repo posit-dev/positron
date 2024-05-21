@@ -184,6 +184,7 @@ export class VariablesClientInstance extends Disposable {
 		const removed = await this._comm.delete(names);
 		return new PositronVariablesUpdate({
 			assigned: [],
+			unevaluated: [],
 			removed,
 			version: 0
 		}, this._comm);

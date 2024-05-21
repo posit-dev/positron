@@ -170,6 +170,11 @@ export interface UpdateEvent {
 	assigned: Array<Variable>;
 
 	/**
+	 * An array of variables that were not evaluated for value updates.
+	 */
+	unevaluated: Array<Variable>;
+
+	/**
 	 * An array of variable names that have been removed.
 	 */
 	removed: Array<string>;
@@ -212,7 +217,7 @@ export enum VariablesFrontendEvent {
 export class PositronVariablesComm extends PositronBaseComm {
 	constructor(instance: IRuntimeClientInstance<any, any>) {
 		super(instance);
-		this.onDidUpdate = super.createEventEmitter('update', ['assigned', 'removed', 'version']);
+		this.onDidUpdate = super.createEventEmitter('update', ['assigned', 'unevaluated', 'removed', 'version']);
 		this.onDidRefresh = super.createEventEmitter('refresh', ['variables', 'length', 'version']);
 	}
 
