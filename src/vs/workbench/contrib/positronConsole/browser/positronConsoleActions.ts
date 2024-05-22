@@ -268,6 +268,9 @@ export function registerPositronConsoleActions() {
 		/**
 		 * Runs action.
 		 * @param accessor The services accessor.
+		 * @param opts Options for code execution
+		 *   - allowIncomplete: Optionally, should incomplete statements be accepted? If `undefined`, treated as `false`.
+		 *   - languageId: Optionally, a language override for the code to execute. If `undefined`, the language of the active text editor is used. Useful for notebooks.
 		 */
 		async run(accessor: ServicesAccessor, opts: { allowIncomplete?: boolean; languageId?: string } = {}) {
 			// Access services.

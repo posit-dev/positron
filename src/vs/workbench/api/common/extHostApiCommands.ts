@@ -493,7 +493,7 @@ const newCommands: ApiCommand[] = [
 		[ApiCommandArgument.Uri, ApiCommandArgument.Position],
 		new ApiCommandResult<languages.IStatementRange, StatementRange>('A promise that resolves to a statement range.', result => {
 			// converter: convert from IRange (API type) to vscode.Range
-			return { range: typeConverters.Range.to(result.range) };
+			return { range: typeConverters.Range.to(result.range), code: result.code };
 		})
 	),
 	// --- End Positron
