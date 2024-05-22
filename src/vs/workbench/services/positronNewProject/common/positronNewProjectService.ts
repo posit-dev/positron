@@ -10,9 +10,9 @@ import { IStorageService, StorageScope, StorageTarget } from 'vs/platform/storag
 import { IWorkspaceContextService } from 'vs/platform/workspace/common/workspace';
 import { IWorkspaceTrustManagementService } from 'vs/platform/workspace/common/workspaceTrust';
 import { IPositronNewProjectService, NewProjectConfiguration, NewProjectStartupPhase, NewProjectTask, POSITRON_NEW_PROJECT_CONFIG_STORAGE_KEY } from 'vs/workbench/services/positronNewProject/common/positronNewProject';
-import { IRuntimeSessionService } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
-import { IRuntimeStartupService, RuntimeStartupPhase } from 'vs/workbench/services/runtimeStartup/common/runtimeStartupService';
 import { Event } from 'vs/base/common/event';
+import { Barrier } from 'vs/base/common/async';
+import { ILanguageRuntimeMetadata } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 
 /**
  * PositronNewProjectService class.
@@ -31,13 +31,17 @@ export class PositronNewProjectService extends Disposable implements IPositronNe
 	private _pendingTasks: ISettableObservable<Set<string>>;
 	onDidChangePendingTasks: Event<Set<string>>;
 
+	// Barrier to signal that all tasks are complete
+	public allTasksComplete: Barrier = new Barrier();
+
+	// Runtime metadata for the new project
+	private readonly _runtimeMetadata: ILanguageRuntimeMetadata | undefined;
+
 	// Create the Positron New Project service instance.
 	constructor(
 		@IWorkspaceContextService private readonly _contextService: IWorkspaceContextService,
 		@ICommandService private readonly _commandService: ICommandService,
 		@ILogService private readonly _logService: ILogService,
-		@IRuntimeSessionService private readonly _runtimeSessionService: IRuntimeSessionService,
-		@IRuntimeStartupService private readonly _runtimeStartupService: IRuntimeStartupService,
 		@IStorageService private readonly _storageService: IStorageService,
 		@IWorkspaceTrustManagementService private readonly _workspaceTrustManagementService: IWorkspaceTrustManagementService
 	) {
@@ -53,6 +57,10 @@ export class PositronNewProjectService extends Disposable implements IPositronNe
 		);
 		this._register(
 			this.onDidChangeNewProjectStartupPhase((phase) => {
+				// Open barrier when all tasks are complete
+				if (phase === NewProjectStartupPhase.Complete) {
+					this.allTasksComplete.open();
+				}
 				this._logService.debug(
 					`[New project startup] Phase changed to ${phase}`
 				);
@@ -61,6 +69,13 @@ export class PositronNewProjectService extends Disposable implements IPositronNe
 
 		// Parse the new project configuration from the storage service
 		this._newProjectConfig = this._parseNewProjectConfig();
+
+		// If no new project configuration is found, the new project startup is complete
+		if (this._newProjectConfig === null) {
+			this.allTasksComplete.open();
+		} else {
+			this._runtimeMetadata = this._newProjectConfig.runtimeMetadata;
+		}
 
 		// Initialize the pending tasks observable.
 		// This initialization needs to take place after the new project configuration is parsed, so
@@ -84,6 +99,13 @@ export class PositronNewProjectService extends Disposable implements IPositronNe
 				}
 			})
 		);
+	}
+
+	/**
+	 * Returns the runtime metadata for the new project.
+	 */
+	public get newProjectRuntimeMetadata(): ILanguageRuntimeMetadata | undefined {
+		return this._runtimeMetadata;
 	}
 
 	/**
@@ -261,39 +283,13 @@ export class PositronNewProjectService extends Disposable implements IPositronNe
 	 * Runs the tasks for the new project. This function assumes that we've already checked that the
 	 * current window is the new project that was just created.
 	 */
-	private _newProjectTasks() {
+	private async _newProjectTasks() {
 		this._startupPhase.set(
 			NewProjectStartupPhase.CreatingProject,
 			undefined
 		);
 		if (this._newProjectConfig) {
-			// Start the selected runtime
-			const runtimeId = this._newProjectConfig.runtimeId;
-			this._register(
-				this._runtimeStartupService.onDidChangeRuntimeStartupPhase(
-					async (phase) => {
-						if (phase === RuntimeStartupPhase.Discovering) {
-							// Run tasks that use extensions. At this point, extensions should be ready,
-							// and extensions that contribute language runtimes should have been
-							// activated as well.
-							await this._runExtensionTasks();
-						} else if (phase === RuntimeStartupPhase.Complete) {
-							// Thought: Can the interpreter discovery at startup be modified to directly use the
-							// selected interpreter, so that the user doesn't have to wait for the interpreter
-							// discovery to complete before the runtime is started? Can we set the affiliated
-							// runtime metadata directly, so the selected interpreter can be started immediately
-							// without having to explicitly select it?
-
-							// TODO: this may try to start a runtime that is already running. This may also
-							// cause the active interpreter to be changed in other windows.
-							await this._runtimeSessionService.selectRuntime(
-								runtimeId,
-								'User-requested startup from the Positron Project Wizard during project initialization'
-							);
-						}
-					}
-				)
-			);
+			await this._runExtensionTasks();
 		} else {
 			this._logService.error(
 				'[New project startup] No new project configuration found'
