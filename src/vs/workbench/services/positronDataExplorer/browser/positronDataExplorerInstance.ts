@@ -4,13 +4,14 @@
 
 import { Emitter } from 'vs/base/common/event';
 import { Disposable } from 'vs/base/common/lifecycle';
+import { IHoverService } from 'vs/platform/hover/browser/hover';
+import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
 import { DataExplorerCache } from 'vs/workbench/services/positronDataExplorer/common/dataExplorerCache';
 import { TableDataDataGridInstance } from 'vs/workbench/services/positronDataExplorer/browser/tableDataDataGridInstance';
 import { DataExplorerClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimeDataExplorerClient';
 import { TableSummaryDataGridInstance } from 'vs/workbench/services/positronDataExplorer/browser/tableSummaryDataGridInstance';
 import { PositronDataExplorerLayout } from 'vs/workbench/services/positronDataExplorer/browser/interfaces/positronDataExplorerService';
 import { IPositronDataExplorerInstance } from 'vs/workbench/services/positronDataExplorer/browser/interfaces/positronDataExplorerInstance';
-import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
 
 /**
  * PositronDataExplorerInstance class.
@@ -87,13 +88,14 @@ export class PositronDataExplorerInstance extends Disposable implements IPositro
 	/**
 	 * Constructor.
 	 * @param configurationService The configuration service.
+	 * @param hoverService The hover service.
 	 * @param languageName The language name.
-	 * @param dataExplorerClientInstance The DataExplorerClientInstance. The
-	 * data explorer takes ownership of the client instance and will dispose it
-	 * when it is disposed.
+	 * @param dataExplorerClientInstance The DataExplorerClientInstance. The data explorer takes
+	 * ownership of the client instance and will dispose it when it is disposed.
 	 */
 	constructor(
 		configurationService: IConfigurationService,
+		hoverService: IHoverService,
 		languageName: string,
 		dataExplorerClientInstance: DataExplorerClientInstance
 	) {
@@ -106,6 +108,7 @@ export class PositronDataExplorerInstance extends Disposable implements IPositro
 		this._dataExplorerCache = new DataExplorerCache(dataExplorerClientInstance);
 		this._tableSchemaDataGridInstance = new TableSummaryDataGridInstance(
 			configurationService,
+			hoverService,
 			dataExplorerClientInstance,
 			this._dataExplorerCache
 		);
