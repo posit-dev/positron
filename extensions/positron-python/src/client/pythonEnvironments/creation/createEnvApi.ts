@@ -72,13 +72,10 @@ export function registerCreateEnvironmentFeatures(
                 return handleCreateEnvironmentCommand(providers, options);
             },
         ),
-        registerCommand(
-            Commands.Create_Environment_Button,
-            async (): Promise<void> => {
-                sendTelemetryEvent(EventName.ENVIRONMENT_BUTTON, undefined, undefined);
-                await executeCommand(Commands.Create_Environment);
-            },
-        ),
+        registerCommand(Commands.Create_Environment_Button, async (): Promise<void> => {
+            sendTelemetryEvent(EventName.ENVIRONMENT_BUTTON, undefined, undefined);
+            await executeCommand(Commands.Create_Environment);
+        }),
         // --- Start Positron ---
         registerCommand(Commands.Get_Create_Environment_Providers, () => {
             const providers = _createEnvironmentProviders.getAll();

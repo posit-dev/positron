@@ -200,7 +200,7 @@ suite('Set Interpreter Command', () => {
 
             workspace
                 .setup((w) => w.getWorkspaceFolder(TypeMoq.It.isAny()))
-                .returns(() => (({ uri: { fsPath: workspacePath } } as unknown) as WorkspaceFolder));
+                .returns(() => ({ uri: { fsPath: workspacePath } }) as unknown as WorkspaceFolder);
 
             setInterpreterCommand = new SetInterpreterCommand(
                 appShell.object,
@@ -261,7 +261,7 @@ suite('Set Interpreter Command', () => {
                 .callback((options) => {
                     actualParameters = options;
                 })
-                .returns(() => Promise.resolve((undefined as unknown) as QuickPickItem));
+                .returns(() => Promise.resolve(undefined as unknown as QuickPickItem));
 
             await setInterpreterCommand._pickInterpreter(multiStepInput.object, state);
 
@@ -272,9 +272,9 @@ suite('Set Interpreter Command', () => {
             delete actualParameters!.customButtonSetups;
             delete actualParameters!.onChangeItem;
             if (typeof actualParameters!.activeItem === 'function') {
-                const activeItem = await actualParameters!.activeItem(({ items: suggestions } as unknown) as QuickPick<
-                    QuickPickType
-                >);
+                const activeItem = await actualParameters!.activeItem({
+                    items: suggestions,
+                } as unknown as QuickPick<QuickPickType>);
                 assert.deepStrictEqual(activeItem, recommended);
             } else {
                 assert(false, 'Not a function');
@@ -313,7 +313,7 @@ suite('Set Interpreter Command', () => {
                 .callback((options) => {
                     actualParameters = options;
                 })
-                .returns(() => Promise.resolve((undefined as unknown) as QuickPickItem));
+                .returns(() => Promise.resolve(undefined as unknown as QuickPickItem));
 
             await setInterpreterCommand._pickInterpreter(multiStepInput.object, state, undefined, {
                 showCreateEnvironment: true,
@@ -326,9 +326,9 @@ suite('Set Interpreter Command', () => {
             delete actualParameters!.customButtonSetups;
             delete actualParameters!.onChangeItem;
             if (typeof actualParameters!.activeItem === 'function') {
-                const activeItem = await actualParameters!.activeItem(({ items: suggestions } as unknown) as QuickPick<
-                    QuickPickType
-                >);
+                const activeItem = await actualParameters!.activeItem({
+                    items: suggestions,
+                } as unknown as QuickPick<QuickPickType>);
                 assert.deepStrictEqual(activeItem, recommended);
             } else {
                 assert(false, 'Not a function');
@@ -361,7 +361,7 @@ suite('Set Interpreter Command', () => {
                 .callback((options) => {
                     actualParameters = options;
                 })
-                .returns(() => Promise.resolve((undefined as unknown) as QuickPickItem));
+                .returns(() => Promise.resolve(undefined as unknown as QuickPickItem));
             interpreterSelector.reset();
             interpreterSelector
                 .setup((i) => i.getSuggestions(TypeMoq.It.isAny(), TypeMoq.It.isAny()))
@@ -376,9 +376,9 @@ suite('Set Interpreter Command', () => {
             delete actualParameters!.customButtonSetups;
             delete actualParameters!.onChangeItem;
             if (typeof actualParameters!.activeItem === 'function') {
-                const activeItem = await actualParameters!.activeItem(({ items: suggestions } as unknown) as QuickPick<
-                    QuickPickType
-                >);
+                const activeItem = await actualParameters!.activeItem({
+                    items: suggestions,
+                } as unknown as QuickPick<QuickPickType>);
                 assert.deepStrictEqual(activeItem, noPythonInstalled);
             } else {
                 assert(false, 'Not a function');
@@ -392,7 +392,7 @@ suite('Set Interpreter Command', () => {
             const multiStepInput = TypeMoq.Mock.ofType<IMultiStepInput<InterpreterStateArgs>>();
             multiStepInput
                 .setup((i) => i.showQuickPick(TypeMoq.It.isAny()))
-                .returns(() => Promise.resolve((noPythonInstalled as unknown) as QuickPickItem));
+                .returns(() => Promise.resolve(noPythonInstalled as unknown as QuickPickItem));
             interpreterSelector.reset();
             interpreterSelector
                 .setup((i) => i.getSuggestions(TypeMoq.It.isAny(), TypeMoq.It.isAny()))
@@ -412,7 +412,7 @@ suite('Set Interpreter Command', () => {
             const multiStepInput = TypeMoq.Mock.ofType<IMultiStepInput<InterpreterStateArgs>>();
             multiStepInput
                 .setup((i) => i.showQuickPick(TypeMoq.It.isAny()))
-                .returns(() => Promise.resolve((tipToReloadWindow as unknown) as QuickPickItem));
+                .returns(() => Promise.resolve(tipToReloadWindow as unknown as QuickPickItem));
             interpreterSelector.reset();
             interpreterSelector
                 .setup((i) => i.getSuggestions(TypeMoq.It.isAny(), TypeMoq.It.isAny()))
@@ -531,7 +531,7 @@ suite('Set Interpreter Command', () => {
                 .callback((options) => {
                     actualParameters = options;
                 })
-                .returns(() => Promise.resolve((undefined as unknown) as QuickPickItem));
+                .returns(() => Promise.resolve(undefined as unknown as QuickPickItem));
 
             await setInterpreterCommand._pickInterpreter(multiStepInput.object, state);
 
@@ -643,7 +643,7 @@ suite('Set Interpreter Command', () => {
                 .callback((options) => {
                     actualParameters = options;
                 })
-                .returns(() => Promise.resolve((undefined as unknown) as QuickPickItem));
+                .returns(() => Promise.resolve(undefined as unknown as QuickPickItem));
 
             await setInterpreterCommand._pickInterpreter(
                 multiStepInput.object,
@@ -736,7 +736,7 @@ suite('Set Interpreter Command', () => {
                 .callback((options) => {
                     actualParameters = options;
                 })
-                .returns(() => Promise.resolve((undefined as unknown) as QuickPickItem));
+                .returns(() => Promise.resolve(undefined as unknown as QuickPickItem));
 
             await setInterpreterCommand._pickInterpreter(multiStepInput.object, state);
 
@@ -748,9 +748,9 @@ suite('Set Interpreter Command', () => {
             delete actualParameters!.customButtonSetups;
             delete actualParameters!.onChangeItem;
             if (typeof actualParameters!.activeItem === 'function') {
-                const activeItem = await actualParameters!.activeItem(({ items: suggestions } as unknown) as QuickPick<
-                    QuickPickType
-                >);
+                const activeItem = await actualParameters!.activeItem({
+                    items: suggestions,
+                } as unknown as QuickPick<QuickPickType>);
                 assert.deepStrictEqual(activeItem, recommended);
             } else {
                 assert(false, 'Not a function');
@@ -769,7 +769,7 @@ suite('Set Interpreter Command', () => {
                 .callback((options) => {
                     actualParameters = options;
                 })
-                .returns(() => Promise.resolve((undefined as unknown) as QuickPickItem));
+                .returns(() => Promise.resolve(undefined as unknown as QuickPickItem));
 
             await setInterpreterCommand._pickInterpreter(multiStepInput.object, state);
 
@@ -792,7 +792,7 @@ suite('Set Interpreter Command', () => {
                 .callback((options) => {
                     actualParameters = options;
                 })
-                .returns(() => Promise.resolve((undefined as unknown) as QuickPickItem));
+                .returns(() => Promise.resolve(undefined as unknown as QuickPickItem));
             const refreshPromiseDeferred = createDeferred();
             // Assume a refresh is currently going on...
             when(interpreterService.refreshPromise).thenReturn(refreshPromiseDeferred.promise);
@@ -818,7 +818,7 @@ suite('Set Interpreter Command', () => {
                 old: item.interpreter,
                 new: refreshedItem.interpreter,
             };
-            await onChangedCallback!(changeEvent, (quickPick as unknown) as QuickPick<QuickPickItem>); // Invoke callback, meaning that the items are supposed to change.
+            await onChangedCallback!(changeEvent, quickPick as unknown as QuickPick<QuickPickItem>); // Invoke callback, meaning that the items are supposed to change.
 
             assert.deepStrictEqual(
                 quickPick,
@@ -903,7 +903,7 @@ suite('Set Interpreter Command', () => {
             interpreterSelector
                 .setup((i) => i.suggestionToQuickPickItem(TypeMoq.It.isValue(newItem.interpreter), undefined, false))
                 .returns(() => newItem);
-            await onChangedCallback!(changeEvent2, (quickPick as unknown) as QuickPick<QuickPickItem>); // Invoke callback, meaning that the items are supposed to change.
+            await onChangedCallback!(changeEvent2, quickPick as unknown as QuickPick<QuickPickItem>); // Invoke callback, meaning that the items are supposed to change.
 
             assert.deepStrictEqual(
                 quickPick,
@@ -1004,7 +1004,7 @@ suite('Set Interpreter Command', () => {
             const multiStepInput = TypeMoq.Mock.ofType<IMultiStepInput<InterpreterStateArgs>>();
             multiStepInput
                 .setup((i) => i.showQuickPick(expectedParameters))
-                .returns(() => Promise.resolve((undefined as unknown) as QuickPickItem))
+                .returns(() => Promise.resolve(undefined as unknown as QuickPickItem))
                 .verifiable(TypeMoq.Times.once());
 
             await setInterpreterCommand._enterOrBrowseInterpreterPath(multiStepInput.object, state);

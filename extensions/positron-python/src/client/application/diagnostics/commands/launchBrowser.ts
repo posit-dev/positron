@@ -11,7 +11,11 @@ import { IDiagnostic } from '../types';
 import { BaseDiagnosticCommand } from './base';
 
 export class LaunchBrowserCommand extends BaseDiagnosticCommand {
-    constructor(diagnostic: IDiagnostic, private serviceContainer: IServiceContainer, private url: string) {
+    constructor(
+        diagnostic: IDiagnostic,
+        private serviceContainer: IServiceContainer,
+        private url: string,
+    ) {
         super(diagnostic);
     }
     public async invoke(): Promise<void> {

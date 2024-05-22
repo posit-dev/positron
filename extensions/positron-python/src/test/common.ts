@@ -109,13 +109,13 @@ export const resetGlobalInterpreterPathSetting = async () => retryAsync(restoreG
 
 async function restoreGlobalInterpreterPathSetting(): Promise<void> {
     const vscode = require('vscode') as typeof import('vscode');
-    const pythonConfig = vscode.workspace.getConfiguration('python', (null as any) as Uri);
+    const pythonConfig = vscode.workspace.getConfiguration('python', null as any as Uri);
     await pythonConfig.update('defaultInterpreterPath', undefined, true);
     await disposePythonSettings();
 }
 async function setGlobalPathToInterpreter(pythonPath?: string): Promise<void> {
     const vscode = require('vscode') as typeof import('vscode');
-    const pythonConfig = vscode.workspace.getConfiguration('python', (null as any) as Uri);
+    const pythonConfig = vscode.workspace.getConfiguration('python', null as any as Uri);
     await pythonConfig.update('defaultInterpreterPath', pythonPath, true);
     await disposePythonSettings();
 }
@@ -200,7 +200,7 @@ async function setPythonPathInWorkspace(
 }
 async function restoreGlobalPythonPathSetting(): Promise<void> {
     const vscode = require('vscode') as typeof import('vscode');
-    const pythonConfig = vscode.workspace.getConfiguration('python', (null as any) as Uri);
+    const pythonConfig = vscode.workspace.getConfiguration('python', null as any as Uri);
     await Promise.all([
         pythonConfig.update('defaultInterpreterPath', undefined, true),
         pythonConfig.update('defaultInterpreterPath', undefined, true),
@@ -544,7 +544,11 @@ export class TestEventHandler<T extends void | any = any> implements IDisposable
     private readonly handler: IDisposable;
 
     private readonly handledEvents: any[] = [];
-    constructor(event: Event<T>, private readonly eventNameForErrorMessages: string, disposables: IDisposable[] = []) {
+    constructor(
+        event: Event<T>,
+        private readonly eventNameForErrorMessages: string,
+        disposables: IDisposable[] = [],
+    ) {
         disposables.push(this);
         this.handler = event(this.listener, this);
     }

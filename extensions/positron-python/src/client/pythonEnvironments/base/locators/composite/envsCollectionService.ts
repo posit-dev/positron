@@ -54,7 +54,10 @@ export class EnvsCollectionService extends PythonEnvsWatcher<PythonEnvCollection
         return this.progressPromises.get(stage)?.promise;
     }
 
-    constructor(private readonly cache: IEnvsCollectionCache, private readonly locator: IResolvingLocator) {
+    constructor(
+        private readonly cache: IEnvsCollectionCache,
+        private readonly locator: IResolvingLocator,
+    ) {
         super();
         this.locator.onChanged((event) => {
             const query: PythonLocatorQuery | undefined = event.providerId

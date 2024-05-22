@@ -5,7 +5,10 @@ import { Product } from '../../client/common/types';
 import { ModuleInstallerType } from '../../client/pythonEnvironments/info';
 
 export class MockModuleInstaller extends EventEmitter implements IModuleInstaller {
-    constructor(public readonly displayName: string, private supported: boolean) {
+    constructor(
+        public readonly displayName: string,
+        private supported: boolean,
+    ) {
         super();
     }
 

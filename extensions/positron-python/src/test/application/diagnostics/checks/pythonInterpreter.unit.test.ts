@@ -115,7 +115,7 @@ suite('Application Diagnostics - Checks Python Interpreter', () => {
             .setup((s) => s.get(typemoq.It.isValue(IInterpreterPathService)))
             .returns(() => interpreterPathService.object);
         configService = typemoq.Mock.ofType<IConfigurationService>();
-        configService.setup((c) => c.getSettings()).returns(() => ({ pythonPath: 'pythonPath' } as any));
+        configService.setup((c) => c.getSettings()).returns(() => ({ pythonPath: 'pythonPath' }) as any);
         serviceContainer
             .setup((s) => s.get(typemoq.It.isValue(IConfigurationService)))
             .returns(() => configService.object);
@@ -163,7 +163,7 @@ suite('Application Diagnostics - Checks Python Interpreter', () => {
             interpreterService.setup((i) => i.hasInterpreters()).returns(() => Promise.resolve(true));
             interpreterService
                 .setup((i) => i.getActiveInterpreter(typemoq.It.isAny()))
-                .returns(() => Promise.resolve(({ path: 'interpreterpath' } as unknown) as PythonEnvironment));
+                .returns(() => Promise.resolve({ path: 'interpreterpath' } as unknown as PythonEnvironment));
             const result2 = await triggerFunction!(undefined);
             expect(result2).to.equal(true);
         });
@@ -374,7 +374,7 @@ suite('Application Diagnostics - Checks Python Interpreter', () => {
 
         test('Handling comspec diagnostic should launch expected browser link', async () => {
             const diagnostic = new DefaultShellDiagnostic(DiagnosticCodes.InvalidComspecDiagnostic, undefined);
-            const cmd = ({} as any) as IDiagnosticCommand;
+            const cmd = {} as any as IDiagnosticCommand;
             let messagePrompt: MessageCommandPrompt | undefined;
             messageHandler
                 .setup((i) => i.handle(typemoq.It.isValue(diagnostic), typemoq.It.isAny()))
@@ -409,7 +409,7 @@ suite('Application Diagnostics - Checks Python Interpreter', () => {
 
         test('Handling incomplete path diagnostic should launch expected browser link', async () => {
             const diagnostic = new DefaultShellDiagnostic(DiagnosticCodes.IncompletePathVarDiagnostic, undefined);
-            const cmd = ({} as any) as IDiagnosticCommand;
+            const cmd = {} as any as IDiagnosticCommand;
             let messagePrompt: MessageCommandPrompt | undefined;
             messageHandler
                 .setup((i) => i.handle(typemoq.It.isValue(diagnostic), typemoq.It.isAny()))
@@ -444,7 +444,7 @@ suite('Application Diagnostics - Checks Python Interpreter', () => {
 
         test('Handling default shell error diagnostic should launch expected browser link', async () => {
             const diagnostic = new DefaultShellDiagnostic(DiagnosticCodes.DefaultShellErrorDiagnostic, undefined);
-            const cmd = ({} as any) as IDiagnosticCommand;
+            const cmd = {} as any as IDiagnosticCommand;
             let messagePrompt: MessageCommandPrompt | undefined;
             messageHandler
                 .setup((i) => i.handle(typemoq.It.isValue(diagnostic), typemoq.It.isAny()))
@@ -483,7 +483,7 @@ suite('Application Diagnostics - Checks Python Interpreter', () => {
                 undefined,
                 workspaceService.object,
             );
-            const cmd = ({} as any) as IDiagnosticCommand;
+            const cmd = {} as any as IDiagnosticCommand;
             let messagePrompt: MessageCommandPrompt | undefined;
             messageHandler
                 .setup((i) => i.handle(typemoq.It.isValue(diagnostic), typemoq.It.isAny()))
@@ -523,7 +523,7 @@ suite('Application Diagnostics - Checks Python Interpreter', () => {
                 undefined,
                 workspaceService.object,
             );
-            const cmd = ({} as any) as IDiagnosticCommand;
+            const cmd = {} as any as IDiagnosticCommand;
             let messagePrompt: MessageCommandPrompt | undefined;
             messageHandler
                 .setup((i) => i.handle(typemoq.It.isValue(diagnostic), typemoq.It.isAny()))
@@ -555,7 +555,7 @@ suite('Application Diagnostics - Checks Python Interpreter', () => {
         });
         test('Handling an empty diagnostic should not show a message nor return a command', async () => {
             const diagnostics: IDiagnostic[] = [];
-            const cmd = ({} as any) as IDiagnosticCommand;
+            const cmd = {} as any as IDiagnosticCommand;
 
             messageHandler
                 .setup((i) => i.handle(typemoq.It.isAny(), typemoq.It.isAny()))
@@ -585,10 +585,10 @@ suite('Application Diagnostics - Checks Python Interpreter', () => {
                 undefined,
                 workspaceService.object,
             );
-            const cmd = ({} as any) as IDiagnosticCommand;
-            const diagnosticServiceMock = (typemoq.Mock.ofInstance(diagnosticService) as any) as typemoq.IMock<
-                InvalidPythonInterpreterService
-            >;
+            const cmd = {} as any as IDiagnosticCommand;
+            const diagnosticServiceMock = typemoq.Mock.ofInstance(
+                diagnosticService,
+            ) as any as typemoq.IMock<InvalidPythonInterpreterService>;
 
             diagnosticServiceMock.setup((f) => f.canHandle(typemoq.It.isAny())).returns(() => Promise.resolve(false));
             messageHandler

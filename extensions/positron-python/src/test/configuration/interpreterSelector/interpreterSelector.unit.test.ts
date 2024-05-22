@@ -39,7 +39,7 @@ class InterpreterQuickPickItem implements IInterpreterQuickPickItem {
 
     public detail?: string;
 
-    public interpreter = ({} as unknown) as PythonEnvironment;
+    public interpreter = {} as unknown as PythonEnvironment;
 
     constructor(l: string, p: string, d?: string) {
         this.path = p;
@@ -172,7 +172,7 @@ suite('Interpreters - selector', () => {
         const interpreterHelper = TypeMoq.Mock.ofType<IInterpreterHelper>();
         interpreterHelper
             .setup((i) => i.getActiveWorkspaceUri(TypeMoq.It.isAny()))
-            .returns(() => ({ folderUri: { fsPath: workspacePath } } as WorkspacePythonPath));
+            .returns(() => ({ folderUri: { fsPath: workspacePath } }) as WorkspacePythonPath);
 
         const environmentTypeComparer = new EnvironmentTypeComparer(interpreterHelper.object);
 

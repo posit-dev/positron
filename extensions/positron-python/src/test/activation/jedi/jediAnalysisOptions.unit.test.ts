@@ -33,7 +33,10 @@ suite('Jedi LSP - analysis Options', () => {
 
         public ownedResources = new Set<string>();
 
-        constructor(folder: string, public index: number = 0) {
+        constructor(
+            folder: string,
+            public index: number = 0,
+        ) {
             this.uri = Uri.file(folder);
             this.name = folder;
         }

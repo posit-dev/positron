@@ -69,7 +69,7 @@ suite('Interpreter Path Service', async () => {
                 () =>
                     ({
                         globalValue: interpreterPath,
-                    } as any),
+                    }) as any,
             );
         workspaceConfig
             .setup((w) => w.update('defaultInterpreterPath', interpreterPath, true))
@@ -90,7 +90,7 @@ suite('Interpreter Path Service', async () => {
                 () =>
                     ({
                         globalValue: 'storedValue',
-                    } as any),
+                    }) as any,
             );
         workspaceConfig
             .setup((w) => w.update('defaultInterpreterPath', interpreterPath, true))
@@ -279,7 +279,7 @@ suite('Interpreter Path Service', async () => {
                 () =>
                     ({
                         globalValue: 'default/path/to/interpreter',
-                    } as any),
+                    }) as any,
             );
         const persistentState = TypeMoq.Mock.ofType<IPersistentState<string | undefined>>();
         workspaceService.setup((w) => w.workspaceFolders).returns(() => undefined);
@@ -311,7 +311,7 @@ suite('Interpreter Path Service', async () => {
                 () =>
                     ({
                         globalValue: 'default/path/to/interpreter',
-                    } as any),
+                    }) as any,
             );
         const workspaceFolderPersistentState = TypeMoq.Mock.ofType<IPersistentState<string | undefined>>();
         workspaceService.setup((w) => w.workspaceFolders).returns(() => undefined);
@@ -347,7 +347,7 @@ suite('Interpreter Path Service', async () => {
                 () =>
                     ({
                         globalValue: 'default/path/to/interpreter',
-                    } as any),
+                    }) as any,
             );
         const workspaceFolderPersistentState = TypeMoq.Mock.ofType<IPersistentState<string | undefined>>();
         const workspacePersistentState = TypeMoq.Mock.ofType<IPersistentState<string | undefined>>();
@@ -389,7 +389,7 @@ suite('Interpreter Path Service', async () => {
                         globalValue: 'default/path/to/interpreter',
                         workspaceValue: 'defaultWorkspaceValue',
                         workspaceFolderValue: 'defaultWorkspaceFolderValue',
-                    } as any),
+                    }) as any,
             );
         const workspaceFolderPersistentState = TypeMoq.Mock.ofType<IPersistentState<string | undefined>>();
         const workspacePersistentState = TypeMoq.Mock.ofType<IPersistentState<string | undefined>>();

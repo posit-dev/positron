@@ -23,7 +23,10 @@ export class ThemeIcon {
 
     static readonly Folder: ThemeIcon;
 
-    constructor(public readonly id: string, public readonly color?: ThemeColor) {}
+    constructor(
+        public readonly id: string,
+        public readonly color?: ThemeColor,
+    ) {}
 }
 
 export class ThemeColor {
@@ -106,7 +109,7 @@ export class EventEmitter<T> implements vscode.EventEmitter<T> {
     public emitter: NodeEventEmitter;
 
     constructor() {
-        this.event = (this.add.bind(this) as unknown) as vscode.Event<T>;
+        this.event = this.add.bind(this) as unknown as vscode.Event<T>;
         this.emitter = new NodeEventEmitter();
     }
 
@@ -375,7 +378,10 @@ export interface DebugAdapterExecutableOptions {
 }
 
 export class DebugAdapterServer {
-    constructor(public readonly port: number, public readonly host?: string) {}
+    constructor(
+        public readonly port: number,
+        public readonly host?: string,
+    ) {}
 }
 export class DebugAdapterExecutable {
     constructor(

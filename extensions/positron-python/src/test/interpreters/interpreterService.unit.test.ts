@@ -252,7 +252,7 @@ suite('Interpreters service', () => {
         workspace.setup((w) => w.getWorkspaceFolder(resource)).returns(() => workspaceFolder);
         service._pythonPathSetting = '';
         configService.reset();
-        configService.setup((c) => c.getSettings(resource)).returns(() => ({ pythonPath: 'current path' } as any));
+        configService.setup((c) => c.getSettings(resource)).returns(() => ({ pythonPath: 'current path' }) as any);
         interpreterDisplay
             .setup((i) => i.refresh())
             .returns(() => Promise.resolve())
@@ -272,7 +272,7 @@ suite('Interpreters service', () => {
         workspace.setup((w) => w.getWorkspaceFolder(resource)).returns(() => workspaceFolder);
         service._pythonPathSetting = 'stored setting';
         configService.reset();
-        configService.setup((c) => c.getSettings(resource)).returns(() => ({ pythonPath: 'current path' } as any));
+        configService.setup((c) => c.getSettings(resource)).returns(() => ({ pythonPath: 'current path' }) as any);
         interpreterDisplay
             .setup((i) => i.refresh())
             .returns(() => Promise.resolve())
@@ -290,7 +290,7 @@ suite('Interpreters service', () => {
         const resource = Uri.parse('a');
         service._pythonPathSetting = 'setting';
         configService.reset();
-        configService.setup((c) => c.getSettings(resource)).returns(() => ({ pythonPath: 'setting' } as any));
+        configService.setup((c) => c.getSettings(resource)).returns(() => ({ pythonPath: 'setting' }) as any);
         interpreterDisplay
             .setup((i) => i.refresh())
             .returns(() => Promise.resolve())

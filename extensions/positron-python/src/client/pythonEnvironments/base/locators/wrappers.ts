@@ -62,7 +62,10 @@ export class WorkspaceLocators extends LazyResourceBasedLocator {
 
     private readonly roots: Record<RootURI, Uri> = {};
 
-    constructor(private readonly watchRoots: WatchRootsFunc, private readonly factories: WorkspaceLocatorFactory[]) {
+    constructor(
+        private readonly watchRoots: WatchRootsFunc,
+        private readonly factories: WorkspaceLocatorFactory[],
+    ) {
         super();
         this.activate().ignoreErrors();
     }
