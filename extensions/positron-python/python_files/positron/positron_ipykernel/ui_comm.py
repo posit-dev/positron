@@ -29,7 +29,7 @@ class EditorContext(BaseModel):
         description="Document metadata",
     )
 
-    contents: List[str] = Field(
+    contents: List[StrictStr] = Field(
         description="Document contents",
     )
 
@@ -47,35 +47,35 @@ class TextDocument(BaseModel):
     Document metadata
     """
 
-    path: str = Field(
+    path: StrictStr = Field(
         description="URI of the resource viewed in the editor",
     )
 
-    eol: str = Field(
+    eol: StrictStr = Field(
         description="End of line sequence",
     )
 
-    is_closed: bool = Field(
+    is_closed: StrictBool = Field(
         description="Whether the document has been closed",
     )
 
-    is_dirty: bool = Field(
+    is_dirty: StrictBool = Field(
         description="Whether the document has been modified",
     )
 
-    is_untitled: bool = Field(
+    is_untitled: StrictBool = Field(
         description="Whether the document is untitled",
     )
 
-    language_id: str = Field(
+    language_id: StrictStr = Field(
         description="Language identifier",
     )
 
-    line_count: int = Field(
+    line_count: StrictInt = Field(
         description="Number of lines in the document",
     )
 
-    version: int = Field(
+    version: StrictInt = Field(
         description="Version number of the document",
     )
 
@@ -85,11 +85,11 @@ class Position(BaseModel):
     A line and character position, such as the position of the cursor.
     """
 
-    character: int = Field(
+    character: StrictInt = Field(
         description="The zero-based character value, as a Unicode code point offset.",
     )
 
-    line: int = Field(
+    line: StrictInt = Field(
         description="The zero-based line value.",
     )
 
@@ -111,7 +111,7 @@ class Selection(BaseModel):
         description="End position of the selection",
     )
 
-    text: str = Field(
+    text: StrictStr = Field(
         description="Text of the selection",
     )
 
@@ -147,7 +147,7 @@ class CallMethodParams(BaseModel):
     an implementation-defined serialization scheme.
     """
 
-    method: str = Field(
+    method: StrictStr = Field(
         description="The method to call inside the interpreter",
     )
 
@@ -224,7 +224,7 @@ class BusyParams(BaseModel):
     Change in backend's busy/idle status
     """
 
-    busy: bool = Field(
+    busy: StrictBool = Field(
         description="Whether the backend is busy",
     )
 
@@ -234,15 +234,15 @@ class OpenEditorParams(BaseModel):
     Open an editor
     """
 
-    file: str = Field(
+    file: StrictStr = Field(
         description="The path of the file to open",
     )
 
-    line: int = Field(
+    line: StrictInt = Field(
         description="The line number to jump to",
     )
 
-    column: int = Field(
+    column: StrictInt = Field(
         description="The column number to jump to",
     )
 
@@ -252,11 +252,11 @@ class NewDocumentParams(BaseModel):
     Create a new document with text contents
     """
 
-    contents: str = Field(
+    contents: StrictStr = Field(
         description="Document contents",
     )
 
-    language_id: str = Field(
+    language_id: StrictStr = Field(
         description="Language identifier",
     )
 
@@ -266,7 +266,7 @@ class ShowMessageParams(BaseModel):
     Show a message
     """
 
-    message: str = Field(
+    message: StrictStr = Field(
         description="The message to show to the user.",
     )
 
@@ -276,19 +276,19 @@ class ShowQuestionParams(BaseModel):
     Show a question
     """
 
-    title: str = Field(
+    title: StrictStr = Field(
         description="The title of the dialog",
     )
 
-    message: str = Field(
+    message: StrictStr = Field(
         description="The message to display in the dialog",
     )
 
-    ok_button_title: str = Field(
+    ok_button_title: StrictStr = Field(
         description="The title of the OK button",
     )
 
-    cancel_button_title: str = Field(
+    cancel_button_title: StrictStr = Field(
         description="The title of the Cancel button",
     )
 
@@ -298,11 +298,11 @@ class ShowDialogParams(BaseModel):
     Show a dialog
     """
 
-    title: str = Field(
+    title: StrictStr = Field(
         description="The title of the dialog",
     )
 
-    message: str = Field(
+    message: StrictStr = Field(
         description="The message to display in the dialog",
     )
 
@@ -312,11 +312,11 @@ class PromptStateParams(BaseModel):
     New state of the primary and secondary prompts
     """
 
-    input_prompt: str = Field(
+    input_prompt: StrictStr = Field(
         description="Prompt for primary input.",
     )
 
-    continuation_prompt: str = Field(
+    continuation_prompt: StrictStr = Field(
         description="Prompt for incomplete input.",
     )
 
@@ -326,7 +326,7 @@ class WorkingDirectoryParams(BaseModel):
     Change the displayed working directory
     """
 
-    directory: str = Field(
+    directory: StrictStr = Field(
         description="The new working directory",
     )
 
@@ -336,7 +336,7 @@ class DebugSleepParams(BaseModel):
     Sleep for n seconds
     """
 
-    ms: float = Field(
+    ms: Union[StrictInt, StrictFloat] = Field(
         description="Duration in milliseconds",
     )
 
@@ -346,7 +346,7 @@ class ExecuteCommandParams(BaseModel):
     Execute a Positron command
     """
 
-    command: str = Field(
+    command: StrictStr = Field(
         description="The command to execute",
     )
 
@@ -356,19 +356,19 @@ class ExecuteCodeParams(BaseModel):
     Execute code in a Positron runtime
     """
 
-    language_id: str = Field(
+    language_id: StrictStr = Field(
         description="The language ID of the code to execute",
     )
 
-    code: str = Field(
+    code: StrictStr = Field(
         description="The code to execute",
     )
 
-    focus: bool = Field(
+    focus: StrictBool = Field(
         description="Whether to focus the runtime's console",
     )
 
-    allow_incomplete: bool = Field(
+    allow_incomplete: StrictBool = Field(
         description="Whether to bypass runtime code completeness checks",
     )
 
@@ -378,11 +378,11 @@ class OpenWorkspaceParams(BaseModel):
     Open a workspace
     """
 
-    path: str = Field(
+    path: StrictStr = Field(
         description="The path for the workspace to be opened",
     )
 
-    new_window: bool = Field(
+    new_window: StrictBool = Field(
         description="Should the workspace be opened in a new window?",
     )
 
@@ -406,7 +406,7 @@ class ModifyEditorSelectionsParams(BaseModel):
         description="The selections (really, ranges) to set in the document",
     )
 
-    values: List[str] = Field(
+    values: List[StrictStr] = Field(
         description="The text values to insert at the selections",
     )
 
@@ -416,7 +416,7 @@ class ShowUrlParams(BaseModel):
     Show a URL in Positron's Viewer pane
     """
 
-    url: str = Field(
+    url: StrictStr = Field(
         description="The URL to display",
     )
 
