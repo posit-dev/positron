@@ -61,7 +61,7 @@ export interface NewProjectWizardState {
 	openInNewWindow: boolean;
 	pythonEnvSetupType: EnvironmentSetupType | undefined;
 	pythonEnvProviderId: string | undefined;
-	installIpykernel: boolean | undefined;
+	readonly installIpykernel: boolean | undefined;
 	useRenv: boolean | undefined;
 }
 
@@ -110,12 +110,13 @@ export class NewProjectWizardStateManager
 	private _steps: NewProjectWizardStep[];
 	private _currentStep: NewProjectWizardStep;
 
-	// Dynamically populated data.
+	// Dynamically populated data as the state changes.
 	private _runtimeStartupComplete: boolean;
 	private _pythonEnvProviders: PythonEnvironmentProviderInfo[];
 	private _interpreters: ILanguageRuntimeMetadata[] | undefined;
 	private _preferredInterpreter: ILanguageRuntimeMetadata | undefined;
 
+	// Event emitters.
 	private _onUpdateInterpreterStateEmitter = this._register(new Emitter<void>());
 
 	/**
@@ -145,6 +146,8 @@ export class NewProjectWizardStateManager
 		this._runtimeStartupComplete = false;
 
 		if (this._services.runtimeStartupService.startupPhase === RuntimeStartupPhase.Complete) {
+			// If the runtime startup is already complete, set the Python environment providers and
+			// update the interpreter-related state.
 			this._setPythonEnvProviders()
 				.then(() => this._runtimeStartupComplete = true)
 				.then(() => this._updateInterpreterRelatedState());
@@ -164,6 +167,8 @@ export class NewProjectWizardStateManager
 								await this._setPythonEnvProviders();
 							}
 							this._runtimeStartupComplete = true;
+							// Once the runtime startup is complete, we can update the
+							// interpreter-related state.
 							await this._updateInterpreterRelatedState();
 						}
 					}
@@ -171,6 +176,10 @@ export class NewProjectWizardStateManager
 			);
 		}
 	}
+
+	/****************************************************************************************
+	 * Getters & Setters
+	 ****************************************************************************************/
 
 	/**
 	 * Gets the selected runtime.
@@ -372,6 +381,10 @@ export class NewProjectWizardStateManager
 		return this._services;
 	}
 
+	/****************************************************************************************
+	 * Public Methods
+	 ****************************************************************************************/
+
 	/**
 	 * Sets the provided next step as the current step in the New Project Wizard.
 	 * Go to the next step by pushing the next step onto the stack of steps,
@@ -449,6 +462,7 @@ export class NewProjectWizardStateManager
 	/**
 	 * Updates the interpreter-related state such as the interpreters list, the selected interpreter,
 	 * and the installIpykernel flag.
+	 * @returns A promise that resolves when the interpreter-related state has been updated.
 	 */
 	private async _updateInterpreterRelatedState(): Promise<void> {
 		// If this is called before the runtime startup is complete, do nothing, since we won't yet
@@ -480,6 +494,7 @@ export class NewProjectWizardStateManager
 			this._installIpykernel = await this._getInstallIpykernel();
 		}
 
+		// Notify components that the interpreter state has been updated.
 		this._onUpdateInterpreterStateEmitter.fire();
 	}
 
@@ -516,7 +531,7 @@ export class NewProjectWizardStateManager
 
 	/**
 	 * Gets the language ID based on the project type.
-	 * @returns The language ID.
+	 * @returns The language ID or undefined for an unsupported project type.
 	 */
 	private _getLangId(): LanguageIds | undefined {
 		return this._projectType === NewProjectType.PythonProject ||
@@ -537,9 +552,9 @@ export class NewProjectWizardStateManager
 
 	/**
 	 * Checks if ipykernel needs to be installed for the selected Python interpreter.
-	 * @returns True if ipykernel needs to be installed, false otherwise.
+	 * @returns A promise that resolves to true if ipykernel needs to be installed, false otherwise.
 	 */
-	private async _getInstallIpykernel() {
+	private async _getInstallIpykernel(): Promise<boolean> {
 		if (this._getLangId() !== LanguageIds.Python) {
 			return false;
 		}
@@ -566,6 +581,9 @@ export class NewProjectWizardStateManager
 		return false;
 	}
 
+	/**
+	 * Sets the Python environment providers by calling the Python extension.
+	 */
 	private async _setPythonEnvProviders() {
 		if (!this._pythonEnvProviders.length) {
 			this._pythonEnvProviders =
@@ -579,6 +597,7 @@ export class NewProjectWizardStateManager
 			this._pythonEnvProviderId = this._pythonEnvProviders[0]?.id;
 		}
 
+		// Notify components that the interpreter state has been updated.
 		this._onUpdateInterpreterStateEmitter.fire();
 	}
 

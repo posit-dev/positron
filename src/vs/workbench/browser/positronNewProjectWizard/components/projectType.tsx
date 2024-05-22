@@ -35,7 +35,6 @@ interface ProjectTypeProps {
 export const ProjectType = (props: ProjectTypeProps) => {
 	// State.
 	const { projectType } = useNewProjectWizardContext();
-	const projectTypeSelected = () => projectType !== undefined;
 	const inputRef = useRef<HTMLInputElement>(null);
 
 	// On project type selected, set the focus to the input element and notify the parent.
@@ -73,7 +72,7 @@ export const ProjectType = (props: ProjectTypeProps) => {
 				checked={props.selected}
 				// Set the autofocus to the selected project type when the user navigates back to
 				// the project type step.
-				autoFocus={projectTypeSelected() && props.activeTabIndex}
+				autoFocus={projectType && props.activeTabIndex}
 			/>
 			<label htmlFor={props.identifier}>{props.identifier}</label>
 		</div>
