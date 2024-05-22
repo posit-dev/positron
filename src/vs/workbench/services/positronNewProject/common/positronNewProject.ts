@@ -115,7 +115,8 @@ export interface IPositronNewProjectService {
 	allTasksComplete: Barrier;
 
 	/**
-	 * Returns the metadata for the metadata for the runtime chosen for the new project.
+	 * Returns the metadata for the runtime chosen for the new project, or
+	 * undefined if this isn't a new project.
 	 */
 	readonly newProjectRuntimeMetadata: ILanguageRuntimeMetadata | undefined;
 
