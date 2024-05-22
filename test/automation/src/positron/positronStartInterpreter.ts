@@ -59,7 +59,9 @@ export class StartInterpreter {
 
 		} else {
 			console.log('Primary interpreter matched');
-			await this.code.waitAndClick(`${INTERPRETER_GROUPS}:nth-of-type(${primaryInterpreter.index})`);
+			chosenInterpreter = this.code.driver.getLocator(`${INTERPRETER_GROUPS}:nth-of-type(${primaryInterpreter.index})`);
+			await chosenInterpreter.waitFor({ state: 'visible' });
+			await chosenInterpreter.click();
 		}
 
 		for (let i = 0; i < 10; i++) {
