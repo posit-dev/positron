@@ -13,17 +13,14 @@ import { PropsWithChildren, useEffect, useState } from 'react';  // eslint-disab
 import { useNewProjectWizardContext } from 'vs/workbench/browser/positronNewProjectWizard/newProjectWizardContext';
 import { NewProjectWizardStepProps } from 'vs/workbench/browser/positronNewProjectWizard/interfaces/newProjectWizardStepProps';
 import { localize } from 'vs/nls';
-import { RuntimeStartupPhase } from 'vs/workbench/services/runtimeStartup/common/runtimeStartupService';
-import { DisposableStore } from 'vs/base/common/lifecycle';
 import { PositronWizardStep } from 'vs/workbench/browser/positronNewProjectWizard/components/wizardStep';
 import { PositronWizardSubStep } from 'vs/workbench/browser/positronNewProjectWizard/components/wizardSubStep';
 import { DropDownListBox } from 'vs/workbench/browser/positronComponents/dropDownListBox/dropDownListBox';
 import { Checkbox } from 'vs/workbench/browser/positronComponents/positronModalDialog/components/checkbox';
-import { getRInterpreterEntries } from 'vs/workbench/browser/positronNewProjectWizard/utilities/rConfigurationStepUtils';
 import { InterpreterEntry } from 'vs/workbench/browser/positronNewProjectWizard/components/steps/interpreterEntry';
-import { LanguageIds } from 'vs/workbench/browser/positronNewProjectWizard/interfaces/newProjectWizardEnums';
-import { getSelectedInterpreter } from 'vs/workbench/browser/positronNewProjectWizard/utilities/interpreterDropDownUtils';
+import { interpretersToDropdownItems } from 'vs/workbench/browser/positronNewProjectWizard/utilities/interpreterDropDownUtils';
 import { ExternalLink } from 'vs/base/browser/ui/ExternalLink/ExternalLink';
+import { DisposableStore } from 'vs/base/common/lifecycle';
 
 /**
  * The RConfigurationStep component is specific to R projects in the new project wizard.
@@ -39,98 +36,42 @@ export const RConfigurationStep = (props: PropsWithChildren<NewProjectWizardStep
 		layoutService,
 		logService,
 		openerService,
-		runtimeStartupService,
 	} = context.services;
 
-	// Hooks to manage the startup phase and interpreter entries.
-	const [startupPhase, setStartupPhase] = useState(
-		runtimeStartupService.startupPhase
-	);
-	const runtimeStartupComplete = () =>
-		startupPhase === RuntimeStartupPhase.Complete;
-	const [interpreterEntries, setInterpreterEntries] = useState(() =>
-		// It's possible that the runtime discovery phase is not complete, so we need to check
-		// for that before creating the interpreter entries.
-		!runtimeStartupComplete()
-			? []
-			: getRInterpreterEntries(
-				context.interpreters,
-				runtimeStartupService
-			)
-	);
-	const [selectedInterpreter, setSelectedInterpreter] = useState(() =>
-		getSelectedInterpreter(
-			context.selectedRuntime,
-			interpreterEntries,
-			runtimeStartupService,
-			LanguageIds.R
-		)
-	);
-	// Handler for when the interpreter is selected. The project configuration is updated with the
-	// selected interpreter.
-	const onInterpreterSelected = (identifier: string) => {
-		// setSelectedInterpreter(identifier);
-		const selectedRuntime = languageRuntimeService.getRegisteredRuntime(identifier);
-		if (!selectedRuntime) {
-			// This shouldn't happen, since the DropDownListBox should only allow selection of registered
-			// runtimes
-			logService.error(`No runtime found for identifier: ${identifier}`);
-			return;
-		}
-		setSelectedInterpreter(selectedRuntime);
-		context.selectedRuntime = selectedRuntime;
-	};
+	// Hooks.
+	const [runtimeStartupComplete, setRuntimeStartupComplete] = useState(context.runtimeStartupComplete);
+	const [interpreters, setInterpreters] = useState(context.interpreters);
+	const [selectedInterpreter, setSelectedInterpreter] = useState(context.selectedRuntime);
+	const [preferredInterpreter, setPreferredInterpreter] = useState(context.preferredInterpreter);
 
-	// Update the project configuration with the initial selections. This is done once when the
-	// component is mounted, assuming the runtime discovery phase is complete. If the runtime
-	// discovery phase is not complete, the project configuration will be updated when the phase is
-	// complete in the other useEffect hook below.
-	useEffect(() => {
-		if (runtimeStartupComplete()) {
-			context.selectedRuntime = selectedInterpreter;
-		}
-		// Pass an empty dependency array to run this effect only once when the component is mounted.
-		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, []);
-
-	// Hook to update the interpreter entries when the runtime discovery phase is complete
 	useEffect(() => {
 		// Create the disposable store for cleanup.
 		const disposableStore = new DisposableStore();
 
-		// Add the onDidChangeRuntimeStartupPhase event handler; when the runtime discovery phase
-		// is complete, update the interpreter entries.
-		disposableStore.add(
-			runtimeStartupService.onDidChangeRuntimeStartupPhase(
-				phase => {
-					if (phase === RuntimeStartupPhase.Complete) {
-						// Set the interpreter entries to show in the dropdown.
-						const entries = getRInterpreterEntries(
-							context.interpreters,
-							runtimeStartupService
-						);
-						setInterpreterEntries(entries);
-
-						// Set the selected interpreter to the preferred interpreter if it is available.
-						const selectedRuntime = getSelectedInterpreter(
-							selectedInterpreter,
-							entries,
-							runtimeStartupService,
-							LanguageIds.R
-						);
-						setSelectedInterpreter(selectedRuntime);
-						context.selectedRuntime = selectedRuntime;
-					}
-					setStartupPhase(phase);
-				}
-			)
-		);
+		// Add the onUpdateInterpreterState event handler and update the component state.
+		disposableStore.add(context.onUpdateInterpreterState(() => {
+			setRuntimeStartupComplete(true);
+			setInterpreters(context.interpreters);
+			setSelectedInterpreter(context.selectedRuntime);
+			setPreferredInterpreter(context.preferredInterpreter);
+		}));
 
 		// Return the cleanup function that will dispose of the event handlers.
 		return () => disposableStore.dispose();
-		// Pass an empty dependency array to run this effect only once when the component is mounted.
-		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, []);
+	}, [context]);
+
+	// Handler for when the interpreter is selected.
+	const onInterpreterSelected = (identifier: string) => {
+		// Update the selected interpreter.
+		const selectedRuntime = languageRuntimeService.getRegisteredRuntime(identifier);
+		if (!selectedRuntime) {
+			// This shouldn't happen, since the DropDownListBox should only allow selection of registered
+			// runtimes
+			logService.error(`No R runtime found for identifier: ${identifier}`);
+			return;
+		}
+		context.selectedRuntime = selectedRuntime;
+	};
 
 	return (
 		<PositronWizardStep
@@ -162,9 +103,9 @@ export const RConfigurationStep = (props: PropsWithChildren<NewProjectWizardStep
 				<DropDownListBox
 					keybindingService={keybindingService}
 					layoutService={layoutService}
-					disabled={!runtimeStartupComplete()}
+					disabled={!runtimeStartupComplete}
 					title={(() =>
-						!runtimeStartupComplete()
+						!runtimeStartupComplete
 							? localize(
 								'rConfigurationStep.versionSubStep.dropDown.title.loading',
 								"Discovering R versions..."
@@ -177,7 +118,12 @@ export const RConfigurationStep = (props: PropsWithChildren<NewProjectWizardStep
 					// interpreters, show a message that no suitable interpreters were found and the
 					// user should install an interpreter with minimum version
 					entries={
-						!runtimeStartupComplete() ? [] : interpreterEntries
+						!runtimeStartupComplete
+							? []
+							: interpretersToDropdownItems(
+								interpreters,
+								preferredInterpreter?.runtimeId
+							)
 					}
 					selectedIdentifier={selectedInterpreter?.runtimeId}
 					createItem={(item) => (

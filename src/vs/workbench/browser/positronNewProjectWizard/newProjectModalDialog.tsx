@@ -111,6 +111,9 @@ export const showNewProjectModalDialog = async (
 					}
 
 					// Create the new project configuration.
+					// TODO: pass in the IRuntimeMetadata instead of the runtimeId so that the runtime
+					// startup service has the necessary information to start the runtime without
+					// going through discovery.
 					const newProjectConfig: NewProjectConfiguration = {
 						runtimeMetadata: result.selectedRuntime || undefined,
 						projectType: result.projectType || '',

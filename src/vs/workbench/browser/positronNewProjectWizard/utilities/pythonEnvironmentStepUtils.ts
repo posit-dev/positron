@@ -3,10 +3,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { DropDownListBoxItem } from 'vs/workbench/browser/positronComponents/dropDownListBox/dropDownListBoxItem';
-import { EnvironmentSetupType, LanguageIds, PythonEnvironmentType, PythonRuntimeFilter } from 'vs/workbench/browser/positronNewProjectWizard/interfaces/newProjectWizardEnums';
-import { InterpreterInfo, interpretersToDropdownItems } from 'vs/workbench/browser/positronNewProjectWizard/utilities/interpreterDropDownUtils';
-import { ILanguageRuntimeMetadata } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
-import { IRuntimeStartupService } from 'vs/workbench/services/runtimeStartup/common/runtimeStartupService';
+import { PythonEnvironmentProvider } from 'vs/workbench/browser/positronNewProjectWizard/interfaces/newProjectWizardEnums';
 
 /**
  * PythonEnvironmentProviderInfo interface.
@@ -16,102 +13,6 @@ export interface PythonEnvironmentProviderInfo {
 	name: string;
 	description: string;
 }
-
-/**
- * Returns a DropDownListBoxEntry array for Python interpreters, filtering and grouping the list by
- * runtime source if requested.
- * @param interpreters The interpreters to convert to dropdown items
- * @param runtimeStartupService The runtime startup service.
- * @param pythonRuntimeFilters The PythonRuntimeFilters to apply to the Python runtimes.
- * @returns An array of DropDownListBoxEntry for Python interpreters.
- */
-const getPythonInterpreterDropDownItems = (
-	interpreters: ILanguageRuntimeMetadata[],
-	runtimeStartupService: IRuntimeStartupService,
-	pythonRuntimeFilters?: PythonRuntimeFilter[]
-) => {
-	const languageId = LanguageIds.Python;
-	const preferredRuntime =
-		runtimeStartupService.getPreferredRuntime(languageId);
-
-	return interpretersToDropdownItems(
-		interpreters,
-		languageId,
-		preferredRuntime?.runtimeId,
-		pythonRuntimeFilters
-	);
-};
-
-/**
- * Creates an array of DropDownListBoxItem of Python interpreters for each Conda-supported minor
- * Python version.
- * @returns An array of DropDownListBoxItem for Conda Python interpreters.
- */
-export const createCondaInterpreterDropDownItems = () => {
-	// TODO: we should get the list of Python versions from the Conda service
-	// see extensions/positron-python/src/client/pythonEnvironments/creation/provider/condaUtils.ts
-	// pickPythonVersion function
-	const pythonVersions = ['3.12', '3.11', '3.10', '3.9', '3.8'];
-	const condaRuntimes: DropDownListBoxItem<string, InterpreterInfo>[] = [];
-	pythonVersions.forEach((version) => {
-		condaRuntimes.push(
-			new DropDownListBoxItem<string, InterpreterInfo>({
-				identifier: `conda-python-${version}`,
-				value: {
-					preferred: version === '3.12',
-					runtimeId: `conda-python-${version}`,
-					languageName: 'Python',
-					languageVersion: version,
-					runtimePath: '',
-					runtimeSource: 'Conda',
-				},
-			})
-		);
-	});
-	return condaRuntimes;
-};
-
-/**
- * Gets the Python interpreter entries based on the environment setup type and environment type.
- * @param interpreters The interpreters to convert to dropdown items
- * @param runtimeStartupService The runtime startup service.
- * @param envSetupType The environment setup type.
- * @param envType The environment type.
- * @returns An array of DropDownListBoxEntry for Python interpreters.
- */
-export const getPythonInterpreterEntries = (
-	interpreters: ILanguageRuntimeMetadata[],
-	runtimeStartupService: IRuntimeStartupService,
-	envSetupType: EnvironmentSetupType,
-	envProviderName: string | undefined,
-) => {
-	switch (envSetupType) {
-		case EnvironmentSetupType.NewEnvironment: {
-			switch (envProviderName) {
-				case PythonEnvironmentType.Venv:
-					return getPythonInterpreterDropDownItems(
-						interpreters,
-						runtimeStartupService,
-						[PythonRuntimeFilter.Global, PythonRuntimeFilter.Pyenv]
-					);
-				case PythonEnvironmentType.Conda:
-					return createCondaInterpreterDropDownItems();
-				default:
-					return getPythonInterpreterDropDownItems(
-						interpreters,
-						runtimeStartupService
-					);
-			}
-		}
-		case EnvironmentSetupType.ExistingEnvironment:
-			return getPythonInterpreterDropDownItems(
-				interpreters,
-				runtimeStartupService
-			);
-		default:
-			return [];
-	}
-};
 
 /**
  * Constructs the location for the new Python environment based on the parent folder, project name,
@@ -129,9 +30,9 @@ export const locationForNewEnv = (
 	// TODO: this only works for Venv and Conda environments. We'll need to expand on this to add
 	// support for other environment types.
 	const envDir =
-		envProviderName === PythonEnvironmentType.Venv
+		envProviderName === PythonEnvironmentProvider.Venv
 			? '.venv'
-			: envProviderName === PythonEnvironmentType.Conda
+			: envProviderName === PythonEnvironmentProvider.Conda
 				? '.conda'
 				: '';
 	return `${parentFolder}/${projectName}/${envDir}`;

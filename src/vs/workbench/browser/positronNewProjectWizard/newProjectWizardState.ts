@@ -7,7 +7,7 @@ import { IFileDialogService } from 'vs/platform/dialogs/common/dialogs';
 import { ILanguageRuntimeMetadata, ILanguageRuntimeService } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { IRuntimeSessionService } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
 import { IRuntimeStartupService, RuntimeStartupPhase } from 'vs/workbench/services/runtimeStartup/common/runtimeStartupService';
-import { EnvironmentSetupType, NewProjectType, NewProjectWizardStep } from 'vs/workbench/browser/positronNewProjectWizard/interfaces/newProjectWizardEnums';
+import { EnvironmentSetupType, LanguageIds, NewProjectType, NewProjectWizardStep, PythonEnvironmentProvider, PythonRuntimeFilter } from 'vs/workbench/browser/positronNewProjectWizard/interfaces/newProjectWizardEnums';
 import { IWorkbenchLayoutService } from 'vs/workbench/services/layout/browser/layoutService';
 import { IKeybindingService } from 'vs/platform/keybinding/common/keybinding';
 import { ILogService } from 'vs/platform/log/common/log';
@@ -17,6 +17,7 @@ import { IFileService } from 'vs/platform/files/common/files';
 import { ICommandService } from 'vs/platform/commands/common/commands';
 import { PythonEnvironmentProviderInfo } from 'vs/workbench/browser/positronNewProjectWizard/utilities/pythonEnvironmentStepUtils';
 import { Disposable } from 'vs/base/common/lifecycle';
+import { Emitter, Event } from 'vs/base/common/event';
 
 /**
  * NewProjectWizardServices interface.
@@ -59,7 +60,7 @@ export interface NewProjectWizardState {
 	initGitRepo: boolean;
 	openInNewWindow: boolean;
 	pythonEnvSetupType: EnvironmentSetupType | undefined;
-	pythonEnvProvider: string | undefined;
+	pythonEnvProviderId: string | undefined;
 	installIpykernel: boolean | undefined;
 	useRenv: boolean | undefined;
 }
@@ -69,10 +70,17 @@ export interface NewProjectWizardState {
  * Defines the state and state operations of the New Project Wizard.
  */
 export interface INewProjectWizardStateManager {
-	getState: () => NewProjectWizardState;
-	goToNextStep: (step: NewProjectWizardStep) => void;
-	goToPreviousStep: () => void;
+	readonly getState: () => NewProjectWizardState;
+	readonly goToNextStep: (step: NewProjectWizardStep) => void;
+	readonly goToPreviousStep: () => void;
+	readonly onUpdateInterpreterState: Event<void>;
 }
+
+/**
+ * RuntimeFilter type.
+ * More filters can be added here as needed.
+ */
+type RuntimeFilter = PythonRuntimeFilter;
 
 /**
  * NewProjectWizardStateManager class.
@@ -93,7 +101,7 @@ export class NewProjectWizardStateManager
 	private _openInNewWindow: boolean;
 	// Python-specific state.
 	private _pythonEnvSetupType: EnvironmentSetupType | undefined;
-	private _pythonEnvProvider: string | undefined;
+	private _pythonEnvProviderId: string | undefined;
 	private _installIpykernel: boolean | undefined;
 	// R-specific state.
 	private _useRenv: boolean | undefined;
@@ -103,8 +111,12 @@ export class NewProjectWizardStateManager
 	private _currentStep: NewProjectWizardStep;
 
 	// Dynamically populated data.
+	private _runtimeStartupComplete: boolean;
 	private _pythonEnvProviders: PythonEnvironmentProviderInfo[];
 	private _interpreters: ILanguageRuntimeMetadata[];
+	private _preferredInterpreter: ILanguageRuntimeMetadata | undefined;
+
+	private _onUpdateInterpreterStateEmitter = this._register(new Emitter<void>());
 
 	/**
 	 * Constructor for the NewProjectWizardStateManager class.
@@ -121,32 +133,43 @@ export class NewProjectWizardStateManager
 		this._parentFolder = config.parentFolder ?? '';
 		this._initGitRepo = false;
 		this._openInNewWindow = false;
-		this._pythonEnvSetupType = undefined;
-		this._pythonEnvProvider = undefined;
+		this._pythonEnvSetupType = EnvironmentSetupType.NewEnvironment;
+		this._pythonEnvProviderId = undefined;
 		this._installIpykernel = undefined;
 		this._useRenv = undefined;
 		this._steps = config.steps ?? [config.initialStep];
 		this._currentStep = config.initialStep;
 		this._pythonEnvProviders = [];
 		this._interpreters = [];
+		this._preferredInterpreter = undefined;
+		this._runtimeStartupComplete = false;
 
-		// Register disposables.
-		this._register(
-			this._services.runtimeStartupService.onDidChangeRuntimeStartupPhase(
-				async (phase) => {
-					if (phase === RuntimeStartupPhase.Discovering) {
-						// At this phase, the extensions that provide language runtimes will have been activated.
-						this._pythonEnvProviders =
-							(await this._services.commandService.executeCommand(
-								'python.getCreateEnvironmentProviders'
-							)) ?? [];
-					} else if (phase === RuntimeStartupPhase.Complete) {
-						this._interpreters =
-							this._services.languageRuntimeService.registeredRuntimes;
+		if (this._services.runtimeStartupService.startupPhase === RuntimeStartupPhase.Complete) {
+			this._setPythonEnvProviders()
+				.then(() => this._runtimeStartupComplete = true)
+				.then(() => this._updateInterpreterRelatedState());
+		} else {
+			// Register disposables.
+			this._register(
+				this._services.runtimeStartupService.onDidChangeRuntimeStartupPhase(
+					async (phase) => {
+						if (phase === RuntimeStartupPhase.Discovering) {
+							// At this phase, the extensions that provide language runtimes will
+							// have been activated.
+							await this._setPythonEnvProviders();
+						} else if (phase === RuntimeStartupPhase.Complete) {
+							if (!this._pythonEnvProviders.length) {
+								// In case the runtime startup phase is complete and the providers
+								// are not set, set the providers.
+								await this._setPythonEnvProviders();
+							}
+							this._runtimeStartupComplete = true;
+							await this._updateInterpreterRelatedState();
+						}
 					}
-				}
-			)
-		);
+				)
+			);
+		}
 	}
 
 	/**
@@ -154,6 +177,14 @@ export class NewProjectWizardStateManager
 	 * @returns The selected runtime.
 	 */
 	get selectedRuntime(): ILanguageRuntimeMetadata | undefined {
+		// If the selected runtime is set, return it.
+		if (this._selectedRuntime) {
+			return this._selectedRuntime;
+		}
+
+		// If the selected runtime is not set, request that the selected runtime be reset and
+		// return the updated selected runtime.
+		this._resetSelectedRuntime();
 		return this._selectedRuntime;
 	}
 
@@ -179,6 +210,7 @@ export class NewProjectWizardStateManager
 	 */
 	set projectType(value: NewProjectType | undefined) {
 		this._projectType = value;
+		this._updateInterpreterRelatedState();
 	}
 
 	/**
@@ -254,11 +286,14 @@ export class NewProjectWizardStateManager
 	}
 
 	/**
-	 * Sets the Python environment setup type.
+	 * Sets the Python environment setup type. Triggers an update of the interpreter-related state.
 	 * @param value The Python environment setup type.
+	 * If the environment setup type is set to ExistingEnvironment, the provider is cleared as it is
+	 * only relevant for new environments.
 	 */
 	set pythonEnvSetupType(value: EnvironmentSetupType | undefined) {
 		this._pythonEnvSetupType = value;
+		this._updateInterpreterRelatedState();
 	}
 
 	/**
@@ -266,15 +301,16 @@ export class NewProjectWizardStateManager
 	 * @returns The Python environment provider.
 	 */
 	get pythonEnvProvider(): string | undefined {
-		return this._pythonEnvProvider;
+		return this._pythonEnvProviderId;
 	}
 
 	/**
-	 * Sets the Python environment provider.
+	 * Sets the Python environment provider. Trigger an update of the interpreter-related state.
 	 * @param value The Python environment provider.
 	 */
 	set pythonEnvProvider(value: string | undefined) {
-		this._pythonEnvProvider = value;
+		this._pythonEnvProviderId = value;
+		this._updateInterpreterRelatedState();
 	}
 
 	/**
@@ -283,14 +319,6 @@ export class NewProjectWizardStateManager
 	 */
 	get installIpykernel(): boolean | undefined {
 		return this._installIpykernel;
-	}
-
-	/**
-	 * Sets the installIpykernel flag.
-	 * @param value Whether to install ipykernel.
-	 */
-	set installIpykernel(value: boolean | undefined) {
-		this._installIpykernel = value;
 	}
 
 	/**
@@ -310,6 +338,14 @@ export class NewProjectWizardStateManager
 	}
 
 	/**
+	 * Gets the runtime startup complete flag.
+	 * @returns The runtime startup complete flag.
+	 */
+	get runtimeStartupComplete(): boolean {
+		return this._runtimeStartupComplete;
+	}
+
+	/**
 	 * Gets the Python environment providers.
 	 */
 	get pythonEnvProviders(): PythonEnvironmentProviderInfo[] {
@@ -321,6 +357,13 @@ export class NewProjectWizardStateManager
 	 */
 	get interpreters(): ILanguageRuntimeMetadata[] {
 		return this._interpreters;
+	}
+
+	/**
+	 * Gets the preferred interpreter.
+	 */
+	get preferredInterpreter(): ILanguageRuntimeMetadata | undefined {
+		return this._preferredInterpreter;
 	}
 
 	/**
@@ -396,9 +439,200 @@ export class NewProjectWizardStateManager
 			initGitRepo: this._initGitRepo,
 			openInNewWindow: this._openInNewWindow,
 			pythonEnvSetupType: this._pythonEnvSetupType,
-			pythonEnvProvider: this._pythonEnvProvider,
+			pythonEnvProviderId: this._pythonEnvProviderId,
 			installIpykernel: this._installIpykernel,
 			useRenv: this._useRenv
 		} satisfies NewProjectWizardState;
+	}
+
+	/**
+	 * Event that is fired when the runtime startup is complete.
+	 */
+	readonly onUpdateInterpreterState = this._onUpdateInterpreterStateEmitter.event;
+
+	/****************************************************************************************
+	 * Private Methods
+	 ****************************************************************************************/
+
+	/**
+	 * Updates the interpreter-related state such as the interpreters list, the selected interpreter,
+	 * and the installIpykernel flag.
+	 */
+	private async _updateInterpreterRelatedState(): Promise<void> {
+		const langId = this._getLangId();
+		let runtimeSourceFilters: RuntimeFilter[] | undefined = undefined;
+
+		// Add runtime filters for new Venv Python environments.
+		if (langId === LanguageIds.Python && this._pythonEnvSetupType === EnvironmentSetupType.NewEnvironment) {
+			if (this._getEnvProviderName() === PythonEnvironmentProvider.Venv) {
+				runtimeSourceFilters = [PythonRuntimeFilter.Global, PythonRuntimeFilter.Pyenv];
+			}
+		}
+
+		// Update the interpreters list.
+		this._interpreters = this._getFilteredInterpreters(runtimeSourceFilters);
+
+		// Update the interpreter that should be selected in the dropdown.
+		if (!this._selectedRuntime || !this._interpreters.includes(this._selectedRuntime)) {
+			this._resetSelectedRuntime();
+		}
+
+		// For Python projects, check if ipykernel needs to be installed.
+		if (langId === LanguageIds.Python) {
+			this._installIpykernel = await this._getInstallIpykernel();
+		}
+
+		this._onUpdateInterpreterStateEmitter.fire();
+	}
+
+	/**
+	 * Resets the selected runtime by setting it to the preferred runtime for the language or the
+	 * first runtime in the interpreters list. If the preferred runtime is available in the
+	 * interpreters list, it is set as the selected runtime and the preferred interpreter.
+	 */
+	private _resetSelectedRuntime(): void {
+		if (!this._runtimeStartupComplete) {
+			return;
+		}
+
+		// Try to get the preferred runtime for the language.
+		const langId = this._getLangId();
+		if (!langId) {
+			return;
+		}
+
+		const preferredRuntime = this._services.runtimeStartupService.getPreferredRuntime(langId);
+		if (this._interpreters.includes(preferredRuntime)) {
+			this._selectedRuntime = preferredRuntime;
+			this._preferredInterpreter = preferredRuntime;
+			return;
+		}
+
+		// If the preferred runtime is not in the interpreters list, use the first runtime in the
+		// interpreters list.
+		if (this._interpreters.length) {
+			this._selectedRuntime = this._interpreters[0];
+			return;
+		}
+	}
+
+	/**
+	 * Gets the language ID based on the project type.
+	 * @returns The language ID.
+	 */
+	private _getLangId(): LanguageIds | undefined {
+		return this._projectType === NewProjectType.PythonProject ||
+			this._projectType === NewProjectType.JupyterNotebook
+			? LanguageIds.Python
+			: this.projectType === NewProjectType.RProject
+				? LanguageIds.R
+				: undefined;
+	}
+
+	/**
+	 * Gets the name of the selected Python environment provider.
+	 * @returns The name of the selected Python environment provider.
+	 */
+	private _getEnvProviderName(): string | undefined {
+		return this._pythonEnvProviders.find(provider => provider.id === this._pythonEnvProviderId)?.name;
+	}
+
+	/**
+	 * Checks if ipykernel needs to be installed for the selected Python interpreter.
+	 * @returns True if ipykernel needs to be installed, false otherwise.
+	 */
+	private async _getInstallIpykernel() {
+		if (this._getLangId() !== LanguageIds.Python) {
+			return false;
+		}
+
+		if (this._pythonEnvSetupType === EnvironmentSetupType.NewEnvironment) {
+			// ipykernel will always be installed for new environments.
+			return true;
+		} else if (this._selectedRuntime) {
+			// When using an aliased runtimePath (starts with `~`) such as ~/myEnv/python instead of
+			// a non-aliased path like /home/sharon/myEnv/python or /usr/bin/python, the ipykernel
+			// version check errors, although the non-aliased pythonPath works fine.
+			// In many cases, the pythonPath and runtimePath are the same. When they differ, it
+			// seems that the pythonPath is the non-aliased runtimePath to the python interpreter.
+			// From some brief debugging, it looks like many Conda, Pyenv and Venv environments have
+			// aliased runtimePaths.
+			const interpreterPath =
+				this._selectedRuntime.extraRuntimeData?.pythonPath ??
+				this._selectedRuntime.runtimePath;
+			return !(await this.services.commandService.executeCommand(
+				'python.isIpykernelInstalled',
+				interpreterPath
+			));
+		}
+		return false;
+	}
+
+	private async _setPythonEnvProviders() {
+		if (!this._pythonEnvProviders.length) {
+			this._pythonEnvProviders =
+				(await this._services.commandService.executeCommand(
+					'python.getCreateEnvironmentProviders'
+				)) ?? [];
+		}
+
+		if (!this._pythonEnvProviderId) {
+			// TODO: in the future, we may want to use the user's preferred environment type.
+			this._pythonEnvProviderId = this._pythonEnvProviders[0]?.id;
+		}
+
+		this._onUpdateInterpreterStateEmitter.fire();
+	}
+
+	/**
+	 * Retrieves the interpreters that match the language ID and runtime source filters. Sorts the
+	 * interpreters by runtime source.
+	 * @param runtimeSourceFilters Optional runtime source filters to apply.
+	 * @returns The filtered interpreters.
+	 */
+	private _getFilteredInterpreters(runtimeSourceFilters?: RuntimeFilter[]): ILanguageRuntimeMetadata[] {
+		const langId = this._getLangId();
+
+		if (
+			langId === LanguageIds.Python &&
+			this._pythonEnvSetupType === EnvironmentSetupType.NewEnvironment &&
+			this._getEnvProviderName() === PythonEnvironmentProvider.Conda
+		) {
+			// TODO: we should get the list of Python versions from the Conda service. Currently, we
+			// hardcode the list of Python versions in the
+			// src/vs/workbench/browser/positronNewProjectWizard/utilities/interpreterDropDownUtils.ts
+			// interpretersToDropdownItems function.
+			return [];
+		}
+
+		return this._services.languageRuntimeService.registeredRuntimes
+			// Filter by language ID and runtime source.
+			.filter(
+				(runtime) =>
+					runtime.languageId === langId &&
+					this._includeRuntimeSource(runtime.runtimeSource, runtimeSourceFilters)
+			)
+			// Sort by runtime source.
+			.sort((left, right) =>
+				left.runtimeSource.localeCompare(right.runtimeSource)
+			);
+	}
+
+	/**
+	 * Determines if the runtime source should be included based on the filters.
+	 * @param runtimeSource The runtime source to check.
+	 * @param filters The runtime source filters to apply.
+	 * @returns True if the runtime source should be included, false otherwise.
+	 * If no filters are provided, all runtime sources are included.
+	 */
+	private _includeRuntimeSource(
+		runtimeSource: string,
+		filters?: RuntimeFilter[]
+	) {
+		return (
+			!filters ||
+			!filters.length ||
+			filters.find((rs) => rs === runtimeSource) !== undefined
+		);
 	}
 }
