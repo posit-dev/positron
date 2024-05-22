@@ -117,7 +117,7 @@ jobs:
       matrix:
         os: [ubuntu-latest]
         # Run the tests on the oldest and most recent versions of Python.
-        python: ['3.8', '3.12'] # run for 3 pytest versions, most recent stable, oldest version supported and pre-release
+        python: ['3.8', '3.12']
 
     steps:
       - name: Checkout
