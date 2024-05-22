@@ -631,13 +631,11 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 	 * @param id The ID of the plot to remove
 	 */
 	removePlot(id: string): void {
-		// Find the plot with the given ID and remove it from the list
+		// Find the plot with the given ID and dispose it
+		// It will be automatically removed from the list during onDidClose
 		this._plots.forEach((plot, index) => {
 			if (plot.id === id) {
 				plot.dispose();
-
-				// Remove the plot from the list
-				this._plots.splice(index, 1);
 			}
 		});
 
