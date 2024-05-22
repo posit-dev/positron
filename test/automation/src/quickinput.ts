@@ -4,7 +4,6 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { Code } from './code';
-import { IElement } from './driver';
 
 export class QuickInput {
 
@@ -39,12 +38,9 @@ export class QuickInput {
 		await this.waitForQuickInputClosed();
 	}
 
-	// --- Start Positron ---
-	// Updated to return the elements.
-	async waitForQuickInputElements(accept: (names: string[]) => boolean): Promise<IElement[]> {
-		return await this.code.waitForElements(QuickInput.QUICK_INPUT_ENTRY_LABEL, false, els => accept(els.map(e => e.textContent)));
+	async waitForQuickInputElements(accept: (names: string[]) => boolean): Promise<void> {
+		await this.code.waitForElements(QuickInput.QUICK_INPUT_ENTRY_LABEL, false, els => accept(els.map(e => e.textContent)));
 	}
-	// --- End Positron ---
 
 	async waitForQuickInputClosed(): Promise<void> {
 		await this.code.waitForElement(QuickInput.QUICK_INPUT, r => !!r && r.attributes.style.indexOf('display: none;') !== -1);
@@ -64,13 +60,13 @@ export class QuickInput {
 	async selectQuickInputElementContaining(contains: string): Promise<void> {
 		const selector = `${QuickInput.QUICK_INPUT_ROW}[aria-label*="${contains}"]`;
 		try {
-			await this.code.waitAndClick(selector);
+			await this.code.waitAndClick(selector, undefined, undefined, 1);
 		} catch (ex) {
 			// Show a more helpful error message by clearing the input and logging the list of items
 			await this.type('');
-			const elements = await this.waitForQuickInputElements((e) => !!e);
-			const names = elements.map(e => e.attributes['aria-label']);
-			throw new Error(`Could not find item containing '${contains}' in list: ${names}`);
+			const elements = await this.code.waitForElements(QuickInput.QUICK_INPUT_ROW, false);
+			const ariaLabels = elements.map(e => e.attributes['aria-label']);
+			throw new Error(`Could not find item containing '${contains}' in list:\n${ariaLabels.join('\n')}`);
 		}
 	}
 	// --- End Positron ---
