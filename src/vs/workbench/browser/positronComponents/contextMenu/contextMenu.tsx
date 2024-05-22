@@ -185,7 +185,7 @@ const ContextMenuModalPopup = (props: ContextMenuModalPopupProps) => {
 			width={props.width}
 			minWidth={props.minWidth}
 			height={'min-content'}
-			keyboardNavigation='menu'
+			keyboardNavigationStyle='menu'
 		>
 			<div className='context-menu-items'>
 				{props.entries.map((entry, index) => {

@@ -69,7 +69,7 @@ export const ColumnSelectorModalPopup = (props: ColumnSelectorModalPopupProps) =
 			width={props.anchor.offsetWidth}
 			height={'min-content'}
 			focusableElementSelectors='input[type="text"],div[id=column-positron-data-grid]'
-			keyboardNavigation='dialog'
+			keyboardNavigationStyle='dialog'
 		>
 			<div className='column-selector'>
 				<div className='column-selector-search'>

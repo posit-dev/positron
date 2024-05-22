@@ -743,7 +743,7 @@ export const AddEditRowFilterModalPopup = (props: AddEditRowFilterModalPopupProp
 			popupAlignment='left'
 			width={275}
 			height={'min-content'}
-			keyboardNavigation='dialog'
+			keyboardNavigationStyle='dialog'
 			onAccept={applyRowFilter}
 		>
 			<div className='add-edit-row-filter-modal-popup-body'>
