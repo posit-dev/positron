@@ -14,7 +14,7 @@ export const POSITRON_NOTEBOOK_EDITOR_FOCUSED = new RawContextKey<boolean>('posi
 
 // This is a copy of the existing vscode notebook context key. We can't directly import their copy
 // due to import rules
-const NOTEBOOK_EDITOR_FOCUSED = new RawContextKey<boolean>('notebookEditorFocused', false);
+// const NOTEBOOK_EDITOR_FOCUSED = new RawContextKey<boolean>('notebookEditorFocused', false);
 
 /**
  * Class to handle context keys for positron notebooks
@@ -30,7 +30,7 @@ export class PositronNotebookContextKeyManager extends Disposable {
 
 	//#region Public Properties
 	positronEditorFocus?: IContextKey<boolean>;
-	editorFocus?: IContextKey<boolean>;
+	// editorFocus?: IContextKey<boolean>;
 	//#endregion Public Properties
 
 	//#region Constructor & Dispose
@@ -48,17 +48,17 @@ export class PositronNotebookContextKeyManager extends Disposable {
 		this._scopedContextKeyService = this._contextKeyService.createScoped(this._container);
 
 		this.positronEditorFocus = POSITRON_NOTEBOOK_EDITOR_FOCUSED.bindTo(this._scopedContextKeyService);
-		this.editorFocus = NOTEBOOK_EDITOR_FOCUSED.bindTo(this._scopedContextKeyService);
+		// this.editorFocus = NOTEBOOK_EDITOR_FOCUSED.bindTo(this._scopedContextKeyService);
 
 		const focusTracker = this._register(DOM.trackFocus(container));
 		this._register(focusTracker.onDidFocus(() => {
 			this.positronEditorFocus?.set(true);
-			this.editorFocus?.set(true);
+			// this.editorFocus?.set(true);
 		}));
 
 		this._register(focusTracker.onDidBlur(() => {
 			this.positronEditorFocus?.set(false);
-			this.editorFocus?.set(false);
+			// this.editorFocus?.set(false);
 		}));
 	}
 
