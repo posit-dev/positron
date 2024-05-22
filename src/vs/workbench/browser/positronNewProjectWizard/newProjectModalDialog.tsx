@@ -85,7 +85,7 @@ export const showNewProjectModalDialog = async (
 					// The python environment type is only relevant if a new environment is being created.
 					const pythonEnvType =
 						result.pythonEnvSetupType === EnvironmentSetupType.NewEnvironment
-							? result.pythonEnvProvider
+							? result.pythonEnvProviderId
 							: '';
 
 					// Install ipykernel if applicable.
@@ -102,7 +102,6 @@ export const showNewProjectModalDialog = async (
 							// If an error occurs while installing ipykernel, a message will be
 							// logged and once the project is opened, when the chosen runtime is
 							// starting, the user will be prompted again to install ipykernel.
-
 							await commandService.executeCommand(
 								'python.installIpykernel',
 								String(pythonPath)
@@ -111,9 +110,6 @@ export const showNewProjectModalDialog = async (
 					}
 
 					// Create the new project configuration.
-					// TODO: pass in the IRuntimeMetadata instead of the runtimeId so that the runtime
-					// startup service has the necessary information to start the runtime without
-					// going through discovery.
 					const newProjectConfig: NewProjectConfiguration = {
 						runtimeMetadata: result.selectedRuntime || undefined,
 						projectType: result.projectType || '',
