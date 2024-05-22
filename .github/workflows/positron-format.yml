@@ -1,0 +1,30 @@
+name: Check and Fix Formatting
+on: pull_request
+
+env:
+  PYTHON_DIR: 'extensions/positron-python'
+
+jobs:
+  format:
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v1
+        with:
+          ref: ${{ github.head_ref }}
+      - name: prettier
+        working-directory: ${{ env.PYTHON_DIR }}
+        run: |
+          yarn format-fix
+          git checkout yarn.lock package.json
+      - name: Check for modified files
+        id: git-check
+        run: echo "modified=$(if git diff-index --quiet HEAD --; then echo "false"; else echo "true"; fi)" >> $GITHUB_OUTPUT
+      - name: Push changes
+        if: steps.git-check.outputs.modified == 'true'
+        run: |
+          git config --global user.name 'Positron Bot'
+          git config --global user.email 'positron-bot@posit.co'
+          git remote set-url origin https://x-access-token:${{ secrets.POSITRON_GITHUB_PAT }}@github.com/${{ github.repository }}
+          git commit -am "Automated formatting fixes"
+          git push
