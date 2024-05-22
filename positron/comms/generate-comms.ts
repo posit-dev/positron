@@ -96,7 +96,7 @@ const RustTypeMap: Record<string, string> = {
 const PythonTypeMap: Record<string, string> = {
 	'boolean': 'StrictBool',
 	'integer': 'StrictInt',
-	'number': 'StrictFloat',
+	'number': 'Union[StrictInt, StrictFloat]',
 	'string': 'StrictStr',
 	'null': 'null',
 	'array-begin': 'List[',

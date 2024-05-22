@@ -336,7 +336,7 @@ class DebugSleepParams(BaseModel):
     Sleep for n seconds
     """
 
-    ms: StrictFloat = Field(
+    ms: Union[StrictInt, StrictFloat] = Field(
         description="Duration in milliseconds",
     )
 

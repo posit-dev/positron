@@ -523,7 +523,7 @@ class ColumnHistogram(BaseModel):
         description="Absolute count of values in each histogram bin",
     )
 
-    bin_width: StrictFloat = Field(
+    bin_width: Union[StrictInt, StrictFloat] = Field(
         description="Absolute floating-point width of a histogram bin",
     )
 
@@ -561,7 +561,7 @@ class ColumnQuantileValue(BaseModel):
     An exact or approximate quantile value from a column
     """
 
-    q: StrictFloat = Field(
+    q: Union[StrictInt, StrictFloat] = Field(
         description="Quantile number (percentile). E.g. 1 for 1%, 50 for median",
     )
 

@@ -70,7 +70,7 @@ class RenderParams(BaseModel):
         description="The requested plot width, in pixels",
     )
 
-    pixel_ratio: StrictFloat = Field(
+    pixel_ratio: Union[StrictInt, StrictFloat] = Field(
         description="The pixel ratio of the display device",
     )
 

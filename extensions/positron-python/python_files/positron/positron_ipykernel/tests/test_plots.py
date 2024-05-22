@@ -76,11 +76,16 @@ def _create_mpl_plot(shell: PositronShell, plots_service: PlotsService) -> Dummy
 
 
 def _do_render(
-    plot_comm: DummyComm, width=400, height=300, pixel_ratio=2.0, format="png"
+    plot_comm: DummyComm, width=400, height=300, pixel_ratio=2, format="png"
 ) -> Dict[str, Any]:
     msg = json_rpc_request(
         "render",
-        {"width": width, "height": height, "pixel_ratio": pixel_ratio, "format": format},
+        {
+            "width": width,
+            "height": height,
+            "pixel_ratio": pixel_ratio,
+            "format": format,
+        },
         comm_id="dummy_comm_id",
     )
     plot_comm.handle_msg(msg)
