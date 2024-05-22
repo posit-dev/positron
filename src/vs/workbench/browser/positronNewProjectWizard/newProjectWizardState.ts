@@ -149,8 +149,11 @@ export class NewProjectWizardStateManager
 			// If the runtime startup is already complete, set the Python environment providers and
 			// update the interpreter-related state.
 			this._setPythonEnvProviders()
-				.then(() => this._runtimeStartupComplete = true)
-				.then(() => this._updateInterpreterRelatedState());
+				.then(() => {
+					this._runtimeStartupComplete = true;
+					this._updateInterpreterRelatedState();
+				}
+				);
 		} else {
 			// Register disposables.
 			this._register(
