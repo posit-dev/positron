@@ -1421,13 +1421,13 @@ export abstract class Layout extends Disposable implements IWorkbenchLayoutServi
 
 	private _setCustomPartSize(part: KnownPositronLayoutParts, desc: PartLayoutDescription) {
 		const {
-			hidden,
 			size,
 			minSize = 0,
 			maxSize = Infinity,
 			hideIfBelowMinSize = false,
 			viewContainers = []
 		} = desc;
+		let hidden = desc.hidden;
 		const { partView, hideFn, currentSize } = this.getPartViewInfo(part);
 
 		if (size !== undefined) {
