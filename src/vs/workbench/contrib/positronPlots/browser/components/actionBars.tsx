@@ -24,6 +24,7 @@ import { ZoomPlotMenuButton } from 'vs/workbench/contrib/positronPlots/browser/c
 import { PlotClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimePlotClient';
 import { StaticPlotClient } from 'vs/workbench/services/positronPlots/common/staticPlotClient';
 import { INotificationService } from 'vs/platform/notification/common/notification';
+import { PlotsClearAction, PlotsCopyAction, PlotsNextAction, PlotsPreviousAction, PlotsSaveAction } from 'vs/workbench/contrib/positronPlots/browser/positronPlotsActions';
 
 // Constants.
 const kPaddingLeft = 14;
@@ -85,21 +86,21 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 	// Clear all the plots from the service.
 	const clearAllPlotsHandler = () => {
 		if (hasPlots) {
-			positronPlotsContext.positronPlotsService.removeAllPlots();
+			props.commandService.executeCommand(PlotsClearAction.ID);
 		}
 	};
 
 	// Navigate to the previous plot in the plot history.
 	const showPreviousPlotHandler = () => {
 		if (!disableLeft) {
-			positronPlotsContext.positronPlotsService.selectPreviousPlot();
+			props.commandService.executeCommand(PlotsPreviousAction.ID);
 		}
 	};
 
 	// Navigate to the next plot in the plot history.
 	const showNextPlotHandler = () => {
 		if (!disableRight) {
-			positronPlotsContext.positronPlotsService.selectNextPlot();
+			props.commandService.executeCommand(PlotsNextAction.ID);
 		}
 	};
 
@@ -107,22 +108,11 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 		props.zoomHandler(zoomLevel);
 	};
 	const savePlotHandler = () => {
-		try {
-			positronPlotsContext.positronPlotsService.savePlot();
-		} catch (error) {
-			positronPlotsContext.notificationService.error(localize('positronPlotsServiceSavePlotError', 'Failed to save plot: {0}', error.message));
-		}
+		props.commandService.executeCommand(PlotsSaveAction.ID);
 	};
 
 	const copyPlotHandler = () => {
-		positronPlotsContext.positronPlotsService.copyPlotToClipboard()
-			.then(() => {
-				positronPlotsContext.notificationService.info(localize('positronPlotsServiceCopyToClipboard', 'Plot copied to clipboard'));
-			})
-			.catch((error) => {
-				positronPlotsContext.notificationService.error(localize('positronPlotsServiceCopyToClipboardError', 'Failed to copy plot to clipboard: {0}', error.message));
-			});
-
+		props.commandService.executeCommand(PlotsCopyAction.ID);
 	};
 
 	// Render.
