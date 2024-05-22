@@ -15,9 +15,8 @@ jobs:
       - name: prettier
         working-directory: ${{ env.PYTHON_DIR }}
         run: |
-          npm install prettier
+          yarn install --frozen-lockfile
           yarn format-fix
-          git checkout yarn.lock package.json
       - name: Check for modified files
         id: git-check
         run: echo "modified=$(if git diff-index --quiet HEAD --; then echo "false"; else echo "true"; fi)" >> $GITHUB_OUTPUT
