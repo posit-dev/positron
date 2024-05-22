@@ -1241,7 +1241,9 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 			for (let i = 0; i < this._runtimeItems.length; i++) {
 				if (this._runtimeItems[i] instanceof RuntimeItemExited) {
 					const runtimeItem = this._runtimeItems[i] as RuntimeItemExited;
-					switchingRuntime = runtimeItem.reason === RuntimeExitReason.SwitchRuntime;
+					switchingRuntime =
+						runtimeItem.reason === RuntimeExitReason.SwitchRuntime ||
+						runtimeItem.reason === RuntimeExitReason.ExtensionHost;
 				}
 			}
 			const restart = this._state === PositronConsoleState.Exited && !switchingRuntime;
@@ -1359,10 +1361,11 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 				this.addRuntimeItemTrace(`onDidCompleteStartup`);
 			}
 
-			// Add the item startup.
+			// Add the item startup. Omit the banner if reconnecting.
 			this.addRuntimeItem(new RuntimeItemStartup(
 				generateUuid(),
-				languageRuntimeInfo.banner,
+				attachMode === SessionAttachMode.Reconnecting ? '' :
+					languageRuntimeInfo.banner,
 				languageRuntimeInfo.implementation_version,
 				languageRuntimeInfo.language_version
 			));
