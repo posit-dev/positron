@@ -14,6 +14,7 @@ import { PositronDataExplorerInstance } from 'vs/workbench/services/positronData
 import { ILanguageRuntimeSession, IRuntimeSessionService, RuntimeClientType } from '../../runtimeSession/common/runtimeSessionService';
 import { IPositronDataExplorerService } from 'vs/workbench/services/positronDataExplorer/browser/interfaces/positronDataExplorerService';
 import { IPositronDataExplorerInstance } from 'vs/workbench/services/positronDataExplorer/browser/interfaces/positronDataExplorerInstance';
+import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
 
 /**
  * DataExplorerRuntime class.
@@ -116,11 +117,13 @@ class PositronDataExplorerService extends Disposable implements IPositronDataExp
 
 	/**
 	 * Constructor.
+	 * @param _configurationService The configuration service.
 	 * @param _editorService The editor service.
 	 * @param _notificationService The notification service.
 	 * @param _runtimeSessionService The language runtime session service.
 	 */
 	constructor(
+		@IConfigurationService private readonly _configurationService: IConfigurationService,
 		@IEditorService private readonly _editorService: IEditorService,
 		@INotificationService private readonly _notificationService: INotificationService,
 		@IRuntimeSessionService private readonly _runtimeSessionService: IRuntimeSessionService
@@ -271,7 +274,11 @@ class PositronDataExplorerService extends Disposable implements IPositronDataExp
 		// Set the Positron data explorer client instance.
 		this._positronDataExplorerInstances.set(
 			dataExplorerClientInstance.identifier,
-			new PositronDataExplorerInstance(languageName, dataExplorerClientInstance)
+			new PositronDataExplorerInstance(
+				this._configurationService,
+				languageName,
+				dataExplorerClientInstance
+			)
 		);
 
 		// Open an editor for the Positron data explorer client instance.

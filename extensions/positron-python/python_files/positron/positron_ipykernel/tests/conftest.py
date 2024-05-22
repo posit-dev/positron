@@ -32,6 +32,19 @@ class DummyComm(comm.base_comm.BaseComm):
         msg["msg_type"] = msg_type
         self.messages.append(msg)
 
+    def handle_msg(self, msg, raise_errors=True):
+        message_count = len(self.messages)
+
+        super().handle_msg(msg)
+
+        # Raise JSON RPC error responses as test failures.
+        if raise_errors:
+            new_messages = self.messages[message_count:]
+            for message in new_messages:
+                error = message.get("data", {}).get("error")
+                if error is not None:
+                    raise AssertionError(error["message"])
+
 
 # Enable autouse so that all comms are created as DummyComms.
 @pytest.fixture(autouse=True)
@@ -42,9 +55,7 @@ def patch_create_comm(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(comm, "create_comm", DummyComm)
 
 
-# Enable autouse to ensure that the kernel is instantiated with the correct shell_class before
-# anyone else tries to instantiate it.
-@pytest.fixture(autouse=True)
+@pytest.fixture
 def kernel() -> PositronIPyKernel:
     """
     The Positron kernel, configured for testing purposes.
@@ -57,16 +68,21 @@ def kernel() -> PositronIPyKernel:
     # Positron-specific attributes:
     app.session_mode = SessionMode.CONSOLE
 
-    kernel = PositronIPyKernel.instance(parent=app)
+    try:
+        kernel = PositronIPyKernel.instance(parent=app)
+    except Exception:
+        print(
+            "Error instantiating PositronIPyKernel. Did you import IPython.conftest, "
+            "which instantiates a different kernel class?"
+        )
+        raise
 
     return kernel
 
 
-# Enable autouse to ensure a clean namespace and correct user_ns_hidden in every test,
-# even if it doesn't explicitly use the `shell` fixture.
-@pytest.fixture(autouse=True)
-def shell() -> Iterable[PositronShell]:
-    shell = PositronShell.instance()
+@pytest.fixture
+def shell(kernel) -> Iterable[PositronShell]:
+    shell = PositronShell.instance(parent=kernel)
 
     # TODO: For some reason these vars are in user_ns but not user_ns_hidden during tests. For now,
     #       manually add them to user_ns_hidden to replicate running in Positron.
@@ -86,10 +102,14 @@ def shell() -> Iterable[PositronShell]:
         }
     )
 
+    user_ns_keys = set(shell.user_ns.keys())
+
     yield shell
 
-    # Reset the namespace so we don't interface with other tests (e.g. environment updates).
-    shell.reset()
+    # Ensure a clean namespace
+    new_user_ns_keys = set(shell.user_ns.keys()) - user_ns_keys
+    for key in new_user_ns_keys:
+        del shell.user_ns[key]
 
 
 @pytest.fixture

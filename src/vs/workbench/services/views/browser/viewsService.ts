@@ -480,6 +480,18 @@ export class ViewsService extends Disposable implements IViewsService {
 					if (focusedViewId === viewDescriptor.id) {
 
 						const viewLocation = viewDescriptorService.getViewLocationById(viewDescriptor.id);
+						// --- Start Positron ---
+						// This deals with an edge case. If we're opening a view
+						// in the panel, and it is minimized, and it is focused
+						// (unlikely but possible, e.g. after clicking the
+						// minimize button), restore it.
+						if (viewLocation === ViewContainerLocation.Panel && layoutService.isPanelMinimized()) {
+							layoutService.restorePanel();
+							// Returning early instead of chaining with `else` to avoid formatter
+							// indenting the other branches
+							return;
+						}
+						// --- End Positron ---
 						if (viewDescriptorService.getViewLocationById(viewDescriptor.id) === ViewContainerLocation.Sidebar) {
 							// focus the editor if the view is focused and in the side bar
 							editorGroupService.activeGroup.focus();

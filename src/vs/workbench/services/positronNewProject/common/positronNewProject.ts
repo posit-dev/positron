@@ -4,6 +4,8 @@
 
 import { createDecorator } from 'vs/platform/instantiation/common/instantiation';
 import { Event } from 'vs/base/common/event';
+import { ILanguageRuntimeMetadata } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { Barrier } from 'vs/base/common/async';
 
 export const POSITRON_NEW_PROJECT_CONFIG_STORAGE_KEY = 'positron.newProjectConfig';
 
@@ -56,7 +58,7 @@ export enum NewProjectTask {
  * NewProjectConfiguration interface. Defines the configuration for a new project.
  */
 export interface NewProjectConfiguration {
-	readonly runtimeId: string;
+	readonly runtimeMetadata: ILanguageRuntimeMetadata | undefined;
 	readonly projectType: string;
 	readonly projectFolder: string;
 	readonly initGitRepo: boolean;
@@ -106,6 +108,17 @@ export interface IPositronNewProjectService {
 	 * @returns Whether the new project was initialized.
 	 */
 	initNewProject(): Promise<void>;
+
+	/**
+	 * Barrier for other services to wait for all project tasks to complete.
+	 */
+	allTasksComplete: Barrier;
+
+	/**
+	 * Returns the metadata for the runtime chosen for the new project, or
+	 * undefined if this isn't a new project.
+	 */
+	readonly newProjectRuntimeMetadata: ILanguageRuntimeMetadata | undefined;
 
 	/**
 	 * Stores the new project configuration in the storage service.

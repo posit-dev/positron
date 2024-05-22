@@ -10,6 +10,7 @@ import { DataExplorerClientInstance } from 'vs/workbench/services/languageRuntim
 import { TableSummaryDataGridInstance } from 'vs/workbench/services/positronDataExplorer/browser/tableSummaryDataGridInstance';
 import { PositronDataExplorerLayout } from 'vs/workbench/services/positronDataExplorer/browser/interfaces/positronDataExplorerService';
 import { IPositronDataExplorerInstance } from 'vs/workbench/services/positronDataExplorer/browser/interfaces/positronDataExplorerInstance';
+import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
 
 /**
  * PositronDataExplorerInstance class.
@@ -85,12 +86,17 @@ export class PositronDataExplorerInstance extends Disposable implements IPositro
 
 	/**
 	 * Constructor.
+	 * @param configurationService The configuration service.
 	 * @param languageName The language name.
 	 * @param dataExplorerClientInstance The DataExplorerClientInstance. The
 	 * data explorer takes ownership of the client instance and will dispose it
 	 * when it is disposed.
 	 */
-	constructor(languageName: string, dataExplorerClientInstance: DataExplorerClientInstance) {
+	constructor(
+		configurationService: IConfigurationService,
+		languageName: string,
+		dataExplorerClientInstance: DataExplorerClientInstance
+	) {
 		// Call the base class's constructor.
 		super();
 
@@ -99,6 +105,7 @@ export class PositronDataExplorerInstance extends Disposable implements IPositro
 		this._dataExplorerClientInstance = dataExplorerClientInstance;
 		this._dataExplorerCache = new DataExplorerCache(dataExplorerClientInstance);
 		this._tableSchemaDataGridInstance = new TableSummaryDataGridInstance(
+			configurationService,
 			dataExplorerClientInstance,
 			this._dataExplorerCache
 		);

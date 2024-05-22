@@ -3,6 +3,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { StatementRange } from 'positron';
 import { isFalsyOrEmpty } from 'vs/base/common/arrays';
 import { VSBuffer } from 'vs/base/common/buffer';
 import { Schemas, matchesSomeScheme } from 'vs/base/common/network';
@@ -489,18 +490,10 @@ const newCommands: ApiCommand[] = [
 	// -- statement range
 	new ApiCommand(
 		'vscode.executeStatementRangeProvider', '_executeStatementRangeProvider', 'Execute statement range provider.',
-		[ApiCommandArgument.Uri,
-		new ApiCommandArgument<types.Position, IPosition>('position',
-			'A position in a text document',
-			// validator: check for a valid position
-			v => types.Position.isPosition(v),
-			// converter: convert from vscode.Position to IPosition (API type)
-			v => {
-				return typeConverters.Position.from(v);
-			})],
-		new ApiCommandResult<IRange, types.Range>('A promise that resolves to a range.', result => {
+		[ApiCommandArgument.Uri, ApiCommandArgument.Position],
+		new ApiCommandResult<languages.IStatementRange, StatementRange>('A promise that resolves to a statement range.', result => {
 			// converter: convert from IRange (API type) to vscode.Range
-			return typeConverters.Range.to(result);
+			return { range: typeConverters.Range.to(result.range), code: result.code };
 		})
 	),
 	// --- End Positron

@@ -9,7 +9,6 @@
 import * as positron from 'positron';
 import * as vscode from 'vscode';
 import PQueue from 'p-queue';
-import { PythonExtension } from '../api/types';
 import { ProductNames } from '../common/installer/productNames';
 import { InstallOptions } from '../common/installer/types';
 import {
@@ -77,7 +76,6 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
         readonly runtimeMetadata: positron.LanguageRuntimeMetadata,
         readonly metadata: positron.RuntimeSessionMetadata,
         readonly serviceContainer: IServiceContainer,
-        private readonly pythonApi: PythonExtension,
         readonly kernelSpec?: JupyterKernelSpec | undefined,
     ) {
         const interpreterService = serviceContainer.get<IInterpreterService>(IInterpreterService);
@@ -266,8 +264,6 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
 
         // Update the active environment in the Python extension.
         this._interpreterPathService.update(undefined, vscode.ConfigurationTarget.Global, this.interpreter.path);
-
-        this.pythonApi.environments.updateActiveEnvironmentPath(this.interpreter.path);
 
         // Register for console width changes, if we haven't already
         if (!this._consoleWidthDisposable) {

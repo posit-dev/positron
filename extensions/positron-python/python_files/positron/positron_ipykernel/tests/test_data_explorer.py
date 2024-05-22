@@ -15,6 +15,7 @@ from ..access_keys import encode_access_key
 from ..data_explorer import (
     COMPARE_OPS,
     DataExplorerService,
+    PandasView,
     _VALUE_NAN,
     _VALUE_NAT,
     _VALUE_NONE,
@@ -297,8 +298,7 @@ class DataExplorerFixture:
     def get_schema_for(self, df):
         comm_id = guid()
         self.register_table(comm_id, df)
-        result = self.get_schema(comm_id)
-        return result
+        return self.get_schema(comm_id)
 
     def do_json_rpc(self, table_name, method, **params):
         paths = self.de_service.get_paths_for_variable(table_name)
@@ -314,10 +314,7 @@ class DataExplorerFixture:
         self.de_service.comms[comm_id].comm.handle_msg(request)
         response = get_last_message(self.de_service, comm_id)
         data = response["data"]
-        if "error" in data:
-            raise Exception(data["error"]["message"])
-        else:
-            return data["result"]
+        return data["result"]
 
     def get_schema(self, table_name, start_index=None, num_columns=None):
         if start_index is None:
@@ -332,7 +329,7 @@ class DataExplorerFixture:
             "get_schema",
             start_index=start_index,
             num_columns=num_columns,
-        )
+        )["columns"]
 
     def search_schema(self, table_name, search_term, start_index, max_results):
         return self.do_json_rpc(
@@ -432,7 +429,7 @@ def test_pandas_get_state(dxf: DataExplorerFixture):
     assert result["table_shape"] == ex_shape
     assert result["table_unfiltered_shape"] == ex_shape
 
-    schema = dxf.get_schema("simple")["columns"]
+    schema = dxf.get_schema("simple")
 
     sort_keys = [
         {"column_index": 0, "ascending": True},
@@ -539,13 +536,13 @@ def test_pandas_get_schema(dxf: DataExplorerFixture):
         },
     ]
 
-    assert result["columns"] == _wrap_json(ColumnSchema, full_schema)
+    assert result == _wrap_json(ColumnSchema, full_schema)
 
     result = dxf.get_schema("simple", 2, 100)
-    assert result["columns"] == _wrap_json(ColumnSchema, full_schema[2:])
+    assert result == _wrap_json(ColumnSchema, full_schema[2:])
 
     result = dxf.get_schema("simple", 7, 100)
-    assert result["columns"] == []
+    assert result == []
 
     # Make a really big schema
     bigger_df = pd.concat([SIMPLE_PANDAS_DF] * 100, axis="columns")
@@ -561,10 +558,10 @@ def test_pandas_get_schema(dxf: DataExplorerFixture):
     dxf.register_table(bigger_name, bigger_df)
 
     result = dxf.get_schema(bigger_name, 0, 100)
-    assert result["columns"] == _wrap_json(ColumnSchema, bigger_schema[:100])
+    assert result == _wrap_json(ColumnSchema, bigger_schema[:100])
 
     result = dxf.get_schema(bigger_name, 10, 10)
-    assert result["columns"] == _wrap_json(ColumnSchema, bigger_schema[10:20])
+    assert result == _wrap_json(ColumnSchema, bigger_schema[10:20])
 
 
 def test_pandas_wide_schemas(dxf: DataExplorerFixture):
@@ -586,7 +583,7 @@ def test_pandas_wide_schemas(dxf: DataExplorerFixture):
         schema_slice = dxf.get_schema("wide_df", start_index, chunk_size)
         expected = dxf.get_schema(f"wide_df_{chunk_index}", 0, chunk_size)
 
-        for left, right in zip(schema_slice["columns"], expected["columns"]):
+        for left, right in zip(schema_slice, expected):
             right["column_index"] = right["column_index"] + start_index
             assert left == right
 
@@ -605,7 +602,7 @@ def test_pandas_search_schema(dxf: DataExplorerFixture):
 
     dxf.register_table("df", df)
 
-    full_schema = dxf.get_schema("df", 0, len(column_names))["columns"]
+    full_schema = dxf.get_schema("df", 0, len(column_names))
 
     # (search_term, start_index, max_results, ex_total, ex_matches)
     cases = [
@@ -782,7 +779,7 @@ def _set_member_filter(
 
 def test_pandas_filter_between(dxf: DataExplorerFixture):
     df = SIMPLE_PANDAS_DF
-    schema = dxf.get_schema("simple")["columns"]
+    schema = dxf.get_schema("simple")
 
     cases = [
         (schema[0], 2, 4),  # a column
@@ -810,7 +807,7 @@ def test_pandas_filter_between(dxf: DataExplorerFixture):
 def test_pandas_filter_conditions(dxf: DataExplorerFixture):
     # Test AND/OR conditions when filtering
     df = SIMPLE_PANDAS_DF
-    schema = dxf.get_schema("simple")["columns"]
+    schema = dxf.get_schema("simple")
 
     filters = [
         _compare_filter(schema[0], ">=", 3, condition="or"),
@@ -832,21 +829,35 @@ def test_pandas_filter_conditions(dxf: DataExplorerFixture):
 def test_pandas_filter_compare(dxf: DataExplorerFixture):
     # Just use the 'a' column to smoke test comparison filters on
     # integers
-    table_name = "simple"
     df = SIMPLE_PANDAS_DF
-    compare_value = 3
     column = "a"
-    schema = dxf.get_schema("simple")["columns"]
+    schema = dxf.get_schema("simple")
 
     for op, op_func in COMPARE_OPS.items():
-        filt = _compare_filter(schema[0], op, str(compare_value))
-        expected_df = df[op_func(df[column], compare_value)]
+        filt = _compare_filter(schema[0], op, 3)
+        expected_df = df[op_func(df[column], 3)]
         dxf.check_filter_case(df, [filt], expected_df)
 
-    # TODO(wesm): move these tests to their own test case
+
+def test_pandas_filter_integer_with_float(dxf: DataExplorerFixture):
+    # Test that comparing an integer column with a float value does
+    # not truncate the value or error
+    df = SIMPLE_PANDAS_DF
+    schema = dxf.get_schema("simple")
+
+    for op, op_func in COMPARE_OPS.items():
+        filt = _compare_filter(schema[0], op, 2.5)
+        expected_df = df[op_func(df["a"], 2.5)]
+        dxf.check_filter_case(df, [filt], expected_df)
+
+
+def test_pandas_filter_reset(dxf: DataExplorerFixture):
+    table_name = "simple"
+    df = SIMPLE_PANDAS_DF
+    schema = dxf.get_schema("simple")
 
     # Test that passing empty filter set resets to unfiltered state
-    filt = _compare_filter(schema[0], "<", str(compare_value))
+    filt = _compare_filter(schema[0], "<", 3)
     _ = dxf.set_row_filters(table_name, filters=[filt])
     response = dxf.set_row_filters(table_name, filters=[])
     assert response == FilterResult(selected_num_rows=len(df), had_errors=False)
@@ -857,10 +868,34 @@ def test_pandas_filter_compare(dxf: DataExplorerFixture):
     dxf.compare_tables(table_name, ex_id, df.shape)
 
 
+def test_pandas_filter_value_coercion(dxf: DataExplorerFixture):
+    table_name = "coerce"
+    df = pd.DataFrame(
+        {
+            "a": [1, 2, 3, 4, 5],
+            "b": pd.date_range("2000-01-01", freq="D", periods=5),
+        }
+    )
+    dxf.register_table(table_name, df)
+    schema = dxf.get_schema(table_name)
+
+    error_cases = [
+        _compare_filter(schema[1], "<", "123456789"),
+        _compare_filter(schema[1], "<", "2024"),
+        _compare_filter(schema[1], "<", "2024-01"),
+        _compare_filter(schema[1], "<", "2024-13-01"),
+        _compare_filter(schema[1], "<", "2024-01-32"),
+    ]
+
+    for filt in error_cases:
+        result = dxf.set_row_filters(table_name, filters=[filt])
+        assert result["had_errors"]
+
+
 def test_pandas_filter_is_valid(dxf: DataExplorerFixture):
     # Test AND/OR conditions when filtering
     df = SIMPLE_PANDAS_DF
-    schema = dxf.get_schema("simple")["columns"]
+    schema = dxf.get_schema("simple")
 
     filters = [
         _compare_filter(schema[0], ">=", 3),
@@ -887,7 +922,7 @@ def test_pandas_filter_empty(dxf: DataExplorerFixture):
         }
     )
 
-    schema = dxf.get_schema_for(df)["columns"]
+    schema = dxf.get_schema_for(df)
 
     dxf.check_filter_case(df, [_filter("is_empty", schema[0])], df[df["a"].str.len() == 0])
     dxf.check_filter_case(df, [_filter("not_empty", schema[0])], df[df["a"].str.len() != 0])
@@ -902,7 +937,7 @@ def test_pandas_filter_boolean(dxf: DataExplorerFixture):
         }
     )
 
-    schema = dxf.get_schema_for(df)["columns"]
+    schema = dxf.get_schema_for(df)
 
     dxf.check_filter_case(df, [_filter("is_true", schema[0])], df[df["a"] == True])  # noqa: E712
     dxf.check_filter_case(df, [_filter("is_false", schema[0])], df[df["a"] == False])  # noqa: E712
@@ -910,7 +945,7 @@ def test_pandas_filter_boolean(dxf: DataExplorerFixture):
 
 def test_pandas_filter_is_null_not_null(dxf: DataExplorerFixture):
     df = SIMPLE_PANDAS_DF
-    schema = dxf.get_schema_for(df)["columns"]
+    schema = dxf.get_schema_for(df)
     b_is_null = _filter("is_null", schema[1])
     b_not_null = _filter("not_null", schema[1])
     c_not_null = _filter("not_null", schema[2])
@@ -927,7 +962,7 @@ def test_pandas_filter_is_null_not_null(dxf: DataExplorerFixture):
 
 def test_pandas_filter_set_membership(dxf: DataExplorerFixture):
     df = SIMPLE_PANDAS_DF
-    schema = dxf.get_schema_for(df)["columns"]
+    schema = dxf.get_schema_for(df)
 
     cases = [
         [[_set_member_filter(schema[0], [2, 4])], df[df["a"].isin([2, 4])]],
@@ -956,7 +991,7 @@ def test_pandas_filter_search(dxf: DataExplorerFixture):
     )
 
     dxf.register_table("df", df)
-    schema = dxf.get_schema("df")["columns"]
+    schema = dxf.get_schema("df")
 
     # (search_type, column_schema, term, case_sensitive, boolean mask)
     cases = [
@@ -1108,7 +1143,7 @@ def test_pandas_schema_change_state_updates(dxf: DataExplorerFixture):
     )
 
     dxf.assign_and_open_viewer("df", df.copy())
-    schema = dxf.get_schema("df")["columns"]
+    schema = dxf.get_schema("df")
 
     def _check_scenario(var, scenario, code: str):
         filter_spec = scenario.get("filters", [])
@@ -1125,7 +1160,7 @@ def test_pandas_schema_change_state_updates(dxf: DataExplorerFixture):
         # invalid
         state = dxf.get_state(var)
         updated_filters = state["row_filters"]
-        new_schema = dxf.get_schema(var)["columns"]
+        new_schema = dxf.get_schema(var)
 
         if "sort_keys" in scenario:
             assert state["sort_keys"] == scenario["updated_sort_keys"]
@@ -1174,7 +1209,7 @@ def test_pandas_schema_change_state_updates(dxf: DataExplorerFixture):
 
     # Scenario 2: convert "a" from int64 to int16
     dxf.assign_and_open_viewer("df2", df.copy())
-    schema = dxf.get_schema("df2")["columns"]
+    schema = dxf.get_schema("df2")
     scenario2 = {
         "filters": [
             (_filter("is_null", schema[0]), True),
@@ -1186,7 +1221,7 @@ def test_pandas_schema_change_state_updates(dxf: DataExplorerFixture):
 
     # Scenario 3: delete "a" in place
     dxf.assign_and_open_viewer("df3", df.copy())
-    schema = dxf.get_schema("df3")["columns"]
+    schema = dxf.get_schema("df3")
     scenario3 = {
         "filters": [
             (_filter("is_null", schema[0]), False),
@@ -1199,7 +1234,7 @@ def test_pandas_schema_change_state_updates(dxf: DataExplorerFixture):
 
     # Scenario 4: delete "a" in a new DataFrame
     dxf.assign_and_open_viewer("df4", df.copy())
-    schema = dxf.get_schema("df4")["columns"]
+    schema = dxf.get_schema("df4")
     scenario4 = {
         "filters": [
             (_filter("is_null", schema[0]), False),
@@ -1210,7 +1245,7 @@ def test_pandas_schema_change_state_updates(dxf: DataExplorerFixture):
 
     # Scenario 5: replace a column in place with a new name
     dxf.assign_and_open_viewer("df5", df.copy())
-    schema = dxf.get_schema("df5")["columns"]
+    schema = dxf.get_schema("df5")
     scenario5 = {
         "filters": [
             (_compare_filter(schema[1], "=", "foo"), False),
@@ -1220,7 +1255,7 @@ def test_pandas_schema_change_state_updates(dxf: DataExplorerFixture):
 
     # Scenario 6: add some columns, but do not disturb filters
     dxf.assign_and_open_viewer("df6", df.copy())
-    schema = dxf.get_schema("df6")["columns"]
+    schema = dxf.get_schema("df6")
     scenario6 = {
         "filters": [
             (_compare_filter(schema[0], "=", "1"), True),
@@ -1232,7 +1267,7 @@ def test_pandas_schema_change_state_updates(dxf: DataExplorerFixture):
     # Scenario 7: delete column, then restore it and check that the
     # filter was made invalid and then valid again
     dxf.assign_and_open_viewer("df7", df.copy())
-    schema = dxf.get_schema("df7")["columns"]
+    schema = dxf.get_schema("df7")
     scenario7 = {
         "filters": [
             (_compare_filter(schema[0], "<", "4"), False),
@@ -1274,7 +1309,7 @@ def test_pandas_set_sort_columns(dxf: DataExplorerFixture):
             }
         ),
     }
-    df2_schema = dxf.get_schema_for(tables["df2"])["columns"]
+    df2_schema = dxf.get_schema_for(tables["df2"])
 
     cases = [
         ("df1", [(2, True)], {"by": "c"}),
@@ -1358,6 +1393,32 @@ def test_pandas_change_schema_after_sort(
     dxf.get_state("df")["sort_keys"] = [{"column_index": 1, "ascending": False}]
 
 
+def test_pandas_updated_with_sort_keys(dxf: DataExplorerFixture):
+    # GitHub #3044, PandasView gets into an inconsistent state when a
+    # dataset with sort keys set is updated (or the view is refreshed
+    # because the dataset is large)
+    df = pd.DataFrame(
+        {
+            "a": [1, 2, 3, 4, 5],
+            "b": [True, False, True, None, True],
+            "c": ["foo", "bar", None, "bar", "None"],
+        }
+    )
+
+    comm_id = dxf.assign_and_open_viewer("df", df)
+    view = dxf.de_service.table_views[comm_id]
+    dxf.set_sort_columns("df", [{"column_index": 0, "ascending": False}])
+
+    view = PandasView("df", df, view.filters, view.sort_keys)
+
+    schema_updated, new_filt, new_sort_keys = view.get_updated_state(df)
+
+    # Object dtype makes schema_updated always true
+    assert schema_updated
+    assert new_filt == view.filters
+    assert new_sort_keys == view.sort_keys
+
+
 def _profile_request(column_index, profile_type):
     return {"column_index": column_index, "profile_type": profile_type}
 
@@ -1417,7 +1478,7 @@ def test_pandas_profile_null_counts(dxf: DataExplorerFixture):
 
         assert results == ex_results
 
-    df1_schema = dxf.get_schema_for(df1)["columns"]
+    df1_schema = dxf.get_schema_for(df1)
 
     # Test profiling with filter
     # format: (table, filters, filtered_table, profiles)

@@ -89,6 +89,9 @@ import { ContextKeyManager } from './application/contextKeyManager';
 import { CreatePythonFileCommandHandler } from './application/commands/createPythonFile';
 import { RequireJupyterPrompt } from '../jupyter/requireJupyterPrompt';
 import { isWindows } from './platform/platformService';
+// --- Start Positron ---
+import { registerPositronTypes } from '../positron/serviceRegistry';
+// --- End Positron ---
 
 export function registerTypes(serviceManager: IServiceManager): void {
     serviceManager.addSingletonInstance<boolean>(IsWindows, isWindows());
@@ -187,4 +190,7 @@ export function registerTypes(serviceManager: IServiceManager): void {
         IExtensionSingleActivationService,
         DebugSessionTelemetry,
     );
+    // --- Start Positron ---
+    registerPositronTypes(serviceManager);
+    // --- End Positron ---
 }

@@ -141,7 +141,7 @@ class SearchSchemaResult(BaseModel):
         description="A schema containing matching columns up to the max_results limit",
     )
 
-    total_num_matches: int = Field(
+    total_num_matches: StrictInt = Field(
         description="The total number of columns matching the search term",
     )
 
@@ -151,11 +151,11 @@ class FilterResult(BaseModel):
     The result of applying filters to a table
     """
 
-    selected_num_rows: int = Field(
+    selected_num_rows: StrictInt = Field(
         description="Number of rows in table after applying filters",
     )
 
-    had_errors: Optional[bool] = Field(
+    had_errors: Optional[StrictBool] = Field(
         default=None,
         description="Flag indicating if there were errors in evaluation",
     )
@@ -166,7 +166,7 @@ class BackendState(BaseModel):
     The current backend state for the data explorer
     """
 
-    display_name: str = Field(
+    display_name: StrictStr = Field(
         description="Variable name or other string to display for tab name in UI",
     )
 
@@ -196,15 +196,15 @@ class ColumnSchema(BaseModel):
     Schema for a column in a table
     """
 
-    column_name: str = Field(
+    column_name: StrictStr = Field(
         description="Name of column as UTF-8 string",
     )
 
-    column_index: int = Field(
+    column_index: StrictInt = Field(
         description="The position of the column within the schema",
     )
 
-    type_name: str = Field(
+    type_name: StrictStr = Field(
         description="Exact name of data type used by underlying table",
     )
 
@@ -212,7 +212,7 @@ class ColumnSchema(BaseModel):
         description="Canonical Positron display name of data type",
     )
 
-    description: Optional[str] = Field(
+    description: Optional[StrictStr] = Field(
         default=None,
         description="Column annotation / description",
     )
@@ -222,22 +222,22 @@ class ColumnSchema(BaseModel):
         description="Schema of nested child types",
     )
 
-    precision: Optional[int] = Field(
+    precision: Optional[StrictInt] = Field(
         default=None,
         description="Precision for decimal types",
     )
 
-    scale: Optional[int] = Field(
+    scale: Optional[StrictInt] = Field(
         default=None,
         description="Scale for decimal types",
     )
 
-    timezone: Optional[str] = Field(
+    timezone: Optional[StrictStr] = Field(
         default=None,
         description="Time zone for timestamp with time zone",
     )
 
-    type_size: Optional[int] = Field(
+    type_size: Optional[StrictInt] = Field(
         default=None,
         description="Size parameter for fixed-size types (list, binary)",
     )
@@ -252,7 +252,7 @@ class TableData(BaseModel):
         description="The columns of data",
     )
 
-    row_labels: Optional[List[List[str]]] = Field(
+    row_labels: Optional[List[List[StrictStr]]] = Field(
         default=None,
         description="Zero or more arrays of row labels",
     )
@@ -273,11 +273,11 @@ class TableShape(BaseModel):
     Provides number of rows and columns in a table
     """
 
-    num_rows: int = Field(
+    num_rows: StrictInt = Field(
         description="Numbers of rows in the table",
     )
 
-    num_columns: int = Field(
+    num_columns: StrictInt = Field(
         description="Number of columns in the table",
     )
 
@@ -287,7 +287,7 @@ class RowFilter(BaseModel):
     Specifies a table row filter based on a single column's values
     """
 
-    filter_id: str = Field(
+    filter_id: StrictStr = Field(
         description="Unique identifier for this filter",
     )
 
@@ -303,12 +303,12 @@ class RowFilter(BaseModel):
         description="The binary condition to use to combine with preceding row filters",
     )
 
-    is_valid: Optional[bool] = Field(
+    is_valid: Optional[StrictBool] = Field(
         default=None,
         description="Whether the filter is valid and supported by the backend, if undefined then true",
     )
 
-    error_message: Optional[str] = Field(
+    error_message: Optional[StrictStr] = Field(
         default=None,
         description="Optional error message when the filter is invalid",
     )
@@ -339,11 +339,11 @@ class BetweenFilterParams(BaseModel):
     Parameters for the 'between' and 'not_between' filter types
     """
 
-    left_value: str = Field(
+    left_value: StrictStr = Field(
         description="The lower limit for filtering",
     )
 
-    right_value: str = Field(
+    right_value: StrictStr = Field(
         description="The upper limit for filtering",
     )
 
@@ -357,7 +357,7 @@ class CompareFilterParams(BaseModel):
         description="String representation of a binary comparison",
     )
 
-    value: str = Field(
+    value: StrictStr = Field(
         description="A stringified column value for a comparison filter",
     )
 
@@ -367,11 +367,11 @@ class SetMembershipFilterParams(BaseModel):
     Parameters for the 'set_membership' filter type
     """
 
-    values: List[str] = Field(
+    values: List[StrictStr] = Field(
         description="Array of column values for a set membership filter",
     )
 
-    inclusive: bool = Field(
+    inclusive: StrictBool = Field(
         description="Filter by including only values passed (true) or excluding (false)",
     )
 
@@ -385,11 +385,11 @@ class SearchFilterParams(BaseModel):
         description="Type of search to perform",
     )
 
-    term: str = Field(
+    term: StrictStr = Field(
         description="String value/regex to search for in stringified data",
     )
 
-    case_sensitive: bool = Field(
+    case_sensitive: StrictBool = Field(
         description="If true, do a case-sensitive search, otherwise case-insensitive",
     )
 
@@ -399,7 +399,7 @@ class ColumnProfileRequest(BaseModel):
     A single column profile request
     """
 
-    column_index: int = Field(
+    column_index: StrictInt = Field(
         description="The ordinal column index to profile",
     )
 
@@ -413,7 +413,7 @@ class ColumnProfileResult(BaseModel):
     Result of computing column profile
     """
 
-    null_count: Optional[int] = Field(
+    null_count: Optional[StrictInt] = Field(
         default=None,
         description="Result from null_count request",
     )
@@ -465,23 +465,23 @@ class SummaryStatsNumber(BaseModel):
     SummaryStatsNumber in Schemas
     """
 
-    min_value: str = Field(
+    min_value: StrictStr = Field(
         description="Minimum value as string",
     )
 
-    max_value: str = Field(
+    max_value: StrictStr = Field(
         description="Maximum value as string",
     )
 
-    mean: str = Field(
+    mean: StrictStr = Field(
         description="Average value as string",
     )
 
-    median: str = Field(
+    median: StrictStr = Field(
         description="Sample median (50% value) value as string",
     )
 
-    stdev: str = Field(
+    stdev: StrictStr = Field(
         description="Sample standard deviation as a string",
     )
 
@@ -491,11 +491,11 @@ class SummaryStatsBoolean(BaseModel):
     SummaryStatsBoolean in Schemas
     """
 
-    true_count: int = Field(
+    true_count: StrictInt = Field(
         description="The number of non-null true values",
     )
 
-    false_count: int = Field(
+    false_count: StrictInt = Field(
         description="The number of non-null false values",
     )
 
@@ -505,11 +505,11 @@ class SummaryStatsString(BaseModel):
     SummaryStatsString in Schemas
     """
 
-    num_empty: int = Field(
+    num_empty: StrictInt = Field(
         description="The number of empty / length-zero values",
     )
 
-    num_unique: int = Field(
+    num_unique: StrictInt = Field(
         description="The exact number of distinct values",
     )
 
@@ -519,11 +519,11 @@ class ColumnHistogram(BaseModel):
     Result from a histogram profile request
     """
 
-    bin_sizes: List[int] = Field(
+    bin_sizes: List[StrictInt] = Field(
         description="Absolute count of values in each histogram bin",
     )
 
-    bin_width: float = Field(
+    bin_width: Union[StrictInt, StrictFloat] = Field(
         description="Absolute floating-point width of a histogram bin",
     )
 
@@ -537,7 +537,7 @@ class ColumnFrequencyTable(BaseModel):
         description="Counts of distinct values in column",
     )
 
-    other_count: int = Field(
+    other_count: StrictInt = Field(
         description="Number of other values not accounted for in counts. May be 0",
     )
 
@@ -547,11 +547,11 @@ class ColumnFrequencyTableItem(BaseModel):
     Entry in a column's frequency table
     """
 
-    value: str = Field(
+    value: StrictStr = Field(
         description="Stringified value",
     )
 
-    count: int = Field(
+    count: StrictInt = Field(
         description="Number of occurrences of value",
     )
 
@@ -561,15 +561,15 @@ class ColumnQuantileValue(BaseModel):
     An exact or approximate quantile value from a column
     """
 
-    q: float = Field(
+    q: Union[StrictInt, StrictFloat] = Field(
         description="Quantile number (percentile). E.g. 1 for 1%, 50 for median",
     )
 
-    value: str = Field(
+    value: StrictStr = Field(
         description="Stringified quantile value",
     )
 
-    exact: bool = Field(
+    exact: StrictBool = Field(
         description="Whether value is exact or approximate (computed from binned data or sketches)",
     )
 
@@ -579,11 +579,11 @@ class ColumnSortKey(BaseModel):
     Specifies a column to sort by
     """
 
-    column_index: int = Field(
+    column_index: StrictInt = Field(
         description="Column index to sort by",
     )
 
-    ascending: bool = Field(
+    ascending: StrictBool = Field(
         description="Sort order, ascending (true) or descending (false)",
     )
 
@@ -611,7 +611,7 @@ class SearchSchemaFeatures(BaseModel):
     Feature flags for 'search_schema' RPC
     """
 
-    supported: bool = Field(
+    supported: StrictBool = Field(
         description="Whether this RPC method is supported at all",
     )
 
@@ -621,11 +621,11 @@ class SetRowFiltersFeatures(BaseModel):
     Feature flags for 'set_row_filters' RPC
     """
 
-    supported: bool = Field(
+    supported: StrictBool = Field(
         description="Whether this RPC method is supported at all",
     )
 
-    supports_conditions: bool = Field(
+    supports_conditions: StrictBool = Field(
         description="Whether AND/OR filter conditions are supported",
     )
 
@@ -639,7 +639,7 @@ class GetColumnProfilesFeatures(BaseModel):
     Feature flags for 'get_column_profiles' RPC
     """
 
-    supported: bool = Field(
+    supported: StrictBool = Field(
         description="Whether this RPC method is supported at all",
     )
 
@@ -688,11 +688,11 @@ class GetSchemaParams(BaseModel):
     Request full schema for a table-like object
     """
 
-    start_index: int = Field(
+    start_index: StrictInt = Field(
         description="First column schema to fetch (inclusive)",
     )
 
-    num_columns: int = Field(
+    num_columns: StrictInt = Field(
         description="Number of column schemas to fetch from start index. May extend beyond end of table",
     )
 
@@ -721,15 +721,15 @@ class SearchSchemaParams(BaseModel):
     Search schema for column names matching a passed substring
     """
 
-    search_term: str = Field(
+    search_term: StrictStr = Field(
         description="Substring to match for (currently case insensitive)",
     )
 
-    start_index: int = Field(
+    start_index: StrictInt = Field(
         description="Index (starting from zero) of first result to fetch",
     )
 
-    max_results: int = Field(
+    max_results: StrictInt = Field(
         description="Maximum number of resulting column schemas to fetch from the start index",
     )
 
@@ -758,15 +758,15 @@ class GetDataValuesParams(BaseModel):
     Request a rectangular subset of data with values formatted as strings
     """
 
-    row_start_index: int = Field(
+    row_start_index: StrictInt = Field(
         description="First row to fetch (inclusive)",
     )
 
-    num_rows: int = Field(
+    num_rows: StrictInt = Field(
         description="Number of rows to fetch from start index. May extend beyond end of table",
     )
 
-    column_indices: List[int] = Field(
+    column_indices: List[StrictInt] = Field(
         description="Indices to select, which can be a sequential, sparse, or random selection",
     )
 

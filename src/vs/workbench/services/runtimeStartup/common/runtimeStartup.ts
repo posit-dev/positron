@@ -21,6 +21,7 @@ import { ILifecycleService, ShutdownReason, StartupKind } from 'vs/workbench/ser
 import { INotificationService } from 'vs/platform/notification/common/notification';
 import { IWorkspaceTrustManagementService } from 'vs/platform/workspace/common/workspaceTrust';
 import { URI } from 'vs/base/common/uri';
+import { IPositronNewProjectService } from 'vs/workbench/services/positronNewProject/common/positronNewProject';
 
 interface ILanguageRuntimeProviderMetadata {
 	languageId: string;
@@ -87,6 +88,7 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 		@ILanguageRuntimeService private readonly _languageRuntimeService: ILanguageRuntimeService,
 		@ILifecycleService private readonly _lifecycleService: ILifecycleService,
 		@ILogService private readonly _logService: ILogService,
+		@IPositronNewProjectService private readonly _newProjectService: IPositronNewProjectService,
 		@INotificationService private readonly _notificationService: INotificationService,
 		@IRuntimeSessionService private readonly _runtimeSessionService: IRuntimeSessionService,
 		@IStorageService private readonly _storageService: IStorageService,
@@ -278,6 +280,18 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 
 		// Attempt to reconnect to any active sessions first.
 		await this.restoreSessions();
+
+		// If this is a new project, wait for it to initialize the project
+		// before proceeding, and then store the new project runtime metadata.
+		// as the affiliated runtime for this workspace.
+		await this._newProjectService.allTasksComplete.wait();
+		const newRuntime = this._newProjectService.newProjectRuntimeMetadata;
+		if (newRuntime) {
+			this._storageService.store(this.storageKeyForRuntime(newRuntime),
+				JSON.stringify(newRuntime),
+				StorageScope.WORKSPACE,
+				StorageTarget.MACHINE);
+		}
 
 		// If no sessions were restored, and we have affiliated runtimes,
 		// try to start them.

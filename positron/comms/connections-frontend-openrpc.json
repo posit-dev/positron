@@ -9,6 +9,11 @@
 			"name": "focus",
 			"summary": "Request to focus the Connections pane",
 			"params": []
+		},
+		{
+			"name": "update",
+			"summary": "Request the UI to refresh the connection information",
+			"params": []
 		}
 	]
 }

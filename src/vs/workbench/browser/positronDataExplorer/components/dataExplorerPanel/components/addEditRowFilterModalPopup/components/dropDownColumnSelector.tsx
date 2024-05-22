@@ -14,6 +14,7 @@ import * as DOM from 'vs/base/browser/dom';
 import { ILayoutService } from 'vs/platform/layout/browser/layoutService';
 import { Button } from 'vs/base/browser/ui/positronComponents/button/button';
 import { IKeybindingService } from 'vs/platform/keybinding/common/keybinding';
+import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
 import { ColumnSchema } from 'vs/workbench/services/languageRuntime/common/positronDataExplorerComm';
 import { PositronModalReactRenderer } from 'vs/workbench/browser/positronModalReactRenderer/positronModalReactRenderer';
 import { DataExplorerClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimeDataExplorerClient';
@@ -25,6 +26,7 @@ import { ColumnSelectorDataGridInstance } from 'vs/workbench/browser/positronDat
  * DropDownColumnSelectorProps interface.
  */
 interface DropDownColumnSelectorProps {
+	configurationService: IConfigurationService;
 	keybindingService: IKeybindingService;
 	layoutService: ILayoutService;
 	dataExplorerClientInstance: DataExplorerClientInstance;
@@ -73,6 +75,7 @@ export const DropDownColumnSelector = (props: DropDownColumnSelectorProps) => {
 				// Show the drop down list box modal popup.
 				renderer.render(
 					<ColumnSelectorModalPopup
+						configurationService={props.configurationService}
 						renderer={renderer}
 						columnSelectorDataGridInstance={columnSelectorDataGridInstance}
 						anchor={ref.current}

@@ -13,13 +13,12 @@ import pandas as pd
 import polars as pl
 import pytest
 
+from positron_ipykernel import variables as variables_module
 from positron_ipykernel.access_keys import encode_access_key
 from positron_ipykernel.positron_comm import JsonRpcErrorCode
 from positron_ipykernel.positron_ipkernel import PositronIPyKernel
 from positron_ipykernel.utils import JsonRecord, not_none
 from positron_ipykernel.variables import (
-    MAX_CHILDREN,
-    MAX_ITEMS,
     VariablesService,
     _summarize_children,
     _summarize_variable,
@@ -195,9 +194,15 @@ def test_list_1000(shell: PositronShell, variables_comm: DummyComm) -> None:
     assert variables[999].get("display_name") == "var999"
 
 
-def test_update_max_children_plus_one(shell: PositronShell, variables_comm: DummyComm) -> None:
+def test_update_max_children_plus_one(
+    shell: PositronShell, variables_comm: DummyComm, monkeypatch
+) -> None:
+    # Monkeypatch MAX_CHILDREN to avoid a slow test; we're still testing the logic
+    max_children = 10
+    monkeypatch.setattr(variables_module, "MAX_CHILDREN", max_children)
+
     # Create and update more than MAX_CHILDREN variables
-    n = MAX_CHILDREN + 1
+    n = max_children + 1
     add_value = 500
     msg: Any = create_and_update_n_vars(n, add_value, shell, variables_comm)
 
@@ -213,9 +218,15 @@ def test_update_max_children_plus_one(shell: PositronShell, variables_comm: Dumm
     assert assigned[n - 1].get("display_value") == str(n - 1 + add_value)
 
 
-def test_update_max_items_plus_one(shell: PositronShell, variables_comm: DummyComm) -> None:
+def test_update_max_items_plus_one(
+    shell: PositronShell, variables_comm: DummyComm, monkeypatch
+) -> None:
+    # Monkeypatch MAX_ITEMS to avoid a slow test; we're still testing the logic
+    max_items = 10
+    monkeypatch.setattr(variables_module, "MAX_ITEMS", max_items)
+
     # Create and update more than MAX_ITEMS variables
-    n = MAX_ITEMS + 1
+    n = max_items + 1
     add_value = 500
     msg: Any = create_and_update_n_vars(n, add_value, shell, variables_comm)
 
@@ -225,7 +236,7 @@ def test_update_max_items_plus_one(shell: PositronShell, variables_comm: DummyCo
     # Check we did not exceed MAX_ITEMS variables
     variables = msg.get("data").get("params").get("variables")
     variables_len = len(variables)
-    assert variables_len == MAX_ITEMS
+    assert variables_len == max_items
 
     # Spot check the first and last variables display values
     assert variables[0].get("display_value") == str(add_value)
@@ -394,7 +405,8 @@ def test_handle_inspect_error(variables_comm: DummyComm) -> None:
     path = [encode_access_key("x")]
     # TODO(pyright): We shouldn't need to cast; may be a pyright bug
     msg = json_rpc_request("inspect", cast(JsonRecord, {"path": path}), comm_id="dummy_comm_id")
-    variables_comm.handle_msg(msg)
+
+    variables_comm.handle_msg(msg, raise_errors=False)
 
     # An error message is sent
     assert variables_comm.messages == [
@@ -429,7 +441,7 @@ def test_handle_clipboard_format_error(variables_comm: DummyComm) -> None:
         cast(JsonRecord, {"path": path, "format": "text/plain"}),
         comm_id="dummy_comm_id",
     )
-    variables_comm.handle_msg(msg)
+    variables_comm.handle_msg(msg, raise_errors=False)
 
     # An error message is sent
     assert variables_comm.messages == [
@@ -460,7 +472,7 @@ def test_handle_view_error(variables_comm: DummyComm) -> None:
     path = [encode_access_key("x")]
     # TODO(pyright): We shouldn't need to cast; may be a pyright bug
     msg = json_rpc_request("view", cast(JsonRecord, {"path": path}), comm_id="dummy_comm_id")
-    variables_comm.handle_msg(msg)
+    variables_comm.handle_msg(msg, raise_errors=False)
 
     # An error message is sent
     assert variables_comm.messages == [
@@ -473,7 +485,7 @@ def test_handle_view_error(variables_comm: DummyComm) -> None:
 
 def test_handle_unknown_method(variables_comm: DummyComm) -> None:
     msg = json_rpc_request("unknown_method", comm_id="dummy_comm_id")
-    variables_comm.handle_msg(msg)
+    variables_comm.handle_msg(msg, raise_errors=False)
 
     assert variables_comm.messages == [
         json_rpc_error(
