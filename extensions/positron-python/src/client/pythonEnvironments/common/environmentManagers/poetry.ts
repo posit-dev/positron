@@ -113,10 +113,7 @@ export class Poetry {
      * first argument of spawn() - i.e. it can be a full path, or just a binary name.
      * @param cwd - The working directory to use as cwd when running poetry.
      */
-    constructor(
-        public readonly command: string,
-        private cwd: string,
-    ) {
+    constructor(public readonly command: string, private cwd: string) {
         this.fixCwd();
     }
 

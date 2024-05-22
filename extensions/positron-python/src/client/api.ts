@@ -82,7 +82,9 @@ export function buildApi(
              * * If no folder is present, it returns the global setting.
              * @returns {({ execCommand: string[] | undefined })}
              */
-            getExecutionDetails(resource?: Resource): {
+            getExecutionDetails(
+                resource?: Resource,
+            ): {
                 /**
                  * E.g of execution commands returned could be,
                  * * `['<path to the interpreter set in settings>']`

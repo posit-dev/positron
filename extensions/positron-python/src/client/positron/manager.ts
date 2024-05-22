@@ -117,8 +117,9 @@ export class PythonRuntimeManager implements IPythonRuntimeManager {
         traceInfo('createPythonSession: getting service instances');
 
         const configService = this.serviceContainer.get<IConfigurationService>(IConfigurationService);
-        const environmentVariablesProvider =
-            this.serviceContainer.get<IEnvironmentVariablesProvider>(IEnvironmentVariablesProvider);
+        const environmentVariablesProvider = this.serviceContainer.get<IEnvironmentVariablesProvider>(
+            IEnvironmentVariablesProvider,
+        );
 
         // Extract the extra data from the runtime metadata; it contains the
         // environment ID that was saved when the metadata was created.

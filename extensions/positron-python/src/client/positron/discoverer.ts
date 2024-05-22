@@ -38,10 +38,8 @@ export async function* pythonRuntimeDiscoverer(
         // NOTE: We may need to pass a resource to getSettings to support multi-root workspaces
         const workspaceUri = vscode.workspace.workspaceFolders?.[0]?.uri;
         const suggestions = interpreterSelector.getSuggestions(workspaceUri);
-        let recommendedInterpreter = interpreterSelector.getRecommendedSuggestion(
-            suggestions,
-            workspaceUri,
-        )?.interpreter;
+        let recommendedInterpreter = interpreterSelector.getRecommendedSuggestion(suggestions, workspaceUri)
+            ?.interpreter;
         if (!recommendedInterpreter) {
             // fallback to active interpreter if we don't have a recommended interpreter
             recommendedInterpreter = await interpreterService.getActiveInterpreter(workspaceUri);

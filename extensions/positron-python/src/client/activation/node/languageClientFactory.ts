@@ -14,10 +14,7 @@ import { ILanguageClientFactory } from '../types';
 export const PYLANCE_NAME = 'Pylance';
 
 export class NodeLanguageClientFactory implements ILanguageClientFactory {
-    constructor(
-        private readonly fs: IFileSystem,
-        private readonly extensions: IExtensions,
-    ) {}
+    constructor(private readonly fs: IFileSystem, private readonly extensions: IExtensions) {}
 
     public async createLanguageClient(
         _resource: Resource,
@@ -25,9 +22,8 @@ export class NodeLanguageClientFactory implements ILanguageClientFactory {
         clientOptions: LanguageClientOptions,
     ): Promise<LanguageClient> {
         // this must exist for node language client
-        const commandArgs = (
-            clientOptions.connectionOptions?.cancellationStrategy as FileBasedCancellationStrategy
-        ).getCommandLineArguments();
+        const commandArgs = (clientOptions.connectionOptions
+            ?.cancellationStrategy as FileBasedCancellationStrategy).getCommandLineArguments();
 
         const extension = this.extensions.getExtension(PYLANCE_EXTENSION_ID);
         const languageServerFolder = extension ? extension.extensionPath : '';

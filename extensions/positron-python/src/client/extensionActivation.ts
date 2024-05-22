@@ -88,12 +88,15 @@ export async function activateComponents(
 }
 
 export function activateFeatures(ext: ExtensionState, _components: Components): void {
-    const interpreterQuickPick: IInterpreterQuickPick =
-        ext.legacyIOC.serviceContainer.get<IInterpreterQuickPick>(IInterpreterQuickPick);
-    const interpreterPathService: IInterpreterPathService =
-        ext.legacyIOC.serviceContainer.get<IInterpreterPathService>(IInterpreterPathService);
-    const interpreterService: IInterpreterService =
-        ext.legacyIOC.serviceContainer.get<IInterpreterService>(IInterpreterService);
+    const interpreterQuickPick: IInterpreterQuickPick = ext.legacyIOC.serviceContainer.get<IInterpreterQuickPick>(
+        IInterpreterQuickPick,
+    );
+    const interpreterPathService: IInterpreterPathService = ext.legacyIOC.serviceContainer.get<IInterpreterPathService>(
+        IInterpreterPathService,
+    );
+    const interpreterService: IInterpreterService = ext.legacyIOC.serviceContainer.get<IInterpreterService>(
+        IInterpreterService,
+    );
     const pathUtils = ext.legacyIOC.serviceContainer.get<IPathUtils>(IPathUtils);
     registerAllCreateEnvironmentFeatures(
         ext.disposables,

@@ -25,10 +25,7 @@ import { traceWarn } from '../logging';
 // https://github.com/microsoft/vscode-languageserver-node/blob/8e625564b531da607859b8cb982abb7cdb2fbe2e/client/src/common/client.ts#L1617
 // https://github.com/microsoft/vscode-languageserver-node/blob/4b5f9cf622963dcfbc6129cdc1a570e2bb9f66a4/client/src/common/client.ts#L1639
 export class PythonErrorHandler implements ErrorHandler {
-    constructor(
-        private readonly _version: string,
-        private readonly _port: number,
-    ) {}
+    constructor(private readonly _version: string, private readonly _port: number) {}
 
     public error(error: Error, _message: Message, count: number): ErrorHandlerResult {
         traceWarn(

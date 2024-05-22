@@ -36,12 +36,12 @@ suite('Unittest test execution adapter', () => {
     let utilsStartTestIdsNamedPipeStub: sinon.SinonStub;
     let utilsStartRunResultNamedPipeStub: sinon.SinonStub;
     setup(() => {
-        configService = {
+        configService = ({
             getSettings: () => ({
                 testing: { unittestArgs: ['.'] },
             }),
             isTestExecution: () => false,
-        } as unknown as IConfigurationService;
+        } as unknown) as IConfigurationService;
 
         // set up exec service with child process
         mockProc = new MockChildProcess('', ['']);
@@ -77,9 +77,9 @@ suite('Unittest test execution adapter', () => {
                 deferred.resolve();
                 return Promise.resolve({ stdout: '{}' });
             });
-        execFactory.setup((p) => (p as unknown as any).then).returns(() => undefined);
-        execService.setup((p) => (p as unknown as any).then).returns(() => undefined);
-        debugLauncher.setup((p) => (p as unknown as any).then).returns(() => undefined);
+        execFactory.setup((p) => ((p as unknown) as any).then).returns(() => undefined);
+        execService.setup((p) => ((p as unknown) as any).then).returns(() => undefined);
+        debugLauncher.setup((p) => ((p as unknown) as any).then).returns(() => undefined);
         myTestPath = path.join('/', 'my', 'test', 'path', '/');
 
         utilsStartRunResultNamedPipeStub = sinon.stub(util, 'startRunResultNamedPipe');
@@ -115,7 +115,7 @@ suite('Unittest test execution adapter', () => {
             });
         });
         const testRun = typeMoq.Mock.ofType<TestRun>();
-        testRun.setup((t) => t.token).returns(() => ({ onCancellationRequested: () => undefined }) as any);
+        testRun.setup((t) => t.token).returns(() => ({ onCancellationRequested: () => undefined } as any));
         const uri = Uri.file(myTestPath);
         const outputChannel = typeMoq.Mock.ofType<ITestOutputChannel>();
         adapter = new UnittestTestExecutionAdapter(configService, outputChannel.object);
@@ -146,7 +146,7 @@ suite('Unittest test execution adapter', () => {
             return Promise.resolve('testIdPipe-mockName');
         });
         const testRun = typeMoq.Mock.ofType<TestRun>();
-        testRun.setup((t) => t.token).returns(() => ({ onCancellationRequested: () => undefined }) as any);
+        testRun.setup((t) => t.token).returns(() => ({ onCancellationRequested: () => undefined } as any));
         const uri = Uri.file(myTestPath);
         const outputChannel = typeMoq.Mock.ofType<ITestOutputChannel>();
         adapter = new UnittestTestExecutionAdapter(configService, outputChannel.object);
@@ -196,14 +196,14 @@ suite('Unittest test execution adapter', () => {
             return Promise.resolve('testIdPipe-mockName');
         });
         const testRun = typeMoq.Mock.ofType<TestRun>();
-        testRun.setup((t) => t.token).returns(() => ({ onCancellationRequested: () => undefined }) as any);
+        testRun.setup((t) => t.token).returns(() => ({ onCancellationRequested: () => undefined } as any));
         const newCwd = path.join('new', 'path');
-        configService = {
+        configService = ({
             getSettings: () => ({
                 testing: { unittestArgs: ['.'], cwd: newCwd },
             }),
             isTestExecution: () => false,
-        } as unknown as IConfigurationService;
+        } as unknown) as IConfigurationService;
         const uri = Uri.file(myTestPath);
         const outputChannel = typeMoq.Mock.ofType<ITestOutputChannel>();
         adapter = new UnittestTestExecutionAdapter(configService, outputChannel.object);
@@ -261,7 +261,7 @@ suite('Unittest test execution adapter', () => {
                 () =>
                     ({
                         onCancellationRequested: () => undefined,
-                    }) as any,
+                    } as any),
             );
         const uri = Uri.file(myTestPath);
         const outputChannel = typeMoq.Mock.ofType<ITestOutputChannel>();

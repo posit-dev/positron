@@ -36,11 +36,7 @@ export class PythonResultResolver implements ITestResultResolver {
 
     public subTestStats: Map<string, { passed: number; failed: number }> = new Map();
 
-    constructor(
-        testController: TestController,
-        testProvider: TestProvider,
-        private workspaceUri: Uri,
-    ) {
+    constructor(testController: TestController, testProvider: TestProvider, private workspaceUri: Uri) {
         this.testController = testController;
         this.testProvider = testProvider;
 

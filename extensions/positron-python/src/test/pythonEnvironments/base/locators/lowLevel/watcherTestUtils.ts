@@ -24,10 +24,7 @@ import { run } from '../envTestUtils';
  * tests, where we need to create environments.
  */
 class Venvs {
-    constructor(
-        private readonly root: string,
-        private readonly prefix = '.virtualenv-',
-    ) {}
+    constructor(private readonly root: string, private readonly prefix = '.virtualenv-') {}
 
     public async create(name: string): Promise<{ executable: string; envDir: string }> {
         const envName = this.resolve(name);

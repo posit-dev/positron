@@ -27,7 +27,7 @@ suite('Reset Interpreter Command', () => {
         configurationService
             .setup((c) => c.getSettings(TypeMoq.It.isAny()))
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            .returns(() => ({ pythonPath: 'pythonPath' }) as any);
+            .returns(() => ({ pythonPath: 'pythonPath' } as any));
         commandManager = TypeMoq.Mock.ofType<ICommandManager>();
         appShell = TypeMoq.Mock.ofType<IApplicationShell>();
         pythonPathUpdater = TypeMoq.Mock.ofType<IPythonPathUpdaterServiceManager>();
