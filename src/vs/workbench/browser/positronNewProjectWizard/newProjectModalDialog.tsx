@@ -75,7 +75,8 @@ export const showNewProjectModalDialog = async (
 				createProject={async result => {
 					// Create the new project folder if it doesn't already exist.
 					const folder = URI.file((await pathService.path).join(result.parentFolder, result.projectName));
-					if (!(await fileService.exists(folder))) {
+					const existingFolder = await fileService.exists(folder);
+					if (!existingFolder) {
 						await fileService.createFolder(folder);
 					}
 
@@ -126,9 +127,10 @@ export const showNewProjectModalDialog = async (
 					// Store the new project configuration.
 					positronNewProjectService.storeNewProjectConfig(newProjectConfig);
 
-					// Pre-trust the new folder so the user isn't prompted to
-					// trust the folder when the project is opened.
-					workspaceTrustManagementService.setUrisTrust([folder], true);
+					// If the folder is new, set its trust state to trusted.
+					if (!existingFolder) {
+						workspaceTrustManagementService.setUrisTrust([folder], true);
+					}
 
 					// Any context-dependent work needs to be done before opening the folder
 					// because the extension host gets destroyed when a new project is opened,
