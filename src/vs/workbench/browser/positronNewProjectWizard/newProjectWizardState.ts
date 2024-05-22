@@ -113,7 +113,7 @@ export class NewProjectWizardStateManager
 	// Dynamically populated data.
 	private _runtimeStartupComplete: boolean;
 	private _pythonEnvProviders: PythonEnvironmentProviderInfo[];
-	private _interpreters: ILanguageRuntimeMetadata[];
+	private _interpreters: ILanguageRuntimeMetadata[] | undefined;
 	private _preferredInterpreter: ILanguageRuntimeMetadata | undefined;
 
 	private _onUpdateInterpreterStateEmitter = this._register(new Emitter<void>());
@@ -140,7 +140,7 @@ export class NewProjectWizardStateManager
 		this._steps = config.steps ?? [config.initialStep];
 		this._currentStep = config.initialStep;
 		this._pythonEnvProviders = [];
-		this._interpreters = [];
+		this._interpreters = undefined;
 		this._preferredInterpreter = undefined;
 		this._runtimeStartupComplete = false;
 
@@ -338,14 +338,6 @@ export class NewProjectWizardStateManager
 	}
 
 	/**
-	 * Gets the runtime startup complete flag.
-	 * @returns The runtime startup complete flag.
-	 */
-	get runtimeStartupComplete(): boolean {
-		return this._runtimeStartupComplete;
-	}
-
-	/**
 	 * Gets the Python environment providers.
 	 */
 	get pythonEnvProviders(): PythonEnvironmentProviderInfo[] {
@@ -355,7 +347,7 @@ export class NewProjectWizardStateManager
 	/**
 	 * Gets the interpreters.
 	 */
-	get interpreters(): ILanguageRuntimeMetadata[] {
+	get interpreters(): ILanguageRuntimeMetadata[] | undefined {
 		return this._interpreters;
 	}
 
@@ -459,6 +451,12 @@ export class NewProjectWizardStateManager
 	 * and the installIpykernel flag.
 	 */
 	private async _updateInterpreterRelatedState(): Promise<void> {
+		// If this is called before the runtime startup is complete, do nothing, since we won't yet
+		// have the full interpreters list.
+		if (!this._runtimeStartupComplete) {
+			return;
+		}
+
 		const langId = this._getLangId();
 		let runtimeSourceFilters: RuntimeFilter[] | undefined = undefined;
 
@@ -473,7 +471,7 @@ export class NewProjectWizardStateManager
 		this._interpreters = this._getFilteredInterpreters(runtimeSourceFilters);
 
 		// Update the interpreter that should be selected in the dropdown.
-		if (!this._selectedRuntime || !this._interpreters.includes(this._selectedRuntime)) {
+		if (!this._selectedRuntime || !this._interpreters?.includes(this._selectedRuntime)) {
 			this._resetSelectedRuntime();
 		}
 
@@ -491,7 +489,8 @@ export class NewProjectWizardStateManager
 	 * interpreters list, it is set as the selected runtime and the preferred interpreter.
 	 */
 	private _resetSelectedRuntime(): void {
-		if (!this._runtimeStartupComplete) {
+		// If the interpreters list is not set or is empty, the selected runtime cannot be set.
+		if (!this._interpreters?.length) {
 			return;
 		}
 
@@ -500,7 +499,6 @@ export class NewProjectWizardStateManager
 		if (!langId) {
 			return;
 		}
-
 		const preferredRuntime = this._services.runtimeStartupService.getPreferredRuntime(langId);
 		if (this._interpreters.includes(preferredRuntime)) {
 			this._selectedRuntime = preferredRuntime;
@@ -590,7 +588,7 @@ export class NewProjectWizardStateManager
 	 * @param runtimeSourceFilters Optional runtime source filters to apply.
 	 * @returns The filtered interpreters.
 	 */
-	private _getFilteredInterpreters(runtimeSourceFilters?: RuntimeFilter[]): ILanguageRuntimeMetadata[] {
+	private _getFilteredInterpreters(runtimeSourceFilters?: RuntimeFilter[]): ILanguageRuntimeMetadata[] | undefined {
 		const langId = this._getLangId();
 
 		if (
@@ -605,6 +603,13 @@ export class NewProjectWizardStateManager
 			return [];
 		}
 
+		// We don't want to return a partial list of interpreters if the runtime startup is not
+		// complete, so we return undefined in that case.
+		if (!this._runtimeStartupComplete) {
+			return undefined;
+		}
+
+		// Once the runtime startup is complete, we can return the filtered list of interpreters.
 		return this._services.languageRuntimeService.registeredRuntimes
 			// Filter by language ID and runtime source.
 			.filter(

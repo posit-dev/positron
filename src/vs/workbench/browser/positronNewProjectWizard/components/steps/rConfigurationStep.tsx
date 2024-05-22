@@ -39,7 +39,6 @@ export const RConfigurationStep = (props: PropsWithChildren<NewProjectWizardStep
 	} = context.services;
 
 	// Hooks.
-	const [runtimeStartupComplete, setRuntimeStartupComplete] = useState(context.runtimeStartupComplete);
 	const [interpreters, setInterpreters] = useState(context.interpreters);
 	const [selectedInterpreter, setSelectedInterpreter] = useState(context.selectedRuntime);
 	const [preferredInterpreter, setPreferredInterpreter] = useState(context.preferredInterpreter);
@@ -50,7 +49,6 @@ export const RConfigurationStep = (props: PropsWithChildren<NewProjectWizardStep
 
 		// Add the onUpdateInterpreterState event handler and update the component state.
 		disposableStore.add(context.onUpdateInterpreterState(() => {
-			setRuntimeStartupComplete(true);
 			setInterpreters(context.interpreters);
 			setSelectedInterpreter(context.selectedRuntime);
 			setPreferredInterpreter(context.preferredInterpreter);
@@ -103,9 +101,9 @@ export const RConfigurationStep = (props: PropsWithChildren<NewProjectWizardStep
 				<DropDownListBox
 					keybindingService={keybindingService}
 					layoutService={layoutService}
-					disabled={!runtimeStartupComplete}
+					disabled={!interpreters}
 					title={(() =>
-						!runtimeStartupComplete
+						!interpreters
 							? localize(
 								'rConfigurationStep.versionSubStep.dropDown.title.loading',
 								"Discovering R versions..."
@@ -118,12 +116,12 @@ export const RConfigurationStep = (props: PropsWithChildren<NewProjectWizardStep
 					// interpreters, show a message that no suitable interpreters were found and the
 					// user should install an interpreter with minimum version
 					entries={
-						!runtimeStartupComplete
-							? []
-							: interpretersToDropdownItems(
+						interpreters
+							? interpretersToDropdownItems(
 								interpreters,
 								preferredInterpreter?.runtimeId
 							)
+							: []
 					}
 					selectedIdentifier={selectedInterpreter?.runtimeId}
 					createItem={(item) => (

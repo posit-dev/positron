@@ -42,7 +42,6 @@ export const PythonEnvironmentStep = (props: PropsWithChildren<NewProjectWizardS
 	const [envSetupType, setEnvSetupType] = useState(context.pythonEnvSetupType);
 	const [envProviders, setEnvProviders] = useState(context.pythonEnvProviders);
 	const [envProviderId, setEnvProviderId] = useState(context.pythonEnvProvider);
-	const [runtimeStartupComplete, setRuntimeStartupComplete] = useState(context.runtimeStartupComplete);
 	const [interpreters, setInterpreters] = useState(context.interpreters);
 	const [selectedInterpreter, setSelectedInterpreter] = useState(context.selectedRuntime);
 	const [preferredInterpreter, setPreferredInterpreter] = useState(context.preferredInterpreter);
@@ -57,7 +56,6 @@ export const PythonEnvironmentStep = (props: PropsWithChildren<NewProjectWizardS
 			setEnvSetupType(context.pythonEnvSetupType);
 			setEnvProviders(context.pythonEnvProviders);
 			setEnvProviderId(context.pythonEnvProvider);
-			setRuntimeStartupComplete(true);
 			setInterpreters(context.interpreters);
 			setSelectedInterpreter(context.selectedRuntime);
 			setPreferredInterpreter(context.preferredInterpreter);
@@ -267,9 +265,9 @@ export const PythonEnvironmentStep = (props: PropsWithChildren<NewProjectWizardS
 					<DropDownListBox
 						keybindingService={keybindingService}
 						layoutService={layoutService}
-						disabled={!runtimeStartupComplete}
+						disabled={!interpreters}
 						title={(() =>
-							!runtimeStartupComplete
+							!interpreters
 								? localize(
 									'pythonInterpreterSubStep.dropDown.title.loading',
 									"Loading interpreters..."
@@ -282,21 +280,21 @@ export const PythonEnvironmentStep = (props: PropsWithChildren<NewProjectWizardS
 						// interpreters, show a message that no suitable interpreters were found and the
 						// user should install an interpreter with minimum version
 						entries={
-                            !runtimeStartupComplete
-                                ? []
-                                : interpretersToDropdownItems(
-                                      interpreters,
-                                      preferredInterpreter?.runtimeId,
-									  // TODO: remove this temporary flag once we are retrieving the
-									  // list of interpreters from the conda service
-                                      envSetupType ===
-                                          EnvironmentSetupType.NewEnvironment &&
-                                          envProviderNameForId(
-                                              envProviderId,
-                                              envProviders
-                                          ) === PythonEnvironmentProvider.Conda
-                                  )
-                        }
+							interpreters
+								? interpretersToDropdownItems(
+									interpreters,
+									preferredInterpreter?.runtimeId,
+									// TODO: remove this temporary flag once we are retrieving the
+									// list of interpreters from the conda service
+									envSetupType ===
+									EnvironmentSetupType.NewEnvironment &&
+									envProviderNameForId(
+										envProviderId,
+										envProviders
+									) === PythonEnvironmentProvider.Conda
+								)
+								: []
+						}
 						selectedIdentifier={selectedInterpreter?.runtimeId}
 						createItem={(item) => (
 							<InterpreterEntry
