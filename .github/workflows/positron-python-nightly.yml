@@ -2,22 +2,6 @@ name: 'Nightly: Python CI'
 
 # Run builds daily at 2am UTC (10p EST) on weekdays for now, or manually
 on:
-  # to help develop this CI suite, temporary --- start ---
-  push:
-    branches:
-      - main
-    paths:
-      - '.github/workflows/positron-python-ci.yml'
-      - '.github/workflows/positron-python-nightly-ci.yml'
-      - 'extensions/positron-python/**'
-  pull_request:
-    branches:
-      - main
-    paths:
-      - '.github/workflows/positron-python-ci.yml'
-      - '.github/workflows/positron-python-nightly-ci.yml'
-      - 'extensions/positron-python/**'
-  # to help develop this CI suite, temporary --- end ---
   schedule:
     - cron: "0 2 * * 1-5"
 
@@ -48,13 +32,16 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          # Python 3.8 and 3.12 are run per-PR, omitting those
-          - os: 'macos-13'
+          - os: 'ubuntu-latest'
+            python: '3.8'
+          - os: 'ubuntu-latest'
             python: '3.9'
           - os: 'windows-latest'
             python: '3.10'
           - os: 'ubuntu-latest'
             python: '3.11'
+          - os: 'ubuntu-latest'
+            python: '3.12'
 
     steps:
       - name: Checkout
