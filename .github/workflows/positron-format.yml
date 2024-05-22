@@ -15,6 +15,7 @@ jobs:
       - name: prettier
         working-directory: ${{ env.PYTHON_DIR }}
         run: |
+          npm install prettier
           yarn format-fix
           git checkout yarn.lock package.json
       - name: Check for modified files
