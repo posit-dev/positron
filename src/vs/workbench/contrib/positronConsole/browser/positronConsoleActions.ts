@@ -23,7 +23,6 @@ import { ServicesAccessor } from 'vs/platform/instantiation/common/instantiation
 import { IEditorService } from 'vs/workbench/services/editor/common/editorService';
 import { KeybindingWeight } from 'vs/platform/keybinding/common/keybindingsRegistry';
 import { ILanguageFeaturesService } from 'vs/editor/common/services/languageFeatures';
-import { IWorkbenchLayoutService } from 'vs/workbench/services/layout/browser/layoutService';
 import { INotificationService, Severity } from 'vs/platform/notification/common/notification';
 import { NOTEBOOK_EDITOR_FOCUSED } from 'vs/workbench/contrib/notebook/common/notebookContextKeys';
 import { IExecutionHistoryService } from 'vs/workbench/contrib/executionHistory/common/executionHistoryService';
@@ -143,13 +142,10 @@ export function registerPositronConsoleActions() {
 		 * @param accessor The services accessor.
 		 */
 		async run(accessor: ServicesAccessor) {
-
-			const layoutService = accessor.get(IWorkbenchLayoutService);
 			const viewsService = accessor.get(IViewsService);
 
 			// Ensure that the panel and console are visible. This is essentially
 			// equivalent to what `workbench.panel.positronConsole.focus` does.
-			layoutService.restorePanel();
 			await viewsService.openView(POSITRON_CONSOLE_VIEW_ID, true);
 		}
 	});
@@ -268,8 +264,11 @@ export function registerPositronConsoleActions() {
 		/**
 		 * Runs action.
 		 * @param accessor The services accessor.
+		 * @param opts Options for code execution
+		 *   - allowIncomplete: Optionally, should incomplete statements be accepted? If `undefined`, treated as `false`.
+		 *   - languageId: Optionally, a language override for the code to execute. If `undefined`, the language of the active text editor is used. Useful for notebooks.
 		 */
-		async run(accessor: ServicesAccessor, opts: { allowIncomplete?: boolean } = {}) {
+		async run(accessor: ServicesAccessor, opts: { allowIncomplete?: boolean; languageId?: string } = {}) {
 			// Access services.
 			const editorService = accessor.get(IEditorService);
 			const languageFeaturesService = accessor.get(ILanguageFeaturesService);
@@ -499,7 +498,7 @@ export function registerPositronConsoleActions() {
 			}
 
 			// Now that we've gotten this far, ensure we have a target language.
-			const languageId = editorService.activeTextEditorLanguageId;
+			const languageId = opts.languageId ? opts.languageId : editorService.activeTextEditorLanguageId;
 			if (!languageId) {
 				notificationService.notify({
 					severity: Severity.Info,
@@ -513,7 +512,7 @@ export function registerPositronConsoleActions() {
 			// By default, we don't allow incomplete code to be executed, but the language runtime can override this.
 			// This means that if allowIncomplete is false or undefined, the incomplete code will not be sent to the backend for execution.
 			// The console will continue to wait for more input until the user completes the code, or cancels out of the operation.
-			const { allowIncomplete } = opts;
+			const allowIncomplete = opts.allowIncomplete;
 
 
 			// Ask the Positron console service to execute the code. Do not focus the console as

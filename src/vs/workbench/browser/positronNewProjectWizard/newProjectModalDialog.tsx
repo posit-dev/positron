@@ -24,6 +24,7 @@ import { IOpenerService } from 'vs/platform/opener/common/opener';
 import { IPositronNewProjectService, NewProjectConfiguration } from 'vs/workbench/services/positronNewProject/common/positronNewProject';
 import { EnvironmentSetupType } from 'vs/workbench/browser/positronNewProjectWizard/interfaces/newProjectWizardEnums';
 import { getEnvProviderInfoList } from 'vs/workbench/browser/positronNewProjectWizard/utilities/pythonEnvironmentStepUtils';
+import { IWorkspaceTrustManagementService } from 'vs/platform/workspace/common/workspaceTrust';
 
 /**
  * Shows the NewProjectModalDialog.
@@ -41,6 +42,7 @@ export const showNewProjectModalDialog = async (
 	positronNewProjectService: IPositronNewProjectService,
 	runtimeSessionService: IRuntimeSessionService,
 	runtimeStartupService: IRuntimeStartupService,
+	workspaceTrustManagementService: IWorkspaceTrustManagementService
 ): Promise<void> => {
 	// Create the renderer.
 	const renderer = new PositronModalReactRenderer({
@@ -73,7 +75,8 @@ export const showNewProjectModalDialog = async (
 				createProject={async result => {
 					// Create the new project folder if it doesn't already exist.
 					const folder = URI.file((await pathService.path).join(result.parentFolder, result.projectName));
-					if (!(await fileService.exists(folder))) {
+					const existingFolder = await fileService.exists(folder);
+					if (!existingFolder) {
 						await fileService.createFolder(folder);
 					}
 
@@ -107,7 +110,7 @@ export const showNewProjectModalDialog = async (
 
 					// Create the new project configuration.
 					const newProjectConfig: NewProjectConfiguration = {
-						runtimeId: result.selectedRuntime?.runtimeId || '',
+						runtimeMetadata: result.selectedRuntime || undefined,
 						projectType: result.projectType || '',
 						projectFolder: folder.fsPath,
 						initGitRepo: result.initGitRepo,
@@ -123,6 +126,11 @@ export const showNewProjectModalDialog = async (
 
 					// Store the new project configuration.
 					positronNewProjectService.storeNewProjectConfig(newProjectConfig);
+
+					// If the folder is new, set its trust state to trusted.
+					if (!existingFolder) {
+						workspaceTrustManagementService.setUrisTrust([folder], true);
+					}
 
 					// Any context-dependent work needs to be done before opening the folder
 					// because the extension host gets destroyed when a new project is opened,

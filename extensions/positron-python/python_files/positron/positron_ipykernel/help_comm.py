@@ -48,7 +48,7 @@ class ShowHelpTopicParams(BaseModel):
     delivered.
     """
 
-    topic: str = Field(
+    topic: StrictStr = Field(
         description="The help topic to show",
     )
 
@@ -95,7 +95,7 @@ class ShowHelpParams(BaseModel):
     Request to show help in the frontend
     """
 
-    content: str = Field(
+    content: StrictStr = Field(
         description="The help content to show",
     )
 
@@ -103,7 +103,7 @@ class ShowHelpParams(BaseModel):
         description="The type of content to show",
     )
 
-    focus: bool = Field(
+    focus: StrictBool = Field(
         description="Whether to focus the Help pane when the content is displayed.",
     )
 

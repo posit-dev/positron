@@ -70,11 +70,11 @@ class VariableList(BaseModel):
         description="A list of variables in the session.",
     )
 
-    length: int = Field(
+    length: StrictInt = Field(
         description="The total number of variables in the session. This may be greater than the number of variables in the 'variables' array if the array is truncated.",
     )
 
-    version: Optional[int] = Field(
+    version: Optional[StrictInt] = Field(
         default=None,
         description="The version of the view (incremented with each update)",
     )
@@ -89,7 +89,7 @@ class InspectedVariable(BaseModel):
         description="The children of the inspected variable.",
     )
 
-    length: int = Field(
+    length: StrictInt = Field(
         description="The total number of children. This may be greater than the number of children in the 'children' array if the array is truncated.",
     )
 
@@ -99,7 +99,7 @@ class FormattedVariable(BaseModel):
     An object formatted for copying to the clipboard.
     """
 
-    content: str = Field(
+    content: StrictStr = Field(
         description="The formatted content of the variable.",
     )
 
@@ -109,27 +109,27 @@ class Variable(BaseModel):
     A single variable in the runtime.
     """
 
-    access_key: str = Field(
+    access_key: StrictStr = Field(
         description="A key that uniquely identifies the variable within the runtime and can be used to access the variable in `inspect` requests",
     )
 
-    display_name: str = Field(
+    display_name: StrictStr = Field(
         description="The name of the variable, formatted for display",
     )
 
-    display_value: str = Field(
+    display_value: StrictStr = Field(
         description="A string representation of the variable's value, formatted for display and possibly truncated",
     )
 
-    display_type: str = Field(
+    display_type: StrictStr = Field(
         description="The variable's type, formatted for display",
     )
 
-    type_info: str = Field(
+    type_info: StrictStr = Field(
         description="Extended information about the variable's type",
     )
 
-    size: int = Field(
+    size: StrictInt = Field(
         description="The size of the variable's value in bytes",
     )
 
@@ -137,23 +137,23 @@ class Variable(BaseModel):
         description="The kind of value the variable represents, such as 'string' or 'number'",
     )
 
-    length: int = Field(
+    length: StrictInt = Field(
         description="The number of elements in the variable, if it is a collection",
     )
 
-    has_children: bool = Field(
+    has_children: StrictBool = Field(
         description="Whether the variable has child variables",
     )
 
-    has_viewer: bool = Field(
+    has_viewer: StrictBool = Field(
         description="True if there is a viewer available for this variable (i.e. the runtime can handle a 'view' request for this variable)",
     )
 
-    is_truncated: bool = Field(
+    is_truncated: StrictBool = Field(
         description="True if the 'value' field is a truncated representation of the variable's value",
     )
 
-    updated_time: int = Field(
+    updated_time: StrictInt = Field(
         description="The time the variable was created or updated, in milliseconds since the epoch, or 0 if unknown.",
     )
 
@@ -203,7 +203,7 @@ class ClearParams(BaseModel):
     Clears (deletes) all variables in the current session.
     """
 
-    include_hidden_objects: bool = Field(
+    include_hidden_objects: StrictBool = Field(
         description="Whether to clear hidden objects in addition to normal variables",
     )
 
@@ -232,7 +232,7 @@ class DeleteParams(BaseModel):
     Deletes the named variables from the current session.
     """
 
-    names: List[str] = Field(
+    names: List[StrictStr] = Field(
         description="The names of the variables to delete.",
     )
 
@@ -261,7 +261,7 @@ class InspectParams(BaseModel):
     Returns the children of a variable, as an array of variables.
     """
 
-    path: List[str] = Field(
+    path: List[StrictStr] = Field(
         description="The path to the variable to inspect, as an array of access keys.",
     )
 
@@ -291,7 +291,7 @@ class ClipboardFormatParams(BaseModel):
     clipboard.
     """
 
-    path: List[str] = Field(
+    path: List[StrictStr] = Field(
         description="The path to the variable to format, as an array of access keys.",
     )
 
@@ -326,7 +326,7 @@ class ViewParams(BaseModel):
     variable.
     """
 
-    path: List[str] = Field(
+    path: List[StrictStr] = Field(
         description="The path to the variable to view, as an array of access keys.",
     )
 
@@ -389,11 +389,11 @@ class UpdateParams(BaseModel):
         description="An array of variables that were not evaluated for value updates.",
     )
 
-    removed: List[str] = Field(
+    removed: List[StrictStr] = Field(
         description="An array of variable names that have been removed.",
     )
 
-    version: int = Field(
+    version: StrictInt = Field(
         description="The version of the view (incremented with each update), or 0 if the backend doesn't track versions.",
     )
 
@@ -407,11 +407,11 @@ class RefreshParams(BaseModel):
         description="An array listing all the variables in the current session.",
     )
 
-    length: int = Field(
+    length: StrictInt = Field(
         description="The number of variables in the current session.",
     )
 
-    version: int = Field(
+    version: StrictInt = Field(
         description="The version of the view (incremented with each update), or 0 if the backend doesn't track versions.",
     )
 

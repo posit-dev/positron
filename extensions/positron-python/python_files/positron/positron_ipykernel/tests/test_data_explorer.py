@@ -314,10 +314,7 @@ class DataExplorerFixture:
         self.de_service.comms[comm_id].comm.handle_msg(request)
         response = get_last_message(self.de_service, comm_id)
         data = response["data"]
-        if "error" in data:
-            raise ValueError(data["error"]["message"])
-        else:
-            return data["result"]
+        return data["result"]
 
     def get_schema(self, table_name, start_index=None, num_columns=None):
         if start_index is None:

@@ -481,8 +481,8 @@ export abstract class AbstractPaneCompositePart extends CompositePart<PaneCompos
 		}
 
 		// --- Start Positron ---
-		// If the panel is minimized, restore it.
-		if (this.layoutService.isPanelMinimized()) {
+		// If we're opening a view in the panel and it is minimized, restore it.
+		if (this.partId === Parts.PANEL_PART && this.layoutService.isPanelMinimized()) {
 			this.layoutService.restorePanel();
 		}
 		// --- End Positron ---

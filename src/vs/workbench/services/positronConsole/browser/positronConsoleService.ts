@@ -12,7 +12,6 @@ import { ISettableObservable, observableValue } from 'vs/base/common/observableI
 import { IViewsService } from 'vs/workbench/services/views/common/viewsService';
 import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
 import { IInstantiationService } from 'vs/platform/instantiation/common/instantiation';
-import { IWorkbenchLayoutService } from 'vs/workbench/services/layout/browser/layoutService';
 import { INotificationService, Severity } from 'vs/platform/notification/common/notification';
 import { RuntimeItem } from 'vs/workbench/services/positronConsole/browser/classes/runtimeItem';
 import { InstantiationType, registerSingleton } from 'vs/platform/instantiation/common/extensions';
@@ -187,7 +186,6 @@ class PositronConsoleService extends Disposable implements IPositronConsoleServi
 		@IRuntimeSessionService private readonly _runtimeSessionService: IRuntimeSessionService,
 		@ILogService private readonly _logService: ILogService,
 		@IViewsService private readonly _viewsService: IViewsService,
-		@IWorkbenchLayoutService private readonly _layoutService: IWorkbenchLayoutService
 	) {
 		// Call the disposable constrcutor.
 		super();
@@ -367,9 +365,8 @@ class PositronConsoleService extends Disposable implements IPositronConsoleServi
 	 * @returns A value which indicates whether the code could be executed.
 	 */
 	async executeCode(languageId: string, code: string, focus: boolean, allowIncomplete?: boolean) {
-		// When code is executed in the console service, ensure that the panel is restored, if it
-		// needs to be, and open the console view.
-		this._layoutService.restorePanel();
+		// When code is executed in the console service, open the console view. This opens
+		// the relevant pane composite if needed.
 		await this._viewsService.openView(POSITRON_CONSOLE_VIEW_ID, false);
 
 		// Get the running runtimes for the language.
