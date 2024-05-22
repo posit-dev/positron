@@ -47,16 +47,10 @@ CommandsRegistry.registerCommand('_executeStatementRangeProvider', async (access
 		return undefined;
 	}
 	const languageFeaturesService = accessor.get(ILanguageFeaturesService);
-	const result = await provideStatementRange(
+	return await provideStatementRange(
 		languageFeaturesService.statementRangeProvider,
 		model,
 		Position.lift(position),
 		CancellationToken.None
 	);
-	if (!result) {
-		// there is no provider or it didn't return a statement range
-		return undefined;
-	}
-
-	return result;
 });
