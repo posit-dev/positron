@@ -70,7 +70,7 @@ export class PositronNewProjectService extends Disposable implements IPositronNe
 		// Parse the new project configuration from the storage service
 		this._newProjectConfig = this._parseNewProjectConfig();
 
-		if (this._newProjectConfig === null) {
+		if (!_isCurrentWindowNewProject()) {
 			// If no new project configuration is found, the new project startup
 			// is complete
 			this.allTasksComplete.open();
