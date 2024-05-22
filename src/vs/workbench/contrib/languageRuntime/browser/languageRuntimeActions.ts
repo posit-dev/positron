@@ -74,7 +74,7 @@ async function selectLanguage(accessor: ServicesAccessor) {
 		];
 
 		input.canSelectMany = false;
-		input.placeholder = 'Select the language to execute code in';
+		input.placeholder = nls.localize('positron.executeCode.selectLanguage', 'Select the language to execute code in');
 
 		for (const runtimeMetadata of languageRuntimeService.registeredRuntimes) {
 			addRuntime(runtimeMetadata);
@@ -178,8 +178,8 @@ const selectLanguageRuntime = async (
 
 		input.canSelectMany = false;
 		const languageName = languageService.getLanguageName(languageId);
-		input.title = `Select ${languageName} Interpreter`;
-		input.placeholder = 'Discovering Interpreters...';
+		input.title = nls.localize('positron.languageRuntime.select.selectInterpreter', 'Select {0} Interpreter', languageName);
+		input.placeholder = nls.localize('positron.languageRuntime.select.discoveringInterpreters', 'Discovering Interpreters...');
 		input.matchOnDescription = true;
 
 		for (const runtimeMetadata of languageRuntimeService.registeredRuntimes) {
@@ -196,7 +196,7 @@ const selectLanguageRuntime = async (
 			// yet registered. Do nothing.
 		}
 		if (preferredRuntime) {
-			input.placeholder = `Selected Interpreter: ${preferredRuntime.runtimeName}`;
+			input.placeholder = nls.localize('positron.languageRuntime.select.selectedInterpreer', 'Selected Interpreter: {0}', preferredRuntime.runtimeName);
 			const activeItem = runtimePicks.get(preferredRuntime.runtimeId);
 			if (activeItem) {
 				input.activeItems = [activeItem];
