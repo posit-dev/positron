@@ -21,8 +21,10 @@ export class PositronDataExplorer {
 
 	async getDataExplorerTableData(expectedColumns: number, expectedRows: number): Promise<object[]> {
 
-		const headers = await this.code.waitForElements(`${COLUMN_HEADERS} ${HEADER_TITLES}`, false, (elements) => elements.length === expectedColumns);
-		const rows = await this.code.waitForElements(`${DATA_GRID_ROWS} ${DATA_GRID_ROW}`, true, (elements) => elements.length === expectedRows);
+		const headers = await this.code.waitForElements(`${COLUMN_HEADERS} ${HEADER_TITLES}`, false, (elements) =>
+			elements.length === expectedColumns && elements.every((element) => element.textContent !== ''));
+		const rows = await this.code.waitForElements(`${DATA_GRID_ROWS} ${DATA_GRID_ROW}`, true, (elements) =>
+			elements.length === expectedRows);
 		const headerNames = headers.map((header) => header.textContent);
 
 		const tableData: object[] = [];
