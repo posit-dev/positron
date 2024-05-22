@@ -70,13 +70,13 @@ export class PositronNewProjectService extends Disposable implements IPositronNe
 		// Parse the new project configuration from the storage service
 		this._newProjectConfig = this._parseNewProjectConfig();
 
-		if (!_isCurrentWindowNewProject()) {
+		if (!this._isCurrentWindowNewProject()) {
 			// If no new project configuration is found, the new project startup
 			// is complete
 			this.allTasksComplete.open();
 		} else {
 			// If new project configuration is found, save the runtime metadata
-			this._runtimeMetadata = this._newProjectConfig.runtimeMetadata;
+			this._runtimeMetadata = this._newProjectConfig?.runtimeMetadata;
 		}
 
 		// Initialize the pending tasks observable.
