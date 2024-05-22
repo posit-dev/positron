@@ -22,11 +22,11 @@ class ObjectSchema(BaseModel):
     ObjectSchema in Schemas
     """
 
-    name: str = Field(
+    name: StrictStr = Field(
         description="Name of the underlying object",
     )
 
-    kind: str = Field(
+    kind: StrictStr = Field(
         description="The object type (table, catalog, schema)",
     )
 
@@ -36,11 +36,11 @@ class FieldSchema(BaseModel):
     FieldSchema in Schemas
     """
 
-    name: str = Field(
+    name: StrictStr = Field(
         description="Name of the field",
     )
 
-    dtype: str = Field(
+    dtype: StrictStr = Field(
         description="The field data type",
     )
 

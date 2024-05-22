@@ -94,21 +94,9 @@ const RustTypeMap: Record<string, string> = {
 
 // Maps from JSON schema types to Python types
 const PythonTypeMap: Record<string, string> = {
-	'boolean': 'bool',
-	'integer': 'int',
-	'number': 'float',
-	'string': 'str',
-	'null': 'null',
-	'array-begin': 'List[',
-	'array-end': ']',
-	'object': 'Dict',
-};
-
-// Maps from JSON schema types to strict Python types
-const PythonStrictTypeMap: Record<string, string> = {
 	'boolean': 'StrictBool',
 	'integer': 'StrictInt',
-	'number': 'StrictFloat',
+	'number': 'Union[StrictInt, StrictFloat]',
 	'string': 'StrictStr',
 	'null': 'null',
 	'array-begin': 'List[',
@@ -908,7 +896,7 @@ from ._vendor.pydantic import BaseModel, Field, StrictBool, StrictFloat, StrictI
 			yield `${name} = Union[`;
 			// Options
 			for (const schema of o.oneOf) {
-				yield deriveType(contracts, PythonStrictTypeMap, [schema.name, ...context], schema);
+				yield deriveType(contracts, PythonTypeMap, [schema.name, ...context], schema);
 				yield ', ';
 			}
 			yield ']\n';
