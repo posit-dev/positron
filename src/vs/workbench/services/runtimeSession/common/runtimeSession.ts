@@ -20,7 +20,6 @@ import { UiFrontendEvent } from 'vs/workbench/services/languageRuntime/common/po
 import { ILanguageService } from 'vs/editor/common/languages/language';
 import { ResourceMap } from 'vs/base/common/map';
 import { IExtensionService } from 'vs/workbench/services/extensions/common/extensions';
-import { IWorkspaceContextService } from 'vs/platform/workspace/common/workspace';
 import { IStorageService, StorageScope } from 'vs/platform/storage/common/storage';
 
 /**
@@ -95,9 +94,6 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 	// the extension host comes back online.
 	private readonly _disconnectedSessions = new Map<string, ILanguageRuntimeSession>();
 
-	// The current workspace identifier.
-	private _workspaceId: string;
-
 	// The event emitter for the onWillStartRuntime event.
 	private readonly _onWillStartRuntimeEmitter =
 		this._register(new Emitter<IRuntimeSessionWillStartEvent>);
@@ -130,7 +126,6 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 		@IOpenerService private readonly _openerService: IOpenerService,
 		@IPositronModalDialogsService private readonly _positronModalDialogsService: IPositronModalDialogsService,
 		@IWorkspaceTrustManagementService private readonly _workspaceTrustManagementService: IWorkspaceTrustManagementService,
-		@IWorkspaceContextService private readonly _workspaceContextService: IWorkspaceContextService,
 		@IExtensionService private readonly _extensionService: IExtensionService,
 		@IStorageService private readonly _storageService: IStorageService) {
 
@@ -138,9 +133,6 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 
 		// Register as an opener in the opener service.
 		this._openerService.registerOpener(this);
-
-		// Save the workspace ID.
-		this._workspaceId = this._workspaceContextService.getWorkspace().id;
 
 		// Add the onDidEncounterLanguage event handler.
 		this._register(this._languageService.onDidRequestRichLanguageFeatures(languageId => {
@@ -184,7 +176,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 						this._disconnectedSessions.delete(session.sessionId);
 
 						// Attempt to reconnect the session.
-						this._logService.debug(`Extension ${extensionId} has been reloaded; ` +
+						this._logService.debug(`Extension ${extensionId.value} has been reloaded; ` +
 							`attempting to reconnect session ${session.sessionId}`);
 						this.restoreRuntimeSession(session.runtimeMetadata, session.metadata);
 					}
@@ -192,19 +184,14 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 			}
 		}));
 
-		// Changing the workspace ID causes disconnected sessions to become
-		// unusable, since the information needed to reconnect to them is stored
-		// in the old workspace ID. When the workspace ID changes, discard these
-		// sessions.
+		// Changing the application storage scope causes disconnected sessions
+		// to become unusable, since the information needed to reconnect to them
+		// is stored in the old scope.
 		this._register(this._storageService.onDidChangeTarget((e) => {
 			if (e.scope === StorageScope.APPLICATION && this._disconnectedSessions.size > 0) {
-				const newId = this._workspaceContextService.getWorkspace().id;
-				if (newId !== this._workspaceId) {
-					this._logService.debug(`Workspace ID changed ${this._workspaceId} => ${newId}; ` +
-						`discarding ${this._disconnectedSessions.size} disconnected sessions`);
-					this._workspaceId = newId;
-					this._disconnectedSessions.clear();
-				}
+				this._logService.debug(`Application storage scope changed; ` +
+					`discarding ${this._disconnectedSessions.size} disconnected sessions`);
+				this._disconnectedSessions.clear();
 			}
 		}));
 	}
