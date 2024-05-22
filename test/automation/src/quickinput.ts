@@ -60,7 +60,7 @@ export class QuickInput {
 	async selectQuickInputElementContaining(contains: string): Promise<void> {
 		const selector = `${QuickInput.QUICK_INPUT_ROW}[aria-label*="${contains}"]`;
 		try {
-			await this.code.waitAndClick(selector, undefined, undefined, 1);
+			await this.code.waitAndClick(selector);
 		} catch (ex) {
 			// Show a more helpful error message by clearing the input and logging the list of items
 			await this.type('');
