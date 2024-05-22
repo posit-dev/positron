@@ -1406,7 +1406,7 @@ export abstract class Layout extends Disposable implements IWorkbenchLayoutServi
 					currentSize: this.workbenchGrid.getViewSize(this.panelPartView),
 					alignment: this.getPanelAlignment(),
 					hidden: mainClasses.contains(LayoutClasses.PANEL_HIDDEN),
-					hideFn: this.setPanelHidden.bind(this),
+					hideFn: (hidden: boolean) => hidden ? this.minimizePanel() : this.restorePanel(),
 				};
 			case 'workbench.parts.auxiliarybar':
 				return {
@@ -1446,6 +1446,7 @@ export abstract class Layout extends Disposable implements IWorkbenchLayoutServi
 		if (openedContainer) {
 			(partView as AbstractPaneCompositePart).openPaneComposite(openedContainer.id);
 		}
+
 
 		// If we try and resize after we run this then we risk re-opening the panel.
 		hideFn(hidden, true);
