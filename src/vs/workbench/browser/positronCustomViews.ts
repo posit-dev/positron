@@ -192,10 +192,13 @@ export const positronNotebookLayout: PositronLayoutInfo = {
 		[Parts.SIDEBAR_PART]: {
 			hidden: false,
 			size: '15%',
+			minSize: 180,
+			hideIfBelowMinSize: true,
 		},
 		[Parts.AUXILIARYBAR_PART]: {
 			hidden: true,
-			size: 200,
+			size: '20%',
+			minSize: 180,
 		},
 	},
 };

@@ -55,6 +55,7 @@ import { IPositronTopActionBarService } from 'vs/workbench/services/positronTopA
 import { PartViewInfo } from 'vs/workbench/browser/positronCustomViews';
 import { AbstractPaneCompositePart } from 'vs/workbench/browser/parts/paneCompositePart';
 import { CustomPositronLayoutDescription, KnownPositronLayoutParts, PartLayoutDescription } from 'vs/workbench/common/positronCustomViews';
+import { clamp } from 'vs/base/common/numbers';
 // --- End Positron ---
 
 //#region Layout Implementation
@@ -1418,7 +1419,7 @@ export abstract class Layout extends Disposable implements IWorkbenchLayoutServi
 		}
 	}
 
-	private _setCustomPartSize(part: KnownPositronLayoutParts, { hidden, size, viewContainers = [] }: PartLayoutDescription) {
+	private _setCustomPartSize(part: KnownPositronLayoutParts, { hidden, size, minSize = 0, maxSize = Infinity, hideIfBelowMinSize = false, viewContainers = [] }: PartLayoutDescription) {
 		const { partView, hideFn, currentSize } = this.getPartViewInfo(part);
 
 		if (size !== undefined) {
@@ -1428,15 +1429,21 @@ export abstract class Layout extends Disposable implements IWorkbenchLayoutServi
 				[Parts.AUXILIARYBAR_PART]: 'width',
 			} satisfies Record<KnownPositronLayoutParts, 'width' | 'height'>)[part];
 
-			// TODO: Make this able to take min and max sizes.
-			if (typeof size === 'string') {
-				// Need to convert the percentage to a number relative to the viewport.
-				const viewportDimension = this.getContainerDimension(this.mainContainer)[dimensionToBeSized];
-				size = Math.floor(viewportDimension * parseFloat(size) / 100);
+			// Need to convert the percentage to a number relative to the viewport.
+			const viewportDimension = this.getContainerDimension(this.mainContainer)[dimensionToBeSized];
+
+			const pixelSize = clamp(
+				Math.floor(viewportDimension * parseFloat(size) / 100),
+				minSize,
+				maxSize
+			);
+
+			if (pixelSize === minSize && hideIfBelowMinSize) {
+				hidden = true;
 			}
 
 			const newSize = { width: currentSize.width, height: currentSize.height };
-			newSize[dimensionToBeSized] = size;
+			newSize[dimensionToBeSized] = pixelSize;
 
 			this.workbenchGrid.resizeView(partView, newSize);
 		}
@@ -1446,7 +1453,6 @@ export abstract class Layout extends Disposable implements IWorkbenchLayoutServi
 		if (openedContainer) {
 			(partView as AbstractPaneCompositePart).openPaneComposite(openedContainer.id);
 		}
-
 
 		// If we try and resize after we run this then we risk re-opening the panel.
 		hideFn(hidden, true);

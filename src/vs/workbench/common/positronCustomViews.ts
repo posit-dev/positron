@@ -9,6 +9,9 @@
  */
 export type KnownPositronLayoutParts = 'workbench.parts.panel' | 'workbench.parts.sidebar' | 'workbench.parts.auxiliarybar';
 
+type LayoutPixelSize = number;
+type LayoutPercentSize = `${number}%`;
+
 /**
  * Description of the custom layout for a given part (e.g. Sidebar, Panel, ...) of the editor.
  */
@@ -18,7 +21,21 @@ export type PartLayoutDescription = {
 	 * relative size in percentage of the viewport size. If the size controls the width or the
 	 * height depends on the part. E.g. for the sidebar it's the width.
 	 */
-	size?: number | `${number}%`;
+	size?: LayoutPercentSize;
+	/**
+	 * Minimum size of the part in pixels. If the size resolves to a value below this, the part will
+	 * be set to this size.
+	 */
+	minSize?: LayoutPixelSize;
+	/**
+	 * Maximum size of the part in pixels. If the size resolves to a value above this, the part will
+	 * be set to this size.
+	 */
+	maxSize?: LayoutPixelSize;
+	/**
+	 * Should the part be hidden if the size resolves to below the `minSize` boundary?
+	 */
+	hideIfBelowMinSize?: boolean;
 	/**
 	 * Should this part be hidden by default?
 	 */
