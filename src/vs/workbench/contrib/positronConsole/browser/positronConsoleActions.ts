@@ -23,7 +23,6 @@ import { ServicesAccessor } from 'vs/platform/instantiation/common/instantiation
 import { IEditorService } from 'vs/workbench/services/editor/common/editorService';
 import { KeybindingWeight } from 'vs/platform/keybinding/common/keybindingsRegistry';
 import { ILanguageFeaturesService } from 'vs/editor/common/services/languageFeatures';
-import { IWorkbenchLayoutService } from 'vs/workbench/services/layout/browser/layoutService';
 import { INotificationService, Severity } from 'vs/platform/notification/common/notification';
 import { NOTEBOOK_EDITOR_FOCUSED } from 'vs/workbench/contrib/notebook/common/notebookContextKeys';
 import { IExecutionHistoryService } from 'vs/workbench/contrib/executionHistory/common/executionHistoryService';
@@ -143,13 +142,10 @@ export function registerPositronConsoleActions() {
 		 * @param accessor The services accessor.
 		 */
 		async run(accessor: ServicesAccessor) {
-
-			const layoutService = accessor.get(IWorkbenchLayoutService);
 			const viewsService = accessor.get(IViewsService);
 
 			// Ensure that the panel and console are visible. This is essentially
 			// equivalent to what `workbench.panel.positronConsole.focus` does.
-			layoutService.restorePanel();
 			await viewsService.openView(POSITRON_CONSOLE_VIEW_ID, true);
 		}
 	});
