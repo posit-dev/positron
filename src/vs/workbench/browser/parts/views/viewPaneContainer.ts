@@ -1124,6 +1124,8 @@ export class ViewPaneContainer extends Component implements IViewPaneContainer {
 			const pane = this.getPaneById(id);
 			if (!pane) { return; }
 			const size = Math.round((relativeSize ?? 1) / totalSizeUnits * availableSize);
+			// The pane won't resize if it's collapsed, so ensure it isn't.
+			pane.setExpanded(true);
 			this.resizePane(pane, size);
 		});
 	}
