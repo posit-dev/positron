@@ -24,7 +24,7 @@ export class PlotsRefreshAction extends Action2 {
 			title: localize2('positronPlots.refreshPlots', 'Refresh Plots'),
 			f1: true,
 			category,
-			precondition: IsDevelopmentContext,
+			precondition: IsDevelopmentContext, // hide this from release until implemented
 		});
 	}
 
