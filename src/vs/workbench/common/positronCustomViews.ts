@@ -17,8 +17,7 @@ type LayoutPercentSize = `${number}%`;
  */
 export type PartLayoutDescription = {
 	/**
-	 * Size of the part. If a number, it's an absolute size in pixels. If it's a string it's a
-	 * relative size in percentage of the viewport size. If the size controls the width or the
+	 * Size of the part as percent of the viewport size. If the size controls the width or the
 	 * height depends on the part. E.g. for the sidebar it's the width.
 	 */
 	size?: LayoutPercentSize;
