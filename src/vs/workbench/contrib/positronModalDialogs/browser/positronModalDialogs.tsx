@@ -118,7 +118,14 @@ export class PositronModalDialogs implements IPositronModalDialogsService {
 		renderer.render(
 			<PositronModalDialog renderer={renderer} title={title} width={400} height={200} onAccept={acceptHandler} onCancel={cancelHandler}>
 				<ContentArea>
-					{message}
+					{renderHtml(
+						message,
+						{
+							componentOverrides: {
+								a: (props) => <ExternalLink {...props} openerService={this._openerService} />
+							}
+						}
+					)}
 				</ContentArea>
 				<OKCancelActionBar
 					okButtonTitle={okButtonTitle}
