@@ -41,7 +41,7 @@ export const StatusBar = () => {
 		return () => disposableStore.dispose();
 	}, [context.instance.dataExplorerClientInstance]);
 
-	// Set the number of rows and numbr of columns.
+	// Set the number of rows and number of columns.
 	let numRows;
 	let numColumns;
 	if (!backendState) {
