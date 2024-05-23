@@ -181,12 +181,15 @@ export class PositronBaseComm extends Disposable {
 	 * @param rpcName The name of the RPC to perform.
 	 * @param paramNames The parameter names
 	 * @param paramValues The parameter values
+	 * @param timeout Timeout in milliseconds after which to error if the server does not respond,
+	 *   defaults to 5 seconds.
 	 * @returns A promise that resolves to the result of the RPC, or rejects
 	 *  with a PositronCommError.
 	 */
 	protected async performRpc<T>(rpcName: string,
 		paramNames: Array<string>,
-		paramValues: Array<any>): Promise<T> {
+		paramValues: Array<any>,
+		timeout: number = 5000): Promise<T> {
 
 		// Create the RPC arguments from the parameter names and values. This
 		// allows us to pass the parameters as positional parameters, but
@@ -211,7 +214,7 @@ export class PositronBaseComm extends Disposable {
 		// Perform the RPC
 		let response = {} as any;
 		try {
-			response = await this.clientInstance.performRpc(request);
+			response = await this.clientInstance.performRpc(request, timeout);
 		} catch (err) {
 			// Convert the error to a runtime method error. This handles errors
 			// that occur while performing the RPC; if the RPC is successfully
