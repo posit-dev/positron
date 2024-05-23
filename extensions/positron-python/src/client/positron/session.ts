@@ -217,7 +217,7 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
 
             const product = Product.ipykernel;
             const message = vscode.l10n.t(
-                'To enable Python support, Positron needs to {0} the package "{1}" for the active interpreter {2} at: <code>{3}</code>.',
+                'To enable Python support, Positron needs to {0} the package <code>{1}</code> for the active interpreter {2} at: <code>{3}</code>.',
                 installOrUpgrade,
                 ProductNames.get(product)!,
                 `Python ${this.runtimeMetadata.languageVersion}`,
