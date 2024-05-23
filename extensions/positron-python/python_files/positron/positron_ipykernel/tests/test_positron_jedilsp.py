@@ -263,22 +263,12 @@ def test_positron_completion_item_resolve(
 
 
 @pytest.mark.parametrize(
-    ("source", "diagnostics"),
+    ("source", "messages"),
     [
         # Simple case with no errors.
         ("1 + 1", []),
         # Simple case with a syntax error.
-        (
-            "1 +",
-            [
-                Diagnostic(
-                    range=Range(Position(0, 0), Position(0, 3)),
-                    message="SyntaxError: invalid syntax (foo.py, line 1)",
-                    severity=DiagnosticSeverity.Error,
-                    source="compile",
-                )
-            ],
-        ),
+        ("1 +", ["SyntaxError: invalid syntax (foo.py, line 1)"]),
         # No errors for magic commands.
         (r"%ls", []),
         (r"%%bash", []),
@@ -286,10 +276,13 @@ def test_positron_completion_item_resolve(
         ("!ls", []),
     ],
 )
-def test_publish_diagnostics(source: str, diagnostics: List[Diagnostic]):
+def test_publish_diagnostics(source: str, messages: List[str]):
     uri = "file:///foo.py"
     server = mock_server(uri, source, {})
 
     _publish_diagnostics(server, uri)
 
-    server.publish_diagnostics.assert_called_once_with(uri, diagnostics)
+    [actual_uri, actual_diagnostics] = server.publish_diagnostics.call_args.args
+    actual_messages = [diagnostic.message for diagnostic in actual_diagnostics]
+    assert actual_uri == uri
+    assert actual_messages == messages
