@@ -50,7 +50,7 @@
 	display: flex;
 	cursor: pointer;
 	align-items: center;
-	justify-content: center;
+	justify-content: right;
 	grid-column: expand-collapse / icon;
 }
 
@@ -81,7 +81,7 @@
 	opacity: 80%;
 	display: flex;
 	align-items: center;
-	justify-content: left;
+	justify-content: center;
 	grid-column: icon / title;
 }
 

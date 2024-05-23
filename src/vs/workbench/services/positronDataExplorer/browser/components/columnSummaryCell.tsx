@@ -46,7 +46,7 @@ export const ColumnSummaryCell = (props: ColumnSummaryCellProps) => {
 			content: `${props.columnSchema.type_name}`,
 			target: dataTypeRef.current,
 			position: {
-				hoverPosition: HoverPosition.LEFT,
+				hoverPosition: HoverPosition.ABOVE,
 			},
 			persistence: {
 				hideOnHover: false
