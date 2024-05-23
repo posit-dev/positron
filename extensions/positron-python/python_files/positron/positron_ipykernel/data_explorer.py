@@ -230,6 +230,7 @@ class DataExplorerTableView(abc.ABC):
 
 
 # Special value codes for the protocol
+_VALUE_NA = 1
 _VALUE_NAN = 2
 _VALUE_NAT = 3
 _VALUE_NONE = 4
@@ -242,6 +243,8 @@ def _format_value(x):
         return _VALUE_NONE
     elif x is getattr(pd_, "NaT"):
         return _VALUE_NAT
+    elif x is getattr(pd_, "NA"):
+        return _VALUE_NA
     else:
         return str(x)
 
@@ -258,37 +261,12 @@ _FILTER_RANGE_COMPARE_SUPPORTED = {
 }
 
 
+def _pandas_datetimetz_mapper(type_name):
+    if "datetime64" in type_name:
+        return "datetime"
+
+
 class PandasView(DataExplorerTableView):
-    TYPE_DISPLAY_MAPPING = {
-        "integer": "number",
-        "int8": "number",
-        "int16": "number",
-        "int32": "number",
-        "int64": "number",
-        "uint8": "number",
-        "uint16": "number",
-        "uint32": "number",
-        "uint64": "number",
-        "floating": "number",
-        "float16": "number",
-        "float32": "number",
-        "float64": "number",
-        "mixed-integer": "number",
-        "mixed-integer-float": "number",
-        "mixed": "unknown",
-        "decimal": "number",
-        "complex": "number",
-        "categorical": "categorical",
-        "boolean": "boolean",
-        "bool": "boolean",
-        "datetime64": "datetime",
-        "datetime64[ns]": "datetime",
-        "datetime": "datetime",
-        "date": "date",
-        "time": "time",
-        "bytes": "string",
-        "string": "string",
-    }
     TYPE_NAME_MAPPING = {"boolean": "bool"}
 
     def __init__(
@@ -384,9 +362,7 @@ class PandasView(DataExplorerTableView):
         def _get_column_schema(column, column_name, column_index):
             # We only use infer_dtype for columns that are involved in
             # a filter
-            type_name, type_display = self._get_type_display(
-                column.dtype, lambda: infer_dtype(column)
-            )
+            type_name, type_display = self._get_type(column.dtype, lambda: infer_dtype(column))
 
             return ColumnSchema(
                 column_name=column_name,
@@ -594,7 +570,7 @@ class PandasView(DataExplorerTableView):
         return self._inferred_dtypes[column_index]
 
     @classmethod
-    def _get_type_display(cls, dtype, get_inferred_dtype):
+    def _get_type(cls, dtype, get_inferred_dtype):
         # A helper function for returning the backend type_name and
         # the display type when returning schema results or analyzing
         # schema changes
@@ -608,15 +584,63 @@ class PandasView(DataExplorerTableView):
             # TODO: more sophisticated type mapping
             type_name = str(dtype)
 
-        type_display = cls.TYPE_DISPLAY_MAPPING.get(type_name, "unknown")
+        type_display = cls._get_type_display(type_name)
+        return type_name, type_display
 
-        return type_name, ColumnDisplayType(type_display)
+    TYPE_DISPLAY_MAPPING = {
+        "integer": "number",
+        "int8": "number",
+        "int16": "number",
+        "int32": "number",
+        "int64": "number",
+        "uint8": "number",
+        "uint16": "number",
+        "uint32": "number",
+        "uint64": "number",
+        "floating": "number",
+        "float16": "number",
+        "float32": "number",
+        "float64": "number",
+        "mixed-integer": "number",
+        "mixed-integer-float": "number",
+        "mixed": "unknown",
+        "decimal": "number",
+        "complex": "number",
+        "categorical": "categorical",
+        "boolean": "boolean",
+        "bool": "boolean",
+        "datetime64": "datetime",
+        "datetime64[ns]": "datetime",
+        "datetime": "datetime",
+        "date": "date",
+        "time": "time",
+        "bytes": "string",
+        "string": "string",
+    }
+
+    TYPE_MAPPERS = [_pandas_datetimetz_mapper]
+
+    @classmethod
+    def _get_type_display(cls, type_name):
+        if type_name in cls.TYPE_DISPLAY_MAPPING:
+            type_display = cls.TYPE_DISPLAY_MAPPING[type_name]
+        else:
+            type_display = None
+            for mapper in cls.TYPE_MAPPERS:
+                type_display = mapper(type_name)
+                if type_display is not None:
+                    break
+
+            if type_display is None:
+                type_display = "unknown"
+
+        return ColumnDisplayType(type_display)
 
     def _get_single_column_schema(self, column_index: int):
         column_raw_name = self.table.columns[column_index]
         column_name = str(column_raw_name)
 
-        type_name, type_display = self._get_type_display(
+        type_name, type_display = self._get_type(
             self.table.iloc[:, column_index].dtype,
             lambda: self._get_inferred_dtype(column_index),
         )
