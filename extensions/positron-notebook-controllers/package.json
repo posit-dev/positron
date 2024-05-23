@@ -46,6 +46,9 @@
       ]
     }
   },
+  "enabledApiProposals": [
+    "notebookKernelSource"
+  ],
   "main": "./out/extension.js",
   "scripts": {
     "vscode:prepublish": "yarn run compile",
