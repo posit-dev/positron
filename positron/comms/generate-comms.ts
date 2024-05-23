@@ -534,6 +534,7 @@ use serde::Serialize;
 					`Union type ` +
 					snakeCaseToSentenceCase(context[0]));
 				yield '#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]\n';
+				yield '#[serde(untagged)]\n';
 				yield `pub enum ${snakeCaseToSentenceCase(context[0])} {\n`;
 			} else {
 				// Enum field within another interface
