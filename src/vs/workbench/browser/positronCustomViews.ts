@@ -60,24 +60,6 @@ export function layoutDescriptionToViewInfo(layout: CustomPositronLayoutDescript
 	};
 }
 
-
-// export function createPositronCustomLayoutDescriptor(accessor: ServicesAccessor): CustomPositronLayoutDescription {
-// 	const views = accessor.get(IViewDescriptorService).dumpViewCustomizations();
-// 	const layoutService = accessor.get(IWorkbenchLayoutService);
-
-// 	const getPartLayout = (part: KnownPositronLayoutParts) => {
-// 		const { currentSize, hidden } = layoutService.getPartViewInfo(part);
-// 		return { width: currentSize.width, height: currentSize.height, hidden };
-// 	};
-
-// 	return {
-// 		[Parts.SIDEBAR_PART]: getPartLayout(Parts.SIDEBAR_PART),
-// 		[Parts.PANEL_PART]: getPartLayout(Parts.PANEL_PART),
-// 		[Parts.AUXILIARYBAR_PART]: getPartLayout(Parts.AUXILIARYBAR_PART),
-// 	};
-// }
-
-
 type PositronLayoutInfo = {
 	id: string;
 	codicon: string;
