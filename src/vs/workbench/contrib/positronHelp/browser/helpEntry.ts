@@ -264,6 +264,12 @@ export class HelpEntry extends Disposable implements IHelpEntry, WebviewFindDele
 	private _setTitleTimeout?: NodeJS.Timeout;
 
 	/**
+	 * Timeout for claiming and layouting the help overlay webview. This is needed because sometimes
+	 * we put the overlap webview on a timeout to avoid the layout over a 0 height element.
+	 */
+	private _claimTimeout?: NodeJS.Timeout;
+
+	/**
 	 * Gets or sets the dispose timeout. This timeout is used to schedule the disposal of the help
 	 * overlay webview.
 	 */
@@ -558,8 +564,26 @@ export class HelpEntry extends Disposable implements IHelpEntry, WebviewFindDele
 
 		// Claim and layout the help overlay webview.
 		this._element = element;
-		this._helpOverlayWebview.claim(this._element, DOM.getWindow(element), undefined);
-		this._helpOverlayWebview.layoutWebviewOverElement(this._element);
+		const helpOverlayWebview = this._helpOverlayWebview;
+
+		const claimAndLayout = () => {
+			helpOverlayWebview.claim(element, DOM.getWindow(element), undefined);
+			helpOverlayWebview.layoutWebviewOverElement(element);
+		};
+
+		// If the element is currently collapsed, aka has a height of 0, run the claim and layout on
+		// a timeout so the pane has time to animate open. Otherwise the webview will try and layout
+		// over a 0 height element and thus the help pane will be empty after expanding.
+		const viewIsCollapsed = element.clientHeight === 0;
+
+		clearTimeout(this._claimTimeout);
+		if (viewIsCollapsed) {
+			// It takes at least 150ms for the element to expand enough. It would be nice if we
+			// could hook this up to the css transition value, but alas.
+			this._claimTimeout = setTimeout(claimAndLayout, 150);
+		} else {
+			claimAndLayout();
+		}
 	}
 
 	/**
