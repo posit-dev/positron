@@ -2,53 +2,18 @@
  *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
-.data-explorer-panel .status-bar {
-	display: flex;
+.data-explorer-panel
+.status-bar {
 	padding: 0;
+	display: flex;
 	align-items: center;
 	grid-row: status-bar / end;
 	border-top: 1px solid var(--vscode-positronDataExplorer-border);
 	background-color: var(--vscode-positronDataExplorer-contrastBackground);
 }
 
-.data-explorer-panel .status-bar .label {
+.data-explorer-panel
+.status-bar
+.label {
 	opacity: 80%;
-}
-
-.data-explorer-panel .status-bar .status-bar-indicator {
-	padding: 0 2px;
-	margin-right: 8px;
-	height: 100%;
-	display: flex;
-	align-items: center;
-	padding-left: 2px;
-	border-right: 1px solid var(--vscode-positronDataExplorer-border);
-}
-
-.data-explorer-panel .status-bar .status-bar-indicator .action-bar-separator {
-	margin-left: 4px;
-}
-
-.data-explorer-panel .status-bar .status-bar-indicator .icon {
-	height: 20px;
-	width: 20px;
-}
-
-.data-explorer-panel .status-bar .status-bar-indicator .icon.computing {
-	background-image: url(status-active.svg);
-	animation: status-icon-rotate-computing 1.5s linear infinite;
-}
-
-@keyframes status-icon-rotate-computing {
-	to {
-		transform: rotate(360deg);
-	}
-}
-
-.data-explorer-panel .status-bar .status-bar-indicator .icon.idle {
-	background-image: url(status-idle.svg);
-}
-
-.data-explorer-panel .status-bar .status-bar-indicator .icon.disconnected {
-	background-image: url(status-disconnected.svg);
 }
