@@ -2,6 +2,7 @@
 # Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
 #
 
+import os
 from typing import Any, Dict, List, Optional, cast
 from unittest.mock import Mock
 
@@ -274,12 +275,16 @@ def test_positron_completion_item_resolve(
     ],
 )
 def test_publish_diagnostics(source: str, messages: List[str]):
-    uri = "file:///foo.py"
+    filename = "foo.py"
+    uri = f"file:///{filename}"
     server = mock_server(uri, source, {})
 
     _publish_diagnostics(server, uri)
 
     [actual_uri, actual_diagnostics] = server.publish_diagnostics.call_args.args
     actual_messages = [diagnostic.message for diagnostic in actual_diagnostics]
-    assert actual_uri == uri
+    if os.name == "nt":
+        assert actual_uri == filename
+    else:
+        assert actual_uri == uri
     assert actual_messages == messages
