@@ -7,6 +7,7 @@ import { Locator } from '@playwright/test';
 import { Code } from '../code';
 import { QuickAccess } from '../quickaccess';
 import { QuickInput } from '../quickinput';
+import { InterpreterType } from './positronStartInterpreter';
 
 const CONSOLE_ITEMS = '.runtime-items span';
 const CONSOLE_INSTANCE = '.console-instance';
@@ -16,6 +17,28 @@ const MAXIMIZE_CONSOLE = '.bottom .codicon-positron-maximize-panel';
 export class PositronConsole {
 
 	constructor(private code: Code, private quickaccess: QuickAccess, private quickinput: QuickInput) { }
+
+	async selectInterpreter(desiredInterpreterType: InterpreterType, desiredInterpreterString: string) {
+		let command: string;
+		if (desiredInterpreterType === InterpreterType.Python) {
+			command = 'python.setInterpreter';
+		} else if (desiredInterpreterType === InterpreterType.R) {
+			command = 'r.selectInterpreter';
+		} else {
+			throw new Error(`Interpreter type ${desiredInterpreterType} not supported`);
+		}
+
+		await this.quickaccess.runCommand(command, { keepOpen: true });
+
+		await this.quickinput.waitForQuickInputOpened();
+		await this.quickinput.type(desiredInterpreterString);
+
+		// Wait until the desired interpreter string appears in the list and select it.
+		// We need to click instead of using 'enter' because the Python select interpreter command
+		// may include additional items above the desired interpreter string.
+		await this.quickinput.selectQuickInputElementContaining(desiredInterpreterString);
+		await this.quickinput.waitForQuickInputClosed();
+	}
 
 	async getConsoleContents(index?: number): Promise<string[]> {
 

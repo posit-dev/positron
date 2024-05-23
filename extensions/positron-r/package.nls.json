@@ -15,6 +15,7 @@
 	"r.command.useTest.title": "Add (or visit) a test file",
 	"r.command.packageCheck.title": "Check R Package",
 	"r.command.packageDocument.title": "Document R Package",
+	"r.command.selectInterpreter.title": "Select R Interpreter",
 	"r.menu.createNewFile.title": "R File",
 	"r.menu.insertPipe.title": "Insert the pipe operator",
 	"r.menu.insertLeftAssignment.title": "Insert the \"<-\" assignment operator",
