@@ -28,12 +28,9 @@ import { checkProjectName } from 'vs/workbench/browser/positronNewProjectWizard/
  * @returns The rendered component
  */
 export const ProjectNameLocationStep = (props: PropsWithChildren<NewProjectWizardStepProps>) => {
-	// Retrieve the wizard state and project configuration.
-	const newProjectWizardState = useNewProjectWizardContext();
-	const projectConfig = newProjectWizardState.projectConfig;
-	const setProjectConfig = newProjectWizardState.setProjectConfig;
-	const fileDialogs = newProjectWizardState.fileDialogService;
-	const fileService = newProjectWizardState.fileService;
+	// State.
+	const context = useNewProjectWizardContext();
+	const { fileDialogService, fileService, logService, pathService } = context.services;
 
 	// Hooks.
 	const [projectNameFeedback, setProjectNameFeedback] = useState<
@@ -45,9 +42,9 @@ export const ProjectNameLocationStep = (props: PropsWithChildren<NewProjectWizar
 	useEffect(() => {
 		const initProjectNameFeedback = async () => {
 			const feedback = await checkProjectName(
-				projectConfig.projectName,
-				projectConfig.parentFolder,
-				newProjectWizardState.pathService,
+				context.projectName,
+				context.parentFolder,
+				pathService,
 				fileService
 			);
 			setProjectNameFeedback(feedback);
@@ -59,12 +56,12 @@ export const ProjectNameLocationStep = (props: PropsWithChildren<NewProjectWizar
 
 	// Set the project name and update the project name feedback.
 	const setProjectName = async (projectName: string) => {
-		const projectNameCleaned = projectName.trim();
-		setProjectConfig({ ...projectConfig, projectName: projectNameCleaned });
+		const projectNameTrimmed = projectName.trim();
+		context.projectName = projectNameTrimmed;
 		const feedback = await checkProjectName(
-			projectNameCleaned,
-			projectConfig.parentFolder,
-			newProjectWizardState.pathService,
+			projectNameTrimmed,
+			context.parentFolder,
+			pathService,
 			fileService
 		);
 		setProjectNameFeedback(feedback);
@@ -72,11 +69,11 @@ export const ProjectNameLocationStep = (props: PropsWithChildren<NewProjectWizar
 
 	// Set the project parent folder and update the project name feedback.
 	const setProjectParentFolder = async (parentFolder: string) => {
-		setProjectConfig({ ...projectConfig, parentFolder });
+		context.parentFolder = parentFolder;
 		const feedback = await checkProjectName(
-			projectConfig.projectName,
+			context.projectName,
 			parentFolder,
-			newProjectWizardState.pathService,
+			pathService,
 			fileService
 		);
 		setProjectNameFeedback(feedback);
@@ -85,8 +82,8 @@ export const ProjectNameLocationStep = (props: PropsWithChildren<NewProjectWizar
 	// The browse handler.
 	const browseHandler = async () => {
 		// Show the open dialog.
-		const uri = await fileDialogs.showOpenDialog({
-			defaultUri: URI.file(projectConfig.parentFolder),
+		const uri = await fileDialogService.showOpenDialog({
+			defaultUri: URI.file(context.parentFolder),
 			canSelectFiles: false,
 			canSelectFolders: true,
 			canSelectMany: false,
@@ -100,13 +97,22 @@ export const ProjectNameLocationStep = (props: PropsWithChildren<NewProjectWizar
 
 	// Navigate to the next step in the wizard, based on the selected project type.
 	const nextStep = () => {
-		switch (projectConfig.projectType) {
+		switch (context.projectType) {
 			case NewProjectType.RProject:
 				props.next(NewProjectWizardStep.RConfiguration);
 				break;
 			case NewProjectType.JupyterNotebook:
+			// TODO: Provide a step to choose the notebook language for Jupyter notebooks.
+			// For now, navigate to the Python environment step.
 			case NewProjectType.PythonProject:
 				props.next(NewProjectWizardStep.PythonEnvironment);
+				break;
+			default:
+				logService.error(
+					'No next step in project wizard found for project type: ' +
+					context.projectType
+				);
+				break;
 		}
 	};
 
@@ -121,8 +127,8 @@ export const ProjectNameLocationStep = (props: PropsWithChildren<NewProjectWizar
 			nextButtonConfig={{
 				onClick: nextStep,
 				disable:
-					!projectConfig.projectName ||
-					!projectConfig.parentFolder ||
+					!context.projectName ||
+					!context.parentFolder ||
 					(projectNameFeedback &&
 						projectNameFeedback.type === WizardFormattedTextType.Error),
 			}}
@@ -147,10 +153,10 @@ export const ProjectNameLocationStep = (props: PropsWithChildren<NewProjectWizar
 						localize(
 							'projectNameLocationSubStep.projectName.description',
 							"Enter a name for your new {0}",
-							projectConfig.projectType
+							context.projectType
 						))()}
 					autoFocus
-					value={projectConfig.projectName}
+					value={context.projectName}
 					onChange={(e) => setProjectName(e.target.value)}
 					type='text'
 					error={
@@ -173,7 +179,7 @@ export const ProjectNameLocationStep = (props: PropsWithChildren<NewProjectWizar
 								"Your project will be created at: "
 							))()}
 						<code>
-							{projectConfig.parentFolder}/{projectConfig.projectName}
+							{context.parentFolder}/{context.projectName}
 						</code>
 					</WizardFormattedText>
 				}
@@ -184,7 +190,7 @@ export const ProjectNameLocationStep = (props: PropsWithChildren<NewProjectWizar
 							'projectNameLocationSubStep.parentDirectory.description',
 							"Select a directory to create your project in"
 						))()}
-					value={projectConfig.parentFolder}
+					value={context.parentFolder}
 					onBrowse={browseHandler}
 					onChange={(e) => setProjectParentFolder(e.target.value)}
 				/>
@@ -197,9 +203,7 @@ export const ProjectNameLocationStep = (props: PropsWithChildren<NewProjectWizar
 							'projectNameLocationSubStep.initGitRepo.label',
 							"Initialize project as Git repository"
 						))()}
-					onChanged={(checked) =>
-						setProjectConfig({ ...projectConfig, initGitRepo: checked })
-					}
+					onChanged={(checked) => context.initGitRepo = checked}
 				/>
 			</PositronWizardSubStep>
 		</PositronWizardStep>

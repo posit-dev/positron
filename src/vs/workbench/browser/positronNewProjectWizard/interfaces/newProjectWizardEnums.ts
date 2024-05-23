@@ -27,10 +27,10 @@ export enum EnvironmentSetupType {
 }
 
 /**
- * PythonEnvironmentType enum includes the types of Python environments that are supported by the
+ * PythonEnvironmentProvider enum includes the types of Python environments that are supported by the
  * New Project Wizard.
  */
-export enum PythonEnvironmentType {
+export enum PythonEnvironmentProvider {
 	Venv = 'Venv',
 	Conda = 'Conda'
 }
