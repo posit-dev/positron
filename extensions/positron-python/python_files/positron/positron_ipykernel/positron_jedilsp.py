@@ -95,8 +95,9 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-_LINE_MAGIC_PREFIX = "%"
-_CELL_MAGIC_PREFIX = "%%"
+_COMMENT_PREFIX = r"#"
+_LINE_MAGIC_PREFIX = r"%"
+_CELL_MAGIC_PREFIX = r"%%"
 _SHELL_PREFIX = "!"
 _HELP_TOPIC = "positron/textDocument/helpTopic"
 
@@ -308,7 +309,7 @@ def positron_completion(
     # Don't complete comments or shell commands
     line = document.lines[params.position.line] if document.lines else ""
     trimmed_line = line.lstrip()
-    if trimmed_line.startswith((_LINE_MAGIC_PREFIX, _SHELL_PREFIX)):
+    if trimmed_line.startswith((_COMMENT_PREFIX, _SHELL_PREFIX)):
         return None
 
     # Use Interpreter instead of Script to include the shell's namespaces in completions
