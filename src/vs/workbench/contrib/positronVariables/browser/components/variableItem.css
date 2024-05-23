@@ -43,6 +43,20 @@
 	}
 }
 
+.variable-item.recent.selected {
+	animation: pulseUpdateSelected 2s;
+}
+
+@keyframes pulseUpdateSelected {
+	0% {
+		background-color: var(--vscode-positronVariables-activeSelectionBackground);
+	}
+
+	100% {
+		background-color: var(--vscode-positronVariables-inactiveSelectionBackground);
+	}
+}
+
 .variable-item .name-column {
 	display: flex;
 	flex-shrink: 0;
