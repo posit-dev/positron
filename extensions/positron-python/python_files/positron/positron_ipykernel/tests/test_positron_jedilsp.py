@@ -8,14 +8,18 @@ from unittest.mock import Mock
 import pandas as pd
 import polars as pl
 import pytest
+
 from positron_ipykernel._vendor.jedi import Project
 from positron_ipykernel._vendor.jedi_language_server import jedi_utils
 from positron_ipykernel._vendor.lsprotocol.types import (
     CompletionItem,
     CompletionParams,
+    Diagnostic,
+    DiagnosticSeverity,
     MarkupContent,
     MarkupKind,
     Position,
+    Range,
     TextDocumentIdentifier,
 )
 from positron_ipykernel._vendor.pygls.workspace.text_document import TextDocument
@@ -23,6 +27,7 @@ from positron_ipykernel.help_comm import ShowHelpTopicParams
 from positron_ipykernel.jedi import PositronInterpreter
 from positron_ipykernel.positron_jedilsp import (
     HelpTopicParams,
+    _publish_diagnostics,
     positron_completion,
     positron_completion_item_resolve,
     positron_help_topic_request,
@@ -43,7 +48,12 @@ def mock_server(uri: str, source: str, namespace: Dict[str, Any]) -> Mock:
     server.initialization_options.markup_kind_preferred = MarkupKind.Markdown
     server.shell.user_ns = namespace
     server.project = Project("")
-    server.workspace.get_document.return_value = TextDocument(uri, source)
+
+    document = TextDocument(uri, source)
+    documents = {uri: document}
+    server.workspace.documents = documents
+    server.workspace.get_document = lambda uri: documents[uri]
+
     return server
 
 
@@ -250,3 +260,36 @@ def test_positron_completion_item_resolve(
     assert isinstance(resolved.documentation, MarkupContent)
     assert resolved.documentation.kind == MarkupKind.Markdown
     assert resolved.documentation.value == expected_documentation
+
+
+@pytest.mark.parametrize(
+    ("source", "diagnostics"),
+    [
+        # Simple case with no errors.
+        ("1 + 1", []),
+        # Simple case with a syntax error.
+        (
+            "1 +",
+            [
+                Diagnostic(
+                    range=Range(Position(0, 0), Position(0, 3)),
+                    message="SyntaxError: invalid syntax (foo.py, line 1)",
+                    severity=DiagnosticSeverity.Error,
+                    source="compile",
+                )
+            ],
+        ),
+        # No errors for magic commands.
+        (r"%ls", []),
+        (r"%%bash", []),
+        # No errors for shell commands.
+        ("!ls", []),
+    ],
+)
+def test_publish_diagnostics(source: str, diagnostics: List[Diagnostic]):
+    uri = "file:///foo.py"
+    server = mock_server(uri, source, {})
+
+    _publish_diagnostics(server, uri)
+
+    server.publish_diagnostics.assert_called_once_with(uri, diagnostics)
