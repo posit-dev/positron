@@ -30,7 +30,7 @@ import { checkProjectName } from 'vs/workbench/browser/positronNewProjectWizard/
 export const ProjectNameLocationStep = (props: PropsWithChildren<NewProjectWizardStepProps>) => {
 	// State.
 	const context = useNewProjectWizardContext();
-	const { fileDialogService, fileService, pathService } = context.services;
+	const { fileDialogService, fileService, logService, pathService } = context.services;
 
 	// Hooks.
 	const [projectNameFeedback, setProjectNameFeedback] = useState<
@@ -102,8 +102,17 @@ export const ProjectNameLocationStep = (props: PropsWithChildren<NewProjectWizar
 				props.next(NewProjectWizardStep.RConfiguration);
 				break;
 			case NewProjectType.JupyterNotebook:
+			// TODO: Provide a step to choose the notebook language for Jupyter notebooks.
+			// For now, navigate to the Python environment step.
 			case NewProjectType.PythonProject:
 				props.next(NewProjectWizardStep.PythonEnvironment);
+				break;
+			default:
+				logService.error(
+					'No next step in project wizard found for project type: ' +
+					context.projectType
+				);
+				break;
 		}
 	};
 
