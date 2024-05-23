@@ -406,7 +406,8 @@ export class PlotClientInstance extends Disposable implements IPositronPlotClien
 		this._comm.render(renderRequest.height,
 			renderRequest.width,
 			renderRequest.pixel_ratio,
-			renderRequest.format).then((response) => {
+			renderRequest.format,
+			30_000).then((response) => {
 
 				// Ignore if the request was cancelled or already fulfilled
 				if (!request.isComplete) {
