@@ -14,12 +14,9 @@ from positron_ipykernel._vendor.jedi_language_server import jedi_utils
 from positron_ipykernel._vendor.lsprotocol.types import (
     CompletionItem,
     CompletionParams,
-    Diagnostic,
-    DiagnosticSeverity,
     MarkupContent,
     MarkupKind,
     Position,
-    Range,
     TextDocumentIdentifier,
 )
 from positron_ipykernel._vendor.pygls.workspace.text_document import TextDocument
