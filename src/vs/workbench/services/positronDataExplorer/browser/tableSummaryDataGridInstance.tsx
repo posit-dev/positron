@@ -7,6 +7,7 @@ import * as React from 'react';
 
 // Other dependencies.
 import { Emitter } from 'vs/base/common/event';
+import { IHoverService } from 'vs/platform/hover/browser/hover';
 import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
 import { DataGridInstance } from 'vs/workbench/browser/positronDataGrid/classes/dataGridInstance';
 import { DataExplorerCache } from 'vs/workbench/services/positronDataExplorer/common/dataExplorerCache';
@@ -43,11 +44,13 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 	/**
 	 * Constructor.
 	 * @param _configurationService The configuration service.
+	 * @param _hoverService The hover service.
 	 * @param _dataExplorerClientInstance The DataExplorerClientInstance.
 	 * @param _dataExplorerCache The DataExplorerCache.
 	 */
 	constructor(
 		private readonly _configurationService: IConfigurationService,
+		private readonly _hoverService: IHoverService,
 		private readonly _dataExplorerClientInstance: DataExplorerClientInstance,
 		private readonly _dataExplorerCache: DataExplorerCache
 	) {
@@ -211,6 +214,7 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 		// Return the ColumnSummaryCell.
 		return (
 			<ColumnSummaryCell
+				hoverService={this._hoverService}
 				instance={this}
 				columnSchema={columnSchema}
 				columnIndex={rowIndex}

@@ -7,8 +7,11 @@ import 'vs/css!./columnSummaryCell';
 
 // React.
 import * as React from 'react';
+import { useRef } from 'react'; // eslint-disable-line no-duplicate-imports
 
 // Other dependencies.
+import { IHoverService } from 'vs/platform/hover/browser/hover';
+import { HoverPosition } from 'vs/base/browser/ui/hover/hoverWidget';
 import { ProfileNumber } from 'vs/workbench/services/positronDataExplorer/browser/components/profileNumber';
 import { ProfileString } from 'vs/workbench/services/positronDataExplorer/browser/components/profileString';
 import { ColumnNullPercent } from 'vs/workbench/services/positronDataExplorer/browser/components/columnNullPercent';
@@ -19,6 +22,7 @@ import { TableSummaryDataGridInstance } from 'vs/workbench/services/positronData
  * ColumnSummaryCellProps interface.
  */
 interface ColumnSummaryCellProps {
+	hoverService: IHoverService;
 	instance: TableSummaryDataGridInstance;
 	columnSchema: ColumnSchema;
 	columnIndex: number;
@@ -31,11 +35,38 @@ interface ColumnSummaryCellProps {
  * @returns The rendered component.
  */
 export const ColumnSummaryCell = (props: ColumnSummaryCellProps) => {
+	// Reference hooks.
+	const dataTypeRef = useRef<HTMLDivElement>(undefined!);
+
 	/**
-	 * Returns the data type icon for the column schema.
-	 * @returns The data type icon.
+	 * onMouseOver event handler.
 	 */
-	const dataTypeIcon = () => {
+	const mouseOverHandler = () => {
+		props.hoverService.showHover({
+			content: `${props.columnSchema.type_name}`,
+			target: dataTypeRef.current,
+			position: {
+				hoverPosition: HoverPosition.ABOVE,
+			},
+			persistence: {
+				hideOnHover: false
+			},
+			appearance: {
+				showHoverHint: true,
+				showPointer: true
+			}
+		}, false);
+	};
+
+	/**
+	 * onMouseLeave event handler.
+	 */
+	const mouseLeaveHandler = () => {
+		props.hoverService.hideHover();
+	};
+
+	// Set the data type icon.
+	const dataTypeIcon = (() => {
 		// Determine the alignment based on type.
 		switch (props.columnSchema.type_display) {
 			case ColumnDisplayType.Number:
@@ -69,13 +100,11 @@ export const ColumnSummaryCell = (props: ColumnSummaryCellProps) => {
 			default:
 				return 'codicon-question';
 		}
-	};
+	})();
 
-	/**
-	 * Returns the profile component for the column.
-	 * @returns The profile component.
-	 */
-	const profile = () => {
+	// Set the profile component for the column.
+	const profile = (() => {
+
 		// Determine the alignment based on type.
 		switch (props.columnSchema.type_display) {
 			case ColumnDisplayType.Number:
@@ -115,7 +144,7 @@ export const ColumnSummaryCell = (props: ColumnSummaryCellProps) => {
 			default:
 				return null;
 		}
-	};
+	})();
 
 	// Get the expanded state of the column.
 	const expanded = props.instance.isColumnExpanded(props.columnIndex);
@@ -145,7 +174,12 @@ export const ColumnSummaryCell = (props: ColumnSummaryCellProps) => {
 					}
 				</div>
 
-				<div className={`data-type-icon codicon ${dataTypeIcon()}`}></div>
+				<div
+					ref={dataTypeRef}
+					className={`data-type-icon codicon ${dataTypeIcon}`}
+					onMouseOver={mouseOverHandler}
+					onMouseLeave={mouseLeaveHandler}
+				/>
 				<div className='column-name'>
 					{props.columnSchema.column_name}
 				</div>
@@ -156,7 +190,7 @@ export const ColumnSummaryCell = (props: ColumnSummaryCellProps) => {
 			</div>
 			{expanded &&
 				<div className='profile-info'>
-					{profile()}
+					{profile}
 				</div>
 			}
 		</div>
