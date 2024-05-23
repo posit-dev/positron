@@ -209,6 +209,9 @@ export class DataExplorerCache extends Disposable {
 		this._dataCellCache.clear();
 		this._columnNullCountCache.clear();
 		this._columnSummaryStatsCache.clear();
+
+		// On an update event, table shape may have changed
+		this._dataExplorerClientInstance.updateBackendState();
 	}
 
 	/**
