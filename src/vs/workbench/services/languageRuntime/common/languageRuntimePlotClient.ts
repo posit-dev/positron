@@ -217,6 +217,10 @@ export class PlotClientInstance extends Disposable implements IPositronPlotClien
 		clientStateEvent((state) => {
 			if (state === RuntimeClientState.Closed) {
 				this._closeEmitter.fire();
+
+				// Silently cancel any pending render requests
+				this._currentRender?.cancel();
+				this._queuedRender?.cancel();
 			}
 			this._stateEmitter.fire(PlotClientState.Closed);
 		});
