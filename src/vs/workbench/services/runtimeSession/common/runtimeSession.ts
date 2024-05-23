@@ -278,8 +278,9 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 		if (activeSession) {
 			// Is this, by chance, the runtime that's already running?
 			if (activeSession.runtimeMetadata.runtimeId === runtimeId) {
-				return Promise.reject(
-					new Error(`${formatLanguageRuntimeMetadata(runtime)} is already running.`));
+				// Set it as the foreground session and return.
+				this._foregroundSession = activeSession;
+				return;
 			}
 
 			// We wait for `onDidEndSession()` rather than `RuntimeState.Exited`, because the former
