@@ -464,9 +464,9 @@ def _magic_completion_item(
         label=label,
         filter_text=name,
         kind=CompletionItemKind.Function,
-        # Prefix sort_text with 'v', which ensures that it is ordered as an ordinary item
+        # Prefix sort_text with 'w', which ensures that it is ordered just after ordinary items
         # See jedi_language_server.jedi_utils.complete_sort_name for reference
-        sort_text=f"v{name}",
+        sort_text=f"w{name}",
         insert_text=insert_text,
         insert_text_format=InsertTextFormat.PlainText,
     )
