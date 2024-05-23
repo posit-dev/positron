@@ -266,7 +266,16 @@ def test_positron_completion_item_resolve(
         # Simple case with no errors.
         ("1 + 1", []),
         # Simple case with a syntax error.
-        ("1 +", ["SyntaxError: invalid syntax (foo.py, line 1)"]),
+        (
+            "1 +",
+            [
+                (
+                    "SyntaxError: invalid syntax (file:///foo.py, line 1)"
+                    if os.name == "nt"
+                    else "SyntaxError: invalid syntax (foo.py, line 1)"
+                )
+            ],
+        ),
         # No errors for magic commands.
         (r"%ls", []),
         (r"%%bash", []),
@@ -283,8 +292,5 @@ def test_publish_diagnostics(source: str, messages: List[str]):
 
     [actual_uri, actual_diagnostics] = server.publish_diagnostics.call_args.args
     actual_messages = [diagnostic.message for diagnostic in actual_diagnostics]
-    if os.name == "nt":
-        assert actual_uri == filename
-    else:
-        assert actual_uri == uri
+    assert actual_uri == uri
     assert actual_messages == messages
