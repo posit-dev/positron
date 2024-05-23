@@ -2,14 +2,17 @@
  *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
+// React.
 import * as React from 'react';
+
+// Other dependencies.
 import { localize } from 'vs/nls';
 import { IFileDialogService } from 'vs/platform/dialogs/common/dialogs';
 import { IWorkbenchLayoutService } from 'vs/workbench/services/layout/browser/layoutService';
 import { NewProjectWizardContextProvider, useNewProjectWizardContext } from 'vs/workbench/browser/positronNewProjectWizard/newProjectWizardContext';
 import { ILanguageRuntimeService } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { IRuntimeSessionService } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
-import { NewProjectWizardConfiguration } from 'vs/workbench/browser/positronNewProjectWizard/newProjectWizardState';
+import { NewProjectWizardState } from 'vs/workbench/browser/positronNewProjectWizard/newProjectWizardState';
 import { NewProjectWizardStepContainer } from 'vs/workbench/browser/positronNewProjectWizard/newProjectWizardStepContainer';
 import { IRuntimeStartupService } from 'vs/workbench/services/runtimeStartup/common/runtimeStartupService';
 import { IKeybindingService } from 'vs/platform/keybinding/common/keybinding';
@@ -22,8 +25,7 @@ import { ICommandService } from 'vs/platform/commands/common/commands';
 import { ILogService } from 'vs/platform/log/common/log';
 import { IOpenerService } from 'vs/platform/opener/common/opener';
 import { IPositronNewProjectService, NewProjectConfiguration } from 'vs/workbench/services/positronNewProject/common/positronNewProject';
-import { EnvironmentSetupType } from 'vs/workbench/browser/positronNewProjectWizard/interfaces/newProjectWizardEnums';
-import { getEnvProviderInfoList } from 'vs/workbench/browser/positronNewProjectWizard/utilities/pythonEnvironmentStepUtils';
+import { EnvironmentSetupType, NewProjectWizardStep } from 'vs/workbench/browser/positronNewProjectWizard/interfaces/newProjectWizardEnums';
 import { IWorkspaceTrustManagementService } from 'vs/platform/workspace/common/workspaceTrust';
 
 /**
@@ -68,7 +70,7 @@ export const showNewProjectModalDialog = async (
 				runtimeStartupService,
 			}}
 			parentFolder={(await fileDialogService.defaultFolderPath()).fsPath}
-			pythonEnvProviders={await getEnvProviderInfoList(commandService, logService)}
+			initialStep={NewProjectWizardStep.ProjectTypeSelection}
 		>
 			<NewProjectModalDialog
 				renderer={renderer}
@@ -83,7 +85,7 @@ export const showNewProjectModalDialog = async (
 					// The python environment type is only relevant if a new environment is being created.
 					const pythonEnvType =
 						result.pythonEnvSetupType === EnvironmentSetupType.NewEnvironment
-							? result.pythonEnvProvider
+							? result.pythonEnvProviderId
 							: '';
 
 					// Install ipykernel if applicable.
@@ -100,7 +102,6 @@ export const showNewProjectModalDialog = async (
 							// If an error occurs while installing ipykernel, a message will be
 							// logged and once the project is opened, when the chosen runtime is
 							// starting, the user will be prompted again to install ipykernel.
-
 							await commandService.executeCommand(
 								'python.installIpykernel',
 								String(pythonPath)
@@ -151,7 +152,7 @@ export const showNewProjectModalDialog = async (
 
 interface NewProjectModalDialogProps {
 	renderer: PositronModalReactRenderer;
-	createProject: (result: NewProjectWizardConfiguration) => Promise<void>;
+	createProject: (result: NewProjectWizardState) => Promise<void>;
 }
 
 /**
@@ -159,12 +160,13 @@ interface NewProjectModalDialogProps {
  * @returns The rendered component.
  */
 const NewProjectModalDialog = (props: NewProjectModalDialogProps) => {
-	const projectState = useNewProjectWizardContext();
+	// State.
+	const context = useNewProjectWizardContext();
 
 	// The accept handler.
 	const acceptHandler = async () => {
 		props.renderer.dispose();
-		await props.createProject(projectState.projectConfig);
+		await props.createProject(context.getState());
 	};
 
 	// The cancel handler.

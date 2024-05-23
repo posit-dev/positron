@@ -4,23 +4,27 @@
 
 import * as React from 'react';
 import { PropsWithChildren, createContext, useContext } from 'react'; // eslint-disable-line no-duplicate-imports
-import { NewProjectWizardState, NewProjectWizardStateProps, useNewProjectWizardState } from 'vs/workbench/browser/positronNewProjectWizard/newProjectWizardState';
+import { NewProjectWizardStateManager, NewProjectWizardStateConfig } from 'vs/workbench/browser/positronNewProjectWizard/newProjectWizardState';
 
 /**
  * Create the New Project Wizard context.
  */
-const NewProjectWizardContext = createContext<NewProjectWizardState | undefined>(undefined);
+const NewProjectWizardContext = createContext<
+	NewProjectWizardStateManager | undefined
+>(undefined);
 
 /**
- * Export the NewProjectWizardContextProvider provider
+ * Export the NewProjectWizardContextProvider provider.
  */
-export const NewProjectWizardContextProvider = (props: PropsWithChildren<NewProjectWizardStateProps>) => {
+export const NewProjectWizardContextProvider = (
+	props: PropsWithChildren<NewProjectWizardStateConfig>
+) => {
 	// Hooks.
-	const newProjectWizardState = useNewProjectWizardState(props);
+	const state = new NewProjectWizardStateManager(props);
 
 	// Render.
 	return (
-		<NewProjectWizardContext.Provider value={newProjectWizardState}>
+		<NewProjectWizardContext.Provider value={state}>
 			{props.children}
 		</NewProjectWizardContext.Provider>
 	);
@@ -30,9 +34,9 @@ export const NewProjectWizardContextProvider = (props: PropsWithChildren<NewProj
  * Export useNewProjectWizardContext to simplify using the New Project Wizard context object.
  */
 export const useNewProjectWizardContext = () => {
-	const wizardState = useContext(NewProjectWizardContext);
-	if (!wizardState) {
+	const state = useContext(NewProjectWizardContext);
+	if (!state) {
 		throw new Error('No new project wizard context provided');
 	}
-	return wizardState;
+	return state;
 };

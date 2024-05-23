@@ -139,7 +139,7 @@ export class PositronNewProjectService extends Disposable implements IPositronNe
 		}
 		const newProjectPath = this._newProjectConfig.projectFolder;
 		const currentFolderPath =
-			this._contextService.getWorkspace().folders[0].uri.fsPath;
+			this._contextService.getWorkspace().folders[0]?.uri.fsPath;
 		return newProjectPath === currentFolderPath;
 	}
 
