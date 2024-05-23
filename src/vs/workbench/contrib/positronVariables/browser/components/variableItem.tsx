@@ -105,7 +105,7 @@ export const VariableItem = (props: VariableItemProps) => {
 		const evt = Event.fromObservable(props.variableItem.isRecent, disposableStore);
 		evt(e => setIsRecent(e));
 		return () => disposableStore.dispose();
-	});
+	}, [props.variableItem]);
 
 	/**
 	 * Opens a viewer for the variable item, or activates the existing viewer
