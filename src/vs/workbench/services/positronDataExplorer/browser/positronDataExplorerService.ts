@@ -5,8 +5,10 @@
 import { localize } from 'vs/nls';
 import { Emitter } from 'vs/base/common/event';
 import { Disposable } from 'vs/base/common/lifecycle';
+import { IHoverService } from 'vs/platform/hover/browser/hover';
 import { IEditorService } from 'vs/workbench/services/editor/common/editorService';
 import { INotificationService } from 'vs/platform/notification/common/notification';
+import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
 import { InstantiationType, registerSingleton } from 'vs/platform/instantiation/common/extensions';
 import { PositronDataExplorerUri } from 'vs/workbench/services/positronDataExplorer/common/positronDataExplorerUri';
 import { DataExplorerClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimeDataExplorerClient';
@@ -14,7 +16,6 @@ import { PositronDataExplorerInstance } from 'vs/workbench/services/positronData
 import { ILanguageRuntimeSession, IRuntimeSessionService, RuntimeClientType } from '../../runtimeSession/common/runtimeSessionService';
 import { IPositronDataExplorerService } from 'vs/workbench/services/positronDataExplorer/browser/interfaces/positronDataExplorerService';
 import { IPositronDataExplorerInstance } from 'vs/workbench/services/positronDataExplorer/browser/interfaces/positronDataExplorerInstance';
-import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
 
 /**
  * DataExplorerRuntime class.
@@ -119,12 +120,14 @@ class PositronDataExplorerService extends Disposable implements IPositronDataExp
 	 * Constructor.
 	 * @param _configurationService The configuration service.
 	 * @param _editorService The editor service.
+	 * @param _hoverService The hover service.
 	 * @param _notificationService The notification service.
 	 * @param _runtimeSessionService The language runtime session service.
 	 */
 	constructor(
 		@IConfigurationService private readonly _configurationService: IConfigurationService,
 		@IEditorService private readonly _editorService: IEditorService,
+		@IHoverService private readonly _hoverService: IHoverService,
 		@INotificationService private readonly _notificationService: INotificationService,
 		@IRuntimeSessionService private readonly _runtimeSessionService: IRuntimeSessionService
 	) {
@@ -281,6 +284,7 @@ class PositronDataExplorerService extends Disposable implements IPositronDataExp
 			dataExplorerClientInstance.identifier,
 			new PositronDataExplorerInstance(
 				this._configurationService,
+				this._hoverService,
 				languageName,
 				dataExplorerClientInstance
 			)
