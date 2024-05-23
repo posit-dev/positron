@@ -70,11 +70,13 @@ export class PositronPlotComm extends PositronBaseComm {
 	 * @param width The requested plot width, in pixels
 	 * @param pixelRatio The pixel ratio of the display device
 	 * @param format The requested plot format
+	 * @param timeout Timeout in milliseconds after which to error if the
+	 * server does not respond
 	 *
 	 * @returns A rendered plot
 	 */
-	render(height: number, width: number, pixelRatio: number, format: RenderFormat): Promise<PlotResult> {
-		return super.performRpc('render', ['height', 'width', 'pixel_ratio', 'format'], [height, width, pixelRatio, format], 30_000);
+	render(height: number, width: number, pixelRatio: number, format: RenderFormat, timeout?: number): Promise<PlotResult> {
+		return super.performRpc('render', ['height', 'width', 'pixel_ratio', 'format'], [height, width, pixelRatio, format], timeout);
 	}
 
 

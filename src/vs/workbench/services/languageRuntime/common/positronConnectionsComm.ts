@@ -73,11 +73,13 @@ export class PositronConnectionsComm extends PositronBaseComm {
 	 * and views.
 	 *
 	 * @param path The path to object that we want to list children.
+	 * @param timeout Timeout in milliseconds after which to error if the
+	 * server does not respond
 	 *
 	 * @returns Array of objects names and their kinds.
 	 */
-	listObjects(path: Array<ObjectSchema>): Promise<Array<ObjectSchema>> {
-		return super.performRpc('list_objects', ['path'], [path]);
+	listObjects(path: Array<ObjectSchema>, timeout?: number): Promise<Array<ObjectSchema>> {
+		return super.performRpc('list_objects', ['path'], [path], timeout);
 	}
 
 	/**
@@ -86,11 +88,13 @@ export class PositronConnectionsComm extends PositronBaseComm {
 	 * List fields of an object, such as columns of a table or view.
 	 *
 	 * @param path The path to object that we want to list fields.
+	 * @param timeout Timeout in milliseconds after which to error if the
+	 * server does not respond
 	 *
 	 * @returns Array of field names and data types.
 	 */
-	listFields(path: Array<ObjectSchema>): Promise<Array<FieldSchema>> {
-		return super.performRpc('list_fields', ['path'], [path]);
+	listFields(path: Array<ObjectSchema>, timeout?: number): Promise<Array<FieldSchema>> {
+		return super.performRpc('list_fields', ['path'], [path], timeout);
 	}
 
 	/**
@@ -100,11 +104,13 @@ export class PositronConnectionsComm extends PositronBaseComm {
 	 *
 	 * @param path The path to object that we want to check if it contains
 	 * data.
+	 * @param timeout Timeout in milliseconds after which to error if the
+	 * server does not respond
 	 *
 	 * @returns Boolean indicating if the object contains data.
 	 */
-	containsData(path: Array<ObjectSchema>): Promise<boolean> {
-		return super.performRpc('contains_data', ['path'], [path]);
+	containsData(path: Array<ObjectSchema>, timeout?: number): Promise<boolean> {
+		return super.performRpc('contains_data', ['path'], [path], timeout);
 	}
 
 	/**
@@ -113,11 +119,13 @@ export class PositronConnectionsComm extends PositronBaseComm {
 	 * Get icon of an object, such as a table or view.
 	 *
 	 * @param path The path to object that we want to get the icon.
+	 * @param timeout Timeout in milliseconds after which to error if the
+	 * server does not respond
 	 *
 	 * @returns The icon of the object.
 	 */
-	getIcon(path: Array<ObjectSchema>): Promise<string> {
-		return super.performRpc('get_icon', ['path'], [path]);
+	getIcon(path: Array<ObjectSchema>, timeout?: number): Promise<string> {
+		return super.performRpc('get_icon', ['path'], [path], timeout);
 	}
 
 	/**
@@ -126,11 +134,13 @@ export class PositronConnectionsComm extends PositronBaseComm {
 	 * Preview object data, such as a table or view.
 	 *
 	 * @param path The path to object that we want to preview.
+	 * @param timeout Timeout in milliseconds after which to error if the
+	 * server does not respond
 	 *
 	 * @returns undefined
 	 */
-	previewObject(path: Array<ObjectSchema>): Promise<null> {
-		return super.performRpc('preview_object', ['path'], [path]);
+	previewObject(path: Array<ObjectSchema>, timeout?: number): Promise<null> {
+		return super.performRpc('preview_object', ['path'], [path], timeout);
 	}
 
 

@@ -697,11 +697,13 @@ export class PositronDataExplorerComm extends PositronBaseComm {
 	 * @param startIndex First column schema to fetch (inclusive)
 	 * @param numColumns Number of column schemas to fetch from start index.
 	 * May extend beyond end of table
+	 * @param timeout Timeout in milliseconds after which to error if the
+	 * server does not respond
 	 *
 	 * @returns undefined
 	 */
-	getSchema(startIndex: number, numColumns: number): Promise<TableSchema> {
-		return super.performRpc('get_schema', ['start_index', 'num_columns'], [startIndex, numColumns]);
+	getSchema(startIndex: number, numColumns: number, timeout?: number): Promise<TableSchema> {
+		return super.performRpc('get_schema', ['start_index', 'num_columns'], [startIndex, numColumns], timeout);
 	}
 
 	/**
@@ -713,11 +715,13 @@ export class PositronDataExplorerComm extends PositronBaseComm {
 	 * @param startIndex Index (starting from zero) of first result to fetch
 	 * @param maxResults Maximum number of resulting column schemas to fetch
 	 * from the start index
+	 * @param timeout Timeout in milliseconds after which to error if the
+	 * server does not respond
 	 *
 	 * @returns undefined
 	 */
-	searchSchema(searchTerm: string, startIndex: number, maxResults: number): Promise<SearchSchemaResult> {
-		return super.performRpc('search_schema', ['search_term', 'start_index', 'max_results'], [searchTerm, startIndex, maxResults]);
+	searchSchema(searchTerm: string, startIndex: number, maxResults: number, timeout?: number): Promise<SearchSchemaResult> {
+		return super.performRpc('search_schema', ['search_term', 'start_index', 'max_results'], [searchTerm, startIndex, maxResults], timeout);
 	}
 
 	/**
@@ -730,11 +734,13 @@ export class PositronDataExplorerComm extends PositronBaseComm {
 	 * beyond end of table
 	 * @param columnIndices Indices to select, which can be a sequential,
 	 * sparse, or random selection
+	 * @param timeout Timeout in milliseconds after which to error if the
+	 * server does not respond
 	 *
 	 * @returns Table values formatted as strings
 	 */
-	getDataValues(rowStartIndex: number, numRows: number, columnIndices: Array<number>): Promise<TableData> {
-		return super.performRpc('get_data_values', ['row_start_index', 'num_rows', 'column_indices'], [rowStartIndex, numRows, columnIndices]);
+	getDataValues(rowStartIndex: number, numRows: number, columnIndices: Array<number>, timeout?: number): Promise<TableData> {
+		return super.performRpc('get_data_values', ['row_start_index', 'num_rows', 'column_indices'], [rowStartIndex, numRows, columnIndices], timeout);
 	}
 
 	/**
@@ -743,11 +749,13 @@ export class PositronDataExplorerComm extends PositronBaseComm {
 	 * Set or clear row filters on table, replacing any previous filters
 	 *
 	 * @param filters Zero or more filters to apply
+	 * @param timeout Timeout in milliseconds after which to error if the
+	 * server does not respond
 	 *
 	 * @returns The result of applying filters to a table
 	 */
-	setRowFilters(filters: Array<RowFilter>): Promise<FilterResult> {
-		return super.performRpc('set_row_filters', ['filters'], [filters]);
+	setRowFilters(filters: Array<RowFilter>, timeout?: number): Promise<FilterResult> {
+		return super.performRpc('set_row_filters', ['filters'], [filters], timeout);
 	}
 
 	/**
@@ -758,10 +766,12 @@ export class PositronDataExplorerComm extends PositronBaseComm {
 	 *
 	 * @param sortKeys Pass zero or more keys to sort by. Clears any existing
 	 * keys
+	 * @param timeout Timeout in milliseconds after which to error if the
+	 * server does not respond
 	 *
 	 */
-	setSortColumns(sortKeys: Array<ColumnSortKey>): Promise<void> {
-		return super.performRpc('set_sort_columns', ['sort_keys'], [sortKeys]);
+	setSortColumns(sortKeys: Array<ColumnSortKey>, timeout?: number): Promise<void> {
+		return super.performRpc('set_sort_columns', ['sort_keys'], [sortKeys], timeout);
 	}
 
 	/**
@@ -770,11 +780,13 @@ export class PositronDataExplorerComm extends PositronBaseComm {
 	 * Requests a statistical summary or data profile for batch of columns
 	 *
 	 * @param profiles Array of requested profiles
+	 * @param timeout Timeout in milliseconds after which to error if the
+	 * server does not respond
 	 *
 	 * @returns undefined
 	 */
-	getColumnProfiles(profiles: Array<ColumnProfileRequest>): Promise<Array<ColumnProfileResult>> {
-		return super.performRpc('get_column_profiles', ['profiles'], [profiles]);
+	getColumnProfiles(profiles: Array<ColumnProfileRequest>, timeout?: number): Promise<Array<ColumnProfileResult>> {
+		return super.performRpc('get_column_profiles', ['profiles'], [profiles], timeout);
 	}
 
 	/**
@@ -783,11 +795,13 @@ export class PositronDataExplorerComm extends PositronBaseComm {
 	 * Request the current backend state (shape, filters, sort keys,
 	 * features)
 	 *
+	 * @param timeout Timeout in milliseconds after which to error if the
+	 * server does not respond
 	 *
 	 * @returns The current backend state for the data explorer
 	 */
-	getState(): Promise<BackendState> {
-		return super.performRpc('get_state', [], []);
+	getState(timeout?: number): Promise<BackendState> {
+		return super.performRpc('get_state', [], [], timeout);
 	}
 
 

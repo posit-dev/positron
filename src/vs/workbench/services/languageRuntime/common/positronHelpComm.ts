@@ -59,12 +59,14 @@ export class PositronHelpComm extends PositronBaseComm {
 	 * delivered.
 	 *
 	 * @param topic The help topic to show
+	 * @param timeout Timeout in milliseconds after which to error if the
+	 * server does not respond
 	 *
 	 * @returns Whether the topic was found and shown. Topics are shown via a
 	 * Show Help notification.
 	 */
-	showHelpTopic(topic: string): Promise<boolean> {
-		return super.performRpc('show_help_topic', ['topic'], [topic]);
+	showHelpTopic(topic: string, timeout?: number): Promise<boolean> {
+		return super.performRpc('show_help_topic', ['topic'], [topic], timeout);
 	}
 
 

@@ -182,7 +182,7 @@ export class PositronBaseComm extends Disposable {
 	 * @param paramNames The parameter names
 	 * @param paramValues The parameter values
 	 * @param timeout Timeout in milliseconds after which to error if the server does not respond,
-	 *   defaults to 5 seconds.
+	 *   defaults to 5 seconds
 	 * @returns A promise that resolves to the result of the RPC, or rejects
 	 *  with a PositronCommError.
 	 */

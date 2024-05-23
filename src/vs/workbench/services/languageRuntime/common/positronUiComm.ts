@@ -469,11 +469,13 @@ export class PositronUiComm extends PositronBaseComm {
 	 *
 	 * @param method The method to call inside the interpreter
 	 * @param params The parameters for `method`
+	 * @param timeout Timeout in milliseconds after which to error if the
+	 * server does not respond
 	 *
 	 * @returns The method result
 	 */
-	callMethod(method: string, params: Array<Param>): Promise<CallMethodResult> {
-		return super.performRpc('call_method', ['method', 'params'], [method, params]);
+	callMethod(method: string, params: Array<Param>, timeout?: number): Promise<CallMethodResult> {
+		return super.performRpc('call_method', ['method', 'params'], [method, params], timeout);
 	}
 
 

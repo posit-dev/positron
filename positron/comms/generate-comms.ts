@@ -1324,6 +1324,9 @@ import { IRuntimeClientInstance } from 'vs/workbench/services/languageRuntime/co
 				yield formatComment('\t * ',
 					`@param ${snakeCaseToCamelCase(param.name)} ${param.description}`);
 			}
+			yield formatComment('\t * ',
+				'@param timeout Timeout in milliseconds after which to error if the server does ' +
+				'not respond');
 			yield `\t *\n`;
 			if (method.result && method.result.schema) {
 				yield formatComment('\t * ',
@@ -1343,11 +1346,9 @@ import { IRuntimeClientInstance } from 'vs/workbench/services/languageRuntime/co
 				} else {
 					yield deriveType(contracts, TypescriptTypeMap, [method.name, param.name], schema);
 				}
-				if (i < method.params.length - 1) {
-					yield ', ';
-				}
+				yield ', ';
 			}
-			yield '): Promise<';
+			yield 'timeout?: number): Promise<';
 			if (method.result && method.result.schema) {
 				if (method.result.schema.type === 'object') {
 					yield snakeCaseToSentenceCase(method.result.schema.name);
@@ -1372,7 +1373,7 @@ import { IRuntimeClientInstance } from 'vs/workbench/services/languageRuntime/co
 					yield ', ';
 				}
 			}
-			yield ']);\n';
+			yield '], timeout);\n';
 			yield `\t}\n\n`;
 		}
 	}
