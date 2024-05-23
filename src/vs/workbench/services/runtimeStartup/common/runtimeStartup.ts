@@ -21,6 +21,7 @@ import { ILifecycleService, ShutdownReason, StartupKind } from 'vs/workbench/ser
 import { INotificationService } from 'vs/platform/notification/common/notification';
 import { IWorkspaceTrustManagementService } from 'vs/platform/workspace/common/workspaceTrust';
 import { URI } from 'vs/base/common/uri';
+import { IWorkspaceContextService, WorkbenchState } from 'vs/platform/workspace/common/workspace';
 import { IPositronNewProjectService } from 'vs/workbench/services/positronNewProject/common/positronNewProject';
 
 interface ILanguageRuntimeProviderMetadata {
@@ -92,6 +93,7 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 		@INotificationService private readonly _notificationService: INotificationService,
 		@IRuntimeSessionService private readonly _runtimeSessionService: IRuntimeSessionService,
 		@IStorageService private readonly _storageService: IStorageService,
+		@IWorkspaceContextService private readonly _workspaceContextService: IWorkspaceContextService,
 		@IWorkspaceTrustManagementService private readonly _workspaceTrustManagementService: IWorkspaceTrustManagementService) {
 
 		super();
@@ -350,7 +352,7 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 		// Save this runtime as the affiliated runtime for the current workspace.
 		this._storageService.store(this.storageKeyForRuntime(session.runtimeMetadata),
 			JSON.stringify(session.runtimeMetadata),
-			StorageScope.WORKSPACE,
+			this.affiliationStorageScope(),
 			StorageTarget.MACHINE);
 
 		// If the runtime is exiting, remove the affiliation if it enters the
@@ -362,7 +364,8 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 				// Just to be safe, check that the runtime is still affiliated
 				// before removing the affiliation
 				const affiliatedRuntimeMetadata = this._storageService.get(
-					this.storageKeyForRuntime(session.runtimeMetadata), StorageScope.WORKSPACE);
+					this.storageKeyForRuntime(session.runtimeMetadata),
+					this.affiliationStorageScope());
 				if (!affiliatedRuntimeMetadata) {
 					return;
 				}
@@ -370,7 +373,7 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 				if (session.runtimeMetadata.runtimeId === affiliatedRuntimeId) {
 					// Remove the affiliation
 					this._storageService.remove(this.storageKeyForRuntime(session.runtimeMetadata),
-						StorageScope.WORKSPACE);
+						this.affiliationStorageScope());
 				}
 			}
 		}));
@@ -436,7 +439,7 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 
 		// Get the runtime metadata that is affiliated with this workspace, if any.
 		const affiliatedRuntimeMetadataStr = this._storageService.get(
-			this.storageKeyForRuntime(metadata), StorageScope.WORKSPACE);
+			this.storageKeyForRuntime(metadata), this.affiliationStorageScope());
 		if (!affiliatedRuntimeMetadataStr) {
 			return;
 		}
@@ -481,7 +484,8 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 	 * @returns The runtime metadata.
 	 */
 	public getAffiliatedRuntimeMetadata(languageId: string): ILanguageRuntimeMetadata | undefined {
-		const stored = this._storageService.get(`${this.storageKey}.${languageId}`, StorageScope.WORKSPACE);
+		const stored = this._storageService.get(`${this.storageKey}.${languageId}`,
+			this.affiliationStorageScope());
 		if (!stored) {
 			return undefined;
 		}
@@ -501,7 +505,8 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 	public getAffiliatedRuntimeLanguageIds(): string[] | undefined {
 		// Get the keys from the storage service and find the language Ids.
 		const languageIds = new Array<string>();
-		const keys = this._storageService.keys(StorageScope.WORKSPACE, StorageTarget.MACHINE);
+		const keys = this._storageService.keys(this.affiliationStorageScope(),
+			StorageTarget.MACHINE);
 		for (const key of keys) {
 			if (key.startsWith(this.storageKey)) {
 				languageIds.push(key.replace(`${this.storageKey}.`, ''));
@@ -519,7 +524,8 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 	public hasAffiliatedRuntime(): boolean {
 		// Get the keys from the storage service and see if any of them match
 		// the storage key pattern for affiliated runtimes.
-		const keys = this._storageService.keys(StorageScope.WORKSPACE, StorageTarget.MACHINE);
+		const keys = this._storageService.keys(
+			this.affiliationStorageScope(), StorageTarget.MACHINE);
 		for (const key of keys) {
 			if (key.startsWith(this.storageKey)) {
 				return true;
@@ -593,6 +599,20 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 	 */
 	private storageKeyForRuntime(metadata: ILanguageRuntimeMetadata): string {
 		return `${this.storageKey}.${metadata.languageId}`;
+	}
+
+	/**
+	 * Returns the storage scope to use for storing runtime affiliations. We use
+	 * the workspace storage scope if we have a workspace, and the profile scope
+	 * otherwise.
+	 *
+	 * @returns The storage scope to use for storing the affiliation.
+	 */
+	private affiliationStorageScope(): StorageScope {
+		if (this._workspaceContextService.getWorkbenchState() === WorkbenchState.EMPTY) {
+			return StorageScope.PROFILE;
+		}
+		return StorageScope.WORKSPACE;
 	}
 
 	/**
