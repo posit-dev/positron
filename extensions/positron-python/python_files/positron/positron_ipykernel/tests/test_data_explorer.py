@@ -16,6 +16,7 @@ from ..data_explorer import (
     COMPARE_OPS,
     DataExplorerService,
     PandasView,
+    _VALUE_NA,
     _VALUE_NAN,
     _VALUE_NAT,
     _VALUE_NONE,
@@ -669,6 +670,65 @@ def test_pandas_get_data_values(dxf: DataExplorerFixture):
     #     dxf.get_data_values(
     #         "simple", row_start_index=0, num_rows=10, column_indices=[4]
     #     )
+
+
+def test_pandas_extension_dtypes(dxf: DataExplorerFixture):
+    df = pd.DataFrame(
+        {
+            "datetime_tz": pd.date_range("2000-01-01", periods=5, tz="US/Eastern"),
+            "arrow_bools": pd.Series([False, None, True, False, None], dtype=pd.BooleanDtype()),
+            "arrow_strings": pd.Series(
+                ["foo", "bar", "baz", None, "quuuux"], dtype=pd.StringDtype()
+            ),
+        }
+    )
+
+    dxf.assign_and_open_viewer("df", df)
+
+    result = dxf.get_data_values(
+        "df",
+        row_start_index=0,
+        num_rows=5,
+        column_indices=list(range(3)),
+    )
+
+    expected_columns = [
+        [
+            "2000-01-01 00:00:00-05:00",
+            "2000-01-02 00:00:00-05:00",
+            "2000-01-03 00:00:00-05:00",
+            "2000-01-04 00:00:00-05:00",
+            "2000-01-05 00:00:00-05:00",
+        ],
+        ["False", _VALUE_NA, "True", "False", _VALUE_NA],
+        ["foo", "bar", "baz", _VALUE_NA, "quuuux"],
+    ]
+
+    assert result["columns"] == expected_columns
+
+    schema = dxf.get_schema("df")
+    ex_schema = [
+        {
+            "column_name": "datetime_tz",
+            "column_index": 0,
+            "type_name": "datetime64[ns, US/Eastern]",
+            "type_display": "datetime",
+        },
+        {
+            "column_name": "arrow_bools",
+            "column_index": 1,
+            "type_name": "boolean",
+            "type_display": "boolean",
+        },
+        {
+            "column_name": "arrow_strings",
+            "column_index": 2,
+            "type_name": "string",
+            "type_display": "string",
+        },
+    ]
+
+    assert schema == _wrap_json(ColumnSchema, ex_schema)
 
 
 def test_pandas_leading_whitespace(dxf: DataExplorerFixture):
