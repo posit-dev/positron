@@ -211,8 +211,7 @@ export class PositronNewProjectService extends Disposable implements IPositronNe
 	 * Relies on extension vscode.git
 	 */
 	private async _runGitInit() {
-		// TODO: This command works, but requires a quick pick selection
-		// this._commandService.executeCommand('git.init');
+		this._commandService.executeCommand('git.init', true);
 
 		// TODO: create .gitignore and README.md
 		this._removePendingTask(NewProjectTask.Git);
