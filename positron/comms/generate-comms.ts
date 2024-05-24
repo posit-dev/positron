@@ -1382,8 +1382,7 @@ import { IRuntimeClientInstance } from 'vs/workbench/services/languageRuntime/co
 					yield ', ';
 				}
 			}
-			yield ']';
-			yield ');\n';
+			yield ']);\n';
 			yield `\t}\n\n`;
 		}
 	}

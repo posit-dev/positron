@@ -48,6 +48,9 @@ export type PositronCommOptions<T extends string> = {
 	[key in T]?: PositronCommRpcOptions;
 };
 
+/**
+ * Options for a specific RPC of a {@link PositronBaseComm}.
+ */
 export interface PositronCommRpcOptions {
 	/**
 	 * Timeout in milliseconds after which to error if the server does not respond.

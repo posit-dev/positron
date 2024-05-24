@@ -66,8 +66,7 @@
 						"mime_type"
 					]
 				}
-			},
-			"x-default-timeout": 30000
+			}
 		}
 	]
 }
