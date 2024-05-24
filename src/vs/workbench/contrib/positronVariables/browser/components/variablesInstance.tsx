@@ -159,7 +159,7 @@ export const VariablesInstance = (props: VariablesInstanceProps) => {
 		if (recent) {
 			recent.scrollIntoView();
 		}
-	});
+	}, [variableEntries]);
 
 	/**
 	 * onKeyDown event handler.
