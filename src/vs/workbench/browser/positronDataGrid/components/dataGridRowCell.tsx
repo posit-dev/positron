@@ -36,21 +36,24 @@ export const DataGridRowCell = (props: DataGridRowCellProps) => {
 	const context = usePositronDataGridContext();
 
 	/**
-	 * MouseDown handler..
+	 * onMouseDown handler.
 	 * @param e A MouseEvent<HTMLElement> that describes a user interaction with the mouse.
 	 */
 	const mouseDownHandler = (e: MouseEvent<HTMLElement>) => {
+		// Ignore mouse events with meta / ctrl key.
 		if (isMacintosh ? e.metaKey : e.ctrlKey) {
 			return;
 		}
 
 		// If selection is enabled, process selection.
 		if (context.instance.selection) {
+			// When the shift key is down, mouse select the cell.
 			if (e.shiftKey) {
 				context.instance.mouseSelectCell(props.columnIndex, props.rowIndex);
 				return;
 			}
 
+			// When the shift key is not down, clear the selection.
 			context.instance.clearSelection();
 		}
 
