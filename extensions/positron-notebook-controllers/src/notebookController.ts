@@ -114,18 +114,9 @@ export class NotebookController implements vscode.Disposable {
 	 * @returns Promise that resolves when the language has been set.
 	 */
 	private async executeCells(cells: vscode.NotebookCell[], notebook: vscode.NotebookDocument, _controller: vscode.NotebookController) {
-		// Get the notebook's session.
-		let session = this._notebookSessionService.getNotebookSession(notebook.uri);
-
-		// No session has been started for this notebook, start one.
-		if (!session) {
-			session = await vscode.window.withProgress(this.startProgressOptions(notebook), () => this.startRuntimeSession(notebook));
-		}
-
-		// Execute the cells.
 		for (const cell of cells) {
 			try {
-				await this.executeCell(cell, session);
+				await this.executeCell(cell, notebook);
 			} catch (err) {
 				log.debug(`Error executing cell ${cell.index}: ${JSON.stringify(err)}`);
 			}
@@ -138,13 +129,13 @@ export class NotebookController implements vscode.Disposable {
 	 * @param cell Cell to execute.
 	 * @returns Promise that resolves when the runtime has finished executing the cell.
 	 */
-	private async executeCell(cell: vscode.NotebookCell, session: positron.LanguageRuntimeSession): Promise<void> {
+	private async executeCell(cell: vscode.NotebookCell, notebook: vscode.NotebookDocument): Promise<void> {
 		// Get the pending execution for this notebook, if one exists.
 		const pendingExecution = this._pendingCellExecutionsByNotebookUri.get(cell.notebook.uri);
 
 		// Chain this execution after the pending one.
 		const currentExecution = Promise.resolve(pendingExecution)
-			.then(() => this.doExecuteCell(cell, session))
+			.then(() => this.doExecuteCell(cell, notebook))
 			.finally(() => {
 				// If this was the last execution in the chain, remove it from the map,
 				// starting a new chain.
@@ -159,7 +150,15 @@ export class NotebookController implements vscode.Disposable {
 		return currentExecution;
 	}
 
-	private async doExecuteCell(cell: vscode.NotebookCell, session: positron.LanguageRuntimeSession): Promise<void> {
+	private async doExecuteCell(cell: vscode.NotebookCell, notebook: vscode.NotebookDocument): Promise<void> {
+		// Get the notebook's session.
+		let session = this._notebookSessionService.getNotebookSession(notebook.uri);
+
+		// No session has been started for this notebook, start one.
+		if (!session) {
+			session = await vscode.window.withProgress(this.startProgressOptions(notebook), () => this.startRuntimeSession(notebook));
+		}
+
 		// Create a cell execution.
 		const currentExecution = this.controller.createNotebookCellExecution(cell);
 
