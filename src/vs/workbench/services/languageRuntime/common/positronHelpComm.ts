@@ -7,7 +7,7 @@
 //
 
 import { Event } from 'vs/base/common/event';
-import { PositronBaseComm } from 'vs/workbench/services/languageRuntime/common/positronBaseComm';
+import { PositronBaseComm, PositronCommOptions } from 'vs/workbench/services/languageRuntime/common/positronBaseComm';
 import { IRuntimeClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimeClientInstance';
 
 /**
@@ -44,9 +44,16 @@ export enum HelpFrontendEvent {
 	ShowHelp = 'show_help'
 }
 
+export enum HelpBackendRequest {
+	ShowHelpTopic = 'show_help_topic'
+}
+
 export class PositronHelpComm extends PositronBaseComm {
-	constructor(instance: IRuntimeClientInstance<any, any>) {
-		super(instance);
+	constructor(
+		instance: IRuntimeClientInstance<any, any>,
+		options?: PositronCommOptions<HelpBackendRequest>,
+	) {
+		super(instance, options);
 		this.onDidShowHelp = super.createEventEmitter('show_help', ['content', 'kind', 'focus']);
 	}
 
@@ -59,14 +66,12 @@ export class PositronHelpComm extends PositronBaseComm {
 	 * delivered.
 	 *
 	 * @param topic The help topic to show
-	 * @param timeout Timeout in milliseconds after which to error if the
-	 * server does not respond
 	 *
 	 * @returns Whether the topic was found and shown. Topics are shown via a
 	 * Show Help notification.
 	 */
-	showHelpTopic(topic: string, timeout?: number): Promise<boolean> {
-		return super.performRpc('show_help_topic', ['topic'], [topic], timeout);
+	showHelpTopic(topic: string): Promise<boolean> {
+		return super.performRpc('show_help_topic', ['topic'], [topic]);
 	}
 
 

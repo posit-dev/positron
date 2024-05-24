@@ -7,7 +7,7 @@
 //
 
 import { Event } from 'vs/base/common/event';
-import { PositronBaseComm } from 'vs/workbench/services/languageRuntime/common/positronBaseComm';
+import { PositronBaseComm, PositronCommOptions } from 'vs/workbench/services/languageRuntime/common/positronBaseComm';
 import { IRuntimeClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimeClientInstance';
 
 /**
@@ -214,9 +214,21 @@ export enum VariablesFrontendEvent {
 	Refresh = 'refresh'
 }
 
+export enum VariablesBackendRequest {
+	List = 'list',
+	Clear = 'clear',
+	Delete = 'delete',
+	Inspect = 'inspect',
+	ClipboardFormat = 'clipboard_format',
+	View = 'view'
+}
+
 export class PositronVariablesComm extends PositronBaseComm {
-	constructor(instance: IRuntimeClientInstance<any, any>) {
-		super(instance);
+	constructor(
+		instance: IRuntimeClientInstance<any, any>,
+		options?: PositronCommOptions<VariablesBackendRequest>,
+	) {
+		super(instance, options);
 		this.onDidUpdate = super.createEventEmitter('update', ['assigned', 'unevaluated', 'removed', 'version']);
 		this.onDidRefresh = super.createEventEmitter('refresh', ['variables', 'length', 'version']);
 	}
@@ -226,13 +238,11 @@ export class PositronVariablesComm extends PositronBaseComm {
 	 *
 	 * Returns a list of all the variables in the current session.
 	 *
-	 * @param timeout Timeout in milliseconds after which to error if the
-	 * server does not respond
 	 *
 	 * @returns A view containing a list of variables in the session.
 	 */
-	list(timeout?: number): Promise<VariableList> {
-		return super.performRpc('list', [], [], timeout);
+	list(): Promise<VariableList> {
+		return super.performRpc('list', [], []);
 	}
 
 	/**
@@ -242,12 +252,10 @@ export class PositronVariablesComm extends PositronBaseComm {
 	 *
 	 * @param includeHiddenObjects Whether to clear hidden objects in
 	 * addition to normal variables
-	 * @param timeout Timeout in milliseconds after which to error if the
-	 * server does not respond
 	 *
 	 */
-	clear(includeHiddenObjects: boolean, timeout?: number): Promise<void> {
-		return super.performRpc('clear', ['include_hidden_objects'], [includeHiddenObjects], timeout);
+	clear(includeHiddenObjects: boolean): Promise<void> {
+		return super.performRpc('clear', ['include_hidden_objects'], [includeHiddenObjects]);
 	}
 
 	/**
@@ -256,13 +264,11 @@ export class PositronVariablesComm extends PositronBaseComm {
 	 * Deletes the named variables from the current session.
 	 *
 	 * @param names The names of the variables to delete.
-	 * @param timeout Timeout in milliseconds after which to error if the
-	 * server does not respond
 	 *
 	 * @returns The names of the variables that were successfully deleted.
 	 */
-	delete(names: Array<string>, timeout?: number): Promise<Array<string>> {
-		return super.performRpc('delete', ['names'], [names], timeout);
+	delete(names: Array<string>): Promise<Array<string>> {
+		return super.performRpc('delete', ['names'], [names]);
 	}
 
 	/**
@@ -272,13 +278,11 @@ export class PositronVariablesComm extends PositronBaseComm {
 	 *
 	 * @param path The path to the variable to inspect, as an array of access
 	 * keys.
-	 * @param timeout Timeout in milliseconds after which to error if the
-	 * server does not respond
 	 *
 	 * @returns An inspected variable.
 	 */
-	inspect(path: Array<string>, timeout?: number): Promise<InspectedVariable> {
-		return super.performRpc('inspect', ['path'], [path], timeout);
+	inspect(path: Array<string>): Promise<InspectedVariable> {
+		return super.performRpc('inspect', ['path'], [path]);
 	}
 
 	/**
@@ -290,13 +294,11 @@ export class PositronVariablesComm extends PositronBaseComm {
 	 * @param path The path to the variable to format, as an array of access
 	 * keys.
 	 * @param format The requested format for the variable, as a MIME type
-	 * @param timeout Timeout in milliseconds after which to error if the
-	 * server does not respond
 	 *
 	 * @returns An object formatted for copying to the clipboard.
 	 */
-	clipboardFormat(path: Array<string>, format: ClipboardFormatFormat, timeout?: number): Promise<FormattedVariable> {
-		return super.performRpc('clipboard_format', ['path', 'format'], [path, format], timeout);
+	clipboardFormat(path: Array<string>, format: ClipboardFormatFormat): Promise<FormattedVariable> {
+		return super.performRpc('clipboard_format', ['path', 'format'], [path, format]);
 	}
 
 	/**
@@ -307,13 +309,11 @@ export class PositronVariablesComm extends PositronBaseComm {
 	 *
 	 * @param path The path to the variable to view, as an array of access
 	 * keys.
-	 * @param timeout Timeout in milliseconds after which to error if the
-	 * server does not respond
 	 *
 	 * @returns The ID of the viewer that was opened.
 	 */
-	view(path: Array<string>, timeout?: number): Promise<string> {
-		return super.performRpc('view', ['path'], [path], timeout);
+	view(path: Array<string>): Promise<string> {
+		return super.performRpc('view', ['path'], [path]);
 	}
 
 

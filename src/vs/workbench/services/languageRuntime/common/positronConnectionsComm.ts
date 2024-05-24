@@ -7,7 +7,7 @@
 //
 
 import { Event } from 'vs/base/common/event';
-import { PositronBaseComm } from 'vs/workbench/services/languageRuntime/common/positronBaseComm';
+import { PositronBaseComm, PositronCommOptions } from 'vs/workbench/services/languageRuntime/common/positronBaseComm';
 import { IRuntimeClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimeClientInstance';
 
 /**
@@ -59,9 +59,20 @@ export enum ConnectionsFrontendEvent {
 	Update = 'update'
 }
 
+export enum ConnectionsBackendRequest {
+	ListObjects = 'list_objects',
+	ListFields = 'list_fields',
+	ContainsData = 'contains_data',
+	GetIcon = 'get_icon',
+	PreviewObject = 'preview_object'
+}
+
 export class PositronConnectionsComm extends PositronBaseComm {
-	constructor(instance: IRuntimeClientInstance<any, any>) {
-		super(instance);
+	constructor(
+		instance: IRuntimeClientInstance<any, any>,
+		options?: PositronCommOptions<ConnectionsBackendRequest>,
+	) {
+		super(instance, options);
 		this.onDidFocus = super.createEventEmitter('focus', []);
 		this.onDidUpdate = super.createEventEmitter('update', []);
 	}
@@ -73,13 +84,11 @@ export class PositronConnectionsComm extends PositronBaseComm {
 	 * and views.
 	 *
 	 * @param path The path to object that we want to list children.
-	 * @param timeout Timeout in milliseconds after which to error if the
-	 * server does not respond
 	 *
 	 * @returns Array of objects names and their kinds.
 	 */
-	listObjects(path: Array<ObjectSchema>, timeout?: number): Promise<Array<ObjectSchema>> {
-		return super.performRpc('list_objects', ['path'], [path], timeout);
+	listObjects(path: Array<ObjectSchema>): Promise<Array<ObjectSchema>> {
+		return super.performRpc('list_objects', ['path'], [path]);
 	}
 
 	/**
@@ -88,13 +97,11 @@ export class PositronConnectionsComm extends PositronBaseComm {
 	 * List fields of an object, such as columns of a table or view.
 	 *
 	 * @param path The path to object that we want to list fields.
-	 * @param timeout Timeout in milliseconds after which to error if the
-	 * server does not respond
 	 *
 	 * @returns Array of field names and data types.
 	 */
-	listFields(path: Array<ObjectSchema>, timeout?: number): Promise<Array<FieldSchema>> {
-		return super.performRpc('list_fields', ['path'], [path], timeout);
+	listFields(path: Array<ObjectSchema>): Promise<Array<FieldSchema>> {
+		return super.performRpc('list_fields', ['path'], [path]);
 	}
 
 	/**
@@ -104,13 +111,11 @@ export class PositronConnectionsComm extends PositronBaseComm {
 	 *
 	 * @param path The path to object that we want to check if it contains
 	 * data.
-	 * @param timeout Timeout in milliseconds after which to error if the
-	 * server does not respond
 	 *
 	 * @returns Boolean indicating if the object contains data.
 	 */
-	containsData(path: Array<ObjectSchema>, timeout?: number): Promise<boolean> {
-		return super.performRpc('contains_data', ['path'], [path], timeout);
+	containsData(path: Array<ObjectSchema>): Promise<boolean> {
+		return super.performRpc('contains_data', ['path'], [path]);
 	}
 
 	/**
@@ -119,13 +124,11 @@ export class PositronConnectionsComm extends PositronBaseComm {
 	 * Get icon of an object, such as a table or view.
 	 *
 	 * @param path The path to object that we want to get the icon.
-	 * @param timeout Timeout in milliseconds after which to error if the
-	 * server does not respond
 	 *
 	 * @returns The icon of the object.
 	 */
-	getIcon(path: Array<ObjectSchema>, timeout?: number): Promise<string> {
-		return super.performRpc('get_icon', ['path'], [path], timeout);
+	getIcon(path: Array<ObjectSchema>): Promise<string> {
+		return super.performRpc('get_icon', ['path'], [path]);
 	}
 
 	/**
@@ -134,13 +137,11 @@ export class PositronConnectionsComm extends PositronBaseComm {
 	 * Preview object data, such as a table or view.
 	 *
 	 * @param path The path to object that we want to preview.
-	 * @param timeout Timeout in milliseconds after which to error if the
-	 * server does not respond
 	 *
 	 * @returns undefined
 	 */
-	previewObject(path: Array<ObjectSchema>, timeout?: number): Promise<null> {
-		return super.performRpc('preview_object', ['path'], [path], timeout);
+	previewObject(path: Array<ObjectSchema>): Promise<null> {
+		return super.performRpc('preview_object', ['path'], [path]);
 	}
 
 

@@ -1123,7 +1123,7 @@ function* createTypescriptComm(name: string, frontend: any, backend: any): Gener
 	if (frontend) {
 		yield `import { Event } from 'vs/base/common/event';\n`;
 	}
-	yield `import { PositronBaseComm } from 'vs/workbench/services/languageRuntime/common/positronBaseComm';
+	yield `import { PositronBaseComm, PositronCommOptions } from 'vs/workbench/services/languageRuntime/common/positronBaseComm';
 import { IRuntimeClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimeClientInstance';
 
 `;
@@ -1282,11 +1282,21 @@ import { IRuntimeClientInstance } from 'vs/workbench/services/languageRuntime/co
 		}
 	}
 
+	if (backend) {
+		yield `export enum ${snakeCaseToSentenceCase(name)}BackendRequest {\n`;
+		const requests = backend.methods.map((method: any) => `\t${snakeCaseToSentenceCase(method.name)} = '${method.name}'`);
+		yield requests.join(',\n');
+		yield '\n}\n\n';
+	}
+
 	yield `export class Positron${snakeCaseToSentenceCase(name)}Comm extends PositronBaseComm {\n`;
 
 	// TODO: supply initial data
-	yield '\tconstructor(instance: IRuntimeClientInstance<any, any>) {\n';
-	yield '\t\tsuper(instance);\n';
+	yield '\tconstructor(\n';
+	yield '\t\tinstance: IRuntimeClientInstance<any, any>,\n';
+	yield `\t\toptions?: PositronCommOptions<${snakeCaseToSentenceCase(name)}BackendRequest>,\n`;
+	yield '\t) {\n';
+	yield '\t\tsuper(instance, options);\n';
 	if (frontend) {
 		for (const method of frontend.methods) {
 			// Ignore methods that have a result; we're generating events here
@@ -1324,9 +1334,6 @@ import { IRuntimeClientInstance } from 'vs/workbench/services/languageRuntime/co
 				yield formatComment('\t * ',
 					`@param ${snakeCaseToCamelCase(param.name)} ${param.description}`);
 			}
-			yield formatComment('\t * ',
-				'@param timeout Timeout in milliseconds after which to error if the server does ' +
-				'not respond');
 			yield `\t *\n`;
 			if (method.result && method.result.schema) {
 				yield formatComment('\t * ',
@@ -1346,9 +1353,11 @@ import { IRuntimeClientInstance } from 'vs/workbench/services/languageRuntime/co
 				} else {
 					yield deriveType(contracts, TypescriptTypeMap, [method.name, param.name], schema);
 				}
-				yield ', ';
+				if (i < method.params.length - 1) {
+					yield ', ';
+				}
 			}
-			yield 'timeout?: number): Promise<';
+			yield '): Promise<';
 			if (method.result && method.result.schema) {
 				if (method.result.schema.type === 'object') {
 					yield snakeCaseToSentenceCase(method.result.schema.name);
@@ -1373,7 +1382,8 @@ import { IRuntimeClientInstance } from 'vs/workbench/services/languageRuntime/co
 					yield ', ';
 				}
 			}
-			yield '], timeout);\n';
+			yield ']';
+			yield ');\n';
 			yield `\t}\n\n`;
 		}
 	}

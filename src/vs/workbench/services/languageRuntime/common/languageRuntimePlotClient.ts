@@ -209,7 +209,7 @@ export class PlotClientInstance extends Disposable implements IPositronPlotClien
 		public readonly metadata: IPositronPlotMetadata) {
 		super();
 
-		this._comm = new PositronPlotComm(client);
+		this._comm = new PositronPlotComm(client, { render: { timeout: 30_000 } });
 
 		// Connect close emitter event
 		this.onDidClose = this._closeEmitter.event;
@@ -406,8 +406,7 @@ export class PlotClientInstance extends Disposable implements IPositronPlotClien
 		this._comm.render(renderRequest.height,
 			renderRequest.width,
 			renderRequest.pixel_ratio,
-			renderRequest.format,
-			30_000).then((response) => {
+			renderRequest.format).then((response) => {
 
 				// Ignore if the request was cancelled or already fulfilled
 				if (!request.isComplete) {

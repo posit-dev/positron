@@ -7,7 +7,7 @@
 //
 
 import { Event } from 'vs/base/common/event';
-import { PositronBaseComm } from 'vs/workbench/services/languageRuntime/common/positronBaseComm';
+import { PositronBaseComm, PositronCommOptions } from 'vs/workbench/services/languageRuntime/common/positronBaseComm';
 import { IRuntimeClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimeClientInstance';
 
 /**
@@ -53,9 +53,16 @@ export enum PlotFrontendEvent {
 	Show = 'show'
 }
 
+export enum PlotBackendRequest {
+	Render = 'render'
+}
+
 export class PositronPlotComm extends PositronBaseComm {
-	constructor(instance: IRuntimeClientInstance<any, any>) {
-		super(instance);
+	constructor(
+		instance: IRuntimeClientInstance<any, any>,
+		options?: PositronCommOptions<PlotBackendRequest>,
+	) {
+		super(instance, options);
 		this.onDidUpdate = super.createEventEmitter('update', []);
 		this.onDidShow = super.createEventEmitter('show', []);
 	}
@@ -70,13 +77,11 @@ export class PositronPlotComm extends PositronBaseComm {
 	 * @param width The requested plot width, in pixels
 	 * @param pixelRatio The pixel ratio of the display device
 	 * @param format The requested plot format
-	 * @param timeout Timeout in milliseconds after which to error if the
-	 * server does not respond
 	 *
 	 * @returns A rendered plot
 	 */
-	render(height: number, width: number, pixelRatio: number, format: RenderFormat, timeout?: number): Promise<PlotResult> {
-		return super.performRpc('render', ['height', 'width', 'pixel_ratio', 'format'], [height, width, pixelRatio, format], timeout);
+	render(height: number, width: number, pixelRatio: number, format: RenderFormat): Promise<PlotResult> {
+		return super.performRpc('render', ['height', 'width', 'pixel_ratio', 'format'], [height, width, pixelRatio, format]);
 	}
 
 
