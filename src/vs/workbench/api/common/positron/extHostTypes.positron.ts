@@ -86,6 +86,15 @@ export enum LanguageRuntimeMessageType {
 	CommClosed = 'comm_closed',
 }
 
+/** The set of possible types of language runtime output messages */
+export enum LanguageRuntimeOutputType {
+	/** An output message representing data to be displayed in a frontend */
+	DisplayData = 'display_data',
+
+	/** An output message representing the result of an execution */
+	ExecuteResult = 'execute_result'
+}
+
 /**
  * LanguageRuntimeSessionMode is an enum representing the set of possible
  * modes for a language runtime session.

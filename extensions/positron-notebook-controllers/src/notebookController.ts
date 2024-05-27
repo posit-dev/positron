@@ -182,20 +182,20 @@ export class NotebookController implements vscode.Disposable {
 				if (message.parent_id === cellId) {
 
 					// Handle the message, and store any resulting outputs.
-					let cellOutputItems: vscode.NotebookCellOutputItem[] = [];
+					let cellOutput: vscode.NotebookCellOutput | undefined;
 					switch (message.type) {
 						case positron.LanguageRuntimeMessageType.Input:
 							currentExecution.executionOrder = (message as positron.LanguageRuntimeInput).execution_count;
 							break;
 						case positron.LanguageRuntimeMessageType.Output:
-							cellOutputItems = handleRuntimeMessageOutput(message as positron.LanguageRuntimeOutput);
+							cellOutput = handleRuntimeMessageOutput(message as positron.LanguageRuntimeOutput);
 							break;
 						case positron.LanguageRuntimeMessageType.Stream:
-							cellOutputItems = handleRuntimeMessageStream(message as positron.LanguageRuntimeStream);
+							cellOutput = handleRuntimeMessageStream(message as positron.LanguageRuntimeStream);
 							break;
 						case positron.LanguageRuntimeMessageType.Error:
 							error = message as positron.LanguageRuntimeError;
-							cellOutputItems = handleRuntimeMessageError(error);
+							cellOutput = handleRuntimeMessageError(error);
 							success = false;
 							break;
 						case positron.LanguageRuntimeMessageType.State:
@@ -206,8 +206,8 @@ export class NotebookController implements vscode.Disposable {
 					}
 
 					// Append any resulting outputs to the cell execution.
-					if (cellOutputItems.length > 0) {
-						currentExecution.appendOutput(new vscode.NotebookCellOutput(cellOutputItems));
+					if (cellOutput) {
+						currentExecution.appendOutput(cellOutput);
 					}
 				}
 
@@ -290,7 +290,7 @@ async function updateNotebookLanguage(notebook: vscode.NotebookDocument, languag
  * @param message Message to handle.
  * @returns Resulting cell output items.
  */
-function handleRuntimeMessageOutput(message: positron.LanguageRuntimeOutput): vscode.NotebookCellOutputItem[] {
+function handleRuntimeMessageOutput(message: positron.LanguageRuntimeOutput): vscode.NotebookCellOutput {
 	const cellOutputItems: vscode.NotebookCellOutputItem[] = [];
 	const mimeTypes = Object.keys(message.data);
 	mimeTypes.map(mimeType => {
@@ -301,7 +301,7 @@ function handleRuntimeMessageOutput(message: positron.LanguageRuntimeOutput): vs
 			cellOutputItems.push(vscode.NotebookCellOutputItem.text(data, mimeType));
 		}
 	});
-	return cellOutputItems;
+	return new vscode.NotebookCellOutput(cellOutputItems, { outputType: message.outputType });
 }
 
 /**
@@ -310,13 +310,15 @@ function handleRuntimeMessageOutput(message: positron.LanguageRuntimeOutput): vs
  * @param message Message to handle.
  * @returns Resulting cell output items.
  */
-function handleRuntimeMessageStream(message: positron.LanguageRuntimeStream): vscode.NotebookCellOutputItem[] {
+function handleRuntimeMessageStream(message: positron.LanguageRuntimeStream): vscode.NotebookCellOutput {
+	const cellOutputItems: vscode.NotebookCellOutputItem[] = [];
 	switch (message.name) {
 		case positron.LanguageRuntimeStreamName.Stdout:
-			return [vscode.NotebookCellOutputItem.stdout(message.text)];
+			cellOutputItems.push(vscode.NotebookCellOutputItem.stdout(message.text));
 		case positron.LanguageRuntimeStreamName.Stderr:
-			return [vscode.NotebookCellOutputItem.stderr(message.text)];
+			cellOutputItems.push(vscode.NotebookCellOutputItem.stderr(message.text));
 	}
+	return new vscode.NotebookCellOutput(cellOutputItems);
 }
 
 /**
@@ -325,12 +327,12 @@ function handleRuntimeMessageStream(message: positron.LanguageRuntimeStream): vs
  * @param message Message to handle.
  * @returns Resulting cell output items.
  */
-function handleRuntimeMessageError(message: positron.LanguageRuntimeError): vscode.NotebookCellOutputItem[] {
-	return [
+function handleRuntimeMessageError(message: positron.LanguageRuntimeError): vscode.NotebookCellOutput {
+	return new vscode.NotebookCellOutput([
 		vscode.NotebookCellOutputItem.error({
 			name: message.name,
 			message: message.message,
 			stack: message.traceback.join('\n'),
 		})
-	];
+	]);
 }

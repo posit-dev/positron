@@ -34,7 +34,7 @@ declare module 'positron' {
 		/** A message representing a runtime event */
 		Event = 'event',
 
-		/** A message representing a new comm (client instance) being opened from the rutime side */
+		/** A message representing a new comm (client instance) being opened from the runtime side */
 		CommOpen = 'comm_open',
 
 		/** A message representing data received via a comm (to a client instance) */
@@ -42,6 +42,15 @@ declare module 'positron' {
 
 		/** A message indicating that a comm (client instance) was closed from the server side */
 		CommClosed = 'comm_closed',
+	}
+
+	/** The set of possible types of language runtime output messages */
+	export enum LanguageRuntimeOutputType {
+		/** An output message representing data to be displayed in a frontend */
+		DisplayData = 'display_data',
+
+		/** An output message representing the result of an execution */
+		ExecuteResult = 'execute_result'
 	}
 
 	/**
@@ -201,6 +210,9 @@ declare module 'positron' {
 	export interface LanguageRuntimeOutput extends LanguageRuntimeMessage {
 		/** A record of data MIME types to the associated data, e.g. `text/plain` => `'hello world'` */
 		data: Record<string, string>;
+
+		/** The type of output */
+		outputType: LanguageRuntimeOutputType;
 	}
 
 	/**
