@@ -407,11 +407,14 @@ export class LanguageRuntimeSessionAdapter
 	 * @param type The type of client to create
 	 * @param params The parameters for the client; the format of this object is
 	 *   specific to the client type
+	 * @param metadata The metadata for the client; the format of this object is
+	 *   specific to the client type
 	 */
 	public async createClient(
 		id: string,
 		type: positron.RuntimeClientType,
-		params: object
+		params: object,
+		metadata: object,
 	) {
 
 		// Ensure the type of client we're being asked to create is a known type that supports
@@ -429,7 +432,7 @@ export class LanguageRuntimeSessionAdapter
 			const server_comm = type === positron.RuntimeClientType.Lsp;
 
 			// Create a new client adapter to wrap the comm channel
-			const adapter = new RuntimeClientAdapter(id, type, params, this._kernel, server_comm);
+			const adapter = new RuntimeClientAdapter(id, type, params, metadata, this._kernel, server_comm);
 
 			// Add the client to the map. Note that we have to do this before opening
 			// the instance, because we may need to process messages from the client
@@ -895,7 +898,8 @@ export class LanguageRuntimeSessionAdapter
 		await this.createClient(
 			clientId,
 			positron.RuntimeClientType.Lsp,
-			{ client_address: clientAddress }
+			{ client_address: clientAddress },
+			{}
 		);
 	}
 
@@ -934,7 +938,8 @@ export class LanguageRuntimeSessionAdapter
 		await this.createClient(
 			clientId,
 			positron.RuntimeClientType.Dap,
-			{ client_address: serverAddress }
+			{ client_address: serverAddress },
+			{}
 		);
 
 		// Handle events from the DAP

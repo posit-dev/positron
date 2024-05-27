@@ -149,7 +149,7 @@ export interface ILanguageRuntimeSession {
 	 * @param type The type of client to create
 	 * @param params The parameters to pass to the client constructor
 	 */
-	createClient<T, U>(type: RuntimeClientType, params: any): Thenable<IRuntimeClientInstance<T, U>>;
+	createClient<T, U>(type: RuntimeClientType, params: any, metadata: any): Thenable<IRuntimeClientInstance<T, U>>;
 
 	/** Get a list of all known clients */
 	listClients(type?: RuntimeClientType): Thenable<Array<IRuntimeClientInstance<any, any>>>;

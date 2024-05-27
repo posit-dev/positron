@@ -527,7 +527,7 @@ class PositronHelpService extends Disposable implements IPositronHelpService {
 			// Use an existing client if there is one; otherwise, create a new one.
 			const client = existingClients.length > 0 ?
 				existingClients[0] :
-				await session.createClient(RuntimeClientType.Help, {});
+				await session.createClient(RuntimeClientType.Help, {}, {});
 
 			// Create and attach the help client wrapper.
 			const helpClient = new HelpClientInstance(client, session.runtimeMetadata.languageId);

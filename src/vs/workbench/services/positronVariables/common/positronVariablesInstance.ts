@@ -450,7 +450,7 @@ export class PositronVariablesInstance extends Disposable implements IPositronVa
 		try {
 			// Create the runtime client.
 			const client = await this._session.createClient<any, any>(
-				RuntimeClientType.Variables, {});
+				RuntimeClientType.Variables, {}, {});
 			this._variablesClient = new VariablesClientInstance(client);
 
 			// Add the onDidReceiveList event handler.

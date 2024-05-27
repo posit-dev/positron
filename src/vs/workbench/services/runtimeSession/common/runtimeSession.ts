@@ -1110,7 +1110,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 		// could use this to pass in any initial state we want to pass to the
 		// frontend client (such as information on window geometry, etc.)
 		session.createClient<IUiClientMessageInput, IUiClientMessageOutput>
-			(RuntimeClientType.Ui, {}).then(client => {
+			(RuntimeClientType.Ui, {}, {}).then(client => {
 				// Create the UI client instance wrapping the client instance.
 				const uiClient = new UiClientInstance(client);
 				this._register(uiClient);
