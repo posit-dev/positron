@@ -21,6 +21,10 @@ import { InterpreterEntry } from 'vs/workbench/browser/positronNewProjectWizard/
 import { interpretersToDropdownItems } from 'vs/workbench/browser/positronNewProjectWizard/utilities/interpreterDropDownUtils';
 import { ExternalLink } from 'vs/base/browser/ui/ExternalLink/ExternalLink';
 import { DisposableStore } from 'vs/base/common/lifecycle';
+import { WizardFormattedText, WizardFormattedTextType } from 'vs/workbench/browser/positronNewProjectWizard/components/wizardFormattedText';
+
+// NOTE: If you are making changes to this file, the equivalent Python component may benefit from
+// similar changes. See src/vs/workbench/browser/positronNewProjectWizard/components/steps/pythonEnvironmentStep.tsx
 
 /**
  * The RConfigurationStep component is specific to R projects in the new project wizard.
@@ -42,6 +46,7 @@ export const RConfigurationStep = (props: PropsWithChildren<NewProjectWizardStep
 	const [interpreters, setInterpreters] = useState(context.interpreters);
 	const [selectedInterpreter, setSelectedInterpreter] = useState(context.selectedRuntime);
 	const [preferredInterpreter, setPreferredInterpreter] = useState(context.preferredInterpreter);
+	const [minimumRVersion, setMinimumRVersion] = useState(context.minimumRVersion);
 
 	useEffect(() => {
 		// Create the disposable store for cleanup.
@@ -52,11 +57,15 @@ export const RConfigurationStep = (props: PropsWithChildren<NewProjectWizardStep
 			setInterpreters(context.interpreters);
 			setSelectedInterpreter(context.selectedRuntime);
 			setPreferredInterpreter(context.preferredInterpreter);
+			setMinimumRVersion(context.minimumRVersion);
 		}));
 
 		// Return the cleanup function that will dispose of the event handlers.
 		return () => disposableStore.dispose();
 	}, [context]);
+
+	// Utility functions.
+	const interpretersAvailable = () => Boolean(interpreters && interpreters.length);
 
 	// Handler for when the interpreter is selected.
 	const onInterpreterSelected = (identifier: string) => {
@@ -71,6 +80,32 @@ export const RConfigurationStep = (props: PropsWithChildren<NewProjectWizardStep
 		context.selectedRuntime = selectedRuntime;
 	};
 
+	// Construct the interpreter dropdown title.
+	const interpreterDropdownTitle = () => {
+		// If interpreters is undefined, show a loading message.
+		if (!interpreters) {
+			return localize(
+				'rConfigurationStep.versionSubStep.dropDown.title.loading',
+				"Discovering R versions..."
+			);
+		}
+
+		// If interpreters is empty, show a message that no interpreters were found.
+		if (!interpretersAvailable()) {
+			return localize(
+				'rConfigurationStep.versionSubStep.dropDown.title.noInterpreters',
+				"No interpreters found."
+			);
+		}
+
+		// Otherwise, show the default title.
+		return localize(
+			'rConfigurationStep.versionSubStep.dropDown.title',
+			"Select a version of R"
+		);
+	};
+
+	// Render.
 	return (
 		<PositronWizardStep
 			title={(() => localize(
@@ -89,36 +124,40 @@ export const RConfigurationStep = (props: PropsWithChildren<NewProjectWizardStep
 			}}
 		>
 			<PositronWizardSubStep
-				title={(() => localize(
-					'rConfigurationStep.versionSubStep.title',
-					"R Version"
-				))()}
-				description={(() => localize(
-					'rConfigurationStep.versionSubStep.description',
-					"Select a version of R to launch your project with. You can modify this later if you change your mind."
-				))()}
+				title={(() =>
+					localize(
+						'rConfigurationStep.versionSubStep.title',
+						'R Version'
+					))()}
+				description={(() =>
+					localize(
+						'rConfigurationStep.versionSubStep.description',
+						'Select a version of R to launch your project with. You can modify this later if you change your mind.'
+					))()}
+				feedback={
+					interpretersAvailable() ? undefined : (
+						<WizardFormattedText
+							type={WizardFormattedTextType.Warning}
+						>
+							{(() =>
+								localize(
+									'rConfigurationStep.versionSubStep.feedback.noSuitableInterpreters',
+									'No suitable interpreters found. Please install R version {0} or later.',
+									minimumRVersion
+								))()}
+						</WizardFormattedText>
+					)
+				}
 			>
 				<DropDownListBox
 					keybindingService={keybindingService}
 					layoutService={layoutService}
-					disabled={!interpreters}
-					title={(() =>
-						!interpreters
-							? localize(
-								'rConfigurationStep.versionSubStep.dropDown.title.loading',
-								"Discovering R versions..."
-							)
-							: localize(
-								'rConfigurationStep.versionSubStep.dropDown.title',
-								"Select a version of R"
-							))()}
-					// TODO: if the runtime startup phase is complete, but there are no suitable
-					// interpreters, show a message that no suitable interpreters were found and the
-					// user should install an interpreter with minimum version
+					disabled={!interpretersAvailable()}
+					title={interpreterDropdownTitle()}
 					entries={
-						interpreters
+						interpretersAvailable()
 							? interpretersToDropdownItems(
-								interpreters,
+								interpreters!,
 								preferredInterpreter?.runtimeId
 							)
 							: []
