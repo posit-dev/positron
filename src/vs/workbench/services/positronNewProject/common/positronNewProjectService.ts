@@ -13,6 +13,11 @@ import { IPositronNewProjectService, NewProjectConfiguration, NewProjectStartupP
 import { Event } from 'vs/base/common/event';
 import { Barrier } from 'vs/base/common/async';
 import { ILanguageRuntimeMetadata } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { IFileService } from 'vs/platform/files/common/files';
+import { VSBuffer } from 'vs/base/common/buffer';
+import { joinPath } from 'vs/base/common/resources';
+import { DOT_IGNORE_PYTHON, DOT_IGNORE_R } from 'vs/workbench/services/positronNewProject/common/positronNewProjectTemplates';
+import { URI } from 'vs/base/common/uri';
 
 /**
  * PositronNewProjectService class.
@@ -43,7 +48,8 @@ export class PositronNewProjectService extends Disposable implements IPositronNe
 		@ICommandService private readonly _commandService: ICommandService,
 		@ILogService private readonly _logService: ILogService,
 		@IStorageService private readonly _storageService: IStorageService,
-		@IWorkspaceTrustManagementService private readonly _workspaceTrustManagementService: IWorkspaceTrustManagementService
+		@IWorkspaceTrustManagementService private readonly _workspaceTrustManagementService: IWorkspaceTrustManagementService,
+		@IFileService private readonly _fileService: IFileService
 	) {
 		super();
 
@@ -213,7 +219,20 @@ export class PositronNewProjectService extends Disposable implements IPositronNe
 	private async _runGitInit() {
 		this._commandService.executeCommand('git.init', true);
 
-		// TODO: create .gitignore and README.md
+		const projectRoot = URI.file(this._newProjectConfig?.projectFolder!);
+		// TODO: use enum values instead of strings
+		switch (this._newProjectConfig?.projectType) {
+			case 'Python Project':
+				this._fileService.createFile(joinPath(projectRoot, '.gitignore'), VSBuffer.fromString(DOT_IGNORE_PYTHON));
+				break;
+			case 'R Project':
+				this._fileService.createFile(joinPath(projectRoot, '.gitignore'), VSBuffer.fromString(DOT_IGNORE_R));
+				break;
+			default:
+		}
+
+		this._fileService.createFile(joinPath(projectRoot, 'README.md'), VSBuffer.fromString(`# ${this._newProjectConfig?.projectName}`));
+
 		this._removePendingTask(NewProjectTask.Git);
 	}
 

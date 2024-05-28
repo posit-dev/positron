@@ -114,6 +114,7 @@ export const showNewProjectModalDialog = async (
 						runtimeMetadata: result.selectedRuntime || undefined,
 						projectType: result.projectType || '',
 						projectFolder: folder.fsPath,
+						projectName: result.projectName,
 						initGitRepo: result.initGitRepo,
 						pythonEnvType: pythonEnvType || '',
 						installIpykernel: result.installIpykernel || false,
