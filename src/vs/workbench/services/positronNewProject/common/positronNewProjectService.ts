@@ -42,7 +42,7 @@ export class PositronNewProjectService extends Disposable implements IPositronNe
 	public allTasksComplete: Barrier = new Barrier();
 
 	// Runtime metadata for the new project
-	private readonly _runtimeMetadata: ILanguageRuntimeMetadata | undefined;
+	private _runtimeMetadata: ILanguageRuntimeMetadata | undefined;
 
 	// Create the Positron New Project service instance.
 	constructor(
@@ -84,7 +84,8 @@ export class PositronNewProjectService extends Disposable implements IPositronNe
 			// is complete
 			this.allTasksComplete.open();
 		} else {
-			// If new project configuration is found, save the runtime metadata
+			// If new project configuration is found, save the runtime metadata.
+			// This metadata will be overwritten if a new environment is created.
 			this._runtimeMetadata = this._newProjectConfig?.runtimeMetadata;
 		}
 
@@ -281,59 +282,102 @@ export class PositronNewProjectService extends Disposable implements IPositronNe
 	 * Relies on extension ms-python.python
 	 */
 	private async _createPythonEnvironment() {
-		const pythonEnvProvider = this._newProjectConfig?.pythonEnvProviderId;
-		if (pythonEnvProvider && pythonEnvProvider.length > 0) {
-			const workspaceFolder =
-				this._contextService.getWorkspace().folders[0];
-			if (!workspaceFolder) {
-				this._logService.error(
-					'Could not determine workspace folder for new project. Cannot create Python environment.'
-				);
-				return;
-			}
-			const interpreterPath =
-				this._newProjectConfig?.runtimeMetadata?.extraRuntimeData
-					?.pythonPath;
-			if (!interpreterPath) {
-				this._logService.warn(
-					'Could not determine Python interpreter path for new project.'
-				);
-				return;
-			}
-			// Note: this command will show a quick pick to select the Python interpreter if the
-			// specified Python interpreter is invalid for some reason (e.g. for Venv, if the
-			// specified interpreter is not considered to be a Global Python installation).
-			const result: CreateEnvironmentResult | undefined =
+		if (this._newProjectConfig && this._newProjectConfig.runtimeMetadata) {
+			const runtimeMetadata = this._newProjectConfig.runtimeMetadata;
+			const provider = this._newProjectConfig.pythonEnvProviderId;
+			if (provider && provider.length > 0) {
+				// Ensure the workspace folder is available
+				const workspaceFolder =
+					this._contextService.getWorkspace().folders[0];
+				if (!workspaceFolder) {
+					this._logService.error(
+						'Could not determine workspace folder for new project. Cannot create Python environment.'
+					);
+					this._removePendingTask(NewProjectTask.PythonEnvironment);
+					return;
+				}
+
+				// Ensure the Python interpreter path is available. This is the global Python
+				// interpreter to use for the new environment.
+				const interpreterPath = runtimeMetadata.extraRuntimeData?.pythonPath;
+				if (!interpreterPath) {
+					this._logService.error(
+						'Could not determine Python interpreter path for new project.'
+					);
+					this._removePendingTask(NewProjectTask.PythonEnvironment);
+					return;
+				}
+
+				// Create the Python environment
+				// Note: this command will show a quick pick to select the Python interpreter if the
+				// specified Python interpreter is invalid for some reason (e.g. for Venv, if the
+				// specified interpreter is not considered to be a Global Python installation).
+				const result: CreateEnvironmentResult | undefined =
+					await this._commandService.executeCommand(
+						'python.createEnvironment',
+						{
+							workspaceFolder,
+							providerId: provider,
+							interpreterPath,
+						}
+					);
+
+				// Check if the environment was created successfully
+				if (!result || result.error || !result.path) {
+					const errorDesc = () => {
+						if (!result) {
+							return 'no result returned from createEnvironment command.';
+						}
+						if (result.error) {
+							return result.error;
+						}
+						if (!result.path) {
+							return 'no Python path returned from createEnvironment command.';
+						}
+						return 'unknown error.';
+					};
+					this._logService.error(
+						`Error while creating Python environment for new project: ${errorDesc()}`
+					);
+					this._removePendingTask(NewProjectTask.PythonEnvironment);
+					return;
+				}
+
+				// Install ipykernel in the new environment
 				await this._commandService.executeCommand(
-					'python.createEnvironment',
-					{
-						workspaceFolder,
-						providerId: pythonEnvProvider,
-						interpreterPath,
-					}
+					'python.installIpykernel',
+					String(result.path)
 				);
 
-			// Check if the environment was created successfully
-			if (!result || result.error) {
-				const error = result?.error ?? 'Unknown error';
-				this._logService.error(
-					`Error while creating Python environment for new project: ${error}`
-				);
-				return;
+				// Construct a skeleton runtime metadata object which will be validated by the Python
+				// extension using validateMetadata into a full runtime metadata object.
+				// Minimally, we'll need to provide the languageId for runtimeStartupService and the
+				// pythonPath for the Python extension.
+				this._runtimeMetadata = {
+					runtimePath: result.path,
+					runtimeId: '',
+					languageName: runtimeMetadata.languageName,
+					languageId: runtimeMetadata.languageId,
+					languageVersion: runtimeMetadata.languageVersion,
+					base64EncodedIconSvg: '',
+					runtimeName: '',
+					runtimeShortName: '',
+					runtimeVersion: '',
+					runtimeSource: '',
+					startupBehavior: runtimeMetadata.startupBehavior,
+					sessionLocation: runtimeMetadata.sessionLocation,
+					extensionId: runtimeMetadata.extensionId,
+					extraRuntimeData: {
+						pythonPath: result.path,
+					},
+				} satisfies ILanguageRuntimeMetadata;
 			}
-
-			// Install ipykernel in the new environment
-			const pythonPath = result.path;
-			await this._commandService.executeCommand(
-				'python.installIpykernel',
-				String(pythonPath)
+		} else {
+			// This shouldn't occur.
+			this._logService.error(
+				'Could not determine runtime metadata for new project. Cannot create Python environment.'
 			);
-
-			// TODO: Start the affiliated runtime.
-			// runtimeSessionService.selectRuntime -- needs a runtimeId
-			// leverage validateMetadata to pass a pythonPath to the python extension and have the
-			// extension resolve it into an actual runtime metadata object
-			//   - see src/positron-dts/positron.d.ts validateMetadata
+			return;
 		}
 		this._removePendingTask(NewProjectTask.PythonEnvironment);
 	}
