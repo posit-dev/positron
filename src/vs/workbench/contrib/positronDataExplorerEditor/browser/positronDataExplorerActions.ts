@@ -3,10 +3,12 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { localize } from 'vs/nls';
+import { KeyCode, KeyMod } from 'vs/base/common/keyCodes';
 import { ILocalizedString } from 'vs/platform/action/common/action';
 import { Action2, registerAction2 } from 'vs/platform/actions/common/actions';
-import { IsDevelopmentContext } from 'vs/platform/contextkey/common/contextkeys';
+import { PositronDataExplorerFocused } from 'vs/workbench/common/contextkeys';
 import { ServicesAccessor } from 'vs/platform/instantiation/common/instantiation';
+import { KeybindingWeight } from 'vs/platform/keybinding/common/keybindingsRegistry';
 
 /**
  * Positron data explorer action category.
@@ -27,39 +29,37 @@ const category: ILocalizedString = {
 /**
  * Positron data explorer command ID's.
  */
-const enum PositronDataExplorerCommandId {
-	PlaceholderAction = 'workbench.action.positronDataExplorer.placeholder',
+export const enum PositronDataExplorerCommandId {
+	CopyAction = 'workbench.action.positronDataExplorer.copy',
 }
 
 /**
- * PositronDataExplorerPlaceholderAction action.
+ * PositronDataExplorerCopyAction action.
  */
-class PositronDataExplorerPlaceholderAction extends Action2 {
-	/**
-	 * Constructor.
-	 */
+class PositronDataExplorerCopyAction extends Action2 {
 	constructor() {
 		super({
-			id: PositronDataExplorerCommandId.PlaceholderAction,
+			id: PositronDataExplorerCommandId.CopyAction,
 			title: {
-				value: localize(
-					'workbench.action.positronDataExplorer.placeholder',
-					"Positron Data Explorer Placeholder"
-				),
-				original: 'Positron Data Explorer Placeholder'
+				value: localize('positronDataExplorer.copy', 'Copy'),
+				original: 'Copy'
+			},
+			category,
+			keybinding: {
+				weight: KeybindingWeight.EditorContrib,
+				primary: KeyMod.CtrlCmd | KeyCode.KeyC,
 			},
 			f1: true,
-			category,
-			precondition: IsDevelopmentContext
+			precondition: PositronDataExplorerFocused
 		});
 	}
 
 	/**
-	 * Runs action.
+	 * Runs the action.
 	 * @param accessor The services accessor.
 	 */
-	async run(accessor: ServicesAccessor) {
-		// Empty for now.
+	async run(accessor: ServicesAccessor): Promise<void> {
+		console.log('positronDataExplorer.copy command run');
 	}
 }
 
@@ -67,5 +67,5 @@ class PositronDataExplorerPlaceholderAction extends Action2 {
  * Registers Positron data explorer actions.
  */
 export function registerPositronDataExplorerActions() {
-	registerAction2(PositronDataExplorerPlaceholderAction);
+	registerAction2(PositronDataExplorerCopyAction);
 }

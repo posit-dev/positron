@@ -10,6 +10,7 @@ import * as React from 'react';
 import { MouseEvent } from 'react'; // eslint-disable-line no-duplicate-imports
 
 // Other dependencies.
+import { isMacintosh } from 'vs/base/common/platform';
 import { positronClassNames } from 'vs/base/common/positronUtilities';
 import { selectionType } from 'vs/workbench/browser/positronDataGrid/utilities/mouseUtilities';
 import { RowSelectionState } from 'vs/workbench/browser/positronDataGrid/classes/dataGridInstance';
@@ -39,8 +40,20 @@ export const DataGridRowHeader = (props: DataGridRowHeaderProps) => {
 	 * @param e A MouseEvent<HTMLElement> that describes a user interaction with the mouse.
 	 * @returns A Promise<void> that resolves when the operation is complete.
 	 */
-	const mouseDownHandler = async (e: MouseEvent<HTMLElement>) => {
-		await context.instance.mouseSelectRow(props.rowIndex, selectionType(e));
+	const mouseDownHandler = (e: MouseEvent<HTMLElement>) => {
+		// Ignore mouse events with meta / ctrl key.
+		if (isMacintosh ? e.metaKey : e.ctrlKey) {
+			return;
+		}
+
+		// Consume the event.
+		e.stopPropagation();
+
+		// If selection is enabled, process selection.
+		if (context.instance.selection) {
+			// Mouse select the row.
+			context.instance.mouseSelectRow(props.rowIndex, selectionType(e));
+		}
 	};
 
 	// Get the row selection state.

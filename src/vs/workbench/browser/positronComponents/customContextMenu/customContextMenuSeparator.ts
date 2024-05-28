@@ -3,7 +3,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 /**
- * ContextMenuSeparator class.
+ * CustomContextMenuSeparator class.
  */
-export class ContextMenuSeparator {
+export class CustomContextMenuSeparator {
 }

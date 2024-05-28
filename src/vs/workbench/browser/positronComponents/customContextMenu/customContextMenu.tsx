@@ -3,7 +3,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 // CSS.
-import 'vs/css!./contextMenu';
+import 'vs/css!./customContextMenu';
 
 // React.
 import * as React from 'react';
@@ -11,35 +11,38 @@ import * as React from 'react';
 // Other dependencies.
 import * as DOM from 'vs/base/browser/dom';
 import { positronClassNames } from 'vs/base/common/positronUtilities';
+import { ICommandService } from 'vs/platform/commands/common/commands';
 import { ILayoutService } from 'vs/platform/layout/browser/layoutService';
 import { Button } from 'vs/base/browser/ui/positronComponents/button/button';
 import { IKeybindingService } from 'vs/platform/keybinding/common/keybinding';
-import { ContextMenuSeparator } from 'vs/workbench/browser/positronComponents/contextMenu/contextMenuSeparator';
 import { PositronModalPopup } from 'vs/workbench/browser/positronComponents/positronModalPopup/positronModalPopup';
 import { PositronModalReactRenderer } from 'vs/workbench/browser/positronModalReactRenderer/positronModalReactRenderer';
-import { ContextMenuItem, ContextMenuItemOptions } from 'vs/workbench/browser/positronComponents/contextMenu/contextMenuItem';
+import { CustomContextMenuSeparator } from 'vs/workbench/browser/positronComponents/customContextMenu/customContextMenuSeparator';
+import { CustomContextMenuItem, CustomContextMenuItemOptions } from 'vs/workbench/browser/positronComponents/customContextMenu/customContextMenuItem';
 
 /**
- * ContextMenuEntry type.
+ * CustomContextMenuEntry type.
  */
-export type ContextMenuEntry = ContextMenuItem | ContextMenuSeparator;
+export type CustomContextMenuEntry = CustomContextMenuItem | CustomContextMenuSeparator;
 
 /**
- * Shows a context menu.
+ * Shows a custom context menu.
+ * @param commandService The command service.
  * @param keybindingService The keybinding service.
  * @param layoutService The layout service.
  * @param anchor The anchor element.
  * @param popupAlignment The popup alignment.
- * @param width The with.
+ * @param width The width.
  * @param entries The context menu entries.
  */
-export const showContextMenu = async (
+export const showCustomContextMenu = async (
+	commandService: ICommandService,
 	keybindingService: IKeybindingService,
 	layoutService: ILayoutService,
 	anchor: HTMLElement,
 	popupAlignment: 'left' | 'right',
 	width: number,
-	entries: ContextMenuEntry[]
+	entries: CustomContextMenuEntry[]
 ) => {
 	// Create the renderer.
 	const renderer = new PositronModalReactRenderer({
@@ -51,7 +54,9 @@ export const showContextMenu = async (
 
 	// Show the context menu popup.
 	renderer.render(
-		<ContextMenuModalPopup
+		<CustomContextMenuModalPopup
+			commandService={commandService}
+			keybindingService={keybindingService}
 			renderer={renderer}
 			anchor={anchor}
 			popupAlignment={popupAlignment}
@@ -62,22 +67,24 @@ export const showContextMenu = async (
 };
 
 /**
- * ContextMenuModalPopupProps interface.
+ * CustomContextMenuModalPopupProps interface.
  */
-interface ContextMenuModalPopupProps {
-	renderer: PositronModalReactRenderer;
-	anchor: HTMLElement;
-	popupAlignment: 'left' | 'right';
-	width: number;
-	entries: ContextMenuEntry[];
+interface CustomContextMenuModalPopupProps {
+	readonly commandService: ICommandService;
+	readonly keybindingService: IKeybindingService;
+	readonly renderer: PositronModalReactRenderer;
+	readonly anchor: HTMLElement;
+	readonly popupAlignment: 'left' | 'right';
+	readonly width: number;
+	readonly entries: CustomContextMenuEntry[];
 }
 
 /**
- * ContextMenuModalPopup component.
- * @param props The component properties.
+ * CustomContextMenuModalPopup component.
+ * @param props A CustomContextMenuModalPopupProps that contains the component properties.
  * @returns The rendered component.
  */
-const ContextMenuModalPopup = (props: ContextMenuModalPopupProps) => {
+const CustomContextMenuModalPopup = (props: CustomContextMenuModalPopupProps) => {
 	/**
 	 * Dismisses the  modal popup.
 	 */
@@ -91,54 +98,74 @@ const ContextMenuModalPopup = (props: ContextMenuModalPopupProps) => {
 	 */
 	const MenuSeparator = () => {
 		// Render.
-		return <div className='context-menu-separator' />;
+		return <div className='custom-context-menu-separator' />;
 	};
 
 	/**
 	 * MenuItem component.
-	 * @param props A ContextMenuItemOptions that contains the component properties.
+	 * @param options A CustomContextMenuItemOptions that contains the options.
 	 * @returns The rendered component.
 	 */
-	const MenuItem = (props: ContextMenuItemOptions) => {
+	const MenuItem = (options: CustomContextMenuItemOptions) => {
+
+		let yack = '';
+		if (options.commandId) {
+			const keybinding = props.keybindingService.lookupKeybinding(options.commandId);
+
+			if (keybinding) {
+				const label = keybinding.getLabel();
+				if (label) {
+					yack = label;
+				}
+			}
+		}
+
 		// Render.
 		return (
 			<Button
-				className='context-menu-item'
-				disabled={props.disabled}
+				className={positronClassNames(
+					'custom-context-menu-item',
+					{ 'checkable': options.checked !== undefined }
+				)}
+				disabled={options.disabled}
 				onPressed={e => {
 					dismiss();
-					props.onSelected(e);
+
+					if (options.commandId) {
+						props.commandService.executeCommand(options.commandId);
+					}
+
+					options.onSelected(e);
 				}}
 			>
-				{props.checked !== undefined && props.checked &&
+				{options.checked !== undefined && options.checked &&
 					<div
 						className={`check codicon codicon-positron-check-mark`}
-						title={props.label}
+						title={options.label}
 					/>
 				}
-				<div
-					className={positronClassNames(
-						'title',
-						{ 'disabled': props.disabled }
-					)}
-					style={{
-						gridColumn: props.checked !== undefined ?
-							'title / icon' :
-							'check / icon'
-					}}>
-					{props.label}
-				</div>
-				{props.icon &&
+
+				{options.icon &&
 					<div
 						className={positronClassNames(
 							'icon',
 							'codicon',
-							`codicon-${props.icon}`,
-							{ 'disabled': props.disabled }
+							`codicon-${options.icon}`,
+							{ 'disabled': options.disabled }
 						)}
-						title={props.label}
+						title={options.label}
 					/>
 				}
+
+				<div
+					className={positronClassNames(
+						'title',
+						{ 'disabled': options.disabled }
+					)}
+				>
+					{options.label}
+				</div>
+				<div className='shortcut'>{yack}</div>
 			</Button>
 		);
 	};
@@ -155,11 +182,11 @@ const ContextMenuModalPopup = (props: ContextMenuModalPopupProps) => {
 			height={'min-content'}
 			keyboardNavigation='menu'
 		>
-			<div className='context-menu-items'>
+			<div className='custom-context-menu-items'>
 				{props.entries.map((entry, index) => {
-					if (entry instanceof ContextMenuItem) {
+					if (entry instanceof CustomContextMenuItem) {
 						return <MenuItem key={index} {...entry.options} />;
-					} else if (entry instanceof ContextMenuSeparator) {
+					} else if (entry instanceof CustomContextMenuSeparator) {
 						return <MenuSeparator key={index} />;
 					} else {
 						// This indicates a bug.

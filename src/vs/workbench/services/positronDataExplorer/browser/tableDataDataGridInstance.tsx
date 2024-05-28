@@ -8,17 +8,21 @@ import * as React from 'react';
 // Other dependencies.
 import { localize } from 'vs/nls';
 import { Emitter } from 'vs/base/common/event';
+import { ICommandService } from 'vs/platform/commands/common/commands';
+import { ILayoutService } from 'vs/platform/layout/browser/layoutService';
+import { IKeybindingService } from 'vs/platform/keybinding/common/keybinding';
 import { IColumnSortKey } from 'vs/workbench/browser/positronDataGrid/interfaces/columnSortKey';
-import { ContextMenuEntry } from 'vs/workbench/browser/positronComponents/contextMenu/contextMenu';
-import { ContextMenuItem } from 'vs/workbench/browser/positronComponents/contextMenu/contextMenuItem';
 import { DataExplorerCache } from 'vs/workbench/services/positronDataExplorer/common/dataExplorerCache';
 import { TableDataCell } from 'vs/workbench/services/positronDataExplorer/browser/components/tableDataCell';
-import { ContextMenuSeparator } from 'vs/workbench/browser/positronComponents/contextMenu/contextMenuSeparator';
 import { TableDataRowHeader } from 'vs/workbench/services/positronDataExplorer/browser/components/tableDataRowHeader';
+import { CustomContextMenuItem } from 'vs/workbench/browser/positronComponents/customContextMenu/customContextMenuItem';
 import { PositronDataExplorerColumn } from 'vs/workbench/services/positronDataExplorer/browser/positronDataExplorerColumn';
 import { ColumnSortKeyDescriptor, DataGridInstance } from 'vs/workbench/browser/positronDataGrid/classes/dataGridInstance';
 import { DataExplorerClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimeDataExplorerClient';
 import { BackendState, ColumnSchema, RowFilter } from 'vs/workbench/services/languageRuntime/common/positronDataExplorerComm';
+import { CustomContextMenuSeparator } from 'vs/workbench/browser/positronComponents/customContextMenu/customContextMenuSeparator';
+import { PositronDataExplorerCommandId } from 'vs/workbench/contrib/positronDataExplorerEditor/browser/positronDataExplorerActions';
+import { CustomContextMenuEntry, showCustomContextMenu } from 'vs/workbench/browser/positronComponents/customContextMenu/customContextMenu';
 
 /**
  * Localized strings.
@@ -32,16 +36,6 @@ export class TableDataDataGridInstance extends DataGridInstance {
 	//#region Private Properties
 
 	/**
-	 * Gets the data explorer client instance.
-	 */
-	private readonly _dataExplorerClientInstance: DataExplorerClientInstance;
-
-	/**
-	 * Gets the data explorer cache.
-	 */
-	private readonly _dataExplorerCache: DataExplorerCache;
-
-	/**
 	 * The onAddFilter event emitter.
 	 */
 	private readonly _onAddFilterEmitter = this._register(new Emitter<ColumnSchema>);
@@ -52,12 +46,18 @@ export class TableDataDataGridInstance extends DataGridInstance {
 
 	/**
 	 * Constructor.
-	 * @param dataExplorerClientInstance The DataExplorerClientInstance.
-	 * @param dataExplorerCache The DataExplorerCache.
+	 * @param _commandService The command service.
+	 * @param _keybindingService The keybinding service.
+	 * @param _layoutService The layout service.
+	 * @param _dataExplorerClientInstance The DataExplorerClientInstance.
+	 * @param _dataExplorerCache The DataExplorerCache.
 	 */
 	constructor(
-		dataExplorerClientInstance: DataExplorerClientInstance,
-		dataExplorerCache: DataExplorerCache
+		private readonly _commandService: ICommandService,
+		private readonly _keybindingService: IKeybindingService,
+		private readonly _layoutService: ILayoutService,
+		private readonly _dataExplorerClientInstance: DataExplorerClientInstance,
+		private readonly _dataExplorerCache: DataExplorerCache
 	) {
 		// Call the base class's constructor.
 		super({
@@ -80,12 +80,6 @@ export class TableDataDataGridInstance extends DataGridInstance {
 			internalCursor: true,
 			cursorOffset: 0.5,
 		});
-
-		// Setup the data explorer client instance.
-		this._dataExplorerClientInstance = dataExplorerClientInstance;
-
-		// Set the data explorer cache.
-		this._dataExplorerCache = dataExplorerCache;
 
 		// Add the onDidUpdateCache event handler.
 		this._register(this._dataExplorerCache.onDidUpdateCache(() =>
@@ -141,29 +135,6 @@ export class TableDataDataGridInstance extends DataGridInstance {
 	//#endregion DataGridInstance Properties
 
 	//#region DataGridInstance Methods
-
-	/**
-	 * Returns column context menu entries.
-	 * @param columnIndex The column index.
-	 * @returns The column context menu entries.
-	 */
-	override columnContextMenuEntries(columnIndex: number): ContextMenuEntry[] {
-		return [
-			new ContextMenuSeparator(),
-			new ContextMenuItem({
-				checked: false,
-				label: addFilterTitle,
-				disabled: false,
-				icon: 'positron-add-filter',
-				onSelected: () => {
-					const columnSchema = this._dataExplorerCache.getColumnSchema(columnIndex);
-					if (columnSchema) {
-						this._onAddFilterEmitter.fire(columnSchema);
-					}
-				}
-			}),
-		];
-	}
 
 	/**
 	 * Sorts the data.
@@ -245,7 +216,111 @@ export class TableDataDataGridInstance extends DataGridInstance {
 
 		// Return the TableDataCell.
 		return (
-			<TableDataCell column={column} dataCell={dataCell} />
+			<TableDataCell
+				column={column}
+				dataCell={dataCell}
+			/>
+		);
+	}
+
+	/**
+	 * Shows the column context menu.
+	 * @param anchor The anchor element.
+	 * @param columnIndex The column index.
+	 */
+	override async showColumnContextMenu(anchor: HTMLElement, columnIndex: number): Promise<void> {
+		/**
+		 * Get the column sort key for the column.
+		 */
+		const columnSortKey = this.columnSortKey(columnIndex);
+
+		// Show the custom context menu.
+		await showCustomContextMenu(
+			this._commandService,
+			this._keybindingService,
+			this._layoutService,
+			anchor,
+			'right',
+			200,
+			[
+				new CustomContextMenuItem({
+					checked: columnSortKey !== undefined && columnSortKey.ascending,
+					icon: 'arrow-up',
+					label: localize('positron.sortAscending', "Sort Ascending"),
+					onSelected: async () => this.setColumnSortKey(
+						columnIndex,
+						true
+					)
+				}),
+				new CustomContextMenuItem({
+					checked: columnSortKey !== undefined && !columnSortKey.ascending,
+					icon: 'arrow-down',
+					label: localize('positron.sortDescending', "Sort Descending"),
+					onSelected: async () => this.setColumnSortKey(
+						columnIndex,
+						false
+					)
+				}),
+				new CustomContextMenuSeparator(),
+				new CustomContextMenuItem({
+					checked: false,
+					icon: 'positron-clear-sorting',
+					label: localize('positron.clearSorting', "Clear Sorting"),
+					disabled: !columnSortKey,
+					onSelected: async () =>
+						this.removeColumnSortKey(columnIndex)
+				}),
+				new CustomContextMenuSeparator(),
+				new CustomContextMenuItem({
+					checked: false,
+					icon: 'positron-add-filter',
+					label: addFilterTitle,
+					disabled: false,
+					onSelected: () => {
+						const columnSchema = this._dataExplorerCache.getColumnSchema(columnIndex);
+						if (columnSchema) {
+							this._onAddFilterEmitter.fire(columnSchema);
+						}
+					}
+				}),
+			]
+		);
+	}
+
+	/**
+	 * Shows the cell context menu.
+	 * @param anchor The anchor element.
+	 * @param columnIndex The column index.
+	 * @param rowIndex The row index.
+	 */
+	override async showCellContextMenu(anchor: HTMLElement): Promise<void> {
+		// Build the context menu entries.
+		const entries: CustomContextMenuEntry[] = [];
+		entries.push(new CustomContextMenuItem({
+			commandId: PositronDataExplorerCommandId.CopyAction,
+			icon: 'copy',
+			label: localize('positron.dataExplorer.copy', "Copy"),
+			onSelected: () => console.log('Copy')
+		}));
+		entries.push(new CustomContextMenuSeparator());
+		entries.push(new CustomContextMenuItem({
+			label: localize('positron.dataExplorer.selectColumn', "Select Column"),
+			onSelected: () => console.log('Select Column')
+		}));
+		entries.push(new CustomContextMenuItem({
+			label: localize('positron.dataExplorer.selectRow', "Select Row"),
+			onSelected: () => console.log('Select Row')
+		}));
+
+		// Show the custom context menu.
+		await showCustomContextMenu(
+			this._commandService,
+			this._keybindingService,
+			this._layoutService,
+			anchor,
+			'left',
+			200,
+			entries
 		);
 	}
 

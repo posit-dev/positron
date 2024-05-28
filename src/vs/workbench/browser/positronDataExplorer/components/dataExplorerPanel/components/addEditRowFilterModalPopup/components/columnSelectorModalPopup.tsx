@@ -84,7 +84,6 @@ export const ColumnSelectorModalPopup = (props: ColumnSelectorModalPopupProps) =
 				<div className='view' style={{ height: 400 }}>
 					<PositronDataGrid
 						configurationService={props.configurationService}
-						keybindingService={props.renderer.keybindingService}
 						layoutService={props.renderer.layoutService}
 						ref={positronDataGridRef}
 						id='column-positron-data-grid'
