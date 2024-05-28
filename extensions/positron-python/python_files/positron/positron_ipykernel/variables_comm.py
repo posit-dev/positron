@@ -153,6 +153,10 @@ class Variable(BaseModel):
         description="True if the 'value' field is a truncated representation of the variable's value",
     )
 
+    updated_time: StrictInt = Field(
+        description="The time the variable was created or updated, in milliseconds since the epoch, or 0 if unknown.",
+    )
+
 
 @enum.unique
 class VariablesBackendRequest(str, enum.Enum):
@@ -379,6 +383,10 @@ class UpdateParams(BaseModel):
 
     assigned: List[Variable] = Field(
         description="An array of variables that have been newly assigned.",
+    )
+
+    unevaluated: List[Variable] = Field(
+        description="An array of variables that were not evaluated for value updates.",
     )
 
     removed: List[StrictStr] = Field(

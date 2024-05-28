@@ -5,7 +5,6 @@
 import { Emitter } from 'vs/base/common/event';
 import { Disposable } from 'vs/base/common/lifecycle';
 import { ILogService } from 'vs/platform/log/common/log';
-import { ILanguageService } from 'vs/editor/common/languages/language';
 import { InstantiationType, registerSingleton } from 'vs/platform/instantiation/common/extensions';
 import { PositronVariablesInstance } from 'vs/workbench/services/positronVariables/common/positronVariablesInstance';
 import { IPositronVariablesService } from 'vs/workbench/services/positronVariables/common/interfaces/positronVariablesService';
@@ -15,6 +14,7 @@ import { ILanguageRuntimeSession, IRuntimeSessionService } from '../../runtimeSe
 import { INotificationService } from 'vs/platform/notification/common/notification';
 import { RuntimeClientState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeClientInstance';
 import { isEqual } from 'vs/base/common/resources';
+import { IAccessibilityService } from 'vs/platform/accessibility/common/accessibility';
 
 /**
  * PositronVariablesService class.
@@ -52,15 +52,15 @@ class PositronVariablesService extends Disposable implements IPositronVariablesS
 	/**
 	 * Constructor.
 	 * @param _runtimeSessionService The language runtime service.
-	 * @param _languageService The language service.
 	 * @param _logService The log service.
 	 * @param _notificationService The notification service.
+	 * @param _accessibilityService The accessibility service.
 	 */
 	constructor(
-		@IRuntimeSessionService private _runtimeSessionService: IRuntimeSessionService,
-		@ILanguageService _languageService: ILanguageService,
-		@ILogService private _logService: ILogService,
-		@INotificationService private _notificationService: INotificationService
+		@IRuntimeSessionService private readonly _runtimeSessionService: IRuntimeSessionService,
+		@ILogService private readonly _logService: ILogService,
+		@INotificationService private readonly _notificationService: INotificationService,
+		@IAccessibilityService private readonly _accessibilityService: IAccessibilityService
 	) {
 		// Call the disposable constrcutor.
 		super();
@@ -236,7 +236,7 @@ class PositronVariablesService extends Disposable implements IPositronVariablesS
 	private startPositronVariablesInstance(session: ILanguageRuntimeSession): IPositronVariablesInstance {
 		// Create the new Positron variables instance.
 		const positronVariablesInstance = new PositronVariablesInstance(
-			session, this._logService, this._notificationService);
+			session, this._logService, this._notificationService, this._accessibilityService);
 
 		this._positronVariablesInstancesBySessionId.set(
 			session.sessionId,

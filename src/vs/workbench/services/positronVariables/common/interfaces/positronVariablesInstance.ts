@@ -23,7 +23,8 @@ export const enum PositronVariablesGrouping {
  */
 export const enum PositronVariablesSorting {
 	Name,
-	Size
+	Size,
+	Recent
 }
 
 /**
@@ -81,6 +82,11 @@ export interface IPositronVariablesInstance {
 	 * Gets or sets the sorting.
 	 */
 	sorting: PositronVariablesSorting;
+
+	/**
+	 * Gets or sets recent value highlight.
+	 */
+	highlightRecent: boolean;
 
 	/**
 	 * The onDidChangeEntries event.

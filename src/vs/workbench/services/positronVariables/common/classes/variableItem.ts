@@ -7,6 +7,7 @@ import { IVariableItem } from 'vs/workbench/services/positronVariables/common/in
 import { VariableOverflow } from 'vs/workbench/services/positronVariables/common/classes/variableOverflow';
 import { PositronVariable } from 'vs/workbench/services/languageRuntime/common/languageRuntimeVariablesClient';
 import { ClipboardFormatFormat } from 'vs/workbench/services/languageRuntime/common/positronVariablesComm';
+import { ISettableObservable, observableValue } from 'vs/base/common/observable';
 
 /**
  * VariableItem class. This is used to represent an variable in a language runtime.
@@ -33,6 +34,12 @@ export class VariableItem implements IVariableItem {
 	 * Gets or sets a value which indicates whether the variable item is expanded.
 	 */
 	private _expanded = false;
+
+	/**
+	 * A value which indicates whether the variable item has been recently
+	 * updated.
+	 */
+	private readonly _isRecent: ISettableObservable<boolean>;
 
 	//#endregion Private Properties
 
@@ -161,6 +168,18 @@ export class VariableItem implements IVariableItem {
 		this._expanded = value;
 	}
 
+	get updatedTime() {
+		return this._variable.data.updated_time;
+	}
+
+	/**
+	 * Get the value which indicates whether the variable item has been recently
+	 * updated.
+	 */
+	get isRecent() {
+		return this._isRecent;
+	}
+
 	//#endregion Public Properties
 
 	//#region Constructor
@@ -168,9 +187,14 @@ export class VariableItem implements IVariableItem {
 	/**
 	 * Constructor.
 	 * @param name The variable.
+	 * @param isRecent Whether the variable item is newly created or updated.
 	 */
-	constructor(variable: PositronVariable) {
+	constructor(variable: PositronVariable, isRecent: boolean) {
 		this._variable = variable;
+		this._isRecent = observableValue(variable.data.access_key, isRecent);
+
+		// Clear recent flag after 2 seconds.
+		setTimeout(() => this._isRecent.set(false, undefined), 2000);
 	}
 
 	//#endregion Constructor
@@ -216,7 +240,7 @@ export class VariableItem implements IVariableItem {
 		const promises: Promise<void>[] = [];
 		for (const variable of environmentClientList.variables) {
 			// Create and add the variable item.
-			const variableItem = new VariableItem(variable);
+			const variableItem = new VariableItem(variable, false);
 			this._childEntries.set(variableItem.accessKey, variableItem);
 
 			// If the child variable item has children and is expanded, recursively load its

@@ -5,7 +5,7 @@
 import 'vs/css!./groupingMenuButton';
 import * as React from 'react';
 import { localize } from 'vs/nls';
-import { IAction } from 'vs/base/common/actions';
+import { IAction, Separator } from 'vs/base/common/actions';
 import { ActionBarMenuButton } from 'vs/platform/positronActionBar/browser/components/actionBarMenuButton';
 import { usePositronVariablesContext } from 'vs/workbench/contrib/positronVariables/browser/positronVariablesContext';
 import { PositronVariablesSorting } from 'vs/workbench/services/positronVariables/common/interfaces/positronVariablesInstance';
@@ -33,6 +33,8 @@ export const SortingMenuButton = () => {
 		// Get the current sorting.
 		const sorting = positronVariablesContext.activePositronVariablesInstance.
 			sorting;
+		const highlightRecent = positronVariablesContext.activePositronVariablesInstance.
+			highlightRecent;
 
 		// Build the actions.
 		const actions: IAction[] = [];
@@ -40,7 +42,7 @@ export const SortingMenuButton = () => {
 		// Name.
 		actions.push({
 			id: 'Name',
-			label: 'Name',
+			label: localize('positronVariables.sortByName', "Name"),
 			tooltip: '',
 			class: undefined,
 			enabled: true,
@@ -58,7 +60,7 @@ export const SortingMenuButton = () => {
 		// Size.
 		actions.push({
 			id: 'Size',
-			label: 'Size',
+			label: localize('positronVariables.sortBySize', "Size"),
 			tooltip: '',
 			class: undefined,
 			enabled: true,
@@ -70,6 +72,45 @@ export const SortingMenuButton = () => {
 
 				positronVariablesContext.activePositronVariablesInstance.sorting =
 					PositronVariablesSorting.Size;
+			}
+		});
+
+		// Recent.
+		actions.push({
+			id: 'Recent',
+			label: localize('positronVariables.sortByRecent', "Recent"),
+			tooltip: '',
+			class: undefined,
+			enabled: true,
+			checked: sorting === PositronVariablesSorting.Recent,
+			run: () => {
+				if (!positronVariablesContext.activePositronVariablesInstance) {
+					return;
+				}
+
+				positronVariablesContext.activePositronVariablesInstance.sorting =
+					PositronVariablesSorting.Recent;
+			}
+		});
+
+		// Add a separtor between the sorting and the highlight recent actions.
+		actions.push(new Separator());
+
+		// Toggle for highlighting recent values.
+		actions.push({
+			id: 'Highlight Recent',
+			label: localize('positronVariables.highlightRecent', "Highlight recent values"),
+			tooltip: '',
+			class: undefined,
+			enabled: true,
+			checked: highlightRecent,
+			run: () => {
+				if (!positronVariablesContext.activePositronVariablesInstance) {
+					return;
+				}
+
+				positronVariablesContext.activePositronVariablesInstance.highlightRecent =
+					!highlightRecent;
 			}
 		});
 

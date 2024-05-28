@@ -21,6 +21,16 @@
 					}
 				},
 				{
+					"name": "unevaluated",
+					"description": "An array of variables that were not evaluated for value updates.",
+					"schema": {
+						"type": "array",
+						"items": {
+							"$ref": "#/components/schemas/variable"
+						}
+					}
+				},
+				{
 					"name": "removed",
 					"description": "An array of variable names that have been removed.",
 					"schema": {
