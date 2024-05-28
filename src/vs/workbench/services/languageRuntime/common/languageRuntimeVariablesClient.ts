@@ -19,11 +19,13 @@ export class PositronVariable {
 	 * @param data The raw data from the language runtime.
 	 * @param parentKeys A list of the access keys of the parent variables, if any;
 	 *   used to construct the full path to this variable.
+	 * @param evaluated A flag indicating whether the variable was evaluated.
 	 * @param _envClient The client instance that owns this variable.
 	 */
 	constructor(
 		public readonly data: Variable,
 		public readonly parentKeys: Array<string> = [],
+		public readonly evaluated: boolean,
 		private readonly _comm: PositronVariablesComm) {
 	}
 
@@ -90,7 +92,7 @@ export class PositronVariablesList {
 		public readonly data: Array<Variable>,
 		parentKeys: Array<string> = [],
 		comm: PositronVariablesComm) {
-		this.variables = data.map(v => new PositronVariable(v, parentKeys, comm));
+		this.variables = data.map(v => new PositronVariable(v, parentKeys, true, comm));
 	}
 }
 
@@ -107,7 +109,15 @@ export class PositronVariablesUpdate {
 	constructor(
 		public readonly data: UpdateEvent,
 		comm: PositronVariablesComm) {
-		this.assigned = data.assigned.map(v => new PositronVariable(v, [], comm));
+		// Add all the assigned variables to the list of assignments
+		this.assigned = data.assigned.map(v => new PositronVariable(v, [], true, comm));
+
+		// Add all the unevaluated variables to the list of assignments, but
+		// mark them as unevaluated
+		this.assigned = this.assigned.concat(
+			data.unevaluated.map(
+				v => new PositronVariable(v, [], false, comm)));
+
 		this.removed = data.removed;
 	}
 }
@@ -184,6 +194,7 @@ export class VariablesClientInstance extends Disposable {
 		const removed = await this._comm.delete(names);
 		return new PositronVariablesUpdate({
 			assigned: [],
+			unevaluated: [],
 			removed,
 			version: 0
 		}, this._comm);

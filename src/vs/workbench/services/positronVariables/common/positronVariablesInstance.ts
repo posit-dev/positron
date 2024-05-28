@@ -10,7 +10,7 @@ import { VariableGroup } from 'vs/workbench/services/positronVariables/common/cl
 import { VariableOverflow } from 'vs/workbench/services/positronVariables/common/classes/variableOverflow';
 import { RuntimeState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { ILanguageRuntimeSession, RuntimeClientType } from '../../runtimeSession/common/runtimeSessionService';
-import { sortVariableItemsByName, sortVariableItemsBySize } from 'vs/workbench/services/positronVariables/common/helpers/utils';
+import { sortVariableItemsByName, sortVariableItemsByRecent, sortVariableItemsBySize } from 'vs/workbench/services/positronVariables/common/helpers/utils';
 import { PositronVariablesList, PositronVariablesUpdate, VariablesClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimeVariablesClient';
 import { VariableEntry, IPositronVariablesInstance, PositronVariablesGrouping, PositronVariablesSorting } from 'vs/workbench/services/positronVariables/common/interfaces/positronVariablesInstance';
 import { VariableKind } from 'vs/workbench/services/languageRuntime/common/positronVariablesComm';
@@ -18,6 +18,7 @@ import { INotificationService } from 'vs/platform/notification/common/notificati
 import { PositronCommError } from 'vs/workbench/services/languageRuntime/common/positronBaseComm';
 import { localize } from 'vs/nls';
 import { RuntimeClientState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeClientInstance';
+import { IAccessibilityService } from 'vs/platform/accessibility/common/accessibility';
 
 /**
  * Constants.
@@ -67,6 +68,11 @@ export class PositronVariablesInstance extends Disposable implements IPositronVa
 	 * Gets or sets the filter text.
 	 */
 	private _filterText = '';
+
+	/**
+	 * Gets or sets the "highlight recent values" behavior.
+	 */
+	private _highlightRecent = true;
 
 	/**
 	 * Gets the collapsed groups set, which is used to keep track of which groups the user has
@@ -119,13 +125,17 @@ export class PositronVariablesInstance extends Disposable implements IPositronVa
 	constructor(
 		session: ILanguageRuntimeSession,
 		@ILogService private _logService: ILogService,
-		@INotificationService private _notificationService: INotificationService
+		@INotificationService private _notificationService: INotificationService,
+		@IAccessibilityService private _accessibilityService: IAccessibilityService
 	) {
 		// Call the base class's constructor.
 		super();
 
 		// Set the runtime.
 		this._session = session;
+
+		// Set highlight recent value default based on accessibility service.
+		this._highlightRecent = !this._accessibilityService.isMotionReduced();
 
 		// Attach to the runtime.
 		this.attachRuntime();
@@ -202,6 +212,20 @@ export class PositronVariablesInstance extends Disposable implements IPositronVa
 
 		// Update entries.
 		this.updateEntries();
+	}
+
+	/**
+	 * Gets the highlight recent setting.
+	 */
+	get highlightRecent(): boolean {
+		return this._highlightRecent;
+	}
+
+	/**
+	 * Sets the highlight recent setting.
+	 */
+	set highlightRecent(highlighRecent: boolean) {
+		this._highlightRecent = highlighRecent;
 	}
 
 	/**
@@ -506,7 +530,7 @@ export class PositronVariablesInstance extends Disposable implements IPositronVa
 		const promises: Promise<void>[] = [];
 		for (const environmentVariable of variablesList.variables) {
 			// Create the variable item.
-			const variableItem = new VariableItem(environmentVariable);
+			const variableItem = new VariableItem(environmentVariable, false);
 
 			// Add the variable item.
 			variableItems.set(variableItem.accessKey, variableItem);
@@ -539,14 +563,20 @@ export class PositronVariablesInstance extends Disposable implements IPositronVa
 		 */
 		const isExpanded = (path: string[]) => this._expandedPaths.has(JSON.stringify(path));
 
+		// Clear the recency flag from all existing variables, so they don't get
+		// re-highlighted as recent on the next update.
+		this._variableItems.forEach(variableItem => variableItem.isRecent.set(false, undefined));
+
 		// Add / replace assigned variable items.
 		const promises: Promise<void>[] = [];
 		for (let i = 0; i < environmentClientUpdate.assigned.length; i++) {
 			// Get the environment variable.
 			const environmentVariable = environmentClientUpdate.assigned[i];
 
-			// Create the variable item.
-			const variableItem = new VariableItem(environmentVariable);
+			// Create the variable item. Mark it as recent if it was just
+			// assigned and we're highlighting recent values.
+			const variableItem = new VariableItem(environmentVariable,
+				environmentVariable.evaluated && this._highlightRecent);
 
 			// Add the variable item.
 			this._variableItems.set(variableItem.accessKey, variableItem);
@@ -616,6 +646,11 @@ export class PositronVariablesInstance extends Disposable implements IPositronVa
 			// Sort the variable items by size.
 			case PositronVariablesSorting.Size:
 				sortVariableItemsBySize(items);
+				break;
+
+			// Sort the variable items by recency.
+			case PositronVariablesSorting.Recent:
+				sortVariableItemsByRecent(items);
 				break;
 		}
 
@@ -790,6 +825,11 @@ export class PositronVariablesInstance extends Disposable implements IPositronVa
 			// Sort by size.
 			case PositronVariablesSorting.Size:
 				sortVariableItemsBySize(items);
+				break;
+
+			// Sort by recency.
+			case PositronVariablesSorting.Recent:
+				sortVariableItemsByRecent(items);
 				break;
 		}
 
