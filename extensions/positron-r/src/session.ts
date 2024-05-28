@@ -671,7 +671,7 @@ export function createJupyterKernelSpec(
 	const env = <Record<string, string>>{
 		'POSITRON': '1',
 		'RUST_BACKTRACE': '1',
-		'RUST_LOG': logLevel,
+		'RUST_LOG': 'warn,ark=' + logLevel,
 		'R_HOME': rHomePath,
 		...userEnv
 	};
