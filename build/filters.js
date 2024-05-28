@@ -30,6 +30,7 @@ module.exports.all = [
 	// --- Start Positron ---
 	'!**/amalthea/**/*',
 	'!extensions/positron-python/**/*',
+	'!test/smoke/test-repo/**/*'
 	// --- End Positron ---
 ];
 

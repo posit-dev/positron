@@ -24,7 +24,7 @@ export class PositronDataExplorer {
 		const headers = await this.code.waitForElements(`${COLUMN_HEADERS} ${HEADER_TITLES}`, false, (elements) =>
 			elements.length === expectedColumns && elements.every((element) => element.textContent !== ''));
 		const rows = await this.code.waitForElements(`${DATA_GRID_ROWS} ${DATA_GRID_ROW}`, true, (elements) =>
-			elements.length === expectedRows);
+			elements.length === expectedRows && elements.every((element) => element.children.every((child) => child.textContent !== '')));
 		const headerNames = headers.map((header) => header.textContent);
 
 		const tableData: object[] = [];
