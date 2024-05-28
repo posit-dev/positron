@@ -25,7 +25,7 @@ import { ICommandService } from 'vs/platform/commands/common/commands';
 import { ILogService } from 'vs/platform/log/common/log';
 import { IOpenerService } from 'vs/platform/opener/common/opener';
 import { IPositronNewProjectService, NewProjectConfiguration } from 'vs/workbench/services/positronNewProject/common/positronNewProject';
-import { EnvironmentSetupType, NewProjectWizardStep } from 'vs/workbench/browser/positronNewProjectWizard/interfaces/newProjectWizardEnums';
+import { EnvironmentSetupType, NewProjectWizardStep, PythonEnvironmentProvider } from 'vs/workbench/browser/positronNewProjectWizard/interfaces/newProjectWizardEnums';
 import { IWorkspaceTrustManagementService } from 'vs/platform/workspace/common/workspaceTrust';
 
 /**
@@ -83,8 +83,12 @@ export const showNewProjectModalDialog = async (
 					}
 
 					// The python environment type is only relevant if a new environment is being created.
-					const pythonEnvType =
-						result.pythonEnvSetupType === EnvironmentSetupType.NewEnvironment
+					const pythonEnvProviderId =
+						result.pythonEnvSetupType ===
+							EnvironmentSetupType.NewEnvironment &&
+							// TODO: Conda isn't supported yet, so don't set the env provider if it's conda.
+							result.pythonEnvProviderName !==
+							PythonEnvironmentProvider.Conda
 							? result.pythonEnvProviderId
 							: '';
 
@@ -116,7 +120,7 @@ export const showNewProjectModalDialog = async (
 						projectFolder: folder.fsPath,
 						projectName: result.projectName,
 						initGitRepo: result.initGitRepo,
-						pythonEnvType: pythonEnvType || '',
+						pythonEnvProviderId: pythonEnvProviderId || '',
 						installIpykernel: result.installIpykernel || false,
 						useRenv: result.useRenv || false,
 					};
