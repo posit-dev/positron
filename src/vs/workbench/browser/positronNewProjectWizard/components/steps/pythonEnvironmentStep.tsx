@@ -23,6 +23,9 @@ import { DisposableStore } from 'vs/base/common/lifecycle';
 import { DropDownListBox } from 'vs/workbench/browser/positronComponents/dropDownListBox/dropDownListBox';
 import { interpretersToDropdownItems } from 'vs/workbench/browser/positronNewProjectWizard/utilities/interpreterDropDownUtils';
 
+// NOTE: If you are making changes to this file, the equivalent R component may benefit from similar
+// changes. See src/vs/workbench/browser/positronNewProjectWizard/components/steps/rConfigurationStep.tsx
+
 /**
  * The PythonEnvironmentStep component is specific to Python projects in the new project wizard.
  * @param props The NewProjectWizardStepProps
@@ -46,6 +49,7 @@ export const PythonEnvironmentStep = (props: PropsWithChildren<NewProjectWizardS
 	const [selectedInterpreter, setSelectedInterpreter] = useState(context.selectedRuntime);
 	const [preferredInterpreter, setPreferredInterpreter] = useState(context.preferredInterpreter);
 	const [willInstallIpykernel, setWillInstallIpykernel] = useState(context.installIpykernel ?? false);
+	const [minimumPythonVersion, setMinimumPythonVersion] = useState(context.minimumPythonVersion);
 
 	useEffect(() => {
 		// Create the disposable store for cleanup.
@@ -60,12 +64,22 @@ export const PythonEnvironmentStep = (props: PropsWithChildren<NewProjectWizardS
 			setSelectedInterpreter(context.selectedRuntime);
 			setPreferredInterpreter(context.preferredInterpreter);
 			setWillInstallIpykernel(context.installIpykernel ?? false);
+			setMinimumPythonVersion(context.minimumPythonVersion);
 		}));
 
 		// Return the cleanup function that will dispose of the event handlers.
 		return () => disposableStore.dispose();
 	}, [context]);
 
+	// Utility functions.
+	const isNewEnvForConda = () =>
+		envSetupType === EnvironmentSetupType.NewEnvironment &&
+		envProviderNameForId(envProviderId, envProviders) ===
+		PythonEnvironmentProvider.Conda;
+	const interpretersAvailable = () =>
+		Boolean(interpreters && interpreters.length) || isNewEnvForConda();
+
+	// Radio buttons for selecting the environment setup type.
 	const envSetupRadioButtons: RadioButtonItem[] = [
 		new RadioButtonItem({
 			identifier: EnvironmentSetupType.NewEnvironment,
@@ -109,6 +123,90 @@ export const PythonEnvironmentStep = (props: PropsWithChildren<NewProjectWizardS
 		context.selectedRuntime = selectedRuntime;
 	};
 
+	// Construct the feedback message for the interpreter step.
+	const interpreterStepFeedback = () => {
+		// For existing environments, if an interpreter is selected and ipykernel will be installed,
+		// show a message to notify the user that ipykernel will be installed.
+		if (envSetupType === EnvironmentSetupType.ExistingEnvironment &&
+			selectedInterpreter &&
+			willInstallIpykernel) {
+			return (
+				<WizardFormattedText
+					type={WizardFormattedTextType.Info}
+				>
+					<code>ipykernel</code>
+					{(() =>
+						localize(
+							'pythonInterpreterSubStep.feedback',
+							" will be installed for Python language support."
+						))()}
+				</WizardFormattedText>
+			);
+		}
+
+		// For new environments, if no environment providers were found, show a message to notify
+		// the user that interpreters can't be shown since no environment providers were found.
+		if (envSetupType === EnvironmentSetupType.NewEnvironment &&
+			envProviders.length === 0) {
+			return (
+				<WizardFormattedText
+					type={WizardFormattedTextType.Warning}
+				>
+					{(() =>
+						localize(
+							'pythonInterpreterSubStep.feedback.noInterpretersAvailable',
+							"No interpreters available since no environment providers were found."
+						))()}
+				</WizardFormattedText>
+			);
+		}
+
+		// If the interpreters list is empty, show a message that no interpreters were found.
+		if (!interpretersAvailable()) {
+			return (
+				<WizardFormattedText
+					type={WizardFormattedTextType.Warning}
+				>
+					{(() =>
+						localize(
+							'pythonInterpreterSubStep.feedback.noSuitableInterpreters',
+							"No suitable interpreters found. Please install a Python interpreter with version {0} or later.",
+							minimumPythonVersion
+						))()}
+				</WizardFormattedText>
+			);
+		}
+
+		// If none of the above conditions are met, no feedback is shown.
+		return undefined;
+	};
+
+	// Construct the interpreter dropdown title.
+	const interpreterDropdownTitle = () => {
+		// If interpreters is undefined, show a loading message.
+		if (!interpreters) {
+			return localize(
+				'pythonInterpreterSubStep.dropDown.title.loading',
+				"Loading interpreters..."
+			);
+		}
+
+		// If interpreters is empty, show a message that no interpreters were found.
+		if (!interpretersAvailable()) {
+			return localize(
+				'pythonInterpreterSubStep.dropDown.title.noInterpreters',
+				"No interpreters found."
+			);
+		}
+
+		// Otherwise, show the default title.
+		return localize(
+			'pythonInterpreterSubStep.dropDown.title',
+			"Select a Python interpreter"
+		);
+	};
+
+	// Render.
 	return (
 		<PositronWizardStep
 			title={(() => localize(
@@ -233,65 +331,22 @@ export const PythonEnvironmentStep = (props: PropsWithChildren<NewProjectWizardS
 						'pythonInterpreterSubStep.description',
 						"Select a Python installation for your project. You can modify this later if you change your mind."
 					))()}
-				feedback={
-					envSetupType === EnvironmentSetupType.ExistingEnvironment &&
-						selectedInterpreter &&
-						willInstallIpykernel ? (
-						<WizardFormattedText
-							type={WizardFormattedTextType.Info}
-						>
-							<code>ipykernel</code>
-							{(() =>
-								localize(
-									'pythonInterpreterSubStep.feedback',
-									" will be installed for Python language support."
-								))()}
-						</WizardFormattedText>
-					) : envSetupType === EnvironmentSetupType.NewEnvironment &&
-						envProviders.length === 0 ? (
-						<WizardFormattedText
-							type={WizardFormattedTextType.Warning}
-						>
-							{(() =>
-								localize(
-									'pythonInterpreterSubStep.feedback.noInterpretersAvailable',
-									"No interpreters available since no environment providers were found."
-								))()}
-						</WizardFormattedText>
-					) : undefined
-				}
+				feedback={interpreterStepFeedback()}
 			>
 				{envSetupType === EnvironmentSetupType.ExistingEnvironment || envProviders.length > 0 ? (
 					<DropDownListBox
 						keybindingService={keybindingService}
 						layoutService={layoutService}
-						disabled={!interpreters}
-						title={(() =>
-							!interpreters
-								? localize(
-									'pythonInterpreterSubStep.dropDown.title.loading',
-									"Loading interpreters..."
-								)
-								: localize(
-									'pythonInterpreterSubStep.dropDown.title',
-									"Select a Python interpreter"
-								))()}
-						// TODO: if the runtime startup phase is complete, but there are no suitable
-						// interpreters, show a message that no suitable interpreters were found and the
-						// user should install an interpreter with minimum version
+						disabled={!interpretersAvailable()}
+						title={interpreterDropdownTitle()}
 						entries={
-							interpreters
+							interpretersAvailable()
 								? interpretersToDropdownItems(
-									interpreters,
+									interpreters!,
 									preferredInterpreter?.runtimeId,
 									// TODO: remove this temporary flag once we are retrieving the
 									// list of interpreters from the conda service
-									envSetupType ===
-									EnvironmentSetupType.NewEnvironment &&
-									envProviderNameForId(
-										envProviderId,
-										envProviders
-									) === PythonEnvironmentProvider.Conda
+									isNewEnvForConda()
 								)
 								: []
 						}

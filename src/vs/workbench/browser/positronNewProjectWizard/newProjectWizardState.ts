@@ -103,8 +103,10 @@ export class NewProjectWizardStateManager
 	private _pythonEnvSetupType: EnvironmentSetupType | undefined;
 	private _pythonEnvProviderId: string | undefined;
 	private _installIpykernel: boolean | undefined;
+	private _minimumPythonVersion: string | undefined;
 	// R-specific state.
 	private _useRenv: boolean | undefined;
+	private _minimumRVersion: string | undefined;
 
 	// The steps in the New Project Wizard.
 	private _steps: NewProjectWizardStep[];
@@ -144,11 +146,14 @@ export class NewProjectWizardStateManager
 		this._interpreters = undefined;
 		this._preferredInterpreter = undefined;
 		this._runtimeStartupComplete = false;
+		this._minimumPythonVersion = undefined;
+		this._minimumRVersion = undefined;
 
 		if (this._services.runtimeStartupService.startupPhase === RuntimeStartupPhase.Complete) {
 			// If the runtime startup is already complete, set the Python environment providers and
 			// update the interpreter-related state.
 			this._setPythonEnvProviders()
+				.then(() => this._setMinimumInterpreterVersions())
 				.then(() => {
 					this._runtimeStartupComplete = true;
 					this._updateInterpreterRelatedState();
@@ -163,11 +168,22 @@ export class NewProjectWizardStateManager
 							// At this phase, the extensions that provide language runtimes will
 							// have been activated.
 							await this._setPythonEnvProviders();
+							await this._setMinimumInterpreterVersions();
 						} else if (phase === RuntimeStartupPhase.Complete) {
 							if (!this._pythonEnvProviders.length) {
 								// In case the runtime startup phase is complete and the providers
 								// are not set, set the providers.
 								await this._setPythonEnvProviders();
+							}
+							if (!this._minimumPythonVersion) {
+								// In case the runtime startup phase is complete and the minimum
+								// Python version is not set, set the minimum Python version.
+								await this._setMinimumInterpreterVersions([LanguageIds.Python]);
+							}
+							if (!this._minimumRVersion) {
+								// In case the runtime startup phase is complete and the minimum
+								// R version is not set, set the minimum R version.
+								await this._setMinimumInterpreterVersions([LanguageIds.R]);
 							}
 							this._runtimeStartupComplete = true;
 							// Once the runtime startup is complete, we can update the
@@ -347,6 +363,22 @@ export class NewProjectWizardStateManager
 	 */
 	set useRenv(value: boolean | undefined) {
 		this._useRenv = value;
+	}
+
+	/**
+	 * Gets the minimum Python version.
+	 * @returns The minimum Python version.
+	 */
+	get minimumPythonVersion(): string | undefined {
+		return this._minimumPythonVersion;
+	}
+
+	/**
+	 * Gets the minimum R version.
+	 * @returns The minimum R version.
+	 */
+	get minimumRVersion(): string | undefined {
+		return this._minimumRVersion;
 	}
 
 	/**
@@ -602,6 +634,25 @@ export class NewProjectWizardStateManager
 
 		// Notify components that the interpreter state has been updated.
 		this._onUpdateInterpreterStateEmitter.fire();
+	}
+
+	/**
+	 * Gets the minimum supported version for the selected language.
+	 * @param langIds Optional language IDs to set the minimum version for.
+	 * @returns The minimum supported version or undefined if the language is not supported.
+	 */
+	private async _setMinimumInterpreterVersions(langIds?: LanguageIds[]): Promise<void> {
+		const langsForMinimumVersions = langIds ?? [LanguageIds.Python, LanguageIds.R];
+		if (langsForMinimumVersions.includes(LanguageIds.Python)) {
+			this._minimumPythonVersion = await this._services.commandService.executeCommand(
+				'python.getMinimumPythonVersion'
+			);
+		}
+		if (langsForMinimumVersions.includes(LanguageIds.R)) {
+			this._minimumRVersion = await this._services.commandService.executeCommand(
+				'r.getMinimumRVersion'
+			);
+		}
 	}
 
 	/**
