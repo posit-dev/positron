@@ -9,7 +9,7 @@ import { ILogService } from 'vs/platform/log/common/log';
 import { IStorageService, StorageScope, StorageTarget } from 'vs/platform/storage/common/storage';
 import { IWorkspaceContextService } from 'vs/platform/workspace/common/workspace';
 import { IWorkspaceTrustManagementService } from 'vs/platform/workspace/common/workspaceTrust';
-import { IPositronNewProjectService, NewProjectConfiguration, NewProjectStartupPhase, NewProjectTask, POSITRON_NEW_PROJECT_CONFIG_STORAGE_KEY } from 'vs/workbench/services/positronNewProject/common/positronNewProject';
+import { CreateEnvironmentResult, IPositronNewProjectService, NewProjectConfiguration, NewProjectStartupPhase, NewProjectTask, POSITRON_NEW_PROJECT_CONFIG_STORAGE_KEY } from 'vs/workbench/services/positronNewProject/common/positronNewProject';
 import { Event } from 'vs/base/common/event';
 import { Barrier } from 'vs/base/common/async';
 import { ILanguageRuntimeMetadata } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
@@ -281,9 +281,59 @@ export class PositronNewProjectService extends Disposable implements IPositronNe
 	 * Relies on extension ms-python.python
 	 */
 	private async _createPythonEnvironment() {
-		const pythonEnvType = this._newProjectConfig?.pythonEnvType;
-		if (pythonEnvType && pythonEnvType.length > 0) {
-			// TODO: create the .venv/.conda/etc. as appropriate
+		const pythonEnvProvider = this._newProjectConfig?.pythonEnvProviderId;
+		if (pythonEnvProvider && pythonEnvProvider.length > 0) {
+			const workspaceFolder =
+				this._contextService.getWorkspace().folders[0];
+			if (!workspaceFolder) {
+				this._logService.error(
+					'Could not determine workspace folder for new project. Cannot create Python environment.'
+				);
+				return;
+			}
+			const interpreterPath =
+				this._newProjectConfig?.runtimeMetadata?.extraRuntimeData
+					?.pythonPath;
+			if (!interpreterPath) {
+				this._logService.warn(
+					'Could not determine Python interpreter path for new project.'
+				);
+				return;
+			}
+			// Note: this command will show a quick pick to select the Python interpreter if the
+			// specified Python interpreter is invalid for some reason (e.g. for Venv, if the
+			// specified interpreter is not considered to be a Global Python installation).
+			const result: CreateEnvironmentResult | undefined =
+				await this._commandService.executeCommand(
+					'python.createEnvironment',
+					{
+						workspaceFolder,
+						providerId: pythonEnvProvider,
+						interpreterPath,
+					}
+				);
+
+			// Check if the environment was created successfully
+			if (!result || result.error) {
+				const error = result?.error ?? 'Unknown error';
+				this._logService.error(
+					`Error while creating Python environment for new project: ${error}`
+				);
+				return;
+			}
+
+			// Install ipykernel in the new environment
+			const pythonPath = result.path;
+			await this._commandService.executeCommand(
+				'python.installIpykernel',
+				String(pythonPath)
+			);
+
+			// TODO: Start the affiliated runtime.
+			// runtimeSessionService.selectRuntime -- needs a runtimeId
+			// leverage validateMetadata to pass a pythonPath to the python extension and have the
+			// extension resolve it into an actual runtime metadata object
+			//   - see src/positron-dts/positron.d.ts validateMetadata
 		}
 		this._removePendingTask(NewProjectTask.PythonEnvironment);
 	}
@@ -429,7 +479,7 @@ export class PositronNewProjectService extends Disposable implements IPositronNe
 			tasks.add(NewProjectTask.Git);
 		}
 
-		if (this._newProjectConfig.pythonEnvType) {
+		if (this._newProjectConfig.pythonEnvProviderId) {
 			tasks.add(NewProjectTask.PythonEnvironment);
 		}
 
