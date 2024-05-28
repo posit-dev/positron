@@ -12,7 +12,7 @@ import * as React from 'react';
  * DropdownEntryProps interface.
  */
 interface DropdownEntryProps {
-	icon?: string;
+	codicon?: string;
 	title: string;
 	subtitle: string;
 	group?: string;
@@ -27,7 +27,7 @@ export const DropdownEntry = (props: DropdownEntryProps) => {
 	// Render.
 	return (
 		<div className='dropdown-entry'>
-			{props.icon ? <div className='dropdown-entry-icon'>{props.icon}</div> : null}
+			{props.codicon ? <div className={`dropdown-entry-icon codicon ${props.codicon}`} /> : null}
 			<div className='dropdown-entry-title'>
 				{props.title}
 			</div>

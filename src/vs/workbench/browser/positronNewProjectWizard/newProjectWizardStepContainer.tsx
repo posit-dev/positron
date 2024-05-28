@@ -3,7 +3,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as React from 'react';
-import { PropsWithChildren } from 'react';  // eslint-disable-line no-duplicate-imports
+import { PropsWithChildren, useState } from 'react';  // eslint-disable-line no-duplicate-imports
 import { useNewProjectWizardContext } from 'vs/workbench/browser/positronNewProjectWizard/newProjectWizardContext';
 import { NewProjectWizardStep } from 'vs/workbench/browser/positronNewProjectWizard/interfaces/newProjectWizardEnums';
 import { NewProjectWizardStepLookup } from 'vs/workbench/browser/positronNewProjectWizard/interfaces/newProjectWizardStepLookup';
@@ -14,18 +14,19 @@ interface NewProjectWizardStepContainerProps {
 }
 
 export const NewProjectWizardStepContainer = (props: PropsWithChildren<NewProjectWizardStepContainerProps>) => {
-	const newProjectWizardState = useNewProjectWizardContext();
-	const CurrentStep = NewProjectWizardStepLookup[newProjectWizardState.currentStep];
+	const context = useNewProjectWizardContext();
+	const [currentStep, setCurrentStep] = useState(() => context.currentStep);
+	const WizardStep = NewProjectWizardStepLookup[currentStep];
 
 	const nextHandler = (step: NewProjectWizardStep) => {
-		newProjectWizardState.goToNextStep(step);
+		setCurrentStep(context.goToNextStep(step));
 	};
 
 	const backHandler = () => {
-		newProjectWizardState.goToPreviousStep();
+		setCurrentStep(context.goToPreviousStep());
 	};
 
 	return (
-		<CurrentStep next={nextHandler} back={backHandler} cancel={props.cancel} accept={props.accept} />
+		<WizardStep next={nextHandler} back={backHandler} cancel={props.cancel} accept={props.accept} />
 	);
 };

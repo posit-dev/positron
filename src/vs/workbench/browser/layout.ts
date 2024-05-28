@@ -55,6 +55,7 @@ import { IPositronTopActionBarService } from 'vs/workbench/services/positronTopA
 import { PartViewInfo } from 'vs/workbench/browser/positronCustomViews';
 import { AbstractPaneCompositePart } from 'vs/workbench/browser/parts/paneCompositePart';
 import { CustomPositronLayoutDescription, KnownPositronLayoutParts, PartLayoutDescription } from 'vs/workbench/common/positronCustomViews';
+import { clamp } from 'vs/base/common/numbers';
 // --- End Positron ---
 
 //#region Layout Implementation
@@ -1406,7 +1407,7 @@ export abstract class Layout extends Disposable implements IWorkbenchLayoutServi
 					currentSize: this.workbenchGrid.getViewSize(this.panelPartView),
 					alignment: this.getPanelAlignment(),
 					hidden: mainClasses.contains(LayoutClasses.PANEL_HIDDEN),
-					hideFn: this.setPanelHidden.bind(this),
+					hideFn: (hidden: boolean) => hidden ? this.minimizePanel() : this.restorePanel(),
 				};
 			case 'workbench.parts.auxiliarybar':
 				return {
@@ -1418,7 +1419,15 @@ export abstract class Layout extends Disposable implements IWorkbenchLayoutServi
 		}
 	}
 
-	private _setCustomPartSize(part: KnownPositronLayoutParts, { hidden, size, viewContainers = [] }: PartLayoutDescription) {
+	private _setCustomPartSize(part: KnownPositronLayoutParts, desc: PartLayoutDescription) {
+		const {
+			size,
+			minSize = 0,
+			maxSize = Infinity,
+			hideIfBelowMinSize = false,
+			viewContainers = []
+		} = desc;
+		let hidden = desc.hidden;
 		const { partView, hideFn, currentSize } = this.getPartViewInfo(part);
 
 		if (size !== undefined) {
@@ -1428,14 +1437,21 @@ export abstract class Layout extends Disposable implements IWorkbenchLayoutServi
 				[Parts.AUXILIARYBAR_PART]: 'width',
 			} satisfies Record<KnownPositronLayoutParts, 'width' | 'height'>)[part];
 
-			if (typeof size === 'string') {
-				// Need to convert the percentage to a number relative to the viewport.
-				const viewportDimension = this.getContainerDimension(this.mainContainer)[dimensionToBeSized];
-				size = Math.floor(viewportDimension * parseFloat(size) / 100);
+			// Need to convert the percentage to a number relative to the viewport.
+			const viewportDimension = this.getContainerDimension(this.mainContainer)[dimensionToBeSized];
+
+			const pixelSize = clamp(
+				Math.floor(viewportDimension * parseFloat(size) / 100),
+				minSize,
+				maxSize
+			);
+
+			if (pixelSize === minSize && hideIfBelowMinSize) {
+				hidden = true;
 			}
 
 			const newSize = { width: currentSize.width, height: currentSize.height };
-			newSize[dimensionToBeSized] = size;
+			newSize[dimensionToBeSized] = pixelSize;
 
 			this.workbenchGrid.resizeView(partView, newSize);
 		}

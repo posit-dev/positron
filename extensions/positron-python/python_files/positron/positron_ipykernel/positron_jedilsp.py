@@ -23,7 +23,6 @@ from ._vendor.jedi_language_server.server import (
     completion_item_resolve,
     definition,
     did_change_configuration,
-    did_close_diagnostics,
     document_symbol,
     highlight,
     hover,
@@ -96,8 +95,10 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-_LINE_MAGIC_PREFIX = "%"
-_CELL_MAGIC_PREFIX = "%%"
+_COMMENT_PREFIX = r"#"
+_LINE_MAGIC_PREFIX = r"%"
+_CELL_MAGIC_PREFIX = r"%%"
+_SHELL_PREFIX = "!"
 _HELP_TOPIC = "positron/textDocument/helpTopic"
 
 
@@ -288,7 +289,9 @@ _MAGIC_COMPLETIONS: Dict[str, Any] = {}
 
 @POSITRON.feature(
     TEXT_DOCUMENT_COMPLETION,
-    CompletionOptions(trigger_characters=[".", "'", '"', "%"], resolve_provider=True),
+    CompletionOptions(
+        trigger_characters=[".", "'", '"', _LINE_MAGIC_PREFIX], resolve_provider=True
+    ),
 )
 def positron_completion(
     server: PositronJediLanguageServer, params: CompletionParams
@@ -306,7 +309,7 @@ def positron_completion(
     # Don't complete comments or shell commands
     line = document.lines[params.position.line] if document.lines else ""
     trimmed_line = line.lstrip()
-    if trimmed_line.startswith(("#", "!")):
+    if trimmed_line.startswith((_COMMENT_PREFIX, _SHELL_PREFIX)):
         return None
 
     # Use Interpreter instead of Script to include the shell's namespaces in completions
@@ -461,9 +464,9 @@ def _magic_completion_item(
         label=label,
         filter_text=name,
         kind=CompletionItemKind.Function,
-        # Prefix sort_text with 'v', which ensures that it is ordered as an ordinary item
+        # Prefix sort_text with 'w', which ensures that it is ordered just after ordinary items
         # See jedi_language_server.jedi_utils.complete_sort_name for reference
-        sort_text=f"v{name}",
+        sort_text=f"w{name}",
         insert_text=insert_text,
         insert_text_format=InsertTextFormat.PlainText,
     )
@@ -654,10 +657,18 @@ def positron_did_close_diagnostics(
     return did_close_diagnostics(server, params)
 
 
-# Copied from jedi_language_server/server.py to handle exceptions. Exceptions should be handled by
-# pygls, but the debounce decorator causes the function to run in a separate thread thus a separate
-# stack from pygls' exception handler.
 @jedi_utils.debounce(1, keyed_by="uri")  # type: ignore - pyright bug
+def _publish_diagnostics_debounced(server: JediLanguageServer, uri: str) -> None:
+    # Catch and log any exceptions. Exceptions should be handled by pygls, but the debounce
+    # decorator causes the function to run in a separate thread thus a separate stack from pygls'
+    # exception handler.
+    try:
+        _publish_diagnostics(server, uri)
+    except Exception:
+        logger.exception(f"Failed to publish diagnostics for uri {uri}", exc_info=True)
+
+
+# Adapted from jedi_language_server/server.py::_publish_diagnostics.
 def _publish_diagnostics(server: JediLanguageServer, uri: str) -> None:
     """Helper function to publish diagnostics for a file."""
     # The debounce decorator delays the execution by 1 second
@@ -669,15 +680,16 @@ def _publish_diagnostics(server: JediLanguageServer, uri: str) -> None:
 
     doc = server.workspace.get_document(uri)
 
-    # --- Start Positron ---
-    try:
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore")
-            diagnostic = jedi_utils.lsp_python_diagnostic(uri, doc.source)
-    except Exception:
-        logger.exception(f"Failed to publish diagnostics for uri {uri}", exc_info=True)
-        diagnostic = None
-    # --- End Positron ---
+    # Comment out magic/shell command lines so that they don't appear as syntax errors.
+    source = "\n".join(
+        (f"#{line}" if line.lstrip().startswith((_LINE_MAGIC_PREFIX, _SHELL_PREFIX)) else line)
+        for line in doc.lines
+    )
+
+    # Ignore all warnings during the compile, else they display in the console.
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        diagnostic = jedi_utils.lsp_python_diagnostic(uri, source)
 
     diagnostics = [diagnostic] if diagnostic else []
 
@@ -686,17 +698,22 @@ def _publish_diagnostics(server: JediLanguageServer, uri: str) -> None:
 
 def did_save_diagnostics(server: JediLanguageServer, params: DidSaveTextDocumentParams) -> None:
     """Actions run on textDocument/didSave: diagnostics."""
-    _publish_diagnostics(server, params.text_document.uri)  # type: ignore - pyright bug
+    _publish_diagnostics_debounced(server, params.text_document.uri)  # type: ignore - pyright bug
 
 
 def did_change_diagnostics(server: JediLanguageServer, params: DidChangeTextDocumentParams) -> None:
     """Actions run on textDocument/didChange: diagnostics."""
-    _publish_diagnostics(server, params.text_document.uri)  # type: ignore - pyright bug
+    _publish_diagnostics_debounced(server, params.text_document.uri)  # type: ignore - pyright bug
 
 
 def did_open_diagnostics(server: JediLanguageServer, params: DidOpenTextDocumentParams) -> None:
     """Actions run on textDocument/didOpen: diagnostics."""
-    _publish_diagnostics(server, params.text_document.uri)  # type: ignore - pyright bug
+    _publish_diagnostics_debounced(server, params.text_document.uri)  # type: ignore - pyright bug
+
+
+def did_close_diagnostics(server: JediLanguageServer, params: DidCloseTextDocumentParams) -> None:
+    """Actions run on textDocument/didClose: diagnostics."""
+    _publish_diagnostics_debounced(server, params.text_document.uri)  # type: ignore - pyright bug
 
 
 def interpreter(

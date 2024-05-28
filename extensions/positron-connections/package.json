@@ -83,7 +83,8 @@
     "menus": {
       "view/title": [
         {
-          "command": "positron.connections.clearConnectionsHistory"
+          "command": "positron.connections.clearConnectionsHistory",
+          "when": "view == connections"
         }
       ],
       "view/item/context": [

@@ -33,25 +33,35 @@ interface ProjectTypeProps {
  * @returns The rendered component.
  */
 export const ProjectType = (props: ProjectTypeProps) => {
-	const projectTypeSelected = useNewProjectWizardContext().projectConfig.projectType !== undefined;
-	const inputRef = useRef<HTMLInputElement>(null);
+	// State.
+	const { projectType } = useNewProjectWizardContext();
+	// Use undefined! instead of null to avoid optional chaining and so that an error is thrown if
+	// the ref is accessed before it is assigned.
+	const inputRef = useRef<HTMLInputElement>(undefined!);
 
 	// On project type selected, set the focus to the input element and notify the parent.
 	const onSelected = () => {
-		inputRef.current?.focus();
+		inputRef.current.focus();
 		props.onSelected();
 	};
 
 	// Render.
 	return (
-		<div className={'project-type' + (props.selected ? ' project-type-selected' : '')} onClick={onSelected}>
+		<div
+			className={
+				'project-type' +
+				(props.selected ? ' project-type-selected' : '')
+			}
+			onClick={onSelected}
+		>
 			<div className='project-type-icon'>
-				{
-					props.identifier === NewProjectType.PythonProject ? <PythonLogo /> :
-						props.identifier === NewProjectType.JupyterNotebook ? <JupyterLogo /> :
-							props.identifier === NewProjectType.RProject ? <RLogo /> :
-								null
-				}
+				{props.identifier === NewProjectType.PythonProject ? (
+					<PythonLogo />
+				) : props.identifier === NewProjectType.JupyterNotebook ? (
+					<JupyterLogo />
+				) : props.identifier === NewProjectType.RProject ? (
+					<RLogo />
+				) : null}
 			</div>
 			<input
 				ref={inputRef}
@@ -64,7 +74,7 @@ export const ProjectType = (props: ProjectTypeProps) => {
 				checked={props.selected}
 				// Set the autofocus to the selected project type when the user navigates back to
 				// the project type step.
-				autoFocus={projectTypeSelected && props.activeTabIndex}
+				autoFocus={projectType && props.activeTabIndex}
 			/>
 			<label htmlFor={props.identifier}>{props.identifier}</label>
 		</div>

@@ -135,6 +135,10 @@ export async function registerCommands(context: vscode.ExtensionContext) {
 			executeCodeForCommand('devtools', 'devtools::document()');
 		}),
 
+		vscode.commands.registerCommand('r.selectInterpreter', async () => {
+			await vscode.commands.executeCommand('workbench.action.languageRuntime.select', 'r');
+		}),
+
 		// Command used to source the current file
 		vscode.commands.registerCommand('r.sourceCurrentFile', async () => {
 			// Get the active text editor

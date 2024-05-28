@@ -6,18 +6,19 @@ import * as nls from 'vs/nls';
 import { generateUuid } from 'vs/base/common/uuid';
 import { KeyCode, KeyMod } from 'vs/base/common/keyCodes';
 import { ILocalizedString } from 'vs/platform/action/common/action';
-import { ICommandService } from 'vs/platform/commands/common/commands';
 import { Action2, registerAction2 } from 'vs/platform/actions/common/actions';
 import { ServicesAccessor } from 'vs/platform/instantiation/common/instantiation';
-import { IExtensionService } from 'vs/workbench/services/extensions/common/extensions';
-import { IQuickInputService, IQuickPickItem } from 'vs/platform/quickinput/common/quickInput';
+import { IQuickInputService, IQuickPickItem, IQuickPickSeparator } from 'vs/platform/quickinput/common/quickInput';
 import { IKeybindingRule, KeybindingWeight } from 'vs/platform/keybinding/common/keybindingsRegistry';
 import { LANGUAGE_RUNTIME_ACTION_CATEGORY } from 'vs/workbench/contrib/languageRuntime/common/languageRuntime';
 import { IPositronConsoleService } from 'vs/workbench/services/positronConsole/browser/interfaces/positronConsoleService';
-import { ILanguageRuntimeMetadata, ILanguageRuntimeService, LanguageRuntimeSessionMode, RuntimeCodeExecutionMode, RuntimeErrorBehavior } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { ILanguageRuntimeMetadata, ILanguageRuntimeService, RuntimeCodeExecutionMode, RuntimeErrorBehavior } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { ILanguageRuntimeSession, IRuntimeClientInstance, IRuntimeSessionService, RuntimeClientType } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
 import { INotificationService } from 'vs/platform/notification/common/notification';
 import { ILanguageService } from 'vs/editor/common/languages/language';
+import { groupBy } from 'vs/base/common/collections';
+import { IRuntimeStartupService } from 'vs/workbench/services/runtimeStartup/common/runtimeStartupService';
+import { ICommandService } from 'vs/platform/commands/common/commands';
 import { dispose } from 'vs/base/common/lifecycle';
 
 // The category for language runtime actions.
@@ -73,7 +74,7 @@ async function selectLanguage(accessor: ServicesAccessor) {
 		];
 
 		input.canSelectMany = false;
-		input.placeholder = 'Select the language to execute code in';
+		input.placeholder = nls.localize('positron.executeCode.selectLanguage', 'Select the language to execute code in');
 
 		for (const runtimeMetadata of languageRuntimeService.registeredRuntimes) {
 			addRuntime(runtimeMetadata);
@@ -119,37 +120,86 @@ export const selectLanguageRuntimeSession = async (
 };
 
 /**
- * Helper function that asks the user to select a registered language runtime from
- * an array of language runtime metadata entries.
+ * Helper function that asks the user to select a registered language runtime for a language.
  *
- * @param quickInputService The quick input service.
- * @param runtimes The language runtime entries the user can select from.
- * @param placeHolder The placeholder for the quick input.
+ * @param accessor The service accessor.
+ * @param languageId The language ID of the language runtimes to select from.
  *
  * @returns The language runtime the user selected, or undefined, if the user canceled the operation.
  */
-export const selectLanguageRuntime = async (
-	quickInputService: IQuickInputService,
-	runtimes: ILanguageRuntimeMetadata[],
-	placeHolder: string): Promise<ILanguageRuntimeMetadata | undefined> => {
+const selectLanguageRuntime = async (
+	accessor: ServicesAccessor,
+	languageId: string,
+	preferredRuntime: ILanguageRuntimeMetadata | undefined,
+): Promise<ILanguageRuntimeMetadata | undefined> => {
 
-	// Build the language runtime quick pick items.
-	const languageRuntimeQuickPickItems = runtimes.map<LanguageRuntimeQuickPickItem>(runtime => ({
-		id: runtime.runtimeId,
-		label: runtime.runtimeName,
-		description: runtime.languageVersion,
-		runtime
-	} satisfies LanguageRuntimeQuickPickItem));
+	const quickInputService = accessor.get(IQuickInputService);
+	const languageRuntimeService = accessor.get(ILanguageRuntimeService);
+	const languageService = accessor.get(ILanguageService);
 
 	// Prompt the user to select a language runtime.
-	const languageRuntimeQuickPickItem = await quickInputService
-		.pick<LanguageRuntimeQuickPickItem>(languageRuntimeQuickPickItems, {
-			canPickMany: false,
-			placeHolder
-		});
+	return new Promise((resolve) => {
+		const input = quickInputService.createQuickPick<LanguageRuntimeQuickPickItem>();
+		const runtimePicks = new Map<string, LanguageRuntimeQuickPickItem>();
 
-	// Done.
-	return languageRuntimeQuickPickItem?.runtime;
+		const addRuntime = (runtimeMetadata: ILanguageRuntimeMetadata) => {
+			runtimePicks.set(runtimeMetadata.runtimeId, {
+				id: runtimeMetadata.runtimeId,
+				label: runtimeMetadata.runtimeName,
+				description: runtimeMetadata.runtimePath,
+				runtime: runtimeMetadata
+			});
+
+			// Update the quick pick items.
+			const runtimePicksBySource = groupBy(Array.from(runtimePicks.values()), pick => pick.runtime.runtimeSource);
+			const sortedSources = Object.keys(runtimePicksBySource).sort();
+			const picks = new Array<IQuickPickSeparator | LanguageRuntimeQuickPickItem>();
+			for (const source of sortedSources) {
+				picks.push({ label: source, type: 'separator' }, ...runtimePicksBySource[source]);
+			}
+			input.items = picks;
+		};
+
+		const disposables = [
+			input,
+			input.onDidAccept(() => {
+				resolve(input.activeItems[0]?.runtime);
+				input.hide();
+			}),
+			input.onDidHide(() => {
+				dispose(disposables);
+				resolve(undefined);
+			}),
+			languageRuntimeService.onDidRegisterRuntime((runtimeMetadata) => {
+				if (runtimeMetadata.languageId === languageId) {
+					addRuntime(runtimeMetadata);
+				}
+			}),
+		];
+
+		input.canSelectMany = false;
+		const languageName = languageService.getLanguageName(languageId);
+		input.title = nls.localize('positron.languageRuntime.select.selectInterpreter', 'Select {0} Interpreter', languageName);
+		input.placeholder = nls.localize('positron.languageRuntime.select.discoveringInterpreters', 'Discovering Interpreters...');
+		input.matchOnDescription = true;
+
+		for (const runtimeMetadata of languageRuntimeService.registeredRuntimes) {
+			if (runtimeMetadata.languageId === languageId) {
+				addRuntime(runtimeMetadata);
+			}
+		}
+
+		if (preferredRuntime) {
+			input.placeholder = nls.localize('positron.languageRuntime.select.selectedInterpreer', 'Selected Interpreter: {0}', preferredRuntime.runtimeName);
+			const activeItem = runtimePicks.get(preferredRuntime.runtimeId);
+			if (activeItem) {
+				input.activeItems = [activeItem];
+			}
+		}
+
+		input.show();
+
+	});
 };
 
 /**
@@ -222,37 +272,56 @@ export function registerLanguageRuntimeActions() {
 		});
 	};
 
-	// Registers the start language runtime action.
-	registerLanguageRuntimeAction('workbench.action.languageRuntime.start', 'Start Interpreter', async accessor => {
-		// Access services.
-		const commandService = accessor.get(ICommandService);
-		const extensionService = accessor.get(IExtensionService);
-		const languageRuntimeService = accessor.get(ILanguageRuntimeService);
-		const runtimeSessionService = accessor.get(IRuntimeSessionService);
-		const quickInputService = accessor.get(IQuickInputService);
-
-		// Ensure that the python extension is loaded.
-		await extensionService.activateByEvent('onLanguage:python');
-
-		// Get the registered language runtimes.
-		const registeredRuntimes = languageRuntimeService.registeredRuntimes;
-		if (!registeredRuntimes.length) {
-			alert(nls.localize('positronNoInstalledRuntimes', "No interpreters are currently installed."));
-			return;
+	registerAction2(class PickInterpreterAction extends Action2 {
+		constructor() {
+			super({
+				id: 'workbench.action.languageRuntime.pick',
+				title: nls.localize2('positron.command.pickInterpreter', "Pick Interpreter"),
+				f1: false,
+				category,
+			});
 		}
 
-		// Ask the user to select the language runtime to start. If they selected one, start it.
-		const languageRuntime = await selectLanguageRuntime(quickInputService, registeredRuntimes, 'Select the interpreter to start');
-		if (languageRuntime) {
-			// Start the language runtime.
-			runtimeSessionService.startNewRuntimeSession(languageRuntime.runtimeId,
-				languageRuntime.runtimeName,
-				LanguageRuntimeSessionMode.Console,
-				undefined, // No notebook URI (console session)
-				`'Start Interpreter' command invoked`);
+		async run(accessor: ServicesAccessor, languageId: string) {
+			const languageRuntime = await selectLanguageRuntime(accessor, languageId, undefined);
+			return languageRuntime?.runtimeId;
+		}
+	});
 
-			// Drive focus into the Positron console.
-			commandService.executeCommand('workbench.panel.positronConsole.focus');
+	// Registers the start language runtime action.
+	registerAction2(class SelectInterpreterAction extends Action2 {
+		constructor() {
+			super({
+				id: 'workbench.action.languageRuntime.select',
+				title: nls.localize2('positron.command.selectInterpreter', "Select Interpreter"),
+				f1: false,
+				category,
+			});
+		}
+
+		async run(accessor: ServicesAccessor, languageId: string) {
+			// Access services.
+			const commandService = accessor.get(ICommandService);
+			const runtimeSessionService = accessor.get(IRuntimeSessionService);
+			const runtimeStartupService = accessor.get(IRuntimeStartupService);
+
+			// Ask the user to select the language runtime to start. If they selected one, start it.
+			let preferredRuntime: ILanguageRuntimeMetadata | undefined;
+			try {
+				preferredRuntime = runtimeStartupService.getPreferredRuntime(languageId);
+			} catch {
+				// getPreferredRuntime can error if a workspace-affiliated runtime is not
+				// yet registered. Do nothing.
+			}
+			const languageRuntime = await selectLanguageRuntime(accessor, languageId, preferredRuntime);
+
+			if (languageRuntime) {
+				// Start the language runtime.
+				runtimeSessionService.selectRuntime(languageRuntime.runtimeId, `'Select Interpreter' command invoked`);
+
+				// Drive focus into the Positron console.
+				commandService.executeCommand('workbench.panel.positronConsole.focus');
+			}
 		}
 	});
 

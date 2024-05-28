@@ -110,6 +110,11 @@
         "shortTitle": "%r.menu.packageDocument.title%"
       },
       {
+        "command": "r.selectInterpreter",
+        "category": "R",
+        "title": "%r.command.selectInterpreter.title%"
+      },
+      {
         "command": "r.sourceCurrentFile",
         "category": "R",
         "title": "%r.command.sourceCurrentFile.title%",
@@ -541,7 +546,7 @@
   },
   "positron": {
     "binaryDependencies": {
-      "ark": "0.1.97"
+      "ark": "0.1.98"
     },
     "minimumRVersion": "4.2.0"
   }

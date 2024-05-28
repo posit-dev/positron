@@ -2,9 +2,6 @@
  *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
-// CSS.
-import 'vs/css!./pythonInterpreterEntry';
-
 // React.
 import * as React from 'react';
 
@@ -28,8 +25,7 @@ export const InterpreterEntry = ({ interpreterInfo }: InterpreterEntryProps) => 
 	// Render.
 	return (
 		<DropdownEntry
-			// allow-any-unicode-next-line
-			icon={interpreterInfo.preferred ? '★' : ''}
+			codicon={interpreterInfo.preferred ? 'codicon-star-full' : undefined}
 			title={`${interpreterInfo.languageName} ${interpreterInfo.languageVersion}`}
 			subtitle={`${interpreterInfo.runtimePath}`}
 			group={interpreterInfo.runtimeSource}

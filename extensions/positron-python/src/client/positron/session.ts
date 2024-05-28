@@ -264,6 +264,11 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
 
         // Update the active environment in the Python extension.
         this._interpreterPathService.update(undefined, vscode.ConfigurationTarget.Global, this.interpreter.path);
+        this._interpreterPathService.update(
+            undefined,
+            vscode.ConfigurationTarget.WorkspaceFolder,
+            this.interpreter.path,
+        );
 
         // Register for console width changes, if we haven't already
         if (!this._consoleWidthDisposable) {
