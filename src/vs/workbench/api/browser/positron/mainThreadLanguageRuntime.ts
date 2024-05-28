@@ -289,6 +289,10 @@ class ExtHostLanguageRuntimeSessionAdapter implements ILanguageRuntimeSession {
 		this.addToEventQueue(event);
 	}
 
+	markExited(): void {
+		this._stateEmitter.fire(RuntimeState.Exited);
+	}
+
 	emitExit(exit: ILanguageRuntimeExit): void {
 		this._exitEmitter.fire(exit);
 	}
@@ -1153,6 +1157,20 @@ export class MainThreadLanguageRuntime
 	}
 
 	public dispose(): void {
+		// Check each session that is still running and emit an exit event for it
+		// so we can clean it up properly on the front end.
+		this._sessions.forEach((session) => {
+			if (session.getRuntimeState() !== RuntimeState.Exited) {
+				session.markExited();
+				const exit: ILanguageRuntimeExit = {
+					runtime_name: session.runtimeMetadata.runtimeName,
+					exit_code: 0,
+					reason: RuntimeExitReason.ExtensionHost,
+					message: 'Extension host is shutting down'
+				};
+				session.emitExit(exit);
+			}
+		});
 		this._disposables.dispose();
 	}
 
