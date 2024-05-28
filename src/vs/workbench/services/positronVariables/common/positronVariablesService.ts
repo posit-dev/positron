@@ -86,11 +86,6 @@ class PositronVariablesService extends Disposable implements IPositronVariablesS
 			this.createOrAssignPositronVariablesInstance(e.session);
 		}));
 
-		// Register the onDidReconnectRuntime event handler.
-		this._register(this._runtimeSessionService.onDidReconnectRuntime(runtime => {
-			this.createOrAssignPositronVariablesInstance(runtime);
-		}));
-
 		// Register the onDidChangeActiveRuntime event handler.
 		this._register(this._runtimeSessionService.onDidChangeForegroundSession(session => {
 			if (!session) {

@@ -154,11 +154,6 @@ class PositronDataExplorerService extends Disposable implements IPositronDataExp
 			// console.log(`++++++++++ PositronDataExplorerService: onDidFailStartRuntime ${runtime.metadata.runtimeId}`);
 		}));
 
-		// Register the onDidReconnectRuntime event handler.
-		this._register(this._runtimeSessionService.onDidReconnectRuntime(runtime => {
-			// console.log(`++++++++++ PositronDataExplorerService: onDidReconnectRuntime ${runtime.metadata.runtimeId}`);
-		}));
-
 		// Register the onDidChangeRuntimeState event handler.
 		this._register(this._runtimeSessionService.onDidChangeRuntimeState(stateEvent => {
 			// console.log(`++++++++++ PositronDataExplorerService: onDidChangeRuntimeState from ${stateEvent.old_state} to ${stateEvent.new_state}`);

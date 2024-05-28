@@ -246,9 +246,6 @@ export interface IRuntimeSessionService {
 	// An event that fires when a runtime fails to start.
 	readonly onDidFailStartRuntime: Event<ILanguageRuntimeSession>;
 
-	// An event that fires when a runtime is reconnected.
-	readonly onDidReconnectRuntime: Event<ILanguageRuntimeSession>;
-
 	// An event that fires when a runtime changes state.
 	readonly onDidChangeRuntimeState: Event<ILanguageRuntimeSessionStateEvent>;
 
