@@ -19,6 +19,7 @@ import { VariableOverflow } from 'vs/workbench/contrib/positronVariables/browser
 import { usePositronVariablesContext } from 'vs/workbench/contrib/positronVariables/browser/positronVariablesContext';
 import { VariableEntry, IPositronVariablesInstance, isVariableGroup, isVariableItem, isVariableOverflow } from 'vs/workbench/services/positronVariables/common/interfaces/positronVariablesInstance';
 import { RuntimeClientState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeClientInstance';
+import { IVariableItem } from 'vs/workbench/services/positronVariables/common/interfaces/variableItem';
 
 /**
  * Constants.
@@ -149,6 +150,23 @@ export const VariablesInstance = (props: VariablesInstanceProps) => {
 			}
 		}
 	}, [selectedId, variableEntries]);
+
+	// useEffect to scroll to recently defined variable(s).
+	useEffect(() => {
+		if (!listRef.current) {
+			return;
+		}
+		for (let i = 0; i < variableEntries.length; i++) {
+			const entry = variableEntries[i];
+			if (isVariableItem(entry)) {
+				const variable = entry as IVariableItem;
+				if (variable.isRecent.get()) {
+					listRef.current.scrollToItem(i);
+					break;
+				}
+			}
+		}
+	}, [variableEntries]);
 
 	/**
 	 * onKeyDown event handler.

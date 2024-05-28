@@ -4,7 +4,7 @@
 
 import 'vs/css!./variableItem';
 import * as React from 'react';
-import { CSSProperties, MouseEvent } from 'react'; // eslint-disable-line no-duplicate-imports
+import { CSSProperties, MouseEvent, useEffect, useState } from 'react'; // eslint-disable-line no-duplicate-imports
 import { localize } from 'vs/nls';
 import { isNumber } from 'vs/base/common/types';
 import * as platform from 'vs/base/common/platform';
@@ -16,6 +16,8 @@ import { usePositronVariablesContext } from 'vs/workbench/contrib/positronVariab
 import { VerticalSplitter, VerticalSplitterResizeParams } from 'vs/base/browser/ui/positronComponents/splitters/verticalSplitter';
 import { IPositronVariablesInstance, PositronVariablesSorting } from 'vs/workbench/services/positronVariables/common/interfaces/positronVariablesInstance';
 import { POSITRON_VARIABLES_COLLAPSE, POSITRON_VARIABLES_COPY_AS_HTML, POSITRON_VARIABLES_COPY_AS_TEXT, POSITRON_VARIABLES_EXPAND, POSITRON_VARIABLES_VIEW } from 'vs/workbench/contrib/positronVariables/browser/positronVariablesIdentifiers';
+import { DisposableStore } from 'vs/base/common/lifecycle';
+import { Event } from 'vs/base/common/event';
 
 /**
  * Formats a size for display.
@@ -92,6 +94,18 @@ export const VariableItem = (props: VariableItemProps) => {
 	 * Context hooks.
 	 */
 	const positronVariablesContext = usePositronVariablesContext();
+
+	/**
+	 * State hooks.
+	 */
+	const [isRecent, setIsRecent] = useState(props.variableItem.isRecent.get());
+
+	useEffect(() => {
+		const disposableStore = new DisposableStore();
+		const evt = Event.fromObservable(props.variableItem.isRecent, disposableStore);
+		evt(e => setIsRecent(e));
+		return () => disposableStore.dispose();
+	}, [props.variableItem]);
 
 	/**
 	 * Opens a viewer for the variable item, or activates the existing viewer
@@ -347,6 +361,9 @@ export const VariableItem = (props: VariableItemProps) => {
 		},
 		{
 			'disabled': props.disabled
+		},
+		{
+			'recent': isRecent
 		}
 	);
 
@@ -370,16 +387,16 @@ export const VariableItem = (props: VariableItemProps) => {
 				</div>
 			);
 		} else if (props.rightColumnVisible) {
-			if (props.positronVariablesInstance.sorting === PositronVariablesSorting.Name) {
+			if (props.positronVariablesInstance.sorting === PositronVariablesSorting.Size) {
 				return (
 					<div className='right-column'>
-						<span>{props.variableItem.displayType}</span>
+						<span>{formatSize(props.variableItem.size)}</span>
 					</div>
 				);
 			} else {
 				return (
 					<div className='right-column'>
-						<span>{formatSize(props.variableItem.size)}</span>
+						<span>{props.variableItem.displayType}</span>
 					</div>
 				);
 			}

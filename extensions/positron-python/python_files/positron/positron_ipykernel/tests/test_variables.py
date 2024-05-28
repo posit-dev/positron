@@ -6,23 +6,19 @@ from __future__ import annotations
 
 import asyncio
 from typing import Any, List, Type, cast
-from unittest.mock import Mock
+from unittest.mock import Mock, patch
 
 import numpy as np
 import pandas as pd
 import polars as pl
 import pytest
-
 from positron_ipykernel import variables as variables_module
 from positron_ipykernel.access_keys import encode_access_key
+from positron_ipykernel.inspectors import get_inspector
 from positron_ipykernel.positron_comm import JsonRpcErrorCode
 from positron_ipykernel.positron_ipkernel import PositronIPyKernel
 from positron_ipykernel.utils import JsonRecord, not_none
-from positron_ipykernel.variables import (
-    VariablesService,
-    _summarize_children,
-    _summarize_variable,
-)
+from positron_ipykernel.variables import VariablesService, _summarize_children, _summarize_variable
 
 from .conftest import DummyComm, PositronShell
 from .utils import (
@@ -115,21 +111,50 @@ def test_change_detection(
 
 
 def _assert_assigned(shell: PositronShell, value_code: str, variables_comm: DummyComm):
-    # Assign the value to a variable.
-    shell.run_cell(value_code)
-
     # Test that the expected `update` message was sent with the
     # expected `assigned` value.
-    assert variables_comm.messages == [
-        json_rpc_notification(
-            "update",
-            {
-                "assigned": [not_none(_summarize_variable("x", shell.user_ns["x"])).dict()],
-                "removed": [],
-                "version": 0,
-            },
-        )
-    ]
+    with patch("positron_ipykernel.variables.timestamp", return_value=0):
+        # Remember if the user namespace had the 'x' value before the assignment.
+        was_empty = "x" not in shell.user_ns
+
+        # Assign the value to a variable.
+        shell.run_cell(value_code)
+
+        # Get the summary of the variable.
+        assigned = []
+        unevaluated = []
+        summary = not_none(_summarize_variable("x", shell.user_ns["x"])).dict()
+
+        # Get an inspector for the variable to determine if the variable is
+        # mutable or if the comparison cost is high. In either case the
+        # variable should be marked as unevaluated.
+        ins = get_inspector(shell.user_ns["x"])
+        copiable = False
+        try:
+            ins.deepcopy()
+            copiable = True
+        except Exception:
+            pass
+        if (
+            (not was_empty)
+            & (ins.is_mutable())
+            & ((not copiable) | (ins.get_comparison_cost() > 1000))
+        ):
+            unevaluated.append(summary)
+        else:
+            assigned.append(summary)
+
+        assert variables_comm.messages == [
+            json_rpc_notification(
+                "update",
+                {
+                    "assigned": assigned,
+                    "removed": [],
+                    "unevaluated": unevaluated,
+                    "version": 0,
+                },
+            )
+        ]
 
     # Clear messages for the next assignment.
     variables_comm.messages.clear()
@@ -159,20 +184,21 @@ def test_handle_refresh(shell: PositronShell, variables_comm: DummyComm) -> None
     shell.user_ns["x"] = 3
 
     msg = json_rpc_request("list", comm_id="dummy_comm_id")
-    variables_comm.handle_msg(msg)
+    with patch("positron_ipykernel.variables.timestamp", return_value=0):
+        variables_comm.handle_msg(msg)
 
-    # A list message is sent
-    assert variables_comm.messages == [
-        json_rpc_response(
-            {
-                "variables": [
-                    not_none(_summarize_variable("x", shell.user_ns["x"])).dict(),
-                ],
-                "length": 1,
-                "version": 0,
-            }
-        )
-    ]
+        # A list message is sent
+        assert variables_comm.messages == [
+            json_rpc_response(
+                {
+                    "variables": [
+                        not_none(_summarize_variable("x", shell.user_ns["x"])).dict(),
+                    ],
+                    "length": 1,
+                    "version": 0,
+                }
+            )
+        ]
 
 
 def test_list_1000(shell: PositronShell, variables_comm: DummyComm) -> None:
@@ -285,6 +311,7 @@ async def test_handle_clear(
             {
                 "assigned": [],
                 "removed": [encode_access_key("x"), encode_access_key("y")],
+                "unevaluated": [],
                 "version": 0,
             },
         ),
@@ -327,19 +354,21 @@ def _assert_inspect(value: Any, path: List[Any], variables_comm: DummyComm) -> N
         cast(JsonRecord, {"path": encoded_path}),
         comm_id="dummy_comm_id",
     )
-    variables_comm.handle_msg(msg)
 
-    assert len(variables_comm.messages) == 1
+    with patch("positron_ipykernel.variables.timestamp", return_value=0):
+        variables_comm.handle_msg(msg)
 
-    children = _summarize_children(value)
-    assert variables_comm.messages == [
-        json_rpc_response(
-            {
-                "children": [child.dict() for child in children],
-                "length": len(children),
-            }
-        )
-    ]
+        assert len(variables_comm.messages) == 1
+
+        children = _summarize_children(value)
+        assert variables_comm.messages == [
+            json_rpc_response(
+                {
+                    "children": [child.dict() for child in children],
+                    "length": len(children),
+                }
+            )
+        ]
 
     variables_comm.messages.clear()
 

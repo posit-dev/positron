@@ -125,6 +125,12 @@ export interface Variable {
 	 */
 	is_truncated: boolean;
 
+	/**
+	 * The time the variable was created or updated, in milliseconds since
+	 * the epoch, or 0 if unknown.
+	 */
+	updated_time: number;
+
 }
 
 /**
@@ -162,6 +168,11 @@ export interface UpdateEvent {
 	 * An array of variables that have been newly assigned.
 	 */
 	assigned: Array<Variable>;
+
+	/**
+	 * An array of variables that were not evaluated for value updates.
+	 */
+	unevaluated: Array<Variable>;
 
 	/**
 	 * An array of variable names that have been removed.
@@ -206,7 +217,7 @@ export enum VariablesFrontendEvent {
 export class PositronVariablesComm extends PositronBaseComm {
 	constructor(instance: IRuntimeClientInstance<any, any>) {
 		super(instance);
-		this.onDidUpdate = super.createEventEmitter('update', ['assigned', 'removed', 'version']);
+		this.onDidUpdate = super.createEventEmitter('update', ['assigned', 'unevaluated', 'removed', 'version']);
 		this.onDidRefresh = super.createEventEmitter('refresh', ['variables', 'length', 'version']);
 	}
 
