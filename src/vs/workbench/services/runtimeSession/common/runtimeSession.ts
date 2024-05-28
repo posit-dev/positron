@@ -10,7 +10,7 @@ import { URI } from 'vs/base/common/uri';
 import { InstantiationType, registerSingleton } from 'vs/platform/instantiation/common/extensions';
 import { ILogService } from 'vs/platform/log/common/log';
 import { IOpener, IOpenerService, OpenExternalOptions, OpenInternalOptions } from 'vs/platform/opener/common/opener';
-import { ILanguageRuntimeMetadata, ILanguageRuntimeService, LanguageRuntimeSessionMode, LanguageRuntimeStartupBehavior, RuntimeExitReason, RuntimeState, formatLanguageRuntimeMetadata, formatLanguageRuntimeSession } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { ILanguageRuntimeMetadata, ILanguageRuntimeService, LanguageRuntimeSessionLocation, LanguageRuntimeSessionMode, LanguageRuntimeStartupBehavior, RuntimeExitReason, RuntimeState, formatLanguageRuntimeMetadata, formatLanguageRuntimeSession } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { ILanguageRuntimeGlobalEvent, ILanguageRuntimeSession, ILanguageRuntimeSessionManager, ILanguageRuntimeSessionStateEvent, IRuntimeSessionMetadata, IRuntimeSessionService, IRuntimeSessionWillStartEvent, RuntimeClientType } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
 import { IWorkspaceTrustManagementService } from 'vs/platform/workspace/common/workspaceTrust';
 import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
@@ -20,6 +20,7 @@ import { UiFrontendEvent } from 'vs/workbench/services/languageRuntime/common/po
 import { ILanguageService } from 'vs/editor/common/languages/language';
 import { ResourceMap } from 'vs/base/common/map';
 import { IExtensionService } from 'vs/workbench/services/extensions/common/extensions';
+import { IStorageService, StorageScope } from 'vs/platform/storage/common/storage';
 
 /**
  * Utility class for tracking state changes in a language runtime session.
@@ -88,6 +89,11 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 	// owning the session.
 	private readonly _notebookSessionsByNotebookUri = new ResourceMap<ILanguageRuntimeSession>();
 
+	// An map of sessions that have been disconnected from the extension host,
+	// from ID to session. We keep these around so we can reconnect them when
+	// the extension host comes back online.
+	private readonly _disconnectedSessions = new Map<string, ILanguageRuntimeSession>();
+
 	// The event emitter for the onWillStartRuntime event.
 	private readonly _onWillStartRuntimeEmitter =
 		this._register(new Emitter<IRuntimeSessionWillStartEvent>);
@@ -98,10 +104,6 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 
 	// The event emitter for the onDidFailStartRuntime event.
 	private readonly _onDidFailStartRuntimeEmitter =
-		this._register(new Emitter<ILanguageRuntimeSession>);
-
-	// The event emitter for the onDidReconnectRuntime event.
-	private readonly _onDidReconnectRuntimeEmitter =
 		this._register(new Emitter<ILanguageRuntimeSession>);
 
 	// The event emitter for the onDidChangeRuntimeState event.
@@ -124,7 +126,8 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 		@IOpenerService private readonly _openerService: IOpenerService,
 		@IPositronModalDialogsService private readonly _positronModalDialogsService: IPositronModalDialogsService,
 		@IWorkspaceTrustManagementService private readonly _workspaceTrustManagementService: IWorkspaceTrustManagementService,
-		@IExtensionService private readonly _extensionService: IExtensionService) {
+		@IExtensionService private readonly _extensionService: IExtensionService,
+		@IStorageService private readonly _storageService: IStorageService) {
 
 		super();
 
@@ -162,15 +165,33 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 				`A file with the language ID ${languageId} was opened.`);
 		}));
 
-		this._register(this._extensionService.onWillStop((e) => {
-			// Temporarily mark all sessions offline.
-			for (const session of this._activeSessionsBySessionId.values()) {
-				this._onDidChangeRuntimeStateEmitter.fire({
-					session_id: session.session.sessionId,
-					old_state: session.state,
-					new_state: RuntimeState.Offline
-				});
-				session.state = RuntimeState.Offline;
+		// When an extension activates, check to see if we have any disconnected
+		// sessions owned by that extension. If we do, try to reconnect them.
+		this._register(this._extensionService.onDidChangeExtensionsStatus((e) => {
+			for (const extensionId of e) {
+				for (const session of this._disconnectedSessions.values()) {
+					if (session.runtimeMetadata.extensionId.value === extensionId.value) {
+						// Remove the session from the disconnected sessions so we don't
+						// try to reconnect it again (no matter the outcome below)
+						this._disconnectedSessions.delete(session.sessionId);
+
+						// Attempt to reconnect the session.
+						this._logService.debug(`Extension ${extensionId.value} has been reloaded; ` +
+							`attempting to reconnect session ${session.sessionId}`);
+						this.restoreRuntimeSession(session.runtimeMetadata, session.metadata);
+					}
+				}
+			}
+		}));
+
+		// Changing the application storage scope causes disconnected sessions
+		// to become unusable, since the information needed to reconnect to them
+		// is stored in the old scope.
+		this._register(this._storageService.onDidChangeTarget((e) => {
+			if (e.scope === StorageScope.APPLICATION && this._disconnectedSessions.size > 0) {
+				this._logService.debug(`Application storage scope changed; ` +
+					`discarding ${this._disconnectedSessions.size} disconnected sessions`);
+				this._disconnectedSessions.clear();
 			}
 		}));
 	}
@@ -185,9 +206,6 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 
 	// An event that fires when a runtime fails to start.
 	readonly onDidFailStartRuntime = this._onDidFailStartRuntimeEmitter.event;
-
-	// An event that fires when a runtime is reconnected.
-	readonly onDidReconnectRuntime = this._onDidReconnectRuntimeEmitter.event;
 
 	// An event that fires when a runtime changes state.
 	readonly onDidChangeRuntimeState = this._onDidChangeRuntimeStateEmitter.event;
@@ -935,8 +953,16 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 					};
 					this._onWillStartRuntimeEmitter.fire(evt);
 				}
-			}, 0);
 
+				// If a workspace session ended because the extension host was
+				// disconnected, remember it so we can attempt to reconnect it
+				// when the extension host comes back online.
+				if (exit.reason === RuntimeExitReason.ExtensionHost &&
+					session.runtimeMetadata.sessionLocation ===
+					LanguageRuntimeSessionLocation.Workspace) {
+					this._disconnectedSessions.set(session.sessionId, session);
+				}
+			}, 0);
 		}));
 	}
 

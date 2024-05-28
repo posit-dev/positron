@@ -43,12 +43,6 @@ export class ExecutionHistoryService extends Disposable implements IExecutionHis
 		this._register(this._runtimeSessionService.onDidStartRuntime(runtime => {
 			this.beginRecordingHistory(runtime);
 		}));
-
-		// Listen for runtimes to reconnect; when they do, begin recording
-		// executions
-		this._register(this._runtimeSessionService.onDidReconnectRuntime(runtime => {
-			this.beginRecordingHistory(runtime);
-		}));
 	}
 
 	/**

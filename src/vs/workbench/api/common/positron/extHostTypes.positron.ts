@@ -235,6 +235,9 @@ export enum RuntimeExitReason {
 	/** The runtime exited because of an error, most often a crash. */
 	Error = 'error',
 
+	/** The runtime exited because the extension hosting it was stopped. */
+	ExtensionHost = 'extensionHost',
+
 	/**
 	 * The runtime exited for an unknown reason. This typically means that
 	 * it exited unexpectedly but with a normal exit code (0).

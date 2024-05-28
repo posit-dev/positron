@@ -257,14 +257,6 @@ class PositronConsoleService extends Disposable implements IPositronConsoleServi
 			}
 		}));
 
-		// Register the onDidReconnectRuntime event handler so we start a new Positron console instance when a runtime is reconnected.
-		this._register(this._runtimeSessionService.onDidReconnectRuntime(session => {
-			const positronConsoleInstance = this._positronConsoleInstancesBySessionId.get(session.runtimeMetadata.runtimeId);
-			if (!positronConsoleInstance) {
-				this.startPositronConsoleInstance(session, SessionAttachMode.Reconnecting);
-			}
-		}));
-
 		// Register the onDidChangeRuntimeState event handler so we can activate the REPL for the active runtime.
 		this._register(this._runtimeSessionService.onDidChangeRuntimeState(languageRuntimeStateEvent => {
 			const positronConsoleInstance = this._positronConsoleInstancesBySessionId.get(languageRuntimeStateEvent.session_id);
@@ -1111,7 +1103,11 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 					this.emitStartRuntimeItems(attachMode);
 				}
 			} else {
-				// It's the same one, but it isn't attached. Reattach it.
+				// It's the same one, but it isn't attached. Reattach it. Note
+				// that even though the IDs match we may still need to update
+				// our reference to the session object (it changes during e.g.
+				// extension host restarts)
+				this._session = session;
 				this.attachRuntime(attachMode);
 			}
 			return;
@@ -1245,7 +1241,9 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 			for (let i = 0; i < this._runtimeItems.length; i++) {
 				if (this._runtimeItems[i] instanceof RuntimeItemExited) {
 					const runtimeItem = this._runtimeItems[i] as RuntimeItemExited;
-					switchingRuntime = runtimeItem.reason === RuntimeExitReason.SwitchRuntime;
+					switchingRuntime =
+						runtimeItem.reason === RuntimeExitReason.SwitchRuntime ||
+						runtimeItem.reason === RuntimeExitReason.ExtensionHost;
 				}
 			}
 			const restart = this._state === PositronConsoleState.Exited && !switchingRuntime;
@@ -1363,10 +1361,11 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 				this.addRuntimeItemTrace(`onDidCompleteStartup`);
 			}
 
-			// Add the item startup.
+			// Add the item startup. Omit the banner if reconnecting.
 			this.addRuntimeItem(new RuntimeItemStartup(
 				generateUuid(),
-				languageRuntimeInfo.banner,
+				attachMode === SessionAttachMode.Reconnecting ? '' :
+					languageRuntimeInfo.banner,
 				languageRuntimeInfo.implementation_version,
 				languageRuntimeInfo.language_version
 			));
@@ -1695,6 +1694,9 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 
 			case RuntimeExitReason.StartupFailed:
 				return localize('positronConsole.exit.startupFailed', "{0} failed to start up (exit code {1})", exit.runtime_name, exit.exit_code);
+
+			case RuntimeExitReason.ExtensionHost:
+				return localize('positronConsole.exit.extensionHost', "{0} was disconnected from the extension host.", exit.runtime_name);
 
 			default:
 			case RuntimeExitReason.Unknown:
