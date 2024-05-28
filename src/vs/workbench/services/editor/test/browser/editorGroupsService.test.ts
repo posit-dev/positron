@@ -598,10 +598,6 @@ suite('EditorGroupsService', () => {
 		group.unstickEditor(input);
 		assert.strictEqual(editorStickyCounter, 2);
 
-		// --- Start Positron ---
-		partOptionsListener.dispose();
-		// --- End Positron ---
-
 		editorCloseListener.dispose();
 		editorWillCloseListener.dispose();
 		editorDidCloseListener.dispose();
