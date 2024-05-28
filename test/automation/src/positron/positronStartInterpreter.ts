@@ -4,7 +4,6 @@
 
 
 import { Code } from '../code';
-import { PositronPopups } from './positronPopups';
 
 interface InterpreterGroupLocation {
 	description: string;
@@ -28,7 +27,7 @@ export enum InterpreterType {
 
 export class StartInterpreter {
 
-	constructor(private code: Code, private positronPopups: PositronPopups) { }
+	constructor(private code: Code) { }
 
 	async selectInterpreter(desiredInterpreterType: InterpreterType, desiredInterpreterString: string) {
 
@@ -60,12 +59,9 @@ export class StartInterpreter {
 
 		} else {
 			console.log('Primary interpreter matched');
-			await this.code.waitAndClick(`${INTERPRETER_GROUPS}:nth-of-type(${primaryInterpreter.index})`);
-		}
-
-		if (desiredInterpreterType === InterpreterType.Python) {
-			// noop if dialog does not appear
-			await this.positronPopups.installIPyKernel();
+			chosenInterpreter = this.code.driver.getLocator(`${INTERPRETER_GROUPS}:nth-of-type(${primaryInterpreter.index})`);
+			await chosenInterpreter.waitFor({ state: 'visible' });
+			await chosenInterpreter.click();
 		}
 
 		for (let i = 0; i < 10; i++) {
@@ -73,14 +69,13 @@ export class StartInterpreter {
 				const dialog = this.code.driver.getLocator(POSITRON_MODAL_POPUP);
 				await dialog.waitFor({ state: 'detached', timeout: 2000 });
 				break;
-			} catch {
-				console.log('Retrying row click');
+			} catch (e) {
+				console.log(`Error: ${e}, Retrying row click`);
 				try {
 					await chosenInterpreter!.click({ timeout: 1000 });
-					if (desiredInterpreterType === InterpreterType.Python) {
-						await this.positronPopups.installIPyKernel();
-					}
-				} catch { }
+				} catch (f) {
+					console.log(`Inner Error: ${f}}`);
+				}
 			}
 		}
 	}
