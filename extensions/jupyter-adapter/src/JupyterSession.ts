@@ -21,6 +21,9 @@ export interface JupyterSessionState {
 	/** The log file the kernel is writing to */
 	logFile: string;
 
+	/** The profile file the kernel is writing to */
+	profileFile: string;
+
 	/** The connection file specifying the ZeroMQ ports, signing keys, etc. */
 	connectionFile: string;
 
@@ -91,6 +94,8 @@ export async function createJupyterSession(): Promise<JupyterSession> {
 	const kerneldir = fs.mkdtempSync(`${tempdir}${sep}kernel-`);
 	const connectionFile = path.join(kerneldir, 'connection.json');
 	const logFile = path.join(kerneldir, 'kernel.log');
+	const profileFile = path.join(kerneldir, 'kernel-profile.log');
+
 	return new Promise((resolve, reject) => {
 		fs.writeFile(connectionFile, JSON.stringify(conn), (err) => {
 			if (err) {
@@ -99,6 +104,7 @@ export async function createJupyterSession(): Promise<JupyterSession> {
 				resolve(new JupyterSession({
 					connectionFile,
 					logFile,
+					profileFile,
 					sessionId: crypto.randomBytes(16).toString('hex'),
 					processId: 0
 				}));

@@ -650,6 +650,7 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 		const session = await createJupyterSession();
 		const connnectionFile = session.state.connectionFile;
 		const logFile = session.state.logFile;
+		const profileFile = session.state.profileFile;
 
 		// Form the command-line arguments to the kernel process
 		const args = this._spec.argv.map((arg, _idx) => {
@@ -665,6 +666,14 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 				// kernel starts writing to it.
 				fs.writeFileSync(logFile, '');
 				return logFile;
+			}
+
+			// Same as `log_file` but for profiling logs
+			if (arg === '{profile_file}') {
+				// Ensure the profile file exists, so we can start streaming it before the
+				// kernel starts writing to it.
+				fs.writeFileSync(profileFile, '');
+				return profileFile;
 			}
 
 			return arg;

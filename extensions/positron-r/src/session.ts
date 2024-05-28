@@ -665,6 +665,7 @@ export function createJupyterKernelSpec(
 	const config = vscode.workspace.getConfiguration('positron.r');
 	const logLevel = config.get<string>('kernel.logLevel') ?? 'warn';
 	const userEnv = config.get<object>('kernel.env') ?? {};
+	const profile = config.get<string>('kernel.profile');
 
 
 	/* eslint-disable */
@@ -676,6 +677,10 @@ export function createJupyterKernelSpec(
 		...userEnv
 	};
 	/* eslint-enable */
+
+	if (profile) {
+		env['ARK_PROFILE'] = profile;
+	}
 
 	if (process.platform === 'linux') {
 		// Workaround for
@@ -699,18 +704,30 @@ export function createJupyterKernelSpec(
 	// R script to run on session startup
 	const startupFile = path.join(EXTENSION_ROOT_DIR, 'resources', 'scripts', 'startup.R');
 
+	const argv = [
+		kernelPath,
+		'--connection_file', '{connection_file}',
+		'--log', '{log_file}',
+		'--startup-file', `${startupFile}`,
+		'--session-mode', `${sessionMode}`,
+	];
+
+	// Only create profile if requested in configuration
+	if (profile) {
+		argv.push(...[
+			'--profile', '{profile_file}',
+		]);
+	}
+
+	argv.push(...[
+		// The arguments after `--` are passed verbatim to R
+		'--',
+		'--interactive',
+	]);
+
 	// Create a kernel spec for this R installation
 	const kernelSpec: JupyterKernelSpec = {
-		'argv': [
-			kernelPath,
-			'--connection_file', '{connection_file}',
-			'--log', '{log_file}',
-			'--startup-file', `${startupFile}`,
-			'--session-mode', `${sessionMode}`,
-			// The arguments after `--` are passed verbatim to R
-			'--',
-			'--interactive',
-		],
+		'argv': argv,
 		'display_name': runtimeName, // eslint-disable-line
 		'language': 'R',
 		'env': env,

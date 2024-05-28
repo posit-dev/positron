@@ -157,6 +157,12 @@
           "default": "warn",
           "description": "%r.configuration.logLevel.description%"
         },
+        "positron.r.kernel.profile": {
+          "scope": "window",
+          "type": "string",
+          "default": null,
+          "description": "%r.configuration.profile.description%"
+        },
         "positron.r.kernel.env": {
           "scope": "window",
           "type": "object",
