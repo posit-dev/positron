@@ -73,7 +73,7 @@ export interface IRuntimeClientInstance<Input, Output> extends Disposable {
 	onDidReceiveData: Event<Output>;
 	getClientId(): string;
 	getClientType(): RuntimeClientType;
-	performRpc(request: Input): Promise<Output>;
+	performRpc(request: Input, timeout: number): Promise<Output>;
 	messageCounter: ISettableObservable<number>;
 	clientState: ISettableObservable<RuntimeClientState>;
 }

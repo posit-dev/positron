@@ -7,7 +7,7 @@
 //
 
 import { Event } from 'vs/base/common/event';
-import { PositronBaseComm } from 'vs/workbench/services/languageRuntime/common/positronBaseComm';
+import { PositronBaseComm, PositronCommOptions } from 'vs/workbench/services/languageRuntime/common/positronBaseComm';
 import { IRuntimeClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimeClientInstance';
 
 /**
@@ -59,9 +59,20 @@ export enum ConnectionsFrontendEvent {
 	Update = 'update'
 }
 
+export enum ConnectionsBackendRequest {
+	ListObjects = 'list_objects',
+	ListFields = 'list_fields',
+	ContainsData = 'contains_data',
+	GetIcon = 'get_icon',
+	PreviewObject = 'preview_object'
+}
+
 export class PositronConnectionsComm extends PositronBaseComm {
-	constructor(instance: IRuntimeClientInstance<any, any>) {
-		super(instance);
+	constructor(
+		instance: IRuntimeClientInstance<any, any>,
+		options?: PositronCommOptions<ConnectionsBackendRequest>,
+	) {
+		super(instance, options);
 		this.onDidFocus = super.createEventEmitter('focus', []);
 		this.onDidUpdate = super.createEventEmitter('update', []);
 	}
