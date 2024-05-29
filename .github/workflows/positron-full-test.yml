@@ -28,10 +28,11 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: posit-dev/positron-content-examples
-          path: test/smoke/positron-content-examples
+          path: ../positron-content-examples
           token: ${{ secrets.GITHUB_TOKEN }}
 
-
+      - name: Move positron-content-examples to the correct directory
+        run: mv ../positron-content-examples test/smoke/positron-content-examples
 
       - name: Setup Build Environment
         run: |
