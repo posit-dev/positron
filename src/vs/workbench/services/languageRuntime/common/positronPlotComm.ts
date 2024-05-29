@@ -7,7 +7,7 @@
 //
 
 import { Event } from 'vs/base/common/event';
-import { PositronBaseComm } from 'vs/workbench/services/languageRuntime/common/positronBaseComm';
+import { PositronBaseComm, PositronCommOptions } from 'vs/workbench/services/languageRuntime/common/positronBaseComm';
 import { IRuntimeClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimeClientInstance';
 
 /**
@@ -53,9 +53,16 @@ export enum PlotFrontendEvent {
 	Show = 'show'
 }
 
+export enum PlotBackendRequest {
+	Render = 'render'
+}
+
 export class PositronPlotComm extends PositronBaseComm {
-	constructor(instance: IRuntimeClientInstance<any, any>) {
-		super(instance);
+	constructor(
+		instance: IRuntimeClientInstance<any, any>,
+		options?: PositronCommOptions<PlotBackendRequest>,
+	) {
+		super(instance, options);
 		this.onDidUpdate = super.createEventEmitter('update', []);
 		this.onDidShow = super.createEventEmitter('show', []);
 	}

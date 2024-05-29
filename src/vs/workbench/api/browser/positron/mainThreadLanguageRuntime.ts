@@ -893,9 +893,10 @@ class ExtHostRuntimeClientInstance<Input, Output>
 	 * Performs an RPC call to the server side of the comm.
 	 *
 	 * @param request The request to send to the server.
+	 * @param timeout Timeout in milliseconds after which to error if the server does not respond.
 	 * @returns A promise that will be resolved with the response from the server.
 	 */
-	performRpc<T>(request: Input): Promise<T> {
+	performRpc<T>(request: Input, timeout: number): Promise<T> {
 		// Generate a unique ID for this message.
 		const messageId = generateUuid();
 
@@ -910,8 +911,6 @@ class ExtHostRuntimeClientInstance<Input, Output>
 		this.messageCounter.set(this.messageCounter.get() + 1, undefined);
 
 		// Start a timeout to reject the promise if the server doesn't respond.
-		//
-		// TODO(jmcphers): This timeout value should be configurable.
 		setTimeout(() => {
 			// If the promise has already been resolved, do nothing.
 			if (promise.isSettled) {
@@ -919,9 +918,10 @@ class ExtHostRuntimeClientInstance<Input, Output>
 			}
 
 			// Otherwise, reject the promise and remove it from the list of pending RPCs.
-			promise.error(new Error(`RPC timed out after 5 seconds: ${JSON.stringify(request)}`));
+			const timeoutSeconds = Math.round(timeout / 100) / 10;  // round to 1 decimal place
+			promise.error(new Error(`RPC timed out after ${timeoutSeconds} seconds: ${JSON.stringify(request)}`));
 			this._pendingRpcs.delete(messageId);
-		}, 5000);
+		}, timeout);
 
 		// Return a promise that will be resolved when the server responds.
 		return promise.p;
