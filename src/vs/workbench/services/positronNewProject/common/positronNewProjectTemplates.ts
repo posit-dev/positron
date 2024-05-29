@@ -11,3 +11,7 @@ export const DOT_IGNORE_R: string = `.Rproj.user
 .RData
 .Ruserdata
 `;
+
+export const DOT_IGNORE_JUPYTER: string = `.ipynb_checkpoints
+*/.ipynb_checkpoints/*
+`;
