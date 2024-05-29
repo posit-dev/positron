@@ -710,7 +710,7 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 		this._terminal = vscode.window.createTerminal(<vscode.TerminalOptions>{
 			name: this._spec.display_name,
 			// Always start notebook sessions in the directory of the notebook
-			cwd: this._notebookUri ? path.dirname(this._notebookUri.path) : undefined,
+			cwd: this._notebookUri ? path.dirname(this._notebookUri.fsPath) : undefined,
 			shellPath: shellPath,
 			shellArgs: shellArgs,
 			env,
