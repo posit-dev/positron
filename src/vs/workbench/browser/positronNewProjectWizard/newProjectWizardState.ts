@@ -61,6 +61,7 @@ export interface NewProjectWizardState {
 	openInNewWindow: boolean;
 	pythonEnvSetupType: EnvironmentSetupType | undefined;
 	pythonEnvProviderId: string | undefined;
+	readonly pythonEnvProviderName: string | undefined;
 	readonly installIpykernel: boolean | undefined;
 	useRenv: boolean | undefined;
 }
@@ -480,6 +481,7 @@ export class NewProjectWizardStateManager
 			openInNewWindow: this._openInNewWindow,
 			pythonEnvSetupType: this._pythonEnvSetupType,
 			pythonEnvProviderId: this._pythonEnvProviderId,
+			pythonEnvProviderName: this._getEnvProviderName(),
 			installIpykernel: this._installIpykernel,
 			useRenv: this._useRenv
 		} satisfies NewProjectWizardState;
