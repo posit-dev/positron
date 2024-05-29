@@ -18,6 +18,7 @@ import { ICommandService } from 'vs/platform/commands/common/commands';
 import { PythonEnvironmentProviderInfo } from 'vs/workbench/browser/positronNewProjectWizard/utilities/pythonEnvironmentStepUtils';
 import { Disposable } from 'vs/base/common/lifecycle';
 import { Emitter, Event } from 'vs/base/common/event';
+import { WizardFormattedTextItem } from 'vs/workbench/browser/positronNewProjectWizard/components/wizardFormattedText';
 
 /**
  * NewProjectWizardServices interface.
@@ -75,6 +76,7 @@ export interface INewProjectWizardStateManager {
 	readonly goToNextStep: (step: NewProjectWizardStep) => void;
 	readonly goToPreviousStep: () => void;
 	readonly onUpdateInterpreterState: Event<void>;
+	readonly onUpdateProjectDirectory: Event<void>;
 }
 
 /**
@@ -97,6 +99,7 @@ export class NewProjectWizardStateManager
 	private _selectedRuntime: ILanguageRuntimeMetadata | undefined;
 	private _projectType: NewProjectType | undefined;
 	private _projectName: string;
+	private _projectNameFeedback: WizardFormattedTextItem | undefined;
 	private _parentFolder: string;
 	private _initGitRepo: boolean;
 	private _openInNewWindow: boolean;
@@ -121,6 +124,7 @@ export class NewProjectWizardStateManager
 
 	// Event emitters.
 	private _onUpdateInterpreterStateEmitter = this._register(new Emitter<void>());
+	private _onUpdateProjectDirectoryEmitter = this._register(new Emitter<void>());
 
 	/**
 	 * Constructor for the NewProjectWizardStateManager class.
@@ -134,6 +138,7 @@ export class NewProjectWizardStateManager
 		this._selectedRuntime = undefined;
 		this._projectType = undefined;
 		this._projectName = '';
+		this._projectNameFeedback = undefined;
 		this._parentFolder = config.parentFolder ?? '';
 		this._initGitRepo = false;
 		this._openInNewWindow = false;
@@ -238,6 +243,9 @@ export class NewProjectWizardStateManager
 	 * @param value The project type.
 	 */
 	set projectType(value: NewProjectType | undefined) {
+		if (this._projectType !== value) {
+			this._resetProjectConfig();
+		}
 		this._projectType = value;
 		this._updateInterpreterRelatedState();
 	}
@@ -256,6 +264,24 @@ export class NewProjectWizardStateManager
 	 */
 	set projectName(value: string) {
 		this._projectName = value;
+		this._onUpdateProjectDirectoryEmitter.fire();
+	}
+
+	/**
+	 * Gets the project name feedback.
+	 * @returns The project name feedback.
+	 */
+	get projectNameFeedback(): WizardFormattedTextItem | undefined {
+		return this._projectNameFeedback;
+	}
+
+	/**
+	 * Sets the project name feedback.
+	 * @param value The project name feedback.
+	 */
+	set projectNameFeedback(value: WizardFormattedTextItem | undefined) {
+		this._projectNameFeedback = value;
+		this._onUpdateProjectDirectoryEmitter.fire();
 	}
 
 	/**
@@ -272,6 +298,7 @@ export class NewProjectWizardStateManager
 	 */
 	set parentFolder(value: string) {
 		this._parentFolder = value;
+		this._onUpdateProjectDirectoryEmitter.fire();
 	}
 
 	/**
@@ -472,6 +499,7 @@ export class NewProjectWizardStateManager
 	 * @returns The NewProjectWizardState object.
 	 */
 	getState(): NewProjectWizardState {
+		this._cleanupState();
 		return {
 			selectedRuntime: this._selectedRuntime,
 			projectType: this._projectType,
@@ -483,7 +511,7 @@ export class NewProjectWizardStateManager
 			pythonEnvProviderId: this._pythonEnvProviderId,
 			pythonEnvProviderName: this._getEnvProviderName(),
 			installIpykernel: this._installIpykernel,
-			useRenv: this._useRenv
+			useRenv: this._useRenv,
 		} satisfies NewProjectWizardState;
 	}
 
@@ -491,6 +519,11 @@ export class NewProjectWizardStateManager
 	 * Event that is fired when the runtime startup is complete.
 	 */
 	readonly onUpdateInterpreterState = this._onUpdateInterpreterStateEmitter.event;
+
+	/**
+	 * Event that is fired when the project directory is updated.
+	 */
+	readonly onUpdateProjectDirectory = this._onUpdateProjectDirectoryEmitter.event;
 
 	/****************************************************************************************
 	 * Private Methods
@@ -584,7 +617,12 @@ export class NewProjectWizardStateManager
 	 * @returns The name of the selected Python environment provider.
 	 */
 	private _getEnvProviderName(): string | undefined {
-		return this._pythonEnvProviders.find(provider => provider.id === this._pythonEnvProviderId)?.name;
+		if (!this._pythonEnvProviderId) {
+			return undefined;
+		}
+		return this._pythonEnvProviders.find(
+			(provider) => provider.id === this._pythonEnvProviderId
+		)?.name;
 	}
 
 	/**
@@ -714,5 +752,42 @@ export class NewProjectWizardStateManager
 			!filters.length ||
 			filters.find((rs) => rs === runtimeSource) !== undefined
 		);
+	}
+
+	/**
+	 * Resets the properties of the project configuration that should not be persisted when the
+	 * project type changes.
+	 */
+	private _resetProjectConfig() {
+		this._initGitRepo = false;
+		this._useRenv = undefined;
+		this.projectNameFeedback = undefined;
+	}
+
+	/**
+	 * Cleans up the state by removing any irrelevant state based on the project language.
+	 */
+	private _cleanupState() {
+		const langId = this._getLangId();
+		if (!langId) {
+			this._services.logService.error(
+				'[Project Wizard] Unsupported project type'
+			);
+			return;
+		}
+		if (langId === LanguageIds.Python) {
+			this._useRenv = undefined;
+			// TODO: Conda isn't supported yet, so don't set the env provider if it's conda.
+			if (
+				this._pythonEnvSetupType === EnvironmentSetupType.NewEnvironment &&
+				this._getEnvProviderName() === PythonEnvironmentProvider.Conda
+			) {
+				this._pythonEnvProviderId = undefined;
+			}
+		} else if (langId === LanguageIds.R) {
+			this._pythonEnvSetupType = undefined;
+			this._pythonEnvProviderId = undefined;
+			this._installIpykernel = undefined;
+		}
 	}
 }
