@@ -22,7 +22,6 @@ import { JupyterConnectionSpec } from './JupyterConnectionSpec';
 import { JupyterSockets } from './JupyterSockets';
 import { JupyterExecuteRequest } from './JupyterExecuteRequest';
 import { JupyterInputReply } from './JupyterInputReply';
-import { Tail } from 'tail';
 import { JupyterCommMsg } from './JupyterCommMsg';
 import { createJupyterSession, JupyterSession, JupyterSessionState } from './JupyterSession';
 import path = require('path');
@@ -30,6 +29,7 @@ import { StartupFailure } from './StartupFailure';
 import { JupyterKernelStatus } from './JupyterKernelStatus';
 import { JupyterKernelSpec, JupyterKernelExtra } from './jupyter-adapter';
 import { delay, PromiseHandles, uuidv4, withTimeout } from './utils';
+import { LogStreamer } from './LogStreamer';
 
 /** The message sent to the Heartbeat socket on a regular interval to test connectivity */
 const HEARTBEAT_MESSAGE = 'heartbeat';
@@ -38,12 +38,14 @@ const HEARTBEAT_MESSAGE = 'heartbeat';
 const RECONNECT_MESSAGE = 'reconnect';
 
 export class JupyterKernel extends EventEmitter implements vscode.Disposable {
+	private _disposables: vscode.Disposable[] = [];
+
 	private readonly _spec: JupyterKernelSpec;
 	private readonly _extra?: JupyterKernelExtra;
 
 	/** An object that watches (tails) the kernel's log file */
-	private _logTail?: Tail;
-	private _logNLines: number;
+	private _logStreamer?: LogStreamer;
+	private _profileStreamer?: LogStreamer;
 
 	/** The kernel's current state */
 	private _status: positron.RuntimeState;
@@ -94,6 +96,9 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 
 	/** The channel to which output for this specific terminal is logged, if any */
 	private _logChannel?: vscode.OutputChannel;
+
+	/** An optional profiler channel */
+	private _profileChannel?: vscode.OutputChannel;
 
 	/** The exit code, if any */
 	private _exitCode: number;
@@ -146,7 +151,6 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 		this._nextHeartbeat = null;
 		this._lastHeartbeat = 0;
 		this._exitCode = 0;
-		this._logNLines = 0;
 
 		// Set the initial status to uninitialized (we'll change it later if we
 		// discover it's actually running)
@@ -337,7 +341,29 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 		// file.
 		const logFilePath = this._session!.state.logFile;
 		if (fs.existsSync(logFilePath)) {
-			this.streamLogFileToChannel(logFilePath, this._spec.language, this._logChannel);
+			this.log('Streaming log file: ' + logFilePath);
+
+			this._logStreamer = new LogStreamer(this._logChannel, logFilePath, this._spec.language);
+			this._disposables.push(this._logStreamer);
+
+			this._logStreamer.watch();
+		}
+
+		const profileFilePath = this._session!.state.profileFile;
+		if (profileFilePath && fs.existsSync(profileFilePath)) {
+			if (!this._profileChannel) {
+				this._profileChannel = positron.window.createRawLogOutputChannel(
+					this._notebookUri ?
+						`Notebook: Profiler ${path.basename(this._notebookUri.path)} (${this._spec.display_name})` :
+						`Positron ${this._spec.language} Profiler`);
+			}
+
+			this.log('Streaming profile file: ' + profileFilePath);
+
+			this._profileStreamer = new LogStreamer(this._profileChannel, profileFilePath);
+			this._disposables.push(this._profileStreamer);
+
+			this._profileStreamer.watch();
 		}
 
 		// Connect to the kernel's sockets; wait for all sockets to connect before continuing
@@ -669,7 +695,7 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 			}
 
 			// Same as `log_file` but for profiling logs
-			if (arg === '{profile_file}') {
+			if (profileFile && arg === '{profile_file}') {
 				// Ensure the profile file exists, so we can start streaming it before the
 				// kernel starts writing to it.
 				fs.writeFileSync(profileFile, '');
@@ -1173,41 +1199,13 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 	 * session or the kernel itself; it remains running in a terminal.
 	 */
 	public dispose() {
-		// Clean up file watcher for log file
-		this.disposeLogTail();
+		this._disposables.forEach(d => d.dispose());
 
 		// Dispose heartbeat timers
 		this.disposeHeartbeatTimers();
 
 		// Close sockets
 		this.disposeAllSockets();
-	}
-
-	disposeLogTail() {
-		if (!this._logTail) {
-			return;
-		}
-
-		this._logTail.unwatch();
-
-		if (!this._session) {
-			return;
-		}
-
-		const file = this._session.state.logFile;
-		if (!file || !fs.existsSync(file) || !this._logChannel) {
-			return;
-		}
-
-		const lines = fs.readFileSync(this._session.state.logFile, 'utf8').split('\n');
-
-		// Push remaining lines in case new line events haven't had time to
-		// fire up before unwatching. We skip lines that we've already seen and
-		// flush the rest.
-		for (let i = this._logNLines + 1; i < lines.length; ++i) {
-			const prefix = this._spec.language;
-			this._logChannel.appendLine(`[${prefix}] ${lines[i]}`);
-		}
 	}
 
 	/**
@@ -1501,47 +1499,6 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 	}
 
 	/**
-	 * Streams a log file to the output channel
-	 */
-	private streamLogFileToChannel(logFilePath: string, prefix: string, output: vscode.OutputChannel) {
-		this.log('Streaming log file: ' + logFilePath);
-		try {
-			this._logTail = new Tail(logFilePath, { fromBeginning: true, useWatchFile: true });
-		} catch (err) {
-			this.log(`Error streaming log file ${logFilePath}: ${err}`);
-			return;
-		}
-
-		const ses = this;
-
-		// Establish a listener for new lines in the log file
-		this._logTail.on('line', function (data: string) {
-			// Keep track of how many lines we sent to the
-			// channel to properly emit the rest of the
-			// lines on disposal
-			ses._logNLines += 1;
-			output.appendLine(`[${prefix}] ${data}`);
-		});
-		this._logTail.on('error', function (error: string) {
-			ses._logNLines += 1;
-			output.appendLine(`[${prefix}] ${error}`);
-		});
-
-		// Initialise number of lines seen, which might not be zero as the
-		// kernel might have already started outputing lines, or we might be
-		// refreshing with an existing log file. This is used for flushing
-		// the tail of the log on disposal. There is a race condition here so
-		// this might be slightly off, causing duplicate lines in the tail of
-		// the log.
-		const lines = fs.readFileSync(this._session!.state.logFile, 'utf8').split('\n');
-		this._logNLines = lines.length;
-
-		// Start watching the log file. This streams output until the kernel is
-		// disposed.
-		this._logTail.watch();
-	}
-
-	/**
 	 * Checks whether a kernel process is still running using the operating
 	 * system's process list.
 	 *
@@ -1589,6 +1546,10 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 	 */
 	public showOutput() {
 		this._logChannel?.show();
+	}
+
+	public async showProfile() {
+		this._profileChannel?.show();
 	}
 
 	/**

@@ -358,6 +358,17 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 		return this._runtimeSessions[handle].showOutput!();
 	}
 
+	$showProfileLanguageRuntime(handle: number): Thenable<void> {
+		if (handle >= this._runtimeSessions.length) {
+			throw new Error(`Cannot show output for runtime: language runtime session handle '${handle}' not found or no longer valid.`);
+		}
+		if (!this._runtimeSessions[handle].showOutput) {
+			throw new Error(`Cannot show output for runtime: language runtime session handle '${handle}' does not implement profiling.`);
+		}
+		return this._runtimeSessions[handle].showProfile!();
+	}
+
+
 	$openResource(handle: number, resource: URI | string): Promise<boolean> {
 		if (handle >= this._runtimeSessions.length) {
 			throw new Error(`Cannot open resource: session handle '${handle}' not found or no longer valid.`);

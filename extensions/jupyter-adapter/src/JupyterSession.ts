@@ -22,7 +22,7 @@ export interface JupyterSessionState {
 	logFile: string;
 
 	/** The profile file the kernel is writing to */
-	profileFile: string;
+	profileFile?: string;
 
 	/** The connection file specifying the ZeroMQ ports, signing keys, etc. */
 	connectionFile: string;

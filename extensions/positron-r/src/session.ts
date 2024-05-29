@@ -344,6 +344,13 @@ export class RSession implements positron.LanguageRuntimeSession, vscode.Disposa
 	}
 
 	/**
+	 * Show profiler log if supported.
+	 */
+	async showProfile() {
+		await this._kernel?.showProfile?.();
+	}
+
+	/**
 	 * Get the LANG env var and all categories of the locale, in R's Sys.getlocale() sense, from
 	 * the R session.
 	 */

@@ -797,6 +797,11 @@ declare module 'positron' {
 		 * Show runtime log in output panel.
 		 */
 		showOutput?(): void;
+
+		/**
+		 * Show profiler log if supported.
+		 */
+		showProfile?(): Thenable<void>;
 	}
 
 

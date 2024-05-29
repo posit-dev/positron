@@ -417,11 +417,18 @@ export function registerLanguageRuntimeActions() {
 	});
 
 	// Registers the show output language runtime action.
-	registerLanguageRuntimeAction('workbench.action.languageRuntime.showOutput', 'Show runtime output', async accessor => {
+	registerLanguageRuntimeAction('workbench.action.languageRuntime.showOutput', 'Show interpreter output', async accessor => {
 		(await selectRunningLanguageRuntime(
 			accessor.get(IRuntimeSessionService),
 			accessor.get(IQuickInputService),
 			'Select the interpreter for which to show output'))?.showOutput();
+	});
+
+	registerLanguageRuntimeAction('workbench.action.languageRuntime.showProfile', 'Show interpreter profile report', async accessor => {
+		(await selectRunningLanguageRuntime(
+			accessor.get(IRuntimeSessionService),
+			accessor.get(IQuickInputService),
+			'Select the interpreter for which to show profile output'))?.showProfile();
 	});
 
 	registerLanguageRuntimeAction('workbench.action.language.runtime.openClient', 'Create Runtime Client Widget', async accessor => {
