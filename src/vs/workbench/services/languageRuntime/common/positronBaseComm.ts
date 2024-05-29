@@ -41,6 +41,25 @@ export interface PositronCommError {
 }
 
 /**
+ * A {@link PositronBaseComm}'s {@link PositronBaseComm.options options}.
+ */
+export type PositronCommOptions<T extends string> = {
+	/** RPC options keyed by RPC name. */
+	[key in T]?: PositronCommRpcOptions;
+};
+
+/**
+ * Options for a specific RPC of a {@link PositronBaseComm}.
+ */
+export interface PositronCommRpcOptions {
+	/**
+	 * Timeout in milliseconds after which to error if the server does not respond.
+	 * Defaults to 5 seconds.
+	 */
+	timeout: number;
+}
+
+/**
  * An event emitter that can be used to fire events from the backend to the
  * frontend.
  */
@@ -87,7 +106,9 @@ export class PositronBaseComm extends Disposable {
 	 * @param clientInstance The client instance to use for communication with the backend.
 	 *  This instance must be connected to the backend before it is passed to this class.
 	 */
-	constructor(private readonly clientInstance: IRuntimeClientInstance<any, any>) {
+	constructor(
+		private readonly clientInstance: IRuntimeClientInstance<any, any>,
+		private readonly options?: PositronCommOptions<any>) {
 		super();
 		this._register(clientInstance);
 		this._register(clientInstance.onDidReceiveData((data) => {
@@ -211,7 +232,8 @@ export class PositronBaseComm extends Disposable {
 		// Perform the RPC
 		let response = {} as any;
 		try {
-			response = await this.clientInstance.performRpc(request);
+			const timeout = this.options?.[rpcName]?.timeout ?? 5000;
+			response = await this.clientInstance.performRpc(request, timeout);
 		} catch (err) {
 			// Convert the error to a runtime method error. This handles errors
 			// that occur while performing the RPC; if the RPC is successfully

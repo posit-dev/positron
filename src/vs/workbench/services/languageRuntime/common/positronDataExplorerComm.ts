@@ -7,7 +7,7 @@
 //
 
 import { Event } from 'vs/base/common/event';
-import { PositronBaseComm } from 'vs/workbench/services/languageRuntime/common/positronBaseComm';
+import { PositronBaseComm, PositronCommOptions } from 'vs/workbench/services/languageRuntime/common/positronBaseComm';
 import { IRuntimeClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimeClientInstance';
 
 /**
@@ -682,9 +682,22 @@ export enum DataExplorerFrontendEvent {
 	DataUpdate = 'data_update'
 }
 
+export enum DataExplorerBackendRequest {
+	GetSchema = 'get_schema',
+	SearchSchema = 'search_schema',
+	GetDataValues = 'get_data_values',
+	SetRowFilters = 'set_row_filters',
+	SetSortColumns = 'set_sort_columns',
+	GetColumnProfiles = 'get_column_profiles',
+	GetState = 'get_state'
+}
+
 export class PositronDataExplorerComm extends PositronBaseComm {
-	constructor(instance: IRuntimeClientInstance<any, any>) {
-		super(instance);
+	constructor(
+		instance: IRuntimeClientInstance<any, any>,
+		options?: PositronCommOptions<DataExplorerBackendRequest>,
+	) {
+		super(instance, options);
 		this.onDidSchemaUpdate = super.createEventEmitter('schema_update', []);
 		this.onDidDataUpdate = super.createEventEmitter('data_update', []);
 	}

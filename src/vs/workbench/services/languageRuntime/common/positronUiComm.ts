@@ -7,7 +7,7 @@
 //
 
 import { Event } from 'vs/base/common/event';
-import { PositronBaseComm } from 'vs/workbench/services/languageRuntime/common/positronBaseComm';
+import { PositronBaseComm, PositronCommOptions } from 'vs/workbench/services/languageRuntime/common/positronBaseComm';
 import { IRuntimeClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimeClientInstance';
 
 /**
@@ -445,9 +445,16 @@ export enum UiFrontendRequest {
 	LastActiveEditorContext = 'last_active_editor_context'
 }
 
+export enum UiBackendRequest {
+	CallMethod = 'call_method'
+}
+
 export class PositronUiComm extends PositronBaseComm {
-	constructor(instance: IRuntimeClientInstance<any, any>) {
-		super(instance);
+	constructor(
+		instance: IRuntimeClientInstance<any, any>,
+		options?: PositronCommOptions<UiBackendRequest>,
+	) {
+		super(instance, options);
 		this.onDidBusy = super.createEventEmitter('busy', ['busy']);
 		this.onDidClearConsole = super.createEventEmitter('clear_console', []);
 		this.onDidOpenEditor = super.createEventEmitter('open_editor', ['file', 'line', 'column']);

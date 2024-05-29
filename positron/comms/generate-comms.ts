@@ -1123,7 +1123,7 @@ function* createTypescriptComm(name: string, frontend: any, backend: any): Gener
 	if (frontend) {
 		yield `import { Event } from 'vs/base/common/event';\n`;
 	}
-	yield `import { PositronBaseComm } from 'vs/workbench/services/languageRuntime/common/positronBaseComm';
+	yield `import { PositronBaseComm, PositronCommOptions } from 'vs/workbench/services/languageRuntime/common/positronBaseComm';
 import { IRuntimeClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimeClientInstance';
 
 `;
@@ -1282,11 +1282,21 @@ import { IRuntimeClientInstance } from 'vs/workbench/services/languageRuntime/co
 		}
 	}
 
+	if (backend) {
+		yield `export enum ${snakeCaseToSentenceCase(name)}BackendRequest {\n`;
+		const requests = backend.methods.map((method: any) => `\t${snakeCaseToSentenceCase(method.name)} = '${method.name}'`);
+		yield requests.join(',\n');
+		yield '\n}\n\n';
+	}
+
 	yield `export class Positron${snakeCaseToSentenceCase(name)}Comm extends PositronBaseComm {\n`;
 
 	// TODO: supply initial data
-	yield '\tconstructor(instance: IRuntimeClientInstance<any, any>) {\n';
-	yield '\t\tsuper(instance);\n';
+	yield '\tconstructor(\n';
+	yield '\t\tinstance: IRuntimeClientInstance<any, any>,\n';
+	yield `\t\toptions?: PositronCommOptions<${snakeCaseToSentenceCase(name)}BackendRequest>,\n`;
+	yield '\t) {\n';
+	yield '\t\tsuper(instance, options);\n';
 	if (frontend) {
 		for (const method of frontend.methods) {
 			// Ignore methods that have a result; we're generating events here

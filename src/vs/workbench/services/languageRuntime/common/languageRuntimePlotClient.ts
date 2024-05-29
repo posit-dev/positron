@@ -209,7 +209,7 @@ export class PlotClientInstance extends Disposable implements IPositronPlotClien
 		public readonly metadata: IPositronPlotMetadata) {
 		super();
 
-		this._comm = new PositronPlotComm(client);
+		this._comm = new PositronPlotComm(client, { render: { timeout: 30_000 } });
 
 		// Connect close emitter event
 		this.onDidClose = this._closeEmitter.event;
@@ -217,6 +217,10 @@ export class PlotClientInstance extends Disposable implements IPositronPlotClien
 		clientStateEvent((state) => {
 			if (state === RuntimeClientState.Closed) {
 				this._closeEmitter.fire();
+
+				// Silently cancel any pending render requests
+				this._currentRender?.cancel();
+				this._queuedRender?.cancel();
 			}
 			this._stateEmitter.fire(PlotClientState.Closed);
 		});

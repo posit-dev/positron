@@ -7,7 +7,7 @@
 //
 
 import { Event } from 'vs/base/common/event';
-import { PositronBaseComm } from 'vs/workbench/services/languageRuntime/common/positronBaseComm';
+import { PositronBaseComm, PositronCommOptions } from 'vs/workbench/services/languageRuntime/common/positronBaseComm';
 import { IRuntimeClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimeClientInstance';
 
 /**
@@ -214,9 +214,21 @@ export enum VariablesFrontendEvent {
 	Refresh = 'refresh'
 }
 
+export enum VariablesBackendRequest {
+	List = 'list',
+	Clear = 'clear',
+	Delete = 'delete',
+	Inspect = 'inspect',
+	ClipboardFormat = 'clipboard_format',
+	View = 'view'
+}
+
 export class PositronVariablesComm extends PositronBaseComm {
-	constructor(instance: IRuntimeClientInstance<any, any>) {
-		super(instance);
+	constructor(
+		instance: IRuntimeClientInstance<any, any>,
+		options?: PositronCommOptions<VariablesBackendRequest>,
+	) {
+		super(instance, options);
 		this.onDidUpdate = super.createEventEmitter('update', ['assigned', 'unevaluated', 'removed', 'version']);
 		this.onDidRefresh = super.createEventEmitter('refresh', ['variables', 'length', 'version']);
 	}
