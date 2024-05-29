@@ -661,17 +661,26 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 				//
 				// This isn't unexpected but deserves some logging.
 				if (validated.runtimeId !== metadata.runtimeId) {
-					const existing =
-						this._languageRuntimeService.getRegisteredRuntime(validated.runtimeId);
-					if (existing) {
-						// This should shouldn't happen, but warn if it does.
-						this._logService.warn(
-							`Language runtime ${formatLanguageRuntimeMetadata(validated)} ` +
-							`already registered; re-registering.`);
-					} else {
+					if (!metadata.runtimeId) {
+						// We've leveraged validateMetadata to swap the partially hydrated metadata
+						// for the fully hydrated metadata.
 						this._logService.info(
-							`Replacing runtime ${formatLanguageRuntimeMetadata(metadata)} => `
-							+ `${formatLanguageRuntimeMetadata(validated)}`);
+							`Hydrated metadata for runtime ${formatLanguageRuntimeMetadata(validated)}`
+						);
+					} else {
+						// The runtime ID changed.
+						const existing =
+							this._languageRuntimeService.getRegisteredRuntime(validated.runtimeId);
+						if (existing) {
+							// This should shouldn't happen, but warn if it does.
+							this._logService.warn(
+								`Language runtime ${formatLanguageRuntimeMetadata(validated)} ` +
+								`already registered; re-registering.`);
+						} else {
+							this._logService.info(
+								`Replacing runtime ${formatLanguageRuntimeMetadata(metadata)} => `
+								+ `${formatLanguageRuntimeMetadata(validated)}`);
+						}
 					}
 				}
 
