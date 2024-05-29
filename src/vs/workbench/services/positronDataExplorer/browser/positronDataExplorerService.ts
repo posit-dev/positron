@@ -242,19 +242,17 @@ class PositronDataExplorerService extends Disposable implements IPositronDataExp
 	 * @param identifier The identifier of the active Positron data explorer instance to set.
 	 */
 	setActivePositronDataExplorerInstance(identifier: string) {
-		if (this._activePositronDataExplorerInstance &&
-			this._activePositronDataExplorerInstance.dataExplorerClientInstance.identifier ===
+		if (!this._activePositronDataExplorerInstance ||
+			this._activePositronDataExplorerInstance.dataExplorerClientInstance.identifier !==
 			identifier
 		) {
-			return;
+			const positronDataExplorerInstance = this._positronDataExplorerInstances.get(identifier);
+			if (positronDataExplorerInstance) {
+				this._activePositronDataExplorerInstance = positronDataExplorerInstance;
+				this._positronDataExplorerFocusedContextKey.set(true);
+			}
 		}
 
-		const positronDataExplorerInstance = this._positronDataExplorerInstances.get(identifier);
-		if (positronDataExplorerInstance) {
-			this._activePositronDataExplorerInstance = positronDataExplorerInstance;
-			this._positronDataExplorerFocusedContextKey.set(true);
-			console.log(`++++++++++ PositronDataExplorerFocused TRUE ${identifier}`);
-		}
 	}
 
 	/**
@@ -268,7 +266,6 @@ class PositronDataExplorerService extends Disposable implements IPositronDataExp
 		) {
 			this._activePositronDataExplorerInstance = undefined;
 			this._positronDataExplorerFocusedContextKey.set(false);
-			console.log(`++++++++++ PositronDataExplorerFocused FALSE ${identifier}`);
 		}
 	}
 
