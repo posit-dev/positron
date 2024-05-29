@@ -35,7 +35,7 @@ import { ActivityItem, RuntimeItemActivity } from 'vs/workbench/services/positro
 import { ActivityItemInput, ActivityItemInputState } from 'vs/workbench/services/positronConsole/browser/classes/activityItemInput';
 import { ActivityItemErrorStream, ActivityItemOutputStream } from 'vs/workbench/services/positronConsole/browser/classes/activityItemStream';
 import { IPositronConsoleInstance, IPositronConsoleService, POSITRON_CONSOLE_VIEW_ID, PositronConsoleState, SessionAttachMode } from 'vs/workbench/services/positronConsole/browser/interfaces/positronConsoleService';
-import { ILanguageRuntimeExit, ILanguageRuntimeMessage, ILanguageRuntimeMetadata, LanguageRuntimeSessionMode, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior, RuntimeExitReason, RuntimeOnlineState, RuntimeState, formatLanguageRuntimeMetadata, formatLanguageRuntimeSession } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { ILanguageRuntimeExit, ILanguageRuntimeMessage, ILanguageRuntimeMessageOutput, ILanguageRuntimeMetadata, LanguageRuntimeSessionMode, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior, RuntimeExitReason, RuntimeOnlineState, RuntimeState, formatLanguageRuntimeMetadata, formatLanguageRuntimeSession } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { ILanguageRuntimeSession, IRuntimeSessionService } from '../../runtimeSession/common/runtimeSessionService';
 import { UiFrontendEvent } from 'vs/workbench/services/languageRuntime/common/positronUiComm';
 import { IRuntimeStartupService } from 'vs/workbench/services/runtimeStartup/common/runtimeStartupService';
@@ -1446,8 +1446,8 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 		}));
 
 		// Add the onDidReceiveRuntimeMessageOutput event handler.
-		this._runtimeDisposableStore.add(this._session.onDidReceiveRuntimeMessageOutput(
-			languageRuntimeMessageOutput => {
+		const handleDidReceiveRuntimeMessageOutput = (
+			(languageRuntimeMessageOutput: ILanguageRuntimeMessageOutput) => {
 				// If trace is enabled, add a trace runtime item.
 				if (this._trace) {
 					this.addRuntimeItemTrace(
@@ -1517,7 +1517,9 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 						)
 					);
 				}
-			}));
+			});
+		this._runtimeDisposableStore.add(this._session.onDidReceiveRuntimeMessageOutput(handleDidReceiveRuntimeMessageOutput));
+		this._runtimeDisposableStore.add(this._session.onDidReceiveRuntimeMessageResult(handleDidReceiveRuntimeMessageOutput));
 
 		// Add the onDidReceiveRuntimeMessageStream event handler.
 		this._runtimeDisposableStore.add(this._session.onDidReceiveRuntimeMessageStream(

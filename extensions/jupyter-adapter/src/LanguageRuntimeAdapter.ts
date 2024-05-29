@@ -709,7 +709,6 @@ export class LanguageRuntimeSessionAdapter
 			when: message.when,
 			type: positron.LanguageRuntimeMessageType.Output,
 			data: data.data as any,
-			outputType: positron.LanguageRuntimeOutputType.DisplayData,
 		} as positron.LanguageRuntimeOutput);
 	}
 
@@ -744,10 +743,9 @@ export class LanguageRuntimeSessionAdapter
 			id: message.msgId,
 			parent_id: message.originId,
 			when: message.when,
-			type: positron.LanguageRuntimeMessageType.Output,
+			type: positron.LanguageRuntimeMessageType.Result,
 			data: data.data as any,
-			outputType: positron.LanguageRuntimeOutputType.ExecuteResult,
-		} as positron.LanguageRuntimeOutput);
+		} as positron.LanguageRuntimeResult);
 	}
 
 	/**

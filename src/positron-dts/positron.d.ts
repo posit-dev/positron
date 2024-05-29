@@ -16,6 +16,9 @@ declare module 'positron' {
 		/** A message representing output (text, plots, etc.) */
 		Output = 'output',
 
+		/** A message representing the computational result of a runtime execution */
+		Result = 'result',
+
 		/** A message representing output from one of the standard streams (stdout or stderr) */
 		Stream = 'stream',
 
@@ -42,15 +45,6 @@ declare module 'positron' {
 
 		/** A message indicating that a comm (client instance) was closed from the server side */
 		CommClosed = 'comm_closed',
-	}
-
-	/** The set of possible types of language runtime output messages */
-	export enum LanguageRuntimeOutputType {
-		/** An output message representing data to be displayed in a frontend */
-		DisplayData = 'display_data',
-
-		/** An output message representing the result of an execution */
-		ExecuteResult = 'execute_result'
 	}
 
 	/**
@@ -210,9 +204,13 @@ declare module 'positron' {
 	export interface LanguageRuntimeOutput extends LanguageRuntimeMessage {
 		/** A record of data MIME types to the associated data, e.g. `text/plain` => `'hello world'` */
 		data: Record<string, string>;
+	}
 
-		/** The type of output */
-		outputType: LanguageRuntimeOutputType;
+	/**
+	 * LanguageRuntimeResult is a LanguageRuntimeOutput representing the computational result of a
+	 * runtime execution.
+	 */
+	export interface LanguageRuntimeResult extends LanguageRuntimeOutput {
 	}
 
 	/**

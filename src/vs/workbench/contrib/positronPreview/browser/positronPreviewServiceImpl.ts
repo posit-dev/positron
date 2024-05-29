@@ -9,7 +9,7 @@ import { IWebviewService, WebviewExtensionDescription, WebviewInitInfo } from 'v
 import { PreviewWebview } from 'vs/workbench/contrib/positronPreview/browser/previewWebview';
 import { IViewsService } from 'vs/workbench/services/views/common/viewsService';
 import { POSITRON_PREVIEW_URL_VIEW_TYPE, POSITRON_PREVIEW_VIEW_ID } from 'vs/workbench/contrib/positronPreview/browser/positronPreviewSevice';
-import { LanguageRuntimeSessionMode, RuntimeOutputKind } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { ILanguageRuntimeMessageOutput, LanguageRuntimeSessionMode, RuntimeOutputKind } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { ILanguageRuntimeSession, IRuntimeSessionService } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
 import { IPositronNotebookOutputWebviewService } from 'vs/workbench/contrib/positronOutputWebview/browser/notebookOutputWebviewService';
 import { URI } from 'vs/base/common/uri';
@@ -235,7 +235,7 @@ export class PositronPreviewService extends Disposable implements IPositronPrevi
 			// Don't attach notebook sessions; they display previews inline.
 			return;
 		}
-		this._register(session.onDidReceiveRuntimeMessageOutput(async (e) => {
+		const handleDidReceiveRuntimeMessageOutput = async (e: ILanguageRuntimeMessageOutput) => {
 			if (e.kind === RuntimeOutputKind.ViewerWidget) {
 				const webview = await
 					this._notebookOutputWebviewService.createNotebookOutputWebview(session, e);
@@ -248,7 +248,9 @@ export class PositronPreviewService extends Disposable implements IPositronPrevi
 					this.openPreviewWebview(preview, false);
 				}
 			}
-		}));
+		};
+		this._register(session.onDidReceiveRuntimeMessageOutput(handleDidReceiveRuntimeMessageOutput));
+		this._register(session.onDidReceiveRuntimeMessageResult(handleDidReceiveRuntimeMessageOutput));
 	}
 
 	/**

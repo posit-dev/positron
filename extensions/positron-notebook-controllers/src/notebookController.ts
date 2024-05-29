@@ -8,6 +8,15 @@ import { JUPYTER_NOTEBOOK_TYPE } from './constants';
 import { log } from './extension';
 import { ResourceMap } from './map';
 
+/** The type of a Jupyter notebook cell output. */
+enum NotebookCellOutputType {
+	/** One of possibly many outputs related to an execution. */
+	DisplayData = 'display_data',
+
+	/** The result of an execution. */
+	ExecuteResult = 'execute_result',
+}
+
 /**
  * Wraps a vscode.NotebookController for a specific language, and manages a notebook runtime session
  * for each vscode.NotebookDocument that uses this controller.
@@ -188,7 +197,16 @@ export class NotebookController implements vscode.Disposable {
 							currentExecution.executionOrder = (message as positron.LanguageRuntimeInput).execution_count;
 							break;
 						case positron.LanguageRuntimeMessageType.Output:
-							cellOutput = handleRuntimeMessageOutput(message as positron.LanguageRuntimeOutput);
+							cellOutput = handleRuntimeMessageOutput(
+								(message as positron.LanguageRuntimeOutput),
+								NotebookCellOutputType.DisplayData
+							);
+							break;
+						case positron.LanguageRuntimeMessageType.Result:
+							cellOutput = handleRuntimeMessageOutput(
+								(message as positron.LanguageRuntimeResult),
+								NotebookCellOutputType.ExecuteResult
+							);
 							break;
 						case positron.LanguageRuntimeMessageType.Stream:
 							cellOutput = handleRuntimeMessageStream(message as positron.LanguageRuntimeStream);
@@ -288,9 +306,13 @@ async function updateNotebookLanguage(notebook: vscode.NotebookDocument, languag
  * Handle a LanguageRuntimeOutput message.
  *
  * @param message Message to handle.
+ * @param outputType Type of the output.
  * @returns Resulting cell output items.
  */
-function handleRuntimeMessageOutput(message: positron.LanguageRuntimeOutput): vscode.NotebookCellOutput {
+function handleRuntimeMessageOutput(
+	message: positron.LanguageRuntimeOutput,
+	outputType: NotebookCellOutputType,
+): vscode.NotebookCellOutput {
 	const cellOutputItems: vscode.NotebookCellOutputItem[] = [];
 	const mimeTypes = Object.keys(message.data);
 	mimeTypes.map(mimeType => {
@@ -301,7 +323,7 @@ function handleRuntimeMessageOutput(message: positron.LanguageRuntimeOutput): vs
 			cellOutputItems.push(vscode.NotebookCellOutputItem.text(data, mimeType));
 		}
 	});
-	return new vscode.NotebookCellOutput(cellOutputItems, { outputType: message.outputType });
+	return new vscode.NotebookCellOutput(cellOutputItems, { outputType });
 }
 
 /**
