@@ -17,8 +17,9 @@ import { PositronWizardSubStep } from 'vs/workbench/browser/positronNewProjectWi
 import { LabeledTextInput } from 'vs/workbench/browser/positronComponents/positronModalDialog/components/labeledTextInput';
 import { LabeledFolderInput } from 'vs/workbench/browser/positronComponents/positronModalDialog/components/labeledFolderInput';
 import { Checkbox } from 'vs/workbench/browser/positronComponents/positronModalDialog/components/checkbox';
-import { WizardFormattedText, WizardFormattedTextItem, WizardFormattedTextType } from 'vs/workbench/browser/positronNewProjectWizard/components/wizardFormattedText';
+import { WizardFormattedText, WizardFormattedTextType } from 'vs/workbench/browser/positronNewProjectWizard/components/wizardFormattedText';
 import { checkProjectName } from 'vs/workbench/browser/positronNewProjectWizard/utilities/projectNameUtils';
+import { DisposableStore } from 'vs/base/common/lifecycle';
 
 /**
  * The ProjectNameLocationStep component is the second step in the new project wizard.
@@ -33,57 +34,30 @@ export const ProjectNameLocationStep = (props: PropsWithChildren<NewProjectWizar
 	const { fileDialogService, fileService, logService, pathService } = context.services;
 
 	// Hooks.
-	const [projectNameFeedback, setProjectNameFeedback] = useState<
-		WizardFormattedTextItem | undefined>(
-			undefined
-		);
+	const [projectName, setProjectName] = useState(context.projectName);
+	const [parentFolder, setParentFolder] = useState(context.parentFolder);
+	const [projectNameFeedback, setProjectNameFeedback] = useState(context.projectNameFeedback);
 
-	// Hook to initialize the project name feedback if the default project name is an existing directory.
 	useEffect(() => {
-		const initProjectNameFeedback = async () => {
-			const feedback = await checkProjectName(
-				context.projectName,
-				context.parentFolder,
-				pathService,
-				fileService
-			);
-			setProjectNameFeedback(feedback);
-		};
-		initProjectNameFeedback();
-		// Pass an empty dependency array to run this effect only once when the component is mounted.
-		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, []);
+		// Create the disposable store for cleanup.
+		const disposableStore = new DisposableStore();
 
-	// Set the project name and update the project name feedback.
-	const setProjectName = async (projectName: string) => {
-		const projectNameTrimmed = projectName.trim();
-		context.projectName = projectNameTrimmed;
-		const feedback = await checkProjectName(
-			projectNameTrimmed,
-			context.parentFolder,
-			pathService,
-			fileService
-		);
-		setProjectNameFeedback(feedback);
-	};
+		// Add the onUpdateProjectConfig event handler and update the component state.
+		disposableStore.add(context.onUpdateProjectDirectory(() => {
+			setProjectName(context.projectName);
+			setParentFolder(context.parentFolder);
+			setProjectNameFeedback(context.projectNameFeedback);
+		}));
 
-	// Set the project parent folder and update the project name feedback.
-	const setProjectParentFolder = async (parentFolder: string) => {
-		context.parentFolder = parentFolder;
-		const feedback = await checkProjectName(
-			context.projectName,
-			parentFolder,
-			pathService,
-			fileService
-		);
-		setProjectNameFeedback(feedback);
-	};
+		// Return the cleanup function that will dispose of the event handlers.
+		return () => disposableStore.dispose();
+	}, [context]);
 
 	// The browse handler.
 	const browseHandler = async () => {
 		// Show the open dialog.
 		const uri = await fileDialogService.showOpenDialog({
-			defaultUri: URI.file(context.parentFolder),
+			defaultUri: URI.file(parentFolder),
 			canSelectFiles: false,
 			canSelectFolders: true,
 			canSelectMany: false,
@@ -91,8 +65,30 @@ export const ProjectNameLocationStep = (props: PropsWithChildren<NewProjectWizar
 
 		// If the user made a selection, set the parent directory.
 		if (uri?.length) {
-			setProjectParentFolder(uri[0].fsPath);
+			onChangeParentFolder(uri[0].fsPath);
 		}
+	};
+
+	// Update the project name and the project name feedback.
+	const onChangeProjectName = async (name: string) => {
+		context.projectName = name.trim();
+		context.projectNameFeedback = await checkProjectName(
+			name,
+			parentFolder,
+			pathService,
+			fileService
+		);
+	};
+
+	// Update the parent folder and the project name feedback.
+	const onChangeParentFolder = async (folder: string) => {
+		context.parentFolder = folder;
+		context.projectNameFeedback = await checkProjectName(
+			projectName,
+			folder,
+			pathService,
+			fileService
+		);
 	};
 
 	// Navigate to the next step in the wizard, based on the selected project type.
@@ -116,6 +112,7 @@ export const ProjectNameLocationStep = (props: PropsWithChildren<NewProjectWizar
 		}
 	};
 
+	// Render.
 	return (
 		<PositronWizardStep
 			title={(() =>
@@ -127,8 +124,8 @@ export const ProjectNameLocationStep = (props: PropsWithChildren<NewProjectWizar
 			nextButtonConfig={{
 				onClick: nextStep,
 				disable:
-					!context.projectName ||
-					!context.parentFolder ||
+					!projectName ||
+					!parentFolder ||
 					(projectNameFeedback &&
 						projectNameFeedback.type === WizardFormattedTextType.Error),
 			}}
@@ -156,8 +153,8 @@ export const ProjectNameLocationStep = (props: PropsWithChildren<NewProjectWizar
 							context.projectType
 						))()}
 					autoFocus
-					value={context.projectName}
-					onChange={(e) => setProjectName(e.target.value)}
+					value={projectName}
+					onChange={(e) => onChangeProjectName(e.target.value)}
 					type='text'
 					error={
 						projectNameFeedback &&
@@ -179,7 +176,7 @@ export const ProjectNameLocationStep = (props: PropsWithChildren<NewProjectWizar
 								"Your project will be created at: "
 							))()}
 						<code>
-							{context.parentFolder}/{context.projectName}
+							{parentFolder}/{projectName}
 						</code>
 					</WizardFormattedText>
 				}
@@ -190,9 +187,9 @@ export const ProjectNameLocationStep = (props: PropsWithChildren<NewProjectWizar
 							'projectNameLocationSubStep.parentDirectory.description',
 							"Select a directory to create your project in"
 						))()}
-					value={context.parentFolder}
+					value={parentFolder}
 					onBrowse={browseHandler}
-					onChange={(e) => setProjectParentFolder(e.target.value)}
+					onChange={(e) => onChangeParentFolder(e.target.value)}
 				/>
 			</PositronWizardSubStep>
 			<PositronWizardSubStep>
@@ -204,6 +201,7 @@ export const ProjectNameLocationStep = (props: PropsWithChildren<NewProjectWizar
 							"Initialize project as Git repository"
 						))()}
 					onChanged={(checked) => context.initGitRepo = checked}
+					initialChecked={context.initGitRepo}
 				/>
 			</PositronWizardSubStep>
 		</PositronWizardStep>

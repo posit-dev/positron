@@ -16,6 +16,7 @@ import { NewProjectWizardStep } from 'vs/workbench/browser/positronNewProjectWiz
 import { NewProjectWizardStepProps } from 'vs/workbench/browser/positronNewProjectWizard/interfaces/newProjectWizardStepProps';
 import { OKCancelBackNextActionBar } from 'vs/workbench/browser/positronComponents/positronModalDialog/components/okCancelBackNextActionBar';
 import { ProjectTypeGroup } from 'vs/workbench/browser/positronNewProjectWizard/components/projectTypeGroup';
+import { checkProjectName } from 'vs/workbench/browser/positronNewProjectWizard/utilities/projectNameUtils';
 
 /**
  * The ProjectTypeStep component is the first step in the new project wizard, used to
@@ -32,7 +33,7 @@ export const ProjectTypeStep = (props: PropsWithChildren<NewProjectWizardStepPro
 
 	// Set the projectType and initialize the default project name if applicable,
 	// then navigate to the ProjectNameLocation step.
-	const nextStep = () => {
+	const nextStep = async () => {
 		if (!selectedProjectType) {
 			// If no project type is selected, return. This shouldn't happen since the Next button should
 			// be disabled if no project type is selected.
@@ -51,6 +52,12 @@ export const ProjectTypeStep = (props: PropsWithChildren<NewProjectWizardStepPro
 				) + selectedProjectType.replace(/\s/g, '');
 			context.projectType = selectedProjectType;
 			context.projectName = defaultProjectName;
+			context.projectNameFeedback = await checkProjectName(
+				defaultProjectName,
+				context.parentFolder,
+				context.services.pathService,
+				context.services.fileService
+			);
 		}
 		props.next(NewProjectWizardStep.ProjectNameLocation);
 	};
