@@ -195,11 +195,15 @@ export class PositronNewProjectService extends Disposable implements IPositronNe
 	 * Relies on extension ms-python.python
 	 */
 	private async _runPythonTasks() {
+		// Create a new Python file
+		await this._commandService.executeCommand('python.createNewFile');
+
+		// Create the Python environment
 		if (this.pendingTasks.has(NewProjectTask.PythonEnvironment)) {
 			await this._createPythonEnvironment();
 		}
 
-		await this._commandService.executeCommand('python.createNewFile');
+		// Complete the Python task
 		this._removePendingTask(NewProjectTask.Python);
 	}
 
@@ -208,6 +212,10 @@ export class PositronNewProjectService extends Disposable implements IPositronNe
 	 * Relies on extension vscode.ipynb
 	 */
 	private async _runJupyterTasks() {
+		// Create a new untitled Jupyter notebook
+		await this._commandService.executeCommand('ipynb.newUntitledIpynb');
+
+		// Create the Python environment
 		// For now, Jupyter notebooks are always Python based. In the future, we'll need to surface
 		// some UI in the Project Wizard for the user to select the language/kernel and pass that
 		// metadata to the new project configuration.
@@ -215,7 +223,7 @@ export class PositronNewProjectService extends Disposable implements IPositronNe
 			await this._createPythonEnvironment();
 		}
 
-		await this._commandService.executeCommand('ipynb.newUntitledIpynb');
+		// Complete the Jupyter task
 		this._removePendingTask(NewProjectTask.Jupyter);
 	}
 
@@ -224,11 +232,15 @@ export class PositronNewProjectService extends Disposable implements IPositronNe
 	 * Relies on extension vscode.positron-r
 	 */
 	private async _runRTasks() {
+		// Create a new R file
+		await this._commandService.executeCommand('r.createNewFile');
+
+		// Create the R environment
 		if (this.pendingTasks.has(NewProjectTask.REnvironment)) {
 			await this._createREnvironment();
 		}
 
-		await this._commandService.executeCommand('r.createNewFile');
+		// Complete the R task
 		this._removePendingTask(NewProjectTask.R);
 	}
 
