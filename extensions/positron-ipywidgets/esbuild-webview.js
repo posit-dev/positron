@@ -25,6 +25,13 @@ require('../esbuild-webview-common').run({
 			'.woff': 'dataurl',
 			'.woff2': 'dataurl',
 			'.eot': 'dataurl',
+		},
+		define: {
+			// RequireJS is included by a previous notebook preload script. Some of our dependencies
+			// (e.g. backbone) try to use RequireJS's `define` if it's present, but esbuild expects
+			// these modules to behave like CommonJS modules. Override the global `define` to
+			// undefined to disable this behavior.
+			'define': 'undefined',
 		}
 	}
 }, process.argv);
