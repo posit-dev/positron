@@ -18,6 +18,7 @@ import { ICommandService } from 'vs/platform/commands/common/commands';
 import { PythonEnvironmentProviderInfo } from 'vs/workbench/browser/positronNewProjectWizard/utilities/pythonEnvironmentStepUtils';
 import { Disposable } from 'vs/base/common/lifecycle';
 import { Emitter, Event } from 'vs/base/common/event';
+import { WizardFormattedTextItem } from 'vs/workbench/browser/positronNewProjectWizard/components/wizardFormattedText';
 
 /**
  * NewProjectWizardServices interface.
@@ -98,6 +99,7 @@ export class NewProjectWizardStateManager
 	private _selectedRuntime: ILanguageRuntimeMetadata | undefined;
 	private _projectType: NewProjectType | undefined;
 	private _projectName: string;
+	private _projectNameFeedback: WizardFormattedTextItem | undefined;
 	private _parentFolder: string;
 	private _initGitRepo: boolean;
 	private _openInNewWindow: boolean;
@@ -136,6 +138,7 @@ export class NewProjectWizardStateManager
 		this._selectedRuntime = undefined;
 		this._projectType = undefined;
 		this._projectName = '';
+		this._projectNameFeedback = undefined;
 		this._parentFolder = config.parentFolder ?? '';
 		this._initGitRepo = false;
 		this._openInNewWindow = false;
@@ -261,6 +264,23 @@ export class NewProjectWizardStateManager
 	 */
 	set projectName(value: string) {
 		this._projectName = value;
+		this._onUpdateProjectDirectoryEmitter.fire();
+	}
+
+	/**
+	 * Gets the project name feedback.
+	 * @returns The project name feedback.
+	 */
+	get projectNameFeedback(): WizardFormattedTextItem | undefined {
+		return this._projectNameFeedback;
+	}
+
+	/**
+	 * Sets the project name feedback.
+	 * @param value The project name feedback.
+	 */
+	set projectNameFeedback(value: WizardFormattedTextItem | undefined) {
+		this._projectNameFeedback = value;
 		this._onUpdateProjectDirectoryEmitter.fire();
 	}
 
@@ -741,6 +761,7 @@ export class NewProjectWizardStateManager
 	private _resetProjectConfig() {
 		this._initGitRepo = false;
 		this._useRenv = undefined;
+		this.projectNameFeedback = undefined;
 	}
 
 	/**

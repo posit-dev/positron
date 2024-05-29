@@ -155,6 +155,9 @@ export const showNewProjectModalDialog = async (
 	);
 };
 
+/**
+ * NewProjectModalDialogProps interface.
+ */
 interface NewProjectModalDialogProps {
 	renderer: PositronModalReactRenderer;
 	createProject: (result: NewProjectWizardState) => Promise<void>;
