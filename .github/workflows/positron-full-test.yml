@@ -18,12 +18,20 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Show Working directory contents
+        run: pwd
+
+      - name: Show Working directory contents
+        run: ls
+
       - name: Check out positron-content-examples
         uses: actions/checkout@v4
         with:
           repository: posit-dev/positron-content-examples
-          path: test/smoke
+          path: test/smoke/positron-content-examples
           token: ${{ secrets.GITHUB_TOKEN }}
+
+
 
       - name: Setup Build Environment
         run: |
