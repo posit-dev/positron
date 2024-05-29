@@ -898,7 +898,7 @@ export class LanguageRuntimeSessionAdapter
 		await this.createClient(
 			clientId,
 			positron.RuntimeClientType.Lsp,
-			{ client_address: clientAddress },
+			{ client_address: clientAddress }
 		);
 	}
 
@@ -937,7 +937,7 @@ export class LanguageRuntimeSessionAdapter
 		await this.createClient(
 			clientId,
 			positron.RuntimeClientType.Dap,
-			{ client_address: serverAddress },
+			{ client_address: serverAddress }
 		);
 
 		// Handle events from the DAP
