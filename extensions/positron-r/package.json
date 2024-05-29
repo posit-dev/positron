@@ -272,18 +272,6 @@
         "configuration": "./language-configuration/r-docs-language-configuration.json"
       },
       {
-        "id": "quarto",
-        "aliases": [
-          "Quarto",
-          "quarto",
-          "R Markdown",
-          "Rmd"
-        ],
-        "extensions": [
-          ".rmd"
-        ]
-      },
-      {
         "id": "json",
         "aliases": [
           "renv lockfile"
@@ -395,7 +383,7 @@
           "command": "r.rmarkdownRender",
           "icon": "$(play)",
           "title": "%r.command.rmarkdownRender.title%",
-          "when": "editorLangId == quarto"
+          "when": "resourceExtname == '.rmd' || resourceExtname == '.Rmd'"
         },
         {
           "category": "R",
@@ -466,7 +454,7 @@
           "command": "r.rmarkdownRender",
           "group": "R",
           "title": "%r.command.rmarkdownRender.title%",
-          "when": "editorLangId == quarto"
+          "when": "resourceExtname == '.rmd' || resourceExtname == '.Rmd'"
         }
       ],
       "editor/title/run": [
@@ -481,7 +469,7 @@
           "command": "r.rmarkdownRender",
           "icon": "$(play)",
           "title": "%r.command.rmarkdownRender.title%",
-          "when": "resourceLangId == quarto && !isInDiffEditor"
+          "when": "(resourceExtname == '.rmd' || resourceExtname == '.Rmd') && !isInDiffEditor"
         }
       ]
     },
