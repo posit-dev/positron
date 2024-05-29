@@ -540,7 +540,7 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 
 	private sendInitialRequest() {
 		this._initial_request_id = uuidv4();
-		this.send(this._initial_request_id, 'kernel_info_request', this._shell!, {}, {});
+		this.send(this._initial_request_id, 'kernel_info_request', this._shell!, {});
 	}
 
 	/**
@@ -769,7 +769,7 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 	 * @param data Data to send to the comm.
 	 * @param metadata Metadata to send to the comm.
 	 */
-	public openComm(targetName: string, id: string, data: object, metadata: object): Promise<void> {
+	public openComm(targetName: string, id: string, data: object, metadata?: object): Promise<void> {
 		// Create the message to send to the kernel
 		const msg: JupyterCommOpen = {
 			target_name: targetName,  // eslint-disable-line
@@ -792,7 +792,7 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 		};
 
 		// Dispatch it
-		return this.send(uuidv4(), 'comm_close', this._shell!, msg, {});
+		return this.send(uuidv4(), 'comm_close', this._shell!, msg);
 	}
 
 	/**
@@ -806,7 +806,7 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 		};
 
 		// Dispatch it
-		this.send(message_id, 'comm_msg', this._shell!, msg, {});
+		this.send(message_id, 'comm_msg', this._shell!, msg);
 	}
 
 	/**
@@ -883,7 +883,7 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 		const msg: JupyterShutdownRequest = {
 			restart: restart
 		};
-		return this.send(uuidv4(), 'shutdown_request', this._control!, msg, {});
+		return this.send(uuidv4(), 'shutdown_request', this._control!, msg);
 	}
 
 	/**
@@ -894,7 +894,7 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 		this._activeBackendRequestHeader = undefined;
 
 		const msg: JupyterInterruptRequest = {};
-		return this.send(uuidv4(), 'interrupt_request', this._control!, msg, {});
+		return this.send(uuidv4(), 'interrupt_request', this._control!, msg);
 	}
 
 	/**
@@ -1033,7 +1033,7 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 		};
 
 		// Send the execution request to the kernel
-		this.send(id, 'execute_request', this._shell!, msg, {})
+		this.send(id, 'execute_request', this._shell!, msg)
 			.catch((err) => {
 				// Fail if we couldn't connect to the socket
 				this.log(`Failed to send execute_request for ${code} (id ${id}): ${err}`);
@@ -1057,7 +1057,7 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 		if (parent) {
 			// Found it! Send the reply
 			this.log(`Sending input reply for ${id}: ${value}`);
-			this.sendToSocket(uuidv4(), 'input_reply', this._stdin!, parent, msg, {});
+			this.sendToSocket(uuidv4(), 'input_reply', this._stdin!, parent, msg);
 
 			// Remove the active input request now that we've replied
 			this._activeBackendRequestHeader = undefined;
@@ -1066,7 +1066,7 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 			// the kernel doesn't care (it is probably waiting for this specific
 			// response)
 			this.log(`WARN: Failed to find parent for input request ${id}; sending anyway: ${value}`);
-			this.send(uuidv4(), 'input_reply', this._stdin!, msg, {});
+			this.send(uuidv4(), 'input_reply', this._stdin!, msg);
 		}
 	}
 
@@ -1084,7 +1084,7 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 			return;
 		}
 
-		this.sendToSocket(uuidv4(), 'rpc_reply', this._stdin!, parent, response, {});
+		this.sendToSocket(uuidv4(), 'rpc_reply', this._stdin!, parent, response);
 		this._activeBackendRequestHeader = undefined;
 	}
 
@@ -1156,7 +1156,7 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 			return;
 		}
 
-		this.send(packet.msgId, packet.msgType, socket, packet.message, {});
+		this.send(packet.msgId, packet.msgType, socket, packet.message);
 	}
 
 	/**
@@ -1255,7 +1255,7 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 	 * @param message The body of the message
 	 * @param metadata The metadata to send with the message
 	 */
-	private send(id: string, type: string, dest: JupyterSocket, message: JupyterMessageSpec, metadata: object): Promise<void> {
+	private send(id: string, type: string, dest: JupyterSocket, message: JupyterMessageSpec, metadata?: object): Promise<void> {
 		return this.sendToSocket(id, type, dest, {} as JupyterMessageHeader, message, metadata);
 	}
 
@@ -1270,7 +1270,7 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 	 * @param metadata The metadata to send with the message
 	 */
 	private async sendToSocket(id: string, type: string, dest: JupyterSocket,
-		parent: JupyterMessageHeader, message: JupyterMessageSpec, metadata: object) {
+		parent: JupyterMessageHeader, message: JupyterMessageSpec, metadata: object = {}) {
 		const msg: JupyterMessage = {
 			buffers: [],
 			content: message,

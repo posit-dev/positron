@@ -723,7 +723,7 @@ declare module 'positron' {
 		 * @param params A set of parameters to pass to the client; specific to the client type
 		 * @param metadata A set of metadata to pass to the client; specific to the client type
 		 */
-		createClient(id: string, type: RuntimeClientType, params: any, metadata: any): Thenable<void>;
+		createClient(id: string, type: RuntimeClientType, params: any, metadata?: any): Thenable<void>;
 
 		/**
 		 * List all clients, optionally filtered by type.

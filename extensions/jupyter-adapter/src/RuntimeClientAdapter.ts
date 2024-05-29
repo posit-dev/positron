@@ -36,9 +36,9 @@ export class RuntimeClientAdapter {
 		private readonly _id: string,
 		private readonly _type: positron.RuntimeClientType,
 		private readonly _params: object,
-		private readonly _metadata: object,
 		private readonly _kernel: JupyterKernel,
-		private readonly _server_comm: boolean) {
+		private readonly _server_comm: boolean,
+		private readonly _metadata?: object) {
 
 		// Wire event handlers for state changes
 		this._currentState = positron.RuntimeClientState.Uninitialized;
