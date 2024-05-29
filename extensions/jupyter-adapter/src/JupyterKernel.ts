@@ -1472,6 +1472,10 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 						this.log(`Could not find exit code in last line of log file ` +
 							`${state.logFile}: ${lastLine} (${e}))`);
 					}
+					// last line before log end is end of traceback
+					const endIndex = lines.findIndex(line => line.startsWith('*** Log ended'));
+					const logFileContent = lines.slice(endIndex - 1, endIndex).join('\n');
+					this.showErrorMessage(logFileContent, state.logFile);
 				}
 			} else {
 				this.log(`Not reading exit code from process ${state.processId}; ` +
@@ -1577,6 +1581,17 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 	 */
 	public showOutput() {
 		this._logChannel?.show();
+	}
+
+	/**
+	* Show error from logs in message and give link to logfile
+	*/
+	public async showErrorMessage(errorMessage: string, logfile: string) {
+		const res = await vscode.window.showErrorMessage(errorMessage, vscode.l10n.t('Open logfile'));
+		if (res) {
+			const textDocument = await vscode.workspace.openTextDocument(logfile);
+			await vscode.window.showTextDocument(textDocument);
+		}
 	}
 
 	/**
