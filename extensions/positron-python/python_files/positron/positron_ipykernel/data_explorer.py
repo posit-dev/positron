@@ -271,7 +271,8 @@ def _get_float_formatter(options: FormatOptions) -> Callable:
     thousands_sep = options.thousands_sep
 
     if thousands_sep is not None:
-        medium_format = thousands_sep + medium_format
+        # We format with comma then replace later
+        medium_format = "," + medium_format
 
     def base_float_format(x) -> str:
         abs_x = abs(x)
@@ -293,12 +294,15 @@ def _get_float_formatter(options: FormatOptions) -> Callable:
                 return format(x, sci_format)
 
     if thousands_sep is not None:
+        if thousands_sep != ",":
 
-        def float_format(x) -> str:
-            base = base_float_format(x)
-            return base.replace(",", thousands_sep)
+            def float_format(x) -> str:
+                base = base_float_format(x)
+                return base.replace(",", thousands_sep)
 
-        return float_format
+            return float_format
+        else:
+            return base_float_format
     else:
         return base_float_format
 
