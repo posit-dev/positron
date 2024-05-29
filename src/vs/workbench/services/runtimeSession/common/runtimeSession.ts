@@ -80,7 +80,9 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 	// is ready to use. This is keyed by the runtimeId (metadata.runtimeId) of the runtime.
 	private readonly _startingRuntimesByRuntimeId = new Map<string, DeferredPromise<string>>();
 
-	private readonly _selectingRuntimesByRuntimeId = new Map<string, Promise<void>>();
+	// A map of sessions currently shutting down to promises that resolve when the session
+	// has shut down. This is keyed by the session ID.
+	private readonly _shuttingDownRuntimesBySessionId = new Map<string, Promise<void>>();
 
 	// A map of the currently active console sessions. Since we can currently
 	// only have one console session per language, this is keyed by the
@@ -292,23 +294,6 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 				`is not registered.`));
 		}
 
-		// If two selectRuntime calls are made for the same runtime in quick succession,
-		// wait for the first to finish before starting the second.
-		const selectingRuntimePromise = this._selectingRuntimesByRuntimeId.get(runtimeId);
-		if (selectingRuntimePromise) {
-			return selectingRuntimePromise;
-		}
-
-		const selectPromise = this.doSelectRuntime(runtime, source)
-			.finally(() => {
-				this._selectingRuntimesByRuntimeId.delete(runtimeId);
-			});
-		this._selectingRuntimesByRuntimeId.set(runtimeId, selectPromise);
-
-		return selectPromise;
-	}
-
-	async doSelectRuntime(runtime: ILanguageRuntimeMetadata, source: string): Promise<void> {
 		// Shut down any other runtime consoles for the language.
 		const activeSession =
 			this.getConsoleSessionForLanguage(runtime.languageId);
@@ -320,28 +305,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 				return;
 			}
 
-			// We wait for `onDidEndSession()` rather than `RuntimeState.Exited`, because the former
-			// generates some Console output that must finish before starting up a new runtime:
-			const promise = new Promise<void>(resolve => {
-				const disposable = activeSession.onDidEndSession((exit) => {
-					resolve();
-					disposable.dispose();
-				});
-			});
-
-			const timeout = new Promise<void>((_, reject) => {
-				setTimeout(() => {
-					reject(new Error(`Timed out waiting for runtime ` +
-						`${formatLanguageRuntimeSession(activeSession)} to finish exiting.`));
-				}, 5000);
-			});
-
-			// Ask the runtime to shut down.
-			await activeSession.shutdown(RuntimeExitReason.SwitchRuntime);
-
-			// Wait for the runtime onDidEndSession to resolve, or for the timeout to expire
-			// (whichever comes first)
-			await Promise.race([promise, timeout]);
+			await this.shutdownRuntimeSession(activeSession);
 		}
 
 		// Wait for the selected runtime to start.
@@ -350,6 +314,56 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 			LanguageRuntimeSessionMode.Console,
 			undefined, // No notebook URI (console session)
 			source);
+	}
+
+	/**
+	 * Shutdown a runtime session.
+	 *
+	 * @param session The session to shutdown.
+	 * @returns Promise that resolves when the session has been shutdown.
+	 */
+	private async shutdownRuntimeSession(session: ILanguageRuntimeSession): Promise<void> {
+		// See if we are already shutting down this session. If we
+		// are, return the promise that resolves when the runtime is shut down.
+		// This makes it possible for multiple requests to shut down the same
+		// session to be coalesced.
+		const sessionId = session.metadata.sessionId;
+		const shuttingDownPromise = this._shuttingDownRuntimesBySessionId.get(sessionId);
+		if (shuttingDownPromise) {
+			return shuttingDownPromise;
+		}
+
+		const shutdownPromise = this.doShutdownRuntimeSession(session)
+			.finally(() => this._shuttingDownRuntimesBySessionId.delete(sessionId));
+
+		this._shuttingDownRuntimesBySessionId.set(sessionId, shutdownPromise);
+
+		return shutdownPromise;
+	}
+
+	private async doShutdownRuntimeSession(session: ILanguageRuntimeSession): Promise<void> {
+		// We wait for `onDidEndSession()` rather than `RuntimeState.Exited`, because the former
+		// generates some Console output that must finish before starting up a new runtime:
+		const promise = new Promise<void>(resolve => {
+			const disposable = session.onDidEndSession((exit) => {
+				resolve();
+				disposable.dispose();
+			});
+		});
+
+		const timeout = new Promise<void>((_, reject) => {
+			setTimeout(() => {
+				reject(new Error(`Timed out waiting for runtime ` +
+					`${formatLanguageRuntimeSession(session)} to finish exiting.`));
+			}, 5000);
+		});
+
+		// Ask the runtime to shut down.
+		await session.shutdown(RuntimeExitReason.SwitchRuntime);
+
+		// Wait for the runtime onDidEndSession to resolve, or for the timeout to expire
+		// (whichever comes first)
+		await Promise.race([promise, timeout]);
 	}
 
 	/**
