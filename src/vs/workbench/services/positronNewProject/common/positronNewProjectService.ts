@@ -227,6 +227,7 @@ export class PositronNewProjectService extends Disposable implements IPositronNe
 	private async _runGitInit() {
 		const projectRoot = URI.file(this._newProjectConfig?.projectFolder!);
 		const gitInitTask = new Promise(() => {
+			// true to skip the folder prompt
 			this._commandService.executeCommand('git.init', true)
 				.catch((error) => {
 					const errorMessage = localize('positronNewProjectService.gitInitError', 'Error initializing git repository {0}', error);
