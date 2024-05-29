@@ -37,7 +37,8 @@ export class RuntimeClientAdapter {
 		private readonly _type: positron.RuntimeClientType,
 		private readonly _params: object,
 		private readonly _kernel: JupyterKernel,
-		private readonly _server_comm: boolean) {
+		private readonly _server_comm: boolean,
+		private readonly _metadata?: object) {
 
 		// Wire event handlers for state changes
 		this._currentState = positron.RuntimeClientState.Uninitialized;
@@ -73,7 +74,7 @@ export class RuntimeClientAdapter {
 	public async open(): Promise<void> {
 		// Ask the kernel to open a comm channel for us
 		this._state.fire(positron.RuntimeClientState.Opening);
-		await this._kernel.openComm(this._type, this._id, this._params);
+		await this._kernel.openComm(this._type, this._id, this._params, this._metadata);
 
 		// If not a server comm, resolve immediately. If a server
 		// comm, we'll resolve when we get the notification message

@@ -767,8 +767,9 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 	 * @param targetName The name of the target comm to create.
 	 * @param id The ID of the comm to create.
 	 * @param data Data to send to the comm.
+	 * @param metadata Metadata to send to the comm.
 	 */
-	public openComm(targetName: string, id: string, data: object): Promise<void> {
+	public openComm(targetName: string, id: string, data: object, metadata?: object): Promise<void> {
 		// Create the message to send to the kernel
 		const msg: JupyterCommOpen = {
 			target_name: targetName,  // eslint-disable-line
@@ -777,7 +778,7 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 		};
 
 		// Dispatch it
-		return this.send(uuidv4(), 'comm_open', this._shell!, msg);
+		return this.send(uuidv4(), 'comm_open', this._shell!, msg, metadata);
 	}
 
 	/**
@@ -1252,9 +1253,10 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 	 * @param type The type of the message
 	 * @param dest The socket to which the message should be sent
 	 * @param message The body of the message
+	 * @param metadata The metadata to send with the message
 	 */
-	private send(id: string, type: string, dest: JupyterSocket, message: JupyterMessageSpec): Promise<void> {
-		return this.sendToSocket(id, type, dest, {} as JupyterMessageHeader, message);
+	private send(id: string, type: string, dest: JupyterSocket, message: JupyterMessageSpec, metadata?: object): Promise<void> {
+		return this.sendToSocket(id, type, dest, {} as JupyterMessageHeader, message, metadata);
 	}
 
 	/**
@@ -1265,14 +1267,15 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 	 * @param dest The socket to which the message should be sent
 	 * @param parent The parent message header (if any, {} if no parent)
 	 * @param message The body of the message
+	 * @param metadata The metadata to send with the message
 	 */
 	private async sendToSocket(id: string, type: string, dest: JupyterSocket,
-		parent: JupyterMessageHeader, message: JupyterMessageSpec) {
+		parent: JupyterMessageHeader, message: JupyterMessageSpec, metadata: object = {}) {
 		const msg: JupyterMessage = {
 			buffers: [],
 			content: message,
 			header: this.generateMessageHeader(id, type),
-			metadata: new Map(),
+			metadata: metadata as Map<any, any>,
 			parent_header: parent
 		};
 		this.log(`SEND ${msg.header.msg_type} to ${dest.title()}: ${JSON.stringify(msg)}`);
