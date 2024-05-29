@@ -12,10 +12,12 @@ import { SyncDescriptor } from 'vs/platform/instantiation/common/descriptors';
 import { ViewPaneContainer } from 'vs/workbench/browser/parts/views/viewPaneContainer';
 import { PositronConsoleViewPane } from 'vs/workbench/contrib/positronConsole/browser/positronConsoleView';
 import { registerPositronConsoleActions } from 'vs/workbench/contrib/positronConsole/browser/positronConsoleActions';
-import { POSITRON_CONSOLE_VIEW_ID } from 'vs/workbench/services/positronConsole/browser/interfaces/positronConsoleService';
+import { IPositronConsoleService, POSITRON_CONSOLE_VIEW_ID } from 'vs/workbench/services/positronConsole/browser/interfaces/positronConsoleService';
 import { ICommandAndKeybindingRule, KeybindingWeight, KeybindingsRegistry } from 'vs/platform/keybinding/common/keybindingsRegistry';
 import { ViewContainer, IViewContainersRegistry, ViewContainerLocation, Extensions as ViewContainerExtensions, IViewsRegistry } from 'vs/workbench/common/views';
 import { POSITRON_CONSOLE_COPY, POSITRON_CONSOLE_PASTE, POSITRON_CONSOLE_SELECT_ALL } from 'vs/workbench/contrib/positronConsole/browser/positronConsoleIdentifiers';
+import { ICommandService } from 'vs/platform/commands/common/commands';
+import { IClipboardService } from 'vs/platform/clipboard/common/clipboardService';
 
 // The Positron console view icon.
 const positronConsoleViewIcon = registerIcon(
@@ -78,7 +80,12 @@ KeybindingsRegistry.registerCommandAndKeybindingRule({
 	weight: KeybindingWeight.WorkbenchContrib,
 	primary: KeyMod.CtrlCmd | KeyCode.KeyV,
 	when: PositronConsoleFocused,
-	handler: accessor => { }
+	handler: async accessor => {
+		const clipboardService = accessor.get(IClipboardService);
+		const consoleService = accessor.get(IPositronConsoleService);
+		const text = await clipboardService.readText();
+		return consoleService.activePositronConsoleInstance?.pasteText(text);
+	}
 } satisfies ICommandAndKeybindingRule);
 
 // Register keybinding rule for select all.
