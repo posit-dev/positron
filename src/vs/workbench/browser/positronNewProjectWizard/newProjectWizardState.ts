@@ -75,6 +75,7 @@ export interface INewProjectWizardStateManager {
 	readonly goToNextStep: (step: NewProjectWizardStep) => void;
 	readonly goToPreviousStep: () => void;
 	readonly onUpdateInterpreterState: Event<void>;
+	readonly onUpdateProjectDirectory: Event<void>;
 }
 
 /**
@@ -121,6 +122,7 @@ export class NewProjectWizardStateManager
 
 	// Event emitters.
 	private _onUpdateInterpreterStateEmitter = this._register(new Emitter<void>());
+	private _onUpdateProjectDirectoryEmitter = this._register(new Emitter<void>());
 
 	/**
 	 * Constructor for the NewProjectWizardStateManager class.
@@ -238,6 +240,9 @@ export class NewProjectWizardStateManager
 	 * @param value The project type.
 	 */
 	set projectType(value: NewProjectType | undefined) {
+		if (this._projectType !== value) {
+			this._resetProjectConfig();
+		}
 		this._projectType = value;
 		this._updateInterpreterRelatedState();
 	}
@@ -256,6 +261,7 @@ export class NewProjectWizardStateManager
 	 */
 	set projectName(value: string) {
 		this._projectName = value;
+		this._onUpdateProjectDirectoryEmitter.fire();
 	}
 
 	/**
@@ -272,6 +278,7 @@ export class NewProjectWizardStateManager
 	 */
 	set parentFolder(value: string) {
 		this._parentFolder = value;
+		this._onUpdateProjectDirectoryEmitter.fire();
 	}
 
 	/**
@@ -492,6 +499,11 @@ export class NewProjectWizardStateManager
 	 * Event that is fired when the runtime startup is complete.
 	 */
 	readonly onUpdateInterpreterState = this._onUpdateInterpreterStateEmitter.event;
+
+	/**
+	 * Event that is fired when the project directory is updated.
+	 */
+	readonly onUpdateProjectDirectory = this._onUpdateProjectDirectoryEmitter.event;
 
 	/****************************************************************************************
 	 * Private Methods
@@ -720,6 +732,15 @@ export class NewProjectWizardStateManager
 			!filters.length ||
 			filters.find((rs) => rs === runtimeSource) !== undefined
 		);
+	}
+
+	/**
+	 * Resets the properties of the project configuration that should not be persisted when the
+	 * project type changes.
+	 */
+	private _resetProjectConfig() {
+		this._initGitRepo = false;
+		this._useRenv = undefined;
 	}
 
 	/**

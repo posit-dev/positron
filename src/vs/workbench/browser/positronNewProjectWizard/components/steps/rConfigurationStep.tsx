@@ -186,6 +186,7 @@ export const RConfigurationStep = (props: PropsWithChildren<NewProjectWizardStep
 							"Use `renv` to create a reproducible environment"
 						))()}
 						onChanged={checked => context.useRenv = checked}
+						initialChecked={context.useRenv}
 					/>
 					<ExternalLink
 						className='renv-docs-external-link'
