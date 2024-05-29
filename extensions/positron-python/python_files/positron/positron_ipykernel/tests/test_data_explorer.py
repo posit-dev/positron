@@ -1706,7 +1706,12 @@ def test_pandas_profile_summary_stats(dxf: DataExplorerFixture):
     )
     dxf.register_table("df1", df1)
 
-    format_options = DEFAULT_FORMAT
+    format_options = FormatOptions(
+        large_num_digits=4,
+        small_num_digits=6,
+        max_integral_digits=7,
+        thousands_sep="_",
+    )
     _format_float = _get_float_formatter(format_options)
 
     cases = [
@@ -1746,7 +1751,7 @@ def test_pandas_profile_summary_stats(dxf: DataExplorerFixture):
 
     for table_name, col_index, ex_result in cases:
         profiles = [_get_summary_stats(col_index)]
-        results = dxf.get_column_profiles(table_name, profiles)
+        results = dxf.get_column_profiles(table_name, profiles, format_options=format_options)
 
         stats = results[0]["summary_stats"]
         ui_type = stats["type_display"]
