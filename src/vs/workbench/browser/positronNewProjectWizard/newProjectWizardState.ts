@@ -773,6 +773,7 @@ export class NewProjectWizardStateManager
 			this._services.logService.error(
 				'[Project Wizard] Unsupported project type'
 			);
+			return;
 		}
 		if (langId === LanguageIds.Python) {
 			this._useRenv = undefined;
