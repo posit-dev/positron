@@ -15,7 +15,7 @@ import { registerPositronConsoleActions } from 'vs/workbench/contrib/positronCon
 import { POSITRON_CONSOLE_VIEW_ID } from 'vs/workbench/services/positronConsole/browser/interfaces/positronConsoleService';
 import { ICommandAndKeybindingRule, KeybindingWeight, KeybindingsRegistry } from 'vs/platform/keybinding/common/keybindingsRegistry';
 import { ViewContainer, IViewContainersRegistry, ViewContainerLocation, Extensions as ViewContainerExtensions, IViewsRegistry } from 'vs/workbench/common/views';
-import { POSITRON_CONSOLE_PASTE, POSITRON_CONSOLE_SELECT_ALL } from 'vs/workbench/contrib/positronConsole/browser/positronConsoleIdentifiers';
+import { POSITRON_CONSOLE_COPY, POSITRON_CONSOLE_PASTE, POSITRON_CONSOLE_SELECT_ALL } from 'vs/workbench/contrib/positronConsole/browser/positronConsoleIdentifiers';
 
 // The Positron console view icon.
 const positronConsoleViewIcon = registerIcon(
@@ -63,14 +63,14 @@ Registry.as<IViewsRegistry>(ViewContainerExtensions.ViewsRegistry).registerViews
 	}
 }], VIEW_CONTAINER);
 
-// // Register keybinding rule for copy.
-// KeybindingsRegistry.registerCommandAndKeybindingRule({
-// 	id: POSITRON_CONSOLE_COPY,
-// 	weight: KeybindingWeight.WorkbenchContrib,
-// 	primary: KeyMod.CtrlCmd | KeyCode.KeyC,
-// 	when: PositronConsoleFocused,
-// 	handler: accessor => { }
-// } satisfies ICommandAndKeybindingRule);
+// Register keybinding rule for copy.
+KeybindingsRegistry.registerCommandAndKeybindingRule({
+	id: POSITRON_CONSOLE_COPY,
+	weight: KeybindingWeight.WorkbenchContrib,
+	primary: KeyMod.CtrlCmd | KeyCode.KeyC,
+	when: PositronConsoleFocused,
+	handler: accessor => accessor.get(ICommandService).executeCommand('editor.action.clipboardCopyAction')
+} satisfies ICommandAndKeybindingRule);
 
 // Register keybinding rule for paste.
 KeybindingsRegistry.registerCommandAndKeybindingRule({
