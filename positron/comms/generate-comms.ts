@@ -171,7 +171,6 @@ function parseRefFromContract(ref: string, contract: any): string | undefined {
  * @returns The name of the object referred to by the ref.
  */
 function parseRef(ref: string, contracts: Array<any>): string {
-	console.log(ref);
 	for (const contract of contracts) {
 		if (!contract) {
 			continue;

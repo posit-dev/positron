@@ -20,6 +20,7 @@ from ..data_explorer import (
     _VALUE_NAN,
     _VALUE_NAT,
     _VALUE_NONE,
+    _get_float_formatter,
 )
 from ..data_explorer_comm import (
     ColumnDisplayType,
@@ -27,6 +28,7 @@ from ..data_explorer_comm import (
     ColumnSchema,
     ColumnSortKey,
     FilterResult,
+    FormatOptions,
     RowFilter,
 )
 from ..utils import guid
@@ -257,6 +259,13 @@ def test_shutdown(de_service: DataExplorerService):
 
 JsonRecords = List[Dict[str, Any]]
 
+DEFAULT_FORMAT = FormatOptions(
+    large_num_digits=2,
+    small_num_digits=4,
+    max_integral_digits=7,
+    thousands_sep=",",
+)
+
 
 class DataExplorerFixture:
     def __init__(
@@ -344,8 +353,13 @@ class DataExplorerFixture:
     def get_state(self, table_name):
         return self.do_json_rpc(table_name, "get_state")
 
-    def get_data_values(self, table_name, **params):
-        return self.do_json_rpc(table_name, "get_data_values", **params)
+    def get_data_values(self, table_name, format_options=DEFAULT_FORMAT, **params):
+        return self.do_json_rpc(
+            table_name,
+            "get_data_values",
+            format_options=format_options,
+            **params,
+        )
 
     def set_row_filters(self, table_name, filters=None):
         return self.do_json_rpc(table_name, "set_row_filters", filters=filters)
@@ -353,8 +367,13 @@ class DataExplorerFixture:
     def set_sort_columns(self, table_name, sort_keys=None):
         return self.do_json_rpc(table_name, "set_sort_columns", sort_keys=sort_keys)
 
-    def get_column_profiles(self, table_name, profiles):
-        return self.do_json_rpc(table_name, "get_column_profiles", profiles=profiles)
+    def get_column_profiles(self, table_name, profiles, format_options=DEFAULT_FORMAT):
+        return self.do_json_rpc(
+            table_name,
+            "get_column_profiles",
+            profiles=profiles,
+            format_options=format_options,
+        )
 
     def check_filter_case(self, table, filter_set, expected_table):
         table_id = guid()
@@ -636,7 +655,7 @@ def test_pandas_get_data_values(dxf: DataExplorerFixture):
         ["1", "2", "3", "4", "5"],
         ["True", "False", "True", _VALUE_NONE, "True"],
         ["foo", "bar", _VALUE_NONE, "bar", "None"],
-        ["0.0", "1.2", "-4.5", "6.0", _VALUE_NAN],
+        ["0.0000", "1.20", "-4.50", "6.00", _VALUE_NAN],
         [
             "2024-01-01 00:00:00",
             "2024-01-02 12:34:45",
@@ -670,6 +689,80 @@ def test_pandas_get_data_values(dxf: DataExplorerFixture):
     #     dxf.get_data_values(
     #         "simple", row_start_index=0, num_rows=10, column_indices=[4]
     #     )
+
+
+def test_pandas_float_formatting(dxf: DataExplorerFixture):
+    df = pd.DataFrame(
+        {
+            "a": [
+                1.0,
+                1.01,
+                1.012,
+                0.0123,
+                0.01234,
+                0.0001,
+                0.00001,
+                9999.123,
+                9999.999,
+                9999999,
+                10000000,
+            ]
+        }
+    )
+
+    dxf.register_table("df", df)
+
+    # (FormatOptions, expected results)
+    cases = [
+        (
+            FormatOptions(large_num_digits=2, small_num_digits=4, max_integral_digits=7),
+            [
+                "1.00",
+                "1.01",
+                "1.01",
+                "0.0123",
+                "0.0123",
+                "0.0001",
+                "1.00E-05",
+                "9999.12",
+                "10000.00",
+                "9999999.00",
+                "1.00E+07",
+            ],
+        ),
+        (
+            FormatOptions(
+                large_num_digits=3,
+                small_num_digits=4,
+                max_integral_digits=7,
+                thousands_sep="_",
+            ),
+            [
+                "1.000",
+                "1.010",
+                "1.012",
+                "0.0123",
+                "0.0123",
+                "0.0001",
+                "1.000E-05",
+                "9_999.123",
+                "9_999.999",
+                "9_999_999.000",
+                "1.000E+07",
+            ],
+        ),
+    ]
+
+    for options, expected in cases:
+        result = dxf.get_data_values(
+            "df",
+            row_start_index=0,
+            num_rows=20,
+            column_indices=[0],
+            format_options=options,
+        )
+
+        assert result["columns"][0] == expected
 
 
 def test_pandas_extension_dtypes(dxf: DataExplorerFixture):
@@ -1587,8 +1680,6 @@ def _assert_boolean_stats_equal(expected, actual):
 
 
 def test_pandas_profile_summary_stats(dxf: DataExplorerFixture):
-    import pandas.io.formats.format as fmt
-
     arr = np.random.standard_normal(100)
     arr_with_nulls = arr.copy()
     arr_with_nulls[::10] = np.nan
@@ -1615,8 +1706,8 @@ def test_pandas_profile_summary_stats(dxf: DataExplorerFixture):
     )
     dxf.register_table("df1", df1)
 
-    def _format_float(x):
-        return fmt.format_array(np.array([x], dtype="float64"), None, leading_space=False)[0]
+    format_options = DEFAULT_FORMAT
+    _format_float = _get_float_formatter(format_options)
 
     cases = [
         (
