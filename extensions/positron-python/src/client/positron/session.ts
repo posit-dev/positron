@@ -148,7 +148,7 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
     }
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    createClient(id: string, type: positron.RuntimeClientType, params: any, metadata: any): Thenable<void> {
+    createClient(id: string, type: positron.RuntimeClientType, params: any, metadata?: any): Thenable<void> {
         if (this._kernel) {
             return this._kernel.createClient(id, type, params, metadata);
         } else {

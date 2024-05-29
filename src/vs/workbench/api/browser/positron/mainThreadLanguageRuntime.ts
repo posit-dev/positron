@@ -380,7 +380,7 @@ class ExtHostLanguageRuntimeSessionAdapter implements ILanguageRuntimeSession {
 	}
 
 	/** Create a new client inside the runtime */
-	createClient<Input, Output>(type: RuntimeClientType, params: any, metadata: any):
+	createClient<Input, Output>(type: RuntimeClientType, params: any, metadata?: any):
 		Thenable<IRuntimeClientInstance<Input, Output>> {
 		// Create an ID for the client.
 		const id = this.generateClientId(this.runtimeMetadata.languageId, type);
