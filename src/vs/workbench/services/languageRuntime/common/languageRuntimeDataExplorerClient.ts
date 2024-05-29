@@ -5,7 +5,7 @@
 import { Emitter } from 'vs/base/common/event';
 import { Disposable } from 'vs/base/common/lifecycle';
 import { IRuntimeClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimeClientInstance';
-import { BackendState, ColumnProfileRequest, ColumnProfileResult, ColumnSchema, ColumnSortKey, FilterResult, PositronDataExplorerComm, RowFilter, SchemaUpdateEvent, TableData, TableSchema } from 'vs/workbench/services/languageRuntime/common/positronDataExplorerComm';
+import { BackendState, ColumnProfileRequest, ColumnProfileResult, ColumnSchema, ColumnSortKey, FilterResult, FormatOptions, PositronDataExplorerComm, RowFilter, SchemaUpdateEvent, TableData, TableSchema } from 'vs/workbench/services/languageRuntime/common/positronDataExplorerComm';
 
 /**
  * TableSchemaSearchResult interface. This is here temporarily until searching the tabe schema
@@ -89,6 +89,11 @@ export class DataExplorerClientInstance extends Disposable {
 	 */
 	private _numPendingTasks: number = 0;
 
+	/**
+	 * Value formatting properties for backend requests
+	 */
+	_formatOptions: FormatOptions;
+
 	//#endregion Private Properties
 
 	//#region Constructor & Dispose
@@ -100,6 +105,13 @@ export class DataExplorerClientInstance extends Disposable {
 	constructor(client: IRuntimeClientInstance<any, any>) {
 		// Call the disposable constructor.
 		super();
+
+		this._formatOptions = {
+			large_num_digits: 2,
+			small_num_digits: 6,
+			max_integral_digits: 7,
+			thousands_sep: ','
+		};
 
 		// Create and register the PositronDataExplorerComm on the client.
 		this._positronDataExplorerComm = new PositronDataExplorerComm(client);
@@ -273,7 +285,9 @@ export class DataExplorerClientInstance extends Disposable {
 		columnIndices: Array<number>
 	): Promise<TableData> {
 		return this.runBackendTask(
-			() => this._positronDataExplorerComm.getDataValues(rowStartIndex, numRows, columnIndices),
+			() => this._positronDataExplorerComm.getDataValues(rowStartIndex, numRows, columnIndices,
+				this._formatOptions
+			),
 			() => {
 				return { columns: [[]] };
 			}
@@ -289,7 +303,7 @@ export class DataExplorerClientInstance extends Disposable {
 		profiles: Array<ColumnProfileRequest>
 	): Promise<Array<ColumnProfileResult>> {
 		return this.runBackendTask(
-			() => this._positronDataExplorerComm.getColumnProfiles(profiles),
+			() => this._positronDataExplorerComm.getColumnProfiles(profiles, this._formatOptions),
 			() => []
 		);
 	}

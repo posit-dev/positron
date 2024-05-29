@@ -655,7 +655,7 @@ def test_pandas_get_data_values(dxf: DataExplorerFixture):
         ["1", "2", "3", "4", "5"],
         ["True", "False", "True", _VALUE_NONE, "True"],
         ["foo", "bar", _VALUE_NONE, "bar", "None"],
-        ["0.0000", "1.20", "-4.50", "6.00", _VALUE_NAN],
+        ["0.00", "1.20", "-4.50", "6.00", _VALUE_NAN],
         [
             "2024-01-01 00:00:00",
             "2024-01-02 12:34:45",
@@ -695,6 +695,7 @@ def test_pandas_float_formatting(dxf: DataExplorerFixture):
     df = pd.DataFrame(
         {
             "a": [
+                0,
                 1.0,
                 1.01,
                 1.012,
@@ -717,6 +718,7 @@ def test_pandas_float_formatting(dxf: DataExplorerFixture):
         (
             FormatOptions(large_num_digits=2, small_num_digits=4, max_integral_digits=7),
             [
+                "0.00",
                 "1.00",
                 "1.01",
                 "1.01",
@@ -738,6 +740,7 @@ def test_pandas_float_formatting(dxf: DataExplorerFixture):
                 thousands_sep="_",
             ),
             [
+                "0.000",
                 "1.000",
                 "1.010",
                 "1.012",

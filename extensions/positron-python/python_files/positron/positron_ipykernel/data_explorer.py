@@ -282,8 +282,11 @@ def _get_float_formatter(options: FormatOptions) -> Callable:
                 return format(x, medium_format)
             else:
                 return format(x, sci_format)
+        elif abs_x == 0:
+            # Special case 0 to align with other "medium" numbers
+            return format(x, medium_format)
         else:
-            if abs_x == 0 or abs_x >= lower_threshold:
+            if abs_x >= lower_threshold:
                 # Less than 1 but above lower threshold
                 return format(x, small_format)
             else:
