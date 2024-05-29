@@ -384,7 +384,7 @@ class ExtHostLanguageRuntimeSessionAdapter implements ILanguageRuntimeSession {
 	}
 
 	/** Create a new client inside the runtime */
-	createClient<Input, Output>(type: RuntimeClientType, params: any):
+	createClient<Input, Output>(type: RuntimeClientType, params: any, metadata?: any):
 		Thenable<IRuntimeClientInstance<Input, Output>> {
 		// Create an ID for the client.
 		const id = this.generateClientId(this.runtimeMetadata.languageId, type);
@@ -403,7 +403,7 @@ class ExtHostLanguageRuntimeSessionAdapter implements ILanguageRuntimeSession {
 		// If the creation fails on the server, we'll either get an error here
 		// or see the server end get closed immediately via a CommClose message.
 		// In either case we'll let the client know.
-		this._proxy.$createClient(this.handle, id, type, params).then(() => {
+		this._proxy.$createClient(this.handle, id, type, params, metadata).then(() => {
 			// There is no protocol message indicating that the client has been
 			// successfully created, so presume it's connected once the message
 			// has been safely delivered, and handle the close event if it
