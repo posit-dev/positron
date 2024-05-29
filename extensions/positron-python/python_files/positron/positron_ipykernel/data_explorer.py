@@ -767,9 +767,9 @@ class PandasView(DataExplorerTableView):
                 return float_format(x)
         elif x is None:
             return _VALUE_NONE
-        elif x is getattr(pd_, "NaT"):
+        elif x is getattr(pd_, "NaT", None):
             return _VALUE_NAT
-        elif x is getattr(pd_, "NA"):
+        elif x is getattr(pd_, "NA", None):
             return _VALUE_NA
         else:
             return str(x)
