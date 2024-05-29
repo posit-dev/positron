@@ -349,6 +349,10 @@ export const ConsoleInstance = (props: ConsoleInstanceProps) => {
 			}
 		}));
 
+		disposableStore.add(props.positronConsoleInstance.onDidSelectAll(text => {
+			selectAllRuntimeItems();
+		}));
+
 		// Return the cleanup function that will dispose of the event handlers.
 		return () => disposableStore.dispose();
 	}, [editorFontInfo, positronConsoleContext.activePositronConsoleInstance?.session, positronConsoleContext.configurationService, positronConsoleContext.positronPlotsService, positronConsoleContext.runtimeSessionService, positronConsoleContext.viewsService, props.positronConsoleInstance, props.reactComponentContainer, scrollToBottom]);

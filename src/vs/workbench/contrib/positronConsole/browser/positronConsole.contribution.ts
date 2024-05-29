@@ -101,7 +101,10 @@ KeybindingsRegistry.registerCommandAndKeybindingRule({
 	weight: KeybindingWeight.WorkbenchContrib,
 	primary: KeyMod.CtrlCmd | KeyCode.KeyA,
 	when: PositronConsoleFocused,
-	handler: accessor => { }
+	handler: async accessor => {
+		const consoleService = accessor.get(IPositronConsoleService);
+		return consoleService.activePositronConsoleInstance?.selectAll();
+	}
 } satisfies ICommandAndKeybindingRule);
 
 // Register all the Positron console actions.
