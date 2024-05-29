@@ -63,19 +63,6 @@ Registry.as<IViewsRegistry>(ViewContainerExtensions.ViewsRegistry).registerViews
 	}
 }], VIEW_CONTAINER);
 
-// The following is commented out because it prevents `cut` from working in the
-// console input
-// https://github.com/posit-dev/positron/issues/2549
-
-// // Register keybinding rule for cut.
-// KeybindingsRegistry.registerCommandAndKeybindingRule({
-// 	id: POSITRON_CONSOLE_CUT,
-// 	weight: KeybindingWeight.WorkbenchContrib,
-// 	primary: KeyMod.CtrlCmd | KeyCode.KeyX,
-// 	when: PositronConsoleFocused,
-// 	handler: accessor => { }
-// } satisfies ICommandAndKeybindingRule);
-
 // // Register keybinding rule for copy.
 // KeybindingsRegistry.registerCommandAndKeybindingRule({
 // 	id: POSITRON_CONSOLE_COPY,
