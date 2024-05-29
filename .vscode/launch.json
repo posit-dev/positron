@@ -523,7 +523,7 @@
 			"timeout": 240000,
 			"args": [
 				"--test-repo",
-				"test-repo"
+				"positron-content-examples"
 			],
 			"outFiles": [
 				"${cwd}/out/**/*.js"
