@@ -382,7 +382,7 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 		return Promise.resolve(this._runtimeSessions[handle].isCodeFragmentComplete(code));
 	}
 
-	$createClient(handle: number, id: string, type: RuntimeClientType, params: any, metadata: any): Promise<void> {
+	$createClient(handle: number, id: string, type: RuntimeClientType, params: any, metadata?: any): Promise<void> {
 		if (handle >= this._runtimeSessions.length) {
 			throw new Error(`Cannot create '${type}' client: session handle '${handle}' not found or no longer valid.`);
 		}
