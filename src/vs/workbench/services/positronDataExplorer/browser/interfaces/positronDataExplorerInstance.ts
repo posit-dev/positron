@@ -67,4 +67,9 @@ export interface IPositronDataExplorerInstance extends IDisposable {
 	 * Requests focus for the instance.
 	 */
 	requestFocus(): void;
+
+	/**
+	 * Copies to the clipboard.
+	 */
+	copyToClipboard(): void;
 }

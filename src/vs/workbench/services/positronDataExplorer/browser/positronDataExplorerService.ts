@@ -19,8 +19,6 @@ import { PositronDataExplorerInstance } from 'vs/workbench/services/positronData
 import { ILanguageRuntimeSession, IRuntimeSessionService, RuntimeClientType } from '../../runtimeSession/common/runtimeSessionService';
 import { IPositronDataExplorerService } from 'vs/workbench/services/positronDataExplorer/browser/interfaces/positronDataExplorerService';
 import { IPositronDataExplorerInstance } from 'vs/workbench/services/positronDataExplorer/browser/interfaces/positronDataExplorerInstance';
-import { IContextKey, IContextKeyService } from 'vs/platform/contextkey/common/contextkey';
-import { PositronDataExplorerFocused } from 'vs/workbench/common/contextkeys';
 
 /**
  * DataExplorerRuntime class.
@@ -103,11 +101,6 @@ class PositronDataExplorerService extends Disposable implements IPositronDataExp
 	//#region Private Properties
 
 	/**
-	 * Gets or sets the PositronDataExplorerFocused context key.
-	 */
-	private _positronDataExplorerFocusedContextKey: IContextKey<boolean>;
-
-	/**
 	 * A map of the data explorer runtimes keyed by session ID.
 	 */
 	private readonly _dataExplorerRuntimes = new Map<string, DataExplorerRuntime>();
@@ -116,11 +109,6 @@ class PositronDataExplorerService extends Disposable implements IPositronDataExp
 	 * The Positron data explorer instances keyed by data explorer client instance identifier.
 	 */
 	private _positronDataExplorerInstances = new Map<string, PositronDataExplorerInstance>();
-
-	/**
-	 * Gets or sets the active Positron data explorer instance.
-	 */
-	private _activePositronDataExplorerInstance?: PositronDataExplorerInstance;
 
 	/**
 	 * The Positron data explorer variable-to-instance map.
@@ -141,7 +129,6 @@ class PositronDataExplorerService extends Disposable implements IPositronDataExp
 	 * Constructor.
 	 * @param _commandService The command service.
 	 * @param _configurationService The configuration service.
-	 * @param _contextKeyService The context key service.
 	 * @param _editorService The editor service.
 	 * @param _hoverService The hover service.
 	 * @param _keybindingService The keybinding service.
@@ -152,7 +139,6 @@ class PositronDataExplorerService extends Disposable implements IPositronDataExp
 	constructor(
 		@ICommandService private readonly _commandService: ICommandService,
 		@IConfigurationService private readonly _configurationService: IConfigurationService,
-		@IContextKeyService private readonly _contextKeyService: IContextKeyService,
 		@IEditorService private readonly _editorService: IEditorService,
 		@IHoverService private readonly _hoverService: IHoverService,
 		@IKeybindingService private readonly _keybindingService: IKeybindingService,
@@ -162,11 +148,6 @@ class PositronDataExplorerService extends Disposable implements IPositronDataExp
 	) {
 		// Call the disposable constrcutor.
 		super();
-
-		// Bind the PositronDataExplorerFocused context key.
-		this._positronDataExplorerFocusedContextKey = PositronDataExplorerFocused.bindTo(
-			this._contextKeyService
-		);
 
 		// Add a data explorer runtime for each running runtime.
 		this._runtimeSessionService.activeSessions.forEach(session => {
@@ -235,38 +216,6 @@ class PositronDataExplorerService extends Disposable implements IPositronDataExp
 	 */
 	setInstanceForVar(instanceId: string, variableId: string): void {
 		this._varIdToInstanceIdMap.set(variableId, instanceId);
-	}
-
-	/**
-	 * Sets the active Positron data explorer instance.
-	 * @param identifier The identifier of the active Positron data explorer instance to set.
-	 */
-	setActivePositronDataExplorerInstance(identifier: string) {
-		if (!this._activePositronDataExplorerInstance ||
-			this._activePositronDataExplorerInstance.dataExplorerClientInstance.identifier !==
-			identifier
-		) {
-			const positronDataExplorerInstance = this._positronDataExplorerInstances.get(identifier);
-			if (positronDataExplorerInstance) {
-				this._activePositronDataExplorerInstance = positronDataExplorerInstance;
-				this._positronDataExplorerFocusedContextKey.set(true);
-			}
-		}
-
-	}
-
-	/**
-	 * Clears the active Positron data explorer instance.
-	 * @param identifier The identifier of the active Positron data explorer instance to clear.
-	 */
-	clearActivePositronDataExplorerInstance(identifier: string) {
-		if (this._activePositronDataExplorerInstance &&
-			this._activePositronDataExplorerInstance.dataExplorerClientInstance.identifier ===
-			identifier
-		) {
-			this._activePositronDataExplorerInstance = undefined;
-			this._positronDataExplorerFocusedContextKey.set(false);
-		}
 	}
 
 	//#endregion Constructor & Dispose

@@ -40,9 +40,19 @@ export interface IPositronDataExplorerEditorOptions extends IEditorOptions {
 }
 
 /**
+ * IPositronDataExplorerEditor interface.
+ */
+export interface IPositronDataExplorerEditor {
+	/**
+	 * Gets the identifier.
+	 */
+	get identifier(): string | undefined;
+}
+
+/**
  * PositronDataExplorerEditor class.
  */
-export class PositronDataExplorerEditor extends EditorPane implements IReactComponentContainer {
+export class PositronDataExplorerEditor extends EditorPane implements IPositronDataExplorerEditor, IReactComponentContainer {
 	//#region Private Properties
 
 	/**
@@ -98,6 +108,17 @@ export class PositronDataExplorerEditor extends EditorPane implements IReactComp
 	private readonly _onFocusedEmitter = this._register(new Emitter<void>());
 
 	//#endregion Private Properties
+
+	//#region IPositronDataExplorerEditor
+
+	/**
+	 * Gets the identifier.
+	 */
+	get identifier(): string | undefined {
+		return this._identifier;
+	}
+
+	//#endregion IPositronDataExplorerEditor
 
 	//#region IReactComponentContainer
 
@@ -207,31 +228,6 @@ export class PositronDataExplorerEditor extends EditorPane implements IReactComp
 		// Create the Positron data explorer container.
 		this._positronDataExplorerContainer = DOM.$('.positron-data-explorer-container');
 		this._positronDataExplorerContainer.tabIndex = 0;
-
-		// Create a focus tracker that updates the active Positron data explorer instance.
-		const focusTracker = this._register(DOM.trackFocus(this._positronDataExplorerContainer));
-
-		// Add the onDidFocus event handler.
-		this._register(focusTracker.onDidFocus(() => {
-			// If there is an identifier set, set the active Positron data explorer instance.
-			if (this._identifier) {
-				// Clear the active Positron data explorer instance.
-				this._positronDataExplorerService.setActivePositronDataExplorerInstance(
-					this._identifier
-				);
-			}
-		}));
-
-		// Add the onDidBlur event handler.
-		this._register(focusTracker.onDidBlur(() => {
-			// If there is an identifier set, clear the active Positron data explorer instance.
-			if (this._identifier) {
-				// Clear the active Positron data explorer instance.
-				this._positronDataExplorerService.clearActivePositronDataExplorerInstance(
-					this._identifier
-				);
-			}
-		}));
 	}
 
 	/**
@@ -324,16 +320,8 @@ export class PositronDataExplorerEditor extends EditorPane implements IReactComp
 		// Dispose the PositronReactRenderer.
 		this.disposePositronReactRenderer();
 
-		// Clear the active Positron data explorer instance.
-		if (this._identifier) {
-			// Clear the active Positron data explorer instance.
-			this._positronDataExplorerService.clearActivePositronDataExplorerInstance(
-				this._identifier
-			);
-
-			// Clear the identifier.
-			this._identifier = undefined;
-		}
+		// Clear the identifier.
+		this._identifier = undefined;
 
 		// Call the base class's method.
 		super.clearInput();
@@ -353,22 +341,21 @@ export class PositronDataExplorerEditor extends EditorPane implements IReactComp
 	//#region Composite Overrides
 
 	/**
+	 * Returns the underlying composite control or `undefined` if it is not accessible.
+	 */
+	override getControl(): IPositronDataExplorerEditor {
+		return this;
+	}
+
+	/**
 	 * Called when this composite should receive keyboard focus.
 	 */
 	override focus(): void {
 		// Call the base class's method.
 		super.focus();
 
-		// Set the active Positron data explorer instance.
-		if (this._identifier) {
-			// Set the active Positron data explorer instance.
-			this._positronDataExplorerService.setActivePositronDataExplorerInstance(
-				this._identifier
-			);
-
-			// Drive focus into the Positron data explorer instance.
-			this._positronDataExplorerContainer?.focus();
-		}
+		// Drive focus into the Positron data explorer instance.
+		this._positronDataExplorerContainer?.focus();
 	}
 
 	/**

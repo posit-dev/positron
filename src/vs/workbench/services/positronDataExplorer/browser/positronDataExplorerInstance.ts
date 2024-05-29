@@ -210,6 +210,13 @@ export class PositronDataExplorerInstance extends Disposable implements IPositro
 	}
 
 	/**
+	 * Copies to the clipboard.
+	 */
+	copyToClipboard(): void {
+		console.log('copyToClipboard called!');
+	}
+
+	/**
 	 * onDidClose event.
 	 */
 	readonly onDidClose = this._onDidCloseEmitter.event;

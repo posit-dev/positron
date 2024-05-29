@@ -56,16 +56,4 @@ export interface IPositronDataExplorerService {
 	 * @param variableId The variable identifier.
 	 */
 	setInstanceForVar(instanceId: string, variableId: string): void;
-
-	/**
-	 * Sets the active Positron data explorer instance.
-	 * @param identifier The identifier of the active Positron data explorer instance to set.
-	 */
-	setActivePositronDataExplorerInstance(identifier: string): void;
-
-	/**
-	 * Clears the active Positron data explorer instance.
-	 * @param identifier The identifier of the active Positron data explorer instance to clear.
-	 */
-	clearActivePositronDataExplorerInstance(identifier: string): void;
 }
