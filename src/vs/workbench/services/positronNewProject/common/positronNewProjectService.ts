@@ -113,12 +113,7 @@ export class PositronNewProjectService extends Disposable implements IPositronNe
 		);
 	}
 
-	/**
-	 * Returns the runtime metadata for the new project.
-	 */
-	public get newProjectRuntimeMetadata(): ILanguageRuntimeMetadata | undefined {
-		return this._runtimeMetadata;
-	}
+	//#region Private Methods
 
 	/**
 	 * Parses the new project configuration from the storage service and returns it.
@@ -152,6 +147,27 @@ export class PositronNewProjectService extends Disposable implements IPositronNe
 			this._contextService.getWorkspace().folders[0]?.uri.fsPath;
 		return newProjectPath === currentFolderPath;
 	}
+
+	/**
+	 * Runs the tasks for the new project. This function assumes that we've already checked that the
+	 * current window is the new project that was just created.
+	 */
+	private async _newProjectTasks() {
+		this._startupPhase.set(
+			NewProjectStartupPhase.CreatingProject,
+			undefined
+		);
+		if (this._newProjectConfig) {
+			await this._runExtensionTasks();
+		} else {
+			this._logService.error(
+				'[New project startup] No new project configuration found'
+			);
+			this._startupPhase.set(NewProjectStartupPhase.Complete, undefined);
+		}
+	}
+
+	//#region Extension Tasks
 
 	/**
 	 * Runs tasks that require the extension service to be ready.
@@ -391,96 +407,7 @@ export class PositronNewProjectService extends Disposable implements IPositronNe
 		this._removePendingTask(NewProjectTask.REnvironment);
 	}
 
-	async initNewProject() {
-		if (!this._isCurrentWindowNewProject()) {
-			return;
-		}
-		if (this._newProjectConfig) {
-			// We're in the new project window, so we can clear the config from the storage service.
-			this.clearNewProjectConfig();
-
-			this._startupPhase.set(
-				NewProjectStartupPhase.AwaitingTrust,
-				undefined
-			);
-
-			// Ensure the workspace is trusted before proceeding with new project tasks
-			if (this._workspaceTrustManagementService.isWorkspaceTrusted()) {
-				this._newProjectTasks();
-			} else {
-				this._register(
-					this._workspaceTrustManagementService.onDidChangeTrust(
-						(trusted) => {
-							if (!trusted) {
-								return;
-							}
-							if (
-								this.startupPhase ===
-								NewProjectStartupPhase.AwaitingTrust
-							) {
-								// Trust was granted. Now we can proceed with the new project tasks.
-								this._newProjectTasks();
-							}
-						}
-					)
-				);
-			}
-		} else {
-			this._logService.error(
-				'[New project startup] No new project configuration found'
-			);
-			this._startupPhase.set(NewProjectStartupPhase.Complete, undefined);
-		}
-	}
-
-	/**
-	 * Runs the tasks for the new project. This function assumes that we've already checked that the
-	 * current window is the new project that was just created.
-	 */
-	private async _newProjectTasks() {
-		this._startupPhase.set(
-			NewProjectStartupPhase.CreatingProject,
-			undefined
-		);
-		if (this._newProjectConfig) {
-			await this._runExtensionTasks();
-		} else {
-			this._logService.error(
-				'[New project startup] No new project configuration found'
-			);
-			this._startupPhase.set(NewProjectStartupPhase.Complete, undefined);
-		}
-	}
-
-	clearNewProjectConfig() {
-		this._storageService.remove(
-			POSITRON_NEW_PROJECT_CONFIG_STORAGE_KEY,
-			StorageScope.APPLICATION
-		);
-	}
-
-	storeNewProjectConfig(newProjectConfig: NewProjectConfiguration) {
-		this._storageService.store(
-			POSITRON_NEW_PROJECT_CONFIG_STORAGE_KEY,
-			JSON.stringify(newProjectConfig),
-			StorageScope.APPLICATION,
-			StorageTarget.MACHINE
-		);
-	}
-
-	/**
-	 * Returns the current startup phase.
-	 */
-	get startupPhase(): NewProjectStartupPhase {
-		return this._startupPhase.get();
-	}
-
-	/**
-	 * Returns the pending tasks.
-	 */
-	get pendingTasks(): Set<string> {
-		return this._pendingTasks.get();
-	}
+	//#endregion Extension Tasks
 
 	/**
 	 * Removes a pending task.
@@ -533,4 +460,93 @@ export class PositronNewProjectService extends Disposable implements IPositronNe
 
 		return tasks;
 	}
+
+	//#endregion Private Methods
+
+	//#region Public Methods
+
+	async initNewProject() {
+		if (!this._isCurrentWindowNewProject()) {
+			return;
+		}
+		if (this._newProjectConfig) {
+			// We're in the new project window, so we can clear the config from the storage service.
+			this.clearNewProjectConfig();
+
+			this._startupPhase.set(
+				NewProjectStartupPhase.AwaitingTrust,
+				undefined
+			);
+
+			// Ensure the workspace is trusted before proceeding with new project tasks
+			if (this._workspaceTrustManagementService.isWorkspaceTrusted()) {
+				this._newProjectTasks();
+			} else {
+				this._register(
+					this._workspaceTrustManagementService.onDidChangeTrust(
+						(trusted) => {
+							if (!trusted) {
+								return;
+							}
+							if (
+								this.startupPhase ===
+								NewProjectStartupPhase.AwaitingTrust
+							) {
+								// Trust was granted. Now we can proceed with the new project tasks.
+								this._newProjectTasks();
+							}
+						}
+					)
+				);
+			}
+		} else {
+			this._logService.error(
+				'[New project startup] No new project configuration found'
+			);
+			this._startupPhase.set(NewProjectStartupPhase.Complete, undefined);
+		}
+	}
+
+	clearNewProjectConfig() {
+		this._storageService.remove(
+			POSITRON_NEW_PROJECT_CONFIG_STORAGE_KEY,
+			StorageScope.APPLICATION
+		);
+	}
+
+	storeNewProjectConfig(newProjectConfig: NewProjectConfiguration) {
+		this._storageService.store(
+			POSITRON_NEW_PROJECT_CONFIG_STORAGE_KEY,
+			JSON.stringify(newProjectConfig),
+			StorageScope.APPLICATION,
+			StorageTarget.MACHINE
+		);
+	}
+
+	//#endregion Public Methods
+
+	//#region Getters and Setters
+
+	/**
+	 * Returns the current startup phase.
+	 */
+	get startupPhase(): NewProjectStartupPhase {
+		return this._startupPhase.get();
+	}
+
+	/**
+	 * Returns the pending tasks.
+	 */
+	get pendingTasks(): Set<string> {
+		return this._pendingTasks.get();
+	}
+
+	/**
+	 * Returns the runtime metadata for the new project.
+	 */
+	public get newProjectRuntimeMetadata(): ILanguageRuntimeMetadata | undefined {
+		return this._runtimeMetadata;
+	}
+
+	//#endregion Getters and Setters
 }
