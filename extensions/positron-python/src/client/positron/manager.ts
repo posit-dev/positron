@@ -68,6 +68,17 @@ export class PythonRuntimeManager implements IPythonRuntimeManager {
                     await this.registerLanguageRuntimeFromPath(interpreterPath);
                 }
             }),
+
+            interpreterService.onDidChangeInterpreter(async (workspaceUri) => {
+                const interpreter = await interpreterService.getActiveInterpreter(workspaceUri);
+                if (!interpreter) {
+                    traceError(
+                        `Interpreter not found; could not select language runtime. Workspace: ${workspaceUri?.fsPath}`,
+                    );
+                    return;
+                }
+                await this.selectLanguageRuntimeFromPath(interpreter.path);
+            }),
         );
     }
 

@@ -80,6 +80,8 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 	// is ready to use. This is keyed by the runtimeId (metadata.runtimeId) of the runtime.
 	private readonly _startingRuntimesByRuntimeId = new Map<string, DeferredPromise<string>>();
 
+	private readonly _selectingRuntimesByRuntimeId = new Map<string, Promise<void>>();
+
 	// A map of the currently active console sessions. Since we can currently
 	// only have one console session per language, this is keyed by the
 	// languageId (metadata.languageId) of the session.
@@ -290,12 +292,29 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 				`is not registered.`));
 		}
 
+		// If two selectRuntime calls are made for the same runtime in quick succession,
+		// wait for the first to finish before starting the second.
+		const selectingRuntimePromise = this._selectingRuntimesByRuntimeId.get(runtimeId);
+		if (selectingRuntimePromise) {
+			return selectingRuntimePromise;
+		}
+
+		const selectPromise = this.doSelectRuntime(runtime, source)
+			.finally(() => {
+				this._selectingRuntimesByRuntimeId.delete(runtimeId);
+			});
+		this._selectingRuntimesByRuntimeId.set(runtimeId, selectPromise);
+
+		return selectPromise;
+	}
+
+	async doSelectRuntime(runtime: ILanguageRuntimeMetadata, source: string): Promise<void> {
 		// Shut down any other runtime consoles for the language.
 		const activeSession =
 			this.getConsoleSessionForLanguage(runtime.languageId);
 		if (activeSession) {
 			// Is this, by chance, the runtime that's already running?
-			if (activeSession.runtimeMetadata.runtimeId === runtimeId) {
+			if (activeSession.runtimeMetadata.runtimeId === runtime.runtimeId) {
 				// Set it as the foreground session and return.
 				this._foregroundSession = activeSession;
 				return;
