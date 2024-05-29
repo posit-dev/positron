@@ -16,8 +16,8 @@ import { IPositronConsoleService, POSITRON_CONSOLE_VIEW_ID } from 'vs/workbench/
 import { ICommandAndKeybindingRule, KeybindingWeight, KeybindingsRegistry } from 'vs/platform/keybinding/common/keybindingsRegistry';
 import { ViewContainer, IViewContainersRegistry, ViewContainerLocation, Extensions as ViewContainerExtensions, IViewsRegistry } from 'vs/workbench/common/views';
 import { POSITRON_CONSOLE_COPY, POSITRON_CONSOLE_PASTE, POSITRON_CONSOLE_SELECT_ALL } from 'vs/workbench/contrib/positronConsole/browser/positronConsoleIdentifiers';
-import { ICommandService } from 'vs/platform/commands/common/commands';
 import { IClipboardService } from 'vs/platform/clipboard/common/clipboardService';
+import { RawContextKey } from 'vs/platform/contextkey/common/contextkey';
 
 // The Positron console view icon.
 const positronConsoleViewIcon = registerIcon(
@@ -65,13 +65,20 @@ Registry.as<IViewsRegistry>(ViewContainerExtensions.ViewsRegistry).registerViews
 	}
 }], VIEW_CONTAINER);
 
+// Below we define keybindings so we can refer to them in the console context
+// menu and display the keybinding shortcut next to the menu action. We don't
+// necessarily want to handle the keybinding instead of VS Code. In that case,
+// we condition the keybinding handler on this context key that never activates.
+const never = new RawContextKey<boolean>('never', false);
+
 // Register keybinding rule for copy.
 KeybindingsRegistry.registerCommandAndKeybindingRule({
 	id: POSITRON_CONSOLE_COPY,
 	weight: KeybindingWeight.WorkbenchContrib,
 	primary: KeyMod.CtrlCmd | KeyCode.KeyC,
-	when: PositronConsoleFocused,
-	handler: accessor => accessor.get(ICommandService).executeCommand('editor.action.clipboardCopyAction')
+	// We let the default command copy for us
+	when: never,
+	handler: accessor => { }
 } satisfies ICommandAndKeybindingRule);
 
 // Register keybinding rule for paste.
