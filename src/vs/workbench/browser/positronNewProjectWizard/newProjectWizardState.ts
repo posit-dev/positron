@@ -472,6 +472,7 @@ export class NewProjectWizardStateManager
 	 * @returns The NewProjectWizardState object.
 	 */
 	getState(): NewProjectWizardState {
+		this._cleanupState();
 		return {
 			selectedRuntime: this._selectedRuntime,
 			projectType: this._projectType,
@@ -483,7 +484,7 @@ export class NewProjectWizardStateManager
 			pythonEnvProviderId: this._pythonEnvProviderId,
 			pythonEnvProviderName: this._getEnvProviderName(),
 			installIpykernel: this._installIpykernel,
-			useRenv: this._useRenv
+			useRenv: this._useRenv,
 		} satisfies NewProjectWizardState;
 	}
 
@@ -584,7 +585,12 @@ export class NewProjectWizardStateManager
 	 * @returns The name of the selected Python environment provider.
 	 */
 	private _getEnvProviderName(): string | undefined {
-		return this._pythonEnvProviders.find(provider => provider.id === this._pythonEnvProviderId)?.name;
+		if (!this._pythonEnvProviderId) {
+			return undefined;
+		}
+		return this._pythonEnvProviders.find(
+			(provider) => provider.id === this._pythonEnvProviderId
+		)?.name;
 	}
 
 	/**
@@ -714,5 +720,31 @@ export class NewProjectWizardStateManager
 			!filters.length ||
 			filters.find((rs) => rs === runtimeSource) !== undefined
 		);
+	}
+
+	/**
+	 * Cleans up the state by removing any irrelevant state based on the project language.
+	 */
+	private _cleanupState() {
+		const langId = this._getLangId();
+		if (!langId) {
+			this._services.logService.error(
+				'[Project Wizard] Unsupported project type'
+			);
+		}
+		if (langId === LanguageIds.Python) {
+			this._useRenv = undefined;
+			// TODO: Conda isn't supported yet, so don't set the env provider if it's conda.
+			if (
+				this._pythonEnvSetupType === EnvironmentSetupType.NewEnvironment &&
+				this._getEnvProviderName() === PythonEnvironmentProvider.Conda
+			) {
+				this._pythonEnvProviderId = undefined;
+			}
+		} else if (langId === LanguageIds.R) {
+			this._pythonEnvSetupType = undefined;
+			this._pythonEnvProviderId = undefined;
+			this._installIpykernel = undefined;
+		}
 	}
 }
