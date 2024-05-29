@@ -163,6 +163,9 @@ export class PositronNewProjectService extends Disposable implements IPositronNe
 			this._logService.error(
 				'[New project startup] No new project configuration found'
 			);
+			this._notificationService.error(
+				'Failed to create new project. No new project configuration found.'
+			);
 			this._startupPhase.set(NewProjectStartupPhase.Complete, undefined);
 		}
 	}
@@ -317,10 +320,11 @@ export class PositronNewProjectService extends Disposable implements IPositronNe
 				// Ensure the workspace folder is available
 				const workspaceFolder =
 					this._contextService.getWorkspace().folders[0];
+
 				if (!workspaceFolder) {
-					this._logService.error(
-						'Could not determine workspace folder for new project. Cannot create Python environment.'
-					);
+					const message = this._failedPythonEnvMessage(`Could not determine workspace folder for ${this._newProjectConfig.projectFolder}.`);
+					this._logService.error(message);
+					this._notificationService.warn(message);
 					this._removePendingTask(NewProjectTask.PythonEnvironment);
 					return;
 				}
@@ -329,9 +333,9 @@ export class PositronNewProjectService extends Disposable implements IPositronNe
 				// interpreter to use for the new environment.
 				const interpreterPath = runtimeMetadata.extraRuntimeData?.pythonPath;
 				if (!interpreterPath) {
-					this._logService.error(
-						'Could not determine Python interpreter path for new project.'
-					);
+					const message = this._failedPythonEnvMessage('Could not determine Python interpreter path for new project.');
+					this._logService.error(message);
+					this._notificationService.warn(message);
 					this._removePendingTask(NewProjectTask.PythonEnvironment);
 					return;
 				}
@@ -340,9 +344,10 @@ export class PositronNewProjectService extends Disposable implements IPositronNe
 				// Note: this command will show a quick pick to select the Python interpreter if the
 				// specified Python interpreter is invalid for some reason (e.g. for Venv, if the
 				// specified interpreter is not considered to be a Global Python installation).
+				const createEnvCommand = 'python.createEnvironment';
 				const result: CreateEnvironmentResult | undefined =
 					await this._commandService.executeCommand(
-						'python.createEnvironment',
+						createEnvCommand,
 						{
 							workspaceFolder,
 							providerId: provider,
@@ -352,21 +357,31 @@ export class PositronNewProjectService extends Disposable implements IPositronNe
 
 				// Check if the environment was created successfully
 				if (!result || result.error || !result.path) {
-					const errorDesc = () => {
+					const errorDesc = (): string => {
 						if (!result) {
-							return 'no result returned from createEnvironment command.';
+							return 'No result returned from createEnvironment command.';
 						}
 						if (result.error) {
-							return result.error;
+							return result.error.toString();
 						}
 						if (!result.path) {
-							return 'no Python path returned from createEnvironment command.';
+							return 'No Python path returned from createEnvironment command.';
 						}
 						return 'unknown error.';
 					};
+					const message = this._failedPythonEnvMessage(errorDesc());
 					this._logService.error(
-						`Error while creating Python environment for new project: ${errorDesc()}`
+						createEnvCommand +
+						' with arguments: ' +
+						JSON.stringify({
+							workspaceFolder,
+							providerId: provider,
+							interpreterPath,
+						}) +
+						' failed. ' +
+						message
 					);
+					this._notificationService.warn(message);
 					this._removePendingTask(NewProjectTask.PythonEnvironment);
 					return;
 				}
@@ -402,12 +417,38 @@ export class PositronNewProjectService extends Disposable implements IPositronNe
 			}
 		} else {
 			// This shouldn't occur.
-			this._logService.error(
-				'Could not determine runtime metadata for new project. Cannot create Python environment.'
-			);
+			const message = this._failedPythonEnvMessage('Could not determine runtime metadata for new project.');
+			this._logService.error(message);
+			this._notificationService.warn(message);
 			return;
 		}
 		this._removePendingTask(NewProjectTask.PythonEnvironment);
+	}
+
+	/**
+	 * Returns a localized message for a failed Python environment creation.
+	 * @param reason The reason for the failure.
+	 * @returns The localized message.
+	 */
+	private _failedPythonEnvMessage(reason: string): string {
+		if (!this._newProjectConfig) {
+			return '';
+		}
+		const {
+			projectName,
+			projectType,
+			pythonEnvProviderName: providerName
+		} = this._newProjectConfig;
+
+		const message = localize(
+			'positron.newProjectService.failedPythonEnvMessage',
+			"Failed to create {0} environment for new {1} '{2}': {3}",
+			providerName,
+			projectType,
+			projectName,
+			reason
+		);
+		return message;
 	}
 
 	/**
@@ -514,6 +555,9 @@ export class PositronNewProjectService extends Disposable implements IPositronNe
 		} else {
 			this._logService.error(
 				'[New project startup] No new project configuration found'
+			);
+			this._notificationService.error(
+				'Failed to create new project. No new project configuration found.'
 			);
 			this._startupPhase.set(NewProjectStartupPhase.Complete, undefined);
 		}

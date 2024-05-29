@@ -64,6 +64,7 @@ export interface NewProjectConfiguration {
 	readonly projectName: string;
 	readonly initGitRepo: boolean;
 	readonly pythonEnvProviderId: string;
+	readonly pythonEnvProviderName: string;
 	readonly installIpykernel: boolean;
 	readonly useRenv: boolean;
 }
