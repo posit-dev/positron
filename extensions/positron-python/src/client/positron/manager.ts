@@ -220,8 +220,11 @@ export class PythonRuntimeManager implements IPythonRuntimeManager {
             throw new Error(`Python interpreter path is missing: ${extraData.pythonPath}`);
         }
 
+        // Replace the metadata if we can find the runtime in the registered runtimes,
+        const registeredMetadata = this.registeredPythonRuntimes.get(extraData.pythonPath);
+
         // Metadata is valid
-        return metadata;
+        return registeredMetadata ?? metadata;
     }
 
     /**

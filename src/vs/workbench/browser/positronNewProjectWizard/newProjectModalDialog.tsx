@@ -25,7 +25,7 @@ import { ICommandService } from 'vs/platform/commands/common/commands';
 import { ILogService } from 'vs/platform/log/common/log';
 import { IOpenerService } from 'vs/platform/opener/common/opener';
 import { IPositronNewProjectService, NewProjectConfiguration } from 'vs/workbench/services/positronNewProject/common/positronNewProject';
-import { EnvironmentSetupType, NewProjectWizardStep } from 'vs/workbench/browser/positronNewProjectWizard/interfaces/newProjectWizardEnums';
+import { EnvironmentSetupType, NewProjectWizardStep, PythonEnvironmentProvider } from 'vs/workbench/browser/positronNewProjectWizard/interfaces/newProjectWizardEnums';
 import { IWorkspaceTrustManagementService } from 'vs/platform/workspace/common/workspaceTrust';
 
 /**
@@ -83,19 +83,32 @@ export const showNewProjectModalDialog = async (
 					}
 
 					// The python environment type is only relevant if a new environment is being created.
-					const pythonEnvType =
-						result.pythonEnvSetupType === EnvironmentSetupType.NewEnvironment
+					const pythonEnvProviderId =
+						result.pythonEnvSetupType ===
+							EnvironmentSetupType.NewEnvironment &&
+							// TODO: Conda isn't supported yet, so don't set the env provider if it's conda.
+							result.pythonEnvProviderName !==
+							PythonEnvironmentProvider.Conda
 							? result.pythonEnvProviderId
 							: '';
 
-					// Install ipykernel if applicable.
-					if (result.installIpykernel) {
+					// Install ipykernel if applicable for an existing environment.
+					// For new environments, ipykernel will be installed as part of the environment
+					// creation and setup process once the new project is opened.
+					if (
+						result.pythonEnvSetupType ===
+						EnvironmentSetupType.ExistingEnvironment &&
+						result.installIpykernel
+					) {
 						const pythonPath =
-							result.selectedRuntime?.extraRuntimeData?.pythonPath ??
+							result.selectedRuntime?.extraRuntimeData
+								?.pythonPath ??
 							result.selectedRuntime?.runtimePath ??
 							'';
 						if (!pythonPath) {
-							logService.error('Could not determine python path to install ipykernel via Positron Project Wizard');
+							logService.error(
+								'Could not determine python path to install ipykernel via Positron Project Wizard'
+							);
 						} else {
 							// Awaiting the command execution is necessary to ensure ipykernel is
 							// installed before the project is opened.
@@ -116,7 +129,8 @@ export const showNewProjectModalDialog = async (
 						projectFolder: folder.fsPath,
 						projectName: result.projectName,
 						initGitRepo: result.initGitRepo,
-						pythonEnvType: pythonEnvType || '',
+						pythonEnvProviderId: pythonEnvProviderId || '',
+						pythonEnvProviderName: result.pythonEnvProviderName || '',
 						installIpykernel: result.installIpykernel || false,
 						useRenv: result.useRenv || false,
 					};

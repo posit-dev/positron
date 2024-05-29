@@ -63,7 +63,8 @@ export interface NewProjectConfiguration {
 	readonly projectFolder: string;
 	readonly projectName: string;
 	readonly initGitRepo: boolean;
-	readonly pythonEnvType: string;
+	readonly pythonEnvProviderId: string;
+	readonly pythonEnvProviderName: string;
 	readonly installIpykernel: boolean;
 	readonly useRenv: boolean;
 }
@@ -127,3 +128,13 @@ export interface IPositronNewProjectService {
 	 */
 	storeNewProjectConfig(newProjectConfig: NewProjectConfiguration): void;
 }
+
+/**
+ * CreateEnvironmentOptions type.
+ * Used to capture the result of creating a new environment.
+ * Based on extensions/positron-python/src/client/pythonEnvironments/creation/proposed.createEnvApis.ts
+ */
+export type CreateEnvironmentResult = {
+	readonly path?: string;
+	readonly error?: Error;
+};
