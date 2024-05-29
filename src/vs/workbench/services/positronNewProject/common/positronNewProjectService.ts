@@ -270,7 +270,7 @@ export class PositronNewProjectService extends Disposable implements IPositronNe
 			default:
 		}
 
-		Promise.allSettled(tasks);
+		await Promise.allSettled(tasks);
 
 		this._removePendingTask(NewProjectTask.Git);
 	}
