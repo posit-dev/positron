@@ -119,6 +119,12 @@
         "category": "R",
         "title": "%r.command.sourceCurrentFile.title%",
         "icon": "$(play)"
+      },
+      {
+        "command": "r.rmarkdownRender",
+        "category": "R",
+        "title": "%r.command.rmarkdownRender.title%",
+        "icon": "$(play)"
       }
     ],
     "configuration": {
@@ -266,6 +272,18 @@
         "configuration": "./language-configuration/r-docs-language-configuration.json"
       },
       {
+        "id": "quarto",
+        "aliases": [
+          "Quarto",
+          "quarto",
+          "R Markdown",
+          "Rmd"
+        ],
+        "extensions": [
+          ".rmd"
+        ]
+      },
+      {
         "id": "json",
         "aliases": [
           "renv lockfile"
@@ -374,6 +392,13 @@
         },
         {
           "category": "R",
+          "command": "r.rmarkdownRender",
+          "icon": "$(play)",
+          "title": "%r.command.rmarkdownRender.title%",
+          "when": "editorLangId == quarto"
+        },
+        {
+          "category": "R",
           "command": "r.insertPipe",
           "when": "editorLangId == r && editorTextFocus"
         },
@@ -436,6 +461,12 @@
           "group": "R",
           "title": "%r.command.sourceCurrentFile.title%",
           "when": "editorLangId == r"
+        },
+        {
+          "command": "r.rmarkdownRender",
+          "group": "R",
+          "title": "%r.command.rmarkdownRender.title%",
+          "when": "editorLangId == quarto"
         }
       ],
       "editor/title/run": [
@@ -445,6 +476,12 @@
           "icon": "$(play)",
           "title": "%r.command.sourceCurrentFile.title%",
           "when": "resourceLangId == r && !isInDiffEditor"
+        },
+        {
+          "command": "r.rmarkdownRender",
+          "icon": "$(play)",
+          "title": "%r.command.rmarkdownRender.title%",
+          "when": "resourceLangId == quarto && !isInDiffEditor"
         }
       ]
     },
