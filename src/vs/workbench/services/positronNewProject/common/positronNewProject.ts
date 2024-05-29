@@ -61,6 +61,7 @@ export interface NewProjectConfiguration {
 	readonly runtimeMetadata: ILanguageRuntimeMetadata | undefined;
 	readonly projectType: string;
 	readonly projectFolder: string;
+	readonly projectName: string;
 	readonly initGitRepo: boolean;
 	readonly pythonEnvType: string;
 	readonly installIpykernel: boolean;
