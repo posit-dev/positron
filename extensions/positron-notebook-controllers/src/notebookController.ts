@@ -6,6 +6,7 @@ import * as positron from 'positron';
 import { NotebookSessionService } from './notebookSessionService';
 import { JUPYTER_NOTEBOOK_TYPE } from './constants';
 import { log } from './extension';
+import { ResourceMap } from './map';
 
 /**
  * Wraps a vscode.NotebookController for a specific language, and manages a notebook runtime session
@@ -14,6 +15,9 @@ import { log } from './extension';
 export class NotebookController implements vscode.Disposable {
 
 	private readonly _disposables: vscode.Disposable[] = [];
+
+	/** A map of pending cell executions, keyed by notebook URI. */
+	private readonly _pendingCellExecutionsByNotebookUri = new ResourceMap<Promise<void>>();
 
 	/** The wrapped VSCode notebook controller. */
 	public readonly controller: vscode.NotebookController;
@@ -105,22 +109,14 @@ export class NotebookController implements vscode.Disposable {
 	 * Notebook controller execute handler.
 	 *
 	 * @param cells Cells to execute.
-	 * @param _notebook Notebook containing the cells.
+	 * @param notebook Notebook containing the cells.
 	 * @param _controller Notebook controller.
 	 * @returns Promise that resolves when the language has been set.
 	 */
 	private async executeCells(cells: vscode.NotebookCell[], notebook: vscode.NotebookDocument, _controller: vscode.NotebookController) {
-		// Get the notebook's session.
-		let session = this._notebookSessionService.getNotebookSession(notebook.uri);
-
-		// No session has been started for this notebook, start one.
-		if (!session) {
-			session = await vscode.window.withProgress(this.startProgressOptions(notebook), () => this.startRuntimeSession(notebook));
-		}
-
-		for (const cell of cells) {
-			await this.executeCell(cell, session);
-		}
+		// Queue all cells for execution; catch and log any execution errors.
+		await Promise.all(cells.map(cell => this.queueCellExecution(cell, notebook)))
+			.catch(err => log.debug(`Error executing cell: ${err}`));
 	}
 
 	/**
@@ -129,7 +125,36 @@ export class NotebookController implements vscode.Disposable {
 	 * @param cell Cell to execute.
 	 * @returns Promise that resolves when the runtime has finished executing the cell.
 	 */
-	private async executeCell(cell: vscode.NotebookCell, session: positron.LanguageRuntimeSession): Promise<void> {
+	private queueCellExecution(cell: vscode.NotebookCell, notebook: vscode.NotebookDocument): Promise<void> {
+		// Get the pending execution for this notebook, if one exists.
+		const pendingExecution = this._pendingCellExecutionsByNotebookUri.get(cell.notebook.uri);
+
+		// Chain this execution after the pending one.
+		const currentExecution = Promise.resolve(pendingExecution)
+			.then(() => this.executeCell(cell, notebook))
+			.finally(() => {
+				// If this was the last execution in the chain, remove it from the map,
+				// starting a new chain.
+				if (this._pendingCellExecutionsByNotebookUri.get(cell.notebook.uri) === currentExecution) {
+					this._pendingCellExecutionsByNotebookUri.delete(cell.notebook.uri);
+				}
+			});
+
+		// Update the pending execution for this notebook.
+		this._pendingCellExecutionsByNotebookUri.set(cell.notebook.uri, currentExecution);
+
+		return currentExecution;
+	}
+
+	private async executeCell(cell: vscode.NotebookCell, notebook: vscode.NotebookDocument): Promise<void> {
+		// Get the notebook's session.
+		let session = this._notebookSessionService.getNotebookSession(notebook.uri);
+
+		// No session has been started for this notebook, start one.
+		if (!session) {
+			session = await vscode.window.withProgress(this.startProgressOptions(notebook), () => this.startRuntimeSession(notebook));
+		}
+
 		// Create a cell execution.
 		const currentExecution = this.controller.createNotebookCellExecution(cell);
 
@@ -145,11 +170,13 @@ export class NotebookController implements vscode.Disposable {
 		// Create a promise that resolves when the cell execution is complete i.e. when the runtime
 		// receives an error or status idle reply message.
 		const cellId = `positron-notebook-cell-${NotebookController._CELL_COUNTER++}`;
-		const promise = new Promise<void>((resolve) => {
+		const promise = new Promise<void>((resolve, reject) => {
 			// Update the cell execution using received runtime messages.
 			const handler = session.onDidReceiveRuntimeMessage(message => {
 				// Track whether the cell execution was successful.
 				let success: boolean | undefined;
+				// The error message, if any.
+				let error: positron.LanguageRuntimeError | undefined;
 
 				// Is the message a reply to the cell we're executing?
 				if (message.parent_id === cellId) {
@@ -167,7 +194,8 @@ export class NotebookController implements vscode.Disposable {
 							cellOutputItems = handleRuntimeMessageStream(message as positron.LanguageRuntimeStream);
 							break;
 						case positron.LanguageRuntimeMessageType.Error:
-							cellOutputItems = handleRuntimeMessageError(message as positron.LanguageRuntimeError);
+							error = message as positron.LanguageRuntimeError;
+							cellOutputItems = handleRuntimeMessageError(error);
 							success = false;
 							break;
 						case positron.LanguageRuntimeMessageType.State:
@@ -187,7 +215,11 @@ export class NotebookController implements vscode.Disposable {
 				if (success !== undefined) {
 					currentExecution.end(success, Date.now());
 					handler.dispose();
-					resolve();
+					if (success) {
+						resolve();
+					} else {
+						reject(error);
+					}
 				}
 			});
 		});
