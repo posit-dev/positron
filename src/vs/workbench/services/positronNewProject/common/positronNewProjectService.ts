@@ -13,6 +13,13 @@ import { IPositronNewProjectService, NewProjectConfiguration, NewProjectStartupP
 import { Event } from 'vs/base/common/event';
 import { Barrier } from 'vs/base/common/async';
 import { ILanguageRuntimeMetadata } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { IFileService } from 'vs/platform/files/common/files';
+import { VSBuffer } from 'vs/base/common/buffer';
+import { joinPath } from 'vs/base/common/resources';
+import { DOT_IGNORE_JUPYTER, DOT_IGNORE_PYTHON, DOT_IGNORE_R } from 'vs/workbench/services/positronNewProject/common/positronNewProjectTemplates';
+import { URI } from 'vs/base/common/uri';
+import { INotificationService } from 'vs/platform/notification/common/notification';
+import { localize } from 'vs/nls';
 
 /**
  * PositronNewProjectService class.
@@ -41,7 +48,9 @@ export class PositronNewProjectService extends Disposable implements IPositronNe
 	constructor(
 		@IWorkspaceContextService private readonly _contextService: IWorkspaceContextService,
 		@ICommandService private readonly _commandService: ICommandService,
+		@IFileService private readonly _fileService: IFileService,
 		@ILogService private readonly _logService: ILogService,
+		@INotificationService private readonly _notificationService: INotificationService,
 		@IStorageService private readonly _storageService: IStorageService,
 		@IWorkspaceTrustManagementService private readonly _workspaceTrustManagementService: IWorkspaceTrustManagementService
 	) {
@@ -206,15 +215,64 @@ export class PositronNewProjectService extends Disposable implements IPositronNe
 		this._removePendingTask(NewProjectTask.R);
 	}
 
+	private _handleGitIgnoreError(error: Error) {
+		const errorMessage = localize('positronNewProjectService.gitIgnoreError', 'Error creating .gitignore {0}', error.message);
+		this._notificationService.error(errorMessage);
+	}
+
 	/**
 	 * Runs the git init command.
 	 * Relies on extension vscode.git
 	 */
 	private async _runGitInit() {
-		// TODO: This command works, but requires a quick pick selection
-		// this._commandService.executeCommand('git.init');
+		const projectRoot = URI.file(this._newProjectConfig?.projectFolder!);
+		const gitInitTask = new Promise(() => {
+			// true to skip the folder prompt
+			this._commandService.executeCommand('git.init', true)
+				.catch((error) => {
+					const errorMessage = localize('positronNewProjectService.gitInitError', 'Error initializing git repository {0}', error);
+					this._notificationService.error(errorMessage);
+				});
+		});
+		const readmeTask = new Promise(() => {
+			this._fileService.createFile(joinPath(projectRoot, 'README.md'), VSBuffer.fromString(`# ${this._newProjectConfig?.projectName}`))
+				.catch((error) => {
+					this._handleGitIgnoreError(error);
+				});
+		});
+		const tasks = [gitInitTask, readmeTask];
 
-		// TODO: create .gitignore and README.md
+		// TODO: use enum values instead of strings
+		switch (this._newProjectConfig?.projectType) {
+			case 'Python Project':
+				tasks.push(new Promise(() => {
+					this._fileService.createFile(joinPath(projectRoot, '.gitignore'), VSBuffer.fromString(DOT_IGNORE_PYTHON))
+						.catch((error) => {
+							this._handleGitIgnoreError(error);
+						});
+				}));
+				break;
+			case 'R Project':
+				tasks.push(new Promise(() => {
+					this._fileService.createFile(joinPath(projectRoot, '.gitignore'), VSBuffer.fromString(DOT_IGNORE_R))
+						.catch((error) => {
+							this._handleGitIgnoreError(error);
+						});
+				}));
+				break;
+			case 'Jupyter Notebook':
+				tasks.push(new Promise(() => {
+					this._fileService.createFile(joinPath(projectRoot, '.gitignore'), VSBuffer.fromString(DOT_IGNORE_JUPYTER))
+						.catch((error) => {
+							this._handleGitIgnoreError(error);
+						});
+				}));
+				break;
+			default:
+		}
+
+		await Promise.allSettled(tasks);
+
 		this._removePendingTask(NewProjectTask.Git);
 	}
 
