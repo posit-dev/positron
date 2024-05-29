@@ -209,7 +209,12 @@ export class VenvCreationProvider implements CreateEnvironmentProvider {
             existingEnvStep,
             async (context?: MultiStepAction) => {
                 if (workspace) {
-                    if (
+                    // --- Start Positron ---
+                    if (existingVenvAction === ExistingVenvAction.Create && options?.interpreterPath) {
+                        interpreter = options.interpreterPath;
+                    }
+                    // --- End Positron ---
+                    else if (
                         existingVenvAction === ExistingVenvAction.Recreate ||
                         existingVenvAction === ExistingVenvAction.Create
                     ) {

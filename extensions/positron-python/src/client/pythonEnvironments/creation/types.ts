@@ -8,4 +8,7 @@ export interface CreateEnvironmentProgress extends Progress<{ message?: string; 
 export interface CreateEnvironmentOptionsInternal {
     workspaceFolder?: WorkspaceFolder;
     providerId?: string;
+    // --- Start Positron ---
+    interpreterPath?: string;
+    // --- End Positron ---
 }
