@@ -114,13 +114,9 @@ export class NotebookController implements vscode.Disposable {
 	 * @returns Promise that resolves when the language has been set.
 	 */
 	private async executeCells(cells: vscode.NotebookCell[], notebook: vscode.NotebookDocument, _controller: vscode.NotebookController) {
-		for (const cell of cells) {
-			try {
-				await this.executeCell(cell, notebook);
-			} catch (err) {
-				log.debug(`Error executing cell ${cell.index}: ${JSON.stringify(err)}`);
-			}
-		}
+		// Queue all cells for execution; catch and log any execution errors.
+		await Promise.all(cells.map(cell => this.queueCellExecution(cell, notebook)))
+			.catch(err => log.debug(`Error executing cell: ${err}`));
 	}
 
 	/**
@@ -129,13 +125,13 @@ export class NotebookController implements vscode.Disposable {
 	 * @param cell Cell to execute.
 	 * @returns Promise that resolves when the runtime has finished executing the cell.
 	 */
-	private async executeCell(cell: vscode.NotebookCell, notebook: vscode.NotebookDocument): Promise<void> {
+	private queueCellExecution(cell: vscode.NotebookCell, notebook: vscode.NotebookDocument): Promise<void> {
 		// Get the pending execution for this notebook, if one exists.
 		const pendingExecution = this._pendingCellExecutionsByNotebookUri.get(cell.notebook.uri);
 
 		// Chain this execution after the pending one.
 		const currentExecution = Promise.resolve(pendingExecution)
-			.then(() => this.doExecuteCell(cell, notebook))
+			.then(() => this.executeCell(cell, notebook))
 			.finally(() => {
 				// If this was the last execution in the chain, remove it from the map,
 				// starting a new chain.
@@ -150,7 +146,7 @@ export class NotebookController implements vscode.Disposable {
 		return currentExecution;
 	}
 
-	private async doExecuteCell(cell: vscode.NotebookCell, notebook: vscode.NotebookDocument): Promise<void> {
+	private async executeCell(cell: vscode.NotebookCell, notebook: vscode.NotebookDocument): Promise<void> {
 		// Get the notebook's session.
 		let session = this._notebookSessionService.getNotebookSession(notebook.uri);
 
