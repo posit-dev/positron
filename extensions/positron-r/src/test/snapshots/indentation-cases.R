@@ -18,13 +18,11 @@ data |>"<>"
 
 # ---
 # Starting a pipeline (one empty line)
-# FIXME
 data |>
     "<>"
 
 # ---
 # Starting a pipeline (multiple empty lines)
-# FIXME
 data |>
 
     "<>"
@@ -53,14 +51,12 @@ data |>
 
 # ---
 # Continuing a one-liner pipeline (comment line)
-# FIXME
 data |>
     fn1() |>
     # foo"<>"
 
 # ---
 # Continuing a one-liner pipeline (after a comment line)
-# FIXME
 data |>
     fn1() |>
     # foo
@@ -75,7 +71,6 @@ data |>
 
 # ---
 # Continuing a multi-liner pipeline
-# FIXME
 data |>
     fn1(
         x,
@@ -84,7 +79,6 @@ data |>
 
 # ---
 # Continuing a multi-liner pipeline (trailing expression)
-# FIXME
 data |>
     fn1(
         x,
@@ -103,7 +97,7 @@ data |>
 
 # ---
 # Dedent after pipeline (multiple lines)
-# FIXME
+# https://github.com/posit-dev/positron/issues/2764
 data |>
     fn1() |>
     fn2(
@@ -111,11 +105,46 @@ data |>
     )"<>"
 
 # ---
+# Dedent after pipeline (token)
+1 +
+    foo(
+        x
+    ) +
+    bar"<>"
+
+# ---
+# Dedent after pipeline (nested)
+{
+    1 +
+        foo(
+            x
+        ) +
+        bar"<>"
+}
+
+# ---
 # Stickiness of dedent after pipeline
 # https://github.com/posit-dev/positron/issues/1727
 data |>
     fn()
 "<>"
+
+# ---
+# Stickiness of dedent after pipeline (nested)
+{
+    data |>
+        fn()
+    "<>"
+}
+
+# ---
+# Stickiness of dedent after pipeline (nested)
+{
+    fn() %>%
+
+        foo"<>"
+}
+
 
 # ---
 # Stickiness of dedent after pipeline (trailing comment)
@@ -146,7 +175,6 @@ for (i in NA) NULL"<>"
 # ---
 # Indent after finished loop (call)
 # https://github.com/posit-dev/positron/issues/1880
-# FIXME
 for (i in 1) fn()"<>"
 
 # ---
