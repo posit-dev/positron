@@ -93,16 +93,16 @@ export class TableDataDataGridInstance extends DataGridInstance {
 		));
 
 		// Add the onDidSchemaUpdate event handler.
-		this._register(this._dataExplorerClientInstance.onDidSchemaUpdate(e => {
+		this._register(this._dataExplorerClientInstance.onDidSchemaUpdate(async e => {
 			this._dataExplorerCache.invalidateDataCache();
 			this.softReset();
-			this.fetchData();
+			await this.fetchData();
 		}));
 
 		// Add the onDidDataUpdate event handler.
-		this._register(this._dataExplorerClientInstance.onDidDataUpdate(() => {
+		this._register(this._dataExplorerClientInstance.onDidDataUpdate(async () => {
 			this._dataExplorerCache.invalidateDataCache();
-			this.fetchData();
+			await this.fetchData();
 		}));
 
 		// Add the onDidUpdateBackendState event handler.
@@ -180,15 +180,16 @@ export class TableDataDataGridInstance extends DataGridInstance {
 
 		// Clear the data cache and fetch new data.
 		this._dataExplorerCache.invalidateDataCache();
-		this.fetchData();
+		await this.fetchData();
 	}
 
 	/**
 	 * Fetches data.
+	 * @returns A Promise<void> that resolves when the operation is complete.
 	 */
-	override fetchData() {
+	override async fetchData() {
 		// Update the cache.
-		this._dataExplorerCache.updateCache({
+		await this._dataExplorerCache.updateCache({
 			firstColumnIndex: this.firstColumnIndex,
 			visibleColumns: this.screenColumns,
 			firstRowIndex: this.firstRowIndex,
@@ -273,8 +274,8 @@ export class TableDataDataGridInstance extends DataGridInstance {
 
 		// Reload the data grid.
 		this._dataExplorerCache.invalidateDataCache();
-		this.softReset();
-		this.fetchData();
+		this.resetSelection();
+		this.setFirstRow(0, true);
 	}
 
 	//#endregion Public Methods

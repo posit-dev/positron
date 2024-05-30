@@ -943,8 +943,9 @@ export abstract class DataGridInstance extends Disposable {
 	 * Sets the width of a column.
 	 * @param columnIndex The column index.
 	 * @param columnWidth The column width.
+	 * @returns A Promise<void> that resolves when the operation is complete.
 	 */
-	setColumnWidth(columnIndex: number, columnWidth: number) {
+	async setColumnWidth(columnIndex: number, columnWidth: number): Promise<void> {
 		// Get the current column width.
 		const currentColumnWidth = this._columnWidths.get(columnIndex);
 		if (currentColumnWidth !== undefined) {
@@ -957,7 +958,7 @@ export abstract class DataGridInstance extends Disposable {
 		this._columnWidths.set(columnIndex, columnWidth);
 
 		// Fetch data.
-		this.fetchData();
+		await this.fetchData();
 
 		// Fire the onDidUpdate event.
 		this._onDidUpdateEmitter.fire();
@@ -989,8 +990,9 @@ export abstract class DataGridInstance extends Disposable {
 	 * Sets the the height of a row.
 	 * @param rowIndex The row index.
 	 * @param rowHeight The row height.
+	 * @returns A Promise<void> that resolves when the operation is complete.
 	 */
-	setRowHeight(rowIndex: number, rowHeight: number) {
+	async setRowHeight(rowIndex: number, rowHeight: number): Promise<void> {
 		// Get the current row height.
 		const currentRowHeight = this._rowHeights.get(rowIndex);
 		if (currentRowHeight !== undefined) {
@@ -1003,7 +1005,7 @@ export abstract class DataGridInstance extends Disposable {
 		this._rowHeights.set(rowIndex, rowHeight);
 
 		// Fetch data.
-		this.fetchData();
+		await this.fetchData();
 
 		// Fire the onDidUpdate event.
 		this._onDidUpdateEmitter.fire();
@@ -1095,15 +1097,16 @@ export abstract class DataGridInstance extends Disposable {
 	/**
 	 * Sets the row headers width.
 	 * @param rowHeadersWidth The row headers width.
+	 * @returns A Promise<void> that resolves when the operation is complete.
 	 */
-	setRowHeadersWidth(rowHeadersWidth: number) {
+	async setRowHeadersWidth(rowHeadersWidth: number): Promise<void> {
 		// If the row headers width has changed, update it.
 		if (rowHeadersWidth !== this._rowHeadersWidth) {
 			// Set the row headers width..
 			this._rowHeadersWidth = rowHeadersWidth;
 
 			// Fetch data.
-			this.fetchData();
+			await this.fetchData();
 
 			// Fire the onDidUpdate event.
 			this._onDidUpdateEmitter.fire();
@@ -1114,8 +1117,9 @@ export abstract class DataGridInstance extends Disposable {
 	 * Sets the screen size.
 	 * @param width The width.
 	 * @param height The height.
+	 * @returns A Promise<void> that resolves when the operation is complete.
 	 */
-	setScreenSize(width: number, height: number) {
+	async setScreenSize(width: number, height: number): Promise<void> {
 		// A flag that is set to true when the screen size changed.
 		let screenSizeChanged = false;
 
@@ -1136,7 +1140,7 @@ export abstract class DataGridInstance extends Disposable {
 		// If the screen size changed, fetch data and fire the onDidUpdate event.
 		if (screenSizeChanged) {
 			// Fetch data.
-			this.fetchData();
+			await this.fetchData();
 
 			// Fire the onDidUpdate event.
 			this._onDidUpdateEmitter.fire();
@@ -1147,15 +1151,16 @@ export abstract class DataGridInstance extends Disposable {
 	 * Sets the screen position.
 	 * @param firstColumnIndex The first column index.
 	 * @param firstRowIndex The first row index.
+	 * @returns A Promise<void> that resolves when the operation is complete.
 	 */
-	setScreenPosition(firstColumnIndex: number, firstRowIndex: number) {
+	async setScreenPosition(firstColumnIndex: number, firstRowIndex: number): Promise<void> {
 		if (firstColumnIndex !== this._firstColumnIndex || firstRowIndex !== this._firstRowIndex) {
 			// Set the screen position.
 			this._firstColumnIndex = firstColumnIndex;
 			this._firstRowIndex = firstRowIndex;
 
 			// Fetch data.
-			this.fetchData();
+			await this.fetchData();
 
 			// Fire the onDidUpdate event.
 			this._onDidUpdateEmitter.fire();
@@ -1165,14 +1170,15 @@ export abstract class DataGridInstance extends Disposable {
 	/**
 	 * Sets the first column.
 	 * @param firstColumnIndex The first column index.
+	 * @returns A Promise<void> that resolves when the operation is complete.
 	 */
-	setFirstColumn(firstColumnIndex: number) {
+	async setFirstColumn(firstColumnIndex: number): Promise<void> {
 		if (firstColumnIndex !== this._firstColumnIndex) {
 			// Set the first column index.
 			this._firstColumnIndex = firstColumnIndex;
 
 			// Fetch data.
-			this.fetchData();
+			await this.fetchData();
 
 			// Fire the onDidUpdate event.
 			this._onDidUpdateEmitter.fire();
@@ -1182,14 +1188,18 @@ export abstract class DataGridInstance extends Disposable {
 	/**
 	 * Sets the first row.
 	 * @param firstRowIndex The first row index.
+	 * @param force A value which indicates whether to force the operation.
+	 * @returns A Promise<void> that resolves when the operation is complete.
 	 */
-	setFirstRow(firstRowIndex: number) {
-		if (firstRowIndex !== this._firstRowIndex) {
+	async setFirstRow(firstRowIndex: number, force: boolean = false): Promise<void> {
+		// If the operation is being forced, or the first row has changed, set the first row and
+		// update the data grid.
+		if (force || firstRowIndex !== this._firstRowIndex) {
 			// Set the first row index.
 			this._firstRowIndex = firstRowIndex;
 
 			// Fetch data.
-			this.fetchData();
+			await this.fetchData();
 
 			// Fire the onDidUpdate event.
 			this._onDidUpdateEmitter.fire();
@@ -1262,13 +1272,14 @@ export abstract class DataGridInstance extends Disposable {
 	/**
 	 * Scrolls tp the specified column.
 	 * @param columnIndex The column index.
+	 * @returns A Promise<void> that resolves when the operation is complete.
 	 */
-	scrollToColumn(columnIndex: number) {
+	async scrollToColumn(columnIndex: number): Promise<void> {
 		if (columnIndex < this._firstColumnIndex) {
-			this.setFirstColumn(columnIndex);
+			await this.setFirstColumn(columnIndex);
 		} else if (columnIndex >= this._firstColumnIndex + this.visibleColumns) {
 			do {
-				this.setFirstColumn(this._firstColumnIndex + 1);
+				await this.setFirstColumn(this._firstColumnIndex + 1);
 			} while (columnIndex >= this._firstColumnIndex + this.visibleColumns);
 		}
 	}
@@ -1373,8 +1384,9 @@ export abstract class DataGridInstance extends Disposable {
 	 * Mouse selects a column.
 	 * @param columnIndex The column index.
 	 * @param selectionType The selection type.
+	 * @returns A Promise<void> that resolves when the operation is complete.
 	 */
-	mouseSelectColumn(columnIndex: number, selectionType: MouseSelectionType) {
+	async mouseSelectColumn(columnIndex: number, selectionType: MouseSelectionType): Promise<void> {
 		// Clear cell selection.
 		this._cellSelectionRange = undefined;
 
@@ -1383,16 +1395,16 @@ export abstract class DataGridInstance extends Disposable {
 		this._rowSelectionIndexes.clear();
 
 		/**
-		 * Adjust the cursor position.
+		 * Adjusts the cursor position.
 		 * @param columnIndex The column index.
 		 */
-		const adjustCursorPosition = (columnIndex: number) => {
+		const adjustCursorPosition = async (columnIndex: number) => {
 			// Adjust the cursor position.
 			this._cursorColumnIndex = columnIndex;
 			this._cursorRowIndex = this._firstRowIndex;
 
 			// Fetch data.
-			this.fetchData();
+			await this.fetchData();
 
 			// Fire the onDidUpdate event.
 			this._onDidUpdateEmitter.fire();
@@ -1403,7 +1415,7 @@ export abstract class DataGridInstance extends Disposable {
 			// Single selection.
 			case MouseSelectionType.Single: {
 				// Adjust the cursor position.
-				adjustCursorPosition(columnIndex);
+				await adjustCursorPosition(columnIndex);
 
 				// Single select the column.
 				this._columnSelectionRange = undefined;
@@ -1428,7 +1440,7 @@ export abstract class DataGridInstance extends Disposable {
 				// Toggle selection of the column index.
 				if (!this._columnSelectionIndexes.has(columnIndex)) {
 					// Adjust the cursor position.
-					adjustCursorPosition(columnIndex);
+					await adjustCursorPosition(columnIndex);
 
 					// Select the column index.
 					this._columnSelectionIndexes.add(columnIndex);
@@ -1439,9 +1451,9 @@ export abstract class DataGridInstance extends Disposable {
 					// Adjust the cursor position, if necessary.
 					if (this._cursorColumnIndex === columnIndex) {
 						if (this._columnSelectionIndexes.size) {
-							adjustCursorPosition(Math.max(...this._columnSelectionIndexes));
+							await adjustCursorPosition(Math.max(...this._columnSelectionIndexes));
 						} else if (this._columnSelectionRange) {
-							adjustCursorPosition(this._columnSelectionRange.lastColumnIndex);
+							await adjustCursorPosition(this._columnSelectionRange.lastColumnIndex);
 						}
 					}
 				}
@@ -1494,8 +1506,9 @@ export abstract class DataGridInstance extends Disposable {
 	 * Selects a row.
 	 * @param rowIndex The row index.
 	 * @param selectionType The selection type.
+	 * @returns A Promise<void> that resolves when the operation is complete.
 	 */
-	mouseSelectRow(rowIndex: number, selectionType: MouseSelectionType) {
+	async mouseSelectRow(rowIndex: number, selectionType: MouseSelectionType): Promise<void> {
 		// Clear cell selection.
 		this._cellSelectionRange = undefined;
 
@@ -1507,13 +1520,13 @@ export abstract class DataGridInstance extends Disposable {
 		 * Adjust the row position.
 		 * @param columnIndex The column index.
 		 */
-		const adjustRowPosition = (rowIndex: number) => {
+		const adjustRowPosition = async (rowIndex: number) => {
 			// Adjust the cursor position.
 			this._cursorColumnIndex = this._firstColumnIndex;
 			this._cursorRowIndex = rowIndex;
 
 			// Fetch data.
-			this.fetchData();
+			await this.fetchData();
 
 			// Fire the onDidUpdate event.
 			this._onDidUpdateEmitter.fire();
@@ -1524,7 +1537,7 @@ export abstract class DataGridInstance extends Disposable {
 			// Single selection.
 			case MouseSelectionType.Single: {
 				// Adjust the cursor position.
-				adjustRowPosition(rowIndex);
+				await adjustRowPosition(rowIndex);
 
 				// Single select the row.
 				this._rowSelectionRange = undefined;
@@ -1549,7 +1562,7 @@ export abstract class DataGridInstance extends Disposable {
 				// Toggle selection of the row index.
 				if (!this._rowSelectionIndexes.has(rowIndex)) {
 					// Adjust the cursor position.
-					adjustRowPosition(rowIndex);
+					await adjustRowPosition(rowIndex);
 
 					// Select the row index.
 					this._rowSelectionIndexes.add(rowIndex);
@@ -1560,9 +1573,9 @@ export abstract class DataGridInstance extends Disposable {
 					// Adjust the cursor position, if necessary.
 					if (this._cursorRowIndex === rowIndex) {
 						if (this._rowSelectionIndexes.size) {
-							adjustRowPosition(Math.max(...this._rowSelectionIndexes));
+							await adjustRowPosition(Math.max(...this._rowSelectionIndexes));
 						} else if (this._rowSelectionRange) {
-							adjustRowPosition(this._rowSelectionRange.lastRowIndex);
+							await adjustRowPosition(this._rowSelectionRange.lastRowIndex);
 						}
 					}
 				}
@@ -2032,7 +2045,7 @@ export abstract class DataGridInstance extends Disposable {
 	/**
 	 * Fetches data.
 	 */
-	abstract fetchData(): void;
+	abstract fetchData(): Promise<void>;
 
 	/**
 	 * Gets a column.
@@ -2065,9 +2078,10 @@ export abstract class DataGridInstance extends Disposable {
 	//#region Protected Methods
 
 	/**
-	 * Performs a soft reset of the data grid.
+	 * Performs a reset of the data grid.
 	 */
 	protected softReset() {
+		// Reset the display.
 		this._firstColumnIndex = 0;
 		this._firstRowIndex = 0;
 		if (this._cursorInitiallyHidden) {
@@ -2077,6 +2091,15 @@ export abstract class DataGridInstance extends Disposable {
 			this._cursorColumnIndex = 0;
 			this._cursorRowIndex = 0;
 		}
+
+		// Reset selection.
+		this.resetSelection();
+	}
+
+	/**
+	 * Resets the selection.
+	 */
+	protected resetSelection() {
 		this._cellSelectionRange = undefined;
 		this._columnSelectionRange = undefined;
 		this._columnSelectionIndexes.clear();
