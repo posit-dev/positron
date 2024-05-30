@@ -276,6 +276,7 @@ export class TableDataDataGridInstance extends DataGridInstance {
 		this._dataExplorerCache.invalidateDataCache();
 		this.resetSelection();
 		this.setFirstRow(0, true);
+		this.setCursorRow(0);
 	}
 
 	//#endregion Public Methods
