@@ -58,6 +58,9 @@ export enum LanguageRuntimeMessageType {
 	/** A message representing output (text, plots, etc.) */
 	Output = 'output',
 
+	/** A message representing the computational result of a runtime execution */
+	Result = 'result',
+
 	/** A message representing output from one of the standard streams (stdout or stderr) */
 	Stream = 'stream',
 

@@ -449,7 +449,7 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 		if (session.metadata.sessionMode === LanguageRuntimeSessionMode.Console) {
 			// Listen for static plots being emitted, and register each one with
 			// the plots service.
-			this._register(session.onDidReceiveRuntimeMessageOutput(async (message) => {
+			const handleDidReceiveRuntimeMessageOutput = async (message: ILanguageRuntimeMessageOutput) => {
 				// Check to see if we we already have a plot client for this
 				// message ID. If so, we don't need to do anything.
 				if (this.hasPlot(session.sessionId, message.id)) {
@@ -471,7 +471,9 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 					// Raise the Plots pane so the plot is visible.
 					this._viewsService.openView(POSITRON_PLOTS_VIEW_ID, false);
 				}
-			}));
+			};
+			this._register(session.onDidReceiveRuntimeMessageOutput(handleDidReceiveRuntimeMessageOutput));
+			this._register(session.onDidReceiveRuntimeMessageResult(handleDidReceiveRuntimeMessageOutput));
 		}
 	}
 
