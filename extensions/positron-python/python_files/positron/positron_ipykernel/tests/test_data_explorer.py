@@ -28,7 +28,6 @@ from ..data_explorer_comm import (
     ColumnProfileResult,
     ColumnSchema,
     ColumnSortKey,
-    DataSelection,
     FilterResult,
     FormatOptions,
     RowFilter,
