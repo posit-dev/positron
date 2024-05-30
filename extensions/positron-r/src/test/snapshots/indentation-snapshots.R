@@ -206,6 +206,26 @@ data |>
 "<>"
 
 # ---
+# Dedent after pipeline (nested)
+{
+    1 +
+        foo(
+            x
+        ) +
+        bar"<>"
+}
+
+# ->
+{
+    1 +
+        foo(
+            x
+        ) +
+        bar
+    "<>"
+}
+
+# ---
 # Stickiness of dedent after pipeline
 # https://github.com/posit-dev/positron/issues/1727
 data |>
@@ -217,6 +237,40 @@ data |>
     fn()
 
 "<>"
+
+# ---
+# Stickiness of dedent after pipeline (nested)
+{
+    data |>
+        fn()
+    "<>"
+}
+
+# ->
+{
+    data |>
+        fn()
+    
+    "<>"
+}
+
+# ---
+# Stickiness of dedent after pipeline (nested)
+{
+    fn() %>%
+
+        foo"<>"
+}
+
+
+# ->
+{
+    fn() %>%
+
+        foo
+        "<>"
+}
+
 
 # ---
 # Stickiness of dedent after pipeline (trailing comment)
