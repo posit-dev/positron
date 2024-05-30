@@ -222,6 +222,7 @@
     },
     "configurationDefaults": {
       "[r]": {
+        "editor.formatOnType": true,
         "editor.tabSize": 2,
         "editor.wordSeparators": "`~!@#$%^&*()-=+[{]}\\|;:'\",<>/?",
         "editor.smartSelect.selectLeadingAndTrailingWhitespace": false

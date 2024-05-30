@@ -531,6 +531,16 @@ export class RSession implements positron.LanguageRuntimeSession, vscode.Disposa
 		this._lsp.activate(port, this.context);
 	}
 
+	/**
+	 * Wait for the LSP to be connected.
+	 *
+	 * Resolves to `true` once the LSP is connected. Resolves to `false` if the
+	 * LSP has been stopped. Rejects if the LSP fails to start.
+	 */
+	async waitLsp(): Promise<boolean> {
+		return await this._lsp.wait();
+	}
+
 	private async startDap(): Promise<void> {
 		if (this._kernel) {
 			const port = await this.adapterApi!.findAvailablePort([], 25);
