@@ -1077,7 +1077,7 @@ class PandasView(DataExplorerTableView):
     def _summarize_date(col: "pd.Series", options: FormatOptions):
         col_dttm = pd_.to_datetime(col)
         min_date = col.min()
-        mean_date = col_dttm.mean().date()
+        mean_date = pd_.to_datetime(col_dttm.mean()).date()
         median_date = _date_median(col_dttm)
         max_date = col.max()
         num_unique = col.nunique()
@@ -1124,7 +1124,7 @@ class PandasView(DataExplorerTableView):
         return ColumnSummaryStats(
             type_display=ColumnDisplayType.Datetime,
             datetime_stats=SummaryStatsDatetime(
-                num_unique=int(num_unique),
+                num_unique=num_unique,
                 min_date=format_date(min_date),
                 mean_date=format_date(mean_date),
                 median_date=format_date(median_date),
