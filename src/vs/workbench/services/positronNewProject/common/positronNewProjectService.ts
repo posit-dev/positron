@@ -79,7 +79,7 @@ export class PositronNewProjectService extends Disposable implements IPositronNe
 		// Parse the new project configuration from the storage service
 		this._newProjectConfig = this._parseNewProjectConfig();
 
-		if (!this._isCurrentWindowNewProject()) {
+		if (!this.isCurrentWindowNewProject()) {
 			// If no new project configuration is found, the new project startup
 			// is complete
 			this.allTasksComplete.open();
@@ -100,7 +100,7 @@ export class PositronNewProjectService extends Disposable implements IPositronNe
 		this._register(
 			this.onDidChangePendingTasks((tasks) => {
 				this._logService.debug(
-					`[New project startup] Pending tasks changed to ${tasks}`
+					`[New project startup] Pending tasks changed to: ${tasks}`
 				);
 				// If there are no pending tasks, the new project startup is complete
 				if (tasks.size === 0) {
@@ -131,21 +131,6 @@ export class PositronNewProjectService extends Disposable implements IPositronNe
 			return null;
 		}
 		return JSON.parse(newProjectConfigStr) as NewProjectConfiguration;
-	}
-
-	/**
-	 * Determines whether the current window the new project that was just created.
-	 * @returns Whether the current window is the newly created project.
-	 */
-	private _isCurrentWindowNewProject() {
-		// There is no new project configuration, so a new project was not created.
-		if (!this._newProjectConfig) {
-			return false;
-		}
-		const newProjectPath = this._newProjectConfig.projectFolder;
-		const currentFolderPath =
-			this._contextService.getWorkspace().folders[0]?.uri.fsPath;
-		return newProjectPath === currentFolderPath;
 	}
 
 	/**
@@ -402,15 +387,18 @@ export class PositronNewProjectService extends Disposable implements IPositronNe
 						pythonPath: result.path,
 					},
 				} satisfies ILanguageRuntimeMetadata;
+
+				this._removePendingTask(NewProjectTask.PythonEnvironment);
+				return;
 			}
 		} else {
 			// This shouldn't occur.
 			const message = this._failedPythonEnvMessage('Could not determine runtime metadata for new project.');
 			this._logService.error(message);
 			this._notificationService.warn(message);
+			this._removePendingTask(NewProjectTask.PythonEnvironment);
 			return;
 		}
-		this._removePendingTask(NewProjectTask.PythonEnvironment);
 	}
 
 	/**
@@ -506,8 +494,19 @@ export class PositronNewProjectService extends Disposable implements IPositronNe
 
 	//#region Public Methods
 
+	isCurrentWindowNewProject() {
+		// There is no new project configuration, so a new project was not created.
+		if (!this._newProjectConfig) {
+			return false;
+		}
+		const newProjectPath = this._newProjectConfig.projectFolder;
+		const currentFolderPath =
+			this._contextService.getWorkspace().folders[0]?.uri.fsPath;
+		return newProjectPath === currentFolderPath;
+	}
+
 	async initNewProject() {
-		if (!this._isCurrentWindowNewProject()) {
+		if (!this.isCurrentWindowNewProject()) {
 			return;
 		}
 		if (this._newProjectConfig) {
