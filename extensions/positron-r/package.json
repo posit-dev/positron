@@ -119,6 +119,12 @@
         "category": "R",
         "title": "%r.command.sourceCurrentFile.title%",
         "icon": "$(play)"
+      },
+      {
+        "command": "r.rmarkdownRender",
+        "category": "R",
+        "title": "%r.command.rmarkdownRender.title%",
+        "icon": "$(play)"
       }
     ],
     "configuration": {
@@ -374,6 +380,13 @@
         },
         {
           "category": "R",
+          "command": "r.rmarkdownRender",
+          "icon": "$(play)",
+          "title": "%r.command.rmarkdownRender.title%",
+          "when": "resourceExtname == '.rmd' || resourceExtname == '.Rmd'"
+        },
+        {
+          "category": "R",
           "command": "r.insertPipe",
           "when": "editorLangId == r && editorTextFocus"
         },
@@ -436,6 +449,12 @@
           "group": "R",
           "title": "%r.command.sourceCurrentFile.title%",
           "when": "editorLangId == r"
+        },
+        {
+          "command": "r.rmarkdownRender",
+          "group": "R",
+          "title": "%r.command.rmarkdownRender.title%",
+          "when": "resourceExtname == '.rmd' || resourceExtname == '.Rmd'"
         }
       ],
       "editor/title/run": [
@@ -445,6 +464,12 @@
           "icon": "$(play)",
           "title": "%r.command.sourceCurrentFile.title%",
           "when": "resourceLangId == r && !isInDiffEditor"
+        },
+        {
+          "command": "r.rmarkdownRender",
+          "icon": "$(play)",
+          "title": "%r.command.rmarkdownRender.title%",
+          "when": "(resourceExtname == '.rmd' || resourceExtname == '.Rmd') && !isInDiffEditor"
         }
       ]
     },

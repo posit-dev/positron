@@ -4,6 +4,7 @@
 
 import * as vscode from 'vscode';
 import { RSessionManager } from './session-manager';
+import { getEditorFilePathForCommand } from './commands';
 
 export class RPackageTaskProvider implements vscode.TaskProvider {
 
@@ -24,7 +25,7 @@ export async function providePackageTasks(context: vscode.ExtensionContext): Pro
 	);
 }
 
-export async function getRPackageTasks(): Promise<vscode.Task[]> {
+export async function getRPackageTasks(editorFilePath?: string): Promise<vscode.Task[]> {
 	if (!RSessionManager.instance.hasLastBinpath()) {
 		throw new Error(`No running R runtime to use for R package tasks.`);
 	}
@@ -47,6 +48,12 @@ export async function getRPackageTasks(): Promise<vscode.Task[]> {
 			message: vscode.l10n.t('{taskName}', { taskName: 'Test R package' }),
 			rcode: 'devtools::test()',
 			package: 'devtools'
+		},
+		{
+			task: 'r.task.rmarkdownRender',
+			message: vscode.l10n.t('{taskName}', { taskName: 'Render document with R Markdown' }),
+			rcode: `rmarkdown::render(${editorFilePath})`,
+			package: 'rmarkdown'
 		}
 	];
 	// the explicit quoting treatment is necessary to avoid headaches on Windows, with PowerShell
