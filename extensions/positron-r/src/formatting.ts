@@ -109,6 +109,9 @@ class FormatterProvider implements vscode.DocumentFormattingEditProvider {
 // following the message order when handling requests. We send a versioned
 // document (unlike the OnTypeFormatting LSP request which doesn't include a
 // version) to let Ark detect out of order messages.
+const ON_TYPE_FORMATTING_REQUEST_TYPE: RequestType<DocumentOnTypeFormattingParams, vscode.TextEdit[], any> =
+	new RequestType('ark/internal/onTypeFormatting');
+
 export function registerOnTypeFormatter(client: LanguageClient): Disposable {
 	return vscode.languages.registerOnTypeFormattingEditProvider(
 		R_DOCUMENT_SELECTORS,
@@ -127,8 +130,7 @@ class ROnTypeFormattingEditProvider implements vscode.OnTypeFormattingEditProvid
 		options: vscode.FormattingOptions,
 		token: vscode.CancellationToken
 	): Promise<vscode.TextEdit[]> {
-		// Include document version in the request. The request uses this for
-		// extensibility, so we store the version there.
+		// Include document version in the request
 		options.version = document.version;
 
 		let params = <DocumentOnTypeFormattingParams>{
@@ -138,6 +140,6 @@ class ROnTypeFormattingEditProvider implements vscode.OnTypeFormattingEditProvid
 			options,
 		};
 
-		return await this._client.sendRequest('textDocument/onTypeFormatting', params, token);
+		return await this._client.sendRequest(ON_TYPE_FORMATTING_REQUEST_TYPE, params, token);
 	}
 }
