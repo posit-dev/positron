@@ -161,21 +161,52 @@ export class PositronNewProjectService extends Disposable implements IPositronNe
 	 * Runs tasks that require the extension service to be ready.
 	 */
 	private async _runExtensionTasks() {
-		if (this.pendingTasks.has(NewProjectTask.Python)) {
-			await this._runPythonTasks();
+		// TODO: it would be nice to run these tasks in parallel!
+
+		// First, create the new empty file since this is a quick task.
+		if (this.pendingTasks.has(NewProjectTask.CreateNewFile)) {
+			await this._runCreateNewFile();
 		}
 
-		if (this.pendingTasks.has(NewProjectTask.Jupyter)) {
-			await this._runJupyterTasks();
-		}
-
-		if (this.pendingTasks.has(NewProjectTask.R)) {
-			await this._runRTasks();
-		}
-
+		// Next, run git init if needed.
 		if (this.pendingTasks.has(NewProjectTask.Git)) {
 			await this._runGitInit();
 		}
+
+		// Next, run language-specific tasks which may take a bit more time.
+		if (this.pendingTasks.has(NewProjectTask.Python)) {
+			await this._runPythonTasks();
+		}
+		if (this.pendingTasks.has(NewProjectTask.Jupyter)) {
+			await this._runJupyterTasks();
+		}
+		if (this.pendingTasks.has(NewProjectTask.R)) {
+			await this._runRTasks();
+		}
+	}
+
+	/**
+	 * Runs the appropriate command to create a new file based on the project type.
+	 */
+	private async _runCreateNewFile() {
+		switch (this._newProjectConfig?.projectType) {
+			case NewProjectType.PythonProject:
+				await this._commandService.executeCommand('python.createNewFile');
+				break;
+			case NewProjectType.RProject:
+				await this._commandService.executeCommand('r.createNewFile');
+				break;
+			case NewProjectType.JupyterNotebook:
+				await this._commandService.executeCommand('ipynb.newUntitledIpynb');
+				break;
+			default:
+				this._logService.error(
+					'Cannot determine new file command for unknown project type',
+					this._newProjectConfig?.projectType
+				);
+				break;
+		}
+		this._removePendingTask(NewProjectTask.CreateNewFile);
 	}
 
 	/**
@@ -183,9 +214,6 @@ export class PositronNewProjectService extends Disposable implements IPositronNe
 	 * Relies on extension ms-python.python
 	 */
 	private async _runPythonTasks() {
-		// Create a new Python file
-		await this._commandService.executeCommand('python.createNewFile');
-
 		// Create the Python environment
 		if (this.pendingTasks.has(NewProjectTask.PythonEnvironment)) {
 			await this._createPythonEnvironment();
@@ -200,9 +228,6 @@ export class PositronNewProjectService extends Disposable implements IPositronNe
 	 * Relies on extension vscode.ipynb
 	 */
 	private async _runJupyterTasks() {
-		// Create a new untitled Jupyter notebook
-		await this._commandService.executeCommand('ipynb.newUntitledIpynb');
-
 		// Create the Python environment
 		// For now, Jupyter notebooks are always Python based. In the future, we'll need to surface
 		// some UI in the Project Wizard for the user to select the language/kernel and pass that
@@ -220,9 +245,6 @@ export class PositronNewProjectService extends Disposable implements IPositronNe
 	 * Relies on extension vscode.positron-r
 	 */
 	private async _runRTasks() {
-		// Create a new R file
-		await this._commandService.executeCommand('r.createNewFile');
-
 		// Create the R environment
 		if (this.pendingTasks.has(NewProjectTask.REnvironment)) {
 			await this._createREnvironment();
@@ -490,6 +512,10 @@ export class PositronNewProjectService extends Disposable implements IPositronNe
 		if (this._newProjectConfig.initGitRepo) {
 			tasks.add(NewProjectTask.Git);
 		}
+
+		// Always create a new file in the new project. This may be controlled by a project config
+		// setting in the future.
+		tasks.add(NewProjectTask.CreateNewFile);
 
 		return tasks;
 	}

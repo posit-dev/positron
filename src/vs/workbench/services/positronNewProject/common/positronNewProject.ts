@@ -64,7 +64,8 @@ export enum NewProjectTask {
 	Jupyter = 'jupyter',
 	Git = 'git',
 	PythonEnvironment = 'pythonEnvironment',
-	REnvironment = 'rEnvironment'
+	REnvironment = 'rEnvironment',
+	CreateNewFile = 'createNewFile',
 }
 
 /**
