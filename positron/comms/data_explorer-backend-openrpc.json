@@ -115,6 +115,14 @@
 							"type": "integer"
 						}
 					}
+				},
+				{
+					"name": "format_options",
+					"description": "Formatting options for returning data values as strings",
+					"required": true,
+					"schema": {
+						"$ref": "#/components/schemas/format_options"
+					}
 				}
 			],
 			"result": {
@@ -195,6 +203,14 @@
 						"items": {
 							"$ref": "#/components/schemas/column_profile_request"
 						}
+					}
+				},
+				{
+					"name": "format_options",
+					"description": "Formatting options for returning data values as strings",
+					"required": false,
+					"schema": {
+						"$ref": "#/components/schemas/format_options"
 					}
 				}
 			],
@@ -376,6 +392,33 @@
 								"type": "string"
 							}
 						}
+					}
+				}
+			},
+			"format_options": {
+				"type": "object",
+				"description": "Formatting options for returning data values as strings",
+				"required": [
+					"large_num_digits",
+					"small_num_digits",
+					"max_integral_digits"
+				],
+				"properties": {
+					"large_num_digits": {
+						"type": "integer",
+						"description": "Fixed number of decimal places to display for numbers over 1, or in scientific notation"
+					},
+					"small_num_digits": {
+						"type": "integer",
+						"description": "Fixed number of decimal places to display for small numbers, and to determine lower threshold for switching to scientific notation"
+					},
+					"max_integral_digits": {
+						"type": "integer",
+						"description": "Maximum number of integral digits to display before switching to scientific notation"
+					},
+					"thousands_sep": {
+						"type": "string",
+						"description": "Thousands separator string"
 					}
 				}
 			},
