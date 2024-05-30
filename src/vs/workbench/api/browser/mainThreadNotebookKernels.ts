@@ -396,14 +396,7 @@ export class MainThreadNotebookKernels implements MainThreadNotebookKernelsShape
 			provideKernelSourceActions: async () => {
 				const actions = await this._proxy.$provideKernelSourceActions(handle, CancellationToken.None);
 
-				// --- Start Positron ---
-				// Ignore the Jupyter extension's Python environments action in favor of Positron's
-				// TODO(seem): We can remove this if we eventually decide to unbundle vscode-jupyter.
-				return actions.filter(
-					action => !(typeof action.command !== 'string'
-						&& action.command?.id === 'jupyter.kernel.selectLocalPythonEnvironment')
-				).map(action => {
-					// --- End Positron ---
+				return actions.map(action => {
 					let documentation = action.documentation;
 					if (action.documentation && typeof action.documentation !== 'string') {
 						documentation = URI.revive(action.documentation);

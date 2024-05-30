@@ -332,6 +332,14 @@ export class ExtHostNotebookKernels implements ExtHostNotebookKernelsShape {
 	}
 
 	registerKernelSourceActionProvider(extension: IExtensionDescription, viewType: string, provider: vscode.NotebookKernelSourceActionProvider) {
+		// --- Start Positron ---
+		// Ignore the Jupyter extension's providers since their kernels don't integrate with Positron
+		// features like the console, plots pane, etc.
+		// TODO(seem): We can remove this if we eventually decide to unbundle vscode-jupyter.
+		if (extension.identifier.value === 'ms-toolsai.jupyter') {
+			return { dispose: () => { } };
+		}
+		// --- End Positron ---
 		const handle = this._kernelSourceActionProviderHandlePool++;
 		const eventHandle = typeof provider.onDidChangeNotebookKernelSourceActions === 'function' ? handle : undefined;
 		const that = this;
