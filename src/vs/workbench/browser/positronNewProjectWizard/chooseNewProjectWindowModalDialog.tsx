@@ -3,7 +3,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 // // CSS.
-// import 'vs/css!./chooseNewProjectWindowModalDialog';
+import 'vs/css!./chooseNewProjectWindowModalDialog';
 
 // React.
 import * as React from 'react';
@@ -63,34 +63,34 @@ export const ChooseNewProjectWindowModalDialog = (props: ChooseNewProjectWindowM
 	return (
 		<PositronModalDialog
 			renderer={props.renderer}
-			width={375}
-			height={175}
+			width={320}
+			height={180}
 			title={(() =>
 				localize(
 					'positron.chooseNewProjectWindowModalDialog.title',
-					'New Project Window'
+					'Create New Project'
 				))()}
 			onAccept={accept}
 		>
-			<VerticalStack>
-				<div>
-					{(() =>
-						localize(
-							'positron.newProject.whereToOpen.question',
-							"Where would you like to open your new project"
-						))()}
+			<div className='choose-new-project-window-modal-dialog'>
+				<VerticalStack>
+					<div>
+						{(() =>
+							localize(
+								'positron.newProject.whereToOpen.question',
+								"Where would you like to open your new project "
+							))()}<code>{props.projectName}</code>{'?'}
+					</div>
+					{/* TODO: add checkbox to save the user's selection to preferences */}
+				</VerticalStack>
+				<div className='project-window-action-bar top-separator'>
+					<Button className='button action-bar-button' onPressed={otherButtonConfig.onClick}>
+						{otherButtonConfig.title}
+					</Button>
+					<Button className='button action-bar-button default' onPressed={defaultButtonConfig.onClick}>
+						{defaultButtonConfig.title}
+					</Button>
 				</div>
-				<code>{props.projectName}</code>
-				<span>?</span>
-				{/* TODO: add checkbox to save the user's selection to preferences */}
-			</VerticalStack>
-			<div className='ok-cancel-action-bar top-separator'>
-				<Button className='button action-bar-button' onPressed={otherButtonConfig.onClick}>
-					{otherButtonConfig.title}
-				</Button>
-				<Button className='button action-bar-button default' onPressed={defaultButtonConfig.onClick}>
-					{defaultButtonConfig.title}
-				</Button>
 			</div>
 		</PositronModalDialog>
 	);
