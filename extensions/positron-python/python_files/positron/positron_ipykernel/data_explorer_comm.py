@@ -258,6 +258,29 @@ class TableData(BaseModel):
     )
 
 
+class FormatOptions(BaseModel):
+    """
+    Formatting options for returning data values as strings
+    """
+
+    large_num_digits: StrictInt = Field(
+        description="Fixed number of decimal places to display for numbers over 1, or in scientific notation",
+    )
+
+    small_num_digits: StrictInt = Field(
+        description="Fixed number of decimal places to display for small numbers, and to determine lower threshold for switching to scientific notation",
+    )
+
+    max_integral_digits: StrictInt = Field(
+        description="Maximum number of integral digits to display before switching to scientific notation",
+    )
+
+    thousands_sep: Optional[StrictStr] = Field(
+        default=None,
+        description="Thousands separator string",
+    )
+
+
 class TableSchema(BaseModel):
     """
     The schema for a table-like object
@@ -770,6 +793,10 @@ class GetDataValuesParams(BaseModel):
         description="Indices to select, which can be a sequential, sparse, or random selection",
     )
 
+    format_options: FormatOptions = Field(
+        description="Formatting options for returning data values as strings",
+    )
+
 
 class GetDataValuesRequest(BaseModel):
     """
@@ -859,6 +886,10 @@ class GetColumnProfilesParams(BaseModel):
         description="Array of requested profiles",
     )
 
+    format_options: FormatOptions = Field(
+        description="Formatting options for returning data values as strings",
+    )
+
 
 class GetColumnProfilesRequest(BaseModel):
     """
@@ -930,6 +961,8 @@ BackendState.update_forward_refs()
 ColumnSchema.update_forward_refs()
 
 TableData.update_forward_refs()
+
+FormatOptions.update_forward_refs()
 
 TableSchema.update_forward_refs()
 

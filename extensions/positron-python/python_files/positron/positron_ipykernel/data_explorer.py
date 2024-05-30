@@ -33,10 +33,12 @@ from .data_explorer_comm import (
     ColumnSchema,
     ColumnSortKey,
     ColumnSummaryStats,
+    ColumnValue,
     CompareFilterParamsOp,
     DataExplorerBackendMessageContent,
     DataExplorerFrontendEvent,
     FilterResult,
+    FormatOptions,
     GetColumnProfilesFeatures,
     GetColumnProfilesRequest,
     GetDataValuesRequest,
@@ -134,6 +136,7 @@ class DataExplorerTableView(abc.ABC):
             request.params.row_start_index,
             request.params.num_rows,
             request.params.column_indices,
+            request.params.format_options,
         ).dict()
 
     def set_row_filters(self, request: SetRowFiltersRequest):
@@ -151,7 +154,7 @@ class DataExplorerTableView(abc.ABC):
                 count = self._prof_null_count(req.column_index)
                 result = ColumnProfileResult(null_count=int(count))
             elif req.profile_type == ColumnProfileType.SummaryStats:
-                stats = self._prof_summary_stats(req.column_index)
+                stats = self._prof_summary_stats(req.column_index, request.params.format_options)
                 result = ColumnProfileResult(summary_stats=stats)
             elif req.profile_type == ColumnProfileType.FrequencyTable:
                 freq_table = self._prof_freq_table(req.column_index)
@@ -193,6 +196,7 @@ class DataExplorerTableView(abc.ABC):
         row_start: int,
         num_rows: int,
         column_indices: Sequence[int],
+        format_options: FormatOptions,
     ) -> TableData:
         pass
 
@@ -213,7 +217,7 @@ class DataExplorerTableView(abc.ABC):
         pass
 
     @abc.abstractmethod
-    def _prof_summary_stats(self, column_index: int) -> ColumnSummaryStats:
+    def _prof_summary_stats(self, column_index: int, options: FormatOptions) -> ColumnSummaryStats:
         pass
 
     @abc.abstractmethod
@@ -236,21 +240,71 @@ _VALUE_NAT = 3
 _VALUE_NONE = 4
 
 
-def _format_value(x):
-    if isinstance(x, float) and np_.isnan(x):
-        return _VALUE_NAN
-    elif x is None:
-        return _VALUE_NONE
-    elif x is getattr(pd_, "NaT"):
-        return _VALUE_NAT
-    elif x is getattr(pd_, "NA"):
-        return _VALUE_NA
+if np_ is not None:
+
+    def _is_float_scalar(x):
+        return isinstance(x, (float, np_.floating))
+
+    _isnan = np_.isnan  # type: ignore
+else:
+
+    def _is_float_scalar(x):
+        return isinstance(x, float)
+
+    def _isnan(x: float) -> bool:
+        return x != x
+
+
+def _get_float_formatter(options: FormatOptions) -> Callable:
+    sci_format = f".{options.large_num_digits}E"
+    medium_format = f".{options.large_num_digits}f"
+    small_format = f".{options.small_num_digits}f"
+
+    # The limit for large numbers before switching to scientific
+    # notation
+    upper_threshold = float("1" + "0" * options.max_integral_digits)
+
+    # The limit for small numbers before switching to scientific
+    # notation
+    lower_threshold = float("0." + "0" * (options.small_num_digits - 1) + "1")
+
+    thousands_sep = options.thousands_sep
+
+    if thousands_sep is not None:
+        # We format with comma then replace later
+        medium_format = "," + medium_format
+
+    def base_float_format(x) -> str:
+        abs_x = abs(x)
+
+        if abs_x >= 1:
+            if abs_x < upper_threshold:
+                # Has non-zero integral part but below
+                return format(x, medium_format)
+            else:
+                return format(x, sci_format)
+        elif abs_x == 0:
+            # Special case 0 to align with other "medium" numbers
+            return format(x, medium_format)
+        else:
+            if abs_x >= lower_threshold:
+                # Less than 1 but above lower threshold
+                return format(x, small_format)
+            else:
+                return format(x, sci_format)
+
+    if thousands_sep is not None:
+        if thousands_sep != ",":
+
+            def float_format(x) -> str:
+                base = base_float_format(x)
+                return base.replace(",", thousands_sep)
+
+            return float_format
+        else:
+            return base_float_format
     else:
-        return str(x)
-
-
-def _pandas_format_values(col):
-    return [_format_value(x) for x in col]
+        return base_float_format
 
 
 _FILTER_RANGE_COMPARE_SUPPORTED = {
@@ -653,7 +707,11 @@ class PandasView(DataExplorerTableView):
         )
 
     def _get_data_values(
-        self, row_start: int, num_rows: int, column_indices: Sequence[int]
+        self,
+        row_start: int,
+        num_rows: int,
+        column_indices: Sequence[int],
+        format_options: FormatOptions,
     ) -> TableData:
         formatted_columns = []
 
@@ -685,15 +743,36 @@ class PandasView(DataExplorerTableView):
             indices = self.table.index[row_start : row_start + num_rows]
             columns = [col.iloc[row_start : row_start + num_rows] for col in columns]
 
-        formatted_columns = [_pandas_format_values(col) for col in columns]
+        formatted_columns = [self._format_values(col, format_options) for col in columns]
 
         # Currently, we format MultiIndex in its flat tuple
         # representation. In the future we will return multiple lists
         # of row labels to be formatted more nicely in the UI
         if isinstance(self.table.index, pd_.MultiIndex):
             indices = indices.to_flat_index()
-        row_labels = [_pandas_format_values(indices)]
+        row_labels = [[str(x) for x in indices]]
         return TableData(columns=formatted_columns, row_labels=row_labels)
+
+    @classmethod
+    def _format_values(cls, values, options: FormatOptions) -> List[ColumnValue]:
+        float_format = _get_float_formatter(options)
+        return [cls._format_value(x, float_format) for x in values]
+
+    @staticmethod
+    def _format_value(x, float_format: Callable):
+        if _is_float_scalar(x):
+            if _isnan(x):
+                return _VALUE_NAN
+            else:
+                return float_format(x)
+        elif x is None:
+            return _VALUE_NONE
+        elif x is getattr(pd_, "NaT", None):
+            return _VALUE_NAT
+        elif x is getattr(pd_, "NA", None):
+            return _VALUE_NA
+        else:
+            return str(x)
 
     def _update_view_indices(self):
         if len(self.sort_keys) == 0:
@@ -942,7 +1021,7 @@ class PandasView(DataExplorerTableView):
     def _prof_null_count(self, column_index: int):
         return self._get_column(column_index).isnull().sum()
 
-    def _prof_summary_stats(self, column_index: int):
+    def _prof_summary_stats(self, column_index: int, options: FormatOptions):
         col_schema = self._get_single_column_schema(column_index)
         col = self._get_column(column_index)
 
@@ -953,31 +1032,31 @@ class PandasView(DataExplorerTableView):
             # Return nothing for types we don't yet know how to summarize
             return ColumnSummaryStats(type_display=ui_type)
         else:
-            return handler(col)
+            return handler(col, options)
 
-    @staticmethod
-    def _summarize_number(col: "pd.Series"):
-        import pandas.io.formats.format as fmt
+    @classmethod
+    def _summarize_number(cls, col: "pd.Series", options: FormatOptions):
+        float_format = _get_float_formatter(options)
 
-        minmax = pd_.Series([col.min(), col.max()], dtype=col.dtype)
-        numeric_stats = pd_.Series([col.mean(), col.median(), col.std()])
-
-        min_value, max_value = fmt.format_array(minmax.to_numpy(), None, leading_space=False)
-        mean, median, stdev = fmt.format_array(numeric_stats.to_numpy(), None, leading_space=False)
+        min_val = col.min()
+        max_val = col.max()
+        mean_val = col.mean()
+        median_val = col.median()
+        std_val = col.std()
 
         return ColumnSummaryStats(
             type_display=ColumnDisplayType.Number,
             number_stats=SummaryStatsNumber(
-                min_value=min_value,
-                max_value=max_value,
-                mean=mean,
-                median=median,
-                stdev=stdev,
+                min_value=float_format(min_val),
+                max_value=float_format(max_val),
+                mean=float_format(mean_val),
+                median=float_format(median_val),
+                stdev=float_format(std_val),
             ),
         )
 
     @staticmethod
-    def _summarize_string(col: "pd.Series"):
+    def _summarize_string(col: "pd.Series", options: FormatOptions):
         num_empty = (col.str.len() == 0).sum()
         num_unique = col.nunique()
 
@@ -987,7 +1066,7 @@ class PandasView(DataExplorerTableView):
         )
 
     @staticmethod
-    def _summarize_boolean(col: "pd.Series"):
+    def _summarize_boolean(col: "pd.Series", options: FormatOptions):
         null_count = col.isnull().sum()
         true_count = col.sum()
         false_count = len(col) - true_count - null_count
