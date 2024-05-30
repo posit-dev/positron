@@ -151,6 +151,35 @@ export interface TableData {
 }
 
 /**
+ * Formatting options for returning data values as strings
+ */
+export interface FormatOptions {
+	/**
+	 * Fixed number of decimal places to display for numbers over 1, or in
+	 * scientific notation
+	 */
+	large_num_digits: number;
+
+	/**
+	 * Fixed number of decimal places to display for small numbers, and to
+	 * determine lower threshold for switching to scientific notation
+	 */
+	small_num_digits: number;
+
+	/**
+	 * Maximum number of integral digits to display before switching to
+	 * scientific notation
+	 */
+	max_integral_digits: number;
+
+	/**
+	 * Thousands separator string
+	 */
+	thousands_sep?: string;
+
+}
+
+/**
  * The schema for a table-like object
  */
 export interface TableSchema {
@@ -743,11 +772,13 @@ export class PositronDataExplorerComm extends PositronBaseComm {
 	 * beyond end of table
 	 * @param columnIndices Indices to select, which can be a sequential,
 	 * sparse, or random selection
+	 * @param formatOptions Formatting options for returning data values as
+	 * strings
 	 *
 	 * @returns Table values formatted as strings
 	 */
-	getDataValues(rowStartIndex: number, numRows: number, columnIndices: Array<number>): Promise<TableData> {
-		return super.performRpc('get_data_values', ['row_start_index', 'num_rows', 'column_indices'], [rowStartIndex, numRows, columnIndices]);
+	getDataValues(rowStartIndex: number, numRows: number, columnIndices: Array<number>, formatOptions: FormatOptions): Promise<TableData> {
+		return super.performRpc('get_data_values', ['row_start_index', 'num_rows', 'column_indices', 'format_options'], [rowStartIndex, numRows, columnIndices, formatOptions]);
 	}
 
 	/**
@@ -783,11 +814,13 @@ export class PositronDataExplorerComm extends PositronBaseComm {
 	 * Requests a statistical summary or data profile for batch of columns
 	 *
 	 * @param profiles Array of requested profiles
+	 * @param formatOptions Formatting options for returning data values as
+	 * strings
 	 *
 	 * @returns undefined
 	 */
-	getColumnProfiles(profiles: Array<ColumnProfileRequest>): Promise<Array<ColumnProfileResult>> {
-		return super.performRpc('get_column_profiles', ['profiles'], [profiles]);
+	getColumnProfiles(profiles: Array<ColumnProfileRequest>, formatOptions: FormatOptions): Promise<Array<ColumnProfileResult>> {
+		return super.performRpc('get_column_profiles', ['profiles', 'format_options'], [profiles, formatOptions]);
 	}
 
 	/**
