@@ -90,9 +90,14 @@ export class DataExplorerClientInstance extends Disposable {
 	private _numPendingTasks: number = 0;
 
 	/**
-	 * Value formatting properties for backend requests
+	 * Data formatting options for backend requests
 	 */
-	_formatOptions: FormatOptions;
+	_dataFormatOptions: FormatOptions;
+
+	/**
+	 * Profile formatting options for backend requests
+	 */
+	_profileFormatOptions: FormatOptions;
 
 	//#endregion Private Properties
 
@@ -106,9 +111,16 @@ export class DataExplorerClientInstance extends Disposable {
 		// Call the disposable constructor.
 		super();
 
-		this._formatOptions = {
-			large_num_digits: 2,
+		this._dataFormatOptions = {
+			large_num_digits: 6,
 			small_num_digits: 6,
+			max_integral_digits: 7,
+			thousands_sep: ','
+		};
+
+		this._profileFormatOptions = {
+			large_num_digits: 2,
+			small_num_digits: 4,
 			max_integral_digits: 7,
 			thousands_sep: ','
 		};
@@ -286,7 +298,7 @@ export class DataExplorerClientInstance extends Disposable {
 	): Promise<TableData> {
 		return this.runBackendTask(
 			() => this._positronDataExplorerComm.getDataValues(rowStartIndex, numRows, columnIndices,
-				this._formatOptions
+				this._dataFormatOptions
 			),
 			() => {
 				return { columns: [[]] };
@@ -303,7 +315,7 @@ export class DataExplorerClientInstance extends Disposable {
 		profiles: Array<ColumnProfileRequest>
 	): Promise<Array<ColumnProfileResult>> {
 		return this.runBackendTask(
-			() => this._positronDataExplorerComm.getColumnProfiles(profiles, this._formatOptions),
+			() => this._positronDataExplorerComm.getColumnProfiles(profiles, this._profileFormatOptions),
 			() => []
 		);
 	}
