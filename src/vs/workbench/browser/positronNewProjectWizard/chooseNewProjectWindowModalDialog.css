@@ -1,0 +1,56 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *--------------------------------------------------------------------------------------------*/
+
+.positron-modal-dialog-box
+.choose-new-project-window-modal-dialog {
+	top: 32px;
+	left: 0;
+	right: 0;
+	bottom: 0;
+	padding: 16px;
+	position: absolute;
+}
+
+.positron-modal-dialog-box
+.choose-new-project-window-modal-dialog
+code {
+	color: var(--vscode-positronModalDialog-preformattedTextForeground);
+	border-radius: 4px;
+	padding: 0px 3px !important;
+	font-family: var(--monaco-monospace-font);
+	font-size: 11px;
+}
+
+.positron-modal-dialog-box
+.choose-new-project-window-modal-dialog
+.project-window-action-bar {
+	left: 0;
+	right: 0;
+	bottom: 0;
+	gap: 10px;
+	height: 64px;
+	display: flex;
+	margin: 0 16px;
+	padding: 0 0px;
+	position: absolute;
+	align-items: center;
+	justify-content: end;
+}
+
+.positron-modal-dialog-box
+.choose-new-project-window-modal-dialog
+.project-window-action-bar
+.action-bar-button {
+	width: auto;
+	height: 32px;
+	padding: 0 12px;
+}
+
+.positron-modal-dialog-box
+.choose-new-project-window-modal-dialog
+.top-separator {
+	border-top: 1px solid var(--vscode-positronModalDialog-separator);
+}
+
+

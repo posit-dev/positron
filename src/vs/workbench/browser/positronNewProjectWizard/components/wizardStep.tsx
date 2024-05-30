@@ -29,10 +29,6 @@ export const PositronWizardStep = (props: PropsWithChildren<PositronWizardStepPr
 				{props.title}
 			</div>
 			<VerticalStack>
-				{/*
-					TODO: based on input validation in children, handle errors/incomplete input
-					by displaying corresponding help text and disable the next/create buttons
-				*/}
 				{props.children}
 			</VerticalStack>
 			<OKCancelBackNextActionBar
