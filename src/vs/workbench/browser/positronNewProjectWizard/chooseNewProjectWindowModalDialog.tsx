@@ -15,6 +15,46 @@ import { VerticalStack } from 'vs/workbench/browser/positronComponents/positronM
 import { PositronModalReactRenderer } from 'vs/workbench/browser/positronModalReactRenderer/positronModalReactRenderer';
 import { PositronModalDialog } from 'vs/workbench/browser/positronComponents/positronModalDialog/positronModalDialog';
 import { Button } from 'vs/base/browser/ui/positronComponents/button/button';
+import { ICommandService } from 'vs/platform/commands/common/commands';
+import { IKeybindingService } from 'vs/platform/keybinding/common/keybinding';
+import { IWorkbenchLayoutService } from 'vs/workbench/services/layout/browser/layoutService';
+import { URI } from 'vs/base/common/uri';
+
+export const showChooseNewProjectWindowModalDialog = (
+	commandService: ICommandService,
+	keybindingService: IKeybindingService,
+	layoutService: IWorkbenchLayoutService,
+	projectName: string,
+	projectFolder: URI,
+	openInNewWindow: boolean,
+) => {
+	// Create the renderer.
+	const renderer = new PositronModalReactRenderer({
+		keybindingService,
+		layoutService,
+		container: layoutService.activeContainer
+	});
+
+	// Show the choose new project window modal dialog.
+	renderer.render(
+		<ChooseNewProjectWindowModalDialog
+			renderer={renderer}
+			projectName={projectName}
+			openInNewWindow={openInNewWindow}
+			chooseNewProjectWindowAction={async (openInNewWindow: boolean) => {
+				// Open the project in the selected window.
+				await commandService.executeCommand(
+					'vscode.openFolder',
+					projectFolder,
+					{
+						forceNewWindow: openInNewWindow,
+						forceReuseWindow: !openInNewWindow
+					}
+				);
+			}}
+		/>
+	);
+};
 
 /**
  * ChooseNewProjectWindowModalDialogProps interface.
@@ -31,7 +71,7 @@ interface ChooseNewProjectWindowModalDialogProps {
  * @param props The component properties.
  * @returns The component.
  */
-export const ChooseNewProjectWindowModalDialog = (props: ChooseNewProjectWindowModalDialogProps) => {
+const ChooseNewProjectWindowModalDialog = (props: ChooseNewProjectWindowModalDialogProps) => {
 	// State.
 	const openInNewWindow = useRef(props.openInNewWindow);
 
