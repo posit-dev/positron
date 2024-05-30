@@ -31,6 +31,9 @@ export class OverlayWebview extends Disposable implements IOverlayWebview {
 	private readonly _webviewEvents = this._register(new DisposableStore());
 
 	private _html = '';
+	// --- Start Positron ---
+	private _uri: URI | undefined;
+	// --- End Positron ---
 	private _title: string | undefined;
 	private _initialScrollProgress: number = 0;
 	private _state: string | undefined = undefined;
@@ -244,6 +247,12 @@ export class OverlayWebview extends Disposable implements IOverlayWebview {
 				webview.setHtml(this._html);
 			}
 
+			// --- Start Positron ---
+			if (this._uri) {
+				webview.setUri(this._uri);
+			}
+			// --- End Positron ---
+
 			if (this._options.tryRestoreScrollPosition) {
 				webview.initialScrollProgress = this._initialScrollProgress;
 			}
@@ -304,8 +313,10 @@ export class OverlayWebview extends Disposable implements IOverlayWebview {
 
 	// --- Start Positron ---
 	public setUri(uri: URI) {
+		this._uri = uri;
 		this._withWebview(webview => webview.setUri(uri));
 	}
+	// --- End Positron ---
 
 	public get initialScrollProgress(): number { return this._initialScrollProgress; }
 	public set initialScrollProgress(value: number) {

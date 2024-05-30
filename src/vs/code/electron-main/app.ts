@@ -226,9 +226,12 @@ export class CodeApplication extends Disposable {
 		};
 
 		const isAllowedWebviewRequest = (uri: URI, details: Electron.OnBeforeRequestListenerDetails): boolean => {
-			if (uri.path !== '/index.html') {
+			// --- Start Positron ---
+			// Add index-external.html to the allowlist
+			if (uri.path !== '/index.html' && uri.path !== '/index-external.html') {
 				return true; // Only restrict top level page of webviews: index.html
 			}
+			// --- End Positron ---
 
 			const frame = details.frame;
 			if (!frame || !this.windowsMainService) {

@@ -14,6 +14,9 @@ export class WebviewProtocolProvider extends Disposable {
 	private static validWebviewFilePaths = new Map([
 		['/index.html', 'index.html'],
 		['/fake.html', 'fake.html'],
+		// --- Start Positron ---
+		['/index-external.html', 'index-external.html'],
+		// --- End Positron ---
 		['/service-worker.js', 'service-worker.js'],
 	]);
 

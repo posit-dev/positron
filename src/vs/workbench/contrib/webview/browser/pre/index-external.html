@@ -980,6 +980,7 @@
 					"set-uri",
 					async (_event, /** @type {string} */ data) => {
 						const currentUpdateId = ++updateId;
+						console.log("(Webview) set-uri: ", data, currentUpdateId);
 						try {
 							await workerReady;
 						} catch (e) {
@@ -1044,7 +1045,7 @@
 							"allow-same-origin",
 							"allow-pointer-lock",
 							"allow-scripts",
-							"allow-download",
+							"allow-downloads",
 							"allow-forms",
 						]);
 						newFrame.setAttribute(
@@ -1065,10 +1066,11 @@
 						if (globalThis.crossOriginIsolated) {
 							fakeUrlParams.set("vscode-coi", "3"); /*COOP+COEP*/
 						}
+						console.log("(Webview) iframe src: ", data);
 						newFrame.src = data;
 
 						newFrame.style.cssText =
-							"display: block; margin: 0; overflow: hidden; position: absolute; width: 100%; height: 100%; visibility: hidden";
+							"display: block; margin: 0; overflow: hidden; position: absolute; width: 100%; height: 100%";
 						document.body.appendChild(newFrame);
 
 						newFrame.contentWindow.addEventListener(
@@ -1131,7 +1133,6 @@
 									);
 								}
 								newFrame.setAttribute("id", "active-frame");
-								newFrame.style.visibility = "visible";
 
 								contentWindow.addEventListener("scroll", handleInnerScroll);
 								contentWindow.addEventListener("wheel", handleWheel);
