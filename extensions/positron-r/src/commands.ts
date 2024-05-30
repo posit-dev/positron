@@ -142,7 +142,7 @@ export async function registerCommands(context: vscode.ExtensionContext) {
 		// Command used to source the current file
 		vscode.commands.registerCommand('r.sourceCurrentFile', async () => {
 			try {
-				const filePath = await getFilePathForCommand();
+				const filePath = await getEditorFilePathForCommand();
 				if (filePath) {
 					const command = `source(${filePath})`;
 					positron.runtime.executeCode('r', command, true);
@@ -159,18 +159,19 @@ export async function registerCommands(context: vscode.ExtensionContext) {
 
 		// Command used to source the current file
 		vscode.commands.registerCommand('r.rmarkdownRender', async () => {
-			const isInstalled = await checkInstalled("rmarkdown");
-			if (isInstalled) {
-				try {
-					const filePath = await getFilePathForCommand();
-					if (filePath) {
-						const command = `rmarkdown::render(${filePath})`;
-						positron.runtime.executeCode('r', command, true);
+			const filePath = await getEditorFilePathForCommand();
+			if (filePath) {
+				const tasks = await getRPackageTasks(filePath);
+				const task = tasks.filter(task => task.definition.task === 'r.task.rmarkdownRender')[0];
+				const isInstalled = await checkInstalled(task.definition.pkg);
+				if (isInstalled) {
+					try {
+						vscode.tasks.executeTask(task);
+					} catch (e) {
+						// This is not a valid file path, which isn't an error; it just
+						// means the active editor has something loaded into it that
+						// isn't a file on disk.
 					}
-				} catch (e) {
-					// This is not a valid file path, which isn't an error; it just
-					// means the active editor has something loaded into it that
-					// isn't a file on disk.
 				}
 			}
 		}),
@@ -278,7 +279,7 @@ async function executeCodeForCommand(pkg: string, code: string) {
 	}
 }
 
-async function getFilePathForCommand() {
+export async function getEditorFilePathForCommand() {
 	// Get the active text editor
 	const editor = vscode.window.activeTextEditor;
 	if (!editor) {
@@ -293,7 +294,7 @@ async function getFilePathForCommand() {
 		return;
 	}
 
-	// Save the file before sourcing it to ensure that the contents are
+	// Save the file before executing command to ensure that the contents are
 	// up to date with editor buffer.
 	await vscode.commands.executeCommand('workbench.action.files.save');
 
@@ -303,9 +304,7 @@ async function getFilePathForCommand() {
 
 	// In the future, we will want to shorten the path by making it
 	// relative to the current directory; doing so, however, will
-	// require the kernel to alert us to the current working directory,
-	// or provide a method for asking it to create the `source()`
-	// command.
+	// require the kernel to alert us to the current working directory.
 	//
 	// For now, just use the full path, passed through JSON encoding
 	// to ensure that it is properly escaped.
