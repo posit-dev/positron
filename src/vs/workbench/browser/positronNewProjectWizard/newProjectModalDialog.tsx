@@ -7,7 +7,7 @@ import * as React from 'react';
 
 // Other dependencies.
 import { localize } from 'vs/nls';
-import { IFileDialogService } from 'vs/platform/dialogs/common/dialogs';
+import { IDialogService, IFileDialogService } from 'vs/platform/dialogs/common/dialogs';
 import { IWorkbenchLayoutService } from 'vs/workbench/services/layout/browser/layoutService';
 import { NewProjectWizardContextProvider, useNewProjectWizardContext } from 'vs/workbench/browser/positronNewProjectWizard/newProjectWizardContext';
 import { ILanguageRuntimeService } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
@@ -27,12 +27,14 @@ import { IOpenerService } from 'vs/platform/opener/common/opener';
 import { IPositronNewProjectService, NewProjectConfiguration } from 'vs/workbench/services/positronNewProject/common/positronNewProject';
 import { EnvironmentSetupType, NewProjectWizardStep } from 'vs/workbench/browser/positronNewProjectWizard/interfaces/newProjectWizardEnums';
 import { IWorkspaceTrustManagementService } from 'vs/platform/workspace/common/workspaceTrust';
+import { ChooseNewProjectWindowModalDialog } from 'vs/workbench/browser/positronNewProjectWizard/chooseNewProjectWindowModalDialog';
 
 /**
  * Shows the NewProjectModalDialog.
  */
 export const showNewProjectModalDialog = async (
 	commandService: ICommandService,
+	dialogService: IDialogService,
 	fileDialogService: IFileDialogService,
 	fileService: IFileService,
 	keybindingService: IKeybindingService,
@@ -138,17 +140,67 @@ export const showNewProjectModalDialog = async (
 						workspaceTrustManagementService.setUrisTrust([folder], true);
 					}
 
+					const renderer = new PositronModalReactRenderer({
+						keybindingService,
+						layoutService,
+						container: layoutService.activeContainer
+					});
+
+					console.log('**** result openInNewWindow ', result.openInNewWindow);
+
+					renderer.render(
+						<ChooseNewProjectWindowModalDialog
+							renderer={renderer}
+							projectName={result.projectName}
+							openInNewWindow={result.openInNewWindow}
+							chooseNewProjectWindowAction={async (openInNewWindow) => {
+								console.log('**** chooseNewProjectWindowAction ', openInNewWindow);
+								await commandService.executeCommand(
+									'vscode.openFolder',
+									folder,
+									{
+										forceNewWindow: openInNewWindow,
+										forceReuseWindow: !openInNewWindow
+									}
+								);
+							}}
+						/>
+					);
+
+					// const openInNewWindow = await dialogService.prompt({
+					// 	type: 'question',
+					// 	title: localize('positron.newProject.whereToOpen.title', "Create New Project"),
+					// 	message: localize('positron.newProject.whereToOpen.question', "Where would you like to open your new project {0}?", result.projectName),
+					// 	detail: 'test detail hello hello',
+					// 	buttons: [
+					// 		{
+					// 			label: localize('positron.newProject.whereToOpen.newWindow', "New Window"),
+					// 			run: () => true
+					// 		},
+					// 		{
+					// 			label: localize('positron.newProject.whereToOpen.currentWindow', "Current Window"),
+					// 			run: () => false
+					// 		}
+					// 	],
+					// 	checkbox: {
+					// 		label: localize('positron.newProject.whereToOpen.storePreference', "Remember my choice"),
+					// 		checked: false
+					// 	}
+					// });
+
+					// console.log('openInNewWindow', openInNewWindow);
+
 					// Any context-dependent work needs to be done before opening the folder
 					// because the extension host gets destroyed when a new project is opened,
 					// whether the folder is opened in a new window or in the existing window.
-					await commandService.executeCommand(
-						'vscode.openFolder',
-						folder,
-						{
-							forceNewWindow: result.openInNewWindow,
-							forceReuseWindow: !result.openInNewWindow
-						}
-					);
+					// await commandService.executeCommand(
+					// 	'vscode.openFolder',
+					// 	folder,
+					// 	{
+					// 		forceNewWindow: result.openInNewWindow,
+					// 		forceReuseWindow: !result.openInNewWindow
+					// 	}
+					// );
 				}}
 			/>
 		</NewProjectWizardContextProvider>

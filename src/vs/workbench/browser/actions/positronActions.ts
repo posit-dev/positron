@@ -7,7 +7,7 @@ import { ITelemetryData } from 'vs/base/common/actions';
 import { IFileService } from 'vs/platform/files/common/files';
 import { ServicesAccessor } from 'vs/editor/browser/editorExtensions';
 import { ICommandService } from 'vs/platform/commands/common/commands';
-import { IFileDialogService } from 'vs/platform/dialogs/common/dialogs';
+import { IDialogService, IFileDialogService } from 'vs/platform/dialogs/common/dialogs';
 import { ContextKeyExpr } from 'vs/platform/contextkey/common/contextkey';
 import { IPathService } from 'vs/workbench/services/path/common/pathService';
 import { IKeybindingService } from 'vs/platform/keybinding/common/keybinding';
@@ -79,6 +79,7 @@ export class PositronNewProjectAction extends Action2 {
 		// Show the new project modal dialog.
 		await showNewProjectModalDialog(
 			accessor.get(ICommandService),
+			accessor.get(IDialogService),
 			accessor.get(IFileDialogService),
 			accessor.get(IFileService),
 			accessor.get(IKeybindingService),
