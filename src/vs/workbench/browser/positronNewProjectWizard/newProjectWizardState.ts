@@ -780,10 +780,14 @@ export class NewProjectWizardStateManager
 		if (langId === LanguageIds.Python) {
 			this._useRenv = undefined;
 			// TODO: Conda isn't supported yet, so don't set the env provider if it's conda.
-			if (
-				this._pythonEnvSetupType === EnvironmentSetupType.NewEnvironment &&
-				this._getEnvProviderName() === PythonEnvironmentProvider.Conda
-			) {
+			const newCondaEnv =
+				this._pythonEnvSetupType ===
+				EnvironmentSetupType.NewEnvironment &&
+				this._getEnvProviderName() === PythonEnvironmentProvider.Conda;
+			const existingEnv =
+				this._pythonEnvSetupType ===
+				EnvironmentSetupType.ExistingEnvironment;
+			if (newCondaEnv || existingEnv) {
 				this._pythonEnvProviderId = undefined;
 			}
 		} else if (langId === LanguageIds.R) {
