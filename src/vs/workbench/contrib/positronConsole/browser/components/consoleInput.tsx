@@ -41,6 +41,7 @@ import { EditorContextKeys } from 'vs/editor/common/editorContextKeys';
 import { InQuickPickContextKey } from 'vs/workbench/browser/quickaccess';
 import { TerminalContextKeys } from 'vs/workbench/contrib/terminal/common/terminalContextKey';
 import { HoverController } from 'vs/editor/contrib/hover/browser/hoverController';
+import { FormatOnType } from 'vs/editor/contrib/format/browser/formatActions';
 
 // Position enumeration.
 const enum Position {
@@ -621,7 +622,8 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 					TabCompletionController.ID,
 					HoverController.ID,
 					MarkerController.ID,
-					ParameterHintsController.ID
+					ParameterHintsController.ID,
+					FormatOnType.ID,
 				])
 			}
 		);
