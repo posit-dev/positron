@@ -10,6 +10,7 @@ const HEADER_TITLES = '.data-grid-column-header .title-description .title';
 const DATA_GRID_ROWS = '.data-explorer-panel .column-2 .data-grid-rows';
 const DATA_GRID_ROW = '.data-grid-row';
 const CLOSE_DATA_EXPLORER = '.tab .codicon-close';
+const IDLE_STATUS = '.status-bar-indicator .icon.idle';
 
 export interface CellData {
 	[key: string]: string;
@@ -19,12 +20,12 @@ export class PositronDataExplorer {
 
 	constructor(private code: Code) { }
 
-	async getDataExplorerTableData(expectedColumns: number, expectedRows: number): Promise<object[]> {
+	async getDataExplorerTableData(): Promise<object[]> {
 
-		const headers = await this.code.waitForElements(`${COLUMN_HEADERS} ${HEADER_TITLES}`, false, (elements) =>
-			elements.length === expectedColumns && elements.every((element) => element.textContent !== ''));
-		const rows = await this.code.waitForElements(`${DATA_GRID_ROWS} ${DATA_GRID_ROW}`, true, (elements) =>
-			elements.length === expectedRows);
+		await this.code.waitForElement(IDLE_STATUS);
+
+		const headers = await this.code.waitForElements(`${COLUMN_HEADERS} ${HEADER_TITLES}`, false);
+		const rows = await this.code.waitForElements(`${DATA_GRID_ROWS} ${DATA_GRID_ROW}`, true);
 		const headerNames = headers.map((header) => header.textContent);
 
 		const tableData: object[] = [];

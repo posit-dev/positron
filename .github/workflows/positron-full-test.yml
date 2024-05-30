@@ -18,14 +18,28 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Check out positron-content-examples
+        uses: actions/checkout@v4
+        with:
+          repository: posit-dev/positron-content-examples
+          path: test/smoke/positron-content-examples
+          token: ${{ secrets.POSITRON_GITHUB_PAT }}
+
       - name: Setup Build Environment
         run: |
           sudo apt-get update
-          sudo apt-get install -y vim curl build-essential clang make cmake git r-base-dev python3-pip python-is-python3 libsodium-dev libxkbfile-dev pkg-config libsecret-1-dev libxss1 dbus xvfb libgtk-3-0 libgbm1 libnss3 libnspr4 libasound2 libkrb5-dev
+          sudo apt-get install -y vim curl build-essential clang make cmake git python3-pip python-is-python3 libsodium-dev libxkbfile-dev pkg-config libsecret-1-dev libxss1 dbus xvfb libgtk-3-0 libgbm1 libnss3 libnspr4 libasound2 libkrb5-dev
           sudo cp build/azure-pipelines/linux/xvfb.init /etc/init.d/xvfb
           sudo chmod +x /etc/init.d/xvfb
           sudo update-rc.d xvfb defaults
           sudo service xvfb start
+
+      - name: Install rig, R, and R packages
+        run: |
+          curl -Ls https://github.com/r-lib/rig/releases/download/latest/rig-linux-"$(arch)"-latest.tar.gz | $(which sudo) tar xz -C /usr/local
+          rig add 4.4.0
+          Rscript -e "install.packages(c('arrow'))"
+
       - uses: actions/setup-node@v3
         with:
           node-version: 18
