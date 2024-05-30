@@ -620,6 +620,11 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 	private readonly _onDidPasteTextEmitter = this._register(new Emitter<string>);
 
 	/**
+	 * The onDidSelectAll event emitter.
+	 */
+	private readonly _onDidSelectAllEmitter = this._register(new Emitter<void>);
+
+	/**
 	 * The onDidClearConsole event emitter.
 	 */
 	private readonly _onDidClearConsoleEmitter = this._register(new Emitter<void>);
@@ -857,6 +862,11 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 	readonly onDidPasteText = this._onDidPasteTextEmitter.event;
 
 	/**
+	 * onDidSelectAll event.
+	 */
+	readonly onDidSelectAll = this._onDidSelectAllEmitter.event;
+
+	/**
 	 * onDidClearConsole event.
 	 */
 	readonly onDidClearConsole = this._onDidClearConsoleEmitter.event;
@@ -928,6 +938,13 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 	pasteText(text: string) {
 		this.focusInput();
 		this._onDidPasteTextEmitter.fire(text);
+	}
+
+	/**
+	 * Select all text in the console.
+	 */
+	selectAll() {
+		this._onDidSelectAllEmitter.fire();
 	}
 
 	/**

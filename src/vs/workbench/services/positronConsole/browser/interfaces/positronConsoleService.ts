@@ -188,6 +188,11 @@ export interface IPositronConsoleInstance {
 	readonly onDidPasteText: Event<string>;
 
 	/**
+	 * The onDidSelectAll event.
+	 */
+	readonly onDidSelectAll: Event<void>;
+
+	/**
 	 * The onDidClearConsole event.
 	 */
 	readonly onDidClearConsole: Event<void>;
@@ -263,6 +268,11 @@ export interface IPositronConsoleInstance {
 	 * Pastes text into the console.
 	 */
 	pasteText(text: string): void;
+
+	/**
+	 * Select all text in the console.
+	 */
+	selectAll(): void;
 
 	/**
 	 * Clears the console.
