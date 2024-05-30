@@ -37,6 +37,10 @@ from .data_explorer_comm import (
     CompareFilterParamsOp,
     DataExplorerBackendMessageContent,
     DataExplorerFrontendEvent,
+    DataSelection,
+    ExportDataSelectionRequest,
+    ExportFormat,
+    ExportedData,
     FilterResult,
     FormatOptions,
     GetColumnProfilesFeatures,
@@ -139,6 +143,13 @@ class DataExplorerTableView(abc.ABC):
             request.params.format_options,
         ).dict()
 
+    def export_data_selection(self, request: ExportDataSelectionRequest):
+        self._recompute_if_needed()
+        return self._export_data_selection(
+            request.params.selection,
+            request.params.format,
+        ).dict()
+
     def set_row_filters(self, request: SetRowFiltersRequest):
         return self._set_row_filters(request.params.filters).dict()
 
@@ -198,6 +209,12 @@ class DataExplorerTableView(abc.ABC):
         column_indices: Sequence[int],
         format_options: FormatOptions,
     ) -> TableData:
+        pass
+
+    @abc.abstractmethod
+    def _export_data_selection(
+        self, selection: DataSelection, format: ExportFormat
+    ) -> ExportedData:
         pass
 
     @abc.abstractmethod

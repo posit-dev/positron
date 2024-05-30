@@ -544,9 +544,11 @@ use serde::Serialize;
 				yield '#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]\n';
 				yield `pub enum ${snakeCaseToSentenceCase(context[1])}${snakeCaseToSentenceCase(context[0])} {\n`;
 			}
-			// TODO: require that unions be named
 			for (let i = 0; i < o.oneOf.length; i++) {
 				const option = o.oneOf[i];
+				if (option.name === undefined) {
+					throw new Error(`No name in option: ${JSON.stringify(option)}`);
+				}
 				const derivedType = deriveType(contracts, RustTypeMap, [option.name, ...context],
 					option);
 				yield `\t${snakeCaseToSentenceCase(option.name)}(${derivedType})`;
@@ -895,8 +897,11 @@ from ._vendor.pydantic import BaseModel, Field, StrictBool, StrictFloat, StrictI
 			}
 			yield `${name} = Union[`;
 			// Options
-			for (const schema of o.oneOf) {
-				yield deriveType(contracts, PythonTypeMap, [schema.name, ...context], schema);
+			for (const option of o.oneOf) {
+				if (option.name === undefined) {
+					throw new Error(`No name in option: ${JSON.stringify(option)}`);
+				}
+				yield deriveType(contracts, PythonTypeMap, [option.name, ...context], option);
 				yield ', ';
 			}
 			yield ']\n';
@@ -1163,8 +1168,11 @@ import { IRuntimeClientInstance } from 'vs/workbench/services/languageRuntime/co
 			yield `export type ${name} = `;
 			// Options
 			for (let i = 0; i < o.oneOf.length; i++) {
-				const schema = o.oneOf[i];
-				yield deriveType(contracts, TypescriptTypeMap, [schema.name, ...context], schema);
+				const option = o.oneOf[i];
+				if (option.name === undefined) {
+					throw new Error(`No name in option: ${JSON.stringify(option)}`);
+				}
+				yield deriveType(contracts, TypescriptTypeMap, [option.name, ...context], option);
 				if (i < o.oneOf.length - 1) {
 					yield ' | ';
 				}
