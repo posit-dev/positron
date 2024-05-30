@@ -27,6 +27,7 @@ import { IOpenerService } from 'vs/platform/opener/common/opener';
 import { IPositronNewProjectService, NewProjectConfiguration } from 'vs/workbench/services/positronNewProject/common/positronNewProject';
 import { EnvironmentSetupType, NewProjectWizardStep } from 'vs/workbench/browser/positronNewProjectWizard/interfaces/newProjectWizardEnums';
 import { IWorkspaceTrustManagementService } from 'vs/platform/workspace/common/workspaceTrust';
+import { showChooseNewProjectWindowModalDialog } from 'vs/workbench/browser/positronNewProjectWizard/chooseNewProjectWindowModalDialog';
 
 /**
  * Shows the NewProjectModalDialog.
@@ -141,13 +142,14 @@ export const showNewProjectModalDialog = async (
 					// Any context-dependent work needs to be done before opening the folder
 					// because the extension host gets destroyed when a new project is opened,
 					// whether the folder is opened in a new window or in the existing window.
-					await commandService.executeCommand(
-						'vscode.openFolder',
+					// Ask the user where to open the new project and open it.
+					showChooseNewProjectWindowModalDialog(
+						commandService,
+						keybindingService,
+						layoutService,
+						result.projectName,
 						folder,
-						{
-							forceNewWindow: result.openInNewWindow,
-							forceReuseWindow: !result.openInNewWindow
-						}
+						result.openInNewWindow
 					);
 				}}
 			/>
