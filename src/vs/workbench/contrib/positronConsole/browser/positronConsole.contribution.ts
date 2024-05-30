@@ -12,10 +12,12 @@ import { SyncDescriptor } from 'vs/platform/instantiation/common/descriptors';
 import { ViewPaneContainer } from 'vs/workbench/browser/parts/views/viewPaneContainer';
 import { PositronConsoleViewPane } from 'vs/workbench/contrib/positronConsole/browser/positronConsoleView';
 import { registerPositronConsoleActions } from 'vs/workbench/contrib/positronConsole/browser/positronConsoleActions';
-import { POSITRON_CONSOLE_VIEW_ID } from 'vs/workbench/services/positronConsole/browser/interfaces/positronConsoleService';
+import { IPositronConsoleService, POSITRON_CONSOLE_VIEW_ID } from 'vs/workbench/services/positronConsole/browser/interfaces/positronConsoleService';
 import { ICommandAndKeybindingRule, KeybindingWeight, KeybindingsRegistry } from 'vs/platform/keybinding/common/keybindingsRegistry';
 import { ViewContainer, IViewContainersRegistry, ViewContainerLocation, Extensions as ViewContainerExtensions, IViewsRegistry } from 'vs/workbench/common/views';
 import { POSITRON_CONSOLE_COPY, POSITRON_CONSOLE_PASTE, POSITRON_CONSOLE_SELECT_ALL } from 'vs/workbench/contrib/positronConsole/browser/positronConsoleIdentifiers';
+import { IClipboardService } from 'vs/platform/clipboard/common/clipboardService';
+import { RawContextKey } from 'vs/platform/contextkey/common/contextkey';
 
 // The Positron console view icon.
 const positronConsoleViewIcon = registerIcon(
@@ -63,25 +65,19 @@ Registry.as<IViewsRegistry>(ViewContainerExtensions.ViewsRegistry).registerViews
 	}
 }], VIEW_CONTAINER);
 
-// The following is commented out because it prevents `cut` from working in the
-// console input
-// https://github.com/posit-dev/positron/issues/2549
-
-// // Register keybinding rule for cut.
-// KeybindingsRegistry.registerCommandAndKeybindingRule({
-// 	id: POSITRON_CONSOLE_CUT,
-// 	weight: KeybindingWeight.WorkbenchContrib,
-// 	primary: KeyMod.CtrlCmd | KeyCode.KeyX,
-// 	when: PositronConsoleFocused,
-// 	handler: accessor => { }
-// } satisfies ICommandAndKeybindingRule);
+// Below we define keybindings so we can refer to them in the console context
+// menu and display the keybinding shortcut next to the menu action. We don't
+// necessarily want to handle the keybinding instead of VS Code. In that case,
+// we condition the keybinding handler on this context key that never activates.
+const never = new RawContextKey<boolean>('never', false);
 
 // Register keybinding rule for copy.
 KeybindingsRegistry.registerCommandAndKeybindingRule({
 	id: POSITRON_CONSOLE_COPY,
 	weight: KeybindingWeight.WorkbenchContrib,
 	primary: KeyMod.CtrlCmd | KeyCode.KeyC,
-	when: PositronConsoleFocused,
+	// We let the default command copy for us
+	when: never,
 	handler: accessor => { }
 } satisfies ICommandAndKeybindingRule);
 
@@ -91,7 +87,12 @@ KeybindingsRegistry.registerCommandAndKeybindingRule({
 	weight: KeybindingWeight.WorkbenchContrib,
 	primary: KeyMod.CtrlCmd | KeyCode.KeyV,
 	when: PositronConsoleFocused,
-	handler: accessor => { }
+	handler: async accessor => {
+		const clipboardService = accessor.get(IClipboardService);
+		const consoleService = accessor.get(IPositronConsoleService);
+		const text = await clipboardService.readText();
+		return consoleService.activePositronConsoleInstance?.pasteText(text);
+	}
 } satisfies ICommandAndKeybindingRule);
 
 // Register keybinding rule for select all.
@@ -100,7 +101,10 @@ KeybindingsRegistry.registerCommandAndKeybindingRule({
 	weight: KeybindingWeight.WorkbenchContrib,
 	primary: KeyMod.CtrlCmd | KeyCode.KeyA,
 	when: PositronConsoleFocused,
-	handler: accessor => { }
+	handler: async accessor => {
+		const consoleService = accessor.get(IPositronConsoleService);
+		return consoleService.activePositronConsoleInstance?.selectAll();
+	}
 } satisfies ICommandAndKeybindingRule);
 
 // Register all the Positron console actions.

@@ -46,7 +46,7 @@ import { RuntimeItemPendingInput } from 'vs/workbench/services/positronConsole/b
 import { RuntimeItemRestartButton } from 'vs/workbench/services/positronConsole/browser/classes/runtimeItemRestartButton';
 import { IPositronConsoleInstance, PositronConsoleState } from 'vs/workbench/services/positronConsole/browser/interfaces/positronConsoleService';
 import { RuntimeItemStartupFailure } from 'vs/workbench/services/positronConsole/browser/classes/runtimeItemStartupFailure';
-import { POSITRON_CONSOLE_COPY, POSITRON_CONSOLE_CUT, POSITRON_CONSOLE_PASTE, POSITRON_CONSOLE_SELECT_ALL } from 'vs/workbench/contrib/positronConsole/browser/positronConsoleIdentifiers';
+import { POSITRON_CONSOLE_COPY, POSITRON_CONSOLE_PASTE, POSITRON_CONSOLE_SELECT_ALL } from 'vs/workbench/contrib/positronConsole/browser/positronConsoleIdentifiers';
 import { disposableTimeout } from 'vs/base/common/async';
 
 // ConsoleInstanceProps interface.
@@ -171,18 +171,6 @@ export const ConsoleInstance = (props: ConsoleInstanceProps) => {
 
 		// The actions that are built below.
 		const actions: IAction[] = [];
-
-		// Add the cut action. This action is never enabled here. It exists here so that the user
-		// will see a consistent set of Cut, Copy, Paste actions in this context menu and the code
-		// editor widget's context menu.
-		actions.push({
-			id: POSITRON_CONSOLE_CUT,
-			label: nls.localize('positron.console.cut', "Cut"),
-			tooltip: '',
-			class: undefined,
-			enabled: false,
-			run: () => { }
-		});
 
 		// Add the copy action.
 		actions.push({
@@ -359,6 +347,10 @@ export const ConsoleInstance = (props: ConsoleInstanceProps) => {
 					session.sessionId,
 					'Restart requested from activity in the Console tab');
 			}
+		}));
+
+		disposableStore.add(props.positronConsoleInstance.onDidSelectAll(text => {
+			selectAllRuntimeItems();
 		}));
 
 		// Return the cleanup function that will dispose of the event handlers.
