@@ -25,5 +25,6 @@ product.overrides.json
 
 # --- Start Positron ---
 .Rproj.user
+test/smoke/positron-content-examples
 # --- End Positron ---
 
