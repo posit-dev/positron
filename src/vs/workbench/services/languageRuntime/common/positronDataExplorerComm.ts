@@ -841,6 +841,7 @@ export enum DataExplorerBackendRequest {
 	GetSchema = 'get_schema',
 	SearchSchema = 'search_schema',
 	GetDataValues = 'get_data_values',
+	ExportDataSelection = 'export_data_selection',
 	SetRowFilters = 'set_row_filters',
 	SetSortColumns = 'set_sort_columns',
 	GetColumnProfiles = 'get_column_profiles',
