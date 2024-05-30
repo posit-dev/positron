@@ -29,8 +29,10 @@ interface TableDataCellProps {
 export const TableDataCell = (props: TableDataCellProps) => {
 	// Render.
 	return (
-		<div className={positronClassNames('text', props.column.alignment)}>
-			{props.cellValue.formatted}
+		<div className={positronClassNames('text-container', props.column.alignment)}>
+			<div className='text-value'>
+				{props.cellValue.formatted}
+			</div>
 		</div>
 	);
 };

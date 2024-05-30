@@ -4,33 +4,41 @@
 
 .data-grid-row-cell
 .content
-.text {
+.text-container {
 	height: 100%;
 	display: flex;
 	margin: 0 7px;
-	overflow: hidden;
 	align-items: center;
+}
+
+.data-grid-row-cell
+.content
+.text-container
+.text-value {
+	overflow: hidden;
 	white-space: nowrap;
-	line-height: normal;
 	text-overflow: ellipsis;
 	white-space-collapse: preserve;
 }
 
 .data-grid-row-cell
 .content
-.text.left {
+.text-container
+.text-value.left {
 	justify-content: left;
 }
 
 .data-grid-row-cell
 .content
-.text.center {
+.text-container
+.text-value.center {
 	justify-content: center;
 }
 
 .data-grid-row-cell
 .content
-.text.right {
+.text-container
+.text-value.right {
 	justify-content: right;
 	font-variant-numeric: tabular-nums;
 }
