@@ -177,6 +177,17 @@ export class ElectronWebviewElement extends WebviewElement {
 		return this._webviewMainService.captureContentsAsPng(
 			{ windowId: this._nativeHostService.windowId }, bounding);
 	}
+
+	/**
+	 * Executes the given JavaScript in the webview.
+	 *
+	 * @param script The JavaScript to execute
+	 * @returns The result of executing the script
+	 */
+	public override executeJavaScript(script: string): Promise<any> {
+		return this._webviewMainService.executeJavaScript(
+			{ windowId: this._nativeHostService.windowId }, script);
+	}
 	// --- End Positron ---
 
 	protected override handleFocusChange(isFocused: boolean): void {

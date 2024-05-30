@@ -56,5 +56,7 @@ export interface IWebviewManagerService {
 
 	// --- Start Positron ---
 	captureContentsAsPng(windowId: WebviewWindowId, area?: WebviewRectangle): Promise<VSBuffer | undefined>;
+
+	executeJavaScript(windowId: WebviewWindowId, script: string): Promise<any>;
 	// --- End Positron ---
 }

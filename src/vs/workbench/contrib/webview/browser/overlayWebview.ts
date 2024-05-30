@@ -430,6 +430,18 @@ export class OverlayWebview extends Disposable implements IOverlayWebview {
 		}
 		return Promise.resolve(undefined);
 	}
+
+	/**
+	 * Executes the provided script in the webview.
+	 *
+	 * @param script The script to execute.
+	 */
+	executeJavaScript(script: string): Promise<any> {
+		if (this._webview.value) {
+			return this._webview.value.executeJavaScript(script);
+		}
+		return Promise.resolve(undefined);
+	}
 	// --- End Positron ---
 
 	private _withWebview(f: (webview: IWebview) => void): void {

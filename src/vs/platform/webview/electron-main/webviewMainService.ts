@@ -110,6 +110,14 @@ export class WebviewMainService extends Disposable implements IWebviewManagerSer
 		const image = await contents.capturePage(area);
 		return VSBuffer.wrap(image.toPNG());
 	}
+
+	public async executeJavaScript(windowId: WebviewWindowId, script: string): Promise<void> {
+		const window = this.windowsMainService.getWindowById(windowId.windowId);
+		if (!window?.win) {
+			throw new Error(`Invalid windowId: ${windowId}`);
+		}
+		window.win.webContents.executeJavaScript(script);
+	}
 	// --- End Positron ---
 
 	private getFrameByName(windowId: WebviewWindowId, frameName: string): WebFrameMain {

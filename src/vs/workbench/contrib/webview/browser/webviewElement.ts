@@ -936,5 +936,9 @@ export class WebviewElement extends Disposable implements IWebview, WebviewFindD
 		// The default implementation doesn't support PNG screen capture
 		return Promise.resolve(undefined);
 	}
+	public executeJavaScript(code: string): Promise<any> {
+		// The default implementation doesn't support executing scripts
+		return Promise.resolve(undefined);
+	}
 	// --- End Positron ---
 }
