@@ -305,7 +305,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 				return;
 			}
 
-			await this.shutdownRuntimeSession(activeSession);
+			await this.shutdownRuntimeSession(activeSession, RuntimeExitReason.SwitchRuntime);
 		}
 
 		// Wait for the selected runtime to start.
@@ -320,9 +320,11 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 	 * Shutdown a runtime session.
 	 *
 	 * @param session The session to shutdown.
+	 * @param exitReason The reason for shutting down the session.
 	 * @returns Promise that resolves when the session has been shutdown.
 	 */
-	private async shutdownRuntimeSession(session: ILanguageRuntimeSession): Promise<void> {
+	private async shutdownRuntimeSession(
+		session: ILanguageRuntimeSession, exitReason: RuntimeExitReason): Promise<void> {
 		// See if we are already shutting down this session. If we
 		// are, return the promise that resolves when the runtime is shut down.
 		// This makes it possible for multiple requests to shut down the same
@@ -332,8 +334,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 		if (shuttingDownPromise) {
 			return shuttingDownPromise;
 		}
-
-		const shutdownPromise = this.doShutdownRuntimeSession(session)
+		const shutdownPromise = this.doShutdownRuntimeSession(session, exitReason)
 			.finally(() => this._shuttingDownRuntimesBySessionId.delete(sessionId));
 
 		this._shuttingDownRuntimesBySessionId.set(sessionId, shutdownPromise);
@@ -341,7 +342,8 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 		return shutdownPromise;
 	}
 
-	private async doShutdownRuntimeSession(session: ILanguageRuntimeSession): Promise<void> {
+	private async doShutdownRuntimeSession(
+		session: ILanguageRuntimeSession, exitReason: RuntimeExitReason): Promise<void> {
 		// We wait for `onDidEndSession()` rather than `RuntimeState.Exited`, because the former
 		// generates some Console output that must finish before starting up a new runtime:
 		const promise = new Promise<void>(resolve => {
@@ -359,7 +361,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 		});
 
 		// Ask the runtime to shut down.
-		await session.shutdown(RuntimeExitReason.SwitchRuntime);
+		await session.shutdown(exitReason);
 
 		// Wait for the runtime onDidEndSession to resolve, or for the timeout to expire
 		// (whichever comes first)
