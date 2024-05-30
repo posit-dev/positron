@@ -34,10 +34,13 @@ export async function registerCommands(context: vscode.ExtensionContext) {
 		}),
 
 		// TODO: remove this hack when we can address the Console like an editor
+		// In the meantime, note the use of the command 'default:type' instead of 'type'.
+		// This works around the fact that the vim plugin overrides the 'type' command.
+		// https://github.com/posit-dev/positron/issues/3279
 		vscode.commands.registerCommand('r.insertPipeConsole', () => {
 			const extConfig = vscode.workspace.getConfiguration('positron.r');
 			const pipeString = extConfig.get<string>('pipe') || '|>';
-			vscode.commands.executeCommand('type', { text: ` ${pipeString} ` });
+			vscode.commands.executeCommand('default:type', { text: ` ${pipeString} ` });
 		}),
 
 		vscode.commands.registerCommand('r.insertLeftAssignment', () => {
@@ -46,7 +49,7 @@ export async function registerCommands(context: vscode.ExtensionContext) {
 
 		// TODO: remove this hack when we can address the Console like an editor
 		vscode.commands.registerCommand('r.insertLeftAssignmentConsole', () => {
-			vscode.commands.executeCommand('type', { text: ' <- ' });
+			vscode.commands.executeCommand('default:type', { text: ' <- ' });
 		}),
 
 		// Commands for package development tooling
