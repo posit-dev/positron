@@ -52,12 +52,13 @@ df = pd.DataFrame(data)`;
 
 				await app.workbench.positronSideBar.closeSecondarySideBar();
 
-				const tableData = await app.workbench.positronDataExplorer.getDataExplorerTableData(3, 4);
+				const tableData = await app.workbench.positronDataExplorer.getDataExplorerTableData();
 
 				expect(tableData[0]).toStrictEqual({ 'Name': 'Jai', 'Age': '27', 'Address': 'Delhi' });
 				expect(tableData[1]).toStrictEqual({ 'Name': 'Princi', 'Age': '24', 'Address': 'Kanpur' });
 				expect(tableData[2]).toStrictEqual({ 'Name': 'Gaurav', 'Age': '22', 'Address': 'Allahabad' });
 				expect(tableData[3]).toStrictEqual({ 'Name': 'Anuj', 'Age': '32', 'Address': 'Kannauj' });
+				expect(tableData.length).toBe(4);
 
 			});
 		});
@@ -99,11 +100,12 @@ df = pd.DataFrame(data)`;
 
 				await app.workbench.positronSideBar.closeSecondarySideBar();
 
-				const tableData = await app.workbench.positronDataExplorer.getDataExplorerTableData(3, 3);
+				const tableData = await app.workbench.positronDataExplorer.getDataExplorerTableData();
 
 				expect(tableData[0]).toStrictEqual({ 'Training': 'Strength', 'Pulse': '100', 'Duration': '60' });
 				expect(tableData[1]).toStrictEqual({ 'Training': 'Stamina', 'Pulse': '150', 'Duration': '30' });
 				expect(tableData[2]).toStrictEqual({ 'Training': 'Other', 'Pulse': '120', 'Duration': '45' });
+				expect(tableData.length).toBe(3);
 
 			});
 		});
