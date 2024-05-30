@@ -69,7 +69,7 @@ export interface IPositronDataExplorerInstance extends IDisposable {
 	requestFocus(): void;
 
 	/**
-	 * Copies to the clipboard.
+	 * Copies the selection or cursor cell to the clipboard.
 	 */
-	copyToClipboard(): void;
+	copyToClipboard(): Promise<void>;
 }

@@ -140,7 +140,7 @@ class PositronDataExplorerCopyAction extends Action2 {
 		}
 
 		// Copy to the clipboard.
-		positronDataExplorerInstance.copyToClipboard();
+		await positronDataExplorerInstance.copyToClipboard();
 	}
 }
 

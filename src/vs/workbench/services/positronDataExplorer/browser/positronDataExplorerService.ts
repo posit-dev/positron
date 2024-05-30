@@ -9,6 +9,7 @@ import { IHoverService } from 'vs/platform/hover/browser/hover';
 import { ICommandService } from 'vs/platform/commands/common/commands';
 import { ILayoutService } from 'vs/platform/layout/browser/layoutService';
 import { IKeybindingService } from 'vs/platform/keybinding/common/keybinding';
+import { IClipboardService } from 'vs/platform/clipboard/common/clipboardService';
 import { IEditorService } from 'vs/workbench/services/editor/common/editorService';
 import { INotificationService } from 'vs/platform/notification/common/notification';
 import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
@@ -127,6 +128,7 @@ class PositronDataExplorerService extends Disposable implements IPositronDataExp
 
 	/**
 	 * Constructor.
+	 * @param _clipboardService The clipboard service.
 	 * @param _commandService The command service.
 	 * @param _configurationService The configuration service.
 	 * @param _editorService The editor service.
@@ -137,6 +139,7 @@ class PositronDataExplorerService extends Disposable implements IPositronDataExp
 	 * @param _runtimeSessionService The language runtime session service.
 	 */
 	constructor(
+		@IClipboardService private readonly _clipboardService: IClipboardService,
 		@ICommandService private readonly _commandService: ICommandService,
 		@IConfigurationService private readonly _configurationService: IConfigurationService,
 		@IEditorService private readonly _editorService: IEditorService,
@@ -297,11 +300,13 @@ class PositronDataExplorerService extends Disposable implements IPositronDataExp
 		this._positronDataExplorerInstances.set(
 			dataExplorerClientInstance.identifier,
 			new PositronDataExplorerInstance(
+				this._clipboardService,
 				this._commandService,
 				this._configurationService,
 				this._hoverService,
 				this._keybindingService,
 				this._layoutService,
+				this._notificationService,
 				languageName,
 				dataExplorerClientInstance
 			)

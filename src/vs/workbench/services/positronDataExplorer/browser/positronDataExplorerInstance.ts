@@ -2,12 +2,15 @@
  *  Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
+import { localize } from 'vs/nls';
 import { Emitter } from 'vs/base/common/event';
 import { Disposable } from 'vs/base/common/lifecycle';
 import { IHoverService } from 'vs/platform/hover/browser/hover';
 import { ICommandService } from 'vs/platform/commands/common/commands';
 import { ILayoutService } from 'vs/platform/layout/browser/layoutService';
 import { IKeybindingService } from 'vs/platform/keybinding/common/keybinding';
+import { IClipboardService } from 'vs/platform/clipboard/common/clipboardService';
+import { INotificationService } from 'vs/platform/notification/common/notification';
 import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
 import { DataExplorerCache } from 'vs/workbench/services/positronDataExplorer/common/dataExplorerCache';
 import { TableDataDataGridInstance } from 'vs/workbench/services/positronDataExplorer/browser/tableDataDataGridInstance';
@@ -15,6 +18,7 @@ import { DataExplorerClientInstance } from 'vs/workbench/services/languageRuntim
 import { TableSummaryDataGridInstance } from 'vs/workbench/services/positronDataExplorer/browser/tableSummaryDataGridInstance';
 import { PositronDataExplorerLayout } from 'vs/workbench/services/positronDataExplorer/browser/interfaces/positronDataExplorerService';
 import { IPositronDataExplorerInstance } from 'vs/workbench/services/positronDataExplorer/browser/interfaces/positronDataExplorerInstance';
+import { ClipboardCell, ClipboardCellRange, ClipboardColumnIndexes, ClipboardColumnRange, ClipboardRowIndexes, ClipboardRowRange } from 'vs/workbench/browser/positronDataGrid/classes/dataGridInstance';
 
 /**
  * PositronDataExplorerInstance class.
@@ -80,6 +84,7 @@ export class PositronDataExplorerInstance extends Disposable implements IPositro
 
 	/**
 	 * Constructor.
+	 * @param _clipboardService The clipboard service.
 	 * @param _commandService The command service.
 	 * @param _configurationService The configuration service.
 	 * @param _hoverService The hover service.
@@ -90,11 +95,13 @@ export class PositronDataExplorerInstance extends Disposable implements IPositro
 	 * ownership of the client instance and will dispose it when it is disposed.
 	 */
 	constructor(
+		private readonly _clipboardService: IClipboardService,
 		private readonly _commandService: ICommandService,
 		private readonly _configurationService: IConfigurationService,
 		private readonly _hoverService: IHoverService,
 		private readonly _keybindingService: IKeybindingService,
 		private readonly _layoutService: ILayoutService,
+		private readonly _notificationService: INotificationService,
 		private readonly _languageName: string,
 		private readonly _dataExplorerClientInstance: DataExplorerClientInstance
 	) {
@@ -210,10 +217,64 @@ export class PositronDataExplorerInstance extends Disposable implements IPositro
 	}
 
 	/**
-	 * Copies to the clipboard.
+	 * Copies the selection or cursor cell to the clipboard.
 	 */
-	copyToClipboard(): void {
-		console.log('copyToClipboard called!');
+	async copyToClipboard(): Promise<void> {
+		/**
+		 * Notifies the user that there is nothing to copy to the clipboard.
+		 */
+		const notifyUser = () => {
+			this._notificationService.info(
+				localize(
+					'positron.dataExplorer.nothingToCopy',
+					'There is nothing to copy to the clipboard.'
+				)
+			);
+		};
+
+		// Get the clipboard data.
+		const clipboardData = this._tableDataDataGridInstance.getClipboardData();
+		if (!clipboardData) {
+			notifyUser();
+			return;
+		}
+
+		// Temporary output. This code will be moved to the data explorer cache layer.
+		switch (clipboardData.constructor) {
+			case ClipboardCell:
+				console.log('ClipboardCell clipboard data');
+				break;
+
+			case ClipboardCellRange:
+				console.log('ClipboardCellRange clipboard data');
+				break;
+
+			case ClipboardColumnRange:
+				console.log('ClipboardColumnRange clipboard data');
+				break;
+
+			case ClipboardColumnIndexes:
+				console.log('ClipboardColumnIndexes clipboard data');
+				break;
+
+			case ClipboardRowRange:
+				console.log('ClipboardRowRange clipboard data');
+				break;
+
+			case ClipboardRowIndexes:
+				console.log('ClipboardRowIndexes clipboard data');
+				break;
+
+			default:
+				notifyUser();
+				break;
+		}
+
+		// Get the clipboard data from the data explorer cache.
+		// const clipboardData = await this._dataExplorerCache.getClipboardData(clipboardRange);
+
+		// Write the clipboard data to the clipboard.
+		this._clipboardService.writeText('Column 1\tColumn 2\tColumn 3\r\n1\t2\t3\r\n4\t5\t6\r\n7\t8\t9');
 	}
 
 	/**

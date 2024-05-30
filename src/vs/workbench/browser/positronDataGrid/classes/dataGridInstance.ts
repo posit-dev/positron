@@ -193,6 +193,16 @@ export enum MouseSelectionType {
 }
 
 /**
+ * CellSelectionRange interface.
+ */
+interface CellSelectionRange {
+	firstColumnIndex: number;
+	firstRowIndex: number;
+	lastColumnIndex: number;
+	lastRowIndex: number;
+}
+
+/**
  * ColumnSelectionRange interface.
  */
 interface ColumnSelectionRange {
@@ -209,13 +219,63 @@ interface RowSelectionRange {
 }
 
 /**
- * CellSelectionRange interface.
+ * ClipboardCell class.
  */
-interface CellSelectionRange {
-	firstColumnIndex: number;
-	firstRowIndex: number;
-	lastColumnIndex: number;
-	lastRowIndex: number;
+export class ClipboardCell {
+	constructor(
+		readonly columnIndex: number,
+		readonly rowIndex: number
+	) { }
+}
+
+/**
+ * ClipboardCellRange class.
+ */
+export class ClipboardCellRange {
+	constructor(
+		readonly firstColumnIndex: number,
+		readonly firstRowIndex: number,
+		readonly lastColumnIndex: number,
+		readonly lastRowIndex: number
+	) { }
+}
+
+/**
+ * ClipboardColumnRange class.
+ */
+export class ClipboardColumnRange {
+	constructor(
+		readonly firstColumnIndex: number,
+		readonly lastColumnIndex: number,
+	) { }
+}
+
+/**
+ * ClipboardColumnIndexes class.
+ */
+export class ClipboardColumnIndexes {
+	constructor(
+		readonly indexes: number[]
+	) { }
+}
+
+/**
+ * ClipboardRowRange class.
+ */
+export class ClipboardRowRange {
+	constructor(
+		readonly firstRowIndex: number,
+		readonly lastRowIndex: number,
+	) { }
+}
+
+/**
+ * ClipboardRowIndexes class.
+ */
+export class ClipboardRowIndexes {
+	constructor(
+		readonly indexes: number[]
+	) { }
 }
 
 /**
@@ -2013,6 +2073,63 @@ export abstract class DataGridInstance extends Disposable {
 
 		// Fire the onDidUpdate event.
 		this._onDidUpdateEmitter.fire();
+	}
+
+	/**
+	 * Gets the clipboard data.
+	 * @returns The clipboard data.
+	 */
+	getClipboardData() {
+		// Cell selection range.
+		if (this._cellSelectionRange) {
+			return new ClipboardCellRange(
+				this._cellSelectionRange.firstColumnIndex,
+				this._cellSelectionRange.firstRowIndex,
+				this._cellSelectionRange.lastColumnIndex,
+				this._cellSelectionRange.lastRowIndex
+			);
+		}
+
+		// Column selection range.
+		if (this._columnSelectionRange) {
+			return new ClipboardColumnRange(
+				this._columnSelectionRange.firstColumnIndex,
+				this._columnSelectionRange.firstColumnIndex
+			);
+		}
+
+		// Column selection indexes.
+		if (this._columnSelectionIndexes.size) {
+			return new ClipboardColumnIndexes(
+				Array.from(this._columnSelectionIndexes).sort()
+			);
+		}
+
+		// Row selection range.
+		if (this._rowSelectionRange) {
+			return new ClipboardRowRange(
+				this._rowSelectionRange.firstRowIndex,
+				this._rowSelectionRange.firstRowIndex
+			);
+		}
+
+		// Row selection indexes.
+		if (this._rowSelectionIndexes.size) {
+			return new ClipboardRowIndexes(
+				Array.from(this._rowSelectionIndexes).sort()
+			);
+		}
+
+		// Cursor cell.
+		if (this._cursorColumnIndex >= 0 && this._cursorRowIndex >= 0) {
+			return new ClipboardCell(
+				this._cursorColumnIndex,
+				this._cursorRowIndex
+			);
+		}
+
+		// Clipboard data isn't available.
+		return undefined;
 	}
 
 	/**
