@@ -7,7 +7,7 @@ import { IFileDialogService } from 'vs/platform/dialogs/common/dialogs';
 import { ILanguageRuntimeMetadata, ILanguageRuntimeService } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { IRuntimeSessionService } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
 import { IRuntimeStartupService, RuntimeStartupPhase } from 'vs/workbench/services/runtimeStartup/common/runtimeStartupService';
-import { EnvironmentSetupType, LanguageIds, NewProjectType, NewProjectWizardStep, PythonEnvironmentProvider, PythonRuntimeFilter } from 'vs/workbench/browser/positronNewProjectWizard/interfaces/newProjectWizardEnums';
+import { EnvironmentSetupType, LanguageIds, NewProjectWizardStep, PythonEnvironmentProvider, PythonRuntimeFilter } from 'vs/workbench/browser/positronNewProjectWizard/interfaces/newProjectWizardEnums';
 import { IWorkbenchLayoutService } from 'vs/workbench/services/layout/browser/layoutService';
 import { IKeybindingService } from 'vs/platform/keybinding/common/keybinding';
 import { ILogService } from 'vs/platform/log/common/log';
@@ -19,6 +19,7 @@ import { PythonEnvironmentProviderInfo } from 'vs/workbench/browser/positronNewP
 import { Disposable } from 'vs/base/common/lifecycle';
 import { Emitter, Event } from 'vs/base/common/event';
 import { WizardFormattedTextItem } from 'vs/workbench/browser/positronNewProjectWizard/components/wizardFormattedText';
+import { NewProjectType } from 'vs/workbench/services/positronNewProject/common/positronNewProject';
 
 /**
  * NewProjectWizardServices interface.

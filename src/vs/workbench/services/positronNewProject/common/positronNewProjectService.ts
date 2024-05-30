@@ -9,7 +9,7 @@ import { ILogService } from 'vs/platform/log/common/log';
 import { IStorageService, StorageScope, StorageTarget } from 'vs/platform/storage/common/storage';
 import { IWorkspaceContextService } from 'vs/platform/workspace/common/workspace';
 import { IWorkspaceTrustManagementService } from 'vs/platform/workspace/common/workspaceTrust';
-import { CreateEnvironmentResult, IPositronNewProjectService, NewProjectConfiguration, NewProjectStartupPhase, NewProjectTask, POSITRON_NEW_PROJECT_CONFIG_STORAGE_KEY } from 'vs/workbench/services/positronNewProject/common/positronNewProject';
+import { CreateEnvironmentResult, IPositronNewProjectService, NewProjectConfiguration, NewProjectStartupPhase, NewProjectTask, NewProjectType, POSITRON_NEW_PROJECT_CONFIG_STORAGE_KEY } from 'vs/workbench/services/positronNewProject/common/positronNewProject';
 import { Event } from 'vs/base/common/event';
 import { Barrier } from 'vs/base/common/async';
 import { ILanguageRuntimeMetadata } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
@@ -255,21 +255,20 @@ export class PositronNewProjectService extends Disposable implements IPositronNe
 				this._handleGitIgnoreError(error);
 			});
 
-		// TODO: use enum values instead of strings
 		switch (this._newProjectConfig?.projectType) {
-			case 'Python Project':
+			case NewProjectType.PythonProject:
 				await this._fileService.createFile(joinPath(projectRoot, '.gitignore'), VSBuffer.fromString(DOT_IGNORE_PYTHON))
 					.catch((error) => {
 						this._handleGitIgnoreError(error);
 					});
 				break;
-			case 'R Project':
+			case NewProjectType.RProject:
 				await this._fileService.createFile(joinPath(projectRoot, '.gitignore'), VSBuffer.fromString(DOT_IGNORE_R))
 					.catch((error) => {
 						this._handleGitIgnoreError(error);
 					});
 				break;
-			case 'Jupyter Notebook':
+			case NewProjectType.JupyterNotebook:
 				await this._fileService.createFile(joinPath(projectRoot, '.gitignore'), VSBuffer.fromString(DOT_IGNORE_JUPYTER))
 					.catch((error) => {
 						this._handleGitIgnoreError(error);
@@ -456,16 +455,25 @@ export class PositronNewProjectService extends Disposable implements IPositronNe
 		}
 
 		const tasks = new Set<NewProjectTask>();
-		// TODO: use enum values instead of strings
 		switch (this._newProjectConfig.projectType) {
-			case 'Python Project':
+			case NewProjectType.PythonProject:
 				tasks.add(NewProjectTask.Python);
+				if (this._newProjectConfig.pythonEnvProviderId) {
+					tasks.add(NewProjectTask.PythonEnvironment);
+				}
 				break;
-			case 'Jupyter Notebook':
+			case NewProjectType.JupyterNotebook:
 				tasks.add(NewProjectTask.Jupyter);
+				// For now, Jupyter notebooks are always Python based.
+				if (this._newProjectConfig.pythonEnvProviderId) {
+					tasks.add(NewProjectTask.PythonEnvironment);
+				}
 				break;
-			case 'R Project':
+			case NewProjectType.RProject:
 				tasks.add(NewProjectTask.R);
+				if (this._newProjectConfig.useRenv) {
+					tasks.add(NewProjectTask.REnvironment);
+				}
 				break;
 			default:
 				this._logService.error(
@@ -477,14 +485,6 @@ export class PositronNewProjectService extends Disposable implements IPositronNe
 
 		if (this._newProjectConfig.initGitRepo) {
 			tasks.add(NewProjectTask.Git);
-		}
-
-		if (this._newProjectConfig.pythonEnvProviderId) {
-			tasks.add(NewProjectTask.PythonEnvironment);
-		}
-
-		if (this._newProjectConfig.useRenv) {
-			tasks.add(NewProjectTask.REnvironment);
 		}
 
 		return tasks;

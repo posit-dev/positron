@@ -10,7 +10,7 @@ import { PropsWithChildren, useEffect, useState } from 'react';  // eslint-disab
 import { localize } from 'vs/nls';
 import { useNewProjectWizardContext } from 'vs/workbench/browser/positronNewProjectWizard/newProjectWizardContext';
 import { URI } from 'vs/base/common/uri';
-import { NewProjectType, NewProjectWizardStep } from 'vs/workbench/browser/positronNewProjectWizard/interfaces/newProjectWizardEnums';
+import { NewProjectWizardStep } from 'vs/workbench/browser/positronNewProjectWizard/interfaces/newProjectWizardEnums';
 import { NewProjectWizardStepProps } from 'vs/workbench/browser/positronNewProjectWizard/interfaces/newProjectWizardStepProps';
 import { PositronWizardStep } from 'vs/workbench/browser/positronNewProjectWizard/components/wizardStep';
 import { PositronWizardSubStep } from 'vs/workbench/browser/positronNewProjectWizard/components/wizardSubStep';
@@ -20,6 +20,7 @@ import { Checkbox } from 'vs/workbench/browser/positronComponents/positronModalD
 import { WizardFormattedText, WizardFormattedTextType } from 'vs/workbench/browser/positronNewProjectWizard/components/wizardFormattedText';
 import { checkProjectName } from 'vs/workbench/browser/positronNewProjectWizard/utilities/projectNameUtils';
 import { DisposableStore } from 'vs/base/common/lifecycle';
+import { NewProjectType } from 'vs/workbench/services/positronNewProject/common/positronNewProject';
 
 /**
  * The ProjectNameLocationStep component is the second step in the new project wizard.
