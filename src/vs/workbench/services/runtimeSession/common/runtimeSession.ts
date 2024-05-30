@@ -360,10 +360,10 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 		sessionMode: LanguageRuntimeSessionMode,
 		notebookUri: URI | undefined,
 		source: string): Promise<string> {
-		// See if we are already starting a runtime with the given ID. If we
-		// are, return the promise that resolves when the runtime is ready to
+		// See if we are already starting the requested session. If we
+		// are, return the promise that resolves when the session is ready to
 		// use. This makes it possible for multiple requests to start the same
-		// runtime to be coalesced.
+		// session to be coalesced.
 		const startingRuntimePromise = this._startingSessionsBySessionMapKey.get(
 			getSessionMapKey(sessionMode, runtimeId, notebookUri));
 		if (startingRuntimePromise && !startingRuntimePromise.isSettled) {
