@@ -324,6 +324,10 @@ export class PositronNewProjectService extends Disposable implements IPositronNe
 							workspaceFolder,
 							providerId: provider,
 							interpreterPath,
+							// Do not start the environment after creation. We'll install ipykernel
+							// first, then set the environment as the affiliated runtime, which will
+							// be automatically started by the runtimeStartupService.
+							selectEnvironment: false
 						}
 					);
 
