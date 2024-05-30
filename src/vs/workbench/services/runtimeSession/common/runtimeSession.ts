@@ -45,6 +45,18 @@ class LanguageRuntimeSessionInfo {
 }
 
 /**
+ * Get a map key corresponding to a session.
+ *
+ * @returns A composite of the session mode, runtime ID, and notebook URI - assuming that there
+ *  is at most one session for this combination at any given time.
+ */
+function getSessionMapKey(sessionMode: LanguageRuntimeSessionMode,
+	runtimeId: string,
+	notebookUri: URI | undefined): string {
+	return JSON.stringify([sessionMode, runtimeId, notebookUri?.toString()]);
+}
+
+/**
  * The implementation of IRuntimeSessionService.
  */
 export class RuntimeSessionService extends Disposable implements IRuntimeSessionService, IOpener {
@@ -76,9 +88,10 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 	// owning the session.
 	private readonly _startingNotebooksByNotebookUri = new ResourceMap<ILanguageRuntimeMetadata>();
 
-	// A map of runtimes currently starting to promises that resolve when the runtime
-	// is ready to use. This is keyed by the runtimeId (metadata.runtimeId) of the runtime.
-	private readonly _startingRuntimesByRuntimeId = new Map<string, DeferredPromise<string>>();
+	// A map of sessions currently starting to promises that resolve when the session
+	// is ready to use. This is keyed by the composition of the session mode, runtime ID,
+	// and notebook URI.
+	private readonly _startingSessionsBySessionMapKey = new Map<string, DeferredPromise<string>>();
 
 	// A map of the currently active console sessions. Since we can currently
 	// only have one console session per language, this is keyed by the
@@ -347,11 +360,12 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 		sessionMode: LanguageRuntimeSessionMode,
 		notebookUri: URI | undefined,
 		source: string): Promise<string> {
-		// See if we are already starting a runtime with the given ID. If we
-		// are, return the promise that resolves when the runtime is ready to
+		// See if we are already starting the requested session. If we
+		// are, return the promise that resolves when the session is ready to
 		// use. This makes it possible for multiple requests to start the same
-		// runtime to be coalesced.
-		const startingRuntimePromise = this._startingRuntimesByRuntimeId.get(runtimeId);
+		// session to be coalesced.
+		const startingRuntimePromise = this._startingSessionsBySessionMapKey.get(
+			getSessionMapKey(sessionMode, runtimeId, notebookUri));
 		if (startingRuntimePromise && !startingRuntimePromise.isSettled) {
 			return startingRuntimePromise.p;
 		}
@@ -430,7 +444,9 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 
 		// Create a promise that resolves when the runtime is ready to use.
 		const startPromise = new DeferredPromise<string>();
-		this._startingRuntimesByRuntimeId.set(runtimeMetadata.runtimeId, startPromise);
+		const sessionMapKey = getSessionMapKey(
+			sessionMetadata.sessionMode, runtimeMetadata.runtimeId, sessionMetadata.notebookUri);
+		this._startingSessionsBySessionMapKey.set(sessionMapKey, startPromise);
 
 		// We should already have a session manager registered, since we can't
 		// get here until the extension host has been activated.
@@ -450,7 +466,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 				`Reconnecting to session '${sessionMetadata.sessionId}' for language runtime ` +
 				`${formatLanguageRuntimeMetadata(runtimeMetadata)} failed. Reason: ${err}`);
 			startPromise.error(err);
-			this._startingRuntimesByRuntimeId.delete(runtimeMetadata.runtimeId);
+			this._startingSessionsBySessionMapKey.delete(sessionMapKey);
 			this._startingConsolesByLanguageId.delete(runtimeMetadata.languageId);
 			throw err;
 		}
@@ -732,7 +748,8 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 
 		// Create a promise that resolves when the runtime is ready to use.
 		const startPromise = new DeferredPromise<string>();
-		this._startingRuntimesByRuntimeId.set(runtimeMetadata.runtimeId, startPromise);
+		const sessionMapKey = getSessionMapKey(sessionMode, runtimeMetadata.runtimeId, notebookUri);
+		this._startingSessionsBySessionMapKey.set(sessionMapKey, startPromise);
 
 		const sessionManager = await this.getManagerForRuntime(runtimeMetadata);
 		const sessionId = this.generateNewSessionId(runtimeMetadata);
@@ -754,7 +771,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 				`Creating session for language runtime ` +
 				`${formatLanguageRuntimeMetadata(runtimeMetadata)} failed. Reason: ${err}`);
 			startPromise.error(err);
-			this._startingRuntimesByRuntimeId.delete(runtimeMetadata.runtimeId);
+			this._startingSessionsBySessionMapKey.delete(sessionMapKey);
 			this._startingConsolesByLanguageId.delete(runtimeMetadata.languageId);
 
 			// Re-throw the error.
@@ -794,13 +811,15 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 		// Attach event handlers to the newly provisioned session.
 		this.attachToSession(session, manager);
 
+		const sessionMapKey = getSessionMapKey(
+			session.metadata.sessionMode, session.runtimeMetadata.runtimeId, session.metadata.notebookUri);
 		try {
 			// Attempt to start, or reconnect to, the session.
 			await session.start();
 
 			// The runtime started. Move it from the starting runtimes to the
 			// running runtimes.
-			this._startingRuntimesByRuntimeId.delete(session.runtimeMetadata.runtimeId);
+			this._startingSessionsBySessionMapKey.delete(sessionMapKey);
 			if (session.metadata.sessionMode === LanguageRuntimeSessionMode.Console) {
 				this._startingConsolesByLanguageId.delete(session.runtimeMetadata.languageId);
 				this._consoleSessionsByLanguageId.set(session.runtimeMetadata.languageId, session);
@@ -825,7 +844,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 
 			// Remove the runtime from the starting runtimes.
 			this._startingConsolesByLanguageId.delete(session.runtimeMetadata.languageId);
-			this._startingRuntimesByRuntimeId.delete(session.runtimeMetadata.runtimeId);
+			this._startingSessionsBySessionMapKey.delete(sessionMapKey);
 
 			// Fire the onDidFailStartRuntime event.
 			this._onDidFailStartRuntimeEmitter.fire(session);
