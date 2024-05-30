@@ -513,6 +513,7 @@ export abstract class AbstractScrollableElement extends Widget {
 		if (!this._options.lazyRender) {
 			throw new Error('Please use `lazyRender` together with `renderNow`!');
 		}
+		this._shouldRender = true;
 
 		this._render();
 	}
