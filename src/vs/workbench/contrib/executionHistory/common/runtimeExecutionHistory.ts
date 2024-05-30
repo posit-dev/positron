@@ -6,7 +6,7 @@ import { Disposable } from 'vs/base/common/lifecycle';
 import { ILogService } from 'vs/platform/log/common/log';
 import { IStorageService, StorageScope, StorageTarget } from 'vs/platform/storage/common/storage';
 import { IExecutionHistoryEntry } from 'vs/workbench/contrib/executionHistory/common/executionHistoryService';
-import { RuntimeOnlineState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { ILanguageRuntimeMessageOutput, RuntimeOnlineState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { ILanguageRuntimeSession } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
 
 /**
@@ -80,7 +80,7 @@ export class RuntimeExecutionHistory extends Disposable {
 			}
 		}));
 
-		this._register(this._session.onDidReceiveRuntimeMessageOutput(message => {
+		const handleDidReceiveRuntimeMessageOutput = (message: ILanguageRuntimeMessageOutput) => {
 			// Get the output.
 			const output = message.data['text/plain'];
 
@@ -106,7 +106,10 @@ export class RuntimeExecutionHistory extends Disposable {
 				// Add the entry to the pending executions map
 				this._pendingExecutions.set(message.parent_id, entry);
 			}
-		}));
+		};
+
+		this._register(this._session.onDidReceiveRuntimeMessageOutput(handleDidReceiveRuntimeMessageOutput));
+		this._register(this._session.onDidReceiveRuntimeMessageResult(handleDidReceiveRuntimeMessageOutput));
 
 		// When we receive a message indicating that an execution has completed,
 		// we'll move it from the pending executions map to the history entries.

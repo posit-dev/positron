@@ -125,6 +125,13 @@ export interface ILanguageRuntimeMessageOutput extends ILanguageRuntimeMessage {
 }
 
 /**
+ * LanguageRuntimeResult is a LanguageRuntimeOutput representing the computational result of a
+ * runtime execution.
+ */
+export interface ILanguageRuntimeMessageResult extends ILanguageRuntimeMessageOutput {
+}
+
+/**
  * The set of possible output locations for a LanguageRuntimeWebOutput.
  */
 export enum PositronOutputLocation {
@@ -407,6 +414,9 @@ export enum RuntimeOnlineState {
 export enum LanguageRuntimeMessageType {
 	/** A message representing output (text, plots, etc.) */
 	Output = 'output',
+
+	/** A message representing the computational result of a runtime execution */
+	Result = 'result',
 
 	/** A message representing output from one of the standard streams (stdout or stderr) */
 	Stream = 'stream',
