@@ -743,9 +743,9 @@ export class LanguageRuntimeSessionAdapter
 			id: message.msgId,
 			parent_id: message.originId,
 			when: message.when,
-			type: positron.LanguageRuntimeMessageType.Output,
-			data: data.data as any
-		} as positron.LanguageRuntimeOutput);
+			type: positron.LanguageRuntimeMessageType.Result,
+			data: data.data as any,
+		} as positron.LanguageRuntimeResult);
 	}
 
 	/**

@@ -16,6 +16,9 @@ declare module 'positron' {
 		/** A message representing output (text, plots, etc.) */
 		Output = 'output',
 
+		/** A message representing the computational result of a runtime execution */
+		Result = 'result',
+
 		/** A message representing output from one of the standard streams (stdout or stderr) */
 		Stream = 'stream',
 
@@ -34,7 +37,7 @@ declare module 'positron' {
 		/** A message representing a runtime event */
 		Event = 'event',
 
-		/** A message representing a new comm (client instance) being opened from the rutime side */
+		/** A message representing a new comm (client instance) being opened from the runtime side */
 		CommOpen = 'comm_open',
 
 		/** A message representing data received via a comm (to a client instance) */
@@ -201,6 +204,13 @@ declare module 'positron' {
 	export interface LanguageRuntimeOutput extends LanguageRuntimeMessage {
 		/** A record of data MIME types to the associated data, e.g. `text/plain` => `'hello world'` */
 		data: Record<string, string>;
+	}
+
+	/**
+	 * LanguageRuntimeResult is a LanguageRuntimeOutput representing the computational result of a
+	 * runtime execution.
+	 */
+	export interface LanguageRuntimeResult extends LanguageRuntimeOutput {
 	}
 
 	/**
