@@ -1,9 +1,11 @@
 import * as vscode from 'vscode';
+import * as positron from 'positron';
 import * as assert from 'assert';
 import * as fs from 'fs';
 import { CURSOR, type, withFileEditor } from './editor-utils';
 import { EXTENSION_ROOT_DIR } from '../constants';
-import { removeLeadingLines } from '../util';
+import { delay, removeLeadingLines } from '../util';
+import { RSession } from '../session';
 
 const snapshotsFolder = `${EXTENSION_ROOT_DIR}/src/test/snapshots`;
 const snippetsPath = `${snapshotsFolder}/indentation-cases.R`;
@@ -30,6 +32,22 @@ suite('Indentation', () => {
 	// it if that's a bug to fix.
 	test('Regenerate and check', async () => {
 		await init();
+
+		// There doesn't seem to be a method that resolves when a language is
+		// both discovered and ready to be started
+		let info;
+		while (true) {
+			try {
+				info = await positron.runtime.getPreferredRuntime('r');
+				break;
+			} catch (_) {
+				await delay(50);
+			}
+		}
+
+		let ses = await positron.runtime.startLanguageRuntime(info!.runtimeId, 'Snapshot tests') as RSession;
+		await ses.waitLsp();
+
 		const expected = fs.readFileSync(snapshotsPath, 'utf8');
 		const current = await regenerateIndentSnapshots();
 
@@ -54,9 +72,22 @@ async function regenerateIndentSnapshots() {
 	for (const snippet of snippets) {
 		const bareSnippet = snippet.split('\n').slice(0, -1).join('\n');
 
-		await withFileEditor(snippet, 'R', async (_editor, doc) => {
+		await withFileEditor(snippet, 'R', async (editor, doc) => {
 			// Type one newline character to trigger indentation
-			await type(doc, `\n${CURSOR}`);
+			await type(doc, '\n');
+
+			await vscode.commands.executeCommand('vscode.executeFormatOnTypeProvider',
+				doc.uri,
+				editor.selection.start,
+				'\n',
+				{
+					insertSpaces: true,
+					tabSize: 4,
+				}
+			);
+
+			await type(doc, `${CURSOR}`);
+
 			const snapshot = removeLeadingLines(doc.getText(), /^$|^#/);
 			snapshots.push(bareSnippet + '\n# ->\n' + snapshot);
 		});
