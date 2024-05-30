@@ -141,7 +141,8 @@ export class NewProjectWizardStateManager
 		this._projectNameFeedback = undefined;
 		this._parentFolder = config.parentFolder ?? '';
 		this._initGitRepo = false;
-		this._openInNewWindow = false;
+		// Default to a new window as the least "destructive" option.
+		this._openInNewWindow = true;
 		this._pythonEnvSetupType = EnvironmentSetupType.NewEnvironment;
 		this._pythonEnvProviderId = undefined;
 		this._installIpykernel = undefined;
