@@ -1718,7 +1718,7 @@ def test_pandas_profile_summary_stats(dxf: DataExplorerFixture):
                 "zzz",
             ]
             * 10,
-            "e": pd.date_range("2000-01-01", freq="D", periods=100).date,  # date column
+            "e": getattr(pd.date_range("2000-01-01", freq="D", periods=100), "date"),  # date column
             "f": pd.date_range("2000-01-01", freq="2h", periods=100),  # datetime no tz
             "g": pd.date_range(
                 "2000-01-01", freq="2h", periods=100, tz="US/Eastern"

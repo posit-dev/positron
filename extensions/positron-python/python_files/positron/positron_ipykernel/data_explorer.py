@@ -1210,7 +1210,9 @@ def _date_median(x):
     It converts to the integer representation of the datetime,
     then computes the median, and then converts back to a datetime
     """
-    out = pd_.to_datetime(np_.median(pd_.to_numeric(x)), utc=True)
+    # the np_.array calls are required to please pyright
+    median_date = np_.median(np_.array(pd_.to_numeric(x)))
+    out = pd_.to_datetime(np_.array(median_date), utc=True)
     return out.tz_convert(x[0].tz)
 
 
