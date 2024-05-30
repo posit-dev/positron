@@ -70,6 +70,7 @@ export type ToWebviewMessage = {
 	'initial-scroll-position': number;
 	'content': UpdateContentEvent;
 	'set-title': string | undefined;
+	'set-uri': string;
 	'styles': {
 		styles: WebviewStyles;
 		activeTheme: string;

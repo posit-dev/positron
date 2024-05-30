@@ -53,55 +53,8 @@ export class PreviewUrl extends PreviewWebview {
 			query:
 				uri.query ? uri.query + '&' + nonce : nonce
 		});
+		this.webview.setUri(iframeUri);
 
-		this.webview.setHtml(`
-<html>
-	<head>
-		<style>
-			html, body {
-				padding: 0;
-				margin: 0;
-				height: 100%;
-				min-height: 100%;
-			}
-
-			iframe {
-				width: 100%;
-				height: 100%;
-				border: none;
-				display: block;
-			}
-		</style>
-		<script>
-			// Get a reference to the VS Code API
-			const vscode = acquireVsCodeApi();
-
-			// Listen for messages from the parent window
-			window.addEventListener('message', e => {
-				// Get the IFrame element hosting the preview URL
-				const iframe = document.querySelector('iframe');
-
-				switch (e.data.command) {
-					case 'reload': {
-						iframe.src = iframe.src;
-						break;
-					}
-					case 'back': {
-						history.back();
-						break;
-					}
-					case 'forward': {
-						history.forward();
-						break;
-					}
-				}
-			});
-		</script>
-	</head>
-	<body>
-		<iframe src="${iframeUri.toString()}"></iframe>
-	</body>
-</html>`);
 	}
 
 	get currentUri(): URI {

@@ -101,6 +101,7 @@ export interface WebviewOptions {
 	readonly customClasses?: string;
 	readonly enableFindWidget?: boolean;
 	// --- Start Positron ---
+	readonly externalUri?: boolean;
 	readonly webviewFindDelegate?: WebviewFindDelegate;
 	// --- End Positron ---
 
@@ -205,6 +206,14 @@ export interface IWebview extends IDisposable {
 	 * Set the title of the webview. This is set on the webview's iframe element.
 	 */
 	setTitle(title: string): void;
+
+	// --- Start Positron ---
+	/**
+	 * Sets the URI of the webview. In order to use this, the webview must be
+	 * created with the `externalUri` option set to true.
+	 */
+	setUri(uri: URI): void;
+	// --- End Positron ---
 
 	/**
 	 * Control what content is allowed/blocked inside the webview.

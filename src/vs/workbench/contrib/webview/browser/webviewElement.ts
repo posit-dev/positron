@@ -450,6 +450,13 @@ export class WebviewElement extends Disposable implements IWebview, WebviewFindD
 
 		const queryString = new URLSearchParams(params).toString();
 
+		// --- Start Positron ---
+		if (options.externalUri) {
+			this.element!.setAttribute('src', `${this.webviewContentEndpoint(encodedWebviewOrigin)}/index-external.html?${queryString}`);
+			return;
+		}
+		// --- End Positron ---
+
 		// Workaround for https://bugzilla.mozilla.org/show_bug.cgi?id=1754872
 		const fileName = isFirefox ? 'index-no-csp.html' : 'index.html';
 
@@ -627,6 +634,12 @@ export class WebviewElement extends Disposable implements IWebview, WebviewFindD
 		this._send('set-title', title);
 	}
 
+	// --- Start Positron ---
+	public setUri(uri: URI) {
+		this.doSetUri(uri);
+	}
+	// --- End Positron ---
+
 	public set contentOptions(options: WebviewContentOptions) {
 		this._logService.debug(`Webview(${this.id}): will update content options`);
 
@@ -672,6 +685,18 @@ export class WebviewElement extends Disposable implements IWebview, WebviewFindD
 			confirmBeforeClose: this._confirmBeforeClose,
 		});
 	}
+
+	// --- Start Positron ---
+	private doSetUri(uri: URI) {
+		// Check to ensure that the webview options allow for setting external URIs
+		if (!this._options.externalUri) {
+			this._logService.error(`Webview(${this.id}): cannot set URI to ${uri.toString()} as external URIs are disabled`);
+			return;
+		}
+		this._logService.debug(`Webview(${this.id}): will update URI to ${uri.toString()}`);
+		this._send('set-uri', uri.toString());
+	}
+	// --- End Positron ---
 
 	protected style(): void {
 		let { styles, activeTheme, themeLabel, themeId } = this.webviewThemeDataProvider.getWebviewThemeData();

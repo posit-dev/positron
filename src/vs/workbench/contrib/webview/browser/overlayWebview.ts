@@ -302,6 +302,11 @@ export class OverlayWebview extends Disposable implements IOverlayWebview {
 		this._withWebview(webview => webview.setTitle(title));
 	}
 
+	// --- Start Positron ---
+	public setUri(uri: URI) {
+		this._withWebview(webview => webview.setUri(uri));
+	}
+
 	public get initialScrollProgress(): number { return this._initialScrollProgress; }
 	public set initialScrollProgress(value: number) {
 		this._initialScrollProgress = value;

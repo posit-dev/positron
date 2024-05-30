@@ -161,6 +161,7 @@ export class PositronPreviewService extends Disposable implements IPositronPrevi
 			options: {
 				enableFindWidget: true,
 				retainContextWhenHidden: true,
+				externalUri: true
 			},
 			contentOptions: {
 				allowScripts: true,
