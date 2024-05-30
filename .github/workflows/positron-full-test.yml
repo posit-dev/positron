@@ -98,7 +98,7 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           python -m pip install pandas matplotlib ipykernel
-          Rscript -e "install.packages(c('arrow'), repos='https://cran.rstudio.com/')"
+          sudo Rscript -e "install.packages(c('arrow'), repos='https://cran.rstudio.com/')"
 
       - name: Run Smoke Tests (Electron)
         env:
