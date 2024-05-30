@@ -20,7 +20,7 @@ export class PositronDataExplorer {
 
 	constructor(private code: Code) { }
 
-	async getDataExplorerTableData(expectedColumns: number, expectedRows: number): Promise<object[]> {
+	async getDataExplorerTableData(): Promise<object[]> {
 
 		await this.code.waitForElement(IDLE_STATUS);
 
