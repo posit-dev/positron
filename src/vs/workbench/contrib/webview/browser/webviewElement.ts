@@ -42,7 +42,7 @@ import { CodeWindow } from 'vs/base/browser/window';
 // --- Start Positron ---
 // eslint-disable-next-line no-duplicate-imports
 import { VSBuffer } from 'vs/base/common/buffer';
-import { WebviewFrameId } from 'vs/platform/webview/common/webviewManagerService';
+import { WebviewFrame } from 'vs/platform/webview/common/webviewManagerService';
 // --- End Positron ---
 
 interface WebviewContent {
@@ -936,7 +936,7 @@ export class WebviewElement extends Disposable implements IWebview, WebviewFindD
 	}
 
 	// --- Start Positron ---
-	public awaitFrameCreation(): Promise<WebviewFrameId> {
+	public awaitFrameCreation(): Promise<WebviewFrame> {
 		throw new Error('Method not implemented.');
 	}
 	public captureContentsAsPng(): Promise<VSBuffer | undefined> {

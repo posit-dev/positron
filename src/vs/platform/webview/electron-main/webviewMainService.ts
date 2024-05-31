@@ -16,7 +16,8 @@ import { Rectangle } from 'electron';
 import { VSBuffer } from 'vs/base/common/buffer';
 
 // eslint-disable-next-line no-duplicate-imports
-import { WebviewFrameId } from 'vs/platform/webview/common/webviewManagerService';
+import { WebviewFrame } from 'vs/platform/webview/common/webviewManagerService';
+import { ElectronWebviewFrame } from 'vs/platform/webview/electron-main/webviewFrame';
 // --- End Positron ---
 
 export class WebviewMainService extends Disposable implements IWebviewManagerService {
@@ -114,19 +115,15 @@ export class WebviewMainService extends Disposable implements IWebviewManagerSer
 		return VSBuffer.wrap(image.toPNG());
 	}
 
-	public async awaitFrameCreation(windowId: WebviewWindowId): Promise<WebviewFrameId> {
+	public async awaitFrameCreation(windowId: WebviewWindowId): Promise<WebviewFrame> {
 		const window = this.windowsMainService.getWindowById(windowId.windowId);
 		if (!window?.win) {
 			throw new Error(`Invalid windowId: ${windowId}`);
 		}
-		return new Promise<WebviewFrameId>(resolve => {
+		return new Promise<WebviewFrame>(resolve => {
 			window.win!.webContents.once('frame-created', (event, frame) => {
-				const frameId: WebviewFrameId = {
-					processId: frame.frame.processId,
-					routingId: frame.frame.routingId
-				};
-				console.log('WebviewMainService: frame created event fired. frameId: ', JSON.stringify(frameId));
-				resolve(frameId);
+				const webviewFrame = new ElectronWebviewFrame(frame.frame);
+				resolve(webviewFrame);
 			});
 		});
 	}

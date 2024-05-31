@@ -20,12 +20,17 @@ import { INotificationService } from 'vs/platform/notification/common/notificati
 import { IRemoteAuthorityResolverService } from 'vs/platform/remote/common/remoteAuthorityResolver';
 import { ITelemetryService } from 'vs/platform/telemetry/common/telemetry';
 import { ITunnelService } from 'vs/platform/tunnel/common/tunnel';
-import { FindInFrameOptions, IWebviewManagerService, WebviewFrameId } from 'vs/platform/webview/common/webviewManagerService';
+import { FindInFrameOptions, IWebviewManagerService } from 'vs/platform/webview/common/webviewManagerService';
 import { WebviewThemeDataProvider } from 'vs/workbench/contrib/webview/browser/themeing';
 import { WebviewInitInfo } from 'vs/workbench/contrib/webview/browser/webview';
 import { WebviewElement } from 'vs/workbench/contrib/webview/browser/webviewElement';
 import { WindowIgnoreMenuShortcutsManager } from 'vs/workbench/contrib/webview/electron-sandbox/windowIgnoreMenuShortcutsManager';
 import { IWorkbenchEnvironmentService } from 'vs/workbench/services/environment/common/environmentService';
+
+// --- Start Positron ---
+// eslint-disable-next-line no-duplicate-imports
+import { WebviewFrame } from 'vs/platform/webview/common/webviewManagerService';
+// --- End Positron ---
 
 /**
  * Webview backed by an iframe but that uses Electron APIs to power the webview.
@@ -178,18 +183,7 @@ export class ElectronWebviewElement extends WebviewElement {
 			{ windowId: this._nativeHostService.windowId }, bounding);
 	}
 
-	/**
-	 * Executes the given JavaScript in the webview.
-	 *
-	 * @param script The JavaScript to execute
-	 * @returns The result of executing the script
-	 */
-	public override executeJavaScript(script: string): Promise<any> {
-		return this._webviewMainService.executeJavaScript(
-			{ windowId: this._nativeHostService.windowId }, this.id, script);
-	}
-
-	public override awaitFrameCreation(): Promise<WebviewFrameId> {
+	public override awaitFrameCreation(): Promise<WebviewFrame> {
 		return this._webviewMainService.awaitFrameCreation({ windowId: this._nativeHostService.windowId });
 	}
 	// --- End Positron ---
