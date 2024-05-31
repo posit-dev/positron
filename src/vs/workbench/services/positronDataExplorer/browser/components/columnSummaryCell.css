@@ -149,7 +149,7 @@
 	font-weight: 600;
 	text-align: left;
 	grid-column: values / end;
-	grid-template-columns: [whole-number-value] min-content [fractional-value] min-content [end];
+	grid-template-columns: [whole-number-value] max-content [fractional-value] min-content [end];
 }
 
 .data-grid-row-cell
