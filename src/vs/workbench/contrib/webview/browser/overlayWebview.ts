@@ -18,6 +18,7 @@ import { IOverlayWebview, IWebview, IWebviewElement, IWebviewService, KEYBINDING
 
 // --- Start Positron ---
 import { VSBuffer } from 'vs/base/common/buffer';
+import { WebviewFrameId } from 'vs/platform/webview/common/webviewManagerService';
 // --- End Positron ---
 
 /**
@@ -432,13 +433,13 @@ export class OverlayWebview extends Disposable implements IOverlayWebview {
 	}
 
 	/**
-	 * Executes the provided script in the webview.
+	 * Executes the provided script in a frame inside the webview.
 	 *
 	 * @param script The script to execute.
 	 */
-	executeJavaScript(script: string): Promise<any> {
+	executeJavaScript(frameId: WebviewFrameId, script: string): Promise<any> {
 		if (this._webview.value) {
-			return this._webview.value.executeJavaScript(script);
+			return this._webview.value.executeJavaScript(frameId, script);
 		}
 		return Promise.resolve(undefined);
 	}

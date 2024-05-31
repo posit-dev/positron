@@ -22,6 +22,7 @@ import { Memento, MementoObject } from 'vs/workbench/common/memento';
 // --- Start Positron ---
 import { WebviewFindDelegate } from 'vs/workbench/contrib/webview/browser/webviewFindWidget';
 import { VSBuffer } from 'vs/base/common/buffer';
+import { WebviewFrameId } from 'vs/platform/webview/common/webviewManagerService';
 // --- End Positron ---
 
 /**
@@ -270,7 +271,7 @@ export interface IWebview extends IDisposable {
 	// Added keepSelection?: boolean.
 	hideFind(animated?: boolean, keepSelection?: boolean): void;
 	captureContentsAsPng(): Promise<VSBuffer | undefined>;
-	executeJavaScript(code: string): Promise<any>;
+	executeJavaScript(frameId: WebviewFrameId, code: string): Promise<any>;
 	// --- End Positron
 	runFindAction(previous: boolean): void;
 

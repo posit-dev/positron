@@ -29,7 +29,7 @@ import { IWorkbenchEnvironmentService } from 'vs/workbench/services/environment/
 
 // --- Start Positron ---
 // eslint-disable-next-line no-duplicate-imports
-import { WebviewFrame } from 'vs/platform/webview/common/webviewManagerService';
+import { WebviewFrameId } from 'vs/platform/webview/common/webviewManagerService';
 // --- End Positron ---
 
 /**
@@ -84,6 +84,12 @@ export class ElectronWebviewElement extends WebviewElement {
 				this._hasFindResult.fire(result.matches > 0);
 			}));
 		}
+
+		// --- Start Positron ---
+		this._register(this._webviewMainService.onFrameDomReady((frameId) => {
+			this._onFrameDomReady.fire(frameId);
+		}));
+		// --- End Positron ---
 	}
 
 	override dispose(): void {
@@ -183,8 +189,12 @@ export class ElectronWebviewElement extends WebviewElement {
 			{ windowId: this._nativeHostService.windowId }, bounding);
 	}
 
-	public override awaitFrameCreation(): Promise<WebviewFrame> {
+	public override awaitFrameCreation(): Promise<WebviewFrameId> {
 		return this._webviewMainService.awaitFrameCreation({ windowId: this._nativeHostService.windowId });
+	}
+
+	public override executeJavaScript(frameId: WebviewFrameId, code: string): Promise<any> {
+		return this._webviewMainService.executeJavaScript(frameId, code);
 	}
 	// --- End Positron ---
 

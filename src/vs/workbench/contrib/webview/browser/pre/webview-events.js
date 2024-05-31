@@ -7,6 +7,7 @@
  */
 const hostMessaging = {
 	postMessage: (type, data) => {
+		console.log('hej, just gonna post a ', type, ' message to the host');
 		window.postMessage({
 			channel: type,
 			data: data,
@@ -14,10 +15,13 @@ const hostMessaging = {
 	}
 };
 
+console.log('yo, i am the webview-events.js file!');
+
 /**
  * @param {MouseEvent} event
  */
 const handleInnerClick = (event) => {
+	console.log('hi! i am the handle the click');
 	if (!event?.view?.document) {
 		return;
 	}

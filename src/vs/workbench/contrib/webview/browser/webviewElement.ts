@@ -11,7 +11,7 @@ import { streamToBuffer, VSBufferReadableStream } from 'vs/base/common/buffer';
 import { CancellationTokenSource } from 'vs/base/common/cancellation';
 import { Emitter, Event } from 'vs/base/common/event';
 import { Disposable, IDisposable, toDisposable } from 'vs/base/common/lifecycle';
-import { COI } from 'vs/base/common/network';
+import { COI, FileAccess } from 'vs/base/common/network';
 import { URI } from 'vs/base/common/uri';
 import { generateUuid } from 'vs/base/common/uuid';
 import { localize } from 'vs/nls';
@@ -42,7 +42,7 @@ import { CodeWindow } from 'vs/base/browser/window';
 // --- Start Positron ---
 // eslint-disable-next-line no-duplicate-imports
 import { VSBuffer } from 'vs/base/common/buffer';
-import { WebviewFrame } from 'vs/platform/webview/common/webviewManagerService';
+import { WebviewFrameId } from 'vs/platform/webview/common/webviewManagerService';
 // --- End Positron ---
 
 interface WebviewContent {
@@ -688,7 +688,7 @@ export class WebviewElement extends Disposable implements IWebview, WebviewFindD
 	}
 
 	// --- Start Positron ---
-	private doSetUri(uri: URI) {
+	private async doSetUri(uri: URI) {
 		// Check to ensure that the webview options allow for setting external URIs
 		if (!this._options.externalUri) {
 			this._logService.error(`Webview(${this.id}): cannot set URI to ${uri.toString()} as external URIs are disabled`);
@@ -696,8 +696,22 @@ export class WebviewElement extends Disposable implements IWebview, WebviewFindD
 		}
 		this._logService.debug(`Webview(${this.id}): will update URI to ${uri.toString()}`);
 		this._send('set-uri', uri.toString());
-		this.awaitFrameCreation().then((frameId) => {
-			console.log(`Webview(${this.id}): frame was created! id = ${JSON.stringify(frameId)}`);
+		const frameId = await this.awaitFrameCreation();
+
+		// Read the contents of the 'webview-events.js' file
+		const webviewEventsJsPath = FileAccess.asFileUri('vs/workbench/contrib/webview/browser/pre/webview-events.js');
+		const webviewEvents = await this._fileService.readFile(webviewEventsJsPath);
+		this._logService.debug(`Webview(${this.id}): loaded webview-events.js (${webviewEvents.value.byteLength} bytes)`);
+		this._logService.debug(`Webview(${this.id}): frame ID: ${frameId.processId}:${frameId.routingId}`);
+		const listener = this.onFrameDomReady((eventFrame) => {
+			this._logService.debug(`Webview(${this.id}): frame ID: ${eventFrame.processId}:${eventFrame.routingId} is DOM ready`);
+			// Ensure that the frame ID matches the one we're waiting for
+			if (eventFrame.processId !== frameId.processId || eventFrame.routingId !== frameId.routingId) {
+				return;
+			}
+			this._logService.debug(`Webview(${this.id}): frame ID: ${frameId.processId}:${frameId.routingId} script execution commencing forthwith`);
+			this.executeJavaScript(frameId, webviewEvents.value.toString());
+			listener.dispose();
 		});
 	}
 	// --- End Positron ---
@@ -893,6 +907,11 @@ export class WebviewElement extends Disposable implements IWebview, WebviewFindD
 	protected readonly _onDidStopFind = this._register(new Emitter<void>());
 	public readonly onDidStopFind: Event<void> = this._onDidStopFind.event;
 
+	// --- Start Positron ---
+	protected readonly _onFrameDomReady = this._register(new Emitter<WebviewFrameId>());
+	public readonly onFrameDomReady = this._onFrameDomReady.event;
+	// --- End Positron ---
+
 	/**
 	 * Webviews expose a stateful find API.
 	 * Successive calls to find will move forward or backward through onFindResults
@@ -936,14 +955,14 @@ export class WebviewElement extends Disposable implements IWebview, WebviewFindD
 	}
 
 	// --- Start Positron ---
-	public awaitFrameCreation(): Promise<WebviewFrame> {
+	public awaitFrameCreation(): Promise<WebviewFrameId> {
 		throw new Error('Method not implemented.');
 	}
 	public captureContentsAsPng(): Promise<VSBuffer | undefined> {
 		// The default implementation doesn't support PNG screen capture
 		return Promise.resolve(undefined);
 	}
-	public executeJavaScript(code: string): Promise<any> {
+	public executeJavaScript(frameId: WebviewFrameId, code: string): Promise<any> {
 		// The default implementation doesn't support executing scripts
 		return Promise.resolve(undefined);
 	}

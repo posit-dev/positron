@@ -3,7 +3,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { WebContents, webContents, WebFrameMain } from 'electron';
+import { WebContents, webContents, webFrameMain, WebFrameMain } from 'electron';
 import { Emitter } from 'vs/base/common/event';
 import { Disposable } from 'vs/base/common/lifecycle';
 import { FindInFrameOptions, FoundInFrameResult, IWebviewManagerService, WebviewWebContentsId, WebviewWindowId } from 'vs/platform/webview/common/webviewManagerService';
@@ -16,8 +16,7 @@ import { Rectangle } from 'electron';
 import { VSBuffer } from 'vs/base/common/buffer';
 
 // eslint-disable-next-line no-duplicate-imports
-import { WebviewFrame } from 'vs/platform/webview/common/webviewManagerService';
-import { ElectronWebviewFrame } from 'vs/platform/webview/electron-main/webviewFrame';
+import { WebviewFrameId } from 'vs/platform/webview/common/webviewManagerService';
 // --- End Positron ---
 
 export class WebviewMainService extends Disposable implements IWebviewManagerService {
@@ -95,6 +94,10 @@ export class WebviewMainService extends Disposable implements IWebviewManagerSer
 	}
 
 	// --- Start Positron ---
+
+	private readonly _onDomReady = this._register(new Emitter<WebviewFrameId>());
+	public onFrameDomReady = this._onDomReady.event;
+
 	/**
 	 * Captures the contents of the webview in the given window as a PNG image.
 	 *
@@ -115,22 +118,38 @@ export class WebviewMainService extends Disposable implements IWebviewManagerSer
 		return VSBuffer.wrap(image.toPNG());
 	}
 
-	public async awaitFrameCreation(windowId: WebviewWindowId): Promise<WebviewFrame> {
+	public async awaitFrameCreation(windowId: WebviewWindowId): Promise<WebviewFrameId> {
 		const window = this.windowsMainService.getWindowById(windowId.windowId);
 		if (!window?.win) {
 			throw new Error(`Invalid windowId: ${windowId}`);
 		}
-		return new Promise<WebviewFrame>(resolve => {
-			window.win!.webContents.once('frame-created', (event, frame) => {
-				const webviewFrame = new ElectronWebviewFrame(frame.frame);
-				resolve(webviewFrame);
+		window.win!.webContents.on('frame-created', (event, frame) => {
+			console.log('frame-created', JSON.stringify(frame));
+		});
+		window.win!.webContents.on('did-frame-navigate', (event, url, httpResponseCode, httpStatusText, isMainFrame, frameProcessId, frameRoutingId) => {
+			console.log(`did-frame-navigate: ${url}, ${httpResponseCode}, ${httpStatusText}, ${isMainFrame}, ${frameProcessId}, ${frameRoutingId}`);
+		});
+		return new Promise<WebviewFrameId>(resolve => {
+			window.win!.webContents.on('did-frame-navigate', (event, url, httpResponseCode, httpStatusText, isMainFrame, frameProcessId, frameRoutingId) => {
+				if (url === 'about:blank') {
+					return;
+				}
+				const frameId: WebviewFrameId = { processId: frameProcessId, routingId: frameRoutingId };
+
+				setTimeout(() => {
+					this._onDomReady.fire(frameId);
+				}, 500);
+				resolve(frameId);
 			});
 		});
 	}
 
-	public async executeJavaScript(windowId: WebviewWindowId, frameName: string, script: string): Promise<void> {
-		const frame = this.getFrameByName(windowId, frameName);
-		frame.executeJavaScript(script);
+	public async executeJavaScript(frameId: WebviewFrameId, script: string): Promise<any> {
+		const frame = webFrameMain.fromId(frameId.processId, frameId.routingId);
+		if (!frame) {
+			throw new Error(`No frame found with frameId: ${JSON.stringify(frameId)}`);
+		}
+		return frame.executeJavaScript(script);
 	}
 	// --- End Positron ---
 
