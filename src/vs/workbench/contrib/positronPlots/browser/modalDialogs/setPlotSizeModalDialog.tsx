@@ -77,14 +77,12 @@ const SetPlotSizeModalDialog = (props: SetPlotSizeModalDialogProps) => {
 	// The accept handler.
 	const acceptHandler = () => {
 		let result: SetPlotSizeResult | undefined = undefined;
-		if (width && height && width > 0 && height > 0) {
-			result = {
-				size: {
-					width: width,
-					height: height
-				}
-			};
-		}
+		result = {
+			size: {
+				width: width,
+				height: height
+			}
+		};
 		props.renderer.dispose();
 		props.setPlotSize(result);
 	};
@@ -115,13 +113,13 @@ const SetPlotSizeModalDialog = (props: SetPlotSizeModalDialogProps) => {
 						<tr>
 							<td>
 								<LabeledTextInput label={(() => localize('positronPlotWidth', "Width"))()}
-									value={width} autoFocus={true}
-									type='number' onChange={(el) => { setWidth(el.target.valueAsNumber); }} />
+									value={width} autoFocus={true} min={100}
+									type='number' onChange={(el) => setWidth(el.target.valueAsNumber)} />
 							</td>
 							<td>
 								<LabeledTextInput label={(() => localize('positronPlotHeight', "Height"))()}
-									value={height}
-									type='number' onChange={(el) => { setHeight(el.target.valueAsNumber); }} />
+									value={height} min={100}
+									type='number' onChange={(el) => setHeight(el.target.valueAsNumber)} />
 							</td>
 						</tr>
 					</tbody>
