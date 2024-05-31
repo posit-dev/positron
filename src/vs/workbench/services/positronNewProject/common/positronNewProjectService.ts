@@ -9,7 +9,7 @@ import { ILogService } from 'vs/platform/log/common/log';
 import { IStorageService, StorageScope, StorageTarget } from 'vs/platform/storage/common/storage';
 import { IWorkspaceContextService } from 'vs/platform/workspace/common/workspace';
 import { IWorkspaceTrustManagementService } from 'vs/platform/workspace/common/workspaceTrust';
-import { CreateEnvironmentResult, IPositronNewProjectService, NewProjectConfiguration, NewProjectStartupPhase, NewProjectTask, POSITRON_NEW_PROJECT_CONFIG_STORAGE_KEY } from 'vs/workbench/services/positronNewProject/common/positronNewProject';
+import { CreateEnvironmentResult, IPositronNewProjectService, NewProjectConfiguration, NewProjectStartupPhase, NewProjectTask, NewProjectType, POSITRON_NEW_PROJECT_CONFIG_STORAGE_KEY } from 'vs/workbench/services/positronNewProject/common/positronNewProject';
 import { Event } from 'vs/base/common/event';
 import { Barrier } from 'vs/base/common/async';
 import { ILanguageRuntimeMetadata } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
@@ -79,7 +79,7 @@ export class PositronNewProjectService extends Disposable implements IPositronNe
 		// Parse the new project configuration from the storage service
 		this._newProjectConfig = this._parseNewProjectConfig();
 
-		if (!this._isCurrentWindowNewProject()) {
+		if (!this.isCurrentWindowNewProject()) {
 			// If no new project configuration is found, the new project startup
 			// is complete
 			this.allTasksComplete.open();
@@ -100,7 +100,7 @@ export class PositronNewProjectService extends Disposable implements IPositronNe
 		this._register(
 			this.onDidChangePendingTasks((tasks) => {
 				this._logService.debug(
-					`[New project startup] Pending tasks changed to ${tasks}`
+					`[New project startup] Pending tasks changed to: ${tasks}`
 				);
 				// If there are no pending tasks, the new project startup is complete
 				if (tasks.size === 0) {
@@ -134,21 +134,6 @@ export class PositronNewProjectService extends Disposable implements IPositronNe
 	}
 
 	/**
-	 * Determines whether the current window the new project that was just created.
-	 * @returns Whether the current window is the newly created project.
-	 */
-	private _isCurrentWindowNewProject() {
-		// There is no new project configuration, so a new project was not created.
-		if (!this._newProjectConfig) {
-			return false;
-		}
-		const newProjectPath = this._newProjectConfig.projectFolder;
-		const currentFolderPath =
-			this._contextService.getWorkspace().folders[0]?.uri.fsPath;
-		return newProjectPath === currentFolderPath;
-	}
-
-	/**
 	 * Runs the tasks for the new project. This function assumes that we've already checked that the
 	 * current window is the new project that was just created.
 	 */
@@ -176,21 +161,52 @@ export class PositronNewProjectService extends Disposable implements IPositronNe
 	 * Runs tasks that require the extension service to be ready.
 	 */
 	private async _runExtensionTasks() {
-		if (this.pendingTasks.has(NewProjectTask.Python)) {
-			await this._runPythonTasks();
+		// TODO: it would be nice to run these tasks in parallel!
+
+		// First, create the new empty file since this is a quick task.
+		if (this.pendingTasks.has(NewProjectTask.CreateNewFile)) {
+			await this._runCreateNewFile();
 		}
 
-		if (this.pendingTasks.has(NewProjectTask.Jupyter)) {
-			await this._runJupyterTasks();
-		}
-
-		if (this.pendingTasks.has(NewProjectTask.R)) {
-			await this._runRTasks();
-		}
-
+		// Next, run git init if needed.
 		if (this.pendingTasks.has(NewProjectTask.Git)) {
 			await this._runGitInit();
 		}
+
+		// Next, run language-specific tasks which may take a bit more time.
+		if (this.pendingTasks.has(NewProjectTask.Python)) {
+			await this._runPythonTasks();
+		}
+		if (this.pendingTasks.has(NewProjectTask.Jupyter)) {
+			await this._runJupyterTasks();
+		}
+		if (this.pendingTasks.has(NewProjectTask.R)) {
+			await this._runRTasks();
+		}
+	}
+
+	/**
+	 * Runs the appropriate command to create a new file based on the project type.
+	 */
+	private async _runCreateNewFile() {
+		switch (this._newProjectConfig?.projectType) {
+			case NewProjectType.PythonProject:
+				await this._commandService.executeCommand('python.createNewFile');
+				break;
+			case NewProjectType.RProject:
+				await this._commandService.executeCommand('r.createNewFile');
+				break;
+			case NewProjectType.JupyterNotebook:
+				await this._commandService.executeCommand('ipynb.newUntitledIpynb');
+				break;
+			default:
+				this._logService.error(
+					'Cannot determine new file command for unknown project type',
+					this._newProjectConfig?.projectType
+				);
+				break;
+		}
+		this._removePendingTask(NewProjectTask.CreateNewFile);
 	}
 
 	/**
@@ -198,9 +214,6 @@ export class PositronNewProjectService extends Disposable implements IPositronNe
 	 * Relies on extension ms-python.python
 	 */
 	private async _runPythonTasks() {
-		// Create a new Python file
-		await this._commandService.executeCommand('python.createNewFile');
-
 		// Create the Python environment
 		if (this.pendingTasks.has(NewProjectTask.PythonEnvironment)) {
 			await this._createPythonEnvironment();
@@ -215,9 +228,6 @@ export class PositronNewProjectService extends Disposable implements IPositronNe
 	 * Relies on extension vscode.ipynb
 	 */
 	private async _runJupyterTasks() {
-		// Create a new untitled Jupyter notebook
-		await this._commandService.executeCommand('ipynb.newUntitledIpynb');
-
 		// Create the Python environment
 		// For now, Jupyter notebooks are always Python based. In the future, we'll need to surface
 		// some UI in the Project Wizard for the user to select the language/kernel and pass that
@@ -235,9 +245,6 @@ export class PositronNewProjectService extends Disposable implements IPositronNe
 	 * Relies on extension vscode.positron-r
 	 */
 	private async _runRTasks() {
-		// Create a new R file
-		await this._commandService.executeCommand('r.createNewFile');
-
 		// Create the R environment
 		if (this.pendingTasks.has(NewProjectTask.REnvironment)) {
 			await this._createREnvironment();
@@ -247,6 +254,10 @@ export class PositronNewProjectService extends Disposable implements IPositronNe
 		this._removePendingTask(NewProjectTask.R);
 	}
 
+	/**
+	 * Displays an error notification if there was an error creating the .gitignore file.
+	 * @param error The error that occurred.
+	 */
 	private _handleGitIgnoreError(error: Error) {
 		const errorMessage = localize('positronNewProjectService.gitIgnoreError', 'Error creating .gitignore {0}', error.message);
 		this._notificationService.error(errorMessage);
@@ -258,52 +269,45 @@ export class PositronNewProjectService extends Disposable implements IPositronNe
 	 */
 	private async _runGitInit() {
 		const projectRoot = URI.file(this._newProjectConfig?.projectFolder!);
-		const gitInitTask = new Promise(() => {
-			// true to skip the folder prompt
-			this._commandService.executeCommand('git.init', true)
-				.catch((error) => {
-					const errorMessage = localize('positronNewProjectService.gitInitError', 'Error initializing git repository {0}', error);
-					this._notificationService.error(errorMessage);
-				});
-		});
-		const readmeTask = new Promise(() => {
-			this._fileService.createFile(joinPath(projectRoot, 'README.md'), VSBuffer.fromString(`# ${this._newProjectConfig?.projectName}`))
-				.catch((error) => {
-					this._handleGitIgnoreError(error);
-				});
-		});
-		const tasks = [gitInitTask, readmeTask];
 
-		// TODO: use enum values instead of strings
+		// true to skip the folder prompt
+		await this._commandService.executeCommand('git.init', true)
+			.catch((error) => {
+				const errorMessage = localize('positronNewProjectService.gitInitError', 'Error initializing git repository {0}', error);
+				this._notificationService.error(errorMessage);
+			});
+		await this._fileService.createFile(joinPath(projectRoot, 'README.md'), VSBuffer.fromString(`# ${this._newProjectConfig?.projectName}`))
+			.catch((error) => {
+				const errorMessage = localize('positronNewProjectService.readmeError', 'Error creating readme {0}', error);
+				this._notificationService.error(errorMessage);
+			});
+
 		switch (this._newProjectConfig?.projectType) {
-			case 'Python Project':
-				tasks.push(new Promise(() => {
-					this._fileService.createFile(joinPath(projectRoot, '.gitignore'), VSBuffer.fromString(DOT_IGNORE_PYTHON))
-						.catch((error) => {
-							this._handleGitIgnoreError(error);
-						});
-				}));
+			case NewProjectType.PythonProject:
+				await this._fileService.createFile(joinPath(projectRoot, '.gitignore'), VSBuffer.fromString(DOT_IGNORE_PYTHON))
+					.catch((error) => {
+						this._handleGitIgnoreError(error);
+					});
 				break;
-			case 'R Project':
-				tasks.push(new Promise(() => {
-					this._fileService.createFile(joinPath(projectRoot, '.gitignore'), VSBuffer.fromString(DOT_IGNORE_R))
-						.catch((error) => {
-							this._handleGitIgnoreError(error);
-						});
-				}));
+			case NewProjectType.RProject:
+				await this._fileService.createFile(joinPath(projectRoot, '.gitignore'), VSBuffer.fromString(DOT_IGNORE_R))
+					.catch((error) => {
+						this._handleGitIgnoreError(error);
+					});
 				break;
-			case 'Jupyter Notebook':
-				tasks.push(new Promise(() => {
-					this._fileService.createFile(joinPath(projectRoot, '.gitignore'), VSBuffer.fromString(DOT_IGNORE_JUPYTER))
-						.catch((error) => {
-							this._handleGitIgnoreError(error);
-						});
-				}));
+			case NewProjectType.JupyterNotebook:
+				await this._fileService.createFile(joinPath(projectRoot, '.gitignore'), VSBuffer.fromString(DOT_IGNORE_JUPYTER))
+					.catch((error) => {
+						this._handleGitIgnoreError(error);
+					});
 				break;
 			default:
+				this._logService.error(
+					'Cannot determine .gitignore content for unknown project type',
+					this._newProjectConfig?.projectType
+				);
+				break;
 		}
-
-		await Promise.allSettled(tasks);
 
 		this._removePendingTask(NewProjectTask.Git);
 	}
@@ -352,6 +356,10 @@ export class PositronNewProjectService extends Disposable implements IPositronNe
 							workspaceFolder,
 							providerId: provider,
 							interpreterPath,
+							// Do not start the environment after creation. We'll install ipykernel
+							// first, then set the environment as the affiliated runtime, which will
+							// be automatically started by the runtimeStartupService.
+							selectEnvironment: false
 						}
 					);
 
@@ -414,15 +422,18 @@ export class PositronNewProjectService extends Disposable implements IPositronNe
 						pythonPath: result.path,
 					},
 				} satisfies ILanguageRuntimeMetadata;
+
+				this._removePendingTask(NewProjectTask.PythonEnvironment);
+				return;
 			}
 		} else {
 			// This shouldn't occur.
 			const message = this._failedPythonEnvMessage('Could not determine runtime metadata for new project.');
 			this._logService.error(message);
 			this._notificationService.warn(message);
+			this._removePendingTask(NewProjectTask.PythonEnvironment);
 			return;
 		}
-		this._removePendingTask(NewProjectTask.PythonEnvironment);
 	}
 
 	/**
@@ -480,16 +491,25 @@ export class PositronNewProjectService extends Disposable implements IPositronNe
 		}
 
 		const tasks = new Set<NewProjectTask>();
-		// TODO: use enum values instead of strings
 		switch (this._newProjectConfig.projectType) {
-			case 'Python Project':
+			case NewProjectType.PythonProject:
 				tasks.add(NewProjectTask.Python);
+				if (this._newProjectConfig.pythonEnvProviderId) {
+					tasks.add(NewProjectTask.PythonEnvironment);
+				}
 				break;
-			case 'Jupyter Notebook':
+			case NewProjectType.JupyterNotebook:
 				tasks.add(NewProjectTask.Jupyter);
+				// For now, Jupyter notebooks are always Python based.
+				if (this._newProjectConfig.pythonEnvProviderId) {
+					tasks.add(NewProjectTask.PythonEnvironment);
+				}
 				break;
-			case 'R Project':
+			case NewProjectType.RProject:
 				tasks.add(NewProjectTask.R);
+				if (this._newProjectConfig.useRenv) {
+					tasks.add(NewProjectTask.REnvironment);
+				}
 				break;
 			default:
 				this._logService.error(
@@ -503,13 +523,9 @@ export class PositronNewProjectService extends Disposable implements IPositronNe
 			tasks.add(NewProjectTask.Git);
 		}
 
-		if (this._newProjectConfig.pythonEnvProviderId) {
-			tasks.add(NewProjectTask.PythonEnvironment);
-		}
-
-		if (this._newProjectConfig.useRenv) {
-			tasks.add(NewProjectTask.REnvironment);
-		}
+		// Always create a new file in the new project. This may be controlled by a project config
+		// setting in the future.
+		tasks.add(NewProjectTask.CreateNewFile);
 
 		return tasks;
 	}
@@ -518,8 +534,19 @@ export class PositronNewProjectService extends Disposable implements IPositronNe
 
 	//#region Public Methods
 
+	isCurrentWindowNewProject() {
+		// There is no new project configuration, so a new project was not created.
+		if (!this._newProjectConfig) {
+			return false;
+		}
+		const newProjectPath = this._newProjectConfig.projectFolder;
+		const currentFolderPath =
+			this._contextService.getWorkspace().folders[0]?.uri.fsPath;
+		return newProjectPath === currentFolderPath;
+	}
+
 	async initNewProject() {
-		if (!this._isCurrentWindowNewProject()) {
+		if (!this.isCurrentWindowNewProject()) {
 			return;
 		}
 		if (this._newProjectConfig) {

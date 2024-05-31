@@ -53,14 +53,15 @@ export const DataGridColumnHeader = (props: DataGridColumnHeaderProps) => {
 	/**
 	 * onMouseDown handler.
 	 * @param e A MouseEvent<HTMLElement> that describes a user interaction with the mouse.
+	 * @returns A Promise<void> that resolves when the operation is complete.
 	 */
-	const mouseDownHandler = (e: MouseEvent<HTMLElement>) => {
+	const mouseDownHandler = async (e: MouseEvent<HTMLElement>) => {
 		// Consume the event.
 		e.preventDefault();
 		e.stopPropagation();
 
 		// Mouse select the column.
-		context.instance.mouseSelectColumn(props.columnIndex, selectionType(e));
+		await context.instance.mouseSelectColumn(props.columnIndex, selectionType(e));
 	};
 
 	/**
@@ -84,7 +85,7 @@ export const DataGridColumnHeader = (props: DataGridColumnHeaderProps) => {
 					checked: columnSortKey !== undefined && columnSortKey.ascending,
 					label: sortAscendingTitle,
 					icon: 'arrow-up',
-					onSelected: async () => context.instance.setColumnSortKey(
+					onSelected: async () => await context.instance.setColumnSortKey(
 						props.columnIndex,
 						true
 					)
@@ -93,7 +94,7 @@ export const DataGridColumnHeader = (props: DataGridColumnHeaderProps) => {
 					checked: columnSortKey !== undefined && !columnSortKey.ascending,
 					label: sortDescendingTitle,
 					icon: 'arrow-down',
-					onSelected: async () => context.instance.setColumnSortKey(
+					onSelected: async () => await context.instance.setColumnSortKey(
 						props.columnIndex,
 						false
 					)
@@ -105,7 +106,7 @@ export const DataGridColumnHeader = (props: DataGridColumnHeaderProps) => {
 					disabled: !columnSortKey,
 					icon: 'positron-clear-sorting',
 					onSelected: async () =>
-						context.instance.removeColumnSortKey(props.columnIndex)
+						await context.instance.removeColumnSortKey(props.columnIndex)
 				}),
 				...context.instance.columnContextMenuEntries(props.columnIndex)
 			]
@@ -179,8 +180,8 @@ export const DataGridColumnHeader = (props: DataGridColumnHeaderProps) => {
 						maximumWidth: 400,
 						startingWidth: context.instance.getColumnWidth(props.columnIndex)
 					})}
-					onResize={width =>
-						context.instance.setColumnWidth(props.columnIndex, width)
+					onResize={async width =>
+						await context.instance.setColumnWidth(props.columnIndex, width)
 					}
 				/>
 			}

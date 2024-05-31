@@ -74,8 +74,8 @@ export const ColumnSelectorModalPopup = (props: ColumnSelectorModalPopupProps) =
 			<div className='column-selector'>
 				<div className='search'>
 					<ColumnSearch
-						onSearchTextChanged={searchText => {
-							props.columnSelectorDataGridInstance.setSearchText(
+						onSearchTextChanged={async searchText => {
+							await props.columnSelectorDataGridInstance.setSearchText(
 								searchText !== '' ? searchText : undefined
 							);
 						}}

@@ -83,8 +83,17 @@ export const DataGridWaffle = forwardRef<HTMLDivElement>((_: unknown, ref) => {
 		setWidth(dataGridWaffleRef.current.offsetWidth);
 		setHeight(dataGridWaffleRef.current.offsetHeight);
 
+		/**
+		 * Sets the screen size.
+		 * @returns A Promise<void> that resolves when the operation is complete.
+		 */
+		const setScreenSize = async (width: number, height: number) => {
+			// Set the screen size.
+			await context.instance.setScreenSize(width, height);
+		};
+
 		// Set the initial screen size.
-		context.instance.setScreenSize(
+		setScreenSize(
 			dataGridWaffleRef.current.offsetWidth,
 			dataGridWaffleRef.current.offsetHeight
 		);
@@ -95,13 +104,13 @@ export const DataGridWaffle = forwardRef<HTMLDivElement>((_: unknown, ref) => {
 		}
 
 		// Allocate and initialize the waffle resize observer.
-		const resizeObserver = new ResizeObserver(entries => {
+		const resizeObserver = new ResizeObserver(async entries => {
 			// Set the width and height.
 			setWidth(entries[0].contentRect.width);
 			setHeight(entries[0].contentRect.height);
 
 			// Set the screen size.
-			context.instance.setScreenSize(
+			await setScreenSize(
 				entries[0].contentRect.width,
 				entries[0].contentRect.height
 			);
@@ -185,14 +194,14 @@ export const DataGridWaffle = forwardRef<HTMLDivElement>((_: unknown, ref) => {
 				// top left.
 				if (isMacintosh ? e.metaKey : e.ctrlKey) {
 					context.instance.clearSelection();
-					context.instance.setScreenPosition(0, 0);
+					await context.instance.setScreenPosition(0, 0);
 					context.instance.setCursorPosition(0, 0);
 					return;
 				}
 
 				// Home clears the selection and positions the screen and cursor to the left.
 				context.instance.clearSelection();
-				context.instance.setFirstColumn(0);
+				await context.instance.setFirstColumn(0);
 				context.instance.setCursorColumn(0);
 				break;
 			}
@@ -222,7 +231,7 @@ export const DataGridWaffle = forwardRef<HTMLDivElement>((_: unknown, ref) => {
 				// bottom right.
 				if (isMacintosh ? e.metaKey : e.ctrlKey) {
 					context.instance.clearSelection();
-					context.instance.setScreenPosition(
+					await context.instance.setScreenPosition(
 						context.instance.maximumFirstColumnIndex,
 						context.instance.maximumFirstRowIndex
 					);
@@ -235,7 +244,7 @@ export const DataGridWaffle = forwardRef<HTMLDivElement>((_: unknown, ref) => {
 
 				// End clears the selection and positions the screen and cursor to the left.
 				context.instance.clearSelection();
-				context.instance.setFirstColumn(context.instance.maximumFirstColumnIndex);
+				await context.instance.setFirstColumn(context.instance.maximumFirstColumnIndex);
 				context.instance.setCursorColumn(context.instance.columns - 1);
 				break;
 			}
@@ -268,7 +277,7 @@ export const DataGridWaffle = forwardRef<HTMLDivElement>((_: unknown, ref) => {
 					context.instance.firstRowIndex - (e.altKey ? context.instance.visibleRows * 10 : context.instance.visibleRows),
 					0
 				);
-				context.instance.setFirstRow(firstRowIndex);
+				await context.instance.setFirstRow(firstRowIndex);
 				context.instance.setCursorRow(firstRowIndex);
 				break;
 			}
@@ -301,7 +310,7 @@ export const DataGridWaffle = forwardRef<HTMLDivElement>((_: unknown, ref) => {
 					context.instance.firstRowIndex + (e.altKey ? context.instance.visibleRows * 10 : context.instance.visibleRows),
 					context.instance.maximumFirstRowIndex
 				);
-				context.instance.setFirstRow(firstRowIndex);
+				await context.instance.setFirstRow(firstRowIndex);
 				context.instance.setCursorRow(firstRowIndex);
 				break;
 			}
@@ -452,8 +461,9 @@ export const DataGridWaffle = forwardRef<HTMLDivElement>((_: unknown, ref) => {
 	/**
 	 * onWheel event handler.
 	 * @param e A WheelEvent<HTMLDivElement> that describes a user interaction with the mouse wheel.
+	 * @returns A Promise<void> that resolves when the operation is complete.
 	 */
-	const wheelHandler = (e: WheelEvent<HTMLDivElement>) => {
+	const wheelHandler = async (e: WheelEvent<HTMLDivElement>) => {
 		// Record the last wheel event.
 		setLastWheelEvent(e.timeStamp);
 
@@ -480,7 +490,7 @@ export const DataGridWaffle = forwardRef<HTMLDivElement>((_: unknown, ref) => {
 			if (!rowsToScroll) {
 				setWheelDeltaY(adjustedWheelDeltaY);
 			} else {
-				context.instance.setFirstRow(pinToRange(
+				await context.instance.setFirstRow(pinToRange(
 					context.instance.firstRowIndex + rowsToScroll,
 					0,
 					context.instance.maximumFirstRowIndex
@@ -494,7 +504,7 @@ export const DataGridWaffle = forwardRef<HTMLDivElement>((_: unknown, ref) => {
 			// Determine whether there's enough delta X to scroll one or more columns.
 			const columnsToScroll = Math.trunc(adjustedWheelDeltaX / MOUSE_WHEEL_SENSITIVITY);
 			if (columnsToScroll) {
-				context.instance.setFirstColumn(pinToRange(
+				await context.instance.setFirstColumn(pinToRange(
 					context.instance.firstColumnIndex + columnsToScroll,
 					0,
 					context.instance.maximumFirstColumnIndex
@@ -540,8 +550,8 @@ export const DataGridWaffle = forwardRef<HTMLDivElement>((_: unknown, ref) => {
 		>
 			{context.instance.columnHeaders && context.instance.rowHeaders &&
 				<DataGridCornerTopLeft
-					onClick={() => {
-						context.instance.setScreenPosition(0, 0);
+					onClick={async () => {
+						await context.instance.setScreenPosition(0, 0);
 					}}
 				/>
 			}
@@ -573,8 +583,8 @@ export const DataGridWaffle = forwardRef<HTMLDivElement>((_: unknown, ref) => {
 					visibleEntries={context.instance.visibleColumns}
 					firstEntry={context.instance.firstColumnIndex}
 					maximumFirstEntry={context.instance.maximumFirstColumnIndex}
-					onDidChangeFirstEntry={firstColumnIndex =>
-						context.instance.setFirstColumn(firstColumnIndex)
+					onDidChangeFirstEntry={async firstColumnIndex =>
+						await context.instance.setFirstColumn(firstColumnIndex)
 					}
 				/>
 			}
@@ -593,16 +603,16 @@ export const DataGridWaffle = forwardRef<HTMLDivElement>((_: unknown, ref) => {
 					visibleEntries={context.instance.visibleRows}
 					firstEntry={context.instance.firstRowIndex}
 					maximumFirstEntry={context.instance.maximumFirstRowIndex}
-					onDidChangeFirstEntry={firstRowIndex =>
-						context.instance.setFirstRow(firstRowIndex)
+					onDidChangeFirstEntry={async firstRowIndex =>
+						await context.instance.setFirstRow(firstRowIndex)
 					}
 				/>
 			}
 
 			{context.instance.horizontalScrollbar && context.instance.verticalScrollbar &&
 				<DataGridScrollbarCorner
-					onClick={() => {
-						context.instance.setScreenPosition(
+					onClick={async () => {
+						await context.instance.setScreenPosition(
 							context.instance.maximumFirstColumnIndex,
 							context.instance.maximumFirstRowIndex
 						);
