@@ -18,7 +18,6 @@ import { DataExplorerClientInstance } from 'vs/workbench/services/languageRuntim
 import { TableSummaryDataGridInstance } from 'vs/workbench/services/positronDataExplorer/browser/tableSummaryDataGridInstance';
 import { PositronDataExplorerLayout } from 'vs/workbench/services/positronDataExplorer/browser/interfaces/positronDataExplorerService';
 import { IPositronDataExplorerInstance } from 'vs/workbench/services/positronDataExplorer/browser/interfaces/positronDataExplorerInstance';
-import { ClipboardCell, ClipboardCellRange, ClipboardColumnIndexes, ClipboardColumnRange, ClipboardRowIndexes, ClipboardRowRange } from 'vs/workbench/browser/positronDataGrid/classes/dataGridInstance';
 
 /**
  * PositronDataExplorerInstance class.
@@ -239,42 +238,15 @@ export class PositronDataExplorerInstance extends Disposable implements IPositro
 			return;
 		}
 
-		// Temporary output. This code will be moved to the data explorer cache layer.
-		switch (clipboardData.constructor) {
-			case ClipboardCell:
-				console.log('ClipboardCell clipboard data');
-				break;
-
-			case ClipboardCellRange:
-				console.log('ClipboardCellRange clipboard data');
-				break;
-
-			case ClipboardColumnRange:
-				console.log('ClipboardColumnRange clipboard data');
-				break;
-
-			case ClipboardColumnIndexes:
-				console.log('ClipboardColumnIndexes clipboard data');
-				break;
-
-			case ClipboardRowRange:
-				console.log('ClipboardRowRange clipboard data');
-				break;
-
-			case ClipboardRowIndexes:
-				console.log('ClipboardRowIndexes clipboard data');
-				break;
-
-			default:
-				notifyUser();
-				break;
+		// Copy the clipboard data.
+		const text = await this._tableDataDataGridInstance.copyClipboardData(clipboardData);
+		if (!text) {
+			notifyUser();
+			return;
 		}
 
-		// Get the clipboard data from the data explorer cache.
-		// const clipboardData = await this._dataExplorerCache.getClipboardData(clipboardRange);
-
 		// Write the clipboard data to the clipboard.
-		this._clipboardService.writeText('Column 1\tColumn 2\tColumn 3\r\n1\t2\t3\r\n4\t5\t6\r\n7\t8\t9');
+		this._clipboardService.writeText(text);
 	}
 
 	/**

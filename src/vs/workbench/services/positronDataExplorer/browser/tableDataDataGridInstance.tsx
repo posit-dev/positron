@@ -18,11 +18,11 @@ import { showCustomContextMenu } from 'vs/workbench/browser/positronComponents/c
 import { TableDataRowHeader } from 'vs/workbench/services/positronDataExplorer/browser/components/tableDataRowHeader';
 import { CustomContextMenuItem } from 'vs/workbench/browser/positronComponents/customContextMenu/customContextMenuItem';
 import { PositronDataExplorerColumn } from 'vs/workbench/services/positronDataExplorer/browser/positronDataExplorerColumn';
-import { ColumnSortKeyDescriptor, DataGridInstance } from 'vs/workbench/browser/positronDataGrid/classes/dataGridInstance';
 import { DataExplorerClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimeDataExplorerClient';
-import { BackendState, ColumnSchema, RowFilter } from 'vs/workbench/services/languageRuntime/common/positronDataExplorerComm';
 import { CustomContextMenuSeparator } from 'vs/workbench/browser/positronComponents/customContextMenu/customContextMenuSeparator';
 import { PositronDataExplorerCommandId } from 'vs/workbench/contrib/positronDataExplorerEditor/browser/positronDataExplorerActions';
+import { ClipboardCell, ClipboardCellRange, ClipboardColumnIndexes, ClipboardColumnRange, ClipboardData, ClipboardRowIndexes, ClipboardRowRange, ColumnSortKeyDescriptor, DataGridInstance } from 'vs/workbench/browser/positronDataGrid/classes/dataGridInstance';
+import { BackendState, ColumnSchema, DataSelection, DataSelectionCellRange, DataSelectionIndices, DataSelectionKind, DataSelectionRange, DataSelectionSingleCell, ExportFormat, RowFilter } from 'vs/workbench/services/languageRuntime/common/positronDataExplorerComm';
 
 /**
  * Localized strings.
@@ -354,6 +354,83 @@ export class TableDataDataGridInstance extends DataGridInstance {
 	readonly onAddFilter = this._onAddFilterEmitter.event;
 
 	//#region Public Methods
+
+	/**
+	 * Copies the specified clipboard data.
+	 * @param clipboardData The clipboard data to copy.
+	 * @returns The clipboard data, or undefined, if it could not be copied.
+	 */
+	async copyClipboardData(clipboardData: ClipboardData): Promise<string | undefined> {
+		// Construct the data selection based on the clipboard data.
+		let dataSelection: DataSelection;
+		if (clipboardData instanceof ClipboardCell) {
+			const selection: DataSelectionSingleCell = {
+				column_index: clipboardData.columnIndex,
+				row_index: clipboardData.rowIndex,
+			};
+			dataSelection = {
+				kind: DataSelectionKind.SingleCell,
+				selection
+			};
+		} else if (clipboardData instanceof ClipboardCellRange) {
+			const selection: DataSelectionCellRange = {
+				first_column_index: clipboardData.firstColumnIndex,
+				first_row_index: clipboardData.firstRowIndex,
+				last_column_index: clipboardData.lastColumnIndex,
+				last_row_index: clipboardData.lastRowIndex,
+			};
+			dataSelection = {
+				kind: DataSelectionKind.CellRange,
+				selection
+			};
+		} else if (clipboardData instanceof ClipboardColumnRange) {
+			const selection: DataSelectionRange = {
+				first_index: clipboardData.firstColumnIndex,
+				last_index: clipboardData.lastColumnIndex
+			};
+			dataSelection = {
+				kind: DataSelectionKind.ColumnRange,
+				selection
+			};
+		} else if (clipboardData instanceof ClipboardColumnIndexes) {
+			const selection: DataSelectionIndices = {
+				indices: clipboardData.indexes
+			};
+			dataSelection = {
+				kind: DataSelectionKind.ColumnIndices,
+				selection
+			};
+		} else if (clipboardData instanceof ClipboardRowRange) {
+			const selection: DataSelectionRange = {
+				first_index: clipboardData.firstRowIndex,
+				last_index: clipboardData.lastRowIndex
+			};
+			dataSelection = {
+				kind: DataSelectionKind.RowRange,
+				selection
+			};
+		} else if (clipboardData instanceof ClipboardRowIndexes) {
+			const selection: DataSelectionIndices = {
+				indices: clipboardData.indexes
+			};
+			dataSelection = {
+				kind: DataSelectionKind.RowIndices,
+				selection
+			};
+		} else {
+			// This indicates a bug.
+			return undefined;
+		}
+
+		// Export the data selection.
+		const exportedData = await this._dataExplorerClientInstance.exportDataSelection(
+			dataSelection,
+			ExportFormat.Tsv
+		);
+
+		// If successful, return the exported data; otherwise, return undefined.
+		return exportedData.data ?? undefined;
+	}
 
 	/**
 	 * Sets row filters.

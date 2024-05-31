@@ -5,7 +5,7 @@
 import { Emitter } from 'vs/base/common/event';
 import { Disposable } from 'vs/base/common/lifecycle';
 import { IRuntimeClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimeClientInstance';
-import { BackendState, ColumnProfileRequest, ColumnProfileResult, ColumnSchema, ColumnSortKey, FilterResult, FormatOptions, PositronDataExplorerComm, RowFilter, SchemaUpdateEvent, TableData, TableSchema } from 'vs/workbench/services/languageRuntime/common/positronDataExplorerComm';
+import { BackendState, ColumnProfileRequest, ColumnProfileResult, ColumnSchema, ColumnSortKey, DataSelection, ExportedData, ExportFormat, FilterResult, FormatOptions, PositronDataExplorerComm, RowFilter, SchemaUpdateEvent, TableData, TableSchema } from 'vs/workbench/services/languageRuntime/common/positronDataExplorerComm';
 
 /**
  * TableSchemaSearchResult interface. This is here temporarily until searching the tabe schema
@@ -317,6 +317,29 @@ export class DataExplorerClientInstance extends Disposable {
 		return this.runBackendTask(
 			() => this._positronDataExplorerComm.getColumnProfiles(profiles, this._profileFormatOptions),
 			() => []
+		);
+	}
+
+	/**
+	 * Export data selection as a string in different formats
+	 *
+	 * Export data selection as a string in different formats like CSV, TSV,
+	 * HTML
+	 *
+	 * @param selection The data selection
+	 * @param format Result string format
+	 *
+	 * @returns Exported result
+	 */
+	async exportDataSelection(selection: DataSelection, format: ExportFormat): Promise<ExportedData> {
+		return this.runBackendTask(
+			() => this._positronDataExplorerComm.exportDataSelection(selection, format),
+			() => {
+				return {
+					data: '',
+					format
+				};
+			}
 		);
 	}
 

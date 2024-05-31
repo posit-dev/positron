@@ -279,6 +279,17 @@ export class ClipboardRowIndexes {
 }
 
 /**
+ * ClipboardData type.
+ */
+export type ClipboardData =
+	ClipboardCell |
+	ClipboardCellRange |
+	ClipboardColumnRange |
+	ClipboardColumnIndexes |
+	ClipboardRowRange |
+	ClipboardRowIndexes;
+
+/**
  * ColumnSortKeyDescriptor class.
  *
  * "Descriptor" added to disambiguate from ColumnSortKey in generated comm.
@@ -2077,9 +2088,9 @@ export abstract class DataGridInstance extends Disposable {
 
 	/**
 	 * Gets the clipboard data.
-	 * @returns The clipboard data.
+	 * @returns The clipboard data, if it's available; otherwise, undefined.
 	 */
-	getClipboardData() {
+	getClipboardData(): ClipboardData | undefined {
 		// Cell selection range.
 		if (this._cellSelectionRange) {
 			return new ClipboardCellRange(
@@ -2094,7 +2105,7 @@ export abstract class DataGridInstance extends Disposable {
 		if (this._columnSelectionRange) {
 			return new ClipboardColumnRange(
 				this._columnSelectionRange.firstColumnIndex,
-				this._columnSelectionRange.firstColumnIndex
+				this._columnSelectionRange.lastColumnIndex
 			);
 		}
 
@@ -2109,7 +2120,7 @@ export abstract class DataGridInstance extends Disposable {
 		if (this._rowSelectionRange) {
 			return new ClipboardRowRange(
 				this._rowSelectionRange.firstRowIndex,
-				this._rowSelectionRange.firstRowIndex
+				this._rowSelectionRange.lastRowIndex
 			);
 		}
 
