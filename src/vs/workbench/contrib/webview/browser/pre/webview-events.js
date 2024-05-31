@@ -7,7 +7,6 @@
  */
 const hostMessaging = {
 	postMessage: (type, data) => {
-		console.log('hej, just gonna post a ', type, ' message to the host');
 		window.parent.postMessage({
 			channel: type,
 			data: data,
@@ -15,13 +14,10 @@ const hostMessaging = {
 	}
 };
 
-console.log('yo, i am the webview-events.js file!');
-
 /**
  * @param {MouseEvent} event
  */
 const handleInnerClick = (event) => {
-	console.log('hi! i am the handle the click');
 	if (!event?.view?.document) {
 		return;
 	}
@@ -94,23 +90,9 @@ const handleInnerKeydown = (e) => {
 	// make sure we block the browser from dispatching it. Instead VS Code
 	// handles these events and will dispatch a copy/paste back to the webview
 	// if needed
-	if (isUndoRedo(e) || isPrint(e) || isFindEvent(e) || isSaveEvent(e)) {
-		e.preventDefault();
-	} else if (isCopyPasteOrCut(e)) {
-		if (onElectron) {
-			e.preventDefault();
-		} else {
-			return; // let the browser handle this
-		}
-	} else if (
-		!onElectron &&
-		(isCloseTab(e) || isNewWindow(e) || isHelp(e) || isRefresh(e))
-	) {
-		// Prevent Ctrl+W closing window / Ctrl+N opening new window in PWA.
-		// (No effect in a regular browser tab.)
+	if (isUndoRedo(e) || isPrint(e) || isFindEvent(e) || isSaveEvent(e) || isCopyPasteOrCut(e)) {
 		e.preventDefault();
 	}
-
 	hostMessaging.postMessage('did-keydown', {
 		key: e.key,
 		keyCode: e.keyCode,
@@ -351,13 +333,10 @@ window.addEventListener('contextmenu', (e) => {
 		el = el.parentElement;
 	}
 
-	window.postMessage({
-		channel: 'did-context-menu',
-		data: {
-			clientX: e.clientX,
-			clientY: e.clientY,
-			context: context,
-		}
+	hostMessaging.postMessage('did-context-menu', {
+		clientX: e.clientX,
+		clientY: e.clientY,
+		context: context,
 	});
 });
 
