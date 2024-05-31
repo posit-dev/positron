@@ -10,7 +10,7 @@ import { InstantiationType, registerSingleton } from 'vs/platform/instantiation/
 import { IWorkbenchContribution, WorkbenchPhase, registerWorkbenchContribution2 } from 'vs/workbench/common/contributions';
 import { ILifecycleService, LifecyclePhase, StartupKind } from 'vs/workbench/services/lifecycle/common/lifecycle';
 import { IPositronNewProjectService } from 'vs/workbench/services/positronNewProject/common/positronNewProject';
-import { projectWizardEnabled } from 'vs/workbench/services/positronNewProject/common/positronNewProjectEnablement';
+import { projectWizardWorkInProgressEnabled } from 'vs/workbench/services/positronNewProject/common/positronNewProjectEnablement';
 import { PositronNewProjectService } from 'vs/workbench/services/positronNewProject/common/positronNewProjectService';
 
 // Register the Positron New Project service
@@ -37,7 +37,7 @@ class PositronNewProjectContribution extends Disposable implements IWorkbenchCon
 	) {
 		super();
 		// TODO: [New Project] Remove feature flag when New Project action is ready for release
-		if (projectWizardEnabled(this._contextKeyService, this._configurationService)) {
+		if (projectWizardWorkInProgressEnabled(this._contextKeyService, this._configurationService)) {
 			// Whether the project was opened in a new window or the existing window, the startup kind
 			// will be `StartupKind.NewWindow`.
 			if (

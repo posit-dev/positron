@@ -22,7 +22,7 @@ import { positronConfigurationNodeBase } from 'vs/workbench/services/languageRun
 
 // Key for the configuration setting that determines whether to use the Positron Project Wizard
 export const USE_POSITRON_PROJECT_WIZARD_CONFIG_KEY =
-	'positron.projectWizardEnabled';
+	'positron.projectWizardWorkInProgressEnabled';
 
 /**
  * Return true if in a development build, or retrieve the value of the configuration setting that
@@ -31,7 +31,7 @@ export const USE_POSITRON_PROJECT_WIZARD_CONFIG_KEY =
  * @param configurationService The configuration service
  * @returns Whether to enable the Positron Project Wizard
  */
-export function projectWizardEnabled(
+export function projectWizardWorkInProgressEnabled(
 	contextKeyService: IContextKeyService,
 	configurationService: IConfigurationService
 ) {
@@ -55,8 +55,8 @@ configurationRegistry.registerConfiguration({
 			type: 'boolean',
 			default: false,
 			markdownDescription: localize(
-				'positron.enablePositronProjectWizard',
-				'Enable the Positron Project Wizard for creating new projects.'
+				'positron.enablePositronProjectWizardWorkInProgress',
+				'Enable work-in-progress Positron Project Wizard functionality.'
 			),
 		},
 	},
