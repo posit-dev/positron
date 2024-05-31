@@ -415,6 +415,16 @@ export interface ColumnSummaryStats {
 	 */
 	boolean_stats?: SummaryStatsBoolean;
 
+	/**
+	 * Statistics for a date data type
+	 */
+	date_stats?: SummaryStatsDate;
+
+	/**
+	 * Statistics for a datetime data type
+	 */
+	datetime_stats?: SummaryStatsDatetime;
+
 }
 
 /**
@@ -477,6 +487,73 @@ export interface SummaryStatsString {
 	 * The exact number of distinct values
 	 */
 	num_unique: number;
+
+}
+
+/**
+ * SummaryStatsDate in Schemas
+ */
+export interface SummaryStatsDate {
+	/**
+	 * The exact number of distinct values
+	 */
+	num_unique: number;
+
+	/**
+	 * Minimum date value as string
+	 */
+	min_date: string;
+
+	/**
+	 * Average date value as string
+	 */
+	mean_date: string;
+
+	/**
+	 * Sample median (50% value) date value as string
+	 */
+	median_date: string;
+
+	/**
+	 * Maximum date value as string
+	 */
+	max_date: string;
+
+}
+
+/**
+ * SummaryStatsDatetime in Schemas
+ */
+export interface SummaryStatsDatetime {
+	/**
+	 * The exact number of distinct values
+	 */
+	num_unique: number;
+
+	/**
+	 * Minimum date value as string
+	 */
+	min_date: string;
+
+	/**
+	 * Average date value as string
+	 */
+	mean_date: string;
+
+	/**
+	 * Sample median (50% value) date value as string
+	 */
+	median_date: string;
+
+	/**
+	 * Maximum date value as string
+	 */
+	max_date: string;
+
+	/**
+	 * Time zone for timestamp with time zone
+	 */
+	timezone?: string;
 
 }
 

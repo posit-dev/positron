@@ -17,6 +17,9 @@ import { ProfileString } from 'vs/workbench/services/positronDataExplorer/browse
 import { ColumnNullPercent } from 'vs/workbench/services/positronDataExplorer/browser/components/columnNullPercent';
 import { ColumnDisplayType, ColumnSchema } from 'vs/workbench/services/languageRuntime/common/positronDataExplorerComm';
 import { TableSummaryDataGridInstance } from 'vs/workbench/services/positronDataExplorer/browser/tableSummaryDataGridInstance';
+import { ProfileBoolean } from 'vs/workbench/services/positronDataExplorer/browser/components/profileBoolean';
+import { ProfileDate } from 'vs/workbench/services/positronDataExplorer/browser/components/profileDate';
+import { ProfileDatetime } from 'vs/workbench/services/positronDataExplorer/browser/components/profileDatetime';
 
 /**
  * ColumnSummaryCellProps interface.
@@ -114,7 +117,10 @@ export const ColumnSummaryCell = (props: ColumnSummaryCellProps) => {
 				/>;
 
 			case ColumnDisplayType.Boolean:
-				return null;
+				return <ProfileBoolean
+					instance={props.instance}
+					columnIndex={props.columnIndex}
+				/>;
 
 			case ColumnDisplayType.String:
 				return <ProfileString
@@ -123,10 +129,16 @@ export const ColumnSummaryCell = (props: ColumnSummaryCellProps) => {
 				/>;
 
 			case ColumnDisplayType.Date:
-				return null;
+				return <ProfileDate
+					instance={props.instance}
+					columnIndex={props.columnIndex}
+				/>;
 
 			case ColumnDisplayType.Datetime:
-				return null;
+				return <ProfileDatetime
+					instance={props.instance}
+					columnIndex={props.columnIndex}
+				/>;
 
 			case ColumnDisplayType.Time:
 				return null;

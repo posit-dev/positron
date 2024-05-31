@@ -528,6 +528,16 @@ class ColumnSummaryStats(BaseModel):
         description="Statistics for a boolean data type",
     )
 
+    date_stats: Optional[SummaryStatsDate] = Field(
+        default=None,
+        description="Statistics for a date data type",
+    )
+
+    datetime_stats: Optional[SummaryStatsDatetime] = Field(
+        default=None,
+        description="Statistics for a datetime data type",
+    )
+
 
 class SummaryStatsNumber(BaseModel):
     """
@@ -580,6 +590,63 @@ class SummaryStatsString(BaseModel):
 
     num_unique: StrictInt = Field(
         description="The exact number of distinct values",
+    )
+
+
+class SummaryStatsDate(BaseModel):
+    """
+    SummaryStatsDate in Schemas
+    """
+
+    num_unique: StrictInt = Field(
+        description="The exact number of distinct values",
+    )
+
+    min_date: StrictStr = Field(
+        description="Minimum date value as string",
+    )
+
+    mean_date: StrictStr = Field(
+        description="Average date value as string",
+    )
+
+    median_date: StrictStr = Field(
+        description="Sample median (50% value) date value as string",
+    )
+
+    max_date: StrictStr = Field(
+        description="Maximum date value as string",
+    )
+
+
+class SummaryStatsDatetime(BaseModel):
+    """
+    SummaryStatsDatetime in Schemas
+    """
+
+    num_unique: StrictInt = Field(
+        description="The exact number of distinct values",
+    )
+
+    min_date: StrictStr = Field(
+        description="Minimum date value as string",
+    )
+
+    mean_date: StrictStr = Field(
+        description="Average date value as string",
+    )
+
+    median_date: StrictStr = Field(
+        description="Sample median (50% value) date value as string",
+    )
+
+    max_date: StrictStr = Field(
+        description="Maximum date value as string",
+    )
+
+    timezone: Optional[StrictStr] = Field(
+        default=None,
+        description="Time zone for timestamp with time zone",
     )
 
 
@@ -1158,6 +1225,10 @@ SummaryStatsNumber.update_forward_refs()
 SummaryStatsBoolean.update_forward_refs()
 
 SummaryStatsString.update_forward_refs()
+
+SummaryStatsDate.update_forward_refs()
+
+SummaryStatsDatetime.update_forward_refs()
 
 ColumnHistogram.update_forward_refs()
 
