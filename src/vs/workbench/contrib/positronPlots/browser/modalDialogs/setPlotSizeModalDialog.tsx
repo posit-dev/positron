@@ -112,12 +112,18 @@ const SetPlotSizeModalDialog = (props: SetPlotSizeModalDialogProps) => {
 					<tbody>
 						<tr>
 							<td>
-								<LabeledTextInput label={(() => localize('positronPlotWidth', "Width"))()}
+								<LabeledTextInput label={(() => localize(
+									'positronPlotWidth',
+									"Width"
+								))()}
 									value={width} autoFocus={true} min={100}
 									type='number' onChange={(el) => setWidth(el.target.valueAsNumber)} />
 							</td>
 							<td>
-								<LabeledTextInput label={(() => localize('positronPlotHeight', "Height"))()}
+								<LabeledTextInput label={(() => localize(
+									'positronPlotHeight',
+									"Height"
+								))()}
 									value={height} min={100}
 									type='number' onChange={(el) => setHeight(el.target.valueAsNumber)} />
 							</td>
