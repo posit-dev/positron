@@ -7,7 +7,7 @@ import 'vs/css!./setPlotSizeModalDialog';
 
 // React.
 import * as React from 'react';
-import { useRef } from 'react'; // eslint-disable-line no-duplicate-imports
+import { useState } from 'react'; // eslint-disable-line no-duplicate-imports
 
 // Other dependencies.
 import { localize } from 'vs/nls';
@@ -17,6 +17,7 @@ import { IWorkbenchLayoutService } from 'vs/workbench/services/layout/browser/la
 import { ContentArea } from 'vs/workbench/browser/positronComponents/positronModalDialog/components/contentArea';
 import { PositronModalDialog } from 'vs/workbench/browser/positronComponents/positronModalDialog/positronModalDialog';
 import { PositronModalReactRenderer } from 'vs/workbench/browser/positronModalReactRenderer/positronModalReactRenderer';
+import { LabeledTextInput } from 'vs/workbench/browser/positronComponents/positronModalDialog/components/labeledTextInput';
 
 /**
  * SetPlotSizeResult interface.
@@ -70,22 +71,18 @@ interface SetPlotSizeModalDialogProps {
  * @returns The rendered component.
  */
 const SetPlotSizeModalDialog = (props: SetPlotSizeModalDialogProps) => {
-	// Reference hooks.
-	const widthRef = useRef<HTMLInputElement>(undefined!);
-	const heightRef = useRef<HTMLInputElement>(undefined!);
+	const [width, setWidth] = useState(props.customSize?.width ?? 100);
+	const [height, setHeight] = useState(props.customSize?.height ?? 100);
 
 	// The accept handler.
 	const acceptHandler = () => {
 		let result: SetPlotSizeResult | undefined = undefined;
-		if (widthRef.current && widthRef.current.value.length > 0 &&
-			heightRef.current && heightRef.current.value.length > 0) {
-			result = {
-				size: {
-					width: parseInt(widthRef.current.value),
-					height: parseInt(heightRef.current.value)
-				}
-			};
-		}
+		result = {
+			size: {
+				width: width,
+				height: height
+			}
+		};
 		props.renderer.dispose();
 		props.setPlotSize(result);
 	};
@@ -115,37 +112,15 @@ const SetPlotSizeModalDialog = (props: SetPlotSizeModalDialogProps) => {
 					<tbody>
 						<tr>
 							<td>
-								<label htmlFor='width'>
-									{(() => localize('positronPlotWidth', "Width"))()}
-								</label>
+								<LabeledTextInput label={(() => localize('positronPlotWidth', "Width"))()}
+									value={width} autoFocus={true} min={100}
+									type='number' onChange={(el) => setWidth(el.target.valueAsNumber)} />
 							</td>
 							<td>
-								<input
-									ref={widthRef}
-									id='width'
-									type='number'
-									placeholder='100'
-									defaultValue={props.customSize ? props.customSize.width : ''}
-								/>
+								<LabeledTextInput label={(() => localize('positronPlotHeight', "Height"))()}
+									value={height} min={100}
+									type='number' onChange={(el) => setHeight(el.target.valueAsNumber)} />
 							</td>
-							<td>{(() => localize('positronPlotPixelsAbbrev', "px"))()}</td>
-						</tr>
-						<tr>
-							<td>
-								<label htmlFor='height'>
-									{(() => localize('positronPlotHeight', "Height"))()}
-								</label>
-							</td>
-							<td>
-								<input
-									ref={heightRef}
-									id='height'
-									type='number'
-									placeholder='100'
-									defaultValue={props.customSize ? props.customSize.height : ''}
-								/>
-							</td>
-							<td>{(() => localize('positronPlotPixelsAbbrev', "px"))()}</td>
 						</tr>
 					</tbody>
 				</table>
