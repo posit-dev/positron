@@ -268,6 +268,15 @@ export interface IOpenDialogOptions {
 	 * the schema of the current window.
 	 */
 	availableFileSystems?: readonly string[];
+	// --- Start Positron ---
+	/**
+	 * Resolve symlinks to their target paths, defaults to `true`.
+	 *
+	 * Note: The `resolveSymlinks` option is only available on macOS and will be silently
+	 * ignored on other platforms.
+	 */
+	resolveSymlinks?: boolean;
+	// --- End Positron ---
 }
 
 export const IDialogService = createDecorator<IDialogService>('dialogService');

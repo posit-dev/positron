@@ -557,6 +557,7 @@ export class SetInterpreterCommand extends BaseInterpreterSelectorCommand implem
                 openLabel: InterpreterQuickPickList.browsePath.openButtonLabel,
                 canSelectMany: false,
                 title: InterpreterQuickPickList.browsePath.title,
+                resolveSymlinks: false,
             });
             if (uris && uris.length > 0) {
                 state.path = uris[0].fsPath;

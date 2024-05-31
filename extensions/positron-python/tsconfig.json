@@ -51,6 +51,7 @@
         "typings/vscode-proposed/*.d.ts",
         "types/*.d.ts",
         "types/src/vscode-dts/*.d.ts",
+        "../../src/vscode-dts/vscode.proposed.resolveSymlinks.d.ts",
         "../../src/positron-dts/positron.d.ts",
         "../../src/positron-dts/ui-comm.d.ts"
     ]

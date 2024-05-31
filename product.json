@@ -261,7 +261,8 @@
 			"terminalDataWriteEvent",
 			"terminalExecuteCommandEvent",
 			"contribIssueReporter",
-			"terminalShellIntegration"
+			"terminalShellIntegration",
+			"resolveSymlinks"
 		],
 		"ms-dotnettools.dotnet-interactive-vscode": [
 			"notebookMessaging"
