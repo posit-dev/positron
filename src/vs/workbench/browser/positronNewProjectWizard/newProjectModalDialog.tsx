@@ -28,12 +28,16 @@ import { IPositronNewProjectService, NewProjectConfiguration } from 'vs/workbenc
 import { EnvironmentSetupType, NewProjectWizardStep } from 'vs/workbench/browser/positronNewProjectWizard/interfaces/newProjectWizardEnums';
 import { IWorkspaceTrustManagementService } from 'vs/platform/workspace/common/workspaceTrust';
 import { showChooseNewProjectWindowModalDialog } from 'vs/workbench/browser/positronNewProjectWizard/chooseNewProjectWindowModalDialog';
+import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
+import { IContextKeyService } from 'vs/platform/contextkey/common/contextkey';
 
 /**
  * Shows the NewProjectModalDialog.
  */
 export const showNewProjectModalDialog = async (
 	commandService: ICommandService,
+	configurationService: IConfigurationService,
+	contextKeyService: IContextKeyService,
 	fileDialogService: IFileDialogService,
 	fileService: IFileService,
 	keybindingService: IKeybindingService,
@@ -59,6 +63,8 @@ export const showNewProjectModalDialog = async (
 		<NewProjectWizardContextProvider
 			services={{
 				commandService,
+				configurationService,
+				contextKeyService,
 				fileDialogService,
 				fileService,
 				keybindingService,
