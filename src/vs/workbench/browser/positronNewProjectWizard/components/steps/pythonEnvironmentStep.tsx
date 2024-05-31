@@ -222,7 +222,7 @@ export const PythonEnvironmentStep = (props: PropsWithChildren<NewProjectWizardS
 					'positronNewProjectWizard.createButtonTitle',
 					"Create"
 				))(),
-				disable: !selectedInterpreter
+				disable: !selectedInterpreter || isNewEnvForConda()
 			}}
 		>
 			<PositronWizardSubStep
