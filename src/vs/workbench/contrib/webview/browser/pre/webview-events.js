@@ -14,6 +14,13 @@ const hostMessaging = {
 	}
 };
 
+const handlePostMessage = (event) => {
+	console.log('handlePostMessage', event);
+	if (event.data.channel === 'execCommand') {
+		document.execCommand(event.data.data);
+	}
+};
+
 /**
  * @param {MouseEvent} event
  */
@@ -285,6 +292,7 @@ function isRefresh(e) {
 	return e.keyCode === 116;
 }
 
+window.addEventListener('message', handlePostMessage);
 window.addEventListener('dragenter', handleInnerDragStartEvent);
 window.addEventListener('dragover', handleInnerDragStartEvent);
 window.addEventListener('scroll', handleInnerScroll);

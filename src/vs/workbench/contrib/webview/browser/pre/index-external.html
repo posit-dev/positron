@@ -747,7 +747,7 @@
 						}
 
 						const newFrame = document.createElement("iframe");
-						newFrame.setAttribute("id", "pending-frame");
+						newFrame.setAttribute("id", "active-frame");
 						newFrame.setAttribute("frameborder", "0");
 
 						const sandboxRules = new Set([
@@ -940,11 +940,18 @@
 				);
 
 				hostMessaging.onMessage("execCommand", (_event, data) => {
+					console.log("execCommand: ", data);
 					const target = getActiveFrame();
 					if (!target) {
 						return;
 					}
-					assertIsDefined(target.contentDocument).execCommand(data);
+					target.contentWindow.postMessage(
+						{
+							channel: "execCommand",
+							data: data,
+						},
+						"*",
+					);
 				});
 
 				/** @type {string | undefined} */
