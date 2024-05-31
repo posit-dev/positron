@@ -57,6 +57,9 @@ export namespace Commands {
     // --- End Positron ---
     export const Exec_Selection_In_Django_Shell = 'python.execSelectionInDjangoShell';
     export const Exec_Selection_In_Terminal = 'python.execSelectionInTerminal';
+    // --- Start Positron ---
+    export const Focus_Positron_Console = 'workbench.panel.positronConsole.focus';
+    // --- End Positron ---
     export const GetSelectedInterpreterPath = 'python.interpreterPath';
     // --- Start Positron ---
     export const Get_Create_Environment_Providers = 'python.getCreateEnvironmentProviders';

@@ -68,18 +68,23 @@ suite('Python runtime manager', () => {
 
     /** Helper function to assert that a language runtime is registered. */
     async function assertRegisterLanguageRuntime(fn: () => Promise<void>) {
-        // Create a mock listener for onDidDiscoverRuntime, and verify that it's called with the expected runtime metadata.
-        const listener = TypeMoq.Mock.ofType<(e: positron.LanguageRuntimeMetadata) => void>();
-        listener.setup((l) => l(runtimeMetadata.object)).verifiable(TypeMoq.Times.once());
-
-        // Register the mock listener.
-        disposables.push(pythonRuntimeManager.onDidDiscoverRuntime(listener.object));
+        // Setup a listener to verify the onDidDiscoverRuntime event.
+        let didDiscoverRuntimeEvent: positron.LanguageRuntimeMetadata | undefined;
+        disposables.push(
+            pythonRuntimeManager.onDidDiscoverRuntime((e) => {
+                assert.strictEqual(didDiscoverRuntimeEvent, undefined, 'onDidDiscoverRuntime fired more than once');
+                didDiscoverRuntimeEvent = e;
+            }),
+        );
 
         // Call the function.
         await fn();
 
         // Check that the runtime was registered.
         assert.strictEqual(pythonRuntimeManager.registeredPythonRuntimes.get(pythonPath), runtimeMetadata.object);
+
+        // Check that the onDidDiscoverRuntime event was fired with the runtime metadata.
+        assert.strictEqual(didDiscoverRuntimeEvent, runtimeMetadata.object);
     }
 
     test('registerLanguageRuntime: registers a language runtime with Positron', async () => {

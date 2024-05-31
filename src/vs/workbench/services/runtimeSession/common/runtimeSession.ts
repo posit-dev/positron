@@ -314,7 +314,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 			// Is this, by chance, the runtime that's already running?
 			if (activeSession.runtimeMetadata.runtimeId === runtime.runtimeId) {
 				// Set it as the foreground session and return.
-				this._foregroundSession = activeSession;
+				this.foregroundSession = activeSession;
 				return;
 			}
 
