@@ -782,14 +782,8 @@
 							"display: block; margin: 0; overflow: hidden; position: absolute; width: 100%; height: 100%";
 						document.body.appendChild(newFrame);
 
-						// listen to window events emitted from the frame
+						// listen to window events emitted from the frame; forward to the host
 						window.addEventListener("message", (e) => {
-							console.log(
-								"got message: ",
-								JSON.stringify(e.data),
-								", from: ",
-								e.origin,
-							);
 							if (e.data.channel) {
 								hostMessaging.postMessage(e.data.channel, e.data.data);
 							}

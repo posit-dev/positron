@@ -69,17 +69,25 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 
 	// Handler for the navigate back button.
 	const navigateBackHandler = () => {
-		props.preview.webview.postMessage({ command: 'back' });
+		props.preview.webview.postMessage({
+			channel: 'execCommand',
+			command: 'navigate-back'
+		});
 	};
 
 	// Handler for the navigate forward button.
 	const navigateForwardHandler = () => {
-		props.preview.webview.postMessage({ command: 'forward' });
+		props.preview.webview.postMessage({
+			channel: 'execCommand',
+			command: 'navigate-forward'
+		});
 	};
 
 	// Handler for the reload button.
 	const reloadHandler = () => {
-		props.preview.webview.postMessage({ command: 'reload' });
+		// Reload the current URL by navigating to it again. This will bump the
+		// nonce in the URL to help bust the cache on reload.
+		props.preview.navigateToUri(props.preview.currentUri);
 	};
 
 	// Handler for the clear button.

@@ -132,6 +132,10 @@ export class WebviewElement extends Disposable implements IWebview, WebviewFindD
 
 	private _content: WebviewContent;
 
+	// --- Start Positron ---
+	private _uri: URI | undefined;
+	// --- End Positron ---
+
 	private readonly _portMappingManager: WebviewPortMappingManager;
 
 	private readonly _resourceLoadingCts = this._register(new CancellationTokenSource());
@@ -623,7 +627,13 @@ export class WebviewElement extends Disposable implements IWebview, WebviewFindD
 	}
 
 	public reload(): void {
-		this.doUpdateContent(this._content);
+		// --- Start Positron ---
+		if (this._options.externalUri && this._uri) {
+			this.doSetUri(this._uri);
+		} else {
+			this.doUpdateContent(this._content);
+		}
+		// --- End Positron ---
 
 		const subscription = this._register(this.on('did-load', () => {
 			this._onDidReload.fire();
@@ -704,7 +714,9 @@ export class WebviewElement extends Disposable implements IWebview, WebviewFindD
 		}
 
 		// Tell the webview to load the URI
+		this._uri = uri;
 		this._send('set-uri', uri.toString());
+		this._logService.debug('Webview: ** set-uri', uri.toString());
 
 		// Wait for the frame to be created by hanging around until Electron
 		// notices that the frame with the requested URL navigated.
@@ -712,6 +724,7 @@ export class WebviewElement extends Disposable implements IWebview, WebviewFindD
 		// This is a little bit of a hack, but it's the only way to get a handle
 		// to the newly created frame.
 		const frameId = await this.awaitFrameCreation(uri.toString());
+		this._logService.debug('Webview: ** frame created', frameId.routingId, '/', frameId.processId);
 
 		// Read the contents of the 'webview-events.js' file. This file contains
 		// a bunch of event handlers that forward events from the iframe to the

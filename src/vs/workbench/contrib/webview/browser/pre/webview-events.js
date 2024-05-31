@@ -36,7 +36,18 @@ const hostMessaging = {
 const handlePostMessage = (event) => {
 	// Execute a command in the document if requested
 	if (event.data.channel === 'execCommand') {
-		document.execCommand(event.data.data);
+		const command = event.data.data;
+		// Check for special Positron commands.
+		if (command === 'navigate-back') {
+			window.history.back();
+			return;
+		} else if (command === 'navigate-forward') {
+			window.history.forward();
+			return;
+		}
+
+		// Otherwise, execute the command in the document.
+		document.execCommand(command);
 	}
 };
 
