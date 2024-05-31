@@ -47,6 +47,9 @@ import { Commands, Octicons } from '../../../../client/common/constants';
 import { IInterpreterService, PythonEnvironmentsChangedEvent } from '../../../../client/interpreter/contracts';
 import { createDeferred, sleep } from '../../../../client/common/utils/async';
 import { SystemVariables } from '../../../../client/common/variables/systemVariables';
+// --- Start Positron ---
+import { IPythonRuntimeManager } from '../../../../client/positron/manager';
+// --- End Positron ---
 
 const untildify = require('untildify');
 
@@ -62,6 +65,9 @@ suite('Set Interpreter Command', () => {
     let pythonSettings: TypeMoq.IMock<IPythonSettings>;
     let platformService: TypeMoq.IMock<IPlatformService>;
     let multiStepInputFactory: TypeMoq.IMock<IMultiStepInputFactory>;
+    // --- Start Positron ---
+    let pythonRuntimeManager: TypeMoq.IMock<IPythonRuntimeManager>;
+    // --- End Positron ---
     let interpreterService: IInterpreterService;
     const folder1 = { name: 'one', uri: Uri.parse('one'), index: 1 };
     const folder2 = { name: 'two', uri: Uri.parse('two'), index: 2 };
@@ -77,6 +83,12 @@ suite('Set Interpreter Command', () => {
         pythonPathUpdater = TypeMoq.Mock.ofType<IPythonPathUpdaterServiceManager>();
         configurationService = TypeMoq.Mock.ofType<IConfigurationService>();
         pythonSettings = TypeMoq.Mock.ofType<IPythonSettings>();
+        // --- Start Positron ---
+        pythonRuntimeManager = TypeMoq.Mock.ofType<IPythonRuntimeManager>();
+        pythonRuntimeManager
+            .setup((p) => p.selectLanguageRuntimeFromPath(TypeMoq.It.isAny()))
+            .returns(() => Promise.resolve());
+        // --- End Positron ---
 
         workspace = TypeMoq.Mock.ofType<IWorkspaceService>();
         interpreterService = mock<IInterpreterService>();
@@ -97,6 +109,9 @@ suite('Set Interpreter Command', () => {
             interpreterSelector.object,
             workspace.object,
             instance(interpreterService),
+            // --- Start Positron ---
+            pythonRuntimeManager.object,
+            // --- End Positron ---
         );
     });
 
@@ -213,6 +228,9 @@ suite('Set Interpreter Command', () => {
                 interpreterSelector.object,
                 workspace.object,
                 instance(interpreterService),
+                // --- Start Positron ---
+                pythonRuntimeManager.object,
+                // --- End Positron ---
             );
         });
         teardown(() => {
@@ -697,6 +715,9 @@ suite('Set Interpreter Command', () => {
                 interpreterSelector.object,
                 workspace.object,
                 instance(interpreterService),
+                // --- Start Positron ---
+                pythonRuntimeManager.object,
+                // --- End Positron ---
             );
 
             // Test info
@@ -1484,6 +1505,9 @@ suite('Set Interpreter Command', () => {
                 interpreterSelector.object,
                 workspace.object,
                 instance(interpreterService),
+                // --- Start Positron ---
+                pythonRuntimeManager.object,
+                // --- End Positron ---
             );
             type InputStepType = () => Promise<InputStep<unknown> | void>;
             let inputStep!: InputStepType;
@@ -1527,5 +1551,36 @@ suite('Set Interpreter Command', () => {
             await inputStep();
             assert(pickInterpreter.calledOnce);
         });
+        // --- Start Positron ---
+        test('Make sure the corresponding language runtime is selected and the console is focused', async () => {
+            const selectedItem: IInterpreterQuickPickItem = {
+                description: '',
+                detail: '',
+                label: '',
+                path: 'This is the selected Python path',
+                interpreter: {} as PythonEnvironment,
+            };
+            const multiStepInput = {
+                run: (_: unknown, state: InterpreterStateArgs) => {
+                    state.path = selectedItem.path;
+                    return Promise.resolve();
+                },
+            };
+            multiStepInputFactory.setup((f) => f.create()).returns(() => multiStepInput as IMultiStepInput<unknown>);
+
+            pythonRuntimeManager
+                .setup((p) => p.selectLanguageRuntimeFromPath(selectedItem.path))
+                .returns(() => Promise.resolve())
+                .verifiable(TypeMoq.Times.once());
+            commandManager
+                .setup((c) => c.executeCommand(Commands.Focus_Positron_Console))
+                .verifiable(TypeMoq.Times.once());
+
+            await setInterpreterCommand.setInterpreter();
+
+            pythonRuntimeManager.verifyAll();
+            commandManager.verifyAll();
+        });
+        // --- End Positron ---
     });
 });
