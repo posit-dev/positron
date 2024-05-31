@@ -37,9 +37,10 @@ export const DataGridRowHeader = (props: DataGridRowHeaderProps) => {
 	/**
 	 * MouseDown handler.
 	 * @param e A MouseEvent<HTMLElement> that describes a user interaction with the mouse.
+	 * @returns A Promise<void> that resolves when the operation is complete.
 	 */
-	const mouseDownHandler = (e: MouseEvent<HTMLElement>) => {
-		context.instance.mouseSelectRow(props.rowIndex, selectionType(e));
+	const mouseDownHandler = async (e: MouseEvent<HTMLElement>) => {
+		await context.instance.mouseSelectRow(props.rowIndex, selectionType(e));
 	};
 
 	// Get the row selection state.
@@ -79,8 +80,8 @@ export const DataGridRowHeader = (props: DataGridRowHeaderProps) => {
 					maximumWidth: 400,
 					startingWidth: context.instance.rowHeadersWidth
 				})}
-				onResize={width =>
-					context.instance.setRowHeadersWidth(width)
+				onResize={async width =>
+					await context.instance.setRowHeadersWidth(width)
 				}
 			/>
 			{context.instance.rowResize &&
@@ -90,8 +91,8 @@ export const DataGridRowHeader = (props: DataGridRowHeaderProps) => {
 						maximumHeight: 90,
 						startingHeight: context.instance.getRowHeight(props.rowIndex)
 					})}
-					onResize={height =>
-						context.instance.setRowHeight(props.rowIndex, height)
+					onResize={async height =>
+						await context.instance.setRowHeight(props.rowIndex, height)
 					}
 				/>
 			}

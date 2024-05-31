@@ -54,8 +54,8 @@ export const ActionBar = () => {
 							text={clearSortButtonTitle}
 							tooltip={clearSortButtonDescription}
 							ariaLabel={clearSortButtonDescription}
-							onPressed={() =>
-								context.instance.tableDataDataGridInstance.clearColumnSortKeys()
+							onPressed={async () =>
+								await context.instance.tableDataDataGridInstance.clearColumnSortKeys()
 							}
 						/>
 					</ActionBarRegion>
