@@ -53,6 +53,26 @@ export function setup(logger: Logger) {
 
 				expect(lastRow!['time_hour']).toBe('2013-09-30 08:00:00');
 
+				await app.code.waitAndClick('.data-grid-corner-top-left');
+
+				await app.code.waitAndClick('.codicon-positron-add-filter');
+
+				await app.code.waitAndClick('.positron-modal-overlay .drop-down-column-selector');
+
+				await app.code.waitForSetValue('.positron-modal-overlay .column-search-input .text-input', 'distance\n');
+
+				await app.code.waitAndClick('.column-selector-cell');
+
+				await app.code.waitAndClick('.positron-modal-overlay .drop-down-list-box');
+
+				// does not work
+				// await app.code.waitAndClick('.positron-modal-overlay .positron-button div[text*="is equal to"]');
+
+				const equalTo = app.code.driver.getLocator('.positron-modal-overlay .positron-button div:has-text("is equal to")');
+				await equalTo.click();
+
+				console.log('a');
+
 			});
 		});
 	});
