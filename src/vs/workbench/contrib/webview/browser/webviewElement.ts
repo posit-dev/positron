@@ -42,6 +42,7 @@ import { CodeWindow } from 'vs/base/browser/window';
 // --- Start Positron ---
 // eslint-disable-next-line no-duplicate-imports
 import { VSBuffer } from 'vs/base/common/buffer';
+import { WebviewFrameId } from 'vs/platform/webview/common/webviewManagerService';
 // --- End Positron ---
 
 interface WebviewContent {
@@ -695,6 +696,9 @@ export class WebviewElement extends Disposable implements IWebview, WebviewFindD
 		}
 		this._logService.debug(`Webview(${this.id}): will update URI to ${uri.toString()}`);
 		this._send('set-uri', uri.toString());
+		this.awaitFrameCreation().then((frameId) => {
+			console.log(`Webview(${this.id}): frame was created! id = ${JSON.stringify(frameId)}`);
+		});
 	}
 	// --- End Positron ---
 
@@ -932,6 +936,9 @@ export class WebviewElement extends Disposable implements IWebview, WebviewFindD
 	}
 
 	// --- Start Positron ---
+	public awaitFrameCreation(): Promise<WebviewFrameId> {
+		throw new Error('Method not implemented.');
+	}
 	public captureContentsAsPng(): Promise<VSBuffer | undefined> {
 		// The default implementation doesn't support PNG screen capture
 		return Promise.resolve(undefined);

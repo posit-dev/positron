@@ -14,6 +14,9 @@ import { IWindowsMainService } from 'vs/platform/windows/electron-main/windows';
 // eslint-disable-next-line no-duplicate-imports
 import { Rectangle } from 'electron';
 import { VSBuffer } from 'vs/base/common/buffer';
+
+// eslint-disable-next-line no-duplicate-imports
+import { WebviewFrameId } from 'vs/platform/webview/common/webviewManagerService';
 // --- End Positron ---
 
 export class WebviewMainService extends Disposable implements IWebviewManagerService {
@@ -111,12 +114,26 @@ export class WebviewMainService extends Disposable implements IWebviewManagerSer
 		return VSBuffer.wrap(image.toPNG());
 	}
 
-	public async executeJavaScript(windowId: WebviewWindowId, script: string): Promise<void> {
+	public async awaitFrameCreation(windowId: WebviewWindowId): Promise<WebviewFrameId> {
 		const window = this.windowsMainService.getWindowById(windowId.windowId);
 		if (!window?.win) {
 			throw new Error(`Invalid windowId: ${windowId}`);
 		}
-		window.win.webContents.executeJavaScript(script);
+		return new Promise<WebviewFrameId>(resolve => {
+			window.win!.webContents.once('frame-created', (event, frame) => {
+				const frameId: WebviewFrameId = {
+					processId: frame.frame.processId,
+					routingId: frame.frame.routingId
+				};
+				console.log('WebviewMainService: frame created event fired. frameId: ', JSON.stringify(frameId));
+				resolve(frameId);
+			});
+		});
+	}
+
+	public async executeJavaScript(windowId: WebviewWindowId, frameName: string, script: string): Promise<void> {
+		const frame = this.getFrameByName(windowId, frameName);
+		frame.executeJavaScript(script);
 	}
 	// --- End Positron ---
 

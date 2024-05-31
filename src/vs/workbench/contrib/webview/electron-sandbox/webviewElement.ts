@@ -20,7 +20,7 @@ import { INotificationService } from 'vs/platform/notification/common/notificati
 import { IRemoteAuthorityResolverService } from 'vs/platform/remote/common/remoteAuthorityResolver';
 import { ITelemetryService } from 'vs/platform/telemetry/common/telemetry';
 import { ITunnelService } from 'vs/platform/tunnel/common/tunnel';
-import { FindInFrameOptions, IWebviewManagerService } from 'vs/platform/webview/common/webviewManagerService';
+import { FindInFrameOptions, IWebviewManagerService, WebviewFrameId } from 'vs/platform/webview/common/webviewManagerService';
 import { WebviewThemeDataProvider } from 'vs/workbench/contrib/webview/browser/themeing';
 import { WebviewInitInfo } from 'vs/workbench/contrib/webview/browser/webview';
 import { WebviewElement } from 'vs/workbench/contrib/webview/browser/webviewElement';
@@ -186,7 +186,11 @@ export class ElectronWebviewElement extends WebviewElement {
 	 */
 	public override executeJavaScript(script: string): Promise<any> {
 		return this._webviewMainService.executeJavaScript(
-			{ windowId: this._nativeHostService.windowId }, script);
+			{ windowId: this._nativeHostService.windowId }, this.id, script);
+	}
+
+	public override awaitFrameCreation(): Promise<WebviewFrameId> {
+		return this._webviewMainService.awaitFrameCreation({ windowId: this._nativeHostService.windowId });
 	}
 	// --- End Positron ---
 
