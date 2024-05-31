@@ -3,19 +3,38 @@
  *--------------------------------------------------------------------------------------------*/
 
 /**
- * Send a message to the host
+ * This file is derived from the event handlers in the `index.html` file next
+ * door. Its job is to absorb events from the inner iframe and forward them to
+ * the host as window messages.
+ *
+ * This allows the host to dispatach events that can't be handled natively in
+ * the frame on Electron, such as copy/cut/paste commands and context menus.
+ *
+ * The other side of the communication is in `index-external.html`; it receives
+ * messages sent from this file and forwards them to the webview host, where
+ * they are processed and dispatched.
+ */
+
+/**
+ * Send a message to the host; this simulates the `hostMessaging` object in the
+ * webview.
  */
 const hostMessaging = {
 	postMessage: (type, data) => {
+		// OK to be promiscuous here, as this script is only used in an Electron
+		// webview context we already control.
 		window.parent.postMessage({
 			channel: type,
 			data: data,
-		}, "*");
+		}, '*');
 	}
 };
 
+/**
+ * Handles a message sent from the host.
+ */
 const handlePostMessage = (event) => {
-	console.log('handlePostMessage', event);
+	// Execute a command in the document if requested
 	if (event.data.channel === 'execCommand') {
 		document.execCommand(event.data.data);
 	}
