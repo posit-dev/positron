@@ -8,6 +8,7 @@ import { KeyCode, KeyMod } from 'vs/base/common/keyCodes';
 import { ILocalizedString } from 'vs/platform/action/common/action';
 import { ContextKeyExpr } from 'vs/platform/contextkey/common/contextkey';
 import { Action2, registerAction2 } from 'vs/platform/actions/common/actions';
+import { PositronDataExplorerFocused } from 'vs/workbench/common/contextkeys';
 import { ServicesAccessor } from 'vs/platform/instantiation/common/instantiation';
 import { IEditorService } from 'vs/workbench/services/editor/common/editorService';
 import { KeybindingWeight } from 'vs/platform/keybinding/common/keybindingsRegistry';
@@ -82,7 +83,10 @@ class PositronDataExplorerCopyAction extends Action2 {
 				primary: KeyMod.CtrlCmd | KeyCode.KeyC,
 			},
 			f1: true,
-			precondition: POSITRON_DATA_EXPLORER_IS_ACTIVE_EDITOR
+			precondition: ContextKeyExpr.and(
+				POSITRON_DATA_EXPLORER_IS_ACTIVE_EDITOR,
+				PositronDataExplorerFocused
+			)
 		});
 	}
 
