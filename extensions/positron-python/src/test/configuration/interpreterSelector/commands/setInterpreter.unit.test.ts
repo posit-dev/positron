@@ -47,6 +47,9 @@ import { Commands, Octicons } from '../../../../client/common/constants';
 import { IInterpreterService, PythonEnvironmentsChangedEvent } from '../../../../client/interpreter/contracts';
 import { createDeferred, sleep } from '../../../../client/common/utils/async';
 import { SystemVariables } from '../../../../client/common/variables/systemVariables';
+// --- Start Positron ---
+import { IPythonRuntimeManager } from '../../../../client/positron/manager';
+// --- End Positron ---
 
 const untildify = require('untildify');
 
@@ -62,6 +65,9 @@ suite('Set Interpreter Command', () => {
     let pythonSettings: TypeMoq.IMock<IPythonSettings>;
     let platformService: TypeMoq.IMock<IPlatformService>;
     let multiStepInputFactory: TypeMoq.IMock<IMultiStepInputFactory>;
+    // --- Start Positron ---
+    let pythonRuntimeManager: TypeMoq.IMock<IPythonRuntimeManager>;
+    // --- End Positron ---
     let interpreterService: IInterpreterService;
     const folder1 = { name: 'one', uri: Uri.parse('one'), index: 1 };
     const folder2 = { name: 'two', uri: Uri.parse('two'), index: 2 };
@@ -77,6 +83,9 @@ suite('Set Interpreter Command', () => {
         pythonPathUpdater = TypeMoq.Mock.ofType<IPythonPathUpdaterServiceManager>();
         configurationService = TypeMoq.Mock.ofType<IConfigurationService>();
         pythonSettings = TypeMoq.Mock.ofType<IPythonSettings>();
+        // --- Start Positron ---
+        pythonRuntimeManager = TypeMoq.Mock.ofType<IPythonRuntimeManager>();
+        // --- End Positron ---
 
         workspace = TypeMoq.Mock.ofType<IWorkspaceService>();
         interpreterService = mock<IInterpreterService>();
@@ -97,6 +106,9 @@ suite('Set Interpreter Command', () => {
             interpreterSelector.object,
             workspace.object,
             instance(interpreterService),
+            // --- Start Positron ---
+            pythonRuntimeManager.object,
+            // --- End Positron ---
         );
     });
 
@@ -213,6 +225,9 @@ suite('Set Interpreter Command', () => {
                 interpreterSelector.object,
                 workspace.object,
                 instance(interpreterService),
+                // --- Start Positron ---
+                pythonRuntimeManager.object,
+                // --- End Positron ---
             );
         });
         teardown(() => {
@@ -697,6 +712,9 @@ suite('Set Interpreter Command', () => {
                 interpreterSelector.object,
                 workspace.object,
                 instance(interpreterService),
+                // --- Start Positron ---
+                pythonRuntimeManager.object,
+                // --- End Positron ---
             );
 
             // Test info
@@ -946,6 +964,25 @@ suite('Set Interpreter Command', () => {
                 properties: { action: 'selected' },
             });
         });
+        // --- Start Positron ---
+        test('If an item is selected, select the corresponding language runtime and focus the console', async () => {
+            const state: InterpreterStateArgs = { path: 'some path', workspace: undefined };
+            const multiStepInput = TypeMoq.Mock.ofType<IMultiStepInput<InterpreterStateArgs>>();
+            multiStepInput.setup((i) => i.showQuickPick(TypeMoq.It.isAny())).returns(() => Promise.resolve(item));
+            pythonRuntimeManager
+                .setup((p) => p.selectLanguageRuntimeFromPath(state.path!))
+                .returns(() => Promise.resolve())
+                .verifiable(TypeMoq.Times.once());
+            commandManager
+                .setup((c) => c.executeCommand(Commands.Focus_Positron_Console))
+                .verifiable(TypeMoq.Times.once());
+
+            await setInterpreterCommand._pickInterpreter(multiStepInput.object, state);
+
+            pythonRuntimeManager.verifyAll();
+            commandManager.verifyAll();
+        });
+        // --- End Positron ---
 
         test('If the dropdown is dismissed, send SELECT_INTERPRETER_SELECTED telemetry with the "escape" property value', async () => {
             const state: InterpreterStateArgs = { path: 'some path', workspace: undefined };
@@ -1484,6 +1521,9 @@ suite('Set Interpreter Command', () => {
                 interpreterSelector.object,
                 workspace.object,
                 instance(interpreterService),
+                // --- Start Positron ---
+                pythonRuntimeManager.object,
+                // --- End Positron ---
             );
             type InputStepType = () => Promise<InputStep<unknown> | void>;
             let inputStep!: InputStepType;

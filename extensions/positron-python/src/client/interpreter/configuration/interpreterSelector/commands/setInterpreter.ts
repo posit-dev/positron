@@ -46,6 +46,9 @@ import {
     ISpecialQuickPickItem,
 } from '../../types';
 import { BaseInterpreterSelectorCommand } from './base';
+// --- Start Positron ---
+import { IPythonRuntimeManager } from '../../../../positron/manager';
+// --- End Positron ---
 
 const untildify = require('untildify');
 
@@ -123,7 +126,10 @@ export class SetInterpreterCommand extends BaseInterpreterSelectorCommand implem
         @inject(IInterpreterSelector) private readonly interpreterSelector: IInterpreterSelector,
         @inject(IWorkspaceService) workspaceService: IWorkspaceService,
         @inject(IInterpreterService) private readonly interpreterService: IInterpreterService,
+        // --- Start Positron ---
+        @inject(IPythonRuntimeManager) private readonly pythonRuntimeManager: IPythonRuntimeManager,
     ) {
+        // --- End Positron ---
         super(
             pythonPathUpdaterService,
             commandManager,
@@ -581,6 +587,11 @@ export class SetInterpreterCommand extends BaseInterpreterSelectorCommand implem
             // an empty string, in which case we should update.
             // Having the value `undefined` means user cancelled the quickpick, so we update nothing in that case.
             await this.pythonPathUpdaterService.updatePythonPath(interpreterState.path, configTarget, 'ui', wkspace);
+            // --- Start Positron ---
+            // Ensure that the corresponding runtime is selected in the console, and focus the console.
+            this.pythonRuntimeManager.selectLanguageRuntimeFromPath(interpreterState.path);
+            this.commandManager.executeCommand(Commands.Focus_Positron_Console);
+            // --- End Positron ---
         }
     }
 
