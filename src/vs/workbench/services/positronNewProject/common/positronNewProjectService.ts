@@ -258,52 +258,40 @@ export class PositronNewProjectService extends Disposable implements IPositronNe
 	 */
 	private async _runGitInit() {
 		const projectRoot = URI.file(this._newProjectConfig?.projectFolder!);
-		const gitInitTask = new Promise(() => {
-			// true to skip the folder prompt
-			this._commandService.executeCommand('git.init', true)
-				.catch((error) => {
-					const errorMessage = localize('positronNewProjectService.gitInitError', 'Error initializing git repository {0}', error);
-					this._notificationService.error(errorMessage);
-				});
-		});
-		const readmeTask = new Promise(() => {
-			this._fileService.createFile(joinPath(projectRoot, 'README.md'), VSBuffer.fromString(`# ${this._newProjectConfig?.projectName}`))
-				.catch((error) => {
-					this._handleGitIgnoreError(error);
-				});
-		});
-		const tasks = [gitInitTask, readmeTask];
+
+		// true to skip the folder prompt
+		await this._commandService.executeCommand('git.init', true)
+			.catch((error) => {
+				const errorMessage = localize('positronNewProjectService.gitInitError', 'Error initializing git repository {0}', error);
+				this._notificationService.error(errorMessage);
+			});
+		await this._fileService.createFile(joinPath(projectRoot, 'README.md'), VSBuffer.fromString(`# ${this._newProjectConfig?.projectName}`))
+			.catch((error) => {
+				this._handleGitIgnoreError(error);
+			});
 
 		// TODO: use enum values instead of strings
 		switch (this._newProjectConfig?.projectType) {
 			case 'Python Project':
-				tasks.push(new Promise(() => {
-					this._fileService.createFile(joinPath(projectRoot, '.gitignore'), VSBuffer.fromString(DOT_IGNORE_PYTHON))
-						.catch((error) => {
-							this._handleGitIgnoreError(error);
-						});
-				}));
+				await this._fileService.createFile(joinPath(projectRoot, '.gitignore'), VSBuffer.fromString(DOT_IGNORE_PYTHON))
+					.catch((error) => {
+						this._handleGitIgnoreError(error);
+					});
 				break;
 			case 'R Project':
-				tasks.push(new Promise(() => {
-					this._fileService.createFile(joinPath(projectRoot, '.gitignore'), VSBuffer.fromString(DOT_IGNORE_R))
-						.catch((error) => {
-							this._handleGitIgnoreError(error);
-						});
-				}));
+				await this._fileService.createFile(joinPath(projectRoot, '.gitignore'), VSBuffer.fromString(DOT_IGNORE_R))
+					.catch((error) => {
+						this._handleGitIgnoreError(error);
+					});
 				break;
 			case 'Jupyter Notebook':
-				tasks.push(new Promise(() => {
-					this._fileService.createFile(joinPath(projectRoot, '.gitignore'), VSBuffer.fromString(DOT_IGNORE_JUPYTER))
-						.catch((error) => {
-							this._handleGitIgnoreError(error);
-						});
-				}));
+				await this._fileService.createFile(joinPath(projectRoot, '.gitignore'), VSBuffer.fromString(DOT_IGNORE_JUPYTER))
+					.catch((error) => {
+						this._handleGitIgnoreError(error);
+					});
 				break;
 			default:
 		}
-
-		await Promise.allSettled(tasks);
 
 		this._removePendingTask(NewProjectTask.Git);
 	}
