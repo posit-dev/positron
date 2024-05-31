@@ -14,6 +14,7 @@ import { IKeybindingService } from 'vs/platform/keybinding/common/keybinding';
 import { IColumnSortKey } from 'vs/workbench/browser/positronDataGrid/interfaces/columnSortKey';
 import { DataExplorerCache } from 'vs/workbench/services/positronDataExplorer/common/dataExplorerCache';
 import { TableDataCell } from 'vs/workbench/services/positronDataExplorer/browser/components/tableDataCell';
+import { showCustomContextMenu } from 'vs/workbench/browser/positronComponents/customContextMenu/customContextMenu';
 import { TableDataRowHeader } from 'vs/workbench/services/positronDataExplorer/browser/components/tableDataRowHeader';
 import { CustomContextMenuItem } from 'vs/workbench/browser/positronComponents/customContextMenu/customContextMenuItem';
 import { PositronDataExplorerColumn } from 'vs/workbench/services/positronDataExplorer/browser/positronDataExplorerColumn';
@@ -22,7 +23,6 @@ import { DataExplorerClientInstance } from 'vs/workbench/services/languageRuntim
 import { BackendState, ColumnSchema, RowFilter } from 'vs/workbench/services/languageRuntime/common/positronDataExplorerComm';
 import { CustomContextMenuSeparator } from 'vs/workbench/browser/positronComponents/customContextMenu/customContextMenuSeparator';
 import { PositronDataExplorerCommandId } from 'vs/workbench/contrib/positronDataExplorerEditor/browser/positronDataExplorerActions';
-import { CustomContextMenuEntry, showCustomContextMenu } from 'vs/workbench/browser/positronComponents/customContextMenu/customContextMenu';
 
 /**
  * Localized strings.
@@ -288,6 +288,16 @@ export class TableDataDataGridInstance extends DataGridInstance {
 	}
 
 	/**
+	 * Shows the row context menu.
+	 * @param anchor The anchor element.
+	 * @param rowIndex The row index.
+	 * @returns A Promise<void> that resolves when the context menu is complete.
+	 */
+	override async showRowContextMenu(anchor: HTMLElement, rowIndex: number): Promise<void> {
+		// TODO.
+	}
+
+	/**
 	 * Shows the cell context menu.
 	 * @param anchor The anchor element.
 	 * @param columnIndex The column index.
@@ -298,23 +308,23 @@ export class TableDataDataGridInstance extends DataGridInstance {
 		columnIndex: number,
 		rowIndex: number
 	): Promise<void> {
-		// Build the context menu entries.
-		const entries: CustomContextMenuEntry[] = [];
-		entries.push(new CustomContextMenuItem({
-			label: localize('positron.dataExplorer.selectColumn', "Select Column"),
-			onSelected: () => this.selectColumn(columnIndex)
-		}));
-		entries.push(new CustomContextMenuItem({
-			label: localize('positron.dataExplorer.selectRow', "Select Row"),
-			onSelected: () => this.selectRow(rowIndex)
-		}));
-		entries.push(new CustomContextMenuSeparator());
-		entries.push(new CustomContextMenuItem({
-			commandId: PositronDataExplorerCommandId.CopyAction,
-			icon: 'copy',
-			label: localize('positron.dataExplorer.copy', "Copy"),
-			onSelected: () => console.log('Copy')
-		}));
+		// // Build the context menu entries.
+		// const entries: CustomContextMenuEntry[] = [];
+		// entries.push(new CustomContextMenuItem({
+		// 	commandId: PositronDataExplorerCommandId.CopyAction,
+		// 	icon: 'copy',
+		// 	label: localize('positron.dataExplorer.copy', "Copy"),
+		// 	onSelected: () => console.log('Copy')
+		// }));
+		// entries.push(new CustomContextMenuSeparator());
+		// entries.push(new CustomContextMenuItem({
+		// 	label: localize('positron.dataExplorer.selectColumn', "Select Column"),
+		// 	onSelected: () => this.selectColumn(columnIndex)
+		// }));
+		// entries.push(new CustomContextMenuItem({
+		// 	label: localize('positron.dataExplorer.selectRow', "Select Row"),
+		// 	onSelected: () => this.selectRow(rowIndex)
+		// }));
 
 		// Show the custom context menu.
 		await showCustomContextMenu(
@@ -324,7 +334,23 @@ export class TableDataDataGridInstance extends DataGridInstance {
 			anchor,
 			'left',
 			200,
-			entries
+			[
+				new CustomContextMenuItem({
+					commandId: PositronDataExplorerCommandId.CopyAction,
+					icon: 'copy',
+					label: localize('positron.dataExplorer.copy', "Copy"),
+					onSelected: () => console.log('Copy')
+				}),
+				new CustomContextMenuSeparator(),
+				new CustomContextMenuItem({
+					label: localize('positron.dataExplorer.selectColumn', "Select Column"),
+					onSelected: () => this.selectColumn(columnIndex)
+				}),
+				new CustomContextMenuItem({
+					label: localize('positron.dataExplorer.selectRow', "Select Row"),
+					onSelected: () => this.selectRow(rowIndex)
+				})
+			]
 		);
 	}
 
