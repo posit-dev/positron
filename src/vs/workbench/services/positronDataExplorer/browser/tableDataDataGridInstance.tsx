@@ -293,16 +293,20 @@ export class TableDataDataGridInstance extends DataGridInstance {
 	 * @param columnIndex The column index.
 	 * @param rowIndex The row index.
 	 */
-	override async showCellContextMenu(anchor: HTMLElement): Promise<void> {
+	override async showCellContextMenu(
+		anchor: HTMLElement,
+		columnIndex: number,
+		rowIndex: number
+	): Promise<void> {
 		// Build the context menu entries.
 		const entries: CustomContextMenuEntry[] = [];
 		entries.push(new CustomContextMenuItem({
 			label: localize('positron.dataExplorer.selectColumn', "Select Column"),
-			onSelected: () => console.log('Select Column')
+			onSelected: () => this.selectColumn(columnIndex)
 		}));
 		entries.push(new CustomContextMenuItem({
 			label: localize('positron.dataExplorer.selectRow', "Select Row"),
-			onSelected: () => console.log('Select Row')
+			onSelected: () => this.selectRow(rowIndex)
 		}));
 		entries.push(new CustomContextMenuSeparator());
 		entries.push(new CustomContextMenuItem({
