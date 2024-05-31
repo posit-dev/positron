@@ -297,19 +297,19 @@ export class TableDataDataGridInstance extends DataGridInstance {
 		// Build the context menu entries.
 		const entries: CustomContextMenuEntry[] = [];
 		entries.push(new CustomContextMenuItem({
-			commandId: PositronDataExplorerCommandId.CopyAction,
-			icon: 'copy',
-			label: localize('positron.dataExplorer.copy', "Copy"),
-			onSelected: () => console.log('Copy')
-		}));
-		entries.push(new CustomContextMenuSeparator());
-		entries.push(new CustomContextMenuItem({
 			label: localize('positron.dataExplorer.selectColumn', "Select Column"),
 			onSelected: () => console.log('Select Column')
 		}));
 		entries.push(new CustomContextMenuItem({
 			label: localize('positron.dataExplorer.selectRow', "Select Row"),
 			onSelected: () => console.log('Select Row')
+		}));
+		entries.push(new CustomContextMenuSeparator());
+		entries.push(new CustomContextMenuItem({
+			commandId: PositronDataExplorerCommandId.CopyAction,
+			icon: 'copy',
+			label: localize('positron.dataExplorer.copy', "Copy"),
+			onSelected: () => console.log('Copy')
 		}));
 
 		// Show the custom context menu.
