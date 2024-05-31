@@ -30,7 +30,6 @@ export interface PositronWelcomePageStartProps {
 	runtimeSessionService: IRuntimeSessionService;
 	runtimeStartupService: IRuntimeStartupService;
 	languageRuntimeService: ILanguageRuntimeService;
-	projectWizardEnabled: boolean;
 }
 
 export const PositronWelcomePageStart = (props: PropsWithChildren<PositronWelcomePageStartProps>) => {
@@ -77,14 +76,12 @@ export const PositronWelcomePageStart = (props: PropsWithChildren<PositronWelcom
 					commandService={props.commandService}
 				/>
 
-				{
-					props.projectWizardEnabled && <WelcomeButton
-						label={(() => localize('positron.welcome.newProject', "New Project"))()}
-						codicon='positron-new-project'
-						ariaLabel={(() => localize('positron.welcome.newProjectDescription', "Create a new project"))()}
-						onPressed={() => props.commandService.executeCommand(PositronNewProjectAction.ID)}
-					/>
-				}
+				<WelcomeButton
+					label={(() => localize('positron.welcome.newProject', "New Project"))()}
+					codicon='positron-new-project'
+					ariaLabel={(() => localize('positron.welcome.newProjectDescription', "Create a new project"))()}
+					onPressed={() => props.commandService.executeCommand(PositronNewProjectAction.ID)}
+				/>
 			</div>
 		</div>
 	);

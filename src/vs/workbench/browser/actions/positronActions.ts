@@ -19,13 +19,11 @@ import { IWorkbenchLayoutService } from 'vs/workbench/services/layout/browser/la
 import { showNewFolderModalDialog } from 'vs/workbench/browser/positronModalDialogs/newFolderModalDialog';
 import { showNewFolderFromGitModalDialog } from 'vs/workbench/browser/positronModalDialogs/newFolderFromGitModalDialog';
 import { showNewProjectModalDialog } from 'vs/workbench/browser/positronNewProjectWizard/newProjectModalDialog';
-import { IsDevelopmentContext } from 'vs/platform/contextkey/common/contextkeys';
 import { ILanguageRuntimeService } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { IRuntimeSessionService } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
 import { IRuntimeStartupService } from 'vs/workbench/services/runtimeStartup/common/runtimeStartupService';
 import { ILogService } from 'vs/platform/log/common/log';
 import { IOpenerService } from 'vs/platform/opener/common/opener';
-import { USE_POSITRON_PROJECT_WIZARD_CONFIG_KEY } from 'vs/workbench/services/positronNewProject/common/positronNewProjectEnablement';
 import { IPositronNewProjectService } from 'vs/workbench/services/positronNewProject/common/positronNewProject';
 import { IWorkspaceTrustManagementService } from 'vs/platform/workspace/common/workspaceTrust';
 
@@ -42,10 +40,6 @@ export class PositronNewProjectAction extends Action2 {
 	 * Constructor.
 	 */
 	constructor() {
-		// TODO: [New Project] Remove feature flag when New Project action is ready for release
-		// This removes the action in the New menu, the application bar File menu, and the command
-		// palette when the feature flag is not enabled.
-		const projectWizardEnabled = ContextKeyExpr.deserialize(`config.${USE_POSITRON_PROJECT_WIZARD_CONFIG_KEY}`);
 		super({
 			id: PositronNewProjectAction.ID,
 			title: {
@@ -55,15 +49,11 @@ export class PositronNewProjectAction extends Action2 {
 			},
 			category: workspacesCategory,
 			f1: true,
-			precondition: ContextKeyExpr.and(
-				EnterMultiRootWorkspaceSupportContext,
-				ContextKeyExpr.or(projectWizardEnabled, IsDevelopmentContext)
-			),
+			precondition: EnterMultiRootWorkspaceSupportContext,
 			menu: {
 				id: MenuId.MenubarFileMenu,
 				group: '1_newfolder',
 				order: 3,
-				when: ContextKeyExpr.or(projectWizardEnabled, IsDevelopmentContext),
 			},
 		});
 	}
