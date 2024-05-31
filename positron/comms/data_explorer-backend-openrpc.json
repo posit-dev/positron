@@ -742,6 +742,14 @@
 					"boolean_stats": {
 						"description": "Statistics for a boolean data type",
 						"$ref": "#/components/schemas/summary_stats_boolean"
+					},
+					"date_stats": {
+						"description": "Statistics for a date data type",
+						"$ref": "#/components/schemas/summary_stats_date"
+					},
+					"datetime_stats": {
+						"description": "Statistics for a datetime data type",
+						"$ref": "#/components/schemas/summary_stats_datetime"
 					}
 				}
 			},
@@ -808,6 +816,74 @@
 					"num_unique": {
 						"type": "integer",
 						"description": "The exact number of distinct values"
+					}
+				}
+			},
+			"summary_stats_date": {
+				"type": "object",
+				"required": [
+					"num_unique",
+					"min_date",
+					"mean_date",
+					"median_date",
+					"max_date"
+				],
+				"properties": {
+					"num_unique": {
+						"type": "integer",
+						"description": "The exact number of distinct values"
+					},
+					"min_date": {
+						"type": "string",
+						"description": "Minimum date value as string"
+					},
+					"mean_date": {
+						"type": "string",
+						"description": "Average date value as string"
+					},
+					"median_date": {
+						"type": "string",
+						"description": "Sample median (50% value) date value as string"
+					},
+					"max_date": {
+						"type": "string",
+						"description": "Maximum date value as string"
+					}
+				}
+			},
+			"summary_stats_datetime": {
+				"type": "object",
+				"required": [
+					"num_unique",
+					"min_date",
+					"mean_date",
+					"median_date",
+					"max_date"
+				],
+				"properties": {
+					"num_unique": {
+						"type": "integer",
+						"description": "The exact number of distinct values"
+					},
+					"min_date": {
+						"type": "string",
+						"description": "Minimum date value as string"
+					},
+					"mean_date": {
+						"type": "string",
+						"description": "Average date value as string"
+					},
+					"median_date": {
+						"type": "string",
+						"description": "Sample median (50% value) date value as string"
+					},
+					"max_date": {
+						"type": "string",
+						"description": "Maximum date value as string"
+					},
+					"timezone": {
+						"type": "string",
+						"description": "Time zone for timestamp with time zone"
 					}
 				}
 			},
