@@ -9,8 +9,6 @@ import {
 	Extensions,
 	IConfigurationRegistry,
 } from 'vs/platform/configuration/common/configurationRegistry';
-import { IContextKeyService } from 'vs/platform/contextkey/common/contextkey';
-import { IsDevelopmentContext } from 'vs/platform/contextkey/common/contextkeys';
 import { Registry } from 'vs/platform/registry/common/platform';
 import { positronConfigurationNodeBase } from 'vs/workbench/services/languageRuntime/common/languageRuntime';
 
@@ -32,11 +30,9 @@ export const USE_POSITRON_PROJECT_WIZARD_CONFIG_KEY =
  * @returns Whether to enable the Positron Project Wizard
  */
 export function projectWizardWorkInProgressEnabled(
-	contextKeyService: IContextKeyService,
 	configurationService: IConfigurationService
 ) {
 	return (
-		IsDevelopmentContext.getValue(contextKeyService) ||
 		Boolean(
 			configurationService.getValue(USE_POSITRON_PROJECT_WIZARD_CONFIG_KEY)
 		)

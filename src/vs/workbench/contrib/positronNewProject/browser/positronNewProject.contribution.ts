@@ -5,7 +5,6 @@
 import { onUnexpectedError } from 'vs/base/common/errors';
 import { Disposable } from 'vs/base/common/lifecycle';
 import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
-import { IContextKeyService } from 'vs/platform/contextkey/common/contextkey';
 import { InstantiationType, registerSingleton } from 'vs/platform/instantiation/common/extensions';
 import { IWorkbenchContribution, WorkbenchPhase, registerWorkbenchContribution2 } from 'vs/workbench/common/contributions';
 import { ILifecycleService, LifecyclePhase, StartupKind } from 'vs/workbench/services/lifecycle/common/lifecycle';
@@ -30,14 +29,13 @@ class PositronNewProjectContribution extends Disposable implements IWorkbenchCon
 	 * @param _positronNewProjectService The Positron New Project service.
 	 */
 	constructor(
-		@IContextKeyService private readonly _contextKeyService: IContextKeyService,
 		@IConfigurationService private readonly _configurationService: IConfigurationService,
 		@ILifecycleService private readonly _lifecycleService: ILifecycleService,
 		@IPositronNewProjectService private readonly _positronNewProjectService: IPositronNewProjectService,
 	) {
 		super();
 		// TODO: [New Project] Remove feature flag when New Project action is ready for release
-		if (projectWizardWorkInProgressEnabled(this._contextKeyService, this._configurationService)) {
+		if (projectWizardWorkInProgressEnabled(this._configurationService)) {
 			// Whether the project was opened in a new window or the existing window, the startup kind
 			// will be `StartupKind.NewWindow`.
 			if (

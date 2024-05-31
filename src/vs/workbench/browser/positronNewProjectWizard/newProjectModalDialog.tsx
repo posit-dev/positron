@@ -29,7 +29,6 @@ import { EnvironmentSetupType, NewProjectWizardStep } from 'vs/workbench/browser
 import { IWorkspaceTrustManagementService } from 'vs/platform/workspace/common/workspaceTrust';
 import { showChooseNewProjectWindowModalDialog } from 'vs/workbench/browser/positronNewProjectWizard/chooseNewProjectWindowModalDialog';
 import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
-import { IContextKeyService } from 'vs/platform/contextkey/common/contextkey';
 
 /**
  * Shows the NewProjectModalDialog.
@@ -37,7 +36,6 @@ import { IContextKeyService } from 'vs/platform/contextkey/common/contextkey';
 export const showNewProjectModalDialog = async (
 	commandService: ICommandService,
 	configurationService: IConfigurationService,
-	contextKeyService: IContextKeyService,
 	fileDialogService: IFileDialogService,
 	fileService: IFileService,
 	keybindingService: IKeybindingService,
@@ -64,7 +62,6 @@ export const showNewProjectModalDialog = async (
 			services={{
 				commandService,
 				configurationService,
-				contextKeyService,
 				fileDialogService,
 				fileService,
 				keybindingService,

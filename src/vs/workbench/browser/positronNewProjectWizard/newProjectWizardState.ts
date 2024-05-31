@@ -21,7 +21,6 @@ import { Emitter, Event } from 'vs/base/common/event';
 import { WizardFormattedTextItem } from 'vs/workbench/browser/positronNewProjectWizard/components/wizardFormattedText';
 import { NewProjectType } from 'vs/workbench/services/positronNewProject/common/positronNewProject';
 import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
-import { IContextKeyService } from 'vs/platform/contextkey/common/contextkey';
 import { projectWizardWorkInProgressEnabled } from 'vs/workbench/services/positronNewProject/common/positronNewProjectEnablement';
 
 /**
@@ -31,7 +30,6 @@ import { projectWizardWorkInProgressEnabled } from 'vs/workbench/services/positr
 interface NewProjectWizardServices {
 	readonly commandService: ICommandService;
 	readonly configurationService: IConfigurationService;
-	readonly contextKeyService: IContextKeyService;
 	readonly fileDialogService: IFileDialogService;
 	readonly fileService: IFileService;
 	readonly keybindingService: IKeybindingService;
@@ -527,7 +525,7 @@ export class NewProjectWizardStateManager
 	 * @returns Whether work-in-progress project wizard functionality is enabled.
 	 */
 	wipFunctionalityEnabled(): boolean {
-		return projectWizardWorkInProgressEnabled(this._services.contextKeyService, this._services.configurationService);
+		return projectWizardWorkInProgressEnabled(this._services.configurationService);
 	}
 
 	/**
