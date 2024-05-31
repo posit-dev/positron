@@ -3,7 +3,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { WebContents, webContents, webFrameMain, WebFrameMain } from 'electron';
+import { WebContents, webContents, WebFrameMain } from 'electron';
 import { Emitter } from 'vs/base/common/event';
 import { Disposable } from 'vs/base/common/lifecycle';
 import { FindInFrameOptions, FoundInFrameResult, IWebviewManagerService, WebviewWebContentsId, WebviewWindowId } from 'vs/platform/webview/common/webviewManagerService';
@@ -12,7 +12,7 @@ import { IWindowsMainService } from 'vs/platform/windows/electron-main/windows';
 
 // --- Start Positron ---
 // eslint-disable-next-line no-duplicate-imports
-import { Rectangle } from 'electron';
+import { Rectangle, webFrameMain } from 'electron';
 import { VSBuffer } from 'vs/base/common/buffer';
 
 // eslint-disable-next-line no-duplicate-imports
@@ -118,29 +118,50 @@ export class WebviewMainService extends Disposable implements IWebviewManagerSer
 		return VSBuffer.wrap(image.toPNG());
 	}
 
+	/**
+	 * Waits for a frame to be created in a webview.
+	 *
+	 * @param windowId The ID of the window containing the webview
+	 * @param targetUrl The URL of the frame to await creation of
+	 * @returns A unique identifier for the frame
+	 */
 	public async awaitFrameCreation(windowId: WebviewWindowId, targetUrl: string): Promise<WebviewFrameId> {
+		// Get the window containing the webview
 		const window = this.windowsMainService.getWindowById(windowId.windowId);
 		if (!window?.win) {
 			throw new Error(`Invalid windowId: ${windowId}`);
 		}
-		window.win!.webContents.on('frame-created', (event, frame) => {
-			console.log('frame-created', JSON.stringify(frame));
-		});
-		window.win!.webContents.on('did-frame-navigate', (event, url, httpResponseCode, httpStatusText, isMainFrame, frameProcessId, frameRoutingId) => {
-			console.log(`did-frame-navigate: ${url}, ${httpResponseCode}, ${httpStatusText}, ${isMainFrame}, ${frameProcessId}, ${frameRoutingId}`);
-		});
 		return new Promise<WebviewFrameId>(resolve => {
-			window.win!.webContents.on('did-frame-navigate', (event, url, httpResponseCode, httpStatusText, isMainFrame, frameProcessId, frameRoutingId) => {
+			let frameId: WebviewFrameId | undefined;
+
+			// Handler for navigation events; we listen for these until we find
+			// the frame we're looking for, then resolve the promise
+			const onNavigated = (event: any, url: string, httpResponseCode: number, httpStatusText: string, isMainFrame: boolean, frameProcessId: number, frameRoutingId: number) => {
+				// Ignore navigations that aren't in the main frame
 				if (url !== targetUrl) {
 					return;
 				}
-				const frameId: WebviewFrameId = { processId: frameProcessId, routingId: frameRoutingId };
 
-				setTimeout(() => {
-					this._onDomReady.fire(frameId);
-				}, 500);
+				// Extract the frame process and routing IDs
+				frameId = { processId: frameProcessId, routingId: frameRoutingId };
+
+				// Remove the listener now that we've found the frame
+				window.win!.webContents.off('did-frame-navigate', onNavigated);
 				resolve(frameId);
-			});
+			};
+
+			// Handler for load events; we listen for these until the frame
+			// we're looking for is loaded, then emit an event
+			const onLoadFinished = (event: any, isMainFrame: boolean, frameProcessId: number, frameRoutingId: number) => {
+				if (frameId && frameId.processId === frameProcessId && frameId.routingId === frameRoutingId) {
+					this._onDomReady.fire({ processId: frameProcessId, routingId: frameRoutingId });
+					window.win!.webContents.off('did-frame-finish-load', onLoadFinished);
+				}
+			};
+
+			// Listen for navigation and load events
+			window.win!.webContents.on('did-frame-navigate', onNavigated);
+			window.win!.webContents.on('did-frame-finish-load', onLoadFinished);
 		});
 	}
 
