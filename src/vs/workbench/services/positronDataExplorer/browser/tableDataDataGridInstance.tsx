@@ -244,6 +244,14 @@ export class TableDataDataGridInstance extends DataGridInstance {
 			200,
 			[
 				new CustomContextMenuItem({
+					commandId: PositronDataExplorerCommandId.CopyAction,
+					checked: false,
+					icon: 'copy',
+					label: localize('positron.dataExplorer.copy', "Copy"),
+					onSelected: () => console.log('Copy')
+				}),
+				new CustomContextMenuSeparator(),
+				new CustomContextMenuItem({
 					checked: columnSortKey !== undefined && columnSortKey.ascending,
 					icon: 'arrow-up',
 					label: localize('positron.sortAscending', "Sort Ascending"),
