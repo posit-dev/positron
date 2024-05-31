@@ -29,6 +29,10 @@ import { localize } from 'vs/nls';
 import { IEditorResolverService, RegisteredEditorPriority } from 'vs/workbench/services/editor/common/editorResolverService';
 import { TerminalCommandId } from 'vs/workbench/contrib/terminal/common/terminal';
 
+// --- Start Positron ---
+import { IPositronNewProjectService } from 'vs/workbench/services/positronNewProject/common/positronNewProject';
+// --- End Positron ---
+
 export const restoreWalkthroughsConfigurationKey = 'workbench.welcomePage.restorableWalkthroughs';
 export type RestoreWalkthroughsConfigurationValue = { folder: string; category?: string; step?: string };
 
@@ -87,7 +91,10 @@ export class StartupPageRunnerContribution implements IWorkbenchContribution {
 		@IWorkbenchEnvironmentService private readonly environmentService: IWorkbenchEnvironmentService,
 		@IStorageService private readonly storageService: IStorageService,
 		@ILogService private readonly logService: ILogService,
-		@INotificationService private readonly notificationService: INotificationService
+		@INotificationService private readonly notificationService: INotificationService,
+		// --- Start Positron ---
+		@IPositronNewProjectService private readonly positronNewProjectService: IPositronNewProjectService,
+		// --- End Positron ---
 	) {
 		this.run().then(undefined, onUnexpectedError);
 	}
@@ -114,7 +121,9 @@ export class StartupPageRunnerContribution implements IWorkbenchContribution {
 			return;
 		}
 
-		const enabled = isStartupPageEnabled(this.configurationService, this.contextService, this.environmentService);
+		// --- Start Positron ---
+		const enabled = isStartupPageEnabled(this.configurationService, this.contextService, this.environmentService, this.positronNewProjectService);
+		// --- End Positron ---
 		if (enabled && this.lifecycleService.startupKind !== StartupKind.ReloadedWindow) {
 			const hasBackups = await this.workingCopyBackupService.hasBackups();
 			if (hasBackups) { return; }
@@ -214,10 +223,18 @@ export class StartupPageRunnerContribution implements IWorkbenchContribution {
 	}
 }
 
-function isStartupPageEnabled(configurationService: IConfigurationService, contextService: IWorkspaceContextService, environmentService: IWorkbenchEnvironmentService) {
+// --- Start Positron ---
+function isStartupPageEnabled(configurationService: IConfigurationService, contextService: IWorkspaceContextService, environmentService: IWorkbenchEnvironmentService, positronNewProjectService: IPositronNewProjectService) {
+	// --- End Positron ---
 	if (environmentService.skipWelcome) {
 		return false;
 	}
+
+	// --- Start Positron ---
+	if (positronNewProjectService.isCurrentWindowNewProject()) {
+		return false;
+	}
+	// --- End Positron ---
 
 	const startupEditor = configurationService.inspect<string>(configurationKey);
 	if (!startupEditor.userValue && !startupEditor.workspaceValue) {
