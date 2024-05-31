@@ -308,24 +308,6 @@ export class TableDataDataGridInstance extends DataGridInstance {
 		columnIndex: number,
 		rowIndex: number
 	): Promise<void> {
-		// // Build the context menu entries.
-		// const entries: CustomContextMenuEntry[] = [];
-		// entries.push(new CustomContextMenuItem({
-		// 	commandId: PositronDataExplorerCommandId.CopyAction,
-		// 	icon: 'copy',
-		// 	label: localize('positron.dataExplorer.copy', "Copy"),
-		// 	onSelected: () => console.log('Copy')
-		// }));
-		// entries.push(new CustomContextMenuSeparator());
-		// entries.push(new CustomContextMenuItem({
-		// 	label: localize('positron.dataExplorer.selectColumn', "Select Column"),
-		// 	onSelected: () => this.selectColumn(columnIndex)
-		// }));
-		// entries.push(new CustomContextMenuItem({
-		// 	label: localize('positron.dataExplorer.selectRow', "Select Row"),
-		// 	onSelected: () => this.selectRow(rowIndex)
-		// }));
-
 		// Show the custom context menu.
 		await showCustomContextMenu(
 			this._commandService,
