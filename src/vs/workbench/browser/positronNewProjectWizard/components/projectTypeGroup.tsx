@@ -11,7 +11,7 @@ import { PropsWithChildren, useState } from 'react'; // eslint-disable-line no-d
 
 // Other dependencies.
 import { ProjectType } from 'vs/workbench/browser/positronNewProjectWizard/components/projectType';
-import { NewProjectType } from 'vs/workbench/browser/positronNewProjectWizard/interfaces/newProjectWizardEnums';
+import { NewProjectType } from 'vs/workbench/services/positronNewProject/common/positronNewProject';
 
 /**
  * ProjectTypeProps interface.
