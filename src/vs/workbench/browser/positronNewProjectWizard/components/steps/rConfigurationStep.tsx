@@ -69,6 +69,7 @@ export const RConfigurationStep = (props: PropsWithChildren<NewProjectWizardStep
 
 	// Utility functions.
 	const interpretersAvailable = () => Boolean(interpreters && interpreters.length);
+	const interpretersLoading = () => !interpreters;
 
 	// Handler for when the interpreter is selected.
 	const onInterpreterSelected = (identifier: string) => {
@@ -138,7 +139,7 @@ export const RConfigurationStep = (props: PropsWithChildren<NewProjectWizardStep
 						'Select a version of R to launch your project with. You can modify this later if you change your mind.'
 					))()}
 				feedback={
-					interpretersAvailable() ? undefined : (
+					!interpretersLoading() && !interpretersAvailable() ? (
 						<WizardFormattedText
 							type={WizardFormattedTextType.Warning}
 						>
@@ -149,7 +150,7 @@ export const RConfigurationStep = (props: PropsWithChildren<NewProjectWizardStep
 									minimumRVersion
 								))()}
 						</WizardFormattedText>
-					)
+					) : undefined
 				}
 			>
 				<DropDownListBox
