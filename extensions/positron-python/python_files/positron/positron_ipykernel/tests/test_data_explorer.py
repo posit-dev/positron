@@ -4,6 +4,7 @@
 
 # ruff: noqa: E712
 
+from io import StringIO
 from typing import Any, Dict, List, Optional, Type, cast
 
 import numpy as np
@@ -359,6 +360,14 @@ class DataExplorerFixture:
             "get_data_values",
             format_options=format_options,
             **params,
+        )
+
+    def export_data_selection(self, table_name, selection, format="csv"):
+        return self.do_json_rpc(
+            table_name,
+            "export_data_selection",
+            selection=selection,
+            format=format,
         )
 
     def set_row_filters(self, table_name, filters=None):
@@ -1573,6 +1582,127 @@ def test_pandas_updated_with_sort_keys(dxf: DataExplorerFixture):
     assert schema_updated
     assert new_filt == view.filters
     assert new_sort_keys == view.sort_keys
+
+
+def _select_single_cell(row_index: int, col_index: int):
+    return {
+        "kind": "single_cell",
+        "selection": {"row_index": row_index, "column_index": col_index},
+    }
+
+
+def _select_cell_range(
+    first_row_index: int,
+    last_row_index: int,
+    first_col_index: int,
+    last_col_index: int,
+):
+    return {
+        "kind": "cell_range",
+        "selection": {
+            "first_row_index": first_row_index,
+            "last_row_index": last_row_index,
+            "first_column_index": first_col_index,
+            "last_column_index": last_col_index,
+        },
+    }
+
+
+def _select_range(first_index: int, last_index: int, kind: str):
+    return {
+        "kind": kind,
+        "selection": {"first_index": first_index, "last_index": last_index},
+    }
+
+
+def _select_column_range(first_index: int, last_index: int):
+    return _select_range(first_index, last_index, "column_range")
+
+
+def _select_row_range(first_index: int, last_index: int):
+    return _select_range(first_index, last_index, "row_range")
+
+
+def _select_indices(indices: List[int], kind: str):
+    return {
+        "kind": kind,
+        "selection": {"indices": indices},
+    }
+
+
+def _select_column_indices(indices: List[int]):
+    return _select_indices(indices, "column_indices")
+
+
+def _select_row_indices(indices: List[int]):
+    return _select_indices(indices, "row_indices")
+
+
+def test_pandas_export_data_selection(dxf: DataExplorerFixture):
+    length = 100
+    ncols = 20
+
+    np.random.seed(12345)
+    df = pd.DataFrame({f"a{i}": np.random.standard_normal(length) for i in range(ncols)})
+
+    dxf.register_table("df", df)
+    dxf.register_table("filtered", df)
+
+    schema = dxf.get_schema("filtered")
+    dxf.set_row_filters("filtered", filters=[_compare_filter(schema[0], ">", "0")])
+
+    filtered = df[df.iloc[:, 0] > 0]
+
+    # Test exporting single cells
+    single_cell_cases = [(0, 0), (5, 10), (25, 15), (99, 19)]
+
+    for row_index, col_index in single_cell_cases:
+        selection = _select_single_cell(row_index, col_index)
+        df_result = dxf.export_data_selection("df", selection, "tsv")
+        df_expected = str(df.iat[row_index, col_index])
+        assert df_result["data"] == df_expected
+        assert df_result["format"] == "tsv"
+
+        filt_row_index = min(row_index, len(filtered) - 1)
+        filt_selection = _select_single_cell(filt_row_index, col_index)
+        filt_result = dxf.export_data_selection("filtered", filt_selection, "csv")
+        filt_expected = str(filtered.iat[filt_row_index, col_index])
+        assert filt_result["data"] == filt_expected
+
+    # Test exporting ranges
+    range_cases = [
+        (_select_cell_range(1, 4, 10, 19), (slice(1, 5), slice(10, 20))),
+        (_select_cell_range(1, 1, 4, 4), (slice(1, 2), slice(4, 5))),
+        (_select_column_range(1, 5), (slice(None), slice(1, 6))),
+        (_select_row_range(1, 5), (slice(1, 6), slice(None))),
+        (_select_row_indices([0, 3, 5, 7]), ([0, 3, 5, 7], slice(None))),
+        (_select_column_indices([0, 3, 5, 7]), (slice(None), [0, 3, 5, 7])),
+    ]
+
+    def do_export(x, fmt):
+        buf = StringIO()
+        if fmt == "csv":
+            x.to_csv(buf, index=False)
+        elif fmt == "tsv":
+            x.to_csv(buf, sep="\t", index=False)
+        elif fmt == "html":
+            x.to_html(buf, index=False)
+        return buf.getvalue()
+
+    for rpc_selection, selector in range_cases:
+        df_selected = df.iloc[selector]
+        filtered_selected = filtered.iloc[selector]
+
+        for fmt in ["csv", "tsv", "html"]:
+            df_result = dxf.export_data_selection("df", rpc_selection, fmt)
+            df_expected = do_export(df_selected, fmt)
+
+            assert df_result["data"] == df_expected
+            assert df_result["format"] == fmt
+
+            filt_result = dxf.export_data_selection("filtered", rpc_selection, fmt)
+            filt_expected = do_export(filtered_selected, fmt)
+            assert filt_result["data"] == filt_expected
 
 
 def _profile_request(column_index, profile_type):

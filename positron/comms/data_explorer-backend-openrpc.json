@@ -133,6 +133,50 @@
 			}
 		},
 		{
+			"name": "export_data_selection",
+			"summary": "Export data selection as a string in different formats",
+			"description": "Export data selection as a string in different formats like CSV, TSV, HTML",
+			"params": [
+				{
+					"name": "selection",
+					"description": "The data selection",
+					"required": true,
+					"schema": {
+						"$ref": "#/components/schemas/data_selection"
+					}
+				},
+				{
+					"name": "format",
+					"description": "Result string format",
+					"required": true,
+					"schema": {
+						"$ref": "#/components/schemas/export_format"
+					}
+				}
+			],
+			"result": {
+				"schema": {
+					"name": "exported_data",
+					"type": "object",
+					"description": "Exported result",
+					"required": [
+						"data",
+						"format"
+					],
+					"properties": {
+						"data": {
+							"type": "string",
+							"description": "Exported data as a string suitable for copy and paste"
+						},
+						"format": {
+							"$ref": "#/components/schemas/export_format",
+							"description": "The exported data format"
+						}
+					}
+				}
+			}
+		},
+		{
 			"name": "set_row_filters",
 			"summary": "Set row filters based on column values",
 			"description": "Set or clear row filters on table, replacing any previous filters",
@@ -282,7 +326,6 @@
 		"contentDescriptors": {},
 		"schemas": {
 			"column_display_type": {
-				"name": "column_display_type",
 				"type": "string",
 				"description": "Canonical Positron display name of data type",
 				"enum": [
@@ -951,6 +994,138 @@
 						}
 					}
 				}
+			},
+			"data_selection": {
+				"type": "object",
+				"description": "A selection on the data grid, for copying to the clipboard or other actions",
+				"required": [
+					"kind",
+					"selection"
+				],
+				"properties": {
+					"kind": {
+						"type": "string",
+						"description": "Type of selection",
+						"enum": [
+							"single_cell",
+							"cell_range",
+							"column_range",
+							"row_range",
+							"column_indices",
+							"row_indices"
+						]
+					},
+					"selection": {
+						"description": "A union of selection types",
+						"oneOf": [
+							{
+								"name": "single_cell",
+								"$ref": "#/components/schemas/data_selection_single_cell"
+							},
+							{
+								"name": "cell_range",
+								"$ref": "#/components/schemas/data_selection_cell_range"
+							},
+							{
+								"name": "index_range",
+								"$ref": "#/components/schemas/data_selection_range"
+							},
+							{
+								"name": "indices",
+								"$ref": "#/components/schemas/data_selection_indices"
+							}
+						]
+					}
+				}
+			},
+			"data_selection_single_cell": {
+				"type": "object",
+				"description": "A selection that contains a single data cell",
+				"required": [
+					"row_index",
+					"column_index"
+				],
+				"properties": {
+					"row_index": {
+						"type": "integer",
+						"description": "The selected row index"
+					},
+					"column_index": {
+						"type": "integer",
+						"description": "The selected column index"
+					}
+				}
+			},
+			"data_selection_cell_range": {
+				"type": "object",
+				"description": "A selection that contains a rectangular range of data cells",
+				"required": [
+					"first_row_index",
+					"last_row_index",
+					"first_column_index",
+					"last_column_index"
+				],
+				"properties": {
+					"first_row_index": {
+						"type": "integer",
+						"description": "The starting selected row index (inclusive)"
+					},
+					"last_row_index": {
+						"type": "integer",
+						"description": "The final selected row index (inclusive)"
+					},
+					"first_column_index": {
+						"type": "integer",
+						"description": "The starting selected column index (inclusive)"
+					},
+					"last_column_index": {
+						"type": "integer",
+						"description": "The final selected column index (inclusive)"
+					}
+				}
+			},
+			"data_selection_range": {
+				"type": "object",
+				"description": "A contiguous selection bounded by inclusive start and end indices",
+				"required": [
+					"first_index",
+					"last_index"
+				],
+				"properties": {
+					"first_index": {
+						"type": "integer",
+						"description": "The starting selected index (inclusive)"
+					},
+					"last_index": {
+						"type": "integer",
+						"description": "The final selected index (inclusive)"
+					}
+				}
+			},
+			"data_selection_indices": {
+				"type": "object",
+				"description": "A selection defined by a sequence of indices to include",
+				"required": [
+					"indices"
+				],
+				"properties": {
+					"indices": {
+						"type": "array",
+						"description": "The selected indices",
+						"items": {
+							"type": "integer"
+						}
+					}
+				}
+			},
+			"export_format": {
+				"type": "string",
+				"description": "Exported data format",
+				"enum": [
+					"csv",
+					"tsv",
+					"html"
+				]
 			}
 		}
 	}
