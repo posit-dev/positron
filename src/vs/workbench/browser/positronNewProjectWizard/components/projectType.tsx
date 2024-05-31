@@ -10,11 +10,11 @@ import * as React from 'react';
 import { useRef } from 'react'; // eslint-disable-line no-duplicate-imports
 
 // Other dependencies.
-import { NewProjectType } from 'vs/workbench/browser/positronNewProjectWizard/interfaces/newProjectWizardEnums';
 import { PythonLogo } from 'vs/workbench/browser/positronNewProjectWizard/components/logos/logoPython';
 import { JupyterLogo } from 'vs/workbench/browser/positronNewProjectWizard/components/logos/logoJupyter';
 import { RLogo } from 'vs/workbench/browser/positronNewProjectWizard/components/logos/logoR';
 import { useNewProjectWizardContext } from 'vs/workbench/browser/positronNewProjectWizard/newProjectWizardContext';
+import { NewProjectType } from 'vs/workbench/services/positronNewProject/common/positronNewProject';
 
 /**
  * ProjectTypeProps interface.

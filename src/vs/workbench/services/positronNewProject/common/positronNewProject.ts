@@ -43,6 +43,19 @@ export enum NewProjectStartupPhase {
 }
 
 /**
+ * NewProjectType enum. Defines the types of projects that can be created.
+ * TODO: localize. Since this is an enum, we can't use the localize function
+ * because computed values must be numbers (not strings). So we'll probably need to
+ * turn this into an object with keys and values, maybe also using something like
+ * satisfies Readonly<Record<string, string>>.
+ */
+export enum NewProjectType {
+	PythonProject = 'Python Project',
+	RProject = 'R Project',
+	JupyterNotebook = 'Jupyter Notebook'
+}
+
+/**
  * NewProjectTask enum. Defines the tasks that can be pending during new project initialization.
  */
 export enum NewProjectTask {
@@ -51,7 +64,8 @@ export enum NewProjectTask {
 	Jupyter = 'jupyter',
 	Git = 'git',
 	PythonEnvironment = 'pythonEnvironment',
-	REnvironment = 'rEnvironment'
+	REnvironment = 'rEnvironment',
+	CreateNewFile = 'createNewFile',
 }
 
 /**
@@ -110,6 +124,12 @@ export interface IPositronNewProjectService {
 	 * @returns Whether the new project was initialized.
 	 */
 	initNewProject(): Promise<void>;
+
+	/**
+	 * Determines whether the current window the new project that was just created.
+	 * @returns Whether the current window is the newly created project.
+	 */
+	isCurrentWindowNewProject(): boolean;
 
 	/**
 	 * Barrier for other services to wait for all project tasks to complete.
