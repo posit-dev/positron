@@ -803,7 +803,7 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 
 		this._notificationService.prompt(Severity.Warning, msg, [
 			{
-				label: 'Find and Replace',
+				label: 'Open logile',
 				run: () => {
 					//const textDocument = await workspace.openTextDocument(logfile);
 					this._commandService.executeCommand('workbench.action.openLogFile');
