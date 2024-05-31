@@ -84,8 +84,7 @@ export class ColumnSelectorDataGridInstance extends DataGridInstance {
 
 		// Add the onDidSchemaUpdate event handler.
 		this._register(this._dataExplorerClientInstance.onDidSchemaUpdate(async () => {
-			this.setScreenPosition(0, 0);
-			this.fetchData();
+			await this.setScreenPosition(0, 0);
 		}));
 	}
 
@@ -113,9 +112,10 @@ export class ColumnSelectorDataGridInstance extends DataGridInstance {
 
 	/**
 	 * Fetches data.
+	 * @returns A Promise<void> that resolves when the operation is complete.
 	 */
-	override fetchData() {
-		this._columnSchemaCache.updateCache({
+	override async fetchData() {
+		await this._columnSchemaCache.updateCache({
 			searchText: this._searchText,
 			firstColumnIndex: this.firstRowIndex,
 			visibleColumns: this.screenRows
@@ -188,7 +188,7 @@ export class ColumnSelectorDataGridInstance extends DataGridInstance {
 
 			// Set the search text and fetch data.
 			this._searchText = searchText;
-			this.fetchData();
+			await this.fetchData();
 		}
 	}
 
