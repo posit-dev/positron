@@ -48,6 +48,7 @@ import {
 import { BaseInterpreterSelectorCommand } from './base';
 // --- Start Positron ---
 import { IPythonRuntimeManager } from '../../../../positron/manager';
+import { traceError } from '../../../../logging';
 // --- End Positron ---
 
 const untildify = require('untildify');
@@ -589,7 +590,9 @@ export class SetInterpreterCommand extends BaseInterpreterSelectorCommand implem
             await this.pythonPathUpdaterService.updatePythonPath(interpreterState.path, configTarget, 'ui', wkspace);
             // --- Start Positron ---
             // Ensure that the corresponding runtime is selected in the console, and focus the console.
-            this.pythonRuntimeManager.selectLanguageRuntimeFromPath(interpreterState.path);
+            this.pythonRuntimeManager
+                .selectLanguageRuntimeFromPath(interpreterState.path)
+                .catch((error) => traceError(`Failed to select language runtime from path: ${error}`));
             this.commandManager.executeCommand(Commands.Focus_Positron_Console);
             // --- End Positron ---
         }
