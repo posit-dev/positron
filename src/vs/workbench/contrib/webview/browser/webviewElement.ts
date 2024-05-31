@@ -696,7 +696,7 @@ export class WebviewElement extends Disposable implements IWebview, WebviewFindD
 		}
 		this._logService.debug(`Webview(${this.id}): will update URI to ${uri.toString()}`);
 		this._send('set-uri', uri.toString());
-		const frameId = await this.awaitFrameCreation();
+		const frameId = await this.awaitFrameCreation(uri.toString());
 
 		// Read the contents of the 'webview-events.js' file
 		const webviewEventsJsPath = FileAccess.asFileUri('vs/workbench/contrib/webview/browser/pre/webview-events.js');
@@ -955,7 +955,7 @@ export class WebviewElement extends Disposable implements IWebview, WebviewFindD
 	}
 
 	// --- Start Positron ---
-	public awaitFrameCreation(): Promise<WebviewFrameId> {
+	public awaitFrameCreation(targetUrl: string): Promise<WebviewFrameId> {
 		throw new Error('Method not implemented.');
 	}
 	public captureContentsAsPng(): Promise<VSBuffer | undefined> {

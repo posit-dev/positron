@@ -189,8 +189,8 @@ export class ElectronWebviewElement extends WebviewElement {
 			{ windowId: this._nativeHostService.windowId }, bounding);
 	}
 
-	public override awaitFrameCreation(): Promise<WebviewFrameId> {
-		return this._webviewMainService.awaitFrameCreation({ windowId: this._nativeHostService.windowId });
+	public override awaitFrameCreation(targetUrl: string): Promise<WebviewFrameId> {
+		return this._webviewMainService.awaitFrameCreation({ windowId: this._nativeHostService.windowId }, targetUrl);
 	}
 
 	public override executeJavaScript(frameId: WebviewFrameId, code: string): Promise<any> {

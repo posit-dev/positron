@@ -8,10 +8,10 @@
 const hostMessaging = {
 	postMessage: (type, data) => {
 		console.log('hej, just gonna post a ', type, ' message to the host');
-		window.postMessage({
+		window.parent.postMessage({
 			channel: type,
 			data: data,
-		});
+		}, "*");
 	}
 };
 

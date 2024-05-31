@@ -60,7 +60,7 @@ export interface IWebviewManagerService {
 	stopFindInFrame(windowId: WebviewWindowId, frameName: string, options: { keepSelection?: boolean }): Promise<void>;
 
 	// --- Start Positron ---
-	awaitFrameCreation(windowId: WebviewWindowId): Promise<WebviewFrameId>;
+	awaitFrameCreation(windowId: WebviewWindowId, targetUrl: string): Promise<WebviewFrameId>;
 
 	onFrameDomReady: Event<WebviewFrameId>;
 

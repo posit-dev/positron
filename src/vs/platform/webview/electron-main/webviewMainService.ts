@@ -118,7 +118,7 @@ export class WebviewMainService extends Disposable implements IWebviewManagerSer
 		return VSBuffer.wrap(image.toPNG());
 	}
 
-	public async awaitFrameCreation(windowId: WebviewWindowId): Promise<WebviewFrameId> {
+	public async awaitFrameCreation(windowId: WebviewWindowId, targetUrl: string): Promise<WebviewFrameId> {
 		const window = this.windowsMainService.getWindowById(windowId.windowId);
 		if (!window?.win) {
 			throw new Error(`Invalid windowId: ${windowId}`);
@@ -131,7 +131,7 @@ export class WebviewMainService extends Disposable implements IWebviewManagerSer
 		});
 		return new Promise<WebviewFrameId>(resolve => {
 			window.win!.webContents.on('did-frame-navigate', (event, url, httpResponseCode, httpStatusText, isMainFrame, frameProcessId, frameRoutingId) => {
-				if (url === 'about:blank') {
+				if (url !== targetUrl) {
 					return;
 				}
 				const frameId: WebviewFrameId = { processId: frameProcessId, routingId: frameRoutingId };
