@@ -33,6 +33,7 @@ export class OverlayWebview extends Disposable implements IOverlayWebview {
 
 	private _html = '';
 	// --- Start Positron ---
+	// The URI of the webview. Mutually exclusive with _html.
 	private _uri: URI | undefined;
 	// --- End Positron ---
 	private _title: string | undefined;
@@ -435,6 +436,7 @@ export class OverlayWebview extends Disposable implements IOverlayWebview {
 	/**
 	 * Executes the provided script in a frame inside the webview.
 	 *
+	 * @param frameID The frame to execute the script in.
 	 * @param script The script to execute.
 	 */
 	executeJavaScript(frameId: WebviewFrameId, script: string): Promise<any> {

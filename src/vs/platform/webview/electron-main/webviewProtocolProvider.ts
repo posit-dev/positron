@@ -15,6 +15,8 @@ export class WebviewProtocolProvider extends Disposable {
 		['/index.html', 'index.html'],
 		['/fake.html', 'fake.html'],
 		// --- Start Positron ---
+		// Add 'index-external' to the list of valid webview file paths. This is
+		// used as a host iframe when loading external URLs in Positron.
 		['/index-external.html', 'index-external.html'],
 		// --- End Positron ---
 		['/service-worker.js', 'service-worker.js'],

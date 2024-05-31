@@ -11,7 +11,7 @@ import { streamToBuffer, VSBufferReadableStream } from 'vs/base/common/buffer';
 import { CancellationTokenSource } from 'vs/base/common/cancellation';
 import { Emitter, Event } from 'vs/base/common/event';
 import { Disposable, IDisposable, toDisposable } from 'vs/base/common/lifecycle';
-import { COI, FileAccess } from 'vs/base/common/network';
+import { COI } from 'vs/base/common/network';
 import { URI } from 'vs/base/common/uri';
 import { generateUuid } from 'vs/base/common/uuid';
 import { localize } from 'vs/nls';
@@ -43,6 +43,9 @@ import { CodeWindow } from 'vs/base/browser/window';
 // eslint-disable-next-line no-duplicate-imports
 import { VSBuffer } from 'vs/base/common/buffer';
 import { WebviewFrameId } from 'vs/platform/webview/common/webviewManagerService';
+
+// eslint-disable-next-line no-duplicate-imports
+import { FileAccess } from 'vs/base/common/network';
 // --- End Positron ---
 
 interface WebviewContent {
@@ -452,6 +455,9 @@ export class WebviewElement extends Disposable implements IWebview, WebviewFindD
 		const queryString = new URLSearchParams(params).toString();
 
 		// --- Start Positron ---
+		// When loading an external URL, we need to load the HTML file designed
+		// to host external content. This file contains, among other things, an
+		// implementation for the `set-uri` message.
 		if (options.externalUri) {
 			this.element!.setAttribute('src', `${this.webviewContentEndpoint(encodedWebviewOrigin)}/index-external.html?${queryString}`);
 			return;
@@ -689,28 +695,42 @@ export class WebviewElement extends Disposable implements IWebview, WebviewFindD
 
 	// --- Start Positron ---
 	private async doSetUri(uri: URI) {
-		// Check to ensure that the webview options allow for setting external URIs
+		// Check to ensure that the webview options allow for setting external
+		// URIs. This is necessary since default webview options aren't
+		// compatible with external URIs.
 		if (!this._options.externalUri) {
-			this._logService.error(`Webview(${this.id}): cannot set URI to ${uri.toString()} as external URIs are disabled`);
+			this._logService.error(`Webview(${this.id}): cannot set URI to ${uri.toString()} since externalUri was not specified in the options when the webview was created.`);
 			return;
 		}
-		this._logService.debug(`Webview(${this.id}): will update URI to ${uri.toString()}`);
+
+		// Tell the webview to load the URI
 		this._send('set-uri', uri.toString());
+
+		// Wait for the frame to be created by hanging around until Electron
+		// notices that the frame with the requested URL navigated.
+		//
+		// This is a little bit of a hack, but it's the only way to get a handle
+		// to the newly created frame.
 		const frameId = await this.awaitFrameCreation(uri.toString());
 
-		// Read the contents of the 'webview-events.js' file
+		// Read the contents of the 'webview-events.js' file. This file contains
+		// a bunch of event handlers that forward events from the iframe to the
+		// main process.
 		const webviewEventsJsPath = FileAccess.asFileUri('vs/workbench/contrib/webview/browser/pre/webview-events.js');
 		const webviewEvents = await this._fileService.readFile(webviewEventsJsPath);
-		this._logService.debug(`Webview(${this.id}): loaded webview-events.js (${webviewEvents.value.byteLength} bytes)`);
-		this._logService.debug(`Webview(${this.id}): frame ID: ${frameId.processId}:${frameId.routingId}`);
+
+		// Wait for the frame to be ready to execute JavaScript
 		const listener = this.onFrameDomReady((eventFrame) => {
-			this._logService.debug(`Webview(${this.id}): frame ID: ${eventFrame.processId}:${eventFrame.routingId} is DOM ready`);
 			// Ensure that the frame ID matches the one we're waiting for
 			if (eventFrame.processId !== frameId.processId || eventFrame.routingId !== frameId.routingId) {
 				return;
 			}
-			this._logService.debug(`Webview(${this.id}): frame ID: ${frameId.processId}:${frameId.routingId} script execution commencing forthwith`);
+
+			// Inject the 'webview-events.js' script into the frame
+			this._logService.debug(`Webview(${this.id}): frame ID: ${eventFrame.processId}:${eventFrame.routingId} is DOM ready; injecting script`);
 			this.executeJavaScript(frameId, webviewEvents.value.toString());
+
+			// Clean up the listener now that we've injected the script
 			listener.dispose();
 		});
 	}
