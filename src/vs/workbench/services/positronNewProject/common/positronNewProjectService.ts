@@ -254,6 +254,10 @@ export class PositronNewProjectService extends Disposable implements IPositronNe
 		this._removePendingTask(NewProjectTask.R);
 	}
 
+	/**
+	 * Displays an error notification if there was an error creating the .gitignore file.
+	 * @param error The error that occurred.
+	 */
 	private _handleGitIgnoreError(error: Error) {
 		const errorMessage = localize('positronNewProjectService.gitIgnoreError', 'Error creating .gitignore {0}', error.message);
 		this._notificationService.error(errorMessage);
@@ -274,7 +278,8 @@ export class PositronNewProjectService extends Disposable implements IPositronNe
 			});
 		await this._fileService.createFile(joinPath(projectRoot, 'README.md'), VSBuffer.fromString(`# ${this._newProjectConfig?.projectName}`))
 			.catch((error) => {
-				this._handleGitIgnoreError(error);
+				const errorMessage = localize('positronNewProjectService.readmeError', 'Error creating readme {0}', error);
+				this._notificationService.error(errorMessage);
 			});
 
 		switch (this._newProjectConfig?.projectType) {
@@ -297,6 +302,11 @@ export class PositronNewProjectService extends Disposable implements IPositronNe
 					});
 				break;
 			default:
+				this._logService.error(
+					'Cannot determine .gitignore content for unknown project type',
+					this._newProjectConfig?.projectType
+				);
+				break;
 		}
 
 		this._removePendingTask(NewProjectTask.Git);
