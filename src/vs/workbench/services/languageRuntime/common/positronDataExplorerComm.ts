@@ -27,6 +27,22 @@ export interface SearchSchemaResult {
 }
 
 /**
+ * Exported result
+ */
+export interface ExportedData {
+	/**
+	 * Exported data as a string suitable for copy and paste
+	 */
+	data: string;
+
+	/**
+	 * The exported data format
+	 */
+	format: ExportFormat;
+
+}
+
+/**
  * The result of applying filters to a table
  */
 export interface FilterResult {
@@ -619,8 +635,97 @@ export interface GetColumnProfilesFeatures {
 
 }
 
+/**
+ * A selection on the data grid, for copying to the clipboard or other
+ * actions
+ */
+export interface DataSelection {
+	/**
+	 * Type of selection
+	 */
+	kind: DataSelectionKind;
+
+	/**
+	 * A union of selection types
+	 */
+	selection: Selection;
+
+}
+
+/**
+ * A selection that contains a single data cell
+ */
+export interface DataSelectionSingleCell {
+	/**
+	 * The selected row index
+	 */
+	row_index: number;
+
+	/**
+	 * The selected column index
+	 */
+	column_index: number;
+
+}
+
+/**
+ * A selection that contains a rectangular range of data cells
+ */
+export interface DataSelectionCellRange {
+	/**
+	 * The starting selected row index (inclusive)
+	 */
+	first_row_index: number;
+
+	/**
+	 * The final selected row index (inclusive)
+	 */
+	last_row_index: number;
+
+	/**
+	 * The starting selected column index (inclusive)
+	 */
+	first_column_index: number;
+
+	/**
+	 * The final selected column index (inclusive)
+	 */
+	last_column_index: number;
+
+}
+
+/**
+ * A contiguous selection bounded by inclusive start and end indices
+ */
+export interface DataSelectionRange {
+	/**
+	 * The starting selected index (inclusive)
+	 */
+	first_index: number;
+
+	/**
+	 * The final selected index (inclusive)
+	 */
+	last_index: number;
+
+}
+
+/**
+ * A selection defined by a sequence of indices to include
+ */
+export interface DataSelectionIndices {
+	/**
+	 * The selected indices
+	 */
+	indices: Array<number>;
+
+}
+
 /// ColumnValue
 export type ColumnValue = number | string;
+
+/// Selection in Properties
+export type Selection = DataSelectionSingleCell | DataSelectionCellRange | DataSelectionRange | DataSelectionIndices;
 
 /**
  * Possible values for ColumnDisplayType
@@ -695,6 +800,27 @@ export enum ColumnProfileType {
 }
 
 /**
+ * Possible values for Kind in DataSelection
+ */
+export enum DataSelectionKind {
+	SingleCell = 'single_cell',
+	CellRange = 'cell_range',
+	ColumnRange = 'column_range',
+	RowRange = 'row_range',
+	ColumnIndices = 'column_indices',
+	RowIndices = 'row_indices'
+}
+
+/**
+ * Possible values for ExportFormat
+ */
+export enum ExportFormat {
+	Csv = 'csv',
+	Tsv = 'tsv',
+	Html = 'html'
+}
+
+/**
  * Event: Request to sync after a schema change
  */
 export interface SchemaUpdateEvent {
@@ -715,6 +841,7 @@ export enum DataExplorerBackendRequest {
 	GetSchema = 'get_schema',
 	SearchSchema = 'search_schema',
 	GetDataValues = 'get_data_values',
+	ExportDataSelection = 'export_data_selection',
 	SetRowFilters = 'set_row_filters',
 	SetSortColumns = 'set_sort_columns',
 	GetColumnProfiles = 'get_column_profiles',
@@ -779,6 +906,21 @@ export class PositronDataExplorerComm extends PositronBaseComm {
 	 */
 	getDataValues(rowStartIndex: number, numRows: number, columnIndices: Array<number>, formatOptions: FormatOptions): Promise<TableData> {
 		return super.performRpc('get_data_values', ['row_start_index', 'num_rows', 'column_indices', 'format_options'], [rowStartIndex, numRows, columnIndices, formatOptions]);
+	}
+
+	/**
+	 * Export data selection as a string in different formats
+	 *
+	 * Export data selection as a string in different formats like CSV, TSV,
+	 * HTML
+	 *
+	 * @param selection The data selection
+	 * @param format Result string format
+	 *
+	 * @returns Exported result
+	 */
+	exportDataSelection(selection: DataSelection, format: ExportFormat): Promise<ExportedData> {
+		return super.performRpc('export_data_selection', ['selection', 'format'], [selection, format]);
 	}
 
 	/**
