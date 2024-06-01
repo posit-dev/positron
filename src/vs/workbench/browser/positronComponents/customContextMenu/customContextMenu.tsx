@@ -107,15 +107,15 @@ const CustomContextMenuModalPopup = (props: CustomContextMenuModalPopupProps) =>
 	 * @returns The rendered component.
 	 */
 	const MenuItem = (options: CustomContextMenuItemOptions) => {
-
-		let yack = '';
+		// Get the shortcut, if there is a command ID.
+		let shortcut = '';
 		if (options.commandId) {
 			const keybinding = props.keybindingService.lookupKeybinding(options.commandId);
 
 			if (keybinding) {
 				const label = keybinding.getLabel();
 				if (label) {
-					yack = label;
+					shortcut = label;
 				}
 			}
 		}
@@ -165,7 +165,7 @@ const CustomContextMenuModalPopup = (props: CustomContextMenuModalPopupProps) =>
 				>
 					{options.label}
 				</div>
-				<div className='shortcut'>{yack}</div>
+				<div className='shortcut'>{shortcut}</div>
 			</Button>
 		);
 	};
