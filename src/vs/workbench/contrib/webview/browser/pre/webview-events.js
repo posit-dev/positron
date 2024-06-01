@@ -54,49 +54,6 @@ const handlePostMessage = (event) => {
 /**
  * @param {MouseEvent} event
  */
-const handleInnerClick = (event) => {
-	if (!event?.view?.document) {
-		return;
-	}
-
-	const baseElement = event.view.document.querySelector("base");
-
-	for (const pathElement of event.composedPath()) {
-		/** @type {any} */
-		const node = pathElement;
-		if (node.tagName && node.tagName.toLowerCase() === "a" && node.href) {
-			if (node.getAttribute("href") === "#") {
-				event.view.scrollTo(0, 0);
-			} else if (
-				node.hash &&
-				(node.getAttribute("href") === node.hash ||
-					(baseElement && node.href === baseElement.href + node.hash))
-			) {
-				const fragment = node.hash.slice(1);
-				const decodedFragment = decodeURIComponent(fragment);
-				const scrollTarget =
-					event.view.document.getElementById(fragment) ??
-					event.view.document.getElementById(decodedFragment);
-				if (scrollTarget) {
-					scrollTarget.scrollIntoView();
-				} else if (decodedFragment.toLowerCase() === "top") {
-					event.view.scrollTo(0, 0);
-				}
-			} else {
-				hostMessaging.postMessage("did-click-link", {
-					uri: node.href.baseVal || node.href,
-				});
-			}
-			event.preventDefault();
-			return;
-		}
-	}
-};
-
-
-/**
- * @param {MouseEvent} event
- */
 const handleAuxClick = (event) => {
 	// Prevent middle clicks opening a broken link in the browser
 	if (!event?.view?.document) {
@@ -327,7 +284,6 @@ window.addEventListener('dragenter', handleInnerDragStartEvent);
 window.addEventListener('dragover', handleInnerDragStartEvent);
 window.addEventListener('scroll', handleInnerScroll);
 window.addEventListener('wheel', handleWheel);
-window.addEventListener('click', handleInnerClick);
 window.addEventListener('auxclick', handleAuxClick);
 window.addEventListener('keydown', handleInnerKeydown);
 window.addEventListener('keyup', handleInnerKeyup);

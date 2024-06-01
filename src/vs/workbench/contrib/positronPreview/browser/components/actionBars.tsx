@@ -71,7 +71,7 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 	const navigateBackHandler = () => {
 		props.preview.webview.postMessage({
 			channel: 'execCommand',
-			command: 'navigate-back'
+			data: 'navigate-back'
 		});
 	};
 
@@ -79,7 +79,7 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 	const navigateForwardHandler = () => {
 		props.preview.webview.postMessage({
 			channel: 'execCommand',
-			command: 'navigate-forward'
+			data: 'navigate-forward'
 		});
 	};
 

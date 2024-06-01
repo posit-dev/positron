@@ -70,7 +70,11 @@ export type ToWebviewMessage = {
 	'initial-scroll-position': number;
 	'content': UpdateContentEvent;
 	'set-title': string | undefined;
+	// --- Start Positron ---
+	// Used by Positron's Viewer pane to load a URL directly in a webview
+	// (rather than loading its contents indirectly)
 	'set-uri': string;
+	// --- End Positron ---
 	'styles': {
 		styles: WebviewStyles;
 		activeTheme: string;

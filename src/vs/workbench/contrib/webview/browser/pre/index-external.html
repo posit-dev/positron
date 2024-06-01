@@ -917,7 +917,7 @@
 						if (target) {
 							assertIsDefined(target.contentWindow).postMessage(
 								data.message,
-								window.origin,
+								"*",
 								data.transfer,
 							);
 							return;
