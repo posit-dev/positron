@@ -289,12 +289,12 @@ export class DataExplorerCache extends Disposable {
 	}
 
 	/**
-	 * Gets the cell value for the specified column index and row index.
+	 * Gets the data cell for the specified column index and row index.
 	 * @param columnIndex The column index.
 	 * @param rowIndex The row index.
-	 * @returns The cell value for the specified column index and row index.
+	 * @returns The data cell for the specified column index and row index.
 	 */
-	getCellValue(columnIndex: number, rowIndex: number) {
+	getDataCell(columnIndex: number, rowIndex: number) {
 		return this._dataCellCache.get(`${columnIndex},${rowIndex}`);
 	}
 

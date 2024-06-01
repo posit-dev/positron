@@ -18,7 +18,7 @@ import { DataCell } from 'vs/workbench/services/positronDataExplorer/common/data
  */
 interface TableDataCellProps {
 	column: PositronDataExplorerColumn;
-	cellValue: DataCell;
+	dataCell: DataCell;
 }
 
 /**
@@ -31,7 +31,7 @@ export const TableDataCell = (props: TableDataCellProps) => {
 	return (
 		<div className={positronClassNames('text-container', props.column.alignment)}>
 			<div className='text-value'>
-				{props.cellValue.formatted}
+				{props.dataCell.formatted}
 			</div>
 		</div>
 	);
