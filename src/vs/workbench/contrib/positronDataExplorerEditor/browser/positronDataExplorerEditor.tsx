@@ -24,6 +24,7 @@ import { IKeybindingService } from 'vs/platform/keybinding/common/keybinding';
 import { IContextKeyService } from 'vs/platform/contextkey/common/contextkey';
 import { IContextMenuService } from 'vs/platform/contextview/browser/contextView';
 import { IClipboardService } from 'vs/platform/clipboard/common/clipboardService';
+import { IEditorService } from 'vs/workbench/services/editor/common/editorService';
 import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
 import { IEditorGroup } from 'vs/workbench/services/editor/common/editorGroupsService';
 import { PositronDataExplorer } from 'vs/workbench/browser/positronDataExplorer/positronDataExplorer';
@@ -31,10 +32,6 @@ import { IReactComponentContainer, ISize, PositronReactRenderer } from 'vs/base/
 import { PositronDataExplorerUri } from 'vs/workbench/services/positronDataExplorer/common/positronDataExplorerUri';
 import { IPositronDataExplorerService } from 'vs/workbench/services/positronDataExplorer/browser/interfaces/positronDataExplorerService';
 import { PositronDataExplorerEditorInput } from 'vs/workbench/contrib/positronDataExplorerEditor/browser/positronDataExplorerEditorInput';
-import { IEditorService } from 'vs/workbench/services/editor/common/editorService';
-
-// Temporary instance counter.
-let instance = 0;
 
 /**
  * IPositronDataExplorerEditorOptions interface.
@@ -43,40 +40,25 @@ export interface IPositronDataExplorerEditorOptions extends IEditorOptions {
 }
 
 /**
+ * IPositronDataExplorerEditor interface.
+ */
+export interface IPositronDataExplorerEditor {
+	/**
+	 * Gets the identifier.
+	 */
+	get identifier(): string | undefined;
+}
+
+/**
  * PositronDataExplorerEditor class.
  */
-export class PositronDataExplorerEditor extends EditorPane implements IReactComponentContainer {
+export class PositronDataExplorerEditor extends EditorPane implements IPositronDataExplorerEditor, IReactComponentContainer {
 	//#region Private Properties
 
 	/**
-	 * The onSizeChanged event emitter.
+	 * Gets the container element.
 	 */
-	private _onSizeChangedEmitter = this._register(new Emitter<ISize>());
-
-	/**
-	 * The onVisibilityChanged event emitter.
-	 */
-	private _onVisibilityChangedEmitter = this._register(new Emitter<boolean>());
-
-	/**
-	 * The onSaveScrollPosition event emitter.
-	 */
-	private _onSaveScrollPositionEmitter = this._register(new Emitter<void>());
-
-	/**
-	 * The onRestoreScrollPosition event emitter.
-	 */
-	private _onRestoreScrollPositionEmitter = this._register(new Emitter<void>());
-
-	/**
-	 * The onFocused event emitter.
-	 */
-	private _onFocusedEmitter = this._register(new Emitter<void>());
-
-	/**
-	 * Gets or sets the container element.
-	 */
-	private _positronDataExplorerContainer!: HTMLElement;
+	private readonly _positronDataExplorerContainer: HTMLElement;
 
 	/**
 	 * Gets or sets the PositronReactRenderer for the PositronDataExplorer component.
@@ -96,13 +78,47 @@ export class PositronDataExplorerEditor extends EditorPane implements IReactComp
 	private _height = 0;
 
 	/**
-	 * Gets the instance. This is a temporary property.
+	 * Gets or sets the identifier.
 	 */
-	private _instance = `${++instance}`;
-
 	private _identifier?: string;
 
+	/**
+	 * The onSizeChanged event emitter.
+	 */
+	private readonly _onSizeChangedEmitter = this._register(new Emitter<ISize>());
+
+	/**
+	 * The onVisibilityChanged event emitter.
+	 */
+	private readonly _onVisibilityChangedEmitter = this._register(new Emitter<boolean>());
+
+	/**
+	 * The onSaveScrollPosition event emitter.
+	 */
+	private readonly _onSaveScrollPositionEmitter = this._register(new Emitter<void>());
+
+	/**
+	 * The onRestoreScrollPosition event emitter.
+	 */
+	private readonly _onRestoreScrollPositionEmitter = this._register(new Emitter<void>());
+
+	/**
+	 * The onFocused event emitter.
+	 */
+	private readonly _onFocusedEmitter = this._register(new Emitter<void>());
+
 	//#endregion Private Properties
+
+	//#region IPositronDataExplorerEditor
+
+	/**
+	 * Gets the identifier.
+	 */
+	get identifier(): string | undefined {
+		return this._identifier;
+	}
+
+	//#endregion IPositronDataExplorerEditor
 
 	//#region IReactComponentContainer
 
@@ -179,6 +195,7 @@ export class PositronDataExplorerEditor extends EditorPane implements IReactComp
 	 * @param _contextMenuService The context menu service.
 	 * @param _editorService The editor service.
 	 * @param _keybindingService The keybinding service.
+	 * @param _layoutService The layout service.
 	 * @param _positronDataExplorerService The Positron data explorer service.
 	 * @param storageService The storage service.
 	 * @param telemetryService The telemetry service.
@@ -200,19 +217,23 @@ export class PositronDataExplorerEditor extends EditorPane implements IReactComp
 		@IThemeService themeService: IThemeService,
 	) {
 		// Call the base class's constructor.
-		super(PositronDataExplorerEditorInput.EditorID, _group, telemetryService, themeService, storageService);
+		super(
+			PositronDataExplorerEditorInput.EditorID,
+			_group,
+			telemetryService,
+			themeService,
+			storageService
+		);
 
-		// Logging.
-		console.log(`PositronDataExplorerEditor ${this._instance} created`);
+		// Create the Positron data explorer container.
+		this._positronDataExplorerContainer = DOM.$('.positron-data-explorer-container');
+		this._positronDataExplorerContainer.tabIndex = 0;
 	}
 
 	/**
 	 * dispose override method.
 	 */
 	public override dispose(): void {
-		// Logging.
-		console.log(`PositronDataExplorerEditor ${this._instance} dispose`);
-
 		// Dispose the PositronReactRenderer for the PositronDataExplorer.
 		this.disposePositronReactRenderer();
 
@@ -222,18 +243,35 @@ export class PositronDataExplorerEditor extends EditorPane implements IReactComp
 
 	//#endregion Constructor & Dispose
 
-	//#region Protected Overrides
+	//#region EditorPane Overrides
 
 	/**
 	 * Creates the editor.
 	 * @param parent The parent HTML element.
 	 */
 	protected override createEditor(parent: HTMLElement): void {
-		// Logging.
-		console.log(`PositronDataExplorerEditor ${this._instance} createEditor`);
+		// Create the focus tracker.
+		const focusTracker = this._register(DOM.trackFocus(parent));
 
-		// Create and append the Positron data explorer container.
-		this._positronDataExplorerContainer = DOM.$('.positron-data-explorer-container');
+		// Add the onDidFocus event handler.
+		this._register(focusTracker.onDidFocus(() => {
+			// If there is an identifier, meaning there is an input, set the focused Positron data
+			// explorer.
+			if (this._identifier) {
+				this._positronDataExplorerService.setFocusedPositronDataExplorer(this._identifier);
+			}
+		}));
+
+		// Add the onDidBlur event handler.
+		this._register(focusTracker.onDidBlur(() => {
+			// If there is an identifier, meaning there is an input, clear the focused Positron data
+			// explorer.
+			if (this._identifier) {
+				this._positronDataExplorerService.clearFocusedPositronDataExplorer(this._identifier);
+			}
+		}));
+
+		// Append the Positron data explorer container.
 		parent.appendChild(this._positronDataExplorerContainer);
 	}
 
@@ -250,20 +288,18 @@ export class PositronDataExplorerEditor extends EditorPane implements IReactComp
 		context: IEditorOpenContext,
 		token: CancellationToken
 	): Promise<void> {
-		// Logging.
-		console.log(`PositronDataExplorerEditor ${this._instance} setInput ${input.resource}`);
-
 		// Parse the Positron data explorer URI and set the identifier.
 		this._identifier = PositronDataExplorerUri.parse(input.resource);
 
+		// Render the component, if necessary.
 		if (this._identifier && !this._positronReactRenderer) {
 			// Get the Positron data explorer instance.
-			const positronDataExplorerInstance = this._positronDataExplorerService.getInstance(this._identifier);
+			const positronDataExplorerInstance = this._positronDataExplorerService.getInstance(
+				this._identifier
+			);
 
 			// If the Positron data explorer instance was found, render the Positron data explorer.
 			if (positronDataExplorerInstance) {
-				console.log(`PositronDataExplorerEditor ${this._instance} creating PositronReactRenderer and rendering PositronDataExplorer`);
-
 				// Create the PositronReactRenderer for the PositronDataExplorer component and render it.
 				this._positronReactRenderer = new PositronReactRenderer(this._positronDataExplorerContainer);
 				this._positronReactRenderer.render(
@@ -285,9 +321,6 @@ export class PositronDataExplorerEditor extends EditorPane implements IReactComp
 					this._editorService.openEditor(input);
 				}));
 
-				// Logging.
-				console.log(`PositronDataExplorerEditor ${this._instance} create PositronReactRenderer`);
-
 				// Hack -- this is usually set by setInput but we're setting it temporarily to be
 				// able to edit the editor tab name
 				this._input = input;
@@ -305,14 +338,17 @@ export class PositronDataExplorerEditor extends EditorPane implements IReactComp
 	 * Clears the input.
 	 */
 	override clearInput(): void {
-		// Logging.
-		console.log(`PositronDataExplorerEditor ${this._instance} clearInput`);
-
-		// Dispose the PositronReactRenderer for the PositronDataExplorer.
+		// Dispose the PositronReactRenderer.
 		this.disposePositronReactRenderer();
 
-		// Clear the identifier.
-		this._identifier = undefined;
+		// If there is an identifier, clear it.
+		if (this._identifier) {
+			// Clear the focused Positron data explorer.
+			this._positronDataExplorerService.clearFocusedPositronDataExplorer(this._identifier);
+
+			// Clear the identifier.
+			this._identifier = undefined;
+		}
 
 		// Call the base class's method.
 		super.clearInput();
@@ -323,44 +359,52 @@ export class PositronDataExplorerEditor extends EditorPane implements IReactComp
 	 * @param visible A value which indicates whether the editor should be visible.
 	 */
 	protected override setEditorVisible(visible: boolean): void {
-		// Logging.
-		console.log(`PositronDataExplorerEditor ${this._instance} setEditorVisible ${visible} group ${this._group?.id}`);
-
 		// Call the base class's method.
 		super.setEditorVisible(visible);
 	}
 
-	//#endregion Protected Overrides
+	//#endregion EditorPane Overrides
 
-	//#region Protected Overrides
+	//#region Composite Overrides
+
+	/**
+	 * Returns the underlying composite control or `undefined` if it is not accessible.
+	 */
+	override getControl(): IPositronDataExplorerEditor {
+		return this;
+	}
+
+	/**
+	 * Called when this composite should receive keyboard focus.
+	 */
+	override focus(): void {
+		// Call the base class's method.
+		super.focus();
+
+		// Drive focus into the Positron data explorer instance.
+		this._positronDataExplorerContainer?.focus();
+	}
 
 	/**
 	 * Lays out the editor.
 	 * @param dimension The layout dimension.
 	 */
 	override layout(dimension: DOM.Dimension): void {
-		// Logging.
-		console.log(`PositronDataExplorerEditor ${this._instance} layout ${dimension.width},${dimension.height}`);
-
 		// Size the container.
 		DOM.size(this._positronDataExplorerContainer, dimension.width, dimension.height);
 
+		// Save the width and height.
 		this._width = dimension.width;
 		this._height = dimension.height;
 
+		// Fire the _onSizeChanged event.
 		this._onSizeChangedEmitter.fire({
 			width: this._width,
 			height: this._height
 		});
-
-		if (!this._identifier) {
-			console.log('PositronDataExplorerEditor was asked to layout with no input set');
-			return;
-		}
-
 	}
 
-	//#endregion Protected Overrides
+	//#endregion Composite Overrides
 
 	//#region Private Methods
 
@@ -371,9 +415,6 @@ export class PositronDataExplorerEditor extends EditorPane implements IReactComp
 		// If the PositronReactRenderer for the PositronDataExplorer is exists, dispose it. This
 		// removes the PositronDataExplorer from the DOM.
 		if (this._positronReactRenderer) {
-			// Logging.
-			console.log(`PositronDataExplorerEditor ${this._instance} dispose PositronReactRenderer`);
-
 			// Dispose of the PositronReactRenderer for the PositronDataExplorer.
 			this._positronReactRenderer.dispose();
 			this._positronReactRenderer = undefined;

@@ -8,19 +8,23 @@ import { Disposable } from 'vs/base/common/lifecycle';
 import { EditorExtensions } from 'vs/workbench/common/editor';
 import { Registry } from 'vs/platform/registry/common/platform';
 import { SyncDescriptor } from 'vs/platform/instantiation/common/descriptors';
-import { LifecyclePhase } from 'vs/workbench/services/lifecycle/common/lifecycle';
 import { IInstantiationService } from 'vs/platform/instantiation/common/instantiation';
 import { EditorPaneDescriptor, IEditorPaneRegistry } from 'vs/workbench/browser/editor';
-import { IWorkbenchContributionsRegistry, Extensions as WorkbenchExtensions } from 'vs/workbench/common/contributions';
+import { WorkbenchPhase, registerWorkbenchContribution2 } from 'vs/workbench/common/contributions';
 import { IEditorResolverService, RegisteredEditorPriority } from 'vs/workbench/services/editor/common/editorResolverService';
 import { PositronDataExplorerEditor } from 'vs/workbench/contrib/positronDataExplorerEditor/browser/positronDataExplorerEditor';
-import { registerPositronDataExplorerActions } from 'vs/workbench/contrib/positronDataExplorerEditor/browser/positronDataExplorerActions';
 import { PositronDataExplorerEditorInput } from 'vs/workbench/contrib/positronDataExplorerEditor/browser/positronDataExplorerEditorInput';
+import { registerPositronDataExplorerActions } from 'vs/workbench/contrib/positronDataExplorerEditor/browser/positronDataExplorerActions';
 
 /**
  * PositronDataExplorerContribution class.
  */
 class PositronDataExplorerContribution extends Disposable {
+	/**
+	 * The identifier.
+	 */
+	static readonly ID = 'workbench.contrib.positronDataExplorer';
+
 	/**
 	 * Constructor.
 	 * @param editorResolverService The editor resolver service.
@@ -73,9 +77,12 @@ Registry.as<IEditorPaneRegistry>(EditorExtensions.EditorPane).registerEditorPane
 	]
 );
 
-// Register workbench contributions.
-const workbenchContributionsRegistry = Registry.as<IWorkbenchContributionsRegistry>(WorkbenchExtensions.Workbench);
-workbenchContributionsRegistry.registerWorkbenchContribution(PositronDataExplorerContribution, LifecyclePhase.Restored);
+// Register workbench contribution.
+registerWorkbenchContribution2(
+	PositronDataExplorerContribution.ID,
+	PositronDataExplorerContribution,
+	WorkbenchPhase.BlockRestore
+);
 
 // Register actions.
 registerPositronDataExplorerActions();

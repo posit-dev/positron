@@ -15,12 +15,12 @@ import * as DOM from 'vs/base/browser/dom';
 import { DisposableStore } from 'vs/base/common/lifecycle';
 import { Button } from 'vs/base/browser/ui/positronComponents/button/button';
 import { ColumnSchema } from 'vs/workbench/services/languageRuntime/common/positronDataExplorerComm';
-import { ContextMenuItem } from 'vs/workbench/browser/positronComponents/contextMenu/contextMenuItem';
-import { ContextMenuSeparator } from 'vs/workbench/browser/positronComponents/contextMenu/contextMenuSeparator';
 import { OKModalDialog } from 'vs/workbench/browser/positronComponents/positronModalDialog/positronOKModalDialog';
-import { ContextMenuEntry, showContextMenu } from 'vs/workbench/browser/positronComponents/contextMenu/contextMenu';
 import { usePositronDataExplorerContext } from 'vs/workbench/browser/positronDataExplorer/positronDataExplorerContext';
 import { PositronModalReactRenderer } from 'vs/workbench/browser/positronModalReactRenderer/positronModalReactRenderer';
+import { CustomContextMenuItem } from 'vs/workbench/browser/positronComponents/customContextMenu/customContextMenuItem';
+import { CustomContextMenuSeparator } from 'vs/workbench/browser/positronComponents/customContextMenu/customContextMenuSeparator';
+import { CustomContextMenuEntry, showCustomContextMenu } from 'vs/workbench/browser/positronComponents/customContextMenu/customContextMenu';
 import { RowFilterWidget } from 'vs/workbench/browser/positronDataExplorer/components/dataExplorerPanel/components/rowFilterBar/components/rowFilterWidget';
 import { AddEditRowFilterModalPopup } from 'vs/workbench/browser/positronDataExplorer/components/dataExplorerPanel/components/addEditRowFilterModalPopup/addEditRowFilterModalPopup';
 import { getRowFilterDescriptor, RowFilterDescriptor } from 'vs/workbench/browser/positronDataExplorer/components/dataExplorerPanel/components/addEditRowFilterModalPopup/rowFilterDescriptor';
@@ -152,34 +152,34 @@ export const RowFilterBar = () => {
 	 */
 	const filterButtonPressedHandler = async () => {
 		// Build the context menu entries.
-		const entries: ContextMenuEntry[] = [];
-		entries.push(new ContextMenuItem({
-			label: localize('positron.dataExplorer.addFilter', "Add Filter"),
+		const entries: CustomContextMenuEntry[] = [];
+		entries.push(new CustomContextMenuItem({
 			icon: 'positron-add-filter',
+			label: localize('positron.dataExplorer.addFilter', "Add Filter"),
 			onSelected: () => addRowFilterHandler(
 				rowFilterButtonRef.current,
 				rowFilterDescriptors.length === 0
 			)
 		}));
-		entries.push(new ContextMenuSeparator());
+		entries.push(new CustomContextMenuSeparator());
 		if (!rowFiltersHidden) {
-			entries.push(new ContextMenuItem({
-				label: localize('positron.dataExplorer.hideFilters', "Hide Filters"),
+			entries.push(new CustomContextMenuItem({
 				icon: 'positron-hide-filters',
+				label: localize('positron.dataExplorer.hideFilters', "Hide Filters"),
 				disabled: rowFilterDescriptors.length === 0,
 				onSelected: () => setRowFiltersHidden(true)
 			}));
 		} else {
-			entries.push(new ContextMenuItem({
-				label: localize('positron.dataExplorer.showFilters', "Show Filters"),
+			entries.push(new CustomContextMenuItem({
 				icon: 'positron-show-filters',
+				label: localize('positron.dataExplorer.showFilters', "Show Filters"),
 				onSelected: () => setRowFiltersHidden(false)
 			}));
 		}
-		entries.push(new ContextMenuSeparator());
-		entries.push(new ContextMenuItem({
-			label: localize('positron.dataExplorer.clearFilters', "Clear Filters"),
+		entries.push(new CustomContextMenuSeparator());
+		entries.push(new CustomContextMenuItem({
 			icon: 'positron-clear-row-filters',
+			label: localize('positron.dataExplorer.clearFilters', "Clear Filters"),
 			disabled: rowFilterDescriptors.length === 0,
 			onSelected: async () => {
 				// Clear the row filter descriptors.
@@ -191,7 +191,8 @@ export const RowFilterBar = () => {
 		}));
 
 		// Show the context menu.
-		await showContextMenu(
+		await showCustomContextMenu(
+			context.commandService,
 			context.keybindingService,
 			context.layoutService,
 			rowFilterButtonRef.current,
