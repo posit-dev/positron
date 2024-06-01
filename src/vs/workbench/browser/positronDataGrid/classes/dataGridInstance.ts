@@ -6,7 +6,6 @@ import { Emitter } from 'vs/base/common/event';
 import { Disposable } from 'vs/base/common/lifecycle';
 import { IDataColumn } from 'vs/workbench/browser/positronDataGrid/interfaces/dataColumn';
 import { IColumnSortKey } from 'vs/workbench/browser/positronDataGrid/interfaces/columnSortKey';
-import { ContextMenuEntry } from 'vs/workbench/browser/positronComponents/contextMenu/contextMenu';
 
 /**
  * ColumnHeaderOptions type.
@@ -194,6 +193,16 @@ export enum MouseSelectionType {
 }
 
 /**
+ * CellSelectionRange interface.
+ */
+interface CellSelectionRange {
+	firstColumnIndex: number;
+	firstRowIndex: number;
+	lastColumnIndex: number;
+	lastRowIndex: number;
+}
+
+/**
  * ColumnSelectionRange interface.
  */
 interface ColumnSelectionRange {
@@ -210,14 +219,75 @@ interface RowSelectionRange {
 }
 
 /**
- * CellSelectionRange interface.
+ * ClipboardCell class.
  */
-interface CellSelectionRange {
-	firstColumnIndex: number;
-	firstRowIndex: number;
-	lastColumnIndex: number;
-	lastRowIndex: number;
+export class ClipboardCell {
+	constructor(
+		readonly columnIndex: number,
+		readonly rowIndex: number
+	) { }
 }
+
+/**
+ * ClipboardCellRange class.
+ */
+export class ClipboardCellRange {
+	constructor(
+		readonly firstColumnIndex: number,
+		readonly firstRowIndex: number,
+		readonly lastColumnIndex: number,
+		readonly lastRowIndex: number
+	) { }
+}
+
+/**
+ * ClipboardColumnRange class.
+ */
+export class ClipboardColumnRange {
+	constructor(
+		readonly firstColumnIndex: number,
+		readonly lastColumnIndex: number,
+	) { }
+}
+
+/**
+ * ClipboardColumnIndexes class.
+ */
+export class ClipboardColumnIndexes {
+	constructor(
+		readonly indexes: number[]
+	) { }
+}
+
+/**
+ * ClipboardRowRange class.
+ */
+export class ClipboardRowRange {
+	constructor(
+		readonly firstRowIndex: number,
+		readonly lastRowIndex: number,
+	) { }
+}
+
+/**
+ * ClipboardRowIndexes class.
+ */
+export class ClipboardRowIndexes {
+	constructor(
+		readonly indexes: number[]
+	) { }
+}
+
+/**
+ * ClipboardData type.
+ */
+export type ClipboardData =
+	ClipboardCell |
+	ClipboardCellRange |
+	ClipboardColumnRange |
+	ClipboardColumnIndexes |
+	ClipboardRowRange |
+	ClipboardRowIndexes;
 
 /**
  * ColumnSortKeyDescriptor class.
@@ -962,15 +1032,6 @@ export abstract class DataGridInstance extends Disposable {
 
 		// Fire the onDidUpdate event.
 		this._onDidUpdateEmitter.fire();
-	}
-
-	/**
-	 * Returns column context menu entries.
-	 * @param columnIndex The column index.
-	 * @returns The column context menu entries.
-	 */
-	columnContextMenuEntries(columnIndex: number): ContextMenuEntry[] {
-		return [];
 	}
 
 	/**
@@ -2026,6 +2087,63 @@ export abstract class DataGridInstance extends Disposable {
 	}
 
 	/**
+	 * Gets the clipboard data.
+	 * @returns The clipboard data, if it's available; otherwise, undefined.
+	 */
+	getClipboardData(): ClipboardData | undefined {
+		// Cell selection range.
+		if (this._cellSelectionRange) {
+			return new ClipboardCellRange(
+				this._cellSelectionRange.firstColumnIndex,
+				this._cellSelectionRange.firstRowIndex,
+				this._cellSelectionRange.lastColumnIndex,
+				this._cellSelectionRange.lastRowIndex
+			);
+		}
+
+		// Column selection range.
+		if (this._columnSelectionRange) {
+			return new ClipboardColumnRange(
+				this._columnSelectionRange.firstColumnIndex,
+				this._columnSelectionRange.lastColumnIndex
+			);
+		}
+
+		// Column selection indexes.
+		if (this._columnSelectionIndexes.size) {
+			return new ClipboardColumnIndexes(
+				Array.from(this._columnSelectionIndexes).sort()
+			);
+		}
+
+		// Row selection range.
+		if (this._rowSelectionRange) {
+			return new ClipboardRowRange(
+				this._rowSelectionRange.firstRowIndex,
+				this._rowSelectionRange.lastRowIndex
+			);
+		}
+
+		// Row selection indexes.
+		if (this._rowSelectionIndexes.size) {
+			return new ClipboardRowIndexes(
+				Array.from(this._rowSelectionIndexes).sort()
+			);
+		}
+
+		// Cursor cell.
+		if (this._cursorColumnIndex >= 0 && this._cursorRowIndex >= 0) {
+			return new ClipboardCell(
+				this._cursorColumnIndex,
+				this._cursorRowIndex
+			);
+		}
+
+		// Clipboard data isn't available.
+		return undefined;
+	}
+
+	/**
 	 * Returns a column sort key.
 	 * @param columnIndex The column index.
 	 * @returns An IColumnSortKey that represents the column sort.
@@ -2072,6 +2190,41 @@ export abstract class DataGridInstance extends Disposable {
 	 * @returns The data cell, or, undefined.
 	 */
 	abstract cell(columnIndex: number, rowIndex: number): JSX.Element | undefined;
+
+	/**
+	 * Shows the column context menu.
+	 * @param anchor The anchor element.
+	 * @param columnIndex The column index.
+	 * @returns A Promise<void> that resolves when the context menu is complete.
+	 */
+	async showColumnContextMenu(anchor: HTMLElement, columnIndex: number): Promise<void> {
+		// Do nothing. This method can be overridden in subclasses.
+	}
+
+	/**
+	 * Shows the row context menu.
+	 * @param anchor The anchor element.
+	 * @param rowIndex The row index.
+	 * @returns A Promise<void> that resolves when the context menu is complete.
+	 */
+	async showRowContextMenu(anchor: HTMLElement, rowIndex: number): Promise<void> {
+		// Do nothing. This method can be overridden in subclasses.
+	}
+
+	/**
+	 * Shows the cell context menu.
+	 * @param anchor The anchor element.
+	 * @param columnIndex The column index.
+	 * @param rowIndex The row index.
+	 * @returns A Promise<void> that resolves when the context menu is complete.
+	 */
+	async showCellContextMenu(
+		anchor: HTMLElement,
+		columnIndex: number,
+		rowIndex: number
+	): Promise<void> {
+		// Do nothing. This method can be overridden in subclasses.
+	}
 
 	//#endregion Public Methods
 

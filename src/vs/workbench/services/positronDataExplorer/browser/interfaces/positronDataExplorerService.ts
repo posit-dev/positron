@@ -27,9 +27,27 @@ export interface IPositronDataExplorerService {
 	readonly _serviceBrand: undefined;
 
 	/**
+	 * Gets or sets the active Positron data explorer instance.
+	 */
+	readonly activePositronDataExplorerInstance?: IPositronDataExplorerInstance;
+
+	/**
 	 * Placeholder that gets called to "initialize" the PositronDataExplorerService.
 	 */
 	initialize(): void;
+
+	/**
+	 * Gets the instance for the specified identifier.
+	 * @param identifier The instance identifier.
+	 */
+	getInstance(identifier: string): IPositronDataExplorerInstance | undefined;
+
+	/**
+	 * Gets the instance for the specified variable.
+	 *
+	 * @param variableId The variable identifier.
+	 */
+	getInstanceForVar(variableId: string): IPositronDataExplorerInstance | undefined;
 
 	/**
 	 * Associates a variable with an instance.
@@ -40,16 +58,14 @@ export interface IPositronDataExplorerService {
 	setInstanceForVar(instanceId: string, variableId: string): void;
 
 	/**
-	 * Gets the instance for the specified variable.
-	 *
-	 * @param variableId The variable identifier.
+	 * Sets the focused Positron data explorer.
+	 * @param identifier The identifier of the focused Positron data explorer to set.
 	 */
-	getInstanceForVar(variableId: string): IPositronDataExplorerInstance | undefined;
+	setFocusedPositronDataExplorer(identifier: string): void;
 
 	/**
-	 * Gets the instance for the specified identifier.
-	 *
-	 * @param identifier
+	 * Clears the focused Positron data explorer.
+	 * @param identifier The identifier of the focused Positron data explorer to clear.
 	 */
-	getInstance(identifier: string): IPositronDataExplorerInstance | undefined;
+	clearFocusedPositronDataExplorer(identifier: string): void;
 }
