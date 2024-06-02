@@ -15,9 +15,9 @@ import { ICommandService } from 'vs/platform/commands/common/commands';
 import { ILayoutService } from 'vs/platform/layout/browser/layoutService';
 import { Button } from 'vs/base/browser/ui/positronComponents/button/button';
 import { IKeybindingService } from 'vs/platform/keybinding/common/keybinding';
-import { PositronModalPopup } from 'vs/workbench/browser/positronComponents/positronModalPopup/positronModalPopup';
 import { PositronModalReactRenderer } from 'vs/workbench/browser/positronModalReactRenderer/positronModalReactRenderer';
 import { CustomContextMenuSeparator } from 'vs/workbench/browser/positronComponents/customContextMenu/customContextMenuSeparator';
+import { PopupAlignment, PositronModalPopup } from 'vs/workbench/browser/positronComponents/positronModalPopup/positronModalPopup';
 import { CustomContextMenuItem, CustomContextMenuItemOptions } from 'vs/workbench/browser/positronComponents/customContextMenu/customContextMenuItem';
 
 /**
@@ -40,7 +40,7 @@ export const showCustomContextMenu = async (
 	keybindingService: IKeybindingService,
 	layoutService: ILayoutService,
 	anchor: HTMLElement,
-	popupAlignment: 'left' | 'right',
+	popupAlignment: PopupAlignment,
 	width: number,
 	entries: CustomContextMenuEntry[]
 ) => {
