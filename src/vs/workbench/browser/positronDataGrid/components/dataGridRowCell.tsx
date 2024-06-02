@@ -10,8 +10,8 @@ import * as React from 'react';
 import { MouseEvent, useRef } from 'react'; // eslint-disable-line no-duplicate-imports
 
 // Other dependencies.
-import { isMacintosh } from 'vs/base/common/platform';
 import { positronClassNames } from 'vs/base/common/positronUtilities';
+import { selectionType } from 'vs/workbench/browser/positronDataGrid/utilities/mouseUtilities';
 import { CellSelectionState } from 'vs/workbench/browser/positronDataGrid/classes/dataGridInstance';
 import { VerticalSplitter } from 'vs/base/browser/ui/positronComponents/splitters/verticalSplitter';
 import { HorizontalSplitter } from 'vs/base/browser/ui/positronComponents/splitters/horizontalSplitter';
@@ -39,37 +39,26 @@ export const DataGridRowCell = (props: DataGridRowCellProps) => {
 	const ref = useRef<HTMLDivElement>(undefined!);
 
 	/**
+	 * onContextMenu handler.
+	 * @param e A MouseEvent<HTMLElement> that describes a user interaction with the mouse.
+	 */
+	const contextMenuHandler = async (e: MouseEvent<HTMLElement>) => {
+		console.log(`-------------- ROW CELL CONTEXT MENU!`);
+		context.instance.showCellContextMenu(ref.current, props.columnIndex, props.rowIndex);
+	};
+
+	/**
 	 * onMouseDown handler.
 	 * @param e A MouseEvent<HTMLElement> that describes a user interaction with the mouse.
 	 */
 	const mouseDownHandler = async (e: MouseEvent<HTMLElement>) => {
-		// Ignore mouse events with meta / ctrl key.
-		if (isMacintosh ? e.metaKey : e.ctrlKey) {
-			return;
-		}
+		// Process the left button.
+		if (e.button === 0 && context.instance.selection) {
+			// Consume the event.
+			e.stopPropagation();
 
-		// Consume the event.
-		e.stopPropagation();
-
-		// If selection is enabled, process selection.
-		if (context.instance.selection) {
-			// When the shift key is down, mouse select the cell.
-			if (e.shiftKey) {
-				// Mouse select the cell and return.
-				context.instance.mouseSelectCell(props.columnIndex, props.rowIndex);
-				return;
-			}
-
-			// When the shift key is not down, clear the selection.
-			context.instance.clearSelection();
-		}
-
-		// Set the cursor position.
-		context.instance.setCursorPosition(props.columnIndex, props.rowIndex);
-
-		// Show the cell context menu.
-		if (e.button === 2) {
-			context.instance.showCellContextMenu(ref.current, props.columnIndex, props.rowIndex);
+			// Mouse select the cell.
+			context.instance.mouseSelectCell(props.columnIndex, props.rowIndex, selectionType(e));
 		}
 	};
 
@@ -93,6 +82,7 @@ export const DataGridRowCell = (props: DataGridRowCellProps) => {
 				width: context.instance.getColumnWidth(props.columnIndex),
 				height: context.instance.getRowHeight(props.rowIndex)
 			}}
+			onContextMenu={contextMenuHandler}
 			onMouseDown={mouseDownHandler}
 		>
 			<div

@@ -111,7 +111,6 @@ const CustomContextMenuModalPopup = (props: CustomContextMenuModalPopupProps) =>
 		let shortcut = '';
 		if (options.commandId) {
 			const keybinding = props.keybindingService.lookupKeybinding(options.commandId);
-
 			if (keybinding) {
 				const label = keybinding.getLabel();
 				if (label) {
@@ -130,11 +129,9 @@ const CustomContextMenuModalPopup = (props: CustomContextMenuModalPopupProps) =>
 				disabled={options.disabled}
 				onPressed={e => {
 					dismiss();
-
 					if (options.commandId) {
 						props.commandService.executeCommand(options.commandId);
 					}
-
 					options.onSelected(e);
 				}}
 			>

@@ -10,7 +10,6 @@ import * as React from 'react';
 import { MouseEvent, useRef } from 'react'; // eslint-disable-line no-duplicate-imports
 
 // Other dependencies.
-import { isMacintosh } from 'vs/base/common/platform';
 import { positronClassNames } from 'vs/base/common/positronUtilities';
 import { IDataColumn } from 'vs/workbench/browser/positronDataGrid/interfaces/dataColumn';
 import { Button, MouseTrigger } from 'vs/base/browser/ui/positronComponents/button/button';
@@ -38,7 +37,16 @@ export const DataGridColumnHeader = (props: DataGridColumnHeaderProps) => {
 	const context = usePositronDataGridContext();
 
 	// Reference hooks.
+	const ref = useRef<HTMLDivElement>(undefined!);
 	const sortingButtonRef = useRef<HTMLButtonElement>(undefined!);
+
+	/**
+	 * onContextMenu handler.
+	 * @param e A MouseEvent<HTMLElement> that describes a user interaction with the mouse.
+	 */
+	const contextMenuHandler = async (e: MouseEvent<HTMLElement>) => {
+		context.instance.showColumnContextMenu(ref.current, props.columnIndex);
+	};
 
 	/**
 	 * onMouseDown handler.
@@ -46,16 +54,11 @@ export const DataGridColumnHeader = (props: DataGridColumnHeaderProps) => {
 	 * @returns A Promise<void> that resolves when the operation is complete.
 	 */
 	const mouseDownHandler = async (e: MouseEvent<HTMLElement>) => {
-		// Ignore mouse events with meta / ctrl key.
-		if (isMacintosh ? e.metaKey : e.ctrlKey) {
-			return;
-		}
+		// Process the left button.
+		if (e.button === 0 && context.instance.selection) {
+			// Stop propagation.
+			e.stopPropagation();
 
-		// Consume the event.
-		e.stopPropagation();
-
-		// If selection is enabled, process selection.
-		if (context.instance.selection) {
 			// Mouse select the column.
 			context.instance.mouseSelectColumn(props.columnIndex, selectionType(e));
 		}
@@ -77,6 +80,7 @@ export const DataGridColumnHeader = (props: DataGridColumnHeaderProps) => {
 	// Render.
 	return (
 		<div
+			ref={ref}
 			className={
 				positronClassNames(
 					'data-grid-column-header',
@@ -86,6 +90,7 @@ export const DataGridColumnHeader = (props: DataGridColumnHeaderProps) => {
 				left: props.left,
 				width: context.instance.getColumnWidth(props.columnIndex)
 			}}
+			onContextMenu={contextMenuHandler}
 			onMouseDown={mouseDownHandler}
 		>
 			<div className={
