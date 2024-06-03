@@ -49,9 +49,8 @@ import { BaseInterpreterSelectorCommand } from './base';
 // --- Start Positron ---
 import { IPythonRuntimeManager } from '../../../../positron/manager';
 import { traceError } from '../../../../logging';
+import { untildify } from '../../../../pythonEnvironments/common/externalDependencies';
 // --- End Positron ---
-
-const untildify = require('untildify');
 
 export type InterpreterStateArgs = { path?: string; workspace: Resource };
 export type QuickPickType = IInterpreterQuickPickItem | ISpecialQuickPickItem | QuickPickItem;
@@ -545,7 +544,9 @@ export class SetInterpreterCommand extends BaseInterpreterSelectorCommand implem
         if (typeof selection === 'string') {
             // User entered text in the filter box to enter path to python, store it
             sendTelemetryEvent(EventName.SELECT_INTERPRETER_ENTER_CHOICE, undefined, { choice: 'enter' });
-            state.path = selection;
+            // --- Start Positron ---
+            state.path = untildify(selection);
+            // --- End Positron ---
             this.sendInterpreterEntryTelemetry(selection, state.workspace);
         } else if (selection && selection.label === InterpreterQuickPickList.browsePath.label) {
             sendTelemetryEvent(EventName.SELECT_INTERPRETER_ENTER_CHOICE, undefined, { choice: 'browse' });
