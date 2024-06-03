@@ -20,6 +20,12 @@ import { deleteCondaEnvironment } from './condaDeleteUtils';
 
 const RECOMMENDED_CONDA_PYTHON = '3.11';
 
+// --- Start Positron ---
+// The first element is the recommended version. It is the first element so it gets displayed first in
+// UI that consumes this list.
+const SUPPORTED_CONDA_PYTHON_VERSIONS = [RECOMMENDED_CONDA_PYTHON, '3.12', '3.10', '3.9', '3.8'];
+// --- End Positron ---
+
 export async function getCondaBaseEnv(): Promise<string | undefined> {
     const conda = await Conda.getConda();
 
@@ -47,7 +53,9 @@ export async function getCondaBaseEnv(): Promise<string | undefined> {
 }
 
 export async function pickPythonVersion(token?: CancellationToken): Promise<string | undefined> {
-    const items: QuickPickItem[] = ['3.11', '3.12', '3.10', '3.9', '3.8'].map((v) => ({
+    // --- Start Positron ---
+    const items: QuickPickItem[] = SUPPORTED_CONDA_PYTHON_VERSIONS.map((v) => ({
+        // --- End Positron ---
         label: v === RECOMMENDED_CONDA_PYTHON ? `${Octicons.Star} Python` : 'Python',
         description: v,
     }));
@@ -67,6 +75,15 @@ export async function pickPythonVersion(token?: CancellationToken): Promise<stri
 
     return undefined;
 }
+
+// --- Start Positron ---
+export function getCondaPythonVersions(): { preferred: string; versions: string[] } {
+    return {
+        preferred: RECOMMENDED_CONDA_PYTHON,
+        versions: SUPPORTED_CONDA_PYTHON_VERSIONS,
+    };
+}
+// --- End Positron ---
 
 export function getPathEnvVariableForConda(condaBasePythonPath: string): string {
     const pathEnv = getEnvironmentVariable('PATH') || getEnvironmentVariable('Path') || '';
