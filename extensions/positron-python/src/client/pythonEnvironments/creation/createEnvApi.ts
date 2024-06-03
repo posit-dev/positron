@@ -22,6 +22,10 @@ import { sendTelemetryEvent } from '../../telemetry';
 import { EventName } from '../../telemetry/constants';
 import { CreateEnvironmentOptionsInternal } from './types';
 
+// --- Start Positron ---
+import { getCondaPythonVersions } from './provider/condaUtils';
+// --- End Positron ---
+
 class CreateEnvironmentProviders {
     private _createEnvProviders: CreateEnvironmentProvider[] = [];
 
@@ -89,6 +93,7 @@ export function registerCreateEnvironmentFeatures(
             }));
             return providersForWizard;
         }),
+        registerCommand(Commands.Get_Conda_Python_Versions, () => getCondaPythonVersions()),
         // --- End Positron ---
         registerCreateEnvironmentProvider(new VenvCreationProvider(interpreterQuickPick)),
         registerCreateEnvironmentProvider(condaCreationProvider()),
