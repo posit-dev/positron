@@ -197,7 +197,11 @@ export class FileDialogService extends AbstractFileDialogService implements IFil
 		if (options.canSelectMany) {
 			newOptions.properties.push('multiSelections');
 		}
-
+		// --- Start Positron ---
+		if (!options.resolveSymlinks) {
+			newOptions.properties.push('noResolveAliases');
+		}
+		// --- End Positron ---
 		const result = await this.nativeHostService.showOpenDialog(newOptions);
 		return result && Array.isArray(result.filePaths) && result.filePaths.length > 0 ? result.filePaths.map(URI.file) : undefined;
 	}

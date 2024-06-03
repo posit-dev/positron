@@ -190,6 +190,9 @@ export interface MainThreadDialogOpenOptions {
 	filters?: { [name: string]: string[] };
 	title?: string;
 	allowUIResources?: boolean;
+	// --- Start Positron ---
+	resolveSymlinks?: boolean;
+	// --- End Positron ---
 }
 
 export interface MainThreadDialogSaveOptions {

@@ -21,6 +21,11 @@ export class ExtHostDialogs {
 		if (options?.allowUIResources) {
 			checkProposedApiEnabled(extension, 'showLocal');
 		}
+		// --- Start Positron ---
+		if (typeof options?.resolveSymlinks === 'boolean') {
+			checkProposedApiEnabled(extension, 'resolveSymlinks');
+		}
+		// --- End Positron ---
 		return this._proxy.$showOpenDialog(options).then(filepaths => {
 			return filepaths ? filepaths.map(p => URI.revive(p)) : undefined;
 		});
