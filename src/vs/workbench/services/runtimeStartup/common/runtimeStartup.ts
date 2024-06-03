@@ -790,8 +790,6 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 			action = 'and was not automatically restarted';
 		}
 
-		//const logfileName = session._editorService?._logService.logger.loggers[0].file.path
-
 		// Let the user know what we did.
 		const msg = nls.localize(
 			'positronConsole.runtimeCrashed',
@@ -805,7 +803,6 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 			{
 				label: 'Open logile',
 				run: () => {
-					//const textDocument = await workspace.openTextDocument(logfile);
 					this._commandService.executeCommand('workbench.action.openLogFile');
 				}
 			},
