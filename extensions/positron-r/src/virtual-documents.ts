@@ -10,11 +10,13 @@ interface VirtualDocParams {
 	path: string;
 }
 
-const VIRTUAL_DOC_REQUEST_TYPE: RequestType<VirtualDocParams, string, any> =
+type VirtualDocResponse = string;
+
+const VIRTUAL_DOC_REQUEST_TYPE: RequestType<VirtualDocParams, VirtualDocResponse, any> =
 	new RequestType('ark/internal/getVirtualDocument');
 
 export class VirtualDocumentProvider implements vscode.TextDocumentContentProvider {
-	constructor(private _client: LanguageClient) {}
+	constructor(private _client: LanguageClient) { }
 
 	async provideTextDocumentContent(
 		uri: vscode.Uri,
