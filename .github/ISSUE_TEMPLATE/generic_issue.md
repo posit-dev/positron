@@ -1,6 +1,6 @@
 ---
-name: File an Issue
-about: Create an Issue for Positron.
+name: File an issue
+about: Create a new issue for Positron.
 ---
 
 <!--
