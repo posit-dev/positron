@@ -16,7 +16,11 @@ import polars as pl
 import pytest
 from fastcore.foundation import L
 
-from positron_ipykernel.inspectors import PRINT_WIDTH, TRUNCATE_AT, get_inspector
+from positron_ipykernel.inspectors import (
+    PRINT_WIDTH,
+    TRUNCATE_AT,
+    get_inspector,
+)
 from positron_ipykernel.utils import get_qualname
 from positron_ipykernel.variables_comm import VariableKind
 
@@ -673,7 +677,7 @@ def test_inspect_pandas_dataframe() -> None:
 
     verify_inspector(
         value=value,
-        display_value=f"[{rows} rows x {cols} columns] {get_type_as_str(value)}",
+        display_value=f"[{rows} rows x {cols} columns] pandas.DataFrame",
         kind=VariableKind.Table,
         display_type=f"DataFrame [{rows}x{cols}]",
         type_info=get_type_as_str(value),
@@ -720,11 +724,12 @@ def test_inspect_pandas_series() -> None:
 
     verify_inspector(
         value=value,
-        display_value="[0, 1]",
-        kind=VariableKind.Map,
+        display_value="[2 values] pandas.Series",
+        kind=VariableKind.Table,
         display_type=f"int64 [{rows}]",
         type_info=get_type_as_str(value),
         has_children=True,
+        has_viewer=True,
         is_truncated=True,
         length=rows,
         mutable=True,
