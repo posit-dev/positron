@@ -15,13 +15,14 @@ import { PositronWizardStep } from 'vs/workbench/browser/positronNewProjectWizar
 import { PositronWizardSubStep } from 'vs/workbench/browser/positronNewProjectWizard/components/wizardSubStep';
 import { RadioButtonItem } from 'vs/workbench/browser/positronComponents/positronModalDialog/components/radioButton';
 import { RadioGroup } from 'vs/workbench/browser/positronComponents/positronModalDialog/components/radioGroup';
-import { EnvironmentSetupType, PythonEnvironmentProvider } from 'vs/workbench/browser/positronNewProjectWizard/interfaces/newProjectWizardEnums';
+import { EnvironmentSetupType } from 'vs/workbench/browser/positronNewProjectWizard/interfaces/newProjectWizardEnums';
 import { InterpreterEntry } from 'vs/workbench/browser/positronNewProjectWizard/components/steps/interpreterEntry';
 import { DropdownEntry } from 'vs/workbench/browser/positronNewProjectWizard/components/steps/dropdownEntry';
 import { WizardFormattedText, WizardFormattedTextType } from 'vs/workbench/browser/positronNewProjectWizard/components/wizardFormattedText';
 import { DisposableStore } from 'vs/base/common/lifecycle';
 import { DropDownListBox } from 'vs/workbench/browser/positronComponents/dropDownListBox/dropDownListBox';
 import { interpretersToDropdownItems } from 'vs/workbench/browser/positronNewProjectWizard/utilities/interpreterDropDownUtils';
+import { condaInterpretersToDropdownItems } from 'vs/workbench/browser/positronNewProjectWizard/utilities/condaUtils';
 
 // NOTE: If you are making changes to this file, the equivalent R component may benefit from similar
 // changes. See src/vs/workbench/browser/positronNewProjectWizard/components/steps/rConfigurationStep.tsx
@@ -50,6 +51,8 @@ export const PythonEnvironmentStep = (props: PropsWithChildren<NewProjectWizardS
 	const [preferredInterpreter, setPreferredInterpreter] = useState(context.preferredInterpreter);
 	const [willInstallIpykernel, setWillInstallIpykernel] = useState(context.installIpykernel ?? false);
 	const [minimumPythonVersion, setMinimumPythonVersion] = useState(context.minimumPythonVersion);
+	const [condaPythonVersionInfo, setCondaPythonVersionInfo] = useState(context.condaPythonVersionInfo);
+	const [selectedCondaPythonVersion, setSelectedCondaPythonVersion] = useState(context.condaPythonVersion);
 
 	useEffect(() => {
 		// Create the disposable store for cleanup.
@@ -65,6 +68,8 @@ export const PythonEnvironmentStep = (props: PropsWithChildren<NewProjectWizardS
 			setPreferredInterpreter(context.preferredInterpreter);
 			setWillInstallIpykernel(context.installIpykernel ?? false);
 			setMinimumPythonVersion(context.minimumPythonVersion);
+			setCondaPythonVersionInfo(context.condaPythonVersionInfo);
+			setSelectedCondaPythonVersion(context.condaPythonVersion);
 		}));
 
 		// Return the cleanup function that will dispose of the event handlers.
@@ -72,13 +77,12 @@ export const PythonEnvironmentStep = (props: PropsWithChildren<NewProjectWizardS
 	}, [context]);
 
 	// Utility functions.
-	const isNewEnvForConda = () =>
-		envSetupType === EnvironmentSetupType.NewEnvironment &&
-		envProviderNameForId(envProviderId, envProviders) ===
-		PythonEnvironmentProvider.Conda;
 	const interpretersAvailable = () =>
-		Boolean(interpreters && interpreters.length) || isNewEnvForConda();
-	const interpretersLoading = () => !interpreters;
+		Boolean(interpreters && interpreters.length) ||
+		// Interpreters are always available for Conda because we display the supported versions
+		// that an environment can be created with.
+		Boolean(context.usesCondaEnv && condaPythonVersionInfo);
+	const interpretersLoading = () => !interpreters && !condaPythonVersionInfo;
 
 	// Radio buttons for selecting the environment setup type.
 	const envSetupRadioButtons: RadioButtonItem[] = [
@@ -113,6 +117,12 @@ export const PythonEnvironmentStep = (props: PropsWithChildren<NewProjectWizardS
 
 	// Handler for when the interpreter is selected.
 	const onInterpreterSelected = async (identifier: string) => {
+		if (context.usesCondaEnv) {
+			// If the environment is for Conda, the selected interpreter is the Python version.
+			context.condaPythonVersion = identifier;
+			return;
+		}
+
 		// Update the selected interpreter.
 		const selectedRuntime = languageRuntimeService.getRegisteredRuntime(identifier);
 		if (!selectedRuntime) {
@@ -185,7 +195,7 @@ export const PythonEnvironmentStep = (props: PropsWithChildren<NewProjectWizardS
 	// Construct the interpreter dropdown title.
 	const interpreterDropdownTitle = () => {
 		// If interpreters is undefined, show a loading message.
-		if (!interpreters) {
+		if (!interpreters && !condaPythonVersionInfo) {
 			return localize(
 				'pythonInterpreterSubStep.dropDown.title.loading',
 				"Loading interpreters..."
@@ -207,6 +217,41 @@ export const PythonEnvironmentStep = (props: PropsWithChildren<NewProjectWizardS
 		);
 	};
 
+	// Construct the interpreter dropdown entries
+	const interpreterDropdownEntries = () => {
+		if (!interpretersAvailable()) {
+			return [];
+		}
+
+		// Conda-specific handling.
+		if (context.usesCondaEnv) {
+			return condaInterpretersToDropdownItems(condaPythonVersionInfo);
+		}
+
+		// Otherwise, show the regular interpreters.
+		return interpretersToDropdownItems(
+			interpreters!,
+			preferredInterpreter?.runtimeId
+		);
+	};
+
+	// Get the selected interpreter ID.
+	const selectedInterpreterId = () => {
+		if (context.usesCondaEnv) {
+			return selectedCondaPythonVersion;
+		}
+
+		return selectedInterpreter?.runtimeId;
+	};
+
+	// Whether the create button should be disabled.
+	const disableCreateButton = () => {
+		if (context.usesCondaEnv) {
+			return !selectedCondaPythonVersion;
+		}
+		return !selectedInterpreter;
+	};
+
 	// Render.
 	return (
 		<PositronWizardStep
@@ -222,9 +267,10 @@ export const PythonEnvironmentStep = (props: PropsWithChildren<NewProjectWizardS
 					'positronNewProjectWizard.createButtonTitle',
 					"Create"
 				))(),
-				disable: !selectedInterpreter || isNewEnvForConda()
+				disable: disableCreateButton()
 			}}
 		>
+			{/* New or existing Python environment selection */}
 			<PositronWizardSubStep
 				title={(() => localize(
 					'pythonEnvironmentSubStep.howToSetUpEnv',
@@ -242,6 +288,7 @@ export const PythonEnvironmentStep = (props: PropsWithChildren<NewProjectWizardS
 					}
 				/>
 			</PositronWizardSubStep>
+			{/* If New Environment, show dropdown for Python environment providers */}
 			{envSetupType === EnvironmentSetupType.NewEnvironment ?
 				<PositronWizardSubStep
 					title={(() => localize(
@@ -262,6 +309,7 @@ export const PythonEnvironmentStep = (props: PropsWithChildren<NewProjectWizardS
 						</WizardFormattedText>
 					}
 					feedback={
+						// If there's at least one environment provider, show the environment path preview
 						envProviders.length > 0 ? (
 							<WizardFormattedText
 								type={WizardFormattedTextType.Info}
@@ -283,6 +331,7 @@ export const PythonEnvironmentStep = (props: PropsWithChildren<NewProjectWizardS
 								</code>
 							</WizardFormattedText>
 						) : (
+							// If there are no environment providers, show a warning message
 							<WizardFormattedText
 								type={WizardFormattedTextType.Warning}
 							>
@@ -295,6 +344,7 @@ export const PythonEnvironmentStep = (props: PropsWithChildren<NewProjectWizardS
 						)
 					}
 				>
+					{/* If there's at least one environment provider, show the provider dropdown */}
 					{envProviders.length > 0 ? (
 						<DropDownListBox
 							keybindingService={keybindingService}
@@ -321,6 +371,7 @@ export const PythonEnvironmentStep = (props: PropsWithChildren<NewProjectWizardS
 					) : null}
 				</PositronWizardSubStep> : null
 			}
+			{/* Show the Python interpreter dropdown */}
 			<PositronWizardSubStep
 				title={(() =>
 					localize(
@@ -334,34 +385,22 @@ export const PythonEnvironmentStep = (props: PropsWithChildren<NewProjectWizardS
 					))()}
 				feedback={interpreterStepFeedback()}
 			>
-				{envSetupType === EnvironmentSetupType.ExistingEnvironment || envProviders.length > 0 ? (
-					<DropDownListBox
-						keybindingService={keybindingService}
-						layoutService={layoutService}
-						disabled={!interpretersAvailable()}
-						title={interpreterDropdownTitle()}
-						entries={
-							interpretersAvailable()
-								? interpretersToDropdownItems(
-									interpreters!,
-									preferredInterpreter?.runtimeId,
-									// TODO: remove this temporary flag once we are retrieving the
-									// list of interpreters from the conda service
-									isNewEnvForConda()
-								)
-								: []
-						}
-						selectedIdentifier={selectedInterpreter?.runtimeId}
-						createItem={(item) => (
-							<InterpreterEntry
-								interpreterInfo={item.options.value}
-							/>
-						)}
-						onSelectionChanged={(item) =>
-							onInterpreterSelected(item.options.identifier)
-						}
-					/>
-				) : null}
+				<DropDownListBox
+					keybindingService={keybindingService}
+					layoutService={layoutService}
+					disabled={!interpretersAvailable()}
+					title={interpreterDropdownTitle()}
+					entries={interpreterDropdownEntries()}
+					selectedIdentifier={selectedInterpreterId()}
+					createItem={(item) => (
+						<InterpreterEntry
+							interpreterInfo={item.options.value}
+						/>
+					)}
+					onSelectionChanged={(item) =>
+						onInterpreterSelected(item.options.identifier)
+					}
+				/>
 			</PositronWizardSubStep>
 		</PositronWizardStep>
 	);
