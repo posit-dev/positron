@@ -55,7 +55,7 @@ export async function getCondaBaseEnv(): Promise<string | undefined> {
 export async function pickPythonVersion(token?: CancellationToken): Promise<string | undefined> {
     // --- Start Positron ---
     const items: QuickPickItem[] = SUPPORTED_CONDA_PYTHON_VERSIONS.map((v) => ({
-    // --- End Positron ---
+        // --- End Positron ---
         label: v === RECOMMENDED_CONDA_PYTHON ? `${Octicons.Star} Python` : 'Python',
         description: v,
     }));
