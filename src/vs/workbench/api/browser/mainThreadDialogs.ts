@@ -47,7 +47,10 @@ export class MainThreadDialogs implements MainThreadDiaglogsShape {
 			canSelectMany: options?.canSelectMany,
 			defaultUri: options?.defaultUri ? URI.revive(options.defaultUri) : undefined,
 			title: options?.title || undefined,
-			availableFileSystems: options?.allowUIResources ? [Schemas.vscodeRemote, Schemas.file] : []
+			// --- Start Positron ---
+			availableFileSystems: options?.allowUIResources ? [Schemas.vscodeRemote, Schemas.file] : [],
+			resolveSymlinks: options?.resolveSymlinks ?? true,
+			// --- End Positron ---
 		};
 		if (options?.filters) {
 			result.filters = [];
