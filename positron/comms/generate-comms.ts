@@ -542,6 +542,7 @@ use serde::Serialize;
 					snakeCaseToSentenceCase(context[0]) + ` in ` +
 					snakeCaseToSentenceCase(context[1]));
 				yield '#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]\n';
+				yield '#[serde(untagged)]\n';
 				yield `pub enum ${snakeCaseToSentenceCase(context[0])} {\n`;
 			}
 			for (let i = 0; i < o.oneOf.length; i++) {
