@@ -5,24 +5,25 @@
 import { KeyboardModifiers } from 'vs/base/browser/ui/positronComponents/button/positronButton';
 
 /**
- * ContextMenuItemOptions interface.
+ * CustomContextMenuItemOptions interface.
  */
-export interface ContextMenuItemOptions {
+export interface CustomContextMenuItemOptions {
+	readonly commandId?: string;
 	readonly checked?: boolean;
-	readonly label: string;
 	readonly icon?: string;
+	readonly label: string;
 	readonly disabled?: boolean;
 	readonly onSelected: (e: KeyboardModifiers) => void;
 }
 
 /**
- * ContextMenuItem class.
+ * CustomContextMenuItem class.
  */
-export class ContextMenuItem {
+export class CustomContextMenuItem {
 	/**
 	 * Constructor.
 	 * @param options A ContextMenuItemOptions that contains the context menu item options.
 	 */
-	constructor(readonly options: ContextMenuItemOptions) {
+	constructor(readonly options: CustomContextMenuItemOptions) {
 	}
 }

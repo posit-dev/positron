@@ -344,6 +344,13 @@ export class RSession implements positron.LanguageRuntimeSession, vscode.Disposa
 	}
 
 	/**
+	 * Show profiler log if supported.
+	 */
+	async showProfile() {
+		await this._kernel?.showProfile?.();
+	}
+
+	/**
 	 * Get the LANG env var and all categories of the locale, in R's Sys.getlocale() sense, from
 	 * the R session.
 	 */
@@ -664,18 +671,24 @@ export function createJupyterKernelSpec(
 	// Check the R kernel log level setting
 	const config = vscode.workspace.getConfiguration('positron.r');
 	const logLevel = config.get<string>('kernel.logLevel') ?? 'warn';
+	const logLevelForeign = config.get<string>('kernel.logLevelExternal') ?? 'warn';
 	const userEnv = config.get<object>('kernel.env') ?? {};
+	const profile = config.get<string>('kernel.profile');
 
 
 	/* eslint-disable */
 	const env = <Record<string, string>>{
 		'POSITRON': '1',
 		'RUST_BACKTRACE': '1',
-		'RUST_LOG': logLevel,
+		'RUST_LOG': logLevelForeign + ',ark=' + logLevel,
 		'R_HOME': rHomePath,
 		...userEnv
 	};
 	/* eslint-enable */
+
+	if (profile) {
+		env['ARK_PROFILE'] = profile;
+	}
 
 	if (process.platform === 'linux') {
 		// Workaround for
@@ -699,18 +712,30 @@ export function createJupyterKernelSpec(
 	// R script to run on session startup
 	const startupFile = path.join(EXTENSION_ROOT_DIR, 'resources', 'scripts', 'startup.R');
 
+	const argv = [
+		kernelPath,
+		'--connection_file', '{connection_file}',
+		'--log', '{log_file}',
+		'--startup-file', `${startupFile}`,
+		'--session-mode', `${sessionMode}`,
+	];
+
+	// Only create profile if requested in configuration
+	if (profile) {
+		argv.push(...[
+			'--profile', '{profile_file}',
+		]);
+	}
+
+	argv.push(...[
+		// The arguments after `--` are passed verbatim to R
+		'--',
+		'--interactive',
+	]);
+
 	// Create a kernel spec for this R installation
 	const kernelSpec: JupyterKernelSpec = {
-		'argv': [
-			kernelPath,
-			'--connection_file', '{connection_file}',
-			'--log', '{log_file}',
-			'--startup-file', `${startupFile}`,
-			'--session-mode', `${sessionMode}`,
-			// The arguments after `--` are passed verbatim to R
-			'--',
-			'--interactive',
-		],
+		'argv': argv,
 		'display_name': runtimeName, // eslint-disable-line
 		'language': 'R',
 		'env': env,

@@ -10,24 +10,13 @@ import * as React from 'react';
 import { MouseEvent, useRef } from 'react'; // eslint-disable-line no-duplicate-imports
 
 // Other dependencies.
-import { localize } from 'vs/nls';
 import { positronClassNames } from 'vs/base/common/positronUtilities';
 import { IDataColumn } from 'vs/workbench/browser/positronDataGrid/interfaces/dataColumn';
 import { Button, MouseTrigger } from 'vs/base/browser/ui/positronComponents/button/button';
 import { selectionType } from 'vs/workbench/browser/positronDataGrid/utilities/mouseUtilities';
-import { showContextMenu } from 'vs/workbench/browser/positronComponents/contextMenu/contextMenu';
 import { VerticalSplitter } from 'vs/base/browser/ui/positronComponents/splitters/verticalSplitter';
-import { ContextMenuItem } from 'vs/workbench/browser/positronComponents/contextMenu/contextMenuItem';
 import { ColumnSelectionState } from 'vs/workbench/browser/positronDataGrid/classes/dataGridInstance';
 import { usePositronDataGridContext } from 'vs/workbench/browser/positronDataGrid/positronDataGridContext';
-import { ContextMenuSeparator } from 'vs/workbench/browser/positronComponents/contextMenu/contextMenuSeparator';
-
-/**
- * Localized strings.
- */
-const sortAscendingTitle = localize('positron.sortAscending', "Sort Ascending");
-const sortDescendingTitle = localize('positron.sortDescending', "Sort Descending");
-const clearSortingTitle = localize('positron.clearSorting', "Clear Sorting");
 
 /**
  * DataGridColumnHeaderProps interface.
@@ -48,6 +37,7 @@ export const DataGridColumnHeader = (props: DataGridColumnHeaderProps) => {
 	const context = usePositronDataGridContext();
 
 	// Reference hooks.
+	const ref = useRef<HTMLDivElement>(undefined!);
 	const sortingButtonRef = useRef<HTMLButtonElement>(undefined!);
 
 	/**
@@ -56,61 +46,47 @@ export const DataGridColumnHeader = (props: DataGridColumnHeaderProps) => {
 	 * @returns A Promise<void> that resolves when the operation is complete.
 	 */
 	const mouseDownHandler = async (e: MouseEvent<HTMLElement>) => {
-		// Consume the event.
-		e.preventDefault();
+		// Stop propagation.
 		e.stopPropagation();
 
-		// Mouse select the column.
-		await context.instance.mouseSelectColumn(props.columnIndex, selectionType(e));
+		// Get the starting bounding client rect. This is used to calculate the position of the
+		// context menu.
+		const startingRect = ref.current.getBoundingClientRect();
+
+		// Get the column selection state.
+		const columnSelectionState = context.instance.columnSelectionState(props.columnIndex);
+
+		// If the column selection state is None, and selection is enabled, mouse-select the column.
+		// Otherwise, scroll the column into view.
+		if (columnSelectionState === ColumnSelectionState.None && context.instance.selection) {
+			await context.instance.mouseSelectColumn(props.columnIndex, selectionType(e));
+		} else {
+			await context.instance.scrollToColumn(props.columnIndex);
+		}
+
+		// If the left mouse button was pressed, show the context menu.
+		if (e.button === 2) {
+			// Get the ending bounding client rect.
+			const endingRect = ref.current.getBoundingClientRect();
+
+			// Show the column context menu.
+			await context.instance.showColumnContextMenu(
+				props.columnIndex,
+				ref.current,
+				{
+					clientX: e.clientX + endingRect.left - startingRect.left,
+					clientY: e.clientY
+				}
+			);
+		}
 	};
 
 	/**
 	 * dropdownPressed event handler.
 	 */
 	const dropdownPressed = async () => {
-		/**
-		 * Get the column sort key for the column.
-		 */
-		const columnSortKey = context.instance.columnSortKey(props.columnIndex);
-
-		// Show the context menu.
-		await showContextMenu(
-			context.keybindingService,
-			context.layoutService,
-			sortingButtonRef.current,
-			'right',
-			200,
-			[
-				new ContextMenuItem({
-					checked: columnSortKey !== undefined && columnSortKey.ascending,
-					label: sortAscendingTitle,
-					icon: 'arrow-up',
-					onSelected: async () => await context.instance.setColumnSortKey(
-						props.columnIndex,
-						true
-					)
-				}),
-				new ContextMenuItem({
-					checked: columnSortKey !== undefined && !columnSortKey.ascending,
-					label: sortDescendingTitle,
-					icon: 'arrow-down',
-					onSelected: async () => await context.instance.setColumnSortKey(
-						props.columnIndex,
-						false
-					)
-				}),
-				new ContextMenuSeparator(),
-				new ContextMenuItem({
-					checked: false,
-					label: clearSortingTitle,
-					disabled: !columnSortKey,
-					icon: 'positron-clear-sorting',
-					onSelected: async () =>
-						await context.instance.removeColumnSortKey(props.columnIndex)
-				}),
-				...context.instance.columnContextMenuEntries(props.columnIndex)
-			]
-		);
+		// Show the column context menu.
+		await context.instance.showColumnContextMenu(props.columnIndex, sortingButtonRef.current);
 	};
 
 	// Get the column sort key.
@@ -122,6 +98,7 @@ export const DataGridColumnHeader = (props: DataGridColumnHeaderProps) => {
 	// Render.
 	return (
 		<div
+			ref={ref}
 			className={
 				positronClassNames(
 					'data-grid-column-header',

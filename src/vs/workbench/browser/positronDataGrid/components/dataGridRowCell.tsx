@@ -7,11 +7,11 @@ import 'vs/css!./dataGridRowCell';
 
 // React.
 import * as React from 'react';
-import { MouseEvent } from 'react'; // eslint-disable-line no-duplicate-imports
+import { MouseEvent, useRef } from 'react'; // eslint-disable-line no-duplicate-imports
 
 // Other dependencies.
-import { isMacintosh } from 'vs/base/common/platform';
 import { positronClassNames } from 'vs/base/common/positronUtilities';
+import { selectionType } from 'vs/workbench/browser/positronDataGrid/utilities/mouseUtilities';
 import { CellSelectionState } from 'vs/workbench/browser/positronDataGrid/classes/dataGridInstance';
 import { VerticalSplitter } from 'vs/base/browser/ui/positronComponents/splitters/verticalSplitter';
 import { HorizontalSplitter } from 'vs/base/browser/ui/positronComponents/splitters/horizontalSplitter';
@@ -35,27 +35,50 @@ export const DataGridRowCell = (props: DataGridRowCellProps) => {
 	// Context hooks.
 	const context = usePositronDataGridContext();
 
+	// Reference hooks.
+	const ref = useRef<HTMLDivElement>(undefined!);
+
 	/**
-	 * MouseDown handler..
+	 * onMouseDown handler.
 	 * @param e A MouseEvent<HTMLElement> that describes a user interaction with the mouse.
 	 */
-	const mouseDownHandler = (e: MouseEvent<HTMLElement>) => {
-		if (isMacintosh ? e.metaKey : e.ctrlKey) {
-			return;
+	const mouseDownHandler = async (e: MouseEvent<HTMLElement>) => {
+		// Stop propagation.
+		e.stopPropagation();
+
+		// Get the starting bounding client rect. This is used to calculate the position of the
+		// context menu.
+		const startingRect = ref.current.getBoundingClientRect();
+
+		// Get the cell selection state.
+		const cellSelectionState = context.instance.cellSelectionState(
+			props.columnIndex,
+			props.rowIndex
+		);
+
+		// If the cell selection state is None, and selection is enabled, mouse-select the cell.
+		// Otherwise, scroll the cell into view.
+		if (cellSelectionState === CellSelectionState.None && context.instance.selection) {
+			await context.instance.mouseSelectCell(props.columnIndex, props.rowIndex, selectionType(e));
+		} else {
+			await context.instance.scrollToCell(props.columnIndex, props.rowIndex);
 		}
 
-		// If selection is enabled, process selection.
-		if (context.instance.selection) {
-			if (e.shiftKey) {
-				context.instance.mouseSelectCell(props.columnIndex, props.rowIndex);
-				return;
-			}
+		// If the left mouse button was pressed, show the context menu.
+		if (e.button === 2) {
+			// Get the ending bounding client rect.
+			const endingRect = ref.current.getBoundingClientRect();
 
-			context.instance.clearSelection();
+			// Show the column context menu.
+			await context.instance.showColumnContextMenu(
+				props.columnIndex,
+				ref.current,
+				{
+					clientX: e.clientX + endingRect.left - startingRect.left,
+					clientY: e.clientY + endingRect.top - startingRect.top
+				}
+			);
 		}
-
-		// Set the cursor position.
-		context.instance.setCursorPosition(props.columnIndex, props.rowIndex);
 	};
 
 	// Get the selection states.
@@ -67,6 +90,7 @@ export const DataGridRowCell = (props: DataGridRowCellProps) => {
 	// Render.
 	return (
 		<div
+			ref={ref}
 			className={
 				positronClassNames(
 					'data-grid-row-cell',

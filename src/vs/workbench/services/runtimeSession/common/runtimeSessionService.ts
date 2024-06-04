@@ -177,6 +177,9 @@ export interface ILanguageRuntimeSession {
 
 	/** Show output log of the runtime */
 	showOutput(): void;
+
+	/** Show profiler log of the runtime, if supported */
+	showProfile(): Thenable<void>;
 }
 
 /**

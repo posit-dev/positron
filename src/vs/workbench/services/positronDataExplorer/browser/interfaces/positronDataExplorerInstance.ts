@@ -3,11 +3,11 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { Event } from 'vs/base/common/event';
+import { IDisposable } from 'vs/base/common/lifecycle';
 import { TableDataDataGridInstance } from 'vs/workbench/services/positronDataExplorer/browser/tableDataDataGridInstance';
 import { DataExplorerClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimeDataExplorerClient';
 import { TableSummaryDataGridInstance } from 'vs/workbench/services/positronDataExplorer/browser/tableSummaryDataGridInstance';
 import { PositronDataExplorerLayout } from 'vs/workbench/services/positronDataExplorer/browser/interfaces/positronDataExplorerService';
-import { IDisposable } from 'vs/base/common/lifecycle';
 
 /**
  * IPositronDataExplorerInstance interface.
@@ -67,4 +67,9 @@ export interface IPositronDataExplorerInstance extends IDisposable {
 	 * Requests focus for the instance.
 	 */
 	requestFocus(): void;
+
+	/**
+	 * Copies the selection or cursor cell to the clipboard.
+	 */
+	copyToClipboard(): Promise<void>;
 }

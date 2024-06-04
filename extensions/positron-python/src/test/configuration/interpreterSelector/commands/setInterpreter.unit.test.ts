@@ -1069,6 +1069,9 @@ suite('Set Interpreter Command', () => {
                 openLabel: InterpreterQuickPickList.browsePath.openButtonLabel,
                 canSelectMany: false,
                 title: InterpreterQuickPickList.browsePath.title,
+                // --- Start Positron ---
+                resolveSymlinks: false,
+                // --- End Positron ---
             };
             const multiStepInput = TypeMoq.Mock.ofType<IMultiStepInput<InterpreterStateArgs>>();
             multiStepInput.setup((i) => i.showQuickPick(TypeMoq.It.isAny())).returns(() => Promise.resolve(items[0]));
@@ -1090,6 +1093,9 @@ suite('Set Interpreter Command', () => {
                 openLabel: InterpreterQuickPickList.browsePath.openButtonLabel,
                 canSelectMany: false,
                 title: InterpreterQuickPickList.browsePath.title,
+                // --- Start Positron ---
+                resolveSymlinks: false,
+                // --- End Positron ---
             };
             multiStepInput.setup((i) => i.showQuickPick(TypeMoq.It.isAny())).returns(() => Promise.resolve(items[0]));
             appShell.setup((a) => a.showOpenDialog(expectedParams)).verifiable(TypeMoq.Times.once());
@@ -1143,6 +1149,9 @@ suite('Set Interpreter Command', () => {
                     openLabel: InterpreterQuickPickList.browsePath.openButtonLabel,
                     canSelectMany: false,
                     title: InterpreterQuickPickList.browsePath.title,
+                    // --- Start Positron ---
+                    resolveSymlinks: false,
+                    // --- End Positron ---
                 };
                 multiStepInput
                     .setup((i) => i.showQuickPick(TypeMoq.It.isAny()))

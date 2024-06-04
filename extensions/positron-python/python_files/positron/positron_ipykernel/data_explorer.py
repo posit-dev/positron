@@ -9,7 +9,16 @@ import abc
 import logging
 import operator
 from datetime import datetime
-from typing import TYPE_CHECKING, Callable, Dict, List, Optional, Sequence, Set, Tuple
+from typing import (
+    TYPE_CHECKING,
+    Callable,
+    Dict,
+    List,
+    Optional,
+    Sequence,
+    Set,
+    Tuple,
+)
 
 import comm
 
@@ -343,6 +352,8 @@ class PandasView(DataExplorerTableView):
         filters: Optional[List[RowFilter]],
         sort_keys: Optional[List[ColumnSortKey]],
     ):
+        table = self._maybe_wrap(table)
+
         super().__init__(display_name, table, filters, sort_keys)
 
         # Maintain a mapping of column index to inferred dtype for any
@@ -379,6 +390,15 @@ class PandasView(DataExplorerTableView):
             ColumnDisplayType.Date: self._summarize_date,
             ColumnDisplayType.Datetime: self._summarize_datetime,
         }
+
+    def _maybe_wrap(self, value):
+        if isinstance(value, pd_.Series):
+            if value.name is None:
+                return pd_.DataFrame({"unnamed": value})
+            else:
+                return pd_.DataFrame(value)
+        else:
+            return value
 
     def _set_sort_keys(self, sort_keys):
         super()._set_sort_keys(sort_keys)
@@ -896,7 +916,7 @@ class PandasView(DataExplorerTableView):
 
             try:
                 single_mask = self._eval_filter(filt)
-            except ValueError as e:
+            except Exception as e:
                 had_errors = True
 
                 # Filter fails: we capture the error message and mark
@@ -1333,7 +1353,7 @@ def _pandas_coerce_value(value, dtype, inferred_type):
         else:
             raise ValueError(f"Unable to convert {value} to boolean")
     elif "datetime" in inferred_type:
-        return _parse_iso8601_like(value)
+        return _parse_iso8601_like(value, dtype)
     else:
         # As a fallback, let Series.astype do the coercion
         dummy = pd_.Series([value])
@@ -1349,10 +1369,16 @@ _ISO_8601_FORMATS = [
 ]
 
 
-def _parse_iso8601_like(x):
+def _parse_iso8601_like(x, dtype):
     for fmt in _ISO_8601_FORMATS:
         try:
-            return datetime.strptime(x, fmt)
+            result = datetime.strptime(x, fmt)
+
+            # Localize tz-naive datetime if needed to avoid TypeError
+            if getattr(dtype, "tz", None) is not None:
+                result = result.replace(tzinfo=dtype.tz)
+
+            return result
         except ValueError:
             continue
 
@@ -1373,7 +1399,10 @@ def _get_table_view(table, filters=None, sort_keys=None, name=None):
 
 
 def _value_type_is_supported(value):
-    return isinstance(value, pd_.DataFrame)
+    # pandas types
+    if isinstance(value, (pd_.DataFrame, pd_.Series)):
+        return True
+    return False
 
 
 class DataExplorerService:
@@ -1398,6 +1427,9 @@ class DataExplorerService:
     def shutdown(self) -> None:
         for comm_id in list(self.comms.keys()):
             self._close_explorer(comm_id)
+
+    def is_supported(self, value) -> bool:
+        return value is not None and _value_type_is_supported(value)
 
     def register_table(
         self,
@@ -1430,7 +1462,7 @@ class DataExplorerService:
         comm_id : str
             The associated (generated or passed in) comm_id
         """
-        if type(table).__name__ != "DataFrame":
+        if not _value_type_is_supported(table):
             raise TypeError(type(table))
 
         if comm_id is None:

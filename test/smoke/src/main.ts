@@ -33,6 +33,8 @@ import { retry, timeout } from './utils';
 import { setup as setupVariablesTest } from './areas/positron/variables/variablespane.test';
 import { setup as setupDataExplorerTest } from './areas/positron/dataexplorer/dataexplorer.test';
 import { setup as setupPlotsTest } from './areas/positron/plots/plots.test';
+import { setup as setupPythonConsoleTest } from './areas/positron/console/python-console.test';
+import { setup as setupRConsoleTest } from './areas/positron/console/r-console.test';
 import { setup as setupLargeDataFrameTest } from './areas/positron/dataexplorer/largeDataFrame.test';
 // --- End Positron ---
 
@@ -421,6 +423,8 @@ describe(`VSCode Smoke Tests (${opts.web ? 'Web' : 'Electron'})`, () => {
 	setupVariablesTest(logger);
 	setupDataExplorerTest(logger);
 	setupPlotsTest(logger);
+	setupPythonConsoleTest(logger);
+	setupRConsoleTest(logger);
 	setupLargeDataFrameTest(logger);
 	// --- End Positron ---
 });

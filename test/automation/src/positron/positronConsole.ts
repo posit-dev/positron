@@ -8,15 +8,29 @@ import { Code } from '../code';
 import { QuickAccess } from '../quickaccess';
 import { QuickInput } from '../quickinput';
 import { InterpreterType } from './positronStartInterpreter';
+import { PositronBaseElement } from './positronBaseElement';
 
 const CONSOLE_ITEMS = '.runtime-items span';
 const CONSOLE_INSTANCE = '.console-instance';
 const ACTIVE_CONSOLE_INSTANCE = '.console-instance[style*="z-index: auto"]';
 const MAXIMIZE_CONSOLE = '.bottom .codicon-positron-maximize-panel';
+const CONSOLE_BAR_POWER_BUTTON = 'div.action-bar-button-icon.codicon.codicon-positron-power-button-thin';
+const CONSOLE_BAR_RESTART_BUTTON = 'div.action-bar-button-icon.codicon.codicon-positron-restart-runtime-thin';
+const CONSOLE_RESTART_BUTTON = 'button.monaco-text-button.runtime-restart-button';
+const CONSOLE_BAR_CLEAR_BUTTON = 'div.action-bar-button-icon.codicon.codicon-clear-all';
 
 export class PositronConsole {
+	barPowerButton: PositronBaseElement;
+	barRestartButton: PositronBaseElement;
+	barClearButton: PositronBaseElement;
+	consoleRestartButton: PositronBaseElement;
 
-	constructor(private code: Code, private quickaccess: QuickAccess, private quickinput: QuickInput) { }
+	constructor(private code: Code, private quickaccess: QuickAccess, private quickinput: QuickInput) {
+		this.barPowerButton = new PositronBaseElement(CONSOLE_BAR_POWER_BUTTON, this.code);
+		this.barRestartButton = new PositronBaseElement(CONSOLE_BAR_RESTART_BUTTON, this.code);
+		this.barClearButton = new PositronBaseElement(CONSOLE_BAR_CLEAR_BUTTON, this.code);
+		this.consoleRestartButton = new PositronBaseElement(CONSOLE_RESTART_BUTTON, this.code);
+	}
 
 	async selectInterpreter(desiredInterpreterType: InterpreterType, desiredInterpreterString: string) {
 		let command: string;

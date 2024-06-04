@@ -4,6 +4,7 @@
 
 # ruff: noqa: E712
 
+from datetime import datetime
 from io import StringIO
 from typing import Any, Dict, List, Optional, Type, cast
 
@@ -593,6 +594,44 @@ def test_pandas_get_schema(dxf: DataExplorerFixture):
     assert result == _wrap_json(ColumnSchema, bigger_schema[10:20])
 
 
+def test_pandas_series(dxf: DataExplorerFixture):
+    series = SIMPLE_PANDAS_DF["a"]
+    dxf.register_table("series", series)
+    dxf.register_table("expected", pd.DataFrame({"a": series}))
+
+    schema = dxf.get_schema("series")
+    assert schema == _wrap_json(
+        ColumnSchema,
+        [
+            {
+                "column_name": "a",
+                "column_index": 0,
+                "type_name": "int64",
+                "type_display": "number",
+            },
+        ],
+    )
+
+    dxf.compare_tables("series", "expected", (len(series), 1))
+
+    # Test schema when name attribute is None
+    series2 = series.copy()
+    series2.name = None
+    dxf.register_table("series2", series2)
+    schema = dxf.get_schema("series2")
+    assert schema == _wrap_json(
+        ColumnSchema,
+        [
+            {
+                "column_name": "unnamed",
+                "column_index": 0,
+                "type_name": "int64",
+                "type_display": "number",
+            },
+        ],
+    )
+
+
 def test_pandas_wide_schemas(dxf: DataExplorerFixture):
     arr = np.arange(10).astype(object)
 
@@ -1001,6 +1040,27 @@ def test_pandas_filter_compare(dxf: DataExplorerFixture):
     for op, op_func in COMPARE_OPS.items():
         filt = _compare_filter(schema[0], op, 3)
         expected_df = df[op_func(df[column], 3)]
+        dxf.check_filter_case(df, [filt], expected_df)
+
+
+def test_pandas_filter_datetimetz(dxf: DataExplorerFixture):
+    import pytz
+
+    tz = pytz.timezone("US/Eastern")
+
+    df = pd.DataFrame(
+        {
+            "date": pd.date_range("2000-01-01", periods=5, tz="US/Eastern"),
+        }
+    )
+    dxf.register_table("dtz", df)
+    schema = dxf.get_schema("dtz")
+
+    val = datetime(2000, 1, 3, tzinfo=tz)
+
+    for op, op_func in COMPARE_OPS.items():
+        filt = _compare_filter(schema[0], op, "2000-01-03")
+        expected_df = df[op_func(df["date"], val)]
         dxf.check_filter_case(df, [filt], expected_df)
 
 
@@ -1863,7 +1923,14 @@ def test_pandas_profile_summary_stats(dxf: DataExplorerFixture):
                 {"x": pd.date_range("2000-01-01", freq="2h", periods=50, tz="US/Eastern")}
             ),
             pd.DataFrame(
-                {"x": pd.date_range("2000-01-01", freq="2h", periods=50, tz="Asia/Hong_Kong")}
+                {
+                    "x": pd.date_range(
+                        "2000-01-01",
+                        freq="2h",
+                        periods=50,
+                        tz="Asia/Hong_Kong",
+                    )
+                }
             ),
         ]
     )
@@ -1875,7 +1942,14 @@ def test_pandas_profile_summary_stats(dxf: DataExplorerFixture):
                 {"x": pd.date_range("2000-01-01", freq="2h", periods=50, tz="US/Eastern")}
             ),
             pd.DataFrame(
-                {"x": pd.date_range("2000-01-01", freq="2h", periods=50, tz="Asia/Hong_Kong")}
+                {
+                    "x": pd.date_range(
+                        "2000-01-01",
+                        freq="2h",
+                        periods=50,
+                        tz="Asia/Hong_Kong",
+                    )
+                }
             ),
         ]
     )
