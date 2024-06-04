@@ -78,9 +78,10 @@ export const DataGridRowCell = (props: DataGridRowCellProps) => {
 			// Get the ending bounding client rect.
 			const endingRect = ref.current.getBoundingClientRect();
 
-			// Show the column context menu.
-			await context.instance.showColumnContextMenu(
+			// Show the cell context menu.
+			await context.instance.showCellContextMenu(
 				props.columnIndex,
+				props.rowIndex,
 				ref.current,
 				{
 					clientX: e.clientX + endingRect.left - startingRect.left,
