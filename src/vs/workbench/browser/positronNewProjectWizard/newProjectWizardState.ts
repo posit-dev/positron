@@ -127,7 +127,7 @@ export class NewProjectWizardStateManager
 
 	// Dynamically populated data as the state changes.
 	private _runtimeStartupComplete: boolean;
-	private _pythonEnvProviders: PythonEnvironmentProviderInfo[];
+	private _pythonEnvProviders: PythonEnvironmentProviderInfo[] | undefined;
 	private _interpreters: ILanguageRuntimeMetadata[] | undefined;
 	private _preferredInterpreter: ILanguageRuntimeMetadata | undefined;
 
@@ -158,7 +158,7 @@ export class NewProjectWizardStateManager
 		this._useRenv = undefined;
 		this._steps = config.steps ?? [config.initialStep];
 		this._currentStep = config.initialStep;
-		this._pythonEnvProviders = [];
+		this._pythonEnvProviders = undefined;
 		this._interpreters = undefined;
 		this._preferredInterpreter = undefined;
 		this._runtimeStartupComplete = false;
@@ -421,7 +421,7 @@ export class NewProjectWizardStateManager
 	/**
 	 * Gets the Python environment providers.
 	 */
-	get pythonEnvProviders(): PythonEnvironmentProviderInfo[] {
+	get pythonEnvProviders(): PythonEnvironmentProviderInfo[] | undefined {
 		return this._pythonEnvProviders;
 	}
 
@@ -567,7 +567,7 @@ export class NewProjectWizardStateManager
 	 */
 	private async _initDefaultsFromExtensions() {
 		// Set the Python environment providers.
-		if (!this.pythonEnvProviders.length) {
+		if (!this.pythonEnvProviders?.length) {
 			await this._setPythonEnvProviders();
 		}
 
@@ -677,7 +677,7 @@ export class NewProjectWizardStateManager
 	 * @returns The name of the selected Python environment provider.
 	 */
 	private _getEnvProviderName(): string | undefined {
-		if (!this._pythonEnvProviderId) {
+		if (!this._pythonEnvProviderId || !this._pythonEnvProviders) {
 			return undefined;
 		}
 		return this._pythonEnvProviders.find(
@@ -720,7 +720,7 @@ export class NewProjectWizardStateManager
 	 * Sets the Python environment providers by calling the Python extension.
 	 */
 	private async _setPythonEnvProviders() {
-		if (!this._pythonEnvProviders.length) {
+		if (!this._pythonEnvProviders?.length) {
 			this._pythonEnvProviders =
 				(await this._services.commandService.executeCommand(
 					'python.getCreateEnvironmentProviders'
