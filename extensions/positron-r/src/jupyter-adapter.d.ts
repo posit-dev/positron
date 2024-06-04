@@ -77,6 +77,11 @@ export interface JupyterLanguageRuntimeSession extends positron.LanguageRuntimeS
 	showOutput(): void;
 
 	/**
+	 * Show profiler log if supported.
+	 */
+	showProfile?(): Thenable<void>;
+
+	/**
 	 * A Jupyter kernel is guaranteed to have a `callMethod()` method; it uses
 	 * the frontend comm to send a message to the kernel and wait for a
 	 * response.

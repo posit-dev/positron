@@ -157,6 +157,19 @@
           "default": "warn",
           "description": "%r.configuration.logLevel.description%"
         },
+        "positron.r.kernel.logLevelExternal": {
+          "scope": "window",
+          "type": "string",
+          "default": "warn",
+          "title": "%r.configuration.logLevelExternal.title%",
+          "description": "%r.configuration.logLevelExternal.description%"
+        },
+        "positron.r.kernel.profile": {
+          "scope": "window",
+          "type": "string",
+          "default": null,
+          "description": "%r.configuration.profile.description%"
+        },
         "positron.r.kernel.env": {
           "scope": "window",
           "type": "object",
@@ -572,7 +585,7 @@
   },
   "positron": {
     "binaryDependencies": {
-      "ark": "0.1.100"
+      "ark": "0.1.101"
     },
     "minimumRVersion": "4.2.0"
   }
