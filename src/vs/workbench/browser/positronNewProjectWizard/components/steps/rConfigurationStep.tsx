@@ -47,6 +47,8 @@ export const RConfigurationStep = (props: PropsWithChildren<NewProjectWizardStep
 	const [selectedInterpreter, setSelectedInterpreter] = useState(context.selectedRuntime);
 	const [preferredInterpreter, setPreferredInterpreter] = useState(context.preferredInterpreter);
 	const [minimumRVersion, setMinimumRVersion] = useState(context.minimumRVersion);
+	// TODO: remove this check when the feature is no longer WIP
+	const [showRenvInit, setShowRenvInit] = useState(context.wipFunctionalityEnabled());
 
 	useEffect(() => {
 		// Create the disposable store for cleanup.
@@ -58,6 +60,7 @@ export const RConfigurationStep = (props: PropsWithChildren<NewProjectWizardStep
 			setSelectedInterpreter(context.selectedRuntime);
 			setPreferredInterpreter(context.preferredInterpreter);
 			setMinimumRVersion(context.minimumRVersion);
+			setShowRenvInit(context.wipFunctionalityEnabled());
 		}));
 
 		// Return the cleanup function that will dispose of the event handlers.
@@ -66,6 +69,7 @@ export const RConfigurationStep = (props: PropsWithChildren<NewProjectWizardStep
 
 	// Utility functions.
 	const interpretersAvailable = () => Boolean(interpreters && interpreters.length);
+	const interpretersLoading = () => !interpreters;
 
 	// Handler for when the interpreter is selected.
 	const onInterpreterSelected = (identifier: string) => {
@@ -135,7 +139,7 @@ export const RConfigurationStep = (props: PropsWithChildren<NewProjectWizardStep
 						'Select a version of R to launch your project with. You can modify this later if you change your mind.'
 					))()}
 				feedback={
-					interpretersAvailable() ? undefined : (
+					!interpretersLoading() && !interpretersAvailable() ? (
 						<WizardFormattedText
 							type={WizardFormattedTextType.Warning}
 						>
@@ -146,7 +150,7 @@ export const RConfigurationStep = (props: PropsWithChildren<NewProjectWizardStep
 									minimumRVersion
 								))()}
 						</WizardFormattedText>
-					)
+					) : undefined
 				}
 			>
 				<DropDownListBox
@@ -173,31 +177,35 @@ export const RConfigurationStep = (props: PropsWithChildren<NewProjectWizardStep
 					}
 				/>
 			</PositronWizardSubStep>
-			<PositronWizardSubStep
-				title={(() => localize(
-					'rConfigurationStep.additionalConfigSubStep.title',
-					"Additional Configuration"
-				))()}
-			>
-				<div className='renv-configuration'>
-					<Checkbox
-						label={(() => localize(
-							'rConfigurationStep.additionalConfigSubStep.useRenv.label',
-							"Use `renv` to create a reproducible environment"
+			{showRenvInit ? (
+				<PositronWizardSubStep
+					title={(() =>
+						localize(
+							'rConfigurationStep.additionalConfigSubStep.title',
+							"Additional Configuration"
 						))()}
-						onChanged={checked => context.useRenv = checked}
-						initialChecked={context.useRenv}
-					/>
-					<ExternalLink
-						className='renv-docs-external-link'
-						openerService={openerService}
-						href='https://rstudio.github.io/renv/articles/renv.html'
-						title='https://rstudio.github.io/renv/articles/renv.html'
-					>
-						<div className='codicon codicon-link-external' />
-					</ExternalLink>
-				</div>
-			</PositronWizardSubStep>
+				>
+					<div className='renv-configuration'>
+						<Checkbox
+							label={(() =>
+								localize(
+									'rConfigurationStep.additionalConfigSubStep.useRenv.label',
+									"Use `renv` to create a reproducible environment"
+								))()}
+							onChanged={(checked) => (context.useRenv = checked)}
+							initialChecked={context.useRenv}
+						/>
+						<ExternalLink
+							className='renv-docs-external-link'
+							openerService={openerService}
+							href='https://rstudio.github.io/renv/articles/renv.html'
+							title='https://rstudio.github.io/renv/articles/renv.html'
+						>
+							<div className='codicon codicon-link-external' />
+						</ExternalLink>
+					</div>
+				</PositronWizardSubStep>
+			) : null}
 		</PositronWizardStep>
 	);
 };

@@ -78,6 +78,7 @@ export const PythonEnvironmentStep = (props: PropsWithChildren<NewProjectWizardS
 		PythonEnvironmentProvider.Conda;
 	const interpretersAvailable = () =>
 		Boolean(interpreters && interpreters.length) || isNewEnvForConda();
+	const interpretersLoading = () => !interpreters;
 
 	// Radio buttons for selecting the environment setup type.
 	const envSetupRadioButtons: RadioButtonItem[] = [
@@ -162,7 +163,7 @@ export const PythonEnvironmentStep = (props: PropsWithChildren<NewProjectWizardS
 		}
 
 		// If the interpreters list is empty, show a message that no interpreters were found.
-		if (!interpretersAvailable()) {
+		if (!interpretersLoading() && !interpretersAvailable()) {
 			return (
 				<WizardFormattedText
 					type={WizardFormattedTextType.Warning}
@@ -221,7 +222,7 @@ export const PythonEnvironmentStep = (props: PropsWithChildren<NewProjectWizardS
 					'positronNewProjectWizard.createButtonTitle',
 					"Create"
 				))(),
-				disable: !selectedInterpreter
+				disable: !selectedInterpreter || isNewEnvForConda()
 			}}
 		>
 			<PositronWizardSubStep
