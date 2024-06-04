@@ -858,11 +858,9 @@ export class GettingStartedPage extends EditorPane {
 		const layoutRecentList = () => {
 			const leftContent = $('div.positron-welcome-left-column');
 			this.positronReactRenderer = createWelcomePageLeft(leftContent, this.openerService, this.keybindingService,
-				this.layoutService, this.commandService, this.runtimeSessionService, this.runtimeStartupService, this.languageRuntimeService,
-				this.contextService, this.configurationService);
+				this.layoutService, this.commandService, this.runtimeSessionService, this.runtimeStartupService, this.languageRuntimeService);
 			reset(leftColumn, leftContent);
 			reset(rightColumn, startList.getDomElement(), recentList.getDomElement());
-			// }
 		};
 		layoutRecentList();
 

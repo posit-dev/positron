@@ -9,9 +9,6 @@ import { IAction, Separator } from 'vs/base/common/actions';
 import { ActionBarMenuButton } from 'vs/platform/positronActionBar/browser/components/actionBarMenuButton';
 import { usePositronActionBarContext } from 'vs/platform/positronActionBar/browser/positronActionBarContext';
 import { PositronNewFolderAction, PositronNewFolderFromGitAction, PositronNewProjectAction } from 'vs/workbench/browser/actions/positronActions';
-import { IsDevelopmentContext } from 'vs/platform/contextkey/common/contextkeys';
-import { ContextKeyExpr } from 'vs/platform/contextkey/common/contextkey';
-import { USE_POSITRON_PROJECT_WIZARD_CONFIG_KEY } from 'vs/workbench/services/positronNewProject/common/positronNewProjectEnablement';
 
 /**
  * Localized strings.
@@ -36,15 +33,8 @@ export const TopActionBarNewMenu = () => {
 			label: positronNewFile
 		});
 		actions.push(new Separator());
-		// TODO: [New Project] Remove feature flag when New Project action is ready for release
-		// This removes the action from the New menu in the action bar when not in a development context
-		const projectWizardEnabled =
-			ContextKeyExpr.deserialize(
-				`config.${USE_POSITRON_PROJECT_WIZARD_CONFIG_KEY}`
-			);
 		positronActionBarContext.appendCommandAction(actions, {
 			id: PositronNewProjectAction.ID,
-			when: ContextKeyExpr.or(projectWizardEnabled, IsDevelopmentContext),
 		});
 		positronActionBarContext.appendCommandAction(actions, {
 			id: PositronNewFolderAction.ID
