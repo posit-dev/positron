@@ -671,6 +671,7 @@ export function createJupyterKernelSpec(
 	// Check the R kernel log level setting
 	const config = vscode.workspace.getConfiguration('positron.r');
 	const logLevel = config.get<string>('kernel.logLevel') ?? 'warn';
+	const logLevelForeign = config.get<string>('kernel.logLevelExternal') ?? 'warn';
 	const userEnv = config.get<object>('kernel.env') ?? {};
 	const profile = config.get<string>('kernel.profile');
 
@@ -679,7 +680,7 @@ export function createJupyterKernelSpec(
 	const env = <Record<string, string>>{
 		'POSITRON': '1',
 		'RUST_BACKTRACE': '1',
-		'RUST_LOG': 'warn,ark=' + logLevel,
+		'RUST_LOG': logLevelForeign + ',ark=' + logLevel,
 		'R_HOME': rHomePath,
 		...userEnv
 	};

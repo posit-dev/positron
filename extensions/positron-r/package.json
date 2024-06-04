@@ -157,6 +157,13 @@
           "default": "warn",
           "description": "%r.configuration.logLevel.description%"
         },
+        "positron.r.kernel.logLevelExternal": {
+          "scope": "window",
+          "type": "string",
+          "default": "warn",
+          "title": "%r.configuration.logLevelExternal.title%",
+          "description": "%r.configuration.logLevelExternal.description%"
+        },
         "positron.r.kernel.profile": {
           "scope": "window",
           "type": "string",

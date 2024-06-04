@@ -40,6 +40,8 @@
 	"r.configuration.logLevel.debug.description": "Debug messages",
 	"r.configuration.logLevel.trace.description": "Verbose tracing messages",
 	"r.configuration.logLevel.description": "Log level for the R Kernel (shut down R and start a new R session to apply)",
+	"r.configuration.logLevelExternal.title": "Log level for external dependencies",
+	"r.configuration.logLevelExternal.description": "Log level for the external dependencies of the R kernel. Note that setting this to info or below will result in an enormous amount of log messages. You can also specify the level for specific crates, e.g. `warn,tokio=trace`. (Shut down R and start a new R session to apply.)",
 	"r.configuration.env.description": "Map of environment variables for the Ark kernel",
 	"r.configuration.profile.description": "Whether and how to profile Ark. Set to '*' for everything, '*>50' for all contexts taking more than 50ms, or 'foo>50' for contexts matching 'foo' taking more than 50ms (shut down R and start a new R session to apply).",
 	"r.configuration.packageTesting.description": "Explore and run testthat tests",
