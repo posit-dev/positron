@@ -360,10 +360,10 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 
 	$showProfileLanguageRuntime(handle: number): Thenable<void> {
 		if (handle >= this._runtimeSessions.length) {
-			throw new Error(`Cannot show output for runtime: language runtime session handle '${handle}' not found or no longer valid.`);
+			throw new Error(`Cannot show profile for runtime: language runtime session handle '${handle}' not found or no longer valid.`);
 		}
-		if (!this._runtimeSessions[handle].showOutput) {
-			throw new Error(`Cannot show output for runtime: language runtime session handle '${handle}' does not implement profiling.`);
+		if (!this._runtimeSessions[handle].showProfile) {
+			throw new Error(`Cannot show profile for runtime: language runtime session handle '${handle}' does not implement profiling.`);
 		}
 		return this._runtimeSessions[handle].showProfile!();
 	}
