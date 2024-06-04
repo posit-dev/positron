@@ -485,7 +485,9 @@ class PositronIPyKernel(IPythonKernel):
                 try:
                     child.wait(timeout=1)
                 except psutil.TimeoutExpired as exception:
-                    self.log.warning("Timeout waiting for zombie subprocess to terminate %s", exception)
+                    self.log.warning(
+                        "Timeout waiting for zombie subprocess to terminate %s", exception
+                    )
 
         await super()._progressively_terminate_all_children()
 
