@@ -20,6 +20,8 @@ import { Disposable } from 'vs/base/common/lifecycle';
 import { Emitter, Event } from 'vs/base/common/event';
 import { WizardFormattedTextItem } from 'vs/workbench/browser/positronNewProjectWizard/components/wizardFormattedText';
 import { NewProjectType } from 'vs/workbench/services/positronNewProject/common/positronNewProject';
+import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
+import { projectWizardWorkInProgressEnabled } from 'vs/workbench/services/positronNewProject/common/positronNewProjectEnablement';
 
 /**
  * NewProjectWizardServices interface.
@@ -27,6 +29,7 @@ import { NewProjectType } from 'vs/workbench/services/positronNewProject/common/
  */
 interface NewProjectWizardServices {
 	readonly commandService: ICommandService;
+	readonly configurationService: IConfigurationService;
 	readonly fileDialogService: IFileDialogService;
 	readonly fileService: IFileService;
 	readonly keybindingService: IKeybindingService;
@@ -76,6 +79,7 @@ export interface INewProjectWizardStateManager {
 	readonly getState: () => NewProjectWizardState;
 	readonly goToNextStep: (step: NewProjectWizardStep) => void;
 	readonly goToPreviousStep: () => void;
+	readonly wipFunctionalityEnabled: () => boolean;
 	readonly onUpdateInterpreterState: Event<void>;
 	readonly onUpdateProjectDirectory: Event<void>;
 }
@@ -204,9 +208,7 @@ export class NewProjectWizardStateManager
 		}
 	}
 
-	/****************************************************************************************
-	 * Getters & Setters
-	 ****************************************************************************************/
+	//#region Getters & Setters
 
 	/**
 	 * Gets the selected runtime.
@@ -446,9 +448,9 @@ export class NewProjectWizardStateManager
 		return this._services;
 	}
 
-	/****************************************************************************************
-	 * Public Methods
-	 ****************************************************************************************/
+	//#endregion Getters & Setters
+
+	//#region Public Methods
 
 	/**
 	 * Sets the provided next step as the current step in the New Project Wizard.
@@ -518,6 +520,15 @@ export class NewProjectWizardStateManager
 	}
 
 	/**
+	 * Gets the value of the configuration setting that determines whether work-in-progress project
+	 * wizard functionality is enabled.
+	 * @returns Whether work-in-progress project wizard functionality is enabled.
+	 */
+	wipFunctionalityEnabled(): boolean {
+		return projectWizardWorkInProgressEnabled(this._services.configurationService);
+	}
+
+	/**
 	 * Event that is fired when the runtime startup is complete.
 	 */
 	readonly onUpdateInterpreterState = this._onUpdateInterpreterStateEmitter.event;
@@ -527,9 +538,9 @@ export class NewProjectWizardStateManager
 	 */
 	readonly onUpdateProjectDirectory = this._onUpdateProjectDirectoryEmitter.event;
 
-	/****************************************************************************************
-	 * Private Methods
-	 ****************************************************************************************/
+	//#endregion Public Methods
+
+	//#region Private Methods
 
 	/**
 	 * Updates the interpreter-related state such as the interpreters list, the selected interpreter,
@@ -667,6 +678,17 @@ export class NewProjectWizardStateManager
 				(await this._services.commandService.executeCommand(
 					'python.getCreateEnvironmentProviders'
 				)) ?? [];
+
+			// TODO: remove this extra check once the Conda provider is enabled by default.
+			// If work-in-progress functionality is disabled, remove the Conda provider.
+			if (!this.wipFunctionalityEnabled()) {
+				const condaIndex = this._pythonEnvProviders.findIndex(
+					(provider) => provider.name === PythonEnvironmentProvider.Conda
+				);
+				if (condaIndex !== -1) {
+					this._pythonEnvProviders.splice(condaIndex, 1);
+				}
+			}
 		}
 
 		if (!this._pythonEnvProviderId) {
@@ -796,4 +818,6 @@ export class NewProjectWizardStateManager
 			this._installIpykernel = undefined;
 		}
 	}
+
+	//#endregion Private Methods
 }
