@@ -6,6 +6,7 @@ import { Emitter } from 'vs/base/common/event';
 import { Disposable } from 'vs/base/common/lifecycle';
 import { IDataColumn } from 'vs/workbench/browser/positronDataGrid/interfaces/dataColumn';
 import { IColumnSortKey } from 'vs/workbench/browser/positronDataGrid/interfaces/columnSortKey';
+import { AnchorPoint } from 'vs/workbench/browser/positronComponents/positronModalPopup/positronModalPopup';
 
 /**
  * ColumnHeaderOptions type.
@@ -1423,19 +1424,21 @@ export abstract class DataGridInstance extends Disposable {
 
 	/**
 	 * Scrolls to the cursor.
+	 * @returns A Promise<void> that resolves when the operation is complete.
 	 */
-	scrollToCursor() {
-		this.scrollToCell(this._cursorColumnIndex, this._cursorRowIndex);
+	async scrollToCursor() {
+		await this.scrollToCell(this._cursorColumnIndex, this._cursorRowIndex);
 	}
 
 	/**
 	 * Scrolls to the specified cell.
 	 * @param columnIndex The column index.
 	 * @param rowIndex The row index.
+	 * @returns A Promise<void> that resolves when the operation is complete.
 	 */
-	scrollToCell(columnIndex: number, rowIndex: number) {
-		this.scrollToColumn(columnIndex);
-		this.scrollToRow(rowIndex);
+	async scrollToCell(columnIndex: number, rowIndex: number) {
+		await this.scrollToColumn(columnIndex);
+		await this.scrollToRow(rowIndex);
 	}
 
 	/**
@@ -1491,8 +1494,13 @@ export abstract class DataGridInstance extends Disposable {
 	 * @param columnIndex The column index.
 	 * @param rowIndex The row index.
 	 * @param selectionType The mouse selection type.
+	 * @returns A Promise<void> that resolves when the operation is complete.
 	 */
-	mouseSelectCell(columnIndex: number, rowIndex: number, selectionType: MouseSelectionType) {
+	async mouseSelectCell(
+		columnIndex: number,
+		rowIndex: number,
+		selectionType: MouseSelectionType
+	) {
 		// Clear column selection.
 		this._columnSelectionRange = undefined;
 		this._columnSelectionIndexes = undefined;
@@ -1510,7 +1518,7 @@ export abstract class DataGridInstance extends Disposable {
 
 				// Adjust the cursor and scroll to it.
 				this.setCursorPosition(columnIndex, rowIndex);
-				this.scrollToCursor();
+				await this.scrollToCursor();
 
 				// Fire the onDidUpdate event.
 				this._onDidUpdateEmitter.fire();
@@ -1528,7 +1536,7 @@ export abstract class DataGridInstance extends Disposable {
 				);
 
 				// Scroll the cell into view.
-				this.scrollToCell(columnIndex, rowIndex);
+				await this.scrollToCell(columnIndex, rowIndex);
 
 				// Fire the onDidUpdate event.
 				this._onDidUpdateEmitter.fire();
@@ -2337,35 +2345,47 @@ export abstract class DataGridInstance extends Disposable {
 
 	/**
 	 * Shows the column context menu.
-	 * @param anchor The anchor element.
 	 * @param columnIndex The column index.
+	 * @param anchorElement The anchor element.
+	 * @param anchorPoint The anchor point.
 	 * @returns A Promise<void> that resolves when the context menu is complete.
 	 */
-	async showColumnContextMenu(anchor: HTMLElement, columnIndex: number): Promise<void> {
+	async showColumnContextMenu(
+		columnIndex: number,
+		anchorElement: HTMLElement,
+		anchorPoint?: AnchorPoint
+	): Promise<void> {
 		// Do nothing. This method can be overridden in subclasses.
 	}
 
 	/**
 	 * Shows the row context menu.
-	 * @param anchor The anchor element.
 	 * @param rowIndex The row index.
+	 * @param anchorElement The anchor element.
+	 * @param anchorPoint The anchor point.
 	 * @returns A Promise<void> that resolves when the context menu is complete.
 	 */
-	async showRowContextMenu(anchor: HTMLElement, rowIndex: number): Promise<void> {
+	async showRowContextMenu(
+		rowIndex: number,
+		anchorElement: HTMLElement,
+		anchorPoint?: AnchorPoint
+	): Promise<void> {
 		// Do nothing. This method can be overridden in subclasses.
 	}
 
 	/**
 	 * Shows the cell context menu.
-	 * @param anchor The anchor element.
 	 * @param columnIndex The column index.
 	 * @param rowIndex The row index.
+	 * @param anchorElement The anchor element.
+	 * @param anchorPoint The anchor point.
 	 * @returns A Promise<void> that resolves when the context menu is complete.
 	 */
 	async showCellContextMenu(
-		anchor: HTMLElement,
 		columnIndex: number,
-		rowIndex: number
+		rowIndex: number,
+		anchorElement: HTMLElement,
+		anchorPoint?: AnchorPoint
 	): Promise<void> {
 		// Do nothing. This method can be overridden in subclasses.
 	}

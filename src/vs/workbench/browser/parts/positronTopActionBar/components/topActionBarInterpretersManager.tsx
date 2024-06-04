@@ -59,7 +59,7 @@ export const TopActionBarInterpretersManager = (props: TopActionBarInterpretersM
 				{...context}
 				{...props}
 				renderer={renderer}
-				anchor={ref.current}
+				anchorElement={ref.current}
 			/>
 		);
 	}, [context, props]);

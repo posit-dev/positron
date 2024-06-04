@@ -36,6 +36,14 @@ interface Position {
 }
 
 /**
+ * AnchorPoint interface.
+ */
+export interface AnchorPoint {
+	clientX: number;
+	clientY: number;
+}
+
+/**
  * PopupPosition type.
  */
 export type PopupPosition = 'top' | 'bottom';
@@ -55,7 +63,8 @@ export type KeyboardNavigation = 'dialog' | 'menu';
  */
 export interface PositronModalPopupProps {
 	renderer: PositronModalReactRenderer;
-	anchor: HTMLElement;
+	anchorElement: HTMLElement;
+	anchorPoint?: AnchorPoint;
 	popupPosition: PopupPosition;
 	popupAlignment: PopupAlignment;
 	minWidth?: number;
@@ -77,25 +86,36 @@ export const PositronModalPopup = (props: PropsWithChildren<PositronModalPopupPr
 	 * @returns The popup position.
 	 */
 	const computePosition = useCallback((): Position => {
-		const topLeftOffset = DOM.getTopLeftOffset(props.anchor);
-		return {
-			top: props.popupPosition === 'top' ?
-				'auto' :
-				topLeftOffset.top + props.anchor.offsetHeight + 1,
-			right: props.popupAlignment === 'right' ?
-				props.renderer.container.offsetWidth - (topLeftOffset.left + props.anchor.offsetWidth) :
-				'auto',
-			bottom: 'auto',
-			left: props.popupAlignment === 'left' ?
-				topLeftOffset.left :
-				'auto'
-		};
-	}, [
-		props.anchor,
-		props.popupAlignment,
-		props.popupPosition,
-		props.renderer.container.offsetWidth
-	]);
+		// Compute the popup position.
+		if (props.anchorPoint) {
+			return {
+				top: props.popupPosition === 'top' ?
+					'auto' :
+					props.anchorPoint.clientY,
+				right: props.popupAlignment === 'right' ?
+					props.renderer.container.offsetWidth - (props.anchorPoint.clientX) :
+					'auto',
+				bottom: 'auto',
+				left: props.popupAlignment === 'left' ?
+					props.anchorPoint.clientX :
+					'auto'
+			};
+		} else {
+			const topLeftOffset = DOM.getTopLeftOffset(props.anchorElement);
+			return {
+				top: props.popupPosition === 'top' ?
+					'auto' :
+					topLeftOffset.top + props.anchorElement.offsetHeight + 1,
+				right: props.popupAlignment === 'right' ?
+					props.renderer.container.offsetWidth - (topLeftOffset.left + props.anchorElement.offsetWidth) :
+					'auto',
+				bottom: 'auto',
+				left: props.popupAlignment === 'left' ?
+					topLeftOffset.left :
+					'auto'
+			};
+		}
+	}, [props.anchorElement, props.anchorPoint, props.popupAlignment, props.popupPosition, props.renderer.container.offsetWidth]);
 
 	// Reference hooks.
 	const popupContainerRef = useRef<HTMLDivElement>(undefined!);

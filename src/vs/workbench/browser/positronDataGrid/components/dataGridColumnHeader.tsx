@@ -41,26 +41,43 @@ export const DataGridColumnHeader = (props: DataGridColumnHeaderProps) => {
 	const sortingButtonRef = useRef<HTMLButtonElement>(undefined!);
 
 	/**
-	 * onContextMenu handler.
-	 * @param e A MouseEvent<HTMLElement> that describes a user interaction with the mouse.
-	 */
-	const contextMenuHandler = async (e: MouseEvent<HTMLElement>) => {
-		context.instance.showColumnContextMenu(ref.current, props.columnIndex);
-	};
-
-	/**
 	 * onMouseDown handler.
 	 * @param e A MouseEvent<HTMLElement> that describes a user interaction with the mouse.
 	 * @returns A Promise<void> that resolves when the operation is complete.
 	 */
 	const mouseDownHandler = async (e: MouseEvent<HTMLElement>) => {
-		// Process the left button.
-		if (e.button === 0 && context.instance.selection) {
-			// Stop propagation.
-			e.stopPropagation();
+		// Stop propagation.
+		e.stopPropagation();
 
-			// Mouse select the column.
-			context.instance.mouseSelectColumn(props.columnIndex, selectionType(e));
+		// Get the starting bounding client rect. This is used to calculate the position of the
+		// context menu.
+		const startingRect = ref.current.getBoundingClientRect();
+
+		// Get the column selection state.
+		const columnSelectionState = context.instance.columnSelectionState(props.columnIndex);
+
+		// If the column selection state is None, and selection is enabled, mouse-select the column.
+		// Otherwise, scroll the column into view.
+		if (columnSelectionState === ColumnSelectionState.None && context.instance.selection) {
+			await context.instance.mouseSelectColumn(props.columnIndex, selectionType(e));
+		} else {
+			await context.instance.scrollToColumn(props.columnIndex);
+		}
+
+		// If the left mouse button was pressed, show the context menu.
+		if (e.button === 2) {
+			// Get the ending bounding client rect.
+			const endingRect = ref.current.getBoundingClientRect();
+
+			// Show the column context menu.
+			await context.instance.showColumnContextMenu(
+				props.columnIndex,
+				ref.current,
+				{
+					clientX: e.clientX + endingRect.left - startingRect.left,
+					clientY: e.clientY
+				}
+			);
 		}
 	};
 
@@ -68,7 +85,8 @@ export const DataGridColumnHeader = (props: DataGridColumnHeaderProps) => {
 	 * dropdownPressed event handler.
 	 */
 	const dropdownPressed = async () => {
-		await context.instance.showColumnContextMenu(sortingButtonRef.current, props.columnIndex);
+		// Show the column context menu.
+		await context.instance.showColumnContextMenu(props.columnIndex, sortingButtonRef.current);
 	};
 
 	// Get the column sort key.
@@ -90,7 +108,6 @@ export const DataGridColumnHeader = (props: DataGridColumnHeaderProps) => {
 				left: props.left,
 				width: context.instance.getColumnWidth(props.columnIndex)
 			}}
-			onContextMenu={contextMenuHandler}
 			onMouseDown={mouseDownHandler}
 		>
 			<div className={

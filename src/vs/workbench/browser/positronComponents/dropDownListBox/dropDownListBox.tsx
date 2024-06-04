@@ -131,7 +131,7 @@ export const DropDownListBox = <T extends NonNullable<any>, V,>(props: DropDownL
 				renderer.render(
 					<DropDownListBoxModalPopup<T, V>
 						renderer={renderer}
-						anchor={ref.current}
+						anchorElement={ref.current}
 						entries={props.entries}
 						createItem={props.createItem}
 						onItemHighlighted={dropDownListBoxItem =>
@@ -160,7 +160,7 @@ export const DropDownListBox = <T extends NonNullable<any>, V,>(props: DropDownL
  */
 interface DropDownListBoxModalPopupProps<T, V> {
 	renderer: PositronModalReactRenderer;
-	anchor: HTMLElement;
+	anchorElement: HTMLElement;
 	entries: DropDownListBoxEntry<T, V>[];
 	createItem?: (dropDownListBoxItem: DropDownListBoxItem<T, V>) => JSX.Element;
 	onItemHighlighted: (dropdownListBoxItem: DropDownListBoxItem<T, V>) => void;
@@ -177,10 +177,10 @@ const DropDownListBoxModalPopup = <T, V,>(props: DropDownListBoxModalPopupProps<
 	return (
 		<PositronModalPopup
 			renderer={props.renderer}
-			anchor={props.anchor}
+			anchorElement={props.anchorElement}
 			popupPosition='bottom'
 			popupAlignment='left'
-			minWidth={props.anchor.offsetWidth}
+			minWidth={props.anchorElement.offsetWidth}
 			width={'max-content'}
 			height={'min-content'}
 			keyboardNavigation='menu'

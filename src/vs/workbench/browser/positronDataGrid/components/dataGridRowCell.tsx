@@ -39,26 +39,45 @@ export const DataGridRowCell = (props: DataGridRowCellProps) => {
 	const ref = useRef<HTMLDivElement>(undefined!);
 
 	/**
-	 * onContextMenu handler.
-	 * @param e A MouseEvent<HTMLElement> that describes a user interaction with the mouse.
-	 */
-	const contextMenuHandler = async (e: MouseEvent<HTMLElement>) => {
-		console.log(`-------------- ROW CELL CONTEXT MENU!`);
-		context.instance.showCellContextMenu(ref.current, props.columnIndex, props.rowIndex);
-	};
-
-	/**
 	 * onMouseDown handler.
 	 * @param e A MouseEvent<HTMLElement> that describes a user interaction with the mouse.
 	 */
 	const mouseDownHandler = async (e: MouseEvent<HTMLElement>) => {
-		// Process the left button.
-		if (e.button === 0 && context.instance.selection) {
-			// Consume the event.
-			e.stopPropagation();
+		// Stop propagation.
+		e.stopPropagation();
 
-			// Mouse select the cell.
-			context.instance.mouseSelectCell(props.columnIndex, props.rowIndex, selectionType(e));
+		// Get the starting bounding client rect. This is used to calculate the position of the
+		// context menu.
+		const startingRect = ref.current.getBoundingClientRect();
+
+		// Get the cell selection state.
+		const cellSelectionState = context.instance.cellSelectionState(
+			props.columnIndex,
+			props.rowIndex
+		);
+
+		// If the cell selection state is None, and selection is enabled, mouse-select the cell.
+		// Otherwise, scroll the cell into view.
+		if (cellSelectionState === CellSelectionState.None && context.instance.selection) {
+			await context.instance.mouseSelectCell(props.columnIndex, props.rowIndex, selectionType(e));
+		} else {
+			await context.instance.scrollToCell(props.columnIndex, props.rowIndex);
+		}
+
+		// If the left mouse button was pressed, show the context menu.
+		if (e.button === 2) {
+			// Get the ending bounding client rect.
+			const endingRect = ref.current.getBoundingClientRect();
+
+			// Show the column context menu.
+			await context.instance.showColumnContextMenu(
+				props.columnIndex,
+				ref.current,
+				{
+					clientX: e.clientX + endingRect.left - startingRect.left,
+					clientY: e.clientY + endingRect.top - startingRect.top
+				}
+			);
 		}
 	};
 
@@ -82,7 +101,6 @@ export const DataGridRowCell = (props: DataGridRowCellProps) => {
 				width: context.instance.getColumnWidth(props.columnIndex),
 				height: context.instance.getRowHeight(props.rowIndex)
 			}}
-			onContextMenu={contextMenuHandler}
 			onMouseDown={mouseDownHandler}
 		>
 			<div
