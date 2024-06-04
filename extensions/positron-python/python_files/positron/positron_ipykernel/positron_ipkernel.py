@@ -489,7 +489,9 @@ class PositronIPyKernel(IPythonKernel):
                     # raise a TimeoutExpired.
                     child.wait(timeout=0)
                 except psutil.TimeoutExpired as exception:
-                    self.log.warning("Error while reaping zombie subprocess %s: %s", child, exception)
+                    self.log.warning(
+                        "Error while reaping zombie subprocess %s: %s", child, exception
+                    )
 
     # monkey patching warning.showwarning is recommended by the official documentation
     # https://docs.python.org/3/library/warnings.html#warnings.showwarning
