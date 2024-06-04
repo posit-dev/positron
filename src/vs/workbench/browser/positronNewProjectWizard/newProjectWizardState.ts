@@ -725,17 +725,6 @@ export class NewProjectWizardStateManager
 				(await this._services.commandService.executeCommand(
 					'python.getCreateEnvironmentProviders'
 				)) ?? [];
-
-			// TODO: remove this extra check once the Conda provider is enabled by default.
-			// If work-in-progress functionality is disabled, remove the Conda provider.
-			if (!this.wipFunctionalityEnabled()) {
-				const condaIndex = this._pythonEnvProviders.findIndex(
-					(provider) => provider.name === PythonEnvironmentProvider.Conda
-				);
-				if (condaIndex !== -1) {
-					this._pythonEnvProviders.splice(condaIndex, 1);
-				}
-			}
 		}
 
 		if (!this._pythonEnvProviderId) {
