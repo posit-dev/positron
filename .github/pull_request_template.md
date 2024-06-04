@@ -1,7 +1,5 @@
-<!-- Thank you for submitting a Pull Request. Please:
-* Read our Pull Request guidelines:
-  https://connect.posit.it/positron-wiki/pull-requests.html
-* Ensure that the code is up-to-date with the `main` branch.
+<!-- Thank you for submitting a pull request.
+Please ensure that the code is up-to-date with the `main` branch.
 -->
 
 ### Intent
