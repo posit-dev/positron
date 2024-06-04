@@ -101,6 +101,7 @@ export interface ICommandNameArgumentTypeMapping extends ICommandNameWithoutArgu
     [Commands.Debug_In_Terminal]: [Uri];
     // --- Start Positron ---
     [Commands.Exec_In_Console]: [];
+    [Commands.Focus_Positron_Console]: [];
     // --- End Positron ---
     [Commands.Tests_Configure]: [undefined, undefined | CommandSource, undefined | Uri];
     [Commands.LaunchTensorBoard]: [TensorBoardEntrypoint, TensorBoardEntrypointTrigger];

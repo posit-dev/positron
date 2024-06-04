@@ -4,6 +4,7 @@
 
 # ruff: noqa: E712
 
+from io import StringIO
 from typing import Any, Dict, List, Optional, Type, cast
 
 import numpy as np
@@ -13,13 +14,13 @@ import pytest
 from .._vendor.pydantic import BaseModel
 from ..access_keys import encode_access_key
 from ..data_explorer import (
-    COMPARE_OPS,
-    DataExplorerService,
-    PandasView,
     _VALUE_NA,
     _VALUE_NAN,
     _VALUE_NAT,
     _VALUE_NONE,
+    COMPARE_OPS,
+    DataExplorerService,
+    PandasView,
     _get_float_formatter,
 )
 from ..data_explorer_comm import (
@@ -361,6 +362,14 @@ class DataExplorerFixture:
             **params,
         )
 
+    def export_data_selection(self, table_name, selection, format="csv"):
+        return self.do_json_rpc(
+            table_name,
+            "export_data_selection",
+            selection=selection,
+            format=format,
+        )
+
     def set_row_filters(self, table_name, filters=None):
         return self.do_json_rpc(table_name, "set_row_filters", filters=filters)
 
@@ -582,6 +591,44 @@ def test_pandas_get_schema(dxf: DataExplorerFixture):
 
     result = dxf.get_schema(bigger_name, 10, 10)
     assert result == _wrap_json(ColumnSchema, bigger_schema[10:20])
+
+
+def test_pandas_series(dxf: DataExplorerFixture):
+    series = SIMPLE_PANDAS_DF["a"]
+    dxf.register_table("series", series)
+    dxf.register_table("expected", pd.DataFrame({"a": series}))
+
+    schema = dxf.get_schema("series")
+    assert schema == _wrap_json(
+        ColumnSchema,
+        [
+            {
+                "column_name": "a",
+                "column_index": 0,
+                "type_name": "int64",
+                "type_display": "number",
+            },
+        ],
+    )
+
+    dxf.compare_tables("series", "expected", (len(series), 1))
+
+    # Test schema when name attribute is None
+    series2 = series.copy()
+    series2.name = None
+    dxf.register_table("series2", series2)
+    schema = dxf.get_schema("series2")
+    assert schema == _wrap_json(
+        ColumnSchema,
+        [
+            {
+                "column_name": "unnamed",
+                "column_index": 0,
+                "type_name": "int64",
+                "type_display": "number",
+            },
+        ],
+    )
 
 
 def test_pandas_wide_schemas(dxf: DataExplorerFixture):
@@ -1575,6 +1622,127 @@ def test_pandas_updated_with_sort_keys(dxf: DataExplorerFixture):
     assert new_sort_keys == view.sort_keys
 
 
+def _select_single_cell(row_index: int, col_index: int):
+    return {
+        "kind": "single_cell",
+        "selection": {"row_index": row_index, "column_index": col_index},
+    }
+
+
+def _select_cell_range(
+    first_row_index: int,
+    last_row_index: int,
+    first_col_index: int,
+    last_col_index: int,
+):
+    return {
+        "kind": "cell_range",
+        "selection": {
+            "first_row_index": first_row_index,
+            "last_row_index": last_row_index,
+            "first_column_index": first_col_index,
+            "last_column_index": last_col_index,
+        },
+    }
+
+
+def _select_range(first_index: int, last_index: int, kind: str):
+    return {
+        "kind": kind,
+        "selection": {"first_index": first_index, "last_index": last_index},
+    }
+
+
+def _select_column_range(first_index: int, last_index: int):
+    return _select_range(first_index, last_index, "column_range")
+
+
+def _select_row_range(first_index: int, last_index: int):
+    return _select_range(first_index, last_index, "row_range")
+
+
+def _select_indices(indices: List[int], kind: str):
+    return {
+        "kind": kind,
+        "selection": {"indices": indices},
+    }
+
+
+def _select_column_indices(indices: List[int]):
+    return _select_indices(indices, "column_indices")
+
+
+def _select_row_indices(indices: List[int]):
+    return _select_indices(indices, "row_indices")
+
+
+def test_pandas_export_data_selection(dxf: DataExplorerFixture):
+    length = 100
+    ncols = 20
+
+    np.random.seed(12345)
+    df = pd.DataFrame({f"a{i}": np.random.standard_normal(length) for i in range(ncols)})
+
+    dxf.register_table("df", df)
+    dxf.register_table("filtered", df)
+
+    schema = dxf.get_schema("filtered")
+    dxf.set_row_filters("filtered", filters=[_compare_filter(schema[0], ">", "0")])
+
+    filtered = df[df.iloc[:, 0] > 0]
+
+    # Test exporting single cells
+    single_cell_cases = [(0, 0), (5, 10), (25, 15), (99, 19)]
+
+    for row_index, col_index in single_cell_cases:
+        selection = _select_single_cell(row_index, col_index)
+        df_result = dxf.export_data_selection("df", selection, "tsv")
+        df_expected = str(df.iat[row_index, col_index])
+        assert df_result["data"] == df_expected
+        assert df_result["format"] == "tsv"
+
+        filt_row_index = min(row_index, len(filtered) - 1)
+        filt_selection = _select_single_cell(filt_row_index, col_index)
+        filt_result = dxf.export_data_selection("filtered", filt_selection, "csv")
+        filt_expected = str(filtered.iat[filt_row_index, col_index])
+        assert filt_result["data"] == filt_expected
+
+    # Test exporting ranges
+    range_cases = [
+        (_select_cell_range(1, 4, 10, 19), (slice(1, 5), slice(10, 20))),
+        (_select_cell_range(1, 1, 4, 4), (slice(1, 2), slice(4, 5))),
+        (_select_column_range(1, 5), (slice(None), slice(1, 6))),
+        (_select_row_range(1, 5), (slice(1, 6), slice(None))),
+        (_select_row_indices([0, 3, 5, 7]), ([0, 3, 5, 7], slice(None))),
+        (_select_column_indices([0, 3, 5, 7]), (slice(None), [0, 3, 5, 7])),
+    ]
+
+    def do_export(x, fmt):
+        buf = StringIO()
+        if fmt == "csv":
+            x.to_csv(buf, index=False)
+        elif fmt == "tsv":
+            x.to_csv(buf, sep="\t", index=False)
+        elif fmt == "html":
+            x.to_html(buf, index=False)
+        return buf.getvalue()
+
+    for rpc_selection, selector in range_cases:
+        df_selected = df.iloc[selector]
+        filtered_selected = filtered.iloc[selector]
+
+        for fmt in ["csv", "tsv", "html"]:
+            df_result = dxf.export_data_selection("df", rpc_selection, fmt)
+            df_expected = do_export(df_selected, fmt)
+
+            assert df_result["data"] == df_expected
+            assert df_result["format"] == fmt
+
+            filt_result = dxf.export_data_selection("filtered", rpc_selection, fmt)
+            filt_expected = do_export(filtered_selected, fmt)
+            assert filt_result["data"] == filt_expected
+
+
 def _profile_request(column_index, profile_type):
     return {"column_index": column_index, "profile_type": profile_type}
 
@@ -1682,6 +1850,19 @@ def _assert_boolean_stats_equal(expected, actual):
     assert expected["false_count"] == actual["false_count"]
 
 
+def _assert_date_stats_equal(expected, actual):
+    assert expected["num_unique"] == actual["num_unique"]
+    assert expected["min_date"] == actual["min_date"]
+    assert expected["mean_date"] == actual["mean_date"]
+    assert expected["median_date"] == actual["median_date"]
+    assert expected["max_date"] == actual["max_date"]
+
+
+def _assert_datetime_stats_equal(expected, actual):
+    _assert_date_stats_equal(expected, actual)
+    assert expected["timezone"] == actual["timezone"]
+
+
 def test_pandas_profile_summary_stats(dxf: DataExplorerFixture):
     arr = np.random.standard_normal(100)
     arr_with_nulls = arr.copy()
@@ -1705,9 +1886,55 @@ def test_pandas_profile_summary_stats(dxf: DataExplorerFixture):
                 "zzz",
             ]
             * 10,
+            "e": getattr(pd.date_range("2000-01-01", freq="D", periods=100), "date"),  # date column
+            "f": pd.date_range("2000-01-01", freq="2h", periods=100),  # datetime no tz
+            "g": pd.date_range(
+                "2000-01-01", freq="2h", periods=100, tz="US/Eastern"
+            ),  # datetime single tz
         }
     )
+
+    df_mixed_tz1 = pd.concat(
+        [
+            pd.DataFrame({"x": pd.date_range("2000-01-01", freq="2h", periods=50)}),
+            pd.DataFrame(
+                {"x": pd.date_range("2000-01-01", freq="2h", periods=50, tz="US/Eastern")}
+            ),
+            pd.DataFrame(
+                {
+                    "x": pd.date_range(
+                        "2000-01-01",
+                        freq="2h",
+                        periods=50,
+                        tz="Asia/Hong_Kong",
+                    )
+                }
+            ),
+        ]
+    )
+
+    # mixed timezones, but all datetimes are tz aware
+    df_mixed_tz2 = pd.concat(
+        [
+            pd.DataFrame(
+                {"x": pd.date_range("2000-01-01", freq="2h", periods=50, tz="US/Eastern")}
+            ),
+            pd.DataFrame(
+                {
+                    "x": pd.date_range(
+                        "2000-01-01",
+                        freq="2h",
+                        periods=50,
+                        tz="Asia/Hong_Kong",
+                    )
+                }
+            ),
+        ]
+    )
+
     dxf.register_table("df1", df1)
+    dxf.register_table("df_mixed_tz1", df_mixed_tz1)
+    dxf.register_table("df_mixed_tz2", df_mixed_tz2)
 
     format_options = FormatOptions(
         large_num_digits=4,
@@ -1750,6 +1977,65 @@ def test_pandas_profile_summary_stats(dxf: DataExplorerFixture):
             3,
             {"num_empty": 20, "num_unique": 6},
         ),
+        (
+            "df1",
+            4,
+            {
+                "num_unique": 100,
+                "min_date": "2000-01-01",
+                "mean_date": "2000-02-19",
+                "median_date": "2000-02-19",
+                "max_date": "2000-04-09",
+            },
+        ),
+        (
+            "df1",
+            5,
+            {
+                "num_unique": 100,
+                "min_date": "2000-01-01 00:00:00",
+                "mean_date": "2000-01-05 03:00:00",
+                "median_date": "2000-01-05 03:00:00",
+                "max_date": "2000-01-09 06:00:00",
+                "timezone": "None",
+            },
+        ),
+        (
+            "df1",
+            6,
+            {
+                "num_unique": 100,
+                "min_date": "2000-01-01 00:00:00-05:00",
+                "mean_date": "2000-01-05 03:00:00-05:00",
+                "median_date": "2000-01-05 03:00:00-05:00",
+                "max_date": "2000-01-09 06:00:00-05:00",
+                "timezone": "US/Eastern",
+            },
+        ),
+        (
+            "df_mixed_tz1",
+            0,
+            {
+                "num_unique": 150,
+                "min_date": "None",
+                "mean_date": "None",
+                "median_date": "None",
+                "max_date": "None",
+                "timezone": "None, US/Eastern, ... (1 more)",
+            },
+        ),
+        (
+            "df_mixed_tz2",
+            0,
+            {
+                "num_unique": 100,
+                "min_date": "2000-01-01 00:00:00+08:00",
+                "mean_date": "None",
+                "median_date": "None",
+                "max_date": "2000-01-05 02:00:00-05:00",
+                "timezone": "US/Eastern, Asia/Hong_Kong",
+            },
+        ),
     ]
 
     for table_name, col_index, ex_result in cases:
@@ -1765,3 +2051,7 @@ def test_pandas_profile_summary_stats(dxf: DataExplorerFixture):
             _assert_string_stats_equal(ex_result, stats["string_stats"])
         elif ui_type == ColumnDisplayType.Boolean:
             _assert_boolean_stats_equal(ex_result, stats["boolean_stats"])
+        elif ui_type == ColumnDisplayType.Date:
+            _assert_date_stats_equal(ex_result, stats["date_stats"])
+        elif ui_type == ColumnDisplayType.Datetime:
+            _assert_datetime_stats_equal(ex_result, stats["datetime_stats"])

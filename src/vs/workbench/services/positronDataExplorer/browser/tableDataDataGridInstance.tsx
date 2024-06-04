@@ -8,17 +8,21 @@ import * as React from 'react';
 // Other dependencies.
 import { localize } from 'vs/nls';
 import { Emitter } from 'vs/base/common/event';
+import { ICommandService } from 'vs/platform/commands/common/commands';
+import { ILayoutService } from 'vs/platform/layout/browser/layoutService';
+import { IKeybindingService } from 'vs/platform/keybinding/common/keybinding';
 import { IColumnSortKey } from 'vs/workbench/browser/positronDataGrid/interfaces/columnSortKey';
-import { ContextMenuEntry } from 'vs/workbench/browser/positronComponents/contextMenu/contextMenu';
-import { ContextMenuItem } from 'vs/workbench/browser/positronComponents/contextMenu/contextMenuItem';
 import { DataExplorerCache } from 'vs/workbench/services/positronDataExplorer/common/dataExplorerCache';
 import { TableDataCell } from 'vs/workbench/services/positronDataExplorer/browser/components/tableDataCell';
-import { ContextMenuSeparator } from 'vs/workbench/browser/positronComponents/contextMenu/contextMenuSeparator';
+import { showCustomContextMenu } from 'vs/workbench/browser/positronComponents/customContextMenu/customContextMenu';
 import { TableDataRowHeader } from 'vs/workbench/services/positronDataExplorer/browser/components/tableDataRowHeader';
+import { CustomContextMenuItem } from 'vs/workbench/browser/positronComponents/customContextMenu/customContextMenuItem';
 import { PositronDataExplorerColumn } from 'vs/workbench/services/positronDataExplorer/browser/positronDataExplorerColumn';
-import { ColumnSortKeyDescriptor, DataGridInstance } from 'vs/workbench/browser/positronDataGrid/classes/dataGridInstance';
 import { DataExplorerClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimeDataExplorerClient';
-import { BackendState, ColumnSchema, RowFilter } from 'vs/workbench/services/languageRuntime/common/positronDataExplorerComm';
+import { CustomContextMenuSeparator } from 'vs/workbench/browser/positronComponents/customContextMenu/customContextMenuSeparator';
+import { PositronDataExplorerCommandId } from 'vs/workbench/contrib/positronDataExplorerEditor/browser/positronDataExplorerActions';
+import { ClipboardCell, ClipboardCellRange, ClipboardColumnIndexes, ClipboardColumnRange, ClipboardData, ClipboardRowIndexes, ClipboardRowRange, ColumnSortKeyDescriptor, DataGridInstance } from 'vs/workbench/browser/positronDataGrid/classes/dataGridInstance';
+import { BackendState, ColumnSchema, DataSelection, DataSelectionCellRange, DataSelectionIndices, DataSelectionKind, DataSelectionRange, DataSelectionSingleCell, ExportFormat, RowFilter } from 'vs/workbench/services/languageRuntime/common/positronDataExplorerComm';
 
 /**
  * Localized strings.
@@ -32,16 +36,6 @@ export class TableDataDataGridInstance extends DataGridInstance {
 	//#region Private Properties
 
 	/**
-	 * Gets the data explorer client instance.
-	 */
-	private readonly _dataExplorerClientInstance: DataExplorerClientInstance;
-
-	/**
-	 * Gets the data explorer cache.
-	 */
-	private readonly _dataExplorerCache: DataExplorerCache;
-
-	/**
 	 * The onAddFilter event emitter.
 	 */
 	private readonly _onAddFilterEmitter = this._register(new Emitter<ColumnSchema>);
@@ -52,12 +46,18 @@ export class TableDataDataGridInstance extends DataGridInstance {
 
 	/**
 	 * Constructor.
-	 * @param dataExplorerClientInstance The DataExplorerClientInstance.
-	 * @param dataExplorerCache The DataExplorerCache.
+	 * @param _commandService The command service.
+	 * @param _keybindingService The keybinding service.
+	 * @param _layoutService The layout service.
+	 * @param _dataExplorerClientInstance The DataExplorerClientInstance.
+	 * @param _dataExplorerCache The DataExplorerCache.
 	 */
 	constructor(
-		dataExplorerClientInstance: DataExplorerClientInstance,
-		dataExplorerCache: DataExplorerCache
+		private readonly _commandService: ICommandService,
+		private readonly _keybindingService: IKeybindingService,
+		private readonly _layoutService: ILayoutService,
+		private readonly _dataExplorerClientInstance: DataExplorerClientInstance,
+		private readonly _dataExplorerCache: DataExplorerCache
 	) {
 		// Call the base class's constructor.
 		super({
@@ -81,28 +81,22 @@ export class TableDataDataGridInstance extends DataGridInstance {
 			cursorOffset: 0.5,
 		});
 
-		// Setup the data explorer client instance.
-		this._dataExplorerClientInstance = dataExplorerClientInstance;
-
-		// Set the data explorer cache.
-		this._dataExplorerCache = dataExplorerCache;
-
 		// Add the onDidUpdateCache event handler.
 		this._register(this._dataExplorerCache.onDidUpdateCache(() =>
 			this._onDidUpdateEmitter.fire()
 		));
 
 		// Add the onDidSchemaUpdate event handler.
-		this._register(this._dataExplorerClientInstance.onDidSchemaUpdate(e => {
+		this._register(this._dataExplorerClientInstance.onDidSchemaUpdate(async e => {
 			this._dataExplorerCache.invalidateDataCache();
 			this.softReset();
-			this.fetchData();
+			await this.fetchData();
 		}));
 
 		// Add the onDidDataUpdate event handler.
-		this._register(this._dataExplorerClientInstance.onDidDataUpdate(() => {
+		this._register(this._dataExplorerClientInstance.onDidDataUpdate(async () => {
 			this._dataExplorerCache.invalidateDataCache();
-			this.fetchData();
+			await this.fetchData();
 		}));
 
 		// Add the onDidUpdateBackendState event handler.
@@ -143,29 +137,6 @@ export class TableDataDataGridInstance extends DataGridInstance {
 	//#region DataGridInstance Methods
 
 	/**
-	 * Returns column context menu entries.
-	 * @param columnIndex The column index.
-	 * @returns The column context menu entries.
-	 */
-	override columnContextMenuEntries(columnIndex: number): ContextMenuEntry[] {
-		return [
-			new ContextMenuSeparator(),
-			new ContextMenuItem({
-				checked: false,
-				label: addFilterTitle,
-				disabled: false,
-				icon: 'positron-add-filter',
-				onSelected: () => {
-					const columnSchema = this._dataExplorerCache.getColumnSchema(columnIndex);
-					if (columnSchema) {
-						this._onAddFilterEmitter.fire(columnSchema);
-					}
-				}
-			}),
-		];
-	}
-
-	/**
 	 * Sorts the data.
 	 * @returns A Promise<void> that resolves when the data is sorted.
 	 */
@@ -180,15 +151,16 @@ export class TableDataDataGridInstance extends DataGridInstance {
 
 		// Clear the data cache and fetch new data.
 		this._dataExplorerCache.invalidateDataCache();
-		this.fetchData();
+		await this.fetchData();
 	}
 
 	/**
 	 * Fetches data.
+	 * @returns A Promise<void> that resolves when the operation is complete.
 	 */
-	override fetchData() {
+	override async fetchData() {
 		// Update the cache.
-		this._dataExplorerCache.updateCache({
+		await this._dataExplorerCache.updateCache({
 			firstColumnIndex: this.firstColumnIndex,
 			visibleColumns: this.screenColumns,
 			firstRowIndex: this.firstRowIndex,
@@ -236,15 +208,139 @@ export class TableDataDataGridInstance extends DataGridInstance {
 			return undefined;
 		}
 
-		// Get the cell value.
-		const cellValue = this._dataExplorerCache.getCellValue(columnIndex, rowIndex);
-		if (!cellValue) {
+		// Get the data cell.
+		const dataCell = this._dataExplorerCache.getDataCell(columnIndex, rowIndex);
+		if (!dataCell) {
 			return undefined;
 		}
 
 		// Return the TableDataCell.
 		return (
-			<TableDataCell column={column} cellValue={cellValue} />
+			<TableDataCell
+				column={column}
+				dataCell={dataCell}
+			/>
+		);
+	}
+
+	/**
+	 * Shows the column context menu.
+	 * @param anchor The anchor element.
+	 * @param columnIndex The column index.
+	 */
+	override async showColumnContextMenu(anchor: HTMLElement, columnIndex: number): Promise<void> {
+		/**
+		 * Get the column sort key for the column.
+		 */
+		const columnSortKey = this.columnSortKey(columnIndex);
+
+		// Show the custom context menu.
+		await showCustomContextMenu(
+			this._commandService,
+			this._keybindingService,
+			this._layoutService,
+			anchor,
+			'right',
+			200,
+			[
+				new CustomContextMenuItem({
+					commandId: PositronDataExplorerCommandId.CopyAction,
+					checked: false,
+					icon: 'copy',
+					label: localize('positron.dataExplorer.copy', "Copy"),
+					onSelected: () => console.log('Copy')
+				}),
+				new CustomContextMenuSeparator(),
+				new CustomContextMenuItem({
+					checked: columnSortKey !== undefined && columnSortKey.ascending,
+					icon: 'arrow-up',
+					label: localize('positron.sortAscending', "Sort Ascending"),
+					onSelected: async () => this.setColumnSortKey(
+						columnIndex,
+						true
+					)
+				}),
+				new CustomContextMenuItem({
+					checked: columnSortKey !== undefined && !columnSortKey.ascending,
+					icon: 'arrow-down',
+					label: localize('positron.sortDescending', "Sort Descending"),
+					onSelected: async () => this.setColumnSortKey(
+						columnIndex,
+						false
+					)
+				}),
+				new CustomContextMenuSeparator(),
+				new CustomContextMenuItem({
+					checked: false,
+					icon: 'positron-clear-sorting',
+					label: localize('positron.clearSorting', "Clear Sorting"),
+					disabled: !columnSortKey,
+					onSelected: async () =>
+						this.removeColumnSortKey(columnIndex)
+				}),
+				new CustomContextMenuSeparator(),
+				new CustomContextMenuItem({
+					checked: false,
+					icon: 'positron-add-filter',
+					label: addFilterTitle,
+					disabled: false,
+					onSelected: () => {
+						const columnSchema = this._dataExplorerCache.getColumnSchema(columnIndex);
+						if (columnSchema) {
+							this._onAddFilterEmitter.fire(columnSchema);
+						}
+					}
+				}),
+			]
+		);
+	}
+
+	/**
+	 * Shows the row context menu.
+	 * @param anchor The anchor element.
+	 * @param rowIndex The row index.
+	 * @returns A Promise<void> that resolves when the context menu is complete.
+	 */
+	override async showRowContextMenu(anchor: HTMLElement, rowIndex: number): Promise<void> {
+		// TODO.
+	}
+
+	/**
+	 * Shows the cell context menu.
+	 * @param anchor The anchor element.
+	 * @param columnIndex The column index.
+	 * @param rowIndex The row index.
+	 */
+	override async showCellContextMenu(
+		anchor: HTMLElement,
+		columnIndex: number,
+		rowIndex: number
+	): Promise<void> {
+		// Show the custom context menu.
+		await showCustomContextMenu(
+			this._commandService,
+			this._keybindingService,
+			this._layoutService,
+			anchor,
+			'left',
+			200,
+			[
+				new CustomContextMenuItem({
+					commandId: PositronDataExplorerCommandId.CopyAction,
+					icon: 'copy',
+					label: localize('positron.dataExplorer.copy', "Copy"),
+					onSelected: () => console.log('Copy')
+				}),
+				new CustomContextMenuSeparator(),
+				new CustomContextMenuItem({
+					label: localize('positron.dataExplorer.selectColumn', "Select Column"),
+					onSelected: () => this.selectColumn(columnIndex)
+				}),
+				new CustomContextMenuItem({
+					label: localize('positron.dataExplorer.selectRow', "Select Row"),
+					onSelected: () => this.selectRow(rowIndex)
+				})
+			]
 		);
 	}
 
@@ -260,6 +356,83 @@ export class TableDataDataGridInstance extends DataGridInstance {
 	//#region Public Methods
 
 	/**
+	 * Copies the specified clipboard data.
+	 * @param clipboardData The clipboard data to copy.
+	 * @returns The clipboard data, or undefined, if it could not be copied.
+	 */
+	async copyClipboardData(clipboardData: ClipboardData): Promise<string | undefined> {
+		// Construct the data selection based on the clipboard data.
+		let dataSelection: DataSelection;
+		if (clipboardData instanceof ClipboardCell) {
+			const selection: DataSelectionSingleCell = {
+				column_index: clipboardData.columnIndex,
+				row_index: clipboardData.rowIndex,
+			};
+			dataSelection = {
+				kind: DataSelectionKind.SingleCell,
+				selection
+			};
+		} else if (clipboardData instanceof ClipboardCellRange) {
+			const selection: DataSelectionCellRange = {
+				first_column_index: clipboardData.firstColumnIndex,
+				first_row_index: clipboardData.firstRowIndex,
+				last_column_index: clipboardData.lastColumnIndex,
+				last_row_index: clipboardData.lastRowIndex,
+			};
+			dataSelection = {
+				kind: DataSelectionKind.CellRange,
+				selection
+			};
+		} else if (clipboardData instanceof ClipboardColumnRange) {
+			const selection: DataSelectionRange = {
+				first_index: clipboardData.firstColumnIndex,
+				last_index: clipboardData.lastColumnIndex
+			};
+			dataSelection = {
+				kind: DataSelectionKind.ColumnRange,
+				selection
+			};
+		} else if (clipboardData instanceof ClipboardColumnIndexes) {
+			const selection: DataSelectionIndices = {
+				indices: clipboardData.indexes
+			};
+			dataSelection = {
+				kind: DataSelectionKind.ColumnIndices,
+				selection
+			};
+		} else if (clipboardData instanceof ClipboardRowRange) {
+			const selection: DataSelectionRange = {
+				first_index: clipboardData.firstRowIndex,
+				last_index: clipboardData.lastRowIndex
+			};
+			dataSelection = {
+				kind: DataSelectionKind.RowRange,
+				selection
+			};
+		} else if (clipboardData instanceof ClipboardRowIndexes) {
+			const selection: DataSelectionIndices = {
+				indices: clipboardData.indexes
+			};
+			dataSelection = {
+				kind: DataSelectionKind.RowIndices,
+				selection
+			};
+		} else {
+			// This indicates a bug.
+			return undefined;
+		}
+
+		// Export the data selection.
+		const exportedData = await this._dataExplorerClientInstance.exportDataSelection(
+			dataSelection,
+			ExportFormat.Tsv
+		);
+
+		// If successful, return the exported data; otherwise, return undefined.
+		return exportedData.data ?? undefined;
+	}
+
+	/**
 	 * Sets row filters.
 	 * @param rowFilters The row filters.
 	 * @returns A Promise<FilterResult> that resolves when the operation is complete.
@@ -273,8 +446,9 @@ export class TableDataDataGridInstance extends DataGridInstance {
 
 		// Reload the data grid.
 		this._dataExplorerCache.invalidateDataCache();
-		this.softReset();
-		this.fetchData();
+		this.resetSelection();
+		this.setFirstRow(0, true);
+		this.setCursorRow(0);
 	}
 
 	//#endregion Public Methods

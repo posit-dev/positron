@@ -37,6 +37,15 @@ from .data_explorer_comm import (
     CompareFilterParamsOp,
     DataExplorerBackendMessageContent,
     DataExplorerFrontendEvent,
+    DataSelection,
+    DataSelectionCellRange,
+    DataSelectionIndices,
+    DataSelectionKind,
+    DataSelectionRange,
+    DataSelectionSingleCell,
+    ExportDataSelectionRequest,
+    ExportFormat,
+    ExportedData,
     FilterResult,
     FormatOptions,
     GetColumnProfilesFeatures,
@@ -55,6 +64,8 @@ from .data_explorer_comm import (
     SetRowFiltersRequest,
     SetSortColumnsRequest,
     SummaryStatsBoolean,
+    SummaryStatsDate,
+    SummaryStatsDatetime,
     SummaryStatsNumber,
     SummaryStatsString,
     SupportedFeatures,
@@ -63,7 +74,7 @@ from .data_explorer_comm import (
     TableShape,
 )
 from .positron_comm import CommMessage, PositronComm
-from .third_party import pd_, np_
+from .third_party import np_, pd_
 from .utils import guid
 
 if TYPE_CHECKING:
@@ -139,6 +150,13 @@ class DataExplorerTableView(abc.ABC):
             request.params.format_options,
         ).dict()
 
+    def export_data_selection(self, request: ExportDataSelectionRequest):
+        self._recompute_if_needed()
+        return self._export_data_selection(
+            request.params.selection,
+            request.params.format,
+        ).dict()
+
     def set_row_filters(self, request: SetRowFiltersRequest):
         return self._set_row_filters(request.params.filters).dict()
 
@@ -198,6 +216,10 @@ class DataExplorerTableView(abc.ABC):
         column_indices: Sequence[int],
         format_options: FormatOptions,
     ) -> TableData:
+        pass
+
+    @abc.abstractmethod
+    def _export_data_selection(self, selection: DataSelection, fmt: ExportFormat) -> ExportedData:
         pass
 
     @abc.abstractmethod
@@ -330,6 +352,8 @@ class PandasView(DataExplorerTableView):
         filters: Optional[List[RowFilter]],
         sort_keys: Optional[List[ColumnSortKey]],
     ):
+        table = self._maybe_wrap(table)
+
         super().__init__(display_name, table, filters, sort_keys)
 
         # Maintain a mapping of column index to inferred dtype for any
@@ -363,7 +387,18 @@ class PandasView(DataExplorerTableView):
             ColumnDisplayType.Boolean: self._summarize_boolean,
             ColumnDisplayType.Number: self._summarize_number,
             ColumnDisplayType.String: self._summarize_string,
+            ColumnDisplayType.Date: self._summarize_date,
+            ColumnDisplayType.Datetime: self._summarize_datetime,
         }
+
+    def _maybe_wrap(self, value):
+        if isinstance(value, pd_.Series):
+            if value.name is None:
+                return pd_.DataFrame({"unnamed": value})
+            else:
+                return pd_.DataFrame(value)
+        else:
+            return value
 
     def _set_sort_keys(self, sort_keys):
         super()._set_sort_keys(sort_keys)
@@ -774,6 +809,71 @@ class PandasView(DataExplorerTableView):
         else:
             return str(x)
 
+    def _export_data_selection(self, selection: DataSelection, fmt: ExportFormat) -> ExportedData:
+        sel = selection.selection
+        if selection.kind == DataSelectionKind.SingleCell:
+            assert isinstance(sel, DataSelectionSingleCell)
+            row_index = sel.row_index
+            if self.view_indices is not None:
+                row_index = self.view_indices[row_index]
+            cell = str(self.table.iat[row_index, sel.column_index])
+            return ExportedData(data=cell, format=fmt)
+        elif selection.kind == DataSelectionKind.CellRange:
+            assert isinstance(sel, DataSelectionCellRange)
+            return self._export_tabular(
+                slice(sel.first_row_index, sel.last_row_index + 1),
+                slice(sel.first_column_index, sel.last_column_index + 1),
+                fmt,
+            )
+        elif selection.kind == DataSelectionKind.RowRange:
+            assert isinstance(sel, DataSelectionRange)
+            return self._export_tabular(
+                slice(sel.first_index, sel.last_index + 1),
+                None,
+                fmt,
+            )
+        elif selection.kind == DataSelectionKind.ColumnRange:
+            assert isinstance(sel, DataSelectionRange)
+            return self._export_tabular(
+                None,
+                slice(sel.first_index, sel.last_index + 1),
+                fmt,
+            )
+        elif selection.kind == DataSelectionKind.RowIndices:
+            assert isinstance(sel, DataSelectionIndices)
+            return self._export_tabular(sel.indices, None, fmt)
+        elif selection.kind == DataSelectionKind.ColumnIndices:
+            assert isinstance(sel, DataSelectionIndices)
+            return self._export_tabular(None, sel.indices, fmt)
+        else:
+            raise NotImplementedError(f"Unknown data export: {selection.kind}")
+
+    def _export_tabular(self, row_selector, column_selector, fmt: ExportFormat) -> ExportedData:
+        from io import StringIO
+
+        if row_selector is None:
+            row_selector = slice(None)
+
+        if column_selector is None:
+            column_selector = slice(None)
+
+        if self.view_indices is not None:
+            row_selector = self.view_indices[row_selector]
+
+        to_export = self.table.iloc[row_selector, column_selector]
+        buf = StringIO()
+
+        if fmt == ExportFormat.Csv:
+            to_export.to_csv(buf, index=False)
+        elif fmt == ExportFormat.Tsv:
+            to_export.to_csv(buf, sep="\t", index=False)
+        elif fmt == ExportFormat.Html:
+            to_export.to_html(buf, index=False)
+        else:
+            raise NotImplementedError(f"Unsupported export format {fmt}")
+
+        return ExportedData(data=buf.getvalue(), format=fmt)
+
     def _update_view_indices(self):
         if len(self.sort_keys) == 0:
             self.view_indices = self.filtered_indices
@@ -1078,6 +1178,66 @@ class PandasView(DataExplorerTableView):
             ),
         )
 
+    @staticmethod
+    def _summarize_date(col: "pd.Series", options: FormatOptions):
+        col_dttm = pd_.to_datetime(col)
+        min_date = col.min()
+        mean_date = pd_.to_datetime(col_dttm.mean()).date()
+        median_date = _date_median(col_dttm)
+        max_date = col.max()
+        num_unique = col.nunique()
+
+        def format_date(x):
+            return x.strftime("%Y-%m-%d")
+
+        return ColumnSummaryStats(
+            type_display=ColumnDisplayType.Date,
+            date_stats=SummaryStatsDate(
+                num_unique=int(num_unique),
+                min_date=format_date(min_date),
+                mean_date=format_date(mean_date),
+                median_date=format_date(median_date),
+                max_date=format_date(max_date),
+            ),
+        )
+
+    @staticmethod
+    def _summarize_datetime(col: "pd.Series", options: FormatOptions):
+        # when there are mixed timezones in a single column, it's possible that
+        # any of the operations below can fail. specially if they mix timezone aware
+        # datetimes with naive datetimes.
+        # if an error happens we return `None` as the field value.
+        min_date = _possibly(col.min)
+        mean_date = _possibly(col.mean)
+        median_date = _possibly(lambda: _date_median(col))
+        max_date = _possibly(col.max)
+
+        num_unique = _possibly(col.nunique)
+
+        def format_date(x):
+            return str(x)
+
+        timezones = col.apply(lambda x: x.tz).unique()
+        if len(timezones) == 1:
+            timezone = str(timezones[0])
+        else:
+            timezone = [f"{str(x)}" for x in timezones[:2]]
+            timezone = ", ".join(timezone)
+            if len(timezones) > 2:
+                timezone = timezone + f", ... ({len(timezones) - 2} more)"
+
+        return ColumnSummaryStats(
+            type_display=ColumnDisplayType.Datetime,
+            datetime_stats=SummaryStatsDatetime(
+                num_unique=num_unique,
+                min_date=format_date(min_date),
+                mean_date=format_date(mean_date),
+                median_date=format_date(median_date),
+                max_date=format_date(max_date),
+                timezone=timezone,
+            ),
+        )
+
     def _prof_freq_table(self, column_index: int):
         raise NotImplementedError
 
@@ -1148,6 +1308,29 @@ COMPARE_OPS = {
 }
 
 
+def _date_median(x):
+    """
+    Computes the median of a date or datetime series
+
+    It converts to the integer representation of the datetime,
+    then computes the median, and then converts back to a datetime
+    """
+    # the np_.array calls are required to please pyright
+    median_date = np_.median(np_.array(pd_.to_numeric(x)))
+    out = pd_.to_datetime(np_.array(median_date), utc=True)
+    return out.tz_convert(x[0].tz)
+
+
+def _possibly(f, otherwise=None):
+    """
+    Executes a function an if an error occurs, returns `otherwise`.
+    """
+    try:
+        return f()
+    except Exception:
+        return otherwise
+
+
 def _pandas_coerce_value(value, dtype, inferred_type):
     import pandas.api.types as pat
 
@@ -1210,7 +1393,10 @@ def _get_table_view(table, filters=None, sort_keys=None, name=None):
 
 
 def _value_type_is_supported(value):
-    return isinstance(value, pd_.DataFrame)
+    # pandas types
+    if isinstance(value, (pd_.DataFrame, pd_.Series)):
+        return True
+    return False
 
 
 class DataExplorerService:
@@ -1235,6 +1421,9 @@ class DataExplorerService:
     def shutdown(self) -> None:
         for comm_id in list(self.comms.keys()):
             self._close_explorer(comm_id)
+
+    def is_supported(self, value) -> bool:
+        return value is not None and _value_type_is_supported(value)
 
     def register_table(
         self,
@@ -1267,7 +1456,7 @@ class DataExplorerService:
         comm_id : str
             The associated (generated or passed in) comm_id
         """
-        if type(table).__name__ != "DataFrame":
+        if not _value_type_is_supported(table):
             raise TypeError(type(table))
 
         if comm_id is None:

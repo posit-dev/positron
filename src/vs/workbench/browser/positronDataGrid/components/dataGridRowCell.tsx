@@ -7,7 +7,7 @@ import 'vs/css!./dataGridRowCell';
 
 // React.
 import * as React from 'react';
-import { MouseEvent } from 'react'; // eslint-disable-line no-duplicate-imports
+import { MouseEvent, useRef } from 'react'; // eslint-disable-line no-duplicate-imports
 
 // Other dependencies.
 import { isMacintosh } from 'vs/base/common/platform';
@@ -35,27 +35,42 @@ export const DataGridRowCell = (props: DataGridRowCellProps) => {
 	// Context hooks.
 	const context = usePositronDataGridContext();
 
+	// Reference hooks.
+	const ref = useRef<HTMLDivElement>(undefined!);
+
 	/**
-	 * MouseDown handler..
+	 * onMouseDown handler.
 	 * @param e A MouseEvent<HTMLElement> that describes a user interaction with the mouse.
 	 */
-	const mouseDownHandler = (e: MouseEvent<HTMLElement>) => {
+	const mouseDownHandler = async (e: MouseEvent<HTMLElement>) => {
+		// Ignore mouse events with meta / ctrl key.
 		if (isMacintosh ? e.metaKey : e.ctrlKey) {
 			return;
 		}
 
+		// Consume the event.
+		e.stopPropagation();
+
 		// If selection is enabled, process selection.
 		if (context.instance.selection) {
+			// When the shift key is down, mouse select the cell.
 			if (e.shiftKey) {
+				// Mouse select the cell and return.
 				context.instance.mouseSelectCell(props.columnIndex, props.rowIndex);
 				return;
 			}
 
+			// When the shift key is not down, clear the selection.
 			context.instance.clearSelection();
 		}
 
 		// Set the cursor position.
 		context.instance.setCursorPosition(props.columnIndex, props.rowIndex);
+
+		// Show the cell context menu.
+		if (e.button === 2) {
+			context.instance.showCellContextMenu(ref.current, props.columnIndex, props.rowIndex);
+		}
 	};
 
 	// Get the selection states.
@@ -67,6 +82,7 @@ export const DataGridRowCell = (props: DataGridRowCellProps) => {
 	// Render.
 	return (
 		<div
+			ref={ref}
 			className={
 				positronClassNames(
 					'data-grid-row-cell',
@@ -116,8 +132,8 @@ export const DataGridRowCell = (props: DataGridRowCellProps) => {
 						maximumWidth: 400,
 						startingWidth: context.instance.getColumnWidth(props.columnIndex)
 					})}
-					onResize={width =>
-						context.instance.setColumnWidth(props.columnIndex, width)
+					onResize={async width =>
+						await context.instance.setColumnWidth(props.columnIndex, width)
 					}
 				/>
 			}
@@ -128,8 +144,8 @@ export const DataGridRowCell = (props: DataGridRowCellProps) => {
 						maximumHeight: 90,
 						startingHeight: context.instance.getRowHeight(props.rowIndex)
 					})}
-					onResize={height =>
-						context.instance.setRowHeight(props.rowIndex, height)
+					onResize={async height =>
+						await context.instance.setRowHeight(props.rowIndex, height)
 					}
 				/>
 			}

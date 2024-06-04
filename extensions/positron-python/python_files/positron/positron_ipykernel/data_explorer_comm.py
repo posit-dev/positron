@@ -131,6 +131,38 @@ class ColumnProfileType(str, enum.Enum):
     Histogram = "histogram"
 
 
+@enum.unique
+class DataSelectionKind(str, enum.Enum):
+    """
+    Possible values for Kind in DataSelection
+    """
+
+    SingleCell = "single_cell"
+
+    CellRange = "cell_range"
+
+    ColumnRange = "column_range"
+
+    RowRange = "row_range"
+
+    ColumnIndices = "column_indices"
+
+    RowIndices = "row_indices"
+
+
+@enum.unique
+class ExportFormat(str, enum.Enum):
+    """
+    Possible values for ExportFormat
+    """
+
+    Csv = "csv"
+
+    Tsv = "tsv"
+
+    Html = "html"
+
+
 class SearchSchemaResult(BaseModel):
     """
     Result in Methods
@@ -143,6 +175,20 @@ class SearchSchemaResult(BaseModel):
 
     total_num_matches: StrictInt = Field(
         description="The total number of columns matching the search term",
+    )
+
+
+class ExportedData(BaseModel):
+    """
+    Exported result
+    """
+
+    data: StrictStr = Field(
+        description="Exported data as a string suitable for copy and paste",
+    )
+
+    format: ExportFormat = Field(
+        description="The exported data format",
     )
 
 
@@ -482,6 +528,16 @@ class ColumnSummaryStats(BaseModel):
         description="Statistics for a boolean data type",
     )
 
+    date_stats: Optional[SummaryStatsDate] = Field(
+        default=None,
+        description="Statistics for a date data type",
+    )
+
+    datetime_stats: Optional[SummaryStatsDatetime] = Field(
+        default=None,
+        description="Statistics for a datetime data type",
+    )
+
 
 class SummaryStatsNumber(BaseModel):
     """
@@ -534,6 +590,63 @@ class SummaryStatsString(BaseModel):
 
     num_unique: StrictInt = Field(
         description="The exact number of distinct values",
+    )
+
+
+class SummaryStatsDate(BaseModel):
+    """
+    SummaryStatsDate in Schemas
+    """
+
+    num_unique: StrictInt = Field(
+        description="The exact number of distinct values",
+    )
+
+    min_date: StrictStr = Field(
+        description="Minimum date value as string",
+    )
+
+    mean_date: StrictStr = Field(
+        description="Average date value as string",
+    )
+
+    median_date: StrictStr = Field(
+        description="Sample median (50% value) date value as string",
+    )
+
+    max_date: StrictStr = Field(
+        description="Maximum date value as string",
+    )
+
+
+class SummaryStatsDatetime(BaseModel):
+    """
+    SummaryStatsDatetime in Schemas
+    """
+
+    num_unique: StrictInt = Field(
+        description="The exact number of distinct values",
+    )
+
+    min_date: StrictStr = Field(
+        description="Minimum date value as string",
+    )
+
+    mean_date: StrictStr = Field(
+        description="Average date value as string",
+    )
+
+    median_date: StrictStr = Field(
+        description="Sample median (50% value) date value as string",
+    )
+
+    max_date: StrictStr = Field(
+        description="Maximum date value as string",
+    )
+
+    timezone: Optional[StrictStr] = Field(
+        default=None,
+        description="Time zone for timestamp with time zone",
     )
 
 
@@ -671,10 +784,92 @@ class GetColumnProfilesFeatures(BaseModel):
     )
 
 
+class DataSelection(BaseModel):
+    """
+    A selection on the data grid, for copying to the clipboard or other
+    actions
+    """
+
+    kind: DataSelectionKind = Field(
+        description="Type of selection",
+    )
+
+    selection: Selection = Field(
+        description="A union of selection types",
+    )
+
+
+class DataSelectionSingleCell(BaseModel):
+    """
+    A selection that contains a single data cell
+    """
+
+    row_index: StrictInt = Field(
+        description="The selected row index",
+    )
+
+    column_index: StrictInt = Field(
+        description="The selected column index",
+    )
+
+
+class DataSelectionCellRange(BaseModel):
+    """
+    A selection that contains a rectangular range of data cells
+    """
+
+    first_row_index: StrictInt = Field(
+        description="The starting selected row index (inclusive)",
+    )
+
+    last_row_index: StrictInt = Field(
+        description="The final selected row index (inclusive)",
+    )
+
+    first_column_index: StrictInt = Field(
+        description="The starting selected column index (inclusive)",
+    )
+
+    last_column_index: StrictInt = Field(
+        description="The final selected column index (inclusive)",
+    )
+
+
+class DataSelectionRange(BaseModel):
+    """
+    A contiguous selection bounded by inclusive start and end indices
+    """
+
+    first_index: StrictInt = Field(
+        description="The starting selected index (inclusive)",
+    )
+
+    last_index: StrictInt = Field(
+        description="The final selected index (inclusive)",
+    )
+
+
+class DataSelectionIndices(BaseModel):
+    """
+    A selection defined by a sequence of indices to include
+    """
+
+    indices: List[StrictInt] = Field(
+        description="The selected indices",
+    )
+
+
 # ColumnValue
 ColumnValue = Union[
     StrictInt,
     StrictStr,
+]
+# Selection in Properties
+Selection = Union[
+    DataSelectionSingleCell,
+    DataSelectionCellRange,
+    DataSelectionRange,
+    DataSelectionIndices,
 ]
 
 
@@ -692,6 +887,9 @@ class DataExplorerBackendRequest(str, enum.Enum):
 
     # Get a rectangle of data values
     GetDataValues = "get_data_values"
+
+    # Export data selection as a string in different formats
+    ExportDataSelection = "export_data_selection"
 
     # Set row filters based on column values
     SetRowFilters = "set_row_filters"
@@ -817,6 +1015,41 @@ class GetDataValuesRequest(BaseModel):
     )
 
 
+class ExportDataSelectionParams(BaseModel):
+    """
+    Export data selection as a string in different formats like CSV, TSV,
+    HTML
+    """
+
+    selection: DataSelection = Field(
+        description="The data selection",
+    )
+
+    format: ExportFormat = Field(
+        description="Result string format",
+    )
+
+
+class ExportDataSelectionRequest(BaseModel):
+    """
+    Export data selection as a string in different formats like CSV, TSV,
+    HTML
+    """
+
+    params: ExportDataSelectionParams = Field(
+        description="Parameters to the ExportDataSelection method",
+    )
+
+    method: Literal[DataExplorerBackendRequest.ExportDataSelection] = Field(
+        description="The JSON-RPC method name (export_data_selection)",
+    )
+
+    jsonrpc: str = Field(
+        default="2.0",
+        description="The JSON-RPC version specifier",
+    )
+
+
 class SetRowFiltersParams(BaseModel):
     """
     Set or clear row filters on table, replacing any previous filters
@@ -932,6 +1165,7 @@ class DataExplorerBackendMessageContent(BaseModel):
         GetSchemaRequest,
         SearchSchemaRequest,
         GetDataValuesRequest,
+        ExportDataSelectionRequest,
         SetRowFiltersRequest,
         SetSortColumnsRequest,
         GetColumnProfilesRequest,
@@ -953,6 +1187,8 @@ class DataExplorerFrontendEvent(str, enum.Enum):
 
 
 SearchSchemaResult.update_forward_refs()
+
+ExportedData.update_forward_refs()
 
 FilterResult.update_forward_refs()
 
@@ -990,6 +1226,10 @@ SummaryStatsBoolean.update_forward_refs()
 
 SummaryStatsString.update_forward_refs()
 
+SummaryStatsDate.update_forward_refs()
+
+SummaryStatsDatetime.update_forward_refs()
+
 ColumnHistogram.update_forward_refs()
 
 ColumnFrequencyTable.update_forward_refs()
@@ -1008,6 +1248,16 @@ SetRowFiltersFeatures.update_forward_refs()
 
 GetColumnProfilesFeatures.update_forward_refs()
 
+DataSelection.update_forward_refs()
+
+DataSelectionSingleCell.update_forward_refs()
+
+DataSelectionCellRange.update_forward_refs()
+
+DataSelectionRange.update_forward_refs()
+
+DataSelectionIndices.update_forward_refs()
+
 GetSchemaParams.update_forward_refs()
 
 GetSchemaRequest.update_forward_refs()
@@ -1019,6 +1269,10 @@ SearchSchemaRequest.update_forward_refs()
 GetDataValuesParams.update_forward_refs()
 
 GetDataValuesRequest.update_forward_refs()
+
+ExportDataSelectionParams.update_forward_refs()
+
+ExportDataSelectionRequest.update_forward_refs()
 
 SetRowFiltersParams.update_forward_refs()
 

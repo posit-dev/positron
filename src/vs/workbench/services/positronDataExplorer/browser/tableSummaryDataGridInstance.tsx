@@ -83,9 +83,9 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 
 		// Add the onDidSchemaUpdate event handler.
 		this._register(this._dataExplorerClientInstance.onDidSchemaUpdate(async () => {
-			this.setScreenPosition(0, 0);
+			await this.setScreenPosition(0, 0);
 			this._expandedColumns.clear();
-			this.fetchData();
+			await this.fetchData();
 		}));
 	}
 
@@ -113,9 +113,10 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 
 	/**
 	 * Fetches data.
+	 * @returns A Promise<void> that resolves when the operation is complete.
 	 */
-	override fetchData() {
-		this._dataExplorerCache.updateCache({
+	override async fetchData() {
+		await this._dataExplorerCache.updateCache({
 			firstColumnIndex: this.firstRowIndex,
 			visibleColumns: this.screenRows
 		});

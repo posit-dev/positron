@@ -219,11 +219,12 @@ export class DataExplorerCache extends Disposable {
 	 * firstRowIndex and visibleRows parameters from the cache update descriptor.
 	 * @param cacheUpdateDescriptor The cache update descriptor.
 	 */
-	updateCache(cacheUpdateDescriptor: CacheUpdateDescriptor) {
+	async updateCache(cacheUpdateDescriptor: CacheUpdateDescriptor): Promise<void> {
 		// Update the cache.
-		this.doUpdateCache(cacheUpdateDescriptor).catch(error => {
-			this._onDidUpdateCacheEmitter.fire();
-		});
+		await this.doUpdateCache(cacheUpdateDescriptor);
+
+		// Fire the onDidUpdateCache event.
+		this._onDidUpdateCacheEmitter.fire();
 	}
 
 	/**
@@ -288,12 +289,12 @@ export class DataExplorerCache extends Disposable {
 	}
 
 	/**
-	 * Gets the cell value for the specified column index and row index.
+	 * Gets the data cell for the specified column index and row index.
 	 * @param columnIndex The column index.
 	 * @param rowIndex The row index.
-	 * @returns The cell value for the specified column index and row index.
+	 * @returns The data cell for the specified column index and row index.
 	 */
-	getCellValue(columnIndex: number, rowIndex: number) {
+	getDataCell(columnIndex: number, rowIndex: number) {
 		return this._dataCellCache.get(`${columnIndex},${rowIndex}`);
 	}
 
@@ -479,7 +480,7 @@ export class DataExplorerCache extends Disposable {
 			this._cacheUpdateDescriptor = undefined;
 
 			// Update the cache for the pending cache update descriptor.
-			this.updateCache(pendingCacheUpdateDescriptor);
+			await this.updateCache(pendingCacheUpdateDescriptor);
 		}
 	}
 

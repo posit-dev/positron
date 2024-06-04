@@ -46,8 +46,11 @@ import {
     ISpecialQuickPickItem,
 } from '../../types';
 import { BaseInterpreterSelectorCommand } from './base';
-
-const untildify = require('untildify');
+// --- Start Positron ---
+import { IPythonRuntimeManager } from '../../../../positron/manager';
+import { traceError } from '../../../../logging';
+import { untildify } from '../../../../pythonEnvironments/common/externalDependencies';
+// --- End Positron ---
 
 export type InterpreterStateArgs = { path?: string; workspace: Resource };
 export type QuickPickType = IInterpreterQuickPickItem | ISpecialQuickPickItem | QuickPickItem;
@@ -123,7 +126,10 @@ export class SetInterpreterCommand extends BaseInterpreterSelectorCommand implem
         @inject(IInterpreterSelector) private readonly interpreterSelector: IInterpreterSelector,
         @inject(IWorkspaceService) workspaceService: IWorkspaceService,
         @inject(IInterpreterService) private readonly interpreterService: IInterpreterService,
+        // --- Start Positron ---
+        @inject(IPythonRuntimeManager) private readonly pythonRuntimeManager: IPythonRuntimeManager,
     ) {
+        // --- End Positron ---
         super(
             pythonPathUpdaterService,
             commandManager,
@@ -538,7 +544,9 @@ export class SetInterpreterCommand extends BaseInterpreterSelectorCommand implem
         if (typeof selection === 'string') {
             // User entered text in the filter box to enter path to python, store it
             sendTelemetryEvent(EventName.SELECT_INTERPRETER_ENTER_CHOICE, undefined, { choice: 'enter' });
-            state.path = selection;
+            // --- Start Positron ---
+            state.path = untildify(selection);
+            // --- End Positron ---
             this.sendInterpreterEntryTelemetry(selection, state.workspace);
         } else if (selection && selection.label === InterpreterQuickPickList.browsePath.label) {
             sendTelemetryEvent(EventName.SELECT_INTERPRETER_ENTER_CHOICE, undefined, { choice: 'browse' });
@@ -550,6 +558,7 @@ export class SetInterpreterCommand extends BaseInterpreterSelectorCommand implem
                 openLabel: InterpreterQuickPickList.browsePath.openButtonLabel,
                 canSelectMany: false,
                 title: InterpreterQuickPickList.browsePath.title,
+                resolveSymlinks: false,
             });
             if (uris && uris.length > 0) {
                 state.path = uris[0].fsPath;
@@ -581,6 +590,13 @@ export class SetInterpreterCommand extends BaseInterpreterSelectorCommand implem
             // an empty string, in which case we should update.
             // Having the value `undefined` means user cancelled the quickpick, so we update nothing in that case.
             await this.pythonPathUpdaterService.updatePythonPath(interpreterState.path, configTarget, 'ui', wkspace);
+            // --- Start Positron ---
+            // Ensure that the corresponding runtime is selected in the console, and focus the console.
+            this.pythonRuntimeManager
+                .selectLanguageRuntimeFromPath(interpreterState.path)
+                .catch((error) => traceError(`Failed to select language runtime from path: ${error}`));
+            this.commandManager.executeCommand(Commands.Focus_Positron_Console);
+            // --- End Positron ---
         }
     }
 

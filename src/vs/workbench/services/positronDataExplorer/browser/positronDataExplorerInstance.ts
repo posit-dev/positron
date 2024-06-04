@@ -2,9 +2,15 @@
  *  Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
+import { localize } from 'vs/nls';
 import { Emitter } from 'vs/base/common/event';
 import { Disposable } from 'vs/base/common/lifecycle';
 import { IHoverService } from 'vs/platform/hover/browser/hover';
+import { ICommandService } from 'vs/platform/commands/common/commands';
+import { ILayoutService } from 'vs/platform/layout/browser/layoutService';
+import { IKeybindingService } from 'vs/platform/keybinding/common/keybinding';
+import { IClipboardService } from 'vs/platform/clipboard/common/clipboardService';
+import { INotificationService } from 'vs/platform/notification/common/notification';
 import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
 import { DataExplorerCache } from 'vs/workbench/services/positronDataExplorer/common/dataExplorerCache';
 import { TableDataDataGridInstance } from 'vs/workbench/services/positronDataExplorer/browser/tableDataDataGridInstance';
@@ -18,16 +24,6 @@ import { IPositronDataExplorerInstance } from 'vs/workbench/services/positronDat
  */
 export class PositronDataExplorerInstance extends Disposable implements IPositronDataExplorerInstance {
 	//#region Private Properties
-
-	/**
-	 * Gets the language name.
-	 */
-	private readonly _languageName: string;
-
-	/**
-	 * Gets the DataExplorerClientInstance.
-	 */
-	private readonly _dataExplorerClientInstance: DataExplorerClientInstance;
 
 	/**
 	 * Gets the DataExplorerCache.
@@ -87,33 +83,43 @@ export class PositronDataExplorerInstance extends Disposable implements IPositro
 
 	/**
 	 * Constructor.
-	 * @param configurationService The configuration service.
-	 * @param hoverService The hover service.
-	 * @param languageName The language name.
-	 * @param dataExplorerClientInstance The DataExplorerClientInstance. The data explorer takes
+	 * @param _clipboardService The clipboard service.
+	 * @param _commandService The command service.
+	 * @param _configurationService The configuration service.
+	 * @param _hoverService The hover service.
+	 * @param _keybindingService The keybinding service.
+	 * @param _layoutService The layout service.
+	 * @param _languageName The language name.
+	 * @param _dataExplorerClientInstance The DataExplorerClientInstance. The data explorer takes
 	 * ownership of the client instance and will dispose it when it is disposed.
 	 */
 	constructor(
-		configurationService: IConfigurationService,
-		hoverService: IHoverService,
-		languageName: string,
-		dataExplorerClientInstance: DataExplorerClientInstance
+		private readonly _clipboardService: IClipboardService,
+		private readonly _commandService: ICommandService,
+		private readonly _configurationService: IConfigurationService,
+		private readonly _hoverService: IHoverService,
+		private readonly _keybindingService: IKeybindingService,
+		private readonly _layoutService: ILayoutService,
+		private readonly _notificationService: INotificationService,
+		private readonly _languageName: string,
+		private readonly _dataExplorerClientInstance: DataExplorerClientInstance
 	) {
 		// Call the base class's constructor.
 		super();
 
 		// Initialize.
-		this._languageName = languageName;
-		this._dataExplorerClientInstance = dataExplorerClientInstance;
-		this._dataExplorerCache = new DataExplorerCache(dataExplorerClientInstance);
+		this._dataExplorerCache = new DataExplorerCache(this._dataExplorerClientInstance);
 		this._tableSchemaDataGridInstance = new TableSummaryDataGridInstance(
-			configurationService,
-			hoverService,
-			dataExplorerClientInstance,
+			this._configurationService,
+			this._hoverService,
+			this._dataExplorerClientInstance,
 			this._dataExplorerCache
 		);
 		this._tableDataDataGridInstance = new TableDataDataGridInstance(
-			dataExplorerClientInstance,
+			this._commandService,
+			this._keybindingService,
+			this._layoutService,
+			this._dataExplorerClientInstance,
 			this._dataExplorerCache
 		);
 
@@ -207,6 +213,40 @@ export class PositronDataExplorerInstance extends Disposable implements IPositro
 	 */
 	requestFocus(): void {
 		this._onDidRequestFocusEmitter.fire();
+	}
+
+	/**
+	 * Copies the selection or cursor cell to the clipboard.
+	 */
+	async copyToClipboard(): Promise<void> {
+		/**
+		 * Notifies the user that there is nothing to copy to the clipboard.
+		 */
+		const notifyUser = () => {
+			this._notificationService.info(
+				localize(
+					'positron.dataExplorer.nothingToCopy',
+					'There is nothing to copy to the clipboard.'
+				)
+			);
+		};
+
+		// Get the clipboard data.
+		const clipboardData = this._tableDataDataGridInstance.getClipboardData();
+		if (!clipboardData) {
+			notifyUser();
+			return;
+		}
+
+		// Copy the clipboard data.
+		const text = await this._tableDataDataGridInstance.copyClipboardData(clipboardData);
+		if (!text) {
+			notifyUser();
+			return;
+		}
+
+		// Write the clipboard data to the clipboard.
+		this._clipboardService.writeText(text);
 	}
 
 	/**
