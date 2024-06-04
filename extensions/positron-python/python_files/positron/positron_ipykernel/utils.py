@@ -285,8 +285,8 @@ def positron_ipykernel_usage():
     The Positron Console offers a fully compatible replacement for the standard Python
     interpreter, with convenient shell features, special commands, command
     history mechanism and output results caching. It is an adapted version of an
-    [IPython](https://ipython.readthedocs.io/en/stable/) kernel. For more information and
-    documentation, check out the [Positron Beta GitHub](https://github.com/posit-dev/positron-beta).
+    [IPython](https://ipython.readthedocs.io/en/stable/) kernel. For more information, check out the
+    [Positron documentation](https://github.com/posit-dev/positron/wiki).
 
     GETTING HELP
     ------------
