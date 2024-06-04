@@ -5,7 +5,7 @@ import { CancellationToken, ProgressLocation, WorkspaceFolder } from 'vscode';
 import * as path from 'path';
 import { Commands, PVSC_EXTENSION_ID } from '../../../common/constants';
 import { traceError, traceInfo, traceLog } from '../../../logging';
-import { CreateEnvironmentProgress } from '../types';
+import { CreateEnvironmentOptionsInternal, CreateEnvironmentProgress } from '../types';
 import { pickWorkspaceFolder } from '../common/workspaceSelection';
 import { execObservable } from '../../../common/process/rawProcessApis';
 import { createDeferred } from '../../../common/utils/async';
@@ -145,7 +145,11 @@ function getExecutableCommand(condaBaseEnvPath: string): string {
     return path.join(condaBaseEnvPath, 'bin', 'python');
 }
 
-async function createEnvironment(options?: CreateEnvironmentOptions): Promise<CreateEnvironmentResult | undefined> {
+async function createEnvironment(
+    // --- Start Positron ---
+    options?: CreateEnvironmentOptions & CreateEnvironmentOptionsInternal,
+): Promise<CreateEnvironmentResult | undefined> {
+    // --- End Positron ---
     const conda = await getCondaBaseEnv();
     if (!conda) {
         return undefined;
@@ -205,14 +209,22 @@ async function createEnvironment(options?: CreateEnvironmentOptions): Promise<Cr
                 existingCondaAction === ExistingCondaAction.Recreate ||
                 existingCondaAction === ExistingCondaAction.Create
             ) {
-                try {
-                    version = await pickPythonVersion();
-                } catch (ex) {
-                    if (ex === MultiStepAction.Back || ex === MultiStepAction.Cancel) {
-                        return ex;
+                // --- Start Positron ---
+                if (options?.condaPythonVersion) {
+                    version = options.condaPythonVersion;
+                } else {
+                    // --- End Positron ---
+                    try {
+                        version = await pickPythonVersion();
+                    } catch (ex) {
+                        if (ex === MultiStepAction.Back || ex === MultiStepAction.Cancel) {
+                            return ex;
+                        }
+                        throw ex;
                     }
-                    throw ex;
+                    // --- Start Positron ---
                 }
+                // --- End Positron ---
                 if (version === undefined) {
                     traceError('Python version was not selected for creating conda environment.');
                     return MultiStepAction.Cancel;
