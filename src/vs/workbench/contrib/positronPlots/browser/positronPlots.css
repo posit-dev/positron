@@ -151,6 +151,7 @@
 	position: relative;
 }
 
+.plot-instance .image-wrapper img,
 .plot-thumbnail .image-wrapper img {
 	display: block;
 	max-width: 100%;
