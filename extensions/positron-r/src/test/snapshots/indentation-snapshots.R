@@ -389,7 +389,7 @@ function() {
 # ->
 function() {
     foo
-               "<>"
+    "<>"
 }
 
 # ---
@@ -400,5 +400,5 @@ foo(function() {
 # ->
 foo(function() {
     bar
-                   "<>"
+    "<>"
 })
