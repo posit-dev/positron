@@ -9,10 +9,10 @@ import { ILogService } from 'vs/platform/log/common/log';
 import { IStorageService, StorageScope, StorageTarget } from 'vs/platform/storage/common/storage';
 import { IWorkspaceContextService } from 'vs/platform/workspace/common/workspace';
 import { IWorkspaceTrustManagementService } from 'vs/platform/workspace/common/workspaceTrust';
-import { CreateEnvironmentResult, IPositronNewProjectService, NewProjectConfiguration, NewProjectStartupPhase, NewProjectTask, NewProjectType, POSITRON_NEW_PROJECT_CONFIG_STORAGE_KEY } from 'vs/workbench/services/positronNewProject/common/positronNewProject';
+import { CreateEnvironmentResult, IPositronNewProjectService, LanguageIds, NewProjectConfiguration, NewProjectStartupPhase, NewProjectTask, NewProjectType, POSITRON_NEW_PROJECT_CONFIG_STORAGE_KEY } from 'vs/workbench/services/positronNewProject/common/positronNewProject';
 import { Event } from 'vs/base/common/event';
 import { Barrier } from 'vs/base/common/async';
-import { ILanguageRuntimeMetadata } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { ILanguageRuntimeMetadata, LanguageRuntimeSessionLocation, LanguageRuntimeStartupBehavior } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { IFileService } from 'vs/platform/files/common/files';
 import { VSBuffer } from 'vs/base/common/buffer';
 import { joinPath } from 'vs/base/common/resources';
@@ -20,6 +20,7 @@ import { DOT_IGNORE_JUPYTER, DOT_IGNORE_PYTHON, DOT_IGNORE_R } from 'vs/workbenc
 import { URI } from 'vs/base/common/uri';
 import { INotificationService } from 'vs/platform/notification/common/notification';
 import { localize } from 'vs/nls';
+import { ExtensionIdentifier } from 'vs/platform/extensions/common/extensions';
 
 /**
  * PositronNewProjectService class.
@@ -317,10 +318,12 @@ export class PositronNewProjectService extends Disposable implements IPositronNe
 	 * Relies on extension ms-python.python
 	 */
 	private async _createPythonEnvironment() {
-		if (this._newProjectConfig && this._newProjectConfig.runtimeMetadata) {
-			const runtimeMetadata = this._newProjectConfig.runtimeMetadata;
+		if (this._newProjectConfig) {
 			const provider = this._newProjectConfig.pythonEnvProviderId;
 			if (provider && provider.length > 0) {
+				const runtimeMetadata = this._newProjectConfig.runtimeMetadata;
+				const condaPythonVersion = this._newProjectConfig.condaPythonVersion;
+
 				// Ensure the workspace folder is available
 				const workspaceFolder =
 					this._contextService.getWorkspace().folders[0];
@@ -334,9 +337,10 @@ export class PositronNewProjectService extends Disposable implements IPositronNe
 				}
 
 				// Ensure the Python interpreter path is available. This is the global Python
-				// interpreter to use for the new environment.
-				const interpreterPath = runtimeMetadata.extraRuntimeData?.pythonPath;
-				if (!interpreterPath) {
+				// interpreter to use for the new environment. This is only required if we are not
+				// using a conda environment.
+				const interpreterPath = runtimeMetadata?.extraRuntimeData?.pythonPath;
+				if (!interpreterPath && !condaPythonVersion) {
 					const message = this._failedPythonEnvMessage('Could not determine Python interpreter path for new project.');
 					this._logService.error(message);
 					this._notificationService.warn(message);
@@ -356,6 +360,7 @@ export class PositronNewProjectService extends Disposable implements IPositronNe
 							workspaceFolder,
 							providerId: provider,
 							interpreterPath,
+							condaPythonVersion,
 							// Do not start the environment after creation. We'll install ipykernel
 							// first, then set the environment as the affiliated runtime, which will
 							// be automatically started by the runtimeStartupService.
@@ -402,22 +407,26 @@ export class PositronNewProjectService extends Disposable implements IPositronNe
 
 				// Construct a skeleton runtime metadata object which will be validated by the Python
 				// extension using validateMetadata into a full runtime metadata object.
-				// Minimally, we'll need to provide the languageId for runtimeStartupService and the
-				// pythonPath for the Python extension.
+				// Minimally, we'll need to provide the languageId for runtimeStartupService, the
+				// Python extension ID so a runtime manager can be determined and the pythonPath is
+				// used by the Python extension to look up the registered runtime.
 				this._runtimeMetadata = {
 					runtimePath: result.path,
 					runtimeId: '',
-					languageName: runtimeMetadata.languageName,
-					languageId: runtimeMetadata.languageId,
-					languageVersion: runtimeMetadata.languageVersion,
+					languageName: '',
+					languageId: LanguageIds.Python,
+					languageVersion: '',
 					base64EncodedIconSvg: '',
 					runtimeName: '',
 					runtimeShortName: '',
 					runtimeVersion: '',
 					runtimeSource: '',
-					startupBehavior: runtimeMetadata.startupBehavior,
-					sessionLocation: runtimeMetadata.sessionLocation,
-					extensionId: runtimeMetadata.extensionId,
+					startupBehavior: LanguageRuntimeStartupBehavior.Immediate,
+					sessionLocation: LanguageRuntimeSessionLocation.Workspace,
+					// ExtensionIdentifier is not supposed to be constructed directly, but we are
+					// leveraging the 'ms-python.python' extension to fill in the actual metadata for
+					// the newly created environment.
+					extensionId: new ExtensionIdentifier('ms-python.python'),
 					extraRuntimeData: {
 						pythonPath: result.path,
 					},

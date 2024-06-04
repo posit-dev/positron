@@ -80,6 +80,7 @@ export interface NewProjectConfiguration {
 	readonly pythonEnvProviderId: string | undefined;
 	readonly pythonEnvProviderName: string | undefined;
 	readonly installIpykernel: boolean | undefined;
+	readonly condaPythonVersion: string | undefined;
 	readonly useRenv: boolean | undefined;
 }
 
@@ -158,3 +159,13 @@ export type CreateEnvironmentResult = {
 	readonly path?: string;
 	readonly error?: Error;
 };
+
+/**
+ * LanguageIds enum.
+ */
+export enum LanguageIds {
+	// Defined in extensions/positron-python/src/client/common/constants.ts "PYTHON_LANGUAGE"
+	Python = 'python',
+	// Defined in extensions/positron-r/src/provider.ts makeMetadata()
+	R = 'r'
+}

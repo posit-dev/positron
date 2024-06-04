@@ -231,8 +231,19 @@ export class PythonRuntimeManager implements IPythonRuntimeManager {
             throw new Error(`Python interpreter path is missing: ${extraData.pythonPath}`);
         }
 
-        // Replace the metadata if we can find the runtime in the registered runtimes,
-        const registeredMetadata = this.registeredPythonRuntimes.get(extraData.pythonPath);
+        // Replace the metadata if we can find the runtime in the registered runtimes
+        let registeredMetadata = this.registeredPythonRuntimes.get(extraData.pythonPath);
+
+        if (!registeredMetadata) {
+            // It's possible that the interpreter is located at pythonPath/bin/python.
+            // Conda environments may have the .conda directory set as the pythonPath, however the
+            // registered runtimes are stored with the pythonPath set to the python executable.
+            const binPythonPath = path.join(extraData.pythonPath, 'bin', 'python');
+            const binPythonExists = await fs.pathExists(binPythonPath);
+            if (binPythonExists) {
+                registeredMetadata = this.registeredPythonRuntimes.get(binPythonPath);
+            }
+        }
 
         // Metadata is valid
         return registeredMetadata ?? metadata;

@@ -126,6 +126,7 @@ export const showNewProjectModalDialog = async (
 						pythonEnvProviderId: result.pythonEnvProviderId,
 						pythonEnvProviderName: result.pythonEnvProviderName,
 						installIpykernel: result.installIpykernel,
+						condaPythonVersion: result.condaPythonVersion,
 						useRenv: result.useRenv,
 					};
 
