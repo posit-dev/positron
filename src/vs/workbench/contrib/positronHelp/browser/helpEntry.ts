@@ -566,24 +566,37 @@ export class HelpEntry extends Disposable implements IHelpEntry, WebviewFindDele
 		this._element = element;
 		const helpOverlayWebview = this._helpOverlayWebview;
 
-		const claimAndLayout = () => {
-			helpOverlayWebview.claim(element, DOM.getWindow(element), undefined);
-			helpOverlayWebview.layoutWebviewOverElement(element);
+		// If the help pane is currently collapsed, aka has a height of 0, running the layout and
+		// claim logic will result in a 0-height help-pane. Not super useful. To deal with this we
+		// run a few checks to make sure that the pane has time to animate open and finish its
+		// animation before we show content.  Otherwise the webview will try and layout over a 0
+		// height element and thus the help pane will be empty after expanding.
+		let previousHeight = element.clientHeight;
+		let numberOfChecks = 0;
+		const maxNumberOfChecks = 10;
+		const waitBetweenChecksMs = 25;
+		const claimAndLayoutWebview = () => {
+			const currentHeight = element.clientHeight;
+
+			const finishedAnimating = currentHeight !== 0 && currentHeight === previousHeight;
+			const hasExceededMaxChecks = numberOfChecks >= maxNumberOfChecks;
+
+			if (finishedAnimating || hasExceededMaxChecks) {
+				helpOverlayWebview.claim(element, DOM.getWindow(element), undefined);
+				helpOverlayWebview.layoutWebviewOverElement(element);
+				return;
+			}
+
+			previousHeight = currentHeight;
+			numberOfChecks++;
+			this._claimTimeout = setTimeout(claimAndLayoutWebview, waitBetweenChecksMs);
 		};
-
-		// If the element is currently collapsed, aka has a height of 0, run the claim and layout on
-		// a timeout so the pane has time to animate open. Otherwise the webview will try and layout
-		// over a 0 height element and thus the help pane will be empty after expanding.
-		const viewIsCollapsed = element.clientHeight === 0;
-
+		// By clearing this timeout we prevent clashing that could be caused by rapidfire calling of
+		// `this.showHelpOverlayWebview()` that can be caused by resize events like dragging the
+		// sidebar wider etc..
 		clearTimeout(this._claimTimeout);
-		if (viewIsCollapsed) {
-			// It takes at least 150ms for the element to expand enough. It would be nice if we
-			// could hook this up to the css transition value, but alas.
-			this._claimTimeout = setTimeout(claimAndLayout, 150);
-		} else {
-			claimAndLayout();
-		}
+
+		claimAndLayoutWebview();
 	}
 
 	/**
