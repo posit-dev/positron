@@ -475,21 +475,21 @@ class PositronIPyKernel(IPythonKernel):
         # points to the same underlying asyncio loop).
         return dict(status="ok", restart=restart)
 
-    async def _progressively_terminate_all_children(self) -> None:
-        # `wait` for zombie subprocesses so they don't stall the kernel shutdown sequence.
+    def _signal_children(self, signum: int) -> None:
+        super()._signal_children(signum)
+
+        # Reap zombie processes.
         # See https://github.com/posit-dev/positron/issues/3344
         children: List[psutil.Process] = self._process_children()
         for child in children:
-            if child.status() == "zombie":
-                self.log.debug("Waiting 1 second for zombie subprocess to terminate %s", child)
+            if child.status() == psutil.STATUS_ZOMBIE:
+                self.log.debug("Reaping zombie subprocess %s", child)
                 try:
-                    child.wait(timeout=1)
+                    # Non-blocking wait since timeout is 0. If the process is still alive, it'll
+                    # raise a TimeoutExpired.
+                    child.wait(timeout=0)
                 except psutil.TimeoutExpired as exception:
-                    self.log.warning(
-                        "Timeout waiting for zombie subprocess to terminate %s", exception
-                    )
-
-        await super()._progressively_terminate_all_children()
+                    self.log.warning("Error while reaping zombie subprocess %s: %s", child, exception)
 
     # monkey patching warning.showwarning is recommended by the official documentation
     # https://docs.python.org/3/library/warnings.html#warnings.showwarning
