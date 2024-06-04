@@ -2,6 +2,7 @@
  *  Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
+import { Emitter } from 'vs/base/common/event';
 import { URI } from 'vs/base/common/uri';
 import { POSITRON_PREVIEW_URL_VIEW_TYPE } from 'vs/workbench/contrib/positronPreview/browser/positronPreviewSevice';
 import { PreviewWebview } from 'vs/workbench/contrib/positronPreview/browser/previewWebview';
@@ -36,6 +37,11 @@ export class PreviewUrl extends PreviewWebview {
 
 		// Perform the initial navigation.
 		this.navigateToUri(_uri);
+
+		// Listen for navigation events.
+		this.webview.onDidNavigate(e => {
+			this._onDidNavigate.fire(e);
+		});
 	}
 
 
@@ -56,6 +62,9 @@ export class PreviewUrl extends PreviewWebview {
 		this.webview.setUri(iframeUri);
 
 	}
+
+	public _onDidNavigate = this._register(new Emitter<URI>());
+	public onDidNavigate = this._onDidNavigate.event;
 
 	get currentUri(): URI {
 		return this._uri;

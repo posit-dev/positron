@@ -272,6 +272,7 @@ export interface IWebview extends IDisposable {
 	hideFind(animated?: boolean, keepSelection?: boolean): void;
 	captureContentsAsPng(): Promise<VSBuffer | undefined>;
 	executeJavaScript(frameId: WebviewFrameId, code: string): Promise<any>;
+	onDidNavigate: Event<URI>;
 	// --- End Positron
 	runFindAction(previous: boolean): void;
 

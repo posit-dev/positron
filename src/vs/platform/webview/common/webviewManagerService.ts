@@ -26,6 +26,11 @@ export interface WebviewFrameId {
 	readonly routingId: number;
 }
 
+export interface FrameNavigationEvent {
+	readonly frameId: WebviewFrameId;
+	readonly url: string;
+}
+
 export interface WebviewRectangle {
 	readonly x: number;
 	readonly y: number;
@@ -73,6 +78,11 @@ export interface IWebviewManagerService {
 	 * An event fired when a webview frame's DOM has been fully loaded.
 	 */
 	onFrameDomReady: Event<WebviewFrameId>;
+
+	/**
+	 * An event fired when a webview frame has navigated to a new URL.
+	 */
+	onFrameNavigation: Event<FrameNavigationEvent>;
 
 	/**
 	 * Capture a snapshot of the contents of a webview as a PNG image.

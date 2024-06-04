@@ -6,7 +6,7 @@
 import { WebContents, webContents, WebFrameMain } from 'electron';
 import { Emitter } from 'vs/base/common/event';
 import { Disposable } from 'vs/base/common/lifecycle';
-import { FindInFrameOptions, FoundInFrameResult, IWebviewManagerService, WebviewWebContentsId, WebviewWindowId } from 'vs/platform/webview/common/webviewManagerService';
+import { FindInFrameOptions, FoundInFrameResult, FrameNavigationEvent, IWebviewManagerService, WebviewWebContentsId, WebviewWindowId } from 'vs/platform/webview/common/webviewManagerService';
 import { WebviewProtocolProvider } from 'vs/platform/webview/electron-main/webviewProtocolProvider';
 import { IWindowsMainService } from 'vs/platform/windows/electron-main/windows';
 
@@ -16,7 +16,11 @@ import { Rectangle, webFrameMain } from 'electron';
 import { VSBuffer } from 'vs/base/common/buffer';
 
 // eslint-disable-next-line no-duplicate-imports
+import { IDisposable } from 'vs/base/common/lifecycle';
+
+// eslint-disable-next-line no-duplicate-imports
 import { WebviewFrameId } from 'vs/platform/webview/common/webviewManagerService';
+import { DeferredPromise } from 'vs/base/common/async';
 // --- End Positron ---
 
 export class WebviewMainService extends Disposable implements IWebviewManagerService {
@@ -98,6 +102,12 @@ export class WebviewMainService extends Disposable implements IWebviewManagerSer
 	private readonly _onDomReady = this._register(new Emitter<WebviewFrameId>());
 	public onFrameDomReady = this._onDomReady.event;
 
+	private readonly _onFrameNavigated = this._register(new Emitter<FrameNavigationEvent>());
+	public onFrameNavigation = this._onFrameNavigated.event;
+	private readonly _navigationListeners = new Map<WebviewWindowId, IDisposable>();
+
+	private readonly _pendingNavigations = new Map<string, DeferredPromise<WebviewFrameId>>();
+
 	/**
 	 * Captures the contents of the webview in the given window as a PNG image.
 	 *
@@ -131,38 +141,31 @@ export class WebviewMainService extends Disposable implements IWebviewManagerSer
 		if (!window?.win) {
 			throw new Error(`Invalid windowId: ${windowId}`);
 		}
-		return new Promise<WebviewFrameId>(resolve => {
-			let frameId: WebviewFrameId | undefined;
 
-			// Handler for navigation events; we listen for these until we find
-			// the frame we're looking for, then resolve the promise
+		// If we aren't already listening for navigation events on this window,
+		// set up a listener to capture them
+		if (!this._navigationListeners.has(windowId)) {
+			// Event handler for navigation events
 			const onNavigated = (event: any, url: string, httpResponseCode: number, httpStatusText: string, isMainFrame: boolean, frameProcessId: number, frameRoutingId: number) => {
-				// Ignore navigations that aren't in the main frame
-				if (url !== targetUrl) {
-					return;
-				}
-
-				// Extract the frame process and routing IDs
-				frameId = { processId: frameProcessId, routingId: frameRoutingId };
-
-				// Remove the listener now that we've found the frame
-				window.win!.webContents.off('did-frame-navigate', onNavigated);
-				resolve(frameId);
+				const frameId = { processId: frameProcessId, routingId: frameRoutingId };
+				this.onFrameNavigated(frameId, url);
 			};
-
-			// Handler for load events; we listen for these until the frame
-			// we're looking for is loaded, then emit an event
-			const onLoadFinished = (event: any, isMainFrame: boolean, frameProcessId: number, frameRoutingId: number) => {
-				if (frameId && frameId.processId === frameProcessId && frameId.routingId === frameRoutingId) {
-					this._onDomReady.fire({ processId: frameProcessId, routingId: frameRoutingId });
-					window.win!.webContents.off('did-frame-finish-load', onLoadFinished);
-				}
-			};
-
-			// Listen for navigation and load events
 			window.win!.webContents.on('did-frame-navigate', onNavigated);
-			window.win!.webContents.on('did-frame-finish-load', onLoadFinished);
-		});
+
+			// Disposable for the listener
+			const disposable = { dispose: () => window.win!.webContents.off('did-frame-navigate', onNavigated) };
+			this._navigationListeners.set(windowId, disposable);
+
+			// Register the disposable so we can clean up when the service is
+			// disposed
+			this._register(disposable);
+		}
+
+		// Create a new deferred promise; it will be resolved when the frame
+		// navigates to the target URL.
+		const deferred = new DeferredPromise<WebviewFrameId>();
+		this._pendingNavigations.set(targetUrl, deferred);
+		return deferred.p;
 	}
 
 	public async executeJavaScript(frameId: WebviewFrameId, script: string): Promise<any> {
@@ -172,6 +175,19 @@ export class WebviewMainService extends Disposable implements IWebviewManagerSer
 		}
 		return frame.executeJavaScript(script);
 	}
+
+	private onFrameNavigated(frameId: WebviewFrameId, url: string): void {
+		this._onFrameNavigated.fire({ frameId, url });
+
+		// Check for any pending navigations that match this URL; if we find
+		// any, complete them
+		if (this._pendingNavigations.has(url)) {
+			const deferred = this._pendingNavigations.get(url);
+			deferred!.complete(frameId);
+			this._pendingNavigations.delete(url);
+		}
+	}
+
 	// --- End Positron ---
 
 	private getFrameByName(windowId: WebviewWindowId, frameName: string): WebFrameMain {

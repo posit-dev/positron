@@ -4,7 +4,7 @@
 
 import 'vs/css!./actionBars';
 import * as React from 'react';
-import { PropsWithChildren, } from 'react'; // eslint-disable-line no-duplicate-imports
+import { PropsWithChildren, useEffect, } from 'react'; // eslint-disable-line no-duplicate-imports
 import { ICommandService } from 'vs/platform/commands/common/commands';
 import { IKeybindingService } from 'vs/platform/keybinding/common/keybinding';
 import { IContextKeyService } from 'vs/platform/contextkey/common/contextkey';
@@ -23,6 +23,7 @@ import { ActionBarSeparator } from 'vs/platform/positronActionBar/browser/compon
 import { IOpenerService } from 'vs/platform/opener/common/opener';
 import { URI } from 'vs/base/common/uri';
 import { INotificationService } from 'vs/platform/notification/common/notification';
+import { DisposableStore } from 'vs/base/common/lifecycle';
 
 // Constants.
 const kPaddingLeft = 8;
@@ -138,6 +139,17 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 			navigateToUrl(urlInputRef.current.value);
 		}
 	};
+
+	// useEffect hook.
+	useEffect(() => {
+		const disposables = new DisposableStore();
+		disposables.add(props.preview.onDidNavigate(e => {
+			if (urlInputRef.current) {
+				urlInputRef.current.value = e.toString();
+			}
+		}));
+		return () => disposables.dispose();
+	}, [props.preview]);
 
 	// Render.
 	return (

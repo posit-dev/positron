@@ -42,7 +42,7 @@ import { CodeWindow } from 'vs/base/browser/window';
 // --- Start Positron ---
 // eslint-disable-next-line no-duplicate-imports
 import { VSBuffer } from 'vs/base/common/buffer';
-import { WebviewFrameId } from 'vs/platform/webview/common/webviewManagerService';
+import { FrameNavigationEvent, WebviewFrameId } from 'vs/platform/webview/common/webviewManagerService';
 
 // eslint-disable-next-line no-duplicate-imports
 import { FileAccess } from 'vs/base/common/network';
@@ -134,6 +134,8 @@ export class WebviewElement extends Disposable implements IWebview, WebviewFindD
 
 	// --- Start Positron ---
 	private _uri: URI | undefined;
+
+	private _frameId: WebviewFrameId | undefined;
 	// --- End Positron ---
 
 	private readonly _portMappingManager: WebviewPortMappingManager;
@@ -330,6 +332,26 @@ export class WebviewElement extends Disposable implements IWebview, WebviewFindD
 			this._webviewFindWidget = this._register(instantiationService.createInstance(WebviewFindWidget, this._options.webviewFindDelegate || this));
 			// --- End Positron ---
 		}
+
+		// --- Start Positron ---
+		this._register(this.onFrameNavigated(async (evt) => {
+			if (!this._frameId) {
+				return;
+			}
+			if (evt.frameId.processId === this._frameId.processId &&
+				evt.frameId.routingId === this._frameId.routingId) {
+				// Insert the `webview-events.js` script into the frame
+				await this.injectJavaScript();
+
+				// Save the new URI
+				const uri = URI.parse(evt.url);
+				this._uri = uri;
+
+				// If the frame is navigated to a new URL, update listeners
+				this._onDidNavigate.fire(URI.parse(evt.url));
+			}
+		}));
+		// --- End Positron ---
 	}
 
 	override dispose(): void {
@@ -725,27 +747,20 @@ export class WebviewElement extends Disposable implements IWebview, WebviewFindD
 		// to the newly created frame.
 		const frameId = await this.awaitFrameCreation(uri.toString());
 		this._logService.debug('Webview: ** frame created', frameId.routingId, '/', frameId.processId);
+		this._frameId = frameId;
 
+		return this.injectJavaScript();
+	}
+
+	private async injectJavaScript(): Promise<void> {
 		// Read the contents of the 'webview-events.js' file. This file contains
 		// a bunch of event handlers that forward events from the iframe to the
 		// main process.
 		const webviewEventsJsPath = FileAccess.asFileUri('vs/workbench/contrib/webview/browser/pre/webview-events.js');
 		const webviewEvents = await this._fileService.readFile(webviewEventsJsPath);
 
-		// Wait for the frame to be ready to execute JavaScript
-		const listener = this.onFrameDomReady((eventFrame) => {
-			// Ensure that the frame ID matches the one we're waiting for
-			if (eventFrame.processId !== frameId.processId || eventFrame.routingId !== frameId.routingId) {
-				return;
-			}
-
-			// Inject the 'webview-events.js' script into the frame
-			this._logService.debug(`Webview(${this.id}): frame ID: ${eventFrame.processId}:${eventFrame.routingId} is DOM ready; injecting script`);
-			this.executeJavaScript(frameId, webviewEvents.value.toString());
-
-			// Clean up the listener now that we've injected the script
-			listener.dispose();
-		});
+		// Inject the 'webview-events.js' script into the frame
+		return this.executeJavaScript(this._frameId!, webviewEvents.value.toString());
 	}
 	// --- End Positron ---
 
@@ -943,6 +958,12 @@ export class WebviewElement extends Disposable implements IWebview, WebviewFindD
 	// --- Start Positron ---
 	protected readonly _onFrameDomReady = this._register(new Emitter<WebviewFrameId>());
 	public readonly onFrameDomReady = this._onFrameDomReady.event;
+
+	protected readonly _onFrameNavigated = this._register(new Emitter<FrameNavigationEvent>());
+	public readonly onFrameNavigated = this._onFrameNavigated.event;
+
+	protected readonly _onDidNavigate = this._register(new Emitter<URI>());
+	public readonly onDidNavigate = this._onDidNavigate.event;
 	// --- End Positron ---
 
 	/**

@@ -89,6 +89,9 @@ export class ElectronWebviewElement extends WebviewElement {
 		this._register(this._webviewMainService.onFrameDomReady((frameId) => {
 			this._onFrameDomReady.fire(frameId);
 		}));
+		this._register(this._webviewMainService.onFrameNavigation((evt) => {
+			this._onFrameNavigated.fire(evt);
+		}));
 		// --- End Positron ---
 	}
 
