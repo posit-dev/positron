@@ -57,7 +57,7 @@ export function WelcomeConsoleButton(props: WelcomeConsoleButtonProps) {
 		renderer.render(
 			<PositronModalPopup
 				renderer={renderer}
-				anchor={ref.current}
+				anchorElement={ref.current}
 				popupPosition='bottom'
 				popupAlignment='left'
 				width={375}

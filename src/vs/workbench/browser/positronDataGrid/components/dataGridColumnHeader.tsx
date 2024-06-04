@@ -10,7 +10,6 @@ import * as React from 'react';
 import { MouseEvent, useRef } from 'react'; // eslint-disable-line no-duplicate-imports
 
 // Other dependencies.
-import { isMacintosh } from 'vs/base/common/platform';
 import { positronClassNames } from 'vs/base/common/positronUtilities';
 import { IDataColumn } from 'vs/workbench/browser/positronDataGrid/interfaces/dataColumn';
 import { Button, MouseTrigger } from 'vs/base/browser/ui/positronComponents/button/button';
@@ -38,6 +37,7 @@ export const DataGridColumnHeader = (props: DataGridColumnHeaderProps) => {
 	const context = usePositronDataGridContext();
 
 	// Reference hooks.
+	const ref = useRef<HTMLDivElement>(undefined!);
 	const sortingButtonRef = useRef<HTMLButtonElement>(undefined!);
 
 	/**
@@ -46,18 +46,38 @@ export const DataGridColumnHeader = (props: DataGridColumnHeaderProps) => {
 	 * @returns A Promise<void> that resolves when the operation is complete.
 	 */
 	const mouseDownHandler = async (e: MouseEvent<HTMLElement>) => {
-		// Ignore mouse events with meta / ctrl key.
-		if (isMacintosh ? e.metaKey : e.ctrlKey) {
-			return;
-		}
-
-		// Consume the event.
+		// Stop propagation.
 		e.stopPropagation();
 
-		// If selection is enabled, process selection.
-		if (context.instance.selection) {
-			// Mouse select the column.
-			context.instance.mouseSelectColumn(props.columnIndex, selectionType(e));
+		// Get the starting bounding client rect. This is used to calculate the position of the
+		// context menu.
+		const startingRect = ref.current.getBoundingClientRect();
+
+		// Get the column selection state.
+		const columnSelectionState = context.instance.columnSelectionState(props.columnIndex);
+
+		// If the column selection state is None, and selection is enabled, mouse-select the column.
+		// Otherwise, scroll the column into view.
+		if (columnSelectionState === ColumnSelectionState.None && context.instance.selection) {
+			await context.instance.mouseSelectColumn(props.columnIndex, selectionType(e));
+		} else {
+			await context.instance.scrollToColumn(props.columnIndex);
+		}
+
+		// If the left mouse button was pressed, show the context menu.
+		if (e.button === 2) {
+			// Get the ending bounding client rect.
+			const endingRect = ref.current.getBoundingClientRect();
+
+			// Show the column context menu.
+			await context.instance.showColumnContextMenu(
+				props.columnIndex,
+				ref.current,
+				{
+					clientX: e.clientX + endingRect.left - startingRect.left,
+					clientY: e.clientY
+				}
+			);
 		}
 	};
 
@@ -65,7 +85,8 @@ export const DataGridColumnHeader = (props: DataGridColumnHeaderProps) => {
 	 * dropdownPressed event handler.
 	 */
 	const dropdownPressed = async () => {
-		await context.instance.showColumnContextMenu(sortingButtonRef.current, props.columnIndex);
+		// Show the column context menu.
+		await context.instance.showColumnContextMenu(props.columnIndex, sortingButtonRef.current);
 	};
 
 	// Get the column sort key.
@@ -77,6 +98,7 @@ export const DataGridColumnHeader = (props: DataGridColumnHeaderProps) => {
 	// Render.
 	return (
 		<div
+			ref={ref}
 			className={
 				positronClassNames(
 					'data-grid-column-header',
