@@ -916,7 +916,7 @@ class PandasView(DataExplorerTableView):
 
             try:
                 single_mask = self._eval_filter(filt)
-            except ValueError as e:
+            except Exception as e:
                 had_errors = True
 
                 # Filter fails: we capture the error message and mark
@@ -1353,7 +1353,7 @@ def _pandas_coerce_value(value, dtype, inferred_type):
         else:
             raise ValueError(f"Unable to convert {value} to boolean")
     elif "datetime" in inferred_type:
-        return _parse_iso8601_like(value)
+        return _parse_iso8601_like(value, dtype)
     else:
         # As a fallback, let Series.astype do the coercion
         dummy = pd_.Series([value])
@@ -1369,10 +1369,16 @@ _ISO_8601_FORMATS = [
 ]
 
 
-def _parse_iso8601_like(x):
+def _parse_iso8601_like(x, dtype):
     for fmt in _ISO_8601_FORMATS:
         try:
-            return datetime.strptime(x, fmt)
+            result = datetime.strptime(x, fmt)
+
+            # Localize tz-naive datetime if needed to avoid TypeError
+            if getattr(dtype, "tz", None) is not None:
+                result = result.replace(tzinfo=dtype.tz)
+
+            return result
         except ValueError:
             continue
 
