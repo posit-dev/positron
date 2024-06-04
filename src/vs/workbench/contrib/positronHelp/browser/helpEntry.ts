@@ -573,8 +573,8 @@ export class HelpEntry extends Disposable implements IHelpEntry, WebviewFindDele
 		// height element and thus the help pane will be empty after expanding.
 		let previousHeight = element.clientHeight;
 		let numberOfChecks = 0;
-		const maxNumberOfChecks = 10;
-		const waitBetweenChecksMs = 25;
+		const maxNumberOfChecks = 12;
+		const waitBetweenChecksMs = 20;
 		const claimAndLayoutWebview = () => {
 			const currentHeight = element.clientHeight;
 
