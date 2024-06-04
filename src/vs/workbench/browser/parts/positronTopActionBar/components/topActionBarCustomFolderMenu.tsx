@@ -57,7 +57,7 @@ export const TopActionBarCustonFolderMenu = () => {
 				{...context}
 				renderer={renderer}
 				recentlyOpened={recentlyOpened}
-				anchor={ref.current}
+				anchorElement={ref.current}
 			/>
 		);
 	};

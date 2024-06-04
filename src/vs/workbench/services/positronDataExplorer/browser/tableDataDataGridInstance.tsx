@@ -14,15 +14,16 @@ import { IKeybindingService } from 'vs/platform/keybinding/common/keybinding';
 import { IColumnSortKey } from 'vs/workbench/browser/positronDataGrid/interfaces/columnSortKey';
 import { DataExplorerCache } from 'vs/workbench/services/positronDataExplorer/common/dataExplorerCache';
 import { TableDataCell } from 'vs/workbench/services/positronDataExplorer/browser/components/tableDataCell';
-import { showCustomContextMenu } from 'vs/workbench/browser/positronComponents/customContextMenu/customContextMenu';
+import { AnchorPoint } from 'vs/workbench/browser/positronComponents/positronModalPopup/positronModalPopup';
 import { TableDataRowHeader } from 'vs/workbench/services/positronDataExplorer/browser/components/tableDataRowHeader';
 import { CustomContextMenuItem } from 'vs/workbench/browser/positronComponents/customContextMenu/customContextMenuItem';
 import { PositronDataExplorerColumn } from 'vs/workbench/services/positronDataExplorer/browser/positronDataExplorerColumn';
 import { DataExplorerClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimeDataExplorerClient';
 import { CustomContextMenuSeparator } from 'vs/workbench/browser/positronComponents/customContextMenu/customContextMenuSeparator';
 import { PositronDataExplorerCommandId } from 'vs/workbench/contrib/positronDataExplorerEditor/browser/positronDataExplorerActions';
-import { ClipboardCell, ClipboardCellRange, ClipboardColumnIndexes, ClipboardColumnRange, ClipboardData, ClipboardRowIndexes, ClipboardRowRange, ColumnSortKeyDescriptor, DataGridInstance } from 'vs/workbench/browser/positronDataGrid/classes/dataGridInstance';
+import { CustomContextMenuEntry, showCustomContextMenu } from 'vs/workbench/browser/positronComponents/customContextMenu/customContextMenu';
 import { BackendState, ColumnSchema, DataSelection, DataSelectionCellRange, DataSelectionIndices, DataSelectionKind, DataSelectionRange, DataSelectionSingleCell, ExportFormat, RowFilter } from 'vs/workbench/services/languageRuntime/common/positronDataExplorerComm';
+import { ClipboardCell, ClipboardCellRange, ClipboardColumnIndexes, ClipboardColumnRange, ClipboardData, ClipboardRowIndexes, ClipboardRowRange, ColumnSelectionState, ColumnSortKeyDescriptor, DataGridInstance, RowSelectionState } from 'vs/workbench/browser/positronDataGrid/classes/dataGridInstance';
 
 /**
  * Localized strings.
@@ -225,123 +226,181 @@ export class TableDataDataGridInstance extends DataGridInstance {
 
 	/**
 	 * Shows the column context menu.
-	 * @param anchor The anchor element.
 	 * @param columnIndex The column index.
+	 * @param anchorElement The anchor element.
+	 * @param anchorPoint The anchor point.
 	 */
-	override async showColumnContextMenu(anchor: HTMLElement, columnIndex: number): Promise<void> {
+	override async showColumnContextMenu(
+		columnIndex: number,
+		anchorElement: HTMLElement,
+		anchorPoint?: AnchorPoint
+	): Promise<void> {
 		/**
 		 * Get the column sort key for the column.
 		 */
 		const columnSortKey = this.columnSortKey(columnIndex);
 
-		// Show the custom context menu.
-		await showCustomContextMenu(
-			this._commandService,
-			this._keybindingService,
-			this._layoutService,
-			anchor,
-			'right',
-			200,
-			[
-				new CustomContextMenuItem({
-					commandId: PositronDataExplorerCommandId.CopyAction,
-					checked: false,
-					icon: 'copy',
-					label: localize('positron.dataExplorer.copy', "Copy"),
-					onSelected: () => console.log('Copy')
-				}),
-				new CustomContextMenuSeparator(),
-				new CustomContextMenuItem({
-					checked: columnSortKey !== undefined && columnSortKey.ascending,
-					icon: 'arrow-up',
-					label: localize('positron.sortAscending', "Sort Ascending"),
-					onSelected: async () => this.setColumnSortKey(
-						columnIndex,
-						true
-					)
-				}),
-				new CustomContextMenuItem({
-					checked: columnSortKey !== undefined && !columnSortKey.ascending,
-					icon: 'arrow-down',
-					label: localize('positron.sortDescending', "Sort Descending"),
-					onSelected: async () => this.setColumnSortKey(
-						columnIndex,
-						false
-					)
-				}),
-				new CustomContextMenuSeparator(),
-				new CustomContextMenuItem({
-					checked: false,
-					icon: 'positron-clear-sorting',
-					label: localize('positron.clearSorting', "Clear Sorting"),
-					disabled: !columnSortKey,
-					onSelected: async () =>
-						this.removeColumnSortKey(columnIndex)
-				}),
-				new CustomContextMenuSeparator(),
-				new CustomContextMenuItem({
-					checked: false,
-					icon: 'positron-add-filter',
-					label: addFilterTitle,
-					disabled: false,
-					onSelected: () => {
-						const columnSchema = this._dataExplorerCache.getColumnSchema(columnIndex);
-						if (columnSchema) {
-							this._onAddFilterEmitter.fire(columnSchema);
-						}
-					}
-				}),
-			]
-		);
+		// Build the entries.
+		const entries: CustomContextMenuEntry[] = [];
+		entries.push(new CustomContextMenuItem({
+			commandId: PositronDataExplorerCommandId.CopyAction,
+			checked: false,
+			icon: 'copy',
+			label: localize('positron.dataExplorer.copy', "Copy"),
+			onSelected: () => console.log('Copy')
+		}));
+		entries.push(new CustomContextMenuSeparator());
+		entries.push(new CustomContextMenuItem({
+			checked: false,
+			icon: 'positron-select-column',
+			label: localize('positron.dataExplorer.selectColumn', "Select Column"),
+			disabled: this.columnSelectionState(columnIndex) !== ColumnSelectionState.None,
+			onSelected: () => this.selectColumn(columnIndex)
+		}));
+		entries.push(new CustomContextMenuSeparator());
+		entries.push(new CustomContextMenuItem({
+			checked: columnSortKey !== undefined && columnSortKey.ascending,
+			icon: 'arrow-up',
+			label: localize('positron.sortAscending', "Sort Ascending"),
+			onSelected: async () => this.setColumnSortKey(
+				columnIndex,
+				true
+			)
+		}));
+		entries.push(new CustomContextMenuItem({
+			checked: columnSortKey !== undefined && !columnSortKey.ascending,
+			icon: 'arrow-down',
+			label: localize('positron.sortDescending', "Sort Descending"),
+			onSelected: async () => this.setColumnSortKey(
+				columnIndex,
+				false
+			)
+		}));
+		entries.push(new CustomContextMenuSeparator());
+		entries.push(new CustomContextMenuItem({
+			checked: false,
+			icon: 'positron-clear-sorting',
+			label: localize('positron.clearSorting', "Clear Sorting"),
+			disabled: !columnSortKey,
+			onSelected: async () =>
+				this.removeColumnSortKey(columnIndex)
+		}));
+		entries.push(new CustomContextMenuSeparator());
+		entries.push(new CustomContextMenuItem({
+			checked: false,
+			icon: 'positron-add-filter',
+			label: addFilterTitle,
+			disabled: false,
+			onSelected: () => {
+				const columnSchema = this._dataExplorerCache.getColumnSchema(columnIndex);
+				if (columnSchema) {
+					this._onAddFilterEmitter.fire(columnSchema);
+				}
+			}
+		}));
+
+		// Show the context menu.
+		await showCustomContextMenu({
+			commandService: this._commandService,
+			keybindingService: this._keybindingService,
+			layoutService: this._layoutService,
+			anchorElement,
+			anchorPoint,
+			popupAlignment: 'left',
+			width: 200,
+			entries
+		});
 	}
 
 	/**
 	 * Shows the row context menu.
-	 * @param anchor The anchor element.
 	 * @param rowIndex The row index.
+	 * @param anchorElement The anchor element.
+	 * @param anchorPoint The anchor point.
 	 * @returns A Promise<void> that resolves when the context menu is complete.
 	 */
-	override async showRowContextMenu(anchor: HTMLElement, rowIndex: number): Promise<void> {
-		// TODO.
+	override async showRowContextMenu(
+		rowIndex: number,
+		anchorElement: HTMLElement,
+		anchorPoint: AnchorPoint
+	): Promise<void> {
+		// Build the entries.
+		const entries: CustomContextMenuEntry[] = [];
+		entries.push(new CustomContextMenuItem({
+			commandId: PositronDataExplorerCommandId.CopyAction,
+			checked: false,
+			icon: 'copy',
+			label: localize('positron.dataExplorer.copy', "Copy"),
+			onSelected: () => console.log('Copy')
+		}));
+		entries.push(new CustomContextMenuSeparator());
+		entries.push(new CustomContextMenuItem({
+			checked: false,
+			icon: 'positron-select-row',
+			label: localize('positron.dataExplorer.selectRow', "Select Row"),
+			disabled: this.rowSelectionState(rowIndex) !== RowSelectionState.None,
+			onSelected: () => this.selectRow(rowIndex)
+		}));
+
+		// Show the context menu.
+		await showCustomContextMenu({
+			commandService: this._commandService,
+			keybindingService: this._keybindingService,
+			layoutService: this._layoutService,
+			anchorElement,
+			anchorPoint,
+			popupAlignment: 'left',
+			width: 200,
+			entries
+		});
 	}
 
 	/**
 	 * Shows the cell context menu.
-	 * @param anchor The anchor element.
 	 * @param columnIndex The column index.
 	 * @param rowIndex The row index.
+	 * @param anchorElement The anchor element.
+	 * @param anchorPoint The anchor point.
 	 */
 	override async showCellContextMenu(
-		anchor: HTMLElement,
 		columnIndex: number,
-		rowIndex: number
+		rowIndex: number,
+		anchorElement: HTMLElement,
+		anchorPoint: AnchorPoint
 	): Promise<void> {
-		// Show the custom context menu.
-		await showCustomContextMenu(
-			this._commandService,
-			this._keybindingService,
-			this._layoutService,
-			anchor,
-			'left',
-			200,
-			[
-				new CustomContextMenuItem({
-					commandId: PositronDataExplorerCommandId.CopyAction,
-					icon: 'copy',
-					label: localize('positron.dataExplorer.copy', "Copy"),
-					onSelected: () => console.log('Copy')
-				}),
-				new CustomContextMenuSeparator(),
-				new CustomContextMenuItem({
-					label: localize('positron.dataExplorer.selectColumn', "Select Column"),
-					onSelected: () => this.selectColumn(columnIndex)
-				}),
-				new CustomContextMenuItem({
-					label: localize('positron.dataExplorer.selectRow', "Select Row"),
-					onSelected: () => this.selectRow(rowIndex)
-				})
-			]
-		);
+		// Build the entries.
+		const entries: CustomContextMenuEntry[] = [];
+		entries.push(new CustomContextMenuItem({
+			commandId: PositronDataExplorerCommandId.CopyAction,
+			icon: 'copy',
+			label: localize('positron.dataExplorer.copy', "Copy"),
+			onSelected: () => console.log('Copy')
+		}));
+		entries.push(new CustomContextMenuSeparator());
+		entries.push(new CustomContextMenuItem({
+			icon: 'positron-select-column',
+			label: localize('positron.dataExplorer.selectColumn', "Select Column"),
+			disabled: this.columnSelectionState(columnIndex) !== ColumnSelectionState.None,
+			onSelected: () => this.selectColumn(columnIndex)
+		}));
+		entries.push(new CustomContextMenuItem({
+			icon: 'positron-select-row',
+			label: localize('positron.dataExplorer.selectRow', "Select Row"),
+			disabled: this.rowSelectionState(rowIndex) !== RowSelectionState.None,
+			onSelected: () => this.selectRow(rowIndex)
+		}));
+
+		// Show the context menu.
+		await showCustomContextMenu({
+			commandService: this._commandService,
+			keybindingService: this._keybindingService,
+			layoutService: this._layoutService,
+			anchorElement,
+			anchorPoint,
+			popupAlignment: 'left',
+			width: 200,
+			entries
+		});
 	}
 
 	//#endregion DataGridInstance Methods
