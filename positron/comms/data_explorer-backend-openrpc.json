@@ -332,9 +332,10 @@
 					"number",
 					"boolean",
 					"string",
-					"date",
+					"date"
 					"datetime",
 					"time",
+					"object",
 					"array",
 					"struct",
 					"unknown"
