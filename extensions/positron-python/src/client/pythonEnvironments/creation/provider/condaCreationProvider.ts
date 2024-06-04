@@ -205,26 +205,22 @@ async function createEnvironment(
     const versionStep = new MultiStepNode(
         workspaceStep,
         async (context) => {
-            if (
+            // --- Start Positron ---
+            if (existingCondaAction === ExistingCondaAction.Create && options?.condaPythonVersion) {
+                version = options.condaPythonVersion;
+            } else if (
+                // --- End Positron ---
                 existingCondaAction === ExistingCondaAction.Recreate ||
                 existingCondaAction === ExistingCondaAction.Create
             ) {
-                // --- Start Positron ---
-                if (options?.condaPythonVersion) {
-                    version = options.condaPythonVersion;
-                } else {
-                    // --- End Positron ---
-                    try {
-                        version = await pickPythonVersion();
-                    } catch (ex) {
-                        if (ex === MultiStepAction.Back || ex === MultiStepAction.Cancel) {
-                            return ex;
-                        }
-                        throw ex;
+                try {
+                    version = await pickPythonVersion();
+                } catch (ex) {
+                    if (ex === MultiStepAction.Back || ex === MultiStepAction.Cancel) {
+                        return ex;
                     }
-                    // --- Start Positron ---
+                    throw ex;
                 }
-                // --- End Positron ---
                 if (version === undefined) {
                     traceError('Python version was not selected for creating conda environment.');
                     return MultiStepAction.Cancel;
