@@ -38,7 +38,11 @@ export enum LogLevel {
 	Error
 }
 
-export const DEFAULT_LOG_LEVEL: LogLevel = LogLevel.Info;
+// --- Start Positron ---
+// TODO(seem): Temporarily set the default log level to debug during beta. This should be reverted
+//             to LogLevel.Info after beta.
+export const DEFAULT_LOG_LEVEL: LogLevel = LogLevel.Debug;
+// --- End Positron ---
 
 export interface ILogger extends IDisposable {
 	onDidChangeLogLevel: Event<LogLevel>;
