@@ -482,7 +482,10 @@ class PositronIPyKernel(IPythonKernel):
         for child in children:
             if child.status() == "zombie":
                 self.log.debug("Waiting 1 second for zombie subprocess to terminate %s", child)
-                child.wait(timeout=1)
+                try:
+                    child.wait(timeout=1)
+                except psutil.TimeoutExpired as exception:
+                    self.log.warning("Timeout waiting for zombie subprocess to terminate %s", exception)
 
         await super()._progressively_terminate_all_children()
 
