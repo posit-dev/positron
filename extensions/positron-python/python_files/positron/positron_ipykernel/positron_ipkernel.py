@@ -14,6 +14,7 @@ import warnings
 from pathlib import Path
 from typing import Any, Callable, Container, Dict, List, Optional, Type, cast
 
+import psutil
 import traitlets
 from ipykernel.comm.manager import CommManager
 from ipykernel.compiler import get_tmp_directory
@@ -473,6 +474,17 @@ class PositronIPyKernel(IPythonKernel):
         # stop the event loop at the same time as self.shutdown_request (since self.shell_stream.io_loop
         # points to the same underlying asyncio loop).
         return dict(status="ok", restart=restart)
+
+    async def _progressively_terminate_all_children(self) -> None:
+        # `wait` for zombie subprocesses so they don't stall the kernel shutdown sequence.
+        # See https://github.com/posit-dev/positron/issues/3344
+        children: List[psutil.Process] = self._process_children()
+        for child in children:
+            if child.status() == "zombie":
+                self.log.debug("Waiting 1 second for zombie subprocess to terminate %s", child)
+                child.wait(timeout=1)
+
+        await super()._progressively_terminate_all_children()
 
     # monkey patching warning.showwarning is recommended by the official documentation
     # https://docs.python.org/3/library/warnings.html#warnings.showwarning
