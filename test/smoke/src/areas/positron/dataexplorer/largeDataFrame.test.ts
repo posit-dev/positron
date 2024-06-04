@@ -4,18 +4,23 @@
 
 
 import { expect } from '@playwright/test';
-import { Application, Logger, PositronPythonFixtures } from '../../../../../automation';
+import { Application, Logger, PositronPythonFixtures, PositronRFixtures } from '../../../../../automation';
 import { installAllHandlers } from '../../../utils';
 import { join } from 'path';
 
 
 export function setup(logger: Logger) {
+
+	const LAST_CELL_CONTENTS = '2013-09-30 08:00:00';
+	const FILTER_PARAMS = ['distance', 'is equal to', '2586'];
+	const POST_FILTER_DATA_SUMMARY = 'Showing 8,204 rows (2.44% of 336,776 total)  19 columns';
+
 	describe('Data Explorer', () => {
 
 		// Shared before/after handling
 		installAllHandlers(logger);
 
-		describe('Python Data Explorer', () => {
+		describe('Python Data Explorer (Large Data Frame)', () => {
 
 			before(async function () {
 
@@ -35,7 +40,7 @@ export function setup(logger: Logger) {
 
 			});
 
-			it('Python - Verifies basic data explorer functionality', async function () {
+			it('Python - Verifies data explorer functionality with large data frame', async function () {
 				const app = this.app as Application;
 				await app.workbench.quickaccess.openFile(join(app.workspacePathOrFolder, 'positron-workspaces', 'nyc-flights-data-py', 'flights-data-frame.py'));
 				await app.workbench.quickaccess.runCommand('python.execInConsole');
@@ -45,35 +50,70 @@ export function setup(logger: Logger) {
 
 				await app.workbench.positronSideBar.closeSecondarySideBar();
 
-				await app.code.waitAndClick('.data-grid-scrollbar-corner');
-
+				// Validate full grid by checking bottom right corner data
+				await app.workbench.positronDataExplorer.clickLowerRightCorner();
 				const tableData = await app.workbench.positronDataExplorer.getDataExplorerTableData();
-
 				const lastRow = tableData.at(-1);
+				expect(lastRow!['time_hour']).toBe(LAST_CELL_CONTENTS);
 
-				expect(lastRow!['time_hour']).toBe('2013-09-30 08:00:00');
+				// Filter data set
+				await app.workbench.positronDataExplorer.clickUpperLeftCorner();
+				await app.workbench.positronDataExplorer.addFilter(...FILTER_PARAMS as [string, string, string]);
 
-				await app.code.waitAndClick('.data-grid-corner-top-left');
+				const statusBar = await app.workbench.positronDataExplorer.getDataExplorerStatusBar();
 
-				await app.code.waitAndClick('.codicon-positron-add-filter');
-
-				await app.code.waitAndClick('.positron-modal-overlay .drop-down-column-selector');
-
-				await app.code.waitForSetValue('.positron-modal-overlay .column-search-input .text-input', 'distance\n');
-
-				await app.code.waitAndClick('.column-selector-cell');
-
-				await app.code.waitAndClick('.positron-modal-overlay .drop-down-list-box');
-
-				// does not work
-				// await app.code.waitAndClick('.positron-modal-overlay .positron-button div[text*="is equal to"]');
-
-				const equalTo = app.code.driver.getLocator('.positron-modal-overlay .positron-button div:has-text("is equal to")');
-				await equalTo.click();
-
-				console.log('a');
+				expect(statusBar.textContent).toBe(POST_FILTER_DATA_SUMMARY);
 
 			});
 		});
+
+		describe('R Data Explorer (Large Data Frame)', () => {
+
+			before(async function () {
+
+				const app = this.app as Application;
+
+				const rFixtures = new PositronRFixtures(app);
+				await rFixtures.startRInterpreter();
+
+			});
+
+			after(async function () {
+
+				const app = this.app as Application;
+
+				await app.workbench.positronDataExplorer.closeDataExplorer();
+				await app.workbench.positronVariables.openVariables();
+
+			});
+
+			it('R - Verifies data explorer functionality with large data frame', async function () {
+				const app = this.app as Application;
+				await app.workbench.quickaccess.openFile(join(app.workspacePathOrFolder, 'positron-workspaces', 'nyc-flights-data-r', 'flights-data-frame.r'));
+				await app.workbench.quickaccess.runCommand('r.sourceCurrentFile');
+
+				console.log('Opening data grid');
+				await app.workbench.positronVariables.doubleClickVariableRow('df2');
+
+				await app.workbench.positronSideBar.closeSecondarySideBar();
+
+				// Validate full grid by checking bottom right corner data
+				await app.workbench.positronDataExplorer.clickLowerRightCorner();
+				const tableData = await app.workbench.positronDataExplorer.getDataExplorerTableData();
+				const lastRow = tableData.at(-1);
+				expect(lastRow!['time_hour']).toBe(LAST_CELL_CONTENTS);
+
+				// Filter data set
+				await app.workbench.positronDataExplorer.clickUpperLeftCorner();
+				await app.workbench.positronDataExplorer.addFilter(...FILTER_PARAMS as [string, string, string]);
+
+				const statusBar = await app.workbench.positronDataExplorer.getDataExplorerStatusBar();
+
+				expect(statusBar.textContent).toBe(POST_FILTER_DATA_SUMMARY);
+
+			});
+		});
+
+
 	});
 }
