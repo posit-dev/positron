@@ -41,6 +41,13 @@ import { IServerEnvironmentService, ServerParsedArgs } from 'vs/server/node/serv
 import { setupServerServices, SocketServer } from 'vs/server/node/serverServices';
 import { CacheControl, serveError, serveFile, WebClientServer } from 'vs/server/node/webClientServer';
 
+// --- Start Positron ---
+import { validateLicenseKey } from 'vs/server/node/remoteLicenseKey';
+
+// eslint-disable-next-line no-duplicate-imports
+import { MandatoryServerConnectionToken } from 'vs/server/node/serverConnectionToken';
+// --- End Positron ---
+
 const SHUTDOWN_TIMEOUT = 5 * 60 * 1000;
 
 declare module vsda {
@@ -671,6 +678,21 @@ export async function createServer(address: string | net.AddressInfo | null, arg
 		console.warn(connectionToken.message);
 		process.exit(1);
 	}
+
+	// --- Start Positron ---
+	// Ensure that the connection token is mandatory
+	if (connectionToken.type !== ServerConnectionTokenType.Mandatory) {
+		console.warn('Positron requires a connection token in order secure the connection. Please provide a valid connection token.');
+		process.exit(1);
+	}
+	const mandatoryConnectionToken = connectionToken as MandatoryServerConnectionToken;
+	const hasValidLicense = await validateLicenseKey(mandatoryConnectionToken.value, args);
+	if (!hasValidLicense) {
+		// License warnings are logged in the validateLicenseKey function; at this point we just need to exit
+		process.exit(1);
+	}
+
+	// --- End Positron ---
 
 	// setting up error handlers, first with console.error, then, once available, using the log service
 
