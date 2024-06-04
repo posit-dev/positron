@@ -89,7 +89,14 @@ export const serverOptions: OptionDescriptions<Required<ServerParsedArgs>> = {
 
 	'compatibility': { type: 'string' },
 
+	// --- Start Positron ---
+	'license-key-file': { type: 'string', description: nls.localize('license-key-file', "Path to a file that contains the license key.") },
+	'license-key': { type: 'string', description: nls.localize('license-key', "A license key") },
+	// --- End Positron ---
+
 	_: OPTIONS['_']
+
+
 };
 
 export interface ServerParsedArgs {
@@ -213,6 +220,11 @@ export interface ServerParsedArgs {
 	compatibility: string;
 
 	_: string[];
+
+	// --- Start Positron ---
+	'license-key-file'?: string;
+	'license-key'?: string;
+	// --- End Positron ---
 }
 
 export const IServerEnvironmentService = refineServiceDecorator<IEnvironmentService, IServerEnvironmentService>(IEnvironmentService);
