@@ -247,7 +247,7 @@ class SelectionRange {
 	}
 
 	indexes() {
-		const indexes: number[] = [];
+		const indexes: number[] = [this.lastIndex - this.firstIndex];
 		for (let index = this.firstIndex; index <= this.lastIndex; index++) {
 			indexes.push(index);
 		}
