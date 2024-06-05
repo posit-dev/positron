@@ -871,7 +871,7 @@ export class GettingStartedPage extends EditorPane {
 		this.updateCategoryProgress();
 		this.registerDispatchListeners();
 		// --- Start Positron ---
-		// removed starting the first featured walkthrough on first startup
+		// removed showing the first featured walkthrough "Get Started with Positron" on first startup
 
 
 		if (this.editorInput.showTelemetryNotice && this.productService.openToWelcomeMainPage) {
