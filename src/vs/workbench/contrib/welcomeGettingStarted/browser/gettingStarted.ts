@@ -45,7 +45,9 @@ import { IOpenerService } from 'vs/platform/opener/common/opener';
 import { IProductService } from 'vs/platform/product/common/productService';
 import { IQuickInputService } from 'vs/platform/quickinput/common/quickInput';
 import { IStorageService, StorageScope, StorageTarget, WillSaveStateReason } from 'vs/platform/storage/common/storage';
-import { ITelemetryService, TelemetryLevel, firstSessionDateStorageKey } from 'vs/platform/telemetry/common/telemetry';
+// --- Start Positron ---
+import { ITelemetryService, TelemetryLevel } from 'vs/platform/telemetry/common/telemetry';
+// --- End Positron ---
 import { getTelemetryLevel } from 'vs/platform/telemetry/common/telemetryUtils';
 import { defaultButtonStyles, defaultToggleStyles } from 'vs/platform/theme/browser/defaultStyles';
 import { IWindowOpenable } from 'vs/platform/window/common/window';
@@ -153,8 +155,7 @@ export class GettingStartedPage extends EditorPane {
 	private container: HTMLElement;
 
 	private contextService: IContextKeyService;
-
-	private hasScrolledToFirstCategory = false;
+	// --- Start Positron ---
 	private recentlyOpenedList?: GettingStartedIndexList<RecentEntry>;
 	private startList?: GettingStartedIndexList<IWelcomePageStartEntry>;
 	private gettingStartedList?: GettingStartedIndexList<IResolvedWalkthrough>;
@@ -171,9 +172,7 @@ export class GettingStartedPage extends EditorPane {
 	private detailsRenderer: GettingStartedDetailsRenderer;
 
 	private readonly categoriesSlideDisposables: DisposableStore;
-	private showFeaturedWalkthrough = true;
 
-	/*--- Start Positron ---*/
 	private positronReactRenderer!: PositronReactRenderer;
 
 	constructor(
@@ -329,7 +328,7 @@ export class GettingStartedPage extends EditorPane {
 		}));
 	}
 
-	/*--- End Positron ---*/
+	//--- End Positron ---
 
 	// remove when 'workbench.welcomePage.preferReducedMotion' deprecated
 	private shouldAnimate() {
