@@ -89,13 +89,20 @@ export const PositronModalPopup = (props: PropsWithChildren<PositronModalPopupPr
 		// Compute the popup position.
 		if (props.anchorPoint) {
 			return {
+				// Set the top.
 				top: props.popupPosition === 'top' ?
 					'auto' :
 					props.anchorPoint.clientY,
+
+				// Set the right.
 				right: props.popupAlignment === 'right' ?
-					props.renderer.container.offsetWidth - (props.anchorPoint.clientX) :
+					-props.anchorPoint.clientX :
 					'auto',
+
+				// Set the bottom.
 				bottom: 'auto',
+
+				// Set the left.
 				left: props.popupAlignment === 'left' ?
 					props.anchorPoint.clientX :
 					'auto'
@@ -103,19 +110,26 @@ export const PositronModalPopup = (props: PropsWithChildren<PositronModalPopupPr
 		} else {
 			const topLeftOffset = DOM.getTopLeftOffset(props.anchorElement);
 			return {
+				// Set the top.
 				top: props.popupPosition === 'top' ?
 					'auto' :
 					topLeftOffset.top + props.anchorElement.offsetHeight + 1,
+
+				// Set the right.
 				right: props.popupAlignment === 'right' ?
-					props.renderer.container.offsetWidth - (topLeftOffset.left + props.anchorElement.offsetWidth) :
+					-(topLeftOffset.left + props.anchorElement.offsetWidth) :
 					'auto',
+
+				// Set the bottom.
 				bottom: 'auto',
+
+				// Set the left.
 				left: props.popupAlignment === 'left' ?
 					topLeftOffset.left :
 					'auto'
 			};
 		}
-	}, [props.anchorElement, props.anchorPoint, props.popupAlignment, props.popupPosition, props.renderer.container.offsetWidth]);
+	}, [props.anchorElement, props.anchorPoint, props.popupAlignment, props.popupPosition]);
 
 	// Reference hooks.
 	const popupContainerRef = useRef<HTMLDivElement>(undefined!);
