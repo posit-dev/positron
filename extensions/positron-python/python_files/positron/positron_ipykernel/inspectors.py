@@ -82,7 +82,7 @@ SIMPLER_NAMES = {
 }
 
 
-def _get_display_name(value):
+def _get_class_display(value):
     display_value = get_qualname(value)
     return SIMPLER_NAMES.get(display_value, display_value)
 
@@ -95,7 +95,7 @@ class PositronInspector(Generic[T]):
     def __init__(self, value: T) -> None:
         self.value = value
 
-    def get_display_name(self, key: str) -> str:
+    def get_display_name(self, key: Any) -> str:
         return str(key)
 
     def get_display_value(
@@ -769,12 +769,8 @@ class BaseColumnInspector(_BaseMapInspector[Column], ABC):
 class PandasSeriesInspector(BaseColumnInspector["pd.Series"]):
     CLASS_QNAME = "pandas.core.series.Series"
 
-    # Per #3388: because the index can contain duplicates, we need to
-    # return integers as children for now until we can separate the
-    # access key from what is displayed to the user in the variables
-    # inspection response.
-    # def get_children(self) -> Collection[Any]:
-    #     return self.value.index
+    def get_display_name(self, key: int) -> str:
+        return str(self.value.index[key])
 
     def get_child(self, key: int) -> Any:
         return self.value.iloc[key]
@@ -807,7 +803,7 @@ class PandasSeriesInspector(BaseColumnInspector["pd.Series"]):
         print_width: Optional[int] = PRINT_WIDTH,
         truncate_at: int = TRUNCATE_AT,
     ) -> Tuple[str, bool]:
-        display_value = _get_display_name(self.value)
+        display_value = _get_class_display(self.value)
         display_value = f"[{len(self.value)} values] {display_value}"
         return (display_value, True)
 
@@ -923,7 +919,7 @@ class PandasDataFrameInspector(BaseTableInspector["pd.DataFrame", "pd.Series"]):
         print_width: Optional[int] = PRINT_WIDTH,
         truncate_at: int = TRUNCATE_AT,
     ) -> Tuple[str, bool]:
-        display_value = _get_display_name(self.value)
+        display_value = _get_class_display(self.value)
         if hasattr(self.value, "shape"):
             shape = self.value.shape
             display_value = f"[{shape[0]} rows x {shape[1]} columns] {display_value}"
@@ -956,7 +952,7 @@ class PolarsDataFrameInspector(BaseTableInspector["pl.DataFrame", "pl.Series"]):
         print_width: Optional[int] = PRINT_WIDTH,
         truncate_at: int = TRUNCATE_AT,
     ) -> Tuple[str, bool]:
-        qualname = _get_display_name(self.value)
+        qualname = _get_class_display(self.value)
         shape = self.value.shape
         display_value = f"[{shape[0]} rows x {shape[1]} columns] {qualname}"
         return (display_value, True)

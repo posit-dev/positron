@@ -744,9 +744,15 @@ def test_inspect_pandas_series_duplicate_labels() -> None:
     inspector = get_inspector(value)
     assert list(inspector.get_children()) == [0, 1, 2, 3]
     assert inspector.get_child(0) == 0
+    assert inspector.get_display_name(0) == "0"
+
     assert inspector.get_child(1) == 1
+    assert inspector.get_display_name(1) == "1"
+
     assert inspector.get_child(2) == 2
-    assert inspector.get_child(3) == 3
+    assert inspector.get_display_name(2) == "0"
+
+    assert inspector.get_display_name(3) == "1"
 
 
 def test_inspect_polars_dataframe() -> None:
