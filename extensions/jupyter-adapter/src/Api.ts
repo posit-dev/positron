@@ -103,13 +103,6 @@ export class JupyterAdapterApiImpl implements JupyterAdapterApi {
 		return findAvailablePort(excluding, maxTries);
 	}
 
-	/**
-	 * Return logfile path
-	 */
-	getKernelLogFile(): string {
-		return this.getKernelLogFile();
-	}
-
 	dispose() {
 	}
 
