@@ -82,7 +82,7 @@ export interface JupyterLanguageRuntimeSession extends positron.LanguageRuntimeS
     /**
      * Return logfile path
      */
-    getLogFile(): string;
+    getKernelLogFile(): string;
 }
 
 /**

@@ -355,8 +355,8 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 		return this.establishSocketListeners();
 	}
 
-	public getLogFilePath() {
-		return this._session!.state.logFile;
+	public getKernelLogFilePath() {
+		return this._session!.logFile;
 	}
 
 	private handleIopubMsg(args: any[]) {

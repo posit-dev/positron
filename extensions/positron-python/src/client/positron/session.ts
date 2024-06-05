@@ -382,10 +382,6 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
         this._kernel?.showOutput();
     }
 
-    getLogfile(): string | undefined {
-        return this._kernel?.getLogFile();
-    }
-
     async forceQuit(): Promise<void> {
         if (this._kernel) {
             // Stop the LSP client before shutting down the kernel. We only give
@@ -501,14 +497,18 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
     }
 
     private async showExitMessageWithLogs(kernel: JupyterLanguageRuntimeSession): Promise<void> {
-        const logFilePath = kernel.getLogFile();
+        const logFilePath = kernel.getKernelLogFile();
 
         if (fs.existsSync(logFilePath)) {
             const lines = fs.readFileSync(logFilePath, 'utf8').split('\n');
+            // last line of logs before generated log tail
             const lastLine = lines.length - 3;
-            let logFileContent = lines.slice(lastLine - 1, lastLine).join('\n');
+            const logFileContent = lines.slice(lastLine - 1, lastLine).join('\n');
+
+            // see if obvious error, otherwise use generic text to logs
             const regex = /^(\w*Error)\b/m;
             const errortext = regex.test(logFileContent) ? logFileContent : Console.consoleExit;
+
             const res = await showErrorMessage(errortext, vscode.l10n.t('Open logs'));
             if (res) {
                 kernel.showOutput();

@@ -1021,6 +1021,6 @@ export class LanguageRuntimeSessionAdapter
 	}
 
 	public getKernelLogFile(): string {
-		return this._kernel.getLogFilePath()
+		return this._kernel.getKernelLogFilePath()
 	}
 }
