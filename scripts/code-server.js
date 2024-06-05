@@ -43,7 +43,8 @@ async function main() {
 	//
 	// TODO(jmcphers): Use a pre-built binary for this. This forumlation is for
 	// developers with locally built copies of the license issuer.
-	const positronIssuerPath = path.join(__dirname, '..', '..', 'positron-license', 'target', 'debug', 'pdol');
+	const positronIssuerPath = path.join(__dirname, '..', '..', 'positron-license', 'pdol', 'target', 'debug', 'pdol');
+
 	if (fs.existsSync(positronIssuerPath)) {
 		// Get the connection token from the set of server arguments (it's the first one after --connection-token).
 		const connectionTokenIndex = serverArgs.indexOf('--connection-token');

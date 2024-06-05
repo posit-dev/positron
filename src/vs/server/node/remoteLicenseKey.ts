@@ -36,22 +36,26 @@ export async function validateLicenseKey(connectionToken: string, args: ServerPa
 
 	// Check the command-line arguments for a license key.
 	if (args['license-key']) {
+		console.log('Checking Positron license key from the --license-key argument.');
 		return validateLicense(connectionToken, args['license-key']);
 	}
 
 	// Check to see if a license key file is provided as a command-line
 	// argument.
 	if (args['license-key-file']) {
+		console.log('Checking Positron license key from the file in the --license-key-file argument.');
 		return validateLicenseFile(connectionToken, args['license-key-file']);
 	}
 
 	// Check the POSITRON_LICENSE_KEY environment variable.
 	if (process.env.POSITRON_LICENSE_KEY) {
+		console.log('Checking Positron license key from the POSITRON_LICENSE_KEY environment variable.');
 		return validateLicense(connectionToken, process.env.POSITRON_LICENSE_KEY);
 	}
 
 	// Check the POSITRON_LICENSE_KEY_FILE environment variable.
 	if (process.env.POSITRON_LICENSE_KEY_FILE) {
+		console.log('Checking Positron license key from the file in the POSITRON_LICENSE_KEY_FILE environment variable.');
 		return validateLicenseFile(connectionToken, process.env.POSITRON_LICENSE_KEY_FILE);
 	}
 
@@ -144,5 +148,6 @@ export async function validateLicense(connectionToken: string, license: string):
 		return false;
 	}
 
+	console.log('Successfully validated Positron license key.');
 	return true;
 }
