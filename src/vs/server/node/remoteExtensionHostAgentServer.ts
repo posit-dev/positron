@@ -682,7 +682,7 @@ export async function createServer(address: string | net.AddressInfo | null, arg
 	// --- Start Positron ---
 	// Ensure that the connection token is mandatory
 	if (connectionToken.type !== ServerConnectionTokenType.Mandatory) {
-		console.warn('Positron requires a connection token in order secure the connection. Please provide a valid connection token.');
+		console.warn('Positron requires a connection token in order secure the connection. Please provide a valid connection token using the --connection-token or --connection-token-file argument.');
 		process.exit(1);
 	}
 	const mandatoryConnectionToken = connectionToken as MandatoryServerConnectionToken;
@@ -691,7 +691,6 @@ export async function createServer(address: string | net.AddressInfo | null, arg
 		// License warnings are logged in the validateLicenseKey function; at this point we just need to exit
 		process.exit(1);
 	}
-
 	// --- End Positron ---
 
 	// setting up error handlers, first with console.error, then, once available, using the log service
