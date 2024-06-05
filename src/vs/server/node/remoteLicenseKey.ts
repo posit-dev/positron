@@ -8,11 +8,27 @@ import * as path from 'vs/base/common/path';
 import * as crypto from 'crypto';
 
 /**
- * A license key.
+ * This file validates Positron license keys. Positron requires a license key to
+ * be provided in order to run in a hosted or managed environment.
+ *
+ * Positron license keys are JSON objects naming the connection token, timestamp,
+ * and a PKCS1 v1.5 cryptographic signature of the token and timestamp.
+ */
+
+/**
+ * The JSON data structure representing a license key.
  */
 interface LicenseKey {
+	/** The connection token associated with the license. */
 	connection_token: string;
+
+	/** The timestamp at which the license was issued. */
 	timestamp: string;
+
+	/**
+	 * A PKCS1 v1.5 cryptographic signature of the token and timestamp from a
+	 * valid Positron license issuing agent.
+	 */
 	signature: string;
 }
 
@@ -32,6 +48,20 @@ wLI1cjS6OIGq+tJ32cyvi3U+AwUnQ33+TsG1Si5g9txge8L7eGyfBUc3EL+tgo5p
 vAb1iFBg5jrsvhZzzZbIah1XHYAT+X43WaExwme18pzBAgMBAAE=
 -----END PUBLIC KEY-----`;
 
+/**
+ * Validates a license key. If any errors are encountered, they are logged to
+ * the console.
+ *
+ * For flexibility in hosting, there are a number of ways to provide a license key:
+ * - As a command-line argument with the --license-key flag.
+ * - As a file path with the --license-key-file flag.
+ * - As an environment variable named POSITRON_LICENSE_KEY.
+ * - As a file path in an environment variable named POSITRON_LICENSE_KEY_FILE.
+ *
+ * @param connectionToken The token to validate the license key against.
+ * @param args The parsed command-line arguments.
+ * @returns A promise that resolves to true if the license key is valid, or false if it is not.
+ */
 export async function validateLicenseKey(connectionToken: string, args: ServerParsedArgs): Promise<boolean> {
 
 	// Check the command-line arguments for a license key.
@@ -68,11 +98,19 @@ export async function validateLicenseKey(connectionToken: string, args: ServerPa
 		}
 	}
 
+	// We need at least one license key to proceed.
 	console.error('No license key provided. A license key is required to use Positron in a hosted environment. Provide a license key with the --license-key or --license-key-file command-line arguments, or set the POSITRON_LICENSE_KEY or POSITRON_LICENSE_KEY_FILE environment variables.');
 
 	return false;
 }
 
+/**
+ * Validates a license file.
+ *
+ * @param connectionToken The connection token.
+ * @param licenseFile The path to the license file.
+ * @returns True if the license file is valid, or false if it is not.
+ */
 export async function validateLicenseFile(connectionToken: string, licenseFile: string): Promise<boolean> {
 	if (!fs.existsSync(licenseFile)) {
 		console.error('License file does not exist: ', licenseFile);
@@ -97,7 +135,7 @@ export async function validateLicenseFile(connectionToken: string, licenseFile: 
  * @returns A promise that resolves to true if the license key is valid, or false if it is not.
  */
 export async function validateLicense(connectionToken: string, license: string): Promise<boolean> {
-	// Parse the license key.
+	// Parse the license key JSON.
 	let licenseKey: LicenseKey;
 	try {
 		licenseKey = JSON.parse(license);

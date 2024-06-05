@@ -680,7 +680,8 @@ export async function createServer(address: string | net.AddressInfo | null, arg
 	}
 
 	// --- Start Positron ---
-	// Ensure that the connection token is mandatory
+	// Ensure that the connection token is mandatory. Since Positron license
+	// keys sign the connection token, we can't proceed without one.
 	if (connectionToken.type !== ServerConnectionTokenType.Mandatory) {
 		console.warn('Positron requires a connection token in order secure the connection. Please provide a valid connection token using the --connection-token or --connection-token-file argument.');
 		process.exit(1);

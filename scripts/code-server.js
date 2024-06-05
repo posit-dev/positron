@@ -41,7 +41,7 @@ async function main() {
 	// is only common for developer setups; typically licenses keys are issued
 	// by the environment in which Positron is hosted.
 	//
-	// TODO(jmcphers): Use a pre-built binary for this. This forumlation is for
+	// TODO(jmcphers): Use a pre-built binary for this. This formulation is for
 	// developers with locally built copies of the license issuer.
 	const positronIssuerPath = path.join(__dirname, '..', '..', 'positron-license', 'pdol', 'target', 'debug', 'pdol');
 

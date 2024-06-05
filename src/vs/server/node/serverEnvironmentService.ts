@@ -222,6 +222,9 @@ export interface ServerParsedArgs {
 	_: string[];
 
 	// --- Start Positron ---
+	// These fields are used by the server version of Positron to supply a
+	// license that validates that the connection token originates from an
+	// authorized (licensed) source.
 	'license-key-file'?: string;
 	'license-key'?: string;
 	// --- End Positron ---
