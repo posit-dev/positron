@@ -35,6 +35,11 @@ export class PositronDataExplorer {
 
 		await this.code.waitForElement(IDLE_STATUS);
 
+		// we have seen intermittent failures where the data explorer is not fully loaded
+		// even though the status bar is idle. This wait is to ensure the data explorer is fully loaded
+		// chosing 100ms as a safe wait time because waitForElement polls at 100ms
+		await this.code.wait(100);
+
 		const headers = await this.code.waitForElements(`${COLUMN_HEADERS} ${HEADER_TITLES}`, false);
 		const rows = await this.code.waitForElements(`${DATA_GRID_ROWS} ${DATA_GRID_ROW}`, true);
 		const headerNames = headers.map((header) => header.textContent);
