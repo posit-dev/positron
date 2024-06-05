@@ -112,8 +112,8 @@ export class DataExplorerClientInstance extends Disposable {
 		super();
 
 		this._dataFormatOptions = {
-			large_num_digits: 6,
-			small_num_digits: 6,
+			large_num_digits: 2,
+			small_num_digits: 4,
 			max_integral_digits: 7,
 			thousands_sep: ','
 		};
