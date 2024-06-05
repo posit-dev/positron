@@ -556,7 +556,7 @@ def test_pandas_get_schema(dxf: DataExplorerFixture):
             "column_name": "f",
             "column_index": 5,
             "type_name": "mixed",
-            "type_display": "unknown",
+            "type_display": "object",
         },
         {
             "column_name": "g",

@@ -148,7 +148,7 @@ export async function registerCommands(context: vscode.ExtensionContext) {
 				const filePath = await getEditorFilePathForCommand();
 				if (filePath) {
 					const command = `source(${filePath})`;
-					positron.runtime.executeCode('r', command, true);
+					positron.runtime.executeCode('r', command, false);
 				}
 			} catch (e) {
 				// This is not a valid file path, which isn't an error; it just

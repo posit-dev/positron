@@ -692,7 +692,7 @@ class PandasView(DataExplorerTableView):
         "float64": "number",
         "mixed-integer": "number",
         "mixed-integer-float": "number",
-        "mixed": "unknown",
+        "mixed": "object",
         "decimal": "number",
         "complex": "number",
         "categorical": "categorical",
