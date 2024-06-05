@@ -506,7 +506,7 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
             const lines = fs.readFileSync(logFilePath, 'utf8').split('\n');
             const lastLine = lines.length - 3;
             const logFileContent = lines.slice(lastLine - 1, lastLine).join('\n');
-            const res = await showErrorMessage(logFileContent, vscode.l10n.t('Open output'));
+            const res = await showErrorMessage(logFileContent, vscode.l10n.t('Open logs'));
             if (res) {
                 kernel.showOutput();
             }
