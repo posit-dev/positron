@@ -737,6 +737,18 @@ def test_inspect_pandas_series() -> None:
     )
 
 
+def test_inspect_pandas_series_duplicate_labels() -> None:
+    # #3388
+    value = pd.Series([0, 1, 2, 3], index=[0, 1, 0, 1])
+
+    inspector = get_inspector(value)
+    assert list(inspector.get_children()) == [0, 1, 2, 3]
+    assert inspector.get_child(0) == 0
+    assert inspector.get_child(1) == 1
+    assert inspector.get_child(2) == 2
+    assert inspector.get_child(3) == 3
+
+
 def test_inspect_polars_dataframe() -> None:
     value = pl.DataFrame({"a": [1, 2], "b": [3, 4]})
     rows, cols = value.shape
@@ -779,8 +791,8 @@ def test_inspect_polars_series() -> None:
 @pytest.mark.parametrize(
     ("data", "expected"),
     [
-        (pd.Series({"a": 0, "b": 1}), ["a", "b"]),
-        (pl.Series([0, 1]), range(0, 2)),
+        (pd.Series({"a": 0, "b": 1}), range(2)),
+        (pl.Series([0, 1]), range(2)),
         (pd.DataFrame({"a": [1, 2], "b": ["3", "4"]}), ["a", "b"]),
         (pl.DataFrame({"a": [1, 2], "b": ["3", "4"]}), ["a", "b"]),
         (pd.Index([0, 1]), range(0, 2)),
@@ -805,7 +817,7 @@ def test_get_children(data: Any, expected: Iterable) -> None:
     ("value", "key", "expected"),
     [
         (helper, "fn_no_args", helper.fn_no_args),
-        (pd.Series({"a": 0, "b": 1}), "a", 0),
+        (pd.Series({"a": 0, "b": 1}), 0, 0),
         (pl.Series([0, 1]), 0, 0),
         (
             pd.DataFrame({"a": [1, 2], "b": ["3", "4"]}),

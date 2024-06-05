@@ -769,8 +769,15 @@ class BaseColumnInspector(_BaseMapInspector[Column], ABC):
 class PandasSeriesInspector(BaseColumnInspector["pd.Series"]):
     CLASS_QNAME = "pandas.core.series.Series"
 
-    def get_children(self) -> Collection[Any]:
-        return self.value.index
+    # Per #3388: because the index can contain duplicates, we need to
+    # return integers as children for now until we can separate the
+    # access key from what is displayed to the user in the variables
+    # inspection response.
+    # def get_children(self) -> Collection[Any]:
+    #     return self.value.index
+
+    def get_child(self, key: int) -> Any:
+        return self.value.iloc[key]
 
     def get_kind(self) -> str:
         # #2215 -- we are temporarily reclassifying Series as a table
