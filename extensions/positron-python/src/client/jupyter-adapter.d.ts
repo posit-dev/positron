@@ -78,6 +78,11 @@ export interface JupyterLanguageRuntimeSession extends positron.LanguageRuntimeS
      * response.
      */
     callMethod(method: string, ...args: Array<any>): Promise<any>;
+
+    /**
+     * Return logfile path
+     */
+    getLogFile(): string;
 }
 
 /**

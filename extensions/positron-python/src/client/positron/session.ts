@@ -7,6 +7,7 @@
 
 // eslint-disable-next-line import/no-unresolved
 import * as positron from 'positron';
+import * as fs from 'fs';
 import * as vscode from 'vscode';
 import PQueue from 'p-queue';
 import { PythonExtension } from '../api/types';
@@ -33,6 +34,7 @@ import { JediLanguageServerAnalysisOptions } from '../activation/jedi/analysisOp
 import { ILanguageServerOutputChannel } from '../activation/types';
 import { IWorkspaceService } from '../common/application/types';
 import { IInterpreterService } from '../interpreter/contracts';
+import { showErrorMessage } from '../common/vscodeApis/windowApis';
 
 /**
  * A Positron language runtime that wraps a Jupyter kernel and a Language Server
@@ -379,6 +381,10 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
         this._kernel?.showOutput();
     }
 
+    getLogfile(): string | undefined {
+        return this._kernel?.getLogFile();
+    }
+
     async forceQuit(): Promise<void> {
         if (this._kernel) {
             // Stop the LSP client before shutting down the kernel. We only give
@@ -434,8 +440,11 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
         kernel.onDidReceiveRuntimeMessage((message) => {
             this._messageEmitter.fire(message);
         });
-        kernel.onDidEndSession((exit) => {
+        kernel.onDidEndSession(async (exit) => {
             this._exitEmitter.fire(exit);
+            if (exit.exit_code != 0) {
+                await this.showExitMessageWithLogs(kernel);
+            }
         });
         return kernel;
     }
@@ -486,6 +495,19 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
                     }
                     await this._lsp?.deactivate(false);
                 });
+            }
+        }
+    }
+    private async showExitMessageWithLogs(kernel: JupyterLanguageRuntimeSession): Promise<void> {
+        const logFilePath = kernel.getLogFile();
+
+        if (fs.existsSync(logFilePath)) {
+            const lines = fs.readFileSync(logFilePath, 'utf8').split('\n');
+            const lastLine = lines.length - 3;
+            const logFileContent = lines.slice(lastLine - 1, lastLine).join('\n');
+            const res = await showErrorMessage(logFileContent, vscode.l10n.t('Open output'));
+            if (res) {
+                kernel.showOutput();
             }
         }
     }

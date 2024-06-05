@@ -78,7 +78,6 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 
 	// The current startup phase; an observeable value.
 	private _startupPhase: ISettableObservable<RuntimeStartupPhase>;
-	private readonly _commandService: ICommandService;
 
 	onDidChangeRuntimeStartupPhase: Event<RuntimeStartupPhase>;
 
@@ -257,7 +256,6 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 				}
 			}
 		});
-		this._commandService = commandService;
 		// Register a shutdown event handler to clear the workspace sessions to
 		// prepare for a clean start of Positron next time.
 		this._lifecycleService.onBeforeShutdown((e) => {
@@ -797,9 +795,9 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 
 		this._notificationService.prompt(Severity.Warning, msg, [
 			{
-				label: 'Open logile',
+				label: nls.localize('openOutputPanel', 'Open Output'),
 				run: () => {
-					this._commandService.executeCommand('workbench.action.openLogFile');
+					session.showOutput()
 				}
 			},
 		]);

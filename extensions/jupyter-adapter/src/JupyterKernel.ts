@@ -355,6 +355,10 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 		return this.establishSocketListeners();
 	}
 
+	public getLogFilePath() {
+		return this._session!.state.logFile;
+	}
+
 	private handleIopubMsg(args: any[]) {
 		// Deserialize the message
 		const msg = deserializeJupyterMessage(args, this._session!.key, this._channel);
@@ -1468,17 +1472,6 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 							this.log(`Could not parse exit code in last line of log file ` +
 								`${state.logFile}: ${lastLine}`);
 						}
-						// don't surface errors for normal exit status
-						if (exitCode != 0) {
-							const endIndex = lines.findIndex(line => line.startsWith('*** Log ended'));
-
-							const logFileContent = lines.slice(endIndex - 1, endIndex).join('\n');
-							const regex = /^(\w*Error)\b/m;
-							// check to see if there is an error to surface
-							if (regex.test(logFileContent)) {
-								this.showErrorMessage(logFileContent, state.logFile);
-							}
-						}
 					} catch (e) {
 						this.log(`Could not find exit code in last line of log file ` +
 							`${state.logFile}: ${lastLine} (${e}))`);
@@ -1588,17 +1581,6 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 	 */
 	public showOutput() {
 		this._logChannel?.show();
-	}
-
-	/**
-	* Show error from logs in message and give link to logfile
-	*/
-	public async showErrorMessage(errorMessage: string, logfile: string) {
-		const res = await vscode.window.showErrorMessage(errorMessage, vscode.l10n.t('Open logfile'));
-		if (res) {
-			const textDocument = await vscode.workspace.openTextDocument(logfile);
-			await vscode.window.showTextDocument(textDocument);
-		}
 	}
 
 	/**
