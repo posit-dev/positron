@@ -1020,7 +1020,7 @@ export class LanguageRuntimeSessionAdapter
 		await this._kernel.dispose();
 	}
 
-	public getLogFile(): string {
+	public getKernelLogFile(): string {
 		return this._kernel.getLogFilePath()
 	}
 }
