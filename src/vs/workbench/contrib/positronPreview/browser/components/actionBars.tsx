@@ -86,9 +86,10 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 
 	// Handler for the reload button.
 	const reloadHandler = () => {
-		// Reload the current URL by navigating to it again. This will bump the
-		// nonce in the URL to help bust the cache on reload.
-		props.preview.navigateToUri(props.preview.currentUri);
+		props.preview.webview.postMessage({
+			channel: 'execCommand',
+			data: 'reload-window'
+		});
 	};
 
 	// Handler for the clear button.

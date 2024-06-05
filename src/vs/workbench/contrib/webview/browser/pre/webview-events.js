@@ -44,6 +44,9 @@ const handlePostMessage = (event) => {
 		} else if (command === 'navigate-forward') {
 			window.history.forward();
 			return;
+		} else if (command === 'reload-window') {
+			window.location.reload();
+			return;
 		}
 
 		// Otherwise, execute the command in the document.
