@@ -500,19 +500,20 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 				// If the shift key is pressed, do not process the event because the user is
 				// entering multiple lines.
 				if (e.shiftKey) {
-					return;
+					break;
 				}
 
 				// If the console instance isn't ready, ignore the event.
 				if (props.positronConsoleInstance.state !== PositronConsoleState.Ready) {
-					return;
+					break;
 				}
 
 				// Try to execute the code editor widget's code.
-				if (await executeCodeEditorWidgetCodeIfPossible()) {
-					// Only consume the event if the code was executed. Otherwise, let the code
-					// editor widget handle the key event.
-					consumeEvent();
+				// Consume the event before the await to prevent it from being handled concurrently.
+				consumeEvent();
+				if (!await executeCodeEditorWidgetCodeIfPossible()) {
+					// The code was not executed, insert a new line.
+					positronConsoleContext.commandService.executeCommand('editor.action.insertLineAfter');
 				}
 
 				break;
