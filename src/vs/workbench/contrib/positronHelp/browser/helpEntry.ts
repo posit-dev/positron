@@ -360,6 +360,12 @@ export class HelpEntry extends Disposable implements IHelpEntry, WebviewFindDele
 			this._setTitleTimeout = undefined;
 		}
 
+		// Clear the webview claim timeout.
+		if (this._claimTimeout) {
+			clearTimeout(this._claimTimeout);
+			this._claimTimeout = undefined;
+		}
+
 		// Clear the dispose timeout.
 		if (this._disposeTimeout) {
 			clearTimeout(this._disposeTimeout);
