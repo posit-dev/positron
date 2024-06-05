@@ -11,8 +11,11 @@ import * as crypto from 'crypto';
  * This file validates Positron license keys. Positron requires a license key to
  * be provided in order to run in a hosted or managed environment.
  *
- * Positron license keys are JSON objects naming the connection token, timestamp,
- * and a PKCS1 v1.5 cryptographic signature of the token and timestamp.
+ * Positron license keys are JSON objects naming the connection token, issuer,
+ * licensee, timestamp, and a PKCS1 v1.5 cryptographic signature of all of the
+ * above.
+ *
+ * The signature is verified using an embedded public key.
  */
 
 /**
@@ -21,6 +24,18 @@ import * as crypto from 'crypto';
 interface LicenseKey {
 	/** The connection token associated with the license. */
 	connection_token: string;
+
+	/**
+	 * The name of the entity that issued the license; usually the hosted
+	 * environment.
+	 */
+	issuer: string;
+
+	/**
+	 * The name of the entity to which Positron is licensed, such as an individual
+	 * or a company.
+	 */
+	licensee: string;
 
 	/** The timestamp at which the license was issued. */
 	timestamp: string;
@@ -179,7 +194,10 @@ export async function validateLicense(connectionToken: string, license: string):
 
 	// Verify the signature.
 	const verifier = crypto.createVerify('sha256');
-	verifier.update(licenseKey.connection_token + licenseKey.timestamp);
+	verifier.update(licenseKey.connection_token);
+	verifier.update(licenseKey.issuer);
+	verifier.update(licenseKey.licensee);
+	verifier.update(licenseKey.timestamp);
 	const signature = Buffer.from(licenseKey.signature, 'base64');
 	if (!verifier.verify(publicKey, signature)) {
 		console.error('Invalid license key; signature is invalid: ', licenseKey.signature);
