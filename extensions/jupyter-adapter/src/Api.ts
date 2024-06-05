@@ -105,5 +105,4 @@ export class JupyterAdapterApiImpl implements JupyterAdapterApi {
 
 	dispose() {
 	}
-
 }
