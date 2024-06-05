@@ -274,10 +274,6 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 		});
 	}
 
-
-	protected _triggerCommand(handlerId: string, payload: any): void {
-		this._commandService.executeCommand(handlerId, payload);
-	}
 	/**
 	 * The main entry point for the runtime startup service.
 	 */
