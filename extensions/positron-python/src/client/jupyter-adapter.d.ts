@@ -132,6 +132,11 @@ export interface JupyterAdapterApi extends vscode.Disposable {
      * @returns An available TCP port
      */
     findAvailablePort(excluding: Array<number>, maxTries: number): Promise<number>;
+
+    /**
+     * Return logfile path
+     */
+    getKernelLogFile(): string;
 }
 
 /** Specific functionality implemented by runtimes */
