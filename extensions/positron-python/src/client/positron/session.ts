@@ -442,7 +442,7 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
         });
         kernel.onDidEndSession(async (exit) => {
             this._exitEmitter.fire(exit);
-            if (exit.exit_code != 0) {
+            if (exit.exit_code !== 0) {
                 await this.showExitMessageWithLogs(kernel);
             }
         });
@@ -498,6 +498,7 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
             }
         }
     }
+
     private async showExitMessageWithLogs(kernel: JupyterLanguageRuntimeSession): Promise<void> {
         const logFilePath = kernel.getLogFile();
 
