@@ -368,9 +368,15 @@ export class TableDataDataGridInstance extends DataGridInstance {
 		anchorElement: HTMLElement,
 		anchorPoint: AnchorPoint
 	): Promise<void> {
+		/**
+		 * Get the column sort key for the column.
+		 */
+		const columnSortKey = this.columnSortKey(columnIndex);
+
 		// Build the entries.
 		const entries: CustomContextMenuEntry[] = [];
 		entries.push(new CustomContextMenuItem({
+			checked: false,
 			commandId: PositronDataExplorerCommandId.CopyAction,
 			icon: 'copy',
 			label: localize('positron.dataExplorer.copy', "Copy"),
@@ -378,16 +384,59 @@ export class TableDataDataGridInstance extends DataGridInstance {
 		}));
 		entries.push(new CustomContextMenuSeparator());
 		entries.push(new CustomContextMenuItem({
+			checked: false,
 			icon: 'positron-select-column',
 			label: localize('positron.dataExplorer.selectColumn', "Select Column"),
 			disabled: this.columnSelectionState(columnIndex) !== ColumnSelectionState.None,
 			onSelected: () => this.selectColumn(columnIndex)
 		}));
 		entries.push(new CustomContextMenuItem({
+			checked: false,
 			icon: 'positron-select-row',
 			label: localize('positron.dataExplorer.selectRow', "Select Row"),
 			disabled: this.rowSelectionState(rowIndex) !== RowSelectionState.None,
 			onSelected: () => this.selectRow(rowIndex)
+		}));
+		entries.push(new CustomContextMenuSeparator());
+		entries.push(new CustomContextMenuItem({
+			checked: columnSortKey !== undefined && columnSortKey.ascending,
+			icon: 'arrow-up',
+			label: localize('positron.sortAscending', "Sort Ascending"),
+			onSelected: async () => this.setColumnSortKey(
+				columnIndex,
+				true
+			)
+		}));
+		entries.push(new CustomContextMenuItem({
+			checked: columnSortKey !== undefined && !columnSortKey.ascending,
+			icon: 'arrow-down',
+			label: localize('positron.sortDescending', "Sort Descending"),
+			onSelected: async () => this.setColumnSortKey(
+				columnIndex,
+				false
+			)
+		}));
+		entries.push(new CustomContextMenuSeparator());
+		entries.push(new CustomContextMenuItem({
+			checked: false,
+			icon: 'positron-clear-sorting',
+			label: localize('positron.clearSorting', "Clear Sorting"),
+			disabled: !columnSortKey,
+			onSelected: async () =>
+				this.removeColumnSortKey(columnIndex)
+		}));
+		entries.push(new CustomContextMenuSeparator());
+		entries.push(new CustomContextMenuItem({
+			checked: false,
+			icon: 'positron-add-filter',
+			label: addFilterTitle,
+			disabled: false,
+			onSelected: () => {
+				const columnSchema = this._dataExplorerCache.getColumnSchema(columnIndex);
+				if (columnSchema) {
+					this._onAddFilterEmitter.fire(columnSchema);
+				}
+			}
 		}));
 
 		// Show the context menu.
