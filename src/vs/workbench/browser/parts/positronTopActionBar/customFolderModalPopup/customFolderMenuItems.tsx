@@ -22,8 +22,6 @@ import { CustomFolderMenuItem } from 'vs/workbench/browser/parts/positronTopActi
 import { CustomFolderMenuSeparator } from 'vs/workbench/browser/parts/positronTopActionBar/customFolderModalPopup/customFolderMenuSeparator';
 import { CustomFolderRecentlyUsedMenuItem } from 'vs/workbench/browser/parts/positronTopActionBar/customFolderModalPopup/customFolderRecentlyUsedMenuItem';
 import { PositronNewFolderAction, PositronNewFolderFromGitAction, PositronNewProjectAction, PositronOpenFolderInNewWindowAction } from 'vs/workbench/browser/actions/positronActions';
-import { IsDevelopmentContext } from 'vs/platform/contextkey/common/contextkeys';
-import { USE_POSITRON_PROJECT_WIZARD_CONFIG_KEY } from 'vs/workbench/services/positronNewProject/common/positronNewProjectEnablement';
 
 /**
  * Constants.
@@ -145,20 +143,10 @@ export const CustomFolderMenuItems = (props: CustomFolderMenuItemsProps) => {
 		);
 	};
 
-	{/* TODO: [New Project] Remove feature flag when New Project action is ready for release */ }
-	{/* This removes the action from the custom folder menu in the action bar when when not in a development context */ }
-	const projectWizardEnabled =
-		ContextKeyExpr.deserialize(
-			`config.${USE_POSITRON_PROJECT_WIZARD_CONFIG_KEY}`
-		);
-
 	// Render.
 	return (
 		<div className='custom-folder-menu-items'>
-			<CommandActionCustomFolderMenuItem
-				id={PositronNewProjectAction.ID}
-				when={ContextKeyExpr.or(projectWizardEnabled, IsDevelopmentContext)}
-			/>
+			<CommandActionCustomFolderMenuItem id={PositronNewProjectAction.ID} />
 			<CommandActionCustomFolderMenuItem id={PositronNewFolderAction.ID} />
 			<CommandActionCustomFolderMenuItem id={PositronNewFolderFromGitAction.ID} />
 			<CustomFolderMenuSeparator />

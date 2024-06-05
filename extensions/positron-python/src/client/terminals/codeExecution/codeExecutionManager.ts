@@ -112,7 +112,7 @@ export class CodeExecutionManager implements ICodeExecutionManager {
                     // to ensure that it is properly escaped.
                     if (fsStat) {
                         const command = `%run ${JSON.stringify(filePath)}`;
-                        positron.runtime.executeCode('python', command, true, true);
+                        positron.runtime.executeCode('python', command, false, true);
                     }
                 } catch (e) {
                     // This is not a valid file path, which isn't an error; it just

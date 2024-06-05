@@ -264,6 +264,12 @@ export class HelpEntry extends Disposable implements IHelpEntry, WebviewFindDele
 	private _setTitleTimeout?: NodeJS.Timeout;
 
 	/**
+	 * Timeout for claiming and layouting the help overlay webview. This is needed because sometimes
+	 * we put the overlap webview on a timeout to avoid the layout over a 0 height element.
+	 */
+	private _claimTimeout?: NodeJS.Timeout;
+
+	/**
 	 * Gets or sets the dispose timeout. This timeout is used to schedule the disposal of the help
 	 * overlay webview.
 	 */
@@ -352,6 +358,12 @@ export class HelpEntry extends Disposable implements IHelpEntry, WebviewFindDele
 		if (this._setTitleTimeout) {
 			clearTimeout(this._setTitleTimeout);
 			this._setTitleTimeout = undefined;
+		}
+
+		// Clear the webview claim timeout.
+		if (this._claimTimeout) {
+			clearTimeout(this._claimTimeout);
+			this._claimTimeout = undefined;
 		}
 
 		// Clear the dispose timeout.
@@ -558,8 +570,39 @@ export class HelpEntry extends Disposable implements IHelpEntry, WebviewFindDele
 
 		// Claim and layout the help overlay webview.
 		this._element = element;
-		this._helpOverlayWebview.claim(this._element, DOM.getWindow(element), undefined);
-		this._helpOverlayWebview.layoutWebviewOverElement(this._element);
+		const helpOverlayWebview = this._helpOverlayWebview;
+
+		// If the help pane is currently collapsed, aka has a height of 0, running the layout and
+		// claim logic will result in a 0-height help-pane. Not super useful. To deal with this we
+		// run a few checks to make sure that the pane has time to animate open and finish its
+		// animation before we show content.  Otherwise the webview will try and layout over a 0
+		// height element and thus the help pane will be empty after expanding.
+		let previousHeight = element.clientHeight;
+		let numberOfChecks = 0;
+		const maxNumberOfChecks = 12;
+		const waitBetweenChecksMs = 20;
+		const claimAndLayoutWebview = () => {
+			const currentHeight = element.clientHeight;
+
+			const finishedAnimating = currentHeight !== 0 && currentHeight === previousHeight;
+			const hasExceededMaxChecks = numberOfChecks >= maxNumberOfChecks;
+
+			if (finishedAnimating || hasExceededMaxChecks) {
+				helpOverlayWebview.claim(element, DOM.getWindow(element), undefined);
+				helpOverlayWebview.layoutWebviewOverElement(element);
+				return;
+			}
+
+			previousHeight = currentHeight;
+			numberOfChecks++;
+			this._claimTimeout = setTimeout(claimAndLayoutWebview, waitBetweenChecksMs);
+		};
+		// By clearing this timeout we prevent clashing that could be caused by rapidfire calling of
+		// `this.showHelpOverlayWebview()` that can be caused by resize events like dragging the
+		// sidebar wider etc..
+		clearTimeout(this._claimTimeout);
+
+		claimAndLayoutWebview();
 	}
 
 	/**

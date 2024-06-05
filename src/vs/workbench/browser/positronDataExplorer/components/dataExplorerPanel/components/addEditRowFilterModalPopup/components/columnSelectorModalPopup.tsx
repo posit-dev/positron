@@ -26,7 +26,7 @@ interface ColumnSelectorModalPopupProps {
 	readonly configurationService: IConfigurationService;
 	readonly renderer: PositronModalReactRenderer;
 	readonly columnSelectorDataGridInstance: ColumnSelectorDataGridInstance;
-	readonly anchor: HTMLElement;
+	readonly anchorElement: HTMLElement;
 	readonly onItemHighlighted: (columnSchema: ColumnSchema) => void;
 	readonly onItemSelected: (columnSchema: ColumnSchema) => void;
 }
@@ -63,10 +63,10 @@ export const ColumnSelectorModalPopup = (props: ColumnSelectorModalPopupProps) =
 	return (
 		<PositronModalPopup
 			renderer={props.renderer}
-			anchor={props.anchor}
+			anchorElement={props.anchorElement}
 			popupPosition='bottom'
 			popupAlignment='left'
-			width={props.anchor.offsetWidth}
+			width={props.anchorElement.offsetWidth}
 			height={'min-content'}
 			focusableElementSelectors='input[type="text"],div[id=column-positron-data-grid]'
 			keyboardNavigation='dialog'

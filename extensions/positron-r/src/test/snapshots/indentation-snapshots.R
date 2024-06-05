@@ -371,9 +371,34 @@ foo() +
 foo() +
     bar("<>") +
     baz()
+
 # ->
 foo() +
     bar(
         "<>"
     ) +
     baz()
+
+# ---
+# Indentation inside braces (function)
+# https://github.com/posit-dev/positron/issues/3378
+function() {
+    foo"<>"
+}
+
+# ->
+function() {
+    foo
+    "<>"
+}
+
+# ---
+# Indentation inside braces (deep)
+foo(function() {
+    bar"<>"
+})
+# ->
+foo(function() {
+    bar
+    "<>"
+})

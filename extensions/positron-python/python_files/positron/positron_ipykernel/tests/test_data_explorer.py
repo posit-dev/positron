@@ -4,6 +4,7 @@
 
 # ruff: noqa: E712
 
+from datetime import datetime
 from io import StringIO
 from typing import Any, Dict, List, Optional, Type, cast
 
@@ -555,7 +556,7 @@ def test_pandas_get_schema(dxf: DataExplorerFixture):
             "column_name": "f",
             "column_index": 5,
             "type_name": "mixed",
-            "type_display": "unknown",
+            "type_display": "object",
         },
         {
             "column_name": "g",
@@ -1039,6 +1040,27 @@ def test_pandas_filter_compare(dxf: DataExplorerFixture):
     for op, op_func in COMPARE_OPS.items():
         filt = _compare_filter(schema[0], op, 3)
         expected_df = df[op_func(df[column], 3)]
+        dxf.check_filter_case(df, [filt], expected_df)
+
+
+def test_pandas_filter_datetimetz(dxf: DataExplorerFixture):
+    import pytz
+
+    tz = pytz.timezone("US/Eastern")
+
+    df = pd.DataFrame(
+        {
+            "date": pd.date_range("2000-01-01", periods=5, tz="US/Eastern"),
+        }
+    )
+    dxf.register_table("dtz", df)
+    schema = dxf.get_schema("dtz")
+
+    val = datetime(2000, 1, 3, tzinfo=tz)
+
+    for op, op_func in COMPARE_OPS.items():
+        filt = _compare_filter(schema[0], op, "2000-01-03")
+        expected_df = df[op_func(df["date"], val)]
         dxf.check_filter_case(df, [filt], expected_df)
 
 

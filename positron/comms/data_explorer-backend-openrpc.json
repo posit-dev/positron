@@ -335,6 +335,7 @@
 					"date",
 					"datetime",
 					"time",
+					"object",
 					"array",
 					"struct",
 					"unknown"

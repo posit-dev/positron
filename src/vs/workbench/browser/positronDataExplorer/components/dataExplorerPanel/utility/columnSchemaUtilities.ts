@@ -34,6 +34,9 @@ export const columnSchemaDataTypeIcon = (columnSchema?: ColumnSchema) => {
 		case ColumnDisplayType.Time:
 			return 'codicon-positron-data-type-time';
 
+		case ColumnDisplayType.Object:
+			return 'codicon-positron-data-type-object';
+
 		case ColumnDisplayType.Array:
 			return 'codicon-positron-data-type-array';
 

@@ -14,6 +14,7 @@ import warnings
 from pathlib import Path
 from typing import Any, Callable, Container, Dict, List, Optional, Type, cast
 
+import psutil
 import traitlets
 from ipykernel.comm.manager import CommManager
 from ipykernel.compiler import get_tmp_directory
@@ -473,6 +474,24 @@ class PositronIPyKernel(IPythonKernel):
         # stop the event loop at the same time as self.shutdown_request (since self.shell_stream.io_loop
         # points to the same underlying asyncio loop).
         return dict(status="ok", restart=restart)
+
+    def _signal_children(self, signum: int) -> None:
+        super()._signal_children(signum)
+
+        # Reap zombie processes.
+        # See https://github.com/posit-dev/positron/issues/3344
+        children: List[psutil.Process] = self._process_children()
+        for child in children:
+            if child.status() == psutil.STATUS_ZOMBIE:
+                self.log.debug("Reaping zombie subprocess %s", child)
+                try:
+                    # Non-blocking wait since timeout is 0. If the process is still alive, it'll
+                    # raise a TimeoutExpired.
+                    child.wait(timeout=0)
+                except psutil.TimeoutExpired as exception:
+                    self.log.warning(
+                        "Error while reaping zombie subprocess %s: %s", child, exception
+                    )
 
     # monkey patching warning.showwarning is recommended by the official documentation
     # https://docs.python.org/3/library/warnings.html#warnings.showwarning

@@ -401,6 +401,13 @@ export class LanguageRuntimeSessionAdapter
 	}
 
 	/**
+	 * Show profiler log in output panel.
+	 */
+	public async showProfile() {
+		await this._kernel.showProfile();
+	}
+
+	/**
 	 * Creates a new client instance.
 	 *
 	 * @param id The client-supplied ID of the client to create
@@ -1021,5 +1028,9 @@ export class LanguageRuntimeSessionAdapter
 
 		// Tell the kernel to shut down
 		await this._kernel.dispose();
+	}
+
+	public getKernelLogFile(): string {
+		return this._kernel.getKernelLogFilePath()
 	}
 }
