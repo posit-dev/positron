@@ -57,7 +57,10 @@ class PositronDataExplorerContribution extends Disposable {
 							PositronDataExplorerEditorInput,
 							resource
 						),
-						options
+						options: {
+							...options,
+							pinned: true
+						}
 					};
 				}
 			}
