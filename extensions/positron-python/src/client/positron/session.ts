@@ -35,6 +35,7 @@ import { ILanguageServerOutputChannel } from '../activation/types';
 import { IWorkspaceService } from '../common/application/types';
 import { IInterpreterService } from '../interpreter/contracts';
 import { showErrorMessage } from '../common/vscodeApis/windowApis';
+import { Console } from '../common/utils/localize';
 
 /**
  * A Positron language runtime that wraps a Jupyter kernel and a Language Server
@@ -505,8 +506,10 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
         if (fs.existsSync(logFilePath)) {
             const lines = fs.readFileSync(logFilePath, 'utf8').split('\n');
             const lastLine = lines.length - 3;
-            const logFileContent = lines.slice(lastLine - 1, lastLine).join('\n');
-            const res = await showErrorMessage(logFileContent, vscode.l10n.t('Open logs'));
+            let logFileContent = lines.slice(lastLine - 1, lastLine).join('\n');
+            const regex = /^(\w*Error)\b/m;
+            const errortext = regex.test(logFileContent) ? logFileContent : Console.consoleExit;
+            const res = await showErrorMessage(errortext, vscode.l10n.t('Open logs'));
             if (res) {
                 kernel.showOutput();
             }
