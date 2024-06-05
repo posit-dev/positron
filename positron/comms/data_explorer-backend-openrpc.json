@@ -332,7 +332,7 @@
 					"number",
 					"boolean",
 					"string",
-					"date"
+					"date",
 					"datetime",
 					"time",
 					"object",
