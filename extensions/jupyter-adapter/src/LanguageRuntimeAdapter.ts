@@ -1029,4 +1029,8 @@ export class LanguageRuntimeSessionAdapter
 		// Tell the kernel to shut down
 		await this._kernel.dispose();
 	}
+
+	public getKernelLogFile(): string {
+		return this._kernel.getKernelLogFilePath()
+	}
 }

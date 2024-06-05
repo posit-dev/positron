@@ -18,8 +18,9 @@ import { ISettableObservable, observableValue } from 'vs/base/common/observableI
 import { ExtensionsRegistry } from 'vs/workbench/services/extensions/common/extensionsRegistry';
 import { ExtensionIdentifier } from 'vs/platform/extensions/common/extensions';
 import { ILifecycleService, ShutdownReason, StartupKind } from 'vs/workbench/services/lifecycle/common/lifecycle';
-import { INotificationService } from 'vs/platform/notification/common/notification';
+import { INotificationService, Severity } from 'vs/platform/notification/common/notification';
 import { IWorkspaceTrustManagementService } from 'vs/platform/workspace/common/workspaceTrust';
+import { ICommandService } from 'vs/platform/commands/common/commands';
 import { URI } from 'vs/base/common/uri';
 import { IWorkspaceContextService, WorkbenchState } from 'vs/platform/workspace/common/workspace';
 import { IPositronNewProjectService } from 'vs/workbench/services/positronNewProject/common/positronNewProject';
@@ -84,6 +85,7 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 
 	constructor(
 		@IConfigurationService private readonly _configurationService: IConfigurationService,
+		@ICommandService commandService: ICommandService,
 		@IExtensionService private readonly _extensionService: IExtensionService,
 		@ILanguageService private readonly _languageService: ILanguageService,
 		@ILanguageRuntimeService private readonly _languageRuntimeService: ILanguageRuntimeService,
@@ -258,7 +260,6 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 				}
 			}
 		});
-
 		// Register a shutdown event handler to clear the workspace sessions to
 		// prepare for a clean start of Positron next time.
 		this._lifecycleService.onBeforeShutdown((e) => {
@@ -825,7 +826,16 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 			action,
 			exit.exit_code
 		);
-		this._notificationService.warn(msg);
+
+		this._notificationService.prompt(Severity.Warning, msg, [
+			{
+				label: nls.localize('openOutputLogs', 'Open logs'),
+				run: () => {
+					session.showOutput()
+				}
+			},
+		]);
+
 	}
 }
 

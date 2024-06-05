@@ -59,6 +59,10 @@ export class JupyterSession implements vscode.Disposable {
 		return this.state.sessionId;
 	}
 
+	get logFile(): string {
+		return this.state.logFile;
+	}
+
 	get portsInUse(): Array<number> {
 		return [
 			this.spec.control_port,
