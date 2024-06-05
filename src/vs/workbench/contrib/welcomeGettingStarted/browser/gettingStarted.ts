@@ -45,7 +45,9 @@ import { IOpenerService } from 'vs/platform/opener/common/opener';
 import { IProductService } from 'vs/platform/product/common/productService';
 import { IQuickInputService } from 'vs/platform/quickinput/common/quickInput';
 import { IStorageService, StorageScope, StorageTarget, WillSaveStateReason } from 'vs/platform/storage/common/storage';
-import { ITelemetryService, TelemetryLevel, firstSessionDateStorageKey } from 'vs/platform/telemetry/common/telemetry';
+// --- Start Positron ---
+import { ITelemetryService, TelemetryLevel } from 'vs/platform/telemetry/common/telemetry';
+// --- End Positron ---
 import { getTelemetryLevel } from 'vs/platform/telemetry/common/telemetryUtils';
 import { defaultButtonStyles, defaultToggleStyles } from 'vs/platform/theme/browser/defaultStyles';
 import { IWindowOpenable } from 'vs/platform/window/common/window';
@@ -153,8 +155,7 @@ export class GettingStartedPage extends EditorPane {
 	private container: HTMLElement;
 
 	private contextService: IContextKeyService;
-
-	private hasScrolledToFirstCategory = false;
+	// --- Start Positron ---
 	private recentlyOpenedList?: GettingStartedIndexList<RecentEntry>;
 	private startList?: GettingStartedIndexList<IWelcomePageStartEntry>;
 	private gettingStartedList?: GettingStartedIndexList<IResolvedWalkthrough>;
@@ -171,9 +172,7 @@ export class GettingStartedPage extends EditorPane {
 	private detailsRenderer: GettingStartedDetailsRenderer;
 
 	private readonly categoriesSlideDisposables: DisposableStore;
-	private showFeaturedWalkthrough = true;
 
-	/*--- Start Positron ---*/
 	private positronReactRenderer!: PositronReactRenderer;
 
 	constructor(
@@ -329,7 +328,7 @@ export class GettingStartedPage extends EditorPane {
 		}));
 	}
 
-	/*--- End Positron ---*/
+	//--- End Positron ---
 
 	// remove when 'workbench.welcomePage.preferReducedMotion' deprecated
 	private shouldAnimate() {
@@ -871,48 +870,16 @@ export class GettingStartedPage extends EditorPane {
 
 		this.updateCategoryProgress();
 		this.registerDispatchListeners();
+		// --- Start Positron ---
+		// removed showing the first featured walkthrough "Get Started with Positron" on first startup
 
-		if (this.editorInput.selectedCategory) {
-			this.currentWalkthrough = this.gettingStartedCategories.find(category => category.id === this.editorInput.selectedCategory);
 
-			if (!this.currentWalkthrough) {
-				this.gettingStartedCategories = this.gettingStartedService.getWalkthroughs();
-				this.currentWalkthrough = this.gettingStartedCategories.find(category => category.id === this.editorInput.selectedCategory);
-				if (this.currentWalkthrough) {
-					this.buildCategorySlide(this.editorInput.selectedCategory, this.editorInput.selectedStep);
-					this.setSlide('details');
-					return;
-				}
-			}
-			else {
-				this.buildCategorySlide(this.editorInput.selectedCategory, this.editorInput.selectedStep);
-				this.setSlide('details');
-				return;
-			}
-		}
-
-		const someStepsComplete = this.gettingStartedCategories.some(category => category.steps.find(s => s.done));
 		if (this.editorInput.showTelemetryNotice && this.productService.openToWelcomeMainPage) {
 			const telemetryNotice = $('p.telemetry-notice');
 			this.buildTelemetryFooter(telemetryNotice);
 			footer.appendChild(telemetryNotice);
-		} else if (!this.productService.openToWelcomeMainPage && !someStepsComplete && !this.hasScrolledToFirstCategory && this.showFeaturedWalkthrough) {
-			const firstSessionDateString = this.storageService.get(firstSessionDateStorageKey, StorageScope.APPLICATION) || new Date().toUTCString();
-			const daysSinceFirstSession = ((+new Date()) - (+new Date(firstSessionDateString))) / 1000 / 60 / 60 / 24;
-			const fistContentBehaviour = daysSinceFirstSession < 1 ? 'openToFirstCategory' : 'index';
-
-			if (fistContentBehaviour === 'openToFirstCategory') {
-				const first = this.gettingStartedCategories.filter(c => !c.when || this.contextService.contextMatchesRules(c.when))[0];
-				if (first) {
-					this.hasScrolledToFirstCategory = true;
-					this.currentWalkthrough = first;
-					this.editorInput.selectedCategory = this.currentWalkthrough?.id;
-					this.buildCategorySlide(this.editorInput.selectedCategory, undefined);
-					this.setSlide('details');
-					return;
-				}
-			}
 		}
+		// --- End Positron ---
 
 		this.setSlide('categories');
 	}
