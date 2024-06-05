@@ -74,13 +74,12 @@ from .data_explorer_comm import (
     TableShape,
 )
 from .positron_comm import CommMessage, PositronComm
-from .third_party import np_, pd_
+from .third_party import np_, pd_, pl_
 from .utils import guid
 
 if TYPE_CHECKING:
     import pandas as pd
-
-    # import polars as pl
+    import polars as pl
     # import pyarrow as pa
 
 
@@ -118,10 +117,6 @@ class DataExplorerTableView(abc.ABC):
 
     def _set_sort_keys(self, sort_keys):
         self.sort_keys = sort_keys if sort_keys is not None else []
-
-    @abc.abstractmethod
-    def _recompute(self):
-        raise NotImplementedError
 
     def _recompute_if_needed(self) -> bool:
         if self._need_recompute:
@@ -190,25 +185,20 @@ class DataExplorerTableView(abc.ABC):
         self._recompute_if_needed()
         return self._get_state().dict()
 
-    @abc.abstractmethod
-    def invalidate_computations(self):
-        pass
+    def _recompute(self):
+        raise NotImplementedError
 
-    @abc.abstractmethod
     def get_updated_state(self, new_table) -> StateUpdate:
-        pass
+        raise NotImplementedError
 
-    @abc.abstractmethod
     def _get_schema(self, column_start: int, num_columns: int) -> TableSchema:
-        pass
+        raise NotImplementedError
 
-    @abc.abstractmethod
     def _search_schema(
         self, search_term: str, start_index: int, max_results: int
     ) -> SearchSchemaResult:
-        pass
+        raise NotImplementedError
 
-    @abc.abstractmethod
     def _get_data_values(
         self,
         row_start: int,
@@ -216,43 +206,39 @@ class DataExplorerTableView(abc.ABC):
         column_indices: Sequence[int],
         format_options: FormatOptions,
     ) -> TableData:
-        pass
+        raise NotImplementedError
 
-    @abc.abstractmethod
     def _export_data_selection(self, selection: DataSelection, fmt: ExportFormat) -> ExportedData:
-        pass
+        raise NotImplementedError
 
-    @abc.abstractmethod
     def _set_row_filters(self, filters: List[RowFilter]) -> FilterResult:
-        pass
+        raise NotImplementedError
 
-    @abc.abstractmethod
     def _set_sort_columns(self, sort_keys: List[ColumnSortKey]):
-        pass
+        raise NotImplementedError
 
-    @abc.abstractmethod
     def _sort_data(self):
-        pass
+        raise NotImplementedError
 
-    @abc.abstractmethod
     def _prof_null_count(self, column_index: int) -> int:
-        pass
+        raise NotImplementedError
 
-    @abc.abstractmethod
     def _prof_summary_stats(self, column_index: int, options: FormatOptions) -> ColumnSummaryStats:
-        pass
+        raise NotImplementedError
 
-    @abc.abstractmethod
     def _prof_freq_table(self, column_index: int) -> ColumnFrequencyTable:
-        pass
+        raise NotImplementedError
 
-    @abc.abstractmethod
     def _prof_histogram(self, column_index: int) -> ColumnHistogram:
-        pass
+        raise NotImplementedError
 
-    @abc.abstractmethod
     def _get_state(self) -> BackendState:
-        pass
+        raise NotImplementedError
+
+
+class UnsupportedView(DataExplorerTableView):
+    def __init__(self, display_name, table):
+        super().__init__(display_name, table, [], [])
 
 
 # Special value codes for the protocol
@@ -408,10 +394,6 @@ class PandasView(DataExplorerTableView):
         self._sort_key_schemas = [
             self._get_single_column_schema(key.column_index) for key in self.sort_keys
         ]
-
-    def invalidate_computations(self):
-        self.filtered_indices = self.view_indices = None
-        self._need_recompute = True
 
     def get_updated_state(self, new_table) -> StateUpdate:
         from pandas.api.types import infer_dtype
@@ -1389,21 +1371,152 @@ def _parse_iso8601_like(x, dtype):
 
 
 class PolarsView(DataExplorerTableView):
-    pass
+    def __init__(
+        self,
+        display_name: str,
+        table: "pl.DataFrame",
+        filters: Optional[List[RowFilter]],
+        sort_keys: Optional[List[ColumnSortKey]],
+    ):
+        super().__init__(display_name, table, filters, sort_keys)
+        self.filtered_indices = None
+        self.view_indices = None
+
+    def _recompute(self):
+        raise NotImplementedError
+
+    def get_updated_state(self, new_table) -> StateUpdate:
+        raise NotImplementedError
+
+    def _get_schema(self, column_start: int, num_columns: int) -> TableSchema:
+        column_schemas = []
+
+        for column_index in range(
+            column_start,
+            min(column_start + num_columns, len(self.table.columns)),
+        ):
+            col_schema = self._get_single_column_schema(column_index)
+            column_schemas.append(col_schema)
+
+        return TableSchema(columns=column_schemas)
+
+    def _get_single_column_schema(self, column_index: int):
+        column: "pl.Series" = self.table[:, column_index]
+        type_display = self._get_type_display(column.dtype)
+
+        return ColumnSchema(
+            column_name=column.name,
+            column_index=column_index,
+            type_name=str(column.dtype),
+            type_display=type_display,
+        )
+
+    TYPE_DISPLAY_MAPPING = {
+        "Boolean": "boolean",
+        "Int8": "number",
+        "Int16": "number",
+        "Int32": "number",
+        "Int64": "number",
+        "UInt8": "number",
+        "UInt16": "number",
+        "UInt32": "number",
+        "UInt64": "number",
+        "Float32": "number",
+        "Float64": "number",
+        "Binary": "string",
+        "String": "string",
+        "Date": "date",
+        "Datetime": "datetime",
+        "Time": "time",
+        "Decimal": "decimal",
+        "Object": "object",
+        "Array": "array",
+        "Struct": "struct",
+        "Categorical": "unknown",  # See #3417
+        "Duration": "unknown",  # See #3418
+        "Enum": "unknown",
+        "Null": "unknown",  # Not yet implemented
+        "Unknown": "unknown",
+    }
+
+    @classmethod
+    def _get_type_display(cls, dtype: "pl.DataType"):
+        if dtype.is_nested():
+            key = str(dtype.base_type())
+        else:
+            key = str(dtype)
+
+        return cls.TYPE_DISPLAY_MAPPING.get(key, "unknown")
+
+    def _search_schema(
+        self, search_term: str, start_index: int, max_results: int
+    ) -> SearchSchemaResult:
+        raise NotImplementedError
+
+    def _get_data_values(
+        self,
+        row_start: int,
+        num_rows: int,
+        column_indices: Sequence[int],
+        format_options: FormatOptions,
+    ) -> TableData:
+        raise NotImplementedError
+
+    def _export_data_selection(self, selection: DataSelection, fmt: ExportFormat) -> ExportedData:
+        raise NotImplementedError
+
+    def _set_row_filters(self, filters: List[RowFilter]) -> FilterResult:
+        raise NotImplementedError
+
+    def _set_sort_columns(self, sort_keys: List[ColumnSortKey]):
+        raise NotImplementedError
+
+    def _sort_data(self):
+        raise NotImplementedError
+
+    def _prof_null_count(self, column_index: int) -> int:
+        raise NotImplementedError
+
+    def _prof_summary_stats(self, column_index: int, options: FormatOptions) -> ColumnSummaryStats:
+        raise NotImplementedError
+
+    def _prof_freq_table(self, column_index: int) -> ColumnFrequencyTable:
+        raise NotImplementedError
+
+    def _prof_histogram(self, column_index: int) -> ColumnHistogram:
+        raise NotImplementedError
+
+    def _get_state(self) -> BackendState:
+        raise NotImplementedError
 
 
 class PyArrowView(DataExplorerTableView):
     pass
 
 
+def _is_pandas(table):
+    return pd_ is not None and isinstance(table, (pd_.DataFrame, pd_.Series))
+
+
+def _is_polars(table):
+    return pl_ is not None and isinstance(table, (pl_.DataFrame, pl_.Series))
+
+
 def _get_table_view(table, filters=None, sort_keys=None, name=None):
     name = name or guid()
-    return PandasView(name, table, filters, sort_keys)
+
+    if _is_pandas(table):
+        return PandasView(name, table, filters, sort_keys)
+    elif _is_polars(table):
+        return PolarsView(name, table, filters, sort_keys)
+    else:
+        return UnsupportedView(name, table)
 
 
 def _value_type_is_supported(value):
-    # pandas types
-    if isinstance(value, (pd_.DataFrame, pd_.Series)):
+    if _is_pandas(value):
+        return True
+    if _is_polars(value):
         return True
     return False
 
