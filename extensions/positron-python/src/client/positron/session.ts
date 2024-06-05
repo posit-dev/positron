@@ -7,6 +7,7 @@
 
 // eslint-disable-next-line import/no-unresolved
 import * as positron from 'positron';
+import * as fs from 'fs';
 import * as vscode from 'vscode';
 import PQueue from 'p-queue';
 import { ProductNames } from '../common/installer/productNames';
@@ -32,6 +33,8 @@ import { JediLanguageServerAnalysisOptions } from '../activation/jedi/analysisOp
 import { ILanguageServerOutputChannel } from '../activation/types';
 import { IWorkspaceService } from '../common/application/types';
 import { IInterpreterService } from '../interpreter/contracts';
+import { showErrorMessage } from '../common/vscodeApis/windowApis';
+import { Console } from '../common/utils/localize';
 
 /**
  * A Positron language runtime that wraps a Jupyter kernel and a Language Server
@@ -435,8 +438,11 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
         kernel.onDidReceiveRuntimeMessage((message) => {
             this._messageEmitter.fire(message);
         });
-        kernel.onDidEndSession((exit) => {
+        kernel.onDidEndSession(async (exit) => {
             this._exitEmitter.fire(exit);
+            if (exit.exit_code !== 0) {
+                await this.showExitMessageWithLogs(kernel);
+            }
         });
         return kernel;
     }
@@ -487,6 +493,26 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
                     }
                     await this._lsp?.deactivate(false);
                 });
+            }
+        }
+    }
+
+    private async showExitMessageWithLogs(kernel: JupyterLanguageRuntimeSession): Promise<void> {
+        const logFilePath = kernel.getKernelLogFile();
+
+        if (fs.existsSync(logFilePath)) {
+            const lines = fs.readFileSync(logFilePath, 'utf8').split('\n');
+            // last line of logs before generated log tail
+            const lastLine = lines.length - 3;
+            const logFileContent = lines.slice(lastLine - 1, lastLine).join('\n');
+
+            // see if obvious error, otherwise use generic text to logs
+            const regex = /^(\w*Error)\b/m;
+            const errortext = regex.test(logFileContent) ? logFileContent : Console.consoleExit;
+
+            const res = await showErrorMessage(errortext, vscode.l10n.t('Open logs'));
+            if (res) {
+                kernel.showOutput();
             }
         }
     }
