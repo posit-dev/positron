@@ -31,8 +31,7 @@ export const TableDataCell = (props: TableDataCellProps) => {
 	return (
 		<div className={positronClassNames('text-container', props.column.alignment)}>
 			<div className='text-value'>
-				{/* allow-any-unicode-next-line */}
-				{props.dataCell.formatted.replace(/\n/g, '↵')}
+				{props.dataCell.formatted.replace(/\r/g, '\\r').replace(/\n/g, '\\n')}
 			</div>
 		</div>
 	);
