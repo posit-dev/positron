@@ -660,4 +660,5 @@ export const codiconsLibrary = {
 	positronNotebookLayout: register('positron-notebook-layout', 0xf27f),
 	positronSelectColumn: register('positron-select-column', 0xf280),
 	positronSelectRow: register('positron-select-row', 0xf281),
+	positronDataTypeObject: register('positron-data-type-object', 0xf282),
 } as const;
