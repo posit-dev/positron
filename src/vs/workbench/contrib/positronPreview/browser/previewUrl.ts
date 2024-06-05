@@ -8,6 +8,8 @@ import { POSITRON_PREVIEW_URL_VIEW_TYPE } from 'vs/workbench/contrib/positronPre
 import { PreviewWebview } from 'vs/workbench/contrib/positronPreview/browser/previewWebview';
 import { IOverlayWebview } from 'vs/workbench/contrib/webview/browser/webview';
 
+export const QUERY_NONCE_PARAMETER = '_positronRender';
+
 /**
  * PreviewUrl is a class that represents a Positron `PreviewWebview` that
  * contains a URL preview.
@@ -41,6 +43,7 @@ export class PreviewUrl extends PreviewWebview {
 		// Listen for navigation events.
 		this.webview.onDidNavigate(e => {
 			this._onDidNavigate.fire(e);
+			this._uri = e;
 		});
 	}
 
@@ -54,7 +57,7 @@ export class PreviewUrl extends PreviewWebview {
 		this._uri = uri;
 
 		// Amend a nonce to the URI for cache busting.
-		const nonce = `_positronRender=${(PreviewUrl._nonce++).toString(16)}`;
+		const nonce = `${QUERY_NONCE_PARAMETER}=${(PreviewUrl._nonce++).toString(16)}`;
 		const iframeUri = this._uri.with({
 			query:
 				uri.query ? uri.query + '&' + nonce : nonce
