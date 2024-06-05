@@ -50,18 +50,27 @@ export const DataGridRowCell = (props: DataGridRowCellProps) => {
 		// context menu.
 		const startingRect = ref.current.getBoundingClientRect();
 
-		// Get the cell selection state.
-		const cellSelectionState = context.instance.cellSelectionState(
-			props.columnIndex,
-			props.rowIndex
-		);
+		// If selection is enabled, process selection logic.
+		if (context.instance.selection) {
+			// Get the cell selection state.
+			const cellSelectionState = context.instance.cellSelectionState(
+				props.columnIndex,
+				props.rowIndex
+			);
 
-		// If the cell selection state is None, and selection is enabled, mouse-select the cell.
-		// Otherwise, scroll the cell into view.
-		if (cellSelectionState === CellSelectionState.None && context.instance.selection) {
-			await context.instance.mouseSelectCell(props.columnIndex, props.rowIndex, selectionType(e));
-		} else {
-			await context.instance.scrollToCell(props.columnIndex, props.rowIndex);
+			// If the cell is not selected, or it is and the user is left-clicking, mouse-select
+			// the cell. Otherwise, scroll to the cell.
+			if (cellSelectionState === CellSelectionState.None || e.button === 0) {
+				// Mouse-select the cell.
+				await context.instance.mouseSelectCell(
+					props.columnIndex,
+					props.rowIndex,
+					selectionType(e)
+				);
+			} else {
+				// Scroll to the cell.
+				await context.instance.scrollToCell(props.columnIndex, props.rowIndex);
+			}
 		}
 
 		// If the left mouse button was pressed, show the context menu.
@@ -69,9 +78,10 @@ export const DataGridRowCell = (props: DataGridRowCellProps) => {
 			// Get the ending bounding client rect.
 			const endingRect = ref.current.getBoundingClientRect();
 
-			// Show the column context menu.
-			await context.instance.showColumnContextMenu(
+			// Show the cell context menu.
+			await context.instance.showCellContextMenu(
 				props.columnIndex,
+				props.rowIndex,
 				ref.current,
 				{
 					clientX: e.clientX + endingRect.left - startingRect.left,
