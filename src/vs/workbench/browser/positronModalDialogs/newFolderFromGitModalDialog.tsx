@@ -113,10 +113,6 @@ export const NewFolderFromGitModalDialog = (props: NewFolderFromGitModalDialogPr
 		newWindow: false
 	});
 
-	// Potential error message from submission attempt.
-	const [errorMsg, setErrorMsg] = useState<string | undefined>(undefined);
-
-
 	// The browse handler.
 	const browseHandler = async () => {
 		// Show the open dialog.
@@ -143,19 +139,10 @@ export const NewFolderFromGitModalDialog = (props: NewFolderFromGitModalDialogPr
 				'positronNewFolderFromGitModalDialogTitle',
 				"New Folder from Git"
 			))()}
+			catchErrors
 			onAccept={async () => {
-				try {
-					await props.createFolder(result);
-					props.renderer.dispose();
-				} catch (e) {
-					// If there was an error, leave the dialog open and show the error message.
-					const fullMessage = localize(
-						'positron.errorCreatingFolder',
-						"An error occurred while creating the folder: {0}",
-						e.message
-					);
-					setErrorMsg(fullMessage);
-				}
+				await props.createFolder(result);
+				props.renderer.dispose();
 			}}
 			onCancel={() => props.renderer.dispose()}
 		>
@@ -188,12 +175,6 @@ export const NewFolderFromGitModalDialog = (props: NewFolderFromGitModalDialogPr
 					))()}
 					onChanged={checked => setResult({ ...result, newWindow: checked })} />
 			</VerticalSpacer>
-			{errorMsg ?
-				<VerticalSpacer>
-					<p className='new-folder-from-git-modal-dialog-error-msg'>{errorMsg}</p>
-				</VerticalSpacer> :
-				null
-			}
 		</OKCancelModalDialog>
 	);
 };

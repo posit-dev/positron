@@ -115,9 +115,6 @@ const NewFolderModalDialog = (props: NewFolderModalDialogProps) => {
 		newWindow: false
 	});
 
-	// Potential error message from submission attempt.
-	const [errorMsg, setErrorMsg] = useState<string | undefined>(undefined);
-
 	// The browse handler.
 	const browseHandler = async () => {
 		// Show the open dialog.
@@ -141,19 +138,10 @@ const NewFolderModalDialog = (props: NewFolderModalDialogProps) => {
 			width={400}
 			height={300}
 			title={(() => localize('positronNewFolderModalDialogTitle', "New Folder"))()}
+			catchErrors
 			onAccept={async () => {
-				try {
-					await props.createFolder(result);
-					props.renderer.dispose();
-				} catch (e) {
-					// If there was an error, leave the dialog open and show the error message.
-					const fullMessage = localize(
-						'positron.errorCreatingFolder',
-						"An error occurred while creating the folder: {0}",
-						e.message
-					);
-					setErrorMsg(fullMessage);
-				}
+				await props.createFolder(result);
+				props.renderer.dispose();
 			}}
 			onCancel={() => props.renderer.dispose()}>
 			<VerticalStack>
@@ -183,12 +171,6 @@ const NewFolderModalDialog = (props: NewFolderModalDialogProps) => {
 					onChanged={checked => setResult({ ...result, newWindow: checked })}
 				/>
 			</VerticalSpacer>
-			{errorMsg ?
-				<VerticalSpacer>
-					<p className='new-folder-modal-dialog-error-msg'>{errorMsg}</p>
-				</VerticalSpacer> :
-				null
-			}
 		</OKCancelModalDialog>
 	);
 };
