@@ -66,6 +66,22 @@ export async function activatePositron(serviceContainer: IServiceContainer): Pro
                 }
             }),
         );
+        // Register a command to validate the pythonPath of a given interpreter.
+        disposables.push(
+            vscode.commands.registerCommand(
+                'python.validateInterpreterPath',
+                async (pythonPath: string): Promise<string | undefined> => {
+                    const interpreterService = serviceContainer.get<IInterpreterService>(IInterpreterService);
+                    const interpreter = await interpreterService.getInterpreterDetails(pythonPath);
+                    if (!interpreter) {
+                        return undefined;
+                    }
+                    // If the interpreter was found, return the actual path associated with the interpreter.
+                    // It may or may not be the same as the path passed in.
+                    return interpreter.path;
+                },
+            ),
+        );
         // Register a command to get the minimum version of python supported by the extension.
         disposables.push(
             vscode.commands.registerCommand('python.getMinimumPythonVersion', (): string => MINIMUM_PYTHON_VERSION.raw),

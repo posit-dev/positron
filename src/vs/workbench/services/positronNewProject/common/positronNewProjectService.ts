@@ -399,10 +399,28 @@ export class PositronNewProjectService extends Disposable implements IPositronNe
 					return;
 				}
 
+				// Retrieve the validated Python interpreter path
+				const pythonPath: string | undefined = await this._commandService.executeCommand(
+					'python.validateInterpreterPath',
+					result.path
+				);
+
+				// If we couldn't lookup the Python interpreter path, something must have gone wrong
+				// with the environment creation.
+				if (!pythonPath) {
+					const message = this._failedPythonEnvMessage(
+						'Could not validate Python interpreter path for new project. The interpreter may need to be selected manually.'
+					);
+					this._logService.error(message);
+					this._notificationService.warn(message);
+					this._removePendingTask(NewProjectTask.PythonEnvironment);
+					return;
+				}
+
 				// Install ipykernel in the new environment
 				await this._commandService.executeCommand(
 					'python.installIpykernel',
-					String(result.path)
+					pythonPath
 				);
 
 				// Construct a skeleton runtime metadata object which will be validated by the Python
@@ -411,7 +429,7 @@ export class PositronNewProjectService extends Disposable implements IPositronNe
 				// Python extension ID so a runtime manager can be determined and the pythonPath is
 				// used by the Python extension to look up the registered runtime.
 				this._runtimeMetadata = {
-					runtimePath: result.path,
+					runtimePath: pythonPath,
 					runtimeId: '',
 					languageName: '',
 					languageId: LanguageIds.Python,
@@ -428,7 +446,8 @@ export class PositronNewProjectService extends Disposable implements IPositronNe
 					// the newly created environment.
 					extensionId: new ExtensionIdentifier('ms-python.python'),
 					extraRuntimeData: {
-						pythonPath: result.path,
+						pythonPath: pythonPath,
+						pythonEnvironmentId: pythonPath
 					},
 				} satisfies ILanguageRuntimeMetadata;
 
