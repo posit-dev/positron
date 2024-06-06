@@ -866,7 +866,7 @@ export class NewProjectWizardStateManager
 			if (this._usesCondaEnv()) {
 				this._selectedRuntime = undefined;
 			} else {
-				this._condaPythonVersionInfo = undefined;
+				this._condaPythonVersion = undefined;
 			}
 		} else if (langId === LanguageIds.R) {
 			this._pythonEnvSetupType = undefined;
