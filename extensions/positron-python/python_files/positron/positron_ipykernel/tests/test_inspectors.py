@@ -760,7 +760,7 @@ def test_inspect_polars_dataframe() -> None:
     rows, cols = value.shape
     verify_inspector(
         value=value,
-        display_value=f"[{rows} rows x {cols} columns] {get_type_as_str(value)}",
+        display_value=f"[{rows} rows x {cols} columns] polars.DataFrame",
         kind=VariableKind.Table,
         display_type=f"DataFrame [{rows}x{cols}]",
         type_info=get_type_as_str(value),
@@ -782,7 +782,7 @@ def test_inspect_polars_series() -> None:
 
     verify_inspector(
         value=value,
-        display_value="[0, 1]",
+        display_value=f"[{rows} values] polars.Series",
         kind=VariableKind.Map,
         display_type=f"Int64 [{rows}]",
         type_info=get_type_as_str(value),
@@ -799,7 +799,7 @@ def test_inspect_polars_series() -> None:
     [
         (pd.Series({"a": 0, "b": 1}), range(2)),
         (pl.Series([0, 1]), range(2)),
-        (pd.DataFrame({"a": [1, 2], "b": ["3", "4"]}), ["a", "b"]),
+        (pd.DataFrame({"a": [1, 2], "b": ["3", "4"]}), range(2)),
         (pl.DataFrame({"a": [1, 2], "b": ["3", "4"]}), ["a", "b"]),
         (pd.Index([0, 1]), range(0, 2)),
         (
@@ -827,7 +827,7 @@ def test_get_children(data: Any, expected: Iterable) -> None:
         (pl.Series([0, 1]), 0, 0),
         (
             pd.DataFrame({"a": [1, 2], "b": ["3", "4"]}),
-            "a",
+            0,
             pd.Series([1, 2], name="a"),
         ),
         (
