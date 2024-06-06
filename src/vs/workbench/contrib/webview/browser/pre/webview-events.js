@@ -337,3 +337,25 @@ window.addEventListener('contextmenu', (e) => {
 	});
 });
 
+// Ask Positron to open a link instead of handling it internally
+function openLinkInHost(link) {
+	link.addEventListener('click', function (event) {
+		hostMessaging.postMessage('did-click-link', { uri: link.href });
+		event.preventDefault();
+		return false;
+	});
+}
+
+// When the window loads, look for all links and add a click handler to each
+// external link (i.e. links that point to a different origin) that will ask
+// Positron to open them instead of handling them internally.
+window.addEventListener('load', () => {
+	const links = document.getElementsByTagName('a');
+	const origin = window.location.origin;
+	for (let i = 0; i < links.length; i++) {
+		const link = links[i];
+		if (link.href && !link.href.startsWith(origin)) {
+			openLinkInHost(link);
+		}
+	}
+});
