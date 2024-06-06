@@ -25,34 +25,22 @@ export function setup(logger: Logger) {
 
 			});
 
+			after(async function () {
+
+				const app = this.app as Application;
+				await app.workbench.positronNotebooks.closeNotebookWithoutSaving();
+			});
+
 			it('Python - Basic notebook creation and execution', async function () {
 				const app = this.app as Application;
 
-				await app.workbench.quickaccess.runCommand('ipynb.newUntitledIpynb');
+				await app.workbench.positronNotebooks.createNewNotebook();
 
-				await app.code.waitForElement('.kernel-label', (e) => e!.textContent.includes(process.env.POSITRON_PY_VER_SEL!) || e!.textContent.includes('Select Kernel'));
+				await app.workbench.positronNotebooks.selectInterpreter('Python Environments', process.env.POSITRON_PY_VER_SEL!);
 
-				const interpreterManagerText = (await app.code.waitForElement('.kernel-label')).textContent;
-				if (interpreterManagerText === 'Select Kernel') {
-					await app.code.waitAndClick('.kernel-action-view-item');
+				await app.workbench.positronNotebooks.executeInFirstCell('eval("8**2")');
 
-					await app.workbench.quickinput.waitForQuickInputOpened();
-					await app.workbench.quickinput.selectQuickInputElementContaining('Python Environments');
-					await app.workbench.quickinput.selectQuickInputElementContaining(process.env.POSITRON_PY_VER_SEL!);
-					await app.workbench.quickinput.waitForQuickInputClosed();
-				}
-
-				await app.workbench.quickaccess.runCommand('notebook.cell.edit');
-
-				// no type method in Microsoft base functionality
-				await app.code.driver.getKeyboard().type('eval("8**2")');
-
-				await app.workbench.quickaccess.runCommand('notebook.cell.execute');
-
-				// basic CSS selection doesn't support frames (or nested frames)
-				const notebookFrame = app.code.driver.getFrame('.webview').frameLocator('#active-frame');
-				const outputLocator = notebookFrame.locator('.output-plaintext');
-				const outputText = await outputLocator.textContent();
+				const outputText = await app.workbench.positronNotebooks.getPythonCellOutput();
 
 				expect(outputText).toBe('64');
 
@@ -76,40 +64,26 @@ export function setup(logger: Logger) {
 
 			});
 
+			after(async function () {
+
+				const app = this.app as Application;
+				await app.workbench.positronNotebooks.closeNotebookWithoutSaving();
+			});
+
 			it('R - Basic notebook creation and execution', async function () {
 				const app = this.app as Application;
 
-				await app.workbench.quickaccess.runCommand('ipynb.newUntitledIpynb');
+				await app.workbench.positronNotebooks.createNewNotebook();
 
-				await app.code.waitForElement('.kernel-label', (e) => e!.textContent.includes(process.env.POSITRON_R_VER_SEL!) || e!.textContent.includes('Select Kernel'));
+				await app.workbench.positronNotebooks.selectInterpreter('R Environments', process.env.POSITRON_R_VER_SEL!);
 
-				const interpreterManagerText = (await app.code.waitForElement('.kernel-label')).textContent;
-				if (interpreterManagerText === 'Select Kernel') {
-					await app.code.waitAndClick('.kernel-action-view-item');
+				await app.workbench.positronNotebooks.executeInFirstCell('eval(parse(text="8**2"))');
 
-					await app.workbench.quickinput.waitForQuickInputOpened();
-					await app.workbench.quickinput.selectQuickInputElementContaining('R Environments');
-					await app.workbench.quickinput.selectQuickInputElementContaining(process.env.POSITRON_R_VER_SEL!);
-					await app.workbench.quickinput.waitForQuickInputClosed();
-				}
-
-				await app.workbench.quickaccess.runCommand('notebook.cell.edit');
-
-				// no type method in Microsoft base functionality
-				await app.code.driver.getKeyboard().type('eval(parse(text="8**2"))');
-
-				await app.workbench.quickaccess.runCommand('notebook.cell.execute');
-
-				// basic CSS selection doesn't support frames (or nested frames)
-				const notebookFrame = app.code.driver.getFrame('.webview').frameLocator('#active-frame');
-				const outputLocator = notebookFrame.locator('.output_container .output').nth(0);
-				const outputText = await outputLocator.textContent();
+				const outputText = await app.workbench.positronNotebooks.getRCellOutput();
 
 				expect(outputText).toBe('[1] 64\n');
 
 			});
 		});
-
-
 	});
 }
