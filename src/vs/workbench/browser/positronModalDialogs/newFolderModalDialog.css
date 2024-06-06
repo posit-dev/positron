@@ -1,3 +1,9 @@
 /*---------------------------------------------------------------------------------------------
  *  Copyright (C) 2022 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
+
+.new-folder-modal-dialog-error-msg {
+	color: var(--vscode-errorForeground);
+	/* Dont let things like super long file names cause horizontal scrolling. */
+	word-break: break-all;
+}
