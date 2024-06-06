@@ -55,6 +55,26 @@ def patch_create_comm(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(comm, "create_comm", DummyComm)
 
 
+def _prepare_shell(shell: PositronShell) -> None:
+    # TODO: For some reason these vars are in user_ns but not user_ns_hidden during tests. For now,
+    #       manually add them to user_ns_hidden to replicate running in Positron.
+    shell.user_ns_hidden.update(
+        {
+            k: None
+            for k in [
+                "__name__",
+                "__doc__",
+                "__package__",
+                "__loader__",
+                "__spec__",
+                "_",
+                "__",
+                "___",
+            ]
+        }
+    )
+
+
 @pytest.fixture
 def kernel() -> PositronIPyKernel:
     """
@@ -77,6 +97,10 @@ def kernel() -> PositronIPyKernel:
         )
         raise
 
+    # Prepare the shell here as well, since users of this fixture may indirectly depend on it
+    # e.g. the variables service.
+    _prepare_shell(kernel.shell)
+
     return kernel
 
 
@@ -84,23 +108,7 @@ def kernel() -> PositronIPyKernel:
 def shell(kernel) -> Iterable[PositronShell]:
     shell = PositronShell.instance(parent=kernel)
 
-    # TODO: For some reason these vars are in user_ns but not user_ns_hidden during tests. For now,
-    #       manually add them to user_ns_hidden to replicate running in Positron.
-    shell.user_ns_hidden.update(
-        {
-            k: None
-            for k in [
-                "__name__",
-                "__doc__",
-                "__package__",
-                "__loader__",
-                "__spec__",
-                "_",
-                "__",
-                "___",
-            ]
-        }
-    )
+    _prepare_shell(shell)
 
     user_ns_keys = set(shell.user_ns.keys())
 
