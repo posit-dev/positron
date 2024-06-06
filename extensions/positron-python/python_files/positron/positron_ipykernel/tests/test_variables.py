@@ -394,6 +394,7 @@ class TestClass:
     def x_plus_one(self):
         raise AssertionError("Should not be evaluated")
 
+
 _test_obj = TestClass()
 
 
@@ -567,7 +568,9 @@ def variable(display_name: str, display_value: str, children: List[Dict[str, Any
         ),
     ],
 )
-def test_list_and_recursive_inspect(value, expected, shell: PositronShell, variables_comm: DummyComm) -> None:
+def test_list_and_recursive_inspect(
+    value, expected, shell: PositronShell, variables_comm: DummyComm
+) -> None:
     """
     Simulate a user recursively expanding a variable's children in the UI.
     """
