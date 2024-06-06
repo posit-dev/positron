@@ -12,12 +12,13 @@ import numpy as np
 import pandas as pd
 import polars as pl
 import pytest
+from positron_ipykernel.variables_comm import Variable
 from positron_ipykernel import variables as variables_module
 from positron_ipykernel.access_keys import encode_access_key
 from positron_ipykernel.inspectors import get_inspector
 from positron_ipykernel.positron_comm import JsonRpcErrorCode
 from positron_ipykernel.positron_ipkernel import PositronIPyKernel
-from positron_ipykernel.utils import JsonRecord, not_none
+from positron_ipykernel.utils import JsonData, JsonRecord, not_none
 from positron_ipykernel.variables import VariablesService, _summarize_children, _summarize_variable
 
 from .conftest import DummyComm, PositronShell
@@ -289,6 +290,11 @@ def create_and_update_n_vars(
     return variables_comm.messages[0]
 
 
+# TODO(seem): Should be typed as List[str] but that makes pyright unhappy; might be a pyright bug
+def _encode_path(path: List[Any]) -> List[JsonData]:
+    return [encode_access_key(key) for key in path]
+
+
 @pytest.mark.asyncio
 async def test_handle_clear(
     shell: PositronShell,
@@ -310,7 +316,7 @@ async def test_handle_clear(
             "update",
             {
                 "assigned": [],
-                "removed": [encode_access_key("x"), encode_access_key("y")],
+                "removed": _encode_path(["x", "y"]),
                 "unevaluated": [],
                 "version": 0,
             },
@@ -334,7 +340,7 @@ def test_handle_delete(shell: PositronShell, variables_comm: DummyComm) -> None:
     assert "y" in shell.user_ns
 
     assert variables_comm.messages == [
-        json_rpc_response([encode_access_key("x")]),
+        json_rpc_response(_encode_path(["x"])),
     ]
 
 
@@ -346,12 +352,11 @@ def test_handle_delete_error(variables_comm: DummyComm) -> None:
     assert variables_comm.messages == [json_rpc_response([])]
 
 
-def _assert_inspect(value: Any, path: List[Any], variables_comm: DummyComm) -> None:
-    encoded_path = [encode_access_key(key) for key in path]
+# TODO(seem): encoded_path should be typed as List[str] but that makes pyright unhappy; might be a pyright bug
+def _do_inspect(value: Any, encoded_path: List[JsonData], variables_comm: DummyComm) -> List[Variable]:
     msg = json_rpc_request(
         "inspect",
-        # TODO(pyright): We shouldn't need to cast; may be a pyright bug
-        cast(JsonRecord, {"path": encoded_path}),
+        {"path": encoded_path},
         comm_id="dummy_comm_id",
     )
 
@@ -371,6 +376,8 @@ def _assert_inspect(value: Any, path: List[Any], variables_comm: DummyComm) -> N
         ]
 
     variables_comm.messages.clear()
+
+    return children
 
 
 class TestClass:
@@ -400,7 +407,7 @@ def test_handle_inspect(value_fn, shell: PositronShell, variables_comm: DummyCom
     value = value_fn()
     shell.user_ns["x"] = value
 
-    _assert_inspect(value, ["x"], variables_comm)
+    _do_inspect(value, _encode_path(["x"]), variables_comm)
 
 
 @pytest.mark.parametrize(
@@ -427,13 +434,13 @@ def test_handle_inspect_2d(
 
     keys = data.keys() if isinstance(data, dict) else range(len(data))
     for key in keys:
-        _assert_inspect(value[key], ["x", key], variables_comm)
+        _do_inspect(value[key], _encode_path(["x", key]), variables_comm)
+
 
 
 def test_handle_inspect_error(variables_comm: DummyComm) -> None:
-    path = [encode_access_key("x")]
-    # TODO(pyright): We shouldn't need to cast; may be a pyright bug
-    msg = json_rpc_request("inspect", cast(JsonRecord, {"path": path}), comm_id="dummy_comm_id")
+    path = _encode_path(["x"])
+    msg = json_rpc_request("inspect", {"path": path}, comm_id="dummy_comm_id")
 
     variables_comm.handle_msg(msg, raise_errors=False)
 
@@ -452,7 +459,7 @@ def test_handle_clipboard_format(shell: PositronShell, variables_comm: DummyComm
     msg = json_rpc_request(
         "clipboard_format",
         {
-            "path": [encode_access_key("x")],
+            "path": _encode_path(["x"]),
             "format": "text/plain",
         },
         comm_id="dummy_comm_id",
@@ -463,7 +470,7 @@ def test_handle_clipboard_format(shell: PositronShell, variables_comm: DummyComm
 
 
 def test_handle_clipboard_format_error(variables_comm: DummyComm) -> None:
-    path = [encode_access_key("x")]
+    path = _encode_path(["x"])
     # TODO(pyright): We shouldn't need to cast; may be a pyright bug
     msg = json_rpc_request(
         "clipboard_format",
@@ -488,7 +495,7 @@ def test_handle_view(
 ) -> None:
     shell.user_ns["x"] = pd.DataFrame({"a": [0]})
 
-    msg = json_rpc_request("view", {"path": [encode_access_key("x")]}, comm_id="dummy_comm_id")
+    msg = json_rpc_request("view", {"path": _encode_path(["x"])}, comm_id="dummy_comm_id")
     variables_comm.handle_msg(msg)
 
     # An acknowledgment message is sent
@@ -498,9 +505,8 @@ def test_handle_view(
 
 
 def test_handle_view_error(variables_comm: DummyComm) -> None:
-    path = [encode_access_key("x")]
-    # TODO(pyright): We shouldn't need to cast; may be a pyright bug
-    msg = json_rpc_request("view", cast(JsonRecord, {"path": path}), comm_id="dummy_comm_id")
+    path = _encode_path(["x"])
+    msg = json_rpc_request("view", {"path": path}, comm_id="dummy_comm_id")
     variables_comm.handle_msg(msg, raise_errors=False)
 
     # An error message is sent
