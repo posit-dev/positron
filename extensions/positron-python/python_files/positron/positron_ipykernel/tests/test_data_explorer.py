@@ -556,12 +556,20 @@ def test_pandas_get_schema(dxf: DataExplorerFixture):
             "number",
         ),
         ([1 + 1j, 2 + 2j, 3 + 3j, 4 + 4j, 5 + 5j], "complex128", "number"),
-        (
-            np.array([1 + 1j, 2 + 2j, 3 + 3j, 4 + 4j, 5 + 5j], dtype="complex256"),
-            "complex256",
-            "number",
-        ),
     ]
+
+    if hasattr(np, "complex256"):
+        # Windows doesn't have complex256
+        cases.append(
+            (
+                np.array(
+                    [1 + 1j, 2 + 2j, 3 + 3j, 4 + 4j, 5 + 5j],
+                    dtype="complex256",
+                ),
+                "complex256",
+                "number",
+            )
+        )
 
     full_schema = [
         {
