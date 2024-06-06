@@ -10,6 +10,10 @@ const path = require('path');
 const opn = require('opn');
 const minimist = require('minimist');
 
+// --- Start Positron ---
+const fs = require('fs');
+// --- End Positron ---
+
 async function main() {
 
 	const args = minimist(process.argv.slice(2), {
@@ -31,6 +35,31 @@ async function main() {
 	process.env['VSCODE_SERVER_PORT'] = '9888';
 
 	const serverArgs = process.argv.slice(2).filter(v => v !== '--launch');
+
+	// --- Start Positron ---
+	// Check for a Positron license issuer binary at the expected location. This
+	// is only common for developer setups; typically licenses keys are issued
+	// by the environment in which Positron is hosted.
+	//
+	// TODO(jmcphers): Use a pre-built binary for this. This formulation is for
+	// developers with locally built copies of the license issuer.
+	const positronIssuerPath = path.join(__dirname, '..', '..', 'positron-license', 'pdol', 'target', 'debug', 'pdol');
+
+	if (fs.existsSync(positronIssuerPath)) {
+		// Get the connection token from the set of server arguments (it's the first one after --connection-token).
+		const connectionTokenIndex = serverArgs.indexOf('--connection-token');
+		if (connectionTokenIndex === -1) {
+			console.error('No --connection-token found in server arguments.');
+			process.exit(1);
+		}
+		const connectionToken = serverArgs[connectionTokenIndex + 1];
+
+		// Run the license issuer binary to get a license key.
+		const licenseKey = cp.execFileSync(positronIssuerPath, ['--connection-token', connectionToken]);
+		process.env['POSITRON_LICENSE_KEY'] = licenseKey.toString();
+	}
+	// --- End Positron ---
+
 	const addr = await startServer(serverArgs);
 	if (args['launch']) {
 		opn(addr);
