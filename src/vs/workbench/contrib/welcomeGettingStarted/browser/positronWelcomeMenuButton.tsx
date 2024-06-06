@@ -52,7 +52,7 @@ export function WelcomeMenuButton(props: WelcomeMenuButtonProps) {
 				popupAlignment='left'
 				width={300}
 				height={'min-content'}
-				keyboardNavigation='menu'
+				keyboardNavigationStyle='menu'
 			>
 				<div className='welcome-page-start menu-button-container'>
 					{props.actions.map((action, index) => (

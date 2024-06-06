@@ -4,9 +4,10 @@
 
 .custom-context-menu-items {
 	width: 100%;
-	margin: 4px;
+	padding: 4px;
 	display: flex;
 	flex-direction: column;
+	box-sizing: border-box;
 	background: var(--vscode-positronContextMenu-background);
 }
 
@@ -74,12 +75,11 @@
 .title {
 	display: block;
 	max-width: 100%;
-	max-width: 600px;
 	overflow: hidden;
 	white-space: nowrap;
 	text-overflow: ellipsis;
 	grid-column: title / shortcut;
-	padding: 10px 20px 10px 0;
+	margin: 10px 5px 10px 10;
 }
 
 .custom-context-menu-item

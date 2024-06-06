@@ -5,7 +5,6 @@
 .positron-modal-popup
 .add-edit-row-filter-modal-popup-body {
 	gap: 8px;
-	width: 100%;
 	padding: 10px;
 	display: flex;
 	flex-direction: column;

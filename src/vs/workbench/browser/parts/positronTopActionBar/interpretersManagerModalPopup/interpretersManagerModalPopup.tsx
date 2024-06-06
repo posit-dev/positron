@@ -48,7 +48,7 @@ export const InterpretersManagerModalPopup = (props: InterpretersManagerModalPop
 			popupAlignment='right'
 			width={375}
 			height={'min-content'}
-			keyboardNavigation='menu'
+			keyboardNavigationStyle='menu'
 		>
 			<InterpreterGroups
 				languageRuntimeService={props.languageRuntimeService}

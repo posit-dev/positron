@@ -178,12 +178,12 @@ const DropDownListBoxModalPopup = <T, V,>(props: DropDownListBoxModalPopupProps<
 		<PositronModalPopup
 			renderer={props.renderer}
 			anchorElement={props.anchorElement}
-			popupPosition='bottom'
+			popupPosition='auto'
 			popupAlignment='left'
+			width={props.anchorElement.offsetWidth}
 			minWidth={props.anchorElement.offsetWidth}
-			width={'max-content'}
 			height={'min-content'}
-			keyboardNavigation='menu'
+			keyboardNavigationStyle='menu'
 		>
 			<div className='drop-down-list-box-items'>
 				{props.entries.map((entry, index) => {
