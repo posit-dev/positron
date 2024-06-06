@@ -956,9 +956,6 @@ export class WebviewElement extends Disposable implements IWebview, WebviewFindD
 	public readonly onDidStopFind: Event<void> = this._onDidStopFind.event;
 
 	// --- Start Positron ---
-	protected readonly _onFrameDomReady = this._register(new Emitter<WebviewFrameId>());
-	public readonly onFrameDomReady = this._onFrameDomReady.event;
-
 	protected readonly _onFrameNavigated = this._register(new Emitter<FrameNavigationEvent>());
 	public readonly onFrameNavigated = this._onFrameNavigated.event;
 

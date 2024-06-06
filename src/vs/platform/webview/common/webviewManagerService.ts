@@ -21,13 +21,25 @@ export interface WebviewWindowId {
 }
 
 // --- Start Positron ---
+/**
+ * A unique composite identifier for a frame inside a webview.
+ */
 export interface WebviewFrameId {
+	/** The process ID that backs the frame */
 	readonly processId: number;
+
+	/** The frame's routing identifier */
 	readonly routingId: number;
 }
 
+/**
+ * An event fired when a frame navigates to a new URL.
+ */
 export interface FrameNavigationEvent {
+	/** The ID of the frame that navigated */
 	readonly frameId: WebviewFrameId;
+
+	/** The frame's new URL */
 	readonly url: string;
 }
 
@@ -73,11 +85,6 @@ export interface IWebviewManagerService {
 	 * @param targetUrl The URL of the frame to wait for.
 	 */
 	awaitFrameCreation(windowId: WebviewWindowId, targetUrl: string): Promise<WebviewFrameId>;
-
-	/**
-	 * An event fired when a webview frame's DOM has been fully loaded.
-	 */
-	onFrameDomReady: Event<WebviewFrameId>;
 
 	/**
 	 * An event fired when a webview frame has navigated to a new URL.

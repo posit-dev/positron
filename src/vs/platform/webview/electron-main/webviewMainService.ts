@@ -6,7 +6,7 @@
 import { WebContents, webContents, WebFrameMain } from 'electron';
 import { Emitter } from 'vs/base/common/event';
 import { Disposable } from 'vs/base/common/lifecycle';
-import { FindInFrameOptions, FoundInFrameResult, FrameNavigationEvent, IWebviewManagerService, WebviewWebContentsId, WebviewWindowId } from 'vs/platform/webview/common/webviewManagerService';
+import { FindInFrameOptions, FoundInFrameResult, IWebviewManagerService, WebviewWebContentsId, WebviewWindowId } from 'vs/platform/webview/common/webviewManagerService';
 import { WebviewProtocolProvider } from 'vs/platform/webview/electron-main/webviewProtocolProvider';
 import { IWindowsMainService } from 'vs/platform/windows/electron-main/windows';
 
@@ -19,7 +19,7 @@ import { VSBuffer } from 'vs/base/common/buffer';
 import { IDisposable } from 'vs/base/common/lifecycle';
 
 // eslint-disable-next-line no-duplicate-imports
-import { WebviewFrameId } from 'vs/platform/webview/common/webviewManagerService';
+import { WebviewFrameId, FrameNavigationEvent } from 'vs/platform/webview/common/webviewManagerService';
 import { DeferredPromise } from 'vs/base/common/async';
 // --- End Positron ---
 
@@ -99,13 +99,18 @@ export class WebviewMainService extends Disposable implements IWebviewManagerSer
 
 	// --- Start Positron ---
 
-	private readonly _onDomReady = this._register(new Emitter<WebviewFrameId>());
-	public onFrameDomReady = this._onDomReady.event;
-
+	// The onFrameNavigated event is fired when a frame in a webview navigates to
+	// a new URL.
 	private readonly _onFrameNavigated = this._register(new Emitter<FrameNavigationEvent>());
 	public onFrameNavigation = this._onFrameNavigated.event;
+
+	// A map of window IDs to disposables for navigation event listeners. We
+	// attach a single listener to each window to capture frame navigation
+	// events.
 	private readonly _navigationListeners = new Map<WebviewWindowId, IDisposable>();
 
+	// A map of pending frame navigations, from the URL of the frame to the
+	// promise that will be resolved when a frame navigates to that URL.
 	private readonly _pendingNavigations = new Map<string, DeferredPromise<WebviewFrameId>>();
 
 	/**
@@ -168,6 +173,13 @@ export class WebviewMainService extends Disposable implements IWebviewManagerSer
 		return deferred.p;
 	}
 
+	/**
+	 * Executes a JavaScript code snippet in a webview frame.
+	 *
+	 * @param frameId The ID of the frame in which to execute the code.
+	 * @param script The code to execute, as a string.
+	 * @returns The result of evaluating the code.
+	 */
 	public async executeJavaScript(frameId: WebviewFrameId, script: string): Promise<any> {
 		const frame = webFrameMain.fromId(frameId.processId, frameId.routingId);
 		if (!frame) {
@@ -176,6 +188,11 @@ export class WebviewMainService extends Disposable implements IWebviewManagerSer
 		return frame.executeJavaScript(script);
 	}
 
+	/**
+	 * Handles a frame navigation event.
+	 * @param frameId The ID of the frame that navigated
+	 * @param url The URL to which the frame navigated
+	 */
 	private onFrameNavigated(frameId: WebviewFrameId, url: string): void {
 		this._onFrameNavigated.fire({ frameId, url });
 
