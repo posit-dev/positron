@@ -30,6 +30,14 @@ export function setup(logger: Logger) {
 
 				await app.workbench.quickaccess.runCommand('ipynb.newUntitledIpynb');
 
+				await app.code.waitForElement('.kernel-label', (e) => e!.textContent.includes(process.env.POSITRON_PY_VER_SEL!) || e!.textContent.includes('Select Kernel'));
+
+				const interpreterManagerText = (await app.code.waitForElement('.kernel-label')).textContent;
+				if (interpreterManagerText === 'Select Kernel') {
+					await app.code.waitAndClick('.kernel-action-view-item');
+					await app.workbench.quickinput.selectQuickInputElementContaining(process.env.POSITRON_PY_VER_SEL!);
+				}
+
 				await app.workbench.quickaccess.runCommand('notebook.cell.edit');
 
 				// no type method in Microsoft base functionality
@@ -68,6 +76,14 @@ export function setup(logger: Logger) {
 				const app = this.app as Application;
 
 				await app.workbench.quickaccess.runCommand('ipynb.newUntitledIpynb');
+
+				await app.code.waitForElement('.kernel-label', (e) => e!.textContent.includes(process.env.POSITRON_R_VER_SEL!) || e!.textContent.includes('Select Kernel'));
+
+				const interpreterManagerText = (await app.code.waitForElement('.kernel-label')).textContent;
+				if (interpreterManagerText === 'Select Kernel') {
+					await app.code.waitAndClick('.kernel-action-view-item');
+					await app.workbench.quickinput.selectQuickInputElementContaining(process.env.POSITRON_R_VER_SEL!);
+				}
 
 				await app.workbench.quickaccess.runCommand('notebook.cell.edit');
 
