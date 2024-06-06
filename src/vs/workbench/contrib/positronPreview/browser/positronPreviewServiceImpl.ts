@@ -5,7 +5,7 @@
 import { Disposable } from 'vs/base/common/lifecycle';
 import { IPositronPreviewService } from 'vs/workbench/contrib/positronPreview/browser/positronPreview';
 import { Event, Emitter } from 'vs/base/common/event';
-import { IWebviewService, WebviewExtensionDescription, WebviewInitInfo } from 'vs/workbench/contrib/webview/browser/webview';
+import { IOverlayWebview, IWebviewService, WebviewExtensionDescription, WebviewInitInfo } from 'vs/workbench/contrib/webview/browser/webview';
 import { PreviewWebview } from 'vs/workbench/contrib/positronPreview/browser/previewWebview';
 import { IViewsService } from 'vs/workbench/services/views/common/viewsService';
 import { POSITRON_PREVIEW_URL_VIEW_TYPE, POSITRON_PREVIEW_VIEW_ID } from 'vs/workbench/contrib/positronPreview/browser/positronPreviewSevice';
@@ -161,7 +161,7 @@ export class PositronPreviewService extends Disposable implements IPositronPrevi
 			options: {
 				enableFindWidget: true,
 				retainContextWhenHidden: true,
-				externalUri: true
+				externalUri: this.canPreviewExternalUri()
 			},
 			contentOptions: {
 				allowScripts: true,
@@ -173,7 +173,7 @@ export class PositronPreviewService extends Disposable implements IPositronPrevi
 		};
 
 		const webview = this._webviewService.createWebviewOverlay(webviewInitInfo);
-		const preview = new PreviewUrl(previewId, webview, uri);
+		const preview = this.createPreviewUrl(previewId, webview, uri);
 
 		// Remove any other preview URLs from the item list; they can be expensive
 		// to keep around.
@@ -189,6 +189,28 @@ export class PositronPreviewService extends Disposable implements IPositronPrevi
 		this.openPreviewWebview(preview);
 
 		return preview;
+	}
+
+	/**
+	 * Creates a URL preview instance.
+	 *
+	 * @param previewId The preview ID
+	 * @param webview The overlay webview instance
+	 * @param uri The URI to open in the preview
+	 * @returns A PreviewUrl instance
+	 */
+	protected createPreviewUrl(previewId: string, webview: IOverlayWebview, uri: URI): PreviewUrl {
+		return new PreviewUrl(previewId, webview, uri);
+	}
+
+	/**
+	 * Indicates whether external URIs can be natively previewed in the viewer.
+	 * Defaults to false; overridden to true in the Electron implementation.
+	 *
+	 * @returns True if external URIs can be previewed in the viewer; false otherwise
+	 */
+	protected canPreviewExternalUri(): boolean {
+		return false;
 	}
 
 	openPreviewWebview(

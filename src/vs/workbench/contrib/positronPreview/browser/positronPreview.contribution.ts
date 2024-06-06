@@ -12,17 +12,12 @@ import { SyncDescriptor } from 'vs/platform/instantiation/common/descriptors';
 import { LifecyclePhase } from 'vs/workbench/services/lifecycle/common/lifecycle';
 import { IInstantiationService } from 'vs/platform/instantiation/common/instantiation';
 import { ViewPaneContainer } from 'vs/workbench/browser/parts/views/viewPaneContainer';
-import { InstantiationType, registerSingleton } from 'vs/platform/instantiation/common/extensions';
 import { PositronPreviewViewPane } from 'vs/workbench/contrib/positronPreview/browser/positronPreviewView';
-import { PositronPreviewService } from 'vs/workbench/contrib/positronPreview/browser/positronPreviewServiceImpl';
 import { IPositronPreviewService, POSITRON_PREVIEW_VIEW_ID } from 'vs/workbench/contrib/positronPreview/browser/positronPreviewSevice';
 import { IWorkbenchContributionsRegistry, Extensions as WorkbenchExtensions, IWorkbenchContribution } from 'vs/workbench/common/contributions';
 import { ViewContainer, IViewContainersRegistry, ViewContainerLocation, Extensions as ViewContainerExtensions, IViewsRegistry } from 'vs/workbench/common/views';
 import { registerAction2 } from 'vs/platform/actions/common/actions';
 import { PositronOpenUrlInViewerAction } from 'vs/workbench/contrib/positronPreview/browser/positronPreviewActions';
-
-// Register the Positron preview service.
-registerSingleton(IPositronPreviewService, PositronPreviewService, InstantiationType.Delayed);
 
 // The Positron preview view icon.
 const positronPreviewViewIcon = registerIcon('positron-preview-view-icon', Codicon.positronPreviewView, nls.localize('positronPreviewViewIcon', 'View icon of the Positron preview view.'));

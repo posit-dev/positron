@@ -211,7 +211,13 @@ export interface IWebview extends IDisposable {
 	// --- Start Positron ---
 	/**
 	 * Sets the URI of the webview. In order to use this, the webview must be
-	 * created with the `externalUri` option set to true.
+	 * created with the `externalUri` option set to true; this option causes the
+	 * webview to load an alternate host page designed for hosting external
+	 * URIs.
+	 *
+	 * Currently, this cannot be used outside of Electron.
+	 *
+	 * Exclusive with `setHtml`.
 	 */
 	setUri(uri: URI): void;
 	// --- End Positron ---

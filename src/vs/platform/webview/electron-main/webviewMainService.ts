@@ -151,7 +151,13 @@ export class WebviewMainService extends Disposable implements IWebviewManagerSer
 		// set up a listener to capture them
 		if (!this._navigationListeners.has(windowId)) {
 			// Event handler for navigation events
-			const onNavigated = (event: any, url: string, httpResponseCode: number, httpStatusText: string, isMainFrame: boolean, frameProcessId: number, frameRoutingId: number) => {
+			const onNavigated = (_event: any,
+				url: string,
+				_httpResponseCode: number,
+				_httpStatusText: string,
+				_isMainFrame: boolean,
+				frameProcessId: number,
+				frameRoutingId: number) => {
 				const frameId = { processId: frameProcessId, routingId: frameRoutingId };
 				this.onFrameNavigated(frameId, url);
 			};

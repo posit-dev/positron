@@ -738,7 +738,6 @@ export class WebviewElement extends Disposable implements IWebview, WebviewFindD
 		// Tell the webview to load the URI
 		this._uri = uri;
 		this._send('set-uri', uri.toString());
-		this._logService.debug('Webview: ** set-uri', uri.toString());
 
 		// Wait for the frame to be created by hanging around until Electron
 		// notices that the frame with the requested URL navigated.
@@ -746,7 +745,6 @@ export class WebviewElement extends Disposable implements IWebview, WebviewFindD
 		// This is a little bit of a hack, but it's the only way to get a handle
 		// to the newly created frame.
 		const frameId = await this.awaitFrameCreation(uri.toString());
-		this._logService.debug('Webview: ** frame created', frameId.routingId, '/', frameId.processId);
 		this._frameId = frameId;
 
 		return this.injectJavaScript();
