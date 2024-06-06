@@ -57,7 +57,11 @@ class PositronDataExplorerContribution extends Disposable {
 							PositronDataExplorerEditorInput,
 							resource
 						),
-						options
+						options: {
+							...options,
+							// Fix for https://github.com/posit-dev/positron/issues/3362.
+							pinned: true
+						}
 					};
 				}
 			}

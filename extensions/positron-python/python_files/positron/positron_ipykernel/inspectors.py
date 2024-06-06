@@ -79,10 +79,12 @@ T = TypeVar("T")
 SIMPLER_NAMES = {
     "pandas.core.frame.DataFrame": "pandas.DataFrame",
     "pandas.core.series.Series": "pandas.Series",
+    "polars.dataframe.frame.DataFrame": "polars.DataFrame",
+    "polars.series.series.Series": "polars.Series",
 }
 
 
-def _get_display_name(value):
+def _get_class_display(value):
     display_value = get_qualname(value)
     return SIMPLER_NAMES.get(display_value, display_value)
 
@@ -95,7 +97,7 @@ class PositronInspector(Generic[T]):
     def __init__(self, value: T) -> None:
         self.value = value
 
-    def get_display_name(self, key: str) -> str:
+    def get_display_name(self, key: Any) -> str:
         return str(key)
 
     def get_display_value(
@@ -761,16 +763,19 @@ class BaseColumnInspector(_BaseMapInspector[Column], ABC):
         print_width: Optional[int] = PRINT_WIDTH,
         truncate_at: int = TRUNCATE_AT,
     ) -> Tuple[str, bool]:
-        # TODO(pyright): cast shouldn't be necessary, recheck in a future version of pyright
-        display_value = str(cast(Column, self.value[:100]).to_list())
+        display_value = _get_class_display(self.value)
+        display_value = f"[{len(self.value)} values] {display_value}"
         return (display_value, True)
 
 
 class PandasSeriesInspector(BaseColumnInspector["pd.Series"]):
     CLASS_QNAME = "pandas.core.series.Series"
 
-    def get_children(self) -> Collection[Any]:
-        return self.value.index
+    def get_display_name(self, key: int) -> str:
+        return str(self.value.index[key])
+
+    def get_child(self, key: int) -> Any:
+        return self.value.iloc[key]
 
     def get_kind(self) -> str:
         # #2215 -- we are temporarily reclassifying Series as a table
@@ -795,15 +800,6 @@ class PandasSeriesInspector(BaseColumnInspector["pd.Series"]):
     def has_viewer(self) -> bool:
         return True
 
-    def get_display_value(
-        self,
-        print_width: Optional[int] = PRINT_WIDTH,
-        truncate_at: int = TRUNCATE_AT,
-    ) -> Tuple[str, bool]:
-        display_value = _get_display_name(self.value)
-        display_value = f"[{len(self.value)} values] {display_value}"
-        return (display_value, True)
-
 
 class PandasIndexInspector(BaseColumnInspector["pd.Index"]):
     CLASS_QNAME = [
@@ -826,7 +822,8 @@ class PandasIndexInspector(BaseColumnInspector["pd.Index"]):
         if isinstance(self.value, not_none(pd_).RangeIndex):
             return str(self.value), False
 
-        return super().get_display_value(print_width, truncate_at)
+        display_value = str(self.value[:100].to_list())
+        return display_value, True
 
     def has_children(self) -> bool:
         # For ranges, we don't visualize the children as they're
@@ -893,14 +890,23 @@ class BaseTableInspector(_BaseMapInspector[Table], Generic[Table, Column], ABC):
         # number of rows per column is handled by ColumnInspector
         return self.value.shape[1]
 
-    def get_children(self) -> Collection[Any]:
-        return self.value.columns
-
     def has_viewer(self) -> bool:
         return True
 
     def is_mutable(self) -> bool:
         return True
+
+    def get_display_value(
+        self,
+        print_width: Optional[int] = PRINT_WIDTH,
+        truncate_at: int = TRUNCATE_AT,
+    ) -> Tuple[str, bool]:
+        display_value = _get_class_display(self.value)
+        if hasattr(self.value, "shape"):
+            shape = self.value.shape
+            display_value = f"[{shape[0]} rows x {shape[1]} columns] {display_value}"
+
+        return (display_value, True)
 
 
 #
@@ -911,17 +917,14 @@ class BaseTableInspector(_BaseMapInspector[Table], Generic[Table, Column], ABC):
 class PandasDataFrameInspector(BaseTableInspector["pd.DataFrame", "pd.Series"]):
     CLASS_QNAME = "pandas.core.frame.DataFrame"
 
-    def get_display_value(
-        self,
-        print_width: Optional[int] = PRINT_WIDTH,
-        truncate_at: int = TRUNCATE_AT,
-    ) -> Tuple[str, bool]:
-        display_value = _get_display_name(self.value)
-        if hasattr(self.value, "shape"):
-            shape = self.value.shape
-            display_value = f"[{shape[0]} rows x {shape[1]} columns] {display_value}"
+    def get_display_name(self, key: int) -> str:
+        return str(self.value.columns[key])
 
-        return (display_value, True)
+    def get_children(self):
+        return range(self.value.shape[1])
+
+    def get_child(self, key: int) -> Any:
+        return self.value.iloc[:, key]
 
     def equals(self, value: pd.DataFrame) -> bool:
         return self.value.equals(value)
@@ -944,12 +947,15 @@ class PolarsDataFrameInspector(BaseTableInspector["pl.DataFrame", "pl.Series"]):
         "polars.internals.dataframe.frame.DataFrame",
     ]
 
+    def get_children(self):
+        return self.value.columns
+
     def get_display_value(
         self,
         print_width: Optional[int] = PRINT_WIDTH,
         truncate_at: int = TRUNCATE_AT,
     ) -> Tuple[str, bool]:
-        qualname = _get_display_name(self.value)
+        qualname = _get_class_display(self.value)
         shape = self.value.shape
         display_value = f"[{shape[0]} rows x {shape[1]} columns] {qualname}"
         return (display_value, True)
