@@ -38,7 +38,15 @@ export function checkIfPathValid(path: string | number, opts: PathValidatorOptio
 	// TODO: This may need to be changed to work with remote file systems with `remoteAgentService.getEnvironment()`
 	const isWindows = OS === OperatingSystem.Windows;
 
-	const pathBase = basename(URI.file(path));
+	// Try and create URI to validate path. Should catch things like improper characters etc..
+	let pathUri: URI;
+	try {
+		pathUri = URI.file(path);
+	} catch (e) {
+		return localize('unableToConvertToUriError', "Can't parse file name. Check for invalid characters.");
+	}
+
+	const pathBase = basename(pathUri);
 	if (!isValidBasename(pathBase, isWindows)) {
 		// Make the path cleaner for display
 		let sanitizedPath = pathBase.replace(/\*/g, '\\*'); // CodeQL [SM02383] This only processes filenames which are enforced against having backslashes in them farther up in the stack.
