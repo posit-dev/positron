@@ -199,26 +199,11 @@ def _do_list(variables_comm: DummyComm):
     ]
 
     result = variables_comm.messages[0]["data"]["result"]
-    result["variables"] = [
-        Variable.parse_obj(variable)
-        for variable in result["variables"]
-    ]
+    result["variables"] = [Variable.parse_obj(variable) for variable in result["variables"]]
 
     variables_comm.messages.clear()
 
     return result
-
-
-def test_list(shell: PositronShell, variables_comm: DummyComm) -> None:
-    shell.user_ns["x"] = 3
-
-    result = _do_list(variables_comm)
-
-    with patch("positron_ipykernel.variables.timestamp", return_value=0):
-        expected_variables = [not_none(_summarize_variable("x", shell.user_ns["x"]))]
-
-    assert result["length"] == 1
-    assert result["variables"] == expected_variables
 
 
 def test_list_1000(shell: PositronShell, variables_comm: DummyComm) -> None:
@@ -409,6 +394,8 @@ class TestClass:
     def x_plus_one(self):
         raise AssertionError("Should not be evaluated")
 
+_test_obj = TestClass()
+
 
 def variable(display_name: str, display_value: str, children: List[Dict[str, Any]] = []):
     return {
@@ -419,137 +406,202 @@ def variable(display_name: str, display_value: str, children: List[Dict[str, Any
 
 
 @pytest.mark.parametrize(
-    ("value", "expected_children"),
+    ("value", "expected"),
     [
+        # Series
+        (
+            pd.Series([1, 2]),
+            variable(
+                "root",
+                "[2 values] pandas.Series",
+                children=[variable("0", "1"), variable("1", "2")],
+            ),
+        ),
+        (
+            pl.Series([1, 2]),
+            variable(
+                "root",
+                "[2 values] polars.Series",
+                children=[variable("0", "1"), variable("1", "2")],
+            ),
+        ),
         # DataFrames
         (
             pd.DataFrame({"a": [1, 2], "b": ["3", "4"]}),
-            [
-                variable(
-                    "a",
-                    "[2 values] pandas.Series",
-                    children=[variable("0", "1"), variable("1", "2")],
-                ),
-                variable(
-                    "b",
-                    "[2 values] pandas.Series",
-                    children=[variable("0", "'3'"), variable("1", "'4'")],
-                ),
-            ],
+            variable(
+                "root",
+                "[2 rows x 2 columns] pandas.DataFrame",
+                children=[
+                    variable(
+                        "a",
+                        "[2 values] pandas.Series",
+                        children=[variable("0", "1"), variable("1", "2")],
+                    ),
+                    variable(
+                        "b",
+                        "[2 values] pandas.Series",
+                        children=[variable("0", "'3'"), variable("1", "'4'")],
+                    ),
+                ],
+            ),
         ),
         (
             pl.DataFrame({"a": [1, 2], "b": ["3", "4"]}),
-            [
-                variable(
-                    "a",
-                    # TODO: Should this be "[2 values] polars.Series"?
-                    "[1, 2]",
-                    children=[variable("0", "1"), variable("1", "2")],
-                ),
-                variable(
-                    "b",
-                    # TODO: Should this be "[2 values] polars.Series"?
-                    "['3', '4']",
-                    children=[variable("0", "'3'"), variable("1", "'4'")],
-                ),
-            ],
+            variable(
+                "root",
+                "[2 rows x 2 columns] polars.DataFrame",
+                children=[
+                    variable(
+                        "a",
+                        "[2 values] polars.Series",
+                        children=[variable("0", "1"), variable("1", "2")],
+                    ),
+                    variable(
+                        "b",
+                        "[2 values] polars.Series",
+                        children=[variable("0", "'3'"), variable("1", "'4'")],
+                    ),
+                ],
+            ),
         ),
         # Arrays
         (
             np.array([[0, 1], [2, 3]]),
-            [
-                variable(
-                    "0",
-                    "[0,1]",
-                    children=[variable("0", "0"), variable("1", "1")],
-                ),
-                variable(
-                    "1",
-                    "[2,3]",
-                    children=[variable("0", "2"), variable("1", "3")],
-                ),
-            ],
+            variable(
+                "root",
+                "[[0,1],\n [2,3]]",
+                children=[
+                    variable(
+                        "0",
+                        "[0,1]",
+                        children=[variable("0", "0"), variable("1", "1")],
+                    ),
+                    variable(
+                        "1",
+                        "[2,3]",
+                        children=[variable("0", "2"), variable("1", "3")],
+                    ),
+                ],
+            ),
         ),
         # Objects
         (
-            TestClass(),
-            [
-                variable("x", "0"),
-                variable("x_plus_one", repr(TestClass.x_plus_one)),
-            ],
+            _test_obj,
+            variable(
+                "root",
+                repr(_test_obj),
+                children=[
+                    variable("x", "0"),
+                    variable("x_plus_one", repr(TestClass.x_plus_one)),
+                ],
+            ),
         ),
         # Children with duplicate keys
         (
             pd.Series(range(4), index=["a", "b", "a", "b"]),
-            [
-                variable("a", "0"),
-                variable("b", "1"),
-                variable("a", "2"),
-                variable("b", "3"),
-            ],
+            variable(
+                "root",
+                "[4 values] pandas.Series",
+                children=[
+                    variable("a", "0"),
+                    variable("b", "1"),
+                    variable("a", "2"),
+                    variable("b", "3"),
+                ],
+            ),
+        ),
+        (
+            pd.DataFrame([range(4)], columns=["a", "b", "a", "b"]),
+            variable(
+                "root",
+                "[1 rows x 4 columns] pandas.DataFrame",
+                children=[
+                    variable("a", "[1 values] pandas.Series", children=[variable("0", "0")]),
+                    variable("b", "[1 values] pandas.Series", children=[variable("0", "1")]),
+                    variable("a", "[1 values] pandas.Series", children=[variable("0", "2")]),
+                    variable("b", "[1 values] pandas.Series", children=[variable("0", "3")]),
+                ],
+            ),
         ),
         # Children with unique keys that have the same display_name
         (
             {0: 0, "0": 1},
-            [
-                variable("0", "0"),
-                variable("0", "1"),
-            ],
+            variable(
+                "root",
+                "{0: 0, '0': 1}",
+                children=[
+                    variable("0", "0"),
+                    variable("0", "1"),
+                ],
+            ),
         ),
         (
             pd.Series({0: 0, "0": 1}),
-            [
-                variable("0", "0"),
-                variable("0", "1"),
-            ],
+            variable(
+                "root",
+                "[2 values] pandas.Series",
+                children=[
+                    variable("0", "0"),
+                    variable("0", "1"),
+                ],
+            ),
         ),
         (
             pd.DataFrame({0: [0], "0": [1]}),
-            [
-                variable(
-                    "0",
-                    "[1 values] pandas.Series",
-                    children=[variable("0", "0")],
-                ),
-                variable(
-                    "0",
-                    "[1 values] pandas.Series",
-                    children=[variable("0", "1")],
-                ),
-            ],
+            variable(
+                "root",
+                "[1 rows x 2 columns] pandas.DataFrame",
+                children=[
+                    variable(
+                        "0",
+                        "[1 values] pandas.Series",
+                        children=[variable("0", "0")],
+                    ),
+                    variable(
+                        "0",
+                        "[1 values] pandas.Series",
+                        children=[variable("0", "1")],
+                    ),
+                ],
+            ),
         ),
     ],
 )
-def test_inspect(value, expected_children, shell: PositronShell, variables_comm: DummyComm) -> None:
-    shell.user_ns["x"] = value
-    _verify_inspect(_encode_path(["x"]), expected_children, variables_comm)
+def test_list_and_recursive_inspect(value, expected, shell: PositronShell, variables_comm: DummyComm) -> None:
+    """
+    Simulate a user recursively expanding a variable's children in the UI.
+    """
+    shell.user_ns["root"] = value
+
+    # Get the variable itself via a list request.
+    list_result = _do_list(variables_comm)
+
+    # Recursively inspect the variable's children.
+    _verify_inspect([], list_result["variables"], [expected], variables_comm)
 
 
 def _verify_inspect(
     encoded_path: List[JsonData],
+    children: List[Variable],
     expected_children: List[Dict[str, Any]],
     variables_comm: DummyComm,
 ) -> None:
-    children = _do_inspect(encoded_path, variables_comm)
-
     assert len(children) == len(expected_children)
 
     for child, expected_child in zip(children, expected_children):
-        # Check the variable's properties.
-        for key, value in expected_child.items():
-            # Check children separately below.
-            if key == "children":
-                continue
+        # Check the inspected variable; children are checked separately below.
+        expected_child = expected_child.copy()
+        expected_child_children = expected_child.pop("children")
+        child_dict = child.dict(include=expected_child.keys() - {"children"})
+        assert child_dict == expected_child
 
-            assert getattr(child, key) == value
-
-        if expected_child["children"]:
+        if expected_child_children:
             # Check the variable's children by doing another inspect request using the previously
             # returned access_key. This simulates a user recursively expanding a variable's children in
             # the UI.
-            _verify_inspect(
-                encoded_path + [child.access_key], expected_child["children"], variables_comm
-            )
+            child_path = encoded_path + [child.access_key]
+            child_children = _do_inspect(child_path, variables_comm)
+            _verify_inspect(child_path, child_children, expected_child_children, variables_comm)
 
 
 def test_inspect_large_object(shell: PositronShell, variables_comm: DummyComm) -> None:
