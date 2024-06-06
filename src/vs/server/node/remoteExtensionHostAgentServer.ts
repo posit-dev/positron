@@ -41,6 +41,13 @@ import { IServerEnvironmentService, ServerParsedArgs } from 'vs/server/node/serv
 import { setupServerServices, SocketServer } from 'vs/server/node/serverServices';
 import { CacheControl, serveError, serveFile, WebClientServer } from 'vs/server/node/webClientServer';
 
+// --- Start Positron ---
+import { validateLicenseKey } from 'vs/server/node/remoteLicenseKey';
+
+// eslint-disable-next-line no-duplicate-imports
+import { MandatoryServerConnectionToken } from 'vs/server/node/serverConnectionToken';
+// --- End Positron ---
+
 const SHUTDOWN_TIMEOUT = 5 * 60 * 1000;
 
 declare module vsda {
@@ -672,6 +679,21 @@ export async function createServer(address: string | net.AddressInfo | null, arg
 		process.exit(1);
 	}
 
+	// --- Start Positron ---
+	// Ensure that the connection token is mandatory. Since Positron license
+	// keys sign the connection token, we can't proceed without one.
+	if (connectionToken.type !== ServerConnectionTokenType.Mandatory) {
+		console.warn('Positron requires a connection token in order secure the connection. Please provide a valid connection token using the --connection-token or --connection-token-file argument.');
+		process.exit(1);
+	}
+	const mandatoryConnectionToken = connectionToken as MandatoryServerConnectionToken;
+	const hasValidLicense = await validateLicenseKey(mandatoryConnectionToken.value, args);
+	if (!hasValidLicense) {
+		// License warnings are logged in the validateLicenseKey function; at this point we just need to exit
+		process.exit(1);
+	}
+	// --- End Positron ---
+
 	// setting up error handlers, first with console.error, then, once available, using the log service
 
 	function initUnexpectedErrorHandler(handler: (err: any) => void) {
@@ -784,7 +806,11 @@ export async function createServer(address: string | net.AddressInfo | null, arg
 
 	if (hasWebClient && address && typeof address !== 'string') {
 		// ships the web ui!
-		const queryPart = (connectionToken.type !== ServerConnectionTokenType.None ? `?${connectionTokenQueryName}=${connectionToken.value}` : '');
+		// --- Start Positron ---
+		// In Positron, the connection token is always required.
+		// const queryPart = (connectionToken.type !== ServerConnectionTokenType.None ? `?${connectionTokenQueryName}=${connectionToken.value}` : '');
+		const queryPart = `?${connectionTokenQueryName}=${connectionToken.value}`;
+		// --- End Positron ---
 		console.log(`Web UI available at http://localhost${address.port === 80 ? '' : `:${address.port}`}${serverBasePath ?? ''}${queryPart}`);
 	}
 
