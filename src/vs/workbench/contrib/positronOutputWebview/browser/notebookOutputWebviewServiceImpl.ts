@@ -508,8 +508,6 @@ ${managerState}
 						runtimeClientType,
 						{},
 						metadata,
-						// comm_id,
-						undefined,
 					);
 				}
 
@@ -544,7 +542,8 @@ ${managerState}
 				}
 				// TODO: List of RPC calls?
 				// if (message?.method === 'request_states') {
-				const output = await client.performRpc(message);
+				// TODO: Should we interact with a PositronBaseComm instead?
+				const output = await client.performRpc(message, 5000);
 				// TODO: Do we need the buffers attribute too (not buffer_paths)?
 				console.log('RECV comm_msg:', output);
 				webview.postMessage({
