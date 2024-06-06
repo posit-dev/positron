@@ -35,7 +35,11 @@ export function setup(logger: Logger) {
 				const interpreterManagerText = (await app.code.waitForElement('.kernel-label')).textContent;
 				if (interpreterManagerText === 'Select Kernel') {
 					await app.code.waitAndClick('.kernel-action-view-item');
+
+					await app.workbench.quickinput.waitForQuickInputOpened();
+					await app.workbench.quickinput.selectQuickInputElementContaining('Python Environments');
 					await app.workbench.quickinput.selectQuickInputElementContaining(process.env.POSITRON_PY_VER_SEL!);
+					await app.workbench.quickinput.waitForQuickInputClosed();
 				}
 
 				await app.workbench.quickaccess.runCommand('notebook.cell.edit');
@@ -82,7 +86,11 @@ export function setup(logger: Logger) {
 				const interpreterManagerText = (await app.code.waitForElement('.kernel-label')).textContent;
 				if (interpreterManagerText === 'Select Kernel') {
 					await app.code.waitAndClick('.kernel-action-view-item');
+
+					await app.workbench.quickinput.waitForQuickInputOpened();
+					await app.workbench.quickinput.selectQuickInputElementContaining('R Environments');
 					await app.workbench.quickinput.selectQuickInputElementContaining(process.env.POSITRON_R_VER_SEL!);
+					await app.workbench.quickinput.waitForQuickInputClosed();
 				}
 
 				await app.workbench.quickaccess.runCommand('notebook.cell.edit');
