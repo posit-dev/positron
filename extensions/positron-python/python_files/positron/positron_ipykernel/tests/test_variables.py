@@ -182,25 +182,43 @@ def test_change_detection_over_limit(shell: PositronShell, variables_comm: Dummy
     _assert_assigned(shell, big_array, variables_comm)
 
 
-def test_refresh(shell: PositronShell, variables_comm: DummyComm) -> None:
-    shell.user_ns["x"] = 3
-
+def _do_list(variables_comm: DummyComm):
     msg = json_rpc_request("list", comm_id="dummy_comm_id")
     with patch("positron_ipykernel.variables.timestamp", return_value=0):
         variables_comm.handle_msg(msg)
 
-        # A list message is sent
-        assert variables_comm.messages == [
-            json_rpc_response(
-                {
-                    "variables": [
-                        not_none(_summarize_variable("x", shell.user_ns["x"])).dict(),
-                    ],
-                    "length": 1,
-                    "version": 0,
-                }
-            )
-        ]
+    # Check the structure of the message but let the caller verify the contents.
+    assert variables_comm.messages == [
+        json_rpc_response(
+            {
+                "variables": ANY,
+                "length": ANY,
+                "version": 0,
+            }
+        )
+    ]
+
+    result = variables_comm.messages[0]["data"]["result"]
+    result["variables"] = [
+        Variable.parse_obj(variable)
+        for variable in result["variables"]
+    ]
+
+    variables_comm.messages.clear()
+
+    return result
+
+
+def test_list(shell: PositronShell, variables_comm: DummyComm) -> None:
+    shell.user_ns["x"] = 3
+
+    result = _do_list(variables_comm)
+
+    with patch("positron_ipykernel.variables.timestamp", return_value=0):
+        expected_variables = [not_none(_summarize_variable("x", shell.user_ns["x"]))]
+
+    assert result["length"] == 1
+    assert result["variables"] == expected_variables
 
 
 def test_list_1000(shell: PositronShell, variables_comm: DummyComm) -> None:
