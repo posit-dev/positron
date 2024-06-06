@@ -559,13 +559,22 @@ class VariablesService:
         """
 
         is_known, value = self._find_var(path)
-        if is_known:
-            self._send_details(path, value)
-        else:
-            self._send_error(
+        if not is_known:
+            return self._send_error(
                 JsonRpcErrorCode.INVALID_PARAMS,
                 f"Cannot find variable at '{path}' to inspect",
             )
+
+        inspector = get_inspector(value)
+        if not inspector.has_children():
+            # TODO: Handle scalar objects with a specific message type
+            summary = _summarize_variable("", value)
+            children = [] if summary is None else [summary]
+        else:
+            children = _summarize_children(value)
+
+        msg = InspectedVariable(children=children, length=len(children))
+        self._send_result(msg.dict())
 
     def _perform_view_action(self, path: List[str]) -> None:
         """
@@ -663,54 +672,6 @@ class VariablesService:
                 JsonRpcErrorCode.INVALID_PARAMS,
                 f"Cannot find variable at '{path}' to format",
             )
-
-    def _send_details(self, path: List[str], value: Any = None):
-        """
-        Sends a detailed list of children of the value (or just the value
-        itself, if is a leaf node on the path) as a message through the
-        variables comm to the client.
-
-        For example:
-        {
-            "data": {
-                "result": {
-                    "children": [{
-                        "display_name": "property1",
-                        "display_value": "Hello",
-                        "kind": "string",
-                        "display_type": "str"
-                    },{
-                        "display_name": "property2",
-                        "display_value": "123",
-                        "kind": "number"
-                        "display_type": "int"
-                    }]
-                }
-            }
-            ...
-        }
-
-        Parameters
-        ----------
-        path : List[str]
-            A list of names describing the path to the variable.
-        value : Any
-            The variable's value to summarize.
-        """
-
-        children = []
-        inspector = get_inspector(value)
-        if inspector.has_children():
-            children = _summarize_children(value)
-        else:
-            # Otherwise, treat as a simple value at given path
-            summary = _summarize_variable("", value)
-            if summary is not None:
-                children.append(summary)
-            # TODO: Handle scalar objects with a specific message type
-
-        msg = InspectedVariable(children=children, length=len(children))
-        self._send_result(msg.dict())
 
 
 def _summarize_variable(
