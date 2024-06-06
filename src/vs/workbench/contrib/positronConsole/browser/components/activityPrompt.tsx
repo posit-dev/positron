@@ -95,11 +95,10 @@ export const ActivityPrompt = (props: ActivityPromptProps) => {
 					// Consume the event.
 					consumeEvent();
 
-					// Upate the prompt state and reply to it.
-					const value = inputRef.current?.value;
-					props.activityItemPrompt.state = ActivityItemPromptState.Answered;
-					props.activityItemPrompt.answer = !props.activityItemPrompt.password ? value : '';
-					props.positronConsoleInstance.replyToPrompt(props.activityItemPrompt.id, value);
+					// Update the prompt state and reply to it.
+					props.positronConsoleInstance.replyToPrompt(
+						props.activityItemPrompt, inputRef.current?.value
+					);
 					return;
 				}
 
@@ -116,8 +115,7 @@ export const ActivityPrompt = (props: ActivityPromptProps) => {
 					consumeEvent();
 
 					// Update the prompt state and interrupt it.
-					props.activityItemPrompt.state = ActivityItemPromptState.Interrupted;
-					props.positronConsoleInstance.interruptPrompt(props.activityItemPrompt.id);
+					props.positronConsoleInstance.interruptPrompt(props.activityItemPrompt);
 					return;
 				}
 
