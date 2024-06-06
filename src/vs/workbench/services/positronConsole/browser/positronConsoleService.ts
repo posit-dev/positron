@@ -21,7 +21,7 @@ import { RuntimeItemExited } from 'vs/workbench/services/positronConsole/browser
 import { RuntimeItemStarted } from 'vs/workbench/services/positronConsole/browser/classes/runtimeItemStarted';
 import { RuntimeItemStartup } from 'vs/workbench/services/positronConsole/browser/classes/runtimeItemStartup';
 import { RuntimeItemOffline } from 'vs/workbench/services/positronConsole/browser/classes/runtimeItemOffline';
-import { ActivityItemPrompt } from 'vs/workbench/services/positronConsole/browser/classes/activityItemPrompt';
+import { ActivityItemPrompt, ActivityItemPromptState } from 'vs/workbench/services/positronConsole/browser/classes/activityItemPrompt';
 import { RuntimeItemStarting } from 'vs/workbench/services/positronConsole/browser/classes/runtimeItemStarting';
 import { ActivityItemOutputPlot } from 'vs/workbench/services/positronConsole/browser/classes/activityItemOutputPlot';
 import { RuntimeItemReconnected } from 'vs/workbench/services/positronConsole/browser/classes/runtimeItemReconnected';
@@ -1077,21 +1077,32 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 
 	/**
 	 * Replies to a prompt.
-	 * @param id The prompt identifier.
+	 * @param activityItemPrompt The prompt activity item.
 	 * @param value The value.
 	 */
-	replyToPrompt(id: string, value: string) {
+	replyToPrompt(activityItemPrompt: ActivityItemPrompt, value: string) {
+		// Update the prompt state.
+		activityItemPrompt.state = ActivityItemPromptState.Answered;
+		activityItemPrompt.answer = !activityItemPrompt.password ? value : '';
+		this._onDidChangeRuntimeItemsEmitter.fire();
+
+		// Reply to the prompt.
 		if (this._promptActive) {
 			this._promptActive = false;
-			this._session.replyToPrompt(id, value);
+			this._session.replyToPrompt(activityItemPrompt.id, value);
 		}
 	}
 
 	/**
 	 * Interrupts a prompt.
-	 * @param id The prompt identifier.
+	 * @param activityItemPrompt The prompt activity item.
 	 */
-	interruptPrompt(id: string) {
+	interruptPrompt(activityItemPrompt: ActivityItemPrompt) {
+		// Update the prompt state.
+		activityItemPrompt.state = ActivityItemPromptState.Interrupted;
+		this._onDidChangeRuntimeItemsEmitter.fire();
+
+		// Reply to the prompt.
 		if (this._promptActive) {
 			this._promptActive = false;
 			this._session.interrupt();

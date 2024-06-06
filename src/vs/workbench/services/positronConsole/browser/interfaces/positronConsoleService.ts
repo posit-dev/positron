@@ -5,6 +5,7 @@
 import { Event } from 'vs/base/common/event';
 import { IEditor } from 'vs/editor/common/editorCommon';
 import { createDecorator } from 'vs/platform/instantiation/common/instantiation';
+import { ActivityItemPrompt } from 'vs/workbench/services/positronConsole/browser/classes/activityItemPrompt';
 import { RuntimeItem } from 'vs/workbench/services/positronConsole/browser/classes/runtimeItem';
 import { ILanguageRuntimeSession } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
 
@@ -305,16 +306,16 @@ export interface IPositronConsoleInstance {
 
 	/**
 	 * Replies to a prompt.
-	 * @param id The prompt identifier.
+	 * @param activityItemPrompt The prompt activity item.
 	 * @param value The value.
 	 */
-	replyToPrompt(id: string, value: string): void;
+	replyToPrompt(activityItemPrompt: ActivityItemPrompt, value: string): void;
 
 	/**
 	 * Interrupts prompt.
-	 * @param id The prompt identifier.
+	 * @param activityItemPrompt The prompt activity item.
 	 */
-	interruptPrompt(id: string): void;
+	interruptPrompt(activityItemPrompt: ActivityItemPrompt): void;
 
 	/**
 	 * Sets the currently attached runtime, or undefined if none.
