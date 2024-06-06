@@ -3,6 +3,8 @@
  *--------------------------------------------------------------------------------------------*/
 import { isValidBasename } from 'vs/base/common/extpath';
 import { OS, OperatingSystem } from 'vs/base/common/platform';
+import { basename } from 'vs/base/common/resources';
+import { URI } from 'vs/base/common/uri';
 import { localize } from 'vs/nls';
 
 interface PathValidatorOptions {
@@ -35,14 +37,16 @@ export function checkIfPathValid(path: string | number, opts: PathValidatorOptio
 	// Check for invalid file names
 	// TODO: This may need to be changed to work with remote file systems with `remoteAgentService.getEnvironment()`
 	const isWindows = OS === OperatingSystem.Windows;
-	if (!isValidBasename(path, isWindows)) {
+
+	const pathBase = basename(URI.file(path));
+	if (!isValidBasename(pathBase, isWindows)) {
 		// Make the path cleaner for display
-		let sanitizedPath = path.replace(/\*/g, '\\*'); // CodeQL [SM02383] This only processes filenames which are enforced against having backslashes in them farther up in the stack.
+		let sanitizedPath = pathBase.replace(/\*/g, '\\*'); // CodeQL [SM02383] This only processes filenames which are enforced against having backslashes in them farther up in the stack.
 		if (sanitizedPath.length > 256) {
 			sanitizedPath = `${sanitizedPath.substr(0, 255)}...`;
 		}
 
-		return localize('invalidFileNameError', "The name **{0}** is not valid as a file or folder name. Please choose a different name.", sanitizedPath);
+		return localize('invalidFileNameError', "{0} is not valid as a file or folder name. Please choose a different name.", sanitizedPath);
 	}
 
 	// Check for whitespace
