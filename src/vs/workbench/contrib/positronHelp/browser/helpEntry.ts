@@ -577,7 +577,7 @@ export class HelpEntry extends Disposable implements IHelpEntry, WebviewFindDele
 		// run a few checks to make sure that the pane has time to animate open and finish its
 		// animation before we show content.  Otherwise the webview will try and layout over a 0
 		// height element and thus the help pane will be empty after expanding.
-		let previousHeight = element.clientHeight;
+		let previousHeight: number | undefined;
 		let numberOfChecks = 0;
 		const maxNumberOfChecks = 12;
 		const waitBetweenChecksMs = 20;
