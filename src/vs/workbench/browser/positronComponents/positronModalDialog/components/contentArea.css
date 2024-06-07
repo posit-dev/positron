@@ -9,4 +9,6 @@
 	bottom: 64px;
 	padding: 16px;
 	position: absolute;
+	/* Allow overflow of extra long content */
+	overflow: auto;
 }
