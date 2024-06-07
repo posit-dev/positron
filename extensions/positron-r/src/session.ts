@@ -394,12 +394,10 @@ export class RSession implements positron.LanguageRuntimeSession, vscode.Disposa
 		if (!isInstalled) {
 			const message = pkgVersion ? vscode.l10n.t('Package {0} version {1} required but not installed.', pkgName, pkgVersion)
 				: vscode.l10n.t('Package {0} required but not installed.', pkgName);
-			const actionLabel = pkgVersion ? vscode.l10n.t('Upgrade now')
-				: vscode.l10n.t('Install now');
 			const install = await positron.window.showSimpleModalDialogPrompt(
 				vscode.l10n.t('Missing R package'),
 				message,
-				actionLabel
+				vscode.l10n.t('Install now')
 			);
 			if (install) {
 				const id = randomUUID();
