@@ -4,6 +4,7 @@
 
 
 import { Code } from '../code';
+import { Notebook } from '../notebook';
 import { QuickAccess } from '../quickaccess';
 import { QuickInput } from '../quickinput';
 
@@ -18,10 +19,11 @@ const INNER_FRAME = '#active-frame';
 const PYTHON_OUTPUT = '.output-plaintext';
 const R_OUTPUT = '.output_container .output';
 const REVERT_AND_CLOSE = 'workbench.action.revertAndCloseActiveEditor';
+const MARKDOWN_TEXT = '#preview';
 
 export class PositronNotebooks {
 
-	constructor(private code: Code, private quickinput: QuickInput, private quickaccess: QuickAccess) { }
+	constructor(private code: Code, private quickinput: QuickInput, private quickaccess: QuickAccess, private notebook: Notebook) { }
 
 	async selectInterpreter(kernelGroup: string, desiredKernel: string) {
 		await this.code.waitForElement(KERNEL_LABEL, (e) => e!.textContent.includes(desiredKernel) || e!.textContent.includes(SELECT_KERNEL_TEXT));
@@ -47,8 +49,7 @@ export class PositronNotebooks {
 
 	async executeInFirstCell(code: string) {
 		await this.quickaccess.runCommand(EDIT_CELL_COMMAND);
-		// no locator-less type method in Microsoft base functionality
-		await this.code.driver.getKeyboard().type(code);
+		await this.notebook.waitForTypeInEditor(code);
 		await this.quickaccess.runCommand(EXECUTE_CELL_COMMAND);
 	}
 
@@ -70,5 +71,13 @@ export class PositronNotebooks {
 
 	async closeNotebookWithoutSaving() {
 		await this.quickaccess.runCommand(REVERT_AND_CLOSE);
+	}
+
+	async getMarkdownText(tag: string): Promise<string> {
+		// basic CSS selection doesn't support frames (or nested frames)
+		const frame = this.code.driver.getFrame(OUTER_FRAME).frameLocator(INNER_FRAME);
+		const element = frame.locator(`${MARKDOWN_TEXT} ${tag}`);
+		const text = await element.textContent();
+		return text!;
 	}
 }
