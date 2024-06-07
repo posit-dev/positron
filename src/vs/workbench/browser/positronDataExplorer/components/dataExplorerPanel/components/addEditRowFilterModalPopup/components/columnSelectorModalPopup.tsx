@@ -64,8 +64,8 @@ export const ColumnSelectorModalPopup = (props: ColumnSelectorModalPopupProps) =
 		<PositronModalPopup
 			renderer={props.renderer}
 			anchorElement={props.anchorElement}
-			popupPosition='bottom'
-			popupAlignment='left'
+			popupPosition='auto'
+			popupAlignment='auto'
 			width={props.anchorElement.offsetWidth}
 			height={'min-content'}
 			focusableElementSelectors='input[type="text"],div[id=column-positron-data-grid]'
