@@ -62,6 +62,7 @@ export namespace Commands {
     // --- End Positron ---
     export const GetSelectedInterpreterPath = 'python.interpreterPath';
     // --- Start Positron ---
+    export const Create_Environment_And_Register = 'python.createEnvironmentAndRegister';
     export const Get_Create_Environment_Providers = 'python.getCreateEnvironmentProviders';
     export const Get_Conda_Python_Versions = 'python.getCondaPythonVersions';
     // --- End Positron ---
