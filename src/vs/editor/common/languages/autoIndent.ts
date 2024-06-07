@@ -182,6 +182,7 @@ export function getInheritIndentForLine(
 				if (richEditSupport) {
 					const previousLineText = precedingUnIgnoredLine < 1 ? '' : model.getLineContent(precedingUnIgnoredLine - 1);
 					const afterEnterText = '';
+					const precedingUnIgnoredLineContent = model.getLineContent(precedingUnIgnoredLine);
 					const enterResult = richEditSupport.onEnter(autoIndent, previousLineText, precedingUnIgnoredLineContent, afterEnterText);
 					if (enterResult) {
 						if (enterResult.indentAction === IndentAction.Outdent) {
