@@ -24,39 +24,12 @@ export interface InterpreterInfo {
  * runtime source if requested.
  * @param interpreters The interpreters to convert to DropDownListBoxItems.
  * @param preferredRuntimeId The runtime ID of the preferred interpreter.
- * @param isConda A temporary flag to retrieve hardcoded Conda interpreters.
  * @returns An array of DropDownListBoxEntry for the interpreters.
  */
 export const interpretersToDropdownItems = (
 	interpreters: ILanguageRuntimeMetadata[],
 	preferredRuntimeId?: string,
-	isConda?: boolean
 ) => {
-	if (isConda) {
-		// TODO: we should get the list of Python versions from the Conda service via the new project
-		// wizard state. For now, we'll hardcode the list of Python versions.
-		// see extensions/positron-python/src/client/pythonEnvironments/creation/provider/condaUtils.ts
-		// pickPythonVersion function
-		const pythonVersions = ['3.12', '3.11', '3.10', '3.9', '3.8'];
-		const condaRuntimes: DropDownListBoxItem<string, InterpreterInfo>[] = [];
-		pythonVersions.forEach((version) => {
-			condaRuntimes.push(
-				new DropDownListBoxItem<string, InterpreterInfo>({
-					identifier: `conda-python-${version}`,
-					value: {
-						preferred: version === '3.12',
-						runtimeId: `conda-python-${version}`,
-						languageName: 'Python',
-						languageVersion: version,
-						runtimePath: '',
-						runtimeSource: 'Conda',
-					},
-				})
-			);
-		});
-		return condaRuntimes;
-	}
-
 	// Return the DropDownListBoxEntry array.
 	return interpreters
 		.reduce<DropDownListBoxEntry<string, InterpreterInfo>[]>(

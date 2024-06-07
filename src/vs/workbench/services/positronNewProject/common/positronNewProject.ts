@@ -80,6 +80,7 @@ export interface NewProjectConfiguration {
 	readonly pythonEnvProviderId: string | undefined;
 	readonly pythonEnvProviderName: string | undefined;
 	readonly installIpykernel: boolean | undefined;
+	readonly condaPythonVersion: string | undefined;
 	readonly useRenv: boolean | undefined;
 }
 
@@ -151,10 +152,22 @@ export interface IPositronNewProjectService {
 
 /**
  * CreateEnvironmentOptions type.
- * Used to capture the result of creating a new environment.
- * Based on extensions/positron-python/src/client/pythonEnvironments/creation/proposed.createEnvApis.ts
+ * Used to capture the result of creating a new environment and registering the interpreter.
+ * Based on the result from the Create_Environment_And_Register 'python.createEnvironmentAndRegister'
+ * command defined in extensions/positron-python/src/client/pythonEnvironments/creation/createEnvApi.ts.
  */
 export type CreateEnvironmentResult = {
 	readonly path?: string;
 	readonly error?: Error;
+	readonly metadata?: ILanguageRuntimeMetadata;
 };
+
+/**
+ * LanguageIds enum.
+ */
+export enum LanguageIds {
+	// Defined in extensions/positron-python/src/client/common/constants.ts "PYTHON_LANGUAGE"
+	Python = 'python',
+	// Defined in extensions/positron-r/src/provider.ts makeMetadata()
+	R = 'r'
+}
