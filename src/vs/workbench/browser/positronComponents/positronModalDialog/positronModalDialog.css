@@ -94,3 +94,9 @@
 	color: var(--vscode-positronModalDialog-textInputSelectionForeground);
 	background: var(--vscode-positronModalDialog-textInputSelectionBackground);
 }
+
+.positron-modal-dialog-box .error-msg {
+	color: var(--vscode-errorForeground);
+	/* Dont let things like super long file names cause horizontal scrolling. */
+	word-break: break-all;
+}
