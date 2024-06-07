@@ -181,8 +181,8 @@ export const RConfigurationStep = (props: PropsWithChildren<NewProjectWizardStep
 				<PositronWizardSubStep
 					title={(() =>
 						localize(
-							'rConfigurationStep.additionalConfigSubStep.title',
-							"Additional Configuration"
+							'rConfigurationStep.advancedConfigSubStep.title',
+							"Advanced Configuration"
 						))()}
 				>
 					<div className='renv-configuration'>

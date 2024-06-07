@@ -52,7 +52,7 @@ export class PositronNewProjectService extends Disposable implements IPositronNe
 		@ILogService private readonly _logService: ILogService,
 		@INotificationService private readonly _notificationService: INotificationService,
 		@IStorageService private readonly _storageService: IStorageService,
-		@IWorkspaceTrustManagementService private readonly _workspaceTrustManagementService: IWorkspaceTrustManagementService
+		@IWorkspaceTrustManagementService private readonly _workspaceTrustManagementService: IWorkspaceTrustManagementService,
 	) {
 		super();
 
@@ -460,7 +460,12 @@ export class PositronNewProjectService extends Disposable implements IPositronNe
 	 * Relies on extension vscode.positron-r
 	 */
 	private async _createREnvironment() {
-		// TODO: run renv::init()
+		if (this._newProjectConfig?.useRenv) {
+			if (!this._newProjectConfig.runtimeMetadata?.runtimeId) {
+				return;
+			}
+			this._commandService.executeCommand('r.renvInit', this._newProjectConfig.runtimeMetadata.runtimeId, 'renv', '1.0.7');
+		}
 		this._removePendingTask(NewProjectTask.REnvironment);
 	}
 
