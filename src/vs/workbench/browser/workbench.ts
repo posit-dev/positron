@@ -49,6 +49,10 @@ import { setBaseLayerHoverDelegate } from 'vs/base/browser/ui/hover/hoverDelegat
 import { AccessibilityProgressSignalScheduler } from 'vs/platform/accessibilitySignal/browser/progressAccessibilitySignalScheduler';
 import { setProgressAcccessibilitySignalScheduler } from 'vs/base/browser/ui/progressbar/progressAccessibilitySignal';
 
+// --- Start Positron ---
+import { positronFourPaneDsLayout } from 'vs/workbench/browser/positronCustomViews';
+// --- End Positron ---
+
 export interface IWorkbenchOptions {
 
 	/**
@@ -186,6 +190,10 @@ export class Workbench extends Layout {
 
 				// Layout
 				this.layout();
+
+				// --- Start Positron ---
+				this.enterCustomLayout(positronFourPaneDsLayout.layoutDescriptor);
+				// --- End Positron ---
 
 				// Restore
 				this.restore(lifecycleService);
