@@ -80,7 +80,6 @@ jobs:
           export NVM_DIR="$HOME/.nvm"
           [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
           nvm install
-          npm install yarn
 
       # Check environment. This helps diagnose build issues.
       - name: Inspect Environment
@@ -90,6 +89,7 @@ jobs:
           export NVM_DIR="$HOME/.nvm"
           [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
           nvm use
+          corepack enable
           echo "--- PATH ---"
           echo $PATH
           echo "--- Python Path (${{matrix.arch_terminal}}) ---"
@@ -106,7 +106,6 @@ jobs:
           node --version
           which yarn
           yarn --version
-
 
       # Install node_modules binaries.
       - name: Install dependencies
