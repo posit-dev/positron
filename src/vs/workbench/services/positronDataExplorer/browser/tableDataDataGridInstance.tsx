@@ -306,7 +306,8 @@ export class TableDataDataGridInstance extends DataGridInstance {
 			layoutService: this._layoutService,
 			anchorElement,
 			anchorPoint,
-			popupAlignment: 'left',
+			popupPosition: 'auto',
+			popupAlignment: 'auto',
 			width: 200,
 			entries
 		});
@@ -349,7 +350,8 @@ export class TableDataDataGridInstance extends DataGridInstance {
 			layoutService: this._layoutService,
 			anchorElement,
 			anchorPoint,
-			popupAlignment: 'left',
+			popupPosition: 'auto',
+			popupAlignment: 'auto',
 			width: 200,
 			entries
 		});
@@ -446,7 +448,8 @@ export class TableDataDataGridInstance extends DataGridInstance {
 			layoutService: this._layoutService,
 			anchorElement,
 			anchorPoint,
-			popupAlignment: 'left',
+			popupPosition: 'auto',
+			popupAlignment: 'auto',
 			width: 200,
 			entries
 		});
