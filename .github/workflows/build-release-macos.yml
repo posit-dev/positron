@@ -71,6 +71,16 @@ jobs:
         run: |
           echo "/opt/homebrew/opt/python@3.10/libexec/bin:${{matrix.homebrew_folder}}/bin" >> $GITHUB_PATH
 
+      # Install node itself.
+      - name: Install dependencies
+        env:
+          npm_config_arch: ${{ matrix.arch }}
+          POSITRON_GITHUB_PAT: ${{ secrets.POSITRON_GITHUB_PAT }}
+        run: |
+          export NVM_DIR="$HOME/.nvm"
+          [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+          nvm install
+
       # Check environment. This helps diagnose build issues.
       - name: Inspect Environment
         env:
@@ -97,7 +107,7 @@ jobs:
           yarn --version
 
 
-      # Install node_modules binaries. Also updates Node itself if needed.
+      # Install node_modules binaries.
       - name: Install dependencies
         env:
           npm_config_arch: ${{ matrix.arch }}
@@ -105,7 +115,7 @@ jobs:
         run: |
           export NVM_DIR="$HOME/.nvm"
           [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
-          nvm install
+          nvm use
           yarn --network-timeout 120000
 
       # Build client
