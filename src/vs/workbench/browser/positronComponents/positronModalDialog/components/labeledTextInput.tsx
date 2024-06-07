@@ -9,7 +9,6 @@ import 'vs/css!./labeledTextInput';
 import * as React from 'react';
 import { ChangeEventHandler, forwardRef } from 'react'; // eslint-disable-line no-duplicate-imports
 import { positronClassNames } from 'vs/base/common/positronUtilities';
-import { Delayer } from 'vs/base/common/async';
 
 /**
  * LabeledTextInputProps interface.
@@ -53,35 +52,32 @@ LabeledTextInput.defaultProps = {
 };
 
 
-const DEBOUNCE_DELAY = 100;
 /**
  * A hook to debounce the validation of input values.
- *
- * Is a bit more complicated than a typical debouncer because it needs to handle the async nature of
- * the validator. Currently the validator is synchronous, but it could be async in the future.
- */
+*
+*/
+const DEBOUNCE_DELAY = 100;
 function useDebouncedValidator({ validator, value }: Pick<LabeledTextInputProps, 'validator' | 'value'>) {
 	const [errorMsg, setErrorMsg] = React.useState<string | undefined>(undefined);
 
-	// Create a state to store the delayer instance across rerenders.
-	const delayerRef = React.useRef<Delayer<string | undefined>>();
-	React.useEffect(() => {
-		if (!validator) {
-			// Don't unnecessarily create a delayer if we don't have a validator.
-			return;
-		}
-		const delayer = new Delayer<string | undefined>(DEBOUNCE_DELAY);
-		delayerRef.current = delayer;
-		return () => delayer.dispose();
-	}, [validator]);
+	const callbackTimeoutRef = React.useRef<NodeJS.Timeout | undefined>();
+
+	const clearCallbackTimeout = React.useCallback(() => {
+		if (!callbackTimeoutRef.current) { return; }
+		clearTimeout(callbackTimeoutRef.current);
+	}, []);
 
 	React.useEffect(() => {
-		if (!validator || !delayerRef.current) { return; }
+		if (!validator) { return; }
 
-		delayerRef.current
-			.trigger(() => validator(value))
-			.then(setErrorMsg);
-	}, [validator, value]);
+		clearCallbackTimeout();
+
+		callbackTimeoutRef.current = setTimeout(() => {
+			setErrorMsg(validator(value));
+		}, DEBOUNCE_DELAY);
+
+		return clearCallbackTimeout;
+	}, [clearCallbackTimeout, validator, value]);
 
 	return errorMsg;
 }
