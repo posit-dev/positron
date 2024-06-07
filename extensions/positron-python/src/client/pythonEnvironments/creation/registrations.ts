@@ -1,6 +1,10 @@
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License.
 
+// --- Start Positron ---
+import { IPythonRuntimeManager } from '../../positron/manager';
+// --- End Positron ---
+
 import { IDisposableRegistry, IInterpreterPathService, IPathUtils } from '../../common/types';
 import { IInterpreterQuickPick } from '../../interpreter/configuration/types';
 import { IInterpreterService } from '../../interpreter/contracts';
@@ -16,8 +20,13 @@ export function registerAllCreateEnvironmentFeatures(
     interpreterPathService: IInterpreterPathService,
     interpreterService: IInterpreterService,
     pathUtils: IPathUtils,
+    // --- Start Positron ---
+    pythonRuntimeManager: IPythonRuntimeManager
+    // --- End Positron ---
 ): void {
-    registerCreateEnvironmentFeatures(disposables, interpreterQuickPick, interpreterPathService, pathUtils);
+    // --- Start Positron ---
+    registerCreateEnvironmentFeatures(disposables, interpreterQuickPick, interpreterPathService, pathUtils, pythonRuntimeManager);
+    // --- End Positron ---
     registerCreateEnvironmentButtonFeatures(disposables);
     registerPyProjectTomlFeatures(disposables);
     registerInstalledPackagesDiagnosticsProvider(disposables, interpreterService);

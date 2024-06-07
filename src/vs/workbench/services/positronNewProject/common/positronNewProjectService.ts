@@ -9,10 +9,10 @@ import { ILogService } from 'vs/platform/log/common/log';
 import { IStorageService, StorageScope, StorageTarget } from 'vs/platform/storage/common/storage';
 import { IWorkspaceContextService } from 'vs/platform/workspace/common/workspace';
 import { IWorkspaceTrustManagementService } from 'vs/platform/workspace/common/workspaceTrust';
-import { CreateEnvironmentResult, IPositronNewProjectService, LanguageIds, NewProjectConfiguration, NewProjectStartupPhase, NewProjectTask, NewProjectType, POSITRON_NEW_PROJECT_CONFIG_STORAGE_KEY } from 'vs/workbench/services/positronNewProject/common/positronNewProject';
+import { CreateEnvironmentResult, IPositronNewProjectService, NewProjectConfiguration, NewProjectStartupPhase, NewProjectTask, NewProjectType, POSITRON_NEW_PROJECT_CONFIG_STORAGE_KEY } from 'vs/workbench/services/positronNewProject/common/positronNewProject';
 import { Event } from 'vs/base/common/event';
 import { Barrier } from 'vs/base/common/async';
-import { ILanguageRuntimeMetadata, LanguageRuntimeSessionLocation, LanguageRuntimeStartupBehavior } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { ILanguageRuntimeMetadata } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { IFileService } from 'vs/platform/files/common/files';
 import { VSBuffer } from 'vs/base/common/buffer';
 import { joinPath } from 'vs/base/common/resources';
@@ -20,7 +20,6 @@ import { DOT_IGNORE_JUPYTER, DOT_IGNORE_PYTHON, DOT_IGNORE_R } from 'vs/workbenc
 import { URI } from 'vs/base/common/uri';
 import { INotificationService } from 'vs/platform/notification/common/notification';
 import { localize } from 'vs/nls';
-import { ExtensionIdentifier } from 'vs/platform/extensions/common/extensions';
 
 /**
  * PositronNewProjectService class.
@@ -352,7 +351,7 @@ export class PositronNewProjectService extends Disposable implements IPositronNe
 				// Note: this command will show a quick pick to select the Python interpreter if the
 				// specified Python interpreter is invalid for some reason (e.g. for Venv, if the
 				// specified interpreter is not considered to be a Global Python installation).
-				const createEnvCommand = 'python.createEnvironment';
+				const createEnvCommand = 'python.createEnvironmentAndRegister';
 				const result: CreateEnvironmentResult | undefined =
 					await this._commandService.executeCommand(
 						createEnvCommand,
@@ -399,57 +398,23 @@ export class PositronNewProjectService extends Disposable implements IPositronNe
 					return;
 				}
 
-				// Retrieve the validated Python interpreter path
-				const pythonPath: string | undefined = await this._commandService.executeCommand(
-					'python.validateInterpreterPath',
-					result.path
-				);
+				// Set the runtime metadata for the new project, whether it's undefined or not.
+				this._runtimeMetadata = result.metadata;
 
-				// If we couldn't lookup the Python interpreter path, something must have gone wrong
-				// with the environment creation.
-				if (!pythonPath) {
-					const message = this._failedPythonEnvMessage(
-						'Could not validate Python interpreter path for new project. The interpreter may need to be selected manually.'
-					);
+				// Check if the newly created runtime metadata was returned
+				if (!result.metadata) {
+					// Warn the user, but don't exit early. We'll still try to continue since the
+					// environment creation was successful.
+					const message = this._failedPythonEnvMessage(`Could not determine interpreter metadata returned from ${createEnvCommand} command. The interpreter may need to be selected manually.`);
 					this._logService.error(message);
 					this._notificationService.warn(message);
-					this._removePendingTask(NewProjectTask.PythonEnvironment);
-					return;
 				}
 
 				// Install ipykernel in the new environment
 				await this._commandService.executeCommand(
 					'python.installIpykernel',
-					pythonPath
+					result.metadata?.runtimePath
 				);
-
-				// Construct a skeleton runtime metadata object which will be validated by the Python
-				// extension using validateMetadata into a full runtime metadata object.
-				// Minimally, we'll need to provide the languageId for runtimeStartupService, the
-				// Python extension ID so a runtime manager can be determined and the pythonPath is
-				// used by the Python extension to look up the registered runtime.
-				this._runtimeMetadata = {
-					runtimePath: pythonPath,
-					runtimeId: '',
-					languageName: '',
-					languageId: LanguageIds.Python,
-					languageVersion: '',
-					base64EncodedIconSvg: '',
-					runtimeName: '',
-					runtimeShortName: '',
-					runtimeVersion: '',
-					runtimeSource: '',
-					startupBehavior: LanguageRuntimeStartupBehavior.Immediate,
-					sessionLocation: LanguageRuntimeSessionLocation.Workspace,
-					// ExtensionIdentifier is not supposed to be constructed directly, but we are
-					// leveraging the 'ms-python.python' extension to fill in the actual metadata for
-					// the newly created environment.
-					extensionId: new ExtensionIdentifier('ms-python.python'),
-					extraRuntimeData: {
-						pythonPath: pythonPath,
-						pythonEnvironmentId: pythonPath
-					},
-				} satisfies ILanguageRuntimeMetadata;
 
 				this._removePendingTask(NewProjectTask.PythonEnvironment);
 				return;
