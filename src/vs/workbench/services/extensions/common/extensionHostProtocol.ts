@@ -45,6 +45,7 @@ export interface IExtensionHostInitData {
 		readonly sessionId: string;
 		readonly machineId: string;
 		readonly sqmId: string;
+		readonly devDeviceId: string;
 		readonly firstSessionDate: string;
 		readonly msftInternal?: boolean;
 	};
