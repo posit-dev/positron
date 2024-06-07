@@ -62,7 +62,6 @@ jobs:
           arch -${{matrix.arch_terminal}} /bin/bash -c "${{matrix.homebrew_folder}}/bin/brew install libsodium"
           arch -${{matrix.arch_terminal}} /bin/bash -c "${{matrix.homebrew_folder}}/bin/brew install xz"
 
-
       # When running under x86, put x86 homebrew on the $PATH ahead of arm64
       # homebrew. We also force Python 3.10 (arm64) on x86 since 3.12 is not
       # compatible with the version of node-gyp currently used by Positron.
@@ -98,7 +97,7 @@ jobs:
           yarn --version
 
 
-      # Install node_modules binaries
+      # Install node_modules binaries. Also updates Node itself if needed.
       - name: Install dependencies
         env:
           npm_config_arch: ${{ matrix.arch }}
@@ -106,7 +105,7 @@ jobs:
         run: |
           export NVM_DIR="$HOME/.nvm"
           [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
-          nvm use
+          nvm install
           yarn --network-timeout 120000
 
       # Build client
