@@ -64,15 +64,15 @@ export const ColumnSelectorModalPopup = (props: ColumnSelectorModalPopupProps) =
 		<PositronModalPopup
 			renderer={props.renderer}
 			anchorElement={props.anchorElement}
-			popupPosition='bottom'
-			popupAlignment='left'
+			popupPosition='auto'
+			popupAlignment='auto'
 			width={props.anchorElement.offsetWidth}
 			height={'min-content'}
 			focusableElementSelectors='input[type="text"],div[id=column-positron-data-grid]'
-			keyboardNavigation='dialog'
+			keyboardNavigationStyle='dialog'
 		>
 			<div className='column-selector'>
-				<div className='search'>
+				<div className='column-selector-search'>
 					<ColumnSearch
 						onSearchTextChanged={async searchText => {
 							await props.columnSelectorDataGridInstance.setSearchText(
@@ -81,7 +81,7 @@ export const ColumnSelectorModalPopup = (props: ColumnSelectorModalPopupProps) =
 						}}
 					/>
 				</div>
-				<div className='view' style={{ height: 400 }}>
+				<div className='column-selector-data-grid' style={{ height: 400 }}>
 					<PositronDataGrid
 						configurationService={props.configurationService}
 						layoutService={props.renderer.layoutService}

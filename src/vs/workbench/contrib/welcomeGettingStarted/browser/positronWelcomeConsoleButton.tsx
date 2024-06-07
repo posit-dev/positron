@@ -62,7 +62,7 @@ export function WelcomeConsoleButton(props: WelcomeConsoleButtonProps) {
 				popupAlignment='left'
 				width={375}
 				height={'min-content'}
-				keyboardNavigation='menu'
+				keyboardNavigationStyle='menu'
 			>
 				<InterpreterGroups
 					languageRuntimeService={props.languageRuntimeService}
