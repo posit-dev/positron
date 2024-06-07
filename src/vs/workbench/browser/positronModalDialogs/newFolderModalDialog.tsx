@@ -138,9 +138,10 @@ const NewFolderModalDialog = (props: NewFolderModalDialogProps) => {
 			width={400}
 			height={300}
 			title={(() => localize('positronNewFolderModalDialogTitle', "New Folder"))()}
+			catchErrors
 			onAccept={async () => {
-				props.renderer.dispose();
 				await props.createFolder(result);
+				props.renderer.dispose();
 			}}
 			onCancel={() => props.renderer.dispose()}>
 			<VerticalStack>
