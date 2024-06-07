@@ -102,10 +102,11 @@ export function registerCreateEnvironmentFeatures(
             }));
             return providersForWizard;
         }),
-        registerCommand(Commands.Create_Environment_And_Register,
+        registerCommand(
+            Commands.Create_Environment_And_Register,
             async (
                 options?: CreateEnvironmentOptions & CreateEnvironmentOptionsInternal,
-            ): Promise<CreateEnvironmentResult & { metadata?: LanguageRuntimeMetadata } | undefined> => {
+            ): Promise<(CreateEnvironmentResult & { metadata?: LanguageRuntimeMetadata }) | undefined> => {
                 const providers = _createEnvironmentProviders.getAll();
                 const result = await handleCreateEnvironmentCommand(providers, options);
                 if (result?.path) {

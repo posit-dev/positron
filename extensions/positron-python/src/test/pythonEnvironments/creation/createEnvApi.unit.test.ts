@@ -59,7 +59,7 @@ suite('Create Environment APIs', () => {
             interpreterPathService.object,
             pathUtils.object,
             // --- Start Positron ---
-            pythonRuntimeManager.object
+            pythonRuntimeManager.object,
             // --- End Positron ---
         );
     });

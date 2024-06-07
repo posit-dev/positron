@@ -21,11 +21,17 @@ export function registerAllCreateEnvironmentFeatures(
     interpreterService: IInterpreterService,
     pathUtils: IPathUtils,
     // --- Start Positron ---
-    pythonRuntimeManager: IPythonRuntimeManager
+    pythonRuntimeManager: IPythonRuntimeManager,
     // --- End Positron ---
 ): void {
     // --- Start Positron ---
-    registerCreateEnvironmentFeatures(disposables, interpreterQuickPick, interpreterPathService, pathUtils, pythonRuntimeManager);
+    registerCreateEnvironmentFeatures(
+        disposables,
+        interpreterQuickPick,
+        interpreterPathService,
+        pathUtils,
+        pythonRuntimeManager,
+    );
     // --- End Positron ---
     registerCreateEnvironmentButtonFeatures(disposables);
     registerPyProjectTomlFeatures(disposables);
