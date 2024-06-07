@@ -28,9 +28,7 @@ export function setup(logger: Logger) {
 				await app.workbench.positronExplorer.explorerProjectTitle.waitForText('myPythonProject');
 			});
 
-
 		});
-
 
 	});
 
