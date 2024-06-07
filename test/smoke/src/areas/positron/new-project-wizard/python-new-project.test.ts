@@ -16,7 +16,7 @@ export function setup(logger: Logger) {
 			});
 
 			it.only('Python Project Defaults', async function () {
-				// TestRail #
+				// TestRail #627912
 				const app = this.app as Application;
 				await app.workbench.positronNewProjectWizard.startNewProject();
 				await app.workbench.positronNewProjectWizard.newPythonProjectButton.click();
@@ -44,7 +44,7 @@ export function setup(logger: Logger) {
 			});
 
 			it.only('R Project Defaults', async function () {
-				// TestRail #
+				// TestRail #627913
 				const app = this.app as Application;
 				await app.workbench.positronNewProjectWizard.startNewProject();
 				await app.workbench.positronNewProjectWizard.newRProjectButton.click();
