@@ -212,9 +212,8 @@ export class VenvCreationProvider implements CreateEnvironmentProvider {
                     // --- Start Positron ---
                     if (existingVenvAction === ExistingVenvAction.Create && options?.interpreterPath) {
                         interpreter = options.interpreterPath;
-                    }
-                    // --- End Positron ---
-                    else if (
+                    } else if (
+                        // --- End Positron ---
                         existingVenvAction === ExistingVenvAction.Recreate ||
                         existingVenvAction === ExistingVenvAction.Create
                     ) {

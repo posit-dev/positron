@@ -10,5 +10,6 @@ export interface CreateEnvironmentOptionsInternal {
     providerId?: string;
     // --- Start Positron ---
     interpreterPath?: string;
+    condaPythonVersion?: string;
     // --- End Positron ---
 }

@@ -19,7 +19,7 @@ export interface PythonEnvironmentProviderInfo {
  * and environment type.
  * @param parentFolder The parent folder for the new environment.
  * @param projectName The name of the project.
- * @param envType The type of Python environment.
+ * @param envProviderName The name of the Python environment provider.
  * @returns The location for the new Python environment.
  */
 export const locationForNewEnv = (

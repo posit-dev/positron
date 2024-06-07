@@ -15,6 +15,10 @@ import * as windowApis from '../../../client/common/vscodeApis/windowApis';
 import { handleCreateEnvironmentCommand } from '../../../client/pythonEnvironments/creation/createEnvironment';
 import { CreateEnvironmentProvider } from '../../../client/pythonEnvironments/creation/proposed.createEnvApis';
 
+// --- Start Positron ---
+import { IPythonRuntimeManager } from '../../../client/positron/manager';
+// --- End Positron ---
+
 chaiUse(chaiAsPromised);
 
 suite('Create Environment APIs', () => {
@@ -25,6 +29,9 @@ suite('Create Environment APIs', () => {
     let interpreterQuickPick: typemoq.IMock<IInterpreterQuickPick>;
     let interpreterPathService: typemoq.IMock<IInterpreterPathService>;
     let pathUtils: typemoq.IMock<IPathUtils>;
+    // --- Start Positron ---
+    let pythonRuntimeManager: typemoq.IMock<IPythonRuntimeManager>;
+    // --- End Positron ---
 
     setup(() => {
         showQuickPickStub = sinon.stub(windowApis, 'showQuickPick');
@@ -34,6 +41,9 @@ suite('Create Environment APIs', () => {
         interpreterQuickPick = typemoq.Mock.ofType<IInterpreterQuickPick>();
         interpreterPathService = typemoq.Mock.ofType<IInterpreterPathService>();
         pathUtils = typemoq.Mock.ofType<IPathUtils>();
+        // --- Start Positron ---
+        pythonRuntimeManager = typemoq.Mock.ofType<IPythonRuntimeManager>();
+        // --- End Positron ---
 
         registerCommandStub.callsFake((_command: string, _callback: (...args: any[]) => any) => ({
             dispose: () => {
@@ -48,6 +58,9 @@ suite('Create Environment APIs', () => {
             interpreterQuickPick.object,
             interpreterPathService.object,
             pathUtils.object,
+            // --- Start Positron ---
+            pythonRuntimeManager.object,
+            // --- End Positron ---
         );
     });
     teardown(() => {

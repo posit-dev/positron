@@ -42,11 +42,3 @@ export enum PythonRuntimeFilter {
 	Global = 'Global',
 	Pyenv = 'Pyenv'
 }
-
-/**
- * LanguageIds enum.
- */
-export enum LanguageIds {
-	Python = 'python',
-	R = 'r'
-}
