@@ -82,7 +82,8 @@ export const PythonEnvironmentStep = (props: PropsWithChildren<NewProjectWizardS
 		// Interpreters are always available for Conda because we display the supported versions
 		// that an environment can be created with.
 		Boolean(context.usesCondaEnv && condaPythonVersionInfo);
-	const interpretersLoading = () => !interpreters && !condaPythonVersionInfo;
+	const interpretersLoading = () =>
+		!interpreters || Boolean(context.usesCondaEnv && !condaPythonVersionInfo);
 	const envProvidersAvailable = () => Boolean(envProviders && envProviders.length);
 	const envProvidersLoading = () => !envProviders;
 
