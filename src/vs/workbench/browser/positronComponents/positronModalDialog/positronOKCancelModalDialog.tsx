@@ -13,6 +13,7 @@ import { PropsWithChildren } from 'react'; // eslint-disable-line no-duplicate-i
 import { ContentArea } from 'vs/workbench/browser/positronComponents/positronModalDialog/components/contentArea';
 import { OKCancelActionBar } from 'vs/workbench/browser/positronComponents/positronModalDialog/components/okCancelActionBar';
 import { PositronModalDialog, PositronModalDialogProps } from 'vs/workbench/browser/positronComponents/positronModalDialog/positronModalDialog';
+import { VerticalSpacer } from 'vs/workbench/browser/positronComponents/positronModalDialog/components/verticalSpacer';
 
 /**
  * OKCancelModalDialogProps interface.
@@ -21,8 +22,13 @@ export interface OKCancelModalDialogProps extends PositronModalDialogProps {
 	title: string;
 	okButtonTitle?: string;
 	cancelButtonTitle?: string;
-	onAccept: () => void;
-	onCancel: () => void;
+	onAccept: () => (void | Promise<void>);
+	onCancel: () => (void | Promise<void>);
+	/**
+	 * Should the callbacks be wrapped in try-catch blocks that optionally forward the error to the
+	 * popup?
+	 */
+	catchErrors?: boolean;
 }
 
 /**
@@ -31,13 +37,32 @@ export interface OKCancelModalDialogProps extends PositronModalDialogProps {
  * @returns The rendered component.
  */
 export const OKCancelModalDialog = (props: PropsWithChildren<OKCancelModalDialogProps>) => {
+	// Potential error message from submission attempt.
+	const [errorMsg, setErrorMsg] = React.useState<string | undefined>(undefined);
+
+	const { catchErrors, onAccept, children, ...otherProps } = props;
+
+	const fullProps = {
+		...otherProps,
+		onAccept: catchErrors ? async () => {
+			try { await onAccept(); }
+			catch (err) { setErrorMsg(err.message); }
+		} : onAccept,
+	};
+
 	// Render.
 	return (
-		<PositronModalDialog {...props}>
+		<PositronModalDialog {...fullProps}>
 			<ContentArea>
-				{props.children}
+				{children}
+				{errorMsg ?
+					<VerticalSpacer>
+						<p className='error-msg'>{errorMsg}</p>
+					</VerticalSpacer> :
+					null
+				}
 			</ContentArea>
-			<OKCancelActionBar {...props} />
+			<OKCancelActionBar {...fullProps} />
 		</PositronModalDialog>
 	);
 };

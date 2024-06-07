@@ -139,9 +139,10 @@ export const NewFolderFromGitModalDialog = (props: NewFolderFromGitModalDialogPr
 				'positronNewFolderFromGitModalDialogTitle',
 				"New Folder from Git"
 			))()}
+			catchErrors
 			onAccept={async () => {
-				props.renderer.dispose();
 				await props.createFolder(result);
+				props.renderer.dispose();
 			}}
 			onCancel={() => props.renderer.dispose()}
 		>

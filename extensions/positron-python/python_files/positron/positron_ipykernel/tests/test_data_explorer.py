@@ -4,6 +4,7 @@
 
 # ruff: noqa: E712
 
+from datetime import datetime
 from io import StringIO
 from typing import Any, Dict, List, Optional, Type, cast
 
@@ -520,61 +521,80 @@ def test_pandas_supported_features(dxf: DataExplorerFixture):
 def test_pandas_get_schema(dxf: DataExplorerFixture):
     result = dxf.get_schema("simple", 0, 100)
 
-    full_schema = [
-        {
-            "column_name": "a",
-            "column_index": 0,
-            "type_name": "int64",
-            "type_display": "number",
-        },
-        {
-            "column_name": "b",
-            "column_index": 1,
-            "type_name": "bool",
-            "type_display": "boolean",
-        },
-        {
-            "column_name": "c",
-            "column_index": 2,
-            "type_name": "string",
-            "type_display": "string",
-        },
-        {
-            "column_name": "d",
-            "column_index": 3,
-            "type_name": "float64",
-            "type_display": "number",
-        },
-        {
-            "column_name": "e",
-            "column_index": 4,
-            "type_name": "datetime64[ns]",
-            "type_display": "datetime",
-        },
-        {
-            "column_name": "f",
-            "column_index": 5,
-            "type_name": "mixed",
-            "type_display": "unknown",
-        },
-        {
-            "column_name": "g",
-            "column_index": 6,
-            "type_name": "bool",
-            "type_display": "boolean",
-        },
+    cases = [
+        ([1, 2, 3, 4, 5], "int64", "number"),
+        ([True, False, True, None, True], "bool", "boolean"),
+        (["foo", "bar", None, "bar", "None"], "string", "string"),
+        (
+            np.array([0, 1.2, -4.5, 6, np.nan], dtype=np.float16),
+            "float16",
+            "number",
+        ),
+        (
+            np.array([0, 1.2, -4.5, 6, np.nan], dtype=np.float32),
+            "float32",
+            "number",
+        ),
+        ([0, 1.2, -4.5, 6, np.nan], "float64", "number"),
+        (
+            pd.to_datetime(
+                [
+                    "2024-01-01 00:00:00",
+                    "2024-01-02 12:34:45",
+                    None,
+                    "2024-01-04 00:00:00",
+                    "2024-01-05 00:00:00",
+                ]
+            ),
+            "datetime64[ns]",
+            "datetime",
+        ),
+        ([None, MyData(5), MyData(-1), None, None], "mixed", "object"),
+        (
+            np.array([1 + 1j, 2 + 2j, 3 + 3j, 4 + 4j, 5 + 5j], dtype="complex64"),
+            "complex64",
+            "number",
+        ),
+        ([1 + 1j, 2 + 2j, 3 + 3j, 4 + 4j, 5 + 5j], "complex128", "number"),
     ]
 
+    if hasattr(np, "complex256"):
+        # Windows doesn't have complex256
+        cases.append(
+            (
+                np.array(
+                    [1 + 1j, 2 + 2j, 3 + 3j, 4 + 4j, 5 + 5j],
+                    dtype="complex256",
+                ),
+                "complex256",
+                "number",
+            )
+        )
+
+    full_schema = [
+        {
+            "column_name": f"f{i}",
+            "column_index": i,
+            "type_name": type_name,
+            "type_display": type_display,
+        }
+        for i, (_, type_name, type_display) in enumerate(cases)
+    ]
+
+    df = pd.DataFrame({f"f{i}": data for i, (data, _, _) in enumerate(cases)})
+    dxf.register_table("full_schema", df)
+    result = dxf.get_schema("full_schema", 0, 100)
     assert result == _wrap_json(ColumnSchema, full_schema)
 
-    result = dxf.get_schema("simple", 2, 100)
+    # Test partial schema gets, boundschecking
+    result = dxf.get_schema("full_schema", 2, 100)
     assert result == _wrap_json(ColumnSchema, full_schema[2:])
 
-    result = dxf.get_schema("simple", 7, 100)
+    result = dxf.get_schema("simple", len(cases), 100)
     assert result == []
 
     # Make a really big schema
-    bigger_df = pd.concat([SIMPLE_PANDAS_DF] * 100, axis="columns")
+    bigger_df = pd.concat([df] * 100, axis="columns")
     bigger_name = guid()
     bigger_schema = full_schema * 100
 
@@ -591,6 +611,44 @@ def test_pandas_get_schema(dxf: DataExplorerFixture):
 
     result = dxf.get_schema(bigger_name, 10, 10)
     assert result == _wrap_json(ColumnSchema, bigger_schema[10:20])
+
+
+def test_pandas_series(dxf: DataExplorerFixture):
+    series = SIMPLE_PANDAS_DF["a"]
+    dxf.register_table("series", series)
+    dxf.register_table("expected", pd.DataFrame({"a": series}))
+
+    schema = dxf.get_schema("series")
+    assert schema == _wrap_json(
+        ColumnSchema,
+        [
+            {
+                "column_name": "a",
+                "column_index": 0,
+                "type_name": "int64",
+                "type_display": "number",
+            },
+        ],
+    )
+
+    dxf.compare_tables("series", "expected", (len(series), 1))
+
+    # Test schema when name attribute is None
+    series2 = series.copy()
+    series2.name = None
+    dxf.register_table("series2", series2)
+    schema = dxf.get_schema("series2")
+    assert schema == _wrap_json(
+        ColumnSchema,
+        [
+            {
+                "column_name": "unnamed",
+                "column_index": 0,
+                "type_name": "int64",
+                "type_display": "number",
+            },
+        ],
+    )
 
 
 def test_pandas_wide_schemas(dxf: DataExplorerFixture):
@@ -1001,6 +1059,27 @@ def test_pandas_filter_compare(dxf: DataExplorerFixture):
     for op, op_func in COMPARE_OPS.items():
         filt = _compare_filter(schema[0], op, 3)
         expected_df = df[op_func(df[column], 3)]
+        dxf.check_filter_case(df, [filt], expected_df)
+
+
+def test_pandas_filter_datetimetz(dxf: DataExplorerFixture):
+    import pytz
+
+    tz = pytz.timezone("US/Eastern")
+
+    df = pd.DataFrame(
+        {
+            "date": pd.date_range("2000-01-01", periods=5, tz="US/Eastern"),
+        }
+    )
+    dxf.register_table("dtz", df)
+    schema = dxf.get_schema("dtz")
+
+    val = datetime(2000, 1, 3, tzinfo=tz)
+
+    for op, op_func in COMPARE_OPS.items():
+        filt = _compare_filter(schema[0], op, "2000-01-03")
+        expected_df = df[op_func(df["date"], val)]
         dxf.check_filter_case(df, [filt], expected_df)
 
 
@@ -1863,7 +1942,14 @@ def test_pandas_profile_summary_stats(dxf: DataExplorerFixture):
                 {"x": pd.date_range("2000-01-01", freq="2h", periods=50, tz="US/Eastern")}
             ),
             pd.DataFrame(
-                {"x": pd.date_range("2000-01-01", freq="2h", periods=50, tz="Asia/Hong_Kong")}
+                {
+                    "x": pd.date_range(
+                        "2000-01-01",
+                        freq="2h",
+                        periods=50,
+                        tz="Asia/Hong_Kong",
+                    )
+                }
             ),
         ]
     )
@@ -1875,7 +1961,14 @@ def test_pandas_profile_summary_stats(dxf: DataExplorerFixture):
                 {"x": pd.date_range("2000-01-01", freq="2h", periods=50, tz="US/Eastern")}
             ),
             pd.DataFrame(
-                {"x": pd.date_range("2000-01-01", freq="2h", periods=50, tz="Asia/Hong_Kong")}
+                {
+                    "x": pd.date_range(
+                        "2000-01-01",
+                        freq="2h",
+                        periods=50,
+                        tz="Asia/Hong_Kong",
+                    )
+                }
             ),
         ]
     )

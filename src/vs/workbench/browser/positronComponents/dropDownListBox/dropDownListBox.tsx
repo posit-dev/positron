@@ -131,7 +131,7 @@ export const DropDownListBox = <T extends NonNullable<any>, V,>(props: DropDownL
 				renderer.render(
 					<DropDownListBoxModalPopup<T, V>
 						renderer={renderer}
-						anchor={ref.current}
+						anchorElement={ref.current}
 						entries={props.entries}
 						createItem={props.createItem}
 						onItemHighlighted={dropDownListBoxItem =>
@@ -160,7 +160,7 @@ export const DropDownListBox = <T extends NonNullable<any>, V,>(props: DropDownL
  */
 interface DropDownListBoxModalPopupProps<T, V> {
 	renderer: PositronModalReactRenderer;
-	anchor: HTMLElement;
+	anchorElement: HTMLElement;
 	entries: DropDownListBoxEntry<T, V>[];
 	createItem?: (dropDownListBoxItem: DropDownListBoxItem<T, V>) => JSX.Element;
 	onItemHighlighted: (dropdownListBoxItem: DropDownListBoxItem<T, V>) => void;
@@ -177,13 +177,13 @@ const DropDownListBoxModalPopup = <T, V,>(props: DropDownListBoxModalPopupProps<
 	return (
 		<PositronModalPopup
 			renderer={props.renderer}
-			anchor={props.anchor}
-			popupPosition='bottom'
+			anchorElement={props.anchorElement}
+			popupPosition='auto'
 			popupAlignment='left'
-			minWidth={props.anchor.offsetWidth}
-			width={'max-content'}
+			width={props.anchorElement.offsetWidth}
+			minWidth={props.anchorElement.offsetWidth}
 			height={'min-content'}
-			keyboardNavigation='menu'
+			keyboardNavigationStyle='menu'
 		>
 			<div className='drop-down-list-box-items'>
 				{props.entries.map((entry, index) => {

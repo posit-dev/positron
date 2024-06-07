@@ -317,10 +317,12 @@ export class PositronNewProjectService extends Disposable implements IPositronNe
 	 * Relies on extension ms-python.python
 	 */
 	private async _createPythonEnvironment() {
-		if (this._newProjectConfig && this._newProjectConfig.runtimeMetadata) {
-			const runtimeMetadata = this._newProjectConfig.runtimeMetadata;
+		if (this._newProjectConfig) {
 			const provider = this._newProjectConfig.pythonEnvProviderId;
 			if (provider && provider.length > 0) {
+				const runtimeMetadata = this._newProjectConfig.runtimeMetadata;
+				const condaPythonVersion = this._newProjectConfig.condaPythonVersion;
+
 				// Ensure the workspace folder is available
 				const workspaceFolder =
 					this._contextService.getWorkspace().folders[0];
@@ -334,9 +336,10 @@ export class PositronNewProjectService extends Disposable implements IPositronNe
 				}
 
 				// Ensure the Python interpreter path is available. This is the global Python
-				// interpreter to use for the new environment.
-				const interpreterPath = runtimeMetadata.extraRuntimeData?.pythonPath;
-				if (!interpreterPath) {
+				// interpreter to use for the new environment. This is only required if we are not
+				// using a conda environment.
+				const interpreterPath = runtimeMetadata?.extraRuntimeData?.pythonPath;
+				if (!interpreterPath && !condaPythonVersion) {
 					const message = this._failedPythonEnvMessage('Could not determine Python interpreter path for new project.');
 					this._logService.error(message);
 					this._notificationService.warn(message);
@@ -348,7 +351,7 @@ export class PositronNewProjectService extends Disposable implements IPositronNe
 				// Note: this command will show a quick pick to select the Python interpreter if the
 				// specified Python interpreter is invalid for some reason (e.g. for Venv, if the
 				// specified interpreter is not considered to be a Global Python installation).
-				const createEnvCommand = 'python.createEnvironment';
+				const createEnvCommand = 'python.createEnvironmentAndRegister';
 				const result: CreateEnvironmentResult | undefined =
 					await this._commandService.executeCommand(
 						createEnvCommand,
@@ -356,6 +359,7 @@ export class PositronNewProjectService extends Disposable implements IPositronNe
 							workspaceFolder,
 							providerId: provider,
 							interpreterPath,
+							condaPythonVersion,
 							// Do not start the environment after creation. We'll install ipykernel
 							// first, then set the environment as the affiliated runtime, which will
 							// be automatically started by the runtimeStartupService.
@@ -394,34 +398,23 @@ export class PositronNewProjectService extends Disposable implements IPositronNe
 					return;
 				}
 
+				// Set the runtime metadata for the new project, whether it's undefined or not.
+				this._runtimeMetadata = result.metadata;
+
+				// Check if the newly created runtime metadata was returned
+				if (!result.metadata) {
+					// Warn the user, but don't exit early. We'll still try to continue since the
+					// environment creation was successful.
+					const message = this._failedPythonEnvMessage(`Could not determine interpreter metadata returned from ${createEnvCommand} command. The interpreter may need to be selected manually.`);
+					this._logService.error(message);
+					this._notificationService.warn(message);
+				}
+
 				// Install ipykernel in the new environment
 				await this._commandService.executeCommand(
 					'python.installIpykernel',
-					String(result.path)
+					result.path
 				);
-
-				// Construct a skeleton runtime metadata object which will be validated by the Python
-				// extension using validateMetadata into a full runtime metadata object.
-				// Minimally, we'll need to provide the languageId for runtimeStartupService and the
-				// pythonPath for the Python extension.
-				this._runtimeMetadata = {
-					runtimePath: result.path,
-					runtimeId: '',
-					languageName: runtimeMetadata.languageName,
-					languageId: runtimeMetadata.languageId,
-					languageVersion: runtimeMetadata.languageVersion,
-					base64EncodedIconSvg: '',
-					runtimeName: '',
-					runtimeShortName: '',
-					runtimeVersion: '',
-					runtimeSource: '',
-					startupBehavior: runtimeMetadata.startupBehavior,
-					sessionLocation: runtimeMetadata.sessionLocation,
-					extensionId: runtimeMetadata.extensionId,
-					extraRuntimeData: {
-						pythonPath: result.path,
-					},
-				} satisfies ILanguageRuntimeMetadata;
 
 				this._removePendingTask(NewProjectTask.PythonEnvironment);
 				return;

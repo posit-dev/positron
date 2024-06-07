@@ -28,7 +28,7 @@ interface InterpretersManagerModalPopupProps {
 	runtimeSessionService: IRuntimeSessionService;
 	runtimeStartupService: IRuntimeStartupService;
 	renderer: PositronModalReactRenderer;
-	anchor: HTMLElement;
+	anchorElement: HTMLElement;
 	onStartRuntime: (runtime: ILanguageRuntimeMetadata) => Promise<void>;
 	onActivateRuntime: (runtime: ILanguageRuntimeMetadata) => Promise<void>;
 }
@@ -43,12 +43,12 @@ export const InterpretersManagerModalPopup = (props: InterpretersManagerModalPop
 	return (
 		<PositronModalPopup
 			renderer={props.renderer}
-			anchor={props.anchor}
+			anchorElement={props.anchorElement}
 			popupPosition='bottom'
 			popupAlignment='right'
 			width={375}
 			height={'min-content'}
-			keyboardNavigation='menu'
+			keyboardNavigationStyle='menu'
 		>
 			<InterpreterGroups
 				languageRuntimeService={props.languageRuntimeService}

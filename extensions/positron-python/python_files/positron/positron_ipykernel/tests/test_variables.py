@@ -5,20 +5,22 @@
 from __future__ import annotations
 
 import asyncio
-from typing import Any, List, Type, cast
-from unittest.mock import Mock, patch
+from typing import Any, Dict, List, cast
+from unittest.mock import ANY, Mock, patch
 
 import numpy as np
 import pandas as pd
 import polars as pl
 import pytest
+
 from positron_ipykernel import variables as variables_module
 from positron_ipykernel.access_keys import encode_access_key
 from positron_ipykernel.inspectors import get_inspector
 from positron_ipykernel.positron_comm import JsonRpcErrorCode
 from positron_ipykernel.positron_ipkernel import PositronIPyKernel
-from positron_ipykernel.utils import JsonRecord, not_none
-from positron_ipykernel.variables import VariablesService, _summarize_children, _summarize_variable
+from positron_ipykernel.utils import JsonData, JsonRecord, not_none
+from positron_ipykernel.variables import VariablesService, _summarize_variable
+from positron_ipykernel.variables_comm import Variable
 
 from .conftest import DummyComm, PositronShell
 from .utils import (
@@ -180,25 +182,28 @@ def test_change_detection_over_limit(shell: PositronShell, variables_comm: Dummy
     _assert_assigned(shell, big_array, variables_comm)
 
 
-def test_handle_refresh(shell: PositronShell, variables_comm: DummyComm) -> None:
-    shell.user_ns["x"] = 3
-
+def _do_list(variables_comm: DummyComm):
     msg = json_rpc_request("list", comm_id="dummy_comm_id")
     with patch("positron_ipykernel.variables.timestamp", return_value=0):
         variables_comm.handle_msg(msg)
 
-        # A list message is sent
-        assert variables_comm.messages == [
-            json_rpc_response(
-                {
-                    "variables": [
-                        not_none(_summarize_variable("x", shell.user_ns["x"])).dict(),
-                    ],
-                    "length": 1,
-                    "version": 0,
-                }
-            )
-        ]
+    # Check the structure of the message but let the caller verify the contents.
+    assert variables_comm.messages == [
+        json_rpc_response(
+            {
+                "variables": ANY,
+                "length": ANY,
+                "version": 0,
+            }
+        )
+    ]
+
+    result = variables_comm.messages[0]["data"]["result"]
+    result["variables"] = [Variable.parse_obj(variable) for variable in result["variables"]]
+
+    variables_comm.messages.clear()
+
+    return result
 
 
 def test_list_1000(shell: PositronShell, variables_comm: DummyComm) -> None:
@@ -289,8 +294,13 @@ def create_and_update_n_vars(
     return variables_comm.messages[0]
 
 
+# TODO(seem): Should be typed as List[str] but that makes pyright unhappy; might be a pyright bug
+def _encode_path(path: List[Any]) -> List[JsonData]:
+    return [encode_access_key(key) for key in path]
+
+
 @pytest.mark.asyncio
-async def test_handle_clear(
+async def test_clear(
     shell: PositronShell,
     variables_service: VariablesService,
     variables_comm: DummyComm,
@@ -310,7 +320,7 @@ async def test_handle_clear(
             "update",
             {
                 "assigned": [],
-                "removed": [encode_access_key("x"), encode_access_key("y")],
+                "removed": _encode_path(["x", "y"]),
                 "unevaluated": [],
                 "version": 0,
             },
@@ -323,7 +333,7 @@ async def test_handle_clear(
     assert "y" not in shell.user_ns
 
 
-def test_handle_delete(shell: PositronShell, variables_comm: DummyComm) -> None:
+def test_delete(shell: PositronShell, variables_comm: DummyComm) -> None:
     shell.user_ns.update({"x": 3, "y": 5})
 
     msg = json_rpc_request("delete", {"names": ["x"]}, comm_id="dummy_comm_id")
@@ -334,11 +344,11 @@ def test_handle_delete(shell: PositronShell, variables_comm: DummyComm) -> None:
     assert "y" in shell.user_ns
 
     assert variables_comm.messages == [
-        json_rpc_response([encode_access_key("x")]),
+        json_rpc_response(_encode_path(["x"])),
     ]
 
 
-def test_handle_delete_error(variables_comm: DummyComm) -> None:
+def test_delete_error(variables_comm: DummyComm) -> None:
     msg = json_rpc_request("delete", {"names": ["x"]}, comm_id="dummy_comm_id")
     variables_comm.handle_msg(msg)
 
@@ -346,31 +356,35 @@ def test_handle_delete_error(variables_comm: DummyComm) -> None:
     assert variables_comm.messages == [json_rpc_response([])]
 
 
-def _assert_inspect(value: Any, path: List[Any], variables_comm: DummyComm) -> None:
-    encoded_path = [encode_access_key(key) for key in path]
+# TODO(seem): encoded_path should be typed as List[str] but that makes pyright unhappy; might be a pyright bug
+def _do_inspect(encoded_path: List[JsonData], variables_comm: DummyComm) -> List[Variable]:
     msg = json_rpc_request(
         "inspect",
-        # TODO(pyright): We shouldn't need to cast; may be a pyright bug
-        cast(JsonRecord, {"path": encoded_path}),
+        {"path": encoded_path},
         comm_id="dummy_comm_id",
     )
 
     with patch("positron_ipykernel.variables.timestamp", return_value=0):
         variables_comm.handle_msg(msg)
 
-        assert len(variables_comm.messages) == 1
+    # Check the structure of the message but let the caller verify the contents.
+    assert variables_comm.messages == [
+        json_rpc_response(
+            {
+                "children": ANY,
+                "length": ANY,
+            }
+        )
+    ]
 
-        children = _summarize_children(value)
-        assert variables_comm.messages == [
-            json_rpc_response(
-                {
-                    "children": [child.dict() for child in children],
-                    "length": len(children),
-                }
-            )
-        ]
+    children = [
+        Variable.parse_obj(child)
+        for child in variables_comm.messages[0]["data"]["result"]["children"]
+    ]
 
     variables_comm.messages.clear()
+
+    return children
 
 
 class TestClass:
@@ -381,59 +395,229 @@ class TestClass:
         raise AssertionError("Should not be evaluated")
 
 
-@pytest.mark.parametrize(
-    ("value_fn"),
-    [
-        lambda: {0: [0], "0": [1]},
-        lambda: pd.DataFrame({0: [0], "0": [1]}),
-        lambda: pl.DataFrame({"a": [1, 2], "b": ["3", "4"]}),
-        lambda: np.array([[0, 1], [2, 3]]),
-        # Inspecting large objects should not trigger update messages: https://github.com/posit-dev/positron/issues/2308.
-        lambda: np.arange(BIG_ARRAY_LENGTH),
-        lambda: TestClass(),
-    ],
-)
-def test_handle_inspect(value_fn, shell: PositronShell, variables_comm: DummyComm) -> None:
-    """
-    Test that we can inspect root-level objects.
-    """
-    value = value_fn()
-    shell.user_ns["x"] = value
+_test_obj = TestClass()
 
-    _assert_inspect(value, ["x"], variables_comm)
+
+def variable(display_name: str, display_value: str, children: List[Dict[str, Any]] = []):
+    return {
+        "display_name": display_name,
+        "display_value": display_value,
+        "children": children,
+    }
 
 
 @pytest.mark.parametrize(
-    ("cls", "data"),
+    ("value", "expected"),
     [
-        # We should be able to inspect the children of a map/table with keys that have the same string representation.
-        (dict, {0: [0], "0": [1]}),
-        (pd.DataFrame, {0: [0], "0": [1]}),
+        # Series
+        (
+            pd.Series([1, 2]),
+            variable(
+                "root",
+                "[2 values] pandas.Series",
+                children=[variable("0", "1"), variable("1", "2")],
+            ),
+        ),
+        (
+            pl.Series([1, 2]),
+            variable(
+                "root",
+                "[2 values] polars.Series",
+                children=[variable("0", "1"), variable("1", "2")],
+            ),
+        ),
         # DataFrames
-        (pd.DataFrame, {"a": [1, 2], "b": ["3", "4"]}),
-        (pl.DataFrame, {"a": [1, 2], "b": ["3", "4"]}),
+        (
+            pd.DataFrame({"a": [1, 2], "b": ["3", "4"]}),
+            variable(
+                "root",
+                "[2 rows x 2 columns] pandas.DataFrame",
+                children=[
+                    variable(
+                        "a",
+                        "[2 values] pandas.Series",
+                        children=[variable("0", "1"), variable("1", "2")],
+                    ),
+                    variable(
+                        "b",
+                        "[2 values] pandas.Series",
+                        children=[variable("0", "'3'"), variable("1", "'4'")],
+                    ),
+                ],
+            ),
+        ),
+        (
+            pl.DataFrame({"a": [1, 2], "b": ["3", "4"]}),
+            variable(
+                "root",
+                "[2 rows x 2 columns] polars.DataFrame",
+                children=[
+                    variable(
+                        "a",
+                        "[2 values] polars.Series",
+                        children=[variable("0", "1"), variable("1", "2")],
+                    ),
+                    variable(
+                        "b",
+                        "[2 values] polars.Series",
+                        children=[variable("0", "'3'"), variable("1", "'4'")],
+                    ),
+                ],
+            ),
+        ),
         # Arrays
-        (np.array, [[0, 1], [2, 3]]),  # 2D
+        (
+            np.array([[0, 1], [2, 3]]),
+            variable(
+                "root",
+                "[[0,1],\n [2,3]]",
+                children=[
+                    variable(
+                        "0",
+                        "[0,1]",
+                        children=[variable("0", "0"), variable("1", "1")],
+                    ),
+                    variable(
+                        "1",
+                        "[2,3]",
+                        children=[variable("0", "2"), variable("1", "3")],
+                    ),
+                ],
+            ),
+        ),
+        # Objects
+        (
+            _test_obj,
+            variable(
+                "root",
+                repr(_test_obj),
+                children=[
+                    variable("x", "0"),
+                    variable("x_plus_one", repr(TestClass.x_plus_one)),
+                ],
+            ),
+        ),
+        # Children with duplicate keys
+        (
+            pd.Series(range(4), index=["a", "b", "a", "b"]),
+            variable(
+                "root",
+                "[4 values] pandas.Series",
+                children=[
+                    variable("a", "0"),
+                    variable("b", "1"),
+                    variable("a", "2"),
+                    variable("b", "3"),
+                ],
+            ),
+        ),
+        (
+            pd.DataFrame([range(4)], columns=["a", "b", "a", "b"]),
+            variable(
+                "root",
+                "[1 rows x 4 columns] pandas.DataFrame",
+                children=[
+                    variable("a", "[1 values] pandas.Series", children=[variable("0", "0")]),
+                    variable("b", "[1 values] pandas.Series", children=[variable("0", "1")]),
+                    variable("a", "[1 values] pandas.Series", children=[variable("0", "2")]),
+                    variable("b", "[1 values] pandas.Series", children=[variable("0", "3")]),
+                ],
+            ),
+        ),
+        # Children with unique keys that have the same display_name
+        (
+            {0: 0, "0": 1},
+            variable(
+                "root",
+                "{0: 0, '0': 1}",
+                children=[
+                    variable("0", "0"),
+                    variable("0", "1"),
+                ],
+            ),
+        ),
+        (
+            pd.Series({0: 0, "0": 1}),
+            variable(
+                "root",
+                "[2 values] pandas.Series",
+                children=[
+                    variable("0", "0"),
+                    variable("0", "1"),
+                ],
+            ),
+        ),
+        (
+            pd.DataFrame({0: [0], "0": [1]}),
+            variable(
+                "root",
+                "[1 rows x 2 columns] pandas.DataFrame",
+                children=[
+                    variable(
+                        "0",
+                        "[1 values] pandas.Series",
+                        children=[variable("0", "0")],
+                    ),
+                    variable(
+                        "0",
+                        "[1 values] pandas.Series",
+                        children=[variable("0", "1")],
+                    ),
+                ],
+            ),
+        ),
     ],
 )
-def test_handle_inspect_2d(
-    cls: Type, data: Any, shell: PositronShell, variables_comm: DummyComm
+def test_list_and_recursive_inspect(
+    value, expected, shell: PositronShell, variables_comm: DummyComm
 ) -> None:
     """
-    Test that we can inspect children of "two-dimensional" objects.
+    Simulate a user recursively expanding a variable's children in the UI.
     """
-    value = cls(data)
-    shell.user_ns["x"] = value
+    shell.user_ns["root"] = value
 
-    keys = data.keys() if isinstance(data, dict) else range(len(data))
-    for key in keys:
-        _assert_inspect(value[key], ["x", key], variables_comm)
+    # Get the variable itself via a list request.
+    list_result = _do_list(variables_comm)
+
+    # Recursively inspect the variable's children.
+    _verify_inspect([], list_result["variables"], [expected], variables_comm)
 
 
-def test_handle_inspect_error(variables_comm: DummyComm) -> None:
-    path = [encode_access_key("x")]
-    # TODO(pyright): We shouldn't need to cast; may be a pyright bug
-    msg = json_rpc_request("inspect", cast(JsonRecord, {"path": path}), comm_id="dummy_comm_id")
+def _verify_inspect(
+    encoded_path: List[JsonData],
+    children: List[Variable],
+    expected_children: List[Dict[str, Any]],
+    variables_comm: DummyComm,
+) -> None:
+    assert len(children) == len(expected_children)
+
+    for child, expected_child in zip(children, expected_children):
+        # Check the inspected variable; children are checked separately below.
+        expected_child = expected_child.copy()
+        expected_child_children = expected_child.pop("children")
+        child_dict = child.dict(include=expected_child.keys() - {"children"})
+        assert child_dict == expected_child
+
+        if expected_child_children:
+            # Check the variable's children by doing another inspect request using the previously
+            # returned access_key. This simulates a user recursively expanding a variable's children in
+            # the UI.
+            child_path = encoded_path + [child.access_key]
+            child_children = _do_inspect(child_path, variables_comm)
+            _verify_inspect(child_path, child_children, expected_child_children, variables_comm)
+
+
+def test_inspect_large_object(shell: PositronShell, variables_comm: DummyComm) -> None:
+    # Inspecting large objects should not trigger update messages: https://github.com/posit-dev/positron/issues/2308.
+    shell.user_ns["x"] = np.arange(BIG_ARRAY_LENGTH)
+
+    # _do_inspect will raise an error if an update message was triggered.
+    _do_inspect(_encode_path(["x"]), variables_comm)
+
+
+def test_inspect_error(variables_comm: DummyComm) -> None:
+    path = _encode_path(["x"])
+    msg = json_rpc_request("inspect", {"path": path}, comm_id="dummy_comm_id")
 
     variables_comm.handle_msg(msg, raise_errors=False)
 
@@ -446,13 +630,13 @@ def test_handle_inspect_error(variables_comm: DummyComm) -> None:
     ]
 
 
-def test_handle_clipboard_format(shell: PositronShell, variables_comm: DummyComm) -> None:
+def test_clipboard_format(shell: PositronShell, variables_comm: DummyComm) -> None:
     shell.user_ns.update({"x": 3, "y": 5})
 
     msg = json_rpc_request(
         "clipboard_format",
         {
-            "path": [encode_access_key("x")],
+            "path": _encode_path(["x"]),
             "format": "text/plain",
         },
         comm_id="dummy_comm_id",
@@ -462,8 +646,8 @@ def test_handle_clipboard_format(shell: PositronShell, variables_comm: DummyComm
     assert variables_comm.messages == [json_rpc_response({"content": "3"})]
 
 
-def test_handle_clipboard_format_error(variables_comm: DummyComm) -> None:
-    path = [encode_access_key("x")]
+def test_clipboard_format_error(variables_comm: DummyComm) -> None:
+    path = _encode_path(["x"])
     # TODO(pyright): We shouldn't need to cast; may be a pyright bug
     msg = json_rpc_request(
         "clipboard_format",
@@ -481,14 +665,14 @@ def test_handle_clipboard_format_error(variables_comm: DummyComm) -> None:
     ]
 
 
-def test_handle_view(
+def test_view(
     shell: PositronShell,
     variables_comm: DummyComm,
     mock_dataexplorer_service: Mock,
 ) -> None:
     shell.user_ns["x"] = pd.DataFrame({"a": [0]})
 
-    msg = json_rpc_request("view", {"path": [encode_access_key("x")]}, comm_id="dummy_comm_id")
+    msg = json_rpc_request("view", {"path": _encode_path(["x"])}, comm_id="dummy_comm_id")
     variables_comm.handle_msg(msg)
 
     # An acknowledgment message is sent
@@ -497,10 +681,9 @@ def test_handle_view(
     assert_register_table_called(mock_dataexplorer_service, shell.user_ns["x"], "x")
 
 
-def test_handle_view_error(variables_comm: DummyComm) -> None:
-    path = [encode_access_key("x")]
-    # TODO(pyright): We shouldn't need to cast; may be a pyright bug
-    msg = json_rpc_request("view", cast(JsonRecord, {"path": path}), comm_id="dummy_comm_id")
+def test_view_error(variables_comm: DummyComm) -> None:
+    path = _encode_path(["x"])
+    msg = json_rpc_request("view", {"path": path}, comm_id="dummy_comm_id")
     variables_comm.handle_msg(msg, raise_errors=False)
 
     # An error message is sent
@@ -512,7 +695,7 @@ def test_handle_view_error(variables_comm: DummyComm) -> None:
     ]
 
 
-def test_handle_unknown_method(variables_comm: DummyComm) -> None:
+def test_unknown_method(variables_comm: DummyComm) -> None:
     msg = json_rpc_request("unknown_method", comm_id="dummy_comm_id")
     variables_comm.handle_msg(msg, raise_errors=False)
 

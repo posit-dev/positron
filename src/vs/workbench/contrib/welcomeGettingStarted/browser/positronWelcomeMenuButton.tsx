@@ -47,12 +47,12 @@ export function WelcomeMenuButton(props: WelcomeMenuButtonProps) {
 		renderer.render(
 			<PositronModalPopup
 				renderer={renderer}
-				anchor={ref.current}
+				anchorElement={ref.current}
 				popupPosition='bottom'
 				popupAlignment='left'
 				width={300}
 				height={'min-content'}
-				keyboardNavigation='menu'
+				keyboardNavigationStyle='menu'
 			>
 				<div className='welcome-page-start menu-button-container'>
 					{props.actions.map((action, index) => (

@@ -9,7 +9,7 @@ import { ITextModel } from 'vs/editor/common/model';
 import { IEditor } from 'vs/editor/common/editorCommon';
 import { ILogService } from 'vs/platform/log/common/log';
 import { Position } from 'vs/editor/common/core/position';
-import { IStatementRange } from 'vs/editor/common/languages';
+import { IStatementRange, StatementRangeProvider } from 'vs/editor/common/languages';
 import { CancellationToken } from 'vs/base/common/cancellation';
 import { KeyChord, KeyCode, KeyMod } from 'vs/base/common/keyCodes';
 import { ILocalizedString } from 'vs/platform/action/common/action';
@@ -267,8 +267,16 @@ export function registerPositronConsoleActions() {
 		 * @param opts Options for code execution
 		 *   - allowIncomplete: Optionally, should incomplete statements be accepted? If `undefined`, treated as `false`.
 		 *   - languageId: Optionally, a language override for the code to execute. If `undefined`, the language of the active text editor is used. Useful for notebooks.
+		 * @param advance Whether to advance the cursor to the next statement.
 		 */
-		async run(accessor: ServicesAccessor, opts: { allowIncomplete?: boolean; languageId?: string } = {}) {
+		async run(
+			accessor: ServicesAccessor,
+			opts: {
+				allowIncomplete?: boolean;
+				languageId?: string;
+				advance?: boolean;
+			} = {}
+		) {
 			// Access services.
 			const editorService = accessor.get(IEditorService);
 			const languageFeaturesService = accessor.get(ILanguageFeaturesService);
@@ -276,6 +284,9 @@ export function registerPositronConsoleActions() {
 			const logService = accessor.get(ILogService);
 			const notificationService = accessor.get(INotificationService);
 			const positronConsoleService = accessor.get(IPositronConsoleService);
+
+			// By default we advance the cursor to the next statement
+			const advance = opts.advance === undefined ? true : opts.advance;
 
 			// The code to execute.
 			let code: string | undefined = undefined;
@@ -340,73 +351,8 @@ export function registerPositronConsoleActions() {
 					// returned `undefined` if it didn't think it was important.
 					code = isString(statementRange.code) ? statementRange.code : model.getValueInRange(statementRange.range);
 
-					// Move the cursor to the next
-					// statement by creating a position on the line
-					// following the statement and then invoking the
-					// statement range provider again to find the appropriate
-					// boundary of the next statement.
-					let newPosition = new Position(
-						statementRange.range.endLineNumber + 1,
-						1
-					);
-					if (newPosition.lineNumber > model.getLineCount()) {
-						// If the new position is past the end of the
-						// document, add a newline to the end of the
-						// document, unless it already ends with an empty
-						// line, then move to that empty line at the end.
-						if (model.getLineContent(model.getLineCount()).trim().length > 0) {
-							// The document doesn't end with an empty line; add one
-							this.amendNewlineToEnd(model);
-						}
-						newPosition = new Position(
-							model.getLineCount(),
-							1
-						);
-						editor.setPosition(newPosition);
-						editor.revealPositionInCenterIfOutsideViewport(newPosition);
-					} else {
-						// Invoke the statement range provider again to
-						// find the appropriate boundary of the next statement.
-
-						let nextStatementRange: IStatementRange | null | undefined = undefined;
-						try {
-							nextStatementRange = await statementRangeProviders[0].provideStatementRange(
-								model,
-								newPosition,
-								CancellationToken.None);
-						} catch (err) {
-							logService.warn(`Failed to get statement range for next statement ` +
-								`at position ${newPosition}: ${err}`);
-						}
-
-						if (nextStatementRange) {
-							// If we found the next statement, determine exactly where to move
-							// the cursor to, maintaining the invariant that we should always
-							// step further down the page, never up, as this is too "jumpy".
-							// If for some reason the next statement doesn't meet this
-							// invariant, we don't use it and instead use the default
-							// `newPosition`.
-							const nextStatement = nextStatementRange.range;
-							if (nextStatement.startLineNumber > statementRange.range.endLineNumber) {
-								// If the next statement's start is after this statement's end,
-								// then move to the start of the next statement.
-								newPosition = new Position(
-									nextStatement.startLineNumber,
-									nextStatement.startColumn
-								);
-							} else if (nextStatement.endLineNumber > statementRange.range.endLineNumber) {
-								// If the above condition failed, but the next statement's end
-								// is after this statement's end, assume we are exiting some
-								// nested scope (like running an individual line of an R
-								// function) and move to the end of the next statement.
-								newPosition = new Position(
-									nextStatement.endLineNumber,
-									nextStatement.endColumn
-								);
-							}
-						}
-						editor.setPosition(newPosition);
-						editor.revealPositionInCenterIfOutsideViewport(newPosition);
+					if (advance) {
+						await this.advanceStatement(model, editor, statementRange, statementRangeProviders[0], logService);
 					}
 				} else {
 					// The statement range provider didn't return a range. This
@@ -436,45 +382,8 @@ export function registerPositronConsoleActions() {
 
 				// If we have code and a position move the cursor to the next line with code on it,
 				// or just to the next line if all additional lines are blank.
-				if (isString(code) && position) {
-					// HACK HACK HACK HACK HACK HACK HACK HACK HACK HACK HACK HACK HACK HACK HACK
-					// This attempts to address https://github.com/posit-dev/positron/issues/1177
-					// by tacking a newline onto indented Python code fragments that end at an empty
-					// line. This allows such code fragments to be complete.
-					if (editorService.activeTextEditorLanguageId === 'python' &&
-						/^[ \t]/.test(code) &&
-						lineNumber + 1 <= model.getLineCount() &&
-						model.getLineContent(lineNumber + 1) === '') {
-						code += '\n';
-					}
-					// HACK HACK HACK HACK HACK HACK HACK HACK HACK HACK HACK HACK HACK HACK HACK
-
-					let onlyEmptyLines = true;
-
-					for (let number = lineNumber + 1; number <= model.getLineCount(); ++number) {
-						if (trimNewlines(model.getLineContent(number)).length !== 0) {
-							// We found a non-empty line, move the cursor to it.
-							onlyEmptyLines = false;
-							lineNumber = number;
-							break;
-						}
-					}
-
-					if (onlyEmptyLines) {
-						// At a minimum, we always move the cursor 1 line past the code we executed
-						// so the user can keep typing
-						++lineNumber;
-
-						if (lineNumber === model.getLineCount() + 1) {
-							// If this puts us past the end of the document, insert a newline for us
-							// to move to
-							this.amendNewlineToEnd(model);
-						}
-					}
-
-					const newPosition = position.with(lineNumber, 0);
-					editor.setPosition(newPosition);
-					editor.revealPositionInCenterIfOutsideViewport(newPosition);
+				if (advance && isString(code) && position) {
+					this.advanceLine(model, editor, position, lineNumber, code, editorService);
 				}
 
 				if (!isString(code) && position && lineNumber === model.getLineCount()) {
@@ -525,6 +434,134 @@ export function registerPositronConsoleActions() {
 					sticky: false
 				});
 			}
+		}
+
+		async advanceStatement(
+			model: ITextModel,
+			editor: IEditor,
+			statementRange: IStatementRange,
+			provider: StatementRangeProvider,
+			logService: ILogService,
+		) {
+
+			// Move the cursor to the next
+			// statement by creating a position on the line
+			// following the statement and then invoking the
+			// statement range provider again to find the appropriate
+			// boundary of the next statement.
+			let newPosition = new Position(
+				statementRange.range.endLineNumber + 1,
+				1
+			);
+
+			if (newPosition.lineNumber > model.getLineCount()) {
+				// If the new position is past the end of the
+				// document, add a newline to the end of the
+				// document, unless it already ends with an empty
+				// line, then move to that empty line at the end.
+				if (model.getLineContent(model.getLineCount()).trim().length > 0) {
+					// The document doesn't end with an empty line; add one
+					this.amendNewlineToEnd(model);
+				}
+				newPosition = new Position(
+					model.getLineCount(),
+					1
+				);
+				editor.setPosition(newPosition);
+				editor.revealPositionInCenterIfOutsideViewport(newPosition);
+			} else {
+				// Invoke the statement range provider again to
+				// find the appropriate boundary of the next statement.
+
+				let nextStatementRange: IStatementRange | null | undefined = undefined;
+				try {
+					nextStatementRange = await provider.provideStatementRange(
+						model,
+						newPosition,
+						CancellationToken.None);
+				} catch (err) {
+					logService.warn(`Failed to get statement range for next statement ` +
+						`at position ${newPosition}: ${err}`);
+				}
+
+				if (nextStatementRange) {
+					// If we found the next statement, determine exactly where to move
+					// the cursor to, maintaining the invariant that we should always
+					// step further down the page, never up, as this is too "jumpy".
+					// If for some reason the next statement doesn't meet this
+					// invariant, we don't use it and instead use the default
+					// `newPosition`.
+					const nextStatement = nextStatementRange.range;
+					if (nextStatement.startLineNumber > statementRange.range.endLineNumber) {
+						// If the next statement's start is after this statement's end,
+						// then move to the start of the next statement.
+						newPosition = new Position(
+							nextStatement.startLineNumber,
+							nextStatement.startColumn
+						);
+					} else if (nextStatement.endLineNumber > statementRange.range.endLineNumber) {
+						// If the above condition failed, but the next statement's end
+						// is after this statement's end, assume we are exiting some
+						// nested scope (like running an individual line of an R
+						// function) and move to the end of the next statement.
+						newPosition = new Position(
+							nextStatement.endLineNumber,
+							nextStatement.endColumn
+						);
+					}
+				}
+
+				editor.setPosition(newPosition);
+				editor.revealPositionInCenterIfOutsideViewport(newPosition);
+			}
+		}
+
+		advanceLine(
+			model: ITextModel,
+			editor: IEditor,
+			position: Position,
+			lineNumber: number,
+			code: string,
+			editorService: IEditorService,
+		) {
+			// HACK HACK HACK HACK HACK HACK HACK HACK HACK HACK HACK HACK HACK HACK HACK
+			// This attempts to address https://github.com/posit-dev/positron/issues/1177
+			// by tacking a newline onto indented Python code fragments that end at an empty
+			// line. This allows such code fragments to be complete.
+			if (editorService.activeTextEditorLanguageId === 'python' &&
+				/^[ \t]/.test(code) &&
+				lineNumber + 1 <= model.getLineCount() &&
+				model.getLineContent(lineNumber + 1) === '') {
+				code += '\n';
+			}
+			// HACK HACK HACK HACK HACK HACK HACK HACK HACK HACK HACK HACK HACK HACK HACK
+
+			let onlyEmptyLines = true;
+
+			for (let number = lineNumber + 1; number <= model.getLineCount(); ++number) {
+				if (trimNewlines(model.getLineContent(number)).length !== 0) {
+					// We found a non-empty line, move the cursor to it.
+					onlyEmptyLines = false;
+					lineNumber = number;
+					break;
+				}
+			}
+
+			if (onlyEmptyLines) {
+				// At a minimum, we always move the cursor 1 line past the code we executed
+				// so the user can keep typing
+				++lineNumber;
+
+				if (lineNumber === model.getLineCount() + 1) {
+					// If this puts us past the end of the document, insert a newline for us
+					// to move to
+					this.amendNewlineToEnd(model);
+				}
+			}
+
+			const newPosition = position.with(lineNumber, 0);
+			editor.setPosition(newPosition);
+			editor.revealPositionInCenterIfOutsideViewport(newPosition);
 		}
 
 		amendNewlineToEnd(model: ITextModel) {

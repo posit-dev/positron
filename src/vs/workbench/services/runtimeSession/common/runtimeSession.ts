@@ -416,7 +416,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 			const startingLanguageRuntime = this._startingConsolesByLanguageId.get(
 				languageRuntime.languageId);
 			if (startingLanguageRuntime) {
-				throw new Error(`Session for language runtime ${formatLanguageRuntimeMetadata(languageRuntime)} cannot be started because language runtime ${formatLanguageRuntimeMetadata(startingLanguageRuntime)} is already starting for the language.`);
+				throw new Error(`Session for language runtime ${formatLanguageRuntimeMetadata(languageRuntime)} cannot be started because language runtime ${formatLanguageRuntimeMetadata(startingLanguageRuntime)} is already starting for the language. Request source: ${source}`);
 			}
 
 			// If there is already a runtime running for the language, throw an error.

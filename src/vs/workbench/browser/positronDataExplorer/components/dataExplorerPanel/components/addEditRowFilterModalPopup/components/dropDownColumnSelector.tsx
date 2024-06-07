@@ -78,7 +78,7 @@ export const DropDownColumnSelector = (props: DropDownColumnSelectorProps) => {
 						configurationService={props.configurationService}
 						renderer={renderer}
 						columnSelectorDataGridInstance={columnSelectorDataGridInstance}
-						anchor={ref.current}
+						anchorElement={ref.current}
 						onItemHighlighted={columnSchema => {
 							console.log(`onItemHighlighted ${columnSchema.column_name}`);
 						}}

@@ -26,7 +26,7 @@ interface ColumnSelectorModalPopupProps {
 	readonly configurationService: IConfigurationService;
 	readonly renderer: PositronModalReactRenderer;
 	readonly columnSelectorDataGridInstance: ColumnSelectorDataGridInstance;
-	readonly anchor: HTMLElement;
+	readonly anchorElement: HTMLElement;
 	readonly onItemHighlighted: (columnSchema: ColumnSchema) => void;
 	readonly onItemSelected: (columnSchema: ColumnSchema) => void;
 }
@@ -63,16 +63,16 @@ export const ColumnSelectorModalPopup = (props: ColumnSelectorModalPopupProps) =
 	return (
 		<PositronModalPopup
 			renderer={props.renderer}
-			anchor={props.anchor}
-			popupPosition='bottom'
-			popupAlignment='left'
-			width={props.anchor.offsetWidth}
+			anchorElement={props.anchorElement}
+			popupPosition='auto'
+			popupAlignment='auto'
+			width={props.anchorElement.offsetWidth}
 			height={'min-content'}
 			focusableElementSelectors='input[type="text"],div[id=column-positron-data-grid]'
-			keyboardNavigation='dialog'
+			keyboardNavigationStyle='dialog'
 		>
 			<div className='column-selector'>
-				<div className='search'>
+				<div className='column-selector-search'>
 					<ColumnSearch
 						onSearchTextChanged={async searchText => {
 							await props.columnSelectorDataGridInstance.setSearchText(
@@ -81,7 +81,7 @@ export const ColumnSelectorModalPopup = (props: ColumnSelectorModalPopupProps) =
 						}}
 					/>
 				</div>
-				<div className='view' style={{ height: 400 }}>
+				<div className='column-selector-data-grid' style={{ height: 400 }}>
 					<PositronDataGrid
 						configurationService={props.configurationService}
 						layoutService={props.renderer.layoutService}

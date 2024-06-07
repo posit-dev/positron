@@ -121,7 +121,7 @@ interface AddEditRowFilterModalPopupProps {
 	configurationService: IConfigurationService;
 	dataExplorerClientInstance: DataExplorerClientInstance;
 	renderer: PositronModalReactRenderer;
-	anchor: HTMLElement;
+	anchorElement: HTMLElement;
 	isFirstFilter: boolean;
 	schema?: ColumnSchema;
 	editRowFilter?: RowFilterDescriptor;
@@ -738,12 +738,12 @@ export const AddEditRowFilterModalPopup = (props: AddEditRowFilterModalPopupProp
 	return (
 		<PositronModalPopup
 			renderer={props.renderer}
-			anchor={props.anchor}
-			popupPosition='bottom'
-			popupAlignment='left'
+			anchorElement={props.anchorElement}
+			popupPosition='auto'
+			popupAlignment='auto'
 			width={275}
 			height={'min-content'}
-			keyboardNavigation='dialog'
+			keyboardNavigationStyle='dialog'
 			onAccept={applyRowFilter}
 		>
 			<div className='add-edit-row-filter-modal-popup-body'>

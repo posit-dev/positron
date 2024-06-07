@@ -15,10 +15,10 @@ import { ICommandService } from 'vs/platform/commands/common/commands';
 import { ILayoutService } from 'vs/platform/layout/browser/layoutService';
 import { Button } from 'vs/base/browser/ui/positronComponents/button/button';
 import { IKeybindingService } from 'vs/platform/keybinding/common/keybinding';
-import { PositronModalPopup } from 'vs/workbench/browser/positronComponents/positronModalPopup/positronModalPopup';
 import { PositronModalReactRenderer } from 'vs/workbench/browser/positronModalReactRenderer/positronModalReactRenderer';
 import { CustomContextMenuSeparator } from 'vs/workbench/browser/positronComponents/customContextMenu/customContextMenuSeparator';
 import { CustomContextMenuItem, CustomContextMenuItemOptions } from 'vs/workbench/browser/positronComponents/customContextMenu/customContextMenuItem';
+import { AnchorPoint, PopupAlignment, PopupPosition, PositronModalPopup } from 'vs/workbench/browser/positronComponents/positronModalPopup/positronModalPopup';
 
 /**
  * CustomContextMenuEntry type.
@@ -26,31 +26,63 @@ import { CustomContextMenuItem, CustomContextMenuItemOptions } from 'vs/workbenc
 export type CustomContextMenuEntry = CustomContextMenuItem | CustomContextMenuSeparator;
 
 /**
+ * CustomContextMenuProps interface.
+ */
+export interface CustomContextMenuProps {
+	readonly commandService: ICommandService;
+	readonly keybindingService: IKeybindingService;
+	readonly layoutService: ILayoutService;
+	readonly anchorElement: HTMLElement;
+	readonly anchorPoint?: AnchorPoint;
+	readonly popupPosition: PopupPosition;
+	readonly popupAlignment: PopupAlignment;
+	readonly width?: number | 'max-content' | 'auto';
+	readonly minWidth?: number | 'auto';
+	readonly entries: CustomContextMenuEntry[];
+}
+
+/**
  * Shows a custom context menu.
  * @param commandService The command service.
  * @param keybindingService The keybinding service.
  * @param layoutService The layout service.
- * @param anchor The anchor element.
+ * @param anchorElement The anchor element.
+ * @param anchorPoint The anchor point.
+ * @param popupPosition The popup position.
  * @param popupAlignment The popup alignment.
  * @param width The width.
+ * @param minWidth The minimum width.
  * @param entries The context menu entries.
  */
-export const showCustomContextMenu = async (
-	commandService: ICommandService,
-	keybindingService: IKeybindingService,
-	layoutService: ILayoutService,
-	anchor: HTMLElement,
-	popupAlignment: 'left' | 'right',
-	width: number,
-	entries: CustomContextMenuEntry[]
-) => {
+export const showCustomContextMenu = async ({
+	commandService,
+	keybindingService,
+	layoutService,
+	anchorElement,
+	anchorPoint,
+	popupPosition,
+	popupAlignment,
+	width,
+	minWidth,
+	entries
+}: CustomContextMenuProps) => {
 	// Create the renderer.
 	const renderer = new PositronModalReactRenderer({
 		keybindingService,
 		layoutService,
-		container: layoutService.getContainer(DOM.getWindow(anchor)),
-		parent: anchor
+		container: layoutService.getContainer(DOM.getWindow(anchorElement)),
+		parent: anchorElement
 	});
+
+	// Supply the default width.
+	if (!width) {
+		width = 'max-content';
+	}
+
+	// Supply the default min width.
+	if (!minWidth) {
+		minWidth = 'auto';
+	}
 
 	// Show the context menu popup.
 	renderer.render(
@@ -58,9 +90,12 @@ export const showCustomContextMenu = async (
 			commandService={commandService}
 			keybindingService={keybindingService}
 			renderer={renderer}
-			anchor={anchor}
+			anchorElement={anchorElement}
+			anchorPoint={anchorPoint}
+			popupPosition={popupPosition}
 			popupAlignment={popupAlignment}
 			width={width}
+			minWidth={minWidth}
 			entries={entries}
 		/>
 	);
@@ -73,9 +108,12 @@ interface CustomContextMenuModalPopupProps {
 	readonly commandService: ICommandService;
 	readonly keybindingService: IKeybindingService;
 	readonly renderer: PositronModalReactRenderer;
-	readonly anchor: HTMLElement;
-	readonly popupAlignment: 'left' | 'right';
-	readonly width: number;
+	readonly anchorElement: HTMLElement;
+	readonly anchorPoint?: AnchorPoint;
+	readonly popupPosition: PopupPosition;
+	readonly popupAlignment: PopupAlignment;
+	readonly width: number | 'max-content' | 'auto';
+	readonly minWidth: number | 'auto';
 	readonly entries: CustomContextMenuEntry[];
 }
 
@@ -111,7 +149,6 @@ const CustomContextMenuModalPopup = (props: CustomContextMenuModalPopupProps) =>
 		let shortcut = '';
 		if (options.commandId) {
 			const keybinding = props.keybindingService.lookupKeybinding(options.commandId);
-
 			if (keybinding) {
 				const label = keybinding.getLabel();
 				if (label) {
@@ -130,11 +167,9 @@ const CustomContextMenuModalPopup = (props: CustomContextMenuModalPopupProps) =>
 				disabled={options.disabled}
 				onPressed={e => {
 					dismiss();
-
 					if (options.commandId) {
 						props.commandService.executeCommand(options.commandId);
 					}
-
 					options.onSelected(e);
 				}}
 			>
@@ -174,13 +209,14 @@ const CustomContextMenuModalPopup = (props: CustomContextMenuModalPopupProps) =>
 	return (
 		<PositronModalPopup
 			renderer={props.renderer}
-			anchor={props.anchor}
-			popupPosition='bottom'
+			anchorElement={props.anchorElement}
+			anchorPoint={props.anchorPoint}
+			popupPosition={props.popupPosition}
 			popupAlignment={props.popupAlignment}
-			minWidth={props.width}
-			width={'max-content'}
+			width={props.width}
+			minWidth={props.minWidth}
 			height={'min-content'}
-			keyboardNavigation='menu'
+			keyboardNavigationStyle='menu'
 		>
 			<div className='custom-context-menu-items'>
 				{props.entries.map((entry, index) => {

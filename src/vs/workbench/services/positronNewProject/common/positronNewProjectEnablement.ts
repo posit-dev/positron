@@ -9,41 +9,28 @@ import {
 	Extensions,
 	IConfigurationRegistry,
 } from 'vs/platform/configuration/common/configurationRegistry';
-import { IContextKeyService } from 'vs/platform/contextkey/common/contextkey';
-import { IsDevelopmentContext } from 'vs/platform/contextkey/common/contextkeys';
 import { Registry } from 'vs/platform/registry/common/platform';
 import { positronConfigurationNodeBase } from 'vs/workbench/services/languageRuntime/common/languageRuntime';
 
-/**
- * This config setting is used to determine whether to use the Positron Project Wizard based on the
- * user's selection in Settings. This flag is used while the New Project Wizard is being developed,
- * to manually enable the wizard in release builds.
- */
-
-// Key for the configuration setting that determines whether to use the Positron Project Wizard
+// Key for the configuration setting
 export const USE_POSITRON_PROJECT_WIZARD_CONFIG_KEY =
-	'positron.projectWizardEnabled';
+	'positron.work-In-ProgressProjectWizardFeatures';
 
 /**
- * Return true if in a development build, or retrieve the value of the configuration setting that
- * determines whether to use the Positron Project Wizard.
- * @param contextKeyService The context key service
+ * Retrieves the value of the configuration setting that determines whether to enable
+ * work-in-progress features in the Positron Project Wizard.
  * @param configurationService The configuration service
- * @returns Whether to enable the Positron Project Wizard
+ * @returns Whether to enable work-in-progress Positron Project Wizard features
  */
-export function projectWizardEnabled(
-	contextKeyService: IContextKeyService,
+export function projectWizardWorkInProgressEnabled(
 	configurationService: IConfigurationService
 ) {
-	return (
-		IsDevelopmentContext.getValue(contextKeyService) ||
-		Boolean(
-			configurationService.getValue(USE_POSITRON_PROJECT_WIZARD_CONFIG_KEY)
-		)
+	return Boolean(
+		configurationService.getValue(USE_POSITRON_PROJECT_WIZARD_CONFIG_KEY)
 	);
 }
 
-// Register the configuration setting that determines whether to use the Positron Project Wizard
+// Register the configuration setting
 const configurationRegistry = Registry.as<IConfigurationRegistry>(
 	Extensions.Configuration
 );
@@ -55,8 +42,8 @@ configurationRegistry.registerConfiguration({
 			type: 'boolean',
 			default: false,
 			markdownDescription: localize(
-				'positron.enablePositronProjectWizard',
-				'Enable the Positron Project Wizard for creating new projects.'
+				'positron.enablePositronProjectWizardWorkInProgress',
+				'**CAUTION**: Enable work-in-progress Project Wizard features which may result in unexpected behaviour.'
 			),
 		},
 	},

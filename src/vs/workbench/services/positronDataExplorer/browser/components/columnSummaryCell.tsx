@@ -90,6 +90,9 @@ export const ColumnSummaryCell = (props: ColumnSummaryCellProps) => {
 			case ColumnDisplayType.Time:
 				return 'codicon-positron-data-type-time';
 
+			case ColumnDisplayType.Object:
+				return 'codicon-positron-data-type-object';
+
 			case ColumnDisplayType.Array:
 				return 'codicon-positron-data-type-array';
 

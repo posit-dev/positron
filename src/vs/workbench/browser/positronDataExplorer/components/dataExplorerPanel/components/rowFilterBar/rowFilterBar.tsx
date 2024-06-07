@@ -54,13 +54,13 @@ export const RowFilterBar = () => {
 
 	/**
 	 * Add row filter handler.
-	 * @param anchor The anchor element.
+	 * @param anchorElement The anchor element.
 	 * @param isFirstFilter Whether this is the first filter.
 	 * @param schema The column schema to preselect.
 	 * @param editRowFilterDescriptor The row filter to edit, or undefined, to add a row filter.
 	 */
 	const addRowFilterHandler = useCallback((
-		anchor: HTMLElement,
+		anchorElement: HTMLElement,
 		isFirstFilter: boolean,
 		schema?: ColumnSchema,
 		editRowFilterDescriptor?: RowFilterDescriptor,
@@ -130,7 +130,7 @@ export const RowFilterBar = () => {
 					configurationService={context.configurationService}
 					dataExplorerClientInstance={context.instance.dataExplorerClientInstance}
 					renderer={renderer}
-					anchor={anchor}
+					anchorElement={anchorElement}
 					isFirstFilter={isFirstFilter}
 					schema={schema}
 					editRowFilter={editRowFilterDescriptor}
@@ -191,15 +191,16 @@ export const RowFilterBar = () => {
 		}));
 
 		// Show the context menu.
-		await showCustomContextMenu(
-			context.commandService,
-			context.keybindingService,
-			context.layoutService,
-			rowFilterButtonRef.current,
-			'left',
-			200,
+		await showCustomContextMenu({
+			commandService: context.commandService,
+			keybindingService: context.keybindingService,
+			layoutService: context.layoutService,
+			anchorElement: rowFilterButtonRef.current,
+			popupPosition: 'auto',
+			popupAlignment: 'left',
+			width: 200,
 			entries
-		);
+		});
 	};
 
 	/**

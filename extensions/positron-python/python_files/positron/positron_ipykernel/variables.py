@@ -23,7 +23,13 @@ from comm.base_comm import BaseComm
 from .access_keys import decode_access_key, encode_access_key
 from .inspectors import get_inspector
 from .positron_comm import CommMessage, JsonRpcErrorCode, PositronComm
-from .utils import JsonData, JsonRecord, cancel_tasks, create_task, get_qualname
+from .utils import (
+    JsonData,
+    JsonRecord,
+    cancel_tasks,
+    create_task,
+    get_qualname,
+)
 from .variables_comm import (
     ClearRequest,
     ClipboardFormatFormat,
@@ -144,7 +150,10 @@ class VariablesService:
             logger.warning(f"Unhandled request: {request}")
 
     def _send_update(
-        self, assigned: Mapping[str, Any], unevaluated: Mapping[str, Any], removed: Set[str]
+        self,
+        assigned: Mapping[str, Any],
+        unevaluated: Mapping[str, Any],
+        removed: Set[str],
     ) -> None:
         """
         Sends the list of variables that have changed in the current
@@ -332,7 +341,9 @@ class VariablesService:
         copied = repr(list(self._snapshot["mutable_copied"].keys()))
         logger.debug(f"Variables copied: {copied}")
 
-    def _compare_user_ns(self) -> Tuple[Dict[str, Any], Dict[str, Any], Set[str]]:
+    def _compare_user_ns(
+        self,
+    ) -> Tuple[Dict[str, Any], Dict[str, Any], Set[str]]:
         """
         Attempts to detect changes to variables in the user's environment.
 
@@ -573,7 +584,7 @@ class VariablesService:
 
         if self.kernel.connections_service.object_is_supported(value):
             self._open_connections_pane(path, value)
-        else:
+        elif self.kernel.data_explorer_service.is_supported(value):
             self._open_data_explorer(path, value)
 
     def _open_data_explorer(self, path: List[str], value: Any) -> None:
@@ -702,7 +713,9 @@ class VariablesService:
         self._send_result(msg.dict())
 
 
-def _summarize_variable(key: Any, value: Any) -> Optional[Variable]:
+def _summarize_variable(
+    key: Any, value: Any, display_name: Optional[str] = None
+) -> Optional[Variable]:
     """
     Summarizes the given variable into a Variable object.
 
@@ -713,7 +726,9 @@ def _summarize_variable(key: Any, value: Any) -> Optional[Variable]:
         variable's string access key.
     value : Any
         The variable's value.
-
+    display_name : str
+        An optional string to use for the variable's display name. Is
+        a stringified version of `key` if not passed.
 
     Returns
     -------
@@ -723,11 +738,13 @@ def _summarize_variable(key: Any, value: Any) -> Optional[Variable]:
     if isinstance(value, types.ModuleType):
         return None
 
+    if display_name is None:
+        display_name = str(key)
+
     try:
         # Use an inspector to summarize the value
         ins = get_inspector(value)
 
-        display_name = ins.get_display_name(key)
         kind_str = ins.get_kind()
         kind = VariableKind(kind_str)
         display_value, is_truncated = ins.get_display_value()
@@ -758,7 +775,7 @@ def _summarize_variable(key: Any, value: Any) -> Optional[Variable]:
     except Exception as err:
         logger.warning(err, exc_info=True)
         return Variable(
-            display_name=str(key),
+            display_name=display_name,
             display_value=get_qualname(value),
             display_type="",
             kind=VariableKind.Other,
@@ -783,7 +800,9 @@ def _summarize_children(parent: Any, limit: int = MAX_CHILDREN) -> List[Variable
             value = inspector.get_child(child)
         except Exception:
             value = "Cannot get value."
-        summary = _summarize_variable(child, value)
+
+        display_name = inspector.get_display_name(child)
+        summary = _summarize_variable(child, value, display_name=display_name)
         if summary is not None:
             summaries.append(summary)
     return summaries
