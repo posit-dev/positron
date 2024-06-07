@@ -196,6 +196,7 @@ export const RowFilterBar = () => {
 			keybindingService: context.keybindingService,
 			layoutService: context.layoutService,
 			anchorElement: rowFilterButtonRef.current,
+			popupPosition: 'auto',
 			popupAlignment: 'left',
 			width: 200,
 			entries

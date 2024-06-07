@@ -31,6 +31,6 @@
 }
 
 .custom-folder-menu-item .title {
+	margin: 10px;
 	display: flex;
-	padding: 10px;
 }
