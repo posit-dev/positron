@@ -259,5 +259,9 @@ export class PlaywrightDriver {
 	getKeyboard() {
 		return this.page.keyboard;
 	}
+
+	getFrame(frameSelector: string): playwright.FrameLocator {
+		return this.page.frameLocator(frameSelector);
+	}
 	// --- End Positron ---
 }
