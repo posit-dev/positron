@@ -6,25 +6,55 @@ import { Application, Logger } from '../../../../../automation';
 import { installAllHandlers } from '../../../utils';
 
 export function setup(logger: Logger) {
-	describe('A new Test Area', () => {
-
+	describe('New Project Wizard', () => {
 		// Shared before/after handling
 		installAllHandlers(logger);
 
-		describe('New Feature Test', () => {
-			// All tests under this run in same Positron instance
+		describe('Python - New Project Wizard', () => {
 			before(async function () {
 
 			});
 
-			it.only('New Test Case', async function () {
+			it.only('Python Project Defaults', async function () {
 				// TestRail #
 				const app = this.app as Application;
 				await app.workbench.positronNewProjectWizard.startNewProject();
-				await app.workbench.positronNewProjectWizard.projectWizardCancelButton.click();
-				// await app.workbench.positronNewProjectWizard.newPythonProjectButton.click();
+				await app.workbench.positronNewProjectWizard.newPythonProjectButton.click();
+				await app.workbench.positronNewProjectWizard.projectWizardNextButton.click();
+				await app.workbench.positronNewProjectWizard.projectWizardNextButton.click();
+				await app.workbench.positronNewProjectWizard.projectWizardDisabledCreateButton.isNotVisible(); // May need to pass in a retry count > default of 200
+				await app.workbench.positronNewProjectWizard.projectWizardNextButton.click();
+				await app.workbench.positronNewProjectWizard.projectWizardCurrentWindowButton.click();
+				await app.workbench.positronExplorer.explorerProjectTitle.waitForText('myPythonProject');
 			});
 
+
+		});
+
+
+	});
+
+	describe('New Project Wizard', () => {
+		// Shared before/after handling
+		installAllHandlers(logger);
+
+		describe('R - New Project Wizard', () => {
+			before(async function () {
+
+			});
+
+			it.only('R Project Defaults', async function () {
+				// TestRail #
+				const app = this.app as Application;
+				await app.workbench.positronNewProjectWizard.startNewProject();
+				await app.workbench.positronNewProjectWizard.newRProjectButton.click();
+				await app.workbench.positronNewProjectWizard.projectWizardNextButton.click();
+				await app.workbench.positronNewProjectWizard.projectWizardNextButton.click();
+				await app.workbench.positronNewProjectWizard.projectWizardDisabledCreateButton.isNotVisible(); // May need to pass in a retry count > default of 200
+				await app.workbench.positronNewProjectWizard.projectWizardNextButton.click();
+				await app.workbench.positronNewProjectWizard.projectWizardCurrentWindowButton.click();
+				await app.workbench.positronExplorer.explorerProjectTitle.waitForText('myRProject');
+			});
 
 		});
 
