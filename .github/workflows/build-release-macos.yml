@@ -80,6 +80,7 @@ jobs:
           export NVM_DIR="$HOME/.nvm"
           [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
           nvm install
+          npm install yarn
 
       # Check environment. This helps diagnose build issues.
       - name: Inspect Environment
