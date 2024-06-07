@@ -383,7 +383,7 @@ export const PositronModalPopup = (props: PropsWithChildren<PositronModalPopupPr
 
 		// Add the onResize event handler.
 		disposableStore.add(props.renderer.onResize(e => {
-			setPopupStyle(computePopupStyle());
+			props.renderer.dispose();
 		}));
 
 		// Return the clean up for our event handlers.
