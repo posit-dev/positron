@@ -40,7 +40,7 @@ export const OKCancelModalDialog = (props: PropsWithChildren<OKCancelModalDialog
 	// Potential error message from submission attempt.
 	const [errorMsg, setErrorMsg] = React.useState<string | undefined>(undefined);
 
-	const { catchErrors, onAccept, onCancel, children, ...otherProps } = props;
+	const { catchErrors, onAccept, children, ...otherProps } = props;
 
 	const fullProps = {
 		...otherProps,
@@ -48,10 +48,6 @@ export const OKCancelModalDialog = (props: PropsWithChildren<OKCancelModalDialog
 			try { await onAccept(); }
 			catch (err) { setErrorMsg(err.message); }
 		} : onAccept,
-		onCancel: catchErrors ? async () => {
-			try { await onCancel(); }
-			catch (err) { setErrorMsg(err.message); }
-		} : onCancel,
 	};
 
 	// Render.
