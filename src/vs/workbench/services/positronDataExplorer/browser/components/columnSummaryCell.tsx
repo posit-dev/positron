@@ -15,11 +15,12 @@ import { HoverPosition } from 'vs/base/browser/ui/hover/hoverWidget';
 import { ProfileNumber } from 'vs/workbench/services/positronDataExplorer/browser/components/profileNumber';
 import { ProfileString } from 'vs/workbench/services/positronDataExplorer/browser/components/profileString';
 import { ColumnNullPercent } from 'vs/workbench/services/positronDataExplorer/browser/components/columnNullPercent';
-import { ColumnDisplayType, ColumnSchema } from 'vs/workbench/services/languageRuntime/common/positronDataExplorerComm';
+import { ColumnDisplayType, ColumnProfileType, ColumnSchema } from 'vs/workbench/services/languageRuntime/common/positronDataExplorerComm';
 import { TableSummaryDataGridInstance } from 'vs/workbench/services/positronDataExplorer/browser/tableSummaryDataGridInstance';
 import { ProfileBoolean } from 'vs/workbench/services/positronDataExplorer/browser/components/profileBoolean';
 import { ProfileDate } from 'vs/workbench/services/positronDataExplorer/browser/components/profileDate';
 import { ProfileDatetime } from 'vs/workbench/services/positronDataExplorer/browser/components/profileDatetime';
+import { positronClassNames } from 'vs/base/common/positronUtilities';
 
 /**
  * ColumnSummaryCellProps interface.
@@ -167,6 +168,13 @@ export const ColumnSummaryCell = (props: ColumnSummaryCellProps) => {
 	// Get the column null percent.
 	const columnNullPercent = props.instance.getColumnNullPercent(props.columnIndex);
 
+	const profileFeatures = props.instance.getSupportedFeatures().get_column_profiles;
+	let summarySupported = profileFeatures.supported_types.includes(ColumnProfileType.SummaryStats);
+	if (props.columnSchema.type_display === ColumnDisplayType.Object ||
+		props.columnSchema.type_display === ColumnDisplayType.Unknown) {
+		summarySupported = false;
+	}
+
 	// Render.
 	return (
 		<div
@@ -178,9 +186,10 @@ export const ColumnSummaryCell = (props: ColumnSummaryCellProps) => {
 			}
 			<div className='basic-info'>
 				<div
-					className='expand-collapse-button'
-					onClick={() =>
-						props.instance.toggleExpandColumn(props.columnIndex)
+					className={positronClassNames('expand-collapse-button',
+						{ 'disabled': !summarySupported })}
+					onClick={summarySupported ? () =>
+						props.instance.toggleExpandColumn(props.columnIndex) : undefined
 					}
 				>
 					{expanded ?

@@ -43,6 +43,7 @@ from .data_explorer_comm import (
     DataSelectionKind,
     DataSelectionRange,
     DataSelectionSingleCell,
+    ExportDataSelectionFeatures,
     ExportDataSelectionRequest,
     ExportFormat,
     ExportedData,
@@ -62,6 +63,7 @@ from .data_explorer_comm import (
     SearchSchemaResult,
     SetRowFiltersFeatures,
     SetRowFiltersRequest,
+    SetSortColumnsFeatures,
     SetSortColumnsRequest,
     SummaryStatsBoolean,
     SummaryStatsDate,
@@ -1253,6 +1255,8 @@ class PandasView(DataExplorerTableView):
                 ColumnProfileType.SummaryStats,
             ],
         ),
+        set_sort_columns=SetSortColumnsFeatures(supported=True),
+        export_data_selection=ExportDataSelectionFeatures(supported=True),
     )
 
     def _get_state(self) -> BackendState:
@@ -1541,6 +1545,8 @@ class PolarsView(DataExplorerTableView):
             supported=True,
             supported_types=[ColumnProfileType.NullCount],
         ),
+        export_data_selection=ExportDataSelectionFeatures(supported=False),
+        set_sort_columns=SetSortColumnsFeatures(supported=False),
     )
 
     def _get_state(self) -> BackendState:

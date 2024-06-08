@@ -662,6 +662,16 @@ export interface SupportedFeatures {
 	 */
 	get_column_profiles: GetColumnProfilesFeatures;
 
+	/**
+	 * Support for 'set_sort_columns' RPC and its features
+	 */
+	set_sort_columns: SetSortColumnsFeatures;
+
+	/**
+	 * Support for 'export_data_selection' RPC and its features
+	 */
+	export_data_selection: ExportDataSelectionFeatures;
+
 }
 
 /**
@@ -709,6 +719,28 @@ export interface GetColumnProfilesFeatures {
 	 * A list of supported types
 	 */
 	supported_types: Array<ColumnProfileType>;
+
+}
+
+/**
+ * Feature flags for 'export_data_selction' RPC
+ */
+export interface ExportDataSelectionFeatures {
+	/**
+	 * Whether this RPC method is supported at all
+	 */
+	supported: boolean;
+
+}
+
+/**
+ * Feature flags for 'set_sort_columns' RPC
+ */
+export interface SetSortColumnsFeatures {
+	/**
+	 * Whether this RPC method is supported at all
+	 */
+	supported: boolean;
 
 }
 
