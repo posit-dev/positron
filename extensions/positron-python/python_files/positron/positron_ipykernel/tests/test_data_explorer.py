@@ -2184,7 +2184,15 @@ def example_polars_df():
     full_data = []
     for i, (dtype, data, type_name, type_display) in enumerate(POLARS_TYPE_EXAMPLES):
         name = f"f{i}"
-        full_data.append(pl.Series(name=name, values=data, dtype=dtype))
+        s = pl.Series(name=name, values=data, dtype=dtype)
+        full_data.append(s)
+
+        # The string representation of a Decimal appears to be
+        # unstable for now so we don't trust our hard-coded type_name
+        # above
+        if s.dtype.base_type() is pl.Decimal:
+            type_name = str(s.dtype)
+
         full_schema.append(
             {
                 "column_name": name,
