@@ -2299,3 +2299,42 @@ def test_polars_get_data_values(dxf: DataExplorerFixture):
     result = dxf.get_data_values("df", row_start_index=10, num_rows=10, column_indices=[])
     assert result["columns"] == []
     assert result["row_labels"] is None
+
+
+def test_polars_profile_null_counts(dxf: DataExplorerFixture):
+    df = pl.DataFrame(
+        {
+            "a": [0, None, 2, None, 4, 5, 6],
+            "b": ["zero", None, None, None, "four", "five", "six"],
+            "c": [False, False, False, None, None, None, None],
+            "d": [0, 1, 2, 3, 4, 5, 6],
+        }
+    )
+    dxf.register_table("df", df)
+
+    # tuples like (table_name, [ColumnProfileRequest], [results])
+    cases = [
+        ("df", [], []),
+        (
+            "df",
+            [_get_null_count(3)],
+            [0],
+        ),
+        (
+            "df",
+            [
+                _get_null_count(0),
+                _get_null_count(1),
+                _get_null_count(2),
+                _get_null_count(3),
+            ],
+            [2, 3, 4, 0],
+        ),
+    ]
+
+    for table_name, profiles, ex_results in cases:
+        results = dxf.get_column_profiles(table_name, profiles)
+
+        ex_results = [ColumnProfileResult(null_count=count) for count in ex_results]
+
+        assert results == ex_results
