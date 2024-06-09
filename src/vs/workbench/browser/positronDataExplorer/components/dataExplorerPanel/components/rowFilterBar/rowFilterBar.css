@@ -91,6 +91,13 @@
 .data-explorer-panel
 .row-filter-bar
 .filter-entries
+.add-row-filter-button.disabled {
+	opacity: 50%;
+}
+
+.data-explorer-panel
+.row-filter-bar
+.filter-entries
 .add-row-filter-button:focus {
 	outline: none !important;
 }

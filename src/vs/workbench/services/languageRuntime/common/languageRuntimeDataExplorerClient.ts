@@ -5,7 +5,7 @@
 import { Emitter } from 'vs/base/common/event';
 import { Disposable } from 'vs/base/common/lifecycle';
 import { IRuntimeClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimeClientInstance';
-import { BackendState, ColumnProfileRequest, ColumnProfileResult, ColumnSchema, ColumnSortKey, DataSelection, ExportedData, ExportFormat, FilterResult, FormatOptions, PositronDataExplorerComm, RowFilter, SchemaUpdateEvent, TableData, TableSchema } from 'vs/workbench/services/languageRuntime/common/positronDataExplorerComm';
+import { BackendState, ColumnProfileRequest, ColumnProfileResult, ColumnSchema, ColumnSortKey, DataSelection, ExportedData, ExportFormat, FilterResult, FormatOptions, PositronDataExplorerComm, RowFilter, SchemaUpdateEvent, SupportedFeatures, TableData, TableSchema } from 'vs/workbench/services/languageRuntime/common/positronDataExplorerComm';
 
 /**
  * TableSchemaSearchResult interface. This is here temporarily until searching the tabe schema
@@ -217,7 +217,9 @@ export class DataExplorerClientInstance extends Disposable {
 						get_column_profiles: {
 							supported: false,
 							supported_types: []
-						}
+						},
+						set_sort_columns: { supported: false },
+						export_data_selection: { supported: false }
 					}
 				};
 			});
@@ -367,6 +369,30 @@ export class DataExplorerClientInstance extends Disposable {
 			() => this._positronDataExplorerComm.setSortColumns(sortKeys),
 			() => { }
 		);
+	}
+
+	getSupportedFeatures(): SupportedFeatures {
+		if (this.cachedBackendState === undefined) {
+			// Until the backend state is available, we disable features.
+			return {
+				search_schema: {
+					supported: false
+				},
+				set_row_filters: {
+					supported: false,
+					supports_conditions: false,
+					supported_types: []
+				},
+				get_column_profiles: {
+					supported: false,
+					supported_types: []
+				},
+				set_sort_columns: { supported: false },
+				export_data_selection: { supported: false }
+			};
+		} else {
+			return this.cachedBackendState.supported_features;
+		}
 	}
 
 	//#endregion Public Methods

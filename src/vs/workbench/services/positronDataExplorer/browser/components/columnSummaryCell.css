@@ -58,6 +58,15 @@
 .content
 .column-summary
 .basic-info
+.expand-collapse-button.disabled {
+	opacity: 0%;
+	cursor: default;
+}
+
+.data-grid-row-cell
+.content
+.column-summary
+.basic-info
 .expand-collapse-button:focus {
 	outline: none !important;
 }
