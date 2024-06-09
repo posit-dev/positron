@@ -147,6 +147,10 @@ export const RowFilterBar = () => {
 		rowFilterDescriptors
 	]);
 
+	const features = backendClient.getSupportedFeatures();
+
+	const canFilter = features.set_row_filters.supported;
+
 	/**
 	 * Filter button pressed handler.
 	 */
@@ -156,6 +160,7 @@ export const RowFilterBar = () => {
 		entries.push(new CustomContextMenuItem({
 			icon: 'positron-add-filter',
 			label: localize('positron.dataExplorer.addFilter', "Add Filter"),
+			disabled: !canFilter,
 			onSelected: () => addRowFilterHandler(
 				rowFilterButtonRef.current,
 				rowFilterDescriptors.length === 0
@@ -287,6 +292,7 @@ export const RowFilterBar = () => {
 					ref={addFilterButtonRef}
 					className='add-row-filter-button'
 					ariaLabel={(() => localize('positron.dataExplorer.addFilter', "Add Filter"))()}
+					disabled={!canFilter}
 					onPressed={() => addRowFilterHandler(
 						addFilterButtonRef.current,
 						rowFilterDescriptors.length === 0
