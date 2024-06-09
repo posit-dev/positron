@@ -5,16 +5,19 @@
 # ruff: noqa: E712
 
 from datetime import datetime
+from decimal import Decimal
 from io import StringIO
 from typing import Any, Dict, List, Optional, Type, cast
 
 import numpy as np
 import pandas as pd
+import polars as pl
 import pytest
 
 from .._vendor.pydantic import BaseModel
 from ..access_keys import encode_access_key
 from ..data_explorer import (
+    _VALUE_NULL,
     _VALUE_NA,
     _VALUE_NAN,
     _VALUE_NAT,
@@ -452,6 +455,10 @@ def _wrap_json(model: Type[BaseModel], data: JsonRecords):
     return [model(**d).dict() for d in data]
 
 
+# ----------------------------------------------------------------------
+# pandas backend functionality tests
+
+
 def test_pandas_get_state(dxf: DataExplorerFixture):
     result = dxf.get_state("simple")
     assert result["display_name"] == "simple"
@@ -519,8 +526,6 @@ def test_pandas_supported_features(dxf: DataExplorerFixture):
 
 
 def test_pandas_get_schema(dxf: DataExplorerFixture):
-    result = dxf.get_schema("simple", 0, 100)
-
     cases = [
         ([1, 2, 3, 4, 5], "int64", "number"),
         ([True, False, True, None, True], "bool", "boolean"),
@@ -2096,3 +2101,248 @@ def test_pandas_profile_summary_stats(dxf: DataExplorerFixture):
             _assert_date_stats_equal(ex_result, stats["date_stats"])
         elif ui_type == ColumnDisplayType.Datetime:
             _assert_datetime_stats_equal(ex_result, stats["datetime_stats"])
+
+
+# ----------------------------------------------------------------------
+# polars backend functionality tests
+
+
+POLARS_TYPE_EXAMPLES = [
+    (pl.Null, [None, None, None, None], "Null", "unknown"),
+    (pl.Boolean, [False, None, True, False], "Boolean", "boolean"),
+    (pl.Int8, [-1, 2, 3, None], "Int8", "number"),
+    (pl.Int16, [-10000, 20000, 30000, None], "Int16", "number"),
+    (pl.Int32, [-10000000, 20000000, 30000000, None], "Int32", "number"),
+    (
+        pl.Int64,
+        [-10000000000, 20000000000, 30000000000, None],
+        "Int64",
+        "number",
+    ),
+    (pl.UInt8, [0, 2, 3, None], "UInt8", "number"),
+    (pl.UInt16, [0, 2000, 3000, None], "UInt16", "number"),
+    (pl.UInt32, [0, 2000000, 3000000, None], "UInt32", "number"),
+    (pl.UInt64, [0, 2000000000, 3000000000, None], "UInt64", "number"),
+    (pl.Float32, [-0.01234, 2.56789, 3.012345, None], "Float32", "number"),
+    (pl.Float64, [-0.01234, 2.56789, 3.012345, None], "Float64", "number"),
+    (
+        pl.Binary,
+        [b"testing", b"some", b"strings", None],
+        "Binary",
+        "string",
+    ),
+    (pl.String, ["tésting", "söme", "strîngs", None], "String", "string"),
+    (pl.Time, [0, 14400000000000, 40271000000000, None], "Time", "time"),
+    (
+        pl.Datetime("ms"),
+        [1704394167126, 946730085000, 0, None],
+        "Datetime(time_unit='ms', time_zone=None)",
+        "datetime",
+    ),
+    (
+        pl.Datetime("us", "America/New_York"),
+        [1704394167126123, 946730085000123, 0, None],
+        "Datetime(time_unit='us', time_zone='America/New_York')",
+        "datetime",
+    ),
+    (pl.Date, [130120, 0, -1, None], "Date", "date"),
+    (
+        pl.Duration("ms"),
+        [0, 1000, 2000, None],
+        "Duration(time_unit='ms')",
+        "unknown",
+    ),
+    (
+        pl.Decimal(12, 4),
+        [
+            Decimal("123.4501"),
+            Decimal("0"),
+            Decimal("12345678.4501"),
+            None,
+        ],
+        "Decimal(precision=12, scale=4)",
+        "number",
+    ),
+    (pl.List(pl.Int32), [[], [1, None, 3], [0], None], "List(Int32)", "array"),
+    (
+        pl.Struct({"a": pl.Int64, "b": pl.List(pl.String)}),
+        [
+            {"a": 8, "b": ["foo", None, "bar"]},
+            {"a": None, "b": ["", "one", "two"]},
+            None,
+            {"a": 0, "b": None},
+        ],
+        "Struct({'a': Int64, 'b': List(String)})",
+        "struct",
+    ),
+    # (pl.Object, ["Hello", True, None, 5], "Object", "object"),
+]
+
+
+def example_polars_df():
+    full_schema = []
+    full_data = []
+    for i, (dtype, data, type_name, type_display) in enumerate(POLARS_TYPE_EXAMPLES):
+        name = f"f{i}"
+        s = pl.Series(name=name, values=data, dtype=dtype)
+        full_data.append(s)
+
+        # The string representation of a Decimal appears to be
+        # unstable for now so we don't trust our hard-coded type_name
+        # above
+        if s.dtype.base_type() is pl.Decimal:
+            type_name = str(s.dtype)
+
+        full_schema.append(
+            {
+                "column_name": name,
+                "column_index": i,
+                "type_name": type_name,
+                "type_display": type_display,
+            }
+        )
+
+    df = pl.DataFrame(full_data)
+
+    return df, full_schema
+
+
+def test_polars_get_schema(dxf: DataExplorerFixture):
+    df, full_schema = example_polars_df()
+    table_name = guid()
+    dxf.register_table(table_name, df)
+    result = dxf.get_schema(table_name, 0, len(df.columns))
+
+    assert result == _wrap_json(ColumnSchema, full_schema)
+
+    # Test partial gets, boundschecking
+    assert dxf.get_schema(table_name, 0, 0) == []
+    assert dxf.get_schema(table_name, 5, 5) == _wrap_json(ColumnSchema, full_schema[5:10])
+    assert dxf.get_schema(table_name, 5, 100) == _wrap_json(ColumnSchema, full_schema[5:])
+
+
+def test_polars_get_state(dxf: DataExplorerFixture):
+    df, _ = example_polars_df()
+    dxf.register_table("df", df)
+
+    state = dxf.get_state("df")
+    ex_shape = {"num_rows": df.shape[0], "num_columns": df.shape[1]}
+
+    assert state["display_name"] == "df"
+    assert state["table_shape"] == ex_shape
+    assert state["table_unfiltered_shape"] == ex_shape
+    assert state["sort_keys"] == []
+    assert state["row_filters"] == []
+
+    features = state["supported_features"]
+    assert not features["search_schema"]["supported"]
+    assert not features["set_row_filters"]["supported"]
+    assert features["get_column_profiles"]["supported"]
+    assert features["get_column_profiles"]["supported_types"] == ["null_count"]
+
+
+def test_polars_get_data_values(dxf: DataExplorerFixture):
+    df, _ = example_polars_df()
+    dxf.register_table("df", df)
+
+    result = dxf.get_data_values(
+        "df",
+        row_start_index=0,
+        num_rows=10,
+        column_indices=list(range(df.shape[1])),
+    )
+
+    expected_columns = [
+        [_VALUE_NULL] * 4,  # Null
+        ["False", _VALUE_NULL, "True", "False"],  # Boolean
+        ["-1", "2", "3", _VALUE_NULL],  # Int8
+        ["-10000", "20000", "30000", _VALUE_NULL],  # Int16
+        ["-10000000", "20000000", "30000000", _VALUE_NULL],  # Int32
+        ["-10000000000", "20000000000", "30000000000", _VALUE_NULL],  # Int64
+        ["0", "2", "3", _VALUE_NULL],  # UInt8
+        ["0", "2000", "3000", _VALUE_NULL],  # UInt16
+        ["0", "2000000", "3000000", _VALUE_NULL],  # UInt32
+        ["0", "2000000000", "3000000000", _VALUE_NULL],  # UInt64
+        ["-0.0123", "2.57", "3.01", _VALUE_NULL],  # Float32
+        ["-0.0123", "2.57", "3.01", _VALUE_NULL],  # Float64
+        ["b'testing'", "b'some'", "b'strings'", _VALUE_NULL],  # Binary
+        ["tésting", "söme", "strîngs", _VALUE_NULL],  # String
+        ["00:00:00", "04:00:00", "11:11:11", _VALUE_NULL],  # Time
+        [
+            "2024-01-04 18:49:27.126000",
+            "2000-01-01 12:34:45",
+            "1970-01-01 00:00:00",
+            _VALUE_NULL,
+        ],  # Datetime(ms)
+        [
+            "2024-01-04 13:49:27.126123-05:00",
+            "2000-01-01 07:34:45.000123-05:00",
+            "1969-12-31 19:00:00-05:00",
+            _VALUE_NULL,
+        ],  # Datetime(us, 'America/New_York')
+        ["2326-04-05", "1970-01-01", "1969-12-31", _VALUE_NULL],  # Date
+        ["0:00:00", "0:00:01", "0:00:02", _VALUE_NULL],  # Duration
+        ["123.4501", "0.0000", "12345678.4501", _VALUE_NULL],  # Decimal(12, 4)
+        ["[]", "[1, null, 3]", "[0]", _VALUE_NULL],  # List(Int32)
+        [
+            "{'a': 8, 'b': ['foo', None, 'bar']}",
+            "{'a': None, 'b': ['', 'one', 'two']}",
+            _VALUE_NULL,
+            "{'a': 0, 'b': None}",
+        ],  # Struct({'a': Int64, 'b': List(String)}),
+        # ["Hello", "True", _VALUE_NULL, "5"],  # Object
+    ]
+
+    assert result["columns"] == expected_columns
+    assert result["row_labels"] is None
+
+    result = dxf.get_data_values(
+        "df",
+        row_start_index=2,
+        num_rows=10,
+        column_indices=list(range(15, df.shape[1])),
+    )
+    assert result["columns"] == [x[2:] for x in expected_columns[15:]]
+
+    result = dxf.get_data_values("df", row_start_index=10, num_rows=10, column_indices=[])
+    assert result["columns"] == []
+    assert result["row_labels"] is None
+
+
+def test_polars_profile_null_counts(dxf: DataExplorerFixture):
+    df = pl.DataFrame(
+        {
+            "a": [0, None, 2, None, 4, 5, 6],
+            "b": ["zero", None, None, None, "four", "five", "six"],
+            "c": [False, False, False, None, None, None, None],
+            "d": [0, 1, 2, 3, 4, 5, 6],
+        }
+    )
+    dxf.register_table("df", df)
+
+    # tuples like (table_name, [ColumnProfileRequest], [results])
+    cases = [
+        ("df", [], []),
+        (
+            "df",
+            [_get_null_count(3)],
+            [0],
+        ),
+        (
+            "df",
+            [
+                _get_null_count(0),
+                _get_null_count(1),
+                _get_null_count(2),
+                _get_null_count(3),
+            ],
+            [2, 3, 4, 0],
+        ),
+    ]
+
+    for table_name, profiles, ex_results in cases:
+        results = dxf.get_column_profiles(table_name, profiles)
+
+        ex_results = [ColumnProfileResult(null_count=count) for count in ex_results]
+
+        assert results == ex_results

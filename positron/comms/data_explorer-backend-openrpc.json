@@ -995,7 +995,9 @@
 				"required": [
 					"search_schema",
 					"set_row_filters",
-					"get_column_profiles"
+					"get_column_profiles",
+					"set_sort_columns",
+					"export_data_selection"
 				],
 				"properties": {
 					"search_schema": {
@@ -1009,6 +1011,14 @@
 					"get_column_profiles": {
 						"description": "Support for 'get_column_profiles' RPC and its features",
 						"$ref": "#/components/schemas/get_column_profiles_features"
+					},
+					"set_sort_columns": {
+						"description": "Support for 'set_sort_columns' RPC and its features",
+						"$ref": "#/components/schemas/set_sort_columns_features"
+					},
+					"export_data_selection": {
+						"description": "Support for 'export_data_selection' RPC and its features",
+						"$ref": "#/components/schemas/export_data_selection_features"
 					}
 				}
 			},
@@ -1069,6 +1079,32 @@
 						"items": {
 							"$ref": "#/components/schemas/column_profile_type"
 						}
+					}
+				}
+			},
+			"export_data_selection_features": {
+				"type": "object",
+				"description": "Feature flags for 'export_data_selction' RPC",
+				"required": [
+					"supported"
+				],
+				"properties": {
+					"supported": {
+						"type": "boolean",
+						"description": "Whether this RPC method is supported at all"
+					}
+				}
+			},
+			"set_sort_columns_features": {
+				"type": "object",
+				"description": "Feature flags for 'set_sort_columns' RPC",
+				"required": [
+					"supported"
+				],
+				"properties": {
+					"supported": {
+						"type": "boolean",
+						"description": "Whether this RPC method is supported at all"
 					}
 				}
 			},
