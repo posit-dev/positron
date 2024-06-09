@@ -261,6 +261,8 @@ _VALUE_NA = 1
 _VALUE_NAN = 2
 _VALUE_NAT = 3
 _VALUE_NONE = 4
+_VALUE_INF = 10
+_VALUE_NEGINF = 11
 
 
 if np_ is not None:
@@ -1121,20 +1123,30 @@ class PandasView(DataExplorerTableView):
     def _summarize_number(cls, col: "pd.Series", options: FormatOptions):
         float_format = _get_float_formatter(options)
 
-        min_val = col.min()
-        max_val = col.max()
-        mean_val = col.mean()
-        median_val = col.median()
-        std_val = col.std()
+        if "complex" in str(col.dtype):
+            min_val = max_val = std_val = None
+            values = col.to_numpy()
+            non_null_values = values[~np_.isnan(values)]
+            if len(non_null_values) > 0:
+                median_val = float_format(np_.median(non_null_values))
+                mean_val = float_format(np_.mean(non_null_values))
+            else:
+                median_val = mean_val = None
+        else:
+            min_val = float_format(col.min())
+            max_val = float_format(col.max())
+            mean_val = float_format(col.mean())
+            median_val = float_format(col.median())
+            std_val = float_format(col.std())
 
         return ColumnSummaryStats(
             type_display=ColumnDisplayType.Number,
             number_stats=SummaryStatsNumber(
-                min_value=float_format(min_val),
-                max_value=float_format(max_val),
-                mean=float_format(mean_val),
-                median=float_format(median_val),
-                stdev=float_format(std_val),
+                min_value=min_val,
+                max_value=max_val,
+                mean=mean_val,
+                median=median_val,
+                stdev=std_val,
             ),
         )
 
