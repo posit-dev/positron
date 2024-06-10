@@ -507,10 +507,17 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
             const logFileContent = lines.slice(lastLine - 1, lastLine).join('\n');
 
             // see if obvious error, otherwise use generic text to logs
-            const regex = /^(\w*Error)\b/m;
-            const errortext = regex.test(logFileContent) ? logFileContent : Console.consoleExit;
+            const regex = /^(\w*Error|Exception)\b/m;
+            const errortext = regex.test(logFileContent)
+                ? vscode.l10n.t(
+                      '{0} {1} {2}',
+                      kernel.metadata.sessionName,
+                      Console.consoleExitWithError,
+                      logFileContent,
+                  )
+                : Console.consoleExitGeneric;
 
-            const res = await showErrorMessage(errortext, vscode.l10n.t('Open logs'));
+            const res = await showErrorMessage(errortext, vscode.l10n.t('Open Logs'));
             if (res) {
                 kernel.showOutput();
             }
