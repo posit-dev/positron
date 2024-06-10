@@ -35,6 +35,7 @@ export function setup(logger: Logger) {
 			});
 
 			it('Python - Verifies basic data explorer functionality', async function () {
+				// TestRail #557556
 				const app = this.app as Application;
 
 				// modified snippet from https://www.geeksforgeeks.org/python-pandas-dataframe/
@@ -83,6 +84,7 @@ df = pd.DataFrame(data)`;
 			});
 
 			it('R - Verifies basic data explorer functionality', async function () {
+				// TestRail #609620
 				const app = this.app as Application;
 
 				// snippet from https://www.w3schools.com/r/r_data_frames.asp
