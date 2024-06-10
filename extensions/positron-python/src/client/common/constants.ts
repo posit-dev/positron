@@ -64,6 +64,7 @@ export namespace Commands {
     // --- Start Positron ---
     export const Create_Environment_And_Register = 'python.createEnvironmentAndRegister';
     export const Get_Create_Environment_Providers = 'python.getCreateEnvironmentProviders';
+    export const Is_Conda_Installed = 'python.isCondaInstalled';
     export const Get_Conda_Python_Versions = 'python.getCondaPythonVersions';
     // --- End Positron ---
     export const InstallJupyter = 'python.installJupyter';

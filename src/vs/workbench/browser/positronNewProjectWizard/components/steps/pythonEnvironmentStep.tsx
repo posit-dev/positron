@@ -77,13 +77,18 @@ export const PythonEnvironmentStep = (props: PropsWithChildren<NewProjectWizardS
 	}, [context]);
 
 	// Utility functions.
-	const interpretersAvailable = () =>
-		Boolean(interpreters && interpreters.length) ||
-		// Interpreters are always available for Conda because we display the supported versions
-		// that an environment can be created with.
-		Boolean(context.usesCondaEnv && condaPythonVersionInfo);
-	const interpretersLoading = () =>
-		!interpreters || Boolean(context.usesCondaEnv && !condaPythonVersionInfo);
+	const interpretersAvailable = () => {
+		if (context.usesCondaEnv) {
+			return Boolean(context.isCondaInstalled && condaPythonVersionInfo);
+		}
+		return Boolean(interpreters && interpreters.length);
+	};
+	const interpretersLoading = () => {
+		if (context.usesCondaEnv) {
+			return Boolean(context.isCondaInstalled && !condaPythonVersionInfo);
+		}
+		return !interpreters;
+	};
 	const envProvidersAvailable = () => Boolean(envProviders && envProviders.length);
 	const envProvidersLoading = () => !envProviders;
 
@@ -254,6 +259,20 @@ export const PythonEnvironmentStep = (props: PropsWithChildren<NewProjectWizardS
 						localize(
 							'pythonInterpreterSubStep.feedback.noInterpretersAvailable',
 							"No interpreters available since no environment providers were found."
+						))()}
+				</WizardFormattedText>
+			);
+		}
+
+		if (context.usesCondaEnv && !context.isCondaInstalled) {
+			return (
+				<WizardFormattedText
+					type={WizardFormattedTextType.Warning}
+				>
+					{(() =>
+						localize(
+							'pythonInterpreterSubStep.feedback.condaNotInstalled',
+							"Conda is not installed. Please install Conda to create a Conda environment."
 						))()}
 				</WizardFormattedText>
 			);
