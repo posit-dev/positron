@@ -168,6 +168,8 @@ export const ProjectNameLocationStep = (props: PropsWithChildren<NewProjectWizar
 					onChange={(e) => onChangeProjectName(e.target.value)}
 					type='text'
 					errorMsg={nameValidationErrorMsg}
+					// Don't let the user create a project with a name that is too long.
+					maxLength={255}
 					error={
 						projectNameFeedback &&
 						projectNameFeedback.type === WizardFormattedTextType.Error

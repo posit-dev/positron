@@ -30,6 +30,10 @@ export interface LabeledTextInputProps {
 	errorMsg?: string;
 	validator?: ValidatorFn;
 	onChange: ChangeEventHandler<HTMLInputElement>;
+	/**
+	 * Maximum allowed number of characters in the input field.
+	 */
+	maxLength?: number;
 }
 
 /**
@@ -46,8 +50,17 @@ export const LabeledTextInput = forwardRef<HTMLInputElement, LabeledTextInputPro
 		<div className='labeled-text-input'>
 			<label className='label'>
 				{props.label}
-				<input className={positronClassNames('text-input', { 'error': props.error })} ref={ref} type={props.type} value={props.value}
-					autoFocus={props.autoFocus} onChange={props.onChange} max={props.max} min={props.min} />
+				<input
+					className={positronClassNames('text-input', { 'error': props.error })}
+					ref={ref}
+					type={props.type}
+					value={props.value}
+					autoFocus={props.autoFocus}
+					onChange={props.onChange}
+					max={props.max}
+					min={props.min}
+					maxLength={props.maxLength}
+				/>
 				{errorMsg ? <span className='error error-msg'>{errorMsg}</span> : null}
 			</label>
 		</div>

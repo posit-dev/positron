@@ -46,7 +46,7 @@ export const LabeledFolderInput = (props: LabeledFolderInputProps) => {
 			<label>
 				{props.label}
 				<div className='folder-input'>
-					<input className='text-input' readOnly={props.readOnlyInput} placeholder={props.placeholder} type='text' value={props.value} onChange={props.onChange} />
+					<input className='text-input' readOnly={props.readOnlyInput} placeholder={props.placeholder} type='text' value={props.value} onChange={props.onChange} maxLength={255} />
 					<Button className='browse-button' onPressed={props.onBrowse}>
 						{localize('positronFolderInputBrowse', 'Browse...')}
 					</Button>
