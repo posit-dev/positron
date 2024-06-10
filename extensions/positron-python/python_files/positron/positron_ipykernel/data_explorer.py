@@ -7,6 +7,7 @@
 
 import abc
 import logging
+import math
 import operator
 from datetime import datetime
 from typing import (
@@ -261,6 +262,8 @@ _VALUE_NA = 1
 _VALUE_NAN = 2
 _VALUE_NAT = 3
 _VALUE_NONE = 4
+_VALUE_INF = 10
+_VALUE_NEGINF = 11
 
 
 if np_ is not None:
@@ -269,6 +272,7 @@ if np_ is not None:
         return isinstance(x, (float, np_.floating))
 
     _isnan = np_.isnan  # type: ignore
+    _isinf = np_.isinf  # type: ignore
 else:
 
     def _is_float_scalar(x):
@@ -276,6 +280,9 @@ else:
 
     def _isnan(x: float) -> bool:
         return x != x
+
+    def _isinf(x: float) -> bool:
+        return math.isinf(x)
 
 
 def _get_float_formatter(options: FormatOptions) -> Callable:
@@ -773,24 +780,28 @@ class PandasView(DataExplorerTableView):
 
     @classmethod
     def _format_values(cls, values, options: FormatOptions) -> List[ColumnValue]:
+        NaT = pd_.NaT
+        NA = pd_.NA
         float_format = _get_float_formatter(options)
-        return [cls._format_value(x, float_format) for x in values]
 
-    @staticmethod
-    def _format_value(x, float_format: Callable):
-        if _is_float_scalar(x):
-            if _isnan(x):
-                return _VALUE_NAN
+        def _format_value(x):
+            if _is_float_scalar(x):
+                if _isnan(x):
+                    return _VALUE_NAN
+                elif _isinf(x):
+                    return _VALUE_INF if x > 0 else _VALUE_NEGINF
+                else:
+                    return float_format(x)
+            elif x is None:
+                return _VALUE_NONE
+            elif x is NaT:
+                return _VALUE_NAT
+            elif x is NA:
+                return _VALUE_NA
             else:
-                return float_format(x)
-        elif x is None:
-            return _VALUE_NONE
-        elif x is getattr(pd_, "NaT", None):
-            return _VALUE_NAT
-        elif x is getattr(pd_, "NA", None):
-            return _VALUE_NA
-        else:
-            return str(x)
+                return str(x)
+
+        return [_format_value(x) for x in values]
 
     def _export_data_selection(self, selection: DataSelection, fmt: ExportFormat) -> ExportedData:
         sel = selection.selection
@@ -1121,20 +1132,38 @@ class PandasView(DataExplorerTableView):
     def _summarize_number(cls, col: "pd.Series", options: FormatOptions):
         float_format = _get_float_formatter(options)
 
-        min_val = col.min()
-        max_val = col.max()
-        mean_val = col.mean()
-        median_val = col.median()
-        std_val = col.std()
+        median_val = mean_val = std_val = None
+
+        if "complex" in str(col.dtype):
+            min_val = max_val = None
+            values = col.to_numpy()
+            non_null_values = values[~np_.isnan(values)]
+            if len(non_null_values) > 0:
+                median_val = float_format(np_.median(non_null_values))
+                mean_val = float_format(np_.mean(non_null_values))
+        else:
+            min_val = col.min()
+            max_val = col.max()
+
+            if not _isinf(min_val) and not _isinf(max_val):
+                # These stats are not defined when there is an
+                # inf/-inf in the data
+                mean_val = float_format(col.mean())
+                median_val = float_format(col.median())
+                std_val = float_format(col.std())
+
+            # Format the min/max
+            min_val = float_format(min_val)
+            max_val = float_format(max_val)
 
         return ColumnSummaryStats(
             type_display=ColumnDisplayType.Number,
             number_stats=SummaryStatsNumber(
-                min_value=float_format(min_val),
-                max_value=float_format(max_val),
-                mean=float_format(mean_val),
-                median=float_format(median_val),
-                stdev=float_format(std_val),
+                min_value=min_val,
+                max_value=max_val,
+                mean=mean_val,
+                median=median_val,
+                stdev=std_val,
             ),
         )
 

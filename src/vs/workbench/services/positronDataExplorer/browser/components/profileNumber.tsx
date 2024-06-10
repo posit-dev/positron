@@ -54,25 +54,38 @@ export const ProfileNumber = (props: ProfileNumberProps) => {
 		return () => disposableStore.dispose();
 	}, [props.instance.configurationService]);
 
+	const statsEntries = [
+		['NA', nullCount],
+	];
+	if (stats.mean) {
+		statsEntries.push(['Mean', stats.mean]);
+	}
+	if (stats.median) {
+		statsEntries.push(['Median', stats.median]);
+	}
+	if (stats.stdev) {
+		statsEntries.push(['SD', stats.stdev]);
+	}
+	if (stats.min_value) {
+		statsEntries.push(['Min', stats.min_value]);
+	}
+	if (stats.max_value) {
+		statsEntries.push(['Max', stats.max_value]);
+	}
+
 	// Render.
 	return (
 		<div ref={ref} className='tabular-info'>
 			<div className='labels'>
-				<div className='label'>NA</div>
-				<div className='label'>Mean</div>
-				<div className='label'>Median</div>
-				<div className='label'>SD</div>
-				<div className='label'>Min</div>
-				<div className='label'>Max</div>
+				{statsEntries.map((entry, index) => (
+					<div key={index} className='label'>{entry[0]}</div>
+				))}
 			</div>
 			<div className='values'>
 				<div className='values-left'>
-					<div className='value'>{nullCount}</div>
-					<div className='value'>{stats.mean}</div>
-					<div className='value'>{stats.median}</div>
-					<div className='value'>{stats.stdev}</div>
-					<div className='value'>{stats.min_value}</div>
-					<div className='value'>{stats.max_value}</div>
+					{statsEntries.map((entry, index) => (
+						<div key={index} className='value'>{entry[1]}</div>
+					))}
 				</div>
 			</div>
 		</div>
