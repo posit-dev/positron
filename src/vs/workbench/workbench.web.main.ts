@@ -162,6 +162,10 @@ import 'vs/workbench/contrib/splash/browser/splash.contribution';
 // Remote Start Entry for the Web
 import 'vs/workbench/contrib/remote/browser/remoteStartEntry.contribution';
 
+// --- Start Positron ---
+import 'vs/workbench/contrib/positronPreview/browser/positronPreview.web.contribution';
+// --- End Positron
+
 //#endregion
 
 

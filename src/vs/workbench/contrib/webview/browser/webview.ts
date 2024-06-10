@@ -22,6 +22,7 @@ import { Memento, MementoObject } from 'vs/workbench/common/memento';
 // --- Start Positron ---
 import { WebviewFindDelegate } from 'vs/workbench/contrib/webview/browser/webviewFindWidget';
 import { VSBuffer } from 'vs/base/common/buffer';
+import { WebviewFrameId } from 'vs/platform/webview/common/webviewManagerService';
 // --- End Positron ---
 
 /**
@@ -101,6 +102,7 @@ export interface WebviewOptions {
 	readonly customClasses?: string;
 	readonly enableFindWidget?: boolean;
 	// --- Start Positron ---
+	readonly externalUri?: boolean;
 	readonly webviewFindDelegate?: WebviewFindDelegate;
 	// --- End Positron ---
 
@@ -206,6 +208,20 @@ export interface IWebview extends IDisposable {
 	 */
 	setTitle(title: string): void;
 
+	// --- Start Positron ---
+	/**
+	 * Sets the URI of the webview. In order to use this, the webview must be
+	 * created with the `externalUri` option set to true; this option causes the
+	 * webview to load an alternate host page designed for hosting external
+	 * URIs.
+	 *
+	 * Currently, this cannot be used outside of Electron.
+	 *
+	 * Exclusive with `setHtml`.
+	 */
+	setUri(uri: URI): void;
+	// --- End Positron ---
+
 	/**
 	 * Control what content is allowed/blocked inside the webview.
 	 */
@@ -261,6 +277,8 @@ export interface IWebview extends IDisposable {
 	// Added keepSelection?: boolean.
 	hideFind(animated?: boolean, keepSelection?: boolean): void;
 	captureContentsAsPng(): Promise<VSBuffer | undefined>;
+	executeJavaScript(frameId: WebviewFrameId, code: string): Promise<any>;
+	onDidNavigate: Event<URI>;
 	// --- End Positron
 	runFindAction(previous: boolean): void;
 

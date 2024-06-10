@@ -27,6 +27,11 @@ import { WebviewElement } from 'vs/workbench/contrib/webview/browser/webviewElem
 import { WindowIgnoreMenuShortcutsManager } from 'vs/workbench/contrib/webview/electron-sandbox/windowIgnoreMenuShortcutsManager';
 import { IWorkbenchEnvironmentService } from 'vs/workbench/services/environment/common/environmentService';
 
+// --- Start Positron ---
+// eslint-disable-next-line no-duplicate-imports
+import { WebviewFrameId } from 'vs/platform/webview/common/webviewManagerService';
+// --- End Positron ---
+
 /**
  * Webview backed by an iframe but that uses Electron APIs to power the webview.
  */
@@ -79,6 +84,12 @@ export class ElectronWebviewElement extends WebviewElement {
 				this._hasFindResult.fire(result.matches > 0);
 			}));
 		}
+
+		// --- Start Positron ---
+		this._register(this._webviewMainService.onFrameNavigation((evt) => {
+			this._onFrameNavigated.fire(evt);
+		}));
+		// --- End Positron ---
 	}
 
 	override dispose(): void {
@@ -176,6 +187,14 @@ export class ElectronWebviewElement extends WebviewElement {
 
 		return this._webviewMainService.captureContentsAsPng(
 			{ windowId: this._nativeHostService.windowId }, bounding);
+	}
+
+	public override awaitFrameCreation(targetUrl: string): Promise<WebviewFrameId> {
+		return this._webviewMainService.awaitFrameCreation({ windowId: this._nativeHostService.windowId }, targetUrl);
+	}
+
+	public override executeJavaScript(frameId: WebviewFrameId, code: string): Promise<any> {
+		return this._webviewMainService.executeJavaScript(frameId, code);
 	}
 	// --- End Positron ---
 

@@ -4,7 +4,7 @@
 
 import 'vs/css!./actionBars';
 import * as React from 'react';
-import { PropsWithChildren, } from 'react'; // eslint-disable-line no-duplicate-imports
+import { PropsWithChildren, useEffect, } from 'react'; // eslint-disable-line no-duplicate-imports
 import { ICommandService } from 'vs/platform/commands/common/commands';
 import { IKeybindingService } from 'vs/platform/keybinding/common/keybinding';
 import { IContextKeyService } from 'vs/platform/contextkey/common/contextkey';
@@ -17,12 +17,13 @@ import { PositronSessionsServices } from 'vs/workbench/contrib/positronRuntimeSe
 import { ActionBarRegion } from 'vs/platform/positronActionBar/browser/components/actionBarRegion';
 import { ActionBarButton } from 'vs/platform/positronActionBar/browser/components/actionBarButton';
 import { localize } from 'vs/nls';
-import { PreviewUrl } from 'vs/workbench/contrib/positronPreview/browser/previewUrl';
+import { PreviewUrl, QUERY_NONCE_PARAMETER } from 'vs/workbench/contrib/positronPreview/browser/previewUrl';
 import { IPositronPreviewService } from 'vs/workbench/contrib/positronPreview/browser/positronPreviewSevice';
 import { ActionBarSeparator } from 'vs/platform/positronActionBar/browser/components/actionBarSeparator';
 import { IOpenerService } from 'vs/platform/opener/common/opener';
 import { URI } from 'vs/base/common/uri';
 import { INotificationService } from 'vs/platform/notification/common/notification';
+import { DisposableStore } from 'vs/base/common/lifecycle';
 
 // Constants.
 const kPaddingLeft = 8;
@@ -69,17 +70,26 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 
 	// Handler for the navigate back button.
 	const navigateBackHandler = () => {
-		props.preview.webview.postMessage({ command: 'back' });
+		props.preview.webview.postMessage({
+			channel: 'execCommand',
+			data: 'navigate-back'
+		});
 	};
 
 	// Handler for the navigate forward button.
 	const navigateForwardHandler = () => {
-		props.preview.webview.postMessage({ command: 'forward' });
+		props.preview.webview.postMessage({
+			channel: 'execCommand',
+			data: 'navigate-forward'
+		});
 	};
 
 	// Handler for the reload button.
 	const reloadHandler = () => {
-		props.preview.webview.postMessage({ command: 'reload' });
+		props.preview.webview.postMessage({
+			channel: 'execCommand',
+			data: 'reload-window'
+		});
 	};
 
 	// Handler for the clear button.
@@ -130,6 +140,35 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 			navigateToUrl(urlInputRef.current.value);
 		}
 	};
+
+	// useEffect hook.
+	useEffect(() => {
+		const disposables = new DisposableStore();
+		disposables.add(props.preview.onDidNavigate(e => {
+			if (urlInputRef.current) {
+				// Remove the nonce from the URL before updating the input; we
+				// use this this for cache busting but the user doesn't need to
+				// see it.
+				if (e.query) {
+					const nonceIndex = e.query.indexOf(`${QUERY_NONCE_PARAMETER}=`);
+					if (nonceIndex !== -1) {
+						const nonceEnd = e.query.indexOf('&', nonceIndex);
+						if (nonceEnd !== -1) {
+							e = e.with({
+								query: e.query.slice(0, nonceIndex) + e.query.slice(nonceEnd + 1)
+							});
+						} else {
+							e = e.with({
+								query: e.query.slice(0, nonceIndex)
+							});
+						}
+					}
+				}
+				urlInputRef.current.value = e.toString();
+			}
+		}));
+		return () => disposables.dispose();
+	}, [props.preview]);
 
 	// Render.
 	return (
