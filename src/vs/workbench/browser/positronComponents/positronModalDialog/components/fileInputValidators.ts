@@ -7,6 +7,7 @@ import { basename } from 'vs/base/common/resources';
 import { truncate } from 'vs/base/common/strings';
 import { URI } from 'vs/base/common/uri';
 import { localize } from 'vs/nls';
+import { IFileService } from 'vs/platform/files/common/files';
 
 interface PathValidatorOptions {
 	// Whether to forbid absolute paths. Defaults to false.
@@ -50,9 +51,7 @@ export function checkIfPathValid(path: string | number, opts: PathValidatorOptio
 	const pathBase = basename(pathUri);
 	if (!isValidBasename(pathBase, isWindows)) {
 		// Make the path cleaner for display
-		const sanitizedPath = pathBase.replace(/\*/g, '\\*'); // CodeQL [SM02383] This only processes filenames which are enforced against having backslashes in them farther up in the stack.
-		// Cleanup display for long paths
-		return localize('invalidFileNameError', "{0} is not valid as a file or folder name. Please choose a different name.", truncate(sanitizedPath, 55));
+		return localize('invalidFileNameError', "{0} is not valid as a file or folder name. Please choose a different name.", sanitizePathForDisplay(pathBase));
 	}
 
 	// Check for whitespace
@@ -61,4 +60,39 @@ export function checkIfPathValid(path: string | number, opts: PathValidatorOptio
 	}
 
 	return undefined;
+}
+
+/**
+ * Check if the current path exists. For use in labeled text/folder validator function.
+ *
+ * @see `checkIfPathValid` `useDebouncedValidator` `LabeledTextInput` `LabeledFolderInput`
+ * @returns Promise with error message if path doesn't exist or undefined if it does.
+ */
+export async function checkIfPathExists(path: string | number, fileService: IFileService): Promise<string | undefined> {
+	path = path.toString();
+	try {
+		const pathUri = URI.file(path);
+		const pathExists = await fileService.exists(pathUri);
+
+		if (!pathExists) {
+			return localize('pathDoesNotExistError', "The path {0} does not exist.", sanitizePathForDisplay(path));
+		}
+	} catch (e) {
+		return localize('errorCheckingIfPathExists', "An error occurred while checking if the path {0} exists.", sanitizePathForDisplay(path));
+	}
+
+	return undefined;
+}
+
+
+/**
+ * Helper function to print paths in a more readable format.
+ * @param path Full path to sanitize.
+ * @returns The sanitized path.
+ */
+function sanitizePathForDisplay(path: string): string {
+	// Make the path cleaner for display
+	const sanitizedPath = path.replace(/\*/g, '\\*'); // CodeQL [SM02383] This only processes filenames which are enforced against having backslashes in them farther up in the stack.
+
+	return truncate(sanitizedPath, 55);
 }

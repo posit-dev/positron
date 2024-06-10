@@ -12,8 +12,9 @@ import { localize } from 'vs/nls';
 
 // Other dependencies.
 import { Button } from 'vs/base/browser/ui/positronComponents/button/button';
-import { checkIfPathValid } from 'vs/workbench/browser/positronComponents/positronModalDialog/components/fileInputValidators';
+import { checkIfPathExists, checkIfPathValid } from 'vs/workbench/browser/positronComponents/positronModalDialog/components/fileInputValidators';
 import { useDebouncedValidator } from 'vs/workbench/browser/positronComponents/positronModalDialog/components/useDebouncedValidator';
+import { IFileService } from 'vs/platform/files/common/files';
 
 /**
  * FolderInputProps interface.
@@ -22,6 +23,10 @@ export interface LabeledFolderInputProps {
 	label: string;
 	value: string;
 	error?: boolean;
+	/**
+	 * Custom error message. Will override the built-in validator error message if present.
+	 */
+	errorMsg?: string;
 	placeholder?: string;
 	/**
 	 * By default the user can type into the input field.
@@ -32,14 +37,21 @@ export interface LabeledFolderInputProps {
 	onChange: ChangeEventHandler<HTMLInputElement>;
 }
 
+interface LabeledExistingFolderInputProps extends LabeledFolderInputProps {
+	mustExist: true;
+	fileService: IFileService;
+}
+
 /**
  * LabeledFolderInput component.
  * @param props A LabeledFolderInputProps that contains the component properties.
  * @returns The rendered component.
  */
-export const LabeledFolderInput = (props: LabeledFolderInputProps) => {
-	// TODO: Add option to restrict to existing paths.
-	const errorMsg = useDebouncedValidator({ value: props.value, validator: checkIfPathValid });
+export const LabeledFolderInput = (props: LabeledFolderInputProps | LabeledExistingFolderInputProps) => {
+
+	const validatorFn = 'mustExist' in props ? (path: string | number) => checkIfPathExists(path, props.fileService) : checkIfPathValid;
+	const validatorErrorMsg = useDebouncedValidator({ value: props.value, validator: validatorFn });
+	const errorMsg = props.errorMsg || validatorErrorMsg;
 
 	return (
 		<div className='labeled-folder-input'>

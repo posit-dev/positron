@@ -21,7 +21,7 @@ import { WizardFormattedText, WizardFormattedTextType } from 'vs/workbench/brows
 import { checkProjectName } from 'vs/workbench/browser/positronNewProjectWizard/utilities/projectNameUtils';
 import { DisposableStore } from 'vs/base/common/lifecycle';
 import { NewProjectType } from 'vs/workbench/services/positronNewProject/common/positronNewProject';
-import { checkIfPathValid } from 'vs/workbench/browser/positronComponents/positronModalDialog/components/fileInputValidators';
+import { checkIfPathExists, checkIfPathValid } from 'vs/workbench/browser/positronComponents/positronModalDialog/components/fileInputValidators';
 import { PathDisplay } from 'vs/workbench/browser/positronNewProjectWizard/components/pathDisplay';
 import { useDebouncedValidator } from 'vs/workbench/browser/positronComponents/positronModalDialog/components/useDebouncedValidator';
 
@@ -46,6 +46,11 @@ export const ProjectNameLocationStep = (props: PropsWithChildren<NewProjectWizar
 		validator: checkIfPathValid
 	});
 	const isInvalidName = nameValidationErrorMsg !== undefined;
+	const parentPathErrorMsg = useDebouncedValidator({
+		value: parentFolder,
+		validator: (path: string | number) => checkIfPathExists(path, fileService)
+	});
+	const isInvalidParentPath = parentPathErrorMsg !== undefined;
 
 
 	useEffect(() => {
@@ -136,6 +141,7 @@ export const ProjectNameLocationStep = (props: PropsWithChildren<NewProjectWizar
 				disable:
 					!projectName ||
 					isInvalidName ||
+					isInvalidParentPath ||
 					!parentFolder ||
 					(projectNameFeedback &&
 						projectNameFeedback.type === WizardFormattedTextType.Error),
@@ -204,6 +210,7 @@ export const ProjectNameLocationStep = (props: PropsWithChildren<NewProjectWizar
 						))()}
 					value={parentFolder}
 					onBrowse={browseHandler}
+					errorMsg={parentPathErrorMsg}
 					onChange={(e) => onChangeParentFolder(e.target.value)}
 				/>
 			</PositronWizardSubStep>
