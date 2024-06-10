@@ -108,12 +108,15 @@ export const PositronModalDialog = (props: PropsWithChildren<PositronModalDialog
 
 			// Handle the event.
 			switch (e.key) {
-				// Enter accepts dialog.
-				case 'Enter': {
-					consumeEvent();
-					props.onAccept();
-					break;
-				}
+				// TODO: Update enter logic to enter into the default button of the dialog if there
+				// is one. This will use `focusableElementSelectors` to find it.
+
+				// Temporarily disable Enter key handling for #3217 fix.
+				// case 'Enter': {
+				// 	consumeEvent();
+				// 	props.onAccept();
+				// 	break;
+				// }
 
 				// Escape cancels dialog.
 				case 'Escape': {
