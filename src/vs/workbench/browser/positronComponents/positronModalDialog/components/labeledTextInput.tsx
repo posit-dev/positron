@@ -24,6 +24,10 @@ export interface LabeledTextInputProps {
 	min?: number;
 	type?: 'text' | 'number';
 	error?: boolean;
+	/**
+	 * Custom error message. Will override the validator error message if present.
+	 */
+	errorMsg?: string;
 	validator?: ValidatorFn;
 	onChange: ChangeEventHandler<HTMLInputElement>;
 }
@@ -33,7 +37,9 @@ export interface LabeledTextInputProps {
  */
 export const LabeledTextInput = forwardRef<HTMLInputElement, LabeledTextInputProps>((props, ref) => {
 
-	const errorMsg = useDebouncedValidator(props);
+	const validatorErrorMsg = useDebouncedValidator(props);
+
+	const errorMsg = props.errorMsg || validatorErrorMsg;
 
 	// Render.
 	return (

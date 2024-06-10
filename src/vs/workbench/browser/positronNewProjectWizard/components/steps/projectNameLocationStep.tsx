@@ -23,6 +23,7 @@ import { DisposableStore } from 'vs/base/common/lifecycle';
 import { NewProjectType } from 'vs/workbench/services/positronNewProject/common/positronNewProject';
 import { checkIfPathValid } from 'vs/workbench/browser/positronComponents/positronModalDialog/components/fileInputValidators';
 import { PathDisplay } from 'vs/workbench/browser/positronNewProjectWizard/components/pathDisplay';
+import { useDebouncedValidator } from 'vs/workbench/browser/positronComponents/positronModalDialog/components/useDebouncedValidator';
 
 /**
  * The ProjectNameLocationStep component is the second step in the new project wizard.
@@ -40,6 +41,12 @@ export const ProjectNameLocationStep = (props: PropsWithChildren<NewProjectWizar
 	const [projectName, setProjectName] = useState(context.projectName);
 	const [parentFolder, setParentFolder] = useState(context.parentFolder);
 	const [projectNameFeedback, setProjectNameFeedback] = useState(context.projectNameFeedback);
+	const nameValidationErrorMsg = useDebouncedValidator({
+		value: projectName,
+		validator: checkIfPathValid
+	});
+	const isInvalidName = nameValidationErrorMsg !== undefined;
+
 
 	useEffect(() => {
 		// Create the disposable store for cleanup.
@@ -128,6 +135,7 @@ export const ProjectNameLocationStep = (props: PropsWithChildren<NewProjectWizar
 				onClick: nextStep,
 				disable:
 					!projectName ||
+					isInvalidName ||
 					!parentFolder ||
 					(projectNameFeedback &&
 						projectNameFeedback.type === WizardFormattedTextType.Error),
@@ -159,7 +167,7 @@ export const ProjectNameLocationStep = (props: PropsWithChildren<NewProjectWizar
 					value={projectName}
 					onChange={(e) => onChangeProjectName(e.target.value)}
 					type='text'
-					validator={checkIfPathValid}
+					errorMsg={nameValidationErrorMsg}
 					error={
 						projectNameFeedback &&
 						projectNameFeedback.type === WizardFormattedTextType.Error
