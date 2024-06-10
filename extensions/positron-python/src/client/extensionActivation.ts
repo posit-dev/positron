@@ -53,6 +53,10 @@ import { logAndNotifyOnLegacySettings } from './logging/settingLogs';
 import { DebuggerTypeName } from './debugger/constants';
 import { StopWatch } from './common/utils/stopWatch';
 
+// --- Start Positron ---
+import { IPythonRuntimeManager } from './positron/manager';
+// --- End Positron ---
+
 export async function activateComponents(
     // `ext` is passed to any extra activation funcs.
     ext: ExtensionState,
@@ -98,12 +102,22 @@ export function activateFeatures(ext: ExtensionState, _components: Components): 
         IInterpreterService,
     );
     const pathUtils = ext.legacyIOC.serviceContainer.get<IPathUtils>(IPathUtils);
+
+    // --- Start Positron ---
+    const pythonRuntimeManager: IPythonRuntimeManager = ext.legacyIOC.serviceContainer.get<IPythonRuntimeManager>(
+        IPythonRuntimeManager,
+    );
+    // --- End Positron ---
+
     registerAllCreateEnvironmentFeatures(
         ext.disposables,
         interpreterQuickPick,
         interpreterPathService,
         interpreterService,
         pathUtils,
+        // --- Start Positron ---
+        pythonRuntimeManager,
+        // --- End Positron ---
     );
 }
 

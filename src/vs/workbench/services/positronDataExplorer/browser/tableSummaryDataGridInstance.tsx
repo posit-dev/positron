@@ -243,6 +243,10 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 		return this._dataExplorerCache.getColumnSummaryStats(columnIndex);
 	}
 
+	getSupportedFeatures() {
+		return this._dataExplorerClientInstance.getSupportedFeatures();
+	}
+
 	//#endregion DataGridInstance Methods
 
 	//#region Public Events

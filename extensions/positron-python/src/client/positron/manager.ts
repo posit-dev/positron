@@ -28,7 +28,7 @@ import { CreateEnv } from '../common/utils/localize';
 export const IPythonRuntimeManager = Symbol('IPythonRuntimeManager');
 
 export interface IPythonRuntimeManager extends positron.LanguageRuntimeManager {
-    registerLanguageRuntimeFromPath(pythonPath: string): Promise<void>;
+    registerLanguageRuntimeFromPath(pythonPath: string): Promise<positron.LanguageRuntimeMetadata | undefined>;
     selectLanguageRuntimeFromPath(pythonPath: string): Promise<void>;
 }
 
@@ -231,8 +231,19 @@ export class PythonRuntimeManager implements IPythonRuntimeManager {
             throw new Error(`Python interpreter path is missing: ${extraData.pythonPath}`);
         }
 
-        // Replace the metadata if we can find the runtime in the registered runtimes,
-        const registeredMetadata = this.registeredPythonRuntimes.get(extraData.pythonPath);
+        // Replace the metadata if we can find the runtime in the registered runtimes
+        let registeredMetadata = this.registeredPythonRuntimes.get(extraData.pythonPath);
+
+        if (!registeredMetadata) {
+            // It's possible that the interpreter is located at pythonPath/bin/python.
+            // Conda environments may have the .conda directory set as the pythonPath, however the
+            // registered runtimes are stored with the pythonPath set to the python executable.
+            const binPythonPath = path.join(extraData.pythonPath, 'bin', 'python');
+            const binPythonExists = await fs.pathExists(binPythonPath);
+            if (binPythonExists) {
+                registeredMetadata = this.registeredPythonRuntimes.get(binPythonPath);
+            }
+        }
 
         // Metadata is valid
         return registeredMetadata ?? metadata;
@@ -263,22 +274,26 @@ export class PythonRuntimeManager implements IPythonRuntimeManager {
      * @param pythonPath The path to the Python interpreter.
      * @returns Promise that resolves when the runtime is registered.
      */
-    async registerLanguageRuntimeFromPath(pythonPath: string): Promise<void> {
-        if (this.registeredPythonRuntimes.has(pythonPath)) {
-            return;
+    async registerLanguageRuntimeFromPath(pythonPath: string): Promise<positron.LanguageRuntimeMetadata | undefined> {
+        const alreadyRegisteredRuntime = this.registeredPythonRuntimes.get(pythonPath);
+        if (alreadyRegisteredRuntime) {
+            return alreadyRegisteredRuntime;
         }
+
         // Get the interpreter corresponding to the new runtime.
         const interpreter = await this.interpreterService.getInterpreterDetails(pythonPath);
         // Create the runtime and register it with Positron.
         if (interpreter) {
             // Set recommendedForWorkspace to false, since we change the active runtime
             // in the onDidChangeActiveEnvironmentPath listener.
-            const runtime = await createPythonRuntimeMetadata(interpreter, this.serviceContainer, false);
+            const newRuntime = await createPythonRuntimeMetadata(interpreter, this.serviceContainer, false);
             // Register the runtime with Positron.
-            this.registerLanguageRuntime(runtime);
-        } else {
-            traceError(`Could not register runtime due to an invalid interpreter path: ${pythonPath}`);
+            this.registerLanguageRuntime(newRuntime);
+            return newRuntime;
         }
+
+        traceError(`Could not register runtime due to an invalid interpreter path: ${pythonPath}`);
+        return undefined;
     }
 
     /**

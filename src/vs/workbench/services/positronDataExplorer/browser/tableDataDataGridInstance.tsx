@@ -240,11 +240,17 @@ export class TableDataDataGridInstance extends DataGridInstance {
 		 */
 		const columnSortKey = this.columnSortKey(columnIndex);
 
+		const features = this._dataExplorerClientInstance.getSupportedFeatures();
+		const copySupported = features.export_data_selection?.supported;
+		const sortSupported = features.set_sort_columns?.supported;
+		const filterSupported = features.set_row_filters.supported;
+
 		// Build the entries.
 		const entries: CustomContextMenuEntry[] = [];
 		entries.push(new CustomContextMenuItem({
 			commandId: PositronDataExplorerCommandId.CopyAction,
 			checked: false,
+			disabled: !copySupported,
 			icon: 'copy',
 			label: localize('positron.dataExplorer.copy', "Copy"),
 			onSelected: () => console.log('Copy')
@@ -261,6 +267,7 @@ export class TableDataDataGridInstance extends DataGridInstance {
 		entries.push(new CustomContextMenuItem({
 			checked: columnSortKey !== undefined && columnSortKey.ascending,
 			icon: 'arrow-up',
+			disabled: !sortSupported,
 			label: localize('positron.sortAscending', "Sort Ascending"),
 			onSelected: async () => this.setColumnSortKey(
 				columnIndex,
@@ -270,6 +277,7 @@ export class TableDataDataGridInstance extends DataGridInstance {
 		entries.push(new CustomContextMenuItem({
 			checked: columnSortKey !== undefined && !columnSortKey.ascending,
 			icon: 'arrow-down',
+			disabled: !sortSupported,
 			label: localize('positron.sortDescending', "Sort Descending"),
 			onSelected: async () => this.setColumnSortKey(
 				columnIndex,
@@ -290,7 +298,7 @@ export class TableDataDataGridInstance extends DataGridInstance {
 			checked: false,
 			icon: 'positron-add-filter',
 			label: addFilterTitle,
-			disabled: false,
+			disabled: !filterSupported,
 			onSelected: () => {
 				const columnSchema = this._dataExplorerCache.getColumnSchema(columnIndex);
 				if (columnSchema) {
@@ -306,7 +314,8 @@ export class TableDataDataGridInstance extends DataGridInstance {
 			layoutService: this._layoutService,
 			anchorElement,
 			anchorPoint,
-			popupAlignment: 'left',
+			popupPosition: 'auto',
+			popupAlignment: 'auto',
 			width: 200,
 			entries
 		});
@@ -324,11 +333,15 @@ export class TableDataDataGridInstance extends DataGridInstance {
 		anchorElement: HTMLElement,
 		anchorPoint: AnchorPoint
 	): Promise<void> {
+		const features = this._dataExplorerClientInstance.getSupportedFeatures();
+		const copySupported = features.export_data_selection?.supported;
+
 		// Build the entries.
 		const entries: CustomContextMenuEntry[] = [];
 		entries.push(new CustomContextMenuItem({
 			commandId: PositronDataExplorerCommandId.CopyAction,
 			checked: false,
+			disabled: !copySupported,
 			icon: 'copy',
 			label: localize('positron.dataExplorer.copy', "Copy"),
 			onSelected: () => console.log('Copy')
@@ -349,7 +362,8 @@ export class TableDataDataGridInstance extends DataGridInstance {
 			layoutService: this._layoutService,
 			anchorElement,
 			anchorPoint,
-			popupAlignment: 'left',
+			popupPosition: 'auto',
+			popupAlignment: 'auto',
 			width: 200,
 			entries
 		});
@@ -373,10 +387,16 @@ export class TableDataDataGridInstance extends DataGridInstance {
 		 */
 		const columnSortKey = this.columnSortKey(columnIndex);
 
+		const features = this._dataExplorerClientInstance.getSupportedFeatures();
+		const copySupported = features.export_data_selection?.supported;
+		const sortSupported = features.set_sort_columns?.supported;
+		const filterSupported = features.set_row_filters.supported;
+
 		// Build the entries.
 		const entries: CustomContextMenuEntry[] = [];
 		entries.push(new CustomContextMenuItem({
 			checked: false,
+			disabled: !copySupported,
 			commandId: PositronDataExplorerCommandId.CopyAction,
 			icon: 'copy',
 			label: localize('positron.dataExplorer.copy', "Copy"),
@@ -401,6 +421,7 @@ export class TableDataDataGridInstance extends DataGridInstance {
 		entries.push(new CustomContextMenuItem({
 			checked: columnSortKey !== undefined && columnSortKey.ascending,
 			icon: 'arrow-up',
+			disabled: !sortSupported,
 			label: localize('positron.sortAscending', "Sort Ascending"),
 			onSelected: async () => this.setColumnSortKey(
 				columnIndex,
@@ -410,6 +431,7 @@ export class TableDataDataGridInstance extends DataGridInstance {
 		entries.push(new CustomContextMenuItem({
 			checked: columnSortKey !== undefined && !columnSortKey.ascending,
 			icon: 'arrow-down',
+			disabled: !sortSupported,
 			label: localize('positron.sortDescending', "Sort Descending"),
 			onSelected: async () => this.setColumnSortKey(
 				columnIndex,
@@ -430,7 +452,7 @@ export class TableDataDataGridInstance extends DataGridInstance {
 			checked: false,
 			icon: 'positron-add-filter',
 			label: addFilterTitle,
-			disabled: false,
+			disabled: !filterSupported,
 			onSelected: () => {
 				const columnSchema = this._dataExplorerCache.getColumnSchema(columnIndex);
 				if (columnSchema) {
@@ -446,7 +468,8 @@ export class TableDataDataGridInstance extends DataGridInstance {
 			layoutService: this._layoutService,
 			anchorElement,
 			anchorPoint,
-			popupAlignment: 'left',
+			popupPosition: 'auto',
+			popupAlignment: 'auto',
 			width: 200,
 			entries
 		});

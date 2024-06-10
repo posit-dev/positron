@@ -7,7 +7,7 @@ import { IFileDialogService } from 'vs/platform/dialogs/common/dialogs';
 import { ILanguageRuntimeMetadata, ILanguageRuntimeService } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { IRuntimeSessionService } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
 import { IRuntimeStartupService, RuntimeStartupPhase } from 'vs/workbench/services/runtimeStartup/common/runtimeStartupService';
-import { EnvironmentSetupType, LanguageIds, NewProjectWizardStep, PythonEnvironmentProvider, PythonRuntimeFilter } from 'vs/workbench/browser/positronNewProjectWizard/interfaces/newProjectWizardEnums';
+import { EnvironmentSetupType, NewProjectWizardStep, PythonEnvironmentProvider, PythonRuntimeFilter } from 'vs/workbench/browser/positronNewProjectWizard/interfaces/newProjectWizardEnums';
 import { IWorkbenchLayoutService } from 'vs/workbench/services/layout/browser/layoutService';
 import { IKeybindingService } from 'vs/platform/keybinding/common/keybinding';
 import { ILogService } from 'vs/platform/log/common/log';
@@ -19,9 +19,10 @@ import { PythonEnvironmentProviderInfo } from 'vs/workbench/browser/positronNewP
 import { Disposable } from 'vs/base/common/lifecycle';
 import { Emitter, Event } from 'vs/base/common/event';
 import { WizardFormattedTextItem } from 'vs/workbench/browser/positronNewProjectWizard/components/wizardFormattedText';
-import { NewProjectType } from 'vs/workbench/services/positronNewProject/common/positronNewProject';
+import { LanguageIds, NewProjectType } from 'vs/workbench/services/positronNewProject/common/positronNewProject';
 import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
 import { projectWizardWorkInProgressEnabled } from 'vs/workbench/services/positronNewProject/common/positronNewProjectEnablement';
+import { CondaPythonVersionInfo } from 'vs/workbench/browser/positronNewProjectWizard/utilities/condaUtils';
 
 /**
  * NewProjectWizardServices interface.
@@ -66,6 +67,7 @@ export interface NewProjectWizardState {
 	openInNewWindow: boolean;
 	pythonEnvSetupType: EnvironmentSetupType | undefined;
 	pythonEnvProviderId: string | undefined;
+	condaPythonVersion: string | undefined;
 	readonly pythonEnvProviderName: string | undefined;
 	readonly installIpykernel: boolean | undefined;
 	useRenv: boolean | undefined;
@@ -113,6 +115,8 @@ export class NewProjectWizardStateManager
 	private _pythonEnvProviderId: string | undefined;
 	private _installIpykernel: boolean | undefined;
 	private _minimumPythonVersion: string | undefined;
+	private _condaPythonVersion: string | undefined;
+	private _condaPythonVersionInfo: CondaPythonVersionInfo | undefined;
 	// R-specific state.
 	private _useRenv: boolean | undefined;
 	private _minimumRVersion: string | undefined;
@@ -123,7 +127,7 @@ export class NewProjectWizardStateManager
 
 	// Dynamically populated data as the state changes.
 	private _runtimeStartupComplete: boolean;
-	private _pythonEnvProviders: PythonEnvironmentProviderInfo[];
+	private _pythonEnvProviders: PythonEnvironmentProviderInfo[] | undefined;
 	private _interpreters: ILanguageRuntimeMetadata[] | undefined;
 	private _preferredInterpreter: ILanguageRuntimeMetadata | undefined;
 
@@ -154,18 +158,18 @@ export class NewProjectWizardStateManager
 		this._useRenv = undefined;
 		this._steps = config.steps ?? [config.initialStep];
 		this._currentStep = config.initialStep;
-		this._pythonEnvProviders = [];
+		this._pythonEnvProviders = undefined;
 		this._interpreters = undefined;
 		this._preferredInterpreter = undefined;
 		this._runtimeStartupComplete = false;
 		this._minimumPythonVersion = undefined;
+		this._condaPythonVersionInfo = undefined;
 		this._minimumRVersion = undefined;
 
 		if (this._services.runtimeStartupService.startupPhase === RuntimeStartupPhase.Complete) {
-			// If the runtime startup is already complete, set the Python environment providers and
-			// update the interpreter-related state.
-			this._setPythonEnvProviders()
-				.then(() => this._setMinimumInterpreterVersions())
+			// If the runtime startup is already complete, initialize the wizard state and update
+			// the interpreter-related state.
+			this._initDefaultsFromExtensions()
 				.then(() => {
 					this._runtimeStartupComplete = true;
 					this._updateInterpreterRelatedState();
@@ -179,24 +183,9 @@ export class NewProjectWizardStateManager
 						if (phase === RuntimeStartupPhase.Discovering) {
 							// At this phase, the extensions that provide language runtimes will
 							// have been activated.
-							await this._setPythonEnvProviders();
-							await this._setMinimumInterpreterVersions();
+							await this._initDefaultsFromExtensions();
 						} else if (phase === RuntimeStartupPhase.Complete) {
-							if (!this._pythonEnvProviders.length) {
-								// In case the runtime startup phase is complete and the providers
-								// are not set, set the providers.
-								await this._setPythonEnvProviders();
-							}
-							if (!this._minimumPythonVersion) {
-								// In case the runtime startup phase is complete and the minimum
-								// Python version is not set, set the minimum Python version.
-								await this._setMinimumInterpreterVersions([LanguageIds.Python]);
-							}
-							if (!this._minimumRVersion) {
-								// In case the runtime startup phase is complete and the minimum
-								// R version is not set, set the minimum R version.
-								await this._setMinimumInterpreterVersions([LanguageIds.R]);
-							}
+							await this._initDefaultsFromExtensions();
 							this._runtimeStartupComplete = true;
 							// Once the runtime startup is complete, we can update the
 							// interpreter-related state.
@@ -398,6 +387,22 @@ export class NewProjectWizardStateManager
 	}
 
 	/**
+	 * Gets the Conda Python version.
+	 * @returns The Conda Python version.
+	 */
+	get condaPythonVersion(): string | undefined {
+		return this._condaPythonVersion;
+	}
+
+	/**
+	 * Sets the Conda Python version.
+	 * @param value The Conda Python version.
+	 */
+	set condaPythonVersion(value: string | undefined) {
+		this._condaPythonVersion = value;
+	}
+
+	/**
 	 * Gets the minimum Python version.
 	 * @returns The minimum Python version.
 	 */
@@ -416,8 +421,22 @@ export class NewProjectWizardStateManager
 	/**
 	 * Gets the Python environment providers.
 	 */
-	get pythonEnvProviders(): PythonEnvironmentProviderInfo[] {
+	get pythonEnvProviders(): PythonEnvironmentProviderInfo[] | undefined {
 		return this._pythonEnvProviders;
+	}
+
+	/**
+	 * Gets the Conda Python version info.
+	 */
+	get condaPythonVersionInfo(): CondaPythonVersionInfo | undefined {
+		return this._condaPythonVersionInfo;
+	}
+
+	/**
+	 * Gets whether the project uses a Conda environment.
+	 */
+	get usesCondaEnv(): boolean {
+		return this._usesCondaEnv();
 	}
 
 	/**
@@ -515,6 +534,7 @@ export class NewProjectWizardStateManager
 			pythonEnvProviderId: this._pythonEnvProviderId,
 			pythonEnvProviderName: this._getEnvProviderName(),
 			installIpykernel: this._installIpykernel,
+			condaPythonVersion: this._condaPythonVersion,
 			useRenv: this._useRenv,
 		} satisfies NewProjectWizardState;
 	}
@@ -543,6 +563,29 @@ export class NewProjectWizardStateManager
 	//#region Private Methods
 
 	/**
+	 * Initializes some defaults provided by the extensions.
+	 */
+	private async _initDefaultsFromExtensions() {
+		// Set the Python environment providers.
+		if (!this.pythonEnvProviders?.length) {
+			await this._setPythonEnvProviders();
+		}
+
+		// Set the minimum interpreter versions.
+		const minVersionsToSet = [];
+		if (!this._minimumPythonVersion) {
+			minVersionsToSet.push(LanguageIds.Python);
+		}
+		if (!this._minimumRVersion) {
+			minVersionsToSet.push(LanguageIds.R);
+		}
+		await this._setMinimumInterpreterVersions(minVersionsToSet);
+
+		// Set the Conda Python versions.
+		await this._setCondaPythonVersionInfo();
+	}
+
+	/**
 	 * Updates the interpreter-related state such as the interpreters list, the selected interpreter,
 	 * and the installIpykernel flag.
 	 * @returns A promise that resolves when the interpreter-related state has been updated.
@@ -560,6 +603,10 @@ export class NewProjectWizardStateManager
 		// Add runtime filters for new Venv Python environments.
 		if (langId === LanguageIds.Python && this._pythonEnvSetupType === EnvironmentSetupType.NewEnvironment) {
 			if (this._getEnvProviderName() === PythonEnvironmentProvider.Venv) {
+				// TODO: instead of applying our own filters, we should use the filters provided by the
+				// extension for Global python environments.
+				// extensions/positron-python/src/client/pythonEnvironments/creation/common/createEnvTriggerUtils.ts
+				// isGlobalPython
 				runtimeSourceFilters = [PythonRuntimeFilter.Global, PythonRuntimeFilter.Pyenv];
 			}
 		}
@@ -630,7 +677,7 @@ export class NewProjectWizardStateManager
 	 * @returns The name of the selected Python environment provider.
 	 */
 	private _getEnvProviderName(): string | undefined {
-		if (!this._pythonEnvProviderId) {
+		if (!this._pythonEnvProviderId || !this._pythonEnvProviders) {
 			return undefined;
 		}
 		return this._pythonEnvProviders.find(
@@ -673,22 +720,11 @@ export class NewProjectWizardStateManager
 	 * Sets the Python environment providers by calling the Python extension.
 	 */
 	private async _setPythonEnvProviders() {
-		if (!this._pythonEnvProviders.length) {
+		if (!this._pythonEnvProviders?.length) {
 			this._pythonEnvProviders =
 				(await this._services.commandService.executeCommand(
 					'python.getCreateEnvironmentProviders'
 				)) ?? [];
-
-			// TODO: remove this extra check once the Conda provider is enabled by default.
-			// If work-in-progress functionality is disabled, remove the Conda provider.
-			if (!this.wipFunctionalityEnabled()) {
-				const condaIndex = this._pythonEnvProviders.findIndex(
-					(provider) => provider.name === PythonEnvironmentProvider.Conda
-				);
-				if (condaIndex !== -1) {
-					this._pythonEnvProviders.splice(condaIndex, 1);
-				}
-			}
 		}
 
 		if (!this._pythonEnvProviderId) {
@@ -698,6 +734,32 @@ export class NewProjectWizardStateManager
 
 		// Notify components that the interpreter state has been updated.
 		this._onUpdateInterpreterStateEmitter.fire();
+	}
+
+	/**
+	 * Sets the Conda Python versions by calling the Python extension.
+	 */
+	private async _setCondaPythonVersionInfo() {
+		this._condaPythonVersionInfo = await this._services.commandService.executeCommand(
+			'python.getCondaPythonVersions'
+		);
+		if (!this._condaPythonVersionInfo) {
+			this._services.logService.warn('No Conda Python versions found.');
+			return;
+		}
+		this._condaPythonVersion = this._condaPythonVersionInfo.preferred;
+	}
+
+	/**
+	 * Determines if the project is using a Conda environment.
+	 * @returns True if the project is using a Conda environment, false otherwise.
+	 */
+	private _usesCondaEnv(): boolean {
+		return (
+			this._getLangId() === LanguageIds.Python &&
+			this._pythonEnvSetupType === EnvironmentSetupType.NewEnvironment &&
+			this._getEnvProviderName() === PythonEnvironmentProvider.Conda
+		);
 	}
 
 	/**
@@ -728,16 +790,10 @@ export class NewProjectWizardStateManager
 	private _getFilteredInterpreters(runtimeSourceFilters?: RuntimeFilter[]): ILanguageRuntimeMetadata[] | undefined {
 		const langId = this._getLangId();
 
-		if (
-			langId === LanguageIds.Python &&
-			this._pythonEnvSetupType === EnvironmentSetupType.NewEnvironment &&
-			this._getEnvProviderName() === PythonEnvironmentProvider.Conda
-		) {
-			// TODO: we should get the list of Python versions from the Conda service. Currently, we
-			// hardcode the list of Python versions in the
-			// src/vs/workbench/browser/positronNewProjectWizard/utilities/interpreterDropDownUtils.ts
-			// interpretersToDropdownItems function.
-			return [];
+		if (this._usesCondaEnv()) {
+			// Conda environments do not have registered runtimes. Instead, we have a list of Python
+			// versions available for Conda environments, which is stored in condaPythonVersionInfo.
+			return undefined;
 		}
 
 		// We don't want to return a partial list of interpreters if the runtime startup is not
@@ -801,21 +857,22 @@ export class NewProjectWizardStateManager
 		}
 		if (langId === LanguageIds.Python) {
 			this._useRenv = undefined;
-			// TODO: Conda isn't supported yet, so don't set the env provider if it's conda.
-			const newCondaEnv =
-				this._pythonEnvSetupType ===
-				EnvironmentSetupType.NewEnvironment &&
-				this._getEnvProviderName() === PythonEnvironmentProvider.Conda;
 			const existingEnv =
 				this._pythonEnvSetupType ===
 				EnvironmentSetupType.ExistingEnvironment;
-			if (newCondaEnv || existingEnv) {
+			if (existingEnv) {
 				this._pythonEnvProviderId = undefined;
+			}
+			if (this._usesCondaEnv()) {
+				this._selectedRuntime = undefined;
+			} else {
+				this._condaPythonVersion = undefined;
 			}
 		} else if (langId === LanguageIds.R) {
 			this._pythonEnvSetupType = undefined;
 			this._pythonEnvProviderId = undefined;
 			this._installIpykernel = undefined;
+			this._condaPythonVersion = undefined;
 		}
 	}
 

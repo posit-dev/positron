@@ -21,6 +21,7 @@ import { WizardFormattedText, WizardFormattedTextType } from 'vs/workbench/brows
 import { checkProjectName } from 'vs/workbench/browser/positronNewProjectWizard/utilities/projectNameUtils';
 import { DisposableStore } from 'vs/base/common/lifecycle';
 import { NewProjectType } from 'vs/workbench/services/positronNewProject/common/positronNewProject';
+import { checkIfPathValid } from 'vs/workbench/browser/positronComponents/positronModalDialog/components/fileInputValidators';
 
 /**
  * The ProjectNameLocationStep component is the second step in the new project wizard.
@@ -157,6 +158,7 @@ export const ProjectNameLocationStep = (props: PropsWithChildren<NewProjectWizar
 					value={projectName}
 					onChange={(e) => onChangeProjectName(e.target.value)}
 					type='text'
+					validator={checkIfPathValid}
 					error={
 						projectNameFeedback &&
 						projectNameFeedback.type === WizardFormattedTextType.Error

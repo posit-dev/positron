@@ -1,6 +1,11 @@
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License.
 
+// --- Start Positron ---
+// eslint-disable-next-line import/no-unresolved
+import { LanguageRuntimeMetadata } from 'positron';
+// --- End Positron ---
+
 import { ConfigurationTarget, Disposable } from 'vscode';
 import { Commands } from '../../common/constants';
 import { IDisposableRegistry, IInterpreterPathService, IPathUtils } from '../../common/types';
@@ -24,6 +29,7 @@ import { CreateEnvironmentOptionsInternal } from './types';
 
 // --- Start Positron ---
 import { getCondaPythonVersions } from './provider/condaUtils';
+import { IPythonRuntimeManager } from '../../positron/manager';
 // --- End Positron ---
 
 class CreateEnvironmentProviders {
@@ -65,6 +71,9 @@ export function registerCreateEnvironmentFeatures(
     interpreterQuickPick: IInterpreterQuickPick,
     interpreterPathService: IInterpreterPathService,
     pathUtils: IPathUtils,
+    // --- Start Positron ---
+    pythonRuntimeManager: IPythonRuntimeManager,
+    // --- End Positron ---
 ): void {
     disposables.push(
         registerCommand(
@@ -93,6 +102,20 @@ export function registerCreateEnvironmentFeatures(
             }));
             return providersForWizard;
         }),
+        registerCommand(
+            Commands.Create_Environment_And_Register,
+            async (
+                options?: CreateEnvironmentOptions & CreateEnvironmentOptionsInternal,
+            ): Promise<(CreateEnvironmentResult & { metadata?: LanguageRuntimeMetadata }) | undefined> => {
+                const providers = _createEnvironmentProviders.getAll();
+                const result = await handleCreateEnvironmentCommand(providers, options);
+                if (result?.path) {
+                    const metadata = await pythonRuntimeManager.registerLanguageRuntimeFromPath(result.path);
+                    return { ...result, metadata };
+                }
+                return result;
+            },
+        ),
         registerCommand(Commands.Get_Conda_Python_Versions, () => getCondaPythonVersions()),
         // --- End Positron ---
         registerCreateEnvironmentProvider(new VenvCreationProvider(interpreterQuickPick)),

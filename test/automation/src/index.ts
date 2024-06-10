@@ -37,5 +37,6 @@ export * from './positron/positronPlots';
 export * from './positron/fixtures/positronPythonFixtures';
 export * from './positron/fixtures/positronRFixtures';
 export * from './positron/positronBaseElement';
+export * from './positron/positronNotebooks';
 // --- End Positron ---
 export { getDevElectronPath, getBuildElectronPath, getBuildVersion } from './electron';
