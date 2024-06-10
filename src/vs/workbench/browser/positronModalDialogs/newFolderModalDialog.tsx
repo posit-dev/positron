@@ -25,6 +25,7 @@ import { PositronModalReactRenderer } from 'vs/workbench/browser/positronModalRe
 import { LabeledTextInput } from 'vs/workbench/browser/positronComponents/positronModalDialog/components/labeledTextInput';
 import { OKCancelModalDialog } from 'vs/workbench/browser/positronComponents/positronModalDialog/positronOKCancelModalDialog';
 import { LabeledFolderInput } from 'vs/workbench/browser/positronComponents/positronModalDialog/components/labeledFolderInput';
+import { checkIfPathValid } from 'vs/workbench/browser/positronComponents/positronModalDialog/components/fileInputValidators';
 
 /**
  * Shows the new folder modal dialog.
@@ -151,6 +152,7 @@ const NewFolderModalDialog = (props: NewFolderModalDialogProps) => {
 					autoFocus
 					value={result.folder}
 					onChange={e => setResult({ ...result, folder: e.target.value })}
+					validator={checkIfPathValid}
 				/>
 				<LabeledFolderInput
 					label={(() => localize(
