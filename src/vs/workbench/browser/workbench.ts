@@ -69,6 +69,8 @@ export class Workbench extends Layout {
 	private readonly _onDidShutdown = this._register(new Emitter<void>());
 	readonly onDidShutdown = this._onDidShutdown.event;
 
+	private static readonly LAYOUT_INITIALIZED = 'positron.workbench.layoutInitialized';
+
 	constructor(
 		parent: HTMLElement,
 		private readonly options: IWorkbenchOptions | undefined,
@@ -192,7 +194,12 @@ export class Workbench extends Layout {
 				this.layout();
 
 				// --- Start Positron ---
-				this.enterCustomLayout(positronFourPaneDsLayout.layoutDescriptor);
+				// Initialize the layout only on first startup
+				const isLayoutInitialized = storageService.getBoolean(Workbench.LAYOUT_INITIALIZED, StorageScope.PROFILE, false);
+				if (!isLayoutInitialized) {
+					this.enterCustomLayout(positronFourPaneDsLayout.layoutDescriptor);
+					storageService.store(Workbench.LAYOUT_INITIALIZED, true, StorageScope.PROFILE, StorageTarget.MACHINE);
+				}
 				// --- End Positron ---
 
 				// Restore
