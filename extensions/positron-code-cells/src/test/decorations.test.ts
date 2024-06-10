@@ -59,7 +59,9 @@ suite('Decorations', () => {
 		assertCellDecorationRangesEqual([new vscode.Range(0, 0, 0, 3)]);
 
 		// Decorations update after a delay
-		await delay(260);
+		// --- Start Positron ---
+		await delay(400);
+		// --- End Positron ---
 		assertCellDecorationRangesEqual([new vscode.Range(1, 0, 1, 3)]);
 	});
 
@@ -75,7 +77,9 @@ suite('Decorations', () => {
 		assertCellDecorationRangesEqual([new vscode.Range(0, 0, 0, 3)]);
 
 		// Decorations update after a delay
-		await delay(260);
+		// --- Start Positron ---
+		await delay(400);
+		// --- End Positron ---
 		assertCellDecorationRangesEqual([]);
 	});
 
