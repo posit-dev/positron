@@ -1958,7 +1958,7 @@ def test_pandas_profile_summary_stats(dxf: DataExplorerFixture):
             "f6": pd.date_range(
                 "2000-01-01", freq="2h", periods=100, tz="US/Eastern"
             ),  # datetime single tz
-            "f7": [1 + 1j, 2 + 2j, 3 + 3j, 4 + 4j, np.nan + 0j] * 20,  # complex,
+            "f7": [1 + 1j, 2 + 2j, 3 + 3j, 4 + 4j, np.nan] * 20,  # complex,
             "f8": [np.nan, np.inf, -np.inf, 0, np.nan] * 20,  # with infinity
         }
     )
