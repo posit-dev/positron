@@ -156,6 +156,7 @@ module.exports.indentationFilter = [
 	'!extensions/positron-r/resources/scripts/*.R',
 	'!extensions/positron-r/resources/testing/**',
 	'!scripts/positron/**/*',
+	'!extensions/positron-r/src/test/snapshots/*.R',
 	// --- End Positron ---
 ];
 
