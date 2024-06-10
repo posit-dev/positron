@@ -50,8 +50,9 @@ export function checkIfPathValid(path: string | number, opts: PathValidatorOptio
 	if (!isValidBasename(pathBase, isWindows)) {
 		// Make the path cleaner for display
 		let sanitizedPath = pathBase.replace(/\*/g, '\\*'); // CodeQL [SM02383] This only processes filenames which are enforced against having backslashes in them farther up in the stack.
-		if (sanitizedPath.length > 256) {
-			sanitizedPath = `${sanitizedPath.substr(0, 255)}...`;
+		// Cleanup display for long paths
+		if (sanitizedPath.length > 55) {
+			sanitizedPath = `${sanitizedPath.substr(0, 50)}...`;
 		}
 
 		return localize('invalidFileNameError', "{0} is not valid as a file or folder name. Please choose a different name.", sanitizedPath);
