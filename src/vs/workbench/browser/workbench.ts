@@ -62,6 +62,9 @@ export interface IWorkbenchOptions {
 }
 
 export class Workbench extends Layout {
+	// --- Start Positron ---
+	private static readonly LAYOUT_INITIALIZED = 'positron.workbench.layoutInitialized';
+	// --- End Positron ---
 
 	private readonly _onWillShutdown = this._register(new Emitter<WillShutdownEvent>());
 	readonly onWillShutdown = this._onWillShutdown.event;
@@ -69,7 +72,6 @@ export class Workbench extends Layout {
 	private readonly _onDidShutdown = this._register(new Emitter<void>());
 	readonly onDidShutdown = this._onDidShutdown.event;
 
-	private static readonly LAYOUT_INITIALIZED = 'positron.workbench.layoutInitialized';
 
 	constructor(
 		parent: HTMLElement,
