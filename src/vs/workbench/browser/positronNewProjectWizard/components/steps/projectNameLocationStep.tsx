@@ -22,6 +22,7 @@ import { checkProjectName } from 'vs/workbench/browser/positronNewProjectWizard/
 import { DisposableStore } from 'vs/base/common/lifecycle';
 import { NewProjectType } from 'vs/workbench/services/positronNewProject/common/positronNewProject';
 import { checkIfPathValid } from 'vs/workbench/browser/positronComponents/positronModalDialog/components/fileInputValidators';
+import { PathDisplay } from 'vs/workbench/browser/positronNewProjectWizard/components/pathDisplay';
 
 /**
  * The ProjectNameLocationStep component is the second step in the new project wizard.
@@ -178,9 +179,10 @@ export const ProjectNameLocationStep = (props: PropsWithChildren<NewProjectWizar
 								'projectNameLocationSubStep.parentDirectory.feedback',
 								"Your project will be created at: "
 							))()}
-						<code>
-							{parentFolder}/{projectName}
-						</code>
+						<PathDisplay
+							pathComponents={[parentFolder, projectName]}
+							pathService={pathService}
+						/>
 					</WizardFormattedText>
 				}
 			>
