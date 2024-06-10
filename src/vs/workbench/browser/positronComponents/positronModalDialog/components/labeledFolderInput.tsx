@@ -12,6 +12,8 @@ import { localize } from 'vs/nls';
 
 // Other dependencies.
 import { Button } from 'vs/base/browser/ui/positronComponents/button/button';
+import { checkIfPathValid } from 'vs/workbench/browser/positronComponents/positronModalDialog/components/fileInputValidators';
+import { useDebouncedValidator } from 'vs/workbench/browser/positronComponents/positronModalDialog/components/useDebouncedValidator';
 
 /**
  * FolderInputProps interface.
@@ -21,6 +23,9 @@ export interface LabeledFolderInputProps {
 	value: string;
 	error?: boolean;
 	placeholder?: string;
+	/**
+	 * By default the user can type into the input field.
+	 */
 	readOnlyInput?: boolean;
 	inputRef?: React.RefObject<HTMLInputElement>;
 	onBrowse: VoidFunction;
@@ -33,6 +38,9 @@ export interface LabeledFolderInputProps {
  * @returns The rendered component.
  */
 export const LabeledFolderInput = (props: LabeledFolderInputProps) => {
+	// TODO: Add option to restrict to existing paths.
+	const errorMsg = useDebouncedValidator({ value: props.value, validator: checkIfPathValid });
+
 	return (
 		<div className='labeled-folder-input'>
 			<label>
@@ -40,14 +48,15 @@ export const LabeledFolderInput = (props: LabeledFolderInputProps) => {
 				<div className='folder-input'>
 					<input className='text-input' readOnly={props.readOnlyInput} placeholder={props.placeholder} type='text' value={props.value} onChange={props.onChange} />
 					<Button className='browse-button' onPressed={props.onBrowse}>
-					{localize('positronFolderInputBrowse', 'Browse...')}
+						{localize('positronFolderInputBrowse', 'Browse...')}
 					</Button>
 				</div>
+				{errorMsg ? <span className='error error-msg'>{errorMsg}</span> : null}
 			</label>
 		</div>
 	);
 };
 
 LabeledFolderInput.defaultProps = {
-	readOnlyInput: true
+	readOnlyInput: false
 };

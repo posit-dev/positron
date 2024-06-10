@@ -10,6 +10,9 @@ import * as React from 'react';
 import { ChangeEventHandler, forwardRef } from 'react'; // eslint-disable-line no-duplicate-imports
 import { positronClassNames } from 'vs/base/common/positronUtilities';
 
+// Other dependencies.
+import { useDebouncedValidator, ValidatorFn } from 'vs/workbench/browser/positronComponents/positronModalDialog/components/useDebouncedValidator';
+
 /**
  * LabeledTextInputProps interface.
  */
@@ -21,7 +24,7 @@ export interface LabeledTextInputProps {
 	min?: number;
 	type?: 'text' | 'number';
 	error?: boolean;
-	validator?: (value: string | number) => string | undefined;
+	validator?: ValidatorFn;
 	onChange: ChangeEventHandler<HTMLInputElement>;
 }
 
@@ -50,35 +53,4 @@ LabeledTextInput.displayName = 'LabeledTextInput';
 LabeledTextInput.defaultProps = {
 	type: 'text'
 };
-
-
-/**
- * A hook to debounce the validation of input values.
-*
-*/
-const DEBOUNCE_DELAY = 100;
-function useDebouncedValidator({ validator, value }: Pick<LabeledTextInputProps, 'validator' | 'value'>) {
-	const [errorMsg, setErrorMsg] = React.useState<string | undefined>(undefined);
-
-	const callbackTimeoutRef = React.useRef<NodeJS.Timeout | undefined>();
-
-	const clearCallbackTimeout = React.useCallback(() => {
-		if (!callbackTimeoutRef.current) { return; }
-		clearTimeout(callbackTimeoutRef.current);
-	}, []);
-
-	React.useEffect(() => {
-		if (!validator) { return; }
-
-		clearCallbackTimeout();
-
-		callbackTimeoutRef.current = setTimeout(() => {
-			setErrorMsg(validator(value));
-		}, DEBOUNCE_DELAY);
-
-		return clearCallbackTimeout;
-	}, [clearCallbackTimeout, validator, value]);
-
-	return errorMsg;
-}
 
