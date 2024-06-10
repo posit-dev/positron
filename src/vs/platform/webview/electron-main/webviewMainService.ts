@@ -204,9 +204,9 @@ export class WebviewMainService extends Disposable implements IWebviewManagerSer
 
 		// Check for any pending navigations that match this URL; if we find
 		// any, complete them
-		if (this._pendingNavigations.has(url)) {
-			const deferred = this._pendingNavigations.get(url);
-			deferred!.complete(frameId);
+		const deferred = this._pendingNavigations.get(url);
+		if (deferred) {
+			deferred.complete(frameId);
 			this._pendingNavigations.delete(url);
 		}
 	}
