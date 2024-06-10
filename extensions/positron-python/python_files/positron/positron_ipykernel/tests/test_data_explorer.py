@@ -8,6 +8,7 @@ from datetime import datetime
 from decimal import Decimal
 from io import StringIO
 from typing import Any, Dict, List, Optional, Type, cast
+import math
 
 import numpy as np
 import pandas as pd
@@ -17,6 +18,8 @@ import pytest
 from .._vendor.pydantic import BaseModel
 from ..access_keys import encode_access_key
 from ..data_explorer import (
+    _VALUE_NEGINF,
+    _VALUE_INF,
     _VALUE_NULL,
     _VALUE_NA,
     _VALUE_NAN,
@@ -105,6 +108,7 @@ SIMPLE_PANDAS_DF = pd.DataFrame(
         ),
         "f": [None, MyData(5), MyData(-1), None, None],
         "g": [True, False, True, False, True],
+        "h": [np.inf, -np.inf, np.nan, 0, 0],
     }
 )
 
@@ -462,7 +466,7 @@ def _wrap_json(model: Type[BaseModel], data: JsonRecords):
 def test_pandas_get_state(dxf: DataExplorerFixture):
     result = dxf.get_state("simple")
     assert result["display_name"] == "simple"
-    ex_shape = {"num_rows": 5, "num_columns": 7}
+    ex_shape = {"num_rows": 5, "num_columns": 8}
     assert result["table_shape"] == ex_shape
     assert result["table_unfiltered_shape"] == ex_shape
 
@@ -482,7 +486,7 @@ def test_pandas_get_state(dxf: DataExplorerFixture):
     result = dxf.get_state("simple")
     assert result["sort_keys"] == sort_keys
 
-    ex_filtered_shape = {"num_rows": 2, "num_columns": 7}
+    ex_filtered_shape = {"num_rows": 2, "num_columns": 8}
     assert result["table_shape"] == ex_filtered_shape
     assert result["table_unfiltered_shape"] == ex_shape
 
@@ -720,7 +724,7 @@ def test_pandas_get_data_values(dxf: DataExplorerFixture):
         "simple",
         row_start_index=0,
         num_rows=20,
-        column_indices=list(range(6)),
+        column_indices=list(range(8)),
     )
 
     expected_columns = [
@@ -736,6 +740,8 @@ def test_pandas_get_data_values(dxf: DataExplorerFixture):
             "2024-01-05 00:00:00",
         ],
         [_VALUE_NONE, "5", "-1", _VALUE_NONE, _VALUE_NONE],
+        ["True", "False", "True", "False", "True"],
+        [_VALUE_INF, _VALUE_NEGINF, _VALUE_NAN, "0.00", "0.00"],
     ]
 
     assert result["columns"] == expected_columns
@@ -749,18 +755,12 @@ def test_pandas_get_data_values(dxf: DataExplorerFixture):
     # Issue #2149 -- return empty result when requesting non-existent
     # column indices
     response = dxf.get_data_values(
-        "simple", row_start_index=0, num_rows=5, column_indices=[2, 3, 4, 5]
+        "simple",
+        row_start_index=0,
+        num_rows=5,
+        column_indices=[2, 3, 4, 5, 6, 7],
     )
     assert response["columns"] == expected_columns[2:]
-
-    # Edge case: request invalid column index
-    # Per issue #2149, until we can align on whether the UI is allowed
-    # to request non-existent column indices, disable this test
-
-    # with pytest.raises(IndexError):
-    #     dxf.get_data_values(
-    #         "simple", row_start_index=0, num_rows=10, column_indices=[4]
-    #     )
 
 
 def test_pandas_float_formatting(dxf: DataExplorerFixture):
@@ -1729,7 +1729,8 @@ def test_pandas_export_data_selection(dxf: DataExplorerFixture):
     np.random.seed(12345)
     df = pd.DataFrame({f"a{i}": np.random.standard_normal(length) for i in range(ncols)})
 
-    dxf.register_table("df", df)
+    name = guid()
+    dxf.register_table(name, df)
     dxf.register_table("filtered", df)
 
     schema = dxf.get_schema("filtered")
@@ -1742,7 +1743,7 @@ def test_pandas_export_data_selection(dxf: DataExplorerFixture):
 
     for row_index, col_index in single_cell_cases:
         selection = _select_single_cell(row_index, col_index)
-        df_result = dxf.export_data_selection("df", selection, "tsv")
+        df_result = dxf.export_data_selection(name, selection, "tsv")
         df_expected = str(df.iat[row_index, col_index])
         assert df_result["data"] == df_expected
         assert df_result["format"] == "tsv"
@@ -1778,7 +1779,7 @@ def test_pandas_export_data_selection(dxf: DataExplorerFixture):
         filtered_selected = filtered.iloc[selector]
 
         for fmt in ["csv", "tsv", "html"]:
-            df_result = dxf.export_data_selection("df", rpc_selection, fmt)
+            df_result = dxf.export_data_selection(name, rpc_selection, fmt)
             df_expected = do_export(df_selected, fmt)
 
             assert df_result["data"] == df_expected
@@ -1878,12 +1879,30 @@ EPSILON = 1e-7
 
 
 def _assert_close(expected, actual):
-    assert np.abs(actual - expected) < EPSILON
+    if isinstance(expected, float) and math.isinf(expected):
+        assert math.isinf(actual)
+        if expected > 0:
+            assert actual > 0
+        else:
+            assert actual < 0
+    else:
+        assert np.abs(actual - expected) < EPSILON
 
 
 def _assert_numeric_stats_equal(expected, actual):
+    all_stats = {"min_value", "max_value", "mean", "median", "stdev"}
     for attr, value in expected.items():
-        _assert_close(float(value), float(actual.get(attr)))
+        all_stats.remove(attr)
+        if "j" in value:
+            # Complex numbers
+            _assert_close(complex(value), complex(actual.get(attr)))
+        else:
+            _assert_close(float(value), float(actual.get(attr)))
+
+    # for stats that weren't expected, check that there isn't an
+    # unexpected value
+    for not_expected_stat in all_stats:
+        assert not_expected_stat not in actual or actual[not_expected_stat] is None
 
 
 def _assert_string_stats_equal(expected, actual):
@@ -1916,10 +1935,10 @@ def test_pandas_profile_summary_stats(dxf: DataExplorerFixture):
 
     df1 = pd.DataFrame(
         {
-            "a": arr,
-            "b": arr_with_nulls,
-            "c": [False, False, False, True, None] * 20,
-            "d": [
+            "f0": arr,
+            "f1": arr_with_nulls,
+            "f2": [False, False, False, True, None] * 20,
+            "f3": [
                 "foo",
                 "",
                 "baz",
@@ -1932,11 +1951,15 @@ def test_pandas_profile_summary_stats(dxf: DataExplorerFixture):
                 "zzz",
             ]
             * 10,
-            "e": getattr(pd.date_range("2000-01-01", freq="D", periods=100), "date"),  # date column
-            "f": pd.date_range("2000-01-01", freq="2h", periods=100),  # datetime no tz
-            "g": pd.date_range(
+            "f4": getattr(
+                pd.date_range("2000-01-01", freq="D", periods=100), "date"
+            ),  # date column
+            "f5": pd.date_range("2000-01-01", freq="2h", periods=100),  # datetime no tz
+            "f6": pd.date_range(
                 "2000-01-01", freq="2h", periods=100, tz="US/Eastern"
             ),  # datetime single tz
+            "f7": [1 + 1j, 2 + 2j, 3 + 3j, 4 + 4j, np.nan] * 20,  # complex,
+            "f8": [np.nan, np.inf, -np.inf, 0, np.nan] * 20,  # with infinity
         }
     )
 
@@ -1997,20 +2020,20 @@ def test_pandas_profile_summary_stats(dxf: DataExplorerFixture):
             {
                 "min_value": _format_float(arr.min()),
                 "max_value": _format_float(arr.max()),
-                "mean": _format_float(df1["a"].mean()),
-                "stdev": _format_float(df1["a"].std()),
-                "median": _format_float(df1["a"].median()),
+                "mean": _format_float(df1["f0"].mean()),
+                "stdev": _format_float(df1["f0"].std()),
+                "median": _format_float(df1["f0"].median()),
             },
         ),
         (
             "df1",
             1,
             {
-                "min_value": _format_float(df1["b"].min()),
-                "max_value": _format_float(df1["b"].max()),
-                "mean": _format_float(df1["b"].mean()),
-                "stdev": _format_float(df1["b"].std()),
-                "median": _format_float(df1["b"].median()),
+                "min_value": _format_float(df1["f1"].min()),
+                "max_value": _format_float(df1["f1"].max()),
+                "mean": _format_float(df1["f1"].mean()),
+                "stdev": _format_float(df1["f1"].std()),
+                "median": _format_float(df1["f1"].median()),
             },
         ),
         (
@@ -2057,6 +2080,16 @@ def test_pandas_profile_summary_stats(dxf: DataExplorerFixture):
                 "max_date": "2000-01-09 06:00:00-05:00",
                 "timezone": "US/Eastern",
             },
+        ),
+        (
+            "df1",
+            7,
+            {"mean": "2.50+2.50j", "median": "2.50+2.50j"},
+        ),
+        (
+            "df1",
+            8,
+            {"min_value": "-INF", "max_value": "INF"},
         ),
         (
             "df_mixed_tz1",
@@ -2223,12 +2256,13 @@ def test_polars_get_schema(dxf: DataExplorerFixture):
 
 def test_polars_get_state(dxf: DataExplorerFixture):
     df, _ = example_polars_df()
-    dxf.register_table("df", df)
+    name = guid()
+    dxf.register_table(name, df)
 
-    state = dxf.get_state("df")
+    state = dxf.get_state(name)
     ex_shape = {"num_rows": df.shape[0], "num_columns": df.shape[1]}
 
-    assert state["display_name"] == "df"
+    assert state["display_name"] == name
     assert state["table_shape"] == ex_shape
     assert state["table_unfiltered_shape"] == ex_shape
     assert state["sort_keys"] == []
@@ -2243,10 +2277,11 @@ def test_polars_get_state(dxf: DataExplorerFixture):
 
 def test_polars_get_data_values(dxf: DataExplorerFixture):
     df, _ = example_polars_df()
-    dxf.register_table("df", df)
+    name = guid()
+    dxf.register_table(name, df)
 
     result = dxf.get_data_values(
-        "df",
+        name,
         row_start_index=0,
         num_rows=10,
         column_indices=list(range(df.shape[1])),
@@ -2297,14 +2332,14 @@ def test_polars_get_data_values(dxf: DataExplorerFixture):
     assert result["row_labels"] is None
 
     result = dxf.get_data_values(
-        "df",
+        name,
         row_start_index=2,
         num_rows=10,
         column_indices=list(range(15, df.shape[1])),
     )
     assert result["columns"] == [x[2:] for x in expected_columns[15:]]
 
-    result = dxf.get_data_values("df", row_start_index=10, num_rows=10, column_indices=[])
+    result = dxf.get_data_values(name, row_start_index=10, num_rows=10, column_indices=[])
     assert result["columns"] == []
     assert result["row_labels"] is None
 
@@ -2318,18 +2353,20 @@ def test_polars_profile_null_counts(dxf: DataExplorerFixture):
             "d": [0, 1, 2, 3, 4, 5, 6],
         }
     )
-    dxf.register_table("df", df)
+
+    name = guid()
+    dxf.register_table(name, df)
 
     # tuples like (table_name, [ColumnProfileRequest], [results])
     cases = [
-        ("df", [], []),
+        (name, [], []),
         (
-            "df",
+            name,
             [_get_null_count(3)],
             [0],
         ),
         (
-            "df",
+            name,
             [
                 _get_null_count(0),
                 _get_null_count(1),

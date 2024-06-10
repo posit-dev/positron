@@ -756,13 +756,7 @@
 			},
 			"summary_stats_number": {
 				"type": "object",
-				"required": [
-					"min_value",
-					"max_value",
-					"mean",
-					"median",
-					"stdev"
-				],
+				"required": [],
 				"properties": {
 					"min_value": {
 						"type": "string",

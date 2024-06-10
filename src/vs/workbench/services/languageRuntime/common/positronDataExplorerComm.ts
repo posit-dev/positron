@@ -434,27 +434,27 @@ export interface SummaryStatsNumber {
 	/**
 	 * Minimum value as string
 	 */
-	min_value: string;
+	min_value?: string;
 
 	/**
 	 * Maximum value as string
 	 */
-	max_value: string;
+	max_value?: string;
 
 	/**
 	 * Average value as string
 	 */
-	mean: string;
+	mean?: string;
 
 	/**
 	 * Sample median (50% value) value as string
 	 */
-	median: string;
+	median?: string;
 
 	/**
 	 * Sample standard deviation as a string
 	 */
-	stdev: string;
+	stdev?: string;
 
 }
 
