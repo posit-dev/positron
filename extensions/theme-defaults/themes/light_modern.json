@@ -144,40 +144,5 @@
 		"titleBar.inactiveForeground": "#8b949e",
 		"welcomePage.tileBackground": "#f3f3f3",
 		"widget.border": "#0000001a"
-||||||| 6319a0b6210
-		"terminal.tab.activeBorder": "#005FB8",
-		"textBlockQuote.background": "#F8F8F8",
-		"textBlockQuote.border": "#E5E5E5",
-		"textCodeBlock.background": "#F8F8F8",
-		"textLink.activeForeground": "#005FB8",
-		"textLink.foreground": "#005FB8",
-		"textPreformat.foreground": "#3B3B3B",
-		"textPreformat.background":	"#0000001F",
-		"textSeparator.foreground": "#21262D",
-		"titleBar.activeBackground": "#F8F8F8",
-		"titleBar.activeForeground": "#1E1E1E",
-		"titleBar.border": "#E5E5E5",
-		"titleBar.inactiveBackground": "#F8F8F8",
-		"titleBar.inactiveForeground": "#8B949E",
-		"welcomePage.tileBackground": "#F3F3F3",
-		"widget.border": "#E5E5E5"
-=======
-		"terminal.tab.activeBorder": "#005FB8",
-		"textBlockQuote.background": "#F8F8F8",
-		"textBlockQuote.border": "#E5E5E5",
-		"textCodeBlock.background": "#F8F8F8",
-		"textLink.activeForeground": "#005FB8",
-		"textLink.foreground": "#005FB8",
-		"textPreformat.foreground": "#3B3B3B",
-		"textPreformat.background": "#0000001F",
-		"textSeparator.foreground": "#21262D",
-		"titleBar.activeBackground": "#F8F8F8",
-		"titleBar.activeForeground": "#1E1E1E",
-		"titleBar.border": "#E5E5E5",
-		"titleBar.inactiveBackground": "#F8F8F8",
-		"titleBar.inactiveForeground": "#8B949E",
-		"welcomePage.tileBackground": "#F3F3F3",
-		"widget.border": "#E5E5E5"
->>>>>>> 1.90.0
 	},
 }
