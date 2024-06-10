@@ -11,6 +11,8 @@ export function setup(logger: Logger) {
 
 	describe('Connections Pane', () => {
 
+		const tables = ['tracks', 'playlist_track', 'playlists', 'media_types', 'invoice_items', 'invoices', 'genres', 'employees', 'customers', 'artists', 'albums'];
+
 		// Shared before/after handling
 		installAllHandlers(logger);
 
@@ -28,7 +30,7 @@ export function setup(logger: Logger) {
 			after(async function () {
 
 				const app = this.app as Application;
-				app.code.waitAndClick('a[aria-label="Remove connection from history"]');
+				app.workbench.positronConnections.removeConnectionButton.click();
 
 			});
 
@@ -44,27 +46,15 @@ export function setup(logger: Logger) {
 				console.log('Opening connections pane');
 				await app.workbench.positronVariables.doubleClickVariableRow('conn');
 
-				await app.code.waitAndClick('div[aria-label="SQLite Connection"]');
-
-				await app.code.waitAndClick('div[aria-label="main"]');
+				await app.workbench.positronConnections.openPythonTable();
 
 				// click in reverse order to avoid scrolling issues
-				await app.code.waitAndClick('div[aria-label="tracks"]');
-				await app.code.waitAndClick('div[aria-label="playlist_track"]');
-				await app.code.waitAndClick('div[aria-label="playlists"]');
-				await app.code.waitAndClick('div[aria-label="media_types"]');
-				await app.code.waitAndClick('div[aria-label="invoice_items"]');
-				await app.code.waitAndClick('div[aria-label="invoices"]');
-				await app.code.waitAndClick('div[aria-label="genres"]');
-				await app.code.waitAndClick('div[aria-label="employees"]');
-				await app.code.waitAndClick('div[aria-label="customers"]');
-				await app.code.waitAndClick('div[aria-label="artists"]');
-				await app.code.waitAndClick('div[aria-label="albums"]');
+				await app.workbench.positronConnections.openConnectionsNodes(tables);
 
 				// disconnect icon appearance requires hover
-				await app.code.driver.getLocator('div[aria-label="SQLite Connection"]').hover();
-				await app.code.waitAndClick('.codicon-debug-disconnect');
-				await app.code.waitForElement('a[aria-label="Execute connection code in the console"]');
+				await app.workbench.positronConnections.pythonConnectionOpenState.hover();
+				await app.workbench.positronConnections.disonnectButton.click();
+				await app.workbench.positronConnections.reconnectButton.waitforVisible();
 			});
 		});
 
@@ -84,7 +74,7 @@ export function setup(logger: Logger) {
 			after(async function () {
 
 				const app = this.app as Application;
-				app.code.waitAndClick('a[aria-label="Remove connection from history"]');
+				app.workbench.positronConnections.removeConnectionButton.click();
 
 			});
 
@@ -98,33 +88,17 @@ export function setup(logger: Logger) {
 				await app.workbench.quickaccess.runCommand('r.sourceCurrentFile');
 
 				console.log('Opening connections pane');
-				await app.code.waitAndClick('a[aria-label="Connections"]');
+				await app.workbench.positronConnections.connectionsTabLink.click();
 
-				// not working due to timing:
-				// await app.code.waitAndClick('div[aria-label="SQLiteConnection"]');
-				// workaround for above:
-				await app.code.driver.getLocator('a:has-text("SQLiteConnection")').click();
-
-				await app.code.waitAndClick('div[aria-label="SQLiteConnection"]:last-child');
-				await app.code.waitAndClick('div[aria-label="Default"]');
+				await app.workbench.positronConnections.openRTable();
 
 				// click in reverse order to avoid scrolling issues
-				await app.code.waitAndClick('div[aria-label="tracks"]');
-				await app.code.waitAndClick('div[aria-label="playlist_track"]');
-				await app.code.waitAndClick('div[aria-label="playlists"]');
-				await app.code.waitAndClick('div[aria-label="media_types"]');
-				await app.code.waitAndClick('div[aria-label="invoice_items"]');
-				await app.code.waitAndClick('div[aria-label="invoices"]');
-				await app.code.waitAndClick('div[aria-label="genres"]');
-				await app.code.waitAndClick('div[aria-label="employees"]');
-				await app.code.waitAndClick('div[aria-label="customers"]');
-				await app.code.waitAndClick('div[aria-label="artists"]');
-				await app.code.waitAndClick('div[aria-label="albums"]');
+				await app.workbench.positronConnections.openConnectionsNodes(tables);
 
 				// disconnect icon appearance requires hover
-				await app.code.driver.getLocator('div[aria-label="SQLiteConnection"]:first-child').hover();
-				await app.code.waitAndClick('.codicon-debug-disconnect');
-				await app.code.waitForElement('a[aria-label="Execute connection code in the console"]');
+				await app.workbench.positronConnections.rConnectionOpenState.hover();
+				await app.workbench.positronConnections.disonnectButton.click();
+				await app.workbench.positronConnections.reconnectButton.waitforVisible();
 			});
 		});
 	});
