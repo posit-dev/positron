@@ -42,6 +42,10 @@ import { CodeWindow } from 'vs/base/browser/window';
 // --- Start Positron ---
 // eslint-disable-next-line no-duplicate-imports
 import { VSBuffer } from 'vs/base/common/buffer';
+import { FrameNavigationEvent, WebviewFrameId } from 'vs/platform/webview/common/webviewManagerService';
+
+// eslint-disable-next-line no-duplicate-imports
+import { FileAccess } from 'vs/base/common/network';
 // --- End Positron ---
 
 interface WebviewContent {
@@ -127,6 +131,12 @@ export class WebviewElement extends Disposable implements IWebview, WebviewFindD
 	private _state: WebviewState.State = new WebviewState.Initializing([]);
 
 	private _content: WebviewContent;
+
+	// --- Start Positron ---
+	private _uri: URI | undefined;
+
+	private _frameId: WebviewFrameId | undefined;
+	// --- End Positron ---
 
 	private readonly _portMappingManager: WebviewPortMappingManager;
 
@@ -322,6 +332,26 @@ export class WebviewElement extends Disposable implements IWebview, WebviewFindD
 			this._webviewFindWidget = this._register(instantiationService.createInstance(WebviewFindWidget, this._options.webviewFindDelegate || this));
 			// --- End Positron ---
 		}
+
+		// --- Start Positron ---
+		this._register(this.onFrameNavigated(async (evt) => {
+			if (!this._frameId) {
+				return;
+			}
+			if (evt.frameId.processId === this._frameId.processId &&
+				evt.frameId.routingId === this._frameId.routingId) {
+				// Insert the `webview-events.js` script into the frame
+				await this.injectJavaScript();
+
+				// Save the new URI
+				const uri = URI.parse(evt.url);
+				this._uri = uri;
+
+				// If the frame is navigated to a new URL, update listeners
+				this._onDidNavigate.fire(URI.parse(evt.url));
+			}
+		}));
+		// --- End Positron ---
 	}
 
 	override dispose(): void {
@@ -449,6 +479,16 @@ export class WebviewElement extends Disposable implements IWebview, WebviewFindD
 		COI.addSearchParam(params, true, true);
 
 		const queryString = new URLSearchParams(params).toString();
+
+		// --- Start Positron ---
+		// When loading an external URL, we need to load the HTML file designed
+		// to host external content. This file contains, among other things, an
+		// implementation for the `set-uri` message.
+		if (options.externalUri) {
+			this.element!.setAttribute('src', `${this.webviewContentEndpoint(encodedWebviewOrigin)}/index-external.html?${queryString}`);
+			return;
+		}
+		// --- End Positron ---
 
 		// Workaround for https://bugzilla.mozilla.org/show_bug.cgi?id=1754872
 		const fileName = isFirefox ? 'index-no-csp.html' : 'index.html';
@@ -609,7 +649,13 @@ export class WebviewElement extends Disposable implements IWebview, WebviewFindD
 	}
 
 	public reload(): void {
-		this.doUpdateContent(this._content);
+		// --- Start Positron ---
+		if (this._options.externalUri && this._uri) {
+			this.doSetUri(this._uri);
+		} else {
+			this.doUpdateContent(this._content);
+		}
+		// --- End Positron ---
 
 		const subscription = this._register(this.on('did-load', () => {
 			this._onDidReload.fire();
@@ -626,6 +672,12 @@ export class WebviewElement extends Disposable implements IWebview, WebviewFindD
 		this._content = { ...this._content, title };
 		this._send('set-title', title);
 	}
+
+	// --- Start Positron ---
+	public setUri(uri: URI) {
+		this.doSetUri(uri);
+	}
+	// --- End Positron ---
 
 	public set contentOptions(options: WebviewContentOptions) {
 		this._logService.debug(`Webview(${this.id}): will update content options`);
@@ -672,6 +724,43 @@ export class WebviewElement extends Disposable implements IWebview, WebviewFindD
 			confirmBeforeClose: this._confirmBeforeClose,
 		});
 	}
+
+	// --- Start Positron ---
+	private async doSetUri(uri: URI) {
+		// Check to ensure that the webview options allow for setting external
+		// URIs. This is necessary since default webview options aren't
+		// compatible with external URIs.
+		if (!this._options.externalUri) {
+			this._logService.error(`Webview(${this.id}): cannot set URI to ${uri.toString()} since externalUri was not specified in the options when the webview was created.`);
+			return;
+		}
+
+		// Tell the webview to load the URI
+		this._uri = uri;
+		this._send('set-uri', uri.toString());
+
+		// Wait for the frame to be created by hanging around until Electron
+		// notices that the frame with the requested URL navigated.
+		//
+		// This is a little bit of a hack, but it's the only way to get a handle
+		// to the newly created frame.
+		const frameId = await this.awaitFrameCreation(uri.toString());
+		this._frameId = frameId;
+
+		return this.injectJavaScript();
+	}
+
+	private async injectJavaScript(): Promise<void> {
+		// Read the contents of the 'webview-events.js' file. This file contains
+		// a bunch of event handlers that forward events from the iframe to the
+		// main process.
+		const webviewEventsJsPath = FileAccess.asFileUri('vs/workbench/contrib/webview/browser/pre/webview-events.js');
+		const webviewEvents = await this._fileService.readFile(webviewEventsJsPath);
+
+		// Inject the 'webview-events.js' script into the frame
+		return this.executeJavaScript(this._frameId!, webviewEvents.value.toString());
+	}
+	// --- End Positron ---
 
 	protected style(): void {
 		let { styles, activeTheme, themeLabel, themeId } = this.webviewThemeDataProvider.getWebviewThemeData();
@@ -864,6 +953,14 @@ export class WebviewElement extends Disposable implements IWebview, WebviewFindD
 	protected readonly _onDidStopFind = this._register(new Emitter<void>());
 	public readonly onDidStopFind: Event<void> = this._onDidStopFind.event;
 
+	// --- Start Positron ---
+	protected readonly _onFrameNavigated = this._register(new Emitter<FrameNavigationEvent>());
+	public readonly onFrameNavigated = this._onFrameNavigated.event;
+
+	protected readonly _onDidNavigate = this._register(new Emitter<URI>());
+	public readonly onDidNavigate = this._onDidNavigate.event;
+	// --- End Positron ---
+
 	/**
 	 * Webviews expose a stateful find API.
 	 * Successive calls to find will move forward or backward through onFindResults
@@ -907,8 +1004,15 @@ export class WebviewElement extends Disposable implements IWebview, WebviewFindD
 	}
 
 	// --- Start Positron ---
+	public awaitFrameCreation(targetUrl: string): Promise<WebviewFrameId> {
+		throw new Error('Method not implemented.');
+	}
 	public captureContentsAsPng(): Promise<VSBuffer | undefined> {
 		// The default implementation doesn't support PNG screen capture
+		return Promise.resolve(undefined);
+	}
+	public executeJavaScript(frameId: WebviewFrameId, code: string): Promise<any> {
+		// The default implementation doesn't support executing scripts
 		return Promise.resolve(undefined);
 	}
 	// --- End Positron ---
