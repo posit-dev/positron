@@ -4,6 +4,7 @@
 import { isValidBasename } from 'vs/base/common/extpath';
 import { OS, OperatingSystem } from 'vs/base/common/platform';
 import { basename } from 'vs/base/common/resources';
+import { truncate } from 'vs/base/common/strings';
 import { URI } from 'vs/base/common/uri';
 import { localize } from 'vs/nls';
 
@@ -49,13 +50,9 @@ export function checkIfPathValid(path: string | number, opts: PathValidatorOptio
 	const pathBase = basename(pathUri);
 	if (!isValidBasename(pathBase, isWindows)) {
 		// Make the path cleaner for display
-		let sanitizedPath = pathBase.replace(/\*/g, '\\*'); // CodeQL [SM02383] This only processes filenames which are enforced against having backslashes in them farther up in the stack.
+		const sanitizedPath = pathBase.replace(/\*/g, '\\*'); // CodeQL [SM02383] This only processes filenames which are enforced against having backslashes in them farther up in the stack.
 		// Cleanup display for long paths
-		if (sanitizedPath.length > 55) {
-			sanitizedPath = `${sanitizedPath.substr(0, 50)}...`;
-		}
-
-		return localize('invalidFileNameError', "{0} is not valid as a file or folder name. Please choose a different name.", sanitizedPath);
+		return localize('invalidFileNameError', "{0} is not valid as a file or folder name. Please choose a different name.", truncate(sanitizedPath, 55));
 	}
 
 	// Check for whitespace

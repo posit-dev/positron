@@ -8,11 +8,13 @@ import 'vs/css!./pathDisplay';
 import * as React from 'react';
 import { useState } from 'react';
 import { IPathService } from 'vs/workbench/services/path/common/pathService';
+import { truncate } from 'vs/base/common/strings';
 
 
 interface NewEnvironmentLocationDisplayProps {
 	pathService: IPathService;
 	pathComponents: string[];
+	maxLength?: number;
 }
 
 /**
@@ -20,7 +22,7 @@ interface NewEnvironmentLocationDisplayProps {
  * formatting the path to the file system its being created in.
  * @returns A `code` element with the formatted path.
  */
-export function PathDisplay({ pathService, pathComponents }: NewEnvironmentLocationDisplayProps) {
+export function PathDisplay({ pathService, pathComponents, maxLength = 255 }: NewEnvironmentLocationDisplayProps) {
 
 	const [formattedPath, setFormattedPath] = useState<string>('...');
 
@@ -28,9 +30,10 @@ export function PathDisplay({ pathService, pathComponents }: NewEnvironmentLocat
 		pathService.path
 			.then((pathBuilder) => {
 				const combinedPath = pathBuilder.join(...pathComponents).toString();
-				setFormattedPath(combinedPath);
+				setFormattedPath(truncate(combinedPath, maxLength));
 			});
-	});
+	}, [pathComponents, pathService.path, maxLength]);
+
 	return <code className='formatted-path-display'>
 		{formattedPath}
 	</code>;
