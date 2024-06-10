@@ -546,23 +546,28 @@ class SummaryStatsNumber(BaseModel):
     SummaryStatsNumber in Schemas
     """
 
-    min_value: StrictStr = Field(
+    min_value: Optional[StrictStr] = Field(
+        default=None,
         description="Minimum value as string",
     )
 
-    max_value: StrictStr = Field(
+    max_value: Optional[StrictStr] = Field(
+        default=None,
         description="Maximum value as string",
     )
 
-    mean: StrictStr = Field(
+    mean: Optional[StrictStr] = Field(
+        default=None,
         description="Average value as string",
     )
 
-    median: StrictStr = Field(
+    median: Optional[StrictStr] = Field(
+        default=None,
         description="Sample median (50% value) value as string",
     )
 
-    stdev: StrictStr = Field(
+    stdev: Optional[StrictStr] = Field(
+        default=None,
         description="Sample standard deviation as a string",
     )
 
