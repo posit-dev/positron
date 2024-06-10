@@ -464,7 +464,7 @@ export class PositronNewProjectService extends Disposable implements IPositronNe
 			if (!this._newProjectConfig.runtimeMetadata?.runtimeId) {
 				return;
 			}
-			this._commandService.executeCommand('r.renvInit', this._newProjectConfig.runtimeMetadata.runtimeId, 'renv', '1.0.7');
+			await this._commandService.executeCommand('r.renvInit', this._newProjectConfig.runtimeMetadata.runtimeId, 'renv', '1.0.7');
 		}
 		this._removePendingTask(NewProjectTask.REnvironment);
 	}
