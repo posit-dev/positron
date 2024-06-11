@@ -22,7 +22,7 @@ import { WizardFormattedTextItem } from 'vs/workbench/browser/positronNewProject
 import { LanguageIds, NewProjectType } from 'vs/workbench/services/positronNewProject/common/positronNewProject';
 import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
 import { projectWizardWorkInProgressEnabled } from 'vs/workbench/services/positronNewProject/common/positronNewProjectEnablement';
-import { CondaPythonVersionInfo } from 'vs/workbench/browser/positronNewProjectWizard/utilities/condaUtils';
+import { CondaPythonVersionInfo, EMPTY_CONDA_PYTHON_VERSION_INFO } from 'vs/workbench/browser/positronNewProjectWizard/utilities/condaUtils';
 
 /**
  * NewProjectWizardServices interface.
@@ -117,6 +117,7 @@ export class NewProjectWizardStateManager
 	private _minimumPythonVersion: string | undefined;
 	private _condaPythonVersion: string | undefined;
 	private _condaPythonVersionInfo: CondaPythonVersionInfo | undefined;
+	private _isCondaInstalled: boolean | undefined;
 	// R-specific state.
 	private _useRenv: boolean | undefined;
 	private _minimumRVersion: string | undefined;
@@ -420,6 +421,7 @@ export class NewProjectWizardStateManager
 
 	/**
 	 * Gets the Python environment providers.
+	 * @returns The Python environment providers.
 	 */
 	get pythonEnvProviders(): PythonEnvironmentProviderInfo[] | undefined {
 		return this._pythonEnvProviders;
@@ -427,13 +429,23 @@ export class NewProjectWizardStateManager
 
 	/**
 	 * Gets the Conda Python version info.
+	 * @returns The Conda Python version info.
 	 */
 	get condaPythonVersionInfo(): CondaPythonVersionInfo | undefined {
 		return this._condaPythonVersionInfo;
 	}
 
 	/**
+	 * Gets whether Conda is installed.
+	 * @returns Whether Conda is installed.
+	 */
+	get isCondaInstalled(): boolean | undefined {
+		return this._isCondaInstalled;
+	}
+
+	/**
 	 * Gets whether the project uses a Conda environment.
+	 * @returns Whether the project uses a Conda environment.
 	 */
 	get usesCondaEnv(): boolean {
 		return this._usesCondaEnv();
@@ -441,6 +453,7 @@ export class NewProjectWizardStateManager
 
 	/**
 	 * Gets the interpreters.
+	 * @returns The interpreters.
 	 */
 	get interpreters(): ILanguageRuntimeMetadata[] | undefined {
 		return this._interpreters;
@@ -448,6 +461,7 @@ export class NewProjectWizardStateManager
 
 	/**
 	 * Gets the preferred interpreter.
+	 * @returns The preferred interpreter.
 	 */
 	get preferredInterpreter(): ILanguageRuntimeMetadata | undefined {
 		return this._preferredInterpreter;
@@ -455,6 +469,7 @@ export class NewProjectWizardStateManager
 
 	/**
 	 * Gets the current step in the New Project Wizard.
+	 * @returns The current step.
 	 */
 	get currentStep(): NewProjectWizardStep {
 		return this._currentStep;
@@ -462,6 +477,7 @@ export class NewProjectWizardStateManager
 
 	/**
 	 * Gets the services used by the New Project Wizard.
+	 * @returns The services used by the New Project Wizard.
 	 */
 	get services(): NewProjectWizardServices {
 		return this._services;
@@ -582,7 +598,9 @@ export class NewProjectWizardStateManager
 		await this._setMinimumInterpreterVersions(minVersionsToSet);
 
 		// Set the Conda Python versions.
-		await this._setCondaPythonVersionInfo();
+		if (!this._condaPythonVersionInfo) {
+			await this._setCondaPythonVersionInfo();
+		}
 	}
 
 	/**
@@ -740,13 +758,42 @@ export class NewProjectWizardStateManager
 	 * Sets the Conda Python versions by calling the Python extension.
 	 */
 	private async _setCondaPythonVersionInfo() {
-		this._condaPythonVersionInfo = await this._services.commandService.executeCommand(
-			'python.getCondaPythonVersions'
+		this._condaPythonVersionInfo = EMPTY_CONDA_PYTHON_VERSION_INFO;
+
+		if (!this._pythonEnvProviders?.length) {
+			this._services.logService.error('No Python environment providers found.');
+			return;
+		}
+
+		// Check if Conda is available as an environment provider.
+		const providersIncludeConda = this._pythonEnvProviders.find(
+			(provider) => provider.name === PythonEnvironmentProvider.Conda
 		);
-		if (!this._condaPythonVersionInfo) {
+		if (!providersIncludeConda) {
+			this._services.logService.info('Conda is not available as an environment provider.');
+			return;
+		}
+
+		// Check if Conda is installed.
+		this._isCondaInstalled = await this._services.commandService.executeCommand(
+			'python.isCondaInstalled'
+		);
+		if (!this._isCondaInstalled) {
+			this._services.logService.warn(
+				'Conda is available as an environment provider, but it is not installed.'
+			);
+			return;
+		}
+
+		// Get the Conda Python versions.
+		const pythonVersionInfo: CondaPythonVersionInfo | undefined =
+			await this._services.commandService.executeCommand('python.getCondaPythonVersions');
+		if (!pythonVersionInfo) {
 			this._services.logService.warn('No Conda Python versions found.');
 			return;
 		}
+
+		this._condaPythonVersionInfo = pythonVersionInfo;
 		this._condaPythonVersion = this._condaPythonVersionInfo.preferred;
 	}
 
