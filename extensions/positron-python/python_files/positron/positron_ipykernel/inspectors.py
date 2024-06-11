@@ -81,6 +81,8 @@ SIMPLER_NAMES = {
     "pandas.core.series.Series": "pandas.Series",
     "polars.dataframe.frame.DataFrame": "polars.DataFrame",
     "polars.series.series.Series": "polars.Series",
+    "polars.internals.series.series.Series": "polars.Series",
+    "polars.internals.dataframe.frame.DataFrame": "polars.DataFrame",
 }
 
 
