@@ -4,7 +4,7 @@
 import { isValidBasename } from 'vs/base/common/extpath';
 import { OS, OperatingSystem } from 'vs/base/common/platform';
 import { basename } from 'vs/base/common/resources';
-import { truncate } from 'vs/base/common/strings';
+import { truncateMiddle } from 'vs/base/common/strings';
 import { URI } from 'vs/base/common/uri';
 import { localize } from 'vs/nls';
 import { IFileService } from 'vs/platform/files/common/files';
@@ -94,5 +94,5 @@ function sanitizePathForDisplay(path: string): string {
 	// Make the path cleaner for display
 	const sanitizedPath = path.replace(/\*/g, '\\*'); // CodeQL [SM02383] This only processes filenames which are enforced against having backslashes in them farther up in the stack.
 
-	return truncate(sanitizedPath, 55);
+	return truncateMiddle(sanitizedPath, 55);
 }
