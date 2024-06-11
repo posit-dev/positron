@@ -79,7 +79,11 @@ export const PythonEnvironmentStep = (props: PropsWithChildren<NewProjectWizardS
 	// Utility functions.
 	const interpretersAvailable = () => {
 		if (context.usesCondaEnv) {
-			return Boolean(context.isCondaInstalled && condaPythonVersionInfo);
+			return Boolean(
+				context.isCondaInstalled &&
+				condaPythonVersionInfo &&
+				condaPythonVersionInfo.versions.length
+			);
 		}
 		return Boolean(interpreters && interpreters.length);
 	};
