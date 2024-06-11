@@ -15,6 +15,14 @@ export interface CondaPythonVersionInfo {
 }
 
 /**
+ * Empty CondaPythonVersionInfo object.
+ */
+export const EMPTY_CONDA_PYTHON_VERSION_INFO: CondaPythonVersionInfo = {
+	preferred: '',
+	versions: [],
+};
+
+/**
  * Converts a CondaPythonVersionInfo object to DropDownListBoxItem objects.
  * Conda environments have special handling because the Python interpreters exist until the conda
  * environment is created. As such, we only have the python versions available to us at this point.
