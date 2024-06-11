@@ -511,7 +511,7 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
             const errortext = regex.test(logFileContent)
                 ? vscode.l10n.t(
                       '{0} {1} {2}',
-                      kernel.metadata.sessionName,
+                      kernel.runtimeMetadata.runtimeName,
                       Console.consoleExitWithError,
                       logFileContent,
                   )
