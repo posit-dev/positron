@@ -8,7 +8,7 @@ import 'vs/css!./pathDisplay';
 import * as React from 'react';
 import { useState } from 'react';
 import { IPathService } from 'vs/workbench/services/path/common/pathService';
-import { truncate } from 'vs/base/common/strings';
+import { truncateMiddle } from 'vs/base/common/strings';
 
 
 interface NewEnvironmentLocationDisplayProps {
@@ -30,7 +30,7 @@ export function PathDisplay({ pathService, pathComponents, maxLength = 255 }: Ne
 		pathService.path
 			.then((pathBuilder) => {
 				const combinedPath = pathBuilder.join(...pathComponents).toString();
-				setFormattedPath(truncate(combinedPath, maxLength));
+				setFormattedPath(truncateMiddle(combinedPath, maxLength));
 			});
 	}, [pathComponents, pathService.path, maxLength]);
 

@@ -136,6 +136,7 @@ export const PythonEnvironmentStep = (props: PropsWithChildren<NewProjectWizardS
 							))()}
 						<PathDisplay
 							pathService={context.services.pathService}
+							maxLength={65}
 							pathComponents={
 								locationForNewEnv(
 									context.parentFolder,
