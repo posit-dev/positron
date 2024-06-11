@@ -525,7 +525,10 @@ def test_pandas_supported_features(dxf: DataExplorerFixture):
     assert column_profiles["supported"]
     assert set(column_profiles["supported_types"]) == {
         "null_count",
-        "summary_stats",
+        # Temporarily disabled for https://github.com/posit-dev/positron/issues/3490
+        # on 6/11/2024. This will be enabled again when the UI has been reworked to
+        # more fully support column profiles.
+        # "summary_stats",
     }
 
 

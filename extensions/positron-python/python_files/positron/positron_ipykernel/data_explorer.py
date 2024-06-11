@@ -1281,7 +1281,10 @@ class PandasView(DataExplorerTableView):
             supported=True,
             supported_types=[
                 ColumnProfileType.NullCount,
-                ColumnProfileType.SummaryStats,
+                # Temporarily disabled for https://github.com/posit-dev/positron/issues/3490
+                # on 6/11/2024. This will be enabled again when the UI has been reworked to
+                # more fully support column profiles.
+                # ColumnProfileType.SummaryStats,
             ],
         ),
         set_sort_columns=SetSortColumnsFeatures(supported=True),
@@ -1572,7 +1575,13 @@ class PolarsView(DataExplorerTableView):
         ),
         get_column_profiles=GetColumnProfilesFeatures(
             supported=True,
-            supported_types=[ColumnProfileType.NullCount],
+            supported_types=[
+                ColumnProfileType.NullCount,
+                # Temporarily disabled for https://github.com/posit-dev/positron/issues/3490
+                # on 6/11/2024. This will be enabled again when the UI has been reworked to
+                # more fully support column profiles.
+                # ColumnProfileType.SummaryStats,
+            ],
         ),
         export_data_selection=ExportDataSelectionFeatures(supported=False),
         set_sort_columns=SetSortColumnsFeatures(supported=False),
