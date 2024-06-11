@@ -764,7 +764,9 @@ class BaseColumnInspector(_BaseMapInspector[Column], ABC):
         truncate_at: int = TRUNCATE_AT,
     ) -> Tuple[str, bool]:
         display_value = _get_class_display(self.value)
-        display_value = f"[{len(self.value)} values] {display_value}"
+        column_values = str(cast(Column, self.value[:100]).to_list())
+        display_value = f"{display_value} {column_values}"
+
         return (display_value, True)
 
 
