@@ -572,37 +572,55 @@ export class HelpEntry extends Disposable implements IHelpEntry, WebviewFindDele
 		this._element = element;
 		const helpOverlayWebview = this._helpOverlayWebview;
 
-		// If the help pane is currently collapsed, aka has a height of 0, running the layout and
-		// claim logic will result in a 0-height help-pane. Not super useful. To deal with this we
-		// run a few checks to make sure that the pane has time to animate open and finish its
-		// animation before we show content.  Otherwise the webview will try and layout over a 0
-		// height element and thus the help pane will be empty after expanding.
-		let previousHeight = element.clientHeight;
+		// When nested view panes are expanded or collapsed they are animated to their new size.
+		// Since overlay webviews can't respond to their container's or position this will result in
+		// the help pane sticking to the size or position it was _before_ the animation started.
+		// This causes things like the help pane sitting at size zero when being opened from
+		// collapsed or staying large and overlapping other elements when shrinking down to
+		// accomodate other panes being expanded. To deal with this we run a few checks to make sure
+		// that the pane has time to animate open and finish its animation before we show content.
+		let oldBounds: DOMRect | undefined;
+
 		let numberOfChecks = 0;
 		const maxNumberOfChecks = 12;
-		const waitBetweenChecksMs = 20;
-		const claimAndLayoutWebview = () => {
-			const currentHeight = element.clientHeight;
+		const waitBetweenChecksMs = 25;
+		const ensureWebviewSizeCorrectWhenAnimating = () => {
+			// Getting client bounding rect is a tad bit expensive so we may want to consider a more
+			// efficient way to do this in the future.
+			const currentBounds = element.getBoundingClientRect();
+			const boundsHaveChanged = oldBounds === undefined || (
+				oldBounds.height !== currentBounds.height ||
+				oldBounds.width !== currentBounds.width ||
+				oldBounds.x !== currentBounds.x ||
+				oldBounds.y !== currentBounds.y);
 
-			const finishedAnimating = currentHeight !== 0 && currentHeight === previousHeight;
+			const isCollapsed = currentBounds.height === 0 || currentBounds.width === 0;
+			const finishedAnimating = !isCollapsed && !boundsHaveChanged;
 			const hasExceededMaxChecks = numberOfChecks >= maxNumberOfChecks;
 
 			if (finishedAnimating || hasExceededMaxChecks) {
-				helpOverlayWebview.claim(element, DOM.getWindow(element), undefined);
-				helpOverlayWebview.layoutWebviewOverElement(element);
 				return;
 			}
+			// Run layout to update the webview's position to keep up with latest position.
+			helpOverlayWebview.layoutWebviewOverElement(element);
 
-			previousHeight = currentHeight;
+			oldBounds = currentBounds;
 			numberOfChecks++;
-			this._claimTimeout = setTimeout(claimAndLayoutWebview, waitBetweenChecksMs);
+			this._claimTimeout = setTimeout(ensureWebviewSizeCorrectWhenAnimating, waitBetweenChecksMs);
 		};
+
 		// By clearing this timeout we prevent clashing that could be caused by rapidfire calling of
 		// `this.showHelpOverlayWebview()` that can be caused by resize events like dragging the
 		// sidebar wider etc..
 		clearTimeout(this._claimTimeout);
 
-		claimAndLayoutWebview();
+		// Run layout claim and layout initially. This will help avoid stutters for non-animating
+		// cases like dragging the help window larger or opening in an already expanded view.
+		helpOverlayWebview.claim(element, DOM.getWindow(element), undefined);
+		helpOverlayWebview.layoutWebviewOverElement(element);
+
+		// Run logic for animating cases.
+		ensureWebviewSizeCorrectWhenAnimating();
 	}
 
 	/**

@@ -173,16 +173,10 @@ export class PositronHelpView extends PositronViewPane implements IReactComponen
 		@IThemeService themeService: IThemeService,
 		@IViewDescriptorService viewDescriptorService: IViewDescriptorService
 	) {
-		// Override minimum size option if it isn't already somehow set. There doesn't seem to be a
-		// way to set this in any sort of configuration hence the need to override it here. If this
-		// isn't set, then the help pane will occlude parts of the editor when it is resized to be
-		// very small.
-		// TODO: See about disposing the webview entirely when the size is too small to see.
-		options = { ...options, minimumBodySize: 0 };
 
 		// Call the base class's constructor.
 		super(
-			options,
+			{ ...options, allowZeroMinimumBodySize: true },
 			keybindingService,
 			contextMenuService,
 			configurationService,
