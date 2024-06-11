@@ -7,10 +7,11 @@ import 'vs/css!./positronModalPopup';
 
 // React.
 import * as React from 'react';
-import { PropsWithChildren, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'; // eslint-disable-line no-duplicate-imports
+import { PropsWithChildren, useEffect, useLayoutEffect, useRef, useState } from 'react'; // eslint-disable-line no-duplicate-imports
 
 // Other dependencies.
 import * as DOM from 'vs/base/browser/dom';
+import { isNumber } from 'vs/base/common/types';
 import { DisposableStore } from 'vs/base/common/lifecycle';
 import { positronClassNames } from 'vs/base/common/positronUtilities';
 import { PositronModalReactRenderer } from 'vs/workbench/browser/positronModalReactRenderer/positronModalReactRenderer';
@@ -33,9 +34,48 @@ const focusableElementSelectors =
 	'select:not([disabled])';
 
 /**
- * PopupStyle class.
+ * AnchorLayout class.
  */
-class PopupStyle {
+class AnchorLayout {
+	/**
+	 * The anchor x.
+	 */
+	readonly anchorX: number;
+
+	/**
+	 * The anchor y.
+	 */
+	readonly anchorY: number;
+
+	/**
+	 * The anchor width.
+	 */
+	readonly anchorWidth: number;
+
+	/**
+	 * The anchor height.
+	 */
+	readonly anchorHeight: number;
+
+	/**
+	 * Constructor.
+	 * @param anchorX The anchor x.
+	 * @param anchorY The anchor y.
+	 * @param anchorWidth The anchor width.
+	 * @param anchorHeight The anchor height.
+	 */
+	constructor(anchorX: number, anchorY: number, anchorWidth: number, anchorHeight: number) {
+		this.anchorX = anchorX;
+		this.anchorY = anchorY;
+		this.anchorWidth = anchorWidth;
+		this.anchorHeight = anchorHeight;
+	}
+}
+
+/**
+ * PopupLayout class.
+ */
+class PopupLayout {
 	top: number | 'auto' = 'auto';
 	right: number | 'auto' = 'auto';
 	bottom: number | 'auto' = 'auto';
@@ -71,18 +111,18 @@ export type KeyboardNavigationStyle = 'dialog' | 'menu';
  * PositronModalPopupProps interface.
  */
 export interface PositronModalPopupProps {
-	renderer: PositronModalReactRenderer;
-	anchorElement: HTMLElement;
-	anchorPoint?: AnchorPoint;
-	popupPosition: PopupPosition;
-	popupAlignment: PopupAlignment;
-	width: number | 'max-content' | 'auto';
-	minWidth?: number | 'auto';
-	height: number | 'min-content';
-	minHeight?: number | 'auto';
-	focusableElementSelectors?: string;
-	keyboardNavigationStyle: KeyboardNavigationStyle;
-	onAccept?: () => void;
+	readonly renderer: PositronModalReactRenderer;
+	readonly anchorElement: HTMLElement;
+	readonly anchorPoint?: AnchorPoint;
+	readonly popupPosition: PopupPosition;
+	readonly popupAlignment: PopupAlignment;
+	readonly width: number | 'max-content' | 'auto';
+	readonly minWidth?: number | 'auto';
+	readonly height: number | 'min-content';
+	readonly minHeight?: number | 'auto';
+	readonly focusableElementSelectors?: string;
+	readonly keyboardNavigationStyle: KeyboardNavigationStyle;
+	readonly onAccept?: () => void;
 }
 
 /**
@@ -91,107 +131,59 @@ export interface PositronModalPopupProps {
  * @returns The rendered component.
  */
 export const PositronModalPopup = (props: PropsWithChildren<PositronModalPopupProps>) => {
-	/**
-	 * Computes the popup style.
-	 * @returns The popup style.
-	 */
-	const computePopupStyle = useCallback((): PopupStyle => {
-		// Create the popup style.
-		const popupStyle = new PopupStyle();
-
-		// Calculate the anchor position and size.
-		let anchorX: number;
-		let anchorY: number;
-		let anchorWidth: number;
-		let anchorHeight: number;
+	// Setup the anchor layout.
+	const [anchorLayout] = useState(() => {
 		if (props.anchorPoint) {
-			anchorX = props.anchorPoint.clientX;
-			anchorY = props.anchorPoint.clientY;
-			anchorWidth = 0;
-			anchorHeight = 0;
+			return new AnchorLayout(props.anchorPoint.clientX, props.anchorPoint.clientY, 0, 0);
 		} else {
 			const topLeftAnchorOffset = DOM.getTopLeftOffset(props.anchorElement);
-			anchorX = topLeftAnchorOffset.left;
-			anchorY = topLeftAnchorOffset.top;
-			anchorWidth = props.anchorElement.offsetWidth;
-			anchorHeight = props.anchorElement.offsetHeight;
+			return new AnchorLayout(
+				topLeftAnchorOffset.left,
+				topLeftAnchorOffset.top,
+				props.anchorElement.offsetWidth,
+				props.anchorElement.offsetHeight
+			);
 		}
+	});
 
-		/**
-		 * Positions the popup at the top of the anchor element.
-		 */
-		const positionTop = () => {
-			popupStyle.bottom = -(anchorY - 1);
-			popupStyle.maxHeight = anchorY - 4;
-		};
+	// Reference hooks.
+	const popupContainerRef = useRef<HTMLDivElement>(undefined!);
+	const popupRef = useRef<HTMLDivElement>(undefined!);
+	const popupChildrenRef = useRef<HTMLDivElement>(undefined!);
 
-		/**
-		 * Positions the popup at the bottom of the anchor element.
-		 */
-		const positionBottom = () => {
-			popupStyle.top = anchorY + anchorHeight + 1;
-			popupStyle.maxHeight = props.renderer.container.offsetHeight - 4 - popupStyle.top;
-		};
+	// State hooks.
+	const [popupLayout, setPopupLayout] = useState<PopupLayout>(() => {
+		// Initially, position the popup off screen.
+		const newPopupStyle = new PopupLayout();
+		newPopupStyle.left = -10000;
+		newPopupStyle.top = -10000;
+		return newPopupStyle;
+	});
 
-		// Adjust the popup style for the popup position.
-		if (props.popupPosition === 'top') {
-			positionTop();
-		} else if (props.popupPosition === 'bottom') {
-			positionBottom();
-		} else if (props.popupPosition === 'auto') {
-			// Get the children height.
-			const childrenHeight = popupChildrenRef.current ?
-				popupChildrenRef.current.scrollHeight :
-				0;
+	// Layout.
+	useLayoutEffect(() => {
+		// Get the document width and height.
+		const { clientWidth: documentWidth, clientHeight: documentHeight } =
+			DOM.getWindow(popupRef.current).document.documentElement;
 
-			// Calculate the ideal bottom.
-			const idealBottom = anchorY +
-				anchorHeight +
-				1 +
-				childrenHeight +
-				4;
-
-			// Try to position the popup fully at the bottom or fully at the top. If this this
-			// isn't possible, try to position the popup with scrolling at the bottom or at the
-			// top. If this isn't posssible, fallback to positioning the popup at the top of its
-			// container.
-			if (idealBottom < props.renderer.container.offsetHeight - 1) {
-				positionBottom();
-			} else if (childrenHeight < anchorY - 1) {
-				positionTop();
-			} else {
-				// Calculate the max bottom height.
-				const top = anchorY + anchorHeight + 1;
-				const maxBottomHeight = props.renderer.container.offsetHeight - 4 - top;
-
-				// Position the popup on the bottom with scrolling, if we can.
-				if (maxBottomHeight > MIN_SCROLLABLE_HEIGHT) {
-					positionBottom();
-				} else if (anchorY - 4 > MIN_SCROLLABLE_HEIGHT) {
-					positionTop();
-				} else {
-					// Position the popup at the top of its container.
-					popupStyle.top = 4;
-					popupStyle.maxHeight = props.renderer.container.offsetHeight - 8;
-				}
-			}
-		}
+		// Create the popup layout.
+		const popupLayout = new PopupLayout();
 
 		/**
 		 * Positions the popup aligned with the left edge of the anchor element.
 		 */
 		const positionLeft = () => {
-			popupStyle.left = anchorX;
+			popupLayout.left = anchorLayout.anchorX;
 		};
 
 		/**
 		 * Positions the popup aligned with the right edge of the anchor element.
 		 */
 		const positionRight = () => {
-			popupStyle.right = -(anchorX + anchorWidth);
+			popupLayout.right = -(anchorLayout.anchorX + anchorLayout.anchorWidth);
 		};
 
-		// Adjust the popup style for the popup alignment.
+		// Adjust the popup layout for the popup alignment.
 		if (props.popupAlignment === 'left') {
 			positionLeft();
 		} else if (props.popupAlignment === 'right') {
@@ -203,51 +195,87 @@ export const PositronModalPopup = (props: PropsWithChildren<PositronModalPopupPr
 				0;
 
 			// Calculate the ideal right.
-			const idealRight = anchorX +
+			const idealRight = anchorLayout.anchorX +
 				childrenWidth +
 				4;
 
 			// Try to position the popup fully at the bottom or fully at the top. If this this isn't
 			// possible, try to position the popup with scrolling at the bottom or at the top. If
 			// this isn't posssible, fallback to positioning the popup at the top of its container.
-			if (idealRight < props.renderer.container.offsetWidth) {
+			if (idealRight < documentWidth) {
 				positionLeft();
-			} else if (childrenWidth < anchorX - 1) {
+			} else if (childrenWidth < anchorLayout.anchorX - 1) {
 				positionRight();
 			} else {
-				popupStyle.left = 0;
+				popupLayout.left = 0;
 			}
 		}
 
-		// Return the popup style.
-		return popupStyle;
-	}, [props.anchorElement, props.anchorPoint, props.popupAlignment, props.popupPosition, props.renderer.container.offsetHeight, props.renderer.container.offsetWidth]);
+		/**
+		 * Positions the popup at the bottom of the anchor element.
+		 */
+		const positionBottom = () => {
+			popupLayout.top = anchorLayout.anchorY + anchorLayout.anchorHeight + 1;
+			popupLayout.maxHeight = documentHeight - 4 - popupLayout.top;
+		};
 
-	// Reference hooks.
-	const popupContainerRef = useRef<HTMLDivElement>(undefined!);
-	const popupRef = useRef<HTMLDivElement>(undefined!);
-	const popupChildrenRef = useRef<HTMLDivElement>(undefined!);
+		/**
+		 * Positions the popup at the top of the anchor element.
+		 */
+		const positionTop = () => {
+			popupLayout.bottom = -(anchorLayout.anchorY - 1);
+			popupLayout.maxHeight = anchorLayout.anchorY - 4;
+		};
 
-	// State hooks.
-	const [popupStyle, setPopupStyle] = useState<PopupStyle>(computePopupStyle());
+		// Adjust the popup layout for the popup position.
+		if (props.popupPosition === 'bottom') {
+			positionBottom();
+		} else if (props.popupPosition === 'top') {
+			positionTop();
+		} else if (props.popupPosition === 'auto') {
+			// Get the children height.
+			const childrenHeight = popupChildrenRef.current ?
+				popupChildrenRef.current.scrollHeight :
+				0;
 
-	/**
-	 * Checks whether the specified mouse event happened within the popup.
-	 * @param e The mouse event.
-	 * @returns A value which indicates whether the specified mouse event happened within the popup.
-	 */
-	const popupContainsMouseEvent = (e: MouseEvent) => {
-		const clientRect = popupRef.current.getBoundingClientRect();
-		return e.clientX >= clientRect.left && e.clientX <= clientRect.right &&
-			e.clientY >= clientRect.top && e.clientY <= clientRect.bottom;
-	};
+			// Calculate the ideal bottom.
+			const idealBottom = anchorLayout.anchorY +
+				anchorLayout.anchorHeight +
+				1 +
+				childrenHeight +
+				4;
 
-	// Layout effect.
-	useLayoutEffect(() => {
-		setPopupStyle(computePopupStyle());
-	}, [computePopupStyle]);
+			// Try to position the popup fully at the bottom or fully at the top. If this this
+			// isn't possible, try to position the popup with scrolling at the bottom or at the
+			// top. If this isn't posssible, fallback to positioning the popup at the top of its
+			// container.
+			if (idealBottom < documentHeight - 1) {
+				positionBottom();
+			} else if (childrenHeight < anchorLayout.anchorY - 1) {
+				positionTop();
+			} else {
+				// Calculate the max bottom height.
+				const top = anchorLayout.anchorY + anchorLayout.anchorHeight + 1;
+				const maxBottomHeight = documentHeight - 4 - top;
 
-	// Main useEffect.
+				// Position the popup on the bottom with scrolling, if we can.
+				if (maxBottomHeight > MIN_SCROLLABLE_HEIGHT) {
+					positionBottom();
+				} else if (anchorLayout.anchorY - 4 > MIN_SCROLLABLE_HEIGHT) {
+					positionTop();
+				} else {
+					// Position the popup at the top of its container.
+					popupLayout.top = 4;
+					popupLayout.maxHeight = documentHeight - 8;
+				}
+			}
+		}
+
+		// Set the popup layout.
+		setPopupLayout(popupLayout);
+	}, [anchorLayout.anchorHeight, anchorLayout.anchorWidth, anchorLayout.anchorX, anchorLayout.anchorY, props.popupAlignment, props.popupPosition]);
+
+	// Event handlers.
 	useEffect(() => {
 		// Create a disposable store for the event handlers we'll add.
 		const disposableStore = new DisposableStore();
@@ -376,19 +404,47 @@ export const PositronModalPopup = (props: PropsWithChildren<PositronModalPopupPr
 
 		// Add the onMouseDown event handler.
 		disposableStore.add(props.renderer.onMouseDown(e => {
-			if (!popupContainsMouseEvent(e)) {
+			const clientRect = popupRef.current.getBoundingClientRect();
+			if (!(e.clientX >= clientRect.left && e.clientX <= clientRect.right &&
+				e.clientY >= clientRect.top && e.clientY <= clientRect.bottom)) {
 				props.renderer.dispose();
 			}
 		}));
 
 		// Add the onResize event handler.
 		disposableStore.add(props.renderer.onResize(e => {
-			setPopupStyle(computePopupStyle());
+			// Get the document width and height.
+			const { clientWidth: documentWidth, clientHeight: documentHeight } =
+				DOM.getWindow(popupRef.current).document.documentElement;
+
+			// Get the popup right and bottom.
+			const { right: popupRight, bottom: popupBottom } =
+				popupRef.current.getBoundingClientRect();
+
+			// When resizing results in the popup being off screen, dispose of it.
+			if (popupRight >= documentWidth - 4 || popupBottom >= documentHeight - 4) {
+				props.renderer.dispose();
+			} else if (isNumber(popupLayout.maxHeight)) {
+				// Increase the max height, if possible.
+				if (isNumber(popupLayout.top)) {
+					// Bottom alignment.
+					const maxHeight = documentHeight - 4 - popupLayout.top;
+					if (maxHeight > popupLayout.maxHeight) {
+						setPopupLayout({ ...popupLayout, maxHeight });
+					}
+				} else if (isNumber(popupLayout.bottom)) {
+					// Top alignment.
+					const maxHeight = anchorLayout.anchorY - 4;
+					if (maxHeight > popupLayout.maxHeight) {
+						setPopupLayout({ ...popupLayout, maxHeight });
+					}
+				}
+			}
 		}));
 
 		// Return the clean up for our event handlers.
 		return () => disposableStore.dispose();
-	}, [computePopupStyle, props]);
+	}, [anchorLayout.anchorY, popupLayout, props]);
 
 	// Create the class names.
 	const classNames = positronClassNames(
@@ -408,7 +464,7 @@ export const PositronModalPopup = (props: PropsWithChildren<PositronModalPopupPr
 				ref={popupRef}
 				className={classNames}
 				style={{
-					...popupStyle,
+					...popupLayout,
 					width: props.width,
 					minWidth: props.minWidth ?? 'auto',
 					height: props.height,
