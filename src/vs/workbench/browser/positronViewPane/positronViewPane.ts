@@ -16,6 +16,10 @@ import { IThemeService } from 'vs/platform/theme/common/themeService';
 import { IViewPaneOptions, ViewPane } from 'vs/workbench/browser/parts/views/viewPane';
 import { IViewDescriptorService } from 'vs/workbench/common/views';
 
+export interface PositronViewPaneOptions extends IViewPaneOptions {
+	allowZeroMinimumBodySize?: boolean;
+}
+
 export abstract class PositronViewPane extends ViewPane {
 	private readonly _disposableStore: DisposableStore;
 
@@ -26,7 +30,7 @@ export abstract class PositronViewPane extends ViewPane {
 	focusElement?(): void;
 
 	constructor(
-		options: IViewPaneOptions,
+		options: PositronViewPaneOptions,
 		@IKeybindingService keybindingService: IKeybindingService,
 		@IContextMenuService contextMenuService: IContextMenuService,
 		@IConfigurationService configurationService: IConfigurationService,
@@ -51,6 +55,15 @@ export abstract class PositronViewPane extends ViewPane {
 			telemetryService,
 			hoverService
 		);
+
+		// Override minimum size option if it isn't already somehow set. There doesn't seem to be a
+		// way to set this in any sort of configuration hence the need to override it here. If this
+		// isn't set, then the content of panes may occlude other parts of the editor when it is
+		// resized to be very small. See the `onDidChangeBodyVisibility` handler for implications.
+		if (options.allowZeroMinimumBodySize) {
+			this.minimumBodySize = 0;
+		}
+
 		this._disposableStore = this._register(new DisposableStore());
 
 		// Make the viewpane focusable even when there are no components
@@ -58,6 +71,22 @@ export abstract class PositronViewPane extends ViewPane {
 		// at all times because otherwise blurring events do not occur and the
 		// viewpane management state becomes confused on toggle.
 		this.element.tabIndex = 0;
+
+		if (options.allowZeroMinimumBodySize) {
+			// Register the onDidChangeBodyVisibility event handler.
+			this._register(this.onDidChangeBodyVisibility(visible => {
+
+				// If the view is height 0, then give it some height so it actually expands.
+				if (visible) {
+					// Quickly toggle the minimum body size. This is a synchronous way that will force
+					// the element to have some height. We set the minimum body size to 0 first to ensure
+					// that the view can be resized to be very small without spilling over, so we need to
+					// set it back to the original minimum body size after.
+					this.minimumBodySize = options.maximumBodySize ?? 50;
+					this.minimumBodySize = 0;
+				}
+			}));
+		}
 	}
 
 	override focus(): void {

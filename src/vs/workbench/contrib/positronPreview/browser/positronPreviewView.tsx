@@ -88,11 +88,7 @@ export class PositronPreviewViewPane extends PositronViewPane implements IReactC
 		@IPositronPreviewService private readonly positronPreviewService: IPositronPreviewService,
 		@IHoverService hoverService: IHoverService,
 	) {
-		// Override minimum size option if it isn't already somehow set. See `PositronHelpView` for
-		// more context.
-		options = { ...options, minimumBodySize: 0 };
-
-		super(options, keybindingService, contextMenuService, configurationService, contextKeyService, viewDescriptorService, instantiationService, openerService, themeService, telemetryService, hoverService);
+		super({ ...options, allowZeroMinimumBodySize: true }, keybindingService, contextMenuService, configurationService, contextKeyService, viewDescriptorService, instantiationService, openerService, themeService, telemetryService, hoverService);
 
 		this._register(this.onDidChangeBodyVisibility(() => this.onDidChangeVisibility(this.isBodyVisible())));
 		this._positronPreviewContainer = DOM.$('.positron-preview-container');
