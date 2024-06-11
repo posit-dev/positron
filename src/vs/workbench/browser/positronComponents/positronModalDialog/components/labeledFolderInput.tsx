@@ -27,6 +27,10 @@ export interface LabeledFolderInputProps {
 	 * Custom error message. Will override the built-in validator error message if present.
 	 */
 	errorMsg?: string;
+	/**
+	 * Should validation be skipped? Defaults to false.
+	 */
+	skipValidation?: boolean;
 	placeholder?: string;
 	/**
 	 * By default the user can type into the input field.
@@ -47,9 +51,13 @@ interface LabeledExistingFolderInputProps extends LabeledFolderInputProps {
  * @param props A LabeledFolderInputProps that contains the component properties.
  * @returns The rendered component.
  */
-export const LabeledFolderInput = (props: LabeledFolderInputProps | LabeledExistingFolderInputProps) => {
+export const LabeledFolderInput = ({ skipValidation = false, ...props }: LabeledFolderInputProps | LabeledExistingFolderInputProps) => {
 
-	const validatorFn = 'mustExist' in props ? (path: string | number) => checkIfPathExists(path, props.fileService) : checkIfPathValid;
+	const validatorFn = skipValidation ?
+		noOpValidator :
+		'mustExist' in props ?
+			(path: string | number) => checkIfPathExists(path, props.fileService) :
+			checkIfPathValid;
 	const validatorErrorMsg = useDebouncedValidator({ value: props.value, validator: validatorFn });
 	const errorMsg = props.errorMsg || validatorErrorMsg;
 
@@ -72,3 +80,5 @@ export const LabeledFolderInput = (props: LabeledFolderInputProps | LabeledExist
 LabeledFolderInput.defaultProps = {
 	readOnlyInput: false
 };
+
+function noOpValidator() { return undefined; }
