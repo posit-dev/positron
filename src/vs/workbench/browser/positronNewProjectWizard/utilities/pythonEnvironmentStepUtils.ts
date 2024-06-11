@@ -20,7 +20,7 @@ export interface PythonEnvironmentProviderInfo {
  * @param parentFolder The parent folder for the new environment.
  * @param projectName The name of the project.
  * @param envProviderName The name of the Python environment provider.
- * @returns The location for the new Python environment.
+ * @returns Array of strings representing the path to the new environment.
  */
 export const locationForNewEnv = (
 	parentFolder: string,
@@ -35,7 +35,7 @@ export const locationForNewEnv = (
 			: envProviderName === PythonEnvironmentProvider.Conda
 				? '.conda'
 				: '';
-	return `${parentFolder}/${projectName}/${envDir}`;
+	return [parentFolder, projectName, envDir];
 };
 
 /**
