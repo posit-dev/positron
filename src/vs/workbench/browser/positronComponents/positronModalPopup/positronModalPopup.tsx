@@ -19,6 +19,7 @@ import { PositronModalReactRenderer } from 'vs/workbench/browser/positronModalRe
 /**
  * Constants.
  */
+const LAYOUT_MARGIN = 4;
 const MIN_SCROLLABLE_HEIGHT = 75;
 
 /**
@@ -154,10 +155,10 @@ export const PositronModalPopup = (props: PropsWithChildren<PositronModalPopupPr
 	// State hooks.
 	const [popupLayout, setPopupLayout] = useState<PopupLayout>(() => {
 		// Initially, position the popup off screen.
-		const newPopupStyle = new PopupLayout();
-		newPopupStyle.left = -10000;
-		newPopupStyle.top = -10000;
-		return newPopupStyle;
+		const newPopupLayout = new PopupLayout();
+		newPopupLayout.left = -10000;
+		newPopupLayout.top = -10000;
+		return newPopupLayout;
 	});
 
 	// Layout.
@@ -197,7 +198,7 @@ export const PositronModalPopup = (props: PropsWithChildren<PositronModalPopupPr
 			// Calculate the ideal right.
 			const idealRight = anchorLayout.anchorX +
 				childrenWidth +
-				4;
+				LAYOUT_MARGIN;
 
 			// Try to position the popup fully at the bottom or fully at the top. If this this isn't
 			// possible, try to position the popup with scrolling at the bottom or at the top. If
@@ -216,7 +217,7 @@ export const PositronModalPopup = (props: PropsWithChildren<PositronModalPopupPr
 		 */
 		const positionBottom = () => {
 			popupLayout.top = anchorLayout.anchorY + anchorLayout.anchorHeight + 1;
-			popupLayout.maxHeight = documentHeight - 4 - popupLayout.top;
+			popupLayout.maxHeight = documentHeight - LAYOUT_MARGIN - popupLayout.top;
 		};
 
 		/**
@@ -224,7 +225,7 @@ export const PositronModalPopup = (props: PropsWithChildren<PositronModalPopupPr
 		 */
 		const positionTop = () => {
 			popupLayout.bottom = -(anchorLayout.anchorY - 1);
-			popupLayout.maxHeight = anchorLayout.anchorY - 4;
+			popupLayout.maxHeight = anchorLayout.anchorY - LAYOUT_MARGIN;
 		};
 
 		// Adjust the popup layout for the popup position.
@@ -243,7 +244,7 @@ export const PositronModalPopup = (props: PropsWithChildren<PositronModalPopupPr
 				anchorLayout.anchorHeight +
 				1 +
 				childrenHeight +
-				4;
+				LAYOUT_MARGIN;
 
 			// Try to position the popup fully at the bottom or fully at the top. If this this
 			// isn't possible, try to position the popup with scrolling at the bottom or at the
@@ -256,17 +257,17 @@ export const PositronModalPopup = (props: PropsWithChildren<PositronModalPopupPr
 			} else {
 				// Calculate the max bottom height.
 				const top = anchorLayout.anchorY + anchorLayout.anchorHeight + 1;
-				const maxBottomHeight = documentHeight - 4 - top;
+				const maxBottomHeight = documentHeight - LAYOUT_MARGIN - top;
 
 				// Position the popup on the bottom with scrolling, if we can.
 				if (maxBottomHeight > MIN_SCROLLABLE_HEIGHT) {
 					positionBottom();
-				} else if (anchorLayout.anchorY - 4 > MIN_SCROLLABLE_HEIGHT) {
+				} else if (anchorLayout.anchorY - LAYOUT_MARGIN > MIN_SCROLLABLE_HEIGHT) {
 					positionTop();
 				} else {
 					// Position the popup at the top of its container.
-					popupLayout.top = 4;
-					popupLayout.maxHeight = documentHeight - 8;
+					popupLayout.top = LAYOUT_MARGIN;
+					popupLayout.maxHeight = documentHeight - (LAYOUT_MARGIN * 2);
 				}
 			}
 		}
@@ -422,19 +423,21 @@ export const PositronModalPopup = (props: PropsWithChildren<PositronModalPopupPr
 				popupRef.current.getBoundingClientRect();
 
 			// When resizing results in the popup being off screen, dispose of it.
-			if (popupRight >= documentWidth - 4 || popupBottom >= documentHeight - 4) {
+			if (popupRight >= documentWidth - LAYOUT_MARGIN ||
+				popupBottom >= documentHeight - LAYOUT_MARGIN
+			) {
 				props.renderer.dispose();
 			} else if (isNumber(popupLayout.maxHeight)) {
 				// Increase the max height, if possible.
 				if (isNumber(popupLayout.top)) {
 					// Bottom alignment.
-					const maxHeight = documentHeight - 4 - popupLayout.top;
+					const maxHeight = documentHeight - LAYOUT_MARGIN - popupLayout.top;
 					if (maxHeight > popupLayout.maxHeight) {
 						setPopupLayout({ ...popupLayout, maxHeight });
 					}
 				} else if (isNumber(popupLayout.bottom)) {
 					// Top alignment.
-					const maxHeight = anchorLayout.anchorY - 4;
+					const maxHeight = anchorLayout.anchorY - LAYOUT_MARGIN;
 					if (maxHeight > popupLayout.maxHeight) {
 						setPopupLayout({ ...popupLayout, maxHeight });
 					}
