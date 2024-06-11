@@ -230,6 +230,11 @@
             "%r.configuration.pipe.magrittr.description%"
           ],
           "description": "%r.configuration.pipe%"
+        },
+        "positron.r.diagnostics.enable": {
+          "type": "boolean",
+          "default": true,
+          "description": "%r.configuration.diagnostics.enable.description%"
         }
       }
     },

@@ -52,5 +52,6 @@
 	"r.configuration.pipe.native.token": "|>",
 	"r.configuration.pipe.magrittr.token": "%>%",
 	"r.configuration.pipe.native.description": "Native pipe available in R >= 4.1",
-	"r.configuration.pipe.magrittr.description": "Pipe operator from the magrittr package, re-exported by many other packages"
+	"r.configuration.pipe.magrittr.description": "Pipe operator from the magrittr package, re-exported by many other packages",
+	"r.configuration.diagnostics.enable.description": "Whether to enable R diagnostics globally"
 }
