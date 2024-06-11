@@ -24,7 +24,8 @@ export function setup(logger: Logger) {
 
 			});
 
-			it('Python - Verifies basic plot functionality', async function () {
+			it('Python - Verifies basic plot functionality - Dynamic Plot', async function () {
+				// TestRail #608114
 				const app = this.app as Application;
 
 				// modified snippet from https://www.geeksforgeeks.org/python-pandas-dataframe/
@@ -70,6 +71,7 @@ plt.show()`;
 			});
 
 			it('R - Verifies basic plot functionality', async function () {
+				// TestRail #628633
 				const app = this.app as Application;
 
 				const script = `cars <- c(1, 3, 6, 4, 9)
