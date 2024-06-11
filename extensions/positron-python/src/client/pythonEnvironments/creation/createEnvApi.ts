@@ -30,6 +30,7 @@ import { CreateEnvironmentOptionsInternal } from './types';
 // --- Start Positron ---
 import { getCondaPythonVersions } from './provider/condaUtils';
 import { IPythonRuntimeManager } from '../../positron/manager';
+import { Conda } from '../common/environmentManagers/conda';
 // --- End Positron ---
 
 class CreateEnvironmentProviders {
@@ -114,6 +115,13 @@ export function registerCreateEnvironmentFeatures(
                     return { ...result, metadata };
                 }
                 return result;
+            },
+        ),
+        registerCommand(
+            Commands.Is_Conda_Installed,
+            async (): Promise<boolean> => {
+                const conda = await Conda.getConda();
+                return conda !== undefined;
             },
         ),
         registerCommand(Commands.Get_Conda_Python_Versions, () => getCondaPythonVersions()),
