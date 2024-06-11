@@ -49,10 +49,6 @@ import { setBaseLayerHoverDelegate } from 'vs/base/browser/ui/hover/hoverDelegat
 import { AccessibilityProgressSignalScheduler } from 'vs/platform/accessibilitySignal/browser/progressAccessibilitySignalScheduler';
 import { setProgressAcccessibilitySignalScheduler } from 'vs/base/browser/ui/progressbar/progressAccessibilitySignal';
 
-// --- Start Positron ---
-import { positronFourPaneDsLayout } from 'vs/workbench/browser/positronCustomViews';
-import { IViewDescriptorService } from 'vs/workbench/common/views';
-// --- End Positron ---
 export interface IWorkbenchOptions {
 
 	/**
@@ -62,10 +58,6 @@ export interface IWorkbenchOptions {
 }
 
 export class Workbench extends Layout {
-	// --- Start Positron ---
-	private static readonly LAYOUT_INITIALIZED_STORAGE_KEY = 'positron.workbench.layoutInitialized';
-	// --- End Positron ---
-
 	private readonly _onWillShutdown = this._register(new Emitter<WillShutdownEvent>());
 	readonly onWillShutdown = this._onWillShutdown.event;
 
@@ -166,7 +158,6 @@ export class Workbench extends Layout {
 				const hoverService = accessor.get(IHoverService);
 				const dialogService = accessor.get(IDialogService);
 				const notificationService = accessor.get(INotificationService) as NotificationService;
-				const viewDescriptorService = accessor.get(IViewDescriptorService);
 
 				// Default Hover Delegate must be registered before creating any workbench/layout components
 				// as these possibly will use the default hover delegate
@@ -194,16 +185,6 @@ export class Workbench extends Layout {
 
 				// Layout
 				this.layout();
-
-				// --- Start Positron ---
-				// Initialize the layout only on first startup
-				const isLayoutInitialized = storageService.getBoolean(Workbench.LAYOUT_INITIALIZED_STORAGE_KEY, StorageScope.PROFILE, false);
-				if (!isLayoutInitialized) {
-					viewDescriptorService.loadCustomViewDescriptor(positronFourPaneDsLayout.layoutDescriptor);
-					this.enterCustomLayout(positronFourPaneDsLayout.layoutDescriptor);
-					storageService.store(Workbench.LAYOUT_INITIALIZED_STORAGE_KEY, true, StorageScope.PROFILE, StorageTarget.MACHINE);
-				}
-				// --- End Positron ---
 
 				// Restore
 				this.restore(lifecycleService);
