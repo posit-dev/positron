@@ -20,6 +20,8 @@ import { Socket } from 'net';
 import { RHelpTopicProvider } from './help';
 import { RLspOutputChannelManager } from './lsp-output-channel-manager';
 import { R_DOCUMENT_SELECTORS } from './provider';
+import { VirtualDocumentProvider } from './virtual-documents';
+
 /**
  * The state of the language server.
  */
@@ -272,6 +274,11 @@ export class ArkLsp implements vscode.Disposable {
 	 * @param client The language client instance
 	 */
 	private registerPositronLspExtensions(client: LanguageClient) {
+		// Provide virtual documents.
+		const vdocDisposable = vscode.workspace.registerTextDocumentContentProvider('ark',
+			new VirtualDocumentProvider(client));
+		this.activationDisposables.push(vdocDisposable);
+
 		// Register a statement range provider to detect R statements
 		const rangeDisposable = positron.languages.registerStatementRangeProvider('r',
 			new RStatementRangeProvider(client));
