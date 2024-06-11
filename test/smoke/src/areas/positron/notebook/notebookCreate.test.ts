@@ -32,6 +32,7 @@ export function setup(logger: Logger) {
 			});
 
 			it('Python - Basic notebook creation and execution (code)', async function () {
+				// TestRail #628631
 				const app = this.app as Application;
 
 				await app.workbench.positronNotebooks.createNewNotebook();
@@ -47,6 +48,7 @@ export function setup(logger: Logger) {
 			});
 
 			it('Python - Basic notebook creation and execution (markdown)', async function () {
+				// TestRail #628632
 				const app = this.app as Application;
 
 				await app.workbench.notebook.insertNotebookCell('markdown');
@@ -85,6 +87,7 @@ export function setup(logger: Logger) {
 			});
 
 			it('R - Basic notebook creation and execution (code)', async function () {
+				// TestRail #628629
 				const app = this.app as Application;
 
 				await app.workbench.positronNotebooks.createNewNotebook();
@@ -100,6 +103,7 @@ export function setup(logger: Logger) {
 			});
 
 			it('R - Basic notebook creation and execution (markdown)', async function () {
+				// TestRail #628630
 				const app = this.app as Application;
 
 				await app.workbench.notebook.insertNotebookCell('markdown');
