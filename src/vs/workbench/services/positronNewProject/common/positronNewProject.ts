@@ -33,13 +33,24 @@ export enum NewProjectStartupPhase {
 	 * Phase 3: The new project is running initialization tasks provided by extensions, such as creating
 	 * the appropriate unsaved new file, initializing the git repository, etc., and starting the user-selected
 	 * interpreter.
-	 */
+	*/
 	CreatingProject = 'creatingProject',
 
 	/**
-	 * Phase 4: The new project has been initialized.
+	 * Phase 4: The runtime for the new project has started.
 	 */
-	Complete = 'complete'
+	RuntimeStartup = 'runtimeStartup',
+
+	/**
+	 * Phase 5: The new project is running post-initialization tasks that require the interpreter to be
+	 * ready, such as running renv::init() in R projects.
+	 */
+
+	PostInitialization = 'postInitialization',
+	/**
+	 * Phase 6: The new project has been initialized.
+	 */
+	Complete = 'complete',
 }
 
 /**
@@ -106,12 +117,22 @@ export interface IPositronNewProjectService {
 	/**
 	 * Event tracking the pending tasks.
 	 */
-	onDidChangePendingTasks: Event<Set<string>>;
+	onDidChangePendingInitTasks: Event<Set<string>>;
+
+	/**
+	 * Event tracking the pending post-init tasks.
+	 */
+	onDidChangePostInitTasks: Event<Set<string>>;
 
 	/**
 	 * The pending tasks.
 	 */
 	readonly pendingTasks: Set<string>;
+
+	/**
+	 * The pending post-init tasks.
+	 */
+	readonly pendingPostInitTasks: Set<string>;
 
 	/**
 	 * Clears the new project configuration from the storage service.
@@ -135,7 +156,12 @@ export interface IPositronNewProjectService {
 	/**
 	 * Barrier for other services to wait for all project tasks to complete.
 	 */
-	allTasksComplete: Barrier;
+	initTasksComplete: Barrier;
+
+	/**
+	 * Barrier for other services to wait for all post-init tasks to complete.
+	 */
+	postInitTasksComplete: Barrier;
 
 	/**
 	 * Returns the metadata for the runtime chosen for the new project, or

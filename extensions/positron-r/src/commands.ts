@@ -10,7 +10,7 @@ import { getRPackageName } from './contexts';
 import { getRPackageTasks } from './tasks';
 import { randomUUID } from 'crypto';
 import { RSessionManager } from './session-manager';
-import { MINIMUM_R_VERSION } from './constants';
+import { MINIMUM_RENV_VERSION, MINIMUM_R_VERSION } from './constants';
 
 export async function registerCommands(context: vscode.ExtensionContext) {
 
@@ -183,31 +183,15 @@ export async function registerCommands(context: vscode.ExtensionContext) {
 		vscode.commands.registerCommand('r.getMinimumRVersion', (): string => MINIMUM_R_VERSION),
 
 		// Command used to initialize a new project with renv
-		vscode.commands.registerCommand('r.renvInit', async (runtimeId: string, packageName: string, version?: string) => {
-			if (!runtimeId && !packageName && !version) {
-				return;
+		vscode.commands.registerCommand('r.renvInit', async () => {
+			// ensure renv is installed before calling renv::init()
+			// this prompts the user to install if it's not already
+			// if the user declines, renv::init() will not be called
+			const isInstalled = await checkInstalled('renv', MINIMUM_RENV_VERSION);
+			if (isInstalled) {
+				const session = await positron.runtime.getForegroundSession();
+				session?.execute(`renv::init()`, randomUUID(), positron.RuntimeCodeExecutionMode.Transient, positron.RuntimeErrorBehavior.Stop);
 			}
-			const runtimeRegisterListener = positron.runtime.onDidRegisterRuntime(async (runtimeMetadata) => {
-				if (runtimeMetadata.runtimeId === runtimeId) {
-					let calledRenvInit = false;
-					// ensure the runtime has started
-					const session = await positron.runtime.startLanguageRuntime(runtimeId, 'renv::init() for new project');
-					const runtimeStateListener = session.onDidChangeRuntimeState(async (state) => {
-						if (state === positron.RuntimeState.Idle && !calledRenvInit) {
-							calledRenvInit = true;
-							// ensure renv is installed before calling renv::init()
-							// this prompts the user to install if it's not already
-							// if the user declines, renv::init() will not be called
-							const isInstalled = await checkInstalled(packageName, version);
-							if (isInstalled) {
-								session.execute(`renv::init()`, randomUUID(), positron.RuntimeCodeExecutionMode.Transient, positron.RuntimeErrorBehavior.Stop);
-							}
-							runtimeStateListener.dispose();
-						}
-					});
-					runtimeRegisterListener.dispose();
-				}
-			});
 		}),
 	);
 }

@@ -13,3 +13,6 @@ const packageJson = fs.readJSONSync(path.join(EXTENSION_ROOT_DIR, 'package.json'
 
 // The minimum supported version of R.
 export const MINIMUM_R_VERSION = packageJson.positron.minimumRVersion as string;
+
+// The minimum supported version of renv.
+export const MINIMUM_RENV_VERSION = packageJson.positron.minimumRenvVersion as string;
