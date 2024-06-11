@@ -510,9 +510,8 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
             const regex = /^(\w*Error|Exception)\b/m;
             const errortext = regex.test(logFileContent)
                 ? vscode.l10n.t(
-                      '{0} {1} {2}',
+                      '{0} exited unexpectedly with error: {1}',
                       kernel.runtimeMetadata.runtimeName,
-                      Console.consoleExitWithError,
                       logFileContent,
                   )
                 : Console.consoleExitGeneric;

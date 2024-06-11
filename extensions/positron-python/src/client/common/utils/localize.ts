@@ -534,6 +534,5 @@ export namespace CreateEnv {
 // --- Start Positron ---
 export namespace Console {
     export const consoleExitGeneric = l10n.t('Console exited unexpectedly. View logs for more info.');
-    export const consoleExitWithError = l10n.t('exited unexpectedly with error:');
 }
 // --- End Positron ---
