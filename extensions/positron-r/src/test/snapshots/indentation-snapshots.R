@@ -415,5 +415,5 @@ foobar <- function(arg,
 # ->
 foobar <- function(arg,
                    arg) {
-                       "<>"
-                   }
+    "<>"
+}
