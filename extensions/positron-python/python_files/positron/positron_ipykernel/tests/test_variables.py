@@ -414,7 +414,7 @@ def variable(display_name: str, display_value: str, children: List[Dict[str, Any
             pd.Series([1, 2]),
             variable(
                 "root",
-                "[2 values] pandas.Series",
+                "pandas.Series [1, 2]",
                 children=[variable("0", "1"), variable("1", "2")],
             ),
         ),
@@ -422,7 +422,7 @@ def variable(display_name: str, display_value: str, children: List[Dict[str, Any
             pl.Series([1, 2]),
             variable(
                 "root",
-                "[2 values] polars.Series",
+                "polars.Series [1, 2]",
                 children=[variable("0", "1"), variable("1", "2")],
             ),
         ),
@@ -435,12 +435,12 @@ def variable(display_name: str, display_value: str, children: List[Dict[str, Any
                 children=[
                     variable(
                         "a",
-                        "[2 values] pandas.Series",
+                        "pandas.Series [1, 2]",
                         children=[variable("0", "1"), variable("1", "2")],
                     ),
                     variable(
                         "b",
-                        "[2 values] pandas.Series",
+                        "pandas.Series ['3', '4']",
                         children=[variable("0", "'3'"), variable("1", "'4'")],
                     ),
                 ],
@@ -454,12 +454,12 @@ def variable(display_name: str, display_value: str, children: List[Dict[str, Any
                 children=[
                     variable(
                         "a",
-                        "[2 values] polars.Series",
+                        "polars.Series [1, 2]",
                         children=[variable("0", "1"), variable("1", "2")],
                     ),
                     variable(
                         "b",
-                        "[2 values] polars.Series",
+                        "polars.Series ['3', '4']",
                         children=[variable("0", "'3'"), variable("1", "'4'")],
                     ),
                 ],
@@ -502,7 +502,7 @@ def variable(display_name: str, display_value: str, children: List[Dict[str, Any
             pd.Series(range(4), index=["a", "b", "a", "b"]),
             variable(
                 "root",
-                "[4 values] pandas.Series",
+                "pandas.Series [0, 1, 2, 3]",
                 children=[
                     variable("a", "0"),
                     variable("b", "1"),
@@ -517,10 +517,10 @@ def variable(display_name: str, display_value: str, children: List[Dict[str, Any
                 "root",
                 "[1 rows x 4 columns] pandas.DataFrame",
                 children=[
-                    variable("a", "[1 values] pandas.Series", children=[variable("0", "0")]),
-                    variable("b", "[1 values] pandas.Series", children=[variable("0", "1")]),
-                    variable("a", "[1 values] pandas.Series", children=[variable("0", "2")]),
-                    variable("b", "[1 values] pandas.Series", children=[variable("0", "3")]),
+                    variable("a", "pandas.Series [0]", children=[variable("0", "0")]),
+                    variable("b", "pandas.Series [1]", children=[variable("0", "1")]),
+                    variable("a", "pandas.Series [2]", children=[variable("0", "2")]),
+                    variable("b", "pandas.Series [3]", children=[variable("0", "3")]),
                 ],
             ),
         ),
@@ -540,7 +540,7 @@ def variable(display_name: str, display_value: str, children: List[Dict[str, Any
             pd.Series({0: 0, "0": 1}),
             variable(
                 "root",
-                "[2 values] pandas.Series",
+                "pandas.Series [0, 1]",
                 children=[
                     variable("0", "0"),
                     variable("0", "1"),
@@ -555,12 +555,12 @@ def variable(display_name: str, display_value: str, children: List[Dict[str, Any
                 children=[
                     variable(
                         "0",
-                        "[1 values] pandas.Series",
+                        "pandas.Series [0]",
                         children=[variable("0", "0")],
                     ),
                     variable(
                         "0",
-                        "[1 values] pandas.Series",
+                        "pandas.Series [1]",
                         children=[variable("0", "1")],
                     ),
                 ],
