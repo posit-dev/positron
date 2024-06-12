@@ -115,7 +115,7 @@ export interface IPositronNewProjectService {
 	readonly startupPhase: NewProjectStartupPhase;
 
 	/**
-	 * Event tracking the pending tasks.
+	 * Event tracking the pending init tasks.
 	 */
 	onDidChangePendingInitTasks: Event<Set<string>>;
 
