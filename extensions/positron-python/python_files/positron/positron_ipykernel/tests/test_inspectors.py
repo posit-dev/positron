@@ -724,7 +724,7 @@ def test_inspect_pandas_series() -> None:
 
     verify_inspector(
         value=value,
-        display_value="[2 values] pandas.Series",
+        display_value="pandas.Series [0, 1]",
         kind=VariableKind.Table,
         display_type=f"int64 [{rows}]",
         type_info=get_type_as_str(value),
@@ -782,7 +782,7 @@ def test_inspect_polars_series() -> None:
 
     verify_inspector(
         value=value,
-        display_value=f"[{rows} values] polars.Series",
+        display_value="polars.Series [0, 1]",
         kind=VariableKind.Map,
         display_type=f"Int64 [{rows}]",
         type_info=get_type_as_str(value),
