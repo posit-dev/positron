@@ -151,17 +151,19 @@ export const ColumnSummaryCell = (props: ColumnSummaryCellProps) => {
 		summarySupported = false;
 	}
 
+	console.log('YAYA');
+
 	// Render.
 	return (
 		<div
 			className='column-summary'
 			onDoubleClick={props.onDoubleClick}
+			onMouseEnter={() => setMouseInside(true)}
+			onMouseLeave={() => setMouseInside(false)}
 			onMouseDown={() => {
 				props.instance.scrollToRow(props.columnIndex);
 				props.instance.setCursorRow(props.columnIndex);
 			}}
-			onMouseOver={() => setMouseInside(true)}
-			onMouseLeave={() => setMouseInside(false)}
 		>
 			{(mouseInside || props.columnIndex === props.instance.cursorRowIndex) &&
 				<div className='cursor-background' />
