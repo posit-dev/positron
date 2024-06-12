@@ -67,7 +67,11 @@ async function regenerateIndentSnapshots() {
 	// Remove documentation snippet
 	snippets.splice(0, 1);
 
-	const snapshots: string[] = ['# File generated from `indentation-cases.R`.\n\n'];
+	const header =
+		'# File generated from `indentation-cases.R`.\n\n' +
+		'declare(ark(diagnostics(enable = FALSE)))\n\n';
+
+	const snapshots: string[] = [header];
 
 	for (const snippet of snippets) {
 		const bareSnippet = snippet.split('\n').slice(0, -1).join('\n');

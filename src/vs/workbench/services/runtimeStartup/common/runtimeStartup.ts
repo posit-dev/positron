@@ -829,7 +829,7 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 
 		this._notificationService.prompt(Severity.Warning, msg, [
 			{
-				label: nls.localize('openOutputLogs', 'Open logs'),
+				label: nls.localize('openOutputLogs', 'Open Logs'),
 				run: () => {
 					session.showOutput()
 				}

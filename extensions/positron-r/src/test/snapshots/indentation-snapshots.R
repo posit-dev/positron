@@ -1,5 +1,7 @@
 # File generated from `indentation-cases.R`.
 
+declare(ark(diagnostics(enable = FALSE)))
+
 # ---
 # Starting a pipeline (+ operator)
 1 +"<>"
@@ -397,8 +399,21 @@ function() {
 foo(function() {
     bar"<>"
 })
+
 # ->
 foo(function() {
     bar
     "<>"
 })
+
+# ---
+# Indentation of prefixed braces
+# https://github.com/posit-dev/positron/issues/3475
+# https://github.com/posit-dev/positron/issues/3484
+foobar <- function(arg,
+                   arg) {"<>"}
+# ->
+foobar <- function(arg,
+                   arg) {
+    "<>"
+}
