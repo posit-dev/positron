@@ -33,7 +33,7 @@
         "category": "R",
         "title": "%r.command.insertPipe.title%",
         "shortTitle": "%r.menu.insertPipe.title%",
-        "enablement": "editorLangId == r && editorTextFocus"
+        "enablement": "editorTextFocus && editorLangId == r || config.rstudio.keymap.enable && editorTextFocus && editorLangId == quarto"
       },
       {
         "command": "r.insertPipeConsole",
@@ -325,7 +325,7 @@
         "command": "r.insertPipe",
         "key": "ctrl+shift+m",
         "mac": "cmd+shift+m",
-        "when": "editorLangId == r && editorTextFocus"
+        "when": "editorTextFocus && editorLangId == r || config.rstudio.keymap.enable && editorTextFocus && editorLangId == quarto"
       },
       {
         "command": "r.insertPipeConsole",
@@ -407,7 +407,7 @@
         {
           "category": "R",
           "command": "r.insertPipe",
-          "when": "editorLangId == r && editorTextFocus"
+          "when": "editorTextFocus && editorLangId == r || config.rstudio.keymap.enable && editorTextFocus && editorLangId == quarto"
         },
         {
           "category": "R",
