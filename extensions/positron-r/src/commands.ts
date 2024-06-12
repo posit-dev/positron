@@ -190,7 +190,13 @@ export async function registerCommands(context: vscode.ExtensionContext) {
 			const isInstalled = await checkInstalled('renv', MINIMUM_RENV_VERSION);
 			if (isInstalled) {
 				const session = await positron.runtime.getForegroundSession();
-				session?.execute(`renv::init()`, randomUUID(), positron.RuntimeCodeExecutionMode.Transient, positron.RuntimeErrorBehavior.Stop);
+				if (session) {
+					session.execute(`renv::init()`, randomUUID(), positron.RuntimeCodeExecutionMode.Transient, positron.RuntimeErrorBehavior.Stop);
+				} else {
+					console.debug('[r.renvInit] no session available');
+				}
+			} else {
+				console.debug('[r.renvInit] renv is not installed');
 			}
 		}),
 	);
