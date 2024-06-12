@@ -212,3 +212,10 @@ function() {
 foo(function() {
     bar"<>"
 })
+
+# ---
+# Indentation of prefixed braces
+# https://github.com/posit-dev/positron/issues/3475
+# https://github.com/posit-dev/positron/issues/3484
+foobar <- function(arg,
+                   arg) {"<>"}
