@@ -1274,7 +1274,10 @@ class PandasView(DataExplorerTableView):
         search_schema=SearchSchemaFeatures(supported=True),
         set_row_filters=SetRowFiltersFeatures(
             supported=True,
-            supports_conditions=True,
+            # Temporarily disabled for https://github.com/posit-dev/positron/issues/3489 on
+            # 6/11/2024. This will be enabled again when the UI has been reworked to support
+            # grouping.
+            supports_conditions=False,
             supported_types=list(SUPPORTED_FILTERS),
         ),
         get_column_profiles=GetColumnProfilesFeatures(
