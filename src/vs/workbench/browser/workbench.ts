@@ -58,6 +58,7 @@ export interface IWorkbenchOptions {
 }
 
 export class Workbench extends Layout {
+
 	private readonly _onWillShutdown = this._register(new Emitter<WillShutdownEvent>());
 	readonly onWillShutdown = this._onWillShutdown.event;
 
