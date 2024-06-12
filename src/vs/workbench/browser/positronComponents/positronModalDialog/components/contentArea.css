@@ -14,7 +14,7 @@
 }
 
 .positron-modal-dialog-box .content-area code {
-	color: var(--vscode-positronModalDialog-preformattedTextForeground);
+	color: inherit;
 	font-family: var(--monaco-monospace-font);
 	font-size: 11px;
 	/* Wrap extra long words e.g file paths */
