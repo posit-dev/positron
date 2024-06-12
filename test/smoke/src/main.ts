@@ -144,10 +144,8 @@ process.once('exit', () => {
 	}
 });
 
-// --- Start Positron ---
-const testRepoUrl = 'git@github.com:posit-dev/positron-content-examples.git';
-const workspacePath = path.join(testDataPath, 'positron-content-examples');
-// --- End Positron ---
+const testRepoUrl = 'https://github.com/microsoft/vscode-smoketest-express';
+const workspacePath = path.join(testDataPath, 'vscode-smoketest-express');
 const extensionsPath = path.join(testDataPath, 'extensions-dir');
 mkdirp.sync(extensionsPath);
 
