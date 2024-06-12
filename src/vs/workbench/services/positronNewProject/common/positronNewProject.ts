@@ -37,7 +37,7 @@ export enum NewProjectStartupPhase {
 	CreatingProject = 'creatingProject',
 
 	/**
-	 * Phase 4: The runtime for the new project has started.
+	 * Phase 4: The affiliated runtime for the new project is starting.
 	 */
 	RuntimeStartup = 'runtimeStartup',
 
