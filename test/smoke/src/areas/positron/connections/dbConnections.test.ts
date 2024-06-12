@@ -53,7 +53,7 @@ export function setup(logger: Logger) {
 
 				// disconnect icon appearance requires hover
 				await app.workbench.positronConnections.pythonConnectionOpenState.hover();
-				await app.workbench.positronConnections.disonnectButton.click();
+				await app.workbench.positronConnections.disconnectButton.click();
 				await app.workbench.positronConnections.reconnectButton.waitforVisible();
 			});
 		});
@@ -97,7 +97,7 @@ export function setup(logger: Logger) {
 
 				// disconnect icon appearance requires hover
 				await app.workbench.positronConnections.rConnectionOpenState.hover();
-				await app.workbench.positronConnections.disonnectButton.click();
+				await app.workbench.positronConnections.disconnectButton.click();
 				await app.workbench.positronConnections.reconnectButton.waitforVisible();
 			});
 		});

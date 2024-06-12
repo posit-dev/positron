@@ -24,7 +24,7 @@ const CONNECTIONS_TAB_LINK = 'a[aria-label="Connections"]';
 export class PositronConnections {
 
 	removeConnectionButton: PositronBaseElement;
-	disonnectButton: PositronBaseElement;
+	disconnectButton: PositronBaseElement;
 	rConnectionOpenState: PositronBaseElement;
 	pythonConnectionOpenState: PositronBaseElement;
 	reconnectButton: PositronBaseElement;
@@ -33,7 +33,7 @@ export class PositronConnections {
 	constructor(private code: Code) {
 
 		this.removeConnectionButton = new PositronBaseElement(REMOVE_CONNECTION_BUTTON, this.code);
-		this.disonnectButton = new PositronBaseElement(DISCONNECT_BUTON, this.code);
+		this.disconnectButton = new PositronBaseElement(DISCONNECT_BUTON, this.code);
 		this.rConnectionOpenState = new PositronBaseElement(R_CONNECTION_OPEN_STATE, this.code);
 		this.pythonConnectionOpenState = new PositronBaseElement(PYTHON_CONNECTION_OPEN_STATE, this.code);
 		this.reconnectButton = new PositronBaseElement(RECONNECT_BUTTON, this.code);
