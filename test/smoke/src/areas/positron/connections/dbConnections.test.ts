@@ -9,9 +9,9 @@ import { installAllHandlers } from '../../../utils';
 
 export function setup(logger: Logger) {
 
-	describe('Connections Pane', () => {
+	const tables = ['tracks', 'playlist_track', 'playlists', 'media_types', 'invoice_items', 'invoices', 'genres', 'employees', 'customers', 'artists', 'albums'];
 
-		const tables = ['tracks', 'playlist_track', 'playlists', 'media_types', 'invoice_items', 'invoices', 'genres', 'employees', 'customers', 'artists', 'albums'];
+	describe('Connections Pane', () => {
 
 		// Shared before/after handling
 		installAllHandlers(logger);
@@ -57,7 +57,12 @@ export function setup(logger: Logger) {
 				await app.workbench.positronConnections.reconnectButton.waitforVisible();
 			});
 		});
+	});
 
+	describe('Connections Pane', () => {
+
+		// Shared before/after handling
+		installAllHandlers(logger);
 
 
 		describe('R - SQLite DB', () => {
