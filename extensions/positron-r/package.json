@@ -590,7 +590,7 @@
   },
   "positron": {
     "binaryDependencies": {
-      "ark": "0.1.104"
+      "ark": "0.1.107"
     },
     "minimumRVersion": "4.2.0"
   }
