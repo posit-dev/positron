@@ -1,5 +1,7 @@
 # File generated from `indentation-cases.R`.
 
+declare(ark(diagnostics(enable = FALSE)))
+
 # ---
 # Starting a pipeline (+ operator)
 1 +"<>"

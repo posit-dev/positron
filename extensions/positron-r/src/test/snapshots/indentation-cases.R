@@ -8,6 +8,8 @@
 # Snippets are separated by `# ---`. This makes it possible to extract them and
 # process them separately to prevent interferences between test cases.
 
+declare(ark(diagnostics(enable = FALSE)))
+
 # ---
 # Starting a pipeline (+ operator)
 1 +"<>"
