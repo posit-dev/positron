@@ -18,6 +18,12 @@ import { DataExplorerClientInstance } from 'vs/workbench/services/languageRuntim
 import { TableSummaryDataGridInstance } from 'vs/workbench/services/positronDataExplorer/browser/tableSummaryDataGridInstance';
 import { PositronDataExplorerLayout } from 'vs/workbench/services/positronDataExplorer/browser/interfaces/positronDataExplorerService';
 import { IPositronDataExplorerInstance } from 'vs/workbench/services/positronDataExplorer/browser/interfaces/positronDataExplorerInstance';
+import { ClipboardCell, ClipboardCellRange, ClipboardColumnIndexes, ClipboardColumnRange, ClipboardRowIndexes, ClipboardRowRange } from 'vs/workbench/browser/positronDataGrid/classes/dataGridInstance';
+
+/**
+ * Constants.
+ */
+const MAX_CLIPBOARD_CELLS = 10_000;
 
 /**
  * PositronDataExplorerInstance class.
@@ -89,6 +95,7 @@ export class PositronDataExplorerInstance extends Disposable implements IPositro
 	 * @param _hoverService The hover service.
 	 * @param _keybindingService The keybinding service.
 	 * @param _layoutService The layout service.
+	 * @param _notificationService The notification service.
 	 * @param _languageName The language name.
 	 * @param _dataExplorerClientInstance The DataExplorerClientInstance. The data explorer takes
 	 * ownership of the client instance and will dispose it when it is disposed.
@@ -222,7 +229,7 @@ export class PositronDataExplorerInstance extends Disposable implements IPositro
 		/**
 		 * Notifies the user that there is nothing to copy to the clipboard.
 		 */
-		const notifyUser = () => {
+		const notifyUserNothingToCopy = () => {
 			this._notificationService.info(
 				localize(
 					'positron.dataExplorer.nothingToCopy',
@@ -234,14 +241,54 @@ export class PositronDataExplorerInstance extends Disposable implements IPositro
 		// Get the clipboard data.
 		const clipboardData = this._tableDataDataGridInstance.getClipboardData();
 		if (!clipboardData) {
-			notifyUser();
+			notifyUserNothingToCopy();
+			return;
+		}
+
+		// Calculate the number of selected clipboard cells.
+		let selectedClipboardCells;
+		if (clipboardData instanceof ClipboardCell) {
+			selectedClipboardCells = 1;
+		} else if (clipboardData instanceof ClipboardCellRange) {
+			const columns = clipboardData.lastColumnIndex - clipboardData.firstColumnIndex;
+			const rows = clipboardData.lastRowIndex - clipboardData.firstRowIndex;
+			selectedClipboardCells = columns * rows;
+		} else if (clipboardData instanceof ClipboardColumnRange) {
+			const columns = clipboardData.lastColumnIndex - clipboardData.firstColumnIndex;
+			selectedClipboardCells = columns * this._dataExplorerCache.rows;
+		} else if (clipboardData instanceof ClipboardColumnIndexes) {
+			selectedClipboardCells = clipboardData.indexes.length * this._dataExplorerCache.rows;
+		} else if (clipboardData instanceof ClipboardRowRange) {
+			const rows = clipboardData.lastRowIndex - clipboardData.firstRowIndex;
+			selectedClipboardCells = rows * this._dataExplorerCache.columns;
+		} else if (clipboardData instanceof ClipboardRowIndexes) {
+			selectedClipboardCells = clipboardData.indexes.length * this._dataExplorerCache.columns;
+		} else {
+			// This indicates a bug.
+			selectedClipboardCells = 0;
+		}
+
+		// If there are no clipboard cells selected, notify the user.
+		if (!selectedClipboardCells) {
+			notifyUserNothingToCopy();
+			return;
+		}
+
+		// If there are too many clipboard cells selected, notify the user.
+		if (selectedClipboardCells > MAX_CLIPBOARD_CELLS) {
+			this._notificationService.error(
+				localize(
+					'positron.dataExplorer.tooMuchDataToCopy',
+					'There is too much data to copy to the clipboard.'
+				)
+			);
 			return;
 		}
 
 		// Copy the clipboard data.
 		const text = await this._tableDataDataGridInstance.copyClipboardData(clipboardData);
 		if (!text) {
-			notifyUser();
+			notifyUserNothingToCopy();
 			return;
 		}
 
