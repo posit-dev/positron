@@ -507,7 +507,7 @@ def test_pandas_supported_features(dxf: DataExplorerFixture):
     assert search_schema["supported"]
 
     assert row_filters["supported"]
-    assert row_filters["supports_conditions"]
+    assert row_filters["supports_conditions"] == False
     assert set(row_filters["supported_types"]) == {
         "between",
         "compare",

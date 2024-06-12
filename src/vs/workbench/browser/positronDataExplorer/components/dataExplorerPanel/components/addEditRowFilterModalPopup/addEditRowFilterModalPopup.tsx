@@ -734,6 +734,9 @@ export const AddEditRowFilterModalPopup = (props: AddEditRowFilterModalPopupProp
 		setErrorText(undefined);
 	};
 
+	// Get the supported features.
+	const supportedFeatures = props.dataExplorerClientInstance.getSupportedFeatures();
+
 	// Render.
 	return (
 		<PositronModalPopup
@@ -747,7 +750,7 @@ export const AddEditRowFilterModalPopup = (props: AddEditRowFilterModalPopupProp
 			onAccept={applyRowFilter}
 		>
 			<div className='add-edit-row-filter-modal-popup-body'>
-				{!props.isFirstFilter &&
+				{supportedFeatures.set_row_filters.supports_conditions && !props.isFirstFilter &&
 					<DropDownListBox
 						onSelectionChanged={dropDownListBoxItem => {
 							setSelectedCondition(dropDownListBoxItem.options.identifier);
