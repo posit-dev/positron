@@ -34,6 +34,12 @@ if (process.env.BUILD_ARTIFACTSTAGINGDIRECTORY) {
 		}
 	};
 }
+// --- Start Positron ---
+// Allow running a subset of tests.
+if (process.env.VSCODE_MOCHA_GREP) {
+	options.grep = process.env.VSCODE_MOCHA_GREP;
+}
+// --- End Positron ---
 
 testRunner.configure(options);
 
