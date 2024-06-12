@@ -75,7 +75,6 @@ export class PositronNewProjectService extends Disposable implements IPositronNe
 		);
 		this._register(
 			this.onDidChangeNewProjectStartupPhase((phase) => {
-				// Open barrier when all tasks are complete
 				switch (phase) {
 					case NewProjectStartupPhase.RuntimeStartup:
 						this.initTasksComplete.open();
@@ -88,9 +87,6 @@ export class PositronNewProjectService extends Disposable implements IPositronNe
 						break;
 					default:
 				}
-
-				// if phase is post-runtime-startup-tasks
-				// run those tasks
 				this._logService.debug(
 					`[New project startup] Phase changed to ${phase}`
 				);
@@ -123,7 +119,7 @@ export class PositronNewProjectService extends Disposable implements IPositronNe
 				this._logService.debug(
 					`[New project startup] Pending tasks changed to: ${tasks}`
 				);
-				// If there are no pending tasks, the new project startup is complete
+				// If there are no pending init tasks, it's time for runtime startup
 				if (tasks.size === 0) {
 					this._startupPhase.set(
 						NewProjectStartupPhase.RuntimeStartup,
@@ -288,7 +284,7 @@ export class PositronNewProjectService extends Disposable implements IPositronNe
 	 * Relies on extension vscode.positron-r
 	 */
 	private async _runRTasks() {
-		// no-op for now
+		// no-op for now, since we haven't defined any pre-runtime startup R tasks
 		// Complete the R task
 		this._removePendingInitTask(NewProjectTask.R);
 	}
@@ -532,7 +528,7 @@ export class PositronNewProjectService extends Disposable implements IPositronNe
 	//#endregion Extension Tasks
 
 	/**
-	 * Removes a pending task.
+	 * Removes a pending init task.
 	 */
 	private _removePendingInitTask(task: NewProjectTask) {
 		const updatedPendingTasks = new Set(this.pendingTasks);

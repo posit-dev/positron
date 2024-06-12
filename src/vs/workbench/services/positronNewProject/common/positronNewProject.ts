@@ -117,7 +117,7 @@ export interface IPositronNewProjectService {
 	/**
 	 * Event tracking the pending init tasks.
 	 */
-	onDidChangePendingInitTasks: Event<Set<string>>;
+	onDidChangeInitTasks: Event<Set<string>>;
 
 	/**
 	 * Event tracking the pending post-init tasks.
@@ -125,9 +125,9 @@ export interface IPositronNewProjectService {
 	onDidChangePostInitTasks: Event<Set<string>>;
 
 	/**
-	 * The pending tasks.
+	 * The pending init tasks.
 	 */
-	readonly pendingTasks: Set<string>;
+	readonly pendingInitTasks: Set<string>;
 
 	/**
 	 * The pending post-init tasks.
@@ -154,7 +154,7 @@ export interface IPositronNewProjectService {
 	isCurrentWindowNewProject(): boolean;
 
 	/**
-	 * Barrier for other services to wait for all project tasks to complete.
+	 * Barrier for other services to wait for all init tasks to complete.
 	 */
 	initTasksComplete: Barrier;
 
