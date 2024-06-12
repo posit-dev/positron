@@ -302,6 +302,24 @@ export function stripImportStatements(): NodeJS.ReadWriteStream {
 
 	return es.duplex(input, output);
 }
+
+/**
+ * Utility class wrapping a promise with exposed `resolve`/`reject` methods.
+ */
+export class PromiseHandles<T> {
+	resolve!: (value: T | Promise<T>) => void;
+
+	reject!: (error: unknown) => void;
+
+	promise: Promise<T>;
+
+	constructor() {
+		this.promise = new Promise((resolve, reject) => {
+			this.resolve = resolve;
+			this.reject = reject;
+		});
+	}
+}
 // --- End Positron ---
 
 /** Splits items in the stream based on the predicate, sending them to onTrue if true, or onFalse otherwise */
