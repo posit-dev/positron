@@ -250,8 +250,8 @@ export class PositronDataExplorerInstance extends Disposable implements IPositro
 		if (clipboardData instanceof ClipboardCell) {
 			selectedClipboardCells = 1;
 		} else if (clipboardData instanceof ClipboardCellRange) {
-			const columns = clipboardData.lastColumnIndex - clipboardData.firstColumnIndex;
-			const rows = clipboardData.lastRowIndex - clipboardData.firstRowIndex;
+			const columns = Math.max(clipboardData.lastColumnIndex - clipboardData.firstColumnIndex, 1);
+			const rows = Math.max(clipboardData.lastRowIndex - clipboardData.firstRowIndex, 1);
 			selectedClipboardCells = columns * rows;
 		} else if (clipboardData instanceof ClipboardColumnRange) {
 			const columns = clipboardData.lastColumnIndex - clipboardData.firstColumnIndex;
