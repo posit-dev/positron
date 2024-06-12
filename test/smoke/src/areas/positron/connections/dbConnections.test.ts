@@ -95,6 +95,9 @@ export function setup(logger: Logger) {
 				console.log('Opening connections pane');
 				await app.workbench.positronConnections.connectionsTabLink.click();
 
+				// help with R latency
+				await app.code.wait(5000);
+
 				await app.workbench.positronConnections.openRTree();
 
 				// click in reverse order to avoid scrolling issues
