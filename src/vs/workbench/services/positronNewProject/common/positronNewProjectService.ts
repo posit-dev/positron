@@ -591,7 +591,7 @@ export class PositronNewProjectService extends Disposable implements IPositronNe
 	}
 
 	/**
-	 *
+	 *Returns the post initialization tasks that need to be performed for the new project.
 	 * @returns Returns the post initialization tasks that need to be performed for the new project.
 	 */
 	private _getPostInitTasks(): Set<NewProjectTask> {
