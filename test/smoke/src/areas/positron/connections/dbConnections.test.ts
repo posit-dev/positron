@@ -46,7 +46,7 @@ export function setup(logger: Logger) {
 				console.log('Opening connections pane');
 				await app.workbench.positronVariables.doubleClickVariableRow('conn');
 
-				await app.workbench.positronConnections.openPythonTable();
+				await app.workbench.positronConnections.openPythonTree();
 
 				// click in reverse order to avoid scrolling issues
 				await app.workbench.positronConnections.openConnectionsNodes(tables);
@@ -90,7 +90,7 @@ export function setup(logger: Logger) {
 				console.log('Opening connections pane');
 				await app.workbench.positronConnections.connectionsTabLink.click();
 
-				await app.workbench.positronConnections.openRTable();
+				await app.workbench.positronConnections.openRTree();
 
 				// click in reverse order to avoid scrolling issues
 				await app.workbench.positronConnections.openConnectionsNodes(tables);

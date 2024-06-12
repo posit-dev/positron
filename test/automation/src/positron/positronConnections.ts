@@ -48,12 +48,12 @@ export class PositronConnections {
 		}
 	}
 
-	async openPythonTable() {
+	async openPythonTree() {
 		await this.code.waitAndClick(PYTHON_SQLITE_CONNECTION);
 		await this.code.waitAndClick(PYTHON_ROOT_NODE);
 	}
 
-	async openRTable() {
+	async openRTree() {
 
 		// not working due to timing:
 		// await app.code.waitAndClick('div[aria-label="SQLiteConnection"]');
