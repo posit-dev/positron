@@ -26,6 +26,10 @@ import { IExtensionDefinition, getExtensionStream } from './builtInExtensions';
 import { getVersion } from './getVersion';
 import { fetchUrls, fetchGithub } from './fetch';
 
+// --- Start Positron ---
+import { PromiseHandles } from './util';
+// --- End Positron ---
+
 const root = path.dirname(path.dirname(__dirname));
 const commit = getVersion(root);
 const sourceMappingURLBase = `https://ticino.blob.core.windows.net/sourcemaps/${commit}`;
@@ -101,7 +105,9 @@ function fromLocalWebpack(extensionPath: string, webpackConfigFileName: string, 
 		}
 	}
 
-	vsce.listFiles({ cwd: extensionPath, packageManager: vsce.PackageManager.Yarn, packagedDependencies }).then(fileNames => {
+	// --- Start Positron ---
+	// Replace vsce.listFiles with listExtensionFiles to queue the work
+	listExtensionFiles({ cwd: extensionPath, packageManager: vsce.PackageManager.Yarn, packagedDependencies }).then(fileNames => {
 		const files = fileNames
 			.map(fileName => path.join(extensionPath, fileName))
 			.map(filePath => new File({
@@ -188,6 +194,7 @@ function fromLocalWebpack(extensionPath: string, webpackConfigFileName: string, 
 		console.error(packagedDependencies);
 		result.emit('error', err);
 	});
+	// --- End Positron ---
 
 	return result.pipe(createStatsStream(path.basename(extensionPath)));
 }
@@ -196,7 +203,9 @@ function fromLocalNormal(extensionPath: string): Stream {
 	const vsce = require('@vscode/vsce') as typeof import('@vscode/vsce');
 	const result = es.through();
 
-	vsce.listFiles({ cwd: extensionPath, packageManager: vsce.PackageManager.Yarn })
+	// --- Start Positron ---
+	// Replace vsce.listFiles with listExtensionFiles to queue the work
+	listExtensionFiles({ cwd: extensionPath, packageManager: vsce.PackageManager.Yarn })
 		.then(fileNames => {
 			const files = fileNames
 				.map(fileName => path.join(extensionPath, fileName))
@@ -210,6 +219,7 @@ function fromLocalNormal(extensionPath: string): Stream {
 			es.readArray(files).pipe(result);
 		})
 		.catch(err => result.emit('error', err));
+	// --- End Positron ---
 
 	return result.pipe(createStatsStream(path.basename(extensionPath)));
 }
@@ -612,6 +622,89 @@ export async function buildExtensionMedia(isWatch: boolean, outputRoot?: string)
 }
 
 // --- Start Positron ---
+
+// On Linux, Node 20 consistently crashes when there are too many
+// `vsce.listFiles` operations in flight at once; these operations are expensive
+// as they recurse back into `yarn`. The code below serializes these operations
+// when building Positron for Linux to avoid these crashes.
+
+/**
+ * A class representing a promise to list the files in an extension
+ */
+class ListPromise extends PromiseHandles<string[]> {
+	constructor(readonly opts: any) {
+		super();
+	}
+}
+
+/** A queue of pending list promises */
+const listQueue: Array<ListPromise> = [];
+
+/** Whether we are currently processing a list promise */
+let listBusy = false;
+
+/**
+ * Lists the files in an extension.
+ *
+ * @param opts The list options
+ * @returns A promise that resolves with the list of files
+ */
+function listExtensionFiles(opts: any): Promise<string[]> {
+	const vsce = require('@vscode/vsce') as typeof import('@vscode/vsce');
+
+	// Only Node on Linux seems to have a problem with parallelization, so on
+	// other platforms we can just pass through the request to `@vscode/vsce`
+	if (process.platform !== 'linux') {
+		return vsce.listFiles(opts);
+	}
+
+	// On other Linux, create a promise to represent the deferred work
+	const promise = new ListPromise(opts);
+	listQueue.push(promise);
+
+	// Tickle processing of the work queue
+	processListQueue();
+
+	// Return the deferred promise
+	return promise.promise;
+}
+
+/**
+ * Processes the queue of pending work
+ */
+function processListQueue() {
+	const vsce = require('@vscode/vsce') as typeof import('@vscode/vsce');
+
+	// Ignore if we are currently doing work
+	if (listBusy) {
+		return;
+	}
+
+	// Ignore if there's no work to do
+	if (listQueue.length === 0) {
+		return;
+	}
+
+	// Splice off the next piece of work from the front of the array; since new
+	// work is pushed to the end, this gives us a FIFO queue
+	const next = listQueue.splice(0, 1)[0];
+
+	// Mark as busy so we don't try to do more work
+	listBusy = true;
+
+	// Do the work!
+	vsce.listFiles(next.opts).then((fileNames) => {
+		next.resolve(fileNames);
+	}).catch((e) => {
+		next.reject(e)
+	}).finally(() => {
+		// When work is complete, mark no longer busy and move to the next
+		// element in the queue, if any
+		listBusy = false;
+		processListQueue();
+	});
+}
+
 // This Gulp task is used to copy binaries verbatim from built-in extensions to
 // the output folder. VS Code's built-in extensions are webpacked, and weback
 // doesn't support copying binaries in any useful way (even with

@@ -577,6 +577,7 @@ export const codiconsLibrary = {
 	foldVerticalFilled: register('fold-vertical-filled', 0xec31),
 	goToSearch: register('go-to-search', 0xec32),
 	percentage: register('percentage', 0xec33),
+	attach: register('attach', 0xec34),
 	sortPercentage: register('sort-percentage', 0xec33),
 	positronNew: register('positron-new', 0xf230),
 	positronOpen: register('positron-open', 0xf231),

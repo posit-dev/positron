@@ -364,4 +364,7 @@ export interface IRuntimeSessionService {
 	restartSession(sessionId: string, source: string): Promise<void>;
 }
 
-export { RuntimeClientType, IRuntimeClientInstance };
+export { RuntimeClientType };
+
+export type { IRuntimeClientInstance };
+
