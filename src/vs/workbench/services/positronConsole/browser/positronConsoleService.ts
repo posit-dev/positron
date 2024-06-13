@@ -1417,7 +1417,8 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 			));
 
 			// If we haven't already detached the runtime, do it now.
-			if (this._runtimeState === RuntimeState.Exited && this.runtimeAttached) {
+			if ((this._runtimeState === RuntimeState.Exited ||
+				this._runtimeState === RuntimeState.Uninitialized) && this.runtimeAttached) {
 				this.detachRuntime();
 			}
 		}));
