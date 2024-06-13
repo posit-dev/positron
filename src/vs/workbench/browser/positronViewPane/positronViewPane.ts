@@ -91,7 +91,7 @@ export abstract class PositronViewPane extends ViewPane {
 
 	/**
 	 * Helper function to get the openFromCollapsedSize value as a number of pixels.
-	 * @returns
+	 * @returns How large the view should be when it is opened from a collapsed state in pixels.
 	 */
 	private _getOpenFromCollapsedSize(openFromCollapsedSize: PositronViewPaneOptions['openFromCollapsedSize']): number {
 		// If the value is a plain number then it refers to pixels and we don't need to do anything
