@@ -1,20 +1,8 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
-.positron-data-explorer {
-	width: 100%;
-	height: 100%;
-	min-width: 0;
-	min-height: 0;
-	display: grid;
-	position: relative;
-	color: var(--vscode-positronDataExplorer-foreground);
-	background-color: var(--vscode-positronDataExplorer-background);
-	grid-template-rows: [action-bar] 32px [data-explorer-panel] 1fr [end];
-}
-
-.positron-data-explorer-overlay {
+.positron-data-explorer-closed {
 	top: 0;
 	left: 0;
 	right: 0;
@@ -27,7 +15,7 @@
 	grid-template-columns: [left-gutter] 1fr [message] max-content [right-gutter] 1fr [end];
 }
 
-.positron-data-explorer-overlay
+.positron-data-explorer-closed
 .message {
 	color: white;
 	display: flex;
@@ -45,7 +33,7 @@
 	background-color: var(--vscode-positronModalDialog-background);
 }
 
-.positron-data-explorer-overlay
+.positron-data-explorer-closed
 .message
 .message-line {
 	text-align: center;
