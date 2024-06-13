@@ -26,6 +26,10 @@ export class PositronBaseElement {
 	async waitforVisible(): Promise<void> {
 		await this.code.waitForElement(this.myselector);
 	}
+
+	async hover(): Promise<void> {
+		await this.code.driver.getLocator(this.myselector).hover();
+	}
 }
 
 export class PositronTextElement extends PositronBaseElement {
