@@ -4,11 +4,11 @@
 
 # ruff: noqa: E712
 
+import math
 from datetime import datetime
 from decimal import Decimal
 from io import StringIO
 from typing import Any, Dict, List, Optional, Type, cast
-import math
 
 import numpy as np
 import pandas as pd
@@ -18,13 +18,13 @@ import pytest
 from .._vendor.pydantic import BaseModel
 from ..access_keys import encode_access_key
 from ..data_explorer import (
-    _VALUE_NEGINF,
     _VALUE_INF,
-    _VALUE_NULL,
     _VALUE_NA,
     _VALUE_NAN,
     _VALUE_NAT,
+    _VALUE_NEGINF,
     _VALUE_NONE,
+    _VALUE_NULL,
     COMPARE_OPS,
     DataExplorerService,
     PandasView,
@@ -33,11 +33,14 @@ from ..data_explorer import (
 from ..data_explorer_comm import (
     ColumnDisplayType,
     ColumnProfileResult,
+    ColumnProfileTypeSupportStatus,
     ColumnSchema,
     ColumnSortKey,
     FilterResult,
     FormatOptions,
     RowFilter,
+    RowFilterTypeSupportStatus,
+    SupportStatus,
 )
 from ..utils import guid
 from .conftest import DummyComm, PositronShell
@@ -504,11 +507,12 @@ def test_pandas_supported_features(dxf: DataExplorerFixture):
     row_filters = features["set_row_filters"]
     column_profiles = features["get_column_profiles"]
 
-    assert search_schema["supported"]
+    assert search_schema["support_status"] == SupportStatus.Supported
 
-    assert row_filters["supported"]
-    assert row_filters["supports_conditions"] == False
-    assert set(row_filters["supported_types"]) == {
+    assert row_filters["support_status"] == SupportStatus.Supported
+    assert not row_filters["supports_conditions"]
+
+    row_filter_types = [
         "between",
         "compare",
         "is_empty",
@@ -520,16 +524,29 @@ def test_pandas_supported_features(dxf: DataExplorerFixture):
         "not_null",
         "search",
         "set_membership",
-    }
+    ]
+    for tp in row_filter_types:
+        assert (
+            RowFilterTypeSupportStatus(row_filter_type=tp, support_status=SupportStatus.Supported)
+            in row_filters["supported_types"]
+        )
+    assert len(row_filter_types) == len(row_filters["supported_types"])
 
-    assert column_profiles["supported"]
-    assert set(column_profiles["supported_types"]) == {
-        "null_count",
+    assert column_profiles["support_status"] == SupportStatus.Supported
+
+    profile_types = [
+        ColumnProfileTypeSupportStatus(
+            profile_type="null_count", support_status=SupportStatus.Supported
+        ),
         # Temporarily disabled for https://github.com/posit-dev/positron/issues/3490
         # on 6/11/2024. This will be enabled again when the UI has been reworked to
         # more fully support column profiles.
-        # "summary_stats",
-    }
+        ColumnProfileTypeSupportStatus(
+            profile_type="summary_stats", support_status=SupportStatus.Experimental
+        ),
+    ]
+    for tp in profile_types:
+        assert tp in column_profiles["supported_types"]
 
 
 def test_pandas_get_schema(dxf: DataExplorerFixture):
@@ -2272,10 +2289,14 @@ def test_polars_get_state(dxf: DataExplorerFixture):
     assert state["row_filters"] == []
 
     features = state["supported_features"]
-    assert not features["search_schema"]["supported"]
-    assert not features["set_row_filters"]["supported"]
-    assert features["get_column_profiles"]["supported"]
-    assert features["get_column_profiles"]["supported_types"] == ["null_count"]
+    assert features["search_schema"]["support_status"] == SupportStatus.Unsupported
+    assert features["set_row_filters"]["support_status"] == SupportStatus.Unsupported
+    assert features["get_column_profiles"]["support_status"] == SupportStatus.Supported
+    assert features["get_column_profiles"]["supported_types"] == [
+        ColumnProfileTypeSupportStatus(
+            profile_type="null_count", support_status=SupportStatus.Supported
+        )
+    ]
 
 
 def test_polars_get_data_values(dxf: DataExplorerFixture):
