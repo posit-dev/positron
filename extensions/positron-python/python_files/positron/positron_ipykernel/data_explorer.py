@@ -10,16 +10,7 @@ import logging
 import math
 import operator
 from datetime import datetime
-from typing import (
-    TYPE_CHECKING,
-    Callable,
-    Dict,
-    List,
-    Optional,
-    Sequence,
-    Set,
-    Tuple,
-)
+from typing import TYPE_CHECKING, Callable, Dict, List, Optional, Sequence, Set, Tuple
 
 import comm
 
@@ -31,6 +22,7 @@ from .data_explorer_comm import (
     ColumnHistogram,
     ColumnProfileResult,
     ColumnProfileType,
+    ColumnProfileTypeSupportStatus,
     ColumnSchema,
     ColumnSortKey,
     ColumnSummaryStats,
@@ -46,8 +38,8 @@ from .data_explorer_comm import (
     DataSelectionSingleCell,
     ExportDataSelectionFeatures,
     ExportDataSelectionRequest,
-    ExportFormat,
     ExportedData,
+    ExportFormat,
     FilterResult,
     FormatOptions,
     GetColumnProfilesFeatures,
@@ -58,6 +50,7 @@ from .data_explorer_comm import (
     RowFilter,
     RowFilterCondition,
     RowFilterType,
+    RowFilterTypeSupportStatus,
     SearchFilterType,
     SearchSchemaFeatures,
     SearchSchemaRequest,
@@ -72,6 +65,7 @@ from .data_explorer_comm import (
     SummaryStatsNumber,
     SummaryStatsString,
     SupportedFeatures,
+    SupportStatus,
     TableData,
     TableSchema,
     TableShape,
@@ -83,6 +77,7 @@ from .utils import guid
 if TYPE_CHECKING:
     import pandas as pd
     import polars as pl
+
     # import pyarrow as pa
 
 
@@ -1271,27 +1266,38 @@ class PandasView(DataExplorerTableView):
     }
 
     FEATURES = SupportedFeatures(
-        search_schema=SearchSchemaFeatures(supported=True),
+        search_schema=SearchSchemaFeatures(support_status=SupportStatus.Supported),
         set_row_filters=SetRowFiltersFeatures(
-            supported=True,
+            support_status=SupportStatus.Supported,
             # Temporarily disabled for https://github.com/posit-dev/positron/issues/3489 on
             # 6/11/2024. This will be enabled again when the UI has been reworked to support
             # grouping.
             supports_conditions=False,
-            supported_types=list(SUPPORTED_FILTERS),
+            supported_types=[
+                RowFilterTypeSupportStatus(
+                    row_filter_type=x, support_status=SupportStatus.Supported
+                )
+                for x in SUPPORTED_FILTERS
+            ],
         ),
         get_column_profiles=GetColumnProfilesFeatures(
-            supported=True,
+            support_status=SupportStatus.Supported,
             supported_types=[
-                ColumnProfileType.NullCount,
+                ColumnProfileTypeSupportStatus(
+                    profile_type=ColumnProfileType.NullCount,
+                    support_status=SupportStatus.Supported,
+                ),
                 # Temporarily disabled for https://github.com/posit-dev/positron/issues/3490
                 # on 6/11/2024. This will be enabled again when the UI has been reworked to
                 # more fully support column profiles.
-                # ColumnProfileType.SummaryStats,
+                ColumnProfileTypeSupportStatus(
+                    profile_type=ColumnProfileType.SummaryStats,
+                    support_status=SupportStatus.Experimental,
+                ),
             ],
         ),
-        set_sort_columns=SetSortColumnsFeatures(supported=True),
-        export_data_selection=ExportDataSelectionFeatures(supported=True),
+        set_sort_columns=SetSortColumnsFeatures(support_status=SupportStatus.Supported),
+        export_data_selection=ExportDataSelectionFeatures(support_status=SupportStatus.Supported),
     )
 
     def _get_state(self) -> BackendState:
@@ -1570,24 +1576,32 @@ class PolarsView(DataExplorerTableView):
     SUPPORTED_FILTERS = set()
 
     FEATURES = SupportedFeatures(
-        search_schema=SearchSchemaFeatures(supported=False),
+        search_schema=SearchSchemaFeatures(support_status=SupportStatus.Unsupported),
         set_row_filters=SetRowFiltersFeatures(
-            supported=False,
+            support_status=SupportStatus.Unsupported,
             supports_conditions=False,
-            supported_types=list(SUPPORTED_FILTERS),
+            supported_types=[
+                RowFilterTypeSupportStatus(
+                    row_filter_type=x, support_status=SupportStatus.Supported
+                )
+                for x in SUPPORTED_FILTERS
+            ],
         ),
         get_column_profiles=GetColumnProfilesFeatures(
-            supported=True,
+            support_status=SupportStatus.Supported,
             supported_types=[
-                ColumnProfileType.NullCount,
+                ColumnProfileTypeSupportStatus(
+                    profile_type=ColumnProfileType.NullCount,
+                    support_status=SupportStatus.Supported,
+                ),
                 # Temporarily disabled for https://github.com/posit-dev/positron/issues/3490
                 # on 6/11/2024. This will be enabled again when the UI has been reworked to
                 # more fully support column profiles.
                 # ColumnProfileType.SummaryStats,
             ],
         ),
-        export_data_selection=ExportDataSelectionFeatures(supported=False),
-        set_sort_columns=SetSortColumnsFeatures(supported=False),
+        export_data_selection=ExportDataSelectionFeatures(support_status=SupportStatus.Unsupported),
+        set_sort_columns=SetSortColumnsFeatures(support_status=SupportStatus.Unsupported),
     )
 
     def _get_state(self) -> BackendState:

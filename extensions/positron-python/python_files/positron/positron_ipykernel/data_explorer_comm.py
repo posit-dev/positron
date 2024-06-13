@@ -165,6 +165,19 @@ class ExportFormat(str, enum.Enum):
     Html = "html"
 
 
+@enum.unique
+class SupportStatus(str, enum.Enum):
+    """
+    Possible values for SupportStatus
+    """
+
+    Unsupported = "unsupported"
+
+    Supported = "supported"
+
+    Experimental = "experimental"
+
+
 class SearchSchemaResult(BaseModel):
     """
     Result in Methods
@@ -405,6 +418,20 @@ class RowFilter(BaseModel):
     )
 
 
+class RowFilterTypeSupportStatus(BaseModel):
+    """
+    Support status for a row filter type
+    """
+
+    row_filter_type: RowFilterType = Field(
+        description="Type of row filter",
+    )
+
+    support_status: SupportStatus = Field(
+        description="The support status for this row filter type",
+    )
+
+
 class BetweenFilterParams(BaseModel):
     """
     Parameters for the 'between' and 'not_between' filter types
@@ -476,6 +503,20 @@ class ColumnProfileRequest(BaseModel):
 
     profile_type: ColumnProfileType = Field(
         description="The type of analytical column profile",
+    )
+
+
+class ColumnProfileTypeSupportStatus(BaseModel):
+    """
+    Support status for a given column profile type
+    """
+
+    profile_type: ColumnProfileType = Field(
+        description="The type of analytical column profile",
+    )
+
+    support_status: SupportStatus = Field(
+        description="The support status for this column profile type",
     )
 
 
@@ -762,8 +803,8 @@ class SearchSchemaFeatures(BaseModel):
     Feature flags for 'search_schema' RPC
     """
 
-    supported: StrictBool = Field(
-        description="Whether this RPC method is supported at all",
+    support_status: SupportStatus = Field(
+        description="The support status for this RPC method",
     )
 
 
@@ -772,15 +813,15 @@ class SetRowFiltersFeatures(BaseModel):
     Feature flags for 'set_row_filters' RPC
     """
 
-    supported: StrictBool = Field(
-        description="Whether this RPC method is supported at all",
+    support_status: SupportStatus = Field(
+        description="The support status for this RPC method",
     )
 
     supports_conditions: StrictBool = Field(
         description="Whether AND/OR filter conditions are supported",
     )
 
-    supported_types: List[RowFilterType] = Field(
+    supported_types: List[RowFilterTypeSupportStatus] = Field(
         description="A list of supported types",
     )
 
@@ -790,11 +831,11 @@ class GetColumnProfilesFeatures(BaseModel):
     Feature flags for 'get_column_profiles' RPC
     """
 
-    supported: StrictBool = Field(
-        description="Whether this RPC method is supported at all",
+    support_status: SupportStatus = Field(
+        description="The support status for this RPC method",
     )
 
-    supported_types: List[ColumnProfileType] = Field(
+    supported_types: List[ColumnProfileTypeSupportStatus] = Field(
         description="A list of supported types",
     )
 
@@ -804,8 +845,8 @@ class ExportDataSelectionFeatures(BaseModel):
     Feature flags for 'export_data_selction' RPC
     """
 
-    supported: StrictBool = Field(
-        description="Whether this RPC method is supported at all",
+    support_status: SupportStatus = Field(
+        description="The support status for this RPC method",
     )
 
 
@@ -814,8 +855,8 @@ class SetSortColumnsFeatures(BaseModel):
     Feature flags for 'set_sort_columns' RPC
     """
 
-    supported: StrictBool = Field(
-        description="Whether this RPC method is supported at all",
+    support_status: SupportStatus = Field(
+        description="The support status for this RPC method",
     )
 
 
@@ -1241,6 +1282,8 @@ TableShape.update_forward_refs()
 
 RowFilter.update_forward_refs()
 
+RowFilterTypeSupportStatus.update_forward_refs()
+
 BetweenFilterParams.update_forward_refs()
 
 CompareFilterParams.update_forward_refs()
@@ -1250,6 +1293,8 @@ SetMembershipFilterParams.update_forward_refs()
 SearchFilterParams.update_forward_refs()
 
 ColumnProfileRequest.update_forward_refs()
+
+ColumnProfileTypeSupportStatus.update_forward_refs()
 
 ColumnProfileResult.update_forward_refs()
 

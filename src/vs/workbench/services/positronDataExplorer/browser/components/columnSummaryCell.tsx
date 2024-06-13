@@ -21,6 +21,7 @@ import { ProfileDatetime } from 'vs/workbench/services/positronDataExplorer/brow
 import { ColumnNullPercent } from 'vs/workbench/services/positronDataExplorer/browser/components/columnNullPercent';
 import { TableSummaryDataGridInstance } from 'vs/workbench/services/positronDataExplorer/browser/tableSummaryDataGridInstance';
 import { ColumnDisplayType, ColumnProfileType, ColumnSchema } from 'vs/workbench/services/languageRuntime/common/positronDataExplorerComm';
+import { dataExplorerExperimentalFeatureEnabled } from 'vs/workbench/services/positronDataExplorer/common/positronDataExplorerExperimentalConfig';
 
 /**
  * ColumnSummaryCellProps interface.
@@ -144,8 +145,16 @@ export const ColumnSummaryCell = (props: ColumnSummaryCellProps) => {
 	// Get the column null percent.
 	const columnNullPercent = props.instance.getColumnNullPercent(props.columnIndex);
 
+	// Check if the summary stats panel is supported.
 	const profileFeatures = props.instance.getSupportedFeatures().get_column_profiles;
-	let summarySupported = profileFeatures.supported_types.includes(ColumnProfileType.SummaryStats);
+	const summaryStatsStatus = profileFeatures.supported_types.filter((status) => {
+		return status.profile_type === ColumnProfileType.SummaryStats;
+	});
+	let summarySupported = false;
+	if (summaryStatsStatus.length === 1) {
+		summarySupported = dataExplorerExperimentalFeatureEnabled(summaryStatsStatus[0].support_status, props.instance.configurationService);
+	}
+
 	if (props.columnSchema.type_display === ColumnDisplayType.Object ||
 		props.columnSchema.type_display === ColumnDisplayType.Unknown) {
 		summarySupported = false;

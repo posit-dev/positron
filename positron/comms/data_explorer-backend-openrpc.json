@@ -573,6 +573,24 @@
 					"set_membership"
 				]
 			},
+			"row_filter_type_support_status": {
+				"type": "object",
+				"description": "Support status for a row filter type",
+				"required": [
+					"row_filter_type",
+					"support_status"
+				],
+				"properties": {
+					"row_filter_type": {
+						"description": "Type of row filter",
+						"$ref": "#/components/schemas/row_filter_type"
+					},
+					"support_status": {
+						"description": "The support status for this row filter type",
+						"$ref": "#/components/schemas/support_status"
+					}
+				}
+			},
 			"between_filter_params": {
 				"type": "object",
 				"description": "Parameters for the 'between' and 'not_between' filter types",
@@ -698,6 +716,24 @@
 					"frequency_table",
 					"histogram"
 				]
+			},
+			"column_profile_type_support_status": {
+				"type": "object",
+				"description": "Support status for a given column profile type",
+				"required": [
+					"profile_type",
+					"support_status"
+				],
+				"properties": {
+					"profile_type": {
+						"description": "The type of analytical column profile",
+						"$ref": "#/components/schemas/column_profile_type"
+					},
+					"support_status": {
+						"description": "The support status for this column profile type",
+						"$ref": "#/components/schemas/support_status"
+					}
+				}
 			},
 			"column_profile_result": {
 				"type": "object",
@@ -1020,12 +1056,12 @@
 				"type": "object",
 				"description": "Feature flags for 'search_schema' RPC",
 				"required": [
-					"supported"
+					"support_status"
 				],
 				"properties": {
-					"supported": {
-						"type": "boolean",
-						"description": "Whether this RPC method is supported at all"
+					"support_status": {
+						"$ref": "#/components/schemas/support_status",
+						"description": "The support status for this RPC method"
 					}
 				}
 			},
@@ -1033,14 +1069,14 @@
 				"type": "object",
 				"description": "Feature flags for 'set_row_filters' RPC",
 				"required": [
-					"supported",
+					"support_status",
 					"supports_conditions",
 					"supported_types"
 				],
 				"properties": {
-					"supported": {
-						"type": "boolean",
-						"description": "Whether this RPC method is supported at all"
+					"support_status": {
+						"$ref": "#/components/schemas/support_status",
+						"description": "The support status for this RPC method"
 					},
 					"supports_conditions": {
 						"type": "boolean",
@@ -1050,7 +1086,7 @@
 						"type": "array",
 						"description": "A list of supported types",
 						"items": {
-							"$ref": "#/components/schemas/row_filter_type"
+							"$ref": "#/components/schemas/row_filter_type_support_status"
 						}
 					}
 				}
@@ -1059,19 +1095,19 @@
 				"type": "object",
 				"description": "Feature flags for 'get_column_profiles' RPC",
 				"required": [
-					"supported",
+					"support_status",
 					"supported_types"
 				],
 				"properties": {
-					"supported": {
-						"type": "boolean",
-						"description": "Whether this RPC method is supported at all"
+					"support_status": {
+						"$ref": "#/components/schemas/support_status",
+						"description": "The support status for this RPC method"
 					},
 					"supported_types": {
 						"type": "array",
 						"description": "A list of supported types",
 						"items": {
-							"$ref": "#/components/schemas/column_profile_type"
+							"$ref": "#/components/schemas/column_profile_type_support_status"
 						}
 					}
 				}
@@ -1080,12 +1116,12 @@
 				"type": "object",
 				"description": "Feature flags for 'export_data_selction' RPC",
 				"required": [
-					"supported"
+					"support_status"
 				],
 				"properties": {
-					"supported": {
-						"type": "boolean",
-						"description": "Whether this RPC method is supported at all"
+					"support_status": {
+						"$ref": "#/components/schemas/support_status",
+						"description": "The support status for this RPC method"
 					}
 				}
 			},
@@ -1093,12 +1129,12 @@
 				"type": "object",
 				"description": "Feature flags for 'set_sort_columns' RPC",
 				"required": [
-					"supported"
+					"support_status"
 				],
 				"properties": {
-					"supported": {
-						"type": "boolean",
-						"description": "Whether this RPC method is supported at all"
+					"support_status": {
+						"$ref": "#/components/schemas/support_status",
+						"description": "The support status for this RPC method"
 					}
 				}
 			},
@@ -1232,6 +1268,15 @@
 					"csv",
 					"tsv",
 					"html"
+				]
+			},
+			"support_status": {
+				"type": "string",
+				"description": "The support status of the RPC method",
+				"enum": [
+					"unsupported",
+					"supported",
+					"experimental"
 				]
 			}
 		}
