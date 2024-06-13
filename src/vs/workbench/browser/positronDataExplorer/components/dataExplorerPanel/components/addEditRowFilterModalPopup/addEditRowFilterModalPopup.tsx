@@ -23,6 +23,7 @@ import { ColumnSchema, ColumnDisplayType, RowFilterCondition } from 'vs/workbenc
 import { RowFilterParameter } from 'vs/workbench/browser/positronDataExplorer/components/dataExplorerPanel/components/addEditRowFilterModalPopup/components/rowFilterParameter';
 import { DropDownColumnSelector } from 'vs/workbench/browser/positronDataExplorer/components/dataExplorerPanel/components/addEditRowFilterModalPopup/components/dropDownColumnSelector';
 import { RangeRowFilterDescriptor, RowFilterDescriptor, RowFilterDescrType, RowFilterDescriptorComparison, RowFilterDescriptorIsBetween, RowFilterDescriptorIsEmpty, RowFilterDescriptorIsNotBetween, RowFilterDescriptorIsNotEmpty, SingleValueRowFilterDescriptor, RowFilterDescriptorIsNotNull, RowFilterDescriptorIsNull, RowFilterDescriptorSearch, RowFilterDescriptorIsTrue, RowFilterDescriptorIsFalse } from 'vs/workbench/browser/positronDataExplorer/components/dataExplorerPanel/components/addEditRowFilterModalPopup/rowFilterDescriptor';
+import { dataExplorerExperimentalFeatureEnabled } from 'vs/workbench/services/positronDataExplorer/common/positronDataExplorerExperimentalConfig';
 
 /**
  * Validates a row filter value.
@@ -736,6 +737,7 @@ export const AddEditRowFilterModalPopup = (props: AddEditRowFilterModalPopupProp
 
 	// Get the supported features.
 	const supportedFeatures = props.dataExplorerClientInstance.getSupportedFeatures();
+	const supportsConditions = dataExplorerExperimentalFeatureEnabled(supportedFeatures.set_row_filters.supports_conditions, props.configurationService);
 
 	// Render.
 	return (
@@ -750,7 +752,7 @@ export const AddEditRowFilterModalPopup = (props: AddEditRowFilterModalPopupProp
 			onAccept={applyRowFilter}
 		>
 			<div className='add-edit-row-filter-modal-popup-body'>
-				{supportedFeatures.set_row_filters.supports_conditions && !props.isFirstFilter &&
+				{supportsConditions && !props.isFirstFilter &&
 					<DropDownListBox
 						onSelectionChanged={dropDownListBoxItem => {
 							setSelectedCondition(dropDownListBoxItem.options.identifier);

@@ -1272,7 +1272,7 @@ class PandasView(DataExplorerTableView):
             # Temporarily disabled for https://github.com/posit-dev/positron/issues/3489 on
             # 6/11/2024. This will be enabled again when the UI has been reworked to support
             # grouping.
-            supports_conditions=False,
+            supports_conditions=SupportStatus.Unsupported,
             supported_types=[
                 RowFilterTypeSupportStatus(
                     row_filter_type=x, support_status=SupportStatus.Supported
@@ -1579,7 +1579,7 @@ class PolarsView(DataExplorerTableView):
         search_schema=SearchSchemaFeatures(support_status=SupportStatus.Unsupported),
         set_row_filters=SetRowFiltersFeatures(
             support_status=SupportStatus.Unsupported,
-            supports_conditions=False,
+            supports_conditions=SupportStatus.Unsupported,
             supported_types=[
                 RowFilterTypeSupportStatus(
                     row_filter_type=x, support_status=SupportStatus.Supported
@@ -1597,7 +1597,10 @@ class PolarsView(DataExplorerTableView):
                 # Temporarily disabled for https://github.com/posit-dev/positron/issues/3490
                 # on 6/11/2024. This will be enabled again when the UI has been reworked to
                 # more fully support column profiles.
-                # ColumnProfileType.SummaryStats,
+                ColumnProfileTypeSupportStatus(
+                    profile_type=ColumnProfileType.SummaryStats,
+                    support_status=SupportStatus.Unsupported,
+                ),
             ],
         ),
         export_data_selection=ExportDataSelectionFeatures(support_status=SupportStatus.Unsupported),

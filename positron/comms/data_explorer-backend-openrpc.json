@@ -1079,7 +1079,7 @@
 						"description": "The support status for this RPC method"
 					},
 					"supports_conditions": {
-						"type": "boolean",
+						"$ref": "#/components/schemas/support_status",
 						"description": "Whether AND/OR filter conditions are supported"
 					},
 					"supported_types": {

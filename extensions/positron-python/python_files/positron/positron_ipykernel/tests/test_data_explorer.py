@@ -510,7 +510,7 @@ def test_pandas_supported_features(dxf: DataExplorerFixture):
     assert search_schema["support_status"] == SupportStatus.Supported
 
     assert row_filters["support_status"] == SupportStatus.Supported
-    assert not row_filters["supports_conditions"]
+    assert row_filters["supports_conditions"] == SupportStatus.Unsupported
 
     row_filter_types = [
         "between",
@@ -2295,7 +2295,10 @@ def test_polars_get_state(dxf: DataExplorerFixture):
     assert features["get_column_profiles"]["supported_types"] == [
         ColumnProfileTypeSupportStatus(
             profile_type="null_count", support_status=SupportStatus.Supported
-        )
+        ),
+        ColumnProfileTypeSupportStatus(
+            profile_type="summary_stats", support_status=SupportStatus.Unsupported
+        ),
     ]
 
 

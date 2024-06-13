@@ -817,7 +817,7 @@ class SetRowFiltersFeatures(BaseModel):
         description="The support status for this RPC method",
     )
 
-    supports_conditions: StrictBool = Field(
+    supports_conditions: SupportStatus = Field(
         description="Whether AND/OR filter conditions are supported",
     )
 

@@ -729,7 +729,7 @@ export interface SetRowFiltersFeatures {
 	/**
 	 * Whether AND/OR filter conditions are supported
 	 */
-	supports_conditions: boolean;
+	supports_conditions: SupportStatus;
 
 	/**
 	 * A list of supported types

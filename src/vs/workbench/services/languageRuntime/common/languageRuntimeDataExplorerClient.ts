@@ -211,7 +211,7 @@ export class DataExplorerClientInstance extends Disposable {
 						search_schema: { support_status: SupportStatus.Unsupported },
 						set_row_filters: {
 							support_status: SupportStatus.Unsupported,
-							supports_conditions: false,
+							supports_conditions: SupportStatus.Unsupported,
 							supported_types: []
 						},
 						get_column_profiles: {
@@ -380,7 +380,7 @@ export class DataExplorerClientInstance extends Disposable {
 				},
 				set_row_filters: {
 					support_status: SupportStatus.Unsupported,
-					supports_conditions: false,
+					supports_conditions: SupportStatus.Unsupported,
 					supported_types: []
 				},
 				get_column_profiles: {
