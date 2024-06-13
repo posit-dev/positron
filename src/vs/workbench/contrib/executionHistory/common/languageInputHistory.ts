@@ -33,6 +33,7 @@ export class LanguageInputHistory extends Disposable {
 	constructor(
 		private readonly _languageId: string,
 		private readonly _storageService: IStorageService,
+		private readonly _storageScope: StorageScope,
 		private readonly _logService: ILogService,
 		private readonly _configurationService: IConfigurationService) {
 		super();
@@ -98,7 +99,7 @@ export class LanguageInputHistory extends Disposable {
 	 */
 	public getInputHistory(): IInputHistoryEntry[] {
 		// Read the existing entries from storage.
-		const entries = this._storageService.get(this._storageKey, StorageScope.PROFILE, '[]');
+		const entries = this._storageService.get(this._storageKey, this._storageScope, '[]');
 		let parsedEntries: IInputHistoryEntry[] = [];
 		try {
 			parsedEntries = JSON.parse(entries);
@@ -122,7 +123,7 @@ export class LanguageInputHistory extends Disposable {
 		this._pendingEntries.splice(0, this._pendingEntries.length);
 
 		// Clear the underlying storage
-		this._storageService.remove(this._storageKey, StorageScope.PROFILE);
+		this._storageService.remove(this._storageKey, this._storageScope);
 	}
 
 	private save(forShutdown: boolean): void {
@@ -136,7 +137,7 @@ export class LanguageInputHistory extends Disposable {
 
 		// Read the existing entries. We do this every time we save because
 		// another instance of the app may have written to the same storage.
-		const entries = this._storageService.get(this._storageKey, StorageScope.PROFILE, '[]');
+		const entries = this._storageService.get(this._storageKey, this._storageScope, '[]');
 		let parsedEntries: IInputHistoryEntry[] = [];
 		try {
 			parsedEntries = JSON.parse(entries);
@@ -177,7 +178,7 @@ export class LanguageInputHistory extends Disposable {
 		// history in this "session"
 		this._storageService.store(this._storageKey,
 			storageState,
-			StorageScope.PROFILE,
+			this._storageScope,
 			StorageTarget.USER);
 
 		// Clear the pending entries now that they've been flushed to storage.

@@ -5,12 +5,13 @@
 import { IExecutionHistoryEntry, IExecutionHistoryService, IInputHistoryEntry } from 'vs/workbench/contrib/executionHistory/common/executionHistoryService';
 import { Disposable } from 'vs/base/common/lifecycle';
 import { ILanguageRuntimeSession, IRuntimeSessionService } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
-import { IStorageService } from 'vs/platform/storage/common/storage';
+import { IStorageService, StorageScope } from 'vs/platform/storage/common/storage';
 import { ILogService } from 'vs/platform/log/common/log';
 import { InstantiationType, registerSingleton } from 'vs/platform/instantiation/common/extensions';
 import { RuntimeExecutionHistory } from 'vs/workbench/contrib/executionHistory/common/runtimeExecutionHistory';
 import { LanguageInputHistory } from 'vs/workbench/contrib/executionHistory/common/languageInputHistory';
 import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
+import { IWorkspaceContextService, WorkbenchState } from 'vs/platform/workspace/common/workspace';
 
 /**
  * Service that manages execution histories for all runtimes.
@@ -29,7 +30,8 @@ export class ExecutionHistoryService extends Disposable implements IExecutionHis
 		@IRuntimeSessionService private readonly _runtimeSessionService: IRuntimeSessionService,
 		@IStorageService private readonly _storageService: IStorageService,
 		@ILogService private readonly _logService: ILogService,
-		@IConfigurationService private readonly _configurationService: IConfigurationService
+		@IConfigurationService private readonly _configurationService: IConfigurationService,
+		@IWorkspaceContextService private readonly _workspaceContextService: IWorkspaceContextService
 	) {
 		super();
 
@@ -105,7 +107,18 @@ export class ExecutionHistoryService extends Disposable implements IExecutionHis
 		if (this._inputHistories.has(languageId)) {
 			return this._inputHistories.get(languageId)!;
 		}
-		const history = new LanguageInputHistory(languageId, this._storageService, this._logService, this._configurationService);
+
+		// If we're in an empty workspace, use the profile storage scope; otherwise,
+		// use the workspace scope.
+		const storageScope =
+			this._workspaceContextService.getWorkbenchState() === WorkbenchState.EMPTY ?
+				StorageScope.PROFILE :
+				StorageScope.WORKSPACE;
+		const history = new LanguageInputHistory(languageId,
+			this._storageService,
+			storageScope,
+			this._logService,
+			this._configurationService);
 		this._inputHistories.set(languageId, history);
 		this._register(history);
 		return history;
