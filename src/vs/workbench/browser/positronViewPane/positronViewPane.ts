@@ -1,7 +1,7 @@
 /*---------------------------------------------------------------------------------------------
  *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
-
+import * as DOM from 'vs/base/browser/dom';
 import { disposableTimeout } from 'vs/base/common/async';
 import { DisposableStore } from 'vs/base/common/lifecycle';
 import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
@@ -17,7 +17,7 @@ import { IViewPaneOptions, ViewPane } from 'vs/workbench/browser/parts/views/vie
 import { IViewDescriptorService } from 'vs/workbench/common/views';
 
 export interface PositronViewPaneOptions extends IViewPaneOptions {
-	allowZeroMinimumBodySize?: boolean;
+	openFromCollapsedSize?: number | `${number}%`;
 }
 
 export abstract class PositronViewPane extends ViewPane {
@@ -60,7 +60,7 @@ export abstract class PositronViewPane extends ViewPane {
 		// way to set this in any sort of configuration hence the need to override it here. If this
 		// isn't set, then the content of panes may occlude other parts of the editor when it is
 		// resized to be very small. See the `onDidChangeBodyVisibility` handler for implications.
-		if (options.allowZeroMinimumBodySize) {
+		if (options.openFromCollapsedSize) {
 			this.minimumBodySize = 0;
 		}
 
@@ -72,7 +72,7 @@ export abstract class PositronViewPane extends ViewPane {
 		// viewpane management state becomes confused on toggle.
 		this.element.tabIndex = 0;
 
-		if (options.allowZeroMinimumBodySize) {
+		if (options.openFromCollapsedSize) {
 			// Register the onDidChangeBodyVisibility event handler.
 			this._register(this.onDidChangeBodyVisibility(visible => {
 
@@ -82,11 +82,38 @@ export abstract class PositronViewPane extends ViewPane {
 					// the element to have some height. We set the minimum body size to 0 first to ensure
 					// that the view can be resized to be very small without spilling over, so we need to
 					// set it back to the original minimum body size after.
-					this.minimumBodySize = options.maximumBodySize ?? 50;
+					this.minimumBodySize = options.minimumBodySize ?? this._getOpenFromCollapsedSize(options.openFromCollapsedSize);
 					this.minimumBodySize = 0;
 				}
 			}));
 		}
+	}
+
+	/**
+	 * Helper function to get the openFromCollapsedSize value as a number of pixels.
+	 * @returns How large the view should be when it is opened from a collapsed state in pixels.
+	 */
+	private _getOpenFromCollapsedSize(openFromCollapsedSize: PositronViewPaneOptions['openFromCollapsedSize']): number {
+		// If the value is a plain number then it refers to pixels and we don't need to do anything
+		// special to it.
+		if (typeof openFromCollapsedSize === 'number') {
+			return openFromCollapsedSize;
+		}
+
+		// If the number is a string then it must represent a percentage of the window height. Here
+		// we need to convert it to pixels based on the current window height.
+		if (typeof openFromCollapsedSize === 'string') {
+			const popOpenPercent = parseFloat(openFromCollapsedSize);
+
+			if (isNaN(popOpenPercent)) {
+				throw new Error(`Invalid value for openFromCollapsedSize: ${openFromCollapsedSize}`);
+			}
+
+			const windowHeight = DOM.getWindow(this.element).innerHeight;
+			return windowHeight * popOpenPercent / 100;
+		}
+
+		throw new Error(`Invalid value for openFromCollapsedSize: ${openFromCollapsedSize}`);
 	}
 
 	override focus(): void {
