@@ -546,23 +546,28 @@ class SummaryStatsNumber(BaseModel):
     SummaryStatsNumber in Schemas
     """
 
-    min_value: StrictStr = Field(
+    min_value: Optional[StrictStr] = Field(
+        default=None,
         description="Minimum value as string",
     )
 
-    max_value: StrictStr = Field(
+    max_value: Optional[StrictStr] = Field(
+        default=None,
         description="Maximum value as string",
     )
 
-    mean: StrictStr = Field(
+    mean: Optional[StrictStr] = Field(
+        default=None,
         description="Average value as string",
     )
 
-    median: StrictStr = Field(
+    median: Optional[StrictStr] = Field(
+        default=None,
         description="Sample median (50% value) value as string",
     )
 
-    stdev: StrictStr = Field(
+    stdev: Optional[StrictStr] = Field(
+        default=None,
         description="Sample standard deviation as a string",
     )
 
@@ -743,6 +748,14 @@ class SupportedFeatures(BaseModel):
         description="Support for 'get_column_profiles' RPC and its features",
     )
 
+    set_sort_columns: SetSortColumnsFeatures = Field(
+        description="Support for 'set_sort_columns' RPC and its features",
+    )
+
+    export_data_selection: ExportDataSelectionFeatures = Field(
+        description="Support for 'export_data_selection' RPC and its features",
+    )
+
 
 class SearchSchemaFeatures(BaseModel):
     """
@@ -783,6 +796,26 @@ class GetColumnProfilesFeatures(BaseModel):
 
     supported_types: List[ColumnProfileType] = Field(
         description="A list of supported types",
+    )
+
+
+class ExportDataSelectionFeatures(BaseModel):
+    """
+    Feature flags for 'export_data_selction' RPC
+    """
+
+    supported: StrictBool = Field(
+        description="Whether this RPC method is supported at all",
+    )
+
+
+class SetSortColumnsFeatures(BaseModel):
+    """
+    Feature flags for 'set_sort_columns' RPC
+    """
+
+    supported: StrictBool = Field(
+        description="Whether this RPC method is supported at all",
     )
 
 
@@ -1249,6 +1282,10 @@ SearchSchemaFeatures.update_forward_refs()
 SetRowFiltersFeatures.update_forward_refs()
 
 GetColumnProfilesFeatures.update_forward_refs()
+
+ExportDataSelectionFeatures.update_forward_refs()
+
+SetSortColumnsFeatures.update_forward_refs()
 
 DataSelection.update_forward_refs()
 

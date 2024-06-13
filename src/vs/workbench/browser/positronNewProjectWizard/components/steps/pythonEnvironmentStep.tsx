@@ -23,6 +23,7 @@ import { DisposableStore } from 'vs/base/common/lifecycle';
 import { DropDownListBox } from 'vs/workbench/browser/positronComponents/dropDownListBox/dropDownListBox';
 import { interpretersToDropdownItems } from 'vs/workbench/browser/positronNewProjectWizard/utilities/interpreterDropDownUtils';
 import { condaInterpretersToDropdownItems } from 'vs/workbench/browser/positronNewProjectWizard/utilities/condaUtils';
+import { PathDisplay } from 'vs/workbench/browser/positronNewProjectWizard/components/pathDisplay';
 
 // NOTE: If you are making changes to this file, the equivalent R component may benefit from similar
 // changes. See src/vs/workbench/browser/positronNewProjectWizard/components/steps/rConfigurationStep.tsx
@@ -77,13 +78,22 @@ export const PythonEnvironmentStep = (props: PropsWithChildren<NewProjectWizardS
 	}, [context]);
 
 	// Utility functions.
-	const interpretersAvailable = () =>
-		Boolean(interpreters && interpreters.length) ||
-		// Interpreters are always available for Conda because we display the supported versions
-		// that an environment can be created with.
-		Boolean(context.usesCondaEnv && condaPythonVersionInfo);
-	const interpretersLoading = () =>
-		!interpreters || Boolean(context.usesCondaEnv && !condaPythonVersionInfo);
+	const interpretersAvailable = () => {
+		if (context.usesCondaEnv) {
+			return Boolean(
+				context.isCondaInstalled &&
+				condaPythonVersionInfo &&
+				condaPythonVersionInfo.versions.length
+			);
+		}
+		return Boolean(interpreters && interpreters.length);
+	};
+	const interpretersLoading = () => {
+		if (context.usesCondaEnv) {
+			return Boolean(context.isCondaInstalled && !condaPythonVersionInfo);
+		}
+		return !interpreters;
+	};
 	const envProvidersAvailable = () => Boolean(envProviders && envProviders.length);
 	const envProvidersLoading = () => !envProviders;
 
@@ -133,16 +143,18 @@ export const PythonEnvironmentStep = (props: PropsWithChildren<NewProjectWizardS
 								'pythonEnvironmentSubStep.feedback',
 								"The environment will be created at: "
 							))()}
-						<code>
-							{locationForNewEnv(
-								context.parentFolder,
-								context.projectName,
-								envProviderNameForId(
-									envProviderId,
-									envProviders!
+						<PathDisplay
+							pathService={context.services.pathService}
+							maxLength={65}
+							pathComponents={
+								locationForNewEnv(
+									context.parentFolder,
+									context.projectName,
+									envProviderNameForId(envProviderId, envProviders!)
 								)
-							)}
-						</code>
+							}
+						/>
+
 					</WizardFormattedText>
 				);
 			}
@@ -254,6 +266,20 @@ export const PythonEnvironmentStep = (props: PropsWithChildren<NewProjectWizardS
 						localize(
 							'pythonInterpreterSubStep.feedback.noInterpretersAvailable',
 							"No interpreters available since no environment providers were found."
+						))()}
+				</WizardFormattedText>
+			);
+		}
+
+		if (context.usesCondaEnv && !context.isCondaInstalled) {
+			return (
+				<WizardFormattedText
+					type={WizardFormattedTextType.Warning}
+				>
+					{(() =>
+						localize(
+							'pythonInterpreterSubStep.feedback.condaNotInstalled',
+							"Conda is not installed. Please install Conda to create a Conda environment."
 						))()}
 				</WizardFormattedText>
 			);

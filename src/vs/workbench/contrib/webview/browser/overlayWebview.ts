@@ -18,6 +18,7 @@ import { IOverlayWebview, IWebview, IWebviewElement, IWebviewService, KEYBINDING
 
 // --- Start Positron ---
 import { VSBuffer } from 'vs/base/common/buffer';
+import { WebviewFrameId } from 'vs/platform/webview/common/webviewManagerService';
 // --- End Positron ---
 
 /**
@@ -31,6 +32,10 @@ export class OverlayWebview extends Disposable implements IOverlayWebview {
 	private readonly _webviewEvents = this._register(new DisposableStore());
 
 	private _html = '';
+	// --- Start Positron ---
+	// The URI of the webview. Mutually exclusive with _html.
+	private _uri: URI | undefined;
+	// --- End Positron ---
 	private _title: string | undefined;
 	private _initialScrollProgress: number = 0;
 	private _state: string | undefined = undefined;
@@ -244,6 +249,12 @@ export class OverlayWebview extends Disposable implements IOverlayWebview {
 				webview.setHtml(this._html);
 			}
 
+			// --- Start Positron ---
+			if (this._uri) {
+				webview.setUri(this._uri);
+			}
+			// --- End Positron ---
+
 			if (this._options.tryRestoreScrollPosition) {
 				webview.initialScrollProgress = this._initialScrollProgress;
 			}
@@ -273,6 +284,12 @@ export class OverlayWebview extends Disposable implements IOverlayWebview {
 				this._onDidUpdateState.fire(state);
 			}));
 
+			// --- Start Positron ---
+			this._webviewEvents.add(webview.onDidNavigate(x => {
+				this._onDidNavigate.fire(x);
+			}));
+			// --- End Positron ---
+
 			if (this._isFirstLoad) {
 				this._firstLoadPendingMessages.forEach(async msg => {
 					msg.resolve(await webview.postMessage(msg.message, msg.transfer));
@@ -301,6 +318,15 @@ export class OverlayWebview extends Disposable implements IOverlayWebview {
 		this._title = title;
 		this._withWebview(webview => webview.setTitle(title));
 	}
+
+	// --- Start Positron ---
+	public setUri(uri: URI) {
+		this._uri = uri;
+		this._withWebview(webview => webview.setUri(uri));
+	}
+	private _onDidNavigate = this._register(new Emitter<URI>());
+	public onDidNavigate = this._onDidNavigate.event;
+	// --- End Positron ---
 
 	public get initialScrollProgress(): number { return this._initialScrollProgress; }
 	public set initialScrollProgress(value: number) {
@@ -411,6 +437,19 @@ export class OverlayWebview extends Disposable implements IOverlayWebview {
 	captureContentsAsPng(): Promise<VSBuffer | undefined> {
 		if (this._webview.value) {
 			return this._webview.value.captureContentsAsPng();
+		}
+		return Promise.resolve(undefined);
+	}
+
+	/**
+	 * Executes the provided script in a frame inside the webview.
+	 *
+	 * @param frameID The frame to execute the script in.
+	 * @param script The script to execute.
+	 */
+	executeJavaScript(frameId: WebviewFrameId, script: string): Promise<any> {
+		if (this._webview.value) {
+			return this._webview.value.executeJavaScript(frameId, script);
 		}
 		return Promise.resolve(undefined);
 	}

@@ -8,6 +8,8 @@
 # Snippets are separated by `# ---`. This makes it possible to extract them and
 # process them separately to prevent interferences between test cases.
 
+declare(ark(diagnostics(enable = FALSE)))
+
 # ---
 # Starting a pipeline (+ operator)
 1 +"<>"
@@ -212,3 +214,10 @@ function() {
 foo(function() {
     bar"<>"
 })
+
+# ---
+# Indentation of prefixed braces
+# https://github.com/posit-dev/positron/issues/3475
+# https://github.com/posit-dev/positron/issues/3484
+foobar <- function(arg,
+                   arg) {"<>"}

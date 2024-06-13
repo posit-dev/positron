@@ -434,27 +434,27 @@ export interface SummaryStatsNumber {
 	/**
 	 * Minimum value as string
 	 */
-	min_value: string;
+	min_value?: string;
 
 	/**
 	 * Maximum value as string
 	 */
-	max_value: string;
+	max_value?: string;
 
 	/**
 	 * Average value as string
 	 */
-	mean: string;
+	mean?: string;
 
 	/**
 	 * Sample median (50% value) value as string
 	 */
-	median: string;
+	median?: string;
 
 	/**
 	 * Sample standard deviation as a string
 	 */
-	stdev: string;
+	stdev?: string;
 
 }
 
@@ -662,6 +662,16 @@ export interface SupportedFeatures {
 	 */
 	get_column_profiles: GetColumnProfilesFeatures;
 
+	/**
+	 * Support for 'set_sort_columns' RPC and its features
+	 */
+	set_sort_columns: SetSortColumnsFeatures;
+
+	/**
+	 * Support for 'export_data_selection' RPC and its features
+	 */
+	export_data_selection: ExportDataSelectionFeatures;
+
 }
 
 /**
@@ -709,6 +719,28 @@ export interface GetColumnProfilesFeatures {
 	 * A list of supported types
 	 */
 	supported_types: Array<ColumnProfileType>;
+
+}
+
+/**
+ * Feature flags for 'export_data_selction' RPC
+ */
+export interface ExportDataSelectionFeatures {
+	/**
+	 * Whether this RPC method is supported at all
+	 */
+	supported: boolean;
+
+}
+
+/**
+ * Feature flags for 'set_sort_columns' RPC
+ */
+export interface SetSortColumnsFeatures {
+	/**
+	 * Whether this RPC method is supported at all
+	 */
+	supported: boolean;
 
 }
 

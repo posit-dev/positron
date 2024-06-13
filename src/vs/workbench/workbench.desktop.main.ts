@@ -172,6 +172,10 @@ import 'vs/workbench/contrib/inlineChat/electron-sandbox/inlineChat.contribution
 // Encryption
 import 'vs/workbench/contrib/encryption/electron-sandbox/encryption.contribution';
 
+// --- Start Positron ---
+import 'vs/workbench/contrib/positronPreview/electron-sandbox/positronPreview.contribution';
+// --- End Positron ---
+
 //#endregion
 
 

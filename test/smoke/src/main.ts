@@ -36,6 +36,8 @@ import { setup as setupPlotsTest } from './areas/positron/plots/plots.test';
 import { setup as setupPythonConsoleTest } from './areas/positron/console/python-console.test';
 import { setup as setupRConsoleTest } from './areas/positron/console/r-console.test';
 import { setup as setupLargeDataFrameTest } from './areas/positron/dataexplorer/largeDataFrame.test';
+import { setup as setupNotebookCreateTest } from './areas/positron/notebook/notebookCreate.test';
+import { setup as setupNewProjectWizardTest } from './areas/positron/new-project-wizard/python-new-project.test';
 // --- End Positron ---
 
 const rootPath = path.join(__dirname, '..', '..', '..');
@@ -426,5 +428,7 @@ describe(`VSCode Smoke Tests (${opts.web ? 'Web' : 'Electron'})`, () => {
 	setupPythonConsoleTest(logger);
 	setupRConsoleTest(logger);
 	setupLargeDataFrameTest(logger);
+	setupNotebookCreateTest(logger);
+	setupNewProjectWizardTest(logger);
 	// --- End Positron ---
 });

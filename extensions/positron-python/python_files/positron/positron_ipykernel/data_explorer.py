@@ -7,6 +7,7 @@
 
 import abc
 import logging
+import math
 import operator
 from datetime import datetime
 from typing import (
@@ -43,6 +44,7 @@ from .data_explorer_comm import (
     DataSelectionKind,
     DataSelectionRange,
     DataSelectionSingleCell,
+    ExportDataSelectionFeatures,
     ExportDataSelectionRequest,
     ExportFormat,
     ExportedData,
@@ -62,6 +64,7 @@ from .data_explorer_comm import (
     SearchSchemaResult,
     SetRowFiltersFeatures,
     SetRowFiltersRequest,
+    SetSortColumnsFeatures,
     SetSortColumnsRequest,
     SummaryStatsBoolean,
     SummaryStatsDate,
@@ -74,13 +77,12 @@ from .data_explorer_comm import (
     TableShape,
 )
 from .positron_comm import CommMessage, PositronComm
-from .third_party import np_, pd_
+from .third_party import np_, pd_, pl_
 from .utils import guid
 
 if TYPE_CHECKING:
     import pandas as pd
-
-    # import polars as pl
+    import polars as pl
     # import pyarrow as pa
 
 
@@ -119,10 +121,6 @@ class DataExplorerTableView(abc.ABC):
     def _set_sort_keys(self, sort_keys):
         self.sort_keys = sort_keys if sort_keys is not None else []
 
-    @abc.abstractmethod
-    def _recompute(self):
-        raise NotImplementedError
-
     def _recompute_if_needed(self) -> bool:
         if self._need_recompute:
             self._recompute()
@@ -132,7 +130,22 @@ class DataExplorerTableView(abc.ABC):
             return False
 
     def get_schema(self, request: GetSchemaRequest):
-        return self._get_schema(request.params.start_index, request.params.num_columns).dict()
+        column_schemas = []
+
+        start = request.params.start_index
+        num_columns = request.params.num_columns
+
+        for column_index in range(
+            start,
+            min(start + num_columns, self.table.shape[1]),
+        ):
+            col_schema = self._get_single_column_schema(column_index)
+            column_schemas.append(col_schema)
+
+        return TableSchema(columns=column_schemas).dict()
+
+    def _get_single_column_schema(self, column_index: int) -> ColumnSchema:
+        raise NotImplementedError
 
     def search_schema(self, request: SearchSchemaRequest):
         return self._search_schema(
@@ -190,25 +203,17 @@ class DataExplorerTableView(abc.ABC):
         self._recompute_if_needed()
         return self._get_state().dict()
 
-    @abc.abstractmethod
-    def invalidate_computations(self):
-        pass
+    def _recompute(self):
+        raise NotImplementedError
 
-    @abc.abstractmethod
     def get_updated_state(self, new_table) -> StateUpdate:
-        pass
+        raise NotImplementedError
 
-    @abc.abstractmethod
-    def _get_schema(self, column_start: int, num_columns: int) -> TableSchema:
-        pass
-
-    @abc.abstractmethod
     def _search_schema(
         self, search_term: str, start_index: int, max_results: int
     ) -> SearchSchemaResult:
-        pass
+        raise NotImplementedError
 
-    @abc.abstractmethod
     def _get_data_values(
         self,
         row_start: int,
@@ -216,50 +221,49 @@ class DataExplorerTableView(abc.ABC):
         column_indices: Sequence[int],
         format_options: FormatOptions,
     ) -> TableData:
-        pass
+        raise NotImplementedError
 
-    @abc.abstractmethod
     def _export_data_selection(self, selection: DataSelection, fmt: ExportFormat) -> ExportedData:
-        pass
+        raise NotImplementedError
 
-    @abc.abstractmethod
     def _set_row_filters(self, filters: List[RowFilter]) -> FilterResult:
-        pass
+        raise NotImplementedError
 
-    @abc.abstractmethod
     def _set_sort_columns(self, sort_keys: List[ColumnSortKey]):
-        pass
+        raise NotImplementedError
 
-    @abc.abstractmethod
     def _sort_data(self):
-        pass
+        raise NotImplementedError
 
-    @abc.abstractmethod
     def _prof_null_count(self, column_index: int) -> int:
-        pass
+        raise NotImplementedError
 
-    @abc.abstractmethod
     def _prof_summary_stats(self, column_index: int, options: FormatOptions) -> ColumnSummaryStats:
-        pass
+        raise NotImplementedError
 
-    @abc.abstractmethod
     def _prof_freq_table(self, column_index: int) -> ColumnFrequencyTable:
-        pass
+        raise NotImplementedError
 
-    @abc.abstractmethod
     def _prof_histogram(self, column_index: int) -> ColumnHistogram:
-        pass
+        raise NotImplementedError
 
-    @abc.abstractmethod
     def _get_state(self) -> BackendState:
-        pass
+        raise NotImplementedError
+
+
+class UnsupportedView(DataExplorerTableView):
+    def __init__(self, display_name, table):
+        super().__init__(display_name, table, [], [])
 
 
 # Special value codes for the protocol
+_VALUE_NULL = 0
 _VALUE_NA = 1
 _VALUE_NAN = 2
 _VALUE_NAT = 3
 _VALUE_NONE = 4
+_VALUE_INF = 10
+_VALUE_NEGINF = 11
 
 
 if np_ is not None:
@@ -268,6 +272,7 @@ if np_ is not None:
         return isinstance(x, (float, np_.floating))
 
     _isnan = np_.isnan  # type: ignore
+    _isinf = np_.isinf  # type: ignore
 else:
 
     def _is_float_scalar(x):
@@ -275,6 +280,9 @@ else:
 
     def _isnan(x: float) -> bool:
         return x != x
+
+    def _isinf(x: float) -> bool:
+        return math.isinf(x)
 
 
 def _get_float_formatter(options: FormatOptions) -> Callable:
@@ -408,10 +416,6 @@ class PandasView(DataExplorerTableView):
         self._sort_key_schemas = [
             self._get_single_column_schema(key.column_index) for key in self.sort_keys
         ]
-
-    def invalidate_computations(self):
-        self.filtered_indices = self.view_indices = None
-        self._need_recompute = True
 
     def get_updated_state(self, new_table) -> StateUpdate:
         from pandas.api.types import infer_dtype
@@ -603,18 +607,6 @@ class PandasView(DataExplorerTableView):
         # sorting
         self._set_row_filters(self.filters)
 
-    def _get_schema(self, column_start: int, num_columns: int) -> TableSchema:
-        column_schemas = []
-
-        for column_index in range(
-            column_start,
-            min(column_start + num_columns, len(self.table.columns)),
-        ):
-            col_schema = self._get_single_column_schema(column_index)
-            column_schemas.append(col_schema)
-
-        return TableSchema(columns=column_schemas)
-
     def _search_schema(
         self, search_term: str, start_index: int, max_results: int
     ) -> SearchSchemaResult:
@@ -754,11 +746,6 @@ class PandasView(DataExplorerTableView):
         formatted_columns = []
 
         column_indices = sorted(column_indices)
-
-        # TODO(wesm): This value formatting strategy produces output
-        # that is not the same as what users see in the console. I
-        # will have to look for the right pandas function that deals
-        # with value formatting
         columns = []
         for i in column_indices:
             # The UI has requested data beyond the end of the table,
@@ -793,24 +780,28 @@ class PandasView(DataExplorerTableView):
 
     @classmethod
     def _format_values(cls, values, options: FormatOptions) -> List[ColumnValue]:
+        NaT = pd_.NaT
+        NA = pd_.NA
         float_format = _get_float_formatter(options)
-        return [cls._format_value(x, float_format) for x in values]
 
-    @staticmethod
-    def _format_value(x, float_format: Callable):
-        if _is_float_scalar(x):
-            if _isnan(x):
-                return _VALUE_NAN
+        def _format_value(x):
+            if _is_float_scalar(x):
+                if _isnan(x):
+                    return _VALUE_NAN
+                elif _isinf(x):
+                    return _VALUE_INF if x > 0 else _VALUE_NEGINF
+                else:
+                    return float_format(x)
+            elif x is None:
+                return _VALUE_NONE
+            elif x is NaT:
+                return _VALUE_NAT
+            elif x is NA:
+                return _VALUE_NA
             else:
-                return float_format(x)
-        elif x is None:
-            return _VALUE_NONE
-        elif x is getattr(pd_, "NaT", None):
-            return _VALUE_NAT
-        elif x is getattr(pd_, "NA", None):
-            return _VALUE_NA
-        else:
-            return str(x)
+                return str(x)
+
+        return [_format_value(x) for x in values]
 
     def _export_data_selection(self, selection: DataSelection, fmt: ExportFormat) -> ExportedData:
         sel = selection.selection
@@ -1141,20 +1132,38 @@ class PandasView(DataExplorerTableView):
     def _summarize_number(cls, col: "pd.Series", options: FormatOptions):
         float_format = _get_float_formatter(options)
 
-        min_val = col.min()
-        max_val = col.max()
-        mean_val = col.mean()
-        median_val = col.median()
-        std_val = col.std()
+        median_val = mean_val = std_val = None
+
+        if "complex" in str(col.dtype):
+            min_val = max_val = None
+            values = col.to_numpy()
+            non_null_values = values[~np_.isnan(values)]
+            if len(non_null_values) > 0:
+                median_val = float_format(np_.median(non_null_values))
+                mean_val = float_format(np_.mean(non_null_values))
+        else:
+            min_val = col.min()
+            max_val = col.max()
+
+            if not _isinf(min_val) and not _isinf(max_val):
+                # These stats are not defined when there is an
+                # inf/-inf in the data
+                mean_val = float_format(col.mean())
+                median_val = float_format(col.median())
+                std_val = float_format(col.std())
+
+            # Format the min/max
+            min_val = float_format(min_val)
+            max_val = float_format(max_val)
 
         return ColumnSummaryStats(
             type_display=ColumnDisplayType.Number,
             number_stats=SummaryStatsNumber(
-                min_value=float_format(min_val),
-                max_value=float_format(max_val),
-                mean=float_format(mean_val),
-                median=float_format(median_val),
-                stdev=float_format(std_val),
+                min_value=min_val,
+                max_value=max_val,
+                mean=mean_val,
+                median=median_val,
+                stdev=std_val,
             ),
         )
 
@@ -1265,16 +1274,24 @@ class PandasView(DataExplorerTableView):
         search_schema=SearchSchemaFeatures(supported=True),
         set_row_filters=SetRowFiltersFeatures(
             supported=True,
-            supports_conditions=True,
+            # Temporarily disabled for https://github.com/posit-dev/positron/issues/3489 on
+            # 6/11/2024. This will be enabled again when the UI has been reworked to support
+            # grouping.
+            supports_conditions=False,
             supported_types=list(SUPPORTED_FILTERS),
         ),
         get_column_profiles=GetColumnProfilesFeatures(
             supported=True,
             supported_types=[
                 ColumnProfileType.NullCount,
-                ColumnProfileType.SummaryStats,
+                # Temporarily disabled for https://github.com/posit-dev/positron/issues/3490
+                # on 6/11/2024. This will be enabled again when the UI has been reworked to
+                # more fully support column profiles.
+                # ColumnProfileType.SummaryStats,
             ],
         ),
+        set_sort_columns=SetSortColumnsFeatures(supported=True),
+        export_data_selection=ExportDataSelectionFeatures(supported=True),
     )
 
     def _get_state(self) -> BackendState:
@@ -1389,21 +1406,232 @@ def _parse_iso8601_like(x, dtype):
 
 
 class PolarsView(DataExplorerTableView):
-    pass
+    def __init__(
+        self,
+        display_name: str,
+        table: "pl.DataFrame",
+        filters: Optional[List[RowFilter]],
+        sort_keys: Optional[List[ColumnSortKey]],
+    ):
+        super().__init__(display_name, table, filters, sort_keys)
+        self.filtered_indices = None
+        self.view_indices = None
+
+    def _recompute(self):
+        raise NotImplementedError
+
+    def get_updated_state(self, new_table) -> StateUpdate:
+        raise NotImplementedError
+
+    def _get_single_column_schema(self, column_index: int):
+        column: "pl.Series" = self.table[:, column_index]
+        type_display = self._get_type_display(column.dtype)
+
+        return ColumnSchema(
+            column_name=column.name,
+            column_index=column_index,
+            type_name=str(column.dtype),
+            type_display=type_display,
+        )
+
+    TYPE_DISPLAY_MAPPING = {
+        "Boolean": "boolean",
+        "Int8": "number",
+        "Int16": "number",
+        "Int32": "number",
+        "Int64": "number",
+        "UInt8": "number",
+        "UInt16": "number",
+        "UInt32": "number",
+        "UInt64": "number",
+        "Float32": "number",
+        "Float64": "number",
+        "Binary": "string",
+        "String": "string",
+        "Date": "date",
+        "Datetime": "datetime",
+        "Time": "time",
+        "Decimal": "number",
+        "Object": "object",
+        "List": "array",
+        "Struct": "struct",
+        "Categorical": "unknown",  # See #3417
+        "Duration": "unknown",  # See #3418
+        "Enum": "unknown",
+        "Null": "unknown",  # Not yet implemented
+        "Unknown": "unknown",
+    }
+
+    @classmethod
+    def _get_type_display(cls, dtype: "pl.DataType"):
+        key = str(dtype.base_type())
+        return cls.TYPE_DISPLAY_MAPPING.get(key, "unknown")
+
+    def _search_schema(
+        self, search_term: str, start_index: int, max_results: int
+    ) -> SearchSchemaResult:
+        raise NotImplementedError
+
+    def _get_data_values(
+        self,
+        row_start: int,
+        num_rows: int,
+        column_indices: Sequence[int],
+        format_options: FormatOptions,
+    ) -> TableData:
+        formatted_columns = []
+        column_indices = sorted(column_indices)
+        columns = []
+        for i in column_indices:
+            # The UI has requested data beyond the end of the table,
+            # so we stop here
+            if i >= self.table.shape[1]:
+                break
+            columns.append(self.table[:, i])
+
+        formatted_columns = []
+
+        if self.view_indices is not None:
+            raise NotImplementedError
+        else:
+            # No filtering or sorting, just slice
+            columns = [col[row_start : row_start + num_rows] for col in columns]
+
+        formatted_columns = [self._format_values(col, format_options) for col in columns]
+
+        return TableData(columns=formatted_columns)
+
+    @classmethod
+    def _format_values(cls, values, options: FormatOptions) -> List[ColumnValue]:
+        float_format = _get_float_formatter(options)
+
+        def _format_scalar(x):
+            if _is_float_scalar(x):
+                if _isnan(x):
+                    return _VALUE_NAN
+                else:
+                    return float_format(x)
+            else:
+                return str(x)
+
+        def _format_series(s):
+            result = []
+            is_valid_mask = s.is_not_null()
+            if s.dtype.base_type() is pl_.List:
+                # Special recursive formatting for List types
+                for i, v in enumerate(s):
+                    if is_valid_mask[i]:
+                        inner_values = _format_series(v)
+                        result.append(
+                            "[" + ", ".join("null" if v == 0 else v for v in inner_values) + "]"
+                        )
+                    else:
+                        result.append(_VALUE_NULL)
+            else:
+                for i, v in enumerate(s):
+                    if is_valid_mask[i]:
+                        result.append(_format_scalar(v))
+                    else:
+                        result.append(_VALUE_NULL)
+            return result
+
+        return _format_series(values)
+
+    def _export_data_selection(self, selection: DataSelection, fmt: ExportFormat) -> ExportedData:
+        raise NotImplementedError
+
+    def _set_row_filters(self, filters: List[RowFilter]) -> FilterResult:
+        raise NotImplementedError
+
+    def _set_sort_columns(self, sort_keys: List[ColumnSortKey]):
+        raise NotImplementedError
+
+    def _sort_data(self):
+        raise NotImplementedError
+
+    def _prof_null_count(self, column_index: int) -> int:
+        return self._get_column(column_index).null_count()
+
+    def _get_column(self, column_index: int) -> "pl.Series":
+        column = self.table[:, column_index]
+        if self.filtered_indices is not None:
+            column = column.take(self.filtered_indices)
+        return column
+
+    def _prof_summary_stats(self, column_index: int, options: FormatOptions) -> ColumnSummaryStats:
+        raise NotImplementedError
+
+    def _prof_freq_table(self, column_index: int) -> ColumnFrequencyTable:
+        raise NotImplementedError
+
+    def _prof_histogram(self, column_index: int) -> ColumnHistogram:
+        raise NotImplementedError
+
+    SUPPORTED_FILTERS = set()
+
+    FEATURES = SupportedFeatures(
+        search_schema=SearchSchemaFeatures(supported=False),
+        set_row_filters=SetRowFiltersFeatures(
+            supported=False,
+            supports_conditions=False,
+            supported_types=list(SUPPORTED_FILTERS),
+        ),
+        get_column_profiles=GetColumnProfilesFeatures(
+            supported=True,
+            supported_types=[
+                ColumnProfileType.NullCount,
+                # Temporarily disabled for https://github.com/posit-dev/positron/issues/3490
+                # on 6/11/2024. This will be enabled again when the UI has been reworked to
+                # more fully support column profiles.
+                # ColumnProfileType.SummaryStats,
+            ],
+        ),
+        export_data_selection=ExportDataSelectionFeatures(supported=False),
+        set_sort_columns=SetSortColumnsFeatures(supported=False),
+    )
+
+    def _get_state(self) -> BackendState:
+        table_unfiltered_shape = TableShape(
+            num_rows=self.table.shape[0], num_columns=self.table.shape[1]
+        )
+
+        return BackendState(
+            display_name=self.display_name,
+            table_shape=table_unfiltered_shape,
+            table_unfiltered_shape=table_unfiltered_shape,
+            row_filters=self.filters,
+            sort_keys=self.sort_keys,
+            supported_features=self.FEATURES,
+        )
 
 
 class PyArrowView(DataExplorerTableView):
     pass
 
 
+def _is_pandas(table):
+    return pd_ is not None and isinstance(table, (pd_.DataFrame, pd_.Series))
+
+
+def _is_polars(table):
+    return pl_ is not None and isinstance(table, (pl_.DataFrame, pl_.Series))
+
+
 def _get_table_view(table, filters=None, sort_keys=None, name=None):
     name = name or guid()
-    return PandasView(name, table, filters, sort_keys)
+
+    if _is_pandas(table):
+        return PandasView(name, table, filters, sort_keys)
+    elif _is_polars(table):
+        return PolarsView(name, table, filters, sort_keys)
+    else:
+        return UnsupportedView(name, table)
 
 
 def _value_type_is_supported(value):
-    # pandas types
-    if isinstance(value, (pd_.DataFrame, pd_.Series)):
+    if _is_pandas(value):
+        return True
+    if _is_polars(value):
         return True
     return False
 

@@ -21,6 +21,9 @@ import { WizardFormattedText, WizardFormattedTextType } from 'vs/workbench/brows
 import { checkProjectName } from 'vs/workbench/browser/positronNewProjectWizard/utilities/projectNameUtils';
 import { DisposableStore } from 'vs/base/common/lifecycle';
 import { NewProjectType } from 'vs/workbench/services/positronNewProject/common/positronNewProject';
+import { checkIfPathExists, checkIfPathValid } from 'vs/workbench/browser/positronComponents/positronModalDialog/components/fileInputValidators';
+import { PathDisplay } from 'vs/workbench/browser/positronNewProjectWizard/components/pathDisplay';
+import { useDebouncedValidator } from 'vs/workbench/browser/positronComponents/positronModalDialog/components/useDebouncedValidator';
 
 /**
  * The ProjectNameLocationStep component is the second step in the new project wizard.
@@ -38,6 +41,17 @@ export const ProjectNameLocationStep = (props: PropsWithChildren<NewProjectWizar
 	const [projectName, setProjectName] = useState(context.projectName);
 	const [parentFolder, setParentFolder] = useState(context.parentFolder);
 	const [projectNameFeedback, setProjectNameFeedback] = useState(context.projectNameFeedback);
+	const nameValidationErrorMsg = useDebouncedValidator({
+		value: projectName,
+		validator: checkIfPathValid
+	});
+	const isInvalidName = nameValidationErrorMsg !== undefined;
+	const parentPathErrorMsg = useDebouncedValidator({
+		value: parentFolder,
+		validator: (path: string | number) => checkIfPathExists(path, fileService)
+	});
+	const isInvalidParentPath = parentPathErrorMsg !== undefined;
+
 
 	useEffect(() => {
 		// Create the disposable store for cleanup.
@@ -126,6 +140,8 @@ export const ProjectNameLocationStep = (props: PropsWithChildren<NewProjectWizar
 				onClick: nextStep,
 				disable:
 					!projectName ||
+					isInvalidName ||
+					isInvalidParentPath ||
 					!parentFolder ||
 					(projectNameFeedback &&
 						projectNameFeedback.type === WizardFormattedTextType.Error),
@@ -143,7 +159,11 @@ export const ProjectNameLocationStep = (props: PropsWithChildren<NewProjectWizar
 						<WizardFormattedText type={projectNameFeedback.type}>
 							{projectNameFeedback.text}
 						</WizardFormattedText>
-					) : undefined
+					) : nameValidationErrorMsg ?
+						<WizardFormattedText type={WizardFormattedTextType.Error}>
+							{nameValidationErrorMsg}
+						</WizardFormattedText>
+						: undefined
 				}
 			>
 				<LabeledTextInput
@@ -157,9 +177,12 @@ export const ProjectNameLocationStep = (props: PropsWithChildren<NewProjectWizar
 					value={projectName}
 					onChange={(e) => onChangeProjectName(e.target.value)}
 					type='text'
+					// Don't let the user create a project with a name that is too long.
+					maxLength={255}
 					error={
-						projectNameFeedback &&
-						projectNameFeedback.type === WizardFormattedTextType.Error
+						(projectNameFeedback &&
+							projectNameFeedback.type === WizardFormattedTextType.Error) ||
+						Boolean(nameValidationErrorMsg)
 					}
 				/>
 			</PositronWizardSubStep>
@@ -170,16 +193,21 @@ export const ProjectNameLocationStep = (props: PropsWithChildren<NewProjectWizar
 						"Parent Directory"
 					))()}
 				feedback={
-					<WizardFormattedText type={WizardFormattedTextType.Info}>
-						{(() =>
-							localize(
-								'projectNameLocationSubStep.parentDirectory.feedback',
-								"Your project will be created at: "
-							))()}
-						<code>
-							{parentFolder}/{projectName}
-						</code>
-					</WizardFormattedText>
+					parentPathErrorMsg ?
+						<WizardFormattedText type={WizardFormattedTextType.Error}>
+							{parentPathErrorMsg}
+						</WizardFormattedText> :
+						<WizardFormattedText type={WizardFormattedTextType.Info}>
+							{(() =>
+								localize(
+									'projectNameLocationSubStep.parentDirectory.feedback',
+									"Your project will be created at: "
+								))()}
+							<PathDisplay
+								pathComponents={[parentFolder, projectName]}
+								pathService={pathService}
+							/>
+						</WizardFormattedText>
 				}
 			>
 				<LabeledFolderInput
@@ -190,6 +218,8 @@ export const ProjectNameLocationStep = (props: PropsWithChildren<NewProjectWizar
 						))()}
 					value={parentFolder}
 					onBrowse={browseHandler}
+					error={Boolean(parentPathErrorMsg)}
+					skipValidation
 					onChange={(e) => onChangeParentFolder(e.target.value)}
 				/>
 			</PositronWizardSubStep>
