@@ -9,4 +9,4 @@ import { EditorContext } from 'vs/workbench/services/languageRuntime/common/posi
  */
 type IEditorContext = EditorContext;
 
-export { IEditorContext };
+export type { IEditorContext };

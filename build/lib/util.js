@@ -4,6 +4,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.PromiseHandles = void 0;
 exports.incremental = incremental;
 exports.debounce = debounce;
 exports.fixWin32DirectoryPermissions = fixWin32DirectoryPermissions;
@@ -35,7 +36,6 @@ const rename = require("gulp-rename");
 const path = require("path");
 const fs = require("fs");
 const _rimraf = require("rimraf");
-const VinylFile = require("vinyl");
 const url_1 = require("url");
 const ternaryStream = require("ternary-stream");
 const root = path.dirname(path.dirname(__dirname));
@@ -254,6 +254,21 @@ function stripImportStatements() {
     }));
     return es.duplex(input, output);
 }
+/**
+ * Utility class wrapping a promise with exposed `resolve`/`reject` methods.
+ */
+class PromiseHandles {
+    resolve;
+    reject;
+    promise;
+    constructor() {
+        this.promise = new Promise((resolve, reject) => {
+            this.resolve = resolve;
+            this.reject = reject;
+        });
+    }
+}
+exports.PromiseHandles = PromiseHandles;
 // --- End Positron ---
 /** Splits items in the stream based on the predicate, sending them to onTrue if true, or onFalse otherwise */
 function $if(test, onTrue, onFalse = es.through()) {

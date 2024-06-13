@@ -62,7 +62,6 @@ jobs:
           arch -${{matrix.arch_terminal}} /bin/bash -c "${{matrix.homebrew_folder}}/bin/brew install libsodium"
           arch -${{matrix.arch_terminal}} /bin/bash -c "${{matrix.homebrew_folder}}/bin/brew install xz"
 
-
       # When running under x86, put x86 homebrew on the $PATH ahead of arm64
       # homebrew. We also force Python 3.10 (arm64) on x86 since 3.12 is not
       # compatible with the version of node-gyp currently used by Positron.
@@ -71,6 +70,19 @@ jobs:
         if: matrix.arch == 'x64'
         run: |
           echo "/opt/homebrew/opt/python@3.10/libexec/bin:${{matrix.homebrew_folder}}/bin" >> $GITHUB_PATH
+
+      # Install node itself. Also enables corepack to install modern yarn. Most
+      # of the time these will be no-ops, but this allows us to auto-update the
+      # node version when it changes upstream.
+      - name: Install Node and Yarn
+        env:
+          npm_config_arch: ${{ matrix.arch }}
+          POSITRON_GITHUB_PAT: ${{ secrets.POSITRON_GITHUB_PAT }}
+        run: |
+          export NVM_DIR="$HOME/.nvm"
+          [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+          nvm install
+          corepack enable
 
       # Check environment. This helps diagnose build issues.
       - name: Inspect Environment
@@ -97,8 +109,7 @@ jobs:
           which yarn
           yarn --version
 
-
-      # Install node_modules binaries
+      # Install node_modules binaries.
       - name: Install dependencies
         env:
           npm_config_arch: ${{ matrix.arch }}
