@@ -18,13 +18,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Check out positron-content-examples
-        uses: actions/checkout@v4
-        with:
-          repository: posit-dev/positron-content-examples
-          path: test/smoke/positron-content-examples
-          token: ${{ secrets.POSITRON_GITHUB_PAT }}
-
       - name: Setup Build Environment
         run: |
           sudo apt-get update

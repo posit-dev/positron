@@ -144,8 +144,8 @@ process.once('exit', () => {
 	}
 });
 
-const testRepoUrl = 'https://github.com/microsoft/vscode-smoketest-express';
-const workspacePath = path.join(testDataPath, 'vscode-smoketest-express');
+const testRepoUrl = 'https://github.com/posit-dev/qa-example-content.git';
+const workspacePath = path.join(testDataPath, 'qa-example-content');
 const extensionsPath = path.join(testDataPath, 'extensions-dir');
 mkdirp.sync(extensionsPath);
 
