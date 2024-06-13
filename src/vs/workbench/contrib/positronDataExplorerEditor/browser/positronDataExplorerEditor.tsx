@@ -13,7 +13,6 @@ import * as DOM from 'vs/base/browser/dom';
 import { Event, Emitter } from 'vs/base/common/event';
 import { IEditorOpenContext } from 'vs/workbench/common/editor';
 import { CancellationToken } from 'vs/base/common/cancellation';
-import { IEditorOptions } from 'vs/platform/editor/common/editor';
 import { IStorageService } from 'vs/platform/storage/common/storage';
 import { IThemeService } from 'vs/platform/theme/common/themeService';
 import { ICommandService } from 'vs/platform/commands/common/commands';
@@ -24,12 +23,13 @@ import { IKeybindingService } from 'vs/platform/keybinding/common/keybinding';
 import { IContextKeyService } from 'vs/platform/contextkey/common/contextkey';
 import { IContextMenuService } from 'vs/platform/contextview/browser/contextView';
 import { IClipboardService } from 'vs/platform/clipboard/common/clipboardService';
-import { IEditorService } from 'vs/workbench/services/editor/common/editorService';
+import { EditorActivation, IEditorOptions } from 'vs/platform/editor/common/editor';
 import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
 import { IEditorGroup } from 'vs/workbench/services/editor/common/editorGroupsService';
 import { PositronDataExplorer } from 'vs/workbench/browser/positronDataExplorer/positronDataExplorer';
 import { IReactComponentContainer, ISize, PositronReactRenderer } from 'vs/base/browser/positronReactRenderer';
 import { PositronDataExplorerUri } from 'vs/workbench/services/positronDataExplorer/common/positronDataExplorerUri';
+import { PositronDataExplorerClosed } from 'vs/workbench/contrib/positronDataExplorerEditor/browser/positronDataExplorerClosed';
 import { IPositronDataExplorerService } from 'vs/workbench/services/positronDataExplorer/browser/interfaces/positronDataExplorerService';
 import { PositronDataExplorerEditorInput } from 'vs/workbench/contrib/positronDataExplorerEditor/browser/positronDataExplorerEditorInput';
 
@@ -64,6 +64,16 @@ export class PositronDataExplorerEditor extends EditorPane implements IPositronD
 	 * Gets or sets the PositronReactRenderer for the PositronDataExplorer component.
 	 */
 	private _positronReactRenderer?: PositronReactRenderer;
+
+	/**
+	 * Gets or sets the last language name that was displayed by this PositronDataExplorerEditor.
+	 */
+	private _lastLanguageName?: string;
+
+	/**
+	 * Gets or sets the last display name that was displayed by this PositronDataExplorerEditor.
+	 */
+	private _lastDisplayName?: string;
 
 	/**
 	 * Gets or sets the width. This value is set in layoutBody and is used to implement the
@@ -193,7 +203,6 @@ export class PositronDataExplorerEditor extends EditorPane implements IPositronD
 	 * @param _configurationService The configuration service.
 	 * @param _contextKeyService The context key service.
 	 * @param _contextMenuService The context menu service.
-	 * @param _editorService The editor service.
 	 * @param _keybindingService The keybinding service.
 	 * @param _layoutService The layout service.
 	 * @param _positronDataExplorerService The Positron data explorer service.
@@ -208,7 +217,6 @@ export class PositronDataExplorerEditor extends EditorPane implements IPositronD
 		@IConfigurationService private readonly _configurationService: IConfigurationService,
 		@IContextKeyService private readonly _contextKeyService: IContextKeyService,
 		@IContextMenuService private readonly _contextMenuService: IContextMenuService,
-		@IEditorService private readonly _editorService: IEditorService,
 		@IKeybindingService private readonly _keybindingService: IKeybindingService,
 		@ILayoutService private readonly _layoutService: ILayoutService,
 		@IPositronDataExplorerService private readonly _positronDataExplorerService: IPositronDataExplorerService,
@@ -298,10 +306,18 @@ export class PositronDataExplorerEditor extends EditorPane implements IPositronD
 				this._identifier
 			);
 
-			// If the Positron data explorer instance was found, render the Positron data explorer.
+			// Create the PositronReactRenderer.
+			this._positronReactRenderer = new PositronReactRenderer(
+				this._positronDataExplorerContainer
+			);
+
+			// If the Positron data explorer instance was found, render the PositronDataExplorer
+			// component. Otherwise, render the PositronDataExplorerClosed component.
 			if (positronDataExplorerInstance) {
-				// Create the PositronReactRenderer for the PositronDataExplorer component and render it.
-				this._positronReactRenderer = new PositronReactRenderer(this._positronDataExplorerContainer);
+				// Set the last language name.
+				this._lastLanguageName = positronDataExplorerInstance.languageName;
+
+				// Render the PositronDataExplorer.
 				this._positronReactRenderer.render(
 					<PositronDataExplorer
 						clipboardService={this._clipboardService}
@@ -316,17 +332,29 @@ export class PositronDataExplorerEditor extends EditorPane implements IPositronD
 					/>
 				);
 
-				// Add event handlers.
-				this._register(positronDataExplorerInstance.onDidRequestFocus(() => {
-					this._editorService.openEditor(input);
-				}));
+				// Add the onDidUpdateBackendState event handler.
+				this._positronReactRenderer.register(
+					positronDataExplorerInstance.dataExplorerClientInstance.
+						onDidUpdateBackendState(backendState =>
+							// Set the last display name.
+							this._lastDisplayName = backendState.display_name
+						)
+				);
 
-				// Hack -- this is usually set by setInput but we're setting it temporarily to be
-				// able to edit the editor tab name
-				this._input = input;
-
-				// Success.
-				return;
+				// Add the onDidRequestFocus event handler.
+				this._positronReactRenderer.register(
+					positronDataExplorerInstance.onDidRequestFocus(() =>
+						this._group.openEditor(input, { activation: EditorActivation.ACTIVATE })
+					)
+				);
+			} else {
+				this._positronReactRenderer.render(
+					<PositronDataExplorerClosed
+						languageName={this._lastLanguageName}
+						displayName={this._lastDisplayName}
+						onClose={() => this._group.closeEditor(this.input)}
+					/>
+				);
 			}
 		}
 

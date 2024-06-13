@@ -4,7 +4,7 @@
 
 import { Event } from 'vs/base/common/event';
 import { createRoot, Root } from 'react-dom/client';
-import { Disposable } from 'vs/base/common/lifecycle';
+import { Disposable, IDisposable } from 'vs/base/common/lifecycle';
 
 /**
  * ISize interface.
@@ -136,6 +136,14 @@ export class PositronReactRenderer extends Disposable {
 		if (this.root) {
 			this.root.render(reactElement);
 		}
+	}
+
+	/**
+	 * Registers an IDisposable with the same lifecycle as the PositronReactRenderer.
+	 * @param disposable The IDisposable.
+	 */
+	public register(disposable: IDisposable) {
+		this._register(disposable);
 	}
 
 	/**
