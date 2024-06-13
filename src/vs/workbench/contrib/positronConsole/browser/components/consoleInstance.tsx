@@ -104,8 +104,8 @@ export const ConsoleInstance = (props: ConsoleInstanceProps) => {
 	const [trace, setTrace] = useState(props.positronConsoleInstance.trace);
 	const [wordWrap, setWordWrap] = useState(props.positronConsoleInstance.wordWrap);
 	const [marker, setMarker] = useState(generateUuid());
+	const [runtimeAttached, setRuntimeAttached] = useState(props.positronConsoleInstance.runtimeAttached);
 	const [, setIgnoreNextScrollEvent, ignoreNextScrollEventRef] = useStateRef(false);
-
 
 	// Determines whether the console is scrollable.
 	const scrollable = () =>
@@ -351,6 +351,10 @@ export const ConsoleInstance = (props: ConsoleInstanceProps) => {
 
 		disposableStore.add(props.positronConsoleInstance.onDidSelectAll(text => {
 			selectAllRuntimeItems();
+		}));
+
+		disposableStore.add(props.positronConsoleInstance.onDidAttachRuntime((runtime) => {
+			setRuntimeAttached(!!runtime);
 		}));
 
 		// Return the cleanup function that will dispose of the event handlers.
@@ -640,7 +644,7 @@ export const ConsoleInstance = (props: ConsoleInstanceProps) => {
 					} else if (runtimeItem instanceof RuntimeItemExited) {
 						return <RuntimeExited key={runtimeItem.id} runtimeItemExited={runtimeItem} />;
 					} else if (runtimeItem instanceof RuntimeItemRestartButton) {
-						return <RuntimeRestartButton key={runtimeItem.id} runtimeItemRestartButton={runtimeItem} positronConsoleInstance={props.positronConsoleInstance}/>;
+						return <RuntimeRestartButton key={runtimeItem.id} runtimeItemRestartButton={runtimeItem} positronConsoleInstance={props.positronConsoleInstance} />;
 					} else if (runtimeItem instanceof RuntimeItemStartupFailure) {
 						return <RuntimeStartupFailure key={runtimeItem.id} runtimeItemStartupFailure={runtimeItem} />;
 					} else if (runtimeItem instanceof RuntimeItemTrace) {
@@ -651,7 +655,7 @@ export const ConsoleInstance = (props: ConsoleInstanceProps) => {
 					}
 				})}
 			</div>
-			{!props.positronConsoleInstance.promptActive && props.positronConsoleInstance.runtimeAttached &&
+			{!props.positronConsoleInstance.promptActive && runtimeAttached &&
 				<ConsoleInput
 					width={consoleInputWidth}
 					positronConsoleInstance={props.positronConsoleInstance}
