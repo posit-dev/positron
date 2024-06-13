@@ -162,6 +162,14 @@
         "command": "r.insertPipe"
       },
       {
+        "mac": "alt+-",
+        "win": "alt+-",
+        "linux": "alt+-",
+        "key": "alt+-",
+        "when": "config.rstudio.keymap.enable && editorLangId == quarto",
+        "command": "r.insertLeftAssignment"
+      },
+      {
         "mac": "ctrl+alt+left",
         "win": "ctrl+alt+left",
         "linux": "ctrl+alt+left",
