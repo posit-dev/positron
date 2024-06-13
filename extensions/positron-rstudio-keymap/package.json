@@ -154,6 +154,22 @@
         "command": "r.insertSection"
       },
       {
+        "mac": "cmd+shift+m",
+        "win": "ctrl+shift+m",
+        "linux": "ctrl+shift+m",
+        "key": "ctrl+shift+m",
+        "when": "config.rstudio.keymap.enable && editorLangId == quarto",
+        "command": "r.insertPipe"
+      },
+      {
+        "mac": "alt+-",
+        "win": "alt+-",
+        "linux": "alt+-",
+        "key": "alt+-",
+        "when": "config.rstudio.keymap.enable && editorLangId == quarto",
+        "command": "r.insertLeftAssignment"
+      },
+      {
         "mac": "ctrl+alt+left",
         "win": "ctrl+alt+left",
         "linux": "ctrl+alt+left",
