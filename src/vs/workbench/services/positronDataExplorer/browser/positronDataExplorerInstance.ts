@@ -279,7 +279,7 @@ export class PositronDataExplorerInstance extends Disposable implements IPositro
 			this._notificationService.error(
 				localize(
 					'positron.dataExplorer.tooMuchDataToCopy',
-					'There is too much data to copy to the clipboard.'
+					'There is too much data selected to copy to the clipboard.'
 				)
 			);
 			return;
