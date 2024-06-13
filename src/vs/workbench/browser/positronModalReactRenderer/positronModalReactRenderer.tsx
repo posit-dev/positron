@@ -79,6 +79,11 @@ export class PositronModalReactRenderer extends Disposable {
 	private readonly _options: PositronModalReactRendererOptions;
 
 	/**
+	 * Gets the last focused element.
+	 */
+	private readonly _lastFocusedElement: HTMLElement | undefined;
+
+	/**
 	 * Gets or sets the overlay element.
 	 */
 	private _overlay?: HTMLElement;
@@ -115,6 +120,12 @@ export class PositronModalReactRenderer extends Disposable {
 		// Call the base class's constructor.
 		super();
 
+		// Set the last focused element.
+		const activeElement = DOM.getWindow(options.parent).document.activeElement;
+		if (activeElement instanceof HTMLElement) {
+			this._lastFocusedElement = activeElement;
+		}
+
 		// Set the options.
 		this._options = options;
 	}
@@ -125,6 +136,9 @@ export class PositronModalReactRenderer extends Disposable {
 	public override dispose(): void {
 		// Call the base class's dispose method.
 		super.dispose();
+
+		// Return focus to the last focused element.
+		this._lastFocusedElement?.focus();
 
 		// If this renderer was rendered, dispose it.
 		if (this._overlay && this._root) {
