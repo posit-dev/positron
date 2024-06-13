@@ -521,10 +521,7 @@
 			"program": "${workspaceFolder}/test/smoke/test/index.js",
 			"cwd": "${workspaceFolder}/test/smoke",
 			"timeout": 240000,
-			"args": [
-				"--test-repo",
-				"positron-content-examples"
-			],
+			"args": [],
 			"outFiles": [
 				"${cwd}/out/**/*.js"
 			],

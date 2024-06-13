@@ -40,7 +40,7 @@ export function setup(logger: Logger) {
 				// TestRail 628636
 
 				const app = this.app as Application;
-				await app.workbench.quickaccess.openFile(join(app.workspacePathOrFolder, 'positron-workspaces', 'chinook-db-py', 'sqlite.py'));
+				await app.workbench.quickaccess.openFile(join(app.workspacePathOrFolder, 'workspaces', 'chinook-db-py', 'sqlite.py'));
 				await app.workbench.quickaccess.runCommand('python.execInConsole');
 
 				console.log('Opening connections pane');
@@ -89,7 +89,7 @@ export function setup(logger: Logger) {
 				// TestRail 628637
 
 				const app = this.app as Application;
-				await app.workbench.quickaccess.openFile(join(app.workspacePathOrFolder, 'positron-workspaces', 'chinook-db-r', 'sqlite.r'));
+				await app.workbench.quickaccess.openFile(join(app.workspacePathOrFolder, 'workspaces', 'chinook-db-r', 'sqlite.r'));
 				await app.workbench.quickaccess.runCommand('r.sourceCurrentFile');
 
 				console.log('Opening connections pane');
