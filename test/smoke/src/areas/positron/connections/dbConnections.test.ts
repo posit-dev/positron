@@ -97,8 +97,15 @@ export function setup(logger: Logger) {
 
 				// help with R latency
 				await app.code.wait(5000);
-
-				await app.workbench.positronConnections.openRTree();
+				for (let i = 0; i < 3; i++) {
+					try {
+						await app.workbench.positronConnections.openRTree();
+						break;
+					} catch (e) {
+						await app.code.wait(5000);
+						console.log('Retrying to open R tree');
+					}
+				}
 
 				// click in reverse order to avoid scrolling issues
 				await app.workbench.positronConnections.openConnectionsNodes(tables);
