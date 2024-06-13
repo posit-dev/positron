@@ -518,6 +518,16 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 
 				break;
 			}
+
+			// Esc processing.
+			case KeyCode.Escape: {
+				// If the history browser is active, dismiss it.
+				if (historyBrowserActiveRef.current) {
+					disengageHistoryBrowser();
+					consumeEvent();
+					break;
+				}
+			}
 		}
 	};
 
