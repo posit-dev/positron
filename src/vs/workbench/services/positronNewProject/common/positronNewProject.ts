@@ -117,7 +117,7 @@ export interface IPositronNewProjectService {
 	/**
 	 * Event tracking the pending init tasks.
 	 */
-	onDidChangeInitTasks: Event<Set<string>>;
+	onDidChangePendingInitTasks: Event<Set<string>>;
 
 	/**
 	 * Event tracking the pending post-init tasks.

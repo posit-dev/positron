@@ -21,7 +21,6 @@ import { Emitter, Event } from 'vs/base/common/event';
 import { WizardFormattedTextItem } from 'vs/workbench/browser/positronNewProjectWizard/components/wizardFormattedText';
 import { LanguageIds, NewProjectType } from 'vs/workbench/services/positronNewProject/common/positronNewProject';
 import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
-import { projectWizardWorkInProgressEnabled } from 'vs/workbench/services/positronNewProject/common/positronNewProjectEnablement';
 import { CondaPythonVersionInfo, EMPTY_CONDA_PYTHON_VERSION_INFO } from 'vs/workbench/browser/positronNewProjectWizard/utilities/condaUtils';
 
 /**
@@ -81,7 +80,6 @@ export interface INewProjectWizardStateManager {
 	readonly getState: () => NewProjectWizardState;
 	readonly goToNextStep: (step: NewProjectWizardStep) => void;
 	readonly goToPreviousStep: () => void;
-	readonly wipFunctionalityEnabled: () => boolean;
 	readonly onUpdateInterpreterState: Event<void>;
 	readonly onUpdateProjectDirectory: Event<void>;
 }
@@ -553,15 +551,6 @@ export class NewProjectWizardStateManager
 			condaPythonVersion: this._condaPythonVersion,
 			useRenv: this._useRenv,
 		} satisfies NewProjectWizardState;
-	}
-
-	/**
-	 * Gets the value of the configuration setting that determines whether work-in-progress project
-	 * wizard functionality is enabled.
-	 * @returns Whether work-in-progress project wizard functionality is enabled.
-	 */
-	wipFunctionalityEnabled(): boolean {
-		return projectWizardWorkInProgressEnabled(this._services.configurationService);
 	}
 
 	/**

@@ -203,23 +203,23 @@ export class PositronNewProjectService extends Disposable implements IPositronNe
 		// TODO: it would be nice to run these tasks in parallel!
 
 		// First, create the new empty file since this is a quick task.
-		if (this.pendingTasks.has(NewProjectTask.CreateNewFile)) {
+		if (this.pendingInitTasks.has(NewProjectTask.CreateNewFile)) {
 			await this._runCreateNewFile();
 		}
 
 		// Next, run git init if needed.
-		if (this.pendingTasks.has(NewProjectTask.Git)) {
+		if (this.pendingInitTasks.has(NewProjectTask.Git)) {
 			await this._runGitInit();
 		}
 
 		// Next, run language-specific tasks which may take a bit more time.
-		if (this.pendingTasks.has(NewProjectTask.Python)) {
+		if (this.pendingInitTasks.has(NewProjectTask.Python)) {
 			await this._runPythonTasks();
 		}
-		if (this.pendingTasks.has(NewProjectTask.Jupyter)) {
+		if (this.pendingInitTasks.has(NewProjectTask.Jupyter)) {
 			await this._runJupyterTasks();
 		}
-		if (this.pendingTasks.has(NewProjectTask.R)) {
+		if (this.pendingInitTasks.has(NewProjectTask.R)) {
 			await this._runRTasks();
 		}
 	}
@@ -254,7 +254,7 @@ export class PositronNewProjectService extends Disposable implements IPositronNe
 	 */
 	private async _runPythonTasks() {
 		// Create the Python environment
-		if (this.pendingTasks.has(NewProjectTask.PythonEnvironment)) {
+		if (this.pendingInitTasks.has(NewProjectTask.PythonEnvironment)) {
 			await this._createPythonEnvironment();
 		}
 
@@ -271,7 +271,7 @@ export class PositronNewProjectService extends Disposable implements IPositronNe
 		// For now, Jupyter notebooks are always Python based. In the future, we'll need to surface
 		// some UI in the Project Wizard for the user to select the language/kernel and pass that
 		// metadata to the new project configuration.
-		if (this.pendingTasks.has(NewProjectTask.PythonEnvironment)) {
+		if (this.pendingInitTasks.has(NewProjectTask.PythonEnvironment)) {
 			await this._createPythonEnvironment();
 		}
 
@@ -531,7 +531,7 @@ export class PositronNewProjectService extends Disposable implements IPositronNe
 	 * Removes a pending init task.
 	 */
 	private _removePendingInitTask(task: NewProjectTask) {
-		const updatedPendingTasks = new Set(this.pendingTasks);
+		const updatedPendingTasks = new Set(this.pendingInitTasks);
 		updatedPendingTasks.delete(task);
 		this._pendingInitTasks.set(updatedPendingTasks, undefined);
 	}
@@ -704,7 +704,7 @@ export class PositronNewProjectService extends Disposable implements IPositronNe
 	/**
 	 * Returns the pending tasks.
 	 */
-	get pendingTasks(): Set<string> {
+	get pendingInitTasks(): Set<string> {
 		return this._pendingInitTasks.get();
 	}
 
