@@ -176,7 +176,7 @@ export class PositronHelpView extends PositronViewPane implements IReactComponen
 
 		// Call the base class's constructor.
 		super(
-			{ ...options, allowZeroMinimumBodySize: true },
+			{ ...options, openFromCollapsedSize: '50%' },
 			keybindingService,
 			contextMenuService,
 			configurationService,
