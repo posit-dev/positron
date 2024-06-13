@@ -151,8 +151,6 @@ export const ColumnSummaryCell = (props: ColumnSummaryCellProps) => {
 		summarySupported = false;
 	}
 
-	console.log('YAYA');
-
 	// Render.
 	return (
 		<div
