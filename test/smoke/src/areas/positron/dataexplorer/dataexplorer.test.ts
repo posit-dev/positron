@@ -104,9 +104,9 @@ df = pd.DataFrame(data)`;
 
 				const tableData = await app.workbench.positronDataExplorer.getDataExplorerTableData();
 
-				expect(tableData[0]).toStrictEqual({ 'Training': 'Strength', 'Pulse': '100', 'Duration': '60' });
-				expect(tableData[1]).toStrictEqual({ 'Training': 'Stamina', 'Pulse': '150', 'Duration': '30' });
-				expect(tableData[2]).toStrictEqual({ 'Training': 'Other', 'Pulse': '120', 'Duration': '45' });
+				expect(tableData[0]).toStrictEqual({ 'Training': 'Strength', 'Pulse': '100.00', 'Duration': '60.00' });
+				expect(tableData[1]).toStrictEqual({ 'Training': 'Stamina', 'Pulse': '150.00', 'Duration': '30.00' });
+				expect(tableData[2]).toStrictEqual({ 'Training': 'Other', 'Pulse': '120.00', 'Duration': '45.00' });
 				expect(tableData.length).toBe(3);
 
 			});
