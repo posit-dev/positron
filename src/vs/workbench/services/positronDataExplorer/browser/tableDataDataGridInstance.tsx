@@ -337,7 +337,7 @@ export class TableDataDataGridInstance extends DataGridInstance {
 		anchorPoint: AnchorPoint
 	): Promise<void> {
 		const features = this._dataExplorerClientInstance.getSupportedFeatures();
-		const copySupported = this.isFeatureEnabled(features.export_data_selection?.support_status);
+		const copySupported = this.isFeatureEnabled(features.export_data_selection.support_status);
 
 		// Build the entries.
 		const entries: CustomContextMenuEntry[] = [];
@@ -391,9 +391,9 @@ export class TableDataDataGridInstance extends DataGridInstance {
 		const columnSortKey = this.columnSortKey(columnIndex);
 
 		const features = this._dataExplorerClientInstance.getSupportedFeatures();
-		const copySupported = this.isFeatureEnabled(features.export_data_selection?.support_status);
-		const sortSupported = this.isFeatureEnabled(features.set_sort_columns?.support_status);
-		const filterSupported = this.isFeatureEnabled(features.set_row_filters?.support_status);
+		const copySupported = this.isFeatureEnabled(features.export_data_selection.support_status);
+		const sortSupported = this.isFeatureEnabled(features.set_sort_columns.support_status);
+		const filterSupported = this.isFeatureEnabled(features.set_row_filters.support_status);
 
 		// Build the entries.
 		const entries: CustomContextMenuEntry[] = [];
