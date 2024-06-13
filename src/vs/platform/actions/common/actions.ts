@@ -23,6 +23,9 @@ import { CommandCenter } from 'vs/platform/commandCenter/common/commandCenter';
 export interface IMenuItem {
 	command: ICommandAction;
 	alt?: ICommandAction;
+	/**
+	 * Menu item is hidden if this expression returns false.
+	 */
 	when?: ContextKeyExpression;
 	group?: 'navigation' | string;
 	order?: number;
