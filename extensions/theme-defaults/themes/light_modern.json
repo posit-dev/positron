@@ -130,7 +130,6 @@
 		"terminalCursor.foreground": "#3a78b1",
 		"terminal.background": "#ffffff",
 		"terminal.foreground": "#3b3b3b",
-		"terminal.inactiveSelectionBackground": "#E5EBF1",
 		"terminal.tab.activeBorder": "#3a78b1",
 		"textBlockQuote.background": "#f8f8f8",
 		"textBlockQuote.border": "#0000001a",
