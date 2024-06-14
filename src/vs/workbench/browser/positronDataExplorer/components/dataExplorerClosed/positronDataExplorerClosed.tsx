@@ -44,8 +44,8 @@ export const PositronDataExplorerClosed = (props: PropsWithChildren<PositronData
 						</div>
 						<div>
 							{(() => localize(
-								'positron.dataExplorerEditor.isNoLongerAvailable',
-								'Is no longer available'
+								'positron.dataExplorerEditor.thisObjectIsNoLongerAvailable',
+								'This object is no longer available'
 							))()}
 						</div>
 					</>
