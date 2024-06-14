@@ -22,7 +22,7 @@ export function setup(logger: Logger) {
 				await app.workbench.positronNewProjectWizard.newPythonProjectButton.click();
 				await app.workbench.positronNewProjectWizard.projectWizardNextButton.click();
 				await app.workbench.positronNewProjectWizard.projectWizardNextButton.click();
-				await app.workbench.positronNewProjectWizard.projectWizardDisabledCreateButton.isNotVisible(); // May need to pass in a retry count > default of 200
+				await app.workbench.positronNewProjectWizard.projectWizardDisabledCreateButton.isNotVisible(500); // May need to pass in a retry count > default of 200
 				await app.workbench.positronNewProjectWizard.projectWizardNextButton.click();
 				await app.workbench.positronNewProjectWizard.projectWizardCurrentWindowButton.click();
 				await app.workbench.positronExplorer.explorerProjectTitle.waitForText('myPythonProject');
@@ -48,7 +48,7 @@ export function setup(logger: Logger) {
 				await app.workbench.positronNewProjectWizard.newRProjectButton.click();
 				await app.workbench.positronNewProjectWizard.projectWizardNextButton.click();
 				await app.workbench.positronNewProjectWizard.projectWizardNextButton.click();
-				await app.workbench.positronNewProjectWizard.projectWizardDisabledCreateButton.isNotVisible(); // May need to pass in a retry count > default of 200
+				await app.workbench.positronNewProjectWizard.projectWizardDisabledCreateButton.isNotVisible(500); // May need to pass in a retry count > default of 200
 				await app.workbench.positronNewProjectWizard.projectWizardNextButton.click();
 				await app.workbench.positronNewProjectWizard.projectWizardCurrentWindowButton.click();
 				await app.workbench.positronExplorer.explorerProjectTitle.waitForText('myRProject');
@@ -74,7 +74,7 @@ export function setup(logger: Logger) {
 				await app.workbench.positronNewProjectWizard.newJupyterProjectButton.click();
 				await app.workbench.positronNewProjectWizard.projectWizardNextButton.click();
 				await app.workbench.positronNewProjectWizard.projectWizardNextButton.click();
-				await app.workbench.positronNewProjectWizard.projectWizardDisabledCreateButton.isNotVisible(); // May need to pass in a retry count > default of 200
+				await app.workbench.positronNewProjectWizard.projectWizardDisabledCreateButton.isNotVisible(500); // May need to pass in a retry count > default of 200
 				await app.workbench.positronNewProjectWizard.projectWizardNextButton.click();
 				await app.workbench.positronNewProjectWizard.projectWizardCurrentWindowButton.click();
 				await app.workbench.positronExplorer.explorerProjectTitle.waitForText('myJupyterNotebook');
