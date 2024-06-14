@@ -3,8 +3,8 @@
 What is Positron?
 
 - A next-generation data science IDE built by [Posit PBC](https://posit.co/)
-- An extensible, polyglot tool for writing code, exploring data, scientific authoring, and publishing data artifacts
-- A fork of [Visual Studio Code](https://github.com/microsoft/vscode) adapted to be an opinionated environment for data-centric work
+- An extensible, polyglot tool for writing code and exploring data
+- A familiar environment for reproducible authoring and publishing
 
 > [!IMPORTANT]
 > Positron is an early stage project under active development and may [not yet be a good fit for you](https://github.com/posit-dev/positron/wiki#is-positron-for-me). If you are interested in experimenting with it, we welcome your feedback!
@@ -12,6 +12,8 @@ What is Positron?
 ## Get started using Positron
 
 Check out [our wiki](https://github.com/posit-dev/positron/wiki) for information on what you should do before installing Positron, troubleshooting Positron, and more.
+
+Positron is built on [Code OSS](https://github.com/microsoft/vscode). To learn about basic features like commands, settings, using source control, and more, see the [VS Code documentation](https://code.visualstudio.com/docs).
 
 ## Install Positron
 
