@@ -10,7 +10,7 @@ import { getRPackageName } from './contexts';
 import { getRPackageTasks } from './tasks';
 import { randomUUID } from 'crypto';
 import { RSessionManager } from './session-manager';
-import { MINIMUM_R_VERSION } from './constants';
+import { MINIMUM_RENV_VERSION, MINIMUM_R_VERSION } from './constants';
 
 export async function registerCommands(context: vscode.ExtensionContext) {
 
@@ -181,6 +181,24 @@ export async function registerCommands(context: vscode.ExtensionContext) {
 
 		// Command used to get the minimum version of R supported by the extension
 		vscode.commands.registerCommand('r.getMinimumRVersion', (): string => MINIMUM_R_VERSION),
+
+		// Command used to initialize a new project with renv
+		vscode.commands.registerCommand('r.renvInit', async () => {
+			// ensure renv is installed before calling renv::init()
+			// this prompts the user to install if it's not already
+			// if the user declines, renv::init() will not be called
+			const isInstalled = await checkInstalled('renv', MINIMUM_RENV_VERSION);
+			if (isInstalled) {
+				const session = await positron.runtime.getForegroundSession();
+				if (session) {
+					session.execute(`renv::init()`, randomUUID(), positron.RuntimeCodeExecutionMode.Transient, positron.RuntimeErrorBehavior.Stop);
+				} else {
+					console.debug('[r.renvInit] no session available');
+				}
+			} else {
+				console.debug('[r.renvInit] renv is not installed');
+			}
+		}),
 	);
 }
 
