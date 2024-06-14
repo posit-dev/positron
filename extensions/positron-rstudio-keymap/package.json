@@ -154,6 +154,14 @@
         "command": "r.insertSection"
       },
       {
+        "mac": "cmd+shift+s",
+        "win": "ctrl+shift+s",
+        "linux": "ctrl+shift+s",
+        "key": "ctrl+shift+s",
+        "when": "config.rstudio.keymap.enable && editorLangId == r",
+        "command": "r.sourceCurrentFile"
+      },
+      {
         "mac": "cmd+shift+m",
         "win": "ctrl+shift+m",
         "linux": "ctrl+shift+m",
