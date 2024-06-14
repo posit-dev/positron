@@ -47,8 +47,6 @@ export const RConfigurationStep = (props: PropsWithChildren<NewProjectWizardStep
 	const [selectedInterpreter, setSelectedInterpreter] = useState(context.selectedRuntime);
 	const [preferredInterpreter, setPreferredInterpreter] = useState(context.preferredInterpreter);
 	const [minimumRVersion, setMinimumRVersion] = useState(context.minimumRVersion);
-	// TODO: remove this check when the feature is no longer WIP
-	const [showRenvInit, setShowRenvInit] = useState(context.wipFunctionalityEnabled());
 
 	useEffect(() => {
 		// Create the disposable store for cleanup.
@@ -60,7 +58,6 @@ export const RConfigurationStep = (props: PropsWithChildren<NewProjectWizardStep
 			setSelectedInterpreter(context.selectedRuntime);
 			setPreferredInterpreter(context.preferredInterpreter);
 			setMinimumRVersion(context.minimumRVersion);
-			setShowRenvInit(context.wipFunctionalityEnabled());
 		}));
 
 		// Return the cleanup function that will dispose of the event handlers.
@@ -177,35 +174,33 @@ export const RConfigurationStep = (props: PropsWithChildren<NewProjectWizardStep
 					}
 				/>
 			</PositronWizardSubStep>
-			{showRenvInit ? (
-				<PositronWizardSubStep
-					title={(() =>
-						localize(
-							'rConfigurationStep.additionalConfigSubStep.title',
-							"Additional Configuration"
-						))()}
-				>
-					<div className='renv-configuration'>
-						<Checkbox
-							label={(() =>
-								localize(
-									'rConfigurationStep.additionalConfigSubStep.useRenv.label',
-									"Use `renv` to create a reproducible environment"
-								))()}
-							onChanged={(checked) => (context.useRenv = checked)}
-							initialChecked={context.useRenv}
-						/>
-						<ExternalLink
-							className='renv-docs-external-link'
-							openerService={openerService}
-							href='https://rstudio.github.io/renv/articles/renv.html'
-							title='https://rstudio.github.io/renv/articles/renv.html'
-						>
-							<div className='codicon codicon-link-external' />
-						</ExternalLink>
-					</div>
-				</PositronWizardSubStep>
-			) : null}
+			<PositronWizardSubStep
+				title={(() =>
+					localize(
+						'rConfigurationStep.advancedConfigSubStep.title',
+						"Advanced Configuration"
+					))()}
+			>
+				<div className='renv-configuration'>
+					<Checkbox
+						label={(() =>
+							localize(
+								'rConfigurationStep.additionalConfigSubStep.useRenv.label',
+								"Use `renv` to create a reproducible environment"
+							))()}
+						onChanged={(checked) => (context.useRenv = checked)}
+						initialChecked={context.useRenv}
+					/>
+					<ExternalLink
+						className='renv-docs-external-link'
+						openerService={openerService}
+						href='https://rstudio.github.io/renv/articles/renv.html'
+						title='https://rstudio.github.io/renv/articles/renv.html'
+					>
+						<div className='codicon codicon-link-external' />
+					</ExternalLink>
+				</div>
+			</PositronWizardSubStep>
 		</PositronWizardStep>
 	);
 };

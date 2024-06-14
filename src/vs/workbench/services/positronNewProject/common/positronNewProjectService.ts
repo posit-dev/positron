@@ -20,6 +20,7 @@ import { DOT_IGNORE_JUPYTER, DOT_IGNORE_PYTHON, DOT_IGNORE_R } from 'vs/workbenc
 import { URI } from 'vs/base/common/uri';
 import { INotificationService } from 'vs/platform/notification/common/notification';
 import { localize } from 'vs/nls';
+import { IRuntimeSessionService } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
 
 /**
  * PositronNewProjectService class.
@@ -34,12 +35,19 @@ export class PositronNewProjectService extends Disposable implements IPositronNe
 	private _startupPhase: ISettableObservable<NewProjectStartupPhase>;
 	onDidChangeNewProjectStartupPhase: Event<NewProjectStartupPhase>;
 
-	// Pending tasks tracking
-	private _pendingTasks: ISettableObservable<Set<string>>;
-	onDidChangePendingTasks: Event<Set<string>>;
+	// Pending init tasks tracking
+	private _pendingInitTasks: ISettableObservable<Set<string>>;
+	onDidChangePendingInitTasks: Event<Set<string>>;
 
-	// Barrier to signal that all tasks are complete
-	public allTasksComplete: Barrier = new Barrier();
+	// Pending post-initialization tasks tracking
+	private _pendingPostInitTasks: ISettableObservable<Set<string>>;
+	onDidChangePostInitTasks: Event<Set<string>>;
+
+	// Barrier to signal that all initialization tasks are complete
+	public initTasksComplete: Barrier = new Barrier();
+
+	// Barrier to signal that all post-initialization tasks are complete
+	public postInitTasksComplete: Barrier = new Barrier();
 
 	// Runtime metadata for the new project
 	private _runtimeMetadata: ILanguageRuntimeMetadata | undefined;
@@ -51,8 +59,9 @@ export class PositronNewProjectService extends Disposable implements IPositronNe
 		@IFileService private readonly _fileService: IFileService,
 		@ILogService private readonly _logService: ILogService,
 		@INotificationService private readonly _notificationService: INotificationService,
+		@IRuntimeSessionService private readonly _runtimeSessionService: IRuntimeSessionService,
 		@IStorageService private readonly _storageService: IStorageService,
-		@IWorkspaceTrustManagementService private readonly _workspaceTrustManagementService: IWorkspaceTrustManagementService
+		@IWorkspaceTrustManagementService private readonly _workspaceTrustManagementService: IWorkspaceTrustManagementService,
 	) {
 		super();
 
@@ -66,9 +75,17 @@ export class PositronNewProjectService extends Disposable implements IPositronNe
 		);
 		this._register(
 			this.onDidChangeNewProjectStartupPhase((phase) => {
-				// Open barrier when all tasks are complete
-				if (phase === NewProjectStartupPhase.Complete) {
-					this.allTasksComplete.open();
+				switch (phase) {
+					case NewProjectStartupPhase.RuntimeStartup:
+						this.initTasksComplete.open();
+						break;
+					case NewProjectStartupPhase.PostInitialization:
+						this._runPostInitTasks();
+						break;
+					case NewProjectStartupPhase.Complete:
+						this.postInitTasksComplete.open();
+						break;
+					default:
 				}
 				this._logService.debug(
 					`[New project startup] Phase changed to ${phase}`
@@ -82,7 +99,7 @@ export class PositronNewProjectService extends Disposable implements IPositronNe
 		if (!this.isCurrentWindowNewProject()) {
 			// If no new project configuration is found, the new project startup
 			// is complete
-			this.allTasksComplete.open();
+			this.initTasksComplete.open();
 		} else {
 			// If new project configuration is found, save the runtime metadata.
 			// This metadata will be overwritten if a new environment is created.
@@ -92,24 +109,46 @@ export class PositronNewProjectService extends Disposable implements IPositronNe
 		// Initialize the pending tasks observable.
 		// This initialization needs to take place after the new project configuration is parsed, so
 		// that the tasks can be determined based on the configuration.
-		this._pendingTasks = observableValue(
+		this._pendingInitTasks = observableValue(
 			'new-project-pending-tasks',
-			this._getTasks()
+			this._getInitTasks()
 		);
-		this.onDidChangePendingTasks = Event.fromObservable(this._pendingTasks);
+		this.onDidChangePendingInitTasks = Event.fromObservable(this._pendingInitTasks);
 		this._register(
-			this.onDidChangePendingTasks((tasks) => {
+			this.onDidChangePendingInitTasks((tasks) => {
 				this._logService.debug(
 					`[New project startup] Pending tasks changed to: ${tasks}`
 				);
-				// If there are no pending tasks, the new project startup is complete
+				// If there are no pending init tasks, it's time for runtime startup
+				if (tasks.size === 0) {
+					this._startupPhase.set(
+						NewProjectStartupPhase.RuntimeStartup,
+						undefined
+					);
+				}
+			})
+		);
+
+		// Initialize the post initialization tasks observable.
+		this._pendingPostInitTasks = observableValue(
+			'new-project-post-init-tasks',
+			this._getPostInitTasks()
+		);
+		this.onDidChangePostInitTasks = Event.fromObservable(this._pendingPostInitTasks);
+		this._register(
+			this.onDidChangePostInitTasks((tasks) => {
+				this._logService.debug(
+					`[New project startup] Post-init tasks changed to: ${tasks}`
+				);
+				// If there are no post-init tasks, the new project startup is complete
 				if (tasks.size === 0) {
 					this._startupPhase.set(
 						NewProjectStartupPhase.Complete,
 						undefined
 					);
 				}
-			})
+			}
+			)
 		);
 	}
 
@@ -164,23 +203,23 @@ export class PositronNewProjectService extends Disposable implements IPositronNe
 		// TODO: it would be nice to run these tasks in parallel!
 
 		// First, create the new empty file since this is a quick task.
-		if (this.pendingTasks.has(NewProjectTask.CreateNewFile)) {
+		if (this.pendingInitTasks.has(NewProjectTask.CreateNewFile)) {
 			await this._runCreateNewFile();
 		}
 
 		// Next, run git init if needed.
-		if (this.pendingTasks.has(NewProjectTask.Git)) {
+		if (this.pendingInitTasks.has(NewProjectTask.Git)) {
 			await this._runGitInit();
 		}
 
 		// Next, run language-specific tasks which may take a bit more time.
-		if (this.pendingTasks.has(NewProjectTask.Python)) {
+		if (this.pendingInitTasks.has(NewProjectTask.Python)) {
 			await this._runPythonTasks();
 		}
-		if (this.pendingTasks.has(NewProjectTask.Jupyter)) {
+		if (this.pendingInitTasks.has(NewProjectTask.Jupyter)) {
 			await this._runJupyterTasks();
 		}
-		if (this.pendingTasks.has(NewProjectTask.R)) {
+		if (this.pendingInitTasks.has(NewProjectTask.R)) {
 			await this._runRTasks();
 		}
 	}
@@ -206,7 +245,7 @@ export class PositronNewProjectService extends Disposable implements IPositronNe
 				);
 				break;
 		}
-		this._removePendingTask(NewProjectTask.CreateNewFile);
+		this._removePendingInitTask(NewProjectTask.CreateNewFile);
 	}
 
 	/**
@@ -215,12 +254,12 @@ export class PositronNewProjectService extends Disposable implements IPositronNe
 	 */
 	private async _runPythonTasks() {
 		// Create the Python environment
-		if (this.pendingTasks.has(NewProjectTask.PythonEnvironment)) {
+		if (this.pendingInitTasks.has(NewProjectTask.PythonEnvironment)) {
 			await this._createPythonEnvironment();
 		}
 
 		// Complete the Python task
-		this._removePendingTask(NewProjectTask.Python);
+		this._removePendingInitTask(NewProjectTask.Python);
 	}
 
 	/**
@@ -232,12 +271,12 @@ export class PositronNewProjectService extends Disposable implements IPositronNe
 		// For now, Jupyter notebooks are always Python based. In the future, we'll need to surface
 		// some UI in the Project Wizard for the user to select the language/kernel and pass that
 		// metadata to the new project configuration.
-		if (this.pendingTasks.has(NewProjectTask.PythonEnvironment)) {
+		if (this.pendingInitTasks.has(NewProjectTask.PythonEnvironment)) {
 			await this._createPythonEnvironment();
 		}
 
 		// Complete the Jupyter task
-		this._removePendingTask(NewProjectTask.Jupyter);
+		this._removePendingInitTask(NewProjectTask.Jupyter);
 	}
 
 	/**
@@ -245,13 +284,32 @@ export class PositronNewProjectService extends Disposable implements IPositronNe
 	 * Relies on extension vscode.positron-r
 	 */
 	private async _runRTasks() {
-		// Create the R environment
-		if (this.pendingTasks.has(NewProjectTask.REnvironment)) {
-			await this._createREnvironment();
+		// no-op for now, since we haven't defined any pre-runtime startup R tasks
+		// Complete the R task
+		this._removePendingInitTask(NewProjectTask.R);
+	}
+
+	private async _runPostInitTasks() {
+		if (this.pendingPostInitTasks.size === 0) {
+			this._logService.debug('[New project startup] No post-init tasks to run.');
+			this._startupPhase.set(NewProjectStartupPhase.Complete, undefined);
+			return;
 		}
 
-		// Complete the R task
-		this._removePendingTask(NewProjectTask.R);
+		if (this.pendingPostInitTasks.has(NewProjectTask.REnvironment)) {
+			await this._runRPostInitTasks();
+		}
+	}
+
+	/**
+	 * Runs R Project specific post-initialization tasks.
+	 * Relies on extension vscode.positron-r
+	 */
+	private async _runRPostInitTasks() {
+		// Create the R environment
+		if (this.pendingPostInitTasks.has(NewProjectTask.REnvironment)) {
+			await this._createREnvironment();
+		}
 	}
 
 	/**
@@ -309,7 +367,7 @@ export class PositronNewProjectService extends Disposable implements IPositronNe
 				break;
 		}
 
-		this._removePendingTask(NewProjectTask.Git);
+		this._removePendingInitTask(NewProjectTask.Git);
 	}
 
 	/**
@@ -331,7 +389,7 @@ export class PositronNewProjectService extends Disposable implements IPositronNe
 					const message = this._failedPythonEnvMessage(`Could not determine workspace folder for ${this._newProjectConfig.projectFolder}.`);
 					this._logService.error(message);
 					this._notificationService.warn(message);
-					this._removePendingTask(NewProjectTask.PythonEnvironment);
+					this._removePendingInitTask(NewProjectTask.PythonEnvironment);
 					return;
 				}
 
@@ -343,7 +401,7 @@ export class PositronNewProjectService extends Disposable implements IPositronNe
 					const message = this._failedPythonEnvMessage('Could not determine Python interpreter path for new project.');
 					this._logService.error(message);
 					this._notificationService.warn(message);
-					this._removePendingTask(NewProjectTask.PythonEnvironment);
+					this._removePendingInitTask(NewProjectTask.PythonEnvironment);
 					return;
 				}
 
@@ -394,7 +452,7 @@ export class PositronNewProjectService extends Disposable implements IPositronNe
 						message
 					);
 					this._notificationService.warn(message);
-					this._removePendingTask(NewProjectTask.PythonEnvironment);
+					this._removePendingInitTask(NewProjectTask.PythonEnvironment);
 					return;
 				}
 
@@ -416,7 +474,8 @@ export class PositronNewProjectService extends Disposable implements IPositronNe
 					result.path
 				);
 
-				this._removePendingTask(NewProjectTask.PythonEnvironment);
+				this._removePendingInitTask(NewProjectTask.PythonEnvironment);
+
 				return;
 			}
 		} else {
@@ -424,7 +483,7 @@ export class PositronNewProjectService extends Disposable implements IPositronNe
 			const message = this._failedPythonEnvMessage('Could not determine runtime metadata for new project.');
 			this._logService.error(message);
 			this._notificationService.warn(message);
-			this._removePendingTask(NewProjectTask.PythonEnvironment);
+			this._removePendingInitTask(NewProjectTask.PythonEnvironment);
 			return;
 		}
 	}
@@ -460,25 +519,36 @@ export class PositronNewProjectService extends Disposable implements IPositronNe
 	 * Relies on extension vscode.positron-r
 	 */
 	private async _createREnvironment() {
-		// TODO: run renv::init()
-		this._removePendingTask(NewProjectTask.REnvironment);
+		if (this._newProjectConfig?.useRenv) {
+			await this._commandService.executeCommand('r.renvInit');
+		}
+		this._removePendingPostInitTask(NewProjectTask.REnvironment);
 	}
 
 	//#endregion Extension Tasks
 
 	/**
-	 * Removes a pending task.
+	 * Removes a pending init task.
 	 */
-	private _removePendingTask(task: NewProjectTask) {
-		const updatedPendingTasks = new Set(this.pendingTasks);
+	private _removePendingInitTask(task: NewProjectTask) {
+		const updatedPendingTasks = new Set(this.pendingInitTasks);
 		updatedPendingTasks.delete(task);
-		this._pendingTasks.set(updatedPendingTasks, undefined);
+		this._pendingInitTasks.set(updatedPendingTasks, undefined);
+	}
+
+	/**
+	 * Removes a pending post-init task.
+	 */
+	private _removePendingPostInitTask(task: NewProjectTask) {
+		const updatedPendingTasks = new Set(this.pendingPostInitTasks);
+		updatedPendingTasks.delete(task);
+		this._pendingPostInitTasks.set(updatedPendingTasks, undefined);
 	}
 
 	/**
 	 * Returns the tasks that need to be performed for the new project.
 	 */
-	private _getTasks(): Set<NewProjectTask> {
+	private _getInitTasks(): Set<NewProjectTask> {
 		if (!this._newProjectConfig) {
 			return new Set();
 		}
@@ -500,9 +570,6 @@ export class PositronNewProjectService extends Disposable implements IPositronNe
 				break;
 			case NewProjectType.RProject:
 				tasks.add(NewProjectTask.R);
-				if (this._newProjectConfig.useRenv) {
-					tasks.add(NewProjectTask.REnvironment);
-				}
 				break;
 			default:
 				this._logService.error(
@@ -519,6 +586,30 @@ export class PositronNewProjectService extends Disposable implements IPositronNe
 		// Always create a new file in the new project. This may be controlled by a project config
 		// setting in the future.
 		tasks.add(NewProjectTask.CreateNewFile);
+
+		return tasks;
+	}
+
+	/**
+	 *Returns the post initialization tasks that need to be performed for the new project.
+	 * @returns Returns the post initialization tasks that need to be performed for the new project.
+	 */
+	private _getPostInitTasks(): Set<NewProjectTask> {
+		if (!this._newProjectConfig) {
+			return new Set();
+		}
+
+		// listen for runtime to be created so that post-init tasks can be run
+		const sessionListener = this._runtimeSessionService.onDidStartRuntime(async (runtimeId) => {
+			this._logService.debug('[New project startup] Runtime created. Running post-init tasks.');
+			this._startupPhase.set(NewProjectStartupPhase.PostInitialization, undefined);
+			sessionListener.dispose();
+		});
+
+		const tasks = new Set<NewProjectTask>();
+		if (this._newProjectConfig.useRenv) {
+			tasks.add(NewProjectTask.REnvironment);
+		}
 
 		return tasks;
 	}
@@ -613,8 +704,15 @@ export class PositronNewProjectService extends Disposable implements IPositronNe
 	/**
 	 * Returns the pending tasks.
 	 */
-	get pendingTasks(): Set<string> {
-		return this._pendingTasks.get();
+	get pendingInitTasks(): Set<string> {
+		return this._pendingInitTasks.get();
+	}
+
+	/**
+	 * Returns the pending post-init tasks.
+	 */
+	get pendingPostInitTasks(): Set<string> {
+		return this._pendingPostInitTasks.get();
 	}
 
 	/**

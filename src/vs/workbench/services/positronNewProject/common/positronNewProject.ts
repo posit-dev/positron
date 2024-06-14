@@ -33,13 +33,24 @@ export enum NewProjectStartupPhase {
 	 * Phase 3: The new project is running initialization tasks provided by extensions, such as creating
 	 * the appropriate unsaved new file, initializing the git repository, etc., and starting the user-selected
 	 * interpreter.
-	 */
+	*/
 	CreatingProject = 'creatingProject',
 
 	/**
-	 * Phase 4: The new project has been initialized.
+	 * Phase 4: The affiliated runtime for the new project is starting.
 	 */
-	Complete = 'complete'
+	RuntimeStartup = 'runtimeStartup',
+
+	/**
+	 * Phase 5: The new project is running post-initialization tasks that require the interpreter to be
+	 * ready, such as running renv::init() in R projects.
+	 */
+
+	PostInitialization = 'postInitialization',
+	/**
+	 * Phase 6: The new project has been initialized.
+	 */
+	Complete = 'complete',
 }
 
 /**
@@ -104,14 +115,24 @@ export interface IPositronNewProjectService {
 	readonly startupPhase: NewProjectStartupPhase;
 
 	/**
-	 * Event tracking the pending tasks.
+	 * Event tracking the pending init tasks.
 	 */
-	onDidChangePendingTasks: Event<Set<string>>;
+	onDidChangePendingInitTasks: Event<Set<string>>;
 
 	/**
-	 * The pending tasks.
+	 * Event tracking the pending post-init tasks.
 	 */
-	readonly pendingTasks: Set<string>;
+	onDidChangePostInitTasks: Event<Set<string>>;
+
+	/**
+	 * The pending init tasks.
+	 */
+	readonly pendingInitTasks: Set<string>;
+
+	/**
+	 * The pending post-init tasks.
+	 */
+	readonly pendingPostInitTasks: Set<string>;
 
 	/**
 	 * Clears the new project configuration from the storage service.
@@ -133,9 +154,14 @@ export interface IPositronNewProjectService {
 	isCurrentWindowNewProject(): boolean;
 
 	/**
-	 * Barrier for other services to wait for all project tasks to complete.
+	 * Barrier for other services to wait for all init tasks to complete.
 	 */
-	allTasksComplete: Barrier;
+	initTasksComplete: Barrier;
+
+	/**
+	 * Barrier for other services to wait for all post-init tasks to complete.
+	 */
+	postInitTasksComplete: Barrier;
 
 	/**
 	 * Returns the metadata for the runtime chosen for the new project, or

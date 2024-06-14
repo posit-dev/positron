@@ -287,7 +287,7 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 		// If this is a new project, wait for it to initialize the project
 		// before proceeding, and then store the new project runtime metadata.
 		// as the affiliated runtime for this workspace.
-		await this._newProjectService.allTasksComplete.wait();
+		await this._newProjectService.initTasksComplete.wait();
 		const newRuntime = this._newProjectService.newProjectRuntimeMetadata;
 		if (newRuntime) {
 			this._storageService.store(this.storageKeyForRuntime(newRuntime),
