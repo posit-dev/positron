@@ -29,9 +29,9 @@ import { IEditorGroup } from 'vs/workbench/services/editor/common/editorGroupsSe
 import { PositronDataExplorer } from 'vs/workbench/browser/positronDataExplorer/positronDataExplorer';
 import { IReactComponentContainer, ISize, PositronReactRenderer } from 'vs/base/browser/positronReactRenderer';
 import { PositronDataExplorerUri } from 'vs/workbench/services/positronDataExplorer/common/positronDataExplorerUri';
-import { PositronDataExplorerClosed } from 'vs/workbench/contrib/positronDataExplorerEditor/browser/positronDataExplorerClosed';
 import { IPositronDataExplorerService } from 'vs/workbench/services/positronDataExplorer/browser/interfaces/positronDataExplorerService';
 import { PositronDataExplorerEditorInput } from 'vs/workbench/contrib/positronDataExplorerEditor/browser/positronDataExplorerEditorInput';
+import { PositronDataExplorerClosed } from 'vs/workbench/browser/positronDataExplorer/components/dataExplorerClosed/positronDataExplorerClosed';
 
 /**
  * IPositronDataExplorerEditorOptions interface.
@@ -235,7 +235,6 @@ export class PositronDataExplorerEditor extends EditorPane implements IPositronD
 
 		// Create the Positron data explorer container.
 		this._positronDataExplorerContainer = DOM.$('.positron-data-explorer-container');
-		this._positronDataExplorerContainer.tabIndex = 0;
 	}
 
 	/**

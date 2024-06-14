@@ -11,7 +11,7 @@ import { PropsWithChildren } from 'react'; // eslint-disable-line no-duplicate-i
 
 // Other dependencies.
 import { localize } from 'vs/nls';
-import { PositronButton } from 'vs/base/browser/ui/positronComponents/button/positronButton';
+import { Button } from 'vs/base/browser/ui/positronComponents/button/button';
 
 /**
  * PositronDataExplorerClosedProps interface.
@@ -31,11 +31,10 @@ export const PositronDataExplorerClosed = (props: PropsWithChildren<PositronData
 	// Render.
 	return (
 		<div className='positron-data-explorer-closed'>
-			<PositronButton className='message' onPressed={props.onClose}>
+			<div className='message' >
 				{props.languageName && props.displayName && (
 					<>
-						<div
-							className='message-line'>
+						<div>
 							{(() => localize(
 								'positron.dataExplorerEditor.dataDisplayName',
 								'{0} Data: {1}',
@@ -43,8 +42,7 @@ export const PositronDataExplorerClosed = (props: PropsWithChildren<PositronData
 								props.displayName
 							))()}
 						</div>
-						<div
-							className='message-line'>
+						<div>
 							{(() => localize(
 								'positron.dataExplorerEditor.isNoLongerAvailable',
 								'Is no longer available'
@@ -52,14 +50,19 @@ export const PositronDataExplorerClosed = (props: PropsWithChildren<PositronData
 						</div>
 					</>
 				)}
-				<div
-					className='message-line'>
-					{(() => localize(
-						'positron.dataExplorerEditor.clickToClose',
-						"Click to close Data Explorer"
-					))()}
-				</div>
-			</PositronButton>
+				<Button
+					className='close-button'
+					onPressed={props.onClose}
+				>
+					{
+						(() => localize(
+							'positron.dataExplorerEditor.closeDataExplorer',
+							"Close Data Explorer"
+						))()
+					}
+				</Button>
+
+			</div>
 		</div>
 	);
 };
