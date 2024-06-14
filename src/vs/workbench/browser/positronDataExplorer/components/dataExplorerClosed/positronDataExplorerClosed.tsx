@@ -17,8 +17,6 @@ import { Button } from 'vs/base/browser/ui/positronComponents/button/button';
  * PositronDataExplorerClosedProps interface.
  */
 export interface PositronDataExplorerClosedProps {
-	languageName?: string;
-	displayName?: string;
 	onClose: () => void;
 }
 
@@ -28,40 +26,29 @@ export interface PositronDataExplorerClosedProps {
  * @returns The rendered component.
  */
 export const PositronDataExplorerClosed = (props: PropsWithChildren<PositronDataExplorerClosedProps>) => {
+	// Constants.
+	const closeDataExplorer = localize(
+		'positron.dataExplorerEditor.closeDataExplorer',
+		"Close Data Explorer"
+	);
+
 	// Render.
 	return (
 		<div className='positron-data-explorer-closed'>
 			<div className='message' >
-				{props.languageName && props.displayName && (
-					<>
-						<div>
-							{(() => localize(
-								'positron.dataExplorerEditor.dataDisplayName',
-								'{0} Data: {1}',
-								props.languageName,
-								props.displayName
-							))()}
-						</div>
-						<div>
-							{(() => localize(
-								'positron.dataExplorerEditor.thisObjectIsNoLongerAvailable',
-								'This object is no longer available'
-							))()}
-						</div>
-					</>
-				)}
+				<div>
+					{(() => localize(
+						'positron.dataExplorerEditor.thisObjectIsNoLongerAvailable',
+						'This object is no longer available.'
+					))()}
+				</div>
 				<Button
 					className='close-button'
+					ariaLabel={closeDataExplorer}
 					onPressed={props.onClose}
 				>
-					{
-						(() => localize(
-							'positron.dataExplorerEditor.closeDataExplorer',
-							"Close Data Explorer"
-						))()
-					}
+					{closeDataExplorer}
 				</Button>
-
 			</div>
 		</div>
 	);

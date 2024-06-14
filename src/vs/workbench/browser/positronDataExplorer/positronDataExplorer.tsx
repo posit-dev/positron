@@ -50,26 +50,16 @@ export interface PositronDataExplorerProps extends PositronDataExplorerConfigura
 export const PositronDataExplorer = (props: PropsWithChildren<PositronDataExplorerProps>) => {
 	// State hooks.
 	const [closed, setClosed] = useState(false);
-	const [displayName, setDisplayName] = useState('');
 
 	// Main useEffect.
 	useEffect(() => {
 		// Create the disposable store for cleanup.
 		const disposableStore = new DisposableStore();
 
-		// Add the onDidUpdateBackendState event handler.
-		disposableStore.add(
-			props.instance.dataExplorerClientInstance.onDidUpdateBackendState(backendState => {
-				setDisplayName(backendState.display_name);
-			})
-		);
-
 		// Add the onDidClose event handler.
-		disposableStore.add(
-			props.instance.onDidClose(() => {
-				setClosed(true);
-			})
-		);
+		disposableStore.add(props.instance.onDidClose(() => {
+			setClosed(true);
+		}));
 
 		// Return the cleanup function that will dispose of the event handlers.
 		return () => disposableStore.dispose();
@@ -81,13 +71,7 @@ export const PositronDataExplorer = (props: PropsWithChildren<PositronDataExplor
 			<div className='positron-data-explorer'>
 				<ActionBar />
 				<DataExplorerPanel />
-				{closed &&
-					<PositronDataExplorerClosed
-						languageName={props.instance.languageName}
-						displayName={displayName}
-						onClose={props.onClose}
-					/>
-				}
+				{closed && <PositronDataExplorerClosed onClose={props.onClose} />}
 			</div>
 		</PositronDataExplorerContextProvider>
 	);
