@@ -31,7 +31,6 @@ import { TerminalCommandId } from 'vs/workbench/contrib/terminal/common/terminal
 
 // --- Start Positron ---
 import { IPositronNewProjectService } from 'vs/workbench/services/positronNewProject/common/positronNewProject';
-import { positronFourPaneDsLayout } from 'vs/workbench/browser/positronCustomViews';
 // --- End Positron ---
 
 export const restoreWalkthroughsConfigurationKey = 'workbench.welcomePage.restorableWalkthroughs';
@@ -76,9 +75,6 @@ export class StartupPageEditorResolverContribution implements IWorkbenchContribu
 }
 
 export class StartupPageRunnerContribution implements IWorkbenchContribution {
-	// --- Start Positron ---
-	public static readonly LAYOUT_INITIALIZED_STORAGE_KEY = 'positron.workbench.layoutInitialized';
-	// --- End Positron ---
 
 	static readonly ID = 'workbench.contrib.startupPageRunner';
 
@@ -152,16 +148,6 @@ export class StartupPageRunnerContribution implements IWorkbenchContribution {
 					await this.openReadme();
 				} else if (startupEditorSetting.value === 'welcomePage' || startupEditorSetting.value === 'welcomePageInEmptyWorkbench') {
 					await this.openGettingStarted();
-					// --- Start Positron ---
-					// On first startup, change to the four-pane layout when showing the welcome page
-					this.lifecycleService.when(LifecyclePhase.Restored).then(() => {
-						const layoutInitialized = this.storageService.getBoolean(StartupPageRunnerContribution.LAYOUT_INITIALIZED_STORAGE_KEY, StorageScope.PROFILE);
-						if (!layoutInitialized) {
-							this.commandService.executeCommand(positronFourPaneDsLayout.id);
-							this.storageService.store(StartupPageRunnerContribution.LAYOUT_INITIALIZED_STORAGE_KEY, true, StorageScope.PROFILE, StorageTarget.USER);
-						}
-					});
-					// --- End Positron ---
 				} else if (startupEditorSetting.value === 'terminal') {
 					this.commandService.executeCommand(TerminalCommandId.CreateTerminalEditor);
 				}

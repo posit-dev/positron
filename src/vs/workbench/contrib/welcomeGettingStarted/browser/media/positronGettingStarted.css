@@ -3,9 +3,12 @@
  *--------------------------------------------------------------------------------------------*/
 
 .gettingStartedContainer .header {
-	margin-bottom: 50px;
 	display: flex;
 	column-gap: 24px;
+}
+
+.gettingStartedContainer .gettingStartedSlideCategories > .gettingStartedCategoriesContainer {
+	row-gap: 50px;
 }
 
 .gettingStartedContainer .product-logo.welcome-positron-logo {
