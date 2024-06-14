@@ -11,5 +11,9 @@ export interface IConfig {
 
 // For easy access to mixin client ID and secret
 export const Config: IConfig = {
-	gitHubClientId: '01ab8ac9400c4e429b23'
+	// --- Start Positron ---
+	// Replace the "GitHub for VS Code" client ID with Positron's client ID
+	// gitHubClientId: '01ab8ac9400c4e429b23'
+	gitHubClientId: 'Ov23lilj1d6nFMvW4QfI'
+	// --- End Positron ---
 };
