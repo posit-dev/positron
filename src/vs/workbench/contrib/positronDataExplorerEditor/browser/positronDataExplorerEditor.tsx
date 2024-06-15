@@ -29,9 +29,9 @@ import { IEditorGroup } from 'vs/workbench/services/editor/common/editorGroupsSe
 import { PositronDataExplorer } from 'vs/workbench/browser/positronDataExplorer/positronDataExplorer';
 import { IReactComponentContainer, ISize, PositronReactRenderer } from 'vs/base/browser/positronReactRenderer';
 import { PositronDataExplorerUri } from 'vs/workbench/services/positronDataExplorer/common/positronDataExplorerUri';
-import { PositronDataExplorerClosed } from 'vs/workbench/contrib/positronDataExplorerEditor/browser/positronDataExplorerClosed';
 import { IPositronDataExplorerService } from 'vs/workbench/services/positronDataExplorer/browser/interfaces/positronDataExplorerService';
 import { PositronDataExplorerEditorInput } from 'vs/workbench/contrib/positronDataExplorerEditor/browser/positronDataExplorerEditorInput';
+import { PositronDataExplorerClosed } from 'vs/workbench/browser/positronDataExplorer/components/dataExplorerClosed/positronDataExplorerClosed';
 
 /**
  * IPositronDataExplorerEditorOptions interface.
@@ -64,16 +64,6 @@ export class PositronDataExplorerEditor extends EditorPane implements IPositronD
 	 * Gets or sets the PositronReactRenderer for the PositronDataExplorer component.
 	 */
 	private _positronReactRenderer?: PositronReactRenderer;
-
-	/**
-	 * Gets or sets the last language name that was displayed by this PositronDataExplorerEditor.
-	 */
-	private _lastLanguageName?: string;
-
-	/**
-	 * Gets or sets the last display name that was displayed by this PositronDataExplorerEditor.
-	 */
-	private _lastDisplayName?: string;
 
 	/**
 	 * Gets or sets the width. This value is set in layoutBody and is used to implement the
@@ -235,7 +225,6 @@ export class PositronDataExplorerEditor extends EditorPane implements IPositronD
 
 		// Create the Positron data explorer container.
 		this._positronDataExplorerContainer = DOM.$('.positron-data-explorer-container');
-		this._positronDataExplorerContainer.tabIndex = 0;
 	}
 
 	/**
@@ -314,9 +303,6 @@ export class PositronDataExplorerEditor extends EditorPane implements IPositronD
 			// If the Positron data explorer instance was found, render the PositronDataExplorer
 			// component. Otherwise, render the PositronDataExplorerClosed component.
 			if (positronDataExplorerInstance) {
-				// Set the last language name.
-				this._lastLanguageName = positronDataExplorerInstance.languageName;
-
 				// Render the PositronDataExplorer.
 				this._positronReactRenderer.render(
 					<PositronDataExplorer
@@ -332,15 +318,6 @@ export class PositronDataExplorerEditor extends EditorPane implements IPositronD
 					/>
 				);
 
-				// Add the onDidUpdateBackendState event handler.
-				this._positronReactRenderer.register(
-					positronDataExplorerInstance.dataExplorerClientInstance.
-						onDidUpdateBackendState(backendState =>
-							// Set the last display name.
-							this._lastDisplayName = backendState.display_name
-						)
-				);
-
 				// Add the onDidRequestFocus event handler.
 				this._positronReactRenderer.register(
 					positronDataExplorerInstance.onDidRequestFocus(() =>
@@ -350,8 +327,6 @@ export class PositronDataExplorerEditor extends EditorPane implements IPositronD
 			} else {
 				this._positronReactRenderer.render(
 					<PositronDataExplorerClosed
-						languageName={this._lastLanguageName}
-						displayName={this._lastDisplayName}
 						onClose={() => this._group.closeEditor(this.input)}
 					/>
 				);

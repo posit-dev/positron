@@ -5,9 +5,9 @@
 .positron-data-explorer-closed {
 	top: 0;
 	left: 0;
-	right: 0;
-	bottom: 0;
 	z-index: 30;
+	width: 100%;
+	height: 100%;
 	display: grid;
 	position: absolute;
 	background-color: transparent;
@@ -20,10 +20,11 @@
 	color: white;
 	display: flex;
 	row-gap: 10px;
-	font-size: 16px;
+	font-size: 14px;
 	cursor: pointer;
 	padding: 25px 50px;
 	border-radius: 6px;
+	text-align: center;
 	flex-direction: column;
 	grid-row: message / bottom-gutter;
 	grid-column: message / right-gutter;
@@ -34,7 +35,31 @@
 }
 
 .positron-data-explorer-closed
-.message
-.message-line {
-	text-align: center;
+.close-button {
+	display: flex;
+	font-size: 14px;
+	cursor: pointer;
+	padding: 8px 16px;
+	border-radius: 5px;
+	align-items: center;
+	justify-content: center;
+	border: 1px solid var(--vscode-positronModalDialog-buttonBorder);
+	color: var(--vscode-positronModalDialog-defaultButtonForeground);
+	background: var(--vscode-positronModalDialog-defaultButtonBackground);
+}
+
+.positron-data-explorer-closed
+.close-button:hover {
+	background: var(--vscode-positronModalDialog-defaultButtonHoverBackground);
+}
+
+.positron-data-explorer-closed
+.close-button:focus {
+	outline: none;
+}
+
+.positron-data-explorer-closed
+.close-button:focus-visible {
+	outline-offset: 2px;
+	outline: 1px solid var(--vscode-focusBorder);
 }
