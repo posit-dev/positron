@@ -11,14 +11,12 @@ import { PropsWithChildren } from 'react'; // eslint-disable-line no-duplicate-i
 
 // Other dependencies.
 import { localize } from 'vs/nls';
-import { PositronButton } from 'vs/base/browser/ui/positronComponents/button/positronButton';
+import { Button } from 'vs/base/browser/ui/positronComponents/button/button';
 
 /**
  * PositronDataExplorerClosedProps interface.
  */
 export interface PositronDataExplorerClosedProps {
-	languageName?: string;
-	displayName?: string;
 	onClose: () => void;
 }
 
@@ -28,38 +26,30 @@ export interface PositronDataExplorerClosedProps {
  * @returns The rendered component.
  */
 export const PositronDataExplorerClosed = (props: PropsWithChildren<PositronDataExplorerClosedProps>) => {
+	// Constants.
+	const closeDataExplorer = localize(
+		'positron.dataExplorerEditor.closeDataExplorer',
+		"Close Data Explorer"
+	);
+
 	// Render.
 	return (
 		<div className='positron-data-explorer-closed'>
-			<PositronButton className='message' onPressed={props.onClose}>
-				{props.languageName && props.displayName && (
-					<>
-						<div
-							className='message-line'>
-							{(() => localize(
-								'positron.dataExplorerEditor.dataDisplayName',
-								'{0} Data: {1}',
-								props.languageName,
-								props.displayName
-							))()}
-						</div>
-						<div
-							className='message-line'>
-							{(() => localize(
-								'positron.dataExplorerEditor.isNoLongerAvailable',
-								'Is no longer available'
-							))()}
-						</div>
-					</>
-				)}
-				<div
-					className='message-line'>
+			<div className='message' >
+				<div>
 					{(() => localize(
-						'positron.dataExplorerEditor.clickToClose',
-						"Click to close Data Explorer"
+						'positron.dataExplorerEditor.thisObjectIsNoLongerAvailable',
+						'This object is no longer available.'
 					))()}
 				</div>
-			</PositronButton>
+				<Button
+					className='close-button'
+					ariaLabel={closeDataExplorer}
+					onPressed={props.onClose}
+				>
+					{closeDataExplorer}
+				</Button>
+			</div>
 		</div>
 	);
 };
