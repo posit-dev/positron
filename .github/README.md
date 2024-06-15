@@ -1,29 +1,26 @@
-# The Positron IDE
+# Positron  <a href="https://github.com/posit-dev/positron"><img src="positron-product-icons/positron.png" align="right" height="138" alt="Positron" /></a>
 
-This repository hosts the source code for the Positron IDE, a fork of [Visual Studio Code](https://github.com/microsoft/vscode) that provides a batteries-included, opinionated environment for data science and scientific authoring.
+What is Positron?
 
-## Releases
+- A next-generation data science IDE built by [Posit PBC](https://posit.co/)
+- An extensible, polyglot tool for writing code and exploring data
+- A familiar environment for reproducible authoring and publishing
 
-In the [Releases](https://github.com/posit-dev/positron/releases) section you can download nightly Alpha builds of the Positron IDE. Currently Mac (Universal) and Windows (x86) installers are provided.
+> [!IMPORTANT]
+> Positron is an early stage project under active development and may [not yet be a good fit for you](https://github.com/posit-dev/positron/wiki#is-positron-for-me). If you are interested in experimenting with it, we welcome your feedback!
 
-## Positron Developers
+## Get started using Positron
 
-You can read more about Positron IDE development on the [Positron Wiki](https://connect.rstudioservices.com/positron-wiki).
+Check out [our wiki](https://github.com/posit-dev/positron/wiki) for information on what you should do before installing Positron, troubleshooting Positron, and more.
 
-## Extensions
+Positron is built on [Code OSS](https://github.com/microsoft/vscode). To learn about basic features like commands, settings, using source control, and more, see the [VS Code documentation](https://code.visualstudio.com/docs).
 
-Positron is a highly extensible IDE. Its foundation is implemented in [`src`](../src), however, much of the core functionality is provided through [`extensions`](../extensions).
+## Install Positron
 
-Positron provides the following built-in extensions:
+Install Positron from our [Releases](https://github.com/posit-dev/positron/releases) page.
 
-- [**Jupyter Adapter**](../extensions/jupyter-adapter), the interface between the front end and language extensions described below
-- [**Positron R**](../extensions/positron-r), the Positron extension for the R programming language powered by [ARK](https://github.com/posit-dev/amalthea/tree/main/crates/ark) (the Amalthea R kernel -- our Rust-based kernel for R) which is built on top of our [Amalthea](https://github.com/posit-dev/amalthea) Jupyter kernel framework and the open source [tower-lsp](https://github.com/ebkalderon/tower-lsp) LSP framework
-- [**Positron Python**](https://github.com/posit-dev/positron-python), the Positron extension for the Python programming language, a fork of [Microsoft's Python VSCode extension](https://github.com/microsoft/vscode-python) built on top of the open source Python-based kernel [IPyKernel](https://github.com/ipython/ipykernel) and [Jedi Language Server](https://github.com/pappasam/jedi-language-server)
-- [**Positron Zed**](https://github.com/posit-dev/positron/tree/main/extensions/positron-zed), the Positron extension for a test-bed language, intended for fast simulations primarily to aid UI development
+Currently, Positron is producing pre-release builds from a continuous integration (CI) system for macOS, Windows, and Linux. These pre-release builds are tagged with a version number here on our Github repository. Select the build you want to download, then click on **Assets** and download the `.dmg` (for Mac), `.exe` (for Windows), or `.deb` (for Linux) file.
 
-## Related Repositories
+## Share your feedback about Positron
 
-- [VSCode - OSS](https://github.com/microsoft/vscode), the upstream VS Code OSS repository
-- [OpenVSCode Server](https://github.com/gitpod-io/openvscode-server), another fork of VS Code focused on running in the browser
-- [Positron Codicons](https://github.com/posit-dev/positron-codicons), a fork of the MS Codicons repository
-- [Positron Wiki](https://github.com/posit-dev/positron-wiki), the Quarto-based source for Positron's development wiki
+We invite you to join us on [GitHub Discussions](https://github.com/posit-dev/positron/discussions) to ask questions and share feedback. [Read more](https://github.com/posit-dev/positron/wiki/Feedback-and-Issues) about giving feedback and reporting bugs.
