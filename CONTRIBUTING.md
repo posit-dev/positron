@@ -10,10 +10,4 @@ Positron provides the following built-in extensions:
 - [**Positron Python**](../extensions/positron-python), the Positron extension for the Python programming language, a fork of [Microsoft's Python VSCode extension](https://github.com/microsoft/vscode-python) built on top of the open source Python-based kernel [IPyKernel](https://github.com/ipython/ipykernel) and [Jedi Language Server](https://github.com/pappasam/jedi-language-server)
 - [**Positron Zed**](../extensions/positron-zed), the Positron extension for a test-bed language, intended for fast simulations primarily to aid UI development
 
-## Related Repositories
-
-- [VSCode - OSS](https://github.com/microsoft/vscode), the upstream VS Code OSS repository
-- [OpenVSCode Server](https://github.com/gitpod-io/openvscode-server), another fork of VS Code focused on running in the browser
-- [Positron Codicons](https://github.com/posit-dev/positron-codicons) (private), a fork of the MS Codicons repository
-- [Positron Wiki](https://github.com/posit-dev/positron-wiki) (private), the Quarto-based source for Positron's internal development wiki
 <!-- End Positron -->
