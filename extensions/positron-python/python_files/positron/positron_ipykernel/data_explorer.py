@@ -114,8 +114,26 @@ class DataExplorerTableView(abc.ABC):
 
         self._need_recompute = len(self.filters) > 0 or len(self.sort_keys) > 0
 
+        # Array of selected ("true") indices using filters. If
+        # there are also sort keys, we first filter the unsorted data,
+        # and then sort the filtered data only, for the optimistic
+        # case that a low-selectivity filters yields less data to sort
+        self.filtered_indices = None
+
+        # Array of selected AND reordered indices
+        # (e.g. including any sorting). If there are no sort keys and
+        # only filters, then this should be the same as
+        # self.filtered_indices
+        self.view_indices = None
+
     def _set_sort_keys(self, sort_keys):
         self.sort_keys = sort_keys if sort_keys is not None else []
+
+        # We store the column schemas for each sort key to help with
+        # eviction later during updates
+        self._sort_key_schemas = [
+            self._get_single_column_schema(key.column_index) for key in self.sort_keys
+        ]
 
     def _recompute_if_needed(self) -> bool:
         if self._need_recompute:
@@ -124,6 +142,14 @@ class DataExplorerTableView(abc.ABC):
             return True
         else:
             return False
+
+    def _update_view_indices(self):
+        if len(self.sort_keys) == 0:
+            self.view_indices = self.filtered_indices
+        else:
+            # If we have just applied a new filter, we now resort to
+            # reflect the filtered_indices that have just been updated
+            self._sort_data()
 
     def get_schema(self, request: GetSchemaRequest):
         column_schemas = []
@@ -169,8 +195,76 @@ class DataExplorerTableView(abc.ABC):
     def set_row_filters(self, request: SetRowFiltersRequest):
         return self._set_row_filters(request.params.filters).dict()
 
+    def _set_row_filters(self, filters: List[RowFilter]) -> FilterResult:
+        self.filters = filters
+        for filt in filters:
+            # If is_valid isn't set, set it based on what is currently
+            # supported
+            if filt.is_valid is None:
+                filt.is_valid = self._is_supported_filter(filt)
+
+        if len(self.filters) == 0:
+            # Simply reset if empty filter set passed
+            self.filtered_indices = None
+            self._update_view_indices()
+            return FilterResult(selected_num_rows=len(self.table), had_errors=False)
+
+        # Evaluate all the filters and combine them using the
+        # indicated conditions
+        combined_mask = None
+        had_errors = False
+        for filt in filters:
+            if filt.is_valid is False:
+                # If filter is invalid, do not evaluate it
+                continue
+
+            try:
+                single_mask = self._eval_filter(filt)
+            except Exception as e:
+                had_errors = True
+
+                # Filter fails: we capture the error message and mark
+                # the filter as invalid
+                filt.is_valid = False
+                filt.error_message = str(e)
+
+                # Perhaps use a different log level, but to help with
+                # debugging for now.
+                logger.warning(e, exc_info=True)
+                continue
+
+            if combined_mask is None:
+                combined_mask = single_mask
+            elif filt.condition == RowFilterCondition.And:
+                combined_mask &= single_mask
+            elif filt.condition == RowFilterCondition.Or:
+                combined_mask |= single_mask
+
+        self.filtered_indices = self._mask_to_indices(combined_mask)
+        selected_num_rows = (
+            len(self.table) if self.filtered_indices is None else len(self.filtered_indices)
+        )
+
+        # Update the view indices, re-sorting if needed
+        self._update_view_indices()
+        return FilterResult(selected_num_rows=selected_num_rows, had_errors=had_errors)
+
+    def _mask_to_indices(self, mask):
+        raise NotImplementedError
+
+    def _eval_filter(self, filt: RowFilter):
+        raise NotImplementedError
+
     def set_sort_columns(self, request: SetSortColumnsRequest):
-        return self._set_sort_columns(request.params.sort_keys)
+        self._set_sort_keys(request.params.sort_keys)
+
+        if not self._recompute_if_needed():
+            # If a re-filter is pending, then it will automatically
+            # trigger a sort
+            self._sort_data()
+
+    def _sort_data(self):
+        raise NotImplementedError
 
     def get_column_profiles(self, request: GetColumnProfilesRequest):
         self._recompute_if_needed()
@@ -222,14 +316,48 @@ class DataExplorerTableView(abc.ABC):
     def _export_data_selection(self, selection: DataSelection, fmt: ExportFormat) -> ExportedData:
         raise NotImplementedError
 
-    def _set_row_filters(self, filters: List[RowFilter]) -> FilterResult:
-        raise NotImplementedError
+    SUPPORTED_FILTERS = set()
 
-    def _set_sort_columns(self, sort_keys: List[ColumnSortKey]):
-        raise NotImplementedError
+    def _is_supported_filter(self, filt: RowFilter) -> bool:
+        if filt.filter_type not in self.SUPPORTED_FILTERS:
+            return False
 
-    def _sort_data(self):
-        raise NotImplementedError
+        display_type = filt.column_schema.type_display
+
+        if filt.filter_type in [
+            RowFilterType.IsEmpty,
+            RowFilterType.NotEmpty,
+            RowFilterType.Search,
+        ]:
+            # String-only filter types
+            return display_type == ColumnDisplayType.String
+        elif filt.filter_type == RowFilterType.Compare:
+            compare_op = filt.compare_params.op
+            if compare_op in [
+                CompareFilterParamsOp.Eq,
+                CompareFilterParamsOp.NotEq,
+            ]:
+                return True
+            else:
+                return display_type in _FILTER_RANGE_COMPARE_SUPPORTED
+        elif filt.filter_type in [
+            RowFilterType.Between,
+            RowFilterType.NotBetween,
+        ]:
+            return display_type in _FILTER_RANGE_COMPARE_SUPPORTED
+        elif filt.filter_type in [
+            RowFilterType.IsTrue,
+            RowFilterType.IsFalse,
+        ]:
+            return display_type == ColumnDisplayType.Boolean
+        else:
+            # Filters always supported
+            assert filt.filter_type in [
+                RowFilterType.IsNull,
+                RowFilterType.NotNull,
+                RowFilterType.SetMembership,
+            ]
+            return True
 
     def _prof_null_count(self, column_index: int) -> int:
         raise NotImplementedError
@@ -365,18 +493,6 @@ class PandasView(DataExplorerTableView):
         # object is changed, this needs to be reset
         self._inferred_dtypes = {}
 
-        # NumPy array of selected ("true") indices using filters. If
-        # there are also sort keys, we first filter the unsorted data,
-        # and then sort the filtered data only, for the optimistic
-        # case that a low-selectivity filters yields less data to sort
-        self.filtered_indices = None
-
-        # NumPy array of selected AND reordered indices
-        # (e.g. including any sorting). If there are no sort keys and
-        # only filters, then this should be the same as
-        # self.filtered_indices
-        self.view_indices = None
-
         # We store a tuple of (last_search_term, matches)
         # here so that we can support scrolling through the search
         # results without having to recompute the search. If the
@@ -403,15 +519,6 @@ class PandasView(DataExplorerTableView):
                 return pd_.DataFrame(value)
         else:
             return value
-
-    def _set_sort_keys(self, sort_keys):
-        super()._set_sort_keys(sort_keys)
-
-        # We store the column schemas for each sort key to help with
-        # eviction later during updates
-        self._sort_key_schemas = [
-            self._get_single_column_schema(key.column_index) for key in self.sort_keys
-        ]
 
     def get_updated_state(self, new_table) -> StateUpdate:
         from pandas.api.types import infer_dtype
@@ -864,119 +971,9 @@ class PandasView(DataExplorerTableView):
 
         return ExportedData(data=buf.getvalue(), format=fmt)
 
-    def _update_view_indices(self):
-        if len(self.sort_keys) == 0:
-            self.view_indices = self.filtered_indices
-        else:
-            # If we have just applied a new filter, we now resort to
-            # reflect the filtered_indices that have just been updated
-            self._sort_data()
-
-    def _set_sort_columns(self, sort_keys: List[ColumnSortKey]):
-        self._set_sort_keys(sort_keys)
-
-        if not self._recompute_if_needed():
-            # If a re-filter is pending, then it will automatically
-            # trigger a sort
-            self._sort_data()
-
-    def _set_row_filters(self, filters: List[RowFilter]) -> FilterResult:
-        self.filters = filters
-
-        for filt in self.filters:
-            # If is_valid isn't set, set it based on what is currently
-            # supported
-            if filt.is_valid is None:
-                filt.is_valid = self._is_supported_filter(filt)
-
-        if len(filters) == 0:
-            # Simply reset if empty filter set passed
-            self.filtered_indices = None
-            self._update_view_indices()
-            return FilterResult(selected_num_rows=len(self.table), had_errors=False)
-
-        # Evaluate all the filters and combine them using the
-        # indicated conditions
-        combined_mask = None
-        had_errors = False
-        for filt in filters:
-            if filt.is_valid is False:
-                # If filter is invalid, do not evaluate it
-                continue
-
-            try:
-                single_mask = self._eval_filter(filt)
-            except Exception as e:
-                had_errors = True
-
-                # Filter fails: we capture the error message and mark
-                # the filter as invalid
-                filt.is_valid = False
-                filt.error_message = str(e)
-
-                # Perhaps use a different log level, but to help with
-                # debugging for now.
-                logger.warning(e, exc_info=True)
-                continue
-
-            if combined_mask is None:
-                combined_mask = single_mask
-            elif filt.condition == RowFilterCondition.And:
-                combined_mask &= single_mask
-            elif filt.condition == RowFilterCondition.Or:
-                combined_mask |= single_mask
-
-        if combined_mask is None:
-            self.filtered_indices = None
-            selected_num_rows = len(self.table)
-        else:
-            self.filtered_indices = combined_mask.nonzero()[0]
-            selected_num_rows = len(self.filtered_indices)
-
-        # Update the view indices, re-sorting if needed
-        self._update_view_indices()
-        return FilterResult(selected_num_rows=selected_num_rows, had_errors=had_errors)
-
-    def _is_supported_filter(self, filt: RowFilter) -> bool:
-        if filt.filter_type not in self.SUPPORTED_FILTERS:
-            return False
-
-        display_type = filt.column_schema.type_display
-
-        if filt.filter_type in [
-            RowFilterType.IsEmpty,
-            RowFilterType.NotEmpty,
-            RowFilterType.Search,
-        ]:
-            # String-only filter types
-            return display_type == ColumnDisplayType.String
-        elif filt.filter_type == RowFilterType.Compare:
-            compare_op = filt.compare_params.op
-            if compare_op in [
-                CompareFilterParamsOp.Eq,
-                CompareFilterParamsOp.NotEq,
-            ]:
-                return True
-            else:
-                return display_type in _FILTER_RANGE_COMPARE_SUPPORTED
-        elif filt.filter_type in [
-            RowFilterType.Between,
-            RowFilterType.NotBetween,
-        ]:
-            return display_type in _FILTER_RANGE_COMPARE_SUPPORTED
-        elif filt.filter_type in [
-            RowFilterType.IsTrue,
-            RowFilterType.IsFalse,
-        ]:
-            return display_type == ColumnDisplayType.Boolean
-        else:
-            # Filters always supported
-            assert filt.filter_type in [
-                RowFilterType.IsNull,
-                RowFilterType.NotNull,
-                RowFilterType.SetMembership,
-            ]
-            return True
+    def _mask_to_indices(self, mask):
+        if mask is not None:
+            return mask.nonzero()[0]
 
     def _eval_filter(self, filt: RowFilter):
         column_index = filt.column_schema.column_index
@@ -992,8 +989,8 @@ class PandasView(DataExplorerTableView):
         ):
             params = filt.between_params
             assert params is not None
-            left_value = _pandas_coerce_value(params.left_value, dtype, inferred_type)
-            right_value = _pandas_coerce_value(params.right_value, dtype, inferred_type)
+            left_value = self._coerce_value(params.left_value, dtype, inferred_type)
+            right_value = self._coerce_value(params.right_value, dtype, inferred_type)
             if filt.filter_type == RowFilterType.Between:
                 mask = (col >= left_value) & (col <= right_value)
             else:
@@ -1007,7 +1004,7 @@ class PandasView(DataExplorerTableView):
                 raise ValueError(f"Unsupported filter type: {params.op}")
             op = COMPARE_OPS[params.op]
             # pandas comparison filters return False for null values
-            mask = op(col, _pandas_coerce_value(params.value, dtype, inferred_type))
+            mask = op(col, self._coerce_value(params.value, dtype, inferred_type))
         elif filt.filter_type == RowFilterType.IsEmpty:
             mask = col.str.len() == 0
         elif filt.filter_type == RowFilterType.IsNull:
@@ -1059,6 +1056,37 @@ class PandasView(DataExplorerTableView):
             mask = mask.astype(bool)
 
         return mask.to_numpy()
+
+    @staticmethod
+    def _coerce_value(value, dtype, inferred_type):
+        import pandas.api.types as pat
+
+        if pat.is_integer_dtype(dtype):
+            # For integer types, try to coerce to integer, but if this
+            # fails, allow a looser conversion to float
+            try:
+                return int(value)
+            except ValueError as e1:
+                try:
+                    return pd_.Series([value], dtype="float64").iloc[0]
+                except ValueError:
+                    raise e1
+        elif pat.is_bool_dtype(dtype):
+            lvalue = value.lower()
+            if lvalue == "true":
+                return True
+            elif lvalue == "false":
+                return False
+            else:
+                raise ValueError(f"Unable to convert {value} to boolean")
+        elif "datetime" in inferred_type:
+            return _parse_iso8601_like(value, tz=getattr(dtype, "tz", None))
+        else:
+            # As a fallback, let Series.astype do the coercion
+            dummy = pd_.Series([value])
+            if dummy.dtype != dtype:
+                dummy = dummy.astype(dtype)
+            return dummy.iloc[0]
 
     def _sort_data(self) -> None:
         from pandas.core.sorting import lexsort_indexer, nargsort
@@ -1358,37 +1386,6 @@ def _possibly(f, otherwise=None):
         return otherwise
 
 
-def _pandas_coerce_value(value, dtype, inferred_type):
-    import pandas.api.types as pat
-
-    if pat.is_integer_dtype(dtype):
-        # For integer types, try to coerce to integer, but if this
-        # fails, allow a looser conversion to float
-        try:
-            return int(value)
-        except ValueError as e1:
-            try:
-                return pd_.Series([value], dtype="float64").iloc[0]
-            except ValueError:
-                raise e1
-    elif pat.is_bool_dtype(dtype):
-        lvalue = value.lower()
-        if lvalue == "true":
-            return True
-        elif lvalue == "false":
-            return False
-        else:
-            raise ValueError(f"Unable to convert {value} to boolean")
-    elif "datetime" in inferred_type:
-        return _parse_iso8601_like(value, dtype)
-    else:
-        # As a fallback, let Series.astype do the coercion
-        dummy = pd_.Series([value])
-        if dummy.dtype != dtype:
-            dummy = dummy.astype(dtype)
-        return dummy.iloc[0]
-
-
 _ISO_8601_FORMATS = [
     "%Y-%m-%d %H:%M:%S",
     "%Y-%m-%d %H:%M",
@@ -1396,14 +1393,14 @@ _ISO_8601_FORMATS = [
 ]
 
 
-def _parse_iso8601_like(x, dtype):
+def _parse_iso8601_like(x, tz=None):
     for fmt in _ISO_8601_FORMATS:
         try:
             result = datetime.strptime(x, fmt)
 
             # Localize tz-naive datetime if needed to avoid TypeError
-            if getattr(dtype, "tz", None) is not None:
-                result = result.replace(tzinfo=dtype.tz)
+            if tz is not None:
+                result = result.replace(tzinfo=tz)
 
             return result
         except ValueError:
@@ -1421,8 +1418,6 @@ class PolarsView(DataExplorerTableView):
         sort_keys: Optional[List[ColumnSortKey]],
     ):
         super().__init__(display_name, table, filters, sort_keys)
-        self.filtered_indices = None
-        self.view_indices = None
 
     def _recompute(self):
         raise NotImplementedError
@@ -1547,14 +1542,130 @@ class PolarsView(DataExplorerTableView):
     def _export_data_selection(self, selection: DataSelection, fmt: ExportFormat) -> ExportedData:
         raise NotImplementedError
 
-    def _set_row_filters(self, filters: List[RowFilter]) -> FilterResult:
-        raise NotImplementedError
+    SUPPORTED_FILTERS = {
+        RowFilterType.Between,
+        RowFilterType.Compare,
+        RowFilterType.NotBetween,
+        RowFilterType.IsNull,
+        RowFilterType.NotNull,
+        RowFilterType.IsEmpty,
+        RowFilterType.NotEmpty,
+        RowFilterType.IsTrue,
+        RowFilterType.IsFalse,
+    }
 
-    def _set_sort_columns(self, sort_keys: List[ColumnSortKey]):
-        raise NotImplementedError
+    def _eval_filter(self, filt: RowFilter):
+        column_index = filt.column_schema.column_index
+        col = self.table[:, column_index]
 
-    def _sort_data(self):
-        raise NotImplementedError
+        dtype = col.dtype
+        display_type = self._get_type_display(dtype)
+
+        mask = None
+        if filt.filter_type in (
+            RowFilterType.Between,
+            RowFilterType.NotBetween,
+        ):
+            params = filt.between_params
+            assert params is not None
+            left_value = self._coerce_value(params.left_value, dtype, display_type)
+            right_value = self._coerce_value(params.right_value, dtype, display_type)
+            mask = col.is_between(left_value, right_value)
+            if filt.filter_type == RowFilterType.NotBetween:
+                mask = ~mask
+        elif filt.filter_type == RowFilterType.Compare:
+            params = filt.compare_params
+            assert params is not None
+
+            if params.op not in COMPARE_OPS:
+                raise ValueError(f"Unsupported filter type: {params.op}")
+            op = COMPARE_OPS[params.op]
+            # pandas comparison filters return False for null values
+            mask = op(col, self._coerce_value(params.value, dtype, display_type))
+        elif filt.filter_type == RowFilterType.IsEmpty:
+            mask = col.str.len_chars() == 0
+        elif filt.filter_type == RowFilterType.IsNull:
+            mask = col.is_null()
+        elif filt.filter_type == RowFilterType.NotEmpty:
+            mask = col.str.len_chars() != 0
+        elif filt.filter_type == RowFilterType.NotNull:
+            mask = ~col.is_null()
+        elif filt.filter_type == RowFilterType.IsTrue:
+            mask = col == True  # noqa: E712
+        elif filt.filter_type == RowFilterType.IsFalse:
+            mask = col == False  # noqa: E712
+        elif filt.filter_type == RowFilterType.SetMembership:
+            raise NotImplementedError
+        elif filt.filter_type == RowFilterType.Search:
+            raise NotImplementedError
+
+        assert mask is not None
+
+        # Nulls are possible in the mask, so we just fill them if any
+        if mask.null_count() > 0:
+            mask[mask.is_null()] = False
+
+        return mask
+
+    @staticmethod
+    def _coerce_value(value, dtype, display_type):
+        if dtype.is_integer():
+            # For integer types, try to coerce to integer, but if this
+            # fails, allow a looser conversion to float
+            try:
+                return int(value)
+            except ValueError as e:
+                try:
+                    return pl_.Series([value]).cast(pl.Float64)[0]
+                except ValueError:
+                    raise e
+        elif dtype.is_(pl.Boolean):
+            lvalue = value.lower()
+            if lvalue == "true":
+                return True
+            elif lvalue == "false":
+                return False
+            else:
+                raise ValueError(f"Unable to convert {value} to boolean")
+        elif display_type == "datetime":
+            return _parse_iso8601_like(value, tz=dtype.time_zone)
+        else:
+            # As a fallback, let polars.Series.cast do the coercion
+            dummy = pl_.Series([value])
+            if dummy.dtype != dtype:
+                dummy = dummy.cast(dtype)
+            return dummy[0]
+
+    def _sort_data(self) -> None:
+        if len(self.sort_keys) > 0:
+            cols_to_sort = []
+            directions = []
+            for key in self.sort_keys:
+                col = self._get_column(key.column_index)
+                cols_to_sort.append(col)
+                directions.append(key.ascending)
+
+            indexer_name = guid()
+
+            if self.filtered_indices is not None:
+                num_rows = len(self.filtered_indices)
+            else:
+                num_rows = len(self.table)
+
+            # Do a stable sort of the indices using the columns as sort keys
+            to_sort = pl.DataFrame({indexer_name: pl.arange(num_rows, eager=True)}).sort(
+                cols_to_sort, descending=directions, maintain_order=True
+            )
+            sort_indexer = to_sort[indexer_name]
+            if self.filtered_indices is not None:
+                # Create the filtered, sorted virtual view indices
+                self.view_indices = self.filtered_indices.take(sort_indexer)
+            else:
+                self.view_indices = sort_indexer
+        else:
+            # No sort keys. This will be None if the data is
+            # unfiltered
+            self.view_indices = self.filtered_indices
 
     def _prof_null_count(self, column_index: int) -> int:
         return self._get_column(column_index).null_count()
@@ -1573,8 +1684,6 @@ class PolarsView(DataExplorerTableView):
 
     def _prof_histogram(self, column_index: int) -> ColumnHistogram:
         raise NotImplementedError
-
-    SUPPORTED_FILTERS = set()
 
     FEATURES = SupportedFeatures(
         search_schema=SearchSchemaFeatures(support_status=SupportStatus.Unsupported),
