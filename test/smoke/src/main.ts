@@ -39,6 +39,7 @@ import { setup as setupLargeDataFrameTest } from './areas/positron/dataexplorer/
 import { setup as setupNotebookCreateTest } from './areas/positron/notebook/notebookCreate.test';
 import { setup as setupConnectionsTest } from './areas/positron/connections/dbConnections.test';
 import { setup as setupNewProjectWizardTest } from './areas/positron/new-project-wizard/python-new-project.test';
+import { setup as setupXLSXDataFrameTest } from './areas/positron/dataexplorer/xlsxDataFrame.test';
 // --- End Positron ---
 
 const rootPath = path.join(__dirname, '..', '..', '..');
@@ -144,8 +145,10 @@ process.once('exit', () => {
 	}
 });
 
+// --- Start Positron ---
 const testRepoUrl = 'https://github.com/posit-dev/qa-example-content.git';
 const workspacePath = path.join(testDataPath, 'qa-example-content');
+// --- End Positron ---
 const extensionsPath = path.join(testDataPath, 'extensions-dir');
 mkdirp.sync(extensionsPath);
 
@@ -432,5 +435,6 @@ describe(`VSCode Smoke Tests (${opts.web ? 'Web' : 'Electron'})`, () => {
 	setupNotebookCreateTest(logger);
 	setupConnectionsTest(logger);
 	setupNewProjectWizardTest(logger);
+	setupXLSXDataFrameTest(logger);
 	// --- End Positron ---
 });
