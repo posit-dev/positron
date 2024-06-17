@@ -1654,7 +1654,7 @@ export const POSITRON_MODAL_DIALOG_DEFAULT_BUTTON_FOREGROUND = registerColor('po
 // Positron modal dialog button destructive foreground color.
 export const POSITRON_MODAL_DIALOG_BUTTON_DESTRUCTIVE_FOREGROUND = registerColor('positronModalDialog.buttonDestructiveForeground', {
 	dark: errorForeground,
-	light: errorForeground,
+	light: '#B30600',
 	hcDark: errorForeground,
 	hcLight: errorForeground
 }, localize('positronModalDialog.buttonDestructiveForeground', "Positron modal dialog button destructive foreground color."));
