@@ -60,7 +60,6 @@
 	background: var(--vscode-positronModalDialog-buttonHoverBackground);
 }
 
-
 .positron-modal-dialog-box .action-bar-button.default {
 	color: var(--vscode-positronModalDialog-defaultButtonForeground);
 	background: var(--vscode-positronModalDialog-defaultButtonBackground);
@@ -68,6 +67,10 @@
 
 .positron-modal-dialog-box .action-bar-button.default:hover {
 	background: var(--vscode-positronModalDialog-defaultButtonHoverBackground);
+}
+
+.positron-modal-dialog-box .action-bar-button.destructive {
+	color: var(--vscode-positronModalDialog-buttonDestructiveForeground);
 }
 
 .positron-modal-dialog-box .action-bar-button:focus {

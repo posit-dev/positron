@@ -12,7 +12,7 @@ import * as React from 'react';
 import { localize } from 'vs/nls';
 import { VerticalStack } from 'vs/workbench/browser/positronComponents/positronModalDialog/components/verticalStack';
 import { PositronModalReactRenderer } from 'vs/workbench/browser/positronModalReactRenderer/positronModalReactRenderer';
-import { OKCancelModalDialog } from 'vs/workbench/browser/positronComponents/positronModalDialog/positronOKCancelModalDialog';
+import { ConfirmationModalDialog } from 'vs/workbench/browser/positronComponents/positronModalDialog/confirmationModalDialog';
 
 /**
  * DeleteAllVariablesResult interface.
@@ -35,25 +35,40 @@ interface DeleteAllVariablesModalDialogProps {
  * @returns The component.
  */
 export const DeleteAllVariablesModalDialog = (props: DeleteAllVariablesModalDialogProps) => {
-	// Render.
+	/**
+	 * Accept handler.
+	 */
+	const acceptHandler = async (): Promise<void> => {
+		props.renderer.dispose();
+		await props.deleteAllVariablesAction({
+			includeHiddenObjects: false
+		});
+	};
+
+	/**
+	 * Cancel handler.
+	 */
+	const cancelHandler = () => {
+		props.renderer.dispose();
+	};
+
 	return (
-		<OKCancelModalDialog
+		<ConfirmationModalDialog
 			renderer={props.renderer}
 			width={375}
 			height={175}
+			enterAccepts={true}
 			title={(() => localize(
 				'positron.deleteAllVariablesModalDialogTitle',
 				"Delete All Variables"
 			))()}
-			okButtonTitle={(() => localize('positron.yes', "Yes"))()}
-			cancelButtonTitle={(() => localize('positron.no', "No"))()}
-			onAccept={async () => {
-				props.renderer.dispose();
-				await props.deleteAllVariablesAction({
-					includeHiddenObjects: false
-				});
-			}}
-			onCancel={() => props.renderer.dispose()}
+			secondaryActionTitle={(() => localize('positron.delete', "Delete"))()}
+			secondaryActionDestructive={true}
+			primaryActionTitle={(() => localize('positron.cancel', "Cancel"))()}
+			onAccept={cancelHandler}
+			onCancel={cancelHandler}
+			onSecondaryAction={acceptHandler}
+			onPrimaryAction={cancelHandler}
 		>
 			<VerticalStack>
 				<div>
@@ -65,6 +80,6 @@ export const DeleteAllVariablesModalDialog = (props: DeleteAllVariablesModalDial
 				{/* Disabled for Private Alpha. */}
 				{/* <Checkbox label='Include hidden objects' onChanged={checked => setResult({ ...result, includeHiddenObjects: checked })} /> */}
 			</VerticalStack>
-		</OKCancelModalDialog>
+		</ConfirmationModalDialog>
 	);
 };
