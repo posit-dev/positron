@@ -31,7 +31,7 @@ jobs:
         run: |
           curl -Ls https://github.com/r-lib/rig/releases/download/latest/rig-linux-"$(arch)"-latest.tar.gz | $(which sudo) tar xz -C /usr/local
           rig add 4.4.0
-          Rscript -e "install.packages(c('arrow', 'connections', 'RSQLite', 'readxl'))"
+          Rscript -e "install.packages(c('arrow', 'connections', 'RSQLite', 'readxl', 'lubridate'))"
 
       - uses: actions/setup-node@v3
         with:
