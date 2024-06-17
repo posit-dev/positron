@@ -10,7 +10,7 @@ jobs:
 
   linux:
     name: Tests on Linux
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-latest-4x
     timeout-minutes: 60
     env:
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
