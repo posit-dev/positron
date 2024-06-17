@@ -2,7 +2,7 @@
  *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
-import { Application, Logger } from '../../../../../automation/out';
+import { Application, Logger } from '../../../../../automation';
 import { installAllHandlers } from '../../../utils';
 
 export function setup(logger: Logger) {

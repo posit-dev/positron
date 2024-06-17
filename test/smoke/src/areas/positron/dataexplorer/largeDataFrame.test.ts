@@ -51,9 +51,10 @@ export function setup(logger: Logger) {
 
 				await app.workbench.positronSideBar.closeSecondarySideBar();
 
-				// Validate full grid by checking bottom right corner data
-				await app.workbench.positronDataExplorer.clickLowerRightCorner();
+
 				await expect(async () => {
+					// Validate full grid by checking bottom right corner data
+					await app.workbench.positronDataExplorer.clickLowerRightCorner();
 					const tableData = await app.workbench.positronDataExplorer.getDataExplorerTableData();
 					const lastRow = tableData.at(-1);
 					const lastHour = lastRow!['time_hour'];
@@ -102,10 +103,9 @@ export function setup(logger: Logger) {
 
 				await app.workbench.positronSideBar.closeSecondarySideBar();
 
-				// Validate full grid by checking bottom right corner data
-				await app.workbench.positronDataExplorer.clickLowerRightCorner();
-
 				await expect(async () => {
+					// Validate full grid by checking bottom right corner data
+					await app.workbench.positronDataExplorer.clickLowerRightCorner();
 					const tableData = await app.workbench.positronDataExplorer.getDataExplorerTableData();
 					const lastRow = tableData.at(-1);
 					const lastHour = lastRow!['time_hour'];
