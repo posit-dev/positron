@@ -140,6 +140,9 @@ export const TITLE_BAR_SETTINGS = [
 
 export abstract class Layout extends Disposable implements IWorkbenchLayoutService {
 
+	// --- Start Positron ---
+	public static readonly LAYOUT_INITIALIZED_STORAGE_KEY = 'positron.workbench.layoutInitialized';
+	// --- End Positron ---
 	declare readonly _serviceBrand: undefined;
 
 	//#region Events
@@ -3009,7 +3012,22 @@ class LayoutStateModel extends Disposable {
 		LayoutStateKeys.AUXILIARYBAR_HIDDEN.defaultValue = false;
 		LayoutStateKeys.PANEL_HIDDEN.defaultValue = false;
 		LayoutStateKeys.PANEL_SIZE.defaultValue = workbenchDimensions.height / 2;
-		// // --- End Positron ---
+
+		// Initialize layout settings for the first startup.
+		// See positronCustomViews.ts -> positronFourPaneDsLayout
+		// Cannot execute the layout action because not enough of the workbench has been initialized
+		// to correctly proportion the views.
+		const layoutInitialized = this.storageService.getBoolean(Layout.LAYOUT_INITIALIZED_STORAGE_KEY, StorageScope.PROFILE);
+		if (!layoutInitialized) {
+			LayoutStateKeys.SIDEBAR_HIDDEN.defaultValue = false;
+			LayoutStateKeys.PANEL_HIDDEN.defaultValue = false;
+			LayoutStateKeys.AUXILIARYBAR_HIDDEN.defaultValue = false;
+			LayoutStateKeys.SIDEBAR_SIZE.defaultValue = Math.round(workbenchDimensions.width * 0.15);
+			LayoutStateKeys.PANEL_LAST_NON_MAXIMIZED_HEIGHT.defaultValue = Math.round(workbenchDimensions.height * 0.4);
+			LayoutStateKeys.AUXILIARYBAR_SIZE.defaultValue = Math.round(workbenchDimensions.width * 0.3);
+			this.storageService.store(Layout.LAYOUT_INITIALIZED_STORAGE_KEY, true, StorageScope.PROFILE, StorageTarget.USER);
+		}
+		// --- End Positron ---
 
 		// Apply all defaults
 		for (key in LayoutStateKeys) {
