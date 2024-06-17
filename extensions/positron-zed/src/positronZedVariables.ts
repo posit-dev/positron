@@ -18,6 +18,7 @@ class ZedVariable {
 	public readonly has_children;
 	public readonly has_viewer;
 	public readonly access_key;
+	public readonly updated_time = Date.now();
 
 	constructor(
 		readonly display_name: string,
@@ -425,6 +426,7 @@ export class ZedVariables {
 	private emitUpdate(assigned?: Array<ZedVariable>, removed?: Array<string>) {
 		this.emitEvent('update', {
 			assigned: assigned || [],
+			unevaluated: [],
 			removed: removed || []
 		});
 	}
