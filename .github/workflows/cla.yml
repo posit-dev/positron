@@ -17,3 +17,5 @@ jobs:
     uses: posit-dev/cla-assistant/.github/workflows/posit-cla.yml@v1
     secrets:
       CLA_ASSISTANT_PAT: ${{ secrets.CLA_ASSISTANT_PAT }}
+    with:
+      allowlist: DavisVaughan, dfalbel, isabelizimm, jonvanausdeln, lionel-, nstrayer, petetronic, seeM, sharon-wang, softwarenerd, timtmok, wesm
