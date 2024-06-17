@@ -623,10 +623,10 @@ export async function buildExtensionMedia(isWatch: boolean, outputRoot?: string)
 
 // --- Start Positron ---
 
-// On Linux, Node 20 consistently crashes when there are too many
-// `vsce.listFiles` operations in flight at once; these operations are expensive
-// as they recurse back into `yarn`. The code below serializes these operations
-// when building Positron for Linux to avoid these crashes.
+// Node 20 consistently crashes when there are too many `vsce.listFiles`
+// operations in flight at once; these operations are expensive as they recurse
+// back into `yarn`. The code below serializes these operations when building
+// Positron to avoid these crashes.
 
 /**
  * A class representing a promise to list the files in an extension
@@ -650,15 +650,7 @@ let listBusy = false;
  * @returns A promise that resolves with the list of files
  */
 function listExtensionFiles(opts: any): Promise<string[]> {
-	const vsce = require('@vscode/vsce') as typeof import('@vscode/vsce');
-
-	// Only Node on Linux seems to have a problem with parallelization, so on
-	// other platforms we can just pass through the request to `@vscode/vsce`
-	if (process.platform !== 'linux') {
-		return vsce.listFiles(opts);
-	}
-
-	// On other Linux, create a promise to represent the deferred work
+	// Create a promise to represent the deferred work
 	const promise = new ListPromise(opts);
 	listQueue.push(promise);
 
