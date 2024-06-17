@@ -146,12 +146,22 @@ export const ActionBar = (props: ActionBarProps) => {
 			// Set the initial state.
 			setInterruptible(session.dynState.busy);
 			setDirectoryLabel(session.dynState.currentWorkingDirectory);
-			setCanShutdown(session.getRuntimeState() !== RuntimeState.Exited);
-			setCanStart(session.getRuntimeState() === RuntimeState.Exited);
+			setCanShutdown(
+				session.getRuntimeState() !== RuntimeState.Exited &&
+				session.getRuntimeState() !== RuntimeState.Uninitialized);
+			setCanStart(session.getRuntimeState() === RuntimeState.Exited ||
+				session.getRuntimeState() === RuntimeState.Uninitialized);
 
 			// Listen for state changes.
 			disposableRuntimeStore.add(session.onDidChangeRuntimeState((state) => {
 				switch (state) {
+					case RuntimeState.Uninitialized:
+						setStateLabel(labelForState(state));
+						setInterruptible(false);
+						setCanShutdown(false);
+						setCanStart(true);
+						break;
+
 					case RuntimeState.Starting:
 						setStateLabel(labelForState(state));
 						setInterruptible(false);
@@ -275,8 +285,9 @@ export const ActionBar = (props: ActionBarProps) => {
 		}
 		const state = session.getRuntimeState();
 
-		if (state === RuntimeState.Exited) {
-			// Start a new session if the current session has exited.
+		if (state === RuntimeState.Exited || state === RuntimeState.Uninitialized) {
+			// Start a new session if the current session has exited, or never
+			// started (e.g. retrying after a startup failure)
 			positronConsoleContext.runtimeSessionService.startNewRuntimeSession(
 				session.runtimeMetadata.runtimeId,
 				session.metadata.sessionName,
