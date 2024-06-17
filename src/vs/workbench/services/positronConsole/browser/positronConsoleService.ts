@@ -1337,11 +1337,11 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 				this.clearRestartItems();
 			}
 
-			if (runtimeState === RuntimeState.Exited) {
+			if (runtimeState === RuntimeState.Exited || runtimeState === RuntimeState.Uninitialized) {
 				if (this._runtimeState === RuntimeState.Starting ||
 					this._runtimeState === RuntimeState.Initializing) {
 					// If we moved directly from Starting or Initializing to
-					// Exited, then we probably encountered a startup
+					// Exited or Uninitialized, then we probably encountered a startup
 					// failure, and will be receiving a
 					// `onDidEncounterStartupFailure` event shortly.  In this
 					// case, we don't want to detach the runtime, because we
@@ -1355,7 +1355,9 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 					setTimeout(() => {
 						// If we're still in the Exited state and haven't
 						// disposed, then do it now.
-						if (this._runtimeState === RuntimeState.Exited && this.runtimeAttached) {
+						if ((this._runtimeState === RuntimeState.Exited ||
+							this._runtimeState === RuntimeState.Uninitialized) &&
+							this.runtimeAttached) {
 							this.detachRuntime();
 
 							this.addRuntimeItem(new RuntimeItemExited(
@@ -1415,7 +1417,8 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 			));
 
 			// If we haven't already detached the runtime, do it now.
-			if (this._runtimeState === RuntimeState.Exited && this.runtimeAttached) {
+			if ((this._runtimeState === RuntimeState.Exited ||
+				this._runtimeState === RuntimeState.Uninitialized) && this.runtimeAttached) {
 				this.detachRuntime();
 			}
 		}));
