@@ -41,6 +41,7 @@ export interface PositronModalDialogProps {
 	title: string;
 	width: number;
 	height: number;
+	enterAccepts?: boolean;
 	onAccept: () => void;
 	onCancel?: () => void;
 }
@@ -73,9 +74,11 @@ const kInitialDialogBoxState: DialogBoxState = {
  * @returns The rendered component.
  */
 export const PositronModalDialog = (props: PropsWithChildren<PositronModalDialogProps>) => {
-	// Hooks.
+	// Reference hooks.
 	const dialogContainerRef = useRef<HTMLDivElement>(undefined!);
 	const dialogBoxRef = useRef<HTMLDivElement>(undefined!);
+
+	// State hooks.
 	const [dialogBoxState, setDialogBoxState] = useState(kInitialDialogBoxState);
 
 	// Initialization.
@@ -108,15 +111,14 @@ export const PositronModalDialog = (props: PropsWithChildren<PositronModalDialog
 
 			// Handle the event.
 			switch (e.key) {
-				// TODO: Update enter logic to enter into the default button of the dialog if there
-				// is one. This will use `focusableElementSelectors` to find it.
-
-				// Temporarily disable Enter key handling for #3217 fix.
-				// case 'Enter': {
-				// 	consumeEvent();
-				// 	props.onAccept();
-				// 	break;
-				// }
+				// Enter accepts dialog, if configured to.
+				case 'Enter': {
+					consumeEvent();
+					if (props.enterAccepts && props.onAccept) {
+						props.onAccept();
+					}
+					break;
+				}
 
 				// Escape cancels dialog.
 				case 'Escape': {
