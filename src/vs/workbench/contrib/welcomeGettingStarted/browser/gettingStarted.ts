@@ -81,6 +81,7 @@ import { ILayoutService } from 'vs/platform/layout/browser/layoutService';
 import { IRuntimeSessionService } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
 import { IRuntimeStartupService } from 'vs/workbench/services/runtimeStartup/common/runtimeStartupService';
 import { ILanguageRuntimeService } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { ILifecycleService, LifecyclePhase } from 'vs/workbench/services/lifecycle/common/lifecycle';
 /*--- End Positron ---*/
 
 const SLIDE_TRANSITION_TIME_MS = 250;
@@ -204,6 +205,7 @@ export class GettingStartedPage extends EditorPane {
 		@IRuntimeSessionService private readonly runtimeSessionService: IRuntimeSessionService,
 		@IRuntimeStartupService private readonly runtimeStartupService: IRuntimeStartupService,
 		@ILanguageRuntimeService private readonly languageRuntimeService: ILanguageRuntimeService,
+		@ILifecycleService private readonly lifecycleService: ILifecycleService,
 		// @IWorkbenchAssignmentService private readonly tasExperimentService: IWorkbenchAssignmentService
 	) {
 
@@ -326,6 +328,12 @@ export class GettingStartedPage extends EditorPane {
 				JSON.stringify(restoreData),
 				StorageScope.PROFILE, StorageTarget.MACHINE);
 		}));
+
+		// Re-layout when the welcome content has fully loaded
+		// Ensures the scroll height is correct since the initial layout is done before the content is loaded
+		this.lifecycleService.when(LifecyclePhase.Eventually).then(() => {
+			this.layout(new Dimension(this.layoutService.mainContainerDimension.width, this.layoutService.mainContainerDimension.height));
+		});
 	}
 
 	//--- End Positron ---
@@ -1012,9 +1020,11 @@ export class GettingStartedPage extends EditorPane {
 
 		this.layoutMarkdown?.();
 
-		this.container.classList.toggle('height-constrained', size.height <= 600);
+		// --- Start Positron ---
+		// Removed the height-constrained class that hides the header so that product name and logo are always visible
 		this.container.classList.toggle('width-constrained', size.width <= 400);
 		this.container.classList.toggle('width-semi-constrained', size.width <= 800);
+		// --- End Positron ---
 
 		this.categoriesPageScrollbar?.scanDomNode();
 		this.detailsPageScrollbar?.scanDomNode();
