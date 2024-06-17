@@ -104,4 +104,12 @@ export class PositronDataExplorer {
 	async getDataExplorerStatusBar() {
 		return await this.code.waitForElement(STATUS_BAR, (e) => e!.textContent.includes('Showing'));
 	}
+
+	async selectColumnMenuItem(columnIndex: number, menuItem: string) {
+
+		await this.code.waitAndClick(`.data-grid-column-header:nth-child(${columnIndex}) .sort-button`);
+
+		await this.code.driver.getLocator(`.positron-modal-overlay div.title:has-text("${menuItem}")`).click();
+
+	}
 }
