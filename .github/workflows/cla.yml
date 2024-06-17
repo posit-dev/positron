@@ -1,0 +1,19 @@
+name: "CLA Signature Assistant"
+on:
+  issue_comment:
+    types: [created]
+  pull_request_target:
+    types: [opened, closed, synchronize]
+
+# explicitly configure permissions, in case your GITHUB_TOKEN workflow permissions are set to read-only in repository settings
+permissions:
+  actions: write
+  contents: read
+  pull-requests: write
+  statuses: write
+
+jobs:
+  RequireCLA:
+    uses: posit-dev/cla-assistant/.github/workflows/posit-cla.yml@v1
+    secrets:
+      CLA_ASSISTANT_PAT: ${{ secrets.CLA_ASSISTANT_PAT }}
