@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
 import 'vs/css!./runtimeRestartButton';
@@ -37,7 +37,7 @@ export const RuntimeRestartButton = (props: RuntimeRestartButtonProps) => {
 		}));
 
 		return () => disposableStore.dispose();
-        },[props.positronConsoleInstance]);
+	}, [props.positronConsoleInstance]);
 
 	const handleRestart = () => {
 		// Invoke the restart callback.
@@ -54,7 +54,7 @@ export const RuntimeRestartButton = (props: RuntimeRestartButtonProps) => {
 		<button ref={restartRef}
 			className='monaco-text-button runtime-restart-button'
 			onClick={handleRestart}>
-			<span className='codicon codicon-debug-restart'></span>
+			<span className='codicon codicon-positron-restart-runtime'></span>
 			<span className='label'>{restartLabel}</span>
 		</button>
 	);
