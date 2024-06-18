@@ -22,8 +22,10 @@ import { DataExplorerClientInstance } from 'vs/workbench/services/languageRuntim
 import { CustomContextMenuSeparator } from 'vs/workbench/browser/positronComponents/customContextMenu/customContextMenuSeparator';
 import { PositronDataExplorerCommandId } from 'vs/workbench/contrib/positronDataExplorerEditor/browser/positronDataExplorerActions';
 import { CustomContextMenuEntry, showCustomContextMenu } from 'vs/workbench/browser/positronComponents/customContextMenu/customContextMenu';
-import { BackendState, ColumnSchema, DataSelection, DataSelectionCellRange, DataSelectionIndices, DataSelectionKind, DataSelectionRange, DataSelectionSingleCell, ExportFormat, RowFilter } from 'vs/workbench/services/languageRuntime/common/positronDataExplorerComm';
+import { BackendState, ColumnSchema, DataSelection, DataSelectionCellRange, DataSelectionIndices, DataSelectionKind, DataSelectionRange, DataSelectionSingleCell, ExportFormat, RowFilter, SupportStatus } from 'vs/workbench/services/languageRuntime/common/positronDataExplorerComm';
 import { ClipboardCell, ClipboardCellRange, ClipboardColumnIndexes, ClipboardColumnRange, ClipboardData, ClipboardRowIndexes, ClipboardRowRange, ColumnSelectionState, ColumnSortKeyDescriptor, DataGridInstance, RowSelectionState } from 'vs/workbench/browser/positronDataGrid/classes/dataGridInstance';
+import { dataExplorerExperimentalFeatureEnabled } from 'vs/workbench/services/positronDataExplorer/common/positronDataExplorerExperimentalConfig';
+import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
 
 /**
  * Localized strings.
@@ -58,7 +60,8 @@ export class TableDataDataGridInstance extends DataGridInstance {
 		private readonly _keybindingService: IKeybindingService,
 		private readonly _layoutService: ILayoutService,
 		private readonly _dataExplorerClientInstance: DataExplorerClientInstance,
-		private readonly _dataExplorerCache: DataExplorerCache
+		private readonly _dataExplorerCache: DataExplorerCache,
+		private readonly _configurationService: IConfigurationService,
 	) {
 		// Call the base class's constructor.
 		super({
@@ -241,9 +244,9 @@ export class TableDataDataGridInstance extends DataGridInstance {
 		const columnSortKey = this.columnSortKey(columnIndex);
 
 		const features = this._dataExplorerClientInstance.getSupportedFeatures();
-		const copySupported = features.export_data_selection?.supported;
-		const sortSupported = features.set_sort_columns?.supported;
-		const filterSupported = features.set_row_filters.supported;
+		const copySupported = this.isFeatureEnabled(features.export_data_selection?.support_status);
+		const sortSupported = this.isFeatureEnabled(features.set_sort_columns?.support_status);
+		const filterSupported = this.isFeatureEnabled(features.set_row_filters?.support_status);
 
 		// Build the entries.
 		const entries: CustomContextMenuEntry[] = [];
@@ -334,7 +337,7 @@ export class TableDataDataGridInstance extends DataGridInstance {
 		anchorPoint: AnchorPoint
 	): Promise<void> {
 		const features = this._dataExplorerClientInstance.getSupportedFeatures();
-		const copySupported = features.export_data_selection?.supported;
+		const copySupported = this.isFeatureEnabled(features.export_data_selection.support_status);
 
 		// Build the entries.
 		const entries: CustomContextMenuEntry[] = [];
@@ -388,9 +391,9 @@ export class TableDataDataGridInstance extends DataGridInstance {
 		const columnSortKey = this.columnSortKey(columnIndex);
 
 		const features = this._dataExplorerClientInstance.getSupportedFeatures();
-		const copySupported = features.export_data_selection?.supported;
-		const sortSupported = features.set_sort_columns?.supported;
-		const filterSupported = features.set_row_filters.supported;
+		const copySupported = this.isFeatureEnabled(features.export_data_selection.support_status);
+		const sortSupported = this.isFeatureEnabled(features.set_sort_columns.support_status);
+		const filterSupported = this.isFeatureEnabled(features.set_row_filters.support_status);
 
 		// Build the entries.
 		const entries: CustomContextMenuEntry[] = [];
@@ -580,6 +583,13 @@ export class TableDataDataGridInstance extends DataGridInstance {
 		this.resetSelection();
 		this.setFirstRow(0, true);
 		this.setCursorRow(0);
+	}
+
+	/**
+	 * Given a status check if the feature is enabled.
+	 */
+	isFeatureEnabled(status: SupportStatus): boolean {
+		return dataExplorerExperimentalFeatureEnabled(status, this._configurationService);
 	}
 
 	//#endregion Public Methods

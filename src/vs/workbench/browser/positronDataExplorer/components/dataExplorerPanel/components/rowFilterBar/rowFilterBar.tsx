@@ -24,6 +24,7 @@ import { CustomContextMenuEntry, showCustomContextMenu } from 'vs/workbench/brow
 import { RowFilterWidget } from 'vs/workbench/browser/positronDataExplorer/components/dataExplorerPanel/components/rowFilterBar/components/rowFilterWidget';
 import { AddEditRowFilterModalPopup } from 'vs/workbench/browser/positronDataExplorer/components/dataExplorerPanel/components/addEditRowFilterModalPopup/addEditRowFilterModalPopup';
 import { getRowFilterDescriptor, RowFilterDescriptor } from 'vs/workbench/browser/positronDataExplorer/components/dataExplorerPanel/components/addEditRowFilterModalPopup/rowFilterDescriptor';
+import { dataExplorerExperimentalFeatureEnabled } from 'vs/workbench/services/positronDataExplorer/common/positronDataExplorerExperimentalConfig';
 
 /**
  * Constants.
@@ -148,8 +149,7 @@ export const RowFilterBar = () => {
 	]);
 
 	const features = backendClient.getSupportedFeatures();
-
-	const canFilter = features.set_row_filters.supported;
+	const canFilter = dataExplorerExperimentalFeatureEnabled(features.set_row_filters.support_status, context.configurationService);
 
 	/**
 	 * Filter button pressed handler.
