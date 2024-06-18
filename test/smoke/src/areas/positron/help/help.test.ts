@@ -27,7 +27,7 @@ export function setup(logger: Logger) {
 
 			it('Python - Verifies basic help functionality', async function () {
 
-				// TestRail
+				// TestRail 633814
 				const app = this.app as Application;
 				await app.workbench.positronConsole.executeCode('Python', `?load`, '>>>');
 
@@ -52,7 +52,7 @@ export function setup(logger: Logger) {
 
 			it('R - Verifies basic help functionality', async function () {
 
-				// TestRail
+				// TestRail 633813
 				const app = this.app as Application;
 				await app.workbench.positronConsole.executeCode('R', `?load()`, '>');
 
