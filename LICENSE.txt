@@ -1,12 +1,11 @@
-Posit Software, PBC ("licensor") is making Positron (the "software") available
-to you pursuant to the terms of the Elastic License 2.0, which follow below.
-BY DOWNLOADING, USING OR INSTALLING THE SOFTWARE, YOU ARE AGREEING THAT YOU AND
-YOUR COMPANY (IF APPLICABLE) ACCEPT THE TERMS OF THE ELASTIC LICENSE 2.0. DO
-NOT USE THE SOFTWARE IF YOU DO NOT ACCEPT THESE LICENSE TERMS.
+POSITRON - Copyright (C) 2022-2024 Posit Software, PBC. All rights reserved.
 
-                                   POSITRON
-
-Copyright (C) 2022-2024 Posit Software, PBC ("Licensor"). All rights reserved.
+BEFORE DOWNLOADING OR USING POSITRON (THE “SOFTWARE”), YOU SHOULD CAREFULLY
+READ THE FOLLOWING LICENSE AGREEMENT THAT APPLIES TO YOUR USE OF THE SOFTWARE.
+DOWNLOADING OR USING POSITRON ESTABLISHES A BINDING AGREEMENT BETWEEN POSIT
+SOFTWARE, PBC ("LICENSOR") AND YOU (INCLUDING YOUR COMPANY, IF APPLICABLE).
+YOUR ACCEPTANCE OF THIS LICENSE AGREEMENT IS REQUIRED AS A CONDITION TO
+PROCEEDING WITH YOUR DOWNLOAD OR USE OF THE SOFTWARE.
 
 
 Elastic License 2.0
@@ -15,12 +14,14 @@ Acceptance
 
 By using the software, you agree to all of the terms and conditions below.
 
+
 Copyright License
 
 The licensor grants you a non-exclusive, royalty-free, worldwide,
 non-sublicensable, non-transferable license to use, copy, distribute, make
 available, and prepare derivative works of the software, in each case subject to
 the limitations and conditions below.
+
 
 Limitations
 
@@ -36,6 +37,7 @@ You may not alter, remove, or obscure any licensing, copyright, or other notices
 of the licensor in the software. Any use of the licensor’s trademarks is subject
 to applicable law.
 
+
 Patents
 
 The licensor grants you a license, under any patent claims the licensor can
@@ -49,6 +51,7 @@ the software granted under these terms ends immediately. If your company makes
 such a claim, your patent license ends immediately for work on behalf of your
 company.
 
+
 Notices
 
 You must ensure that anyone who gets a copy of any part of the software from you
@@ -57,10 +60,12 @@ also gets a copy of these terms.
 If you modify the software, you must include in any modified copies of the
 software prominent notices stating that you have modified the software.
 
+
 No Other Rights
 
 These terms do not imply any licenses other than those expressly granted in
 these terms.
+
 
 Termination
 
@@ -71,6 +76,7 @@ later than 30 days after you receive that notice, your licenses will be
 reinstated retroactively. However, if you violate these terms after such
 reinstatement, any additional violation of these terms will cause your licenses
 to terminate automatically and permanently.
+
 
 No Liability
 
