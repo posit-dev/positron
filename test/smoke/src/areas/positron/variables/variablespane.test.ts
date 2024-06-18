@@ -37,12 +37,12 @@ export function setup(logger: Logger) {
 
 				await app.workbench.positronConsole.logConsoleContents();
 
-				await expect(async () => {
-					const variablesMap = await app.workbench.positronVariables.getFlatVariables();
-					expect(variablesMap.get('x')).toStrictEqual({ value: '1', type: 'int' });
-					expect(variablesMap.get('y')).toStrictEqual({ value: '10', type: 'int' });
-					expect(variablesMap.get('z')).toStrictEqual({ value: '100', type: 'int' });
-				}).toPass();
+				await app.workbench.quickaccess.runCommand('workbench.action.positronFourPaneDataScienceLayout');
+				const variablesMap = await app.workbench.positronVariables.getFlatVariables();
+				expect(variablesMap.get('x')).toStrictEqual({ value: '1', type: 'int' });
+				expect(variablesMap.get('y')).toStrictEqual({ value: '10', type: 'int' });
+				expect(variablesMap.get('z')).toStrictEqual({ value: '100', type: 'int' });
+
 
 			});
 
@@ -73,12 +73,12 @@ export function setup(logger: Logger) {
 
 				await app.workbench.positronConsole.logConsoleContents();
 
-				await expect(async () => {
-					const variablesMap = await app.workbench.positronVariables.getFlatVariables();
-					expect(variablesMap.get('x')).toStrictEqual({ value: '1', type: 'dbl' });
-					expect(variablesMap.get('y')).toStrictEqual({ value: '10', type: 'dbl' });
-					expect(variablesMap.get('z')).toStrictEqual({ value: '100', type: 'dbl' });
-				}).toPass();
+				await app.workbench.quickaccess.runCommand('workbench.action.positronFourPaneDataScienceLayout');
+				const variablesMap = await app.workbench.positronVariables.getFlatVariables();
+				expect(variablesMap.get('x')).toStrictEqual({ value: '1', type: 'dbl' });
+				expect(variablesMap.get('y')).toStrictEqual({ value: '10', type: 'dbl' });
+				expect(variablesMap.get('z')).toStrictEqual({ value: '100', type: 'dbl' });
+
 			});
 
 		});
