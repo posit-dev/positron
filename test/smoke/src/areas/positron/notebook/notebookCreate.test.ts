@@ -41,9 +41,7 @@ export function setup(logger: Logger) {
 
 				await app.workbench.positronNotebooks.executeInFirstCell('eval("8**2")');
 
-				const outputText = await app.workbench.positronNotebooks.getPythonCellOutput();
-
-				expect(outputText).toBe('64');
+				expect(await app.workbench.positronNotebooks.getPythonCellOutput()).toBe('64');
 
 			});
 
@@ -56,9 +54,7 @@ export function setup(logger: Logger) {
 				await app.workbench.notebook.waitForTypeInEditor('## hello2! ');
 				await app.workbench.notebook.stopEditingCell();
 
-				const text = await app.workbench.positronNotebooks.getMarkdownText('h2');
-
-				expect(text).toBe('hello2!');
+				expect(await app.workbench.positronNotebooks.getMarkdownText('h2')).toBe('hello2!');
 
 			});
 		});
@@ -96,9 +92,7 @@ export function setup(logger: Logger) {
 
 				await app.workbench.positronNotebooks.executeInFirstCell('eval(parse(text="8**2"))');
 
-				const outputText = await app.workbench.positronNotebooks.getRCellOutput();
-
-				expect(outputText).toBe('[1] 64\n');
+				expect(await app.workbench.positronNotebooks.getRCellOutput()).toBe('[1] 64');
 
 			});
 
@@ -111,9 +105,7 @@ export function setup(logger: Logger) {
 				await app.workbench.notebook.waitForTypeInEditor('## hello2! ');
 				await app.workbench.notebook.stopEditingCell();
 
-				const text = await app.workbench.positronNotebooks.getMarkdownText('h2');
-
-				expect(text).toBe('hello2!');
+				expect(await app.workbench.positronNotebooks.getMarkdownText('h2')).toBe('hello2!');
 
 			});
 		});
