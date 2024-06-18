@@ -31,9 +31,10 @@ export function setup(logger: Logger) {
 				const app = this.app as Application;
 				await app.workbench.positronConsole.executeCode('Python', `?load`, '>>>');
 
-				const helpFrame = await app.workbench.positronHelp.getHelpFrame(0);
-
-				await expect(helpFrame.locator('body')).toContainText('Load code into the current frontend.');
+				await expect(async () => {
+					const helpFrame = await app.workbench.positronHelp.getHelpFrame(0);
+					await expect(helpFrame.locator('body')).toContainText('Load code into the current frontend.');
+				}).toPass();
 
 			});
 		});
@@ -55,9 +56,10 @@ export function setup(logger: Logger) {
 				const app = this.app as Application;
 				await app.workbench.positronConsole.executeCode('R', `?load()`, '>');
 
-				const helpFrame = await app.workbench.positronHelp.getHelpFrame(1);
-
-				await expect(helpFrame.locator('body')).toContainText('Reload Saved Datasets');
+				await expect(async () => {
+					const helpFrame = await app.workbench.positronHelp.getHelpFrame(1);
+					await expect(helpFrame.locator('body')).toContainText('Reload Saved Datasets');
+				}).toPass();
 
 			});
 		});
