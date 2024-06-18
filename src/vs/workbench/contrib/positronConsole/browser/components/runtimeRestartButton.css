@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
 .runtime-restart-button {
@@ -9,4 +9,10 @@
 	width: fit-content;
 	padding-left: 10px;
 	padding-right: 10px;
+	background-color: var(--vscode-button-background);
+	color: var(--vscode-button-foreground);
+}
+
+.runtime-restart-button:hover {
+	background-color: var(--vscode-button-hoverBackground);
 }
