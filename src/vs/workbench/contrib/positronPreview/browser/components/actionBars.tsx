@@ -189,7 +189,7 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 					<ActionBarRegion location='center'>
 						<form onSubmit={navigateToHandler}>
 							<input
-								className='url-bar'
+								className='text-input url-bar'
 								aria-label={currentUrl}
 								name={kUrlBarInputName}
 								type='text'
