@@ -6,6 +6,7 @@
 import { join } from 'path';
 import { Application, Logger, PositronPythonFixtures, PositronRFixtures } from '../../../../../automation';
 import { installAllHandlers } from '../../../utils';
+import { expect } from '@playwright/test';
 
 export function setup(logger: Logger) {
 
@@ -46,7 +47,9 @@ export function setup(logger: Logger) {
 				console.log('Opening connections pane');
 				await app.workbench.positronVariables.doubleClickVariableRow('conn');
 
-				await app.workbench.positronConnections.openPythonTree();
+				await expect(async () => {
+					await app.workbench.positronConnections.openPythonTree();
+				}).toPass();
 
 				// click in reverse order to avoid scrolling issues
 				await app.workbench.positronConnections.openConnectionsNodes(tables);
@@ -95,17 +98,9 @@ export function setup(logger: Logger) {
 				console.log('Opening connections pane');
 				await app.workbench.positronConnections.connectionsTabLink.click();
 
-				// help with R latency
-				await app.code.wait(5000);
-				for (let i = 0; i < 3; i++) {
-					try {
-						await app.workbench.positronConnections.openRTree();
-						break;
-					} catch (e) {
-						await app.code.wait(5000);
-						console.log('Retrying to open R tree');
-					}
-				}
+				await expect(async () => {
+					await app.workbench.positronConnections.openRTree();
+				}).toPass();
 
 				// click in reverse order to avoid scrolling issues
 				await app.workbench.positronConnections.openConnectionsNodes(tables);
