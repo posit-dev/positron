@@ -280,6 +280,22 @@ export interface RowFilter {
 }
 
 /**
+ * Support status for a row filter type
+ */
+export interface RowFilterTypeSupportStatus {
+	/**
+	 * Type of row filter
+	 */
+	row_filter_type: RowFilterType;
+
+	/**
+	 * The support status for this row filter type
+	 */
+	support_status: SupportStatus;
+
+}
+
+/**
  * Parameters for the 'between' and 'not_between' filter types
  */
 export interface BetweenFilterParams {
@@ -361,6 +377,22 @@ export interface ColumnProfileRequest {
 	 * The type of analytical column profile
 	 */
 	profile_type: ColumnProfileType;
+
+}
+
+/**
+ * Support status for a given column profile type
+ */
+export interface ColumnProfileTypeSupportStatus {
+	/**
+	 * The type of analytical column profile
+	 */
+	profile_type: ColumnProfileType;
+
+	/**
+	 * The support status for this column profile type
+	 */
+	support_status: SupportStatus;
 
 }
 
@@ -679,9 +711,9 @@ export interface SupportedFeatures {
  */
 export interface SearchSchemaFeatures {
 	/**
-	 * Whether this RPC method is supported at all
+	 * The support status for this RPC method
 	 */
-	supported: boolean;
+	support_status: SupportStatus;
 
 }
 
@@ -690,19 +722,19 @@ export interface SearchSchemaFeatures {
  */
 export interface SetRowFiltersFeatures {
 	/**
-	 * Whether this RPC method is supported at all
+	 * The support status for this RPC method
 	 */
-	supported: boolean;
+	support_status: SupportStatus;
 
 	/**
 	 * Whether AND/OR filter conditions are supported
 	 */
-	supports_conditions: boolean;
+	supports_conditions: SupportStatus;
 
 	/**
 	 * A list of supported types
 	 */
-	supported_types: Array<RowFilterType>;
+	supported_types: Array<RowFilterTypeSupportStatus>;
 
 }
 
@@ -711,14 +743,14 @@ export interface SetRowFiltersFeatures {
  */
 export interface GetColumnProfilesFeatures {
 	/**
-	 * Whether this RPC method is supported at all
+	 * The support status for this RPC method
 	 */
-	supported: boolean;
+	support_status: SupportStatus;
 
 	/**
 	 * A list of supported types
 	 */
-	supported_types: Array<ColumnProfileType>;
+	supported_types: Array<ColumnProfileTypeSupportStatus>;
 
 }
 
@@ -727,9 +759,9 @@ export interface GetColumnProfilesFeatures {
  */
 export interface ExportDataSelectionFeatures {
 	/**
-	 * Whether this RPC method is supported at all
+	 * The support status for this RPC method
 	 */
-	supported: boolean;
+	support_status: SupportStatus;
 
 }
 
@@ -738,9 +770,9 @@ export interface ExportDataSelectionFeatures {
  */
 export interface SetSortColumnsFeatures {
 	/**
-	 * Whether this RPC method is supported at all
+	 * The support status for this RPC method
 	 */
-	supported: boolean;
+	support_status: SupportStatus;
 
 }
 
@@ -928,6 +960,15 @@ export enum ExportFormat {
 	Csv = 'csv',
 	Tsv = 'tsv',
 	Html = 'html'
+}
+
+/**
+ * Possible values for SupportStatus
+ */
+export enum SupportStatus {
+	Unsupported = 'unsupported',
+	Supported = 'supported',
+	Experimental = 'experimental'
 }
 
 /**

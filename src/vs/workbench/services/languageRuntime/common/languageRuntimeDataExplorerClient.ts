@@ -5,7 +5,7 @@
 import { Emitter } from 'vs/base/common/event';
 import { Disposable } from 'vs/base/common/lifecycle';
 import { IRuntimeClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimeClientInstance';
-import { BackendState, ColumnProfileRequest, ColumnProfileResult, ColumnSchema, ColumnSortKey, DataSelection, ExportedData, ExportFormat, FilterResult, FormatOptions, PositronDataExplorerComm, RowFilter, SchemaUpdateEvent, SupportedFeatures, TableData, TableSchema } from 'vs/workbench/services/languageRuntime/common/positronDataExplorerComm';
+import { BackendState, ColumnProfileRequest, ColumnProfileResult, ColumnSchema, ColumnSortKey, DataSelection, ExportedData, ExportFormat, FilterResult, FormatOptions, PositronDataExplorerComm, RowFilter, SchemaUpdateEvent, SupportedFeatures, SupportStatus, TableData, TableSchema } from 'vs/workbench/services/languageRuntime/common/positronDataExplorerComm';
 
 /**
  * TableSchemaSearchResult interface. This is here temporarily until searching the tabe schema
@@ -208,18 +208,18 @@ export class DataExplorerClientInstance extends Disposable {
 					row_filters: [],
 					sort_keys: [],
 					supported_features: {
-						search_schema: { supported: false },
+						search_schema: { support_status: SupportStatus.Unsupported },
 						set_row_filters: {
-							supported: false,
-							supports_conditions: false,
+							support_status: SupportStatus.Unsupported,
+							supports_conditions: SupportStatus.Unsupported,
 							supported_types: []
 						},
 						get_column_profiles: {
-							supported: false,
+							support_status: SupportStatus.Unsupported,
 							supported_types: []
 						},
-						set_sort_columns: { supported: false },
-						export_data_selection: { supported: false }
+						set_sort_columns: { support_status: SupportStatus.Unsupported, },
+						export_data_selection: { support_status: SupportStatus.Unsupported, }
 					}
 				};
 			});
@@ -376,19 +376,19 @@ export class DataExplorerClientInstance extends Disposable {
 			// Until the backend state is available, we disable features.
 			return {
 				search_schema: {
-					supported: false
+					support_status: SupportStatus.Unsupported
 				},
 				set_row_filters: {
-					supported: false,
-					supports_conditions: false,
+					support_status: SupportStatus.Unsupported,
+					supports_conditions: SupportStatus.Unsupported,
 					supported_types: []
 				},
 				get_column_profiles: {
-					supported: false,
+					support_status: SupportStatus.Unsupported,
 					supported_types: []
 				},
-				set_sort_columns: { supported: false },
-				export_data_selection: { supported: false }
+				set_sort_columns: { support_status: SupportStatus.Unsupported },
+				export_data_selection: { support_status: SupportStatus.Unsupported }
 			};
 		} else {
 			return this.cachedBackendState.supported_features;
