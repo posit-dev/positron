@@ -47,6 +47,7 @@ from .utils import (
     not_none,
     pretty_format,
     safe_isinstance,
+    numpy_numeric_scalars
 )
 
 if TYPE_CHECKING:
@@ -400,7 +401,7 @@ class NumberInspector(PositronInspector[NT], ABC):
 
 
 class NumpyNumberInspector(NumberInspector["np.number"]):
-    CLASS_QNAME = []
+    CLASS_QNAME = numpy_numeric_scalars
 
     def get_display_value(
         self,
@@ -1047,6 +1048,7 @@ INSPECTOR_CLASSES: Dict[str, Type[PositronInspector]] = {
     PandasSeriesInspector.CLASS_QNAME: PandasSeriesInspector,
     **dict.fromkeys(PandasIndexInspector.CLASS_QNAME, PandasIndexInspector),
     PandasTimestampInspector.CLASS_QNAME: PandasTimestampInspector,
+    **dict.fromkeys(NumpyNumberInspector.CLASS_QNAME, NumpyNumberInspector),
     NumpyNdarrayInspector.CLASS_QNAME: NumpyNdarrayInspector,
     TorchTensorInspector.CLASS_QNAME: TorchTensorInspector,
     **dict.fromkeys(PolarsDataFrameInspector.CLASS_QNAME, PolarsDataFrameInspector),
