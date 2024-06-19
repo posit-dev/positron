@@ -346,6 +346,19 @@ class FunctionInspector(PositronInspector[Callable]):
 
 
 class NumberInspector(PositronInspector[numbers.Number]):
+
+    def get_display_value(
+        self,
+        print_width: Optional[int] = PRINT_WIDTH,
+        truncate_at: int = TRUNCATE_AT,
+    ) -> Tuple[str, bool]:
+        # numpy numbers do not print cleanly as of numpy 2.0
+        # use the self.value.item() to retrieve the actual number
+        print_value = self.value
+        if hasattr(self.value, "item"):
+            print_value = self.value.item()
+        return pretty_format(print_value, print_width, truncate_at)
+
     def is_mutable(self) -> bool:
         return False
 
