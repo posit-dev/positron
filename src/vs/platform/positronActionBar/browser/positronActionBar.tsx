@@ -1,10 +1,16 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2022 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2022-2024 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
+// CSS.
 import 'vs/css!./positronActionBar';
+
+// React.
 import * as React from 'react';
 import { PropsWithChildren, useEffect, KeyboardEvent } from 'react'; // eslint-disable-line no-duplicate-imports
+
+// Other dependencies.
+import * as DOM from 'vs/base/browser/dom';
 import { optionalValue, positronClassNames } from 'vs/base/common/positronUtilities';
 import { usePositronActionBarContext } from 'vs/platform/positronActionBar/browser/positronActionBarContext';
 
@@ -53,7 +59,7 @@ export const PositronActionBar = (props: PropsWithChildren<PositronActionBarProp
 	// Handle keyboard navigation
 	const keyDownHandler = (e: KeyboardEvent<HTMLDivElement>) => {
 		// Let keyboard events pass through to text controls
-		if (e.target instanceof HTMLInputElement) {
+		if (DOM.isHTMLInputElement(e.target)) {
 			const input = e.target as HTMLInputElement;
 			if (input.type === 'text') {
 				return;

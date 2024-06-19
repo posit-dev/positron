@@ -213,6 +213,7 @@ export class PositronPlotsViewPane extends PositronViewPane implements IReactCom
 				configurationService={this.configurationService}
 				contextKeyService={this.contextKeyService}
 				contextMenuService={this.contextMenuService}
+				hoverService={this.hoverService}
 				keybindingService={this.keybindingService}
 				languageRuntimeService={this.languageRuntimeService}
 				layoutService={this.layoutService}
