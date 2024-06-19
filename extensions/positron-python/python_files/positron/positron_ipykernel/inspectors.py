@@ -47,7 +47,7 @@ from .utils import (
     not_none,
     pretty_format,
     safe_isinstance,
-    numpy_numeric_scalars
+    numpy_numeric_scalars,
 )
 
 if TYPE_CHECKING:
@@ -346,7 +346,7 @@ class FunctionInspector(PositronInspector[Callable]):
         return "function"
 
 
-NT = TypeVar("Numbers", numbers.Number, "np.number")
+NT = TypeVar("NT", numbers.Number, "np.number")
 
 
 class NumberInspector(PositronInspector[NT], ABC):
@@ -381,7 +381,7 @@ class NumberInspector(PositronInspector[NT], ABC):
         return super().value_to_json()
 
     @classmethod
-    def value_from_json(cls, type_name: str, data: JsonData) -> numbers.Number:
+    def value_from_json(cls, type_name: str, data: JsonData):
         if type_name == "int":
             if not isinstance(data, numbers.Integral):
                 raise ValueError(f"Expected data to be int, got {data}")
