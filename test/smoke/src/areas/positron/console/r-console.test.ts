@@ -30,7 +30,7 @@ export function setup(logger: Logger) {
 				await app.workbench.positronConsole.barClearButton.click();
 				await app.workbench.positronConsole.barPowerButton.click();
 				await app.workbench.positronConsole.consoleRestartButton.click();
-				await app.workbench.positronConsole.waitForReady('<');
+				await app.workbench.positronConsole.waitForReady('>');
 				await app.workbench.positronConsole.waitForConsoleContents((contents) => contents.some((line) => line.includes('restarted')));
 				await app.workbench.positronConsole.consoleRestartButton.isNotVisible();
 			});
