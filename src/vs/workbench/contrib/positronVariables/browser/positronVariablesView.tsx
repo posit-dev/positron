@@ -166,6 +166,7 @@ export class PositronVariablesViewPane extends PositronViewPane implements IReac
 	 * @param configurationService The configuration service.
 	 * @param contextKeyService The context key service.
 	 * @param contextMenuService The context menu service.
+	 * @param _dataExplorerService The data explorer service.
 	 * @param hoverService The hover service.
 	 * @param instantiationService The instantiation service.
 	 * @param keybindingService The keybinding service.
@@ -266,6 +267,7 @@ export class PositronVariablesViewPane extends PositronViewPane implements IReac
 				contextKeyService={this.contextKeyService}
 				contextMenuService={this.contextMenuService}
 				dataExplorerService={this._dataExplorerService}
+				hoverService={this.hoverService}
 				keybindingService={this.keybindingService}
 				runtimeSessionService={this._runtimeSessionService}
 				languageRuntimeService={this._languageRuntimeService}

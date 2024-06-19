@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
 import 'vs/css!./positronPreview';
@@ -23,6 +23,7 @@ import { IRuntimeSessionService } from 'vs/workbench/services/runtimeSession/com
 import { PreviewUrl } from 'vs/workbench/contrib/positronPreview/browser/previewUrl';
 import { IOpenerService } from 'vs/platform/opener/common/opener';
 import { INotificationService } from 'vs/platform/notification/common/notification';
+import { IHoverService } from 'vs/platform/hover/browser/hover';
 
 /**
  * PositronPreviewProps interface.
@@ -33,6 +34,7 @@ export interface PositronPreviewProps extends PositronPreviewServices {
 	readonly configurationService: IConfigurationService;
 	readonly contextKeyService: IContextKeyService;
 	readonly contextMenuService: IContextMenuService;
+	readonly hoverService: IHoverService;
 	readonly keybindingService: IKeybindingService;
 	readonly layoutService: IWorkbenchLayoutService;
 	readonly openerService: IOpenerService;

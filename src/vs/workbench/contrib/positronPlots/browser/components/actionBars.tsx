@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
 import 'vs/css!./actionBars';
@@ -25,6 +25,7 @@ import { PlotClientInstance } from 'vs/workbench/services/languageRuntime/common
 import { StaticPlotClient } from 'vs/workbench/services/positronPlots/common/staticPlotClient';
 import { INotificationService } from 'vs/platform/notification/common/notification';
 import { PlotsClearAction, PlotsCopyAction, PlotsNextAction, PlotsPreviousAction, PlotsSaveAction } from 'vs/workbench/contrib/positronPlots/browser/positronPlotsActions';
+import { IHoverService } from 'vs/platform/hover/browser/hover';
 
 // Constants.
 const kPaddingLeft = 14;
@@ -39,6 +40,7 @@ export interface ActionBarsProps {
 	readonly configurationService: IConfigurationService;
 	readonly contextKeyService: IContextKeyService;
 	readonly contextMenuService: IContextMenuService;
+	readonly hoverService: IHoverService;
 	readonly keybindingService: IKeybindingService;
 	readonly layoutService: IWorkbenchLayoutService;
 	readonly notificationService: INotificationService;

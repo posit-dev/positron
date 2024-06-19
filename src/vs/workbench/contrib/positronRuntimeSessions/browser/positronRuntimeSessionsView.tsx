@@ -235,6 +235,7 @@ export class PositronRuntimeSessionsViewPane extends PositronViewPane implements
 				configurationService={this.configurationService}
 				contextKeyService={this.contextKeyService}
 				contextMenuService={this.contextMenuService}
+				hoverService={this.hoverService}
 				keybindingService={this.keybindingService}
 				layoutService={this._layoutService}
 				runtimeSessionService={this._runtimeSessionService}

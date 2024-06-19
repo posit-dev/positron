@@ -2,27 +2,32 @@
  *  Copyright (C) 2022-2024 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
+// CSS.
 import 'vs/css!./positronHelpView';
+
+// React.
 import * as React from 'react';
+
+// Other dependencies.
 import * as DOM from 'vs/base/browser/dom';
 import { Event, Emitter } from 'vs/base/common/event';
+import { IHoverService } from 'vs/platform/hover/browser/hover';
 import { IOpenerService } from 'vs/platform/opener/common/opener';
 import { IViewDescriptorService } from 'vs/workbench/common/views';
 import { IThemeService } from 'vs/platform/theme/common/themeService';
 import { ICommandService } from 'vs/platform/commands/common/commands';
 import { ITelemetryService } from 'vs/platform/telemetry/common/telemetry';
+import { IViewPaneOptions } from 'vs/workbench/browser/parts/views/viewPane';
 import { IContextKeyService } from 'vs/platform/contextkey/common/contextkey';
 import { IKeybindingService } from 'vs/platform/keybinding/common/keybinding';
 import { IHelpEntry } from 'vs/workbench/contrib/positronHelp/browser/helpEntry';
 import { IContextMenuService } from 'vs/platform/contextview/browser/contextView';
 import { IInstantiationService } from 'vs/platform/instantiation/common/instantiation';
 import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
-import { IViewPaneOptions } from 'vs/workbench/browser/parts/views/viewPane';
+import { PositronViewPane } from 'vs/workbench/browser/positronViewPane/positronViewPane';
 import { ActionBars } from 'vs/workbench/contrib/positronHelp/browser/components/actionBars';
 import { IPositronHelpService } from 'vs/workbench/contrib/positronHelp/browser/positronHelpService';
 import { IReactComponentContainer, ISize, PositronReactRenderer } from 'vs/base/browser/positronReactRenderer';
-import { PositronViewPane } from 'vs/workbench/browser/positronViewPane/positronViewPane';
-import { IHoverService } from 'vs/platform/hover/browser/hover';
 
 /**
  * PositronHelpView class.
@@ -262,6 +267,7 @@ export class PositronHelpView extends PositronViewPane implements IReactComponen
 				configurationService={this.configurationService}
 				contextKeyService={this.contextKeyService}
 				contextMenuService={this.contextMenuService}
+				hoverService={this.hoverService}
 				keybindingService={this.keybindingService}
 				positronHelpService={this.positronHelpService}
 				reactComponentContainer={this}
