@@ -350,7 +350,6 @@ NT = TypeVar("NT", numbers.Number, "np.number")
 
 
 class NumberInspector(PositronInspector[NT], ABC):
-
     def is_mutable(self) -> bool:
         return False
 
