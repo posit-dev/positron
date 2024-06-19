@@ -345,19 +345,10 @@ class FunctionInspector(PositronInspector[Callable]):
         return "function"
 
 
-class NumberInspector(PositronInspector[numbers.Number]):
+NT = TypeVar("Numbers", numbers.Number, "np.number")
 
-    def get_display_value(
-        self,
-        print_width: Optional[int] = PRINT_WIDTH,
-        truncate_at: int = TRUNCATE_AT,
-    ) -> Tuple[str, bool]:
-        # numpy numbers do not print cleanly as of numpy 2.0
-        # use the self.value.item() to retrieve the actual number
-        print_value = self.value
-        if hasattr(self.value, "item"):
-            print_value = self.value.item()
-        return pretty_format(print_value, print_width, truncate_at)
+
+class NumberInspector(PositronInspector[NT], ABC):
 
     def is_mutable(self) -> bool:
         return False
@@ -406,6 +397,19 @@ class NumberInspector(PositronInspector[numbers.Number]):
             return cast(numbers.Number, complex(data))
 
         return super().value_from_json(type_name, data)
+
+
+class NumpyNumberInspector(NumberInspector["np.number"]):
+    CLASS_QNAME = []
+
+    def get_display_value(
+        self,
+        print_width: Optional[int] = PRINT_WIDTH,
+        truncate_at: int = TRUNCATE_AT,
+    ) -> Tuple[str, bool]:
+        # numpy numbers do not print cleanly as of numpy 2.0
+        # use the self.value.item() to retrieve the actual number
+        return pretty_format(self.value.item(), print_width, truncate_at)
 
 
 class StringInspector(PositronInspector[str]):
