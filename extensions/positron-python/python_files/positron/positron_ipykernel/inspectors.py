@@ -48,6 +48,7 @@ from .utils import (
     not_none,
     pretty_format,
     safe_isinstance,
+    numpy_numeric_scalars,
 )
 
 if TYPE_CHECKING:
@@ -346,7 +347,10 @@ class FunctionInspector(PositronInspector[Callable]):
         return "function"
 
 
-class NumberInspector(PositronInspector[numbers.Number]):
+NT = TypeVar("NT", numbers.Number, "np.number")
+
+
+class NumberInspector(PositronInspector[NT], ABC):
     def is_mutable(self) -> bool:
         return False
 
@@ -377,7 +381,7 @@ class NumberInspector(PositronInspector[numbers.Number]):
         return super().value_to_json()
 
     @classmethod
-    def value_from_json(cls, type_name: str, data: JsonData) -> numbers.Number:
+    def value_from_json(cls, type_name: str, data: JsonData):
         if type_name == "int":
             if not isinstance(data, numbers.Integral):
                 raise ValueError(f"Expected data to be int, got {data}")
@@ -394,6 +398,19 @@ class NumberInspector(PositronInspector[numbers.Number]):
             return cast(numbers.Number, complex(data))
 
         return super().value_from_json(type_name, data)
+
+
+class NumpyNumberInspector(NumberInspector["np.number"]):
+    CLASS_QNAME = numpy_numeric_scalars
+
+    def get_display_value(
+        self,
+        print_width: Optional[int] = PRINT_WIDTH,
+        truncate_at: int = TRUNCATE_AT,
+    ) -> Tuple[str, bool]:
+        # numpy numbers do not print cleanly as of numpy 2.0
+        # use the self.value.item() to retrieve the actual number
+        return pretty_format(self.value.item(), print_width, truncate_at)
 
 
 class StringInspector(PositronInspector[str]):
@@ -1031,6 +1048,7 @@ INSPECTOR_CLASSES: Dict[str, Type[PositronInspector]] = {
     PandasSeriesInspector.CLASS_QNAME: PandasSeriesInspector,
     **dict.fromkeys(PandasIndexInspector.CLASS_QNAME, PandasIndexInspector),
     PandasTimestampInspector.CLASS_QNAME: PandasTimestampInspector,
+    **dict.fromkeys(NumpyNumberInspector.CLASS_QNAME, NumpyNumberInspector),
     NumpyNdarrayInspector.CLASS_QNAME: NumpyNdarrayInspector,
     TorchTensorInspector.CLASS_QNAME: TorchTensorInspector,
     **dict.fromkeys(PolarsDataFrameInspector.CLASS_QNAME, PolarsDataFrameInspector),

@@ -349,3 +349,38 @@ def positron_ipykernel_usage():
 
     """
     pass
+
+
+numpy_numeric_scalars = [
+    "numpy.int8",
+    "numpy.uint8",
+    "numpy.int16",
+    "numpy.uint16",
+    "numpy.int32",
+    "numpy.uint32",
+    "numpy.int64",
+    "numpy.uint64",
+    "numpy.intp",
+    "numpy.uintp",
+    "numpy.float16",
+    "numpy.float32",
+    "numpy.float64",
+    "numpy.float96",
+    "numpy.complex64",
+    "numpy.complex128",
+    "numpy.short",
+    "numpy.ushort",
+    "numpy.intc",
+    "numpy.uintc",
+    "numpy.long",
+    "numpy.ulong",
+    "numpy.longlong",
+    "numpy.ulonglong",
+    "numpy.half",
+    "numpy.single",
+    "numpy.double",
+    "numpy.longdouble",
+    "numpy.csingle",
+    "numpy.cdouble",
+    "numpy.clongdouble",
+]
