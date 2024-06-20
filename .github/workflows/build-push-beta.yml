@@ -36,10 +36,18 @@ jobs:
           file: Positron-${{ env.RELEASE_TAG }}.deb
           token: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Create access token
+        uses: actions/create-github-app-token@v1
+        id: app-token
+        with:
+          app-id: ${{ vars.POSITRON_BOT_APP_ID }}
+          private-key: ${{ secrets.POSITRON_BOT_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+
       - name: Create Release to Private Beta
         uses: softprops/action-gh-release@v2
         with:
-          token: ${{ secrets.POSITRON_GITHUB_PAT }}
+          token: ${{ steps.app-token.outputs.token }}
           repository: posit-dev/positron-beta
           tag_name: ${{ env.RELEASE_TAG }}
           prerelease: true
