@@ -368,6 +368,7 @@ jobs:
         with:
           app-id: ${{ vars.POSITRON_BOT_APP_ID }}
           private-key: ${{ secrets.POSITRON_BOT_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
 
       # The virtual environment based tests use the `testSingleWorkspace` set of tests
       # with the environment variable `TEST_FILES_SUFFIX` set to `testvirtualenvs`,

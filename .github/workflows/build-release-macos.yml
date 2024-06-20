@@ -80,6 +80,7 @@ jobs:
         with:
           app-id: ${{ vars.POSITRON_BOT_APP_ID }}
           private-key: ${{ secrets.POSITRON_BOT_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
 
       # Install node itself. Also enables corepack to install modern yarn. Most
       # of the time these will be no-ops, but this allows us to auto-update the
@@ -179,6 +180,7 @@ jobs:
         with:
           app-id: ${{ vars.POSITRON_BOT_APP_ID }}
           private-key: ${{ secrets.POSITRON_BOT_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
 
       # Install node_modules binaries
       - name: Install dependencies

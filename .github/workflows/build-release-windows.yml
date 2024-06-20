@@ -55,6 +55,7 @@ jobs:
         with:
           app-id: ${{ vars.POSITRON_BOT_APP_ID }}
           private-key: ${{ secrets.POSITRON_BOT_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
 
       - name: Install node dependencies with yarn
         env:
