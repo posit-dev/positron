@@ -13,12 +13,12 @@ import { IPositronLayoutService } from 'vs/workbench/services/positronLayout/bro
 
 // Need this import or else the PositronLayoutService will not be registered.
 import 'vs/workbench/services/positronLayout/browser/positronLayoutService';
-import { CustomPositronLayoutDescription } from 'vs/workbench/services/positronLayout/common/positronCustomViews';
+import { CustomPositronLayoutDescription, KnownPositronLayoutParts } from 'vs/workbench/services/positronLayout/common/positronCustomViews';
 
 
 type PositronLayoutInfo = {
 	id: string;
-	codicon: string;
+	codicon?: string;
 	label: ILocalizedString;
 	layoutDescriptor: CustomPositronLayoutDescription;
 };
@@ -178,6 +178,48 @@ registerAction2(class extends PositronLayoutAction {
 		super(positronFourPaneDsLayout);
 	}
 });
+
+
+// Layouts that maximize a single part as much as possible.
+function makeMaximizedPartLayout(part: KnownPositronLayoutParts): CustomPositronLayoutDescription {
+	return {
+		[Parts.PANEL_PART]: { hidden: true },
+		[Parts.SIDEBAR_PART]: { hidden: true },
+		[Parts.AUXILIARYBAR_PART]: { hidden: true },
+		[part]: { hidden: false, size: '100%' },
+	};
+}
+
+registerAction2(class extends PositronLayoutAction {
+	constructor() {
+		super({
+			id: 'workbench.action.fullSizedSidebar',
+			label: localize2('chooseLayout.fullSizedSidebarLayout', 'Maximizedd Sidebar Layout'),
+			layoutDescriptor: makeMaximizedPartLayout(Parts.SIDEBAR_PART),
+		});
+	}
+});
+
+registerAction2(class extends PositronLayoutAction {
+	constructor() {
+		super({
+			id: 'workbench.action.fullSizedPanel',
+			label: localize2('chooseLayout.fullSizedPanelLayout', 'Maximized Panel Layout'),
+			layoutDescriptor: makeMaximizedPartLayout(Parts.PANEL_PART),
+		});
+	}
+});
+
+registerAction2(class extends PositronLayoutAction {
+	constructor() {
+		super({
+			id: 'workbench.action.fullSizedAuxiliaryBar',
+			label: localize2('chooseLayout.fullSizedAuxiliaryBarLayout', 'Maximized Auxiliary Bar Layout'),
+			layoutDescriptor: makeMaximizedPartLayout(Parts.AUXILIARYBAR_PART),
+		});
+	}
+});
+
 
 
 // Action to dump json of the current layout to the console for creation of a custom layout.
