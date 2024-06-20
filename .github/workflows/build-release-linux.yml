@@ -52,11 +52,22 @@ jobs:
         with:
           node-version: 20
 
+      # Generate an access token. We'll need it for following steps. Note that
+      # we don't generate this until right before we need it since it only
+      # lasts an hour.
+      - name: Create access token
+        uses: actions/create-github-app-token@v1
+        id: app-token
+        with:
+          app-id: ${{ vars.POSITRON_BOT_APP_ID }}
+          private-key: ${{ secrets.POSITRON_BOT_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+
       - name: Execute yarn
         env:
           PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: 1
           ELECTRON_SKIP_BINARY_DOWNLOAD: 1
-          POSITRON_GITHUB_PAT: ${{ secrets.POSITRON_GITHUB_PAT }}
+          POSITRON_GITHUB_PAT: ${{ steps.app-token.outputs.token }}
           npm_config_arch: ${{ matrix.arch }}
         run: |
           # Install Yarn
