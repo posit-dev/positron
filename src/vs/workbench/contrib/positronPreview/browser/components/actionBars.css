@@ -23,6 +23,7 @@ bar to fill the center of the toolbar.
 
 .preview-action-bar .url-bar {
 	border: 1px solid var(--vscode-input-border);
+	background-color: var(--vscode-input-background);
 	border-radius: 4px;
 	margin-left: 10px;
 	padding-left: 10px;
