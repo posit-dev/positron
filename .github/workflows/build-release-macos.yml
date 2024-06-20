@@ -79,7 +79,7 @@ jobs:
         id: app-token
         with:
           app-id: ${{ vars.POSITRON_BOT_APP_ID }}
-          private-key: ${{ secrets.POSITRON_BOT_PRIVATE_KEY }
+          private-key: ${{ secrets.POSITRON_BOT_PRIVATE_KEY }}
 
       # Install node itself. Also enables corepack to install modern yarn. Most
       # of the time these will be no-ops, but this allows us to auto-update the
@@ -178,7 +178,7 @@ jobs:
         id: app-token
         with:
           app-id: ${{ vars.POSITRON_BOT_APP_ID }}
-          private-key: ${{ secrets.POSITRON_BOT_PRIVATE_KEY }
+          private-key: ${{ secrets.POSITRON_BOT_PRIVATE_KEY }}
 
       # Install node_modules binaries
       - name: Install dependencies

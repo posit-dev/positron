@@ -42,7 +42,7 @@ jobs:
         id: app-token
         with:
           app-id: ${{ vars.POSITRON_BOT_APP_ID }}
-          private-key: ${{ secrets.POSITRON_BOT_PRIVATE_KEY }
+          private-key: ${{ secrets.POSITRON_BOT_PRIVATE_KEY }}
 
       - name: Execute yarn
         env:
