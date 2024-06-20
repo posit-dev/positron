@@ -362,6 +362,13 @@ jobs:
         run: yarn test:unittests
         if: matrix.test-suite == 'ts-unit' && startsWith(matrix.python, 3.)
 
+      - name: Create access token
+        uses: actions/create-github-app-token@v1
+        id: app-token
+        with:
+          app-id: ${{ vars.POSITRON_BOT_APP_ID }}
+          private-key: ${{ secrets.POSITRON_BOT_PRIVATE_KEY }
+
       # The virtual environment based tests use the `testSingleWorkspace` set of tests
       # with the environment variable `TEST_FILES_SUFFIX` set to `testvirtualenvs`,
       # which is set in the "Prepare environment for venv tests" step.
@@ -372,7 +379,7 @@ jobs:
         env:
           TEST_FILES_SUFFIX: testvirtualenvs
           CI_PYTHON_VERSION: ${{ matrix.python }}
-          POSITRON_GITHUB_PAT: ${{ secrets.POSITRON_GITHUB_PAT }}
+          POSITRON_GITHUB_PAT: ${{ steps.app-token.outputs.token }}
         uses: GabrielBB/xvfb-action@v1.6
         with:
           run: yarn testSingleWorkspace
@@ -382,7 +389,7 @@ jobs:
       - name: Run single-workspace tests
         env:
           CI_PYTHON_VERSION: ${{ matrix.python }}
-          POSITRON_GITHUB_PAT: ${{ secrets.POSITRON_GITHUB_PAT }}
+          POSITRON_GITHUB_PAT: ${{ steps.app-token.outputs.token }}
         uses: GabrielBB/xvfb-action@v1.6
         with:
           run: yarn testSingleWorkspace
@@ -392,7 +399,7 @@ jobs:
       - name: Run debugger tests
         env:
           CI_PYTHON_VERSION: ${{ matrix.python }}
-          POSITRON_GITHUB_PAT: ${{ secrets.POSITRON_GITHUB_PAT }}
+          POSITRON_GITHUB_PAT: ${{ steps.app-token.outputs.token }}
         uses: GabrielBB/xvfb-action@v1.6
         with:
           run: yarn testDebugger
@@ -405,6 +412,6 @@ jobs:
 
       - name: Run smoke tests
         env:
-          POSITRON_GITHUB_PAT: ${{ secrets.POSITRON_GITHUB_PAT }}
+          POSITRON_GITHUB_PAT: ${{ steps.app-token.outputs.token }}
         run: yarn tsc && node ./out/test/smokeTest.js
         if: matrix.test-suite == 'smoke'
