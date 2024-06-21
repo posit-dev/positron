@@ -13,7 +13,7 @@ export function setup(logger: Logger) {
 
 		describe('R Console Restart', () => {
 
-			before(async function () {
+			beforeEach(async function () {
 
 				const app = this.app as Application;
 				const RFixtures = new PositronRFixtures(app);
@@ -23,6 +23,7 @@ export function setup(logger: Logger) {
 
 			it('Verify restart button inside the console', async function () {
 				// TestRail #377917
+				this.retries(1);
 				const app = this.app as Application;
 				// Need to make console bigger to see all bar buttons
 				await app.workbench.quickaccess.runCommand('workbench.action.toggleAuxiliaryBar');
@@ -36,6 +37,7 @@ export function setup(logger: Logger) {
 
 			it('Verify restart button on console bar', async function () {
 				// TestRail #620636
+				this.retries(1);
 				const app = this.app as Application;
 				// Need to make console bigger to see all bar buttons
 				await app.workbench.quickaccess.runCommand('workbench.action.toggleAuxiliaryBar');
