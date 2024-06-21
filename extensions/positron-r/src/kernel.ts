@@ -34,11 +34,11 @@ export function getArkKernelPath(): string | undefined {
 
 	// Look for locally built Debug or Release kernels. If both exist, we'll use
 	// whichever is newest. This is the location where the kernel is typically built
-	// by developers, who have `positron` and `amalthea` directories side-by-side.
+	// by developers, who have `positron` and `ark` directories side-by-side.
 	let devKernel = undefined;
 	const positronParent = path.dirname(path.dirname(path.dirname(EXTENSION_ROOT_DIR)));
-	const devDebugKernel = path.join(positronParent, 'amalthea', 'target', 'debug', kernelName);
-	const devReleaseKernel = path.join(positronParent, 'amalthea', 'target', 'release', kernelName);
+	const devDebugKernel = path.join(positronParent, 'ark', 'target', 'debug', kernelName);
+	const devReleaseKernel = path.join(positronParent, 'ark', 'target', 'release', kernelName);
 	const debugModified = fs.statSync(devDebugKernel, { throwIfNoEntry: false })?.mtime;
 	const releaseModified = fs.statSync(devReleaseKernel, { throwIfNoEntry: false })?.mtime;
 
