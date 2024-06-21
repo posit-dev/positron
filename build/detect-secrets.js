@@ -96,7 +96,7 @@ try {
 
 // Constants
 const command = process.argv[2];
-const detectSecretsDir = path.join('build', 'detect-secrets');
+const detectSecretsDir = path.join('build', 'secrets');
 const baselineFileName = '.secrets.baseline';
 const baselineFile = path.join(detectSecretsDir, baselineFileName);
 const reportFile = path.join(detectSecretsDir, 'secrets-report.json');
@@ -145,7 +145,7 @@ const runDetectSecretsHook = () => {
 		if (secretsFound) {
 			console.error(error.stdout.toString().red);
 		}
-		process.exit(1);
+		process.exit(error.status);
 	}
 };
 
