@@ -8,10 +8,11 @@ import 'vs/css!./button';
 
 // React.
 import * as React from 'react';
-import { forwardRef, KeyboardEvent, MouseEvent, PropsWithChildren } from 'react'; // eslint-disable-line no-duplicate-imports
+import { forwardRef, KeyboardEvent, MouseEvent, PropsWithChildren, useImperativeHandle, useRef } from 'react'; // eslint-disable-line no-duplicate-imports
 
 // Other dependencies.
 import { positronClassNames } from 'vs/base/common/positronUtilities';
+import { IHoverManager } from 'vs/platform/positronActionBar/browser/positronActionBarState';
 
 /**
  * MouseTrigger enumeration.
@@ -32,24 +33,30 @@ export interface KeyboardModifiers {
 }
 
 /**
- * Props interface.
+ * ButtonProps interface.
  */
-interface Props {
-	className?: string;
-	disabled?: boolean;
-	ariaLabel?: string;
-	mouseTrigger?: MouseTrigger;
-	onBlur?: () => void;
-	onFocus?: () => void;
-	onPressed?: (e: KeyboardModifiers) => void;
+interface ButtonProps {
+	readonly hoverManager?: IHoverManager;
+	readonly className?: string;
+	readonly disabled?: boolean;
+	readonly ariaLabel?: string;
+	readonly tooltip?: string | (() => string | undefined);
+	readonly mouseTrigger?: MouseTrigger;
+	readonly onBlur?: () => void;
+	readonly onFocus?: () => void;
+	readonly onPressed?: (e: KeyboardModifiers) => void;
 }
 
 /**
  * Button component.
- * @param props A PropsWithChildren<Props> that contains the component properties.
+ * @param props A PropsWithChildren<ButtonProps> that contains the component properties.
  * @returns The rendered component.
  */
-export const Button = forwardRef<HTMLButtonElement, PropsWithChildren<Props>>((props, ref) => {
+export const Button = forwardRef<HTMLButtonElement, PropsWithChildren<ButtonProps>>((props, ref) => {
+	// Reference hooks.
+	const buttonRef = useRef<HTMLButtonElement>(undefined!);
+	useImperativeHandle(ref, () => buttonRef.current, []);
+
 	/**
 	 * onKeyDown event handler.
 	 * @param e A KeyboardEvent<HTMLDivElement> that describes a user interaction with the keyboard.
@@ -91,6 +98,55 @@ export const Button = forwardRef<HTMLButtonElement, PropsWithChildren<Props>>((p
 	};
 
 	/**
+	 * onMouseEnter event handler.
+	 * @param e A MouseEvent<HTMLDivElement> that describes a user interaction with the mouse.
+	 */
+	const mouseEnterHandler = (e: MouseEvent<HTMLButtonElement>) => {
+		// If there's a hover manager, see if there's a tooltip.
+		if (props.hoverManager) {
+			// Get the tooltip.
+			const tooltip = (() => {
+				if (!props.tooltip) {
+					// There isn't a tooltip.
+					return undefined;
+				} else if (typeof props.tooltip === 'string') {
+					// Return the string tooltip.
+					return props.tooltip;
+				} else {
+					// Return the dynamic tooltip.
+					return props.tooltip();
+				}
+			})();
+
+			// If there's a tooltip, show it.
+			if (tooltip) {
+				props.hoverManager.showHover({
+					content: tooltip,
+					target: buttonRef.current,
+					persistence: {
+						hideOnKeyDown: true,
+						hideOnHover: false
+					},
+					appearance: {
+						showPointer: true
+					}
+				}, false);
+			}
+		}
+	};
+
+	/**
+	 * onMouseLeave event handler.
+	 * @param e A MouseEvent<HTMLDivElement> that describes a user interaction with the mouse.
+	 */
+	const mouseLeaveHandler = (e: MouseEvent<HTMLButtonElement>) => {
+		// If there's a hover manager, hide hover.
+		if (props.hoverManager) {
+			props.hoverManager.hideHover();
+		}
+	};
+
+	/**
 	 * onMouseDown event handler.
 	 * @param e A MouseEvent<HTMLDivElement> that describes a user interaction with the mouse.
 	 */
@@ -111,7 +167,7 @@ export const Button = forwardRef<HTMLButtonElement, PropsWithChildren<Props>>((p
 	// Render.
 	return (
 		<button
-			ref={ref}
+			ref={buttonRef}
 			className={positronClassNames(
 				'positron-button',
 				props.className,
@@ -126,6 +182,8 @@ export const Button = forwardRef<HTMLButtonElement, PropsWithChildren<Props>>((p
 			onBlur={props.onBlur}
 			onKeyDown={keyDownHandler}
 			onClick={clickHandler}
+			onMouseEnter={mouseEnterHandler}
+			onMouseLeave={mouseLeaveHandler}
 			onMouseDown={mouseDownHandler}
 		>
 			{props.children}

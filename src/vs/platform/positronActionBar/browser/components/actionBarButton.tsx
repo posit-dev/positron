@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2022 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2022-2024 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
 // CSS.
@@ -11,8 +11,8 @@ import { forwardRef, PropsWithChildren } from 'react'; // eslint-disable-line no
 
 // Other dependencies.
 import { Button } from 'vs/base/browser/ui/positronComponents/button/button';
-import { ActionBarTooltip } from 'vs/platform/positronActionBar/browser/components/actionBarTooltip';
 import { optionalBoolean, optionalValue, positronClassNames } from 'vs/base/common/positronUtilities';
+import { usePositronActionBarContext } from 'vs/platform/positronActionBar/browser/positronActionBarContext';
 
 /**
  * ActionBarButtonProps interface.
@@ -36,15 +36,15 @@ export interface ActionBarButtonProps {
 /**
  * ActionBarButton component.
  * @param props A PropsWithChildren<ActionBarButtonProps> that contains the component properties.
+ * @param ref A ref to the HTMLButtonElement.
  * @returns The rendered component.
  */
-export const ActionBarButton = forwardRef<HTMLButtonElement, PropsWithChildren<ActionBarButtonProps>>((props, ref) => {
-	// Create the class names.
-	const buttonClassNames = positronClassNames(
-		'action-bar-button',
-		{ 'border': optionalBoolean(props.border) },
-		{ 'fade-in': optionalBoolean(props.fadeIn) }
-	);
+export const ActionBarButton = forwardRef<
+	HTMLButtonElement,
+	PropsWithChildren<ActionBarButtonProps>
+>((props, ref) => {
+	// Context hooks.
+	const context = usePositronActionBarContext();
 
 	// Create the icon style.
 	let iconStyle: React.CSSProperties = {};
@@ -59,15 +59,49 @@ export const ActionBarButton = forwardRef<HTMLButtonElement, PropsWithChildren<A
 
 	// Render.
 	return (
-		<ActionBarTooltip {...props}>
-			<Button ref={ref} className={buttonClassNames} onPressed={props.onPressed} ariaLabel={ariaLabel} disabled={props.disabled}>
-				<div className='action-bar-button-face' style={{ padding: props.layout === 'tight' ? '0' : '0 2px' }} aria-hidden='true' >
-					{props.iconId && <div className={`action-bar-button-icon codicon codicon-${props.iconId}`} style={iconStyle} />}
-					{props.text && <div className='action-bar-button-text' style={{ marginLeft: props.iconId ? 0 : 4, maxWidth: optionalValue(props.maxTextWidth, 'none') }}>{props.text}</div>}
-					{props.dropDown && <div className='action-bar-button-drop-down-arrow codicon codicon-positron-drop-down-arrow' />}
-					{props.children}
-				</div>
-			</Button>
-		</ActionBarTooltip>
+		<Button
+			ref={ref}
+			hoverManager={context.hoverManager}
+			className={positronClassNames(
+				'action-bar-button',
+				{ 'border': optionalBoolean(props.border) },
+				{ 'fade-in': optionalBoolean(props.fadeIn) }
+			)}
+			onPressed={props.onPressed}
+			ariaLabel={ariaLabel}
+			tooltip={props.tooltip}
+			disabled={props.disabled}
+		>
+			<div
+				className='action-bar-button-face'
+				style={{ padding: props.layout === 'tight' ? '0' : '0 2px' }}
+				aria-hidden='true'
+			>
+				{props.iconId && (
+					<div
+						className={`action-bar-button-icon codicon codicon-${props.iconId}`}
+						style={iconStyle}
+					/>
+				)}
+				{props.text && (
+					<div
+						className='action-bar-button-text'
+						style={{
+							marginLeft: props.iconId ? 0 : 4,
+							maxWidth: optionalValue(props.maxTextWidth, 'none')
+						}}
+					>
+						{props.text}
+					</div>
+				)}
+				{props.dropDown && (
+					<div className='action-bar-button-drop-down-arrow codicon codicon-positron-drop-down-arrow' />
+				)}
+				{props.children}
+			</div>
+		</Button>
 	);
 });
+
+// Set the display name.
+ActionBarButton.displayName = 'ActionBarButton';

@@ -11,6 +11,7 @@ import * as React from 'react';
 // Other dependencies.
 import * as DOM from 'vs/base/browser/dom';
 import { Event, Emitter } from 'vs/base/common/event';
+import { IHoverService } from 'vs/platform/hover/browser/hover';
 import { IEditorOpenContext } from 'vs/workbench/common/editor';
 import { CancellationToken } from 'vs/base/common/cancellation';
 import { IStorageService } from 'vs/platform/storage/common/storage';
@@ -193,6 +194,7 @@ export class PositronDataExplorerEditor extends EditorPane implements IPositronD
 	 * @param _configurationService The configuration service.
 	 * @param _contextKeyService The context key service.
 	 * @param _contextMenuService The context menu service.
+	 * @param _hoverService The hover service.
 	 * @param _keybindingService The keybinding service.
 	 * @param _layoutService The layout service.
 	 * @param _positronDataExplorerService The Positron data explorer service.
@@ -207,6 +209,7 @@ export class PositronDataExplorerEditor extends EditorPane implements IPositronD
 		@IConfigurationService private readonly _configurationService: IConfigurationService,
 		@IContextKeyService private readonly _contextKeyService: IContextKeyService,
 		@IContextMenuService private readonly _contextMenuService: IContextMenuService,
+		@IHoverService private readonly _hoverService: IHoverService,
 		@IKeybindingService private readonly _keybindingService: IKeybindingService,
 		@ILayoutService private readonly _layoutService: ILayoutService,
 		@IPositronDataExplorerService private readonly _positronDataExplorerService: IPositronDataExplorerService,
@@ -311,6 +314,7 @@ export class PositronDataExplorerEditor extends EditorPane implements IPositronD
 						configurationService={this._configurationService}
 						contextKeyService={this._contextKeyService}
 						contextMenuService={this._contextMenuService}
+						hoverService={this._hoverService}
 						keybindingService={this._keybindingService}
 						layoutService={this._layoutService}
 						instance={positronDataExplorerInstance}

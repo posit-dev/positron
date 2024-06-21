@@ -1,13 +1,19 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2022 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2022-2024 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
+// CSS.
 import 'vs/css!./positronTopActionBarPart';
+
+// React.
 import * as React from 'react';
+
+// Other dependencies.
 import { Part } from 'vs/workbench/browser/part';
 import { KeyCode } from 'vs/base/common/keyCodes';
 import { Emitter, Event } from 'vs/base/common/event';
 import { ILabelService } from 'vs/platform/label/common/label';
+import { IHoverService } from 'vs/platform/hover/browser/hover';
 import { IStorageService } from 'vs/platform/storage/common/storage';
 import { IThemeService } from 'vs/platform/theme/common/themeService';
 import { IHostService } from 'vs/workbench/services/host/browser/host';
@@ -25,11 +31,11 @@ import { IConfigurationService } from 'vs/platform/configuration/common/configur
 import { InstantiationType, registerSingleton } from 'vs/platform/instantiation/common/extensions';
 import { IWorkbenchLayoutService, Parts } from 'vs/workbench/services/layout/browser/layoutService';
 import { KeybindingsRegistry, KeybindingWeight } from 'vs/platform/keybinding/common/keybindingsRegistry';
+import { IRuntimeSessionService } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
+import { IRuntimeStartupService } from 'vs/workbench/services/runtimeStartup/common/runtimeStartupService';
 import { ILanguageRuntimeService } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { IPositronTopActionBarService } from 'vs/workbench/services/positronTopActionBar/browser/positronTopActionBarService';
 import { IPositronTopActionBarContainer, PositronTopActionBar } from 'vs/workbench/browser/parts/positronTopActionBar/positronTopActionBar';
-import { IRuntimeSessionService } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
-import { IRuntimeStartupService } from 'vs/workbench/services/runtimeStartup/common/runtimeStartupService';
 
 /**
  * PositronTopActionBarPart class.
@@ -101,6 +107,7 @@ export class PositronTopActionBarPart extends Part implements IPositronTopAction
 		@IContextKeyService private readonly contextKeyService: IContextKeyService,
 		@IContextMenuService private readonly contextMenuService: IContextMenuService,
 		@IHostService private readonly hostService: IHostService,
+		@IHoverService private readonly hoverService: IHoverService,
 		@IKeybindingService private readonly keybindingService: IKeybindingService,
 		@ILabelService private readonly labelService: ILabelService,
 		@ILanguageRuntimeService private readonly languageRuntimeService: ILanguageRuntimeService,
@@ -135,6 +142,7 @@ export class PositronTopActionBarPart extends Part implements IPositronTopAction
 				contextKeyService={this.contextKeyService}
 				contextMenuService={this.contextMenuService}
 				hostService={this.hostService}
+				hoverService={this.hoverService}
 				keybindingService={this.keybindingService}
 				labelService={this.labelService}
 				languageRuntimeService={this.languageRuntimeService}

@@ -2,39 +2,44 @@
  *  Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
+// CSS.
 import 'vs/css!./positronConsoleView';
+
+// React.
 import * as React from 'react';
+
+// Other dependencies.
 import * as DOM from 'vs/base/browser/dom';
 import { Event, Emitter } from 'vs/base/common/event';
 import { ILogService } from 'vs/platform/log/common/log';
+import { IHoverService } from 'vs/platform/hover/browser/hover';
 import { IModelService } from 'vs/editor/common/services/model';
 import { IOpenerService } from 'vs/platform/opener/common/opener';
+import { IViewDescriptorService } from 'vs/workbench/common/views';
 import { IThemeService } from 'vs/platform/theme/common/themeService';
 import { ILanguageService } from 'vs/editor/common/languages/language';
 import { ICommandService } from 'vs/platform/commands/common/commands';
 import { PositronConsoleFocused } from 'vs/workbench/common/contextkeys';
 import { ITelemetryService } from 'vs/platform/telemetry/common/telemetry';
+import { IViewPaneOptions } from 'vs/workbench/browser/parts/views/viewPane';
 import { IKeybindingService } from 'vs/platform/keybinding/common/keybinding';
 import { IViewsService } from 'vs/workbench/services/views/common/viewsService';
 import { IContextMenuService } from 'vs/platform/contextview/browser/contextView';
 import { IClipboardService } from 'vs/platform/clipboard/common/clipboardService';
-import { IViewDescriptorService } from 'vs/workbench/common/views';
 import { INotificationService } from 'vs/platform/notification/common/notification';
 import { IInstantiationService } from 'vs/platform/instantiation/common/instantiation';
 import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
-import { IViewPaneOptions } from 'vs/workbench/browser/parts/views/viewPane';
+import { PositronViewPane } from 'vs/workbench/browser/positronViewPane/positronViewPane';
 import { IContextKey, IContextKeyService } from 'vs/platform/contextkey/common/contextkey';
 import { IWorkbenchLayoutService } from 'vs/workbench/services/layout/browser/layoutService';
 import { PositronConsole } from 'vs/workbench/contrib/positronConsole/browser/positronConsole';
 import { IPositronPlotsService } from 'vs/workbench/services/positronPlots/common/positronPlots';
+import { IRuntimeSessionService } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
+import { IRuntimeStartupService } from 'vs/workbench/services/runtimeStartup/common/runtimeStartupService';
 import { ILanguageRuntimeService } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { IReactComponentContainer, ISize, PositronReactRenderer } from 'vs/base/browser/positronReactRenderer';
 import { IExecutionHistoryService } from 'vs/workbench/contrib/executionHistory/common/executionHistoryService';
 import { IPositronConsoleService } from 'vs/workbench/services/positronConsole/browser/interfaces/positronConsoleService';
-import { IRuntimeSessionService } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
-import { IRuntimeStartupService } from 'vs/workbench/services/runtimeStartup/common/runtimeStartupService';
-import { PositronViewPane } from 'vs/workbench/browser/positronViewPane/positronViewPane';
-import { IHoverService } from 'vs/platform/hover/browser/hover';
 
 /**
  * PositronConsoleViewPane class.
@@ -275,6 +280,7 @@ export class PositronConsoleViewPane extends PositronViewPane implements IReactC
 				contextKeyService={this.contextKeyService}
 				contextMenuService={this.contextMenuService}
 				executionHistoryService={this.executionHistoryService}
+				hoverService={this.hoverService}
 				instantiationService={this.instantiationService}
 				keybindingService={this.keybindingService}
 				languageRuntimeService={this.languageRuntimeService}

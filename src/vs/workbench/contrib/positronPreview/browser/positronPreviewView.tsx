@@ -180,6 +180,7 @@ export class PositronPreviewViewPane extends PositronViewPane implements IReactC
 				configurationService={this.configurationService}
 				contextKeyService={this.contextKeyService}
 				contextMenuService={this.contextMenuService}
+				hoverService={this.hoverService}
 				keybindingService={this.keybindingService}
 				openerService={this.openerService}
 				notificationService={this.notificationService}
