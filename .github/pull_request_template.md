@@ -7,9 +7,10 @@ contributing here:
 <!--
   Describe briefly what problem this pull request resolves, or what
   new feature it introduces. Include screenshots of any new or altered
-  UI. Link to any GitHub issues that are related. If there are any
-  details about your approach that are unintuitive or you want to draw
-  attention to, please describe them here.
+  UI. Link to any GitHub issues but avoid "magic" keywords that will 
+  automatically close the issue. If there are any details about your 
+  approach that are unintuitive or you want to draw attention to, please 
+  describe them here.
 -->
 
 ### QA Notes
