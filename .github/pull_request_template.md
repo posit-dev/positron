@@ -1,7 +1,7 @@
 <!-- Thank you for submitting a pull request.
 If this is your first pull request you can find information about
 contributing here:
-  * [Contributing to Positron](https://github.com/posit-dev/positron/blob/main/CONTRIBUTING.md)
+  * https://github.com/posit-dev/positron/blob/main/CONTRIBUTING.md
 
 We recommend synchronizing your branch with the latest changes in the
 main branch by either pulling or rebasing.
