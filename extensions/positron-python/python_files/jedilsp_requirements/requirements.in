@@ -13,6 +13,6 @@ markdown-it-py
 # wheels for CPython and PyPy, and we require impementation-agnostic wheels (via the 'pip install
 # --implementation py' arg in scripts/vendoring.py). We inherited that requirement from upstream,
 # but we could revisit it.
-pydantic<2.0.0
+pydantic==1.10.17
 pygments
 # --- End Positron ---
