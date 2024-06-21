@@ -3,66 +3,22 @@
  *--------------------------------------------------------------------------------------------*/
 
 
-import { ISerializableView, IViewSize } from 'vs/base/browser/ui/grid/gridview';
 import { ILocalizedString, localize2 } from 'vs/nls';
 import { Categories } from 'vs/platform/action/common/actionCommonCategories';
 import { Action2, registerAction2 } from 'vs/platform/actions/common/actions';
 import { ServicesAccessor } from 'vs/platform/instantiation/common/instantiation';
 import { IQuickPickItem } from 'vs/platform/quickinput/common/quickInput';
-import { CustomPositronLayoutDescription, KnownPositronLayoutParts } from 'vs/workbench/common/positronCustomViews';
-import { IViewDescriptorService, ViewContainerLocation } from 'vs/workbench/common/views';
-import { IWorkbenchLayoutService, PanelAlignment, Parts } from 'vs/workbench/services/layout/browser/layoutService';
+import { Parts } from 'vs/workbench/services/layout/browser/layoutService';
+import { IPositronLayoutService } from 'vs/workbench/services/positronLayout/browser/interfaces/positronLayoutService';
 
+// Need this import or else the PositronLayoutService will not be registered.
+import 'vs/workbench/services/positronLayout/browser/positronLayoutService';
+import { CustomPositronLayoutDescription, KnownPositronLayoutParts } from 'vs/workbench/services/positronLayout/common/positronCustomViews';
 
-export type PartViewInfo = {
-	partView: ISerializableView;
-	currentSize: IViewSize;
-	alignment?: PanelAlignment;
-	hidden: boolean;
-	hideFn: (hidden: boolean, skipLayout?: boolean | undefined) => void;
-};
-
-const partToViewContainerLocation: Record<KnownPositronLayoutParts, ViewContainerLocation> = {
-	[Parts.PANEL_PART]: ViewContainerLocation.Panel,
-	[Parts.SIDEBAR_PART]: ViewContainerLocation.Sidebar,
-	[Parts.AUXILIARYBAR_PART]: ViewContainerLocation.AuxiliaryBar,
-};
-
-/**
- * Convert our custom layout description to the `IViewsCustomizations` format that the
- * `viewDescriptorService` uses for its internal state.
- * @param layout Positron custom layout description
- * @returns Simplified view info in the form of viewContainerLocations and
- * viewDescriptorCustomizations. See `IViewsCustomizations` for more info.
- */
-export function layoutDescriptionToViewInfo(layout: CustomPositronLayoutDescription) {
-	const viewContainerLocations = new Map<string, ViewContainerLocation>();
-	const viewDescriptorCustomizations = new Map<string, string>();
-
-	for (const [part, info] of Object.entries(layout)) {
-		const viewContainers = info.viewContainers;
-		if (!viewContainers) { continue; }
-		const viewContainerLocation = partToViewContainerLocation[part as KnownPositronLayoutParts];
-
-		for (const viewContainer of viewContainers) {
-			viewContainerLocations.set(viewContainer.id, viewContainerLocation);
-
-			if (!viewContainer.views) { continue; }
-			for (const view of viewContainer.views) {
-				viewDescriptorCustomizations.set(view.id, viewContainer.id);
-			}
-		}
-	}
-
-	return {
-		viewContainerLocations,
-		viewDescriptorCustomizations,
-	};
-}
 
 type PositronLayoutInfo = {
 	id: string;
-	codicon: string;
+	codicon?: string;
 	label: ILocalizedString;
 	layoutDescriptor: CustomPositronLayoutDescription;
 };
@@ -201,14 +157,8 @@ abstract class PositronLayoutAction extends Action2 {
 		this._layout = layoutInfo.layoutDescriptor;
 	}
 	run(accessor: ServicesAccessor): void {
-		const layoutService = accessor.get(IWorkbenchLayoutService);
-		const viewDescriptorService = accessor.get(IViewDescriptorService);
-
-		viewDescriptorService.loadCustomViewDescriptor(this._layout);
-		// Run the layout service action after the view descriptor has been loaded.
-		// This is needed so that the changing of the contents of the parts doesn't
-		// break the currently open view container that is set by the layoutService.
-		layoutService.enterCustomLayout(this._layout);
+		const positronLayoutService = accessor.get(IPositronLayoutService);
+		positronLayoutService.setLayout(this._layout);
 	}
 }
 registerAction2(class extends PositronLayoutAction {
@@ -228,6 +178,48 @@ registerAction2(class extends PositronLayoutAction {
 		super(positronFourPaneDsLayout);
 	}
 });
+
+
+// Layouts that maximize a single part as much as possible.
+function makeMaximizedPartLayout(part: KnownPositronLayoutParts): CustomPositronLayoutDescription {
+	return {
+		[Parts.PANEL_PART]: { hidden: true },
+		[Parts.SIDEBAR_PART]: { hidden: true },
+		[Parts.AUXILIARYBAR_PART]: { hidden: true },
+		[part]: { hidden: false, size: '100%' },
+	};
+}
+
+registerAction2(class extends PositronLayoutAction {
+	constructor() {
+		super({
+			id: 'workbench.action.fullSizedSidebar',
+			label: localize2('chooseLayout.fullSizedSidebarLayout', 'Maximizedd Sidebar Layout'),
+			layoutDescriptor: makeMaximizedPartLayout(Parts.SIDEBAR_PART),
+		});
+	}
+});
+
+registerAction2(class extends PositronLayoutAction {
+	constructor() {
+		super({
+			id: 'workbench.action.fullSizedPanel',
+			label: localize2('chooseLayout.fullSizedPanelLayout', 'Maximized Panel Layout'),
+			layoutDescriptor: makeMaximizedPartLayout(Parts.PANEL_PART),
+		});
+	}
+});
+
+registerAction2(class extends PositronLayoutAction {
+	constructor() {
+		super({
+			id: 'workbench.action.fullSizedAuxiliaryBar',
+			label: localize2('chooseLayout.fullSizedAuxiliaryBarLayout', 'Maximized Auxiliary Bar Layout'),
+			layoutDescriptor: makeMaximizedPartLayout(Parts.AUXILIARYBAR_PART),
+		});
+	}
+});
+
 
 
 // Action to dump json of the current layout to the console for creation of a custom layout.

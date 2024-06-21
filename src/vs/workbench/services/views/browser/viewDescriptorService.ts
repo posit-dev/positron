@@ -23,10 +23,10 @@ import { IStringDictionary } from 'vs/base/common/collections';
 import { ILogger, ILoggerService } from 'vs/platform/log/common/log';
 import { Lazy } from 'vs/base/common/lazy';
 // --- Start Positron ---
-import { layoutDescriptionToViewInfo } from 'vs/workbench/browser/positronCustomViews';
+import { layoutDescriptionToViewInfo } from 'vs/workbench/services/positronLayout/browser/utils/layoutDescriptionToViewInfo';
 import { IPaneCompositePartService } from 'vs/workbench/services/panecomposite/browser/panecomposite';
 import { PaneCompositeBar } from 'vs/workbench/browser/parts/paneCompositeBar';
-import { CustomPositronLayoutDescription } from 'vs/workbench/common/positronCustomViews';
+import { CustomPositronLayoutDescription } from 'vs/workbench/services/positronLayout/common/positronCustomViews';
 // --- End Positron ---
 
 interface IViewsCustomizations {
