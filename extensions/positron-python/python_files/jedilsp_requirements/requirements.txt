@@ -4,7 +4,6 @@
 #
 #    pip-compile --generate-hashes 'python_files/jedilsp_requirements/requirements.in'
 #
-
 attrs==23.2.0 \
     --hash=sha256:935dc3b529c262f6cf76e50877d35a4bd3c1de194fd41f47a2b7ae8f19971f30 \
     --hash=sha256:99b87a485a5820b23b879f04c2305b44b951b502fd64be915879d77a7e8fc6f1
@@ -17,7 +16,6 @@ cattrs==23.2.3 \
     # via
     #   jedi-language-server
     #   lsprotocol
-    #   pygls
 docstring-to-markdown==0.13 \
     --hash=sha256:3025c428638ececae920d6d26054546a20335af3504a145327e657e7ad7ce1ce \
     --hash=sha256:aa487059d0883e70e54da25c7b230e918d9e4d40f23d6dfaa2b73e4225b2d7dd
@@ -103,7 +101,7 @@ pygls==1.2.1 \
     --hash=sha256:04f9b9c115b622dcc346fb390289066565343d60245a424eca77cb429b911ed8 \
     --hash=sha256:7dcfcf12b6f15beb606afa46de2ed348b65a279c340ef2242a9a35c22eeafe94
     # via
-    # -r python_files\jedilsp_requirements\requirements.in
+    #   -r python_files\jedilsp_requirements\requirements.in
     #   jedi-language-server
 pygments==2.17.2 \
     --hash=sha256:b27c2826c47d0f3219f29554824c30c5e8945175d888647acd804ddd04af846c \
