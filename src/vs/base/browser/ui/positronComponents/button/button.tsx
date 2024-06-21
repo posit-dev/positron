@@ -55,6 +55,8 @@ interface ButtonProps {
 export const Button = forwardRef<HTMLButtonElement, PropsWithChildren<ButtonProps>>((props, ref) => {
 	// Reference hooks.
 	const buttonRef = useRef<HTMLButtonElement>(undefined!);
+
+	// Customize the ref handle that is exposed.
 	useImperativeHandle(ref, () => buttonRef.current, []);
 
 	/**

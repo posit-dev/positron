@@ -487,7 +487,7 @@ export class ColumnSortKeyDescriptor implements IColumnSortKey {
  * DataGridInstance class.
  */
 export abstract class DataGridInstance extends Disposable {
-	//#region Private Properties
+	//#region Private Properties - Settings
 
 	/**
 	 * Gets a value which indicates whether to show column headers.
@@ -598,6 +598,15 @@ export abstract class DataGridInstance extends Disposable {
 	 * Gets a value which indicates whether selection is enabled.
 	 */
 	private readonly _selection: boolean;
+
+	//#endregion Private Properties - Settings
+
+	//#region Private Properties
+
+	/**
+	 * Gets or sets a value which indicates whether the data grid is focused.
+	 */
+	private _focused = false;
 
 	/**
 	 * Gets or sets the width.
@@ -734,7 +743,7 @@ export abstract class DataGridInstance extends Disposable {
 
 	//#endregion Constructor & Dispose
 
-	//#region Public Properties
+	//#region Public Properties - Settings
 
 	/**
 	 * Gets a value which indicates whether to display column headers.
@@ -881,6 +890,17 @@ export abstract class DataGridInstance extends Disposable {
 	 */
 	get selection() {
 		return this._selection;
+	}
+
+	//#endregion Public Properties - Settings
+
+	//#region Public Properties
+
+	/**
+	 * Gets the number of columns.
+	 */
+	get focused() {
+		return this._focused;
 	}
 
 	/**
@@ -1087,6 +1107,21 @@ export abstract class DataGridInstance extends Disposable {
 	//#endregion Public Events
 
 	//#region Public Methods
+
+	/**
+	 * Sets the focused state of the data grid.
+	 * @param focused A value which indicates whether the data grid is focused.
+	 */
+	setFocused(focused: boolean) {
+		// Set the focused flag, if it changed.
+		if (this._focused !== focused) {
+			// Set the focused flag.
+			this._focused = focused;
+
+			// Fire the onDidUpdate event.
+			this._onDidUpdateEmitter.fire();
+		}
+	}
 
 	/**
 	 * Shows the cursor, if it was initially hidden.

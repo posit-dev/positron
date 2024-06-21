@@ -152,6 +152,7 @@ export const DataExplorer = () => {
 					configurationService={context.configurationService}
 					layoutService={context.layoutService}
 					instance={context.instance.tableSchemaDataGridInstance}
+					tabIndex={0}
 				/>
 			</div>
 			<div ref={splitterRef} className='splitter'>
@@ -166,6 +167,7 @@ export const DataExplorer = () => {
 					configurationService={context.configurationService}
 					layoutService={context.layoutService}
 					instance={context.instance.tableDataDataGridInstance}
+					tabIndex={1}
 				/>
 			</div>
 		</div>

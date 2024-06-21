@@ -2197,8 +2197,8 @@ export const POSITRON_DATA_EXPLORER_STATUS_INDICATOR_DISCONNECTED = registerColo
 
 // Positron data explorer selection background color.
 export const POSITRON_DATA_EXPLORER_SELECTION_BACKGROUND_COLOR = registerColor('positronDataExplorer.selectionBackground', {
-	dark: lighten(editorBackground, 0.2),
-	light: darken(editorBackground, 0.05),
+	dark: lighten(editorBackground, 0.5),
+	light: darken(editorBackground, 0.075),
 	hcDark: editorBackground,
 	hcLight: editorBackground
 }, localize('positronDataExplorer.selectionBackground', "Positron data explorer selection background color."));

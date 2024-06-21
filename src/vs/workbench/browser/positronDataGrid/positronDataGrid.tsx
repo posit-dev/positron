@@ -18,6 +18,7 @@ import { PositronDataGridConfiguration, PositronDataGridContextProvider } from '
  */
 interface PositronDataGridProps extends PositronDataGridConfiguration {
 	id?: string;
+	tabIndex: number;
 }
 
 /**
@@ -35,7 +36,7 @@ export const PositronDataGrid = forwardRef<HTMLDivElement, PositronDataGridProps
 			<div
 				ref={ref}
 				id={props.id}
-				tabIndex={0}
+				tabIndex={props.tabIndex}
 				className='data-grid'
 				onFocus={() =>
 					// Drive focus into the waffle.
