@@ -4,9 +4,9 @@
 # 1) pip install pip-tools
 # 2) pip-compile --generate-hashes --upgrade python_files\jedilsp_requirements\requirements.in
 
-jedi-language-server>=0.34.3
 pygls>=0.10.3
 # --- Start Positron ---
+jedi-language-server==0.41.2
 docstring-to-markdown==0.13
 markdown-it-py
 # TODO(seem): We're sticking to pydantic v1 since v2 depends on pydantic-core, which only ships

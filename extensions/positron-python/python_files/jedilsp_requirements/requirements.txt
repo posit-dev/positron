@@ -4,6 +4,9 @@
 #
 #    pip-compile --generate-hashes python_files/jedilsp_requirements/requirements.in
 #
+--index-url https://pypi.python.org/simple/
+--trusted-host pypi.org
+
 attrs==23.2.0 \
     --hash=sha256:935dc3b529c262f6cf76e50877d35a4bd3c1de194fd41f47a2b7ae8f19971f30 \
     --hash=sha256:99b87a485a5820b23b879f04c2305b44b951b502fd64be915879d77a7e8fc6f1
@@ -31,9 +34,9 @@ jedi==0.19.1 \
     --hash=sha256:cf0496f3651bc65d7174ac1b7d043eff454892c708a87d1b683e57b569927ffd \
     --hash=sha256:e983c654fe5c02867aef4cdfce5a2fbb4a50adc0af145f70504238f18ef5e7e0
     # via jedi-language-server
-jedi-language-server==0.41.4 \
-    --hash=sha256:53c6ce0eae5e332e5f6d76acf8d8c9cf33eae8191d31cc37913773127cd09f28 \
-    --hash=sha256:af010173f9f62dfcd3b3f4e2ea0ea3020fb4285c9b6b18b481aa978f28b5a36a
+jedi-language-server==0.41.2 \
+    --hash=sha256:865a93546b3711713eaca1a76b3a5d4aaacd4594c87f777aa8d54da37ae5aeca \
+    --hash=sha256:bfa112d88c0bd21872522b96c64e8054854f767449bbb3d858be04fb2cda0606
     # via -r python_files/jedilsp_requirements/requirements.in
 lsprotocol==2023.0.1 \
     --hash=sha256:c75223c9e4af2f24272b14c6375787438279369236cd568f596d4951052a60f2 \
