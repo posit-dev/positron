@@ -107,7 +107,7 @@ async function downloadAndReplaceArk(version: string,
 			method: 'GET',
 			protocol: 'https:',
 			hostname: 'api.github.com',
-			path: `/repos/posit-dev/amalthea/releases`
+			path: `/repos/posit-dev/ark/releases`
 		};
 
 		const response = await httpsGetAsync(requestOptions as any) as any;
@@ -122,7 +122,7 @@ async function downloadAndReplaceArk(version: string,
 				await executeCommand('git credential approve',
 					`protocol=https\n` +
 					`host=github.com\n` +
-					`path=/repos/posit-dev/amalthea/releases\n` +
+					`path=/repos/posit-dev/ark/releases\n` +
 					`username=\n` +
 					`password=${githubPat}\n`);
 			console.log(stdout);
@@ -139,7 +139,7 @@ async function downloadAndReplaceArk(version: string,
 				await executeCommand('git credential reject',
 					`protocol=https\n` +
 					`host=github.com\n` +
-					`path=/repos/posit-dev/amalthea/releases\n` +
+					`path=/repos/posit-dev/ark/releases\n` +
 					`username=\n` +
 					`password=${githubPat}\n`);
 			console.log(stdout);
@@ -252,12 +252,13 @@ async function downloadAndReplaceArk(version: string,
 async function main() {
 	const kernelName = platform() === 'win32' ? 'ark.exe' : 'ark';
 
-	// Before we do any work, check to see if there is a locally built copy of Amalthea in the
-	// `amalthea / target` directory. If so, we'll assume that the user is a kernel developer
-	// and skip the download; this version will take precedence over any downloaded version.
+	// Before we do any work, check to see if there is a locally built copy of
+	// the Ark R Kernel in the `ark / target` directory. If so, we'll assume
+	// that the user is a kernel developer and skip the download; this version
+	// will take precedence over any downloaded version.
 	const positronParent = path.dirname(path.dirname(path.dirname(path.dirname(__dirname))));
-	const amaltheaFolder = path.join(positronParent, 'amalthea');
-	const targetFolder = path.join(amaltheaFolder, 'target');
+	const arkFolder = path.join(positronParent, 'ark');
+	const targetFolder = path.join(arkFolder, 'target');
 	const debugBinary = path.join(targetFolder, 'debug', kernelName);
 	const releaseBinary = path.join(targetFolder, 'release', kernelName);
 	if (fs.existsSync(debugBinary) || fs.existsSync(releaseBinary)) {
@@ -265,15 +266,14 @@ async function main() {
 		console.log(`Using locally built Ark in ${binary}.`);
 
 		// Copy the locally built ark to the resources/ark directory. It won't
-		// be read from this directory at runtime, but we need to put it here so
-		// that `yarn gulp vscode` will package it up (the packaging step
-		// doesn't look for a sideloaded ark from an adjacent `amalthea`
-		// directory).
+		// be read from this directory at runtime, but we need to put it here
+		// so that `yarn gulp vscode` will package it up (the packaging step
+		// doesn't look for a sideloaded ark from an adjacent `ark` directory).
 		fs.mkdirSync(path.join('resources', 'ark'), { recursive: true });
 		fs.copyFileSync(binary, path.join('resources', 'ark', kernelName));
 		return;
 	} else {
-		console.log(`No locally built Ark found in ${path.join(positronParent, 'amalthea')}; ` +
+		console.log(`No locally built Ark found in ${path.join(positronParent, 'ark')}; ` +
 			`checking downloaded version.`);
 	}
 
@@ -350,7 +350,7 @@ async function main() {
 			await executeCommand('git credential fill',
 				`protocol=https\n` +
 				`host=github.com\n` +
-				`path=/repos/posit-dev/amalthea/releases\n`);
+				`path=/repos/posit-dev/ark/releases\n`);
 
 		gitCredential = true;
 		// Extract the `password = ` line from the output.
