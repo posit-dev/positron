@@ -48,7 +48,7 @@ If you're making changes to these contracts, you will need to coordinate your ch
 
 ### Step 1: Set Up Repositories
 
-The code generator presumes that you have the `amalthea` repository set up as a sibling folder to `positron`. If you haven't already, clone `amalthea` alongside Positron.
+The code generator presumes that you have the `ark` repository set up as a sibling folder to `positron`. If you haven't already, clone `ark` alongside Positron.
 
 The code generator also places files in `extensions/positron-python`. Prepare the `positron-python` submodule folder for changes by discarding local changes that might conflict and syncing the submodule to `main`.
 
@@ -95,7 +95,7 @@ Build `ark`, restart Positron, and thoroughly test your changes against both R a
 
 ### Step 5: Prepare Branches
 
-Create new branches in all three repositories (`positron`, `positron-python`, and `amalthea`). Commit your changes to each branch.
+Create new branches in all three repositories (`positron`, `positron-python`, and `ark`). Commit your changes to each branch.
 
 ### Step 6: Merge
 

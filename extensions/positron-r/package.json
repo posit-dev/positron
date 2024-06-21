@@ -551,8 +551,7 @@
     "pretest": "yarn run compile && yarn run lint",
     "postinstall": "ts-node scripts/post-install.ts",
     "lint": "eslint src --ext ts",
-    "test": "node ./out/test/runTest.js",
-    "test-amalthea": "cd amalthea && cargo test"
+    "test": "node ./out/test/runTest.js"
   },
   "extensionDependencies": [
     "vscode.jupyter-adapter"
@@ -586,7 +585,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/posit-dev/amalthea"
+    "url": "https://github.com/posit-dev/positron"
   },
   "positron": {
     "binaryDependencies": {

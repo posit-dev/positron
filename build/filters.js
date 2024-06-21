@@ -28,7 +28,6 @@ module.exports.all = [
 	'!**/node_modules/**',
 
 	// --- Start Positron ---
-	'!**/amalthea/**/*',
 	'!extensions/positron-python/**/*',
 	'!test/smoke/test-repo/**/*'
 	// --- End Positron ---
@@ -67,7 +66,6 @@ module.exports.unicodeFilter = [
 	'!src/vs/workbench/services/keybinding/browser/keyboardLayouts/**',
 
 	// --- Start Positron ---
-	'!**/amalthea/**/*',
 	'!scripts/positron/**/*',
 	// --- End Positron ---
 ];
@@ -152,7 +150,6 @@ module.exports.indentationFilter = [
 	// --- End Positron ---
 
 	// --- Start Positron ---
-	'!**/amalthea/**/*',
 	'!extensions/positron-r/resources/scripts/*.R',
 	'!extensions/positron-r/resources/testing/**',
 	'!scripts/positron/**/*',
@@ -199,7 +196,6 @@ module.exports.copyrightFilter = [
 	'!src/vs/editor/test/node/classification/typescript-test.ts',
 
 	// --- Start Positron ---
-	'!**/amalthea/**/*',
 	'!extensions/positron-r/resources/testing/**',
 	// --- End Positron ---
 ];
@@ -222,10 +218,6 @@ module.exports.tsFormattingFilter = [
 	'!extensions/vscode-api-tests/testWorkspace2/**',
 	'!extensions/**/*.test.ts',
 	'!extensions/html-language-features/server/lib/jquery.d.ts',
-
-	// --- Start Positron ---
-	'!**/amalthea/**/*',
-	// --- End Positron ---
 ];
 
 module.exports.eslintFilter = [
