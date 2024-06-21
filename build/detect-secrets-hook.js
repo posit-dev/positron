@@ -12,11 +12,9 @@ function detectSecretsHook(reporter) {
 	try {
 		const result = child_process.execSync('node build/detect-secrets.js run-hook', { encoding: 'utf8' });
 	} catch (error) {
-		if (error.status === 1) {
-			reporter('detect-secrets found at least one secret in the staged files', true);
-		} else {
-			throw new Error('detect-secrets encountered an error while running the hook');
-		}
+		const message = (error.status === 1) ? 'detect-secrets found at least one secret in the staged files' : 'detect-secrets encountered an error while running the hook';
+		reporter(message, true);
+		throw new Error(message);
 	}
 	return es.through(function () { /* noop, important for the stream to end */ });
 }
