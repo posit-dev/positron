@@ -97,7 +97,7 @@ jobs:
 
             Installers can be found under the **Assets** section below. Select the `.dmg` for Mac (Universal), `.exe` for Windows x64 (System), or `.deb` for Debian-based Linux (Ubuntu).
 
-            Before downloading or using Positron (the “software”), please read the [license agreement](https://github.com/posit-dev/positron?tab=License-1-ov-file#readme). Downloading or using Positron establishes a binding agreement between Posit Software, PBC ("licensor") and you (including your company, if applicable). Your acceptance of this license agreement is required as a condition to proceeding with your download or use of the software.
+            Please review [Positron's license agreement](https://github.com/posit-dev/positron?tab=License-1-ov-file#readme). Your acceptance of this license agreement is required as a condition to proceeding with your download or use of the software.
           release_name: ${{ needs.version_string.outputs.short_version }}
           tag_name: ${{ needs.version_string.outputs.short_version }}
 
