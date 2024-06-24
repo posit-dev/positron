@@ -11,6 +11,7 @@
 		"body": [
 			"$BLOCK_COMMENT_START---------------------------------------------------------------------------------------------",
 			" *  Copyright (C) $CURRENT_YEAR Posit Software, PBC. All rights reserved.",
+			" *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.",
 			" *--------------------------------------------------------------------------------------------$BLOCK_COMMENT_END",
 			"",
 			"$0"
