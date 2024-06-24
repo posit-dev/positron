@@ -33,10 +33,15 @@ const positCopyrightHeaderLinesHash = [
 ];
 // --- End Positron ---
 
-function hygiene(some, linting = true) {
+// --- Start Positron ---
+function hygiene(some, linting = true, secrets = true) {
+// --- End Positron ---
 	const gulpeslint = require('gulp-eslint');
 	const gulpstylelint = require('./stylelint');
 	const formatter = require('./lib/formatter');
+	// --- Start Positron ---
+	const detectSecretsHook = require('./detect-secrets-hook');
+	// --- End Positron ---
 
 	let errorCount = 0;
 
@@ -235,6 +240,21 @@ function hygiene(some, linting = true) {
 			})))
 		);
 	}
+
+	// --- Start Positron ---
+	if (secrets) {
+		streams.push(
+			detectSecretsHook(((message, isError) => {
+				if (isError) {
+					console.error(message);
+					errorCount++;
+				} else {
+					console.warn(message);
+				}
+			}))
+		);
+	}
+	// --- End Positron ---
 
 	let count = 0;
 	return es.merge(...streams).pipe(
