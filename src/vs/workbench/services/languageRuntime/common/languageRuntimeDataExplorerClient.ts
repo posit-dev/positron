@@ -115,7 +115,7 @@ export class DataExplorerClientInstance extends Disposable {
 			large_num_digits: 2,
 			small_num_digits: 4,
 			max_integral_digits: 7,
-			thousands_sep: ','
+			thousands_sep: ''
 		};
 
 		this._profileFormatOptions = {
