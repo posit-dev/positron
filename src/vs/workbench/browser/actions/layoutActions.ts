@@ -35,7 +35,7 @@ import { TitlebarStyle } from 'vs/platform/window/common/window';
 // --- Start Positron ---
 import { PositronToggleTopActionBarVisibilityAction } from 'vs/workbench/browser/parts/positronTopActionBar/positronTopActionBarActions';
 import { PositronTopActionBarVisibleContext } from 'vs/workbench/common/contextkeys';  // eslint-disable-line no-duplicate-imports
-import { positronCustomLayoutOptions } from 'vs/workbench/browser/positronCustomViews';
+import { positronCustomLayoutOptions } from 'vs/workbench/services/positronLayout/browser/positronCustomViews';
 // --- End Positron ---
 
 // Register Icons

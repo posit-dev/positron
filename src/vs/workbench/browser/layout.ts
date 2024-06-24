@@ -52,9 +52,9 @@ import { CustomTitleBarVisibility } from '../../platform/window/common/window';
 
 // --- Start Positron ---
 import { IPositronTopActionBarService } from 'vs/workbench/services/positronTopActionBar/browser/positronTopActionBarService';
-import { PartViewInfo } from 'vs/workbench/browser/positronCustomViews';
+import { PartViewInfo } from 'vs/workbench/services/positronLayout/browser/interfaces/positronLayoutService';
 import { AbstractPaneCompositePart } from 'vs/workbench/browser/parts/paneCompositePart';
-import { CustomPositronLayoutDescription, KnownPositronLayoutParts, PartLayoutDescription } from 'vs/workbench/common/positronCustomViews';
+import { CustomPositronLayoutDescription, KnownPositronLayoutParts, PartLayoutDescription } from 'vs/workbench/services/positronLayout/common/positronCustomViews';
 import { clamp } from 'vs/base/common/numbers';
 // --- End Positron ---
 

@@ -27,7 +27,7 @@ import { CancellationToken } from 'vs/base/common/cancellation';
 import { VSDataTransfer } from 'vs/base/common/dataTransfer';
 import { ILocalizedString } from 'vs/platform/action/common/action';
 // --- Start Positron ---
-import { CustomPositronLayoutDescription } from 'vs/workbench/common/positronCustomViews';
+import { CustomPositronLayoutDescription } from 'vs/workbench/services/positronLayout/common/positronCustomViews';
 // --- End Positron ---
 
 export const VIEWS_LOG_ID = 'views';
