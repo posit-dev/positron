@@ -41,6 +41,8 @@ export const ProjectNameLocationStep = (props: PropsWithChildren<NewProjectWizar
 	const [projectName, setProjectName] = useState(context.projectName);
 	const [parentFolder, setParentFolder] = useState(context.parentFolder);
 	const [projectNameFeedback, setProjectNameFeedback] = useState(context.projectNameFeedback);
+	// TODO: Merge `nameValidationErrorMsg` and `parentPathErrorMsg` with the `checkProjectName()`
+	// function.
 	const nameValidationErrorMsg = useDebouncedValidator({
 		value: projectName,
 		validator: x => checkIfPathValid(x, { parentPath: parentFolder })
