@@ -74,7 +74,7 @@ if (tooManyArgs) {
 	process.exit(1);
 }
 
-// Wrapper function for running detect-secrets
+// Wrapper function for running `detect-secrets`
 const detectSecrets = (args, stdio) => {
 	const dsCommand = `detect-secrets ${args}`;
 	printDebug(dsCommand, true);
@@ -84,6 +84,16 @@ const detectSecrets = (args, stdio) => {
 	} catch (error) {
 		printDebug(error);
 	}
+};
+
+// Wrapper function for running `detect-secrets scan` and returning the time taken in seconds
+const detectSecretsScan = (args, stdio) => {
+	const scanCommand = `scan ${args}`;
+	console.log('\tSecret scanning in progress...this should take a minute or so.');
+	const startTime = new Date().getTime();
+	detectSecrets(scanCommand, stdio);
+	const endTime = new Date().getTime();
+	return (endTime - startTime) / 1000;
 };
 
 // Ensure that detect-secrets is installed
@@ -103,14 +113,16 @@ const reportFile = path.join(detectSecretsDir, 'secrets-report.json');
 
 // Check if the baseline file exists
 const baselineFileExists = () => {
-	return fs.existsSync(baselineFile);
+	const baselineFileExists = fs.existsSync(baselineFile);
+	printDebug(`Baseline file ${baselineFile.underline} exists? ${baselineFileExists}`);
+	return baselineFileExists;
 };
 
 // Ensure that the baseline file exists and exit if it does not
 const ensureBaselineFileExists = () => {
 	if (!baselineFileExists()) {
 		console.error(`${'Error:'.red} Baseline file ${baselineFile.underline} does not exist.
-Run ${'node detect-secrets.js init-baseline'.magenta} to create it.`);
+Run ${'node build/detect-secrets.js init-baseline'.magenta} to create it.`);
 		process.exit(1);
 	}
 	return;
@@ -169,7 +181,7 @@ printDebug(`Excluding files: ${excludeFilesOption}`);
 
 // Run the appropriate command
 switch (command) {
-	case 'init-baseline':
+	case 'init-baseline': {
 		console.log(`Initializing detect-secrets baseline file ${baselineFile.underline}...`);
 		if (baselineFileExists()) {
 			// notify the user that the file already exists and ask if they want to overwrite it
@@ -184,17 +196,21 @@ switch (command) {
 				(answer) => {
 					rl.close();
 					if (answer.toLowerCase() === 'y') {
-						console.log('\tOverwriting existing baseline file.');
-						console.log('\tSecret scanning in progress...this should take less than a minute.');
-						detectSecrets(`scan ${noVerify} ${excludeFilesOption} > ${baselineFile}`);
+						console.log('\tOverwriting existing baseline file...');
+						const scanTime = detectSecretsScan(`${noVerify} ${excludeFilesOption} > ${baselineFile}`);
+						console.log(`\tBaseline file initialized in ${scanTime} seconds.`);
 					} else {
-						console.log('\tNot overwriting baseline file.');
+						console.log('\tNot overwriting baseline file. Exiting.');
 						process.exit(0);
 					}
 				}
 			);
+		} else {
+			const scanTime = detectSecretsScan(`${noVerify} ${excludeFilesOption} > ${baselineFile}`);
+			console.log(`\tBaseline file initialized in ${scanTime} seconds.`);
 		}
 		break;
+	}
 	case 'audit-baseline':
 		console.log(`Auditing detect-secrets baseline file ${baselineFile.underline}...`);
 		ensureBaselineFileExists();
@@ -203,12 +219,9 @@ switch (command) {
 	case 'update-baseline': {
 		console.log(`Updating detect-secrets baseline file ${baselineFile.underline}...`);
 		ensureBaselineFileExists();
-		console.log('\tSecret scanning in progress...this should take a minute or so.');
-		const startTime = new Date().getTime();
 		// --force-use-all-plugins ensures that new plugins are picked up and used to update the baseline file
-		detectSecrets(`scan ${noVerify} ${excludeFilesOption} --baseline ${baselineFile} --force-use-all-plugins`);
-		const endTime = new Date().getTime();
-		console.log(`\tBaseline file updated in ${(endTime - startTime) / 1000} seconds.`);
+		const scanTime = detectSecretsScan(`${noVerify} ${excludeFilesOption} --baseline ${baselineFile} --force-use-all-plugins`);
+		console.log(`\tBaseline file updated in ${scanTime} seconds.`);
 		break;
 	}
 	case 'generate-report':
@@ -222,6 +235,6 @@ switch (command) {
 		runDetectSecretsHook();
 		break;
 	default:
-		console.error(`${'Error:'.red} Invalid command ${command}. Run ${'node detect-secrets.js help'.magenta} for a list of commands.`);
+		console.error(`${'Error:'.red} Invalid command ${command}. Run ${'node build/detect-secrets.js help'.magenta} for a list of commands.`);
 		break;
 }
