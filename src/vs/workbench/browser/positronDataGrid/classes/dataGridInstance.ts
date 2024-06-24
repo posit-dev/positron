@@ -897,7 +897,7 @@ export abstract class DataGridInstance extends Disposable {
 	//#region Public Properties
 
 	/**
-	 * Gets the number of columns.
+	 * Gets a value which indicates whether the data explorer is focused.
 	 */
 	get focused() {
 		return this._focused;

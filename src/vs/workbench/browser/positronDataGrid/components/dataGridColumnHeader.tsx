@@ -95,6 +95,7 @@ export const DataGridColumnHeader = (props: DataGridColumnHeaderProps) => {
 	// Get the column selection state.
 	const columnSelectionState = context.instance.columnSelectionState(props.columnIndex);
 
+	// Determine whether the column is selected.
 	const selected = (columnSelectionState & ColumnSelectionState.Selected) !== 0;
 
 	// Render.
