@@ -24,6 +24,21 @@ export abstract class PositronViewPane extends ViewPane {
 	private readonly _disposableStore: DisposableStore;
 
 	/**
+	 * Variable used to remember how large the view was when it was last resized by the user or
+	 * something else that caused the `layout` method to be called. This is used in conjunction
+	 * with the `openFromCollapsedSize` option to determine how large the view should be when it is
+	 * opened from a collapsed state. If the last user size is smaller than the lower bound, then
+	 * the view will be opened to the pop-open size. If the last user size is larger than the lower
+	 * bound, then the view will be opened to that size.
+	 */
+	private _lastLayoutSize: number | undefined = undefined;
+
+	/**
+	 * The last-layout size below which we will pop the view open to the openFromCollapsedSize.
+	 */
+	static readonly MinOpenFromCollapseThreshold = 100;
+
+	/**
 	 * Drive focus to an element inside the view.
 	 * Called automatically by `focus()`.
 	 */
@@ -89,11 +104,26 @@ export abstract class PositronViewPane extends ViewPane {
 		}
 	}
 
+	override layout(size: number): void {
+		// Remember the last layout size.
+		this._lastLayoutSize = size;
+
+		super.layout(size);
+	}
+
 	/**
 	 * Helper function to get the openFromCollapsedSize value as a number of pixels.
 	 * @returns How large the view should be when it is opened from a collapsed state in pixels.
 	 */
 	private _getOpenFromCollapsedSize(openFromCollapsedSize: PositronViewPaneOptions['openFromCollapsedSize']): number {
+
+		// If the last layout size was larger than our lower bound, we'll use that as the last user
+		// size. Otherwise, we'll reset it to undefined so the next time we open from collapsed,
+		// we'll use the pop-open size to ensure the pane is reasonably sized.
+		if (this._lastLayoutSize && this._lastLayoutSize > PositronViewPane.MinOpenFromCollapseThreshold) {
+			return this._lastLayoutSize;
+		}
+
 		// If the value is a plain number then it refers to pixels and we don't need to do anything
 		// special to it.
 		if (typeof openFromCollapsedSize === 'number') {
