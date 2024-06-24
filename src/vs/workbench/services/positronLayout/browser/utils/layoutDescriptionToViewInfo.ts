@@ -14,13 +14,22 @@ const partToViewContainerLocation: Record<KnownPositronLayoutParts, ViewContaine
 };
 
 /**
+ * Internal format for the ViewDescriptorService's view info, bundled into a single object for
+ * easier handling.
+ */
+type ViewDescriptionInfo = {
+	viewContainerLocations: Map<string, ViewContainerLocation>;
+	viewDescriptorCustomizations: Map<string, string>;
+};
+
+/**
  * Convert our custom layout description to the `IViewsCustomizations` format that the
  * `viewDescriptorService` uses for its internal state.
  * @param layout Positron custom layout description
  * @returns Simplified view info in the form of viewContainerLocations and
  * viewDescriptorCustomizations. See `IViewsCustomizations` for more info.
  */
-export function layoutDescriptionToViewInfo(layout: CustomPositronLayoutDescription) {
+export function layoutDescriptionToViewInfo(layout: CustomPositronLayoutDescription): ViewDescriptionInfo {
 	const viewContainerLocations = new Map<string, ViewContainerLocation>();
 	const viewDescriptorCustomizations = new Map<string, string>();
 
