@@ -10,8 +10,14 @@ import { localize } from 'vs/nls';
 import { IFileService } from 'vs/platform/files/common/files';
 
 interface PathValidatorOptions {
-	// Whether to forbid absolute paths. Defaults to false.
+	/**
+	 * Whether to forbid absolute paths. Defaults to false.
+	 */
 	noAbsolutePaths?: boolean;
+	/**
+	 * Parent of the path if it exists.
+	 */
+	parentPath?: string;
 }
 
 // This is adapted from the `validateFileName` function in `vs/workbench/contrib/files/browser/fileActions.ts`.
@@ -32,7 +38,9 @@ export function checkIfPathValid(path: string | number, opts: PathValidatorOptio
 		return localize('fileNameStartsWithSlashError', "A file or folder name cannot start with a slash.");
 	}
 
-	if (path.length > 256) {
+	// Combine path with parent path to check for length. Add 1 for separator.
+	const pathLength = path.length + (opts.parentPath ? opts.parentPath.length + 1 : 0);
+	if (pathLength > 256) {
 		return localize('fileNameTooLongError', "File path is too long, must be under 256 characters.");
 	}
 
