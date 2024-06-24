@@ -148,7 +148,12 @@ const getStagedFiles = () => {
 // Run detect-secrets-hook on staged files
 const runDetectSecretsHook = () => {
 	try {
-		const hookCommand = `detect-secrets-hook ${noVerify} --baseline ${baselineFile} ${excludeFilesOption} ${getStagedFiles()}`;
+		const stagedFiles = getStagedFiles();
+		if (!stagedFiles.trim()) {
+			console.log('No staged files found. Exiting.');
+			process.exit(0);
+		}
+		const hookCommand = `detect-secrets-hook ${noVerify} --baseline ${baselineFile} ${excludeFilesOption} ${stagedFiles}`;
 		printDebug(hookCommand, true);
 		const result = execSync(hookCommand);
 		printDebug(result);
