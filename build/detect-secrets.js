@@ -14,6 +14,14 @@ const fs = require('fs');
 const path = require('path');
 const colors = require('colors');
 
+// Enum for exit codes
+const ExitCodes = {
+	SUCCESS: 0, 				        // success
+	FOUND_SECRETS_OR_BASELINE_ISSUE: 1, // detect-secrets-hook found secrets or encountered a baseline file issue
+	DETECT_SECRETS_WRAPPER_ERROR: 2,    // an error occurred in this script
+	DETECT_SECRETS_ERROR: 3,            // an error occurred in detect-secrets
+};
+
 // Debug print handling
 const debugFlag = process.argv.includes('--debug');
 const printDebug = (message, isCommand = false) => {
@@ -24,7 +32,7 @@ const printDebug = (message, isCommand = false) => {
 };
 
 // Wrapper function for child_process.execSync
-const execSync = (command, stdio = ['inherit', 'pipe', 'pipe']) => {
+const execSync = (command, stdio = ['inherit', 'pipe', 'inherit']) => {
 	return child_process.execSync(command, { encoding: 'utf8', stdio });
 };
 
@@ -37,11 +45,11 @@ try {
 	printDebug('current working directory: ' + process.cwd());
 	if (process.cwd().trim() !== gitRepoRoot.trim()) {
 		console.error(`${'Error:'.red} Please run this script from the root of the git repository.`);
-		process.exit(1);
+		process.exit(ExitCodes.DETECT_SECRETS_WRAPPER_ERROR);
 	}
 } catch (error) {
 	console.error(`${'Error:'.red} Could not determine the root of the git repository: ${error}`);
-	process.exit(1);
+	process.exit(ExitCodes.DETECT_SECRETS_WRAPPER_ERROR);
 }
 
 // Usage message
@@ -61,7 +69,7 @@ You can also include the ${'--debug'.magenta} flag to print debug log messages.`
 const emptyArgs = process.argv.length === 2;
 if (emptyArgs || process.argv.includes('help')) {
 	console.log(usage);
-	process.exit(0);
+	process.exit(ExitCodes.DETECT_SECRETS_WRAPPER_ERROR);
 }
 
 // Print error and usage if too many arguments are provided
@@ -71,7 +79,7 @@ if (tooManyArgs) {
 	console.error(`${'Error:'.red} Too many arguments. Please only specify one command.`);
 	console.log(); // print newline
 	console.log(usage);
-	process.exit(1);
+	process.exit(ExitCodes.DETECT_SECRETS_WRAPPER_ERROR);
 }
 
 // Wrapper function for running `detect-secrets`
@@ -101,7 +109,7 @@ try {
 	detectSecrets('--version');
 } catch (error) {
 	console.error(`${'Error:'.red} detect-secrets is not installed. Install detect-secrets with ${'pip install detect-secrets'.magenta} or ${'brew install detect-secrets'.magenta}.`);
-	process.exit(1);
+	process.exit(ExitCodes.DETECT_SECRETS_WRAPPER_ERROR);
 }
 
 // Constants
@@ -123,7 +131,7 @@ const ensureBaselineFileExists = () => {
 	if (!baselineFileExists()) {
 		console.error(`${'Error:'.red} Baseline file ${baselineFile.underline} does not exist.
 Run ${'node build/detect-secrets.js init-baseline'.magenta} to create it.`);
-		process.exit(1);
+		process.exit(ExitCodes.DETECT_SECRETS_WRAPPER_ERROR);
 	}
 	return;
 };
@@ -141,7 +149,7 @@ const getStagedFiles = () => {
 		return diffOutput;
 	} catch (error) {
 		console.error(`${'Error:'.red} Could not get staged files: ${error}`);
-		process.exit(1);
+		process.exit(ExitCodes.DETECT_SECRETS_WRAPPER_ERROR);
 	}
 };
 
@@ -151,7 +159,7 @@ const runDetectSecretsHook = () => {
 		const stagedFiles = getStagedFiles();
 		if (!stagedFiles.trim()) {
 			console.log('No staged files found. Exiting.');
-			process.exit(0);
+			process.exit(ExitCodes.SUCCESS);
 		}
 		const hookCommand = `detect-secrets-hook ${noVerify} --baseline ${baselineFile} ${excludeFilesOption} ${stagedFiles}`;
 		printDebug(hookCommand, true);
@@ -160,9 +168,13 @@ const runDetectSecretsHook = () => {
 	} catch (error) {
 		const secretsFound = error.status === 1;
 		if (secretsFound) {
+			printDebug('detect-secrets-hook found secrets in the staged files or there was an issue with the .secrets.baseline file.');
 			console.error(error.stdout.toString().red);
+			process.exit(ExitCodes.FOUND_SECRETS_OR_BASELINE_ISSUE);
 		}
-		process.exit(error.status);
+		printDebug(`An error occurred while running detect-secrets-hook: ${error.status}`);
+		console.error(error.stdout.toString().red);
+		process.exit(`${ExitCodes.DETECT_SECRETS_ERROR}_${error.status}`);
 	}
 };
 
@@ -206,7 +218,7 @@ switch (command) {
 						console.log(`\tBaseline file initialized in ${scanTime} seconds.`);
 					} else {
 						console.log('\tNot overwriting baseline file. Exiting.');
-						process.exit(0);
+						process.exit(ExitCodes.SUCCESS);
 					}
 				}
 			);

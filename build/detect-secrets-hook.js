@@ -12,7 +12,19 @@ function detectSecretsHook(reporter) {
 	try {
 		const result = child_process.execSync('node build/detect-secrets.js run-hook', { encoding: 'utf8' });
 	} catch (error) {
-		const message = (error.status === 1) ? 'detect-secrets found at least one secret in the staged files' : 'detect-secrets encountered an error while running the hook';
+		let message = '';
+		// See ExitCodes in build/detect-secrets.js
+		switch (error.status) {
+			case 1:
+				message = 'detect-secrets found secrets in the staged files or there was an issue with the .secrets.baseline file';
+				break;
+			case 2:
+				message = 'detect-secrets wrapper script encountered an error while running the hook';
+				break;
+			default:
+				message = 'detect-secrets encountered an error while running the hook';
+				break;
+		}
 		reporter(message, true);
 		throw new Error(message);
 	}
