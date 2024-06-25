@@ -263,5 +263,29 @@ export class PlaywrightDriver {
 	getFrame(frameSelector: string): playwright.FrameLocator {
 		return this.page.frameLocator(frameSelector);
 	}
+
+	/**
+	 * Click and drag from one point to another.
+	 * @param opts.from The starting point of the drag as x-y coordinates
+	 * @param opts.to The ending point of the drag as x-y coordinates
+	 * @param opts.delta The change in x-y coordinates from the starting point
+	 */
+	async clickAndDrag(opts: { from: { x: number; y: number }; to: { x: number; y: number } }): Promise<void>;
+	async clickAndDrag(opts: { from: { x: number; y: number }; delta: { x?: number; y?: number } }): Promise<void>;
+	async clickAndDrag(opts: { from: { x: number; y: number }; to?: { x: number; y: number }; delta?: { x?: number; y?: number } }): Promise<void> {
+		const from = opts.from;
+		const to = opts.to ?? { x: from.x + (opts.delta?.x ?? 0), y: from.y + (opts.delta?.y ?? 0) };
+		await this.page.mouse.move(from.x, from.y);
+		await this.page.mouse.down();
+		await this.page.mouse.move(to.x, to.y);
+		await this.page.mouse.up();
+	}
+
+	/**
+	 * Get access to a locator for the auxiliary bar
+	 */
+	getAuxilaryBar(): playwright.Locator {
+		return this.page.locator('.part.auxiliarybar');
+	}
 	// --- End Positron ---
 }
