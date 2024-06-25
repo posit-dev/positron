@@ -24,3 +24,13 @@ Currently, Positron is producing pre-release builds from a continuous integratio
 ## Share your feedback about Positron
 
 We invite you to join us on [GitHub Discussions](https://github.com/posit-dev/positron/discussions) to ask questions and share feedback. [Read more](https://github.com/posit-dev/positron/wiki/Feedback-and-Issues) about giving feedback and reporting bugs.
+
+## Code of conduct
+
+Please note that this project is released with a [Contributor Code of
+Conduct](https://github.com/posit-dev/positron/?tab=coc-ov-file#readme). By participating
+in this project you agree to abide by its terms.
+
+## License
+
+Positron is licensed under the [Elastic License 2.0](https://github.com/posit-dev/positron?tab=License-1-ov-file#readme), a source-available license. [Read more](https://github.com/posit-dev/positron/wiki/Licensing) about what this license means and our decision to use it.
