@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 /*---------------------------------------------------------------------------------------------
  *  Copyright (C) 2022 Posit Software, PBC. All rights reserved.
+ *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
 // This script records the anchor commit for the current version of Positron, as specified

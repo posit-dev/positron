@@ -24,18 +24,20 @@ const copyrightHeaderLines = [
 const positCopyrightHeaderLines = [
 	/\/\*---------------------------------------------------------------------------------------------\s*/g,
 	/ \*  Copyright \([cC]{1}\)\s?(20\d{2})?(-20\d{2})? Posit Software, PBC\.( All rights reserved\.)?\s*/g,
+	/ \*  Licensed under the Elastic License 2\.0\. See LICENSE\.txt for license information\.\s*/g,
 	/ \*--------------------------------------------------------------------------------------------\*\/\s*/g,
 ];
 const positCopyrightHeaderLinesHash = [
 	/# ---------------------------------------------------------------------------------------------\s*/g,
 	/# Copyright \([cC]{1}\)\s?(20\d{2})?(-20\d{2})? Posit Software, PBC\.( All rights reserved\.)?\s*/g,
+	/# Licensed under the Elastic License 2\.0\. See LICENSE\.txt for license information\.\s*/g,
 	/# ---------------------------------------------------------------------------------------------\s*/g,
 ];
 // --- End Positron ---
 
 // --- Start Positron ---
 function hygiene(some, linting = true, secrets = true) {
-// --- End Positron ---
+	// --- End Positron ---
 	const gulpeslint = require('gulp-eslint');
 	const gulpstylelint = require('./stylelint');
 	const formatter = require('./lib/formatter');
