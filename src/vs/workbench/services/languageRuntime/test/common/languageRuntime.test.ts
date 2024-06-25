@@ -3,7 +3,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as assert from 'assert';
-import { timeout } from 'vs/base/common/async';
+import { raceTimeout } from 'vs/base/common/async';
 import { ensureNoDisposablesAreLeakedInTestSuite } from 'vs/base/test/common/utils';
 import { TestInstantiationService } from 'vs/platform/instantiation/test/common/instantiationServiceMock';
 import { ILogService, NullLogger } from 'vs/platform/log/common/log';
@@ -44,13 +44,9 @@ suite('LanguageRuntimeService', () => {
 		const runtimeDisposable = languageRuntimeService.registerRuntime(metadata);
 
 		// Check that the onDidRegisterRuntime event was fired.
-		let to;
-		const race = await Promise.race([
-			didRegisterRuntime.then(() => 'success'),
-			(to = timeout(10)).then(() => 'timeout')
-		]);
-		assert.strictEqual(race, 'success', 'Awaiting onDidRegisterRuntime event timed out');
-		to.cancel();
+		let timedOut = false;
+		await raceTimeout(didRegisterRuntime, 10, () => timedOut = true);
+		assert(!timedOut, 'Awaiting onDidRegisterRuntime event timed out');
 
 		// Check that the runtime was registered.
 		assert.deepStrictEqual(languageRuntimeService.registeredRuntimes, [metadata]);
