@@ -10,7 +10,7 @@ const OUTER_FRAME = '.webview';
 const MIDDLE_FRAME = '#active-frame';
 const INNER_FRAME = '#help-iframe';
 
-export class PositroHelp {
+export class PositronHelp {
 
 	constructor(private code: Code) { }
 

@@ -35,7 +35,7 @@ import { PositronNotebooks } from './positron/positronNotebooks';
 import { PositronNewProjectWizard } from './positron/positronNewProjectWizard';
 import { PositronExplorer } from './positron/positronExplorer';
 import { PositronConnections } from './positron/positronConnections';
-import { PositroHelp } from './positron/positronHelp';
+import { PositronHelp } from './positron/positronHelp';
 // --- End Positron ---
 
 export interface Commands {
@@ -75,7 +75,7 @@ export class Workbench {
 	readonly positronNewProjectWizard: PositronNewProjectWizard;
 	readonly positronExplorer: PositronExplorer;
 	readonly positronConnections: PositronConnections;
-	readonly positronHelp: PositroHelp;
+	readonly positronHelp: PositronHelp;
 	// --- End Positron ---
 
 	constructor(code: Code) {
@@ -110,7 +110,7 @@ export class Workbench {
 		this.positronNewProjectWizard = new PositronNewProjectWizard(code, this.quickaccess);
 		this.positronExplorer = new PositronExplorer(code);
 		this.positronConnections = new PositronConnections(code);
-		this.positronHelp = new PositroHelp(code);
+		this.positronHelp = new PositronHelp(code);
 		// --- End Positron ---
 	}
 }
