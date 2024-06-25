@@ -38,6 +38,7 @@ export interface KeyboardModifiers {
 interface ButtonProps {
 	readonly hoverManager?: IHoverManager;
 	readonly className?: string;
+	readonly tabIndex?: number;
 	readonly disabled?: boolean;
 	readonly ariaLabel?: string;
 	readonly tooltip?: string | (() => string | undefined);
@@ -175,7 +176,7 @@ export const Button = forwardRef<HTMLButtonElement, PropsWithChildren<ButtonProp
 				props.className,
 				{ 'disabled': props.disabled }
 			)}
-			tabIndex={0}
+			tabIndex={props.tabIndex ?? 0}
 			disabled={props.disabled}
 			role='button'
 			aria-label={props.ariaLabel}

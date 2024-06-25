@@ -149,6 +149,7 @@ export const DataGridColumnHeader = (props: DataGridColumnHeaderProps) => {
 				<Button
 					ref={sortingButtonRef}
 					className='sort-button'
+					tabIndex={-1}
 					mouseTrigger={MouseTrigger.MouseDown}
 					onPressed={dropdownPressed}
 				>
