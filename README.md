@@ -1,4 +1,4 @@
-# Positron  <a href="https://github.com/posit-dev/positron"><img src="../positron-product-icons/positron.png" align="right" height="138" alt="Positron" /></a>
+# Positron&trade;  <a href="https://github.com/posit-dev/positron"><img src="positron-product-icons/positron.png" align="right" height="138" alt="Positron" /></a>
 
 What is Positron?
 
