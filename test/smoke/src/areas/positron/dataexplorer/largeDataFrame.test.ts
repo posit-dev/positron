@@ -66,9 +66,10 @@ export function setup(logger: Logger) {
 				await app.workbench.positronDataExplorer.clickUpperLeftCorner();
 				await app.workbench.positronDataExplorer.addFilter(...FILTER_PARAMS as [string, string, string]);
 
-				const statusBar = await app.workbench.positronDataExplorer.getDataExplorerStatusBar();
-
-				expect(statusBar.textContent).toBe(POST_FILTER_DATA_SUMMARY);
+				await expect(async () => {
+					const statusBar = await app.workbench.positronDataExplorer.getDataExplorerStatusBar();
+					expect(statusBar.textContent).toBe(POST_FILTER_DATA_SUMMARY);
+				}).toPass();
 
 			});
 		});
@@ -117,9 +118,10 @@ export function setup(logger: Logger) {
 				await app.workbench.positronDataExplorer.clickUpperLeftCorner();
 				await app.workbench.positronDataExplorer.addFilter(...FILTER_PARAMS as [string, string, string]);
 
-				const statusBar = await app.workbench.positronDataExplorer.getDataExplorerStatusBar();
-
-				expect(statusBar.textContent).toBe(POST_FILTER_DATA_SUMMARY);
+				await expect(async () => {
+					const statusBar = await app.workbench.positronDataExplorer.getDataExplorerStatusBar();
+					expect(statusBar.textContent).toBe(POST_FILTER_DATA_SUMMARY);
+				}).toPass();
 
 			});
 		});
