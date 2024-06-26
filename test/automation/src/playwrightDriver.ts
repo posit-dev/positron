@@ -281,11 +281,5 @@ export class PlaywrightDriver {
 		await this.page.mouse.up();
 	}
 
-	/**
-	 * Get access to a locator for the auxiliary bar
-	 */
-	getAuxilaryBar(): playwright.Locator {
-		return this.page.locator('.part.auxiliarybar');
-	}
 	// --- End Positron ---
 }

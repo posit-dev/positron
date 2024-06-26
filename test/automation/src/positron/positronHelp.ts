@@ -11,8 +11,11 @@ const MIDDLE_FRAME = '#active-frame';
 const INNER_FRAME = '#help-iframe';
 const HELP_CONTAINER = '.positron-help-container';
 const RESIZE_SASH = '.monaco-sash.mac.horizontal:not(.disabled)';
+const AUX_BAR = '.part.auxiliarybar';
 
 export class PositronHelp {
+
+	private auxilaryBar = this.code.driver.getLocator(AUX_BAR);
 
 	constructor(private code: Code) { }
 
@@ -24,15 +27,15 @@ export class PositronHelp {
 	}
 
 	getHelpContainer(): Locator {
-		return this.code.driver.getAuxilaryBar().locator(HELP_CONTAINER);
+		return this.auxilaryBar.locator(HELP_CONTAINER);
 	}
 
 	getHelpHeader(): Locator {
-		return this.code.driver.getAuxilaryBar().getByRole('button', { name: 'Help Section' });
+		return this.auxilaryBar.getByRole('button', { name: 'Help Section' });
 	}
 
 	async resizeHelpPanel(delta: { x?: number; y?: number }): Promise<void> {
-		const sashLocator = this.code.driver.getAuxilaryBar().locator(RESIZE_SASH);
+		const sashLocator = this.auxilaryBar.locator(RESIZE_SASH);
 		const sashLocation = await sashLocator.boundingBox();
 		if (!sashLocation) {
 			throw new Error('Could not find sash');
