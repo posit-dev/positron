@@ -102,11 +102,12 @@ export function setup(logger: Logger) {
 
 				// We'll make it roughly two thirds the size of the original height
 				const resize_delta = helpPanelHeight / 3;
+				const expectedHeightAfterResize = helpPanelHeight - resize_delta;
 				await positronHelp.resizeHelpPanel({ y: resize_delta });
 
 				// Verify that the height has changed by the expected amount
 				const helpPanelHeightAfter = await getHelpHeight();
-				expect(helpPanelHeight - helpPanelHeightAfter - resize_delta)
+				expect(expectedHeightAfterResize - helpPanelHeightAfter)
 					.toBeLessThan(sizePrecision);
 
 				// Now collapse the panel again
@@ -116,6 +117,15 @@ export function setup(logger: Logger) {
 				// Reopen the panel
 				await helpPanelHeaderLocator.click();
 
+				if (helpPanelHeightAfter < 100) {
+					// When the panel is small enough, it will pop back to the full size.
+					// This can happen if the window used for testing is too small.
+					// In this case we want to end the test early because the behavior wont be as
+					// expected.
+					// TODO: Make sure window is a set size at start of test.
+					logger.log('Window too small to test resize memory. Skipping end of help panel collapse test.');
+					return;
+				}
 				// Make sure that the panel is smaller than it was before after opening up.
 				// Should be roughly the same size it was before we collapsed it. Allow for
 				// small deviations due to rounding errors etc..
