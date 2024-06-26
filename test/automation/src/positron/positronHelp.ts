@@ -10,7 +10,7 @@ const OUTER_FRAME = '.webview';
 const MIDDLE_FRAME = '#active-frame';
 const INNER_FRAME = '#help-iframe';
 const HELP_CONTAINER = '.positron-help-container';
-const RESIZE_SASH = '.monaco-sash.mac.horizontal:not(.disabled)';
+const RESIZE_SASH = '.monaco-sash.horizontal:not(.disabled)';
 const AUX_BAR = '.part.auxiliarybar';
 
 export class PositronHelp {
