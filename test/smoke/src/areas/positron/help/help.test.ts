@@ -70,26 +70,26 @@ export function setup(logger: Logger) {
 
 				const app = this.app as Application;
 				const positronHelp = app.workbench.positronHelp;
+				const helpContainerLocator = positronHelp.getHelpContainer();
+				const helpPanelHeaderLocator = positronHelp.getHelpHeader();
+
 				// How close should our heights be? It's not totally clear why this isn't always
 				// exact, but it's likely due to rounding errors or other factors. We'll allow
 				// a small margin of error.
 				const sizePrecision = 5;
 
-				// app.code.workbench.reduceMotion
-				// app.workbench.settingsEditor
+				// Enable reduced motion so we don't have to wait for animations of expanding
+				// and collapsing the panel.
+				await app.workbench.settingsEditor.addUserSetting('workbench.reduceMotion', '"on"');
+
 				// Enter layout with help pane docked in session panel
 				await app.workbench.quickaccess.runCommand('workbench.action.positronHelpPaneDocked');
-
-				const helpContainerLocator = positronHelp.getHelpContainer();
-				const helpPanelHeaderLocator = positronHelp.getHelpHeader();
 
 				// Help panel starts collapsed thanks to the above command
 				await expect(helpContainerLocator).not.toBeVisible();
 
 				// Clicking the header opens it
 				await helpPanelHeaderLocator.click();
-				// Wait to allow the open animation to complete
-				await app.code.wait(1000);
 
 				await expect(helpContainerLocator).toBeVisible();
 				// Get the height of the help panel
@@ -114,7 +114,6 @@ export function setup(logger: Logger) {
 
 				// Reopen the panel
 				await helpPanelHeaderLocator.click();
-				await app.code.wait(1000);
 
 				// Make sure that the panel is smaller than it was before after opening up.
 				// Should be roughly the same size it was before we collapsed it. Allow for
