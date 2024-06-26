@@ -66,7 +66,7 @@ export function setup(logger: Logger) {
 
 		describe('Collapse behavior', () => {
 
-			it.only('Verifies help panel can be opened when empty and also can be resized smaller and remember resize height', async function () {
+			it('Verifies help panel can be opened when empty and also can be resized smaller and remember resize height', async function () {
 
 				const app = this.app as Application;
 				const positronHelp = app.workbench.positronHelp;
