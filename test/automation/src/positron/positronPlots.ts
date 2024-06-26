@@ -7,7 +7,7 @@
 import { Code } from '../code';
 
 const CURRENT_PLOT = '.plot-instance .image-wrapper img';
-const CLEAR_PLOTS = '.positron-plots-container .action-bar-tool-tip-container .codicon-clear-all';
+const CLEAR_PLOTS = '.positron-plots-container .positron-action-bar .codicon-clear-all';
 
 export class PositronPlots {
 
