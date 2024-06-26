@@ -2,8 +2,9 @@ name: "Positron: Build Release"
 
 # Run builds daily at 2am UTC (10p EST) on weekdays for now, or manually
 on:
-  schedule:
-    - cron: "0 2 * * 1-5"
+  # Daily builds temporarily disabled
+  # schedule:
+  #   - cron: "0 2 * * 1-5"
   workflow_dispatch:
 
 jobs:
