@@ -72,6 +72,7 @@ export function setup(logger: Logger) {
 				const positronHelp = app.workbench.positronHelp;
 				const helpContainerLocator = positronHelp.getHelpContainer();
 				const helpPanelHeaderLocator = positronHelp.getHelpHeader();
+				const getHelpHeight = async () => (await helpContainerLocator.boundingBox())?.height ?? -1;
 
 				// How close should our heights be? It's not totally clear why this isn't always
 				// exact, but it's likely due to rounding errors or other factors. We'll allow
@@ -90,11 +91,10 @@ export function setup(logger: Logger) {
 
 				// Clicking the header opens it
 				await helpPanelHeaderLocator.click();
-
 				await expect(helpContainerLocator).toBeVisible();
-				// Get the height of the help panel
-				const helpPanelHeight = (await helpContainerLocator.boundingBox())?.height ?? -1;
+
 				// Make sure that an empty help panel actually expands to a visible size.
+				const helpPanelHeight = await getHelpHeight();
 				expect(helpPanelHeight).toBeGreaterThan(100);
 
 				// Now resize the help panel smaller than the pop-open size and make sure that
@@ -105,8 +105,9 @@ export function setup(logger: Logger) {
 				await positronHelp.resizeHelpPanel({ y: resize_delta });
 
 				// Verify that the height has changed by the expected amount
-				const helpPanelHeightAfter = (await helpContainerLocator.boundingBox())?.height ?? -1;
-				expect(helpPanelHeight - helpPanelHeightAfter - resize_delta).toBeLessThan(sizePrecision);
+				const helpPanelHeightAfter = await getHelpHeight();
+				expect(helpPanelHeight - helpPanelHeightAfter - resize_delta)
+					.toBeLessThan(sizePrecision);
 
 				// Now collapse the panel again
 				await helpPanelHeaderLocator.click();
@@ -118,8 +119,9 @@ export function setup(logger: Logger) {
 				// Make sure that the panel is smaller than it was before after opening up.
 				// Should be roughly the same size it was before we collapsed it. Allow for
 				// small deviations due to rounding errors etc..
-				const helpPanelHeightAfterReopen = (await helpContainerLocator.boundingBox())?.height ?? -1;
-				expect(Math.abs(helpPanelHeightAfterReopen - helpPanelHeightAfter)).toBeLessThan(sizePrecision);
+				const helpPanelHeightAfterReopen = await getHelpHeight();
+				expect(Math.abs(helpPanelHeightAfterReopen - helpPanelHeightAfter))
+					.toBeLessThan(sizePrecision);
 			});
 		});
 	});
