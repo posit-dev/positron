@@ -7,6 +7,9 @@ import { expect } from '@playwright/test';
 import { Application, Logger, PositronPythonFixtures, PositronRFixtures } from '../../../../../automation';
 import { installAllHandlers } from '../../../utils';
 
+/*
+ * Variables Pane test cases
+ */
 export function setup(logger: Logger) {
 	describe('Variables Pane', () => {
 

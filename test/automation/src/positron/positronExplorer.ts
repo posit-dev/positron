@@ -11,6 +11,9 @@ import { PositronTextElement } from './positronBaseElement';
 const POSITRON_EXPLORER_PROJECT_TITLE = 'div[id="workbench.view.explorer"] h3.title';
 
 
+/*
+ *  Reuseable Positron explorer functionality for tests to leverage.
+ */
 export class PositronExplorer {
 	explorerProjectTitle: PositronTextElement;
 

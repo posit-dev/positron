@@ -6,6 +6,9 @@
 import { Application, Logger, PositronRFixtures } from '../../../../../automation';
 import { installAllHandlers } from '../../../utils';
 
+/*
+ * R console tests
+ */
 export function setup(logger: Logger) {
 	describe('Console Pane: R', () => {
 

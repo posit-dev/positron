@@ -17,6 +17,9 @@ const PROJECT_WIZARD_DISABLED_CREATE_BUTTON = 'button.positron-button.button.act
 const PROJECT_WIZARD_CURRENT_WINDOW_BUTTON = 'button.positron-button.button.action-bar-button[tabindex="0"][role="button"]';
 const PROJECT_WIZARD_NEW_JUPYTER_PROJECT = '[id="Jupyter Notebook"]';
 
+/*
+ *  Reuseable Positron new project wizard functionality for tests to leverage.
+ */
 export class PositronNewProjectWizard {
 	newPythonProjectButton: PositronBaseElement;
 	newRProjectButton: PositronBaseElement;

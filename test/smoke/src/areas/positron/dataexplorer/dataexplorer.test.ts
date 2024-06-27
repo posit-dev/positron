@@ -8,7 +8,9 @@ import { expect } from '@playwright/test';
 import { Application, Logger, PositronPythonFixtures, PositronRFixtures } from '../../../../../automation';
 import { installAllHandlers } from '../../../utils';
 
-
+/*
+ *  Data explorer tests with small data frames
+ */
 export function setup(logger: Logger) {
 	describe('Data Explorer', () => {
 

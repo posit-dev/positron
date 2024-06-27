@@ -133,6 +133,10 @@ yarn watch
 
 _You may see errors in test files before you run this builder step once, as it's looking for types in the not-yet-existing build artifacts._
 
+## Test Project
+
+Before any of the tests start executing the test framework clones down the [QA Content Examples](https://github.com/posit-dev/qa-example-content) repo.  This repo contains R and Python files that are run by the automated tests and also includes data files (such as Excel, SQLite, & parquet) that support the test scripts.  If you make additions to QA Content Examples for a test, please be sure that the data files are free to use in a public repository.
+
 ## Running tests
 
 Once you have the build watcher running you can run the smoke tests with the debug action `Launch Smoke Test`. (It's near the bottom of the debug dropdown.)
@@ -178,5 +182,15 @@ await app.workbench.quickaccess.runCommand('workbench.action.toggleDevTools');`
 ```
 
 (Again, don't forget to remove this line after you've finished debugging!)
+
+## Running Tests in Github Actions
+
+New tests are not complete until they run successfully across operating systems (Mac, Windows, & Ubuntu) and in [Github Actions](https://github.com/posit-dev/positron/actions/workflows/positron-full-test.yml).  In Github Actions we use an Ubuntu instance to run the tests, so if you are developing your tests using a Mac or on Windows, this is an opportunity to test a different operating system.  Also, you can easily run your new tests against a branch to verify them before merge.  Simply pick the branch after you click on "Run Workflow".  Note that you can also temporarily modify the workflow itself to get your new tests executed more quickly.  To do this, skip the runs of the unit and integration tests.
+
+### Github Actions Test Artifacts
+
+When a run is complete, you can debug any test failures that occurred using the uploaded run artifacts.  The artifacts are available as a ZIP file from inside the workflow run.  Each artifact zip contains: a folder for each test file and an overall run log.  Inside the folder corresponding to each test file, you will find zip files that are Playwright traces.  Note that the trace files are only present for failed cases.
+
+Playwright traces can be drag and dropped to the [Trace Viewer](https://trace.playwright.dev/).  The trace will usually give you a good visualization of the failed test, but they can be sparse on details.  More details are available from the run log (smoke-test-runner.log).  It has a start and end marker for each test case.
 
 <!-- End Positron -->

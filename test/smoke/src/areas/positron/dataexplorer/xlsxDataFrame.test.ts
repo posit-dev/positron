@@ -9,7 +9,9 @@ import { Application, Logger, PositronPythonFixtures, PositronRFixtures } from '
 import { installAllHandlers } from '../../../utils';
 import { join } from 'path';
 
-
+/*
+ * Data explorer test suite for XLSX data frames
+ */
 export function setup(logger: Logger) {
 
 	describe('Data Explorer - XLSX', () => {

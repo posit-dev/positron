@@ -9,6 +9,9 @@ import { Application, Logger, PositronPythonFixtures, PositronRFixtures } from '
 import { installAllHandlers } from '../../../utils';
 import { expect } from '@playwright/test';
 
+/*
+ * DB Connections test cases, leveraging the Chinook SQLite database from https://github.com/posit-dev/qa-example-content
+ */
 export function setup(logger: Logger) {
 
 	const tables = ['tracks', 'playlist_track', 'playlists', 'media_types', 'invoice_items', 'invoices', 'genres', 'employees', 'customers', 'artists', 'albums'];

@@ -11,6 +11,9 @@ const OUTER_FRAME = '.webview';
 const MIDDLE_FRAME = '#active-frame';
 const INNER_FRAME = '#help-iframe';
 
+/*
+ *  Reuseable Positron Help functionality for tests to leverage.
+ */
 export class PositroHelp {
 
 	constructor(private code: Code) { }

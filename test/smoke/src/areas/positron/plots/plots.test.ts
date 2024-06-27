@@ -8,6 +8,9 @@ import { Application, Logger, PositronPythonFixtures, PositronRFixtures } from '
 import { installAllHandlers } from '../../../utils';
 
 
+/*
+ * Plots test cases
+ */
 export function setup(logger: Logger) {
 	describe('Plots', () => {
 
