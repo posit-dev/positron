@@ -174,6 +174,9 @@ const runDetectSecretsHook = () => {
 		if (secretsFound) {
 			printDebug('detect-secrets-hook found secrets in the staged files or there was an issue with the .secrets.baseline file.');
 			console.error(error.stdout.toString().red);
+			console.error('Uh oh! If have secrets in your code, please remove them before committing.'.magenta);
+			console.error(`If you are certain that these are false positives, see ${'build/secrets/README.md'.underline} for instructions on how to mark them as such.`.magenta);
+			console.error(); // print newline
 			process.exit(ExitCodes.FOUND_SECRETS_OR_BASELINE_ISSUE);
 		}
 		printDebug(`An error occurred while running detect-secrets-hook: ${error.status}`);
