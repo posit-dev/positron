@@ -11,6 +11,7 @@ const dirs = [
 	'build',
 	'extensions',
 	// --- Start Positron ---
+	'extensions/open-remote-ssh',
 	'extensions/positron-code-cells',
 	'extensions/positron-connections',
 	'extensions/positron-javascript',

@@ -29,6 +29,7 @@ const ext = require('./lib/extensions');
 // });
 const compilations = [
 	// --- Start Positron ---
+	'extensions/open-remote-ssh/tsconfig.json',
 	'extensions/positron-code-cells/tsconfig.json',
 	'extensions/positron-connections/tsconfig.json',
 	'extensions/positron-javascript/tsconfig.json',
