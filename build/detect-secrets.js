@@ -41,10 +41,12 @@ const execSync = (command, stdio = ['inherit', 'pipe', 'inherit']) => {
 try {
 	const gitCommand = 'git rev-parse --show-toplevel';
 	printDebug(gitCommand, true);
-	const gitRepoRoot = execSync(gitCommand);
+	const gitRepoRoot = execSync(gitCommand).trim();
 	printDebug(gitRepoRoot);
 	printDebug('current working directory: ' + process.cwd());
-	if (process.cwd().trim() !== gitRepoRoot.trim()) {
+	// check if two paths are the same
+	const currentDir = process.cwd().trim();
+	if (path.resolve(currentDir) !== path.resolve(gitRepoRoot)) {
 		console.error(`${'Error:'.red} Please run this script from the root of the git repository.`);
 		process.exit(ExitCodes.DETECT_SECRETS_WRAPPER_ERROR);
 	}
