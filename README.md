@@ -1,4 +1,4 @@
-# Positron&trade;  <a href="https://github.com/posit-dev/positron"><img src="positron-product-icons/positron.png" align="right" height="138" alt="Positron" /></a>
+# Positron  <a href="https://github.com/posit-dev/positron"><img src="positron-product-icons/positron.png" align="right" height="138" alt="Positron" /></a>
 
 What is Positron?
 
@@ -33,4 +33,6 @@ in this project you agree to abide by its terms.
 
 ## License
 
-Positron is licensed under the [Elastic License 2.0](https://github.com/posit-dev/positron?tab=License-1-ov-file#readme), a source-available license. [Read more](https://github.com/posit-dev/positron/wiki/Licensing) about what this license means and our decision to use it.
+Positron™ is licensed under the [Elastic License 2.0](https://github.com/posit-dev/positron?tab=License-1-ov-file#readme), a source-available license. [Read more](https://github.com/posit-dev/positron/wiki/Licensing) about what this license means and our decision to use it.
+
+Positron™ is a trademark of Posit Software, PBC. All rights reserved.
