@@ -11,7 +11,7 @@ What is Positron?
 
 ## Get started using Positron
 
-Check out [our wiki](https://github.com/posit-dev/positron/wiki) for information on what you should do before installing Positron, troubleshooting Positron, and more.
+Check out [our wiki](https://github.com/posit-dev/positron/wiki) for information on what you should do before installing Positron, troubleshooting Positron, and more. Our [FAQ](https://github.com/posit-dev/positron/wiki/Frequently-Asked-Questions) also covers some common or expected questions. 
 
 Positron is built on [Code OSS](https://github.com/microsoft/vscode). To learn about basic features like commands, settings, using source control, and more, see the [VS Code documentation](https://code.visualstudio.com/docs).
 
