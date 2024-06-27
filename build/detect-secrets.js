@@ -94,6 +94,7 @@ const detectSecrets = (args, stdio) => {
 		printDebug(result);
 	} catch (error) {
 		printDebug(error);
+		throw error;
 	}
 };
 
