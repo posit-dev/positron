@@ -8,9 +8,15 @@ declare module 'positron' {
 	import * as vscode from 'vscode'; // eslint-disable-line
 
 	/**
-	 * The current Positron version.
+	 * The current Positron version. This is the Positron calendar version, e.g. "2028.10.2"
 	 */
 	export const version: string;
+
+	/**
+	 * The Positron build number. This is a monotonically increasing number that uniquely
+	 * identifies a build of Positron within a release.
+	 */
+	export const buildNumber: number;
 
 	/** The set of possible language runtime messages */
 	export enum LanguageRuntimeMessageType {
