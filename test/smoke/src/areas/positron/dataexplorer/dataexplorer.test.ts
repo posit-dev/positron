@@ -50,7 +50,10 @@ df = pd.DataFrame(data)`;
 				await app.workbench.positronConsole.executeCode('Python', script, '>>>');
 
 				console.log('Opening data grid');
-				await app.workbench.positronVariables.doubleClickVariableRow('df');
+				await expect(async () => {
+					await app.workbench.positronVariables.doubleClickVariableRow('df');
+					await app.code.driver.getLocator('.label-name:has-text("Data: df")').innerText();
+				}).toPass();
 
 				await app.workbench.positronSideBar.closeSecondarySideBar();
 
@@ -99,7 +102,10 @@ df = pd.DataFrame(data)`;
 				await app.workbench.positronConsole.executeCode('R', script, '>');
 
 				console.log('Opening data grid');
-				await app.workbench.positronVariables.doubleClickVariableRow('Data_Frame');
+				await expect(async () => {
+					await app.workbench.positronVariables.doubleClickVariableRow('Data_Frame');
+					await app.code.driver.getLocator('.label-name:has-text("Data: Data_Frame")').innerText();
+				}).toPass();
 
 				await app.workbench.positronSideBar.closeSecondarySideBar();
 
