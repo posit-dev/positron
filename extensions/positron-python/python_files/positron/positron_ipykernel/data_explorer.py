@@ -11,9 +11,19 @@ import logging
 import math
 import operator
 from datetime import datetime
-from typing import TYPE_CHECKING, Callable, Dict, List, Optional, Sequence, Set, Tuple
+from typing import (
+    TYPE_CHECKING,
+    Callable,
+    Dict,
+    List,
+    Optional,
+    Sequence,
+    Set,
+    Tuple,
+)
 
 import comm
+import pytz
 
 from .access_keys import decode_access_key
 from .data_explorer_comm import (
@@ -67,7 +77,6 @@ from .data_explorer_comm import (
     SummaryStatsString,
     SupportedFeatures,
     SupportStatus,
-    TableData,
     TableSchema,
     TableShape,
 )
@@ -183,7 +192,7 @@ class DataExplorerTableView(abc.ABC):
             request.params.num_rows,
             request.params.column_indices,
             request.params.format_options,
-        ).dict()
+        )
 
     def export_data_selection(self, request: ExportDataSelectionRequest):
         self._recompute_if_needed()
@@ -310,7 +319,7 @@ class DataExplorerTableView(abc.ABC):
         num_rows: int,
         column_indices: Sequence[int],
         format_options: FormatOptions,
-    ) -> TableData:
+    ) -> dict:
         raise NotImplementedError
 
     def _export_data_selection(self, selection: DataSelection, fmt: ExportFormat) -> ExportedData:
@@ -371,8 +380,30 @@ class DataExplorerTableView(abc.ABC):
     def _prof_histogram(self, column_index: int) -> ColumnHistogram:
         raise NotImplementedError
 
+    FEATURES = None
+
     def _get_state(self) -> BackendState:
-        raise NotImplementedError
+        table_unfiltered_shape = TableShape(
+            num_rows=self.table.shape[0], num_columns=self.table.shape[1]
+        )
+
+        if self.view_indices is not None:
+            # Account for filters
+            table_shape = TableShape(
+                num_rows=len(self.view_indices),
+                num_columns=self.table.shape[1],
+            )
+        else:
+            table_shape = table_unfiltered_shape
+
+        return BackendState(
+            display_name=self.display_name,
+            table_shape=table_shape,
+            table_unfiltered_shape=table_unfiltered_shape,
+            row_filters=self.filters,
+            sort_keys=self.sort_keys,
+            supported_features=self.FEATURES,
+        )
 
 
 class UnsupportedView(DataExplorerTableView):
@@ -845,7 +876,7 @@ class PandasView(DataExplorerTableView):
         num_rows: int,
         column_indices: Sequence[int],
         format_options: FormatOptions,
-    ) -> TableData:
+    ) -> dict:
         formatted_columns = []
 
         column_indices = sorted(column_indices)
@@ -879,7 +910,8 @@ class PandasView(DataExplorerTableView):
         if isinstance(self.table.index, pd_.MultiIndex):
             indices = indices.to_flat_index()
         row_labels = [[str(x) for x in indices]]
-        return TableData(columns=formatted_columns, row_labels=row_labels)
+        # Bypass pydantic model for speed
+        return {"columns": formatted_columns, "row_labels": row_labels}
 
     @classmethod
     def _format_values(cls, values, options: FormatOptions) -> List[ColumnValue]:
@@ -1020,7 +1052,9 @@ class PandasView(DataExplorerTableView):
         elif filt.filter_type == RowFilterType.SetMembership:
             params = filt.set_membership_params
             assert params is not None
-            boxed_values = pd_.Series(params.values).astype(dtype)
+            boxed_values = pd_.Series(
+                [self._coerce_value(val, dtype, inferred_type) for val in params.values]
+            )
             # IN
             mask = col.isin(boxed_values)
             if not params.inclusive:
@@ -1329,29 +1363,6 @@ class PandasView(DataExplorerTableView):
         export_data_selection=ExportDataSelectionFeatures(support_status=SupportStatus.Supported),
     )
 
-    def _get_state(self) -> BackendState:
-        table_unfiltered_shape = TableShape(
-            num_rows=self.table.shape[0], num_columns=self.table.shape[1]
-        )
-
-        if self.view_indices is not None:
-            # Account for filters
-            table_shape = TableShape(
-                num_rows=len(self.view_indices),
-                num_columns=self.table.shape[1],
-            )
-        else:
-            table_shape = table_unfiltered_shape
-
-        return BackendState(
-            display_name=self.display_name,
-            table_shape=table_shape,
-            table_unfiltered_shape=table_unfiltered_shape,
-            row_filters=self.filters,
-            sort_keys=self.sort_keys,
-            supported_features=self.FEATURES,
-        )
-
 
 COMPARE_OPS = {
     CompareFilterParamsOp.Gt: operator.gt,
@@ -1400,6 +1411,8 @@ def _parse_iso8601_like(x, tz=None):
 
             # Localize tz-naive datetime if needed to avoid TypeError
             if tz is not None:
+                if isinstance(tz, str):
+                    tz = pytz.timezone(tz)
                 result = result.replace(tzinfo=tz)
 
             return result
@@ -1480,7 +1493,7 @@ class PolarsView(DataExplorerTableView):
         num_rows: int,
         column_indices: Sequence[int],
         format_options: FormatOptions,
-    ) -> TableData:
+    ) -> dict:
         formatted_columns = []
         column_indices = sorted(column_indices)
         columns = []
@@ -1494,14 +1507,19 @@ class PolarsView(DataExplorerTableView):
         formatted_columns = []
 
         if self.view_indices is not None:
-            raise NotImplementedError
+            # If the table is either filtered or sorted, use a slice
+            # the view_indices to select the virtual range of values
+            # for the grid
+            view_slice = self.view_indices[row_start : row_start + num_rows]
+            columns = [col.gather(view_slice) for col in columns]
         else:
             # No filtering or sorting, just slice
             columns = [col[row_start : row_start + num_rows] for col in columns]
 
         formatted_columns = [self._format_values(col, format_options) for col in columns]
 
-        return TableData(columns=formatted_columns)
+        # Bypass pydantic model for speed
+        return {"columns": formatted_columns, "row_labels": None}
 
     @classmethod
     def _format_values(cls, values, options: FormatOptions) -> List[ColumnValue]:
@@ -1552,7 +1570,14 @@ class PolarsView(DataExplorerTableView):
         RowFilterType.NotEmpty,
         RowFilterType.IsTrue,
         RowFilterType.IsFalse,
+        RowFilterType.Search,
+        RowFilterType.SetMembership,
     }
+
+    def _mask_to_indices(self, mask):
+        # Boolean array -> int32 array of true indices
+        if mask is not None:
+            return mask.arg_true()
 
     def _eval_filter(self, filt: RowFilter):
         column_index = filt.column_schema.column_index
@@ -1583,11 +1608,23 @@ class PolarsView(DataExplorerTableView):
             # pandas comparison filters return False for null values
             mask = op(col, self._coerce_value(params.value, dtype, display_type))
         elif filt.filter_type == RowFilterType.IsEmpty:
-            mask = col.str.len_chars() == 0
+            if col.dtype.is_(pl_.String):
+                mask = col.str.len_chars() == 0
+            elif col.dtype.is_(pl_.Binary):
+                # col == b"" segfaults in polars
+                mask = col.bin.encode("hex").str.len_chars() == 0
+            else:
+                raise TypeError(col.dtype)
+        elif filt.filter_type == RowFilterType.NotEmpty:
+            if col.dtype.is_(pl_.String):
+                mask = col.str.len_chars() != 0
+            elif col.dtype.is_(pl_.Binary):
+                # col == b"" segfaults in polars
+                mask = col.bin.encode("hex").str.len_chars() != 0
+            else:
+                raise TypeError(col.dtype)
         elif filt.filter_type == RowFilterType.IsNull:
             mask = col.is_null()
-        elif filt.filter_type == RowFilterType.NotEmpty:
-            mask = col.str.len_chars() != 0
         elif filt.filter_type == RowFilterType.NotNull:
             mask = ~col.is_null()
         elif filt.filter_type == RowFilterType.IsTrue:
@@ -1595,9 +1632,39 @@ class PolarsView(DataExplorerTableView):
         elif filt.filter_type == RowFilterType.IsFalse:
             mask = col == False  # noqa: E712
         elif filt.filter_type == RowFilterType.SetMembership:
-            raise NotImplementedError
+            params = filt.set_membership_params
+            assert params is not None
+
+            boxed_values = pl_.Series(
+                [self._coerce_value(val, dtype, display_type) for val in params.values]
+            )
+            mask = col.is_in(boxed_values)
+            if not params.inclusive:
+                # NOT-IN
+                mask = ~mask
         elif filt.filter_type == RowFilterType.Search:
-            raise NotImplementedError
+            params = filt.search_params
+            assert params is not None
+
+            if not col.dtype.is_(pl_.String):
+                col = col.cast(str)
+
+            term = params.term
+
+            if params.search_type == SearchFilterType.RegexMatch:
+                if not params.case_sensitive:
+                    term = "(?i)" + term
+                mask = col.str.contains(term)
+            else:
+                if not params.case_sensitive:
+                    col = col.str.to_lowercase()
+                    term = term.lower()
+                if params.search_type == SearchFilterType.Contains:
+                    mask = col.str.contains(term)
+                elif params.search_type == SearchFilterType.StartsWith:
+                    mask = col.str.starts_with(term)
+                elif params.search_type == SearchFilterType.EndsWith:
+                    mask = col.str.ends_with(term)
 
         assert mask is not None
 
@@ -1616,10 +1683,10 @@ class PolarsView(DataExplorerTableView):
                 return int(value)
             except ValueError as e:
                 try:
-                    return pl_.Series([value]).cast(pl.Float64)[0]
+                    return pl_.Series([value]).cast(pl_.Float64)[0]
                 except ValueError:
                     raise e
-        elif dtype.is_(pl.Boolean):
+        elif dtype.is_(pl_.Boolean):
             lvalue = value.lower()
             if lvalue == "true":
                 return True
@@ -1643,7 +1710,7 @@ class PolarsView(DataExplorerTableView):
             for key in self.sort_keys:
                 col = self._get_column(key.column_index)
                 cols_to_sort.append(col)
-                directions.append(key.ascending)
+                directions.append(not key.ascending)
 
             indexer_name = guid()
 
@@ -1653,13 +1720,13 @@ class PolarsView(DataExplorerTableView):
                 num_rows = len(self.table)
 
             # Do a stable sort of the indices using the columns as sort keys
-            to_sort = pl.DataFrame({indexer_name: pl.arange(num_rows, eager=True)}).sort(
+            to_sort = pl_.DataFrame({indexer_name: pl_.arange(num_rows, eager=True)}).sort(
                 cols_to_sort, descending=directions, maintain_order=True
             )
             sort_indexer = to_sort[indexer_name]
             if self.filtered_indices is not None:
                 # Create the filtered, sorted virtual view indices
-                self.view_indices = self.filtered_indices.take(sort_indexer)
+                self.view_indices = self.filtered_indices.gather(sort_indexer)
             else:
                 self.view_indices = sort_indexer
         else:
@@ -1673,7 +1740,7 @@ class PolarsView(DataExplorerTableView):
     def _get_column(self, column_index: int) -> "pl.Series":
         column = self.table[:, column_index]
         if self.filtered_indices is not None:
-            column = column.take(self.filtered_indices)
+            column = column.gather(self.filtered_indices)
         return column
 
     def _prof_summary_stats(self, column_index: int, options: FormatOptions) -> ColumnSummaryStats:
@@ -1688,7 +1755,7 @@ class PolarsView(DataExplorerTableView):
     FEATURES = SupportedFeatures(
         search_schema=SearchSchemaFeatures(support_status=SupportStatus.Unsupported),
         set_row_filters=SetRowFiltersFeatures(
-            support_status=SupportStatus.Unsupported,
+            support_status=SupportStatus.Supported,
             supports_conditions=SupportStatus.Unsupported,
             supported_types=[
                 RowFilterTypeSupportStatus(
@@ -1716,20 +1783,6 @@ class PolarsView(DataExplorerTableView):
         export_data_selection=ExportDataSelectionFeatures(support_status=SupportStatus.Unsupported),
         set_sort_columns=SetSortColumnsFeatures(support_status=SupportStatus.Unsupported),
     )
-
-    def _get_state(self) -> BackendState:
-        table_unfiltered_shape = TableShape(
-            num_rows=self.table.shape[0], num_columns=self.table.shape[1]
-        )
-
-        return BackendState(
-            display_name=self.display_name,
-            table_shape=table_unfiltered_shape,
-            table_unfiltered_shape=table_unfiltered_shape,
-            row_filters=self.filters,
-            sort_keys=self.sort_keys,
-            supported_features=self.FEATURES,
-        )
 
 
 class PyArrowView(DataExplorerTableView):
