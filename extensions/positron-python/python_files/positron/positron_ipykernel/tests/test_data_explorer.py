@@ -2329,6 +2329,7 @@ def test_polars_get_state(dxf: DataExplorerFixture):
     features = state["supported_features"]
     assert features["search_schema"]["support_status"] == SupportStatus.Unsupported
     assert features["set_row_filters"]["support_status"] == SupportStatus.Supported
+    assert features["set_sort_columns"]["support_status"] == SupportStatus.Supported
     assert features["get_column_profiles"]["support_status"] == SupportStatus.Supported
     assert features["get_column_profiles"]["supported_types"] == [
         ColumnProfileTypeSupportStatus(

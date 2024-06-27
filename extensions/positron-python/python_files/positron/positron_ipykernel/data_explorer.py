@@ -1781,7 +1781,7 @@ class PolarsView(DataExplorerTableView):
             ],
         ),
         export_data_selection=ExportDataSelectionFeatures(support_status=SupportStatus.Unsupported),
-        set_sort_columns=SetSortColumnsFeatures(support_status=SupportStatus.Unsupported),
+        set_sort_columns=SetSortColumnsFeatures(support_status=SupportStatus.Supported),
     )
 
 
