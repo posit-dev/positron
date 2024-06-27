@@ -792,7 +792,7 @@ class PandasView(DataExplorerTableView):
 
         # TODO: pandas MultiIndex columns
         # TODO: time zone for datetimetz datetime64[ns] types
-        if dtype == object:
+        if dtype == object:  # noqa: E721
             type_name = get_inferred_dtype()
             type_name = cls.TYPE_NAME_MAPPING.get(type_name, type_name)
         else:
