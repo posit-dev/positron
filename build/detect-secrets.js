@@ -112,7 +112,9 @@ const detectSecretsScan = (args, stdio) => {
 try {
 	detectSecrets('--version');
 } catch (error) {
+	console.error(); // print newline
 	console.error(`${'Error:'.red} detect-secrets is not installed. Install detect-secrets with ${'pip install detect-secrets'.magenta} or ${'brew install detect-secrets'.magenta}.`);
+	console.error(); // print newline
 	process.exit(ExitCodes.DETECT_SECRETS_WRAPPER_ERROR);
 }
 
