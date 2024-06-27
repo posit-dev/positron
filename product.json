@@ -204,6 +204,21 @@
 				"publisherDisplayName": "ms-python",
 				"multiPlatformServiceUrl": "https://open-vsx.org/api"
 			}
+		},
+		{
+			"name": "jeanp413.open-remote-ssh",
+			"version": "0.0.46",
+			"repo": "https://github.com/jeanp413/open-remote-ssh",
+			"metadata": {
+				"id": "19a292fa-b433-4cc4-9ba8-e588dd4603a6",
+				"publisherId": {
+					"publisherId": "b2eb5121-3f2e-4a1d-b602-d9d093d6c418",
+					"publisherName": "jeanp413",
+					"displayName": "Open Remote SSH",
+					"flags": "verified"
+				},
+				"publisherDisplayName": "jeanp413"
+			}
 		}
 	],
 	"extensionsGallery": {
