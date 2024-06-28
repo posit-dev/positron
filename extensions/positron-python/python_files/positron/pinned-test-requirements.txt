@@ -12,6 +12,6 @@ pytest==8.0.2
 pytest-asyncio==0.23.5
 pytest-mock==3.12.0
 polars==0.20.31; python_version >= '3.9'
-polars[timezone]==0.20.13; python_version < '3.9' or sys_platform == 'win32'
+polars[timezone]==0.20.31; python_version < '3.9' or sys_platform == 'win32'
 torch==2.1.2; python_version < '3.12'
 sqlalchemy==2.0.28
