@@ -347,7 +347,6 @@ foo(
 # ---
 # Breaking parentheses in a pipeline
 # https://github.com/posit-dev/positron/issues/2650
-# https://github.com/posit-dev/positron/discussions/46
 foo() +
     bar("<>")
 
