@@ -25,7 +25,7 @@ data |>
 
 # ->
 data |>
-    
+
     "<>"
 
 # ---
@@ -37,7 +37,7 @@ data |>
 # ->
 data |>
 
-    
+
     "<>"
 
 # ---
@@ -69,7 +69,7 @@ data |>
 
 # ->
 data |>
-    fn() |> 
+    fn() |>
     "<>"
 
 # ---
@@ -79,7 +79,7 @@ data |>
 
 # ->
 data |>
-    fn() |> 
+    fn() |>
     "<>"# foo
 
 # ---
@@ -105,7 +105,7 @@ data |>
 data |>
     fn1() |>
     # foo
-    
+
     "<>"
 
 # ---
@@ -151,7 +151,7 @@ data |>
     fn1(
         x,
         y
-    ) |> 
+    ) |>
     "<>"fn2()
 
 # ---
@@ -252,7 +252,7 @@ data |>
 {
     data |>
         fn()
-    
+
     "<>"
 }
 
@@ -347,7 +347,6 @@ foo(
 # ---
 # Breaking parentheses in a pipeline
 # https://github.com/posit-dev/positron/issues/2650
-# https://github.com/posit-dev/positron-beta/discussions/46
 foo() +
     bar("<>")
 
