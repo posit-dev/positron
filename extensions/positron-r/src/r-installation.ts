@@ -6,7 +6,7 @@
 import * as semver from 'semver';
 import * as path from 'path';
 import * as fs from 'fs';
-import { extractValue, readLines } from './util';
+import { extractValue, readLines, removeSurroundingQuotes } from './util';
 import { LOGGER } from './extension';
 import { MINIMUM_R_VERSION } from './constants';
 
@@ -161,7 +161,8 @@ function getRHomePathNotWindows(binPath: string): string | undefined {
 	// macOS: R_HOME_DIR=/Library/Frameworks/R.framework/Versions/4.3-arm64/Resources
 	// macOS non-orthogonal: R_HOME_DIR=/Library/Frameworks/R.framework/Resources
 	// linux: R_HOME_DIR=/opt/R/4.2.3/lib/R
-	const R_HOME_DIR = extractValue(targetLine, 'R_HOME_DIR');
+	// On linux we have seen the path surrounded with double quotes, which must be removed (#3696).
+	const R_HOME_DIR = removeSurroundingQuotes(extractValue(targetLine, 'R_HOME_DIR'));
 	const homepath = R_HOME_DIR;
 	if (homepath === '') {
 		LOGGER.info(`Can\'t determine R_HOME_DIR from the binary: ${binPath}`);
