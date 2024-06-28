@@ -5,6 +5,7 @@
 
 # ruff: noqa: E712
 
+import inspect
 import math
 from datetime import datetime
 from decimal import Decimal
@@ -51,6 +52,12 @@ from .test_variables import BIG_ARRAY_LENGTH
 from .utils import json_rpc_notification, json_rpc_request
 
 TARGET_NAME = "positron.dataExplorer"
+
+
+def supports_keyword(func, keyword):
+    signature = inspect.signature(func)
+    return keyword in signature.parameters
+
 
 # ----------------------------------------------------------------------
 # pytest fixtures
@@ -2670,6 +2677,10 @@ def test_polars_filter_set_membership(dxf: DataExplorerFixture):
         dxf.check_filter_case(df, filter_set, expected_df)
 
 
+@pytest.mark.skipif(
+    not supports_keyword(pl.DataFrame.sort, "maintain_order"),
+    reason="Older versions of polars do not support stable sorting",
+)
 def test_polars_set_sort_columns(dxf: DataExplorerFixture):
     tables = {
         "df1": pl.DataFrame(SIMPLE_DATA),
@@ -2725,8 +2736,8 @@ def test_polars_set_sort_columns(dxf: DataExplorerFixture):
             "descending": expected_params.get("descending", False),
             "maintain_order": True,
         }
-        expected_df = df.sort(*args, **kwds)
 
+        expected_df = df.sort(*args, **kwds)
         dxf.check_sort_case(df, wrapped_keys, expected_df)
 
         for filter_f, filters in filter_cases.get(df_name, []):

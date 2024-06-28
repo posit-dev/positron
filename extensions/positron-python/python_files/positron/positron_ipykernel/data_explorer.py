@@ -1720,9 +1720,14 @@ class PolarsView(DataExplorerTableView):
                 num_rows = len(self.table)
 
             # Do a stable sort of the indices using the columns as sort keys
-            to_sort = pl_.DataFrame({indexer_name: pl_.arange(num_rows, eager=True)}).sort(
-                cols_to_sort, descending=directions, maintain_order=True
-            )
+            to_sort = pl_.DataFrame({indexer_name: pl_.arange(num_rows, eager=True)})
+
+            try:
+                to_sort = to_sort.sort(cols_to_sort, descending=directions, maintain_order=True)
+            except TypeError:
+                # Older versions of polars do not have maintain_order
+                to_sort = to_sort.sort(cols_to_sort, descending=directions)
+
             sort_indexer = to_sort[indexer_name]
             if self.filtered_indices is not None:
                 # Create the filtered, sorted virtual view indices
