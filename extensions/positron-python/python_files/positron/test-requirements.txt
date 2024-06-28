@@ -6,6 +6,7 @@ numpy
 pandas
 polars; python_version >= '3.9'
 polars[timezone]; python_version < '3.9' or sys_platform == 'win32'
+pyarrow
 pytest<8.1.1
 pytest-asyncio
 pytest-mock
