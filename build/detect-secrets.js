@@ -20,7 +20,7 @@ const ExitCodes = {
 	SUCCESS: 0,                         // success
 	FOUND_SECRETS_OR_BASELINE_ISSUE: 1, // detect-secrets-hook found secrets or encountered a baseline file issue
 	DETECT_SECRETS_WRAPPER_ERROR: 2,    // an error occurred in this script
-	DETECT_SECRETS_ERROR: 999,          // an error occurred in detect-secrets (detect-secrets status code is appended)
+	DETECT_SECRETS_ERROR: 3,            // an error occurred in detect-secrets
 };
 
 // Debug print handling
@@ -100,7 +100,7 @@ const detectSecrets = (args, stdio, throwIfError = false) => {
 		} else {
 			// print error and exit with the error code
 			console.error(`\n${error.toString().red}\n`);
-			process.exit(`${ExitCodes.DETECT_SECRETS_ERROR}${error.status}`);
+			process.exit(ExitCodes.DETECT_SECRETS_ERROR);
 		}
 	}
 };
@@ -213,7 +213,7 @@ const runDetectSecretsHook = () => {
 		if (error.stderr) {
 			console.error(error.stderr.toString().red);
 		}
-		process.exit(`${ExitCodes.DETECT_SECRETS_ERROR}${error.status}`);
+		process.exit(ExitCodes.DETECT_SECRETS_ERROR);
 	}
 };
 
