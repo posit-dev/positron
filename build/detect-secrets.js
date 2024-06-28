@@ -94,7 +94,7 @@ const detectSecrets = (args, stdio, throwIfError = false) => {
 	} catch (error) {
 		printDebug(error);
 		if (throwIfError) {
-		// throw error to handle it in the calling function
+			// throw error to handle it in the calling function
 			throw error;
 		} else {
 			// print error and exit with the error code
@@ -118,6 +118,7 @@ const detectSecretsScan = (args, stdio) => {
 
 // Ensure that detect-secrets is installed
 try {
+	// pipe the stdio so we print our own error message if detect-secrets is not installed
 	detectSecrets('--version', stdio = 'pipe', throwIfError = true);
 } catch (error) {
 	printDebug(error);
@@ -209,7 +210,8 @@ const runDetectSecretsHook = () => {
 };
 
 // --no-verify is used to skip additional secret verification via a network call
-// If it is specified for creating the baseline file, it should also be specified for updating the baseline file
+// (it is not related to the similarly named git option to skip hooks)
+// If it is specified for creating the baseline file, it should also be specified for updating the baseline file and running the hook
 const noVerify = '--no-verify';
 
 // Exclude external files (third-party libraries, etc.) from the baseline file
@@ -261,6 +263,7 @@ switch (command) {
 	case 'audit-baseline':
 		console.log(`Auditing detect-secrets baseline file ${baselineFile.underline}...`);
 		ensureBaselineFileExists();
+		// inherit the stdio so that the user can interact with the audit process
 		detectSecrets(`audit ${baselineFile}`, stdio = 'inherit');
 		break;
 	case 'update-baseline': {
