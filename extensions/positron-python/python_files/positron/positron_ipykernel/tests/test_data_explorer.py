@@ -1588,7 +1588,11 @@ def test_schema_change_scenario2(ssf: SchemaChangeFixture):
             ]
         }
 
+    # pandas
     ssf.check_scenario("df", scenario2, "df['a'] = df['a'].astype('int16')")
+
+    # polars
+    ssf.check_scenario("dfp", scenario2, "dfp = dfp.with_columns(pl.col('a').cast(pl.Int16))")
 
 
 def test_schema_change_scenario3(ssf: SchemaChangeFixture):
@@ -1604,7 +1608,11 @@ def test_schema_change_scenario3(ssf: SchemaChangeFixture):
             "updated_sort_keys": [],
         }
 
+    # pandas
     ssf.check_scenario("df", scenario3, "del df['a']")
+
+    # polars
+    ssf.check_scenario("dfp", scenario3, "dfp = dfp.drop('a')")
 
 
 def test_schema_change_scenario4(ssf: SchemaChangeFixture):
@@ -1618,7 +1626,11 @@ def test_schema_change_scenario4(ssf: SchemaChangeFixture):
             ]
         }
 
+    # pandas
     ssf.check_scenario("df", scenario4, "df = df[['b']]")
+
+    # polars
+    ssf.check_scenario("dfp", scenario4, "dfp = dfp[:, ['b']]")
 
 
 def test_schema_change_scenario5(ssf: SchemaChangeFixture):
@@ -1631,7 +1643,15 @@ def test_schema_change_scenario5(ssf: SchemaChangeFixture):
             ]
         }
 
-    ssf.check_scenario("df", scenario5, "df.insert(1, 'c', df.pop('b'))")
+    # pandas
+    ssf.check_scenario("df", scenario5, "df.insert(1, 'b2', df.pop('b'))")
+
+    # polars
+    ssf.check_scenario(
+        "dfp",
+        scenario5,
+        "dfp = dfp.drop('b').insert_column(1, dfp['b'].alias('b2'))",
+    )
 
 
 def test_schema_change_scenario6(ssf: SchemaChangeFixture):
@@ -1645,7 +1665,11 @@ def test_schema_change_scenario6(ssf: SchemaChangeFixture):
             ]
         }
 
-    ssf.check_scenario("df", scenario6, "df['c'] = df['b']")
+    # pandas
+    ssf.check_scenario("df", scenario6, "df['b2'] = df['b']")
+
+    # polars
+    ssf.check_scenario("dfp", scenario6, "dfp = dfp.with_columns(dfp['b'].alias('b2'))")
 
 
 def test_schema_change_scenario7(ssf: SchemaChangeFixture, dxf: DataExplorerFixture):
@@ -1657,6 +1681,8 @@ def test_schema_change_scenario7(ssf: SchemaChangeFixture, dxf: DataExplorerFixt
                 (_compare_filter(schema[0], "<", "4"), False),
             ]
         }
+
+    ## pandas
 
     # Scenario 7 -- Validate the setup, so the filter will be invalid
     # after this
@@ -1672,6 +1698,14 @@ def test_schema_change_scenario7(ssf: SchemaChangeFixture, dxf: DataExplorerFixt
     assert filt["is_valid"]
     assert filt["error_message"] is None
 
+    ## polars
+    ssf.check_scenario("dfp", scenario7, "dfp = dfp.drop('a')")
+    dxf.execute_code("dfp = dfp_original.clone()")
+    state = dxf.get_state("dfp")
+    filt = state["row_filters"][0]
+    assert filt["is_valid"]
+    assert filt["error_message"] is None
+
 
 def test_schema_change_scenario8(ssf: SchemaChangeFixture):
     # Scenario 8: Delete sorted column in middle of table
@@ -1681,7 +1715,11 @@ def test_schema_change_scenario8(ssf: SchemaChangeFixture):
             "updated_sort_keys": [],
         }
 
+    # pandas
     ssf.check_scenario("df", scenario8, "del df['b']")
+
+    # polars
+    ssf.check_scenario("dfp", scenario8, "dfp = dfp.drop('b')")
 
 
 def test_pandas_set_sort_columns(dxf: DataExplorerFixture):
