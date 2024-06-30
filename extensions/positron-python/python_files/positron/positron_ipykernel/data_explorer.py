@@ -90,7 +90,6 @@ if TYPE_CHECKING:
 
     # import pyarrow as pa
 
-
 logger = logging.getLogger(__name__)
 
 
@@ -303,10 +302,107 @@ class DataExplorerTableView(abc.ABC):
         return self._get_state().dict()
 
     def _recompute(self):
-        raise NotImplementedError
+        # Re-setting the column filters will trigger filtering AND
+        # sorting
+        self._set_row_filters(self.filters)
 
     def get_updated_state(self, new_table) -> StateUpdate:
         raise NotImplementedError
+
+    def _get_adjusted_filters(
+        self,
+        new_columns,
+        schema_changes,
+        shifted_columns,
+        deleted_columns,
+        schema_getter,
+    ):
+        # Shared by implementations of get_updated_state
+        new_filters = []
+        for filt in self.filters:
+            column_index = filt.column_schema.column_index
+            column_name = filt.column_schema.column_name
+
+            filt = filt.copy(deep=True)
+
+            is_deleted = False
+            if column_index in schema_changes:
+                # A schema change is only valid if the column name is
+                # the same, otherwise it's a deletion
+                change = schema_changes[column_index]
+                if column_name == change.column_name:
+                    filt.column_schema = change.copy()
+                else:
+                    # Column may be deleted. We need to distinguish
+                    # between the case of a deleted column that was
+                    # filtered and a filter that was invalid and is
+                    # now valid again as a result of changes in the
+                    # data (e.g. deleting a column and then re-adding
+                    # it right away)
+                    if str(new_columns[column_index]) == column_name:
+                        # Probably a new column that allows the old
+                        # filter to become valid again if the type is
+                        # compatible
+                        filt.column_schema = schema_getter(
+                            column_name,
+                            column_index,
+                        )
+                    else:
+                        is_deleted = True
+            elif column_index in shifted_columns:
+                filt.column_schema.column_index = shifted_columns[column_index]
+            elif column_index in deleted_columns:
+                # Column deleted
+                is_deleted = True
+
+            # If the column was not deleted, we always reset the
+            # validity state of the filter in case something we
+            # did to the data made a previous filter error (which
+            # set the is_valid flag to False) to go away.
+            if is_deleted:
+                filt.is_valid = False
+                filt.error_message = "Column was deleted"
+            else:
+                filt.is_valid = self._is_supported_filter(filt)
+                if filt.is_valid:
+                    filt.error_message = None
+                else:
+                    filt.error_message = "Unsupported column type for filter"
+
+            new_filters.append(filt)
+
+        return new_filters
+
+    def _get_adjusted_sort_keys(
+        self, new_columns, schema_changes, shifted_columns, deleted_columns
+    ):
+        # Shared by implementations of get_updated_state
+        new_sort_keys = []
+        for i, key in enumerate(self.sort_keys):
+            column_index = key.column_index
+            prior_name = self._sort_key_schemas[i].column_name
+
+            key = key.copy()
+
+            # Evict any sort key that was deleted
+            if column_index in schema_changes:
+                # A schema change is only valid if the column name is
+                # the same, otherwise it's a deletion
+                change = schema_changes[column_index]
+                if prior_name == change.column_name:
+                    key.column_schema = change.copy()
+                else:
+                    # Column deleted
+                    continue
+            elif column_index in shifted_columns:
+                key.column_index = shifted_columns[column_index]
+            elif column_index in deleted_columns or prior_name != str(new_columns[column_index]):
+                # Column deleted
+                continue
+
+            new_sort_keys.append(key)
+
+        return new_sort_keys
 
     def _search_schema(
         self, search_term: str, start_index: int, max_results: int
@@ -653,93 +749,22 @@ class PandasView(DataExplorerTableView):
 
             schema_changes[old_index] = _get_column_schema(new_column, str(column_name), new_index)
 
-        new_filters = []
-        for filt in self.filters:
-            column_index = filt.column_schema.column_index
-            column_name = filt.column_schema.column_name
+        def schema_getter(column_name, column_index):
+            return _get_column_schema(new_table.iloc[:, column_index], column_name, column_index)
 
-            filt = filt.copy(deep=True)
+        new_filters = self._get_adjusted_filters(
+            new_table.columns,
+            schema_changes,
+            shifted_columns,
+            deleted_columns,
+            schema_getter,
+        )
 
-            is_deleted = False
-            if column_index in schema_changes:
-                # A schema change is only valid if the column name is
-                # the same, otherwise it's a deletion
-                change = schema_changes[column_index]
-                if column_name == change.column_name:
-                    filt.column_schema = change.copy()
-                else:
-                    # Column may be deleted. We need to distinguish
-                    # between the case of a deleted column that was
-                    # filtered and a filter that was invalid and is
-                    # now valid again as a result of changes in the
-                    # data (e.g. deleting a column and then re-adding
-                    # it right away)
-                    if str(new_table.columns[column_index]) == column_name:
-                        # Probably a new column that allows the old
-                        # filter to become valid again if the type is
-                        # compatible
-                        filt.column_schema = _get_column_schema(
-                            new_table.iloc[:, column_index],
-                            column_name,
-                            column_index,
-                        )
-                    else:
-                        is_deleted = True
-            elif column_index in shifted_columns:
-                filt.column_schema.column_index = shifted_columns[column_index]
-            elif column_index in deleted_columns:
-                # Column deleted
-                is_deleted = True
-
-            # If the column was not deleted, we always reset the
-            # validity state of the filter in case something we
-            # did to the data made a previous filter error (which
-            # set the is_valid flag to False) to go away.
-            if is_deleted:
-                filt.is_valid = False
-                filt.error_message = "Column was deleted"
-            else:
-                filt.is_valid = self._is_supported_filter(filt)
-                if filt.is_valid:
-                    filt.error_message = None
-                else:
-                    filt.error_message = "Unsupported column type for filter"
-
-            new_filters.append(filt)
-
-        new_sort_keys = []
-        for i, key in enumerate(self.sort_keys):
-            column_index = key.column_index
-            prior_name = self._sort_key_schemas[i].column_name
-
-            key = key.copy()
-
-            # Evict any sort key that was deleted
-            if column_index in schema_changes:
-                # A schema change is only valid if the column name is
-                # the same, otherwise it's a deletion
-                change = schema_changes[column_index]
-                if prior_name == change.column_name:
-                    key.column_schema = change.copy()
-                else:
-                    # Column deleted
-                    continue
-            elif column_index in shifted_columns:
-                key.column_index = shifted_columns[column_index]
-            elif column_index in deleted_columns or prior_name != str(
-                new_table.columns[column_index]
-            ):
-                # Column deleted
-                continue
-
-            new_sort_keys.append(key)
+        new_sort_keys = self._get_adjusted_sort_keys(
+            new_table.columns, schema_changes, shifted_columns, deleted_columns
+        )
 
         return schema_updated, new_filters, new_sort_keys
-
-    def _recompute(self):
-        # Re-setting the column filters will trigger filtering AND
-        # sorting
-        self._set_row_filters(self.filters)
 
     def _search_schema(
         self, search_term: str, start_index: int, max_results: int
@@ -1273,9 +1298,11 @@ class PandasView(DataExplorerTableView):
 
     @staticmethod
     def _summarize_datetime(col: "pd.Series", options: FormatOptions):
-        # when there are mixed timezones in a single column, it's possible that
-        # any of the operations below can fail. specially if they mix timezone aware
-        # datetimes with naive datetimes.
+        # when there are mixed timezones in a single column, it's
+        # possible that any of the operations below can
+        # fail. specially if they mix timezone aware datetimes with
+        # naive datetimes.
+
         # if an error happens we return `None` as the field value.
         min_date = _possibly(col.min)
         mean_date = _possibly(col.mean)
@@ -1432,18 +1459,137 @@ class PolarsView(DataExplorerTableView):
     ):
         super().__init__(display_name, table, filters, sort_keys)
 
-    def _recompute(self):
-        raise NotImplementedError
-
     def get_updated_state(self, new_table) -> StateUpdate:
-        raise NotImplementedError
+        filtered_columns = {
+            filt.column_schema.column_index: filt.column_schema for filt in self.filters
+        }
+
+        # As of June 2024, polars seems to be really slow for
+        # inspecting the metadata of data frames with a large amount
+        # of columns. DataFrame.columns, DataFrame.schema, etc. are
+        # fairly expensive. Until this changes (or we add some methods
+        # in polars to do the metadata comparisons that we need in
+        # Rust), we have to be pretty conservative about how much
+        # metadata we touch.
+        #
+        # Note also the syntax "column_name in df" is fairly slow
+
+        INSPECT_THRESHOLD = 1_000
+        if new_table.shape[1] > INSPECT_THRESHOLD:
+            # We always say the schema was updated. We'll let filter
+            # and sort keys get invalidated by downstream checking
+            # rather than proactive invalidation
+            return True, self.filters, self.sort_keys
+
+        # self.table may have been modified in place, so we cannot
+        # assume that new_table is different than self.table
+        if new_table is self.table:
+            # For in-place updates, we have to assume the worst case
+            # scenario of a schema change since we do not have access
+            # to the previous schema
+            schema_updated = True
+        else:
+            # The table object has changed -- now we look for
+            # suspected schema changes
+            schema_updated = False
+
+        # We go through the columns in the new table and see whether
+        # there is a type change or whether a column name moved.
+        shifted_columns: Dict[int, int] = {}
+        deleted_columns: Set[int] = set()
+        schema_changes: Dict[int, ColumnSchema] = {}
+
+        # When computing the new display type of a column requires
+        # calling infer_dtype, we are careful to only do it for
+        # columns that are involved in a filter
+        new_columns = new_table.columns
+        new_columns_set = {c: i for i, c in enumerate(new_columns)}
+        if new_table is self.table:
+            old_columns = new_columns
+            old_columns_set = new_columns_set
+        else:
+            old_columns = self.table.columns
+            old_columns_set = {c: i for i, c in enumerate(self.table.columns)}
+
+        for old_index, column in enumerate(old_columns):
+            if column not in new_columns_set:
+                deleted_columns.add(old_index)
+                schema_updated = True
+
+        for new_index, column_name in enumerate(new_columns):
+            # New table has more columns than the old table
+            out_of_bounds = new_index >= len(old_columns)
+
+            if out_of_bounds or old_columns[new_index] != column_name:
+                if column_name not in old_columns_set:
+                    # New column
+                    schema_updated = True
+                    continue
+                # Column was shifted
+                old_index = old_columns_set[column_name]
+                shifted_columns[old_index] = new_index
+            else:
+                old_index = new_index
+
+            new_column = new_table[:, new_index]
+
+            if new_table is not self.table:
+                # While we must proceed under the conservative
+                # possibility that the table was modified in place, if
+                # the tables are indeed different we can check for
+                # schema changes more confidently
+                old_dtype = self.table[:, old_index].dtype
+                if new_column.dtype == old_dtype:
+                    # Type is the same
+                    continue
+            elif old_index in filtered_columns:
+                # If it was an in place modification, as a last ditch
+                # effort we check if we remember the data type because
+                # of a prior filter
+                if filtered_columns[old_index].type_name == str(new_column.dtype):
+                    # Type is the same and not object dtype
+                    continue
+
+            # The type maybe changed (it could have been an in place
+            # update)
+            schema_updated = True
+
+            if old_index not in filtered_columns:
+                # This column index did not have a row filter
+                # attached to it, so doing further analysis is
+                # unnecessary
+                continue
+
+            schema_changes[old_index] = self._construct_schema(
+                new_column, new_index, name=column_name
+            )
+
+        def schema_getter(column_name, column_index):
+            return self._construct_schema(new_table[:, column_index], column_name, column_index)
+
+        new_filters = self._get_adjusted_filters(
+            new_columns,
+            schema_changes,
+            shifted_columns,
+            deleted_columns,
+            schema_getter,
+        )
+
+        new_sort_keys = self._get_adjusted_sort_keys(
+            new_columns, schema_changes, shifted_columns, deleted_columns
+        )
+
+        return schema_updated, new_filters, new_sort_keys
 
     def _get_single_column_schema(self, column_index: int):
-        column: "pl.Series" = self.table[:, column_index]
+        column = self.table[:, column_index]
+        return self._construct_schema(column, column_index, name=column.name)
+
+    def _construct_schema(self, column: "pl.Series", column_index: int, name=None):
         type_display = self._get_type_display(column.dtype)
 
         return ColumnSchema(
-            column_name=column.name,
+            column_name=name,
             column_index=column_index,
             type_name=str(column.dtype),
             type_display=type_display,

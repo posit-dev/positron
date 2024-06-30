@@ -18,6 +18,9 @@ from positron_ipykernel.positron_ipkernel import (
 )
 from positron_ipykernel.session_mode import SessionMode
 from positron_ipykernel.variables import VariablesService
+import positron_ipykernel.utils as utils
+
+utils.TESTING = True
 
 
 class DummyComm(comm.base_comm.BaseComm):

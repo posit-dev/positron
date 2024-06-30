@@ -7,6 +7,7 @@
 
 import inspect
 import math
+import pprint
 from datetime import datetime
 from decimal import Decimal
 from io import StringIO
@@ -15,7 +16,6 @@ from typing import Any, Dict, List, Optional, Type, cast
 import numpy as np
 import pandas as pd
 import polars as pl
-import pprint
 import pytest
 import pytz
 
@@ -302,8 +302,15 @@ class DataExplorerFixture:
         self.register_table("simple", SIMPLE_PANDAS_DF)
         self._table_views = {}
 
+        shell.run_cell("import pandas as pd")
+        shell.run_cell("import polars as pl")
+        variables_comm.messages.clear()
+
+    def assign_variable(self, name: str, value):
+        _assign_variables(self.shell, self.variables_comm, **{name: value})
+
     def assign_and_open_viewer(self, table_name: str, table):
-        _assign_variables(self.shell, self.variables_comm, **{table_name: table})
+        self.assign_variable(table_name, table)
         path_df = _open_viewer(self.variables_comm, [table_name])
         comm_id = list(self.de_service.path_to_comm_ids[path_df])[0]
 
@@ -484,7 +491,7 @@ class DataExplorerFixture:
                 raise AssertionError(f"Indices differ at {str(different_indices)}")
 
 
-@pytest.fixture()
+@pytest.fixture
 def dxf(
     shell: PositronShell,
     de_service: DataExplorerService,
@@ -1378,58 +1385,66 @@ def test_pandas_filter_search(dxf: DataExplorerFixture):
         )
 
 
-def test_pandas_variable_updates(
+def test_variable_updates(
     shell: PositronShell,
     de_service: DataExplorerService,
     variables_comm: DummyComm,
     dxf: DataExplorerFixture,
 ):
     x = pd.DataFrame({"a": [1, 0, 3, 4]})
+    x_pl = pl.DataFrame({"a": [1, 0, 3, 4]})
     big_array = np.arange(BIG_ARRAY_LENGTH)
     big_x = pd.DataFrame({"a": big_array})
+    big_xpl = pl.DataFrame({"a": big_array})
 
     _assign_variables(
         shell,
         variables_comm,
         x=x,
+        x_pl=x_pl,
         big_x=big_x,
+        big_xpl=big_xpl,
         y={"key1": SIMPLE_PANDAS_DF, "key2": SIMPLE_PANDAS_DF},
     )
 
     # Check updates
 
     path_x = _open_viewer(variables_comm, ["x"])
+    path_xpl = _open_viewer(variables_comm, ["x_pl"])
     _open_viewer(variables_comm, ["big_x"])
+    _open_viewer(variables_comm, ["big_xpl"])
     _open_viewer(variables_comm, ["y", "key1"])
     _open_viewer(variables_comm, ["y", "key2"])
     _open_viewer(variables_comm, ["y", "key2"])
 
+    def _do_rpc(path, method, params):
+        for comm_id in de_service.path_to_comm_ids[path]:
+            msg = json_rpc_request(method, params=params, comm_id=comm_id)
+            de_service.comms[comm_id].comm.handle_msg(msg)
+
     # Do a simple update and make sure that sort keys are preserved
-    x_comm_id = list(de_service.path_to_comm_ids[path_x])[0]
     x_sort_keys = [{"column_index": 0, "ascending": True}]
-    msg = json_rpc_request(
-        "set_sort_columns",
-        params={"sort_keys": x_sort_keys},  # type: ignore
-        comm_id=x_comm_id,
-    )
-    de_service.comms[x_comm_id].comm.handle_msg(msg)
-    shell.run_cell("import pandas as pd")
+
+    _do_rpc(path_x, "set_sort_columns", {"sort_keys": x_sort_keys})
+    _do_rpc(path_xpl, "set_sort_columns", {"sort_keys": x_sort_keys})
+
     shell.run_cell("x = pd.DataFrame({'a': [1, 0, 3, 4, 5]})")
     _check_update_variable(de_service, "x", update_type="data")
 
-    tv = de_service.table_views[x_comm_id]
-    assert tv.sort_keys == [ColumnSortKey(**k) for k in x_sort_keys]
-    assert tv._need_recompute
+    shell.run_cell("x_pl = pl.DataFrame({'a': [1, 0, 3, 4, 5]})")
+    _check_update_variable(de_service, "x_pl", update_type="data")
 
-    new_state = dxf.get_state("x")
-    assert new_state["display_name"] == "x"
-    assert new_state["table_shape"]["num_rows"] == 5
-    assert new_state["table_shape"]["num_columns"] == 1
-    assert new_state["sort_keys"] == [ColumnSortKey(**k) for k in x_sort_keys]
+    for name in ("x", "x_pl"):
+        new_state = dxf.get_state(name)
+        assert new_state["display_name"] == name
+        assert new_state["table_shape"]["num_rows"] == 5
+        assert new_state["table_shape"]["num_columns"] == 1
+        assert new_state["sort_keys"] == [ColumnSortKey(**k) for k in x_sort_keys]
 
     # Execute code that triggers an update event for big_x because it's large
     shell.run_cell("None")
     _check_update_variable(de_service, "big_x", update_type="schema")
+    _check_update_variable(de_service, "big_xpl", update_type="schema")
 
     # Update nested values in y and check for schema updates
     shell.run_cell(
@@ -1447,34 +1462,55 @@ def test_pandas_variable_updates(
     _check_update_variable(de_service, "y", update_type="schema")
 
 
-def test_pandas_schema_change_state_updates(dxf: DataExplorerFixture):
-    df = pd.DataFrame(
-        {
-            "a": [1, 2, 3, 4, 5],
-            "b": ["foo", "bar", None, "baz", "qux"],
-            "c": [False, True, False, True, False],
-        }
-    )
+# Test a variety of state change scenarios for pandas and polars to
+# make sure the updates are correct.
 
-    dxf.assign_and_open_viewer("df", df.copy())
-    schema = dxf.get_schema("df")
 
-    def _check_scenario(var, scenario, code: str):
+class SchemaChangeFixture:
+    def __init__(self, dxf: DataExplorerFixture):
+        self.dxf = dxf
+
+        self.df = pd.DataFrame(
+            {
+                "a": [1, 2, 3, 4, 5],
+                "b": ["foo", "bar", None, "baz", "qux"],
+                "c": [False, True, False, True, False],
+            }
+        )
+        self.dxf.assign_variable("df_original", self.df.copy())
+        self.dxf.assign_and_open_viewer("df", self.df)
+
+        self.dfp = pl.DataFrame(
+            {
+                "a": [1, 2, 3, 4, 5],
+                "b": ["foo", "bar", None, "baz", "qux"],
+                "c": [False, True, False, True, False],
+            }
+        )
+        self.dxf.assign_and_open_viewer("dfp_original", self.dfp.clone())
+        self.dxf.assign_and_open_viewer("dfp", self.dfp)
+
+    def cleanup(self):
+        self.dxf.de_service.shutdown()
+
+    def check_scenario(self, table_id: str, scenario_f, code: str):
+        scenario = scenario_f(self.dxf, table_id)
+
         filter_spec = scenario.get("filters", [])
 
         if "sort_keys" in scenario:
-            dxf.set_sort_columns(var, sort_keys=scenario["sort_keys"])
+            self.dxf.set_sort_columns(table_id, sort_keys=scenario["sort_keys"])
 
         if len(filter_spec) > 0:
-            dxf.set_row_filters(var, filters=list(zip(*filter_spec))[0])
+            self.dxf.set_row_filters(table_id, filters=list(zip(*filter_spec))[0])
 
-        dxf.execute_code(code)
+        self.dxf.execute_code(code)
 
         # Get state and confirm that the right filters were made
         # invalid
-        state = dxf.get_state(var)
+        state = self.dxf.get_state(table_id)
         updated_filters = state["row_filters"]
-        new_schema = dxf.get_schema(var)
+        new_schema = self.dxf.get_schema(table_id)
 
         if "sort_keys" in scenario:
             assert state["sort_keys"] == scenario["updated_sort_keys"]
@@ -1496,104 +1532,139 @@ def test_pandas_schema_change_state_updates(dxf: DataExplorerFixture):
                 # Check that schema was updated
                 assert updated_filters[i]["column_schema"] == new_col_schema
 
-    # Scenario 1: convert "a" from integer to string
-    # (filter, is_valid_after_change)
-    dxf.assign_and_open_viewer("df1", df.copy())
-    scenario1 = {
-        "filters": [
-            # is null, not null, set membership remain valid
-            (_filter("is_null", schema[0]), True),
-            (_filter("not_null", schema[0]), True),
-            (_set_member_filter(schema[0], ["1", "2"]), True),
-            # range comparison becomes invalid
-            (_compare_filter(schema[0], "<", "4"), False),
-            (_compare_filter(schema[0], "<=", "4"), False),
-            (_compare_filter(schema[0], ">=", "4"), False),
-            (_compare_filter(schema[0], ">", "4"), False),
-            # equals, not-equals remain valid
-            (_compare_filter(schema[0], "=", "4"), True),
-            (_compare_filter(schema[0], "!=", "4"), True),
-            # between, not between becomes invalid
-            (_between_filter(schema[0], "1", "3"), False),
-            (_not_between_filter(schema[0], "1", "3"), False),
-        ]
-    }
 
-    _check_scenario("df1", scenario1, "df1['a'] = df1['a'].astype(str)")
+@pytest.fixture
+def ssf(dxf: DataExplorerFixture):
+    fixture = SchemaChangeFixture(dxf)
+    yield fixture
+    fixture.cleanup()
 
+
+def test_schema_change_scenario1(ssf: SchemaChangeFixture):
+    # Scenario 1: convert "a" from integer to string (filter,
+    # is_valid_after_change)
+    def scenario1(fixture: DataExplorerFixture, table_id):
+        schema = fixture.get_schema(table_id)
+        return {
+            "filters": [
+                # is null, not null, set membership remain valid
+                (_filter("is_null", schema[0]), True),
+                (_filter("not_null", schema[0]), True),
+                (_set_member_filter(schema[0], ["1", "2"]), True),
+                # range comparison becomes invalid
+                (_compare_filter(schema[0], "<", "4"), False),
+                (_compare_filter(schema[0], "<=", "4"), False),
+                (_compare_filter(schema[0], ">=", "4"), False),
+                (_compare_filter(schema[0], ">", "4"), False),
+                # equals, not-equals remain valid
+                (_compare_filter(schema[0], "=", "4"), True),
+                (_compare_filter(schema[0], "!=", "4"), True),
+                # between, not between becomes invalid
+                (_between_filter(schema[0], "1", "3"), False),
+                (_not_between_filter(schema[0], "1", "3"), False),
+            ]
+        }
+
+    # pandas
+    ssf.check_scenario("df", scenario1, "df['a'] = df['a'].astype(str)")
+
+    # polars
+    ssf.check_scenario(
+        "dfp",
+        scenario1,
+        "dfp = dfp.with_columns(pl.col('a').cast(pl.String))",
+    )
+
+
+def test_schema_change_scenario2(ssf: SchemaChangeFixture):
     # Scenario 2: convert "a" from int64 to int16
-    dxf.assign_and_open_viewer("df2", df.copy())
-    schema = dxf.get_schema("df2")
-    scenario2 = {
-        "filters": [
-            (_filter("is_null", schema[0]), True),
-            (_compare_filter(schema[0], "<", "4"), True),
-            (_between_filter(schema[0], "1", "3"), True),
-        ]
-    }
-    _check_scenario("df2", scenario2, "df2['a'] = df2['a'].astype('int16')")
+    def scenario2(fixture: DataExplorerFixture, table_id):
+        schema = fixture.get_schema(table_id)
+        return {
+            "filters": [
+                (_filter("is_null", schema[0]), True),
+                (_compare_filter(schema[0], "<", "4"), True),
+                (_between_filter(schema[0], "1", "3"), True),
+            ]
+        }
 
+    ssf.check_scenario("df", scenario2, "df['a'] = df['a'].astype('int16')")
+
+
+def test_schema_change_scenario3(ssf: SchemaChangeFixture):
     # Scenario 3: delete "a" in place
-    dxf.assign_and_open_viewer("df3", df.copy())
-    schema = dxf.get_schema("df3")
-    scenario3 = {
-        "filters": [
-            (_filter("is_null", schema[0]), False),
-            (_compare_filter(schema[0], "<", "4"), False),
-        ],
-        "sort_keys": [{"column_index": 0, "ascending": True}],
-        "updated_sort_keys": [],
-    }
-    _check_scenario("df3", scenario3, "del df3['a']")
+    def scenario3(fixture: DataExplorerFixture, table_id):
+        schema = fixture.get_schema(table_id)
+        return {
+            "filters": [
+                (_filter("is_null", schema[0]), False),
+                (_compare_filter(schema[0], "<", "4"), False),
+            ],
+            "sort_keys": [{"column_index": 0, "ascending": True}],
+            "updated_sort_keys": [],
+        }
 
+    ssf.check_scenario("df", scenario3, "del df['a']")
+
+
+def test_schema_change_scenario4(ssf: SchemaChangeFixture):
     # Scenario 4: delete "a" in a new DataFrame
-    dxf.assign_and_open_viewer("df4", df.copy())
-    schema = dxf.get_schema("df4")
-    scenario4 = {
-        "filters": [
-            (_filter("is_null", schema[0]), False),
-            (_compare_filter(schema[0], "<", "4"), False),
-        ]
-    }
-    _check_scenario("df4", scenario4, "df4 = df4[['b']]")
+    def scenario4(fixture: DataExplorerFixture, table_id):
+        schema = fixture.get_schema(table_id)
+        return {
+            "filters": [
+                (_filter("is_null", schema[0]), False),
+                (_compare_filter(schema[0], "<", "4"), False),
+            ]
+        }
 
+    ssf.check_scenario("df", scenario4, "df = df[['b']]")
+
+
+def test_schema_change_scenario5(ssf: SchemaChangeFixture):
     # Scenario 5: replace a column in place with a new name
-    dxf.assign_and_open_viewer("df5", df.copy())
-    schema = dxf.get_schema("df5")
-    scenario5 = {
-        "filters": [
-            (_compare_filter(schema[1], "=", "foo"), False),
-        ]
-    }
-    _check_scenario("df5", scenario5, "df5.insert(1, 'c', df5.pop('b'))")
+    def scenario5(fixture: DataExplorerFixture, table_id):
+        schema = fixture.get_schema(table_id)
+        return {
+            "filters": [
+                (_compare_filter(schema[1], "=", "foo"), False),
+            ]
+        }
 
+    ssf.check_scenario("df", scenario5, "df.insert(1, 'c', df.pop('b'))")
+
+
+def test_schema_change_scenario6(ssf: SchemaChangeFixture):
     # Scenario 6: add some columns, but do not disturb filters
-    dxf.assign_and_open_viewer("df6", df.copy())
-    schema = dxf.get_schema("df6")
-    scenario6 = {
-        "filters": [
-            (_compare_filter(schema[0], "=", "1"), True),
-            (_compare_filter(schema[1], "=", "foo"), True),
-        ]
-    }
-    _check_scenario("df6", scenario6, "df6['c'] = df6['b']")
+    def scenario6(fixture: DataExplorerFixture, table_id):
+        schema = fixture.get_schema(table_id)
+        return {
+            "filters": [
+                (_compare_filter(schema[0], "=", "1"), True),
+                (_compare_filter(schema[1], "=", "foo"), True),
+            ]
+        }
 
+    ssf.check_scenario("df", scenario6, "df['c'] = df['b']")
+
+
+def test_schema_change_scenario7(ssf: SchemaChangeFixture, dxf: DataExplorerFixture):
     # Scenario 7: delete column, then restore it and check that the
-    # filter was made invalid and then valid again
-    dxf.assign_and_open_viewer("df7", df.copy())
-    schema = dxf.get_schema("df7")
-    scenario7 = {
-        "filters": [
-            (_compare_filter(schema[0], "<", "4"), False),
-        ]
-    }
+    def scenario7(fixture: DataExplorerFixture, table_id):
+        schema = fixture.get_schema(table_id)
+        return {
+            "filters": [
+                (_compare_filter(schema[0], "<", "4"), False),
+            ]
+        }
+
     # Scenario 7 -- Validate the setup, so the filter will be invalid
     # after this
-    _check_scenario("df7", scenario7, "del df7['a']")
+    ssf.check_scenario("df", scenario7, "del df['a']")
 
     # Scenario 7 -- Now restore df7 to its prior state
-    dxf.execute_code("df7 = df.copy()")
-    state = dxf.get_state("df7")
+    dxf.execute_code("df = df_original.copy()")
+    state = dxf.get_state("df")
 
     # Filter is made valid again because the column reappeared where
     # it was before and with a compatible type
@@ -1601,13 +1672,16 @@ def test_pandas_schema_change_state_updates(dxf: DataExplorerFixture):
     assert filt["is_valid"]
     assert filt["error_message"] is None
 
+
+def test_schema_change_scenario8(ssf: SchemaChangeFixture):
     # Scenario 8: Delete sorted column in middle of table
-    dxf.assign_and_open_viewer("df8", df.copy())
-    scenario8 = {
-        "sort_keys": [{"column_index": 1, "ascending": False}],
-        "updated_sort_keys": [],
-    }
-    _check_scenario("df8", scenario8, "del df8['b']")
+    def scenario8(fixture: DataExplorerFixture, table_id):
+        return {
+            "sort_keys": [{"column_index": 1, "ascending": False}],
+            "updated_sort_keys": [],
+        }
+
+    ssf.check_scenario("df", scenario8, "del df['b']")
 
 
 def test_pandas_set_sort_columns(dxf: DataExplorerFixture):

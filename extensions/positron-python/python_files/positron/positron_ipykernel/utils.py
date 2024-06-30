@@ -33,6 +33,9 @@ JsonRecord = Dict[str, JsonData]
 T = TypeVar("T")
 
 
+TESTING = False
+
+
 def get_qualname(value: Any) -> str:
     """
     Utility to manually construct a qualified type name as
