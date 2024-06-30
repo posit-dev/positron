@@ -204,6 +204,21 @@
 				"publisherDisplayName": "ms-python",
 				"multiPlatformServiceUrl": "https://open-vsx.org/api"
 			}
+		},
+		{
+			"name": "quarto.quarto",
+			"version": "1.113.0",
+			"repo": "https://github.com/quarto-dev/quarto/tree/main/apps/vscode",
+			"metadata": {
+				"id": "a1be81fc-0f3a-4f2e-92ee-3fdc7ab96c73",
+				"publisherId": {
+					"publisherId": "b21355c9-18d2-46e4-95da-d2d98de81e96",
+					"publisherName": "quarto",
+					"displayName": "Quarto",
+					"flags": "verified"
+				},
+				"publisherDisplayName": "Quarto"
+			}
 		}
 	],
 	"extensionsGallery": {
