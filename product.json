@@ -266,6 +266,7 @@
 			"resolvers"
 		],
 		"ms-python.python": [
+			"positronResolveSymlinks",
 			"contribEditorContentMenu",
 			"quickPickSortByLabel",
 			"portsAttributes",
