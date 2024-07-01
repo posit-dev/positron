@@ -11,7 +11,16 @@ import logging
 import math
 import operator
 from datetime import datetime
-from typing import TYPE_CHECKING, Callable, Dict, List, Optional, Sequence, Set, Tuple
+from typing import (
+    TYPE_CHECKING,
+    Callable,
+    Dict,
+    List,
+    Optional,
+    Sequence,
+    Set,
+    Tuple,
+)
 
 import comm
 
@@ -67,7 +76,6 @@ from .data_explorer_comm import (
     SummaryStatsString,
     SupportedFeatures,
     SupportStatus,
-    TableData,
     TableSchema,
     TableShape,
 )
@@ -80,7 +88,6 @@ if TYPE_CHECKING:
     import polars as pl
 
     # import pyarrow as pa
-
 
 logger = logging.getLogger(__name__)
 
@@ -114,8 +121,26 @@ class DataExplorerTableView(abc.ABC):
 
         self._need_recompute = len(self.filters) > 0 or len(self.sort_keys) > 0
 
+        # Array of selected ("true") indices using filters. If
+        # there are also sort keys, we first filter the unsorted data,
+        # and then sort the filtered data only, for the optimistic
+        # case that a low-selectivity filters yields less data to sort
+        self.filtered_indices = None
+
+        # Array of selected AND reordered indices
+        # (e.g. including any sorting). If there are no sort keys and
+        # only filters, then this should be the same as
+        # self.filtered_indices
+        self.view_indices = None
+
     def _set_sort_keys(self, sort_keys):
         self.sort_keys = sort_keys if sort_keys is not None else []
+
+        # We store the column schemas for each sort key to help with
+        # eviction later during updates
+        self._sort_key_schemas = [
+            self._get_single_column_schema(key.column_index) for key in self.sort_keys
+        ]
 
     def _recompute_if_needed(self) -> bool:
         if self._need_recompute:
@@ -124,6 +149,14 @@ class DataExplorerTableView(abc.ABC):
             return True
         else:
             return False
+
+    def _update_view_indices(self):
+        if len(self.sort_keys) == 0:
+            self.view_indices = self.filtered_indices
+        else:
+            # If we have just applied a new filter, we now resort to
+            # reflect the filtered_indices that have just been updated
+            self._sort_data()
 
     def get_schema(self, request: GetSchemaRequest):
         column_schemas = []
@@ -157,7 +190,7 @@ class DataExplorerTableView(abc.ABC):
             request.params.num_rows,
             request.params.column_indices,
             request.params.format_options,
-        ).dict()
+        )
 
     def export_data_selection(self, request: ExportDataSelectionRequest):
         self._recompute_if_needed()
@@ -169,8 +202,76 @@ class DataExplorerTableView(abc.ABC):
     def set_row_filters(self, request: SetRowFiltersRequest):
         return self._set_row_filters(request.params.filters).dict()
 
+    def _set_row_filters(self, filters: List[RowFilter]) -> FilterResult:
+        self.filters = filters
+        for filt in filters:
+            # If is_valid isn't set, set it based on what is currently
+            # supported
+            if filt.is_valid is None:
+                filt.is_valid = self._is_supported_filter(filt)
+
+        if len(self.filters) == 0:
+            # Simply reset if empty filter set passed
+            self.filtered_indices = None
+            self._update_view_indices()
+            return FilterResult(selected_num_rows=len(self.table), had_errors=False)
+
+        # Evaluate all the filters and combine them using the
+        # indicated conditions
+        combined_mask = None
+        had_errors = False
+        for filt in filters:
+            if filt.is_valid is False:
+                # If filter is invalid, do not evaluate it
+                continue
+
+            try:
+                single_mask = self._eval_filter(filt)
+            except Exception as e:
+                had_errors = True
+
+                # Filter fails: we capture the error message and mark
+                # the filter as invalid
+                filt.is_valid = False
+                filt.error_message = str(e)
+
+                # Perhaps use a different log level, but to help with
+                # debugging for now.
+                logger.warning(e, exc_info=True)
+                continue
+
+            if combined_mask is None:
+                combined_mask = single_mask
+            elif filt.condition == RowFilterCondition.And:
+                combined_mask &= single_mask
+            elif filt.condition == RowFilterCondition.Or:
+                combined_mask |= single_mask
+
+        self.filtered_indices = self._mask_to_indices(combined_mask)
+        selected_num_rows = (
+            len(self.table) if self.filtered_indices is None else len(self.filtered_indices)
+        )
+
+        # Update the view indices, re-sorting if needed
+        self._update_view_indices()
+        return FilterResult(selected_num_rows=selected_num_rows, had_errors=had_errors)
+
+    def _mask_to_indices(self, mask):
+        raise NotImplementedError
+
+    def _eval_filter(self, filt: RowFilter):
+        raise NotImplementedError
+
     def set_sort_columns(self, request: SetSortColumnsRequest):
-        return self._set_sort_columns(request.params.sort_keys)
+        self._set_sort_keys(request.params.sort_keys)
+
+        if not self._recompute_if_needed():
+            # If a re-filter is pending, then it will automatically
+            # trigger a sort
+            self._sort_data()
+
+    def _sort_data(self):
+        raise NotImplementedError
 
     def get_column_profiles(self, request: GetColumnProfilesRequest):
         self._recompute_if_needed()
@@ -200,10 +301,107 @@ class DataExplorerTableView(abc.ABC):
         return self._get_state().dict()
 
     def _recompute(self):
-        raise NotImplementedError
+        # Re-setting the column filters will trigger filtering AND
+        # sorting
+        self._set_row_filters(self.filters)
 
     def get_updated_state(self, new_table) -> StateUpdate:
         raise NotImplementedError
+
+    def _get_adjusted_filters(
+        self,
+        new_columns,
+        schema_changes,
+        shifted_columns,
+        deleted_columns,
+        schema_getter,
+    ):
+        # Shared by implementations of get_updated_state
+        new_filters = []
+        for filt in self.filters:
+            column_index = filt.column_schema.column_index
+            column_name = filt.column_schema.column_name
+
+            filt = filt.copy(deep=True)
+
+            is_deleted = False
+            if column_index in schema_changes:
+                # A schema change is only valid if the column name is
+                # the same, otherwise it's a deletion
+                change = schema_changes[column_index]
+                if column_name == change.column_name:
+                    filt.column_schema = change.copy()
+                else:
+                    # Column may be deleted. We need to distinguish
+                    # between the case of a deleted column that was
+                    # filtered and a filter that was invalid and is
+                    # now valid again as a result of changes in the
+                    # data (e.g. deleting a column and then re-adding
+                    # it right away)
+                    if str(new_columns[column_index]) == column_name:
+                        # Probably a new column that allows the old
+                        # filter to become valid again if the type is
+                        # compatible
+                        filt.column_schema = schema_getter(
+                            column_name,
+                            column_index,
+                        )
+                    else:
+                        is_deleted = True
+            elif column_index in shifted_columns:
+                filt.column_schema.column_index = shifted_columns[column_index]
+            elif column_index in deleted_columns:
+                # Column deleted
+                is_deleted = True
+
+            # If the column was not deleted, we always reset the
+            # validity state of the filter in case something we
+            # did to the data made a previous filter error (which
+            # set the is_valid flag to False) to go away.
+            if is_deleted:
+                filt.is_valid = False
+                filt.error_message = "Column was deleted"
+            else:
+                filt.is_valid = self._is_supported_filter(filt)
+                if filt.is_valid:
+                    filt.error_message = None
+                else:
+                    filt.error_message = "Unsupported column type for filter"
+
+            new_filters.append(filt)
+
+        return new_filters
+
+    def _get_adjusted_sort_keys(
+        self, new_columns, schema_changes, shifted_columns, deleted_columns
+    ):
+        # Shared by implementations of get_updated_state
+        new_sort_keys = []
+        for i, key in enumerate(self.sort_keys):
+            column_index = key.column_index
+            prior_name = self._sort_key_schemas[i].column_name
+
+            key = key.copy()
+
+            # Evict any sort key that was deleted
+            if column_index in schema_changes:
+                # A schema change is only valid if the column name is
+                # the same, otherwise it's a deletion
+                change = schema_changes[column_index]
+                if prior_name == change.column_name:
+                    key.column_schema = change.copy()
+                else:
+                    # Column deleted
+                    continue
+            elif column_index in shifted_columns:
+                key.column_index = shifted_columns[column_index]
+            elif column_index in deleted_columns or prior_name != str(new_columns[column_index]):
+                # Column deleted
+                continue
+
+            new_sort_keys.append(key)
+
+        return new_sort_keys
 
     def _search_schema(
         self, search_term: str, start_index: int, max_results: int
@@ -216,20 +414,54 @@ class DataExplorerTableView(abc.ABC):
         num_rows: int,
         column_indices: Sequence[int],
         format_options: FormatOptions,
-    ) -> TableData:
+    ) -> dict:
         raise NotImplementedError
 
     def _export_data_selection(self, selection: DataSelection, fmt: ExportFormat) -> ExportedData:
         raise NotImplementedError
 
-    def _set_row_filters(self, filters: List[RowFilter]) -> FilterResult:
-        raise NotImplementedError
+    SUPPORTED_FILTERS = set()
 
-    def _set_sort_columns(self, sort_keys: List[ColumnSortKey]):
-        raise NotImplementedError
+    def _is_supported_filter(self, filt: RowFilter) -> bool:
+        if filt.filter_type not in self.SUPPORTED_FILTERS:
+            return False
 
-    def _sort_data(self):
-        raise NotImplementedError
+        display_type = filt.column_schema.type_display
+
+        if filt.filter_type in [
+            RowFilterType.IsEmpty,
+            RowFilterType.NotEmpty,
+            RowFilterType.Search,
+        ]:
+            # String-only filter types
+            return display_type == ColumnDisplayType.String
+        elif filt.filter_type == RowFilterType.Compare:
+            compare_op = filt.compare_params.op
+            if compare_op in [
+                CompareFilterParamsOp.Eq,
+                CompareFilterParamsOp.NotEq,
+            ]:
+                return True
+            else:
+                return display_type in _FILTER_RANGE_COMPARE_SUPPORTED
+        elif filt.filter_type in [
+            RowFilterType.Between,
+            RowFilterType.NotBetween,
+        ]:
+            return display_type in _FILTER_RANGE_COMPARE_SUPPORTED
+        elif filt.filter_type in [
+            RowFilterType.IsTrue,
+            RowFilterType.IsFalse,
+        ]:
+            return display_type == ColumnDisplayType.Boolean
+        else:
+            # Filters always supported
+            assert filt.filter_type in [
+                RowFilterType.IsNull,
+                RowFilterType.NotNull,
+                RowFilterType.SetMembership,
+            ]
+            return True
 
     def _prof_null_count(self, column_index: int) -> int:
         raise NotImplementedError
@@ -243,8 +475,30 @@ class DataExplorerTableView(abc.ABC):
     def _prof_histogram(self, column_index: int) -> ColumnHistogram:
         raise NotImplementedError
 
+    FEATURES = None
+
     def _get_state(self) -> BackendState:
-        raise NotImplementedError
+        table_unfiltered_shape = TableShape(
+            num_rows=self.table.shape[0], num_columns=self.table.shape[1]
+        )
+
+        if self.view_indices is not None:
+            # Account for filters
+            table_shape = TableShape(
+                num_rows=len(self.view_indices),
+                num_columns=self.table.shape[1],
+            )
+        else:
+            table_shape = table_unfiltered_shape
+
+        return BackendState(
+            display_name=self.display_name,
+            table_shape=table_shape,
+            table_unfiltered_shape=table_unfiltered_shape,
+            row_filters=self.filters,
+            sort_keys=self.sort_keys,
+            supported_features=self.FEATURES,
+        )
 
 
 class UnsupportedView(DataExplorerTableView):
@@ -365,18 +619,6 @@ class PandasView(DataExplorerTableView):
         # object is changed, this needs to be reset
         self._inferred_dtypes = {}
 
-        # NumPy array of selected ("true") indices using filters. If
-        # there are also sort keys, we first filter the unsorted data,
-        # and then sort the filtered data only, for the optimistic
-        # case that a low-selectivity filters yields less data to sort
-        self.filtered_indices = None
-
-        # NumPy array of selected AND reordered indices
-        # (e.g. including any sorting). If there are no sort keys and
-        # only filters, then this should be the same as
-        # self.filtered_indices
-        self.view_indices = None
-
         # We store a tuple of (last_search_term, matches)
         # here so that we can support scrolling through the search
         # results without having to recompute the search. If the
@@ -403,15 +645,6 @@ class PandasView(DataExplorerTableView):
                 return pd_.DataFrame(value)
         else:
             return value
-
-    def _set_sort_keys(self, sort_keys):
-        super()._set_sort_keys(sort_keys)
-
-        # We store the column schemas for each sort key to help with
-        # eviction later during updates
-        self._sort_key_schemas = [
-            self._get_single_column_schema(key.column_index) for key in self.sort_keys
-        ]
 
     def get_updated_state(self, new_table) -> StateUpdate:
         from pandas.api.types import infer_dtype
@@ -515,93 +748,22 @@ class PandasView(DataExplorerTableView):
 
             schema_changes[old_index] = _get_column_schema(new_column, str(column_name), new_index)
 
-        new_filters = []
-        for filt in self.filters:
-            column_index = filt.column_schema.column_index
-            column_name = filt.column_schema.column_name
+        def schema_getter(column_name, column_index):
+            return _get_column_schema(new_table.iloc[:, column_index], column_name, column_index)
 
-            filt = filt.copy(deep=True)
+        new_filters = self._get_adjusted_filters(
+            new_table.columns,
+            schema_changes,
+            shifted_columns,
+            deleted_columns,
+            schema_getter,
+        )
 
-            is_deleted = False
-            if column_index in schema_changes:
-                # A schema change is only valid if the column name is
-                # the same, otherwise it's a deletion
-                change = schema_changes[column_index]
-                if column_name == change.column_name:
-                    filt.column_schema = change.copy()
-                else:
-                    # Column may be deleted. We need to distinguish
-                    # between the case of a deleted column that was
-                    # filtered and a filter that was invalid and is
-                    # now valid again as a result of changes in the
-                    # data (e.g. deleting a column and then re-adding
-                    # it right away)
-                    if str(new_table.columns[column_index]) == column_name:
-                        # Probably a new column that allows the old
-                        # filter to become valid again if the type is
-                        # compatible
-                        filt.column_schema = _get_column_schema(
-                            new_table.iloc[:, column_index],
-                            column_name,
-                            column_index,
-                        )
-                    else:
-                        is_deleted = True
-            elif column_index in shifted_columns:
-                filt.column_schema.column_index = shifted_columns[column_index]
-            elif column_index in deleted_columns:
-                # Column deleted
-                is_deleted = True
-
-            # If the column was not deleted, we always reset the
-            # validity state of the filter in case something we
-            # did to the data made a previous filter error (which
-            # set the is_valid flag to False) to go away.
-            if is_deleted:
-                filt.is_valid = False
-                filt.error_message = "Column was deleted"
-            else:
-                filt.is_valid = self._is_supported_filter(filt)
-                if filt.is_valid:
-                    filt.error_message = None
-                else:
-                    filt.error_message = "Unsupported column type for filter"
-
-            new_filters.append(filt)
-
-        new_sort_keys = []
-        for i, key in enumerate(self.sort_keys):
-            column_index = key.column_index
-            prior_name = self._sort_key_schemas[i].column_name
-
-            key = key.copy()
-
-            # Evict any sort key that was deleted
-            if column_index in schema_changes:
-                # A schema change is only valid if the column name is
-                # the same, otherwise it's a deletion
-                change = schema_changes[column_index]
-                if prior_name == change.column_name:
-                    key.column_schema = change.copy()
-                else:
-                    # Column deleted
-                    continue
-            elif column_index in shifted_columns:
-                key.column_index = shifted_columns[column_index]
-            elif column_index in deleted_columns or prior_name != str(
-                new_table.columns[column_index]
-            ):
-                # Column deleted
-                continue
-
-            new_sort_keys.append(key)
+        new_sort_keys = self._get_adjusted_sort_keys(
+            new_table.columns, schema_changes, shifted_columns, deleted_columns
+        )
 
         return schema_updated, new_filters, new_sort_keys
-
-    def _recompute(self):
-        # Re-setting the column filters will trigger filtering AND
-        # sorting
-        self._set_row_filters(self.filters)
 
     def _search_schema(
         self, search_term: str, start_index: int, max_results: int
@@ -654,7 +816,7 @@ class PandasView(DataExplorerTableView):
 
         # TODO: pandas MultiIndex columns
         # TODO: time zone for datetimetz datetime64[ns] types
-        if dtype == object:
+        if dtype == object:  # noqa: E721
             type_name = get_inferred_dtype()
             type_name = cls.TYPE_NAME_MAPPING.get(type_name, type_name)
         else:
@@ -738,7 +900,7 @@ class PandasView(DataExplorerTableView):
         num_rows: int,
         column_indices: Sequence[int],
         format_options: FormatOptions,
-    ) -> TableData:
+    ) -> dict:
         formatted_columns = []
 
         column_indices = sorted(column_indices)
@@ -772,7 +934,8 @@ class PandasView(DataExplorerTableView):
         if isinstance(self.table.index, pd_.MultiIndex):
             indices = indices.to_flat_index()
         row_labels = [[str(x) for x in indices]]
-        return TableData(columns=formatted_columns, row_labels=row_labels)
+        # Bypass pydantic model for speed
+        return {"columns": formatted_columns, "row_labels": row_labels}
 
     @classmethod
     def _format_values(cls, values, options: FormatOptions) -> List[ColumnValue]:
@@ -864,119 +1027,9 @@ class PandasView(DataExplorerTableView):
 
         return ExportedData(data=buf.getvalue(), format=fmt)
 
-    def _update_view_indices(self):
-        if len(self.sort_keys) == 0:
-            self.view_indices = self.filtered_indices
-        else:
-            # If we have just applied a new filter, we now resort to
-            # reflect the filtered_indices that have just been updated
-            self._sort_data()
-
-    def _set_sort_columns(self, sort_keys: List[ColumnSortKey]):
-        self._set_sort_keys(sort_keys)
-
-        if not self._recompute_if_needed():
-            # If a re-filter is pending, then it will automatically
-            # trigger a sort
-            self._sort_data()
-
-    def _set_row_filters(self, filters: List[RowFilter]) -> FilterResult:
-        self.filters = filters
-
-        for filt in self.filters:
-            # If is_valid isn't set, set it based on what is currently
-            # supported
-            if filt.is_valid is None:
-                filt.is_valid = self._is_supported_filter(filt)
-
-        if len(filters) == 0:
-            # Simply reset if empty filter set passed
-            self.filtered_indices = None
-            self._update_view_indices()
-            return FilterResult(selected_num_rows=len(self.table), had_errors=False)
-
-        # Evaluate all the filters and combine them using the
-        # indicated conditions
-        combined_mask = None
-        had_errors = False
-        for filt in filters:
-            if filt.is_valid is False:
-                # If filter is invalid, do not evaluate it
-                continue
-
-            try:
-                single_mask = self._eval_filter(filt)
-            except Exception as e:
-                had_errors = True
-
-                # Filter fails: we capture the error message and mark
-                # the filter as invalid
-                filt.is_valid = False
-                filt.error_message = str(e)
-
-                # Perhaps use a different log level, but to help with
-                # debugging for now.
-                logger.warning(e, exc_info=True)
-                continue
-
-            if combined_mask is None:
-                combined_mask = single_mask
-            elif filt.condition == RowFilterCondition.And:
-                combined_mask &= single_mask
-            elif filt.condition == RowFilterCondition.Or:
-                combined_mask |= single_mask
-
-        if combined_mask is None:
-            self.filtered_indices = None
-            selected_num_rows = len(self.table)
-        else:
-            self.filtered_indices = combined_mask.nonzero()[0]
-            selected_num_rows = len(self.filtered_indices)
-
-        # Update the view indices, re-sorting if needed
-        self._update_view_indices()
-        return FilterResult(selected_num_rows=selected_num_rows, had_errors=had_errors)
-
-    def _is_supported_filter(self, filt: RowFilter) -> bool:
-        if filt.filter_type not in self.SUPPORTED_FILTERS:
-            return False
-
-        display_type = filt.column_schema.type_display
-
-        if filt.filter_type in [
-            RowFilterType.IsEmpty,
-            RowFilterType.NotEmpty,
-            RowFilterType.Search,
-        ]:
-            # String-only filter types
-            return display_type == ColumnDisplayType.String
-        elif filt.filter_type == RowFilterType.Compare:
-            compare_op = filt.compare_params.op
-            if compare_op in [
-                CompareFilterParamsOp.Eq,
-                CompareFilterParamsOp.NotEq,
-            ]:
-                return True
-            else:
-                return display_type in _FILTER_RANGE_COMPARE_SUPPORTED
-        elif filt.filter_type in [
-            RowFilterType.Between,
-            RowFilterType.NotBetween,
-        ]:
-            return display_type in _FILTER_RANGE_COMPARE_SUPPORTED
-        elif filt.filter_type in [
-            RowFilterType.IsTrue,
-            RowFilterType.IsFalse,
-        ]:
-            return display_type == ColumnDisplayType.Boolean
-        else:
-            # Filters always supported
-            assert filt.filter_type in [
-                RowFilterType.IsNull,
-                RowFilterType.NotNull,
-                RowFilterType.SetMembership,
-            ]
-            return True
+    def _mask_to_indices(self, mask):
+        if mask is not None:
+            return mask.nonzero()[0]
 
     def _eval_filter(self, filt: RowFilter):
         column_index = filt.column_schema.column_index
@@ -992,8 +1045,8 @@ class PandasView(DataExplorerTableView):
         ):
             params = filt.between_params
             assert params is not None
-            left_value = _pandas_coerce_value(params.left_value, dtype, inferred_type)
-            right_value = _pandas_coerce_value(params.right_value, dtype, inferred_type)
+            left_value = self._coerce_value(params.left_value, dtype, inferred_type)
+            right_value = self._coerce_value(params.right_value, dtype, inferred_type)
             if filt.filter_type == RowFilterType.Between:
                 mask = (col >= left_value) & (col <= right_value)
             else:
@@ -1007,7 +1060,7 @@ class PandasView(DataExplorerTableView):
                 raise ValueError(f"Unsupported filter type: {params.op}")
             op = COMPARE_OPS[params.op]
             # pandas comparison filters return False for null values
-            mask = op(col, _pandas_coerce_value(params.value, dtype, inferred_type))
+            mask = op(col, self._coerce_value(params.value, dtype, inferred_type))
         elif filt.filter_type == RowFilterType.IsEmpty:
             mask = col.str.len() == 0
         elif filt.filter_type == RowFilterType.IsNull:
@@ -1023,7 +1076,9 @@ class PandasView(DataExplorerTableView):
         elif filt.filter_type == RowFilterType.SetMembership:
             params = filt.set_membership_params
             assert params is not None
-            boxed_values = pd_.Series(params.values).astype(dtype)
+            boxed_values = pd_.Series(
+                [self._coerce_value(val, dtype, inferred_type) for val in params.values]
+            )
             # IN
             mask = col.isin(boxed_values)
             if not params.inclusive:
@@ -1059,6 +1114,37 @@ class PandasView(DataExplorerTableView):
             mask = mask.astype(bool)
 
         return mask.to_numpy()
+
+    @staticmethod
+    def _coerce_value(value, dtype, inferred_type):
+        import pandas.api.types as pat
+
+        if pat.is_integer_dtype(dtype):
+            # For integer types, try to coerce to integer, but if this
+            # fails, allow a looser conversion to float
+            try:
+                return int(value)
+            except ValueError as e1:
+                try:
+                    return pd_.Series([value], dtype="float64").iloc[0]
+                except ValueError:
+                    raise e1
+        elif pat.is_bool_dtype(dtype):
+            lvalue = value.lower()
+            if lvalue == "true":
+                return True
+            elif lvalue == "false":
+                return False
+            else:
+                raise ValueError(f"Unable to convert {value} to boolean")
+        elif "datetime" in inferred_type:
+            return _parse_iso8601_like(value, tz=getattr(dtype, "tz", None))
+        else:
+            # As a fallback, let Series.astype do the coercion
+            dummy = pd_.Series([value])
+            if dummy.dtype != dtype:
+                dummy = dummy.astype(dtype)
+            return dummy.iloc[0]
 
     def _sort_data(self) -> None:
         from pandas.core.sorting import lexsort_indexer, nargsort
@@ -1211,9 +1297,11 @@ class PandasView(DataExplorerTableView):
 
     @staticmethod
     def _summarize_datetime(col: "pd.Series", options: FormatOptions):
-        # when there are mixed timezones in a single column, it's possible that
-        # any of the operations below can fail. specially if they mix timezone aware
-        # datetimes with naive datetimes.
+        # when there are mixed timezones in a single column, it's
+        # possible that any of the operations below can
+        # fail. specially if they mix timezone aware datetimes with
+        # naive datetimes.
+
         # if an error happens we return `None` as the field value.
         min_date = _possibly(col.min)
         mean_date = _possibly(col.mean)
@@ -1301,29 +1389,6 @@ class PandasView(DataExplorerTableView):
         export_data_selection=ExportDataSelectionFeatures(support_status=SupportStatus.Supported),
     )
 
-    def _get_state(self) -> BackendState:
-        table_unfiltered_shape = TableShape(
-            num_rows=self.table.shape[0], num_columns=self.table.shape[1]
-        )
-
-        if self.view_indices is not None:
-            # Account for filters
-            table_shape = TableShape(
-                num_rows=len(self.view_indices),
-                num_columns=self.table.shape[1],
-            )
-        else:
-            table_shape = table_unfiltered_shape
-
-        return BackendState(
-            display_name=self.display_name,
-            table_shape=table_shape,
-            table_unfiltered_shape=table_unfiltered_shape,
-            row_filters=self.filters,
-            sort_keys=self.sort_keys,
-            supported_features=self.FEATURES,
-        )
-
 
 COMPARE_OPS = {
     CompareFilterParamsOp.Gt: operator.gt,
@@ -1358,37 +1423,6 @@ def _possibly(f, otherwise=None):
         return otherwise
 
 
-def _pandas_coerce_value(value, dtype, inferred_type):
-    import pandas.api.types as pat
-
-    if pat.is_integer_dtype(dtype):
-        # For integer types, try to coerce to integer, but if this
-        # fails, allow a looser conversion to float
-        try:
-            return int(value)
-        except ValueError as e1:
-            try:
-                return pd_.Series([value], dtype="float64").iloc[0]
-            except ValueError:
-                raise e1
-    elif pat.is_bool_dtype(dtype):
-        lvalue = value.lower()
-        if lvalue == "true":
-            return True
-        elif lvalue == "false":
-            return False
-        else:
-            raise ValueError(f"Unable to convert {value} to boolean")
-    elif "datetime" in inferred_type:
-        return _parse_iso8601_like(value, dtype)
-    else:
-        # As a fallback, let Series.astype do the coercion
-        dummy = pd_.Series([value])
-        if dummy.dtype != dtype:
-            dummy = dummy.astype(dtype)
-        return dummy.iloc[0]
-
-
 _ISO_8601_FORMATS = [
     "%Y-%m-%d %H:%M:%S",
     "%Y-%m-%d %H:%M",
@@ -1396,14 +1430,18 @@ _ISO_8601_FORMATS = [
 ]
 
 
-def _parse_iso8601_like(x, dtype):
+def _parse_iso8601_like(x, tz=None):
+    import pytz
+
     for fmt in _ISO_8601_FORMATS:
         try:
             result = datetime.strptime(x, fmt)
 
             # Localize tz-naive datetime if needed to avoid TypeError
-            if getattr(dtype, "tz", None) is not None:
-                result = result.replace(tzinfo=dtype.tz)
+            if tz is not None:
+                if isinstance(tz, str):
+                    tz = pytz.timezone(tz)
+                result = result.replace(tzinfo=tz)
 
             return result
         except ValueError:
@@ -1421,21 +1459,138 @@ class PolarsView(DataExplorerTableView):
         sort_keys: Optional[List[ColumnSortKey]],
     ):
         super().__init__(display_name, table, filters, sort_keys)
-        self.filtered_indices = None
-        self.view_indices = None
-
-    def _recompute(self):
-        raise NotImplementedError
 
     def get_updated_state(self, new_table) -> StateUpdate:
-        raise NotImplementedError
+        filtered_columns = {
+            filt.column_schema.column_index: filt.column_schema for filt in self.filters
+        }
+
+        # As of June 2024, polars seems to be really slow for
+        # inspecting the metadata of data frames with a large amount
+        # of columns. DataFrame.columns, DataFrame.schema, etc. are
+        # fairly expensive. Until this changes (or we add some methods
+        # in polars to do the metadata comparisons that we need in
+        # Rust), we have to be pretty conservative about how much
+        # metadata we touch.
+        #
+        # Note also the syntax "column_name in df" is fairly slow
+
+        INSPECT_THRESHOLD = 1_000
+        if new_table.shape[1] > INSPECT_THRESHOLD:
+            # We always say the schema was updated. We'll let filter
+            # and sort keys get invalidated by downstream checking
+            # rather than proactive invalidation
+            return True, self.filters, self.sort_keys
+
+        # self.table may have been modified in place, so we cannot
+        # assume that new_table is different than self.table
+        if new_table is self.table:
+            # For in-place updates, we have to assume the worst case
+            # scenario of a schema change since we do not have access
+            # to the previous schema
+            schema_updated = True
+        else:
+            # The table object has changed -- now we look for
+            # suspected schema changes
+            schema_updated = False
+
+        # We go through the columns in the new table and see whether
+        # there is a type change or whether a column name moved.
+        shifted_columns: Dict[int, int] = {}
+        deleted_columns: Set[int] = set()
+        schema_changes: Dict[int, ColumnSchema] = {}
+
+        # When computing the new display type of a column requires
+        # calling infer_dtype, we are careful to only do it for
+        # columns that are involved in a filter
+        new_columns = new_table.columns
+        new_columns_set = {c: i for i, c in enumerate(new_columns)}
+        if new_table is self.table:
+            old_columns = new_columns
+            old_columns_set = new_columns_set
+        else:
+            old_columns = self.table.columns
+            old_columns_set = {c: i for i, c in enumerate(self.table.columns)}
+
+        for old_index, column in enumerate(old_columns):
+            if column not in new_columns_set:
+                deleted_columns.add(old_index)
+                schema_updated = True
+
+        for new_index, column_name in enumerate(new_columns):
+            # New table has more columns than the old table
+            out_of_bounds = new_index >= len(old_columns)
+
+            if out_of_bounds or old_columns[new_index] != column_name:
+                if column_name not in old_columns_set:
+                    # New column
+                    schema_updated = True
+                    continue
+                # Column was shifted
+                old_index = old_columns_set[column_name]
+                shifted_columns[old_index] = new_index
+            else:
+                old_index = new_index
+
+            new_column = new_table[:, new_index]
+
+            if new_table is not self.table:
+                # While we must proceed under the conservative
+                # possibility that the table was modified in place, if
+                # the tables are indeed different we can check for
+                # schema changes more confidently
+                old_dtype = self.table[:, old_index].dtype
+                if new_column.dtype == old_dtype:
+                    # Type is the same
+                    continue
+            elif old_index in filtered_columns:
+                # If it was an in place modification, as a last ditch
+                # effort we check if we remember the data type because
+                # of a prior filter
+                if filtered_columns[old_index].type_name == str(new_column.dtype):
+                    # Type is the same and not object dtype
+                    continue
+
+            # The type maybe changed (it could have been an in place
+            # update)
+            schema_updated = True
+
+            if old_index not in filtered_columns:
+                # This column index did not have a row filter
+                # attached to it, so doing further analysis is
+                # unnecessary
+                continue
+
+            schema_changes[old_index] = self._construct_schema(
+                new_column, new_index, name=column_name
+            )
+
+        def schema_getter(column_name, column_index):
+            return self._construct_schema(new_table[:, column_index], column_name, column_index)
+
+        new_filters = self._get_adjusted_filters(
+            new_columns,
+            schema_changes,
+            shifted_columns,
+            deleted_columns,
+            schema_getter,
+        )
+
+        new_sort_keys = self._get_adjusted_sort_keys(
+            new_columns, schema_changes, shifted_columns, deleted_columns
+        )
+
+        return schema_updated, new_filters, new_sort_keys
 
     def _get_single_column_schema(self, column_index: int):
-        column: "pl.Series" = self.table[:, column_index]
+        column = self.table[:, column_index]
+        return self._construct_schema(column, column_index, name=column.name)
+
+    def _construct_schema(self, column: "pl.Series", column_index: int, name=None):
         type_display = self._get_type_display(column.dtype)
 
         return ColumnSchema(
-            column_name=column.name,
+            column_name=name,
             column_index=column_index,
             type_name=str(column.dtype),
             type_display=type_display,
@@ -1485,7 +1640,7 @@ class PolarsView(DataExplorerTableView):
         num_rows: int,
         column_indices: Sequence[int],
         format_options: FormatOptions,
-    ) -> TableData:
+    ) -> dict:
         formatted_columns = []
         column_indices = sorted(column_indices)
         columns = []
@@ -1499,14 +1654,19 @@ class PolarsView(DataExplorerTableView):
         formatted_columns = []
 
         if self.view_indices is not None:
-            raise NotImplementedError
+            # If the table is either filtered or sorted, use a slice
+            # the view_indices to select the virtual range of values
+            # for the grid
+            view_slice = self.view_indices[row_start : row_start + num_rows]
+            columns = [col.gather(view_slice) for col in columns]
         else:
             # No filtering or sorting, just slice
             columns = [col[row_start : row_start + num_rows] for col in columns]
 
         formatted_columns = [self._format_values(col, format_options) for col in columns]
 
-        return TableData(columns=formatted_columns)
+        # Bypass pydantic model for speed
+        return {"columns": formatted_columns, "row_labels": None}
 
     @classmethod
     def _format_values(cls, values, options: FormatOptions) -> List[ColumnValue]:
@@ -1547,14 +1707,184 @@ class PolarsView(DataExplorerTableView):
     def _export_data_selection(self, selection: DataSelection, fmt: ExportFormat) -> ExportedData:
         raise NotImplementedError
 
-    def _set_row_filters(self, filters: List[RowFilter]) -> FilterResult:
-        raise NotImplementedError
+    SUPPORTED_FILTERS = {
+        RowFilterType.Between,
+        RowFilterType.Compare,
+        RowFilterType.NotBetween,
+        RowFilterType.IsNull,
+        RowFilterType.NotNull,
+        RowFilterType.IsEmpty,
+        RowFilterType.NotEmpty,
+        RowFilterType.IsTrue,
+        RowFilterType.IsFalse,
+        RowFilterType.Search,
+        RowFilterType.SetMembership,
+    }
 
-    def _set_sort_columns(self, sort_keys: List[ColumnSortKey]):
-        raise NotImplementedError
+    def _mask_to_indices(self, mask):
+        # Boolean array -> int32 array of true indices
+        if mask is not None:
+            return mask.arg_true()
 
-    def _sort_data(self):
-        raise NotImplementedError
+    def _eval_filter(self, filt: RowFilter):
+        column_index = filt.column_schema.column_index
+        col = self.table[:, column_index]
+
+        dtype = col.dtype
+        display_type = self._get_type_display(dtype)
+
+        mask = None
+        if filt.filter_type in (
+            RowFilterType.Between,
+            RowFilterType.NotBetween,
+        ):
+            params = filt.between_params
+            assert params is not None
+            left_value = self._coerce_value(params.left_value, dtype, display_type)
+            right_value = self._coerce_value(params.right_value, dtype, display_type)
+            mask = col.is_between(left_value, right_value)
+            if filt.filter_type == RowFilterType.NotBetween:
+                mask = ~mask
+        elif filt.filter_type == RowFilterType.Compare:
+            params = filt.compare_params
+            assert params is not None
+
+            if params.op not in COMPARE_OPS:
+                raise ValueError(f"Unsupported filter type: {params.op}")
+            op = COMPARE_OPS[params.op]
+            # pandas comparison filters return False for null values
+            mask = op(col, self._coerce_value(params.value, dtype, display_type))
+        elif filt.filter_type == RowFilterType.IsEmpty:
+            if col.dtype.is_(pl_.String):
+                mask = col.str.len_chars() == 0
+            elif col.dtype.is_(pl_.Binary):
+                # col == b"" segfaults in polars
+                mask = col.bin.encode("hex").str.len_chars() == 0
+            else:
+                raise TypeError(col.dtype)
+        elif filt.filter_type == RowFilterType.NotEmpty:
+            if col.dtype.is_(pl_.String):
+                mask = col.str.len_chars() != 0
+            elif col.dtype.is_(pl_.Binary):
+                # col == b"" segfaults in polars
+                mask = col.bin.encode("hex").str.len_chars() != 0
+            else:
+                raise TypeError(col.dtype)
+        elif filt.filter_type == RowFilterType.IsNull:
+            mask = col.is_null()
+        elif filt.filter_type == RowFilterType.NotNull:
+            mask = ~col.is_null()
+        elif filt.filter_type == RowFilterType.IsTrue:
+            mask = col == True  # noqa: E712
+        elif filt.filter_type == RowFilterType.IsFalse:
+            mask = col == False  # noqa: E712
+        elif filt.filter_type == RowFilterType.SetMembership:
+            params = filt.set_membership_params
+            assert params is not None
+
+            boxed_values = pl_.Series(
+                [self._coerce_value(val, dtype, display_type) for val in params.values]
+            )
+            mask = col.is_in(boxed_values)
+            if not params.inclusive:
+                # NOT-IN
+                mask = ~mask
+        elif filt.filter_type == RowFilterType.Search:
+            params = filt.search_params
+            assert params is not None
+
+            if not col.dtype.is_(pl_.String):
+                col = col.cast(str)
+
+            term = params.term
+
+            if params.search_type == SearchFilterType.RegexMatch:
+                if not params.case_sensitive:
+                    term = "(?i)" + term
+                mask = col.str.contains(term)
+            else:
+                if not params.case_sensitive:
+                    col = col.str.to_lowercase()
+                    term = term.lower()
+                if params.search_type == SearchFilterType.Contains:
+                    mask = col.str.contains(term)
+                elif params.search_type == SearchFilterType.StartsWith:
+                    mask = col.str.starts_with(term)
+                elif params.search_type == SearchFilterType.EndsWith:
+                    mask = col.str.ends_with(term)
+
+        assert mask is not None
+
+        # Nulls are possible in the mask, so we just fill them if any
+        if mask.null_count() > 0:
+            mask[mask.is_null()] = False
+
+        return mask
+
+    @staticmethod
+    def _coerce_value(value, dtype, display_type):
+        if dtype.is_integer():
+            # For integer types, try to coerce to integer, but if this
+            # fails, allow a looser conversion to float
+            try:
+                return int(value)
+            except ValueError as e:
+                try:
+                    return pl_.Series([value]).cast(pl_.Float64)[0]
+                except ValueError:
+                    raise e
+        elif dtype.is_(pl_.Boolean):
+            lvalue = value.lower()
+            if lvalue == "true":
+                return True
+            elif lvalue == "false":
+                return False
+            else:
+                raise ValueError(f"Unable to convert {value} to boolean")
+        elif display_type == "datetime":
+            return _parse_iso8601_like(value, tz=dtype.time_zone)
+        else:
+            # As a fallback, let polars.Series.cast do the coercion
+            dummy = pl_.Series([value])
+            if dummy.dtype != dtype:
+                dummy = dummy.cast(dtype)
+            return dummy[0]
+
+    def _sort_data(self) -> None:
+        if len(self.sort_keys) > 0:
+            cols_to_sort = []
+            directions = []
+            for key in self.sort_keys:
+                col = self._get_column(key.column_index)
+                cols_to_sort.append(col)
+                directions.append(not key.ascending)
+
+            indexer_name = guid()
+
+            if self.filtered_indices is not None:
+                num_rows = len(self.filtered_indices)
+            else:
+                num_rows = len(self.table)
+
+            # Do a stable sort of the indices using the columns as sort keys
+            to_sort = pl_.DataFrame({indexer_name: pl_.arange(num_rows, eager=True)})
+
+            try:
+                to_sort = to_sort.sort(cols_to_sort, descending=directions, maintain_order=True)
+            except TypeError:
+                # Older versions of polars do not have maintain_order
+                to_sort = to_sort.sort(cols_to_sort, descending=directions)
+
+            sort_indexer = to_sort[indexer_name]
+            if self.filtered_indices is not None:
+                # Create the filtered, sorted virtual view indices
+                self.view_indices = self.filtered_indices.gather(sort_indexer)
+            else:
+                self.view_indices = sort_indexer
+        else:
+            # No sort keys. This will be None if the data is
+            # unfiltered
+            self.view_indices = self.filtered_indices
 
     def _prof_null_count(self, column_index: int) -> int:
         return self._get_column(column_index).null_count()
@@ -1562,7 +1892,7 @@ class PolarsView(DataExplorerTableView):
     def _get_column(self, column_index: int) -> "pl.Series":
         column = self.table[:, column_index]
         if self.filtered_indices is not None:
-            column = column.take(self.filtered_indices)
+            column = column.gather(self.filtered_indices)
         return column
 
     def _prof_summary_stats(self, column_index: int, options: FormatOptions) -> ColumnSummaryStats:
@@ -1574,12 +1904,10 @@ class PolarsView(DataExplorerTableView):
     def _prof_histogram(self, column_index: int) -> ColumnHistogram:
         raise NotImplementedError
 
-    SUPPORTED_FILTERS = set()
-
     FEATURES = SupportedFeatures(
         search_schema=SearchSchemaFeatures(support_status=SupportStatus.Unsupported),
         set_row_filters=SetRowFiltersFeatures(
-            support_status=SupportStatus.Unsupported,
+            support_status=SupportStatus.Supported,
             supports_conditions=SupportStatus.Unsupported,
             supported_types=[
                 RowFilterTypeSupportStatus(
@@ -1605,22 +1933,8 @@ class PolarsView(DataExplorerTableView):
             ],
         ),
         export_data_selection=ExportDataSelectionFeatures(support_status=SupportStatus.Unsupported),
-        set_sort_columns=SetSortColumnsFeatures(support_status=SupportStatus.Unsupported),
+        set_sort_columns=SetSortColumnsFeatures(support_status=SupportStatus.Supported),
     )
-
-    def _get_state(self) -> BackendState:
-        table_unfiltered_shape = TableShape(
-            num_rows=self.table.shape[0], num_columns=self.table.shape[1]
-        )
-
-        return BackendState(
-            display_name=self.display_name,
-            table_shape=table_unfiltered_shape,
-            table_unfiltered_shape=table_unfiltered_shape,
-            row_filters=self.filters,
-            sort_keys=self.sort_keys,
-            supported_features=self.FEATURES,
-        )
 
 
 class PyArrowView(DataExplorerTableView):
