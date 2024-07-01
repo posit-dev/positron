@@ -1,10 +1,14 @@
 /*---------------------------------------------------------------------------------------------
  *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
 import { Application, Logger } from '../../../../../automation';
 import { installAllHandlers } from '../../../utils';
 
+/*
+ * New Project Wizard test cases
+ */
 export function setup(logger: Logger) {
 	describe('New Project Wizard', () => {
 		// Shared before/after handling

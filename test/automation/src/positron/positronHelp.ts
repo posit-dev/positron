@@ -1,5 +1,6 @@
 /*---------------------------------------------------------------------------------------------
  *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
 
@@ -13,9 +14,12 @@ const HELP_CONTAINER = '.positron-help-container';
 const RESIZE_SASH = '.monaco-sash.horizontal:not(.disabled)';
 const AUX_BAR = '.part.auxiliarybar';
 
+/*
+ *  Reuseable Positron Help functionality for tests to leverage.
+ */
 export class PositronHelp {
-
-	private auxilaryBar = this.code.driver.getLocator(AUX_BAR);
+  
+  private auxilaryBar = this.code.driver.getLocator(AUX_BAR);
 
 	constructor(private code: Code) { }
 

@@ -1,11 +1,15 @@
 /*---------------------------------------------------------------------------------------------
  *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
 import { expect } from '@playwright/test';
 import { Application, Logger, PositronPythonFixtures, PositronRFixtures } from '../../../../../automation';
 import { installAllHandlers } from '../../../utils';
 
+/*
+ * Variables Pane test cases
+ */
 export function setup(logger: Logger) {
 	describe('Variables Pane', () => {
 
@@ -33,7 +37,7 @@ export function setup(logger: Logger) {
 				await executeCode('y=10');
 				await executeCode('z=100');
 
-				console.log('Entered lines in console defining variables');
+				logger.log('Entered lines in console defining variables');
 
 				await app.workbench.positronConsole.logConsoleContents();
 
@@ -74,7 +78,7 @@ export function setup(logger: Logger) {
 				await executeCode('y=10');
 				await executeCode('z=100');
 
-				console.log('Entered lines in console defining variables');
+				logger.log('Entered lines in console defining variables');
 
 				await app.workbench.positronConsole.logConsoleContents();
 

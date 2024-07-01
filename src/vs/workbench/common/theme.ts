@@ -1456,9 +1456,9 @@ export const POSITRON_SIDE_ACTION_BAR_BACKGROUND = registerColor('positronSideAc
 // Positron side action bar foreground color.
 export const POSITRON_SIDE_ACTION_BAR_FOREGROUND = registerColor('positronSideActionBar.foreground', {
 	dark: foreground,
-	light: '#75828D',
-	hcDark: '#ffffff',
-	hcLight: editorForeground
+	light: foreground,
+	hcDark: foreground,
+	hcLight: foreground
 }, localize('positronSideActionBar.foreground', "Positron side action bar foreground color."));
 
 // Positron side action bar disabled foreground color.

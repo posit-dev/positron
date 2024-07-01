@@ -1,10 +1,14 @@
 /*---------------------------------------------------------------------------------------------
  *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
 import { Application, Logger, PositronPythonFixtures } from '../../../../../automation';
 import { installAllHandlers } from '../../../utils';
 
+/*
+ * Python console tests
+ */
 export function setup(logger: Logger) {
 	describe('Console Pane: Python', () => {
 

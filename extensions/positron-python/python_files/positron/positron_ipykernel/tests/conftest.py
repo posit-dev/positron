@@ -1,5 +1,6 @@
 #
 # Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
+# Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
 #
 
 from typing import Iterable
@@ -17,6 +18,9 @@ from positron_ipykernel.positron_ipkernel import (
 )
 from positron_ipykernel.session_mode import SessionMode
 from positron_ipykernel.variables import VariablesService
+import positron_ipykernel.utils as utils
+
+utils.TESTING = True
 
 
 class DummyComm(comm.base_comm.BaseComm):

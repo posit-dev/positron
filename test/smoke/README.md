@@ -83,3 +83,116 @@ On Windows, check for the folder `C:\Users\<username>\AppData\Local\Temp\t`. If 
 - Beware of **timing**. You need to read from or write to the DOM... but is it the right time to do that? Can you 100% guarantee that `input` box will be visible at that point in time? Or are you just hoping that it will be so? Hope is your worst enemy in UI tests. Example: just because you triggered Quick Access with `F1`, it doesn't mean that it's open and you can just start typing; you must first wait for the input element to be in the DOM as well as be the current active element.
 
 - Beware of **waiting**. **Never** wait longer than a couple of seconds for anything, unless it's justified. Think of it as a human using Code. Would a human take 10 minutes to run through the Search viewlet smoke test? Then, the computer should even be faster. **Don't** use `setTimeout` just because. Think about what you should wait for in the DOM to be ready and wait for that instead.
+<!-- Start Positron -->
+
+# Notes on smoke tests in Positron
+
+The following are a series of notes related to running smoke tests in Positron.
+
+## Where?
+
+Code for smoke tests is in the path `test/smoke` from the root of the repo.
+
+### Test scripts
+
+The tests themselves are located at the path `test/smoke/src/areas/positron/<area>/*.test.ts`
+
+For instance the smoke tests for the help pane are at `test/smoke/src/areas/positron/help/help.test.ts`
+
+An example/template test can be found in `test/smoke/src/areas/positron/example.test.ts`
+
+### Automation helpers
+
+Typically an area being tested will have a companion class that helps manage the details of finding and interacting with the area that sits at `test/automation/src/positron`.
+
+Again, the help pane tests have a `PositronHelp` class defined at `test/automation/src/positron/positronHelp.ts`
+
+## Environment setup
+
+In order to run the tests you'll need to have two environment variables set. These are so Positron knows what R and Python versions to load.
+
+A typical place to set them on a mac is in your `.zshrc`, but you should use your environment variable setting method of choice!
+
+**~/.zshrc**
+
+```bash
+export POSITRON_PY_VER_SEL="3.11.5"
+export POSITRON_R_VER_SEL="4.2.1"
+```
+
+Make sure you actually have the version you chose installed. Easiest way is to open Positron and just copy a version number you have available in the picker.
+
+_Note: If you forgot to do this before trying to run the tests, you'll need to restart VSCode or whatever editor you're using before they will take effect._
+
+## Build step
+
+The tests are written in typescript, but unlike the main Positron typescript, the files are not transpiled by the build daemons. So when running tests you'll need to navigate into the smoke tests location and run the build watcher:
+
+```bash
+cd test/smoke
+yarn watch
+```
+
+_You may see errors in test files before you run this builder step once, as it's looking for types in the not-yet-existing build artifacts._
+
+## Test Project
+
+Before any of the tests start executing the test framework clones down the [QA Content Examples](https://github.com/posit-dev/qa-example-content) repo.  This repo contains R and Python files that are run by the automated tests and also includes data files (such as Excel, SQLite, & parquet) that support the test scripts.  If you make additions to QA Content Examples for a test, please be sure that the data files are free to use in a public repository.
+
+## Running tests
+
+Once you have the build watcher running you can run the smoke tests with the debug action `Launch Smoke Test`. (It's near the bottom of the debug dropdown.)
+
+### Only running a subset of tests
+
+It takes a long time to run all the tests. To only run specific tests you can replace the `it()` function from your test script with `it.only()`. If the runner detects `it.only()`s in the tests it will _only_ run those blocks.
+
+_Note: Don't forget to remove the `.only()`s when you're done!_
+
+## Local debugging
+
+### Breakpoints
+
+Unfortunately setting breakpoints on the typescript source files for tests doesn't work, at least not like it does for the rest of Positron.
+
+_We're not totally sure why the generated map files aren't used, but this may be fixable._
+
+There are two ways to add breakpoints:
+
+- Set the breakpoint in the built javascript.
+  - Go into the build artifact `test/smoke/src/areas/positron/<area>/*.test.ts`
+    - Note the replacement of the `src` with `out`.
+    - Here's the path to the help test built js `test/smoke/out/areas/positron/help/help.test.js`
+  - Set a breakpoint in the desired place in this artifact.
+- Add a `debugger;` statement to your script
+  - If you simply place the line `debugger;` into your test code it will survive the build step.
+  - (Don't forget to delete after you've finished debugging!)
+
+### Devtools
+
+The controlled instance of Positron doesn't allow you to manually open the developer tools like you typically might with the command `workbench.action.toggleDevTools`.
+
+The way around this is to invoke the command from your test script itself.
+
+```ts
+// This line will most likely be at the top of your test function already
+const app = this.app as Application
+
+...
+
+await app.workbench.quickaccess.runCommand('workbench.action.toggleDevTools');`
+```
+
+(Again, don't forget to remove this line after you've finished debugging!)
+
+## Running Tests in Github Actions
+
+New tests are not complete until they run successfully across operating systems (Mac, Windows, & Ubuntu) and in [Github Actions](https://github.com/posit-dev/positron/actions/workflows/positron-full-test.yml).  In Github Actions we use an Ubuntu instance to run the tests, so if you are developing your tests using a Mac or on Windows, this is an opportunity to test a different operating system.  Also, you can easily run your new tests against a branch to verify them before merge.  Simply pick the branch after you click on "Run Workflow".  Note that you can also temporarily modify the workflow itself to get your new tests executed more quickly.  To do this, skip the runs of the unit and integration tests.
+
+### Github Actions Test Artifacts
+
+When a run is complete, you can debug any test failures that occurred using the uploaded run artifacts.  The artifacts are available as a ZIP file from inside the workflow run.  Each artifact zip contains: a folder for each test file and an overall run log.  Inside the folder corresponding to each test file, you will find zip files that are Playwright traces.  Note that the trace files are only present for failed cases.
+
+Playwright traces can be drag and dropped to the [Trace Viewer](https://trace.playwright.dev/).  The trace will usually give you a good visualization of the failed test, but they can be sparse on details.  More details are available from the run log (smoke-test-runner.log).  It has a start and end marker for each test case.
+
+<!-- End Positron -->

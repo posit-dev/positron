@@ -1,5 +1,6 @@
 #
 # Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
+# Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
 #
 
 """Positron extensions to the iPython Kernel."""
@@ -490,7 +491,9 @@ class PositronIPyKernel(IPythonKernel):
                     child.wait(timeout=0)
                 except psutil.TimeoutExpired as exception:
                     self.log.warning(
-                        "Error while reaping zombie subprocess %s: %s", child, exception
+                        "Error while reaping zombie subprocess %s: %s",
+                        child,
+                        exception,
                     )
 
     # monkey patching warning.showwarning is recommended by the official documentation

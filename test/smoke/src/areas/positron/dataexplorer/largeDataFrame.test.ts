@@ -1,5 +1,6 @@
 /*---------------------------------------------------------------------------------------------
  *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
 
@@ -9,6 +10,9 @@ import { installAllHandlers } from '../../../utils';
 import { join } from 'path';
 
 
+/*
+ * Data explorer test suite for large data frames
+ */
 export function setup(logger: Logger) {
 
 	const LAST_CELL_CONTENTS = '2013-09-30 08:00:00';
@@ -46,8 +50,11 @@ export function setup(logger: Logger) {
 				await app.workbench.quickaccess.openFile(join(app.workspacePathOrFolder, 'workspaces', 'nyc-flights-data-py', 'flights-data-frame.py'));
 				await app.workbench.quickaccess.runCommand('python.execInConsole');
 
-				console.log('Opening data grid');
-				await app.workbench.positronVariables.doubleClickVariableRow('df');
+				logger.log('Opening data grid');
+				await expect(async () => {
+					await app.workbench.positronVariables.doubleClickVariableRow('df');
+					await app.code.driver.getLocator('.label-name:has-text("Data: df")').innerText();
+				}).toPass();
 
 				await app.workbench.positronSideBar.closeSecondarySideBar();
 
@@ -65,9 +72,10 @@ export function setup(logger: Logger) {
 				await app.workbench.positronDataExplorer.clickUpperLeftCorner();
 				await app.workbench.positronDataExplorer.addFilter(...FILTER_PARAMS as [string, string, string]);
 
-				const statusBar = await app.workbench.positronDataExplorer.getDataExplorerStatusBar();
-
-				expect(statusBar.textContent).toBe(POST_FILTER_DATA_SUMMARY);
+				await expect(async () => {
+					const statusBar = await app.workbench.positronDataExplorer.getDataExplorerStatusBar();
+					expect(statusBar.textContent).toBe(POST_FILTER_DATA_SUMMARY);
+				}).toPass();
 
 			});
 		});
@@ -98,8 +106,11 @@ export function setup(logger: Logger) {
 				await app.workbench.quickaccess.openFile(join(app.workspacePathOrFolder, 'workspaces', 'nyc-flights-data-r', 'flights-data-frame.r'));
 				await app.workbench.quickaccess.runCommand('r.sourceCurrentFile');
 
-				console.log('Opening data grid');
-				await app.workbench.positronVariables.doubleClickVariableRow('df2');
+				logger.log('Opening data grid');
+				await expect(async () => {
+					await app.workbench.positronVariables.doubleClickVariableRow('df2');
+					await app.code.driver.getLocator('.label-name:has-text("Data: df2")').innerText();
+				}).toPass();
 
 				await app.workbench.positronSideBar.closeSecondarySideBar();
 
@@ -116,9 +127,10 @@ export function setup(logger: Logger) {
 				await app.workbench.positronDataExplorer.clickUpperLeftCorner();
 				await app.workbench.positronDataExplorer.addFilter(...FILTER_PARAMS as [string, string, string]);
 
-				const statusBar = await app.workbench.positronDataExplorer.getDataExplorerStatusBar();
-
-				expect(statusBar.textContent).toBe(POST_FILTER_DATA_SUMMARY);
+				await expect(async () => {
+					const statusBar = await app.workbench.positronDataExplorer.getDataExplorerStatusBar();
+					expect(statusBar.textContent).toBe(POST_FILTER_DATA_SUMMARY);
+				}).toPass();
 
 			});
 		});

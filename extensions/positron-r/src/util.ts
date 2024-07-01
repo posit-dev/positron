@@ -1,5 +1,6 @@
 /*---------------------------------------------------------------------------------------------
  *  Copyright (C) 2022 Posit Software, PBC. All rights reserved.
+ *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
 import * as fs from 'fs';
@@ -62,4 +63,16 @@ export function removeLeadingLines(x: string, pattern: RegExp): string {
 	}
 
 	return output.join('\n');
+}
+
+export function removeSurroundingQuotes(x: string): string {
+	const hasQuotes =
+		(x.startsWith('"') && x.endsWith('"')) ||
+		(x.startsWith('\'') && x.endsWith('\''));
+
+	if (hasQuotes) {
+		x = x.slice(1, x.length - 1);
+	}
+
+	return x;
 }

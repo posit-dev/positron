@@ -1,5 +1,6 @@
 #
 # Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+# Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
 #
 """
 The matplotlib backend for Positron.
@@ -165,7 +166,6 @@ class FigureCanvasPositron(FigureCanvasAgg):
         self.figure.set_size_inches(width_in, height_in, forward=False)
 
         # Render the canvas.
-        figure_buffer = io.BytesIO()
         with io.BytesIO() as figure_buffer:
             self.print_figure(
                 figure_buffer,

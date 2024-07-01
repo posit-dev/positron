@@ -1,5 +1,6 @@
 /*---------------------------------------------------------------------------------------------
  *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
 
@@ -17,6 +18,9 @@ const VARIABLE_DETAILS = 'details-column';
 const VARIABLES_NAME_COLUMN = '.variable-item .name-column';
 const VARIABLES_SECTION = '[aria-label="Variables Section"]';
 
+/*
+ *  Reuseable Positron variables functionality for tests to leverage.
+ */
 export class PositronVariables {
 
 	constructor(private code: Code) { }

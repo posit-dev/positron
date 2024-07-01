@@ -1,13 +1,18 @@
 /*---------------------------------------------------------------------------------------------
  *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
 
 import { Code } from '../code';
 
 const CURRENT_PLOT = '.plot-instance .image-wrapper img';
-const CLEAR_PLOTS = '.positron-plots-container .action-bar-tool-tip-container .codicon-clear-all';
+const CLEAR_PLOTS = '.positron-plots-container .positron-action-bar .codicon-clear-all';
 
+
+/*
+ *  Reuseable Positron plots functionality for tests to leverage.
+ */
 export class PositronPlots {
 
 	constructor(private code: Code) { }

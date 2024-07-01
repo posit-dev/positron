@@ -177,16 +177,19 @@ jobs:
           asset_name: Positron-${{ needs.version_string.outputs.short_version }}.deb
           asset_content_type: application/octet-stream
 
-      - name: Upload Linux .rpm release asset
-        uses: actions/upload-release-asset@v1
-        if: github.ref == 'refs/heads/main'
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
-        with:
-          upload_url: ${{ needs.releases.outputs.upload_url }}
-          asset_path: Positron-${{ needs.version_string.outputs.short_version }}.rpm
-          asset_name: Positron-${{ needs.version_string.outputs.short_version }}.rpm
-          asset_content_type: application/octet-stream
+      # RPMs are excluded from releases for now, see:
+      # https://github.com/posit-dev/positron/issues/1619#issuecomment-1964637961
+
+      # - name: Upload Linux .rpm release asset
+      #   uses: actions/upload-release-asset@v1
+      #   if: github.ref == 'refs/heads/main'
+      #   env:
+      #     GITHUB_TOKEN: ${{ github.token }}
+      #   with:
+      #     upload_url: ${{ needs.releases.outputs.upload_url }}
+      #     asset_path: Positron-${{ needs.version_string.outputs.short_version }}.rpm
+      #     asset_name: Positron-${{ needs.version_string.outputs.short_version }}.rpm
+      #     asset_content_type: application/octet-stream
 
       - name: Upload Linux Remote Extension Host release asset
         uses: actions/upload-release-asset@v1
