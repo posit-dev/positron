@@ -351,6 +351,15 @@ NT = TypeVar("NT", numbers.Number, "np.number")
 
 
 class NumberInspector(PositronInspector[NT], ABC):
+    def get_display_type(self) -> str:
+        ty = type(self.value)
+        mod = ty.__module__
+        name = ty.__name__
+        if mod == "builtins":
+            return name
+        else:
+            return f"{mod}.{name}"
+
     def is_mutable(self) -> bool:
         return False
 
