@@ -200,7 +200,7 @@ def test_inspect_numpy_scalars(value: np.integer) -> None:
         is_truncated=False,
         display_value=str(value),
         kind=VariableKind.Number,
-        display_type=str(dtype),
+        display_type=f"numpy.{dtype}",
         type_info=f"numpy.{dtype}",
     )
 
