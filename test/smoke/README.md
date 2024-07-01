@@ -91,13 +91,15 @@ The following are a series of notes related to running smoke tests in Positron.
 
 ## Where?
 
-Code for smoke tests is in the path `test/smoke` from the root of the repo
+Code for smoke tests is in the path `test/smoke` from the root of the repo.
 
 ### Test scripts
 
 The tests themselves are located at the path `test/smoke/src/areas/positron/<area>/*.test.ts`
 
 For instance the smoke tests for the help pane are at `test/smoke/src/areas/positron/help/help.test.ts`
+
+An example/template test can be found in `test/smoke/src/areas/positron/example.test.ts`
 
 ### Automation helpers
 
