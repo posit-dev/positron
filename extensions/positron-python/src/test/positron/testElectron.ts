@@ -3,7 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { exec, spawnSync } from 'child_process';
+import { spawnSync } from 'child_process';
 import * as fs from 'fs-extra';
 import { IncomingMessage } from 'http';
 import * as https from 'https';
@@ -25,29 +25,6 @@ const httpsGetAsync = (opts: string | https.RequestOptions) =>
         const req = https.get(opts, resolve);
         req.once('error', reject);
     });
-
-/**
- * Helper to execute a command and return the stdout and stderr.
- *
- * @param command The command to execute.
- * @param stdin Optional stdin to pass to the command.
- * @returns A promise that resolves with the stdout and stderr of the command.
- */
-async function executeCommand(command: string, stdin?: string): Promise<{ stdout: string; stderr: string }> {
-    return new Promise((resolve, reject) => {
-        const process = exec(command, (error, stdout, stderr) => {
-            if (error) {
-                reject(error);
-            } else {
-                resolve({ stdout, stderr });
-            }
-        });
-        if (stdin) {
-            process.stdin!.write(stdin);
-            process.stdin!.end();
-        }
-    });
-}
 
 /**
  * Helper to execute a command (quoting arguments) and return stdout.
@@ -158,7 +135,6 @@ export async function downloadAndUnzipPositron(): Promise<{ version: string; exe
     const dlRequestOptions: https.RequestOptions = {
         headers: {
             Accept: 'application/octet-stream', // eslint-disable-line
-            Authorization: `token ${githubPat}`, // eslint-disable-line
             'User-Agent': 'positron-python-tests', // eslint-disable-line
         },
         method: 'GET',
