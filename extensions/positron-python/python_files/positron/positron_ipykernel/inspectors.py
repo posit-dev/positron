@@ -381,7 +381,7 @@ class NumberInspector(PositronInspector[NT], ABC):
         return super().value_to_json()
 
     @classmethod
-    def value_from_json(cls, type_name: str, data: JsonData):
+    def value_from_json(cls, type_name: str, data: JsonData) -> Union[NT, numbers.Number]:
         if type_name == "int":
             if not isinstance(data, numbers.Integral):
                 raise ValueError(f"Expected data to be int, got {data}")
