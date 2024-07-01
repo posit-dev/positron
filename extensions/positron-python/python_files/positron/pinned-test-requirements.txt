@@ -7,10 +7,11 @@ numpy==1.26.3; python_version >= '3.9'
 numpy==1.24.4; python_version < '3.9'
 pandas==2.2.0; python_version >= '3.9'
 pandas==2.0.3; python_version < '3.9'
+pyarrow==16.1.0
 pytest==8.0.2
 pytest-asyncio==0.23.5
 pytest-mock==3.12.0
-polars==0.20.13; python_version >= '3.9'
-polars[timezone]==0.20.13; python_version < '3.9' or sys_platform == 'win32'
+polars==0.20.31; python_version >= '3.9'
+polars[timezone]==0.20.31; python_version < '3.9' or sys_platform == 'win32'
 torch==2.1.2; python_version < '3.12'
 sqlalchemy==2.0.28

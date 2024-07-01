@@ -9,6 +9,9 @@ import { Application, Logger, PositronPythonFixtures, PositronRFixtures } from '
 import { installAllHandlers } from '../../../utils';
 import { expect } from '@playwright/test';
 
+/*
+ * DB Connections test cases, leveraging the Chinook SQLite database from https://github.com/posit-dev/qa-example-content
+ */
 export function setup(logger: Logger) {
 
 	const tables = ['tracks', 'playlist_track', 'playlists', 'media_types', 'invoice_items', 'invoices', 'genres', 'employees', 'customers', 'artists', 'albums'];
@@ -45,7 +48,7 @@ export function setup(logger: Logger) {
 				await app.workbench.quickaccess.openFile(join(app.workspacePathOrFolder, 'workspaces', 'chinook-db-py', 'sqlite.py'));
 				await app.workbench.quickaccess.runCommand('python.execInConsole');
 
-				console.log('Opening connections pane');
+				logger.log('Opening connections pane');
 				await app.workbench.positronVariables.doubleClickVariableRow('conn');
 
 				await expect(async () => {
@@ -96,7 +99,7 @@ export function setup(logger: Logger) {
 				await app.workbench.quickaccess.openFile(join(app.workspacePathOrFolder, 'workspaces', 'chinook-db-r', 'sqlite.r'));
 				await app.workbench.quickaccess.runCommand('r.sourceCurrentFile');
 
-				console.log('Opening connections pane');
+				logger.log('Opening connections pane');
 				await app.workbench.positronConnections.connectionsTabLink.click();
 
 				await expect(async () => {

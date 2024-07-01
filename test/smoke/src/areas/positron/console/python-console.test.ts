@@ -6,6 +6,9 @@
 import { Application, Logger, PositronPythonFixtures } from '../../../../../automation';
 import { installAllHandlers } from '../../../utils';
 
+/*
+ * Python console tests
+ */
 export function setup(logger: Logger) {
 	describe('Console Pane: Python', () => {
 
