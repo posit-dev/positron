@@ -49,7 +49,6 @@ from .variables_comm import (
     VariablesFrontendEvent,
     ViewRequest,
 )
-from . import utils
 
 if TYPE_CHECKING:
     from .positron_ipkernel import PositronIPyKernel
@@ -150,8 +149,6 @@ class VariablesService:
 
         else:
             logger.warning(f"Unhandled request: {request}")
-            if utils.TESTING:
-                raise NotImplementedError(request)
 
     def _send_update(
         self,
@@ -277,8 +274,6 @@ class VariablesService:
             self._send_update(assigned, unevaluated, removed)
         except Exception as err:
             logger.warning(err, exc_info=True)
-            if utils.TESTING:
-                raise
 
     def snapshot_user_ns(self) -> None:
         """

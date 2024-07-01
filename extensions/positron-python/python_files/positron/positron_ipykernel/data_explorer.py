@@ -23,7 +23,6 @@ from typing import (
 )
 
 import comm
-import pytz
 
 from .access_keys import decode_access_key
 from .data_explorer_comm import (
@@ -1432,6 +1431,8 @@ _ISO_8601_FORMATS = [
 
 
 def _parse_iso8601_like(x, tz=None):
+    import pytz
+
     for fmt in _ISO_8601_FORMATS:
         try:
             result = datetime.strptime(x, fmt)
