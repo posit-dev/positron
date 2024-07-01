@@ -68,8 +68,8 @@ else {
 			urlProtocol: 'code-oss',
 			reportIssueUrl: 'https://github.com/posit-dev/positron/issues/new',
 			licenseName: 'Software Evaluation License',
-			licenseUrl: 'https://github.com/posit-dev/positron-beta/tree/main?tab=License-1-ov-file',
-			serverLicenseUrl: 'https://github.com/posit-dev/positron-beta/tree/main?tab=License-1-ov-file'
+			licenseUrl: 'https://github.com/posit-dev/positron/tree/main?tab=License-1-ov-file',
+			serverLicenseUrl: 'https://github.com/posit-dev/positron/tree/main?tab=License-1-ov-file'
 			// --- End Positron ---
 		});
 	}
