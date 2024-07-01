@@ -7,50 +7,62 @@
 	position: absolute;
 }
 
-.data-grid-row-cell.selected {
-	background-color: var(--vscode-positronDataGrid-selectionBackground);
-}
-
 .data-grid-row-cell
-.data-grid-row-cell-border-overlay {
+.border-overlay {
 	top: 0;
 	right: 0;
 	bottom: 0;
 	left: 0;
 	position: absolute;
 	box-sizing: border-box;
-}
-
-.data-grid-row-cell
-.data-grid-row-cell-border-overlay.bordered {
 	border-right: 1px solid var(--vscode-positronDataGrid-border);
 	border-bottom: 1px solid var(--vscode-positronDataGrid-border);
 }
 
 .data-grid-row-cell
-.data-grid-row-cell-border-overlay.selected {
-	border-right: 1px solid var(--vscode-positronDataGrid-selectionInnerBorder);
-	border-bottom: 1px solid var(--vscode-positronDataGrid-selectionInnerBorder);
+.selection-overlay {
+	top: 0;
+	right: 0;
+	bottom: 0;
+	left: 0;
+	position: absolute;
+	box-sizing: border-box;
+	background-color: var(--vscode-positronDataGrid-selectionBackground);
 }
 
 .data-grid-row-cell
-.data-grid-row-cell-border-overlay.selected-top {
+.selection-overlay:not(.focused) {
+	opacity: 50%;
+}
+
+.data-grid-row-cell
+.selection-overlay.selected-top {
 	border-top: 1px solid var(--vscode-positronDataGrid-selectionBorder);
 }
 
 .data-grid-row-cell
-.data-grid-row-cell-border-overlay.selected-bottom {
+.selection-overlay.selected-right {
+	border-right: 1px solid var(--vscode-positronDataGrid-selectionBorder);
+}
+
+.data-grid-row-cell
+.selection-overlay:not(.selected-right) {
+	border-right: 1px solid var(--vscode-positronDataGrid-selectionInnerBorder);
+}
+
+.data-grid-row-cell
+.selection-overlay.selected-bottom {
 	border-bottom: 1px solid var(--vscode-positronDataGrid-selectionBorder);
 }
 
 .data-grid-row-cell
-.data-grid-row-cell-border-overlay.selected-left {
-	border-left: 1px solid var(--vscode-positronDataGrid-selectionBorder);
+.selection-overlay:not(.selected-bottom) {
+	border-bottom: 1px solid var(--vscode-positronDataGrid-selectionInnerBorder);
 }
 
 .data-grid-row-cell
-.data-grid-row-cell-border-overlay.selected-right {
-	border-right: 1px solid var(--vscode-positronDataGrid-selectionBorder);
+.selection-overlay.selected-left {
+	border-left: 1px solid var(--vscode-positronDataGrid-selectionBorder);
 }
 
 .data-grid-row-cell
@@ -58,6 +70,11 @@
 	position: absolute;
 	box-sizing: border-box;
 	border: 1.5px solid var(--vscode-positronDataGrid-cursorBorder);
+}
+
+.data-grid-row-cell
+.cursor-border.dimmed {
+	opacity: 50%;
 }
 
 .data-grid-row-cell

@@ -98,15 +98,42 @@ export const DataGridRowCell = (props: DataGridRowCellProps) => {
 		props.rowIndex
 	);
 
+	// Determine whether this cell is selected.
+	const selected = (cellSelectionState & CellSelectionState.Selected) !== 0;
+
+	// Determine whether this cell is the cursor cell.
+	const isCursorCell = context.instance.internalCursor &&
+		props.columnIndex === context.instance.cursorColumnIndex &&
+		props.rowIndex === context.instance.cursorRowIndex;
+
+
+	/**
+	 * Cursor component.
+	 * @param dimmed A value which indicates whether the cursor component should be dimmed.
+	 * @returns The rendered component.
+	 */
+	const Cursor = ({ dimmed }: { dimmed?: boolean }) => {
+		return (
+			<div
+				className={positronClassNames(
+					'cursor-border',
+					{ dimmed }
+				)}
+				style={{
+					top: context.instance.cursorOffset,
+					right: context.instance.cursorOffset,
+					bottom: context.instance.cursorOffset,
+					left: context.instance.cursorOffset,
+				}}
+			/>
+		);
+	};
+
 	// Render.
 	return (
 		<div
 			ref={ref}
-			className={
-				positronClassNames(
-					'data-grid-row-cell',
-					{ 'selected': cellSelectionState & CellSelectionState.Selected },
-				)}
+			className='data-grid-row-cell'
 			style={{
 				left: props.left,
 				width: context.instance.getColumnWidth(props.columnIndex),
@@ -114,33 +141,27 @@ export const DataGridRowCell = (props: DataGridRowCellProps) => {
 			}}
 			onMouseDown={mouseDownHandler}
 		>
-			<div
-				className={
-					positronClassNames(
-						'data-grid-row-cell-border-overlay',
-						{ 'bordered': context.instance.cellBorder },
-						{ 'selected': cellSelectionState & CellSelectionState.Selected },
-						{ 'selected-top': cellSelectionState & CellSelectionState.SelectedTop },
-						{ 'selected-bottom': cellSelectionState & CellSelectionState.SelectedBottom },
-						{ 'selected-left': cellSelectionState & CellSelectionState.SelectedLeft },
-						{ 'selected-right': cellSelectionState & CellSelectionState.SelectedRight },
-					)}
-			>
-				{
-					context.instance.internalCursor &&
-					props.columnIndex === context.instance.cursorColumnIndex &&
-					props.rowIndex === context.instance.cursorRowIndex &&
-					<div
-						className='cursor-border'
-						style={{
-							top: context.instance.cursorOffset,
-							right: context.instance.cursorOffset,
-							bottom: context.instance.cursorOffset,
-							left: context.instance.cursorOffset
-						}}
-					/>
-				}
-			</div>
+			{context.instance.cellBorder &&
+				<>
+					<div className='border-overlay'>
+						{!selected && isCursorCell && <Cursor dimmed={!context.instance.focused} />}
+					</div>
+					{selected &&
+						<div
+							className={positronClassNames(
+								'selection-overlay',
+								{ 'focused': context.instance.focused },
+								{ 'selected-top': cellSelectionState & CellSelectionState.SelectedTop },
+								{ 'selected-bottom': cellSelectionState & CellSelectionState.SelectedBottom },
+								{ 'selected-left': cellSelectionState & CellSelectionState.SelectedLeft },
+								{ 'selected-right': cellSelectionState & CellSelectionState.SelectedRight },
+							)}
+						>
+							{isCursorCell && <Cursor />}
+						</div>
+					}
+				</>
+			}
 			<div className='content'>
 				{context.instance.cell(props.columnIndex, props.rowIndex)}
 			</div>

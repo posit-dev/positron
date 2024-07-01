@@ -548,6 +548,8 @@ export const DataGridWaffle = forwardRef<HTMLDivElement>((_: unknown, ref) => {
 			className='data-grid-waffle'
 			onKeyDown={keyDownHandler}
 			onWheel={wheelHandler}
+			onBlur={() => context.instance.setFocused(false)}
+			onFocus={() => context.instance.setFocused(true)}
 		>
 			{context.instance.columnHeaders && context.instance.rowHeaders &&
 				<DataGridCornerTopLeft

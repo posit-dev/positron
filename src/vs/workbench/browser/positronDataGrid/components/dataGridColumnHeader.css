@@ -7,14 +7,9 @@
 	top: 0;
 	bottom: 0;
 	display: grid;
-	/* overflow: hidden; */
 	position: absolute;
-	background-color: var(--vscode-positronDataGrid-contrastBackground);
 	grid-template-columns: [content] 1fr [right-gutter] 1px [end];
-}
-
-.data-grid-column-header.selected {
-	background-color: var(--vscode-positronDataGrid-selectionBackground);
+	background-color: var(--vscode-positronDataGrid-contrastBackground);
 }
 
 .data-grid-column-header
@@ -30,25 +25,42 @@
 }
 
 .data-grid-column-header
-.border-overlay.selected {
+.selection-overlay {
+	top: 0;
+	right: 0;
+	bottom: 0;
+	left: 0;
+	position: absolute;
+	box-sizing: border-box;
+	background-color: var(--vscode-positronDataGrid-selectionBackground);
 	border-top: 1px solid var(--vscode-positronDataGrid-selectionBorder);
-	border-right: 1px solid var(--vscode-positronDataGrid-selectionInnerBorder);
 	border-bottom: 1px solid var(--vscode-positronDataGrid-selectionInnerBorder);
 }
 
 .data-grid-column-header
-.border-overlay.selected-left {
+.selection-overlay:not(.focused) {
+	opacity: 50%;
+}
+
+.data-grid-column-header
+.selection-overlay.selected-left {
 	border-left: 1px solid var(--vscode-positronDataGrid-selectionBorder);
 }
 
 .data-grid-column-header
-.border-overlay.selected-right {
+.selection-overlay.selected-right {
 	border-right: 1px solid var(--vscode-positronDataGrid-selectionBorder);
+}
+
+.data-grid-column-header
+.selection-overlay:not(.selected-right) {
+	border-right: 1px solid var(--vscode-positronDataGrid-selectionInnerBorder);
 }
 
 .data-grid-column-header
 .content {
 	display: grid;
+	position: relative;
 	align-items: center;
 	grid-column: content / right-gutter;
 	grid-template-columns: [left-margin] 7px [title-description] minmax(0, 1fr) [sort-indicator] min-content [button] 20px [right-margin] 7px [end];

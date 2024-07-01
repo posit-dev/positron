@@ -82,32 +82,35 @@ export const DataGridRowHeader = (props: DataGridRowHeaderProps) => {
 	// Get the row selection state.
 	const rowSelectionState = context.instance.rowSelectionState(props.rowIndex);
 
+	// Determine whether this row is selected.
+	const selected = (rowSelectionState & RowSelectionState.Selected) !== 0;
+
 	// Render.
 	return (
 		<div
 			ref={ref}
-			className={
-				positronClassNames(
-					'data-grid-row-header',
-					{ 'selected': rowSelectionState & RowSelectionState.Selected }
-				)
-			}
+			className='data-grid-row-header'
 			style={{
 				top: props.top,
 				height: context.instance.getRowHeight(props.rowIndex)
 			}}
 			onMouseDown={mouseDownHandler}
 		>
-			<div
-				className={
-					positronClassNames(
-						'data-grid-row-header-border-overlay',
-						{ 'selected': rowSelectionState & RowSelectionState.Selected },
-						{ 'selected-top': rowSelectionState & RowSelectionState.SelectedTop },
-						{ 'selected-bottom': rowSelectionState & RowSelectionState.SelectedBottom }
-					)
-				}
-			/>
+			{context.instance.cellBorder &&
+				<>
+					<div className='border-overlay' />
+					{selected &&
+						<div
+							className={positronClassNames(
+								'selection-overlay',
+								{ 'focused': context.instance.focused },
+								{ 'selected-top': rowSelectionState & RowSelectionState.SelectedTop },
+								{ 'selected-bottom': rowSelectionState & RowSelectionState.SelectedBottom }
+							)}
+						/>
+					}
+				</>
+			}
 			<div className='content'>
 				{context.instance.rowHeader(props.rowIndex)}
 			</div>

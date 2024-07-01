@@ -39,6 +39,7 @@ export interface KeyboardModifiers {
 interface ButtonProps {
 	readonly hoverManager?: IHoverManager;
 	readonly className?: string;
+	readonly tabIndex?: number;
 	readonly disabled?: boolean;
 	readonly ariaLabel?: string;
 	readonly tooltip?: string | (() => string | undefined);
@@ -56,6 +57,8 @@ interface ButtonProps {
 export const Button = forwardRef<HTMLButtonElement, PropsWithChildren<ButtonProps>>((props, ref) => {
 	// Reference hooks.
 	const buttonRef = useRef<HTMLButtonElement>(undefined!);
+
+	// Customize the ref handle that is exposed.
 	useImperativeHandle(ref, () => buttonRef.current, []);
 
 	/**
@@ -174,7 +177,7 @@ export const Button = forwardRef<HTMLButtonElement, PropsWithChildren<ButtonProp
 				props.className,
 				{ 'disabled': props.disabled }
 			)}
-			tabIndex={0}
+			tabIndex={props.tabIndex ?? 0}
 			disabled={props.disabled}
 			role='button'
 			aria-label={props.ariaLabel}
