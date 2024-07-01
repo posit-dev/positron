@@ -49,7 +49,6 @@ function spawnSyncCommand(command: string, args?: string[]): string {
  * Roughly equivalent to `downloadAndUnzipVSCode` from `@vscode/test-electron`.
  */
 export async function downloadAndUnzipPositron(): Promise<{ version: string; executablePath: string }> {
-
     const response = await httpsGetAsync({
         headers: {
             Accept: 'application/vnd.github.v3.raw', // eslint-disable-line
