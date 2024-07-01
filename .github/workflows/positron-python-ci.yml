@@ -372,6 +372,7 @@ jobs:
         env:
           TEST_FILES_SUFFIX: testvirtualenvs
           CI_PYTHON_VERSION: ${{ matrix.python }}
+          POSITRON_GITHUB_PAT: ${{ github.token }}
         uses: GabrielBB/xvfb-action@v1.6
         with:
           run: yarn testSingleWorkspace
@@ -381,6 +382,7 @@ jobs:
       - name: Run single-workspace tests
         env:
           CI_PYTHON_VERSION: ${{ matrix.python }}
+          POSITRON_GITHUB_PAT: ${{ github.token }}
         uses: GabrielBB/xvfb-action@v1.6
         with:
           run: yarn testSingleWorkspace
@@ -390,6 +392,7 @@ jobs:
       - name: Run debugger tests
         env:
           CI_PYTHON_VERSION: ${{ matrix.python }}
+          POSITRON_GITHUB_PAT: ${{ github.token }}
         uses: GabrielBB/xvfb-action@v1.6
         with:
           run: yarn testDebugger
@@ -401,5 +404,7 @@ jobs:
         if: matrix.test-suite == 'functional'
 
       - name: Run smoke tests
+        env:
+          POSITRON_GITHUB_PAT: ${{ github.token }}
         run: yarn tsc && node ./out/test/smokeTest.js
         if: matrix.test-suite == 'smoke'
