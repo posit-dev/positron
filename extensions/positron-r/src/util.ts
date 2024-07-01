@@ -64,3 +64,15 @@ export function removeLeadingLines(x: string, pattern: RegExp): string {
 
 	return output.join('\n');
 }
+
+export function removeSurroundingQuotes(x: string): string {
+	const hasQuotes =
+		(x.startsWith('"') && x.endsWith('"')) ||
+		(x.startsWith('\'') && x.endsWith('\''));
+
+	if (hasQuotes) {
+		x = x.slice(1, x.length - 1);
+	}
+
+	return x;
+}
