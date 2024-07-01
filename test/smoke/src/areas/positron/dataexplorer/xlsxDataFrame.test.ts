@@ -48,7 +48,10 @@ export function setup(logger: Logger) {
 				await app.workbench.quickaccess.runCommand('python.execInConsole');
 
 				logger.log('Opening data grid');
-				await app.workbench.positronVariables.doubleClickVariableRow('df');
+				await expect(async () => {
+					await app.workbench.positronVariables.doubleClickVariableRow('df');
+					await app.code.driver.getLocator('.label-name:has-text("Data: df")').innerText();
+				}).toPass();
 
 				await app.workbench.positronSideBar.closeSecondarySideBar();
 
@@ -91,7 +94,10 @@ export function setup(logger: Logger) {
 				await app.workbench.quickaccess.runCommand('r.sourceCurrentFile');
 
 				logger.log('Opening data grid');
-				await app.workbench.positronVariables.doubleClickVariableRow('df2');
+				await expect(async () => {
+					await app.workbench.positronVariables.doubleClickVariableRow('df2');
+					await app.code.driver.getLocator('.label-name:has-text("Data: df2")').innerText();
+				}).toPass();
 
 				await app.workbench.positronSideBar.closeSecondarySideBar();
 

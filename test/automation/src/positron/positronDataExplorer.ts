@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 
+import { expect } from '@playwright/test';
 import { Code } from '../code';
 
 const COLUMN_HEADERS = '.data-explorer-panel .column-2 .data-grid-column-headers';
@@ -92,12 +93,16 @@ export class PositronDataExplorer {
 
 		await this.code.waitAndClick(ADD_FILTER_BUTTON);
 
-		await this.code.waitAndClick(COLUMN_SELECTOR);
+		// worakaround for column being set incorrectly
+		await expect(async () => {
+			await this.code.waitAndClick(COLUMN_SELECTOR);
+			const columnText = `${columnName}\n`;
+			await this.code.waitForSetValue(COLUMN_INPUT, columnText);
+			await this.code.waitAndClick(COLUMN_SELECTOR_CELL);
+			const checkValue = (await this.code.waitForElement(COLUMN_SELECTOR)).textContent;
+			expect(checkValue).toBe(columnName);
+		}).toPass();
 
-		const columnText = `${columnName}\n`;
-		await this.code.waitForSetValue(COLUMN_INPUT, columnText);
-
-		await this.code.waitAndClick(COLUMN_SELECTOR_CELL);
 
 		await this.code.waitAndClick(FUNCTION_SELECTOR);
 
