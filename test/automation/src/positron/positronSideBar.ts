@@ -13,7 +13,7 @@ export class PositronSideBar {
 	constructor(private code: Code) { }
 
 	async closeSecondarySideBar() {
-		console.log('Hiding secondary side bar');
+		this.code.logger.log('Hiding secondary side bar');
 		await this.code.waitAndClick(HIDE_SECONDARY_SIDE_BAR);
 	}
 }

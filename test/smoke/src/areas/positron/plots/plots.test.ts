@@ -49,7 +49,7 @@ df.plot(kind='scatter',
 plt.title('ScatterPlot')
 plt.show()`;
 
-				console.log('Sending code to console');
+				logger.log('Sending code to console');
 				await app.workbench.positronConsole.executeCode('Python', script, '>>>');
 
 				await app.workbench.positronPlots.waitForCurrentPlot();
@@ -79,7 +79,7 @@ plt.show()`;
 plot(cars, type="o", col="blue")
 title(main="Autos", col.main="red", font.main=4)`;
 
-				console.log('Sending code to console');
+				logger.log('Sending code to console');
 				await app.workbench.positronConsole.executeCode('R', script, '>');
 
 				await app.workbench.positronPlots.waitForCurrentPlot();

@@ -34,7 +34,7 @@ export function setup(logger: Logger) {
 				await executeCode('y=10');
 				await executeCode('z=100');
 
-				console.log('Entered lines in console defining variables');
+				logger.log('Entered lines in console defining variables');
 
 				await app.workbench.positronConsole.logConsoleContents();
 
@@ -75,7 +75,7 @@ export function setup(logger: Logger) {
 				await executeCode('y=10');
 				await executeCode('z=100');
 
-				console.log('Entered lines in console defining variables');
+				logger.log('Entered lines in console defining variables');
 
 				await app.workbench.positronConsole.logConsoleContents();
 

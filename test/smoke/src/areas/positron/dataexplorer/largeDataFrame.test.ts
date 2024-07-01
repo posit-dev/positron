@@ -47,7 +47,7 @@ export function setup(logger: Logger) {
 				await app.workbench.quickaccess.openFile(join(app.workspacePathOrFolder, 'workspaces', 'nyc-flights-data-py', 'flights-data-frame.py'));
 				await app.workbench.quickaccess.runCommand('python.execInConsole');
 
-				console.log('Opening data grid');
+				logger.log('Opening data grid');
 				await app.workbench.positronVariables.doubleClickVariableRow('df');
 
 				await app.workbench.positronSideBar.closeSecondarySideBar();
@@ -100,7 +100,7 @@ export function setup(logger: Logger) {
 				await app.workbench.quickaccess.openFile(join(app.workspacePathOrFolder, 'workspaces', 'nyc-flights-data-r', 'flights-data-frame.r'));
 				await app.workbench.quickaccess.runCommand('r.sourceCurrentFile');
 
-				console.log('Opening data grid');
+				logger.log('Opening data grid');
 				await app.workbench.positronVariables.doubleClickVariableRow('df2');
 
 				await app.workbench.positronSideBar.closeSecondarySideBar();

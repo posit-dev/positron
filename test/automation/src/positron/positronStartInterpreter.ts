@@ -36,15 +36,15 @@ export class StartInterpreter {
 		await this.code.waitForElement(POSITRON_MODAL_POPUP);
 
 		const primaryInterpreter = await this.awaitDesiredPrimaryInterpreterGroupLoaded(desiredInterpreterType);
-		console.log(`Found primary interpreter ${primaryInterpreter.description} at index ${primaryInterpreter.index}`);
+		this.code.logger.log(`Found primary interpreter ${primaryInterpreter.description} at index ${primaryInterpreter.index}`);
 
 		const primaryIsMatch = primaryInterpreter.description.includes(desiredInterpreterString);
 		let chosenInterpreter;
 		if (!primaryIsMatch) {
 
 			const secondaryInterpreters = await this.getSecondaryInterpreters(primaryInterpreter.index);
-			console.log('Secondary Interpreters:');
-			secondaryInterpreters.forEach(interpreter => console.log(interpreter.description));
+			this.code.logger.log('Secondary Interpreters:');
+			secondaryInterpreters.forEach(interpreter => this.code.logger.log(interpreter.description));
 
 			for (const secondaryInterpreter of secondaryInterpreters) {
 				if (secondaryInterpreter.description.includes(desiredInterpreterString)) {
@@ -59,7 +59,7 @@ export class StartInterpreter {
 			}
 
 		} else {
-			console.log('Primary interpreter matched');
+			this.code.logger.log('Primary interpreter matched');
 			chosenInterpreter = this.code.driver.getLocator(`${INTERPRETER_GROUPS}:nth-of-type(${primaryInterpreter.index})`);
 			await chosenInterpreter.waitFor({ state: 'visible' });
 			await chosenInterpreter.click();
@@ -71,11 +71,11 @@ export class StartInterpreter {
 				await dialog.waitFor({ state: 'detached', timeout: 2000 });
 				break;
 			} catch (e) {
-				console.log(`Error: ${e}, Retrying row click`);
+				this.code.logger.log(`Error: ${e}, Retrying row click`);
 				try {
 					await chosenInterpreter!.click({ timeout: 1000 });
 				} catch (f) {
-					console.log(`Inner Error: ${f}}`);
+					this.code.logger.log(`Inner Error: ${f}}`);
 				}
 			}
 		}
@@ -97,7 +97,7 @@ export class StartInterpreter {
 			let groupIndex = 0;
 			for (const loadedInterpreter of loadedInterpreters) {
 				groupIndex++;
-				console.log(`Found interpreter: ${loadedInterpreter}`);
+				this.code.logger.log(`Found interpreter: ${loadedInterpreter}`);
 				if (loadedInterpreter.startsWith(interpreterNamePrefix)) {
 					found = loadedInterpreter;
 					break;
@@ -108,7 +108,7 @@ export class StartInterpreter {
 				return { description: found, index: groupIndex };
 			} else {
 				iterations++;
-				console.log(`Waiting for ${interpreterNamePrefix} to load, try ${iterations}`);
+				this.code.logger.log(`Waiting for ${interpreterNamePrefix} to load, try ${iterations}`);
 				await this.code.driver.wait(3000);
 			}
 		}

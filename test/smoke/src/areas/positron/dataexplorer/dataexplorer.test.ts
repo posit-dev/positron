@@ -46,10 +46,10 @@ data = {'Name':['Jai', 'Princi', 'Gaurav', 'Anuj'],
 		'Address':['Delhi', 'Kanpur', 'Allahabad', 'Kannauj']}
 df = pd.DataFrame(data)`;
 
-				console.log('Sending code to console');
+				logger.log('Sending code to console');
 				await app.workbench.positronConsole.executeCode('Python', script, '>>>');
 
-				console.log('Opening data grid');
+				logger.log('Opening data grid');
 				await app.workbench.positronVariables.doubleClickVariableRow('df');
 
 				await app.workbench.positronSideBar.closeSecondarySideBar();
@@ -95,10 +95,10 @@ df = pd.DataFrame(data)`;
 	Duration = c(60, 30, 45)
 )`;
 
-				console.log('Sending code to console');
+				logger.log('Sending code to console');
 				await app.workbench.positronConsole.executeCode('R', script, '>');
 
-				console.log('Opening data grid');
+				logger.log('Opening data grid');
 				await app.workbench.positronVariables.doubleClickVariableRow('Data_Frame');
 
 				await app.workbench.positronSideBar.closeSecondarySideBar();

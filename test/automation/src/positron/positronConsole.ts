@@ -96,7 +96,7 @@ export class PositronConsole {
 
 	async logConsoleContents() {
 		const contents = await this.waitForConsoleContents();
-		contents.forEach(line => console.log(line));
+		contents.forEach(line => this.code.logger.log(line));
 	}
 
 	async typeToConsole(text: string) {

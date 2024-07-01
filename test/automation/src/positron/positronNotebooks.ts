@@ -37,7 +37,7 @@ export class PositronNotebooks {
 			try {
 				await this.quickinput.selectQuickInputElementContaining(kernelGroup);
 			} catch {
-				console.log('Kernel group not found');
+				this.code.logger.log('Kernel group not found');
 			}
 			await this.quickinput.selectQuickInputElementContaining(desiredKernel);
 			await this.quickinput.waitForQuickInputClosed();
