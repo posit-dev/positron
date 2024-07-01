@@ -106,8 +106,9 @@ export abstract class PositronViewPane extends ViewPane {
 	}
 
 	override layout(size: number): void {
-		// Remember the last layout size.
-		this._lastLayoutSize = size;
+		// Remember the last layout size. Subtract 22 for the height of the header panel
+		// TODO: Figure out how to get the height of the header panel dynamically
+		this._lastLayoutSize = size - 22;
 
 		super.layout(size);
 	}
