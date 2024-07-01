@@ -41,6 +41,7 @@ import { setup as setupConnectionsTest } from './areas/positron/connections/dbCo
 import { setup as setupNewProjectWizardTest } from './areas/positron/new-project-wizard/new-project.test';
 import { setup as setupXLSXDataFrameTest } from './areas/positron/dataexplorer/xlsxDataFrame.test';
 import { setup as setupHelpTest } from './areas/positron/help/help.test';
+import { setup as setupClipboardTest} from './areas/positron/console/consoleClipboard.test'
 // --- End Positron ---
 
 const rootPath = path.join(__dirname, '..', '..', '..');
@@ -438,5 +439,6 @@ describe(`VSCode Smoke Tests (${opts.web ? 'Web' : 'Electron'})`, () => {
 	setupNewProjectWizardTest(logger);
 	setupXLSXDataFrameTest(logger);
 	setupHelpTest(logger);
+	setupClipboardTest(logger);
 	// --- End Positron ---
 });
