@@ -20,6 +20,10 @@ const CONSOLE_BAR_RESTART_BUTTON = 'div.action-bar-button-icon.codicon.codicon-p
 const CONSOLE_RESTART_BUTTON = 'button.monaco-text-button.runtime-restart-button';
 const CONSOLE_BAR_CLEAR_BUTTON = 'div.action-bar-button-icon.codicon.codicon-clear-all';
 
+/*
+ *  Reuseable Positron console functionality for tests to leverage.  Includes the ability to select an interpreter and execute code which
+ *  aren't directly console functions, but rather features needed to support console testing.
+ */
 export class PositronConsole {
 	barPowerButton: PositronBaseElement;
 	barRestartButton: PositronBaseElement;
@@ -96,7 +100,7 @@ export class PositronConsole {
 
 	async logConsoleContents() {
 		const contents = await this.waitForConsoleContents();
-		contents.forEach(line => console.log(line));
+		contents.forEach(line => this.code.logger.log(line));
 	}
 
 	async typeToConsole(text: string) {

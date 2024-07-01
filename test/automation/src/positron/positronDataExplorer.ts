@@ -29,10 +29,16 @@ export interface CellData {
 	[key: string]: string;
 }
 
+/*
+ *  Reuseable Positron data explorer functionality for tests to leverage.
+ */
 export class PositronDataExplorer {
 
 	constructor(private code: Code) { }
 
+	/*
+	 * Get the currently visible data explorer table data
+	 */
 	async getDataExplorerTableData(): Promise<object[]> {
 
 		// unreliable:
@@ -80,6 +86,9 @@ export class PositronDataExplorer {
 		await this.code.waitAndClick(DATA_GRID_TOP_LEFT);
 	}
 
+	/*
+	 * Add a filter to the data explorer.  Only works for a single filter at the moment.
+	 */
 	async addFilter(columnName: string, functionText: string, filterValue: string) {
 
 		await this.code.waitAndClick(ADD_FILTER_BUTTON);

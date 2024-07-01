@@ -9,6 +9,10 @@ import { Code } from '../code';
 const CURRENT_PLOT = '.plot-instance .image-wrapper img';
 const CLEAR_PLOTS = '.positron-plots-container .positron-action-bar .codicon-clear-all';
 
+
+/*
+ *  Reuseable Positron plots functionality for tests to leverage.
+ */
 export class PositronPlots {
 
 	constructor(private code: Code) { }

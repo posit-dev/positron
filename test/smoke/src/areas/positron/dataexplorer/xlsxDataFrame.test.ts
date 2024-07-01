@@ -9,7 +9,9 @@ import { Application, Logger, PositronPythonFixtures, PositronRFixtures } from '
 import { installAllHandlers } from '../../../utils';
 import { join } from 'path';
 
-
+/*
+ * Data explorer test suite for XLSX data frames
+ */
 export function setup(logger: Logger) {
 
 	describe('Data Explorer - XLSX', () => {
@@ -45,7 +47,7 @@ export function setup(logger: Logger) {
 				await app.workbench.quickaccess.openFile(join(app.workspacePathOrFolder, 'workspaces', 'read-xlsx-py', 'supermarket-sales.py'));
 				await app.workbench.quickaccess.runCommand('python.execInConsole');
 
-				console.log('Opening data grid');
+				logger.log('Opening data grid');
 				await expect(async () => {
 					await app.workbench.positronVariables.doubleClickVariableRow('df');
 					await app.code.driver.getLocator('.label-name:has-text("Data: df")').innerText();
@@ -91,7 +93,7 @@ export function setup(logger: Logger) {
 				await app.workbench.quickaccess.openFile(join(app.workspacePathOrFolder, 'workspaces', 'read-xlsx-r', 'supermarket-sales.r'));
 				await app.workbench.quickaccess.runCommand('r.sourceCurrentFile');
 
-				console.log('Opening data grid');
+				logger.log('Opening data grid');
 				await expect(async () => {
 					await app.workbench.positronVariables.doubleClickVariableRow('df2');
 					await app.code.driver.getLocator('.label-name:has-text("Data: df2")').innerText();

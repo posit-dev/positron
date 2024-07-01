@@ -8,6 +8,9 @@ import { expect } from '@playwright/test';
 import { Application, Logger, PositronPythonFixtures, PositronRFixtures } from '../../../../../automation';
 import { installAllHandlers } from '../../../utils';
 
+/*
+ * Notebook creation test cases
+ */
 export function setup(logger: Logger) {
 
 	describe('Notebooks', () => {
