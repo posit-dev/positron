@@ -10,6 +10,9 @@ import { installAllHandlers } from '../../../utils';
 import { join } from 'path';
 
 
+/*
+ * Data explorer test suite for large data frames
+ */
 export function setup(logger: Logger) {
 
 	const LAST_CELL_CONTENTS = '2013-09-30 08:00:00';

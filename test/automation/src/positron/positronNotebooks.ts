@@ -22,6 +22,9 @@ const R_OUTPUT = '.output_container .output';
 const REVERT_AND_CLOSE = 'workbench.action.revertAndCloseActiveEditor';
 const MARKDOWN_TEXT = '#preview';
 
+/*
+ *  Reuseable Positron notebook functionality for tests to leverage.  Includes selecting the notebook's interpreter.
+ */
 export class PositronNotebooks {
 
 	constructor(private code: Code, private quickinput: QuickInput, private quickaccess: QuickAccess, private notebook: Notebook) { }

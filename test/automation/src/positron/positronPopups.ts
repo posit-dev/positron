@@ -10,6 +10,9 @@ const POSITRON_MODAL_DIALOG_BOX = '.positron-modal-dialog-box';
 const POSITRON_MODAL_DIALOG_BOX_OK = '.positron-modal-dialog-box .ok-cancel-action-bar .positron-button.action-bar-button.default';
 const NOTIFICATION_TOAST = '.notification-toast';
 
+/*
+ *  Reuseable Positron popups functionality for tests to leverage.
+ */
 export class PositronPopups {
 
 	constructor(private code: Code) { }

@@ -26,6 +26,9 @@ export enum InterpreterType {
 	R = 'R'
 }
 
+/*
+ *  Reuseable Positron interpreter selection functionality for tests to leverage.
+ */
 export class StartInterpreter {
 
 	constructor(private code: Code) { }
