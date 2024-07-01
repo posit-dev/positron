@@ -32,7 +32,7 @@ import { TerminalProvider } from './providers/terminalProvider';
 import { setExtensionInstallTelemetryProperties } from './telemetry/extensionInstallTelemetry';
 import { registerTypes as tensorBoardRegisterTypes } from './tensorBoard/serviceRegistry';
 import { registerTypes as commonRegisterTerminalTypes } from './terminals/serviceRegistry';
-import { ICodeExecutionManager, ITerminalAutoActivation } from './terminals/types';
+import { ICodeExecutionHelper, ICodeExecutionManager, ITerminalAutoActivation } from './terminals/types';
 import { registerTypes as unitTestsRegisterTypes } from './testing/serviceRegistry';
 
 // components
@@ -52,6 +52,7 @@ import { initializePersistentStateForTriggers } from './common/persistentState';
 import { logAndNotifyOnLegacySettings } from './logging/settingLogs';
 import { DebuggerTypeName } from './debugger/constants';
 import { StopWatch } from './common/utils/stopWatch';
+import { registerReplCommands, registerReplExecuteOnEnter } from './repl/replCommands';
 
 // --- Start Positron ---
 import { IPythonRuntimeManager } from './positron/manager';
@@ -119,6 +120,9 @@ export function activateFeatures(ext: ExtensionState, _components: Components): 
         pythonRuntimeManager,
         // --- End Positron ---
     );
+    const executionHelper = ext.legacyIOC.serviceContainer.get<ICodeExecutionHelper>(ICodeExecutionHelper);
+    registerReplCommands(ext.disposables, interpreterService, executionHelper);
+    registerReplExecuteOnEnter(ext.disposables, interpreterService);
 }
 
 /// //////////////////////////

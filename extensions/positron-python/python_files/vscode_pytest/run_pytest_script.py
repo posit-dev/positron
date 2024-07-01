@@ -5,8 +5,14 @@ import os
 import pathlib
 import socket
 import sys
-
+import sysconfig
 import pytest
+
+# Adds the scripts directory to the PATH as a workaround for enabling shell for test execution.
+path_var_name = "PATH" if "PATH" in os.environ else "Path"
+os.environ[path_var_name] = (
+    sysconfig.get_paths()["scripts"] + os.pathsep + os.environ[path_var_name]
+)
 
 script_dir = pathlib.Path(__file__).parent.parent
 sys.path.append(os.fspath(script_dir))
@@ -59,7 +65,7 @@ if __name__ == "__main__":
         print(f"Error: Could not connect to runTestIdsPort: {e}")
         print("Error: Could not connect to runTestIdsPort")
     try:
-        test_ids_from_buffer = raw_json["params"]
+        test_ids_from_buffer = raw_json.get("params")
         if test_ids_from_buffer:
             arg_array = ["-p", "vscode_pytest"] + args + test_ids_from_buffer
             print("Running pytest with args: " + str(arg_array))

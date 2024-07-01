@@ -70,7 +70,19 @@
         "Machine Learning"
     ],
     "activationEvents": [
-        "onStartupFinished"
+        "onStartupFinished",
+        "onDebugInitialConfigurations",
+        "onLanguage:python",
+        "onDebugResolve:python",
+        "workspaceContains:mspythonconfig.json",
+        "workspaceContains:pyproject.toml",
+        "workspaceContains:Pipfile",
+        "workspaceContains:setup.py",
+        "workspaceContains:requirements.txt",
+        "workspaceContains:manage.py",
+        "workspaceContains:app.py",
+        "workspaceContains:.venv",
+        "workspaceContains:.conda"
     ],
     "main": "./out/client/extension",
     "browser": "./dist/extension.browser.js",
@@ -318,6 +330,11 @@
             },
             {
                 "category": "Python",
+                "command": "python.execInREPL",
+                "title": "%python.command.python.execInREPL.title%"
+            },
+            {
+                "category": "Python",
                 "command": "python.launchTensorBoard",
                 "title": "%python.command.python.launchTensorBoard.title%"
             },
@@ -561,6 +578,19 @@
                         "experimental"
                     ]
                 },
+                "python.locator": {
+                    "default": "js",
+                    "description": "%python.locator.description%",
+                    "enum": [
+                        "js",
+                        "native"
+                    ],
+                    "tags": [
+                        "experimental"
+                    ],
+                    "scope": "machine",
+                    "type": "string"
+                },
                 "python.pipenvPath": {
                     "default": "pipenv",
                     "description": "%python.pipenvPath.description%",
@@ -578,6 +608,12 @@
                     "type": "boolean",
                     "default": false,
                     "description": "%python.quietMode.description%"
+                },
+                "python.pixiToolPath": {
+                    "default": "pixi",
+                    "description": "%python.pixiToolPath.description%",
+                    "scope": "machine-overridable",
+                    "type": "string"
                 },
                 "python.tensorBoard.logDirectory": {
                     "default": "",
@@ -622,6 +658,15 @@
                     "description": "%python.EnableREPLSmartSend.description%",
                     "scope": "resource",
                     "type": "boolean"
+                },
+                "python.REPL.sendToNativeREPL": {
+                    "default": false,
+                    "description": "%python.REPL.sendToNativeREPL.description%",
+                    "scope": "resource",
+                    "type": "boolean",
+                    "tags": [
+                        "experimental"
+                    ]
                 },
                 "python.testing.autoTestDiscoverOnSaveEnabled": {
                     "default": true,
@@ -1107,6 +1152,21 @@
         ],
         "keybindings": [
             {
+                "command": "python.execSelectionInTerminal",
+                "key": "shift+enter",
+                "when": "false"
+            },
+            {
+                "command": "python.execInREPL",
+                "key": "shift+enter",
+                "when": "false"
+            },
+            {
+                "command": "python.execInREPLEnter",
+                "key": "enter",
+                "when": "false"
+            },
+            {
                 "command": "python.refreshTensorBoard",
                 "key": "ctrl+r",
                 "mac": "cmd+r",
@@ -1285,6 +1345,12 @@
                 },
                 {
                     "category": "Python",
+                    "command": "python.execInREPL",
+                    "title": "%python.command.python.execInREPL.title%",
+                    "when": "false"
+                },
+                {
+                    "category": "Python",
                     "command": "python.launchTensorBoard",
                     "title": "%python.command.python.launchTensorBoard.title%",
                     "when": "!virtualWorkspace && shellExecutionSupported && !python.tensorboardExtInstalled"
@@ -1390,6 +1456,11 @@
                 },
                 {
                     "command": "python.execSelectionInTerminal",
+                    "group": "Python",
+                    "when": "false"
+                },
+                {
+                    "command": "python.execInREPL",
                     "group": "Python",
                     "when": "false"
                 }
@@ -1541,7 +1612,6 @@
         "@iarna/toml": "^2.2.5",
         "@jupyter-widgets/html-manager": "^1.0.9",
         "@vscode/extension-telemetry": "^0.8.4",
-        "@vscode/jupyter-lsp-middleware": "^0.2.50",
         "arch": "^2.1.0",
         "fs-extra": "^10.0.1",
         "glob": "^7.2.0",
@@ -1600,7 +1670,7 @@
         "@typescript-eslint/eslint-plugin": "^3.7.0",
         "@typescript-eslint/parser": "^3.7.0",
         "@vscode/test-electron": "^2.3.8",
-        "@vscode/vsce": "^2.18.0",
+        "@vscode/vsce": "^2.27.0",
         "bent": "^7.3.12",
         "chai": "^4.1.2",
         "chai-arrays": "^2.0.0",
@@ -1619,7 +1689,7 @@
         "expose-loader": "^3.1.0",
         "flat": "^5.0.2",
         "get-port": "^5.1.1",
-        "gulp": "^4.0.0",
+        "gulp": "^5.0.0",
         "gulp-typescript": "^5.0.0",
         "mocha": "^9.2.2",
         "mocha-junit-reporter": "^2.0.2",
