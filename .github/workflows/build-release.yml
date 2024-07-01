@@ -2,9 +2,8 @@ name: "Positron: Build Release"
 
 # Run builds daily at 2am UTC (10p EST) on weekdays for now, or manually
 on:
-  # Daily builds temporarily disabled
-  # schedule:
-  #   - cron: "0 2 * * 1-5"
+  schedule:
+    - cron: "0 2 * * 1-5"
   workflow_dispatch:
 
 jobs:
@@ -202,4 +201,3 @@ jobs:
           asset_path: positron-reh-linux-x64-${{ needs.version_string.outputs.short_version }}.tar.gz
           asset_name: positron-reh-linux-x64-${{ needs.version_string.outputs.short_version }}.tar.gz
           asset_content_type: application/octet-stream
-
