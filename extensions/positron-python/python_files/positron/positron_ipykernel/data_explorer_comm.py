@@ -850,6 +850,10 @@ class ExportDataSelectionFeatures(BaseModel):
         description="The support status for this RPC method",
     )
 
+    supported_formats: List[ExportFormat] = Field(
+        description="Export formats supported",
+    )
+
 
 class SetSortColumnsFeatures(BaseModel):
     """
