@@ -11,12 +11,14 @@
     "mocha": "node ../node_modules/mocha/bin/mocha"
   },
   "dependencies": {
+    "copy-paste": "^1.5.3",
     "mkdirp": "^1.0.4",
     "ncp": "^2.0.0",
     "node-fetch": "^2.6.7",
     "rimraf": "3.0.2"
   },
   "devDependencies": {
+    "@types/copy-paste": "^1.1.33",
     "@types/mkdirp": "^1.0.1",
     "@types/mocha": "^9.1.1",
     "@types/ncp": "2.0.1",

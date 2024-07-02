@@ -4,8 +4,11 @@
  *--------------------------------------------------------------------------------------------*/
 
 
-import { Application, Logger, PositronPythonFixtures } from '../../../../../automation';
+import { Application, Logger, PositronPythonFixtures, PositronRFixtures } from '../../../../../automation';
 import { installAllHandlers } from '../../../utils';
+import * as os from 'os';
+import * as ncp from 'copy-paste';
+import { expect } from '@playwright/test';
 
 
 export function setup(logger: Logger) {
@@ -14,7 +17,7 @@ export function setup(logger: Logger) {
 		// Shared before/after handling
 		installAllHandlers(logger);
 
-		describe('Console Clipboard', () => {
+		describe('Console Clipboard - Python', () => {
 
 			before(async function () {
 
@@ -25,18 +28,80 @@ export function setup(logger: Logger) {
 
 			});
 
-			it.only('Python - Copy from console', async function () {
+			it('Python - Copy from console & paste to console', async function () {
 
-				// TestRail
+				// TestRail XYZ
 				const app = this.app as Application;
 
-				console.log('Sending code to console');
+				logger.log('Sending code to console');
 				await app.workbench.positronConsole.executeCode('Python', 'a = b', '>>>');
 
 				await app.workbench.positronConsole.waitForConsoleContents(((contents) => contents.some((line) => line.includes('NameError'))));
 
-				console.log('debug');
+				const activeConsole = app.workbench.positronConsole.getActiveConsole();
 
+				await activeConsole?.click();
+
+				const isMac = os.platform() === 'darwin';
+				const modifier = isMac ? 'Meta' : 'Control';
+
+				const page = activeConsole!.page();
+				await page.keyboard.press(`${modifier}+A`);
+				await page.keyboard.press(`${modifier}+C`);
+
+				const inClipboard = ncp.paste();
+
+				expect(inClipboard).toContain('NameError');
+
+				await page.keyboard.press(`${modifier}+V`);
+
+				await app.workbench.positronConsole.sendEnterKey();
+
+				await app.workbench.positronConsole.waitForConsoleContents((contents) => contents.some((line) => line.includes('invalid syntax')));
+			});
+		});
+
+		describe('Console Clipboard - R', () => {
+
+			before(async function () {
+
+				const app = this.app as Application;
+
+				const pythonFixtures = new PositronRFixtures(app);
+				await pythonFixtures.startRInterpreter();
+
+			});
+
+			it('R - Copy from console & paste to console', async function () {
+
+				// TestRail XYZ
+				const app = this.app as Application;
+
+				logger.log('Sending code to console');
+				await app.workbench.positronConsole.executeCode('R', 'a = b', '>');
+
+				await app.workbench.positronConsole.waitForConsoleContents(((contents) => contents.some((line) => line.includes('object \'b\' not found'))));
+
+				const activeConsole = app.workbench.positronConsole.getActiveConsole();
+
+				await activeConsole?.click();
+
+				const isMac = os.platform() === 'darwin';
+				const modifier = isMac ? 'Meta' : 'Control';
+
+				const page = activeConsole!.page();
+				await page.keyboard.press(`${modifier}+A`);
+				await page.keyboard.press(`${modifier}+C`);
+
+				const inClipboard = ncp.paste();
+
+				expect(inClipboard).toContain('object \'b\' not found');
+
+				await page.keyboard.press(`${modifier}+V`);
+
+				await app.workbench.positronConsole.sendEnterKey();
+
+				await app.workbench.positronConsole.waitForConsoleContents((contents) => contents.some((line) => line.includes('unexpected numeric constant in "R 4.3"')));
 			});
 		});
 	});
