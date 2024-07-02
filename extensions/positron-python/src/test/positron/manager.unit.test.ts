@@ -141,7 +141,8 @@ suite('Python runtime manager', () => {
             .resolves(runtimeMetadata.object);
 
         await assertRegisterLanguageRuntime(async () => {
-            await pythonRuntimeManager.registerLanguageRuntimeFromPath(pythonPath);
+            const registeredRuntime = await pythonRuntimeManager.registerLanguageRuntimeFromPath(pythonPath);
+            assert.equal(registeredRuntime?.extraRuntimeData.pythonPath, pythonPath);
         });
 
         sinon.assert.calledOnceWithExactly(
