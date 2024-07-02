@@ -17,6 +17,9 @@ export function setup(logger: Logger) {
 		// Shared before/after handling
 		installAllHandlers(logger);
 
+		const isMac = os.platform() === 'darwin';
+		const modifier = isMac ? 'Meta' : 'Control';
+
 		describe('Console Clipboard - Python', () => {
 
 			before(async function () {
@@ -30,7 +33,7 @@ export function setup(logger: Logger) {
 
 			it('Python - Copy from console & paste to console', async function () {
 
-				// TestRail XYZ
+				// TestRail 608100
 				const app = this.app as Application;
 
 				logger.log('Sending code to console');
@@ -41,9 +44,6 @@ export function setup(logger: Logger) {
 				const activeConsole = app.workbench.positronConsole.getActiveConsole();
 
 				await activeConsole?.click();
-
-				const isMac = os.platform() === 'darwin';
-				const modifier = isMac ? 'Meta' : 'Control';
 
 				const page = activeConsole!.page();
 				await page.keyboard.press(`${modifier}+A`);
@@ -74,7 +74,7 @@ export function setup(logger: Logger) {
 
 			it('R - Copy from console & paste to console', async function () {
 
-				// TestRail XYZ
+				// TestRail 608100
 				const app = this.app as Application;
 
 				logger.log('Sending code to console');
@@ -85,9 +85,6 @@ export function setup(logger: Logger) {
 				const activeConsole = app.workbench.positronConsole.getActiveConsole();
 
 				await activeConsole?.click();
-
-				const isMac = os.platform() === 'darwin';
-				const modifier = isMac ? 'Meta' : 'Control';
 
 				const page = activeConsole!.page();
 				await page.keyboard.press(`${modifier}+A`);
