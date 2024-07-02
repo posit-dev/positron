@@ -8,6 +8,8 @@ import { useEffect, useState } from 'react'; // eslint-disable-line no-duplicate
 import { ProgressBar } from 'vs/base/browser/ui/progressbar/progressbar';
 import { DisposableStore } from 'vs/base/common/lifecycle';
 import { localize } from 'vs/nls';
+import { PanZoomImage } from 'vs/workbench/contrib/positronPlots/browser/components/panZoomImage';
+import { ZoomLevel } from 'vs/workbench/contrib/positronPlots/browser/components/zoomPlotMenuButton';
 import { usePositronPlotsContext } from 'vs/workbench/contrib/positronPlots/browser/positronPlotsContext';
 import { PlotClientInstance, PlotClientState } from 'vs/workbench/services/languageRuntime/common/languageRuntimePlotClient';
 
@@ -17,6 +19,7 @@ import { PlotClientInstance, PlotClientState } from 'vs/workbench/services/langu
 interface DynamicPlotInstanceProps {
 	width: number;
 	height: number;
+	zoom: ZoomLevel;
 	plotClient: PlotClientInstance;
 }
 
@@ -149,12 +152,15 @@ export const DynamicPlotInstance = (props: DynamicPlotInstanceProps) => {
 
 	// Render method for the plot image.
 	const renderedImage = () => {
-		return <div className='image-wrapper'>
-			<img src={uri}
-				alt={props.plotClient.metadata.code ?
-					props.plotClient.metadata.code :
-					'Plot ' + props.plotClient.id} />
-		</div>;
+		return <PanZoomImage
+			imageUri={uri}
+			description={props.plotClient.metadata.code ?
+				props.plotClient.metadata.code :
+				'Plot ' + props.plotClient.id}
+			zoom={props.zoom}
+			width={props.width}
+			height={props.height}
+		/>;
 	};
 
 	// Render method for the placeholder
