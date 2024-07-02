@@ -115,7 +115,7 @@ export function setup(logger: Logger) {
 				await app.workbench.positronConnections.reconnectButton.waitforVisible();
 			});
 
-			it.only('R - Connections are update after adding a database', async function () {
+			it('R - Connections are update after adding a database', async function () {
 
 				const app = this.app as Application;
 
