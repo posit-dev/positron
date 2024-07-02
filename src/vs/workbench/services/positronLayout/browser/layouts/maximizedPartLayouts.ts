@@ -24,7 +24,7 @@ registerAction2(class extends PositronLayoutAction {
 		super({
 			id: 'workbench.action.fullSizedSidebar',
 			label: localize2('chooseLayout.fullSizedSidebarLayout', 'Maximized Sidebar Layout'),
-			hideFromPalette: true,
+			hideFromPalette: false,
 			layoutDescriptor: makeMaximizedPartLayout(Parts.SIDEBAR_PART),
 		});
 	}
@@ -35,7 +35,7 @@ registerAction2(class extends PositronLayoutAction {
 		super({
 			id: 'workbench.action.fullSizedPanel',
 			label: localize2('chooseLayout.fullSizedPanelLayout', 'Maximized Panel Layout'),
-			hideFromPalette: true,
+			hideFromPalette: false,
 			layoutDescriptor: makeMaximizedPartLayout(Parts.PANEL_PART),
 		});
 	}
@@ -46,7 +46,7 @@ registerAction2(class extends PositronLayoutAction {
 		super({
 			id: 'workbench.action.fullSizedAuxiliaryBar',
 			label: localize2('chooseLayout.fullSizedAuxiliaryBarLayout', 'Maximized Auxiliary Bar Layout'),
-			hideFromPalette: true,
+			hideFromPalette: false,
 			layoutDescriptor: makeMaximizedPartLayout(Parts.AUXILIARYBAR_PART),
 		});
 	}
