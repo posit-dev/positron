@@ -51,7 +51,7 @@ export function setup(logger: Logger) {
 				await pythonFixtures.startPythonInterpreter();
 			});
 
-			it.only('Python - Copy from console & paste to console', async function () {
+			it('Python - Copy from console & paste to console', async function () {
 				await testBody(this.app);
 			});
 		});
@@ -63,7 +63,7 @@ export function setup(logger: Logger) {
 				await pythonFixtures.startRInterpreter();
 			});
 
-			it.only('R - Copy from console & paste to console', async function () {
+			it('R - Copy from console & paste to console', async function () {
 				await testBody(this.app);
 			});
 		});
