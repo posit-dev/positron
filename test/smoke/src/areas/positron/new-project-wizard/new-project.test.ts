@@ -3,6 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { expect } from '@playwright/test';
 import { Application, Logger } from '../../../../../automation';
 import { installAllHandlers } from '../../../utils';
 
@@ -56,6 +57,30 @@ export function setup(logger: Logger) {
 				await app.workbench.positronExplorer.explorerProjectTitle.waitForText('myRProject');
 			});
 
+			it.only('R Project with Renv Environment', async function () {
+				// TestRail #633...
+				const app = this.app as Application;
+				await app.workbench.positronNewProjectWizard.startNewProject();
+				await app.workbench.positronNewProjectWizard.newRProjectButton.click();
+				await app.workbench.positronNewProjectWizard.projectWizardNextButton.click();
+				await app.workbench.positronNewProjectWizard.projectWizardNextButton.click();
+				await app.workbench.positronNewProjectWizard.projectWizardDisabledCreateButton.isNotVisible(500); // May need to pass in a retry count > default of 200
+				// Select the Renv checkbox
+				await app.workbench.positronNewProjectWizard.projectWizardRenvCheckbox.click();
+				await app.workbench.positronNewProjectWizard.projectWizardNextButton.click();
+				await app.workbench.positronNewProjectWizard.projectWizardCurrentWindowButton.click();
+				await app.workbench.positronExplorer.explorerProjectTitle.waitForText('myRProject');
+				await app.workbench.positronPopups.installRenv();
+				// Verify renv files are present
+				const projectFiles = await app.workbench.positronExplorer.getExplorerProjectFiles();
+				expect(projectFiles).toContain('renv');
+				expect(projectFiles).toContain('.Rprofile');
+				expect(projectFiles).toContain('renv.lock');
+				// Run `renv::status()` in the console to confirm no issues
+				await app.workbench.positronConsole.executeCode('R', 'renv::status()', '>');
+				await app.workbench.positronConsole.waitForEndingConsoleText('No issues found', true);
+				await app.workbench.positronConsole.logConsoleContents();
+			});
 		});
 
 	});

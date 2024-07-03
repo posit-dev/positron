@@ -115,6 +115,29 @@ export class PositronConsole {
 		return elements.map(e => e.textContent);
 	}
 
+	/**
+	 * Waits for the console to show the given text in the last console line.
+	 * @param text The text to wait for in the console.
+	 * @param matchAsSubstring If true, the text is considered a substring of the console text. If
+	 * false, the text must match the console text exactly.
+	 */
+	async waitForEndingConsoleText(text: string, matchAsSubstring = false) {
+
+		let lastConsoleLine = await this.getConsoleContents(-1);
+
+		for (let i = 0; i < 30; i++) {
+			if (
+				lastConsoleLine[0] === text ||
+				(matchAsSubstring && lastConsoleLine[0].includes(text))
+			) {
+				break;
+			} else {
+				await this.code.wait(100);
+				lastConsoleLine = await this.getConsoleContents(-1);
+			}
+		}
+	}
+
 	async maximizeConsole() {
 		await this.code.waitAndClick(MAXIMIZE_CONSOLE);
 	}

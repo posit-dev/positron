@@ -36,6 +36,21 @@ export class PositronPopups {
 		}
 	}
 
+	async installRenv() {
+		try {
+			this.code.logger.log('Checking for install Renv modal dialog box');
+			// fail fast if the renv install modal is not present
+			await this.code.waitForTextContent(POSITRON_MODAL_DIALOG_BOX, 'Missing R package', undefined, 50);
+			await this.code.waitAndClick(POSITRON_MODAL_DIALOG_BOX_OK);
+			this.code.logger.log('Installing Renv');
+			await this.waitForToastToAppear();
+			await this.waitForToastToDisappear();
+			this.code.logger.log('Installed Renv');
+		} catch {
+			this.code.logger.log('Did not find install Renv modal dialog box');
+		}
+	}
+
 	async waitForToastToDisappear() {
 		this.code.logger.log('Waiting for toast to be detacted');
 		const toastLocator = this.code.driver.getLocator(NOTIFICATION_TOAST);

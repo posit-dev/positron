@@ -16,6 +16,7 @@ const PROJECT_WIZARD_BACK_BUTTON = 'div.left-actions > button.positron-button.bu
 const PROJECT_WIZARD_DISABLED_CREATE_BUTTON = 'button.positron-button.button.action-bar-button.default.disabled[tabindex="0"][disabled][role="button"][aria-disabled="true"]';
 const PROJECT_WIZARD_CURRENT_WINDOW_BUTTON = 'button.positron-button.button.action-bar-button[tabindex="0"][role="button"]';
 const PROJECT_WIZARD_NEW_JUPYTER_PROJECT = '[id="Jupyter Notebook"]';
+const PROJECT_WIZARD_RENV_CHECKBOX = 'div.renv-configuration > div.checkbox';
 
 /*
  *  Reuseable Positron new project wizard functionality for tests to leverage.
@@ -29,6 +30,7 @@ export class PositronNewProjectWizard {
 	projectWizardDisabledCreateButton: PositronBaseElement;
 	projectWizardCurrentWindowButton: PositronBaseElement;
 	newJupyterProjectButton: PositronBaseElement;
+	projectWizardRenvCheckbox: PositronBaseElement;
 
 	constructor(private code: Code, private quickaccess: QuickAccess) {
 		this.newPythonProjectButton = new PositronBaseElement(PROJECT_WIZARD_NEW_PYTHON_PROJECT, this.code);
@@ -39,6 +41,7 @@ export class PositronNewProjectWizard {
 		this.projectWizardDisabledCreateButton = new PositronBaseElement(PROJECT_WIZARD_DISABLED_CREATE_BUTTON, this.code);
 		this.projectWizardCurrentWindowButton = new PositronBaseElement(PROJECT_WIZARD_CURRENT_WINDOW_BUTTON, this.code);
 		this.newJupyterProjectButton = new PositronBaseElement(PROJECT_WIZARD_NEW_JUPYTER_PROJECT, this.code);
+		this.projectWizardRenvCheckbox = new PositronBaseElement(PROJECT_WIZARD_RENV_CHECKBOX, this.code);
 	}
 
 	async startNewProject() {
