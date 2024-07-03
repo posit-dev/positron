@@ -496,6 +496,15 @@ export class ConnectionItemsProvider
 		});
 	}
 
+	//* getParent is required for `reveal` to work
+	async getParent(item: ConnectionItem): Promise<ConnectionItem | null> {
+		if (isDisconnectedConnectionItem(item) || isDatabaseConnectionItem(item)) {
+			return null;
+		}
+
+		throw new Error(`Can't find the parent of this item`);
+	}
+
 	public refresh() {
 		this.fireOnDidChangeTreeData();
 	}
@@ -524,6 +533,17 @@ export class ConnectionItemsProvider
 			return !isDisconnectedConnectionItem(connection);
 		});
 		this.fireOnDidChangeTreeData();
+	}
+
+
+	/**
+	 * Expand all connection nodes
+	 * The maximum depth is 3 due to limitations in the TreeView API
+	 */
+	expandConnectionNodes(treeView: vscode.TreeView<ConnectionItem>) {
+		this._connections.forEach((connection) => {
+			treeView.reveal(connection, { expand: 3 });
+		});
 	}
 
 	fireOnDidChangeTreeData() {
