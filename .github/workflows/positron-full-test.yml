@@ -99,8 +99,10 @@ jobs:
 
       - name: Install dependencies
         run: |
+          curl https://raw.githubusercontent.com/posit-dev/qa-example-content/main/requirements.txt --output requirements.txt
           python -m pip install --upgrade pip
-          python -m pip install pandas matplotlib ipykernel pyarrow openpyxl trcli
+          python -m pip install -r requirements.txt
+          python -m pip install matplotlib ipykernel trcli
 
       - name: Run Smoke Tests (Electron)
         env:
