@@ -502,6 +502,8 @@ export class ConnectionItemsProvider
 			return null;
 		}
 
+		// We are currently only interested in expanding the root connection nodes,
+		// thus we don't need to further implement this for now.
 		throw new Error(`Can't find the parent of this item`);
 	}
 
