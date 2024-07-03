@@ -15,6 +15,7 @@ import { IHoverService } from 'vs/platform/hover/browser/hover';
 import { HoverPosition } from 'vs/base/browser/ui/hover/hoverWidget';
 import { positronClassNames } from 'vs/base/common/positronUtilities';
 import { ProfileDate } from 'vs/workbench/services/positronDataExplorer/browser/components/profileDate';
+import { usePositronDataGridContext } from 'vs/workbench/browser/positronDataGrid/positronDataGridContext';
 import { ProfileNumber } from 'vs/workbench/services/positronDataExplorer/browser/components/profileNumber';
 import { ProfileString } from 'vs/workbench/services/positronDataExplorer/browser/components/profileString';
 import { ProfileBoolean } from 'vs/workbench/services/positronDataExplorer/browser/components/profileBoolean';
@@ -41,6 +42,9 @@ interface ColumnSummaryCellProps {
  * @returns The rendered component.
  */
 export const ColumnSummaryCell = (props: ColumnSummaryCellProps) => {
+	// Context hooks.
+	const context = usePositronDataGridContext();
+
 	// Reference hooks.
 	const dataTypeRef = useRef<HTMLDivElement>(undefined!);
 
@@ -89,7 +93,6 @@ export const ColumnSummaryCell = (props: ColumnSummaryCellProps) => {
 
 	// Set the profile component for the column.
 	const profile = (() => {
-
 		// Determine the alignment based on type.
 		switch (props.columnSchema.type_display) {
 			case ColumnDisplayType.Number:
@@ -161,6 +164,9 @@ export const ColumnSummaryCell = (props: ColumnSummaryCellProps) => {
 		summarySupported = false;
 	}
 
+	// Determine whether this is the cursor.
+	const cursor = props.columnIndex === props.instance.cursorRowIndex;
+
 	// Render.
 	return (
 		<div
@@ -173,8 +179,13 @@ export const ColumnSummaryCell = (props: ColumnSummaryCellProps) => {
 				props.instance.setCursorRow(props.columnIndex);
 			}}
 		>
-			{(mouseInside || props.columnIndex === props.instance.cursorRowIndex) &&
-				<div className='cursor-background' />
+			{(mouseInside || cursor) &&
+				<div
+					className={positronClassNames(
+						'cursor',
+						{ 'focused': context.instance.focused && cursor }
+					)}
+				/>
 			}
 			<div className='basic-info'>
 				<div

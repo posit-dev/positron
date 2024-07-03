@@ -61,7 +61,7 @@ class FormatterProvider implements vscode.DocumentFormattingEditProvider {
 		const originalSource = document.getText(range);
 		const tempdir = os.tmpdir();
 		const fileToStyle = 'styler-' + randomUUID() + '.R';
-		const stylerPath = path.join(tempdir, fileToStyle);
+		const stylerPath = path.join(tempdir, fileToStyle).replace(/\\/g, '/');
 		fs.writeFileSync(stylerPath, originalSource);
 
 		// A promise that resolves when the runtime is idle:

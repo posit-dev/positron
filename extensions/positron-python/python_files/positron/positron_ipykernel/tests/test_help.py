@@ -100,7 +100,7 @@ def test_pydoc_server_styling(running_help_service: HelpService):
         # Numpy ufuncs
         (np.abs, "numpy.absolute"),
         # getset_descriptors
-        (np.float_.base, "numpy.generic.base"),
+        (np.float32.base, "numpy.generic.base"),
         # Keywords should resolve even though they aren't objects.
         ("async", "async"),
         # The overrided help function should resolve.

@@ -96,29 +96,35 @@ export const DataGridColumnHeader = (props: DataGridColumnHeaderProps) => {
 	// Get the column selection state.
 	const columnSelectionState = context.instance.columnSelectionState(props.columnIndex);
 
+	// Determine whether the column is selected.
+	const selected = (columnSelectionState & ColumnSelectionState.Selected) !== 0;
+
 	// Render.
 	return (
 		<div
 			ref={ref}
-			className={
-				positronClassNames(
-					'data-grid-column-header',
-					{ 'selected': columnSelectionState & ColumnSelectionState.Selected }
-				)}
+			className='data-grid-column-header'
 			style={{
 				left: props.left,
 				width: context.instance.getColumnWidth(props.columnIndex)
 			}}
 			onMouseDown={mouseDownHandler}
 		>
-			<div className={
-				positronClassNames(
-					'border-overlay',
-					{ 'selected': columnSelectionState & ColumnSelectionState.Selected },
-					{ 'selected-left': columnSelectionState & ColumnSelectionState.SelectedLeft },
-					{ 'selected-right': columnSelectionState & ColumnSelectionState.SelectedRight }
-				)}
-			/>
+			{context.instance.cellBorder &&
+				<>
+					<div className='border-overlay' />
+					{selected &&
+						<div
+							className={positronClassNames(
+								'selection-overlay',
+								{ 'focused': context.instance.focused },
+								{ 'selected-left': columnSelectionState & ColumnSelectionState.SelectedLeft },
+								{ 'selected-right': columnSelectionState & ColumnSelectionState.SelectedRight }
+							)}
+						/>
+					}
+				</>
+			}
 			<div className='content'>
 				<div className='title-description'>
 					<div className='title'>{props.column?.name}</div>
@@ -144,6 +150,7 @@ export const DataGridColumnHeader = (props: DataGridColumnHeaderProps) => {
 				<Button
 					ref={sortingButtonRef}
 					className='sort-button'
+					tabIndex={-1}
 					mouseTrigger={MouseTrigger.MouseDown}
 					onPressed={dropdownPressed}
 				>

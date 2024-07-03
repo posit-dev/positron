@@ -1899,37 +1899,29 @@ def _select_row_indices(indices: List[int]):
     return _select_indices(indices, "row_indices")
 
 
-def test_pandas_export_data_selection(dxf: DataExplorerFixture):
+def test_export_data_selection(dxf: DataExplorerFixture):
     length = 100
     ncols = 20
 
     np.random.seed(12345)
     df = pd.DataFrame({f"a{i}": np.random.standard_normal(length) for i in range(ncols)})
 
-    name = guid()
-    dxf.register_table(name, df)
-    dxf.register_table("filtered", df)
+    dfp = pl.DataFrame({f"a{i}": np.random.standard_normal(length) for i in range(ncols)})
 
-    schema = dxf.get_schema("filtered")
-    dxf.set_row_filters("filtered", filters=[_compare_filter(schema[0], ">", "0")])
+    pandas_name = "df"
+    polars_name = "dfp"
+    dxf.register_table(pandas_name, df)
+    dxf.register_table("df_filtered", df)
 
-    filtered = df[df.iloc[:, 0] > 0]
+    dxf.register_table(polars_name, dfp)
+    dxf.register_table("dfp_filtered", dfp)
+
+    for name in ["df_filtered", "dfp_filtered"]:
+        schema = dxf.get_schema(name)
+        dxf.set_row_filters(name, filters=[_compare_filter(schema[0], ">", "0")])
 
     # Test exporting single cells
     single_cell_cases = [(0, 0), (5, 10), (25, 15), (99, 19)]
-
-    for row_index, col_index in single_cell_cases:
-        selection = _select_single_cell(row_index, col_index)
-        df_result = dxf.export_data_selection(name, selection, "tsv")
-        df_expected = str(df.iat[row_index, col_index])
-        assert df_result["data"] == df_expected
-        assert df_result["format"] == "tsv"
-
-        filt_row_index = min(row_index, len(filtered) - 1)
-        filt_selection = _select_single_cell(filt_row_index, col_index)
-        filt_result = dxf.export_data_selection("filtered", filt_selection, "csv")
-        filt_expected = str(filtered.iat[filt_row_index, col_index])
-        assert filt_result["data"] == filt_expected
 
     # Test exporting ranges
     range_cases = [
@@ -1941,7 +1933,12 @@ def test_pandas_export_data_selection(dxf: DataExplorerFixture):
         (_select_column_indices([0, 3, 5, 7]), (slice(None), [0, 3, 5, 7])),
     ]
 
-    def do_export(x, fmt):
+    def strip_newline(x):
+        if x[-1] == "\n":
+            x = x[:-1]
+        return x
+
+    def pandas_export_table(x, fmt):
         buf = StringIO()
         if fmt == "csv":
             x.to_csv(buf, index=False)
@@ -1949,22 +1946,71 @@ def test_pandas_export_data_selection(dxf: DataExplorerFixture):
             x.to_csv(buf, sep="\t", index=False)
         elif fmt == "html":
             x.to_html(buf, index=False)
-        return buf.getvalue()
+        return strip_newline(buf.getvalue())
 
-    for rpc_selection, selector in range_cases:
-        df_selected = df.iloc[selector]
-        filtered_selected = filtered.iloc[selector]
+    def pandas_export_cell(x, i, j):
+        return str(x.iat[i, j])
 
-        for fmt in ["csv", "tsv", "html"]:
-            df_result = dxf.export_data_selection(name, rpc_selection, fmt)
-            df_expected = do_export(df_selected, fmt)
+    def pandas_iloc(x, i, j):
+        return x.iloc[i, j]
 
+    def polars_export_table(x, fmt):
+        if fmt == "csv":
+            return x.write_csv()
+        elif fmt == "tsv":
+            return x.write_csv(separator="\t")
+        else:
+            raise NotImplementedError(fmt)
+
+    def polars_iloc(x, i, j):
+        return x[i, j]
+
+    def polars_export_cell(x, i, j):
+        return str(x[i, j])
+
+    data_cases = {
+        ("df", pandas_export_cell, pandas_export_table, pandas_iloc),
+        ("dfp", polars_export_cell, polars_export_table, polars_iloc),
+    }
+
+    data = {
+        "df": (df, df[df.iloc[:, 0] > 0]),
+        "dfp": (dfp, dfp.filter(dfp[:, 0] > 0)),
+    }
+
+    for name, export_cell, export_table, iloc in data_cases:
+        unfiltered, filtered = data[name]
+        for row_index, col_index in single_cell_cases:
+            selection = _select_single_cell(row_index, col_index)
+            df_result = dxf.export_data_selection(name, selection, "tsv")
+            df_expected = export_cell(unfiltered, row_index, col_index)
             assert df_result["data"] == df_expected
-            assert df_result["format"] == fmt
+            assert df_result["format"] == "tsv"
 
-            filt_result = dxf.export_data_selection("filtered", rpc_selection, fmt)
-            filt_expected = do_export(filtered_selected, fmt)
+            filt_row_index = min(row_index, len(filtered) - 1)
+            filt_selection = _select_single_cell(filt_row_index, col_index)
+            filt_result = dxf.export_data_selection(f"{name}_filtered", filt_selection, "csv")
+            filt_expected = export_cell(filtered, filt_row_index, col_index)
             assert filt_result["data"] == filt_expected
+
+        for rpc_selection, selector in range_cases:
+            df_selected = iloc(unfiltered, *selector)
+            filtered_selected = iloc(filtered, *selector)
+
+            for fmt in ["csv", "tsv", "html"]:
+                state = dxf.get_state(name)
+                features = state["supported_features"]["export_data_selection"]
+                if fmt not in features["supported_formats"]:
+                    continue
+                df_result = dxf.export_data_selection(name, rpc_selection, fmt)
+                df_expected = export_table(df_selected, fmt)
+
+                assert df_result["data"] == df_expected
+                assert df_result["format"] == fmt
+
+                filt_result = dxf.export_data_selection(f"{name}_filtered", rpc_selection, fmt)
+                filt_expected = export_table(filtered_selected, fmt)
+                assert filt_result["data"] == filt_expected
 
 
 def _profile_request(column_index, profile_type):
@@ -2450,6 +2496,9 @@ def test_polars_get_state(dxf: DataExplorerFixture):
     assert features["set_row_filters"]["support_status"] == SupportStatus.Supported
     assert features["set_sort_columns"]["support_status"] == SupportStatus.Supported
     assert features["get_column_profiles"]["support_status"] == SupportStatus.Supported
+    export_data = features["export_data_selection"]
+    assert export_data["support_status"] == SupportStatus.Supported
+    assert export_data["supported_formats"] == ["csv", "tsv"]
     assert features["get_column_profiles"]["supported_types"] == [
         ColumnProfileTypeSupportStatus(
             profile_type="null_count", support_status=SupportStatus.Supported

@@ -40,7 +40,6 @@ from .data_explorer_comm import (
     CompareFilterParamsOp,
     DataExplorerBackendMessageContent,
     DataExplorerFrontendEvent,
-    DataSelection,
     DataSelectionCellRange,
     DataSelectionIndices,
     DataSelectionKind,
@@ -194,10 +193,50 @@ class DataExplorerTableView(abc.ABC):
 
     def export_data_selection(self, request: ExportDataSelectionRequest):
         self._recompute_if_needed()
-        return self._export_data_selection(
-            request.params.selection,
-            request.params.format,
-        ).dict()
+        kind = request.params.selection.kind
+        sel = request.params.selection.selection
+        fmt = request.params.format
+        if kind == DataSelectionKind.SingleCell:
+            assert isinstance(sel, DataSelectionSingleCell)
+            row_index = sel.row_index
+            if self.view_indices is not None:
+                row_index = self.view_indices[row_index]
+            return self._export_cell(row_index, sel.column_index, fmt)
+        elif kind == DataSelectionKind.CellRange:
+            assert isinstance(sel, DataSelectionCellRange)
+            return self._export_tabular(
+                slice(sel.first_row_index, sel.last_row_index + 1),
+                slice(sel.first_column_index, sel.last_column_index + 1),
+                fmt,
+            )
+        elif kind == DataSelectionKind.RowRange:
+            assert isinstance(sel, DataSelectionRange)
+            return self._export_tabular(
+                slice(sel.first_index, sel.last_index + 1),
+                slice(None),
+                fmt,
+            )
+        elif kind == DataSelectionKind.ColumnRange:
+            assert isinstance(sel, DataSelectionRange)
+            return self._export_tabular(
+                slice(None),
+                slice(sel.first_index, sel.last_index + 1),
+                fmt,
+            )
+        elif kind == DataSelectionKind.RowIndices:
+            assert isinstance(sel, DataSelectionIndices)
+            return self._export_tabular(sel.indices, slice(None), fmt)
+        elif kind == DataSelectionKind.ColumnIndices:
+            assert isinstance(sel, DataSelectionIndices)
+            return self._export_tabular(slice(None), sel.indices, fmt)
+        else:
+            raise NotImplementedError(f"Unknown data export: {kind}")
+
+    def _export_cell(self, row_index: int, column_index: int, fmt: ExportFormat):
+        raise NotImplementedError
+
+    def _export_tabular(self, row_selector, column_selector, fmt: ExportFormat):
+        raise NotImplementedError
 
     def set_row_filters(self, request: SetRowFiltersRequest):
         return self._set_row_filters(request.params.filters).dict()
@@ -415,9 +454,6 @@ class DataExplorerTableView(abc.ABC):
         column_indices: Sequence[int],
         format_options: FormatOptions,
     ) -> dict:
-        raise NotImplementedError
-
-    def _export_data_selection(self, selection: DataSelection, fmt: ExportFormat) -> ExportedData:
         raise NotImplementedError
 
     SUPPORTED_FILTERS = set()
@@ -962,53 +998,8 @@ class PandasView(DataExplorerTableView):
 
         return [_format_value(x) for x in values]
 
-    def _export_data_selection(self, selection: DataSelection, fmt: ExportFormat) -> ExportedData:
-        sel = selection.selection
-        if selection.kind == DataSelectionKind.SingleCell:
-            assert isinstance(sel, DataSelectionSingleCell)
-            row_index = sel.row_index
-            if self.view_indices is not None:
-                row_index = self.view_indices[row_index]
-            cell = str(self.table.iat[row_index, sel.column_index])
-            return ExportedData(data=cell, format=fmt)
-        elif selection.kind == DataSelectionKind.CellRange:
-            assert isinstance(sel, DataSelectionCellRange)
-            return self._export_tabular(
-                slice(sel.first_row_index, sel.last_row_index + 1),
-                slice(sel.first_column_index, sel.last_column_index + 1),
-                fmt,
-            )
-        elif selection.kind == DataSelectionKind.RowRange:
-            assert isinstance(sel, DataSelectionRange)
-            return self._export_tabular(
-                slice(sel.first_index, sel.last_index + 1),
-                None,
-                fmt,
-            )
-        elif selection.kind == DataSelectionKind.ColumnRange:
-            assert isinstance(sel, DataSelectionRange)
-            return self._export_tabular(
-                None,
-                slice(sel.first_index, sel.last_index + 1),
-                fmt,
-            )
-        elif selection.kind == DataSelectionKind.RowIndices:
-            assert isinstance(sel, DataSelectionIndices)
-            return self._export_tabular(sel.indices, None, fmt)
-        elif selection.kind == DataSelectionKind.ColumnIndices:
-            assert isinstance(sel, DataSelectionIndices)
-            return self._export_tabular(None, sel.indices, fmt)
-        else:
-            raise NotImplementedError(f"Unknown data export: {selection.kind}")
-
-    def _export_tabular(self, row_selector, column_selector, fmt: ExportFormat) -> ExportedData:
+    def _export_tabular(self, row_selector, column_selector, fmt: ExportFormat):
         from io import StringIO
-
-        if row_selector is None:
-            row_selector = slice(None)
-
-        if column_selector is None:
-            column_selector = slice(None)
 
         if self.view_indices is not None:
             row_selector = self.view_indices[row_selector]
@@ -1025,7 +1016,17 @@ class PandasView(DataExplorerTableView):
         else:
             raise NotImplementedError(f"Unsupported export format {fmt}")
 
-        return ExportedData(data=buf.getvalue(), format=fmt)
+        result = buf.getvalue()
+
+        # pandas will put a line break at the end of CSV data. If
+        # present, remove it
+        if result[-1] == "\n":
+            result = result[:-1]
+
+        return ExportedData(data=result, format=fmt).dict()
+
+    def _export_cell(self, row_index: int, column_index: int, fmt: ExportFormat):
+        return ExportedData(data=str(self.table.iat[row_index, column_index]), format=fmt).dict()
 
     def _mask_to_indices(self, mask):
         if mask is not None:
@@ -1386,7 +1387,14 @@ class PandasView(DataExplorerTableView):
             ],
         ),
         set_sort_columns=SetSortColumnsFeatures(support_status=SupportStatus.Supported),
-        export_data_selection=ExportDataSelectionFeatures(support_status=SupportStatus.Supported),
+        export_data_selection=ExportDataSelectionFeatures(
+            support_status=SupportStatus.Supported,
+            supported_formats=[
+                ExportFormat.Csv,
+                ExportFormat.Tsv,
+                ExportFormat.Html,
+            ],
+        ),
     )
 
 
@@ -1704,8 +1712,23 @@ class PolarsView(DataExplorerTableView):
 
         return _format_series(values)
 
-    def _export_data_selection(self, selection: DataSelection, fmt: ExportFormat) -> ExportedData:
-        raise NotImplementedError
+    def _export_tabular(self, row_selector, column_selector, fmt: ExportFormat):
+        if self.view_indices is not None:
+            row_selector = self.view_indices[row_selector]
+
+        to_export = self.table[row_selector, column_selector]
+
+        if fmt == ExportFormat.Csv:
+            result = to_export.write_csv()
+        elif fmt == ExportFormat.Tsv:
+            result = to_export.write_csv(separator="\t")
+        elif fmt == ExportFormat.Html:
+            raise NotImplementedError(f"Unsupported export format {fmt}")
+
+        return ExportedData(data=result, format=fmt).dict()
+
+    def _export_cell(self, row_index: int, column_index: int, fmt: ExportFormat):
+        return ExportedData(data=str(self.table[row_index, column_index]), format=fmt).dict()
 
     SUPPORTED_FILTERS = {
         RowFilterType.Between,
@@ -1932,7 +1955,10 @@ class PolarsView(DataExplorerTableView):
                 ),
             ],
         ),
-        export_data_selection=ExportDataSelectionFeatures(support_status=SupportStatus.Unsupported),
+        export_data_selection=ExportDataSelectionFeatures(
+            support_status=SupportStatus.Supported,
+            supported_formats=[ExportFormat.Csv, ExportFormat.Tsv],
+        ),
         set_sort_columns=SetSortColumnsFeatures(support_status=SupportStatus.Supported),
     )
 

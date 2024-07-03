@@ -49,10 +49,10 @@
 			"action": { "indent": "none", "appendText": "#' " }
 		},
 
-		// Quarto comments.
+		// Plumber comments.
 		{
-			"beforeText": "^\\s*#+\\|",
-			"action": { "indent": "none", "appendText": "#| " }
+			"beforeText": "^\\s*#+\\*",
+			"action": { "indent": "none", "appendText": "#* " }
 		},
 
 		// A line ending with an operator, preceded by a blank line.

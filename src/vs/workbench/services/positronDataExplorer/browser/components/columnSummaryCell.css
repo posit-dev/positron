@@ -20,7 +20,7 @@
 .data-grid-row-cell
 .content
 .column-summary
-.cursor-background {
+.cursor {
 	top: 2px;
 	right: 2px;
 	bottom: 2px;
@@ -28,7 +28,14 @@
 	z-index: -1;
 	position: absolute;
 	border-radius: 4px;
-	background-color: var(--vscode-positronDataExplorer-selectionBackground);
+	background-color: var(--vscode-positronDataGrid-selectionBackground);
+}
+
+.data-grid-row-cell
+.content
+.column-summary
+.cursor:not(.focused) {
+	opacity: 50%;
 }
 
 .data-grid-row-cell

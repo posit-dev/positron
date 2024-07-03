@@ -17,7 +17,7 @@ const colors = require('colors');
 
 // Enum for exit codes
 const ExitCodes = {
-	SUCCESS: 0, 				        // success
+	SUCCESS: 0,                         // success
 	FOUND_SECRETS_OR_BASELINE_ISSUE: 1, // detect-secrets-hook found secrets or encountered a baseline file issue
 	DETECT_SECRETS_WRAPPER_ERROR: 2,    // an error occurred in this script
 	DETECT_SECRETS_ERROR: 3,            // an error occurred in detect-secrets
@@ -41,11 +41,14 @@ const execSync = (command, stdio = ['inherit', 'pipe', 'inherit']) => {
 try {
 	const gitCommand = 'git rev-parse --show-toplevel';
 	printDebug(gitCommand, true);
-	const gitRepoRoot = execSync(gitCommand);
+	const gitRepoRoot = execSync(gitCommand).trim();
 	printDebug(gitRepoRoot);
-	printDebug('current working directory: ' + process.cwd());
-	if (process.cwd().trim() !== gitRepoRoot.trim()) {
-		console.error(`${'Error:'.red} Please run this script from the root of the git repository.`);
+	const currentDir = process.cwd().trim();
+	printDebug('current working directory: ' + currentDir);
+	if (path.resolve(currentDir) !== path.resolve(gitRepoRoot)) {
+		console.error(
+			`${'Error:'.red} Please run this script from the root of the git repository.`
+		);
 		process.exit(ExitCodes.DETECT_SECRETS_WRAPPER_ERROR);
 	}
 } catch (error) {
@@ -78,13 +81,12 @@ const argCount = process.argv.length - (debugFlag ? 1 : 0);
 const tooManyArgs = argCount > 3;
 if (tooManyArgs) {
 	console.error(`${'Error:'.red} Too many arguments. Please only specify one command.`);
-	console.log(); // print newline
-	console.log(usage);
+	console.log(`\n${usage}`);
 	process.exit(ExitCodes.DETECT_SECRETS_WRAPPER_ERROR);
 }
 
 // Wrapper function for running `detect-secrets`
-const detectSecrets = (args, stdio) => {
+const detectSecrets = (args, stdio, throwIfError = false) => {
 	const dsCommand = `detect-secrets ${args}`;
 	printDebug(dsCommand, true);
 	try {
@@ -92,6 +94,14 @@ const detectSecrets = (args, stdio) => {
 		printDebug(result);
 	} catch (error) {
 		printDebug(error);
+		if (throwIfError) {
+			// throw error to handle it in the calling function
+			throw error;
+		} else {
+			// print error and exit with the error code
+			console.error(`\n${error.toString().red}\n`);
+			process.exit(ExitCodes.DETECT_SECRETS_ERROR);
+		}
 	}
 };
 
@@ -107,9 +117,14 @@ const detectSecretsScan = (args, stdio) => {
 
 // Ensure that detect-secrets is installed
 try {
-	detectSecrets('--version');
+	// pipe the stdio so we print our own error message if detect-secrets is not installed
+	detectSecrets('--version', (stdio = 'pipe'), (throwIfError = true));
 } catch (error) {
-	console.error(`${'Error:'.red} detect-secrets is not installed. Install detect-secrets with ${'pip install detect-secrets'.magenta} or ${'brew install detect-secrets'.magenta}.`);
+	printDebug(error);
+	console.error(
+		`\n${'Error:'.red} detect-secrets is not installed. Install detect-secrets with ${'pip install detect-secrets'.magenta
+		} or ${'brew install detect-secrets'.magenta}.\n`
+	);
 	process.exit(ExitCodes.DETECT_SECRETS_WRAPPER_ERROR);
 }
 
@@ -130,8 +145,10 @@ const baselineFileExists = () => {
 // Ensure that the baseline file exists and exit if it does not
 const ensureBaselineFileExists = () => {
 	if (!baselineFileExists()) {
-		console.error(`${'Error:'.red} Baseline file ${baselineFile.underline} does not exist.
-Run ${'node build/detect-secrets.js init-baseline'.magenta} to create it.`);
+		console.error(
+			`\nError: Baseline file ${baselineFile.underline} does not exist.\n`.red +
+			`Run ${'node build/detect-secrets.js init-baseline'.magenta} to create it.\n`
+		);
 		process.exit(ExitCodes.DETECT_SECRETS_WRAPPER_ERROR);
 	}
 	return;
@@ -145,7 +162,10 @@ const getStagedFiles = () => {
 		printDebug(diffCommand, true);
 		// Split the output by null characters and remove empty strings, then join the files with a
 		// space so that they can be passed as arguments to detect-secrets-hook
-		const diffOutput = execSync(diffCommand).split('\0').filter(x => !!x).join(' ');
+		const diffOutput = execSync(diffCommand)
+			.split('\0')
+			.filter((x) => !!x)
+			.join(' ');
 		printDebug(diffOutput);
 		return diffOutput;
 	} catch (error) {
@@ -164,23 +184,42 @@ const runDetectSecretsHook = () => {
 		}
 		const hookCommand = `detect-secrets-hook ${noVerify} --baseline ${baselineFile} ${excludeFilesOption} ${stagedFiles}`;
 		printDebug(hookCommand, true);
-		const result = execSync(hookCommand);
+		// pipe the stdio so we can handle the output in case of an error
+		const result = execSync(hookCommand, (stdio = 'pipe'));
 		printDebug(result);
 	} catch (error) {
 		const secretsFound = error.status === 1;
 		if (secretsFound) {
-			printDebug('detect-secrets-hook found secrets in the staged files or there was an issue with the .secrets.baseline file.');
-			console.error(error.stdout.toString().red);
+			printDebug(
+				'detect-secrets-hook found secrets in the staged files or there was an issue with the .secrets.baseline file.'
+			);
+			// prints the secret detection output from detect-secrets-hook
+			if (error.stdout) {
+				console.error(`\n${error.stdout.toString().red}`);
+			}
+			// print guidance on how to manage the possible secrets
+			console.error(
+				'\nUh oh! If you have secrets in your code, please remove them before committing.\n'
+					.magenta +
+				`If you are certain that these are false positives, see ${'build/secrets/README.md'.underline
+					} for instructions on how to mark them as such.\n`.magenta
+			);
 			process.exit(ExitCodes.FOUND_SECRETS_OR_BASELINE_ISSUE);
 		}
 		printDebug(`An error occurred while running detect-secrets-hook: ${error.status}`);
-		console.error(error.stdout.toString().red);
-		process.exit(`${ExitCodes.DETECT_SECRETS_ERROR}_${error.status}`);
+		if (error.stdout) {
+			console.error(error.stdout.toString().magenta);
+		}
+		if (error.stderr) {
+			console.error(error.stderr.toString().red);
+		}
+		process.exit(ExitCodes.DETECT_SECRETS_ERROR);
 	}
 };
 
 // --no-verify is used to skip additional secret verification via a network call
-// If it is specified for creating the baseline file, it should also be specified for updating the baseline file
+// (it is not related to the similarly named git option to skip hooks)
+// If it is specified for creating the baseline file, it should also be specified for updating the baseline file and running the hook
 const noVerify = '--no-verify';
 
 // Exclude external files (third-party libraries, etc.) from the baseline file
@@ -192,9 +231,9 @@ const excludeFiles = [
 	'.*cgmanifest.json',
 	'.*/html-manager/dist/embed-amd.js',
 	'src/vs/base/test/common/filters.perf.data.js',
-	'.*/test/browser/recordings/windows11.*'
+	'.*/test/browser/recordings/windows11.*',
 ];
-const excludeFilesOption = excludeFiles.map(file => `--exclude-files '${file}'`).join(' ');
+const excludeFilesOption = excludeFiles.map((file) => `--exclude-files '${file}'`).join(' ');
 printDebug(`Excluding files: ${excludeFilesOption}`);
 
 // Run the appropriate command
@@ -205,17 +244,19 @@ switch (command) {
 			// notify the user that the file already exists and ask if they want to overwrite it
 			const rl = readline.createInterface({
 				input: process.stdin,
-				output: process.stdout
+				output: process.stdout,
 			});
 			rl.question(
-				`${'Warning:'.yellow
-				} Baseline file ${baselineFile.underline} already exists.\nWould you like to overwrite it? ${'You will lose any marked false positives'.yellow
+				`${'Warning:'.yellow} Baseline file ${baselineFile.underline
+				} already exists.\nWould you like to overwrite it? ${'You will lose any marked false positives'.yellow
 				}. (y/n): `,
 				(answer) => {
 					rl.close();
 					if (answer.toLowerCase() === 'y') {
 						console.log('\tOverwriting existing baseline file...');
-						const scanTime = detectSecretsScan(`${noVerify} ${excludeFilesOption} > ${baselineFile}`);
+						const scanTime = detectSecretsScan(
+							`${noVerify} ${excludeFilesOption} > ${baselineFile}`
+						);
 						console.log(`\tBaseline file initialized in ${scanTime} seconds.`);
 					} else {
 						console.log('\tNot overwriting baseline file. Exiting.');
@@ -224,7 +265,9 @@ switch (command) {
 				}
 			);
 		} else {
-			const scanTime = detectSecretsScan(`${noVerify} ${excludeFilesOption} > ${baselineFile}`);
+			const scanTime = detectSecretsScan(
+				`${noVerify} ${excludeFilesOption} > ${baselineFile}`
+			);
 			console.log(`\tBaseline file initialized in ${scanTime} seconds.`);
 		}
 		break;
@@ -232,13 +275,16 @@ switch (command) {
 	case 'audit-baseline':
 		console.log(`Auditing detect-secrets baseline file ${baselineFile.underline}...`);
 		ensureBaselineFileExists();
-		detectSecrets(`audit ${baselineFile}`, stdio = 'inherit');
+		// inherit the stdio so that the user can interact with the audit process
+		detectSecrets(`audit ${baselineFile}`, (stdio = 'inherit'));
 		break;
 	case 'update-baseline': {
 		console.log(`Updating detect-secrets baseline file ${baselineFile.underline}...`);
 		ensureBaselineFileExists();
 		// --force-use-all-plugins ensures that new plugins are picked up and used to update the baseline file
-		const scanTime = detectSecretsScan(`${noVerify} ${excludeFilesOption} --baseline ${baselineFile} --force-use-all-plugins`);
+		const scanTime = detectSecretsScan(
+			`${noVerify} ${excludeFilesOption} --baseline ${baselineFile} --force-use-all-plugins`
+		);
 		console.log(`\tBaseline file updated in ${scanTime} seconds.`);
 		break;
 	}
@@ -253,6 +299,9 @@ switch (command) {
 		runDetectSecretsHook();
 		break;
 	default:
-		console.error(`${'Error:'.red} Invalid command ${command}. Run ${'node build/detect-secrets.js help'.magenta} for a list of commands.`);
+		console.error(
+			`${'Error:'.red} Invalid command ${command}. Run ${'node build/detect-secrets.js help'.magenta
+			} for a list of commands.`
+		);
 		break;
 }

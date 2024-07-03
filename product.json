@@ -1,14 +1,14 @@
 {
 	"nameShort": "Positron",
 	"nameLong": "Positron",
-	"positronVersion": "2024.06.1",
+	"positronVersion": "2024.07.0",
 	"positronBuildNumber": 0,
 	"applicationName": "positron",
 	"dataFolderName": ".positron",
 	"win32MutexName": "positron",
 	"licenseName": "Software Evaluation License",
-	"licenseUrl": "https://github.com/posit-dev/positron-beta/tree/main?tab=License-1-ov-file",
-	"serverLicenseUrl": "https://github.com/posit-dev/positron-beta/tree/main?tab=License-1-ov-file",
+	"licenseUrl": "https://github.com/posit-dev/positron/tree/main?tab=License-1-ov-file",
+	"serverLicenseUrl": "https://github.com/posit-dev/positron/tree/main?tab=License-1-ov-file",
 	"serverGreeting": [],
 	"serverLicense": [],
 	"serverLicensePrompt": "",
@@ -232,7 +232,7 @@
 	},
 	"linkProtectionTrustedDomains": [
 		"https://open-vsx.org",
-		"https://github.com/posit-dev/positron-beta"
+		"https://github.com/posit-dev/positron"
 	],
 	"extensionEnabledApiProposals": {
 		"ms-vscode.vscode-selfhost-test-provider": [
@@ -266,6 +266,7 @@
 			"resolvers"
 		],
 		"ms-python.python": [
+			"positronResolveSymlinks",
 			"contribEditorContentMenu",
 			"quickPickSortByLabel",
 			"portsAttributes",

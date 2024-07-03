@@ -15,12 +15,8 @@
 	background-color: var(--vscode-positronDataGrid-contrastBackground);
 }
 
-.data-grid-row-header.selected {
-	background-color: var(--vscode-positronDataGrid-selectionBackground);
-}
-
 .data-grid-row-header
-.data-grid-row-header-border-overlay {
+.border-overlay {
 	top: 0;
 	right: 0;
 	bottom: 0;
@@ -32,25 +28,42 @@
 }
 
 .data-grid-row-header
-.data-grid-row-header-border-overlay.selected {
+.selection-overlay {
+	top: 0;
+	right: 0;
+	bottom: 0;
+	left: 0;
+	position: absolute;
+	box-sizing: border-box;
+	background-color: var(--vscode-positronDataGrid-selectionBackground);
 	border-left: 1px solid var(--vscode-positronDataGrid-selectionBorder);
 	border-right: 1px solid var(--vscode-positronDataGrid-selectionInnerBorder);
-	border-bottom: 1px solid var(--vscode-positronDataGrid-selectionInnerBorder);
 }
 
 .data-grid-row-header
-.data-grid-row-header-border-overlay.selected-top {
+.selection-overlay:not(.focused) {
+	opacity: 50%;
+}
+
+.data-grid-row-header
+.selection-overlay.selected-top {
 	border-top: 1px solid var(--vscode-positronDataGrid-selectionBorder);
 }
 
 .data-grid-row-header
-.data-grid-row-header-border-overlay.selected-bottom {
+.selection-overlay.selected-bottom {
 	border-bottom: 1px solid var(--vscode-positronDataGrid-selectionBorder);
+}
+
+.data-grid-row-header
+.selection-overlay:not(.selected-bottom) {
+	border-bottom: 1px solid var(--vscode-positronDataGrid-selectionInnerBorder);
 }
 
 .data-grid-row-header
 .content {
 	overflow: hidden;
+	position: relative;
 	grid-row: content / splitter;
 	grid-column: content / splitter;
 }
