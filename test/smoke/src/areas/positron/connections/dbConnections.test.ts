@@ -83,7 +83,7 @@ export function setup(logger: Logger) {
 
 			});
 
-			after(async function () {
+			afterEach(async function () {
 
 				const app = this.app as Application;
 				app.workbench.positronConnections.removeConnectionButton.click();
