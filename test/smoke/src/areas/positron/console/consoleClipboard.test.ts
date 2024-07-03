@@ -17,7 +17,7 @@ export function setup(logger: Logger) {
 		const modifier = isMac ? 'Meta' : 'Control';
 
 		async function testBody(app: Application) {
-				// TestRail 608100
+				await app.workbench.quickaccess.runCommand('workbench.action.toggleAuxiliaryBar');
 
 				const activeConsole = app.workbench.positronConsole.getActiveConsole();
 				await activeConsole?.click();
@@ -42,6 +42,8 @@ export function setup(logger: Logger) {
 				await app.workbench.positronConsole.waitForConsoleContents((contents) =>
 					contents.some((line) => line.includes('a = 1'))
 				);
+
+				await app.workbench.quickaccess.runCommand('workbench.action.toggleAuxiliaryBar');
 		}
 
 		describe('Console Clipboard - Python', () => {
@@ -51,7 +53,7 @@ export function setup(logger: Logger) {
 				await pythonFixtures.startPythonInterpreter();
 			});
 
-			it('Python - Copy from console & paste to console', async function () {
+			it('Python - Copy from console & paste to console [C608100]', async function () {
 				await testBody(this.app);
 			});
 		});
@@ -63,7 +65,7 @@ export function setup(logger: Logger) {
 				await pythonFixtures.startRInterpreter();
 			});
 
-			it('R - Copy from console & paste to console', async function () {
+			it('R - Copy from console & paste to console [C608100]', async function () {
 				await testBody(this.app);
 			});
 		});
