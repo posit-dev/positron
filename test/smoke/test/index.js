@@ -31,7 +31,7 @@ if (process.env.BUILD_ARTIFACTSTAGINGDIRECTORY) {
 		reporterEnabled: 'spec, mocha-junit-reporter',
 		mochaJunitReporterReporterOptions: {
 			testsuitesTitle: `${suite} ${process.platform}`,
-			mochaFile: join(process.env.BUILD_ARTIFACTSTAGINGDIRECTORY, `test-results/${process.platform}-${process.arch}-${suite.toLowerCase().replace(/[^\w]/g, '-')}-results.xml`)
+			mochaFile: join(process.env.BUILD_ARTIFACTSTAGINGDIRECTORY, `test-results/results.xml`)
 		}
 	};
 }

@@ -166,7 +166,6 @@ class FigureCanvasPositron(FigureCanvasAgg):
         self.figure.set_size_inches(width_in, height_in, forward=False)
 
         # Render the canvas.
-        figure_buffer = io.BytesIO()
         with io.BytesIO() as figure_buffer:
             self.print_figure(
                 figure_buffer,

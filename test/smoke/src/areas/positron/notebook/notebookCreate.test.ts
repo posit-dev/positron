@@ -8,6 +8,9 @@ import { expect } from '@playwright/test';
 import { Application, Logger, PositronPythonFixtures, PositronRFixtures } from '../../../../../automation';
 import { installAllHandlers } from '../../../utils';
 
+/*
+ * Notebook creation test cases
+ */
 export function setup(logger: Logger) {
 
 	describe('Notebooks', () => {
@@ -32,22 +35,21 @@ export function setup(logger: Logger) {
 				await app.workbench.positronNotebooks.closeNotebookWithoutSaving();
 			});
 
-			it('Python - Basic notebook creation and execution (code)', async function () {
-				// TestRail #628631
+			it('Python - Basic notebook creation and execution (code) [C628631]', async function () {
 				const app = this.app as Application;
 
 				await app.workbench.positronNotebooks.createNewNotebook();
 
 				await app.workbench.positronNotebooks.selectInterpreter('Python Environments', process.env.POSITRON_PY_VER_SEL!);
 
-				await app.workbench.positronNotebooks.executeInFirstCell('eval("8**2")');
-
-				expect(await app.workbench.positronNotebooks.getPythonCellOutput()).toBe('64');
+				await expect(async () => {
+					await app.workbench.positronNotebooks.executeInFirstCell('eval("8**2")');
+					expect(await app.workbench.positronNotebooks.getPythonCellOutput()).toBe('64');
+				}).toPass();
 
 			});
 
-			it('Python - Basic notebook creation and execution (markdown)', async function () {
-				// TestRail #628632
+			it('Python - Basic notebook creation and execution (markdown) [C628632]', async function () {
 				const app = this.app as Application;
 
 				await app.workbench.notebook.insertNotebookCell('markdown');
@@ -83,22 +85,21 @@ export function setup(logger: Logger) {
 				await app.workbench.positronNotebooks.closeNotebookWithoutSaving();
 			});
 
-			it('R - Basic notebook creation and execution (code)', async function () {
-				// TestRail #628629
+			it('R - Basic notebook creation and execution (code) [C628629]', async function () {
 				const app = this.app as Application;
 
 				await app.workbench.positronNotebooks.createNewNotebook();
 
 				await app.workbench.positronNotebooks.selectInterpreter('R Environments', process.env.POSITRON_R_VER_SEL!);
 
-				await app.workbench.positronNotebooks.executeInFirstCell('eval(parse(text="8**2"))');
-
-				expect(await app.workbench.positronNotebooks.getRCellOutput()).toBe('[1] 64');
+				await expect(async () => {
+					await app.workbench.positronNotebooks.executeInFirstCell('eval(parse(text="8**2"))');
+					expect(await app.workbench.positronNotebooks.getRCellOutput()).toBe('[1] 64');
+				}).toPass();
 
 			});
 
-			it('R - Basic notebook creation and execution (markdown)', async function () {
-				// TestRail #628630
+			it('R - Basic notebook creation and execution (markdown) [C628630]', async function () {
 				const app = this.app as Application;
 
 				await app.workbench.notebook.insertNotebookCell('markdown');

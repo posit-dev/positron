@@ -23,7 +23,7 @@ export class ExtHostDialogs {
 		}
 		// --- Start Positron ---
 		if (typeof options?.resolveSymlinks === 'boolean') {
-			checkProposedApiEnabled(extension, 'resolveSymlinks');
+			checkProposedApiEnabled(extension, 'positronResolveSymlinks');
 		}
 		// --- End Positron ---
 		return this._proxy.$showOpenDialog(options).then(filepaths => {

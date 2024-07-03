@@ -6,6 +6,9 @@
 import { Application, Logger, PositronPythonFixtures } from '../../../../../automation';
 import { installAllHandlers } from '../../../utils';
 
+/*
+ * Python console tests
+ */
 export function setup(logger: Logger) {
 	describe('Console Pane: Python', () => {
 
@@ -22,8 +25,7 @@ export function setup(logger: Logger) {
 
 			});
 
-			it('Verify restart button inside the console', async function () {
-				// TestRail #377918
+			it('Verify restart button inside the console [C377918]', async function () {
 				this.retries(1);
 				const app = this.app as Application;
 				// Need to make console bigger to see all bar buttons
@@ -36,8 +38,7 @@ export function setup(logger: Logger) {
 				await app.workbench.positronConsole.consoleRestartButton.isNotVisible();
 			});
 
-			it('Verify restart button on console bar', async function () {
-				// TestRail #617464
+			it('Verify restart button on console bar [C617464]', async function () {
 				this.retries(1);
 				const app = this.app as Application;
 				// Need to make console bigger to see all bar buttons

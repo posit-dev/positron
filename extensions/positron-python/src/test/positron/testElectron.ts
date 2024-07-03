@@ -141,12 +141,17 @@ export async function downloadAndUnzipPositron(): Promise<{ version: string; exe
         throw new Error(`No Github PAT was found. Unable to download Positron.`);
     }
 
+    const headers: Record<string, string> = {
+        Accept: 'application/vnd.github.v3.raw', // eslint-disable-line
+        'User-Agent': 'positron-python-tests', // eslint-disable-line
+    };
+    // If we have a githubPat, set it for better rate limiting.
+    if (githubPat) {
+        headers.Authorization = `token ${githubPat}`;
+    }
+
     const response = await httpsGetAsync({
-        headers: {
-            Accept: 'application/vnd.github.v3.raw', // eslint-disable-line
-            Authorization: `token ${githubPat}`, // eslint-disable-line
-            'User-Agent': 'positron-python-tests', // eslint-disable-line
-        },
+        headers,
         method: 'GET',
         protocol: 'https:',
         hostname: 'api.github.com',
@@ -277,12 +282,10 @@ export async function downloadAndUnzipPositron(): Promise<{ version: string; exe
 
     console.log(`Downloading Positron for ${platform} from ${asset.url}`);
     const url = new URL(asset.url);
+    // Reset the Accept header to download the asset.
+    headers.Accept = 'application/octet-stream';
     const dlRequestOptions: https.RequestOptions = {
-        headers: {
-            Accept: 'application/octet-stream', // eslint-disable-line
-            Authorization: `token ${githubPat}`, // eslint-disable-line
-            'User-Agent': 'positron-python-tests', // eslint-disable-line
-        },
+        headers,
         method: 'GET',
         protocol: url.protocol,
         hostname: url.hostname,

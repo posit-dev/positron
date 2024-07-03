@@ -9,6 +9,9 @@ import { Application, Logger, PositronPythonFixtures, PositronRFixtures } from '
 import { installAllHandlers } from '../../../utils';
 import { expect } from '@playwright/test';
 
+/*
+ * DB Connections test cases, leveraging the Chinook SQLite database from https://github.com/posit-dev/qa-example-content
+ */
 export function setup(logger: Logger) {
 
 	const tables = ['tracks', 'playlist_track', 'playlists', 'media_types', 'invoice_items', 'invoices', 'genres', 'employees', 'customers', 'artists', 'albums'];
@@ -37,15 +40,14 @@ export function setup(logger: Logger) {
 			});
 
 
-			it('Python - SQLite DB Connection', async function () {
+			it('Python - SQLite DB Connection [C628636]', async function () {
 
-				// TestRail 628636
 
 				const app = this.app as Application;
 				await app.workbench.quickaccess.openFile(join(app.workspacePathOrFolder, 'workspaces', 'chinook-db-py', 'sqlite.py'));
 				await app.workbench.quickaccess.runCommand('python.execInConsole');
 
-				console.log('Opening connections pane');
+				logger.log('Opening connections pane');
 				await app.workbench.positronVariables.doubleClickVariableRow('conn');
 
 				await expect(async () => {
@@ -80,7 +82,7 @@ export function setup(logger: Logger) {
 
 			});
 
-			after(async function () {
+			afterEach(async function () {
 
 				const app = this.app as Application;
 				app.workbench.positronConnections.removeConnectionButton.click();
@@ -88,15 +90,13 @@ export function setup(logger: Logger) {
 			});
 
 
-			it('R - SQLite DB Connection', async function () {
-
-				// TestRail 628637
+			it('R - SQLite DB Connection [C628637]', async function () {
 
 				const app = this.app as Application;
 				await app.workbench.quickaccess.openFile(join(app.workspacePathOrFolder, 'workspaces', 'chinook-db-r', 'sqlite.r'));
 				await app.workbench.quickaccess.runCommand('r.sourceCurrentFile');
 
-				console.log('Opening connections pane');
+				logger.log('Opening connections pane');
 				await app.workbench.positronConnections.connectionsTabLink.click();
 
 				await expect(async () => {
@@ -111,6 +111,43 @@ export function setup(logger: Logger) {
 				await app.workbench.positronConnections.disconnectButton.click();
 				await app.workbench.positronConnections.reconnectButton.waitforVisible();
 			});
+
+			it('R - Connections are update after adding a database', async function () {
+
+				const app = this.app as Application;
+
+				// open an empty connection
+				await app.workbench.positronConsole.executeCode(
+					'R',
+					`con <- connections::connection_open(RSQLite::SQLite(), tempfile())`,
+					'>'
+				);
+
+				// should be able to see the new connection in the connections pane
+				logger.log('Opening connections pane');
+				await app.workbench.positronConnections.connectionsTabLink.click();
+
+				await expect(async () => {
+					await app.workbench.positronConnections.openRTree();
+				}).toPass();
+
+				const visible = await app.workbench.positronConnections.hasConnectionNode("mtcars");
+				if (visible) {
+					throw new Error("mtcars should not be visible");
+				}
+
+				// now we add a dataframe to that connection
+				await app.workbench.positronConsole.executeCode(
+					'R',
+					`DBI::dbWriteTable(con, "mtcars", mtcars)`,
+					'>'
+				);
+				// the panel should be automatically updated and we should be able to see
+				// that table and click on it
+				await app.workbench.positronConnections.openConnectionsNodes(["mtcars"]);
+
+			});
+
 		});
 	});
 }

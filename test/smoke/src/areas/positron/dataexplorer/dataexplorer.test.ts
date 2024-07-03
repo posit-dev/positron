@@ -8,7 +8,9 @@ import { expect } from '@playwright/test';
 import { Application, Logger, PositronPythonFixtures, PositronRFixtures } from '../../../../../automation';
 import { installAllHandlers } from '../../../utils';
 
-
+/*
+ *  Data explorer tests with small data frames
+ */
 export function setup(logger: Logger) {
 	describe('Data Explorer', () => {
 
@@ -35,8 +37,7 @@ export function setup(logger: Logger) {
 
 			});
 
-			it('Python - Verifies basic data explorer functionality', async function () {
-				// TestRail #557556
+			it('Python - Verifies basic data explorer functionality [C557556]', async function () {
 				const app = this.app as Application;
 
 				// modified snippet from https://www.geeksforgeeks.org/python-pandas-dataframe/
@@ -46,11 +47,14 @@ data = {'Name':['Jai', 'Princi', 'Gaurav', 'Anuj'],
 		'Address':['Delhi', 'Kanpur', 'Allahabad', 'Kannauj']}
 df = pd.DataFrame(data)`;
 
-				console.log('Sending code to console');
+				logger.log('Sending code to console');
 				await app.workbench.positronConsole.executeCode('Python', script, '>>>');
 
-				console.log('Opening data grid');
-				await app.workbench.positronVariables.doubleClickVariableRow('df');
+				logger.log('Opening data grid');
+				await expect(async () => {
+					await app.workbench.positronVariables.doubleClickVariableRow('df');
+					await app.code.driver.getLocator('.label-name:has-text("Data: df")').innerText();
+				}).toPass();
 
 				await app.workbench.positronSideBar.closeSecondarySideBar();
 
@@ -84,8 +88,7 @@ df = pd.DataFrame(data)`;
 
 			});
 
-			it('R - Verifies basic data explorer functionality', async function () {
-				// TestRail #609620
+			it('R - Verifies basic data explorer functionality [C609620]', async function () {
 				const app = this.app as Application;
 
 				// snippet from https://www.w3schools.com/r/r_data_frames.asp
@@ -95,11 +98,14 @@ df = pd.DataFrame(data)`;
 	Duration = c(60, 30, 45)
 )`;
 
-				console.log('Sending code to console');
+				logger.log('Sending code to console');
 				await app.workbench.positronConsole.executeCode('R', script, '>');
 
-				console.log('Opening data grid');
-				await app.workbench.positronVariables.doubleClickVariableRow('Data_Frame');
+				logger.log('Opening data grid');
+				await expect(async () => {
+					await app.workbench.positronVariables.doubleClickVariableRow('Data_Frame');
+					await app.code.driver.getLocator('.label-name:has-text("Data: Data_Frame")').innerText();
+				}).toPass();
 
 				await app.workbench.positronSideBar.closeSecondarySideBar();
 

@@ -37,19 +37,11 @@ jobs:
         with:
           node-version: 20
 
-      - name: Create access token
-        uses: actions/create-github-app-token@v1
-        id: app-token
-        with:
-          app-id: ${{ vars.POSITRON_BOT_APP_ID }}
-          private-key: ${{ secrets.POSITRON_BOT_PRIVATE_KEY }}
-          owner: ${{ github.repository_owner }}
-
       - name: Execute yarn
         env:
           PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: 1
           ELECTRON_SKIP_BINARY_DOWNLOAD: 1
-          POSITRON_GITHUB_PAT: ${{ steps.app-token.outputs.token }}
+          POSITRON_GITHUB_PAT: ${{ github.token }}
         run: |
           # Install Yarn
           npm install -g yarn
@@ -108,7 +100,7 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          python -m pip install pandas matplotlib ipykernel pyarrow openpyxl
+          python -m pip install pandas matplotlib ipykernel pyarrow openpyxl trcli
 
       - name: Run Smoke Tests (Electron)
         env:
@@ -116,6 +108,21 @@ jobs:
           POSITRON_R_VER_SEL: R 4.4.0
         id: electron-smoke-tests
         run: DISPLAY=:10 yarn smoketest-no-compile --tracing
+
+      - name: Publish Test Report
+        uses: mikepenz/action-junit-report@v4
+        if: success() || failure() # always run even if the previous step fails
+        with:
+          report_paths: '**/.build/logs/smoke-tests-electron/test-results/*results.xml'
+
+      - name: Set TestRail Run Title
+        id: set-testrail-run-title
+        run: echo "TESTRAIL_TITLE=$(date +'%Y-%m-%d') Smoke Tests" >> $GITHUB_ENV
+
+      - name: Upload Test Results to TestRail
+        id: testrail-upload
+        if: always()
+        run: trcli --host "https://posit.testrail.io/" --project Positron --username jon.vanausdeln@posit.co --key ${{ secrets.TESTRAIL_API_KEY}} parse_junit --file ".build/logs/smoke-tests-electron/test-results/results.xml" --case-matcher name --title "$TESTRAIL_TITLE" --close-run
 
       - name: Upload run artifacts
         if: always()

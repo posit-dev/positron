@@ -6,6 +6,9 @@
 import { Application, Logger } from '../../../../../automation';
 import { installAllHandlers } from '../../../utils';
 
+/*
+ * New Project Wizard test cases
+ */
 export function setup(logger: Logger) {
 	describe('New Project Wizard', () => {
 		// Shared before/after handling
@@ -16,8 +19,7 @@ export function setup(logger: Logger) {
 
 			});
 
-			it('Python Project Defaults', async function () {
-				// TestRail #627912
+			it('Python Project Defaults [C627912]', async function () {
 				const app = this.app as Application;
 				await app.workbench.positronNewProjectWizard.startNewProject();
 				await app.workbench.positronNewProjectWizard.newPythonProjectButton.click();
@@ -42,8 +44,7 @@ export function setup(logger: Logger) {
 
 			});
 
-			it('R Project Defaults', async function () {
-				// TestRail #627913
+			it('R Project Defaults [C627913]', async function () {
 				const app = this.app as Application;
 				await app.workbench.positronNewProjectWizard.startNewProject();
 				await app.workbench.positronNewProjectWizard.newRProjectButton.click();
@@ -68,8 +69,7 @@ export function setup(logger: Logger) {
 
 			});
 
-			it('Jupyter Project Defaults', async function () {
-				// TestRail #629352
+			it('Jupyter Project Defaults [C629352]', async function () {
 				const app = this.app as Application;
 				await app.workbench.positronNewProjectWizard.startNewProject();
 				await app.workbench.positronNewProjectWizard.newJupyterProjectButton.click();

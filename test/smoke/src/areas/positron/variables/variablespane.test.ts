@@ -7,6 +7,9 @@ import { expect } from '@playwright/test';
 import { Application, Logger, PositronPythonFixtures, PositronRFixtures } from '../../../../../automation';
 import { installAllHandlers } from '../../../utils';
 
+/*
+ * Variables Pane test cases
+ */
 export function setup(logger: Logger) {
 	describe('Variables Pane', () => {
 
@@ -22,8 +25,7 @@ export function setup(logger: Logger) {
 
 			});
 
-			it('Verifies Variables pane basic function with python interpreter', async function () {
-				// TestRail #628634
+			it('Verifies Variables pane basic function with python interpreter [C628634]', async function () {
 				const app = this.app as Application;
 
 				const executeCode = async (code: string) => {
@@ -34,7 +36,7 @@ export function setup(logger: Logger) {
 				await executeCode('y=10');
 				await executeCode('z=100');
 
-				console.log('Entered lines in console defining variables');
+				logger.log('Entered lines in console defining variables');
 
 				await app.workbench.positronConsole.logConsoleContents();
 
@@ -63,8 +65,7 @@ export function setup(logger: Logger) {
 
 			});
 
-			it('Verifies Variables pane basic function with R interpreter', async function () {
-				// TestRail #628635
+			it('Verifies Variables pane basic function with R interpreter [C628635]', async function () {
 				const app = this.app as Application;
 
 				const executeCode = async (code: string) => {
@@ -75,7 +76,7 @@ export function setup(logger: Logger) {
 				await executeCode('y=10');
 				await executeCode('z=100');
 
-				console.log('Entered lines in console defining variables');
+				logger.log('Entered lines in console defining variables');
 
 				await app.workbench.positronConsole.logConsoleContents();
 

@@ -9,9 +9,15 @@ What is Positron?
 > [!IMPORTANT]
 > Positron is an early stage project under active development and may [not yet be a good fit for you](https://github.com/posit-dev/positron/wiki#is-positron-for-me). If you are interested in experimenting with it, we welcome your feedback!
 
+
+
+https://github.com/posit-dev/positron/assets/29187501/d1c4c9f0-7bd5-4132-bc24-c3d981ad0056
+
+
+
 ## Get started using Positron
 
-Check out [our wiki](https://github.com/posit-dev/positron/wiki) for information on what you should do before installing Positron, troubleshooting Positron, and more.
+Check out [our wiki](https://github.com/posit-dev/positron/wiki) for information on what you should do before installing Positron, troubleshooting Positron, and more. Our [FAQ](https://github.com/posit-dev/positron/wiki/Frequently-Asked-Questions) also covers some common or expected questions. 
 
 Positron is built on [Code OSS](https://github.com/microsoft/vscode). To learn about basic features like commands, settings, using source control, and more, see the [VS Code documentation](https://code.visualstudio.com/docs).
 
@@ -35,4 +41,4 @@ in this project you agree to abide by its terms.
 
 Positron™ is licensed under the [Elastic License 2.0](https://github.com/posit-dev/positron?tab=License-1-ov-file#readme), a source-available license. [Read more](https://github.com/posit-dev/positron/wiki/Licensing) about what this license means and our decision to use it.
 
-Positron™ is a trademark of Posit Software, PBC. All rights reserved.
+Positron™ and the Positron icon™ are trademarks of Posit Software, PBC. All rights reserved.

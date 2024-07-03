@@ -764,6 +764,11 @@ export interface ExportDataSelectionFeatures {
 	 */
 	support_status: SupportStatus;
 
+	/**
+	 * Export formats supported
+	 */
+	supported_formats: Array<ExportFormat>;
+
 }
 
 /**

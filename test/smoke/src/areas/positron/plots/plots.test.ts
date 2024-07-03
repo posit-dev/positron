@@ -8,6 +8,9 @@ import { Application, Logger, PositronPythonFixtures, PositronRFixtures } from '
 import { installAllHandlers } from '../../../utils';
 
 
+/*
+ * Plots test cases
+ */
 export function setup(logger: Logger) {
 	describe('Plots', () => {
 
@@ -25,8 +28,7 @@ export function setup(logger: Logger) {
 
 			});
 
-			it('Python - Verifies basic plot functionality - Dynamic Plot', async function () {
-				// TestRail #608114
+			it('Python - Verifies basic plot functionality - Dynamic Plot [C608114]', async function () {
 				const app = this.app as Application;
 
 				// modified snippet from https://www.geeksforgeeks.org/python-pandas-dataframe/
@@ -49,7 +51,7 @@ df.plot(kind='scatter',
 plt.title('ScatterPlot')
 plt.show()`;
 
-				console.log('Sending code to console');
+				logger.log('Sending code to console');
 				await app.workbench.positronConsole.executeCode('Python', script, '>>>');
 
 				await app.workbench.positronPlots.waitForCurrentPlot();
@@ -71,15 +73,14 @@ plt.show()`;
 
 			});
 
-			it('R - Verifies basic plot functionality', async function () {
-				// TestRail #628633
+			it('R - Verifies basic plot functionality [C628633]', async function () {
 				const app = this.app as Application;
 
 				const script = `cars <- c(1, 3, 6, 4, 9)
 plot(cars, type="o", col="blue")
 title(main="Autos", col.main="red", font.main=4)`;
 
-				console.log('Sending code to console');
+				logger.log('Sending code to console');
 				await app.workbench.positronConsole.executeCode('R', script, '>');
 
 				await app.workbench.positronPlots.waitForCurrentPlot();

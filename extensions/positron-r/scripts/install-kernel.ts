@@ -99,12 +99,16 @@ async function downloadAndReplaceArk(version: string,
 	gitCredential: boolean): Promise<void> {
 
 	try {
+		const headers: Record<string, string> = {
+			'Accept': 'application/vnd.github.v3.raw', // eslint-disable-line
+			'User-Agent': 'positron-ark-downloader' // eslint-disable-line
+		};
+		// If we have a githubPat, set it for better rate limiting.
+		if (githubPat) {
+			headers.Authorization = `token ${githubPat}`;
+		}
 		const requestOptions: https.RequestOptions = {
-			headers: {
-				'Accept': 'application/vnd.github.v3.raw', // eslint-disable-line
-				'Authorization': `token ${githubPat}`,     // eslint-disable-line
-				'User-Agent': 'positron-ark-downloader'    // eslint-disable-line
-			},
+			headers,
 			method: 'GET',
 			protocol: 'https:',
 			hostname: 'api.github.com',
@@ -199,12 +203,10 @@ async function downloadAndReplaceArk(version: string,
 			}
 			console.log(`Downloading Ark ${version} from ${asset.url}...`);
 			const url = new URL(asset.url);
+			// Reset the Accept header to download the asset.
+			headers.Accept = 'application/octet-stream';
 			const requestOptions: https.RequestOptions = {
-				headers: {
-					'Accept': 'application/octet-stream',    // eslint-disable-line
-					'Authorization': `token ${githubPat}`,   // eslint-disable-line
-					'User-Agent': 'positron-ark-downloader'  // eslint-disable-line
-				},
+				headers,
 				method: 'GET',
 				protocol: url.protocol,
 				hostname: url.hostname,
