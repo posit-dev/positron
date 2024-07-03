@@ -117,12 +117,12 @@ jobs:
 
       - name: Set TestRail Run Title
         id: set-testrail-run-title
-        run: echo "::set-output name=title::$(date +'%Y-%m-%d') Nightly Smoke Run"
+        run: echo "TESTRAIL_TITLE='$(date +'%Y-%m-%d') Smoke Tests'" >> $GITHUB_ENV
 
       - name: Upload Test Results to TestRail
         id: testrail-upload
         if: always()
-        run: trcli --host "https://posit.testrail.io/" --project Positron --username jon.vanausdeln@posit.co --key ${{ secrets.TESTRAIL_API_KEY}} parse_junit --file ".build/logs/smoke-tests-electron/test-results/results.xml" --case-matcher name --title ${{ steps.set-testrail-run-title.output.title }} --close-run
+        run: trcli --host "https://posit.testrail.io/" --project Positron --username jon.vanausdeln@posit.co --key ${{ secrets.TESTRAIL_API_KEY}} parse_junit --file ".build/logs/smoke-tests-electron/test-results/results.xml" --case-matcher name --title $TESTRAIL_TITLE --close-run
 
       - name: Upload run artifacts
         if: always()
