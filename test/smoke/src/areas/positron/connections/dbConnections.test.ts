@@ -49,13 +49,11 @@ export function setup(logger: Logger) {
 
 				logger.log('Opening connections pane');
 				await app.workbench.positronVariables.doubleClickVariableRow('conn');
-
-				await expect(async () => {
-					await app.workbench.positronConnections.openPythonTree();
-				}).toPass();
+				// in Python this will open all table connections, so should be fine.
+				await app.workbench.positronConnections.openTree();
 
 				// click in reverse order to avoid scrolling issues
-				await app.workbench.positronConnections.openConnectionsNodes(tables);
+				await app.workbench.positronConnections.hasConnectionNodes(["albums"]);
 
 				// disconnect icon appearance requires hover
 				await app.workbench.positronConnections.pythonConnectionOpenState.hover();
@@ -97,13 +95,12 @@ export function setup(logger: Logger) {
 				await app.workbench.quickaccess.runCommand('r.sourceCurrentFile');
 
 				logger.log('Opening connections pane');
-				await app.workbench.positronConnections.connectionsTabLink.click();
-
-				await expect(async () => {
-					await app.workbench.positronConnections.openRTree();
-				}).toPass();
+				await app.workbench.positronConnections.openConnectionPane();
+				await app.workbench.positronConnections.openTree();
 
 				// click in reverse order to avoid scrolling issues
+				// in R, the opneTree command only shows all tables, we click to also
+				// display fields
 				await app.workbench.positronConnections.openConnectionsNodes(tables);
 
 				// disconnect icon appearance requires hover
@@ -128,7 +125,7 @@ export function setup(logger: Logger) {
 				await app.workbench.positronConnections.connectionsTabLink.click();
 
 				await expect(async () => {
-					await app.workbench.positronConnections.openRTree();
+					await app.workbench.positronConnections.openTree();
 				}).toPass();
 
 				const visible = await app.workbench.positronConnections.hasConnectionNode("mtcars");
