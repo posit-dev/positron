@@ -25,8 +25,7 @@ export function setup(logger: Logger) {
 
 			});
 
-			it.only('Verify restart button inside the console [C377918]', async function () {
-				// TestRail #377918
+			it('Verify restart button inside the console [C377918]', async function () {
 				this.retries(1);
 				const app = this.app as Application;
 				// Need to make console bigger to see all bar buttons
@@ -39,8 +38,7 @@ export function setup(logger: Logger) {
 				await app.workbench.positronConsole.consoleRestartButton.isNotVisible();
 			});
 
-			it.only('Verify restart button on console bar [C617464]', async function () {
-				// TestRail #617464
+			it('Verify restart button on console bar [C617464]', async function () {
 				this.retries(1);
 				const app = this.app as Application;
 				// Need to make console bigger to see all bar buttons

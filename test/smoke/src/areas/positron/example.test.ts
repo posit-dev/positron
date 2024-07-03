@@ -23,15 +23,13 @@ export function setup(logger: Logger) {
 				await pythonFixtures.startPythonInterpreter();
 			});
 
-			it('Sample Test Case A', async function () {
-				// TestRail #
+			it('Sample Test Case A [TESTRAIL_ID]', async function () {
 				const app = this.app as Application; //Get handle to application
 				await app.workbench.positronConsole.barPowerButton.waitforVisible();
 				this.code.logger.log("Waiting for Power button.");
 			});
 
-			it('Sample Test Case B', async function () {
-				// TestRail #
+			it('Sample Test Case B [TESTRAIL_ID]', async function () {
 				const app = this.app as Application; //Get handle to application
 				await app.workbench.positronConsole.barRestartButton.waitforVisible();
 				this.code.logger.log("Waiting for Power button.");

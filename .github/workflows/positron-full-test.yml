@@ -117,7 +117,7 @@ jobs:
 
       - name: Set TestRail Run Title
         id: set-testrail-run-title
-        run: echo "TESTRAIL_TITLE='$(date +'%Y-%m-%d') Smoke Tests'" >> $GITHUB_ENV
+        run: echo "TESTRAIL_TITLE=$(date +'%Y-%m-%d') Smoke Tests" >> $GITHUB_ENV
 
       - name: Upload Test Results to TestRail
         id: testrail-upload

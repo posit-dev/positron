@@ -39,9 +39,7 @@ export function setup(logger: Logger) {
 
 			});
 
-			it('Python - Verifies data explorer functionality with XLSX input', async function () {
-
-				//TestRail 632940
+			it('Python - Verifies data explorer functionality with XLSX input [C632940]', async function () {
 
 				const app = this.app as Application;
 				await app.workbench.quickaccess.openFile(join(app.workspacePathOrFolder, 'workspaces', 'read-xlsx-py', 'supermarket-sales.py'));
@@ -85,9 +83,7 @@ export function setup(logger: Logger) {
 
 			});
 
-			it('R - Verifies data explorer functionality with XLSX input', async function () {
-
-				//TestRail 632941
+			it('R - Verifies data explorer functionality with XLSX input [C632941]', async function () {
 
 				const app = this.app as Application;
 				await app.workbench.quickaccess.openFile(join(app.workspacePathOrFolder, 'workspaces', 'read-xlsx-r', 'supermarket-sales.r'));
