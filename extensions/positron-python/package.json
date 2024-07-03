@@ -18,6 +18,7 @@
     },
     "publisher": "ms-python",
     "enabledApiProposals": [
+        "positronResolveSymlinks",
         "contribEditorContentMenu",
         "quickPickSortByLabel",
         "testObserver",
@@ -25,8 +26,7 @@
         "terminalDataWriteEvent",
         "terminalExecuteCommandEvent",
         "contribIssueReporter",
-        "terminalShellIntegration",
-        "resolveSymlinks"
+        "terminalShellIntegration"
     ],
     "author": {
         "name": "Posit Software, PBC",
