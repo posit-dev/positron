@@ -1116,12 +1116,20 @@
 				"type": "object",
 				"description": "Feature flags for 'export_data_selction' RPC",
 				"required": [
-					"support_status"
+					"support_status",
+					"supported_formats"
 				],
 				"properties": {
 					"support_status": {
 						"$ref": "#/components/schemas/support_status",
 						"description": "The support status for this RPC method"
+					},
+					"supported_formats": {
+						"type": "array",
+						"description": "Export formats supported",
+						"items": {
+							"$ref": "#/components/schemas/export_format"
+						}
 					}
 				}
 			},

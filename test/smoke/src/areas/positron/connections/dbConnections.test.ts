@@ -83,7 +83,7 @@ export function setup(logger: Logger) {
 
 			});
 
-			after(async function () {
+			afterEach(async function () {
 
 				const app = this.app as Application;
 				app.workbench.positronConnections.removeConnectionButton.click();
@@ -114,6 +114,43 @@ export function setup(logger: Logger) {
 				await app.workbench.positronConnections.disconnectButton.click();
 				await app.workbench.positronConnections.reconnectButton.waitforVisible();
 			});
+
+			it('R - Connections are update after adding a database', async function () {
+
+				const app = this.app as Application;
+
+				// open an empty connection
+				await app.workbench.positronConsole.executeCode(
+					'R',
+					`con <- connections::connection_open(RSQLite::SQLite(), tempfile())`,
+					'>'
+				);
+
+				// should be able to see the new connection in the connections pane
+				logger.log('Opening connections pane');
+				await app.workbench.positronConnections.connectionsTabLink.click();
+
+				await expect(async () => {
+					await app.workbench.positronConnections.openRTree();
+				}).toPass();
+
+				const visible = await app.workbench.positronConnections.hasConnectionNode("mtcars");
+				if (visible) {
+					throw new Error("mtcars should not be visible");
+				}
+
+				// now we add a dataframe to that connection
+				await app.workbench.positronConsole.executeCode(
+					'R',
+					`DBI::dbWriteTable(con, "mtcars", mtcars)`,
+					'>'
+				);
+				// the panel should be automatically updated and we should be able to see
+				// that table and click on it
+				await app.workbench.positronConnections.openConnectionsNodes(["mtcars"]);
+
+			});
+
 		});
 	});
 }

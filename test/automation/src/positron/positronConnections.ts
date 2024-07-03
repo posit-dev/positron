@@ -52,6 +52,11 @@ export class PositronConnections {
 		}
 	}
 
+	async hasConnectionNode(node: string) {
+		const x = await this.code.getElement(`div[aria-label="${node}"]`);
+		return x !== undefined;
+	}
+
 	async openPythonTree() {
 		await this.code.waitAndClick(PYTHON_SQLITE_CONNECTION);
 		await this.code.waitAndClick(PYTHON_ROOT_NODE);

@@ -1,7 +1,7 @@
 {
 	"nameShort": "Positron",
 	"nameLong": "Positron",
-	"positronVersion": "2024.06.1",
+	"positronVersion": "2024.07.0",
 	"positronBuildNumber": 0,
 	"applicationName": "positron",
 	"dataFolderName": ".positron",
@@ -266,6 +266,7 @@
 			"resolvers"
 		],
 		"ms-python.python": [
+			"positronResolveSymlinks",
 			"contribEditorContentMenu",
 			"quickPickSortByLabel",
 			"portsAttributes",

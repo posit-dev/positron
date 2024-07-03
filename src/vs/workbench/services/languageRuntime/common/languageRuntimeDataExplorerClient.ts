@@ -220,7 +220,10 @@ export class DataExplorerClientInstance extends Disposable {
 							supported_types: []
 						},
 						set_sort_columns: { support_status: SupportStatus.Unsupported, },
-						export_data_selection: { support_status: SupportStatus.Unsupported, }
+						export_data_selection: {
+							support_status: SupportStatus.Unsupported,
+							supported_formats: []
+						}
 					}
 				};
 			});
@@ -389,7 +392,10 @@ export class DataExplorerClientInstance extends Disposable {
 					supported_types: []
 				},
 				set_sort_columns: { support_status: SupportStatus.Unsupported },
-				export_data_selection: { support_status: SupportStatus.Unsupported }
+				export_data_selection: {
+					support_status: SupportStatus.Unsupported,
+					supported_formats: []
+				}
 			};
 		} else {
 			return this.cachedBackendState.supported_features;
