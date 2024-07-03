@@ -31,7 +31,8 @@ jobs:
         run: |
           curl -Ls https://github.com/r-lib/rig/releases/download/latest/rig-linux-"$(arch)"-latest.tar.gz | $(which sudo) tar xz -C /usr/local
           rig add 4.4.0
-          Rscript -e "install.packages(c('arrow', 'connections', 'RSQLite', 'readxl', 'lubridate'))"
+          curl https://raw.githubusercontent.com/posit-dev/qa-example-content/main/DESCRIPTION --output DESCRIPTION
+          Rscript -e "pak::local_install_dev_deps(ask = FALSE)"
 
       - uses: actions/setup-node@v3
         with:
