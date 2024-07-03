@@ -324,7 +324,7 @@ class SelectionIndexes {
 	 * @returns The selection indexes as a sorted array.
 	 */
 	sortedArray() {
-		return Array.from(this.indexes).sort();
+		return Array.from(this.indexes).sort((a, b) => a - b);
 	}
 }
 
