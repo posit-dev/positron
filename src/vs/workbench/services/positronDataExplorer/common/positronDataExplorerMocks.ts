@@ -5,8 +5,7 @@
 
 import { generateUuid } from 'vs/base/common/uuid';
 import {
-	CompareFilterParamsOp,
-	SearchFilterType,
+	TextSearchType,
 	ColumnSchema,
 	ColumnProfileResult,
 	RowFilter,
@@ -14,7 +13,8 @@ import {
 	TableData,
 	TableSchema,
 	RowFilterCondition,
-	ColumnDisplayType
+	ColumnDisplayType,
+	FilterComparisonOp
 } from 'vs/workbench/services/languageRuntime/common/positronDataExplorerComm';
 
 const exampleTypes: [string, ColumnDisplayType, object][] = [
@@ -133,11 +133,11 @@ function _getCommonFilterProps(column_schema: ColumnSchema, filter_type: RowFilt
 	};
 }
 
-export function getCompareFilter(columnSchema: ColumnSchema, op: CompareFilterParamsOp,
+export function getCompareFilter(columnSchema: ColumnSchema, op: FilterComparisonOp,
 	value: string): RowFilter {
 	return {
 		..._getCommonFilterProps(columnSchema, RowFilterType.Compare),
-		compare_params: {
+		params: {
 			op, value
 		}
 	};
@@ -159,17 +159,17 @@ export function getSetMemberFilter(columnSchema: ColumnSchema, values: string[],
 	inclusive: boolean): RowFilter {
 	return {
 		..._getCommonFilterProps(columnSchema, RowFilterType.SetMembership),
-		set_membership_params: {
+		params: {
 			values, inclusive
 		}
 	};
 }
 
 export function getTextSearchFilter(columnSchema: ColumnSchema, searchTerm: string,
-	searchType: SearchFilterType, caseSensitive: boolean): RowFilter {
+	searchType: TextSearchType, caseSensitive: boolean): RowFilter {
 	return {
 		..._getCommonFilterProps(columnSchema, RowFilterType.Search),
-		search_params: {
+		params: {
 			term: searchTerm, search_type: searchType, case_sensitive: caseSensitive
 		}
 	};

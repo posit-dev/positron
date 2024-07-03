@@ -127,7 +127,7 @@ class ColumnFilterType(str, enum.Enum):
 
     TextSearch = "text_search"
 
-    MatchDataType = "match_data_type"
+    MatchDataTypes = "match_data_types"
 
 
 @enum.unique
@@ -514,6 +514,20 @@ class ColumnFilter(BaseModel):
     )
 
 
+class ColumnFilterTypeSupportStatus(BaseModel):
+    """
+    Support status for a column filter type
+    """
+
+    column_filter_type: ColumnFilterType = Field(
+        description="Type of column filter",
+    )
+
+    support_status: SupportStatus = Field(
+        description="The support status for this column filter type",
+    )
+
+
 class ColumnProfileRequest(BaseModel):
     """
     A single column profile request
@@ -827,6 +841,10 @@ class SearchSchemaFeatures(BaseModel):
 
     support_status: SupportStatus = Field(
         description="The support status for this RPC method",
+    )
+
+    supported_types: List[ColumnFilterTypeSupportStatus] = Field(
+        description="A list of supported types",
     )
 
 
@@ -1333,6 +1351,8 @@ FilterTextSearch.update_forward_refs()
 FilterMatchDataTypes.update_forward_refs()
 
 ColumnFilter.update_forward_refs()
+
+ColumnFilterTypeSupportStatus.update_forward_refs()
 
 ColumnProfileRequest.update_forward_refs()
 

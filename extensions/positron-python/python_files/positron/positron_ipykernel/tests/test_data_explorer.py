@@ -370,11 +370,11 @@ class DataExplorerFixture:
             num_columns=num_columns,
         )["columns"]
 
-    def search_schema(self, table_name, search_term, start_index, max_results):
+    def search_schema(self, table_name, filters, start_index, max_results):
         return self.do_json_rpc(
             table_name,
             "search_schema",
-            search_term=search_term,
+            filters=filters,
             start_index=start_index,
             max_results=max_results,
         )
@@ -775,7 +775,18 @@ def test_pandas_search_schema(dxf: DataExplorerFixture):
     ]
 
     for search_term, start_index, max_results, ex_total, ex_matches in cases:
-        result = dxf.search_schema("df", search_term, start_index, max_results)
+        filters = [
+            {
+                "filter_type": "text_search",
+                "params": {
+                    "search_type": "contains",
+                    "term": search_term,
+                    "case_sensitive": False,
+                },
+            }
+        ]
+
+        result = dxf.search_schema("df", filters, start_index, max_results)
 
         assert result["total_num_matches"] == ex_total
         matches = result["matches"]["columns"]
@@ -1006,7 +1017,7 @@ def _compare_filter(column_schema, op, value, condition="and", is_valid=None):
         column_schema,
         condition=condition,
         is_valid=is_valid,
-        compare_params={"op": op, "value": str(value)},
+        params={"op": op, "value": str(value)},
     )
 
 
@@ -1015,7 +1026,7 @@ def _between_filter(column_schema, left_value, right_value, op="between", condit
         op,
         column_schema,
         condition=condition,
-        between_params={
+        params={
             "left_value": str(left_value),
             "right_value": str(right_value),
         },
@@ -1043,7 +1054,7 @@ def _search_filter(
         "search",
         column_schema,
         condition=condition,
-        search_params={
+        params={
             "search_type": search_type,
             "term": term,
             "case_sensitive": case_sensitive,
@@ -1061,7 +1072,7 @@ def _set_member_filter(
         "set_membership",
         column_schema,
         condition=condition,
-        set_membership_params={
+        params={
             "values": [str(x) for x in values],
             "inclusive": inclusive,
         },

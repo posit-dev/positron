@@ -753,8 +753,26 @@
 				"description": "Type of column filter",
 				"enum": [
 					"text_search",
-					"match_data_type"
+					"match_data_types"
 				]
+			},
+			"column_filter_type_support_status": {
+				"type": "object",
+				"description": "Support status for a column filter type",
+				"required": [
+					"column_filter_type",
+					"support_status"
+				],
+				"properties": {
+					"column_filter_type": {
+						"description": "Type of column filter",
+						"$ref": "#/components/schemas/column_filter_type"
+					},
+					"support_status": {
+						"description": "The support status for this column filter type",
+						"$ref": "#/components/schemas/support_status"
+					}
+				}
 			},
 			"column_profile_request": {
 				"type": "object",
@@ -1123,12 +1141,20 @@
 				"type": "object",
 				"description": "Feature flags for 'search_schema' RPC",
 				"required": [
-					"support_status"
+					"support_status",
+					"supported_types"
 				],
 				"properties": {
 					"support_status": {
 						"$ref": "#/components/schemas/support_status",
 						"description": "The support status for this RPC method"
+					},
+					"supported_types": {
+						"type": "array",
+						"description": "A list of supported types",
+						"items": {
+							"$ref": "#/components/schemas/column_filter_type_support_status"
+						}
 					}
 				}
 			},

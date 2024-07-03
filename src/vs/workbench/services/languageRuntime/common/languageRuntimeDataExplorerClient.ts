@@ -209,7 +209,10 @@ export class DataExplorerClientInstance extends Disposable {
 					row_filters: [],
 					sort_keys: [],
 					supported_features: {
-						search_schema: { support_status: SupportStatus.Unsupported },
+						search_schema: {
+							support_status: SupportStatus.Unsupported,
+							supported_types: []
+						},
 						set_row_filters: {
 							support_status: SupportStatus.Unsupported,
 							supports_conditions: SupportStatus.Unsupported,
@@ -380,7 +383,8 @@ export class DataExplorerClientInstance extends Disposable {
 			// Until the backend state is available, we disable features.
 			return {
 				search_schema: {
-					support_status: SupportStatus.Unsupported
+					support_status: SupportStatus.Unsupported,
+					supported_types: []
 				},
 				set_row_filters: {
 					support_status: SupportStatus.Unsupported,

@@ -379,6 +379,22 @@ export interface ColumnFilter {
 }
 
 /**
+ * Support status for a column filter type
+ */
+export interface ColumnFilterTypeSupportStatus {
+	/**
+	 * Type of column filter
+	 */
+	column_filter_type: ColumnFilterType;
+
+	/**
+	 * The support status for this column filter type
+	 */
+	support_status: SupportStatus;
+
+}
+
+/**
  * A single column profile request
  */
 export interface ColumnProfileRequest {
@@ -729,6 +745,11 @@ export interface SearchSchemaFeatures {
 	 */
 	support_status: SupportStatus;
 
+	/**
+	 * A list of supported types
+	 */
+	supported_types: Array<ColumnFilterTypeSupportStatus>;
+
 }
 
 /**
@@ -961,7 +982,7 @@ export enum TextSearchType {
  */
 export enum ColumnFilterType {
 	TextSearch = 'text_search',
-	MatchDataType = 'match_data_type'
+	MatchDataTypes = 'match_data_types'
 }
 
 /**
