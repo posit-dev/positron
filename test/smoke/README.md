@@ -138,7 +138,8 @@ python -m pip install matplotlib ipykernel
 The current commands for R packages:
 
 ```
-Rscript -e "install.packages(c('arrow', 'connections', 'RSQLite', 'readxl', 'lubridate'))"
+curl https://raw.githubusercontent.com/posit-dev/qa-example-content/main/DESCRIPTION --output DESCRIPTION
+Rscript -e "pak::local_install_dev_deps(ask = FALSE)"
 ```
 
 ## Build step
@@ -157,6 +158,8 @@ _You may see errors in test files before you run this builder step once, as it's
 Before any of the tests start executing the test framework clones down the [QA Content Examples](https://github.com/posit-dev/qa-example-content) repo.  This repo contains R and Python files that are run by the automated tests and also includes data files (such as Excel, SQLite, & parquet) that support the test scripts.  If you make additions to QA Content Examples for a test, please be sure that the data files are free to use in a public repository.
 
 For Python, add any package requirements to the `requirements.txt` file in the root of the [QA Content Examples](https://github.com/posit-dev/qa-example-content) repo.  We generally do NOT pin them to a specific version, as test can be run against different versions of python and conflicts could arise.  If this becomes a problem, we can revisit this mechanism.
+
+For R, add any package requirements to the "imports" section of the `DESCRIPTION` file in the root of the [QA Content Examples](https://github.com/posit-dev/qa-example-content) repo.
 
 ## Running tests
 
