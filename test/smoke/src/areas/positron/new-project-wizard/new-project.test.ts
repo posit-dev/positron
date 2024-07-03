@@ -69,8 +69,7 @@ export function setup(logger: Logger) {
 
 			});
 
-			it('Jupyter Project Defaults', async function () {
-				// TestRail #629352
+			it('Jupyter Project Defaults [C629352]', async function () {
 				const app = this.app as Application;
 				await app.workbench.positronNewProjectWizard.startNewProject();
 				await app.workbench.positronNewProjectWizard.newJupyterProjectButton.click();
