@@ -27,6 +27,7 @@ export function setup(logger: Logger) {
 
 			it('Verifies Variables pane basic function with python interpreter [C628634]', async function () {
 				const app = this.app as Application;
+				await app.workbench.quickaccess.runCommand('workbench.action.fullSizedAuxiliaryBar');
 
 				const executeCode = async (code: string) => {
 					await app.workbench.positronConsole.executeCode('Python', code, '>>>');
@@ -42,15 +43,9 @@ export function setup(logger: Logger) {
 
 				const variablesMap = await app.workbench.positronVariables.getFlatVariables();
 
-				// need to add back when we can see types again - https://github.com/posit-dev/positron/issues/3577
-				// expect(variablesMap.get('x')).toStrictEqual({ value: '1', type: 'int' });
-				// expect(variablesMap.get('y')).toStrictEqual({ value: '10', type: 'int' });
-				// expect(variablesMap.get('z')).toStrictEqual({ value: '100', type: 'int' });
-
-				expect(variablesMap.get('x')).toStrictEqual({ value: '1' });
-				expect(variablesMap.get('y')).toStrictEqual({ value: '10' });
-				expect(variablesMap.get('z')).toStrictEqual({ value: '100' });
-
+				expect(variablesMap.get('x')).toStrictEqual({ value: '1', type: 'int' });
+				expect(variablesMap.get('y')).toStrictEqual({ value: '10', type: 'int' });
+				expect(variablesMap.get('z')).toStrictEqual({ value: '100', type: 'int' });
 
 			});
 
@@ -67,6 +62,7 @@ export function setup(logger: Logger) {
 
 			it('Verifies Variables pane basic function with R interpreter [C628635]', async function () {
 				const app = this.app as Application;
+				await app.workbench.quickaccess.runCommand('workbench.action.fullSizedAuxiliaryBar');
 
 				const executeCode = async (code: string) => {
 					await app.workbench.positronConsole.executeCode('R', code, '>');
@@ -82,15 +78,9 @@ export function setup(logger: Logger) {
 
 				const variablesMap = await app.workbench.positronVariables.getFlatVariables();
 
-				// need to add back when we can see types again - https://github.com/posit-dev/positron/issues/3577
-				// expect(variablesMap.get('x')).toStrictEqual({ value: '1', type: 'dbl' });
-				// expect(variablesMap.get('y')).toStrictEqual({ value: '10', type: 'dbl' });
-				// expect(variablesMap.get('z')).toStrictEqual({ value: '100', type: 'dbl' });
-
-				expect(variablesMap.get('x')).toStrictEqual({ value: '1' });
-				expect(variablesMap.get('y')).toStrictEqual({ value: '10' });
-				expect(variablesMap.get('z')).toStrictEqual({ value: '100' });
-
+				expect(variablesMap.get('x')).toStrictEqual({ value: '1', type: 'dbl' });
+				expect(variablesMap.get('y')).toStrictEqual({ value: '10', type: 'dbl' });
+				expect(variablesMap.get('z')).toStrictEqual({ value: '100', type: 'dbl' });
 			});
 
 		});
