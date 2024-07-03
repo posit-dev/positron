@@ -41,9 +41,9 @@ const commsFiles = comms.map(comm => comm + '.json');
 const tsOutputDir = `${__dirname}/../../src/vs/workbench/services/languageRuntime/common`;
 
 /// The directory to write the generated Rust files to (note that this presumes
-/// that the amalthea repo is cloned into the same parent directory as the
+/// that the ark repo is cloned into the same parent directory as the
 /// positron repo)
-const rustOutputDir = `${__dirname}/../../../amalthea/crates/amalthea/src/comm`;
+const rustOutputDir = `${__dirname}/../../../ark/crates/amalthea/src/comm`;
 
 /// The directory to write the generated Python files to
 const pythonOutputDir = `${__dirname}/../../extensions/positron-python/python_files/positron/positron_ipykernel`;
@@ -1485,9 +1485,7 @@ async function createCommInterface() {
 				console.log(`Writing to ${pythonOutputFile}`);
 				writeFileSync(pythonOutputFile, python, { encoding: 'utf-8' });
 
-				// Use black to format the Python file; the lint tests for the
-				// Python extension require that the Python files have exactly the
-				// format that black produces.
+				// Use ruff to format the Python file
 				execSync(`python3 -m ruff format ${pythonOutputFile}`, { stdio: 'ignore' });
 			}
 		} catch (e: any) {
@@ -1501,19 +1499,19 @@ async function createCommInterface() {
 
 // Check prerequisites
 
-// Check that the amalthea repo is cloned
+// Check that the ark repo is cloned
 if (!existsSync(rustOutputDir)) {
-	console.error('The amalthea repo must be cloned into the same parent directory as the ' +
+	console.error('The ark repo must be cloned into the same parent directory as the ' +
 		'Positron rep, so that Rust output types can be written.');
 	process.exit(1);
 }
 
-// Check that the Python module 'black' is installed by running Python
+// Check that the Python module 'ruff' is installed by running Python
 // and importing it
 try {
-	execSync('python3 -m black --version');
+	execSync('python3 -m ruff --version');
 } catch (e) {
-	console.error('The Python module "black" must be installed to run this script; it is ' +
+	console.error('The Python module "ruff" must be installed to run this script; it is ' +
 		'required to properly format the Python output.');
 	process.exit(1);
 }
