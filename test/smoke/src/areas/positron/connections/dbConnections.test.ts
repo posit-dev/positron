@@ -40,9 +40,8 @@ export function setup(logger: Logger) {
 			});
 
 
-			it('Python - SQLite DB Connection', async function () {
+			it('Python - SQLite DB Connection [C628636]', async function () {
 
-				// TestRail 628636
 
 				const app = this.app as Application;
 				await app.workbench.quickaccess.openFile(join(app.workspacePathOrFolder, 'workspaces', 'chinook-db-py', 'sqlite.py'));
@@ -91,9 +90,7 @@ export function setup(logger: Logger) {
 			});
 
 
-			it('R - SQLite DB Connection', async function () {
-
-				// TestRail 628637
+			it('R - SQLite DB Connection [C628637]', async function () {
 
 				const app = this.app as Application;
 				await app.workbench.quickaccess.openFile(join(app.workspacePathOrFolder, 'workspaces', 'chinook-db-r', 'sqlite.r'));
