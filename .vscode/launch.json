@@ -525,6 +525,13 @@
 			"outFiles": [
 				"${cwd}/out/**/*.js"
 			],
+			//---- Start Positron
+			"sourceMaps": true,
+			"resolveSourceMapLocations": [
+				"${workspaceFolder}/**",
+				"!**/node_modules/**"
+			],
+			//--- End Positron
 			"env": {
 				"NODE_ENV": "development",
 				"VSCODE_DEV": "1",
