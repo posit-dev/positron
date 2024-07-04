@@ -47,36 +47,47 @@
         "command": "positron.connections.previewTable",
         "title": "%commands.previewTable.title%",
         "category": "%commands.previewTable.category%",
-        "icon": "$(eye)"
+        "icon": "$(eye)",
+        "enablement": "view == connections"
       },
       {
         "command": "positron.connections.closeConnection",
         "title": "%commands.closeConnection.title%",
-        "icon": "$(debug-disconnect)"
+        "icon": "$(debug-disconnect)",
+        "enablement": "view == connections"
       },
       {
         "command": "positron.connections.refresh",
         "title": "%commands.refresh.title%",
-        "icon": "$(refresh)"
+        "icon": "$(refresh)",
+        "enablement": "view == connections"
       },
       {
         "command": "positron.connections.removeFromHistory",
         "title": "%commands.removeFromHistory.title%",
-        "icon": "$(trash)"
+        "icon": "$(trash)",
+        "enablement": "view == connections"
       },
       {
         "command": "positron.connections.reopenConnection",
         "title": "%commands.reopenConnection.title%",
-        "icon": "$(open-preview)"
+        "icon": "$(open-preview)",
+        "enablement": "view == connections"
       },
       {
         "command": "positron.connections.copyCodeToClipboard",
         "title": "%commands.copyCodeToClipboard.title%",
-        "icon": "$(clippy)"
+        "icon": "$(clippy)",
+        "enablement": "view == connections"
       },
       {
         "command": "positron.connections.clearConnectionsHistory",
         "title": "%commands.clearConnectionsHistory.title%",
+        "icon": "$(clear-all)"
+      },
+      {
+        "command": "positron.connections.expandAll",
+        "title": "%commands.expandAll.title%",
         "icon": "$(clear-all)"
       }
     ],

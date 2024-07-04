@@ -11,5 +11,6 @@
 	"commands.removeFromHistory.title": "Remove connection from history",
 	"commands.reopenConnection.title": "Execute connection code in the console",
 	"commands.copyCodeToClipboard.title": "Copy connection code to clipboard",
-	"commands.clearConnectionsHistory.title": "Clear connections history"
+	"commands.clearConnectionsHistory.title": "Clear connections history",
+	"commands.expandAll.title": "Connections: Expand All"
 }
