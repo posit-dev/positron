@@ -23,8 +23,8 @@ export class PositronExplorer {
 	}
 
 	/**
-	 * Returns a string array of the top-level project files/directories in the explorer.
-	 * @returns Promise<string[]>
+	 * Constructs a string array of the top-level project files/directories in the explorer.
+	 * @returns Promise<string[]> Array of strings representing the top-level project files/directories in the explorer.
 	 */
 	async getExplorerProjectFiles() {
 		const explorerProjectFiles = this.code.driver.getLocator(POSITRON_EXPLORER_PROJECT_FILES);
