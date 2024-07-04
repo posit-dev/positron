@@ -57,15 +57,14 @@ export function setup(logger: Logger) {
 				await app.workbench.positronExplorer.explorerProjectTitle.waitForText('myRProject');
 			});
 
-			it.only('R Project with Renv Environment', async function () {
-				// TestRail #633...
+			it.only('R Project with Renv Environment [C633...]', async function () {
 				const app = this.app as Application;
 				await app.workbench.positronNewProjectWizard.startNewProject();
 				await app.workbench.positronNewProjectWizard.newRProjectButton.click();
 				await app.workbench.positronNewProjectWizard.projectWizardNextButton.click();
 				await app.workbench.positronNewProjectWizard.projectWizardNextButton.click();
 				await app.workbench.positronNewProjectWizard.projectWizardDisabledCreateButton.isNotVisible(500); // May need to pass in a retry count > default of 200
-				// Select the Renv checkbox
+				// Select the renv checkbox
 				await app.workbench.positronNewProjectWizard.projectWizardRenvCheckbox.click();
 				await app.workbench.positronNewProjectWizard.projectWizardNextButton.click();
 				await app.workbench.positronNewProjectWizard.projectWizardCurrentWindowButton.click();
@@ -76,10 +75,14 @@ export function setup(logger: Logger) {
 				expect(projectFiles).toContain('renv');
 				expect(projectFiles).toContain('.Rprofile');
 				expect(projectFiles).toContain('renv.lock');
-				// Run `renv::status()` in the console to confirm no issues
+				// Verify that renv output in the console confirms no issues occurred
+				await app.workbench.positronConsole.waitForConsoleContents((contents) =>
+					contents.some((line) => line.includes('renv activated -- please restart the R session.'))
+				);
 				await app.workbench.positronConsole.executeCode('R', 'renv::status()', '>');
-				await app.workbench.positronConsole.waitForEndingConsoleText('No issues found', true);
-				await app.workbench.positronConsole.logConsoleContents();
+				await app.workbench.positronConsole.waitForConsoleContents((contents) =>
+					contents.some((line) => line.includes('No issues found -- the project is in a consistent state.'))
+				);
 			});
 		});
 
