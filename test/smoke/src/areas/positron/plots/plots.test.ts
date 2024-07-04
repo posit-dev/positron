@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 
+import { expect } from '@playwright/test';
 import { Application, Logger, PositronPythonFixtures, PositronRFixtures } from '../../../../../automation';
 import { installAllHandlers } from '../../../utils';
 
@@ -55,6 +56,112 @@ plt.show()`;
 				await app.workbench.positronConsole.executeCode('Python', script, '>>>');
 
 				await app.workbench.positronPlots.waitForCurrentPlot();
+
+				await app.workbench.positronPlots.clearPlots();
+
+				await app.workbench.positronPlots.waitForNoPlots();
+			});
+
+			it('Python - Verifies basic plot functionality - Static Plot', async function () {
+				const app = this.app as Application;
+
+				const script = `import graphviz as gv
+import IPython
+
+h = gv.Digraph(format="svg")
+names = [
+    "A",
+    "B",
+    "C",
+]
+
+# Specify edges
+h.edge("A", "B")
+h.edge("A", "C")
+
+IPython.display.display_png(h)`;
+
+				logger.log('Sending code to console');
+				await app.workbench.positronConsole.executeCode('Python', script, '>>>');
+
+				await app.workbench.positronPlots.waitForCurrentStaticPlot();
+
+				await app.workbench.positronPlots.clearPlots();
+
+				await app.workbench.positronPlots.waitForNoPlots();
+			});
+
+			it('Python - Verifies navigating between plots - Next/Previous Plot', async function () {
+				const app = this.app as Application;
+
+				const script = `import graphviz as gv
+import IPython
+
+h = gv.Digraph(format="svg")
+names = [
+    "A",
+    "B",
+    "C",
+]
+
+# Specify edges
+h.edge("A", "B")
+h.edge("A", "C")
+
+IPython.display.display_png(h)`;
+
+				const script2 = `import matplotlib.pyplot as plt
+
+# x axis values
+x = [1,2,3]
+# corresponding y axis values
+y = [2,4,1]
+
+# plotting the points
+plt.plot(x, y)
+
+# naming the x axis
+plt.xlabel('x - axis')
+# naming the y axis
+plt.ylabel('y - axis')
+
+# giving a title to my graph
+plt.title('My first graph!')
+
+# function to show the plot
+plt.show()`;
+				logger.log('Sending code to console');
+				const clearPlotsButton = app.workbench.positronPlots.clearPlotsButton;
+				const nextPlotButton = app.workbench.positronPlots.nextPlotButton;
+				const previousPlotButton = app.workbench.positronPlots.previousPlotButton;
+
+				expect(await clearPlotsButton.getAttribute('disabled'), 'Clear plots button should be disabled').toBeDefined();
+				expect(await nextPlotButton.getAttribute('disabled'), 'Next plot button should be disabled').toBeDefined();
+				expect(await previousPlotButton.getAttribute('disabled'), 'Previous plot button should be disabled').toBeDefined();
+
+				await app.workbench.positronConsole.executeCode('Python', script, '>>>');
+				await app.workbench.positronPlots.waitForCurrentStaticPlot();
+
+				await app.workbench.positronConsole.executeCode('Python', script2, '>>>');
+				await app.workbench.positronPlots.waitForCurrentPlot();
+
+				expect(await clearPlotsButton.getAttribute('disabled'), 'Clear plots button should not be disabled').toBeUndefined();
+				expect(await nextPlotButton.getAttribute('disabled'), 'Next plot button should be disabled').toBeDefined();
+				expect(await previousPlotButton.getAttribute('disabled'), 'Previous plot button should not be disabled').toBeUndefined();
+
+				await app.workbench.positronPlots.previousPlot();
+				await app.workbench.positronPlots.waitForCurrentStaticPlot();
+
+				expect(await clearPlotsButton.getAttribute('disabled'), 'Clear plots button should not be disabled').toBeUndefined();
+				expect(await nextPlotButton.getAttribute('disabled'), 'Next plot button should not be disabled').toBeUndefined();
+				expect(await previousPlotButton.getAttribute('disabled'), 'Previous plot button should be disabled').toBeDefined();
+
+				await app.workbench.positronPlots.nextPlot();
+				await app.workbench.positronPlots.waitForCurrentPlot();
+
+				expect(await clearPlotsButton.getAttribute('disabled'), 'Clear plots button should not be disabled').toBeUndefined();
+				expect(await nextPlotButton.getAttribute('disabled'), 'Next plot button should be disabled').toBeDefined();
+				expect(await previousPlotButton.getAttribute('disabled'), 'Previous plot button should not be disabled').toBeUndefined();
 
 				await app.workbench.positronPlots.clearPlots();
 

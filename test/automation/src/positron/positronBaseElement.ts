@@ -31,6 +31,11 @@ export class PositronBaseElement {
 	async hover(): Promise<void> {
 		await this.code.driver.getLocator(this.myselector).hover();
 	}
+
+	async getAttribute(attribute: string): Promise<string | undefined> {
+		const element = await this.code.getElement(this.myselector);
+		return element?.attributes[attribute] ?? undefined;
+	}
 }
 
 export class PositronTextElement extends PositronBaseElement {
