@@ -17,8 +17,7 @@ suite('Connections pane works for R', () => {
 
 	test('Can list tabeles and fields from R connections', async () => {
 
-		// This is copied from the R extension.
-		// Just waits
+		// Waits until positron is ready to start a runtime
 		const info = await assert_or_timeout(async () => {
 			return await positron.runtime.getPreferredRuntime('r');
 		});
