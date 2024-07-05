@@ -572,7 +572,7 @@ class DataExplorerTableView(abc.ABC):
             return display_type == ColumnDisplayType.String
         elif filt.filter_type == RowFilterType.Compare:
             params = filt.params
-            assert isinstance(params, FilterComparison)
+            assert isinstance(params, FilterComparison), str(params)
             if params.op in [
                 FilterComparisonOp.Eq,
                 FilterComparisonOp.NotEq,

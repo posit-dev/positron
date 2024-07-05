@@ -122,7 +122,7 @@ export class RowFilterDescriptorIsEmpty extends BaseRowFilterDescriptor {
 	/**
 	 * Get the backend OpenRPC type.
 	 */
-	get backendFilter() {
+	get backendFilter(): RowFilter {
 		return {
 			filter_type: RowFilterType.IsEmpty,
 			...this._sharedBackendParams()
@@ -334,7 +334,7 @@ export class RowFilterDescriptorComparison extends SingleValueRowFilterDescripto
 	/**
 	 * Get the backend OpenRPC type.
 	 */
-	get backendFilter() {
+	get backendFilter(): RowFilter {
 		const getCompareOp = () => {
 			switch (this.descrType) {
 				case RowFilterDescrType.IS_EQUAL_TO:
@@ -354,7 +354,7 @@ export class RowFilterDescriptorComparison extends SingleValueRowFilterDescripto
 		};
 		return {
 			filter_type: RowFilterType.Compare,
-			compare_params: {
+			params: {
 				op: getCompareOp(),
 				value: this.value
 			},
@@ -412,7 +412,7 @@ export class RowFilterDescriptorSearch extends SingleValueRowFilterDescriptor {
 	/**
 	 * Get the backend OpenRPC type.
 	 */
-	get backendFilter() {
+	get backendFilter(): RowFilter {
 		const getSearchOp = () => {
 			switch (this._descrType) {
 				case RowFilterDescrType.SEARCH_CONTAINS:
@@ -429,7 +429,7 @@ export class RowFilterDescriptorSearch extends SingleValueRowFilterDescriptor {
 
 		return {
 			filter_type: RowFilterType.Search,
-			search_params: {
+			params: {
 				search_type: getSearchOp(),
 				term: this.value,
 				case_sensitive: false
@@ -470,10 +470,10 @@ export class RowFilterDescriptorSetMembership extends BaseRowFilterDescriptor {
 	/**
 	 * Get the backend OpenRPC type.
 	 */
-	get backendFilter() {
+	get backendFilter(): RowFilter {
 		return {
 			filter_type: RowFilterType.SetMembership,
-			set_membership_filter_params: {
+			params: {
 				values: this.values,
 				inclusive: true
 			},
@@ -525,10 +525,10 @@ export class RowFilterDescriptorIsBetween extends RangeRowFilterDescriptor {
 	/**
 	 * Get the backend OpenRPC type.
 	 */
-	get backendFilter() {
+	get backendFilter(): RowFilter {
 		return {
 			filter_type: RowFilterType.Between,
-			between_params: {
+			params: {
 				left_value: this.lowerLimit,
 				right_value: this.upperLimit
 			},
@@ -561,10 +561,10 @@ export class RowFilterDescriptorIsNotBetween extends RangeRowFilterDescriptor {
 	/**
 	 * Get the backend OpenRPC type.
 	 */
-	get backendFilter() {
+	get backendFilter(): RowFilter {
 		return {
 			filter_type: RowFilterType.NotBetween,
-			between_params: {
+			params: {
 				left_value: this.lowerLimit,
 				right_value: this.upperLimit
 			},
