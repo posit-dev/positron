@@ -28,6 +28,10 @@ import { IExplorerService } from 'vs/workbench/contrib/files/browser/files';
 import { Codicon } from 'vs/base/common/codicons';
 import { Categories } from 'vs/platform/action/common/actionCommonCategories';
 
+// --- Start Positron --
+import { CommandCenter } from 'vs/platform/commandCenter/common/commandCenter';
+// --- End Positron --
+
 // Contribute Global Actions
 
 registerAction2(GlobalCompareResourcesAction);
@@ -706,6 +710,15 @@ MenuRegistry.appendMenuItem(MenuId.MenubarFileMenu, {
 	order: 1
 });
 
+// --- Start Positron --
+// Add the Save command to the Command Center, so it can be used in the top action bar.
+CommandCenter.addCommandInfo({
+	id: SAVE_FILE_COMMAND_ID,
+	title: nls.localize('Save', "Save"),
+	precondition: ContextKeyExpr.or(ActiveEditorContext, ContextKeyExpr.and(FoldersViewVisibleContext, SidebarFocusContext))
+});
+// --- End Positron --
+
 MenuRegistry.appendMenuItem(MenuId.MenubarFileMenu, {
 	group: '4_save',
 	command: {
@@ -725,6 +738,15 @@ MenuRegistry.appendMenuItem(MenuId.MenubarFileMenu, {
 	},
 	order: 3
 });
+
+// --- Start Positron --
+// Add the Save All command to the Command Center, so it can be used in the top action bar.
+CommandCenter.addCommandInfo({
+	id: SAVE_ALL_COMMAND_ID,
+	title: nls.localize('Save All', "Save All"),
+	precondition: DirtyWorkingCopiesContext
+});
+// --- End Positron --
 
 MenuRegistry.appendMenuItem(MenuId.MenubarFileMenu, {
 	group: '5_autosave',
