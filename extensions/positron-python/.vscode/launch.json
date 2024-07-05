@@ -5,7 +5,7 @@
         // --- Start Positron ---
         {
             "name": "Positron: Remote Attach",
-            "type": "debugpy",
+            "type": "python",
             "request": "attach",
             "connect": {
                 "host": "localhost",
