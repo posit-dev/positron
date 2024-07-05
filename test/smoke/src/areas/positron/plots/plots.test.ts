@@ -4,8 +4,13 @@
  *--------------------------------------------------------------------------------------------*/
 
 
+import * as path from 'path';
 import { Application, Logger, PositronPythonFixtures, PositronRFixtures } from '../../../../../automation';
 import { installAllHandlers } from '../../../utils';
+import { readFileSync } from 'fs';
+import compareImages = require('resemblejs/compareImages');
+import { inspect } from 'util';
+import { ComparisonOptions } from 'resemblejs';
 
 
 /*
@@ -28,7 +33,7 @@ export function setup(logger: Logger) {
 
 			});
 
-			it('Python - Verifies basic plot functionality - Dynamic Plot [C608114]', async function () {
+			it.only('Python - Verifies basic plot functionality - Dynamic Plot [C608114]', async function () {
 				const app = this.app as Application;
 
 				// modified snippet from https://www.geeksforgeeks.org/python-pandas-dataframe/
@@ -55,6 +60,27 @@ plt.show()`;
 				await app.workbench.positronConsole.executeCode('Python', script, '>>>');
 
 				await app.workbench.positronPlots.waitForCurrentPlot();
+				const buffer = await app.code.driver.getLocator('.plot-instance .image-wrapper img').screenshot();
+
+				const options: ComparisonOptions = {
+					output: {
+						errorColor: {
+							red: 255,
+							green: 0,
+							blue: 255
+						},
+						errorType: 'movement',
+						transparency: 0.3,
+						largeImageThreshold: 1200,
+						useCrossOrigin: false
+					},
+					scaleToSameSize: true,
+					ignore: 'antialiasing',
+				};
+
+				const data = await compareImages(readFileSync(path.join('plots', 'pythonScatterplot.png'), ), buffer, options);
+
+				console.log(inspect(data, {showHidden: false, depth: null, colors: true}))
 
 				await app.workbench.positronPlots.clearPlots();
 

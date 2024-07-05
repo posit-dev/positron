@@ -75,6 +75,11 @@
   dependencies:
     undici-types "~5.26.4"
 
+"@types/resemblejs@4.1.3":
+  version "4.1.3"
+  resolved "https://registry.yarnpkg.com/@types/resemblejs/-/resemblejs-4.1.3.tgz#46d16888952e377b9143484c206b63f6da56e91e"
+  integrity sha512-p0NA5aACdWCK+I4NJbwUvFoixwYxvfLu+UqaiZt/J3+3PJavMYOxRrdbeXbbiKiMGdKdDFjoxlFWkkaMU7SDxA==
+
 "@types/rimraf@3.0.2":
   version "3.0.2"
   resolved "https://registry.yarnpkg.com/@types/rimraf/-/rimraf-3.0.2.tgz#a63d175b331748e5220ad48c901d7bbf1f44eef8"
