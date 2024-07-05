@@ -67,7 +67,7 @@ function getJupyterMarkdownCellText(cell: Cell, document: vscode.TextDocument): 
 // Spaces can not occur before #
 const pythonIsCellStartRegExp = new RegExp(/^#\s*%%/);
 const pythonMarkdownRegExp = new RegExp(/^#\s*%%[^[]*\[markdown\]/);
-const rIsCellStartRegExp = new RegExp(/^#[\s*%%|+]/);
+const rIsCellStartRegExp = new RegExp(/^#(\s*%%|+)/);
 
 // TODO: Expose an API to let extensions register parsers
 const pythonCellParser: CellParser = {
