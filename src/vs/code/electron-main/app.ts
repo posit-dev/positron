@@ -573,7 +573,9 @@ export class CodeApplication extends Disposable {
 	}
 
 	async startup(): Promise<void> {
-		this.logService.debug('Starting VS Code');
+		// --- Start Positron ---
+		this.logService.debug('Starting Positron');
+		// --- End Positron ---
 		this.logService.debug(`from: ${this.environmentMainService.appRoot}`);
 		this.logService.debug('args:', this.environmentMainService.args);
 
