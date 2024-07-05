@@ -59,11 +59,11 @@ export class PositronConnections {
 
 	async openConnectionPane() {
 		await this.quickaccess.runCommand('connections.focus');
-		this.connectionPaneIsOpen(); // waiting for the pane to open
+		await this.connectionPaneIsOpen(); // waiting for the pane to open
 	}
 
 	async connectionPaneIsOpen() {
-		this.code.wait(500);
+		await this.code.wait(500);
 	}
 
 	async openTree() {
