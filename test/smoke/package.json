@@ -11,6 +11,7 @@
     "mocha": "node ../node_modules/mocha/bin/mocha"
   },
   "dependencies": {
+    "canvas": "^2.11.2",
     "mkdirp": "^1.0.4",
     "ncp": "^2.0.0",
     "node-fetch": "^2.6.7",
