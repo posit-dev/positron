@@ -22,11 +22,19 @@ export class PositronPlots {
 	nextPlotButton: PositronBaseElement;
 	previousPlotButton: PositronBaseElement;
 	clearPlotsButton: PositronBaseElement;
+	plotSizeButton: PositronBaseElement;
+	savePlotButton: PositronBaseElement;
+	copyPlotButton: PositronBaseElement;
+	zoomPlotButton: PositronBaseElement;
 
 	constructor(private code: Code) {
 		this.nextPlotButton = new PositronBaseElement('.positron-plots-container .positron-action-bar .positron-button[aria-label="Show next plot"]', this.code);
 		this.previousPlotButton = new PositronBaseElement('.positron-plots-container .positron-action-bar .positron-button[aria-label="Show previous plot"]', this.code);
 		this.clearPlotsButton = new PositronBaseElement('.positron-plots-container .positron-action-bar .positron-button[aria-label="Clear all plots"]', this.code);
+		this.plotSizeButton = new PositronBaseElement('.positron-plots-container .positron-action-bar .positron-button[aria-label="Auto"]', this.code);
+		this.savePlotButton = new PositronBaseElement('.positron-plots-container .positron-action-bar .positron-button[aria-label="Save plot"]', this.code);
+		this.copyPlotButton = new PositronBaseElement('.positron-plots-container .positron-action-bar .positron-button[aria-label="Copy plot to clipboard"]', this.code);
+		this.zoomPlotButton = new PositronBaseElement('.positron-plots-container .positron-action-bar .positron-button[aria-label="Fill"]', this.code);
 	}
 
 	async waitForCurrentPlot() {
