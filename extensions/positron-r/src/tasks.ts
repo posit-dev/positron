@@ -5,7 +5,6 @@
 
 import * as vscode from 'vscode';
 import { RSessionManager } from './session-manager';
-import { getEditorFilePathForCommand } from './commands';
 import { getPandocPath } from './pandoc';
 
 export class RPackageTaskProvider implements vscode.TaskProvider {
@@ -54,7 +53,9 @@ export async function getRPackageTasks(editorFilePath?: string): Promise<vscode.
 		{
 			task: 'r.task.rmarkdownRender',
 			message: vscode.l10n.t('{taskName}', { taskName: 'Render document with R Markdown' }),
-			rcode: `rmarkdown::render(${editorFilePath})`,
+			// Do not mess with this without exercising it fully on Windows. It's tricky to form
+			// this code snippet in a way that works across OSes.
+			rcode: `rmarkdown::render(''${editorFilePath}'')`,
 			package: 'rmarkdown'
 		}
 	];
