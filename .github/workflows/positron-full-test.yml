@@ -31,7 +31,8 @@ jobs:
         run: |
           curl -Ls https://github.com/r-lib/rig/releases/download/latest/rig-linux-"$(arch)"-latest.tar.gz | $(which sudo) tar xz -C /usr/local
           rig add 4.4.0
-          Rscript -e "install.packages(c('arrow', 'connections', 'RSQLite', 'readxl', 'lubridate'))"
+          curl https://raw.githubusercontent.com/posit-dev/qa-example-content/main/DESCRIPTION --output DESCRIPTION
+          Rscript -e "pak::local_install_dev_deps(ask = FALSE)"
 
       - uses: actions/setup-node@v3
         with:
@@ -99,8 +100,10 @@ jobs:
 
       - name: Install dependencies
         run: |
+          curl https://raw.githubusercontent.com/posit-dev/qa-example-content/main/requirements.txt --output requirements.txt
           python -m pip install --upgrade pip
-          python -m pip install pandas matplotlib ipykernel pyarrow openpyxl trcli
+          python -m pip install -r requirements.txt
+          python -m pip install matplotlib ipykernel trcli
 
       - name: Run Smoke Tests (Electron)
         env:
@@ -117,6 +120,7 @@ jobs:
 
       - name: Set TestRail Run Title
         id: set-testrail-run-title
+        if: always()
         run: echo "TESTRAIL_TITLE=$(date +'%Y-%m-%d') Smoke Tests" >> $GITHUB_ENV
 
       - name: Upload Test Results to TestRail
