@@ -7,6 +7,7 @@
 import { expect } from '@playwright/test';
 import { Application, Logger, PositronPythonFixtures, PositronRFixtures } from '../../../../../automation';
 import { installAllHandlers } from '../../../utils';
+import { join } from 'path';
 
 /*
  *  Data explorer tests with small data frames
@@ -17,7 +18,7 @@ export function setup(logger: Logger) {
 		// Shared before/after handling
 		installAllHandlers(logger);
 
-		describe('Python Data Explorer', () => {
+		describe('Python Pandas Data Explorer', () => {
 
 			before(async function () {
 
@@ -34,10 +35,13 @@ export function setup(logger: Logger) {
 
 				await app.workbench.positronDataExplorer.closeDataExplorer();
 				await app.workbench.positronVariables.openVariables();
+				await app.workbench.quickaccess.runCommand('workbench.action.closeAllEditors', { keepOpen: false });
+				await app.workbench.positronConsole.barRestartButton.click();
+				await app.workbench.positronConsole.waitForConsoleContents((contents) => contents.some((line) => line.includes('restarted')));
 
 			});
 
-			it('Python - Verifies basic data explorer functionality [C557556]', async function () {
+			it('Python Pandas - Verifies basic data explorer functionality [C557556]', async function () {
 				const app = this.app as Application;
 
 				// modified snippet from https://www.geeksforgeeks.org/python-pandas-dataframe/
@@ -65,6 +69,83 @@ df = pd.DataFrame(data)`;
 				expect(tableData[2]).toStrictEqual({ 'Name': 'Gaurav', 'Age': '22', 'Address': 'Allahabad' });
 				expect(tableData[3]).toStrictEqual({ 'Name': 'Anuj', 'Age': '32', 'Address': 'Kannauj' });
 				expect(tableData.length).toBe(4);
+
+			});
+
+
+		});
+
+		describe('Python Polars Data Explorer', () => {
+			before(async function () {
+
+				const app = this.app as Application;
+
+				const pythonFixtures = new PositronPythonFixtures(app);
+				await pythonFixtures.startPythonInterpreter();
+
+			});
+
+			after(async function () {
+
+				const app = this.app as Application;
+
+				await app.workbench.positronDataExplorer.closeDataExplorer();
+				await app.workbench.positronVariables.openVariables();
+				await app.workbench.quickaccess.runCommand('workbench.action.closeAllEditors', { keepOpen: false });
+
+			});
+
+			it('Python Polars - Verifies basic data explorer functionality [C644538]', async function () {
+				const app = this.app as Application;
+				await app.workbench.quickaccess.openFile(join(app.workspacePathOrFolder, 'workspaces', 'polars-dataframe-py', 'polars_basic.py'));
+				await app.workbench.quickaccess.runCommand('python.execInConsole');
+
+				logger.log('Opening data grid');
+				await expect(async () => {
+					await app.workbench.positronVariables.doubleClickVariableRow('df');
+					await app.code.driver.getLocator('.label-name:has-text("Data: df")').innerText();
+				}).toPass();
+
+				await app.workbench.positronSideBar.closeSecondarySideBar();
+
+				const tableData = await app.workbench.positronDataExplorer.getDataExplorerTableData();
+
+				expect(tableData[0]).toStrictEqual({ 'foo': '1', 'bar': '6.00', 'ham': '2020-01-02' });
+				expect(tableData[1]).toStrictEqual({ 'foo': '2', 'bar': '7.00', 'ham': '2021-03-04' });
+				expect(tableData[2]).toStrictEqual({ 'foo': '3', 'bar': '8.00', 'ham': '2022-05-06' });
+				expect(tableData.length).toBe(3);
+
+			});
+
+			it('Python Polars - Add Simple Column filter [C557557]', async function () {
+				const app = this.app as Application;
+				const FILTER_PARAMS = ['foo', 'is not equal to', '1'];
+				await app.workbench.positronDataExplorer.addFilter(...FILTER_PARAMS as [string, string, string]);
+
+				const tableData = await app.workbench.positronDataExplorer.getDataExplorerTableData();
+
+				expect(tableData[0]).toStrictEqual({ 'foo': '2', 'bar': '7.00', 'ham': '2021-03-04' });
+				expect(tableData[1]).toStrictEqual({ 'foo': '3', 'bar': '8.00', 'ham': '2022-05-06' });
+				expect(tableData.length).toBe(2);
+			});
+
+			it('Python Polars - Add Simple Column Sort [C557561]', async function () {
+				const app = this.app as Application;
+				await app.workbench.positronDataExplorer.selectColumnMenuItem(1, 'Sort Descending');
+
+				let tableData = await app.workbench.positronDataExplorer.getDataExplorerTableData();
+
+				expect(tableData[0]).toStrictEqual({ 'foo': '3', 'bar': '8.00', 'ham': '2022-05-06' });
+				expect(tableData[1]).toStrictEqual({ 'foo': '2', 'bar': '7.00', 'ham': '2021-03-04' });
+				expect(tableData.length).toBe(2);
+
+				await app.workbench.positronDataExplorer.clearSortingButton.click();
+
+				tableData = await app.workbench.positronDataExplorer.getDataExplorerTableData();
+
+				expect(tableData[0]).toStrictEqual({ 'foo': '2', 'bar': '7.00', 'ham': '2021-03-04' });
+				expect(tableData[1]).toStrictEqual({ 'foo': '3', 'bar': '8.00', 'ham': '2022-05-06' });
+				expect(tableData.length).toBe(2);
 
 			});
 		});
