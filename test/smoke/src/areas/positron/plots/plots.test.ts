@@ -62,7 +62,7 @@ plt.show()`;
 				await app.workbench.positronPlots.waitForNoPlots();
 			});
 
-			it('Python - Verifies basic plot functionality - Static Plot', async function () {
+			it('Python - Verifies basic plot functionality - Static Plot [C654401]', async function () {
 				const app = this.app as Application;
 
 				const script = `import graphviz as gv
@@ -91,7 +91,7 @@ IPython.display.display_png(h)`;
 				await app.workbench.positronPlots.waitForNoPlots();
 			});
 
-			it('Python - Verifies the plots pane action bar - Plot actions', async function () {
+			it('Python - Verifies the plots pane action bar - Plot actions [C656297]', async function () {
 				const app = this.app as Application;
 
 				const scriptPlot1 = `import graphviz as gv
