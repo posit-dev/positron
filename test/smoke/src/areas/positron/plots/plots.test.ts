@@ -131,19 +131,12 @@ plt.title('My first graph!')
 # function to show the plot
 plt.show()`;
 				logger.log('Sending code to console');
-				const clearPlotsButton = app.workbench.positronPlots.clearPlotsButton;
-				const nextPlotButton = app.workbench.positronPlots.nextPlotButton;
-				const previousPlotButton = app.workbench.positronPlots.previousPlotButton;
-				const plotSizeButton = app.workbench.positronPlots.plotSizeButton;
-				const savePlotButton = app.workbench.positronPlots.savePlotButton;
-				const copyPlotButton = app.workbench.positronPlots.copyPlotButton;
-				const zoomPlotButton = app.workbench.positronPlots.zoomPlotButton;
 
 				// default plot pane state for action bar
-				await plotSizeButton.isNotVisible();
-				await savePlotButton.isNotVisible();
-				await copyPlotButton.isNotVisible();
-				await zoomPlotButton.isNotVisible();
+				await expect(app.workbench.positronPlots.plotSizeButton).not.toBeVisible();
+				await expect(app.workbench.positronPlots.savePlotButton).not.toBeVisible();
+				await expect(app.workbench.positronPlots.copyPlotButton).not.toBeVisible();
+				await expect(app.workbench.positronPlots.zoomPlotButton).not.toBeVisible();
 
 				// create plots separately so that the order is known
 				await app.workbench.positronConsole.executeCode('Python', scriptPlot1, '>>>');
@@ -151,34 +144,37 @@ plt.show()`;
 				await app.workbench.positronConsole.executeCode('Python', scriptPlot2, '>>>');
 				await app.workbench.positronPlots.waitForCurrentPlot();
 
-				expect(await clearPlotsButton.getAttribute('disabled'), 'Clear plots button should not be disabled').toBeUndefined();
-				expect(await nextPlotButton.getAttribute('disabled'), 'Next plot button should be disabled').toBeDefined();
-				expect(await previousPlotButton.getAttribute('disabled'), 'Previous plot button should not be disabled').toBeUndefined();
-				expect(await plotSizeButton.getAttribute('disabled'), 'Plot size button should not be disabled').toBeUndefined();
-				expect(await savePlotButton.getAttribute('disabled'), 'Save plot button should not be disabled').toBeUndefined();
-				expect(await copyPlotButton.getAttribute('disabled'), 'Copy plot button should not be disabled').toBeUndefined();
+				await expect(app.workbench.positronPlots.clearPlotsButton).not.toBeDisabled();
+				await expect(app.workbench.positronPlots.nextPlotButton).toBeDisabled();
+				await expect(app.workbench.positronPlots.previousPlotButton).not.toBeDisabled();
+				await expect(app.workbench.positronPlots.plotSizeButton).not.toBeDisabled();
+				await expect(app.workbench.positronPlots.savePlotButton).not.toBeDisabled();
+				await expect(app.workbench.positronPlots.copyPlotButton).not.toBeDisabled();
 
-				await app.workbench.positronPlots.previousPlot();
+				// switch to fixed size plot
+				await app.workbench.positronPlots.previousPlotButton.click();
+				await app.workbench.positronPlots.waitForCurrentStaticPlot();
 
 				// switching to fized size plot changes action bar
-				await zoomPlotButton.waitforVisible();
-				await plotSizeButton.isNotVisible();
+				await expect(app.workbench.positronPlots.zoomPlotButton).toBeVisible();
+				await expect(app.workbench.positronPlots.plotSizeButton).not.toBeVisible();
 
-				expect(await clearPlotsButton.getAttribute('disabled'), 'Clear plots button should not be disabled').toBeUndefined();
-				expect(await nextPlotButton.getAttribute('disabled'), 'Next plot button should not be disabled').toBeUndefined();
-				expect(await previousPlotButton.getAttribute('disabled'), 'Previous plot button should be disabled').toBeDefined();
-				expect(await zoomPlotButton.getAttribute('disabled'), 'Zoom plot button should not be disabled').toBeUndefined();
+				await expect(app.workbench.positronPlots.clearPlotsButton).not.toBeDisabled();
+				await expect(app.workbench.positronPlots.nextPlotButton).not.toBeDisabled();
+				await expect(app.workbench.positronPlots.previousPlotButton).toBeDisabled();
+				await expect(app.workbench.positronPlots.zoomPlotButton).not.toBeDisabled();
 
-				await app.workbench.positronPlots.nextPlot();
+				// switch back to dynamic plot
+				await app.workbench.positronPlots.nextPlotButton.click();
 				await app.workbench.positronPlots.waitForCurrentPlot();
 
-				await zoomPlotButton.isNotVisible();
-				await plotSizeButton.waitforVisible();
+				await expect(app.workbench.positronPlots.zoomPlotButton).not.toBeVisible();
+				await expect(app.workbench.positronPlots.plotSizeButton).toBeVisible();
 
-				expect(await clearPlotsButton.getAttribute('disabled'), 'Clear plots button should not be disabled').toBeUndefined();
-				expect(await nextPlotButton.getAttribute('disabled'), 'Next plot button should be disabled').toBeDefined();
-				expect(await previousPlotButton.getAttribute('disabled'), 'Previous plot button should not be disabled').toBeUndefined();
-				expect(await plotSizeButton.getAttribute('disabled'), 'Plot size button should not be disabled').toBeUndefined();
+				await expect(app.workbench.positronPlots.clearPlotsButton).not.toBeDisabled();
+				await expect(app.workbench.positronPlots.nextPlotButton).toBeDisabled();
+				await expect(app.workbench.positronPlots.previousPlotButton).not.toBeDisabled();
+				await expect(app.workbench.positronPlots.plotSizeButton).not.toBeDisabled();
 
 				await app.workbench.positronPlots.clearPlots();
 
