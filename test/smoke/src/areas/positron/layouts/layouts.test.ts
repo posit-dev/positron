@@ -130,7 +130,7 @@ export function setup(logger: Logger) {
 
 		describe('Notebook Layout', () => {
 
-			it.only('Verify notebook layout puts stuff in appropriate places', async function () {
+			it('Verify notebook layout puts stuff in appropriate places', async function () {
 
 				const app = this.app as Application;
 				const layouts = app.workbench.positronLayouts;
