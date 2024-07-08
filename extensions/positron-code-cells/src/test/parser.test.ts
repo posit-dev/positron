@@ -99,9 +99,9 @@ And a [link](target)`;
 
 	suite('R Parser', () => {
 		const language = 'r';
-		const codeCellBody = '123\n456';
+		const codeCellBody = '\n123\n456';
 		const codeCell1 = `#+\n${codeCellBody}`;
-		const codeCell2 = `#+\n789\n012`;
+		const codeCell2 = `# %%\n789\n\n012`;
 
 		const parser = getParser(language);
 
@@ -123,8 +123,8 @@ And a [link](target)`;
 			const content = [codeCell1, codeCell2].join('\n\n');
 			const document = await vscode.workspace.openTextDocument({ language, content });
 			assert.deepStrictEqual(parseCells(document), [
-				{ range: new vscode.Range(0, 0, 2, 3), type: CellType.Code },
-				{ range: new vscode.Range(4, 0, 6, 3), type: CellType.Code }
+				{ range: new vscode.Range(0, 0, 4, 0), type: CellType.Code },
+				{ range: new vscode.Range(5, 0, 8, 3), type: CellType.Code }
 			]);
 		});
 
@@ -150,11 +150,11 @@ And a [link](target)`;
 		});
 
 		test('New cell', async () => {
-			assert.strictEqual(parser?.newCell(), '\n\n#+');
+			assert.strictEqual(parser?.newCell(), '\n#+\n');
 		});
 
 		test('Cell decoration setting', async () => {
-			assert.strictEqual(parser?.cellDecorationSetting(), CellDecorationSetting.All);
+			assert.strictEqual(parser?.cellDecorationSetting(), CellDecorationSetting.Current);
 		});
 	});
 });
