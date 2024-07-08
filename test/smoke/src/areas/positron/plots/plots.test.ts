@@ -11,12 +11,15 @@ import { readFileSync } from 'fs';
 import compareImages = require('resemblejs/compareImages');
 import { inspect } from 'util';
 import { ComparisonOptions } from 'resemblejs';
-
+import * as fs from 'fs';
 
 /*
  * Plots test cases
  */
 export function setup(logger: Logger) {
+
+	const diffPlotsPath = ['..', '..', '.build', 'logs', 'smoke-tests-electron'];
+
 	describe('Plots', () => {
 
 		// Shared before/after handling
@@ -81,6 +84,10 @@ plt.show()`;
 				const data = await compareImages(readFileSync(path.join('plots', 'pythonScatterplot.png'), ), buffer, options);
 
 				console.log(inspect(data, {showHidden: false, depth: null, colors: true}))
+
+				if (data.getBuffer) {
+					fs.writeFileSync(path.join(...diffPlotsPath, 'pythonScatterplotDiff.png'), data.getBuffer(false));
+				}
 
 				await app.workbench.positronPlots.clearPlots();
 
