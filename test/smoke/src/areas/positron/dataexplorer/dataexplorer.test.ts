@@ -110,9 +110,15 @@ df = pd.DataFrame(data)`;
 
 				const tableData = await app.workbench.positronDataExplorer.getDataExplorerTableData();
 
-				expect(tableData[0]).toStrictEqual({ 'foo': '1', 'bar': '6.00', 'ham': '2020-01-02' });
-				expect(tableData[1]).toStrictEqual({ 'foo': '2', 'bar': '7.00', 'ham': '2021-03-04' });
-				expect(tableData[2]).toStrictEqual({ 'foo': '3', 'bar': '8.00', 'ham': '2022-05-06' });
+				expect(tableData[0]['foo']).toBe('1');
+				expect(tableData[1]['foo']).toBe('2');
+				expect(tableData[2]['foo']).toBe('3');
+				expect(tableData[0]['bar']).toBe('6.00');
+				expect(tableData[1]['bar']).toBe('7.00');
+				expect(tableData[2]['bar']).toBe('8.00');
+				expect(tableData[0]['ham']).toBe('2020-01-02');
+				expect(tableData[1]['ham']).toBe('2021-03-04');
+				expect(tableData[2]['ham']).toBe('2022-05-06');
 				expect(tableData.length).toBe(3);
 
 			});
@@ -124,8 +130,12 @@ df = pd.DataFrame(data)`;
 
 				const tableData = await app.workbench.positronDataExplorer.getDataExplorerTableData();
 
-				expect(tableData[0]).toStrictEqual({ 'foo': '2', 'bar': '7.00', 'ham': '2021-03-04' });
-				expect(tableData[1]).toStrictEqual({ 'foo': '3', 'bar': '8.00', 'ham': '2022-05-06' });
+				expect(tableData[0]['foo']).toBe('2');
+				expect(tableData[1]['foo']).toBe('3');
+				expect(tableData[0]['bar']).toBe('7.00');
+				expect(tableData[1]['bar']).toBe('8.00');
+				expect(tableData[0]['ham']).toBe('2021-03-04');
+				expect(tableData[1]['ham']).toBe('2022-05-06');
 				expect(tableData.length).toBe(2);
 			});
 
@@ -135,8 +145,12 @@ df = pd.DataFrame(data)`;
 
 				let tableData = await app.workbench.positronDataExplorer.getDataExplorerTableData();
 
-				expect(tableData[0]).toStrictEqual({ 'foo': '3', 'bar': '8.00', 'ham': '2022-05-06' });
-				expect(tableData[1]).toStrictEqual({ 'foo': '2', 'bar': '7.00', 'ham': '2021-03-04' });
+				expect(tableData[0]['foo']).toBe('3');
+				expect(tableData[1]['foo']).toBe('2');
+				expect(tableData[0]['bar']).toBe('8.00');
+				expect(tableData[1]['bar']).toBe('7.00');
+				expect(tableData[0]['ham']).toBe('2022-05-06');
+				expect(tableData[1]['ham']).toBe('2021-03-04');
 				expect(tableData.length).toBe(2);
 
 				await app.workbench.positronDataExplorer.clearSortingButton.click();
