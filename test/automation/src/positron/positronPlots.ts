@@ -31,7 +31,7 @@ export class PositronPlots {
 		this.clearPlotsButton = this.code.driver.getLocator('.positron-plots-container .positron-action-bar .positron-button[aria-label="Clear all plots"]');
 		this.plotSizeButton = this.code.driver.getLocator('.positron-plots-container .positron-action-bar .positron-button[aria-label="Auto"]');
 		this.savePlotButton = this.code.driver.getLocator('.positron-plots-container .positron-action-bar .positron-button[aria-label="Save plot"]');
-		this.copyPlotButton = this.code.driver.getLocator('.positron-plots-container .positron-action-bar .positron-button[aria-label="Copy plot to clipboard"]';
+		this.copyPlotButton = this.code.driver.getLocator('.positron-plots-container .positron-action-bar .positron-button[aria-label="Copy plot to clipboard"]');
 		this.zoomPlotButton = this.code.driver.getLocator('.positron-plots-container .positron-action-bar .positron-button[aria-label="Fill"]');
 	}
 
