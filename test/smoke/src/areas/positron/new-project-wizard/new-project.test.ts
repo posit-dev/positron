@@ -134,7 +134,7 @@ export function setup(logger: Logger) {
 				);
 				});
 
-				it('Cancel Renv install [C......]', async function () {
+				it('Cancel Renv install [C656252]', async function () {
 					const projSuffix = '_cancelRenvInstall';
 					const app = this.app as Application;
 					// Remove renv package so we are prompted to install it again
