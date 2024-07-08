@@ -58,7 +58,7 @@ export function setup(logger: Logger) {
 			});
 
 			describe('R Project with Renv Environment', () => {
-				it('Accept Renv install [C......]', async function () {
+				it('Accept Renv install [C633084]', async function () {
 					const projSuffix = '_installRenv';
 					const app = this.app as Application;
 					// Create a new R project - select Renv and install
@@ -102,7 +102,7 @@ export function setup(logger: Logger) {
 					);
 				});
 
-				it('Renv already installed [C......]', async function () {
+				it('Renv already installed [C656251]', async function () {
 					// Renv will already be installed from the previous test
 					const projSuffix = '_renvAlreadyInstalled';
 					const app = this.app as Application;
