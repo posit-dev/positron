@@ -229,19 +229,11 @@ class DataExplorerTableView(abc.ABC):
                     return schema
 
         schema_memo = SchemaMemo()
-        matches = []
-        for column_index in range(self.table.shape[1]):
-            # All filters must match
-            no_match = False
-            for matcher in matchers:
-                if not matcher(column_index, schema_memo):
-                    no_match = True
-                    break
-
-            if no_match:
-                continue
-            col_schema = self._get_single_column_schema(column_index)
-            matches.append(col_schema)
+        matches = [
+            self._get_single_column_schema(column_index)
+            for column_index in range(self.table.shape[1])
+            if all(matcher(column_index, schema_memo) for matcher in matchers)
+        ]
 
         return matches
 
