@@ -12,7 +12,7 @@ import { installAllHandlers } from '../../../utils';
  * Top Action Bar test cases
  */
 export function setup(logger: Logger) {
-	describe.only('Top Action Bar', () => {
+	describe('Top Action Bar', () => {
 		// Shared before/after handling
 		installAllHandlers(logger);
 
