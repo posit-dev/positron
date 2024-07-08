@@ -8,10 +8,13 @@ import { Code } from '../code';
 import { Workbench } from '../workbench';
 
 const FULL_APP = 'body';
-const CUSTOMIZE_LAYOUT_BUTTON_LABEL = 'Customize Layout';
 const AUX_BAR = '.part.auxiliarybar';
 const PANEL = '.part.panel';
 const SIDEBAR = '.part.sidebar';
+
+const CUSTOMIZE_LAYOUT_BUTTON_LABEL = /customize layout/i;
+const PANEL_EXPAND_BUTTON_LABEL = /restore panel/i;
+const VIEW_TABS_LABEL = /active view switcher/i;
 
 // Known layouts in Positron.
 const positronLayoutPresets = {
@@ -50,7 +53,7 @@ export class PositronLayouts {
 	/**
 	 * Locator for the tabs in the panel used to navigate to different views.
 	 */
-	panelViewsTab = this.panel.getByLabel(`Active View Switcher`).getByRole('tab');
+	panelViewsTab = getPaneViewTabs(this.panel);
 
 	/**
 	 * The content of the panel. This is what should be tested if visible etc because
@@ -62,7 +65,7 @@ export class PositronLayouts {
 	/**
 	 * Locator for the button to expand the panel.
 	 */
-	panelExpandButton = this.panel.getByLabel(/restore panel/i);
+	panelExpandButton = this.panel.getByLabel(PANEL_EXPAND_BUTTON_LABEL);
 
 	/**
 	 * Locator for the auxiliary bar part of the IDE.
@@ -72,7 +75,7 @@ export class PositronLayouts {
 	/**
 	 * Locator for the tabs in the auxiliary bar used to navigate to different views.
 	 */
-	auxBarViewsTab = this.auxBar.getByLabel(`Active View Switcher`).getByRole('tab');
+	auxBarViewsTab = getPaneViewTabs(this.auxBar);
 
 	/**
 	 * Locator for the sidebar part of the IDE.
@@ -117,4 +120,8 @@ export class PositronLayouts {
 		const boundingBox = await this.boundingBox(locator);
 		return boundingBox[property];
 	}
+}
+
+function getPaneViewTabs(locator: Locator) {
+	return locator.getByLabel(VIEW_TABS_LABEL).getByRole('tab');
 }
