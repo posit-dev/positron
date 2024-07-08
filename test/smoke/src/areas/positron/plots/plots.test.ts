@@ -20,6 +20,22 @@ export function setup(logger: Logger) {
 
 	const diffPlotsPath = ['..', '..', '.build', 'logs', 'smoke-tests-electron'];
 
+	const options: ComparisonOptions = {
+		output: {
+			errorColor: {
+				red: 255,
+				green: 0,
+				blue: 255
+			},
+			errorType: 'movement',
+			transparency: 0.3,
+			largeImageThreshold: 1200,
+			useCrossOrigin: false
+		},
+		scaleToSameSize: true,
+		ignore: 'antialiasing',
+	};
+
 	describe('Plots', () => {
 
 		// Shared before/after handling
@@ -36,7 +52,7 @@ export function setup(logger: Logger) {
 
 			});
 
-			it.only('Python - Verifies basic plot functionality - Dynamic Plot [C608114]', async function () {
+			it('Python - Verifies basic plot functionality - Dynamic Plot [C608114]', async function () {
 				const app = this.app as Application;
 
 				// modified snippet from https://www.geeksforgeeks.org/python-pandas-dataframe/
@@ -63,27 +79,11 @@ plt.show()`;
 				await app.workbench.positronConsole.executeCode('Python', script, '>>>');
 
 				await app.workbench.positronPlots.waitForCurrentPlot();
-				const buffer = await app.code.driver.getLocator('.plot-instance .image-wrapper img').screenshot();
-
-				const options: ComparisonOptions = {
-					output: {
-						errorColor: {
-							red: 255,
-							green: 0,
-							blue: 255
-						},
-						errorType: 'movement',
-						transparency: 0.3,
-						largeImageThreshold: 1200,
-						useCrossOrigin: false
-					},
-					scaleToSameSize: true,
-					ignore: 'antialiasing',
-				};
+				const buffer = await app.workbench.positronPlots.getCurrentPlotAsBuffer();
 
 				const data = await compareImages(readFileSync(path.join('plots', 'pythonScatterplot.png'), ), buffer, options);
 
-				console.log(inspect(data, {showHidden: false, depth: null, colors: true}))
+				console.log(inspect(data, {showHidden: false, depth: null, colors: true}));
 
 				if (data.getBuffer) {
 					fs.writeFileSync(path.join(...diffPlotsPath, 'pythonScatterplotDiff.png'), data.getBuffer(false));
@@ -106,7 +106,7 @@ plt.show()`;
 
 			});
 
-			it('R - Verifies basic plot functionality [C628633]', async function () {
+			it.only('R - Verifies basic plot functionality [C628633]', async function () {
 				const app = this.app as Application;
 
 				const script = `cars <- c(1, 3, 6, 4, 9)
@@ -117,6 +117,15 @@ title(main="Autos", col.main="red", font.main=4)`;
 				await app.workbench.positronConsole.executeCode('R', script, '>');
 
 				await app.workbench.positronPlots.waitForCurrentPlot();
+				const buffer = await app.workbench.positronPlots.getCurrentPlotAsBuffer();
+
+				const data = await compareImages(readFileSync(path.join('plots', 'autos.png'), ), buffer, options);
+
+				console.log(inspect(data, {showHidden: false, depth: null, colors: true}));
+
+				if (data.getBuffer) {
+					fs.writeFileSync(path.join(...diffPlotsPath, 'autosDiff.png'), data.getBuffer(false));
+				}
 
 				await app.workbench.positronPlots.clearPlots();
 
