@@ -31,6 +31,14 @@ export class PositronBaseElement {
 	async hover(): Promise<void> {
 		await this.code.driver.getLocator(this.myselector).hover();
 	}
+
+	async isDisabled(): Promise<boolean> {
+		return await this.code.driver.getLocator(this.myselector).isDisabled();
+	}
+
+	async isEnabled(): Promise<boolean> {
+		return await this.code.driver.getLocator(this.myselector).isEnabled();
+	}
 }
 
 export class PositronTextElement extends PositronBaseElement {
