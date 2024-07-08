@@ -41,7 +41,7 @@ export function setup(logger: Logger) {
 				await expect(async () => {
 					expect(await app.workbench.positronTopActionBar.saveButton.isEnabled()).toBeTruthy();
 					expect(await app.workbench.positronTopActionBar.saveAllButton.isEnabled()).toBeTruthy();
-				}).toPass();
+				}).toPass({ timeout: 10000 });
 				await app.workbench.positronTopActionBar.saveButton.click();
 				// The file is now saved, so the file should no longer be "dirty"
 				await app.workbench.editors.waitForTab(fileName, false);
@@ -50,7 +50,7 @@ export function setup(logger: Logger) {
 					expect(await app.workbench.positronTopActionBar.saveButton.isEnabled()).toBeTruthy();
 					// The Save All button is disabled when less than 2 files are "dirty"
 					expect(await app.workbench.positronTopActionBar.saveAllButton.isDisabled()).toBeTruthy();
-				}).toPass();
+				}).toPass({ timeout: 10000 });
 			});
 
 			it('Save and Save All both enabled when multiple unsaved files are open', async function () {
@@ -74,7 +74,7 @@ export function setup(logger: Logger) {
 				await expect(async () => {
 					expect(await app.workbench.positronTopActionBar.saveButton.isEnabled()).toBeTruthy();
 					expect(await app.workbench.positronTopActionBar.saveAllButton.isEnabled()).toBeTruthy();
-				}).toPass();
+				}).toPass({ timeout: 10000 });
 				await app.workbench.positronTopActionBar.saveAllButton.click();
 				// The files are now saved, so the files should no longer be "dirty"
 				await app.workbench.editors.waitForTab(fileName1, false);
@@ -84,7 +84,7 @@ export function setup(logger: Logger) {
 					expect(await app.workbench.positronTopActionBar.saveButton.isEnabled()).toBeTruthy();
 					// The Save All button is disabled when less than 2 files are "dirty"
 					expect(await app.workbench.positronTopActionBar.saveAllButton.isDisabled()).toBeTruthy();
-				}).toPass();
+				}).toPass({ timeout: 10000 });
 			});
 
 			it('Save and Save All both enabled when an unsaved new file is open', async function () {
@@ -101,7 +101,7 @@ export function setup(logger: Logger) {
 				await expect(async () => {
 					expect(await app.workbench.positronTopActionBar.saveButton.isEnabled()).toBeTruthy();
 					expect(await app.workbench.positronTopActionBar.saveAllButton.isEnabled()).toBeTruthy();
-				}).toPass();
+				}).toPass({ timeout: 10000 });
 				// We won't try to click the Save buttons because a system dialog will pop up and we
 				// can't automate interactions with the native file dialog
 			});
