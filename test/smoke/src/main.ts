@@ -41,7 +41,8 @@ import { setup as setupConnectionsTest } from './areas/positron/connections/dbCo
 import { setup as setupNewProjectWizardTest } from './areas/positron/new-project-wizard/new-project.test';
 import { setup as setupXLSXDataFrameTest } from './areas/positron/dataexplorer/xlsxDataFrame.test';
 import { setup as setupHelpTest } from './areas/positron/help/help.test';
-import { setup as setupClipboardTest} from './areas/positron/console/consoleClipboard.test'
+import { setup as setupClipboardTest } from './areas/positron/console/consoleClipboard.test';
+import { setup as setupLayoutTest } from './areas/positron/layouts/layouts.test';
 import { setup as setupTopActionBarTest } from './areas/positron/top-action-bar/top-action-bar.test';
 // --- End Positron ---
 
@@ -442,5 +443,6 @@ describe(`VSCode Smoke Tests (${opts.web ? 'Web' : 'Electron'})`, () => {
 	setupHelpTest(logger);
 	setupClipboardTest(logger);
 	setupTopActionBarTest(logger);
+	setupLayoutTest(logger);
 	// --- End Positron ---
 });
