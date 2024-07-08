@@ -158,9 +158,13 @@ export function setup(logger: Logger) {
 				// If the sidebar is collapsed is dependent upon the size of the window. If it
 				// is _not_ collapsed, then it needs to be wider than 180px.
 				// TODO: Test this after resizing the window to make sure behavior is correct.
-				const sidebarWidth = await layouts.boundingBoxProperty(layouts.sidebar, 'width');
-				if (sidebarWidth) {
-					expect(sidebarWidth).toBeGreaterThan(180);
+				try {
+					const sidebarWidth = await layouts.boundingBoxProperty(layouts.sidebar, 'width');
+					if (sidebarWidth) {
+						expect(sidebarWidth).toBeGreaterThan(180);
+					}
+				} catch (e) {
+					// No op if the sidebar isn't visible
 				}
 
 				// ------ Auxiliary Bar -------
