@@ -8,6 +8,7 @@ import { Code } from '../code';
 import { Workbench } from '../workbench';
 
 const FULL_APP = 'body';
+const CUSTOMIZE_LAYOUT_BUTTON_LABEL = 'Customize Layout';
 const AUX_BAR = '.part.auxiliarybar';
 const PANEL = '.part.panel';
 const SIDEBAR = '.part.sidebar';
@@ -35,6 +36,11 @@ export class PositronLayouts {
 	 * Locator for the entire IDE. This is the "body" of the root page.
 	 */
 	fullApp = this.code.driver.getLocator(FULL_APP);
+
+	/**
+	 * Button in upper right of IDE for customizing layout.
+	 */
+	customizeLayoutButton = this.fullApp.getByLabel(CUSTOMIZE_LAYOUT_BUTTON_LABEL);
 
 	/**
 	 * Locator for the panel part of the IDE.
