@@ -95,7 +95,7 @@ export function setup(logger: Logger) {
 						expect(projectFiles).toContain('renv');
 						expect(projectFiles).toContain('.Rprofile');
 						expect(projectFiles).toContain('renv.lock');
-					}).toPass();
+					}).toPass({timeout: 10000});
 					// Verify that renv output in the console confirms no issues occurred
 					await app.workbench.positronConsole.waitForConsoleContents((contents) =>
 						contents.some((line) => line.includes('renv activated'))
@@ -127,7 +127,7 @@ export function setup(logger: Logger) {
 						expect(projectFiles).toContain('renv');
 						expect(projectFiles).toContain('.Rprofile');
 						expect(projectFiles).toContain('renv.lock');
-					}).toPass();
+					}).toPass({timeout: 10000});
 					// Verify that renv output in the console confirms no issues occurred
 					await app.workbench.positronConsole.waitForConsoleContents((contents) =>
 						contents.some((line) => line.includes('renv activated'))
@@ -166,7 +166,7 @@ export function setup(logger: Logger) {
 						expect(projectFiles).not.toContain('renv');
 						expect(projectFiles).not.toContain('.Rprofile');
 						expect(projectFiles).not.toContain('renv.lock');
-					}).toPass();
+					}).toPass({timeout: 10000});
 				});
 			});
 		});
