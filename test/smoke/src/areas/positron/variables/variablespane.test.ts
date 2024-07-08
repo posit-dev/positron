@@ -27,7 +27,7 @@ export function setup(logger: Logger) {
 
 			it('Verifies Variables pane basic function with python interpreter [C628634]', async function () {
 				const app = this.app as Application;
-				await app.workbench.quickaccess.runCommand('workbench.action.fullSizedAuxiliaryBar');
+				await app.workbench.positronLayouts.enterLayout('fullSizedAuxBar');
 
 				const executeCode = async (code: string) => {
 					await app.workbench.positronConsole.executeCode('Python', code, '>>>');
@@ -62,7 +62,7 @@ export function setup(logger: Logger) {
 
 			it('Verifies Variables pane basic function with R interpreter [C628635]', async function () {
 				const app = this.app as Application;
-				await app.workbench.quickaccess.runCommand('workbench.action.fullSizedAuxiliaryBar');
+				await app.workbench.positronLayouts.enterLayout('fullSizedAuxBar');
 
 				const executeCode = async (code: string) => {
 					await app.workbench.positronConsole.executeCode('R', code, '>');
