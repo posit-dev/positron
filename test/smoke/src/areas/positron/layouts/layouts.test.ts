@@ -19,7 +19,7 @@ export function setup(logger: Logger) {
 
 		describe('Layouts appear in the customize layouts dropdown', () => {
 
-			it.only('Verify the stacked layout appears in the customize layouts dropdown', async function () {
+			it('Verify the stacked layout appears in the customize layouts dropdown', async function () {
 
 				const app = this.app as Application;
 				const layouts = app.workbench.positronLayouts;
