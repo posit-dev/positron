@@ -92,7 +92,7 @@ export class PositronLayouts {
 	 * @param layout Known layout to enter.
 	 */
 	async enterLayout(layout: keyof typeof positronLayoutPresets): Promise<void> {
-		await this.workbench.quickaccess.runCommand(positronLayoutPresets[layout]);
+		await this.workbench.quickaccess.runCommand(positronLayoutPresets[layout], { keepOpen: true });
 	}
 
 	/**

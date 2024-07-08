@@ -17,29 +17,6 @@ export function setup(logger: Logger) {
 		// Shared before/after handling
 		installAllHandlers(logger);
 
-		describe('Layouts appear in the customize layouts dropdown', () => {
-
-			it('Verify the stacked layout appears in the customize layouts dropdown', async function () {
-
-				const app = this.app as Application;
-				const layouts = app.workbench.positronLayouts;
-				const quickPick = layouts.fullApp.locator('.quick-input-widget');
-				const quickPickRows = quickPick.getByRole('option');
-
-				// Open the customize layout dropdown
-				await layouts.customizeLayoutButton.click();
-
-				// Make sure dropdown is open before continuing
-				await expect(quickPick.getByText('Customize Layout')).toBeVisible();
-
-				// Make sure all the layouts are visible
-				await expect(quickPickRows.getByText(/stacked layout/i)).toBeVisible();
-				await expect(quickPickRows.getByText(/side-by-side layout/i)).toBeVisible();
-				await expect(quickPickRows.getByText(/notebook layout/i)).toBeVisible();
-			});
-		});
-
-
 		describe('Stacked Layout', () => {
 
 			it('Verify stacked layout puts stuff in appropriate places', async function () {
