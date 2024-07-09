@@ -5,10 +5,10 @@
 
 import * as assert from 'assert';
 import * as vscode from 'vscode';
-import { CellManager, ExecuteCode } from '../cellManager';
+import { DocumentManager, ExecuteCode } from '../documentManager';
 import { closeAllEditors } from './utils';
 
-suite('CellManager', () => {
+suite('DocumentManager', () => {
 	teardown(closeAllEditors);
 
 	const language = 'python';
@@ -44,6 +44,12 @@ testing3`;
 		['Test the runCellsAbove command using the active selection', 'runCellsAbove', 5, ['testing1', 'testing2'], 5, true],
 		['Test the runCellsAbove command at the first cell', 'runCellsAbove', 1, [], 1, true],
 
+		// runCurrentAndBelow
+		['Test the runCurrentAndBelow command passing the line arg', 'runCurrentAndBelow', 1, ['testing1', 'testing2', 'testing3'], 0, false],
+		['Test the runCurrentAndBelow command using the active selection', 'runCurrentAndBelow', 1, ['testing1', 'testing2', 'testing3'], 1, true],
+		['Test the runCurrentAndBelow command on the last cell', 'runCurrentAndBelow', 4, ['testing3'], 4, true],
+
+
 		// runCellsBelow
 		['Test the runCellsBelow command passing the line arg', 'runCellsBelow', 1, ['testing2', 'testing3'], 0, false],
 		['Test the runCellsBelow command using the active selection', 'runCellsBelow', 1, ['testing2', 'testing3'], 1, true],
@@ -64,7 +70,7 @@ testing3`;
 	];
 	cellTests.forEach(([title, command, line, expectedCode, expectedLine, useSelection]) => {
 		test(title, async () => {
-			const cellManager = await createCellManager(language, content);
+			const DocumentManager = await createDocumentManager(language, content);
 
 			let lineArg: number | undefined;
 			if (useSelection) {
@@ -73,10 +79,10 @@ testing3`;
 				lineArg = line;
 			}
 
-			const runCellCommand = getCellCommand(cellManager, command);
+			const runCellCommand = getCellCommand(DocumentManager, command);
 			await runCellCommand(lineArg);
 
-			assertExecutedCodeEqual(cellManager.executedCode, language, expectedCode);
+			assertExecutedCodeEqual(DocumentManager.executedCode, language, expectedCode);
 			assertActiveEditorSelectionEqual(expectedLine, 0);
 		});
 	});
@@ -88,7 +94,7 @@ testing3`;
 	insertCellTests.forEach(([title, useSelection]) => {
 		test(title, async () => {
 			const line = 2;
-			const cellManager = await createCellManager(language, content);
+			const DocumentManager = await createDocumentManager(language, content);
 
 			let lineArg: number | undefined;
 			if (useSelection) {
@@ -97,9 +103,9 @@ testing3`;
 				lineArg = line;
 			}
 
-			await cellManager.insertCodeCell(lineArg);
+			await DocumentManager.insertCodeCell(lineArg);
 
-			assertExecutedCodeEqual(cellManager.executedCode, language, []);
+			assertExecutedCodeEqual(DocumentManager.executedCode, language, []);
 			assertActiveEditorSelectionEqual(5, 0);
 			assertActiveEditorTextEqual(`#%%
 testing1
@@ -118,25 +124,26 @@ interface ExecuteCodeResult {
 	code: string;
 }
 
-class TestCellManager extends CellManager {
+class TestDocumentManager extends DocumentManager {
 	executedCode: ExecuteCodeResult[];
 
 	constructor(
-		editor: vscode.TextEditor,
+		document: vscode.TextDocument,
 	) {
 		const executedCode: ExecuteCodeResult[] = [];
 		const executeCode: ExecuteCode = async (language, code) => { executedCode.push({ language, code }); };
 
-		super(editor, executeCode);
+		super(document, executeCode);
 		this.executedCode = executedCode;
 	}
 }
 
-async function createCellManager(language: string, content: string): Promise<TestCellManager> {
+async function createDocumentManager(language: string, content: string): Promise<TestDocumentManager> {
 	const document = await vscode.workspace.openTextDocument({ language, content });
-	const editor = await vscode.window.showTextDocument(document);
-	const cellManager = new TestCellManager(editor);
-	return cellManager;
+	await vscode.window.showTextDocument(document);
+	const DocumentManager = new TestDocumentManager(document);
+	DocumentManager.parseCells();
+	return DocumentManager;
 }
 
 function setSelectionLine(line: number) {
@@ -159,33 +166,36 @@ function assertActiveEditorTextEqual(expectedText: string) {
 	assert.strictEqual(editor.document.getText(), expectedText, 'Editor text is not at the expected value');
 }
 
-function getCellCommand(cellManager: CellManager, command: string): (line?: number) => any {
+function getCellCommand(DocumentManager: DocumentManager, command: string): (line?: number) => any {
 	if (command === 'runCurrentCell') {
-		return cellManager.runCurrentCell.bind(cellManager);
+		return DocumentManager.runCurrentCell.bind(DocumentManager);
+	}
+	if (command === 'runCurrentAndBelow') {
+		return DocumentManager.runCurrentAndBelow.bind(DocumentManager);
 	}
 	if (command === 'runCellsBelow') {
-		return cellManager.runCellsBelow.bind(cellManager);
+		return DocumentManager.runCellsBelow.bind(DocumentManager);
 	}
 	if (command === 'runCellsAbove') {
-		return cellManager.runCellsAbove.bind(cellManager);
+		return DocumentManager.runCellsAbove.bind(DocumentManager);
 	}
 	if (command === 'runCurrentAdvance') {
-		return cellManager.runCurrentAdvance.bind(cellManager);
+		return DocumentManager.runCurrentAdvance.bind(DocumentManager);
 	}
 	if (command === 'runPreviousCell') {
-		return cellManager.runPreviousCell.bind(cellManager);
+		return DocumentManager.runPreviousCell.bind(DocumentManager);
 	}
 	if (command === 'runNextCell') {
-		return cellManager.runNextCell.bind(cellManager);
+		return DocumentManager.runNextCell.bind(DocumentManager);
 	}
 	if (command === 'runAllCells') {
-		return cellManager.runAllCells.bind(cellManager);
+		return DocumentManager.runAllCells.bind(DocumentManager);
 	}
 	if (command === 'goToPreviousCell') {
-		return cellManager.goToPreviousCell.bind(cellManager);
+		return DocumentManager.goToPreviousCell.bind(DocumentManager);
 	}
 	if (command === 'goToNextCell') {
-		return cellManager.goToNextCell.bind(cellManager);
+		return DocumentManager.goToNextCell.bind(DocumentManager);
 	}
 	throw new Error(`Unknown cell command ${command}`);
 }

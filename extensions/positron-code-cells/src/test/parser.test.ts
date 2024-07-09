@@ -5,7 +5,7 @@
 
 import * as assert from 'assert';
 import * as vscode from 'vscode';
-import { Cell, CellDecorationSetting, CellType, getParser, parseCells } from '../parser';
+import { Cell, CellType, getParser, parseCells } from '../parser';
 import { closeAllEditors } from './utils';
 
 suite('Parsers', () => {
@@ -91,10 +91,6 @@ And a [link](target)`;
 		test('New cell', async () => {
 			assert.strictEqual(parser?.newCell(), '\n# %%\n');
 		});
-
-		test('Cell decoration setting', async () => {
-			assert.strictEqual(parser?.cellDecorationSetting(), CellDecorationSetting.Current);
-		});
 	});
 
 	suite('R Parser', () => {
@@ -151,10 +147,6 @@ And a [link](target)`;
 
 		test('New cell', async () => {
 			assert.strictEqual(parser?.newCell(), '\n#+\n');
-		});
-
-		test('Cell decoration setting', async () => {
-			assert.strictEqual(parser?.cellDecorationSetting(), CellDecorationSetting.Current);
 		});
 	});
 });

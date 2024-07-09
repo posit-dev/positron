@@ -4,8 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
-import { IGNORED_SCHEMES } from './extension';
-import { CellDecorationSetting, getParser, parseCells } from './parser';
+import { canHaveCells, getOrCreateDocumentManager } from './documentManager';
 
 export interface SetDecorations {
 	(
@@ -38,18 +37,17 @@ export function activateDecorations(
 
 	// Update the active editor's cell decorations.
 	function updateDecorations() {
-		if (!activeEditor || IGNORED_SCHEMES.includes(activeEditor.document.uri.scheme)) {
+		if (!activeEditor || !canHaveCells(activeEditor.document)) {
 			return;
 		}
-		const parser = getParser(activeEditor.document.languageId);
-		if (!parser) {
-			return;
-		}
+
+		const docManager = getOrCreateDocumentManager(activeEditor.document);
+		const cells = docManager.getCells();
 
 		// Get the relevant decoration ranges.
 		const activeCellRanges: vscode.Range[] = [];
 		const allCellRanges: vscode.Range[] = [];
-		for (const cell of parseCells(activeEditor.document)) {
+		for (const cell of cells) {
 			allCellRanges.push(cell.range);
 			if (cell.range.contains(activeEditor.selection.active)) {
 				activeCellRanges.push(cell.range);
@@ -57,14 +55,7 @@ export function activateDecorations(
 		}
 
 		// Set decorations depending on the language configuration.
-		switch (parser.cellDecorationSetting()) {
-			case CellDecorationSetting.Current:
-				setDecorations(activeEditor, cellDecorationType, activeCellRanges);
-				break;
-			case CellDecorationSetting.All:
-				setDecorations(activeEditor, cellDecorationType, allCellRanges);
-				break;
-		}
+		setDecorations(activeEditor, cellDecorationType, activeCellRanges);
 	}
 
 	// Trigger an update of the active editor's cell decorations, with optional throttling.

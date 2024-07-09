@@ -24,6 +24,7 @@ suite('Decorations', () => {
 	});
 
 	function assertCellDecorationRangesEqual(expected: vscode.Range[]): void {
+		console.log(`${decorations.get(cellDecorationType)}`);
 		assert.deepStrictEqual(decorations.get(cellDecorationType), expected, 'Cell decoration ranges are not equal');
 	}
 

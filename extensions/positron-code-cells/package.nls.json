@@ -9,6 +9,7 @@
 	"positron.codeCells.command.runCellsBelow.title": "Run Cells Below",
 	"positron.codeCells.command.runCurrentAdvance.title": "Run Cell and Advance",
 	"positron.codeCells.command.runCurrentCell.title": "Run Cell",
+	"positron.codeCells.command.runCurrenAndBelow.title": "Run Cell and Below",
 	"positron.codeCells.command.runNextCell.title": "Run Next Cell",
 	"positron.codeCells.command.runPreviousCell.title": "Run Previous Cell"
 }

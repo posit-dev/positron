@@ -44,6 +44,11 @@
         "category": "Positron"
       },
       {
+        "command": "positron.runCurrentAndBelow",
+        "title": "%positron.codeCells.command.runCurrentAndBelow.title%",
+        "category": "Positron"
+      },
+      {
         "command": "positron.runCurrentAdvance",
         "title": "%positron.codeCells.command.runCurrentAdvance.title%",
         "category": "Positron"
@@ -149,6 +154,10 @@
         },
         {
           "command": "positron.runCellsBelow",
+          "when": "positron.hasCodeCells"
+        },
+        {
+          "command": "positron.runCurrentAndBelow",
           "when": "positron.hasCodeCells"
         },
         {

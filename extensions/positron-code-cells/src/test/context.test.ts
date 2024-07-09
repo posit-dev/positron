@@ -6,7 +6,7 @@
 import * as assert from 'assert';
 import * as vscode from 'vscode';
 import { ContextKey, contexts } from '../context';
-import { closeAllEditors } from './utils';
+import { closeAllEditors, delay } from './utils';
 
 suite('Context', () => {
 	setup(async () => {

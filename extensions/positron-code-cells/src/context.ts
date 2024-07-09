@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
-import { getParser, parseCells } from './parser';
+import { canHaveCells, getOrCreateDocumentManager } from './documentManager';
 
 export enum ContextKey {
 	SupportsCodeCells = 'positron.supportsCodeCells',
@@ -17,7 +17,7 @@ export const contexts: Map<ContextKey, boolean | undefined> = new Map([
 ]);
 
 function setSupportsCodeCellsContext(editor: vscode.TextEditor | undefined): void {
-	const value = editor && getParser(editor.document.languageId) !== undefined;
+	const value = editor && canHaveCells(editor.document);
 	contexts.set(ContextKey.SupportsCodeCells, value);
 	vscode.commands.executeCommand(
 		'setContext',
@@ -27,7 +27,12 @@ function setSupportsCodeCellsContext(editor: vscode.TextEditor | undefined): voi
 }
 
 function setHasCodeCellsContext(document: vscode.TextDocument | undefined): void {
-	const value = document && parseCells(document).length > 0;
+	let value = false;
+	if (document) {
+		if (canHaveCells(document)) {
+			value = document && getOrCreateDocumentManager(document).getCells().length > 0;
+		}
+	}
 	contexts.set(ContextKey.HasCodeCells, value);
 	vscode.commands.executeCommand(
 		'setContext',
