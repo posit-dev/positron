@@ -9,9 +9,9 @@ import { Application, Logger, PositronPythonFixtures, PositronRFixtures } from '
 import { installAllHandlers } from '../../../utils';
 import { readFileSync } from 'fs';
 import compareImages = require('resemblejs/compareImages');
-import { inspect } from 'util';
 import { ComparisonOptions } from 'resemblejs';
 import * as fs from 'fs';
+import { fail } from 'assert';
 
 /*
  * Plots test cases
@@ -83,12 +83,12 @@ plt.show()`;
 
 				const data = await compareImages(readFileSync(path.join('plots', 'pythonScatterplot.png'), ), buffer, options);
 
-				console.log(inspect(data, {showHidden: false, depth: null, colors: true}));
-
-				if (data.getBuffer) {
-					fs.writeFileSync(path.join(...diffPlotsPath, 'pythonScatterplotDiff.png'), data.getBuffer(false));
+				if (data.rawMisMatchPercentage > 15.0) {
+					if (data.getBuffer) {
+						fs.writeFileSync(path.join(...diffPlotsPath, 'pythonScatterplotDiff.png'), data.getBuffer(false));
+					}
+					fail(`Image comparison failed with mismatch percentage: ${data.rawMisMatchPercentage}`);
 				}
-
 				await app.workbench.positronPlots.clearPlots();
 
 				await app.workbench.positronPlots.waitForNoPlots();
@@ -106,7 +106,7 @@ plt.show()`;
 
 			});
 
-			it.only('R - Verifies basic plot functionality [C628633]', async function () {
+			it('R - Verifies basic plot functionality [C628633]', async function () {
 				const app = this.app as Application;
 
 				const script = `cars <- c(1, 3, 6, 4, 9)
@@ -121,10 +121,11 @@ title(main="Autos", col.main="red", font.main=4)`;
 
 				const data = await compareImages(readFileSync(path.join('plots', 'autos.png'), ), buffer, options);
 
-				console.log(inspect(data, {showHidden: false, depth: null, colors: true}));
-
-				if (data.getBuffer) {
-					fs.writeFileSync(path.join(...diffPlotsPath, 'autosDiff.png'), data.getBuffer(false));
+				if (data.rawMisMatchPercentage > 15.0) {
+					if (data.getBuffer) {
+						fs.writeFileSync(path.join(...diffPlotsPath, 'autosDiff.png'), data.getBuffer(false));
+					}
+					fail(`Image comparison failed with mismatch percentage: ${data.rawMisMatchPercentage}`);
 				}
 
 				await app.workbench.positronPlots.clearPlots();
