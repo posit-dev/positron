@@ -1,4 +1,5 @@
 fastcore==1.5.29
+geopandas==1.0.1
 ipykernel==6.29.3
 ipywidgets==8.1.2
 matplotlib==3.8.2; python_version >= '3.9'
