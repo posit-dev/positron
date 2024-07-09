@@ -19,7 +19,7 @@ const rcedit = require('rcedit');
 const mkdirp = require('mkdirp');
 
 const repoPath = path.dirname(__dirname);
-const buildPath = (/** @type {string} */ arch) => path.join(path.dirname(repoPath), `VSCode-win32-${arch}`);
+const buildPath = (/** @type {string} */ arch) => path.join(path.dirname(repoPath), `p${arch}`);
 const setupDir = (/** @type {string} */ arch, /** @type {string} */ target) => path.join(repoPath, '.build', `win32-${arch}`, `${target}-setup`);
 // --- Start Positron ---
 const issPath = path.join(__dirname, 'win32', 'positron.iss');
