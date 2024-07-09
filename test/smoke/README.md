@@ -132,7 +132,7 @@ The current commands for Python packages:
 curl https://raw.githubusercontent.com/posit-dev/qa-example-content/main/requirements.txt --output requirements.txt
 python -m pip install --upgrade pip
 python -m pip install -r requirements.txt
-python -m pip install matplotlib ipykernel
+python -m pip install matplotlib ipykernel trcli graphviz
 ```
 
 The current commands for R packages:
@@ -141,6 +141,12 @@ The current commands for R packages:
 curl https://raw.githubusercontent.com/posit-dev/qa-example-content/main/DESCRIPTION --output DESCRIPTION
 Rscript -e "pak::local_install_dev_deps(ask = FALSE)"
 ```
+
+Graphviz is external software that has a Python package to render graphs. Install for your OS:
+* **Debian/Ubuntu** - `apt install graphviz`
+* **Fedora** - `dnf install graphviz`
+* **Windows** - `choco install graphviz`
+* **Mac** - `brew install graphviz`
 
 ## Build step
 
