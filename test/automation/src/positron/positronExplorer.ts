@@ -9,6 +9,7 @@ import { Code } from '../code';
 import { PositronTextElement } from './positronBaseElement';
 
 const POSITRON_EXPLORER_PROJECT_TITLE = 'div[id="workbench.view.explorer"] h3.title';
+const POSITRON_EXPLORER_PROJECT_FILES = 'div[id="workbench.view.explorer"] span[class="monaco-highlighted-label"]';
 
 
 /*
@@ -17,10 +18,21 @@ const POSITRON_EXPLORER_PROJECT_TITLE = 'div[id="workbench.view.explorer"] h3.ti
 export class PositronExplorer {
 	explorerProjectTitle: PositronTextElement;
 
-
 	constructor(private code: Code) {
 		this.explorerProjectTitle = new PositronTextElement(POSITRON_EXPLORER_PROJECT_TITLE, this.code);
-
 	}
 
+	/**
+	 * Constructs a string array of the top-level project files/directories in the explorer.
+	 * @returns Promise<string[]> Array of strings representing the top-level project files/directories in the explorer.
+	 */
+	async getExplorerProjectFiles() {
+		const explorerProjectFiles = this.code.driver.getLocator(POSITRON_EXPLORER_PROJECT_FILES);
+		const filesList = await explorerProjectFiles.all();
+		const fileNames = filesList.map(async file => {
+			const fileText = await file.textContent();
+			return fileText || '';
+		});
+		return await Promise.all(fileNames);
+	}
 }
