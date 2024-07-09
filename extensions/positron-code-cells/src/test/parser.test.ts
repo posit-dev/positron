@@ -146,7 +146,7 @@ And a [link](target)`;
 		});
 
 		test('New cell', async () => {
-			assert.strictEqual(parser?.newCell(), '\n#+\n');
+			assert.strictEqual(parser?.newCell(), '\n# %%\n');
 		});
 	});
 });
