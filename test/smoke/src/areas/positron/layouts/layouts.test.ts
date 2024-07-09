@@ -24,6 +24,8 @@ export function setup(logger: Logger) {
 				const app = this.app as Application;
 				const layouts = app.workbench.positronLayouts;
 
+				app.code.driver.setViewportSize({ width: 1400, height: 1000 });
+
 				// Enter layout with help pane docked in session panel
 				await layouts.enterLayout('stacked');
 
