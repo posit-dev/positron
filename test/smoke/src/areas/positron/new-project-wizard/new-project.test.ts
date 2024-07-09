@@ -36,7 +36,7 @@ export function setup(logger: Logger) {
 
 	});
 
-	describe('New Project Wizard', () => {
+	describe.only('New Project Wizard', () => {
 		// Shared before/after handling
 		installAllHandlers(logger);
 
@@ -65,9 +65,7 @@ export function setup(logger: Logger) {
 					await app.workbench.positronNewProjectWizard.startNewProject();
 					await app.workbench.positronNewProjectWizard.newRProjectButton.click();
 					await app.workbench.positronNewProjectWizard.projectWizardNextButton.click();
-					await app.workbench.positronNewProjectWizard.projectWizardProjectNameInput
-						.getPage()
-						.keyboard.insertText(projSuffix);
+					await app.workbench.positronNewProjectWizard.appendToProjectName(projSuffix);
 					await app.workbench.positronNewProjectWizard.projectWizardNextButton.click();
 					await app.workbench.positronNewProjectWizard.projectWizardDisabledCreateButton.isNotVisible(500); // May need to pass in a retry count > default of 200
 					// Select the renv checkbox
@@ -114,9 +112,7 @@ export function setup(logger: Logger) {
 					await app.workbench.positronNewProjectWizard.startNewProject();
 					await app.workbench.positronNewProjectWizard.newRProjectButton.click();
 					await app.workbench.positronNewProjectWizard.projectWizardNextButton.click();
-					await app.workbench.positronNewProjectWizard.projectWizardProjectNameInput
-						.getPage()
-						.keyboard.insertText(projSuffix);
+					await app.workbench.positronNewProjectWizard.appendToProjectName(projSuffix);
 					await app.workbench.positronNewProjectWizard.projectWizardNextButton.click();
 					await app.workbench.positronNewProjectWizard.projectWizardDisabledCreateButton.isNotVisible(500); // May need to pass in a retry count > default of 200
 					// Select the renv checkbox
@@ -151,9 +147,7 @@ export function setup(logger: Logger) {
 					await app.workbench.positronNewProjectWizard.startNewProject();
 					await app.workbench.positronNewProjectWizard.newRProjectButton.click();
 					await app.workbench.positronNewProjectWizard.projectWizardNextButton.click();
-					await app.workbench.positronNewProjectWizard.projectWizardProjectNameInput
-						.getPage()
-						.keyboard.insertText(projSuffix);
+					await app.workbench.positronNewProjectWizard.appendToProjectName(projSuffix);
 					await app.workbench.positronNewProjectWizard.projectWizardNextButton.click();
 					await app.workbench.positronNewProjectWizard.projectWizardDisabledCreateButton.isNotVisible(500); // May need to pass in a retry count > default of 200
 					// Select the renv checkbox

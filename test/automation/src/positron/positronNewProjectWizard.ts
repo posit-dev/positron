@@ -50,4 +50,9 @@ export class PositronNewProjectWizard {
 	async startNewProject() {
 		await this.quickaccess.runCommand('positron.workbench.action.newProject', { keepOpen: false });
 	}
+
+	async appendToProjectName(text: string) {
+		await this.code.waitForActiveElement(PROJECT_WIZARD_PROJECT_NAME_INPUT);
+		await this.projectWizardProjectNameInput.getPage().keyboard.type(text);
+	}
 }
