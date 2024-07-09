@@ -79,16 +79,21 @@ export function setup(logger: Logger) {
 					);
 					// Interact with the modal to install renv
 					await app.workbench.positronPopups.installRenv();
-					// If the test is running on Windows, we need to interact with the Console to
-					// allow the renv installation to complete. For some reason, we don't need to do
-					// this on Mac or Linux.
-					if (process.platform === 'win32') {
-						await app.workbench.positronConsole.waitForConsoleContents((contents) =>
-							contents.some((line) => line.includes('Do you want to proceed?'))
-						);
-						await app.workbench.positronConsole.typeToConsole('y');
-						await app.workbench.positronConsole.sendEnterKey();
-					}
+
+					// If the test is running on Windows, we may need to interact with the
+					// Console to allow the renv installation to complete. It doesn't always happen,
+					// so for now this code is commented out. We've seen it once, but not again:
+					// https://github.com/posit-dev/positron/pull/3881#issuecomment-2211123610.
+					// For some reason, we don't need to do this on Mac or Linux -- or at least we
+					// haven't seen it yet!
+					// if (process.platform === 'win32') {
+					// 	await app.workbench.positronConsole.waitForConsoleContents((contents) =>
+					// 		contents.some((line) => line.includes('Do you want to proceed?'))
+					// 	);
+					// 	await app.workbench.positronConsole.typeToConsole('y');
+					// 	await app.workbench.positronConsole.sendEnterKey();
+					// }
+
 					// Verify renv files are present
 					expect(async () => {
 						const projectFiles = await app.workbench.positronExplorer.getExplorerProjectFiles();
