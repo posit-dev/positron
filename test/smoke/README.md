@@ -142,6 +142,10 @@ curl https://raw.githubusercontent.com/posit-dev/qa-example-content/main/DESCRIP
 Rscript -e "pak::local_install_dev_deps(ask = FALSE)"
 ```
 
+## Environment Setup - Resemblejs dependency
+
+Make sure that you have followed the [Machine Setup](https://connect.posit.it/positron-wiki/machine-setup.html) instructions so that you can be sure you are set up to build resemblejs (which depends on node-canvas).
+
 ## Build step
 
 The tests are written in typescript, but unlike the main Positron typescript, the files are not transpiled by the build daemons. So when running tests you'll need to navigate into the smoke tests location and run the build watcher:
