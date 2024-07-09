@@ -79,6 +79,12 @@ plt.show()`;
 				await app.workbench.positronConsole.executeCode('Python', script, '>>>');
 
 				await app.workbench.positronPlots.waitForCurrentPlot();
+
+				// capture master image in CI
+				await app.code.driver.getLocator('.plot-instance .image-wrapper img').screenshot({ path: path.join(...diffPlotsPath, 'pythonScatterplot.png') });
+
+				console.log(process.env.GITHUB_ACTIONS === "true");
+
 				const buffer = await app.workbench.positronPlots.getCurrentPlotAsBuffer();
 
 				const data = await compareImages(readFileSync(path.join('plots', 'pythonScatterplot.png'), ), buffer, options);
@@ -117,6 +123,12 @@ title(main="Autos", col.main="red", font.main=4)`;
 				await app.workbench.positronConsole.executeCode('R', script, '>');
 
 				await app.workbench.positronPlots.waitForCurrentPlot();
+
+				// capture master image in CI
+				await app.code.driver.getLocator('.plot-instance .image-wrapper img').screenshot({ path: path.join(...diffPlotsPath, 'autos.png') });
+
+				console.log(process.env.GITHUB_ACTIONS === "true");
+
 				const buffer = await app.workbench.positronPlots.getCurrentPlotAsBuffer();
 
 				const data = await compareImages(readFileSync(path.join('plots', 'autos.png'), ), buffer, options);
