@@ -10,6 +10,7 @@ import { ILocalizedString } from 'vs/platform/action/common/action';
 import { ContextKeyExpr } from 'vs/platform/contextkey/common/contextkey';
 import { Action2, registerAction2 } from 'vs/platform/actions/common/actions';
 import { PositronDataExplorerFocused } from 'vs/workbench/common/contextkeys';
+import { IsDevelopmentContext } from 'vs/platform/contextkey/common/contextkeys';
 import { ServicesAccessor } from 'vs/platform/instantiation/common/instantiation';
 import { IEditorService } from 'vs/workbench/services/editor/common/editorService';
 import { KeybindingWeight } from 'vs/platform/keybinding/common/keybindingsRegistry';
@@ -39,6 +40,7 @@ const category: ILocalizedString = {
  */
 export const enum PositronDataExplorerCommandId {
 	CopyAction = 'workbench.action.positronDataExplorer.copy',
+	CopyTableDataAction = 'workbench.action.positronDataExplorer.copyTableData',
 }
 
 /**
@@ -113,7 +115,7 @@ class PositronDataExplorerCopyAction extends Action2 {
 			// Notify the user.
 			notificationService.notify({
 				severity: Severity.Error,
-				message: localize('positron.dataExplorer.noActiveEditor', "Cannot copy. A Positron Data Explorer is not active."),
+				message: localize('positron.dataExplorer.copy.noActiveEditor', "Cannot copy. A Positron Data Explorer is not active."),
 				sticky: false
 			});
 		};
@@ -144,8 +146,86 @@ class PositronDataExplorerCopyAction extends Action2 {
 			return;
 		}
 
-		// Copy to the clipboard.
+		// Copy the selection or cursor cell to the clipboard.
 		await positronDataExplorerInstance.copyToClipboard();
+	}
+}
+
+/**
+ * PositronDataExplorerCopyTableDataAction action.
+ */
+class PositronDataExplorerCopyTableDataAction extends Action2 {
+	constructor() {
+		super({
+			id: PositronDataExplorerCommandId.CopyTableDataAction,
+			title: {
+				value: localize('positronDataExplorer.copyTableData', 'Copy Table Data'),
+				original: 'Copy Table Data'
+			},
+			category,
+			f1: true,
+			precondition: ContextKeyExpr.and(
+				POSITRON_DATA_EXPLORER_IS_ACTIVE_EDITOR,
+				IsDevelopmentContext
+			)
+		});
+	}
+
+	/**
+	 * Runs the action.
+	 * @param accessor The services accessor.
+	 */
+	async run(accessor: ServicesAccessor): Promise<void> {
+		// Access the services we need.
+		const editorService = accessor.get(IEditorService);
+		const notificationService = accessor.get(INotificationService);
+		const positronDataExplorerService = accessor.get(IPositronDataExplorerService);
+
+		// Get the Positron data explorer editor.
+		const positronDataExplorerEditor = getPositronDataExplorerEditorFromEditorPane(
+			editorService.activeEditorPane
+		);
+
+		/**
+		 * Notifies the user that copy operation failed.
+		 */
+		const notifyUserThatCopyFailed = () => {
+			// Notify the user.
+			notificationService.notify({
+				severity: Severity.Error,
+				message: localize('positron.dataExplorer.copyTableData.noActiveEditor', "Cannot copy table data. A Positron Data Explorer is not active."),
+				sticky: false
+			});
+		};
+
+		// Make sure that the Positron data explorer editor was returned.
+		if (!positronDataExplorerEditor) {
+			notifyUserThatCopyFailed();
+			return;
+		}
+
+		// Get the identifier.
+		const identifier = positronDataExplorerEditor.identifier;
+
+		// Make sure the identifier was returned.
+		if (!identifier) {
+			notifyUserThatCopyFailed();
+			return;
+		}
+
+		// Get the Positron data explorer instance.
+		const positronDataExplorerInstance = positronDataExplorerService.getInstance(
+			identifier
+		);
+
+		// Make sure the Positron data explorer instance was returned.
+		if (!positronDataExplorerInstance) {
+			notifyUserThatCopyFailed();
+			return;
+		}
+
+		// Copy the table data to the clipboard.
+		await positronDataExplorerInstance.copyTableDataToClipboard();
 	}
 }
 
@@ -154,4 +234,5 @@ class PositronDataExplorerCopyAction extends Action2 {
  */
 export function registerPositronDataExplorerActions() {
 	registerAction2(PositronDataExplorerCopyAction);
+	registerAction2(PositronDataExplorerCopyTableDataAction);
 }
