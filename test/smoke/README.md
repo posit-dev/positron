@@ -217,4 +217,16 @@ When a run is complete, you can debug any test failures that occurred using the 
 
 Playwright traces can be drag and dropped to the [Trace Viewer](https://trace.playwright.dev/).  The trace will usually give you a good visualization of the failed test, but they can be sparse on details.  More details are available from the run log (smoke-test-runner.log).  It has a start and end marker for each test case.
 
+## Notes About Updating Specific Tests
+
+### Plot Tests That Use Resemblejs
+
+In order to get the "golden screenshots" used for comparison is CI, you will need to temporarily add a line of code like:
+
+```
+await app.code.driver.getLocator('.plot-instance .image-wrapper img').screenshot({ path: 'screenshot.png' });
+```
+
+(Pass the locator to the area you want screenshot to getLocator and call screenshot on the returned locator with a filename parameter.  This will create a local file that you can rename and move to /test/smoke/plots to use in your test to compare against the same locator.)
+
 <!-- End Positron -->
