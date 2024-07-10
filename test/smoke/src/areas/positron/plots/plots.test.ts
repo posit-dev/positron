@@ -181,7 +181,7 @@ plt.show()`;
 				await app.workbench.positronPlots.waitForNoPlots();
 			});
 
-			it('Python - Verifies saving a Python plot', async function () {
+			it('Python - Verifies saving a Python plot [C557005]', async function () {
 				const app = this.app as Application;
 
 				// modified snippet from https://www.geeksforgeeks.org/python-pandas-dataframe/
@@ -259,7 +259,7 @@ title(main="Autos", col.main="red", font.main=4)`;
 				await app.workbench.positronPlots.waitForNoPlots();
 			});
 
-			it('R - Verifies saving an R plot', async function () {
+			it('R - Verifies saving an R plot [C557006]', async function () {
 				const app = this.app as Application;
 
 				const script = `cars <- c(1, 3, 6, 4, 9)
