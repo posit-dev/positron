@@ -17,7 +17,7 @@ export function setupDataExplorer100x100Test(logger: Logger) {
 	/**
 	 * Data Explorer 100x100.
 	 */
-	describe('Data Explorer 100x100', function () {
+	describe.only('Data Explorer 100x100', function () {
 		// Shared before/after handling.
 		installAllHandlers(logger);
 
