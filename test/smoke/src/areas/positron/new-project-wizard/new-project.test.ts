@@ -4,14 +4,14 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { expect } from '@playwright/test';
-import { Application, Logger } from '../../../../../automation';
+import { Application, Logger, PositronPythonFixtures } from '../../../../../automation';
 import { installAllHandlers } from '../../../utils';
 
 /*
  * New Project Wizard test cases
  */
 export function setup(logger: Logger) {
-	describe.only('New Project Wizard', () => {
+	describe('New Project Wizard', () => {
 		describe('Python - New Project Wizard', () => {
 			// Shared before/after handling
 			installAllHandlers(logger);
@@ -30,6 +30,79 @@ export function setup(logger: Logger) {
 				await pw.nextButton.click();
 				await pw.currentOrNewWindowSelectionModal.currentWindowButton.click();
 				await app.workbench.positronExplorer.explorerProjectTitle.waitForText('myPythonProject');
+			});
+			// Likely to not work well if multiple pythons are installed
+			describe.only('Python Project with existing interpreter', () => {
+				it('With ipykernel already installed [.......]', async function () {
+					const projSuffix = '_ipykernelInstalled';
+					const selectedPython = process.env.POSITRON_PY_VER_SEL!;
+					const app = this.app as Application;
+					const pw = app.workbench.positronNewProjectWizard;
+					const pythonFixtures = new PositronPythonFixtures(app);
+					// Start the Python interpreter and ensure ipykernel is installed
+					await pythonFixtures.startPythonInterpreter(true);
+					await pw.startNewProject();
+					await pw.projectTypeStep.pythonProjectButton.click();
+					await pw.nextButton.click();
+					await pw.projectNameLocationStep.appendToProjectName(projSuffix);
+					await pw.nextButton.click();
+					await pw.pythonConfigurationStep.existingEnvRadioButton.click();
+					try {
+						await pw.pythonConfigurationStep.selectedInterpreterTitle.waitForText(`Python ${selectedPython}`);
+					} catch (error) {
+						// Since we didn't see the expected interpreter, we'll need to interact with
+						// the dropdown to select the specific interpreter
+						await pw.pythonConfigurationStep.selectInterpreter(selectedPython);
+					}
+					await pw.pythonConfigurationStep.interpreterFeedback.isNotVisible();
+					await pw.disabledCreateButton.isNotVisible(500); // May need to pass in a retry count > default of 200
+					await pw.nextButton.click();
+					await pw.currentOrNewWindowSelectionModal.currentWindowButton.click();
+					await app.workbench.positronExplorer.explorerProjectTitle.waitForText(
+						`myPythonProject${projSuffix}`
+					);
+					// The console should initialize without any prompts to install ipykernel
+					await app.workbench.positronConsole.waitForReady('>>>');
+				});
+				it('With ipykernel not already installed [.......]', async function () {
+					const projSuffix = '_noIpykernel';
+					const selectedPython = process.env.POSITRON_PY_VER_SEL!;
+					const app = this.app as Application;
+					const pw = app.workbench.positronNewProjectWizard;
+					const pythonFixtures = new PositronPythonFixtures(app);
+					// Start the Python interpreter and uninstall ipykernel
+					await pythonFixtures.startPythonInterpreter();
+					await app.workbench.positronConsole.typeToConsole('pip uninstall -y ipykernel');
+					await app.workbench.positronConsole.sendEnterKey();
+					await app.workbench.positronConsole.waitForConsoleContents((contents) =>
+						contents.some((line) => line.includes('Successfully uninstalled ipykernel'))
+					);
+					// Create a project and select that same python version
+					await pw.startNewProject();
+					await pw.projectTypeStep.pythonProjectButton.click();
+					await pw.nextButton.click();
+					await pw.projectNameLocationStep.appendToProjectName(projSuffix);
+					await pw.nextButton.click();
+					// Choose the existing environment which does not have ipykernel
+					await pw.pythonConfigurationStep.existingEnvRadioButton.click();
+					try {
+						await pw.pythonConfigurationStep.selectedInterpreterTitle.waitForText(`Python ${selectedPython}`);
+					} catch (error) {
+						// Since we didn't see the expected interpreter, we'll need to interact with
+						// the dropdown to select the specific interpreter
+						await pw.pythonConfigurationStep.selectInterpreter(selectedPython);
+					}
+					await pw.pythonConfigurationStep.interpreterFeedback.waitForText('ipykernel will be installed for Python language support.');
+					await pw.disabledCreateButton.isNotVisible(500); // May need to pass in a retry count > default of 200
+					await pw.nextButton.click();
+					await pw.currentOrNewWindowSelectionModal.currentWindowButton.click();
+					await app.workbench.positronExplorer.explorerProjectTitle.waitForText(
+						`myPythonProject${projSuffix}`
+					);
+					// If ipykernel was successfully installed, the console should initialize without
+					// any prompts to install ipykernel
+					await app.workbench.positronConsole.waitForReady('>>>');
+				});
 			});
 		});
 
