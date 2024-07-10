@@ -54,4 +54,8 @@ export class PositronPlots {
 	async getCurrentPlotAsBuffer(): Promise<Buffer> {
 		return this.code.driver.getLocator(CURRENT_PLOT).screenshot();
 	}
+
+	async getCurrentStaticPlotAsBuffer(): Promise<Buffer> {
+		return this.code.driver.getLocator(CURRENT_STATIC_PLOT).screenshot();
+	}
 }

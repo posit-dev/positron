@@ -37,7 +37,9 @@ export function setup(logger: Logger) {
 		ignore: 'antialiasing',
 	};
 
-	describe('Plots', () => {
+	const githubActions = process.env.GITHUB_ACTIONS === "true";
+
+	describe.only('Plots', () => {
 
 		// Shared before/after handling
 		installAllHandlers(logger);
@@ -81,6 +83,20 @@ plt.show()`;
 
 				await app.workbench.positronPlots.waitForCurrentPlot();
 
+				// capture master image in CI
+				// await app.code.driver.getLocator('.plot-instance .image-wrapper img').screenshot({ path: path.join(...diffPlotsPath, 'pythonScatterplot.png') });
+
+				const buffer = await app.workbench.positronPlots.getCurrentPlotAsBuffer();
+
+				const data = await compareImages(readFileSync(path.join('plots', 'pythonScatterplot.png'), ), buffer, options);
+
+				if (githubActions && data.rawMisMatchPercentage > 2.0) {
+					if (data.getBuffer) {
+						fs.writeFileSync(path.join(...diffPlotsPath, 'pythonScatterplotDiff.png'), data.getBuffer(true));
+					}
+					fail(`Image comparison failed with mismatch percentage: ${data.rawMisMatchPercentage}`);
+				}
+
 				await app.workbench.positronPlots.clearPlots();
 
 				await app.workbench.positronPlots.waitForNoPlots();
@@ -109,6 +125,20 @@ IPython.display.display_png(h)`;
 				await app.workbench.positronConsole.executeCode('Python', script, '>>>');
 
 				await app.workbench.positronPlots.waitForCurrentStaticPlot();
+
+				// capture master image in CI
+				await app.code.driver.getLocator('.plot-instance.static-plot-instance img').screenshot({ path: path.join(...diffPlotsPath, 'graphviz.png') });
+
+				//const buffer = await app.workbench.positronPlots.getCurrentStaticPlotAsBuffer();
+
+				//const data = await compareImages(readFileSync(path.join('plots', 'autos.png'), ), buffer, options);
+
+				//if (githubActions && data.rawMisMatchPercentage > 2.0) {
+				//	if (data.getBuffer) {
+				//		fs.writeFileSync(path.join(...diffPlotsPath, 'autosDiff.png'), data.getBuffer(true));
+				//	}
+				//	fail(`Image comparison failed with mismatch percentage: ${data.rawMisMatchPercentage}`);
+				//}
 
 				await app.workbench.positronPlots.clearPlots();
 
@@ -200,21 +230,6 @@ plt.show()`;
 				await expect(app.workbench.positronPlots.previousPlotButton).not.toBeDisabled();
 				await expect(app.workbench.positronPlots.plotSizeButton).not.toBeDisabled();
 
-				// capture master image in CI
-				// await app.code.driver.getLocator('.plot-instance .image-wrapper img').screenshot({ path: path.join(...diffPlotsPath, 'pythonScatterplot.png') });
-
-				const githubActions = process.env.GITHUB_ACTIONS === "true";
-
-				const buffer = await app.workbench.positronPlots.getCurrentPlotAsBuffer();
-
-				const data = await compareImages(readFileSync(path.join('plots', 'pythonScatterplot.png'), ), buffer, options);
-
-				if (githubActions && data.rawMisMatchPercentage > 2.0) {
-					if (data.getBuffer) {
-						fs.writeFileSync(path.join(...diffPlotsPath, 'pythonScatterplotDiff.png'), data.getBuffer(true));
-					}
-					fail(`Image comparison failed with mismatch percentage: ${data.rawMisMatchPercentage}`);
-				}
 				await app.workbench.positronPlots.clearPlots();
 
 				await app.workbench.positronPlots.waitForNoPlots();
@@ -380,8 +395,6 @@ title(main="Autos", col.main="red", font.main=4)`;
 
 				// capture master image in CI
 				// await app.code.driver.getLocator('.plot-instance .image-wrapper img').screenshot({ path: path.join(...diffPlotsPath, 'autos.png') });
-
-				const githubActions = process.env.GITHUB_ACTIONS === "true";
 
 				const buffer = await app.workbench.positronPlots.getCurrentPlotAsBuffer();
 
