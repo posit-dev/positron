@@ -506,7 +506,13 @@ BUILD_TARGETS.forEach(buildTarget => {
 
 	const [vscode, vscodeMin] = ['', 'min'].map(minified => {
 		const sourceFolderName = `out-vscode${dashed(minified)}`;
-		const destinationFolderName = `p${arch}`;
+		let destinationFolderName = `VSCode${dashed(platform)}${dashed(arch)}`;
+		// --- Start Positron ---
+		if (platform === 'win32') {
+			// Use short folder names for Windows builds
+			destinationFolderName = `p${arch}`;
+		}
+		// --- End Positron ---
 
 		const tasks = [
 			util.rimraf(path.join(buildRoot, destinationFolderName)),
