@@ -76,4 +76,21 @@ export class PositronPopups {
 		const toastLocator = this.code.driver.getLocator(NOTIFICATION_TOAST);
 		await toastLocator.waitFor({ state: 'attached', timeout: 20000 });
 	}
+
+	async waitForModalDialogBox() {
+		await this.code.waitForElement(POSITRON_MODAL_DIALOG_BOX);
+	}
+
+	async clickOkOnModalDialogBox() {
+		await this.code.waitAndClick(POSITRON_MODAL_DIALOG_BOX_OK);
+	}
+
+	async clickCancelOnModalDialogBox() {
+		await this.code.waitAndClick(POSITRON_MODAL_DIALOG_BOX_CANCEL);
+	}
+
+	async clickOnModalDialogPopupOption(label: string) {
+		const el = this.code.driver.getLocator('.positron-modal-popup .positron-button .title').filter({ hasText: label });
+		await el.click();
+	}
 }

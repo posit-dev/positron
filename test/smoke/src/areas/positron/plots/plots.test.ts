@@ -180,6 +180,55 @@ plt.show()`;
 
 				await app.workbench.positronPlots.waitForNoPlots();
 			});
+
+			it('Python - Verifies saving a Python plot', async function () {
+				const app = this.app as Application;
+
+				// modified snippet from https://www.geeksforgeeks.org/python-pandas-dataframe/
+				const script = `import pandas as pd
+import matplotlib.pyplot as plt
+data_dict = {'name': ['p1', 'p2', 'p3', 'p4', 'p5', 'p6'],
+				'age': [20, 20, 21, 20, 21, 20],
+				'math_marks': [100, 90, 91, 98, 92, 95],
+				'physics_marks': [90, 100, 91, 92, 98, 95],
+				'chem_marks': [93, 89, 99, 92, 94, 92]
+				}
+
+df = pd.DataFrame(data_dict)
+
+df.plot(kind='scatter',
+		x='math_marks',
+		y='physics_marks',
+		color='red')
+
+plt.title('ScatterPlot')
+plt.show()`;
+
+				logger.log('Sending code to console');
+				await app.workbench.positronConsole.executeCode('Python', script, '>>>');
+
+				await app.workbench.positronPlots.waitForCurrentPlot();
+
+				// save again with a different name and file format
+				await app.workbench.positronPlots.savePlotButton.click();
+
+				await app.workbench.positronPopups.waitForModalDialogBox();
+
+				// fill in the file name and change file format to JPEG
+				await app.code.driver.getLocator('.positron-modal-dialog-box .file .text-input').fill('Python-scatter');
+				await app.code.driver.getLocator('.positron-modal-dialog-box .file .positron-button.drop-down-list-box').click();
+				await app.workbench.positronPopups.clickOnModalDialogPopupOption('JPEG');
+
+				// save the plot
+				await app.workbench.positronPopups.clickOkOnModalDialogBox();
+
+				// verify the plot is in the file explorer with the new file name and format
+				await app.workbench.positronExplorer.waitForProjectFileToAppear('Python-scatter.jpeg');
+
+				await app.workbench.positronPlots.clearPlots();
+
+				await app.workbench.positronPlots.waitForNoPlots();
+			});
 		});
 
 		describe('R Plots', () => {
@@ -204,6 +253,51 @@ title(main="Autos", col.main="red", font.main=4)`;
 				await app.workbench.positronConsole.executeCode('R', script, '>');
 
 				await app.workbench.positronPlots.waitForCurrentPlot();
+
+				await app.workbench.positronPlots.clearPlots();
+
+				await app.workbench.positronPlots.waitForNoPlots();
+			});
+
+			it('R - Verifies saving an R plot', async function () {
+				const app = this.app as Application;
+
+				const script = `cars <- c(1, 3, 6, 4, 9)
+plot(cars, type="o", col="blue")
+title(main="Autos", col.main="red", font.main=4)`;
+
+				logger.log('Sending code to console');
+				// create a plot
+				await app.workbench.positronConsole.executeCode('R', script, '>');
+
+				await app.workbench.positronPlots.waitForCurrentPlot();
+
+				// click save to bring up the modal save dialog
+				await app.workbench.positronPlots.savePlotButton.click();
+
+				await app.workbench.positronPopups.waitForModalDialogBox();
+
+				// save with defaults
+				await app.workbench.positronPopups.clickOkOnModalDialogBox();
+
+				// verify a plot is in the file explorer with the default file name
+				await app.workbench.positronExplorer.waitForProjectFileToAppear('plot.png');
+
+				// save again with a different name and file format
+				await app.workbench.positronPlots.savePlotButton.click();
+
+				await app.workbench.positronPopups.waitForModalDialogBox();
+
+				// fill in the file name and change file format to SVG
+				await app.code.driver.getLocator('.positron-modal-dialog-box .file .text-input').fill('R-cars');
+				await app.code.driver.getLocator('.positron-modal-dialog-box .file .positron-button.drop-down-list-box').click();
+				await app.workbench.positronPopups.clickOnModalDialogPopupOption('SVG');
+
+				// save the plot
+				await app.workbench.positronPopups.clickOkOnModalDialogBox();
+
+				// verify the plot is in the file explorer with the new file name and format
+				await app.workbench.positronExplorer.waitForProjectFileToAppear('R-cars.svg');
 
 				await app.workbench.positronPlots.clearPlots();
 
