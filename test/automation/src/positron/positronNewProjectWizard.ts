@@ -4,39 +4,16 @@
  *--------------------------------------------------------------------------------------------*/
 
 
+import { Locator } from '@playwright/test';
 import { Code } from '../code';
 import { QuickAccess } from '../quickaccess';
 import { PositronBaseElement, PositronTextElement } from './positronBaseElement';
 
-// Project Wizard General Modal Elements
-const PROJECT_WIZARD_CANCEL_BUTTON = 'div.right-actions > button.positron-button.button.action-bar-button[tabindex="0"][role="button"]';
-const PROJECT_WIZARD_NEXT_BUTTON = 'button.positron-button.button.action-bar-button.default[tabindex="0"][role="button"]';
-const PROJECT_WIZARD_BACK_BUTTON = 'div.left-actions > button.positron-button.button.action-bar-button[tabindex="0"][role="button"]';
-
-// Project Type Selection Step
-const PROJECT_WIZARD_NEW_PYTHON_PROJECT = '[id="Python Project"]';
-const PROJECT_WIZARD_NEW_R_PROJECT = '[id="R Project"]';
-const PROJECT_WIZARD_NEW_JUPYTER_PROJECT = '[id="Jupyter Notebook"]';
-
 // Project Name & Location Step
 const PROJECT_WIZARD_PROJECT_NAME_INPUT = 'div[id="wizard-sub-step-project-name"] .wizard-sub-step-input input.text-input';
 
-// Configuration Step: General
-const PROJECT_WIZARD_DISABLED_CREATE_BUTTON = 'button.positron-button.button.action-bar-button.default.disabled[tabindex="0"][disabled][role="button"][aria-disabled="true"]';
-
 // Configuration Step: Python Project & Jupyter Notebook
-const PROJECT_WIZARD_EXISTING_ENV_RADIO_BUTTON = 'div[id="wizard-step-set-up-python-environment"] div[id="wizard-sub-step-pythonenvironment-howtosetupenv"] .radio-button-input[id="existingEnvironment"]';
-const PROJECT_WIZARD_NEW_ENV_RADIO_BUTTON = 'div[id="wizard-step-set-up-python-environment"] div[id="wizard-sub-step-pythonenvironment-howtosetupenv"] radio-button-input.[id="newEnvironment"]';
-const PROJECT_WIZARD_INTERPRETER_DROPDOWN = 'div[id="wizard-sub-step-python-interpreter"] .wizard-sub-step-input button.drop-down-list-box';
-const PROJECT_WIZARD_INTERPRETER_DROPDOWN_SELECTED_TITLE = 'div[id="wizard-sub-step-python-interpreter"] .wizard-sub-step-input button.drop-down-list-box .dropdown-entry-title';
 const PROJECT_WIZARD_INTERPRETER_DROPDOWN_POPUP_ITEMS = 'div.positron-modal-popup-children button.positron-button.item';
-const PROJECT_WIZARD_PYTHON_INTERPRETER_FEEDBACK = 'div[id="wizard-sub-step-python-interpreter"] .wizard-sub-step-feedback .wizard-formatted-text';
-
-// Configuration Step: R Project
-const PROJECT_WIZARD_RENV_CHECKBOX = 'div.renv-configuration > div.checkbox';
-
-// Current or New Window Selection Modal
-const PROJECT_WIZARD_CURRENT_WINDOW_BUTTON = 'button.positron-button.button.action-bar-button[tabindex="0"][role="button"]';
 
 /*
  *  Reuseable Positron new project wizard functionality for tests to leverage.
@@ -60,10 +37,10 @@ export class PositronNewProjectWizard {
 		this.pythonConfigurationStep = new ProjectWizardPythonConfigurationStep(this.code);
 		this.currentOrNewWindowSelectionModal = new CurrentOrNewWindowSelectionModal(this.code);
 
-		this.cancelButton = new PositronBaseElement(PROJECT_WIZARD_CANCEL_BUTTON, this.code);
-		this.nextButton = new PositronBaseElement(PROJECT_WIZARD_NEXT_BUTTON, this.code);
-		this.backButton = new PositronBaseElement(PROJECT_WIZARD_BACK_BUTTON, this.code);
-		this.disabledCreateButton = new PositronBaseElement(PROJECT_WIZARD_DISABLED_CREATE_BUTTON, this.code);
+		this.cancelButton = new PositronBaseElement('div.right-actions > button.positron-button.button.action-bar-button[tabindex="0"][role="button"]', this.code);
+		this.nextButton = new PositronBaseElement('button.positron-button.button.action-bar-button.default[tabindex="0"][role="button"]', this.code);
+		this.backButton = new PositronBaseElement('div.left-actions > button.positron-button.button.action-bar-button[tabindex="0"][role="button"]', this.code);
+		this.disabledCreateButton = new PositronBaseElement('button.positron-button.button.action-bar-button.default.disabled[tabindex="0"][disabled][role="button"][aria-disabled="true"]', this.code);
 	}
 
 	async startNewProject() {
@@ -77,22 +54,22 @@ class ProjectWizardProjectTypeStep {
 	jupyterNotebookButton: PositronBaseElement;
 
 	constructor(private code: Code) {
-		this.pythonProjectButton = new PositronBaseElement(PROJECT_WIZARD_NEW_PYTHON_PROJECT, this.code);
-		this.rProjectButton = new PositronBaseElement(PROJECT_WIZARD_NEW_R_PROJECT, this.code);
-		this.jupyterNotebookButton = new PositronBaseElement(PROJECT_WIZARD_NEW_JUPYTER_PROJECT, this.code);
+		this.pythonProjectButton = new PositronBaseElement('[id="Python Project"]', this.code);
+		this.rProjectButton = new PositronBaseElement('[id="R Project"]', this.code);
+		this.jupyterNotebookButton = new PositronBaseElement('[id="Jupyter Notebook"]', this.code);
 	}
 }
 
 class ProjectWizardProjectNameLocationStep {
-	projectNameInput: PositronBaseElement;
+	projectNameInput: Locator;
 
 	constructor(private code: Code) {
-		this.projectNameInput = new PositronBaseElement(PROJECT_WIZARD_PROJECT_NAME_INPUT, this.code);
+		this.projectNameInput = this.code.driver.getLocator(PROJECT_WIZARD_PROJECT_NAME_INPUT);
 	}
 
 	async appendToProjectName(text: string) {
 		await this.code.waitForActiveElement(PROJECT_WIZARD_PROJECT_NAME_INPUT);
-		await this.projectNameInput.getPage().keyboard.type(text);
+		await this.projectNameInput.page().keyboard.type(text);
 	}
 }
 
@@ -100,7 +77,7 @@ class ProjectWizardRConfigurationStep {
 	renvCheckbox: PositronBaseElement;
 
 	constructor(private code: Code) {
-		this.renvCheckbox = new PositronBaseElement(PROJECT_WIZARD_RENV_CHECKBOX, this.code);
+		this.renvCheckbox = new PositronBaseElement('div.renv-configuration > div.checkbox', this.code);
 	}
 }
 
@@ -109,16 +86,18 @@ class ProjectWizardPythonConfigurationStep {
 	existingEnvRadioButton: PositronBaseElement;
 	selectedInterpreterTitle: PositronTextElement;
 	interpreterFeedback: PositronTextElement;
+	interpreterDropdown: Locator;
 
 	constructor(private code: Code) {
-		this.newEnvRadioButton = new PositronBaseElement(PROJECT_WIZARD_NEW_ENV_RADIO_BUTTON, this.code);
-		this.existingEnvRadioButton = new PositronBaseElement(PROJECT_WIZARD_EXISTING_ENV_RADIO_BUTTON, this.code);
-		this.selectedInterpreterTitle = new PositronTextElement(PROJECT_WIZARD_INTERPRETER_DROPDOWN_SELECTED_TITLE, this.code);
-		this.interpreterFeedback = new PositronTextElement(PROJECT_WIZARD_PYTHON_INTERPRETER_FEEDBACK, this.code);
+		this.newEnvRadioButton = new PositronBaseElement('div[id="wizard-step-set-up-python-environment"] div[id="wizard-sub-step-pythonenvironment-howtosetupenv"] radio-button-input.[id="newEnvironment"]', this.code);
+		this.existingEnvRadioButton = new PositronBaseElement('div[id="wizard-step-set-up-python-environment"] div[id="wizard-sub-step-pythonenvironment-howtosetupenv"] .radio-button-input[id="existingEnvironment"]', this.code);
+		this.selectedInterpreterTitle = new PositronTextElement('div[id="wizard-sub-step-python-interpreter"] .wizard-sub-step-input button.drop-down-list-box .dropdown-entry-title', this.code);
+		this.interpreterFeedback = new PositronTextElement('div[id="wizard-sub-step-python-interpreter"] .wizard-sub-step-feedback .wizard-formatted-text', this.code);
+		this.interpreterDropdown = this.code.driver.getLocator('div[id="wizard-sub-step-python-interpreter"] .wizard-sub-step-input button.drop-down-list-box');
 	}
 
 	async selectInterpreter(version: string) {
-		await this.code.driver.getLocator(PROJECT_WIZARD_INTERPRETER_DROPDOWN).click();
+		await this.interpreterDropdown.click();
 		await this.code.waitForElement(PROJECT_WIZARD_INTERPRETER_DROPDOWN_POPUP_ITEMS);
 		await this.code.driver.getLocator(`${PROJECT_WIZARD_INTERPRETER_DROPDOWN_POPUP_ITEMS} div.dropdown-entry:has-text("${version}")`).click();
 	}
@@ -128,6 +107,6 @@ class CurrentOrNewWindowSelectionModal {
 	currentWindowButton: PositronBaseElement;
 
 	constructor(private code: Code) {
-		this.currentWindowButton = new PositronBaseElement(PROJECT_WIZARD_CURRENT_WINDOW_BUTTON, this.code);
+		this.currentWindowButton = new PositronBaseElement('button.positron-button.button.action-bar-button[tabindex="0"][role="button"]', this.code);
 	}
 }
