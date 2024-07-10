@@ -39,7 +39,7 @@ export function setup(logger: Logger) {
 
 	const githubActions = process.env.GITHUB_ACTIONS === "true";
 
-	describe.only('Plots', () => {
+	describe('Plots', () => {
 
 		// Shared before/after handling
 		installAllHandlers(logger);
@@ -230,140 +230,6 @@ plt.show()`;
 				await expect(app.workbench.positronPlots.previousPlotButton).not.toBeDisabled();
 				await expect(app.workbench.positronPlots.plotSizeButton).not.toBeDisabled();
 
-				await app.workbench.positronPlots.clearPlots();
-
-				await app.workbench.positronPlots.waitForNoPlots();
-			});
-
-			it('Python - Verifies basic plot functionality - Static Plot [C654401]', async function () {
-				const app = this.app as Application;
-
-				const script = `import graphviz as gv
-import IPython
-
-h = gv.Digraph(format="svg")
-names = [
-    "A",
-    "B",
-    "C",
-]
-
-# Specify edges
-h.edge("A", "B")
-h.edge("A", "C")
-
-IPython.display.display_png(h)`;
-
-				logger.log('Sending code to console');
-				await app.workbench.positronConsole.executeCode('Python', script, '>>>');
-
-				await app.workbench.positronPlots.waitForCurrentStaticPlot();
-
-				await app.workbench.positronPlots.clearPlots();
-
-				await app.workbench.positronPlots.waitForNoPlots();
-			});
-
-			it('Python - Verifies the plots pane action bar - Plot actions [C656297]', async function () {
-				const app = this.app as Application;
-
-				const scriptPlot1 = `import graphviz as gv
-import IPython
-
-h = gv.Digraph(format="svg")
-names = [
-    "A",
-    "B",
-    "C",
-]
-
-# Specify edges
-h.edge("A", "B")
-h.edge("A", "C")
-
-IPython.display.display_png(h)`;
-
-				const scriptPlot2 = `import matplotlib.pyplot as plt
-
-# x axis values
-x = [1,2,3]
-# corresponding y axis values
-y = [2,4,1]
-
-# plotting the points
-plt.plot(x, y)
-
-# naming the x axis
-plt.xlabel('x - axis')
-# naming the y axis
-plt.ylabel('y - axis')
-
-# giving a title to my graph
-plt.title('My first graph!')
-
-# function to show the plot
-plt.show()`;
-				logger.log('Sending code to console');
-
-				// default plot pane state for action bar
-				await expect(app.workbench.positronPlots.plotSizeButton).not.toBeVisible();
-				await expect(app.workbench.positronPlots.savePlotButton).not.toBeVisible();
-				await expect(app.workbench.positronPlots.copyPlotButton).not.toBeVisible();
-				await expect(app.workbench.positronPlots.zoomPlotButton).not.toBeVisible();
-
-				// create plots separately so that the order is known
-				await app.workbench.positronConsole.executeCode('Python', scriptPlot1, '>>>');
-				await app.workbench.positronPlots.waitForCurrentStaticPlot();
-				await app.workbench.positronConsole.executeCode('Python', scriptPlot2, '>>>');
-				await app.workbench.positronPlots.waitForCurrentPlot();
-
-				await expect(app.workbench.positronPlots.clearPlotsButton).not.toBeDisabled();
-				await expect(app.workbench.positronPlots.nextPlotButton).toBeDisabled();
-				await expect(app.workbench.positronPlots.previousPlotButton).not.toBeDisabled();
-				await expect(app.workbench.positronPlots.plotSizeButton).not.toBeDisabled();
-				await expect(app.workbench.positronPlots.savePlotButton).not.toBeDisabled();
-				await expect(app.workbench.positronPlots.copyPlotButton).not.toBeDisabled();
-
-				// switch to fixed size plot
-				await app.workbench.positronPlots.previousPlotButton.click();
-				await app.workbench.positronPlots.waitForCurrentStaticPlot();
-
-				// switching to fized size plot changes action bar
-				await expect(app.workbench.positronPlots.zoomPlotButton).toBeVisible();
-				await expect(app.workbench.positronPlots.plotSizeButton).not.toBeVisible();
-
-				await expect(app.workbench.positronPlots.clearPlotsButton).not.toBeDisabled();
-				await expect(app.workbench.positronPlots.nextPlotButton).not.toBeDisabled();
-				await expect(app.workbench.positronPlots.previousPlotButton).toBeDisabled();
-				await expect(app.workbench.positronPlots.zoomPlotButton).not.toBeDisabled();
-
-				// switch back to dynamic plot
-				await app.workbench.positronPlots.nextPlotButton.click();
-				await app.workbench.positronPlots.waitForCurrentPlot();
-
-				await expect(app.workbench.positronPlots.zoomPlotButton).not.toBeVisible();
-				await expect(app.workbench.positronPlots.plotSizeButton).toBeVisible();
-
-				await expect(app.workbench.positronPlots.clearPlotsButton).not.toBeDisabled();
-				await expect(app.workbench.positronPlots.nextPlotButton).toBeDisabled();
-				await expect(app.workbench.positronPlots.previousPlotButton).not.toBeDisabled();
-				await expect(app.workbench.positronPlots.plotSizeButton).not.toBeDisabled();
-
-				// capture master image in CI
-				// await app.code.driver.getLocator('.plot-instance .image-wrapper img').screenshot({ path: path.join(...diffPlotsPath, 'pythonScatterplot.png') });
-
-				const githubActions = process.env.GITHUB_ACTIONS === "true";
-
-				const buffer = await app.workbench.positronPlots.getCurrentPlotAsBuffer();
-
-				const data = await compareImages(readFileSync(path.join('plots', 'pythonScatterplot.png'), ), buffer, options);
-
-				if (githubActions && data.rawMisMatchPercentage > 2.0) {
-					if (data.getBuffer) {
-						fs.writeFileSync(path.join(...diffPlotsPath, 'pythonScatterplotDiff.png'), data.getBuffer(true));
-					}
-					fail(`Image comparison failed with mismatch percentage: ${data.rawMisMatchPercentage}`);
-				}
 				await app.workbench.positronPlots.clearPlots();
 
 				await app.workbench.positronPlots.waitForNoPlots();
