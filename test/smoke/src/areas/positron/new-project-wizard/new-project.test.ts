@@ -11,10 +11,11 @@ import { installAllHandlers } from '../../../utils';
  * New Project Wizard test cases
  */
 export function setup(logger: Logger) {
-	describe('New Project Wizard', () => {
+	describe.only('New Project Wizard', () => {
 		describe('Python - New Project Wizard', () => {
 			// Shared before/after handling
 			installAllHandlers(logger);
+
 			before(async function () {
 
 			});
@@ -26,13 +27,13 @@ export function setup(logger: Logger) {
 				await pw.projectTypeStep.pythonProjectButton.click();
 				await pw.nextButton.click();
 				await pw.nextButton.click();
-				await pw.disabledCreateButton.isNotVisible(500); // May need to pass in a retry count > default of 200
+				await pw.disabledCreateButton.isNotVisible(500);
 				await pw.nextButton.click();
 				await pw.currentOrNewWindowSelectionModal.currentWindowButton.click();
 				await app.workbench.positronExplorer.explorerProjectTitle.waitForText('myPythonProject');
 			});
-			// Likely to not work well if multiple pythons are installed
-			describe.only('Python Project with existing interpreter', () => {
+
+			describe('Python Project with existing interpreter', () => {
 				it('With ipykernel already installed [.......]', async function () {
 					const projSuffix = '_ipykernelInstalled';
 					const selectedPython = process.env.POSITRON_PY_VER_SEL!;
@@ -41,6 +42,7 @@ export function setup(logger: Logger) {
 					const pythonFixtures = new PositronPythonFixtures(app);
 					// Start the Python interpreter and ensure ipykernel is installed
 					await pythonFixtures.startPythonInterpreter(true);
+					// Create a new Python project and use the selected python interpreter
 					await pw.startNewProject();
 					await pw.projectTypeStep.pythonProjectButton.click();
 					await pw.nextButton.click();
@@ -48,14 +50,16 @@ export function setup(logger: Logger) {
 					await pw.nextButton.click();
 					await pw.pythonConfigurationStep.existingEnvRadioButton.click();
 					try {
-						await pw.pythonConfigurationStep.selectedInterpreterTitle.waitForText(`Python ${selectedPython}`);
+						await pw.pythonConfigurationStep.selectedInterpreterTitle.waitForText(
+							`Python ${selectedPython}`
+						);
 					} catch (error) {
 						// Since we didn't see the expected interpreter, we'll need to interact with
 						// the dropdown to select the specific interpreter
 						await pw.pythonConfigurationStep.selectInterpreter(selectedPython);
 					}
 					await pw.pythonConfigurationStep.interpreterFeedback.isNotVisible();
-					await pw.disabledCreateButton.isNotVisible(500); // May need to pass in a retry count > default of 200
+					await pw.disabledCreateButton.isNotVisible(500);
 					await pw.nextButton.click();
 					await pw.currentOrNewWindowSelectionModal.currentWindowButton.click();
 					await app.workbench.positronExplorer.explorerProjectTitle.waitForText(
@@ -77,7 +81,7 @@ export function setup(logger: Logger) {
 					await app.workbench.positronConsole.waitForConsoleContents((contents) =>
 						contents.some((line) => line.includes('Successfully uninstalled ipykernel'))
 					);
-					// Create a project and select that same python version
+					// Create a new Python project and use the selected python interpreter
 					await pw.startNewProject();
 					await pw.projectTypeStep.pythonProjectButton.click();
 					await pw.nextButton.click();
@@ -86,21 +90,25 @@ export function setup(logger: Logger) {
 					// Choose the existing environment which does not have ipykernel
 					await pw.pythonConfigurationStep.existingEnvRadioButton.click();
 					try {
-						await pw.pythonConfigurationStep.selectedInterpreterTitle.waitForText(`Python ${selectedPython}`);
+						await pw.pythonConfigurationStep.selectedInterpreterTitle.waitForText(
+							`Python ${selectedPython}`
+						);
 					} catch (error) {
 						// Since we didn't see the expected interpreter, we'll need to interact with
 						// the dropdown to select the specific interpreter
 						await pw.pythonConfigurationStep.selectInterpreter(selectedPython);
 					}
-					await pw.pythonConfigurationStep.interpreterFeedback.waitForText('ipykernel will be installed for Python language support.');
-					await pw.disabledCreateButton.isNotVisible(500); // May need to pass in a retry count > default of 200
+					await pw.pythonConfigurationStep.interpreterFeedback.waitForText(
+						'ipykernel will be installed for Python language support.'
+					);
+					await pw.disabledCreateButton.isNotVisible(500);
 					await pw.nextButton.click();
 					await pw.currentOrNewWindowSelectionModal.currentWindowButton.click();
 					await app.workbench.positronExplorer.explorerProjectTitle.waitForText(
 						`myPythonProject${projSuffix}`
 					);
-					// If ipykernel was successfully installed, the console should initialize without
-					// any prompts to install ipykernel
+					// If ipykernel was successfully installed during the new project initialization,
+					// the console should be ready without any prompts to install ipykernel
 					await app.workbench.positronConsole.waitForReady('>>>');
 				});
 			});
@@ -109,6 +117,7 @@ export function setup(logger: Logger) {
 		describe('R - New Project Wizard', () => {
 			// Shared before/after handling
 			installAllHandlers(logger);
+
 			before(async function () {
 
 			});
@@ -120,7 +129,7 @@ export function setup(logger: Logger) {
 				await pw.projectTypeStep.rProjectButton.click();
 				await pw.nextButton.click();
 				await pw.nextButton.click();
-				await pw.disabledCreateButton.isNotVisible(500); // May need to pass in a retry count > default of 200
+				await pw.disabledCreateButton.isNotVisible(500);
 				await pw.nextButton.click();
 				await pw.currentOrNewWindowSelectionModal.currentWindowButton.click();
 				await app.workbench.positronExplorer.explorerProjectTitle.waitForText('myRProject');
@@ -137,7 +146,7 @@ export function setup(logger: Logger) {
 					await pw.nextButton.click();
 					await pw.projectNameLocationStep.appendToProjectName(projSuffix);
 					await pw.nextButton.click();
-					await pw.disabledCreateButton.isNotVisible(500); // May need to pass in a retry count > default of 200
+					await pw.disabledCreateButton.isNotVisible(500);
 					// Select the renv checkbox
 					await pw.rConfigurationStep.renvCheckbox.click();
 					await pw.nextButton.click();
@@ -185,7 +194,7 @@ export function setup(logger: Logger) {
 					await pw.nextButton.click();
 					await pw.projectNameLocationStep.appendToProjectName(projSuffix);
 					await pw.nextButton.click();
-					await pw.disabledCreateButton.isNotVisible(500); // May need to pass in a retry count > default of 200
+					await pw.disabledCreateButton.isNotVisible(500);
 					// Select the renv checkbox
 					await pw.rConfigurationStep.renvCheckbox.click();
 					await pw.nextButton.click();
@@ -221,7 +230,7 @@ export function setup(logger: Logger) {
 					await pw.nextButton.click();
 					await pw.projectNameLocationStep.appendToProjectName(projSuffix);
 					await pw.nextButton.click();
-					await pw.disabledCreateButton.isNotVisible(500); // May need to pass in a retry count > default of 200
+					await pw.disabledCreateButton.isNotVisible(500);
 					// Select the renv checkbox
 					await pw.rConfigurationStep.renvCheckbox.click();
 					await pw.nextButton.click();
@@ -245,6 +254,7 @@ export function setup(logger: Logger) {
 		describe('Jupyter - New Project Wizard', () => {
 			// Shared before/after handling
 			installAllHandlers(logger);
+
 			before(async function () {
 
 			});
@@ -256,7 +266,7 @@ export function setup(logger: Logger) {
 				await pw.projectTypeStep.jupyterNotebookButton.click();
 				await pw.nextButton.click();
 				await pw.nextButton.click();
-				await pw.disabledCreateButton.isNotVisible(500); // May need to pass in a retry count > default of 200
+				await pw.disabledCreateButton.isNotVisible(500);
 				await pw.nextButton.click();
 				await pw.currentOrNewWindowSelectionModal.currentWindowButton.click();
 				await app.workbench.positronExplorer.explorerProjectTitle.waitForText('myJupyterNotebook');
