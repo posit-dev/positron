@@ -6,6 +6,7 @@
 import * as vscode from 'vscode';
 import { RSessionManager } from './session-manager';
 import { getEditorFilePathForCommand } from './commands';
+import { getPandocPath } from './pandoc';
 
 export class RPackageTaskProvider implements vscode.TaskProvider {
 
@@ -57,6 +58,15 @@ export async function getRPackageTasks(editorFilePath?: string): Promise<vscode.
 			package: 'rmarkdown'
 		}
 	];
+
+	// if we have a local copy of Pandoc available, forward it to the R session
+	// so that it can be used to render R Markdown documents (etc)
+	const env: any = {};
+	const pandocPath = getPandocPath();
+	if (pandocPath) {
+		env['RSTUDIO_PANDOC'] = pandocPath;
+	}
+
 	// the explicit quoting treatment is necessary to avoid headaches on Windows, with PowerShell
 	return taskData.map(data => new vscode.Task(
 		{ type: 'rPackageTask', task: data.task, pkg: data.package },
@@ -65,7 +75,8 @@ export async function getRPackageTasks(editorFilePath?: string): Promise<vscode.
 		'R',
 		new vscode.ShellExecution(
 			binpath,
-			['-e', { value: data.rcode, quoting: vscode.ShellQuoting.Strong }]
+			['-e', { value: data.rcode, quoting: vscode.ShellQuoting.Strong }],
+			{ env }
 		),
 		[]
 	));

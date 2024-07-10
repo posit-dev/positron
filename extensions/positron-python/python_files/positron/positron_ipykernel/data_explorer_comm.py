@@ -86,9 +86,9 @@ class RowFilterType(str, enum.Enum):
 
 
 @enum.unique
-class CompareFilterParamsOp(str, enum.Enum):
+class FilterComparisonOp(str, enum.Enum):
     """
-    Possible values for Op in CompareFilterParams
+    Possible values for Op in FilterComparison
     """
 
     Eq = "="
@@ -105,9 +105,9 @@ class CompareFilterParamsOp(str, enum.Enum):
 
 
 @enum.unique
-class SearchFilterType(str, enum.Enum):
+class TextSearchType(str, enum.Enum):
     """
-    Possible values for SearchFilterType
+    Possible values for TextSearchType
     """
 
     Contains = "contains"
@@ -117,6 +117,17 @@ class SearchFilterType(str, enum.Enum):
     EndsWith = "ends_with"
 
     RegexMatch = "regex_match"
+
+
+@enum.unique
+class ColumnFilterType(str, enum.Enum):
+    """
+    Possible values for ColumnFilterType
+    """
+
+    TextSearch = "text_search"
+
+    MatchDataTypes = "match_data_types"
 
 
 @enum.unique
@@ -190,7 +201,7 @@ class SearchSchemaResult(BaseModel):
     )
 
     total_num_matches: StrictInt = Field(
-        description="The total number of columns matching the search term",
+        description="The total number of columns matching the filter",
     )
 
 
@@ -398,24 +409,9 @@ class RowFilter(BaseModel):
         description="Optional error message when the filter is invalid",
     )
 
-    between_params: Optional[BetweenFilterParams] = Field(
+    params: Optional[RowFilterParams] = Field(
         default=None,
-        description="Parameters for the 'between' and 'not_between' filter types",
-    )
-
-    compare_params: Optional[CompareFilterParams] = Field(
-        default=None,
-        description="Parameters for the 'compare' filter type",
-    )
-
-    search_params: Optional[SearchFilterParams] = Field(
-        default=None,
-        description="Parameters for the 'search' filter type",
-    )
-
-    set_membership_params: Optional[SetMembershipFilterParams] = Field(
-        default=None,
-        description="Parameters for the 'set_membership' filter type",
+        description="The row filter type-specific parameters",
     )
 
 
@@ -433,7 +429,7 @@ class RowFilterTypeSupportStatus(BaseModel):
     )
 
 
-class BetweenFilterParams(BaseModel):
+class FilterBetween(BaseModel):
     """
     Parameters for the 'between' and 'not_between' filter types
     """
@@ -447,12 +443,12 @@ class BetweenFilterParams(BaseModel):
     )
 
 
-class CompareFilterParams(BaseModel):
+class FilterComparison(BaseModel):
     """
     Parameters for the 'compare' filter type
     """
 
-    op: CompareFilterParamsOp = Field(
+    op: FilterComparisonOp = Field(
         description="String representation of a binary comparison",
     )
 
@@ -461,13 +457,13 @@ class CompareFilterParams(BaseModel):
     )
 
 
-class SetMembershipFilterParams(BaseModel):
+class FilterSetMembership(BaseModel):
     """
     Parameters for the 'set_membership' filter type
     """
 
     values: List[StrictStr] = Field(
-        description="Array of column values for a set membership filter",
+        description="Array of values for a set membership filter",
     )
 
     inclusive: StrictBool = Field(
@@ -475,21 +471,60 @@ class SetMembershipFilterParams(BaseModel):
     )
 
 
-class SearchFilterParams(BaseModel):
+class FilterTextSearch(BaseModel):
     """
     Parameters for the 'search' filter type
     """
 
-    search_type: SearchFilterType = Field(
+    search_type: TextSearchType = Field(
         description="Type of search to perform",
     )
 
     term: StrictStr = Field(
-        description="String value/regex to search for in stringified data",
+        description="String value/regex to search for",
     )
 
     case_sensitive: StrictBool = Field(
         description="If true, do a case-sensitive search, otherwise case-insensitive",
+    )
+
+
+class FilterMatchDataTypes(BaseModel):
+    """
+    Parameters for the 'match_data_types' filter type
+    """
+
+    display_types: List[ColumnDisplayType] = Field(
+        description="Column display types to match",
+    )
+
+
+class ColumnFilter(BaseModel):
+    """
+    A filter that selects a subset of columns by name, type, or other
+    criteria
+    """
+
+    filter_type: ColumnFilterType = Field(
+        description="Type of column filter to apply",
+    )
+
+    params: ColumnFilterParams = Field(
+        description="Parameters for column filter",
+    )
+
+
+class ColumnFilterTypeSupportStatus(BaseModel):
+    """
+    Support status for a column filter type
+    """
+
+    column_filter_type: ColumnFilterType = Field(
+        description="Type of column filter",
+    )
+
+    support_status: SupportStatus = Field(
+        description="The support status for this column filter type",
     )
 
 
@@ -808,6 +843,10 @@ class SearchSchemaFeatures(BaseModel):
         description="The support status for this RPC method",
     )
 
+    supported_types: List[ColumnFilterTypeSupportStatus] = Field(
+        description="A list of supported types",
+    )
+
 
 class SetRowFiltersFeatures(BaseModel):
     """
@@ -945,7 +984,19 @@ ColumnValue = Union[
     StrictInt,
     StrictStr,
 ]
-# Selection in Properties
+# Union of row filter parameters
+RowFilterParams = Union[
+    FilterBetween,
+    FilterComparison,
+    FilterTextSearch,
+    FilterSetMembership,
+]
+# Union of column filter type-specific parameters
+ColumnFilterParams = Union[
+    FilterTextSearch,
+    FilterMatchDataTypes,
+]
+# A union of selection types
 Selection = Union[
     DataSelectionSingleCell,
     DataSelectionCellRange,
@@ -963,7 +1014,7 @@ class DataExplorerBackendRequest(str, enum.Enum):
     # Request schema
     GetSchema = "get_schema"
 
-    # Search schema by column name
+    # Search schema with column filters
     SearchSchema = "search_schema"
 
     # Get a rectangle of data values
@@ -1023,12 +1074,12 @@ class SearchSchemaParams(BaseModel):
     Search schema for column names matching a passed substring
     """
 
-    search_term: StrictStr = Field(
-        description="Substring to match for (currently case insensitive)",
+    filters: List[ColumnFilter] = Field(
+        description="Column filters to apply when searching",
     )
 
     start_index: StrictInt = Field(
-        description="Index (starting from zero) of first result to fetch",
+        description="Index (starting from zero) of first result to fetch (for paging)",
     )
 
     max_results: StrictInt = Field(
@@ -1289,13 +1340,19 @@ RowFilter.update_forward_refs()
 
 RowFilterTypeSupportStatus.update_forward_refs()
 
-BetweenFilterParams.update_forward_refs()
+FilterBetween.update_forward_refs()
 
-CompareFilterParams.update_forward_refs()
+FilterComparison.update_forward_refs()
 
-SetMembershipFilterParams.update_forward_refs()
+FilterSetMembership.update_forward_refs()
 
-SearchFilterParams.update_forward_refs()
+FilterTextSearch.update_forward_refs()
+
+FilterMatchDataTypes.update_forward_refs()
+
+ColumnFilter.update_forward_refs()
+
+ColumnFilterTypeSupportStatus.update_forward_refs()
 
 ColumnProfileRequest.update_forward_refs()
 

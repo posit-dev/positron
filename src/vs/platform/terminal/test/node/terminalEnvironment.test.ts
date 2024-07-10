@@ -50,6 +50,9 @@ suite('platform - terminalEnvironment', () => {
 						expectedPs1
 					],
 					envMixin: {
+						// --- Start Positron ---
+						POSITRON: '1',
+						// --- End Positron ---
 						VSCODE_INJECTION: '1'
 					}
 				});
@@ -81,6 +84,9 @@ suite('platform - terminalEnvironment', () => {
 						expectedPs1
 					],
 					envMixin: {
+						// --- Start Positron ---
+						POSITRON: '1',
+						// --- End Positron ---
 						VSCODE_INJECTION: '1'
 					}
 				});
@@ -125,10 +131,16 @@ suite('platform - terminalEnvironment', () => {
 						/.+\/out\/vs\/workbench\/contrib\/terminal\/browser\/media\/shellIntegration-login.zsh/
 					];
 					function assertIsEnabled(result: IShellIntegrationConfigInjection, globalZdotdir = homedir()) {
-						strictEqual(Object.keys(result.envMixin!).length, 3);
+						// --- Start Positron ---
+						// strictEqual(Object.keys(result.envMixin!).length, 3);
+						strictEqual(Object.keys(result.envMixin!).length, 4);
+						// --- End Positron ---
 						ok(result.envMixin!['ZDOTDIR']?.match(expectedDir));
 						strictEqual(result.envMixin!['USER_ZDOTDIR'], globalZdotdir);
 						ok(result.envMixin!['VSCODE_INJECTION']?.match('1'));
+						// --- Start Positron ---
+						ok(result.envMixin!['POSITRON']?.match('1'));
+						// --- End Positron ---
 						strictEqual(result.filesToCopy?.length, 4);
 						ok(result.filesToCopy[0].dest.match(expectedDests[0]));
 						ok(result.filesToCopy[1].dest.match(expectedDests[1]));
@@ -186,6 +198,9 @@ suite('platform - terminalEnvironment', () => {
 								`${repoRoot}/out/vs/workbench/contrib/terminal/browser/media/shellIntegration-bash.sh`
 							],
 							envMixin: {
+								// --- Start Positron ---
+								POSITRON: '1',
+								// --- End Positron ---
 								VSCODE_INJECTION: '1'
 							}
 						});
@@ -200,6 +215,9 @@ suite('platform - terminalEnvironment', () => {
 								`${repoRoot}/out/vs/workbench/contrib/terminal/browser/media/shellIntegration-bash.sh`
 							],
 							envMixin: {
+								// --- Start Positron ---
+								POSITRON: '1',
+								// --- End Positron ---
 								VSCODE_INJECTION: '1',
 								VSCODE_SHELL_LOGIN: '1'
 							}

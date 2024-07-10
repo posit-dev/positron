@@ -533,6 +533,9 @@ use serde::Serialize;
 				yield formatComment(`/// `,
 					`Union type ` +
 					snakeCaseToSentenceCase(context[0]));
+				if (o.description) {
+					yield formatComment(`/// `, o.description);
+				}
 				yield '#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]\n';
 				yield '#[serde(untagged)]\n';
 				yield `pub enum ${snakeCaseToSentenceCase(context[0])} {\n`;
@@ -892,12 +895,16 @@ from ._vendor.pydantic import BaseModel, Field, StrictBool, StrictFloat, StrictI
 			name = snakeCaseToSentenceCase(name);
 
 			// Document origin of union
-			if (context.length === 1) {
+
+			if (o.description) {
+				yield formatComment('# ', o.description);
+			} else if (context.length === 1) {
 				yield formatComment('# ', snakeCaseToSentenceCase(context[0]));
 			} else {
 				yield formatComment('# ', snakeCaseToSentenceCase(context[0]) + ' in ' +
 					snakeCaseToSentenceCase(context[1]));
 			}
+
 			yield `${name} = Union[`;
 			// Options
 			for (const option of o.oneOf) {
@@ -1163,7 +1170,9 @@ import { IRuntimeClientInstance } from 'vs/workbench/services/languageRuntime/co
 			name = snakeCaseToSentenceCase(name);
 
 			// Document origin of union
-			if (context.length === 1) {
+			if (o.description) {
+				yield formatComment('/// ', o.description);
+			} else if (context.length === 1) {
 				yield formatComment('/// ', snakeCaseToSentenceCase(context[0]));
 			} else {
 				yield formatComment('/// ', snakeCaseToSentenceCase(context[0]) + ' in ' +

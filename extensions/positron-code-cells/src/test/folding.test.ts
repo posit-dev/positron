@@ -11,45 +11,56 @@ import { closeAllEditors } from './utils';
 suite('Folding', () => {
 	teardown(closeAllEditors);
 
-	test('Provides Python cell folding ranges', async () => {
-		const language = 'python';
-		const content = `#%%
+	const content = `# %%
 testing1
-#%%
+
 testing2
-#%%
-testing3`;
-		const document = await vscode.workspace.openTextDocument({ language, content });
+
+# %%
+testing3
+
+# %%
+testing4`;
+	const content_with_plus = content.replaceAll("# %%", "#+");
+
+
+	test('Provides Python cell folding ranges', async () => {
 		const provider = new CellFoldingRangeProvider();
 
+		const language = 'python';
+		const document = await vscode.workspace.openTextDocument({ language, content });
 		const foldingRanges = await provider.provideFoldingRanges(document);
 
 		assert.ok(foldingRanges, 'No folding ranges provided');
 		assert.deepStrictEqual(foldingRanges, [
-			new vscode.FoldingRange(0, 1),
-			new vscode.FoldingRange(2, 3),
-			new vscode.FoldingRange(4, 5),
+			new vscode.FoldingRange(0, 4),
+			new vscode.FoldingRange(5, 7),
+			new vscode.FoldingRange(8, 9),
 		], 'Incorrect folding ranges');
 	});
 
 	test('Provides R cell folding ranges', async () => {
-		const language = 'r';
-		const content = `#+
-testing1
-#+
-testing2
-#+
-testing3`;
-		const document = await vscode.workspace.openTextDocument({ language, content });
 		const provider = new CellFoldingRangeProvider();
 
+		const language = 'r';
+		const document = await vscode.workspace.openTextDocument({ language: language, content: content });
 		const foldingRanges = await provider.provideFoldingRanges(document);
 
 		assert.ok(foldingRanges, 'No folding ranges provided');
 		assert.deepStrictEqual(foldingRanges, [
-			new vscode.FoldingRange(0, 1),
-			new vscode.FoldingRange(2, 3),
-			new vscode.FoldingRange(4, 5),
+			new vscode.FoldingRange(0, 4),
+			new vscode.FoldingRange(5, 7),
+			new vscode.FoldingRange(8, 9),
+		], 'Incorrect folding ranges');
+
+		const document2 = await vscode.workspace.openTextDocument({ language: language, content: content_with_plus });
+		const foldingRanges2 = await provider.provideFoldingRanges(document2);
+
+		assert.ok(foldingRanges2, 'No folding ranges provided');
+		assert.deepStrictEqual(foldingRanges2, [
+			new vscode.FoldingRange(0, 4),
+			new vscode.FoldingRange(5, 7),
+			new vscode.FoldingRange(8, 9),
 		], 'Incorrect folding ranges');
 	});
 });

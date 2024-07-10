@@ -6,6 +6,7 @@
 
 import { expect } from '@playwright/test';
 import { Code } from '../code';
+import { PositronBaseElement } from './positronBaseElement';
 
 const COLUMN_HEADERS = '.data-explorer-panel .column-2 .data-grid-column-headers';
 const HEADER_TITLES = '.data-grid-column-header .title-description .title';
@@ -24,6 +25,7 @@ const FILTER_SELECTOR = '.positron-modal-overlay .row-filter-parameter-input .te
 const APPLY_FILTER = '.positron-modal-overlay .button-apply-row-filter';
 const STATUS_BAR = '.positron-data-explorer .status-bar';
 const OVERLAY_BUTTON = '.positron-modal-overlay .positron-button';
+const CLEAR_SORTING_BUTTON = '.codicon-positron-clear-sorting';
 
 export interface CellData {
 	[key: string]: string;
@@ -34,7 +36,11 @@ export interface CellData {
  */
 export class PositronDataExplorer {
 
-	constructor(private code: Code) { }
+	clearSortingButton: PositronBaseElement;
+
+	constructor(private code: Code) {
+		this.clearSortingButton = new PositronBaseElement(CLEAR_SORTING_BUTTON, this.code);
+	}
 
 	/*
 	 * Get the currently visible data explorer table data
@@ -101,7 +107,7 @@ export class PositronDataExplorer {
 			await this.code.waitAndClick(COLUMN_SELECTOR_CELL);
 			const checkValue = (await this.code.waitForElement(COLUMN_SELECTOR)).textContent;
 			expect(checkValue).toBe(columnName);
-		}).toPass();
+		}).toPass({timeout: 10000});
 
 
 		await this.code.waitAndClick(FUNCTION_SELECTOR);

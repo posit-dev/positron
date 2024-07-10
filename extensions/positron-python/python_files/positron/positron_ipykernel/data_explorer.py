@@ -28,6 +28,9 @@ from .access_keys import decode_access_key
 from .data_explorer_comm import (
     BackendState,
     ColumnDisplayType,
+    ColumnFilter,
+    ColumnFilterType,
+    ColumnFilterTypeSupportStatus,
     ColumnFrequencyTable,
     ColumnHistogram,
     ColumnProfileResult,
@@ -37,7 +40,6 @@ from .data_explorer_comm import (
     ColumnSortKey,
     ColumnSummaryStats,
     ColumnValue,
-    CompareFilterParamsOp,
     DataExplorerBackendMessageContent,
     DataExplorerFrontendEvent,
     DataSelectionCellRange,
@@ -49,7 +51,13 @@ from .data_explorer_comm import (
     ExportDataSelectionRequest,
     ExportedData,
     ExportFormat,
+    FilterBetween,
+    FilterComparison,
+    FilterComparisonOp,
+    FilterMatchDataTypes,
     FilterResult,
+    FilterSetMembership,
+    FilterTextSearch,
     FormatOptions,
     GetColumnProfilesFeatures,
     GetColumnProfilesRequest,
@@ -60,7 +68,6 @@ from .data_explorer_comm import (
     RowFilterCondition,
     RowFilterType,
     RowFilterTypeSupportStatus,
-    SearchFilterType,
     SearchSchemaFeatures,
     SearchSchemaRequest,
     SearchSchemaResult,
@@ -77,6 +84,7 @@ from .data_explorer_comm import (
     SupportStatus,
     TableSchema,
     TableShape,
+    TextSearchType,
 )
 from .positron_comm import CommMessage, PositronComm
 from .third_party import np_, pd_, pl_
@@ -132,6 +140,15 @@ class DataExplorerTableView(abc.ABC):
         # self.filtered_indices
         self.view_indices = None
 
+        # We store a tuple of (last_filters, matches) here so that we
+        # can support scrolling through the schema search results
+        # without having to recompute the search. If the search term
+        # changes, we discard the last search result. We might add an
+        # LRU cache here or something if it helps performance.
+        self._search_schema_last_result: Optional[Tuple[List[ColumnFilter], List[ColumnSchema]]] = (
+            None
+        )
+
     def _set_sort_keys(self, sort_keys):
         self.sort_keys = sort_keys if sort_keys is not None else []
 
@@ -176,11 +193,90 @@ class DataExplorerTableView(abc.ABC):
         raise NotImplementedError
 
     def search_schema(self, request: SearchSchemaRequest):
-        return self._search_schema(
-            request.params.search_term,
-            request.params.start_index,
-            request.params.max_results,
+        filters = request.params.filters
+        start_index = request.params.start_index
+        max_results = request.params.max_results
+        if self._search_schema_last_result is not None:
+            last_filters, matches = self._search_schema_last_result
+            if last_filters != filters:
+                matches = self._search_schema_get_matches(filters)
+                self._search_schema_last_result = (filters, matches)
+        else:
+            matches = self._search_schema_get_matches(filters)
+            self._search_schema_last_result = (filters, matches)
+
+        matches_slice = matches[start_index : start_index + max_results]
+        return SearchSchemaResult(
+            matches=TableSchema(columns=matches_slice),
+            total_num_matches=len(matches),
         ).dict()
+
+    def _search_schema_get_matches(self, filters: List[ColumnFilter]) -> List[ColumnSchema]:
+        matchers = self._get_column_filter_functions(filters)
+
+        parent = self
+
+        class SchemaMemo:
+            def __init__(self):
+                self.memo = {}
+
+            def get(self, i):
+                if i in self.memo:
+                    return self.memo[i]
+                else:
+                    schema = parent._get_single_column_schema(i)
+                    self.memo[i] = schema
+                    return schema
+
+        schema_memo = SchemaMemo()
+        matches = [
+            self._get_single_column_schema(column_index)
+            for column_index in range(self.table.shape[1])
+            if all(matcher(column_index, schema_memo) for matcher in matchers)
+        ]
+
+        return matches
+
+    def _get_column_filter_functions(self, filters: List[ColumnFilter]):
+        def _match_text_search(params: FilterTextSearch):
+            term = params.term
+            if not params.case_sensitive:
+                term = term.lower()
+
+                def matches(x):
+                    return term in x.lower()
+            else:
+
+                def matches(x):
+                    return term in x
+
+            def matcher(index, _):
+                return matches(self._get_column_name(index))
+
+            return matcher
+
+        def _match_display_types(params: FilterMatchDataTypes):
+            def matcher(index, schema_memo):
+                schema: ColumnSchema = schema_memo.get(index)
+                return schema.type_display in params.display_types
+
+            return matcher
+
+        matchers = []
+        for filt in filters:
+            if filt.filter_type == ColumnFilterType.TextSearch:
+                params = filt.params
+                assert isinstance(params, FilterTextSearch)
+                matchers.append(_match_text_search(params))
+            elif filt.filter_type == ColumnFilterType.MatchDataTypes:
+                params = filt.params
+                assert isinstance(params, FilterMatchDataTypes)
+                matchers.append(_match_display_types(params))
+
+        return matchers
+
+    def _get_column_name(self, column_index: int) -> str:
+        raise NotImplementedError
 
     def get_data_values(self, request: GetDataValuesRequest):
         self._recompute_if_needed()
@@ -442,11 +538,6 @@ class DataExplorerTableView(abc.ABC):
 
         return new_sort_keys
 
-    def _search_schema(
-        self, search_term: str, start_index: int, max_results: int
-    ) -> SearchSchemaResult:
-        raise NotImplementedError
-
     def _get_data_values(
         self,
         row_start: int,
@@ -472,10 +563,11 @@ class DataExplorerTableView(abc.ABC):
             # String-only filter types
             return display_type == ColumnDisplayType.String
         elif filt.filter_type == RowFilterType.Compare:
-            compare_op = filt.compare_params.op
-            if compare_op in [
-                CompareFilterParamsOp.Eq,
-                CompareFilterParamsOp.NotEq,
+            params = filt.params
+            assert isinstance(params, FilterComparison), str(params)
+            if params.op in [
+                FilterComparisonOp.Eq,
+                FilterComparisonOp.NotEq,
             ]:
                 return True
             else:
@@ -655,14 +747,6 @@ class PandasView(DataExplorerTableView):
         # object is changed, this needs to be reset
         self._inferred_dtypes = {}
 
-        # We store a tuple of (last_search_term, matches)
-        # here so that we can support scrolling through the search
-        # results without having to recompute the search. If the
-        # search term changes, we discard the last search result. We
-        # might add an LRU cache here or something if it helps
-        # performance.
-        self._search_schema_last_result: Optional[Tuple[str, List[ColumnSchema]]] = None
-
         # Putting this here rather than in the class body before
         # Python < 3.10 has fussier rules about staticmethods
         self._SUMMARIZERS = {
@@ -801,42 +885,6 @@ class PandasView(DataExplorerTableView):
 
         return schema_updated, new_filters, new_sort_keys
 
-    def _search_schema(
-        self, search_term: str, start_index: int, max_results: int
-    ) -> SearchSchemaResult:
-        # Sanitize user input here for now, possibly remove this later
-        search_term = search_term.lower()
-
-        if self._search_schema_last_result is not None:
-            last_search_term, matches = self._search_schema_last_result
-            if last_search_term != search_term:
-                matches = self._search_schema_get_matches(search_term)
-                self._search_schema_last_result = (search_term, matches)
-        else:
-            matches = self._search_schema_get_matches(search_term)
-            self._search_schema_last_result = (search_term, matches)
-
-        matches_slice = matches[start_index : start_index + max_results]
-        return SearchSchemaResult(
-            matches=TableSchema(columns=matches_slice),
-            total_num_matches=len(matches),
-        )
-
-    def _search_schema_get_matches(self, search_term: str) -> List[ColumnSchema]:
-        matches = []
-        for column_index in range(len(self.table.columns)):
-            column_raw_name = self.table.columns[column_index]
-            column_name = str(column_raw_name)
-
-            # Do a case-insensitive search
-            if search_term not in column_name.lower():
-                continue
-
-            col_schema = self._get_single_column_schema(column_index)
-            matches.append(col_schema)
-
-        return matches
-
     def _get_inferred_dtype(self, column_index: int):
         from pandas.api.types import infer_dtype
 
@@ -929,6 +977,9 @@ class PandasView(DataExplorerTableView):
             type_name=type_name,
             type_display=type_display,
         )
+
+    def _get_column_name(self, index: int):
+        return str(self.table.columns[index])
 
     def _get_data_values(
         self,
@@ -1044,8 +1095,8 @@ class PandasView(DataExplorerTableView):
             RowFilterType.Between,
             RowFilterType.NotBetween,
         ):
-            params = filt.between_params
-            assert params is not None
+            params = filt.params
+            assert isinstance(params, FilterBetween)
             left_value = self._coerce_value(params.left_value, dtype, inferred_type)
             right_value = self._coerce_value(params.right_value, dtype, inferred_type)
             if filt.filter_type == RowFilterType.Between:
@@ -1054,8 +1105,8 @@ class PandasView(DataExplorerTableView):
                 # NotBetween
                 mask = (col < left_value) | (col > right_value)
         elif filt.filter_type == RowFilterType.Compare:
-            params = filt.compare_params
-            assert params is not None
+            params = filt.params
+            assert isinstance(params, FilterComparison)
 
             if params.op not in COMPARE_OPS:
                 raise ValueError(f"Unsupported filter type: {params.op}")
@@ -1075,8 +1126,8 @@ class PandasView(DataExplorerTableView):
         elif filt.filter_type == RowFilterType.IsFalse:
             mask = col == False  # noqa: E712
         elif filt.filter_type == RowFilterType.SetMembership:
-            params = filt.set_membership_params
-            assert params is not None
+            params = filt.params
+            assert isinstance(params, FilterSetMembership)
             boxed_values = pd_.Series(
                 [self._coerce_value(val, dtype, inferred_type) for val in params.values]
             )
@@ -1086,25 +1137,25 @@ class PandasView(DataExplorerTableView):
                 # NOT-IN
                 mask = ~mask
         elif filt.filter_type == RowFilterType.Search:
-            params = filt.search_params
-            assert params is not None
+            params = filt.params
+            assert isinstance(params, FilterTextSearch)
 
             if inferred_type != "string":
                 col = col.astype(str)
 
             term = params.term
 
-            if params.search_type == SearchFilterType.RegexMatch:
+            if params.search_type == TextSearchType.RegexMatch:
                 mask = col.str.match(term, case=params.case_sensitive)
             else:
                 if not params.case_sensitive:
                     col = col.str.lower()
                     term = term.lower()
-                if params.search_type == SearchFilterType.Contains:
+                if params.search_type == TextSearchType.Contains:
                     mask = col.str.contains(term)
-                elif params.search_type == SearchFilterType.StartsWith:
+                elif params.search_type == TextSearchType.StartsWith:
                     mask = col.str.startswith(term)
-                elif params.search_type == SearchFilterType.EndsWith:
+                elif params.search_type == TextSearchType.EndsWith:
                     mask = col.str.endswith(term)
 
         assert mask is not None
@@ -1356,7 +1407,19 @@ class PandasView(DataExplorerTableView):
     }
 
     FEATURES = SupportedFeatures(
-        search_schema=SearchSchemaFeatures(support_status=SupportStatus.Supported),
+        search_schema=SearchSchemaFeatures(
+            support_status=SupportStatus.Supported,
+            supported_types=[
+                ColumnFilterTypeSupportStatus(
+                    column_filter_type=ColumnFilterType.TextSearch,
+                    support_status=SupportStatus.Supported,
+                ),
+                ColumnFilterTypeSupportStatus(
+                    column_filter_type=ColumnFilterType.MatchDataTypes,
+                    support_status=SupportStatus.Supported,
+                ),
+            ],
+        ),
         set_row_filters=SetRowFiltersFeatures(
             support_status=SupportStatus.Supported,
             # Temporarily disabled for https://github.com/posit-dev/positron/issues/3489 on
@@ -1399,12 +1462,12 @@ class PandasView(DataExplorerTableView):
 
 
 COMPARE_OPS = {
-    CompareFilterParamsOp.Gt: operator.gt,
-    CompareFilterParamsOp.GtEq: operator.ge,
-    CompareFilterParamsOp.Lt: operator.lt,
-    CompareFilterParamsOp.LtEq: operator.le,
-    CompareFilterParamsOp.Eq: operator.eq,
-    CompareFilterParamsOp.NotEq: operator.ne,
+    FilterComparisonOp.Gt: operator.gt,
+    FilterComparisonOp.GtEq: operator.ge,
+    FilterComparisonOp.Lt: operator.lt,
+    FilterComparisonOp.LtEq: operator.le,
+    FilterComparisonOp.Eq: operator.eq,
+    FilterComparisonOp.NotEq: operator.ne,
 }
 
 
@@ -1594,6 +1657,9 @@ class PolarsView(DataExplorerTableView):
         column = self.table[:, column_index]
         return self._construct_schema(column, column_index, name=column.name)
 
+    def _get_column_name(self, column_index: int) -> str:
+        return self.table[:, column_index].name
+
     def _construct_schema(self, column: "pl.Series", column_index: int, name=None):
         type_display = self._get_type_display(column.dtype)
 
@@ -1638,7 +1704,7 @@ class PolarsView(DataExplorerTableView):
         return cls.TYPE_DISPLAY_MAPPING.get(key, "unknown")
 
     def _search_schema(
-        self, search_term: str, start_index: int, max_results: int
+        self, filters: List[ColumnFilter], start_index: int, max_results: int
     ) -> SearchSchemaResult:
         raise NotImplementedError
 
@@ -1761,16 +1827,16 @@ class PolarsView(DataExplorerTableView):
             RowFilterType.Between,
             RowFilterType.NotBetween,
         ):
-            params = filt.between_params
-            assert params is not None
+            params = filt.params
+            assert isinstance(params, FilterBetween)
             left_value = self._coerce_value(params.left_value, dtype, display_type)
             right_value = self._coerce_value(params.right_value, dtype, display_type)
             mask = col.is_between(left_value, right_value)
             if filt.filter_type == RowFilterType.NotBetween:
                 mask = ~mask
         elif filt.filter_type == RowFilterType.Compare:
-            params = filt.compare_params
-            assert params is not None
+            params = filt.params
+            assert isinstance(params, FilterComparison)
 
             if params.op not in COMPARE_OPS:
                 raise ValueError(f"Unsupported filter type: {params.op}")
@@ -1802,8 +1868,8 @@ class PolarsView(DataExplorerTableView):
         elif filt.filter_type == RowFilterType.IsFalse:
             mask = col == False  # noqa: E712
         elif filt.filter_type == RowFilterType.SetMembership:
-            params = filt.set_membership_params
-            assert params is not None
+            params = filt.params
+            assert isinstance(params, FilterSetMembership)
 
             boxed_values = pl_.Series(
                 [self._coerce_value(val, dtype, display_type) for val in params.values]
@@ -1813,15 +1879,15 @@ class PolarsView(DataExplorerTableView):
                 # NOT-IN
                 mask = ~mask
         elif filt.filter_type == RowFilterType.Search:
-            params = filt.search_params
-            assert params is not None
+            params = filt.params
+            assert isinstance(params, FilterTextSearch)
 
             if not col.dtype.is_(pl_.String):
                 col = col.cast(str)
 
             term = params.term
 
-            if params.search_type == SearchFilterType.RegexMatch:
+            if params.search_type == TextSearchType.RegexMatch:
                 if not params.case_sensitive:
                     term = "(?i)" + term
                 mask = col.str.contains(term)
@@ -1829,11 +1895,11 @@ class PolarsView(DataExplorerTableView):
                 if not params.case_sensitive:
                     col = col.str.to_lowercase()
                     term = term.lower()
-                if params.search_type == SearchFilterType.Contains:
+                if params.search_type == TextSearchType.Contains:
                     mask = col.str.contains(term)
-                elif params.search_type == SearchFilterType.StartsWith:
+                elif params.search_type == TextSearchType.StartsWith:
                     mask = col.str.starts_with(term)
-                elif params.search_type == SearchFilterType.EndsWith:
+                elif params.search_type == TextSearchType.EndsWith:
                     mask = col.str.ends_with(term)
 
         assert mask is not None
@@ -1928,7 +1994,9 @@ class PolarsView(DataExplorerTableView):
         raise NotImplementedError
 
     FEATURES = SupportedFeatures(
-        search_schema=SearchSchemaFeatures(support_status=SupportStatus.Unsupported),
+        search_schema=SearchSchemaFeatures(
+            support_status=SupportStatus.Unsupported, supported_types=[]
+        ),
         set_row_filters=SetRowFiltersFeatures(
             support_status=SupportStatus.Supported,
             supports_conditions=SupportStatus.Unsupported,
