@@ -231,12 +231,6 @@ Playwright traces can be drag and dropped to the [Trace Viewer](https://trace.pl
 
 ### Plot Tests That Use Resemblejs
 
-In order to get the "golden screenshots" used for comparison is CI, you will need to temporarily add a line of code like:
-
-```
-await app.code.driver.getLocator('.plot-instance .image-wrapper img').screenshot({ path: 'screenshot.png' });
-```
-
-(Pass the locator to the area you want screenshot to getLocator and call screenshot on the returned locator with a filename parameter.  This will create a local file that you can rename and move to /test/smoke/plots to use in your test to compare against the same locator.)
+In order to get the "golden screenshots" used for plot comparison is CI, you will need to temporarily uncomment the line of code marked with `capture master image in CI` or add a similar line of code for a new case.  We must use CI taken snapshots because if the "golden screenshots" are taken locally, they will differ too much from the CI images to be useable with a proper threshold.  You can't compare the current runtime plot against a snapshot until you have established a baseline screenshot from CI that is saved to `test/smoke/plots`.
 
 <!-- End Positron -->
