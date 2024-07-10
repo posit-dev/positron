@@ -11,49 +11,45 @@ import { installAllHandlers } from '../../../utils';
  * New Project Wizard test cases
  */
 export function setup(logger: Logger) {
-	describe('New Project Wizard', () => {
-		// Shared before/after handling
-		installAllHandlers(logger);
-
+	describe.only('New Project Wizard', () => {
 		describe('Python - New Project Wizard', () => {
+			// Shared before/after handling
+			installAllHandlers(logger);
 			before(async function () {
 
 			});
 
 			it('Python Project Defaults [C627912]', async function () {
 				const app = this.app as Application;
-				await app.workbench.positronNewProjectWizard.startNewProject();
-				await app.workbench.positronNewProjectWizard.newPythonProjectButton.click();
-				await app.workbench.positronNewProjectWizard.projectWizardNextButton.click();
-				await app.workbench.positronNewProjectWizard.projectWizardNextButton.click();
-				await app.workbench.positronNewProjectWizard.projectWizardDisabledCreateButton.isNotVisible(500); // May need to pass in a retry count > default of 200
-				await app.workbench.positronNewProjectWizard.projectWizardNextButton.click();
-				await app.workbench.positronNewProjectWizard.projectWizardCurrentWindowButton.click();
+				const pw = app.workbench.positronNewProjectWizard;
+				await pw.startNewProject();
+				await pw.projectTypeStep.newPythonProjectButton.click();
+				await pw.nextButton.click();
+				await pw.nextButton.click();
+				await pw.disabledCreateButton.isNotVisible(500); // May need to pass in a retry count > default of 200
+				await pw.nextButton.click();
+				await pw.currentOrNewWindowSelectionModal.currentWindowButton.click();
 				await app.workbench.positronExplorer.explorerProjectTitle.waitForText('myPythonProject');
 			});
-
 		});
 
-	});
-
-	describe('New Project Wizard', () => {
-		// Shared before/after handling
-		installAllHandlers(logger);
-
 		describe('R - New Project Wizard', () => {
+			// Shared before/after handling
+			installAllHandlers(logger);
 			before(async function () {
 
 			});
 
 			it('R Project Defaults [C627913]', async function () {
 				const app = this.app as Application;
-				await app.workbench.positronNewProjectWizard.startNewProject();
-				await app.workbench.positronNewProjectWizard.newRProjectButton.click();
-				await app.workbench.positronNewProjectWizard.projectWizardNextButton.click();
-				await app.workbench.positronNewProjectWizard.projectWizardNextButton.click();
-				await app.workbench.positronNewProjectWizard.projectWizardDisabledCreateButton.isNotVisible(500); // May need to pass in a retry count > default of 200
-				await app.workbench.positronNewProjectWizard.projectWizardNextButton.click();
-				await app.workbench.positronNewProjectWizard.projectWizardCurrentWindowButton.click();
+				const pw = app.workbench.positronNewProjectWizard;
+				await pw.startNewProject();
+				await pw.projectTypeStep.newRProjectButton.click();
+				await pw.nextButton.click();
+				await pw.nextButton.click();
+				await pw.disabledCreateButton.isNotVisible(500); // May need to pass in a retry count > default of 200
+				await pw.nextButton.click();
+				await pw.currentOrNewWindowSelectionModal.currentWindowButton.click();
 				await app.workbench.positronExplorer.explorerProjectTitle.waitForText('myRProject');
 			});
 
@@ -61,17 +57,18 @@ export function setup(logger: Logger) {
 				it('Accept Renv install [C633084]', async function () {
 					const projSuffix = '_installRenv';
 					const app = this.app as Application;
+					const pw = app.workbench.positronNewProjectWizard;
 					// Create a new R project - select Renv and install
-					await app.workbench.positronNewProjectWizard.startNewProject();
-					await app.workbench.positronNewProjectWizard.newRProjectButton.click();
-					await app.workbench.positronNewProjectWizard.projectWizardNextButton.click();
-					await app.workbench.positronNewProjectWizard.appendToProjectName(projSuffix);
-					await app.workbench.positronNewProjectWizard.projectWizardNextButton.click();
-					await app.workbench.positronNewProjectWizard.projectWizardDisabledCreateButton.isNotVisible(500); // May need to pass in a retry count > default of 200
+					await pw.startNewProject();
+					await pw.projectTypeStep.newRProjectButton.click();
+					await pw.nextButton.click();
+					await pw.projectNameLocationStep.appendToProjectName(projSuffix);
+					await pw.nextButton.click();
+					await pw.disabledCreateButton.isNotVisible(500); // May need to pass in a retry count > default of 200
 					// Select the renv checkbox
-					await app.workbench.positronNewProjectWizard.projectWizardRenvCheckbox.click();
-					await app.workbench.positronNewProjectWizard.projectWizardNextButton.click();
-					await app.workbench.positronNewProjectWizard.projectWizardCurrentWindowButton.click();
+					await pw.rConfigurationStep.renvCheckbox.click();
+					await pw.nextButton.click();
+					await pw.currentOrNewWindowSelectionModal.currentWindowButton.click();
 					await app.workbench.positronExplorer.explorerProjectTitle.waitForText(
 						`myRProject${projSuffix}`
 					);
@@ -109,16 +106,17 @@ export function setup(logger: Logger) {
 					// Renv will already be installed from the previous test
 					const projSuffix = '_renvAlreadyInstalled';
 					const app = this.app as Application;
-					await app.workbench.positronNewProjectWizard.startNewProject();
-					await app.workbench.positronNewProjectWizard.newRProjectButton.click();
-					await app.workbench.positronNewProjectWizard.projectWizardNextButton.click();
-					await app.workbench.positronNewProjectWizard.appendToProjectName(projSuffix);
-					await app.workbench.positronNewProjectWizard.projectWizardNextButton.click();
-					await app.workbench.positronNewProjectWizard.projectWizardDisabledCreateButton.isNotVisible(500); // May need to pass in a retry count > default of 200
+					const pw = app.workbench.positronNewProjectWizard;
+					await pw.startNewProject();
+					await pw.projectTypeStep.newRProjectButton.click();
+					await pw.nextButton.click();
+					await pw.projectNameLocationStep.appendToProjectName(projSuffix);
+					await pw.nextButton.click();
+					await pw.disabledCreateButton.isNotVisible(500); // May need to pass in a retry count > default of 200
 					// Select the renv checkbox
-					await app.workbench.positronNewProjectWizard.projectWizardRenvCheckbox.click();
-					await app.workbench.positronNewProjectWizard.projectWizardNextButton.click();
-					await app.workbench.positronNewProjectWizard.projectWizardCurrentWindowButton.click();
+					await pw.rConfigurationStep.renvCheckbox.click();
+					await pw.nextButton.click();
+					await pw.currentOrNewWindowSelectionModal.currentWindowButton.click();
 					await app.workbench.positronExplorer.explorerProjectTitle.waitForText(
 						`myRProject${projSuffix}`
 					);
@@ -138,22 +136,23 @@ export function setup(logger: Logger) {
 				it('Cancel Renv install [C656252]', async function () {
 					const projSuffix = '_cancelRenvInstall';
 					const app = this.app as Application;
+					const pw = app.workbench.positronNewProjectWizard;
 					// Remove renv package so we are prompted to install it again
 					await app.workbench.positronConsole.executeCode('R', 'remove.packages("renv")', '>');
 					await app.workbench.positronConsole.waitForConsoleContents((contents) =>
 						contents.some((line) => line.includes(`Removing package`))
 					);
 					// Create a new R project - select Renv but opt out of installing
-					await app.workbench.positronNewProjectWizard.startNewProject();
-					await app.workbench.positronNewProjectWizard.newRProjectButton.click();
-					await app.workbench.positronNewProjectWizard.projectWizardNextButton.click();
-					await app.workbench.positronNewProjectWizard.appendToProjectName(projSuffix);
-					await app.workbench.positronNewProjectWizard.projectWizardNextButton.click();
-					await app.workbench.positronNewProjectWizard.projectWizardDisabledCreateButton.isNotVisible(500); // May need to pass in a retry count > default of 200
+					await pw.startNewProject();
+					await pw.projectTypeStep.newRProjectButton.click();
+					await pw.nextButton.click();
+					await pw.projectNameLocationStep.appendToProjectName(projSuffix);
+					await pw.nextButton.click();
+					await pw.disabledCreateButton.isNotVisible(500); // May need to pass in a retry count > default of 200
 					// Select the renv checkbox
-					await app.workbench.positronNewProjectWizard.projectWizardRenvCheckbox.click();
-					await app.workbench.positronNewProjectWizard.projectWizardNextButton.click();
-					await app.workbench.positronNewProjectWizard.projectWizardCurrentWindowButton.click();
+					await pw.rConfigurationStep.renvCheckbox.click();
+					await pw.nextButton.click();
+					await pw.currentOrNewWindowSelectionModal.currentWindowButton.click();
 					await app.workbench.positronExplorer.explorerProjectTitle.waitForText(
 						`myRProject${projSuffix}`
 					);
@@ -169,26 +168,24 @@ export function setup(logger: Logger) {
 				});
 			});
 		});
-	});
 
-	describe('New Project Wizard', () => {
-		// Shared before/after handling
-		installAllHandlers(logger);
-
-		describe('Python - New Project Wizard', () => {
+		describe('Jupyter - New Project Wizard', () => {
+			// Shared before/after handling
+			installAllHandlers(logger);
 			before(async function () {
 
 			});
 
 			it('Jupyter Project Defaults [C629352]', async function () {
 				const app = this.app as Application;
-				await app.workbench.positronNewProjectWizard.startNewProject();
-				await app.workbench.positronNewProjectWizard.newJupyterProjectButton.click();
-				await app.workbench.positronNewProjectWizard.projectWizardNextButton.click();
-				await app.workbench.positronNewProjectWizard.projectWizardNextButton.click();
-				await app.workbench.positronNewProjectWizard.projectWizardDisabledCreateButton.isNotVisible(500); // May need to pass in a retry count > default of 200
-				await app.workbench.positronNewProjectWizard.projectWizardNextButton.click();
-				await app.workbench.positronNewProjectWizard.projectWizardCurrentWindowButton.click();
+				const pw = app.workbench.positronNewProjectWizard;
+				await pw.startNewProject();
+				await pw.projectTypeStep.newJupyterProjectButton.click();
+				await pw.nextButton.click();
+				await pw.nextButton.click();
+				await pw.disabledCreateButton.isNotVisible(500); // May need to pass in a retry count > default of 200
+				await pw.nextButton.click();
+				await pw.currentOrNewWindowSelectionModal.currentWindowButton.click();
 				await app.workbench.positronExplorer.explorerProjectTitle.waitForText('myJupyterNotebook');
 			});
 

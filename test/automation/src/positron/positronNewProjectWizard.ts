@@ -25,7 +25,8 @@ const PROJECT_WIZARD_PROJECT_NAME_INPUT = 'div.wizard-sub-step-input input.text-
 const PROJECT_WIZARD_DISABLED_CREATE_BUTTON = 'button.positron-button.button.action-bar-button.default.disabled[tabindex="0"][disabled][role="button"][aria-disabled="true"]';
 
 // Configuration Step: Python Project & Jupyter Notebook
-
+const PROJECT_WIZARD_EXISTING_ENV_RADIO_BUTTON = '.radio-button-input[id="existingEnvironment"]';
+const PROJECT_WIZARD_NEW_ENV_RADIO_BUTTON = 'radio-button-input.[id="newEnvironment"]';
 
 // Configuration Step: R Project
 const PROJECT_WIZARD_RENV_CHECKBOX = 'div.renv-configuration > div.checkbox';
@@ -37,36 +38,85 @@ const PROJECT_WIZARD_CURRENT_WINDOW_BUTTON = 'button.positron-button.button.acti
  *  Reuseable Positron new project wizard functionality for tests to leverage.
  */
 export class PositronNewProjectWizard {
-	newPythonProjectButton: PositronBaseElement;
-	newRProjectButton: PositronBaseElement;
-	projectWizardCancelButton: PositronBaseElement;
-	projectWizardNextButton: PositronBaseElement;
-	projectWizardBackButton: PositronBaseElement;
-	projectWizardDisabledCreateButton: PositronBaseElement;
-	projectWizardCurrentWindowButton: PositronBaseElement;
-	newJupyterProjectButton: PositronBaseElement;
-	projectWizardRenvCheckbox: PositronBaseElement;
-	projectWizardProjectNameInput: PositronBaseElement;
+	projectTypeStep: ProjectWizardProjectTypeStep;
+	projectNameLocationStep: ProjectWizardProjectNameLocationStep;
+	rConfigurationStep: ProjectWizardRConfigurationStep;
+	pythonConfigurationStep: ProjectWizardPythonConfigurationStep;
+	currentOrNewWindowSelectionModal: CurrentOrNewWindowSelectionModal;
+
+	cancelButton: PositronBaseElement;
+	nextButton: PositronBaseElement;
+	backButton: PositronBaseElement;
+	disabledCreateButton: PositronBaseElement;
 
 	constructor(private code: Code, private quickaccess: QuickAccess) {
-		this.newPythonProjectButton = new PositronBaseElement(PROJECT_WIZARD_NEW_PYTHON_PROJECT, this.code);
-		this.newRProjectButton = new PositronBaseElement(PROJECT_WIZARD_NEW_R_PROJECT, this.code);
-		this.projectWizardCancelButton = new PositronBaseElement(PROJECT_WIZARD_CANCEL_BUTTON, this.code);
-		this.projectWizardNextButton = new PositronBaseElement(PROJECT_WIZARD_NEXT_BUTTON, this.code);
-		this.projectWizardBackButton = new PositronBaseElement(PROJECT_WIZARD_BACK_BUTTON, this.code);
-		this.projectWizardDisabledCreateButton = new PositronBaseElement(PROJECT_WIZARD_DISABLED_CREATE_BUTTON, this.code);
-		this.projectWizardCurrentWindowButton = new PositronBaseElement(PROJECT_WIZARD_CURRENT_WINDOW_BUTTON, this.code);
-		this.newJupyterProjectButton = new PositronBaseElement(PROJECT_WIZARD_NEW_JUPYTER_PROJECT, this.code);
-		this.projectWizardRenvCheckbox = new PositronBaseElement(PROJECT_WIZARD_RENV_CHECKBOX, this.code);
-		this.projectWizardProjectNameInput = new PositronBaseElement(PROJECT_WIZARD_PROJECT_NAME_INPUT, this.code);
+		this.projectTypeStep = new ProjectWizardProjectTypeStep(this.code);
+		this.projectNameLocationStep = new ProjectWizardProjectNameLocationStep(this.code);
+		this.rConfigurationStep = new ProjectWizardRConfigurationStep(this.code);
+		this.pythonConfigurationStep = new ProjectWizardPythonConfigurationStep(this.code);
+		this.currentOrNewWindowSelectionModal = new CurrentOrNewWindowSelectionModal(this.code);
+
+		this.cancelButton = new PositronBaseElement(PROJECT_WIZARD_CANCEL_BUTTON, this.code);
+		this.nextButton = new PositronBaseElement(PROJECT_WIZARD_NEXT_BUTTON, this.code);
+		this.backButton = new PositronBaseElement(PROJECT_WIZARD_BACK_BUTTON, this.code);
+		this.disabledCreateButton = new PositronBaseElement(PROJECT_WIZARD_DISABLED_CREATE_BUTTON, this.code);
 	}
 
 	async startNewProject() {
 		await this.quickaccess.runCommand('positron.workbench.action.newProject', { keepOpen: false });
 	}
+}
+
+class ProjectWizardProjectTypeStep {
+	newPythonProjectButton: PositronBaseElement;
+	newRProjectButton: PositronBaseElement;
+	newJupyterProjectButton: PositronBaseElement;
+
+	constructor(private code: Code) {
+		this.newPythonProjectButton = new PositronBaseElement(PROJECT_WIZARD_NEW_PYTHON_PROJECT, this.code);
+		this.newRProjectButton = new PositronBaseElement(PROJECT_WIZARD_NEW_R_PROJECT, this.code);
+		this.newJupyterProjectButton = new PositronBaseElement(PROJECT_WIZARD_NEW_JUPYTER_PROJECT, this.code);
+	}
+}
+
+class ProjectWizardProjectNameLocationStep {
+	projectNameInput: PositronBaseElement;
+
+	constructor(private code: Code) {
+		this.projectNameInput = new PositronBaseElement(PROJECT_WIZARD_PROJECT_NAME_INPUT, this.code);
+	}
 
 	async appendToProjectName(text: string) {
 		await this.code.waitForActiveElement(PROJECT_WIZARD_PROJECT_NAME_INPUT);
-		await this.projectWizardProjectNameInput.getPage().keyboard.type(text);
+		await this.projectNameInput.getPage().keyboard.type(text);
+	}
+}
+
+class ProjectWizardRConfigurationStep {
+	renvCheckbox: PositronBaseElement;
+
+	constructor(private code: Code) {
+		this.renvCheckbox = new PositronBaseElement(PROJECT_WIZARD_RENV_CHECKBOX, this.code);
+	}
+}
+
+class ProjectWizardPythonConfigurationStep {
+	newEnvRadioButton: PositronBaseElement;
+	existingEnvRadioButton: PositronBaseElement;
+	// TO ADD:
+	// env provider selection
+	// interpreter selection
+	// interpreter feedback text
+	constructor(private code: Code) {
+		this.newEnvRadioButton = new PositronBaseElement(PROJECT_WIZARD_NEW_ENV_RADIO_BUTTON, this.code);
+		this.existingEnvRadioButton = new PositronBaseElement(PROJECT_WIZARD_EXISTING_ENV_RADIO_BUTTON, this.code);
+	}
+}
+
+class CurrentOrNewWindowSelectionModal {
+	currentWindowButton: PositronBaseElement;
+
+	constructor(private code: Code) {
+		this.currentWindowButton = new PositronBaseElement(PROJECT_WIZARD_CURRENT_WINDOW_BUTTON, this.code);
 	}
 }
