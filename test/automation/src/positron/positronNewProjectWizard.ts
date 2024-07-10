@@ -68,14 +68,14 @@ export class PositronNewProjectWizard {
 }
 
 class ProjectWizardProjectTypeStep {
-	newPythonProjectButton: PositronBaseElement;
-	newRProjectButton: PositronBaseElement;
-	newJupyterProjectButton: PositronBaseElement;
+	pythonProjectButton: PositronBaseElement;
+	rProjectButton: PositronBaseElement;
+	jupyterNotebookButton: PositronBaseElement;
 
 	constructor(private code: Code) {
-		this.newPythonProjectButton = new PositronBaseElement(PROJECT_WIZARD_NEW_PYTHON_PROJECT, this.code);
-		this.newRProjectButton = new PositronBaseElement(PROJECT_WIZARD_NEW_R_PROJECT, this.code);
-		this.newJupyterProjectButton = new PositronBaseElement(PROJECT_WIZARD_NEW_JUPYTER_PROJECT, this.code);
+		this.pythonProjectButton = new PositronBaseElement(PROJECT_WIZARD_NEW_PYTHON_PROJECT, this.code);
+		this.rProjectButton = new PositronBaseElement(PROJECT_WIZARD_NEW_R_PROJECT, this.code);
+		this.jupyterNotebookButton = new PositronBaseElement(PROJECT_WIZARD_NEW_JUPYTER_PROJECT, this.code);
 	}
 }
 

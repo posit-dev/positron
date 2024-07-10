@@ -23,7 +23,7 @@ export function setup(logger: Logger) {
 				const app = this.app as Application;
 				const pw = app.workbench.positronNewProjectWizard;
 				await pw.startNewProject();
-				await pw.projectTypeStep.newPythonProjectButton.click();
+				await pw.projectTypeStep.pythonProjectButton.click();
 				await pw.nextButton.click();
 				await pw.nextButton.click();
 				await pw.disabledCreateButton.isNotVisible(500); // May need to pass in a retry count > default of 200
@@ -44,7 +44,7 @@ export function setup(logger: Logger) {
 				const app = this.app as Application;
 				const pw = app.workbench.positronNewProjectWizard;
 				await pw.startNewProject();
-				await pw.projectTypeStep.newRProjectButton.click();
+				await pw.projectTypeStep.rProjectButton.click();
 				await pw.nextButton.click();
 				await pw.nextButton.click();
 				await pw.disabledCreateButton.isNotVisible(500); // May need to pass in a retry count > default of 200
@@ -60,7 +60,7 @@ export function setup(logger: Logger) {
 					const pw = app.workbench.positronNewProjectWizard;
 					// Create a new R project - select Renv and install
 					await pw.startNewProject();
-					await pw.projectTypeStep.newRProjectButton.click();
+					await pw.projectTypeStep.rProjectButton.click();
 					await pw.nextButton.click();
 					await pw.projectNameLocationStep.appendToProjectName(projSuffix);
 					await pw.nextButton.click();
@@ -108,7 +108,7 @@ export function setup(logger: Logger) {
 					const app = this.app as Application;
 					const pw = app.workbench.positronNewProjectWizard;
 					await pw.startNewProject();
-					await pw.projectTypeStep.newRProjectButton.click();
+					await pw.projectTypeStep.rProjectButton.click();
 					await pw.nextButton.click();
 					await pw.projectNameLocationStep.appendToProjectName(projSuffix);
 					await pw.nextButton.click();
@@ -144,7 +144,7 @@ export function setup(logger: Logger) {
 					);
 					// Create a new R project - select Renv but opt out of installing
 					await pw.startNewProject();
-					await pw.projectTypeStep.newRProjectButton.click();
+					await pw.projectTypeStep.rProjectButton.click();
 					await pw.nextButton.click();
 					await pw.projectNameLocationStep.appendToProjectName(projSuffix);
 					await pw.nextButton.click();
@@ -180,7 +180,7 @@ export function setup(logger: Logger) {
 				const app = this.app as Application;
 				const pw = app.workbench.positronNewProjectWizard;
 				await pw.startNewProject();
-				await pw.projectTypeStep.newJupyterProjectButton.click();
+				await pw.projectTypeStep.jupyterNotebookButton.click();
 				await pw.nextButton.click();
 				await pw.nextButton.click();
 				await pw.disabledCreateButton.isNotVisible(500); // May need to pass in a retry count > default of 200
