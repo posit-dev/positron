@@ -516,6 +516,7 @@ use serde::Serialize;
 			for (let i = 0; i < values.length; i++) {
 				const value = values[i];
 				yield `\t#[serde(rename = "${value}")]\n`;
+				yield `\t#[strum(to_string = "${value}")]\n`;
 				yield `\t${snakeCaseToSentenceCase(value)}`;
 				if (i < values.length - 1) {
 					yield ',\n\n';
