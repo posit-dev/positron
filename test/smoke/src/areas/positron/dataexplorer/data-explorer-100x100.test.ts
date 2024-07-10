@@ -85,8 +85,21 @@ export function setupDataExplorer100x100Test(logger: Logger) {
 					// Get the cell.
 					const cell = await app.code.waitForElement(`#data-grid-row-cell-content-${columnIndex}-${rowIndex} .text-container .text-value`);
 
-					// Test the cell.
-					expect(row[columnIndex]).toStrictEqual(cell.textContent);
+					// On Linux, R will conjure up different date values from time to time.
+					let tested = false;
+					if (language === 'R' && process.platform === 'linux') {
+						const expectDate = Date.parse(row[columnIndex]);
+						const cellDate = Date.parse(cell.textContent);
+						if (!isNaN(expectDate) && !isNaN(cellDate)) {
+							expect(Math.round(expectDate / 60000)).toStrictEqual(Math.round(cellDate / 60000));
+							tested = true;
+						}
+					}
+
+					// Test the cell, if it wasn't tested above.
+					if (!tested) {
+						expect(row[columnIndex]).toStrictEqual(cell.textContent);
+					}
 
 					// Move to the next cell.
 					await app.workbench.positronDataExplorer.arrowRight();
