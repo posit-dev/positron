@@ -6,7 +6,7 @@
 
 import { Code } from '../code';
 import { QuickAccess } from '../quickaccess';
-import { PositronBaseElement } from './positronBaseElement';
+import { PositronBaseElement, PositronTextElement } from './positronBaseElement';
 
 // Project Wizard General Modal Elements
 const PROJECT_WIZARD_CANCEL_BUTTON = 'div.right-actions > button.positron-button.button.action-bar-button[tabindex="0"][role="button"]';
@@ -19,14 +19,18 @@ const PROJECT_WIZARD_NEW_R_PROJECT = '[id="R Project"]';
 const PROJECT_WIZARD_NEW_JUPYTER_PROJECT = '[id="Jupyter Notebook"]';
 
 // Project Name & Location Step
-const PROJECT_WIZARD_PROJECT_NAME_INPUT = 'div.wizard-sub-step-input input.text-input';
+const PROJECT_WIZARD_PROJECT_NAME_INPUT = 'div[id="wizard-sub-step-project-name"] .wizard-sub-step-input input.text-input';
 
 // Configuration Step: General
 const PROJECT_WIZARD_DISABLED_CREATE_BUTTON = 'button.positron-button.button.action-bar-button.default.disabled[tabindex="0"][disabled][role="button"][aria-disabled="true"]';
 
 // Configuration Step: Python Project & Jupyter Notebook
-const PROJECT_WIZARD_EXISTING_ENV_RADIO_BUTTON = '.radio-button-input[id="existingEnvironment"]';
-const PROJECT_WIZARD_NEW_ENV_RADIO_BUTTON = 'radio-button-input.[id="newEnvironment"]';
+const PROJECT_WIZARD_EXISTING_ENV_RADIO_BUTTON = 'div[id="wizard-step-set-up-python-environment"] div[id="wizard-sub-step-pythonenvironment-howtosetupenv"] .radio-button-input[id="existingEnvironment"]';
+const PROJECT_WIZARD_NEW_ENV_RADIO_BUTTON = 'div[id="wizard-step-set-up-python-environment"] div[id="wizard-sub-step-pythonenvironment-howtosetupenv"] radio-button-input.[id="newEnvironment"]';
+const PROJECT_WIZARD_INTERPRETER_DROPDOWN = 'div[id="wizard-sub-step-python-interpreter"] .wizard-sub-step-input button.drop-down-list-box';
+const PROJECT_WIZARD_INTERPRETER_DROPDOWN_SELECTED_TITLE = 'div[id="wizard-sub-step-python-interpreter"] .wizard-sub-step-input button.drop-down-list-box .dropdown-entry-title';
+const PROJECT_WIZARD_INTERPRETER_DROPDOWN_POPUP_ITEMS = 'div.positron-modal-popup-children button.positron-button.item';
+const PROJECT_WIZARD_PYTHON_INTERPRETER_FEEDBACK = 'div[id="wizard-sub-step-python-interpreter"] .wizard-sub-step-feedback .wizard-formatted-text';
 
 // Configuration Step: R Project
 const PROJECT_WIZARD_RENV_CHECKBOX = 'div.renv-configuration > div.checkbox';
@@ -103,13 +107,20 @@ class ProjectWizardRConfigurationStep {
 class ProjectWizardPythonConfigurationStep {
 	newEnvRadioButton: PositronBaseElement;
 	existingEnvRadioButton: PositronBaseElement;
-	// TO ADD:
-	// env provider selection
-	// interpreter selection
-	// interpreter feedback text
+	selectedInterpreterTitle: PositronTextElement;
+	interpreterFeedback: PositronTextElement;
+
 	constructor(private code: Code) {
 		this.newEnvRadioButton = new PositronBaseElement(PROJECT_WIZARD_NEW_ENV_RADIO_BUTTON, this.code);
 		this.existingEnvRadioButton = new PositronBaseElement(PROJECT_WIZARD_EXISTING_ENV_RADIO_BUTTON, this.code);
+		this.selectedInterpreterTitle = new PositronTextElement(PROJECT_WIZARD_INTERPRETER_DROPDOWN_SELECTED_TITLE, this.code);
+		this.interpreterFeedback = new PositronTextElement(PROJECT_WIZARD_PYTHON_INTERPRETER_FEEDBACK, this.code);
+	}
+
+	async selectInterpreter(version: string) {
+		await this.code.driver.getLocator(PROJECT_WIZARD_INTERPRETER_DROPDOWN).click();
+		await this.code.waitForElement(PROJECT_WIZARD_INTERPRETER_DROPDOWN_POPUP_ITEMS);
+		await this.code.driver.getLocator(`${PROJECT_WIZARD_INTERPRETER_DROPDOWN_POPUP_ITEMS} div.dropdown-entry:has-text("${version}")`).click();
 	}
 }
 
