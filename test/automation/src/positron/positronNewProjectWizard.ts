@@ -8,16 +8,30 @@ import { Code } from '../code';
 import { QuickAccess } from '../quickaccess';
 import { PositronBaseElement } from './positronBaseElement';
 
-const PROJECT_WIZARD_NEW_PYTHON_PROJECT = '[id="Python Project"]';
-const PROJECT_WIZARD_NEW_R_PROJECT = '[id="R Project"]';
+// Project Wizard General Modal Elements
 const PROJECT_WIZARD_CANCEL_BUTTON = 'div.right-actions > button.positron-button.button.action-bar-button[tabindex="0"][role="button"]';
 const PROJECT_WIZARD_NEXT_BUTTON = 'button.positron-button.button.action-bar-button.default[tabindex="0"][role="button"]';
 const PROJECT_WIZARD_BACK_BUTTON = 'div.left-actions > button.positron-button.button.action-bar-button[tabindex="0"][role="button"]';
-const PROJECT_WIZARD_DISABLED_CREATE_BUTTON = 'button.positron-button.button.action-bar-button.default.disabled[tabindex="0"][disabled][role="button"][aria-disabled="true"]';
-const PROJECT_WIZARD_CURRENT_WINDOW_BUTTON = 'button.positron-button.button.action-bar-button[tabindex="0"][role="button"]';
+
+// Project Type Selection Step
+const PROJECT_WIZARD_NEW_PYTHON_PROJECT = '[id="Python Project"]';
+const PROJECT_WIZARD_NEW_R_PROJECT = '[id="R Project"]';
 const PROJECT_WIZARD_NEW_JUPYTER_PROJECT = '[id="Jupyter Notebook"]';
-const PROJECT_WIZARD_RENV_CHECKBOX = 'div.renv-configuration > div.checkbox';
+
+// Project Name & Location Step
 const PROJECT_WIZARD_PROJECT_NAME_INPUT = 'div.wizard-sub-step-input input.text-input';
+
+// Configuration Step: General
+const PROJECT_WIZARD_DISABLED_CREATE_BUTTON = 'button.positron-button.button.action-bar-button.default.disabled[tabindex="0"][disabled][role="button"][aria-disabled="true"]';
+
+// Configuration Step: Python Project & Jupyter Notebook
+
+
+// Configuration Step: R Project
+const PROJECT_WIZARD_RENV_CHECKBOX = 'div.renv-configuration > div.checkbox';
+
+// Current or New Window Selection Modal
+const PROJECT_WIZARD_CURRENT_WINDOW_BUTTON = 'button.positron-button.button.action-bar-button[tabindex="0"][role="button"]';
 
 /*
  *  Reuseable Positron new project wizard functionality for tests to leverage.
