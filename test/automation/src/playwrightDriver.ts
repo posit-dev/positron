@@ -265,9 +265,9 @@ export class PlaywrightDriver {
 	}
 
 	/**
-	 * Set the size of the browser window, for more predicable test results.
-	 * @param width Width in pixels
-	 * @param height Height in pixels
+	 * Set the size of the browser window for more predicable test results.
+	 * @param opts.width Width in pixels
+	 * @param opts.height Height in pixels
 	 */
 	async setViewportSize(opts: { width: number; height: number }) {
 		await this.page.setViewportSize(opts);
