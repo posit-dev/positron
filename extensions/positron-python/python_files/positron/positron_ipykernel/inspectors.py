@@ -79,6 +79,8 @@ T = TypeVar("T")
 
 
 SIMPLER_NAMES = {
+    "geopandas.geoseries.GeoSeries": "geopandas.GeoSeries",
+    "geopandas.geodataframe.GeoDataFrame": "geopandas.GeoDataFrame",
     "pandas.core.frame.DataFrame": "pandas.DataFrame",
     "pandas.core.series.Series": "pandas.Series",
     "polars.dataframe.frame.DataFrame": "polars.DataFrame",
@@ -800,7 +802,10 @@ class BaseColumnInspector(_BaseMapInspector[Column], ABC):
 
 
 class PandasSeriesInspector(BaseColumnInspector["pd.Series"]):
-    CLASS_QNAME = "pandas.core.series.Series"
+    CLASS_QNAME = [
+        "pandas.core.series.Series",
+        "geopandas.geoseries.GeoSeries",
+    ]
 
     def get_display_name(self, key: int) -> str:
         return str(self.value.index[key])
@@ -946,7 +951,10 @@ class BaseTableInspector(_BaseMapInspector[Table], Generic[Table, Column], ABC):
 
 
 class PandasDataFrameInspector(BaseTableInspector["pd.DataFrame", "pd.Series"]):
-    CLASS_QNAME = "pandas.core.frame.DataFrame"
+    CLASS_QNAME = [
+        "pandas.core.frame.DataFrame",
+        "geopandas.geodataframe.GeoDataFrame",
+    ]
 
     def get_display_name(self, key: int) -> str:
         return str(self.value.columns[key])
@@ -1053,8 +1061,8 @@ class SQLAlchemyEngineInspector(BaseConnectionInspector):
 
 
 INSPECTOR_CLASSES: Dict[str, Type[PositronInspector]] = {
-    PandasDataFrameInspector.CLASS_QNAME: PandasDataFrameInspector,
-    PandasSeriesInspector.CLASS_QNAME: PandasSeriesInspector,
+    **dict.fromkeys(PandasDataFrameInspector.CLASS_QNAME, PandasDataFrameInspector),
+    **dict.fromkeys(PandasSeriesInspector.CLASS_QNAME, PandasSeriesInspector),
     **dict.fromkeys(PandasIndexInspector.CLASS_QNAME, PandasIndexInspector),
     PandasTimestampInspector.CLASS_QNAME: PandasTimestampInspector,
     **dict.fromkeys(NumpyNumberInspector.CLASS_QNAME, NumpyNumberInspector),

@@ -1,4 +1,5 @@
 fastcore
+geopandas
 ipykernel
 ipywidgets
 matplotlib
