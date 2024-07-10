@@ -137,7 +137,11 @@ export function getShellIntegrationInjection(
 	const appRoot = path.dirname(FileAccess.asFileUri('').fsPath);
 	let newArgs: string[] | undefined;
 	const envMixin: IProcessEnvironment = {
-		'VSCODE_INJECTION': '1'
+		// --- Start Positron ---
+		// 'VSCODE_INJECTION': '1'
+		'VSCODE_INJECTION': '1',
+		'POSITRON': '1'
+		// --- End Positron ---
 	};
 
 	if (options.shellIntegration.nonce) {

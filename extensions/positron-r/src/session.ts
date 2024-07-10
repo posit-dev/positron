@@ -681,7 +681,6 @@ export function createJupyterKernelSpec(
 
 	/* eslint-disable */
 	const env = <Record<string, string>>{
-		'POSITRON': '1',
 		'RUST_BACKTRACE': '1',
 		'RUST_LOG': logLevelForeign + ',ark=' + logLevel,
 		'R_HOME': rHomePath,
