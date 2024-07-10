@@ -502,7 +502,7 @@ use serde::Serialize;
 				yield formatComment(`/// `,
 					`Possible values for ` +
 					snakeCaseToSentenceCase(context[0]));
-				yield '#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]\n';
+				yield '#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, strum_macros::Display)]\n';
 				yield `pub enum ${snakeCaseToSentenceCase(context[0])} {\n`;
 			} else {
 				// Enum field within another interface
@@ -510,7 +510,7 @@ use serde::Serialize;
 					`Possible values for ` +
 					snakeCaseToSentenceCase(context[0]) + ` in ` +
 					snakeCaseToSentenceCase(context[1]));
-				yield '#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]\n';
+				yield '#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, strum_macros::Display)]\n';
 				yield `pub enum ${snakeCaseToSentenceCase(context[1])}${snakeCaseToSentenceCase(context[0])} {\n`;
 			}
 			for (let i = 0; i < values.length; i++) {
