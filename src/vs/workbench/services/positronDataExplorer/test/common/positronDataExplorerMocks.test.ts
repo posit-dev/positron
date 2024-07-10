@@ -6,9 +6,12 @@
 import * as assert from 'assert';
 import { ensureNoDisposablesAreLeakedInTestSuite } from 'vs/base/test/common/utils';
 import {
-	CompareFilterParamsOp,
+	FilterComparison,
+	FilterComparisonOp,
+	FilterSetMembership,
+	FilterTextSearch,
 	RowFilterType,
-	SearchFilterType
+	TextSearchType
 } from 'vs/workbench/services/languageRuntime/common/positronDataExplorerComm';
 import * as mocks from "vs/workbench/services/positronDataExplorer/common/positronDataExplorerMocks";
 
@@ -42,13 +45,13 @@ suite('DataExplorerMocks', () => {
 	test('Test getCompareFilter', () => {
 		const schema = mocks.getTableSchema(1000, 10);
 
-		const filter = mocks.getCompareFilter(schema.columns[2], CompareFilterParamsOp.Gt, '1234');
+		const filter = mocks.getCompareFilter(schema.columns[2], FilterComparisonOp.Gt, '1234');
 		assert.equal(filter.filter_type, RowFilterType.Compare);
 		assert.equal(filter.column_schema.column_index, 2);
 
-		const params = filter.compare_params!;
+		const params = filter.params as FilterComparison;
 
-		assert.equal(params.op, CompareFilterParamsOp.Gt);
+		assert.equal(params.op, FilterComparisonOp.Gt);
 		assert.equal(params.value, '1234');
 	});
 
@@ -65,14 +68,14 @@ suite('DataExplorerMocks', () => {
 	test('Test getTextSearchFilter', () => {
 		const schema = mocks.getTableSchema(1000, 10);
 		const filter = mocks.getTextSearchFilter(schema.columns[5], 'needle',
-			SearchFilterType.Contains, false);
+			TextSearchType.Contains, false);
 		assert.equal(filter.column_schema.column_index, 5);
 		assert.equal(filter.filter_type, RowFilterType.Search);
 
-		const params = filter.search_params!;
+		const params = filter.params as FilterTextSearch;
 
 		assert.equal(params.term, 'needle');
-		assert.equal(params.search_type, SearchFilterType.Contains);
+		assert.equal(params.search_type, TextSearchType.Contains);
 		assert.equal(params.case_sensitive, false);
 	});
 
@@ -83,7 +86,7 @@ suite('DataExplorerMocks', () => {
 		assert.equal(filter.column_schema.column_index, 6);
 		assert.equal(filter.filter_type, RowFilterType.SetMembership);
 
-		const params = filter.set_membership_params!;
+		const params = filter.params as FilterSetMembership;
 
 		assert.equal(params.values, set_values);
 		assert.equal(params.inclusive, true);

@@ -6,11 +6,15 @@
 import { generateUuid } from 'vs/base/common/uuid';
 import {
 	ColumnSchema,
-	CompareFilterParamsOp,
+	FilterBetween,
+	FilterComparison,
+	FilterComparisonOp,
+	FilterSetMembership,
+	FilterTextSearch,
 	RowFilter,
 	RowFilterCondition,
 	RowFilterType,
-	SearchFilterType
+	TextSearchType
 } from 'vs/workbench/services/languageRuntime/common/positronDataExplorerComm';
 
 /**
@@ -118,7 +122,7 @@ export class RowFilterDescriptorIsEmpty extends BaseRowFilterDescriptor {
 	/**
 	 * Get the backend OpenRPC type.
 	 */
-	get backendFilter() {
+	get backendFilter(): RowFilter {
 		return {
 			filter_type: RowFilterType.IsEmpty,
 			...this._sharedBackendParams()
@@ -330,27 +334,27 @@ export class RowFilterDescriptorComparison extends SingleValueRowFilterDescripto
 	/**
 	 * Get the backend OpenRPC type.
 	 */
-	get backendFilter() {
+	get backendFilter(): RowFilter {
 		const getCompareOp = () => {
 			switch (this.descrType) {
 				case RowFilterDescrType.IS_EQUAL_TO:
-					return CompareFilterParamsOp.Eq;
+					return FilterComparisonOp.Eq;
 				case RowFilterDescrType.IS_GREATER_OR_EQUAL:
-					return CompareFilterParamsOp.GtEq;
+					return FilterComparisonOp.GtEq;
 				case RowFilterDescrType.IS_GREATER_THAN:
-					return CompareFilterParamsOp.Gt;
+					return FilterComparisonOp.Gt;
 				case RowFilterDescrType.IS_LESS_OR_EQUAL:
-					return CompareFilterParamsOp.LtEq;
+					return FilterComparisonOp.LtEq;
 				case RowFilterDescrType.IS_LESS_THAN:
-					return CompareFilterParamsOp.Lt;
+					return FilterComparisonOp.Lt;
 				default:
 					// IS_NOT_EQUAL_TO
-					return CompareFilterParamsOp.NotEq;
+					return FilterComparisonOp.NotEq;
 			}
 		};
 		return {
 			filter_type: RowFilterType.Compare,
-			compare_params: {
+			params: {
 				op: getCompareOp(),
 				value: this.value
 			},
@@ -408,24 +412,24 @@ export class RowFilterDescriptorSearch extends SingleValueRowFilterDescriptor {
 	/**
 	 * Get the backend OpenRPC type.
 	 */
-	get backendFilter() {
+	get backendFilter(): RowFilter {
 		const getSearchOp = () => {
 			switch (this._descrType) {
 				case RowFilterDescrType.SEARCH_CONTAINS:
-					return SearchFilterType.Contains;
+					return TextSearchType.Contains;
 				case RowFilterDescrType.SEARCH_STARTS_WITH:
-					return SearchFilterType.StartsWith;
+					return TextSearchType.StartsWith;
 				case RowFilterDescrType.SEARCH_ENDS_WITH:
-					return SearchFilterType.EndsWith;
+					return TextSearchType.EndsWith;
 				default:
 					// SEARCH_REGEX_MATCHES
-					return SearchFilterType.RegexMatch;
+					return TextSearchType.RegexMatch;
 			}
 		};
 
 		return {
 			filter_type: RowFilterType.Search,
-			search_params: {
+			params: {
 				search_type: getSearchOp(),
 				term: this.value,
 				case_sensitive: false
@@ -466,10 +470,10 @@ export class RowFilterDescriptorSetMembership extends BaseRowFilterDescriptor {
 	/**
 	 * Get the backend OpenRPC type.
 	 */
-	get backendFilter() {
+	get backendFilter(): RowFilter {
 		return {
 			filter_type: RowFilterType.SetMembership,
-			set_membership_filter_params: {
+			params: {
 				values: this.values,
 				inclusive: true
 			},
@@ -521,10 +525,10 @@ export class RowFilterDescriptorIsBetween extends RangeRowFilterDescriptor {
 	/**
 	 * Get the backend OpenRPC type.
 	 */
-	get backendFilter() {
+	get backendFilter(): RowFilter {
 		return {
 			filter_type: RowFilterType.Between,
-			between_params: {
+			params: {
 				left_value: this.lowerLimit,
 				right_value: this.upperLimit
 			},
@@ -557,10 +561,10 @@ export class RowFilterDescriptorIsNotBetween extends RangeRowFilterDescriptor {
 	/**
 	 * Get the backend OpenRPC type.
 	 */
-	get backendFilter() {
+	get backendFilter(): RowFilter {
 		return {
 			filter_type: RowFilterType.NotBetween,
-			between_params: {
+			params: {
 				left_value: this.lowerLimit,
 				right_value: this.upperLimit
 			},
@@ -569,32 +573,32 @@ export class RowFilterDescriptorIsNotBetween extends RangeRowFilterDescriptor {
 	}
 }
 
-function getCompareDescrType(op: CompareFilterParamsOp) {
+function getCompareDescrType(op: FilterComparisonOp) {
 	switch (op) {
-		case CompareFilterParamsOp.Eq:
+		case FilterComparisonOp.Eq:
 			return RowFilterDescrType.IS_EQUAL_TO;
-		case CompareFilterParamsOp.NotEq:
+		case FilterComparisonOp.NotEq:
 			return RowFilterDescrType.IS_NOT_EQUAL_TO;
-		case CompareFilterParamsOp.Lt:
+		case FilterComparisonOp.Lt:
 			return RowFilterDescrType.IS_LESS_THAN;
-		case CompareFilterParamsOp.LtEq:
+		case FilterComparisonOp.LtEq:
 			return RowFilterDescrType.IS_LESS_OR_EQUAL;
-		case CompareFilterParamsOp.Gt:
+		case FilterComparisonOp.Gt:
 			return RowFilterDescrType.IS_GREATER_THAN;
-		case CompareFilterParamsOp.GtEq:
+		case FilterComparisonOp.GtEq:
 			return RowFilterDescrType.IS_GREATER_OR_EQUAL;
 	}
 }
 
-function getSearchDescrType(searchType: SearchFilterType) {
+function getSearchDescrType(searchType: TextSearchType) {
 	switch (searchType) {
-		case SearchFilterType.Contains:
+		case TextSearchType.Contains:
 			return RowFilterDescrType.SEARCH_CONTAINS;
-		case SearchFilterType.EndsWith:
+		case TextSearchType.EndsWith:
 			return RowFilterDescrType.SEARCH_ENDS_WITH;
-		case SearchFilterType.StartsWith:
+		case TextSearchType.StartsWith:
 			return RowFilterDescrType.SEARCH_STARTS_WITH;
-		case SearchFilterType.RegexMatch:
+		case TextSearchType.RegexMatch:
 			return RowFilterDescrType.SEARCH_REGEX_MATCHES;
 	}
 }
@@ -608,19 +612,19 @@ export function getRowFilterDescriptor(backendFilter: RowFilter): RowFilterDescr
 	};
 	switch (backendFilter.filter_type) {
 		case RowFilterType.Compare: {
-			const params = backendFilter.compare_params!;
+			const params = backendFilter.params as FilterComparison;
 			return new RowFilterDescriptorComparison(commonProps,
 				params.value, getCompareDescrType(params.op),
 			);
 		}
 		case RowFilterType.Between: {
-			const params = backendFilter.between_params!;
+			const params = backendFilter.params as FilterBetween;
 			return new RowFilterDescriptorIsBetween(commonProps,
 				params.left_value, params.right_value
 			);
 		}
 		case RowFilterType.NotBetween: {
-			const params = backendFilter.between_params!;
+			const params = backendFilter.params as FilterBetween;
 			return new RowFilterDescriptorIsNotBetween(commonProps,
 				params.left_value, params.right_value
 			);
@@ -638,12 +642,12 @@ export function getRowFilterDescriptor(backendFilter: RowFilter): RowFilterDescr
 		case RowFilterType.IsFalse:
 			return new RowFilterDescriptorIsFalse(commonProps);
 		case RowFilterType.Search: {
-			const params = backendFilter.search_params!;
+			const params = backendFilter.params as FilterTextSearch;
 			return new RowFilterDescriptorSearch(commonProps,
 				params.term, getSearchDescrType(params.search_type));
 		}
 		case RowFilterType.SetMembership: {
-			const params = backendFilter.set_membership_params!;
+			const params = backendFilter.params as FilterSetMembership;
 			return new RowFilterDescriptorSetMembership(commonProps,
 				params.values
 			);

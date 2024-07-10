@@ -370,11 +370,11 @@ class DataExplorerFixture:
             num_columns=num_columns,
         )["columns"]
 
-    def search_schema(self, table_name, search_term, start_index, max_results):
+    def search_schema(self, table_name, filters, start_index, max_results):
         return self.do_json_rpc(
             table_name,
             "search_schema",
-            search_term=search_term,
+            filters=filters,
             start_index=start_index,
             max_results=max_results,
         )
@@ -747,7 +747,27 @@ def test_pandas_wide_schemas(dxf: DataExplorerFixture):
             assert left == right
 
 
-def test_pandas_search_schema(dxf: DataExplorerFixture):
+def _text_search_filter(term, match="contains", case_sensitive=False):
+    return {
+        "filter_type": "text_search",
+        "params": {
+            "search_type": match,
+            "term": term,
+            "case_sensitive": case_sensitive,
+        },
+    }
+
+
+def _match_types_filter(data_types):
+    return {
+        "filter_type": "match_data_types",
+        "params": {"display_types": [getattr(x, "value", x) for x in data_types]},
+    }
+
+
+def test_search_schema(dxf: DataExplorerFixture):
+    # Test search_schema RPC for pandas and polars
+
     # Make a few thousand column names we can search for
     column_names = [
         f"{prefix}_{i}"
@@ -755,31 +775,79 @@ def test_pandas_search_schema(dxf: DataExplorerFixture):
         for i in range({"aaa": 1000, "bbb": 100, "ccc": 50, "ddd": 10}[prefix])
     ]
 
+    data_examples = {
+        0: np.arange(5),
+        1: ["foo", "bar", "baz", None, "qux"],
+        2: [True, False, True, False, True],
+        3: [1.5, -3.4, 0, 1, 2],
+        4: [
+            datetime(2024, 7, 5),
+            datetime(2024, 7, 6),
+            None,
+            datetime(2024, 7, 8),
+            datetime(2024, 7, 9),
+        ],
+    }
+
+    frame_data = {
+        name: data_examples[i % len(data_examples)] for i, name in enumerate(column_names)
+    }
+
     # Make a data frame with those column names
-    arr = np.arange(10)
-    df = pd.DataFrame({name: arr for name in column_names}, columns=pd.Index(column_names))
+    df = pd.DataFrame(frame_data, columns=column_names)
+    dfp = pl.DataFrame(frame_data, schema=column_names)
 
     dxf.register_table("df", df)
+    dxf.register_table("dfp", dfp)
 
-    full_schema = dxf.get_schema("df", 0, len(column_names))
+    aaa_filter = _text_search_filter("aaa")
+    bbb_filter = _text_search_filter("bbb")
+    ccc_filter = _text_search_filter("ccc")
+    ddd_filter = _text_search_filter("ddd")
 
-    # (search_term, start_index, max_results, ex_total, ex_matches)
-    cases = [
-        ("aaa", 0, 100, 1000, full_schema[:100]),
-        ("aaa", 100, 100, 1000, full_schema[100:200]),
-        ("aaa", 950, 100, 1000, full_schema[950:1000]),
-        ("aaa", 1000, 100, 1000, []),
-        ("bbb", 0, 10, 100, full_schema[1000:1010]),
-        ("ccc", 0, 10, 50, full_schema[1100:1110]),
-        ("ddd", 0, 10, 10, full_schema[1150:1160]),
-    ]
+    for name in ["df", "dfp"]:
+        full_schema = dxf.get_schema(name, 0, len(column_names))
 
-    for search_term, start_index, max_results, ex_total, ex_matches in cases:
-        result = dxf.search_schema("df", search_term, start_index, max_results)
+        # (search_term, start_index, max_results, ex_total, ex_matches)
+        cases = [
+            ([aaa_filter], 0, 100, 1000, full_schema[:100]),
+            (
+                [aaa_filter, _match_types_filter([ColumnDisplayType.String])],
+                0,
+                100,
+                200,
+                full_schema[:500][1::5],
+            ),
+            (
+                [
+                    aaa_filter,
+                    _match_types_filter([ColumnDisplayType.Boolean, ColumnDisplayType.Number]),
+                ],
+                0,
+                120,
+                600,
+                [x for i, x in enumerate(full_schema[:200]) if i % 5 in (0, 2, 3)],
+            ),
+            ([aaa_filter], 100, 100, 1000, full_schema[100:200]),
+            ([aaa_filter], 950, 100, 1000, full_schema[950:1000]),
+            ([aaa_filter], 1000, 100, 1000, []),
+            ([bbb_filter], 0, 10, 100, full_schema[1000:1010]),
+            ([ccc_filter], 0, 10, 50, full_schema[1100:1110]),
+            ([ddd_filter], 0, 10, 10, full_schema[1150:1160]),
+        ]
 
-        assert result["total_num_matches"] == ex_total
-        matches = result["matches"]["columns"]
-        assert matches == ex_matches
+        for (
+            filters,
+            start_index,
+            max_results,
+            ex_total,
+            ex_matches,
+        ) in cases:
+            result = dxf.search_schema(name, filters, start_index, max_results)
+
+            assert result["total_num_matches"] == ex_total
+            matches = result["matches"]["columns"]
+            assert matches == ex_matches
 
 
 def test_pandas_get_data_values(dxf: DataExplorerFixture):
@@ -1006,7 +1074,7 @@ def _compare_filter(column_schema, op, value, condition="and", is_valid=None):
         column_schema,
         condition=condition,
         is_valid=is_valid,
-        compare_params={"op": op, "value": str(value)},
+        params={"op": op, "value": str(value)},
     )
 
 
@@ -1015,7 +1083,7 @@ def _between_filter(column_schema, left_value, right_value, op="between", condit
         op,
         column_schema,
         condition=condition,
-        between_params={
+        params={
             "left_value": str(left_value),
             "right_value": str(right_value),
         },
@@ -1043,7 +1111,7 @@ def _search_filter(
         "search",
         column_schema,
         condition=condition,
-        search_params={
+        params={
             "search_type": search_type,
             "term": term,
             "case_sensitive": case_sensitive,
@@ -1061,7 +1129,7 @@ def _set_member_filter(
         "set_membership",
         column_schema,
         condition=condition,
-        set_membership_params={
+        params={
             "values": [str(x) for x in values],
             "inclusive": inclusive,
         },
