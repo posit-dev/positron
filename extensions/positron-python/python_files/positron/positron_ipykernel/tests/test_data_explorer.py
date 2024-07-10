@@ -2180,6 +2180,19 @@ def _assert_close(expected, actual):
         assert np.abs(actual - expected) < EPSILON
 
 
+def assert_summary_stats_equal(display_type, result, ex_result):
+    if display_type == ColumnDisplayType.Number:
+        _assert_numeric_stats_equal(ex_result, result["number_stats"])
+    elif display_type == ColumnDisplayType.String:
+        _assert_string_stats_equal(ex_result, result["string_stats"])
+    elif display_type == ColumnDisplayType.Boolean:
+        _assert_boolean_stats_equal(ex_result, result["boolean_stats"])
+    elif display_type == ColumnDisplayType.Date:
+        _assert_date_stats_equal(ex_result, result["date_stats"])
+    elif display_type == ColumnDisplayType.Datetime:
+        _assert_datetime_stats_equal(ex_result, result["datetime_stats"])
+
+
 def _assert_numeric_stats_equal(expected, actual):
     all_stats = {"min_value", "max_value", "mean", "median", "stdev"}
     for attr, value in expected.items():
@@ -2413,18 +2426,7 @@ def test_pandas_profile_summary_stats(dxf: DataExplorerFixture):
         results = dxf.get_column_profiles(table_name, profiles, format_options=format_options)
 
         stats = results[0]["summary_stats"]
-        ui_type = stats["type_display"]
-
-        if ui_type == ColumnDisplayType.Number:
-            _assert_numeric_stats_equal(ex_result, stats["number_stats"])
-        elif ui_type == ColumnDisplayType.String:
-            _assert_string_stats_equal(ex_result, stats["string_stats"])
-        elif ui_type == ColumnDisplayType.Boolean:
-            _assert_boolean_stats_equal(ex_result, stats["boolean_stats"])
-        elif ui_type == ColumnDisplayType.Date:
-            _assert_date_stats_equal(ex_result, stats["date_stats"])
-        elif ui_type == ColumnDisplayType.Datetime:
-            _assert_datetime_stats_equal(ex_result, stats["datetime_stats"])
+        assert_summary_stats_equal(stats["type_display"], stats, ex_result)
 
 
 # ----------------------------------------------------------------------
@@ -2573,7 +2575,7 @@ def test_polars_get_state(dxf: DataExplorerFixture):
         ),
         ColumnProfileTypeSupportStatus(
             profile_type="summary_stats",
-            support_status=SupportStatus.Unsupported,
+            support_status=SupportStatus.Experimental,
         ),
     ]
 
@@ -3013,3 +3015,200 @@ def test_polars_profile_null_counts(dxf: DataExplorerFixture):
         ex_results = [ColumnProfileResult(null_count=count) for count in ex_results]
 
         assert results == ex_results
+
+
+def test_polars_profile_summary_stats(dxf: DataExplorerFixture):
+    arr = np.random.standard_normal(100)
+    arr_with_nulls = arr.copy()
+    arr_with_nulls[::10] = np.nan
+
+    df1 = pd.DataFrame(
+        {
+            "f0": arr,
+            "f1": arr_with_nulls,
+            "f2": [False, False, False, True, None] * 20,
+            "f3": [
+                "foo",
+                "",
+                "baz",
+                "qux",
+                "foo",
+                None,
+                "bar",
+                "",
+                "bar",
+                "zzz",
+            ]
+            * 10,
+            "f4": getattr(
+                pd.date_range("2000-01-01", freq="D", periods=100), "date"
+            ),  # date column
+            "f5": pd.date_range("2000-01-01", freq="2h", periods=100),  # datetime no tz
+            "f6": pd.date_range(
+                "2000-01-01", freq="2h", periods=100, tz="US/Eastern"
+            ),  # datetime single tz
+            "f7": [1 + 1j, 2 + 2j, 3 + 3j, 4 + 4j, np.nan] * 20,  # complex,
+            "f8": [np.nan, np.inf, -np.inf, 0, np.nan] * 20,  # with infinity
+        }
+    )
+
+    df_mixed_tz1 = pd.concat(
+        [
+            pd.DataFrame({"x": pd.date_range("2000-01-01", freq="2h", periods=50)}),
+            pd.DataFrame(
+                {"x": pd.date_range("2000-01-01", freq="2h", periods=50, tz="US/Eastern")}
+            ),
+            pd.DataFrame(
+                {
+                    "x": pd.date_range(
+                        "2000-01-01",
+                        freq="2h",
+                        periods=50,
+                        tz="Asia/Hong_Kong",
+                    )
+                }
+            ),
+        ]
+    )
+
+    # mixed timezones, but all datetimes are tz aware
+    df_mixed_tz2 = pd.concat(
+        [
+            pd.DataFrame(
+                {"x": pd.date_range("2000-01-01", freq="2h", periods=50, tz="US/Eastern")}
+            ),
+            pd.DataFrame(
+                {
+                    "x": pd.date_range(
+                        "2000-01-01",
+                        freq="2h",
+                        periods=50,
+                        tz="Asia/Hong_Kong",
+                    )
+                }
+            ),
+        ]
+    )
+
+    dxf.register_table("df1", df1)
+    dxf.register_table("df_mixed_tz1", df_mixed_tz1)
+    dxf.register_table("df_mixed_tz2", df_mixed_tz2)
+
+    format_options = FormatOptions(
+        large_num_digits=4,
+        small_num_digits=6,
+        max_integral_digits=7,
+        thousands_sep="_",
+    )
+    _format_float = _get_float_formatter(format_options)
+
+    cases = [
+        (
+            "df1",
+            0,
+            {
+                "min_value": _format_float(arr.min()),
+                "max_value": _format_float(arr.max()),
+                "mean": _format_float(df1["f0"].mean()),
+                "stdev": _format_float(df1["f0"].std()),
+                "median": _format_float(df1["f0"].median()),
+            },
+        ),
+        (
+            "df1",
+            1,
+            {
+                "min_value": _format_float(df1["f1"].min()),
+                "max_value": _format_float(df1["f1"].max()),
+                "mean": _format_float(df1["f1"].mean()),
+                "stdev": _format_float(df1["f1"].std()),
+                "median": _format_float(df1["f1"].median()),
+            },
+        ),
+        (
+            "df1",
+            2,
+            {"true_count": 20, "false_count": 60},
+        ),
+        (
+            "df1",
+            3,
+            {"num_empty": 20, "num_unique": 6},
+        ),
+        (
+            "df1",
+            4,
+            {
+                "num_unique": 100,
+                "min_date": "2000-01-01",
+                "mean_date": "2000-02-19",
+                "median_date": "2000-02-19",
+                "max_date": "2000-04-09",
+            },
+        ),
+        (
+            "df1",
+            5,
+            {
+                "num_unique": 100,
+                "min_date": "2000-01-01 00:00:00",
+                "mean_date": "2000-01-05 03:00:00",
+                "median_date": "2000-01-05 03:00:00",
+                "max_date": "2000-01-09 06:00:00",
+                "timezone": "None",
+            },
+        ),
+        (
+            "df1",
+            6,
+            {
+                "num_unique": 100,
+                "min_date": "2000-01-01 00:00:00-05:00",
+                "mean_date": "2000-01-05 03:00:00-05:00",
+                "median_date": "2000-01-05 03:00:00-05:00",
+                "max_date": "2000-01-09 06:00:00-05:00",
+                "timezone": "US/Eastern",
+            },
+        ),
+        (
+            "df1",
+            7,
+            {"mean": "2.50+2.50j", "median": "2.50+2.50j"},
+        ),
+        (
+            "df1",
+            8,
+            {"min_value": "-INF", "max_value": "INF"},
+        ),
+        (
+            "df_mixed_tz1",
+            0,
+            {
+                "num_unique": 150,
+                "min_date": "None",
+                "mean_date": "None",
+                "median_date": "None",
+                "max_date": "None",
+                "timezone": "None, US/Eastern, ... (1 more)",
+            },
+        ),
+        (
+            "df_mixed_tz2",
+            0,
+            {
+                "num_unique": 100,
+                "min_date": "2000-01-01 00:00:00+08:00",
+                "mean_date": "None",
+                "median_date": "None",
+                "max_date": "2000-01-05 02:00:00-05:00",
+                "timezone": "US/Eastern, Asia/Hong_Kong",
+            },
+        ),
+    ]
+
+    for table_name, col_index, ex_result in cases:
+        profiles = [_get_summary_stats(col_index)]
+        results = dxf.get_column_profiles(table_name, profiles, format_options=format_options)
+
+        stats = results[0]["summary_stats"]
+        assert_summary_stats_equal(stats["type_display"], stats, ex_result)
