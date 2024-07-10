@@ -11,7 +11,7 @@ import { installAllHandlers } from '../../../utils';
  * New Project Wizard test cases
  */
 export function setup(logger: Logger) {
-	describe.only('New Project Wizard', () => {
+	describe('New Project Wizard', () => {
 		describe('Python - New Project Wizard', () => {
 			// Shared before/after handling
 			installAllHandlers(logger);
@@ -34,7 +34,7 @@ export function setup(logger: Logger) {
 			});
 
 			describe('Python Project with existing interpreter', () => {
-				it('With ipykernel already installed [.......]', async function () {
+				it('With ipykernel already installed [C609619]', async function () {
 					const projSuffix = '_ipykernelInstalled';
 					const selectedPython = process.env.POSITRON_PY_VER_SEL!;
 					const app = this.app as Application;
@@ -68,7 +68,7 @@ export function setup(logger: Logger) {
 					// The console should initialize without any prompts to install ipykernel
 					await app.workbench.positronConsole.waitForReady('>>>');
 				});
-				it('With ipykernel not already installed [.......]', async function () {
+				it('With ipykernel not already installed [C609617]', async function () {
 					const projSuffix = '_noIpykernel';
 					const selectedPython = process.env.POSITRON_PY_VER_SEL!;
 					const app = this.app as Application;
