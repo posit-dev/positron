@@ -265,6 +265,15 @@ export class PlaywrightDriver {
 	}
 
 	/**
+	 * Set the size of the browser window for more predicable test results.
+	 * @param opts.width Width in pixels
+	 * @param opts.height Height in pixels
+	 */
+	async setViewportSize(opts: { width: number; height: number }) {
+		await this.page.setViewportSize(opts);
+	}
+
+	/**
 	 * Click and drag from one point to another.
 	 * @param opts.from The starting point of the drag as x-y coordinates
 	 * @param opts.to The ending point of the drag as x-y coordinates
