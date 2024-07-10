@@ -25,8 +25,6 @@ export class PositronPlots {
 	copyPlotButton: Locator;
 	zoomPlotButton: Locator;
 
-
-
 	constructor(private code: Code) {
 		this.nextPlotButton = this.code.driver.getLocator('.positron-plots-container .positron-action-bar .positron-button[aria-label="Show next plot"]');
 		this.previousPlotButton = this.code.driver.getLocator('.positron-plots-container .positron-action-bar .positron-button[aria-label="Show previous plot"]');

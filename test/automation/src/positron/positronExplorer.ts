@@ -38,8 +38,6 @@ export class PositronExplorer {
 
 	async waitForProjectFileToAppear(filename: string) {
 		const escapedFilename = filename.replace(/\./g, '\\.').toLowerCase();
-		this.code.logger.log(escapedFilename);
-		// await this.code.driver.getLocator(`.${escapedFilename}-name-file-icon`).waitFor({ state: 'visible' });
 		await this.code.waitForElement(`.${escapedFilename}-name-file-icon`);
 	}
 }

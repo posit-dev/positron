@@ -89,6 +89,10 @@ export class PositronPopups {
 		await this.code.waitAndClick(POSITRON_MODAL_DIALOG_BOX_CANCEL);
 	}
 
+	/**
+	 * Can be called after a DropDownListBox is clicked. Selects the option with the given label.
+	 * @param label The label of the option to select.
+	 */
 	async clickOnModalDialogPopupOption(label: string) {
 		const el = this.code.driver.getLocator('.positron-modal-popup .positron-button .title').filter({ hasText: label });
 		await el.click();
