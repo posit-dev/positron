@@ -29,6 +29,7 @@
 	"r.menu.packageDocument.title": "Document R Package",
 	"r.menu.rmarkdownRender.title": "Render Document With R Markdown",
 	"r.configuration.title": "Positron R Language Pack",
+	"r.configuration.title-dev": "Positron R Language Pack (advanced)",
 	"r.configuration.kernelPath.description": "Path on disk to the ARK kernel executable; use this to override the default (embedded) kernel.",
 	"r.configuration.tracing.description": "Traces the communication between VS Code and the language server",
 	"r.configuration.tracing.off.description": "No tracing.",
