@@ -17,7 +17,11 @@ export function setup(logger: Logger) {
 			installAllHandlers(logger);
 
 			before(async function () {
-
+				// Ensure a python interpreter is started before running the tests, otherwise we
+				// sometimes run into issues with selecting an interpreter in the nested tests
+				const app = this.app as Application;
+				const pythonFixtures = new PositronPythonFixtures(app);
+				await pythonFixtures.startPythonInterpreter(true);
 			});
 
 			it('Python Project Defaults [C627912]', async function () {
