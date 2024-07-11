@@ -199,6 +199,9 @@ declare module 'positron' {
 
 		/** The type of event */
 		type: LanguageRuntimeMessageType;
+
+		/** Additional metadata, if any */
+		metadata?: Map<any, any>;
 	}
 
 	/** LanguageRuntimeOutput is a LanguageRuntimeMessage representing output (text, plots, etc.) */
