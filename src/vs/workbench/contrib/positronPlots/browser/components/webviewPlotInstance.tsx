@@ -14,6 +14,7 @@ interface WebviewPlotInstanceProps {
 	width: number;
 	height: number;
 	plotClient: WebviewPlotClient;
+	visible: boolean;
 }
 
 /**
@@ -29,13 +30,16 @@ export const WebviewPlotInstance = (props: WebviewPlotInstanceProps) => {
 	useEffect(() => {
 		const client = props.plotClient;
 		client.claim(this);
-		if (webviewRef.current) {
-			client.layoutWebviewOverElement(webviewRef.current);
-		}
 		return () => {
 			client.release(this);
 		};
-	});
+	}, [props.plotClient]);
+
+	useEffect(() => {
+		if (webviewRef.current) {
+			props.plotClient.layoutWebviewOverElement(webviewRef.current);
+		}
+	}, [props.plotClient, props.width, props.height, props.visible]);
 
 	const style = {
 		width: `${props.width}px`,
