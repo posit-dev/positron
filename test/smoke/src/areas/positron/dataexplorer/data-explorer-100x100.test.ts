@@ -58,7 +58,12 @@ export function setupDataExplorer100x100Test(logger: Logger) {
 
 			// Load the TSV file that is used to verify the data and split it into lines.
 			const tsvFile = fs.readFileSync(tsvFilePath, { encoding: 'utf8' });
-			const lines = tsvFile.split('\n');
+			let lines;
+			if (process.platform === 'win32') {
+				lines = tsvFile.split('\r\n');
+			} else {
+				lines = tsvFile.split('\n');
+			}
 
 			// Get the TSV values.
 			const tsvValues: string[][] = [];
@@ -134,6 +139,29 @@ export function setupDataExplorer100x100Test(logger: Logger) {
 			});
 
 			/**
+			 * Constructs the Parquet file path.
+			 * @param app The application.
+			 * @returns The Parquet file path.
+			 */
+			const parquetFilePath = (app: Application) => {
+				// Set the path to the Parquet file.
+				let parquetFilePath = join(
+					app.workspacePathOrFolder,
+					'data-files',
+					'100x100',
+					'100x100.parquet'
+				);
+
+				// On Windows, double escape the path.
+				if (process.platform === 'win32') {
+					parquetFilePath = parquetFilePath.replaceAll('\\', '\\\\');
+				}
+
+				// Return the path to the Parquet file.
+				return parquetFilePath;
+			};
+
+			/**
 			 * Python - Pandas - Data Explorer 100x100 test case.
 			 */
 			it('Python - Pandas - Data Explorer 100x100', async function () {
@@ -148,7 +176,7 @@ export function setupDataExplorer100x100Test(logger: Logger) {
 					'>>>',
 					[
 						'import pandas as pd',
-						`${dataFrameName} = pd.read_parquet("${join(app.workspacePathOrFolder, 'data-files', '100x100', '100x100.parquet')}")`,
+						`${dataFrameName} = pd.read_parquet("${parquetFilePath(app)}")`,
 					],
 					dataFrameName,
 					join(app.workspacePathOrFolder, 'data-files', '100x100', 'pandas-100x100.tsv')
@@ -170,7 +198,7 @@ export function setupDataExplorer100x100Test(logger: Logger) {
 					'>>>',
 					[
 						'import polars',
-						`${dataFrameName} = polars.read_parquet("${join(app.workspacePathOrFolder, 'data-files', '100x100', '100x100.parquet')}")`,
+						`${dataFrameName} = polars.read_parquet("${parquetFilePath(app)}")`,
 					],
 					dataFrameName,
 					join(app.workspacePathOrFolder, 'data-files', '100x100', 'polars-100x100.tsv')
@@ -192,7 +220,7 @@ export function setupDataExplorer100x100Test(logger: Logger) {
 					'>',
 					[
 						'library(arrow)',
-						`${dataFrameName} <- read_parquet("${join(app.workspacePathOrFolder, 'data-files', '100x100', '100x100.parquet')}")`,
+						`${dataFrameName} <- read_parquet("${parquetFilePath(app)}")`,
 					],
 					dataFrameName,
 					join(app.workspacePathOrFolder, 'data-files', '100x100', 'r-100x100.tsv')
