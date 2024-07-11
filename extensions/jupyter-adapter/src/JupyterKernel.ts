@@ -957,6 +957,7 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 		const packet: JupyterMessagePacket = {
 			type: 'jupyter-message',
 			message: msg.content,
+			metadata: msg.metadata,
 			msgId: msg.header.msg_id,
 			msgType: msg.header.msg_type,
 			when: msg.header.date,
@@ -1196,7 +1197,7 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 			return;
 		}
 
-		this.send(packet.msgId, packet.msgType, socket, packet.message);
+		this.send(packet.msgId, packet.msgType, socket, packet.message, packet.metadata);
 	}
 
 	/**

@@ -42,8 +42,9 @@ export enum RuntimeClientType {
 	DataExplorer = 'positron.dataExplorer',
 	Ui = 'positron.ui',
 	Help = 'positron.help',
-	IPyWidget = 'jupyter.widget',
 	Connection = 'positron.connection',
+	IPyWidget = 'jupyter.widget',
+	IPyWidgetControl = 'jupyter.widget.control',
 
 	// Future client types may include:
 	// - Watch window/variable explorer
@@ -75,6 +76,7 @@ export interface IRuntimeClientInstance<Input, Output> extends Disposable {
 	getClientId(): string;
 	getClientType(): RuntimeClientType;
 	performRpc(request: Input, timeout: number): Promise<Output>;
+	sendMessage(message: any): void;
 	messageCounter: ISettableObservable<number>;
 	clientState: ISettableObservable<RuntimeClientState>;
 }

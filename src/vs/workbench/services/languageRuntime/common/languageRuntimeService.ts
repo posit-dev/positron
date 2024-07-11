@@ -56,6 +56,9 @@ export interface ILanguageRuntimeMessage {
 
 	/** The message's date and time, in ISO 8601 format */
 	when: string;
+
+	/** Additional metadata, if any */
+	metadata?: Map<any, any>;
 }
 
 /**
