@@ -140,12 +140,10 @@ jobs:
           name: run-artifacts
           path: .build/logs/smoke-tests-electron/
 
-      - name: Smoke Test Report - Slack
+      - name: slack-smoke-test-report
         if: always()
-        id: slack-smoke-test-report
-        uses: joseph243/SlackTestReporter@v1.0
-        with:
-          who-to-greet: 'QA Team'
-          testOutputPath: '**/.build/logs/smoke-tests-electron/test-results/'
-          slackToken: ${{ secrets.SMOKE_TESTS_SLACK_TOKEN }}
-          slackChannelId: 'C06DNFJSHPD'
+        uses: ivanklee86/xunit-slack-reporter@v1.4.0
+        env:
+          SLACK_CHANNEL: C06DNFJSHPD
+          SLACK_TOKEN: ${{ secrets.SMOKE_TESTS_SLACK_TOKEN }}
+          XUNIT_PATH: .build/logs/smoke-tests-electron/test-results/results.xml
