@@ -121,7 +121,7 @@ class ProjectWizardRConfigurationStep {
 class ProjectWizardPythonConfigurationStep {
 	newEnvRadioButton: PositronBaseElement;
 	existingEnvRadioButton: PositronBaseElement;
-	selectedInterpreterTitle: PositronTextElement;
+	selectedInterpreterPath: PositronTextElement;
 	interpreterFeedback: PositronTextElement;
 	interpreterDropdown: Locator;
 
@@ -134,8 +134,8 @@ class ProjectWizardPythonConfigurationStep {
 			'div[id="wizard-step-set-up-python-environment"] div[id="wizard-sub-step-pythonenvironment-howtosetupenv"] .radio-button-input[id="existingEnvironment"]',
 			this.code
 		);
-		this.selectedInterpreterTitle = new PositronTextElement(
-			'div[id="wizard-sub-step-python-interpreter"] .wizard-sub-step-input button.drop-down-list-box .dropdown-entry-title',
+		this.selectedInterpreterPath = new PositronTextElement(
+			'div[id="wizard-sub-step-python-interpreter"] .wizard-sub-step-input button.drop-down-list-box .dropdown-entry-subtitle',
 			this.code
 		);
 		this.interpreterFeedback = new PositronTextElement(
@@ -147,14 +147,14 @@ class ProjectWizardPythonConfigurationStep {
 		);
 	}
 
-	async selectInterpreter(version: string) {
+	async selectInterpreterByPath(interpreterPath: string) {
 		await this.interpreterDropdown.click();
 		await this.code.waitForElement(
 			PROJECT_WIZARD_INTERPRETER_DROPDOWN_POPUP_ITEMS
 		);
 		await this.code.driver
 			.getLocator(
-				`${PROJECT_WIZARD_INTERPRETER_DROPDOWN_POPUP_ITEMS} div.dropdown-entry:has-text("${version}")`
+				`${PROJECT_WIZARD_INTERPRETER_DROPDOWN_POPUP_ITEMS} div.dropdown-entry-subtitle:text-is("${interpreterPath}")`
 			)
 			.click();
 	}

@@ -36,12 +36,13 @@ export function setup(logger: Logger) {
 			describe('Python Project with existing interpreter', () => {
 				it('With ipykernel already installed [C609619]', async function () {
 					const projSuffix = '_ipykernelInstalled';
-					const selectedPython = process.env.POSITRON_PY_VER_SEL!;
 					const app = this.app as Application;
 					const pw = app.workbench.positronNewProjectWizard;
 					const pythonFixtures = new PositronPythonFixtures(app);
 					// Start the Python interpreter and ensure ipykernel is installed
-					await pythonFixtures.startPythonInterpreter(true);
+					const interpreterInfo = await pythonFixtures.startPythonInterpreter(true);
+					expect(interpreterInfo).toBeDefined();
+					const interpreterPath = interpreterInfo?.path!;
 					// Create a new Python project and use the selected python interpreter
 					await pw.startNewProject();
 					await pw.projectTypeStep.pythonProjectButton.click();
@@ -50,13 +51,13 @@ export function setup(logger: Logger) {
 					await pw.nextButton.click();
 					await pw.pythonConfigurationStep.existingEnvRadioButton.click();
 					try {
-						await pw.pythonConfigurationStep.selectedInterpreterTitle.waitForText(
-							`Python ${selectedPython}`
+						await pw.pythonConfigurationStep.selectedInterpreterPath.waitForText(
+							interpreterPath
 						);
 					} catch (error) {
 						// Since we didn't see the expected interpreter, we'll need to interact with
 						// the dropdown to select the specific interpreter
-						await pw.pythonConfigurationStep.selectInterpreter(selectedPython);
+						await pw.pythonConfigurationStep.selectInterpreterByPath(interpreterPath);
 					}
 					await pw.pythonConfigurationStep.interpreterFeedback.isNotVisible();
 					await pw.disabledCreateButton.isNotVisible(500);
@@ -70,12 +71,13 @@ export function setup(logger: Logger) {
 				});
 				it('With ipykernel not already installed [C609617]', async function () {
 					const projSuffix = '_noIpykernel';
-					const selectedPython = process.env.POSITRON_PY_VER_SEL!;
 					const app = this.app as Application;
 					const pw = app.workbench.positronNewProjectWizard;
 					const pythonFixtures = new PositronPythonFixtures(app);
 					// Start the Python interpreter and uninstall ipykernel
-					await pythonFixtures.startPythonInterpreter(true);
+					const interpreterInfo = await pythonFixtures.startPythonInterpreter(true);
+					expect(interpreterInfo).toBeDefined();
+					const interpreterPath = interpreterInfo?.path!;
 					await app.workbench.positronConsole.typeToConsole('pip uninstall -y ipykernel');
 					await app.workbench.positronConsole.sendEnterKey();
 					await app.workbench.positronConsole.waitForConsoleContents((contents) =>
@@ -90,13 +92,13 @@ export function setup(logger: Logger) {
 					// Choose the existing environment which does not have ipykernel
 					await pw.pythonConfigurationStep.existingEnvRadioButton.click();
 					try {
-						await pw.pythonConfigurationStep.selectedInterpreterTitle.waitForText(
-							`Python ${selectedPython}`
+						await pw.pythonConfigurationStep.selectedInterpreterPath.waitForText(
+							interpreterPath
 						);
 					} catch (error) {
 						// Since we didn't see the expected interpreter, we'll need to interact with
 						// the dropdown to select the specific interpreter
-						await pw.pythonConfigurationStep.selectInterpreter(selectedPython);
+						await pw.pythonConfigurationStep.selectInterpreterByPath(interpreterPath);
 					}
 					await pw.pythonConfigurationStep.interpreterFeedback.waitForText(
 						'ipykernel will be installed for Python language support.'
