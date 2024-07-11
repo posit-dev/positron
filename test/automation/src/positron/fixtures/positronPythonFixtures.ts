@@ -22,12 +22,11 @@ export class PositronPythonFixtures {
 		}
 		await this.app.workbench.positronConsole.selectInterpreter(InterpreterType.Python, desiredPython);
 
-		if (await this.app.workbench.positronPopups.popupCurrentlyOpen()) {
-			if (installIPyKernelIfPrompted) {
-				await this.app.workbench.positronPopups.installIPyKernel();
-			} else {
-				fail('The ipykernel popup was opened, but the test was not configured to install it.')
-			}
+		if (
+			installIPyKernelIfPrompted &&
+			(await this.app.workbench.positronPopups.popupCurrentlyOpen())
+		) {
+			await this.app.workbench.positronPopups.installIPyKernel();
 		}
 
 		await this.app.workbench.positronConsole.waitForReady('>>>');

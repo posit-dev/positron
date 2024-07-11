@@ -75,7 +75,7 @@ export function setup(logger: Logger) {
 					const pw = app.workbench.positronNewProjectWizard;
 					const pythonFixtures = new PositronPythonFixtures(app);
 					// Start the Python interpreter and uninstall ipykernel
-					await pythonFixtures.startPythonInterpreter();
+					await pythonFixtures.startPythonInterpreter(true);
 					await app.workbench.positronConsole.typeToConsole('pip uninstall -y ipykernel');
 					await app.workbench.positronConsole.sendEnterKey();
 					await app.workbench.positronConsole.waitForConsoleContents((contents) =>
@@ -177,7 +177,7 @@ export function setup(logger: Logger) {
 						expect(projectFiles).toContain('renv');
 						expect(projectFiles).toContain('.Rprofile');
 						expect(projectFiles).toContain('renv.lock');
-					}).toPass({timeout: 10000});
+					}).toPass({ timeout: 10000 });
 					// Verify that renv output in the console confirms no issues occurred
 					await app.workbench.positronConsole.waitForConsoleContents((contents) =>
 						contents.some((line) => line.includes('renv activated'))
@@ -208,11 +208,11 @@ export function setup(logger: Logger) {
 						expect(projectFiles).toContain('renv');
 						expect(projectFiles).toContain('.Rprofile');
 						expect(projectFiles).toContain('renv.lock');
-					}).toPass({timeout: 10000});
+					}).toPass({ timeout: 10000 });
 					// Verify that renv output in the console confirms no issues occurred
 					await app.workbench.positronConsole.waitForConsoleContents((contents) =>
 						contents.some((line) => line.includes('renv activated'))
-				);
+					);
 				});
 
 				it('Cancel Renv install [C656252]', async function () {
@@ -246,7 +246,7 @@ export function setup(logger: Logger) {
 						expect(projectFiles).not.toContain('renv');
 						expect(projectFiles).not.toContain('.Rprofile');
 						expect(projectFiles).not.toContain('renv.lock');
-					}).toPass({timeout: 10000});
+					}).toPass({ timeout: 10000 });
 				});
 			});
 		});
