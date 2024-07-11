@@ -10,6 +10,7 @@ import { QuickAccess } from '../quickaccess';
 import { QuickInput } from '../quickinput';
 import { InterpreterType } from './positronStartInterpreter';
 import { PositronBaseElement } from './positronBaseElement';
+import { IElement } from '../driver';
 
 
 const CONSOLE_INPUT = '.console-input';
@@ -19,6 +20,13 @@ const CONSOLE_BAR_POWER_BUTTON = 'div.action-bar-button-icon.codicon.codicon-pos
 const CONSOLE_BAR_RESTART_BUTTON = 'div.action-bar-button-icon.codicon.codicon-positron-restart-runtime-thin';
 const CONSOLE_RESTART_BUTTON = 'button.monaco-text-button.runtime-restart-button';
 const CONSOLE_BAR_CLEAR_BUTTON = 'div.action-bar-button-icon.codicon.codicon-clear-all';
+
+export interface InterpreterInfo {
+	type: InterpreterType;
+	version: string;
+	path: string;
+	source?: string;
+}
 
 /*
  *  Reuseable Positron console functionality for tests to leverage.  Includes the ability to select an interpreter and execute code which
@@ -39,7 +47,7 @@ export class PositronConsole {
 		this.consoleRestartButton = new PositronBaseElement(CONSOLE_RESTART_BUTTON, this.code);
 	}
 
-	async selectInterpreter(desiredInterpreterType: InterpreterType, desiredInterpreterString: string) {
+	async selectInterpreter(desiredInterpreterType: InterpreterType, desiredInterpreterString: string): Promise<IElement | undefined> {
 		let command: string;
 		if (desiredInterpreterType === InterpreterType.Python) {
 			command = 'python.setInterpreter';
@@ -57,8 +65,26 @@ export class PositronConsole {
 		// Wait until the desired interpreter string appears in the list and select it.
 		// We need to click instead of using 'enter' because the Python select interpreter command
 		// may include additional items above the desired interpreter string.
-		await this.quickinput.selectQuickInputElementContaining(desiredInterpreterString);
+		const interpreterElem = await this.quickinput.selectQuickInputElementContaining(desiredInterpreterString);
 		await this.quickinput.waitForQuickInputClosed();
+		return interpreterElem;
+	}
+
+	async selectAndGetInterpreter(desiredInterpreterType: InterpreterType, desiredInterpreterString: string): Promise<InterpreterInfo | undefined> {
+		const interpreterElem = await this.selectInterpreter(desiredInterpreterType, desiredInterpreterString);
+
+		if (interpreterElem) {
+			const rawInfo = interpreterElem.attributes['aria-label'].split(',');
+			const hasSource = rawInfo.length > 2;
+			return {
+				type: desiredInterpreterType,
+				version: rawInfo[0].trim(),
+				path: rawInfo[1].trim(),
+				source: hasSource ? rawInfo[2].trim() : ''
+			};
+		}
+
+		return undefined;
 	}
 
 	async executeCode(languageName: string, code: string, prompt: string): Promise<void> {
