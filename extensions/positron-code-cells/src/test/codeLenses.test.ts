@@ -11,45 +11,55 @@ import { closeAllEditors } from './utils';
 suite('CodeLenses', () => {
 	teardown(closeAllEditors);
 
-	test('Provides Python cell code lenses', async () => {
-		const language = 'python';
-		const content = `#%%
+	const content = `# %%
 testing1
-#%%
+
 testing2
-#%%
-testing3`;
-		const document = await vscode.workspace.openTextDocument({ language, content });
+
+# %%
+testing3
+
+# %%
+testing4`;
+	const content_with_plus = content.replaceAll("# %%", "#+");
+
+	test('Provides Python cell code lenses', async () => {
 		const provider = new CellCodeLensProvider();
 
+		const language = 'python';
+		const document = await vscode.workspace.openTextDocument({ language: language, content: content });
 		const codeLenses = await provider.provideCodeLenses(document);
 
 		assert.ok(codeLenses, 'No code lenses provided');
 		verifyCodeLenses(codeLenses, [
-			new vscode.Range(0, 0, 1, 8),
-			new vscode.Range(2, 0, 3, 8),
-			new vscode.Range(4, 0, 5, 8)
+			new vscode.Range(0, 0, 4, 0),
+			new vscode.Range(5, 0, 7, 0),
+			new vscode.Range(8, 0, 9, 8)
 		]);
 	});
 
 	test('Provides R cell code lenses', async () => {
-		const language = 'r';
-		const content = `#+
-testing1
-#+
-testing2
-#+
-testing3`;
-		const document = await vscode.workspace.openTextDocument({ language, content });
 		const provider = new CellCodeLensProvider();
 
+		const language = 'r';
+		const document = await vscode.workspace.openTextDocument({ language: language, content: content });
 		const codeLenses = await provider.provideCodeLenses(document);
 
 		assert.ok(codeLenses, 'No code lenses provided');
 		verifyCodeLenses(codeLenses, [
-			new vscode.Range(0, 0, 1, 8),
-			new vscode.Range(2, 0, 3, 8),
-			new vscode.Range(4, 0, 5, 8)
+			new vscode.Range(0, 0, 4, 0),
+			new vscode.Range(5, 0, 7, 0),
+			new vscode.Range(8, 0, 9, 8)
+		]);
+
+		const document2 = await vscode.workspace.openTextDocument({ language: language, content: content_with_plus });
+		const codeLenses2 = await provider.provideCodeLenses(document2);
+
+		assert.ok(codeLenses2, 'No code lenses provided');
+		verifyCodeLenses(codeLenses2, [
+			new vscode.Range(0, 0, 4, 0),
+			new vscode.Range(5, 0, 7, 0),
+			new vscode.Range(8, 0, 9, 8)
 		]);
 	});
 });

@@ -9,7 +9,7 @@ import * as os from 'os';
 
 interface FlatVariables {
 	value: string;
-	// type: string; // need to add back when we can see types again - https://github.com/posit-dev/positron/issues/3577
+	type: string;
 }
 
 const VARIABLE_ITEMS = '.variables-instance .list .variable-item';
@@ -34,15 +34,13 @@ export class PositronVariables {
 			const details = item.children.find(child => child.className === VARIABLE_DETAILS);
 
 			const value = details?.children[0].textContent;
-			// const type = details?.children[1].textContent; // need to add back when we can see types again - https://github.com/posit-dev/positron/issues/3577
+			const type = details?.children[1].textContent;
 
-			// if (!name || !value || !type) { // need to add back when we can see types again - https://github.com/posit-dev/positron/issues/3577
-			if (!name || !value) {
+			if (!name || !value || !type) {
 				throw new Error('Could not parse variable item');
 			}
 
-			// variables.set(name, { value, type }); // need to add back when we can see types again - https://github.com/posit-dev/positron/issues/3577
-			variables.set(name, { value });
+			variables.set(name, { value, type });
 		}
 		return variables;
 	}

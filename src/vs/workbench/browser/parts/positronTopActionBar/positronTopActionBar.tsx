@@ -38,13 +38,14 @@ import { PositronTopActionBarContextProvider } from 'vs/workbench/browser/parts/
 import { TopActionBarCustonFolderMenu } from 'vs/workbench/browser/parts/positronTopActionBar/components/topActionBarCustomFolderMenu';
 import { ILanguageRuntimeMetadata, ILanguageRuntimeService } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { TopActionBarInterpretersManager } from 'vs/workbench/browser/parts/positronTopActionBar/components/topActionBarInterpretersManager';
+import { SAVE_ALL_COMMAND_ID, SAVE_FILE_COMMAND_ID } from 'vs/workbench/contrib/files/browser/fileConstants';
 
 // Constants.
 const kHorizontalPadding = 4;
 const kCenterUIBreak = 600;
 const kFulllCenterUIBreak = 765;
-const SAVE = 'workbench.action.files.save';
-const SAVE_FILES = 'workbench.action.files.saveFiles';
+const SAVE = SAVE_FILE_COMMAND_ID;
+const SAVE_ALL = SAVE_ALL_COMMAND_ID;
 const NAV_BACK = NavigateBackwardsAction.ID;
 const NAV_FORWARD = NavigateForwardAction.ID;
 
@@ -167,8 +168,8 @@ export const PositronTopActionBar = (props: PositronTopActionBarProps) => {
 						/>
 						<ActionBarCommandButton
 							iconId='positron-save-all'
-							commandId={SAVE_FILES}
-							ariaLabel={CommandCenter.title(SAVE_FILES)}
+							commandId={SAVE_ALL}
+							ariaLabel={CommandCenter.title(SAVE_ALL)}
 						/>
 					</ActionBarRegion>
 

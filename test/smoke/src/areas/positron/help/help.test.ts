@@ -85,7 +85,7 @@ export function setup(logger: Logger) {
 				await app.workbench.settingsEditor.addUserSetting('workbench.reduceMotion', '"on"');
 
 				// Enter layout with help pane docked in session panel
-				await app.workbench.quickaccess.runCommand('workbench.action.positronHelpPaneDocked');
+				await app.workbench.positronLayouts.enterLayout('dockedHelp');
 
 				// Help panel starts collapsed thanks to the above command
 				await expect(helpContainerLocator).not.toBeVisible();

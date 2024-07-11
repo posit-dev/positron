@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop">
+	<id>@@NAME@@.desktop</id>
+	<metadata_license>@@LICENSE@@</metadata_license>
+	<project_license>@@LICENSE@@</project_license>
+	<name>@@NAME_LONG@@</name>
+	<url type="homepage">https://github.com/posit-dev/positron</url>
+	<summary>A next-generation data science IDE from Posit Software, PBC.</summary>
+	<description>
+		<p>Positron™ is an extensible, polyglot tool for writing code and exploring data in Python, R, and other languages. Positron is an early stage project under active development. See https://github.com/posit-dev/positron/wiki for installation instructions and an FAQ.</p>
+	</description>
+	<screenshots>
+		<screenshot type="default">
+			<image>https://raw.githubusercontent.com/posit-dev/positron/main/positron/images/positron-linux-penguins.png</image>
+			<caption>Typical layout of the Positron IDE user interface, including a source pane, console, variables pane and plots pane.</caption>
+		</screenshot>
+	</screenshots>
+</component>

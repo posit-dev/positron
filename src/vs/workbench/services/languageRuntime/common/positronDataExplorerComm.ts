@@ -21,7 +21,7 @@ export interface SearchSchemaResult {
 	matches?: TableSchema;
 
 	/**
-	 * The total number of columns matching the search term
+	 * The total number of columns matching the filter
 	 */
 	total_num_matches: number;
 
@@ -259,24 +259,9 @@ export interface RowFilter {
 	error_message?: string;
 
 	/**
-	 * Parameters for the 'between' and 'not_between' filter types
+	 * The row filter type-specific parameters
 	 */
-	between_params?: BetweenFilterParams;
-
-	/**
-	 * Parameters for the 'compare' filter type
-	 */
-	compare_params?: CompareFilterParams;
-
-	/**
-	 * Parameters for the 'search' filter type
-	 */
-	search_params?: SearchFilterParams;
-
-	/**
-	 * Parameters for the 'set_membership' filter type
-	 */
-	set_membership_params?: SetMembershipFilterParams;
+	params?: RowFilterParams;
 
 }
 
@@ -299,7 +284,7 @@ export interface RowFilterTypeSupportStatus {
 /**
  * Parameters for the 'between' and 'not_between' filter types
  */
-export interface BetweenFilterParams {
+export interface FilterBetween {
 	/**
 	 * The lower limit for filtering
 	 */
@@ -315,11 +300,11 @@ export interface BetweenFilterParams {
 /**
  * Parameters for the 'compare' filter type
  */
-export interface CompareFilterParams {
+export interface FilterComparison {
 	/**
 	 * String representation of a binary comparison
 	 */
-	op: CompareFilterParamsOp;
+	op: FilterComparisonOp;
 
 	/**
 	 * A stringified column value for a comparison filter
@@ -331,9 +316,9 @@ export interface CompareFilterParams {
 /**
  * Parameters for the 'set_membership' filter type
  */
-export interface SetMembershipFilterParams {
+export interface FilterSetMembership {
 	/**
-	 * Array of column values for a set membership filter
+	 * Array of values for a set membership filter
 	 */
 	values: Array<string>;
 
@@ -347,14 +332,14 @@ export interface SetMembershipFilterParams {
 /**
  * Parameters for the 'search' filter type
  */
-export interface SearchFilterParams {
+export interface FilterTextSearch {
 	/**
 	 * Type of search to perform
 	 */
-	search_type: SearchFilterType;
+	search_type: TextSearchType;
 
 	/**
-	 * String value/regex to search for in stringified data
+	 * String value/regex to search for
 	 */
 	term: string;
 
@@ -362,6 +347,50 @@ export interface SearchFilterParams {
 	 * If true, do a case-sensitive search, otherwise case-insensitive
 	 */
 	case_sensitive: boolean;
+
+}
+
+/**
+ * Parameters for the 'match_data_types' filter type
+ */
+export interface FilterMatchDataTypes {
+	/**
+	 * Column display types to match
+	 */
+	display_types: Array<ColumnDisplayType>;
+
+}
+
+/**
+ * A filter that selects a subset of columns by name, type, or other
+ * criteria
+ */
+export interface ColumnFilter {
+	/**
+	 * Type of column filter to apply
+	 */
+	filter_type: ColumnFilterType;
+
+	/**
+	 * Parameters for column filter
+	 */
+	params: ColumnFilterParams;
+
+}
+
+/**
+ * Support status for a column filter type
+ */
+export interface ColumnFilterTypeSupportStatus {
+	/**
+	 * Type of column filter
+	 */
+	column_filter_type: ColumnFilterType;
+
+	/**
+	 * The support status for this column filter type
+	 */
+	support_status: SupportStatus;
 
 }
 
@@ -716,6 +745,11 @@ export interface SearchSchemaFeatures {
 	 */
 	support_status: SupportStatus;
 
+	/**
+	 * A list of supported types
+	 */
+	supported_types: Array<ColumnFilterTypeSupportStatus>;
+
 }
 
 /**
@@ -871,7 +905,13 @@ export interface DataSelectionIndices {
 /// ColumnValue
 export type ColumnValue = number | string;
 
-/// Selection in Properties
+/// Union of row filter parameters
+export type RowFilterParams = FilterBetween | FilterComparison | FilterTextSearch | FilterSetMembership;
+
+/// Union of column filter type-specific parameters
+export type ColumnFilterParams = FilterTextSearch | FilterMatchDataTypes;
+
+/// A union of selection types
 export type Selection = DataSelectionSingleCell | DataSelectionCellRange | DataSelectionRange | DataSelectionIndices;
 
 /**
@@ -916,9 +956,9 @@ export enum RowFilterType {
 }
 
 /**
- * Possible values for Op in CompareFilterParams
+ * Possible values for Op in FilterComparison
  */
-export enum CompareFilterParamsOp {
+export enum FilterComparisonOp {
 	Eq = '=',
 	NotEq = '!=',
 	Lt = '<',
@@ -928,13 +968,21 @@ export enum CompareFilterParamsOp {
 }
 
 /**
- * Possible values for SearchFilterType
+ * Possible values for TextSearchType
  */
-export enum SearchFilterType {
+export enum TextSearchType {
 	Contains = 'contains',
 	StartsWith = 'starts_with',
 	EndsWith = 'ends_with',
 	RegexMatch = 'regex_match'
+}
+
+/**
+ * Possible values for ColumnFilterType
+ */
+export enum ColumnFilterType {
+	TextSearch = 'text_search',
+	MatchDataTypes = 'match_data_types'
 }
 
 /**
@@ -1031,19 +1079,20 @@ export class PositronDataExplorerComm extends PositronBaseComm {
 	}
 
 	/**
-	 * Search schema by column name
+	 * Search schema with column filters
 	 *
 	 * Search schema for column names matching a passed substring
 	 *
-	 * @param searchTerm Substring to match for (currently case insensitive)
+	 * @param filters Column filters to apply when searching
 	 * @param startIndex Index (starting from zero) of first result to fetch
+	 * (for paging)
 	 * @param maxResults Maximum number of resulting column schemas to fetch
 	 * from the start index
 	 *
 	 * @returns undefined
 	 */
-	searchSchema(searchTerm: string, startIndex: number, maxResults: number): Promise<SearchSchemaResult> {
-		return super.performRpc('search_schema', ['search_term', 'start_index', 'max_results'], [searchTerm, startIndex, maxResults]);
+	searchSchema(filters: Array<ColumnFilter>, startIndex: number, maxResults: number): Promise<SearchSchemaResult> {
+		return super.performRpc('search_schema', ['filters', 'start_index', 'max_results'], [filters, startIndex, maxResults]);
 	}
 
 	/**

@@ -48,6 +48,13 @@ jobs:
             rust_target_prefix: x86_64
 
     steps:
+      # The build artifact is one directory above the repository, so it doesn't
+      # get cleaned when we checkout sources below. Clean it up now, if it
+      # exists, so that we start with a clean slate.
+      - name: Clean build artifacts
+        run: |
+          rm -rf ../VSCode-darwin-${{ matrix.arch }}
+
       # Checkout sources
       - name: Checkout sources
         uses: actions/checkout@v4

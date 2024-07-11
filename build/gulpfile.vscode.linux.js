@@ -51,11 +51,13 @@ function prepareDebPackage(arch) {
 			.pipe(replace('@@ICON@@', product.linuxIconName))
 			.pipe(replace('@@URLPROTOCOL@@', product.urlProtocol));
 
-		const appdata = gulp.src('resources/linux/code.appdata.xml', { base: '.' })
+		// --- Start Positron ---
+		const appdata = gulp.src('resources/linux/positron.appdata.xml', { base: '.' })
 			.pipe(replace('@@NAME_LONG@@', product.nameLong))
 			.pipe(replace('@@NAME@@', product.applicationName))
 			.pipe(replace('@@LICENSE@@', product.licenseName))
 			.pipe(rename('usr/share/appdata/' + product.applicationName + '.appdata.xml'));
+		// --- End Positron ---
 
 		const workspaceMime = gulp.src('resources/linux/code-workspace.xml', { base: '.' })
 			.pipe(replace('@@NAME_LONG@@', product.nameLong))
@@ -170,11 +172,13 @@ function prepareRpmPackage(arch) {
 			.pipe(replace('@@ICON@@', product.linuxIconName))
 			.pipe(replace('@@URLPROTOCOL@@', product.urlProtocol));
 
-		const appdata = gulp.src('resources/linux/code.appdata.xml', { base: '.' })
+		// --- Start Positron ---
+		const appdata = gulp.src('resources/linux/positron.appdata.xml', { base: '.' })
 			.pipe(replace('@@NAME_LONG@@', product.nameLong))
 			.pipe(replace('@@NAME@@', product.applicationName))
 			.pipe(replace('@@LICENSE@@', product.licenseName))
 			.pipe(rename('BUILD/usr/share/appdata/' + product.applicationName + '.appdata.xml'));
+		// --- End Positron ---
 
 		const workspaceMime = gulp.src('resources/linux/code-workspace.xml', { base: '.' })
 			.pipe(replace('@@NAME_LONG@@', product.nameLong))

@@ -205,6 +205,9 @@ declare module 'positron' {
 
 		/** The type of event */
 		type: LanguageRuntimeMessageType;
+
+		/** Additional metadata, if any */
+		metadata?: Map<any, any>;
 	}
 
 	/** LanguageRuntimeOutput is a LanguageRuntimeMessage representing output (text, plots, etc.) */
@@ -512,6 +515,7 @@ declare module 'positron' {
 		Help = 'positron.help',
 		Connection = 'positron.connection',
 		IPyWidget = 'jupyter.widget',
+		IPyWidgetControl = 'jupyter.widget.control',
 
 		// Future client types may include:
 		// - Watch window/variable explorer

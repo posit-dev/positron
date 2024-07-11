@@ -33,4 +33,7 @@ export interface JupyterMessagePacket {
 
 	/** The socket on which the message was received, or is to be sent */
 	socket: JupyterSockets;
+
+	/** Additional metadata, if any */
+	metadata?: Map<any, any>;
 }

@@ -3,6 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { Page } from '@playwright/test';
 import { Code } from '../code';
 
 /*
@@ -30,6 +31,18 @@ export class PositronBaseElement {
 
 	async hover(): Promise<void> {
 		await this.code.driver.getLocator(this.myselector).hover();
+	}
+
+	async isDisabled(): Promise<boolean> {
+		return await this.code.driver.getLocator(this.myselector).isDisabled();
+	}
+
+	async isEnabled(): Promise<boolean> {
+		return await this.code.driver.getLocator(this.myselector).isEnabled();
+	}
+
+	getPage(): Page {
+		return this.code.driver.getLocator(this.myselector).page();
 	}
 }
 

@@ -18,7 +18,7 @@ import { randomUUID } from 'crypto';
 import { handleRCode } from './hyperlink';
 import { RSessionManager } from './session-manager';
 import { EXTENSION_ROOT_DIR } from './constants';
-import { existsSync } from 'fs';
+import { getPandocPath } from './pandoc';
 
 interface RPackageInstallation {
 	packageName: string;
@@ -681,7 +681,6 @@ export function createJupyterKernelSpec(
 
 	/* eslint-disable */
 	const env = <Record<string, string>>{
-		'POSITRON': '1',
 		'RUST_BACKTRACE': '1',
 		'RUST_LOG': logLevelForeign + ',ark=' + logLevel,
 		'R_HOME': rHomePath,
@@ -704,11 +703,8 @@ export function createJupyterKernelSpec(
 	//
 	// On MacOS, the binary path lives alongside the app bundle; on other
 	// platforms, it's a couple of directories up from the app root.
-	const pandocPath = path.join(vscode.env.appRoot,
-		process.platform === 'darwin' ?
-			path.join('bin', 'pandoc') :
-			path.join('..', '..', 'bin', 'pandoc'));
-	if (existsSync(pandocPath)) {
+	const pandocPath = getPandocPath();
+	if (pandocPath) {
 		env['RSTUDIO_PANDOC'] = pandocPath;
 	}
 

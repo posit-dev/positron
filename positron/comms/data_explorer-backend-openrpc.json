@@ -35,20 +35,23 @@
 		},
 		{
 			"name": "search_schema",
-			"summary": "Search schema by column name",
+			"summary": "Search schema with column filters",
 			"description": "Search schema for column names matching a passed substring",
 			"params": [
 				{
-					"name": "search_term",
-					"description": "Substring to match for (currently case insensitive)",
+					"name": "filters",
+					"description": "Column filters to apply when searching",
 					"required": true,
 					"schema": {
-						"type": "string"
+						"type": "array",
+						"items": {
+							"$ref": "#/components/schemas/column_filter"
+						}
 					}
 				},
 				{
 					"name": "start_index",
-					"description": "Index (starting from zero) of first result to fetch",
+					"description": "Index (starting from zero) of first result to fetch (for paging)",
 					"required": false,
 					"schema": {
 						"type": "integer"
@@ -77,7 +80,7 @@
 							"$ref": "#/components/schemas/table_schema"
 						},
 						"total_num_matches": {
-							"description": "The total number of columns matching the search term",
+							"description": "The total number of columns matching the filter",
 							"type": "integer"
 						}
 					}
@@ -538,23 +541,32 @@
 						"type": "string",
 						"description": "Optional error message when the filter is invalid"
 					},
-					"between_params": {
-						"description": "Parameters for the 'between' and 'not_between' filter types",
-						"$ref": "#/components/schemas/between_filter_params"
-					},
-					"compare_params": {
-						"description": "Parameters for the 'compare' filter type",
-						"$ref": "#/components/schemas/compare_filter_params"
-					},
-					"search_params": {
-						"description": "Parameters for the 'search' filter type",
-						"$ref": "#/components/schemas/search_filter_params"
-					},
-					"set_membership_params": {
-						"description": "Parameters for the 'set_membership' filter type",
-						"$ref": "#/components/schemas/set_membership_filter_params"
+					"params": {
+						"description": "The row filter type-specific parameters",
+						"$ref": "#/components/schemas/row_filter_params"
 					}
 				}
+			},
+			"row_filter_params": {
+				"description": "Union of row filter parameters",
+				"oneOf": [
+					{
+						"name": "between",
+						"$ref": "#/components/schemas/filter_between"
+					},
+					{
+						"name": "comparison",
+						"$ref": "#/components/schemas/filter_comparison"
+					},
+					{
+						"name": "text_search",
+						"$ref": "#/components/schemas/filter_text_search"
+					},
+					{
+						"name": "set_membership",
+						"$ref": "#/components/schemas/filter_set_membership"
+					}
+				]
 			},
 			"row_filter_type": {
 				"type": "string",
@@ -591,7 +603,7 @@
 					}
 				}
 			},
-			"between_filter_params": {
+			"filter_between": {
 				"type": "object",
 				"description": "Parameters for the 'between' and 'not_between' filter types",
 				"required": [
@@ -609,7 +621,7 @@
 					}
 				}
 			},
-			"compare_filter_params": {
+			"filter_comparison": {
 				"type": "object",
 				"description": "Parameters for the 'compare' filter type",
 				"required": [
@@ -635,7 +647,7 @@
 					}
 				}
 			},
-			"set_membership_filter_params": {
+			"filter_set_membership": {
 				"type": "object",
 				"description": "Parameters for the 'set_membership' filter type",
 				"required": [
@@ -645,7 +657,7 @@
 				"properties": {
 					"values": {
 						"type": "array",
-						"description": "Array of column values for a set membership filter",
+						"description": "Array of values for a set membership filter",
 						"items": {
 							"type": "string"
 						}
@@ -656,7 +668,7 @@
 					}
 				}
 			},
-			"search_filter_params": {
+			"filter_text_search": {
 				"type": "object",
 				"description": "Parameters for the 'search' filter type",
 				"required": [
@@ -666,12 +678,12 @@
 				],
 				"properties": {
 					"search_type": {
-						"$ref": "#/components/schemas/search_filter_type",
+						"$ref": "#/components/schemas/text_search_type",
 						"description": "Type of search to perform"
 					},
 					"term": {
 						"type": "string",
-						"description": "String value/regex to search for in stringified data"
+						"description": "String value/regex to search for"
 					},
 					"case_sensitive": {
 						"type": "boolean",
@@ -679,15 +691,88 @@
 					}
 				}
 			},
-			"search_filter_type": {
+			"text_search_type": {
 				"type": "string",
-				"description": "Type of string search filter to perform",
+				"description": "Type of string text search filter to perform",
 				"enum": [
 					"contains",
 					"starts_with",
 					"ends_with",
 					"regex_match"
 				]
+			},
+			"filter_match_data_types": {
+				"type": "object",
+				"description": "Parameters for the 'match_data_types' filter type",
+				"required": [
+					"display_types"
+				],
+				"properties": {
+					"display_types": {
+						"type": "array",
+						"description": "Column display types to match",
+						"items": {
+							"$ref": "#/components/schemas/column_display_type"
+						}
+					}
+				}
+			},
+			"column_filter": {
+				"type": "object",
+				"description": "A filter that selects a subset of columns by name, type, or other criteria",
+				"required": [
+					"filter_type",
+					"params"
+				],
+				"properties": {
+					"filter_type": {
+						"description": "Type of column filter to apply",
+						"$ref": "#/components/schemas/column_filter_type"
+					},
+					"params": {
+						"description": "Parameters for column filter",
+						"$ref": "#/components/schemas/column_filter_params"
+					}
+				}
+			},
+			"column_filter_params": {
+				"description": "Union of column filter type-specific parameters",
+				"oneOf": [
+					{
+						"name": "text_search",
+						"$ref": "#/components/schemas/filter_text_search"
+					},
+					{
+						"name": "match_data_types",
+						"$ref": "#/components/schemas/filter_match_data_types"
+					}
+				]
+			},
+			"column_filter_type": {
+				"type": "string",
+				"description": "Type of column filter",
+				"enum": [
+					"text_search",
+					"match_data_types"
+				]
+			},
+			"column_filter_type_support_status": {
+				"type": "object",
+				"description": "Support status for a column filter type",
+				"required": [
+					"column_filter_type",
+					"support_status"
+				],
+				"properties": {
+					"column_filter_type": {
+						"description": "Type of column filter",
+						"$ref": "#/components/schemas/column_filter_type"
+					},
+					"support_status": {
+						"description": "The support status for this column filter type",
+						"$ref": "#/components/schemas/support_status"
+					}
+				}
 			},
 			"column_profile_request": {
 				"type": "object",
@@ -1056,12 +1141,20 @@
 				"type": "object",
 				"description": "Feature flags for 'search_schema' RPC",
 				"required": [
-					"support_status"
+					"support_status",
+					"supported_types"
 				],
 				"properties": {
 					"support_status": {
 						"$ref": "#/components/schemas/support_status",
 						"description": "The support status for this RPC method"
+					},
+					"supported_types": {
+						"type": "array",
+						"description": "A list of supported types",
+						"items": {
+							"$ref": "#/components/schemas/column_filter_type_support_status"
+						}
 					}
 				}
 			},

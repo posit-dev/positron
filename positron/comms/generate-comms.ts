@@ -41,9 +41,9 @@ const commsFiles = comms.map(comm => comm + '.json');
 const tsOutputDir = `${__dirname}/../../src/vs/workbench/services/languageRuntime/common`;
 
 /// The directory to write the generated Rust files to (note that this presumes
-/// that the amalthea repo is cloned into the same parent directory as the
+/// that the ark repo is cloned into the same parent directory as the
 /// positron repo)
-const rustOutputDir = `${__dirname}/../../../amalthea/crates/amalthea/src/comm`;
+const rustOutputDir = `${__dirname}/../../../ark/crates/amalthea/src/comm`;
 
 /// The directory to write the generated Python files to
 const pythonOutputDir = `${__dirname}/../../extensions/positron-python/python_files/positron/positron_ipykernel`;
@@ -426,8 +426,7 @@ function* createRustComm(name: string, frontend: any, backend: any): Generator<s
 
 /*---------------------------------------------------------------------------------------------
  *  Copyright (C) ${year} Posit Software, PBC. All rights reserved.
- *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
-*--------------------------------------------------------------------------------------------*/
+ *--------------------------------------------------------------------------------------------*/
 
 //
 // AUTO-GENERATED from ${name}.json; do not edit.
@@ -503,7 +502,7 @@ use serde::Serialize;
 				yield formatComment(`/// `,
 					`Possible values for ` +
 					snakeCaseToSentenceCase(context[0]));
-				yield '#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]\n';
+				yield '#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, strum_macros::Display)]\n';
 				yield `pub enum ${snakeCaseToSentenceCase(context[0])} {\n`;
 			} else {
 				// Enum field within another interface
@@ -511,12 +510,13 @@ use serde::Serialize;
 					`Possible values for ` +
 					snakeCaseToSentenceCase(context[0]) + ` in ` +
 					snakeCaseToSentenceCase(context[1]));
-				yield '#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]\n';
+				yield '#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, strum_macros::Display)]\n';
 				yield `pub enum ${snakeCaseToSentenceCase(context[1])}${snakeCaseToSentenceCase(context[0])} {\n`;
 			}
 			for (let i = 0; i < values.length; i++) {
 				const value = values[i];
 				yield `\t#[serde(rename = "${value}")]\n`;
+				yield `\t#[strum(to_string = "${value}")]\n`;
 				yield `\t${snakeCaseToSentenceCase(value)}`;
 				if (i < values.length - 1) {
 					yield ',\n\n';
@@ -534,6 +534,9 @@ use serde::Serialize;
 				yield formatComment(`/// `,
 					`Union type ` +
 					snakeCaseToSentenceCase(context[0]));
+				if (o.description) {
+					yield formatComment(`/// `, o.description);
+				}
 				yield '#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]\n';
 				yield '#[serde(untagged)]\n';
 				yield `pub enum ${snakeCaseToSentenceCase(context[0])} {\n`;
@@ -893,12 +896,16 @@ from ._vendor.pydantic import BaseModel, Field, StrictBool, StrictFloat, StrictI
 			name = snakeCaseToSentenceCase(name);
 
 			// Document origin of union
-			if (context.length === 1) {
+
+			if (o.description) {
+				yield formatComment('# ', o.description);
+			} else if (context.length === 1) {
 				yield formatComment('# ', snakeCaseToSentenceCase(context[0]));
 			} else {
 				yield formatComment('# ', snakeCaseToSentenceCase(context[0]) + ' in ' +
 					snakeCaseToSentenceCase(context[1]));
 			}
+
 			yield `${name} = Union[`;
 			// Options
 			for (const option of o.oneOf) {
@@ -1164,7 +1171,9 @@ import { IRuntimeClientInstance } from 'vs/workbench/services/languageRuntime/co
 			name = snakeCaseToSentenceCase(name);
 
 			// Document origin of union
-			if (context.length === 1) {
+			if (o.description) {
+				yield formatComment('/// ', o.description);
+			} else if (context.length === 1) {
 				yield formatComment('/// ', snakeCaseToSentenceCase(context[0]));
 			} else {
 				yield formatComment('/// ', snakeCaseToSentenceCase(context[0]) + ' in ' +
@@ -1485,9 +1494,7 @@ async function createCommInterface() {
 				console.log(`Writing to ${pythonOutputFile}`);
 				writeFileSync(pythonOutputFile, python, { encoding: 'utf-8' });
 
-				// Use black to format the Python file; the lint tests for the
-				// Python extension require that the Python files have exactly the
-				// format that black produces.
+				// Use ruff to format the Python file
 				execSync(`python3 -m ruff format ${pythonOutputFile}`, { stdio: 'ignore' });
 			}
 		} catch (e: any) {
@@ -1501,19 +1508,19 @@ async function createCommInterface() {
 
 // Check prerequisites
 
-// Check that the amalthea repo is cloned
+// Check that the ark repo is cloned
 if (!existsSync(rustOutputDir)) {
-	console.error('The amalthea repo must be cloned into the same parent directory as the ' +
+	console.error('The ark repo must be cloned into the same parent directory as the ' +
 		'Positron rep, so that Rust output types can be written.');
 	process.exit(1);
 }
 
-// Check that the Python module 'black' is installed by running Python
+// Check that the Python module 'ruff' is installed by running Python
 // and importing it
 try {
-	execSync('python3 -m black --version');
+	execSync('python3 -m ruff --version');
 } catch (e) {
-	console.error('The Python module "black" must be installed to run this script; it is ' +
+	console.error('The Python module "ruff" must be installed to run this script; it is ' +
 		'required to properly format the Python output.');
 	process.exit(1);
 }

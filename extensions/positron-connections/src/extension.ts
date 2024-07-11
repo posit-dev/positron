@@ -16,10 +16,7 @@ import { PositronConnectionsComm } from './comms/ConnectionsComms';
 export function activate(context: vscode.ExtensionContext) {
 	const viewId = 'connections';
 	const connectionProvider = new ConnectionItemsProvider(context);
-
-	// Register the tree data provider that will provide the connections
-	context.subscriptions.push(
-		vscode.window.registerTreeDataProvider(viewId, connectionProvider));
+	const connectionTreeView = vscode.window.createTreeView(viewId, { treeDataProvider: connectionProvider });
 
 	// Register a handler for the positron.connection client type. This client
 	// represents an active, queryable database connection.
@@ -96,5 +93,12 @@ export function activate(context: vscode.ExtensionContext) {
 		vscode.commands.registerCommand('positron.connections.refresh',
 			() => {
 				connectionProvider.refresh();
+			}));
+
+	/* This is mostly used for testing purposes, to avoid requiring clicks in the UI */
+	context.subscriptions.push(
+		vscode.commands.registerCommand('positron.connections.expandAll',
+			() => {
+				connectionProvider.expandConnectionNodes(connectionTreeView);
 			}));
 }

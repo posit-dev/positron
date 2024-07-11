@@ -11,7 +11,9 @@ import string
 import types
 from typing import Any, Callable, Iterable, Optional, Tuple
 
+from shapely.geometry import Polygon
 import numpy as np
+import geopandas
 import pandas as pd
 import polars as pl
 import pytest
@@ -670,11 +672,11 @@ def test_inspect_numpy_array_0d(value: np.ndarray) -> None:
 
 
 def test_inspect_pandas_dataframe() -> None:
-    value = pd.DataFrame({"a": [1, 2], "b": ["3", "4"]})
+    value = pd.DataFrame({"a": [1, 2, 3], "b": ["3", "4", "5"]})
     rows, cols = value.shape
 
     def mutate(x):
-        x["c"] = [5, 6]
+        x["c"] = [5, 6, 7]
 
     verify_inspector(
         value=value,
@@ -685,7 +687,34 @@ def test_inspect_pandas_dataframe() -> None:
         has_children=True,
         has_viewer=True,
         is_truncated=True,
-        length=rows,
+        length=cols,
+        mutable=True,
+        mutate=mutate,
+    )
+
+
+def test_inspect_geopandas_dataframe() -> None:
+    p1 = Polygon([(0, 0), (1, 0), (1, 1)])
+    p2 = Polygon([(0, 0), (1, 0), (1, 1), (0, 1)])
+    p3 = Polygon([(2, 0), (3, 0), (3, 1), (2, 1)])
+
+    value = geopandas.GeoDataFrame({"g": geopandas.GeoSeries([p1, p2, p3]), "data": [0, 1, 2]})
+
+    rows, cols = value.shape
+
+    def mutate(x):
+        x["data2"] = [4, 5, 6]
+
+    verify_inspector(
+        value=value,
+        display_value=f"[{rows} rows x {cols} columns] geopandas.GeoDataFrame",
+        kind=VariableKind.Table,
+        display_type=f"GeoDataFrame [{rows}x{cols}]",
+        type_info=get_type_as_str(value),
+        has_children=True,
+        has_viewer=True,
+        is_truncated=True,
+        length=cols,
         mutable=True,
         mutate=mutate,
     )
@@ -728,6 +757,35 @@ def test_inspect_pandas_series() -> None:
         display_value="pandas.Series [0, 1]",
         kind=VariableKind.Table,
         display_type=f"int64 [{rows}]",
+        type_info=get_type_as_str(value),
+        has_children=True,
+        has_viewer=True,
+        is_truncated=True,
+        length=rows,
+        mutable=True,
+        mutate=mutate,
+    )
+
+
+def test_inspect_geopandas_series() -> None:
+    import geopandas
+    from shapely.geometry import Polygon
+
+    p1 = Polygon([(0, 0), (1, 0), (1, 1)])
+    p2 = Polygon([(0, 0), (1, 0), (1, 1), (0, 1)])
+    p3 = Polygon([(2, 0), (3, 0), (3, 1), (2, 1)])
+    value = geopandas.GeoSeries([p1, p2, p3])
+
+    (rows,) = value.shape
+
+    def mutate(x):
+        x[0] = p2
+
+    verify_inspector(
+        value=value,
+        display_value=f"geopandas.GeoSeries {repr([p1, p2, p3])}",
+        kind=VariableKind.Table,
+        display_type=f"geometry [{rows}]",
         type_info=get_type_as_str(value),
         has_children=True,
         has_viewer=True,
