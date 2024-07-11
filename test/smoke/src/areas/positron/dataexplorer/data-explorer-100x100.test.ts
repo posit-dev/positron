@@ -92,11 +92,21 @@ export function setupDataExplorer100x100Test(logger: Logger) {
 
 					// On Linux, R will conjure up different date values from time to time.
 					let tested = false;
-					if (language === 'R' && process.platform === 'linux') {
+					if (!tested && language === 'R' && process.platform === 'linux') {
 						const expectDate = Date.parse(row[columnIndex]);
 						const cellDate = Date.parse(cell.textContent);
 						if (!isNaN(expectDate) && !isNaN(cellDate)) {
 							expect(Math.round(expectDate / 60000)).toStrictEqual(Math.round(cellDate / 60000));
+							tested = true;
+						}
+					}
+
+					// On Linux, R will conjure up different time values from time to time.
+					if (!tested && language === 'R' && process.platform === 'linux' && row[columnIndex].endsWith(' secs')) {
+						const expectedValue = parseFloat(row[columnIndex]);
+						const cellValue = parseFloat(cell.textContent);
+						if (!isNaN(expectedValue) && !isNaN(cellValue)) {
+							expect(expectedValue).toBeCloseTo(cellValue, 0);
 							tested = true;
 						}
 					}
