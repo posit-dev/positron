@@ -146,6 +146,6 @@ jobs:
         uses: joseph243/SlackTestReporter@v1.0
         with:
           who-to-greet: 'QA Team'
-          testOutputPath: '.build/logs/smoke-tests-electron/test-results/'
+          testOutputPath: '**/.build/logs/smoke-tests-electron/test-results/'
           slackToken: ${{ secrets.SMOKE_TESTS_SLACK_TOKEN }}
           slackChannelId: 'C06DNFJSHPD'
