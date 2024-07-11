@@ -321,8 +321,22 @@ function handleRuntimeMessageOutput(
 			case 'image/jpeg':
 				cellOutputItems.push(new vscode.NotebookCellOutputItem(Buffer.from(data, 'base64'), mimeType));
 				break;
+			// This list is a subset of src/vs/workbench/contrib/notebook/browser/view/cellParts/cellOutput.JUPYTER_RENDERER_MIMETYPES
+			case 'application/geo+json':
+			case 'application/vdom.v1+json':
+			case 'application/vnd.dataresource+json':
 			case 'application/vnd.jupyter.widget-view+json':
+			case 'application/vnd.plotly.v1+json':
 			case 'application/vnd.r.htmlwidget':
+			case 'application/vnd.vega.v2+json':
+			case 'application/vnd.vega.v3+json':
+			case 'application/vnd.vega.v4+json':
+			case 'application/vnd.vega.v5+json':
+			case 'application/vnd.vegalite.v1+json':
+			case 'application/vnd.vegalite.v2+json':
+			case 'application/vnd.vegalite.v3+json':
+			case 'application/vnd.vegalite.v4+json':
+			case 'application/x-nteract-model-debug+json':
 				// The JSON cell output item will be rendered using the appropriate notebook renderer.
 				cellOutputItems.push(vscode.NotebookCellOutputItem.json(data, mimeType));
 				break;
