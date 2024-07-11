@@ -148,6 +148,10 @@ Graphviz is external software that has a Python package to render graphs. Instal
 * **Windows** - `choco install graphviz`
 * **Mac** - `brew install graphviz`
 
+## Environment Setup - Resemblejs dependency
+
+Make sure that you have followed the [Machine Setup](https://connect.posit.it/positron-wiki/machine-setup.html) instructions so that you can be sure you are set up to build resemblejs (which depends on node-canvas).
+
 ## Build step
 
 The tests are written in typescript, but unlike the main Positron typescript, the files are not transpiled by the build daemons. So when running tests you'll need to navigate into the smoke tests location and run the build watcher:
@@ -222,5 +226,11 @@ New tests are not complete until they run successfully across operating systems 
 When a run is complete, you can debug any test failures that occurred using the uploaded run artifacts.  The artifacts are available as a ZIP file from inside the workflow run.  Each artifact zip contains: a folder for each test file and an overall run log.  Inside the folder corresponding to each test file, you will find zip files that are Playwright traces.  Note that the trace files are only present for failed cases.
 
 Playwright traces can be drag and dropped to the [Trace Viewer](https://trace.playwright.dev/).  The trace will usually give you a good visualization of the failed test, but they can be sparse on details.  More details are available from the run log (smoke-test-runner.log).  It has a start and end marker for each test case.
+
+## Notes About Updating Specific Tests
+
+### Plot Tests That Use Resemblejs
+
+In order to get the "golden screenshots" used for plot comparison is CI, you will need to temporarily uncomment the line of code marked with `capture master image in CI` or add a similar line of code for a new case.  We must use CI taken snapshots because if the "golden screenshots" are taken locally, they will differ too much from the CI images to be useable with a proper threshold.  You can't compare the current runtime plot against a snapshot until you have established a baseline screenshot from CI that is saved to `test/smoke/plots`.
 
 <!-- End Positron -->

@@ -21,7 +21,7 @@ jobs:
       - name: Setup Build Environment
         run: |
           sudo apt-get update
-          sudo apt-get install -y vim curl build-essential clang make cmake git python3-pip python-is-python3 libsodium-dev libxkbfile-dev pkg-config libsecret-1-dev libxss1 dbus xvfb libgtk-3-0 libgbm1 libnss3 libnspr4 libasound2 libkrb5-dev
+          sudo apt-get install -y vim curl build-essential clang make cmake git python3-pip python-is-python3 libsodium-dev libxkbfile-dev pkg-config libsecret-1-dev libxss1 dbus xvfb libgtk-3-0 libgbm1 libnss3 libnspr4 libasound2 libkrb5-dev libcairo-dev libsdl-pango-dev libjpeg-dev libgif-dev
           sudo cp build/azure-pipelines/linux/xvfb.init /etc/init.d/xvfb
           sudo chmod +x /etc/init.d/xvfb
           sudo update-rc.d xvfb defaults
@@ -54,6 +54,8 @@ jobs:
           # Perform the main yarn command; this installs all Node packages and
           # dependencies
           yarn --immutable --network-timeout 120000
+          yarn --cwd test/automation install
+          yarn --cwd test/smoke install
 
       - name: Compile and Download
         run: yarn npm-run-all --max_old_space_size=4095 -lp compile "electron x64" playwright-install download-builtin-extensions
@@ -137,3 +139,11 @@ jobs:
         with:
           name: run-artifacts
           path: .build/logs/smoke-tests-electron/
+
+      - name: slack-smoke-test-report
+        if: always()
+        uses: ivanklee86/xunit-slack-reporter@v1.4.0
+        env:
+          SLACK_CHANNEL: C06DNFJSHPD
+          SLACK_TOKEN: ${{ secrets.SMOKE_TESTS_SLACK_TOKEN }}
+          XUNIT_PATH: .build/logs/smoke-tests-electron/test-results/results.xml
