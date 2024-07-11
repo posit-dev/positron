@@ -538,6 +538,13 @@ export class NotebookService extends Disposable implements INotebookService {
 			this._notebookRenderersInfoStore.clear();
 
 			for (const extension of renderers) {
+				// --- Start Positron ---
+				// Don't add renderers from the Jupyter extension since they don't work with our runtimes.
+				// TODO(seem): We can remove this if we eventually decide to unbundle vscode-jupyter.
+				if (extension.description.identifier.value === 'ms-toolsai.jupyter') {
+					continue;
+				}
+				// --- End Positron ---
 				for (const notebookContribution of extension.value) {
 					if (!notebookContribution.entrypoint) { // avoid crashing
 						extension.collector.error(`Notebook renderer does not specify entry point`);
@@ -573,8 +580,24 @@ export class NotebookService extends Disposable implements INotebookService {
 				if (!isProposedApiEnabled(extension.description, 'contribNotebookStaticPreloads')) {
 					continue;
 				}
+				// --- Start Positron ---
+				// Don't add preloads from the Jupyter extension since they don't work with our runtimes.
+				// TODO(seem): We can remove this if we eventually decide to unbundle vscode-jupyter.
+				if (extension.description.identifier.value === 'ms-toolsai.jupyter') {
+					continue;
+				}
+				// --- End Positron ---
 
 				for (const notebookContribution of extension.value) {
+					// --- Start Positron ---
+					// Don't add the preload from the Jupyter extension that bundles ipywidgets JS libraries,
+					// since they don't work with our runtimes.
+					// TODO(seem): We can remove this if we eventually decide to unbundle vscode-jupyter.
+					if (extension.description.identifier.value === 'ms-toolsai.jupyter-renderers' &&
+						notebookContribution.entrypoint.endsWith('ipywidgets.js')) {
+						continue;
+					}
+					// --- End Positron ---
 					if (!notebookContribution.entrypoint) { // avoid crashing
 						extension.collector.error(`Notebook preload does not specify entry point`);
 						continue;
