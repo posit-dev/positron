@@ -7,6 +7,7 @@ import { Locator } from '@playwright/test';
 import { Code } from '../code';
 import { QuickAccess } from '../quickaccess';
 import { PositronBaseElement, PositronTextElement } from './positronBaseElement';
+import path = require('path');
 
 // Project Name & Location Step
 const PROJECT_WIZARD_PROJECT_NAME_INPUT =
@@ -147,16 +148,44 @@ class ProjectWizardPythonConfigurationStep {
 		);
 	}
 
+	/**
+	 * Selects the interpreter corresponding to the given path in the project wizard interpreter
+	 * dropdown. If a relative path is provided, both the relative and absolute paths are tried.
+	 * @param interpreterPath The path of the interpreter to select.
+	 * @returns A promise that resolves once the interpreter is selected, or rejects if the interpreter is not found.
+	 */
 	async selectInterpreterByPath(interpreterPath: string) {
+		const absInterpreterPath = path.isAbsolute(interpreterPath)
+			? undefined
+			: path.resolve(interpreterPath);
+		const pathsToTry = absInterpreterPath
+			? [interpreterPath, absInterpreterPath]
+			: [interpreterPath];
+
+		// Open the dropdown
 		await this.interpreterDropdown.click();
-		await this.code.waitForElement(
-			PROJECT_WIZARD_INTERPRETER_DROPDOWN_POPUP_ITEMS
+
+		// Try to find the interpreterPath in the dropdown and click the entry if found
+		for (let i = 0; i < pathsToTry.length; i++) {
+			try {
+				await this.code.waitForElement(
+					PROJECT_WIZARD_INTERPRETER_DROPDOWN_POPUP_ITEMS
+				);
+				await this.code.driver
+					.getLocator(
+						`${PROJECT_WIZARD_INTERPRETER_DROPDOWN_POPUP_ITEMS} div.dropdown-entry-subtitle:text-is("${pathsToTry[i]}")`
+					)
+					.click();
+				return Promise.resolve();
+			} catch (error) {
+				// Couldn't find the interpreterPath in the dropdown, try the next path
+			}
+		}
+
+		// Couldn't find the relative or absolute path of the interpreter in the dropdown
+		return Promise.reject(
+			`Could not find interpreter path in project wizard dropdown. Tried: ${pathsToTry.join(', ')}`
 		);
-		await this.code.driver
-			.getLocator(
-				`${PROJECT_WIZARD_INTERPRETER_DROPDOWN_POPUP_ITEMS} div.dropdown-entry-subtitle:text-is("${interpreterPath}")`
-			)
-			.click();
 	}
 }
 

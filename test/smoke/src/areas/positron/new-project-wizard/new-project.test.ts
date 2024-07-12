@@ -43,7 +43,6 @@ export function setup(logger: Logger) {
 					// Start the Python interpreter and ensure ipykernel is installed
 					const interpreterInfo = await pythonFixtures.startAndGetPythonInterpreter(true);
 					expect(interpreterInfo?.path).toBeDefined();
-					const interpreterPath = interpreterInfo?.path!;
 					// Create a new Python project and use the selected python interpreter
 					await pw.startNewProject();
 					await pw.projectTypeStep.pythonProjectButton.click();
@@ -51,15 +50,8 @@ export function setup(logger: Logger) {
 					await pw.projectNameLocationStep.appendToProjectName(projSuffix);
 					await pw.nextButton.click();
 					await pw.pythonConfigurationStep.existingEnvRadioButton.click();
-					try {
-						await pw.pythonConfigurationStep.selectedInterpreterPath.waitForText(
-							interpreterPath
-						);
-					} catch (error) {
-						// Since we didn't see the expected interpreter, we'll need to interact with
-						// the dropdown to select the specific interpreter
-						await pw.pythonConfigurationStep.selectInterpreterByPath(interpreterPath);
-					}
+					// Select the interpreter that was started above
+					await pw.pythonConfigurationStep.selectInterpreterByPath(interpreterInfo!.path);
 					await pw.pythonConfigurationStep.interpreterFeedback.isNotVisible();
 					await pw.disabledCreateButton.isNotVisible(500);
 					await pw.nextButton.click();
@@ -78,7 +70,6 @@ export function setup(logger: Logger) {
 					// Start the Python interpreter and uninstall ipykernel
 					const interpreterInfo = await pythonFixtures.startAndGetPythonInterpreter(true);
 					expect(interpreterInfo?.path).toBeDefined();
-					const interpreterPath = interpreterInfo?.path!;
 					await app.workbench.positronConsole.typeToConsole('pip uninstall -y ipykernel');
 					await app.workbench.positronConsole.sendEnterKey();
 					await app.workbench.positronConsole.waitForConsoleContents((contents) =>
@@ -92,15 +83,8 @@ export function setup(logger: Logger) {
 					await pw.nextButton.click();
 					// Choose the existing environment which does not have ipykernel
 					await pw.pythonConfigurationStep.existingEnvRadioButton.click();
-					try {
-						await pw.pythonConfigurationStep.selectedInterpreterPath.waitForText(
-							interpreterPath
-						);
-					} catch (error) {
-						// Since we didn't see the expected interpreter, we'll need to interact with
-						// the dropdown to select the specific interpreter
-						await pw.pythonConfigurationStep.selectInterpreterByPath(interpreterPath);
-					}
+					// Select the interpreter that was started above
+					await pw.pythonConfigurationStep.selectInterpreterByPath(interpreterInfo!.path);
 					await pw.pythonConfigurationStep.interpreterFeedback.waitForText(
 						'ipykernel will be installed for Python language support.'
 					);
