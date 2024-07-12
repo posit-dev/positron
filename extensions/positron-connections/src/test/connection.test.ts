@@ -15,7 +15,7 @@ suite('Connections pane works for R', () => {
 		vscode.window.showInformationMessage('All tests done!');
 	});
 
-	test('Can list tabeles and fields from R connections', async () => {
+	test('Can list tables and fields from R connections', async () => {
 
 		// Waits until positron is ready to start a runtime
 		const info = await assert_or_timeout(async () => {
