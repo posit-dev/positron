@@ -126,9 +126,9 @@ export class PositronConsole {
 		return activeConsole;
 	}
 
-	async waitForReady(prompt: string) {
+	async waitForReady(prompt: string, retryCount: number = 500) {
 		// Wait for the prompt to show up.
-		await this.code.waitForTextContent(`${ACTIVE_CONSOLE_INSTANCE} .active-line-number`, prompt);
+		await this.code.waitForTextContent(`${ACTIVE_CONSOLE_INSTANCE} .active-line-number`, prompt, undefined, retryCount);
 
 		// Wait for the interpreter to start.
 		await this.waitForConsoleContents((contents) => contents.some((line) => line.includes('started')));
