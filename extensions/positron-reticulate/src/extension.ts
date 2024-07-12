@@ -25,14 +25,6 @@ export class ReticulateRuntimeManager implements positron.LanguageRuntimeManager
 
 async function createReticulateSession(runtimeMetadata: positron.LanguageRuntimeMetadata, sessionMetadata: positron.RuntimeSessionMetadata) {
 
-	const rRuntime = await positron.runtime.getPreferredRuntime('r');
-	rRuntime.extraRuntimeData.display_name = 'Reticulate R Session';
-
-	const rSession = await positron.runtime.startLanguageRuntime(
-		rRuntime!.runtimeId,
-		rRuntime!.runtimeName,
-	);
-
 	//session.execute('reticulate::repl_python()');
 	const startKernel = async (session: JupyterSession, self: any) => {
 		const connnectionFile = session.state.connectionFile;
@@ -73,11 +65,11 @@ async function createReticulateSession(runtimeMetadata: positron.LanguageRuntime
 		`;
 
 		// this is the piece of code that initializes IPython in the R session.
-		rSession.execute(
+		positron.runtime.executeCode(
+			'r',
 			code,
-			'reticulate-session',
-			positron.RuntimeCodeExecutionMode.Transient,
-			positron.RuntimeErrorBehavior.Continue,
+			true,
+			false
 		);
 
 		while (true) {
@@ -118,7 +110,7 @@ class ReticulateRuntimeMetadata implements positron.LanguageRuntimeMetadata {
 	}
 	runtimePath: string = '';
 	runtimeName: string = 'Reticulate';
-	languageId: string = 'reticulate';
+	languageId: string = 'python';
 	languageName: string = 'Reticulate';
 	runtimeId: string = 'reticulate';
 	runtimeShortName: string = 'Reticulate';
