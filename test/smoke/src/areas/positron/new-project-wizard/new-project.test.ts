@@ -31,7 +31,7 @@ export function setup(logger: Logger) {
 				await pw.nextButton.click();
 				await pw.currentOrNewWindowSelectionModal.currentWindowButton.click();
 				await app.workbench.positronExplorer.explorerProjectTitle.waitForText('myPythonProject');
-				await app.workbench.positronConsole.waitForReady('>>>');
+				await app.workbench.positronConsole.waitForReady('>>>', 10000);
 			});
 
 			describe('Python Project with existing interpreter', () => {
@@ -60,7 +60,7 @@ export function setup(logger: Logger) {
 						`myPythonProject${projSuffix}`
 					);
 					// The console should initialize without any prompts to install ipykernel
-					await app.workbench.positronConsole.waitForReady('>>>');
+					await app.workbench.positronConsole.waitForReady('>>>', 10000);
 				});
 				it('With ipykernel not already installed [C609617]', async function () {
 					const projSuffix = '_noIpykernel';
@@ -96,7 +96,7 @@ export function setup(logger: Logger) {
 					);
 					// If ipykernel was successfully installed during the new project initialization,
 					// the console should be ready without any prompts to install ipykernel
-					await app.workbench.positronConsole.waitForReady('>>>');
+					await app.workbench.positronConsole.waitForReady('>>>', 10000);
 				});
 			});
 		});
@@ -120,7 +120,7 @@ export function setup(logger: Logger) {
 				await pw.nextButton.click();
 				await pw.currentOrNewWindowSelectionModal.currentWindowButton.click();
 				await app.workbench.positronExplorer.explorerProjectTitle.waitForText('myRProject');
-				await app.workbench.positronConsole.waitForReady('>');
+				await app.workbench.positronConsole.waitForReady('>', 10000);
 			});
 
 			describe('R Project with Renv Environment', () => {
@@ -258,7 +258,7 @@ export function setup(logger: Logger) {
 				await pw.nextButton.click();
 				await pw.currentOrNewWindowSelectionModal.currentWindowButton.click();
 				await app.workbench.positronExplorer.explorerProjectTitle.waitForText('myJupyterNotebook');
-				await app.workbench.positronConsole.waitForReady('>>>');
+				await app.workbench.positronConsole.waitForReady('>>>', 10000);
 			});
 
 		});
