@@ -5,7 +5,7 @@
 
 import { fail } from 'assert';
 import { Application } from '../../application';
-import { InterpreterType } from '../positronStartInterpreter';
+import { InterpreterType } from '../utils/positronInterpreterInfo';
 
 /*
  *  Reuseable Positron R fixture tests can leverage to get an R interpreter selected.

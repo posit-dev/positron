@@ -41,7 +41,8 @@ export function setup(logger: Logger) {
 					const pw = app.workbench.positronNewProjectWizard;
 					const pythonFixtures = new PositronPythonFixtures(app);
 					// Start the Python interpreter and ensure ipykernel is installed
-					const interpreterInfo = await pythonFixtures.startAndGetPythonInterpreter(true);
+					await pythonFixtures.startAndGetPythonInterpreter(true);
+					const interpreterInfo = await app.workbench.startInterpreter.getSelectedInterpreterInfo();
 					expect(interpreterInfo?.path).toBeDefined();
 					// Create a new Python project and use the selected python interpreter
 					await pw.startNewProject();
@@ -68,7 +69,8 @@ export function setup(logger: Logger) {
 					const pw = app.workbench.positronNewProjectWizard;
 					const pythonFixtures = new PositronPythonFixtures(app);
 					// Start the Python interpreter and uninstall ipykernel
-					const interpreterInfo = await pythonFixtures.startAndGetPythonInterpreter(true);
+					await pythonFixtures.startAndGetPythonInterpreter(true);
+					const interpreterInfo = await app.workbench.startInterpreter.getSelectedInterpreterInfo();
 					expect(interpreterInfo?.path).toBeDefined();
 					await app.workbench.positronConsole.typeToConsole('pip uninstall -y ipykernel');
 					await app.workbench.positronConsole.sendEnterKey();
