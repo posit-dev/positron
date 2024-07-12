@@ -5,10 +5,12 @@
 
 
 import { Code } from '../code';
+import { InterpreterInfo, InterpreterType } from './utils/positronInterpreterInfo';
 
 interface InterpreterGroupLocation {
 	description: string;
 	index: number;
+	path?: string;
 }
 
 
@@ -16,15 +18,10 @@ const INTERPRETER_SELECTOR = '.top-action-bar-interpreters-manager .left';
 const POSITRON_MODAL_POPUP = '.positron-modal-popup';
 
 const INTERPRETER_GROUPS = '.positron-modal-popup .interpreter-groups .interpreter-group';
-const PRIMARY_INTERPRETER_GROUP_NAMES = `${INTERPRETER_GROUPS} .primary-interpreter .line:nth-of-type(1)`;
+const PRIMARY_INTERPRETER_GROUP_DESCRIPTIONS = `${INTERPRETER_GROUPS} .primary-interpreter .line`;
 const SECONDARY_INTERPRETER_GROUP_NAMES = `${INTERPRETER_GROUPS} .secondary-interpreter .line:nth-of-type(1)`;
 const SECONDARY_INTERPRETER = `${INTERPRETER_GROUPS} .secondary-interpreter`;
 const INTERPRETER_ACTION_BUTTON = '.primary-interpreter .interpreter-actions .action-button span';
-
-export enum InterpreterType {
-	Python = 'Python',
-	R = 'R'
-}
 
 /*
  *  Reuseable Positron interpreter selection functionality for tests to leverage.
@@ -68,6 +65,7 @@ export class StartInterpreter {
 			await chosenInterpreter.click();
 		}
 
+		// Extra retries to click the interpreter if previous attempts didn't properly click and dismiss the dialog
 		for (let i = 0; i < 10; i++) {
 			try {
 				const dialog = this.code.driver.getLocator(POSITRON_MODAL_POPUP);
@@ -84,36 +82,63 @@ export class StartInterpreter {
 		}
 	}
 
+	async getSelectedInterpreterInfo(): Promise<InterpreterInfo | undefined> {
+		// Get the label for the selected interpreter, e.g. Python 3.10.4 (Pyenv)
+		const selectedInterpreter = await this.code.driver
+			.getLocator('.top-action-bar-interpreters-manager')
+			.getAttribute('aria-label');
+		if (!selectedInterpreter) {
+			return Promise.reject('There is no selected interpreter');
+		}
+
+		// Open the interpreter manager
+		await this.code.waitAndClick(INTERPRETER_SELECTOR);
+		await this.code.waitForElement(POSITRON_MODAL_POPUP);
+
+		// Wait for the desired primary interpreter group to load
+		const interpreterGroup = await this.awaitDesiredPrimaryInterpreterGroupLoaded(selectedInterpreter);
+		if (!interpreterGroup.path) {
+			return Promise.reject(`Could not retrieve interpreter path for ${selectedInterpreter}`);
+		}
+
+		// Return the interpreter info
+		return {
+			type: InterpreterType.Python,
+			version: interpreterGroup.description,
+			path: interpreterGroup.path
+		} satisfies InterpreterInfo;
+	}
+
 	private async awaitDesiredPrimaryInterpreterGroupLoaded(interpreterNamePrefix: string): Promise<InterpreterGroupLocation> {
 
 		let iterations = 0;
 		while (iterations < 30) {
 
-			const interpreters = await this.code.getElements(PRIMARY_INTERPRETER_GROUP_NAMES, false);
+			// This element array is roughly represented as follows:
+			// [firstInterpreterDescription, firstInterpreterPath, secondInterpreterDescription, secondInterpreterPath, ...]
+			// The even indices are the interpreter descriptions and the odd indices are the interpreter paths
+			const interpreterElems = await this.code.getElements(PRIMARY_INTERPRETER_GROUP_DESCRIPTIONS, false);
+			if (!interpreterElems) {
+				continue;
+			}
 
-			const loadedInterpreters: string[] = [];
-			interpreters?.forEach((interpreter) => {
-				loadedInterpreters.push(interpreter.textContent);
-			});
-
-			let found: string = '';
-			let groupIndex = 0;
-			for (const loadedInterpreter of loadedInterpreters) {
-				groupIndex++;
-				this.code.logger.log(`Found interpreter: ${loadedInterpreter}`);
-				if (loadedInterpreter.startsWith(interpreterNamePrefix)) {
-					found = loadedInterpreter;
-					break;
+			// Iterate the element array by 2, so we can get the name and path of each interpreter
+			for (let i = 0; i < interpreterElems.length; i + 2) {
+				const interpreterDesc = interpreterElems[i].textContent;
+				this.code.logger.log(`Found interpreter: ${interpreterDesc}`);
+				if (interpreterDesc.startsWith(interpreterNamePrefix)) {
+					// Return as soon as we find the desired interpreter
+					return {
+						description: interpreterDesc, // e.g. Python 3.10.4 (Pyenv)
+						index: i,
+						path: interpreterElems[i + 1].textContent // e.g. /usr/bin/python3
+					};
 				}
 			}
 
-			if (found) {
-				return { description: found, index: groupIndex };
-			} else {
-				iterations++;
-				this.code.logger.log(`Waiting for ${interpreterNamePrefix} to load, try ${iterations}`);
-				await this.code.driver.wait(3000);
-			}
+			iterations++;
+			this.code.logger.log(`Waiting for ${interpreterNamePrefix} to load, try ${iterations}`);
+			await this.code.driver.wait(3000);
 		}
 		return { description: '', index: -1 };
 

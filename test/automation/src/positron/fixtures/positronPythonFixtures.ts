@@ -5,8 +5,7 @@
 
 import { fail } from 'assert';
 import { Application } from '../../application';
-import { InterpreterType } from '../positronStartInterpreter';
-import { InterpreterInfo } from '../positronConsole';
+import { InterpreterInfo, InterpreterType } from '../utils/positronInterpreterInfo';
 
 /*
  *  Reuseable Positron Python fixture tests can leverage to get a Python interpreter selected.

@@ -8,7 +8,7 @@ import { Locator } from '@playwright/test';
 import { Code } from '../code';
 import { QuickAccess } from '../quickaccess';
 import { QuickInput } from '../quickinput';
-import { InterpreterType } from './positronStartInterpreter';
+import { InterpreterInfo, InterpreterType } from './utils/positronInterpreterInfo';
 import { PositronBaseElement } from './positronBaseElement';
 import { IElement } from '../driver';
 
@@ -20,13 +20,6 @@ const CONSOLE_BAR_POWER_BUTTON = 'div.action-bar-button-icon.codicon.codicon-pos
 const CONSOLE_BAR_RESTART_BUTTON = 'div.action-bar-button-icon.codicon.codicon-positron-restart-runtime-thin';
 const CONSOLE_RESTART_BUTTON = 'button.monaco-text-button.runtime-restart-button';
 const CONSOLE_BAR_CLEAR_BUTTON = 'div.action-bar-button-icon.codicon.codicon-clear-all';
-
-export interface InterpreterInfo {
-	type: InterpreterType;
-	version: string;
-	path: string;
-	source?: string;
-}
 
 /*
  *  Reuseable Positron console functionality for tests to leverage.  Includes the ability to select an interpreter and execute code which
@@ -81,7 +74,7 @@ export class PositronConsole {
 				version: rawInfo[0].trim(),
 				path: rawInfo[1].trim(),
 				source: hasSource ? rawInfo[2].trim() : ''
-			};
+			} satisfies InterpreterInfo;
 		}
 
 		return undefined;
