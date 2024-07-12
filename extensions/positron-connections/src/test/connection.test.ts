@@ -74,14 +74,17 @@ async function sleep(time: number) {
 
 async function assert_or_timeout<T>(fn: () => T, timeout: number = 5000): Promise<T> {
 	const start = Date.now();
+	let error;
 	while (Date.now() - start < timeout) {
 		try {
 			return await fn();
-		} catch (_) {
+		} catch (err) {
+			error = err;
 			await sleep(50);
 		}
 	}
-	throw new Error('Assert failed');
+	// We throw the last error that happened before the timeout
+	throw error;
 }
 
 function executeRCode(session: positron.LanguageRuntimeSession, code: string) {
