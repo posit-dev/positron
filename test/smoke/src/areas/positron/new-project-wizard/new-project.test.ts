@@ -31,6 +31,7 @@ export function setup(logger: Logger) {
 				await pw.nextButton.click();
 				await pw.currentOrNewWindowSelectionModal.currentWindowButton.click();
 				await app.workbench.positronExplorer.explorerProjectTitle.waitForText('myPythonProject');
+				await app.workbench.positronConsole.waitForReady('>>>');
 			});
 
 			describe('Python Project with existing interpreter', () => {
@@ -135,6 +136,7 @@ export function setup(logger: Logger) {
 				await pw.nextButton.click();
 				await pw.currentOrNewWindowSelectionModal.currentWindowButton.click();
 				await app.workbench.positronExplorer.explorerProjectTitle.waitForText('myRProject');
+				await app.workbench.positronConsole.waitForReady('>');
 			});
 
 			describe('R Project with Renv Environment', () => {
@@ -272,6 +274,7 @@ export function setup(logger: Logger) {
 				await pw.nextButton.click();
 				await pw.currentOrNewWindowSelectionModal.currentWindowButton.click();
 				await app.workbench.positronExplorer.explorerProjectTitle.waitForText('myJupyterNotebook');
+				await app.workbench.positronConsole.waitForReady('>>>');
 			});
 
 		});
