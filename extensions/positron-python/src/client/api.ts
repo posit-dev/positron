@@ -7,6 +7,7 @@
 import { Uri, Event } from 'vscode';
 import { BaseLanguageClient, LanguageClientOptions } from 'vscode-languageclient';
 import { LanguageClient } from 'vscode-languageclient/node';
+import { PythonRuntimeSession } from './positron/session';
 import { PYLANCE_NAME } from './activation/node/languageClientFactory';
 import { ILanguageServerOutputChannel } from './activation/types';
 import { PythonExtension } from './api/types';
@@ -23,6 +24,7 @@ import { ApiForPylance } from './pylanceApi';
 import { getTelemetryReporter } from './telemetry';
 import { TensorboardExtensionIntegration } from './tensorBoard/tensorboardIntegration';
 import { getDebugpyPath } from './debugger/pythonDebugger';
+
 
 export function buildApi(
     ready: Promise<void>,
@@ -155,5 +157,9 @@ export function buildApi(
         (api as any).serviceContainer = serviceContainer;
         (api as any).serviceManager = serviceManager;
     }
+    // Start Positron ---------
+    (api as any).positron = PythonRuntimeSession;
+    (api as any).serviceContainer = serviceContainer;
+    // End Positron ---------
     return api;
 }

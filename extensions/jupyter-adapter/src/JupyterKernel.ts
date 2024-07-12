@@ -680,6 +680,20 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 		// and establishes available ports and sockets for the kernel to connect
 		// to.
 		const session = await createJupyterSession();
+
+		if (this._spec.startKernel) {
+			// If this is provided, it means we are starting the kernel with a different method
+			// instead of using a terminal. For instance, it could be a kernel started in a
+			// different format.
+			await this._spec.startKernel(session, this);
+		} else {
+			// This is the defualt path for starting a kernel as a vscode terminal
+			// using the given `argv` and `env` from the kernel spec.
+			await this.startTerminal(session);
+		}
+	}
+
+	async startTerminal(session: JupyterSession) {
 		const connnectionFile = session.state.connectionFile;
 		const logFile = session.state.logFile;
 		const profileFile = session.state.profileFile;

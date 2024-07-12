@@ -115,11 +115,6 @@
           "when": "viewItem == database"
         },
         {
-          "command": "positron.connections.removeFromHistory",
-          "group": "inline",
-          "when": "viewItem =~ /disconnected/"
-        },
-        {
           "command": "positron.connections.reopenConnection",
           "group": "inline",
           "when": "viewItem =~ /disconnected-hasCode/"
