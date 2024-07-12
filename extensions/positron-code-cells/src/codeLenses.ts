@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
-import { canHaveCells, getOrCreateDocumentManager } from './documentManager';
+import { canHaveCells, getEditorFromDocument, getOrCreateDocumentManager } from './documentManager';
 
 export function runCellCodeLens(range: vscode.Range): vscode.CodeLens {
 	return new vscode.CodeLens(range, {
@@ -32,14 +32,13 @@ export function runNextCodeLens(range: vscode.Range): vscode.CodeLens {
 
 export class CellCodeLensProvider implements vscode.CodeLensProvider {
 	provideCodeLenses(document: vscode.TextDocument): vscode.ProviderResult<vscode.CodeLens[]> {
-
-		if (!canHaveCells(document)) {
+		const editor = getEditorFromDocument(document);
+		if (!canHaveCells(document) || !editor) {
 			return [];
 		}
 
+		const cells = getOrCreateDocumentManager(editor).getCells();
 		const codeLenses: vscode.CodeLens[] = [];
-		const docManager = getOrCreateDocumentManager(document);
-		const cells = docManager.getCells();
 		for (let i = 0; i < cells.length; i += 1) {
 			const cell = cells[i];
 			const range = cell.range;

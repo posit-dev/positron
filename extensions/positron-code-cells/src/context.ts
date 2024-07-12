@@ -26,13 +26,8 @@ function setSupportsCodeCellsContext(editor: vscode.TextEditor | undefined): voi
 	);
 }
 
-function setHasCodeCellsContext(document: vscode.TextDocument | undefined): void {
-	let value = false;
-	if (document) {
-		if (canHaveCells(document)) {
-			value = document && getOrCreateDocumentManager(document).getCells().length > 0;
-		}
-	}
+function setHasCodeCellsContext(editor: vscode.TextEditor | undefined): void {
+	const value = editor && canHaveCells(editor.document) && getOrCreateDocumentManager(editor).getCells().length > 0;
 	contexts.set(ContextKey.HasCodeCells, value);
 	vscode.commands.executeCommand(
 		'setContext',
@@ -46,7 +41,7 @@ export function activateContextKeys(disposables: vscode.Disposable[]): void {
 
 	if (activeEditor) {
 		setSupportsCodeCellsContext(activeEditor);
-		setHasCodeCellsContext(activeEditor.document);
+		setHasCodeCellsContext(activeEditor);
 	}
 
 	disposables.push(
@@ -56,13 +51,13 @@ export function activateContextKeys(disposables: vscode.Disposable[]): void {
 
 			// Set the context keys.
 			setSupportsCodeCellsContext(editor);
-			setHasCodeCellsContext(editor?.document);
+			setHasCodeCellsContext(editor);
 		}),
 
 		vscode.workspace.onDidChangeTextDocument((event) => {
 			// Set the hasCodeCells context key when the active editor's document changes.
 			if (activeEditor && event.document === activeEditor.document) {
-				setHasCodeCellsContext(event.document);
+				setHasCodeCellsContext(activeEditor);
 			}
 		})
 	);

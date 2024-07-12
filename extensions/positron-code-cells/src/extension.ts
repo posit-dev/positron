@@ -8,43 +8,18 @@ import { initializeLogging } from './logging';
 import { CellCodeLensProvider } from './codeLenses';
 import { activateDecorations } from './decorations';
 import { activateContextKeys } from './context';
-import { canHaveCells, destroyDocumentManager, getOrCreateDocumentManager } from './documentManager';
+import { activateDocumentManagers } from './documentManager';
 import { registerCommands } from './commands';
 
-export const IGNORED_SCHEMES = ['vscode-notebook-cell', 'vscode-interactive-input', 'inmemory'];
+export const IGNORED_SCHEMES = ['vscode-notebook-cell', 'vscode-interactive-input'];
 
 export async function activate(context: vscode.ExtensionContext): Promise<void> {
 	initializeLogging();
 
-	// When starting extension, fill documentManagers
-	const activeEditors = vscode.window.visibleTextEditors;
-	activeEditors.forEach((editor) => {
-		if (canHaveCells(editor.document)) {
-			const docManager = getOrCreateDocumentManager(editor.document);
-			docManager.parseCells();
-		}
-	});
-	vscode.workspace.onDidCloseTextDocument(document => {
-		destroyDocumentManager(document);
-	});
-	vscode.workspace.onDidOpenTextDocument(document => {
-		if (canHaveCells(document)) {
-			const docManager = getOrCreateDocumentManager(document);
-			docManager.parseCells();
-		}
-	});
-	vscode.workspace.onDidChangeTextDocument(event => {
-		// Trigger a decorations update when the active editor's content changes.
-		if (!canHaveCells(event.document)) {
-			// Used to have `|| !event.document.isDirty` to prevent parsing cells twice, but two tests failed for reasons I do not understand.
-			// Early return if document has not changed or language does not have a parser
-			return;
-		}
-		const docManager = getOrCreateDocumentManager(event.document);
-		docManager.parseCells();
-	});
+	// Setup document parsing and cache
+	activateDocumentManagers(context.subscriptions);
 
-
+	// Commands for running cells and jumping around cells
 	registerCommands(context.subscriptions);
 
 	context.subscriptions.push(

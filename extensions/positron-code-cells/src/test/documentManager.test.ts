@@ -70,7 +70,7 @@ testing3`;
 	];
 	cellTests.forEach(([title, command, line, expectedCode, expectedLine, useSelection]) => {
 		test(title, async () => {
-			const DocumentManager = await createDocumentManager(language, content);
+			const documentManager = await createDocumentManager(language, content);
 
 			let lineArg: number | undefined;
 			if (useSelection) {
@@ -79,10 +79,10 @@ testing3`;
 				lineArg = line;
 			}
 
-			const runCellCommand = getCellCommand(DocumentManager, command);
+			const runCellCommand = getCellCommand(documentManager, command);
 			await runCellCommand(lineArg);
 
-			assertExecutedCodeEqual(DocumentManager.executedCode, language, expectedCode);
+			assertExecutedCodeEqual(documentManager.executedCode, language, expectedCode);
 			assertActiveEditorSelectionEqual(expectedLine, 0);
 		});
 	});
@@ -94,7 +94,7 @@ testing3`;
 	insertCellTests.forEach(([title, useSelection]) => {
 		test(title, async () => {
 			const line = 2;
-			const DocumentManager = await createDocumentManager(language, content);
+			const documentManager = await createDocumentManager(language, content);
 
 			let lineArg: number | undefined;
 			if (useSelection) {
@@ -103,9 +103,9 @@ testing3`;
 				lineArg = line;
 			}
 
-			await DocumentManager.insertCodeCell(lineArg);
+			await documentManager.insertCodeCell(lineArg);
 
-			assertExecutedCodeEqual(DocumentManager.executedCode, language, []);
+			assertExecutedCodeEqual(documentManager.executedCode, language, []);
 			assertActiveEditorSelectionEqual(5, 0);
 			assertActiveEditorTextEqual(`#%%
 testing1
@@ -128,22 +128,22 @@ class TestDocumentManager extends DocumentManager {
 	executedCode: ExecuteCodeResult[];
 
 	constructor(
-		document: vscode.TextDocument,
+		editor: vscode.TextEditor,
 	) {
 		const executedCode: ExecuteCodeResult[] = [];
 		const executeCode: ExecuteCode = async (language, code) => { executedCode.push({ language, code }); };
 
-		super(document, executeCode);
+		super(editor, executeCode);
 		this.executedCode = executedCode;
 	}
 }
 
 async function createDocumentManager(language: string, content: string): Promise<TestDocumentManager> {
 	const document = await vscode.workspace.openTextDocument({ language, content });
-	await vscode.window.showTextDocument(document);
-	const DocumentManager = new TestDocumentManager(document);
-	DocumentManager.parseCells();
-	return DocumentManager;
+	const editor = await vscode.window.showTextDocument(document);
+	const documentManager = new TestDocumentManager(editor);
+	documentManager.parseCells();
+	return documentManager;
 }
 
 function setSelectionLine(line: number) {
@@ -166,36 +166,36 @@ function assertActiveEditorTextEqual(expectedText: string) {
 	assert.strictEqual(editor.document.getText(), expectedText, 'Editor text is not at the expected value');
 }
 
-function getCellCommand(DocumentManager: DocumentManager, command: string): (line?: number) => any {
+function getCellCommand(documentManager: DocumentManager, command: string): (line?: number) => any {
 	if (command === 'runCurrentCell') {
-		return DocumentManager.runCurrentCell.bind(DocumentManager);
+		return documentManager.runCurrentCell.bind(documentManager);
 	}
 	if (command === 'runCurrentAndBelow') {
-		return DocumentManager.runCurrentAndBelow.bind(DocumentManager);
+		return documentManager.runCurrentAndBelow.bind(documentManager);
 	}
 	if (command === 'runCellsBelow') {
-		return DocumentManager.runCellsBelow.bind(DocumentManager);
+		return documentManager.runCellsBelow.bind(documentManager);
 	}
 	if (command === 'runCellsAbove') {
-		return DocumentManager.runCellsAbove.bind(DocumentManager);
+		return documentManager.runCellsAbove.bind(documentManager);
 	}
 	if (command === 'runCurrentAdvance') {
-		return DocumentManager.runCurrentAdvance.bind(DocumentManager);
+		return documentManager.runCurrentAdvance.bind(documentManager);
 	}
 	if (command === 'runPreviousCell') {
-		return DocumentManager.runPreviousCell.bind(DocumentManager);
+		return documentManager.runPreviousCell.bind(documentManager);
 	}
 	if (command === 'runNextCell') {
-		return DocumentManager.runNextCell.bind(DocumentManager);
+		return documentManager.runNextCell.bind(documentManager);
 	}
 	if (command === 'runAllCells') {
-		return DocumentManager.runAllCells.bind(DocumentManager);
+		return documentManager.runAllCells.bind(documentManager);
 	}
 	if (command === 'goToPreviousCell') {
-		return DocumentManager.goToPreviousCell.bind(DocumentManager);
+		return documentManager.goToPreviousCell.bind(documentManager);
 	}
 	if (command === 'goToNextCell') {
-		return DocumentManager.goToNextCell.bind(DocumentManager);
+		return documentManager.goToNextCell.bind(documentManager);
 	}
 	throw new Error(`Unknown cell command ${command}`);
 }

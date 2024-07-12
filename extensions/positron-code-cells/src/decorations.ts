@@ -40,9 +40,7 @@ export function activateDecorations(
 		if (!activeEditor || !canHaveCells(activeEditor.document)) {
 			return;
 		}
-
-		const docManager = getOrCreateDocumentManager(activeEditor.document);
-		const cells = docManager.getCells();
+		const cells = getOrCreateDocumentManager(activeEditor).getCells();
 
 		// Get the relevant decoration ranges.
 		const activeCellRanges: vscode.Range[] = [];
@@ -77,24 +75,23 @@ export function activateDecorations(
 	}
 
 	disposables.push(
+		// Trigger a decorations update when the active editor changes.
 		vscode.window.onDidChangeActiveTextEditor(editor => {
-			// Update the active editor.
 			activeEditor = editor;
-			// Trigger a decorations update when the active editor changes.
 			if (editor) {
 				triggerUpdateDecorations();
 			}
 		}),
 
+		// Trigger a decorations update when the active editor's content changes.
 		vscode.workspace.onDidChangeTextDocument(event => {
-			// Trigger a decorations update when the active editor's content changes.
 			if (activeEditor && event.document === activeEditor.document) {
 				triggerUpdateDecorations(true);
 			}
 		}),
 
+		// Trigger a decorations update when the active editor's selection changes.
 		vscode.window.onDidChangeTextEditorSelection(event => {
-			// Trigger a decorations update when the active editor's selection changes.
 			if (activeEditor && event.textEditor === activeEditor) {
 				triggerUpdateDecorations();
 			}

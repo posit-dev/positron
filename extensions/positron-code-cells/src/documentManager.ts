@@ -10,8 +10,8 @@ import { Cell, CellParser, getParser, parseCells, supportedLanguageIds } from '.
 import { IGNORED_SCHEMES } from './extension';
 
 // List of opened documents
-export const documentManagers: DocumentManager[] = [];
-
+// export const documentManagers: DocumentManager[] = [];
+const documentManagers: Map<vscode.Uri, DocumentManager> = new Map();
 
 
 export interface ExecuteCode {
@@ -22,23 +22,28 @@ const defaultExecuteCode: ExecuteCode = async (language, code) => {
 };
 
 // Provides a set of commands for interacting with Jupyter-like cells in a vscode.TextEditor
-export class DocumentManager {
+export class DocumentManager implements vscode.Disposable {
 	private cells: Cell[] = [];
-	private parser: CellParser | undefined;
-	// private currentEditor: vscode.TextEditor;
+	private parser: CellParser;
+	private document: vscode.TextDocument;
 
 	constructor(
-		private document: vscode.TextDocument,
+		private editor: vscode.TextEditor,
 		private readonly executeCode: ExecuteCode = defaultExecuteCode,
 	) {
+		this.document = this.editor.document;
 		const parser = getParser(this.document.languageId);
 		if (!parser) {
 			throw new Error(`Code cells not configured for language ${this.document.languageId}`);
 		}
 		this.parser = parser;
 
-		documentManagers.push(this);
-		trace(`Constructing document manager for '${this.document.languageId}' file:\n${this.document.uri} (${documentManagers.length} total)`);
+		documentManagers.set(this.document.uri, this);
+		trace(`Constructing document manager for:\nURI: ${this.document.uri}\nlanguage: ${this.document.languageId}\n`);
+	}
+
+	public dispose() {
+		documentManagers.delete(this.document.uri);
 	}
 
 	public parseCells() {
@@ -58,18 +63,11 @@ export class DocumentManager {
 		if (line !== undefined) {
 			return new vscode.Position(line, 0);
 		}
-
-		const currentSelection = getCurrentEditor(this.document)?.selection.active;
-		if (currentSelection) {
-			return currentSelection;
-		} else {
-			return new vscode.Position(-1, 0);
-		}
+		return this.editor.selection.active;
 	}
 
 	private getCurrentCellIndex(line?: number): number {
 		const cursor = this.getCursor(line);
-
 		return this.cells.findIndex(cell => cell.range.contains(cursor));
 	}
 
@@ -79,8 +77,6 @@ export class DocumentManager {
 
 	private getPreviousCell(line?: number): Cell | undefined {
 		const cursor = this.getCursor(line);
-		if (!cursor) { return; }
-
 		const index = this.getCurrentCellIndex(cursor.line);
 		if (index !== -1) {
 			if (index === 0) {
@@ -113,11 +109,8 @@ export class DocumentManager {
 		// Skip the cell marker line
 		const line = Math.min(cell.range.start.line + 1, cell.range.end.line);
 		const cursor = new vscode.Position(line, 0);
-		const currentEditor = getCurrentEditor(this.document);
-		if (currentEditor) {
-			currentEditor.selection = new vscode.Selection(cursor, cursor);
-			currentEditor.revealRange(cell.range);
-		}
+		this.editor.selection = new vscode.Selection(cursor, cursor);
+		this.editor.revealRange(cell.range);
 	}
 
 	private runCell(cell: Cell): void {
@@ -199,13 +192,10 @@ export class DocumentManager {
 	}
 
 	public async insertCodeCell(line?: number): Promise<void> {
-		const currentEditor = getCurrentEditor(this.document);
-		if (!currentEditor) { return; }
-		const location = this.getCurrentCell(line)?.range.end ?? currentEditor.selection.active;
-		await currentEditor.edit(editBuilder => {
+		const location = this.getCurrentCell(line)?.range.end ?? this.editor.selection.active;
+		await this.editor.edit(editBuilder => {
 			editBuilder.insert(location, getParser(this.document.languageId)?.newCell() ?? '');
 		});
-		this.parseCells();
 		this.goToNextCell(location.line);
 	}
 }
@@ -214,42 +204,66 @@ export function canHaveCells(document: vscode.TextDocument) {
 	return !IGNORED_SCHEMES.includes(document.uri.scheme) && supportedLanguageIds.includes(document.languageId);
 }
 
-export function getOrCreateDocumentManager(document: vscode.TextDocument): DocumentManager {
-	let docManager = documentManagers.find((dm) => {
-		return dm.getDocument().uri.toString() === document.uri.toString();
-	});
+export function reparseDocument(editor: vscode.TextEditor | undefined) {
+	if (editor && canHaveCells(editor.document)) {
+		documentManagers.get(editor.document.uri)?.parseCells();
+	}
+}
 
+export function getOrCreateDocumentManager(editor: vscode.TextEditor) {
+	let docManager = documentManagers.get(editor.document.uri);
 	if (!docManager) {
-		docManager = new DocumentManager(document);
+		docManager = new DocumentManager(editor);
 		docManager.parseCells();
 	}
 	return docManager;
 }
 
-export function destroyDocumentManager(document: vscode.TextDocument) {
-	const index = documentManagers.findIndex((dm) => {
-		return dm.getDocument().uri.toString() === document.uri.toString();
-	});
-
-	if (index !== -1) {
-		documentManagers.splice(index, 1);
+// Creates documentManager and parses cells, if needed
+export function setupDocumentManager(editor: vscode.TextEditor | undefined) {
+	if (editor && canHaveCells(editor.document)) {
+		getOrCreateDocumentManager(editor);
 	}
 }
 
 export function getActiveDocumentManager(): DocumentManager | undefined {
 	const activeEditor = vscode.window?.activeTextEditor;
-	if (!activeEditor) {
-		return undefined;
+	if (activeEditor && canHaveCells(activeEditor.document)) {
+		return getOrCreateDocumentManager(activeEditor);
 	}
-	if (canHaveCells(activeEditor.document)) {
-		return getOrCreateDocumentManager(activeEditor.document);
-	} else {
-		return undefined;
-	}
+
+	return undefined;
 }
 
-export function getCurrentEditor(document: vscode.TextDocument): vscode.TextEditor | undefined {
+export function getEditorFromDocument(document: vscode.TextDocument): vscode.TextEditor | undefined {
 	return vscode.window.visibleTextEditors.find(
 		(editor) => editor.document === document
 	);
 }
+
+export function activateDocumentManagers(disposables: vscode.Disposable[]): void {
+	// When starting extension, fill documentManagers
+	vscode.window.visibleTextEditors.forEach((editor) => {
+		setupDocumentManager(editor);
+	});
+
+	disposables.push(
+		// When opening file, create new document
+		vscode.workspace.onDidOpenTextDocument(document => {
+			setupDocumentManager(getEditorFromDocument(document));
+		}),
+
+		// When closing file, destroy that document manager
+		vscode.workspace.onDidCloseTextDocument(document => {
+			documentManagers.get(document.uri)?.dispose();
+		}),
+
+		// Trigger a decorations update when the active editor's content changes.
+		vscode.workspace.onDidChangeTextDocument(event => {
+			reparseDocument(getEditorFromDocument(event.document));
+		})
+	);
+}
+
+
+
