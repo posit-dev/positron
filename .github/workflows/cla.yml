@@ -27,6 +27,8 @@ jobs:
           app-id: ${{ vars.POSITRON_BOT_APP_ID }}
           private-key: ${{ secrets.POSITRON_BOT_PRIVATE_KEY }}
           owner: ${{ github.repository_owner }}
+          # We have to skip revocation here to share the token with the next job
+          skip-token-revoke: true
 
   RequireCLA:
     needs: AccessToken
