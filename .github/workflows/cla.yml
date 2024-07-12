@@ -13,7 +13,23 @@ permissions:
   statuses: write
 
 jobs:
+  AccessToken:
+    runs-on: ubuntu-latest
+    outputs:
+      token: ${{ steps.access-token.outputs.token }}
+    steps:
+      - name: Generate access token
+        # Generate an access token; used to access the repository hosting the
+        # set of known CLA signatures
+        id: access-token
+        uses: actions/create-github-app-token@v1
+        with:
+          app-id: ${{ vars.POSITRON_BOT_APP_ID }}
+          private-key: ${{ secrets.POSITRON_BOT_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+
   RequireCLA:
+    needs: AccessToken
     uses: posit-dev/cla-assistant/.github/workflows/posit-cla.yml@v1
     secrets:
-      CLA_ASSISTANT_PAT: ${{ secrets.CLA_ASSISTANT_PAT }}
+      CLA_ASSISTANT_PAT: ${{ needs.AccessToken.outputs.token }}
