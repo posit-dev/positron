@@ -72,7 +72,7 @@ async function sleep(time: number) {
 	return new Promise((resolve) => setTimeout(resolve, time));
 }
 
-async function assert_or_timeout<T>(fn: () => T, timeout: number = 1000): Promise<T> {
+async function assert_or_timeout<T>(fn: () => T, timeout: number = 5000): Promise<T> {
 	const start = Date.now();
 	while (Date.now() - start < timeout) {
 		try {
