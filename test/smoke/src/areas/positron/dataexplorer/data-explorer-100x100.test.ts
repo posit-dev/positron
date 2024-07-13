@@ -47,6 +47,8 @@ export function setupDataExplorer100x100Test(logger: Logger) {
 				);
 			}
 
+			console.log(`The TSV file is ${tsvFilePath}`);
+
 			// Open the data frame.
 			await expect(async () => {
 				await app.workbench.positronVariables.doubleClickVariableRow(dataFrameName);
