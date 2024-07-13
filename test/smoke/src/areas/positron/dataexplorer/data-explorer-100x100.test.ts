@@ -22,6 +22,24 @@ export function setupDataExplorer100x100Test(logger: Logger) {
 		installAllHandlers(logger);
 
 		/**
+		 * Before hook.
+		 */
+		before(async function () {
+			const app = this.app as Application;
+			const pythonFixtures = new PositronPythonFixtures(app);
+			await pythonFixtures.startPythonInterpreter();
+		});
+
+		/**
+		 * After hook.
+		 */
+		after(async function () {
+			const app = this.app as Application;
+			await app.workbench.positronDataExplorer.closeDataExplorer();
+		});
+
+
+		/**
 		 * Tests the data explorer.
 		 * @param app The application.
 		 * @param language The language.
@@ -107,119 +125,98 @@ export function setupDataExplorer100x100Test(logger: Logger) {
 		};
 
 		/**
-		 * Python - Pandas - Data Explorer 100x100.
+		 * Constructs the Parquet file path.
+		 * @param app The application.
+		 * @returns The Parquet file path.
 		 */
-		describe('Python - Pandas - Data Explorer 100x100', () => {
-			/**
-			 * Before hook.
-			 */
-			before(async function () {
-				const app = this.app as Application;
-				const pythonFixtures = new PositronPythonFixtures(app);
-				await pythonFixtures.startPythonInterpreter();
-			});
+		const parquetFilePath = (app: Application) => {
+			// Set the path to the Parquet file.
+			let parquetFilePath = join(
+				app.workspacePathOrFolder,
+				'data-files',
+				'100x100',
+				'100x100.parquet'
+			);
 
-			/**
-			 * After hook.
-			 */
-			after(async function () {
-				const app = this.app as Application;
-				await app.workbench.positronDataExplorer.closeDataExplorer();
-			});
+			// On Windows, double escape the path.
+			if (process.platform === 'win32') {
+				parquetFilePath = parquetFilePath.replaceAll('\\', '\\\\');
+			}
 
-			/**
-			 * Constructs the Parquet file path.
-			 * @param app The application.
-			 * @returns The Parquet file path.
-			 */
-			const parquetFilePath = (app: Application) => {
-				// Set the path to the Parquet file.
-				let parquetFilePath = join(
+			// Return the path to the Parquet file.
+			return parquetFilePath;
+		};
+
+
+		/**
+		 * Python - Pandas - Data Explorer 100x100 test case.
+		 */
+		it('Python - Pandas - Data Explorer 100x100', async function () {
+			// Get the app.
+			const app = this.app as Application;
+
+			// Test the data explorer.
+			const dataFrameName = 'pandas100x100';
+			await testDataExplorer(
+				app,
+				'Python',
+				'>>>',
+				[
+					'import pandas as pd',
+					`${dataFrameName} = pd.read_parquet("${parquetFilePath(app)}")`,
+				],
+				dataFrameName,
+				join(app.workspacePathOrFolder, 'data-files', '100x100', 'pandas-100x100.tsv')
+			);
+		});
+
+		/**
+		 * Python - Polars - Data Explorer 100x100 test case.
+		 */
+		it('Python - Polars - Data Explorer 100x100', async function () {
+			// Get the app.
+			const app = this.app as Application;
+
+			// Test the data explorer.
+			const dataFrameName = 'polars100x100';
+			await testDataExplorer(
+				app,
+				'Python',
+				'>>>',
+				[
+					'import polars',
+					`${dataFrameName} = polars.read_parquet("${parquetFilePath(app)}")`,
+				],
+				dataFrameName,
+				join(app.workspacePathOrFolder, 'data-files', '100x100', 'polars-100x100.tsv')
+			);
+		});
+
+		/**
+		 * R - Data Explorer 100x100 test case.
+		 */
+		it('R - Data Explorer 100x100', async function () {
+			// Get the app.
+			const app = this.app as Application;
+
+			// Test the data explorer.
+			const dataFrameName = 'r100x100';
+			await testDataExplorer(
+				app,
+				'R',
+				'>',
+				[
+					'library(arrow)',
+					`${dataFrameName} <- read_parquet("${parquetFilePath(app)}")`,
+				],
+				dataFrameName,
+				join(
 					app.workspacePathOrFolder,
 					'data-files',
 					'100x100',
-					'100x100.parquet'
-				);
-
-				// On Windows, double escape the path.
-				if (process.platform === 'win32') {
-					parquetFilePath = parquetFilePath.replaceAll('\\', '\\\\');
-				}
-
-				// Return the path to the Parquet file.
-				return parquetFilePath;
-			};
-
-			/**
-			 * Python - Pandas - Data Explorer 100x100 test case.
-			 */
-			it('Python - Pandas - Data Explorer 100x100', async function () {
-				// Get the app.
-				const app = this.app as Application;
-
-				// Test the data explorer.
-				const dataFrameName = 'pandas100x100';
-				await testDataExplorer(
-					app,
-					'Python',
-					'>>>',
-					[
-						'import pandas as pd',
-						`${dataFrameName} = pd.read_parquet("${parquetFilePath(app)}")`,
-					],
-					dataFrameName,
-					join(app.workspacePathOrFolder, 'data-files', '100x100', 'pandas-100x100.tsv')
-				);
-			});
-
-			/**
-			 * Python - Polars - Data Explorer 100x100 test case.
-			 */
-			it('Python - Polars - Data Explorer 100x100', async function () {
-				// Get the app.
-				const app = this.app as Application;
-
-				// Test the data explorer.
-				const dataFrameName = 'polars100x100';
-				await testDataExplorer(
-					app,
-					'Python',
-					'>>>',
-					[
-						'import polars',
-						`${dataFrameName} = polars.read_parquet("${parquetFilePath(app)}")`,
-					],
-					dataFrameName,
-					join(app.workspacePathOrFolder, 'data-files', '100x100', 'polars-100x100.tsv')
-				);
-			});
-
-			/**
-			 * R - Data Explorer 100x100 test case.
-			 */
-			it.only('R - Data Explorer 100x100', async function () {
-				// Get the app.
-				const app = this.app as Application;
-
-				// Test the data explorer.
-				const dataFrameName = 'r100x100';
-				await testDataExplorer(
-					app,
-					'R',
-					'>',
-					[
-						'library(arrow)',
-						`${dataFrameName} <- read_parquet("${parquetFilePath(app)}")`,
-					],
-					dataFrameName,
-					join(
-						app.workspacePathOrFolder,
-						'data-files',
-						'100x100',
-						process.platform === 'linux' ? 'r-100x100-linux.tsv' : 'r-100x100.tsv'
-					)
-				);
-			});
+					process.platform === 'linux' ? 'r-100x100-linux.tsv' : 'r-100x100.tsv'
+				)
+			);
 		});
 	});
 }
