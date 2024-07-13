@@ -93,7 +93,7 @@ export function setupDataExplorer100x100Test(logger: Logger) {
 					const cell = await app.code.waitForElement(`#data-grid-row-cell-content-${columnIndex}-${rowIndex} .text-container .text-value`);
 
 					// Test the cell.
-					expect(row[columnIndex]).toStrictEqual(cell.textContent);
+					expect(cell.textContent).toStrictEqual(row[columnIndex]);
 
 					// Move to the next cell.
 					await app.workbench.positronDataExplorer.arrowRight();
