@@ -35,7 +35,7 @@ export function setupDataExplorer100x100Test(logger: Logger) {
 		 */
 		after(async function () {
 			const app = this.app as Application;
-			await app.workbench.positronDataExplorer.closeDataExplorer();
+			// await app.workbench.positronDataExplorer.closeDataExplorer();
 		});
 
 
