@@ -10,14 +10,14 @@ import { installAllHandlers } from '../../../utils';
 import { Application, Logger, PositronPythonFixtures, PositronRFixtures } from '../../../../../automation';
 
 /**
- * Sets up the 100x100 test.
+ * Sets up the Data Explorer 100x100 smoke test.
  * @param logger The logger.
  */
 export function setupDataExplorer100x100Test(logger: Logger) {
 	/**
 	 * Data Explorer 100x100.
 	 */
-	describe.only('Data Explorer 100x100', function () {
+	describe('Data Explorer 100x100', function () {
 		// Shared before/after handling.
 		installAllHandlers(logger);
 
