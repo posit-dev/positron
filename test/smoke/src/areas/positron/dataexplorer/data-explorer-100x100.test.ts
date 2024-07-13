@@ -17,7 +17,7 @@ export function setupDataExplorer100x100Test(logger: Logger) {
 	/**
 	 * Data Explorer 100x100.
 	 */
-	describe.only('Data Explorer 100x100', function () {
+	describe('Data Explorer 100x100', function () {
 		// Shared before/after handling.
 		installAllHandlers(logger);
 
@@ -90,31 +90,8 @@ export function setupDataExplorer100x100Test(logger: Logger) {
 					// Get the cell.
 					const cell = await app.code.waitForElement(`#data-grid-row-cell-content-${columnIndex}-${rowIndex} .text-container .text-value`);
 
-					// On Linux, R will conjure up different date values from time to time.
-					let tested = false;
-					if (!tested && language === 'R' && process.platform === 'linux') {
-						const expectedDate = Date.parse(row[columnIndex]);
-						const cellDate = Date.parse(cell.textContent);
-						if (!isNaN(expectedDate) && !isNaN(cellDate)) {
-							expect(Math.round(expectedDate / 60000)).toStrictEqual(Math.round(cellDate / 60000));
-							tested = true;
-						}
-					}
-
-					// On Linux, R will conjure up different time values from time to time.
-					if (!tested && language === 'R' && process.platform === 'linux' && row[columnIndex].endsWith(' secs')) {
-						const expectedValue = parseFloat(row[columnIndex]);
-						const cellValue = parseFloat(cell.textContent);
-						if (!isNaN(expectedValue) && !isNaN(cellValue)) {
-							// expect(expectedValue).toBeCloseTo(cellValue, 0);
-							tested = true;
-						}
-					}
-
-					// Test the cell, if it wasn't tested above.
-					if (!tested) {
-						expect(row[columnIndex]).toStrictEqual(cell.textContent);
-					}
+					// Test the cell.
+					expect(row[columnIndex]).toStrictEqual(cell.textContent);
 
 					// Move to the next cell.
 					await app.workbench.positronDataExplorer.arrowRight();
@@ -218,7 +195,7 @@ export function setupDataExplorer100x100Test(logger: Logger) {
 			/**
 			 * R - Data Explorer 100x100 test case.
 			 */
-			it('R - Data Explorer 100x100', async function () {
+			it.only('R - Data Explorer 100x100', async function () {
 				// Get the app.
 				const app = this.app as Application;
 
@@ -233,7 +210,12 @@ export function setupDataExplorer100x100Test(logger: Logger) {
 						`${dataFrameName} <- read_parquet("${parquetFilePath(app)}")`,
 					],
 					dataFrameName,
-					join(app.workspacePathOrFolder, 'data-files', '100x100', 'r-100x100.tsv')
+					join(
+						app.workspacePathOrFolder,
+						'data-files',
+						'100x100',
+						process.platform === 'linux' ? 'r-100x100-linux.tsv' : 'r-100x100.tsv'
+					)
 				);
 			});
 		});
