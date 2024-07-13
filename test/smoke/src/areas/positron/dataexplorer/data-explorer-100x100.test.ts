@@ -7,7 +7,7 @@ import * as fs from 'fs';
 import { join } from 'path';
 import { expect } from '@playwright/test';
 import { installAllHandlers } from '../../../utils';
-import { Application, Logger, PositronPythonFixtures } from '../../../../../automation';
+import { Application, Logger, PositronPythonFixtures, PositronRFixtures } from '../../../../../automation';
 
 /**
  * Sets up the 100x100 test.
@@ -17,26 +17,9 @@ export function setupDataExplorer100x100Test(logger: Logger) {
 	/**
 	 * Data Explorer 100x100.
 	 */
-	describe('Data Explorer 100x100', function () {
+	describe.only('Data Explorer 100x100', function () {
 		// Shared before/after handling.
 		installAllHandlers(logger);
-
-		/**
-		 * Before hook.
-		 */
-		before(async function () {
-			const app = this.app as Application;
-			const pythonFixtures = new PositronPythonFixtures(app);
-			await pythonFixtures.startPythonInterpreter();
-		});
-
-		/**
-		 * After hook.
-		 */
-		after(async function () {
-			const app = this.app as Application;
-			// await app.workbench.positronDataExplorer.closeDataExplorer();
-		});
 
 
 		/**
@@ -65,8 +48,6 @@ export function setupDataExplorer100x100Test(logger: Logger) {
 				);
 			}
 
-			console.log(`The TSV file is ${tsvFilePath}`);
-
 			// Open the data frame.
 			await expect(async () => {
 				await app.workbench.positronVariables.doubleClickVariableRow(dataFrameName);
@@ -78,7 +59,7 @@ export function setupDataExplorer100x100Test(logger: Logger) {
 
 			// Load the TSV file that is used to verify the data and split it into lines.
 			const tsvFile = fs.readFileSync(tsvFilePath, { encoding: 'utf8' });
-			let lines;
+			let lines: string[];
 			if (process.platform === 'win32') {
 				lines = tsvFile.split('\r\n');
 			} else {
@@ -147,76 +128,141 @@ export function setupDataExplorer100x100Test(logger: Logger) {
 			return parquetFilePath;
 		};
 
-
 		/**
-		 * Python - Pandas - Data Explorer 100x100 test case.
+		 * Data Explorer 100x100 - Python - Pandas.
 		 */
-		it('Python - Pandas - Data Explorer 100x100', async function () {
-			// Get the app.
-			const app = this.app as Application;
+		describe('Data Explorer 100x100 - Python - Pandas', function () {
+			/**
+			 * Before hook.
+			 */
+			before(async function () {
+				const app = this.app as Application;
+				const pythonFixtures = new PositronPythonFixtures(app);
+				await pythonFixtures.startPythonInterpreter();
+			});
 
-			// Test the data explorer.
-			const dataFrameName = 'pandas100x100';
-			await testDataExplorer(
-				app,
-				'Python',
-				'>>>',
-				[
-					'import pandas as pd',
-					`${dataFrameName} = pd.read_parquet("${parquetFilePath(app)}")`,
-				],
-				dataFrameName,
-				join(app.workspacePathOrFolder, 'data-files', '100x100', 'pandas-100x100.tsv')
-			);
+			/**
+			 * After hook.
+			 */
+			after(async function () {
+				const app = this.app as Application;
+				await app.workbench.positronDataExplorer.closeDataExplorer();
+			});
+
+			/**
+			 * Data Explorer 100x100 - Python - Pandas - Smoke Test.
+			 */
+			it('Data Explorer 100x100 - Python - Pandas - Smoke Test', async function () {
+				// Get the app.
+				const app = this.app as Application;
+
+				// Test the data explorer.
+				const dataFrameName = 'pandas100x100';
+				await testDataExplorer(
+					app,
+					'Python',
+					'>>>',
+					[
+						'import pandas as pd',
+						`${dataFrameName} = pd.read_parquet("${parquetFilePath(app)}")`,
+					],
+					dataFrameName,
+					join(app.workspacePathOrFolder, 'data-files', '100x100', 'pandas-100x100.tsv')
+				);
+			});
 		});
 
 		/**
-		 * Python - Polars - Data Explorer 100x100 test case.
+		 * Data Explorer 100x100 - Python - Polars.
 		 */
-		it('Python - Polars - Data Explorer 100x100', async function () {
-			// Get the app.
-			const app = this.app as Application;
+		describe('Data Explorer 100x100 - Python - Polars', function () {
+			/**
+			 * Before hook.
+			 */
+			before(async function () {
+				const app = this.app as Application;
+				const pythonFixtures = new PositronPythonFixtures(app);
+				await pythonFixtures.startPythonInterpreter();
+			});
 
-			// Test the data explorer.
-			const dataFrameName = 'polars100x100';
-			await testDataExplorer(
-				app,
-				'Python',
-				'>>>',
-				[
-					'import polars',
-					`${dataFrameName} = polars.read_parquet("${parquetFilePath(app)}")`,
-				],
-				dataFrameName,
-				join(app.workspacePathOrFolder, 'data-files', '100x100', 'polars-100x100.tsv')
-			);
+			/**
+			 * After hook.
+			 */
+			after(async function () {
+				const app = this.app as Application;
+				await app.workbench.positronDataExplorer.closeDataExplorer();
+			});
+
+			/**
+			 * Data Explorer 100x100 - Python - Polars - Smoke Test.
+			 */
+			it('Data Explorer 100x100 - Python - Polars - Smoke Test', async function () {
+				// Get the app.
+				const app = this.app as Application;
+
+				// Test the data explorer.
+				const dataFrameName = 'polars100x100';
+				await testDataExplorer(
+					app,
+					'Python',
+					'>>>',
+					[
+						'import polars',
+						`${dataFrameName} = polars.read_parquet("${parquetFilePath(app)}")`,
+					],
+					dataFrameName,
+					join(app.workspacePathOrFolder, 'data-files', '100x100', 'polars-100x100.tsv')
+				);
+			});
 		});
 
 		/**
-		 * R - Data Explorer 100x100 test case.
+		 * Data Explorer 100x100 - R.
 		 */
-		it('R - Data Explorer 100x100', async function () {
-			// Get the app.
-			const app = this.app as Application;
+		describe('Data Explorer 100x100 - R', function () {
+			/**
+			 * Before hook.
+			 */
+			before(async function () {
+				const app = this.app as Application;
+				const rFixtures = new PositronRFixtures(app);
+				await rFixtures.startRInterpreter();
+			});
 
-			// Test the data explorer.
-			const dataFrameName = 'r100x100';
-			await testDataExplorer(
-				app,
-				'R',
-				'>',
-				[
-					'library(arrow)',
-					`${dataFrameName} <- read_parquet("${parquetFilePath(app)}")`,
-				],
-				dataFrameName,
-				join(
-					app.workspacePathOrFolder,
-					'data-files',
-					'100x100',
-					process.platform === 'linux' ? 'r-100x100-linux.tsv' : 'r-100x100.tsv'
-				)
-			);
+			/**
+			 * After hook.
+			 */
+			after(async function () {
+				const app = this.app as Application;
+				await app.workbench.positronDataExplorer.closeDataExplorer();
+			});
+
+			/**
+			 * Data Explorer 100x100 - R - Smoke Test.
+			 */
+			it('Data Explorer 100x100 - R - Smoke Test', async function () {
+				// Get the app.
+				const app = this.app as Application;
+
+				// Test the data explorer.
+				const dataFrameName = 'r100x100';
+				await testDataExplorer(
+					app,
+					'R',
+					'>',
+					[
+						'library(arrow)',
+						`${dataFrameName} <- read_parquet("${parquetFilePath(app)}")`,
+					],
+					dataFrameName,
+					join(
+						app.workspacePathOrFolder,
+						'data-files',
+						'100x100',
+						process.platform === 'linux' ? 'r-100x100-linux.tsv' : 'r-100x100.tsv'
+					)
+				);
+			});
 		});
 	});
 }
