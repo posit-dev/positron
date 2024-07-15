@@ -4,25 +4,28 @@
  *--------------------------------------------------------------------------------------------*/
 
 .positron-notebook-kernel-status-badge {
-	padding-inline: 0.5rem;
+	font-size: 12px;
+	cursor: pointer;
+	color: var(--vscode-positronNotebook-deemphasized-foreground);
 
-	& > .kernel-status {
+	& span.kernel-status {
+		cursor: pointer;
 		font-weight: bold;
 	}
 
-	& > .Uninitialized {
+	& .Uninitialized {
 		color: grey;
 	}
 
-	& > .Connected {
+	& .Connected {
 		color: forestgreen;
 	}
 
-	& > .Disconnected {
+	& .Disconnected {
 		color: red;
 	}
 
-	& > .Connecting {
+	& .Connecting {
 		color: orange;
 	}
 }

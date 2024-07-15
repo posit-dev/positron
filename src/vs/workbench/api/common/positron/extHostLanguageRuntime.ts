@@ -84,6 +84,16 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 		sessionMetadata: IRuntimeSessionMetadata): Promise<extHostProtocol.RuntimeInitialState> {
 		// Look up the session manager responsible for restoring this session
 		const sessionManager = await this.runtimeManagerForRuntime(runtimeMetadata, true);
+
+		if (sessionMetadata.notebookUri) {
+			// Sometimes the full URI doesn't make it across the serialization boundary.
+			// By reviving the URI here we make sure we're operating with a full URI
+			// rather than a serialized one that may be missing parameters.
+			sessionMetadata = {
+				...sessionMetadata,
+				notebookUri: URI.revive(sessionMetadata.notebookUri)
+			};
+		}
 		if (sessionManager) {
 			const session =
 				await sessionManager.manager.createSession(runtimeMetadata, sessionMetadata);
