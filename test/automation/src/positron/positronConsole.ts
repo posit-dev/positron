@@ -10,7 +10,10 @@ import { QuickAccess } from '../quickaccess';
 import { QuickInput } from '../quickinput';
 import { InterpreterType } from './positronStartInterpreter';
 import { PositronBaseElement } from './positronBaseElement';
+import * as os from 'os';
 
+
+const CONSOLE_INPUT = '.console-input';
 const ACTIVE_CONSOLE_INSTANCE = '.console-instance[style*="z-index: auto"]';
 const MAXIMIZE_CONSOLE = '.bottom .codicon-positron-maximize-panel';
 const CONSOLE_BAR_POWER_BUTTON = 'div.action-bar-button-icon.codicon.codicon-positron-power-button-thin';
@@ -117,5 +120,55 @@ export class PositronConsole {
 
 	async maximizeConsole() {
 		await this.code.waitAndClick(MAXIMIZE_CONSOLE);
+	}
+
+	async pasteCodeToConsole(code: string) {
+		const activeConsole = await this.getActiveConsole();
+		const consoleInput = activeConsole?.locator(CONSOLE_INPUT);
+		await this.pasteInMonaco(consoleInput!, code);
+	}
+
+	// adapted from:
+	// https://github.com/deephaven/web-client-ui/blob/9d905fca86aa8ba4ff53debd1fd12dcc9132299b/tests/utils.ts#L107
+	async pasteInMonaco(
+		locator: Locator,
+		text: string
+	): Promise<void> {
+		const page = locator.page();
+		const isMac = os.platform() === 'darwin';
+		const modifier = isMac ? 'Meta' : 'Control';
+
+		// Create a hidden textarea with the contents to paste
+		const inputId = await page.evaluate(async evalText => {
+			const tempInput = document.createElement('textarea');
+			tempInput.id = 'super-secret-temp-input-id';
+			tempInput.value = evalText;
+			tempInput.style.width = '0';
+			tempInput.style.height = '0';
+			document.body.appendChild(tempInput);
+			tempInput.select();
+			return tempInput.id;
+		}, text);
+
+		// Copy the contents of the textarea which was selected above
+		await page.keyboard.press(`${modifier}+C`);
+
+		// Remove the textarea
+		await page.evaluate(id => {
+			document.getElementById(id)?.remove();
+		}, inputId);
+
+		// Focus monaco
+		await locator.click();
+
+		// Chromium on mac and webkit on any OS don't seem to paste w/ the keyboard shortcut
+		await locator.locator('textarea').evaluate(async (element, evalText) => {
+			const clipboardData = new DataTransfer();
+			clipboardData.setData('text/plain', evalText);
+			const clipboardEvent = new ClipboardEvent('paste', {
+				clipboardData,
+			});
+			element.dispatchEvent(clipboardEvent);
+		}, text);
 	}
 }
