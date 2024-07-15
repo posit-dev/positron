@@ -5,7 +5,6 @@ on:
   pull_request_target:
     types: [opened, closed, synchronize]
 
-# explicitly configure permissions, in case your GITHUB_TOKEN workflow permissions are set to read-only in repository settings
 permissions:
   actions: write
   contents: read
@@ -14,6 +13,58 @@ permissions:
 
 jobs:
   RequireCLA:
-    uses: posit-dev/cla-assistant/.github/workflows/posit-cla.yml@v1
-    secrets:
-      CLA_ASSISTANT_PAT: ${{ secrets.CLA_ASSISTANT_PAT }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: "Generate random delimiter for heredocs"
+        id: random_delimiter
+        run: |
+          echo -n "value=" >> $GITHUB_OUTPUT
+          tr -dc A-Za-z0-9 </dev/urandom | head -c 60 >> $GITHUB_OUTPUT
+          echo >> $GITHUB_OUTPUT
+
+      - name: "Strip whitespace from comment body"
+        id: strip_whitespace
+        run: |
+          echo "body<<${{ steps.random_delimiter.outputs.value }}" >> $GITHUB_OUTPUT
+          cat << "${{ steps.random_delimiter.outputs.value }}" | sed '/^[[:space:]]*$/d; s/^[[:space:]]*//; s/[[:space:]]*$//' >> $GITHUB_OUTPUT
+          ${{ github.event.comment.body }}
+          ${{ steps.random_delimiter.outputs.value }}
+          echo "${{ steps.random_delimiter.outputs.value }}" >> $GITHUB_OUTPUT
+
+      - name: "Generate access token"
+        id: access-token
+        uses: actions/create-github-app-token@v1
+        with:
+          app-id: ${{ vars.POSITRON_BOT_APP_ID }}
+          private-key: ${{ secrets.POSITRON_BOT_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+
+      - name: "CLA Assistant"
+        if: (steps.strip_whitespace.outputs.body == 'recheck' || steps.strip_whitespace.outputs.body == 'I have read the CLA Document and I hereby sign the CLA') || github.event_name == 'pull_request_target'
+        uses: posit-dev/cla-assistant-github-action@v2.4.0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PERSONAL_ACCESS_TOKEN: ${{ steps.access-token.outputs.token }}
+        with:
+          remote-organization-name: posit-dev
+          remote-repository-name: ${{ secrets.CLA_ASSISTANT_REPO }}
+          branch: "main"
+          path-to-signatures: "signatures/version1/cla.json"
+          custom-notsigned-prcomment: >
+            Thank $you for this PR! We ask that you sign our
+            [Contributor License Agreement](https://posit.co/individual-contributor-agreement/)
+            before we accept your contribution. You can sign the CLA by posting
+            a comment on this PR saying:
+
+          allowlist: DavisVaughan, dependabot[bot], dfalbel, isabelizimm, jonvanausdeln, lionel-, nstrayer, petetronic, positron-bot[bot], seeM, sharon-wang, softwarenerd, timtmok, wesm
+
+          # the followings are the optional inputs - If the optional inputs are not given, then default values will be taken
+          #remote-organization-name: enter the remote organization name where the signatures should be stored (Default is storing the signatures in the same repository)
+          #remote-repository-name: enter the  remote repository name where the signatures should be stored (Default is storing the signatures in the same repository)
+          #create-file-commit-message: 'For example: Creating file for storing CLA Signatures'
+          #signed-commit-message: 'For example: $contributorName has signed the CLA in $owner/$repo#$pullRequestNo'
+          #custom-notsigned-prcomment: 'pull request comment with Introductory message to ask new contributors to sign'
+          #custom-pr-sign-comment: 'The signature to be committed in order to sign the CLA'
+          #custom-allsigned-prcomment: 'pull request comment when all contributors has signed, defaults to **CLA Assistant Lite bot** All Contributors have signed the CLA.'
+          #lock-pullrequest-aftermerge: false - if you don't want this bot to automatically lock the pull request after merging (default - true)
+          #use-dco-flag: true - If you are using DCO instead of CLA

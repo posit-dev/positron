@@ -50,4 +50,12 @@ export class PositronPlots {
 	async waitForNoPlots() {
 		await this.code.waitForElement(CURRENT_PLOT, (result) => !result);
 	}
+
+	async getCurrentPlotAsBuffer(): Promise<Buffer> {
+		return this.code.driver.getLocator(CURRENT_PLOT).screenshot();
+	}
+
+	async getCurrentStaticPlotAsBuffer(): Promise<Buffer> {
+		return this.code.driver.getLocator(CURRENT_STATIC_PLOT).screenshot();
+	}
 }

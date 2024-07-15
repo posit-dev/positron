@@ -27,6 +27,11 @@ import { layoutDescriptionToViewInfo } from 'vs/workbench/services/positronLayou
 import { IPaneCompositePartService } from 'vs/workbench/services/panecomposite/browser/panecomposite';
 import { PaneCompositeBar } from 'vs/workbench/browser/parts/paneCompositeBar';
 import { CustomPositronLayoutDescription } from 'vs/workbench/services/positronLayout/common/positronCustomViews';
+
+// A list of views we don't want shown in the UI. This will be for situations where we reimplement
+// the logic that the view would show in our own custom views or other parts of the UI. The matching
+// for these is done via the `String.includes` method, to enable sub-views to be hidden as well.
+const positronHiddenViews = ['workbench.view.extension.jupyter'];
 // --- End Positron ---
 
 interface IViewsCustomizations {
@@ -112,6 +117,10 @@ export class ViewDescriptorService extends Disposable implements IViewDescriptor
 
 		this._register(this.viewContainersRegistry.onDidRegister(({ viewContainer }) => {
 			this.onDidRegisterViewContainer(viewContainer);
+			// ---- Start Positron ----
+			// Check if view is on the list of ones we want hidden and don't add it if it is.
+			if (positronHiddenViews.some(viewId => viewContainer.id.includes(viewId))) { return; }
+			// ---- End Positron ----
 			this._onDidChangeViewContainers.fire({ added: [{ container: viewContainer, location: this.getViewContainerLocation(viewContainer) }], removed: [] });
 		}));
 

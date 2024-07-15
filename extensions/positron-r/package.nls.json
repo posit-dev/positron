@@ -29,7 +29,8 @@
 	"r.menu.packageDocument.title": "Document R Package",
 	"r.menu.rmarkdownRender.title": "Render Document With R Markdown",
 	"r.configuration.title": "Positron R Language Pack",
-	"r.configuration.kernelPath.description": "Path on disk to the ARK kernel executable; use this to override the default (embedded) kernel.",
+	"r.configuration.title-dev": "Positron R Language Pack (advanced)",
+	"r.configuration.kernelPath.description": "Path on disk to the ARK kernel executable; use this to override the default (embedded) kernel. Note that this is not the path to R.",
 	"r.configuration.tracing.description": "Traces the communication between VS Code and the language server",
 	"r.configuration.tracing.off.description": "No tracing.",
 	"r.configuration.tracing.messages.description": "Log messages from the server to the output panel.",
@@ -53,5 +54,5 @@
 	"r.configuration.pipe.magrittr.token": "%>%",
 	"r.configuration.pipe.native.description": "Native pipe available in R >= 4.1",
 	"r.configuration.pipe.magrittr.description": "Pipe operator from the magrittr package, re-exported by many other packages",
-	"r.configuration.diagnostics.enable.description": "Whether to enable R diagnostics globally"
+	"r.configuration.diagnostics.enable.description": "Enable R diagnostics globally"
 }
