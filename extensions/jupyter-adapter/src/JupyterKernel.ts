@@ -145,11 +145,6 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 	) {
 		super();
 
-		if (notebookUri) {
-			// Sometimes this uri comes in only partially formed, so we need to make sure its a full
-			// uri before we store it.
-			this._notebookUri = vscode.Uri.parse(notebookUri.toString());
-		}
 		this._spec = spec;
 		this._extra = extra;
 		this._control = null;
