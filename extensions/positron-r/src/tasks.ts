@@ -53,9 +53,7 @@ export async function getRPackageTasks(editorFilePath?: string): Promise<vscode.
 		{
 			task: 'r.task.rmarkdownRender',
 			message: vscode.l10n.t('{taskName}', { taskName: 'Render document with R Markdown' }),
-			// Do not mess with this without exercising it fully on Windows. It's tricky to form
-			// this code snippet in a way that works across OSes.
-			rcode: `rmarkdown::render(''${editorFilePath}'')`,
+			rcode: `rmarkdown::render("${editorFilePath}")`,
 			package: 'rmarkdown'
 		}
 	];
@@ -68,17 +66,38 @@ export async function getRPackageTasks(editorFilePath?: string): Promise<vscode.
 		env['RSTUDIO_PANDOC'] = pandocPath;
 	}
 
-	// the explicit quoting treatment is necessary to avoid headaches on Windows, with PowerShell
-	return taskData.map(data => new vscode.Task(
-		{ type: 'rPackageTask', task: data.task, pkg: data.package },
-		vscode.TaskScope.Workspace,
-		data.message,
-		'R',
-		new vscode.ShellExecution(
-			binpath,
-			['-e', { value: data.rcode, quoting: vscode.ShellQuoting.Strong }],
-			{ env }
-		),
-		[]
-	));
+
+	return taskData.map(data => {
+		if (data.task === 'r.task.rmarkdownRender') {
+			// Use vscode.ProcessExecution for r.task.rmarkdownRender to avoid quoting hell
+			return new vscode.Task(
+				{ type: 'rPackageTask', task: data.task, pkg: data.package },
+				vscode.TaskScope.Workspace,
+				data.message,
+				'R',
+				new vscode.ProcessExecution(
+					binpath,
+					['-e', data.rcode], // Assuming data.rcode is a string that can be directly used here
+					{ env }
+				),
+				[]
+			);
+		} else {
+			// Use vscode.ShellExecution for all other tasks
+			return new vscode.Task(
+				{ type: 'rPackageTask', task: data.task, pkg: data.package },
+				vscode.TaskScope.Workspace,
+				data.message,
+				'R',
+				// the explicit quoting treatment is necessary to avoid headaches on Windows,
+				// with PowerShell
+				new vscode.ShellExecution(
+					binpath,
+					['-e', { value: data.rcode, quoting: vscode.ShellQuoting.Strong }],
+					{ env }
+				),
+				[]
+			);
+		}
+	});
 }
