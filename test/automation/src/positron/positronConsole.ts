@@ -59,17 +59,24 @@ export class PositronConsole {
 		return interpreterElem;
 	}
 
-	async selectAndGetInterpreter(desiredInterpreterType: InterpreterType, desiredInterpreterString: string): Promise<InterpreterInfo | undefined> {
-		const interpreterElem = await this.selectInterpreter(desiredInterpreterType, desiredInterpreterString);
+	async selectAndGetInterpreter(
+		desiredInterpreterType: InterpreterType,
+		desiredInterpreter: string
+	): Promise<InterpreterInfo | undefined> {
+		const interpreterElem = await this.selectInterpreter(
+			desiredInterpreterType,
+			desiredInterpreter
+		);
 
 		if (interpreterElem) {
+			// The aria-label looks something like: Python 3.10.4 64-bit ('3.10.4'), ~/.pyenv/versions/3.10.4/bin/python, Pyenv
 			const rawInfo = interpreterElem.attributes['aria-label'].split(',');
 			const hasSource = rawInfo.length > 2;
 			return {
-				type: desiredInterpreterType,
-				version: rawInfo[0].trim(),
-				path: rawInfo[1].trim(),
-				source: hasSource ? rawInfo[2].trim() : ''
+				type: desiredInterpreterType, // e.g. InterpreterType.Python
+				version: rawInfo[0].trim(), // e.g. Python 3.10.4 64-bit ('3.10.4')
+				path: rawInfo[1].trim(), // e.g. ~/.pyenv/versions/3.10.4/bin/python
+				source: hasSource ? rawInfo[2].trim() : '', // e.g. Pyenv
 			} satisfies InterpreterInfo;
 		}
 
