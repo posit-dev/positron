@@ -17,6 +17,10 @@ import { CellTextOutput } from './CellTextOutput';
 import { ActionButton } from 'vs/workbench/contrib/positronNotebook/browser/utilityComponents/ActionButton';
 import { NotebookCellWrapper } from './NotebookCellWrapper';
 import { PositronNotebookCodeCell } from 'vs/workbench/contrib/positronNotebook/browser/PositronNotebookCell';
+import { useServices } from 'vs/workbench/contrib/positronNotebook/browser/ServicesProvider';
+import { WebviewContentPurpose } from 'vs/workbench/contrib/webview/browser/webview';
+import { transformWebviewThemeVars } from 'vs/workbench/contrib/notebook/browser/view/renderers/webviewThemeMapping';
+import { getWindow } from 'vs/base/browser/dom';
 
 
 export function NotebookCodeCell({ cell }: { cell: PositronNotebookCodeCell }) {
@@ -74,10 +78,69 @@ function CellOutputContents(output: { data: VSBuffer; mime: string }) {
 			</div>;
 		case 'image':
 			return <img src={parsed.dataUrl} alt='output image' />;
+		case 'html':
+			return <HTMLContent content={parsed.content} />;
 		case 'unknown':
 			return <div className='unknown-mime-type'>
 				{localize('cellExecutionUnknownMimeType', 'Cant handle mime type "{0}" yet', output.mime)}
 			</div>;
 	}
-
 }
+
+
+// Styles that get added to the HTML content of the webview for things like cleaning
+// up tables etc..
+const htmlOutputStyles = `
+<style>
+	table {
+		width: 100%;
+		border-collapse: collapse;
+	}
+	table, th, td {
+		border: 1px solid #ddd;
+	}
+	th, td {
+		padding: 8px;
+		text-align: left;
+	}
+	tr:nth-child(even) {
+		background-color: var(--vscode-textBlockQuote-background, #f2f2f2);
+	}
+</style>
+`;
+
+function HTMLContent({ content }: { content: string }) {
+	const { webviewService } = useServices();
+
+	const containerRef = React.useRef<HTMLDivElement>(null);
+
+	React.useEffect(() => {
+		if (!containerRef.current) {
+			return;
+		}
+
+		const webviewElement = webviewService.createWebviewElement({
+			title: localize('positron.notebook.webview', "Positron Notebook HTML content"),
+			options: {
+				purpose: WebviewContentPurpose.NotebookRenderer,
+				enableFindWidget: false,
+				transformCssVariables: transformWebviewThemeVars,
+			},
+			contentOptions: {
+				allowMultipleAPIAcquire: true,
+				allowScripts: true,
+			},
+			extension: undefined,
+			providedViewType: 'notebook.output'
+		});
+
+		const contentWithStyles = htmlOutputStyles + content;
+		webviewElement.setHtml(contentWithStyles);
+		webviewElement.mountTo(containerRef.current, getWindow(containerRef.current));
+		return () => webviewElement.dispose();
+	}, [content, webviewService]);
+
+	return <div className='positron-notebook-html-output' ref={containerRef}></div>;
+}
+
+

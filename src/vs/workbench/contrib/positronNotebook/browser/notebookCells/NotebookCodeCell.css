@@ -4,7 +4,6 @@
  *--------------------------------------------------------------------------------------------*/
 
 .positron-notebook-code-cell {
-
 	.positron-notebook-cell-outputs {
 		padding-inline: 1rem;
 		padding-block: 0.5rem;
@@ -17,4 +16,8 @@
 			display: none;
 		}
 	}
+}
+
+.positron-notebook-html-output {
+	height: 400px;
 }
