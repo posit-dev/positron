@@ -7,7 +7,6 @@
 
 'use strict';
 
-const path = require('path');
 const withDefaults = require('../shared.webpack.config');
 
 module.exports = withDefaults({
@@ -15,4 +14,31 @@ module.exports = withDefaults({
 	entry: {
 		extension: './src/extension.ts',
 	},
+	module: {
+		rules: [
+			{
+				test: /\.node$/,
+				use: [
+					{
+						loader: 'node-loader',
+					},
+				],
+			},
+			{
+				test: /\.ts$/,
+				exclude: /node_modules/,
+				use: [
+					{
+						loader: 'ts-loader',
+						options: {
+							compilerOptions: {
+								'sourceMap': true,
+							},
+							onlyCompileBundledFiles: true,
+						},
+					}
+				]
+			}
+		]
+	}
 });
