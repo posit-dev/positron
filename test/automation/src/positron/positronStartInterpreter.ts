@@ -5,7 +5,7 @@
 
 
 import { Code } from '../code';
-import { InterpreterInfo, InterpreterType } from './utils/positronInterpreterInfo';
+import { getInterpreterType, InterpreterInfo, InterpreterType } from './utils/positronInterpreterInfo';
 
 interface InterpreterGroupLocation {
 	description: string;
@@ -84,10 +84,10 @@ export class StartInterpreter {
 
 	async getSelectedInterpreterInfo(): Promise<InterpreterInfo | undefined> {
 		// Get the label for the selected interpreter, e.g. Python 3.10.4 (Pyenv)
-		const selectedInterpreter = await this.code.driver
+		const selectedInterpreterElem = await this.code.driver
 			.getLocator('.top-action-bar-interpreters-manager')
 			.getAttribute('aria-label');
-		if (!selectedInterpreter) {
+		if (!selectedInterpreterElem) {
 			return Promise.reject('There is no selected interpreter');
 		}
 
@@ -96,16 +96,22 @@ export class StartInterpreter {
 		await this.code.waitForElement(POSITRON_MODAL_POPUP);
 
 		// Wait for the desired primary interpreter group to load
-		const interpreterGroup = await this.awaitDesiredPrimaryInterpreterGroupLoaded(selectedInterpreter);
-		if (!interpreterGroup.path) {
-			return Promise.reject(`Could not retrieve interpreter path for ${selectedInterpreter}`);
+		const selectedInterpreter = await this.awaitDesiredPrimaryInterpreterGroupLoaded(selectedInterpreterElem);
+		if (!selectedInterpreter.path) {
+			return Promise.reject(`Could not retrieve interpreter path for ${selectedInterpreterElem}`);
+		}
+
+		// Determine the interpreter type for the selected interpreter
+		const interpreterType = getInterpreterType(selectedInterpreter.description);
+		if (!interpreterType) {
+			return Promise.reject(`Could not determine interpreter type for ${selectedInterpreterElem}`);
 		}
 
 		// Return the interpreter info
 		return {
-			type: InterpreterType.Python,
-			version: interpreterGroup.description,
-			path: interpreterGroup.path
+			type: interpreterType,
+			version: selectedInterpreter.description,
+			path: selectedInterpreter.path
 		} satisfies InterpreterInfo;
 	}
 
