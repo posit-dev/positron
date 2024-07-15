@@ -782,15 +782,16 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 			this._startingConsolesByLanguageId.set(runtimeMetadata.languageId, runtimeMetadata);
 		}
 
+		if (notebookUri) {
+			// Revive the notebook URI if it's a resource just incase it's not fully formed.
+			notebookUri = URI.revive(notebookUri);
+		}
+
 		// Create a promise that resolves when the runtime is ready to use.
 		const startPromise = new DeferredPromise<string>();
 		const sessionMapKey = getSessionMapKey(sessionMode, runtimeMetadata.runtimeId, notebookUri);
 		this._startingSessionsBySessionMapKey.set(sessionMapKey, startPromise);
 
-		if (notebookUri) {
-			// Revive the notebook URI if it's a resource just incase it's not fully formed.
-			notebookUri = URI.revive(notebookUri);
-		}
 		const sessionManager = await this.getManagerForRuntime(runtimeMetadata);
 		const sessionId = this.generateNewSessionId(runtimeMetadata);
 		const sessionMetadata: IRuntimeSessionMetadata = {
