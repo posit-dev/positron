@@ -844,7 +844,7 @@ export class GettingStartedPage extends EditorPane {
 			$('h1.product-name.positron.caption', {}, this.productService.nameLong),
 			$('p.subtitle.positron.description', {}, localize({ key: 'gettingStarted.editingEvolved', comment: ['Shown as subtitle on the Welcome page.'] }, "an IDE for data science"))
 		);
-		const logoPath = FileAccess.asBrowserUri('vs/workbench/contrib/welcomeGettingStarted/common/media/positronLogo.svg');
+		const logoPath = FileAccess.asBrowserUri('vs/workbench/browser/media/positron-icon.svg');
 		const header = $('.header', {},
 			$('img.product-logo.welcome-positron-logo', { src: logoPath }),
 			headerText
