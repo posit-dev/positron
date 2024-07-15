@@ -29,6 +29,8 @@ print(f'Hello {val}!')`;
 
 				await app.workbench.positronConsole.sendEnterKey();
 
+				await app.workbench.positronConsole.waitForConsoleContents((contents) => contents.some((line) => line.includes('Enter your name:')) );
+
 				await app.workbench.positronConsole.typeToConsole('John Doe');
 
 				await app.workbench.positronConsole.sendEnterKey();
@@ -55,8 +57,7 @@ cat(sprintf('Hello %s!\n', val))`;
 
 				await app.workbench.positronConsole.sendEnterKey();
 
-				// overcome R latency
-				await app.code.wait(1000);
+				await app.workbench.positronConsole.waitForConsoleContents((contents) => contents.some((line) => line.includes('Enter your name:')) );
 
 				await app.workbench.positronConsole.typeToConsole('John Doe');
 
