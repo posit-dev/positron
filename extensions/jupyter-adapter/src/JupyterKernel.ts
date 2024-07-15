@@ -132,24 +132,16 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 	private _receivedInitialStatus = false;
 	private _receivedInitialReply = false;
 
-	/** The URI of the notebook that owns this kernel, if any */
-	private readonly _notebookUri?: vscode.Uri;
-
 	constructor(
 		private readonly _context: vscode.ExtensionContext,
 		spec: JupyterKernelSpec,
 		private readonly _runtimeId: string,
 		private readonly _channel: vscode.OutputChannel,
-		readonly notebookUri?: vscode.Uri,
+		private readonly _notebookUri?: vscode.Uri,
 		readonly extra?: JupyterKernelExtra,
 	) {
 		super();
 
-		if (notebookUri) {
-			// Sometimes this uri comes in only partially formed, so we need to make sure its a full
-			// uri before we store it.
-			this._notebookUri = vscode.Uri.parse(notebookUri.toString());
-		}
 		this._spec = spec;
 		this._extra = extra;
 		this._control = null;
