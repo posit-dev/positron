@@ -19,7 +19,7 @@ export function setup(logger: Logger) {
 				await pythonFixtures.startPythonInterpreter();
 			});
 
-			it('Python - Get Input String Console', async function () {
+			it('Python - Get Input String Console [C667516]', async function () {
 				const app = this.app as Application;
 
 				const inputCode = `val = input("Enter your name: ")
@@ -47,7 +47,7 @@ print(f'Hello {val}!')`;
 				await rFixtures.startRInterpreter();
 			});
 
-			it('R - Get Input String Console', async function () {
+			it('R - Get Input String Console [C667517]', async function () {
 				const app = this.app as Application;
 
 				const inputCode = `val <- readline(prompt = "Enter your name: ")
