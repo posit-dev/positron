@@ -3,46 +3,51 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+// CSS.
 import 'vs/css!./consoleInput';
-import * as DOM from 'vs/base/browser/dom';
+
+// React.
 import * as React from 'react';
 import { FocusEvent, useEffect, useRef } from 'react'; // eslint-disable-line no-duplicate-imports
+
+// Other dependencies.
+import * as DOM from 'vs/base/browser/dom';
 import { URI } from 'vs/base/common/uri';
 import { Schemas } from 'vs/base/common/network';
 import { KeyCode } from 'vs/base/common/keyCodes';
 import { generateUuid } from 'vs/base/common/uuid';
 import { isMacintosh } from 'vs/base/common/platform';
-import { DisposableStore, IDisposable } from 'vs/base/common/lifecycle';
+import { getActiveElement } from 'vs/base/browser/dom';
 import { HistoryNavigator2 } from 'vs/base/common/history';
 import { ISelection } from 'vs/editor/common/core/selection';
 import { IKeyboardEvent } from 'vs/base/browser/keyboardEvent';
 import { useStateRef } from 'vs/base/browser/ui/react/useStateRef';
 import { CursorChangeReason } from 'vs/editor/common/cursorEvents';
+import { EditorContextKeys } from 'vs/editor/common/editorContextKeys';
+import { DisposableStore, IDisposable } from 'vs/base/common/lifecycle';
+import { InQuickPickContextKey } from 'vs/workbench/browser/quickaccess';
+import { FormatOnType } from 'vs/editor/contrib/format/browser/formatActions';
 import { EditorExtensionsRegistry } from 'vs/editor/browser/editorExtensions';
 import { MarkerController } from 'vs/editor/contrib/gotoError/browser/gotoError';
+import { HoverController } from 'vs/editor/contrib/hover/browser/hoverController';
 import { IEditorOptions, LineNumbersType } from 'vs/editor/common/config/editorOptions';
+import { CodeEditorWidget } from 'vs/editor/browser/widget/codeEditor/codeEditorWidget';
 import { SuggestController } from 'vs/editor/contrib/suggest/browser/suggestController';
 import { SnippetController2 } from 'vs/editor/contrib/snippet/browser/snippetController2';
 import { ContextMenuController } from 'vs/editor/contrib/contextmenu/browser/contextmenu';
 import { EditOperation, ISingleEditOperation } from 'vs/editor/common/core/editOperation';
 import { TabCompletionController } from 'vs/workbench/contrib/snippets/browser/tabCompletion';
+import { TerminalContextKeys } from 'vs/workbench/contrib/terminal/common/terminalContextKey';
+import { ParameterHintsController } from 'vs/editor/contrib/parameterHints/browser/parameterHints';
 import { IInputHistoryEntry } from 'vs/workbench/contrib/executionHistory/common/executionHistoryService';
 import { SelectionClipboardContributionID } from 'vs/workbench/contrib/codeEditor/browser/selectionClipboard';
 import { usePositronConsoleContext } from 'vs/workbench/contrib/positronConsole/browser/positronConsoleContext';
 import { RuntimeCodeFragmentStatus } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
-import { IPositronConsoleInstance, PositronConsoleState } from 'vs/workbench/services/positronConsole/browser/interfaces/positronConsoleService';
-import { ParameterHintsController } from 'vs/editor/contrib/parameterHints/browser/parameterHints';
 import { HistoryBrowserPopup } from 'vs/workbench/contrib/positronConsole/browser/components/historyBrowserPopup';
-import { EmptyHistoryMatchStrategy, HistoryMatch, HistoryMatchStrategy } from 'vs/workbench/contrib/positronConsole/common/historyMatchStrategy';
-import { HistoryPrefixMatchStrategy } from 'vs/workbench/contrib/positronConsole/common/historyPrefixMatchStrategy';
 import { HistoryInfixMatchStrategy } from 'vs/workbench/contrib/positronConsole/common/historyInfixMatchStrategy';
-import { CodeEditorWidget } from 'vs/editor/browser/widget/codeEditor/codeEditorWidget';
-import { getActiveElement } from 'vs/base/browser/dom';
-import { EditorContextKeys } from 'vs/editor/common/editorContextKeys';
-import { InQuickPickContextKey } from 'vs/workbench/browser/quickaccess';
-import { TerminalContextKeys } from 'vs/workbench/contrib/terminal/common/terminalContextKey';
-import { HoverController } from 'vs/editor/contrib/hover/browser/hoverController';
-import { FormatOnType } from 'vs/editor/contrib/format/browser/formatActions';
+import { HistoryPrefixMatchStrategy } from 'vs/workbench/contrib/positronConsole/common/historyPrefixMatchStrategy';
+import { EmptyHistoryMatchStrategy, HistoryMatch, HistoryMatchStrategy } from 'vs/workbench/contrib/positronConsole/common/historyMatchStrategy';
+import { IPositronConsoleInstance, PositronConsoleState } from 'vs/workbench/services/positronConsole/browser/interfaces/positronConsoleService';
 
 // Position enumeration.
 const enum Position {
@@ -148,13 +153,26 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 				break;
 		}
 
+		// Clear the current code fragment.
+		setCurrentCodeFragment(undefined);
+
+		// Clear the code editor widget's model.
+		codeEditorWidgetRef.current.setValue('');
+
+		// Immediately change the prompt to be spaces to eliminate prompt flickering.
+		const promptWidth = Math.max(
+			props.positronConsoleInstance.session.dynState.inputPrompt.length,
+			props.positronConsoleInstance.session.dynState.continuationPrompt.length
+		);
+		codeEditorWidgetRef.current.updateOptions({
+			lineNumbers: (_: number) => ' '.repeat(promptWidth),
+			lineNumbersMinChars: promptWidth
+		});
+
 		// Execute the code.
 		props.positronConsoleInstance.executeCode(code);
 
-		// Reset the code input state.
-		setCurrentCodeFragment(undefined);
-		codeEditorWidgetRef.current.setValue('');
-
+		// Code was executed.
 		return true;
 	};
 
@@ -660,7 +678,6 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 			false
 		));
 
-
 		// Add the onDidChangeConfiguration event handler.
 		disposableStore.add(
 			positronConsoleContext.configurationService.onDidChangeConfiguration(
@@ -858,6 +875,7 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 
 		// Return the cleanup function that will dispose of the disposables.
 		return () => disposableStore.dispose();
+		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, []);
 
 	// Experimental.
@@ -869,7 +887,7 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 				height: codeEditorWidgetRef.current.getContentHeight()
 			});
 		}
-	}, [props.width]);
+	}, [codeEditorWidgetRef, props.width, setCodeEditorWidth]);
 
 	/**
 	 * onFocus event handler.
