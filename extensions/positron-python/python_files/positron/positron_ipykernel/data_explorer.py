@@ -1591,7 +1591,10 @@ def _polars_summarize_date(col: "pl.Series", _):
         int(as_int32.mean()),  # type: ignore
         col.dtype,
     )
-    median_date = _polars_box_value(as_int32.median(), col.dtype)
+    median_date = _polars_box_value(
+        int(as_int32.median()),  # type: ignore
+        col.dtype,
+    )
     return _box_date_stats(num_unique, min_date, mean_date, median_date, max_date)
 
 
@@ -1605,7 +1608,10 @@ def _polars_summarize_datetime(col: "pl.Series", _):
         int(as_int64.mean()),  # type: ignore
         col.dtype,
     )
-    median_date = _polars_box_value(as_int64.median(), col.dtype)
+    median_date = _polars_box_value(
+        int(as_int64.median()),  # type: ignore
+        col.dtype,
+    )
 
     # polars Datetime dtypes can either have a static time zone or no time zone
     timezone = str(getattr(col.dtype, "time_zone", None))

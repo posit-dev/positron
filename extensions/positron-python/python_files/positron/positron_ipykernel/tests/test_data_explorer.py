@@ -3019,10 +3019,11 @@ def test_polars_profile_null_counts(dxf: DataExplorerFixture):
 
 def test_polars_profile_summary_stats(dxf: DataExplorerFixture):
     arr = np.random.standard_normal(100)
-    arr_with_nulls = arr.copy()
-    arr_with_nulls[::10] = np.nan
+    arr_with_nulls = arr.copy().astype(object)
+    arr_with_nulls[::10] = None
+    arr_with_nulls = list(arr_with_nulls)
 
-    df1 = pd.DataFrame(
+    df1 = pl.DataFrame(
         {
             "f0": arr,
             "f1": arr_with_nulls,
@@ -3040,59 +3041,23 @@ def test_polars_profile_summary_stats(dxf: DataExplorerFixture):
                 "zzz",
             ]
             * 10,
-            "f4": getattr(
-                pd.date_range("2000-01-01", freq="D", periods=100), "date"
+            "f4": pl.Series(
+                pd.date_range("2000-01-01", freq="D", periods=100),
+                dtype=pl.Date,
             ),  # date column
-            "f5": pd.date_range("2000-01-01", freq="2h", periods=100),  # datetime no tz
-            "f6": pd.date_range(
-                "2000-01-01", freq="2h", periods=100, tz="US/Eastern"
+            "f5": pl.Series(
+                list(pd.date_range("2000-01-01", freq="2h", periods=100)),
+                dtype=pl.Datetime("us"),
+            ),  # datetime no tz
+            "f6": pl.Series(
+                list(pd.date_range("2000-01-01", freq="2h", periods=100)),
+                dtype=pl.Datetime("ms", time_zone="US/Eastern"),
             ),  # datetime single tz
-            "f7": [1 + 1j, 2 + 2j, 3 + 3j, 4 + 4j, np.nan] * 20,  # complex,
-            "f8": [np.nan, np.inf, -np.inf, 0, np.nan] * 20,  # with infinity
+            "f7": [np.nan, np.inf, -np.inf, 0, np.nan] * 20,  # with infinity
         }
     )
 
-    df_mixed_tz1 = pd.concat(
-        [
-            pd.DataFrame({"x": pd.date_range("2000-01-01", freq="2h", periods=50)}),
-            pd.DataFrame(
-                {"x": pd.date_range("2000-01-01", freq="2h", periods=50, tz="US/Eastern")}
-            ),
-            pd.DataFrame(
-                {
-                    "x": pd.date_range(
-                        "2000-01-01",
-                        freq="2h",
-                        periods=50,
-                        tz="Asia/Hong_Kong",
-                    )
-                }
-            ),
-        ]
-    )
-
-    # mixed timezones, but all datetimes are tz aware
-    df_mixed_tz2 = pd.concat(
-        [
-            pd.DataFrame(
-                {"x": pd.date_range("2000-01-01", freq="2h", periods=50, tz="US/Eastern")}
-            ),
-            pd.DataFrame(
-                {
-                    "x": pd.date_range(
-                        "2000-01-01",
-                        freq="2h",
-                        periods=50,
-                        tz="Asia/Hong_Kong",
-                    )
-                }
-            ),
-        ]
-    )
-
     dxf.register_table("df1", df1)
-    dxf.register_table("df_mixed_tz1", df_mixed_tz1)
-    dxf.register_table("df_mixed_tz2", df_mixed_tz2)
 
     format_options = FormatOptions(
         large_num_digits=4,
@@ -3133,7 +3098,7 @@ def test_polars_profile_summary_stats(dxf: DataExplorerFixture):
         (
             "df1",
             3,
-            {"num_empty": 20, "num_unique": 6},
+            {"num_empty": 20, "num_unique": 7},
         ),
         (
             "df1",
@@ -3173,36 +3138,7 @@ def test_polars_profile_summary_stats(dxf: DataExplorerFixture):
         (
             "df1",
             7,
-            {"mean": "2.50+2.50j", "median": "2.50+2.50j"},
-        ),
-        (
-            "df1",
-            8,
             {"min_value": "-INF", "max_value": "INF"},
-        ),
-        (
-            "df_mixed_tz1",
-            0,
-            {
-                "num_unique": 150,
-                "min_date": "None",
-                "mean_date": "None",
-                "median_date": "None",
-                "max_date": "None",
-                "timezone": "None, US/Eastern, ... (1 more)",
-            },
-        ),
-        (
-            "df_mixed_tz2",
-            0,
-            {
-                "num_unique": 100,
-                "min_date": "2000-01-01 00:00:00+08:00",
-                "mean_date": "None",
-                "median_date": "None",
-                "max_date": "2000-01-05 02:00:00-05:00",
-                "timezone": "US/Eastern, Asia/Hong_Kong",
-            },
         ),
     ]
 
