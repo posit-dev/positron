@@ -8,6 +8,7 @@ import { IOverlayWebview } from 'vs/workbench/contrib/webview/browser/webview';
 import { ILanguageRuntimeMessageOutput } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { ILanguageRuntimeSession } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
 import { Event } from 'vs/base/common/event';
+import { INotebookWebviewMessage } from 'vs/workbench/contrib/notebook/browser/notebookBrowser';
 
 export const POSITRON_NOTEBOOK_OUTPUT_WEBVIEW_SERVICE_ID = 'positronNotebookOutputWebview';
 
@@ -27,6 +28,12 @@ export interface INotebookOutputWebview {
 
 	/** Fired when the content completes rendering */
 	onDidRender: Event<void>;
+
+	/** Fired when a message has been received from the webview */
+	onDidReceiveMessage: Event<INotebookWebviewMessage>;
+
+	/** Send a message to the webview */
+	postMessage(message: unknown): void;
 }
 
 export interface IPositronNotebookOutputWebviewService {
@@ -39,12 +46,15 @@ export interface IPositronNotebookOutputWebviewService {
 	 *
 	 * @param runtime The runtime that emitted the output
 	 * @param output The message containing the contents to be rendered in the webview.
+	 * @param viewType The view type of the notebook e.g 'jupyter-notebook', if known. Used to
+	 *  select the required notebook preload scripts for the webview.
 	 * @returns A promise that resolves to the new webview, or undefined if the
 	 *   output does not have a suitable renderer.
 	 */
 	createNotebookOutputWebview(
 		runtime: ILanguageRuntimeSession,
-		output: ILanguageRuntimeMessageOutput
+		output: ILanguageRuntimeMessageOutput,
+		viewType?: string,
 	): Promise<INotebookOutputWebview | undefined>;
 }
 
