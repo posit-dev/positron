@@ -42,10 +42,8 @@ export function setup(logger: Logger) {
 
 				await app.workbench.positronNotebooks.selectInterpreter('Python Environments', process.env.POSITRON_PY_VER_SEL!);
 
-				await expect(async () => {
-					await app.workbench.positronNotebooks.executeInFirstCell('eval("8**2")');
-					expect(await app.workbench.positronNotebooks.getPythonCellOutput()).toBe('64');
-				}).toPass();
+				await app.workbench.positronNotebooks.executeInFirstCell('eval("8**2")');
+				expect(await app.workbench.positronNotebooks.getPythonCellOutput()).toBe('64');
 
 			});
 
@@ -92,10 +90,8 @@ export function setup(logger: Logger) {
 
 				await app.workbench.positronNotebooks.selectInterpreter('R Environments', process.env.POSITRON_R_VER_SEL!);
 
-				await expect(async () => {
-					await app.workbench.positronNotebooks.executeInFirstCell('eval(parse(text="8**2"))');
-					expect(await app.workbench.positronNotebooks.getRCellOutput()).toBe('[1] 64');
-				}).toPass();
+				await app.workbench.positronNotebooks.executeInFirstCell('eval(parse(text="8**2"))');
+				expect(await app.workbench.positronNotebooks.getRCellOutput()).toBe('[1] 64');
 
 			});
 

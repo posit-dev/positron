@@ -44,6 +44,7 @@ import { setup as setupHelpTest } from './areas/positron/help/help.test';
 import { setup as setupClipboardTest } from './areas/positron/console/consoleClipboard.test';
 import { setup as setupLayoutTest } from './areas/positron/layouts/layouts.test';
 import { setup as setupTopActionBarTest } from './areas/positron/top-action-bar/top-action-bar.test';
+import { setup as setupNotebookVariablesTest} from './areas/positron/variables/notebookVariables.test';
 // --- End Positron ---
 
 const rootPath = path.join(__dirname, '..', '..', '..');
@@ -444,5 +445,6 @@ describe(`VSCode Smoke Tests (${opts.web ? 'Web' : 'Electron'})`, () => {
 	setupClipboardTest(logger);
 	setupTopActionBarTest(logger);
 	setupLayoutTest(logger);
+	setupNotebookVariablesTest(logger);
 	// --- End Positron ---
 });
