@@ -73,9 +73,9 @@ export async function getRPackageTasks(editorFilePath?: string): Promise<vscode.
 			// Using vscode.ProcessExecution gets around some hairy quoting issues on Windows,
 			// specifically encountered with PowerShell.
 			// https://github.com/posit-dev/positron/issues/3816
-			// There are potential downsides to _not_ using a shell, such as not having environment
-			// variables set as the user expects. However, we think that might be more of a
-			// macOS/Linux matter and ProcessExecution could be a net win for this task on Windows.
+			// We don't know of specific problems around not using a shell (for example, env vars
+			// appear to be inherited by ProcessExecution), but we're still scoping this narrowly
+			// out of caution.
 			exec = new vscode.ProcessExecution(
 				binpath,
 				['-e', data.rcode],
