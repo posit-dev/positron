@@ -133,4 +133,32 @@ export class PositronDataExplorer {
 		await this.code.driver.getLocator(`.positron-modal-overlay div.title:has-text("${menuItem}")`).click();
 
 	}
+
+	async home(): Promise<void> {
+		await this.code.dispatchKeybinding('home');
+	}
+
+	async cmdCtrlHome(): Promise<void> {
+		if (process.platform === 'darwin') {
+			await this.code.dispatchKeybinding('cmd+home');
+		} else {
+			await this.code.dispatchKeybinding('ctrl+home');
+		}
+	}
+
+	async arrowDown(): Promise<void> {
+		await this.code.dispatchKeybinding('ArrowDown');
+	}
+
+	async arrowRight(): Promise<void> {
+		await this.code.dispatchKeybinding('ArrowRight');
+	}
+
+	async arrowUp(): Promise<void> {
+		await this.code.dispatchKeybinding('ArrowUp');
+	}
+
+	async arrowLeft(): Promise<void> {
+		await this.code.dispatchKeybinding('ArrowLeft');
+	}
 }

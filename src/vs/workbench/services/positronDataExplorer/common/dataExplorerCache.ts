@@ -6,12 +6,13 @@
 import { Emitter } from 'vs/base/common/event';
 import { Disposable } from 'vs/base/common/lifecycle';
 import { DataExplorerClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimeDataExplorerClient';
-import { ColumnProfileType, ColumnSchema, ColumnSummaryStats, TableData } from 'vs/workbench/services/languageRuntime/common/positronDataExplorerComm';
+import { ColumnProfileType, ColumnSchema, ColumnSummaryStats } from 'vs/workbench/services/languageRuntime/common/positronDataExplorerComm';
 
 /**
  * Constants.
  */
 const OVERSCAN_FACTOR = 3;
+const CHUNK_SIZE = 100;
 
 /**
  * Creates an array from an index range.
@@ -46,8 +47,6 @@ export enum DataCellKind {
 	NEG_INFINITY = 'neginf',
 	UNKNOWN = 'unknown'
 }
-
-
 
 /**
  * DataCell interface
@@ -299,6 +298,71 @@ export class DataExplorerCache extends Disposable {
 		return this._dataCellCache.get(`${columnIndex},${rowIndex}`);
 	}
 
+	/**
+	 * Gets the table data.
+	 * @returns The table data as a TSV string.
+	 */
+	async getTableData(): Promise<string> {
+		// The cell values.
+		const cellValues = new Map<string, string>();
+
+		// Loop over chunks of columns.
+		for (let columnIndex = 0; columnIndex < this._columns; columnIndex += CHUNK_SIZE) {
+			// Loop over chunks of rows.
+			for (let rowIndex = 0; rowIndex < this._rows; rowIndex += CHUNK_SIZE) {
+				// Get the table data.
+				const maxColumnIndex = Math.min(columnIndex + CHUNK_SIZE, this._columns);
+				const maxRowIndex = Math.min(rowIndex + CHUNK_SIZE, this._rows);
+				const tableData = await this._dataExplorerClientInstance.getDataValues(
+					rowIndex,
+					maxRowIndex,
+					arrayFromIndexRange(columnIndex, maxColumnIndex)
+				);
+
+				// Process the table data into cell values.
+				for (let ci = 0; ci < maxColumnIndex - columnIndex; ci++) {
+					for (let ri = 0; ri < maxRowIndex - rowIndex; ri++) {
+						// Get the cell value.
+						const cellValue = tableData.columns[ci][ri];
+
+						// Add the cell.
+						if (typeof cellValue === 'number') {
+							cellValues.set(
+								`${rowIndex + ri},${columnIndex + ci}`,
+								decodeSpecialValue(cellValue).formatted
+							);
+						} else {
+							cellValues.set(`${rowIndex + ri},${columnIndex + ci}`, cellValue);
+						}
+					}
+				}
+			}
+		}
+
+		// Build the result.
+		let result = '';
+		for (let rowIndex = 0; rowIndex < this._rows; rowIndex++) {
+			// Append the newline before writing the row to the result.
+			if (rowIndex) {
+				result += '\n';
+			}
+
+			// Write the row to the result.
+			for (let columnIndex = 0; columnIndex < this._columns; columnIndex++) {
+				// Append the tab separator before writing the cell value.
+				if (columnIndex) {
+					result += '\t';
+				}
+
+				// Write the cell value to the row.
+				result += cellValues.get(`${rowIndex},${columnIndex}`);
+			}
+		}
+
+		// Done.
+		return result;
+	}
+
 	//#endregion Public Methods
 
 	//#region Private Methods
@@ -426,7 +490,7 @@ export class DataExplorerCache extends Disposable {
 				const rows = rowIndices[rowIndices.length - 1] - rowIndices[0] + 1;
 
 				// Get the data values.
-				const tableData: TableData = await this._dataExplorerClientInstance.getDataValues(
+				const tableData = await this._dataExplorerClientInstance.getDataValues(
 					rowIndices[0],
 					rows,
 					columnIndices
