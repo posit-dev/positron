@@ -175,7 +175,7 @@ jobs:
   macos-universal:
     name: Create macOS universal binary
     needs: [build-archs]
-    runs-on: [self-hosted-production, macos, arm64]
+    runs-on: [self-hosted-staging, macos, arm64]
     timeout-minutes: 60
     env:
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
