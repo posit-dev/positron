@@ -4,55 +4,55 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
-import { getActiveDocumentManager } from './documentManager';
+import { getActiveCodeCellManager } from './codeCellManager';
 
 export function registerCommands(disposables: vscode.Disposable[]) {
 	disposables.push(
 		// Movement
 		vscode.commands.registerCommand('positron.goToPreviousCell', (line?: number) => {
-			getActiveDocumentManager()?.goToPreviousCell(line);
+			getActiveCodeCellManager()?.goToPreviousCell(line);
 		}),
 
 		vscode.commands.registerCommand('positron.goToNextCell', (line?: number) => {
-			getActiveDocumentManager()?.goToNextCell(line);
+			getActiveCodeCellManager()?.goToNextCell(line);
 		}),
 
 		// Insert cell
 		vscode.commands.registerCommand('positron.insertCodeCell', async (line?: number) => {
-			await getActiveDocumentManager()?.insertCodeCell(line);
+			await getActiveCodeCellManager()?.insertCodeCell(line);
 		}),
 
 		// Run cells
 		vscode.commands.registerCommand('positron.runAllCells', () => {
-			getActiveDocumentManager()?.runAllCells();
+			getActiveCodeCellManager()?.runAllCells();
 		}),
 
 		vscode.commands.registerCommand('positron.runCellsAbove', (line?: number) => {
-			getActiveDocumentManager()?.runCellsAbove(line);
+			getActiveCodeCellManager()?.runCellsAbove(line);
 		}),
 
 		vscode.commands.registerCommand('positron.runCurrentAndBelow', (line?: number) => {
-			getActiveDocumentManager()?.runCurrentAndBelow(line);
+			getActiveCodeCellManager()?.runCurrentAndBelow(line);
 		}),
 
 		vscode.commands.registerCommand('positron.runCellsBelow', (line?: number) => {
-			getActiveDocumentManager()?.runCellsBelow(line);
+			getActiveCodeCellManager()?.runCellsBelow(line);
 		}),
 
 		vscode.commands.registerCommand('positron.runCurrentAdvance', (line?: number) => {
-			getActiveDocumentManager()?.runCurrentAdvance(line);
+			getActiveCodeCellManager()?.runCurrentAdvance(line);
 		}),
 
 		vscode.commands.registerCommand('positron.runCurrentCell', (line?: number) => {
-			getActiveDocumentManager()?.runCurrentCell(line);
+			getActiveCodeCellManager()?.runCurrentCell(line);
 		}),
 
 		vscode.commands.registerCommand('positron.runNextCell', (line?: number) => {
-			getActiveDocumentManager()?.runNextCell(line);
+			getActiveCodeCellManager()?.runNextCell(line);
 		}),
 
 		vscode.commands.registerCommand('positron.runPreviousCell', (line?: number) => {
-			getActiveDocumentManager()?.runPreviousCell(line);
+			getActiveCodeCellManager()?.runPreviousCell(line);
 		}),
 
 	);

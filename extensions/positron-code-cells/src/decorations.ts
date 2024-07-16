@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
-import { canHaveCells, getOrCreateDocumentManager } from './documentManager';
+import { getOrCreateDocumentManager } from './documentManager';
 
 export interface SetDecorations {
 	(
@@ -37,16 +37,15 @@ export function activateDecorations(
 
 	// Update the active editor's cell decorations.
 	function updateDecorations() {
-		if (!activeEditor || !canHaveCells(activeEditor.document)) {
+		const docManager = activeEditor && getOrCreateDocumentManager(activeEditor.document);
+		if (!activeEditor || !docManager) {
 			return;
 		}
-		const cells = getOrCreateDocumentManager(activeEditor).getCells();
 
 		// Get the relevant decoration ranges.
+		const cells = docManager.getCells();
 		const activeCellRanges: vscode.Range[] = [];
-		const allCellRanges: vscode.Range[] = [];
 		for (const cell of cells) {
-			allCellRanges.push(cell.range);
 			if (cell.range.contains(activeEditor.selection.active)) {
 				activeCellRanges.push(cell.range);
 			}

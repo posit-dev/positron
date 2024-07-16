@@ -27,7 +27,8 @@ function setSupportsCodeCellsContext(editor: vscode.TextEditor | undefined): voi
 }
 
 function setHasCodeCellsContext(editor: vscode.TextEditor | undefined): void {
-	const value = editor && canHaveCells(editor.document) && getOrCreateDocumentManager(editor).getCells().length > 0;
+	const docManager = editor && getOrCreateDocumentManager(editor.document);
+	const value = (docManager && docManager.getCells().length > 0) ?? false;
 	contexts.set(ContextKey.HasCodeCells, value);
 	vscode.commands.executeCommand(
 		'setContext',
