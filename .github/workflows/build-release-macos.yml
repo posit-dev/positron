@@ -130,7 +130,7 @@ jobs:
       # Add host keys for github.com (needed to install dependencies)
       - name: Trust Github host key
         run: |
-          mkdir ~/.ssh
+          mkdir -p ~/.ssh
           ssh-keyscan -t rsa github.com >> ~/.ssh/known_hosts
 
       # Install node_modules binaries.
