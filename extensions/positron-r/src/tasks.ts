@@ -82,6 +82,8 @@ export async function getRPackageTasks(editorFilePath?: string): Promise<vscode.
 				{ env }
 			);
 		} else {
+			// The explicit quoting treatment here is also motivated by PowerShell, so make sure to
+			// test any changes on Windows.
 			exec = new vscode.ShellExecution(
 				binpath,
 				['-e', { value: data.rcode, quoting: vscode.ShellQuoting.Strong }],
