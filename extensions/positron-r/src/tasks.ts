@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
+import * as os from 'os';
 import { RSessionManager } from './session-manager';
 import { getPandocPath } from './pandoc';
 
@@ -66,38 +67,35 @@ export async function getRPackageTasks(editorFilePath?: string): Promise<vscode.
 		env['RSTUDIO_PANDOC'] = pandocPath;
 	}
 
-
 	return taskData.map(data => {
-		if (data.task === 'r.task.rmarkdownRender') {
-			// Use vscode.ProcessExecution for r.task.rmarkdownRender to avoid quoting hell
-			return new vscode.Task(
-				{ type: 'rPackageTask', task: data.task, pkg: data.package },
-				vscode.TaskScope.Workspace,
-				data.message,
-				'R',
-				new vscode.ProcessExecution(
-					binpath,
-					['-e', data.rcode], // Assuming data.rcode is a string that can be directly used here
-					{ env }
-				),
-				[]
+		let exec: vscode.ProcessExecution | vscode.ShellExecution;
+		if (data.task === 'r.task.rmarkdownRender' && os.platform() === 'win32') {
+			// Using vscode.ProcessExecution gets around some hairy quoting issues on Windows,
+			// specifically encountered with PowerShell.
+			// https://github.com/posit-dev/positron/issues/3816
+			// There are potential downsides to _not_ using a shell, such as not having environment
+			// variables set as the user expects. However, we think that might be more of a
+			// macOS/Linux matter and ProcessExecution could be a net win for this task on Windows.
+			exec = new vscode.ProcessExecution(
+				binpath,
+				['-e', data.rcode],
+				{ env }
 			);
 		} else {
-			// Use vscode.ShellExecution for all other tasks
-			return new vscode.Task(
-				{ type: 'rPackageTask', task: data.task, pkg: data.package },
-				vscode.TaskScope.Workspace,
-				data.message,
-				'R',
-				// the explicit quoting treatment is necessary to avoid headaches on Windows,
-				// with PowerShell
-				new vscode.ShellExecution(
-					binpath,
-					['-e', { value: data.rcode, quoting: vscode.ShellQuoting.Strong }],
-					{ env }
-				),
-				[]
+			exec = new vscode.ShellExecution(
+				binpath,
+				['-e', { value: data.rcode, quoting: vscode.ShellQuoting.Strong }],
+				{ env }
 			);
 		}
+
+		return new vscode.Task(
+			{ type: 'rPackageTask', task: data.task, pkg: data.package },
+			vscode.TaskScope.Workspace,
+			data.message,
+			'R',
+			exec,
+			[]
+		);
 	});
 }
