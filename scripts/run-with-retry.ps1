@@ -22,8 +22,18 @@ while ($attempt -lt $maxAttempts -and -not $success) {
     try {
         $attempt++
 
+        # Reset the exit code to 0 before running the command
+        $global:LASTEXITCODE = 0
+
         Invoke-Expression $command
-        $success = $true
+
+        # Check the return value of the command and set $success to $true if it is successful
+        if ($LASTEXITCODE -eq 0) {
+            $success = $true
+            Write-Host "Command '$command' succeeded"
+        } else {
+            Write-Host "Command '$command' had exit code $LASTEXITCODE on attempt $attempt of $maxAttempts"
+        }
     }
     catch {
         # If the command fails, output an error message

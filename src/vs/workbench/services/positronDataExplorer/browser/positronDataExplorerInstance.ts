@@ -125,11 +125,11 @@ export class PositronDataExplorerInstance extends Disposable implements IPositro
 		);
 		this._tableDataDataGridInstance = new TableDataDataGridInstance(
 			this._commandService,
+			this._configurationService,
 			this._keybindingService,
 			this._layoutService,
 			this._dataExplorerClientInstance,
-			this._dataExplorerCache,
-			this._configurationService
+			this._dataExplorerCache
 		);
 
 		// Add the onDidClose event handler.
@@ -296,6 +296,13 @@ export class PositronDataExplorerInstance extends Disposable implements IPositro
 
 		// Write the clipboard data to the clipboard.
 		this._clipboardService.writeText(text);
+	}
+
+	/**
+	 * Copies the table data to the clipboard.
+	 */
+	async copyTableDataToClipboard(): Promise<void> {
+		this._clipboardService.writeText(await this._dataExplorerCache.getTableData());
 	}
 
 	/**

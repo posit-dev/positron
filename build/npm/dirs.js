@@ -65,10 +65,13 @@ const dirs = [
 	'extensions/vscode-test-resolver',
 	'remote',
 	'remote/web',
-	'test/automation',
+	// --- Start Positron
 	'test/integration/browser',
 	'test/monaco',
-	'test/smoke',
+	// no need to compile smoke tests during release builds
+	// 'test/automation',
+	// 'test/smoke',
+	// --- End Positron
 	'.vscode/extensions/vscode-selfhost-test-provider',
 ];
 

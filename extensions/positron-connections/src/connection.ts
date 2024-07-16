@@ -552,6 +552,14 @@ export class ConnectionItemsProvider
 		this._onDidChangeTreeData.fire(undefined);
 		this.treeItemDecorationProvider.updateFileDecorations([]);
 	}
+
+	/**
+	 * List all connections
+	 * Currently only used for testing purposes.
+	 */
+	listConnections() {
+		return this._connections;
+	}
 }
 
 /**

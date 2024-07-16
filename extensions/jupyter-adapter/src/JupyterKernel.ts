@@ -141,6 +141,7 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 		readonly extra?: JupyterKernelExtra,
 	) {
 		super();
+
 		this._spec = spec;
 		this._extra = extra;
 		this._control = null;

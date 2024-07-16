@@ -29,12 +29,15 @@ export const WebviewPlotInstance = (props: WebviewPlotInstanceProps) => {
 	useEffect(() => {
 		const client = props.plotClient;
 		client.claim(this);
-		if (webviewRef.current) {
-			client.layoutWebviewOverElement(webviewRef.current);
-		}
 		return () => {
 			client.release(this);
 		};
+	}, [props.plotClient]);
+
+	useEffect(() => {
+		if (webviewRef.current) {
+			props.plotClient.layoutWebviewOverElement(webviewRef.current);
+		}
 	});
 
 	const style = {
