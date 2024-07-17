@@ -3,7 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-@keyframes output-run-blink {
+@keyframes positronOutputRun-blink {
 	50% {
 		opacity: 0;
 	}

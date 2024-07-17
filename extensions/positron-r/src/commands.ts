@@ -147,8 +147,10 @@ export async function registerCommands(context: vscode.ExtensionContext) {
 		vscode.commands.registerCommand('r.sourceCurrentFile', async () => {
 			try {
 				const filePath = await getEditorFilePathForCommand();
+				// In the future, we may want to shorten the path by making it
+				// relative to the current working directory.
 				if (filePath) {
-					const command = `source(${filePath})`;
+					const command = `source(${JSON.stringify(filePath)})`;
 					positron.runtime.executeCode('r', command, false);
 				}
 			} catch (e) {
@@ -324,14 +326,10 @@ export async function getEditorFilePathForCommand() {
 	// the VS Code file system API.
 	const fsStat = await vscode.workspace.fs.stat(vscode.Uri.file(filePath));
 
-	// In the future, we will want to shorten the path by making it
-	// relative to the current directory; doing so, however, will
-	// require the kernel to alert us to the current working directory.
-	//
-	// For now, just use the full path, passed through JSON encoding
-	// to ensure that it is properly escaped.
+	// Return the full path, with POSIX path separators. Any additional path
+	// math, escaping, or quoting is the responsibility of the caller.
 	if (fsStat) {
-		return JSON.stringify(filePath);
+		return filePath.replace(/\\/g, '/');
 	}
 	return;
 }

@@ -16,5 +16,10 @@ labels: ['bug']
 ## What did you expect to happen?
 
 
-## Were there any error messages in the output or Developer Tools console?
+## Were there any error messages in the Output panel or Developer Tools console?
+
+<!--
+Open the Developer Tools console by running the Developer: Toggle Developer Tools command from the Command Palette.
+A guide to locating the correct Output channel can be found here: https://github.com/posit-dev/positron/wiki/Troubleshooting
+-->
 
