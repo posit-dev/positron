@@ -14,6 +14,11 @@ export class PositronRFixtures {
 
 	constructor(private app: Application) { }
 
+	static async SetupFixtures(app: Application) {
+		const fixtures = new PositronRFixtures(app);
+		await fixtures.startRInterpreter();
+	}
+
 	async startRInterpreter() {
 
 		const desiredR = process.env.POSITRON_R_VER_SEL;

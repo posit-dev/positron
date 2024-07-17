@@ -19,7 +19,7 @@ export function setup(logger: Logger) {
 	const FILTER_PARAMS = ['distance', 'is equal to', '2586'];
 	const POST_FILTER_DATA_SUMMARY = 'Showing 8,204 rows (2.44% of 336,776 total)  19 columns';
 
-	describe('Data Explorer - Large Data Frame', () => {
+	describe.only('Data Explorer - Large Data Frame', () => {
 
 		// Shared before/after handling
 		installAllHandlers(logger);
@@ -28,10 +28,7 @@ export function setup(logger: Logger) {
 
 			before(async function () {
 
-				const app = this.app as Application;
-
-				const pythonFixtures = new PositronPythonFixtures(app);
-				await pythonFixtures.startPythonInterpreter();
+				await PositronPythonFixtures.SetupFixtures(this.app as Application);
 
 			});
 
@@ -83,10 +80,7 @@ export function setup(logger: Logger) {
 
 			before(async function () {
 
-				const app = this.app as Application;
-
-				const rFixtures = new PositronRFixtures(app);
-				await rFixtures.startRInterpreter();
+				await PositronRFixtures.SetupFixtures(this.app as Application);
 
 			});
 

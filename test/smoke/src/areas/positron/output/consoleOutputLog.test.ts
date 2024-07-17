@@ -14,9 +14,7 @@ export function setup(logger: Logger) {
 
 		describe('Console Output Log - Python', () => {
 			before(async function () {
-				const app = this.app as Application;
-				const pythonFixtures = new PositronPythonFixtures(app);
-				await pythonFixtures.startPythonInterpreter();
+				await PositronPythonFixtures.SetupFixtures(this.app as Application);
 			});
 
 			after(async function () {
@@ -50,9 +48,7 @@ export function setup(logger: Logger) {
 
 		describe('Console Output Log - R', () => {
 			before(async function () {
-				const app = this.app as Application;
-				const rFixtures = new PositronRFixtures(app);
-				await rFixtures.startRInterpreter();
+				await PositronRFixtures.SetupFixtures(this.app as Application);
 			});
 
 			after(async function () {
