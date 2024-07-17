@@ -10,7 +10,6 @@ import { QuickAccess } from '../quickaccess';
 import { QuickInput } from '../quickinput';
 import { InterpreterType } from './positronStartInterpreter';
 import { PositronBaseElement } from './positronBaseElement';
-import * as os from 'os';
 
 
 const CONSOLE_INPUT = '.console-input';
@@ -30,6 +29,8 @@ export class PositronConsole {
 	barRestartButton: PositronBaseElement;
 	barClearButton: PositronBaseElement;
 	consoleRestartButton: PositronBaseElement;
+
+	activeConsole = this.code.driver.getLocator(ACTIVE_CONSOLE_INSTANCE);
 
 	constructor(private code: Code, private quickaccess: QuickAccess, private quickinput: QuickInput) {
 		this.barPowerButton = new PositronBaseElement(CONSOLE_BAR_POWER_BUTTON, this.code);
@@ -87,20 +88,13 @@ export class PositronConsole {
 	}
 
 	async typeToConsole(text: string) {
-		const activeConsole = this.getActiveConsole();
-		await activeConsole?.click();
-		await activeConsole?.pressSequentially(text, { delay: 30 });
+		await this.activeConsole.click();
+		await this.activeConsole.pressSequentially(text, { delay: 30 });
 	}
 
 	async sendEnterKey() {
-		const activeConsole = this.getActiveConsole();
-		await activeConsole?.click();
+		await this.activeConsole.click();
 		await this.code.driver.getKeyboard().press('Enter');
-	}
-
-	getActiveConsole(): Locator | undefined {
-		const activeConsole = this.code.driver.getLocator(ACTIVE_CONSOLE_INSTANCE);
-		return activeConsole;
 	}
 
 	async waitForReady(prompt: string) {
@@ -123,45 +117,15 @@ export class PositronConsole {
 	}
 
 	async pasteCodeToConsole(code: string) {
-		const activeConsole = await this.getActiveConsole();
-		const consoleInput = activeConsole?.locator(CONSOLE_INPUT);
+		const consoleInput = this.activeConsole.locator(CONSOLE_INPUT);
 		await this.pasteInMonaco(consoleInput!, code);
 	}
 
-	// adapted from:
-	// https://github.com/deephaven/web-client-ui/blob/9d905fca86aa8ba4ff53debd1fd12dcc9132299b/tests/utils.ts#L107
 	async pasteInMonaco(
 		locator: Locator,
 		text: string
 	): Promise<void> {
-		const page = locator.page();
-		const isMac = os.platform() === 'darwin';
-		const modifier = isMac ? 'Meta' : 'Control';
 
-		// Create a hidden textarea with the contents to paste
-		const inputId = await page.evaluate(async evalText => {
-			const tempInput = document.createElement('textarea');
-			tempInput.id = 'super-secret-temp-input-id';
-			tempInput.value = evalText;
-			tempInput.style.width = '0';
-			tempInput.style.height = '0';
-			document.body.appendChild(tempInput);
-			tempInput.select();
-			return tempInput.id;
-		}, text);
-
-		// Copy the contents of the textarea which was selected above
-		await page.keyboard.press(`${modifier}+C`);
-
-		// Remove the textarea
-		await page.evaluate(id => {
-			document.getElementById(id)?.remove();
-		}, inputId);
-
-		// Focus monaco
-		await locator.click();
-
-		// Chromium on mac and webkit on any OS don't seem to paste w/ the keyboard shortcut
 		await locator.locator('textarea').evaluate(async (element, evalText) => {
 			const clipboardData = new DataTransfer();
 			clipboardData.setData('text/plain', evalText);

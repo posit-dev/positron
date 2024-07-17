@@ -19,8 +19,8 @@ export function setup(logger: Logger) {
 		async function testBody(app: Application) {
 				await app.workbench.quickaccess.runCommand('workbench.action.toggleAuxiliaryBar');
 
-				const activeConsole = app.workbench.positronConsole.getActiveConsole();
-				await activeConsole?.click();
+				const activeConsole = app.workbench.positronConsole.activeConsole;
+				await activeConsole.click();
 
 				await app.workbench.positronConsole.typeToConsole('a = 1');
 

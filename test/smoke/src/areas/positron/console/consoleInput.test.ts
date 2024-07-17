@@ -14,9 +14,7 @@ export function setup(logger: Logger) {
 
 		describe('Console Input - Python', () => {
 			before(async function () {
-				const app = this.app as Application;
-				const pythonFixtures = new PositronPythonFixtures(app);
-				await pythonFixtures.startPythonInterpreter();
+				await PositronPythonFixtures.SetupFixtures(this.app as Application);
 			});
 
 			it('Python - Get Input String Console [C667516]', async function () {
@@ -42,9 +40,7 @@ print(f'Hello {val}!')`;
 
 		describe('Console Input - R', () => {
 			before(async function () {
-				const app = this.app as Application;
-				const rFixtures = new PositronRFixtures(app);
-				await rFixtures.startRInterpreter();
+				await PositronRFixtures.SetupFixtures(this.app as Application);
 			});
 
 			it('R - Get Input String Console [C667517]', async function () {
