@@ -22,7 +22,7 @@ export function registerRemoteConfiguration() {
 				default: false,
 				markdownDescription: localize(
 					'positron.enableRemoteSSHExperimentalFeatures',
-					'Enable support for connecting to remote hosts over SSH.\n\n**CAUTION**: Support for Remote SSH is experimental; not all features work in a remote environment, and currently only Linux x86 remote hosts are supported. Requires a restart of Positron to take effect.'
+					'Enable support for connecting to remote hosts over SSH.\n\n**CAUTION**: Support for Remote SSH is experimental; not all features work in a remote environment, and currently only Linux x86 remote hosts are supported.'
 				),
 			}
 		}
