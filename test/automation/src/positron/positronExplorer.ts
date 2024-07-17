@@ -35,4 +35,9 @@ export class PositronExplorer {
 		});
 		return await Promise.all(fileNames);
 	}
+
+	async waitForProjectFileToAppear(filename: string) {
+		const escapedFilename = filename.replace(/\./g, '\\.').toLowerCase();
+		await this.code.waitForElement(`.${escapedFilename}-name-file-icon`);
+	}
 }

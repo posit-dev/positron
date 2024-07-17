@@ -55,8 +55,8 @@
 		},
 		{
 			"name": "ms-vscode.js-debug",
-			"version": "1.90.0",
-			"sha256": "1317dd7d1ac50641c1534a3e957ecbc94349f4fbd897acb916da11eea3208a66",
+			"version": "1.91.0",
+			"sha256": "53b99146c7fa280f00c74414e09721530c622bf3e5eac2c967ddfb9906b51c80",
 			"repo": "https://github.com/microsoft/vscode-js-debug",
 			"metadata": {
 				"id": "25629058-ddac-4e17-abba-74678e126c5d",
@@ -235,6 +235,9 @@
 		"https://open-vsx.org",
 		"https://github.com/posit-dev/positron"
 	],
+	"extensionsEnabledWithApiProposalVersion": [
+		"GitHub.copilot-chat"
+	],
 	"extensionEnabledApiProposals": {
 		"ms-vscode.vscode-selfhost-test-provider": [
 			"testObserver",
@@ -267,7 +270,6 @@
 			"resolvers"
 		],
 		"ms-python.python": [
-			"positronResolveSymlinks",
 			"contribEditorContentMenu",
 			"quickPickSortByLabel",
 			"portsAttributes",
@@ -370,6 +372,7 @@
 			"codeActionRanges",
 			"commentingRangeHint",
 			"commentReactor",
+			"commentReveal",
 			"commentThreadApplicability",
 			"contribAccessibilityHelpContent",
 			"contribCommentEditorActionsMenu",
@@ -409,6 +412,7 @@
 			"codeActionAI",
 			"findTextInFiles",
 			"textSearchProvider",
+			"commentReveal",
 			"contribSourceControlInputBoxMenu",
 			"contribCommentEditorActionsMenu",
 			"contribCommentThreadAdditionalMenu",
@@ -420,7 +424,8 @@
 			"testObserver",
 			"aiTextSearchProvider",
 			"documentFiltersExclusive",
-			"chatParticipantPrivate"
+			"chatParticipantPrivate",
+			"lmTools"
 		],
 		"GitHub.remotehub": [
 			"contribRemoteHelp",

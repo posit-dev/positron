@@ -261,7 +261,7 @@ export class OpenEditorsView extends ViewPane {
 		this.readonlyEditorFocusedContext = OpenEditorsReadonlyEditorContext.bindTo(this.contextKeyService);
 
 		this._register(this.list.onContextMenu(e => this.onListContextMenu(e)));
-		this.list.onDidChangeFocus(e => {
+		this._register(this.list.onDidChangeFocus(e => {
 			this.resourceContext.reset();
 			this.groupFocusedContext.reset();
 			this.dirtyEditorFocusedContext.reset();
@@ -275,7 +275,7 @@ export class OpenEditorsView extends ViewPane {
 			} else if (!!element) {
 				this.groupFocusedContext.set(true);
 			}
-		});
+		}));
 
 		// Open when selecting via keyboard
 		this._register(this.list.onMouseMiddleClick(e => {

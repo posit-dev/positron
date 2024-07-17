@@ -13,6 +13,7 @@ import { WebviewPlotClient } from 'vs/workbench/contrib/positronPlots/browser/we
 interface WebviewPlotInstanceProps {
 	width: number;
 	height: number;
+	visible: boolean;
 	plotClient: WebviewPlotClient;
 }
 
@@ -28,11 +29,15 @@ export const WebviewPlotInstance = (props: WebviewPlotInstanceProps) => {
 
 	useEffect(() => {
 		const client = props.plotClient;
-		client.claim(this);
+		// Only claim if the plot is visible to avoid rendering the webview when
+		// the parent view pane is collapsed.
+		if (props.visible) {
+			client.claim(this);
+		}
 		return () => {
 			client.release(this);
 		};
-	}, [props.plotClient]);
+	}, [props.plotClient, props.visible]);
 
 	useEffect(() => {
 		if (webviewRef.current) {

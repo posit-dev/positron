@@ -65,7 +65,7 @@ export function setup(logger: Logger) {
 				await pythonFixtures.startRInterpreter();
 			});
 
-			it('R - Copy from console & paste to console [C608100]', async function () {
+			it('R - Copy from console & paste to console [C663725]', async function () {
 				await testBody(this.app);
 			});
 		});
