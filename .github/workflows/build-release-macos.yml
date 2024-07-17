@@ -137,6 +137,7 @@ jobs:
       - name: Install dependencies
         env:
           npm_config_arch: ${{ matrix.arch }}
+          CI_CHECK_FAIL: ssh2
           POSITRON_GITHUB_PAT: ${{ steps.app-token.outputs.token }}
         run: |
           export NVM_DIR="$HOME/.nvm"

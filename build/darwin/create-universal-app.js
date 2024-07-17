@@ -42,6 +42,7 @@ async function main(buildDir) {
             'node.napi.glibc.node', // ZeroMQ Electron architecture-specific pre-built binary
             // Exclusions from remote-ssh
             'cpufeatures.node',
+            'sshcrypto.node',
             // Case-sensitivity issues
             'HTML.icns',
             'html.icns',
