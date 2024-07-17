@@ -55,6 +55,7 @@ export const PythonEnvironmentStep = (props: PropsWithChildren<NewProjectWizardS
 	const [minimumPythonVersion, setMinimumPythonVersion] = useState(context.minimumPythonVersion);
 	const [condaPythonVersionInfo, setCondaPythonVersionInfo] = useState(context.condaPythonVersionInfo);
 	const [selectedCondaPythonVersion, setSelectedCondaPythonVersion] = useState(context.condaPythonVersion);
+	const [isCondaInstalled, setIsCondaInstalled] = useState(context.isCondaInstalled);
 
 	useEffect(() => {
 		// Create the disposable store for cleanup.
@@ -72,6 +73,7 @@ export const PythonEnvironmentStep = (props: PropsWithChildren<NewProjectWizardS
 			setMinimumPythonVersion(context.minimumPythonVersion);
 			setCondaPythonVersionInfo(context.condaPythonVersionInfo);
 			setSelectedCondaPythonVersion(context.condaPythonVersion);
+			setIsCondaInstalled(context.isCondaInstalled);
 		}));
 
 		// Return the cleanup function that will dispose of the event handlers.
@@ -82,7 +84,7 @@ export const PythonEnvironmentStep = (props: PropsWithChildren<NewProjectWizardS
 	const interpretersAvailable = () => {
 		if (context.usesCondaEnv) {
 			return Boolean(
-				context.isCondaInstalled &&
+				isCondaInstalled &&
 				condaPythonVersionInfo &&
 				condaPythonVersionInfo.versions.length
 			);
@@ -91,7 +93,7 @@ export const PythonEnvironmentStep = (props: PropsWithChildren<NewProjectWizardS
 	};
 	const interpretersLoading = () => {
 		if (context.usesCondaEnv) {
-			return Boolean(context.isCondaInstalled && !condaPythonVersionInfo);
+			return Boolean(isCondaInstalled && !condaPythonVersionInfo);
 		}
 		return !interpreters;
 	};
@@ -272,7 +274,7 @@ export const PythonEnvironmentStep = (props: PropsWithChildren<NewProjectWizardS
 			);
 		}
 
-		if (context.usesCondaEnv && !context.isCondaInstalled) {
+		if (context.usesCondaEnv && !isCondaInstalled) {
 			return (
 				<WizardFormattedText
 					type={WizardFormattedTextType.Warning}
