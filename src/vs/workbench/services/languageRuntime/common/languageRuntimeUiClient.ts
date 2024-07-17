@@ -4,10 +4,12 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { Disposable } from 'vs/base/common/lifecycle';
-import { Event } from 'vs/base/common/event';
+import { Emitter, Event } from 'vs/base/common/event';
 import { IRuntimeClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimeClientInstance';
 import { BusyEvent, ClearConsoleEvent, UiFrontendEvent, OpenEditorEvent, OpenWorkspaceEvent, PromptStateEvent, ShowMessageEvent, WorkingDirectoryEvent, ExecuteCommandEvent, ShowUrlEvent, SetEditorSelectionsEvent } from './positronUiComm';
 import { PositronUiCommInstance } from 'vs/workbench/services/languageRuntime/common/positronUiCommInstance';
+import { IOpenerService } from 'vs/platform/opener/common/opener';
+import { URI } from 'vs/base/common/uri';
 
 
 /**
@@ -74,6 +76,9 @@ export class UiClientInstance extends Disposable {
 	onDidExecuteCommand: Event<ExecuteCommandEvent>;
 	onDidShowUrl: Event<ShowUrlEvent>;
 
+	/** Emitter wrapper for Show URL events */
+	private _onDidShowUrlEmitter = this._register(new Emitter<ShowUrlEvent>());
+
 	/**
 	 * Creates a new frontend client instance.
 	 *
@@ -82,6 +87,7 @@ export class UiClientInstance extends Disposable {
 	 */
 	constructor(
 		private readonly _client: IRuntimeClientInstance<any, any>,
+		private readonly openerService: IOpenerService,
 	) {
 		super();
 		this._register(this._client);
@@ -96,6 +102,21 @@ export class UiClientInstance extends Disposable {
 		this.onDidPromptState = this._comm.onDidPromptState;
 		this.onDidWorkingDirectory = this._comm.onDidWorkingDirectory;
 		this.onDidExecuteCommand = this._comm.onDidExecuteCommand;
-		this.onDidShowUrl = this._comm.onDidShowUrl;
+		this.onDidShowUrl = this._onDidShowUrlEmitter.event;
+
+		// Wrap the ShowUrl event to resolve incoming external URIs from the
+		// backend before broadcasting them to the frontend.
+		this._register(this._comm.onDidShowUrl(async e => {
+			try {
+				const uri = URI.parse(e.url);
+				const resolvedUri = await this.openerService.resolveExternalUri(uri);
+				const resolvedEvent: ShowUrlEvent = {
+					url: resolvedUri.resolved.toString(),
+				};
+				this._onDidShowUrlEmitter.fire(resolvedEvent);
+			} catch {
+				this._onDidShowUrlEmitter.fire(e);
+			}
+		}));
 	}
 }
