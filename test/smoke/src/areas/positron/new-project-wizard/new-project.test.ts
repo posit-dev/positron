@@ -12,7 +12,7 @@ import { installAllHandlers } from '../../../utils';
  */
 export function setup(logger: Logger) {
 	describe('New Project Wizard', () => {
-		describe.only('Python - New Project Wizard', () => {
+		describe('Python - New Project Wizard', () => {
 			// Shared before/after handling
 			installAllHandlers(logger);
 
