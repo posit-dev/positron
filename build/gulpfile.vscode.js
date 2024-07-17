@@ -253,7 +253,7 @@ function packageTask(platform, arch, sourceFolderName, destinationFolderName, op
 		const positronBuildNumber =
 			process.env.POSITRON_BUILD_NUMBER ??
 			child_process.execSync(
-				`${path.dirname(__dirname)}/versions/show-version.js --build`).toString().trim();
+				`node ${path.dirname(__dirname)}/versions/show-version.js --build`).toString().trim();
 
 		// --- End Positron ---
 
