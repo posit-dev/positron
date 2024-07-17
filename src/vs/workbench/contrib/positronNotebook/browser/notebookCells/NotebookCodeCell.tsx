@@ -16,6 +16,7 @@ import { ActionButton } from 'vs/workbench/contrib/positronNotebook/browser/util
 import { NotebookCellWrapper } from './NotebookCellWrapper';
 import { pickPreferredOutput, PositronNotebookCodeCell } from 'vs/workbench/contrib/positronNotebook/browser/PositronNotebookCell';
 import { NotebookHTMLContent } from 'vs/workbench/contrib/positronNotebook/browser/notebookCells/NotebookHTMLOutput';
+import { useServices } from 'vs/workbench/contrib/positronNotebook/browser/ServicesProvider';
 
 
 export function NotebookCodeCell({ cell }: { cell: PositronNotebookCodeCell }) {
@@ -44,7 +45,8 @@ export function NotebookCodeCell({ cell }: { cell: PositronNotebookCodeCell }) {
 }
 
 function CellOutput({ outputs }: Pick<NotebookCellOutputs, 'outputs'>) {
-	const preferredOutput = pickPreferredOutput(outputs);
+	const services = useServices();
+	const preferredOutput = pickPreferredOutput(outputs, services.logService.warn);
 
 	if (!preferredOutput) {
 		return null;

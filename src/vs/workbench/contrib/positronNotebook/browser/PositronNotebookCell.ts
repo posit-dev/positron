@@ -221,7 +221,7 @@ export function createNotebookCell(cell: NotebookCellTextModel, instance: Positr
  * @param mime The mime type to get the priority of
  * @returns A number representing the priority of the mime type. Lower numbers are higher priority.
  */
-function getMimeTypePriority(mime: string): number {
+function getMimeTypePriority(mime: string): number | null {
 	if (mime.includes('application')) {
 		return 1;
 	}
@@ -235,7 +235,7 @@ function getMimeTypePriority(mime: string): number {
 			return 4;
 		default:
 			// Dont know what this is, so mark it as special so we know something went wrong
-			return -1;
+			return null;
 	}
 }
 
@@ -245,28 +245,36 @@ function getMimeTypePriority(mime: string): number {
  * @returns The output data with the highest priority mime type. If there's a tie, the first one is
  * returned. If there's an unknown mime type, the first one is returned.
  */
-export function pickPreferredOutput(outputs: NotebookCellOutputs['outputs']): NotebookCellOutputs['outputs'][number] | undefined {
+export function pickPreferredOutput(outputs: NotebookCellOutputs['outputs'], logWarning: (msg: string) => void): NotebookCellOutputs['outputs'][number] | undefined {
 
 	if (outputs.length === 0) {
 		return undefined;
 	}
-	let preferredOutput = outputs[0];
-	let highestPriorty = getMimeTypePriority(preferredOutput.mime);
 
-	for (let i = 1; i < outputs.length; i++) {
+	let highestPriorty: number | null = null;
+	let preferredOutput = outputs[0];
+
+	for (let i = 0; i < outputs.length; i++) {
+
 		const output = outputs[i];
 		const priority = getMimeTypePriority(output.mime);
 
-		if (priority < highestPriorty) {
+		// If we don't know how to render any of the mime types, we'll return the first one and hope
+		// for the best!
+		if (priority === null) {
+			continue;
+		}
+
+		if (priority < (highestPriorty ?? Infinity)) {
 			preferredOutput = output;
 			highestPriorty = priority;
 		}
 	}
 
-	if (highestPriorty === -1) {
-		// There is an output that we don't have a defined priority for, so just fall back
-		// to returning the very first output.
-		return outputs[0];
+	if (highestPriorty === null) {
+		logWarning('Could not determine preferred output for notebook cell with mime types' +
+			outputs.map(output => output.mime).join(', ')
+		);
 	}
 
 	return preferredOutput;
