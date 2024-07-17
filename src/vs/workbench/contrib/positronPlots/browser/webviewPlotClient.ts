@@ -84,6 +84,7 @@ export class WebviewPlotClient extends Disposable implements IPositronPlotClient
 	 */
 	public claim(claimant: any) {
 		this.webview.webview.claim(claimant, DOM.getWindow(this._element), undefined);
+		this.webview.render?.();
 		this._claimed = true;
 	}
 

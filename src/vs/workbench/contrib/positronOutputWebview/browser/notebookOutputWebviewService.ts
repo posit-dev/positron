@@ -34,6 +34,8 @@ export interface INotebookOutputWebview {
 
 	/** Send a message to the webview */
 	postMessage(message: unknown): void;
+
+	render?(): void;
 }
 
 export interface IPositronNotebookOutputWebviewService {

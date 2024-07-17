@@ -165,8 +165,6 @@ export class PositronNotebookOutputWebviewService implements IPositronNotebookOu
 		viewType?: string,
 	): Promise<INotebookOutputWebview> {
 
-		const data = message.data[mimeType] as any;
-
 		// Create the preload script contents. This is a simplified version of the
 		// preloads script that the notebook renderer API creates.
 		const preloads = preloadsScriptStr({
@@ -226,24 +224,27 @@ export class PositronNotebookOutputWebviewService implements IPositronNotebookOu
 </body>
 `);
 
-		// Send a message to the webview to render the output.
-		const valueBytes = typeof (data) === 'string' ? VSBuffer.fromString(data) :
-			VSBuffer.fromString(JSON.stringify(data));
-		// TODO: We may need to pass valueBytes.buffer (or some version of it) as the `transfer`
-		//   argument to postMessage.
-		const transfer: ArrayBuffer[] = [];
-		const webviewMessage: IPositronRenderMessage = {
-			type: 'positronRender',
-			outputId: id,
-			elementId: 'container',
-			rendererId: renderer.id,
-			mimeType,
-			metadata: message.metadata,
-			valueBytes: valueBytes.buffer,
+		const render = () => {
+			const data = message.data[mimeType];
+			// Send a message to the webview to render the output.
+			const valueBytes = typeof (data) === 'string' ? VSBuffer.fromString(data) :
+				VSBuffer.fromString(JSON.stringify(data));
+			// TODO: We may need to pass valueBytes.buffer (or some version of it) as the `transfer`
+			//   argument to postMessage.
+			const transfer: ArrayBuffer[] = [];
+			const webviewMessage: IPositronRenderMessage = {
+				type: 'positronRender',
+				outputId: id,
+				elementId: 'container',
+				rendererId: renderer.id,
+				mimeType,
+				metadata: message.metadata,
+				valueBytes: valueBytes.buffer,
+			};
+			webview.postMessage(webviewMessage, transfer);
 		};
-		webview.postMessage(webviewMessage, transfer);
 
-		return new NotebookOutputWebview(id, runtime.runtimeMetadata.runtimeId, webview);
+		return new NotebookOutputWebview(id, runtime.runtimeMetadata.runtimeId, webview, render);
 	}
 
 	/**
