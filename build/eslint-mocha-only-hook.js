@@ -8,7 +8,7 @@ const child_process = require('child_process');
 
 const eslintMochaOnlyHook = (reporter) => {
 	try {
-		const result = child_process.execSync('node build/eslint-mocha-only.js', { encoding: 'utf8', stdio: 'inherit' });
+		const result = child_process.execSync('node build/eslint-mocha-only.js', { encoding: 'utf8' });
 	} catch (error) {
 		let message = '';
 		let shouldFail;

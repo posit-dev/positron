@@ -250,30 +250,10 @@ function hygiene(some, linting = true, secrets = true) {
 					errorCount++;
 				} else {
 					console.warn(message);
+					warningCount++;
 				}
 			}))
 		);
-		// It would be nice to get something like this working, so we don't need to recalculate the
-		// staged files and filter them again for eslintMocha...but the eslint errors don't seem to be
-		// getting caught by the reporter. It seems like no errors are being reported?
-		// Even the eslint linting above doesn't seem to error? I tried committing code that has
-		// eslint errors, but the pre-commit hygiene check passed.
-		// streams.push(
-		// 	result
-		// 		.pipe(filter(eslintMochaFilter))
-		// 		.pipe(
-		// 			gulpeslint({
-		// 				configFile: '.eslintrc.json'
-		// 			})
-		// 		)
-		// 		.pipe(gulpeslint.formatEach('compact'))
-		// 		.pipe(
-		// 			gulpeslint.results((results) => {
-		// 				errorCount += results.warningCount;
-		// 				errorCount += results.errorCount;
-		// 			})
-		// 		)
-		// );
 		// --- End Positron ---
 	}
 
@@ -286,6 +266,7 @@ function hygiene(some, linting = true, secrets = true) {
 					errorCount++;
 				} else {
 					console.warn(message);
+					warningCount++;
 				}
 			}))
 		);
