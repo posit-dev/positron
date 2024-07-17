@@ -21,6 +21,9 @@ module.exports = withDefaults({
 				use: [
 					{
 						loader: 'node-loader',
+						options: {
+							name: '[path][name].[ext]'
+						}
 					},
 				],
 			},
