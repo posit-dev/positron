@@ -3,7 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-@keyframes fade-in {
+@keyframes positronModalReactRenderer-fadeIn {
 	0% { opacity: 0; }
 	100% { opacity: 1; }
 }
@@ -18,5 +18,5 @@
 	position: fixed;
 	align-items: center;
 	justify-content: center;
-	animation: fade-in 0.25s;
+	animation: positronModalReactRenderer-fadeIn 0.25s;
 }

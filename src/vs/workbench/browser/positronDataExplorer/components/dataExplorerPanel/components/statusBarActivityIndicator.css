@@ -35,10 +35,10 @@
 .status-bar-indicator
 .icon.computing {
 	background-image: url(status-active.svg);
-	animation: status-icon-rotate-computing 1.5s linear infinite;
+	animation: positronDataExplorerStatusBarActivityIndicator-rotate 1.5s linear infinite;
 }
 
-@keyframes status-icon-rotate-computing {
+@keyframes positronDataExplorerStatusBarActivityIndicator-rotate {
 	to {
 		transform: rotate(360deg);
 	}

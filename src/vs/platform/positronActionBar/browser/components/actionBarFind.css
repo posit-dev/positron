@@ -3,7 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-@keyframes fadeIn {
+@keyframes positronActionBarFind-fadeIn {
 	from { opacity: 0; }
 	to { opacity: 1; }
 }
@@ -57,7 +57,7 @@
 	cursor: pointer;
 	margin: 0 4px 0 0;
 	background: transparent;
-	animation: fadeIn 150ms ease-out;
+	animation: positronActionBarFind-fadeIn 150ms ease-out;
 }
 
 .action-bar-find-input .clear-button:focus-visible {
