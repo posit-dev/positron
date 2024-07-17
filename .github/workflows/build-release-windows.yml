@@ -49,6 +49,10 @@ jobs:
         with:
           node-version-file: .nvmrc
 
+      - name: Setup node-gyp
+        run: |
+          npm install -g node-gyp
+
       - name: Create access token
         uses: actions/create-github-app-token@v1
         id: app-token
