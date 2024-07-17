@@ -62,8 +62,8 @@ type ILineNumbersOptions = Pick<IEditorOptions, 'lineNumbers' | 'lineNumbersMinC
 interface ConsoleInputProps {
 	readonly width: number;
 	readonly positronConsoleInstance: IPositronConsoleInstance;
-	readonly selectAll: () => void;
-	readonly codeExecute?: () => void;
+	readonly onSelectAll: () => void;
+	readonly onCodeExecuted: () => void;
 }
 
 /**
@@ -173,11 +173,11 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 		// Execute the code.
 		props.positronConsoleInstance.executeCode(code);
 
-		if (props.codeExecute) {
-			props.codeExecute();
-		}
-
+		// Render the code editor widget.
 		codeEditorWidgetRef.current.render(true);
+
+		// Call the code executed callback.
+		props.onCodeExecuted();
 
 		// Code was executed.
 		return true;
@@ -301,7 +301,7 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 						consumeEvent();
 
 						// Call the select all callback.
-						props.selectAll();
+						props.onSelectAll();
 					}
 
 					// Get the selection and the text model.

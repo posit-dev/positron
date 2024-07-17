@@ -4,10 +4,11 @@
  *--------------------------------------------------------------------------------------------*/
 
 // CSS.
-import 'vs/css!./consoleInstance';
+import 'vs/css!./consoleInstanceItems';
 
 // React.
 import * as React from 'react';
+import { flushSync } from 'react-dom';
 import { Component } from 'react'; // eslint-disable-line no-duplicate-imports
 
 // Other dependencies.
@@ -37,24 +38,37 @@ import { RuntimeItemRestartButton } from 'vs/workbench/services/positronConsole/
 import { IPositronConsoleInstance } from 'vs/workbench/services/positronConsole/browser/interfaces/positronConsoleService';
 import { RuntimeItemStartupFailure } from 'vs/workbench/services/positronConsole/browser/classes/runtimeItemStartupFailure';
 
-interface ExperimentalComponentProps {
-	readonly value: number;
+/**
+ * ConsoleInstanceItemsProps interface.
+ */
+interface ConsoleInstanceItemsProps {
 	readonly positronConsoleInstance: IPositronConsoleInstance;
 	readonly editorFontInfo: FontInfo;
 	readonly trace: boolean;
 	readonly runtimeAttached: boolean;
 	readonly consoleInputWidth: number;
+	readonly onSelectAll: () => void;
 }
-
-export class ExperimentalComponent extends Component<ExperimentalComponentProps> {
-	constructor(props: ExperimentalComponentProps) {
+/**
+ * ConsoleInstanceItems component.
+ */
+export class ConsoleInstanceItems extends Component<ConsoleInstanceItemsProps> {
+	/**
+	 * Constructor.
+	 * @param props
+	 */
+	constructor(props: ConsoleInstanceItemsProps) {
 		super(props);
 	}
 
+	/**
+	 * Renders the component.
+	 * @returns The rendered component.
+	 */
 	override render() {
-		console.log('RENDERING');
 		return (
 			<>
+				<div className='top-spacer' />
 				{this.props.positronConsoleInstance.runtimeItems.map(runtimeItem => {
 					if (runtimeItem instanceof RuntimeItemActivity) {
 						return <RuntimeActivity key={runtimeItem.id} fontInfo={this.props.editorFontInfo} runtimeItemActivity={runtimeItem} positronConsoleInstance={this.props.positronConsoleInstance} />;
@@ -87,11 +101,11 @@ export class ExperimentalComponent extends Component<ExperimentalComponentProps>
 					<ConsoleInput
 						width={this.props.consoleInputWidth}
 						positronConsoleInstance={this.props.positronConsoleInstance}
-						selectAll={() => console.log('jajaja')}
-						codeExecute={() => {
-							console.log('--------------------------- CODE EXECUTE RENDER');
-							this.render();
-						}}
+						onSelectAll={this.props.onSelectAll}
+						onCodeExecuted={() =>
+							// Update the component to eliminate flickering.
+							flushSync(() => this.forceUpdate()
+						)}
 					/>
 				}
 			</>

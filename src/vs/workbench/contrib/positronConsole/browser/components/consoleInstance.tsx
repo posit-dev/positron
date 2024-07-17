@@ -3,14 +3,20 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+// CSS.
 import 'vs/css!./consoleInstance';
+
+// React.
 import * as React from 'react';
 import { KeyboardEvent, MouseEvent, UIEvent, useCallback, useEffect, useLayoutEffect, useRef, useState, WheelEvent } from 'react'; // eslint-disable-line no-duplicate-imports
+
+// Other dependencies.
 import * as nls from 'vs/nls';
 import * as DOM from 'vs/base/browser/dom';
 import { generateUuid } from 'vs/base/common/uuid';
 import { isMacintosh } from 'vs/base/common/platform';
 import { PixelRatio } from 'vs/base/browser/pixelRatio';
+import { disposableTimeout } from 'vs/base/common/async';
 import { DisposableStore } from 'vs/base/common/lifecycle';
 import { IAction, Separator } from 'vs/base/common/actions';
 import { useStateRef } from 'vs/base/browser/ui/react/useStateRef';
@@ -23,10 +29,9 @@ import { IConfigurationService } from 'vs/platform/configuration/common/configur
 import { POSITRON_PLOTS_VIEW_ID } from 'vs/workbench/services/positronPlots/common/positronPlots';
 import { AnchorAlignment, AnchorAxisAlignment } from 'vs/base/browser/ui/contextview/contextview';
 import { usePositronConsoleContext } from 'vs/workbench/contrib/positronConsole/browser/positronConsoleContext';
+import { ConsoleInstanceItems } from 'vs/workbench/contrib/positronConsole/browser/components/consoleInstanceItems';
 import { IPositronConsoleInstance, PositronConsoleState } from 'vs/workbench/services/positronConsole/browser/interfaces/positronConsoleService';
 import { POSITRON_CONSOLE_COPY, POSITRON_CONSOLE_PASTE, POSITRON_CONSOLE_SELECT_ALL } from 'vs/workbench/contrib/positronConsole/browser/positronConsoleIdentifiers';
-import { disposableTimeout } from 'vs/base/common/async';
-import { ExperimentalComponent } from 'vs/workbench/contrib/positronConsole/browser/components/experimentalComponent';
 
 // ConsoleInstanceProps interface.
 interface ConsoleInstanceProps {
@@ -75,7 +80,7 @@ export const ConsoleInstance = (props: ConsoleInstanceProps) => {
 
 	// Reference hooks.
 	const consoleInstanceRef = useRef<HTMLDivElement>(undefined!);
-	const runtimeItemsRef = useRef<HTMLDivElement>(undefined!);
+	const consoleInstanceContainerRef = useRef<HTMLDivElement>(undefined!);
 
 	// State hooks.
 	const [editorFontInfo, setEditorFontInfo] =
@@ -204,7 +209,7 @@ export const ConsoleInstance = (props: ConsoleInstanceProps) => {
 	const selectAllRuntimeItems = () => {
 		const selection = DOM.getActiveWindow().document.getSelection();
 		if (selection) {
-			selection.selectAllChildren(runtimeItemsRef.current);
+			selection.selectAllChildren(consoleInstanceContainerRef.current);
 		}
 	};
 
@@ -603,54 +608,15 @@ export const ConsoleInstance = (props: ConsoleInstanceProps) => {
 			onMouseDown={mouseDownHandler}
 			onWheel={wheelHandler}
 			onScroll={scrollHandler}>
-			<div ref={runtimeItemsRef} className='runtime-items'>
-				<div className='top-spacer' />
-				<ExperimentalComponent
-					value={100}
+			<div ref={consoleInstanceContainerRef} className='console-instance-container'>
+				<ConsoleInstanceItems
 					positronConsoleInstance={props.positronConsoleInstance}
 					editorFontInfo={editorFontInfo}
 					trace={trace}
 					runtimeAttached={runtimeAttached}
 					consoleInputWidth={consoleInputWidth}
-				>
-				</ExperimentalComponent>
-				{/* <div className='yaya'>
-					{props.positronConsoleInstance.runtimeItems.map(runtimeItem => {
-						if (runtimeItem instanceof RuntimeItemActivity) {
-							return <RuntimeActivity key={runtimeItem.id} fontInfo={editorFontInfo} runtimeItemActivity={runtimeItem} positronConsoleInstance={props.positronConsoleInstance} />;
-						} else if (runtimeItem instanceof RuntimeItemPendingInput) {
-							return <RuntimePendingInput key={runtimeItem.id} fontInfo={editorFontInfo} runtimeItemPendingInput={runtimeItem} />;
-						} else if (runtimeItem instanceof RuntimeItemStartup) {
-							return <RuntimeStartup key={runtimeItem.id} runtimeItemStartup={runtimeItem} />;
-						} else if (runtimeItem instanceof RuntimeItemReconnected) {
-							return <RuntimeReconnected key={runtimeItem.id} runtimeItemReconnected={runtimeItem} />;
-						} else if (runtimeItem instanceof RuntimeItemStarting) {
-							return <RuntimeStarting key={runtimeItem.id} runtimeItemStarting={runtimeItem} />;
-						} else if (runtimeItem instanceof RuntimeItemStarted) {
-							return <RuntimeStarted key={runtimeItem.id} runtimeItemStarted={runtimeItem} />;
-						} else if (runtimeItem instanceof RuntimeItemOffline) {
-							return <RuntimeOffline key={runtimeItem.id} runtimeItemOffline={runtimeItem} />;
-						} else if (runtimeItem instanceof RuntimeItemExited) {
-							return <RuntimeExited key={runtimeItem.id} runtimeItemExited={runtimeItem} />;
-						} else if (runtimeItem instanceof RuntimeItemRestartButton) {
-							return <RuntimeRestartButton key={runtimeItem.id} runtimeItemRestartButton={runtimeItem} positronConsoleInstance={props.positronConsoleInstance} />;
-						} else if (runtimeItem instanceof RuntimeItemStartupFailure) {
-							return <RuntimeStartupFailure key={runtimeItem.id} runtimeItemStartupFailure={runtimeItem} />;
-						} else if (runtimeItem instanceof RuntimeItemTrace) {
-							return trace && <RuntimeTrace key={runtimeItem.id} runtimeItemTrace={runtimeItem} />;
-						} else {
-							// This indicates a bug.
-							return null;
-						}
-					})}
-				</div>
-				{!props.positronConsoleInstance.promptActive && runtimeAttached &&
-					<ConsoleInput
-						width={consoleInputWidth}
-						positronConsoleInstance={props.positronConsoleInstance}
-						selectAll={() => selectAllRuntimeItems()}
-					/>
-				} */}
+					onSelectAll={() => selectAllRuntimeItems()}
+				/>
 			</div>
 		</div>
 	);
