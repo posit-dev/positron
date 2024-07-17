@@ -127,15 +127,15 @@ export class PositronNotebookOutputWebviewService implements IPositronNotebookOu
 
 	private getResourceRoots(
 		message: ILanguageRuntimeMessageWebOutput,
-		renderer: INotebookRendererInfo,
 		viewType: string | undefined,
 	): URI[] {
 
 		const resourceRoots = new Array<URI>();
 
-		// Ensure that the renderer can load local resources from
-		// the extension that provides it
-		resourceRoots.push(renderer.extensionLocation);
+		for (const renderer of this._notebookService.getRenderers()) {
+			// Add each renderer's parent folder
+			resourceRoots.push(dirname(renderer.entrypoint.path));
+		}
 
 		if (viewType) {
 			for (const preload of this._notebookService.getStaticPreloads(viewType)) {
@@ -194,7 +194,7 @@ export class PositronNotebookOutputWebviewService implements IPositronNotebookOu
 				// Needed since we use the API ourselves, and it's also used by
 				// preload scripts
 				allowMultipleAPIAcquire: true,
-				localResourceRoots: this.getResourceRoots(message, renderer, viewType),
+				localResourceRoots: this.getResourceRoots(message, viewType),
 			},
 			extension: {
 				id: renderer.extensionId,
