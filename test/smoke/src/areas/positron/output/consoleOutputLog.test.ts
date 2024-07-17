@@ -25,8 +25,8 @@ export function setup(logger: Logger) {
 			it('Python - Verify Console Output Log Contents [C667518]', async function () {
 				const app = this.app as Application;
 
-				const activeConsole = app.workbench.positronConsole.getActiveConsole();
-				await activeConsole?.click();
+				const activeConsole = app.workbench.positronConsole.activeConsole;
+				await activeConsole.click();
 
 				await app.workbench.positronConsole.typeToConsole('a = b');
 				await app.workbench.positronConsole.sendEnterKey();
@@ -59,8 +59,8 @@ export function setup(logger: Logger) {
 			it('R - Verify Console Output Log Contents [C667519]', async function () {
 				const app = this.app as Application;
 
-				const activeConsole = app.workbench.positronConsole.getActiveConsole();
-				await activeConsole?.click();
+				const activeConsole = app.workbench.positronConsole.activeConsole;
+				await activeConsole.click();
 
 				await app.workbench.positronConsole.typeToConsole('a = b');
 				await app.workbench.positronConsole.sendEnterKey();

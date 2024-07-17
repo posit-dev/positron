@@ -11,6 +11,8 @@ import { QuickInput } from '../quickinput';
 import { InterpreterType } from './positronStartInterpreter';
 import { PositronBaseElement } from './positronBaseElement';
 
+
+const CONSOLE_INPUT = '.console-input';
 const ACTIVE_CONSOLE_INSTANCE = '.console-instance[style*="z-index: auto"]';
 const MAXIMIZE_CONSOLE = '.bottom .codicon-positron-maximize-panel';
 const CONSOLE_BAR_POWER_BUTTON = 'div.action-bar-button-icon.codicon.codicon-positron-power-button-thin';
@@ -27,6 +29,8 @@ export class PositronConsole {
 	barRestartButton: PositronBaseElement;
 	barClearButton: PositronBaseElement;
 	consoleRestartButton: PositronBaseElement;
+
+	activeConsole = this.code.driver.getLocator(ACTIVE_CONSOLE_INSTANCE);
 
 	constructor(private code: Code, private quickaccess: QuickAccess, private quickinput: QuickInput) {
 		this.barPowerButton = new PositronBaseElement(CONSOLE_BAR_POWER_BUTTON, this.code);
@@ -84,20 +88,13 @@ export class PositronConsole {
 	}
 
 	async typeToConsole(text: string) {
-		const activeConsole = this.getActiveConsole();
-		await activeConsole?.click();
-		await activeConsole?.pressSequentially(text, { delay: 30 });
+		await this.activeConsole.click();
+		await this.activeConsole.pressSequentially(text, { delay: 30 });
 	}
 
 	async sendEnterKey() {
-		const activeConsole = this.getActiveConsole();
-		await activeConsole?.click();
+		await this.activeConsole.click();
 		await this.code.driver.getKeyboard().press('Enter');
-	}
-
-	getActiveConsole(): Locator | undefined {
-		const activeConsole = this.code.driver.getLocator(ACTIVE_CONSOLE_INSTANCE);
-		return activeConsole;
 	}
 
 	async waitForReady(prompt: string) {
@@ -117,5 +114,25 @@ export class PositronConsole {
 
 	async maximizeConsole() {
 		await this.code.waitAndClick(MAXIMIZE_CONSOLE);
+	}
+
+	async pasteCodeToConsole(code: string) {
+		const consoleInput = this.activeConsole.locator(CONSOLE_INPUT);
+		await this.pasteInMonaco(consoleInput!, code);
+	}
+
+	async pasteInMonaco(
+		locator: Locator,
+		text: string
+	): Promise<void> {
+
+		await locator.locator('textarea').evaluate(async (element, evalText) => {
+			const clipboardData = new DataTransfer();
+			clipboardData.setData('text/plain', evalText);
+			const clipboardEvent = new ClipboardEvent('paste', {
+				clipboardData,
+			});
+			element.dispatchEvent(clipboardEvent);
+		}, text);
 	}
 }
