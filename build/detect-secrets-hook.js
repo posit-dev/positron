@@ -4,7 +4,6 @@
  *--------------------------------------------------------------------------------------------*/
 
 const es = require('event-stream');
-const vfs = require('vinyl-fs');
 const child_process = require('child_process');
 
 module.exports = detectSecretsHook;
