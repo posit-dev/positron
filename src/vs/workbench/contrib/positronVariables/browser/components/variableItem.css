@@ -31,10 +31,10 @@
 }
 
 .variable-item.recent {
-	animation: pulseUpdate 2s;
+	animation: positronVariableItem-pulseUpdate 2s;
 }
 
-@keyframes pulseUpdate {
+@keyframes positronVariableItem-pulseUpdate {
 	0% {
 		background-color: var(--vscode-positronVariables-activeSelectionBackground);
 	}
@@ -45,10 +45,10 @@
 }
 
 .variable-item.recent.selected {
-	animation: pulseUpdateSelected 2s;
+	animation: positronVariableItem-pulseUpdateSelected 2s;
 }
 
-@keyframes pulseUpdateSelected {
+@keyframes positronVariableItem-pulseUpdateSelected {
 	0% {
 		background-color: var(--vscode-positronVariables-activeSelectionBackground);
 	}

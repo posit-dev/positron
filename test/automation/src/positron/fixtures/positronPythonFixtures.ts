@@ -14,6 +14,11 @@ export class PositronPythonFixtures {
 
 	constructor(private app: Application) { }
 
+	static async SetupFixtures(app: Application) {
+		const fixtures = new PositronPythonFixtures(app);
+		await fixtures.startPythonInterpreter();
+	}
+
 	async startPythonInterpreter() {
 
 		const desiredPython = process.env.POSITRON_PY_VER_SEL;

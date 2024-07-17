@@ -20,8 +20,7 @@ export function setup(logger: Logger) {
 
 			before(async function () {
 
-				const pythonFixtures = new PositronPythonFixtures(this.app);
-				await pythonFixtures.startPythonInterpreter();
+				await PositronPythonFixtures.SetupFixtures(this.app as Application);
 
 			});
 
@@ -54,9 +53,7 @@ export function setup(logger: Logger) {
 		describe('R Variables Pane', () => {
 
 			before(async function () {
-
-				const rFixtures = new PositronRFixtures(this.app);
-				await rFixtures.startRInterpreter();
+				await PositronRFixtures.SetupFixtures(this.app as Application);
 
 			});
 

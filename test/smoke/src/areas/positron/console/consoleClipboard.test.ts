@@ -48,9 +48,7 @@ export function setup(logger: Logger) {
 
 		describe('Console Clipboard - Python', () => {
 			before(async function () {
-				const app = this.app as Application;
-				const pythonFixtures = new PositronPythonFixtures(app);
-				await pythonFixtures.startPythonInterpreter();
+				await PositronPythonFixtures.SetupFixtures(this.app as Application);
 			});
 
 			it('Python - Copy from console & paste to console [C608100]', async function () {
@@ -60,12 +58,10 @@ export function setup(logger: Logger) {
 
 		describe('Console Clipboard - R', () => {
 			before(async function () {
-				const app = this.app as Application;
-				const pythonFixtures = new PositronRFixtures(app);
-				await pythonFixtures.startRInterpreter();
+				await PositronRFixtures.SetupFixtures(this.app as Application);
 			});
 
-			it('R - Copy from console & paste to console [C608100]', async function () {
+			it('R - Copy from console & paste to console [C663725]', async function () {
 				await testBody(this.app);
 			});
 		});
