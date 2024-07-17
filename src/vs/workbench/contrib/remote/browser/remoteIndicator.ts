@@ -324,6 +324,7 @@ export class RemoteStatusIndicator extends Disposable implements IWorkbenchContr
 				} else {
 					// The remote status indicator is disabled; remove it
 					this.remoteStatusEntry?.dispose();
+					this.remoteStatusEntry = undefined;
 				}
 			}
 		}));
