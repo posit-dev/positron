@@ -19,7 +19,7 @@ export function setup(logger: Logger) {
 	const FILTER_PARAMS = ['distance', 'is equal to', '2586'];
 	const POST_FILTER_DATA_SUMMARY = 'Showing 8,204 rows (2.44% of 336,776 total)  19 columns';
 
-	describe.only('Data Explorer - Large Data Frame', () => {
+	describe('Data Explorer - Large Data Frame', () => {
 
 		// Shared before/after handling
 		installAllHandlers(logger);
