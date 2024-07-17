@@ -28,6 +28,7 @@ export class PositronOutput {
 	}
 
 	async waitForOutContaining(fragment: string) {
-		await this.code.waitForElements(OUTPUT_LINE, false, (contents) => contents.some(line => line.textContent.includes(fragment)));
+		const outputLine = this.code.driver.getLocator(OUTPUT_LINE);
+		await outputLine.getByText(fragment).first().isVisible();
 	}
 }
