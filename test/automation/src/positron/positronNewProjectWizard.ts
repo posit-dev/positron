@@ -12,6 +12,19 @@ import { PositronBaseElement, PositronTextElement } from './positronBaseElement'
 const PROJECT_WIZARD_DROPDOWN_POPUP_ITEMS =
 	'div.positron-modal-popup-children button.positron-button.item';
 
+// Selector for the default button in the project wizard, which will either be 'Next' or 'Create'
+const PROJECT_WIZARD_DEFAULT_BUTTON = 'button.positron-button.button.action-bar-button.default[tabindex="0"][role="button"]';
+
+/**
+ * Enum representing the possible navigation actions that can be taken in the project wizard.
+ */
+export enum ProjectWizardNavigateAction {
+	BACK,
+	NEXT,
+	CANCEL,
+	CREATE,
+}
+
 /*
  *  Reuseable Positron new project wizard functionality for tests to leverage.
  */
@@ -22,41 +35,17 @@ export class PositronNewProjectWizard {
 	pythonConfigurationStep: ProjectWizardPythonConfigurationStep;
 	currentOrNewWindowSelectionModal: CurrentOrNewWindowSelectionModal;
 
-	cancelButton: PositronBaseElement;
-	nextButton: PositronBaseElement;
-	backButton: PositronBaseElement;
-	disabledCreateButton: PositronBaseElement;
+	private backButton = this.code.driver.getLocator('div.left-actions > button.positron-button.button.action-bar-button[tabindex="0"][role="button"]');
+	private cancelButton = this.code.driver.getLocator('div.right-actions > button.positron-button.button.action-bar-button[tabindex="0"][role="button"]');
+	private nextButton = this.code.driver.getLocator(PROJECT_WIZARD_DEFAULT_BUTTON).getByText('Next');
+	private createButton = this.code.driver.getLocator(PROJECT_WIZARD_DEFAULT_BUTTON).getByText('Create');
 
 	constructor(private code: Code, private quickaccess: QuickAccess) {
 		this.projectTypeStep = new ProjectWizardProjectTypeStep(this.code);
-		this.projectNameLocationStep = new ProjectWizardProjectNameLocationStep(
-			this.code
-		);
-		this.rConfigurationStep = new ProjectWizardRConfigurationStep(
-			this.code
-		);
-		this.pythonConfigurationStep = new ProjectWizardPythonConfigurationStep(
-			this.code
-		);
-		this.currentOrNewWindowSelectionModal =
-			new CurrentOrNewWindowSelectionModal(this.code);
-
-		this.cancelButton = new PositronBaseElement(
-			'div.right-actions > button.positron-button.button.action-bar-button[tabindex="0"][role="button"]',
-			this.code
-		);
-		this.nextButton = new PositronBaseElement(
-			'button.positron-button.button.action-bar-button.default[tabindex="0"][role="button"]',
-			this.code
-		);
-		this.backButton = new PositronBaseElement(
-			'div.left-actions > button.positron-button.button.action-bar-button[tabindex="0"][role="button"]',
-			this.code
-		);
-		this.disabledCreateButton = new PositronBaseElement(
-			'button.positron-button.button.action-bar-button.default.disabled[tabindex="0"][disabled][role="button"][aria-disabled="true"]',
-			this.code
-		);
+		this.projectNameLocationStep = new ProjectWizardProjectNameLocationStep(this.code);
+		this.rConfigurationStep = new ProjectWizardRConfigurationStep(this.code);
+		this.pythonConfigurationStep = new ProjectWizardPythonConfigurationStep(this.code);
+		this.currentOrNewWindowSelectionModal = new CurrentOrNewWindowSelectionModal(this.code);
 	}
 
 	async startNewProject() {
@@ -64,6 +53,37 @@ export class PositronNewProjectWizard {
 			'positron.workbench.action.newProject',
 			{ keepOpen: false }
 		);
+	}
+
+	/**
+	 * Clicks the specified navigation button in the project wizard.
+	 * @param action The navigation action to take in the project wizard.
+	 */
+	async navigate(action: ProjectWizardNavigateAction) {
+		switch (action) {
+			case ProjectWizardNavigateAction.BACK:
+				await this.backButton.waitFor();
+				await this.backButton.click();
+				break;
+			case ProjectWizardNavigateAction.NEXT:
+				await this.nextButton.waitFor();
+				await this.nextButton.isEnabled({ timeout: 5000 });
+				await this.nextButton.click();
+				break;
+			case ProjectWizardNavigateAction.CANCEL:
+				await this.cancelButton.waitFor();
+				await this.cancelButton.click();
+				break;
+			case ProjectWizardNavigateAction.CREATE:
+				await this.createButton.waitFor();
+				await this.createButton.isEnabled({ timeout: 5000 });
+				await this.createButton.click();
+				break;
+			default:
+				throw new Error(
+					`Invalid project wizard navigation action: ${action}`
+				);
+		}
 	}
 }
 
