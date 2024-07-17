@@ -64,7 +64,7 @@ export const ActivityInput = (props: ActivityInputProps) => {
 	// Render.
 	return (
 		<div className={classNames}>
-			{state === ActivityItemInputState.Executing && <div className='progress-bar' />}
+			{/* {state === ActivityItemInputState.Executing && <div className='progress-bar' />} */}
 			{props.activityItemInput.codeOutputLines.map((outputLine, index) =>
 				<div key={outputLine.id}>
 					<span className='prompt' style={{ width: promptWidth }}>

@@ -50,7 +50,13 @@
 	border-left: 1px solid var(--vscode-positronScrollBar-border);
 }
 
-.console-core .console-instance .runtime-items {
+.console-core .console-instance .yaya {
+	width: 100%;
+	height: 100%;
+	cursor: text;
+}
+
+.console-core .console-instance .yaya .runtime-items {
 	cursor: text;
 }
 

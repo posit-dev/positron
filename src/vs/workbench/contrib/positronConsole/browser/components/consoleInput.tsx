@@ -63,6 +63,7 @@ interface ConsoleInputProps {
 	readonly width: number;
 	readonly positronConsoleInstance: IPositronConsoleInstance;
 	readonly selectAll: () => void;
+	readonly codeExecute?: () => void;
 }
 
 /**
@@ -171,6 +172,12 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 
 		// Execute the code.
 		props.positronConsoleInstance.executeCode(code);
+
+		if (props.codeExecute) {
+			props.codeExecute();
+		}
+
+		codeEditorWidgetRef.current.render(true);
 
 		// Code was executed.
 		return true;
