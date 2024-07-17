@@ -56,6 +56,11 @@ const extensions = [
 		label: 'positron-r',
 		workspaceFolder: path.join(os.tmpdir(), `positron-r-${Math.floor(Math.random() * 100000)}`),
 		mocha: { timeout: 60_000 }
+	},
+	{
+		label: 'positron-connections',
+		workspaceFolder: path.join(os.tmpdir(), `positron-connections-${Math.floor(Math.random() * 100000)}`),
+		mocha: { timeout: 60_000 }
 	}
 	// --- End Positron ---
 ];

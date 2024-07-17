@@ -31,6 +31,7 @@ import { retry, timeout } from './utils';
 // import { setup as setupTerminalTests } from './areas/terminal/terminal.test';
 // import { setup as setupTaskTests } from './areas/task/task.test';
 import { setup as setupVariablesTest } from './areas/positron/variables/variablespane.test';
+import { setupDataExplorer100x100Test } from './areas/positron/dataexplorer/data-explorer-100x100.test';
 import { setup as setupDataExplorerTest } from './areas/positron/dataexplorer/dataexplorer.test';
 import { setup as setupPlotsTest } from './areas/positron/plots/plots.test';
 import { setup as setupPythonConsoleTest } from './areas/positron/console/python-console.test';
@@ -45,6 +46,8 @@ import { setup as setupClipboardTest } from './areas/positron/console/consoleCli
 import { setup as setupLayoutTest } from './areas/positron/layouts/layouts.test';
 import { setup as setupTopActionBarTest } from './areas/positron/top-action-bar/top-action-bar.test';
 import { setup as setupNotebookVariablesTest} from './areas/positron/variables/notebookVariables.test';
+import { setup as setupConsoleInputTest } from './areas/positron/console/consoleInput.test';
+import { setup as setupConsoleOutputLogTest } from './areas/positron/output/consoleOutputLog.test';
 // --- End Positron ---
 
 const rootPath = path.join(__dirname, '..', '..', '..');
@@ -433,6 +436,7 @@ describe(`VSCode Smoke Tests (${opts.web ? 'Web' : 'Electron'})`, () => {
 	// if (!opts.web && !opts.remote) { setupLaunchTests(logger); }
 	setupVariablesTest(logger);
 	setupDataExplorerTest(logger);
+	setupDataExplorer100x100Test(logger);
 	setupPlotsTest(logger);
 	setupPythonConsoleTest(logger);
 	setupRConsoleTest(logger);
@@ -446,5 +450,7 @@ describe(`VSCode Smoke Tests (${opts.web ? 'Web' : 'Electron'})`, () => {
 	setupTopActionBarTest(logger);
 	setupLayoutTest(logger);
 	setupNotebookVariablesTest(logger);
+	setupConsoleInputTest(logger);
+	setupConsoleOutputLogTest(logger);
 	// --- End Positron ---
 });

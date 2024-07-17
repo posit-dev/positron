@@ -358,7 +358,7 @@ export const ActionBar = (props: ActionBarProps) => {
 							</ActionBarButton>
 						}
 						{interruptible &&
-							<ActionBarSeparator />
+							<ActionBarSeparator fadeIn={true} />
 						}
 						<ActionBarButton
 							iconId='positron-power-button-thin'

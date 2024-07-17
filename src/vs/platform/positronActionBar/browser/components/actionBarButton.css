@@ -3,7 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-@keyframes fade-in {
+@keyframes positronActionBarButton-fadeIn {
 	0% {
 		opacity: 0;
 	}
@@ -36,7 +36,7 @@
 
 .action-bar-button.fade-in {
 	opacity: 0;
-	animation: fade-in 0.25s ease-in 0.25s 1 forwards;
+	animation: positronActionBarButton-fadeIn 0.25s ease-in 0.25s 1 forwards;
 }
 
 .action-bar-button:focus {

@@ -295,10 +295,11 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 
 		this._notebookOptions = this._creationOptions?.options ?? new NotebookOptions(
 			DOM.getActiveWindow(),
+			this.isReadOnly,
+			undefined,
 			this.configurationService,
 			this.notebookExecutionStateService,
-			this._codeEditorService,
-			this.isReadOnly
+			this._codeEditorService
 		);
 
 		return this._notebookOptions;

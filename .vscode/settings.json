@@ -176,5 +176,6 @@
 	"editor.rulers": [
 		100
 	],
-	"typescript.enablePromptUseWorkspaceTsdk": true,
+	"inlineChat.experimental.textButtons": true,
+	"typescript.enablePromptUseWorkspaceTsdk": true
 }

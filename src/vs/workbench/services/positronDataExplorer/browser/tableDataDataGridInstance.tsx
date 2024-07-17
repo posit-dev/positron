@@ -12,6 +12,7 @@ import { Emitter } from 'vs/base/common/event';
 import { ICommandService } from 'vs/platform/commands/common/commands';
 import { ILayoutService } from 'vs/platform/layout/browser/layoutService';
 import { IKeybindingService } from 'vs/platform/keybinding/common/keybinding';
+import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
 import { IColumnSortKey } from 'vs/workbench/browser/positronDataGrid/interfaces/columnSortKey';
 import { DataExplorerCache } from 'vs/workbench/services/positronDataExplorer/common/dataExplorerCache';
 import { TableDataCell } from 'vs/workbench/services/positronDataExplorer/browser/components/tableDataCell';
@@ -23,10 +24,9 @@ import { DataExplorerClientInstance } from 'vs/workbench/services/languageRuntim
 import { CustomContextMenuSeparator } from 'vs/workbench/browser/positronComponents/customContextMenu/customContextMenuSeparator';
 import { PositronDataExplorerCommandId } from 'vs/workbench/contrib/positronDataExplorerEditor/browser/positronDataExplorerActions';
 import { CustomContextMenuEntry, showCustomContextMenu } from 'vs/workbench/browser/positronComponents/customContextMenu/customContextMenu';
+import { dataExplorerExperimentalFeatureEnabled } from 'vs/workbench/services/positronDataExplorer/common/positronDataExplorerExperimentalConfig';
 import { BackendState, ColumnSchema, DataSelection, DataSelectionCellRange, DataSelectionIndices, DataSelectionKind, DataSelectionRange, DataSelectionSingleCell, ExportFormat, RowFilter, SupportStatus } from 'vs/workbench/services/languageRuntime/common/positronDataExplorerComm';
 import { ClipboardCell, ClipboardCellRange, ClipboardColumnIndexes, ClipboardColumnRange, ClipboardData, ClipboardRowIndexes, ClipboardRowRange, ColumnSelectionState, ColumnSortKeyDescriptor, DataGridInstance, RowSelectionState } from 'vs/workbench/browser/positronDataGrid/classes/dataGridInstance';
-import { dataExplorerExperimentalFeatureEnabled } from 'vs/workbench/services/positronDataExplorer/common/positronDataExplorerExperimentalConfig';
-import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
 
 /**
  * Localized strings.
@@ -51,6 +51,7 @@ export class TableDataDataGridInstance extends DataGridInstance {
 	/**
 	 * Constructor.
 	 * @param _commandService The command service.
+	 * @param _configurationService The configuration service.
 	 * @param _keybindingService The keybinding service.
 	 * @param _layoutService The layout service.
 	 * @param _dataExplorerClientInstance The DataExplorerClientInstance.
@@ -58,11 +59,11 @@ export class TableDataDataGridInstance extends DataGridInstance {
 	 */
 	constructor(
 		private readonly _commandService: ICommandService,
+		private readonly _configurationService: IConfigurationService,
 		private readonly _keybindingService: IKeybindingService,
 		private readonly _layoutService: ILayoutService,
 		private readonly _dataExplorerClientInstance: DataExplorerClientInstance,
 		private readonly _dataExplorerCache: DataExplorerCache,
-		private readonly _configurationService: IConfigurationService,
 	) {
 		// Call the base class's constructor.
 		super({

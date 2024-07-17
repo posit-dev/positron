@@ -20,7 +20,7 @@ import { splitRecentLabel } from 'vs/base/common/labels';
 import { DisposableStore, toDisposable } from 'vs/base/common/lifecycle';
 import { ILink, LinkedText } from 'vs/base/common/linkedText';
 import { parse } from 'vs/base/common/marshalling';
-import { FileAccess, Schemas, matchesScheme } from 'vs/base/common/network';
+import { Schemas, matchesScheme } from 'vs/base/common/network';
 import { isMacintosh } from 'vs/base/common/platform';
 import { ThemeIcon } from 'vs/base/common/themables';
 import { assertIsDefined } from 'vs/base/common/types';
@@ -72,8 +72,7 @@ import { IHostService } from 'vs/workbench/services/host/browser/host';
 import { IWorkbenchThemeService } from 'vs/workbench/services/themes/common/workbenchThemeService';
 import { GettingStartedIndexList } from './gettingStartedList';
 
-/*--- Start Positron ---*/
-// import { IWorkbenchAssignmentService } from 'vs/workbench/services/assignment/common/assignmentService';
+// --- Start Positron ---
 import 'vs/css!./media/positronGettingStarted';
 import { PositronReactRenderer } from 'vs/base/browser/positronReactRenderer';
 import { createWelcomePageLeft } from 'vs/workbench/contrib/welcomeGettingStarted/browser/positronWelcomePageLeft';
@@ -82,7 +81,7 @@ import { IRuntimeSessionService } from 'vs/workbench/services/runtimeSession/com
 import { IRuntimeStartupService } from 'vs/workbench/services/runtimeStartup/common/runtimeStartupService';
 import { ILanguageRuntimeService } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { ILifecycleService, LifecyclePhase } from 'vs/workbench/services/lifecycle/common/lifecycle';
-/*--- End Positron ---*/
+// --- End Positron ---
 
 const SLIDE_TRANSITION_TIME_MS = 250;
 const configurationKey = 'workbench.startupEditor';
@@ -160,7 +159,6 @@ export class GettingStartedPage extends EditorPane {
 	private recentlyOpenedList?: GettingStartedIndexList<RecentEntry>;
 	private startList?: GettingStartedIndexList<IWelcomePageStartEntry>;
 	private gettingStartedList?: GettingStartedIndexList<IResolvedWalkthrough>;
-	private videoList?: GettingStartedIndexList<IWelcomePageStartEntry>;
 
 	private stepsSlide!: HTMLElement;
 	private categoriesSlide!: HTMLElement;
@@ -206,7 +204,6 @@ export class GettingStartedPage extends EditorPane {
 		@IRuntimeStartupService private readonly runtimeStartupService: IRuntimeStartupService,
 		@ILanguageRuntimeService private readonly languageRuntimeService: ILanguageRuntimeService,
 		@ILifecycleService private readonly lifecycleService: ILifecycleService,
-		// @IWorkbenchAssignmentService private readonly tasExperimentService: IWorkbenchAssignmentService
 	) {
 
 		super(GettingStartedPage.ID, group, telemetryService, themeService, storageService);
@@ -469,10 +466,6 @@ export class GettingStartedPage extends EditorPane {
 				}
 				break;
 			}
-			case 'hideVideos': {
-				this.hideVideos();
-				break;
-			}
 			case 'openLink': {
 				this.openerService.open(argument);
 				break;
@@ -489,11 +482,6 @@ export class GettingStartedPage extends EditorPane {
 		if (!selectedCategory) { throw Error('Could not find category with ID ' + categoryId); }
 		this.setHiddenCategories([...this.getHiddenCategories().add(categoryId)]);
 		this.gettingStartedList?.rerender();
-	}
-
-	private hideVideos() {
-		this.setHiddenCategories([...this.getHiddenCategories().add('getting-started-videos')]);
-		this.videoList?.setEntries(undefined);
 	}
 
 	private markAllStepsComplete() {
@@ -844,9 +832,8 @@ export class GettingStartedPage extends EditorPane {
 			$('h1.product-name.positron.caption', {}, this.productService.nameLong),
 			$('p.subtitle.positron.description', {}, localize({ key: 'gettingStarted.editingEvolved', comment: ['Shown as subtitle on the Welcome page.'] }, "an IDE for data science"))
 		);
-		const logoPath = FileAccess.asBrowserUri('vs/workbench/browser/media/positron-icon.svg');
 		const header = $('.header', {},
-			$('img.product-logo.welcome-positron-logo', { src: logoPath }),
+			$('div.product-logo.welcome-positron-logo.'),
 			headerText
 		);
 
@@ -855,6 +842,7 @@ export class GettingStartedPage extends EditorPane {
 
 		const startList = this.buildStartList();
 		const recentList = this.buildRecentlyOpenedList();
+		// const gettingStartedList = this.buildGettingStartedWalkthroughsList();
 
 		const footer = $('.footer', {},
 			$('p.showOnStartup', {},
@@ -1001,6 +989,101 @@ export class GettingStartedPage extends EditorPane {
 		return startList;
 	}
 
+	// --- Start Positron ---
+	//
+	// This function is not used in Positron. It is commented out rather than
+	// being deleted to minimize merge conflicts.
+	/*
+	private buildGettingStartedWalkthroughsList(): GettingStartedIndexList<IResolvedWalkthrough> {
+
+		const renderGetttingStaredWalkthrough = (category: IResolvedWalkthrough): HTMLElement => {
+
+			const renderNewBadge = (category.newItems || category.newEntry) && !category.isFeatured;
+			const newBadge = $('.new-badge', {});
+			if (category.newEntry) {
+				reset(newBadge, $('.new-category', {}, localize('new', "New")));
+			} else if (category.newItems) {
+				reset(newBadge, $('.new-items', {}, localize({ key: 'newItems', comment: ['Shown when a list of items has changed based on an update from a remote source'] }, "Updated")));
+			}
+
+			const featuredBadge = $('.featured-badge', {});
+			const descriptionContent = $('.description-content', {},);
+
+			if (category.isFeatured && this.showFeaturedWalkthrough) {
+				reset(featuredBadge, $('.featured', {}, $('span.featured-icon.codicon.codicon-star-full')));
+				reset(descriptionContent, ...renderLabelWithIcons(category.description));
+			}
+
+			const titleContent = $('h3.category-title.max-lines-3', { 'x-category-title-for': category.id });
+			reset(titleContent, ...renderLabelWithIcons(category.title));
+
+			return $('button.getting-started-category' + (category.isFeatured && this.showFeaturedWalkthrough ? '.featured' : ''),
+				{
+					'x-dispatch': 'selectCategory:' + category.id,
+					'title': category.description
+				},
+				featuredBadge,
+				$('.main-content', {},
+					this.iconWidgetFor(category),
+					titleContent,
+					renderNewBadge ? newBadge : $('.no-badge'),
+					$('a.codicon.codicon-close.hide-category-button', {
+						'tabindex': 0,
+						'x-dispatch': 'hideCategory:' + category.id,
+						'title': localize('close', "Hide"),
+						'role': 'button',
+						'aria-label': localize('closeAriaLabel', "Hide"),
+					}),
+				),
+				descriptionContent,
+				$('.category-progress', { 'x-data-category-id': category.id, },
+					$('.progress-bar-outer', { 'role': 'progressbar' },
+						$('.progress-bar-inner'))));
+		};
+
+		if (this.gettingStartedList) { this.gettingStartedList.dispose(); }
+
+		const rankWalkthrough = (e: IResolvedWalkthrough) => {
+			let rank: number | null = e.order;
+
+			if (e.isFeatured) { rank += 7; }
+			if (e.newEntry) { rank += 3; }
+			if (e.newItems) { rank += 2; }
+			if (e.recencyBonus) { rank += 4 * e.recencyBonus; }
+
+			if (this.getHiddenCategories().has(e.id)) { rank = null; }
+			return rank;
+		};
+
+		const gettingStartedList = this.gettingStartedList = new GettingStartedIndexList(
+			{
+				title: localize('walkthroughs', "Walkthroughs"),
+				klass: 'getting-started',
+				limit: 5,
+				footer: $('span.button-link.see-all-walkthroughs', { 'x-dispatch': 'seeAllWalkthroughs', 'tabindex': 0 }, localize('showAll', "More...")),
+				renderElement: renderGetttingStaredWalkthrough,
+				rankElement: rankWalkthrough,
+				contextService: this.contextService,
+			});
+
+		gettingStartedList.onDidChange(() => {
+			const hidden = this.getHiddenCategories();
+			const someWalkthroughsHidden = hidden.size || gettingStartedList.itemCount < this.gettingStartedCategories.filter(c => this.contextService.contextMatchesRules(c.when)).length;
+			this.container.classList.toggle('someWalkthroughsHidden', !!someWalkthroughsHidden);
+			this.registerDispatchListeners();
+			allWalkthroughsHiddenContext.bindTo(this.contextService).set(gettingStartedList.itemCount === 0);
+			this.updateCategoryProgress();
+		});
+
+		gettingStartedList.setEntries(this.gettingStartedCategories);
+		allWalkthroughsHiddenContext.bindTo(this.contextService).set(gettingStartedList.itemCount === 0);
+
+		return gettingStartedList;
+	}
+
+	*/
+	// --- End Positron ---
+
 	layout(size: Dimension) {
 		this.detailsScrollbar?.scanDomNode();
 
@@ -1010,7 +1093,6 @@ export class GettingStartedPage extends EditorPane {
 		this.startList?.layout(size);
 		this.gettingStartedList?.layout(size);
 		this.recentlyOpenedList?.layout(size);
-		this.videoList?.layout(size);
 
 		if (this.editorInput?.selectedStep && this.currentMediaType) {
 			this.mediaDisposables.clear();
@@ -1179,7 +1261,7 @@ export class GettingStartedPage extends EditorPane {
 	}
 
 	private buildMarkdownDescription(container: HTMLElement, text: LinkedText[]) {
-		while (container.firstChild) { container.removeChild(container.firstChild); }
+		while (container.firstChild) { container.firstChild.remove(); }
 
 		for (const linkedText of text) {
 			if (linkedText.nodes.length === 1 && typeof linkedText.nodes[0] !== 'string') {

@@ -12,9 +12,12 @@
 	row-gap: 50px;
 }
 
-.gettingStartedContainer .product-logo.welcome-positron-logo {
+.gettingStartedContainer .product-logo.welcome-positron-logo::before {
 	width: 6em;
 	height: 6em;
+	content: ' ';
+	background-image: url('../../../../browser/media/positron-icon.svg');
+	display: block;
 }
 
 .gettingStartedContainer .welcome-page-section {
