@@ -80,7 +80,9 @@ jobs:
 
       # Update PYTHON env var according to build arch
       - name: Update runner ENV vars
-        id: update_runner_env
+        id: update_runner_env      
+        env:
+          npm_config_arch: ${{ matrix.arch }}      
         run: |
           echo "PYTHON=${{matrix.homebrew_folder}}/opt/python@3.10/libexec/bin" >> $GITHUB_ENV
 
@@ -132,6 +134,8 @@ jobs:
           node --version
           which yarn
           yarn --version
+          echo "--- PYTHON for (${{matrix.arch_terminal}})  node ---"
+          echo $PYTHON          
 
       # Install node_modules binaries.
       - name: Install dependencies
