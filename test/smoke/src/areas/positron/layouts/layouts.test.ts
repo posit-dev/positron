@@ -19,7 +19,7 @@ export function setup(logger: Logger) {
 
 		describe('Stacked Layout', () => {
 
-			it('Verify stacked layout puts stuff in appropriate places', async function () {
+			it('Verify stacked layout puts stuff in appropriate places [C656294]', async function () {
 
 				const app = this.app as Application;
 				const layouts = app.workbench.positronLayouts;
@@ -66,7 +66,7 @@ export function setup(logger: Logger) {
 
 		describe('Side-by-side Layout', () => {
 
-			it('Verify Side-by-side layout puts stuff in appropriate places', async function () {
+			it('Verify Side-by-side layout puts stuff in appropriate places [C656295]', async function () {
 
 				const app = this.app as Application;
 				const layouts = app.workbench.positronLayouts;
@@ -109,7 +109,7 @@ export function setup(logger: Logger) {
 
 		describe('Notebook Layout', () => {
 
-			it('Verify notebook layout puts stuff in appropriate places', async function () {
+			it('Verify notebook layout puts stuff in appropriate places [C656296]', async function () {
 
 				const app = this.app as Application;
 				const layouts = app.workbench.positronLayouts;
