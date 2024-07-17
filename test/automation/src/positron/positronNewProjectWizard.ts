@@ -8,10 +8,6 @@ import { Code } from '../code';
 import { QuickAccess } from '../quickaccess';
 import { PositronBaseElement, PositronTextElement } from './positronBaseElement';
 
-// Project Name & Location Step
-const PROJECT_WIZARD_PROJECT_NAME_INPUT =
-	'div[id="wizard-sub-step-project-name"] .wizard-sub-step-input input.text-input';
-
 // Selector for the currently open dropdown popup items in the project wizard
 const PROJECT_WIZARD_DROPDOWN_POPUP_ITEMS =
 	'div.positron-modal-popup-children button.positron-button.item';
@@ -93,16 +89,20 @@ class ProjectWizardProjectTypeStep {
 }
 
 class ProjectWizardProjectNameLocationStep {
-	projectNameInput: Locator;
+	projectNameInput = this.code.driver.getLocator(
+		'div[id="wizard-sub-step-project-name"] .wizard-sub-step-input input.text-input'
+	);
+	projectOptionCheckboxes = this.code.driver.getLocator(
+		'div[id="wizard-sub-step-misc-proj-options"] div.checkbox'
+	);
+	gitInitCheckbox = this.projectOptionCheckboxes.getByText(
+		'Initialize project as Git repository'
+	);
 
-	constructor(private code: Code) {
-		this.projectNameInput = this.code.driver.getLocator(
-			PROJECT_WIZARD_PROJECT_NAME_INPUT
-		);
-	}
+	constructor(private code: Code) { }
 
 	async appendToProjectName(text: string) {
-		await this.code.waitForActiveElement(PROJECT_WIZARD_PROJECT_NAME_INPUT);
+		await this.projectNameInput.waitFor();
 		await this.projectNameInput.page().keyboard.type(text);
 	}
 }
@@ -128,7 +128,7 @@ class ProjectWizardPythonConfigurationStep {
 
 	constructor(private code: Code) {
 		this.newEnvRadioButton = new PositronBaseElement(
-			'div[id="wizard-step-set-up-python-environment"] div[id="wizard-sub-step-pythonenvironment-howtosetupenv"] radio-button-input.[id="newEnvironment"]',
+			'div[id="wizard-step-set-up-python-environment"] div[id="wizard-sub-step-pythonenvironment-howtosetupenv"] .radio-button-input[id="newEnvironment"]',
 			this.code
 		);
 		this.existingEnvRadioButton = new PositronBaseElement(

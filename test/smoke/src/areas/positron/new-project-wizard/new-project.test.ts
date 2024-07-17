@@ -293,8 +293,45 @@ export function setup(logger: Logger) {
 				await pw.nextButton.click();
 				await pw.currentOrNewWindowSelectionModal.currentWindowButton.click();
 				await app.workbench.positronExplorer.explorerProjectTitle.waitForText('myJupyterNotebook');
-				// NOTE: For completeness, we probably want to await app.workbench.positronConsole.waitForReady('>>>', 10000);
-				// here, but it's timing out in CI, so it is not included for now.
+				await app.workbench.positronConsole.waitForReady('>>>', 10000);
+			});
+
+			it('Jupyter Project with git init [......]', async function () {
+				const projSuffix = '_gitInit';
+				const app = this.app as Application;
+				const pw = app.workbench.positronNewProjectWizard;
+				await pw.startNewProject();
+				await pw.projectTypeStep.jupyterNotebookButton.click();
+				await pw.nextButton.click();
+				await pw.projectNameLocationStep.appendToProjectName(projSuffix);
+
+				// Check the git init checkbox
+				await pw.projectNameLocationStep.gitInitCheckbox.waitFor();
+				await pw.projectNameLocationStep.gitInitCheckbox.setChecked(true);
+				await pw.nextButton.click();
+				await pw.disabledCreateButton.isNotVisible(500);
+				await pw.nextButton.click();
+
+				// Open the new project in the current window and wait for the console to be ready
+				await pw.currentOrNewWindowSelectionModal.currentWindowButton.click();
+				await app.workbench.positronExplorer.explorerProjectTitle.waitForText(
+					`myJupyterNotebook${projSuffix}`
+				);
+				await app.workbench.positronConsole.waitForReady('>>>', 10000);
+
+				// Verify git-related files are present
+				expect(async () => {
+					const projectFiles = await app.workbench.positronExplorer.getExplorerProjectFiles();
+					expect(projectFiles).toContain('.gitignore');
+					expect(projectFiles).toContain('README.md');
+					// Ideally, we'd check for the .git folder, but it's not visible in the Explorer
+					// by default due to the default `files.exclude` setting in the workspace.
+				}).toPass({ timeout: 10000 });
+
+				// Git status should show that we're on the main branch
+				await app.workbench.terminal.createTerminal();
+				await app.workbench.terminal.runCommandInTerminal('git status');
+				await app.workbench.terminal.waitForTerminalText(buffer => buffer.some(e => e.includes('On branch main')));
 			});
 
 		});
