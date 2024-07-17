@@ -108,7 +108,7 @@ export class PositronNotebookOutputWebviewService implements IPositronNotebookOu
 	}
 
 	/**
-	 * Gets the static preloads for a given extension.
+	 * Gets the static preloads for a given view type.
 	 */
 	private async getStaticPreloadsData(viewType: string | undefined):
 		Promise<StaticPreloadMetadata[]> {
@@ -125,6 +125,9 @@ export class PositronNotebookOutputWebviewService implements IPositronNotebookOu
 		});
 	}
 
+	/**
+	 * Gets the resource roots for a given message and view type.
+	 */
 	private getResourceRoots(
 		message: ILanguageRuntimeMessageWebOutput,
 		viewType: string | undefined,

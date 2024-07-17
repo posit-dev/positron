@@ -5,7 +5,6 @@
 
 import { Emitter, Event } from 'vs/base/common/event';
 import { Disposable } from 'vs/base/common/lifecycle';
-import { INotebookWebviewMessage } from 'vs/workbench/contrib/notebook/browser/notebookBrowser';
 import { FromWebviewMessage } from 'vs/workbench/contrib/notebook/browser/view/renderers/webviewMessages';
 import { INotebookOutputWebview } from 'vs/workbench/contrib/positronOutputWebview/browser/notebookOutputWebviewService';
 import { IOverlayWebview, } from 'vs/workbench/contrib/webview/browser/webview';
@@ -17,7 +16,6 @@ import { IOverlayWebview, } from 'vs/workbench/contrib/webview/browser/webview';
 export class NotebookOutputWebview extends Disposable implements INotebookOutputWebview {
 
 	private readonly _onDidRender = new Emitter<void>;
-	private readonly _onDidReceiveMessage = new Emitter<INotebookWebviewMessage>();
 
 	/**
 	 * Create a new notebook output webview.
@@ -36,9 +34,7 @@ export class NotebookOutputWebview extends Disposable implements INotebookOutput
 		super();
 
 		this.onDidRender = this._onDidRender.event;
-		this.onDidReceiveMessage = this._onDidReceiveMessage.event;
 		this._register(this._onDidRender);
-		this._register(this._onDidReceiveMessage);
 
 		this._register(webview.onMessage(e => {
 			const data: FromWebviewMessage | { readonly __vscode_notebook_message: undefined } = e.message;
@@ -51,24 +47,12 @@ export class NotebookOutputWebview extends Disposable implements INotebookOutput
 				case 'positronRenderComplete':
 					this._onDidRender.fire();
 					break;
-				case 'customKernelMessage':
-					this._onDidReceiveMessage.fire({ message: data.message });
-					break;
 			}
 
 		}));
 	}
 
 	onDidRender: Event<void>;
-	onDidReceiveMessage: Event<INotebookWebviewMessage>;
-
-	postMessage(message: unknown): void {
-		this.webview.postMessage({
-			__vscode_notebook_message: true,
-			type: 'customKernelMessage',
-			message
-		});
-	}
 
 	public override dispose(): void {
 		this.webview.dispose();
