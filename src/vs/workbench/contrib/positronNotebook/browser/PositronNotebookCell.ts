@@ -24,15 +24,12 @@ export abstract class PositronNotebookCellGeneral extends Disposable implements 
 	private _container: HTMLElement | undefined;
 	private _editor: CodeEditorWidget | undefined;
 
-
-
 	constructor(
 		public cellModel: NotebookCellTextModel,
 		public _instance: PositronNotebookInstance,
 		@ITextModelService private readonly textModelResolverService: ITextModelService,
 	) {
 		super();
-
 	}
 
 	get uri(): URI {
@@ -219,4 +216,58 @@ export function createNotebookCell(cell: NotebookCellTextModel, instance: Positr
 }
 
 
+/**
+ * Get the priority of a mime type for sorting purposes
+ * @param mime The mime type to get the priority of
+ * @returns A number representing the priority of the mime type. Lower numbers are higher priority.
+ */
+function getMimeTypePriority(mime: string): number {
+	if (mime.includes('application')) {
+		return 1;
+	}
 
+	switch (mime) {
+		case 'text/html':
+			return 2;
+		case 'image/png':
+			return 3;
+		case 'text/plain':
+			return 4;
+		default:
+			// Dont know what this is, so mark it as special so we know something went wrong
+			return -1;
+	}
+}
+
+/**
+ * Pick the output with the highest priority mime type from a cell output object
+ * @param outputs Array of outputs data from a cell output object
+ * @returns The output data with the highest priority mime type. If there's a tie, the first one is
+ * returned. If there's an unknown mime type, the first one is returned.
+ */
+export function pickPreferredOutput(outputs: NotebookCellOutputs['outputs']): NotebookCellOutputs['outputs'][number] | undefined {
+
+	if (outputs.length === 0) {
+		return undefined;
+	}
+	let preferredOutput = outputs[0];
+	let highestPriorty = getMimeTypePriority(preferredOutput.mime);
+
+	for (let i = 1; i < outputs.length; i++) {
+		const output = outputs[i];
+		const priority = getMimeTypePriority(output.mime);
+
+		if (priority < highestPriorty) {
+			preferredOutput = output;
+			highestPriorty = priority;
+		}
+	}
+
+	if (highestPriorty === -1) {
+		// There is an output that we don't have a defined priority for, so just fall back
+		// to returning the very first output.
+		return outputs[0];
+	}
+
+	return preferredOutput;
+}
