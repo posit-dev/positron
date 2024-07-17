@@ -22,10 +22,7 @@ export function setup(logger: Logger) {
 
 			before(async function () {
 
-				const app = this.app as Application;
-
-				const pythonFixtures = new PositronPythonFixtures(app);
-				await pythonFixtures.startPythonInterpreter();
+				await PositronPythonFixtures.SetupFixtures(this.app as Application);
 
 			});
 
@@ -72,10 +69,7 @@ export function setup(logger: Logger) {
 
 			before(async function () {
 
-				const app = this.app as Application;
-
-				const rFixtures = new PositronRFixtures(app);
-				await rFixtures.startRInterpreter();
+				await PositronRFixtures.SetupFixtures(this.app as Application);
 
 			});
 
