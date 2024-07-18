@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { createDecorator } from 'vs/platform/instantiation/common/instantiation';
-import { IOverlayWebview } from 'vs/workbench/contrib/webview/browser/webview';
+import { IOverlayWebview, IWebviewElement } from 'vs/workbench/contrib/webview/browser/webview';
 import { ILanguageRuntimeMessageOutput } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { ILanguageRuntimeSession } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
 import { Event } from 'vs/base/common/event';
@@ -15,7 +15,7 @@ export const IPositronNotebookOutputWebviewService =
 	createDecorator<IPositronNotebookOutputWebviewService>(
 		POSITRON_NOTEBOOK_OUTPUT_WEBVIEW_SERVICE_ID);
 
-export interface INotebookOutputWebview {
+export interface INotebookOutputWebview<WType extends IOverlayWebview | IWebviewElement = IOverlayWebview> {
 	/** The ID of the notebook output */
 	id: string;
 
@@ -23,7 +23,7 @@ export interface INotebookOutputWebview {
 	sessionId: string;
 
 	/** The webview containing the output's content */
-	webview: IOverlayWebview;
+	webview: WType;
 
 	/** Fired when the content completes rendering */
 	onDidRender: Event<void>;
@@ -33,6 +33,11 @@ export interface INotebookOutputWebview {
 	 * directly in the HTML content
 	 */
 	render?(): void;
+}
+
+export enum WebviewType {
+	Overlay,
+	Standard
 }
 
 export interface IPositronNotebookOutputWebviewService {
@@ -55,5 +60,20 @@ export interface IPositronNotebookOutputWebviewService {
 		output: ILanguageRuntimeMessageOutput,
 		viewType?: string,
 	): Promise<INotebookOutputWebview | undefined>;
+
+	/**
+	 * Create a new raw HTML output webview.
+	 *
+	 * @param opts The options for the webview
+	 * @param opts.id A unique ID for this webview; typically the ID of the message
+	 *  that created it.
+	 * @param opts.runtime The runtime that owns this webview.
+	 * @param opts.html The HTML content to render in the webview.
+	 * @param opts.webviewType The type of webview to create.
+	 * @returns A promise that resolves to the new webview of the desired type.
+	 */
+	createRawHtmlOutput<WType extends WebviewType>(opts: { id: string; runtime?: ILanguageRuntimeSession; html: string; webviewType: WType }): Promise<
+		INotebookOutputWebview<WType extends WebviewType.Overlay ? IOverlayWebview : IWebviewElement>
+	>;
 }
 
