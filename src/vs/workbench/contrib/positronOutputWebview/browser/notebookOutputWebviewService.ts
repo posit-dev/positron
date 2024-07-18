@@ -8,6 +8,7 @@ import { IOverlayWebview, IWebviewElement } from 'vs/workbench/contrib/webview/b
 import { ILanguageRuntimeMessageOutput } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { ILanguageRuntimeSession } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
 import { Event } from 'vs/base/common/event';
+import { INotebookWebviewMessage } from 'vs/workbench/contrib/notebook/browser/notebookBrowser';
 
 export const POSITRON_NOTEBOOK_OUTPUT_WEBVIEW_SERVICE_ID = 'positronNotebookOutputWebview';
 
@@ -27,6 +28,10 @@ export interface INotebookOutputWebview<WType extends IOverlayWebview | IWebview
 
 	/** Fired when the content completes rendering */
 	onDidRender: Event<void>;
+
+	onDidReceiveMessage: Event<INotebookWebviewMessage>;
+
+	postMessage(message: unknown): void;
 
 	/**
 	 * Optional method to render the output in the webview rather than doing so

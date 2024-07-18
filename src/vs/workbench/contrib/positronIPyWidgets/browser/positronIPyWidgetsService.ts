@@ -2,189 +2,345 @@
  *  Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
-
-import { Disposable } from 'vs/base/common/lifecycle';
-import { ILanguageRuntimeMessageOutput, PositronOutputLocation, RuntimeOutputKind } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
-import { ILanguageRuntimeSession, IRuntimeSessionService, RuntimeClientType } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
+import { Disposable, DisposableStore } from 'vs/base/common/lifecycle';
+import { LanguageRuntimeSessionMode, RuntimeOutputKind, RuntimeState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { ILanguageRuntimeSession, IRuntimeClientInstance, IRuntimeSessionService, RuntimeClientType } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
 import { Emitter, Event } from 'vs/base/common/event';
-import { generateUuid } from 'vs/base/common/uuid';
-import { IPositronIPyWidgetsService, IPositronIPyWidgetMetadata, IPyWidgetHtmlData } from 'vs/workbench/services/positronIPyWidgets/common/positronIPyWidgetsService';
-import { IPyWidgetClientInstance, DisplayWidgetEvent } from 'vs/workbench/services/languageRuntime/common/languageRuntimeIPyWidgetClient';
+import { IPositronIPyWidgetsService } from 'vs/workbench/services/positronIPyWidgets/common/positronIPyWidgetsService';
+import { INotebookEditorService } from 'vs/workbench/contrib/notebook/browser/services/notebookEditorService';
+import { isEqual } from 'vs/base/common/resources';
+import { ILogService } from 'vs/platform/log/common/log';
+import { FromWebviewMessage, ICommOpenFromWebview, ToWebviewMessage } from '../../../services/languageRuntime/common/positronIPyWidgetsWebviewMessages';
 import { IPositronNotebookOutputWebviewService } from 'vs/workbench/contrib/positronOutputWebview/browser/notebookOutputWebviewService';
-import { WidgetPlotClient } from 'vs/workbench/contrib/positronPlots/browser/widgetPlotClient';
+import { WebviewPlotClient } from 'vs/workbench/contrib/positronPlots/browser/webviewPlotClient';
+import { IIPyWidgetsWebviewMessaging, IPyWidgetClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimeIPyWidgetClient';
+import { INotebookRendererMessagingService } from 'vs/workbench/contrib/notebook/common/notebookRendererMessagingService';
 
-export interface IPositronIPyWidgetCommOpenData {
-	state: {
-		// required widget properties
-		_model_module: string;
-		_model_module_version: string;
-		_model_name: string;
-		_view_module: string;
-		_view_module_version: string;
-		_view_name: string;
-		_view_count: number;
-		// additional properties depending on the widget
-		[key: string]: any;
-	};
-	buffer_paths: string[];
-}
+/**
+ * The PositronIPyWidgetsService is responsible for managing IPyWidgetsInstances.
+ */
 export class PositronIPyWidgetsService extends Disposable implements IPositronIPyWidgetsService {
 	/** Needed for service branding in dependency injector. */
 	declare readonly _serviceBrand: undefined;
 
-	/** The list of IPyWidgets. */
-	private readonly _widgets = new Map<string, IPyWidgetClientInstance>();
+	/** Map of notebook IPyWidgetsInstances keyed by notebook session ID. */
+	private readonly _notebookInstancesBySessionId = new Map<string, IPyWidgetsInstance>();
+
+	/** Map of console IPyWidgetsInstances keyed by the language runtime output message ID that initiated the instance. */
+	private readonly _consoleInstancesByMessageId = new Map<string, IPyWidgetsInstance>();
 
 	/** The emitter for the onDidCreatePlot event */
-	private readonly _onDidCreatePlot = new Emitter<WidgetPlotClient>();
+	private readonly _onDidCreatePlot = new Emitter<WebviewPlotClient>();
 
-	/** Creates the Positron plots service instance */
+	/** Emitted when a new IPyWidgets webview plot is created. */
+	onDidCreatePlot: Event<WebviewPlotClient> = this._onDidCreatePlot.event;
+
+	/**
+	 * @param _runtimeSessionService The runtime session service.
+	 * @param _notebookEditorService The notebook editor service.
+	 * @param _notebookRendererMessagingService The notebook renderer messaging service.
+	 * @param _logService The log service.
+	 */
 	constructor(
 		@IRuntimeSessionService private _runtimeSessionService: IRuntimeSessionService,
-		@IPositronNotebookOutputWebviewService private _notebookOutputWebviewService: IPositronNotebookOutputWebviewService
+		@INotebookEditorService private _notebookEditorService: INotebookEditorService,
+		@INotebookRendererMessagingService private _notebookRendererMessagingService: INotebookRendererMessagingService,
+		@IPositronNotebookOutputWebviewService private _notebookOutputWebviewService: IPositronNotebookOutputWebviewService,
+		@ILogService private _logService: ILogService,
 	) {
 		super();
 
-		// Register for language runtime service startups
-		this._register(this._runtimeSessionService.onDidStartRuntime((session) => {
-			this.attachRuntime(session);
+		// Attach to existing sessions.
+		this._runtimeSessionService.activeSessions.forEach(session => {
+			this.attachSession(session);
+		});
+
+		// Attach to new sessions.
+		this._register(this._runtimeSessionService.onWillStartSession((event) => {
+			this.attachSession(event.session);
 		}));
 	}
 
-	private registerIPyWidgetClient(widgetClient: IPyWidgetClientInstance,
-		runtime: ILanguageRuntimeSession) {
-		// Add to our list of widgets
-		this._widgets.set(widgetClient.id, widgetClient);
-
-		// Raise the plot if it's updated by the runtime
-		widgetClient.onDidEmitDisplay((event) => {
-			this.handleDisplayEvent(event, runtime);
-		});
-
-		// Listen for the widget client to be disposed (i.e. by the plots service via the
-		// widgetPlotClient) and make sure to remove it fully from the widget service
-		widgetClient.onDidDispose(() => {
-			this._widgets.delete(widgetClient.id);
-		});
-
-		this._register(widgetClient);
-	}
-
-	private attachRuntime(runtime: ILanguageRuntimeSession) {
-		// Get the list of existing widget clients; these are expected in the
-		// case of reconnecting to a running language runtime
-		runtime.listClients(RuntimeClientType.IPyWidget).then(clients => {
-			const widgetClients: Array<IPyWidgetClientInstance> = [];
-			clients.forEach((client) => {
-				if (client.getClientType() === RuntimeClientType.IPyWidget) {
-					if (this.hasWidget(runtime.runtimeMetadata.runtimeId, client.getClientId())) {
-						return;
-					}
-				} else {
-					console.warn(
-						`Unexpected client type ${client.getClientType()} ` +
-						`(expected ${RuntimeClientType.IPyWidget})`);
-				}
-			});
-
-			widgetClients.forEach((client) => {
-				this.registerIPyWidgetClient(client, runtime);
-			});
-		});
-
-		this._register(runtime.onDidCreateClientInstance((event) => {
-			if (event.client.getClientType() === RuntimeClientType.IPyWidget) {
-				const clientId = event.client.getClientId();
-
-				// Check to see if we we already have a widget client for this
-				// client ID. If so, we don't need to do anything.
-				if (this.hasWidget(runtime.runtimeMetadata.runtimeId, clientId)) {
-					return;
-				}
-
-				const data = event.message.data as IPositronIPyWidgetCommOpenData;
-
-				// Create the metadata object
-				const metadata: IPositronIPyWidgetMetadata = {
-					id: clientId,
-					runtime_id: runtime.runtimeMetadata.runtimeId,
-					widget_state: {
-						model_name: data.state._model_name,
-						model_module: data.state._model_module,
-						model_module_version: data.state._model_module_version,
-						state: data.state
-					}
-				};
-
-				// Register the widget client and update the list of primary widgets
-				const widgetClient = new IPyWidgetClientInstance(event.client, metadata);
-				this.registerIPyWidgetClient(widgetClient, runtime);
-			}
-		}));
-	}
-
-	private async handleDisplayEvent(event: DisplayWidgetEvent, runtime: ILanguageRuntimeSession) {
-		const primaryWidgets = event.view_ids;
-
-		// Combine our existing list of widgets into a single WidgetPlotClient
-		const htmlData = new IPyWidgetHtmlData(this.positronWidgetInstances);
-
-		primaryWidgets.forEach(widgetId => {
-			htmlData.addWidgetView(widgetId);
-		});
-
-		// None of these required fields get used except for data, so we generate a random id and
-		// provide reasonable placeholders for the rest
-		const widgetMessage = {
-			id: generateUuid(),
-			type: 'output',
-			event_clock: 0,
-			parent_id: '',
-			when: new Date().toISOString(),
-			output_location: PositronOutputLocation.Plot,
-			kind: RuntimeOutputKind.IPyWidget,
-			data: htmlData.data,
-		} as ILanguageRuntimeMessageOutput;
-
-		const webview = await this._notebookOutputWebviewService.createNotebookOutputWebview(
-			runtime, widgetMessage);
-		if (webview) {
-			const widgetViewIds = Array.from(primaryWidgets);
-			const managedWidgets = widgetViewIds.flatMap((widgetId: string) => {
-				const widget = this._widgets.get(widgetId)!;
-				const dependentWidgets = widget.dependencies.map((dependentWidgetId: string) => {
-					return this._widgets.get(dependentWidgetId)!;
-				});
-				return [widget, ...dependentWidgets];
-			});
-			const plotClient = new WidgetPlotClient(webview, widgetMessage, managedWidgets);
-			this._onDidCreatePlot.fire(plotClient);
+	private attachSession(session: ILanguageRuntimeSession) {
+		switch (session.metadata.sessionMode) {
+			case LanguageRuntimeSessionMode.Console:
+				this.attachConsoleSession(session);
+				break;
+			case LanguageRuntimeSessionMode.Notebook:
+				this.attachNotebookSession(session);
+				break;
 		}
 	}
 
-	/**
-	 * Checks to see whether the service has a widget with the given ID and runtime ID.
-	 *
-	 * @param runtimeId The runtime ID that generated the widget.
-	 * @param widgetId The widget's unique ID.
-	 */
-	private hasWidget(runtimeId: string, widgetId: string): boolean {
-		return (
-			this._widgets.has(widgetId) &&
-			this._widgets.get(widgetId)!.metadata.runtime_id === runtimeId
-		);
+	private attachConsoleSession(session: ILanguageRuntimeSession) {
+		const disposableStore = new DisposableStore();
+
+		disposableStore.add(session.onDidReceiveRuntimeMessageOutput(async (message) => {
+			// Only handle IPyWidget output messages.
+			if (message.kind !== RuntimeOutputKind.IPyWidget) {
+				return;
+			}
+
+			// Create a webview to display the widget.
+			const webview = await this._notebookOutputWebviewService.createNotebookOutputWebview(
+				session, message, 'jupyter-notebook');
+
+			if (!webview) {
+				throw new Error(`Could not create webview for IPyWidget message: ${JSON.stringify(message)}`);
+			}
+
+			// Create the ipywidgets instance.
+			const ipywidgetsInstance = new IPyWidgetsInstance(
+				session,
+				webview.id,
+				this._notebookRendererMessagingService,
+				this._logService,
+			);
+			this._consoleInstancesByMessageId.set(message.id, ipywidgetsInstance);
+			disposableStore.add(ipywidgetsInstance);
+
+			// Unregister the instance when the session is disposed.
+			disposableStore.add({
+				dispose: () => {
+					this._consoleInstancesByMessageId.delete(message.id);
+				}
+			});
+
+			// TODO: We probably need to dispose in more cases...
+
+			// Fire the onDidCreatePlot event.
+			const client = new WebviewPlotClient(webview, message);
+			this._onDidCreatePlot.fire(client);
+		}));
+
+		// Dispose when the session ends.
+		disposableStore.add(session.onDidEndSession((e) => {
+			disposableStore.dispose();
+		}));
 	}
 
-	onDidCreatePlot: Event<WidgetPlotClient> = this._onDidCreatePlot.event;
+	private attachNotebookSession(session: ILanguageRuntimeSession) {
+		// Find the session's notebook editor by its notebook URI.
+		const notebookEditor = this._notebookEditorService.listNotebookEditors().find(
+			(editor) => isEqual(session.metadata.notebookUri, editor.textModel?.uri));
 
-	// Gets the individual widget client instances.
-	get positronWidgetInstances(): IPyWidgetClientInstance[] {
-		return Array.from(this._widgets.values());
+		if (!notebookEditor) {
+			this._logService.error(`Could not find a notebook editor for session '${session.sessionId}'`);
+			return;
+		}
+
+		this._logService.debug(`Found an existing notebook editor for session '${session.sessionId}, starting ipywidgets instance`);
+
+		const disposableStore = new DisposableStore();
+
+		// We found a matching notebook editor, create an ipywidgets instance.
+		const ipywidgetsInstance = new IPyWidgetsInstance(
+			session,
+			notebookEditor.getId(),
+			this._notebookRendererMessagingService,
+			this._logService,
+		);
+		this._notebookInstancesBySessionId.set(session.sessionId, ipywidgetsInstance);
+		disposableStore.add(ipywidgetsInstance);
+
+		// Unregister the instance when the session is disposed.
+		disposableStore.add({
+			dispose: () => {
+				this._notebookInstancesBySessionId.delete(session.sessionId);
+			},
+		});
+
+		// Dispose when the notebook text model changes.
+		disposableStore.add(notebookEditor.onDidChangeModel((e) => {
+			if (isEqual(session.metadata.notebookUri, e?.uri)) {
+				return;
+			}
+			this._logService.debug(`Editor model changed for session '${session.sessionId}, disposing ipywidgets instance`);
+			disposableStore.dispose();
+		}));
+
+		// Dispose when the notebook editor is removed.
+		disposableStore.add(this._notebookEditorService.onDidRemoveNotebookEditor((e) => {
+			if (e !== notebookEditor) {
+				return;
+			}
+			this._logService.debug(`Notebook editor removed for session '${session.sessionId}, disposing ipywidgets instance`);
+			disposableStore.dispose();
+		}));
+
+		// Dispose when the session ends.
+		disposableStore.add(session.onDidEndSession((e) => {
+			disposableStore.dispose();
+		}));
 	}
 
 	/**
 	 * Placeholder for service initialization.
 	 */
 	initialize() {
+	}
+}
+
+class IPyWidgetsInstance extends Disposable {
+
+	/** Map of IPyWidget runtime clients (aka comms), keyed by client ID. */
+	private readonly _clients = new Map<string, IPyWidgetClientInstance>();
+
+	/** The IPyWidgets webview messaging interface. */
+	private readonly _messaging: IIPyWidgetsWebviewMessaging;
+
+	/**
+	 * @param session The language runtime session.
+	 * @param editorId The editor ID for which the IPyWidgets instance is created.
+	 * @param _notebookRendererMessagingService The notebook renderer messaging service.
+	 * @param _logService The log service.
+	 */
+	constructor(
+		private readonly _session: ILanguageRuntimeSession,
+		editorId: string,
+		notebookRendererMessagingService: INotebookRendererMessagingService,
+		private readonly _logService: ILogService,
+	) {
+		super();
+
+		// Create the IPyWidgets webview messaging interface.
+		this._messaging = new IPyWidgetsWebviewMessaging(editorId, notebookRendererMessagingService);
+
+		// Configure existing widget clients.
+		if (_session.getRuntimeState() !== RuntimeState.Uninitialized) {
+			_session.listClients(RuntimeClientType.IPyWidget).then((clients) => {
+				for (const client of clients) {
+					this.createClient(client);
+				}
+			});
+		}
+
+		// Forward comm_open messages from the runtime to the webview.
+		this._register(_session.onDidCreateClientInstance(({ client, message }) => {
+			// Only handle IPyWidget clients.
+			if (client.getClientType() !== RuntimeClientType.IPyWidget &&
+				client.getClientType() !== RuntimeClientType.IPyWidgetControl) {
+				return;
+			}
+
+			// Create and register the client.
+			this.createClient(client);
+
+			// Notify the webview about the new client instance.
+			this._messaging.postMessage({
+				type: 'comm_open',
+				comm_id: client.getClientId(),
+				target_name: client.getClientType(),
+				data: message.data,
+				metadata: message.metadata,
+			});
+		}));
+
+		// Handle messages from the webview.
+		this._register(this._messaging.onDidReceiveMessage(async (message) => {
+			switch (message.type) {
+				case 'initialize_request': {
+					await this.sendInitializeResultToWebview();
+					break;
+				}
+				case 'comm_open':
+					this.handleCommOpenFromWebview(message);
+					break;
+			}
+		}));
+
+		// Notify the webview that we're ready - in case we initialized after the webview.
+		// Otherwise, we'll reply to its initialize_request message.
+		this.sendInitializeResultToWebview().catch((e) => {
+			this._logService.error(`Error sending ready message to webview: ${e.message}`);
+		});
+	}
+
+	private createClient(client: IRuntimeClientInstance<any, any>) {
+		// Determine the list of RPC methods by client type.
+		let rpcMethods: string[];
+		switch (client.getClientType()) {
+			case RuntimeClientType.IPyWidget:
+				rpcMethods = ['update'];
+				break;
+			case RuntimeClientType.IPyWidgetControl:
+				rpcMethods = ['request_states'];
+				break;
+			default:
+				throw new Error(`Unexpected client type: ${client.getClientType()}`);
+		}
+
+		// Create the IPyWidget client.
+		const ipywidgetsClient = new IPyWidgetClientInstance(
+			client,
+			this._messaging,
+			this._logService,
+			rpcMethods,
+		);
+		this._clients.set(client.getClientId(), ipywidgetsClient);
+
+		// Unregister the client when it is closed.
+		this._register(ipywidgetsClient.onDidClose(() => {
+			this._clients.delete(client.getClientId());
+		}));
+	}
+
+	private async sendInitializeResultToWebview() {
+		this._messaging.postMessage({ type: 'initialize_result' });
+	}
+
+	private async handleCommOpenFromWebview(message: ICommOpenFromWebview) {
+		// Only handle IPyWidget control clients.
+		if (message.target_name !== RuntimeClientType.IPyWidgetControl) {
+			return;
+		}
+
+		// Create the client.
+		const client = await this._session.createClient(
+			RuntimeClientType.IPyWidgetControl, message.data, message.metadata, message.comm_id);
+		this.createClient(client);
+	}
+}
+
+/**
+ * IPyWidgetsWebviewMessaging is used to communicate with an IPyWidgets renderer.
+ */
+class IPyWidgetsWebviewMessaging extends Disposable implements IIPyWidgetsWebviewMessaging {
+	/** The renderer ID for which messages are scoped. */
+	private readonly _rendererId = 'positron-ipywidgets';
+
+	private readonly _messageEmitter = new Emitter<FromWebviewMessage>();
+
+	/** Emitted when a message is received from the renderer. */
+	onDidReceiveMessage = this._messageEmitter.event;
+
+	/**
+	 * @param _editorId The editor ID for which renderer messages are scoped.
+	 * @param _notebookRendererMessagingService The notebook renderer messaging service.
+	 */
+	constructor(
+		private readonly _editorId: string,
+		private readonly _notebookRendererMessagingService: INotebookRendererMessagingService,
+	) {
+		super();
+
+		// Emit messages from the renderer.
+		this._register(_notebookRendererMessagingService.onShouldPostMessage(event => {
+			if (event.editorId !== this._editorId || event.rendererId !== this._rendererId) {
+				return;
+			}
+			this._messageEmitter.fire(event.message as FromWebviewMessage);
+		}));
+	}
+
+	/**
+	 * Send a message from the editor to the renderer.
+	 *
+	 * @param message The message.
+	 */
+	postMessage(message: ToWebviewMessage) {
+		this._notebookRendererMessagingService.receiveMessage(
+			this._editorId, this._rendererId, message
+		);
 	}
 }

@@ -6,158 +6,131 @@
 import { Disposable } from 'vs/base/common/lifecycle';
 import { Emitter, Event } from 'vs/base/common/event';
 import { IRuntimeClientInstance, RuntimeClientState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeClientInstance';
-import { IPositronIPyWidgetClient, IPositronIPyWidgetMetadata } from 'vs/workbench/services/positronIPyWidgets/common/positronIPyWidgetsService';
-import { ILanguageRuntimeMessageCommData } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { FromWebviewMessage, ICommMessageFromWebview, ToWebviewMessage } from 'vs/workbench/services/languageRuntime/common/positronIPyWidgetsWebviewMessages';
+import { ILogService } from 'vs/platform/log/common/log';
 
 /**
- * The possible types of messages that can be sent from the widget frontend to the language runtime.
- * These are defined by ipywidgets (protocol version 2), we just inherit them.
- * https://github.com/jupyter-widgets/ipywidgets/blob/52663ac472c38ba12575dfb4979fa2d250e79bc3/packages/schema/messages.md#state-synchronization-1
+ * Interface for communicating with an IPyWidgets webview.
  */
-export enum IPyWidgetClientMethodInput {
-	/** When a widget's state (partially) changes in the frontend, notify the kernel */
-	Update = 'update',
-
-	/** When a frontend wants to request the full state of a widget from the kernel */
-	RequestState = 'request_state',
+export interface IIPyWidgetsWebviewMessaging {
+	onDidReceiveMessage: Event<FromWebviewMessage>;
+	postMessage(message: ToWebviewMessage): void;
 }
 
 /**
- * The possible types of messages that can be sent from the language runtime to the widget frontend.
- * This does not include the comm_open message, which is handled separately.
- * These are defined by ipywidgets (protocol version 2), we just inherit them
- * https://github.com/jupyter-widgets/ipywidgets/blob/52663ac472c38ba12575dfb4979fa2d250e79bc3/packages/schema/messages.md#state-synchronization-1
- */
-export enum IPyWidgetClientMethodOutput {
-	/** When a widget's state (partially) changes in the kernel, notify the frontend */
-	Update = 'update',
+ * An IPyWidgetClientInstance is responsible for routing messages to/from an IPyWidgets webview and a runtime client.
+*/
+export class IPyWidgetClientInstance extends Disposable {
+	private readonly _closeEmitter = new Emitter<void>();
 
+	/** Whether the client is closed. */
+	private _closed = false;
 
-	/** Widgets may also send custom comm messages to their counterpart. */
-	Custom = 'custom',
-}
+	/** Emitted when the runtime client is closed. */
+	onDidClose = this._closeEmitter.event;
 
-export enum IPyWidgetClientMessageTypeOutput {
-	/** When a kernel is ready to display the widget in the UI, notify the frontend */
-	Display = 'display',
-}
-
-/**
- * A message used to deliver data from the frontend to the backend.
- */
-export interface IPyWidgetClientMessageInput extends ILanguageRuntimeMessageCommData {
-	method?: IPyWidgetClientMethodInput;
-}
-
-/**
- * A message used to deliver data from the backend to the frontend.
- */
-export interface IPyWidgetClientMessageOutput extends ILanguageRuntimeMessageCommData {
-	msg_type?: IPyWidgetClientMessageTypeOutput;
-	method?: IPyWidgetClientMethodOutput;
-}
-
-
-export interface DisplayWidgetEvent {
-	/** An array containing the IDs of widgets to be included in the view. */
-	view_ids: string[];
-}
-
-/**
- * A message requesting a widget be displayed in the Plots pane.
- */
-export interface IPyWidgetClientMessageDisplay
-	extends IPyWidgetClientMessageOutput, DisplayWidgetEvent { }
-
-export interface IPyWidgetClientMessageOutputUpdate extends IPyWidgetClientMessageOutput {
-	state: Record<string, any>;
-	buffer_paths: string[];
-}
-
-/**
- * An IPyWidget client instance.
- */
-export class IPyWidgetClientInstance extends Disposable implements IPositronIPyWidgetClient {
-
-	/** Event that fires when the widget is closed on the runtime side. */
-	private readonly _onDidClose = new Emitter<void>();
-	readonly onDidClose: Event<void> = this._onDidClose.event;
-
-	private readonly _onDidDispose = new Emitter<void>();
-	readonly onDidDispose: Event<void> = this._onDidDispose.event;
-
-	/** The emitter for runtime client events. */
-	private readonly _onDidEmitDisplay = this._register(new Emitter<DisplayWidgetEvent>());
-	readonly onDidEmitDisplay: Event<DisplayWidgetEvent>;
-
-	/** Creates the IPyWidget client instance */
+	/**
+	 * @param _client The wrapped runtime client instance.
+	 * @param _messaging The IPyWidgets webview messaging interface.
+	 * @param _logService The log service.
+	 * @param _rpcMethods A list of methods that should be treated as RPCs. Other methods will be
+	 *   sent as fire-and-forget messages.
+	 */
 	constructor(
-		private readonly _client: IRuntimeClientInstance<IPyWidgetClientMessageInput, IPyWidgetClientMessageOutput>,
-		public metadata: IPositronIPyWidgetMetadata) {
-
+		private readonly _client: IRuntimeClientInstance<any, any>,
+		private readonly _messaging: IIPyWidgetsWebviewMessaging,
+		private readonly _logService: ILogService,
+		private readonly _rpcMethods: string[],
+	) {
 		super();
-		const clientStateEvent = Event.fromObservable(this._client.clientState);
-		clientStateEvent((state) => {
-			if (state === RuntimeClientState.Closed) {
-				this._onDidClose.fire();
+
+		// Forward messages from the webview to the runtime client.
+		this._register(_messaging.onDidReceiveMessage(async (message) => {
+			// Only handle messages for this client.
+			if (!('comm_id' in message) || message.comm_id !== this._client.getClientId()) {
+				return;
 			}
-		});
 
-		this._register(this._client);
-
-		this._register(this._client.onDidReceiveData(data => this.handleData(data)));
-
-		this.onDidEmitDisplay = this._onDidEmitDisplay.event;
-		this.onDidClose = this._onDidClose.event;
-	}
-
-	/**
-	 * Handles data received from the backend.
-	 *
-	 * @param data Data received from the backend.
-	 */
-	private handleData(data: IPyWidgetClientMessageOutput): void {
-		if (data.msg_type === IPyWidgetClientMessageTypeOutput.Display) {
-			this._onDidEmitDisplay.fire(data as IPyWidgetClientMessageDisplay);
-			return;
-		}
-		if (data.method === IPyWidgetClientMethodOutput.Update) {
-			// When the server notifies us that a widget update has occurred,
-			// we need to update the widget's state in the frontend.
-			const updateMessage = data as IPyWidgetClientMessageOutputUpdate;
-			this.metadata.widget_state.state = { ...this.metadata.widget_state.state, ...updateMessage.state };
-		}
-		// TODO: Handle custom messages
-	}
-
-	/**
-	 * Returns a list of IDs of widgets that this widget depends on.
-	 */
-	get dependencies(): string[] {
-
-		const stateValues = Object.values(this.state);
-		const dependencies: string[] = [];
-		stateValues.forEach((value: any) => {
-			if (typeof value === 'string' && value.startsWith('IPY_MODEL_')) {
-				dependencies.push(value.substring('IPY_MODEL_'.length));
+			switch (message.type) {
+				case 'comm_close':
+					this.handleCommCloseFromWebview();
+					break;
+				case 'comm_msg':
+					this.handleCommMessageFromWebview(message);
+					break;
+				default:
+					this._logService.warn(
+						`Unhandled message from webview for client ${this._client.getClientId()}: `
+						+ JSON.stringify(message)
+					);
+					break;
 			}
-		});
-		return dependencies;
+		}));
+
+		// Forward messages from the runtime client to the webview.
+		this._register(_client.onDidReceiveData(data => {
+			this._logService.trace('RECV comm_msg:', data);
+
+			switch (data.method) {
+				case 'update':
+					this._messaging.postMessage({
+						type: 'comm_msg',
+						comm_id: this._client.getClientId(),
+						data: data,
+					});
+					break;
+				default:
+					this._logService.warn(
+						`Unhandled message from client ${this._client.getClientId()} for webview: `
+						+ JSON.stringify(data)
+					);
+					break;
+			}
+		}));
+
+		// When the client is closed, notify the webview and emit the close event.
+		const stateChangeEvent = Event.fromObservable(_client.clientState);
+		this._register(stateChangeEvent(state => {
+			if (!this._closed && state === RuntimeClientState.Closed) {
+				this._closed = true;
+				this._messaging.postMessage({
+					type: 'comm_close',
+					comm_id: this._client.getClientId(),
+				});
+				this._closeEmitter.fire();
+			}
+		}));
 	}
 
-	get state() {
-		return this.metadata.widget_state.state;
+	private async handleCommCloseFromWebview() {
+		// Mark the client as closed, so we don't send another comm_close to the webview.
+		this._closed = true;
+
+		// Dispose the client when the webview requests it.
+		this._client.dispose();
 	}
 
-	/**
-	 * Returns the widget's unique ID.
-	 */
-	get id(): string {
-		return this.metadata.id;
-	}
+	private async handleCommMessageFromWebview(message: ICommMessageFromWebview) {
+		const data = message.data as any;
+		if (
+			data.method !== undefined &&
+			this._rpcMethods.includes(data.method)) {
+			// It's a known RPC request, perform the RPC with the client.
+			this._logService.trace('SEND comm_msg:', data);
+			const reply = await this._client.performRpc(data, 5000);
 
-	override dispose(): void {
-		super.dispose();
-		this._onDidDispose.fire();
+			// Forward the output to the webview.
+			this._logService.trace('RECV comm_msg:', reply);
+			this._messaging.postMessage({
+				type: 'comm_msg',
+				comm_id: this._client.getClientId(),
+				data: reply,
+				parent_id: message.msg_id,
+			});
+		} else {
+			// It's not a known RPC request, send a fire-and-forget message to the client.
+			this._logService.trace('SEND comm_msg:', data);
+			this._client.sendMessage(message.data);
+		}
 	}
 }

@@ -783,9 +783,10 @@ export class NotebookService extends Disposable implements INotebookService {
 	 * @returns A NotebookOutputRendererInfo or undefined if no renderer could
 	 *   be found for the mime type.
 	 */
-	getPreferredRenderer(mimeType: string): NotebookOutputRendererInfo | undefined {
+	getPreferredRenderer(mimeType: string, viewType?: string): NotebookOutputRendererInfo | undefined {
+		const notebookProviderInfo = viewType !== undefined ? this.notebookProviderInfoStore.get(viewType) : undefined;
 		const renderers = this._notebookRenderersInfoStore.findBestRenderers(
-			undefined, mimeType, undefined);
+			notebookProviderInfo, mimeType, undefined);
 		if (renderers.length === 0) {
 			return undefined;
 		}
