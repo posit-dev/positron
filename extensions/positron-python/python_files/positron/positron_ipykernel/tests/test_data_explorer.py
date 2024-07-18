@@ -2180,6 +2180,19 @@ def _assert_close(expected, actual):
         assert np.abs(actual - expected) < EPSILON
 
 
+def assert_summary_stats_equal(display_type, result, ex_result):
+    if display_type == ColumnDisplayType.Number:
+        _assert_numeric_stats_equal(ex_result, result["number_stats"])
+    elif display_type == ColumnDisplayType.String:
+        _assert_string_stats_equal(ex_result, result["string_stats"])
+    elif display_type == ColumnDisplayType.Boolean:
+        _assert_boolean_stats_equal(ex_result, result["boolean_stats"])
+    elif display_type == ColumnDisplayType.Date:
+        _assert_date_stats_equal(ex_result, result["date_stats"])
+    elif display_type == ColumnDisplayType.Datetime:
+        _assert_datetime_stats_equal(ex_result, result["datetime_stats"])
+
+
 def _assert_numeric_stats_equal(expected, actual):
     all_stats = {"min_value", "max_value", "mean", "median", "stdev"}
     for attr, value in expected.items():
@@ -2413,18 +2426,7 @@ def test_pandas_profile_summary_stats(dxf: DataExplorerFixture):
         results = dxf.get_column_profiles(table_name, profiles, format_options=format_options)
 
         stats = results[0]["summary_stats"]
-        ui_type = stats["type_display"]
-
-        if ui_type == ColumnDisplayType.Number:
-            _assert_numeric_stats_equal(ex_result, stats["number_stats"])
-        elif ui_type == ColumnDisplayType.String:
-            _assert_string_stats_equal(ex_result, stats["string_stats"])
-        elif ui_type == ColumnDisplayType.Boolean:
-            _assert_boolean_stats_equal(ex_result, stats["boolean_stats"])
-        elif ui_type == ColumnDisplayType.Date:
-            _assert_date_stats_equal(ex_result, stats["date_stats"])
-        elif ui_type == ColumnDisplayType.Datetime:
-            _assert_datetime_stats_equal(ex_result, stats["datetime_stats"])
+        assert_summary_stats_equal(stats["type_display"], stats, ex_result)
 
 
 # ----------------------------------------------------------------------
@@ -2573,7 +2575,7 @@ def test_polars_get_state(dxf: DataExplorerFixture):
         ),
         ColumnProfileTypeSupportStatus(
             profile_type="summary_stats",
-            support_status=SupportStatus.Unsupported,
+            support_status=SupportStatus.Experimental,
         ),
     ]
 
@@ -3013,3 +3015,136 @@ def test_polars_profile_null_counts(dxf: DataExplorerFixture):
         ex_results = [ColumnProfileResult(null_count=count) for count in ex_results]
 
         assert results == ex_results
+
+
+def test_polars_profile_summary_stats(dxf: DataExplorerFixture):
+    arr = np.random.standard_normal(100)
+    arr_with_nulls = arr.copy().astype(object)
+    arr_with_nulls[::10] = None
+    arr_with_nulls = list(arr_with_nulls)
+
+    df1 = pl.DataFrame(
+        {
+            "f0": arr,
+            "f1": arr_with_nulls,
+            "f2": [False, False, False, True, None] * 20,
+            "f3": [
+                "foo",
+                "",
+                "baz",
+                "qux",
+                "foo",
+                None,
+                "bar",
+                "",
+                "bar",
+                "zzz",
+            ]
+            * 10,
+            "f4": pl.Series(
+                pd.date_range("2000-01-01", freq="D", periods=100),
+                dtype=pl.Date,
+            ),  # date column
+            "f5": pl.Series(
+                list(pd.date_range("2000-01-01", freq="2h", periods=100)),
+                dtype=pl.Datetime("us"),
+            ),  # datetime no tz
+            "f6": pl.Series(
+                list(pd.date_range("2000-01-01", freq="2h", periods=100)),
+                dtype=pl.Datetime("ms", time_zone="US/Eastern"),
+            ),  # datetime single tz
+            "f7": [np.nan, np.inf, -np.inf, 0, np.nan] * 20,  # with infinity
+        }
+    )
+
+    dxf.register_table("df1", df1)
+
+    format_options = FormatOptions(
+        large_num_digits=4,
+        small_num_digits=6,
+        max_integral_digits=7,
+        thousands_sep="_",
+    )
+    _format_float = _get_float_formatter(format_options)
+
+    cases = [
+        (
+            "df1",
+            0,
+            {
+                "min_value": _format_float(arr.min()),
+                "max_value": _format_float(arr.max()),
+                "mean": _format_float(df1["f0"].mean()),
+                "stdev": _format_float(df1["f0"].std()),
+                "median": _format_float(df1["f0"].median()),
+            },
+        ),
+        (
+            "df1",
+            1,
+            {
+                "min_value": _format_float(df1["f1"].min()),
+                "max_value": _format_float(df1["f1"].max()),
+                "mean": _format_float(df1["f1"].mean()),
+                "stdev": _format_float(df1["f1"].std()),
+                "median": _format_float(df1["f1"].median()),
+            },
+        ),
+        (
+            "df1",
+            2,
+            {"true_count": 20, "false_count": 60},
+        ),
+        (
+            "df1",
+            3,
+            {"num_empty": 20, "num_unique": 7},
+        ),
+        (
+            "df1",
+            4,
+            {
+                "num_unique": 100,
+                "min_date": "2000-01-01",
+                "mean_date": "2000-02-19",
+                "median_date": "2000-02-19",
+                "max_date": "2000-04-09",
+            },
+        ),
+        (
+            "df1",
+            5,
+            {
+                "num_unique": 100,
+                "min_date": "2000-01-01 00:00:00",
+                "mean_date": "2000-01-05 03:00:00",
+                "median_date": "2000-01-05 03:00:00",
+                "max_date": "2000-01-09 06:00:00",
+                "timezone": "None",
+            },
+        ),
+        (
+            "df1",
+            6,
+            {
+                "num_unique": 100,
+                "min_date": "2000-01-01 00:00:00-05:00",
+                "mean_date": "2000-01-05 03:00:00-05:00",
+                "median_date": "2000-01-05 03:00:00-05:00",
+                "max_date": "2000-01-09 06:00:00-05:00",
+                "timezone": "US/Eastern",
+            },
+        ),
+        (
+            "df1",
+            7,
+            {"min_value": "-INF", "max_value": "INF"},
+        ),
+    ]
+
+    for table_name, col_index, ex_result in cases:
+        profiles = [_get_summary_stats(col_index)]
+        results = dxf.get_column_profiles(table_name, profiles, format_options=format_options)
+
+        stats = results[0]["summary_stats"]
+        assert_summary_stats_equal(stats["type_display"], stats, ex_result)
