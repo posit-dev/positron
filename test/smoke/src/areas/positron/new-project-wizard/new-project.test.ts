@@ -34,7 +34,7 @@ export function setup(logger: Logger) {
 					await app.workbench.positronExplorer.explorerProjectTitle.waitForText('myPythonProject');
 					await app.workbench.positronConsole.waitForReady('>>>', 10000);
 				});
-				it('Create a new Conda environment [.......]', async function () {
+				it('Create a new Conda environment [C628628]', async function () {
 					// This test relies on Conda already being installed on the machine
 					const projSuffix = '_condaInstalled';
 					const app = this.app as Application;
@@ -143,7 +143,7 @@ export function setup(logger: Logger) {
 				});
 			});
 
-			it('Default Python Project with git init [......]', async function () {
+			it('Default Python Project with git init [C674522]', async function () {
 				const projSuffix = '_gitInit';
 				const app = this.app as Application;
 				const pw = app.workbench.positronNewProjectWizard;
