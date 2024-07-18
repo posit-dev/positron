@@ -4,14 +4,16 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { localize } from 'vs/nls';
-import { ColorTransformType, asCssVariable, asCssVariableName, registerColor } from 'vs/platform/theme/common/colorRegistry';
+import { asCssVariable, asCssVariableName, registerColor, transparent } from 'vs/platform/theme/common/colorRegistry';
 // --- Start Positron ---
 import { inputBackground } from 'vs/platform/theme/common/colorRegistry';  // eslint-disable-line no-duplicate-imports
 // --- End Positron ---
 import { IWorkbenchContribution } from 'vs/workbench/common/contributions';
 import { IDebugService, State, IDebugSession, IDebugConfiguration } from 'vs/workbench/contrib/debug/common/debug';
-import { IWorkspaceContextService } from 'vs/platform/workspace/common/workspace';
-import { STATUS_BAR_FOREGROUND, STATUS_BAR_BORDER, COMMAND_CENTER_BACKGROUND } from 'vs/workbench/common/theme';
+import { IWorkspaceContextService } from
+'vs/platform/workspace/common/workspace'; import { STATUS_BAR_FOREGROUND,
+	STATUS_BAR_BORDER, COMMAND_CENTER_BACKGROUND } from
+	'vs/workbench/common/theme';
 import { DisposableStore, IDisposable } from 'vs/base/common/lifecycle';
 import { IStatusbarService } from 'vs/workbench/services/statusbar/browser/statusbar';
 import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
@@ -38,21 +40,11 @@ export const STATUS_BAR_DEBUGGING_FOREGROUND = registerColor('statusBar.debuggin
 	hcLight: '#FFFFFF'
 }, localize('statusBarDebuggingForeground', "Status bar foreground color when a program is being debugged. The status bar is shown in the bottom of the window"));
 
-export const STATUS_BAR_DEBUGGING_BORDER = registerColor('statusBar.debuggingBorder', {
-	dark: STATUS_BAR_BORDER,
-	light: STATUS_BAR_BORDER,
-	hcDark: STATUS_BAR_BORDER,
-	hcLight: STATUS_BAR_BORDER
-}, localize('statusBarDebuggingBorder', "Status bar border color separating to the sidebar and editor when a program is being debugged. The status bar is shown in the bottom of the window"));
+export const STATUS_BAR_DEBUGGING_BORDER = registerColor('statusBar.debuggingBorder', STATUS_BAR_BORDER, localize('statusBarDebuggingBorder', "Status bar border color separating to the sidebar and editor when a program is being debugged. The status bar is shown in the bottom of the window"));
 
 export const COMMAND_CENTER_DEBUGGING_BACKGROUND = registerColor(
 	'commandCenter.debuggingBackground',
-	{
-		dark: { value: STATUS_BAR_DEBUGGING_BACKGROUND, op: ColorTransformType.Transparent, factor: 0.258 },
-		hcDark: { value: STATUS_BAR_DEBUGGING_BACKGROUND, op: ColorTransformType.Transparent, factor: 0.258 },
-		light: { value: STATUS_BAR_DEBUGGING_BACKGROUND, op: ColorTransformType.Transparent, factor: 0.258 },
-		hcLight: { value: STATUS_BAR_DEBUGGING_BACKGROUND, op: ColorTransformType.Transparent, factor: 0.258 }
-	},
+	transparent(STATUS_BAR_DEBUGGING_BACKGROUND, 0.258),
 	localize('commandCenter-activeBackground', "Command center background color when a program is being debugged"),
 	true
 );
@@ -93,7 +85,7 @@ export class StatusBarColorProvider implements IWorkbenchContribution {
 			if (e.affectsConfiguration('debug.enableStatusBarColor') || e.affectsConfiguration('debug.toolBarLocation')) {
 				this.update();
 			}
-		}, this.disposables);
+		}, undefined, this.disposables);
 		this.update();
 	}
 

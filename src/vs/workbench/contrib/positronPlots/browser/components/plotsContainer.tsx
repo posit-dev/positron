@@ -103,6 +103,7 @@ export const PlotsContainer = (props: PlotContainerProps) => {
 				key={plotInstance.id}
 				width={plotWidth}
 				height={plotHeight}
+				visible={props.visible}
 				plotClient={plotInstance} />;
 		}
 		return null;

@@ -44,7 +44,6 @@ import { MergeEditorInput } from 'vs/workbench/contrib/mergeEditor/browser/merge
 import type { EditorInputWithOptions, IResourceMergeEditorInput } from 'vs/workbench/common/editor';
 
 // --- Start Positron ---
-import { ExtensionIdentifier } from 'vs/platform/extensions/common/extensions';
 import { PositronNotebookEditorInput } from 'vs/workbench/contrib/positronNotebook/browser/PositronNotebookEditorInput';
 import { getShouldUsePositronEditor } from 'vs/workbench/contrib/positronNotebook/browser/positronNotebook.contribution';
 // --- End Positron ---
@@ -138,7 +137,6 @@ export class NotebookProviderInfoStore extends Disposable {
 					selectors: notebookContribution.selector || [],
 					priority: this._convertPriority(notebookContribution.priority),
 					providerDisplayName: extension.description.displayName ?? extension.description.identifier.value,
-					exclusive: false
 				}));
 			}
 		}
@@ -177,7 +175,7 @@ export class NotebookProviderInfoStore extends Disposable {
 				id: notebookProviderInfo.id,
 				label: notebookProviderInfo.displayName,
 				detail: notebookProviderInfo.providerDisplayName,
-				priority: notebookProviderInfo.exclusive ? RegisteredEditorPriority.exclusive : notebookProviderInfo.priority,
+				priority: notebookProviderInfo.priority,
 			};
 			const notebookEditorOptions = {
 				canHandleDiff: () => !!this._configurationService.getValue(NotebookSetting.textDiffEditorPreview) && !this._accessibilityService.isScreenReaderOptimized(),
@@ -203,7 +201,7 @@ export class NotebookProviderInfoStore extends Disposable {
 					cellOptions = (options as INotebookEditorOptions | undefined)?.cellOptions;
 				}
 
-				const notebookOptions = { ...options, cellOptions } as INotebookEditorOptions;
+				const notebookOptions: INotebookEditorOptions = { ...options, cellOptions, viewState: undefined };
 				// --- Start Positron ---
 				if (getShouldUsePositronEditor(this._configurationService)) {
 					// Use our editor instead of the built in one.
@@ -681,8 +679,7 @@ export class NotebookService extends Disposable implements INotebookService {
 			id: viewType,
 			displayName: data.displayName,
 			providerDisplayName: data.providerDisplayName,
-			exclusive: data.exclusive,
-			priority: RegisteredEditorPriority.default,
+			priority: data.priority || RegisteredEditorPriority.default,
 			selectors: []
 		});
 
@@ -739,6 +736,14 @@ export class NotebookService extends Disposable implements INotebookService {
 		return result;
 	}
 
+	tryGetDataProviderSync(viewType: string): SimpleNotebookProviderInfo | undefined {
+		const selected = this.notebookProviderInfoStore.get(viewType);
+		if (!selected) {
+			return undefined;
+		}
+		return this._notebookProviders.get(selected.id);
+	}
+
 
 	private _persistMementos(): void {
 		this._memento.saveMemento();
@@ -785,26 +790,6 @@ export class NotebookService extends Disposable implements INotebookService {
 			return undefined;
 		}
 		return this._notebookRenderersInfoStore.get(renderers[0].rendererId);
-	}
-
-	/**
-	 * Gets the static notebook preloads associated with the given extension.
-	 *
-	 * @param extensionId The ID of the extension to get static preloads for
-	 * @returns The static preloads for the extension
-	 */
-	async getStaticPreloadsForExt(extensionId: ExtensionIdentifier):
-		Promise<INotebookStaticPreloadInfo[]> {
-
-		const extInfo = await this._extensionService.getExtension(extensionId.value);
-
-		const results: INotebookStaticPreloadInfo[] = [];
-		for (const preload of this._notebookStaticPreloadInfoStore) {
-			if (preload.extensionLocation === extInfo?.extensionLocation) {
-				results.push(preload);
-			}
-		}
-		return results;
 	}
 	// --- End Positron ---
 

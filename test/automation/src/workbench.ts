@@ -38,6 +38,7 @@ import { PositronConnections } from './positron/positronConnections';
 import { PositronHelp } from './positron/positronHelp';
 import { PositronTopActionBar } from './positron/positronTopActionBar';
 import { PositronLayouts } from './positron/positronLayouts';
+import { PositronOutput } from './positron/positronOutput';
 // --- End Positron ---
 
 export interface Commands {
@@ -80,6 +81,7 @@ export class Workbench {
 	readonly positronHelp: PositronHelp;
 	readonly positronTopActionBar: PositronTopActionBar;
 	readonly positronLayouts: PositronLayouts;
+	readonly positronOutput: PositronOutput;
 	// --- End Positron ---
 
 	constructor(code: Code) {
@@ -117,6 +119,7 @@ export class Workbench {
 		this.positronHelp = new PositronHelp(code);
 		this.positronTopActionBar = new PositronTopActionBar(code);
 		this.positronLayouts = new PositronLayouts(code, this);
+		this.positronOutput = new PositronOutput(code, this.quickaccess, this.quickinput);
 		// --- End Positron ---
 	}
 }

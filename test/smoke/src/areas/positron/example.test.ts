@@ -18,9 +18,7 @@ export function setup(logger: Logger) {
 			before(async function () {
 				// Executes once before executing all tests.
 				// Change to 'beforeEach' if it needs to run before each individual test.
-				const app = this.app as Application;
-				const pythonFixtures = new PositronPythonFixtures(app);
-				await pythonFixtures.startPythonInterpreter();
+				await PositronPythonFixtures.SetupFixtures(this.app as Application);
 			});
 
 			it('Sample Test Case A [TESTRAIL_ID]', async function () {

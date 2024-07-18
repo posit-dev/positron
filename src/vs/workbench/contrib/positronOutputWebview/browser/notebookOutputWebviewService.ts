@@ -27,6 +27,12 @@ export interface INotebookOutputWebview {
 
 	/** Fired when the content completes rendering */
 	onDidRender: Event<void>;
+
+	/**
+	 * Optional method to render the output in the webview rather than doing so
+	 * directly in the HTML content
+	 */
+	render?(): void;
 }
 
 export interface IPositronNotebookOutputWebviewService {
@@ -39,12 +45,15 @@ export interface IPositronNotebookOutputWebviewService {
 	 *
 	 * @param runtime The runtime that emitted the output
 	 * @param output The message containing the contents to be rendered in the webview.
+	 * @param viewType The view type of the notebook e.g 'jupyter-notebook', if known. Used to
+	 *  select the required notebook preload scripts for the webview.
 	 * @returns A promise that resolves to the new webview, or undefined if the
 	 *   output does not have a suitable renderer.
 	 */
 	createNotebookOutputWebview(
 		runtime: ILanguageRuntimeSession,
-		output: ILanguageRuntimeMessageOutput
+		output: ILanguageRuntimeMessageOutput,
+		viewType?: string,
 	): Promise<INotebookOutputWebview | undefined>;
 }
 

@@ -19,9 +19,6 @@ import { ITextQuery } from 'vs/workbench/services/search/common/search';
 import { NotebookPriorityInfo } from 'vs/workbench/contrib/search/common/search';
 import { INotebookFileMatchNoModel } from 'vs/workbench/contrib/search/common/searchNotebookHelpers';
 
-// --- Start Positron ---
-import { ExtensionIdentifier } from 'vs/platform/extensions/common/extensions';
-// --- End Positron ---
 
 export const INotebookService = createDecorator<INotebookService>('notebookService');
 
@@ -68,6 +65,7 @@ export interface INotebookService {
 
 	registerNotebookSerializer(viewType: string, extensionData: NotebookExtensionDescription, serializer: INotebookSerializer): IDisposable;
 	withNotebookDataProvider(viewType: string): Promise<SimpleNotebookProviderInfo>;
+	tryGetDataProviderSync(viewType: string): SimpleNotebookProviderInfo | undefined;
 
 	getOutputMimeTypeInfo(textModel: NotebookTextModel, kernelProvides: readonly string[] | undefined, output: IOutputDto): readonly IOrderedMimeType[];
 
@@ -77,7 +75,6 @@ export interface INotebookService {
 
 	// --- Start Positron ---
 	getPreferredRenderer(mimeType: string): INotebookRendererInfo | undefined;
-	getStaticPreloadsForExt(extensionId: ExtensionIdentifier): Promise<INotebookStaticPreloadInfo[]>;
 	// --- End Positron ---
 
 	getStaticPreloads(viewType: string): Iterable<INotebookStaticPreloadInfo>;

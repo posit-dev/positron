@@ -38,7 +38,7 @@ const util_1 = require("./util");
 // --- End Positron ---
 const root = path.dirname(path.dirname(__dirname));
 const commit = (0, getVersion_1.getVersion)(root);
-const sourceMappingURLBase = `https://ticino.blob.core.windows.net/sourcemaps/${commit}`;
+const sourceMappingURLBase = `https://main.vscode-cdn.net/sourcemaps/${commit}`;
 function minifyExtensionResources(input) {
     const jsonFilter = filter(['**/*.json', '**/*.code-snippets'], { restore: true });
     return input

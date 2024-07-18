@@ -41,5 +41,6 @@ export * from './positron/positronNotebooks';
 export * from './positron/positronNewProjectWizard';
 export * from './positron/positronConnections';
 export * from './positron/positronHelp';
+export * from './positron/positronOutput';
 // --- End Positron ---
 export { getDevElectronPath, getBuildElectronPath, getBuildVersion } from './electron';

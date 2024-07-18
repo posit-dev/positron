@@ -25,10 +25,7 @@ export function setup(logger: Logger) {
 
 			before(async function () {
 
-				const app = this.app as Application;
-
-				const pythonFixtures = new PositronPythonFixtures(app);
-				await pythonFixtures.startPythonInterpreter();
+				await PositronPythonFixtures.SetupFixtures(this.app as Application);
 
 			});
 
@@ -72,11 +69,7 @@ export function setup(logger: Logger) {
 		describe('R - SQLite DB', () => {
 
 			before(async function () {
-
-				const app = this.app as Application;
-
-				const rFixtures = new PositronRFixtures(app);
-				await rFixtures.startRInterpreter();
+				await PositronRFixtures.SetupFixtures(this.app as Application);
 
 			});
 
@@ -111,7 +104,7 @@ export function setup(logger: Logger) {
 				await app.workbench.positronConnections.reconnectButton.waitforVisible();
 			});
 
-			it('R - Connections are update after adding a database', async function () {
+			it('R - Connections are update after adding a database,[C663724]', async function () {
 
 				const app = this.app as Application;
 
