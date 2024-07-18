@@ -22,16 +22,17 @@ export interface PositronWizardStepProps extends OKCancelBackNextActionBarProps 
  * @returns The rendered component.
  */
 export const PositronWizardStep = (props: PropsWithChildren<PositronWizardStepProps>) => {
+	// The step ID is based on the title, with non-letter or non-number characters replaced with hyphens.
+	const stepId = props.title.toLowerCase().replace(/[^a-z0-9]/g, '-') || '';
 	// Render.
 	return (
 		// QUESTION: should each wizard step be a form element?
-		<div className='wizard-step'>
-			<div className='wizard-step-title'>
-				{props.title}
-			</div>
-			<VerticalStack>
-				{props.children}
-			</VerticalStack>
+		<div
+			className='wizard-step'
+			id={stepId.length ? `wizard-step-${stepId}` : ''}
+		>
+			<div className='wizard-step-title'>{props.title}</div>
+			<VerticalStack>{props.children}</VerticalStack>
 			<OKCancelBackNextActionBar
 				okButtonConfig={props.okButtonConfig}
 				cancelButtonConfig={props.cancelButtonConfig}

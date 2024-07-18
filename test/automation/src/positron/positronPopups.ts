@@ -19,6 +19,15 @@ export class PositronPopups {
 
 	constructor(private code: Code) { }
 
+	async popupCurrentlyOpen() {
+		try {
+			await this.code.waitForElement(POSITRON_MODAL_DIALOG_BOX, undefined, 50);
+			return true;
+		} catch (error) {
+			this.code.logger.log('No modal dialog box found');
+		}
+	}
+
 	async installIPyKernel() {
 
 		try {

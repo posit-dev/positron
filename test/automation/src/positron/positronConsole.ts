@@ -8,8 +8,9 @@ import { Locator } from '@playwright/test';
 import { Code } from '../code';
 import { QuickAccess } from '../quickaccess';
 import { QuickInput } from '../quickinput';
-import { InterpreterType } from './positronStartInterpreter';
+import { InterpreterInfo, InterpreterType } from './utils/positronInterpreterInfo';
 import { PositronBaseElement } from './positronBaseElement';
+import { IElement } from '../driver';
 
 
 const CONSOLE_INPUT = '.console-input';
@@ -39,7 +40,7 @@ export class PositronConsole {
 		this.consoleRestartButton = new PositronBaseElement(CONSOLE_RESTART_BUTTON, this.code);
 	}
 
-	async selectInterpreter(desiredInterpreterType: InterpreterType, desiredInterpreterString: string) {
+	async selectInterpreter(desiredInterpreterType: InterpreterType, desiredInterpreterString: string): Promise<IElement | undefined> {
 		let command: string;
 		if (desiredInterpreterType === InterpreterType.Python) {
 			command = 'python.setInterpreter';
@@ -57,8 +58,33 @@ export class PositronConsole {
 		// Wait until the desired interpreter string appears in the list and select it.
 		// We need to click instead of using 'enter' because the Python select interpreter command
 		// may include additional items above the desired interpreter string.
-		await this.quickinput.selectQuickInputElementContaining(desiredInterpreterString);
+		const interpreterElem = await this.quickinput.selectQuickInputElementContaining(desiredInterpreterString);
 		await this.quickinput.waitForQuickInputClosed();
+		return interpreterElem;
+	}
+
+	async selectAndGetInterpreter(
+		desiredInterpreterType: InterpreterType,
+		desiredInterpreter: string
+	): Promise<InterpreterInfo | undefined> {
+		const interpreterElem = await this.selectInterpreter(
+			desiredInterpreterType,
+			desiredInterpreter
+		);
+
+		if (interpreterElem) {
+			// The aria-label looks something like: Python 3.10.4 64-bit ('3.10.4'), ~/.pyenv/versions/3.10.4/bin/python, Pyenv
+			const rawInfo = interpreterElem.attributes['aria-label'].split(',');
+			const hasSource = rawInfo.length > 2;
+			return {
+				type: desiredInterpreterType, // e.g. InterpreterType.Python
+				version: rawInfo[0].trim(), // e.g. Python 3.10.4 64-bit ('3.10.4')
+				path: rawInfo[1].trim(), // e.g. ~/.pyenv/versions/3.10.4/bin/python
+				source: hasSource ? rawInfo[2].trim() : '', // e.g. Pyenv
+			} satisfies InterpreterInfo;
+		}
+
+		return undefined;
 	}
 
 	async executeCode(languageName: string, code: string, prompt: string): Promise<void> {
@@ -97,9 +123,14 @@ export class PositronConsole {
 		await this.code.driver.getKeyboard().press('Enter');
 	}
 
-	async waitForReady(prompt: string) {
+	getActiveConsole(): Locator | undefined {
+		const activeConsole = this.code.driver.getLocator(ACTIVE_CONSOLE_INSTANCE);
+		return activeConsole;
+	}
+
+	async waitForReady(prompt: string, retryCount: number = 500) {
 		// Wait for the prompt to show up.
-		await this.code.waitForTextContent(`${ACTIVE_CONSOLE_INSTANCE} .active-line-number`, prompt);
+		await this.code.waitForTextContent(`${ACTIVE_CONSOLE_INSTANCE} .active-line-number`, prompt, undefined, retryCount);
 
 		// Wait for the interpreter to start.
 		await this.waitForConsoleContents((contents) => contents.some((line) => line.includes('started')));

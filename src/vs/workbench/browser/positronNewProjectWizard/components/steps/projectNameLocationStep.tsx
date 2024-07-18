@@ -226,7 +226,9 @@ export const ProjectNameLocationStep = (props: PropsWithChildren<NewProjectWizar
 					onChange={(e) => onChangeParentFolder(e.target.value)}
 				/>
 			</PositronWizardSubStep>
-			<PositronWizardSubStep>
+			<PositronWizardSubStep
+				titleId='misc-proj-options'
+			>
 				{/* TODO: display a warning/message if the user doesn't have git set up */}
 				<Checkbox
 					label={(() =>
