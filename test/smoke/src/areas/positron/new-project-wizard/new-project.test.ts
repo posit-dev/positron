@@ -133,6 +133,44 @@ export function setup(logger: Logger) {
 					await app.workbench.positronConsole.waitForReady('>>>', 10000);
 				});
 			});
+
+			it('Default Python Project with git init [......]', async function () {
+				const projSuffix = '_gitInit';
+				const app = this.app as Application;
+				const pw = app.workbench.positronNewProjectWizard;
+				await pw.startNewProject();
+				await pw.projectTypeStep.pythonProjectButton.click();
+				await pw.nextButton.click();
+				await pw.projectNameLocationStep.appendToProjectName(projSuffix);
+
+				// Check the git init checkbox
+				await pw.projectNameLocationStep.gitInitCheckbox.waitFor();
+				await pw.projectNameLocationStep.gitInitCheckbox.setChecked(true);
+				await pw.nextButton.click();
+				await pw.disabledCreateButton.isNotVisible(500);
+				await pw.nextButton.click();
+
+				// Open the new project in the current window and wait for the console to be ready
+				await pw.currentOrNewWindowSelectionModal.currentWindowButton.click();
+				await app.workbench.positronExplorer.explorerProjectTitle.waitForText(
+					`myPythonProject${projSuffix}`
+				);
+				await app.workbench.positronConsole.waitForReady('>>>', 10000);
+
+				// Verify git-related files are present
+				expect(async () => {
+					const projectFiles = await app.workbench.positronExplorer.getExplorerProjectFiles();
+					expect(projectFiles).toContain('.gitignore');
+					expect(projectFiles).toContain('README.md');
+					// Ideally, we'd check for the .git folder, but it's not visible in the Explorer
+					// by default due to the default `files.exclude` setting in the workspace.
+				}).toPass({ timeout: 10000 });
+
+				// Git status should show that we're on the main branch
+				await app.workbench.terminal.createTerminal();
+				await app.workbench.terminal.runCommandInTerminal('git status');
+				await app.workbench.terminal.waitForTerminalText(buffer => buffer.some(e => e.includes('On branch main')));
+			});
 		});
 
 		describe('R - New Project Wizard', () => {
@@ -180,19 +218,17 @@ export function setup(logger: Logger) {
 					// Interact with the modal to install renv
 					await app.workbench.positronPopups.installRenv();
 
-					// If the test is running on Windows, we may need to interact with the
-					// Console to allow the renv installation to complete. It doesn't always happen,
-					// so for now this code is commented out. We've seen it once, but not again:
-					// https://github.com/posit-dev/positron/pull/3881#issuecomment-2211123610.
-					// For some reason, we don't need to do this on Mac or Linux -- or at least we
-					// haven't seen it yet!
-					// if (process.platform === 'win32') {
-					// 	await app.workbench.positronConsole.waitForConsoleContents((contents) =>
-					// 		contents.some((line) => line.includes('Do you want to proceed?'))
-					// 	);
-					// 	await app.workbench.positronConsole.typeToConsole('y');
-					// 	await app.workbench.positronConsole.sendEnterKey();
-					// }
+					// If this test is running on a machine that is using Renv for the first time, we
+					// may need to interact with the Console to allow the renv installation to complete
+					// An example: https://github.com/posit-dev/positron/pull/3881#issuecomment-2211123610.
+
+					// You should either manually interact with the Console to proceed with the Renv
+					// install or temporarily uncomment the code below to automate the interaction.
+					// await app.workbench.positronConsole.waitForConsoleContents((contents) =>
+					// 	contents.some((line) => line.includes('Do you want to proceed?'))
+					// );
+					// await app.workbench.positronConsole.typeToConsole('y');
+					// await app.workbench.positronConsole.sendEnterKey();
 
 					// Verify renv files are present
 					expect(async () => {
@@ -296,7 +332,6 @@ export function setup(logger: Logger) {
 				// NOTE: For completeness, we probably want to await app.workbench.positronConsole.waitForReady('>>>', 10000);
 				// here, but it's timing out in CI, so it is not included for now.
 			});
-
 		});
 
 	});
