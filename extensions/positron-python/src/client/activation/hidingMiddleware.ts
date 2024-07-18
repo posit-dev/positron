@@ -2,6 +2,12 @@
 /* eslint-disable class-methods-use-this */
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License.
+// --- Start Positron ---
+// Replaced /lib/ with /$test/ in the import paths for new Typescript subpath
+// imports in vscode-languageclient.
+//
+// See https://github.com/microsoft/vscode-languageserver-node/commit/539330136d84891d005e2d0d539932a05644ba54
+// --- End Positron ---
 import {
     CallHierarchyIncomingCall,
     CallHierarchyItem,
@@ -47,45 +53,45 @@ import {
 } from 'vscode';
 import { HandleDiagnosticsSignature, Middleware } from 'vscode-languageclient/node';
 
-import { ProvideDeclarationSignature } from 'vscode-languageclient/lib/common/declaration';
+import { ProvideDeclarationSignature } from 'vscode-languageclient/$test/common/declaration';
 import {
     PrepareCallHierarchySignature,
     CallHierarchyIncomingCallsSignature,
     CallHierarchyOutgoingCallsSignature,
-} from 'vscode-languageclient/lib/common/callHierarchy';
+} from 'vscode-languageclient/$test/common/callHierarchy';
 import {
     ProvideDocumentColorsSignature,
     ProvideColorPresentationSignature,
-} from 'vscode-languageclient/lib/common/colorProvider';
-import { ProvideFoldingRangeSignature } from 'vscode-languageclient/lib/common/foldingRange';
-import { ProvideImplementationSignature } from 'vscode-languageclient/lib/common/implementation';
-import { ProvideLinkedEditingRangeSignature } from 'vscode-languageclient/lib/common/linkedEditingRange';
-import { ProvideSelectionRangeSignature } from 'vscode-languageclient/lib/common/selectionRange';
+} from 'vscode-languageclient/$test/common/colorProvider';
+import { ProvideFoldingRangeSignature } from 'vscode-languageclient/$test/common/foldingRange';
+import { ProvideImplementationSignature } from 'vscode-languageclient/$test/common/implementation';
+import { ProvideLinkedEditingRangeSignature } from 'vscode-languageclient/$test/common/linkedEditingRange';
+import { ProvideSelectionRangeSignature } from 'vscode-languageclient/$test/common/selectionRange';
 import {
     DocumentSemanticsTokensSignature,
     DocumentSemanticsTokensEditsSignature,
     DocumentRangeSemanticTokensSignature,
-} from 'vscode-languageclient/lib/common/semanticTokens';
-import { ProvideTypeDefinitionSignature } from 'vscode-languageclient/lib/common/typeDefinition';
-import { ProvideHoverSignature } from 'vscode-languageclient/lib/common/hover';
+} from 'vscode-languageclient/$test/common/semanticTokens';
+import { ProvideTypeDefinitionSignature } from 'vscode-languageclient/$test/common/typeDefinition';
+import { ProvideHoverSignature } from 'vscode-languageclient/$test/common/hover';
 import {
     ProvideCompletionItemsSignature,
     ResolveCompletionItemSignature,
-} from 'vscode-languageclient/lib/common/completion';
-import { ProvideDefinitionSignature } from 'vscode-languageclient/lib/common/definition';
-import { ProvideDocumentHighlightsSignature } from 'vscode-languageclient/lib/common/documentHighlight';
-import { ProvideReferencesSignature } from 'vscode-languageclient/lib/common/reference';
-import { ProvideDocumentSymbolsSignature } from 'vscode-languageclient/lib/common/documentSymbol';
-import { ProvideCodeActionsSignature } from 'vscode-languageclient/lib/common/codeAction';
-import { ProvideCodeLensesSignature } from 'vscode-languageclient/lib/common/codeLens';
-import { ProvideDocumentLinksSignature } from 'vscode-languageclient/lib/common/documentLink';
+} from 'vscode-languageclient/$test/common/completion';
+import { ProvideDefinitionSignature } from 'vscode-languageclient/$test/common/definition';
+import { ProvideDocumentHighlightsSignature } from 'vscode-languageclient/$test/common/documentHighlight';
+import { ProvideReferencesSignature } from 'vscode-languageclient/$test/common/reference';
+import { ProvideDocumentSymbolsSignature } from 'vscode-languageclient/$test/common/documentSymbol';
+import { ProvideCodeActionsSignature } from 'vscode-languageclient/$test/common/codeAction';
+import { ProvideCodeLensesSignature } from 'vscode-languageclient/$test/common/codeLens';
+import { ProvideDocumentLinksSignature } from 'vscode-languageclient/$test/common/documentLink';
 import {
     ProvideDocumentFormattingEditsSignature,
     ProvideDocumentRangeFormattingEditsSignature,
     ProvideOnTypeFormattingEditsSignature,
-} from 'vscode-languageclient/lib/common/formatting';
-import { ProvideRenameEditsSignature, PrepareRenameSignature } from 'vscode-languageclient/lib/common/rename';
-import { ProvideSignatureHelpSignature } from 'vscode-languageclient/lib/common/signatureHelp';
+} from 'vscode-languageclient/$test/common/formatting';
+import { ProvideRenameEditsSignature, PrepareRenameSignature } from 'vscode-languageclient/$test/common/rename';
+import { ProvideSignatureHelpSignature } from 'vscode-languageclient/$test/common/signatureHelp';
 import { isNotebookCell } from '../common/utils/misc';
 
 /**
@@ -311,9 +317,9 @@ class HidingMiddlewareAddon implements Middleware, Disposable {
     ): ProviderResult<
         | Range
         | {
-              range: Range;
-              placeholder: string;
-          }
+            range: Range;
+            placeholder: string;
+        }
     > {
         if (!isNotebookCell(document.uri)) {
             return next(document, position, token);

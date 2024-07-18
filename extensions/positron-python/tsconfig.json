@@ -4,7 +4,7 @@
         "paths": {
             "*": ["types/*"]
         },
-        "module": "commonjs",
+        "module": "ES2022",
         "target": "es2018",
         "outDir": "out",
         "lib": [
@@ -27,10 +27,10 @@
         "noUnusedParameters": true,
         "noFallthroughCasesInSwitch": true,
         "resolveJsonModule": true,
-        "removeComments": true
+        "removeComments": true,
+        "moduleResolution": "Bundler"
     },
     "exclude": [
-        "node_modules",
         ".vscode-test",
         ".vscode test",
         "src/server/node_modules",

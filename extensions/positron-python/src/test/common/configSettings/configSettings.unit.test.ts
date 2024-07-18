@@ -8,7 +8,11 @@ import * as path from 'path';
 import * as sinon from 'sinon';
 import * as TypeMoq from 'typemoq';
 
-import untildify = require('untildify');
+// --- Start Positron ---
+// Rewrite the following import statement for ECMAScript module compatibility
+// import untildify = require('untildify');
+import untildify from 'untildify';
+// --- End Positron ---
 import { WorkspaceConfiguration } from 'vscode';
 import { LanguageServerType } from '../../../client/activation/types';
 import { IApplicationEnvironment } from '../../../client/common/application/types';

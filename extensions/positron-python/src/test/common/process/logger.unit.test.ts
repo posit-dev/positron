@@ -7,7 +7,11 @@ import * as path from 'path';
 import * as sinon from 'sinon';
 import * as TypeMoq from 'typemoq';
 
-import untildify = require('untildify');
+// --- Start Positron ---
+// Rewrite the following import statement for ECMAScript module compatibility
+// import untildify = require('untildify');
+import untildify from 'untildify';
+// --- End Positron ---
 import { WorkspaceFolder } from 'vscode';
 import { IWorkspaceService } from '../../../client/common/application/types';
 import { ProcessLogger } from '../../../client/common/process/logger';
