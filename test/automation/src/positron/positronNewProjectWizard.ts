@@ -174,9 +174,17 @@ class ProjectWizardPythonConfigurationStep {
 	private async waitForDataLoading() {
 		// The env provider dropdown is only visible when New Environment is selected
 		if (await this.envProviderDropdown.isVisible()) {
-			await expect(this.envProviderDropdown.textContent()).resolves.not.toEqual('Loading environment providers...');
+			await expect(this.envProviderDropdown).not.toContainText(
+				'Loading environment providers...',
+				{ timeout: 5000 }
+			);
 		}
-		await expect(this.interpreterDropdown.textContent()).resolves.not.toEqual('Loading interpreters...');
+
+		// The interpreter dropdown is always visible
+		await expect(this.interpreterDropdown).not.toContainText(
+			'Loading interpreters...',
+			{ timeout: 5000 }
+		);
 	}
 
 	/**
@@ -191,9 +199,7 @@ class ProjectWizardPythonConfigurationStep {
 
 		// Try to find the env provider in the dropdown
 		try {
-			await this.code.waitForElement(
-				PROJECT_WIZARD_DROPDOWN_POPUP_ITEMS
-			);
+			await this.code.waitForElement(PROJECT_WIZARD_DROPDOWN_POPUP_ITEMS);
 			await this.code.driver
 				.getLocator(
 					`${PROJECT_WIZARD_DROPDOWN_POPUP_ITEMS} div.dropdown-entry-title:text-is("${provider}")`
@@ -221,9 +227,7 @@ class ProjectWizardPythonConfigurationStep {
 
 		// Try to find the interpreterPath in the dropdown and click the entry if found
 		try {
-			await this.code.waitForElement(
-				PROJECT_WIZARD_DROPDOWN_POPUP_ITEMS
-			);
+			await this.code.waitForElement(PROJECT_WIZARD_DROPDOWN_POPUP_ITEMS);
 			await this.code.driver
 				.getLocator(
 					`${PROJECT_WIZARD_DROPDOWN_POPUP_ITEMS} div.dropdown-entry-subtitle:text-is("${interpreterPath}")`
