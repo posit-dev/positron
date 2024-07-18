@@ -488,9 +488,34 @@ export interface IPerformanceMessage extends BaseToWebviewMessage {
 	readonly outputSize?: number;
 	readonly mimeType?: string;
 }
+// --- Start Positron ---
+/**
+ * Request the webview to render an output to an element.
+ */
+export interface IPositronRenderMessage {
+	readonly type: 'positronRender';
+	readonly outputId: string;
+	readonly elementId: string;
+	readonly rendererId: string;
+	readonly mimeType: string;
+	readonly metadata: unknown;
+	readonly valueBytes: Uint8Array;
+}
+
+/**
+ * Message sent by the webview when the widget has finished rendering; used to
+ * coordinate thumbnail generation.
+ */
+export interface IPositronRenderCompleteMessage extends BaseToWebviewMessage {
+	readonly type: 'positronRenderComplete';
+}
+// --- End Positron ---
 
 
 export type FromWebviewMessage = WebviewInitialized |
+	// --- Start Positron ---
+	IPositronRenderCompleteMessage |
+	// --- End Positron ---
 	IDimensionMessage |
 	IMouseEnterMessage |
 	IMouseLeaveMessage |
@@ -525,6 +550,9 @@ export type FromWebviewMessage = WebviewInitialized |
 	IPerformanceMessage;
 
 export type ToWebviewMessage = IClearMessage |
+	// --- Start Positron ---
+	IPositronRenderMessage |
+	// --- End Positron ---
 	IFocusOutputMessage |
 	IBlurOutputMessage |
 	IAckOutputHeightMessage |

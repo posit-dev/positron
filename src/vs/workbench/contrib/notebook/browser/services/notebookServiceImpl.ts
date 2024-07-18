@@ -44,7 +44,6 @@ import { MergeEditorInput } from 'vs/workbench/contrib/mergeEditor/browser/merge
 import type { EditorInputWithOptions, IResourceMergeEditorInput } from 'vs/workbench/common/editor';
 
 // --- Start Positron ---
-import { ExtensionIdentifier } from 'vs/platform/extensions/common/extensions';
 import { PositronNotebookEditorInput } from 'vs/workbench/contrib/positronNotebook/browser/PositronNotebookEditorInput';
 import { getShouldUsePositronEditor } from 'vs/workbench/contrib/positronNotebook/browser/positronNotebook.contribution';
 // --- End Positron ---
@@ -791,26 +790,6 @@ export class NotebookService extends Disposable implements INotebookService {
 			return undefined;
 		}
 		return this._notebookRenderersInfoStore.get(renderers[0].rendererId);
-	}
-
-	/**
-	 * Gets the static notebook preloads associated with the given extension.
-	 *
-	 * @param extensionId The ID of the extension to get static preloads for
-	 * @returns The static preloads for the extension
-	 */
-	async getStaticPreloadsForExt(extensionId: ExtensionIdentifier):
-		Promise<INotebookStaticPreloadInfo[]> {
-
-		const extInfo = await this._extensionService.getExtension(extensionId.value);
-
-		const results: INotebookStaticPreloadInfo[] = [];
-		for (const preload of this._notebookStaticPreloadInfoStore) {
-			if (preload.extensionLocation === extInfo?.extensionLocation) {
-				results.push(preload);
-			}
-		}
-		return results;
 	}
 	// --- End Positron ---
 
