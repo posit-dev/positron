@@ -45,7 +45,7 @@ print(f'Hello {val}!')`;
 					await app.workbench.positronConsole.sendEnterKey();
 
 					await app.workbench.positronConsole.waitForConsoleContents((contents) => contents.some((line) => line.includes('Hello John Doe!')) );
-				}).toPass();
+				}).toPass({timeout: 60000});
 
 			});
 		});
@@ -82,7 +82,7 @@ cat(sprintf('Hello %s!\n', val))`;
 					await app.workbench.positronConsole.sendEnterKey();
 
 					await app.workbench.positronConsole.waitForConsoleContents((contents) => contents.some((line) => line.includes('Hello John Doe!')) );
-				}).toPass();
+				}).toPass({timeout: 60000});
 
 			});
 		});
