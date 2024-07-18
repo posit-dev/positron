@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 
+import { expect } from '@playwright/test';
 import { Application, Logger, PositronPythonFixtures, PositronRFixtures } from '../../../../../automation';
 import { installAllHandlers } from '../../../utils';
 
@@ -15,6 +16,12 @@ export function setup(logger: Logger) {
 		describe('Console Input - Python', () => {
 			before(async function () {
 				await PositronPythonFixtures.SetupFixtures(this.app as Application);
+				await this.app.workbench.positronLayouts.enterLayout('fullSizedPanel');
+			});
+
+			after(async function () {
+				const app = this.app as Application;
+				await app.workbench.positronLayouts.enterLayout('stacked');
 			});
 
 			it('Python - Get Input String Console [C667516]', async function () {
@@ -23,17 +30,22 @@ export function setup(logger: Logger) {
 				const inputCode = `val = input("Enter your name: ")
 print(f'Hello {val}!')`;
 
-				await app.workbench.positronConsole.pasteCodeToConsole(inputCode);
+				await expect(async () => {
+					await app.workbench.positronConsole.pasteCodeToConsole(inputCode);
 
-				await app.workbench.positronConsole.sendEnterKey();
+					await app.workbench.positronConsole.sendEnterKey();
 
-				await app.workbench.positronConsole.waitForConsoleContents((contents) => contents.some((line) => line.includes('Enter your name:')) );
+					await app.workbench.positronConsole.waitForConsoleContents((contents) => contents.some((line) => line.includes('Enter your name:')) );
 
-				await app.workbench.positronConsole.typeToConsole('John Doe');
+					// slight wait before starting to type
+					await app.code.wait(200);
 
-				await app.workbench.positronConsole.sendEnterKey();
+					await app.workbench.positronConsole.typeToConsole('John Doe');
 
-				await app.workbench.positronConsole.waitForConsoleContents((contents) => contents.some((line) => line.includes('Hello John Doe!')) );
+					await app.workbench.positronConsole.sendEnterKey();
+
+					await app.workbench.positronConsole.waitForConsoleContents((contents) => contents.some((line) => line.includes('Hello John Doe!')) );
+				}).toPass();
 
 			});
 		});
@@ -41,6 +53,12 @@ print(f'Hello {val}!')`;
 		describe('Console Input - R', () => {
 			before(async function () {
 				await PositronRFixtures.SetupFixtures(this.app as Application);
+				await this.app.workbench.positronLayouts.enterLayout('fullSizedPanel');
+			});
+
+			after(async function () {
+				const app = this.app as Application;
+				await app.workbench.positronLayouts.enterLayout('stacked');
 			});
 
 			it('R - Get Input String Console [C667517]', async function () {
@@ -49,17 +67,22 @@ print(f'Hello {val}!')`;
 				const inputCode = `val <- readline(prompt = "Enter your name: ")
 cat(sprintf('Hello %s!\n', val))`;
 
-				await app.workbench.positronConsole.pasteCodeToConsole(inputCode);
+				await expect(async () => {
+					await app.workbench.positronConsole.pasteCodeToConsole(inputCode);
 
-				await app.workbench.positronConsole.sendEnterKey();
+					await app.workbench.positronConsole.sendEnterKey();
 
-				await app.workbench.positronConsole.waitForConsoleContents((contents) => contents.some((line) => line.includes('Enter your name:')) );
+					await app.workbench.positronConsole.waitForConsoleContents((contents) => contents.some((line) => line.includes('Enter your name:')) );
 
-				await app.workbench.positronConsole.typeToConsole('John Doe');
+					// slight wait before starting to type
+					await app.code.wait(200);
 
-				await app.workbench.positronConsole.sendEnterKey();
+					await app.workbench.positronConsole.typeToConsole('John Doe');
 
-				await app.workbench.positronConsole.waitForConsoleContents((contents) => contents.some((line) => line.includes('Hello John Doe!')) );
+					await app.workbench.positronConsole.sendEnterKey();
+
+					await app.workbench.positronConsole.waitForConsoleContents((contents) => contents.some((line) => line.includes('Hello John Doe!')) );
+				}).toPass();
 
 			});
 		});

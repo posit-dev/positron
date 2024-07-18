@@ -123,11 +123,6 @@ export class PositronConsole {
 		await this.code.driver.getKeyboard().press('Enter');
 	}
 
-	getActiveConsole(): Locator | undefined {
-		const activeConsole = this.code.driver.getLocator(ACTIVE_CONSOLE_INSTANCE);
-		return activeConsole;
-	}
-
 	async waitForReady(prompt: string, retryCount: number = 500) {
 		// Wait for the prompt to show up.
 		await this.code.waitForTextContent(`${ACTIVE_CONSOLE_INSTANCE} .active-line-number`, prompt, undefined, retryCount);
