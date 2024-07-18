@@ -251,7 +251,7 @@ export function pickPreferredOutput(outputs: NotebookCellOutputs['outputs'], log
 		return undefined;
 	}
 
-	let highestPriorty: number | null = null;
+	let highestPriority: number | null = null;
 	let preferredOutput = outputs[0];
 
 	for (let i = 0; i < outputs.length; i++) {
@@ -265,13 +265,13 @@ export function pickPreferredOutput(outputs: NotebookCellOutputs['outputs'], log
 			continue;
 		}
 
-		if (priority < (highestPriorty ?? Infinity)) {
+		if (priority < (highestPriority ?? Infinity)) {
 			preferredOutput = output;
-			highestPriorty = priority;
+			highestPriority = priority;
 		}
 	}
 
-	if (highestPriorty === null) {
+	if (highestPriority === null) {
 		logWarning('Could not determine preferred output for notebook cell with mime types' +
 			outputs.map(output => output.mime).join(', ')
 		);
