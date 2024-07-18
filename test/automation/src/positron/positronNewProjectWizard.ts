@@ -12,8 +12,8 @@ import { PositronBaseElement, PositronTextElement } from './positronBaseElement'
 const PROJECT_WIZARD_PROJECT_NAME_INPUT =
 	'div[id="wizard-sub-step-project-name"] .wizard-sub-step-input input.text-input';
 
-// Configuration Step: Python Project & Jupyter Notebook
-const PROJECT_WIZARD_INTERPRETER_DROPDOWN_POPUP_ITEMS =
+// Selector for the currently open dropdown popup items in the project wizard
+const PROJECT_WIZARD_DROPDOWN_POPUP_ITEMS =
 	'div.positron-modal-popup-children button.positron-button.item';
 
 /*
@@ -121,6 +121,7 @@ class ProjectWizardRConfigurationStep {
 class ProjectWizardPythonConfigurationStep {
 	newEnvRadioButton: PositronBaseElement;
 	existingEnvRadioButton: PositronBaseElement;
+	envProviderDropdown: Locator;
 	selectedInterpreterPath: PositronTextElement;
 	interpreterFeedback: PositronTextElement;
 	interpreterDropdown: Locator;
@@ -133,6 +134,9 @@ class ProjectWizardPythonConfigurationStep {
 		this.existingEnvRadioButton = new PositronBaseElement(
 			'div[id="wizard-step-set-up-python-environment"] div[id="wizard-sub-step-pythonenvironment-howtosetupenv"] .radio-button-input[id="existingEnvironment"]',
 			this.code
+		);
+		this.envProviderDropdown = this.code.driver.getLocator(
+			'div[id="wizard-sub-step-python-environment"] .wizard-sub-step-input button.drop-down-list-box'
 		);
 		this.selectedInterpreterPath = new PositronTextElement(
 			'div[id="wizard-sub-step-python-interpreter"] .wizard-sub-step-input button.drop-down-list-box .dropdown-entry-subtitle',
@@ -148,6 +152,32 @@ class ProjectWizardPythonConfigurationStep {
 	}
 
 	/**
+	 * Selects the specified environment provider in the project wizard environment provider dropdown.
+	 * @param provider The environment provider to select.
+	 */
+	async selectEnvProvider(provider: string) {
+		// Open the dropdown
+		await this.envProviderDropdown.click();
+
+		// Try to find the env provider in the dropdown
+		try {
+			await this.code.waitForElement(
+				PROJECT_WIZARD_DROPDOWN_POPUP_ITEMS
+			);
+			await this.code.driver
+				.getLocator(
+					`${PROJECT_WIZARD_DROPDOWN_POPUP_ITEMS} div.dropdown-entry-title:text-is("${provider}")`
+				)
+				.click();
+			return Promise.resolve();
+		} catch (error) {
+			return Promise.reject(
+				`Could not find env provider in project wizard dropdown: ${error}`
+			);
+		}
+	}
+
+	/**
 	 * Selects the interpreter corresponding to the given path in the project wizard interpreter
 	 * dropdown.
 	 * @param interpreterPath The path of the interpreter to select in the dropdown.
@@ -160,16 +190,16 @@ class ProjectWizardPythonConfigurationStep {
 		// Try to find the interpreterPath in the dropdown and click the entry if found
 		try {
 			await this.code.waitForElement(
-				PROJECT_WIZARD_INTERPRETER_DROPDOWN_POPUP_ITEMS
+				PROJECT_WIZARD_DROPDOWN_POPUP_ITEMS
 			);
 			await this.code.driver
 				.getLocator(
-					`${PROJECT_WIZARD_INTERPRETER_DROPDOWN_POPUP_ITEMS} div.dropdown-entry-subtitle:text-is("${interpreterPath}")`
+					`${PROJECT_WIZARD_DROPDOWN_POPUP_ITEMS} div.dropdown-entry-subtitle:text-is("${interpreterPath}")`
 				)
 				.click();
 			return Promise.resolve();
 		} catch (error) {
-			// Couldn't find the relative or absolute path of the interpreter in the dropdown
+			// Couldn't find the path of the interpreter in the dropdown
 			return Promise.reject(
 				`Could not find interpreter path in project wizard dropdown: ${error}`
 			);

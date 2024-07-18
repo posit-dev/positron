@@ -20,18 +20,46 @@ export function setup(logger: Logger) {
 
 			});
 
-			it('Python Project Defaults [C627912]', async function () {
-				const app = this.app as Application;
-				const pw = app.workbench.positronNewProjectWizard;
-				await pw.startNewProject();
-				await pw.projectTypeStep.pythonProjectButton.click();
-				await pw.nextButton.click();
-				await pw.nextButton.click();
-				await pw.disabledCreateButton.isNotVisible(500);
-				await pw.nextButton.click();
-				await pw.currentOrNewWindowSelectionModal.currentWindowButton.click();
-				await app.workbench.positronExplorer.explorerProjectTitle.waitForText('myPythonProject');
-				await app.workbench.positronConsole.waitForReady('>>>', 10000);
+			describe('Python Project with new environment', () => {
+				it('Create a new Venv environment [C627912]', async function () {
+					// This is the default behaviour for a new Python Project in the Project Wizard
+					const app = this.app as Application;
+					const pw = app.workbench.positronNewProjectWizard;
+					await pw.startNewProject();
+					await pw.projectTypeStep.pythonProjectButton.click();
+					await pw.nextButton.click();
+					await pw.nextButton.click();
+					await pw.disabledCreateButton.isNotVisible(500);
+					await pw.nextButton.click();
+					await pw.currentOrNewWindowSelectionModal.currentWindowButton.click();
+					await app.workbench.positronExplorer.explorerProjectTitle.waitForText('myPythonProject');
+					await app.workbench.positronConsole.waitForReady('>>>', 10000);
+				});
+				it('Create a new Conda environment [.......]', async function () {
+					// This test relies on Conda already being installed on the machine
+					const projSuffix = '_condaInstalled';
+					const app = this.app as Application;
+					const pw = app.workbench.positronNewProjectWizard;
+					await pw.startNewProject();
+					await pw.projectTypeStep.pythonProjectButton.click();
+					await pw.nextButton.click();
+					await pw.projectNameLocationStep.appendToProjectName(projSuffix);
+					await pw.nextButton.click();
+					// Select 'Conda' as the environment provider
+					await pw.pythonConfigurationStep.selectEnvProvider('Conda');
+					await pw.nextButton.click();
+					await pw.currentOrNewWindowSelectionModal.currentWindowButton.click();
+					await app.workbench.positronExplorer.explorerProjectTitle.waitForText(
+						`myPythonProject${projSuffix}`
+					);
+					// Check that the `.conda` folder gets created in the project
+					expect(async () => {
+						const projectFiles = await app.workbench.positronExplorer.getExplorerProjectFiles();
+						expect(projectFiles).toContain('.conda');
+					}).toPass({ timeout: 10000 });
+					// The console should initialize without any prompts to install ipykernel
+					await app.workbench.positronConsole.waitForReady('>>>', 10000);
+				});
 			});
 
 			describe('Python Project with existing interpreter', () => {
@@ -42,6 +70,8 @@ export function setup(logger: Logger) {
 					const pythonFixtures = new PositronPythonFixtures(app);
 					// Start the Python interpreter and ensure ipykernel is installed
 					await pythonFixtures.startAndGetPythonInterpreter(true);
+					// Ensure the console is ready with the selected interpreter
+					await app.workbench.positronConsole.waitForReady('>>>', 10000);
 					const interpreterInfo = await app.workbench.startInterpreter.getSelectedInterpreterInfo();
 					expect(interpreterInfo?.path).toBeDefined();
 					// Create a new Python project and use the selected python interpreter
@@ -70,6 +100,8 @@ export function setup(logger: Logger) {
 					const pythonFixtures = new PositronPythonFixtures(app);
 					// Start the Python interpreter and uninstall ipykernel
 					await pythonFixtures.startAndGetPythonInterpreter(true);
+					// Ensure the console is ready with the selected interpreter
+					await app.workbench.positronConsole.waitForReady('>>>', 10000);
 					const interpreterInfo = await app.workbench.startInterpreter.getSelectedInterpreterInfo();
 					expect(interpreterInfo?.path).toBeDefined();
 					await app.workbench.positronConsole.typeToConsole('pip uninstall -y ipykernel');
