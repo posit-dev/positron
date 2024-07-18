@@ -230,8 +230,9 @@ class ProjectWizardPythonConfigurationStep {
 			await this.code.waitForElement(PROJECT_WIZARD_DROPDOWN_POPUP_ITEMS);
 			await this.code.driver
 				.getLocator(
-					`${PROJECT_WIZARD_DROPDOWN_POPUP_ITEMS} div.dropdown-entry-subtitle:text-is("${interpreterPath}")`
+					`${PROJECT_WIZARD_DROPDOWN_POPUP_ITEMS} div.dropdown-entry-subtitle`
 				)
+				.getByText(interpreterPath)
 				.click();
 			return Promise.resolve();
 		} catch (error) {

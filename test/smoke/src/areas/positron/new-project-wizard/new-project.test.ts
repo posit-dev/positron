@@ -80,8 +80,14 @@ export function setup(logger: Logger) {
 					await pw.projectNameLocationStep.appendToProjectName(projSuffix);
 					await pw.navigate(ProjectWizardNavigateAction.NEXT);
 					await pw.pythonConfigurationStep.existingEnvRadioButton.click();
-					// Select the interpreter that was started above
-					await pw.pythonConfigurationStep.selectInterpreterByPath(interpreterInfo!.path);
+					// Select the interpreter that was started above. It's possible that this needs
+					// to be attempted a few times to ensure the interpreters are properly loaded.
+					expect(
+						async () =>
+							await pw.pythonConfigurationStep.selectInterpreterByPath(
+								interpreterInfo!.path
+							)
+					).toPass({ timeout: 10000 });
 					await pw.pythonConfigurationStep.interpreterFeedback.isNotVisible();
 					await pw.navigate(ProjectWizardNavigateAction.CREATE);
 					await pw.currentOrNewWindowSelectionModal.currentWindowButton.click();
@@ -115,8 +121,14 @@ export function setup(logger: Logger) {
 					await pw.navigate(ProjectWizardNavigateAction.NEXT);
 					// Choose the existing environment which does not have ipykernel
 					await pw.pythonConfigurationStep.existingEnvRadioButton.click();
-					// Select the interpreter that was started above
-					await pw.pythonConfigurationStep.selectInterpreterByPath(interpreterInfo!.path);
+					// Select the interpreter that was started above. It's possible that this needs
+					// to be attempted a few times to ensure the interpreters are properly loaded.
+					expect(
+						async () =>
+							await pw.pythonConfigurationStep.selectInterpreterByPath(
+								interpreterInfo!.path
+							)
+					).toPass({ timeout: 10000 });
 					await pw.pythonConfigurationStep.interpreterFeedback.waitForText(
 						'ipykernel will be installed for Python language support.'
 					);
