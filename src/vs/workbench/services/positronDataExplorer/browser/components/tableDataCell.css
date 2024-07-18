@@ -3,40 +3,33 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-.data-grid-row-cell
-.content
-.text-container {
+.data-grid-row-cell .content .text-container {
 	height: 100%;
 	display: flex;
 	margin: 0 7px;
 	align-items: center;
 }
 
-.data-grid-row-cell
-.content
-.text-container.left {
+.data-grid-row-cell .content .text-container.left {
 	justify-content: left;
 }
 
-.data-grid-row-cell
-.content
-.text-container.center {
+.data-grid-row-cell .content .text-container.center {
 	justify-content: center;
 }
 
-.data-grid-row-cell
-.content
-.text-container.right {
+.data-grid-row-cell .content .text-container.right {
 	justify-content: right;
 	font-variant-numeric: tabular-nums;
 }
 
-.data-grid-row-cell
-.content
-.text-container
-.text-value {
+.data-grid-row-cell .content .text-container .text-value {
 	overflow: hidden;
 	white-space: nowrap;
 	text-overflow: ellipsis;
 	white-space-collapse: preserve;
+}
+
+.data-grid-row-cell .content .text-container .text-value.special-value {
+	opacity: 0.60;
 }
