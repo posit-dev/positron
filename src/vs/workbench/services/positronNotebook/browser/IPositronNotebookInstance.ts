@@ -83,18 +83,6 @@ export interface IPositronNotebookInstance {
 	deleteCell(cell?: IPositronNotebookCell): void;
 
 	/**
-	 * Set the currently selected cells for notebook instance
-	 * @param cellOrCells The cell or cells to set as selected
-	 */
-	setSelectedCells(cellOrCells: IPositronNotebookCell[]): void;
-
-	/**
-	 * Remove selection from cell
-	 * @param cell The cell to deselect
-	 */
-	deselectCell(cell: IPositronNotebookCell): void;
-
-	/**
 	 * Set the currently editing cell.
 	 */
 	setEditingCell(cell: IPositronNotebookCell | undefined): void;
