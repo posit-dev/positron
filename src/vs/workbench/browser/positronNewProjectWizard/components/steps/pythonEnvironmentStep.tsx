@@ -81,21 +81,21 @@ export const PythonEnvironmentStep = (props: PropsWithChildren<NewProjectWizardS
 	}, [context]);
 
 	// Utility functions.
+	// At least one interpreter is available.
 	const interpretersAvailable = () => {
 		if (context.usesCondaEnv) {
-			return Boolean(
-				isCondaInstalled &&
-				condaPythonVersionInfo &&
-				condaPythonVersionInfo.versions.length
-			);
+			return !!isCondaInstalled &&
+				!!condaPythonVersionInfo &&
+				!!condaPythonVersionInfo.versions.length;
 		}
-		return Boolean(interpreters && interpreters.length);
+		return !!interpreters && !!interpreters.length;
 	};
+	// If any of the values are undefined, the interpreters are still loading.
 	const interpretersLoading = () => {
 		if (context.usesCondaEnv) {
-			return Boolean(isCondaInstalled && !condaPythonVersionInfo);
+			return isCondaInstalled === undefined || condaPythonVersionInfo === undefined;
 		}
-		return !interpreters;
+		return interpreters === undefined;
 	};
 	const envProvidersAvailable = () => Boolean(envProviders && envProviders.length);
 	const envProvidersLoading = () => !envProviders;
@@ -236,60 +236,38 @@ export const PythonEnvironmentStep = (props: PropsWithChildren<NewProjectWizardS
 
 	// Construct the feedback message for the interpreter step.
 	const interpreterStepFeedback = () => {
-		// For existing environments, if an interpreter is selected and ipykernel will be installed,
-		// show a message to notify the user that ipykernel will be installed.
-		if (envSetupType === EnvironmentSetupType.ExistingEnvironment &&
-			selectedInterpreter &&
-			willInstallIpykernel) {
-			return (
-				<WizardFormattedText
-					type={WizardFormattedTextType.Info}
-				>
-					<code>ipykernel</code>
-					{(() =>
-						localize(
-							'pythonInterpreterSubStep.feedback',
-							" will be installed for Python language support."
-						))()}
-				</WizardFormattedText>
-			);
-		}
-
-		// For new environments, if no environment providers were found, show a message to notify
-		// the user that interpreters can't be shown since no environment providers were found.
-		if (envSetupType === EnvironmentSetupType.NewEnvironment &&
-			!envProvidersLoading() &&
-			!envProvidersAvailable()
-		) {
-			return (
-				<WizardFormattedText
-					type={WizardFormattedTextType.Warning}
-				>
-					{(() =>
-						localize(
-							'pythonInterpreterSubStep.feedback.noInterpretersAvailable',
-							"No interpreters available since no environment providers were found."
-						))()}
-				</WizardFormattedText>
-			);
-		}
-
-		if (context.usesCondaEnv && !isCondaInstalled) {
-			return (
-				<WizardFormattedText
-					type={WizardFormattedTextType.Warning}
-				>
-					{(() =>
-						localize(
-							'pythonInterpreterSubStep.feedback.condaNotInstalled',
-							"Conda is not installed. Please install Conda to create a Conda environment."
-						))()}
-				</WizardFormattedText>
-			);
-		}
-
-		// If the interpreters list is empty, show a message that no interpreters were found.
 		if (!interpretersLoading() && !interpretersAvailable()) {
+			// For new environments, if no environment providers were found, show a message to notify
+			// the user that interpreters can't be shown since no environment providers were found.
+			if (envSetupType === EnvironmentSetupType.NewEnvironment) {
+				return (
+					<WizardFormattedText
+						type={WizardFormattedTextType.Warning}
+					>
+						{(() =>
+							localize(
+								'pythonInterpreterSubStep.feedback.noInterpretersAvailable',
+								"No interpreters available since no environment providers were found."
+							))()}
+					</WizardFormattedText>
+				);
+			}
+
+			if (context.usesCondaEnv) {
+				return (
+					<WizardFormattedText
+						type={WizardFormattedTextType.Warning}
+					>
+						{(() =>
+							localize(
+								'pythonInterpreterSubStep.feedback.condaNotInstalled',
+								"Conda is not installed. Please install Conda to create a Conda environment."
+							))()}
+					</WizardFormattedText>
+				);
+			}
+
+			// If the interpreters list is empty, show a message that no interpreters were found.
 			return (
 				<WizardFormattedText
 					type={WizardFormattedTextType.Warning}
@@ -299,6 +277,25 @@ export const PythonEnvironmentStep = (props: PropsWithChildren<NewProjectWizardS
 							'pythonInterpreterSubStep.feedback.noSuitableInterpreters',
 							"No suitable interpreters found. Please install a Python interpreter with version {0} or later.",
 							minimumPythonVersion
+						))()}
+				</WizardFormattedText>
+			);
+		}
+
+		// For existing environments, if an interpreter is selected and ipykernel will be installed,
+		// show a message to notify the user that ipykernel will be installed.
+		if (
+			envSetupType === EnvironmentSetupType.ExistingEnvironment &&
+			selectedInterpreter &&
+			willInstallIpykernel
+		) {
+			return (
+				<WizardFormattedText type={WizardFormattedTextType.Info}>
+					<code>ipykernel</code>
+					{(() =>
+						localize(
+							'pythonInterpreterSubStep.feedback',
+							" will be installed for Python language support."
 						))()}
 				</WizardFormattedText>
 			);
