@@ -35,6 +35,7 @@ import { ICommandService } from 'vs/platform/commands/common/commands';
 import { SELECT_KERNEL_ID_POSITRON, SelectPositronNotebookKernelContext } from './SelectPositronNotebookKernelAction';
 import { INotebookKernelService } from 'vs/workbench/contrib/notebook/common/notebookKernelService';
 import { INotebookService } from 'vs/workbench/contrib/notebook/common/notebookService';
+import { ILanguageRuntimeSession, IRuntimeSessionService } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
 
 interface IPositronNotebookInstanceRequiredViewModel extends IPositronNotebookInstance {
 	viewModel: NotebookViewModel;
@@ -160,6 +161,8 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	 */
 	kernelStatus: ISettableObservable<KernelStatus>;
 
+	currentRuntime: ISettableObservable<ILanguageRuntimeSession | undefined, void>;
+
 	/**
 	 * Keep track of if this editor has been disposed.
 	 */
@@ -237,6 +240,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		@INotebookExecutionStateService private readonly notebookExecutionStateService: INotebookExecutionStateService,
 		@INotebookService private readonly _notebookService: INotebookService,
 		@INotebookKernelService private readonly notebookKernelService: INotebookKernelService,
+		@IRuntimeSessionService private readonly runtimeSessionService: IRuntimeSessionService,
 		@IConfigurationService private readonly configurationService: IConfigurationService,
 		@IInstantiationService private readonly _instantiationService: IInstantiationService,
 		@IContextKeyService private readonly _contextKeyService: IContextKeyService,
@@ -248,6 +252,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 
 		this.cells = observableValue<IPositronNotebookCell[]>('positronNotebookCells', this._cells);
 		this.kernelStatus = observableValue<KernelStatus>('positronNotebookKernelStatus', KernelStatus.Uninitialized);
+		this.currentRuntime = observableValue<ILanguageRuntimeSession | undefined>('positronNotebookCurrentRuntime', undefined);
 
 		this.contextManager = this._instantiationService.createInstance(PositronNotebookContextKeyManager);
 		this._positronNotebookService.registerInstance(this);
@@ -277,8 +282,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		this._register(
 			this.notebookKernelService.onDidChangeSelectedNotebooks((e) => {
 				// If this is our notebook, update the kernel status as needed.
-				const isThisNotebook = e.notebook.path === this._input.resource.path;
-				if (!isThisNotebook) { return; }
+				if (!this._isThisNotebook(e.notebook)) { return; }
 
 				this._assertTextModel();
 				// Select the kernel
@@ -290,10 +294,22 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 				}
 
 				this._logService.info(this._identifier, `Selecting kernel ${kernel.id} for notebook`);
-
 				this.notebookKernelService.selectKernelForNotebook(kernel, this.textModel);
+			})
+		);
 
-				this.kernelStatus.set(e.newKernel !== undefined ? KernelStatus.Connected : KernelStatus.Disconnected, undefined);
+		// Listen for a runtime session to be started up that's attached to this notebook
+		this._register(
+			this.runtimeSessionService.onDidStartRuntime((session) => {
+				if (session.metadata.notebookUri && this._isThisNotebook(session.metadata.notebookUri)) {
+					this.currentRuntime.set(session, undefined);
+					this.kernelStatus.set(KernelStatus.Connected, undefined);
+
+					session.onDidEndSession(() => {
+						this.currentRuntime.set(undefined, undefined);
+						this.kernelStatus.set(KernelStatus.Disconnected, undefined);
+					});
+				}
 			})
 		);
 
@@ -510,7 +526,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	 * @returns True if the uri is the same as the notebook's uri, false otherwise.
 	 */
 	private _isThisNotebook(uri: URI): boolean {
-		return uri.toString() === this._input.resource.toString();
+		return uri.path === this._input.resource.path;
 	}
 
 
