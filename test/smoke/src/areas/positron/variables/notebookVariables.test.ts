@@ -19,10 +19,7 @@ export function setup(logger: Logger) {
 		describe('Python Notebook Variables Pane', () => {
 
 			before(async function () {
-
-				const pythonFixtures = new PositronPythonFixtures(this.app);
-				await pythonFixtures.startPythonInterpreter();
-
+				await PositronPythonFixtures.SetupFixtures(this.app as Application);
 			});
 
 			after(async function () {
@@ -66,10 +63,7 @@ export function setup(logger: Logger) {
 		describe('R Notebook Variables Pane', () => {
 
 			before(async function () {
-
-				const rFixtures = new PositronRFixtures(this.app);
-				await rFixtures.startRInterpreter();
-
+				await PositronRFixtures.SetupFixtures(this.app as Application);
 			});
 
 			after(async function () {
