@@ -254,9 +254,7 @@ export function pickPreferredOutput(outputs: NotebookCellOutputs['outputs'], log
 	let highestPriority: number | null = null;
 	let preferredOutput = outputs[0];
 
-	for (let i = 0; i < outputs.length; i++) {
-
-		const output = outputs[i];
+	for (const output of outputs) {
 		const priority = getMimeTypePriority(output.mime);
 
 		// If we don't know how to render any of the mime types, we'll return the first one and hope
