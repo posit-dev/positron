@@ -11,7 +11,7 @@ import { ITextModelService } from 'vs/editor/common/services/resolverService';
 import { IInstantiationService } from 'vs/platform/instantiation/common/instantiation';
 import { NotebookCellTextModel } from 'vs/workbench/contrib/notebook/common/model/notebookCellTextModel';
 import { CellKind } from 'vs/workbench/contrib/notebook/common/notebookCommon';
-import { ExecutionStatus, IPositronNotebookCodeCell, IPositronNotebookCell, IPositronNotebookMarkdownCell, NotebookCellOutputs } from 'vs/workbench/services/positronNotebook/browser/IPositronNotebookCell';
+import { ExecutionStatus, IPositronNotebookCodeCell, IPositronNotebookCell, IPositronNotebookMarkdownCell, NotebookCellOutputs, NotebookCellOutputItem } from 'vs/workbench/services/positronNotebook/browser/IPositronNotebookCell';
 import { CodeEditorWidget } from 'vs/editor/browser/widget/codeEditor/codeEditorWidget';
 import { CellSelectionType } from 'vs/workbench/services/positronNotebook/browser/selectionMachine';
 import { PositronNotebookInstance } from 'vs/workbench/contrib/positronNotebook/browser/PositronNotebookInstance';
@@ -240,22 +240,22 @@ function getMimeTypePriority(mime: string): number | null {
 }
 
 /**
- * Pick the output with the highest priority mime type from a cell output object
- * @param outputs Array of outputs data from a cell output object
- * @returns The output data with the highest priority mime type. If there's a tie, the first one is
- * returned. If there's an unknown mime type, the first one is returned.
+ * Pick the output item with the highest priority mime type from a cell output object
+ * @param outputItems Array of outputs items data from a cell output object
+ * @returns The output item with the highest priority mime type. If there's a tie, the first one is
+ * returned. If there's an unknown mime type we defer to ones we do know about.
  */
-export function pickPreferredOutput(outputs: NotebookCellOutputs['outputs'], logWarning: (msg: string) => void): NotebookCellOutputs['outputs'][number] | undefined {
+export function pickPreferredOutputItem(outputItems: NotebookCellOutputItem[], logWarning: (msg: string) => void): NotebookCellOutputItem | undefined {
 
-	if (outputs.length === 0) {
+	if (outputItems.length === 0) {
 		return undefined;
 	}
 
 	let highestPriority: number | null = null;
-	let preferredOutput = outputs[0];
+	let preferredOutput = outputItems[0];
 
-	for (const output of outputs) {
-		const priority = getMimeTypePriority(output.mime);
+	for (const item of outputItems) {
+		const priority = getMimeTypePriority(item.mime);
 
 		// If we don't know how to render any of the mime types, we'll return the first one and hope
 		// for the best!
@@ -264,14 +264,14 @@ export function pickPreferredOutput(outputs: NotebookCellOutputs['outputs'], log
 		}
 
 		if (priority < (highestPriority ?? Infinity)) {
-			preferredOutput = output;
+			preferredOutput = item;
 			highestPriority = priority;
 		}
 	}
 
 	if (highestPriority === null) {
 		logWarning('Could not determine preferred output for notebook cell with mime types' +
-			outputs.map(output => output.mime).join(', ')
+			outputItems.map(item => item.mime).join(', ')
 		);
 	}
 
