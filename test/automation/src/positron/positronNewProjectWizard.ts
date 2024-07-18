@@ -3,7 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { Locator } from '@playwright/test';
+import { expect, Locator } from '@playwright/test';
 import { Code } from '../code';
 import { QuickAccess } from '../quickaccess';
 import { PositronBaseElement, PositronTextElement } from './positronBaseElement';
@@ -171,11 +171,21 @@ class ProjectWizardPythonConfigurationStep {
 		);
 	}
 
+	private async waitForDataLoading() {
+		// The env provider dropdown is only visible when New Environment is selected
+		if (await this.envProviderDropdown.isVisible()) {
+			await expect(this.envProviderDropdown.textContent()).resolves.not.toEqual('Loading environment providers...');
+		}
+		await expect(this.interpreterDropdown.textContent()).resolves.not.toEqual('Loading interpreters...');
+	}
+
 	/**
 	 * Selects the specified environment provider in the project wizard environment provider dropdown.
 	 * @param provider The environment provider to select.
 	 */
 	async selectEnvProvider(provider: string) {
+		await this.waitForDataLoading();
+
 		// Open the dropdown
 		await this.envProviderDropdown.click();
 
@@ -204,6 +214,8 @@ class ProjectWizardPythonConfigurationStep {
 	 * @returns A promise that resolves once the interpreter is selected, or rejects if the interpreter is not found.
 	 */
 	async selectInterpreterByPath(interpreterPath: string) {
+		await this.waitForDataLoading();
+
 		// Open the dropdown
 		await this.interpreterDropdown.click();
 
