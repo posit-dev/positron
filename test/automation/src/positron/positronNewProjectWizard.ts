@@ -3,7 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { Locator } from '@playwright/test';
+import { expect, Locator } from '@playwright/test';
 import { Code } from '../code';
 import { QuickAccess } from '../quickaccess';
 import { PositronBaseElement, PositronTextElement } from './positronBaseElement';
@@ -11,6 +11,19 @@ import { PositronBaseElement, PositronTextElement } from './positronBaseElement'
 // Selector for the currently open dropdown popup items in the project wizard
 const PROJECT_WIZARD_DROPDOWN_POPUP_ITEMS =
 	'div.positron-modal-popup-children button.positron-button.item';
+
+// Selector for the default button in the project wizard, which will either be 'Next' or 'Create'
+const PROJECT_WIZARD_DEFAULT_BUTTON = 'button.positron-button.button.action-bar-button.default[tabindex="0"][role="button"]';
+
+/**
+ * Enum representing the possible navigation actions that can be taken in the project wizard.
+ */
+export enum ProjectWizardNavigateAction {
+	BACK,
+	NEXT,
+	CANCEL,
+	CREATE,
+}
 
 /*
  *  Reuseable Positron new project wizard functionality for tests to leverage.
@@ -22,41 +35,17 @@ export class PositronNewProjectWizard {
 	pythonConfigurationStep: ProjectWizardPythonConfigurationStep;
 	currentOrNewWindowSelectionModal: CurrentOrNewWindowSelectionModal;
 
-	cancelButton: PositronBaseElement;
-	nextButton: PositronBaseElement;
-	backButton: PositronBaseElement;
-	disabledCreateButton: PositronBaseElement;
+	private backButton = this.code.driver.getLocator('div.left-actions > button.positron-button.button.action-bar-button[tabindex="0"][role="button"]');
+	private cancelButton = this.code.driver.getLocator('div.right-actions > button.positron-button.button.action-bar-button[tabindex="0"][role="button"]');
+	private nextButton = this.code.driver.getLocator(PROJECT_WIZARD_DEFAULT_BUTTON).getByText('Next');
+	private createButton = this.code.driver.getLocator(PROJECT_WIZARD_DEFAULT_BUTTON).getByText('Create');
 
 	constructor(private code: Code, private quickaccess: QuickAccess) {
 		this.projectTypeStep = new ProjectWizardProjectTypeStep(this.code);
-		this.projectNameLocationStep = new ProjectWizardProjectNameLocationStep(
-			this.code
-		);
-		this.rConfigurationStep = new ProjectWizardRConfigurationStep(
-			this.code
-		);
-		this.pythonConfigurationStep = new ProjectWizardPythonConfigurationStep(
-			this.code
-		);
-		this.currentOrNewWindowSelectionModal =
-			new CurrentOrNewWindowSelectionModal(this.code);
-
-		this.cancelButton = new PositronBaseElement(
-			'div.right-actions > button.positron-button.button.action-bar-button[tabindex="0"][role="button"]',
-			this.code
-		);
-		this.nextButton = new PositronBaseElement(
-			'button.positron-button.button.action-bar-button.default[tabindex="0"][role="button"]',
-			this.code
-		);
-		this.backButton = new PositronBaseElement(
-			'div.left-actions > button.positron-button.button.action-bar-button[tabindex="0"][role="button"]',
-			this.code
-		);
-		this.disabledCreateButton = new PositronBaseElement(
-			'button.positron-button.button.action-bar-button.default.disabled[tabindex="0"][disabled][role="button"][aria-disabled="true"]',
-			this.code
-		);
+		this.projectNameLocationStep = new ProjectWizardProjectNameLocationStep(this.code);
+		this.rConfigurationStep = new ProjectWizardRConfigurationStep(this.code);
+		this.pythonConfigurationStep = new ProjectWizardPythonConfigurationStep(this.code);
+		this.currentOrNewWindowSelectionModal = new CurrentOrNewWindowSelectionModal(this.code);
 	}
 
 	async startNewProject() {
@@ -64,6 +53,37 @@ export class PositronNewProjectWizard {
 			'positron.workbench.action.newProject',
 			{ keepOpen: false }
 		);
+	}
+
+	/**
+	 * Clicks the specified navigation button in the project wizard.
+	 * @param action The navigation action to take in the project wizard.
+	 */
+	async navigate(action: ProjectWizardNavigateAction) {
+		switch (action) {
+			case ProjectWizardNavigateAction.BACK:
+				await this.backButton.waitFor();
+				await this.backButton.click();
+				break;
+			case ProjectWizardNavigateAction.NEXT:
+				await this.nextButton.waitFor();
+				await this.nextButton.isEnabled({ timeout: 5000 });
+				await this.nextButton.click();
+				break;
+			case ProjectWizardNavigateAction.CANCEL:
+				await this.cancelButton.waitFor();
+				await this.cancelButton.click();
+				break;
+			case ProjectWizardNavigateAction.CREATE:
+				await this.createButton.waitFor();
+				await this.createButton.isEnabled({ timeout: 5000 });
+				await this.createButton.click();
+				break;
+			default:
+				throw new Error(
+					`Invalid project wizard navigation action: ${action}`
+				);
+		}
 	}
 }
 
@@ -151,19 +171,35 @@ class ProjectWizardPythonConfigurationStep {
 		);
 	}
 
+	private async waitForDataLoading() {
+		// The env provider dropdown is only visible when New Environment is selected
+		if (await this.envProviderDropdown.isVisible()) {
+			await expect(this.envProviderDropdown).not.toContainText(
+				'Loading environment providers...',
+				{ timeout: 5000 }
+			);
+		}
+
+		// The interpreter dropdown is always visible
+		await expect(this.interpreterDropdown).not.toContainText(
+			'Loading interpreters...',
+			{ timeout: 5000 }
+		);
+	}
+
 	/**
 	 * Selects the specified environment provider in the project wizard environment provider dropdown.
 	 * @param provider The environment provider to select.
 	 */
 	async selectEnvProvider(provider: string) {
+		await this.waitForDataLoading();
+
 		// Open the dropdown
 		await this.envProviderDropdown.click();
 
 		// Try to find the env provider in the dropdown
 		try {
-			await this.code.waitForElement(
-				PROJECT_WIZARD_DROPDOWN_POPUP_ITEMS
-			);
+			await this.code.waitForElement(PROJECT_WIZARD_DROPDOWN_POPUP_ITEMS);
 			await this.code.driver
 				.getLocator(
 					`${PROJECT_WIZARD_DROPDOWN_POPUP_ITEMS} div.dropdown-entry-title:text-is("${provider}")`
@@ -184,18 +220,19 @@ class ProjectWizardPythonConfigurationStep {
 	 * @returns A promise that resolves once the interpreter is selected, or rejects if the interpreter is not found.
 	 */
 	async selectInterpreterByPath(interpreterPath: string) {
+		await this.waitForDataLoading();
+
 		// Open the dropdown
 		await this.interpreterDropdown.click();
 
 		// Try to find the interpreterPath in the dropdown and click the entry if found
 		try {
-			await this.code.waitForElement(
-				PROJECT_WIZARD_DROPDOWN_POPUP_ITEMS
-			);
+			await this.code.waitForElement(PROJECT_WIZARD_DROPDOWN_POPUP_ITEMS);
 			await this.code.driver
 				.getLocator(
-					`${PROJECT_WIZARD_DROPDOWN_POPUP_ITEMS} div.dropdown-entry-subtitle:text-is("${interpreterPath}")`
+					`${PROJECT_WIZARD_DROPDOWN_POPUP_ITEMS} div.dropdown-entry-subtitle`
 				)
+				.getByText(interpreterPath)
 				.click();
 			return Promise.resolve();
 		} catch (error) {

@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { expect } from '@playwright/test';
-import { Application, Logger, PositronPythonFixtures } from '../../../../../automation';
+import { Application, Logger, PositronPythonFixtures, ProjectWizardNavigateAction } from '../../../../../automation';
 import { installAllHandlers } from '../../../utils';
 
 /*
@@ -27,27 +27,26 @@ export function setup(logger: Logger) {
 					const pw = app.workbench.positronNewProjectWizard;
 					await pw.startNewProject();
 					await pw.projectTypeStep.pythonProjectButton.click();
-					await pw.nextButton.click();
-					await pw.nextButton.click();
-					await pw.disabledCreateButton.isNotVisible(500);
-					await pw.nextButton.click();
+					await pw.navigate(ProjectWizardNavigateAction.NEXT);
+					await pw.navigate(ProjectWizardNavigateAction.NEXT);
+					await pw.navigate(ProjectWizardNavigateAction.CREATE);
 					await pw.currentOrNewWindowSelectionModal.currentWindowButton.click();
 					await app.workbench.positronExplorer.explorerProjectTitle.waitForText('myPythonProject');
 					await app.workbench.positronConsole.waitForReady('>>>', 10000);
 				});
-				it('Create a new Conda environment [.......]', async function () {
+				it('Create a new Conda environment [C628628]', async function () {
 					// This test relies on Conda already being installed on the machine
 					const projSuffix = '_condaInstalled';
 					const app = this.app as Application;
 					const pw = app.workbench.positronNewProjectWizard;
 					await pw.startNewProject();
 					await pw.projectTypeStep.pythonProjectButton.click();
-					await pw.nextButton.click();
+					await pw.navigate(ProjectWizardNavigateAction.NEXT);
 					await pw.projectNameLocationStep.appendToProjectName(projSuffix);
-					await pw.nextButton.click();
+					await pw.navigate(ProjectWizardNavigateAction.NEXT);
 					// Select 'Conda' as the environment provider
 					await pw.pythonConfigurationStep.selectEnvProvider('Conda');
-					await pw.nextButton.click();
+					await pw.navigate(ProjectWizardNavigateAction.CREATE);
 					await pw.currentOrNewWindowSelectionModal.currentWindowButton.click();
 					await app.workbench.positronExplorer.explorerProjectTitle.waitForText(
 						`myPythonProject${projSuffix}`
@@ -77,15 +76,20 @@ export function setup(logger: Logger) {
 					// Create a new Python project and use the selected python interpreter
 					await pw.startNewProject();
 					await pw.projectTypeStep.pythonProjectButton.click();
-					await pw.nextButton.click();
+					await pw.navigate(ProjectWizardNavigateAction.NEXT);
 					await pw.projectNameLocationStep.appendToProjectName(projSuffix);
-					await pw.nextButton.click();
+					await pw.navigate(ProjectWizardNavigateAction.NEXT);
 					await pw.pythonConfigurationStep.existingEnvRadioButton.click();
-					// Select the interpreter that was started above
-					await pw.pythonConfigurationStep.selectInterpreterByPath(interpreterInfo!.path);
+					// Select the interpreter that was started above. It's possible that this needs
+					// to be attempted a few times to ensure the interpreters are properly loaded.
+					expect(
+						async () =>
+							await pw.pythonConfigurationStep.selectInterpreterByPath(
+								interpreterInfo!.path
+							)
+					).toPass({ timeout: 10000 });
 					await pw.pythonConfigurationStep.interpreterFeedback.isNotVisible();
-					await pw.disabledCreateButton.isNotVisible(500);
-					await pw.nextButton.click();
+					await pw.navigate(ProjectWizardNavigateAction.CREATE);
 					await pw.currentOrNewWindowSelectionModal.currentWindowButton.click();
 					await app.workbench.positronExplorer.explorerProjectTitle.waitForText(
 						`myPythonProject${projSuffix}`
@@ -112,18 +116,23 @@ export function setup(logger: Logger) {
 					// Create a new Python project and use the selected python interpreter
 					await pw.startNewProject();
 					await pw.projectTypeStep.pythonProjectButton.click();
-					await pw.nextButton.click();
+					await pw.navigate(ProjectWizardNavigateAction.NEXT);
 					await pw.projectNameLocationStep.appendToProjectName(projSuffix);
-					await pw.nextButton.click();
+					await pw.navigate(ProjectWizardNavigateAction.NEXT);
 					// Choose the existing environment which does not have ipykernel
 					await pw.pythonConfigurationStep.existingEnvRadioButton.click();
-					// Select the interpreter that was started above
-					await pw.pythonConfigurationStep.selectInterpreterByPath(interpreterInfo!.path);
+					// Select the interpreter that was started above. It's possible that this needs
+					// to be attempted a few times to ensure the interpreters are properly loaded.
+					expect(
+						async () =>
+							await pw.pythonConfigurationStep.selectInterpreterByPath(
+								interpreterInfo!.path
+							)
+					).toPass({ timeout: 10000 });
 					await pw.pythonConfigurationStep.interpreterFeedback.waitForText(
 						'ipykernel will be installed for Python language support.'
 					);
-					await pw.disabledCreateButton.isNotVisible(500);
-					await pw.nextButton.click();
+					await pw.navigate(ProjectWizardNavigateAction.CREATE);
 					await pw.currentOrNewWindowSelectionModal.currentWindowButton.click();
 					await app.workbench.positronExplorer.explorerProjectTitle.waitForText(
 						`myPythonProject${projSuffix}`
@@ -134,21 +143,20 @@ export function setup(logger: Logger) {
 				});
 			});
 
-			it('Default Python Project with git init [......]', async function () {
+			it('Default Python Project with git init [C674522]', async function () {
 				const projSuffix = '_gitInit';
 				const app = this.app as Application;
 				const pw = app.workbench.positronNewProjectWizard;
 				await pw.startNewProject();
 				await pw.projectTypeStep.pythonProjectButton.click();
-				await pw.nextButton.click();
+				await pw.navigate(ProjectWizardNavigateAction.NEXT);
 				await pw.projectNameLocationStep.appendToProjectName(projSuffix);
 
 				// Check the git init checkbox
 				await pw.projectNameLocationStep.gitInitCheckbox.waitFor();
 				await pw.projectNameLocationStep.gitInitCheckbox.setChecked(true);
-				await pw.nextButton.click();
-				await pw.disabledCreateButton.isNotVisible(500);
-				await pw.nextButton.click();
+				await pw.navigate(ProjectWizardNavigateAction.NEXT);
+				await pw.navigate(ProjectWizardNavigateAction.CREATE);
 
 				// Open the new project in the current window and wait for the console to be ready
 				await pw.currentOrNewWindowSelectionModal.currentWindowButton.click();
@@ -186,10 +194,9 @@ export function setup(logger: Logger) {
 				const pw = app.workbench.positronNewProjectWizard;
 				await pw.startNewProject();
 				await pw.projectTypeStep.rProjectButton.click();
-				await pw.nextButton.click();
-				await pw.nextButton.click();
-				await pw.disabledCreateButton.isNotVisible(500);
-				await pw.nextButton.click();
+				await pw.navigate(ProjectWizardNavigateAction.NEXT);
+				await pw.navigate(ProjectWizardNavigateAction.NEXT);
+				await pw.navigate(ProjectWizardNavigateAction.CREATE);
 				await pw.currentOrNewWindowSelectionModal.currentWindowButton.click();
 				await app.workbench.positronExplorer.explorerProjectTitle.waitForText('myRProject');
 				// NOTE: For completeness, we probably want to await app.workbench.positronConsole.waitForReady('>', 10000);
@@ -204,13 +211,12 @@ export function setup(logger: Logger) {
 					// Create a new R project - select Renv and install
 					await pw.startNewProject();
 					await pw.projectTypeStep.rProjectButton.click();
-					await pw.nextButton.click();
+					await pw.navigate(ProjectWizardNavigateAction.NEXT);
 					await pw.projectNameLocationStep.appendToProjectName(projSuffix);
-					await pw.nextButton.click();
-					await pw.disabledCreateButton.isNotVisible(500);
+					await pw.navigate(ProjectWizardNavigateAction.NEXT);
 					// Select the renv checkbox
 					await pw.rConfigurationStep.renvCheckbox.click();
-					await pw.nextButton.click();
+					await pw.navigate(ProjectWizardNavigateAction.CREATE);
 					await pw.currentOrNewWindowSelectionModal.currentWindowButton.click();
 					await app.workbench.positronExplorer.explorerProjectTitle.waitForText(
 						`myRProject${projSuffix}`
@@ -250,13 +256,12 @@ export function setup(logger: Logger) {
 					const pw = app.workbench.positronNewProjectWizard;
 					await pw.startNewProject();
 					await pw.projectTypeStep.rProjectButton.click();
-					await pw.nextButton.click();
+					await pw.navigate(ProjectWizardNavigateAction.NEXT);
 					await pw.projectNameLocationStep.appendToProjectName(projSuffix);
-					await pw.nextButton.click();
-					await pw.disabledCreateButton.isNotVisible(500);
+					await pw.navigate(ProjectWizardNavigateAction.NEXT);
 					// Select the renv checkbox
 					await pw.rConfigurationStep.renvCheckbox.click();
-					await pw.nextButton.click();
+					await pw.navigate(ProjectWizardNavigateAction.CREATE);
 					await pw.currentOrNewWindowSelectionModal.currentWindowButton.click();
 					await app.workbench.positronExplorer.explorerProjectTitle.waitForText(
 						`myRProject${projSuffix}`
@@ -286,13 +291,12 @@ export function setup(logger: Logger) {
 					// Create a new R project - select Renv but opt out of installing
 					await pw.startNewProject();
 					await pw.projectTypeStep.rProjectButton.click();
-					await pw.nextButton.click();
+					await pw.navigate(ProjectWizardNavigateAction.NEXT);
 					await pw.projectNameLocationStep.appendToProjectName(projSuffix);
-					await pw.nextButton.click();
-					await pw.disabledCreateButton.isNotVisible(500);
+					await pw.navigate(ProjectWizardNavigateAction.NEXT);
 					// Select the renv checkbox
 					await pw.rConfigurationStep.renvCheckbox.click();
-					await pw.nextButton.click();
+					await pw.navigate(ProjectWizardNavigateAction.CREATE);
 					await pw.currentOrNewWindowSelectionModal.currentWindowButton.click();
 					await app.workbench.positronExplorer.explorerProjectTitle.waitForText(
 						`myRProject${projSuffix}`
@@ -323,10 +327,9 @@ export function setup(logger: Logger) {
 				const pw = app.workbench.positronNewProjectWizard;
 				await pw.startNewProject();
 				await pw.projectTypeStep.jupyterNotebookButton.click();
-				await pw.nextButton.click();
-				await pw.nextButton.click();
-				await pw.disabledCreateButton.isNotVisible(500);
-				await pw.nextButton.click();
+				await pw.navigate(ProjectWizardNavigateAction.NEXT);
+				await pw.navigate(ProjectWizardNavigateAction.NEXT);
+				await pw.navigate(ProjectWizardNavigateAction.CREATE);
 				await pw.currentOrNewWindowSelectionModal.currentWindowButton.click();
 				await app.workbench.positronExplorer.explorerProjectTitle.waitForText('myJupyterNotebook');
 				// NOTE: For completeness, we probably want to await app.workbench.positronConsole.waitForReady('>>>', 10000);
