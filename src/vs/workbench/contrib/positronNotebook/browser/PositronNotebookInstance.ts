@@ -36,6 +36,7 @@ import { SELECT_KERNEL_ID_POSITRON, SelectPositronNotebookKernelContext } from '
 import { INotebookKernelService } from 'vs/workbench/contrib/notebook/common/notebookKernelService';
 import { INotebookService } from 'vs/workbench/contrib/notebook/common/notebookService';
 import { ILanguageRuntimeSession, IRuntimeSessionService } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
+import { isEqual } from 'vs/base/common/resources';
 
 interface IPositronNotebookInstanceRequiredViewModel extends IPositronNotebookInstance {
 	viewModel: NotebookViewModel;
@@ -526,7 +527,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	 * @returns True if the uri is the same as the notebook's uri, false otherwise.
 	 */
 	private _isThisNotebook(uri: URI): boolean {
-		return uri.path === this._input.resource.path;
+		return isEqual(uri, this._input.resource);
 	}
 
 
