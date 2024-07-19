@@ -66,10 +66,13 @@ class PythonEnvironment implements IPythonEnvironment {
 
     public async getModuleVersion(moduleName: string): Promise<string | undefined> {
         const [args, parse] = internalPython.getModuleVersion(moduleName);
-        const info = this.getExecutionInfo(args);
+        // --- Start Positron ---
         let data: ExecutionResult<string>;
         try {
-            data = await this.deps.exec(info.command, info.args);
+            // using `conda run ...` fails in some scenarios
+            // use interpreter directly to get module version
+            data = await this.deps.exec(this.pythonPath, args);
+            // --- End Positron ---
         } catch (ex) {
             traceVerbose(`Error when getting version of module ${moduleName}`, ex);
             return undefined;
