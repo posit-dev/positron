@@ -292,6 +292,7 @@ export class PositronNotebookOutputWebviewService implements IPositronNotebookOu
 
 		webview.setHtml(`
 <script src='${jQueryPath}'></script>
+${PositronNotebookOutputWebviewService.CssAddons}
 ${html}
 <script>
 const vscode = acquireVsCodeApi();
@@ -304,6 +305,17 @@ window.onload = function() {
 </script>`);
 		return new NotebookOutputWebview(id, runtime.runtimeMetadata.runtimeId, webview);
 	}
+
+	/**
+	 * A set of CSS addons to inject into the HTML of the webview. Used to do things like
+	 * hide elements that are not functional in the context of positron such as links to
+	 * pages that can't be opened.
+	 */
+	static readonly CssAddons = `
+<style>
+	/* Hide actions button that does things like opening source code etc.. (See #2829) */
+	.vega-embed details {display: none;}
+</style>`;
 
 	/**
 	 * Renders widget HTML in a webview.
