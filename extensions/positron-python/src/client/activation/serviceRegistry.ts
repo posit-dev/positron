@@ -17,6 +17,7 @@ import { LoadLanguageServerExtension } from './common/loadLanguageServerExtensio
 import { PartialModeStatusItem } from './partialModeStatus';
 import { ILanguageServerWatcher } from '../languageServer/types';
 import { LanguageServerWatcher } from '../languageServer/watcher';
+import { RequirementsTxtLinkActivator } from './requirementsTxtLinkActivator';
 
 export function registerTypes(serviceManager: IServiceManager): void {
     serviceManager.addSingleton<IExtensionActivationService>(IExtensionActivationService, PartialModeStatusItem);
@@ -35,4 +36,9 @@ export function registerTypes(serviceManager: IServiceManager): void {
 
     serviceManager.addSingleton<ILanguageServerWatcher>(ILanguageServerWatcher, LanguageServerWatcher);
     serviceManager.addBinding(ILanguageServerWatcher, IExtensionActivationService);
+
+    serviceManager.addSingleton<IExtensionSingleActivationService>(
+        IExtensionSingleActivationService,
+        RequirementsTxtLinkActivator,
+    );
 }

@@ -172,6 +172,7 @@ export interface IPythonSettings {
     readonly condaPath: string;
     readonly pipenvPath: string;
     readonly poetryPath: string;
+    readonly pixiToolPath: string;
     readonly devOptions: string[];
     readonly testing: ITestingSettings;
     readonly autoComplete: IAutoCompleteSettings;
@@ -210,6 +211,7 @@ export interface ITerminalSettings {
 
 export interface IREPLSettings {
     readonly enableREPLSmartSend: boolean;
+    readonly sendToNativeREPL: boolean;
 }
 
 export interface IExperiments {

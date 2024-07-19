@@ -9,9 +9,17 @@ import pathlib
 import socket
 import sys
 import traceback
+import sysconfig
 import unittest
 from types import TracebackType
 from typing import Dict, List, Optional, Tuple, Type, Union
+
+# Adds the scripts directory to the PATH as a workaround for enabling shell for test execution.
+path_var_name = "PATH" if "PATH" in os.environ else "Path"
+os.environ[path_var_name] = (
+    sysconfig.get_paths()["scripts"] + os.pathsep + os.environ[path_var_name]
+)
+
 
 script_dir = pathlib.Path(__file__).parent.parent
 sys.path.append(os.fspath(script_dir))
@@ -187,6 +195,11 @@ def run_tests(
     locals: Optional[bool] = None,
 ) -> ExecutionPayloadDict:
     cwd = os.path.abspath(start_dir)
+    if "/" in start_dir:  #  is a subdir
+        parent_dir = os.path.dirname(start_dir)
+        sys.path.insert(0, parent_dir)
+    else:
+        sys.path.insert(0, cwd)
     status = TestExecutionStatus.error
     error = None
     payload: ExecutionPayloadDict = {"cwd": cwd, "status": status, "result": None}
