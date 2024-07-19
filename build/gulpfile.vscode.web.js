@@ -88,7 +88,7 @@ const buildDate = new Date().toISOString();
 // Use the POSITRON_BUILD_NUMBER var if it's set; otherwise, call show-version to compute it.
 const buildNumber =
 	process.env.POSITRON_BUILD_NUMBER ??
-	child_process.execSync(`${REPO_ROOT}/versions/show-version.js --build`).toString().trim();
+	child_process.execSync(`node ${REPO_ROOT}/versions/show-version.js --build`).toString().trim();
 // --- End Positron ---
 
 /**
@@ -191,7 +191,7 @@ const optimizeVSCodeWebTask = task.define('optimize-vscode-web', task.series(
 const minifyVSCodeWebTask = task.define('minify-vscode-web', task.series(
 	optimizeVSCodeWebTask,
 	util.rimraf('out-vscode-web-min'),
-	optimize.minifyTask('out-vscode-web', `https://ticino.blob.core.windows.net/sourcemaps/${commit}/core`)
+	optimize.minifyTask('out-vscode-web', `https://main.vscode-cdn.net/sourcemaps/${commit}/core`)
 ));
 gulp.task(minifyVSCodeWebTask);
 

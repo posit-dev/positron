@@ -162,7 +162,7 @@ export const DataGridRowCell = (props: DataGridRowCellProps) => {
 					}
 				</>
 			}
-			<div className='content'>
+			<div id={`data-grid-row-cell-content-${props.columnIndex}-${props.rowIndex}`} className='content'>
 				{context.instance.cell(props.columnIndex, props.rowIndex)}
 			</div>
 			{context.instance.columnResize &&

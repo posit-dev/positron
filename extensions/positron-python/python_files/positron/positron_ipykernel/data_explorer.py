@@ -13,6 +13,7 @@ import operator
 from datetime import datetime
 from typing import (
     TYPE_CHECKING,
+    Any,
     Callable,
     Dict,
     List,
@@ -101,6 +102,11 @@ logger = logging.getLogger(__name__)
 
 PathKey = Tuple[str, ...]
 StateUpdate = Tuple[bool, List[RowFilter], List[ColumnSortKey]]
+SummarizerType = Callable[[Any, FormatOptions], ColumnSummaryStats]
+
+
+def _summarize_not_implemented(col, options: FormatOptions):
+    raise NotImplementedError
 
 
 class DataExplorerTableView(abc.ABC):
@@ -594,7 +600,22 @@ class DataExplorerTableView(abc.ABC):
     def _prof_null_count(self, column_index: int) -> int:
         raise NotImplementedError
 
-    def _prof_summary_stats(self, column_index: int, options: FormatOptions) -> ColumnSummaryStats:
+    _SUMMARIZERS: Dict[str, SummarizerType] = {}
+
+    def _prof_summary_stats(self, column_index: int, options: FormatOptions):
+        col_schema = self._get_single_column_schema(column_index)
+        col = self._get_column(column_index)
+
+        ui_type = col_schema.type_display
+        handler = self._SUMMARIZERS.get(ui_type, _summarize_not_implemented)
+
+        if handler is None:
+            # Return nothing for types we don't yet know how to summarize
+            return ColumnSummaryStats(type_display=ui_type)
+        else:
+            return handler(col, options)
+
+    def _get_column(self, column_index: int):
         raise NotImplementedError
 
     def _prof_freq_table(self, column_index: int) -> ColumnFrequencyTable:
@@ -627,6 +648,66 @@ class DataExplorerTableView(abc.ABC):
             sort_keys=self.sort_keys,
             supported_features=self.FEATURES,
         )
+
+
+def _box_number_stats(min_val, max_val, mean_val, median_val, std_val):
+    return ColumnSummaryStats(
+        type_display=ColumnDisplayType.Number,
+        number_stats=SummaryStatsNumber(
+            min_value=min_val,
+            max_value=max_val,
+            mean=mean_val,
+            median=median_val,
+            stdev=std_val,
+        ),
+    )
+
+
+def _box_string_stats(num_empty, num_unique):
+    return ColumnSummaryStats(
+        type_display=ColumnDisplayType.String,
+        string_stats=SummaryStatsString(num_empty=int(num_empty), num_unique=int(num_unique)),
+    )
+
+
+def _box_boolean_stats(true_count, false_count):
+    return ColumnSummaryStats(
+        type_display=ColumnDisplayType.Boolean,
+        boolean_stats=SummaryStatsBoolean(true_count=int(true_count), false_count=int(false_count)),
+    )
+
+
+def _box_date_stats(num_unique, min_date, mean_date, median_date, max_date):
+    def format_date(x):
+        return x.strftime("%Y-%m-%d")
+
+    return ColumnSummaryStats(
+        type_display=ColumnDisplayType.Date,
+        date_stats=SummaryStatsDate(
+            num_unique=int(num_unique),
+            min_date=format_date(min_date),
+            mean_date=format_date(mean_date),
+            median_date=format_date(median_date),
+            max_date=format_date(max_date),
+        ),
+    )
+
+
+def _box_datetime_stats(num_unique, min_date, mean_date, median_date, max_date, timezone):
+    def format_date(x):
+        return str(x)
+
+    return ColumnSummaryStats(
+        type_display=ColumnDisplayType.Datetime,
+        datetime_stats=SummaryStatsDatetime(
+            num_unique=num_unique,
+            min_date=format_date(min_date),
+            mean_date=format_date(mean_date),
+            median_date=format_date(median_date),
+            max_date=format_date(max_date),
+            timezone=timezone,
+        ),
+    )
 
 
 class UnsupportedView(DataExplorerTableView):
@@ -728,6 +809,100 @@ def _pandas_datetimetz_mapper(type_name):
         return "datetime"
 
 
+def _pandas_summarize_number(col: "pd.Series", options: FormatOptions):
+    float_format = _get_float_formatter(options)
+
+    if "complex" in str(col.dtype):
+        min_val = max_val = median_val = mean_val = None
+        values = col.to_numpy()
+        non_null_values = values[~np_.isnan(values)]
+        if len(non_null_values) > 0:
+            median_val = float_format(np_.median(non_null_values))
+            mean_val = float_format(np_.mean(non_null_values))
+        return _box_number_stats(
+            min_val,
+            max_val,
+            mean_val,
+            median_val,
+            None,  # std_val
+        )
+    else:
+        return _get_float_stats_generic(col, float_format)
+
+
+def _get_float_stats_generic(col, float_format):
+    # This works for both pandas and polars because their API for
+    # these functions is the same
+    median_val = mean_val = std_val = None
+
+    min_val = col.min()
+    max_val = col.max()
+
+    if not _isinf(min_val) and not _isinf(max_val):
+        # These stats are not defined when there is an
+        # inf/-inf in the data
+        mean_val = float_format(col.mean())
+        median_val = float_format(col.median())
+        std_val = float_format(col.std())
+
+    return _box_number_stats(
+        float_format(min_val),
+        float_format(max_val),
+        mean_val,
+        median_val,
+        std_val,
+    )
+
+
+def _pandas_summarize_string(col: "pd.Series", options: FormatOptions):
+    num_empty = (col.str.len() == 0).sum()
+    num_unique = col.nunique()
+    return _box_string_stats(num_empty, num_unique)
+
+
+def _pandas_summarize_boolean(col: "pd.Series", options: FormatOptions):
+    null_count = col.isnull().sum()
+    true_count = col.sum()
+    false_count = len(col) - true_count - null_count
+    return _box_boolean_stats(true_count, false_count)
+
+
+def _pandas_summarize_date(col: "pd.Series", options: FormatOptions):
+    col_dttm = pd_.to_datetime(col)
+    min_date = col.min()
+    mean_date = pd_.to_datetime(col_dttm.mean()).date()
+    median_date = _date_median(col_dttm)
+    max_date = col.max()
+    num_unique = col.nunique()
+    return _box_date_stats(num_unique, min_date, mean_date, median_date, max_date)
+
+
+def _pandas_summarize_datetime(col: "pd.Series", options: FormatOptions):
+    # when there are mixed timezones in a single column, it's
+    # possible that any of the operations below can
+    # fail. specially if they mix timezone aware datetimes with
+    # naive datetimes.
+
+    # if an error happens we return `None` as the field value.
+    min_date = _possibly(col.min)
+    mean_date = _possibly(col.mean)
+    median_date = _possibly(lambda: _date_median(col))
+    max_date = _possibly(col.max)
+
+    num_unique = _possibly(col.nunique)
+
+    timezones = col.apply(lambda x: x.tz).unique()
+    if len(timezones) == 1:
+        timezone = str(timezones[0])
+    else:
+        timezone = [f"{str(x)}" for x in timezones[:2]]
+        timezone = ", ".join(timezone)
+        if len(timezones) > 2:
+            timezone = timezone + f", ... ({len(timezones) - 2} more)"
+
+    return _box_datetime_stats(num_unique, min_date, mean_date, median_date, max_date, timezone)
+
+
 class PandasView(DataExplorerTableView):
     TYPE_NAME_MAPPING = {"boolean": "bool"}
 
@@ -746,16 +921,6 @@ class PandasView(DataExplorerTableView):
         # object columns, to avoid recomputing. If the underlying
         # object is changed, this needs to be reset
         self._inferred_dtypes = {}
-
-        # Putting this here rather than in the class body before
-        # Python < 3.10 has fussier rules about staticmethods
-        self._SUMMARIZERS = {
-            ColumnDisplayType.Boolean: self._summarize_boolean,
-            ColumnDisplayType.Number: self._summarize_number,
-            ColumnDisplayType.String: self._summarize_string,
-            ColumnDisplayType.Date: self._summarize_date,
-            ColumnDisplayType.Datetime: self._summarize_datetime,
-        }
 
     def _maybe_wrap(self, value):
         if isinstance(value, pd_.Series):
@@ -1249,142 +1414,13 @@ class PandasView(DataExplorerTableView):
     def _prof_null_count(self, column_index: int):
         return self._get_column(column_index).isnull().sum()
 
-    def _prof_summary_stats(self, column_index: int, options: FormatOptions):
-        col_schema = self._get_single_column_schema(column_index)
-        col = self._get_column(column_index)
-
-        ui_type = col_schema.type_display
-        handler = self._SUMMARIZERS.get(ui_type)
-
-        if handler is None:
-            # Return nothing for types we don't yet know how to summarize
-            return ColumnSummaryStats(type_display=ui_type)
-        else:
-            return handler(col, options)
-
-    @classmethod
-    def _summarize_number(cls, col: "pd.Series", options: FormatOptions):
-        float_format = _get_float_formatter(options)
-
-        median_val = mean_val = std_val = None
-
-        if "complex" in str(col.dtype):
-            min_val = max_val = None
-            values = col.to_numpy()
-            non_null_values = values[~np_.isnan(values)]
-            if len(non_null_values) > 0:
-                median_val = float_format(np_.median(non_null_values))
-                mean_val = float_format(np_.mean(non_null_values))
-        else:
-            min_val = col.min()
-            max_val = col.max()
-
-            if not _isinf(min_val) and not _isinf(max_val):
-                # These stats are not defined when there is an
-                # inf/-inf in the data
-                mean_val = float_format(col.mean())
-                median_val = float_format(col.median())
-                std_val = float_format(col.std())
-
-            # Format the min/max
-            min_val = float_format(min_val)
-            max_val = float_format(max_val)
-
-        return ColumnSummaryStats(
-            type_display=ColumnDisplayType.Number,
-            number_stats=SummaryStatsNumber(
-                min_value=min_val,
-                max_value=max_val,
-                mean=mean_val,
-                median=median_val,
-                stdev=std_val,
-            ),
-        )
-
-    @staticmethod
-    def _summarize_string(col: "pd.Series", options: FormatOptions):
-        num_empty = (col.str.len() == 0).sum()
-        num_unique = col.nunique()
-
-        return ColumnSummaryStats(
-            type_display=ColumnDisplayType.String,
-            string_stats=SummaryStatsString(num_empty=int(num_empty), num_unique=int(num_unique)),
-        )
-
-    @staticmethod
-    def _summarize_boolean(col: "pd.Series", options: FormatOptions):
-        null_count = col.isnull().sum()
-        true_count = col.sum()
-        false_count = len(col) - true_count - null_count
-
-        return ColumnSummaryStats(
-            type_display=ColumnDisplayType.Boolean,
-            boolean_stats=SummaryStatsBoolean(
-                true_count=int(true_count), false_count=int(false_count)
-            ),
-        )
-
-    @staticmethod
-    def _summarize_date(col: "pd.Series", options: FormatOptions):
-        col_dttm = pd_.to_datetime(col)
-        min_date = col.min()
-        mean_date = pd_.to_datetime(col_dttm.mean()).date()
-        median_date = _date_median(col_dttm)
-        max_date = col.max()
-        num_unique = col.nunique()
-
-        def format_date(x):
-            return x.strftime("%Y-%m-%d")
-
-        return ColumnSummaryStats(
-            type_display=ColumnDisplayType.Date,
-            date_stats=SummaryStatsDate(
-                num_unique=int(num_unique),
-                min_date=format_date(min_date),
-                mean_date=format_date(mean_date),
-                median_date=format_date(median_date),
-                max_date=format_date(max_date),
-            ),
-        )
-
-    @staticmethod
-    def _summarize_datetime(col: "pd.Series", options: FormatOptions):
-        # when there are mixed timezones in a single column, it's
-        # possible that any of the operations below can
-        # fail. specially if they mix timezone aware datetimes with
-        # naive datetimes.
-
-        # if an error happens we return `None` as the field value.
-        min_date = _possibly(col.min)
-        mean_date = _possibly(col.mean)
-        median_date = _possibly(lambda: _date_median(col))
-        max_date = _possibly(col.max)
-
-        num_unique = _possibly(col.nunique)
-
-        def format_date(x):
-            return str(x)
-
-        timezones = col.apply(lambda x: x.tz).unique()
-        if len(timezones) == 1:
-            timezone = str(timezones[0])
-        else:
-            timezone = [f"{str(x)}" for x in timezones[:2]]
-            timezone = ", ".join(timezone)
-            if len(timezones) > 2:
-                timezone = timezone + f", ... ({len(timezones) - 2} more)"
-
-        return ColumnSummaryStats(
-            type_display=ColumnDisplayType.Datetime,
-            datetime_stats=SummaryStatsDatetime(
-                num_unique=num_unique,
-                min_date=format_date(min_date),
-                mean_date=format_date(mean_date),
-                median_date=format_date(median_date),
-                max_date=format_date(max_date),
-                timezone=timezone,
-            ),
-        )
+    _SUMMARIZERS = {
+        ColumnDisplayType.Boolean: _pandas_summarize_boolean,
+        ColumnDisplayType.Number: _pandas_summarize_number,
+        ColumnDisplayType.String: _pandas_summarize_string,
+        ColumnDisplayType.Date: _pandas_summarize_date,
+        ColumnDisplayType.Datetime: _pandas_summarize_datetime,
+    }
 
     def _prof_freq_table(self, column_index: int):
         raise NotImplementedError
@@ -1440,9 +1476,11 @@ class PandasView(DataExplorerTableView):
                     profile_type=ColumnProfileType.NullCount,
                     support_status=SupportStatus.Supported,
                 ),
-                # Temporarily disabled for https://github.com/posit-dev/positron/issues/3490
-                # on 6/11/2024. This will be enabled again when the UI has been reworked to
-                # more fully support column profiles.
+                # Temporarily disabled for
+                # https://github.com/posit-dev/positron/issues/3490 on
+                # 6/11/2024. This will be enabled again when the UI
+                # has been reworked to more fully support column
+                # profiles.
                 ColumnProfileTypeSupportStatus(
                     profile_type=ColumnProfileType.SummaryStats,
                     support_status=SupportStatus.Experimental,
@@ -1519,6 +1557,68 @@ def _parse_iso8601_like(x, tz=None):
             continue
 
     raise ValueError(f'"{x}" not ISO8601 YYYY-MM-DD HH:MM:SS format')
+
+
+# ----------------------------------------------------------------------
+# polars Data Explorer RPC implementations
+
+
+def _polars_summarize_number(col: "pl.Series", options: FormatOptions):
+    float_format = _get_float_formatter(options)
+    return _get_float_stats_generic(col, float_format)
+
+
+def _polars_summarize_string(col: "pl.Series", _):
+    num_empty = (col.str.len_chars() == 0).sum()
+    num_unique = col.n_unique()
+    return _box_string_stats(num_empty, num_unique)
+
+
+def _polars_summarize_boolean(col: "pl.Series", _):
+    null_count = col.is_null().sum()
+    true_count = col.sum()
+    false_count = len(col) - true_count - null_count
+    return _box_boolean_stats(true_count, false_count)
+
+
+def _polars_summarize_date(col: "pl.Series", _):
+    min_date = col.min()
+    max_date = col.max()
+    num_unique = col.n_unique()
+
+    as_int32 = col.cast(pl_.Int32)
+    mean_date = _polars_box_value(
+        int(as_int32.mean()),  # type: ignore
+        col.dtype,
+    )
+    median_date = _polars_box_value(
+        int(as_int32.median()),  # type: ignore
+        col.dtype,
+    )
+    return _box_date_stats(num_unique, min_date, mean_date, median_date, max_date)
+
+
+def _polars_box_value(val, dtype):
+    return pl_.Series([val], dtype=dtype)[0]
+
+
+def _polars_summarize_datetime(col: "pl.Series", _):
+    as_int64 = col.cast(pl_.Int64)
+    mean_date = _polars_box_value(
+        int(as_int64.mean()),  # type: ignore
+        col.dtype,
+    )
+    median_date = _polars_box_value(
+        int(as_int64.median()),  # type: ignore
+        col.dtype,
+    )
+
+    # polars Datetime dtypes can either have a static time zone or no time zone
+    timezone = str(getattr(col.dtype, "time_zone", None))
+
+    return _box_datetime_stats(
+        col.n_unique(), col.min(), mean_date, median_date, col.max(), timezone
+    )
 
 
 class PolarsView(DataExplorerTableView):
@@ -1984,8 +2084,13 @@ class PolarsView(DataExplorerTableView):
             column = column.gather(self.filtered_indices)
         return column
 
-    def _prof_summary_stats(self, column_index: int, options: FormatOptions) -> ColumnSummaryStats:
-        raise NotImplementedError
+    _SUMMARIZERS = {
+        ColumnDisplayType.Boolean: _polars_summarize_boolean,
+        ColumnDisplayType.Number: _polars_summarize_number,
+        ColumnDisplayType.String: _polars_summarize_string,
+        ColumnDisplayType.Date: _polars_summarize_date,
+        ColumnDisplayType.Datetime: _polars_summarize_datetime,
+    }
 
     def _prof_freq_table(self, column_index: int) -> ColumnFrequencyTable:
         raise NotImplementedError
@@ -2014,12 +2119,14 @@ class PolarsView(DataExplorerTableView):
                     profile_type=ColumnProfileType.NullCount,
                     support_status=SupportStatus.Supported,
                 ),
-                # Temporarily disabled for https://github.com/posit-dev/positron/issues/3490
-                # on 6/11/2024. This will be enabled again when the UI has been reworked to
-                # more fully support column profiles.
+                # Temporarily disabled for
+                # https://github.com/posit-dev/positron/issues/3490 on
+                # 6/11/2024. This will be enabled again when the UI
+                # has been reworked to more fully support column
+                # profiles.
                 ColumnProfileTypeSupportStatus(
                     profile_type=ColumnProfileType.SummaryStats,
-                    support_status=SupportStatus.Unsupported,
+                    support_status=SupportStatus.Experimental,
                 ),
             ],
         ),

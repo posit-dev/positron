@@ -161,12 +161,14 @@ export enum CellKind {
 	Code = 2
 }
 
+export type NotebookCellOutputItem = Readonly<{
+	mime: string;
+	data: VSBuffer;
+}>;
+
 export interface NotebookCellOutputs {
 	outputId: string;
-	outputs: {
-		readonly mime: string;
-		readonly data: VSBuffer;
-	}[];
+	outputs: NotebookCellOutputItem[];
 }
 
 /**

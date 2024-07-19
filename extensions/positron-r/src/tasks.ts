@@ -4,8 +4,8 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
+import * as os from 'os';
 import { RSessionManager } from './session-manager';
-import { getEditorFilePathForCommand } from './commands';
 import { getPandocPath } from './pandoc';
 
 export class RPackageTaskProvider implements vscode.TaskProvider {
@@ -54,7 +54,7 @@ export async function getRPackageTasks(editorFilePath?: string): Promise<vscode.
 		{
 			task: 'r.task.rmarkdownRender',
 			message: vscode.l10n.t('{taskName}', { taskName: 'Render document with R Markdown' }),
-			rcode: `rmarkdown::render(${editorFilePath})`,
+			rcode: `rmarkdown::render("${editorFilePath}")`,
 			package: 'rmarkdown'
 		}
 	];
@@ -67,17 +67,37 @@ export async function getRPackageTasks(editorFilePath?: string): Promise<vscode.
 		env['RSTUDIO_PANDOC'] = pandocPath;
 	}
 
-	// the explicit quoting treatment is necessary to avoid headaches on Windows, with PowerShell
-	return taskData.map(data => new vscode.Task(
-		{ type: 'rPackageTask', task: data.task, pkg: data.package },
-		vscode.TaskScope.Workspace,
-		data.message,
-		'R',
-		new vscode.ShellExecution(
-			binpath,
-			['-e', { value: data.rcode, quoting: vscode.ShellQuoting.Strong }],
-			{ env }
-		),
-		[]
-	));
+	return taskData.map(data => {
+		let exec: vscode.ProcessExecution | vscode.ShellExecution;
+		if (data.task === 'r.task.rmarkdownRender' && os.platform() === 'win32') {
+			// Using vscode.ProcessExecution gets around some hairy quoting issues on Windows,
+			// specifically encountered with PowerShell.
+			// https://github.com/posit-dev/positron/issues/3816
+			// We don't know of specific problems around not using a shell (for example, env vars
+			// appear to be inherited by ProcessExecution), but we're still scoping this narrowly
+			// out of caution.
+			exec = new vscode.ProcessExecution(
+				binpath,
+				['-e', data.rcode],
+				{ env }
+			);
+		} else {
+			// The explicit quoting treatment here is also motivated by PowerShell, so make sure to
+			// test any changes on Windows.
+			exec = new vscode.ShellExecution(
+				binpath,
+				['-e', { value: data.rcode, quoting: vscode.ShellQuoting.Strong }],
+				{ env }
+			);
+		}
+
+		return new vscode.Task(
+			{ type: 'rPackageTask', task: data.task, pkg: data.package },
+			vscode.TaskScope.Workspace,
+			data.message,
+			'R',
+			exec,
+			[]
+		);
+	});
 }

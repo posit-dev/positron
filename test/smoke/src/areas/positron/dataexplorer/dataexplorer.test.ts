@@ -22,10 +22,7 @@ export function setup(logger: Logger) {
 
 			before(async function () {
 
-				const app = this.app as Application;
-
-				const pythonFixtures = new PositronPythonFixtures(app);
-				await pythonFixtures.startPythonInterpreter();
+				await PositronPythonFixtures.SetupFixtures(this.app as Application);
 
 			});
 
@@ -78,10 +75,7 @@ df = pd.DataFrame(data)`;
 		describe('Python Polars Data Explorer', () => {
 			before(async function () {
 
-				const app = this.app as Application;
-
-				const pythonFixtures = new PositronPythonFixtures(app);
-				await pythonFixtures.startPythonInterpreter();
+				await PositronPythonFixtures.SetupFixtures(this.app as Application);
 
 			});
 
@@ -139,7 +133,8 @@ df = pd.DataFrame(data)`;
 				expect(tableData.length).toBe(2);
 			});
 
-			it('Python Polars - Add Simple Column Sort [C557561]', async function () {
+			// Skip due to issue https://github.com/posit-dev/positron/issues/4070
+			it.skip('Python Polars - Add Simple Column Sort [C557561]', async function () {
 				const app = this.app as Application;
 				await app.workbench.positronDataExplorer.selectColumnMenuItem(1, 'Sort Descending');
 
@@ -171,10 +166,7 @@ df = pd.DataFrame(data)`;
 		describe('R Data Explorer', () => {
 
 			before(async function () {
-				const app = this.app as Application;
-
-				const rFixtures = new PositronRFixtures(app);
-				await rFixtures.startRInterpreter();
+				await PositronRFixtures.SetupFixtures(this.app as Application);
 
 			});
 

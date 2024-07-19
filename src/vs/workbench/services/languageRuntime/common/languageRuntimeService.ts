@@ -125,7 +125,7 @@ export interface ILanguageRuntimeMessageOutput extends ILanguageRuntimeMessage {
 	readonly kind: RuntimeOutputKind;
 
 	/** A record of data MIME types to the associated data, e.g. `text/plain` => `'hello world'` */
-	readonly data: Record<string, string>;
+	readonly data: Record<string, any>;
 }
 
 /**

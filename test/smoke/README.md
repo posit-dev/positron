@@ -148,6 +148,10 @@ Graphviz is external software that has a Python package to render graphs. Instal
 * **Windows** - `choco install graphviz`
 * **Mac** - `brew install graphviz`
 
+**Conda** environments are leveraged by some smoke tests. You can install a lightweight version of Conda (instead of installing Anaconda) by installing one of the following:
+- [miniforge](https://github.com/conda-forge/miniforge?tab=readme-ov-file#install) (On Mac, you can `brew install miniforge`. The equivalent installer may also be available via package managers on Linux and Windows.)
+- [miniconda](https://docs.anaconda.com/miniconda/#quick-command-line-install) (On Mac, you can `brew install miniconda`. The equivalent installer may also be available via package managers on Linux and Windows.)
+
 ## Environment Setup - Resemblejs dependency
 
 Make sure that you have followed the [Machine Setup](https://connect.posit.it/positron-wiki/machine-setup.html) instructions so that you can be sure you are set up to build resemblejs (which depends on node-canvas).

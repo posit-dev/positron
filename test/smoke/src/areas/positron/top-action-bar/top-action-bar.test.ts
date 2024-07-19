@@ -87,7 +87,7 @@ export function setup(logger: Logger) {
 				}).toPass({ timeout: 10000 });
 			});
 
-			it('Save and Save All both enabled when an unsaved new file is open [C656253]', async function () {
+			it('Save and Save All both enabled when an unsaved new file is open [C656256]', async function () {
 				const app = this.app as Application;
 				const fileName = 'Untitled-1';
 				const text = 'Bunnies hopping through a field of clover';
