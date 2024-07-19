@@ -314,7 +314,7 @@ window.onload = function() {
 	static readonly CssAddons = `
 <style>
 	/* Hide actions button that does things like opening source code etc.. (See #2829) */
-	.vega-embed details {display: none;}
+	.vega-embed details[title="Click to view actions"] {display: none;}
 </style>`;
 
 	/**
