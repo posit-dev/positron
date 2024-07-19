@@ -50,16 +50,8 @@
 	border-left: 1px solid var(--vscode-positronScrollBar-border);
 }
 
-.console-core .console-instance .runtime-items {
+.console-core .console-instance .console-instance-container {
 	cursor: text;
-}
-
-.console-core .console-instance .top-spacer {
-	min-height: 10px;
-	user-select: none;
-	-ms-user-select: none;
-	-moz-user-select: none;
-	-webkit-user-select: none;
 }
 
 .console-core .console-instance:focus {
