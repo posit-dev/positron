@@ -41,7 +41,7 @@ export function setup(logger: Logger) {
 
 			});
 
-			it('Python - Verifies data explorer functionality with large data frame [C557555]', async function () {
+			it('Python - Verifies data explorer functionality with large data frame [C557555] #nightly #pr', async function () {
 				const app = this.app as Application;
 				await app.workbench.quickaccess.openFile(join(app.workspacePathOrFolder, 'workspaces', 'nyc-flights-data-py', 'flights-data-frame.py'));
 				await app.workbench.quickaccess.runCommand('python.execInConsole');
@@ -93,7 +93,7 @@ export function setup(logger: Logger) {
 
 			});
 
-			it('R - Verifies data explorer functionality with large data frame [C557554]', async function () {
+			it('R - Verifies data explorer functionality with large data frame [C557554] #nightly #pr', async function () {
 				const app = this.app as Application;
 				await app.workbench.quickaccess.openFile(join(app.workspacePathOrFolder, 'workspaces', 'nyc-flights-data-r', 'flights-data-frame.r'));
 				await app.workbench.quickaccess.runCommand('r.sourceCurrentFile');

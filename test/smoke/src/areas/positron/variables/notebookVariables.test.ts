@@ -30,7 +30,7 @@ export function setup(logger: Logger) {
 				await app.workbench.positronLayouts.enterLayout('stacked');
 			});
 
-			it('Verifies Variables pane basic function for notebook with python interpreter [C669188]', async function () {
+			it('Verifies Variables pane basic function for notebook with python interpreter [C669188] #nightly #pr', async function () {
 				const app = this.app as Application;
 
 				await app.workbench.positronNotebooks.createNewNotebook();
@@ -74,7 +74,7 @@ export function setup(logger: Logger) {
 				await app.workbench.positronLayouts.enterLayout('stacked');
 			});
 
-			it('Verifies Variables pane basic function for notebook with R interpreter [C669189]', async function () {
+			it('Verifies Variables pane basic function for notebook with R interpreter [C669189] #nightly #pr', async function () {
 				const app = this.app as Application;
 
 				await app.workbench.positronNotebooks.createNewNotebook();

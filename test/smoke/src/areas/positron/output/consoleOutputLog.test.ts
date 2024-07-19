@@ -22,7 +22,7 @@ export function setup(logger: Logger) {
 				await app.workbench.positronLayouts.enterLayout('stacked');
 			});
 
-			it('Python - Verify Console Output Log Contents [C667518]', async function () {
+			it('Python - Verify Console Output Log Contents [C667518] #nightly', async function () {
 				const app = this.app as Application;
 
 				const activeConsole = app.workbench.positronConsole.activeConsole;
@@ -56,7 +56,7 @@ export function setup(logger: Logger) {
 				await app.workbench.positronLayouts.enterLayout('stacked');
 			});
 
-			it('R - Verify Console Output Log Contents [C667519]', async function () {
+			it('R - Verify Console Output Log Contents [C667519] #nightly', async function () {
 				const app = this.app as Application;
 
 				const activeConsole = app.workbench.positronConsole.activeConsole;

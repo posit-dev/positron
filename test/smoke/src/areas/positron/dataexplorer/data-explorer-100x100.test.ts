@@ -152,7 +152,7 @@ export function setupDataExplorer100x100Test(logger: Logger) {
 			/**
 			 * Data Explorer 100x100 - Python - Pandas - Smoke Test.
 			 */
-			it('Data Explorer 100x100 - Python - Pandas - Smoke Test [C557563]', async function () {
+			it('Data Explorer 100x100 - Python - Pandas - Smoke Test [C557563] #nightly', async function () {
 				// Get the app.
 				const app = this.app as Application;
 
@@ -196,7 +196,7 @@ export function setupDataExplorer100x100Test(logger: Logger) {
 			/**
 			 * Data Explorer 100x100 - Python - Polars - Smoke Test.
 			 */
-			it('Data Explorer 100x100 - Python - Polars - Smoke Test [C674520]', async function () {
+			it('Data Explorer 100x100 - Python - Polars - Smoke Test [C674520] #nightly', async function () {
 				// Get the app.
 				const app = this.app as Application;
 
@@ -240,7 +240,7 @@ export function setupDataExplorer100x100Test(logger: Logger) {
 			/**
 			 * Data Explorer 100x100 - R - Smoke Test.
 			 */
-			it('Data Explorer 100x100 - R - Smoke Test [C674521]', async function () {
+			it('Data Explorer 100x100 - R - Smoke Test [C674521] #nightly', async function () {
 				// Get the app.
 				const app = this.app as Application;
 

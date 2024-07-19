@@ -38,6 +38,10 @@ if (process.env.BUILD_ARTIFACTSTAGINGDIRECTORY) {
 
 const mocha = new Mocha(options);
 mocha.addFile('out/main.js');
+mocha.grep(process.env.TEST_FILTER || '');
+
+// mocha.dryRun(); // debugging
+
 mocha.run(failures => {
 
 	// Indicate location of log files for further diagnosis

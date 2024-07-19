@@ -21,14 +21,14 @@ export function setup(logger: Logger) {
 
 			});
 
-			it('Save and Save All both disabled when no unsaved editors are open [C656253]', async function () {
+			it('Save and Save All both disabled when no unsaved editors are open [C656253] #nightly', async function () {
 				const app = this.app as Application;
 				await app.workbench.quickaccess.runCommand('workbench.action.closeAllEditors', { keepOpen: false });
 				expect(await app.workbench.positronTopActionBar.saveButton.isDisabled()).toBeTruthy();
 				expect(await app.workbench.positronTopActionBar.saveAllButton.isDisabled()).toBeTruthy();
 			});
 
-			it('Save enabled and Save All disabled when a single unsaved file is open [C656254]', async function () {
+			it('Save enabled and Save All disabled when a single unsaved file is open [C656254] #nightly', async function () {
 				const app = this.app as Application;
 				const fileName = 'README.md';
 				await app.workbench.quickaccess.runCommand('workbench.action.closeAllEditors', { keepOpen: false });
@@ -53,7 +53,7 @@ export function setup(logger: Logger) {
 				}).toPass({ timeout: 10000 });
 			});
 
-			it('Save and Save All both enabled when multiple unsaved files are open [C656255]', async function () {
+			it('Save and Save All both enabled when multiple unsaved files are open [C656255] #nightly', async function () {
 				const app = this.app as Application;
 				const fileName1 = 'README.md';
 				const fileName2 = 'DESCRIPTION';
@@ -87,7 +87,7 @@ export function setup(logger: Logger) {
 				}).toPass({ timeout: 10000 });
 			});
 
-			it('Save and Save All both enabled when an unsaved new file is open [C656256]', async function () {
+			it('Save and Save All both enabled when an unsaved new file is open [C656256] #nightly', async function () {
 				const app = this.app as Application;
 				const fileName = 'Untitled-1';
 				const text = 'Bunnies hopping through a field of clover';

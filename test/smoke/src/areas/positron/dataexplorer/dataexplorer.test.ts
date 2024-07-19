@@ -38,7 +38,7 @@ export function setup(logger: Logger) {
 
 			});
 
-			it('Python Pandas - Verifies basic data explorer functionality [C557556]', async function () {
+			it('Python Pandas - Verifies basic data explorer functionality [C557556] #nightly #pr', async function () {
 				const app = this.app as Application;
 
 				// modified snippet from https://www.geeksforgeeks.org/python-pandas-dataframe/
@@ -89,7 +89,7 @@ df = pd.DataFrame(data)`;
 
 			});
 
-			it('Python Polars - Verifies basic data explorer functionality [C644538]', async function () {
+			it('Python Polars - Verifies basic data explorer functionality [C644538] #nightly #pr', async function () {
 				const app = this.app as Application;
 				await app.workbench.quickaccess.openFile(join(app.workspacePathOrFolder, 'workspaces', 'polars-dataframe-py', 'polars_basic.py'));
 				await app.workbench.quickaccess.runCommand('python.execInConsole');
@@ -117,7 +117,7 @@ df = pd.DataFrame(data)`;
 
 			});
 
-			it('Python Polars - Add Simple Column filter [C557557]', async function () {
+			it('Python Polars - Add Simple Column filter [C557557] #nightly #pr', async function () {
 				const app = this.app as Application;
 				const FILTER_PARAMS = ['foo', 'is not equal to', '1'];
 				await app.workbench.positronDataExplorer.addFilter(...FILTER_PARAMS as [string, string, string]);
@@ -134,7 +134,7 @@ df = pd.DataFrame(data)`;
 			});
 
 			// Skip due to issue https://github.com/posit-dev/positron/issues/4070
-			it.skip('Python Polars - Add Simple Column Sort [C557561]', async function () {
+			it.skip('Python Polars - Add Simple Column Sort [C557561] #nightly #pr', async function () {
 				const app = this.app as Application;
 				await app.workbench.positronDataExplorer.selectColumnMenuItem(1, 'Sort Descending');
 
@@ -179,7 +179,7 @@ df = pd.DataFrame(data)`;
 
 			});
 
-			it('R - Verifies basic data explorer functionality [C609620]', async function () {
+			it('R - Verifies basic data explorer functionality [C609620] #nightly #pr', async function () {
 				const app = this.app as Application;
 
 				// snippet from https://www.w3schools.com/r/r_data_frames.asp

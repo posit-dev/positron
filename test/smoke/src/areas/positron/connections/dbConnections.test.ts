@@ -37,7 +37,7 @@ export function setup(logger: Logger) {
 			});
 
 
-			it('Python - SQLite DB Connection [C628636]', async function () {
+			it('Python - SQLite DB Connection [C628636] #nightly', async function () {
 
 
 				const app = this.app as Application;
@@ -81,7 +81,7 @@ export function setup(logger: Logger) {
 			});
 
 
-			it('R - SQLite DB Connection [C628637]', async function () {
+			it('R - SQLite DB Connection [C628637] #nightly', async function () {
 
 				const app = this.app as Application;
 				await app.workbench.quickaccess.openFile(join(app.workspacePathOrFolder, 'workspaces', 'chinook-db-r', 'sqlite.r'));
@@ -104,7 +104,7 @@ export function setup(logger: Logger) {
 				await app.workbench.positronConnections.reconnectButton.waitforVisible();
 			});
 
-			it('R - Connections are update after adding a database,[C663724]', async function () {
+			it('R - Connections are update after adding a database,[C663724] #nightly', async function () {
 
 				const app = this.app as Application;
 
