@@ -20,7 +20,7 @@ defaults:
   working-directory: 'extensions/positron-python'
 
 env:
-  NODE_VERSION: '18.17.1'
+  NODE_VERSION: '20.12.1'
   PYTHON_VERSION: '3.10'
   PROJECT_DIR: 'extensions/positron-python'
   PYTHON_SRC_DIR: 'extensions/positron-python/python_files'
@@ -53,7 +53,7 @@ jobs:
           cache: 'pip'
 
       - name: Install Node dependencies
-        run: yarn install --immutable --network-timeout 120000 --prefer-offline
+        run: yarn --immutable --network-timeout 120000
 
       - name: Run `gulp prePublishNonBundle`
         run: yarn prePublish
@@ -263,7 +263,7 @@ jobs:
           cache: 'pip'
 
       - name: Install Node dependencies
-        run: yarn install --immutable --network-timeout 120000 --prefer-offline
+        run: yarn --immutable --network-timeout 120000
 
       - name: Run `gulp prePublishNonBundle`
         run: yarn prePublish

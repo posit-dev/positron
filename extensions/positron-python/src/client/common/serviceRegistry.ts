@@ -92,6 +92,7 @@ import { isWindows } from './platform/platformService';
 // --- Start Positron ---
 import { registerPositronTypes } from '../positron/serviceRegistry';
 // --- End Positron ---
+import { PixiActivationCommandProvider } from './terminal/environmentActivationProviders/pixiActivationProvider';
 
 export function registerTypes(serviceManager: IServiceManager): void {
     serviceManager.addSingletonInstance<boolean>(IsWindows, isWindows());
@@ -163,6 +164,11 @@ export function registerTypes(serviceManager: IServiceManager): void {
         ITerminalActivationCommandProvider,
         CondaActivationCommandProvider,
         TerminalActivationProviders.conda,
+    );
+    serviceManager.addSingleton<ITerminalActivationCommandProvider>(
+        ITerminalActivationCommandProvider,
+        PixiActivationCommandProvider,
+        TerminalActivationProviders.pixi,
     );
     serviceManager.addSingleton<ITerminalActivationCommandProvider>(
         ITerminalActivationCommandProvider,
