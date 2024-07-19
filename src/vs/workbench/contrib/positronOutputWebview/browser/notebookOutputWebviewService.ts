@@ -67,12 +67,17 @@ export interface IPositronNotebookOutputWebviewService {
 	 * @param opts The options for the webview
 	 * @param opts.id A unique ID for this webview; typically the ID of the message
 	 *  that created it.
-	 * @param opts.runtime The runtime that owns this webview.
+	 * @param opts.runtimeOrSessionId The runtime that owns this webview. Can also be a string of the ID of the runtime.
 	 * @param opts.html The HTML content to render in the webview.
 	 * @param opts.webviewType The type of webview to create.
 	 * @returns A promise that resolves to the new webview of the desired type.
 	 */
-	createRawHtmlOutput<WType extends WebviewType>(opts: { id: string; runtime?: ILanguageRuntimeSession; html: string; webviewType: WType }): Promise<
+	createRawHtmlOutput<WType extends WebviewType>(opts: {
+		id: string;
+		html: string;
+		webviewType: WType;
+		runtimeOrSessionId: ILanguageRuntimeSession | string;
+	}): Promise<
 		INotebookOutputWebview<WType extends WebviewType.Overlay ? IOverlayWebview : IWebviewElement>
 	>;
 }

@@ -91,7 +91,7 @@ export function NotebookHTMLContent({ content }: { content: string }) {
 		const buildWebview = async () => {
 			const webviewElement = await notebookWebviewService.createRawHtmlOutput({
 				id: 'notebook-html-output',
-				runtime: notebookRuntime,
+				runtimeOrSessionId: notebookRuntime ?? 'positron.notebooks.output.render',
 				html: buildWebviewHTML({
 					content,
 					styles: htmlOutputStyles,

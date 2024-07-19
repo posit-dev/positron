@@ -69,7 +69,7 @@ export class PositronNotebookOutputWebviewService implements IPositronNotebookOu
 			if (mimeType === 'text/html') {
 				return this.createRawHtmlOutput({
 					id: output.id,
-					runtime,
+					runtimeOrSessionId: runtime,
 					html: output.data[mimeType],
 					webviewType: WebviewType.Overlay
 				});
@@ -255,19 +255,14 @@ export class PositronNotebookOutputWebviewService implements IPositronNotebookOu
 		return new NotebookOutputWebview(id, runtime.runtimeMetadata.runtimeId, webview, render);
 	}
 
-	/**
-	 * Renders raw HTML in a webview.
-	 *
-	 * @param id The ID of the notebook output
-	 * @param runtime The runtime that emitted the output
-	 * @param html The HTML to render
-	 *
-	 * @returns A promise that resolves to the new webview.
-	 */
-	async createRawHtmlOutput<WType extends WebviewType>({ id, runtime, html, webviewType }: { id: string; runtime?: ILanguageRuntimeSession; html: string; webviewType: WType }): Promise<
+	async createRawHtmlOutput<WType extends WebviewType>({ id, html, webviewType, runtimeOrSessionId }: {
+		id: string;
+		html: string;
+		webviewType: WType;
+		runtimeOrSessionId: ILanguageRuntimeSession | string;
+	}): Promise<
 		INotebookOutputWebview<WType extends WebviewType.Overlay ? IOverlayWebview : IWebviewElement>
 	> {
-
 		// Load the Jupyter extension. Many notebook HTML outputs have a dependency on jQuery,
 		// which is provided by the Jupyter extension.
 		const jupyterExtension = await this._extensionService.getExtension('ms-toolsai.jupyter');
@@ -285,7 +280,7 @@ export class PositronNotebookOutputWebviewService implements IPositronNotebookOu
 			title: '',
 			// Sometimes we don't have an active runtime (e.g. rendering html for a notebook pre
 			// runtime start) so we can't get the extension id from the runtime.
-			extension: runtime ? { id: runtime.runtimeMetadata.extensionId } : undefined
+			extension: typeof runtimeOrSessionId === 'string' ? undefined : { id: runtimeOrSessionId.runtimeMetadata.extensionId }
 		};
 
 		const webview = webviewType === WebviewType.Overlay
@@ -314,7 +309,7 @@ window.onload = function() {
 
 		return new NotebookOutputWebview(
 			id,
-			runtime?.runtimeMetadata.runtimeId ?? '',
+			typeof runtimeOrSessionId === 'string' ? runtimeOrSessionId : runtimeOrSessionId.runtimeMetadata.runtimeId,
 			// The unfortunate cast is necessary because typescript isn't capable of figuring out that
 			// the type of the webview was determined by the type of the webviewType parameter.
 			webview as WType extends WebviewType.Overlay ? IOverlayWebview : IWebviewElement
