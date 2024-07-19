@@ -6,18 +6,24 @@
 import * as vscode from 'vscode';
 import { initializeLogging } from './logging';
 import { CellCodeLensProvider } from './codeLenses';
-import { registerCommands } from './commands';
 import { activateDecorations } from './decorations';
 import { activateContextKeys } from './context';
+import { activateDocumentManagers } from './documentManager';
+import { registerCommands } from './commands';
 
 export const IGNORED_SCHEMES = ['vscode-notebook-cell', 'vscode-interactive-input'];
 
 export async function activate(context: vscode.ExtensionContext): Promise<void> {
 	initializeLogging();
 
+	// Setup document parsing and cache
+	activateDocumentManagers(context.subscriptions);
+
+	// Commands for running cells and jumping around cells
 	registerCommands(context.subscriptions);
 
 	context.subscriptions.push(
+		// Adds 'Run Cell' | 'Run Above' | 'Run Below' code lens for cells
 		vscode.languages.registerCodeLensProvider('*', new CellCodeLensProvider()),
 
 		// Temporarily disabled because registering this provider causes it to
@@ -32,7 +38,9 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 		// vscode.languages.registerFoldingRangeProvider('*', new CellFoldingRangeProvider()),
 	);
 
+	// Adds background for currently active code cell
 	activateDecorations(context.subscriptions);
 
+	// Adds `positron.hasCodeCells` to when clause for keybindings
 	activateContextKeys(context.subscriptions);
 }

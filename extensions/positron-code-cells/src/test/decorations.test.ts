@@ -95,5 +95,6 @@ suite('Decorations', () => {
 
 async function showTextDocument(content?: string): Promise<vscode.TextEditor> {
 	const document = await vscode.workspace.openTextDocument({ language: 'python', content });
-	return await vscode.window.showTextDocument(document);
+	const editor = await vscode.window.showTextDocument(document);
+	return editor;
 }
