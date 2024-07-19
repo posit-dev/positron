@@ -18,13 +18,14 @@ export function setup(logger: Logger) {
 
 		describe('Python Variables Pane', () => {
 
-			it('Verifies Variables pane basic function with python interpreter [C628634] #nightly #pr #debug', async function () {
-				const app = this.app as Application;
+			before(async function () {
 
-				// debug
 				await PositronPythonFixtures.SetupFixtures(this.app as Application);
 
+			});
 
+			it('Verifies Variables pane basic function with python interpreter [C628634] #nightly #pr', async function () {
+				const app = this.app as Application;
 				await app.workbench.positronLayouts.enterLayout('fullSizedAuxBar');
 
 				const executeCode = async (code: string) => {
