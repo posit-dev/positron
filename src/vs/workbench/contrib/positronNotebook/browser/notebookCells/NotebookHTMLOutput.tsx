@@ -101,7 +101,10 @@ export function NotebookHTMLContent({ content }: { content: string }) {
 			});
 
 			// If the container has been disposed, don't mount the webview
-			if (disposed) { return; }
+			if (disposed) {
+				webviewElement.webview.dispose();
+				return;
+			}
 
 			webviewElement.webview.onMessage(({ message }) => {
 				if (!isHTMLOutputWebviewMessage(message) || !containerRef.current) { return; }
