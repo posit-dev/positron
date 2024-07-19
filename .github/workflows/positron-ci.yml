@@ -48,6 +48,8 @@ jobs:
           # Perform the main yarn command; this installs all Node packages and
           # dependencies
           yarn --immutable --network-timeout 120000
+          yarn --cwd test/automation install
+          yarn --cwd test/smoke install
 
       - name: Compile and Download
         run: yarn npm-run-all --max_old_space_size=4095 -lp compile "electron x64" playwright-install download-builtin-extensions
@@ -89,3 +91,10 @@ jobs:
           POSITRON_R_VER_SEL: R 4.4.0
         id: electron-smoke-tests
         run: DISPLAY=:10 yarn smoketest-pr --tracing
+
+      - name: Upload run artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: run-artifacts
+          path: .build/logs/smoke-tests-electron/
