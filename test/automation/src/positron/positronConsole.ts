@@ -132,7 +132,7 @@ export class PositronConsole {
 	}
 
 	async waitForConsoleContents(accept?: (contents: string[]) => boolean) {
-		const elements = await this.code.waitForElements(`${ACTIVE_CONSOLE_INSTANCE} .runtime-items span`,
+		const elements = await this.code.waitForElements(`${ACTIVE_CONSOLE_INSTANCE} div span`,
 			false,
 			(elements) => accept ? (!!elements && accept(elements.map(e => e.textContent))) : true);
 		return elements.map(e => e.textContent);
