@@ -1972,7 +1972,8 @@ class PolarsView(DataExplorerTableView):
             assert isinstance(params, FilterSetMembership)
 
             boxed_values = pl_.Series(
-                [self._coerce_value(val, dtype, display_type) for val in params.values]
+                [self._coerce_value(val, dtype, display_type) for val in params.values],
+                strict=False,
             )
             mask = col.is_in(boxed_values)
             if not params.inclusive:
@@ -2056,13 +2057,19 @@ class PolarsView(DataExplorerTableView):
                 num_rows = len(self.table)
 
             # Do a stable sort of the indices using the columns as sort keys
-            to_sort = pl_.DataFrame({indexer_name: pl_.arange(num_rows, eager=True)})
+            to_sort = pl_.DataFrame([pl_.arange(num_rows, eager=True).alias(indexer_name)])
 
             try:
-                to_sort = to_sort.sort(cols_to_sort, descending=directions, maintain_order=True)
+                to_sort = to_sort.select(
+                    pl_.all().sort_by(
+                        cols_to_sort,
+                        descending=directions,
+                        maintain_order=True,
+                    )
+                )
             except TypeError:
                 # Older versions of polars do not have maintain_order
-                to_sort = to_sort.sort(cols_to_sort, descending=directions)
+                to_sort = to_sort.select(pl_.all().sort_by(cols_to_sort, descending=directions))
 
             sort_indexer = to_sort[indexer_name]
             if self.filtered_indices is not None:

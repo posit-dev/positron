@@ -2482,7 +2482,7 @@ POLARS_TYPE_EXAMPLES = [
         pl.Decimal(12, 4),
         [
             Decimal("123.4501"),
-            Decimal("0"),
+            Decimal("0.0000"),
             Decimal("12345678.4501"),
             None,
         ],
@@ -2881,9 +2881,12 @@ def test_polars_filter_set_membership(dxf: DataExplorerFixture):
     schema = dxf.get_schema_for(df)
 
     cases = [
+        # TODO(wesm): improve this test once
+        # https://github.com/pola-rs/polars/issues/17771 has a
+        # resolution.
         (
             [_set_member_filter(schema[0], [2, 3.5, 4.0, 5, 6.5])],
-            df.filter(df["a"].is_in([2, 3.5, 4.0, 5, 6.5])),
+            df.filter(df["a"].is_in(pl.Series([2, 3.5, 4.0, 5, 6.5], dtype=pl.Float64))),
         ),
         (
             [_set_member_filter(schema[0], [2, 4])],
@@ -2914,7 +2917,7 @@ def test_polars_filter_set_membership(dxf: DataExplorerFixture):
 )
 def test_polars_set_sort_columns(dxf: DataExplorerFixture):
     tables = {
-        "df1": pl.DataFrame(SIMPLE_DATA),
+        "df1": pl.DataFrame(SIMPLE_DATA, strict=False),
         # Just some random data to test multiple keys, different sort
         # orders, etc.
         "df2": pl.DataFrame(
@@ -3023,6 +3026,8 @@ def test_polars_profile_summary_stats(dxf: DataExplorerFixture):
     arr_with_nulls[::10] = None
     arr_with_nulls = list(arr_with_nulls)
 
+    us_eastern = pytz.timezone("US/Eastern")
+
     df1 = pl.DataFrame(
         {
             "f0": arr,
@@ -3050,7 +3055,10 @@ def test_polars_profile_summary_stats(dxf: DataExplorerFixture):
                 dtype=pl.Datetime("us"),
             ),  # datetime no tz
             "f6": pl.Series(
-                list(pd.date_range("2000-01-01", freq="2h", periods=100)),
+                [
+                    x.replace(tzinfo=us_eastern)
+                    for x in pd.date_range("2000-01-01", freq="2h", periods=100)
+                ],
                 dtype=pl.Datetime("ms", time_zone="US/Eastern"),
             ),  # datetime single tz
             "f7": [np.nan, np.inf, -np.inf, 0, np.nan] * 20,  # with infinity
