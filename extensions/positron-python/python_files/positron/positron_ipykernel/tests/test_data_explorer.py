@@ -3026,8 +3026,6 @@ def test_polars_profile_summary_stats(dxf: DataExplorerFixture):
     arr_with_nulls[::10] = None
     arr_with_nulls = list(arr_with_nulls)
 
-    us_eastern = pytz.timezone("US/Eastern")
-
     df1 = pl.DataFrame(
         {
             "f0": arr,
@@ -3056,10 +3054,10 @@ def test_polars_profile_summary_stats(dxf: DataExplorerFixture):
             ),  # datetime no tz
             "f6": pl.Series(
                 [
-                    x.replace(tzinfo=us_eastern)
+                    x.replace(tzinfo=pytz.utc)
                     for x in pd.date_range("2000-01-01", freq="2h", periods=100)
                 ],
-                dtype=pl.Datetime("ms", time_zone="US/Eastern"),
+                dtype=pl.Datetime("ms", time_zone="UTC"),
             ),  # datetime single tz
             "f7": [np.nan, np.inf, -np.inf, 0, np.nan] * 20,  # with infinity
         }
@@ -3136,11 +3134,11 @@ def test_polars_profile_summary_stats(dxf: DataExplorerFixture):
             6,
             {
                 "num_unique": 100,
-                "min_date": "2000-01-01 00:00:00-05:00",
-                "mean_date": "2000-01-05 03:00:00-05:00",
-                "median_date": "2000-01-05 03:00:00-05:00",
-                "max_date": "2000-01-09 06:00:00-05:00",
-                "timezone": "US/Eastern",
+                "min_date": "2000-01-01 00:00:00+00:00",
+                "mean_date": "2000-01-05 03:00:00+00:00",
+                "median_date": "2000-01-05 03:00:00+00:00",
+                "max_date": "2000-01-09 06:00:00+00:00",
+                "timezone": "UTC",
             },
         ),
         (

@@ -1293,6 +1293,7 @@ class PandasView(DataExplorerTableView):
         elif filt.filter_type == RowFilterType.SetMembership:
             params = filt.params
             assert isinstance(params, FilterSetMembership)
+
             boxed_values = pd_.Series(
                 [self._coerce_value(val, dtype, inferred_type) for val in params.values]
             )
@@ -1971,10 +1972,17 @@ class PolarsView(DataExplorerTableView):
             params = filt.params
             assert isinstance(params, FilterSetMembership)
 
-            boxed_values = pl_.Series(
-                [self._coerce_value(val, dtype, display_type) for val in params.values],
-                strict=False,
-            )
+            # Per https://github.com/pola-rs/polars/issues/17771, we
+            # have to be really careful here because this can fail on
+            # polars 1.x or 0.x
+            coerced_values = [self._coerce_value(val, dtype, display_type) for val in params.values]
+            try:
+                boxed_values = pl_.Series(coerced_values, dtype=col.dtype)
+            except TypeError:
+                boxed_values = pl_.Series(
+                    coerced_values,
+                    dtype=_polars_dtype_from_display(display_type),
+                )
             mask = col.is_in(boxed_values)
             if not params.inclusive:
                 # NOT-IN
@@ -2143,6 +2151,10 @@ class PolarsView(DataExplorerTableView):
         ),
         set_sort_columns=SetSortColumnsFeatures(support_status=SupportStatus.Supported),
     )
+
+
+def _polars_dtype_from_display(display_type):
+    return {ColumnDisplayType.Number: pl_.Float64}.get(display_type)
 
 
 class PyArrowView(DataExplorerTableView):
