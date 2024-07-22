@@ -569,8 +569,9 @@ suite('Module Installer', () => {
                                                 expectedArgs.push(
                                                     condaEnvInfo.path.fileToCommandArgumentForPythonExt(),
                                                 );
-                                                // --- Start Positron ---
-                                            } else if (!isUpgrade && moduleName == 'ipykernel') {
+                                            }
+                                            // --- Start Positron ---
+                                            if (!isUpgrade && moduleName === 'ipykernel') {
                                                 expectedArgs.push('--force-reinstall');
                                             }
                                             // --- End Positron ---
