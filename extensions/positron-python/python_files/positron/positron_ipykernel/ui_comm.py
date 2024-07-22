@@ -219,6 +219,9 @@ class UiFrontendEvent(str, enum.Enum):
     # Show a URL in Positron's Viewer pane
     ShowUrl = "show_url"
 
+    # Show an HTML file in Positron
+    ShowHtmlFile = "show_html_file"
+
 
 class BusyParams(BaseModel):
     """
@@ -422,6 +425,24 @@ class ShowUrlParams(BaseModel):
     )
 
 
+class ShowHtmlFileParams(BaseModel):
+    """
+    Show an HTML file in Positron
+    """
+
+    path: StrictStr = Field(
+        description="The fully qualified filesystem path to the HTML file to display",
+    )
+
+    kind: StrictStr = Field(
+        description="If known, the kind of content being displayed, e.g. 'plotly' or 'vega'",
+    )
+
+    is_plot: StrictBool = Field(
+        description="Whether the HTML file is a plot-like object",
+    )
+
+
 EditorContext.update_forward_refs()
 
 TextDocument.update_forward_refs()
@@ -465,3 +486,5 @@ SetEditorSelectionsParams.update_forward_refs()
 ModifyEditorSelectionsParams.update_forward_refs()
 
 ShowUrlParams.update_forward_refs()
+
+ShowHtmlFileParams.update_forward_refs()

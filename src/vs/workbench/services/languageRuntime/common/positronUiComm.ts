@@ -281,6 +281,27 @@ export interface ShowUrlEvent {
 }
 
 /**
+ * Event: Show an HTML file in Positron
+ */
+export interface ShowHtmlFileEvent {
+	/**
+	 * The fully qualified filesystem path to the HTML file to display
+	 */
+	path: string;
+
+	/**
+	 * If known, the kind of content being displayed, e.g. 'plotly' or 'vega'
+	 */
+	kind: string;
+
+	/**
+	 * Whether the HTML file is a plot-like object
+	 */
+	is_plot: boolean;
+
+}
+
+/**
  * Request: Create a new document with text contents
  *
  * Use this to create a new document with the given language ID and text
@@ -432,7 +453,8 @@ export enum UiFrontendEvent {
 	ExecuteCommand = 'execute_command',
 	OpenWorkspace = 'open_workspace',
 	SetEditorSelections = 'set_editor_selections',
-	ShowUrl = 'show_url'
+	ShowUrl = 'show_url',
+	ShowHtmlFile = 'show_html_file'
 }
 
 export enum UiFrontendRequest {
@@ -466,6 +488,7 @@ export class PositronUiComm extends PositronBaseComm {
 		this.onDidOpenWorkspace = super.createEventEmitter('open_workspace', ['path', 'new_window']);
 		this.onDidSetEditorSelections = super.createEventEmitter('set_editor_selections', ['selections']);
 		this.onDidShowUrl = super.createEventEmitter('show_url', ['url']);
+		this.onDidShowHtmlFile = super.createEventEmitter('show_html_file', ['path', 'kind', 'is_plot']);
 	}
 
 	/**
@@ -552,5 +575,11 @@ export class PositronUiComm extends PositronBaseComm {
 	 * Viewer pane visible.
 	 */
 	onDidShowUrl: Event<ShowUrlEvent>;
+	/**
+	 * Show an HTML file in Positron
+	 *
+	 * Causes the HTML file to be shown in Positron.
+	 */
+	onDidShowHtmlFile: Event<ShowHtmlFileEvent>;
 }
 

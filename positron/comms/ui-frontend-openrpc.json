@@ -389,6 +389,34 @@
 					}
 				}
 			]
+		},
+		{
+			"name": "show_html_file",
+			"summary": "Show an HTML file in Positron",
+			"description": "Causes the HTML file to be shown in Positron.",
+			"params": [
+				{
+					"name": "path",
+					"description": "The fully qualified filesystem path to the HTML file to display",
+					"schema": {
+						"type": "string"
+					}
+				},
+				{
+					"name": "kind",
+					"description": "If known, the kind of content being displayed, e.g. 'plotly' or 'vega'",
+					"schema": {
+						"type": "string"
+					}
+				},
+				{
+					"name": "is_plot",
+					"description": "Whether the HTML file is a plot-like object",
+					"schema": {
+						"type": "boolean"
+					}
+				}
+			]
 		}
 	],
 	"components": {
