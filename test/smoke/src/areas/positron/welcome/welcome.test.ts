@@ -30,26 +30,17 @@ export function setup(logger: Logger) {
 
 		it('Verify Welcome page header and footer', async function () {
 			const app = this.app as Application;
-			const logoLocator = '.product-logo';
-			const titleLocator = '.gettingStartedCategoriesContainer div.header div .positron';
-			const footerLocator = '.gettingStartedCategoriesContainer div.footer';
 
-			const footer = app.code.driver.getLocator(footerLocator);
-
-			const logo = app.code.driver.getLocator(logoLocator);
-
-			await expect(logo).toBeVisible();
-			const logoBox = await (await logo.elementHandle())?.boundingBox();
+			await expect(app.workbench.positronWelcome.logoLocator).toBeVisible();
+			const logoBox = await (await app.workbench.positronWelcome.logoLocator.elementHandle())?.boundingBox();
 
 			expect(logoBox?.height).toBeGreaterThan(0);
 			expect(logoBox?.width).toBeGreaterThan(0);
 
-			const title = app.code.driver.getLocator(titleLocator);
-
 			// product name in release is 'Positron' and in dev is 'Positron Dev'
-			await expect(title).toHaveText([/(Positron)|(Positron Dev)/, 'an IDE for data science']);
+			await expect(app.workbench.positronWelcome.titleLocator).toHaveText([/(Positron)|(Positron Dev)/, 'an IDE for data science']);
 
-			await expect(footer).toHaveText('Show welcome page on startup');
+			await expect(app.workbench.positronWelcome.footerLocator).toHaveText('Show welcome page on startup');
 		});
 
 		it('Verify Welcome page content', async function () {
@@ -81,7 +72,7 @@ export function setup(logger: Logger) {
 		it('Click on new project from the Welcome page', async function () {
 			const app = this.app as Application;
 
-			await app.workbench.positronWelcome.clickNewProject();
+			await app.workbench.positronWelcome.newProjectButton.click();
 			await app.workbench.positronPopups.popupCurrentlyOpen();
 
 			await app.workbench.positronPopups.waitForModalDialogBox();
@@ -100,7 +91,7 @@ export function setup(logger: Logger) {
 			it('Create a new Python file from the Welcome page', async function () {
 				const app = this.app as Application;
 
-				await app.workbench.positronWelcome.clickNewFile();
+				await app.workbench.positronWelcome.newFileButton.click();
 
 				await app.workbench.quickinput.selectQuickInputElementContaining('Python File');
 
@@ -112,7 +103,7 @@ export function setup(logger: Logger) {
 			it('Create a new Python notebook from the Welcome page', async function () {
 				const app = this.app as Application;
 
-				await app.workbench.positronWelcome.clickNewNotebook();
+				await app.workbench.positronWelcome.newNotebookButton.click();
 
 				await app.workbench.positronPopups.clickOnModalDialogPopupOption('Python Notebook');
 
@@ -125,7 +116,7 @@ export function setup(logger: Logger) {
 			it('Click on Python console from the Welcome page', async function () {
 				const app = this.app as Application;
 
-				await app.workbench.positronWelcome.clickNewConsole();
+				await app.workbench.positronWelcome.newConsoleButton.click();
 				await app.workbench.positronPopups.popupCurrentlyOpen();
 
 				const expectedInterpreterVersion = new RegExp(`Python ${process.env.POSITRON_PY_VER_SEL}`, 'i');
@@ -148,7 +139,7 @@ export function setup(logger: Logger) {
 			it('Create a new R file from the Welcome page', async function () {
 				const app = this.app as Application;
 
-				await app.workbench.positronWelcome.clickNewFile();
+				await app.workbench.positronWelcome.newFileButton.click();
 
 				await app.workbench.quickinput.selectQuickInputElementContaining('R File');
 
@@ -158,7 +149,7 @@ export function setup(logger: Logger) {
 			it('Click on R console from the Welcome page', async function () {
 				const app = this.app as Application;
 
-				await app.workbench.positronWelcome.clickNewConsole();
+				await app.workbench.positronWelcome.newConsoleButton.click();
 				await app.workbench.positronPopups.popupCurrentlyOpen();
 
 				const expectedInterpreterVersion = new RegExp(`R ${process.env.POSITRON_R_VER_SEL}`, 'i');
@@ -174,7 +165,7 @@ export function setup(logger: Logger) {
 			it('Create a new R notebook from the Welcome page', async function () {
 				const app = this.app as Application;
 
-				await app.workbench.positronWelcome.clickNewNotebook();
+				await app.workbench.positronWelcome.newNotebookButton.click();
 
 				await app.workbench.positronPopups.clickOnModalDialogPopupOption('R Notebook');
 

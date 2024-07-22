@@ -5,22 +5,14 @@
 
 import { Code } from './code';
 
-// --- Start Positron ---
-import { Locator } from '@playwright/test';
-// --- End Positron ---
-
 export class Editors {
 	// --- Start Positron ---
 	activeEditorLocator = this.code.driver.getLocator('div.tab.tab-actions-right.active.selected');
 	editorIconLocator = this.code.driver.getLocator('.monaco-icon-label.file-icon');
 	editorPartLocator = this.code.driver.getLocator('.split-view-view .part.editor');
-
-	constructor(private code: Code) {
-		this.activeEditorLocator = this.code.driver.getLocator('div.tab.tab-actions-right.active.selected');
-		this.editorIconLocator = this.code.driver.getLocator('.monaco-icon-label.file-icon');
-		this.editorPartLocator = this.code.driver.getLocator('.split-view-view .part.editor');
-	}
 	// --- End Positron ---
+
+	constructor(private code: Code) { }
 
 	async saveOpenedFile(): Promise<any> {
 		if (process.platform === 'darwin') {

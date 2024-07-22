@@ -4,61 +4,40 @@
  *--------------------------------------------------------------------------------------------*/
 
 
-import { Locator } from '@playwright/test';
 import { Code } from '../code';
+
+const LOGO_LOCATOR = '.product-logo';
+const TITLE_LOCATOR = '.gettingStartedCategoriesContainer div.header div .positron';
+const FOOTER_LOCATOR = '.gettingStartedCategoriesContainer div.footer';
+const START_SECTION = '.positron-welcome-page-open';
+const HELP_TITLE = '.positron-welcome-page-help';
+const OPEN_SECTION = '.categories-column.categories-column-right .index-list.start-container';
+const RECENT_SECTION = '.categories-column.categories-column-right .index-list.recently-opened';
+
+const HEADING_ROLE = 'heading';
+const BUTTON_ROLE = 'button';
+const LINK_ROLE = 'link';
 
 export class PositronWelcome {
 
-	startSection: Locator;
-	startTitle: Locator;
-	startButtons: Locator;
-	helpSection: Locator;
-	helpTitle: Locator;
-	helpLinks: Locator;
-	openSection: Locator;
-	openTitle: Locator;
-	openButtons: Locator;
-	recentSection: Locator;
-	recentTitle: Locator;
+	logoLocator = this.code.driver.getLocator(LOGO_LOCATOR);
+	titleLocator = this.code.driver.getLocator(TITLE_LOCATOR);
+	footerLocator = this.code.driver.getLocator(FOOTER_LOCATOR);
+	startSection = this.code.driver.getLocator(START_SECTION);
+	startTitle = this.startSection.getByRole(HEADING_ROLE);
+	startButtons = this.startSection.getByRole(BUTTON_ROLE);
+	helpSection = this.code.driver.getLocator(HELP_TITLE);
+	helpTitle = this.helpSection.getByRole(HEADING_ROLE);
+	helpLinks = this.helpSection.getByRole(LINK_ROLE);
+	openSection = this.code.driver.getLocator(OPEN_SECTION);
+	openTitle = this.openSection.getByRole(HEADING_ROLE);
+	openButtons = this.openSection.getByRole(BUTTON_ROLE);
+	recentSection = this.code.driver.getLocator(RECENT_SECTION);
+	recentTitle = this.recentSection.getByRole(HEADING_ROLE);
+	newNotebookButton = this.startButtons.getByText('New Notebook');
+	newFileButton = this.startButtons.getByText('New File');
+	newConsoleButton = this.startButtons.getByText('New Console');
+	newProjectButton = this.startButtons.getByText('New Project');
 
-	constructor(private code: Code) {
-		this.startSection = this.code.driver.getLocator('.positron-welcome-page-open');
-		this.startTitle = this.startSection.getByRole('heading');
-		this.startButtons = this.startSection.getByRole('button');
-
-		this.helpSection = this.code.driver.getLocator('.positron-welcome-page-help');
-		this.helpTitle = this.helpSection.getByRole('heading');
-		this.helpLinks = this.helpSection.getByRole('link');
-
-		this.openSection = this.code.driver.getLocator('.categories-column.categories-column-right .index-list.start-container');
-		this.openTitle = this.openSection.getByRole('heading');
-		this.openButtons = this.openSection.getByRole('button');
-
-		this.recentSection = this.code.driver.getLocator('.categories-column.categories-column-right .index-list.recently-opened');
-		this.recentTitle = this.recentSection.getByRole('heading');
-	}
-
-	async clickNewNotebook() {
-		await this.startSection.locator('button').filter({
-			has: this.code.driver.getLocator('.codicon-positron-new-notebook')
-		}).click();
-	}
-
-	async clickNewFile() {
-		await this.startSection.locator('button').filter({
-			has: this.code.driver.getLocator('.codicon-positron-new-file')
-		}).click();
-	}
-
-	async clickNewConsole() {
-		await this.startSection.locator('button').filter({
-			has: this.code.driver.getLocator('.codicon-positron-new-console')
-		}).click();
-	}
-
-	async clickNewProject() {
-		await this.startSection.locator('button').filter({
-			has: this.code.driver.getLocator('.codicon-positron-new-project')
-		}).click();
-	}
+	constructor(private code: Code) { }
 }
