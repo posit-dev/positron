@@ -28,7 +28,7 @@ jobs:
   build-archs:
     name: Build macOS
     runs-on: [self-hosted-staging, macos, arm64]
-    timeout-minutes: 60
+    timeout-minutes: 90
 
     env:
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -77,14 +77,6 @@ jobs:
         if: matrix.arch == 'x64'
         run: |
           echo "/opt/homebrew/opt/python@3.10/libexec/bin:${{matrix.homebrew_folder}}/bin" >> $GITHUB_PATH
-
-      # Update PYTHONPATH env var according to build arch
-      - name: Update runner ENV vars
-        id: update_runner_env      
-        env:
-          npm_config_arch: ${{ matrix.arch }}      
-        run: |
-          echo "PYTHONPATH=${{matrix.homebrew_folder}}/opt/python@3.10/libexec/bin" >> $GITHUB_ENV
 
       # Generate an access token. We'll need it for following steps. Note that
       # we don't generate this until right before we need it since it only
