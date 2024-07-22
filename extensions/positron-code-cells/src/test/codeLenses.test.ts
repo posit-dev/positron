@@ -26,9 +26,8 @@ testing4`;
 	test('Provides Python cell code lenses', async () => {
 		const provider = new CellCodeLensProvider();
 
-		const language = 'python';
-		const document = await vscode.workspace.openTextDocument({ language: language, content: content });
-		const codeLenses = await provider.provideCodeLenses(document);
+		const editor = await showTextDocument(content, "python");
+		const codeLenses = await provider.provideCodeLenses(editor.document);
 
 		assert.ok(codeLenses, 'No code lenses provided');
 		verifyCodeLenses(codeLenses, [
@@ -41,9 +40,8 @@ testing4`;
 	test('Provides R cell code lenses', async () => {
 		const provider = new CellCodeLensProvider();
 
-		const language = 'r';
-		const document = await vscode.workspace.openTextDocument({ language: language, content: content });
-		const codeLenses = await provider.provideCodeLenses(document);
+		const editor = await showTextDocument(content, "r");
+		const codeLenses = await provider.provideCodeLenses(editor.document);
 
 		assert.ok(codeLenses, 'No code lenses provided');
 		verifyCodeLenses(codeLenses, [
@@ -52,8 +50,8 @@ testing4`;
 			new vscode.Range(8, 0, 9, 8)
 		]);
 
-		const document2 = await vscode.workspace.openTextDocument({ language: language, content: content_with_plus });
-		const codeLenses2 = await provider.provideCodeLenses(document2);
+		const editor2 = await showTextDocument(content_with_plus, "r");
+		const codeLenses2 = await provider.provideCodeLenses(editor2.document);
 
 		assert.ok(codeLenses2, 'No code lenses provided');
 		verifyCodeLenses(codeLenses2, [
@@ -88,4 +86,10 @@ function verifyCodeLenses(codeLenses: vscode.CodeLens[], expectedRanges: vscode.
 	}
 
 	assert.deepStrictEqual(codeLenses, expectedCodeLenses, 'Incorrect code lenses');
+}
+
+async function showTextDocument(content?: string, language?: string): Promise<vscode.TextEditor> {
+	const document = await vscode.workspace.openTextDocument({ language: language ?? 'python', content });
+	const editor = await vscode.window.showTextDocument(document);
+	return editor;
 }

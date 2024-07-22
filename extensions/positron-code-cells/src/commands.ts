@@ -4,48 +4,55 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
-import { CellManager } from './cellManager';
+import { getActiveCodeCellManager } from './codeCellManager';
 
 export function registerCommands(disposables: vscode.Disposable[]) {
 	disposables.push(
+		// Movement
 		vscode.commands.registerCommand('positron.goToPreviousCell', (line?: number) => {
-			CellManager.fromActiveTextEditor()?.goToPreviousCell(line);
+			getActiveCodeCellManager()?.goToPreviousCell(line);
 		}),
 
 		vscode.commands.registerCommand('positron.goToNextCell', (line?: number) => {
-			CellManager.fromActiveTextEditor()?.goToNextCell(line);
+			getActiveCodeCellManager()?.goToNextCell(line);
 		}),
 
+		// Insert cell
 		vscode.commands.registerCommand('positron.insertCodeCell', async (line?: number) => {
-			await CellManager.fromActiveTextEditor()?.insertCodeCell(line);
+			await getActiveCodeCellManager()?.insertCodeCell(line);
 		}),
 
+		// Run cells
 		vscode.commands.registerCommand('positron.runAllCells', () => {
-			CellManager.fromActiveTextEditor()?.runAllCells();
+			getActiveCodeCellManager()?.runAllCells();
 		}),
 
 		vscode.commands.registerCommand('positron.runCellsAbove', (line?: number) => {
-			CellManager.fromActiveTextEditor()?.runCellsAbove(line);
+			getActiveCodeCellManager()?.runCellsAbove(line);
+		}),
+
+		vscode.commands.registerCommand('positron.runCurrentAndBelow', (line?: number) => {
+			getActiveCodeCellManager()?.runCurrentAndBelow(line);
 		}),
 
 		vscode.commands.registerCommand('positron.runCellsBelow', (line?: number) => {
-			CellManager.fromActiveTextEditor()?.runCellsBelow(line);
+			getActiveCodeCellManager()?.runCellsBelow(line);
 		}),
 
 		vscode.commands.registerCommand('positron.runCurrentAdvance', (line?: number) => {
-			CellManager.fromActiveTextEditor()?.runCurrentAdvance(line);
+			getActiveCodeCellManager()?.runCurrentAdvance(line);
 		}),
 
 		vscode.commands.registerCommand('positron.runCurrentCell', (line?: number) => {
-			CellManager.fromActiveTextEditor()?.runCurrentCell(line);
+			getActiveCodeCellManager()?.runCurrentCell(line);
 		}),
 
 		vscode.commands.registerCommand('positron.runNextCell', (line?: number) => {
-			CellManager.fromActiveTextEditor()?.runNextCell(line);
+			getActiveCodeCellManager()?.runNextCell(line);
 		}),
 
 		vscode.commands.registerCommand('positron.runPreviousCell', (line?: number) => {
-			CellManager.fromActiveTextEditor()?.runPreviousCell(line);
+			getActiveCodeCellManager()?.runPreviousCell(line);
 		}),
 
 	);

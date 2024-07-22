@@ -5,8 +5,6 @@
 import 'vs/css!./NotebookCodeCell';
 
 import * as React from 'react';
-import { VSBuffer } from 'vs/base/common/buffer';
-import { NotebookCellOutputTextModel } from 'vs/workbench/contrib/notebook/common/model/notebookCellOutputTextModel';
 import { NotebookCellOutputs } from 'vs/workbench/services/positronNotebook/browser/IPositronNotebookCell';
 import { isParsedTextOutput, parseOutputData } from 'vs/workbench/contrib/positronNotebook/browser/getOutputContents';
 import { useObservedValue } from 'vs/workbench/contrib/positronNotebook/browser/useObservedValue';
@@ -16,7 +14,9 @@ import { NotebookCellActionBar } from 'vs/workbench/contrib/positronNotebook/bro
 import { CellTextOutput } from './CellTextOutput';
 import { ActionButton } from 'vs/workbench/contrib/positronNotebook/browser/utilityComponents/ActionButton';
 import { NotebookCellWrapper } from './NotebookCellWrapper';
-import { PositronNotebookCodeCell } from 'vs/workbench/contrib/positronNotebook/browser/PositronNotebookCell';
+import { pickPreferredOutputItem, PositronNotebookCodeCell } from 'vs/workbench/contrib/positronNotebook/browser/PositronNotebookCell';
+import { NotebookHTMLContent } from 'vs/workbench/contrib/positronNotebook/browser/notebookCells/NotebookHTMLOutput';
+import { useServices } from 'vs/workbench/contrib/positronNotebook/browser/ServicesProvider';
 
 
 export function NotebookCodeCell({ cell }: { cell: PositronNotebookCodeCell }) {
@@ -35,33 +35,24 @@ export function NotebookCodeCell({ cell }: { cell: PositronNotebookCodeCell }) {
 		<div className='cell-contents'>
 			<CellEditorMonacoWidget cell={cell} />
 			<div className='positron-notebook-cell-outputs'>
-				{outputContents?.map((output) => <NotebookCellOutput key={output.outputId} cellOutput={output} />)}
+				{outputContents?.map(({ outputs, outputId }) =>
+					<CellOutput key={outputId} outputs={outputs} outputId={outputId} />
+				)}
 			</div>
 		</div>
 	</NotebookCellWrapper>;
 
 }
 
-function NotebookCellOutput({ cellOutput }: { cellOutput: NotebookCellOutputs }) {
+function CellOutput({ outputs, outputId }: NotebookCellOutputs) {
+	const services = useServices();
+	const preferredOutput = pickPreferredOutputItem(outputs, services.logService.warn);
 
-	const { outputs } = cellOutput;
-
-
-	if (cellOutput instanceof NotebookCellOutputTextModel) {
-
-		return <>
-			{outputs.map(({ data, mime }, i) => <CellOutputContents key={i} data={data} mime={mime} />)}
-		</>;
+	if (!preferredOutput) {
+		return null;
 	}
 
-	return <div>
-		{localize('cellExecutionUnknownOutputType', 'Can not handle output type: OutputId: {0}', cellOutput.outputId)}
-	</div>;
-}
-
-function CellOutputContents(output: { data: VSBuffer; mime: string }) {
-
-	const parsed = parseOutputData(output);
+	const parsed = parseOutputData(preferredOutput);
 
 	if (isParsedTextOutput(parsed)) {
 		return <CellTextOutput {...parsed} />;
@@ -74,10 +65,11 @@ function CellOutputContents(output: { data: VSBuffer; mime: string }) {
 			</div>;
 		case 'image':
 			return <img src={parsed.dataUrl} alt='output image' />;
+		case 'html':
+			return <NotebookHTMLContent content={parsed.content} outputId={outputId} />;
 		case 'unknown':
 			return <div className='unknown-mime-type'>
-				{localize('cellExecutionUnknownMimeType', 'Cant handle mime type "{0}" yet', output.mime)}
+				{localize('cellExecutionUnknownMimeType', 'Cant handle mime type "{0}" yet', preferredOutput.mime)}
 			</div>;
 	}
-
 }

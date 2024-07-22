@@ -203,7 +203,7 @@ export const OutputRun = (props: OutputRunProps) => {
 						cssProperties = {
 							...cssProperties,
 							...{
-								animation: 'output-run-blink 1s linear infinite'
+								animation: 'positronOutputRun-blink 1s linear infinite'
 							}
 						};
 						break;
@@ -214,7 +214,7 @@ export const OutputRun = (props: OutputRunProps) => {
 						cssProperties = {
 							...cssProperties,
 							...{
-								animation: 'output-run-blink 0.5s linear infinite'
+								animation: 'positronOutputRun-blink 0.5s linear infinite'
 							}
 						};
 						break;

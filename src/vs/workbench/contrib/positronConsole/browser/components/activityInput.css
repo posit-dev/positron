@@ -15,24 +15,15 @@
 	left: -10px;
 }
 
-@keyframes pulseAnimation {
-	0% {
-		opacity: 0;
-	}
-
-	50% {
-		opacity: 0;
-	}
-
-	100% {
-		opacity: 1;
-	}
+@keyframes positronActivityInput-fadeIn {
+	0% { opacity: 0; }
+	100% { opacity: 1; }
 }
 
 .activity-input.executing .progress-bar {
 	background-color: var(--vscode-positronConsole-ansiGreen);
-	animation-name: pulseAnimation;
-	animation-duration: 1s;
+	opacity: 0;
+	animation: positronActivityInput-fadeIn 0.25s ease-in 0.25s 1 forwards;
 }
 
 .activity-input .prompt {

@@ -58,7 +58,7 @@ else {
 	// Running out of sources
 	if (Object.keys(product).length === 0) {
 		Object.assign(product, {
-			version: '1.90.0-dev',
+			version: '1.91.0-dev',
 			// --- Start Positron ---
 			positronVersion: '2024.03.0',
 			nameShort: 'Positron',

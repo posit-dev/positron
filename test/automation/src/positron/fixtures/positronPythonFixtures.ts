@@ -5,7 +5,7 @@
 
 import { fail } from 'assert';
 import { Application } from '../../application';
-import { InterpreterType } from '../positronStartInterpreter';
+import { InterpreterInfo, InterpreterType } from '../utils/positronInterpreterInfo';
 
 /*
  *  Reuseable Positron Python fixture tests can leverage to get a Python interpreter selected.
@@ -13,6 +13,11 @@ import { InterpreterType } from '../positronStartInterpreter';
 export class PositronPythonFixtures {
 
 	constructor(private app: Application) { }
+
+	static async SetupFixtures(app: Application) {
+		const fixtures = new PositronPythonFixtures(app);
+		await fixtures.startPythonInterpreter();
+	}
 
 	async startPythonInterpreter() {
 
@@ -25,6 +30,27 @@ export class PositronPythonFixtures {
 		await this.app.workbench.positronConsole.waitForReady('>>>');
 
 		await this.app.workbench.positronConsole.logConsoleContents();
+	}
+
+	async startAndGetPythonInterpreter(installIPyKernelIfPrompted: boolean = false): Promise<InterpreterInfo | undefined> {
+		const desiredPython = process.env.POSITRON_PY_VER_SEL;
+		if (desiredPython === undefined) {
+			fail('Please be sure to set env var POSITRON_PY_VER_SEL to the UI text corresponding to the Python version for the test');
+		}
+		const interpreterInfo = await this.app.workbench.positronConsole.selectAndGetInterpreter(InterpreterType.Python, desiredPython);
+
+		if (
+			installIPyKernelIfPrompted &&
+			(await this.app.workbench.positronPopups.popupCurrentlyOpen())
+		) {
+			await this.app.workbench.positronPopups.installIPyKernel();
+		}
+
+		await this.app.workbench.positronConsole.waitForReady('>>>');
+
+		await this.app.workbench.positronConsole.logConsoleContents();
+
+		return interpreterInfo;
 	}
 
 }

@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { Code } from './code';
+import { IElement } from './driver';
 
 export class QuickInput {
 
@@ -57,10 +58,12 @@ export class QuickInput {
 		}
 	}
 	// --- Start Positron ---
-	async selectQuickInputElementContaining(contains: string): Promise<void> {
+	async selectQuickInputElementContaining(contains: string): Promise<IElement | undefined> {
 		const selector = `${QuickInput.QUICK_INPUT_ROW}[aria-label*="${contains}"]`;
 		try {
+			const element = this.code.getElement(selector);
 			await this.code.waitAndClick(selector);
+			return element;
 		} catch (ex) {
 			// Show a more helpful error message by clearing the input and logging the list of items
 			await this.type('');

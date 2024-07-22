@@ -129,7 +129,7 @@ export class CodeCell extends Disposable {
 
 		const executionItemElement = DOM.append(this.templateData.cellInputCollapsedContainer, DOM.$('.collapsed-execution-icon'));
 		this._register(toDisposable(() => {
-			executionItemElement.parentElement?.removeChild(executionItemElement);
+			executionItemElement.remove();
 		}));
 		this._collapsedExecutionIcon = this._register(this.instantiationService.createInstance(CollapsedCodeCellExecutionIcon, this.notebookEditor, this.viewCell, executionItemElement));
 		this.updateForCollapseState();
@@ -497,7 +497,7 @@ export class CodeCell extends Disposable {
 		}
 
 		elements.forEach(element => {
-			element.parentElement?.removeChild(element);
+			element.remove();
 		});
 	}
 

@@ -35,10 +35,13 @@ export const WebviewPlotThumbnail = (props: WebviewPlotThumbnailProps) => {
 
 		// When the plot is rendered, update the URI. This can happen multiple times if the plot
 		// is resized.
-		props.plotClient.onDidRenderThumbnail((result) => {
+		const disposable = props.plotClient.onDidRenderThumbnail((result) => {
 			setUri(result);
 		});
-	});
+		return () => {
+			disposable.dispose();
+		};
+	}, [props.plotClient]);
 
 	// If the plot is not yet rendered yet (no URI), show a placeholder;
 	// otherwise, show the rendered thumbnail.

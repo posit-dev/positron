@@ -19,6 +19,15 @@ export class PositronPopups {
 
 	constructor(private code: Code) { }
 
+	async popupCurrentlyOpen() {
+		try {
+			await this.code.waitForElement(POSITRON_MODAL_DIALOG_BOX, undefined, 50);
+			return true;
+		} catch (error) {
+			this.code.logger.log('No modal dialog box found');
+		}
+	}
+
 	async installIPyKernel() {
 
 		try {
@@ -75,5 +84,26 @@ export class PositronPopups {
 		this.code.logger.log('Waiting for toast to be attached');
 		const toastLocator = this.code.driver.getLocator(NOTIFICATION_TOAST);
 		await toastLocator.waitFor({ state: 'attached', timeout: 20000 });
+	}
+
+	async waitForModalDialogBox() {
+		await this.code.waitForElement(POSITRON_MODAL_DIALOG_BOX);
+	}
+
+	async clickOkOnModalDialogBox() {
+		await this.code.waitAndClick(POSITRON_MODAL_DIALOG_BOX_OK);
+	}
+
+	async clickCancelOnModalDialogBox() {
+		await this.code.waitAndClick(POSITRON_MODAL_DIALOG_BOX_CANCEL);
+	}
+
+	/**
+	 * Can be called after a DropDownListBox is clicked. Selects the option with the given label.
+	 * @param label The label of the option to select.
+	 */
+	async clickOnModalDialogPopupOption(label: string) {
+		const el = this.code.driver.getLocator('.positron-modal-popup .positron-button .title').filter({ hasText: label });
+		await el.click();
 	}
 }

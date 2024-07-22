@@ -27,9 +27,17 @@ export interface PositronWizardSubStepProps {
  * @returns The rendered component.
  */
 export const PositronWizardSubStep = (props: PropsWithChildren<PositronWizardSubStepProps>) => {
+	// The sub step ID is based on the title, with non-letter or non-number characters replaced with hyphens.
+	// Try using the titleId before the title, which may be shorter.
+	const subStepTitleId = props.titleId || props.title;
+	const subStepId = subStepTitleId?.toLowerCase().replace(/[^a-z0-9]/g, '-') || '';
+
 	// Render.
 	return (
-		<div className='wizard-sub-step'>
+		<div
+			className='wizard-sub-step'
+			id={subStepId.length ? `wizard-sub-step-${subStepId}` : ''}
+		>
 			{props.title ?
 				<div className='wizard-sub-step-title' id={props.titleId}>
 					{props.title}

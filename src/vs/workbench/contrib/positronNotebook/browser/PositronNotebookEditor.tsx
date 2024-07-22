@@ -56,6 +56,7 @@ import { IWebviewService } from 'vs/workbench/contrib/webview/browser/webview';
 import { ICommandService } from 'vs/platform/commands/common/commands';
 import { IOpenerService } from 'vs/platform/opener/common/opener';
 import { INotificationService } from 'vs/platform/notification/common/notification';
+import { IPositronNotebookOutputWebviewService } from 'vs/workbench/contrib/positronOutputWebview/browser/notebookOutputWebviewService';
 
 
 interface NotebookLayoutInfo {
@@ -117,6 +118,7 @@ export class PositronNotebookEditor extends EditorPane {
 		@IInstantiationService private readonly _instantiationService: IInstantiationService,
 		@ITextModelService private readonly _textModelResolverService: ITextModelService,
 		@IWebviewService private readonly _webviewService: IWebviewService,
+		@IPositronNotebookOutputWebviewService private readonly _notebookWebviewService: IPositronNotebookOutputWebviewService,
 		@IContextKeyService private readonly contextKeyService: IContextKeyService,
 		@ILogService private readonly _logService: ILogService,
 		@ICommandService private readonly _commandService: ICommandService,
@@ -454,6 +456,7 @@ export class PositronNotebookEditor extends EditorPane {
 					instantiationService: this._instantiationService,
 					textModelResolverService: this._textModelResolverService,
 					webviewService: this._webviewService,
+					notebookWebviewService: this._notebookWebviewService,
 					commandService: this._commandService,
 					logService: this._logService,
 					openerService: this._openerService,

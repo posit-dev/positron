@@ -201,7 +201,8 @@ suite('platform - terminalEnvironment', () => {
 								// --- Start Positron ---
 								POSITRON: '1',
 								// --- End Positron ---
-								VSCODE_INJECTION: '1'
+								VSCODE_INJECTION: '1',
+								VSCODE_STABLE: '0'
 							}
 						});
 						deepStrictEqual(getShellIntegrationInjection({ executable: 'bash', args: [] }, enabledProcessOptions, defaultEnvironment, logService, productService), enabledExpectedResult);
@@ -219,7 +220,8 @@ suite('platform - terminalEnvironment', () => {
 								POSITRON: '1',
 								// --- End Positron ---
 								VSCODE_INJECTION: '1',
-								VSCODE_SHELL_LOGIN: '1'
+								VSCODE_SHELL_LOGIN: '1',
+								VSCODE_STABLE: '0'
 							}
 						});
 						test('when array', () => {

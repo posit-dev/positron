@@ -5,18 +5,15 @@
 
 import { Emitter, Event } from 'vs/base/common/event';
 import { Disposable } from 'vs/base/common/lifecycle';
+import { FromWebviewMessage } from 'vs/workbench/contrib/notebook/browser/view/renderers/webviewMessages';
 import { INotebookOutputWebview } from 'vs/workbench/contrib/positronOutputWebview/browser/notebookOutputWebviewService';
-import { IOverlayWebview, } from 'vs/workbench/contrib/webview/browser/webview';
-
-// Message sent by the webview when the widget has finished rendering; used to
-// coordinate thumbnail generation.
-export const RENDER_COMPLETE = 'render_complete';
+import { IOverlayWebview, IWebviewElement } from 'vs/workbench/contrib/webview/browser/webview';
 
 /**
  * A notebook output webview wraps a webview that contains rendered HTML content
  * from notebooks (including raw HTML or the Notebook Renderer API).
  */
-export class NotebookOutputWebview extends Disposable implements INotebookOutputWebview {
+export class NotebookOutputWebview<WType extends IOverlayWebview | IWebviewElement = IOverlayWebview> extends Disposable implements INotebookOutputWebview<WType> {
 
 	private readonly _onDidRender = new Emitter<void>;
 
@@ -25,22 +22,33 @@ export class NotebookOutputWebview extends Disposable implements INotebookOutput
 	 *
 	 * @param id A unique ID for this webview; typically the ID of the message
 	 *   that created it.
-	 * @param runtimeId The ID of the runtime that owns this webview.
+	 * @param sessionId The ID of the runtime that owns this webview.
 	 * @param webview The underlying webview.
 	 */
 	constructor(
 		readonly id: string,
 		readonly sessionId: string,
-		readonly webview: IOverlayWebview) {
+		readonly webview: WType,
+		readonly render?: () => void,
+	) {
 		super();
 
 		this.onDidRender = this._onDidRender.event;
 		this._register(this._onDidRender);
 
 		this._register(webview.onMessage(e => {
-			if (e.message === RENDER_COMPLETE) {
-				this._onDidRender.fire();
+			const data: FromWebviewMessage | { readonly __vscode_notebook_message: undefined } = e.message;
+
+			if (!data.__vscode_notebook_message) {
+				return;
 			}
+
+			switch (data.type) {
+				case 'positronRenderComplete':
+					this._onDidRender.fire();
+					break;
+			}
+
 		}));
 	}
 

@@ -73,4 +73,9 @@ export interface IPositronDataExplorerInstance extends IDisposable {
 	 * Copies the selection or cursor cell to the clipboard.
 	 */
 	copyToClipboard(): Promise<void>;
+
+	/**
+	 * Copies the table data to the clipboard.
+	 */
+	copyTableDataToClipboard(): Promise<void>;
 }

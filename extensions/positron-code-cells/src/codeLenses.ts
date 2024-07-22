@@ -4,8 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
-import { parseCells } from './parser';
-import { IGNORED_SCHEMES } from './extension';
+import { getOrCreateDocumentManager } from './documentManager';
 
 export function runCellCodeLens(range: vscode.Range): vscode.CodeLens {
 	return new vscode.CodeLens(range, {
@@ -33,12 +32,13 @@ export function runNextCodeLens(range: vscode.Range): vscode.CodeLens {
 
 export class CellCodeLensProvider implements vscode.CodeLensProvider {
 	provideCodeLenses(document: vscode.TextDocument): vscode.ProviderResult<vscode.CodeLens[]> {
-		if (IGNORED_SCHEMES.includes(document.uri.scheme)) {
+		const docManager = getOrCreateDocumentManager(document);
+		if (!docManager) {
 			return [];
 		}
 
+		const cells = docManager.getCells();
 		const codeLenses: vscode.CodeLens[] = [];
-		const cells = parseCells(document);
 		for (let i = 0; i < cells.length; i += 1) {
 			const cell = cells[i];
 			const range = cell.range;

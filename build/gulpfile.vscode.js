@@ -142,7 +142,7 @@ const optimizeVSCodeTask = task.define('optimize-vscode', task.series(
 ));
 gulp.task(optimizeVSCodeTask);
 
-const sourceMappingURLBase = `https://ticino.blob.core.windows.net/sourcemaps/${commit}`;
+const sourceMappingURLBase = `https://main.vscode-cdn.net/sourcemaps/${commit}`;
 const minifyVSCodeTask = task.define('minify-vscode', task.series(
 	optimizeVSCodeTask,
 	util.rimraf('out-vscode-min'),
@@ -253,7 +253,7 @@ function packageTask(platform, arch, sourceFolderName, destinationFolderName, op
 		const positronBuildNumber =
 			process.env.POSITRON_BUILD_NUMBER ??
 			child_process.execSync(
-				`${path.dirname(__dirname)}/versions/show-version.js --build`).toString().trim();
+				`node ${path.dirname(__dirname)}/versions/show-version.js --build`).toString().trim();
 
 		// --- End Positron ---
 

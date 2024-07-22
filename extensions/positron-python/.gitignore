@@ -54,3 +54,4 @@ tags
 python_files/positron/positron_ipykernel/tests/images
 python_files/positron/positron_ipykernel/_vendor/**
 # --- End Positron ---
+python-env-tools/**

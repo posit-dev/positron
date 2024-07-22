@@ -19,9 +19,7 @@ export function setup(logger: Logger) {
 
 			beforeEach(async function () {
 
-				const app = this.app as Application;
-				const RFixtures = new PositronRFixtures(app);
-				await RFixtures.startRInterpreter();
+				await PositronRFixtures.SetupFixtures(this.app as Application);
 
 			});
 
