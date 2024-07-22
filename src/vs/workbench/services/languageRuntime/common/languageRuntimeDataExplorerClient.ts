@@ -116,7 +116,7 @@ export class DataExplorerClientInstance extends Disposable {
 			large_num_digits: 2,
 			small_num_digits: 4,
 			max_integral_digits: 7,
-			max_value_length: 32,
+			max_value_length: 1000,
 			thousands_sep: '',
 		};
 
@@ -124,7 +124,7 @@ export class DataExplorerClientInstance extends Disposable {
 			large_num_digits: 2,
 			small_num_digits: 4,
 			max_integral_digits: 7,
-			max_value_length: 32,
+			max_value_length: 1000,
 			thousands_sep: ','
 		};
 
