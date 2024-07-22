@@ -10,7 +10,7 @@ import { useServices } from 'vs/workbench/contrib/positronNotebook/browser/Servi
 import { useNotebookInstance } from 'vs/workbench/contrib/positronNotebook/browser/NotebookInstanceProvider';
 import { WebviewType } from 'vs/workbench/contrib/positronOutputWebview/browser/notebookOutputWebviewService';
 import { useObservedValue } from 'vs/workbench/contrib/positronNotebook/browser/useObservedValue';
-import { WebviewElement } from 'vs/workbench/contrib/webview/browser/webviewElement';
+import { IWebviewElement } from 'vs/workbench/contrib/webview/browser/webview';
 
 
 // Styles that get added to the HTML content of the webview for things like cleaning
@@ -86,10 +86,10 @@ export function NotebookHTMLContent({ content, outputId }: { content: string; ou
 		// If the effect gets cleaned up before the webview has been rendered it will
 		// set the disposed variable to true letting the webview creation know not to
 		// mount the webview.
-		let cleanup = () => { disposed = true; };
+		let outputWebview: IWebviewElement | undefined;
 
 		const buildWebview = async () => {
-			const webviewElement = await notebookWebviewService.createRawHtmlOutput({
+			outputWebview = (await notebookWebviewService.createRawHtmlOutput({
 				id: outputId,
 				runtimeOrSessionId: notebookRuntime ?? instance.id,
 				html: buildWebviewHTML({
@@ -98,29 +98,32 @@ export function NotebookHTMLContent({ content, outputId }: { content: string; ou
 					script: `(${webviewMessageCode.toString()})();`
 				}),
 				webviewType: WebviewType.Standard
-			});
+			})).webview;
 
-			// If the container has been disposed, don't mount the webview
+			// If the use-effect ran the cleanup function while we were awaiting the webview
+			// creation, don't mound the webview and end early.
 			if (disposed) {
-				webviewElement.webview.dispose();
+				outputWebview.dispose();
 				return;
 			}
 
-			webviewElement.webview.onMessage(({ message }) => {
+			outputWebview.onMessage(({ message }) => {
 				if (!isHTMLOutputWebviewMessage(message) || !containerRef.current) { return; }
 				// Set the height of the webview to the height of the content
 				// Don't allow the webview to be taller than 1000px
 				const boundedHeight = Math.min(message.bodyScrollHeight, 1000);
 				containerRef.current.style.height = `${boundedHeight}px`;
 			});
-			if (!(webviewElement.webview instanceof WebviewElement)) { return; }
-			webviewElement.webview.mountTo(containerElement, getWindow(containerRef.current));
-			cleanup = () => webviewElement.webview.dispose();
+
+			outputWebview.mountTo(containerElement, getWindow(containerRef.current));
 		};
 
 		buildWebview();
 
-		return cleanup;
+		return () => {
+			disposed = true;
+			outputWebview?.dispose();
+		};
 	}, [content, instance.id, notebookRuntime, notebookWebviewService, outputId]);
 
 	return <div className='positron-notebook-html-output' ref={containerRef}></div>;
