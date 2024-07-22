@@ -36,7 +36,7 @@ export function NotebookCodeCell({ cell }: { cell: PositronNotebookCodeCell }) {
 			<CellEditorMonacoWidget cell={cell} />
 			<div className='positron-notebook-cell-outputs'>
 				{outputContents?.map(({ outputs, outputId }) =>
-					<CellOutput key={outputId} outputs={outputs} />
+					<CellOutput key={outputId} outputs={outputs} outputId={outputId} />
 				)}
 			</div>
 		</div>
@@ -44,7 +44,7 @@ export function NotebookCodeCell({ cell }: { cell: PositronNotebookCodeCell }) {
 
 }
 
-function CellOutput({ outputs }: Pick<NotebookCellOutputs, 'outputs'>) {
+function CellOutput({ outputs, outputId }: NotebookCellOutputs) {
 	const services = useServices();
 	const preferredOutput = pickPreferredOutputItem(outputs, services.logService.warn);
 
@@ -66,7 +66,7 @@ function CellOutput({ outputs }: Pick<NotebookCellOutputs, 'outputs'>) {
 		case 'image':
 			return <img src={parsed.dataUrl} alt='output image' />;
 		case 'html':
-			return <NotebookHTMLContent content={parsed.content} />;
+			return <NotebookHTMLContent content={parsed.content} outputId={outputId} />;
 		case 'unknown':
 			return <div className='unknown-mime-type'>
 				{localize('cellExecutionUnknownMimeType', 'Cant handle mime type "{0}" yet', preferredOutput.mime)}

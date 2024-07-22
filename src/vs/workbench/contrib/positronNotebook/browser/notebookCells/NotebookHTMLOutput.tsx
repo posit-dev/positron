@@ -6,10 +6,11 @@ import 'vs/css!./NotebookCodeCell';
 
 import * as React from 'react';
 import { getWindow } from 'vs/base/browser/dom';
-import { localize } from 'vs/nls';
-import { transformWebviewThemeVars } from 'vs/workbench/contrib/notebook/browser/view/renderers/webviewThemeMapping';
 import { useServices } from 'vs/workbench/contrib/positronNotebook/browser/ServicesProvider';
-import { WebviewContentPurpose } from 'vs/workbench/contrib/webview/browser/webview';
+import { useNotebookInstance } from 'vs/workbench/contrib/positronNotebook/browser/NotebookInstanceProvider';
+import { WebviewType } from 'vs/workbench/contrib/positronOutputWebview/browser/notebookOutputWebviewService';
+import { useObservedValue } from 'vs/workbench/contrib/positronNotebook/browser/useObservedValue';
+import { IWebviewElement } from 'vs/workbench/contrib/webview/browser/webview';
 
 
 // Styles that get added to the HTML content of the webview for things like cleaning
@@ -70,48 +71,60 @@ function acquireVsCodeApi(): { postMessage: (message: HTMLOutputWebviewMessage) 
 }
 
 
-export function NotebookHTMLContent({ content }: { content: string }) {
-	const { webviewService } = useServices();
-
+export function NotebookHTMLContent({ content, outputId }: { content: string; outputId: string }) {
 	const containerRef = React.useRef<HTMLDivElement>(null);
+	const { notebookWebviewService } = useServices();
+	const instance = useNotebookInstance();
+	const notebookRuntime = useObservedValue(instance.currentRuntime);
 
 	React.useEffect(() => {
-		if (!containerRef.current) {
-			return;
-		}
+		const containerElement = containerRef.current;
+		if (!containerElement) { return; }
 
-		const webviewElement = webviewService.createWebviewElement({
-			title: localize('positron.notebook.webview', "Positron Notebook HTML content"),
-			options: {
-				purpose: WebviewContentPurpose.NotebookRenderer,
-				enableFindWidget: false,
-				transformCssVariables: transformWebviewThemeVars,
-			},
-			contentOptions: {
-				allowMultipleAPIAcquire: true,
-				allowScripts: true,
-			},
-			extension: undefined,
-			providedViewType: 'notebook.output'
-		});
+		let disposed = false;
+		// Cleanup function that will be overwritten if the webview is created.
+		// If the effect gets cleaned up before the webview has been rendered it will
+		// set the disposed variable to true letting the webview creation know not to
+		// mount the webview.
+		let outputWebview: IWebviewElement | undefined;
 
-		const contentWithStyles = buildWebviewHTML({
-			content,
-			styles: htmlOutputStyles,
-			script: `(${webviewMessageCode.toString()})();`
-		});
+		const buildWebview = async () => {
+			outputWebview = (await notebookWebviewService.createRawHtmlOutput({
+				id: outputId,
+				runtimeOrSessionId: notebookRuntime ?? instance.id,
+				html: buildWebviewHTML({
+					content,
+					styles: htmlOutputStyles,
+					script: `(${webviewMessageCode.toString()})();`
+				}),
+				webviewType: WebviewType.Standard
+			})).webview;
 
-		webviewElement.setHtml(contentWithStyles);
-		webviewElement.onMessage(({ message }) => {
-			if (!isHTMLOutputWebviewMessage(message) || !containerRef.current) { return; }
-			// Set the height of the webview to the height of the content
-			// Don't allow the webview to be taller than 1000px
-			const boundedHeight = Math.min(message.bodyScrollHeight, 1000);
-			containerRef.current.style.height = `${boundedHeight}px`;
-		});
-		webviewElement.mountTo(containerRef.current, getWindow(containerRef.current));
-		return () => webviewElement.dispose();
-	}, [content, webviewService]);
+			// If the use-effect ran the cleanup function while we were awaiting the webview
+			// creation, don't mound the webview and end early.
+			if (disposed) {
+				outputWebview.dispose();
+				return;
+			}
+
+			outputWebview.onMessage(({ message }) => {
+				if (!isHTMLOutputWebviewMessage(message) || !containerRef.current) { return; }
+				// Set the height of the webview to the height of the content
+				// Don't allow the webview to be taller than 1000px
+				const boundedHeight = Math.min(message.bodyScrollHeight, 1000);
+				containerRef.current.style.height = `${boundedHeight}px`;
+			});
+
+			outputWebview.mountTo(containerElement, getWindow(containerRef.current));
+		};
+
+		buildWebview();
+
+		return () => {
+			disposed = true;
+			outputWebview?.dispose();
+		};
+	}, [content, instance.id, notebookRuntime, notebookWebviewService, outputId]);
 
 	return <div className='positron-notebook-html-output' ref={containerRef}></div>;
 }
