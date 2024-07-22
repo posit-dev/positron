@@ -17,35 +17,35 @@ export function setup(logger: Logger) {
 		const modifier = isMac ? 'Meta' : 'Control';
 
 		async function testBody(app: Application) {
-			await app.workbench.quickaccess.runCommand('workbench.action.toggleAuxiliaryBar');
+				await app.workbench.quickaccess.runCommand('workbench.action.toggleAuxiliaryBar');
 
-			const activeConsole = app.workbench.positronConsole.activeConsole;
-			await activeConsole.click();
+				const activeConsole = app.workbench.positronConsole.activeConsole;
+				await activeConsole.click();
 
-			await app.workbench.positronConsole.typeToConsole('a = 1');
+				await app.workbench.positronConsole.typeToConsole('a = 1');
 
-			const page = activeConsole!.page();
-			await page.keyboard.press(`${modifier}+A`);
-			await page.keyboard.press(`${modifier}+C`);
+				const page = activeConsole!.page();
+				await page.keyboard.press(`${modifier}+A`);
+				await page.keyboard.press(`${modifier}+C`);
 
-			await app.workbench.positronConsole.sendEnterKey();
+				await app.workbench.positronConsole.sendEnterKey();
 
-			await app.workbench.positronConsole.waitForConsoleContents((contents) => contents.some((line) => line.includes('a = 1')));
+				await app.workbench.positronConsole.waitForConsoleContents((contents) => contents.some((line) => line.includes('a = 1')));
 
-			await app.workbench.positronConsole.barClearButton.click();
+				await app.workbench.positronConsole.barClearButton.click();
 
-			await app.workbench.positronConsole.waitForConsoleContents((contents) => {
-				return !contents.some(Boolean);
-			});
+				await app.workbench.positronConsole.waitForConsoleContents((contents) => {
+					return !contents.some(Boolean);
+				});
 
-			await page.keyboard.press(`${modifier}+V`);
-			await app.workbench.positronConsole.sendEnterKey();
+				await page.keyboard.press(`${modifier}+V`);
+				await app.workbench.positronConsole.sendEnterKey();
 
-			await app.workbench.positronConsole.waitForConsoleContents((contents) =>
-				contents.some((line) => line.includes('a = 1'))
-			);
+				await app.workbench.positronConsole.waitForConsoleContents((contents) =>
+					contents.some((line) => line.includes('a = 1'))
+				);
 
-			await app.workbench.quickaccess.runCommand('workbench.action.toggleAuxiliaryBar');
+				await app.workbench.quickaccess.runCommand('workbench.action.toggleAuxiliaryBar');
 		}
 
 		describe('Console Clipboard - Python', () => {
