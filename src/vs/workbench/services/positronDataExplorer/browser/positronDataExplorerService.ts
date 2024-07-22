@@ -365,11 +365,9 @@ class PositronDataExplorerService extends Disposable implements IPositronDataExp
 			if (dxInput !== undefined && backendState.display_name !== undefined) {
 				// We truncate the `display_name` to a reasonable length as
 				// the editor tab title has limited space.
-
-				// -6 because of 'Data: ' prefix;
-				const maxTabSize = this._configurationService.getValue<number>('workbench.editor.tabSizingFixedMinWidth') - 6;
+				const maxTabSize = 30;
 				let display_name = backendState.display_name;
-				if (backendState.display_name.length > maxTabSize && maxTabSize > 3) {
+				if (backendState.display_name.length > maxTabSize) {
 					display_name = backendState.display_name.substring(0, maxTabSize - 3) + '...';
 				}
 
