@@ -14,7 +14,7 @@ const eslintMochaOnlyHook = (reporter) => {
 		// See ExitCodes in build/eslint-mocha-only.js
 		switch (error.status) {
 			case 1:
-				message = '`.only` was included in the staged test files. Please remove \`.only\` before committing, or commit with \`--no-verify\` to bypass, but this will skip all pre-commit hooks.';
+				message = 'If you end up committing with \`.only\`: please remove `.only` from your tests before merging to `main` :)';
 				break;
 			case 2:
 				message = 'eslint-mocha-only wrapper script encountered an error while running the hook.';
@@ -23,7 +23,7 @@ const eslintMochaOnlyHook = (reporter) => {
 				message = 'eslint-mocha-only encountered an error while running the hook';
 				break;
 		}
-		reporter(message, true);
+		reporter(message + '\n', true);
 	}
 	return es.through(function () {
 		/* noop, important for the stream to end */

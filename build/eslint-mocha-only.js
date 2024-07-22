@@ -46,17 +46,16 @@ try {
 		console.log('No staged test files found. Skipping eslint-mocha-only hook.'.cyan);
 		process.exit(ExitCodes.SUCCESS);
 	}
-	// Non-ideal way to fail on `only` being used in mocha tests
+	// Non-ideal way to fail on `only` being used in mocha tests without triggering other linting rules.
 	const result = child_process.execSync(
-		`npx eslint --rule 'mocha/no-exclusive-tests: error' ${files}`,
+		`npx eslint --no-eslintrc --parser '@typescript-eslint/parser' --plugin 'mocha' --rule 'mocha/no-exclusive-tests: error' ${files}`,
 		{ encoding: 'utf8' }
 	);
 	process.exit(ExitCodes.SUCCESS);
 } catch (error) {
 	console.error(
-		`It looks like you've included \`.only\` in your test(s):\n`.cyan +
-		`${error.stdout}` +
-		'If you end up committing with \`.only\`: just a friendly reminder to remove `.only` from your tests before merging to `main` :)'.magenta
+		`It looks like you've included \`.only\` in your test(s):\n`.magenta +
+		`${error.stdout}`
 	);
 	process.exit(ExitCodes.ONLY_COMMITTED_FAIL_HOOK);
 }
