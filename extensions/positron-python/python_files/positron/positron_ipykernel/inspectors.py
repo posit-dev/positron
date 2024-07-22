@@ -890,7 +890,7 @@ class PolarsSeriesInspector(BaseColumnInspector["pl.Series"]):
         try:
             return self.value.equals(value)
         except AttributeError:  # polars.Series.equals was introduced in v0.19.16
-            return self.value.series_equal(value)
+            return self.value.series_equal(value)  # type: ignore
 
     def deepcopy(self) -> pl.Series:
         # Polars produces a shallow clone and does not copy any memory
@@ -1003,7 +1003,7 @@ class PolarsDataFrameInspector(BaseTableInspector["pl.DataFrame", "pl.Series"]):
         try:
             return self.value.equals(value)
         except AttributeError:  # polars.DataFrame.equals was introduced in v0.19.16
-            return self.value.frame_equal(value)
+            return self.value.frame_equal(value)  # type: ignore
 
     def deepcopy(self) -> pl.DataFrame:
         # Polars produces a shallow clone and does not copy any memory

@@ -9,7 +9,7 @@ import * as fs from 'fs-extra';
 import * as path from 'path';
 import { anything, capture, instance, mock, verify, when } from 'ts-mockito';
 import { expect } from 'chai';
-import { WorkspaceFolder } from 'vscode-languageserver-protocol';
+import WorkspaceFolder from 'vscode-languageserver-protocol';
 import * as Telemetry from '../../../../client/telemetry';
 import { LanguageServerType } from '../../../../client/activation/types';
 import { CommandManager } from '../../../../client/common/application/commandManager';

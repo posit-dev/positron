@@ -19,9 +19,7 @@ export function setup(logger: Logger) {
 
 			beforeEach(async function () {
 
-				const app = this.app as Application;
-				const pythonFixtures = new PositronPythonFixtures(app);
-				await pythonFixtures.startPythonInterpreter();
+				await PositronPythonFixtures.SetupFixtures(this.app as Application);
 
 			});
 

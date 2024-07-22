@@ -92,7 +92,7 @@ export function setupDataExplorer100x100Test(logger: Logger) {
 					const cell = await app.code.waitForElement(`#data-grid-row-cell-content-${columnIndex}-${rowIndex} .text-container .text-value`);
 
 					// Test the cell.
-					expect(cell.textContent).toStrictEqual(row[columnIndex]);
+					expect(cell.textContent, `${rowIndex},${columnIndex}`).toStrictEqual(row[columnIndex]);
 
 					// Move to the next cell.
 					await app.workbench.positronDataExplorer.arrowRight();
@@ -152,7 +152,7 @@ export function setupDataExplorer100x100Test(logger: Logger) {
 			/**
 			 * Data Explorer 100x100 - Python - Pandas - Smoke Test.
 			 */
-			it('Data Explorer 100x100 - Python - Pandas - Smoke Test', async function () {
+			it('Data Explorer 100x100 - Python - Pandas - Smoke Test [C557563]', async function () {
 				// Get the app.
 				const app = this.app as Application;
 
@@ -196,7 +196,7 @@ export function setupDataExplorer100x100Test(logger: Logger) {
 			/**
 			 * Data Explorer 100x100 - Python - Polars - Smoke Test.
 			 */
-			it('Data Explorer 100x100 - Python - Polars - Smoke Test', async function () {
+			it('Data Explorer 100x100 - Python - Polars - Smoke Test [C674520]', async function () {
 				// Get the app.
 				const app = this.app as Application;
 
@@ -240,7 +240,7 @@ export function setupDataExplorer100x100Test(logger: Logger) {
 			/**
 			 * Data Explorer 100x100 - R - Smoke Test.
 			 */
-			it('Data Explorer 100x100 - R - Smoke Test', async function () {
+			it('Data Explorer 100x100 - R - Smoke Test [C674521]', async function () {
 				// Get the app.
 				const app = this.app as Application;
 

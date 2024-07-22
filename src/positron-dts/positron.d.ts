@@ -213,7 +213,7 @@ declare module 'positron' {
 	/** LanguageRuntimeOutput is a LanguageRuntimeMessage representing output (text, plots, etc.) */
 	export interface LanguageRuntimeOutput extends LanguageRuntimeMessage {
 		/** A record of data MIME types to the associated data, e.g. `text/plain` => `'hello world'` */
-		data: Record<string, string>;
+		data: Record<string, any>;
 	}
 
 	/**

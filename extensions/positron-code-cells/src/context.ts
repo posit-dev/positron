@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
-import { getParser, parseCells } from './parser';
+import { canHaveCells, getOrCreateDocumentManager } from './documentManager';
 
 export enum ContextKey {
 	SupportsCodeCells = 'positron.supportsCodeCells',
@@ -17,7 +17,7 @@ export const contexts: Map<ContextKey, boolean | undefined> = new Map([
 ]);
 
 function setSupportsCodeCellsContext(editor: vscode.TextEditor | undefined): void {
-	const value = editor && getParser(editor.document.languageId) !== undefined;
+	const value = editor && canHaveCells(editor.document);
 	contexts.set(ContextKey.SupportsCodeCells, value);
 	vscode.commands.executeCommand(
 		'setContext',
@@ -26,8 +26,9 @@ function setSupportsCodeCellsContext(editor: vscode.TextEditor | undefined): voi
 	);
 }
 
-function setHasCodeCellsContext(document: vscode.TextDocument | undefined): void {
-	const value = document && parseCells(document).length > 0;
+function setHasCodeCellsContext(editor: vscode.TextEditor | undefined): void {
+	const docManager = editor && getOrCreateDocumentManager(editor.document);
+	const value = (docManager && docManager.getCells().length > 0) ?? false;
 	contexts.set(ContextKey.HasCodeCells, value);
 	vscode.commands.executeCommand(
 		'setContext',
@@ -41,7 +42,7 @@ export function activateContextKeys(disposables: vscode.Disposable[]): void {
 
 	if (activeEditor) {
 		setSupportsCodeCellsContext(activeEditor);
-		setHasCodeCellsContext(activeEditor.document);
+		setHasCodeCellsContext(activeEditor);
 	}
 
 	disposables.push(
@@ -51,13 +52,13 @@ export function activateContextKeys(disposables: vscode.Disposable[]): void {
 
 			// Set the context keys.
 			setSupportsCodeCellsContext(editor);
-			setHasCodeCellsContext(editor?.document);
+			setHasCodeCellsContext(editor);
 		}),
 
 		vscode.workspace.onDidChangeTextDocument((event) => {
 			// Set the hasCodeCells context key when the active editor's document changes.
 			if (activeEditor && event.document === activeEditor.document) {
-				setHasCodeCellsContext(event.document);
+				setHasCodeCellsContext(activeEditor);
 			}
 		})
 	);

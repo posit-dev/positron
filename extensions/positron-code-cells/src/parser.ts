@@ -10,11 +10,6 @@ export interface Cell {
 	type: CellType;
 }
 
-export enum CellDecorationSetting {
-	Current,
-	All,
-}
-
 export enum CellType {
 	Code,
 	Markdown,
@@ -26,7 +21,6 @@ export interface CellParser {
 	getCellType(line: string): CellType;
 	getCellText(cell: Cell, document: vscode.TextDocument): string;
 	newCell(): string;
-	cellDecorationSetting(): CellDecorationSetting;
 }
 
 function getCellText(cell: Cell, document: vscode.TextDocument): string {
@@ -79,7 +73,6 @@ const pythonCellParser: CellParser = {
 			? getCellText(cell, document)
 			: getJupyterMarkdownCellText(cell, document),
 	newCell: () => '\n# %%\n',
-	cellDecorationSetting: () => CellDecorationSetting.Current,
 };
 
 const rCellParser: CellParser = {
@@ -87,14 +80,14 @@ const rCellParser: CellParser = {
 	isCellEnd: (_line) => false,
 	getCellType: (_line) => CellType.Code,
 	getCellText: getCellText,
-	newCell: () => '\n#+\n',
-	cellDecorationSetting: () => CellDecorationSetting.Current,
+	newCell: () => '\n# %%\n'
 };
 
-const parsers: Map<string, CellParser> = new Map([
+export const parsers: Map<string, CellParser> = new Map([
 	['python', pythonCellParser],
 	['r', rCellParser],
 ]);
+export const supportedLanguageIds = Array.from(parsers.keys());
 
 export function getParser(languageId: string): CellParser | undefined {
 	return parsers.get(languageId);

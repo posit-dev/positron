@@ -55,7 +55,9 @@ export namespace Commands {
     export const Exec_In_Console = 'python.execInConsole';
     export const Exec_Selection_In_Console = 'python.execSelectionInConsole';
     // --- End Positron ---
+    export const Exec_In_REPL = 'python.execInREPL';
     export const Exec_Selection_In_Django_Shell = 'python.execSelectionInDjangoShell';
+    export const Exec_In_REPL_Enter = 'python.execInREPLEnter';
     export const Exec_Selection_In_Terminal = 'python.execSelectionInTerminal';
     // --- Start Positron ---
     export const Focus_Positron_Console = 'workbench.panel.positronConsole.focus';
