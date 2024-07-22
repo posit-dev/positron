@@ -64,6 +64,7 @@ jobs:
       - name: Install node dependencies with yarn
         env:
           npm_config_arch: ${{ matrix.arch }}
+          CI_CHECK_FAIL: ssh2
           POSITRON_GITHUB_PAT: ${{ steps.app-token.outputs.token }}
         shell: pwsh
         # nvm on windows does not see .nvmrc
