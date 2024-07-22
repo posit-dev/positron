@@ -38,6 +38,19 @@ echo "Storing log files into '$VSCODELOGSDIR'."
 # note that some tests from upstream have been deleted at this location
 # those tests are now in test-integration-nightly.sh
 
+# --- End Positron ---
+
+if [ -z "$INTEGRATION_TEST_APP_NAME" ]; then
+	kill_app() { true; }
+else
+	kill_app() { killall $INTEGRATION_TEST_APP_NAME || true; }
+fi
+
+# --- Start Positron ---
+
+# note that some tests from upstream have been deleted at this location
+# those tests are now in test-integration-nightly.sh
+
 # Positron Extensions
 
 echo
