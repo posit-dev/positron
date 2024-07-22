@@ -903,6 +903,13 @@ def _pandas_summarize_datetime(col: "pd.Series", options: FormatOptions):
     return _box_datetime_stats(num_unique, min_date, mean_date, median_date, max_date, timezone)
 
 
+def _safe_stringify(x, max_length: int):
+    formatted = str(x)
+    if len(formatted) > max_length:
+        formatted = formatted[:max_length]
+    return formatted
+
+
 class PandasView(DataExplorerTableView):
     TYPE_NAME_MAPPING = {"boolean": "bool"}
 
@@ -1194,6 +1201,7 @@ class PandasView(DataExplorerTableView):
         NaT = pd_.NaT
         NA = pd_.NA
         float_format = _get_float_formatter(options)
+        max_length = options.max_value_length
 
         def _format_value(x):
             if _is_float_scalar(x):
@@ -1210,7 +1218,7 @@ class PandasView(DataExplorerTableView):
             elif x is NA:
                 return _VALUE_NA
             else:
-                return str(x)
+                return _safe_stringify(x, max_length)
 
         return [_format_value(x) for x in values]
 
@@ -1846,6 +1854,7 @@ class PolarsView(DataExplorerTableView):
     @classmethod
     def _format_values(cls, values, options: FormatOptions) -> List[ColumnValue]:
         float_format = _get_float_formatter(options)
+        max_length = options.max_value_length
 
         def _format_scalar(x):
             if _is_float_scalar(x):
@@ -1854,7 +1863,7 @@ class PolarsView(DataExplorerTableView):
                 else:
                     return float_format(x)
             else:
-                return str(x)
+                return _safe_stringify(x, max_length)
 
         def _format_series(s):
             result = []
