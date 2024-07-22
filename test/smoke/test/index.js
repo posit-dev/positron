@@ -42,7 +42,6 @@ mocha.addFile('out/main.js');
 mocha.grep(process.env.TEST_FILTER || '');
 // mocha.dryRun(); // debugging
 // --- End Positron ---
-
 mocha.run(failures => {
 
 	// Indicate location of log files for further diagnosis
