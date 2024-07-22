@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 
-import { expect } from '@playwright/test';
+import { expect, Locator } from '@playwright/test';
 import { Code } from '../code';
 import { Notebook } from '../notebook';
 import { QuickAccess } from '../quickaccess';
@@ -27,8 +27,11 @@ const MARKDOWN_TEXT = '#preview';
  *  Reuseable Positron notebook functionality for tests to leverage.  Includes selecting the notebook's interpreter.
  */
 export class PositronNotebooks {
+	kernelLabelLocator: Locator;
 
-	constructor(private code: Code, private quickinput: QuickInput, private quickaccess: QuickAccess, private notebook: Notebook) { }
+	constructor(private code: Code, private quickinput: QuickInput, private quickaccess: QuickAccess, private notebook: Notebook) {
+		this.kernelLabelLocator = this.code.driver.getLocator(KERNEL_LABEL);
+	}
 
 	async selectInterpreter(kernelGroup: string, desiredKernel: string) {
 		await this.code.waitForElement(KERNEL_LABEL, (e) => e!.textContent.includes(desiredKernel) || e!.textContent.includes(SELECT_KERNEL_TEXT));
