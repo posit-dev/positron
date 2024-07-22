@@ -11,9 +11,9 @@ import { Locator } from '@playwright/test';
 
 export class Editors {
 	// --- Start Positron ---
-	activeEditorLocator: Locator;
-	editorIconLocator: Locator;
-	editorPartLocator: Locator;
+	activeEditorLocator = this.code.driver.getLocator('div.tab.tab-actions-right.active.selected');
+	editorIconLocator = this.code.driver.getLocator('.monaco-icon-label.file-icon');
+	editorPartLocator = this.code.driver.getLocator('.split-view-view .part.editor');
 
 	constructor(private code: Code) {
 		this.activeEditorLocator = this.code.driver.getLocator('div.tab.tab-actions-right.active.selected');

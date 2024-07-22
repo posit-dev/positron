@@ -27,7 +27,7 @@ const MARKDOWN_TEXT = '#preview';
  *  Reuseable Positron notebook functionality for tests to leverage.  Includes selecting the notebook's interpreter.
  */
 export class PositronNotebooks {
-	kernelLabelLocator: Locator;
+	kernelLabelLocator = this.code.driver.getLocator(KERNEL_LABEL);
 
 	constructor(private code: Code, private quickinput: QuickInput, private quickaccess: QuickAccess, private notebook: Notebook) {
 		this.kernelLabelLocator = this.code.driver.getLocator(KERNEL_LABEL);
