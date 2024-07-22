@@ -11,22 +11,19 @@ const eslintMochaOnlyHook = (reporter) => {
 		const result = child_process.execSync('node build/eslint-mocha-only.js', { encoding: 'utf8' });
 	} catch (error) {
 		let message = '';
-		let shouldFail;
 		// See ExitCodes in build/eslint-mocha-only.js
 		switch (error.status) {
 			case 1:
 				message = '`.only` was included in the staged test files. Please remove \`.only\` before committing, or commit with \`--no-verify\` to bypass, but this will skip all pre-commit hooks.';
-				shouldFail = true;
+				break;
+			case 2:
+				message = 'eslint-mocha-only wrapper script encountered an error while running the hook.';
 				break;
 			default:
-				message = 'Something went wrong while running the eslint-mocha-only hook.';
-				shouldFail = true;
+				message = 'eslint-mocha-only encountered an error while running the hook';
 				break;
 		}
-		reporter(message, shouldFail);
-		if (shouldFail) {
-			throw new Error(message);
-		}
+		reporter(message, true);
 	}
 	return es.through(function () {
 		/* noop, important for the stream to end */

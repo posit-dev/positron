@@ -280,6 +280,12 @@ function hygiene(some, linting = true, secrets = true) {
 					process.stdout.write('.');
 				}
 				this.emit('data', data);
+
+				// --- Start Positron ---
+				if (errorCount > 0) {
+					this.emit('error', 'Hygiene failed with ' + errorCount + ' errors');
+				}
+				// --- End Positron ---
 			},
 			function () {
 				process.stdout.write('\n');

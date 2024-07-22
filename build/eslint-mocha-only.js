@@ -3,6 +3,10 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+// This script can be run standalone from the root of the project to check for `.only` in staged
+// test files with `node build/eslint-mocha-only.js`.
+// It is also run in the pre-commit/hygiene tasks to check for `.only` in staged test files.
+
 const child_process = require('child_process');
 const colors = require('colors');
 const readline = require('readline/promises');
@@ -39,6 +43,7 @@ const getStagedTestFiles = () => {
 try {
 	const files = getStagedTestFiles();
 	if (!files) {
+		console.log('No staged test files found. Skipping eslint-mocha-only hook.'.cyan);
 		process.exit(ExitCodes.SUCCESS);
 	}
 	// Non-ideal way to fail on `only` being used in mocha tests
