@@ -11,6 +11,10 @@ const path = require('path');
 const fs = require('fs');
 const pall = require('p-all');
 
+// --- Start Positron ---
+const colors = require('colors');
+// --- End Positron ---
+
 const { all, copyrightFilter, unicodeFilter, indentationFilter, tsFormattingFilter, eslintFilter, stylelintFilter, eslintMochaFilter } = require('./filters');
 
 const copyrightHeaderLines = [
@@ -101,9 +105,11 @@ function hygiene(some, linting = true, secrets = true) {
 			} else if (/^[\t]* \*/.test(line)) {
 				// block comment using an extra space
 			} else {
+				// --- Start Positron ---
 				console.error(
-					file.relative + '(' + (i + 1) + ',1): Bad whitespace indentation'
+					file.relative + '(' + (i + 1) + ',1): ' + 'Bad whitespace indentation'.magenta
 				);
+				// --- End Positron ---
 				errorCount++;
 			}
 		});
@@ -152,7 +158,7 @@ function hygiene(some, linting = true, secrets = true) {
 		if (!(matchHeaderLines(copyrightHeaderLines) ||
 			regexMatchHeaderLines(positCopyrightHeaderLines) ||
 			regexMatchHeaderLines(positCopyrightHeaderLinesHash))) {
-			console.error(file.relative + ': Missing or bad copyright statement');
+			console.error(file.relative + ': ' + 'Missing or bad copyright statement'.magenta);
 			errorCount++;
 		}
 
@@ -168,10 +174,12 @@ function hygiene(some, linting = true, secrets = true) {
 			const original = rawInput.replace(/\r\n/gm, '\n');
 			const formatted = rawOutput.replace(/\r\n/gm, '\n');
 			if (original !== formatted) {
+				// --- Start Positron ---
 				console.error(
-					`File not formatted. Run the 'Format Document' command to fix it:`,
-					file.relative
+					file.relative + ': ' +
+					`File not formatted. Run the 'Format Document' command to fix it`.magenta
 				);
+				// --- End Positron ---
 				errorCount++;
 			}
 			cb(null, file);
@@ -283,7 +291,7 @@ function hygiene(some, linting = true, secrets = true) {
 
 				// --- Start Positron ---
 				if (errorCount > 0) {
-					this.emit('error', 'Hygiene failed with ' + errorCount + ' errors');
+					this.emit('error', `Hygiene failed with ${errorCount} errors`.red);
 				}
 				// --- End Positron ---
 			},
