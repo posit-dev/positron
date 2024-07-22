@@ -7,13 +7,13 @@ import { Emitter, Event } from 'vs/base/common/event';
 import { Disposable } from 'vs/base/common/lifecycle';
 import { FromWebviewMessage } from 'vs/workbench/contrib/notebook/browser/view/renderers/webviewMessages';
 import { INotebookOutputWebview } from 'vs/workbench/contrib/positronOutputWebview/browser/notebookOutputWebviewService';
-import { IOverlayWebview, } from 'vs/workbench/contrib/webview/browser/webview';
+import { IOverlayWebview, IWebviewElement } from 'vs/workbench/contrib/webview/browser/webview';
 
 /**
  * A notebook output webview wraps a webview that contains rendered HTML content
  * from notebooks (including raw HTML or the Notebook Renderer API).
  */
-export class NotebookOutputWebview extends Disposable implements INotebookOutputWebview {
+export class NotebookOutputWebview<WType extends IOverlayWebview | IWebviewElement = IOverlayWebview> extends Disposable implements INotebookOutputWebview<WType> {
 
 	private readonly _onDidRender = new Emitter<void>;
 
@@ -28,7 +28,7 @@ export class NotebookOutputWebview extends Disposable implements INotebookOutput
 	constructor(
 		readonly id: string,
 		readonly sessionId: string,
-		readonly webview: IOverlayWebview,
+		readonly webview: WType,
 		readonly render?: () => void,
 	) {
 		super();

@@ -7,6 +7,7 @@ import { ISettableObservable } from 'vs/base/common/observableInternal/base';
 import { URI } from 'vs/base/common/uri';
 import { CellKind, IPositronNotebookCell } from 'vs/workbench/services/positronNotebook/browser/IPositronNotebookCell';
 import { SelectionStateMachine } from 'vs/workbench/services/positronNotebook/browser/selectionMachine';
+import { ILanguageRuntimeSession } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
 
 export enum KernelStatus {
 	Uninitialized = 'Uninitialized',
@@ -24,6 +25,12 @@ export enum KernelStatus {
  * This is then given to the UI to render.
  */
 export interface IPositronNotebookInstance {
+
+	/**
+	 * Identifier for the notebook instance. Used for debugging and claiming ownership of various
+	 * resources.
+	 */
+	id: string;
 
 	/**
 	 * URI of the notebook file being edited
@@ -44,6 +51,11 @@ export interface IPositronNotebookInstance {
 	 * Status of kernel for the notebook.
 	 */
 	kernelStatus: ISettableObservable<KernelStatus>;
+
+	/**
+	 * Current runtime for notebook
+	 */
+	currentRuntime: ISettableObservable<ILanguageRuntimeSession | undefined>;
 
 	/**
 	 * Selection state machine object.

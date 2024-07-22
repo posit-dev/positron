@@ -14,6 +14,7 @@ import { IInstantiationService } from 'vs/platform/instantiation/common/instanti
 import { ILogService } from 'vs/platform/log/common/log';
 import { INotificationService } from 'vs/platform/notification/common/notification';
 import { IOpenerService } from 'vs/platform/opener/common/opener';
+import { IPositronNotebookOutputWebviewService } from 'vs/workbench/contrib/positronOutputWebview/browser/notebookOutputWebviewService';
 import { IWebviewService } from 'vs/workbench/contrib/webview/browser/webview';
 
 
@@ -47,6 +48,11 @@ interface ServiceBundle {
 	 * Service for creating webviews
 	 */
 	webviewService: IWebviewService;
+
+	/**
+	 * Service for creating webviews for notebook outputs
+	 */
+	notebookWebviewService: IPositronNotebookOutputWebviewService;
 
 	/**
 	 * Servicer for opening external links

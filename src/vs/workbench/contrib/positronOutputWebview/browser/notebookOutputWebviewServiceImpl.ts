@@ -12,8 +12,8 @@ import { preloadsScriptStr } from 'vs/workbench/contrib/notebook/browser/view/re
 import { INotebookRendererInfo, RendererMessagingSpec } from 'vs/workbench/contrib/notebook/common/notebookCommon';
 import { INotebookService } from 'vs/workbench/contrib/notebook/common/notebookService';
 import { NotebookOutputWebview } from 'vs/workbench/contrib/positronOutputWebview/browser/notebookOutputWebview';
-import { INotebookOutputWebview, IPositronNotebookOutputWebviewService } from 'vs/workbench/contrib/positronOutputWebview/browser/notebookOutputWebviewService';
-import { IWebviewService, WebviewInitInfo } from 'vs/workbench/contrib/webview/browser/webview';
+import { INotebookOutputWebview, IPositronNotebookOutputWebviewService, WebviewType } from 'vs/workbench/contrib/positronOutputWebview/browser/notebookOutputWebviewService';
+import { IOverlayWebview, IWebviewElement, IWebviewService, WebviewInitInfo } from 'vs/workbench/contrib/webview/browser/webview';
 import { asWebviewUri } from 'vs/workbench/contrib/webview/common/webview';
 import { IExtensionService } from 'vs/workbench/services/extensions/common/extensions';
 import { ILanguageRuntimeMessageWebOutput } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
@@ -67,7 +67,12 @@ export class PositronNotebookOutputWebviewService implements IPositronNotebookOu
 		// HTML representation of the output.
 		for (const mimeType of Object.keys(output.data)) {
 			if (mimeType === 'text/html') {
-				return this.createRawHtmlOutput(output.id, runtime, output.data[mimeType]);
+				return this.createRawHtmlOutput({
+					id: output.id,
+					runtimeOrSessionId: runtime,
+					html: output.data[mimeType],
+					webviewType: WebviewType.Overlay
+				});
 			}
 		}
 
@@ -250,18 +255,14 @@ export class PositronNotebookOutputWebviewService implements IPositronNotebookOu
 		return new NotebookOutputWebview(id, runtime.runtimeMetadata.runtimeId, webview, render);
 	}
 
-	/**
-	 * Renders raw HTML in a webview.
-	 *
-	 * @param id The ID of the notebook output
-	 * @param runtime The runtime that emitted the output
-	 * @param html The HTML to render
-	 *
-	 * @returns A promise that resolves to the new webview.
-	 */
-	async createRawHtmlOutput(id: string, runtime: ILanguageRuntimeSession, html: string):
-		Promise<INotebookOutputWebview> {
-
+	async createRawHtmlOutput<WType extends WebviewType>({ id, html, webviewType, runtimeOrSessionId }: {
+		id: string;
+		html: string;
+		webviewType: WType;
+		runtimeOrSessionId: ILanguageRuntimeSession | string;
+	}): Promise<
+		INotebookOutputWebview<WType extends WebviewType.Overlay ? IOverlayWebview : IWebviewElement>
+	> {
 		// Load the Jupyter extension. Many notebook HTML outputs have a dependency on jQuery,
 		// which is provided by the Jupyter extension.
 		const jupyterExtension = await this._extensionService.getExtension('ms-toolsai.jupyter');
@@ -275,13 +276,16 @@ export class PositronNotebookOutputWebviewService implements IPositronNotebookOu
 				allowScripts: true,
 				localResourceRoots: [jupyterExtension.extensionLocation]
 			},
-			extension: {
-				id: runtime.runtimeMetadata.extensionId
-			},
 			options: {},
 			title: '',
+			// Sometimes we don't have an active runtime (e.g. rendering html for a notebook pre
+			// runtime start) so we can't get the extension id from the runtime.
+			extension: typeof runtimeOrSessionId === 'string' ? undefined : { id: runtimeOrSessionId.runtimeMetadata.extensionId }
 		};
-		const webview = this._webviewService.createWebviewOverlay(webviewInitInfo);
+
+		const webview = webviewType === WebviewType.Overlay
+			? this._webviewService.createWebviewOverlay(webviewInitInfo)
+			: this._webviewService.createWebviewElement(webviewInitInfo);
 
 		// Form the path to the jQuery library and inject it into the HTML
 		const jQueryPath = asWebviewUri(
@@ -303,7 +307,14 @@ window.onload = function() {
 	});
 };
 </script>`);
-		return new NotebookOutputWebview(id, runtime.runtimeMetadata.runtimeId, webview);
+
+		return new NotebookOutputWebview(
+			id,
+			typeof runtimeOrSessionId === 'string' ? runtimeOrSessionId : runtimeOrSessionId.runtimeMetadata.runtimeId,
+			// The unfortunate cast is necessary because typescript isn't capable of figuring out that
+			// the type of the webview was determined by the type of the webviewType parameter.
+			webview as WType extends WebviewType.Overlay ? IOverlayWebview : IWebviewElement
+		);
 	}
 
 	/**
