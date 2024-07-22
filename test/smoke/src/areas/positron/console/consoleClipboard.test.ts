@@ -53,7 +53,7 @@ export function setup(logger: Logger) {
 				await PositronPythonFixtures.SetupFixtures(this.app as Application);
 			});
 
-			it('Python - Copy from console & paste to console [C608100] #nightly', async function () {
+			it('Python - Copy from console & paste to console [C608100]', async function () {
 				await testBody(this.app);
 			});
 		});
@@ -63,7 +63,7 @@ export function setup(logger: Logger) {
 				await PositronRFixtures.SetupFixtures(this.app as Application);
 			});
 
-			it('R - Copy from console & paste to console [C663725] #nightly', async function () {
+			it('R - Copy from console & paste to console [C663725]', async function () {
 				await testBody(this.app);
 			});
 		});

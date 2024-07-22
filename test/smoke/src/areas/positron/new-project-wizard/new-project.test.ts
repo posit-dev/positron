@@ -21,7 +21,7 @@ export function setup(logger: Logger) {
 			});
 
 			describe('Python Project with new environment', () => {
-				it('Create a new Venv environment [C627912] #nightly #pr', async function () {
+				it('Create a new Venv environment [C627912] #pr', async function () {
 					// This is the default behaviour for a new Python Project in the Project Wizard
 					const app = this.app as Application;
 					const pw = app.workbench.positronNewProjectWizard;
@@ -34,7 +34,7 @@ export function setup(logger: Logger) {
 					await app.workbench.positronExplorer.explorerProjectTitle.waitForText('myPythonProject');
 					await app.workbench.positronConsole.waitForReady('>>>', 10000);
 				});
-				it('Create a new Conda environment [C628628] #nightly', async function () {
+				it('Create a new Conda environment [C628628]', async function () {
 					// This test relies on Conda already being installed on the machine
 					const projSuffix = '_condaInstalled';
 					const app = this.app as Application;
@@ -62,7 +62,7 @@ export function setup(logger: Logger) {
 			});
 
 			describe('Python Project with existing interpreter', () => {
-				it('With ipykernel already installed [C609619] #nightly', async function () {
+				it('With ipykernel already installed [C609619]', async function () {
 					const projSuffix = '_ipykernelInstalled';
 					const app = this.app as Application;
 					const pw = app.workbench.positronNewProjectWizard;
@@ -97,7 +97,7 @@ export function setup(logger: Logger) {
 					// The console should initialize without any prompts to install ipykernel
 					await app.workbench.positronConsole.waitForReady('>>>', 10000);
 				});
-				it('With ipykernel not already installed [C609617] #nightly', async function () {
+				it('With ipykernel not already installed [C609617]', async function () {
 					const projSuffix = '_noIpykernel';
 					const app = this.app as Application;
 					const pw = app.workbench.positronNewProjectWizard;
@@ -143,7 +143,7 @@ export function setup(logger: Logger) {
 				});
 			});
 
-			it('Default Python Project with git init [C674522] #nightly #pr', async function () {
+			it('Default Python Project with git init [C674522] #pr', async function () {
 				const projSuffix = '_gitInit';
 				const app = this.app as Application;
 				const pw = app.workbench.positronNewProjectWizard;
@@ -189,7 +189,7 @@ export function setup(logger: Logger) {
 
 			});
 
-			it('R Project Defaults [C627913] #nightly #pr', async function () {
+			it('R Project Defaults [C627913] #pr', async function () {
 				const app = this.app as Application;
 				const pw = app.workbench.positronNewProjectWizard;
 				await pw.startNewProject();
@@ -204,7 +204,7 @@ export function setup(logger: Logger) {
 			});
 
 			describe('R Project with Renv Environment', () => {
-				it('Accept Renv install [C633084] #nightly', async function () {
+				it('Accept Renv install [C633084]', async function () {
 					const projSuffix = '_installRenv';
 					const app = this.app as Application;
 					const pw = app.workbench.positronNewProjectWizard;
@@ -249,7 +249,7 @@ export function setup(logger: Logger) {
 					);
 				});
 
-				it('Renv already installed [C656251] #nightly', async function () {
+				it('Renv already installed [C656251]', async function () {
 					// Renv will already be installed from the previous test
 					const projSuffix = '_renvAlreadyInstalled';
 					const app = this.app as Application;
@@ -279,7 +279,7 @@ export function setup(logger: Logger) {
 					);
 				});
 
-				it('Cancel Renv install [C656252] #nightly', async function () {
+				it('Cancel Renv install [C656252]', async function () {
 					const projSuffix = '_cancelRenvInstall';
 					const app = this.app as Application;
 					const pw = app.workbench.positronNewProjectWizard;
@@ -322,7 +322,7 @@ export function setup(logger: Logger) {
 
 			});
 
-			it('Jupyter Project Defaults [C629352] #nightly #pr', async function () {
+			it('Jupyter Project Defaults [C629352] #pr', async function () {
 				const app = this.app as Application;
 				const pw = app.workbench.positronNewProjectWizard;
 				await pw.startNewProject();

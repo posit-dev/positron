@@ -24,7 +24,7 @@ export function setup(logger: Logger) {
 				await app.workbench.positronLayouts.enterLayout('stacked');
 			});
 
-			it('Python - Get Input String Console [C667516] #nightly', async function () {
+			it('Python - Get Input String Console [C667516]', async function () {
 				const app = this.app as Application;
 
 				const inputCode = `val = input("Enter your name: ")
@@ -61,7 +61,7 @@ print(f'Hello {val}!')`;
 				await app.workbench.positronLayouts.enterLayout('stacked');
 			});
 
-			it('R - Get Input String Console [C667517] #nightly', async function () {
+			it('R - Get Input String Console [C667517]', async function () {
 				const app = this.app as Application;
 
 				const inputCode = `val <- readline(prompt = "Enter your name: ")

@@ -25,7 +25,7 @@ export function setup(logger: Logger) {
 
 			});
 
-			it('Python - Verifies basic help functionality [C633814] #nightly', async function () {
+			it('Python - Verifies basic help functionality [C633814]', async function () {
 
 				const app = this.app as Application;
 				await app.workbench.positronConsole.executeCode('Python', `?load`, '>>>');
@@ -46,7 +46,7 @@ export function setup(logger: Logger) {
 
 			});
 
-			it('R - Verifies basic help functionality [C633813] #nightly', async function () {
+			it('R - Verifies basic help functionality [C633813]', async function () {
 
 				const app = this.app as Application;
 				await app.workbench.positronConsole.executeCode('R', `?load()`, '>');
@@ -61,7 +61,7 @@ export function setup(logger: Logger) {
 
 		describe('Collapse behavior', () => {
 
-			it('Verifies help panel can be opened when empty and also can be resized smaller and remember resize height [C640934] #nightly', async function () {
+			it('Verifies help panel can be opened when empty and also can be resized smaller and remember resize height [C640934]', async function () {
 
 				const app = this.app as Application;
 				const positronHelp = app.workbench.positronHelp;

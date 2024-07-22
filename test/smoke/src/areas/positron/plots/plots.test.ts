@@ -52,7 +52,7 @@ export function setup(logger: Logger) {
 
 			});
 
-			it('Python - Verifies basic plot functionality - Dynamic Plot [C608114] #nightly #pr', async function () {
+			it('Python - Verifies basic plot functionality - Dynamic Plot [C608114] #pr', async function () {
 				const app = this.app as Application;
 
 				// modified snippet from https://www.geeksforgeeks.org/python-pandas-dataframe/
@@ -99,7 +99,7 @@ plt.show()`;
 				await app.workbench.positronPlots.waitForNoPlots();
 			});
 
-			it('Python - Verifies basic plot functionality - Static Plot [C654401] #nightly #pr', async function () {
+			it('Python - Verifies basic plot functionality - Static Plot [C654401] #pr', async function () {
 				const app = this.app as Application;
 
 				const script = `import graphviz as gv
@@ -142,7 +142,7 @@ IPython.display.display_png(h)`;
 				await app.workbench.positronPlots.waitForNoPlots();
 			});
 
-			it('Python - Verifies the plots pane action bar - Plot actions [C656297] #nightly', async function () {
+			it('Python - Verifies the plots pane action bar - Plot actions [C656297]', async function () {
 				const app = this.app as Application;
 
 				const scriptPlot1 = `import graphviz as gv
@@ -232,7 +232,7 @@ plt.show()`;
 				await app.workbench.positronPlots.waitForNoPlots();
 			});
 
-			it('Python - Verifies saving a Python plot [C557005] #nightly', async function () {
+			it('Python - Verifies saving a Python plot [C557005]', async function () {
 				const app = this.app as Application;
 
 				// modified snippet from https://www.geeksforgeeks.org/python-pandas-dataframe/
@@ -290,7 +290,7 @@ plt.show()`;
 
 			});
 
-			it('R - Verifies basic plot functionality [C628633] #nightly #pr', async function () {
+			it('R - Verifies basic plot functionality [C628633] #pr', async function () {
 				const app = this.app as Application;
 
 				const script = `cars <- c(1, 3, 6, 4, 9)
@@ -321,7 +321,7 @@ title(main="Autos", col.main="red", font.main=4)`;
 				await app.workbench.positronPlots.waitForNoPlots();
 			});
 
-			it('R - Verifies saving an R plot [C557006] #nightly' , async function () {
+			it('R - Verifies saving an R plot [C557006]' , async function () {
 				const app = this.app as Application;
 
 				const script = `cars <- c(1, 3, 6, 4, 9)
