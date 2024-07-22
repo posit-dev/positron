@@ -27,6 +27,12 @@ export enum KernelStatus {
 export interface IPositronNotebookInstance {
 
 	/**
+	 * Identifier for the notebook instance. Used for debugging and claiming ownership of various
+	 * resources.
+	 */
+	identifier: string;
+
+	/**
 	 * URI of the notebook file being edited
 	 */
 	get uri(): URI;

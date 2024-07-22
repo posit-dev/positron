@@ -90,8 +90,6 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	// =============================================================================================
 	// #region Private Properties
 
-	private _identifier: string = `Positron Notebook | NotebookInstance(${PositronNotebookInstance._count++}) |`;
-
 	/**
 	 * Internal cells that we use to manage the state of the notebook
 	 */
@@ -147,6 +145,8 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 
 	// =============================================================================================
 	// #region Public Properties
+
+	identifier: string = `positron.notebook.instance.${PositronNotebookInstance._count++}`;
 
 	/**
 	 * User facing cells wrapped in an observerable for the UI to react to changes
@@ -214,7 +214,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		if (this._notebookOptions) {
 			return this._notebookOptions;
 		}
-		this._logService.info(this._identifier, 'Generating new notebook options');
+		this._logService.info(this.identifier, 'Generating new notebook options');
 
 		this._notebookOptions = this._creationOptions?.options ?? new NotebookOptions(
 			DOM.getActiveWindow(),
@@ -294,7 +294,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 					return;
 				}
 
-				this._logService.info(this._identifier, `Selecting kernel ${kernel.id} for notebook`);
+				this._logService.info(this.identifier, `Selecting kernel ${kernel.id} for notebook`);
 				this.notebookKernelService.selectKernelForNotebook(kernel, this.textModel);
 			})
 		);
@@ -314,12 +314,12 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 			})
 		);
 
-		this._logService.info(this._identifier, 'constructor');
+		this._logService.info(this.identifier, 'constructor');
 	}
 
 	override dispose() {
 
-		this._logService.info(this._identifier, 'dispose');
+		this._logService.info(this.identifier, 'dispose');
 		this._positronNotebookService.unregisterInstance(this);
 
 		super.dispose();
@@ -453,7 +453,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 
 		this._setupKeyboardNavigation(container);
 
-		this._logService.info(this._identifier, 'attachView');
+		this._logService.info(this.identifier, 'attachView');
 	}
 
 	/**
@@ -496,7 +496,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 
 	detachView(): void {
 		this._container = undefined;
-		this._logService.info(this._identifier, 'detachView');
+		this._logService.info(this.identifier, 'detachView');
 		this._clearKeyboardNavigation?.();
 		this._notebookOptions?.dispose();
 		this._detachModel();
@@ -622,13 +622,13 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	private async _runCells(cells: IPositronNotebookCell[]): Promise<void> {
 		// Filter so we're only working with code cells.
 		const codeCells = cells;
-		this._logService.info(this._identifier, '_runCells');
+		this._logService.info(this.identifier, '_runCells');
 
 		this._assertTextModel();
 
 		// Make sure we have a kernel to run the cells.
 		if (this.kernelStatus.get() !== KernelStatus.Connected) {
-			this._logService.info(this._identifier, 'No kernel connected, attempting to connect');
+			this._logService.info(this.identifier, 'No kernel connected, attempting to connect');
 			// Attempt to connect to the kernel
 			await this._commandService.executeCommand(
 				SELECT_KERNEL_ID_POSITRON,
@@ -685,7 +685,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	 * Remove and cleanup the current model for notebook.
 	 */
 	private _detachModel() {
-		this._logService.info(this._identifier, 'detachModel');
+		this._logService.info(this.identifier, 'detachModel');
 		// Clear store of disposables
 		this._modelStore.clear();
 		this._viewModel?.dispose();

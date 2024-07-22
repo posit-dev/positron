@@ -71,7 +71,7 @@ function acquireVsCodeApi(): { postMessage: (message: HTMLOutputWebviewMessage) 
 }
 
 
-export function NotebookHTMLContent({ content }: { content: string }) {
+export function NotebookHTMLContent({ content, outputId }: { content: string; outputId: string }) {
 	const containerRef = React.useRef<HTMLDivElement>(null);
 	const { notebookWebviewService } = useServices();
 	const instance = useNotebookInstance();
@@ -90,8 +90,8 @@ export function NotebookHTMLContent({ content }: { content: string }) {
 
 		const buildWebview = async () => {
 			const webviewElement = await notebookWebviewService.createRawHtmlOutput({
-				id: 'notebook-html-output',
-				runtimeOrSessionId: notebookRuntime ?? 'positron.notebooks.output.render',
+				id: outputId,
+				runtimeOrSessionId: notebookRuntime ?? instance.identifier,
 				html: buildWebviewHTML({
 					content,
 					styles: htmlOutputStyles,
@@ -121,7 +121,7 @@ export function NotebookHTMLContent({ content }: { content: string }) {
 		buildWebview();
 
 		return cleanup;
-	}, [content, notebookRuntime, notebookWebviewService]);
+	}, [content, instance.identifier, notebookRuntime, notebookWebviewService, outputId]);
 
 	return <div className='positron-notebook-html-output' ref={containerRef}></div>;
 }
