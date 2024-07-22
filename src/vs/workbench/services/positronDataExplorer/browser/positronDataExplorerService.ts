@@ -369,7 +369,7 @@ class PositronDataExplorerService extends Disposable implements IPositronDataExp
 				// -6 because of 'Data: ' prefix;
 				const maxTabSize = this._configurationService.getValue<number>('workbench.editor.tabSizingFixedMinWidth') - 6;
 				let display_name = backendState.display_name;
-				if (backendState.display_name.length > maxTabSize) {
+				if (backendState.display_name.length > maxTabSize && maxTabSize > 3) {
 					display_name = backendState.display_name.substring(0, maxTabSize - 3) + '...';
 				}
 
