@@ -83,9 +83,10 @@ class PythonEnvironment implements IPythonEnvironment {
     public async isModuleInstalled(moduleName: string): Promise<boolean> {
         // prettier-ignore
         const [args,] = internalPython.isModuleInstalled(moduleName);
-        const info = this.getExecutionInfo(args);
+        // --- Start Positron ---
         try {
-            await this.deps.exec(info.command, info.args);
+            await this.deps.exec(this.pythonPath, args);
+            // --- End Positron ---
         } catch (ex) {
             traceVerbose(`Error when checking if module is installed ${moduleName}`, ex);
             return false;
