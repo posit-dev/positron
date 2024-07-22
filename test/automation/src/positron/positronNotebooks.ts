@@ -53,6 +53,15 @@ export class PositronNotebooks {
 
 	async executeInFirstCell(code: string) {
 		await this.quickaccess.runCommand(EDIT_CELL_COMMAND);
+
+		if (process.platform === 'darwin') {
+            await this.code.dispatchKeybinding('cmd+A');
+        }
+        else {
+            await this.code.dispatchKeybinding('ctrl+A');
+        }
+		await this.code.dispatchKeybinding('Delete');
+
 		await this.notebook.waitForTypeInEditor(code);
 		await this.quickaccess.runCommand(EXECUTE_CELL_COMMAND);
 	}
