@@ -15,7 +15,7 @@ const pall = require('p-all');
 const colors = require('colors');
 // --- End Positron ---
 
-const { all, copyrightFilter, unicodeFilter, indentationFilter, tsFormattingFilter, eslintFilter, stylelintFilter, eslintMochaFilter } = require('./filters');
+const { all, copyrightFilter, unicodeFilter, indentationFilter, tsFormattingFilter, eslintFilter, stylelintFilter } = require('./filters');
 
 const copyrightHeaderLines = [
 	'/*---------------------------------------------------------------------------------------------',

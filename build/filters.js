@@ -236,14 +236,3 @@ module.exports.eslintFilter = [
 module.exports.stylelintFilter = [
 	'src/**/*.css'
 ];
-
-// --- Start Positron ---
-module.exports.eslintMochaFilter = [
-	'test/**/*.ts',
-	...readFileSync(join(__dirname, '../.eslintignore'))
-		.toString().split(/\r\n|\n/)
-		.filter(line => !line.startsWith('#'))
-		.filter(line => !!line)
-		.map(line => `!${line}`)
-];
-// --- End Positron ---
