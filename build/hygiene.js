@@ -250,7 +250,6 @@ function hygiene(some, linting = true, secrets = true) {
 					errorCount++;
 				} else {
 					console.warn(message);
-					warningCount++;
 				}
 			}))
 		);
@@ -266,7 +265,6 @@ function hygiene(some, linting = true, secrets = true) {
 					errorCount++;
 				} else {
 					console.warn(message);
-					warningCount++;
 				}
 			}))
 		);
