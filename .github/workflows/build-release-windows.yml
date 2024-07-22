@@ -49,6 +49,9 @@ jobs:
         with:
           node-version-file: .nvmrc
 
+      - name: Install OpenSSL
+        run: powershell.exe ./.github/workflows/Install-OpenSSL.ps1
+
       - name: Setup node-gyp
         run: |
           npm install -g node-gyp
