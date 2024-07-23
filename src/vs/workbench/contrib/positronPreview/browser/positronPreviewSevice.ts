@@ -18,6 +18,11 @@ export const POSITRON_PREVIEW_SERVICE_ID = 'positronPreviewService';
  */
 export const POSITRON_PREVIEW_URL_VIEW_TYPE = 'positron.previewUrl';
 
+/**
+ * The unique viewType that identifies Positron HTML previews.
+ */
+export const POSITRON_PREVIEW_HTML_VIEW_TYPE = 'positron.previewHtml';
+
 export const IPositronPreviewService = createDecorator<IPositronPreviewService>(POSITRON_PREVIEW_SERVICE_ID);
 
 /**
