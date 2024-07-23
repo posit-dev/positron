@@ -15,12 +15,13 @@ import { ILanguageRuntimeSession, IRuntimeSessionService } from 'vs/workbench/se
 import { IPositronNotebookOutputWebviewService } from 'vs/workbench/contrib/positronOutputWebview/browser/notebookOutputWebviewService';
 import { URI } from 'vs/base/common/uri';
 import { PreviewUrl } from 'vs/workbench/contrib/positronPreview/browser/previewUrl';
-import { ShowUrlEvent, UiFrontendEvent } from 'vs/workbench/services/languageRuntime/common/positronUiComm';
+import { ShowHtmlFileEvent, ShowUrlEvent, UiFrontendEvent } from 'vs/workbench/services/languageRuntime/common/positronUiComm';
 import { ILogService } from 'vs/platform/log/common/log';
 import { IOpenerService } from 'vs/platform/opener/common/opener';
 import { isLocalhost } from 'vs/workbench/contrib/positronHelp/browser/utils';
 import { IShowHtmlUriEvent } from 'vs/workbench/services/languageRuntime/common/languageRuntimeUiClient';
 import { PreviewOverlayWebview } from 'vs/workbench/contrib/positronPreview/browser/previewOverlayWebview';
+import { PreviewHtml } from 'vs/workbench/contrib/positronPreview/browser/previewHtml';
 
 /**
  * Positron preview service; keeps track of the set of active previews and
@@ -75,9 +76,7 @@ export class PositronPreviewService extends Disposable implements IPositronPrevi
 
 				if (e.event.name === UiFrontendEvent.ShowHtmlFile) {
 					const data = e.event.data as IShowHtmlUriEvent;
-					if (!data.event.is_plot) {
-						this.handleShowHtmlFileEvent(session, data);
-					}
+					this.handleShowHtmlFileEvent(session, data);
 				} else {
 					this.handleShowUrlEvent(session, e.event.data as ShowUrlEvent);
 				}
@@ -166,10 +165,12 @@ export class PositronPreviewService extends Disposable implements IPositronPrevi
 		return preview;
 	}
 
-	openUri(previewId: string, origin: string, extension: WebviewExtensionDescription, uri: URI): PreviewWebview {
+	openUri(previewId: string, origin: string, extension: WebviewExtensionDescription, uri: URI, event?: ShowHtmlFileEvent): PreviewWebview {
 		const webviewInitInfo: WebviewInitInfo = {
 			origin,
-			providedViewType: 'positron.previewUrl',
+			providedViewType: event ?
+				POSITRON_PREVIEW_HTML_VIEW_TYPE :
+				POSITRON_PREVIEW_URL_VIEW_TYPE,
 			title: '',
 			options: {
 				enableFindWidget: true,
@@ -187,16 +188,16 @@ export class PositronPreviewService extends Disposable implements IPositronPrevi
 
 		const webview = this._webviewService.createWebviewOverlay(webviewInitInfo);
 		const overlay = this.createOverlayWebview(webview);
-		const preview = new PreviewUrl(previewId, overlay, uri);
+		const preview = event ?
+			new PreviewHtml(previewId, overlay, uri, event) :
+			new PreviewUrl(previewId, overlay, uri);
 
-		// Remove any other preview URLs from the item list; they can be expensive
+		// Remove any other previews from the item list; they can be expensive
 		// to keep around.
-		this._items.forEach((value, key) => {
-			if (value instanceof PreviewUrl) {
-				value.dispose();
-				this._items.delete(key);
-			}
+		this._items.forEach((value, _key) => {
+			value.dispose();
 		});
+		this._items.clear();
 		this._items.set(previewId, preview);
 
 		// Open the preview
@@ -298,8 +299,9 @@ export class PositronPreviewService extends Disposable implements IPositronPrevi
 		const webviewExtension: WebviewExtensionDescription = {
 			id: extension
 		};
+
 		// Open the requested URI.
-		this.openUri(previewId, POSITRON_PREVIEW_HTML_VIEW_TYPE, webviewExtension, event.uri);
+		this.openUri(previewId, POSITRON_PREVIEW_HTML_VIEW_TYPE, webviewExtension, event.uri, event.event);
 	}
 
 	/**

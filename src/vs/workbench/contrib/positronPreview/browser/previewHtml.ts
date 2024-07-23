@@ -1,18 +1,19 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { POSITRON_PREVIEW_URL_VIEW_TYPE } from 'vs/workbench/contrib/positronPreview/browser/positronPreviewSevice';
+import { URI } from 'vs/base/common/uri';
+import { POSITRON_PREVIEW_HTML_VIEW_TYPE } from 'vs/workbench/contrib/positronPreview/browser/positronPreviewSevice';
 import { PreviewOverlayWebview } from 'vs/workbench/contrib/positronPreview/browser/previewOverlayWebview';
 import { PreviewWebview } from 'vs/workbench/contrib/positronPreview/browser/previewWebview';
-import { IShowHtmlUriEvent } from 'vs/workbench/services/languageRuntime/common/languageRuntimeUiClient';
+import { ShowHtmlFileEvent } from 'vs/workbench/services/languageRuntime/common/positronUiComm';
 
 export const QUERY_NONCE_PARAMETER = '_positronRender';
 
 /**
- * PreviewUrl is a class that represents a Positron `PreviewWebview` that
- * contains a URL preview.
+ * PreviewHtml is a class that represents a Positron `PreviewWebview` that
+ * contains a preview of HTML content.
  */
 export class PreviewHtml extends PreviewWebview {
 
@@ -26,13 +27,14 @@ export class PreviewHtml extends PreviewWebview {
 	constructor(
 		previewId: string,
 		webview: PreviewOverlayWebview,
-		private readonly _evt: IShowHtmlUriEvent
+		uri: URI,
+		readonly html: ShowHtmlFileEvent
 	) {
-		super(POSITRON_PREVIEW_URL_VIEW_TYPE, previewId,
-			POSITRON_PREVIEW_URL_VIEW_TYPE,
+		super(POSITRON_PREVIEW_HTML_VIEW_TYPE, previewId,
+			POSITRON_PREVIEW_HTML_VIEW_TYPE,
 			webview);
 
 		// Perform the initial navigation.
-		this.webview.loadUri(this._evt.uri);
+		this.webview.loadUri(uri);
 	}
 }
