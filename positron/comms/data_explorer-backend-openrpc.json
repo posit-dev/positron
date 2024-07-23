@@ -448,7 +448,8 @@
 				"required": [
 					"large_num_digits",
 					"small_num_digits",
-					"max_integral_digits"
+					"max_integral_digits",
+					"max_value_length"
 				],
 				"properties": {
 					"large_num_digits": {
@@ -462,6 +463,10 @@
 					"max_integral_digits": {
 						"type": "integer",
 						"description": "Maximum number of integral digits to display before switching to scientific notation"
+					},
+					"max_value_length": {
+						"type": "integer",
+						"description": "Maximum size of formatted value, for truncating large strings or other large formatted values"
 					},
 					"thousands_sep": {
 						"type": "string",
