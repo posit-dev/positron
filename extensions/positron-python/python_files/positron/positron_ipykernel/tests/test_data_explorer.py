@@ -285,6 +285,7 @@ DEFAULT_FORMAT = FormatOptions(
     large_num_digits=2,
     small_num_digits=4,
     max_integral_digits=7,
+    max_value_length=1000,
     thousands_sep=",",
 )
 
@@ -894,6 +895,23 @@ def test_pandas_get_data_values(dxf: DataExplorerFixture):
     assert response["columns"] == expected_columns[2:]
 
 
+def _check_format_cases(dxf, table_name, cases):
+    shape = dxf.get_state(table_name)["table_shape"]
+    num_columns = shape["num_columns"]
+    num_rows = shape["num_rows"]
+
+    for options, expected in cases:
+        result = dxf.get_data_values(
+            table_name,
+            row_start_index=0,
+            num_rows=num_rows,
+            column_indices=list(range(num_columns)),
+            format_options=options,
+        )
+
+        assert result["columns"] == expected
+
+
 def test_pandas_float_formatting(dxf: DataExplorerFixture):
     df = pd.DataFrame(
         {
@@ -919,56 +937,83 @@ def test_pandas_float_formatting(dxf: DataExplorerFixture):
     # (FormatOptions, expected results)
     cases = [
         (
-            FormatOptions(large_num_digits=2, small_num_digits=4, max_integral_digits=7),
+            DEFAULT_FORMAT.copy(update={"thousands_sep": ""}),
             [
-                "0.00",
-                "1.00",
-                "1.01",
-                "1.01",
-                "0.0123",
-                "0.0123",
-                "0.0001",
-                "1.00E-05",
-                "9999.12",
-                "10000.00",
-                "9999999.00",
-                "1.00E+07",
+                [
+                    "0.00",
+                    "1.00",
+                    "1.01",
+                    "1.01",
+                    "0.0123",
+                    "0.0123",
+                    "0.0001",
+                    "1.00E-05",
+                    "9999.12",
+                    "10000.00",
+                    "9999999.00",
+                    "1.00E+07",
+                ]
             ],
         ),
         (
-            FormatOptions(
-                large_num_digits=3,
-                small_num_digits=4,
-                max_integral_digits=7,
-                thousands_sep="_",
-            ),
+            DEFAULT_FORMAT.copy(update={"thousands_sep": "_", "large_num_digits": 3}),
             [
-                "0.000",
-                "1.000",
-                "1.010",
-                "1.012",
-                "0.0123",
-                "0.0123",
-                "0.0001",
-                "1.000E-05",
-                "9_999.123",
-                "9_999.999",
-                "9_999_999.000",
-                "1.000E+07",
+                [
+                    "0.000",
+                    "1.000",
+                    "1.010",
+                    "1.012",
+                    "0.0123",
+                    "0.0123",
+                    "0.0001",
+                    "1.000E-05",
+                    "9_999.123",
+                    "9_999.999",
+                    "9_999_999.000",
+                    "1.000E+07",
+                ]
             ],
         ),
     ]
 
-    for options, expected in cases:
-        result = dxf.get_data_values(
-            "df",
-            row_start_index=0,
-            num_rows=20,
-            column_indices=[0],
-            format_options=options,
-        )
+    _check_format_cases(dxf, "df", cases)
 
-        assert result["columns"][0] == expected
+
+def test_get_data_values_max_value_length(dxf: DataExplorerFixture):
+    df = pd.DataFrame({"a": ["a" * 100, "b" * 1000, "c" * 10000]})
+    dxf.register_table("df", df)
+    dfp = pl.DataFrame({"a": ["a" * 100, "b" * 1000, "c" * 10000]})
+    dxf.register_table("dfp", dfp)
+
+    # (FormatOptions, expected results)
+    cases = [
+        (
+            DEFAULT_FORMAT.copy(update={"max_value_length": 50}),
+            [
+                [
+                    "a" * 50,
+                    "b" * 50,
+                    "c" * 50,
+                ]
+            ],
+        ),
+        (
+            DEFAULT_FORMAT.copy(update={"max_value_length": 1001}),
+            [
+                [
+                    "a" * 100,
+                    "b" * 1000,
+                    "c" * 1001,
+                ]
+            ],
+        ),
+    ]
+
+    # pandas
+    _check_format_cases(dxf, "df", cases)
+
+    # polars
+    _check_format_cases(dxf, "dfp", cases)
 
 
 def test_pandas_extension_dtypes(dxf: DataExplorerFixture):
@@ -2313,6 +2358,7 @@ def test_pandas_profile_summary_stats(dxf: DataExplorerFixture):
         large_num_digits=4,
         small_num_digits=6,
         max_integral_digits=7,
+        max_value_length=1000,
         thousands_sep="_",
     )
     _format_float = _get_float_formatter(format_options)
@@ -3069,6 +3115,7 @@ def test_polars_profile_summary_stats(dxf: DataExplorerFixture):
         large_num_digits=4,
         small_num_digits=6,
         max_integral_digits=7,
+        max_value_length=1000,
         thousands_sep="_",
     )
     _format_float = _get_float_formatter(format_options)
