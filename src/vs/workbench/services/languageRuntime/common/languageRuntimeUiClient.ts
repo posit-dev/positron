@@ -6,7 +6,7 @@
 import { Disposable } from 'vs/base/common/lifecycle';
 import { Event } from 'vs/base/common/event';
 import { IRuntimeClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimeClientInstance';
-import { BusyEvent, ClearConsoleEvent, UiFrontendEvent, OpenEditorEvent, OpenWorkspaceEvent, PromptStateEvent, ShowMessageEvent, WorkingDirectoryEvent, ExecuteCommandEvent, ShowUrlEvent, SetEditorSelectionsEvent } from './positronUiComm';
+import { BusyEvent, ClearConsoleEvent, UiFrontendEvent, OpenEditorEvent, OpenWorkspaceEvent, PromptStateEvent, ShowMessageEvent, WorkingDirectoryEvent, ExecuteCommandEvent, ShowUrlEvent, SetEditorSelectionsEvent, ShowHtmlFileEvent } from './positronUiComm';
 import { PositronUiCommInstance } from 'vs/workbench/services/languageRuntime/common/positronUiCommInstance';
 
 
@@ -73,6 +73,7 @@ export class UiClientInstance extends Disposable {
 	onDidWorkingDirectory: Event<WorkingDirectoryEvent>;
 	onDidExecuteCommand: Event<ExecuteCommandEvent>;
 	onDidShowUrl: Event<ShowUrlEvent>;
+	onDidShowHtmlFile: Event<ShowHtmlFileEvent>;
 
 	/**
 	 * Creates a new frontend client instance.
@@ -97,5 +98,6 @@ export class UiClientInstance extends Disposable {
 		this.onDidWorkingDirectory = this._comm.onDidWorkingDirectory;
 		this.onDidExecuteCommand = this._comm.onDidExecuteCommand;
 		this.onDidShowUrl = this._comm.onDidShowUrl;
+		this.onDidShowHtmlFile = this._comm.onDidShowHtmlFile;
 	}
 }

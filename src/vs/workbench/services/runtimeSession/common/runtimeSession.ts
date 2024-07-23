@@ -1297,6 +1297,15 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 						}
 					});
 				}));
+				this._register(uiClient.onDidShowHtmlFile(event => {
+					this._onDidReceiveRuntimeEventEmitter.fire({
+						session_id: session.sessionId,
+						event: {
+							name: UiFrontendEvent.ShowHtmlFile,
+							data: event
+						}
+					});
+				}));
 			});
 	}
 
