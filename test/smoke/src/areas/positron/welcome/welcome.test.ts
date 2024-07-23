@@ -45,6 +45,10 @@ export function setup(logger: Logger) {
 
 		it('Verify Welcome page content', async function () {
 			const app = this.app as Application;
+			const OPEN_BUTTONS_COUNT = process.platform === 'darwin' ? 3 : 4;
+			const OPEN_BUTTONS_LABELS = process.platform === 'darwin' ?
+				['Open...', 'New Folder...', 'New Folder from Git...']
+				: ['Open...', 'Open File...', 'New Folder...', 'New Folder from Git...'];
 
 			await expect(app.workbench.positronWelcome.startTitle).toHaveText('Start');
 
@@ -58,8 +62,8 @@ export function setup(logger: Logger) {
 
 			await expect(app.workbench.positronWelcome.openTitle).toHaveText('Open');
 
-			await expect(app.workbench.positronWelcome.openButtons).toHaveCount(3);
-			await expect(app.workbench.positronWelcome.openButtons).toHaveText(['Open...', 'New Folder...', 'New Folder from Git...']);
+			await expect(app.workbench.positronWelcome.openButtons).toHaveCount(OPEN_BUTTONS_COUNT);
+			await expect(app.workbench.positronWelcome.openButtons).toHaveText(OPEN_BUTTONS_LABELS);
 
 			await app.workbench.quickaccess.runCommand('File: Clear Recently Opened...');
 
