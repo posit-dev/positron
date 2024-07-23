@@ -165,6 +165,9 @@ export class PositronProxy implements Disposable {
 		this._proxyServers.forEach(proxyServer => {
 			proxyServer.dispose();
 		});
+		if (this._htmlProxyServer) {
+			this._htmlProxyServer.dispose();
+		}
 	}
 
 	//#endregion Constructor & Dispose
