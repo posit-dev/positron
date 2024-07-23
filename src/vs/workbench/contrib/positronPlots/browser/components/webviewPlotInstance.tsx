@@ -33,6 +33,9 @@ export const WebviewPlotInstance = (props: WebviewPlotInstanceProps) => {
 		// the parent view pane is collapsed.
 		if (props.visible) {
 			client.claim(this);
+			if (webviewRef.current) {
+				props.plotClient.layoutWebviewOverElement(webviewRef.current);
+			}
 		}
 		return () => {
 			client.release(this);
