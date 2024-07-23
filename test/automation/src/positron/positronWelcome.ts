@@ -6,9 +6,9 @@
 
 import { Code } from '../code';
 
-const LOGO_LOCATOR = '.product-logo';
-const TITLE_LOCATOR = '.gettingStartedCategoriesContainer div.header div .positron';
-const FOOTER_LOCATOR = '.gettingStartedCategoriesContainer div.footer';
+const LOGO = '.product-logo';
+const TITLE = '.gettingStartedCategoriesContainer div.header div .positron';
+const FOOTER = '.gettingStartedCategoriesContainer div.footer';
 const START_SECTION = '.positron-welcome-page-open';
 const HELP_TITLE = '.positron-welcome-page-help';
 const OPEN_SECTION = '.categories-column.categories-column-right .index-list.start-container';
@@ -20,9 +20,9 @@ const LINK_ROLE = 'link';
 
 export class PositronWelcome {
 
-	logoLocator = this.code.driver.getLocator(LOGO_LOCATOR);
-	titleLocator = this.code.driver.getLocator(TITLE_LOCATOR);
-	footerLocator = this.code.driver.getLocator(FOOTER_LOCATOR);
+	logo = this.code.driver.getLocator(LOGO);
+	title = this.code.driver.getLocator(TITLE);
+	footer = this.code.driver.getLocator(FOOTER);
 	startSection = this.code.driver.getLocator(START_SECTION);
 	startTitle = this.startSection.getByRole(HEADING_ROLE);
 	startButtons = this.startSection.getByRole(BUTTON_ROLE);

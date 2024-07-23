@@ -31,38 +31,30 @@ export function setup(logger: Logger) {
 		it('Verify Welcome page header and footer', async function () {
 			const app = this.app as Application;
 
-			await expect(app.workbench.positronWelcome.logoLocator).toBeVisible();
-			const logoBox = await (await app.workbench.positronWelcome.logoLocator.elementHandle())?.boundingBox();
-
-			expect(logoBox?.height).toBeGreaterThan(0);
-			expect(logoBox?.width).toBeGreaterThan(0);
+			await expect(app.workbench.positronWelcome.logo).toBeVisible();
 
 			// product name in release is 'Positron' and in dev is 'Positron Dev'
-			await expect(app.workbench.positronWelcome.titleLocator).toHaveText([/(Positron)|(Positron Dev)/, 'an IDE for data science']);
+			await expect(app.workbench.positronWelcome.title).toHaveText([/(Positron)|(Positron Dev)/, 'an IDE for data science']);
 
-			await expect(app.workbench.positronWelcome.footerLocator).toHaveText('Show welcome page on startup');
+			await expect(app.workbench.positronWelcome.footer).toHaveText('Show welcome page on startup');
 		});
 
 		it('Verify Welcome page content', async function () {
 			const app = this.app as Application;
-			const OPEN_BUTTONS_COUNT = process.platform === 'darwin' ? 3 : 4;
 			const OPEN_BUTTONS_LABELS = process.platform === 'darwin' ?
 				['Open...', 'New Folder...', 'New Folder from Git...']
 				: ['Open File...', 'Open Folder...', 'New Folder...', 'New Folder from Git...'];
 
 			await expect(app.workbench.positronWelcome.startTitle).toHaveText('Start');
 
-			await expect(app.workbench.positronWelcome.startButtons).toHaveCount(4);
 			await expect(app.workbench.positronWelcome.startButtons).toHaveText(['New Notebook', 'New File', 'New Console', 'New Project']);
 
 			await expect(app.workbench.positronWelcome.helpTitle).toHaveText('Help');
 
-			await expect(app.workbench.positronWelcome.helpLinks).toHaveCount(3);
 			await expect(app.workbench.positronWelcome.helpLinks).toHaveText(['Positron Documentation', 'Positron Community', 'Report a bug']);
 
 			await expect(app.workbench.positronWelcome.openTitle).toHaveText('Open');
 
-			await expect(app.workbench.positronWelcome.openButtons).toHaveCount(OPEN_BUTTONS_COUNT);
 			await expect(app.workbench.positronWelcome.openButtons).toHaveText(OPEN_BUTTONS_LABELS);
 
 			await app.workbench.quickaccess.runCommand('File: Clear Recently Opened...');
@@ -99,7 +91,7 @@ export function setup(logger: Logger) {
 
 				await app.workbench.quickinput.selectQuickInputElementContaining('Python File');
 
-				await expect(app.workbench.editors.activeEditorLocator.locator(app.workbench.editors.editorIconLocator)).toHaveClass(/python-lang-file-icon/);
+				await expect(app.workbench.editors.activeEditor.locator(app.workbench.editors.editorIcon)).toHaveClass(/python-lang-file-icon/);
 
 				await app.workbench.quickaccess.runCommand('View: Close Editor');
 			});
@@ -111,10 +103,10 @@ export function setup(logger: Logger) {
 
 				await app.workbench.positronPopups.clickOnModalDialogPopupOption('Python Notebook');
 
-				await expect(app.workbench.editors.activeEditorLocator.locator(app.workbench.editors.editorIconLocator)).toHaveClass(/ipynb-ext-file-icon/);
+				await expect(app.workbench.editors.activeEditor.locator(app.workbench.editors.editorIcon)).toHaveClass(/ipynb-ext-file-icon/);
 
 				const expectedInterpreterVersion = new RegExp(`Python ${process.env.POSITRON_PY_VER_SEL}`, 'i');
-				await expect(app.workbench.positronNotebooks.kernelLabelLocator).toHaveText(expectedInterpreterVersion);
+				await expect(app.workbench.positronNotebooks.kernelLabel).toHaveText(expectedInterpreterVersion);
 			});
 
 			it('Click on Python console from the Welcome page', async function () {
@@ -127,7 +119,7 @@ export function setup(logger: Logger) {
 				await app.workbench.positronPopups.clickOnModalDialogPopupOption(expectedInterpreterVersion);
 
 				// editor is hidden because bottom panel is maximized
-				await expect(app.workbench.editors.editorPartLocator).not.toBeVisible();
+				await expect(app.workbench.editors.editorPart).not.toBeVisible();
 
 				// console is the active view in the bottom panel
 				await expect(app.workbench.positronLayouts.panelViewsTab).toHaveCount(6);
@@ -147,7 +139,7 @@ export function setup(logger: Logger) {
 
 				await app.workbench.quickinput.selectQuickInputElementContaining('R File');
 
-				await expect(app.workbench.editors.activeEditorLocator.locator(app.workbench.editors.editorIconLocator)).toHaveClass(/r-lang-file-icon/);
+				await expect(app.workbench.editors.activeEditor.locator(app.workbench.editors.editorIcon)).toHaveClass(/r-lang-file-icon/);
 			});
 
 			it('Click on R console from the Welcome page', async function () {
@@ -160,7 +152,7 @@ export function setup(logger: Logger) {
 				await app.workbench.positronPopups.clickOnModalDialogPopupOption(expectedInterpreterVersion);
 
 				// editor is hidden because bottom panel is maximized
-				await expect(app.workbench.editors.editorPartLocator).not.toBeVisible();
+				await expect(app.workbench.editors.editorPart).not.toBeVisible();
 
 				// console is the active view in the bottom panel
 				await expect(app.workbench.positronLayouts.panelViewsTab.and(app.code.driver.getLocator('.checked'))).toHaveText('Console');
@@ -173,10 +165,10 @@ export function setup(logger: Logger) {
 
 				await app.workbench.positronPopups.clickOnModalDialogPopupOption('R Notebook');
 
-				await expect(app.workbench.editors.activeEditorLocator.locator(app.workbench.editors.editorIconLocator)).toHaveClass(/ipynb-ext-file-icon/);
+				await expect(app.workbench.editors.activeEditor.locator(app.workbench.editors.editorIcon)).toHaveClass(/ipynb-ext-file-icon/);
 
 				const expectedInterpreterVersion = new RegExp(`R ${process.env.POSITRON_R_VER_SEL}`, 'i');
-				await expect(app.workbench.positronNotebooks.kernelLabelLocator).toHaveText(expectedInterpreterVersion);
+				await expect(app.workbench.positronNotebooks.kernelLabel).toHaveText(expectedInterpreterVersion);
 			});
 		});
 	});
