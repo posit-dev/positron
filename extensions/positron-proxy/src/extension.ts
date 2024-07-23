@@ -31,7 +31,7 @@ export function activate(context: vscode.ExtensionContext) {
 	context.subscriptions.push(
 		vscode.commands.registerCommand(
 			'positronProxy.startHtmlProxyServer',
-			async (targetOrigin: string) => await positronProxy.startHelpProxyServer(targetOrigin)
+			async (targetPath: string) => await positronProxy.startHtmlProxyServer(targetPath)
 		)
 	);
 

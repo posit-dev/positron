@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2022 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2022-2024 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -10,6 +10,7 @@ import { AddressInfo, Server } from 'net';
 import { ProxyServerStyles } from './extension';
 import { Disposable, ExtensionContext } from 'vscode';
 import { createProxyMiddleware, responseInterceptor } from 'http-proxy-middleware';
+import { HtmlProxyServer } from './htmlProxy';
 
 /**
  * Constants.
@@ -55,7 +56,7 @@ type ContentRewriter = (
  * @param addressInfo The value.
  * @returns true if the value is aAddressInfo AddressInfo; otherwise, false.
  */
-const isAddressInfo = (addressInfo: string | AddressInfo | null): addressInfo is AddressInfo =>
+export const isAddressInfo = (addressInfo: string | AddressInfo | null): addressInfo is AddressInfo =>
 	(addressInfo as AddressInfo).address !== undefined &&
 	(addressInfo as AddressInfo).family !== undefined &&
 	(addressInfo as AddressInfo).port !== undefined;
@@ -68,13 +69,11 @@ export class ProxyServer implements Disposable {
 	 * Constructor.
 	 * @param serverOrigin The server origin.
 	 * @param targetOrigin The target origin.
-	 * @param type The type. (Right now, only help is supported.)
 	 * @param server The server.
 	 */
 	constructor(
 		readonly serverOrigin: string,
 		readonly targetOrigin: string,
-		private readonly type: 'help',
 		private readonly server: Server,
 	) {
 	}
@@ -122,6 +121,11 @@ export class PositronProxy implements Disposable {
 	 * Gets or sets the proxy servers, keyed by target origin.
 	 */
 	private _proxyServers = new Map<string, ProxyServer>();
+
+	/**
+	 * The HTML proxy server.
+	 */
+	private _htmlProxyServer?: HtmlProxyServer;
 
 	//#endregion Private Properties
 
@@ -245,8 +249,11 @@ export class PositronProxy implements Disposable {
 	 * @param targetPath The target path
 	 * @returns The server URL.
 	 */
-	startHtmlProxyServer(targetPath: string) {
-
+	async startHtmlProxyServer(targetPath: string) {
+		if (!this._htmlProxyServer) {
+			this._htmlProxyServer = new HtmlProxyServer();
+		}
+		return this._htmlProxyServer.createHtmlProxy(targetPath);
 	}
 
 	/**
@@ -299,7 +306,6 @@ export class PositronProxy implements Disposable {
 				this._proxyServers.set(targetOrigin, new ProxyServer(
 					serverOrigin,
 					targetOrigin,
-					'help',
 					server
 				));
 
