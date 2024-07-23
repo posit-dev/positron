@@ -133,8 +133,7 @@ df = pd.DataFrame(data)`;
 				expect(tableData.length).toBe(2);
 			});
 
-			// Skip due to issue https://github.com/posit-dev/positron/issues/4070
-			it.skip('Python Polars - Add Simple Column Sort [C557561] #pr', async function () {
+			it('Python Polars - Add Simple Column Sort [C557561] #pr', async function () {
 				const app = this.app as Application;
 				await app.workbench.positronDataExplorer.selectColumnMenuItem(1, 'Sort Descending');
 
