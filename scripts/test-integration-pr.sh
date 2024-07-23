@@ -33,25 +33,12 @@ fi
 echo "Storing crash reports into '$VSCODECRASHDIR'."
 echo "Storing log files into '$VSCODELOGSDIR'."
 
-# --- Start Positron ---
-
-# note that some tests from upstream have been deleted at this location
-# those tests are now in test-integration-nightly.sh
-
-# --- End Positron ---
 
 if [ -z "$INTEGRATION_TEST_APP_NAME" ]; then
 	kill_app() { true; }
 else
 	kill_app() { killall $INTEGRATION_TEST_APP_NAME || true; }
 fi
-
-# --- Start Positron ---
-
-# note that some tests from upstream have been deleted at this location
-# those tests are now in test-integration-nightly.sh
-
-# Positron Extensions
 
 echo
 echo "### Positron Code Cells tests"
@@ -64,11 +51,6 @@ echo "### Positron R tests"
 echo
 yarn test-extension -l positron-r
 kill_app
-
-# note that some tests from upstream have been deleted at this location
-# those tests are now in test-integration-nightly.sh
-
-# --- End Positron ---
 
 # Cleanup
 
