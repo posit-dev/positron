@@ -299,6 +299,12 @@ export interface ShowHtmlFileEvent {
 	 */
 	is_plot: boolean;
 
+	/**
+	 * The desired height of the HTML viewer, in pixels. The special value -1
+	 * indicates that the viewer should be as tall as possible.
+	 */
+	height: number;
+
 }
 
 /**
@@ -488,7 +494,7 @@ export class PositronUiComm extends PositronBaseComm {
 		this.onDidOpenWorkspace = super.createEventEmitter('open_workspace', ['path', 'new_window']);
 		this.onDidSetEditorSelections = super.createEventEmitter('set_editor_selections', ['selections']);
 		this.onDidShowUrl = super.createEventEmitter('show_url', ['url']);
-		this.onDidShowHtmlFile = super.createEventEmitter('show_html_file', ['path', 'kind', 'is_plot']);
+		this.onDidShowHtmlFile = super.createEventEmitter('show_html_file', ['path', 'kind', 'is_plot', 'height']);
 	}
 
 	/**

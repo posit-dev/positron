@@ -415,6 +415,13 @@
 					"schema": {
 						"type": "boolean"
 					}
+				},
+				{
+					"name": "height",
+					"description": "The desired height of the HTML viewer, in pixels. The special value -1 indicates that the viewer should be as tall as possible.",
+					"schema": {
+						"type": "number"
+					}
 				}
 			]
 		}
