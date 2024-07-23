@@ -21,7 +21,7 @@ export function setup(logger: Logger) {
 			await PositronRFixtures.SetupFixtures(this.app as Application);
 		});
 
-		it('Render RMarkdown [C680618] #nightly', async function () {
+		it('Render RMarkdown [C680618]', async function () {
 			const app = this.app as Application; //Get handle to application
 			await app.workbench.quickaccess.openFile(join(app.workspacePathOrFolder, 'workspaces', 'basic-rmd-file', 'basicRmd.rmd'));
 
