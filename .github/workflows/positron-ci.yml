@@ -84,7 +84,7 @@ jobs:
 
       - name: Run Integration Tests (Electron)
         id: electron-integration-tests
-        run: DISPLAY=:10 ./scripts/test-integration.sh
+        run: DISPLAY=:10 ./scripts/test-integration-pr.sh
 
       - name: Run Smoke Tests (Electron)
         env:
