@@ -237,4 +237,8 @@ Playwright traces can be drag and dropped to the [Trace Viewer](https://trace.pl
 
 In order to get the "golden screenshots" used for plot comparison is CI, you will need to temporarily uncomment the line of code marked with `capture master image in CI` or add a similar line of code for a new case.  We must use CI taken snapshots because if the "golden screenshots" are taken locally, they will differ too much from the CI images to be useable with a proper threshold.  You can't compare the current runtime plot against a snapshot until you have established a baseline screenshot from CI that is saved to `test/smoke/plots`.
 
+## Tests run on PRs
+
+If you think your test should be run when PRs are created, add the string `#pr` to its name.  The existing #pr cases were selected to give good overall coverage while keeping the overall execution time down to ten minutes or less.  If your new test functionality covers a part of the application that no other tests cover, it is probably a good idea to include it in the #pr set.
+
 <!-- End Positron -->

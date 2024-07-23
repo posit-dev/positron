@@ -23,11 +23,12 @@ jobs:
       - name: Setup Build Environment
         run: |
           sudo apt-get update
-          sudo apt-get install -y vim curl build-essential clang make cmake git python3-pip python-is-python3 libsodium-dev libxkbfile-dev pkg-config libsecret-1-dev libxss1 dbus xvfb libgtk-3-0 libgbm1 libnss3 libnspr4 libasound2 libkrb5-dev
+          sudo apt-get install -y vim curl build-essential clang make cmake git python3-pip python-is-python3 libsodium-dev libxkbfile-dev pkg-config libsecret-1-dev libxss1 dbus xvfb libgtk-3-0 libgbm1 libnss3 libnspr4 libasound2 libkrb5-dev libcairo-dev libsdl-pango-dev libjpeg-dev libgif-dev
           sudo cp build/azure-pipelines/linux/xvfb.init /etc/init.d/xvfb
           sudo chmod +x /etc/init.d/xvfb
           sudo update-rc.d xvfb defaults
           sudo service xvfb start
+
       - uses: actions/setup-node@v3
         with:
           node-version: 20
@@ -48,6 +49,8 @@ jobs:
           # Perform the main yarn command; this installs all Node packages and
           # dependencies
           yarn --immutable --network-timeout 120000
+          yarn --cwd test/automation install
+          yarn --cwd test/smoke install
 
       - name: Compile and Download
         run: yarn npm-run-all --max_old_space_size=4095 -lp compile "electron x64" playwright-install download-builtin-extensions
@@ -55,10 +58,44 @@ jobs:
       - name: Compile Integration Tests
         run: yarn --cwd test/integration/browser compile
 
+      - name: Compile Smoke Tests
+        run: yarn --cwd test/smoke compile
+
+      - name: Install rig, R, and R packages
+        run: |
+          curl -Ls https://github.com/r-lib/rig/releases/download/latest/rig-linux-"$(arch)"-latest.tar.gz | $(which sudo) tar xz -C /usr/local
+          rig add 4.4.0
+          curl https://raw.githubusercontent.com/posit-dev/qa-example-content/main/DESCRIPTION --output DESCRIPTION
+          Rscript -e "pak::local_install_dev_deps(ask = FALSE)"
+
+      - name: Setup Graphviz
+        uses: ts-graphviz/setup-graphviz@v2.0.2
+
+      - name: Install python dependencies
+        run: |
+          curl https://raw.githubusercontent.com/posit-dev/qa-example-content/main/requirements.txt --output requirements.txt
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt
+          python -m pip install matplotlib ipykernel graphviz
+
       - name: Run Unit Tests (node.js)
         id: nodejs-unit-tests
         run: yarn test-node
 
       - name: Run Integration Tests (Electron)
         id: electron-integration-tests
-        run: DISPLAY=:10 ./scripts/test-integration.sh
+        run: DISPLAY=:10 ./scripts/test-integration-pr.sh
+
+      - name: Run Smoke Tests (Electron)
+        env:
+          POSITRON_PY_VER_SEL: Python 3.10.12
+          POSITRON_R_VER_SEL: R 4.4.0
+        id: electron-smoke-tests
+        run: DISPLAY=:10 yarn smoketest-pr --tracing
+
+      - name: Upload run artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: run-artifacts
+          path: .build/logs/smoke-tests-electron/

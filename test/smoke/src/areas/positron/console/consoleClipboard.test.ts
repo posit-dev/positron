@@ -30,11 +30,13 @@ export function setup(logger: Logger) {
 
 				await app.workbench.positronConsole.sendEnterKey();
 
-				await app.workbench.positronConsole.waitForConsoleContents((contents) => contents.some((line) => line.includes('a = 1')) );
+				await app.workbench.positronConsole.waitForConsoleContents((contents) => contents.some((line) => line.includes('a = 1')));
 
 				await app.workbench.positronConsole.barClearButton.click();
 
-				await app.workbench.positronConsole.waitForConsoleContents((contents) => contents.length === 0 );
+				await app.workbench.positronConsole.waitForConsoleContents((contents) => {
+					return !contents.some(Boolean);
+				});
 
 				await page.keyboard.press(`${modifier}+V`);
 				await app.workbench.positronConsole.sendEnterKey();

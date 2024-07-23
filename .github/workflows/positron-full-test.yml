@@ -110,7 +110,7 @@ jobs:
       - name: Setup Graphviz
         uses: ts-graphviz/setup-graphviz@v2.0.2
 
-      - name: Install dependencies
+      - name: Install python dependencies
         run: |
           curl https://raw.githubusercontent.com/posit-dev/qa-example-content/main/requirements.txt --output requirements.txt
           python -m pip install --upgrade pip
