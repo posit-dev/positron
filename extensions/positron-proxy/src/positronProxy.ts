@@ -241,6 +241,15 @@ export class PositronProxy implements Disposable {
 	}
 
 	/**
+	 * Starts a proxy server to server local HTML content.
+	 * @param targetPath The target path
+	 * @returns The server URL.
+	 */
+	startHtmlProxyServer(targetPath: string) {
+
+	}
+
+	/**
 	 * Sets the help proxy server styles.
 	 * @param styles The help proxy server styles.
 	 */
