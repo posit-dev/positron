@@ -13,6 +13,7 @@ import { IPositronVariablesInstance } from 'vs/workbench/services/positronVariab
 import { PositronActionBarServices } from 'vs/platform/positronActionBar/browser/positronActionBarState';
 import { IRuntimeSessionService } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
 import { IPositronDataExplorerService } from 'vs/workbench/services/positronDataExplorer/browser/interfaces/positronDataExplorerService';
+import { INotificationService } from 'vs/platform/notification/common/notification';
 
 /**
  * PositronVariablesServices interface.
@@ -24,6 +25,7 @@ export interface PositronVariablesServices extends PositronActionBarServices {
 	readonly positronVariablesService: IPositronVariablesService;
 	readonly reactComponentContainer: IReactComponentContainer;
 	readonly dataExplorerService: IPositronDataExplorerService;
+	readonly notificationService: INotificationService;
 }
 
 /**

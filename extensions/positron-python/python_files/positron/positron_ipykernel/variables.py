@@ -583,10 +583,17 @@ class VariablesService:
                 f"Cannot find variable at '{path}' to view",
             )
 
-        if self.kernel.connections_service.object_is_supported(value):
-            self._open_connections_pane(path, value)
-        elif self.kernel.data_explorer_service.is_supported(value):
-            self._open_data_explorer(path, value)
+        try:
+            if self.kernel.connections_service.object_is_supported(value):
+                self._open_connections_pane(path, value)
+            elif self.kernel.data_explorer_service.is_supported(value):
+                self._open_data_explorer(path, value)
+        except Exception as err:
+            self._send_error(
+                JsonRpcErrorCode.INTERNAL_ERROR,
+                f"Error opening viewer for variable at '{path}'",
+            )
+            logger.error(err, exc_info=True)
 
     def _open_data_explorer(self, path: List[str], value: Any) -> None:
         """Opens a DataExplorer comm for the variable at the requested

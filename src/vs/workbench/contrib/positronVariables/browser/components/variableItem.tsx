@@ -123,7 +123,15 @@ export const VariableItem = (props: VariableItemProps) => {
 			instance.requestFocus();
 		} else {
 			// Open a viewer for the variable item.
-			const viewerId = await item.view();
+			let viewerId: string | undefined;
+			try {
+				viewerId = await item.view();
+			} catch (err) {
+				positronVariablesContext.notificationService.error(localize(
+					'positron.variables.viewerError',
+					"An error occurred while opening the viewer. Try restarting your session."
+				));
+			}
 
 			// If a binding was returned, save the binding between the viewer and the variable item.
 			if (viewerId) {
