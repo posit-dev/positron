@@ -21,7 +21,7 @@ export interface IIPyWidgetsWebviewMessaging {
  * An IPyWidgetClientInstance is responsible for routing messages to/from an IPyWidgets webview and a runtime client.
 */
 export class IPyWidgetClientInstance extends Disposable {
-	private readonly _closeEmitter = new Emitter<void>();
+	private readonly _closeEmitter = this._register(new Emitter<void>());
 
 	/** Whether the client is closed. */
 	private _closed = false;

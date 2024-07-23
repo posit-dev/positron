@@ -5,96 +5,14 @@
 
 import assert from 'assert';
 import { timeout } from 'vs/base/common/async';
-import { Emitter } from 'vs/base/common/event';
-import { Disposable } from 'vs/base/common/lifecycle';
-import { observableValue } from 'vs/base/common/observable';
 import { ensureNoDisposablesAreLeakedInTestSuite } from 'vs/base/test/common/utils';
 import { ILogService, NullLogger } from 'vs/platform/log/common/log';
-import { IRuntimeClientInstance, RuntimeClientState, RuntimeClientType } from 'vs/workbench/services/languageRuntime/common/languageRuntimeClientInstance';
-import { IIPyWidgetsWebviewMessaging, IPyWidgetClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimeIPyWidgetClient';
-import { FromWebviewMessage, ToWebviewMessage } from 'vs/workbench/services/languageRuntime/common/positronIPyWidgetsWebviewMessages';
+import { RuntimeClientState, RuntimeClientType } from 'vs/workbench/services/languageRuntime/common/languageRuntimeClientInstance';
+import { IPyWidgetClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimeIPyWidgetClient';
+import { TestIPyWidgetsWebviewMessaging } from 'vs/workbench/services/languageRuntime/test/common/testIPyWidgetsWebviewMessaging';
+import { TestRuntimeClientInstance } from 'vs/workbench/services/languageRuntime/test/common/testRuntimeClientInstance';
 
-class TestRuntimeClientInstance extends Disposable implements IRuntimeClientInstance<any, any> {
-	private readonly _dataEmitter = this._register(new Emitter<any>());
-
-	readonly onDidReceiveData = this._dataEmitter.event;
-
-	readonly messageCounter = observableValue(`msg-counter`, 0);
-
-	readonly clientState = observableValue(`client-state`, RuntimeClientState.Uninitialized);
-
-	performRpc(request: any, timeout: number): Promise<any> {
-		if (!this.rpcHandler) {
-			throw new Error('Configure an RPC handler via the onRpc method.');
-		}
-		return this.rpcHandler(request, timeout);
-	}
-
-	getClientId(): string {
-		return 'test-client-id';
-	}
-
-	getClientType(): RuntimeClientType {
-		throw new Error('Method not implemented.');
-	}
-
-	sendMessage(data: any): void {
-		this._sendMessageEmitter.fire(data);
-	}
-
-	override dispose(): void {
-		this._disposeEmitter.fire();
-		super.dispose();
-	}
-
-	// Test helpers
-
-	private readonly _sendMessageEmitter = new Emitter<any>();
-	private readonly _disposeEmitter = new Emitter<void>();
-
-	/** Emitted when the sendMessage method is called. */
-	readonly onDidSendMessage = this._sendMessageEmitter.event;
-
-	/** Emitted when the dispose method is called. */
-	readonly onDidDispose = this._disposeEmitter.event;
-
-	/** Fire the onDidReceiveData event. */
-	receiveData(data: any): void {
-		this._dataEmitter.fire(data);
-	}
-
-	/** Invoked when the performRpc method is called. */
-	rpcHandler: typeof this.performRpc | undefined;
-
-	/** Set the client's state. */
-	setClientState(state: RuntimeClientState): void {
-		this.clientState.set(state, undefined);
-	}
-}
-
-class TestIPyWidgetsWebviewMessaging extends Disposable implements IIPyWidgetsWebviewMessaging {
-	private readonly _messageEmitter = new Emitter<FromWebviewMessage>();
-
-	readonly onDidReceiveMessage = this._messageEmitter.event;
-
-	postMessage(message: ToWebviewMessage): void {
-		this._postMessageEmitter.fire(message);
-	}
-
-	// Test helpers
-
-	/** Fire the onDidReceiveMessage event. */
-	receiveMessage(message: FromWebviewMessage): void {
-		this._messageEmitter.fire(message);
-	}
-
-	private readonly _postMessageEmitter = new Emitter<ToWebviewMessage>();
-
-	/** Emitted when the postMessage method is called. */
-	readonly onDidPostMessage = this._postMessageEmitter.event;
-}
-
-suite('IPyWidgetClientInstance', () => {
+suite('Positron - IPyWidgetClientInstance', () => {
 	const disposables = ensureNoDisposablesAreLeakedInTestSuite();
 
 	const rpcMethod = 'test-rpc-method';
@@ -105,7 +23,9 @@ suite('IPyWidgetClientInstance', () => {
 
 	setup(async () => {
 		const logService = new NullLogger() as unknown as ILogService;
-		client = disposables.add(new TestRuntimeClientInstance());
+		client = disposables.add(new TestRuntimeClientInstance(
+			'test-client-id', RuntimeClientType.IPyWidget
+		));
 		messaging = disposables.add(new TestIPyWidgetsWebviewMessaging());
 		ipywidgetClient = disposables.add(new IPyWidgetClientInstance(
 			client, messaging, logService, [rpcMethod]

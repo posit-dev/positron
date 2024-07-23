@@ -2,179 +2,156 @@
  *  Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
-
+import assert from 'assert';
+import { timeout } from 'vs/base/common/async';
 import { Emitter } from 'vs/base/common/event';
-import { URI } from 'vs/base/common/uri';
+import { generateUuid } from 'vs/base/common/uuid';
 import { ensureNoDisposablesAreLeakedInTestSuite } from 'vs/base/test/common/utils';
-import { ExtensionIdentifier } from 'vs/platform/extensions/common/extensions';
+import { TestInstantiationService } from 'vs/platform/instantiation/test/common/instantiationServiceMock';
 import { ILogService, NullLogger } from 'vs/platform/log/common/log';
-import { IPyWidgetsInstance } from 'vs/workbench/contrib/positronIPyWidgets/browser/positronIPyWidgetsService';
-import { IIPyWidgetsWebviewMessaging } from 'vs/workbench/services/languageRuntime/common/languageRuntimeIPyWidgetClient';
-import { ILanguageRuntimeClientCreatedEvent, ILanguageRuntimeExit, ILanguageRuntimeInfo, ILanguageRuntimeMessage, ILanguageRuntimeMessageError, ILanguageRuntimeMessageInput, ILanguageRuntimeMessageOutput, ILanguageRuntimeMessagePrompt, ILanguageRuntimeMessageResult, ILanguageRuntimeMessageState, ILanguageRuntimeMessageStream, ILanguageRuntimeMetadata, ILanguageRuntimeStartupFailure, LanguageRuntimeSessionLocation, LanguageRuntimeSessionMode, LanguageRuntimeStartupBehavior, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior, RuntimeExitReason, RuntimeState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
-import { IRuntimeClientEvent } from 'vs/workbench/services/languageRuntime/common/languageRuntimeUiClient';
-import { ILanguageRuntimeSession, IRuntimeClientInstance, IRuntimeSessionMetadata, RuntimeClientType } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
+import { NotebookRendererMessagingService } from 'vs/workbench/contrib/notebook/browser/services/notebookRendererMessagingServiceImpl';
+import { INotebookRendererMessagingService } from 'vs/workbench/contrib/notebook/common/notebookRendererMessagingService';
+import { IPyWidgetsInstance, PositronIPyWidgetsService } from 'vs/workbench/contrib/positronIPyWidgets/browser/positronIPyWidgetsService';
+import { IPositronNotebookOutputWebviewService } from 'vs/workbench/contrib/positronOutputWebview/browser/notebookOutputWebviewService';
+import { RuntimeClientState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeClientInstance';
+import { LanguageRuntimeMessageType, RuntimeOutputKind, RuntimeState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { ToWebviewMessage } from 'vs/workbench/services/languageRuntime/common/positronIPyWidgetsWebviewMessages';
+import { TestIPyWidgetsWebviewMessaging } from 'vs/workbench/services/languageRuntime/test/common/testIPyWidgetsWebviewMessaging';
+import { IRuntimeSessionService, IRuntimeSessionWillStartEvent, RuntimeClientType } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
+import { TestLanguageRuntimeSession } from 'vs/workbench/services/runtimeSession/test/common/testLanguageRuntimeSession';
 
-class TestLanguageRuntimeSession implements ILanguageRuntimeSession {
-	private readonly _onDidChangeRuntimeState = new Emitter<RuntimeState>();
-	private readonly _onDidCompleteStartup = new Emitter<ILanguageRuntimeInfo>();
-	private readonly _onDidEncounterStartupFailure = new Emitter<ILanguageRuntimeStartupFailure>();
-	private readonly _onDidReceiveRuntimeMessage = new Emitter<ILanguageRuntimeMessage>();
-	private readonly _onDidEndSession = new Emitter<ILanguageRuntimeExit>();
-	private readonly _onDidCreateClientInstance = new Emitter<ILanguageRuntimeClientCreatedEvent>();
+suite('Positron - PositronIPyWidgetsService', () => {
+	const disposables = ensureNoDisposablesAreLeakedInTestSuite();
 
-	private readonly _onDidReceiveRuntimeMessageOutput = new Emitter<ILanguageRuntimeMessageOutput>();
-	private readonly _onDidReceiveRuntimeMessageResult = new Emitter<ILanguageRuntimeMessageResult>();
-	private readonly _onDidReceiveRuntimeMessageStream = new Emitter<ILanguageRuntimeMessageStream>();
-	private readonly _onDidReceiveRuntimeMessageInput = new Emitter<ILanguageRuntimeMessageInput>();
-	private readonly _onDidReceiveRuntimeMessageError = new Emitter<ILanguageRuntimeMessageError>();
-	private readonly _onDidReceiveRuntimeMessagePrompt = new Emitter<ILanguageRuntimeMessagePrompt>();
-	private readonly _onDidReceiveRuntimeMessageState = new Emitter<ILanguageRuntimeMessageState>();
-	private readonly _onDidReceiveRuntimeClientEvent = new Emitter<IRuntimeClientEvent>();
-	private readonly _onDidReceiveRuntimeMessagePromptConfig = new Emitter<void>();
+	let testInstantiationService: TestInstantiationService;
+	let onWillStartSession: Emitter<IRuntimeSessionWillStartEvent>;
+	let positronIpywidgetsService: PositronIPyWidgetsService;
 
-	onDidChangeRuntimeState = this._onDidChangeRuntimeState.event;
-	onDidCompleteStartup = this._onDidCompleteStartup.event;
-	onDidEncounterStartupFailure = this._onDidEncounterStartupFailure.event;
-	onDidReceiveRuntimeMessage = this._onDidReceiveRuntimeMessage.event;
-	onDidEndSession = this._onDidEndSession.event;
-	onDidCreateClientInstance = this._onDidCreateClientInstance.event;
+	setup(async () => {
+		testInstantiationService = disposables.add(new TestInstantiationService());
+		onWillStartSession = disposables.add(new Emitter<IRuntimeSessionWillStartEvent>());
 
-	onDidReceiveRuntimeMessageOutput = this._onDidReceiveRuntimeMessageOutput.event;
-	onDidReceiveRuntimeMessageResult = this._onDidReceiveRuntimeMessageResult.event;
-	onDidReceiveRuntimeMessageStream = this._onDidReceiveRuntimeMessageStream.event;
-	onDidReceiveRuntimeMessageInput = this._onDidReceiveRuntimeMessageInput.event;
-	onDidReceiveRuntimeMessageError = this._onDidReceiveRuntimeMessageError.event;
-	onDidReceiveRuntimeMessagePrompt = this._onDidReceiveRuntimeMessagePrompt.event;
-	onDidReceiveRuntimeMessageState = this._onDidReceiveRuntimeMessageState.event;
-	onDidReceiveRuntimeClientEvent = this._onDidReceiveRuntimeClientEvent.event;
-	onDidReceiveRuntimeMessagePromptConfig = this._onDidReceiveRuntimeMessagePromptConfig.event;
+		const runtimeSessionService: Partial<IRuntimeSessionService> = {
+			activeSessions: [],
+			onWillStartSession: onWillStartSession.event,
+		};
+		testInstantiationService.stub(IRuntimeSessionService, runtimeSessionService);
 
-	getRuntimeState(): RuntimeState {
-		throw new Error('Not implemented.');
-	}
+		// const onShouldPostMessage = disposables.add(
+		// 	new Emitter<INotebookRendererMessagingService['onShouldPostMessage']['arguments']>()
+		// );
+		// const notebookRendererMessagingService: Partial<INotebookRendererMessagingService> = {
+		// 	onShouldPostMessage: onShouldPostMessage.event,
+		// };
+		// testInstantiationService.stub(INotebookRendererMessagingService, notebookRendererMessagingService);
+		const notebookRendererMessagingService = disposables.add(new NotebookRendererMessagingService({} as any));
+		testInstantiationService.stub(INotebookRendererMessagingService, notebookRendererMessagingService);
 
-	readonly dynState = {
-		inputPrompt: `T>`,
-		continuationPrompt: 'T+',
-		currentWorkingDirectory: '',
-		busy: false,
-	};
+		// TODO: Mock out createNotebookOutputWebview
+		const notebookOutputWebviewService: Partial<IPositronNotebookOutputWebviewService> = {
+			createNotebookOutputWebview(runtime, output, viewType) {
+				const webview = {
+				};
+				return Promise.resolve(webview as any);
+			}
+		};
+		testInstantiationService.stub(IPositronNotebookOutputWebviewService, notebookOutputWebviewService);
 
-	private readonly _languageVersion = '0.0.1';
-	readonly runtimeMetadata: ILanguageRuntimeMetadata = {
-		base64EncodedIconSvg: '',
-		extensionId: new ExtensionIdentifier('test-extension'),
-		extraRuntimeData: {},
-		languageId: 'test',
-		languageName: 'Test',
-		languageVersion: this._languageVersion,
-		runtimeId: '00000000-0000-0000-0000-100000000000',
-		runtimeName: `Test ${this._languageVersion}`,
-		runtimePath: '/test',
-		runtimeShortName: this._languageVersion,
-		runtimeSource: 'Test',
-		runtimeVersion: '0.0.1',
-		sessionLocation: LanguageRuntimeSessionLocation.Browser,
-		startupBehavior: LanguageRuntimeStartupBehavior.Implicit,
-	};
+		positronIpywidgetsService = disposables.add(testInstantiationService.createInstance(PositronIPyWidgetsService));
+	});
 
-	readonly metadata: IRuntimeSessionMetadata = {
-		createdTimestamp: Date.now(),
-		sessionId: 'session-id',
-		sessionMode: LanguageRuntimeSessionMode.Console,
-		sessionName: 'session-name',
-		startReason: 'test',
-		notebookUri: undefined,
-	};
+	test('attach console session', async () => {
+		const session = disposables.add(new TestLanguageRuntimeSession());
+		onWillStartSession.fire({ session, isNew: true });
+		await timeout(0);
 
-	readonly sessionId = this.metadata.sessionId;
+		// TODO: Receive runtime message output
+		const id = generateUuid();
+		session.receiveOutputMessage({
+			id,
+			type: LanguageRuntimeMessageType.Output,
+			event_clock: 0,
+			when: new Date().toISOString(),
+			data: {},
+			metadata: new Map(),
+			kind: RuntimeOutputKind.IPyWidget,
+			parent_id: '',
+		});
+		await timeout(0);
 
-	clientInstances = new Array<IRuntimeClientInstance<any, any>>();
+		// assert(positronIpywidgetsService.hasInstance(id));
 
-	constructor() { }
+		// TODO: Fire onDidEndSession
+	});
+});
 
-	openResource(_resource: URI | string): Promise<boolean> {
-		throw new Error('Not implemented.');
-	}
+suite('Positron - IPyWidgetsInstance constructor', () => {
+	const disposables = ensureNoDisposablesAreLeakedInTestSuite();
 
-	execute(
-		_code: string,
-		_id: string,
-		_mode: RuntimeCodeExecutionMode,
-		_errorBehavior: RuntimeErrorBehavior
-	): void {
-		throw new Error('Not implemented.');
-	}
+	let logService: ILogService;
+	let session: TestLanguageRuntimeSession;
+	let messaging: TestIPyWidgetsWebviewMessaging;
 
-	async isCodeFragmentComplete(_code: string): Promise<RuntimeCodeFragmentStatus> {
-		throw new Error('Not implemented.');
-	}
+	setup(async () => {
+		logService = new NullLogger() as unknown as ILogService;
+		session = disposables.add(new TestLanguageRuntimeSession());
+		messaging = disposables.add(new TestIPyWidgetsWebviewMessaging);
+	});
 
-	async createClient<T, U>(
-		_type: RuntimeClientType, _params: any, _metadata?: any, id?: string
-	): Promise<IRuntimeClientInstance<T, U>> {
-		throw new Error('Not implemented.');
-	}
+	test('uninitialized session', async () => {
+		const messages = new Array<ToWebviewMessage>();
+		disposables.add(messaging.onDidPostMessage(event => messages.push(event)));
 
-	async listClients(
-		_type?: RuntimeClientType | undefined
-	): Promise<Array<IRuntimeClientInstance<any, any>>> {
-		throw new Error('Not implemented.');
-	}
+		disposables.add(new IPyWidgetsInstance(session, messaging, logService));
+		await timeout(0);
 
-	removeClient(_id: string): void {
-		throw new Error('Not implemented.');
-	}
+		assert.deepStrictEqual(messages, [{ type: 'initialize_result' } as ToWebviewMessage]);
+	});
 
-	sendClientMessage(_client_id: string, _message_id: string, _message: any): void {
-		throw new Error('Not implemented.');
-	}
+	test('initialized session - no clients', async () => {
+		session.setRuntimeState(RuntimeState.Ready);
 
-	replyToPrompt(_id: string, _reply: string): void {
-		throw new Error('Not implemented.');
-	}
+		const messages = new Array<ToWebviewMessage>();
+		disposables.add(messaging.onDidPostMessage(event => messages.push(event)));
 
-	async start(): Promise<ILanguageRuntimeInfo> {
-		throw new Error('Not implemented.');
-	}
+		disposables.add(new IPyWidgetsInstance(session, messaging, logService));
+		await timeout(0);
 
-	async interrupt(): Promise<void> {
-		throw new Error('Not implemented.');
-	}
+		assert.deepStrictEqual(messages, [{ type: 'initialize_result' } as ToWebviewMessage]);
+	});
 
-	async restart(): Promise<void> {
-		throw new Error('Not implemented.');
-	}
+	test('initialized session - one ipywidget client', async () => {
+		session.setRuntimeState(RuntimeState.Ready);
+		const client = await session.createClient(RuntimeClientType.IPyWidget, {}, {}, 'test-client-id');
 
-	async shutdown(_exitReason: RuntimeExitReason): Promise<void> {
-		throw new Error('Not implemented.');
-	}
+		const messages = new Array<ToWebviewMessage>();
+		disposables.add(messaging.onDidPostMessage(event => messages.push(event)));
 
-	async forceQuit(): Promise<void> {
-		throw new Error('Not implemented.');
-	}
+		const ipywidgetsInstance = disposables.add(new IPyWidgetsInstance(session, messaging, logService));
+		await timeout(0);
 
-	showOutput(): void {
-		throw new Error('Not implemented.');
-	}
+		assert.deepStrictEqual(messages, [{ type: 'initialize_result' } as ToWebviewMessage]);
 
-	async showProfile(): Promise<void> {
-		throw new Error('Not implemented.');
-	}
+		assert(ipywidgetsInstance.hasClient(client.getClientId()));
 
-	dispose() {
-	}
-}
+		client.setClientState(RuntimeClientState.Closed);
+		await timeout(0);
+
+		assert(!ipywidgetsInstance.hasClient(client.getClientId()));
+	});
+});
 
 suite('IPyWidgetsInstance', () => {
 	const disposables = ensureNoDisposablesAreLeakedInTestSuite();
 
+	let session: TestLanguageRuntimeSession;
+	let messaging: TestIPyWidgetsWebviewMessaging;
 	let ipywidgetsInstance: IPyWidgetsInstance;
 
 	setup(async () => {
 		const logService = new NullLogger() as unknown as ILogService;
-		const session = disposables.add(new TestLanguageRuntimeSession());
-		const messaging = <IIPyWidgetsWebviewMessaging>{};
+		session = disposables.add(new TestLanguageRuntimeSession());
+		messaging = disposables.add(new TestIPyWidgetsWebviewMessaging);
 		ipywidgetsInstance = disposables.add(new IPyWidgetsInstance(
 			session,
 			messaging,
@@ -182,7 +159,50 @@ suite('IPyWidgetsInstance', () => {
 		));
 	});
 
-	test('TODO', async () => {
+	test('from webview: initialize_request', async () => {
+		const messages = new Array<ToWebviewMessage>();
+		disposables.add(messaging.onDidPostMessage(event => messages.push(event)));
 
+		messaging.receiveMessage({ type: 'initialize_request' });
+
+		assert.deepStrictEqual(messages, [{ type: 'initialize_result' }]);
+	});
+
+	// TODO: wrong runtime client type
+	test('from webview: comm_open', async () => {
+		const clientId = 'test-client-id';
+		messaging.receiveMessage({
+			type: 'comm_open',
+			comm_id: clientId,
+			target_name: RuntimeClientType.IPyWidgetControl,
+			data: {},
+			metadata: {},
+		});
+		await timeout(0);
+
+		assert(ipywidgetsInstance.hasClient(clientId));
+	});
+
+	test('to webview: comm_open', async () => {
+		const messages = new Array<ToWebviewMessage>();
+		disposables.add(messaging.onDidPostMessage(event => messages.push(event)));
+
+		const client = await session.createClient(RuntimeClientType.IPyWidget, {}, {}, 'test-client-id');
+		await timeout(0);
+
+		assert(ipywidgetsInstance.hasClient(client.getClientId()));
+
+		assert.deepStrictEqual(messages, [{
+			type: 'comm_open',
+			comm_id: client.getClientId(),
+			target_name: client.getClientType(),
+			data: {},
+			metadata: {},
+		} as ToWebviewMessage]);
+
+		client.setClientState(RuntimeClientState.Closed);
+		await timeout(0);
+
+		assert(!ipywidgetsInstance.hasClient(client.getClientId()));
 	});
 });

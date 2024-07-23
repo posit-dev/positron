@@ -1,0 +1,253 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+import { Emitter } from 'vs/base/common/event';
+import { Disposable } from 'vs/base/common/lifecycle';
+import { URI } from 'vs/base/common/uri';
+import { generateUuid } from 'vs/base/common/uuid';
+import { ExtensionIdentifier } from 'vs/platform/extensions/common/extensions';
+import { ILanguageRuntimeSession, IRuntimeClientInstance, IRuntimeSessionMetadata, RuntimeClientType } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
+import { ILanguageRuntimeClientCreatedEvent, ILanguageRuntimeExit, ILanguageRuntimeInfo, ILanguageRuntimeMessage, ILanguageRuntimeMessageError, ILanguageRuntimeMessageInput, ILanguageRuntimeMessageOutput, ILanguageRuntimeMessagePrompt, ILanguageRuntimeMessageResult, ILanguageRuntimeMessageState, ILanguageRuntimeMessageStream, ILanguageRuntimeMetadata, ILanguageRuntimeStartupFailure, LanguageRuntimeMessageType, LanguageRuntimeSessionLocation, LanguageRuntimeSessionMode, LanguageRuntimeStartupBehavior, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior, RuntimeExitReason, RuntimeState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { IRuntimeClientEvent } from 'vs/workbench/services/languageRuntime/common/languageRuntimeUiClient';
+import { TestRuntimeClientInstance } from 'vs/workbench/services/languageRuntime/test/common/testRuntimeClientInstance';
+
+export class TestLanguageRuntimeSession extends Disposable implements ILanguageRuntimeSession {
+	private readonly _onDidChangeRuntimeState = this._register(new Emitter<RuntimeState>());
+	private readonly _onDidCompleteStartup = this._register(new Emitter<ILanguageRuntimeInfo>());
+	private readonly _onDidEncounterStartupFailure = this._register(new Emitter<ILanguageRuntimeStartupFailure>());
+	private readonly _onDidReceiveRuntimeMessage = this._register(new Emitter<ILanguageRuntimeMessage>());
+	private readonly _onDidEndSession = this._register(new Emitter<ILanguageRuntimeExit>());
+	private readonly _onDidCreateClientInstance = this._register(new Emitter<ILanguageRuntimeClientCreatedEvent>());
+
+	private readonly _onDidReceiveRuntimeMessageOutput = this._register(new Emitter<ILanguageRuntimeMessageOutput>());
+	private readonly _onDidReceiveRuntimeMessageResult = this._register(new Emitter<ILanguageRuntimeMessageResult>());
+	private readonly _onDidReceiveRuntimeMessageStream = this._register(new Emitter<ILanguageRuntimeMessageStream>());
+	private readonly _onDidReceiveRuntimeMessageInput = this._register(new Emitter<ILanguageRuntimeMessageInput>());
+	private readonly _onDidReceiveRuntimeMessageError = this._register(new Emitter<ILanguageRuntimeMessageError>());
+	private readonly _onDidReceiveRuntimeMessagePrompt = this._register(new Emitter<ILanguageRuntimeMessagePrompt>());
+	private readonly _onDidReceiveRuntimeMessageState = this._register(new Emitter<ILanguageRuntimeMessageState>());
+	private readonly _onDidReceiveRuntimeClientEvent = this._register(new Emitter<IRuntimeClientEvent>());
+	private readonly _onDidReceiveRuntimeMessagePromptConfig = this._register(new Emitter<void>());
+
+	private _currentState = RuntimeState.Uninitialized;
+
+	private _clients = new Map<string, TestRuntimeClientInstance>();
+
+	onDidChangeRuntimeState = this._onDidChangeRuntimeState.event;
+	onDidCompleteStartup = this._onDidCompleteStartup.event;
+	onDidEncounterStartupFailure = this._onDidEncounterStartupFailure.event;
+	onDidReceiveRuntimeMessage = this._onDidReceiveRuntimeMessage.event;
+	onDidEndSession = this._onDidEndSession.event;
+	onDidCreateClientInstance = this._onDidCreateClientInstance.event;
+
+	onDidReceiveRuntimeMessageOutput = this._onDidReceiveRuntimeMessageOutput.event;
+	onDidReceiveRuntimeMessageResult = this._onDidReceiveRuntimeMessageResult.event;
+	onDidReceiveRuntimeMessageStream = this._onDidReceiveRuntimeMessageStream.event;
+	onDidReceiveRuntimeMessageInput = this._onDidReceiveRuntimeMessageInput.event;
+	onDidReceiveRuntimeMessageError = this._onDidReceiveRuntimeMessageError.event;
+	onDidReceiveRuntimeMessagePrompt = this._onDidReceiveRuntimeMessagePrompt.event;
+	onDidReceiveRuntimeMessageState = this._onDidReceiveRuntimeMessageState.event;
+	onDidReceiveRuntimeClientEvent = this._onDidReceiveRuntimeClientEvent.event;
+	onDidReceiveRuntimeMessagePromptConfig = this._onDidReceiveRuntimeMessagePromptConfig.event;
+
+	readonly dynState = {
+		inputPrompt: `T>`,
+		continuationPrompt: 'T+',
+		currentWorkingDirectory: '',
+		busy: false,
+	};
+
+	private readonly _languageVersion = '0.0.1';
+	readonly runtimeMetadata: ILanguageRuntimeMetadata = {
+		base64EncodedIconSvg: '',
+		extensionId: new ExtensionIdentifier('test-extension'),
+		extraRuntimeData: {},
+		languageId: 'test',
+		languageName: 'Test',
+		languageVersion: this._languageVersion,
+		runtimeId: '00000000-0000-0000-0000-100000000000',
+		runtimeName: `Test ${this._languageVersion}`,
+		runtimePath: '/test',
+		runtimeShortName: this._languageVersion,
+		runtimeSource: 'Test',
+		runtimeVersion: '0.0.1',
+		sessionLocation: LanguageRuntimeSessionLocation.Browser,
+		startupBehavior: LanguageRuntimeStartupBehavior.Implicit,
+	};
+
+	readonly metadata: IRuntimeSessionMetadata = {
+		createdTimestamp: Date.now(),
+		sessionId: 'session-id',
+		sessionMode: LanguageRuntimeSessionMode.Console,
+		sessionName: 'session-name',
+		startReason: 'test',
+		notebookUri: undefined,
+	};
+
+	readonly sessionId = this.metadata.sessionId;
+
+	clientInstances = new Array<IRuntimeClientInstance<any, any>>();
+
+	constructor() {
+		super();
+	}
+
+	getRuntimeState(): RuntimeState {
+		return this._currentState;
+	}
+
+	openResource(_resource: URI | string): Promise<boolean> {
+		throw new Error('Not implemented.');
+	}
+
+	execute(
+		_code: string,
+		_id: string,
+		_mode: RuntimeCodeExecutionMode,
+		_errorBehavior: RuntimeErrorBehavior
+	): void {
+		throw new Error('Not implemented.');
+	}
+
+	async isCodeFragmentComplete(_code: string): Promise<RuntimeCodeFragmentStatus> {
+		throw new Error('Not implemented.');
+	}
+
+	async createClient(
+		type: RuntimeClientType, params: any, metadata?: any, id?: string
+	): Promise<TestRuntimeClientInstance> {
+		const client = this._register(new TestRuntimeClientInstance(id ?? generateUuid(), type));
+		this._clients.set(client.getClientId(), client);
+		this._onDidCreateClientInstance.fire(
+			{
+				client,
+				message: {
+					id: generateUuid(),
+					comm_id: client.getClientId(),
+					target_name: type,
+					data: params,
+					metadata: metadata,
+					event_clock: 0,
+					parent_id: '',
+					type: LanguageRuntimeMessageType.CommOpen,
+					when: new Date().toISOString(),
+				}
+			}
+		);
+		return client;
+	}
+
+	async listClients(type?: RuntimeClientType): Promise<Array<TestRuntimeClientInstance>> {
+		return Array.from(this._clients.values())
+			.filter(client => !type || client.getClientType() === type);
+	}
+
+	removeClient(_id: string): void {
+		throw new Error('Not implemented.');
+	}
+
+	sendClientMessage(_client_id: string, _message_id: string, _message: any): void {
+		throw new Error('Not implemented.');
+	}
+
+	replyToPrompt(_id: string, _reply: string): void {
+		throw new Error('Not implemented.');
+	}
+
+	async start(): Promise<ILanguageRuntimeInfo> {
+		throw new Error('Not implemented.');
+	}
+
+	async interrupt(): Promise<void> {
+		throw new Error('Not implemented.');
+	}
+
+	async restart(): Promise<void> {
+		throw new Error('Not implemented.');
+	}
+
+	async shutdown(_exitReason: RuntimeExitReason): Promise<void> {
+		throw new Error('Not implemented.');
+	}
+
+	async forceQuit(): Promise<void> {
+		throw new Error('Not implemented.');
+	}
+
+	showOutput(): void {
+		throw new Error('Not implemented.');
+	}
+
+	async showProfile(): Promise<void> {
+		throw new Error('Not implemented.');
+	}
+
+	override dispose() {
+		super.dispose();
+	}
+
+	// Test helpers
+
+	setRuntimeState(state: RuntimeState) {
+		this._currentState = state;
+		this._onDidChangeRuntimeState.fire(state);
+	}
+
+	// receiveMessage(message: ILanguageRuntimeMessage) {
+	// 	switch (message.type) {
+	// 		case LanguageRuntimeMessageType.Output:
+	// 			this._onDidReceiveRuntimeMessageOutput.fire(message as ILanguageRuntimeMessageOutput);
+	// 			break;
+	// 		case LanguageRuntimeMessageType.Result:
+	// 			this._onDidReceiveRuntimeMessageResult.fire(message as ILanguageRuntimeMessageResult);
+	// 			break;
+	// 		case LanguageRuntimeMessageType.Stream:
+	// 			this._onDidReceiveRuntimeMessageStream.fire(message as ILanguageRuntimeMessageStream);
+	// 			break;
+	// 		case LanguageRuntimeMessageType.Input:
+	// 			this._onDidReceiveRuntimeMessageInput.fire(message as ILanguageRuntimeMessageInput);
+	// 			break;
+	// 		case LanguageRuntimeMessageType.Error:
+	// 			this._onDidReceiveRuntimeMessageError.fire(message as ILanguageRuntimeMessageError);
+	// 			break;
+	// 		case LanguageRuntimeMessageType.Prompt:
+	// 			this._onDidReceiveRuntimeMessagePrompt.fire(message as ILanguageRuntimeMessagePrompt);
+	// 			break;
+	// 		case LanguageRuntimeMessageType.State:
+	// 			this._onDidReceiveRuntimeMessageState.fire(message as ILanguageRuntimeMessageState);
+	// 			break;
+	// 		default:
+	// 			throw new Error(`Received unexpected message type: ${message.type}`);
+	// 	}
+	// }
+
+	receiveOutputMessage(message: ILanguageRuntimeMessageOutput) {
+		this._onDidReceiveRuntimeMessageOutput.fire(message);
+	}
+
+	receiveResultMessage(message: ILanguageRuntimeMessageResult) {
+		this._onDidReceiveRuntimeMessageResult.fire(message);
+	}
+
+	receiveStreamMessage(message: ILanguageRuntimeMessageStream) {
+		this._onDidReceiveRuntimeMessageStream.fire(message);
+	}
+
+	receiveInputMessage(message: ILanguageRuntimeMessageInput) {
+		this._onDidReceiveRuntimeMessageInput.fire(message);
+	}
+
+	receiveErrorMessage(message: ILanguageRuntimeMessageError) {
+		this._onDidReceiveRuntimeMessageError.fire(message);
+	}
+
+	receivePromptMessage(message: ILanguageRuntimeMessagePrompt) {
+		this._onDidReceiveRuntimeMessagePrompt.fire(message);
+	}
+
+	receiveStateMessage(message: ILanguageRuntimeMessageState) {
+		this._onDidReceiveRuntimeMessageState.fire(message);
+	}
+}
