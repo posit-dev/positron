@@ -48,6 +48,7 @@ import { setup as setupTopActionBarTest } from './areas/positron/top-action-bar/
 import { setup as setupNotebookVariablesTest} from './areas/positron/variables/notebookVariables.test';
 import { setup as setupConsoleInputTest } from './areas/positron/console/consoleInput.test';
 import { setup as setupConsoleOutputLogTest } from './areas/positron/output/consoleOutputLog.test';
+import { setup as setupBasicRMarkdownTest } from './areas/positron/rmarkdown/rmarkdown.test';
 // --- End Positron ---
 
 const rootPath = path.join(__dirname, '..', '..', '..');
@@ -452,5 +453,6 @@ describe(`VSCode Smoke Tests (${opts.web ? 'Web' : 'Electron'})`, () => {
 	setupNotebookVariablesTest(logger);
 	setupConsoleInputTest(logger);
 	setupConsoleOutputLogTest(logger);
+	setupBasicRMarkdownTest(logger);
 	// --- End Positron ---
 });
