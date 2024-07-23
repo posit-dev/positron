@@ -10,7 +10,7 @@ import { join } from 'path';
 import { expect } from '@playwright/test';
 
 export function setup(logger: Logger) {
-	describe('RMarkdown', () => {
+	describe.only('RMarkdown', () => {
 		// All Tests blocks inside this 'describe' block will use the same app instance
 		// Shared before/after handling
 		installAllHandlers(logger);
@@ -30,7 +30,7 @@ export function setup(logger: Logger) {
 				// TODO: Add a terminal page object to check output.
 				expect(async () => {
 					const projectFiles = await app.workbench.positronExplorer.getExplorerProjectFiles();
-					expect(projectFiles).toContain('basicRnd.html');
+					expect(projectFiles).toContain('basicRmd.html');
 				}).toPass({ timeout: 10000 });
 
 		});
