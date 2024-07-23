@@ -300,8 +300,9 @@ export interface ShowHtmlFileEvent {
 	is_plot: boolean;
 
 	/**
-	 * The desired height of the HTML viewer, in pixels. The special value -1
-	 * indicates that the viewer should be as tall as possible.
+	 * The desired height of the HTML viewer, in pixels. The special value 0
+	 * indicates that no particular height is desired, and -1 indicates that
+	 * the viewer should be as tall as possible.
 	 */
 	height: number;
 

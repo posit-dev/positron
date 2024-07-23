@@ -442,8 +442,8 @@ class ShowHtmlFileParams(BaseModel):
         description="Whether the HTML file is a plot-like object",
     )
 
-    height: Union[StrictInt, StrictFloat] = Field(
-        description="The desired height of the HTML viewer, in pixels. The special value -1 indicates that the viewer should be as tall as possible.",
+    height: StrictInt = Field(
+        description="The desired height of the HTML viewer, in pixels. The special value 0 indicates that no particular height is desired, and -1 indicates that the viewer should be as tall as possible.",
     )
 
 
