@@ -9,7 +9,7 @@ import { Event, Emitter } from 'vs/base/common/event';
 import { IOverlayWebview, IWebviewService, WebviewExtensionDescription, WebviewInitInfo } from 'vs/workbench/contrib/webview/browser/webview';
 import { PreviewWebview } from 'vs/workbench/contrib/positronPreview/browser/previewWebview';
 import { IViewsService } from 'vs/workbench/services/views/common/viewsService';
-import { POSITRON_PREVIEW_URL_VIEW_TYPE, POSITRON_PREVIEW_VIEW_ID } from 'vs/workbench/contrib/positronPreview/browser/positronPreviewSevice';
+import { POSITRON_PREVIEW_HTML_VIEW_TYPE, POSITRON_PREVIEW_URL_VIEW_TYPE, POSITRON_PREVIEW_VIEW_ID } from 'vs/workbench/contrib/positronPreview/browser/positronPreviewSevice';
 import { ILanguageRuntimeMessageOutput, LanguageRuntimeSessionMode, RuntimeOutputKind } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { ILanguageRuntimeSession, IRuntimeSessionService } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
 import { IPositronNotebookOutputWebviewService } from 'vs/workbench/contrib/positronOutputWebview/browser/notebookOutputWebviewService';
@@ -58,7 +58,9 @@ export class PositronPreviewService extends Disposable implements IPositronPrevi
 			this.attachRuntime(e.session);
 		});
 		this._runtimeSessionService.onDidReceiveRuntimeEvent(e => {
-			if (e.event.name === UiFrontendEvent.ShowUrl) {
+			if (e.event.name === UiFrontendEvent.ShowUrl ||
+				e.event.name === UiFrontendEvent.ShowHtmlFile
+			) {
 				// We need to figure out which extension is responsible for this
 				// URL. First, look up the session.
 				const session = this._runtimeSessionService.getSession(e.session_id);
@@ -71,11 +73,13 @@ export class PositronPreviewService extends Disposable implements IPositronPrevi
 					return;
 				}
 
-				this.handleShowUrlEvent(session, e.event.data as ShowUrlEvent);
-			} else if (e.event.name === UiFrontendEvent.ShowHtmlFile) {
-				const data = e.event.data as IShowHtmlUriEvent;
-				if (!data.event.is_plot) {
-					this.handleShowHtmlFileEvent(data);
+				if (e.event.name === UiFrontendEvent.ShowHtmlFile) {
+					const data = e.event.data as IShowHtmlUriEvent;
+					if (!data.event.is_plot) {
+						this.handleShowHtmlFileEvent(session, data);
+					}
+				} else {
+					this.handleShowUrlEvent(session, e.event.data as ShowUrlEvent);
 				}
 			}
 		});
@@ -286,7 +290,16 @@ export class PositronPreviewService extends Disposable implements IPositronPrevi
 	/**
 	 * Handles a ShowHtmlFile event.
 	 */
-	private handleShowHtmlFileEvent(event: IShowHtmlUriEvent) {
+	private handleShowHtmlFileEvent(session: ILanguageRuntimeSession, event: IShowHtmlUriEvent) {
+		// Create a unique ID for this preview.
+		const previewId = `previewHtml.${PositronPreviewService._previewIdCounter++}`;
+
+		const extension = session.runtimeMetadata.extensionId;
+		const webviewExtension: WebviewExtensionDescription = {
+			id: extension
+		};
+		// Open the requested URI.
+		this.openUri(previewId, POSITRON_PREVIEW_HTML_VIEW_TYPE, webviewExtension, event.uri);
 	}
 
 	/**
