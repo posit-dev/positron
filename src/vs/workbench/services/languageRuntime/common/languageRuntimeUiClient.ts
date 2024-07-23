@@ -123,10 +123,15 @@ export class UiClientInstance extends Disposable {
 		// backend before broadcasting them to the frontend.
 		this._register(this._comm.onDidShowUrl(async e => {
 			try {
-				const uri = URI.parse(e.url);
-				const resolvedUri = await this._openerService.resolveExternalUri(uri);
+				let uri = URI.parse(e.url);
+				try {
+					const resolvedUri = await this._openerService.resolveExternalUri(uri);
+					uri = resolvedUri.resolved;
+				} catch {
+					// Noop; use the original URI
+				}
 				const resolvedEvent: ShowUrlEvent = {
-					url: resolvedUri.resolved.toString(),
+					url: uri.toString(),
 				};
 				this._onDidShowUrlEmitter.fire(resolvedEvent);
 			} catch {
@@ -146,10 +151,15 @@ export class UiClientInstance extends Disposable {
 					throw new Error('Failed to start HTML file proxy server');
 				}
 
-				const uri = URI.parse(url);
-				const resolvedUri = await this._openerService.resolveExternalUri(uri);
+				let uri = URI.parse(url);
+				try {
+					const resolvedUri = await this._openerService.resolveExternalUri(uri);
+					uri = resolvedUri.resolved;
+				} catch {
+					// Noop; use the original URI
+				}
 				const resolvedEvent: IShowHtmlUriEvent = {
-					uri: resolvedUri.resolved,
+					uri,
 					event: e,
 				};
 				this._onDidShowHtmlFileEmitter.fire(resolvedEvent);

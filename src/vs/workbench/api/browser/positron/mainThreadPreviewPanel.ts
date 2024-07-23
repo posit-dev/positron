@@ -185,7 +185,7 @@ export class MainThreadPreviewPanel extends Disposable implements extHostProtoco
 
 	public addWebview(handle: extHostProtocol.PreviewHandle, preview: PreviewWebview): void {
 		this._previews.add(handle, preview);
-		this._mainThreadWebviews.addWebview(handle, preview.webview,
+		this._mainThreadWebviews.addWebview(handle, preview.webview.webview,
 			{
 				// This is the standard for extensions built for VS Code
 				// 1.57.0 and above (see `shouldSerializeBuffersForPostMessage`).

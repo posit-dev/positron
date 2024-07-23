@@ -17,6 +17,14 @@ export class PreviewOverlayWebview extends Disposable {
 		this._register(webview);
 	}
 
+	public setTitle(value: string): void {
+		this.webview.setTitle(value);
+	}
+
+	public postMessage(message: any, transfer?: readonly ArrayBuffer[]): Promise<boolean> {
+		return this.webview.postMessage(message, transfer);
+	}
+
 	/**
 	 * Loads a URI in the internal webview.
 	 *
