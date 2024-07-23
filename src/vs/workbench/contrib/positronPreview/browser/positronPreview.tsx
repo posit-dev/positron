@@ -19,12 +19,14 @@ import { PositronPreviewContextProvider } from 'vs/workbench/contrib/positronPre
 import { IPositronPreviewService } from 'vs/workbench/contrib/positronPreview/browser/positronPreviewSevice';
 import { PreviewWebview } from 'vs/workbench/contrib/positronPreview/browser/previewWebview';
 import { PositronPreviewViewPane } from 'vs/workbench/contrib/positronPreview/browser/positronPreviewView';
-import { ActionBars } from 'vs/workbench/contrib/positronPreview/browser/components/actionBars';
+import { UrlActionBars } from 'vs/workbench/contrib/positronPreview/browser/components/urlActionBars';
 import { IRuntimeSessionService } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
 import { PreviewUrl } from 'vs/workbench/contrib/positronPreview/browser/previewUrl';
 import { IOpenerService } from 'vs/platform/opener/common/opener';
 import { INotificationService } from 'vs/platform/notification/common/notification';
 import { IHoverService } from 'vs/platform/hover/browser/hover';
+import { PreviewHtml } from 'vs/workbench/contrib/positronPreview/browser/previewHtml';
+import { HtmlActionBars } from 'vs/workbench/contrib/positronPreview/browser/components/htmlActionBars';
 
 /**
  * PositronPreviewProps interface.
@@ -94,16 +96,21 @@ export const PositronPreview = (props: PropsWithChildren<PositronPreviewProps>) 
 		return () => disposableStore.dispose();
 	}, [props.positronPreviewService, props.reactComponentContainer]);
 
-	const showToolbar = activePreview && activePreview instanceof PreviewUrl;
+	const urlToolbar = activePreview && activePreview instanceof PreviewUrl;
+	const htmlToolbar = activePreview && activePreview instanceof PreviewHtml;
+	const showToolbar = urlToolbar || htmlToolbar;
 	// Render.
 	return (
 		<PositronPreviewContextProvider {...props}>
-			{showToolbar &&
+			{urlToolbar &&
 				// Render the action bars. We supply the preview ID as a key
 				// here to ensure the action bars are keyed to the preview;
 				// otherwise the URL bar can get out of sync with the preview
 				// since it's an uncontrolled component.
-				<ActionBars key={activePreview.previewId} preview={activePreview} {...props} />
+				<UrlActionBars key={activePreview.previewId} preview={activePreview} {...props} />
+			}
+			{htmlToolbar &&
+				<HtmlActionBars key={activePreview.previewId} preview={activePreview} {...props} />
 			}
 			<PreviewContainer
 				preview={activePreview}

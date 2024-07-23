@@ -22,12 +22,12 @@ export class PreviewHtml extends PreviewWebview {
 	 *
 	 * @param previewId A unique ID for the preview
 	 * @param webview The underlying webview instance that hosts the preview's content
-	 * @param _uri The URI to open in the preview
+	 * @param uri The URI to open in the preview
 	 */
 	constructor(
 		previewId: string,
 		webview: PreviewOverlayWebview,
-		uri: URI,
+		readonly uri: URI,
 		readonly html: ShowHtmlFileEvent
 	) {
 		super(POSITRON_PREVIEW_HTML_VIEW_TYPE, previewId,
