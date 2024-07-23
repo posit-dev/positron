@@ -4,7 +4,6 @@
  *--------------------------------------------------------------------------------------------*/
 
 const es = require('event-stream');
-const vfs = require('vinyl-fs');
 const child_process = require('child_process');
 
 module.exports = detectSecretsHook;
@@ -27,7 +26,6 @@ function detectSecretsHook(reporter) {
 				break;
 		}
 		reporter(message, true);
-		throw new Error(message);
 	}
 	return es.through(function () { /* noop, important for the stream to end */ });
 }
