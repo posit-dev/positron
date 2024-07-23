@@ -48,7 +48,7 @@ export function setup(logger: Logger) {
 			const OPEN_BUTTONS_COUNT = process.platform === 'darwin' ? 3 : 4;
 			const OPEN_BUTTONS_LABELS = process.platform === 'darwin' ?
 				['Open...', 'New Folder...', 'New Folder from Git...']
-				: ['Open...', 'Open File...', 'New Folder...', 'New Folder from Git...'];
+				: ['Open File...', 'Open Folder...', 'New Folder...', 'New Folder from Git...'];
 
 			await expect(app.workbench.positronWelcome.startTitle).toHaveText('Start');
 
