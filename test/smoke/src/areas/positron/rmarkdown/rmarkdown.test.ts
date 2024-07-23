@@ -10,28 +10,33 @@ import { join } from 'path';
 import { expect } from '@playwright/test';
 
 export function setup(logger: Logger) {
-	describe.only('RMarkdown', () => {
+	describe('RMarkdown', () => {
 		// All Tests blocks inside this 'describe' block will use the same app instance
 		// Shared before/after handling
 		installAllHandlers(logger);
 
 
-			before(async function () {
-				// Executes once before executing all tests.
-				await PositronRFixtures.SetupFixtures(this.app as Application);
-			});
+		before(async function () {
+			// Executes once before executing all tests.
+			await PositronRFixtures.SetupFixtures(this.app as Application);
+		});
 
-			it('Render RMarkdown [C680618] #nightly', async function () {
-				const app = this.app as Application; //Get handle to application
-				await app.workbench.quickaccess.openFile(join(app.workspacePathOrFolder, 'workspaces', 'basic-rmd-file', 'basicRmd.rmd'));
+		it('Render RMarkdown [C680618] #nightly', async function () {
+			const app = this.app as Application; //Get handle to application
+			await app.workbench.quickaccess.openFile(join(app.workspacePathOrFolder, 'workspaces', 'basic-rmd-file', 'basicRmd.rmd'));
+
+			// Sometimes running render too quickly fails, saying pandoc is not installed.
+			// Using expect.toPass allows it to retry.
+			await expect(async () => {
 				await app.workbench.quickaccess.runCommand('r.rmarkdownRender');
-				// Wait for the file to be created. We don't currently have any terminal tests.
-				// Therefore instead of checking terminal output, just check the project files.
-				// TODO: Add a terminal page object to check output.
-				expect(async () => {
-					const projectFiles = await app.workbench.positronExplorer.getExplorerProjectFiles();
-					expect(projectFiles).toContain('basicRmd.html');
-				}).toPass({ timeout: 10000 });
+				await app.workbench.terminal.waitForTerminalText(buffer => buffer.some(line => line.startsWith('Output created: basicRmd.html')));
+			}).toPass({ timeout: 50000 });
+
+			// Wrapped in expect.toPass to allow UI to update/render
+			await expect(async () => {
+				const projectFiles = await app.workbench.positronExplorer.getExplorerProjectFiles();
+				expect(projectFiles).toContain('basicRmd.html');
+			}).toPass({ timeout: 50000 });
 
 		});
 
