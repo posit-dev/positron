@@ -14,8 +14,8 @@ export class HtmlPlotClient extends WebviewPlotClient {
 	private static _nextId = 0;
 
 	/**
-	 * Creates a new WebviewPlotClient, which wraps a notebook output webview in
-	 * an object that can be displayed in the Plots pane.
+	 * Creates a new HtmlPlotClient, which wraps an HTML preview webview in an
+	 * object that can be displayed in the Plots pane.
 	 *
 	 * @param html The webview to wrap.
 	 * @param message The output message from which the webview was created.

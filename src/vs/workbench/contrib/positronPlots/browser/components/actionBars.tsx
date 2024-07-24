@@ -25,8 +25,9 @@ import { ZoomPlotMenuButton } from 'vs/workbench/contrib/positronPlots/browser/c
 import { PlotClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimePlotClient';
 import { StaticPlotClient } from 'vs/workbench/services/positronPlots/common/staticPlotClient';
 import { INotificationService } from 'vs/platform/notification/common/notification';
-import { PlotsClearAction, PlotsCopyAction, PlotsNextAction, PlotsPreviousAction, PlotsSaveAction } from 'vs/workbench/contrib/positronPlots/browser/positronPlotsActions';
+import { PlotsClearAction, PlotsCopyAction, PlotsNextAction, PlotsPopoutAction, PlotsPreviousAction, PlotsSaveAction } from 'vs/workbench/contrib/positronPlots/browser/positronPlotsActions';
 import { IHoverService } from 'vs/platform/hover/browser/hover';
+import { HtmlPlotClient } from 'vs/workbench/contrib/positronPlots/browser/htmlPlotClient';
 
 // Constants.
 const kPaddingLeft = 14;
@@ -77,10 +78,11 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 			|| selectedPlot instanceof StaticPlotClient);
 
 	const enableCopyPlot = hasPlots &&
-		(positronPlotsContext.positronPlotInstances[positronPlotsContext.selectedInstanceIndex]
-			instanceof StaticPlotClient
-			|| positronPlotsContext.positronPlotInstances[positronPlotsContext.selectedInstanceIndex]
-			instanceof PlotClientInstance);
+		(selectedPlot instanceof StaticPlotClient
+			|| selectedPlot instanceof PlotClientInstance);
+
+	const enablePopoutPlot = hasPlots &&
+		selectedPlot instanceof HtmlPlotClient;
 
 	useEffect(() => {
 		// Empty for now.
@@ -118,6 +120,10 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 		props.commandService.executeCommand(PlotsCopyAction.ID);
 	};
 
+	const popoutPlotHandler = () => {
+		props.commandService.executeCommand(PlotsPopoutAction.ID);
+	};
+
 	// Render.
 	return (
 		<PositronActionBarContextProvider {...props}>
@@ -129,7 +135,7 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 						<ActionBarButton iconId='positron-right-arrow' disabled={disableRight} tooltip={localize('positronShowNextPlot', "Show next plot")}
 							ariaLabel={localize('positronShowNextPlot', "Show next plot")} onPressed={showNextPlotHandler} />
 
-						{(enableSizingPolicy || enableSavingPlots || enableZoomPlot) && <ActionBarSeparator />}
+						{(enableSizingPolicy || enableSavingPlots || enableZoomPlot || enablePopoutPlot) && <ActionBarSeparator />}
 						{enableSavingPlots && <ActionBarButton iconId='positron-save' tooltip={localize('positronSavePlot', "Save plot")}
 							ariaLabel={localize('positronSavePlot', "Save plot")} onPressed={savePlotHandler} />}
 						{enableCopyPlot && <ActionBarButton iconId='copy' disabled={!hasPlots} tooltip={localize('positron-copy-plot', "Copy plot to clipboard")} ariaLabel={localize('positron-copy-plot', "Copy plot to clipboard")}
@@ -142,6 +148,14 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 								notificationService={positronPlotsContext.notificationService}
 								plotsService={positronPlotsContext.positronPlotsService}
 							/>
+						}
+						{enablePopoutPlot &&
+							<ActionBarButton
+								iconId='positron-open-in-new-window'
+								align='right'
+								tooltip={localize('positron-popout-plot', "Open plot in new window")}
+								ariaLabel={localize('positron-popout-plot', "Open plot in new window")}
+								onPressed={popoutPlotHandler} />
 						}
 					</ActionBarRegion>
 					<ActionBarRegion location='right'>

@@ -159,6 +159,11 @@ export interface IPositronPlotsService {
 	copyPlotToClipboard(): Promise<void>;
 
 	/**
+	 * Opens the selected plot in a new window.
+	 */
+	openPlotInNewWindow(): void;
+
+	/**
 	 * Saves the plot.
 	 */
 	savePlot(): void;

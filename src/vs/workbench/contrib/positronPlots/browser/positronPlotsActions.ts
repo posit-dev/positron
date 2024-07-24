@@ -174,3 +174,28 @@ export class PlotsClearAction extends Action2 {
 		}
 	}
 }
+
+export class PlotsPopoutAction extends Action2 {
+	static ID = 'workbench.action.positronPlots.popout';
+
+	constructor() {
+		super({
+			id: PlotsPopoutAction.ID,
+			title: localize2('positronPlots.popoutPlot', 'Open Plot in New Window'),
+			category,
+			f1: true,
+		});
+	}
+
+	/**
+	 * Runs the action and clears the plots.
+	 *
+	 * @param accessor The service accessor.
+	 */
+	async run(accessor: ServicesAccessor) {
+		const plotsService = accessor.get(IPositronPlotsService);
+		if (plotsService.selectedPlotId) {
+			plotsService.openPlotInNewWindow();
+		}
+	}
+}

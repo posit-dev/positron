@@ -38,6 +38,7 @@ import { IPositronPreviewService } from 'vs/workbench/contrib/positronPreview/br
 import { NotebookOutputPlotClient } from 'vs/workbench/contrib/positronPlots/browser/notebookOutputPlotClient';
 import { HtmlPlotClient } from 'vs/workbench/contrib/positronPlots/browser/htmlPlotClient';
 import { PreviewHtml } from 'vs/workbench/contrib/positronPreview/browser/previewHtml';
+import { IOpenerService } from 'vs/platform/opener/common/opener';
 
 /** The maximum number of recent executions to store. */
 const MaxRecentExecutions = 10;
@@ -108,6 +109,7 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 		@IRuntimeSessionService private _runtimeSessionService: IRuntimeSessionService,
 		@IStorageService private _storageService: IStorageService,
 		@IViewsService private _viewsService: IViewsService,
+		@IOpenerService private _openerService: IOpenerService,
 		@IPositronNotebookOutputWebviewService private _notebookOutputWebviewService: IPositronNotebookOutputWebviewService,
 		@IPositronIPyWidgetsService private _positronIPyWidgetsService: IPositronIPyWidgetsService,
 		@IPositronPreviewService private _positronPreviewService: IPositronPreviewService,
@@ -224,6 +226,25 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 			StorageScope.WORKSPACE);
 		if (preferredHistoryPolicy && preferredHistoryPolicy) {
 			this._selectedHistoryPolicy = preferredHistoryPolicy as HistoryPolicy;
+		}
+	}
+
+	openPlotInNewWindow(): void {
+
+		if (!this._selectedPlotId) {
+			throw new Error('Cannot open plot in new window: no plot selected');
+		}
+
+		const selectedPlot = this._plots.find(plot => plot.id === this._selectedPlotId);
+		if (!selectedPlot) {
+			throw new Error(`Cannot open plot in new window: plot ${this._selectedPlotId} not found`);
+		}
+
+		if (selectedPlot instanceof HtmlPlotClient) {
+			this._openerService.open(selectedPlot.html.uri,
+				{ openExternal: true, fromUserGesture: true });
+		} else {
+			throw new Error(`Cannot open plot in new window: plot ${this._selectedPlotId} is not an HTML plot`);
 		}
 	}
 
