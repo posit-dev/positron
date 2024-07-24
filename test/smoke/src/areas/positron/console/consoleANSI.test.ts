@@ -33,7 +33,7 @@ export function setup(logger: Logger) {
 				// always there.
 				const fileName = '.gitignore';
 				const filePath = join(app.workspacePathOrFolder, fileName);
-				const inputCode = `cli::cli_inform("{.file ${filePath}}")`;
+				const inputCode = `cli::cli_inform(r"[{.file ${filePath}}]")`;
 
 				await expect(async () => {
 					await app.workbench.positronConsole.pasteCodeToConsole(inputCode);
@@ -44,8 +44,6 @@ export function setup(logger: Logger) {
 					await expect(link).toContainText(fileName, { useInnerText: true });
 
 					await link.click();
-					await app.code.wait(200);
-
 					await app.workbench.editors.waitForActiveTab(fileName);
 				}).toPass({ timeout: 60000 });
 			});
