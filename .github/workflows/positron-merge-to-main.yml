@@ -20,7 +20,7 @@ on:
         type: string
 
 env:
-  SMOKETEST_TARGET: ${{ inputs.smoketest_target || 'smoketest-merge-to-main'}}
+  SMOKETEST_TARGET: ${{ inputs.smoketest_target || 'smoketest-merge-to-main' }}
 
 jobs:
 
