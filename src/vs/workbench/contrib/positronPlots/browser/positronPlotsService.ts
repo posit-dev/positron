@@ -861,6 +861,9 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 		this._onDidEmitPlot.fire(client);
 		this._onDidSelectPlot.fire(client.id);
 		this._register(client);
+
+		// Raise the Plots pane so the plot is visible.
+		this._viewsService.openView(POSITRON_PLOTS_VIEW_ID, false);
 	}
 
 	/**
