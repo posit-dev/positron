@@ -1,4 +1,4 @@
-name: "Positron: CI"
+name: "Positron: CI - merge to main"
 
 on:
   push:
