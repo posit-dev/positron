@@ -1204,7 +1204,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 		session.createClient<IUiClientMessageInput, IUiClientMessageOutput>
 			(RuntimeClientType.Ui, {}).then(client => {
 				// Create the UI client instance wrapping the client instance.
-				const uiClient = new UiClientInstance(client, this._commandService, this._logService, this._openerService);
+				const uiClient = new UiClientInstance(client, this._commandService, this._logService, this._openerService, this._configurationService);
 				this._register(uiClient);
 
 				// When the UI client instance emits an event, broadcast

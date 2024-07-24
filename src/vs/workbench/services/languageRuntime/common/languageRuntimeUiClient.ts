@@ -12,6 +12,8 @@ import { IOpenerService } from 'vs/platform/opener/common/opener';
 import { URI } from 'vs/base/common/uri';
 import { ICommandService } from 'vs/platform/commands/common/commands';
 import { ILogService } from 'vs/platform/log/common/log';
+import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
+import { POSITRON_PREVIEW_PLOTS_IN_VIEWER } from 'vs/workbench/contrib/positronPreview/browser/positronPreview.contribution';
 
 
 /**
@@ -102,6 +104,7 @@ export class UiClientInstance extends Disposable {
 		private readonly _commandService: ICommandService,
 		private readonly _logService: ILogService,
 		private readonly _openerService: IOpenerService,
+		private readonly _configurationService: IConfigurationService,
 	) {
 		super();
 		this._register(this._client);
@@ -158,10 +161,22 @@ export class UiClientInstance extends Disposable {
 				} catch {
 					// Noop; use the original URI
 				}
+
+				if (e.is_plot) {
+					// Check the configuration to see if we should open the plot
+					// in the Viewer tab. If so, clear the `is_plot` flag so that
+					// we open the file in the Viewer.
+					const openInViewer = this._configurationService.getValue<boolean>(POSITRON_PREVIEW_PLOTS_IN_VIEWER);
+					if (openInViewer) {
+						e.is_plot = false;
+					}
+				}
+
 				const resolvedEvent: IShowHtmlUriEvent = {
 					uri,
 					event: e,
 				};
+
 				this._onDidShowHtmlFileEmitter.fire(resolvedEvent);
 			} catch (error) {
 				this._logService.error(`Failed to show HTML file ${e.path}: ${error}`);
