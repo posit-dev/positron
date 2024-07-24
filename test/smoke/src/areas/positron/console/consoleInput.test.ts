@@ -122,7 +122,6 @@ cat(sprintf('Hello %s!\n', val))`;
 					await app.workbench.positronConsole.typeToConsole(inputCode);
 				}).toPass({ timeout: 600 });
 
-				await app.code.wait(300);
 				const activeConsole = app.workbench.positronConsole.activeConsole;
 
 				// Makes sure the code suggestions are activated
