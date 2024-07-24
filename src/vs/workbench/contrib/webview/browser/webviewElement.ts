@@ -355,6 +355,9 @@ export class WebviewElement extends Disposable implements IWebview, WebviewFindD
 				this._onDidNavigate.fire(URI.parse(evt.url));
 			}
 		}));
+		this._register(this.on('did-load-window', (data) => {
+			this._onDidLoad.fire(data.title);
+		}));
 		// --- End Positron ---
 	}
 
@@ -974,6 +977,8 @@ export class WebviewElement extends Disposable implements IWebview, WebviewFindD
 
 	protected readonly _onDidNavigate = this._register(new Emitter<URI>());
 	public readonly onDidNavigate = this._onDidNavigate.event;
+	protected readonly _onDidLoad = this._register(new Emitter<string>());
+	public readonly onDidLoad = this._onDidLoad.event;
 	// --- End Positron ---
 
 	/**

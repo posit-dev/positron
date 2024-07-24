@@ -54,6 +54,7 @@ export class PreviewOverlayWebview extends Disposable {
 				<script>
 					// Get a reference to the VS Code API
 					const vscode = acquireVsCodeApi();
+
 					// Listen for messages from the parent window
 					window.addEventListener('message', e => {
 						// Ignore non-command messages
@@ -80,6 +81,18 @@ export class PreviewOverlayWebview extends Disposable {
 							}
 						}
 					});
+
+					// Notify the parent window that the window has loaded. This
+					// is a best-effort guess since we can't see cross-origin
+					// into the frame.
+					setTimeout(() => {
+						window.parent.postMessage({
+							channel: 'did-load-window',
+							data: {
+								title: ''
+							}
+						}, '*');
+					}, 500);
 				</script>
 			</head>
 			<body>

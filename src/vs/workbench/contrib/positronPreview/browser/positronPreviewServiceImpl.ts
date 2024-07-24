@@ -76,12 +76,18 @@ export class PositronPreviewService extends Disposable implements IPositronPrevi
 
 				if (e.event.name === UiFrontendEvent.ShowHtmlFile) {
 					const data = e.event.data as IShowHtmlUriEvent;
-					this.handleShowHtmlFileEvent(session, data);
+					if (!data.event.is_plot) {
+						this.handleShowHtmlFileEvent(session, data);
+					}
 				} else {
 					this.handleShowUrlEvent(session, e.event.data as ShowUrlEvent);
 				}
 			}
 		});
+	}
+
+	createHtmlWebview(extension: WebviewExtensionDescription, event: IShowHtmlUriEvent): PreviewWebview {
+		return this.createPreview(`previewHtml.${PositronPreviewService._previewIdCounter++}`, '', extension, event.uri, event.event);
 	}
 
 	get previewWebviews(): PreviewWebview[] {
@@ -165,7 +171,7 @@ export class PositronPreviewService extends Disposable implements IPositronPrevi
 		return preview;
 	}
 
-	openUri(previewId: string, origin: string, extension: WebviewExtensionDescription, uri: URI, event?: ShowHtmlFileEvent): PreviewWebview {
+	private createPreview(previewId: string, origin: string, extension: WebviewExtensionDescription, uri: URI, event?: ShowHtmlFileEvent): PreviewWebview {
 		const webviewInitInfo: WebviewInitInfo = {
 			origin,
 			providedViewType: event ?
@@ -191,6 +197,13 @@ export class PositronPreviewService extends Disposable implements IPositronPrevi
 		const preview = event ?
 			new PreviewHtml(previewId, overlay, uri, event) :
 			new PreviewUrl(previewId, overlay, uri);
+
+		return preview;
+	}
+
+	openUri(previewId: string, origin: string, extension: WebviewExtensionDescription, uri: URI, event?: ShowHtmlFileEvent): PreviewWebview {
+		// Create the preview
+		const preview = this.createPreview(previewId, origin, extension, uri, event);
 
 		// Remove any other previews from the item list; they can be expensive
 		// to keep around.

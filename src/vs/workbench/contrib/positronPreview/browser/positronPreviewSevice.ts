@@ -8,6 +8,7 @@ import { URI } from 'vs/base/common/uri';
 import { createDecorator } from 'vs/platform/instantiation/common/instantiation';
 import { PreviewWebview } from 'vs/workbench/contrib/positronPreview/browser/previewWebview';
 import { WebviewExtensionDescription, WebviewInitInfo } from 'vs/workbench/contrib/webview/browser/webview';
+import { IShowHtmlUriEvent } from 'vs/workbench/services/languageRuntime/common/languageRuntimeUiClient';
 
 export const POSITRON_PREVIEW_VIEW_ID = 'workbench.panel.positronPreview';
 
@@ -57,6 +58,19 @@ export interface IPositronPreviewService {
 		origin: string,
 		extension: WebviewExtensionDescription | undefined,
 		uri: URI): PreviewWebview;
+
+	/**
+	 * Opens an HTML file from a runtime message in the preview pane. This
+	 * method just creates and returns the preview; it doesn't show it in the
+	 * pane.
+	 *
+	 * @param origin The origin of the URL.
+	 * @param extension The extension that is opening the URL.
+	 * @param uri The URI to open in the preview.
+	 */
+	createHtmlWebview(
+		extension: WebviewExtensionDescription | undefined,
+		event: IShowHtmlUriEvent): PreviewWebview;
 
 	/**
 	 * An event that is fired when a new preview panel webview is created.

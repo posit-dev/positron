@@ -32,6 +32,10 @@ import { IWorkbenchLayoutService } from 'vs/workbench/services/layout/browser/la
 import { IKeybindingService } from 'vs/platform/keybinding/common/keybinding';
 import { IClipboardService } from 'vs/platform/clipboard/common/clipboardService';
 import { localize } from 'vs/nls';
+import { UiFrontendEvent } from 'vs/workbench/services/languageRuntime/common/positronUiComm';
+import { IShowHtmlUriEvent } from 'vs/workbench/services/languageRuntime/common/languageRuntimeUiClient';
+import { WebviewExtensionDescription } from 'vs/workbench/contrib/webview/browser/webview';
+import { IPositronPreviewService } from 'vs/workbench/contrib/positronPreview/browser/positronPreviewSevice';
 
 /** The maximum number of recent executions to store. */
 const MaxRecentExecutions = 10;
@@ -104,6 +108,7 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 		@IViewsService private _viewsService: IViewsService,
 		@IPositronNotebookOutputWebviewService private _notebookOutputWebviewService: IPositronNotebookOutputWebviewService,
 		@IPositronIPyWidgetsService private _positronIPyWidgetsService: IPositronIPyWidgetsService,
+		@IPositronPreviewService private _positronPreviewService: IPositronPreviewService,
 		@IFileService private readonly _fileService: IFileService,
 		@IFileDialogService private readonly _fileDialogService: IFileDialogService,
 		@IWorkbenchLayoutService private readonly _layoutService: IWorkbenchLayoutService,
@@ -115,6 +120,16 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 		// Register for language runtime service startups
 		this._register(this._runtimeSessionService.onDidStartRuntime((runtime) => {
 			this.attachRuntime(runtime);
+		}));
+
+		// Register for UI comm events
+		this._register(this._runtimeSessionService.onDidReceiveRuntimeEvent(event => {
+			if (event.event.name === UiFrontendEvent.ShowHtmlFile) {
+				const data = event.event.data as IShowHtmlUriEvent;
+				if (data.event.is_plot) {
+					this.createWebviewPlot(event.session_id, data);
+				}
+			}
 		}));
 
 		// Listen for plots being selected and update the selected plot ID
@@ -804,6 +819,19 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 		return this._plots.some(plot =>
 			plot.metadata.session_id === sessionId &&
 			plot.metadata.id === plotId);
+	}
+
+	private createWebviewPlot(sessionId: string, event: IShowHtmlUriEvent) {
+		// Look up the extension ID
+		const session = this._runtimeSessionService.getSession(sessionId);
+		const extension = session!.runtimeMetadata.extensionId;
+		const webviewExtension: WebviewExtensionDescription = {
+			id: extension
+		};
+
+		// Create the webview. TODO: Create a client from this webview and show it in the pane.
+		this._positronPreviewService.createHtmlWebview(
+			webviewExtension, event);
 	}
 
 	/**
