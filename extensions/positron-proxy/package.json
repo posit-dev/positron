@@ -1,7 +1,7 @@
 {
   "name": "positron-proxy",
-  "displayName": "Positron Proxy",
-  "description": "Positron Proxy",
+  "displayName": "%displayName%",
+  "description": "%description%",
   "version": "1.0.0",
   "publisher": "vscode",
   "engines": {
@@ -17,7 +17,23 @@
     "onStartupFinished"
   ],
   "main": "./out/extension.js",
-  "contributes": {},
+  "contributes": {
+    "menus": {
+      "explorer/context": [
+        {
+          "when": "resourceLangId == html",
+          "command": "positronProxy.showHtmlPreview",
+          "group": "navigation"
+        }
+      ]
+    },
+    "commands": [
+      {
+        "command": "positronProxy.showHtmlPreview",
+        "title": "%command.positronProxy.showHtmlPreview.title%"
+      }
+    ]
+  },
   "scripts": {
     "vscode:prepublish": "yarn run compile",
     "compile": "tsc -p ./",

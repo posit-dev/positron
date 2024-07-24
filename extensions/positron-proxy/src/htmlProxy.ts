@@ -7,7 +7,7 @@ import express from 'express';
 import path = require('path');
 import fs = require('fs');
 
-import { Disposable } from 'vscode';
+import { Disposable, Uri } from 'vscode';
 import { PromiseHandles } from './util';
 import { isAddressInfo } from './positronProxy';
 
@@ -27,6 +27,17 @@ export class HtmlProxyServer implements Disposable {
 	public async createHtmlProxy(targetPath: string): Promise<string> {
 		// Wait for the server to be ready.
 		await this._ready.promise;
+
+		// The targetPath may be specified as a file URI or a file path. If it's
+		// a file URI, convert it to a file path first.
+		try {
+			const uri = Uri.parse(targetPath);
+			if (uri.scheme === 'file') {
+				targetPath = uri.fsPath;
+			}
+		} catch {
+			// Ignore; the target path is not a URI.
+		}
 
 		// Ensure the target path exists.
 		if (!fs.existsSync(targetPath)) {

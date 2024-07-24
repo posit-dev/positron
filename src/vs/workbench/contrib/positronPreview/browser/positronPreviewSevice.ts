@@ -75,7 +75,7 @@ export interface IPositronPreviewService {
 		previewId: string,
 		origin: string,
 		extension: WebviewExtensionDescription | undefined,
-		path: string): PreviewWebview;
+		path: string): Promise<PreviewWebview>;
 
 	/**
 	 * Opens an HTML file from a runtime message in the preview pane. This

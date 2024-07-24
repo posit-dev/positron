@@ -23,6 +23,7 @@ import { IShowHtmlUriEvent } from 'vs/workbench/services/languageRuntime/common/
 import { PreviewOverlayWebview } from 'vs/workbench/contrib/positronPreview/browser/previewOverlayWebview';
 import { PreviewHtml } from 'vs/workbench/contrib/positronPreview/browser/previewHtml';
 import { ICommandService } from 'vs/platform/commands/common/commands';
+import { basename } from 'vs/base/common/path';
 
 /**
  * Positron preview service; keeps track of the set of active previews and
@@ -240,10 +241,9 @@ export class PositronPreviewService extends Disposable implements IPositronPrevi
 			// Noop; use the original URI
 		}
 
-		const path = require('path');
 		const evt: ShowHtmlFileEvent = {
 			height: 0,
-			kind: path.basename(htmlpath),
+			kind: basename(htmlpath),
 			is_plot: false,
 			path: htmlpath,
 		};
@@ -254,6 +254,9 @@ export class PositronPreviewService extends Disposable implements IPositronPrevi
 		});
 		this._items.clear();
 		this._items.set(previewId, preview);
+
+		// Open the preview
+		this.openPreviewWebview(preview);
 
 		return preview;
 	}
