@@ -11,6 +11,7 @@ export class PreviewOverlayWebview extends Disposable {
 
 	public onDidNavigate = this.webview.onDidNavigate;
 	public onDidDispose = this.webview.onDidDispose;
+	public onDidLoad = this.webview.onDidLoad;
 
 	constructor(public readonly webview: IOverlayWebview) {
 		super();

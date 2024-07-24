@@ -18,13 +18,15 @@ export const QUERY_NONCE_PARAMETER = '_positronRender';
 export class PreviewHtml extends PreviewWebview {
 
 	/**
-	 * Construct a new PreviewWebview.
+	 * Construct a new PreviewHtml.
 	 *
+	 * @param sessionId The session ID of the preview
 	 * @param previewId A unique ID for the preview
 	 * @param webview The underlying webview instance that hosts the preview's content
 	 * @param uri The URI to open in the preview
 	 */
 	constructor(
+		readonly sessionId: string,
 		previewId: string,
 		webview: PreviewOverlayWebview,
 		readonly uri: URI,

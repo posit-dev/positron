@@ -6,6 +6,7 @@
 import { Event } from 'vs/base/common/event';
 import { URI } from 'vs/base/common/uri';
 import { createDecorator } from 'vs/platform/instantiation/common/instantiation';
+import { PreviewHtml } from 'vs/workbench/contrib/positronPreview/browser/previewHtml';
 import { PreviewWebview } from 'vs/workbench/contrib/positronPreview/browser/previewWebview';
 import { WebviewExtensionDescription, WebviewInitInfo } from 'vs/workbench/contrib/webview/browser/webview';
 import { IShowHtmlUriEvent } from 'vs/workbench/services/languageRuntime/common/languageRuntimeUiClient';
@@ -49,12 +50,15 @@ export interface IPositronPreviewService {
 	/**
 	 * Opens a URI in the preview pane.
 	 *
+	 * @param sessionId The session ID of the preview.
 	 * @param previewId The unique ID or handle of the preview.
 	 * @param origin The origin of the URL.
 	 * @param extension The extension that is opening the URL.
 	 * @param uri The URI to open in the preview.
 	 */
-	openUri(previewId: string,
+	openUri(
+		sessionId: string,
+		previewId: string,
 		origin: string,
 		extension: WebviewExtensionDescription | undefined,
 		uri: URI): PreviewWebview;
@@ -64,13 +68,14 @@ export interface IPositronPreviewService {
 	 * method just creates and returns the preview; it doesn't show it in the
 	 * pane.
 	 *
-	 * @param origin The origin of the URL.
+	 * @param sessionId The session ID of the preview.
 	 * @param extension The extension that is opening the URL.
 	 * @param uri The URI to open in the preview.
 	 */
 	createHtmlWebview(
+		sessionId: string,
 		extension: WebviewExtensionDescription | undefined,
-		event: IShowHtmlUriEvent): PreviewWebview;
+		event: IShowHtmlUriEvent): PreviewHtml;
 
 	/**
 	 * An event that is fired when a new preview panel webview is created.

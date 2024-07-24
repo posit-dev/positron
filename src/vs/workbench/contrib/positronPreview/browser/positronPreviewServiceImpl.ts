@@ -86,8 +86,9 @@ export class PositronPreviewService extends Disposable implements IPositronPrevi
 		});
 	}
 
-	createHtmlWebview(extension: WebviewExtensionDescription, event: IShowHtmlUriEvent): PreviewWebview {
-		return this.createPreview(`previewHtml.${PositronPreviewService._previewIdCounter++}`, '', extension, event.uri, event.event);
+	createHtmlWebview(sessionId: string, extension: WebviewExtensionDescription | undefined, event: IShowHtmlUriEvent): PreviewHtml {
+		const preview = this.createPreview(sessionId, `previewHtml.${PositronPreviewService._previewIdCounter++}`, '', extension, event.uri, event.event);
+		return preview as PreviewHtml;
 	}
 
 	get previewWebviews(): PreviewWebview[] {
@@ -171,7 +172,7 @@ export class PositronPreviewService extends Disposable implements IPositronPrevi
 		return preview;
 	}
 
-	private createPreview(previewId: string, origin: string, extension: WebviewExtensionDescription, uri: URI, event?: ShowHtmlFileEvent): PreviewWebview {
+	private createPreview(sessionId: string, previewId: string, origin: string, extension: WebviewExtensionDescription | undefined, uri: URI, event?: ShowHtmlFileEvent): PreviewWebview {
 		const webviewInitInfo: WebviewInitInfo = {
 			origin,
 			providedViewType: event ?
@@ -195,15 +196,15 @@ export class PositronPreviewService extends Disposable implements IPositronPrevi
 		const webview = this._webviewService.createWebviewOverlay(webviewInitInfo);
 		const overlay = this.createOverlayWebview(webview);
 		const preview = event ?
-			new PreviewHtml(previewId, overlay, uri, event) :
+			new PreviewHtml(sessionId, previewId, overlay, uri, event) :
 			new PreviewUrl(previewId, overlay, uri);
 
 		return preview;
 	}
 
-	openUri(previewId: string, origin: string, extension: WebviewExtensionDescription, uri: URI, event?: ShowHtmlFileEvent): PreviewWebview {
+	openUri(sessionId: string, previewId: string, origin: string, extension: WebviewExtensionDescription, uri: URI, event?: ShowHtmlFileEvent): PreviewWebview {
 		// Create the preview
-		const preview = this.createPreview(previewId, origin, extension, uri, event);
+		const preview = this.createPreview(sessionId, previewId, origin, extension, uri, event);
 
 		// Remove any other previews from the item list; they can be expensive
 		// to keep around.
@@ -314,7 +315,7 @@ export class PositronPreviewService extends Disposable implements IPositronPrevi
 		};
 
 		// Open the requested URI.
-		this.openUri(previewId, POSITRON_PREVIEW_HTML_VIEW_TYPE, webviewExtension, event.uri, event.event);
+		this.openUri(session.sessionId, previewId, POSITRON_PREVIEW_HTML_VIEW_TYPE, webviewExtension, event.uri, event.event);
 	}
 
 	/**
@@ -358,7 +359,7 @@ export class PositronPreviewService extends Disposable implements IPositronPrevi
 		const previewId = `previewUrl.${PositronPreviewService._previewIdCounter++}`;
 
 		// Open the requested URI.
-		this.openUri(previewId, POSITRON_PREVIEW_URL_VIEW_TYPE, webviewExtension, uri);
+		this.openUri(session.sessionId, previewId, POSITRON_PREVIEW_URL_VIEW_TYPE, webviewExtension, uri);
 	}
 
 	/**

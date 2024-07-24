@@ -21,7 +21,6 @@ import { PlotSizingPolicyFill } from 'vs/workbench/services/positronPlots/common
 import { PlotSizingPolicyLandscape } from 'vs/workbench/services/positronPlots/common/sizingPolicyLandscape';
 import { PlotSizingPolicyPortrait } from 'vs/workbench/services/positronPlots/common/sizingPolicyPortrait';
 import { PlotSizingPolicyCustom } from 'vs/workbench/services/positronPlots/common/sizingPolicyCustom';
-import { WebviewPlotClient } from 'vs/workbench/contrib/positronPlots/browser/webviewPlotClient';
 import { IPositronNotebookOutputWebviewService } from 'vs/workbench/contrib/positronOutputWebview/browser/notebookOutputWebviewService';
 import { IPositronIPyWidgetsService } from 'vs/workbench/services/positronIPyWidgets/common/positronIPyWidgetsService';
 import { Schemas } from 'vs/base/common/network';
@@ -36,6 +35,9 @@ import { UiFrontendEvent } from 'vs/workbench/services/languageRuntime/common/po
 import { IShowHtmlUriEvent } from 'vs/workbench/services/languageRuntime/common/languageRuntimeUiClient';
 import { WebviewExtensionDescription } from 'vs/workbench/contrib/webview/browser/webview';
 import { IPositronPreviewService } from 'vs/workbench/contrib/positronPreview/browser/positronPreviewSevice';
+import { NotebookOutputPlotClient } from 'vs/workbench/contrib/positronPlots/browser/notebookOutputPlotClient';
+import { HtmlPlotClient } from 'vs/workbench/contrib/positronPlots/browser/htmlPlotClient';
+import { PreviewHtml } from 'vs/workbench/contrib/positronPreview/browser/previewHtml';
 
 /** The maximum number of recent executions to store. */
 const MaxRecentExecutions = 10;
@@ -482,7 +484,7 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 					this._viewsService.openView(POSITRON_PLOTS_VIEW_ID, false);
 				} else if (message.kind === RuntimeOutputKind.PlotWidget) {
 					// Create a new webview plot client instance and register it with the service.
-					await this.registerWebviewPlot(session, message, code);
+					await this.registerNotebookOutputPlot(session, message, code);
 
 					// Raise the Plots pane so the plot is visible.
 					this._viewsService.openView(POSITRON_PLOTS_VIEW_ID, false);
@@ -572,7 +574,7 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 	 * @param message The message containing the source for the webview.
 	 * @param code The code that generated the plot, if available.
 	 */
-	private async registerWebviewPlot(
+	private async registerNotebookOutputPlot(
 		runtime: ILanguageRuntimeSession,
 		message: ILanguageRuntimeMessageOutput,
 		code?: string) {
@@ -581,7 +583,7 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 		const webview = await this._notebookOutputWebviewService.createNotebookOutputWebview(
 			runtime, message);
 		if (webview) {
-			const client = new WebviewPlotClient(webview, message, code);
+			const client = new NotebookOutputPlotClient(webview, message, code);
 			this._plots.unshift(client);
 			this._onDidEmitPlot.fire(client);
 			this._onDidSelectPlot.fire(client.id);
@@ -829,9 +831,15 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 			id: extension
 		};
 
-		// Create the webview. TODO: Create a client from this webview and show it in the pane.
-		this._positronPreviewService.createHtmlWebview(
-			webviewExtension, event);
+		// Create the webview.
+		const webview = this._positronPreviewService.createHtmlWebview(sessionId,
+			webviewExtension, event) as PreviewHtml;
+
+		const client = new HtmlPlotClient(webview);
+		this._plots.unshift(client);
+		this._onDidEmitPlot.fire(client);
+		this._onDidSelectPlot.fire(client.id);
+		this._register(client);
 	}
 
 	/**
