@@ -309,7 +309,7 @@ export class PositronPreviewService extends Disposable implements IPositronPrevi
 		// Create a ShowFileEvent for the HTML file.
 		const evt: ShowHtmlFileEvent = {
 			height: 0,
-			kind: basename(htmlpath),
+			title: basename(htmlpath),
 			is_plot: false,
 			path: htmlpath,
 		};

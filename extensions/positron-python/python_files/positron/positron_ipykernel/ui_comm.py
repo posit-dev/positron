@@ -434,8 +434,8 @@ class ShowHtmlFileParams(BaseModel):
         description="The fully qualified filesystem path to the HTML file to display",
     )
 
-    kind: StrictStr = Field(
-        description="If known, the kind of content being displayed, e.g. 'plotly' or 'vega'",
+    title: StrictStr = Field(
+        description="A title to be displayed in the viewer. May be empty, and can be superseded by the title in the HTML file.",
     )
 
     is_plot: StrictBool = Field(

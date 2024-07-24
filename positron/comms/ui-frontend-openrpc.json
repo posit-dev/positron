@@ -403,8 +403,8 @@
 					}
 				},
 				{
-					"name": "kind",
-					"description": "If known, the kind of content being displayed, e.g. 'plotly' or 'vega'",
+					"name": "title",
+					"description": "A title to be displayed in the viewer. May be empty, and can be superseded by the title in the HTML file.",
 					"schema": {
 						"type": "string"
 					}

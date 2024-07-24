@@ -31,7 +31,7 @@ export interface HtmlActionBarsProps extends PreviewActionBarsProps {
 
 export const HtmlActionBars = (props: PropsWithChildren<HtmlActionBarsProps>) => {
 
-	const [title, setTitle] = React.useState<string>(props.preview.html.kind);
+	const [title, setTitle] = React.useState<string>(props.preview.html.title);
 
 	// Handler for the reload button.
 	const reloadHandler = () => {
