@@ -206,6 +206,18 @@ export class PositronPlotsViewPane extends PositronViewPane implements IReactCom
 		this._positronPlotsContainer = DOM.$('.positron-plots-container');
 		container.appendChild(this._positronPlotsContainer);
 
+		// TODO: Figure out where to put this and how to clean it up.
+		const resizeObserver = new ResizeObserver(entries => {
+			for (const entry of entries) {
+				if (entry.target === this._positronPlotsContainer) {
+					this._onSizeChangedEmitter.fire({ width: entry.contentRect.width, height: entry.contentRect.height });
+					this._onPositionChangedEmitter.fire({ x: entry.contentRect.x, y: entry.contentRect.y });
+				}
+			}
+		});
+		resizeObserver.observe(this._positronPlotsContainer);
+		this._register({ dispose: () => resizeObserver.disconnect() });
+
 		// Create the PositronReactRenderer for the PositronPlots component and render it.
 		this._positronReactRenderer = new PositronReactRenderer(this._positronPlotsContainer);
 		this._positronReactRenderer.render(
