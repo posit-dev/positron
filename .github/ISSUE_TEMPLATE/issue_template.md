@@ -24,7 +24,7 @@ additional information to help us prioritize the issue.
 
 Positron and OS details:
 
-<!-- Copy from the Positron > About menu -->
+<!-- Copy from the `Positron > About` menu -->
 
 Language details:
 
@@ -48,7 +48,7 @@ Language details:
 
 <!--
 
-Open the Developer Tools console by running the Developer: Toggle Developer Tools command from the Command Palette.
+Open the Developer Tools console by running the `Developer: Toggle Developer Tools` command from the Command Palette.
 A guide to locating the correct Output channel can be found here: https://github.com/posit-dev/positron/wiki/Troubleshooting
 
 -->
