@@ -228,6 +228,27 @@ export class ExtHostPreviewPanels implements extHostProtocol.ExtHostPreviewPanel
 		return panel;
 	}
 
+	public previewHtml(
+		extension: IExtensionDescription,
+		htmlpath: string,
+	): positron.PreviewPanel {
+
+		const handle = ExtHostPreviewPanels.newHandle();
+		const viewType = 'positron.previewHtml';
+		const options: positron.PreviewOptions = {
+			enableForms: true,
+			enableScripts: true,
+			localResourceRoots: [],
+		};
+		this._proxy.$previewHtml(toExtensionData(extension), handle, htmlpath);
+		const webview = this.webviews.$createNewWebview(handle, options, extension);
+		const path = require('path');
+		const title = path.basename(htmlpath);
+		const panel = this.createNewPreviewPanel(handle, viewType, title, webview as ExtHostWebview, true);
+
+		return panel;
+	}
+
 	public $onDidChangePreviewPanelViewStates(newStates: extHostProtocol.PreviewPanelViewStateData): void {
 		// Note: This logic is largely copied from
 		// `$onDidChangeWebviewPanelViewStates`, and is written to handle

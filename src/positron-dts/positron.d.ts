@@ -1070,6 +1070,17 @@ declare module 'positron' {
 		export function previewUrl(url: vscode.Uri): PreviewPanel;
 
 		/**
+		 * Create and show a new preview panel for an HTML file. This is a
+		 * convenience method that creates a new webview panel and sets its
+		 * content to that of the given file.
+		 *
+		 * @param path The fully qualified path to the HTML file to preview
+		 *
+		 * @return New preview panel.
+		 */
+		export function previewHtml(path: string): PreviewPanel;
+
+		/**
 		 * Create a log output channel from raw data.
 		 *
 		 * Variant of `createOutputChannel()` that creates a "raw log" output channel.

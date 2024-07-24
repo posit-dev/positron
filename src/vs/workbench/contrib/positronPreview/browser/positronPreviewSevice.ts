@@ -64,6 +64,20 @@ export interface IPositronPreviewService {
 		uri: URI): PreviewWebview;
 
 	/**
+	 * Opens an HTML file in the preview pane.
+	 *
+	 * @param previewId The unique ID or handle of the preview.
+	 * @param origin The origin of the URL.
+	 * @param extension The extension that is opening the URL.
+	 * @param path The path to the HTML file.
+	 */
+	openHtml(
+		previewId: string,
+		origin: string,
+		extension: WebviewExtensionDescription | undefined,
+		path: string): PreviewWebview;
+
+	/**
 	 * Opens an HTML file from a runtime message in the preview pane. This
 	 * method just creates and returns the preview; it doesn't show it in the
 	 * pane.

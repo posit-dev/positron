@@ -22,6 +22,7 @@ import { isLocalhost } from 'vs/workbench/contrib/positronHelp/browser/utils';
 import { IShowHtmlUriEvent } from 'vs/workbench/services/languageRuntime/common/languageRuntimeUiClient';
 import { PreviewOverlayWebview } from 'vs/workbench/contrib/positronPreview/browser/previewOverlayWebview';
 import { PreviewHtml } from 'vs/workbench/contrib/positronPreview/browser/previewHtml';
+import { ICommandService } from 'vs/platform/commands/common/commands';
 
 /**
  * Positron preview service; keeps track of the set of active previews and
@@ -42,6 +43,7 @@ export class PositronPreviewService extends Disposable implements IPositronPrevi
 	private _onDidChangeActivePreviewWebview = new Emitter<string>;
 
 	constructor(
+		@ICommandService private readonly _commandService: ICommandService,
 		@IWebviewService private readonly _webviewService: IWebviewService,
 		@IViewsService private readonly _viewsService: IViewsService,
 		@IRuntimeSessionService private readonly _runtimeSessionService: IRuntimeSessionService,
@@ -216,6 +218,42 @@ export class PositronPreviewService extends Disposable implements IPositronPrevi
 
 		// Open the preview
 		this.openPreviewWebview(preview);
+
+		return preview;
+	}
+
+	async openHtml(previewId: string, origin: string, extension: WebviewExtensionDescription, htmlpath: string): Promise<PreviewWebview> {
+		const url = await this._commandService.executeCommand<string>(
+			'positronProxy.startHtmlProxyServer',
+			htmlpath
+		);
+
+		if (!url) {
+			throw new Error(`Failed to start HTML file proxy server for ${htmlpath}`);
+		}
+
+		let uri = URI.parse(url);
+		try {
+			const resolvedUri = await this._openerService.resolveExternalUri(uri);
+			uri = resolvedUri.resolved;
+		} catch {
+			// Noop; use the original URI
+		}
+
+		const path = require('path');
+		const evt: ShowHtmlFileEvent = {
+			height: 0,
+			kind: path.basename(htmlpath),
+			is_plot: false,
+			path: htmlpath,
+		};
+		const preview = this.createPreview('', previewId, origin, extension, uri, evt);
+
+		this._items.forEach((value, _key) => {
+			value.dispose();
+		});
+		this._items.clear();
+		this._items.set(previewId, preview);
 
 		return preview;
 	}

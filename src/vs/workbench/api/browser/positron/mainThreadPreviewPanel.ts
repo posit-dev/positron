@@ -126,6 +126,14 @@ export class MainThreadPreviewPanel extends Disposable implements extHostProtoco
 		this.attachPreview(handle, preview);
 	}
 
+	async $previewHtml(extensionData: WebviewExtensionDescription, handle: string, path: string): Promise<void> {
+		const extension = reviveWebviewExtension(extensionData);
+		const origin = this.webviewOriginStore.getOrigin('positron.previewHtml', extension.id);
+		const preview = await this._positronPreviewService.openHtml(handle, origin, extension, path);
+
+		this.attachPreview(handle, preview);
+	}
+
 	private attachPreview(handle: string, preview: PreviewWebview) {
 
 		// Store this preview in the map

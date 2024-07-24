@@ -134,6 +134,9 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 			previewUrl(url: vscode.Uri) {
 				return extHostPreviewPanels.previewUrl(extension, url);
 			},
+			previewHtml(path: string) {
+				return extHostPreviewPanels.previewHtml(extension, path);
+			},
 			createRawLogOutputChannel(name: string): vscode.OutputChannel {
 				return extHostOutputService.createRawLogOutputChannel(name, extension);
 			},
