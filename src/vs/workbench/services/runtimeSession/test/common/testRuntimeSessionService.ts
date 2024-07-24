@@ -4,14 +4,20 @@
  *--------------------------------------------------------------------------------------------*/
 import { Emitter } from 'vs/base/common/event';
 import { Disposable } from 'vs/base/common/lifecycle';
-import { ILanguageRuntimeSession, IRuntimeSessionService, IRuntimeSessionWillStartEvent } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
+import { ILanguageRuntimeGlobalEvent, ILanguageRuntimeSession, IRuntimeSessionService, IRuntimeSessionWillStartEvent } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
 
 export class TestRuntimeSessionService extends Disposable implements Partial<IRuntimeSessionService> {
 	private readonly _willStartEmitter = this._register(new Emitter<IRuntimeSessionWillStartEvent>());
+	private readonly _didStartRuntime = this._register(new Emitter<ILanguageRuntimeSession>());
+	private readonly _didReceiveRuntime = this._register(new Emitter<ILanguageRuntimeGlobalEvent>());
 
 	readonly activeSessions = new Array<ILanguageRuntimeSession>();
 
 	readonly onWillStartSession = this._willStartEmitter.event;
+
+	readonly onDidStartRuntime = this._didStartRuntime.event;
+
+	readonly onDidReceiveRuntimeEvent = this._didReceiveRuntime.event;
 
 	// Test helpers.
 

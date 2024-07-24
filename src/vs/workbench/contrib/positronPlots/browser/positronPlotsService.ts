@@ -191,7 +191,7 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 
 		// When the storage service is about to save state, store the current history policy
 		// and storage policy in the workspace storage.
-		this._storageService.onWillSaveState(() => {
+		this._register(this._storageService.onWillSaveState(() => {
 
 			this._storageService.store(
 				HistoryPolicyStorageKey,
@@ -220,7 +220,7 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 					StorageScope.WORKSPACE,
 					StorageTarget.MACHINE);
 			}
-		});
+		}));
 
 		// When the extension service is about to stop, remove any HTML plots
 		// from the plots list. These plots are backed by a proxy that runs in
