@@ -85,8 +85,8 @@ jobs:
 
       - name: Run Smoke Tests (Electron)
         env:
-          POSITRON_PY_VER_SEL: Python 3.10.12
-          POSITRON_R_VER_SEL: R 4.4.0
+          POSITRON_PY_VER_SEL: 3.10.12
+          POSITRON_R_VER_SEL: 4.4.0
         id: electron-smoke-tests
         run: DISPLAY=:10 yarn smoketest-pr --tracing
 
