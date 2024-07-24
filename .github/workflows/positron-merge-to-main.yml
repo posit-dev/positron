@@ -19,6 +19,9 @@ on:
         default: "smoketest-merge-to-main"
         type: string
 
+env:
+  SMOKETEST_TARGET: ${{ inputs.smoketest_target || 'smoketest-merge-to-main'}}
+
 jobs:
 
   linux:
@@ -102,7 +105,7 @@ jobs:
           POSITRON_PY_VER_SEL: 3.10.12
           POSITRON_R_VER_SEL: 4.4.0
         id: electron-smoke-tests
-        run: DISPLAY=:10 yarn ${{ inputs.smoketest_target }} --tracing
+        run: DISPLAY=:10 yarn ${{ env.SMOKETEST_TARGET }} --tracing
 
       - name: Upload run artifacts
         if: always()
