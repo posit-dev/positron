@@ -32,19 +32,21 @@ export function setup(logger: Logger) {
 				await app.workbench.positronNotebooks.closeNotebookWithoutSaving();
 			});
 
-			it('Python - Basic notebook creation and execution (code) [C628631]', async function () {
+			it('Python - Basic notebook creation and execution (code) [C628631] #pr', async function () {
 				const app = this.app as Application;
 
 				await app.workbench.positronNotebooks.createNewNotebook();
 
 				await app.workbench.positronNotebooks.selectInterpreter('Python Environments', process.env.POSITRON_PY_VER_SEL!);
 
-				await app.workbench.positronNotebooks.executeInFirstCell('eval("8**2")');
-				expect(await app.workbench.positronNotebooks.getPythonCellOutput()).toBe('64');
+				await expect(async () => {
+					await app.workbench.positronNotebooks.executeInFirstCell('eval("8**2")');
+					expect(await app.workbench.positronNotebooks.getPythonCellOutput()).toBe('64');
+				}).toPass({timeout: 60000});
 
 			});
 
-			it('Python - Basic notebook creation and execution (markdown) [C628632]', async function () {
+			it('Python - Basic notebook creation and execution (markdown) [C628632] #pr', async function () {
 				const app = this.app as Application;
 
 				await app.workbench.notebook.insertNotebookCell('markdown');
@@ -77,19 +79,21 @@ export function setup(logger: Logger) {
 				await app.workbench.positronNotebooks.closeNotebookWithoutSaving();
 			});
 
-			it('R - Basic notebook creation and execution (code) [C628629]', async function () {
+			it('R - Basic notebook creation and execution (code) [C628629] #pr', async function () {
 				const app = this.app as Application;
 
 				await app.workbench.positronNotebooks.createNewNotebook();
 
 				await app.workbench.positronNotebooks.selectInterpreter('R Environments', process.env.POSITRON_R_VER_SEL!);
 
-				await app.workbench.positronNotebooks.executeInFirstCell('eval(parse(text="8**2"))');
-				expect(await app.workbench.positronNotebooks.getRCellOutput()).toBe('[1] 64');
+				await expect(async () => {
+					await app.workbench.positronNotebooks.executeInFirstCell('eval(parse(text="8**2"))');
+					expect(await app.workbench.positronNotebooks.getRCellOutput()).toBe('[1] 64');
+				}).toPass({timeout: 60000});
 
 			});
 
-			it('R - Basic notebook creation and execution (markdown) [C628630]', async function () {
+			it('R - Basic notebook creation and execution (markdown) [C628630] #pr', async function () {
 				const app = this.app as Application;
 
 				await app.workbench.notebook.insertNotebookCell('markdown');

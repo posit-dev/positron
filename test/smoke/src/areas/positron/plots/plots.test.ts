@@ -52,7 +52,7 @@ export function setup(logger: Logger) {
 
 			});
 
-			it('Python - Verifies basic plot functionality - Dynamic Plot [C608114]', async function () {
+			it('Python - Verifies basic plot functionality - Dynamic Plot [C608114] #pr', async function () {
 				const app = this.app as Application;
 
 				// modified snippet from https://www.geeksforgeeks.org/python-pandas-dataframe/
@@ -99,7 +99,7 @@ plt.show()`;
 				await app.workbench.positronPlots.waitForNoPlots();
 			});
 
-			it('Python - Verifies basic plot functionality - Static Plot [C654401]', async function () {
+			it('Python - Verifies basic plot functionality - Static Plot [C654401] #pr', async function () {
 				const app = this.app as Application;
 
 				const script = `import graphviz as gv
@@ -290,7 +290,7 @@ plt.show()`;
 
 			});
 
-			it('R - Verifies basic plot functionality [C628633]', async function () {
+			it('R - Verifies basic plot functionality [C628633] #pr', async function () {
 				const app = this.app as Application;
 
 				const script = `cars <- c(1, 3, 6, 4, 9)
@@ -321,7 +321,7 @@ title(main="Autos", col.main="red", font.main=4)`;
 				await app.workbench.positronPlots.waitForNoPlots();
 			});
 
-			it('R - Verifies saving an R plot [C557006]', async function () {
+			it('R - Verifies saving an R plot [C557006]' , async function () {
 				const app = this.app as Application;
 
 				const script = `cars <- c(1, 3, 6, 4, 9)

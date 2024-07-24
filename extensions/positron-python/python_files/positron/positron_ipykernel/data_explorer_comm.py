@@ -348,6 +348,10 @@ class FormatOptions(BaseModel):
         description="Maximum number of integral digits to display before switching to scientific notation",
     )
 
+    max_value_length: StrictInt = Field(
+        description="Maximum size of formatted value, for truncating large strings or other large formatted values",
+    )
+
     thousands_sep: Optional[StrictStr] = Field(
         default=None,
         description="Thousands separator string",

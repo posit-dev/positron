@@ -53,6 +53,17 @@ export class PositronNotebooks {
 
 	async executeInFirstCell(code: string) {
 		await this.quickaccess.runCommand(EDIT_CELL_COMMAND);
+
+		// If this function is being called a second time as part of a retry, the cell may already have content
+		// so we need to clear it first
+		if (process.platform === 'darwin') {
+            await this.code.dispatchKeybinding('cmd+A');
+        }
+        else {
+            await this.code.dispatchKeybinding('ctrl+A');
+        }
+		await this.code.dispatchKeybinding('Delete');
+
 		await this.notebook.waitForTypeInEditor(code);
 		await this.quickaccess.runCommand(EXECUTE_CELL_COMMAND);
 	}

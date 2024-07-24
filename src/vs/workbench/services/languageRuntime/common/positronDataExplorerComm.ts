@@ -190,6 +190,12 @@ export interface FormatOptions {
 	max_integral_digits: number;
 
 	/**
+	 * Maximum size of formatted value, for truncating large strings or other
+	 * large formatted values
+	 */
+	max_value_length: number;
+
+	/**
 	 * Thousands separator string
 	 */
 	thousands_sep?: string;
