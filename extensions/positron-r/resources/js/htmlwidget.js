@@ -52,54 +52,52 @@ const arrayify = (obj) => {
  *  loaded.
  */
 const renderDependencies = (dependencies) => {
-	return new Promise((resolve, _reject) => {
-		let scriptsRemaining = 0;
-		for (let i = 0; i < dependencies.length; i++) {
-			const dep = dependencies[i];
+	// Create a promise that'll resolve when all scripts are loaded;
+	// we'll chain to it as we render each dependency.
+	let scriptsLoaded = Promise.resolve();
 
-			// For now, we only support local file dependencies. HTML widgets
-			// can also rely on external libraries, using `href` rather than
-			// `file`.
-			if (!dep.src.file) {
-				continue;
-			}
+	for (const dep of dependencies) {
+		// For now, we only support local file dependencies. HTML widgets
+		// can also rely on external libraries, using `href` rather than
+		// `file`.
+		if (!dep.src.file) {
+			continue;
+		}
 
-			// Compute the root as a webview URI.
-			const root = asWebviewUri(dep.src.file);
+		// Compute the root as a webview URI.
+		const root = asWebviewUri(dep.src.file);
 
-			// Add each script.
-			arrayify(dep.script).forEach((file) => {
-
+		// Add each script.
+		arrayify(dep.script).map((file) => {
+			// Chain promises so that scripts are appended and loaded sequentially.
+			scriptsLoaded = scriptsLoaded.then(() => {
 				// Create the script element.
 				const script = document.createElement('script');
 				script.setAttribute('src', root + '/' + file);
 
-				// Increment the number of scripts remaining; once they have all
-				// loaded, resolve.
-				scriptsRemaining++;
-				script.addEventListener('load', () => {
-					scriptsRemaining--;
-					if (scriptsRemaining === 0) {
+				// Append the script and return a promise that resolves when the script has loaded.
+				const scriptLoaded = new Promise(resolve => {
+					const handler = () => {
+						script.removeEventListener('load', handler);
 						resolve();
-					}
+					};
+					script.addEventListener('load', handler);
 				});
 				document.head.appendChild(script);
+				return scriptLoaded;
 			});
+		});
 
-			// Add each stylesheet.
-			arrayify(dep.stylesheet).forEach((file) => {
-				const link = document.createElement('link');
-				link.setAttribute('rel', 'stylesheet');
-				link.setAttribute('href', root + '/' + file);
-				document.head.appendChild(link);
-			});
-		}
+		// Add each stylesheet.
+		arrayify(dep.stylesheet).forEach((file) => {
+			const link = document.createElement('link');
+			link.setAttribute('rel', 'stylesheet');
+			link.setAttribute('href', root + '/' + file);
+			document.head.appendChild(link);
+		});
+	}
 
-		// If there are no scripts, resolve immediately.
-		if (scriptsRemaining === 0) {
-			resolve();
-		}
-	});
+	return scriptsLoaded;
 };
 
 /**
