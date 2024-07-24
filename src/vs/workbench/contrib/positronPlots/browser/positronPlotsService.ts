@@ -147,10 +147,7 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 		// Listen for plot clients being created by the IPyWidget service and register them with the plots service
 		// so they can be displayed in the plots pane.
 		this._register(this._positronIPyWidgetsService.onDidCreatePlot((plotClient) => {
-			this._plots.unshift(plotClient);
-			this._onDidEmitPlot.fire(plotClient);
-			this._onDidSelectPlot.fire(plotClient.id);
-			this._register(plotClient);
+			this.registerNewPlotClient(plotClient);
 		}));
 
 		// When the storage service is about to save state, store the current history policy
@@ -612,11 +609,7 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 		sessionId: string,
 		message: ILanguageRuntimeMessageOutput,
 		code?: string) {
-		const client = new StaticPlotClient(sessionId, message, code);
-		this._plots.unshift(client);
-		this._onDidEmitPlot.fire(client);
-		this._onDidSelectPlot.fire(client.id);
-		this._register(client);
+		this.registerNewPlotClient(new StaticPlotClient(sessionId, message, code));
 	}
 
 	/**
@@ -635,11 +628,7 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 		const webview = await this._notebookOutputWebviewService.createNotebookOutputWebview(
 			runtime, message);
 		if (webview) {
-			const client = new NotebookOutputPlotClient(webview, message, code);
-			this._plots.unshift(client);
-			this._onDidEmitPlot.fire(client);
-			this._onDidSelectPlot.fire(client.id);
-			this._register(client);
+			this.registerNewPlotClient(new NotebookOutputPlotClient(webview, message, code));
 		}
 	}
 
@@ -887,14 +876,24 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 		const webview = this._positronPreviewService.createHtmlWebview(sessionId,
 			webviewExtension, event) as PreviewHtml;
 
-		const client = new HtmlPlotClient(webview);
+		// Register the new plot client
+		this.registerNewPlotClient(new HtmlPlotClient(webview));
+
+		// Raise the Plots pane so the plot is visible.
+		this._viewsService.openView(POSITRON_PLOTS_VIEW_ID, false);
+	}
+
+	/**
+	 * Registser a new plot client with the service, select it, and fire the
+	 * appropriate events.
+	 *
+	 * @param client The plot client to register
+	 */
+	private registerNewPlotClient(client: IPositronPlotClient) {
 		this._plots.unshift(client);
 		this._onDidEmitPlot.fire(client);
 		this._onDidSelectPlot.fire(client.id);
 		this._register(client);
-
-		// Raise the Plots pane so the plot is visible.
-		this._viewsService.openView(POSITRON_PLOTS_VIEW_ID, false);
 	}
 
 	/**

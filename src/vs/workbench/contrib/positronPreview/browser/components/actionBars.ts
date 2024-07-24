@@ -19,7 +19,7 @@ export const kPaddingLeft = 8;
 export const kPaddingRight = 8;
 
 /**
- * ActionBarsProps interface.
+ * PreviewActionBarsProps interface.
  */
 export interface PreviewActionBarsProps extends PositronSessionsServices {
 	readonly commandService: ICommandService;
