@@ -26,7 +26,7 @@ export function setup(logger: Logger) {
 				await app.workbench.positronLayouts.enterLayout('stacked');
 			});
 
-			it("R - Can produce clickable file links", async function () {
+			it("R - Can produce clickable file links [C683069] #pr", async function () {
 				const app = this.app as Application;
 
 				// Can be any file on the workkspace. We use .gitignore as it's probably
@@ -48,7 +48,7 @@ export function setup(logger: Logger) {
 				}).toPass({ timeout: 60000 });
 			});
 
-			it("R - Can produce clickable help links", async function () {
+			it("R - Can produce clickable help links [C683070] #pr", async function () {
 				const app = this.app as Application;
 				const inputCode = `cli::cli_inform("{.fun base::mean}")`;
 
@@ -68,7 +68,7 @@ export function setup(logger: Logger) {
 				}).toPass({ timeout: 60000 });
 			});
 
-			it("R - Can produce colored output", async function () {
+			it("R - Can produce colored output [C683071] #pr", async function () {
 				const app = this.app as Application;
 
 				const color = '#ff3333';
