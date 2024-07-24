@@ -126,10 +126,8 @@ cat(sprintf('Hello %s!\n', val))`;
 					await app.workbench.positronConsole.pasteCodeToConsole(inputCode);
 					await app.workbench.positronConsole.sendEnterKey();
 
-					const activeConsole = app.workbench.positronConsole.activeConsole;
-
 					// Locate the link and click on it
-					const link = activeConsole.locator('.output-run-hyperlink').last();
+					const link = app.workbench.positronConsole.getLastClickableLink();
 					await expect(link).toContainText(fileName, { useInnerText: true });
 
 					await link.click();
@@ -147,10 +145,8 @@ cat(sprintf('Hello %s!\n', val))`;
 					await app.workbench.positronConsole.pasteCodeToConsole(inputCode);
 					await app.workbench.positronConsole.sendEnterKey();
 
-					const activeConsole = app.workbench.positronConsole.activeConsole;
-
 					// Locate the link and click on it
-					const link = activeConsole.locator('.output-run-hyperlink').last();
+					const link = app.workbench.positronConsole.getLastClickableLink();
 					await expect(link).toContainText('base::mean', { useInnerText: true });
 
 					await link.click();
@@ -159,6 +155,29 @@ cat(sprintf('Hello %s!\n', val))`;
 					const helpFrame = await app.workbench.positronHelp.getHelpFrame(0);
 					await expect(helpFrame.locator('body')).toContainText('Arithmetic Mean');
 				}).toPass({ timeout: 60000 });
+			});
+
+			it("R - Can produce colored output", async function () {
+				const app = this.app as Application;
+
+				const color = '#ff3333';
+				const rgb_color = "rgb(255, 51, 51)"; // same as above but in rgb
+
+				await expect(async () => {
+					await app.workbench.positronConsole.pasteCodeToConsole(
+						`
+						cli::cli_div(theme = list(span.emph = list(color = "${color}")))
+						cli::cli_text("This is very {.emph important}")
+						cli::cli_end()
+						`
+					);
+				}).toPass();
+
+				await app.workbench.positronConsole.sendEnterKey();
+
+				const styled_locator = app.workbench.positronConsole.activeConsole.getByText("important").last();
+				await expect(styled_locator).toHaveCSS('font-style', 'italic');
+				await expect(styled_locator).toHaveCSS('color', rgb_color);
 			});
 
 			it("R - Esc only dismisses autocomplete not full text typed into console", async function () {

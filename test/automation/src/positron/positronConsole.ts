@@ -165,4 +165,8 @@ export class PositronConsole {
 			element.dispatchEvent(clipboardEvent);
 		}, text);
 	}
+
+	getLastClickableLink() {
+		return this.activeConsole.locator('.output-run-hyperlink').last();
+	}
 }
