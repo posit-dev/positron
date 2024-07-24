@@ -20,23 +20,22 @@ additional information to help us prioritize the issue.
 
 -->
 
+## System details:
 
-## Positron and language versions:
+Positron and OS details:
 
-<!--
+<!-- Copy from the Positron > About menu -->
 
-- Copy the Positron Version from the Positron > About menu
-- What language are you using? e.g. R 4.4.1 or Python 3.11.6
+Language details:
 
--->
+<!-- What language are you using? e.g. R 4.4.1 or Python 3.11.6 -->
+
+## Describe the issue:
+
 
 ## Steps to reproduce the issue:
 
-<!--
-
-For example, are you using a Jupyter notebook, R script, Quarto document, etc?
-
--->
+<!-- For example, are you using a Jupyter notebook, R script, Quarto document, etc? -->
 
 1.
 2.
