@@ -69,9 +69,9 @@ export const HtmlActionBars = (props: PropsWithChildren<HtmlActionBarsProps>) =>
 				<PositronActionBar size='small' borderTop={true} borderBottom={true} paddingLeft={kPaddingLeft} paddingRight={kPaddingRight}>
 					<ActionBarRegion location='left'>
 						<span className='codicon codicon-file'></span>
-						<span className='preview-title'>{title}</span>
 					</ActionBarRegion>
 					<ActionBarRegion location='center'>
+						<span className='preview-title'>{title}</span>
 					</ActionBarRegion>
 					<ActionBarRegion location='right'>
 						<ActionBarButton
