@@ -39,8 +39,13 @@ if (process.env.BUILD_ARTIFACTSTAGINGDIRECTORY) {
 const mocha = new Mocha(options);
 mocha.addFile('out/main.js');
 // --- Start Positron ---
-mocha.grep(process.env.TEST_FILTER || '');
-// mocha.dryRun(); // debugging
+if (process.env.TEST_FILTER) {
+	mocha.grep(process.env.TEST_FILTER);
+} else if (process.env.INVERSE_FILTER) {
+	mocha.grep(process.env.INVERSE_FILTER);
+	mocha.invert();
+}
+// mocha.dryRun(); // debugging filters
 // --- End Positron ---
 mocha.run(failures => {
 
