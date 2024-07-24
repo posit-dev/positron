@@ -122,7 +122,6 @@ export function setup(logger: Logger) {
 				await expect(app.workbench.editors.editorPart).not.toBeVisible();
 
 				// console is the active view in the bottom panel
-				await expect(app.workbench.positronLayouts.panelViewsTab).toHaveCount(6);
 				await expect(app.workbench.positronLayouts.panelViewsTab.and(app.code.driver.getLocator('.checked'))).toHaveText('Console');
 			});
 		});

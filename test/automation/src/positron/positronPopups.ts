@@ -10,6 +10,7 @@ const POSITRON_MODAL_DIALOG_BOX = '.positron-modal-dialog-box';
 const POSITRON_MODAL_DIALOG_BOX_OK = '.positron-modal-dialog-box .ok-cancel-action-bar .positron-button.action-bar-button.default';
 const POSITRON_MODAL_DIALOG_BOX_CANCEL = '.positron-modal-dialog-box .ok-cancel-action-bar .positron-button.action-bar-button:not(.default)';
 const POSITRON_MODAL_DIALOG_BOX_TITLE = '.positron-modal-dialog-box .simple-title-bar-title';
+const POSITRON_MODAL_DIALOG_POPUP_OPTION = '.positron-modal-popup .positron-modal-popup-children';
 const NOTIFICATION_TOAST = '.notification-toast';
 
 /*
@@ -103,7 +104,7 @@ export class PositronPopups {
 	 * @param label The label of the option to select.
 	 */
 	async clickOnModalDialogPopupOption(label: string | RegExp) {
-		const el = this.code.driver.getLocator('.positron-modal-popup .positron-modal-popup-children').getByText(label);
+		const el = this.code.driver.getLocator(POSITRON_MODAL_DIALOG_POPUP_OPTION).getByText(label);
 		await el.click();
 	}
 
