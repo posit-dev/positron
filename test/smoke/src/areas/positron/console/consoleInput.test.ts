@@ -113,7 +113,7 @@ cat(sprintf('Hello %s!\n', val))`;
 				}).toPass({ timeout: 60000 });
 			});
 
-			it("R - Can produce clickable links via cli", async function () {
+			it("R - Can produce clickable file links", async function () {
 				const app = this.app as Application;
 
 				// Can be any file on the workkspace. We use .gitignore as it's probably
@@ -129,14 +129,68 @@ cat(sprintf('Hello %s!\n', val))`;
 					const activeConsole = app.workbench.positronConsole.activeConsole;
 
 					// Locate the link and click on it
-					const link = activeConsole.locator('.output-run-hyperlink');
-					expect(link).toHaveText(fileName, { useInnerText: true });
+					const link = activeConsole.locator('.output-run-hyperlink').last();
+					await expect(link).toContainText(fileName, { useInnerText: true });
 
 					await link.click();
 					await app.code.wait(200);
 
 					await app.workbench.editors.waitForActiveTab(fileName);
 				}).toPass({ timeout: 60000 });
+			});
+
+			it("R - Can produce clickable help links", async function () {
+				const app = this.app as Application;
+				const inputCode = `cli::cli_inform("{.fun base::mean}")`;
+
+				await expect(async () => {
+					await app.workbench.positronConsole.pasteCodeToConsole(inputCode);
+					await app.workbench.positronConsole.sendEnterKey();
+
+					const activeConsole = app.workbench.positronConsole.activeConsole;
+
+					// Locate the link and click on it
+					const link = activeConsole.locator('.output-run-hyperlink').last();
+					await expect(link).toContainText('base::mean', { useInnerText: true });
+
+					await link.click();
+					await app.code.wait(200);
+
+					const helpFrame = await app.workbench.positronHelp.getHelpFrame(0);
+					await expect(helpFrame.locator('body')).toContainText('Arithmetic Mean');
+				}).toPass({ timeout: 60000 });
+			});
+
+			it("R - Esc only dismisses autocomplete not full text typed into console", async function () {
+				// This is a regression test for https://github.com/posit-dev/positron/issues/1161
+
+				const app = this.app as Application;
+				const inputCode = `base::mea`;
+
+				await expect(async () => {
+					await app.workbench.positronConsole.typeToConsole(inputCode);
+				}).toPass({ timeout: 600 });
+
+				await app.code.wait(300);
+				const activeConsole = app.workbench.positronConsole.activeConsole;
+
+				// Makes sure the code suggestions are activated
+				const suggestion = activeConsole.locator('.suggest-widget');
+				await expect(suggestion).toBeVisible();
+
+				// We now send `Esc` to dismiss the suggestion
+				await app.workbench.positronConsole.sendKeyboardKey('Escape');
+				await expect(suggestion).toBeHidden();
+
+				const inputLocator = activeConsole.locator(".console-input");
+
+				// Send the next `Esc`, that shoukldn't cleanup the typed text
+				await app.workbench.positronConsole.sendKeyboardKey('Escape');
+				await expect(inputLocator).toContainText('base::mea');
+
+				// We can clear the console text with Ctrl + C
+				await app.workbench.positronConsole.sendKeyboardKey('Control+C');
+				await expect(inputLocator).not.toContainText("base::mea");
 			});
 		});
 	});
