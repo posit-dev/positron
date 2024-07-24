@@ -50,16 +50,12 @@ export interface IPositronPreviewService {
 	/**
 	 * Opens a URI in the preview pane.
 	 *
-	 * @param sessionId The session ID of the preview.
 	 * @param previewId The unique ID or handle of the preview.
-	 * @param origin The origin of the URL.
 	 * @param extension The extension that is opening the URL.
 	 * @param uri The URI to open in the preview.
 	 */
 	openUri(
-		sessionId: string,
 		previewId: string,
-		origin: string,
 		extension: WebviewExtensionDescription | undefined,
 		uri: URI): PreviewWebview;
 
@@ -67,20 +63,19 @@ export interface IPositronPreviewService {
 	 * Opens an HTML file in the preview pane.
 	 *
 	 * @param previewId The unique ID or handle of the preview.
-	 * @param origin The origin of the URL.
 	 * @param extension The extension that is opening the URL.
 	 * @param path The path to the HTML file.
 	 */
 	openHtml(
 		previewId: string,
-		origin: string,
 		extension: WebviewExtensionDescription | undefined,
 		path: string): Promise<PreviewWebview>;
 
 	/**
 	 * Opens an HTML file from a runtime message in the preview pane. This
 	 * method just creates and returns the preview; it doesn't show it in the
-	 * pane.
+	 * pane. Used by the Plots service to create a webview for an interactive
+	 * plot.
 	 *
 	 * @param sessionId The session ID of the preview.
 	 * @param extension The extension that is opening the URL.

@@ -70,6 +70,6 @@ export class PositronOpenUrlInViewerAction extends Action2 {
 		}
 
 		const previewId = `userRequestedPreview-${PositronOpenUrlInViewerAction._previewCounter++}`;
-		previewService.openUri('', previewId, 'origin', undefined, uri);
+		previewService.openUri(previewId, undefined, uri);
 	}
 }

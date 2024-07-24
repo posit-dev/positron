@@ -102,8 +102,10 @@ export class PositronPreviewService extends Disposable implements IPositronPrevi
 		}));
 	}
 
-	createHtmlWebview(sessionId: string, extension: WebviewExtensionDescription | undefined, event: IShowHtmlUriEvent): PreviewHtml {
-		const preview = this.createPreview(sessionId, `previewHtml.${PositronPreviewService._previewIdCounter++}`, '', extension, event.uri, event.event);
+	createHtmlWebview(sessionId: string,
+		extension: WebviewExtensionDescription | undefined,
+		event: IShowHtmlUriEvent): PreviewHtml {
+		const preview = this.createPreviewHtml(sessionId, `previewHtml.${PositronPreviewService._previewIdCounter++}`, extension, event.uri, event.event);
 		return preview as PreviewHtml;
 	}
 
@@ -188,12 +190,22 @@ export class PositronPreviewService extends Disposable implements IPositronPrevi
 		return preview;
 	}
 
-	private createPreview(sessionId: string, previewId: string, origin: string, extension: WebviewExtensionDescription | undefined, uri: URI, event?: ShowHtmlFileEvent): PreviewWebview {
+	/**
+	 * Create an overlay webview to host preview content.
+	 *
+	 * @param viewType The view type of the preview
+	 * @param uri The URI to show in the webview
+	 * @param extension Optional information about the extension that is
+	 *  creating the preview
+	 * @returns
+	 */
+	private createWebview(
+		viewType: string,
+		uri: URI,
+		extension: WebviewExtensionDescription | undefined): PreviewOverlayWebview {
 		const webviewInitInfo: WebviewInitInfo = {
 			origin,
-			providedViewType: event ?
-				POSITRON_PREVIEW_HTML_VIEW_TYPE :
-				POSITRON_PREVIEW_URL_VIEW_TYPE,
+			providedViewType: viewType,
 			title: '',
 			options: {
 				enableFindWidget: true,
@@ -211,32 +223,70 @@ export class PositronPreviewService extends Disposable implements IPositronPrevi
 
 		const webview = this._webviewService.createWebviewOverlay(webviewInitInfo);
 		const overlay = this.createOverlayWebview(webview);
-		const preview = event ?
-			new PreviewHtml(sessionId, previewId, overlay, uri, event) :
-			new PreviewUrl(previewId, overlay, uri);
+		return overlay;
+	}
 
+	/**
+	 * Create a URL preview.
+	 */
+	private createPreviewUrl(
+		previewId: string,
+		extension: WebviewExtensionDescription | undefined, uri: URI): PreviewUrl {
+		const overlay = this.createWebview(POSITRON_PREVIEW_URL_VIEW_TYPE, uri, extension);
+		return new PreviewUrl(previewId, overlay, uri);
+	}
+
+	/**
+	 * Create a preview for an HTML file (being proxied at a URI).
+	 */
+	private createPreviewHtml(
+		sessionId: string,
+		previewId: string,
+		extension: WebviewExtensionDescription | undefined,
+		uri: URI,
+		event: ShowHtmlFileEvent): PreviewHtml {
+		const overlay = this.createWebview(POSITRON_PREVIEW_HTML_VIEW_TYPE, uri, extension);
+		return new PreviewHtml(sessionId, previewId, overlay, uri, event);
+	}
+
+	/**
+	 * Open a URI in the preview pane.
+	 */
+	public openUri(
+		previewId: string,
+		extension: WebviewExtensionDescription,
+		uri: URI): PreviewWebview {
+		const preview = this.createPreviewUrl(previewId, extension, uri);
+		this.makeActivePreview(preview);
 		return preview;
 	}
 
-	openUri(sessionId: string, previewId: string, origin: string, extension: WebviewExtensionDescription, uri: URI, event?: ShowHtmlFileEvent): PreviewWebview {
-		// Create the preview
-		const preview = this.createPreview(sessionId, previewId, origin, extension, uri, event);
-
+	private makeActivePreview(preview: PreviewWebview) {
 		// Remove any other previews from the item list; they can be expensive
 		// to keep around.
 		this._items.forEach((value, _key) => {
 			value.dispose();
 		});
 		this._items.clear();
-		this._items.set(previewId, preview);
+		this._items.set(preview.previewId, preview);
 
 		// Open the preview
 		this.openPreviewWebview(preview);
-
-		return preview;
 	}
 
-	async openHtml(previewId: string, origin: string, extension: WebviewExtensionDescription, htmlpath: string): Promise<PreviewWebview> {
+	/**
+	 * Opens an HTML file in the preview pane.
+	 *
+	 * @param previewId The unique ID or handle of the preview.
+	 * @param extension The extension that is opening the URL.
+	 * @param htmlpath The path to the HTML file.
+	 */
+	public async openHtml(
+		previewId: string,
+		extension: WebviewExtensionDescription,
+		htmlpath: string): Promise<PreviewHtml> {
+
+		// Use the Positron Proxy extension to create a URL for the HTML file.
 		const url = await this._commandService.executeCommand<string>(
 			'positronProxy.startHtmlProxyServer',
 			htmlpath
@@ -246,6 +296,8 @@ export class PositronPreviewService extends Disposable implements IPositronPrevi
 			throw new Error(`Failed to start HTML file proxy server for ${htmlpath}`);
 		}
 
+		// Parse the URL and resolve it if necessary. The resolution step is
+		// necessary when URI is hosted on a remote server.
 		let uri = URI.parse(url);
 		try {
 			const resolvedUri = await this._openerService.resolveExternalUri(uri);
@@ -254,28 +306,24 @@ export class PositronPreviewService extends Disposable implements IPositronPrevi
 			// Noop; use the original URI
 		}
 
+		// Create a ShowFileEvent for the HTML file.
 		const evt: ShowHtmlFileEvent = {
 			height: 0,
 			kind: basename(htmlpath),
 			is_plot: false,
 			path: htmlpath,
 		};
-		const preview = this.createPreview('', previewId, origin, extension, uri, evt);
 
-		this._items.forEach((value, _key) => {
-			value.dispose();
-		});
-		this._items.clear();
-		this._items.set(previewId, preview);
+		// Create the preview
+		const preview = this.createPreviewHtml('', previewId, extension, uri, evt);
 
-		// Open the preview
-		this.openPreviewWebview(preview);
-
+		// Make the preview active and return it
+		this.makeActivePreview(preview);
 		return preview;
 	}
 
 	/**
-	 * Electron override for creating preview URL objects; returns the Electron variant.
+	 * Create an overlay webview.
 	 */
 	protected createOverlayWebview(
 		webview: IOverlayWebview): PreviewOverlayWebview {
@@ -368,8 +416,10 @@ export class PositronPreviewService extends Disposable implements IPositronPrevi
 			id: extension
 		};
 
-		// Open the requested URI.
-		this.openUri(session.sessionId, previewId, POSITRON_PREVIEW_HTML_VIEW_TYPE, webviewExtension, event.uri, event.event);
+		// Create the preview
+		const preview = this.createPreviewHtml(session.sessionId, previewId, webviewExtension, event.uri, event.event);
+
+		this.makeActivePreview(preview);
 	}
 
 	/**
@@ -413,7 +463,7 @@ export class PositronPreviewService extends Disposable implements IPositronPrevi
 		const previewId = `previewUrl.${PositronPreviewService._previewIdCounter++}`;
 
 		// Open the requested URI.
-		this.openUri(session.sessionId, previewId, POSITRON_PREVIEW_URL_VIEW_TYPE, webviewExtension, uri);
+		this.openUri(previewId, webviewExtension, uri);
 	}
 
 	/**
