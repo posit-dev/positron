@@ -26,9 +26,9 @@ Positron and OS details:
 
 <!-- Copy from the `Positron > About` menu -->
 
-Language details:
+Interpreter details:
 
-<!-- What language are you using? e.g. R 4.4.1 or Python 3.11.6 -->
+<!-- e.g. R 4.4.1 or Python 3.11.6 -->
 
 ## Describe the issue:
 
