@@ -39,6 +39,7 @@ import { NotebookOutputPlotClient } from 'vs/workbench/contrib/positronPlots/bro
 import { HtmlPlotClient } from 'vs/workbench/contrib/positronPlots/browser/htmlPlotClient';
 import { PreviewHtml } from 'vs/workbench/contrib/positronPreview/browser/previewHtml';
 import { IOpenerService } from 'vs/platform/opener/common/opener';
+import { IExtensionService } from 'vs/workbench/services/extensions/common/extensions';
 
 /** The maximum number of recent executions to store. */
 const MaxRecentExecutions = 10;
@@ -118,7 +119,8 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 		@IWorkbenchLayoutService private readonly _layoutService: IWorkbenchLayoutService,
 		@IKeybindingService private readonly _keybindingService: IKeybindingService,
 		@IClipboardService private _clipboardService: IClipboardService,
-		@IDialogService private readonly _dialogService: IDialogService) {
+		@IDialogService private readonly _dialogService: IDialogService,
+		@IExtensionService private readonly _extensionService: IExtensionService) {
 		super();
 
 		// Register for language runtime service startups
@@ -182,6 +184,34 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 					StorageTarget.MACHINE);
 			}
 		});
+
+		// When the extension service is about to stop, remove any HTML plots
+		// from the plots list. These plots are backed by a proxy that runs in
+		// the extension host, so may become invalid when the extension host is
+		// stopped.
+		this._register(this._extensionService.onWillStop((e) => {
+			// Nothing to do if there are no plots
+			if (this._plots.length === 0) {
+				return;
+			}
+			let removedSelectedPlot = false;
+			this._plots.forEach((plot) => {
+				if (plot instanceof HtmlPlotClient) {
+					plot.dispose();
+					if (this._selectedPlotId === plot.id) {
+						removedSelectedPlot = true;
+					}
+					this._plots.splice(this._plots.indexOf(plot), 1);
+				}
+			});
+
+			this._onDidReplacePlots.fire(this._plots);
+
+			// If we removed the selected plot, select the first plot in the list
+			if (removedSelectedPlot && this._plots.length > 0) {
+				this.selectPlot(this._plots[0].id);
+			}
+		}));
 
 		// Create the default sizing policy
 		this._selectedSizingPolicy = new PlotSizingPolicyAuto();
