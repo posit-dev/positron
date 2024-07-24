@@ -24,6 +24,7 @@ import { PreviewOverlayWebview } from 'vs/workbench/contrib/positronPreview/brow
 import { PreviewHtml } from 'vs/workbench/contrib/positronPreview/browser/previewHtml';
 import { ICommandService } from 'vs/platform/commands/common/commands';
 import { basename } from 'vs/base/common/path';
+import { IExtensionService } from 'vs/workbench/services/extensions/common/extensions';
 
 /**
  * Positron preview service; keeps track of the set of active previews and
@@ -51,6 +52,7 @@ export class PositronPreviewService extends Disposable implements IPositronPrevi
 		@ILogService private readonly _logService: ILogService,
 		@IOpenerService private readonly _openerService: IOpenerService,
 		@IPositronNotebookOutputWebviewService private readonly _notebookOutputWebviewService: IPositronNotebookOutputWebviewService,
+		@IExtensionService private readonly _extensionService: IExtensionService
 	) {
 		super();
 		this.onDidCreatePreviewWebview = this._onDidCreatePreviewWebviewEmitter.event;
@@ -58,10 +60,10 @@ export class PositronPreviewService extends Disposable implements IPositronPrevi
 		this._runtimeSessionService.activeSessions.forEach(runtime => {
 			this.attachRuntime(runtime);
 		});
-		this._runtimeSessionService.onWillStartSession(e => {
+		this._register(this._runtimeSessionService.onWillStartSession(e => {
 			this.attachRuntime(e.session);
-		});
-		this._runtimeSessionService.onDidReceiveRuntimeEvent(e => {
+		}));
+		this._register(this._runtimeSessionService.onDidReceiveRuntimeEvent(e => {
 			if (e.event.name === UiFrontendEvent.ShowUrl ||
 				e.event.name === UiFrontendEvent.ShowHtmlFile
 			) {
@@ -86,7 +88,18 @@ export class PositronPreviewService extends Disposable implements IPositronPrevi
 					this.handleShowUrlEvent(session, e.event.data as ShowUrlEvent);
 				}
 			}
-		});
+		}));
+
+		// When the extension host is about to stop, dispose all previews that
+		// use HTML proxies, since these proxies live in the extension host.
+		this._register(this._extensionService.onWillStop((e) => {
+			for (const preview of this._items.values()) {
+				if (preview instanceof PreviewHtml) {
+					preview.webview.dispose();
+					this._items.delete(preview.previewId);
+				}
+			}
+		}));
 	}
 
 	createHtmlWebview(sessionId: string, extension: WebviewExtensionDescription | undefined, event: IShowHtmlUriEvent): PreviewHtml {
