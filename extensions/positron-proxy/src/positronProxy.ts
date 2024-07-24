@@ -123,7 +123,8 @@ export class PositronProxy implements Disposable {
 	private _proxyServers = new Map<string, ProxyServer>();
 
 	/**
-	 * The HTML proxy server.
+	 * The HTML proxy server. There's only ever one of these; it serves all raw
+	 * HTML content.
 	 */
 	private _htmlProxyServer?: HtmlProxyServer;
 

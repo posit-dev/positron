@@ -4,6 +4,10 @@
  *--------------------------------------------------------------------------------------------*/
 
 
+/**
+ * PromiseHandles is a class that represents a promise that can be resolved or
+ * rejected externally.
+ */
 export class PromiseHandles<T> {
 	resolve!: (value: T | Promise<T>) => void;
 

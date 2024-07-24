@@ -130,6 +130,7 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 
 		// Register for UI comm events
 		this._register(this._runtimeSessionService.onDidReceiveRuntimeEvent(event => {
+			// If we have a new HTML file to show, turn it into a webview plot.
 			if (event.event.name === UiFrontendEvent.ShowHtmlFile) {
 				const data = event.event.data as IShowHtmlUriEvent;
 				if (data.event.is_plot) {

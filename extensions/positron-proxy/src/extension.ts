@@ -53,6 +53,7 @@ export function activate(context: vscode.ExtensionContext) {
 		)
 	);
 
+	// Register the positronProxy.showHtmlPreview command and add its disposable.
 	context.subscriptions.push(
 		vscode.commands.registerCommand(
 			'positronProxy.showHtmlPreview',

@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -8,13 +8,14 @@ import { WebviewPlotClient } from 'vs/workbench/contrib/positronPlots/browser/we
 import { ILanguageRuntimeMessageOutput } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 
 /**
- * A Positron plot instance that is backed by a webview.
+ * A Positron plot instance created from notebook output rendered into a
+ * webview.
  */
 export class NotebookOutputPlotClient extends WebviewPlotClient {
 
 	/**
-	 * Creates a new WebviewPlotClient, which wraps a notebook output webview in
-	 * an object that can be displayed in the Plots pane.
+	 * Creates a new NotebookOutputPlotClient, which wraps a notebook output
+	 * webview in an object that can be displayed in the Plots pane.
 	 *
 	 * @param webview The webview to wrap.
 	 * @param message The output message from which the webview was created.

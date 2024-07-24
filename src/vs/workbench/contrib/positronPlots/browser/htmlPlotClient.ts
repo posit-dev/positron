@@ -7,7 +7,7 @@ import { WebviewPlotClient } from 'vs/workbench/contrib/positronPlots/browser/we
 import { PreviewHtml } from 'vs/workbench/contrib/positronPreview/browser/previewHtml';
 
 /**
- * A Positron plot instance that is backed by a webview.
+ * A Positron plot instance that contains content from an HTML file.
  */
 export class HtmlPlotClient extends WebviewPlotClient {
 
@@ -18,8 +18,6 @@ export class HtmlPlotClient extends WebviewPlotClient {
 	 * object that can be displayed in the Plots pane.
 	 *
 	 * @param html The webview to wrap.
-	 * @param message The output message from which the webview was created.
-	 * @param code The code that generated the webview (if known)
 	 */
 	constructor(public readonly html: PreviewHtml) {
 		// Create the metadata for the plot.
@@ -31,6 +29,7 @@ export class HtmlPlotClient extends WebviewPlotClient {
 			code: '',
 		}, html.webview.webview);
 
+		// Render the thumbnail when the webview loads.
 		this._register(this.html.webview.onDidLoad(e => {
 			this.nudgeRenderThumbnail();
 		}));
