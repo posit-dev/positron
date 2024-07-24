@@ -57,7 +57,9 @@ export const HtmlActionBars = (props: PropsWithChildren<HtmlActionBarsProps>) =>
 		// Create the disposable store for cleanup.
 		const disposableStore = new DisposableStore();
 		disposableStore.add(props.preview.webview.onDidLoad((title) => {
-			setTitle(title);
+			if (title) {
+				setTitle(title);
+			}
 		}));
 		return () => disposableStore.dispose();
 	});
