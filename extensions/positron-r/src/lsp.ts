@@ -110,7 +110,7 @@ export class ArkLsp implements vscode.Disposable {
 			// Otherwise, this is the main client for this language, so set the document selector to include
 			// untitled R files, in-memory R files (e.g. the console), and R / Quarto / R Markdown files on disk.
 			documentSelector: notebookUri ?
-				[{ language: 'r', pattern: notebookUri.path }] :
+				[{ language: 'r', pattern: notebookUri.fsPath }] :
 				R_DOCUMENT_SELECTORS,
 			synchronize: notebookUri ?
 				undefined :
