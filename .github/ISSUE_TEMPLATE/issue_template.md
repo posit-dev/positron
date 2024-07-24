@@ -10,7 +10,7 @@ Thanks for taking the time to file an issue!
 Take a look at our guidance on feedback and issues:
 https://github.com/posit-dev/positron/wiki/Feedback-and-Issues
 
-Most feedback should start in GitHub Discussions rather than as an issue:
+General questions about Positron should start in GitHub Discussions rather than as an issue:
 https://github.com/posit-dev/positron/discussions
 
 To avoid creating duplicates, please take the time to search our existing issues:
@@ -48,8 +48,8 @@ Language details:
 
 <!--
 
-Open the Developer Tools console by running the `Developer: Toggle Developer Tools` command from the Command Palette.
-A guide to locating the correct Output channel can be found here: https://github.com/posit-dev/positron/wiki/Troubleshooting
+- Open the Developer Tools console by running the `Developer: Toggle Developer Tools` command from the Command Palette
+- Open the relevant Output Channel logs by utilizing this guide https://github.com/posit-dev/positron/wiki/Troubleshooting
 
 -->
 
