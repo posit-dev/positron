@@ -15,11 +15,11 @@ import { installAllHandlers } from '../../../utils';
 export function setup(logger: Logger) {
 	describe('Welcome Page', () => {
 		installAllHandlers(logger);
-		
+
 		before(async function () {
 			await PositronPythonFixtures.SetupFixtures(this.app as Application);
 		});
-		
+
 		beforeEach(async function () {
 			const app = this.app as Application;
 
@@ -32,7 +32,7 @@ export function setup(logger: Logger) {
 			await app.workbench.quickaccess.runCommand('View: Close All Editors');
 		});
 
-		it('Verify Welcome page header and footer', async function () {
+		it('Verify Welcome page header and footer [C684750]', async function () {
 			const app = this.app as Application;
 
 			await expect(app.workbench.positronWelcome.logo).toBeVisible();
@@ -43,7 +43,7 @@ export function setup(logger: Logger) {
 			await expect(app.workbench.positronWelcome.footer).toHaveText('Show welcome page on startup');
 		});
 
-		it('Verify Welcome page content', async function () {
+		it('Verify Welcome page content [C610960]', async function () {
 			const app = this.app as Application;
 			const OPEN_BUTTONS_LABELS = process.platform === 'darwin' ?
 				['Open...', 'New Folder...', 'New Folder from Git...']
@@ -69,7 +69,7 @@ export function setup(logger: Logger) {
 			await expect(app.workbench.positronWelcome.recentSection.locator('.empty-recent')).toHaveText('You have no recent folders,open a folderto start.');
 		});
 
-		it('Click on new project from the Welcome page', async function () {
+		it('Click on new project from the Welcome page [C684751]', async function () {
 			const app = this.app as Application;
 
 			await app.workbench.positronWelcome.newProjectButton.click();
@@ -88,7 +88,7 @@ export function setup(logger: Logger) {
 				await PositronPythonFixtures.SetupFixtures(this.app as Application);
 			});
 
-			it('Create a new Python file from the Welcome page', async function () {
+			it('Create a new Python file from the Welcome page [C684752]', async function () {
 				const app = this.app as Application;
 
 				await app.workbench.positronWelcome.newFileButton.click();
@@ -100,7 +100,7 @@ export function setup(logger: Logger) {
 				await app.workbench.quickaccess.runCommand('View: Close Editor');
 			});
 
-			it('Create a new Python notebook from the Welcome page', async function () {
+			it('Create a new Python notebook from the Welcome page [C684753]', async function () {
 				const app = this.app as Application;
 
 				await app.workbench.positronWelcome.newNotebookButton.click();
@@ -113,7 +113,7 @@ export function setup(logger: Logger) {
 				await expect(app.workbench.positronNotebooks.kernelLabel).toHaveText(expectedInterpreterVersion);
 			});
 
-			it('Click on Python console from the Welcome page', async function () {
+			it('Click on Python console from the Welcome page [C684754]', async function () {
 				const app = this.app as Application;
 
 				await app.workbench.positronWelcome.newConsoleButton.click();
@@ -135,7 +135,7 @@ export function setup(logger: Logger) {
 				await PositronRFixtures.SetupFixtures(this.app as Application);
 			});
 
-			it('Create a new R file from the Welcome page', async function () {
+			it('Create a new R file from the Welcome page [C684755]', async function () {
 				const app = this.app as Application;
 
 				await app.workbench.positronWelcome.newFileButton.click();
@@ -145,7 +145,7 @@ export function setup(logger: Logger) {
 				await expect(app.workbench.editors.activeEditor.locator(app.workbench.editors.editorIcon)).toHaveClass(/r-lang-file-icon/);
 			});
 
-			it('Click on R console from the Welcome page', async function () {
+			it('Click on R console from the Welcome page [C684756]', async function () {
 				const app = this.app as Application;
 
 				await app.workbench.positronWelcome.newConsoleButton.click();
@@ -161,7 +161,7 @@ export function setup(logger: Logger) {
 				await expect(app.workbench.positronLayouts.panelViewsTab.and(app.code.driver.getLocator('.checked'))).toHaveText('Console');
 			});
 
-			it('Create a new R notebook from the Welcome page', async function () {
+			it('Create a new R notebook from the Welcome page [C684757]', async function () {
 				const app = this.app as Application;
 
 				await app.workbench.positronWelcome.newNotebookButton.click();
