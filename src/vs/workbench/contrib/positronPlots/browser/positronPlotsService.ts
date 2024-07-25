@@ -193,13 +193,13 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 				return;
 			}
 			let removedSelectedPlot = false;
-			this._plots.forEach((plot) => {
+			this._plots.forEach((plot, index) => {
 				if (plot instanceof HtmlPlotClient) {
 					plot.dispose();
 					if (this._selectedPlotId === plot.id) {
 						removedSelectedPlot = true;
 					}
-					this._plots.splice(this._plots.indexOf(plot), 1);
+					this._plots.splice(index, 1);
 				}
 			});
 

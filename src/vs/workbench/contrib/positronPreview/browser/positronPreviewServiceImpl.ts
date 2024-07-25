@@ -261,10 +261,16 @@ export class PositronPreviewService extends Disposable implements IPositronPrevi
 		return preview;
 	}
 
+	/**
+	 * Makes a preview the active preview, removing other previews and opening
+	 * the new preview.
+	 *
+	 * @param preview The preview to make active
+	 */
 	private makeActivePreview(preview: PreviewWebview) {
 		// Remove any other previews from the item list; they can be expensive
 		// to keep around.
-		this._items.forEach((value, _key) => {
+		this._items.forEach((value) => {
 			value.dispose();
 		});
 		this._items.clear();

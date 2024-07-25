@@ -5,7 +5,7 @@
 
 import 'vs/css!./actionBars';
 import * as React from 'react';
-import { PropsWithChildren, useEffect } from 'react'; // eslint-disable-line no-duplicate-imports
+import { PropsWithChildren, useEffect, useState } from 'react'; // eslint-disable-line no-duplicate-imports
 import { localize } from 'vs/nls';
 import { PositronActionBar } from 'vs/platform/positronActionBar/browser/positronActionBar';
 import { PositronActionBarContextProvider } from 'vs/platform/positronActionBar/browser/positronActionBarContext';
@@ -31,7 +31,7 @@ export interface HtmlActionBarsProps extends PreviewActionBarsProps {
 
 export const HtmlActionBars = (props: PropsWithChildren<HtmlActionBarsProps>) => {
 
-	const [title, setTitle] = React.useState<string>(props.preview.html.title);
+	const [title, setTitle] = useState(props.preview.html.title);
 
 	// Handler for the reload button.
 	const reloadHandler = () => {
@@ -62,7 +62,7 @@ export const HtmlActionBars = (props: PropsWithChildren<HtmlActionBarsProps>) =>
 			}
 		}));
 		return () => disposableStore.dispose();
-	});
+	}, [props.preview.webview]);
 
 	// Render.
 	return (

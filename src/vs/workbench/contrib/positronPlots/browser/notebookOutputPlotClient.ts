@@ -17,7 +17,7 @@ export class NotebookOutputPlotClient extends WebviewPlotClient {
 	 * Creates a new NotebookOutputPlotClient, which wraps a notebook output
 	 * webview in an object that can be displayed in the Plots pane.
 	 *
-	 * @param webview The webview to wrap.
+	 * @param output The notebook output webview to wrap.
 	 * @param message The output message from which the webview was created.
 	 * @param code The code that generated the webview (if known)
 	 */

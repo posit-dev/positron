@@ -88,10 +88,10 @@ export class UiClientInstance extends Disposable {
 	onDidShowHtmlFile: Event<IShowHtmlUriEvent>;
 
 	/** Emitter wrapper for Show URL events */
-	private _onDidShowUrlEmitter = this._register(new Emitter<ShowUrlEvent>());
+	private readonly _onDidShowUrlEmitter = this._register(new Emitter<ShowUrlEvent>());
 
 	/** Emitter wrapper for Show HTML File events */
-	private _onDidShowHtmlFileEmitter = this._register(new Emitter<IShowHtmlUriEvent>());
+	private readonly _onDidShowHtmlFileEmitter = this._register(new Emitter<IShowHtmlUriEvent>());
 
 	/**
 	 * Creates a new frontend client instance.
