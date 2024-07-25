@@ -37,9 +37,14 @@ export function setup(logger: Logger) {
 
 				await app.workbench.positronNotebooks.selectInterpreter('Python Environments', process.env.POSITRON_PY_VER_SEL!);
 
-				await app.workbench.positronNotebooks.executeInFirstCell('y = [2, 3, 4, 5]');
+				await app.workbench.positronNotebooks.addCodeToFirstCell('y = [2, 3, 4, 5]');
 
-				const interpreter = await app.code.waitForElement('.positron-variables-container .action-bar-button-text');
+				await app.workbench.positronNotebooks.executeCodeInCell();
+
+				// just to be safe, give cell some execution time
+				await app.code.wait(1000);
+
+				const interpreter = await app.workbench.positronVariables.getVariablesInterpreter();
 
 				expect(interpreter.textContent).toBe('Untitled-1.ipynb');
 
@@ -81,9 +86,14 @@ export function setup(logger: Logger) {
 
 				await app.workbench.positronNotebooks.selectInterpreter('R Environments', process.env.POSITRON_R_VER_SEL!);
 
-				await app.workbench.positronNotebooks.executeInFirstCell('y <- c(2, 3, 4, 5)');
+				await app.workbench.positronNotebooks.addCodeToFirstCell('y <- c(2, 3, 4, 5)');
 
-				const interpreter = await app.code.waitForElement('.positron-variables-container .action-bar-button-text');
+				await app.workbench.positronNotebooks.executeCodeInCell();
+
+				// just to be safe, give cell some execution time
+				await app.code.wait(1000);
+
+				const interpreter = await app.workbench.positronVariables.getVariablesInterpreter();
 
 				expect(interpreter.textContent).toBe('Untitled-1.ipynb');
 
