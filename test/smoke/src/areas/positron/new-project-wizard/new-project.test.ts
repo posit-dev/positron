@@ -52,10 +52,10 @@ export function setup(logger: Logger) {
 						`myPythonProject${projSuffix}`
 					);
 					// Check that the `.conda` folder gets created in the project
-					expect(async () => {
+					await expect(async () => {
 						const projectFiles = await app.workbench.positronExplorer.getExplorerProjectFiles();
 						expect(projectFiles).toContain('.conda');
-					}).toPass({ timeout: 10000 });
+					}).toPass({ timeout: 50000 });
 					// The console should initialize without any prompts to install ipykernel
 					await app.workbench.positronConsole.waitForReady('>>>', 10000);
 				});
@@ -82,12 +82,12 @@ export function setup(logger: Logger) {
 					await pw.pythonConfigurationStep.existingEnvRadioButton.click();
 					// Select the interpreter that was started above. It's possible that this needs
 					// to be attempted a few times to ensure the interpreters are properly loaded.
-					expect(
+					await expect(
 						async () =>
 							await pw.pythonConfigurationStep.selectInterpreterByPath(
 								interpreterInfo!.path
 							)
-					).toPass({ timeout: 10000 });
+					).toPass({ timeout: 50000 });
 					await pw.pythonConfigurationStep.interpreterFeedback.isNotVisible();
 					await pw.navigate(ProjectWizardNavigateAction.CREATE);
 					await pw.currentOrNewWindowSelectionModal.currentWindowButton.click();
@@ -123,12 +123,12 @@ export function setup(logger: Logger) {
 					await pw.pythonConfigurationStep.existingEnvRadioButton.click();
 					// Select the interpreter that was started above. It's possible that this needs
 					// to be attempted a few times to ensure the interpreters are properly loaded.
-					expect(
+					await expect(
 						async () =>
 							await pw.pythonConfigurationStep.selectInterpreterByPath(
 								interpreterInfo!.path
 							)
-					).toPass({ timeout: 10000 });
+					).toPass({ timeout: 50000 });
 					await pw.pythonConfigurationStep.interpreterFeedback.waitForText(
 						'ipykernel will be installed for Python language support.'
 					);
@@ -166,13 +166,13 @@ export function setup(logger: Logger) {
 				await app.workbench.positronConsole.waitForReady('>>>', 10000);
 
 				// Verify git-related files are present
-				expect(async () => {
+				await expect(async () => {
 					const projectFiles = await app.workbench.positronExplorer.getExplorerProjectFiles();
 					expect(projectFiles).toContain('.gitignore');
 					expect(projectFiles).toContain('README.md');
 					// Ideally, we'd check for the .git folder, but it's not visible in the Explorer
 					// by default due to the default `files.exclude` setting in the workspace.
-				}).toPass({ timeout: 10000 });
+				}).toPass({ timeout: 50000 });
 
 				// Git status should show that we're on the main branch
 				await app.workbench.terminal.createTerminal();
@@ -237,12 +237,12 @@ export function setup(logger: Logger) {
 					// await app.workbench.positronConsole.sendEnterKey();
 
 					// Verify renv files are present
-					expect(async () => {
+					await expect(async () => {
 						const projectFiles = await app.workbench.positronExplorer.getExplorerProjectFiles();
 						expect(projectFiles).toContain('renv');
 						expect(projectFiles).toContain('.Rprofile');
 						expect(projectFiles).toContain('renv.lock');
-					}).toPass({ timeout: 10000 });
+					}).toPass({ timeout: 50000 });
 					// Verify that renv output in the console confirms no issues occurred
 					await app.workbench.positronConsole.waitForConsoleContents((contents) =>
 						contents.some((line) => line.includes('renv activated'))
@@ -267,12 +267,12 @@ export function setup(logger: Logger) {
 						`myRProject${projSuffix}`
 					);
 					// Verify renv files are present
-					expect(async () => {
+					await expect(async () => {
 						const projectFiles = await app.workbench.positronExplorer.getExplorerProjectFiles();
 						expect(projectFiles).toContain('renv');
 						expect(projectFiles).toContain('.Rprofile');
 						expect(projectFiles).toContain('renv.lock');
-					}).toPass({ timeout: 10000 });
+					}).toPass({ timeout: 50000 });
 					// Verify that renv output in the console confirms no issues occurred
 					await app.workbench.positronConsole.waitForConsoleContents((contents) =>
 						contents.some((line) => line.includes('renv activated'))
@@ -304,12 +304,12 @@ export function setup(logger: Logger) {
 					// Interact with the modal to skip installing renv
 					await app.workbench.positronPopups.installRenv(false);
 					// Verify renv files are **not** present
-					expect(async () => {
+					await expect(async () => {
 						const projectFiles = await app.workbench.positronExplorer.getExplorerProjectFiles();
 						expect(projectFiles).not.toContain('renv');
 						expect(projectFiles).not.toContain('.Rprofile');
 						expect(projectFiles).not.toContain('renv.lock');
-					}).toPass({ timeout: 10000 });
+					}).toPass({ timeout: 50000 });
 				});
 			});
 		});
