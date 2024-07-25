@@ -165,12 +165,14 @@ export const activate = (_context) => ({
 
 		// Render the dependencies; once they have all loaded, trigger a static
 		// render of the widget.
-		renderDependencies(widget.dependencies).then(() => {
+		const rendered = renderDependencies(widget.dependencies).then(() => {
 			window.HTMLWidgets.staticRender();
 		});
 
 		// Render the widget's HTML content.
 		renderTags(element, widget.tags);
+
+		return rendered;
 	},
 	disposeOutputItem(id) {
 		// No cleanup needed.
