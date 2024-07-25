@@ -1,10 +1,26 @@
-name: "Positron: CI - merge to main"
+name: "Positron: CI - Merge to main"
 
 on:
   push:
     branches:
       - main
+  workflow_call:
+    inputs:
+      smoketest_target:
+        required: false
+        description: "Smoketest suite to run, e.g. smoketest-merge-to-main or smoketest-pr"
+        default: "smoketest-merge-to-main"
+        type: string
   workflow_dispatch:
+    inputs:
+      smoketest_target:
+        required: false
+        description: "Smoketest suite to run, e.g. smoketest-merge-to-main or smoketest-pr"
+        default: "smoketest-merge-to-main"
+        type: string
+
+env:
+  SMOKETEST_TARGET: ${{ inputs.smoketest_target || 'smoketest-merge-to-main' }}
 
 jobs:
 
@@ -53,6 +69,9 @@ jobs:
       - name: Compile and Download
         run: yarn npm-run-all --max_old_space_size=4095 -lp compile "electron x64" playwright-install download-builtin-extensions
 
+      - name: Compile Integration Tests
+        run: yarn --cwd test/integration/browser compile
+
       - name: Compile Smoke Tests
         run: yarn --cwd test/smoke compile
 
@@ -73,12 +92,20 @@ jobs:
           python -m pip install -r requirements.txt
           python -m pip install matplotlib ipykernel graphviz
 
+      - name: Run Unit Tests (node.js)
+        id: nodejs-unit-tests
+        run: yarn test-node
+
+      - name: Run Integration Tests (Electron)
+        id: electron-integration-tests
+        run: DISPLAY=:10 ./scripts/test-integration-pr.sh
+
       - name: Run Smoke Tests (Electron)
         env:
           POSITRON_PY_VER_SEL: 3.10.12
           POSITRON_R_VER_SEL: 4.4.0
         id: electron-smoke-tests
-        run: DISPLAY=:10 yarn smoketest-merge-to-main --tracing
+        run: DISPLAY=:10 yarn ${{ env.SMOKETEST_TARGET }} --tracing
 
       - name: Upload run artifacts
         if: always()
