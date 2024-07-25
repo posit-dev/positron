@@ -15,7 +15,11 @@ import { installAllHandlers } from '../../../utils';
 export function setup(logger: Logger) {
 	describe('Welcome Page', () => {
 		installAllHandlers(logger);
-
+		
+		before(async function () {
+			await PositronPythonFixtures.SetupFixtures(this.app as Application);
+		});
+		
 		beforeEach(async function () {
 			const app = this.app as Application;
 
