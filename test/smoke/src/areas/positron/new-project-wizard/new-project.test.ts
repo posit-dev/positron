@@ -21,7 +21,7 @@ export function setup(logger: Logger) {
 			});
 
 			describe('Python Project with new environment', () => {
-				it('Create a new Venv environment [C627912]', async function () {
+				it('Create a new Venv environment [C627912] #pr', async function () {
 					// This is the default behaviour for a new Python Project in the Project Wizard
 					const app = this.app as Application;
 					const pw = app.workbench.positronNewProjectWizard;
@@ -143,7 +143,7 @@ export function setup(logger: Logger) {
 				});
 			});
 
-			it('Default Python Project with git init [C674522]', async function () {
+			it('Default Python Project with git init [C674522] #pr', async function () {
 				const projSuffix = '_gitInit';
 				const app = this.app as Application;
 				const pw = app.workbench.positronNewProjectWizard;
@@ -189,7 +189,7 @@ export function setup(logger: Logger) {
 
 			});
 
-			it('R Project Defaults [C627913]', async function () {
+			it('R Project Defaults [C627913] #pr', async function () {
 				const app = this.app as Application;
 				const pw = app.workbench.positronNewProjectWizard;
 				await pw.startNewProject();
@@ -322,7 +322,7 @@ export function setup(logger: Logger) {
 
 			});
 
-			it('Jupyter Project Defaults [C629352]', async function () {
+			it('Jupyter Project Defaults [C629352] #pr', async function () {
 				const app = this.app as Application;
 				const pw = app.workbench.positronNewProjectWizard;
 				await pw.startNewProject();

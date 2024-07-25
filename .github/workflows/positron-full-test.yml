@@ -21,7 +21,7 @@ jobs:
       - name: Setup Build Environment
         run: |
           sudo apt-get update
-          sudo apt-get install -y vim curl build-essential clang make cmake git python3-pip python-is-python3 libsodium-dev libxkbfile-dev pkg-config libsecret-1-dev libxss1 dbus xvfb libgtk-3-0 libgbm1 libnss3 libnspr4 libasound2 libkrb5-dev libcairo-dev libsdl-pango-dev libjpeg-dev libgif-dev
+          sudo apt-get install -y vim curl build-essential clang make cmake git python3-pip python-is-python3 libsodium-dev libxkbfile-dev pkg-config libsecret-1-dev libxss1 dbus xvfb libgtk-3-0 libgbm1 libnss3 libnspr4 libasound2 libkrb5-dev libcairo-dev libsdl-pango-dev libjpeg-dev libgif-dev pandoc
           sudo cp build/azure-pipelines/linux/xvfb.init /etc/init.d/xvfb
           sudo chmod +x /etc/init.d/xvfb
           sudo update-rc.d xvfb defaults
@@ -110,7 +110,7 @@ jobs:
       - name: Setup Graphviz
         uses: ts-graphviz/setup-graphviz@v2.0.2
 
-      - name: Install dependencies
+      - name: Install python dependencies
         run: |
           curl https://raw.githubusercontent.com/posit-dev/qa-example-content/main/requirements.txt --output requirements.txt
           python -m pip install --upgrade pip
@@ -119,8 +119,8 @@ jobs:
 
       - name: Run Smoke Tests (Electron)
         env:
-          POSITRON_PY_VER_SEL: Python 3.10.12
-          POSITRON_R_VER_SEL: R 4.4.0
+          POSITRON_PY_VER_SEL: 3.10.12
+          POSITRON_R_VER_SEL: 4.4.0
         id: electron-smoke-tests
         run: DISPLAY=:10 yarn smoketest-no-compile --tracing
 

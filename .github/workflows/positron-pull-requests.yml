@@ -1,0 +1,13 @@
+name: "Positron: CI - Pull Request"
+
+on:
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  positron-ci:
+    uses: ./.github/workflows/positron-merge-to-main.yml
+    secrets: inherit
+    with:
+      smoketest_target: smoketest-pr

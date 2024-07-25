@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 
+import { expect } from '@playwright/test';
 import { Code } from '../code';
 import { Notebook } from '../notebook';
 import { QuickAccess } from '../quickaccess';
@@ -51,9 +52,23 @@ export class PositronNotebooks {
 		await this.quickaccess.runCommand(NEW_NOTEBOOK_COMMAND);
 	}
 
-	async executeInFirstCell(code: string) {
-		await this.quickaccess.runCommand(EDIT_CELL_COMMAND);
-		await this.notebook.waitForTypeInEditor(code);
+	async addCodeToFirstCell(code: string) {
+
+		// Attempt to add code to a cell.  If the code is not added correctly, delete the cell and try
+		// again for up to 60 seconds
+		await expect(async () => {
+			try {
+				await this.quickaccess.runCommand(EDIT_CELL_COMMAND);
+				await this.notebook.waitForTypeInEditor(code);
+				await this.notebook.waitForActiveCellEditorContents(code);
+			} catch (e) {
+				await this.notebook.deleteActiveCell();
+				throw e;
+			}
+		}).toPass({ timeout: 60000 });
+	}
+
+	async executeCodeInCell() {
 		await this.quickaccess.runCommand(EXECUTE_CELL_COMMAND);
 	}
 

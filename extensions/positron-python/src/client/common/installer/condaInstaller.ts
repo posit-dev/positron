@@ -103,7 +103,14 @@ export class CondaInstaller extends ModuleInstaller {
         if (flags & ModuleInstallFlags.updateDependencies) {
             args.push('--update-deps');
         }
-        if (flags & ModuleInstallFlags.reInstall) {
+        // --- Start Positron ---
+        // force reinstall ipykernel, to avoid unexpected behavior
+        // if it was uninstalled via pip
+        if (
+            flags & ModuleInstallFlags.reInstall ||
+            ([Product.ipykernel].map(translateProductToModule).includes(moduleName) && args[0] === 'install')
+        ) {
+            // --- End Positron ---
             args.push('--force-reinstall');
         }
         args.push(moduleName);
