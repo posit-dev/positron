@@ -33,6 +33,7 @@ export function setup(logger: Logger) {
 					await pw.currentOrNewWindowSelectionModal.currentWindowButton.click();
 					await app.workbench.positronExplorer.explorerProjectTitle.waitForText('myPythonProject');
 					await app.workbench.positronConsole.waitForReady('>>>', 10000);
+					await app.workbench.positronConsole.barClearButton.click();
 				});
 				it('Create a new Conda environment [C628628]', async function () {
 					// This test relies on Conda already being installed on the machine
@@ -58,6 +59,7 @@ export function setup(logger: Logger) {
 					}).toPass({ timeout: 50000 });
 					// The console should initialize without any prompts to install ipykernel
 					await app.workbench.positronConsole.waitForReady('>>>', 10000);
+					await app.workbench.positronConsole.barClearButton.click();
 				});
 			});
 
@@ -96,6 +98,7 @@ export function setup(logger: Logger) {
 					);
 					// The console should initialize without any prompts to install ipykernel
 					await app.workbench.positronConsole.waitForReady('>>>', 10000);
+					await app.workbench.positronConsole.barClearButton.click();
 				});
 				it('With ipykernel not already installed [C609617]', async function () {
 					const projSuffix = '_noIpykernel';
@@ -140,6 +143,7 @@ export function setup(logger: Logger) {
 					// If ipykernel was successfully installed during the new project initialization,
 					// the console should be ready without any prompts to install ipykernel
 					await app.workbench.positronConsole.waitForReady('>>>', 10000);
+					await app.workbench.positronConsole.barClearButton.click();
 				});
 			});
 
