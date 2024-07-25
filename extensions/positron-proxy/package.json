@@ -25,12 +25,20 @@
           "command": "positronProxy.showHtmlPreview",
           "group": "navigation"
         }
+      ],
+      "editor/title": [
+        {
+          "when": "resourceLangId == html",
+          "command": "positronProxy.showHtmlPreview",
+          "group": "navigation"
+        }
       ]
     },
     "commands": [
       {
         "command": "positronProxy.showHtmlPreview",
-        "title": "%command.positronProxy.showHtmlPreview.title%"
+        "title": "%command.positronProxy.showHtmlPreview.title%",
+        "icon": "$(eye)"
       }
     ]
   },
