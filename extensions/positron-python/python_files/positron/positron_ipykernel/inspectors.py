@@ -556,8 +556,8 @@ class CollectionInspector(_BaseCollectionInspector[CollectionT]):
             return f"{type_name} [{length}]"
 
     def get_comparison_cost(self) -> int:
-        # Placeholder estimate. In practice this can be arbitrarily large
-        return 10 * self.get_length()
+        # Placeholder estimate
+        return self.get_length()
 
     def is_mutable(self) -> bool:
         return (
@@ -628,11 +628,13 @@ class _BaseArrayInspector(_BaseCollectionInspector[Array], ABC):
         return display_type
 
     def get_comparison_cost(self) -> int:
-        # Placeholder estimate. In practice this can be arbitrarily
-        # large for object dtypes
-        return self.get_size()
+        # Placeholder estimate
+        return self.get_num_cells()
 
-    def get_size(self) -> int:
+    def get_num_cells(self) -> int:
+        """
+        Return the number of value cells in the array
+        """
         if self.value.ndim == 0:
             return 0
 
@@ -640,7 +642,15 @@ class _BaseArrayInspector(_BaseCollectionInspector[Array], ABC):
         for dim in self.value.shape:
             num_elements *= dim
 
-        return num_elements * self.value.dtype.itemsize
+        return num_elements
+
+    def get_size(self) -> int:
+        dtype = self.value.dtype
+
+        # If it's a non-NumPy dtype, use 8 as a conservative
+        # placeholder
+        itemsize = getattr(dtype, "itemsize", 8)
+        return self.get_num_cells() * itemsize
 
     def get_length(self) -> int:
         return self.value.shape[0] if self.value.ndim > 0 else 0
@@ -749,14 +759,15 @@ class _BaseMapInspector(PositronInspector[MT], ABC):
     def get_kind(self) -> str:
         return "map"
 
-    def get_size(self) -> int:
+    def get_num_cells(self) -> int:
         result = 1
         for dim in getattr(self.value, "shape", [len(self.value)]):
             result *= dim
 
-        # Issue #2174: fudge factor, say 8 bytes per value as a rough
-        # estimate
-        return result * 8
+        return result
+
+    def get_size(self) -> int:
+        return self.get_num_cells()
 
     def has_child(self, key: Any) -> bool:
         return key in self.get_children()
@@ -799,6 +810,14 @@ class BaseColumnInspector(_BaseMapInspector[Column], ABC):
         display_value = f"{display_value} {column_values}"
 
         return (display_value, True)
+
+    def get_size(self) -> int:
+        dtype = self.value.dtype
+
+        # If it's a non-NumPy dtype, use 8 as a conservative
+        # placeholder
+        itemsize = getattr(dtype, "itemsize", 8)
+        return self.get_num_cells() * itemsize
 
 
 class PandasSeriesInspector(BaseColumnInspector["pd.Series"]):
