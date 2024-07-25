@@ -86,7 +86,7 @@ cat(sprintf('Hello %s!\n', val))`;
 
 			});
 
-			it('R - Can use `menu` to select alternatives', async function () {
+			it('R - Can use `menu` to select alternatives [C684749]', async function () {
 				const app = this.app as Application;
 				const inputCode = `x <- menu(letters)`;
 
