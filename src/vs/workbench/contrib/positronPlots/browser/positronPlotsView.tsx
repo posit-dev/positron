@@ -62,6 +62,9 @@ export class PositronPlotsViewPane extends PositronViewPane implements IReactCom
 	// The Positron plots container - contains the entire Positron plots UI.
 	private _positronPlotsContainer!: HTMLElement;
 
+	// The ResizeObserver for the Positron plots container.
+	private _positronPlotsContainerResizeObserver?: ResizeObserver;
+
 	// The PositronReactRenderer for the PositronPlots component.
 	private _positronReactRenderer?: PositronReactRenderer;
 
@@ -176,20 +179,6 @@ export class PositronPlotsViewPane extends PositronViewPane implements IReactCom
 		}));
 	}
 
-	/**
-	 * Dispose method.
-	 */
-	public override dispose(): void {
-		// Destroy the PositronReactRenderer for the PositronPlots component.
-		if (this._positronReactRenderer) {
-			this._positronReactRenderer.destroy();
-			this._positronReactRenderer = undefined;
-		}
-
-		// Call the base class's dispose method.
-		super.dispose();
-	}
-
 	//#endregion Constructor & Dispose
 
 	//#region Overrides
@@ -206,20 +195,31 @@ export class PositronPlotsViewPane extends PositronViewPane implements IReactCom
 		this._positronPlotsContainer = DOM.$('.positron-plots-container');
 		container.appendChild(this._positronPlotsContainer);
 
-		// TODO: Figure out where to put this and how to clean it up.
-		const resizeObserver = new ResizeObserver(entries => {
+		// Observe the plots container for resizes and fire size/position changed events.
+		// This is needed in addition to the layoutBody override to trigger React renders
+		// when either the plots pane or a neighboring pane is expanded/collapsed,
+		// since the expand/collapse transition may be animated. Otherwise, the size/position
+		// changed events would only fire at the beginning of the animation possibly leading
+		// to incorrect layouts.
+		this._positronPlotsContainerResizeObserver = new ResizeObserver(entries => {
 			for (const entry of entries) {
 				if (entry.target === this._positronPlotsContainer) {
-					this._onSizeChangedEmitter.fire({ width: entry.contentRect.width, height: entry.contentRect.height });
-					this._onPositionChangedEmitter.fire({ x: entry.contentRect.x, y: entry.contentRect.y });
+					this._onSizeChangedEmitter.fire({
+						width: entry.contentRect.width,
+						height: entry.contentRect.height
+					});
+					this._onPositionChangedEmitter.fire({
+						x: entry.contentRect.x,
+						y: entry.contentRect.y
+					});
 				}
 			}
 		});
-		resizeObserver.observe(this._positronPlotsContainer);
-		this._register({ dispose: () => resizeObserver.disconnect() });
+		this._positronPlotsContainerResizeObserver.observe(this._positronPlotsContainer);
+		this._register({ dispose: () => this._positronPlotsContainerResizeObserver?.disconnect() });
 
 		// Create the PositronReactRenderer for the PositronPlots component and render it.
-		this._positronReactRenderer = new PositronReactRenderer(this._positronPlotsContainer);
+		this._positronReactRenderer = this._register(new PositronReactRenderer(this._positronPlotsContainer));
 		this._positronReactRenderer.render(
 			<PositronPlots
 				commandService={this.commandService}
