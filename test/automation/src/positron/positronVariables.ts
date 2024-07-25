@@ -6,6 +6,7 @@
 
 import { Code } from '../code';
 import * as os from 'os';
+import { IElement } from '../driver';
 
 interface FlatVariables {
 	value: string;
@@ -17,6 +18,7 @@ const VARIABLE_NAMES = 'name-column';
 const VARIABLE_DETAILS = 'details-column';
 const VARIABLES_NAME_COLUMN = '.variable-item .name-column';
 const VARIABLES_SECTION = '[aria-label="Variables Section"]';
+const VARIABLES_INTERPRETER = '.positron-variables-container .action-bar-button-text';
 
 /*
  *  Reuseable Positron variables functionality for tests to leverage.
@@ -64,5 +66,10 @@ export class PositronVariables {
 
 		await this.code.waitForElement(VARIABLES_SECTION);
 
+	}
+
+	async getVariablesInterpreter(): Promise<IElement> {
+		const interpreter = await this.code.waitForElement(VARIABLES_INTERPRETER);
+		return interpreter;
 	}
 }

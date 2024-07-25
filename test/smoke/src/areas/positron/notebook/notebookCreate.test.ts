@@ -39,10 +39,12 @@ export function setup(logger: Logger) {
 
 				await app.workbench.positronNotebooks.selectInterpreter('Python Environments', process.env.POSITRON_PY_VER_SEL!);
 
+				await app.workbench.positronNotebooks.addCodeToFirstCell('eval("8**2")');
+
 				await expect(async () => {
-					await app.workbench.positronNotebooks.executeInFirstCell('eval("8**2")');
+					await app.workbench.positronNotebooks.executeCodeInCell();
 					expect(await app.workbench.positronNotebooks.getPythonCellOutput()).toBe('64');
-				}).toPass({timeout: 60000});
+				}).toPass({ timeout: 60000 });
 
 			});
 
@@ -86,10 +88,12 @@ export function setup(logger: Logger) {
 
 				await app.workbench.positronNotebooks.selectInterpreter('R Environments', process.env.POSITRON_R_VER_SEL!);
 
+				await app.workbench.positronNotebooks.addCodeToFirstCell('eval(parse(text="8**2"))');
+
 				await expect(async () => {
-					await app.workbench.positronNotebooks.executeInFirstCell('eval(parse(text="8**2"))');
+					await app.workbench.positronNotebooks.executeCodeInCell();
 					expect(await app.workbench.positronNotebooks.getRCellOutput()).toBe('[1] 64');
-				}).toPass({timeout: 60000});
+				}).toPass({ timeout: 60000 });
 
 			});
 
