@@ -27,18 +27,21 @@ export class NotebookOutputWebview<WType extends IOverlayWebview | IWebviewEleme
 	 *   that created it.
 	 * @param sessionId The ID of the runtime that owns this webview.
 	 * @param webview The underlying webview.
+	 * @param render Optional method to render the output in the webview rather than doing so
+	 *   directly in the HTML content.
+	 * @param rendererMessaging Optional scoped messaging instance for communicating between a
+	 *   runtime and the renderer.
 	 */
 	constructor(
 		readonly id: string,
 		readonly sessionId: string,
 		readonly webview: WType,
 		readonly render?: () => void,
-		readonly rendererMessaging?: IScopedRendererMessaging,
+		rendererMessaging?: IScopedRendererMessaging,
 	) {
 		super();
 
 		this.onDidRender = this._onDidRender.event;
-		this.onDidReceiveMessage = this._onDidReceiveMessage.event;
 		this._register(this._onDidRender);
 		this._register(this._onDidReceiveMessage);
 
@@ -64,11 +67,8 @@ export class NotebookOutputWebview<WType extends IOverlayWebview | IWebviewEleme
 			}
 
 			switch (data.type) {
-				case 'customKernelMessage':
-					this._onDidReceiveMessage.fire({ message: data.message });
-					break;
 				case 'customRendererMessage':
-					this.rendererMessaging?.postMessage(data.rendererId, data.message);
+					rendererMessaging?.postMessage(data.rendererId, data.message);
 				case 'positronRenderComplete':
 					this._onDidRender.fire();
 					break;
@@ -78,15 +78,6 @@ export class NotebookOutputWebview<WType extends IOverlayWebview | IWebviewEleme
 	}
 
 	onDidRender: Event<void>;
-	onDidReceiveMessage: Event<INotebookWebviewMessage>;
-
-	postMessage(message: unknown): void {
-		this.webview.postMessage({
-			__vscode_notebook_message: true,
-			type: 'customKernelMessage',
-			message
-		});
-	}
 
 	public override dispose(): void {
 		this.webview.dispose();
