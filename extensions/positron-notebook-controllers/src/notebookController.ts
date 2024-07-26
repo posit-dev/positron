@@ -157,6 +157,11 @@ export class NotebookController implements vscode.Disposable {
 	}
 
 	private async executeCell(cell: vscode.NotebookCell, notebook: vscode.NotebookDocument): Promise<void> {
+		if (cell.document.languageId === 'raw') {
+			// Don't try to execute raw cells; they're often used to define metadata e.g in Quarto notebooks.
+			return;
+		}
+
 		// Get the notebook's session.
 		let session = this._notebookSessionService.getNotebookSession(notebook.uri);
 
@@ -297,7 +302,10 @@ async function updateNotebookLanguage(notebook: vscode.NotebookDocument, languag
 
 	// Set the language in each of the notebook's cells.
 	await Promise.all(notebook.getCells()
-		.filter(cell => cell.kind === vscode.NotebookCellKind.Code && cell.document.languageId !== languageId)
+		.filter(cell => cell.kind === vscode.NotebookCellKind.Code
+			&& cell.document.languageId !== languageId
+			// Don't change raw cells; they're often used to define metadata e.g in Quarto notebooks.
+			&& cell.document.languageId !== 'raw')
 		.map(cell => vscode.languages.setTextDocumentLanguage(cell.document, languageId))
 	);
 }
