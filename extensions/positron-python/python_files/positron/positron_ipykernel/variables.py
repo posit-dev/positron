@@ -588,6 +588,11 @@ class VariablesService:
                 self._open_connections_pane(path, value)
             elif self.kernel.data_explorer_service.is_supported(value):
                 self._open_data_explorer(path, value)
+            else:
+                self._send_error(
+                    JsonRpcErrorCode.INTERNAL_ERROR,
+                    f"Error opening viewer for variable at '{path}'. Object nor supported.",
+                )
         except Exception as err:
             self._send_error(
                 JsonRpcErrorCode.INTERNAL_ERROR,
