@@ -84,7 +84,8 @@ export class TestLanguageRuntimeSession extends Disposable implements ILanguageR
 	clientInstances = new Array<IRuntimeClientInstance<any, any>>();
 
 	constructor(
-		sessionMode: LanguageRuntimeSessionMode = LanguageRuntimeSessionMode.Console
+		sessionMode: LanguageRuntimeSessionMode = LanguageRuntimeSessionMode.Console,
+		notebookUri?: URI,
 	) {
 		super();
 
@@ -96,7 +97,7 @@ export class TestLanguageRuntimeSession extends Disposable implements ILanguageR
 			sessionMode,
 			sessionName: 'session-name',
 			startReason: 'test',
-			notebookUri: undefined,
+			notebookUri,
 		};
 
 	}
@@ -286,7 +287,12 @@ export class TestLanguageRuntimeSession extends Disposable implements ILanguageR
 		return state;
 	}
 
-	endSession(exit: ILanguageRuntimeExit) {
-		this._onDidEndSession.fire(exit);
+	endSession(exit?: Partial<ILanguageRuntimeExit>) {
+		this._onDidEndSession.fire({
+			exit_code: exit?.exit_code ?? 0,
+			message: exit?.message ?? '',
+			reason: exit?.reason ?? RuntimeExitReason.Unknown,
+			runtime_name: this.runtimeMetadata.runtimeName,
+		});
 	}
 }

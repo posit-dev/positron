@@ -5,6 +5,7 @@
 import assert from 'assert';
 import { timeout } from 'vs/base/common/async';
 import { Emitter } from 'vs/base/common/event';
+import { URI } from 'vs/base/common/uri';
 import { ensureNoDisposablesAreLeakedInTestSuite } from 'vs/base/test/common/utils';
 import { ExtensionIdentifier } from 'vs/platform/extensions/common/extensions';
 import { ILogService, NullLogger } from 'vs/platform/log/common/log';
@@ -25,7 +26,7 @@ import { WebviewPlotClient } from 'vs/workbench/contrib/positronPlots/browser/we
 import { IWebviewService } from 'vs/workbench/contrib/webview/browser/webview';
 import { WebviewService } from 'vs/workbench/contrib/webview/browser/webviewService';
 import { RuntimeClientState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeClientInstance';
-import { LanguageRuntimeSessionMode, RuntimeExitReason, RuntimeOutputKind, RuntimeState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { LanguageRuntimeSessionMode, RuntimeOutputKind, RuntimeState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { ToWebviewMessage } from 'vs/workbench/services/languageRuntime/common/positronIPyWidgetsWebviewMessages';
 import { TestIPyWidgetsWebviewMessaging } from 'vs/workbench/services/languageRuntime/test/common/testIPyWidgetsWebviewMessaging';
 import { INotebookDocumentService, NotebookDocumentWorkbenchService } from 'vs/workbench/services/notebook/common/notebookDocumentService';
@@ -52,6 +53,10 @@ class TestNotebookService implements Partial<INotebookService> {
 	}
 }
 
+interface TestNotebookEditor extends INotebookEditor {
+	changeModel(uri: URI): void;
+}
+
 suite('Positron - PositronIPyWidgetsService', () => {
 	const disposables = ensureNoDisposablesAreLeakedInTestSuite();
 
@@ -74,7 +79,7 @@ suite('Positron - PositronIPyWidgetsService', () => {
 		positronIpywidgetsService = disposables.add(instantiationService.createInstance(PositronIPyWidgetsService));
 	});
 
-	test('attach console session', async () => {
+	async function createConsoleSession() {
 		// Listen for the plot client to be created.
 		let plotClient: WebviewPlotClient | undefined;
 		disposables.add(positronIpywidgetsService.onDidCreatePlot(client => plotClient = client));
@@ -93,8 +98,8 @@ suite('Positron - PositronIPyWidgetsService', () => {
 		});
 		await timeout(0);
 
+		// Check that an instance was created with the expected properties.
 		assert(positronIpywidgetsService.hasInstance(message.id));
-
 		assert(!!plotClient);
 		assert.strictEqual(plotClient.id, message.id);
 		assert.deepStrictEqual(plotClient.metadata, {
@@ -105,45 +110,83 @@ suite('Positron - PositronIPyWidgetsService', () => {
 			code: '',
 		});
 
-		session.endSession({
-			runtime_name: session.runtimeMetadata.runtimeName,
-			exit_code: 0,
-			message: '',
-			reason: RuntimeExitReason.Shutdown,
-		});
+		return { session, plotClient };
+	}
+
+	test('console session: create and end session', async () => {
+		const { session, plotClient } = await createConsoleSession();
+
+		// End the session.
+		session.endSession();
 		await timeout(0);
 
-		assert(!positronIpywidgetsService.hasInstance(message.id));
+		// Check that the instance was removed.
+		assert(!positronIpywidgetsService.hasInstance(plotClient.id));
 	});
 
-	test('attach notebook session', async () => {
-		const onDidChangeModel = disposables.add(new Emitter<NotebookTextModel | undefined>());
-		notebookEditorService.addNotebookEditor(<INotebookEditor>{
-			getId() { return 'test-notebook-editor-id'; },
-			// TODO: Test that instance is disposed when model changes
-			onDidChangeModel: onDidChangeModel.event,
-		});
+	async function createNotebookSession() {
+		const notebookUri = URI.file('notebook.ipynb');
 
-		const session = disposables.add(
-			new TestLanguageRuntimeSession(LanguageRuntimeSessionMode.Notebook)
-		);
+		// Add a mock notebook editor.
+		const onDidChangeModel = disposables.add(new Emitter<NotebookTextModel | undefined>());
+		const notebookEditor = <TestNotebookEditor>{
+			getId() { return 'test-notebook-editor-id'; },
+			onDidChangeModel: onDidChangeModel.event,
+			textModel: { uri: notebookUri },
+			changeModel(uri) { onDidChangeModel.fire(<NotebookTextModel>{ uri }); },
+		};
+		notebookEditorService.addNotebookEditor(notebookEditor);
+
+		// Start a notebook session.
+		const session = disposables.add(new TestLanguageRuntimeSession(
+			LanguageRuntimeSessionMode.Notebook,
+			notebookUri,
+		));
 		runtimeSessionService.startSession(session);
 		await timeout(0);
 
+		// Check that an instance was created.
 		assert(positronIpywidgetsService.hasInstance(session.sessionId));
 
-		// TODO: Dispose when notebook text model changes
+		return { session, notebookEditor };
+	}
 
-		// TODO: Dispose when notebook editor is removed
+	test('notebook session: create and end session', async () => {
+		const { session } = await createNotebookSession();
 
-		session.endSession({
-			runtime_name: session.runtimeMetadata.runtimeName,
-			exit_code: 0,
-			message: '',
-			reason: RuntimeExitReason.Shutdown,
-		});
+		// Check that an instance was created.
+		assert(positronIpywidgetsService.hasInstance(session.sessionId));
+
+		// End the session.
+		session.endSession();
 		await timeout(0);
 
+		// Check that the instance was removed.
+		assert(!positronIpywidgetsService.hasInstance(session.sessionId));
+	});
+
+	test('notebook session: change notebook text model', async () => {
+		const { session, notebookEditor } = await createNotebookSession();
+
+		// Change the notebook's text model.
+		notebookEditor.changeModel(URI.file('other.ipynb'));
+		await timeout(0);
+
+		// Check that the instance was removed.
+		assert(!positronIpywidgetsService.hasInstance(session.sessionId));
+	});
+
+	test('notebook session: remove notebook editor', async () => {
+		const { session, notebookEditor } = await createNotebookSession();
+
+		// Check that an instance was created.
+		assert(positronIpywidgetsService.hasInstance(session.sessionId));
+
+		// Remove notebook editor.
+		notebookEditorService.removeNotebookEditor(notebookEditor);
+		await timeout(0);
+
+		// Check that the instance was removed.
 		assert(!positronIpywidgetsService.hasInstance(session.sessionId));
 	});
 });
@@ -154,52 +197,52 @@ suite('Positron - IPyWidgetsInstance constructor', () => {
 	let logService: ILogService;
 	let session: TestLanguageRuntimeSession;
 	let messaging: TestIPyWidgetsWebviewMessaging;
+	let messagesToWebview: Array<ToWebviewMessage>;
 
 	setup(async () => {
 		logService = new NullLogger() as unknown as ILogService;
 		session = disposables.add(new TestLanguageRuntimeSession());
 		messaging = disposables.add(new TestIPyWidgetsWebviewMessaging());
-	});
 
-	test('uninitialized session', async () => {
-		const messages = new Array<ToWebviewMessage>();
-		disposables.add(messaging.onDidPostMessage(event => messages.push(event)));
-
-		disposables.add(new IPyWidgetsInstance(session, messaging, logService));
-		await timeout(0);
-
-		assert.deepStrictEqual(messages, [{ type: 'initialize_result' } as ToWebviewMessage]);
-	});
-
-	test('initialized session - no clients', async () => {
+		// Set the runtime state to ready.
 		session.setRuntimeState(RuntimeState.Ready);
 
-		const messages = new Array<ToWebviewMessage>();
-		disposables.add(messaging.onDidPostMessage(event => messages.push(event)));
-
-		disposables.add(new IPyWidgetsInstance(session, messaging, logService));
-		await timeout(0);
-
-		assert.deepStrictEqual(messages, [{ type: 'initialize_result' } as ToWebviewMessage]);
+		// Listen to messages to the webview.
+		messagesToWebview = new Array<ToWebviewMessage>();
+		disposables.add(messaging.onDidPostMessage(event => messagesToWebview.push(event)));
 	});
 
-	test('initialized session - one ipywidget client', async () => {
-		session.setRuntimeState(RuntimeState.Ready);
-		const client = await session.createClient(RuntimeClientType.IPyWidget, {}, {}, 'test-client-id');
-
-		const messages = new Array<ToWebviewMessage>();
-		disposables.add(messaging.onDidPostMessage(event => messages.push(event)));
-
+	async function createIPyWidgetsInstance() {
 		const ipywidgetsInstance = disposables.add(new IPyWidgetsInstance(session, messaging, logService));
 		await timeout(0);
+		return ipywidgetsInstance;
+	}
 
-		assert.deepStrictEqual(messages, [{ type: 'initialize_result' } as ToWebviewMessage]);
+	test('initialized session, no clients', async () => {
+		// Create an instance.
+		await createIPyWidgetsInstance();
 
+		// Check that the initialize message was sent.
+		assert.deepStrictEqual(messagesToWebview, [{ type: 'initialize_result' }]);
+	});
+
+	test('initialized session, one ipywidget client', async () => {
+		const client = await session.createClient(RuntimeClientType.IPyWidget, {}, {}, 'test-client-id');
+
+		// Create an instance.
+		const ipywidgetsInstance = await createIPyWidgetsInstance();
+
+		// Check that the initialize message was sent.
+		assert.deepStrictEqual(messagesToWebview, [{ type: 'initialize_result' }]);
+
+		// Check that the client was registered.
 		assert(ipywidgetsInstance.hasClient(client.getClientId()));
 
+		// Close the client.
 		client.setClientState(RuntimeClientState.Closed);
 		await timeout(0);
 
+		// Check that the client was removed.
 		assert(!ipywidgetsInstance.hasClient(client.getClientId()));
 	});
 });
@@ -210,6 +253,7 @@ suite('Positron - IPyWidgetsInstance', () => {
 	let session: TestLanguageRuntimeSession;
 	let messaging: TestIPyWidgetsWebviewMessaging;
 	let ipywidgetsInstance: IPyWidgetsInstance;
+	let messagesToWebview: Array<ToWebviewMessage>;
 
 	setup(async () => {
 		const logService = new NullLogger() as unknown as ILogService;
@@ -220,19 +264,22 @@ suite('Positron - IPyWidgetsInstance', () => {
 			messaging,
 			logService,
 		));
+
+		// Listen to messages to the webview.
+		messagesToWebview = new Array<ToWebviewMessage>();
+		disposables.add(messaging.onDidPostMessage(event => messagesToWebview.push(event)));
 	});
 
 	test('from webview: initialize_request', async () => {
-		const messages = new Array<ToWebviewMessage>();
-		disposables.add(messaging.onDidPostMessage(event => messages.push(event)));
-
+		// Simulate the webview sending an initialize request.
 		messaging.receiveMessage({ type: 'initialize_request' });
 
-		assert.deepStrictEqual(messages, [{ type: 'initialize_result' }]);
+		// Check that the initialize result was sent.
+		assert.deepStrictEqual(messagesToWebview, [{ type: 'initialize_result' }]);
 	});
 
-	// TODO: wrong runtime client type
-	test('from webview: comm_open', async () => {
+	test('from webview: comm_open jupyter.widget.control', async () => {
+		// Simulate the webview sending a comm open.
 		const clientId = 'test-client-id';
 		messaging.receiveMessage({
 			type: 'comm_open',
@@ -243,19 +290,36 @@ suite('Positron - IPyWidgetsInstance', () => {
 		});
 		await timeout(0);
 
+		// Check that the client was registered.
 		assert(ipywidgetsInstance.hasClient(clientId));
 	});
 
-	test('to webview: comm_open', async () => {
-		const messages = new Array<ToWebviewMessage>();
-		disposables.add(messaging.onDidPostMessage(event => messages.push(event)));
+	test('from webview: comm_open unrelated type', async () => {
+		// Simulate the webview sending a comm open of an unrelated comm type.
+		const clientId = 'test-client-id';
+		messaging.receiveMessage({
+			type: 'comm_open',
+			comm_id: clientId,
+			target_name: RuntimeClientType.Plot,
+			data: {},
+			metadata: {},
+		});
+		await timeout(0);
 
+		// Check that the client was *not* registered.
+		assert(!ipywidgetsInstance.hasClient(clientId));
+	});
+
+	test('to webview: comm_open', async () => {
+		// Create a client.
 		const client = await session.createClient(RuntimeClientType.IPyWidget, {}, {}, 'test-client-id');
 		await timeout(0);
 
+		// Check that the client was registered.
 		assert(ipywidgetsInstance.hasClient(client.getClientId()));
 
-		assert.deepStrictEqual(messages, [{
+		// Check that the comm open message was sent to the webview.
+		assert.deepStrictEqual(messagesToWebview, [{
 			type: 'comm_open',
 			comm_id: client.getClientId(),
 			target_name: client.getClientType(),
@@ -263,9 +327,11 @@ suite('Positron - IPyWidgetsInstance', () => {
 			metadata: {},
 		} as ToWebviewMessage]);
 
+		// Close the client.
 		client.setClientState(RuntimeClientState.Closed);
 		await timeout(0);
 
+		// Check that the client was removed.
 		assert(!ipywidgetsInstance.hasClient(client.getClientId()));
 	});
 });
