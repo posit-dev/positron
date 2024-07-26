@@ -40,7 +40,7 @@ const rcedit = promisify(require('rcedit'));
 // --- Start Positron ---
 const child_process = require('child_process');
 const fancyLog = require('fancy-log');
-const { getPandocStream } = require('./lib/pandoc');
+const { getQuartoStream } = require('./lib/quarto');
 // --- End Positron ---
 
 // Build
@@ -293,16 +293,10 @@ function packageTask(platform, arch, sourceFolderName, destinationFolderName, op
 		const positronApi = gulp.src('src/positron-dts/positron.d.ts')
 			.pipe(rename('out/positron-dts/positron.d.ts'));
 
-		// Bundled Pandoc binary. Place this in a `pandoc` subfolder of `bin`
-		// since `bin` can be placed in the $PATH, and we don't want to pollute
-		// the $PATH with the Pandoc binary.
-		const pandocExt = process.platform === 'win32' ? '.exe' : '';
-		const binFolder = process.platform === 'darwin' ?
-			path.join('bin', 'pandoc') :
-			path.join('..', '..', 'bin', 'pandoc');
-		const pandoc = getPandocStream()
-			.pipe(rename(path.join(binFolder, `pandoc${pandocExt}`)))
-			.pipe(util.setExecutableBit());
+		// Bundled Quarto binaries
+		const quarto = getQuartoStream()
+			.pipe(rename(path.join('bin', path.join('quarto', 'bin'))))
+			.pipe(rename(path.join('share', path.join('quarto', 'share'))));
 
 		// --- End Positron ---
 
@@ -337,7 +331,7 @@ function packageTask(platform, arch, sourceFolderName, destinationFolderName, op
 			api,
 			// --- Start Positron ---
 			positronApi,
-			pandoc,
+			quarto,
 			// --- End Positron ---
 			telemetry,
 			sources,
