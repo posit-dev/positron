@@ -1077,11 +1077,12 @@ export class PositronDataExplorerComm extends PositronBaseComm {
 	 * @param startIndex First column schema to fetch (inclusive)
 	 * @param numColumns Number of column schemas to fetch from start index.
 	 * May extend beyond end of table
+	 * @param columnIndices A random subset of column indices to select
 	 *
 	 * @returns undefined
 	 */
-	getSchema(startIndex: number, numColumns: number): Promise<TableSchema> {
-		return super.performRpc('get_schema', ['start_index', 'num_columns'], [startIndex, numColumns]);
+	getSchema(startIndex: number, numColumns: number, columnIndices: Array<number>): Promise<TableSchema> {
+		return super.performRpc('get_schema', ['start_index', 'num_columns', 'column_indices'], [startIndex, numColumns, columnIndices]);
 	}
 
 	/**

@@ -25,6 +25,17 @@
 					"schema": {
 						"type": "integer"
 					}
+				},
+				{
+					"name": "column_indices",
+					"description": "A random subset of column indices to select",
+					"required": false,
+					"schema": {
+						"type": "array",
+						"items": {
+							"type": "integer"
+						}
+					}
 				}
 			],
 			"result": {

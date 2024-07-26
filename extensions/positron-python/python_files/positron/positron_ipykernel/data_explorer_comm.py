@@ -1053,6 +1053,10 @@ class GetSchemaParams(BaseModel):
         description="Number of column schemas to fetch from start index. May extend beyond end of table",
     )
 
+    column_indices: List[StrictInt] = Field(
+        description="A random subset of column indices to select",
+    )
+
 
 class GetSchemaRequest(BaseModel):
     """
