@@ -696,6 +696,29 @@ def test_view_error(variables_comm: DummyComm) -> None:
     ]
 
 
+def test_view_error_when_pandas_not_loaded(
+    shell: PositronShell, variables_comm: DummyComm, mock_dataexplorer_service: Mock
+) -> None:
+    # regression test for https://github.com/posit-dev/positron/issues/3653
+    shell.user_ns["x"] = pd.DataFrame({"a": [0]})
+
+    def fail_register_table(table, title, variable_path):
+        raise TypeError("Can't register table")
+
+    mock_dataexplorer_service.register_table = fail_register_table
+
+    path = _encode_path(["x"])
+    msg = json_rpc_request("view", {"path": path}, comm_id="dummy_comm_id")
+    variables_comm.handle_msg(msg, raise_errors=False)
+
+    assert variables_comm.messages == [
+        json_rpc_error(
+            JsonRpcErrorCode.INTERNAL_ERROR,
+            f"Error opening viewer for variable at '{path}'",
+        )
+    ]
+
+
 def test_unknown_method(variables_comm: DummyComm) -> None:
     msg = json_rpc_request("unknown_method", comm_id="dummy_comm_id")
     variables_comm.handle_msg(msg, raise_errors=False)
