@@ -1,10 +1,3 @@
-"""
-Inspectors are totally decoupled from the variables pane and
-all other Positron (and even non-Positron) components.
-They solve the general problem of providing a consistent interface
-over a variety types from popular Python libraries.
-"""
-
 #
 # Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
 # Licensed under the Elastic License 2.0. See LICENSE.txt for license information.

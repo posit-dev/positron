@@ -9,7 +9,8 @@ import { Code } from '../code';
 const POSITRON_MODAL_DIALOG_BOX = '.positron-modal-dialog-box';
 const POSITRON_MODAL_DIALOG_BOX_OK = '.positron-modal-dialog-box .ok-cancel-action-bar .positron-button.action-bar-button.default';
 const POSITRON_MODAL_DIALOG_BOX_CANCEL = '.positron-modal-dialog-box .ok-cancel-action-bar .positron-button.action-bar-button:not(.default)';
-const POSITRON_MODAL_DIALOG_BOX_MISSING_R_PACKAGE_TITLE = '.positron-modal-dialog-box .simple-title-bar-title';
+const POSITRON_MODAL_DIALOG_BOX_TITLE = '.positron-modal-dialog-box .simple-title-bar-title';
+const POSITRON_MODAL_DIALOG_POPUP_OPTION = '.positron-modal-popup .positron-modal-popup-children';
 const NOTIFICATION_TOAST = '.notification-toast';
 
 /*
@@ -57,7 +58,7 @@ export class PositronPopups {
 			this.code.logger.log('Checking for install Renv modal dialog box');
 			// fail fast if the renv install modal is not present
 			await this.code.waitForTextContent(
-				POSITRON_MODAL_DIALOG_BOX_MISSING_R_PACKAGE_TITLE,
+				POSITRON_MODAL_DIALOG_BOX_TITLE,
 				'Missing R package',
 				undefined,
 				50
@@ -102,8 +103,16 @@ export class PositronPopups {
 	 * Can be called after a DropDownListBox is clicked. Selects the option with the given label.
 	 * @param label The label of the option to select.
 	 */
-	async clickOnModalDialogPopupOption(label: string) {
-		const el = this.code.driver.getLocator('.positron-modal-popup .positron-button .title').filter({ hasText: label });
+	async clickOnModalDialogPopupOption(label: string | RegExp) {
+		const el = this.code.driver.getLocator(POSITRON_MODAL_DIALOG_POPUP_OPTION).getByText(label);
 		await el.click();
+	}
+
+	/**
+	 * Waits for the modal dialog box title to match the given title.
+	 * @param title The title to wait for.
+	 */
+	async waitForModalDialogTitle(title: string) {
+		await this.code.waitForTextContent(POSITRON_MODAL_DIALOG_BOX_TITLE, title);
 	}
 }
