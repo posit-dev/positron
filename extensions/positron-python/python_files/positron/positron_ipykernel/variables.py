@@ -591,12 +591,12 @@ class VariablesService:
             else:
                 self._send_error(
                     JsonRpcErrorCode.INTERNAL_ERROR,
-                    f"Error opening viewer for variable at '{path}'. Object nor supported.",
+                    f"Error opening viewer for variable at '{path}'. Object not supported. Try restarting the session.",
                 )
         except Exception as err:
             self._send_error(
                 JsonRpcErrorCode.INTERNAL_ERROR,
-                f"Error opening viewer for variable at '{path}'",
+                f"Error opening viewer for variable at '{path}'. Try restarting the session.",
             )
             logger.error(err, exc_info=True)
 

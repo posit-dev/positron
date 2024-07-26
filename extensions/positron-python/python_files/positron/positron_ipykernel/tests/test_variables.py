@@ -702,10 +702,12 @@ def test_view_error_when_pandas_not_loaded(
     # regression test for https://github.com/posit-dev/positron/issues/3653
     shell.user_ns["x"] = pd.DataFrame({"a": [0]})
 
-    def fail_register_table(table, title, variable_path):
-        raise TypeError("Can't register table")
+    # Cases where the object has a viewer action, but no service reports it as
+    # supported.
+    def not_supported(value):
+        return False
 
-    mock_dataexplorer_service.register_table = fail_register_table
+    mock_dataexplorer_service.is_supported = not_supported
 
     path = _encode_path(["x"])
     msg = json_rpc_request("view", {"path": path}, comm_id="dummy_comm_id")
@@ -714,7 +716,22 @@ def test_view_error_when_pandas_not_loaded(
     assert variables_comm.messages == [
         json_rpc_error(
             JsonRpcErrorCode.INTERNAL_ERROR,
-            f"Error opening viewer for variable at '{path}'",
+            f"Error opening viewer for variable at '{path}'. Object not supported. Try restarting the session.",
+        )
+    ]
+
+    # Case where the object has a viewer, but somehting wrong happens when checking
+    # if the object is supported.
+    def fail_is_supported(value):
+        raise TypeError("Not supported")
+
+    mock_dataexplorer_service.is_supported = fail_is_supported
+    variables_comm.handle_msg(msg, raise_errors=False)
+
+    assert [variables_comm.messages[-1]] == [
+        json_rpc_error(
+            JsonRpcErrorCode.INTERNAL_ERROR,
+            f"Error opening viewer for variable at '{path}'. Try restarting the session.",
         )
     ]
 
