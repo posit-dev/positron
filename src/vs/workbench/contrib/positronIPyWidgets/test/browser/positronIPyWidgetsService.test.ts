@@ -5,7 +5,6 @@
 import assert from 'assert';
 import { timeout } from 'vs/base/common/async';
 import { Emitter } from 'vs/base/common/event';
-import { Disposable } from 'vs/base/common/lifecycle';
 import { generateUuid } from 'vs/base/common/uuid';
 import { ensureNoDisposablesAreLeakedInTestSuite } from 'vs/base/test/common/utils';
 import { ExtensionIdentifier } from 'vs/platform/extensions/common/extensions';
@@ -15,8 +14,8 @@ import { INotebookEditor } from 'vs/workbench/contrib/notebook/browser/notebookB
 import { INotebookEditorService } from 'vs/workbench/contrib/notebook/browser/services/notebookEditorService';
 import { NotebookEditorWidgetService } from 'vs/workbench/contrib/notebook/browser/services/notebookEditorServiceImpl';
 import { NotebookRendererMessagingService } from 'vs/workbench/contrib/notebook/browser/services/notebookRendererMessagingServiceImpl';
-import { NotebookService } from 'vs/workbench/contrib/notebook/browser/services/notebookServiceImpl';
 import { NotebookTextModel } from 'vs/workbench/contrib/notebook/common/model/notebookTextModel';
+import { INotebookRendererInfo, INotebookStaticPreloadInfo } from 'vs/workbench/contrib/notebook/common/notebookCommon';
 import { NotebookOutputRendererInfo } from 'vs/workbench/contrib/notebook/common/notebookOutputRenderer';
 import { INotebookRendererMessagingService } from 'vs/workbench/contrib/notebook/common/notebookRendererMessagingService';
 import { INotebookService } from 'vs/workbench/contrib/notebook/common/notebookService';
@@ -31,32 +30,26 @@ import { LanguageRuntimeMessageType, LanguageRuntimeSessionMode, RuntimeExitReas
 import { ToWebviewMessage } from 'vs/workbench/services/languageRuntime/common/positronIPyWidgetsWebviewMessages';
 import { TestIPyWidgetsWebviewMessaging } from 'vs/workbench/services/languageRuntime/test/common/testIPyWidgetsWebviewMessaging';
 import { INotebookDocumentService, NotebookDocumentWorkbenchService } from 'vs/workbench/services/notebook/common/notebookDocumentService';
-import { IRuntimeSessionService, IRuntimeSessionWillStartEvent, RuntimeClientType } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
+import { IRuntimeSessionService, RuntimeClientType } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
 import { TestLanguageRuntimeSession } from 'vs/workbench/services/runtimeSession/test/common/testLanguageRuntimeSession';
+import { TestRuntimeSessionService } from 'vs/workbench/services/runtimeSession/test/common/testRuntimeSessionService';
 import { IWorkbenchThemeService } from 'vs/workbench/services/themes/common/workbenchThemeService';
 import { workbenchInstantiationService } from 'vs/workbench/test/browser/workbenchTestServices';
 
-class TestRuntimeSessionService extends Disposable implements Partial<IRuntimeSessionService> {
-	private readonly _willStartEmitter = this._register(new Emitter<IRuntimeSessionWillStartEvent>());
-
-	readonly activeSessions = new Array<TestLanguageRuntimeSession>();
-
-	readonly onWillStartSession = this._willStartEmitter.event;
-
-	// Test helpers.
-
-	startSession(session: TestLanguageRuntimeSession): void {
-		this.activeSessions.push(session);
-		this._willStartEmitter.fire({ session, isNew: true });
+class TestNotebookService implements Partial<INotebookService> {
+	getRenderers(): INotebookRendererInfo[] {
+		return [];
 	}
-}
 
-class TestNotebookService extends NotebookService implements INotebookService {
-	override getPreferredRenderer(mimeType: string, viewType?: string): NotebookOutputRendererInfo | undefined {
+	getPreferredRenderer(_mimeType: string, _viewType?: string): NotebookOutputRendererInfo | undefined {
 		return <NotebookOutputRendererInfo>{
 			id: 'positron-ipywidgets',
 			extensionId: new ExtensionIdentifier('vscode.positron-ipywidgets'),
 		};
+	}
+
+	*getStaticPreloads(_viewType: string): Iterable<INotebookStaticPreloadInfo> {
+		// Yield nothing.
 	}
 }
 
@@ -67,19 +60,18 @@ suite('Positron - PositronIPyWidgetsService', () => {
 	let runtimeSessionService: TestRuntimeSessionService;
 	let notebookEditorService: INotebookEditorService;
 
-	setup(async () => {
+	setup(() => {
 		const instantiationService = workbenchInstantiationService(undefined, disposables);
 		instantiationService.stub(INotebookRendererMessagingService, disposables.add(instantiationService.createInstance(NotebookRendererMessagingService)));
 		notebookEditorService = disposables.add(instantiationService.createInstance(NotebookEditorWidgetService));
 		instantiationService.stub(INotebookEditorService, notebookEditorService);
 		instantiationService.stub(IWorkbenchThemeService, new TestThemeService() as any);
 		instantiationService.stub(INotebookDocumentService, new NotebookDocumentWorkbenchService());
-		instantiationService.stub(INotebookService, disposables.add(instantiationService.createInstance(TestNotebookService)));
+		instantiationService.stub(INotebookService, new TestNotebookService());
 		instantiationService.stub(IWebviewService, disposables.add(new WebviewService(instantiationService)));
 		instantiationService.stub(IPositronNotebookOutputWebviewService, instantiationService.createInstance(PositronNotebookOutputWebviewService));
 		runtimeSessionService = disposables.add(new TestRuntimeSessionService());
 		instantiationService.stub(IRuntimeSessionService, runtimeSessionService);
-
 		positronIpywidgetsService = disposables.add(instantiationService.createInstance(PositronIPyWidgetsService));
 	});
 
@@ -223,7 +215,7 @@ suite('Positron - IPyWidgetsInstance constructor', () => {
 	});
 });
 
-suite('IPyWidgetsInstance', () => {
+suite('Positron - IPyWidgetsInstance', () => {
 	const disposables = ensureNoDisposablesAreLeakedInTestSuite();
 
 	let session: TestLanguageRuntimeSession;
