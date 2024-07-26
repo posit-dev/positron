@@ -53,7 +53,7 @@ export class PositronNotebookOutputWebviewService implements IPositronNotebookOu
 				continue;
 			}
 
-			const renderer = this._notebookService.getPreferredRenderer(mimeType, viewType);
+			const renderer = this._notebookService.getPreferredRenderer(mimeType);
 			if (renderer) {
 				return this.createNotebookRenderOutput(output.id, runtime,
 					renderer, mimeType, output, viewType);

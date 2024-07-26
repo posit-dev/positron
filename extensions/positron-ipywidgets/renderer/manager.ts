@@ -12,8 +12,7 @@ import { Disposable } from 'vscode-notebook-renderer/events';
 import { Messaging } from './messaging';
 import { Comm } from './comm';
 
-// TODO: Should we support configurable CDN?
-//       This is the default CDN in @jupyter-widgets/html-manager/libembed-amd.
+// This is the default CDN in @jupyter-widgets/html-manager/libembed-amd.
 const CDN = 'https://cdn.jsdelivr.net/npm/';
 
 /**

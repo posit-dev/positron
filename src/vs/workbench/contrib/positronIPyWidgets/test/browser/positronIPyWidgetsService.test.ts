@@ -41,7 +41,7 @@ class TestNotebookService implements Partial<INotebookService> {
 		return [];
 	}
 
-	getPreferredRenderer(_mimeType: string, _viewType?: string): NotebookOutputRendererInfo | undefined {
+	getPreferredRenderer(_mimeType: string): NotebookOutputRendererInfo | undefined {
 		return <NotebookOutputRendererInfo>{
 			id: 'positron-ipywidgets',
 			extensionId: new ExtensionIdentifier('vscode.positron-ipywidgets'),
