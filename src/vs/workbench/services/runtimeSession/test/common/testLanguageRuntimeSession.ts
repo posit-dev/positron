@@ -9,7 +9,7 @@ import { URI } from 'vs/base/common/uri';
 import { generateUuid } from 'vs/base/common/uuid';
 import { ExtensionIdentifier } from 'vs/platform/extensions/common/extensions';
 import { ILanguageRuntimeSession, IRuntimeClientInstance, IRuntimeSessionMetadata, RuntimeClientType } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
-import { ILanguageRuntimeClientCreatedEvent, ILanguageRuntimeExit, ILanguageRuntimeInfo, ILanguageRuntimeMessage, ILanguageRuntimeMessageError, ILanguageRuntimeMessageInput, ILanguageRuntimeMessageOutput, ILanguageRuntimeMessagePrompt, ILanguageRuntimeMessageResult, ILanguageRuntimeMessageState, ILanguageRuntimeMessageStream, ILanguageRuntimeMetadata, ILanguageRuntimeStartupFailure, LanguageRuntimeMessageType, LanguageRuntimeSessionLocation, LanguageRuntimeSessionMode, LanguageRuntimeStartupBehavior, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior, RuntimeExitReason, RuntimeState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { ILanguageRuntimeClientCreatedEvent, ILanguageRuntimeExit, ILanguageRuntimeInfo, ILanguageRuntimeMessage, ILanguageRuntimeMessageError, ILanguageRuntimeMessageInput, ILanguageRuntimeMessageOutput, ILanguageRuntimeMessagePrompt, ILanguageRuntimeMessageResult, ILanguageRuntimeMessageState, ILanguageRuntimeMessageStream, ILanguageRuntimeMetadata, ILanguageRuntimeStartupFailure, LanguageRuntimeMessageType, LanguageRuntimeSessionLocation, LanguageRuntimeSessionMode, LanguageRuntimeStartupBehavior, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior, RuntimeExitReason, RuntimeOnlineState, RuntimeOutputKind, RuntimeState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { IRuntimeClientEvent } from 'vs/workbench/services/languageRuntime/common/languageRuntimeUiClient';
 import { TestRuntimeClientInstance } from 'vs/workbench/services/languageRuntime/test/common/testRuntimeClientInstance';
 
@@ -202,60 +202,88 @@ export class TestLanguageRuntimeSession extends Disposable implements ILanguageR
 		this._onDidChangeRuntimeState.fire(state);
 	}
 
-	// receiveMessage(message: ILanguageRuntimeMessage) {
-	// 	switch (message.type) {
-	// 		case LanguageRuntimeMessageType.Output:
-	// 			this._onDidReceiveRuntimeMessageOutput.fire(message as ILanguageRuntimeMessageOutput);
-	// 			break;
-	// 		case LanguageRuntimeMessageType.Result:
-	// 			this._onDidReceiveRuntimeMessageResult.fire(message as ILanguageRuntimeMessageResult);
-	// 			break;
-	// 		case LanguageRuntimeMessageType.Stream:
-	// 			this._onDidReceiveRuntimeMessageStream.fire(message as ILanguageRuntimeMessageStream);
-	// 			break;
-	// 		case LanguageRuntimeMessageType.Input:
-	// 			this._onDidReceiveRuntimeMessageInput.fire(message as ILanguageRuntimeMessageInput);
-	// 			break;
-	// 		case LanguageRuntimeMessageType.Error:
-	// 			this._onDidReceiveRuntimeMessageError.fire(message as ILanguageRuntimeMessageError);
-	// 			break;
-	// 		case LanguageRuntimeMessageType.Prompt:
-	// 			this._onDidReceiveRuntimeMessagePrompt.fire(message as ILanguageRuntimeMessagePrompt);
-	// 			break;
-	// 		case LanguageRuntimeMessageType.State:
-	// 			this._onDidReceiveRuntimeMessageState.fire(message as ILanguageRuntimeMessageState);
-	// 			break;
-	// 		default:
-	// 			throw new Error(`Received unexpected message type: ${message.type}`);
-	// 	}
-	// }
-
-	receiveOutputMessage(message: ILanguageRuntimeMessageOutput) {
-		this._onDidReceiveRuntimeMessageOutput.fire(message);
+	private _defaultMessage(
+		message: Partial<ILanguageRuntimeMessage>,
+		type: LanguageRuntimeMessageType,
+	): ILanguageRuntimeMessage {
+		return {
+			id: message.id ?? generateUuid(),
+			type: type,
+			parent_id: message.parent_id ?? '',
+			event_clock: message.event_clock ?? 0,
+			when: message.when ?? new Date().toISOString(),
+			metadata: message.metadata ?? new Map(),
+		};
 	}
 
-	receiveResultMessage(message: ILanguageRuntimeMessageResult) {
-		this._onDidReceiveRuntimeMessageResult.fire(message);
+	receiveOutputMessage(message: Partial<ILanguageRuntimeMessageOutput>) {
+		const output = {
+			...this._defaultMessage(message, LanguageRuntimeMessageType.Output),
+			kind: message.kind ?? RuntimeOutputKind.Unknown,
+			data: message.data ?? {},
+		};
+		this._onDidReceiveRuntimeMessageOutput.fire(output);
+		return output;
 	}
 
-	receiveStreamMessage(message: ILanguageRuntimeMessageStream) {
-		this._onDidReceiveRuntimeMessageStream.fire(message);
+	receiveResultMessage(message: Partial<ILanguageRuntimeMessageResult>) {
+		const result = {
+			...this._defaultMessage(message, LanguageRuntimeMessageType.Result),
+			kind: message.kind ?? RuntimeOutputKind.Unknown,
+			data: message.data ?? {},
+		};
+		this._onDidReceiveRuntimeMessageResult.fire(result);
+		return result;
 	}
 
-	receiveInputMessage(message: ILanguageRuntimeMessageInput) {
-		this._onDidReceiveRuntimeMessageInput.fire(message);
+	receiveStreamMessage(message: Partial<ILanguageRuntimeMessageStream>) {
+		const stream = {
+			...this._defaultMessage(message, LanguageRuntimeMessageType.Stream),
+			name: message.name ?? 'stdout',
+			text: message.text ?? '',
+		};
+		this._onDidReceiveRuntimeMessageStream.fire(stream);
+		return stream;
 	}
 
-	receiveErrorMessage(message: ILanguageRuntimeMessageError) {
-		this._onDidReceiveRuntimeMessageError.fire(message);
+	receiveInputMessage(message: Partial<ILanguageRuntimeMessageInput>) {
+		const input = {
+			...this._defaultMessage(message, LanguageRuntimeMessageType.Input),
+			code: message.code ?? '',
+			execution_count: message.execution_count ?? 0,
+		};
+		this._onDidReceiveRuntimeMessageInput.fire(input);
+		return input;
 	}
 
-	receivePromptMessage(message: ILanguageRuntimeMessagePrompt) {
-		this._onDidReceiveRuntimeMessagePrompt.fire(message);
+	receiveErrorMessage(message: Partial<ILanguageRuntimeMessageError>) {
+		const error = {
+			...this._defaultMessage(message, LanguageRuntimeMessageType.Error),
+			name: message.name ?? 'Error',
+			message: message.message ?? '',
+			traceback: [],
+		};
+		this._onDidReceiveRuntimeMessageError.fire(error);
+		return error;
 	}
 
-	receiveStateMessage(message: ILanguageRuntimeMessageState) {
-		this._onDidReceiveRuntimeMessageState.fire(message);
+	receivePromptMessage(message: Partial<ILanguageRuntimeMessagePrompt>) {
+		const prompt = {
+			...this._defaultMessage(message, LanguageRuntimeMessageType.Prompt),
+			prompt: message.prompt ?? '',
+			password: message.password ?? false,
+		};
+		this._onDidReceiveRuntimeMessagePrompt.fire(prompt);
+		return prompt;
+	}
+
+	receiveStateMessage(message: Partial<ILanguageRuntimeMessageState>) {
+		const state = {
+			...this._defaultMessage(message, LanguageRuntimeMessageType.State),
+			state: message.state ?? RuntimeOnlineState.Idle,
+		};
+		this._onDidReceiveRuntimeMessageState.fire(state);
+		return state;
 	}
 
 	endSession(exit: ILanguageRuntimeExit) {

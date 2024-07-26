@@ -5,7 +5,6 @@
 import assert from 'assert';
 import { timeout } from 'vs/base/common/async';
 import { Emitter } from 'vs/base/common/event';
-import { generateUuid } from 'vs/base/common/uuid';
 import { ensureNoDisposablesAreLeakedInTestSuite } from 'vs/base/test/common/utils';
 import { ExtensionIdentifier } from 'vs/platform/extensions/common/extensions';
 import { ILogService, NullLogger } from 'vs/platform/log/common/log';
@@ -26,7 +25,7 @@ import { WebviewPlotClient } from 'vs/workbench/contrib/positronPlots/browser/we
 import { IWebviewService } from 'vs/workbench/contrib/webview/browser/webview';
 import { WebviewService } from 'vs/workbench/contrib/webview/browser/webviewService';
 import { RuntimeClientState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeClientInstance';
-import { LanguageRuntimeMessageType, LanguageRuntimeSessionMode, RuntimeExitReason, RuntimeOutputKind, RuntimeState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { LanguageRuntimeSessionMode, RuntimeExitReason, RuntimeOutputKind, RuntimeState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { ToWebviewMessage } from 'vs/workbench/services/languageRuntime/common/positronIPyWidgetsWebviewMessages';
 import { TestIPyWidgetsWebviewMessaging } from 'vs/workbench/services/languageRuntime/test/common/testIPyWidgetsWebviewMessaging';
 import { INotebookDocumentService, NotebookDocumentWorkbenchService } from 'vs/workbench/services/notebook/common/notebookDocumentService';
@@ -76,40 +75,30 @@ suite('Positron - PositronIPyWidgetsService', () => {
 	});
 
 	test('attach console session', async () => {
+		// Listen for the plot client to be created.
 		let plotClient: WebviewPlotClient | undefined;
 		disposables.add(positronIpywidgetsService.onDidCreatePlot(client => plotClient = client));
 
-		const session = disposables.add(
-			new TestLanguageRuntimeSession(LanguageRuntimeSessionMode.Console)
-		);
+		// Start a console session.
+		const session = disposables.add(new TestLanguageRuntimeSession(LanguageRuntimeSessionMode.Console));
 		runtimeSessionService.startSession(session);
 		await timeout(0);
 
-		// TODO: Receive runtime message output
-		const id = generateUuid();
-		const message = {
-			id,
-			type: LanguageRuntimeMessageType.Output,
-			event_clock: 0,
-			// TODO: Hardcode this?
-			when: new Date().toISOString(),
-			data: {
-				'application/vnd.jupyter.widget-view+json': {
-				},
-			},
-			metadata: new Map(),
+		// Simulate the runtime sending an IPyWidgets output message.
+		const message = session.receiveOutputMessage({
 			kind: RuntimeOutputKind.IPyWidget,
-			parent_id: '',
-		};
-		session.receiveOutputMessage(message);
+			data: {
+				'application/vnd.jupyter.widget-view+json': {},
+			},
+		});
 		await timeout(0);
 
-		assert(positronIpywidgetsService.hasInstance(id));
+		assert(positronIpywidgetsService.hasInstance(message.id));
 
 		assert(!!plotClient);
-		assert.strictEqual(plotClient.id, id);
+		assert.strictEqual(plotClient.id, message.id);
 		assert.deepStrictEqual(plotClient.metadata, {
-			id,
+			id: message.id,
 			parent_id: message.parent_id,
 			created: Date.parse(message.when),
 			session_id: session.sessionId,
@@ -124,7 +113,7 @@ suite('Positron - PositronIPyWidgetsService', () => {
 		});
 		await timeout(0);
 
-		assert(!positronIpywidgetsService.hasInstance(id));
+		assert(!positronIpywidgetsService.hasInstance(message.id));
 	});
 
 	test('attach notebook session', async () => {
