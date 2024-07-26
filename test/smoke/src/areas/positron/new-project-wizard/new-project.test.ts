@@ -110,11 +110,12 @@ export function setup(logger: Logger) {
 					const pw = app.workbench.positronNewProjectWizard;
 					const pythonFixtures = new PositronPythonFixtures(app);
 					// Start the Python interpreter and uninstall ipykernel
-					await pythonFixtures.startAndGetPythonInterpreter(true);
+					const firstInfo = await pythonFixtures.startAndGetPythonInterpreter(true);
 					// Ensure the console is ready with the selected interpreter
 					await app.workbench.positronConsole.waitForReady('>>>', 10000);
-					const interpreterInfo = await app.workbench.startInterpreter.getSelectedInterpreterInfo();
-					expect(interpreterInfo?.path).toBeDefined();
+					// seems like the selected interpreter is the one from the prev case
+					//const interpreterInfo = await app.workbench.startInterpreter.getSelectedInterpreterInfo();
+					expect(firstInfo?.path).toBeDefined();
 					await app.workbench.positronConsole.typeToConsole('pip uninstall -y ipykernel');
 					await app.workbench.positronConsole.sendEnterKey();
 					await app.workbench.positronConsole.waitForConsoleContents((contents) =>
@@ -133,7 +134,7 @@ export function setup(logger: Logger) {
 					await expect(
 						async () =>
 							await pw.pythonConfigurationStep.selectInterpreterByPath(
-								interpreterInfo!.path
+								firstInfo!.path
 							)
 					).toPass({ timeout: 50000 });
 					await pw.pythonConfigurationStep.interpreterFeedback.waitForText(
