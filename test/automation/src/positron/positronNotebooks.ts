@@ -29,9 +29,7 @@ const MARKDOWN_TEXT = '#preview';
 export class PositronNotebooks {
 	kernelLabel = this.code.driver.getLocator(KERNEL_LABEL);
 
-	constructor(private code: Code, private quickinput: QuickInput, private quickaccess: QuickAccess, private notebook: Notebook) {
-		this.kernelLabel = this.code.driver.getLocator(KERNEL_LABEL);
-	}
+	constructor(private code: Code, private quickinput: QuickInput, private quickaccess: QuickAccess, private notebook: Notebook) { }
 
 	async selectInterpreter(kernelGroup: string, desiredKernel: string) {
 		await this.code.waitForElement(KERNEL_LABEL, (e) => e!.textContent.includes(desiredKernel) || e!.textContent.includes(SELECT_KERNEL_TEXT));
