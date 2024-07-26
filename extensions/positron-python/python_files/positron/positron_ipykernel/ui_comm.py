@@ -352,6 +352,16 @@ class ExecuteCommandParams(BaseModel):
     )
 
 
+class EvaluateWhenClauseParams(BaseModel):
+    """
+    Get a logical for a `when` clause (a set of context keys)
+    """
+
+    when_clause: StrictStr = Field(
+        description="The values for context keys, as a `when` clause",
+    )
+
+
 class ExecuteCodeParams(BaseModel):
     """
     Execute code in a Positron runtime
@@ -455,6 +465,8 @@ WorkingDirectoryParams.update_forward_refs()
 DebugSleepParams.update_forward_refs()
 
 ExecuteCommandParams.update_forward_refs()
+
+EvaluateWhenClauseParams.update_forward_refs()
 
 ExecuteCodeParams.update_forward_refs()
 
