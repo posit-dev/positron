@@ -1,11 +1,11 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
 import { Disposable } from 'vs/base/common/lifecycle';
-import { IOverlayWebview } from 'vs/workbench/contrib/webview/browser/webview';
 import { Emitter, Event } from 'vs/base/common/event';
+import { PreviewOverlayWebview } from 'vs/workbench/contrib/positronPreview/browser/previewOverlayWebview';
 
 /**
  * This class represents a Positron preview webview as actually loaded into the
@@ -38,7 +38,7 @@ export class PreviewWebview extends Disposable {
 		readonly viewType: string,
 		readonly previewId: string,
 		readonly name: string,
-		readonly webview: IOverlayWebview
+		readonly webview: PreviewOverlayWebview
 	) {
 		super();
 

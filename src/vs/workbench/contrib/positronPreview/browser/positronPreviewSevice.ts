@@ -6,8 +6,10 @@
 import { Event } from 'vs/base/common/event';
 import { URI } from 'vs/base/common/uri';
 import { createDecorator } from 'vs/platform/instantiation/common/instantiation';
+import { PreviewHtml } from 'vs/workbench/contrib/positronPreview/browser/previewHtml';
 import { PreviewWebview } from 'vs/workbench/contrib/positronPreview/browser/previewWebview';
 import { WebviewExtensionDescription, WebviewInitInfo } from 'vs/workbench/contrib/webview/browser/webview';
+import { IShowHtmlUriEvent } from 'vs/workbench/services/languageRuntime/common/languageRuntimeUiClient';
 
 export const POSITRON_PREVIEW_VIEW_ID = 'workbench.panel.positronPreview';
 
@@ -17,6 +19,11 @@ export const POSITRON_PREVIEW_SERVICE_ID = 'positronPreviewService';
  * The unique viewType that identifies Positron URL previews.
  */
 export const POSITRON_PREVIEW_URL_VIEW_TYPE = 'positron.previewUrl';
+
+/**
+ * The unique viewType that identifies Positron HTML previews.
+ */
+export const POSITRON_PREVIEW_HTML_VIEW_TYPE = 'positron.previewHtml';
 
 export const IPositronPreviewService = createDecorator<IPositronPreviewService>(POSITRON_PREVIEW_SERVICE_ID);
 
@@ -44,14 +51,40 @@ export interface IPositronPreviewService {
 	 * Opens a URI in the preview pane.
 	 *
 	 * @param previewId The unique ID or handle of the preview.
-	 * @param origin The origin of the URL.
 	 * @param extension The extension that is opening the URL.
 	 * @param uri The URI to open in the preview.
 	 */
-	openUri(previewId: string,
-		origin: string,
+	openUri(
+		previewId: string,
 		extension: WebviewExtensionDescription | undefined,
 		uri: URI): PreviewWebview;
+
+	/**
+	 * Opens an HTML file in the preview pane.
+	 *
+	 * @param previewId The unique ID or handle of the preview.
+	 * @param extension The extension that is opening the URL.
+	 * @param path The path to the HTML file.
+	 */
+	openHtml(
+		previewId: string,
+		extension: WebviewExtensionDescription | undefined,
+		path: string): Promise<PreviewWebview>;
+
+	/**
+	 * Opens an HTML file from a runtime message in the preview pane. This
+	 * method just creates and returns the preview; it doesn't show it in the
+	 * pane. Used by the Plots service to create a webview for an interactive
+	 * plot.
+	 *
+	 * @param sessionId The session ID of the preview.
+	 * @param extension The extension that is opening the URL.
+	 * @param uri The URI to open in the preview.
+	 */
+	createHtmlWebview(
+		sessionId: string,
+		extension: WebviewExtensionDescription | undefined,
+		event: IShowHtmlUriEvent): PreviewHtml;
 
 	/**
 	 * An event that is fired when a new preview panel webview is created.

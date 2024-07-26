@@ -1,10 +1,12 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2022 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2022-2024 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
+import * as positron from 'positron';
 import { PositronProxy } from './positronProxy';
+import path from 'path';
 
 /**
  * ProxyServerStyles type.
@@ -27,6 +29,14 @@ export function activate(context: vscode.ExtensionContext) {
 		)
 	);
 
+	// Register the positronProxy.startHtmlProxyServer command and add its disposable.
+	context.subscriptions.push(
+		vscode.commands.registerCommand(
+			'positronProxy.startHtmlProxyServer',
+			async (targetPath: string) => await positronProxy.startHtmlProxyServer(targetPath)
+		)
+	);
+
 	// Register the positronProxy.stopHelpProxyServer command and add its disposable.
 	context.subscriptions.push(
 		vscode.commands.registerCommand(
@@ -41,6 +51,15 @@ export function activate(context: vscode.ExtensionContext) {
 			'positronProxy.setHelpProxyServerStyles',
 			(styles: ProxyServerStyles) => positronProxy.setHelpProxyServerStyles(styles)
 		)
+	);
+
+	// Register the positronProxy.showHtmlPreview command and add its disposable.
+	context.subscriptions.push(
+		vscode.commands.registerCommand(
+			'positronProxy.showHtmlPreview',
+			(path: vscode.Uri) => {
+				positron.window.previewHtml(path.toString());
+			})
 	);
 
 	// Add the PositronProxy object disposable.

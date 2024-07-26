@@ -19,9 +19,12 @@ import { IWorkbenchContributionsRegistry, Extensions as WorkbenchExtensions, IWo
 import { ViewContainer, IViewContainersRegistry, ViewContainerLocation, Extensions as ViewContainerExtensions, IViewsRegistry } from 'vs/workbench/common/views';
 import { registerAction2 } from 'vs/platform/actions/common/actions';
 import { PositronOpenUrlInViewerAction } from 'vs/workbench/contrib/positronPreview/browser/positronPreviewActions';
+import { IConfigurationRegistry, Extensions as ConfigurationExtensions, ConfigurationScope, } from 'vs/platform/configuration/common/configurationRegistry';
 
 // The Positron preview view icon.
 const positronPreviewViewIcon = registerIcon('positron-preview-view-icon', Codicon.positronPreviewView, nls.localize('positronPreviewViewIcon', 'View icon of the Positron preview view.'));
+
+export const POSITRON_PREVIEW_PLOTS_IN_VIEWER = 'positron.viewer.interactivePlotsInViewer';
 
 // Register the Positron preview container.
 const VIEW_CONTAINER: ViewContainer = Registry.as<IViewContainersRegistry>(ViewContainerExtensions.ViewContainersRegistry).registerViewContainer({
@@ -70,5 +73,20 @@ class PositronPreviewContribution extends Disposable implements IWorkbenchContri
 		registerAction2(PositronOpenUrlInViewerAction);
 	}
 }
+
+// Register configuration options for the preview service
+const configurationRegistry = Registry.as<IConfigurationRegistry>(ConfigurationExtensions.Configuration);
+configurationRegistry.registerConfiguration({
+	id: 'positron',
+	properties: {
+		[POSITRON_PREVIEW_PLOTS_IN_VIEWER]: {
+			scope: ConfigurationScope.MACHINE,
+			type: 'boolean',
+			default: false,
+			description: nls.localize('positron.viewer.interactivePlotsInViewer', "When enabled, interactive HTML plots are shown in the Viewer pane rather than in the Plots pane.")
+		},
+	}
+});
+
 
 Registry.as<IWorkbenchContributionsRegistry>(WorkbenchExtensions.Workbench).registerWorkbenchContribution(PositronPreviewContribution, LifecyclePhase.Restored);
