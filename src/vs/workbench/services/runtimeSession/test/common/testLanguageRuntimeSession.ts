@@ -77,21 +77,28 @@ export class TestLanguageRuntimeSession extends Disposable implements ILanguageR
 		startupBehavior: LanguageRuntimeStartupBehavior.Implicit,
 	};
 
-	readonly metadata: IRuntimeSessionMetadata = {
-		createdTimestamp: Date.now(),
-		sessionId: 'session-id',
-		sessionMode: LanguageRuntimeSessionMode.Console,
-		sessionName: 'session-name',
-		startReason: 'test',
-		notebookUri: undefined,
-	};
+	readonly metadata: IRuntimeSessionMetadata;
 
-	readonly sessionId = this.metadata.sessionId;
+	readonly sessionId: string;
 
 	clientInstances = new Array<IRuntimeClientInstance<any, any>>();
 
-	constructor() {
+	constructor(
+		sessionMode: LanguageRuntimeSessionMode = LanguageRuntimeSessionMode.Console
+	) {
 		super();
+
+		this.sessionId = 'session-id';
+
+		this.metadata = {
+			createdTimestamp: Date.now(),
+			sessionId: this.sessionId,
+			sessionMode,
+			sessionName: 'session-name',
+			startReason: 'test',
+			notebookUri: undefined,
+		};
+
 	}
 
 	getRuntimeState(): RuntimeState {
@@ -249,5 +256,9 @@ export class TestLanguageRuntimeSession extends Disposable implements ILanguageR
 
 	receiveStateMessage(message: ILanguageRuntimeMessageState) {
 		this._onDidReceiveRuntimeMessageState.fire(message);
+	}
+
+	endSession(exit: ILanguageRuntimeExit) {
+		this._onDidEndSession.fire(exit);
 	}
 }

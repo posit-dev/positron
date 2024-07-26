@@ -251,7 +251,7 @@ export class PositronNotebookOutputWebviewService implements IPositronNotebookOu
 
 		const scopedRendererMessaging = this._notebookRendererMessagingService.getScoped(id);
 		return new NotebookOutputWebview(
-			id, runtime.runtimeMetadata.runtimeId, webview, render, scopedRendererMessaging);
+			id, runtime.sessionId, webview, render, scopedRendererMessaging);
 	}
 
 	async createRawHtmlOutput<WType extends WebviewType>({ id, html, webviewType, runtimeOrSessionId }: {
@@ -309,7 +309,7 @@ window.onload = function() {
 
 		return new NotebookOutputWebview(
 			id,
-			typeof runtimeOrSessionId === 'string' ? runtimeOrSessionId : runtimeOrSessionId.runtimeMetadata.runtimeId,
+			typeof runtimeOrSessionId === 'string' ? runtimeOrSessionId : runtimeOrSessionId.sessionId,
 			// The unfortunate cast is necessary because typescript isn't capable of figuring out that
 			// the type of the webview was determined by the type of the webviewType parameter.
 			webview as WType extends WebviewType.Overlay ? IOverlayWebview : IWebviewElement

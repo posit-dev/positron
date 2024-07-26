@@ -20,7 +20,10 @@ export class WebviewService extends Disposable implements IWebviewService {
 		@IInstantiationService protected readonly _instantiationService: IInstantiationService,
 	) {
 		super();
-		this._webviewThemeDataProvider = this._instantiationService.createInstance(WebviewThemeDataProvider);
+		// --- Start Positron ---
+		// The created instance was not registered causing a leaked disposable error in our unit tests.
+		this._webviewThemeDataProvider = this._register(this._instantiationService.createInstance(WebviewThemeDataProvider));
+		// --- End Positron ---
 	}
 
 	private _activeWebview?: IWebview;

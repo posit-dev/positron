@@ -28,19 +28,34 @@ export class WebviewPlotClient extends Disposable implements IPositronPlotClient
 	private _element: HTMLElement | undefined;
 
 	/**
-	 * Creates a new WebPlotClient, which wraps a notebook output webview in
+	 * Creates a new WebviewPlotClient, which wraps a notebook output webview in
 	 * an object that can be displayed in the Plots pane.
 	 *
 	 * @param webview The webview to wrap.
 	 * @param message The output message from which the webview was created.
 	 * @param code The code that generated the webview (if known)
 	 */
-	constructor(
-		public readonly metadata: IPositronPlotMetadata,
-		public readonly webview: IOverlayWebview) {
+	constructor(public readonly webview: INotebookOutputWebview,
+		message: ILanguageRuntimeMessageOutput,
+		code?: string) {
 		super();
 
-		this._onDidRenderThumbnail = new Emitter<string>();
+		// Create the metadata for the plot.
+		this.metadata = {
+			id: message.id,
+			parent_id: message.parent_id,
+			created: Date.parse(message.when),
+			session_id: webview.sessionId,
+			code: code ? code : '',
+		};
+
+		// Wait for the webview to finish rendering. When it does, nudge the
+		// timer that renders the thumbnail.
+		this._register(this.webview.onDidRender(e => {
+			this.nudgeRenderThumbnail();
+		}));
+
+		this._onDidRenderThumbnail = this._register(new Emitter<string>());
 		this.onDidRenderThumbnail = this._onDidRenderThumbnail.event;
 	}
 
@@ -67,6 +82,7 @@ export class WebviewPlotClient extends Disposable implements IPositronPlotClient
 	 */
 	public claim(claimant: any) {
 		this.webview.claim(claimant, DOM.getWindow(this._element), undefined);
+		this.webview.render?.();
 		this._claimed = true;
 	}
 

@@ -78,7 +78,9 @@ export class PositronIPyWidgetsService extends Disposable implements IPositronIP
 	}
 
 	private attachConsoleSession(session: ILanguageRuntimeSession) {
-		const disposables = this._register(new DisposableStore());
+		// TODO: Currently, if the application closes before the session ends, this will not be
+		//       disposed.
+		const disposables = new DisposableStore();
 
 		disposables.add(session.onDidReceiveRuntimeMessageOutput(async (message) => {
 			// Only handle IPyWidget output messages.
@@ -93,6 +95,8 @@ export class PositronIPyWidgetsService extends Disposable implements IPositronIP
 			if (!webview) {
 				throw new Error(`Could not create webview for IPyWidget message: ${JSON.stringify(message)}`);
 			}
+
+			disposables.add(webview);
 
 			// Create the ipywidgets instance.
 			const messaging = disposables.add(new IPyWidgetsWebviewMessaging(
@@ -135,12 +139,14 @@ export class PositronIPyWidgetsService extends Disposable implements IPositronIP
 
 		this._logService.debug(`Found an existing notebook editor for session '${session.sessionId}, starting ipywidgets instance`);
 
-		const disposables = this._register(new DisposableStore());
+		// TODO: Currently, if the application closes before the session ends, this will not be
+		// 	     disposed.
+		const disposables = new DisposableStore();
 
 		// We found a matching notebook editor, create an ipywidgets instance.
-		const messaging = new IPyWidgetsWebviewMessaging(
+		const messaging = disposables.add(new IPyWidgetsWebviewMessaging(
 			notebookEditor.getId(), this._notebookRendererMessagingService
-		);
+		));
 		const ipywidgetsInstance = new IPyWidgetsInstance(session, messaging, this._logService);
 		this._notebookInstancesBySessionId.set(session.sessionId, ipywidgetsInstance);
 		disposables.add(ipywidgetsInstance);
