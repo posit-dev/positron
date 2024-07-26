@@ -113,8 +113,6 @@ export function setup(logger: Logger) {
 					const firstInfo = await pythonFixtures.startAndGetPythonInterpreter(true);
 					// Ensure the console is ready with the selected interpreter
 					await app.workbench.positronConsole.waitForReady('>>>', 10000);
-					// seems like the selected interpreter is the one from the prev case
-					//const interpreterInfo = await app.workbench.startInterpreter.getSelectedInterpreterInfo();
 					expect(firstInfo?.path).toBeDefined();
 					await app.workbench.positronConsole.typeToConsole('pip uninstall -y ipykernel');
 					await app.workbench.positronConsole.sendEnterKey();
@@ -129,14 +127,7 @@ export function setup(logger: Logger) {
 					await pw.navigate(ProjectWizardNavigateAction.NEXT);
 					// Choose the existing environment which does not have ipykernel
 					await pw.pythonConfigurationStep.existingEnvRadioButton.click();
-					// Select the interpreter that was started above. It's possible that this needs
-					// to be attempted a few times to ensure the interpreters are properly loaded.
-					await expect(
-						async () =>
-							await pw.pythonConfigurationStep.selectInterpreterByPath(
-								firstInfo!.path
-							)
-					).toPass({ timeout: 50000 });
+
 					await pw.pythonConfigurationStep.interpreterFeedback.waitForText(
 						'ipykernel will be installed for Python language support.'
 					);
