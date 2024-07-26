@@ -118,6 +118,10 @@ export class PositronConsole {
 		await this.activeConsole.pressSequentially(text, { delay: 30 });
 	}
 
+	async sendKeyboardKey(key: string) {
+		await this.code.driver.getKeyboard().press(key);
+	}
+
 	async sendEnterKey() {
 		await this.activeConsole.click();
 		await this.code.driver.getKeyboard().press('Enter');
@@ -160,5 +164,9 @@ export class PositronConsole {
 			});
 			element.dispatchEvent(clipboardEvent);
 		}, text);
+	}
+
+	getLastClickableLink() {
+		return this.activeConsole.locator('.output-run-hyperlink').last();
 	}
 }
