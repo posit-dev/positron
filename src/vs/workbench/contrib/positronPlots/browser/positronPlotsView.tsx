@@ -179,6 +179,17 @@ export class PositronPlotsViewPane extends PositronViewPane implements IReactCom
 		}));
 	}
 
+	/**
+	 * Dispose method.
+	 */
+	public override dispose(): void {
+		// Disconnect the ResizeObserver for the Positron plots container.
+		this._positronPlotsContainerResizeObserver?.disconnect();
+
+		// Call the base class's dispose method.
+		super.dispose();
+	}
+
 	//#endregion Constructor & Dispose
 
 	//#region Overrides
@@ -201,6 +212,7 @@ export class PositronPlotsViewPane extends PositronViewPane implements IReactCom
 		// since the expand/collapse transition may be animated. Otherwise, the size/position
 		// changed events would only fire at the beginning of the animation possibly leading
 		// to incorrect layouts.
+		this._positronPlotsContainerResizeObserver?.disconnect();
 		this._positronPlotsContainerResizeObserver = new ResizeObserver(entries => {
 			for (const entry of entries) {
 				if (entry.target === this._positronPlotsContainer) {
@@ -216,7 +228,6 @@ export class PositronPlotsViewPane extends PositronViewPane implements IReactCom
 			}
 		});
 		this._positronPlotsContainerResizeObserver.observe(this._positronPlotsContainer);
-		this._register({ dispose: () => this._positronPlotsContainerResizeObserver?.disconnect() });
 
 		// Create the PositronReactRenderer for the PositronPlots component and render it.
 		this._positronReactRenderer = this._register(new PositronReactRenderer(this._positronPlotsContainer));
