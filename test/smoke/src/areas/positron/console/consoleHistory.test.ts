@@ -33,6 +33,7 @@ export function setup(logger: Logger) {
 				await app.workbench.positronConsole.typeToConsole('c = 3');
 				await app.workbench.positronConsole.sendEnterKey();
 
+				await app.workbench.quickaccess.runCommand('workbench.action.toggleAuxiliaryBar');
 				await app.workbench.positronConsole.barClearButton.click();
 
 				await app.workbench.positronConsole.sendKeyboardKey('ArrowUp');
@@ -50,6 +51,9 @@ export function setup(logger: Logger) {
 					contents.some((line) => line.includes('a = 1')) &&
 					contents.some((line) => line.includes('b = 2')) &&
 					contents.some((line) => line.includes('c = 3')));
+
+				await app.workbench.quickaccess.runCommand('workbench.action.toggleAuxiliaryBar');
+
 			});
 		});
 
@@ -76,6 +80,7 @@ export function setup(logger: Logger) {
 
 				await app.code.wait(500);
 
+				await app.workbench.quickaccess.runCommand('workbench.action.toggleAuxiliaryBar');
 				await app.workbench.positronConsole.barClearButton.click();
 
 				await app.workbench.positronConsole.sendKeyboardKey('ArrowUp');
@@ -93,6 +98,9 @@ export function setup(logger: Logger) {
 					contents.some((line) => line.includes('a <- 1')) &&
 					contents.some((line) => line.includes('b <- 2')) &&
 					contents.some((line) => line.includes('c <- 3')));
+
+				await app.workbench.quickaccess.runCommand('workbench.action.toggleAuxiliaryBar');
+
 			});
 		});
 	});
