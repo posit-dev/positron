@@ -112,7 +112,7 @@ cat(sprintf('Hello %s!\n', val))`;
 				}).toPass({ timeout: 60000 });
 			});
 
-			it("R - Esc only dismisses autocomplete not full text typed into console", async function () {
+			it("R - Esc only dismisses autocomplete not full text typed into console [C685868]", async function () {
 				// This is a regression test for https://github.com/posit-dev/positron/issues/1161
 
 				const app = this.app as Application;
