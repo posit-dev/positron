@@ -9,7 +9,6 @@ import { ensureNoDisposablesAreLeakedInTestSuite } from 'vs/base/test/common/uti
 import { ILogService, NullLogger } from 'vs/platform/log/common/log';
 import { RuntimeClientState, RuntimeClientType } from 'vs/workbench/services/languageRuntime/common/languageRuntimeClientInstance';
 import { IPyWidgetClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimeIPyWidgetClient';
-import { ToWebviewMessage } from 'vs/workbench/services/languageRuntime/common/positronIPyWidgetsWebviewMessages';
 import { TestIPyWidgetsWebviewMessaging } from 'vs/workbench/services/languageRuntime/test/common/testIPyWidgetsWebviewMessaging';
 import { TestRuntimeClientInstance } from 'vs/workbench/services/languageRuntime/test/common/testRuntimeClientInstance';
 
@@ -34,13 +33,16 @@ suite('Positron - IPyWidgetClientInstance', () => {
 	});
 
 	test('from webview: ignore message with no comm_id', async () => {
+		// Simulate a message from the webview with no comm_id.
 		messaging.receiveMessage({ type: 'initialize_request' });
 		await timeout(0);
 
+		// Check that no replies were sent.
 		assert.deepStrictEqual(messaging.messagesToWebview, []);
 	});
 
 	test('from webview: ignore message to a different comm_id', async () => {
+		// Simulate a message from the webview with a different comm_id.
 		messaging.receiveMessage({
 			type: 'comm_msg',
 			comm_id: 'other-client-id',
@@ -49,13 +51,16 @@ suite('Positron - IPyWidgetClientInstance', () => {
 		});
 		await timeout(0);
 
+		// Check that no replies were sent.
 		assert.deepStrictEqual(messaging.messagesToWebview, []);
 	});
 
 	test('from webview: fire-and-forget comm_msg', async () => {
-		const messages = new Array<unknown>();
-		disposables.add(client.onDidSendMessage(message => messages.push(message)));
+		// Listen to messages sent to the client.
+		const messagesToClient = new Array<unknown>();
+		disposables.add(client.onDidSendMessage(message => messagesToClient.push(message)));
 
+		// Simulate a comm_msg from the webview directed to this client.
 		const data = { some_key: 'some_value' };
 		messaging.receiveMessage({
 			type: 'comm_msg',
@@ -65,16 +70,16 @@ suite('Positron - IPyWidgetClientInstance', () => {
 		});
 		await timeout(0);
 
-		assert.deepStrictEqual(messages, [data]);
+		// Check that the message's data was forwarded to the client.
+		assert.deepStrictEqual(messagesToClient, [data]);
 	});
 
 	test('from webview: rpc comm_msg', async () => {
-		const messages = new Array<unknown>();
-		disposables.add(messaging.onDidPostMessage(message => messages.push(message)));
-
+		// Setup a static RPC handler.
 		const reply = { some_key: 'some_value' };
 		client.rpcHandler = async () => reply;
 
+		// Simulate a message from the webview for a known RPC method.
 		const msgId = 'test-msg-id';
 		messaging.receiveMessage({
 			type: 'comm_msg',
@@ -86,7 +91,8 @@ suite('Positron - IPyWidgetClientInstance', () => {
 		});
 		await timeout(0);
 
-		assert.deepStrictEqual(messages, [{
+		// Check that the reply was sent to the webview.
+		assert.deepStrictEqual(messaging.messagesToWebview, [{
 			type: 'comm_msg',
 			comm_id: client.getClientId(),
 			data: reply,
@@ -95,37 +101,38 @@ suite('Positron - IPyWidgetClientInstance', () => {
 	});
 
 	test('from webview: comm_close', async () => {
+		// Track the client's disposed state.
 		let disposed = false;
 		disposables.add(client.onDidDispose(() => disposed = true));
 
+		// Simulate a comm_close from the webview.
 		messaging.receiveMessage({
 			type: 'comm_close',
 			comm_id: client.getClientId(),
 		});
 		await timeout(0);
 
+		// Check that the client was disposed.
 		assert(disposed);
 	});
 
 	test('to webview: ignore message with unknown method', async () => {
-		const messages = new Array<unknown>();
-		disposables.add(messaging.onDidPostMessage(message => messages.push(message)));
-
+		// Simulate a message from the client with an unknown method.
 		client.receiveData({ method: 'unknown-method' });
 		await timeout(0);
 
-		assert.deepStrictEqual(messages, []);
+		// Check that no messages were sent to the webview.
+		assert.deepStrictEqual(messaging.messagesToWebview, []);
 	});
 
 	test('to webview: update', async () => {
-		const messages = new Array<unknown>();
-		disposables.add(messaging.onDidPostMessage(message => messages.push(message)));
-
+		// Simulate a message from the client with a known method.
 		const data = { method: 'update', some_key: 'some_value' };
 		client.receiveData(data);
 		await timeout(0);
 
-		assert.deepStrictEqual(messages, [{
+		// Check that the message was forwarded to the webview.
+		assert.deepStrictEqual(messaging.messagesToWebview, [{
 			type: 'comm_msg',
 			comm_id: client.getClientId(),
 			data,
@@ -133,20 +140,21 @@ suite('Positron - IPyWidgetClientInstance', () => {
 	});
 
 	test('to webview: comm_close', async () => {
-		const messages = new Array<unknown>();
-		disposables.add(messaging.onDidPostMessage(message => messages.push(message)));
-
+		// Track the IPyWidget client's closed state.
 		let closed = false;
 		disposables.add(ipywidgetClient.onDidClose(() => closed = true));
 
+		// Close the wrapped client.
 		client.setClientState(RuntimeClientState.Closed);
 		await timeout(0);
 
-		assert.deepStrictEqual(messages, [{
+		// Check that the comm_close message was forwarded to the webview.
+		assert.deepStrictEqual(messaging.messagesToWebview, [{
 			type: 'comm_close',
 			comm_id: client.getClientId(),
 		}]);
 
+		// Check that the IPyWidget client was closed.
 		assert(closed);
 	});
 });
