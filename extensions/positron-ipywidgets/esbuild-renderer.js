@@ -16,7 +16,7 @@ require('../esbuild-webview-common').run({
 	srcDir,
 	outdir: outDir,
 	additionalOptions: {
-		// Required to bundle Jupyter CSS and fonts.
+		// Required to bundle fontawesome fonts.
 		loader: {
 			'.svg': 'dataurl',
 			'.ttf': 'dataurl',
