@@ -9,6 +9,7 @@ import { ensureNoDisposablesAreLeakedInTestSuite } from 'vs/base/test/common/uti
 import { ILogService, NullLogger } from 'vs/platform/log/common/log';
 import { RuntimeClientState, RuntimeClientType } from 'vs/workbench/services/languageRuntime/common/languageRuntimeClientInstance';
 import { IPyWidgetClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimeIPyWidgetClient';
+import { ToWebviewMessage } from 'vs/workbench/services/languageRuntime/common/positronIPyWidgetsWebviewMessages';
 import { TestIPyWidgetsWebviewMessaging } from 'vs/workbench/services/languageRuntime/test/common/testIPyWidgetsWebviewMessaging';
 import { TestRuntimeClientInstance } from 'vs/workbench/services/languageRuntime/test/common/testRuntimeClientInstance';
 
@@ -33,19 +34,13 @@ suite('Positron - IPyWidgetClientInstance', () => {
 	});
 
 	test('from webview: ignore message with no comm_id', async () => {
-		const messages = new Array<unknown>();
-		disposables.add(client.onDidSendMessage(message => messages.push(message)));
-
 		messaging.receiveMessage({ type: 'initialize_request' });
 		await timeout(0);
 
-		assert.deepStrictEqual(messages, []);
+		assert.deepStrictEqual(messaging.messagesToWebview, []);
 	});
 
 	test('from webview: ignore message to a different comm_id', async () => {
-		const messages = new Array<unknown>();
-		disposables.add(client.onDidSendMessage(message => messages.push(message)));
-
 		messaging.receiveMessage({
 			type: 'comm_msg',
 			comm_id: 'other-client-id',
@@ -54,7 +49,7 @@ suite('Positron - IPyWidgetClientInstance', () => {
 		});
 		await timeout(0);
 
-		assert.deepStrictEqual(messages, []);
+		assert.deepStrictEqual(messaging.messagesToWebview, []);
 	});
 
 	test('from webview: fire-and-forget comm_msg', async () => {

@@ -197,7 +197,6 @@ suite('Positron - IPyWidgetsInstance constructor', () => {
 	let logService: ILogService;
 	let session: TestLanguageRuntimeSession;
 	let messaging: TestIPyWidgetsWebviewMessaging;
-	let messagesToWebview: Array<ToWebviewMessage>;
 
 	setup(async () => {
 		logService = new NullLogger() as unknown as ILogService;
@@ -206,10 +205,6 @@ suite('Positron - IPyWidgetsInstance constructor', () => {
 
 		// Set the runtime state to ready.
 		session.setRuntimeState(RuntimeState.Ready);
-
-		// Listen to messages to the webview.
-		messagesToWebview = new Array<ToWebviewMessage>();
-		disposables.add(messaging.onDidPostMessage(event => messagesToWebview.push(event)));
 	});
 
 	async function createIPyWidgetsInstance() {
@@ -223,7 +218,7 @@ suite('Positron - IPyWidgetsInstance constructor', () => {
 		await createIPyWidgetsInstance();
 
 		// Check that the initialize message was sent.
-		assert.deepStrictEqual(messagesToWebview, [{ type: 'initialize_result' }]);
+		assert.deepStrictEqual(messaging.messagesToWebview, [{ type: 'initialize_result' }]);
 	});
 
 	test('initialized session, one ipywidget client', async () => {
@@ -233,7 +228,7 @@ suite('Positron - IPyWidgetsInstance constructor', () => {
 		const ipywidgetsInstance = await createIPyWidgetsInstance();
 
 		// Check that the initialize message was sent.
-		assert.deepStrictEqual(messagesToWebview, [{ type: 'initialize_result' }]);
+		assert.deepStrictEqual(messaging.messagesToWebview, [{ type: 'initialize_result' }]);
 
 		// Check that the client was registered.
 		assert(ipywidgetsInstance.hasClient(client.getClientId()));
@@ -253,7 +248,6 @@ suite('Positron - IPyWidgetsInstance', () => {
 	let session: TestLanguageRuntimeSession;
 	let messaging: TestIPyWidgetsWebviewMessaging;
 	let ipywidgetsInstance: IPyWidgetsInstance;
-	let messagesToWebview: Array<ToWebviewMessage>;
 
 	setup(async () => {
 		const logService = new NullLogger() as unknown as ILogService;
@@ -265,9 +259,8 @@ suite('Positron - IPyWidgetsInstance', () => {
 			logService,
 		));
 
-		// Listen to messages to the webview.
-		messagesToWebview = new Array<ToWebviewMessage>();
-		disposables.add(messaging.onDidPostMessage(event => messagesToWebview.push(event)));
+		// Clear initial messages.
+		messaging.messagesToWebview.splice(0);
 	});
 
 	test('from webview: initialize_request', async () => {
@@ -275,7 +268,7 @@ suite('Positron - IPyWidgetsInstance', () => {
 		messaging.receiveMessage({ type: 'initialize_request' });
 
 		// Check that the initialize result was sent.
-		assert.deepStrictEqual(messagesToWebview, [{ type: 'initialize_result' }]);
+		assert.deepStrictEqual(messaging.messagesToWebview, [{ type: 'initialize_result' }]);
 	});
 
 	test('from webview: comm_open jupyter.widget.control', async () => {
@@ -319,7 +312,7 @@ suite('Positron - IPyWidgetsInstance', () => {
 		assert(ipywidgetsInstance.hasClient(client.getClientId()));
 
 		// Check that the comm open message was sent to the webview.
-		assert.deepStrictEqual(messagesToWebview, [{
+		assert.deepStrictEqual(messaging.messagesToWebview, [{
 			type: 'comm_open',
 			comm_id: client.getClientId(),
 			target_name: client.getClientType(),
