@@ -61,6 +61,7 @@ def verify_inspector(
     supports_deepcopy: bool = True,
     mutable: bool = False,
     mutate: Optional[Callable[[Any], None]] = None,
+    comparison_cost: Optional[int] = None,
 ) -> None:
     # NOTE: Skip `get_size` for now, since it depends on platform, Python version, and package version.
 
@@ -73,6 +74,9 @@ def verify_inspector(
     assert inspector.get_kind() == kind
     assert inspector.get_display_type() == display_type
     assert inspector.get_type_info() == type_info
+
+    if comparison_cost is not None:
+        assert inspector.get_comparison_cost() == comparison_cost
 
     if check_deepcopy:
         if supports_deepcopy:
@@ -688,6 +692,7 @@ def test_inspect_pandas_dataframe() -> None:
         has_viewer=True,
         is_truncated=True,
         length=cols,
+        comparison_cost=rows * cols,
         mutable=True,
         mutate=mutate,
     )
@@ -909,6 +914,9 @@ def test_get_child(value: Any, key: Any, expected: Any) -> None:
     assert get_inspector(child).equals(expected)
 
 
+# TODO(wesm): these size values are only currently used for computing
+# comparison costs. We should align on # of cells vs. # of bytes for
+# these comparisons (possibly based on more experiments)
 @pytest.mark.parametrize(
     ("value", "expected"),
     [
@@ -916,8 +924,8 @@ def test_get_child(value: Any, key: Any, expected: Any) -> None:
         (torch.Tensor([[1, 2, 3], [4, 5, 6]]) if torch else None, 24),
         (pd.Series([1, 2, 3, 4]), 32),
         (pl.Series([1, 2, 3, 4]), 32),
-        (pd.DataFrame({"a": [1, 2], "b": ["3", "4"]}), 32),
-        (pl.DataFrame({"a": [1, 2], "b": ["3", "4"]}), 32),
+        (pd.DataFrame({"a": [1, 2], "b": ["3", "4"]}), 4),
+        (pl.DataFrame({"a": [1, 2], "b": ["3", "4"]}), 4),
         (pd.Index([0, 1]), 16),
     ],
 )
