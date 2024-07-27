@@ -44,13 +44,13 @@ function getQuartoWindows(version) {
 function getQuartoMacOS(version) {
     const gunzip = require('gulp-gunzip');
     const untar = require('gulp-untar');
-    const flatmap = require('gulp-flatmap');
     return (0, fetch_1.fetchUrls)([`quarto-${version}-macos.tar.gz`], {
         base: getBaseUrl(version),
         verbose: true,
     })
         // Unzip, then untar
-        .pipe(flatmap((stream) => stream.pipe(gunzip()).pipe(untar())));
+        .pipe(gunzip())
+        .pipe(untar());
 }
 /**
  * Gets a stream that downloads and unpacks the quarto executable for Linux
@@ -61,7 +61,6 @@ function getQuartoMacOS(version) {
 function getQuartoLinux(version) {
     const gunzip = require('gulp-gunzip');
     const untar = require('gulp-untar');
-    const flatmap = require('gulp-flatmap');
     const basename = process.env['npm_config_arch'] === 'x64' ?
         `quarto-${version}-linux-amd64` :
         `quarto-${version}-linux-arm64`;
@@ -70,7 +69,8 @@ function getQuartoLinux(version) {
         verbose: true,
     })
         // Unzip, then untar
-        .pipe(flatmap((stream) => stream.pipe(gunzip()).pipe(untar())));
+        .pipe(gunzip())
+        .pipe(untar());
 }
 /**
  * Gets a stream that downloads and unpacks the quarto executable. Reads

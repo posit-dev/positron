@@ -295,8 +295,19 @@ function packageTask(platform, arch, sourceFolderName, destinationFolderName, op
 
 		// Bundled Quarto binaries
 		const quarto = getQuartoStream()
-			.pipe(rename(path.join('bin', path.join('quarto', 'bin'))))
-			.pipe(rename(path.join('share', path.join('quarto', 'share'))));
+			// Move the Quarto binaries into a `quarto` subdirectory
+			.pipe(rename(f => { f.dirname = path.join(f.dirname, 'quarto'); }))
+			// Restore the executable bit on the Quarto binaries. (It's very
+			// unfortunate that gulp doesn't preserve the executable bit when
+			// copying files.)
+			.pipe(util.setExecutableBit([
+				'**/deno',
+				'**/esbuild',
+				'**/pandoc',
+				'**/quarto',
+				'**/sass',
+				'**/typst'
+			]));
 
 		// --- End Positron ---
 
