@@ -21,6 +21,9 @@ export class MainThreadContextKeyService implements MainThreadContextKeyServiceS
 
 	$evaluateWhenClause(whenClause: string): Promise<boolean> {
 		const precondition = ContextKeyExpr.deserialize(whenClause);
+		if (precondition === undefined) {
+			throw new Error(`Cannot evaluate when clause '${whenClause}'`);
+		}
 		return Promise.resolve(this.contextKeyService.contextMatchesRules(precondition));
 	}
 
