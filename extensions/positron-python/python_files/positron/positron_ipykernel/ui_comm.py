@@ -219,6 +219,9 @@ class UiFrontendEvent(str, enum.Enum):
     # Show a URL in Positron's Viewer pane
     ShowUrl = "show_url"
 
+    # Show an HTML file in Positron
+    ShowHtmlFile = "show_html_file"
+
 
 class BusyParams(BaseModel):
     """
@@ -432,6 +435,28 @@ class ShowUrlParams(BaseModel):
     )
 
 
+class ShowHtmlFileParams(BaseModel):
+    """
+    Show an HTML file in Positron
+    """
+
+    path: StrictStr = Field(
+        description="The fully qualified filesystem path to the HTML file to display",
+    )
+
+    title: StrictStr = Field(
+        description="A title to be displayed in the viewer. May be empty, and can be superseded by the title in the HTML file.",
+    )
+
+    is_plot: StrictBool = Field(
+        description="Whether the HTML file is a plot-like object",
+    )
+
+    height: StrictInt = Field(
+        description="The desired height of the HTML viewer, in pixels. The special value 0 indicates that no particular height is desired, and -1 indicates that the viewer should be as tall as possible.",
+    )
+
+
 EditorContext.update_forward_refs()
 
 TextDocument.update_forward_refs()
@@ -477,3 +502,5 @@ SetEditorSelectionsParams.update_forward_refs()
 ModifyEditorSelectionsParams.update_forward_refs()
 
 ShowUrlParams.update_forward_refs()
+
+ShowHtmlFileParams.update_forward_refs()

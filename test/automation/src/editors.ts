@@ -6,6 +6,11 @@
 import { Code } from './code';
 
 export class Editors {
+	// --- Start Positron ---
+	activeEditor = this.code.driver.getLocator('div.tab.tab-actions-right.active.selected');
+	editorIcon = this.code.driver.getLocator('.monaco-icon-label.file-icon');
+	editorPart = this.code.driver.getLocator('.split-view-view .part.editor');
+	// --- End Positron ---
 
 	constructor(private code: Code) { }
 

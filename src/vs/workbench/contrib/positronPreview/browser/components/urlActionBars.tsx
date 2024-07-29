@@ -6,45 +6,24 @@
 import 'vs/css!./actionBars';
 import * as React from 'react';
 import { PropsWithChildren, useEffect, } from 'react'; // eslint-disable-line no-duplicate-imports
-import { ICommandService } from 'vs/platform/commands/common/commands';
-import { IKeybindingService } from 'vs/platform/keybinding/common/keybinding';
-import { IContextKeyService } from 'vs/platform/contextkey/common/contextkey';
-import { IContextMenuService } from 'vs/platform/contextview/browser/contextView';
-import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
 import { PositronActionBar } from 'vs/platform/positronActionBar/browser/positronActionBar';
-import { IWorkbenchLayoutService } from 'vs/workbench/services/layout/browser/layoutService';
 import { PositronActionBarContextProvider } from 'vs/platform/positronActionBar/browser/positronActionBarContext';
-import { PositronSessionsServices } from 'vs/workbench/contrib/positronRuntimeSessions/browser/positronRuntimeSessionsState';
 import { ActionBarRegion } from 'vs/platform/positronActionBar/browser/components/actionBarRegion';
 import { ActionBarButton } from 'vs/platform/positronActionBar/browser/components/actionBarButton';
 import { localize } from 'vs/nls';
 import { PreviewUrl, QUERY_NONCE_PARAMETER } from 'vs/workbench/contrib/positronPreview/browser/previewUrl';
-import { IPositronPreviewService } from 'vs/workbench/contrib/positronPreview/browser/positronPreviewSevice';
 import { ActionBarSeparator } from 'vs/platform/positronActionBar/browser/components/actionBarSeparator';
-import { IOpenerService } from 'vs/platform/opener/common/opener';
 import { URI } from 'vs/base/common/uri';
-import { INotificationService } from 'vs/platform/notification/common/notification';
 import { DisposableStore } from 'vs/base/common/lifecycle';
+import { kPaddingLeft, kPaddingRight, PreviewActionBarsProps } from 'vs/workbench/contrib/positronPreview/browser/components/actionBars';
 
 // Constants.
-const kPaddingLeft = 8;
-const kPaddingRight = 8;
 const kUrlBarInputName = 'url-bar';
 
 /**
- * ActionBarsProps interface.
+ * UrlActionBarsProps interface.
  */
-export interface ActionBarsProps extends PositronSessionsServices {
-	// Services.
-	readonly commandService: ICommandService;
-	readonly configurationService: IConfigurationService;
-	readonly contextKeyService: IContextKeyService;
-	readonly contextMenuService: IContextMenuService;
-	readonly keybindingService: IKeybindingService;
-	readonly layoutService: IWorkbenchLayoutService;
-	readonly notificationService: INotificationService;
-	readonly openerService: IOpenerService;
-	readonly positronPreviewService: IPositronPreviewService;
+export interface UrlActionBarsProps extends PreviewActionBarsProps {
 
 	// The active preview.
 	readonly preview: PreviewUrl;
@@ -59,11 +38,11 @@ const openInBrowser = localize('positron.preview.openInBrowser', "Open the curre
 const currentUrl = localize('positron.preview.currentUrl', "The current URL");
 
 /**
- * ActionBars component.
+ * UrlActionBars component.
  * @param props An ActionBarsProps that contains the component properties.
  * @returns The rendered component.
  */
-export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
+export const UrlActionBars = (props: PropsWithChildren<UrlActionBarsProps>) => {
 	// Save the current URL.
 	const currentUri = props.preview.currentUri;
 

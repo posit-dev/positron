@@ -359,4 +359,9 @@ window.addEventListener('load', () => {
 			openLinkInHost(link);
 		}
 	}
+
+	// Notify the host that the webview has loaded its content
+	hostMessaging.postMessage('did-load-window', {
+		title: document.title,
+	});
 });

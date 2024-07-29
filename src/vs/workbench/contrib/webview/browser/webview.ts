@@ -279,6 +279,7 @@ export interface IWebview extends IDisposable {
 	captureContentsAsPng(): Promise<VSBuffer | undefined>;
 	executeJavaScript(frameId: WebviewFrameId, code: string): Promise<any>;
 	onDidNavigate: Event<URI>;
+	onDidLoad: Event<string>;
 	// --- End Positron
 	runFindAction(previous: boolean): void;
 
