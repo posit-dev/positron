@@ -47,9 +47,13 @@ import {
 } from '../../types';
 import { BaseInterpreterSelectorCommand } from './base';
 // --- Start Positron ---
+import * as fs from 'fs-extra';
+
 import { IPythonRuntimeManager } from '../../../../positron/manager';
 import { traceError } from '../../../../logging';
 import { untildify } from '../../../../pythonEnvironments/common/externalDependencies';
+import { showErrorMessage } from '../../../../common/vscodeApis/windowApis';
+import { CreateEnv } from '../../../../common/utils/localize';
 // --- End Positron ---
 
 export type InterpreterStateArgs = { path?: string; workspace: Resource };
@@ -547,6 +551,9 @@ export class SetInterpreterCommand extends BaseInterpreterSelectorCommand implem
             sendTelemetryEvent(EventName.SELECT_INTERPRETER_ENTER_CHOICE, undefined, { choice: 'enter' });
             // --- Start Positron ---
             state.path = untildify(selection);
+            if (!fs.existsSync(state.path)) {
+                showErrorMessage(`${CreateEnv.pathDoesntExist} ${state.path}`);
+            }
             // --- End Positron ---
             this.sendInterpreterEntryTelemetry(selection, state.workspace);
         } else if (selection && selection.label === InterpreterQuickPickList.browsePath.label) {
