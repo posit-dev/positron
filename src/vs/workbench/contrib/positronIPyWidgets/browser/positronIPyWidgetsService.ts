@@ -12,9 +12,9 @@ import { isEqual } from 'vs/base/common/resources';
 import { ILogService } from 'vs/platform/log/common/log';
 import { FromWebviewMessage, ICommOpenFromWebview, ToWebviewMessage } from '../../../services/languageRuntime/common/positronIPyWidgetsWebviewMessages';
 import { IPositronNotebookOutputWebviewService } from 'vs/workbench/contrib/positronOutputWebview/browser/notebookOutputWebviewService';
-import { WebviewPlotClient } from 'vs/workbench/contrib/positronPlots/browser/webviewPlotClient';
 import { IIPyWidgetsWebviewMessaging, IPyWidgetClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimeIPyWidgetClient';
 import { INotebookRendererMessagingService } from 'vs/workbench/contrib/notebook/common/notebookRendererMessagingService';
+import { NotebookOutputPlotClient } from 'vs/workbench/contrib/positronPlots/browser/notebookOutputPlotClient';
 
 /**
  * The PositronIPyWidgetsService is responsible for managing IPyWidgetsInstances.
@@ -30,10 +30,10 @@ export class PositronIPyWidgetsService extends Disposable implements IPositronIP
 	private readonly _consoleInstancesByMessageId = new Map<string, IPyWidgetsInstance>();
 
 	/** The emitter for the onDidCreatePlot event */
-	private readonly _onDidCreatePlot = this._register(new Emitter<WebviewPlotClient>());
+	private readonly _onDidCreatePlot = this._register(new Emitter<NotebookOutputPlotClient>());
 
 	/** Emitted when a new IPyWidgets webview plot is created. */
-	onDidCreatePlot: Event<WebviewPlotClient> = this._onDidCreatePlot.event;
+	onDidCreatePlot: Event<NotebookOutputPlotClient> = this._onDidCreatePlot.event;
 
 	/**
 	 * @param _runtimeSessionService The runtime session service.
@@ -117,7 +117,7 @@ export class PositronIPyWidgetsService extends Disposable implements IPositronIP
 			// TODO: We probably need to dispose in more cases...
 
 			// Fire the onDidCreatePlot event.
-			const client = disposables.add(new WebviewPlotClient(webview, message));
+			const client = disposables.add(new NotebookOutputPlotClient(webview, message));
 			this._onDidCreatePlot.fire(client);
 		}));
 
