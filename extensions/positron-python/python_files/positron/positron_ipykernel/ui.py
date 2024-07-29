@@ -179,6 +179,19 @@ class PositronViewerBrowser(webbrowser.BaseBrowser):
         if not self._comm:
             return False
 
+        # Check if the url starts with 'file://', and if it does send the comm message
+        # for opening an html file and ends with '.html' or '.htm' to open the file in the browser
+        if url.startswith("file://") and (url.endswith(".html") or url.endswith(".htm")):
+            self._comm.send_event(
+                name=UiFrontendEvent.ShowHtmlFile,
+                payload={
+                    "path": url,
+                    # TODO: Figure out if the file being displayed is a plot or not.
+                    "is_plot": False,
+                },
+            )
+            return True
+
         for addr in _localhosts:
             if addr in url:
                 event = ShowUrlParams(url=url)
