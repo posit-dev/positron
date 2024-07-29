@@ -698,6 +698,8 @@ export function createJupyterKernelSpec(
 		// https://github.com/posit-dev/positron/issues/1619#issuecomment-1971552522
 		env['LD_LIBRARY_PATH'] = rHomePath + '/lib';
 	} else if (process.platform === 'darwin') {
+	        // Workaround for
+	        // https://github.com/posit-dev/positron/issues/3732
 		env['DYLD_LIBRARY_PATH'] = rHomePath + '/lib';
 	}
 
