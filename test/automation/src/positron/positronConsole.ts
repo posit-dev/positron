@@ -20,6 +20,7 @@ const CONSOLE_BAR_POWER_BUTTON = 'div.action-bar-button-icon.codicon.codicon-pos
 const CONSOLE_BAR_RESTART_BUTTON = 'div.action-bar-button-icon.codicon.codicon-positron-restart-runtime-thin';
 const CONSOLE_RESTART_BUTTON = 'button.monaco-text-button.runtime-restart-button';
 const CONSOLE_BAR_CLEAR_BUTTON = 'div.action-bar-button-icon.codicon.codicon-clear-all';
+const HISTORY_COMPLETION_ITEM = '.history-completion-item';
 
 /*
  *  Reuseable Positron console functionality for tests to leverage.  Includes the ability to select an interpreter and execute code which
@@ -137,6 +138,19 @@ export class PositronConsole {
 
 	async waitForConsoleContents(accept?: (contents: string[]) => boolean) {
 		const elements = await this.code.waitForElements(`${ACTIVE_CONSOLE_INSTANCE} div span`,
+			false,
+			(elements) => accept ? (!!elements && accept(elements.map(e => e.textContent))) : true);
+		return elements.map(e => e.textContent);
+	}
+
+	async waitForCurrentConsoleLineContents(accept?: (contents: string) => boolean) {
+		const element = await this.code.waitForElement(`${ACTIVE_CONSOLE_INSTANCE} .view-line`,
+			(e) => accept ? (!!e && accept(e.textContent)) : true);
+		return element.textContent;
+	}
+
+	async waitForHistoryContents(accept?: (contents: string[]) => boolean) {
+		const elements = await this.code.waitForElements(`${HISTORY_COMPLETION_ITEM}`,
 			false,
 			(elements) => accept ? (!!elements && accept(elements.map(e => e.textContent))) : true);
 		return elements.map(e => e.textContent);

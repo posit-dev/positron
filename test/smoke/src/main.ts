@@ -51,6 +51,7 @@ import { setup as setupConsoleANSITest } from './areas/positron/console/consoleA
 import { setup as setupConsoleOutputLogTest } from './areas/positron/output/consoleOutputLog.test';
 import { setup as setupBasicRMarkdownTest } from './areas/positron/rmarkdown/rmarkdown.test';
 import { setup as setupWelcomeTest } from './areas/positron/welcome/welcome.test';
+import { setup as setupConsoleHistoryTest } from './areas/positron/console/consoleHistory.test';
 // --- End Positron ---
 
 const rootPath = path.join(__dirname, '..', '..', '..');
@@ -458,5 +459,6 @@ describe(`VSCode Smoke Tests (${opts.web ? 'Web' : 'Electron'})`, () => {
 	setupConsoleOutputLogTest(logger);
 	setupBasicRMarkdownTest(logger);
 	setupWelcomeTest(logger);
+	setupConsoleHistoryTest(logger);
 	// --- End Positron ---
 });
