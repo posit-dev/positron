@@ -93,7 +93,7 @@ export class PythonLsp implements vscode.Disposable {
         // Otherwise, this is the main client for this language, so set the document selector to include
         // untitled Python files, in-memory Python files (e.g. the console), and Python files on disk.
         this._clientOptions.documentSelector = notebookUri
-            ? [{ language: 'python', pattern: notebookUri.path }]
+            ? [{ language: 'python', pattern: notebookUri.fsPath }]
             : [
                   { language: 'python', scheme: 'untitled' },
                   { language: 'python', scheme: 'inmemory' }, // Console
