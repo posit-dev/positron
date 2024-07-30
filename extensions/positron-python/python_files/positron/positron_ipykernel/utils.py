@@ -25,6 +25,7 @@ from typing import (
     Union,
     cast,
 )
+from urllib.parse import urlparse, unquote
 
 JsonData = Union[Dict[str, "JsonData"], List["JsonData"], str, int, float, bool, None]
 JsonRecord = Dict[str, JsonData]
@@ -384,3 +385,23 @@ numpy_numeric_scalars = [
     "numpy.cdouble",
     "numpy.clongdouble",
 ]
+
+
+def is_local_html_file(url: str) -> bool:
+    """Check if a URL points to a local HTML file."""
+    try:
+        parsed_url = urlparse(unquote(url))
+
+        # Check if it's a file scheme
+        if parsed_url.scheme not in ("file"):
+            return False
+
+        # Check if the path contains the .html or .htm extensions
+        path = parsed_url.path.lower()
+        if any(ext in path for ext in (".html", ".htm")):
+            return True
+
+        return False
+
+    except Exception:
+        return False
