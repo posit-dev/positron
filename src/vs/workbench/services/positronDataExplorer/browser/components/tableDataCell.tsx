@@ -11,7 +11,7 @@ import * as React from 'react';
 
 // Other dependencies.
 import { positronClassNames } from 'vs/base/common/positronUtilities';
-import { DataCell, DataCellKind } from 'vs/workbench/services/positronDataExplorer/common/tableDataCache';
+import { DataCell, DataCellKind } from 'vs/workbench/services/positronDataExplorer/common/dataExplorerCache';
 import { PositronDataExplorerColumn } from 'vs/workbench/services/positronDataExplorer/browser/positronDataExplorerColumn';
 
 /**

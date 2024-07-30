@@ -13,8 +13,7 @@ import { IKeybindingService } from 'vs/platform/keybinding/common/keybinding';
 import { IClipboardService } from 'vs/platform/clipboard/common/clipboardService';
 import { INotificationService } from 'vs/platform/notification/common/notification';
 import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
-import { TableDataCache } from 'vs/workbench/services/positronDataExplorer/common/tableDataCache';
-import { TableSummaryCache } from 'vs/workbench/services/positronDataExplorer/common/tableSummaryCache';
+import { DataExplorerCache } from 'vs/workbench/services/positronDataExplorer/common/dataExplorerCache';
 import { TableDataDataGridInstance } from 'vs/workbench/services/positronDataExplorer/browser/tableDataDataGridInstance';
 import { DataExplorerClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimeDataExplorerClient';
 import { TableSummaryDataGridInstance } from 'vs/workbench/services/positronDataExplorer/browser/tableSummaryDataGridInstance';
@@ -34,14 +33,9 @@ export class PositronDataExplorerInstance extends Disposable implements IPositro
 	//#region Private Properties
 
 	/**
-	 * Gets the table summary cache.
+	 * Gets the DataExplorerCache.
 	 */
-	private readonly _tableSummaryCache: TableSummaryCache;
-
-	/**
-	 * Gets the table data cache.
-	 */
-	private readonly _tableDataCache: TableDataCache;
+	private readonly _dataExplorerCache: DataExplorerCache;
 
 	/**
 	 * Gets or sets the layout.
@@ -122,21 +116,20 @@ export class PositronDataExplorerInstance extends Disposable implements IPositro
 		super();
 
 		// Initialize.
-		this._tableSummaryCache = new TableSummaryCache(this._dataExplorerClientInstance);
+		this._dataExplorerCache = new DataExplorerCache(this._dataExplorerClientInstance);
 		this._tableSchemaDataGridInstance = new TableSummaryDataGridInstance(
 			this._configurationService,
 			this._hoverService,
 			this._dataExplorerClientInstance,
-			this._tableSummaryCache
+			this._dataExplorerCache
 		);
-		this._tableDataCache = new TableDataCache(this._dataExplorerClientInstance);
 		this._tableDataDataGridInstance = new TableDataDataGridInstance(
 			this._commandService,
 			this._configurationService,
 			this._keybindingService,
 			this._layoutService,
 			this._dataExplorerClientInstance,
-			this._tableDataCache
+			this._dataExplorerCache
 		);
 
 		// Add the onDidClose event handler.
@@ -264,14 +257,14 @@ export class PositronDataExplorerInstance extends Disposable implements IPositro
 			selectedClipboardCells = columns * rows;
 		} else if (clipboardData instanceof ClipboardColumnRange) {
 			const columns = clipboardData.lastColumnIndex - clipboardData.firstColumnIndex;
-			selectedClipboardCells = columns * this._tableDataCache.rows;
+			selectedClipboardCells = columns * this._dataExplorerCache.rows;
 		} else if (clipboardData instanceof ClipboardColumnIndexes) {
-			selectedClipboardCells = clipboardData.indexes.length * this._tableDataCache.rows;
+			selectedClipboardCells = clipboardData.indexes.length * this._dataExplorerCache.rows;
 		} else if (clipboardData instanceof ClipboardRowRange) {
 			const rows = clipboardData.lastRowIndex - clipboardData.firstRowIndex;
-			selectedClipboardCells = rows * this._tableDataCache.columns;
+			selectedClipboardCells = rows * this._dataExplorerCache.columns;
 		} else if (clipboardData instanceof ClipboardRowIndexes) {
-			selectedClipboardCells = clipboardData.indexes.length * this._tableDataCache.columns;
+			selectedClipboardCells = clipboardData.indexes.length * this._dataExplorerCache.columns;
 		} else {
 			// This indicates a bug.
 			selectedClipboardCells = 0;
@@ -309,7 +302,7 @@ export class PositronDataExplorerInstance extends Disposable implements IPositro
 	 * Copies the table data to the clipboard.
 	 */
 	async copyTableDataToClipboard(): Promise<void> {
-		this._clipboardService.writeText(await this._tableDataCache.getTableData());
+		this._clipboardService.writeText(await this._dataExplorerCache.getTableData());
 	}
 
 	/**
