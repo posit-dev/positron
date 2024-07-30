@@ -598,6 +598,14 @@ def test_pandas_supported_features(dxf: DataExplorerFixture):
             profile_type="summary_stats",
             support_status=SupportStatus.Experimental,
         ),
+        ColumnProfileTypeSupportStatus(
+            profile_type="histogram",
+            support_status=SupportStatus.Experimental,
+        ),
+        ColumnProfileTypeSupportStatus(
+            profile_type="frequency_table",
+            support_status=SupportStatus.Experimental,
+        ),
     ]
     for tp in profile_types:
         assert tp in column_profiles["supported_types"]
@@ -2181,6 +2189,13 @@ def _get_histogram(column_index, bins):
     )
 
 
+def _get_frequency_table(column_index, limit):
+    return _profile_request(
+        column_index,
+        [{"profile_type": "frequency_table", "params": {"limit": limit}}],
+    )
+
+
 def _get_summary_stats(column_index):
     return _profile_request(column_index, [{"profile_type": "summary_stats"}])
 
@@ -2574,6 +2589,51 @@ def test_pandas_profile_histogram(dxf: DataExplorerFixture):
     for profile, ex_result in cases:
         result = dxf.get_column_profiles(name, [profile])
         assert result[0]["histogram"] == ex_result
+
+
+def test_pandas_profile_frequency_table(dxf: DataExplorerFixture):
+    df = pd.DataFrame(
+        {
+            "a": [0, 0, 0, 1, 1, 2, 2, 3, 4, 5],
+            "b": [
+                "foo",
+                "foo",
+                "foo",
+                "foo",
+                "b0",
+                "b0",
+                "b1",
+                "b2",
+                "b3",
+                None,
+            ],
+        }
+    )
+    name = "df"
+    dxf.register_table(name, df)
+
+    cases = [
+        (
+            _get_frequency_table(0, 3),
+            {
+                "values": ["0", "1", "2"],
+                "counts": [3, 2, 2],
+                "other_count": 3,
+            },
+        ),
+        (
+            _get_frequency_table(1, 3),
+            {
+                "values": ["foo", "b0", "b1"],
+                "counts": [4, 2, 1],
+                "other_count": 2,
+            },
+        ),
+    ]
+
+    for profile, ex_result in cases:
+        result = dxf.get_column_profiles(name, [profile])
+        assert result[0]["frequency_table"] == ex_result
 
 
 # ----------------------------------------------------------------------

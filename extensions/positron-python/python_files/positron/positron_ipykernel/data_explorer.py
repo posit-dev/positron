@@ -33,7 +33,6 @@ from .data_explorer_comm import (
     ColumnFilterType,
     ColumnFilterTypeSupportStatus,
     ColumnFrequencyTable,
-    ColumnFrequencyTableItem,
     ColumnFrequencyTableParams,
     ColumnHistogram,
     ColumnHistogramParams,
@@ -1576,14 +1575,13 @@ class PandasView(DataExplorerTableView):
         top_counts = counts.iloc[: params.limit]
         other_group = counts.iloc[params.limit :]
 
-        formatted_groups = self._format_values(top_counts, format_options)
+        formatted_groups = self._format_values(top_counts.index, format_options)
 
-        freq_items = [
-            ColumnFrequencyTableItem(value=group, count=count)
-            for group, count in zip(formatted_groups, top_counts)
-        ]
-
-        return ColumnFrequencyTable(counts=freq_items, other_count=int(other_group.sum()))
+        return ColumnFrequencyTable(
+            values=formatted_groups,
+            counts=[int(x) for x in top_counts],
+            other_count=int(other_group.sum()),
+        )
 
     def _prof_histogram(
         self,
@@ -1669,6 +1667,14 @@ class PandasView(DataExplorerTableView):
                 # profiles.
                 ColumnProfileTypeSupportStatus(
                     profile_type=ColumnProfileType.SummaryStats,
+                    support_status=SupportStatus.Experimental,
+                ),
+                ColumnProfileTypeSupportStatus(
+                    profile_type=ColumnProfileType.Histogram,
+                    support_status=SupportStatus.Experimental,
+                ),
+                ColumnProfileTypeSupportStatus(
+                    profile_type=ColumnProfileType.FrequencyTable,
                     support_status=SupportStatus.Experimental,
                 ),
             ],

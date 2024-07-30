@@ -684,12 +684,6 @@ export interface ColumnFrequencyTableParams {
 	 */
 	limit: number;
 
-	/**
-	 * Whether to also return the total number of 'other' values outside of
-	 * the most frequent values
-	 */
-	include_other_count?: boolean;
-
 }
 
 /**
@@ -697,30 +691,19 @@ export interface ColumnFrequencyTableParams {
  */
 export interface ColumnFrequencyTable {
 	/**
-	 * Counts of distinct values in column
+	 * The formatted top values
 	 */
-	counts: Array<ColumnFrequencyTableItem>;
+	values: Array<string>;
+
+	/**
+	 * Counts of top values
+	 */
+	counts: Array<number>;
 
 	/**
 	 * Number of other values not accounted for in counts. May be omitted
 	 */
 	other_count?: number;
-
-}
-
-/**
- * Entry in a column's frequency table
- */
-export interface ColumnFrequencyTableItem {
-	/**
-	 * Stringified value
-	 */
-	value: string;
-
-	/**
-	 * Number of occurrences of value
-	 */
-	count: number;
 
 }
 

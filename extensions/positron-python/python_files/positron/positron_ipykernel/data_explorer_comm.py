@@ -791,38 +791,23 @@ class ColumnFrequencyTableParams(BaseModel):
         description="Number of most frequently-occurring values to return. The K in TopK",
     )
 
-    include_other_count: Optional[StrictBool] = Field(
-        default=None,
-        description="Whether to also return the total number of 'other' values outside of the most frequent values",
-    )
-
 
 class ColumnFrequencyTable(BaseModel):
     """
     Result from a frequency_table profile request
     """
 
-    counts: List[ColumnFrequencyTableItem] = Field(
-        description="Counts of distinct values in column",
+    values: List[StrictStr] = Field(
+        description="The formatted top values",
+    )
+
+    counts: List[StrictInt] = Field(
+        description="Counts of top values",
     )
 
     other_count: Optional[StrictInt] = Field(
         default=None,
         description="Number of other values not accounted for in counts. May be omitted",
-    )
-
-
-class ColumnFrequencyTableItem(BaseModel):
-    """
-    Entry in a column's frequency table
-    """
-
-    value: StrictStr = Field(
-        description="Stringified value",
-    )
-
-    count: StrictInt = Field(
-        description="Number of occurrences of value",
     )
 
 
@@ -1432,8 +1417,6 @@ ColumnHistogram.update_forward_refs()
 ColumnFrequencyTableParams.update_forward_refs()
 
 ColumnFrequencyTable.update_forward_refs()
-
-ColumnFrequencyTableItem.update_forward_refs()
 
 ColumnQuantileValue.update_forward_refs()
 

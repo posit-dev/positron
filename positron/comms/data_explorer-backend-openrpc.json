@@ -1084,17 +1084,12 @@
 				"type": "object",
 				"description": "Parameters for a frequency_table profile request",
 				"required": [
-					"limit",
-					"include_other_group"
+					"limit"
 				],
 				"properties": {
 					"limit": {
 						"type": "integer",
 						"description": "Number of most frequently-occurring values to return. The K in TopK"
-					},
-					"include_other_count": {
-						"type": "boolean",
-						"description": "Whether to also return the total number of 'other' values outside of the most frequent values"
 					}
 				}
 			},
@@ -1102,37 +1097,27 @@
 				"type": "object",
 				"description": "Result from a frequency_table profile request",
 				"required": [
+					"values",
 					"counts"
 				],
 				"properties": {
+					"values": {
+						"type": "array",
+						"description": "The formatted top values",
+						"items": {
+							"type": "string"
+						}
+					},
 					"counts": {
 						"type": "array",
-						"description": "Counts of distinct values in column",
+						"description": "Counts of top values",
 						"items": {
-							"$ref": "#/components/schemas/column_frequency_table_item"
+							"type": "integer"
 						}
 					},
 					"other_count": {
 						"type": "integer",
 						"description": "Number of other values not accounted for in counts. May be omitted"
-					}
-				}
-			},
-			"column_frequency_table_item": {
-				"type": "object",
-				"description": "Entry in a column's frequency table",
-				"required": [
-					"value",
-					"count"
-				],
-				"properties": {
-					"value": {
-						"type": "string",
-						"description": "Stringified value"
-					},
-					"count": {
-						"type": "integer",
-						"description": "Number of occurrences of value"
 					}
 				}
 			},
