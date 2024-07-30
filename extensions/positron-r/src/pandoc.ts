@@ -15,8 +15,8 @@ import * as path from 'path';
 export function getPandocPath(): string | undefined {
 	const pandocPath = path.join(vscode.env.appRoot,
 		process.platform === 'darwin' ?
-			path.join('bin', 'quarto', 'bin', 'tools') :
-			path.join('..', '..', 'bin', 'quarto', 'bin', 'tools'));
+			path.join('quarto', 'bin', 'tools') :
+			path.join('..', '..', 'quarto', 'bin', 'tools'));
 	const arch = process.arch === 'arm64' ? 'aarch64' : 'x86_64';
 
 	// Check for architecure-specific pandoc

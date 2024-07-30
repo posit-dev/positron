@@ -296,7 +296,7 @@ function packageTask(platform, arch, sourceFolderName, destinationFolderName, op
 		// Bundled Quarto binaries
 		const quarto = getQuartoStream()
 			// Move the Quarto binaries into a `quarto` subdirectory
-			.pipe(rename(f => { f.dirname = path.join(f.dirname, 'quarto'); }))
+			.pipe(rename(f => { f.dirname = path.join('quarto', f.dirname); }))
 			// Restore the executable bit on the Quarto binaries. (It's very
 			// unfortunate that gulp doesn't preserve the executable bit when
 			// copying files.)
