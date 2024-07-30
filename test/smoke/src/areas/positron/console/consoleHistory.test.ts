@@ -22,33 +22,36 @@ export function setup(logger: Logger) {
 				this.app.workbench.positronConsole.sendKeyboardKey('Escape');
 			});
 
+			const lineOne = 'a = 1';
+			const lineTwo = 'b = 2';
+			const lineThree = 'c = 3';
 			it('Python - Verify Console History [C685945]', async function () {
 				const app = this.app as Application;
 
 				await expect(async () => {
-					await app.workbench.positronConsole.typeToConsole('a = 1');
+					await app.workbench.positronConsole.typeToConsole(lineOne);
 					await app.workbench.positronConsole.sendEnterKey();
 
 					await app.code.wait(200);
 
 					await app.workbench.positronConsole.waitForPreviousConsoleLineContents(
-						(lines) => lines.some((line) => line.includes('a = 1')));
+						(lines) => lines.some((line) => line.includes(lineOne)));
 
-					await app.workbench.positronConsole.typeToConsole('b = 2');
+					await app.workbench.positronConsole.typeToConsole(lineTwo);
 					await app.workbench.positronConsole.sendEnterKey();
 
 					await app.code.wait(200);
 
 					await app.workbench.positronConsole.waitForPreviousConsoleLineContents(
-						(lines) => lines.some((line) => line.includes('b = 2')));
+						(lines) => lines.some((line) => line.includes(lineTwo)));
 
-					await app.workbench.positronConsole.typeToConsole('c = 3');
+					await app.workbench.positronConsole.typeToConsole(lineThree);
 					await app.workbench.positronConsole.sendEnterKey();
 
 					await app.code.wait(200);
 
 					await app.workbench.positronConsole.waitForPreviousConsoleLineContents(
-						(lines) => lines.some((line) => line.includes('c = 3')));
+						(lines) => lines.some((line) => line.includes(lineThree)));
 				}).toPass({ timeout: 40000 });
 
 				await app.workbench.quickaccess.runCommand('workbench.action.toggleAuxiliaryBar');
@@ -66,9 +69,9 @@ export function setup(logger: Logger) {
 				await app.workbench.positronConsole.sendKeyboardKey('Control+R');
 
 				await app.workbench.positronConsole.waitForHistoryContents((contents) =>
-					contents.some((line) => line.includes('a = 1')) &&
-					contents.some((line) => line.includes('b = 2')) &&
-					contents.some((line) => line.includes('c = 3')));
+					contents.some((line) => line.includes(lineOne)) &&
+					contents.some((line) => line.includes(lineTwo)) &&
+					contents.some((line) => line.includes(lineThree)));
 
 				await app.workbench.quickaccess.runCommand('workbench.action.toggleAuxiliaryBar');
 
@@ -87,30 +90,33 @@ export function setup(logger: Logger) {
 			it('R - Verify Console History [C685946]]', async function () {
 				const app = this.app as Application;
 
+				const lineOne = 'a <- 1';
+				const lineTwo = 'b <- 2';
+				const lineThree = 'c <- 3';
 				await expect(async () => {
-					await app.workbench.positronConsole.typeToConsole('a <- 1');
+					await app.workbench.positronConsole.typeToConsole(lineOne);
 					await app.workbench.positronConsole.sendEnterKey();
 
 					await app.code.wait(200);
 
 					await app.workbench.positronConsole.waitForPreviousConsoleLineContents(
-						(lines) => lines.some((line) => line.includes('a <- 1')));
+						(lines) => lines.some((line) => line.includes(lineOne)));
 
-					await app.workbench.positronConsole.typeToConsole('b <- 2');
+					await app.workbench.positronConsole.typeToConsole(lineTwo);
 					await app.workbench.positronConsole.sendEnterKey();
 
 					await app.code.wait(200);
 
 					await app.workbench.positronConsole.waitForPreviousConsoleLineContents(
-						(lines) => lines.some((line) => line.includes('b <- 2')));
+						(lines) => lines.some((line) => line.includes(lineTwo)));
 
-					await app.workbench.positronConsole.typeToConsole('c <- 3');
+					await app.workbench.positronConsole.typeToConsole(lineThree);
 					await app.workbench.positronConsole.sendEnterKey();
 
 					await app.code.wait(200);
 
 					await app.workbench.positronConsole.waitForPreviousConsoleLineContents(
-						(lines) => lines.some((line) => line.includes('c <- 3')));
+						(lines) => lines.some((line) => line.includes(lineThree)));
 
 				}).toPass({ timeout: 40000 });
 
@@ -131,9 +137,9 @@ export function setup(logger: Logger) {
 				await app.workbench.positronConsole.sendKeyboardKey('Control+R');
 
 				await app.workbench.positronConsole.waitForHistoryContents((contents) =>
-					contents.some((line) => line.includes('a <- 1')) &&
-					contents.some((line) => line.includes('b <- 2')) &&
-					contents.some((line) => line.includes('c <- 3')));
+					contents.some((line) => line.includes(lineOne)) &&
+					contents.some((line) => line.includes(lineTwo)) &&
+					contents.some((line) => line.includes(lineThree)));
 
 				await app.workbench.quickaccess.runCommand('workbench.action.toggleAuxiliaryBar');
 
