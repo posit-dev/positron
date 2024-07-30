@@ -8,6 +8,7 @@ import { ExtHostEditors } from '../extHostTextEditors';
 import { ExtHostDocuments } from '../extHostDocuments';
 import { ExtHostWorkspace } from '../extHostWorkspace';
 import { ExtHostModalDialogs } from '../positron/extHostModalDialogs';
+import { ExtHostContextKeyService } from '../positron/extHostContextKeyService';
 import { ExtHostLanguageRuntime } from '../positron/extHostLanguageRuntime';
 import { UiFrontendRequest, EditorContext, Range as UIRange } from 'vs/workbench/services/languageRuntime/common/positronUiComm';
 import { JsonRpcErrorCode } from 'vs/workbench/services/languageRuntime/common/positronBaseComm';
@@ -41,7 +42,8 @@ export class ExtHostMethods implements extHostProtocol.ExtHostMethodsShape {
 		private readonly documents: ExtHostDocuments,
 		private readonly dialogs: ExtHostModalDialogs,
 		private readonly runtime: ExtHostLanguageRuntime,
-		private readonly workspace: ExtHostWorkspace
+		private readonly workspace: ExtHostWorkspace,
+		private readonly contextKeys: ExtHostContextKeyService
 	) {
 	}
 
@@ -135,6 +137,13 @@ export class ExtHostMethods implements extHostProtocol.ExtHostMethodsShape {
 						params.code as string,
 						params.focus as boolean,
 						params.allow_incomplete as boolean);
+					break;
+				}
+				case UiFrontendRequest.EvaluateWhenClause: {
+					if (!params || !Object.keys(params).includes('when_clause')) {
+						return newInvalidParamsError(method);
+					}
+					result = await this.evaluateWhenClause(params.when_clause as string);
 					break;
 				}
 				case UiFrontendRequest.DebugSleep: {
@@ -268,6 +277,10 @@ export class ExtHostMethods implements extHostProtocol.ExtHostMethodsShape {
 
 	async executeCode(languageId: string, code: string, focus: boolean, allowIncomplete?: boolean): Promise<boolean> {
 		return this.runtime.executeCode(languageId, code, focus, allowIncomplete);
+	}
+
+	async evaluateWhenClause(whenClause: string): Promise<boolean> {
+		return this.contextKeys.evaluateWhenClause(whenClause);
 	}
 
 	async debugSleep(ms: number): Promise<null> {

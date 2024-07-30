@@ -388,6 +388,19 @@ export interface DebugSleepRequest {
 }
 
 /**
+ * Request: Get a logical for a `when` clause (a set of context keys)
+ *
+ * Use this to evaluate a `when` clause of context keys in the frontend
+ */
+export interface EvaluateWhenClauseRequest {
+	/**
+	 * The values for context keys, as a `when` clause
+	 */
+	when_clause: string;
+
+}
+
+/**
  * Request: Execute code in a Positron runtime
  *
  * Use this to execute code in a Positron runtime
@@ -470,6 +483,7 @@ export enum UiFrontendRequest {
 	ShowQuestion = 'show_question',
 	ShowDialog = 'show_dialog',
 	DebugSleep = 'debug_sleep',
+	EvaluateWhenClause = 'evaluate_when_clause',
 	ExecuteCode = 'execute_code',
 	WorkspaceFolder = 'workspace_folder',
 	ModifyEditorSelections = 'modify_editor_selections',

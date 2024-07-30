@@ -79,6 +79,14 @@ export interface MainThreadModalDialogsShape extends IDisposable {
 // The interface to the main thread exposed by the extension host
 export interface ExtHostModalDialogsShape { }
 
+// Interface that the main process exposes to the extension host
+export interface MainThreadContextKeyServiceShape {
+	$evaluateWhenClause(whenClause: string): Promise<boolean>;
+}
+
+// Interface to the main thread exposed by the extension host
+export interface ExtHostContextKeyServiceShape { }
+
 export interface MainThreadConsoleServiceShape {
 	$getConsoleWidth(): Promise<number>;
 	$tryPasteText(id: string, text: string): void;
@@ -168,6 +176,7 @@ export const ExtHostPositronContext = {
 	ExtHostPreviewPanel: createProxyIdentifier<ExtHostPreviewPanelShape>('ExtHostPreviewPanel'),
 	ExtHostModalDialogs: createProxyIdentifier<ExtHostModalDialogsShape>('ExtHostModalDialogs'),
 	ExtHostConsoleService: createProxyIdentifier<ExtHostConsoleServiceShape>('ExtHostConsoleService'),
+	ExtHostContextKeyService: createProxyIdentifier<ExtHostContextKeyServiceShape>('ExtHostContextKeyService'),
 	ExtHostMethods: createProxyIdentifier<ExtHostMethodsShape>('ExtHostMethods'),
 };
 
@@ -176,5 +185,6 @@ export const MainPositronContext = {
 	MainThreadPreviewPanel: createProxyIdentifier<MainThreadPreviewPanelShape>('MainThreadPreviewPanel'),
 	MainThreadModalDialogs: createProxyIdentifier<MainThreadModalDialogsShape>('MainThreadModalDialogs'),
 	MainThreadConsoleService: createProxyIdentifier<MainThreadConsoleServiceShape>('MainThreadConsoleService'),
+	MainThreadContextKeyService: createProxyIdentifier<MainThreadContextKeyServiceShape>('MainThreadContextKeyService'),
 	MainThreadMethods: createProxyIdentifier<MainThreadMethodsShape>('MainThreadMethods'),
 };
