@@ -2166,16 +2166,16 @@ def test_export_data_selection(dxf: DataExplorerFixture):
                 assert filt_result["data"] == filt_expected
 
 
-def _profile_request(column_index, profile_type):
-    return {"column_index": column_index, "profile_type": profile_type}
+def _profile_request(column_index, profiles):
+    return {"column_index": column_index, "profiles": profiles}
 
 
 def _get_null_count(column_index):
-    return _profile_request(column_index, "null_count")
+    return _profile_request(column_index, [{"profile_type": "null_count"}])
 
 
 def _get_summary_stats(column_index):
-    return _profile_request(column_index, "summary_stats")
+    return _profile_request(column_index, [{"profile_type": "summary_stats"}])
 
 
 def test_pandas_profile_null_counts(dxf: DataExplorerFixture):

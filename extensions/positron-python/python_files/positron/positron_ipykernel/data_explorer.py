@@ -33,8 +33,11 @@ from .data_explorer_comm import (
     ColumnFilterType,
     ColumnFilterTypeSupportStatus,
     ColumnFrequencyTable,
+    ColumnFrequencyTableParams,
     ColumnHistogram,
+    ColumnHistogramParams,
     ColumnProfileResult,
+    ColumnProfileSpec,
     ColumnProfileType,
     ColumnProfileTypeSupportStatus,
     ColumnSchema,
@@ -468,23 +471,41 @@ class DataExplorerTableView(abc.ABC):
         results = []
 
         for req in request.params.profiles:
-            if req.profile_type == ColumnProfileType.NullCount:
-                count = self._prof_null_count(req.column_index)
-                result = ColumnProfileResult(null_count=int(count))
-            elif req.profile_type == ColumnProfileType.SummaryStats:
-                stats = self._prof_summary_stats(req.column_index, request.params.format_options)
-                result = ColumnProfileResult(summary_stats=stats)
-            elif req.profile_type == ColumnProfileType.FrequencyTable:
-                freq_table = self._prof_freq_table(req.column_index)
-                result = ColumnProfileResult(frequency_table=freq_table)
-            elif req.profile_type == ColumnProfileType.Histogram:
-                histogram = self._prof_histogram(req.column_index)
-                result = ColumnProfileResult(histogram=histogram)
-            else:
-                raise NotImplementedError(req.profile_type)
+            result = self._compute_profiles(
+                req.column_index,
+                req.profiles,
+                request.params.format_options,
+            )
             results.append(result.dict())
 
         return results
+
+    def _compute_profiles(
+        self,
+        column_index: int,
+        profiles: List[ColumnProfileSpec],
+        format_options: FormatOptions,
+    ):
+        results = {}
+        for spec in profiles:
+            profile_type = spec.profile_type
+            if profile_type == ColumnProfileType.NullCount:
+                results["null_count"] = self._prof_null_count(column_index)
+            elif profile_type == ColumnProfileType.SummaryStats:
+                results["summary_stats"] = self._prof_summary_stats(column_index, format_options)
+            elif profile_type == ColumnProfileType.FrequencyTable:
+                assert isinstance(spec.params, ColumnFrequencyTableParams)
+                results["frequency_table"] = self._prof_freq_table(
+                    column_index, spec.params, format_options
+                )
+            elif profile_type == ColumnProfileType.Histogram:
+                assert isinstance(spec.params, ColumnHistogramParams)
+                results["histogram"] = self._prof_histogram(
+                    column_index, spec.params, format_options
+                )
+            else:
+                raise NotImplementedError(profile_type)
+        return ColumnProfileResult(**results)
 
     def get_state(self, _: GetStateRequest):
         self._recompute_if_needed()
@@ -665,10 +686,20 @@ class DataExplorerTableView(abc.ABC):
     def _get_column(self, column_index: int):
         raise NotImplementedError
 
-    def _prof_freq_table(self, column_index: int) -> ColumnFrequencyTable:
+    def _prof_freq_table(
+        self,
+        column_index: int,
+        params: ColumnFrequencyTableParams,
+        format_options: FormatOptions,
+    ) -> ColumnFrequencyTable:
         raise NotImplementedError
 
-    def _prof_histogram(self, column_index: int) -> ColumnHistogram:
+    def _prof_histogram(
+        self,
+        column_index: int,
+        params: ColumnHistogramParams,
+        format_options: FormatOptions,
+    ) -> ColumnHistogram:
         raise NotImplementedError
 
     FEATURES = SupportedFeatures(
@@ -1521,8 +1552,8 @@ class PandasView(DataExplorerTableView):
             column = column.take(self.filtered_indices)
         return column
 
-    def _prof_null_count(self, column_index: int):
-        return self._get_column(column_index).isnull().sum()
+    def _prof_null_count(self, column_index: int) -> int:
+        return int(self._get_column(column_index).isnull().sum())
 
     _SUMMARIZERS = {
         ColumnDisplayType.Boolean: _pandas_summarize_boolean,
@@ -1532,10 +1563,20 @@ class PandasView(DataExplorerTableView):
         ColumnDisplayType.Datetime: _pandas_summarize_datetime,
     }
 
-    def _prof_freq_table(self, column_index: int):
+    def _prof_freq_table(
+        self,
+        column_index: int,
+        params: ColumnFrequencyTableParams,
+        format_options: FormatOptions,
+    ) -> ColumnFrequencyTable:
         raise NotImplementedError
 
-    def _prof_histogram(self, column_index: int):
+    def _prof_histogram(
+        self,
+        column_index: int,
+        params: ColumnHistogramParams,
+        format_options: FormatOptions,
+    ) -> ColumnHistogram:
         raise NotImplementedError
 
     SUPPORTED_FILTERS = {
@@ -2189,10 +2230,20 @@ class PolarsView(DataExplorerTableView):
         ColumnDisplayType.Datetime: _polars_summarize_datetime,
     }
 
-    def _prof_freq_table(self, column_index: int) -> ColumnFrequencyTable:
+    def _prof_freq_table(
+        self,
+        column_index: int,
+        params: ColumnFrequencyTableParams,
+        format_options: FormatOptions,
+    ) -> ColumnFrequencyTable:
         raise NotImplementedError
 
-    def _prof_histogram(self, column_index: int) -> ColumnHistogram:
+    def _prof_histogram(
+        self,
+        column_index: int,
+        params: ColumnHistogramParams,
+        format_options: FormatOptions,
+    ) -> ColumnHistogram:
         raise NotImplementedError
 
     FEATURES = SupportedFeatures(

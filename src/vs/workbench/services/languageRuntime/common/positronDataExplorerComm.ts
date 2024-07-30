@@ -410,9 +410,25 @@ export interface ColumnProfileRequest {
 	column_index: number;
 
 	/**
-	 * The type of analytical column profile
+	 * Column profiles needed
+	 */
+	profiles: Array<ColumnProfileSpec>;
+
+}
+
+/**
+ * Parameters for a single column profile for a request for profiles
+ */
+export interface ColumnProfileSpec {
+	/**
+	 * Type of column profile
 	 */
 	profile_type: ColumnProfileType;
+
+	/**
+	 * Extra parameters for different profile types
+	 */
+	params?: ColumnProfileParams;
 
 }
 
@@ -626,18 +642,53 @@ export interface SummaryStatsDatetime {
 }
 
 /**
+ * Parameters for a column histogram profile request
+ */
+export interface ColumnHistogramParams {
+	/**
+	 * Number of bins in the computed histogram
+	 */
+	num_bins: number;
+
+	/**
+	 * Sample quantiles (numbers between 0 and 1) to compute along with the
+	 * histogram
+	 */
+	quantiles?: Array<number>;
+
+}
+
+/**
  * Result from a histogram profile request
  */
 export interface ColumnHistogram {
 	/**
-	 * Absolute count of values in each histogram bin
+	 * String-formatted versions of the bin edges, there are N + 1 where N is
+	 * the number of bins
 	 */
-	bin_sizes: Array<number>;
+	bin_edges: Array<string>;
 
 	/**
-	 * Absolute floating-point width of a histogram bin
+	 * Absolute count of values in each histogram bin
 	 */
-	bin_width: number;
+	bin_counts: Array<number>;
+
+}
+
+/**
+ * Parameters for a frequency_table profile request
+ */
+export interface ColumnFrequencyTableParams {
+	/**
+	 * Number of most frequently-occurring values to return. The K in TopK
+	 */
+	limit: number;
+
+	/**
+	 * Whether to also return the total number of 'other' values outside of
+	 * the most frequent values
+	 */
+	include_other_count?: boolean;
 
 }
 
@@ -651,9 +702,9 @@ export interface ColumnFrequencyTable {
 	counts: Array<ColumnFrequencyTableItem>;
 
 	/**
-	 * Number of other values not accounted for in counts. May be 0
+	 * Number of other values not accounted for in counts. May be omitted
 	 */
-	other_count: number;
+	other_count?: number;
 
 }
 
@@ -678,7 +729,7 @@ export interface ColumnFrequencyTableItem {
  */
 export interface ColumnQuantileValue {
 	/**
-	 * Quantile number (percentile). E.g. 1 for 1%, 50 for median
+	 * Quantile number; a number between 0 and 1
 	 */
 	q: number;
 
@@ -916,6 +967,9 @@ export type RowFilterParams = FilterBetween | FilterComparison | FilterTextSearc
 
 /// Union of column filter type-specific parameters
 export type ColumnFilterParams = FilterTextSearch | FilterMatchDataTypes;
+
+/// Extra parameters for different profile types
+export type ColumnProfileParams = ColumnHistogramParams | ColumnFrequencyTableParams;
 
 /// A union of selection types
 export type Selection = DataSelectionSingleCell | DataSelectionCellRange | DataSelectionRange | DataSelectionIndices;
