@@ -19,6 +19,9 @@ export class Comm implements base.IClassicComm, Disposable {
 	private _on_close: ((x: KernelMessage.ICommCloseMsg) => void) | undefined;
 	private _callbacks = new Map<string, base.ICallbacks>();
 
+	/** Messages received before the _on_msg callback is registered. */
+	private _unhandledCommMessages = new Array<WebviewMessage.ICommMessageToWebview>();
+
 	/**
 	 * @param comm_id The ID of the comm.
 	 * @param target_name The target name of the comm.
@@ -151,6 +154,15 @@ export class Comm implements base.IClassicComm, Disposable {
 	 */
 	on_msg(callback: (x: any) => void): void {
 		this._on_msg = callback;
+
+		// Play back any messages that were received before the callback was set.
+		// This happens e.g. when adding a node to an ipytree.Tree widget.
+		if (this._unhandledCommMessages.length > 0) {
+			for (const message of this._unhandledCommMessages) {
+				this.handle_msg(message);
+			}
+			this._unhandledCommMessages = [];
+		}
 	}
 
 	/**
@@ -194,24 +206,29 @@ export class Comm implements base.IClassicComm, Disposable {
 	 * @param message The message.
 	 */
 	private handle_msg(message: WebviewMessage.ICommMessageToWebview): void {
-		this._on_msg?.({
-			content: {
-				comm_id: this.comm_id,
-				data: message.data as JSONObject,
-			},
-			// Stub the rest of the interface - these are not currently used by widget libraries.
-			channel: 'iopub',
-			header: {
-				date: '',
-				msg_id: '',
-				msg_type: 'comm_msg',
-				session: '',
-				username: '',
-				version: '',
-			},
-			parent_header: {},
-			metadata: {},
-		});
+		if (this._on_msg) {
+			this._on_msg({
+				content: {
+					comm_id: this.comm_id,
+					data: message.data as JSONObject,
+				},
+				// Stub the rest of the interface - these are not currently used by widget libraries.
+				channel: 'iopub',
+				header: {
+					date: '',
+					msg_id: '',
+					msg_type: 'comm_msg',
+					session: '',
+					username: '',
+					version: '',
+				},
+				parent_header: {},
+				metadata: {},
+			});
+		} else {
+			// No callback was registered yet, store the message for later.
+			this._unhandledCommMessages.push(message);
+		}
 
 		// Simulate an 'idle' status message after an RPC response is received from the runtime.
 		const msgId = message.parent_id;
