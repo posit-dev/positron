@@ -422,8 +422,7 @@ export class DataExplorerCache extends Disposable {
 		if (columnSchemaIndices.length) {
 			// Get the schema.
 			const tableSchema = await this._dataExplorerClientInstance.getSchema(
-				columnSchemaIndices[0],
-				columnSchemaIndices[columnSchemaIndices.length - 1] - columnSchemaIndices[0] + 1
+				columnSchemaIndices
 			);
 
 			// Update the column schema cache, overwriting any entries we already have cached.

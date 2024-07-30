@@ -72,7 +72,10 @@
     // Open merge editor for resolving conflicts.
     "git.mergeEditor": true,
     "python.testing.pytestArgs": [
-        "python_files/tests"
+        "python_files/tests",
+         // --- Start Positron ---
+         "python_files/positron/positron_ipykernel"
+         // --- End Positron ---
     ],
     "python.testing.unittestEnabled": false,
     "python.testing.pytestEnabled": true,

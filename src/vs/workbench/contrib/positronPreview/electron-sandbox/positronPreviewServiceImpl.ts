@@ -3,10 +3,9 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { URI } from 'vs/base/common/uri';
 import { PositronPreviewService } from 'vs/workbench/contrib/positronPreview/browser/positronPreviewServiceImpl';
-import { PreviewUrl } from 'vs/workbench/contrib/positronPreview/browser/previewUrl';
-import { ElectronPreviewUrl } from 'vs/workbench/contrib/positronPreview/electron-sandbox/previewUrl';
+import { PreviewOverlayWebview } from 'vs/workbench/contrib/positronPreview/browser/previewOverlayWebview';
+import { ElectronPreviewOverlayWebview } from 'vs/workbench/contrib/positronPreview/electron-sandbox/previewOverlayWebview';
 import { IOverlayWebview } from 'vs/workbench/contrib/webview/browser/webview';
 
 /**
@@ -16,11 +15,9 @@ export class ElectronPositronPreviewService extends PositronPreviewService {
 	/**
 	 * Electron override for creating preview URL objects; returns the Electron variant.
 	 */
-	protected override createPreviewUrl(
-		previewId: string,
-		webview: IOverlayWebview,
-		uri: URI): PreviewUrl {
-		return new ElectronPreviewUrl(previewId, webview, uri);
+	protected override createOverlayWebview(
+		webview: IOverlayWebview): PreviewOverlayWebview {
+		return new ElectronPreviewOverlayWebview(webview);
 	}
 
 	/**

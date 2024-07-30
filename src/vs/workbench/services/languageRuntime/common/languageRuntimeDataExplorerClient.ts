@@ -245,13 +245,12 @@ export class DataExplorerClientInstance extends Disposable {
 
 	/**
 	 * Gets the schema.
-	 * @param startIndex The starting index.
-	 * @param numColumns The number of columns to return.
+	 * @param columnIndices The column indices.
 	 * @returns A promise that resolves to the table schema.
 	 */
-	async getSchema(startIndex: number, numColumns: number): Promise<TableSchema> {
+	async getSchema(columnIndices: Array<number>): Promise<TableSchema> {
 		return this.runBackendTask(
-			() => this._positronDataExplorerComm.getSchema(startIndex, numColumns),
+			() => this._positronDataExplorerComm.getSchema(columnIndices),
 			() => {
 				return { columns: [] };
 			}
@@ -279,8 +278,7 @@ export class DataExplorerClientInstance extends Disposable {
 
 		// Load the entire schema of the table so it can be searched.
 		const tableSchema = await this._positronDataExplorerComm.getSchema(
-			0,
-			tableState.table_shape.num_columns
+			[...Array(tableState.table_shape.num_columns).keys()]
 		);
 
 		// Search the columns finding every matching one.

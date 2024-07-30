@@ -288,6 +288,9 @@ export class OverlayWebview extends Disposable implements IOverlayWebview {
 			this._webviewEvents.add(webview.onDidNavigate(x => {
 				this._onDidNavigate.fire(x);
 			}));
+			this._webviewEvents.add(webview.onDidLoad(x => {
+				this._onDidLoad.fire(x);
+			}));
 			// --- End Positron ---
 
 			if (this._isFirstLoad) {
@@ -326,6 +329,8 @@ export class OverlayWebview extends Disposable implements IOverlayWebview {
 	}
 	private _onDidNavigate = this._register(new Emitter<URI>());
 	public onDidNavigate = this._onDidNavigate.event;
+	private _onDidLoad = this._register(new Emitter<string>());
+	public onDidLoad = this._onDidLoad.event;
 	// --- End Positron ---
 
 	public get initialScrollProgress(): number { return this._initialScrollProgress; }

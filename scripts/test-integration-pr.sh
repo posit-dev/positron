@@ -52,6 +52,12 @@ echo
 yarn test-extension -l positron-r
 kill_app
 
+echo
+echo "### Positron R connections tests"
+echo
+yarn test-extension -l positron-connections
+kill_app
+
 # Cleanup
 
 rm -rf $VSCODEUSERDATADIR

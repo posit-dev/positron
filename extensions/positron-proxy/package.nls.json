@@ -1,0 +1,5 @@
+{
+	"displayName": "Positron Proxy",
+	"description": "HTTP proxying for Positron",
+	"command.positronProxy.showHtmlPreview.title": "Open in Viewer"
+}

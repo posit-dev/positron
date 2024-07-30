@@ -120,9 +120,14 @@ export class MainThreadPreviewPanel extends Disposable implements extHostProtoco
 
 		const extension = reviveWebviewExtension(extensionData);
 		const targetUri = URI.revive(uri);
-		const origin = this.webviewOriginStore.getOrigin('positron.previewUrl', extension.id);
-		const preview = this._positronPreviewService.openUri(handle, origin, extension, targetUri);
+		const preview = this._positronPreviewService.openUri(handle, extension, targetUri);
 
+		this.attachPreview(handle, preview);
+	}
+
+	async $previewHtml(extensionData: WebviewExtensionDescription, handle: string, path: string): Promise<void> {
+		const extension = reviveWebviewExtension(extensionData);
+		const preview = await this._positronPreviewService.openHtml(handle, extension, path);
 		this.attachPreview(handle, preview);
 	}
 
@@ -185,7 +190,7 @@ export class MainThreadPreviewPanel extends Disposable implements extHostProtoco
 
 	public addWebview(handle: extHostProtocol.PreviewHandle, preview: PreviewWebview): void {
 		this._previews.add(handle, preview);
-		this._mainThreadWebviews.addWebview(handle, preview.webview,
+		this._mainThreadWebviews.addWebview(handle, preview.webview.webview,
 			{
 				// This is the standard for extensions built for VS Code
 				// 1.57.0 and above (see `shouldSerializeBuffersForPostMessage`).

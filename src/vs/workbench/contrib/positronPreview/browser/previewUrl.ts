@@ -6,8 +6,8 @@
 import { Emitter } from 'vs/base/common/event';
 import { URI } from 'vs/base/common/uri';
 import { POSITRON_PREVIEW_URL_VIEW_TYPE } from 'vs/workbench/contrib/positronPreview/browser/positronPreviewSevice';
+import { PreviewOverlayWebview } from 'vs/workbench/contrib/positronPreview/browser/previewOverlayWebview';
 import { PreviewWebview } from 'vs/workbench/contrib/positronPreview/browser/previewWebview';
-import { IOverlayWebview } from 'vs/workbench/contrib/webview/browser/webview';
 
 export const QUERY_NONCE_PARAMETER = '_positronRender';
 
@@ -31,7 +31,7 @@ export class PreviewUrl extends PreviewWebview {
 	 */
 	constructor(
 		previewId: string,
-		webview: IOverlayWebview,
+		webview: PreviewOverlayWebview,
 		private _uri: URI
 	) {
 		super(POSITRON_PREVIEW_URL_VIEW_TYPE, previewId,
@@ -63,7 +63,7 @@ export class PreviewUrl extends PreviewWebview {
 			query:
 				uri.query ? uri.query + '&' + nonce : nonce
 		});
-		this.loadUri(iframeUri);
+		this.webview.loadUri(iframeUri);
 	}
 
 	public _onDidNavigate = this._register(new Emitter<URI>());
@@ -71,68 +71,5 @@ export class PreviewUrl extends PreviewWebview {
 
 	get currentUri(): URI {
 		return this._uri;
-	}
-
-	/**
-	 * Loads a URI in the internal webview.
-	 *
-	 * This is overridden in the Electron implementation to use the webview's
-	 * `loadUri` method, which has native support for loading URIs.
-	 *
-	 * @param uri The URI to load
-	 */
-	protected loadUri(uri: URI): void {
-		this.webview.setHtml(`
-		<html>
-			<head>
-				<style>
-					html, body {
-						padding: 0;
-						margin: 0;
-						height: 100%;
-						min-height: 100%;
-					}
-					iframe {
-						width: 100%;
-						height: 100%;
-						border: none;
-						display: block;
-					}
-				</style>
-				<script>
-					// Get a reference to the VS Code API
-					const vscode = acquireVsCodeApi();
-					// Listen for messages from the parent window
-					window.addEventListener('message', e => {
-						// Ignore non-command messages
-						if (!e.data.channel === 'execCommand') {
-							return;
-						}
-
-						// Get the IFrame element hosting the preview URL
-						const iframe = document.querySelector('iframe');
-
-						// Dispatch the command
-						switch (e.data.data) {
-							case 'reload-window': {
-								iframe.src = iframe.src;
-								break;
-							}
-							case 'navigate-back': {
-								history.back();
-								break;
-							}
-							case 'navigate-forward': {
-								history.forward();
-								break;
-							}
-						}
-					});
-				</script>
-			</head>
-			<body>
-				<iframe src="${uri.toString()}"></iframe>
-			</body>
-		</html>`);
 	}
 }

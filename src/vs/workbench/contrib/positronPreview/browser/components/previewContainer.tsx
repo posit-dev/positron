@@ -57,15 +57,15 @@ export const PreviewContainer = (props: PreviewContainerProps) => {
 			if (props.visible) {
 				if (webviewRef.current) {
 					const window = DOM.getWindow(webviewRef.current);
-					webview.claim(this, window, undefined);
-					webview.layoutWebviewOverElement(webviewRef.current);
+					webview.webview.claim(this, window, undefined);
+					webview.webview.layoutWebviewOverElement(webviewRef.current);
 					return () => {
-						webview?.release(this);
+						webview?.webview.release(this);
 					};
 				}
 			} else {
 				// If the preview is not visible, release the webview.
-				webview.release(this);
+				webview.webview.release(this);
 			}
 		}
 		return () => { };
@@ -77,7 +77,7 @@ export const PreviewContainer = (props: PreviewContainerProps) => {
 	// every time the container is resized or moved.
 	useEffect(() => {
 		if (props.preview && webviewRef.current && props.visible) {
-			props.preview.webview.layoutWebviewOverElement(webviewRef.current);
+			props.preview.webview.webview.layoutWebviewOverElement(webviewRef.current);
 		}
 	});
 

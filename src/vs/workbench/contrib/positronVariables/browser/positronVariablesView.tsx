@@ -29,6 +29,7 @@ import { IRuntimeSessionService } from 'vs/workbench/services/runtimeSession/com
 import { PositronViewPane } from 'vs/workbench/browser/positronViewPane/positronViewPane';
 import { IHoverService } from 'vs/platform/hover/browser/hover';
 import { IPositronDataExplorerService } from 'vs/workbench/services/positronDataExplorer/browser/interfaces/positronDataExplorerService';
+import { INotificationService } from 'vs/platform/notification/common/notification';
 
 /**
  * PositronVariablesViewPane class.
@@ -198,7 +199,8 @@ export class PositronVariablesViewPane extends PositronViewPane implements IReac
 		@ITelemetryService telemetryService: ITelemetryService,
 		@IThemeService themeService: IThemeService,
 		@IViewDescriptorService viewDescriptorService: IViewDescriptorService,
-		@IWorkbenchLayoutService private readonly _layoutService: IWorkbenchLayoutService
+		@IWorkbenchLayoutService private readonly _layoutService: IWorkbenchLayoutService,
+		@INotificationService private readonly _notificationService: INotificationService
 	) {
 		// Call the base class's constructor.
 		super(
@@ -268,6 +270,7 @@ export class PositronVariablesViewPane extends PositronViewPane implements IReac
 				contextKeyService={this.contextKeyService}
 				contextMenuService={this.contextMenuService}
 				dataExplorerService={this._dataExplorerService}
+				notificationService={this._notificationService}
 				hoverService={this.hoverService}
 				keybindingService={this.keybindingService}
 				runtimeSessionService={this._runtimeSessionService}

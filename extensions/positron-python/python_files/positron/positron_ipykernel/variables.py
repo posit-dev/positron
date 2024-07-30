@@ -1,10 +1,3 @@
-"""
-Inspectors are totally decoupled from the variables pane and
-all other Positron (and even non-Positron) components.
-They solve the general problem of providing a consistent interface
-over a variety types from popular Python libraries.
-"""
-
 #
 # Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
 # Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
@@ -583,10 +576,22 @@ class VariablesService:
                 f"Cannot find variable at '{path}' to view",
             )
 
-        if self.kernel.connections_service.object_is_supported(value):
-            self._open_connections_pane(path, value)
-        elif self.kernel.data_explorer_service.is_supported(value):
-            self._open_data_explorer(path, value)
+        try:
+            if self.kernel.connections_service.object_is_supported(value):
+                self._open_connections_pane(path, value)
+            elif self.kernel.data_explorer_service.is_supported(value):
+                self._open_data_explorer(path, value)
+            else:
+                self._send_error(
+                    JsonRpcErrorCode.INTERNAL_ERROR,
+                    f"Error opening viewer for variable at '{path}'. Object not supported. Try restarting the session.",
+                )
+        except Exception as err:
+            self._send_error(
+                JsonRpcErrorCode.INTERNAL_ERROR,
+                f"Error opening viewer for variable at '{path}'. Try restarting the session.",
+            )
+            logger.error(err, exc_info=True)
 
     def _open_data_explorer(self, path: List[str], value: Any) -> None:
         """Opens a DataExplorer comm for the variable at the requested

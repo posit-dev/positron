@@ -217,6 +217,26 @@
 			]
 		},
 		{
+			"name": "evaluate_when_clause",
+			"summary": "Get a logical for a `when` clause (a set of context keys)",
+			"description": "Use this to evaluate a `when` clause of context keys in the frontend",
+			"params": [
+				{
+					"name": "when_clause",
+					"description": "The values for context keys, as a `when` clause",
+					"schema": {
+						"type": "string"
+					}
+				}
+			],
+			"result": {
+				"schema": {
+					"type": "boolean",
+					"description": "Whether the `when` clause evaluates as true or false"
+				}
+			}
+		},
+		{
 			"name": "execute_code",
 			"summary": "Execute code in a Positron runtime",
 			"description": "Use this to execute code in a Positron runtime",
@@ -386,6 +406,41 @@
 					"description": "The URL to display",
 					"schema": {
 						"type": "string"
+					}
+				}
+			]
+		},
+		{
+			"name": "show_html_file",
+			"summary": "Show an HTML file in Positron",
+			"description": "Causes the HTML file to be shown in Positron.",
+			"params": [
+				{
+					"name": "path",
+					"description": "The fully qualified filesystem path to the HTML file to display",
+					"schema": {
+						"type": "string"
+					}
+				},
+				{
+					"name": "title",
+					"description": "A title to be displayed in the viewer. May be empty, and can be superseded by the title in the HTML file.",
+					"schema": {
+						"type": "string"
+					}
+				},
+				{
+					"name": "is_plot",
+					"description": "Whether the HTML file is a plot-like object",
+					"schema": {
+						"type": "boolean"
+					}
+				},
+				{
+					"name": "height",
+					"description": "The desired height of the HTML viewer, in pixels. The special value 0 indicates that no particular height is desired, and -1 indicates that the viewer should be as tall as possible.",
+					"schema": {
+						"type": "integer"
 					}
 				}
 			]

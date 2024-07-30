@@ -22,6 +22,7 @@ import { ILanguageService } from 'vs/editor/common/languages/language';
 import { ResourceMap } from 'vs/base/common/map';
 import { IExtensionService } from 'vs/workbench/services/extensions/common/extensions';
 import { IStorageService, StorageScope } from 'vs/platform/storage/common/storage';
+import { ICommandService } from 'vs/platform/commands/common/commands';
 
 /**
  * Utility class for tracking state changes in a language runtime session.
@@ -137,6 +138,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 		this._register(new Emitter<ILanguageRuntimeSession | undefined>);
 
 	constructor(
+		@ICommandService private readonly _commandService: ICommandService,
 		@IConfigurationService private readonly _configurationService: IConfigurationService,
 		@ILanguageService private readonly _languageService: ILanguageService,
 		@ILanguageRuntimeService private readonly _languageRuntimeService: ILanguageRuntimeService,
@@ -1202,7 +1204,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 		session.createClient<IUiClientMessageInput, IUiClientMessageOutput>
 			(RuntimeClientType.Ui, {}).then(client => {
 				// Create the UI client instance wrapping the client instance.
-				const uiClient = new UiClientInstance(client);
+				const uiClient = new UiClientInstance(client, this._commandService, this._logService, this._openerService, this._configurationService);
 				this._register(uiClient);
 
 				// When the UI client instance emits an event, broadcast
@@ -1293,6 +1295,15 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 						session_id: session.sessionId,
 						event: {
 							name: UiFrontendEvent.ShowUrl,
+							data: event
+						}
+					});
+				}));
+				this._register(uiClient.onDidShowHtmlFile(event => {
+					this._onDidReceiveRuntimeEventEmitter.fire({
+						session_id: session.sessionId,
+						event: {
+							name: UiFrontendEvent.ShowHtmlFile,
 							data: event
 						}
 					});

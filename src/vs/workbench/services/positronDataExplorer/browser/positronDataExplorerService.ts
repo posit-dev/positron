@@ -363,7 +363,15 @@ class PositronDataExplorerService extends Disposable implements IPositronDataExp
 		this._register(dataExplorerClientInstance.onDidUpdateBackendState(backendState => {
 			const dxInput = editorPane?.input as any;
 			if (dxInput !== undefined && backendState.display_name !== undefined) {
-				dxInput.setName?.(`Data: ${backendState.display_name}`);
+				// We truncate the `display_name` to a reasonable length as
+				// the editor tab title has limited space.
+				const maxTabSize = 30;
+				let display_name = backendState.display_name;
+				if (backendState.display_name.length > maxTabSize) {
+					display_name = backendState.display_name.substring(0, maxTabSize - 3) + '...';
+				}
+
+				dxInput.setName?.(`Data: ${display_name}`);
 			}
 		}));
 
