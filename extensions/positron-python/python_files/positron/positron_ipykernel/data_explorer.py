@@ -180,19 +180,23 @@ class DataExplorerTableView(abc.ABC):
             # reflect the filtered_indices that have just been updated
             self._sort_data()
 
+    # Gets the schema from a list of column indices.
     def get_schema(self, request: GetSchemaRequest):
+        # Loop over the sorted column indices to get the column schemas the user requested.
         column_schemas = []
+        for column_index in sorted(request.params.column_indices):
+            # Validate that the column index isn't negative.
+            if column_index < 0:
+                raise IndexError
 
-        start = request.params.start_index
-        num_columns = request.params.num_columns
+            # Break when the column index is too large.
+            if column_index >= len(self.table.columns):
+                break
 
-        for column_index in range(
-            start,
-            min(start + num_columns, self.table.shape[1]),
-        ):
-            col_schema = self._get_single_column_schema(column_index)
-            column_schemas.append(col_schema)
+            # Add the column schema.
+            column_schemas.append(self._get_single_column_schema(column_index))
 
+        # Return the column schemas.
         return TableSchema(columns=column_schemas).dict()
 
     def _get_single_column_schema(self, column_index: int) -> ColumnSchema:

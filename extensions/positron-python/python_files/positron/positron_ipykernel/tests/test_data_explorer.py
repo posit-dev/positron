@@ -356,19 +356,14 @@ class DataExplorerFixture:
         data = response["data"]
         return data["result"]
 
-    def get_schema(self, table_name, start_index=None, num_columns=None):
-        if start_index is None:
-            start_index = 0
-
-        if num_columns is None:
-            shape = self.get_state(table_name)["table_shape"]
-            num_columns = shape["num_columns"]
+    def get_schema(self, table_name, column_indices=None):
+        if column_indices is None:
+            column_indices = list(range(self.get_state(table_name)["table_shape"]["num_columns"]))
 
         return self.do_json_rpc(
             table_name,
             "get_schema",
-            start_index=start_index,
-            num_columns=num_columns,
+            column_indices=column_indices,
         )["columns"]
 
     def search_schema(self, table_name, filters, start_index, max_results):
@@ -656,14 +651,15 @@ def test_pandas_get_schema(dxf: DataExplorerFixture):
 
     df = pd.DataFrame({f"f{i}": data for i, (data, _, _) in enumerate(cases)})
     dxf.register_table("full_schema", df)
-    result = dxf.get_schema("full_schema", 0, 100)
+    result = dxf.get_schema("full_schema", list(range(0, 100)))
+
     assert result == _wrap_json(ColumnSchema, full_schema)
 
     # Test partial schema gets, boundschecking
-    result = dxf.get_schema("full_schema", 2, 100)
+    result = dxf.get_schema("full_schema", list(range(2, 100)))
     assert result == _wrap_json(ColumnSchema, full_schema[2:])
 
-    result = dxf.get_schema("simple", len(cases), 100)
+    result = dxf.get_schema("simple", list(range(len(cases), 100)))
     assert result == []
 
     # Make a really big schema
@@ -679,10 +675,10 @@ def test_pandas_get_schema(dxf: DataExplorerFixture):
 
     dxf.register_table(bigger_name, bigger_df)
 
-    result = dxf.get_schema(bigger_name, 0, 100)
+    result = dxf.get_schema(bigger_name, list(range(0, 100)))
     assert result == _wrap_json(ColumnSchema, bigger_schema[:100])
 
-    result = dxf.get_schema(bigger_name, 10, 10)
+    result = dxf.get_schema(bigger_name, list(range(10, 20)))
     assert result == _wrap_json(ColumnSchema, bigger_schema[10:20])
 
 
@@ -740,8 +736,8 @@ def test_pandas_wide_schemas(dxf: DataExplorerFixture):
             df.iloc[:, start_index : (chunk_index + 1) * chunk_size],
         )
 
-        schema_slice = dxf.get_schema("wide_df", start_index, chunk_size)
-        expected = dxf.get_schema(f"wide_df_{chunk_index}", 0, chunk_size)
+        schema_slice = dxf.get_schema("wide_df", list(range(start_index, start_index + chunk_size)))
+        expected = dxf.get_schema(f"wide_df_{chunk_index}", list(range(0, chunk_size)))
 
         for left, right in zip(schema_slice, expected):
             right["column_index"] = right["column_index"] + start_index
@@ -807,7 +803,7 @@ def test_search_schema(dxf: DataExplorerFixture):
     ddd_filter = _text_search_filter("ddd")
 
     for name in ["df", "dfp"]:
-        full_schema = dxf.get_schema(name, 0, len(column_names))
+        full_schema = dxf.get_schema(name, list(range(0, len(column_names))))
 
         # (search_term, start_index, max_results, ex_total, ex_matches)
         cases = [
@@ -2583,14 +2579,18 @@ def test_polars_get_schema(dxf: DataExplorerFixture):
     df, full_schema = example_polars_df()
     table_name = guid()
     dxf.register_table(table_name, df)
-    result = dxf.get_schema(table_name, 0, len(df.columns))
+    result = dxf.get_schema(table_name, list(range(0, len(df.columns))))
 
     assert result == _wrap_json(ColumnSchema, full_schema)
 
     # Test partial gets, boundschecking
-    assert dxf.get_schema(table_name, 0, 0) == []
-    assert dxf.get_schema(table_name, 5, 5) == _wrap_json(ColumnSchema, full_schema[5:10])
-    assert dxf.get_schema(table_name, 5, 100) == _wrap_json(ColumnSchema, full_schema[5:])
+    assert dxf.get_schema(table_name, []) == []
+    assert dxf.get_schema(table_name, list(range(5, 10))) == _wrap_json(
+        ColumnSchema, full_schema[5:10]
+    )
+    assert dxf.get_schema(table_name, list(range(5, 100))) == _wrap_json(
+        ColumnSchema, full_schema[5:]
+    )
 
 
 def test_polars_get_state(dxf: DataExplorerFixture):
