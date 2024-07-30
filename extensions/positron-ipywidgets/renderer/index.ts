@@ -17,12 +17,16 @@ import '@jupyter-widgets/base/css/index.css';
 import '@jupyter-widgets/controls/css/widgets.css';
 import '@lumino/widgets/style/index.css';
 
+function isDefineFn(x: unknown): x is (name: string, fn: () => any) => void {
+	return typeof x === 'function';
+}
+
 export const activate: ActivationFunction = async (context) => {
 	// We bundle the main Jupyter widget packages together with the renderer.
 	// However, we still need to define them as AMD modules since if a third party module
 	// depends on them it will try to load them with requirejs.
 	const define = (window as any).define;
-	if (define === undefined) {
+	if (!isDefineFn(define)) {
 		throw new Error('Requirejs is needed, please ensure it is loaded on the page.');
 	}
 	define('@jupyter-widgets/base', () => base);
@@ -76,7 +80,7 @@ export const activate: ActivationFunction = async (context) => {
 			const view = await manager.create_view(model);
 			manager.display_view(view, element);
 
-			console.log('Renderer: done!');
+			console.log('positron-ipywidgets renderer: done!');
 		},
 	};
 };

@@ -180,24 +180,28 @@ export class Comm implements base.IClassicComm, Disposable {
 	 * @param message The close message.
 	 */
 	private handle_close(_message: WebviewMessage.ICommCloseToWebview): void {
-		this._on_close?.({
-			content: {
-				comm_id: this.comm_id,
-				data: {},
-			},
-			channel: 'shell',
-			// Stub the rest of the interface - these are not currently used by widget libraries.
-			header: {
-				date: '',
-				msg_id: '',
-				msg_type: 'comm_close',
-				session: '',
-				username: '',
-				version: '',
-			},
-			parent_header: {},
-			metadata: {},
-		});
+		if (this._on_close) {
+			this._on_close?.({
+				content: {
+					comm_id: this.comm_id,
+					data: {},
+				},
+				channel: 'shell',
+				// Stub the rest of the interface - these are not currently used by widget libraries.
+				header: {
+					date: '',
+					msg_id: '',
+					msg_type: 'comm_close',
+					session: '',
+					username: '',
+					version: '',
+				},
+				parent_header: {},
+				metadata: {},
+			});
+		} else {
+			console.warn(`Attempted to close comm ${this.comm_id} without a close handler`);
+		}
 	}
 
 	/**

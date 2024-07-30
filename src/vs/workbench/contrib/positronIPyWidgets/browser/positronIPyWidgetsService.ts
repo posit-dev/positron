@@ -2,7 +2,7 @@
  *  Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
-import { Disposable, DisposableStore } from 'vs/base/common/lifecycle';
+import { Disposable, DisposableStore, toDisposable } from 'vs/base/common/lifecycle';
 import { LanguageRuntimeSessionMode, RuntimeOutputKind, RuntimeState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { ILanguageRuntimeSession, IRuntimeClientInstance, IRuntimeSessionService, RuntimeClientType } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
 import { Emitter, Event } from 'vs/base/common/event';
@@ -103,16 +103,14 @@ export class PositronIPyWidgetsService extends Disposable implements IPositronIP
 				webview.id, this._notebookRendererMessagingService
 			));
 			const ipywidgetsInstance = disposables.add(
-				new IPyWidgetsInstance(session, messaging, this._logService
-				));
+				new IPyWidgetsInstance(session, messaging, this._logService)
+			);
 			this._consoleInstancesByMessageId.set(message.id, ipywidgetsInstance);
 
 			// Unregister the instance when the session is disposed.
-			disposables.add({
-				dispose: () => {
-					this._consoleInstancesByMessageId.delete(message.id);
-				}
-			});
+			disposables.add(toDisposable(() => {
+				this._consoleInstancesByMessageId.delete(message.id);
+			}));
 
 			// TODO: We probably need to dispose in more cases...
 
@@ -152,11 +150,9 @@ export class PositronIPyWidgetsService extends Disposable implements IPositronIP
 		disposables.add(ipywidgetsInstance);
 
 		// Unregister the instance when the session is disposed.
-		disposables.add({
-			dispose: () => {
-				this._notebookInstancesBySessionId.delete(session.sessionId);
-			},
-		});
+		disposables.add(toDisposable(() => {
+			this._notebookInstancesBySessionId.delete(session.sessionId);
+		}));
 
 		// Dispose when the notebook text model changes.
 		disposables.add(notebookEditor.onDidChangeModel((e) => {
