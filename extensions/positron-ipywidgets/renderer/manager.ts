@@ -118,13 +118,15 @@ export class PositronWidgetManager extends ManagerBase implements base.IWidgetMa
 			const failedId = err.requireModules && err.requireModules[0];
 			if (failedId) {
 				// Undefine the failed module to allow requirejs to try again.
-				require.undef(failedId);
+				if (require.specified(failedId)) {
+					require.undef(failedId);
+				}
 
 				// Configure requirejs to load the module from the CDN.
 				console.log(`Falling back to ${CDN} for ${moduleName}@${moduleVersion}`);
-				const conf: { paths: Record<string, string> } = { paths: {} };
-				conf.paths[moduleName] = moduleNameToCDNUrl(moduleName, moduleVersion);
-				require.config(conf);
+				require.config({
+					paths: { [moduleName]: moduleNameToCDNUrl(moduleName, moduleVersion) }
+				});
 
 				// Try to load the module with requirejs again.
 				return await new Promise((resolve, reject) => require([moduleName], resolve, reject));
