@@ -38,7 +38,6 @@ from .session_mode import SessionMode
 from .ui import UiService
 from .utils import JsonRecord, get_qualname
 from .variables import VariablesService
-from .widget import PositronWidgetHook
 
 
 class _CommTarget(str, enum.Enum):
@@ -412,7 +411,6 @@ class PositronIPyKernel(IPythonKernel):
         self.help_service = HelpService()
         self.lsp_service = LSPService(self)
         self.variables_service = VariablesService(self)
-        self.widget_hook = PositronWidgetHook(_CommTarget.Widget, self.comm_manager)
         self.connections_service = ConnectionsService(self, _CommTarget.Connections)
 
         # Register comm targets
@@ -422,8 +420,6 @@ class PositronIPyKernel(IPythonKernel):
         self.comm_manager.register_target(
             _CommTarget.Variables, self.variables_service.on_comm_open
         )
-        # Register display publisher hooks
-        self.shell.display_pub.register_hook(self.widget_hook)
 
         warnings.showwarning = self._showwarning
 
@@ -467,7 +463,6 @@ class PositronIPyKernel(IPythonKernel):
         self.help_service.shutdown()
         self.lsp_service.shutdown()
         self.plots_service.shutdown()
-        self.widget_hook.shutdown()
         await self.variables_service.shutdown()
         self.connections_service.shutdown()
 

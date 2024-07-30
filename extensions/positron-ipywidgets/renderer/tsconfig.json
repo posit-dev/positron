@@ -1,0 +1,14 @@
+{
+	"extends": "../../tsconfig.base.json",
+	"compilerOptions": {
+		"outDir": "./dist/",
+		"jsx": "react",
+		"module": "ES2020",
+		"moduleResolution": "Bundler",
+		"lib": [
+			"es2018",
+			"DOM",
+			"DOM.Iterable"
+		]
+	}
+}

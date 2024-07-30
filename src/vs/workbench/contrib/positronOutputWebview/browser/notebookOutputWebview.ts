@@ -5,7 +5,9 @@
 
 import { Emitter, Event } from 'vs/base/common/event';
 import { Disposable } from 'vs/base/common/lifecycle';
+import { INotebookWebviewMessage } from 'vs/workbench/contrib/notebook/browser/notebookBrowser';
 import { FromWebviewMessage } from 'vs/workbench/contrib/notebook/browser/view/renderers/webviewMessages';
+import { IScopedRendererMessaging } from 'vs/workbench/contrib/notebook/common/notebookRendererMessagingService';
 import { INotebookOutputWebview } from 'vs/workbench/contrib/positronOutputWebview/browser/notebookOutputWebviewService';
 import { IOverlayWebview, IWebviewElement } from 'vs/workbench/contrib/webview/browser/webview';
 
@@ -16,6 +18,7 @@ import { IOverlayWebview, IWebviewElement } from 'vs/workbench/contrib/webview/b
 export class NotebookOutputWebview<WType extends IOverlayWebview | IWebviewElement = IOverlayWebview> extends Disposable implements INotebookOutputWebview<WType> {
 
 	private readonly _onDidRender = new Emitter<void>;
+	private readonly _onDidReceiveMessage = new Emitter<INotebookWebviewMessage>();
 
 	/**
 	 * Create a new notebook output webview.
@@ -24,17 +27,37 @@ export class NotebookOutputWebview<WType extends IOverlayWebview | IWebviewEleme
 	 *   that created it.
 	 * @param sessionId The ID of the runtime that owns this webview.
 	 * @param webview The underlying webview.
+	 * @param render Optional method to render the output in the webview rather than doing so
+	 *   directly in the HTML content.
+	 * @param rendererMessaging Optional scoped messaging instance for communicating between a
+	 *   runtime and the renderer.
 	 */
 	constructor(
 		readonly id: string,
 		readonly sessionId: string,
 		readonly webview: WType,
 		readonly render?: () => void,
+		rendererMessaging?: IScopedRendererMessaging,
 	) {
 		super();
 
 		this.onDidRender = this._onDidRender.event;
 		this._register(this._onDidRender);
+		this._register(this._onDidReceiveMessage);
+
+		if (rendererMessaging) {
+			this._register(rendererMessaging);
+			rendererMessaging.receiveMessageHandler = async (rendererId, message) => {
+				this.webview.postMessage({
+					__vscode_notebook_message: true,
+					type: 'customRendererMessage',
+					rendererId,
+					message,
+				});
+
+				return true;
+			};
+		}
 
 		this._register(webview.onMessage(e => {
 			const data: FromWebviewMessage | { readonly __vscode_notebook_message: undefined } = e.message;
@@ -44,6 +67,8 @@ export class NotebookOutputWebview<WType extends IOverlayWebview | IWebviewEleme
 			}
 
 			switch (data.type) {
+				case 'customRendererMessage':
+					rendererMessaging?.postMessage(data.rendererId, data.message);
 				case 'positronRenderComplete':
 					this._onDidRender.fire();
 					break;

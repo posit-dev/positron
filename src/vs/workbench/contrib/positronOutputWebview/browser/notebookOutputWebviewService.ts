@@ -8,6 +8,7 @@ import { IOverlayWebview, IWebviewElement } from 'vs/workbench/contrib/webview/b
 import { ILanguageRuntimeMessageOutput } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { ILanguageRuntimeSession } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
 import { Event } from 'vs/base/common/event';
+import { IDisposable } from 'vs/base/common/lifecycle';
 
 export const POSITRON_NOTEBOOK_OUTPUT_WEBVIEW_SERVICE_ID = 'positronNotebookOutputWebview';
 
@@ -15,7 +16,7 @@ export const IPositronNotebookOutputWebviewService =
 	createDecorator<IPositronNotebookOutputWebviewService>(
 		POSITRON_NOTEBOOK_OUTPUT_WEBVIEW_SERVICE_ID);
 
-export interface INotebookOutputWebview<WType extends IOverlayWebview | IWebviewElement = IOverlayWebview> {
+export interface INotebookOutputWebview<WType extends IOverlayWebview | IWebviewElement = IOverlayWebview> extends IDisposable {
 	/** The ID of the notebook output */
 	id: string;
 
