@@ -159,6 +159,16 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 								ariaLabel={localize('positron-popout-plot', "Open plot in new window")}
 								onPressed={popoutPlotHandler} />
 						}
+						<ActionBarButton
+							iconId='positron-open'
+							align='right'
+							tooltip={localize('positron-open-plot-editor', "Open plot in editor")}
+							ariaLabel={localize('positron-open-plot-editor', "Open plot in editor")}
+							onPressed={() => {
+								if (hasPlots) {
+									positronPlotsContext.positronPlotsService.openEditor();
+								}
+							}} />
 					</ActionBarRegion>
 					<ActionBarRegion location='right'>
 						<HistoryPolicyMenuButton plotsService={positronPlotsContext.positronPlotsService} />
