@@ -30,7 +30,9 @@ from ..data_explorer import (
     _VALUE_NONE,
     _VALUE_NULL,
     COMPARE_OPS,
+    SCHEMA_CACHE_THRESHOLD,
     DataExplorerService,
+    DataExplorerState,
     PandasView,
     _get_float_formatter,
 )
@@ -235,23 +237,34 @@ def test_explorer_delete_variable(
     _check_delete_variable("y")
 
 
-def _check_update_variable(de_service, name, update_type="schema"):
+def _check_last_message(comm, expected_msg):
+    dummy_comm = cast(DummyComm, comm.comm)
+    last_message = dummy_comm.messages[-1]
+    dummy_comm.messages.clear()
+    assert last_message == expected_msg
+
+
+def _get_last_message(comm):
+    dummy_comm = cast(DummyComm, comm.comm)
+    return dummy_comm.messages[-1]
+
+
+def _get_comms_for_name(de_service, name):
     paths = de_service.get_paths_for_variable(name)
     assert len(paths) > 0
 
-    comms = [de_service.comms[comm_id] for p in paths for comm_id in de_service.path_to_comm_ids[p]]
+    return [de_service.comms[comm_id] for p in paths for comm_id in de_service.path_to_comm_ids[p]]
 
+
+def _check_update_variable(de_service, name, update_type="schema"):
+    comms = _get_comms_for_name(de_service, name)
     if update_type == "schema":
         expected_msg = json_rpc_notification("schema_update", {})
     else:
         expected_msg = json_rpc_notification("data_update", {})
 
-    # Check that comms were all closed
     for comm in comms:
-        dummy_comm = cast(DummyComm, comm.comm)
-        last_message = dummy_comm.messages[-1]
-        assert last_message == expected_msg
-        dummy_comm.messages.clear()
+        _check_last_message(comm, expected_msg)
 
 
 def test_register_table(de_service: DataExplorerService):
@@ -493,7 +506,9 @@ def dxf(
     de_service: DataExplorerService,
     variables_comm: DummyComm,
 ):
-    return DataExplorerFixture(shell, de_service, variables_comm)
+    fixture = DataExplorerFixture(shell, de_service, variables_comm)
+    yield fixture
+    de_service.shutdown()
 
 
 def _wrap_json(model: Type[BaseModel], data: JsonRecords):
@@ -1494,6 +1509,16 @@ def test_pandas_filter_search(dxf: DataExplorerFixture):
         )
 
 
+def _replicate_df_columns(df, new_width):
+    # Create a "wide" version of the data frame by replicating its
+    # columns and appending an index suffix to make the column names
+    # unique
+    ncols = df.shape[1]
+    return pd.DataFrame(
+        {f"{df.columns[i % ncols]}_{i}": df.iloc[:, i % ncols] for i in range(new_width)}
+    )
+
+
 def test_variable_updates(
     shell: PositronShell,
     de_service: DataExplorerService,
@@ -1506,6 +1531,10 @@ def test_variable_updates(
     big_x = pd.DataFrame({"a": big_array})
     big_xpl = pl.DataFrame({"a": big_array})
 
+    # Needs to be big enough to go over the snapshotting threshold
+    arr_for_wide = np.arange(20000)
+    wide_xpl = pl.DataFrame({f"f{i}": arr_for_wide for i in range(1000)})
+
     _assign_variables(
         shell,
         variables_comm,
@@ -1513,15 +1542,16 @@ def test_variable_updates(
         x_pl=x_pl,
         big_x=big_x,
         big_xpl=big_xpl,
+        wide_xpl=wide_xpl,
         y={"key1": SIMPLE_PANDAS_DF, "key2": SIMPLE_PANDAS_DF},
     )
 
     # Check updates
-
     path_x = _open_viewer(variables_comm, ["x"])
     path_xpl = _open_viewer(variables_comm, ["x_pl"])
     _open_viewer(variables_comm, ["big_x"])
     _open_viewer(variables_comm, ["big_xpl"])
+    _open_viewer(variables_comm, ["wide_xpl"])
     _open_viewer(variables_comm, ["y", "key1"])
     _open_viewer(variables_comm, ["y", "key2"])
     _open_viewer(variables_comm, ["y", "key2"])
@@ -1550,18 +1580,24 @@ def test_variable_updates(
         assert new_state["table_shape"]["num_columns"] == 1
         assert new_state["sort_keys"] == [ColumnSortKey(**k) for k in x_sort_keys]
 
-    # Execute code that triggers an update event for big_x because it's large
+    # Execute code that triggers a schema update events for large data
+    # frames
     shell.run_cell("None")
     _check_update_variable(de_service, "big_x", update_type="schema")
-    _check_update_variable(de_service, "big_xpl", update_type="schema")
 
-    # Update nested values in y and check for schema updates
+    # Always updates because the schema is wide
+    _check_update_variable(de_service, "wide_xpl", update_type="schema")
+
+    # Does not update because the schema was cached and is unchanged
+    _check_update_variable(de_service, "big_xpl", update_type="data")
+
+    # Update nested values in y and check for data or schema updates
     shell.run_cell(
         """y = {'key1': y['key1'].iloc[:1]],
     'key2': y['key2'].copy()}
     """
     )
-    _check_update_variable(de_service, "y", update_type="schema")
+    _check_update_variable(de_service, "y", update_type="data")
 
     shell.run_cell(
         """y = {'key1': y['key1'].iloc[:-1, :-1],
@@ -1932,26 +1968,34 @@ def test_pandas_updated_with_sort_keys(dxf: DataExplorerFixture):
     # GitHub #3044, PandasView gets into an inconsistent state when a
     # dataset with sort keys set is updated (or the view is refreshed
     # because the dataset is large)
-    df = pd.DataFrame(
-        {
-            "a": [1, 2, 3, 4, 5],
-            "b": [True, False, True, None, True],
-            "c": ["foo", "bar", None, "bar", "None"],
-        }
-    )
+    arrays = [
+        [1, 2, 3, 4, 5],
+        [True, False, True, None, True],
+        ["foo", "bar", None, "bar", "None"],
+    ]
+    df = pd.DataFrame({"f0": arrays[0], "f1": arrays[1], "f2": arrays[2]})
 
-    comm_id = dxf.assign_and_open_viewer("df", df)
-    view = dxf.de_service.table_views[comm_id]
-    dxf.set_sort_columns("df", [{"column_index": 0, "ascending": False}])
+    wide_df = _replicate_df_columns(df, 10000)
 
-    view = PandasView("df", df, view.filters, view.sort_keys)
+    for name, table in [("df", df), ("wide_df", wide_df)]:
+        comm_id = dxf.assign_and_open_viewer(name, table)
+        view = dxf.de_service.table_views[comm_id]
+        dxf.set_sort_columns(name, [{"column_index": 0, "ascending": False}])
 
-    schema_updated, new_filt, new_sort_keys = view.get_updated_state(df)
+        state = view.state
 
-    # Object dtype makes schema_updated always true
-    assert schema_updated
-    assert new_filt == view.filters
-    assert new_sort_keys == view.sort_keys
+        new_view = PandasView(table, DataExplorerState(name, state.filters, state.sort_keys))
+
+        schema_updated, new_state = new_view.get_updated_state(table)
+
+        if len(table.columns) > SCHEMA_CACHE_THRESHOLD:
+            # For tables with many columns, schema_updated is always true
+            assert schema_updated
+        else:
+            assert not schema_updated
+
+        assert new_state.filters == state.filters
+        assert new_state.sort_keys == state.sort_keys
 
 
 def _select_single_cell(row_index: int, col_index: int):
