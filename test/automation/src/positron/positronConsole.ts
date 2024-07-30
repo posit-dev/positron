@@ -151,7 +151,7 @@ export class PositronConsole {
 	}
 
 	async waitForPreviousConsoleLineContents(accept?: (contents: string[]) => boolean) {
-		const elements = await this.code.waitForElements(PREVIOUS_CONSOLE_LINES,
+		const elements = await this.code.waitForElements(`${ACTIVE_CONSOLE_INSTANCE} ${PREVIOUS_CONSOLE_LINES}`,
 			false,
 			(elements) => accept ? (!!elements && accept(elements.map(e => e.textContent))) : true);
 		return elements.map(e => e.textContent);
