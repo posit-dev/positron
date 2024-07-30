@@ -32,19 +32,19 @@ export function setup(logger: Logger) {
 					await app.workbench.positronConsole.typeToConsole(lineOne);
 					await app.workbench.positronConsole.sendEnterKey();
 
-					await app.workbench.positronConsole.waitForPreviousConsoleLineContents(
+					await app.workbench.positronConsole.waitForConsoleContents(
 						(lines) => lines.some((line) => line.includes(lineOne)));
 
 					await app.workbench.positronConsole.typeToConsole(lineTwo);
 					await app.workbench.positronConsole.sendEnterKey();
 
-					await app.workbench.positronConsole.waitForPreviousConsoleLineContents(
+					await app.workbench.positronConsole.waitForConsoleContents(
 						(lines) => lines.some((line) => line.includes(lineTwo)));
 
 					await app.workbench.positronConsole.typeToConsole(lineThree);
 					await app.workbench.positronConsole.sendEnterKey();
 
-					await app.workbench.positronConsole.waitForPreviousConsoleLineContents(
+					await app.workbench.positronConsole.waitForConsoleContents(
 						(lines) => lines.some((line) => line.includes(lineThree)));
 				}).toPass({ timeout: 40000 });
 
@@ -88,27 +88,28 @@ export function setup(logger: Logger) {
 				const lineTwo = 'b <- 2';
 				const lineThree = 'c <- 3';
 				await expect(async () => {
+					// send test line one and the enter key, then expect it in the previous console
+					// lines
 					await app.workbench.positronConsole.typeToConsole(lineOne);
 					await app.workbench.positronConsole.sendEnterKey();
-
-					await app.workbench.positronConsole.waitForPreviousConsoleLineContents(
+					await app.workbench.positronConsole.waitForConsoleContents(
 						(lines) => lines.some((line) => line.includes(lineOne)));
 
+					// send test line two and the enter key, then expect it in the previous console
+					// lines
 					await app.workbench.positronConsole.typeToConsole(lineTwo);
 					await app.workbench.positronConsole.sendEnterKey();
-
-					await app.workbench.positronConsole.waitForPreviousConsoleLineContents(
+					await app.workbench.positronConsole.waitForConsoleContents(
 						(lines) => lines.some((line) => line.includes(lineTwo)));
 
+					// send test line three and the enter key, then expect it in the previous console
+					// lines
 					await app.workbench.positronConsole.typeToConsole(lineThree);
 					await app.workbench.positronConsole.sendEnterKey();
-
-					await app.workbench.positronConsole.waitForPreviousConsoleLineContents(
+					await app.workbench.positronConsole.waitForConsoleContents(
 						(lines) => lines.some((line) => line.includes(lineThree)));
 
 				}).toPass({ timeout: 40000 });
-
-				await app.code.wait(500);
 
 				await app.workbench.quickaccess.runCommand('workbench.action.toggleAuxiliaryBar');
 				await app.workbench.positronConsole.barClearButton.click();

@@ -27,7 +27,7 @@ export class PositronPythonFixtures {
 		}
 		await this.app.workbench.positronConsole.selectInterpreter(InterpreterType.Python, desiredPython);
 
-		await this.app.workbench.positronConsole.waitForReady('>>>');
+		await this.app.workbench.positronConsole.waitForReady('>>>', 2000);
 
 		await this.app.workbench.positronConsole.logConsoleContents();
 	}
@@ -46,7 +46,7 @@ export class PositronPythonFixtures {
 			await this.app.workbench.positronPopups.installIPyKernel();
 		}
 
-		await this.app.workbench.positronConsole.waitForReady('>>>');
+		await this.app.workbench.positronConsole.waitForReady('>>>', 2000);
 
 		await this.app.workbench.positronConsole.logConsoleContents();
 
