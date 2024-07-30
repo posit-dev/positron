@@ -21,6 +21,7 @@ const CONSOLE_BAR_RESTART_BUTTON = 'div.action-bar-button-icon.codicon.codicon-p
 const CONSOLE_RESTART_BUTTON = 'button.monaco-text-button.runtime-restart-button';
 const CONSOLE_BAR_CLEAR_BUTTON = 'div.action-bar-button-icon.codicon.codicon-clear-all';
 const HISTORY_COMPLETION_ITEM = '.history-completion-item';
+const PREVIOUS_CONSOLE_LINES = '.runtime-activity .activity-input div';
 
 /*
  *  Reuseable Positron console functionality for tests to leverage.  Includes the ability to select an interpreter and execute code which
@@ -147,6 +148,13 @@ export class PositronConsole {
 		const element = await this.code.waitForElement(`${ACTIVE_CONSOLE_INSTANCE} .view-line`,
 			(e) => accept ? (!!e && accept(e.textContent)) : true);
 		return element.textContent;
+	}
+
+	async waitForPreviousConsoleLineContents(accept?: (contents: string[]) => boolean) {
+		const elements = await this.code.waitForElements(PREVIOUS_CONSOLE_LINES,
+			false,
+			(elements) => accept ? (!!elements && accept(elements.map(e => e.textContent))) : true);
+		return elements.map(e => e.textContent);
 	}
 
 	async waitForHistoryContents(accept?: (contents: string[]) => boolean) {

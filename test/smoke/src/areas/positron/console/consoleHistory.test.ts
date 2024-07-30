@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 
+import { expect } from '@playwright/test';
 import { Application, Logger, PositronPythonFixtures, PositronRFixtures } from '../../../../../automation';
 import { installAllHandlers } from '../../../utils';
 
@@ -24,14 +25,31 @@ export function setup(logger: Logger) {
 			it('Python - Verify Console History [C685945]', async function () {
 				const app = this.app as Application;
 
-				await app.workbench.positronConsole.typeToConsole('a = 1');
-				await app.workbench.positronConsole.sendEnterKey();
+				await expect(async () => {
+					await app.workbench.positronConsole.typeToConsole('a = 1');
+					await app.workbench.positronConsole.sendEnterKey();
 
-				await app.workbench.positronConsole.typeToConsole('b = 2');
-				await app.workbench.positronConsole.sendEnterKey();
+					await app.code.wait(200);
 
-				await app.workbench.positronConsole.typeToConsole('c = 3');
-				await app.workbench.positronConsole.sendEnterKey();
+					await app.workbench.positronConsole.waitForPreviousConsoleLineContents(
+						(lines) => lines.some((line) => line.includes('a = 1')));
+
+					await app.workbench.positronConsole.typeToConsole('b = 2');
+					await app.workbench.positronConsole.sendEnterKey();
+
+					await app.code.wait(200);
+
+					await app.workbench.positronConsole.waitForPreviousConsoleLineContents(
+						(lines) => lines.some((line) => line.includes('b = 2')));
+
+					await app.workbench.positronConsole.typeToConsole('c = 3');
+					await app.workbench.positronConsole.sendEnterKey();
+
+					await app.code.wait(200);
+
+					await app.workbench.positronConsole.waitForPreviousConsoleLineContents(
+						(lines) => lines.some((line) => line.includes('c = 3')));
+				}).toPass({ timeout: 40000 });
 
 				await app.workbench.quickaccess.runCommand('workbench.action.toggleAuxiliaryBar');
 				await app.workbench.positronConsole.barClearButton.click();
@@ -69,14 +87,32 @@ export function setup(logger: Logger) {
 			it('R - Verify Console History [C685946]]', async function () {
 				const app = this.app as Application;
 
-				await app.workbench.positronConsole.typeToConsole('a <- 1');
-				await app.workbench.positronConsole.sendEnterKey();
+				await expect(async () => {
+					await app.workbench.positronConsole.typeToConsole('a <- 1');
+					await app.workbench.positronConsole.sendEnterKey();
 
-				await app.workbench.positronConsole.typeToConsole('b <- 2');
-				await app.workbench.positronConsole.sendEnterKey();
+					await app.code.wait(200);
 
-				await app.workbench.positronConsole.typeToConsole('c <- 3');
-				await app.workbench.positronConsole.sendEnterKey();
+					await app.workbench.positronConsole.waitForPreviousConsoleLineContents(
+						(lines) => lines.some((line) => line.includes('a <- 1')));
+
+					await app.workbench.positronConsole.typeToConsole('b <- 2');
+					await app.workbench.positronConsole.sendEnterKey();
+
+					await app.code.wait(200);
+
+					await app.workbench.positronConsole.waitForPreviousConsoleLineContents(
+						(lines) => lines.some((line) => line.includes('b <- 2')));
+
+					await app.workbench.positronConsole.typeToConsole('c <- 3');
+					await app.workbench.positronConsole.sendEnterKey();
+
+					await app.code.wait(200);
+
+					await app.workbench.positronConsole.waitForPreviousConsoleLineContents(
+						(lines) => lines.some((line) => line.includes('c <- 3')));
+
+				}).toPass({ timeout: 40000 });
 
 				await app.code.wait(500);
 
