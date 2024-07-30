@@ -14,7 +14,6 @@ import { ILayoutService } from 'vs/platform/layout/browser/layoutService';
 import { IKeybindingService } from 'vs/platform/keybinding/common/keybinding';
 import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
 import { IColumnSortKey } from 'vs/workbench/browser/positronDataGrid/interfaces/columnSortKey';
-import { DataExplorerCache } from 'vs/workbench/services/positronDataExplorer/common/dataExplorerCache';
 import { TableDataCell } from 'vs/workbench/services/positronDataExplorer/browser/components/tableDataCell';
 import { AnchorPoint } from 'vs/workbench/browser/positronComponents/positronModalPopup/positronModalPopup';
 import { TableDataRowHeader } from 'vs/workbench/services/positronDataExplorer/browser/components/tableDataRowHeader';
@@ -27,6 +26,7 @@ import { CustomContextMenuEntry, showCustomContextMenu } from 'vs/workbench/brow
 import { dataExplorerExperimentalFeatureEnabled } from 'vs/workbench/services/positronDataExplorer/common/positronDataExplorerExperimentalConfig';
 import { BackendState, ColumnSchema, DataSelection, DataSelectionCellRange, DataSelectionIndices, DataSelectionKind, DataSelectionRange, DataSelectionSingleCell, ExportFormat, RowFilter, SupportStatus } from 'vs/workbench/services/languageRuntime/common/positronDataExplorerComm';
 import { ClipboardCell, ClipboardCellRange, ClipboardColumnIndexes, ClipboardColumnRange, ClipboardData, ClipboardRowIndexes, ClipboardRowRange, ColumnSelectionState, ColumnSortKeyDescriptor, DataGridInstance, RowSelectionState } from 'vs/workbench/browser/positronDataGrid/classes/dataGridInstance';
+import { TableDataCache } from 'vs/workbench/services/positronDataExplorer/common/tableDataCache';
 
 /**
  * Localized strings.
@@ -54,8 +54,8 @@ export class TableDataDataGridInstance extends DataGridInstance {
 	 * @param _configurationService The configuration service.
 	 * @param _keybindingService The keybinding service.
 	 * @param _layoutService The layout service.
-	 * @param _dataExplorerClientInstance The DataExplorerClientInstance.
-	 * @param _dataExplorerCache The DataExplorerCache.
+	 * @param _dataExplorerClientInstance The data explorer client instance.
+	 * @param _tableDataCache The table data cache.
 	 */
 	constructor(
 		private readonly _commandService: ICommandService,
@@ -63,7 +63,7 @@ export class TableDataDataGridInstance extends DataGridInstance {
 		private readonly _keybindingService: IKeybindingService,
 		private readonly _layoutService: ILayoutService,
 		private readonly _dataExplorerClientInstance: DataExplorerClientInstance,
-		private readonly _dataExplorerCache: DataExplorerCache,
+		private readonly _tableDataCache: TableDataCache,
 	) {
 		// Call the base class's constructor.
 		super({
@@ -88,20 +88,20 @@ export class TableDataDataGridInstance extends DataGridInstance {
 		});
 
 		// Add the onDidUpdateCache event handler.
-		this._register(this._dataExplorerCache.onDidUpdateCache(() =>
+		this._register(this._tableDataCache.onDidUpdateCache(() =>
 			this._onDidUpdateEmitter.fire()
 		));
 
 		// Add the onDidSchemaUpdate event handler.
 		this._register(this._dataExplorerClientInstance.onDidSchemaUpdate(async e => {
-			this._dataExplorerCache.invalidateDataCache();
+			this._tableDataCache.invalidateCache();
 			this.softReset();
 			await this.fetchData();
 		}));
 
 		// Add the onDidDataUpdate event handler.
 		this._register(this._dataExplorerClientInstance.onDidDataUpdate(async () => {
-			this._dataExplorerCache.invalidateDataCache();
+			this._tableDataCache.invalidateCache();
 			await this.fetchData();
 		}));
 
@@ -128,14 +128,14 @@ export class TableDataDataGridInstance extends DataGridInstance {
 	 * Gets the number of columns.
 	 */
 	get columns() {
-		return this._dataExplorerCache.columns;
+		return this._tableDataCache.columns;
 	}
 
 	/**
 	 * Gets the number of rows.
 	 */
 	get rows() {
-		return this._dataExplorerCache.rows;
+		return this._tableDataCache.rows;
 	}
 
 	//#endregion DataGridInstance Properties
@@ -155,8 +155,8 @@ export class TableDataDataGridInstance extends DataGridInstance {
 			}
 		)));
 
-		// Clear the data cache and fetch new data.
-		this._dataExplorerCache.invalidateDataCache();
+		// Clear the cache and fetch new data.
+		this._tableDataCache.invalidateCache();
 		await this.fetchData();
 	}
 
@@ -166,7 +166,7 @@ export class TableDataDataGridInstance extends DataGridInstance {
 	 */
 	override async fetchData() {
 		// Update the cache.
-		await this._dataExplorerCache.updateCache({
+		await this._tableDataCache.updateCache({
 			firstColumnIndex: this.firstColumnIndex,
 			visibleColumns: this.screenColumns,
 			firstRowIndex: this.firstRowIndex,
@@ -181,7 +181,7 @@ export class TableDataDataGridInstance extends DataGridInstance {
 	 */
 	override column(columnIndex: number) {
 		// Get the column schema.
-		const columnSchema = this._dataExplorerCache.getColumnSchema(columnIndex);
+		const columnSchema = this._tableDataCache.getColumnSchema(columnIndex);
 		if (!columnSchema) {
 			return undefined;
 		}
@@ -197,7 +197,7 @@ export class TableDataDataGridInstance extends DataGridInstance {
 	 */
 	override rowHeader(rowIndex: number) {
 		return (
-			<TableDataRowHeader value={this._dataExplorerCache.getRowLabel(rowIndex)} />
+			<TableDataRowHeader value={this._tableDataCache.getRowLabel(rowIndex)} />
 		);
 	}
 
@@ -215,7 +215,7 @@ export class TableDataDataGridInstance extends DataGridInstance {
 		}
 
 		// Get the data cell.
-		const dataCell = this._dataExplorerCache.getDataCell(columnIndex, rowIndex);
+		const dataCell = this._tableDataCache.getDataCell(columnIndex, rowIndex);
 		if (!dataCell) {
 			return undefined;
 		}
@@ -305,7 +305,7 @@ export class TableDataDataGridInstance extends DataGridInstance {
 			label: addFilterTitle,
 			disabled: !filterSupported,
 			onSelected: () => {
-				const columnSchema = this._dataExplorerCache.getColumnSchema(columnIndex);
+				const columnSchema = this._tableDataCache.getColumnSchema(columnIndex);
 				if (columnSchema) {
 					this._onAddFilterEmitter.fire(columnSchema);
 				}
@@ -459,7 +459,7 @@ export class TableDataDataGridInstance extends DataGridInstance {
 			label: addFilterTitle,
 			disabled: !filterSupported,
 			onSelected: () => {
-				const columnSchema = this._dataExplorerCache.getColumnSchema(columnIndex);
+				const columnSchema = this._tableDataCache.getColumnSchema(columnIndex);
 				if (columnSchema) {
 					this._onAddFilterEmitter.fire(columnSchema);
 				}
@@ -581,7 +581,7 @@ export class TableDataDataGridInstance extends DataGridInstance {
 		await this._dataExplorerClientInstance.updateBackendState();
 
 		// Reload the data grid.
-		this._dataExplorerCache.invalidateDataCache();
+		this._tableDataCache.invalidateCache();
 		this.resetSelection();
 		this.setFirstRow(0, true);
 		this.setCursorRow(0);

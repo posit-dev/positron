@@ -1045,12 +1045,8 @@ class GetSchemaParams(BaseModel):
     Request full schema for a table-like object
     """
 
-    start_index: StrictInt = Field(
-        description="First column schema to fetch (inclusive)",
-    )
-
-    num_columns: StrictInt = Field(
-        description="Number of column schemas to fetch from start index. May extend beyond end of table",
+    column_indices: List[StrictInt] = Field(
+        description="The column indices to fetch",
     )
 
 

@@ -9,24 +9,19 @@
 			"name": "get_schema",
 			"summary": "Request schema",
 			"description": "Request full schema for a table-like object",
-			"params": [
-				{
-					"name": "start_index",
-					"description": "First column schema to fetch (inclusive)",
-					"required": true,
-					"schema": {
-						"type": "integer"
-					}
-				},
-				{
-					"name": "num_columns",
-					"description": "Number of column schemas to fetch from start index. May extend beyond end of table",
-					"required": true,
-					"schema": {
-						"type": "integer"
-					}
-				}
-			],
+            "params": [
+                {
+                    "name": "column_indices",
+                    "description": "The column indices to fetch",
+                    "required": true,
+                    "schema": {
+                        "type": "array",
+                        "items": {
+                            "type": "integer"
+                        }
+                    }
+                }
+            ],
 			"result": {
 				"schema": {
 					"$ref": "#/components/schemas/table_schema"
