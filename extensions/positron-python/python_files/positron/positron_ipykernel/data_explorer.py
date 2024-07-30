@@ -33,6 +33,7 @@ from .data_explorer_comm import (
     ColumnFilterType,
     ColumnFilterTypeSupportStatus,
     ColumnFrequencyTable,
+    ColumnFrequencyTableItem,
     ColumnFrequencyTableParams,
     ColumnHistogram,
     ColumnHistogramParams,
@@ -1569,7 +1570,20 @@ class PandasView(DataExplorerTableView):
         params: ColumnFrequencyTableParams,
         format_options: FormatOptions,
     ) -> ColumnFrequencyTable:
-        raise NotImplementedError
+        col = self._get_column(column_index)
+        counts = col.value_counts()
+
+        top_counts = counts.iloc[: params.limit]
+        other_group = counts.iloc[params.limit :]
+
+        formatted_groups = self._format_values(top_counts, format_options)
+
+        freq_items = [
+            ColumnFrequencyTableItem(value=group, count=count)
+            for group, count in zip(formatted_groups, top_counts)
+        ]
+
+        return ColumnFrequencyTable(counts=freq_items, other_count=int(other_group.sum()))
 
     def _prof_histogram(
         self,
@@ -1577,7 +1591,28 @@ class PandasView(DataExplorerTableView):
         params: ColumnHistogramParams,
         format_options: FormatOptions,
     ) -> ColumnHistogram:
-        raise NotImplementedError
+        col = self._get_column(column_index)
+
+        # TODO: why does this type error?
+        data = col[col.notna()].to_numpy()  # type: ignore
+
+        dtype = data.dtype
+        is_datetime64 = np_.issubdtype(dtype, np_.datetime64)
+
+        if is_datetime64:
+            data = data.view(np_.int64)
+
+        bin_counts, bin_edges = np_.histogram(data, bins=params.num_bins)
+
+        if is_datetime64:
+            # A bit hacky for now, but will replace this with
+            # something better soon
+            bin_edges = np_.floor(bin_edges).astype(np_.int64).view(dtype)
+            bin_edges = pd_.Series(bin_edges)
+
+        formatted_edges = self._format_values(bin_edges, format_options)
+
+        return ColumnHistogram(bin_edges=formatted_edges, bin_counts=[int(x) for x in bin_counts])
 
     SUPPORTED_FILTERS = {
         RowFilterType.Between,

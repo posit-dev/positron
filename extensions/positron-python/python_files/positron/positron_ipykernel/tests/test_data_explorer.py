@@ -2174,6 +2174,13 @@ def _get_null_count(column_index):
     return _profile_request(column_index, [{"profile_type": "null_count"}])
 
 
+def _get_histogram(column_index, bins):
+    return _profile_request(
+        column_index,
+        [{"profile_type": "histogram", "params": {"num_bins": bins}}],
+    )
+
+
 def _get_summary_stats(column_index):
     return _profile_request(column_index, [{"profile_type": "summary_stats"}])
 
@@ -2513,6 +2520,60 @@ def test_pandas_profile_summary_stats(dxf: DataExplorerFixture):
 
         stats = results[0]["summary_stats"]
         assert_summary_stats_equal(stats["type_display"], stats, ex_result)
+
+
+def test_pandas_profile_histogram(dxf: DataExplorerFixture):
+    df = pd.DataFrame(
+        {
+            "a": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
+            "b": pd.date_range("2000-01-01", periods=11),
+            "c": [1.5, np.nan, 3.5, 5.0, 10, np.nan, 0.1, -4.3, 0, -2, -10],
+        }
+    )
+    name = "df"
+    dxf.register_table(name, df)
+
+    cases = [
+        (
+            _get_histogram(0, 4),
+            {
+                "bin_edges": ["0.00", "2.50", "5.00", "7.50", "10.00"],
+                "bin_counts": [3, 2, 3, 3],
+            },
+        ),
+        (
+            _get_histogram(1, 4),
+            {
+                "bin_edges": [
+                    "2000-01-01 00:00:00",
+                    "2000-01-03 12:00:00",
+                    "2000-01-06 00:00:00",
+                    "2000-01-08 12:00:00",
+                    "2000-01-11 00:00:00",
+                ],
+                "bin_counts": [3, 2, 3, 3],
+            },
+        ),
+        (
+            _get_histogram(2, 6),
+            {
+                "bin_edges": [
+                    "-10.00",
+                    "-6.67",
+                    "-3.33",
+                    "0.00",
+                    "3.33",
+                    "6.67",
+                    "10.00",
+                ],
+                "bin_counts": [1, 1, 1, 3, 2, 1],
+            },
+        ),
+    ]
+
+    for profile, ex_result in cases:
+        result = dxf.get_column_profiles(name, [profile])
+        assert result[0]["histogram"] == ex_result
 
 
 # ----------------------------------------------------------------------
