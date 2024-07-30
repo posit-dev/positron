@@ -32,23 +32,17 @@ export function setup(logger: Logger) {
 					await app.workbench.positronConsole.typeToConsole(lineOne);
 					await app.workbench.positronConsole.sendEnterKey();
 
-					await app.code.wait(200);
-
 					await app.workbench.positronConsole.waitForPreviousConsoleLineContents(
 						(lines) => lines.some((line) => line.includes(lineOne)));
 
 					await app.workbench.positronConsole.typeToConsole(lineTwo);
 					await app.workbench.positronConsole.sendEnterKey();
 
-					await app.code.wait(200);
-
 					await app.workbench.positronConsole.waitForPreviousConsoleLineContents(
 						(lines) => lines.some((line) => line.includes(lineTwo)));
 
 					await app.workbench.positronConsole.typeToConsole(lineThree);
 					await app.workbench.positronConsole.sendEnterKey();
-
-					await app.code.wait(200);
 
 					await app.workbench.positronConsole.waitForPreviousConsoleLineContents(
 						(lines) => lines.some((line) => line.includes(lineThree)));
@@ -97,23 +91,17 @@ export function setup(logger: Logger) {
 					await app.workbench.positronConsole.typeToConsole(lineOne);
 					await app.workbench.positronConsole.sendEnterKey();
 
-					await app.code.wait(200);
-
 					await app.workbench.positronConsole.waitForPreviousConsoleLineContents(
 						(lines) => lines.some((line) => line.includes(lineOne)));
 
 					await app.workbench.positronConsole.typeToConsole(lineTwo);
 					await app.workbench.positronConsole.sendEnterKey();
 
-					await app.code.wait(200);
-
 					await app.workbench.positronConsole.waitForPreviousConsoleLineContents(
 						(lines) => lines.some((line) => line.includes(lineTwo)));
 
 					await app.workbench.positronConsole.typeToConsole(lineThree);
 					await app.workbench.positronConsole.sendEnterKey();
-
-					await app.code.wait(200);
 
 					await app.workbench.positronConsole.waitForPreviousConsoleLineContents(
 						(lines) => lines.some((line) => line.includes(lineThree)));
