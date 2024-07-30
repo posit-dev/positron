@@ -27,7 +27,7 @@ export class PositronRFixtures {
 		}
 		await this.app.workbench.positronConsole.selectInterpreter(InterpreterType.R, desiredR);
 
-		await this.app.workbench.positronConsole.waitForReady('>');
+		await this.app.workbench.positronConsole.waitForReady('>', 2000);
 
 		await this.app.workbench.positronConsole.logConsoleContents();
 
