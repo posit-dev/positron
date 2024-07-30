@@ -204,3 +204,30 @@ export class PlotsPopoutAction extends Action2 {
 		}
 	}
 }
+
+export class PlotsEditorAction extends Action2 {
+	static ID = 'workbench.action.positronPlots.openEditor';
+
+	constructor() {
+		super({
+			id: PlotsEditorAction.ID,
+			title: localize2('positronPlots.openEditor', 'Open Plot in Editor'),
+			category,
+			f1: true,
+		});
+	}
+
+	/**
+	 * Runs the action and opens the selected plot in the editor.
+	 *
+	 * @param accessor The service accessor.
+	 */
+	async run(accessor: ServicesAccessor) {
+		const plotsService = accessor.get(IPositronPlotsService);
+		if (plotsService.selectedPlotId) {
+			plotsService.openEditor();
+		} else {
+			accessor.get(INotificationService).info(localize('positronPlots.noPlotSelected', 'No plot selected.'));
+		}
+	}
+}
